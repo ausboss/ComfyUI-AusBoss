@@ -1,0 +1,45 @@
+{
+  "last_node_id": 2,
+  "last_link_id": 1,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "AusBossTextBox",
+      "pos": [120, 220],
+      "size": [340, 170],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {"name": "text", "type": "STRING", "links": [1], "slot_index": 0}
+      ],
+      "properties": {"Node name for S&R": "AusBossTextBox"},
+      "widgets_values": ["Hello from ComfyUI-AusBoss! If you can read this on the Show Text node, the pack is wired up correctly."]
+    },
+    {
+      "id": 2,
+      "type": "AusBossShowText",
+      "pos": [520, 220],
+      "size": [340, 170],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {"name": "text", "type": "STRING", "link": 1}
+      ],
+      "outputs": [
+        {"name": "text", "type": "STRING", "links": [], "slot_index": 0}
+      ],
+      "properties": {"Node name for S&R": "AusBossShowText"},
+      "widgets_values": [""]
+    }
+  ],
+  "links": [
+    [1, 1, 0, 2, 0, "STRING"]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}

@@ -1,0 +1,19 @@
+[project]
+name = "ComfyUI-AusBoss"
+description = "AusBoss's suite of ComfyUI nodes: text, prompt, and image utilities. Early scaffold — placeholder nodes now, personal node ports landing next."
+version = "0.1.0"
+license = { file = "LICENSE" }
+
+keywords = ["comfyui", "nodes", "text", "prompt", "image", "utilities", "ausboss"]
+
+# No dependencies on purpose: everything so far runs on what ComfyUI
+# already ships (torch, PIL). Keep it that way unless a node truly needs more.
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/ausboss/ComfyUI-AusBoss"
+Issues = "https://github.com/ausboss/ComfyUI-AusBoss/issues"
+
+[tool.comfy]
+PublisherId = "ausboss"
+DisplayName = "AusBoss"
