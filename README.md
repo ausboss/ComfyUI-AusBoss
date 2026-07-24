@@ -59,6 +59,8 @@ ComfyUI-AusBoss/
   `nodes/`, one line in `NODE_MODULES` in `__init__.py`.
 - **Validate offline:** `python scripts/validate_nodes.py`
 - After changing Python, restart ComfyUI; after changing JS, hard-refresh the tab.
+- **Using a coding agent?** [AGENTS.md](AGENTS.md) holds the conventions and
+  guardrails for this repo (`CLAUDE.md` just imports it).
 
 ## Roadmap
 
