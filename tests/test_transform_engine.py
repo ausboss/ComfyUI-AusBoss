@@ -95,6 +95,22 @@ class TransformEngineTests(unittest.TestCase):
         values = np.asarray(mask)
         self.assertEqual(values[:, :5].min(), 255)
         self.assertTrue(np.any((values[:, 10:15] > 0) & (values[:, 10:15] < 255)))
+        # No seam: the ramp is still near full strength on the first kept
+        # column (the old max-with-blur approach dropped to ~127 here).
+        self.assertGreaterEqual(int(values[10, 10]), 200)
+        # And it decays moving further into kept content.
+        self.assertLess(int(values[10, 16]), int(values[10, 11]))
+
+    def test_feather_fades_image_into_fill(self):
+        output, _, _ = transform_pil(
+            solid(20, 20, (255, 255, 255, 255)),
+            TransformSpec(pad_left=10, feather=3, fill_color="#000000"),
+        )
+        pixels = np.asarray(output)
+        row = pixels[10]
+        self.assertLessEqual(int(row[9].max()), 40)  # padding stays fill color
+        self.assertTrue(40 < int(row[11][0]) < 240)  # visible blend band
+        self.assertGreaterEqual(int(row[25].min()), 250)  # interior untouched
 
     def test_canvas_multiple_rounds_only_right_and_bottom(self):
         output, mask, geometry = transform_pil(

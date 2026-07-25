@@ -45,7 +45,7 @@ def transform_inputs() -> dict[str, tuple]:
                 "min": 0,
                 "max": 4096,
                 "step": 1,
-                "tooltip": "Softens generated-region edges into retained source pixels.",
+                "tooltip": "Feathers the mask into kept pixels and fades the image edge into the fill color.",
             },
         ),
         "canvas_multiple": (

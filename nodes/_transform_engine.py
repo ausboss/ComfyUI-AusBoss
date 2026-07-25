@@ -224,8 +224,25 @@ def transform_pil(image: Image.Image, spec: TransformSpec) -> tuple[Image.Image,
     mask.paste(generated_crop, (geometry.pad_left, geometry.pad_top))
     if spec.feather > 0:
         original = np.asarray(mask, dtype=np.uint8)
-        blurred = np.asarray(mask.filter(ImageFilter.GaussianBlur(spec.feather)), dtype=np.uint8)
-        mask = Image.fromarray(np.maximum(original, blurred))
+        blurred = np.asarray(
+            mask.filter(ImageFilter.GaussianBlur(spec.feather)), dtype=np.uint16
+        )
+        # A blurred step edge sits at ~50% exactly on the boundary, so using
+        # the blur directly (or max() with it) leaves a visible 255->127 seam.
+        # Doubling and clipping pins the generated side at 255 and starts a
+        # smooth ramp exactly at the edge; max() keeps thin generated slivers
+        # fully masked.
+        feathered = np.maximum(original, np.minimum(blurred * 2, 255).astype(np.uint8))
+        mask = Image.fromarray(feathered)
+        # Fade the visible output into the fill color across the same ramp so
+        # the image blends into the padding instead of ending at a hard cut.
+        # The band lies inside the mask, so samplers regenerate it anyway.
+        weight = (feathered.astype(np.float32) / 255.0)[..., None]
+        rgb = np.asarray(output, dtype=np.float32)
+        fill_pixel = np.asarray(fill, dtype=np.float32)
+        output = Image.fromarray(
+            (rgb * (1.0 - weight) + fill_pixel * weight).round().astype(np.uint8)
+        )
 
     return output, mask, geometry
 

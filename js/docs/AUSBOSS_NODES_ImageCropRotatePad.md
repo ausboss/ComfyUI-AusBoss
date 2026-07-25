@@ -9,7 +9,7 @@ Loads an image and applies one reusable **rotate → crop → pad** transform. C
 - **crop_aspect_ratio**: Free crop, source ratio, or a fixed ratio.
 - **crop_x / crop_y / crop_width / crop_height**: Crop in rotated-image pixels. Width and height `0` mean the full available dimension.
 - **pad_left / pad_top / pad_right / pad_bottom**: New pixels around the crop.
-- **feather**: Softens generated-mask edges into retained source pixels.
+- **feather**: Feathers the mask into kept pixels and fades the image edge into the fill color, so outpaints blend instead of ending at a hard seam.
 - **canvas_multiple**: Rounds the final canvas up by adding the minimum extra pixels to the right and bottom.
 - **fill_color**: `#RRGGBB` or three RGB values used for generated pixels.
 

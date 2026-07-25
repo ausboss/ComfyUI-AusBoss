@@ -39,7 +39,11 @@ function installStyles() {
     .ausboss-transform-file{position:relative;text-align:center;overflow:hidden}.ausboss-transform-file input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
     .ausboss-transform-modal{position:fixed;inset:0;z-index:100000;background:#101214;color:#e6e8ea;font:13px system-ui;display:grid;grid-template-rows:42px minmax(0,1fr) auto}
     .ausboss-transform-header{display:flex;align-items:center;gap:12px;padding:0 12px;border-bottom:1px solid #30343a;background:#17191c}
-    .ausboss-transform-header strong{color:#fff}.ausboss-transform-header .spacer{flex:1}.ausboss-transform-close{border-color:${BRAND}!important}
+    .ausboss-transform-header strong{color:#fff}.ausboss-transform-header .spacer{flex:1}
+    .ausboss-transform-close{background:${BRAND}!important;border-color:${BRAND}!important;color:#06231f!important;font-weight:600}
+    .ausboss-transform-close:hover{filter:brightness(1.15)}
+    .ausboss-transform-danger{background:#4a1717!important;border-color:#a13a3a!important;color:#ffd9d9!important}
+    .ausboss-transform-danger:hover{background:#6b1f1f!important;border-color:#c74e4e!important}
     .ausboss-transform-body{display:grid;grid-template-columns:270px minmax(320px,1fr) 250px;min-height:0}
     .ausboss-transform-sidebar{padding:12px;border-right:1px solid #30343a;overflow:auto;background:#181b1e}
     .ausboss-transform-sidebar.right{border-right:0;border-left:1px solid #30343a}
@@ -474,7 +478,7 @@ function buildControls(state, sidebar) {
 
   const actions = createElement("section", "ausboss-transform-section"); actions.append(createElement("h3", "", "View & reset"));
   const resetViewButton = createElement("button", "", "Reset view"); resetViewButton.addEventListener("click", () => { resetView(state); draw(state); });
-  const resetAll = createElement("button", "", "Reset all"); resetAll.addEventListener("click", () => { resetTransform(node, state.kind === "video"); resetView(state); draw(state); updateModalInfo(state); });
+  const resetAll = createElement("button", "ausboss-transform-danger", "Reset all"); resetAll.addEventListener("click", () => { resetTransform(node, state.kind === "video"); resetView(state); draw(state); updateModalInfo(state); });
   actions.append(resetViewButton, resetAll);
   sidebar.append(cropSection, rotateSection, padSection, actions);
 }
@@ -669,14 +673,22 @@ function drawCropHandles(context, rect, active) {
 function drawPaddingHandles(context, rect, active) {
   for (const handle of paddingHandleCenters(rect)) { context.save(); context.translate(handle.x, handle.y); context.rotate(Math.PI / 4); context.fillStyle = handle.name === active ? "#fff" : "#ff9d42"; context.fillRect(-8, -8, 16, 16); context.strokeStyle = "#3b2108"; context.strokeRect(-8, -8, 16, 16); context.restore(); }
 }
-// Top-right corner keeps the rotation control clear of the pad_top diamond
-// that used to sit directly beneath it.
+// Anchored to the outermost top-right corner of everything on the canvas
+// (source and padded output), so the knob stays visually attached no matter
+// how far the padding grows, and clear of the pad_top diamond.
+function rotationCorner(render) {
+  return {
+    x: Math.max(render.sourceRect.x + render.sourceRect.width, render.outputRect.x + render.outputRect.width),
+    y: Math.min(render.sourceRect.y, render.outputRect.y),
+  };
+}
 function rotationHandle(render) {
-  return { x: render.sourceRect.x + render.sourceRect.width + 28, y: render.sourceRect.y - 28 };
+  const corner = rotationCorner(render);
+  return { x: corner.x + 28, y: corner.y - 28 };
 }
 function drawRotationHandle(context, render, active) {
   const handle = rotationHandle(render);
-  const corner = { x: render.sourceRect.x + render.sourceRect.width, y: render.sourceRect.y };
+  const corner = rotationCorner(render);
   context.strokeStyle = "#73e36a";
   context.beginPath(); context.moveTo(corner.x, corner.y); context.lineTo(handle.x, handle.y); context.stroke();
   context.fillStyle = active ? "#fff" : "#73e36a";
