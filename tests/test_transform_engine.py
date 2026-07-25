@@ -132,6 +132,18 @@ class TransformEngineTests(unittest.TestCase):
 
 
 class VideoDecodeTests(unittest.TestCase):
+    def setUp(self):
+        self._tempdir = tempfile.TemporaryDirectory()
+        self.directory = Path(self._tempdir.name)
+
+    def tearDown(self):
+        # Persistent scrub sessions hold the file open (locked on Windows);
+        # release them before the temporary directory is removed.
+        from nodes import _media_helpers
+
+        _media_helpers.close_scrub_sessions()
+        self._tempdir.cleanup()
+
     def _write_video(self, path: Path, frames: int = 5, step: int = 45):
         container = av.open(str(path), mode="w")
         stream = container.add_stream("mpeg4", rate=5)
@@ -149,74 +161,110 @@ class VideoDecodeTests(unittest.TestCase):
         container.close()
 
     def test_first_middle_last_frame_decoding(self):
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory, "frames.mp4")
-            self._write_video(path)
-            metadata = video_metadata(path)
-            self.assertEqual(metadata["width"], 16)
-            self.assertGreaterEqual(metadata["frame_count"], 5)
-            reds = []
-            for index in (0, 2, 4):
-                frame, actual_index, _ = decode_video_frame(path, "frame index", index, 0.0)
-                self.assertEqual(actual_index, index)
-                reds.append(float(np.asarray(frame)[..., 0].mean()))
-            self.assertLess(reds[0], reds[1])
-            self.assertLess(reds[1], reds[2])
+        path = Path(self.directory, "frames.mp4")
+        self._write_video(path)
+        metadata = video_metadata(path)
+        self.assertEqual(metadata["width"], 16)
+        self.assertGreaterEqual(metadata["frame_count"], 5)
+        reds = []
+        for index in (0, 2, 4):
+            frame, actual_index, _ = decode_video_frame(path, "frame index", index, 0.0)
+            self.assertEqual(actual_index, index)
+            reds.append(float(np.asarray(frame)[..., 0].mean()))
+        self.assertLess(reds[0], reds[1])
+        self.assertLess(reds[1], reds[2])
 
     def test_keyframe_seek_agrees_with_sequential_scan(self):
         # 64 frames at GOP defaults spans several keyframes, so mid and late
         # targets exercise the container.seek fast path against ground truth.
         from nodes._media_helpers import _decode_sequential
 
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory, "long.mp4")
-            self._write_video(path, frames=64, step=4)
-            fps = float(video_metadata(path)["fps"] or 0.0)
-            self.assertGreater(fps, 0)
-            for target in (0, 7, 33, 63):
-                with self.subTest(target=target):
-                    fast_frame, fast_index, fast_time = decode_video_frame(
-                        path, "frame index", target, 0.0
-                    )
-                    slow_frame, slow_index, slow_time = _decode_sequential(path, target, fps)
-                    self.assertEqual(fast_index, slow_index)
-                    self.assertAlmostEqual(fast_time, slow_time, places=4)
-                    self.assertTrue(
-                        np.array_equal(np.asarray(fast_frame), np.asarray(slow_frame))
-                    )
+        path = Path(self.directory, "long.mp4")
+        self._write_video(path, frames=64, step=4)
+        fps = float(video_metadata(path)["fps"] or 0.0)
+        self.assertGreater(fps, 0)
+        for target in (0, 7, 33, 63):
+            with self.subTest(target=target):
+                fast_frame, fast_index, fast_time = decode_video_frame(
+                    path, "frame index", target, 0.0
+                )
+                slow_frame, slow_index, slow_time = _decode_sequential(path, target, fps)
+                self.assertEqual(fast_index, slow_index)
+                self.assertAlmostEqual(fast_time, slow_time, places=4)
+                self.assertTrue(
+                    np.array_equal(np.asarray(fast_frame), np.asarray(slow_frame))
+                )
 
     def test_time_seek_mode_lands_on_matching_frame(self):
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory, "timed.mp4")
-            self._write_video(path, frames=25, step=10)
-            # 5 fps: 2.0 seconds is exactly frame 10.
-            _, actual_index, actual_time = decode_video_frame(path, "time seconds", 0, 2.0)
-            self.assertEqual(actual_index, 10)
-            self.assertAlmostEqual(actual_time, 2.0, places=3)
+        path = Path(self.directory, "timed.mp4")
+        self._write_video(path, frames=25, step=10)
+        # 5 fps: 2.0 seconds is exactly frame 10.
+        _, actual_index, actual_time = decode_video_frame(path, "time seconds", 0, 2.0)
+        self.assertEqual(actual_index, 10)
+        self.assertAlmostEqual(actual_time, 2.0, places=3)
 
     def test_out_of_range_index_clamps_to_last_frame(self):
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory, "short.mp4")
-            self._write_video(path, frames=6, step=40)
-            _, actual_index, _ = decode_video_frame(path, "frame index", 999999, 0.0)
-            self.assertEqual(actual_index, 5)
+        path = Path(self.directory, "short.mp4")
+        self._write_video(path, frames=6, step=40)
+        _, actual_index, _ = decode_video_frame(path, "frame index", 999999, 0.0)
+        self.assertEqual(actual_index, 5)
+
+    def test_session_forward_and_backward_decode_match_fresh_decode(self):
+        from nodes import _media_helpers
+
+        path = Path(self.directory, "session.mp4")
+        self._write_video(path, frames=40, step=6)
+        fps = float(video_metadata(path)["fps"] or 0.0)
+        decode_video_frame(path, "frame index", 5, 0.0)
+        # Forward within the gap uses the persistent session's decoder
+        # state; backward forces a re-seek on the same open container.
+        for target in (9, 2):
+            with self.subTest(target=target):
+                fast = decode_video_frame(path, "frame index", target, 0.0)
+                fresh = _media_helpers._decode_sequential(path, target, fps)
+                self.assertEqual(fast[1], fresh[1])
+                self.assertTrue(np.array_equal(np.asarray(fast[0]), np.asarray(fresh[0])))
+
+    def test_storyboard_builds_ready_payload(self):
+        import base64
+        from io import BytesIO
+
+        from nodes import _media_helpers
+
+        path = Path(self.directory, "board.mp4")
+        self._write_video(path, frames=30, step=8)
+        key = _media_helpers._file_key(path)
+        # Seed "building" so storyboard_payload does not spawn its
+        # background thread; the build below is fully deterministic.
+        with _media_helpers._STORYBOARDS_LOCK:
+            _media_helpers._STORYBOARDS[key] = {"status": "building"}
+        self.assertEqual(_media_helpers.storyboard_payload(path)["status"], "building")
+        _media_helpers._build_storyboard(path, key)
+        ready = _media_helpers.storyboard_payload(path)
+        self.assertEqual(ready["status"], "ready")
+        self.assertGreaterEqual(ready["count"], 1)
+        self.assertEqual(ready["times"], sorted(ready["times"]))
+        sprite_bytes = base64.b64decode(ready["sprite"].split(",", 1)[1])
+        with Image.open(BytesIO(sprite_bytes)) as sprite:
+            self.assertEqual(
+                sprite.size, (ready["tile_width"] * ready["count"], ready["tile_height"])
+            )
 
     def test_metadata_cache_hits_and_invalidates_on_file_change(self):
         from nodes import _media_helpers
 
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory, "cached.mp4")
-            self._write_video(path, frames=4)
-            first = _media_helpers.cached_video_metadata(path)
-            with unittest.mock.patch.object(
-                _media_helpers, "video_metadata", side_effect=AssertionError("cache miss")
-            ):
-                # Same file state: served from cache, video_metadata untouched.
-                self.assertEqual(_media_helpers.cached_video_metadata(path), first)
-            self._write_video(path, frames=8)
-            os.utime(path, None)
-            refreshed = _media_helpers.cached_video_metadata(path)
-            self.assertGreaterEqual(int(refreshed["frame_count"]), 8)
+        path = Path(self.directory, "cached.mp4")
+        self._write_video(path, frames=4)
+        first = _media_helpers.cached_video_metadata(path)
+        with unittest.mock.patch.object(
+            _media_helpers, "video_metadata", side_effect=AssertionError("cache miss")
+        ):
+            # Same file state: served from cache, video_metadata untouched.
+            self.assertEqual(_media_helpers.cached_video_metadata(path), first)
+        self._write_video(path, frames=8)
+        os.utime(path, None)
+        refreshed = _media_helpers.cached_video_metadata(path)
+        self.assertGreaterEqual(int(refreshed["frame_count"]), 8)
 
 
 class LocalPreviewGateTests(unittest.TestCase):

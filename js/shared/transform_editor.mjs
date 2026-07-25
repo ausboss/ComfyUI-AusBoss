@@ -268,7 +268,9 @@ async function loadSource(state) {
         if (serial !== state.loadSerial) return;
         state.metadata = metadata; state.metadataKey = key;
         state.sourceWidth = metadata.width; state.sourceHeight = metadata.height;
+        state.storyboard = null; state.scrubPreviewTile = null;
         syncTimelineRange(state);
+        requestStoryboard(state, key);
       }
       await loadVideoFrame(state, serial);
     }
@@ -284,6 +286,43 @@ function syncTimelineRange(state) {
   if (!state.timelineSlider) return;
   state.timelineSlider.max = String(Math.max(0, (state.metadata?.frame_count || 1) - 1));
   if (state.timelineLabel) state.timelineLabel.textContent = `${state.timelineSlider.value} / ${state.timelineSlider.max}`;
+}
+
+// Storyboard: a keyframe thumbnail strip the server builds once per file in
+// the background. While it exists, dragging shows the nearest tile with zero
+// network latency and the exact decoded frame replaces it a beat later.
+// Best-effort — scrubbing works without it, just without the instant ghost.
+async function requestStoryboard(state, key, attempt = 0) {
+  if (state.disposed || state.kind !== "video") return;
+  try {
+    const response = await api.fetchApi(`/ausboss/transform/video/storyboard?${videoParams(state.node)}`);
+    const payload = await response.json();
+    if (!response.ok || state.disposed || sourceKey(state.node, "video") !== key) return;
+    if (payload.status === "building") {
+      if (attempt < 40) setTimeout(() => requestStoryboard(state, key, attempt + 1), 1200);
+      return;
+    }
+    if (payload.status !== "ready") return;
+    const image = new Image();
+    await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = reject; image.src = payload.sprite; });
+    if (state.disposed || sourceKey(state.node, "video") !== key) return;
+    state.storyboard = {
+      image, times: payload.times, count: payload.count,
+      tileWidth: payload.tile_width, tileHeight: payload.tile_height,
+    };
+  } catch { /* storyboard is an enhancement, never an error */ }
+}
+
+function showScrubGhost(state, frameIndex) {
+  const storyboard = state.storyboard;
+  if (!storyboard) return;
+  const moment = frameIndex / Math.max(1, state.metadata?.fps || 30);
+  let tile = 0;
+  for (let index = 0; index < storyboard.times.length; index += 1) {
+    if (storyboard.times[index] <= moment) tile = index; else break;
+  }
+  state.scrubPreviewTile = tile;
+  draw(state);
 }
 
 // Frame-only refresh for discrete jumps (step buttons, drag release):
@@ -346,6 +385,7 @@ async function loadVideoFrame(state, serial = ++state.loadSerial, options = {}) 
     if (serial !== state.loadSerial) return;
     if (state.frameObjectUrl) URL.revokeObjectURL(state.frameObjectUrl);
     state.frameObjectUrl = objectUrl; state.image = image;
+    state.scrubPreviewTile = null; // real frame arrived; drop the ghost tile
     // Writing the decoded position back is only safe when the user is not
     // mid-scrub: a stale response overwriting frame_index would rubber-band
     // the slider to an older frame.
@@ -377,7 +417,7 @@ function openEditor(state) {
   state.modal = modal; state.canvas = canvas;
   buildControls(state, left);
   const status = createElement("div", "ausboss-transform-status"); status.dataset.ausbossStatus = ""; right.append(status);
-  right.append(createElement("div", "ausboss-transform-help", "Drag cyan squares to crop. Drag inside the crop to move it. Orange diamonds add padding. The \u{1F503} handle at the top-right corner rotates; hold Shift to snap to 15 degrees. Wheel zooms. Middle mouse or Alt-drag pans."));
+  right.append(createElement("div", "ausboss-transform-help", "Drag cyan squares to crop. Drag inside the crop to move it. Orange diamonds add padding. The rotate knob at the top-right corner rotates; hold Shift to snap to 15 degrees. Wheel zooms. Middle mouse or Alt-drag pans."));
   if (state.kind === "video") modal.append(buildTimeline(state));
   document.body.append(modal);
 
@@ -453,6 +493,7 @@ function buildTimeline(state) {
     setValue(node, "seek_mode", "frame index"); setValue(node, "frame_index", Number(slider.value));
     setValue(node, "frame_time", Number(slider.value) / Math.max(1, state.metadata?.fps || 30));
     label.textContent = `${slider.value} / ${slider.max}`;
+    showScrubGhost(state, Number(slider.value)); // instant, zero network
     requestScrubFrame(state);
   };
   slider.addEventListener("input", seek);
@@ -570,7 +611,7 @@ function drawScene(context, state, render, preview) {
   const { sourceRect, cropRect, outputRect, padding } = render; context.save();
   context.fillStyle = normalizeColor(value(state.node, "fill_color", "#808080")); context.fillRect(outputRect.x, outputRect.y, outputRect.width, outputRect.height);
   context.save(); context.translate(sourceRect.x + sourceRect.width / 2, sourceRect.y + sourceRect.height / 2); context.rotate((Number(value(state.node, "rotation_degrees", 0)) || 0) * Math.PI / 180);
-  const imageScale = render.scale; context.drawImage(state.image, -state.sourceWidth * imageScale / 2, -state.sourceHeight * imageScale / 2, state.sourceWidth * imageScale, state.sourceHeight * imageScale); context.restore();
+  drawSourceImage(context, state, render.scale); context.restore();
   context.save(); context.globalCompositeOperation = "source-over"; context.fillStyle = "rgba(8,10,12,.62)";
   const full = { x: 0, y: 0, width: context.canvas.width, height: context.canvas.height }; context.beginPath(); context.rect(full.x, full.y, full.width, full.height); context.rect(cropRect.x, cropRect.y, cropRect.width, cropRect.height); context.fill("evenodd"); context.restore();
   context.strokeStyle = "#4bd8ef"; context.lineWidth = preview ? 1 : 2; context.setLineDash([7, 5]); context.strokeRect(cropRect.x, cropRect.y, cropRect.width, cropRect.height);
@@ -583,6 +624,24 @@ function drawScene(context, state, render, preview) {
     context.fillStyle = "#e9edf0"; context.font = "12px system-ui"; context.fillText(`${padding.outputWidth} x ${padding.outputHeight}`, outputRect.x + 8, outputRect.y + 18);
   }
   context.restore();
+}
+
+// Draws the current source frame centered on the (already translated and
+// rotated) origin. During a scrub, the nearest storyboard tile stands in for
+// the real frame until its decode lands.
+function drawSourceImage(context, state, scale) {
+  const width = state.sourceWidth * scale;
+  const height = state.sourceHeight * scale;
+  const storyboard = state.storyboard;
+  if (state.scrubPreviewTile != null && storyboard) {
+    context.drawImage(
+      storyboard.image,
+      state.scrubPreviewTile * storyboard.tileWidth, 0, storyboard.tileWidth, storyboard.tileHeight,
+      -width / 2, -height / 2, width, height
+    );
+    return;
+  }
+  context.drawImage(state.image, -width / 2, -height / 2, width, height);
 }
 
 function drawGrid(context, rect) {
@@ -612,10 +671,32 @@ function drawRotationHandle(context, render, active) {
   context.fillStyle = active ? "#fff" : "#73e36a";
   context.beginPath(); context.arc(handle.x, handle.y, 13, 0, Math.PI * 2); context.fill();
   context.strokeStyle = "#173516"; context.stroke();
+  drawRotateGlyph(context, handle.x, handle.y, 6, "#0c2210");
+}
+
+// Vector rotate-arrow glyph (circular arc + arrowhead), crisp at any zoom
+// and identical on every platform — no emoji font involved.
+function drawRotateGlyph(context, x, y, radius, color) {
+  const startAngle = -0.4 * Math.PI;
+  const endAngle = 1.1 * Math.PI;
   context.save();
-  context.font = "14px system-ui"; context.textAlign = "center"; context.textBaseline = "middle";
-  context.fillStyle = "#0c2210";
-  context.fillText("\u{1F503}", handle.x, handle.y + 1);
+  context.strokeStyle = color;
+  context.fillStyle = color;
+  context.lineWidth = 2;
+  context.lineCap = "round";
+  context.beginPath();
+  context.arc(x, y, radius, startAngle, endAngle);
+  context.stroke();
+  // Arrowhead at the arc's end, pointing along the direction of travel.
+  const tipBase = { x: x + radius * Math.cos(endAngle), y: y + radius * Math.sin(endAngle) };
+  const tangent = { x: -Math.sin(endAngle), y: Math.cos(endAngle) };
+  const normal = { x: Math.cos(endAngle), y: Math.sin(endAngle) };
+  context.beginPath();
+  context.moveTo(tipBase.x + tangent.x * 4.6, tipBase.y + tangent.y * 4.6);
+  context.lineTo(tipBase.x - tangent.x * 1.2 + normal.x * 3.1, tipBase.y - tangent.y * 1.2 + normal.y * 3.1);
+  context.lineTo(tipBase.x - tangent.x * 1.2 - normal.x * 3.1, tipBase.y - tangent.y * 1.2 - normal.y * 3.1);
+  context.closePath();
+  context.fill();
   context.restore();
 }
 

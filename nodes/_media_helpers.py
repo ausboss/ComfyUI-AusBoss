@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
+import base64
 from io import BytesIO
 import os
 from pathlib import Path
 import re
+import threading
+import time
 
 import av
 from PIL import Image, ImageOps, ImageSequence
@@ -241,6 +245,121 @@ def cached_video_metadata(path: Path) -> dict[str, float | int | str]:
     return dict(cached)
 
 
+# --- persistent scrub sessions ----------------------------------------------
+# Opening a container per request costs a full probe of the file, and landing
+# mid-GOP costs a decode from the previous keyframe. A session keeps the
+# container and codec state alive between requests, so stepping or dragging
+# forward decodes only the frames in between. Keyed by file state; small LRU.
+
+_FORWARD_DECODE_GAP = 24
+_SESSION_LIMIT = 3
+_SESSION_IDLE_SECONDS = 60.0
+_SESSIONS: dict[tuple[str, int, int], "_ScrubSession"] = {}
+_SESSIONS_LOCK = threading.Lock()
+_reaper_started = False
+
+
+class _ScrubSession:
+    def __init__(self, path: Path):
+        self.container = av.open(str(path))
+        self.stream = _video_stream(self.container)
+        self.lock = threading.Lock()
+        self.last_index = -1  # -1 = position unknown, force a seek
+        self.last_used = time.monotonic()
+
+    def close(self) -> None:
+        try:
+            self.container.close()
+        except Exception:
+            pass
+
+
+def _file_key(path: Path) -> tuple[str, int, int]:
+    stat = os.stat(path)
+    return (str(Path(path).resolve()), stat.st_mtime_ns, stat.st_size)
+
+
+def _start_reaper_locked() -> None:
+    """An open session keeps the video file locked on Windows, which would
+    block users from deleting or overwriting a clip they just scrubbed. The
+    reaper closes sessions left idle. Started once, under _SESSIONS_LOCK."""
+    global _reaper_started
+    if _reaper_started:
+        return
+    _reaper_started = True
+
+    def reap() -> None:
+        while True:
+            time.sleep(15.0)
+            now = time.monotonic()
+            with _SESSIONS_LOCK:
+                for key in [k for k, s in _SESSIONS.items() if now - s.last_used > _SESSION_IDLE_SECONDS]:
+                    _SESSIONS.pop(key).close()
+
+    threading.Thread(target=reap, daemon=True, name="ausboss-scrub-session-reaper").start()
+
+
+def close_scrub_sessions() -> None:
+    """Close every open scrub session (releases file handles immediately)."""
+    with _SESSIONS_LOCK:
+        for key in list(_SESSIONS):
+            _SESSIONS.pop(key).close()
+
+
+def _get_session(path: Path) -> "_ScrubSession":
+    key = _file_key(path)
+    with _SESSIONS_LOCK:
+        _start_reaper_locked()
+        session = _SESSIONS.get(key)
+        if session is None:
+            for stale in [other for other in _SESSIONS if other[0] == key[0] and other != key]:
+                _SESSIONS.pop(stale).close()
+            if len(_SESSIONS) >= _SESSION_LIMIT:
+                oldest = min(_SESSIONS, key=lambda item: _SESSIONS[item].last_used)
+                _SESSIONS.pop(oldest).close()
+            session = _ScrubSession(path)
+            _SESSIONS[key] = session
+        session.last_used = time.monotonic()
+        return session
+
+
+def _session_decode(path: Path, target_index: int, requested_time: float, fps: float):
+    """Decode via the persistent session. Returns None when the file lacks
+    usable timestamps so the caller can use the stateless fallbacks."""
+    session = _get_session(path)
+    with session.lock:
+        stream = session.stream
+        forward = (
+            session.last_index >= 0
+            and 0 <= target_index - session.last_index <= _FORWARD_DECODE_GAP
+        )
+        if not forward:
+            try:
+                offset = int(requested_time / stream.time_base) + (stream.start_time or 0)
+                session.container.seek(offset, stream=stream, backward=True, any_frame=False)
+            except Exception:
+                session.last_index = -1
+                return None
+        tolerance = (0.5 / fps) if fps > 0 else 0.0
+        last = None
+        for frame in session.container.decode(stream):
+            if frame.time is None:
+                session.last_index = -1
+                return None
+            last = frame
+            session.last_index = int(round(float(frame.time) * fps)) if fps > 0 else 0
+            if forward:
+                if session.last_index >= target_index:
+                    break
+            elif float(frame.time) + tolerance >= requested_time:
+                break
+        if last is None:
+            session.last_index = -1  # exhausted decoder: next request re-seeks
+            return None
+        index, time_value = _frame_position(last, fps, target_index)
+        return last.to_image().convert("RGBA"), index, time_value
+
+
 def decode_video_frame(
     path: Path, seek_mode: str, frame_index: int, frame_time: float
 ) -> tuple[Image.Image, int, float]:
@@ -260,13 +379,97 @@ def decode_video_frame(
         if fps > 0:
             requested_time = target_index / fps
 
-    # Keyframe seek keeps scrubbing fast on long videos; the sequential scan
-    # remains as the safety net for files without reliable timestamps.
-    if fps > 0 and target_index > 0:
-        selected = _decode_with_seek(path, requested_time, fps)
+    # Fast path: persistent session (forward decode or keyframe seek without
+    # reopening the container). Stateless keyframe seek and the sequential
+    # scan remain as safety nets for files without usable timestamps.
+    if fps > 0:
+        try:
+            selected = _session_decode(path, target_index, requested_time, fps)
+        except Exception:
+            selected = None
         if selected is not None:
             return selected
+        if target_index > 0:
+            selected = _decode_with_seek(path, requested_time, fps)
+            if selected is not None:
+                return selected
     return _decode_sequential(path, target_index, fps)
+
+
+# --- storyboard ---------------------------------------------------------------
+# A strip of keyframe thumbnails built once per file in a background thread.
+# The editor shows the nearest tile instantly while dragging (zero network),
+# then the exact decoded frame replaces it. Same pattern video sites use.
+
+_STORYBOARD_TILE_EDGE = 168
+_STORYBOARD_MAX_TILES = 96
+_STORYBOARDS: dict[tuple[str, int, int], dict] = {}
+_STORYBOARDS_LOCK = threading.Lock()
+
+
+def _build_storyboard(path: Path, key: tuple[str, int, int]) -> None:
+    try:
+        metadata = cached_video_metadata(path)
+        duration = float(metadata["duration"] or 0.0)
+        fps = float(metadata["fps"] or 0.0)
+        count = min(_STORYBOARD_MAX_TILES, max(12, int(duration)))
+        tiles: list[tuple[Image.Image, float]] = []
+        with av.open(str(path)) as container:
+            stream = _video_stream(container)
+            for step in range(count):
+                position = duration * step / count if duration > 0 else 0.0
+                try:
+                    offset = int(position / stream.time_base) + (stream.start_time or 0)
+                    container.seek(offset, stream=stream, backward=True, any_frame=False)
+                except Exception:
+                    continue
+                frame = next(container.decode(stream), None)
+                if frame is None or frame.time is None:
+                    continue
+                thumb = frame.to_image()
+                thumb.thumbnail((_STORYBOARD_TILE_EDGE, _STORYBOARD_TILE_EDGE))
+                # Seeks are keyframe-aligned, so consecutive steps often land
+                # on the same keyframe; keep each keyframe once.
+                if not tiles or float(frame.time) > tiles[-1][1] + 1e-6:
+                    tiles.append((thumb, float(frame.time)))
+        if not tiles:
+            raise ValueError("no storyboard frames decoded")
+        tile_width, tile_height = tiles[0][0].size
+        sprite = Image.new("RGB", (tile_width * len(tiles), tile_height), (12, 14, 16))
+        for column, (thumb, _) in enumerate(tiles):
+            sprite.paste(thumb, (column * tile_width, 0))
+        buffer = BytesIO()
+        sprite.save(buffer, format="JPEG", quality=70)
+        payload = {
+            "status": "ready",
+            "tile_width": tile_width,
+            "tile_height": tile_height,
+            "count": len(tiles),
+            "times": [moment for _, moment in tiles],
+            "fps": fps,
+            "sprite": "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("ascii"),
+        }
+    except Exception:
+        payload = {"status": "failed"}
+    with _STORYBOARDS_LOCK:
+        _STORYBOARDS[key] = payload
+
+
+def storyboard_payload(path: Path) -> dict:
+    """Return the storyboard for the file, kicking off a background build on
+    first request. Callers poll until status flips to ready/failed."""
+    key = _file_key(path)
+    with _STORYBOARDS_LOCK:
+        existing = _STORYBOARDS.get(key)
+        if existing is not None:
+            return existing
+        for stale in [other for other in _STORYBOARDS if other[0] == key[0] and other != key]:
+            _STORYBOARDS.pop(stale)
+        if len(_STORYBOARDS) >= 8:
+            _STORYBOARDS.pop(next(iter(_STORYBOARDS)))
+        _STORYBOARDS[key] = {"status": "building"}
+    threading.Thread(target=_build_storyboard, args=(path, key), daemon=True).start()
+    return {"status": "building"}
 
 
 def encode_preview(image: Image.Image, max_width: int, max_height: int) -> bytes:
@@ -304,26 +507,39 @@ def register_video_routes() -> None:
             )
         return resolve_video_path(source_mode, request.query.get("video", ""), local_path)
 
+    # Decodes run in worker threads: a blocking decode inside these async
+    # handlers would stall ComfyUI's entire web server (every route plus the
+    # frontend websocket) for the duration of the decode.
+
     @prompt_server.routes.get("/ausboss/transform/video/metadata")
     async def ausboss_video_metadata(request):
         try:
-            return web.json_response(cached_video_metadata(request_path(request)))
+            path = request_path(request)
+            metadata = await asyncio.get_running_loop().run_in_executor(
+                None, cached_video_metadata, path
+            )
+            return web.json_response(metadata)
         except Exception as exc:
             return web.json_response({"error": _safe_route_error(exc)}, status=400)
 
     @prompt_server.routes.get("/ausboss/transform/video/frame")
     async def ausboss_video_frame(request):
         try:
-            image, actual_index, actual_time = decode_video_frame(
-                request_path(request),
-                request.query.get("seek_mode", "frame index"),
-                _query_int(request, "frame_index", 0),
-                _query_float(request, "frame_time", 0.0),
-            )
-            body = encode_preview(
-                image,
-                _query_int(request, "max_width", 1600),
-                _query_int(request, "max_height", 1600),
+            path = request_path(request)
+            seek_mode = request.query.get("seek_mode", "frame index")
+            frame_index = _query_int(request, "frame_index", 0)
+            frame_time = _query_float(request, "frame_time", 0.0)
+            max_width = _query_int(request, "max_width", 1600)
+            max_height = _query_int(request, "max_height", 1600)
+
+            def decode_and_encode():
+                image, actual_index, actual_time = decode_video_frame(
+                    path, seek_mode, frame_index, frame_time
+                )
+                return encode_preview(image, max_width, max_height), actual_index, actual_time
+
+            body, actual_index, actual_time = await asyncio.get_running_loop().run_in_executor(
+                None, decode_and_encode
             )
             return web.Response(
                 body=body,
@@ -334,6 +550,17 @@ def register_video_routes() -> None:
                     "X-AusBoss-Frame-Time": f"{actual_time:.6f}",
                 },
             )
+        except Exception as exc:
+            return web.json_response({"error": _safe_route_error(exc)}, status=400)
+
+    @prompt_server.routes.get("/ausboss/transform/video/storyboard")
+    async def ausboss_video_storyboard(request):
+        try:
+            path = request_path(request)
+            payload = await asyncio.get_running_loop().run_in_executor(
+                None, storyboard_payload, path
+            )
+            return web.json_response(payload)
         except Exception as exc:
             return web.json_response({"error": _safe_route_error(exc)}, status=400)
 
