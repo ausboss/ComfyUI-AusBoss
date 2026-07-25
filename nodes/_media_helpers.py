@@ -16,6 +16,11 @@ except ImportError:  # Offline tests import this module without ComfyUI.
     folder_paths = None
 
 
+# Editor previews of arbitrary local paths are opt-in. Queued workflows are
+# unaffected: queueing is an explicit user action, while the preview routes
+# answer any HTTP client that can reach the server.
+LOCAL_PREVIEW_ENV = "AUSBOSS_TRANSFORM_LOCAL_PREVIEW"
+
 VIDEO_EXTENSIONS = {
     ".avi",
     ".m2ts",
@@ -93,6 +98,31 @@ def resolve_video_path(source_mode: str, video: str, local_path: str) -> Path:
     return path
 
 
+def _comfy_managed_roots() -> list[Path]:
+    if folder_paths is None:
+        return []
+    roots: list[Path] = []
+    for getter in ("get_input_directory", "get_output_directory", "get_temp_directory"):
+        try:
+            roots.append(Path(getattr(folder_paths, getter)()).resolve())
+        except Exception:
+            continue
+    return roots
+
+
+def local_preview_allowed(candidate: str) -> bool:
+    """Preview routes may read a local path when the user opted in via the
+    environment flag, or when the path is already inside a ComfyUI-managed
+    folder (input/output/temp) that core routes serve anyway."""
+    if os.environ.get(LOCAL_PREVIEW_ENV, "").strip().lower() in {"1", "true", "yes", "on"}:
+        return True
+    try:
+        resolved = Path(str(candidate or "").strip().strip('"')).expanduser().resolve()
+    except (OSError, ValueError):
+        return False
+    return any(resolved == root or root in resolved.parents for root in _comfy_managed_roots())
+
+
 def load_image_frames(path: Path) -> list[Image.Image]:
     frames: list[Image.Image] = []
     with Image.open(path) as source:
@@ -133,6 +163,62 @@ def video_metadata(path: Path) -> dict[str, float | int | str]:
         }
 
 
+def _video_stream(container):
+    stream = next((candidate for candidate in container.streams if candidate.type == "video"), None)
+    if stream is None:
+        raise ValueError("The selected file does not contain a video stream.")
+    return stream
+
+
+def _frame_position(frame, fps: float, fallback_index: int) -> tuple[int, float]:
+    if frame.time is not None:
+        time_value = float(frame.time)
+        index = int(round(time_value * fps)) if fps > 0 else fallback_index
+        return index, time_value
+    return fallback_index, (fallback_index / fps if fps > 0 else 0.0)
+
+
+def _decode_with_seek(path: Path, requested_time: float, fps: float):
+    """Keyframe-seek then decode forward. Returns None when the file has no
+    usable timestamps so the caller can fall back to a sequential scan."""
+    with av.open(str(path)) as container:
+        stream = _video_stream(container)
+        if not stream.time_base:
+            return None
+        try:
+            offset = int(requested_time / stream.time_base) + (stream.start_time or 0)
+            container.seek(offset, stream=stream, backward=True, any_frame=False)
+        except Exception:
+            return None
+        tolerance = (0.5 / fps) if fps > 0 else 0.0
+        last = None
+        for frame in container.decode(stream):
+            if frame.time is None:
+                return None
+            last = frame
+            if float(frame.time) + tolerance >= requested_time:
+                break
+        if last is None:
+            return None
+        index, time_value = _frame_position(last, fps, 0)
+        return last.to_image().convert("RGBA"), index, time_value
+
+
+def _decode_sequential(path: Path, target_index: int, fps: float):
+    with av.open(str(path)) as container:
+        stream = _video_stream(container)
+        last = None
+        for index, frame in enumerate(container.decode(stream)):
+            last = (frame, index)
+            if index >= target_index:
+                break
+        if last is None:
+            raise ValueError("The requested video frame could not be decoded.")
+        frame, index = last
+        position_index, position_time = _frame_position(frame, fps, index)
+        return frame.to_image().convert("RGBA"), position_index, position_time
+
+
 def decode_video_frame(
     path: Path, seek_mode: str, frame_index: int, frame_time: float
 ) -> tuple[Image.Image, int, float]:
@@ -143,32 +229,22 @@ def decode_video_frame(
         target_index = int(round(requested_time * fps)) if fps > 0 else 0
     elif seek_mode == "frame index":
         target_index = max(0, int(frame_index))
+        requested_time = target_index / fps if fps > 0 else 0.0
     else:
         raise ValueError("Video seek mode must be 'frame index' or 'time seconds'.")
     frame_count = int(metadata["frame_count"] or 0)
-    if frame_count > 0:
-        target_index = min(target_index, frame_count - 1)
+    if frame_count > 0 and target_index > frame_count - 1:
+        target_index = frame_count - 1
+        if fps > 0:
+            requested_time = target_index / fps
 
-    selected = None
-    actual_index = 0
-    actual_time = 0.0
-    with av.open(str(path)) as container:
-        stream = next((candidate for candidate in container.streams if candidate.type == "video"), None)
-        if stream is None:
-            raise ValueError("The selected file does not contain a video stream.")
-        for index, frame in enumerate(container.decode(stream)):
-            if index < target_index:
-                continue
-            selected = frame.to_image().convert("RGBA")
-            actual_index = index
-            if frame.time is not None:
-                actual_time = float(frame.time)
-            elif fps > 0:
-                actual_time = index / fps
-            break
-    if selected is None:
-        raise ValueError("The requested video frame could not be decoded.")
-    return selected, actual_index, actual_time
+    # Keyframe seek keeps scrubbing fast on long videos; the sequential scan
+    # remains as the safety net for files without reliable timestamps.
+    if fps > 0 and target_index > 0:
+        selected = _decode_with_seek(path, requested_time, fps)
+        if selected is not None:
+            return selected
+    return _decode_sequential(path, target_index, fps)
 
 
 def encode_preview(image: Image.Image, max_width: int, max_height: int) -> bytes:
@@ -192,11 +268,17 @@ def register_video_routes() -> None:
     prompt_server._ausboss_transform_routes = True
 
     def request_path(request) -> Path:
-        return resolve_video_path(
-            request.query.get("source_mode", "input folder"),
-            request.query.get("video", ""),
-            request.query.get("local_path", ""),
-        )
+        source_mode = request.query.get("source_mode", "input folder")
+        local_path = request.query.get("local_path", "")
+        # Gate before touching the filesystem so a denied request can not be
+        # used to probe which paths exist.
+        if source_mode == "local path" and not local_preview_allowed(local_path):
+            raise ValueError(
+                "Local path previews are disabled by default; queued workflows still "
+                f"read the file. Start ComfyUI with {LOCAL_PREVIEW_ENV}=1 to enable "
+                "editor previews for local paths."
+            )
+        return resolve_video_path(source_mode, request.query.get("video", ""), local_path)
 
     @prompt_server.routes.get("/ausboss/transform/video/metadata")
     async def ausboss_video_metadata(request):

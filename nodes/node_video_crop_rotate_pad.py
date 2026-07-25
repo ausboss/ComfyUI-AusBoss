@@ -36,7 +36,13 @@ class AusBossVideoCropRotatePad:
             ),
             "local_path": (
                 "STRING",
-                {"default": "", "tooltip": "Absolute local video path used only in local path mode."},
+                {
+                    "default": "",
+                    "tooltip": (
+                        "Absolute local video path used only in local path mode. Queued runs "
+                        "always read it; editor previews need AUSBOSS_TRANSFORM_LOCAL_PREVIEW=1."
+                    ),
+                },
             ),
             "seek_mode": (["frame index", "time seconds"], {"default": "frame index"}),
             "frame_index": (

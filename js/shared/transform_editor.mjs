@@ -105,7 +105,10 @@ function suppressCoreImagePreview(node) {
 function sourceKey(node, kind) {
   if (kind === "image") return String(value(node, "image", ""));
   const mode = value(node, "source_mode", "input folder");
-  return mode === "local path" ? `local:${value(node, "local_path", "")}` : `input:${value(node, "video", "")}`;
+  const selection = String(mode === "local path" ? value(node, "local_path", "") : value(node, "video", ""));
+  // Empty selection is "no source yet": switching modes before picking a
+  // file must not count as a source change (which would reset transforms).
+  return selection ? `${mode === "local path" ? "local" : "input"}:${selection}` : "";
 }
 
 function parseInputReference(selection) {
@@ -256,16 +259,42 @@ async function loadSource(state) {
       suppressCoreImagePreview(state.node);
       state.node.imageIndex = null;
     } else {
-      const metaResponse = await api.fetchApi(`/ausboss/transform/video/metadata?${videoParams(state.node)}`);
-      const metadata = await metaResponse.json();
-      if (!metaResponse.ok) throw new Error(metadata.error || "Could not read video metadata.");
-      if (serial !== state.loadSerial) return;
-      state.metadata = metadata; state.sourceWidth = metadata.width; state.sourceHeight = metadata.height;
+      const key = sourceKey(state.node, "video");
+      if (!key) { state.image = null; state.metadata = null; state.metadataKey = null; drawEmpty(state, "Choose a source to begin"); return; }
+      if (state.metadataKey !== key) {
+        const metaResponse = await api.fetchApi(`/ausboss/transform/video/metadata?${videoParams(state.node)}`);
+        const metadata = await metaResponse.json();
+        if (!metaResponse.ok) throw new Error(metadata.error || "Could not read video metadata.");
+        if (serial !== state.loadSerial) return;
+        state.metadata = metadata; state.metadataKey = key;
+        state.sourceWidth = metadata.width; state.sourceHeight = metadata.height;
+        syncTimelineRange(state);
+      }
       await loadVideoFrame(state, serial);
     }
     draw(state); updateModalInfo(state);
   } catch (error) {
+    if (error?.name === "AbortError") return;
     state.image = null;
+    drawEmpty(state, error.message);
+  }
+}
+
+function syncTimelineRange(state) {
+  if (!state.timelineSlider) return;
+  state.timelineSlider.max = String(Math.max(0, (state.metadata?.frame_count || 1) - 1));
+  if (state.timelineLabel) state.timelineLabel.textContent = `${state.timelineSlider.value} / ${state.timelineSlider.max}`;
+}
+
+// Frame-only refresh for scrubbing: metadata is already cached, so a seek is
+// exactly one aborted-superseded fetch. Errors draw into the canvas instead
+// of throwing, and aborted requests are expected mid-scrub.
+async function seekFrame(state) {
+  try {
+    await loadVideoFrame(state);
+    draw(state); updateModalInfo(state);
+  } catch (error) {
+    if (error?.name === "AbortError") return;
     drawEmpty(state, error.message);
   }
 }
@@ -333,6 +362,7 @@ function openEditor(state) {
 
 function closeEditor(state) {
   stopPlayback(state);
+  if (state.scrubTimer) { clearTimeout(state.scrubTimer); state.scrubTimer = null; }
   state.modalAbort?.abort(); state.resizeObserver?.disconnect(); state.modal?.remove();
   state.modal = null; state.canvas = null; state.drag = null; state.grid = false;
   draw(state); state.node.setDirtyCanvas?.(true, true);
@@ -385,10 +415,15 @@ function buildTimeline(state) {
     const button = createElement("button", "", text); if (command === "play") state.playButton = button;
     button.addEventListener("click", () => timelineCommand(state, command, slider, label)); steps.append(button);
   }
-  const seek = async () => {
+  const seek = () => {
     setValue(node, "seek_mode", "frame index"); setValue(node, "frame_index", Number(slider.value));
     setValue(node, "frame_time", Number(slider.value) / Math.max(1, state.metadata?.fps || 30));
-    label.textContent = `${slider.value} / ${slider.max}`; await loadSource(state);
+    label.textContent = `${slider.value} / ${slider.max}`;
+    // Trailing debounce: dragging emits an input event per pixel, and each
+    // frame decode is an HTTP round trip. 70ms keeps scrubbing responsive
+    // while superseded requests are aborted inside loadVideoFrame.
+    if (state.scrubTimer) clearTimeout(state.scrubTimer);
+    state.scrubTimer = window.setTimeout(() => { state.scrubTimer = null; seekFrame(state); }, 70);
   };
   slider.addEventListener("input", seek); state.timelineSlider = slider; state.timelineLabel = label;
   label.textContent = `${slider.value} / ${slider.max}`; timeline.append(slider, label, steps); return timeline;
@@ -402,7 +437,7 @@ async function timelineCommand(state, command, slider = state.timelineSlider, la
   next = Math.round(clamp(next, 0, maximum));
   if (slider) slider.value = String(next); if (label) label.textContent = `${next} / ${maximum}`;
   setValue(state.node, "seek_mode", "frame index"); setValue(state.node, "frame_index", next);
-  setValue(state.node, "frame_time", next / Math.max(1, state.metadata?.fps || 30)); await loadSource(state);
+  setValue(state.node, "frame_time", next / Math.max(1, state.metadata?.fps || 30)); await seekFrame(state);
 }
 
 function startPlayback(state) {

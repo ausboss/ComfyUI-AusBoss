@@ -41,6 +41,10 @@ After updating frontend files, hard-refresh the browser with `Ctrl+Shift+R`.
 
 1. Add either transform node.
 2. Pick or upload a source. For very large videos, switch the video node to `local path` mode.
+   Queued workflows always read local paths, but the editor's live preview of paths outside
+   ComfyUI's own folders is opt-in: start ComfyUI with `AUSBOSS_TRANSFORM_LOCAL_PREVIEW=1`
+   to enable it. This keeps the preview routes from exposing arbitrary files to anything
+   that can reach your ComfyUI server (for example on `--listen`).
 3. Click **Open editor**.
 4. Drag cyan crop handles, orange padding handles, or the green rotation handle.
 5. Close the editor and connect `image` and `mask` downstream.

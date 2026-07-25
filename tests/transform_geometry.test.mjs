@@ -18,6 +18,19 @@ import {
 test("rotated size handles positive and negative angles", () => {
   assert.deepEqual(rotatedSize(100, 50, 90), { width: 50, height: 100 });
   assert.deepEqual(rotatedSize(100, 50, -90), { width: 50, height: 100 });
+  // Mixed odd/even sides hit Pillow's exact transpose fast path.
+  assert.deepEqual(rotatedSize(2, 3, -90), { width: 3, height: 2 });
+});
+
+test("rotated size matches Pillow expand output exactly", () => {
+  // Expected values generated with Pillow's Image.rotate(expand=True); see
+  // the note on rotatedSize. The old width*cos+height*sin formula was 1px
+  // short on most free angles (e.g. 512@45 gave 725, Pillow produces 726).
+  assert.deepEqual(rotatedSize(512, 512, 45), { width: 726, height: 726 });
+  assert.deepEqual(rotatedSize(512, 512, -12.5), { width: 612, height: 612 });
+  assert.deepEqual(rotatedSize(512, 512, 179.9), { width: 514, height: 514 });
+  assert.deepEqual(rotatedSize(1920, 1080, 15), { width: 2136, height: 1542 });
+  assert.deepEqual(rotatedSize(1920, 1080, 60), { width: 1896, height: 2204 });
 });
 
 test("crop clamps and honors ratios", () => {

@@ -6,6 +6,7 @@ import sys
 import tempfile
 import time
 import unittest
+import unittest.mock
 
 import av
 import numpy as np
@@ -131,15 +132,15 @@ class TransformEngineTests(unittest.TestCase):
 
 
 class VideoDecodeTests(unittest.TestCase):
-    def _write_video(self, path: Path):
+    def _write_video(self, path: Path, frames: int = 5, step: int = 45):
         container = av.open(str(path), mode="w")
         stream = container.add_stream("mpeg4", rate=5)
         stream.width = 16
         stream.height = 16
         stream.pix_fmt = "yuv420p"
-        for index in range(5):
+        for index in range(frames):
             array = np.zeros((16, 16, 3), dtype=np.uint8)
-            array[..., 0] = index * 45
+            array[..., 0] = (index * step) % 256
             frame = av.VideoFrame.from_ndarray(array, format="rgb24")
             for packet in stream.encode(frame):
                 container.mux(packet)
@@ -161,6 +162,62 @@ class VideoDecodeTests(unittest.TestCase):
                 reds.append(float(np.asarray(frame)[..., 0].mean()))
             self.assertLess(reds[0], reds[1])
             self.assertLess(reds[1], reds[2])
+
+    def test_keyframe_seek_agrees_with_sequential_scan(self):
+        # 64 frames at GOP defaults spans several keyframes, so mid and late
+        # targets exercise the container.seek fast path against ground truth.
+        from nodes._media_helpers import _decode_sequential
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory, "long.mp4")
+            self._write_video(path, frames=64, step=4)
+            fps = float(video_metadata(path)["fps"] or 0.0)
+            self.assertGreater(fps, 0)
+            for target in (0, 7, 33, 63):
+                with self.subTest(target=target):
+                    fast_frame, fast_index, fast_time = decode_video_frame(
+                        path, "frame index", target, 0.0
+                    )
+                    slow_frame, slow_index, slow_time = _decode_sequential(path, target, fps)
+                    self.assertEqual(fast_index, slow_index)
+                    self.assertAlmostEqual(fast_time, slow_time, places=4)
+                    self.assertTrue(
+                        np.array_equal(np.asarray(fast_frame), np.asarray(slow_frame))
+                    )
+
+    def test_time_seek_mode_lands_on_matching_frame(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory, "timed.mp4")
+            self._write_video(path, frames=25, step=10)
+            # 5 fps: 2.0 seconds is exactly frame 10.
+            _, actual_index, actual_time = decode_video_frame(path, "time seconds", 0, 2.0)
+            self.assertEqual(actual_index, 10)
+            self.assertAlmostEqual(actual_time, 2.0, places=3)
+
+    def test_out_of_range_index_clamps_to_last_frame(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory, "short.mp4")
+            self._write_video(path, frames=6, step=40)
+            _, actual_index, _ = decode_video_frame(path, "frame index", 999999, 0.0)
+            self.assertEqual(actual_index, 5)
+
+
+class LocalPreviewGateTests(unittest.TestCase):
+    def test_disabled_by_default_outside_managed_folders(self):
+        from nodes._media_helpers import local_preview_allowed
+
+        with unittest.mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("AUSBOSS_TRANSFORM_LOCAL_PREVIEW", None)
+            self.assertFalse(local_preview_allowed(str(Path.home() / "video.mp4")))
+            self.assertFalse(local_preview_allowed(""))
+
+    def test_environment_flag_enables_previews(self):
+        from nodes._media_helpers import local_preview_allowed
+
+        with unittest.mock.patch.dict(
+            os.environ, {"AUSBOSS_TRANSFORM_LOCAL_PREVIEW": "1"}
+        ):
+            self.assertTrue(local_preview_allowed(str(Path.home() / "video.mp4")))
 
 
 if __name__ == "__main__":

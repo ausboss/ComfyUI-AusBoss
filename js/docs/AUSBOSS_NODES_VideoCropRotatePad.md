@@ -6,7 +6,9 @@ Loads one exact video frame and applies the same **rotate → crop → pad** tra
 
 - **video**: Video inside ComfyUI's input folder. Use **Upload video** on the node to add one.
 - **source_mode**: `input folder` or `local path`. Local path mode avoids copying large files.
-- **local_path**: Absolute path used only in local path mode.
+- **local_path**: Absolute path used only in local path mode. Queued workflows always
+  read it; the editor's live preview of paths outside ComfyUI's own folders requires
+  starting ComfyUI with `AUSBOSS_TRANSFORM_LOCAL_PREVIEW=1`.
 - **seek_mode**: Exact zero-based frame index or time in seconds.
 - **frame_index / frame_time**: Saved timeline position.
 
