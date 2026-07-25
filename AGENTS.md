@@ -3,10 +3,9 @@
 Instructions for any coding agent working in this repo. `CLAUDE.md` imports
 this file, so keep everything here and leave that one as a pointer.
 
-A suite of ComfyUI custom nodes by ausboss. Currently private and in
-**Phase 1** (scaffold + placeholder nodes). **Phase 2** ports existing
-personal nodes into this structure. **Phase 3** polishes for public release
-and the ComfyUI registry.
+A suite of polished ComfyUI custom nodes by ausboss. Public nodes must solve a
+repeated workflow need, keep a compact graph footprint, and pass backend plus
+browser acceptance before release.
 
 ## Hard rules
 
@@ -19,15 +18,12 @@ and the ComfyUI registry.
 - Keep diffs minimal: touch only the lines the task needs.
 - Be concise; skip pleasantries.
 
-## The Pixaroma reference clone
+## Third-party independence
 
-`../ComfyUI-Pixaroma` is a local clone of pixaroma/ComfyUI-Pixaroma kept
-**only** as a structural reference.
-
-- **Never copy code, assets, fonts, icons, or docs from it.**
-- Before adding a new node here, check whether Pixaroma already ships the
-  same thing — the goal is to complement, not clone. Overlap on generic
-  utilities is fine, but the implementation and UX must be our own.
+- Never copy third-party code, assets, fonts, icons, CSS, or documentation.
+- Review ecosystem overlap before accepting a public node. Generic overlap is
+  fine, but implementation, naming, interaction design, and documentation must
+  be this repository's own work.
 
 ## Architecture
 
@@ -48,10 +44,11 @@ workflows/        # example workflows (regular workflow JSON, not API JSON)
 
 ## Conventions
 
-- Class + mapping key: `AusBoss<Name>` (e.g. `AusBossShowText`). Mapping key
-  is the workflow-compatibility contract — never rename one after release.
+- Public mapping keys use `AUSBOSS_NODES_<Purpose>`. The mapping key is the
+  workflow-compatibility contract and must never be renamed after release.
 - Display name: `<Name> (AusBoss)` so typing "ausboss" surfaces every node.
-- Category: `🧰 AusBoss/<emoji> <Group>` — current groups: `📝 Text`, `🖼️ Image`.
+- Category: `🆎 AusBoss/<Group>`. The emoji is safe here — categories reach
+  the frontend as JSON and are never printed to the console at import time.
 - Every node gets `DESCRIPTION`, input `tooltip`s, and `OUTPUT_TOOLTIPS`.
 - IMAGE tensors are BHWC float batches; MASK is BHW. Return tuples always,
   even for one output: `(value,)`.
@@ -75,9 +72,9 @@ python scripts/validate_nodes.py
 ```
 
 Then restart ComfyUI fully, watch the AusBoss banner for failed modules,
-confirm the node appears in `GET http://127.0.0.1:8188/object_info`, and
-queue a tiny workflow (see `workflows/ausboss_smoke_test.json`). After JS
-changes, hard-refresh the browser tab (Ctrl+Shift+R).
+confirm the node appears in `GET http://127.0.0.1:8188/object_info`, queue a
+tiny API graph, and load its example workflow. After JS changes, hard-refresh
+the browser tab (Ctrl+Shift+R).
 
 ## Phase 2: porting an existing node
 
@@ -87,5 +84,6 @@ changes, hard-refresh the browser tab (Ctrl+Shift+R).
 3. Shared logic goes to `nodes/_<topic>_helpers.py`, not duplicated.
 4. Frontend goes to `js/<name>/index.js`; reusable bits to `js/shared/`.
 5. Keep the old class-name string as the mapping key only if existing saved
-   workflows must keep loading; otherwise use the `AusBoss<Name>` convention.
+   workflows must keep loading; otherwise use the `AUSBOSS_NODES_<Purpose>`
+   convention.
 6. Run the validation steps above before calling it done.

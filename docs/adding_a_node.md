@@ -1,97 +1,40 @@
-# Adding a node
+# Adding a polished node
 
-Every node in this pack follows the same recipe. Copy it and you get a node
-that loads, documents itself, and survives a broken neighbor.
+New public nodes are admitted deliberately. Start with the workflow problem and contract, not a prototype file.
 
-## 1. Create the node file
+## Contract first
 
-`nodes/node_my_thing.py` — one node (or one tight family of nodes) per file:
+Record the following before writing code:
 
-```python
-"""My Thing (AusBoss) — one-line summary of what it does."""
+- Purpose and repeated workflow it replaces
+- Permanent `AUSBOSS_NODES_<Purpose>` mapping key
+- Display name and `🆎 AusBoss/<Group>` category
+- Required/optional input IDs in serialization order, types, defaults, limits, and tooltips
+- Output names, types, and order
+- Tensor shapes, batch behavior, caching, errors, side effects, and API-mode behavior
+- Compatibility or migration behavior
 
+Every visible field and output must earn its place. Published IDs, input order, widget meaning, and output order are API.
 
-class AusBossMyThing:
-    DESCRIPTION = (
-        "What the node does, written for the tooltip a user reads in the "
-        "search menu. Mention inputs, outputs, and any gotchas."
-    )
-    CATEGORY = "🧰 AusBoss/📝 Text"  # or 🖼️ Image — add new groups sparingly
+## Implement narrowly
 
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "text": (
-                    "STRING",
-                    {"default": "", "multiline": True, "tooltip": "..."},
-                ),
-                # ("INT", {"default": 0, "min": 0, "max": 100, "tooltip": "..."})
-                # ("FLOAT", {"default": 1.0, "min": 0.0, "max": 10.0, "step": 0.05})
-                # (["choice_a", "choice_b"], {"default": "choice_a"})  # dropdown
-                # ("IMAGE", {"tooltip": "..."})  # BHWC float tensor batch
-            },
-            "optional": {},
-        }
+1. Put independently testable processing in an underscore-prefixed helper under `nodes/`.
+2. Add one V1 wrapper in `nodes/node_<purpose>.py` with `INPUT_TYPES`, `RETURN_TYPES`, `FUNCTION`, `CATEGORY`, and both mapping dictionaries.
+3. Add the module to `NODE_MODULES` in `__init__.py`.
+4. Add frontend JavaScript only when the normal schema cannot provide the required interaction.
+5. Namespace every route, extension, event, DOM marker, CSS class, cache, and browser state with `ausboss`.
+6. Chain lifecycle hooks through `chainCallback`; never replace core or third-party prototypes directly.
+7. Keep normal workflow and API execution independent from the custom frontend.
 
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("text",)
-    OUTPUT_TOOLTIPS = ("What comes out of this slot.",)
-    FUNCTION = "run"
+## Document and prove
 
-    def run(self, text):
-        return (text,)  # always a tuple, even for one output
+- Add rich help at `js/docs/<exact-mapping-key>.md`.
+- Add a minimal workflow and matching JPEG under `example_workflows/`.
+- Extend `scripts/validate_nodes.py` when the new contract needs a permanent assertion.
+- Add pure Python and dependency-free JavaScript tests.
+- Compile with ComfyUI's embedded Python.
+- Verify `/object_info/<mapping-key>`, ownership, served assets, routes, API execution, and queued dimensions/masks.
+- Test the actual canvas in Classic and Nodes 2.0, including save/reload, duplication, graph zoom, source replacement, and teardown.
+- Scan the diff for paths, hosts, secrets, obsolete branding, placeholders, agent attribution, and non-ASCII import output.
 
-
-NODE_CLASS_MAPPINGS = {"AusBossMyThing": AusBossMyThing}
-NODE_DISPLAY_NAME_MAPPINGS = {"AusBossMyThing": "My Thing (AusBoss)"}
-```
-
-Rules of thumb:
-
-- Class name and mapping key are `AusBoss<Name>` — the mapping key is what
-  saved workflows reference, so treat it as permanent once released.
-- Display name is `<Name> (AusBoss)` so searching "ausboss" finds everything.
-- Shared backend logic goes in `nodes/_<topic>_helpers.py` (the underscore
-  prefix keeps it out of the node-file pattern match).
-- Nodes that display something after a run set `OUTPUT_NODE = True` and
-  return `{"ui": {...}, "result": (...)}` — see `node_show_text.py`.
-
-## 2. Register it
-
-Add one line to `NODE_MODULES` in `__init__.py`:
-
-```python
-NODE_MODULES = [
-    ...
-    "node_my_thing",
-]
-```
-
-That's the whole registration. If the module throws on import, the pack
-logs it and loads everything else — check the AusBoss banner in the console.
-
-## 3. (Optional) frontend JS
-
-Only needed for custom widgets, buttons, or displaying run results.
-
-- Entry point: `js/my_thing/index.js` — **`.js` files auto-load**, one folder
-  per node.
-- Shared utilities: `js/shared/*.mjs` — **`.mjs` files do not auto-load**,
-  import them from your entry point.
-- Never overwrite a LiteGraph prototype callback; use `chainCallback` from
-  `js/shared/index.mjs`. `js/show_text/index.js` is the working example.
-
-## 4. Validate
-
-```bash
-python scripts/validate_nodes.py
-```
-
-Then:
-
-1. Restart ComfyUI fully (Python is only read at startup).
-2. Watch the AusBoss banner — your node count should tick up, no red lines.
-3. Confirm the class appears in `GET http://127.0.0.1:8188/object_info`.
-4. Drop the node in a tiny graph, queue it, check the output.
-5. If you touched JS, hard-refresh the browser tab (Ctrl+Shift+R).
+Do not release a node that only works in the editor, only works for one source, or returns debugging outputs users do not need.

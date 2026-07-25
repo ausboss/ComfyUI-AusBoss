@@ -1,31 +1,30 @@
 <div align="center">
   <h1>ComfyUI-AusBoss</h1>
+  <p><strong>Polished nodes for the workflows I use most.</strong></p>
   <p>
-    <strong>AusBoss's suite of useful ComfyUI nodes.</strong><br />
-    Text &amp; prompt utilities • Image helpers • more on the way
-  </p>
-  <p>
-    <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License">
-    <img src="https://img.shields.io/badge/status-early%20scaffold-orange?style=flat-square" alt="Status">
+    <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT License">
+    <img src="https://img.shields.io/badge/release-1.0.0-00b4aa?style=flat-square" alt="Release 1.0.0">
   </p>
 </div>
 
----
-
-> **Status:** Phase 1 scaffold. The nodes below are simple placeholders that prove out
-> the project structure. My personal nodes get ported in next, and the pack goes public
-> once it's polished.
+ComfyUI-AusBoss is a curated collection of polished nodes designed to streamline the ComfyUI workflows I use most. Each node replaces repetitive setup with focused controls, compact graph footprints, and only the outputs needed downstream. Larger visual tasks open into dedicated full-screen editors, while experiments and one-off utilities stay out of the public pack.
 
 ## Nodes
 
-| Node | What it does |
-|---|---|
-| **Text Box (AusBoss)** | Multiline text field with a STRING output — the basic prompt-authoring primitive. |
-| **Show Text (AusBoss)** | Displays any wired-in STRING right on the node after each run, and passes it through. |
-| **Random Line (AusBoss)** | Picks one line from a list, seed-driven; `#` comments and blank lines are skipped. |
-| **Image Dimensions (AusBoss)** | Reads width / height / batch off an IMAGE, plus a one-line info summary. |
+### Image Crop + Rotate + Pad (AusBoss)
 
-All nodes live under the **🧰 AusBoss** category in the node search.
+A Load Image-style node with a compact transformed preview and a full-screen editor for precise crop, rotation, padding, fill, mask feathering, and output-size alignment.
+
+### Video Crop + Rotate + Pad (AusBoss)
+
+Targets an exact video frame from an uploaded input file or local path. The full-screen editor adds a long timeline, playback, exact frame steps, and the same transform controls as the image node.
+
+Both nodes return exactly:
+
+1. `image` — transformed ComfyUI `IMAGE`
+2. `mask` — generated-area `MASK`, including source transparency, rotation corners, and padding
+
+The operation order is always **rotate → crop → pad**. New sources start with zero rotation, full crop, zero padding, and a canvas multiple of `1`.
 
 ## Install
 
@@ -34,41 +33,53 @@ cd ComfyUI/custom_nodes
 git clone https://github.com/ausboss/ComfyUI-AusBoss.git
 ```
 
-Restart ComfyUI. No extra dependencies — everything runs on what ComfyUI already ships.
+Restart ComfyUI, then search for `AusBoss`. There are no additional Python dependencies; the pack uses Pillow, NumPy, Torch, and PyAV already distributed with ComfyUI.
 
-Try it: load [workflows/ausboss_smoke_test.json](workflows/ausboss_smoke_test.json) and hit Queue.
+After updating frontend files, hard-refresh the browser with `Ctrl+Shift+R`.
 
-> Updated the pack and something looks stale? Hard-refresh the browser tab
-> (**Ctrl+Shift+R**) — the browser caches ComfyUI frontend JS aggressively.
+## Quick start
 
-## Project structure
+1. Add either transform node.
+2. Pick or upload a source. For very large videos, switch the video node to `local path` mode.
+   Queued workflows always read local paths, but the editor's live preview of paths outside
+   ComfyUI's own folders is opt-in: start ComfyUI with `AUSBOSS_TRANSFORM_LOCAL_PREVIEW=1`
+   to enable it. This keeps the preview routes from exposing arbitrary files to anything
+   that can reach your ComfyUI server (for example on `--listen`).
+3. Click **Open editor**.
+4. Drag cyan crop handles, orange padding handles, or the green rotation handle.
+5. Close the editor and connect `image` and `mask` downstream.
 
-```text
-ComfyUI-AusBoss/
-├── __init__.py          # merges every node module's mappings, prints the banner
-├── nodes/               # one file per node (node_*.py), shared helpers as _*.py
-├── js/                  # frontend: one folder per node, shared/ for common .mjs modules
-├── docs/                # developer docs (start with adding_a_node.md)
-├── scripts/             # validate_nodes.py — offline sanity checks
-└── workflows/           # example / smoke-test workflows
-```
+Use the matching examples in [`example_workflows`](example_workflows) as small starting graphs.
+
+## Editor controls
+
+- Eight crop handles with generous hit targets
+- Four visually distinct padding handles
+- Rotation handle with alignment grid and `Shift` snapping to 15 degrees
+- Free or ratio-locked crop
+- Mouse-wheel zoom; middle-mouse or `Alt`-drag pan
+- Reset view, reset padding, and reset all
+- Video first/last, ±1, ±25, ±50, ±100, playback, and timeline scrubbing
+
+## Compatibility
+
+- Classic V1 node definitions for broad ComfyUI compatibility
+- Classic canvas and Nodes 2.0 frontend support
+- API-mode execution does not require the editor to be open
+- Transform editors validated on ComfyUI `0.27.1`; the pack scaffold was also validated on `0.28.0`
+
+No minimum ComfyUI version is declared. If a frontend update changes custom-widget behavior, please include your ComfyUI and frontend versions in the issue.
 
 ## Development
 
-- **Add a node:** follow [docs/adding_a_node.md](docs/adding_a_node.md) — new file in
-  `nodes/`, one line in `NODE_MODULES` in `__init__.py`.
-- **Validate offline:** `python scripts/validate_nodes.py`
-- After changing Python, restart ComfyUI; after changing JS, hard-refresh the tab.
-- **Using a coding agent?** [AGENTS.md](AGENTS.md) holds the conventions and
-  guardrails for this repo (`CLAUDE.md` just imports it).
+```bash
+python scripts/validate_nodes.py
+python -m unittest discover -s tests -p "test_*.py" -v
+node --test tests/transform_geometry.test.mjs
+```
 
-## Roadmap
+See [`AGENTS.md`](AGENTS.md) for compatibility rules and [`docs/adding_a_node.md`](docs/adding_a_node.md) for the node checklist.
 
-- [x] **Phase 1** — clean scaffold with placeholder nodes
-- [ ] **Phase 2** — port my existing personal nodes into this structure
-- [ ] **Phase 3** — polish, example workflows, publish publicly (+ ComfyUI registry)
+## License
 
-## Credits
-
-Repository structure inspired by [ComfyUI-Pixaroma](https://github.com/pixaroma/ComfyUI-Pixaroma)
-(MIT) — a great example of a well-organized node pack. No code or assets are copied from it.
+MIT. See [`LICENSE`](LICENSE).
