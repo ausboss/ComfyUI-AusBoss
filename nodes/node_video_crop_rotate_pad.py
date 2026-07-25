@@ -16,7 +16,7 @@ NODE_ID = "AUSBOSS_NODES_VideoCropRotatePad"
 
 
 class AusBossVideoCropRotatePad:
-    CATEGORY = "AusBoss/Video"
+    CATEGORY = "🆎 AusBoss/Video"
     DESCRIPTION = (
         "Targets one exact video frame and applies the same visual rotate, crop, and pad "
         "transform used by the image loader."

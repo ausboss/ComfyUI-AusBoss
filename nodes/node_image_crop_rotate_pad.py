@@ -11,7 +11,7 @@ NODE_ID = "AUSBOSS_NODES_ImageCropRotatePad"
 
 
 class AusBossImageCropRotatePad:
-    CATEGORY = "AusBoss/Image"
+    CATEGORY = "🆎 AusBoss/Image"
     DESCRIPTION = (
         "Loads an image and applies one visual rotate, crop, and pad transform. "
         "The mask marks source transparency, rotation voids, and new padding."

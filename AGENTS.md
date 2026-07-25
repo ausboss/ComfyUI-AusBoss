@@ -47,7 +47,8 @@ workflows/        # example workflows (regular workflow JSON, not API JSON)
 - Public mapping keys use `AUSBOSS_NODES_<Purpose>`. The mapping key is the
   workflow-compatibility contract and must never be renamed after release.
 - Display name: `<Name> (AusBoss)` so typing "ausboss" surfaces every node.
-- Category: `AusBoss/<Group>`.
+- Category: `🆎 AusBoss/<Group>`. The emoji is safe here — categories reach
+  the frontend as JSON and are never printed to the console at import time.
 - Every node gets `DESCRIPTION`, input `tooltip`s, and `OUTPUT_TOOLTIPS`.
 - IMAGE tensors are BHWC float batches; MASK is BHW. Return tuples always,
   even for one output: `(value,)`.
@@ -83,5 +84,6 @@ the browser tab (Ctrl+Shift+R).
 3. Shared logic goes to `nodes/_<topic>_helpers.py`, not duplicated.
 4. Frontend goes to `js/<name>/index.js`; reusable bits to `js/shared/`.
 5. Keep the old class-name string as the mapping key only if existing saved
-   workflows must keep loading; otherwise use the `AusBoss<Name>` convention.
+   workflows must keep loading; otherwise use the `AUSBOSS_NODES_<Purpose>`
+   convention.
 6. Run the validation steps above before calling it done.

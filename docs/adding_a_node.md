@@ -8,7 +8,7 @@ Record the following before writing code:
 
 - Purpose and repeated workflow it replaces
 - Permanent `AUSBOSS_NODES_<Purpose>` mapping key
-- Display name and `AusBoss/<Group>` category
+- Display name and `🆎 AusBoss/<Group>` category
 - Required/optional input IDs in serialization order, types, defaults, limits, and tooltips
 - Output names, types, and order
 - Tensor shapes, batch behavior, caching, errors, side effects, and API-mode behavior
