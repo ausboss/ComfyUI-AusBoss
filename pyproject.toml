@@ -1,13 +1,12 @@
 [project]
-name = "ComfyUI-AusBoss"
-description = "AusBoss's suite of ComfyUI nodes: text, prompt, and image utilities. Early scaffold — placeholder nodes now, personal node ports landing next."
+name = "ausboss-nodes"
+description = "A curated collection of polished ComfyUI nodes for streamlined image and video workflows."
 version = "0.1.0"
 license = { file = "LICENSE" }
 
-keywords = ["comfyui", "nodes", "text", "prompt", "image", "utilities", "ausboss"]
+keywords = ["comfyui", "nodes", "image", "video", "crop", "rotate", "outpaint", "ausboss"]
 
-# No dependencies on purpose: everything so far runs on what ComfyUI
-# already ships (torch, PIL). Keep it that way unless a node truly needs more.
+# The nodes use Pillow, NumPy, Torch, and PyAV supplied by ComfyUI.
 dependencies = []
 
 [project.urls]
