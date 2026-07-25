@@ -41,7 +41,7 @@ def transform_inputs() -> dict[str, tuple]:
         "feather": (
             "INT",
             {
-                "default": 0,
+                "default": 24,
                 "min": 0,
                 "max": 4096,
                 "step": 1,

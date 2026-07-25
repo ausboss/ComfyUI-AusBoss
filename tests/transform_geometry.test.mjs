@@ -68,6 +68,7 @@ test("reset and source change restore identity including timeline", () => {
   const reset = resetTransformValues(true);
   assert.equal(reset.canvas_multiple, 1);
   assert.equal(reset.pad_bottom, 0);
+  assert.equal(reset.feather, 24); // feather defaults on; no-op until padding/rotation exists
   assert.equal(reset.frame_index, 0);
   assert.equal(sourceChanged("a", "b", true), true);
   assert.equal(sourceChanged("a", "b", false), false);

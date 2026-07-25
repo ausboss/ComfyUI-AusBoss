@@ -11,7 +11,9 @@ export const IDENTITY_TRANSFORM = Object.freeze({
   pad_top: 0,
   pad_right: 0,
   pad_bottom: 0,
-  feather: 0,
+  // Feather defaults on: with zero padding/rotation there is no generated
+  // area, so it is a no-op until the mask has something to soften.
+  feather: 24,
   canvas_multiple: 1,
   fill_color: "#808080",
 });

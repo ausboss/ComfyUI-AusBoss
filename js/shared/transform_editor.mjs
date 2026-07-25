@@ -498,9 +498,18 @@ function buildControls(state, sidebar) {
   const padSection = createElement("section", "ausboss-transform-section"); padSection.append(sectionHeading("Padding & mask", "pad"));
   const color = createElement("input"); color.type = "color"; color.value = normalizeColor(value(node, "fill_color", "#808080")); color.addEventListener("input", () => { setValue(node, "fill_color", color.value); draw(state); });
   addLabeledControl(padSection, "Fill", color);
-  const feather = createElement("input"); feather.type = "range"; feather.min = "0"; feather.max = "512"; feather.step = "1"; feather.value = value(node, "feather", 0);
-  const featherText = createElement("span", "", `${feather.value}px`); feather.addEventListener("input", () => { featherText.textContent = `${feather.value}px`; setValue(node, "feather", Number(feather.value)); });
-  const featherLabel = addLabeledControl(padSection, "Feather", feather); featherLabel.lastElementChild.replaceWith(featherText);
+  // Feather: slider for coarse sweeps plus a number box (with up/down
+  // arrows) for granular single-pixel control.
+  const feather = createElement("input"); feather.type = "range"; feather.min = "0"; feather.max = "512"; feather.step = "1"; feather.value = value(node, "feather", 24);
+  const featherNumber = createElement("input"); featherNumber.type = "number"; featherNumber.min = "0"; featherNumber.max = "4096"; featherNumber.step = "1"; featherNumber.value = feather.value;
+  const applyFeather = (raw) => {
+    const amount = Math.max(0, Math.min(4096, Math.round(Number(raw) || 0)));
+    feather.value = String(Math.min(512, amount)); featherNumber.value = String(amount);
+    setValue(node, "feather", amount); draw(state);
+  };
+  feather.addEventListener("input", () => applyFeather(feather.value));
+  featherNumber.addEventListener("input", () => applyFeather(featherNumber.value));
+  const featherLabel = addLabeledControl(padSection, "Feather", feather); featherLabel.lastElementChild.replaceWith(featherNumber);
   const multiple = createElement("input"); multiple.type = "number"; multiple.min = "1"; multiple.max = "4096"; multiple.step = "1"; multiple.value = value(node, "canvas_multiple", 1);
   multiple.addEventListener("change", () => { setValue(node, "canvas_multiple", Math.max(1, Number(multiple.value) || 1)); draw(state); });
   addLabeledControl(padSection, "Multiple", multiple, "px");
@@ -554,6 +563,45 @@ function drawFinalPreview(state) {
   context.rotate((Number(current.rotation_degrees) || 0) * Math.PI / 180);
   drawSourceImage(context, state, scale);
   context.restore();
+
+  // Live feather: a miniature of the backend blend. Build the generated-area
+  // mask (everything the image does not cover: padding, rotation corners,
+  // source transparency), blur it, draw it twice (alpha ~doubles, matching
+  // the engine's ramp that starts at full strength on the edge), tint with
+  // the fill color, and overlay.
+  const featherPreviewPx = Math.min(60, (Number(current.feather) || 0) * scale);
+  if (featherPreviewPx >= 0.3) {
+    const maskLayer = document.createElement("canvas");
+    maskLayer.width = pixelWidth; maskLayer.height = pixelHeight;
+    const maskContext = maskLayer.getContext("2d");
+    maskContext.setTransform(dpr, 0, 0, dpr, 0, 0);
+    maskContext.fillStyle = "#fff";
+    maskContext.fillRect(0, 0, width, height);
+    maskContext.save();
+    maskContext.beginPath();
+    maskContext.rect(padding.left * scale, padding.top * scale, crop.width * scale, crop.height * scale);
+    maskContext.clip();
+    maskContext.globalCompositeOperation = "destination-out";
+    maskContext.translate(
+      (padding.left - crop.x) * scale + source.width * scale / 2,
+      (padding.top - crop.y) * scale + source.height * scale / 2
+    );
+    maskContext.rotate((Number(current.rotation_degrees) || 0) * Math.PI / 180);
+    drawSourceImage(maskContext, state, scale);
+    maskContext.restore();
+
+    const soft = document.createElement("canvas");
+    soft.width = pixelWidth; soft.height = pixelHeight;
+    const softContext = soft.getContext("2d");
+    softContext.filter = `blur(${featherPreviewPx * dpr}px)`;
+    softContext.drawImage(maskLayer, 0, 0);
+    softContext.drawImage(maskLayer, 0, 0);
+    softContext.filter = "none";
+    softContext.globalCompositeOperation = "source-in";
+    softContext.fillStyle = normalizeColor(current.fill_color);
+    softContext.fillRect(0, 0, pixelWidth, pixelHeight);
+    context.drawImage(soft, 0, 0, width, height);
+  }
 }
 
 function buildTimeline(state) {
@@ -709,7 +757,7 @@ function drawScene(context, state, render, preview) {
     if (state.grid) drawGrid(context, cropRect);
     drawCropHandles(context, cropRect, state.drag?.kind === "crop" ? state.drag.name : null);
     drawPaddingHandles(context, outputRect, state.drag?.kind === "padding" ? state.drag.name : null);
-    drawRotationHandle(context, render, state.drag?.kind === "rotation");
+    drawRotationHandle(context, state, render, state.drag?.kind === "rotation");
     context.fillStyle = "#e9edf0"; context.font = "12px system-ui"; context.fillText(`${padding.outputWidth} x ${padding.outputHeight}`, outputRect.x + 8, outputRect.y + 18);
   }
   context.restore();
@@ -747,22 +795,32 @@ function drawCropHandles(context, rect, active) {
 function drawPaddingHandles(context, rect, active) {
   for (const handle of paddingHandleCenters(rect)) { context.save(); context.translate(handle.x, handle.y); context.rotate(Math.PI / 4); context.fillStyle = handle.name === active ? "#fff" : "#ff9d42"; context.fillRect(-8, -8, 16, 16); context.strokeStyle = "#3b2108"; context.strokeRect(-8, -8, 16, 16); context.restore(); }
 }
-// Anchored to the outermost top-right corner of everything on the canvas
-// (source and padded output), so the knob stays visually attached no matter
-// how far the padding grows, and clear of the pad_top diamond.
-function rotationCorner(render) {
-  return {
-    x: Math.max(render.sourceRect.x + render.sourceRect.width, render.outputRect.x + render.outputRect.width),
-    y: Math.min(render.sourceRect.y, render.outputRect.y),
+// The knob rides the actual top-right corner of the image being rotated
+// (the rotated quad's corner, not any bounding box), so it stays physically
+// attached and orbits with the image as the angle changes - the same mental
+// model as grabbing an object's corner in a design tool.
+function rotationAnchor(state, render) {
+  const angle = (Number(value(state.node, "rotation_degrees", 0)) || 0) * Math.PI / 180;
+  const centerX = render.sourceRect.x + render.sourceRect.width / 2;
+  const centerY = render.sourceRect.y + render.sourceRect.height / 2;
+  const halfWidth = state.sourceWidth * render.scale / 2;
+  const halfHeight = state.sourceHeight * render.scale / 2;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  // Unrotated top-right corner (+hw, -hh) rotated about the image center.
+  const corner = {
+    x: centerX + halfWidth * cos + halfHeight * sin,
+    y: centerY + halfWidth * sin - halfHeight * cos,
   };
+  const length = Math.hypot(corner.x - centerX, corner.y - centerY) || 1;
+  const direction = { x: (corner.x - centerX) / length, y: (corner.y - centerY) / length };
+  return { corner, handle: { x: corner.x + direction.x * 34, y: corner.y + direction.y * 34 } };
 }
-function rotationHandle(render) {
-  const corner = rotationCorner(render);
-  return { x: corner.x + 28, y: corner.y - 28 };
+function rotationHandle(state, render) {
+  return rotationAnchor(state, render).handle;
 }
-function drawRotationHandle(context, render, active) {
-  const handle = rotationHandle(render);
-  const corner = rotationCorner(render);
+function drawRotationHandle(context, state, render, active) {
+  const { corner, handle } = rotationAnchor(state, render);
   context.strokeStyle = "#73e36a";
   context.beginPath(); context.moveTo(corner.x, corner.y); context.lineTo(handle.x, handle.y); context.stroke();
   context.fillStyle = active ? "#fff" : "#73e36a";
@@ -800,7 +858,7 @@ function drawRotateGlyph(context, x, y, radius, color) {
 function pointerDown(state, event) {
   if (event.button === 1 || event.altKey) { state.drag = { kind: "pan", start: canvasLocalPoint(state.canvas, event), view: { ...state.view } }; }
   else if (event.button === 0 && state.render) {
-    const point = canvasLocalPoint(state.canvas, event); const rotate = rotationHandle(state.render);
+    const point = canvasLocalPoint(state.canvas, event); const rotate = rotationHandle(state, state.render);
     const selected = nearestHandle(point, [
       { kind: "rotation", priority: 0, radius: 24, handles: [{ name: "rotation", ...rotate }] },
       { kind: "padding", priority: 1, radius: 24, handles: paddingHandleCenters(state.render.outputRect) },
@@ -836,7 +894,7 @@ function pointerUp(state, event) { if (!state.drag) return; state.drag = null; s
 function inside(point, rect) { return point.x >= rect.x && point.x <= rect.x + rect.width && point.y >= rect.y && point.y <= rect.y + rect.height; }
 function setCrop(node, crop) { setValue(node, "crop_x", crop.x); setValue(node, "crop_y", crop.y); setValue(node, "crop_width", crop.width); setValue(node, "crop_height", crop.height); }
 function updateCursor(state, point) {
-  if (!state.render) return; const rotate = rotationHandle(state.render); const selected = nearestHandle(point, [
+  if (!state.render) return; const rotate = rotationHandle(state, state.render); const selected = nearestHandle(point, [
     { kind: "rotation", priority: 0, radius: 24, handles: [{ name: "rotation", ...rotate }] },
     { kind: "padding", priority: 1, radius: 24, handles: paddingHandleCenters(state.render.outputRect) },
     { kind: "crop", priority: 2, radius: 22, handles: cropHandleCenters(state.render.cropRect) },
