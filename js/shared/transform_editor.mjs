@@ -123,7 +123,7 @@ function imageSourceUrl(selection) {
   return api.apiURL(`/view?${new URLSearchParams(reference)}`);
 }
 
-function videoParams(node) {
+function videoParams(node, maxSize = 1600) {
   return new URLSearchParams({
     source_mode: String(value(node, "source_mode", "input folder")),
     video: String(value(node, "video", "")),
@@ -131,8 +131,8 @@ function videoParams(node) {
     seek_mode: String(value(node, "seek_mode", "frame index")),
     frame_index: String(Math.max(0, Math.round(Number(value(node, "frame_index", 0)) || 0))),
     frame_time: String(Math.max(0, Number(value(node, "frame_time", 0)) || 0)),
-    max_width: "1600",
-    max_height: "1600",
+    max_width: String(maxSize),
+    max_height: String(maxSize),
   });
 }
 
@@ -286,9 +286,8 @@ function syncTimelineRange(state) {
   if (state.timelineLabel) state.timelineLabel.textContent = `${state.timelineSlider.value} / ${state.timelineSlider.max}`;
 }
 
-// Frame-only refresh for scrubbing: metadata is already cached, so a seek is
-// exactly one aborted-superseded fetch. Errors draw into the canvas instead
-// of throwing, and aborted requests are expected mid-scrub.
+// Frame-only refresh for discrete jumps (step buttons, drag release):
+// full-resolution fetch that also snaps the widgets to the decoded frame.
 async function seekFrame(state) {
   try {
     await loadVideoFrame(state);
@@ -299,11 +298,40 @@ async function seekFrame(state) {
   }
 }
 
-async function loadVideoFrame(state, serial = ++state.loadSerial) {
+// Live scrubbing pump. Video players feel responsive because they always
+// render *something* for the newest position instead of waiting for quiet.
+// This keeps exactly one request in flight, fires the first one immediately
+// (no debounce delay), and when a response lands it re-reads the widgets so
+// the next fetch always targets the latest slider position — intermediate
+// positions are skipped, never queued. Scrub frames are fetched at reduced
+// size for fast decode+encode; the drag-release handler does one full-size
+// fetch at the end.
+const SCRUB_PREVIEW_SIZE = 640;
+
+function requestScrubFrame(state) {
+  state.scrubPending = true;
+  if (state.scrubActive) return;
+  state.scrubActive = true;
+  (async () => {
+    while (state.scrubPending && !state.disposed) {
+      state.scrubPending = false;
+      try {
+        await loadVideoFrame(state, ++state.loadSerial, { maxSize: SCRUB_PREVIEW_SIZE, syncWidgets: false });
+        draw(state); updateModalInfo(state);
+      } catch (error) {
+        if (error?.name !== "AbortError") { drawEmpty(state, error.message); break; }
+      }
+    }
+    state.scrubActive = false;
+  })();
+}
+
+async function loadVideoFrame(state, serial = ++state.loadSerial, options = {}) {
+  const { maxSize = 1600, syncWidgets = true } = options;
   state.frameController?.abort();
   const controller = new AbortController();
   state.frameController = controller;
-  const response = await api.fetchApi(`/ausboss/transform/video/frame?${videoParams(state.node)}`, { signal: controller.signal });
+  const response = await api.fetchApi(`/ausboss/transform/video/frame?${videoParams(state.node, maxSize)}`, { signal: controller.signal });
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
     throw new Error(payload.error || "Could not decode video preview frame.");
@@ -318,10 +346,15 @@ async function loadVideoFrame(state, serial = ++state.loadSerial) {
     if (serial !== state.loadSerial) return;
     if (state.frameObjectUrl) URL.revokeObjectURL(state.frameObjectUrl);
     state.frameObjectUrl = objectUrl; state.image = image;
-    const actualIndex = Number(response.headers.get("X-AusBoss-Frame-Index"));
-    const actualTime = Number(response.headers.get("X-AusBoss-Frame-Time"));
-    if (Number.isFinite(actualIndex)) setValue(state.node, "frame_index", actualIndex);
-    if (Number.isFinite(actualTime)) setValue(state.node, "frame_time", actualTime);
+    // Writing the decoded position back is only safe when the user is not
+    // mid-scrub: a stale response overwriting frame_index would rubber-band
+    // the slider to an older frame.
+    if (syncWidgets) {
+      const actualIndex = Number(response.headers.get("X-AusBoss-Frame-Index"));
+      const actualTime = Number(response.headers.get("X-AusBoss-Frame-Time"));
+      if (Number.isFinite(actualIndex)) setValue(state.node, "frame_index", actualIndex);
+      if (Number.isFinite(actualTime)) setValue(state.node, "frame_time", actualTime);
+    }
   } catch (error) {
     URL.revokeObjectURL(objectUrl);
     throw error;
@@ -344,7 +377,7 @@ function openEditor(state) {
   state.modal = modal; state.canvas = canvas;
   buildControls(state, left);
   const status = createElement("div", "ausboss-transform-status"); status.dataset.ausbossStatus = ""; right.append(status);
-  right.append(createElement("div", "ausboss-transform-help", "Drag cyan squares to crop. Drag inside the crop to move it. Orange diamonds add padding. The green handle rotates; hold Shift to snap to 15 degrees. Wheel zooms. Middle mouse or Alt-drag pans."));
+  right.append(createElement("div", "ausboss-transform-help", "Drag cyan squares to crop. Drag inside the crop to move it. Orange diamonds add padding. The \u{1F503} handle at the top-right corner rotates; hold Shift to snap to 15 degrees. Wheel zooms. Middle mouse or Alt-drag pans."));
   if (state.kind === "video") modal.append(buildTimeline(state));
   document.body.append(modal);
 
@@ -356,13 +389,14 @@ function openEditor(state) {
   canvas.addEventListener("pointercancel", (event) => pointerUp(state, event), { signal: abort.signal });
   canvas.addEventListener("wheel", (event) => wheelZoom(state, event), { signal: abort.signal, passive: false });
   window.addEventListener("keydown", (event) => keyDown(state, event), { signal: abort.signal });
+  window.addEventListener("keyup", (event) => keyUp(state, event), { signal: abort.signal });
   state.resizeObserver = new ResizeObserver(() => draw(state)); state.resizeObserver.observe(stage);
   requestAnimationFrame(() => { resetView(state); draw(state); updateModalInfo(state); });
 }
 
 function closeEditor(state) {
   stopPlayback(state);
-  if (state.scrubTimer) { clearTimeout(state.scrubTimer); state.scrubTimer = null; }
+  state.scrubPending = false;
   state.modalAbort?.abort(); state.resizeObserver?.disconnect(); state.modal?.remove();
   state.modal = null; state.canvas = null; state.drag = null; state.grid = false;
   draw(state); state.node.setDirtyCanvas?.(true, true);
@@ -419,17 +453,29 @@ function buildTimeline(state) {
     setValue(node, "seek_mode", "frame index"); setValue(node, "frame_index", Number(slider.value));
     setValue(node, "frame_time", Number(slider.value) / Math.max(1, state.metadata?.fps || 30));
     label.textContent = `${slider.value} / ${slider.max}`;
-    // Trailing debounce: dragging emits an input event per pixel, and each
-    // frame decode is an HTTP round trip. 70ms keeps scrubbing responsive
-    // while superseded requests are aborted inside loadVideoFrame.
-    if (state.scrubTimer) clearTimeout(state.scrubTimer);
-    state.scrubTimer = window.setTimeout(() => { state.scrubTimer = null; seekFrame(state); }, 70);
+    requestScrubFrame(state);
   };
-  slider.addEventListener("input", seek); state.timelineSlider = slider; state.timelineLabel = label;
+  slider.addEventListener("input", seek);
+  // Drag release: one full-resolution fetch that snaps widgets to the frame
+  // that was actually decoded.
+  slider.addEventListener("change", () => seekFrame(state));
+  state.timelineSlider = slider; state.timelineLabel = label;
   label.textContent = `${slider.value} / ${slider.max}`; timeline.append(slider, label, steps); return timeline;
 }
 
-async function timelineCommand(state, command, slider = state.timelineSlider, label = state.timelineLabel) {
+// Light variant for continuous motion (playback, held arrow keys): reduced
+// preview size, widgets still snapped since only the caller writes position.
+async function seekFrameLight(state) {
+  try {
+    await loadVideoFrame(state, ++state.loadSerial, { maxSize: SCRUB_PREVIEW_SIZE });
+    draw(state); updateModalInfo(state);
+  } catch (error) {
+    if (error?.name === "AbortError") return;
+    drawEmpty(state, error.message);
+  }
+}
+
+async function timelineCommand(state, command, slider = state.timelineSlider, label = state.timelineLabel, light = false) {
   if (command === "play") { state.playbackTimer ? stopPlayback(state) : startPlayback(state); return; }
   const maximum = Math.max(0, Number(slider?.max) || (state.metadata?.frame_count || 1) - 1);
   let next = Number(value(state.node, "frame_index", 0));
@@ -437,7 +483,8 @@ async function timelineCommand(state, command, slider = state.timelineSlider, la
   next = Math.round(clamp(next, 0, maximum));
   if (slider) slider.value = String(next); if (label) label.textContent = `${next} / ${maximum}`;
   setValue(state.node, "seek_mode", "frame index"); setValue(state.node, "frame_index", next);
-  setValue(state.node, "frame_time", next / Math.max(1, state.metadata?.fps || 30)); await seekFrame(state);
+  setValue(state.node, "frame_time", next / Math.max(1, state.metadata?.fps || 30));
+  await (light ? seekFrameLight(state) : seekFrame(state));
 }
 
 function startPlayback(state) {
@@ -445,21 +492,34 @@ function startPlayback(state) {
   const delay = Math.max(20, Math.round(1000 / Math.max(1, state.metadata?.fps || 30)));
   const tick = async () => {
     if (!state.playbackTimer) return;
-    const before = Number(value(state.node, "frame_index", 0)); await timelineCommand(state, 1);
+    const before = Number(value(state.node, "frame_index", 0)); await timelineCommand(state, 1, state.timelineSlider, state.timelineLabel, true);
     if (Number(value(state.node, "frame_index", 0)) === before) { stopPlayback(state); return; }
     state.playbackTimer = window.setTimeout(tick, delay);
   };
   state.playbackTimer = window.setTimeout(tick, delay);
 }
-function stopPlayback(state) { if (state.playbackTimer) clearTimeout(state.playbackTimer); state.playbackTimer = null; if (state.playButton) state.playButton.textContent = "Play"; }
+function stopPlayback(state) {
+  const wasPlaying = Boolean(state.playbackTimer);
+  if (state.playbackTimer) clearTimeout(state.playbackTimer);
+  state.playbackTimer = null;
+  if (state.playButton) state.playButton.textContent = "Play";
+  // Land on a full-resolution frame after light playback previews.
+  if (wasPlaying) void seekFrame(state);
+}
 
 function keyDown(state, event) {
   if (!state.modal || ["INPUT", "SELECT", "TEXTAREA"].includes(event.target?.tagName)) return;
   if (event.key === "Escape") { closeEditor(state); return; }
   if (state.kind === "video" && event.code === "Space") { event.preventDefault(); timelineCommand(state, "play"); }
   if (state.kind === "video" && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
-    event.preventDefault(); timelineCommand(state, (event.shiftKey ? 10 : 1) * (event.key === "ArrowLeft" ? -1 : 1));
+    // Light fetches while the key repeats; keyup lands a full-size frame.
+    event.preventDefault(); timelineCommand(state, (event.shiftKey ? 10 : 1) * (event.key === "ArrowLeft" ? -1 : 1), state.timelineSlider, state.timelineLabel, true);
   }
+}
+
+function keyUp(state, event) {
+  if (!state.modal || state.kind !== "video") return;
+  if (event.key === "ArrowLeft" || event.key === "ArrowRight") void seekFrame(state);
 }
 
 function fitCrop(state) {
@@ -539,11 +599,24 @@ function drawCropHandles(context, rect, active) {
 function drawPaddingHandles(context, rect, active) {
   for (const handle of paddingHandleCenters(rect)) { context.save(); context.translate(handle.x, handle.y); context.rotate(Math.PI / 4); context.fillStyle = handle.name === active ? "#fff" : "#ff9d42"; context.fillRect(-8, -8, 16, 16); context.strokeStyle = "#3b2108"; context.strokeRect(-8, -8, 16, 16); context.restore(); }
 }
-function rotationHandle(render) { return { x: render.sourceRect.x + render.sourceRect.width / 2, y: render.sourceRect.y - 55 }; }
+// Top-right corner keeps the rotation control clear of the pad_top diamond
+// that used to sit directly beneath it.
+function rotationHandle(render) {
+  return { x: render.sourceRect.x + render.sourceRect.width + 28, y: render.sourceRect.y - 28 };
+}
 function drawRotationHandle(context, render, active) {
-  const handle = rotationHandle(render); const centerX = render.sourceRect.x + render.sourceRect.width / 2;
-  context.strokeStyle = "#73e36a"; context.beginPath(); context.moveTo(centerX, render.sourceRect.y); context.lineTo(handle.x, handle.y); context.stroke();
-  context.fillStyle = active ? "#fff" : "#73e36a"; context.beginPath(); context.arc(handle.x, handle.y, 10, 0, Math.PI * 2); context.fill(); context.strokeStyle = "#173516"; context.stroke();
+  const handle = rotationHandle(render);
+  const corner = { x: render.sourceRect.x + render.sourceRect.width, y: render.sourceRect.y };
+  context.strokeStyle = "#73e36a";
+  context.beginPath(); context.moveTo(corner.x, corner.y); context.lineTo(handle.x, handle.y); context.stroke();
+  context.fillStyle = active ? "#fff" : "#73e36a";
+  context.beginPath(); context.arc(handle.x, handle.y, 13, 0, Math.PI * 2); context.fill();
+  context.strokeStyle = "#173516"; context.stroke();
+  context.save();
+  context.font = "14px system-ui"; context.textAlign = "center"; context.textBaseline = "middle";
+  context.fillStyle = "#0c2210";
+  context.fillText("\u{1F503}", handle.x, handle.y + 1);
+  context.restore();
 }
 
 function pointerDown(state, event) {

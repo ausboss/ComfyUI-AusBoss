@@ -219,10 +219,32 @@ def _decode_sequential(path: Path, target_index: int, fps: float):
         return frame.to_image().convert("RGBA"), position_index, position_time
 
 
+# Metadata rarely changes while a user scrubs, but every frame request needs
+# fps/frame_count. Cache per (path, mtime, size) so scrubbing opens the
+# container once per request instead of twice. FIFO-evicted, tiny.
+_METADATA_CACHE: dict[tuple[str, int, int], dict] = {}
+_METADATA_CACHE_LIMIT = 32
+
+
+def cached_video_metadata(path: Path) -> dict[str, float | int | str]:
+    try:
+        stat = os.stat(path)
+        key = (str(path), stat.st_mtime_ns, stat.st_size)
+    except OSError:
+        return video_metadata(path)
+    cached = _METADATA_CACHE.get(key)
+    if cached is None:
+        cached = video_metadata(path)
+        if len(_METADATA_CACHE) >= _METADATA_CACHE_LIMIT:
+            _METADATA_CACHE.pop(next(iter(_METADATA_CACHE)))
+        _METADATA_CACHE[key] = cached
+    return dict(cached)
+
+
 def decode_video_frame(
     path: Path, seek_mode: str, frame_index: int, frame_time: float
 ) -> tuple[Image.Image, int, float]:
-    metadata = video_metadata(path)
+    metadata = cached_video_metadata(path)
     fps = float(metadata["fps"] or 0.0)
     if seek_mode == "time seconds":
         requested_time = max(0.0, float(frame_time))
@@ -252,7 +274,9 @@ def encode_preview(image: Image.Image, max_width: int, max_height: int) -> bytes
     preview = image.convert("RGB")
     preview.thumbnail((maximum, maximum), Image.Resampling.LANCZOS)
     output = BytesIO()
-    preview.save(output, format="JPEG", quality=90, optimize=True)
+    # No optimize pass: it costs an extra encode per scrub frame for a few
+    # percent of size on an ephemeral, never-cached preview.
+    preview.save(output, format="JPEG", quality=88)
     return output.getvalue()
 
 
@@ -283,7 +307,7 @@ def register_video_routes() -> None:
     @prompt_server.routes.get("/ausboss/transform/video/metadata")
     async def ausboss_video_metadata(request):
         try:
-            return web.json_response(video_metadata(request_path(request)))
+            return web.json_response(cached_video_metadata(request_path(request)))
         except Exception as exc:
             return web.json_response({"error": _safe_route_error(exc)}, status=400)
 

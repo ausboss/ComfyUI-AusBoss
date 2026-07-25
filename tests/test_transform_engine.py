@@ -201,6 +201,23 @@ class VideoDecodeTests(unittest.TestCase):
             _, actual_index, _ = decode_video_frame(path, "frame index", 999999, 0.0)
             self.assertEqual(actual_index, 5)
 
+    def test_metadata_cache_hits_and_invalidates_on_file_change(self):
+        from nodes import _media_helpers
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory, "cached.mp4")
+            self._write_video(path, frames=4)
+            first = _media_helpers.cached_video_metadata(path)
+            with unittest.mock.patch.object(
+                _media_helpers, "video_metadata", side_effect=AssertionError("cache miss")
+            ):
+                # Same file state: served from cache, video_metadata untouched.
+                self.assertEqual(_media_helpers.cached_video_metadata(path), first)
+            self._write_video(path, frames=8)
+            os.utime(path, None)
+            refreshed = _media_helpers.cached_video_metadata(path)
+            self.assertGreaterEqual(int(refreshed["frame_count"]), 8)
+
 
 class LocalPreviewGateTests(unittest.TestCase):
     def test_disabled_by_default_outside_managed_folders(self):
