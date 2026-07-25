@@ -177,7 +177,7 @@ export function installTransformNode(node, kind) {
     modal: null, canvas: null, previewCanvas: null, render: null, drag: null,
     view: { zoom: 1, panX: 0, panY: 0 }, grid: false, ready: false,
     source: sourceKey(node, kind), frameController: null, frameObjectUrl: null,
-    playbackTimer: null, disposed: false, loadSerial: 0,
+    playbackTimer: null, playing: false, playbackSession: 0, disposed: false, loadSerial: 0,
   };
   node.__ausbossTransformState = state;
   if (kind === "image") suppressCoreImagePreview(node);
@@ -517,7 +517,7 @@ async function seekFrameLight(state) {
 }
 
 async function timelineCommand(state, command, slider = state.timelineSlider, label = state.timelineLabel, light = false) {
-  if (command === "play") { state.playbackTimer ? stopPlayback(state) : startPlayback(state); return; }
+  if (command === "play") { state.playing ? stopPlayback(state) : startPlayback(state); return; }
   const maximum = Math.max(0, Number(slider?.max) || (state.metadata?.frame_count || 1) - 1);
   let next = Number(value(state.node, "frame_index", 0));
   if (command === "first") next = 0; else if (command === "last") next = maximum; else next += Number(command);
@@ -528,19 +528,30 @@ async function timelineCommand(state, command, slider = state.timelineSlider, la
   await (light ? seekFrameLight(state) : seekFrame(state));
 }
 
+// Playback correctness note: each tick awaits a frame fetch, and a Pause
+// press usually lands during that await. The tick must therefore re-check
+// after the await — against a session counter, not just a boolean — so a
+// paused (or paused-then-restarted) loop's in-flight tick dies instead of
+// re-scheduling itself as a zombie that can no longer be stopped.
 function startPlayback(state) {
   state.playButton.textContent = "Pause";
+  state.playing = true;
+  const session = (state.playbackSession = (state.playbackSession || 0) + 1);
   const delay = Math.max(20, Math.round(1000 / Math.max(1, state.metadata?.fps || 30)));
   const tick = async () => {
-    if (!state.playbackTimer) return;
-    const before = Number(value(state.node, "frame_index", 0)); await timelineCommand(state, 1, state.timelineSlider, state.timelineLabel, true);
+    if (!state.playing || state.playbackSession !== session) return;
+    const before = Number(value(state.node, "frame_index", 0));
+    await timelineCommand(state, 1, state.timelineSlider, state.timelineLabel, true);
+    if (!state.playing || state.playbackSession !== session) return;
     if (Number(value(state.node, "frame_index", 0)) === before) { stopPlayback(state); return; }
     state.playbackTimer = window.setTimeout(tick, delay);
   };
   state.playbackTimer = window.setTimeout(tick, delay);
 }
 function stopPlayback(state) {
-  const wasPlaying = Boolean(state.playbackTimer);
+  const wasPlaying = Boolean(state.playing);
+  state.playing = false;
+  state.playbackSession = (state.playbackSession || 0) + 1; // orphan in-flight ticks
   if (state.playbackTimer) clearTimeout(state.playbackTimer);
   state.playbackTimer = null;
   if (state.playButton) state.playButton.textContent = "Play";
