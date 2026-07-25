@@ -47,7 +47,13 @@ function installStyles() {
     .ausboss-transform-body{display:grid;grid-template-columns:270px minmax(320px,1fr) 250px;min-height:0}
     .ausboss-transform-sidebar{padding:12px;border-right:1px solid #30343a;overflow:auto;background:#181b1e}
     .ausboss-transform-sidebar.right{border-right:0;border-left:1px solid #30343a}
-    .ausboss-transform-section{border-bottom:1px solid #34383d;padding:0 0 13px;margin:0 0 13px}.ausboss-transform-section h3{font-size:11px;color:${BRAND};text-transform:uppercase;margin:0 0 8px}
+    .ausboss-transform-section{border-bottom:1px solid #34383d;padding:0 0 13px;margin:0 0 13px}
+    .ausboss-transform-section h3{font-size:11px;color:${BRAND};text-transform:uppercase;margin:0 0 8px;display:flex;align-items:center;gap:7px}
+    .ausboss-legend{display:inline-block;flex:0 0 auto;width:10px;height:10px}
+    canvas.ausboss-legend{width:16px;height:16px}
+    .ausboss-legend-crop{background:#4bd8ef;border:1px solid #08272d}
+    .ausboss-legend-pad{background:#ff9d42;border:1px solid #3b2108;width:9px;height:9px;transform:rotate(45deg)}
+    .ausboss-final-preview{display:block;max-width:100%;margin:2px auto 0;border:1px solid #34383d;border-radius:6px;background:#0c0e10}
     .ausboss-transform-section label{display:grid;grid-template-columns:88px 1fr 58px;gap:7px;align-items:center;margin:7px 0}
     .ausboss-transform-section input,.ausboss-transform-section select{box-sizing:border-box;width:100%;background:#0e1012;color:#eee;border:1px solid #454b52;border-radius:4px;padding:5px}
     .ausboss-transform-stage{position:relative;min-width:0;min-height:0;background-color:#0c0e10;background-image:radial-gradient(#292d31 1px,transparent 1px);background-size:18px 18px;overflow:hidden}
@@ -442,13 +448,37 @@ function closeEditor(state) {
   stopPlayback(state);
   state.scrubPending = false;
   state.modalAbort?.abort(); state.resizeObserver?.disconnect(); state.modal?.remove();
-  state.modal = null; state.canvas = null; state.drag = null; state.grid = false;
+  state.modal = null; state.canvas = null; state.finalPreviewCanvas = null; state.drag = null; state.grid = false;
   draw(state); state.node.setDirtyCanvas?.(true, true);
+}
+
+// Section headers carry a small marker matching the on-canvas handle for
+// that group (cyan square = crop, green knob = rotate, orange diamond =
+// padding), teaching the editor's color language without a word of text.
+function legendMarker(kind) {
+  if (kind === "rotate") {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 32; // drawn 2x, displayed at 16px for crispness
+    canvas.className = "ausboss-legend";
+    const context = canvas.getContext("2d");
+    context.fillStyle = "#73e36a";
+    context.beginPath(); context.arc(16, 16, 15, 0, Math.PI * 2); context.fill();
+    drawRotateGlyph(context, 16, 16, 7, "#0c2210");
+    return canvas;
+  }
+  return createElement("span", `ausboss-legend ausboss-legend-${kind}`);
+}
+
+function sectionHeading(title, markerKind = null) {
+  const heading = createElement("h3");
+  if (markerKind) heading.append(legendMarker(markerKind));
+  heading.append(createElement("span", "", title));
+  return heading;
 }
 
 function buildControls(state, sidebar) {
   const node = state.node;
-  const cropSection = createElement("section", "ausboss-transform-section"); cropSection.append(createElement("h3", "", "Crop"));
+  const cropSection = createElement("section", "ausboss-transform-section"); cropSection.append(sectionHeading("Crop", "crop"));
   const ratio = createElement("select");
   for (const optionValue of ["free", "source", "1:1", "9:16", "16:9", "2:3", "3:2", "3:4", "4:3", "9:21", "21:9"]) {
     const option = createElement("option", "", optionValue); option.value = optionValue; ratio.append(option);
@@ -457,7 +487,7 @@ function buildControls(state, sidebar) {
   addLabeledControl(cropSection, "Aspect", ratio);
   const fit = createElement("button", "", "Fit crop to source"); fit.addEventListener("click", () => fitCrop(state)); cropSection.append(fit);
 
-  const rotateSection = createElement("section", "ausboss-transform-section"); rotateSection.append(createElement("h3", "", "Rotate"));
+  const rotateSection = createElement("section", "ausboss-transform-section"); rotateSection.append(sectionHeading("Rotate", "rotate"));
   const rotation = createElement("input"); rotation.type = "range"; rotation.min = "-180"; rotation.max = "180"; rotation.step = "0.1"; rotation.value = value(node, "rotation_degrees", 0);
   const rotationNumber = createElement("input"); rotationNumber.type = "number"; rotationNumber.min = "-180"; rotationNumber.max = "180"; rotationNumber.step = "0.1"; rotationNumber.value = rotation.value;
   rotation.addEventListener("input", () => { rotationNumber.value = rotation.value; setRotation(state, Number(rotation.value)); });
@@ -465,7 +495,7 @@ function buildControls(state, sidebar) {
   addLabeledControl(rotateSection, "Degrees", rotation, ""); rotateSection.append(rotationNumber);
   const zeroRotation = createElement("button", "", "Reset rotation"); zeroRotation.addEventListener("click", () => { rotation.value = "0"; rotationNumber.value = "0"; setRotation(state, 0); }); rotateSection.append(zeroRotation);
 
-  const padSection = createElement("section", "ausboss-transform-section"); padSection.append(createElement("h3", "", "Padding & mask"));
+  const padSection = createElement("section", "ausboss-transform-section"); padSection.append(sectionHeading("Padding & mask", "pad"));
   const color = createElement("input"); color.type = "color"; color.value = normalizeColor(value(node, "fill_color", "#808080")); color.addEventListener("input", () => { setValue(node, "fill_color", color.value); draw(state); });
   addLabeledControl(padSection, "Fill", color);
   const feather = createElement("input"); feather.type = "range"; feather.min = "0"; feather.max = "512"; feather.step = "1"; feather.value = value(node, "feather", 0);
@@ -476,11 +506,54 @@ function buildControls(state, sidebar) {
   addLabeledControl(padSection, "Multiple", multiple, "px");
   const resetPad = createElement("button", "", "Reset padding"); resetPad.addEventListener("click", () => { for (const name of ["pad_left", "pad_top", "pad_right", "pad_bottom"]) setValue(node, name, 0); draw(state); }); padSection.append(resetPad);
 
-  const actions = createElement("section", "ausboss-transform-section"); actions.append(createElement("h3", "", "View & reset"));
+  const actions = createElement("section", "ausboss-transform-section"); actions.append(sectionHeading("View & reset"));
   const resetViewButton = createElement("button", "", "Reset view"); resetViewButton.addEventListener("click", () => { resetView(state); draw(state); });
   const resetAll = createElement("button", "ausboss-transform-danger", "Reset all"); resetAll.addEventListener("click", () => { resetTransform(node, state.kind === "video"); resetView(state); draw(state); updateModalInfo(state); });
   actions.append(resetViewButton, resetAll);
-  sidebar.append(cropSection, rotateSection, padSection, actions);
+
+  // Live preview of the actual output composite (no overlays), so the final
+  // result is always visible while adjusting handles.
+  const previewSection = createElement("section", "ausboss-transform-section");
+  previewSection.append(sectionHeading("Preview"));
+  const finalPreview = createElement("canvas", "ausboss-final-preview");
+  previewSection.append(finalPreview);
+  state.finalPreviewCanvas = finalPreview;
+
+  sidebar.append(cropSection, rotateSection, padSection, actions, previewSection);
+}
+
+// Renders what the node will actually output: fill background, the rotated
+// source clipped to the crop, placed inside the padded canvas. No handles,
+// no dashes - the composite itself.
+function drawFinalPreview(state) {
+  const canvas = state.finalPreviewCanvas;
+  if (!canvas || !state.image || !state.sourceWidth || !state.sourceHeight) return;
+  const current = values(state.node);
+  const source = rotatedSize(state.sourceWidth, state.sourceHeight, current.rotation_degrees);
+  const crop = resolveCrop(current, source);
+  const padding = resolvePadding(current, crop);
+  const scale = Math.min(226 / padding.outputWidth, 260 / padding.outputHeight);
+  const width = Math.max(1, Math.round(padding.outputWidth * scale));
+  const height = Math.max(1, Math.round(padding.outputHeight * scale));
+  const dpr = window.devicePixelRatio || 1;
+  canvas.style.width = `${width}px`; canvas.style.height = `${height}px`;
+  const pixelWidth = Math.round(width * dpr); const pixelHeight = Math.round(height * dpr);
+  if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) { canvas.width = pixelWidth; canvas.height = pixelHeight; }
+  const context = canvas.getContext("2d");
+  context.setTransform(dpr, 0, 0, dpr, 0, 0);
+  context.fillStyle = normalizeColor(current.fill_color);
+  context.fillRect(0, 0, width, height);
+  context.save();
+  context.beginPath();
+  context.rect(padding.left * scale, padding.top * scale, crop.width * scale, crop.height * scale);
+  context.clip();
+  context.translate(
+    (padding.left - crop.x) * scale + source.width * scale / 2,
+    (padding.top - crop.y) * scale + source.height * scale / 2
+  );
+  context.rotate((Number(current.rotation_degrees) || 0) * Math.PI / 180);
+  drawSourceImage(context, state, scale);
+  context.restore();
 }
 
 function buildTimeline(state) {
@@ -620,6 +693,7 @@ function draw(state) {
     const preview = canvas === state.previewCanvas; const render = renderGeometry(state, width, height); if (!preview) state.render = render;
     drawScene(context, state, render, preview);
   }
+  drawFinalPreview(state);
 }
 
 function drawScene(context, state, render, preview) {
