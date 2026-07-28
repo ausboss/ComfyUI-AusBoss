@@ -30,6 +30,11 @@ PUBLIC_TRANSFORM_IDS = {
     "AUSBOSS_NODES_VideoCropRotatePad",
 }
 
+PUBLIC_NODE_IDS = PUBLIC_TRANSFORM_IDS | {
+    "AUSBOSS_NODES_LaMaInpaint",
+    "AUSBOSS_NODES_SelectFrame",
+}
+
 # --- 1. everything compiles --------------------------------------------------
 for path in sorted(ROOT.rglob("*.py")):
     if "__pycache__" in path.parts:
@@ -90,7 +95,7 @@ for path in node_files:
         if return_names != ("image", "mask"):
             errors.append(f"{path.name}: RETURN_NAMES must be exactly ('image', 'mask')")
 
-for missing_id in sorted(PUBLIC_TRANSFORM_IDS - mapping_keys):
+for missing_id in sorted(PUBLIC_NODE_IDS - mapping_keys):
     errors.append(f"missing permanent mapping key: {missing_id}")
 
 # --- report ------------------------------------------------------------------

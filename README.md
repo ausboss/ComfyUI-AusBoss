@@ -19,7 +19,19 @@ A Load Image-style node with a compact transformed preview and a full-screen edi
 
 Targets an exact video frame from an uploaded input file or local path. The full-screen editor adds a long timeline, playback, exact frame steps, and the same transform controls as the image node.
 
-Both nodes return exactly:
+### LaMa Inpaint (AusBoss)
+
+Inpaints white mask regions with a TorchScript LaMa checkpoint, preserves pixels
+where the mask is zero, and processes video batches one frame at a time to keep
+VRAM use bounded. Place `big-lama.pt` in `ComfyUI/models/lama/`.
+
+### Select Frame (AusBoss)
+
+Returns one unchanged frame from an `IMAGE` batch using a one-based frame number.
+Out-of-range requests report the available range instead of silently selecting
+the wrong image.
+
+The image and video transform nodes return exactly:
 
 1. `image` — transformed ComfyUI `IMAGE`
 2. `mask` — generated-area `MASK`, including source transparency, rotation corners, and padding
@@ -33,7 +45,7 @@ cd ComfyUI/custom_nodes
 git clone https://github.com/ausboss/ComfyUI-AusBoss.git
 ```
 
-Restart ComfyUI, then search for `AusBoss`. There are no additional Python dependencies; the pack uses Pillow, NumPy, Torch, and PyAV already distributed with ComfyUI.
+Restart ComfyUI, then search for `AusBoss`. There are no additional Python dependencies; the pack uses Pillow, NumPy, Torch, and PyAV already distributed with ComfyUI. LaMa Inpaint additionally needs a TorchScript checkpoint at `ComfyUI/models/lama/big-lama.pt`.
 
 After updating frontend files, hard-refresh the browser with `Ctrl+Shift+R`.
 

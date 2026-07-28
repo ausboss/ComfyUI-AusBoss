@@ -2,6 +2,11 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- Added `AUSBOSS_NODES_LaMaInpaint` with explicit `models/lama` checkpoint discovery and bounded-memory batch processing.
+- Added `AUSBOSS_NODES_SelectFrame` with one-based, range-checked batch selection.
+
 ## 1.0.0
 
 - Added `AUSBOSS_NODES_ImageCropRotatePad`.
@@ -17,4 +22,3 @@ All notable changes to ComfyUI-AusBoss are documented here.
 - Video decodes run off the web server's event loop in persistent per-file decoder sessions (with an idle reaper that releases file locks), so a slow decode can never stall the ComfyUI UI and stepping forward decodes only the frames in between.
 - A keyframe storyboard builds in the background after a video is selected; dragging the timeline shows the nearest storyboard tile with zero network latency, then the exact decoded frame replaces it.
 - The rotation handle moved to the source's top-right corner, drawn with a crisp vector rotate glyph, clear of the top padding handle.
-
