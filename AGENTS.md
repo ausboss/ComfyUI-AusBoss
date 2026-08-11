@@ -39,7 +39,7 @@ js/
   shared/*.mjs    # import-only shared modules (.mjs files do NOT auto-load)
 docs/             # developer docs
 scripts/          # validate_nodes.py — offline checks, stdlib only
-workflows/        # example workflows (regular workflow JSON, not API JSON)
+example_workflows/  # example workflows (regular workflow JSON, not API JSON)
 ```
 
 ## Conventions
