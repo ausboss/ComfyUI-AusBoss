@@ -2,6 +2,13 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- Added `AUSBOSS_NODES_SelectFrame` with one-based, range-checked batch selection.
+- Added `AUSBOSS_NODES_LaMaInpaint` with bounded-VRAM video processing and explicit `models/lama` checkpoint discovery.
+- Added a compatibility alias for the published `SimpleWatermarkRemover` workflow contract.
+- Added the repaired Simple Video Watermark Remover example workflow.
+
 ## 1.0.0
 
 - Added `AUSBOSS_NODES_ImageCropRotatePad`.

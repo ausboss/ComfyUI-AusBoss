@@ -18,6 +18,8 @@ import traceback
 # nothing functional.
 NODE_MODULES = [
     "node_image_crop_rotate_pad",
+    "node_lama_inpaint",
+    "node_select_frame",
     "node_video_crop_rotate_pad",
 ]
 
