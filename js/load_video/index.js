@@ -76,7 +76,9 @@ function buildPreview(node) {
     refresh();
     return result;
   };
-  requestAnimationFrame(refresh);
+  // setTimeout, not requestAnimationFrame: rAF never fires in background
+  // tabs, which would leave workflows loaded there with a blank preview.
+  setTimeout(refresh, 0);
 }
 
 app.registerExtension({
