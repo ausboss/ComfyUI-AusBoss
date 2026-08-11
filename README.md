@@ -35,6 +35,10 @@ Loads a video as frames plus audio with `frame_count`, `fps`, `width`, `height`,
 
 Grows or shrinks a mask, optionally fills enclosed holes, and feathers the edge — returning both the refined mask and its inverse from one compact node.
 
+### Save Video (AusBoss)
+
+Encodes frames to an H.264 mp4 with optional muxed audio and the workflow embedded, so saved files drag back into ComfyUI. Wire `fps` from Load Video to preserve source timing; audio and video land in a single file.
+
 The two transform nodes return exactly:
 
 1. `image` — transformed ComfyUI `IMAGE`

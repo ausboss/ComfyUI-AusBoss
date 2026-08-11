@@ -21,6 +21,7 @@ NODE_MODULES = [
     "node_lama_inpaint",
     "node_load_video",
     "node_refine_mask",
+    "node_save_video",
     "node_select_frame",
     "node_video_crop_rotate_pad",
 ]

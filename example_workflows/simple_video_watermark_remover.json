@@ -301,7 +301,7 @@
     },
     {
       "id": 82,
-      "type": "easy showAnything",
+      "type": "PreviewAny",
       "pos": [
         -434.1357966575704,
         -211.2938247317346
@@ -315,32 +315,19 @@
       "mode": 4,
       "inputs": [
         {
-          "name": "anything",
-          "shape": 7,
+          "name": "source",
           "type": "*",
           "link": 105
         }
       ],
-      "outputs": [
-        {
-          "name": "output",
-          "type": "*",
-          "links": null
-        }
-      ],
+      "outputs": [],
       "title": "Total Frames",
       "properties": {
-        "cnr_id": "comfyui-easy-use",
-        "Node name for S&R": "easy showAnything",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.7"
-        }
+        "cnr_id": "comfy-core",
+        "ver": "0.30.0",
+        "Node name for S&R": "PreviewAny"
       },
-      "widgets_values": [
-        ""
-      ],
+      "widgets_values": [],
       "color": "#113E3D",
       "bgcolor": "#2A5756"
     },
@@ -531,14 +518,14 @@
     },
     {
       "id": 10,
-      "type": "VHS_VideoCombine",
+      "type": "AUSBOSS_NODES_SaveVideo",
       "pos": [
         775.9988795070319,
         -1209.3564949977442
       ],
       "size": [
-        246.36631466334302,
-        759.5751175697146
+        280,
+        220
       ],
       "flags": {
         "collapsed": false
@@ -547,119 +534,37 @@
       "mode": 0,
       "inputs": [
         {
-          "label": "images",
-          "name": "images",
+          "name": "frames",
           "type": "IMAGE",
           "link": 17
         },
         {
-          "label": "audio",
           "name": "audio",
           "shape": 7,
           "type": "AUDIO",
           "link": 87
         },
         {
-          "label": "meta_batch",
-          "name": "meta_batch",
-          "shape": 7,
-          "type": "VHS_BatchManager",
-          "link": null
-        },
-        {
-          "label": "vae",
-          "name": "vae",
-          "shape": 7,
-          "type": "VAE",
-          "link": null
-        },
-        {
-          "label": "frame_rate",
-          "name": "frame_rate",
+          "name": "fps",
           "type": "FLOAT",
           "widget": {
-            "name": "frame_rate"
+            "name": "fps"
           },
           "link": 106
-        },
-        {
-          "label": "loop_count",
-          "name": "loop_count",
-          "type": "INT",
-          "widget": {
-            "name": "loop_count"
-          },
-          "link": null
-        },
-        {
-          "label": "filename_prefix",
-          "name": "filename_prefix",
-          "type": "STRING",
-          "widget": {
-            "name": "filename_prefix"
-          },
-          "link": null
-        },
-        {
-          "label": "format",
-          "name": "format",
-          "type": "COMBO",
-          "widget": {
-            "name": "format"
-          },
-          "link": null
-        },
-        {
-          "label": "pingpong",
-          "name": "pingpong",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "pingpong"
-          },
-          "link": null
-        },
-        {
-          "label": "save_output",
-          "name": "save_output",
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "save_output"
-          },
-          "link": null
         }
       ],
-      "outputs": [
-        {
-          "label": "Filenames",
-          "name": "Filenames",
-          "type": "VHS_FILENAMES"
-        }
-      ],
+      "outputs": [],
       "title": "Output Video",
       "properties": {
-        "cnr_id": "comfyui-videohelpersuite",
-        "ver": "8e4d79471bf1952154768e8435a9300077b534fa",
-        "Node name for S&R": "VHS_VideoCombine",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "version": "7.0.1",
-          "input_ue_unconnectable": {}
-        },
-        "aux_id": "Kosinkadink/ComfyUI-VideoHelperSuite",
-        "widget_ue_connectable": {}
+        "cnr_id": "ausboss-nodes",
+        "ver": "1.0.0",
+        "Node name for S&R": "AUSBOSS_NODES_SaveVideo"
       },
-      "widgets_values": {
-        "frame_rate": 16,
-        "loop_count": 0,
-        "filename_prefix": "AusBoss/video_watermark_remover",
-        "format": "video/h264-mp4",
-        "pix_fmt": "yuv420p",
-        "crf": 19,
-        "save_metadata": true,
-        "trim_to_audio": false,
-        "pingpong": false,
-        "save_output": true
-      }
+      "widgets_values": [
+        16.0,
+        "AusBoss/video_watermark_remover",
+        19
+      ]
     },
     {
       "id": 90,
@@ -686,7 +591,7 @@
         }
       },
       "widgets_values": [
-        "## \ud83d\udd0a Output Files\n\nWhen processing videos with audio, two files will be saved:\n\n- \ud83c\udf9e\ufe0f **with audio**\n- \ud83d\udd07 **without audio**\n\nThis is expected behavior from `VHS_VideoCombine`."
+        "## \ud83c\udf9e\ufe0f Output File\n\nOne `.mp4` is saved with the **audio already muxed in** \u2014 no separate silent copy.\n\n\ud83d\udca1 The workflow is embedded in the file: drag a saved video back into ComfyUI to reload the graph that made it."
       ],
       "color": "#222",
       "bgcolor": "#000"
@@ -981,7 +886,7 @@
         }
       },
       "widgets_values": [
-        "# \ud83c\udfac\u2728 Video Watermark Removal\n\nRemove annoying watermarks from your video automatically, frame by frame. Especially useful for Sora-style watermarks. It's not perfect and can leave behind some artifacts, but it's fast and gets the job done.\n\n## \ud83e\udde0 How it works\n\n1. \ud83c\udfa5 **Load Video**  \n   Splits your video into frames and keeps the original audio.\n\n2. \ud83d\udd0d **Detect Watermark (SAM3)**  \n   Uses `SAM3Segment` with the prompt **\"watermark\"** to find the watermark in each frame and generate a mask.\n\n3. \ud83e\udee7 **Refine Mask**  \n   The mask is grown and feathered so coverage is solid and edges blend smoothly.\n\n4. \ud83e\uddfc **Remove Watermark**  \n   The refined mask is passed into `LaMa Inpaint (AusBoss)` using `big-lama.pt`.\n\n5. \ud83c\udf9e\ufe0f **Rebuild Video**  \n   Frames are stitched back together with the original audio and FPS preserved.\n\n## \ud83d\udce6 Model setup\n\nPlace `big-lama.pt` at `ComfyUI/models/lama/big-lama.pt`, then restart ComfyUI. The AusBoss node never downloads models automatically.\n\n## \ud83d\udca1 Notes\n\n- \u2705 Works best with consistent/static watermarks\n- \u2705 Especially useful for Sora watermarks\n- \ud83e\udeb6 Feathering helps avoid ugly edges\n- \ud83d\udce6 Outputs a clean H264 MP4\n\n## \ud83d\udce6 Requires\n\n- \ud83e\udde9 **ComfyUI-AusBoss** \u2014 LaMa Inpaint + Select Frame\n- \ud83e\udde9 **ComfyUI-VideoHelperSuite** \u2014 video export\n- \ud83e\udde9 **ComfyUI-RMBG** \u2014 SAM3 segmentation\n- \ud83e\udde9 **rgthree-comfy** \u2014 comparer, labels, group toggles\n- \ud83e\udde9 **ComfyUI-Easy-Use** \u2014 frame-count display\n- \ud83d\udce5 **Model**: place a TorchScript `big-lama.pt` in `ComfyUI/models/lama/`"
+        "# \ud83c\udfac\u2728 Video Watermark Removal\n\nRemove annoying watermarks from your video automatically, frame by frame. Especially useful for Sora-style watermarks. It's not perfect and can leave behind some artifacts, but it's fast and gets the job done.\n\n## \ud83e\udde0 How it works\n\n1. \ud83c\udfa5 **Load Video**  \n   Splits your video into frames and keeps the original audio.\n\n2. \ud83d\udd0d **Detect Watermark (SAM3)**  \n   Uses `SAM3Segment` with the prompt **\"watermark\"** to find the watermark in each frame and generate a mask.\n\n3. \ud83e\udee7 **Refine Mask**  \n   The mask is grown and feathered so coverage is solid and edges blend smoothly.\n\n4. \ud83e\uddfc **Remove Watermark**  \n   The refined mask is passed into `LaMa Inpaint (AusBoss)` using `big-lama.pt`.\n\n5. \ud83c\udf9e\ufe0f **Rebuild Video**  \n   Frames are stitched back together with the original audio and FPS preserved.\n\n## \ud83d\udce6 Model setup\n\nPlace `big-lama.pt` at `ComfyUI/models/lama/big-lama.pt`, then restart ComfyUI. The AusBoss node never downloads models automatically.\n\n## \ud83d\udca1 Notes\n\n- \u2705 Works best with consistent/static watermarks\n- \u2705 Especially useful for Sora watermarks\n- \ud83e\udeb6 Feathering helps avoid ugly edges\n- \ud83d\udce6 Outputs a clean H264 MP4\n\n## \ud83d\udce6 Requires\n\n- \ud83e\udde9 **ComfyUI-AusBoss** \u2014 LaMa Inpaint + Select Frame\n- \ud83e\udde9 **ComfyUI-RMBG** \u2014 SAM3 segmentation\n- \ud83e\udde9 **rgthree-comfy** \u2014 comparer, labels, group toggles\n- \ud83d\udce5 **Model**: place a TorchScript `big-lama.pt` in `ComfyUI/models/lama/`"
       ],
       "color": "#222",
       "bgcolor": "#000"
