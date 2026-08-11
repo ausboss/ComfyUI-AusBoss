@@ -4,6 +4,8 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- Added `AUSBOSS_NODES_LoadVideo` with playhead-captured start/end trimming, matched audio, and info outputs.
+- Added `AUSBOSS_NODES_RefineMask` with expand/shrink, hole filling, feathering, and an inverted output.
 - Added `AUSBOSS_NODES_SelectFrame` with one-based, range-checked batch selection.
 - Added `AUSBOSS_NODES_LaMaInpaint` with bounded-VRAM video processing and explicit `models/lama` checkpoint discovery.
 - Added a compatibility alias for the published `SimpleWatermarkRemover` workflow contract.

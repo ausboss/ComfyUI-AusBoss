@@ -27,6 +27,14 @@ Returns one unchanged frame from an `IMAGE` batch using a clear one-based frame 
 
 Inpaints white mask regions with a TorchScript LaMa checkpoint, preserves pixels where the mask is zero, and processes large video batches one frame at a time to keep VRAM bounded. Place `big-lama.pt` in `ComfyUI/models/lama/`; the node never performs automatic downloads.
 
+### Load Video (AusBoss)
+
+Loads a video as frames plus audio with `frame_count`, `fps`, `width`, `height`, and `duration` outputs. The built-in preview has **set start** / **set end** buttons that capture the playhead, so trimming to a clip is scrub-and-click; only the trimmed window is decoded. Optional custom width/height with aspect-preserving single-side mode.
+
+### Refine Mask (AusBoss)
+
+Grows or shrinks a mask, optionally fills enclosed holes, and feathers the edge — returning both the refined mask and its inverse from one compact node.
+
 The two transform nodes return exactly:
 
 1. `image` — transformed ComfyUI `IMAGE`
