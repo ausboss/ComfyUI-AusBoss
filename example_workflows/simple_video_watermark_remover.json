@@ -2,18 +2,18 @@
   "id": "8ff23428-65fa-4d32-a991-e3ca923d33ae",
   "revision": 0,
   "last_node_id": 90,
-  "last_link_id": 105,
+  "last_link_id": 106,
   "nodes": [
     {
       "id": 67,
-      "type": "GrowMaskWithBlur",
+      "type": "AUSBOSS_NODES_RefineMask",
       "pos": [
         231.68284909010342,
         -309.2009849132403
       ],
       "size": [
-        299.81666564941406,
-        246
+        300,
+        150
       ],
       "flags": {},
       "order": 16,
@@ -42,23 +42,14 @@
       ],
       "title": "Refine Mask",
       "properties": {
-        "cnr_id": "comfyui-kjnodes",
-        "Node name for S&R": "GrowMaskWithBlur",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.7"
-        }
+        "cnr_id": "ausboss-nodes",
+        "ver": "1.0.0",
+        "Node name for S&R": "AUSBOSS_NODES_RefineMask"
       },
       "widgets_values": [
         8,
-        0,
-        true,
-        false,
-        4,
-        1,
-        1,
-        false
+        4.0,
+        true
       ],
       "color": "#232",
       "bgcolor": "#353"
@@ -260,93 +251,6 @@
       "bgcolor": "#3f5159"
     },
     {
-      "id": 12,
-      "type": "VHS_VideoInfo",
-      "pos": [
-        -439.2361520388809,
-        -767.993200140841
-      ],
-      "size": [
-        340,
-        206
-      ],
-      "flags": {},
-      "order": 12,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "video_info",
-          "type": "VHS_VIDEOINFO",
-          "link": 13
-        }
-      ],
-      "outputs": [
-        {
-          "name": "source_fps\ud83d\udfe8",
-          "type": "FLOAT",
-          "links": [
-            14
-          ]
-        },
-        {
-          "name": "source_frame_count\ud83d\udfe8",
-          "type": "INT",
-          "links": []
-        },
-        {
-          "name": "source_duration\ud83d\udfe8",
-          "type": "FLOAT",
-          "links": null
-        },
-        {
-          "name": "source_width\ud83d\udfe8",
-          "type": "INT",
-          "links": null
-        },
-        {
-          "name": "source_height\ud83d\udfe8",
-          "type": "INT",
-          "links": null
-        },
-        {
-          "name": "loaded_fps\ud83d\udfe6",
-          "type": "FLOAT",
-          "links": null
-        },
-        {
-          "name": "loaded_frame_count\ud83d\udfe6",
-          "type": "INT",
-          "links": null
-        },
-        {
-          "name": "loaded_duration\ud83d\udfe6",
-          "type": "FLOAT",
-          "links": null
-        },
-        {
-          "name": "loaded_width\ud83d\udfe6",
-          "type": "INT",
-          "links": null
-        },
-        {
-          "name": "loaded_height\ud83d\udfe6",
-          "type": "INT",
-          "links": null
-        }
-      ],
-      "title": "Video Info",
-      "properties": {
-        "cnr_id": "comfyui-videohelpersuite",
-        "Node name for S&R": "VHS_VideoInfo",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.7"
-        }
-      },
-      "widgets_values": {}
-    },
-    {
       "id": 63,
       "type": "AUSBOSS_NODES_SelectFrame",
       "pos": [
@@ -509,49 +413,29 @@
     },
     {
       "id": 11,
-      "type": "VHS_LoadVideo",
+      "type": "AUSBOSS_NODES_LoadVideo",
       "pos": [
         -807.9182922145833,
         -1212.6956718906404
       ],
       "size": [
-        255.91111755371094,
-        752.7471690572751
+        262,
+        428
       ],
       "flags": {
         "collapsed": false
       },
       "order": 0,
       "mode": 0,
-      "inputs": [
-        {
-          "name": "meta_batch",
-          "shape": 7,
-          "type": "VHS_BatchManager",
-          "link": null
-        },
-        {
-          "name": "vae",
-          "shape": 7,
-          "type": "VAE",
-          "link": null
-        }
-      ],
+      "inputs": [],
       "outputs": [
         {
-          "name": "IMAGE",
+          "name": "frames",
           "type": "IMAGE",
           "links": [
             88,
             89,
             90
-          ]
-        },
-        {
-          "name": "frame_count",
-          "type": "INT",
-          "links": [
-            105
           ]
         },
         {
@@ -562,33 +446,50 @@
           ]
         },
         {
-          "name": "video_info",
-          "type": "VHS_VIDEOINFO",
+          "name": "frame_count",
+          "type": "INT",
           "links": [
-            13
+            105
           ]
+        },
+        {
+          "name": "fps",
+          "type": "FLOAT",
+          "links": [
+            106
+          ]
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "duration",
+          "type": "FLOAT",
+          "links": null
         }
       ],
       "title": "Input Video",
       "properties": {
-        "cnr_id": "comfyui-videohelpersuite",
-        "Node name for S&R": "VHS_LoadVideo",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.7"
-        }
+        "cnr_id": "ausboss-nodes",
+        "ver": "1.0.0",
+        "Node name for S&R": "AUSBOSS_NODES_LoadVideo"
       },
-      "widgets_values": {
-        "video": "input.mp4",
-        "force_rate": 0,
-        "custom_width": 0,
-        "custom_height": 0,
-        "frame_load_cap": 0,
-        "skip_first_frames": 0,
-        "select_every_nth": 1,
-        "format": "AnimateDiff"
-      }
+      "widgets_values": [
+        "input.mp4",
+        0.0,
+        0.0,
+        0,
+        0,
+        "image",
+        ""
+      ]
     },
     {
       "id": 86,
@@ -679,7 +580,7 @@
           "widget": {
             "name": "frame_rate"
           },
-          "link": 14
+          "link": 106
         },
         {
           "label": "loop_count",
@@ -792,14 +693,14 @@
     },
     {
       "id": 51,
-      "type": "GrowMaskWithBlur",
+      "type": "AUSBOSS_NODES_RefineMask",
       "pos": [
         -3.9307531000118754,
         -1209.3564949977442
       ],
       "size": [
-        299.81666564941406,
-        246
+        300,
+        150
       ],
       "flags": {},
       "order": 13,
@@ -827,23 +728,14 @@
       ],
       "title": "Refine Mask",
       "properties": {
-        "cnr_id": "comfyui-kjnodes",
-        "Node name for S&R": "GrowMaskWithBlur",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.7"
-        }
+        "cnr_id": "ausboss-nodes",
+        "ver": "1.0.0",
+        "Node name for S&R": "AUSBOSS_NODES_RefineMask"
       },
       "widgets_values": [
         8,
-        0,
-        true,
-        false,
-        4,
-        1,
-        1,
-        false
+        4.0,
+        true
       ],
       "color": "#232",
       "bgcolor": "#353"
@@ -1089,29 +981,13 @@
         }
       },
       "widgets_values": [
-        "# \ud83c\udfac\u2728 Video Watermark Removal\n\nRemove annoying watermarks from your video automatically, frame by frame. Especially useful for Sora-style watermarks. It's not perfect and can leave behind some artifacts, but it's fast and gets the job done.\n\n## \ud83e\udde0 How it works\n\n1. \ud83c\udfa5 **Load Video**  \n   Splits your video into frames and keeps the original audio.\n\n2. \ud83d\udd0d **Detect Watermark (SAM3)**  \n   Uses `SAM3Segment` with the prompt **\"watermark\"** to find the watermark in each frame and generate a mask.\n\n3. \ud83e\udee7 **Refine Mask**  \n   The mask is grown and feathered so coverage is solid and edges blend smoothly.\n\n4. \ud83e\uddfc **Remove Watermark**  \n   The refined mask is passed into `LaMa Inpaint (AusBoss)` using `big-lama.pt`.\n\n5. \ud83c\udf9e\ufe0f **Rebuild Video**  \n   Frames are stitched back together with the original audio and FPS preserved.\n\n## \ud83d\udce6 Model setup\n\nPlace `big-lama.pt` at `ComfyUI/models/lama/big-lama.pt`, then restart ComfyUI. The AusBoss node never downloads models automatically.\n\n## \ud83d\udca1 Notes\n\n- \u2705 Works best with consistent/static watermarks\n- \u2705 Especially useful for Sora watermarks\n- \ud83e\udeb6 Feathering helps avoid ugly edges\n- \ud83d\udce6 Outputs a clean H264 MP4\n\n## \ud83d\udce6 Requires\n\n- \ud83e\udde9 **ComfyUI-AusBoss** \u2014 LaMa Inpaint + Select Frame\n- \ud83e\udde9 **ComfyUI-VideoHelperSuite** \u2014 video load/combine\n- \ud83e\udde9 **ComfyUI-RMBG** \u2014 SAM3 segmentation\n- \ud83e\udde9 **ComfyUI-KJNodes** \u2014 mask grow/blur\n- \ud83e\udde9 **rgthree-comfy** \u2014 comparer, labels, group toggles\n- \ud83e\udde9 **ComfyUI-Easy-Use** \u2014 frame-count display\n- \ud83d\udce5 **Model**: place a TorchScript `big-lama.pt` in `ComfyUI/models/lama/`"
+        "# \ud83c\udfac\u2728 Video Watermark Removal\n\nRemove annoying watermarks from your video automatically, frame by frame. Especially useful for Sora-style watermarks. It's not perfect and can leave behind some artifacts, but it's fast and gets the job done.\n\n## \ud83e\udde0 How it works\n\n1. \ud83c\udfa5 **Load Video**  \n   Splits your video into frames and keeps the original audio.\n\n2. \ud83d\udd0d **Detect Watermark (SAM3)**  \n   Uses `SAM3Segment` with the prompt **\"watermark\"** to find the watermark in each frame and generate a mask.\n\n3. \ud83e\udee7 **Refine Mask**  \n   The mask is grown and feathered so coverage is solid and edges blend smoothly.\n\n4. \ud83e\uddfc **Remove Watermark**  \n   The refined mask is passed into `LaMa Inpaint (AusBoss)` using `big-lama.pt`.\n\n5. \ud83c\udf9e\ufe0f **Rebuild Video**  \n   Frames are stitched back together with the original audio and FPS preserved.\n\n## \ud83d\udce6 Model setup\n\nPlace `big-lama.pt` at `ComfyUI/models/lama/big-lama.pt`, then restart ComfyUI. The AusBoss node never downloads models automatically.\n\n## \ud83d\udca1 Notes\n\n- \u2705 Works best with consistent/static watermarks\n- \u2705 Especially useful for Sora watermarks\n- \ud83e\udeb6 Feathering helps avoid ugly edges\n- \ud83d\udce6 Outputs a clean H264 MP4\n\n## \ud83d\udce6 Requires\n\n- \ud83e\udde9 **ComfyUI-AusBoss** \u2014 LaMa Inpaint + Select Frame\n- \ud83e\udde9 **ComfyUI-VideoHelperSuite** \u2014 video export\n- \ud83e\udde9 **ComfyUI-RMBG** \u2014 SAM3 segmentation\n- \ud83e\udde9 **rgthree-comfy** \u2014 comparer, labels, group toggles\n- \ud83e\udde9 **ComfyUI-Easy-Use** \u2014 frame-count display\n- \ud83d\udce5 **Model**: place a TorchScript `big-lama.pt` in `ComfyUI/models/lama/`"
       ],
       "color": "#222",
       "bgcolor": "#000"
     }
   ],
   "links": [
-    [
-      13,
-      11,
-      3,
-      12,
-      0,
-      "VHS_VIDEOINFO"
-    ],
-    [
-      14,
-      12,
-      0,
-      10,
-      4,
-      "FLOAT"
-    ],
     [
       17,
       6,
@@ -1139,7 +1015,7 @@
     [
       87,
       11,
-      2,
+      1,
       10,
       1,
       "AUDIO"
@@ -1227,10 +1103,18 @@
     [
       105,
       11,
-      1,
+      2,
       82,
       0,
       "INT"
+    ],
+    [
+      106,
+      11,
+      3,
+      10,
+      4,
+      "FLOAT"
     ]
   ],
   "groups": [
