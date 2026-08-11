@@ -43,6 +43,26 @@ class SaveVideoHelperTests(unittest.TestCase):
                 self.assertEqual(decoded, 12)
                 self.assertEqual(sound.rate, 32000)
 
+    def test_long_stereo_clip_survives_header_written_mid_encode(self):
+        # Regression: enough frames that x264 emits packets (writing the
+        # container header) while encoding is still running, plus stereo
+        # 44.1 kHz audio like real phone videos. The audio stream must be
+        # created before the header lands or libav dies with SIGFPE.
+        frames = gradient_batch(60, 136, 240)
+        samples = int(44100 * 60 / 12)
+        left = 0.3 * np.sin(np.linspace(0, 880 * np.pi, samples))
+        stereo = np.stack([left, -left]).astype(np.float32)
+        audio = {"waveform": torch.from_numpy(stereo).unsqueeze(0), "sample_rate": 44100}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "long.mp4"
+            encode_video(path, frames, 12.0, audio, 23)
+            with av.open(str(path)) as container:
+                video = next(s for s in container.streams if s.type == "video")
+                sound = next(s for s in container.streams if s.type == "audio")
+                self.assertEqual(sum(1 for _ in container.decode(video)), 60)
+                self.assertEqual(sound.rate, 44100)
+                self.assertEqual(sound.channels, 2)
+
     def test_fractional_fps_survives_the_container(self):
         frames = gradient_batch(6, 32, 32)
         with tempfile.TemporaryDirectory() as tmp:
