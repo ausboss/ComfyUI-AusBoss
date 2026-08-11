@@ -101,8 +101,10 @@ class AusBossSaveVideo:
         }
 
     @classmethod
-    def VALIDATE_INPUTS(cls, fps, **_values):
-        if float(fps) <= 0:
+    def VALIDATE_INPUTS(cls, fps=None, **_values):
+        # fps arrives as None when wired from another node; the encoder
+        # re-checks the resolved value at execution time.
+        if fps is not None and float(fps) <= 0:
             return "Save Video: fps must be greater than zero."
         return True
 
