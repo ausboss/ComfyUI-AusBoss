@@ -1,19 +1,25 @@
 # Load Video
 
 Loads a video from ComfyUI's input folder as an `IMAGE` frame batch plus its
-audio. The upper source preview plays the whole file, and the **set start** /
-**set end** buttons capture its playhead into `start_seconds` / `end_seconds`,
-so trimming is: scrub, click, done. The lower trim preview then seeks to that
-start, loops at the selected end, and prevents seeking outside the window.
+audio. One responsive player shows the source and previews the selected trim.
+Drag the high-contrast **IN** and **OUT** handles below it, drag the selected
+range to move the whole window, or type exact seconds into the two fields.
+The playhead follows each edit, so the frame at either boundary is visible
+while trimming.
 
-Both previews use compact minimum dimensions instead of the source video's
-natural aspect-ratio height, so the node can be resized smaller for tall video.
+Playback is constrained to the selected window. **LOOP** repeats it; turn loop
+off and playback pauses at OUT. The reload button refreshes the source without
+creating a second preview. Tall videos use `object-fit: contain`, and the player
+height follows the node width with a compact lower bound.
 
 ## Controls
 
 - **video**: A file in the input folder; the upload button adds new ones.
-- **start_seconds**: Skip everything before this time.
-- **end_seconds**: Stop at this time; `0` plays through to the end.
+- **IN / start_seconds**: Skip everything before this time.
+- **OUT / end_seconds**: Stop at this time; `0` means the source end until a
+  handle is moved.
+- **LOOP**: Repeat the selected window during preview.
+- **↻**: Reload the selected source preview.
 - **custom_width / custom_height**: `0` keeps the source size. Set one side
   only and the other follows the aspect ratio, rounded to an even number.
 

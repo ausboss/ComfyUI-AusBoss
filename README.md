@@ -29,7 +29,7 @@ Inpaints white mask regions with a TorchScript LaMa checkpoint, preserves pixels
 
 ### Load Video (AusBoss)
 
-Loads a video as frames plus audio with `frame_count`, `fps`, `width`, `height`, and `duration` outputs. The built-in preview has **set start** / **set end** buttons that capture the playhead, so trimming to a clip is scrub-and-click; only the trimmed window is decoded. Optional custom width/height with aspect-preserving single-side mode.
+Loads a video as frames plus audio with `frame_count`, `fps`, `width`, `height`, and `duration` outputs. Its single responsive player includes a two-handle trim timeline: drag **IN** and **OUT**, preview exactly that window, and optionally loop it. Only the selected window is decoded. Optional custom width/height with aspect-preserving single-side mode.
 
 ### Refine Mask (AusBoss)
 
@@ -37,7 +37,7 @@ Grows or shrinks a mask, optionally fills enclosed holes, and feathers the edge 
 
 ### Save Video (AusBoss)
 
-Encodes frames to an H.264 mp4 with optional muxed audio and the workflow embedded, so saved files drag back into ComfyUI. Wire `fps` from Load Video to preserve source timing; audio and video land in a single file.
+Encodes frames to an H.264 mp4 with optional muxed audio and the workflow embedded, so saved files drag back into ComfyUI. The responsive in-node player previews the encoded result with loop and reload controls. Wire `fps` from Load Video to preserve source timing; audio and video land in a single file.
 
 The two transform nodes return exactly:
 

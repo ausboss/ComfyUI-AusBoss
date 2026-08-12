@@ -85,7 +85,7 @@ class AusBossSaveVideo:
             )
         )
         file = f"{filename}_{counter:05}_.mp4"
-        encode_video(
+        width, height, frame_count = encode_video(
             Path(full_output_folder) / file,
             frames,
             float(fps),
@@ -95,7 +95,16 @@ class AusBossSaveVideo:
         )
         return {
             "ui": {
-                "images": [{"filename": file, "subfolder": subfolder, "type": "output"}],
+                "images": [{
+                    "filename": file,
+                    "subfolder": subfolder,
+                    "type": "output",
+                    "width": width,
+                    "height": height,
+                    "frame_count": frame_count,
+                    "fps": float(fps),
+                    "duration": frame_count / float(fps),
+                }],
                 "animated": (True,),
             }
         }
