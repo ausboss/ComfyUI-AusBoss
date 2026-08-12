@@ -71,7 +71,9 @@ def encode_video(
     height, width = int(batch.shape[1]), int(batch.shape[2])
     rate = _fps_fraction(fps)
     prepared_audio = _prepare_audio(audio)
-    with av.open(str(path), "w") as container:
+    # Same movflags core uses: metadata tags survive the mp4 muxer and the
+    # moov atom lands up front so previews start immediately.
+    with av.open(str(path), "w", options={"movflags": "use_metadata_tags+faststart"}) as container:
         for key, value in (metadata or {}).items():
             container.metadata[key] = value
         # Every stream must exist before the first mux writes the container

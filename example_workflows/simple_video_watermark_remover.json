@@ -1018,7 +1018,7 @@
       11,
       3,
       10,
-      4,
+      2,
       "FLOAT"
     ]
   ],
@@ -1061,11 +1061,7 @@
       ]
     },
     "links_added_by_ue": [],
-    "frontendVersion": "1.41.20",
-    "VHS_latentpreview": false,
-    "VHS_latentpreviewrate": 0,
-    "VHS_MetadataImage": true,
-    "VHS_KeepIntermediate": true
+    "frontendVersion": "1.41.20"
   },
   "version": 0.4
 }

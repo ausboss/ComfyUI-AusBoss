@@ -31,7 +31,12 @@ class SaveVideoHelperTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "out.mp4"
             width, height, count = encode_video(
-                path, frames, 12.0, audio, 19, {"comment": "ausboss-test"}
+                path,
+                frames,
+                12.0,
+                audio,
+                19,
+                {"prompt": "ausboss-test", "workflow": "ausboss-workflow"},
             )
             self.assertEqual((width, height, count), (64, 48, 12))
             with av.open(str(path)) as container:
@@ -42,6 +47,10 @@ class SaveVideoHelperTests(unittest.TestCase):
                 decoded = sum(1 for _ in container.decode(video))
                 self.assertEqual(decoded, 12)
                 self.assertEqual(sound.rate, 32000)
+                self.assertEqual(container.metadata.get("prompt"), "ausboss-test")
+                self.assertEqual(container.metadata.get("workflow"), "ausboss-workflow")
+            mp4 = path.read_bytes()
+            self.assertLess(mp4.index(b"moov"), mp4.index(b"mdat"))
 
     def test_long_stereo_clip_survives_header_written_mid_encode(self):
         # Regression: enough frames that x264 emits packets (writing the
