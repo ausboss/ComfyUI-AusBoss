@@ -55,6 +55,21 @@ git clone https://github.com/ausboss/ComfyUI-AusBoss.git
 
 Restart ComfyUI, then search for `AusBoss`. There are no additional Python dependencies; the pack uses Pillow, NumPy, Torch, and PyAV already distributed with ComfyUI. LaMa Inpaint additionally needs a TorchScript `big-lama.pt` checkpoint in `ComfyUI/models/lama/`.
 
+## Model Links
+
+**lama**
+
+- [big-lama.pt](https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt)
+
+## Model Storage Location
+
+```text
+📂 ComfyUI/
+└── 📂 models/
+    └── 📂 lama/
+        └── big-lama.pt
+```
+
 After updating frontend files, hard-refresh the browser with `Ctrl+Shift+R`.
 
 ## Quick start
