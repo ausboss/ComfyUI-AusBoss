@@ -73,3 +73,38 @@ test("preview height scales down and remains bounded", () => {
   assert.equal(responsivePreviewHeight(252), 135);
   assert.equal(responsivePreviewHeight(1000), 420);
 });
+
+test("preview height never escapes the responsive bounds at any width", () => {
+  // Exhaustive sweep: the rendered player height must stay inside [112, 420].
+  for (let width = 0; width <= 4096; width += 7) {
+    const h = responsivePreviewHeight(width);
+    assert.ok(h >= 112, `height ${h} below min at width ${width}`);
+    assert.ok(h <= 420, `height ${h} above max at width ${width}`);
+  }
+});
+
+test("trim bounds never emit a reversed window", () => {
+  const bounds = trimBounds(20, 12, 5);
+  assert.ok(bounds.end >= bounds.start);
+  // start may not exceed the source duration.
+  assert.ok(bounds.start <= 20);
+});
+
+test("dragging either handle keeps at least the minimum window", () => {
+  const close = (a, b) => Math.abs(a - b) < 1e-6;
+  // Drag the start handle far past its limit: it must clamp so the window
+  // never undershoots the minimum.
+  const a = dragTrimHandle(20, { start: 9.95, end: 10 }, "start", 0.6, 0.1);
+  assert.ok(close(a.end, 10));
+  assert.ok(close(a.end - a.start, 0.1));
+  // Dragging the end handle past its limit clamps it to start + min window.
+  const b = dragTrimHandle(20, { start: 9.95, end: 10 }, "end", 0.4, 0.1);
+  assert.ok(b.end > b.start);
+  assert.ok(close(b.end - b.start, 0.1));
+});
+
+test("a zero-length clip yields a zero-length selection without infinite loops", () => {
+  assert.deepEqual(dragTrimHandle(0, { start: 0, end: 0 }, "start", 0.5), { start: 0, end: 0 });
+  assert.deepEqual(trimFractions(0, { start: 0, end: 0 }), { start: 0, end: 1 });
+  assert.equal(playbackBoundaryAction(0, trimBounds(0, 0, 0), true), "none");
+});
