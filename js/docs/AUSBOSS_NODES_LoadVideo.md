@@ -1,9 +1,13 @@
 # Load Video
 
 Loads a video from ComfyUI's input folder as an `IMAGE` frame batch plus its
-audio. The built-in preview plays the file, and the **set start** / **set end**
-buttons capture the playhead into `start_seconds` / `end_seconds`, so trimming
-is: scrub, click, done.
+audio. The upper source preview plays the whole file, and the **set start** /
+**set end** buttons capture its playhead into `start_seconds` / `end_seconds`,
+so trimming is: scrub, click, done. The lower trim preview then seeks to that
+start, loops at the selected end, and prevents seeking outside the window.
+
+Both previews use compact minimum dimensions instead of the source video's
+natural aspect-ratio height, so the node can be resized smaller for tall video.
 
 ## Controls
 
