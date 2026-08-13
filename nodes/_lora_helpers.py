@@ -261,35 +261,81 @@ def _triggers_store_path() -> Path | None:
     return None if base is None else base / "lora_triggers.json"
 
 
-def load_custom_triggers(name: str) -> list[str]:
+def _read_custom_entry(name: str) -> dict[str, Any]:
+    """One LoRA's user data. Values are either a legacy plain word list or a
+    dict {words, min, max}; both shapes normalize to the dict form."""
     store = _triggers_store_path()
     if store is None or not store.is_file():
-        return []
+        return {}
     try:
         data = json.loads(store.read_text(encoding="utf-8"))
-        words = data.get(name, [])
-        return [str(word) for word in words if str(word).strip()] if isinstance(words, list) else []
+        entry = data.get(name)
     except Exception:
-        return []
+        return {}
+    if isinstance(entry, list):
+        return {"words": [str(word) for word in entry if str(word).strip()]}
+    if isinstance(entry, dict):
+        return entry
+    return {}
 
 
-def save_custom_triggers(name: str, words: list[str]) -> list[str]:
+def load_custom_triggers(name: str) -> list[str]:
+    words = _read_custom_entry(name).get("words", [])
+    return [str(word) for word in words if str(word).strip()] if isinstance(words, list) else []
+
+
+def _clean_bound(value: Any) -> float | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if number != number or number in (float("inf"), float("-inf")):
+        return None
+    return max(-STRENGTH_LIMIT, min(STRENGTH_LIMIT, number))
+
+
+def load_custom_range(name: str) -> dict[str, float] | None:
+    entry = _read_custom_entry(name)
+    low = _clean_bound(entry.get("min"))
+    high = _clean_bound(entry.get("max"))
+    if low is None and high is None:
+        return None
+    return {"min": low, "max": high}
+
+
+def save_custom_lora_data(name: str, words: list[str], bounds: dict[str, Any] | None = None) -> dict[str, Any]:
     store = _triggers_store_path()
     if store is None:
-        return []
+        return {"words": []}
     cleaned = [str(word).strip() for word in words if str(word).strip()][:64]
+    entry: dict[str, Any] = {"words": cleaned}
+    if bounds:
+        low = _clean_bound(bounds.get("min"))
+        high = _clean_bound(bounds.get("max"))
+        if low is not None and high is not None and low > high:
+            low, high = high, low
+        if low is not None:
+            entry["min"] = low
+        if high is not None:
+            entry["max"] = high
     try:
         data = json.loads(store.read_text(encoding="utf-8")) if store.is_file() else {}
         if not isinstance(data, dict):
             data = {}
     except Exception:
         data = {}
-    if cleaned:
-        data[name] = cleaned
+    if cleaned or len(entry) > 1:
+        data[name] = entry
     else:
         data.pop(name, None)
     _atomic_write_json(store, data)
-    return cleaned
+    return entry
+
+
+def save_custom_triggers(name: str, words: list[str]) -> list[str]:
+    entry = _read_custom_entry(name)
+    bounds = {"min": entry.get("min"), "max": entry.get("max")}
+    return save_custom_lora_data(name, words, bounds).get("words", [])
 
 
 def _civitai_cache_path(name: str) -> Path | None:
@@ -360,6 +406,7 @@ def lora_info(name: str) -> dict[str, Any]:
         "civitai_triggers": civitai.get("trained_words", []),
         "civitai_title": civitai.get("title", ""),
         "custom_triggers": load_custom_triggers(name),
+        "range": load_custom_range(name),
         "has_preview": find_thumbnail(name) is not None,
         "has_civitai": bool(civitai),
     }
@@ -447,8 +494,9 @@ def register_lora_routes() -> None:
             words = body.get("words", [])
             if not isinstance(words, list):
                 raise ValueError("words must be a list.")
-            saved = await asyncio_run_in_executor(save_custom_triggers, name, words)
-            return web.json_response({"ok": True, "words": saved})
+            bounds = {"min": body.get("min"), "max": body.get("max")}
+            saved = await asyncio_run_in_executor(save_custom_lora_data, name, words, bounds)
+            return web.json_response({"ok": True, **saved})
         except Exception as exc:
             return web.json_response({"ok": False, "error": str(exc)}, status=400)
 

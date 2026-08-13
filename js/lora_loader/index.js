@@ -6,7 +6,9 @@ import {
   FINE_STEP,
   MAX_ROWS,
   clampHighlight,
+  commonFolderPrefix,
   filterLoras,
+  groupByFolder,
   highlightedName,
   isScrubbing,
   moveHighlight,
@@ -17,7 +19,10 @@ import {
   scrubValue,
   serializeRows,
   setStrength,
+  strengthOutOfRange,
   summarizeRows,
+  toggleAllRows,
+  toggleAllState,
   toggleTrigger,
 } from "../shared/lora_stack.mjs";
 
@@ -42,6 +47,21 @@ function installStyles() {
     width: 12px; height: 12px; border-radius: 50%; background: #9ba2aa; transition: left .12s; }
   .ausboss-lora-toggle.on { background: ${BRAND}; }
   .ausboss-lora-toggle.on::after { left: 16px; background: #fff; }
+  .ausboss-lora-toggle.mixed { background: #4d6763; }
+  .ausboss-lora-toggle.mixed::after { left: 9px; background: #cfd6da; }
+  .ausboss-lora-header { display: flex; align-items: center; gap: 8px; height: 22px;
+    color: #9ba2aa; }
+  .ausboss-lora-header .ausboss-lora-summary { text-align: right; flex: 1 1 auto; }
+  .ausboss-lora-strength.out-of-range { color: #ffb26b; border-color: #7a5230; }
+  .ausboss-lora-folder { padding: 6px 8px 2px; color: #9ba2aa; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.04em; }
+  .ausboss-lora-hoverthumb { position: fixed; z-index: 10001; max-width: 180px;
+    max-height: 180px; border-radius: 6px; border: 1px solid #3a4047;
+    box-shadow: 0 8px 28px rgba(0,0,0,.5); pointer-events: none; background: #1c1f23; }
+  .ausboss-lora-range { display: flex; align-items: center; gap: 6px; }
+  .ausboss-lora-range input { width: 56px; height: 24px; border: 1px solid #3a4047;
+    border-radius: 5px; background: #23272c; color: inherit; text-align: center; outline: none; }
+  .ausboss-lora-range input:focus { border-color: ${BRAND}; }
   .ausboss-lora-name { flex: 1 1 auto; min-width: 0; height: 24px; border: 1px solid #3a4047;
     border-radius: 5px; background: #23272c; color: inherit; text-align: left; padding: 0 8px;
     cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -185,7 +205,8 @@ function linked(state) {
 
 function panelHeight(state) {
   const rows = Math.max(1, state.rows.length);
-  return PANEL_PADDING * 2 + rows * (ROW_HEIGHT + ROW_GAP) + FOOTER_HEIGHT;
+  const header = state.rows.some((row) => row.name) ? 22 + ROW_GAP : 0;
+  return PANEL_PADDING * 2 + header + rows * (ROW_HEIGHT + ROW_GAP) + FOOTER_HEIGHT;
 }
 
 function fitNode(state) {
@@ -195,15 +216,46 @@ function fitNode(state) {
   state.node.graph?.setDirtyCanvas(true, true);
 }
 
+// ---------- suggested strength ranges ----------
+
+// One cached range per LoRA name; null = known-absent, undefined = not yet
+// fetched. Filled lazily from the info route so rows can tint out-of-range
+// strengths without a request per render.
+const rangeCache = new Map();
+const rangeFetches = new Set();
+
+function ensureRange(state, name) {
+  if (!name || rangeCache.has(name) || rangeFetches.has(name)) return;
+  rangeFetches.add(name);
+  api.fetchApi(`/ausboss/lora/info?name=${encodeURIComponent(name)}`)
+    .then((response) => response.json())
+    .then((data) => {
+      rangeCache.set(name, data.ok ? data.info.range ?? null : null);
+      updateRowValues(state);
+    })
+    .catch(() => rangeCache.set(name, null))
+    .finally(() => rangeFetches.delete(name));
+}
+
+function applyRangeTint(input, row, key) {
+  const range = rangeCache.get(row.name);
+  input.classList.toggle("out-of-range", strengthOutOfRange(row[key], range ?? null));
+  input.title = range && (range.min !== null || range.max !== null)
+    ? `Suggested range ${range.min ?? "any"} to ${range.max ?? "any"}. ` + input.dataset.baseTitle
+    : input.dataset.baseTitle;
+}
+
 // ---------- strength boxes ----------
 
 function strengthBox(state, index, key) {
   const input = el("input", "ausboss-lora-strength");
   input.value = state.rows[index][key].toFixed(2);
-  input.title = key === "strength"
+  input.dataset.baseTitle = key === "strength"
     ? "Model strength. Drag left/right to scrub, click to type, arrows to step. Shift = fine."
     : "CLIP strength. Drag left/right to scrub, click to type, arrows to step. Shift = fine.";
   input.readOnly = true;
+  ensureRange(state, state.rows[index].name);
+  applyRangeTint(input, state.rows[index], key);
 
   const commitValue = (value, structural = false) => {
     let rows = state.rows;
@@ -279,6 +331,23 @@ function openPicker(state, index, anchor) {
   let filtered = [];
   let highlight = -1;
 
+  // One floating poster image per picker; repositioned beside the popup on
+  // hover, hidden when a LoRA has no preview file.
+  const hoverThumb = el("img", "ausboss-lora-hoverthumb");
+  hoverThumb.alt = "";
+  hoverThumb.style.display = "none";
+  hoverThumb.addEventListener("error", () => { hoverThumb.style.display = "none"; });
+  pop.append(hoverThumb);
+
+  const showThumb = (name, optionRect) => {
+    const popRect = pop.getBoundingClientRect();
+    const left = popRect.right + 188 <= window.innerWidth ? popRect.right + 6 : popRect.left - 188;
+    hoverThumb.style.left = `${Math.max(4, left)}px`;
+    hoverThumb.style.top = `${Math.min(optionRect.top, window.innerHeight - 190)}px`;
+    hoverThumb.style.display = "";
+    hoverThumb.src = api.apiURL(`/ausboss/lora/thumb?name=${encodeURIComponent(name)}`);
+  };
+
   const pick = (name) => {
     if (!name) return;
     closePopup();
@@ -289,28 +358,57 @@ function openPicker(state, index, anchor) {
     commitRows(state, rows, { structural: true });
   };
 
+  const appendOption = (name, flatIndex, label) => {
+    const option = el("div", "ausboss-lora-option", stripExtension(label));
+    option.title = name;
+    if (flatIndex === highlight) option.classList.add("highlight");
+    if (name === state.rows[index].name) option.classList.add("current");
+    option.addEventListener("pointerenter", () => {
+      if (highlight !== flatIndex) {
+        highlight = flatIndex;
+        renderList();
+      }
+      showThumb(name, option.getBoundingClientRect());
+    });
+    option.addEventListener("click", () => pick(name));
+    option.dataset.ausbossFlat = String(flatIndex);
+    list.append(option);
+  };
+
   const renderList = () => {
     filtered = filterLoras(names, search.value);
     highlight = clampHighlight(highlight, filtered.length);
     list.textContent = "";
+    hoverThumb.style.display = "none";
     if (!filtered.length) {
       list.append(el("div", "ausboss-lora-empty",
         names.length ? "No matches." : "Put LoRA files in models/loras."));
       return;
     }
-    filtered.forEach((name, i) => {
-      const option = el("div", "ausboss-lora-option", stripExtension(name));
-      option.title = name;
-      if (i === highlight) option.classList.add("highlight");
-      if (name === state.rows[index].name) option.classList.add("current");
-      option.addEventListener("pointerenter", () => {
-        highlight = i;
-        renderList();
-      });
-      option.addEventListener("click", () => pick(name));
-      list.append(option);
-    });
-    list.children[highlight]?.scrollIntoView({ block: "nearest" });
+    const searching = search.value.trim() !== "";
+    if (searching) {
+      // Flat results: strip whatever folder prefix every match shares.
+      const prefix = commonFolderPrefix(filtered);
+      filtered.forEach((name, i) => appendOption(name, i, name.slice(prefix.length)));
+    } else {
+      // Browse view: bucket by top folder with quiet headers. The grouped
+      // display order becomes the keyboard order, so `filtered` is rebuilt
+      // to match and arrow/Enter navigation stays consistent with what's
+      // on screen (root files can interleave folders in sorted order).
+      const groups = groupByFolder(filtered);
+      filtered = groups.flatMap((group) => group.names);
+      highlight = clampHighlight(highlight, filtered.length);
+      let flatIndex = 0;
+      for (const group of groups) {
+        if (group.folder) list.append(el("div", "ausboss-lora-folder", group.folder));
+        for (const name of group.names) {
+          const label = group.folder ? name.slice(group.folder.length + 1) : name;
+          appendOption(name, flatIndex, label);
+          flatIndex += 1;
+        }
+      }
+    }
+    list.querySelector(`[data-ausboss-flat="${highlight}"]`)?.scrollIntoView({ block: "nearest" });
     place();
   };
 
@@ -415,6 +513,45 @@ function openInfo(state, index, anchor) {
       card.append(fetchButton);
     }
 
+    const range = el("div", "ausboss-lora-range");
+    range.append(el("span", "ausboss-lora-meta", "Suggested strength"));
+    const bound = (key, placeholder) => {
+      const inputEl = el("input");
+      inputEl.type = "number";
+      inputEl.step = "0.05";
+      inputEl.placeholder = placeholder;
+      const current = info.range?.[key];
+      if (current !== null && current !== undefined) inputEl.value = String(current);
+      inputEl.addEventListener("keydown", (event) => {
+        event.stopPropagation();
+        if (event.key === "Enter") inputEl.blur();
+      });
+      inputEl.addEventListener("change", async () => {
+        const minValue = Number(range.querySelector("[data-bound=min]").value);
+        const maxValue = Number(range.querySelector("[data-bound=max]").value);
+        const payload = {
+          name: row.name,
+          words: info.custom_triggers || [],
+          min: range.querySelector("[data-bound=min]").value === "" ? null : minValue,
+          max: range.querySelector("[data-bound=max]").value === "" ? null : maxValue,
+        };
+        try {
+          await api.fetchApi("/ausboss/lora/triggers", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          rangeCache.delete(row.name);
+          ensureRange(state, row.name);
+        } catch {}
+      });
+      inputEl.dataset.bound = key;
+      return inputEl;
+    };
+    range.append(bound("min", "min"), el("span", "ausboss-lora-meta", "to"), bound("max", "max"));
+    range.title = "Advisory range for this LoRA; out-of-range strengths tint orange on the row.";
+    card.append(range);
+
     const custom = el("div", "ausboss-lora-custom");
     const wordInput = el("input");
     wordInput.placeholder = "Add your own trigger word...";
@@ -496,14 +633,39 @@ function openRowMenu(state, index, event) {
 function updateRowValues(state) {
   state.panel.querySelectorAll(".ausboss-lora-strength").forEach((input) => {
     if (input.readOnly && input.__ausbossRead) input.value = input.__ausbossRead();
+    if (input.__ausbossTint) input.__ausbossTint();
   });
   const summary = state.panel.querySelector(".ausboss-lora-summary");
   if (summary) summary.textContent = summarizeRows(state.rows);
+  const master = state.panel.querySelector(".ausboss-lora-master");
+  if (master) {
+    const overall = toggleAllState(state.rows);
+    master.classList.toggle("on", overall === "on");
+    master.classList.toggle("mixed", overall === "mixed");
+  }
 }
 
 function renderRows(state) {
   const panel = state.panel;
   panel.textContent = "";
+
+  if (state.rows.some((row) => row.name)) {
+    const header = el("div", "ausboss-lora-header");
+    const overall = toggleAllState(state.rows);
+    const master = el(
+      "button",
+      `ausboss-lora-toggle ausboss-lora-master${overall === "on" ? " on" : overall === "mixed" ? " mixed" : ""}`
+    );
+    master.type = "button";
+    master.title = "Toggle every LoRA: mixed or off turns all on, on turns all off";
+    master.addEventListener("click", () => {
+      commitRows(state, toggleAllRows(state.rows), { structural: true });
+    });
+    header.append(master, el("span", "", "all"),
+      el("span", "ausboss-lora-summary", summarizeRows(state.rows)));
+    panel.append(header);
+  }
+
   state.rows.forEach((row, index) => {
     const rowElement = el("div", "ausboss-lora-row");
     if (!row.enabled) rowElement.classList.add("off");
@@ -526,10 +688,12 @@ function renderRows(state) {
 
     const strength = strengthBox(state, index, "strength");
     strength.__ausbossRead = () => state.rows[index]?.strength.toFixed(2) ?? "1.00";
+    strength.__ausbossTint = () => state.rows[index] && applyRangeTint(strength, state.rows[index], "strength");
     rowElement.append(toggle, name, strength);
     if (!linked(state)) {
       const clip = strengthBox(state, index, "strength_clip");
       clip.__ausbossRead = () => state.rows[index]?.strength_clip.toFixed(2) ?? "1.00";
+      clip.__ausbossTint = () => state.rows[index] && applyRangeTint(clip, state.rows[index], "strength_clip");
       rowElement.append(clip);
     }
 
@@ -569,8 +733,7 @@ function renderRows(state) {
       renderRows(state);
     }
   });
-  const summary = el("span", "ausboss-lora-summary", summarizeRows(state.rows));
-  footer.append(add, link, summary);
+  footer.append(add, link);
   panel.append(footer);
 }
 
