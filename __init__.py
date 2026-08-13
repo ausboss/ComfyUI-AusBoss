@@ -23,6 +23,7 @@ NODE_MODULES = [
     "node_refine_mask",
     "node_save_video",
     "node_select_frame",
+    "node_select_frame_range",
     "node_video_crop_rotate_pad",
 ]
 
