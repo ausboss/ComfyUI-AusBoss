@@ -26,6 +26,7 @@ errors = []
 warnings = []
 
 PUBLIC_NODE_IDS = {
+    "AUSBOSS_NODES_FrameChooser",
     "AUSBOSS_NODES_ImageCropRotatePad",
     "AUSBOSS_NODES_LaMaInpaint",
     "AUSBOSS_NODES_LoadVideo",
