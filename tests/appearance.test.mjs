@@ -4,8 +4,10 @@ import assert from "node:assert/strict";
 import {
   DEFAULT_SCHEME,
   NODE_COLOR_SCHEMES,
+  collectGraphNodes,
   schemeColors,
   shouldRecolor,
+  titleInk,
 } from "../js/shared/appearance.mjs";
 
 test("scheme table is well formed", () => {
@@ -48,4 +50,59 @@ test("color comparison ignores case and whitespace", () => {
   const plum = schemeColors("Plum");
   const noisy = { color: ` ${plum.title.toUpperCase()} `, bgcolor: plum.body.toUpperCase() };
   assert.equal(shouldRecolor(noisy, plum), true);
+});
+
+test("a menu-picked scheme survives a settings sweep", () => {
+  // The user picked Plum from the node menu while the setting was Teal;
+  // sweeping the setting to anything else must leave the node alone.
+  const plum = schemeColors("Plum");
+  const picked = { color: plum.title, bgcolor: plum.body };
+  assert.equal(shouldRecolor(picked, schemeColors("Teal")), false);
+  assert.equal(shouldRecolor(picked, null), false);
+});
+
+test("titleInk keeps light ink on every shipped scheme", () => {
+  for (const scheme of NODE_COLOR_SCHEMES.slice(1)) {
+    assert.equal(titleInk(scheme.colors.title), "#ffffff", scheme.name);
+  }
+});
+
+test("titleInk flips to dark ink on light colors", () => {
+  assert.equal(titleInk("#e0e0e0"), "#1a1a1a");
+  assert.equal(titleInk(" #FFFFFF "), "#1a1a1a");
+});
+
+test("titleInk falls back to light ink on malformed input", () => {
+  assert.equal(titleInk(undefined), "#ffffff");
+  assert.equal(titleInk(""), "#ffffff");
+  assert.equal(titleInk("#e0e"), "#ffffff");
+  assert.equal(titleInk("e0e0e0"), "#ffffff");
+  assert.equal(titleInk("#zzzzzz"), "#ffffff");
+});
+
+test("collectGraphNodes flattens nested subgraphs", () => {
+  const inner = { _nodes: [{ id: 3 }] };
+  const graph = { _nodes: [{ id: 1 }, { id: 2, subgraph: inner }] };
+  assert.deepEqual(
+    collectGraphNodes(graph).map((node) => node.id),
+    [1, 2, 3],
+  );
+});
+
+test("collectGraphNodes accepts nodes arrays and plain arrays", () => {
+  const viaNodes = { nodes: [{ id: 1 }] };
+  assert.deepEqual(collectGraphNodes(viaNodes).map((node) => node.id), [1]);
+  const plain = [{ id: 1 }, { id: 2, subgraph: [{ id: 3 }] }];
+  assert.deepEqual(collectGraphNodes(plain).map((node) => node.id), [1, 2, 3]);
+  assert.deepEqual(collectGraphNodes(null), []);
+  assert.deepEqual(collectGraphNodes({}), []);
+});
+
+test("collectGraphNodes survives subgraph reference cycles", () => {
+  const graph = { _nodes: [{ id: 1 }] };
+  graph._nodes.push({ id: 2, subgraph: graph });
+  assert.deepEqual(
+    collectGraphNodes(graph).map((node) => node.id),
+    [1, 2],
+  );
 });

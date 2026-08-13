@@ -17,6 +17,7 @@ except ImportError:  # Offline tests import this module without ComfyUI.
 MODEL_FOLDER = "lama"
 MODEL_EXTENSIONS = {".pt", ".pth"}
 DEFAULT_MODEL_NAME = "big-lama.pt"
+PREVIEW_MAX_SIZE = 512
 
 
 def register_lama_model_folder() -> None:
@@ -96,6 +97,18 @@ def _progress_bar(total: int):
     return ProgressBar(total)
 
 
+def frame_tensor_to_pil(frame: torch.Tensor):
+    """Convert one HWC float frame in [0, 1] to a PIL RGB image."""
+    from PIL import Image
+
+    if not isinstance(frame, torch.Tensor) or frame.ndim != 3 or frame.shape[-1] < 3:
+        raise ValueError("frame_tensor_to_pil expected one HWC RGB frame.")
+    array = (
+        frame[..., :3].detach().clamp(0.0, 1.0).mul(255).round().to(torch.uint8).cpu().numpy()
+    )
+    return Image.fromarray(array, "RGB")
+
+
 def _validate_images(images: torch.Tensor) -> None:
     if not isinstance(images, torch.Tensor) or images.ndim != 4:
         raise ValueError("LaMa Inpaint expected images in BHWC format.")
@@ -156,6 +169,7 @@ def inpaint_with_model(
     normalized_masks = _normalized_masks(masks, image_count, height, width)
     outputs: list[torch.Tensor] = []
     progress = _progress_bar(image_count)
+    preview_failed = False
 
     for index in range(image_count):
         _raise_if_interrupted()
@@ -187,7 +201,18 @@ def inpaint_with_model(
             output_rgb = torch.cat((output_rgb, source[..., 3:]), dim=-1)
         outputs.append(output_rgb.to(dtype=images.dtype).clamp(0.0, 1.0))
         if progress is not None:
-            progress.update(1)
+            # Attach the finished frame so long video inpaints preview live on
+            # the node face. Single images already preview via the output path,
+            # and at most one preview is emitted per completed frame.
+            preview = None
+            if image_count > 1 and not preview_failed:
+                try:
+                    preview = ("JPEG", frame_tensor_to_pil(outputs[-1]), PREVIEW_MAX_SIZE)
+                except Exception as exc:  # Preview loss must never fail the inpaint.
+                    preview_failed = True
+                    detail = str(exc).encode("ascii", "replace").decode("ascii")
+                    print(f"[AusBoss] LaMa frame previews unavailable: {detail}")
+            progress.update_absolute(index + 1, image_count, preview)
 
     return torch.stack(outputs, dim=0)
 
@@ -210,6 +235,7 @@ register_lama_model_folder()
 
 __all__ = [
     "DEFAULT_MODEL_NAME",
+    "frame_tensor_to_pil",
     "inpaint_with_model",
     "list_lama_models",
     "resolve_lama_model",
