@@ -19,6 +19,7 @@ import traceback
 NODE_MODULES = [
     "node_color_match",
     "node_compare",
+    "node_drop_shadow",
     "node_frame_chooser",
     "node_image_crop_rotate_pad",
     "node_inpaint_crop_stitch",
