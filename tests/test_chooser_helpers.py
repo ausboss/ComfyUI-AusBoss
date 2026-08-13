@@ -29,6 +29,7 @@ from nodes._chooser_helpers import (
     parse_pick_list,
     pick_list_fingerprint,
     resolve_timeout_policy,
+    token_matches,
     usable_remembered,
 )
 
@@ -128,6 +129,17 @@ class PickListFingerprintTests(unittest.TestCase):
     def test_fingerprints_are_namespaced_and_stable_for_bad_text(self):
         self.assertTrue(pick_list_fingerprint("1,4").startswith("picks:"))
         self.assertEqual(pick_list_fingerprint("1,oops"), pick_list_fingerprint("1, oops"))
+
+
+class PauseTokenTests(unittest.TestCase):
+    def test_only_the_exact_nonempty_token_matches(self):
+        self.assertTrue(token_matches("pause-token", "pause-token"))
+        for supplied in ("", "older-token", None, 123):
+            self.assertFalse(token_matches("pause-token", supplied))
+
+    def test_empty_or_nonstring_expected_tokens_never_match(self):
+        self.assertFalse(token_matches("", ""))
+        self.assertFalse(token_matches(None, None))
 
 
 class ResolveTimeoutPolicyTests(unittest.TestCase):

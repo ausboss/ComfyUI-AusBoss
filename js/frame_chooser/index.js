@@ -118,7 +118,10 @@ async function postAnswer(state, payload) {
 }
 
 async function keepSelection(state, selected) {
-  const data = await postAnswer(state, continuePayload(state.activeId, selected));
+  const data = await postAnswer(
+    state,
+    continuePayload(state.activeId, selected, state.activeToken),
+  );
   if (data) {
     const kept = Number(data.kept ?? selected.size) || state.count;
     resolvePanel(state, `Continuing with ${kept} of ${state.count} frames.`);
@@ -126,7 +129,7 @@ async function keepSelection(state, selected) {
 }
 
 async function cancelRun(state) {
-  const data = await postAnswer(state, cancelPayload(state.activeId));
+  const data = await postAnswer(state, cancelPayload(state.activeId, state.activeToken));
   if (data) resolvePanel(state, "Cancelled - run interrupted.");
 }
 
@@ -149,6 +152,7 @@ function populatePanel(state, detail) {
   state.active = true;
   state.populated = true;
   state.activeId = String(detail.node_id);
+  state.activeToken = String(detail.token || "");
   state.count = Number(detail.count) || (detail.urls?.length ?? 0);
   state.selected = validFrames(detail.previous, state.count);
   state.remaining = Number(detail.remaining ?? detail.timeout_seconds) || 0;
@@ -222,7 +226,14 @@ async function refreshPending() {
     // No state: the paused chooser belongs to a workflow that is not open
     // here. Already active: the panel survived (workflow switch), so leave
     // the in-progress selection alone.
-    if (!state || (state.active && state.activeId === String(detail.node_id))) continue;
+    if (
+      !state ||
+      (state.active &&
+        state.activeId === String(detail.node_id) &&
+        state.activeToken === String(detail.token || ""))
+    ) {
+      continue;
+    }
     populatePanel(state, detail);
   }
 }
@@ -275,6 +286,7 @@ function buildPanel(node) {
     active: false,
     populated: false,
     activeId: String(node.id),
+    activeToken: "",
     count: 0,
     selected: noFrames(),
     remaining: 0,
@@ -386,6 +398,7 @@ app.registerExtension({
       if (!detail?.node_id) return;
       const state = findState(detail.node_id);
       if (!state?.active) return;
+      if (String(detail.token || "") !== state.activeToken) return;
       state.remaining = Number(detail.remaining) || 0;
       updateFace(state);
     });
@@ -394,6 +407,7 @@ app.registerExtension({
       if (!detail?.node_id) return;
       const state = findState(detail.node_id);
       if (!state) return;
+      if (String(detail.token || "") !== state.activeToken) return;
       if (detail.reason === "answered") {
         applyPickWriteback(state, detail.indices);
         if (state.active) {
@@ -439,7 +453,7 @@ app.registerExtension({
       const state = this.__ausbossFrameChooser;
       if (state?.active) {
         // Deleting a paused node must not leave the queue hanging.
-        postAnswer(state, cancelPayload(state.activeId));
+        postAnswer(state, cancelPayload(state.activeId, state.activeToken));
       }
       state?.abort?.abort();
       for (const [key, value] of panels) {

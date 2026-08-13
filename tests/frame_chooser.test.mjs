@@ -35,13 +35,18 @@ test("remembered selections are filtered to the current batch", () => {
 });
 
 test("continue payloads are one-based, sorted, and keep-all posts an empty list", () => {
-  assert.deepEqual(continuePayload("7", new Set([9, 1, 4])), {
+  assert.deepEqual(continuePayload("7", new Set([9, 1, 4]), "pause-token"), {
     node_id: "7",
+    token: "pause-token",
     action: "continue",
     selected: [1, 4, 9],
   });
-  assert.deepEqual(continuePayload("7", noFrames()).selected, []);
-  assert.deepEqual(cancelPayload("7"), { node_id: "7", action: "cancel" });
+  assert.deepEqual(continuePayload("7", noFrames(), "pause-token").selected, []);
+  assert.deepEqual(cancelPayload("7", "pause-token"), {
+    node_id: "7",
+    token: "pause-token",
+    action: "cancel",
+  });
 });
 
 test("the header summary counts the selection against the batch", () => {

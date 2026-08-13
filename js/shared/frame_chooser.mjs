@@ -50,10 +50,10 @@ export function countdownText(remaining, policy) {
 
 // An empty selected list tells the server to keep every frame, so "Keep all"
 // posts [] instead of enumerating the batch.
-export function continuePayload(nodeId, selected) {
-  return { node_id: nodeId, action: "continue", selected: sortedFrames(selected) };
+export function continuePayload(nodeId, selected, token) {
+  return { node_id: nodeId, token, action: "continue", selected: sortedFrames(selected) };
 }
 
-export function cancelPayload(nodeId) {
-  return { node_id: nodeId, action: "cancel" };
+export function cancelPayload(nodeId, token) {
+  return { node_id: nodeId, token, action: "cancel" };
 }

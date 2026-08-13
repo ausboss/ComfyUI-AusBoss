@@ -46,4 +46,6 @@ resumes with just those frames — always in their original order.
 
 Thumbnails are written to ComfyUI's temp folder and disappear with its normal
 cleanup; answers travel over a local `/ausboss/frame_chooser` route. The last
-selection is remembered per node id for the current server session only.
+selection is remembered per node id for the current server session only. Each
+pause has a one-use token, so an older panel cannot answer a later pause that
+reuses the same node id.

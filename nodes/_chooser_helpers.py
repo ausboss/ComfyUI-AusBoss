@@ -9,8 +9,10 @@ stays importable without ComfyUI installed.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import math
 import re
+import secrets
 import threading
 import time
 from pathlib import Path
@@ -156,6 +158,20 @@ def pick_list_fingerprint(text) -> str:
     return f"picks:{digest}"
 
 
+def token_matches(expected, supplied) -> bool:
+    """True only when a response carries this pause's own token.
+
+    Both sides must be non-empty strings; comparison is constant-time. A
+    stale panel (earlier pause, second tab left behind, reloaded page that
+    never re-fetched) fails this check and can never resolve the wrong
+    pause."""
+    if not isinstance(expected, str) or not isinstance(supplied, str):
+        return False
+    if not expected or not supplied:
+        return False
+    return hmac.compare_digest(expected, supplied)
+
+
 def resolve_timeout_policy(policy: str, frame_count: int) -> list[int] | None:
     """Selection applied when a paused chooser's countdown expires.
 
@@ -213,9 +229,15 @@ def write_thumbnails(frames: torch.Tensor, run_token: str, max_size: int) -> lis
 class _PendingChoice:
     """One paused Frame Chooser execution awaiting a browser answer."""
 
-    __slots__ = ("event", "frame_count", "selection", "cancelled", "payload", "deadline")
+    __slots__ = ("event", "frame_count", "selection", "cancelled", "payload", "deadline", "token")
 
-    def __init__(self, frame_count: int, payload: dict | None = None, deadline: float | None = None):
+    def __init__(
+        self,
+        frame_count: int,
+        payload: dict | None = None,
+        deadline: float | None = None,
+        token: str = "",
+    ):
         self.event = threading.Event()
         self.frame_count = int(frame_count)
         self.selection: list[int] | None = None
@@ -224,6 +246,9 @@ class _PendingChoice:
         # page reload; the deadline lets that route report a live countdown.
         self.payload = dict(payload) if payload else {}
         self.deadline = deadline
+        # Per-pause random token: answers must echo it, so a stale panel or
+        # second tab can never resolve a pause it was not shown.
+        self.token = str(token)
 
 
 def _store() -> dict:
@@ -282,13 +307,19 @@ def await_selection(
         deadline = time.monotonic() + int(timeout_seconds)
     payload = {
         "node_id": key,
+        "token": secrets.token_urlsafe(24),
         "urls": files,
         "count": count,
         "previous": list(previous) if previous else [],
         "timeout_seconds": int(timeout_seconds),
         "on_timeout": str(on_timeout),
     }
-    pending = _PendingChoice(count, payload=payload, deadline=deadline)
+    pending = _PendingChoice(
+        count,
+        payload=payload,
+        deadline=deadline,
+        token=payload["token"],
+    )
     with store["lock"]:
         store["pending"][key] = pending
     try:
@@ -304,27 +335,34 @@ def await_selection(
                 fallback = resolve_timeout_policy(str(on_timeout), count)
                 if fallback is None:
                     raise model_management.InterruptProcessingException()
-                _send_done(key, fallback, count, "timeout")
+                _send_done(key, pending.token, fallback, count, "timeout")
                 return list(fallback)
             whole = math.ceil(remaining)
             if whole != last_tick:
                 last_tick = whole
                 PromptServer.instance.send_sync(
-                    TICK_EVENT, {"node_id": key, "remaining": whole}
+                    TICK_EVENT,
+                    {"node_id": key, "token": pending.token, "remaining": whole},
                 )
         if pending.cancelled:
             raise model_management.InterruptProcessingException()
         answer = list(pending.selection or [])
         # Every open tab hears how the pause resolved: stale panels release
         # and the pick_list widget receives the answer for headless reruns.
-        _send_done(key, answer, count, "answered")
+        _send_done(key, pending.token, answer, count, "answered")
         return answer
     finally:
         with store["lock"]:
             store["pending"].pop(key, None)
 
 
-def _send_done(node_id: str, selection: list[int], frame_count: int, reason: str) -> None:
+def _send_done(
+    node_id: str,
+    token: str,
+    selection: list[int],
+    frame_count: int,
+    reason: str,
+) -> None:
     """Tell every open tab how a pause resolved (panel release + writeback)."""
     from server import PromptServer
 
@@ -333,6 +371,7 @@ def _send_done(node_id: str, selection: list[int], frame_count: int, reason: str
         DONE_EVENT,
         {
             "node_id": str(node_id),
+            "token": str(token),
             "indices": indices_string(kept),
             "kept": len(kept),
             "count": int(frame_count),
@@ -384,6 +423,16 @@ def register_chooser_route() -> None:
             return web.json_response(
                 {"error": "No Frame Chooser is paused under that id."}, status=404
             )
+        if not token_matches(pending.token, data.get("token")):
+            return web.json_response(
+                {
+                    "error": (
+                        "This Frame Chooser answer belongs to an older pause. "
+                        "Refresh the page and answer the currently paused panel."
+                    )
+                },
+                status=409,
+            )
         if action == "cancel":
             pending.cancelled = True
             pending.event.set()
@@ -426,6 +475,7 @@ __all__ = [
     "register_chooser_route",
     "remember_selection",
     "resolve_timeout_policy",
+    "token_matches",
     "usable_remembered",
     "write_thumbnails",
 ]
