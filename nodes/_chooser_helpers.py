@@ -1,0 +1,274 @@
+"""Frame Chooser helpers: selection math, thumbnails, and pause plumbing.
+
+The pure functions at the top are covered by offline unit tests. Everything
+that talks to ComfyUI (thumbnail files, the websocket announcement, the
+answer route, the blocking wait) imports server modules lazily so this file
+stays importable without ComfyUI installed.
+"""
+
+from __future__ import annotations
+
+import threading
+from pathlib import Path
+
+import torch
+
+try:
+    import folder_paths
+except ImportError:  # Offline tests import this module without ComfyUI.
+    folder_paths = None
+
+
+POLL_SECONDS = 0.1
+THUMBNAIL_SUBFOLDER = "ausboss_chooser"
+EVENT_NAME = "ausboss-frame-choose"
+
+
+# --- pure selection logic ----------------------------------------------------
+
+def normalize_selection(values, frame_count: int) -> list[int]:
+    """Validate a browser-supplied selection of one-based frame indices.
+
+    Returns the indices deduplicated and ascending, so the kept frames always
+    stay in source order. An empty list is valid and means "keep every frame".
+    Anything else invalid raises, so a malformed or hostile request can never
+    release a paused graph with a selection the node did not offer."""
+    if not isinstance(values, (list, tuple)):
+        raise ValueError("Frame selection must be a list of one-based integers.")
+    count = int(frame_count)
+    kept: set[int] = set()
+    for value in values:
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise ValueError("Frame selection entries must be plain integers.")
+        if value < 1 or value > count:
+            raise ValueError(
+                f"Frame {value} is outside this batch (1 through {count})."
+            )
+        kept.add(value)
+    return sorted(kept)
+
+
+def usable_remembered(values, frame_count: int) -> list[int] | None:
+    """Adapt a remembered selection to the current batch size.
+
+    Indices past the end of the new batch are dropped. Returns None when the
+    memory named frames only beyond this batch (or is not a list at all): a
+    useless memory means the node should pause and ask again."""
+    if not isinstance(values, (list, tuple)):
+        return None
+    count = int(frame_count)
+    valid = sorted(
+        {
+            int(value)
+            for value in values
+            if isinstance(value, int)
+            and not isinstance(value, bool)
+            and 1 <= value <= count
+        }
+    )
+    if values and not valid:
+        return None
+    return valid
+
+
+def keep_frames(frames: torch.Tensor, one_based: list[int]) -> torch.Tensor:
+    """Slice a BHWC batch down to the chosen frames, keeping source order.
+
+    An empty selection keeps the whole batch unchanged."""
+    if not isinstance(frames, torch.Tensor) or frames.ndim != 4:
+        raise ValueError("Frame Chooser expected a BHWC IMAGE batch.")
+    if not one_based:
+        return frames
+    index = torch.tensor(
+        [int(value) - 1 for value in one_based], dtype=torch.long, device=frames.device
+    )
+    return frames.index_select(0, index)
+
+
+def effective_indices(one_based: list[int], frame_count: int) -> list[int]:
+    """Resolve "empty means keep all" into the concrete kept indices."""
+    if one_based:
+        return [int(value) for value in one_based]
+    return list(range(1, int(frame_count) + 1))
+
+
+def indices_string(one_based: list[int]) -> str:
+    """One-based indices joined for the STRING output, e.g. '1,4,9'."""
+    return ",".join(str(value) for value in one_based)
+
+
+# --- thumbnails ---------------------------------------------------------------
+
+def write_thumbnails(frames: torch.Tensor, run_token: str, max_size: int) -> list[dict]:
+    """Write one downscaled JPEG per frame into ComfyUI's temp folder.
+
+    Returns /view descriptors ({filename, subfolder, type}) the frontend turns
+    into URLs. The temp folder is ComfyUI-managed, so the files disappear with
+    every normal temp cleanup."""
+    from PIL import Image
+
+    from ._media_helpers import encode_preview
+
+    if folder_paths is None:
+        raise RuntimeError("Frame Chooser thumbnails require ComfyUI's folder_paths.")
+    root = Path(folder_paths.get_temp_directory()) / THUMBNAIL_SUBFOLDER
+    root.mkdir(parents=True, exist_ok=True)
+    files: list[dict] = []
+    for index in range(int(frames.shape[0])):
+        array = (
+            (frames[index].detach().clamp(0.0, 1.0) * 255.0)
+            .round()
+            .to(torch.uint8)
+            .cpu()
+            .numpy()
+        )
+        if array.ndim == 3 and array.shape[-1] >= 3:
+            image = Image.fromarray(array[..., :3], "RGB")
+        else:
+            image = Image.fromarray(array.reshape(array.shape[0], array.shape[1]), "L")
+        name = f"{run_token}_{index + 1:04d}.jpg"
+        (root / name).write_bytes(encode_preview(image, int(max_size), int(max_size)))
+        files.append({"filename": name, "subfolder": THUMBNAIL_SUBFOLDER, "type": "temp"})
+    return files
+
+
+# --- pause plumbing -----------------------------------------------------------
+
+class _PendingChoice:
+    """One paused Frame Chooser execution awaiting a browser answer."""
+
+    __slots__ = ("event", "frame_count", "selection", "cancelled")
+
+    def __init__(self, frame_count: int):
+        self.event = threading.Event()
+        self.frame_count = int(frame_count)
+        self.selection: list[int] | None = None
+        self.cancelled = False
+
+
+def _store() -> dict:
+    """Pending and remembered state, attached to the live PromptServer so a
+    module reload (ComfyUI-Manager, dev restarts) keeps sharing one copy."""
+    from server import PromptServer
+
+    server = PromptServer.instance
+    store = getattr(server, "_ausboss_frame_chooser", None)
+    if store is None:
+        store = {"pending": {}, "remembered": {}, "lock": threading.Lock()}
+        server._ausboss_frame_chooser = store
+    return store
+
+
+def recall_selection(node_id: str) -> list[int] | None:
+    """Previous answer for this node id, or None when it never answered."""
+    store = _store()
+    with store["lock"]:
+        remembered = store["remembered"].get(str(node_id))
+    return list(remembered) if remembered is not None else None
+
+
+def remember_selection(node_id: str, selection: list[int]) -> None:
+    store = _store()
+    with store["lock"]:
+        store["remembered"][str(node_id)] = list(selection)
+
+
+def await_selection(
+    node_id: str, frame_count: int, files: list[dict], previous: list[int] | None
+) -> list[int]:
+    """Announce the pause to the browser and block until it answers.
+
+    Returns the validated one-based selection ([] = keep all). Raises
+    InterruptProcessingException when the browser cancels or the queue is
+    interrupted, so ComfyUI unwinds the run exactly like pressing stop."""
+    import comfy.model_management as model_management
+    from server import PromptServer
+
+    store = _store()
+    key = str(node_id)
+    pending = _PendingChoice(frame_count)
+    with store["lock"]:
+        store["pending"][key] = pending
+    try:
+        PromptServer.instance.send_sync(
+            EVENT_NAME,
+            {
+                "node_id": key,
+                "urls": files,
+                "count": int(frame_count),
+                "previous": list(previous) if previous else [],
+            },
+        )
+        while not pending.event.wait(POLL_SECONDS):
+            if model_management.processing_interrupted():
+                raise model_management.InterruptProcessingException()
+        if pending.cancelled:
+            raise model_management.InterruptProcessingException()
+        return list(pending.selection or [])
+    finally:
+        with store["lock"]:
+            store["pending"].pop(key, None)
+
+
+def register_chooser_route() -> None:
+    """POST /ausboss/frame_chooser answers or cancels a paused chooser."""
+    try:
+        from aiohttp import web
+        from server import PromptServer
+    except ImportError:
+        return
+    server = getattr(PromptServer, "instance", None)
+    if server is None or getattr(server, "_ausboss_chooser_route", False):
+        return
+    server._ausboss_chooser_route = True
+
+    @server.routes.post("/ausboss/frame_chooser")
+    async def ausboss_frame_chooser(request):
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response({"error": "The request body must be JSON."}, status=400)
+        node_id = str(data.get("node_id", ""))
+        action = data.get("action", "")
+        store = _store()
+        with store["lock"]:
+            pending = store["pending"].get(node_id)
+        if pending is None:
+            return web.json_response(
+                {"error": "No Frame Chooser is paused under that id."}, status=404
+            )
+        if action == "cancel":
+            pending.cancelled = True
+            pending.event.set()
+            return web.json_response({"status": "cancelled"})
+        if action == "continue":
+            try:
+                selection = normalize_selection(data.get("selected", []), pending.frame_count)
+            except ValueError as exc:
+                return web.json_response({"error": str(exc)}, status=400)
+            pending.selection = selection
+            pending.event.set()
+            return web.json_response(
+                {
+                    "status": "continued",
+                    "kept": len(effective_indices(selection, pending.frame_count)),
+                }
+            )
+        return web.json_response({"error": "Action must be 'continue' or 'cancel'."}, status=400)
+
+
+__all__ = [
+    "EVENT_NAME",
+    "POLL_SECONDS",
+    "THUMBNAIL_SUBFOLDER",
+    "await_selection",
+    "effective_indices",
+    "indices_string",
+    "keep_frames",
+    "normalize_selection",
+    "recall_selection",
+    "register_chooser_route",
+    "remember_selection",
+    "usable_remembered",
+    "write_thumbnails",
+]

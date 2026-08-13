@@ -18,6 +18,9 @@ _scratch/
 # Package-manager lockfile — this pack pins nothing; ComfyUI installs deps
 uv.lock
 
+# User aspect-ratio presets - personal copy of ausboss_presets_example.json
+ausboss_presets.json
+
 # Local working notes
 ausboss_test_checklist.md
 ausboss_idea_backlog.md

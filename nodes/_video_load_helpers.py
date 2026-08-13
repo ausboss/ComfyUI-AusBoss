@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import math
+from collections.abc import Mapping
+from functools import partial
 from pathlib import Path
+from typing import Callable
 
 import av
 import numpy as np
@@ -11,8 +15,56 @@ from PIL import Image
 
 from ._media_helpers import video_metadata
 
+try:
+    import psutil  # ComfyUI core dependency; fail soft for offline tests.
+except ImportError:
+    psutil = None
+
 FALLBACK_SAMPLE_RATE = 44100
 _TIME_EPSILON = 1e-4
+
+# Fraction of available memory the decoded float batch may claim. The decode
+# also holds a uint8 staging buffer (a quarter of the float size), so a full
+# budget would still overshoot; 0.8 leaves room for that and for the rest of
+# the workflow downstream.
+MEMORY_SAFETY_FACTOR = 0.8
+_BYTES_PER_PIXEL = 3 * 4  # rgb float32, the BHWC batch ComfyUI consumes
+
+
+def memory_budget_error(
+    frame_count: int,
+    width: int,
+    height: int,
+    available_bytes: int | None,
+    safety_factor: float = MEMORY_SAFETY_FACTOR,
+) -> str | None:
+    """Message when the decoded batch cannot fit in memory; None when it can.
+
+    Pure math so tests can drive it with a fake available_bytes. Unknown
+    availability (None or <= 0) skips the guard rather than blocking loads.
+    """
+    if not available_bytes or available_bytes <= 0 or frame_count <= 0:
+        return None
+    if width <= 0 or height <= 0:
+        return None
+    needed = frame_count * height * width * _BYTES_PER_PIXEL
+    if needed <= int(available_bytes * safety_factor):
+        return None
+    return (
+        f"Load Video would need about {needed / 1e9:.1f} GB for {frame_count} "
+        f"frames at {width}x{height}, but only {available_bytes / 1e9:.1f} GB "
+        "of memory is available. Trim a shorter start/end window or set "
+        "custom_width/custom_height to shrink the frames."
+    )
+
+
+def _available_memory_bytes() -> int | None:
+    if psutil is None:
+        return None
+    try:
+        return int(psutil.virtual_memory().available)
+    except Exception:
+        return None
 
 
 def output_size(
@@ -44,6 +96,20 @@ def trim_window(duration: float, start_seconds: float, end_seconds: float) -> tu
     return start, end
 
 
+def _estimate_window_frames(metadata: dict, start: float, end: float) -> int:
+    """Frames expected inside [start, end); 0 when the source gives no clue."""
+    duration = float(metadata["duration"] or 0.0)
+    fps = float(metadata["fps"] or 0.0)
+    total = int(metadata["frame_count"] or 0)
+    window_end = min(end, duration) if duration > 0 else end
+    estimated = 0
+    if fps > 0 and math.isfinite(window_end) and window_end > start:
+        estimated = int(math.ceil((window_end - start) * fps))
+    if total > 0:
+        estimated = min(estimated, total) if estimated > 0 else total
+    return estimated
+
+
 def decode_video_range(
     path: Path,
     start_seconds: float,
@@ -54,18 +120,29 @@ def decode_video_range(
     """Decode [start, end) as a BHWC float batch plus the source fps."""
     metadata = video_metadata(path)
     start, end = trim_window(float(metadata["duration"]), start_seconds, end_seconds)
-    frames: list[torch.Tensor] = []
+    estimated = _estimate_window_frames(metadata, start, end)
+    source_width, source_height = int(metadata["width"]), int(metadata["height"])
+    if estimated > 0 and source_width > 0 and source_height > 0:
+        planned = output_size(source_width, source_height, custom_width, custom_height)
+        error = memory_budget_error(estimated, planned[0], planned[1], _available_memory_bytes())
+        if error:
+            raise ValueError(error)
+    buffer: np.ndarray | None = None
+    count = 0
     with av.open(str(path)) as container:
         stream = next(candidate for candidate in container.streams if candidate.type == "video")
         stream.thread_type = "AUTO"
         fps = float(stream.average_rate or stream.base_rate or 0.0) or 30.0
         if start > 0 and stream.time_base:
-            container.seek(max(0, int(start / stream.time_base)), stream=stream, backward=True)
+            # Keyframe at or before the trim start (backward=True), offset by
+            # the stream start time to match the preview seek helpers.
+            offset = int(start / stream.time_base) + (stream.start_time or 0)
+            container.seek(max(0, offset), stream=stream, backward=True)
         size: tuple[int, int] | None = None
         for frame in container.decode(stream):
             time = frame.time
             if time is None:
-                time = start + len(frames) / fps
+                time = start + count / fps
             if time < start - _TIME_EPSILON:
                 continue
             if time > end - _TIME_EPSILON:
@@ -75,13 +152,26 @@ def decode_video_range(
                 size = output_size(array.shape[1], array.shape[0], custom_width, custom_height)
             if (array.shape[1], array.shape[0]) != size:
                 array = np.asarray(Image.fromarray(array).resize(size, Image.LANCZOS))
-            frames.append(torch.from_numpy(array.copy()))
-    if not frames:
+            # Preallocated uint8 staging keeps peak memory at one uint8 copy
+            # plus the final float batch, instead of a list of per-frame
+            # tensors plus a stacked copy of everything.
+            if buffer is None:
+                buffer = np.empty((max(estimated, 8), size[1], size[0], 3), dtype=np.uint8)
+            elif count >= buffer.shape[0]:
+                grown = np.empty(
+                    (max(count + 8, buffer.shape[0] + buffer.shape[0] // 4),) + buffer.shape[1:],
+                    dtype=np.uint8,
+                )
+                grown[:count] = buffer
+                buffer = grown
+            buffer[count] = array
+            count += 1
+    if buffer is None or count == 0:
         raise ValueError(
             f"Load Video found no frames between {start:.2f}s and "
             f"{'the end' if end == float('inf') else f'{end:.2f}s'} in '{path.name}'."
         )
-    batch = torch.stack(frames, dim=0).float() / 255.0
+    batch = torch.from_numpy(buffer[:count]).float().div_(255.0)
     return batch, fps
 
 
@@ -130,9 +220,44 @@ def decode_audio_range(path: Path, start_seconds: float, end_seconds: float) -> 
     }
 
 
+class LazyAudio(Mapping):
+    """ComfyUI AUDIO that decodes on first access and caches the result.
+
+    Downstream nodes dict-access the "waveform"/"sample_rate" keys, so a
+    Mapping is a drop-in AUDIO value — but a graph that never consumes the
+    audio output now skips the extraction entirely.
+    """
+
+    def __init__(self, loader: Callable[[], dict]):
+        self._loader = loader
+        self._data: dict | None = None
+
+    def _resolve(self) -> dict:
+        if self._data is None:
+            self._data = dict(self._loader())
+        return self._data
+
+    def __getitem__(self, key):
+        return self._resolve()[key]
+
+    def __iter__(self):
+        return iter(self._resolve())
+
+    def __len__(self) -> int:
+        return len(self._resolve())
+
+
+def lazy_audio_range(path: Path, start_seconds: float, end_seconds: float) -> LazyAudio:
+    """AUDIO for [start, end) whose decode is deferred until first key read."""
+    return LazyAudio(partial(decode_audio_range, path, start_seconds, end_seconds))
+
+
 __all__ = [
+    "LazyAudio",
     "decode_audio_range",
     "decode_video_range",
+    "lazy_audio_range",
+    "memory_budget_error",
     "output_size",
     "silent_audio",
     "trim_window",

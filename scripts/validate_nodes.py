@@ -27,6 +27,8 @@ warnings = []
 
 PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_Compare",
+    "AUSBOSS_NODES_CropForInpaint",
+    "AUSBOSS_NODES_FrameChooser",
     "AUSBOSS_NODES_ImageCropRotatePad",
     "AUSBOSS_NODES_LaMaInpaint",
     "AUSBOSS_NODES_LoadVideo",
@@ -37,6 +39,7 @@ PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_SelectFrameRange",
     "AUSBOSS_NODES_VideoBundle",
     "AUSBOSS_NODES_VideoBundleEdit",
+    "AUSBOSS_NODES_StitchInpaint",
     "AUSBOSS_NODES_VideoCropRotatePad",
     "AUSBOSS_NODES_VideoUnbundle",
 }

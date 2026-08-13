@@ -27,17 +27,25 @@ Returns one unchanged frame from an `IMAGE` batch using a clear one-based frame 
 
 Returns a contiguous sub-batch: one-based `start_frame` plus `frame_count` (`0` means through the last frame), along with the actual frame count as an `INT`. Out-of-range requests report the available range instead of clamping.
 
+### Frame Chooser (AusBoss)
+
+Pauses the graph and shows the incoming batch as a clickable filmstrip: pick the frames to keep, or Keep all / Cancel. A **keep last selection** mode replays your previous pick on re-runs without pausing. Outputs the kept sub-batch, its count, and the one-based indices.
+
 ### LoRA Loader (AusBoss)
 
-A stacked multi-LoRA node. Each row has an on/off pill, a searchable picker (type to filter, arrow keys + Enter to pick), and strengths you can **drag left/right to scrub** (Shift for fine steps) or click to type. The per-row info card shows the LoRA's preview image, base model, and trigger words from its file metadata, a one-click Civitai lookup, or your own saved words — click words to toggle them into the deduplicated `trigger_words` output. CLIP input is optional.
+A stacked multi-LoRA node. Each row has an on/off pill, a searchable picker (type to filter, arrow keys + Enter to pick; browse view groups by folder and hovering shows the preview image), and strengths you can **drag left/right to scrub** (Shift for fine steps) or click to type. A header pill toggles the whole stack. The per-row info card shows the LoRA's preview image, base model, trigger words from its file metadata, a one-click Civitai lookup, or your own saved words — click words to toggle them into the deduplicated `trigger_words` output — plus an optional suggested strength range that tints out-of-range values. CLIP input is optional.
 
 ### LaMa Inpaint (AusBoss)
 
 Inpaints white mask regions with a TorchScript LaMa checkpoint, preserves pixels where the mask is zero, and processes large video batches one frame at a time to keep VRAM bounded. Place `big-lama.pt` in `ComfyUI/models/lama/`; the node never performs automatic downloads.
 
+### Crop For Inpaint / Stitch Inpaint (AusBoss)
+
+Inpaint only where it matters: Crop For Inpaint grows the mask's bounding box by a context factor and emits the crop, the raw sampling mask, and a stitcher; Stitch Inpaint pastes the result back with a separately feathered blend so every pixel outside the blend region stays **bit-identical** to the original. The stitcher broadcasts across a video batch, so one crop serves a whole clip.
+
 ### Load Video (AusBoss)
 
-Loads a video as frames plus audio with `frame_count`, `fps`, `width`, `height`, and `duration` outputs. Its single responsive player includes a two-handle trim timeline: drag **IN** and **OUT**, preview exactly that window, and optionally loop it. Only the selected window is decoded. Optional custom width/height with aspect-preserving single-side mode.
+Loads a video as frames plus audio with `frame_count`, `fps`, `width`, `height`, and `duration` outputs. Its single responsive player includes a two-handle trim timeline: drag **IN** and **OUT** (shown as `h:mm:ss.s` timecodes you can type into), preview exactly that window, and optionally loop it. Only the selected window is decoded, with a memory guard that reports oversized trims instead of exhausting RAM; audio is extracted lazily only when consumed. Optional custom width/height with aspect-preserving single-side mode.
 
 ### Refine Mask (AusBoss)
 
@@ -45,7 +53,15 @@ Grows or shrinks a mask, optionally fills enclosed holes, and feathers the edge 
 
 ### Save Video (AusBoss)
 
-Encodes frames to an H.264 mp4 with optional muxed audio and the workflow embedded, so saved files drag back into ComfyUI. The responsive in-node player previews the encoded result with loop and reload controls. Wire `fps` from Load Video to preserve source timing; audio and video land in a single file.
+Encodes frames to an H.264 mp4 tagged bt709 (so platforms don't shift your colors), with optional muxed audio and the workflow embedded — drag a saved mp4 back onto the canvas to restore its workflow. The responsive in-node player previews the encoded result with loop and reload controls. Wire `fps` from Load Video to preserve source timing; audio and video land in a single file.
+
+### Video Bundle / Unbundle / Bundle Edit (AusBoss)
+
+One wire for a whole video: frames, audio, fps, and derived frame count, size, and duration travel together as `AUSBOSS_VIDEO`. Bundle Edit overrides only what you connect and re-derives the rest, so the numbers can never drift.
+
+### Compare (AusBoss)
+
+A/B any two images: slide mode sweeps B over A under your pointer with a seam line, hold mode shows B while pressed. Passes image A through, so it sits mid-graph without rewiring.
 
 The two transform nodes return exactly:
 
@@ -117,6 +133,10 @@ Settings → Keybindings) to open the selected transform node's editor.
 Custom crop aspect-ratio presets live in an optional `ausboss_presets.json`
 next to the pack — copy `ausboss_presets_example.json` to start; your file is
 gitignored and survives updates.
+
+Under **Chrome**: the browser tab's icon and title can show rendering state
+and queue depth (on by default), and optional **node runtime badges** stamp
+each node with its seconds after a run (off by default).
 
 ## Compatibility
 

@@ -14,6 +14,8 @@ import numpy as np
 from PIL import Image, ImageFilter
 import torch
 
+from ._color_helpers import parse_fill_color
+
 
 MAX_DIMENSION = 65536
 MAX_PADDING = 32768
@@ -82,32 +84,11 @@ def _bounded_padding(value: int, name: str) -> int:
 
 
 def normalize_fill_color(value: str) -> str:
-    text = str(value or "").strip().lower()
-    if text.startswith("#"):
-        text = text[1:]
-    if len(text) == 3 and all(character in "0123456789abcdef" for character in text):
-        text = "".join(character * 2 for character in text)
-    if len(text) == 6 and all(character in "0123456789abcdef" for character in text):
-        return f"#{text}"
-
-    parts = [part for part in text.replace(",", " ").split() if part]
-    if len(parts) == 3:
-        try:
-            channels = [max(0, min(255, int(float(part)))) for part in parts]
-        except ValueError as exc:
-            raise ValueError(
-                "Transform: input 'fill_color' expected #RRGGBB or three RGB values."
-            ) from exc
-        return "#" + "".join(f"{channel:02x}" for channel in channels)
-
-    raise ValueError(
-        "Transform: input 'fill_color' expected #RRGGBB or three RGB values."
-    )
+    return "#" + "".join(f"{channel:02x}" for channel in parse_fill_color(value))
 
 
 def fill_rgb(value: str) -> tuple[int, int, int]:
-    normalized = normalize_fill_color(value)
-    return tuple(int(normalized[index : index + 2], 16) for index in (1, 3, 5))
+    return parse_fill_color(value)
 
 
 def normalize_aspect_ratio(value: str) -> str:
