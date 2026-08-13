@@ -26,6 +26,7 @@ errors = []
 warnings = []
 
 PUBLIC_NODE_IDS = {
+    "AUSBOSS_NODES_CropForInpaint",
     "AUSBOSS_NODES_FrameChooser",
     "AUSBOSS_NODES_ImageCropRotatePad",
     "AUSBOSS_NODES_LaMaInpaint",
@@ -35,6 +36,7 @@ PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_SaveVideo",
     "AUSBOSS_NODES_SelectFrame",
     "AUSBOSS_NODES_SelectFrameRange",
+    "AUSBOSS_NODES_StitchInpaint",
     "AUSBOSS_NODES_VideoCropRotatePad",
 }
 

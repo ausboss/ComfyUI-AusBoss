@@ -19,6 +19,7 @@ import traceback
 NODE_MODULES = [
     "node_frame_chooser",
     "node_image_crop_rotate_pad",
+    "node_inpaint_crop_stitch",
     "node_lama_inpaint",
     "node_load_video",
     "node_lora_loader",
