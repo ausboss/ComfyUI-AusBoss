@@ -927,6 +927,15 @@ function updateModalInfo(state) {
 function drawEmpty(state, text) { for (const canvas of [state.canvas, state.previewCanvas]) { if (!canvas) continue; const prepared = prepareCanvas(canvas); drawEmptyCanvas(prepared.context, prepared.width, prepared.height, text); } }
 function drawEmptyCanvas(context, width, height, text) { context.fillStyle = "#111"; context.fillRect(0, 0, width, height); context.fillStyle = "#9ba2aa"; context.font = "13px system-ui"; context.textAlign = "center"; context.fillText(text, width / 2, height / 2); context.textAlign = "left"; }
 
+// True when the node is an AusBoss transform node whose editor can open
+// (installed by installTransformNode). Used by the pack-wide command.
+export function openTransformEditorForNode(node) {
+  const state = node?.__ausbossTransformState;
+  if (!state) return false;
+  openEditor(state);
+  return true;
+}
+
 export function disposeTransformNode(node) {
   const state = node.__ausbossTransformState; if (!state) return; state.disposed = true; closeEditor(state); state.frameController?.abort(); if (state.frameObjectUrl) URL.revokeObjectURL(state.frameObjectUrl);
   if (node.__ausbossImgsSuppressed) {
