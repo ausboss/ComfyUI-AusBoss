@@ -1,0 +1,459 @@
+"""Shared backend logic for the LoRA Loader node.
+
+Pure stack parsing and trigger-word logic live at the top so they stay
+testable without torch or a running ComfyUI; everything that needs comfy or
+the web server imports lazily and fails soft.
+"""
+
+from __future__ import annotations
+
+import json
+from collections import OrderedDict
+from pathlib import Path
+from typing import Any
+
+try:
+    import folder_paths
+except ImportError:  # pragma: no cover - only outside ComfyUI
+    folder_paths = None
+
+STRENGTH_LIMIT = 10.0
+_THUMB_SUFFIXES = (".preview.png", ".preview.jpg", ".preview.jpeg", ".preview.webp",
+                   ".png", ".jpg", ".jpeg", ".webp")
+
+
+def clamp_strength(value: Any, fallback: float = 1.0) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return fallback
+    return max(-STRENGTH_LIMIT, min(STRENGTH_LIMIT, number))
+
+
+def parse_lora_stack(raw: str | None) -> list[dict[str, Any]]:
+    """Validate the serialized stack into clean row dicts.
+
+    Raises ValueError with a user-readable message on malformed input; an
+    empty or missing value is a valid empty stack.
+    """
+    if raw is None or str(raw).strip() == "" or str(raw).strip() == "[]":
+        return []
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"LoRA stack is not valid JSON: {exc}") from exc
+    if not isinstance(data, list):
+        raise ValueError("LoRA stack must be a JSON list of rows.")
+    rows: list[dict[str, Any]] = []
+    for index, entry in enumerate(data, start=1):
+        if not isinstance(entry, dict):
+            raise ValueError(f"LoRA stack row {index} must be an object.")
+        name = str(entry.get("name") or "").strip()
+        if not name:
+            # Blank rows are a UI convenience (freshly added, not yet picked);
+            # they are skipped rather than rejected so a half-built stack runs.
+            continue
+        strength = clamp_strength(entry.get("strength", 1.0))
+        rows.append(
+            {
+                "name": name,
+                "strength": strength,
+                "strength_clip": clamp_strength(entry.get("strength_clip", strength), strength),
+                "enabled": bool(entry.get("enabled", True)),
+                "triggers": str(entry.get("triggers") or "").strip(),
+            }
+        )
+    return rows
+
+
+def collect_trigger_words(rows: list[dict[str, Any]]) -> str:
+    """Join enabled rows' trigger words, deduplicated, order preserved."""
+    seen: set[str] = set()
+    words: list[str] = []
+    for row in rows:
+        if not row.get("enabled", True):
+            continue
+        for chunk in str(row.get("triggers", "")).split(","):
+            word = chunk.strip()
+            key = word.lower()
+            if word and key not in seen:
+                seen.add(key)
+                words.append(word)
+    return ", ".join(words)
+
+
+def list_loras() -> list[str]:
+    if folder_paths is None:
+        return []
+    try:
+        return sorted(folder_paths.get_filename_list("loras"))
+    except Exception:
+        return []
+
+
+def resolve_lora_path(name: str) -> Path:
+    if folder_paths is None:
+        raise ValueError("folder_paths is unavailable outside ComfyUI.")
+    full = folder_paths.get_full_path("loras", name)
+    if not full:
+        raise ValueError(f"LoRA file not found in models/loras: {name}")
+    path = Path(full).resolve()
+    roots = [Path(root).resolve() for root in folder_paths.get_folder_paths("loras")]
+    if not any(root in path.parents or root == path.parent for root in roots):
+        raise ValueError(f"LoRA path escapes the loras folders: {name}")
+    return path
+
+
+def find_thumbnail(name: str) -> Path | None:
+    """A sibling preview image for a LoRA file, if the user saved one."""
+    try:
+        path = resolve_lora_path(name)
+    except ValueError:
+        return None
+    stem = path.with_suffix("")
+    for suffix in _THUMB_SUFFIXES:
+        candidate = Path(str(stem) + suffix)
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+# Keep the last few decoded LoRA files: stacks re-run whenever any strength
+# changes, and reloading multi-hundred-MB files each run dwarfs the apply cost.
+_LORA_CACHE: OrderedDict[str, tuple[float, Any]] = OrderedDict()
+_LORA_CACHE_LIMIT = 4
+
+
+def _load_lora_file(path: Path) -> Any:
+    import comfy.utils
+
+    key = str(path)
+    mtime = path.stat().st_mtime
+    cached = _LORA_CACHE.get(key)
+    if cached and cached[0] == mtime:
+        _LORA_CACHE.move_to_end(key)
+        return cached[1]
+    lora_sd = comfy.utils.load_torch_file(key, safe_load=True)
+    _LORA_CACHE[key] = (mtime, lora_sd)
+    _LORA_CACHE.move_to_end(key)
+    while len(_LORA_CACHE) > _LORA_CACHE_LIMIT:
+        _LORA_CACHE.popitem(last=False)
+    return lora_sd
+
+
+def apply_lora_stack(model, clip, rows: list[dict[str, Any]]):
+    import comfy.sd
+
+    for row in rows:
+        if not row["enabled"]:
+            continue
+        strength_clip = row["strength_clip"] if clip is not None else 0.0
+        if row["strength"] == 0 and strength_clip == 0:
+            continue
+        path = resolve_lora_path(row["name"])
+        lora_sd = _load_lora_file(path)
+        model, clip = comfy.sd.load_lora_for_models(
+            model, clip, lora_sd, row["strength"], strength_clip
+        )
+    return model, clip
+
+
+def stack_fingerprint(rows: list[dict[str, Any]]) -> str:
+    """Cache key covering row values plus each file's identity on disk."""
+    parts: list[str] = []
+    for row in rows:
+        try:
+            stat = resolve_lora_path(row["name"]).stat()
+            identity = f"{stat.st_mtime_ns}:{stat.st_size}"
+        except (ValueError, OSError):
+            identity = "missing"
+        parts.append(
+            f"{row['name']}|{row['strength']}|{row['strength_clip']}|{row['enabled']}|{identity}"
+        )
+    return ";".join(parts)
+
+
+def read_safetensors_metadata(path: Path) -> dict[str, Any]:
+    """The __metadata__ block of a .safetensors header, without the tensors.
+
+    Reads only the 8-byte header length plus the JSON header; anything odd
+    (non-safetensors, oversized header) returns an empty dict.
+    """
+    if path.suffix.lower() != ".safetensors":
+        return {}
+    try:
+        import struct
+
+        with path.open("rb") as handle:
+            header_size = struct.unpack("<Q", handle.read(8))[0]
+            if header_size <= 0 or header_size > 100 * 1024 * 1024:
+                return {}
+            header = json.loads(handle.read(header_size))
+        metadata = header.get("__metadata__")
+        return metadata if isinstance(metadata, dict) else {}
+    except Exception:
+        return {}
+
+
+def file_trigger_words(metadata: dict[str, Any]) -> list[str]:
+    """Trigger words a LoRA file states about itself.
+
+    Explicit trigger keys win; the noisy ss_tag_frequency fallback is capped
+    hard because most frequent training tags are dataset tags, not activators.
+    """
+    for key in ("modelspec.trigger_phrase", "ss_trigger_words"):
+        value = str(metadata.get(key) or "").strip()
+        if value:
+            return [word.strip() for word in value.split(",") if word.strip()][:20]
+    frequency = metadata.get("ss_tag_frequency")
+    if isinstance(frequency, str):
+        try:
+            frequency = json.loads(frequency)
+        except json.JSONDecodeError:
+            return []
+    if not isinstance(frequency, dict):
+        return []
+    totals: dict[str, int] = {}
+    for dataset in frequency.values():
+        if isinstance(dataset, dict):
+            for tag, count in dataset.items():
+                if isinstance(count, (int, float)):
+                    totals[tag.strip()] = totals.get(tag.strip(), 0) + int(count)
+    ranked = sorted(totals.items(), key=lambda item: (-item[1], item[0]))
+    return [tag for tag, _ in ranked[:8] if tag]
+
+
+def base_model_family(metadata: dict[str, Any]) -> str:
+    haystack = " ".join(
+        str(metadata.get(key) or "")
+        for key in ("modelspec.architecture", "ss_base_model_version", "ss_sd_model_name")
+    ).lower()
+    for needle, family in (
+        ("flux", "Flux"), ("sd3", "SD3"), ("xl", "SDXL"), ("v2", "SD2"), ("v1", "SD1.5"),
+    ):
+        if needle in haystack:
+            return family
+    return ""
+
+
+def _user_store_dir() -> Path | None:
+    if folder_paths is None:
+        return None
+    try:
+        base = Path(folder_paths.get_user_directory()) / "ausboss"
+        base.mkdir(parents=True, exist_ok=True)
+        return base
+    except Exception:
+        return None
+
+
+def _atomic_write_json(path: Path, data: Any) -> None:
+    import os
+    import threading
+
+    temporary = path.with_suffix(f".tmp{os.getpid()}-{threading.get_ident()}")
+    temporary.write_text(json.dumps(data, indent=1), encoding="utf-8")
+    os.replace(temporary, path)
+
+
+def _triggers_store_path() -> Path | None:
+    base = _user_store_dir()
+    return None if base is None else base / "lora_triggers.json"
+
+
+def load_custom_triggers(name: str) -> list[str]:
+    store = _triggers_store_path()
+    if store is None or not store.is_file():
+        return []
+    try:
+        data = json.loads(store.read_text(encoding="utf-8"))
+        words = data.get(name, [])
+        return [str(word) for word in words if str(word).strip()] if isinstance(words, list) else []
+    except Exception:
+        return []
+
+
+def save_custom_triggers(name: str, words: list[str]) -> list[str]:
+    store = _triggers_store_path()
+    if store is None:
+        return []
+    cleaned = [str(word).strip() for word in words if str(word).strip()][:64]
+    try:
+        data = json.loads(store.read_text(encoding="utf-8")) if store.is_file() else {}
+        if not isinstance(data, dict):
+            data = {}
+    except Exception:
+        data = {}
+    if cleaned:
+        data[name] = cleaned
+    else:
+        data.pop(name, None)
+    _atomic_write_json(store, data)
+    return cleaned
+
+
+def _civitai_cache_path(name: str) -> Path | None:
+    import hashlib
+
+    base = _user_store_dir()
+    if base is None:
+        return None
+    cache_dir = base / "lora_civitai"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    return cache_dir / (hashlib.sha1(name.encode("utf-8")).hexdigest()[:16] + ".json")
+
+
+def load_civitai_cache(name: str) -> dict[str, Any]:
+    cache = _civitai_cache_path(name)
+    if cache is None or not cache.is_file():
+        return {}
+    try:
+        data = json.loads(cache.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _hash_cache_path() -> Path | None:
+    base = _user_store_dir()
+    return None if base is None else base / "lora_hashes.json"
+
+
+def file_sha256(path: Path) -> str:
+    """SHA256 of the file, cached by (mtime, size) — LoRAs are hundreds of MB."""
+    import hashlib
+
+    stat = path.stat()
+    identity = f"{stat.st_mtime_ns}:{stat.st_size}"
+    cache_file = _hash_cache_path()
+    cache: dict[str, Any] = {}
+    if cache_file is not None and cache_file.is_file():
+        try:
+            cache = json.loads(cache_file.read_text(encoding="utf-8"))
+        except Exception:
+            cache = {}
+    entry = cache.get(str(path))
+    if isinstance(entry, dict) and entry.get("identity") == identity:
+        return str(entry.get("sha256", ""))
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    sha = digest.hexdigest()
+    if cache_file is not None:
+        cache[str(path)] = {"identity": identity, "sha256": sha}
+        try:
+            _atomic_write_json(cache_file, cache)
+        except OSError:
+            pass
+    return sha
+
+
+def lora_info(name: str) -> dict[str, Any]:
+    path = resolve_lora_path(name)
+    metadata = read_safetensors_metadata(path)
+    civitai = load_civitai_cache(name)
+    return {
+        "name": name,
+        "base_model": base_model_family(metadata) or civitai.get("base_model", ""),
+        "file_triggers": file_trigger_words(metadata),
+        "civitai_triggers": civitai.get("trained_words", []),
+        "civitai_title": civitai.get("title", ""),
+        "custom_triggers": load_custom_triggers(name),
+        "has_preview": find_thumbnail(name) is not None,
+        "has_civitai": bool(civitai),
+    }
+
+
+async def fetch_civitai_info(name: str) -> dict[str, Any]:
+    """Look the LoRA up on Civitai by file hash and cache the useful subset."""
+    import aiohttp
+    import asyncio
+
+    path = resolve_lora_path(name)
+    sha = await asyncio.get_running_loop().run_in_executor(None, file_sha256, path)
+    timeout = aiohttp.ClientTimeout(total=30, connect=10)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with session.get(
+            f"https://civitai.com/api/v1/model-versions/by-hash/{sha}"
+        ) as response:
+            if response.status == 404:
+                return {"found": False}
+            response.raise_for_status()
+            payload = await response.json()
+    info = {
+        "found": True,
+        "title": str(payload.get("model", {}).get("name") or payload.get("name") or ""),
+        "base_model": str(payload.get("baseModel") or ""),
+        "trained_words": [str(w) for w in payload.get("trainedWords") or [] if str(w).strip()][:40],
+        "model_id": payload.get("modelId"),
+        "version_id": payload.get("id"),
+    }
+    cache = _civitai_cache_path(name)
+    if cache is not None:
+        _atomic_write_json(cache, info)
+    return info
+
+
+def register_lora_routes() -> None:
+    try:
+        from aiohttp import web
+        from server import PromptServer
+    except ImportError:
+        return
+    prompt_server = getattr(PromptServer, "instance", None)
+    if prompt_server is None or getattr(prompt_server, "_ausboss_lora_routes", False):
+        return
+    prompt_server._ausboss_lora_routes = True
+
+    @prompt_server.routes.get("/ausboss/lora/list")
+    async def ausboss_lora_list(request):
+        return web.json_response({"loras": list_loras()})
+
+    @prompt_server.routes.get("/ausboss/lora/thumb")
+    async def ausboss_lora_thumb(request):
+        thumb = find_thumbnail(request.query.get("name", ""))
+        if thumb is None:
+            return web.json_response({"error": "no preview image"}, status=404)
+        return web.FileResponse(thumb, headers={"Cache-Control": "max-age=3600"})
+
+    @prompt_server.routes.get("/ausboss/lora/info")
+    async def ausboss_lora_info(request):
+        try:
+            info = await asyncio_run_in_executor(lora_info, request.query.get("name", ""))
+            return web.json_response({"ok": True, "info": info})
+        except Exception as exc:
+            return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+    @prompt_server.routes.post("/ausboss/lora/civitai")
+    async def ausboss_lora_civitai(request):
+        try:
+            body = await request.json()
+            if not isinstance(body, dict):
+                raise ValueError("Request body must be a JSON object.")
+            info = await fetch_civitai_info(str(body.get("name", "")))
+            return web.json_response({"ok": True, "info": info})
+        except Exception as exc:
+            return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+    @prompt_server.routes.post("/ausboss/lora/triggers")
+    async def ausboss_lora_triggers(request):
+        try:
+            body = await request.json()
+            if not isinstance(body, dict):
+                raise ValueError("Request body must be a JSON object.")
+            name = str(body.get("name", ""))
+            resolve_lora_path(name)
+            words = body.get("words", [])
+            if not isinstance(words, list):
+                raise ValueError("words must be a list.")
+            saved = await asyncio_run_in_executor(save_custom_triggers, name, words)
+            return web.json_response({"ok": True, "words": saved})
+        except Exception as exc:
+            return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+
+async def asyncio_run_in_executor(func, *args):
+    import asyncio
+
+    return await asyncio.get_running_loop().run_in_executor(None, func, *args)
