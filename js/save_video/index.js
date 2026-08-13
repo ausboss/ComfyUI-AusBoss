@@ -20,6 +20,27 @@ const NODE_NAME = "AUSBOSS_NODES_SaveVideo";
 const PREVIEW_WIDGET = "ausboss_save_video_viewer";
 const PREVIEW_CHROME = 12;
 
+// ComfyUI resolves %date:yyyy-MM-dd%-style tokens in filename_prefix only for
+// its own save nodes. Serializing the widget through the core replacement
+// utility opts this node in: tokens resolve at queue time while the stored
+// workflow keeps the raw template. Without the utility the value passes
+// through untouched.
+function installFilenameTokens(node) {
+  const prefix = node.widgets?.find((item) => item.name === "filename_prefix");
+  if (!prefix || prefix.__ausbossTokenSerialize) return;
+  prefix.__ausbossTokenSerialize = true;
+  prefix.serializeValue = () => {
+    const raw = String(prefix.value ?? "");
+    const replace = window.comfyAPI?.utils?.applyTextReplacements;
+    if (typeof replace !== "function") return raw;
+    try {
+      return replace(app, raw);
+    } catch {
+      return raw;
+    }
+  };
+}
+
 function getLoopEnabled(node) {
   node.properties ??= {};
   if (node.properties.ausboss_save_video_loop === undefined) {
@@ -130,6 +151,7 @@ app.registerExtension({
     if (nodeData?.name !== NODE_NAME) return;
     chainCallback(nodeType.prototype, "onNodeCreated", function () {
       buildPreview(this);
+      installFilenameTokens(this);
     });
     chainCallback(nodeType.prototype, "onConfigure", function () {
       queueMicrotask(() => {
