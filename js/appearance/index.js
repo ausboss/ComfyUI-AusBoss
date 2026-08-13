@@ -1,3 +1,4 @@
+import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import {
   DEFAULT_SCHEME,
@@ -7,6 +8,7 @@ import {
   shouldRecolor,
   titleInk,
 } from "../shared/appearance.mjs";
+import { AUSBOSS_JS_VERSION } from "../shared/index.mjs";
 
 const SETTING_ID = "AusBoss.Appearance.NodeColor";
 
@@ -86,11 +88,26 @@ app.registerExtension({
       },
     },
   ],
-  setup() {
+  async setup() {
     // onChange only fires on later edits, so seed from the stored value here.
     const stored = app.ui?.settings?.getSettingValue?.(SETTING_ID);
     if (NODE_COLOR_SCHEMES.some((scheme) => scheme.name === stored)) activeScheme = stored;
     installTitleInk();
+    // Stale-cache probe: an updated pack served to a browser still running
+    // old cached JavaScript fails in confusing ways, so say so once. Any
+    // network or route failure stays silent — this is advice, not a feature.
+    try {
+      const response = await api.fetchApi("/ausboss/pack_version");
+      const payload = await response.json();
+      const server = payload?.version;
+      if (response.ok && server && server !== "unknown" && server !== AUSBOSS_JS_VERSION) {
+        console.warn(
+          `[AusBoss] Installed pack is v${server} but this tab is running v${AUSBOSS_JS_VERSION} JavaScript from the browser cache. Hard-refresh the tab (Ctrl+Shift+R) to load the updated frontend.`,
+        );
+      }
+    } catch (_error) {
+      // Old backend without the route, offline, or a non-JSON reply: silent.
+    }
   },
   getNodeMenuItems(node) {
     if (!isAusbossNode(node)) return [];
