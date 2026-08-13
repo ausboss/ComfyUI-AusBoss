@@ -12,6 +12,14 @@ All notable changes to ComfyUI-AusBoss are documented here.
 - Added a compatibility alias for the published `SimpleWatermarkRemover` workflow contract.
 - Added the repaired Simple Video Watermark Remover example workflow.
 - Added an `AusBoss node color` setting (Settings → 🆎 AusBoss) with curated schemes that recolor every AusBoss node live; hand-colored nodes keep their own colors.
+- Added `AUSBOSS_NODES_LoraLoader`: a stacked multi-LoRA node with drag-to-scrub strengths, a keyboard-first searchable picker, per-row trigger words (file metadata, one-click Civitai fetch, and your own saved words), and a `trigger_words` output.
+- Added `AUSBOSS_NODES_SelectFrameRange` returning a one-based sub-batch plus its actual frame count.
+- Added a right-click `Recreate node (AusBoss)` utility that rebuilds a node from the current definition, preserving values and links, with full rollback.
+- Added adaptive title ink, a per-node right-click `AusBoss color` override, and subgraph-aware color sweeps.
+- Added live previews: LaMa video inpaints stream each finished frame to the node face, and Refine Mask / LaMa Inpaint show their upstream input before the graph runs.
+- Added `%date:...%`-style filename tokens to Save Video, tolerant `fill_color` parsing (hex, CSV, floats, CSS names), an `Alt+E` open-editor command, and user-editable aspect presets via `ausboss_presets.json`.
+- DOM panel edits now register with ComfyUI's undo/modified tracking, and a console warning fires when the browser runs stale cached pack JavaScript.
+- Added `scripts/release_preflight.py` catching pyproject BOMs and JS/Python version drift.
 
 ## 1.0.0
 
