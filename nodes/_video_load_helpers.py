@@ -131,7 +131,10 @@ def decode_video_range(
         stream.thread_type = "AUTO"
         fps = float(stream.average_rate or stream.base_rate or 0.0) or 30.0
         if start > 0 and stream.time_base:
-            container.seek(max(0, int(start / stream.time_base)), stream=stream, backward=True)
+            # Keyframe at or before the trim start (backward=True), offset by
+            # the stream start time to match the preview seek helpers.
+            offset = int(start / stream.time_base) + (stream.start_time or 0)
+            container.seek(max(0, offset), stream=stream, backward=True)
         size: tuple[int, int] | None = None
         for frame in container.decode(stream):
             time = frame.time
