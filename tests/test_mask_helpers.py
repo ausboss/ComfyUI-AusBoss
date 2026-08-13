@@ -17,6 +17,7 @@ from nodes._mask_helpers import (
     fill_mask_holes,
     grow_shrink_mask,
     refine_mask,
+    remap_mask,
     smooth_mask,
 )
 
@@ -100,6 +101,34 @@ class SmoothTests(unittest.TestCase):
         mask = donut_mask()
         legacy = refine_mask(mask, 1, 1.5, True)
         keyword = refine_mask(mask, 1, 1.5, True, smooth=0)
+        self.assertTrue(torch.equal(legacy[0], keyword[0]))
+
+
+class RemapTests(unittest.TestCase):
+    def test_hand_computed_levels(self):
+        # (value - 0.1) / (0.9 - 0.1), clamped to [0, 1].
+        values = torch.tensor([[[0.0, 0.1, 0.3, 0.5, 0.9, 1.0]]])
+        expected = torch.tensor([[[0.0, 0.0, 0.25, 0.5, 1.0, 1.0]]])
+        self.assertTrue(torch.allclose(remap_mask(values, 0.1, 0.9), expected))
+
+    def test_default_points_are_an_exact_identity(self):
+        mask = torch.rand((1, 8, 8))
+        self.assertTrue(torch.equal(remap_mask(mask, 0.0, 1.0), mask))
+
+    def test_degenerate_points_act_as_a_hard_threshold(self):
+        values = torch.tensor([[[0.0, 0.49, 0.5, 0.51, 1.0]]])
+        expected = torch.tensor([[[0.0, 0.0, 0.0, 1.0, 1.0]]])
+        self.assertTrue(torch.equal(remap_mask(values, 0.5, 0.5), expected))
+        self.assertTrue(torch.equal(remap_mask(values, 0.5, 0.2), expected))
+
+    def test_refine_applies_remap_last_and_defaults_stay_identical(self):
+        mask = donut_mask()
+        soft, _inverted = refine_mask(mask, 0, 2.0, False)
+        remapped, inverted = refine_mask(mask, 0, 2.0, False, black_point=0.2, white_point=0.8)
+        self.assertTrue(torch.allclose(remapped, remap_mask(soft, 0.2, 0.8)))
+        self.assertTrue(torch.allclose(remapped + inverted, torch.ones_like(remapped)))
+        legacy = refine_mask(mask, 1, 1.5, True)
+        keyword = refine_mask(mask, 1, 1.5, True, black_point=0.0, white_point=1.0)
         self.assertTrue(torch.equal(legacy[0], keyword[0]))
 
 

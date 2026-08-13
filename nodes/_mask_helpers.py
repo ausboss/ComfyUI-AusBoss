@@ -97,20 +97,37 @@ def smooth_mask(mask: torch.Tensor, pixels: int) -> torch.Tensor:
     return (blur_mask(solid, float(int(pixels))) >= 0.5).to(mask.dtype)
 
 
+def remap_mask(
+    mask: torch.Tensor, black_point: float, white_point: float
+) -> torch.Tensor:
+    """Levels remap: values at or below black_point become 0, values at or
+    above white_point become 1, the range between rescales linearly. Clears
+    gray haze left behind by soft segmentation or feathering."""
+    black = float(black_point)
+    white = float(white_point)
+    if black <= 0.0 and white >= 1.0:
+        return mask
+    span = max(white - black, 1e-6)  # degenerate points act as a threshold
+    return ((mask - black) / span).clamp(0.0, 1.0)
+
+
 def refine_mask(
     mask: torch.Tensor,
     expand: int,
     blur: float,
     fill_holes: bool,
     smooth: int = 0,
+    black_point: float = 0.0,
+    white_point: float = 1.0,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Expand, fill holes, smooth, then feather; returns (mask, inverted)."""
+    """Expand, fill holes, smooth, feather, then remap levels last."""
     refined = _as_bhw(mask)
     refined = grow_shrink_mask(refined, expand)
     if fill_holes:
         refined = fill_mask_holes(refined)
     refined = smooth_mask(refined, int(smooth))
     refined = blur_mask(refined, blur).clamp(0.0, 1.0)
+    refined = remap_mask(refined, black_point, white_point)
     return refined, 1.0 - refined
 
 
@@ -119,5 +136,6 @@ __all__ = [
     "fill_mask_holes",
     "grow_shrink_mask",
     "refine_mask",
+    "remap_mask",
     "smooth_mask",
 ]

@@ -13,10 +13,14 @@ class AusBossRefineMask:
     DESCRIPTION = (
         "Cleans up a mask in one fixed-order pass: expand (grow/shrink by "
         "whole pixels), fill enclosed holes, smooth (melts staircase jaggies "
-        "without feathering), then feather with a gaussian blur. Returns the "
-        "refined mask and its inverse."
+        "without feathering), feather with a gaussian blur, then remap levels "
+        "with black_point/white_point to clear gray haze. Returns the refined "
+        "mask and its inverse."
     )
-    SEARCH_ALIASES = ["grow mask", "shrink mask", "expand mask", "feather", "fill holes", "smooth", "ausboss"]
+    SEARCH_ALIASES = [
+        "grow mask", "shrink mask", "expand mask", "feather", "fill holes",
+        "smooth", "levels", "ausboss",
+    ]
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -64,6 +68,28 @@ class AusBossRefineMask:
                         "a hard edge; 0 is off. Runs before the feather blur.",
                     },
                 ),
+                "black_point": (
+                    "FLOAT",
+                    {
+                        "default": 0.0,
+                        "min": 0.0,
+                        "max": 1.0,
+                        "step": 0.01,
+                        "tooltip": "Mask values at or below this become fully black; clears "
+                        "faint gray haze outside the subject. Applied last.",
+                    },
+                ),
+                "white_point": (
+                    "FLOAT",
+                    {
+                        "default": 1.0,
+                        "min": 0.0,
+                        "max": 1.0,
+                        "step": 0.01,
+                        "tooltip": "Mask values at or above this become fully white; "
+                        "solidifies the mask core. Applied last.",
+                    },
+                ),
             }
         }
 
@@ -75,9 +101,15 @@ class AusBossRefineMask:
     )
     FUNCTION = "refine"
 
-    def refine(self, mask, expand, blur, fill_holes, smooth):
+    def refine(self, mask, expand, blur, fill_holes, smooth, black_point, white_point):
         return refine_mask(
-            mask, int(expand), float(blur), bool(fill_holes), smooth=int(smooth)
+            mask,
+            int(expand),
+            float(blur),
+            bool(fill_holes),
+            smooth=int(smooth),
+            black_point=float(black_point),
+            white_point=float(white_point),
         )
 
 
