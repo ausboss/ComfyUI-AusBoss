@@ -1,6 +1,6 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
-import { BRAND, BRAND_BODY, chainCallback } from "../shared/index.mjs";
+import { AUSBOSS_JS_VERSION, BRAND, BRAND_BODY, chainCallback } from "../shared/index.mjs";
 import {
   advanceExecution,
   composeTitle,
@@ -291,6 +291,20 @@ function installDrawHook() {
 
 app.registerExtension({
   name: "AusBoss.Chrome",
+  // Shown on Settings > About; the frontend's aboutPanelStore flat-maps each
+  // extension's aboutPageBadges ({ label, url, icon }) after the core rows.
+  aboutPageBadges: [
+    {
+      label: `ComfyUI-AusBoss v${AUSBOSS_JS_VERSION}`,
+      url: "https://github.com/ausboss/ComfyUI-AusBoss",
+      icon: "pi pi-github",
+    },
+    {
+      label: "Report an issue",
+      url: "https://github.com/ausboss/ComfyUI-AusBoss/issues",
+      icon: "pi pi-flag",
+    },
+  ],
   settings: [
     {
       id: FAVICON_SETTING,
