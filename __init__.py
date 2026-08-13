@@ -17,6 +17,7 @@ import traceback
 # One entry per file in nodes/. Keep alphabetical-ish; order only affects
 # nothing functional.
 NODE_MODULES = [
+    "node_color_match",
     "node_compare",
     "node_frame_chooser",
     "node_image_crop_rotate_pad",
