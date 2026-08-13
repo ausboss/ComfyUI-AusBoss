@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 import sys
 
@@ -16,6 +17,7 @@ if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
 import av
 
 from nodes._video_save_helpers import encode_video, even_frames, workflow_metadata
+from nodes import node_save_video
 
 
 def gradient_batch(count: int, height: int, width: int) -> torch.Tensor:
@@ -97,6 +99,35 @@ class SaveVideoHelperTests(unittest.TestCase):
         self.assertIn("workflow", meta)
         with self.assertRaisesRegex(ValueError, "fps"):
             encode_video(Path("/tmp/never.mp4"), gradient_batch(1, 32, 32), 0.0, None, 19)
+
+    def test_save_node_returns_preview_metadata(self):
+        class FakeFolderPaths:
+            @staticmethod
+            def get_output_directory():
+                return "/tmp"
+
+            @staticmethod
+            def get_save_image_path(*_args):
+                return "/tmp", "video", 3, "AusBoss", "AusBoss/video"
+
+        with (
+            patch.object(node_save_video, "folder_paths", FakeFolderPaths),
+            patch.object(node_save_video, "encode_video", return_value=(576, 1024, 188)),
+        ):
+            result = node_save_video.AusBossSaveVideo().save(
+                gradient_batch(1, 32, 32), 24.0, "AusBoss/video", 19
+            )
+
+        self.assertEqual(result["ui"]["images"], [{
+            "filename": "video_00003_.mp4",
+            "subfolder": "AusBoss",
+            "type": "output",
+            "width": 576,
+            "height": 1024,
+            "frame_count": 188,
+            "fps": 24.0,
+            "duration": 188 / 24.0,
+        }])
 
 
 if __name__ == "__main__":

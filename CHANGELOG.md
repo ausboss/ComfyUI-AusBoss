@@ -4,9 +4,9 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
-- Added `AUSBOSS_NODES_LoadVideo` with playhead-captured start/end trimming, matched audio, and info outputs.
+- Added `AUSBOSS_NODES_LoadVideo` with a single responsive player, draggable IN/OUT trim range, bounded playback, matched audio, and info outputs.
 - Added `AUSBOSS_NODES_RefineMask` with expand/shrink, hole filling, feathering, and an inverted output.
-- Added `AUSBOSS_NODES_SaveVideo` writing H.264 mp4 with muxed audio and embedded workflow metadata.
+- Added `AUSBOSS_NODES_SaveVideo` writing H.264 mp4 with muxed audio, embedded workflow metadata, and a responsive loopable result viewer.
 - Added `AUSBOSS_NODES_SelectFrame` with one-based, range-checked batch selection.
 - Added `AUSBOSS_NODES_LaMaInpaint` with bounded-VRAM video processing and explicit `models/lama` checkpoint discovery.
 - Added a compatibility alias for the published `SimpleWatermarkRemover` workflow contract.
@@ -27,4 +27,3 @@ All notable changes to ComfyUI-AusBoss are documented here.
 - Video decodes run off the web server's event loop in persistent per-file decoder sessions (with an idle reaper that releases file locks), so a slow decode can never stall the ComfyUI UI and stepping forward decodes only the frames in between.
 - A keyframe storyboard builds in the background after a video is selected; dragging the timeline shows the nearest storyboard tile with zero network latency, then the exact decoded frame replaces it.
 - The rotation handle moved to the source's top-right corner, drawn with a crisp vector rotate glyph, clear of the top padding handle.
-

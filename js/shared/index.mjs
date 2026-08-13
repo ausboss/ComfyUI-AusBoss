@@ -5,6 +5,8 @@
 // entry points live in js/<node>/index.js and import from here.
 
 export const BRAND = "#00b4aa"; // AusBoss teal — keep node accents consistent.
+export const BRAND_DARK = "#007f78";
+export const BRAND_BODY = "#081413";
 
 // Wrap a LiteGraph prototype callback without clobbering whoever hooked it
 // first. Other node packs patch the same prototypes, so never assign

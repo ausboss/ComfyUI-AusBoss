@@ -14,3 +14,6 @@ Thumbs.db
 # Local scratch — untracked experiments and node ports in progress
 _scratch/
 *.log
+
+# Package-manager lockfile — this pack pins nothing; ComfyUI installs deps
+uv.lock

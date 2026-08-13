@@ -13,7 +13,7 @@ class AusBossLoadVideo:
     CATEGORY = "🆎 AusBoss/Video"
     DESCRIPTION = (
         "Loads a video as a BHWC frame batch plus its audio, trimmed to an "
-        "optional start/end window picked from the preview, with frame count, "
+        "optional start/end window selected on the preview timeline, with frame count, "
         "fps, size, and duration outputs ready for downstream wiring."
     )
     SEARCH_ALIASES = ["load video", "video loader", "trim video", "video frames", "ausboss"]
@@ -37,8 +37,8 @@ class AusBossLoadVideo:
                         "max": 86400.0,
                         "step": 0.01,
                         "tooltip": (
-                            "Skip everything before this time. The preview's "
-                            "'set start' button fills it from the playhead."
+                            "Skip everything before this time. Drag the preview's IN "
+                            "handle or type an exact value below the player."
                         ),
                     },
                 ),
@@ -50,8 +50,8 @@ class AusBossLoadVideo:
                         "max": 86400.0,
                         "step": 0.01,
                         "tooltip": (
-                            "Stop at this time; 0 plays to the end. The preview's "
-                            "'set end' button fills it from the playhead."
+                            "Stop at this time; 0 plays to the end. Drag the preview's "
+                            "OUT handle or type an exact value below the player."
                         ),
                     },
                 ),
