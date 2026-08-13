@@ -1,6 +1,7 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { BRAND, chainCallback } from "./index.mjs";
+import { normalizeFillColor } from "./fill_color.mjs";
 import {
   canvasLocalPoint,
   clamp,
@@ -707,7 +708,22 @@ function setRotation(state, degrees) {
   fitCrop(state); draw(state); updateModalInfo(state);
 }
 function resetView(state) { state.view = { zoom: 1, panX: 0, panY: 0 }; }
-function normalizeColor(value) { const text = String(value || "#808080"); return /^#[0-9a-f]{6}$/i.test(text) ? text : "#808080"; }
+
+// Resolve CSS color names with the browser's own parser. An invalid
+// assignment leaves fillStyle unchanged, so probing twice from different
+// starting values separates "parsed" from "ignored".
+let colorProbeContext = null;
+function resolveCssColorName(name) {
+  try {
+    colorProbeContext ??= document.createElement("canvas").getContext("2d");
+    const context = colorProbeContext;
+    context.fillStyle = "#000000"; context.fillStyle = name;
+    const first = String(context.fillStyle);
+    context.fillStyle = "#ffffff"; context.fillStyle = name;
+    return first === String(context.fillStyle) && /^#[0-9a-f]{6}$/i.test(first) ? first : null;
+  } catch { return null; }
+}
+function normalizeColor(value) { return normalizeFillColor(value, resolveCssColorName); }
 
 function renderGeometry(state, width, height) {
   const source = rotatedSize(state.sourceWidth, state.sourceHeight, value(state.node, "rotation_degrees", 0));

@@ -62,7 +62,11 @@ def transform_inputs() -> dict[str, tuple]:
             "STRING",
             {
                 "default": "#808080",
-                "tooltip": "Color for rotation voids and padding; accepts #RRGGBB or R, G, B.",
+                "tooltip": (
+                    "Color for rotation voids and padding; accepts #RGB/#RRGGBB hex, "
+                    "R, G, B (0-255 or 0..1 floats), one grayscale number, or a CSS "
+                    "color name. Unparseable values fall back to mid-gray."
+                ),
             },
         ),
     }
