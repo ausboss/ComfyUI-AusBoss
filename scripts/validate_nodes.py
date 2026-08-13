@@ -32,7 +32,10 @@ PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_RefineMask",
     "AUSBOSS_NODES_SaveVideo",
     "AUSBOSS_NODES_SelectFrame",
+    "AUSBOSS_NODES_VideoBundle",
+    "AUSBOSS_NODES_VideoBundleEdit",
     "AUSBOSS_NODES_VideoCropRotatePad",
+    "AUSBOSS_NODES_VideoUnbundle",
 }
 
 # --- 1. everything compiles --------------------------------------------------
