@@ -20,6 +20,33 @@ const SCHEME_TITLES = new Set(
 
 let activeScheme = DEFAULT_SCHEME;
 
+// Surface the stale-cache warning where the user actually looks. On current
+// frontends app.extensionManager is the workspace store, whose `toast` is the
+// toast store: add({ severity, summary, detail, life }) queues a PrimeVue
+// toast. Older frontends without it fall back to the console, and nothing in
+// here may ever throw — this is advice, not a feature.
+function warnStaleJs(serverVersion) {
+  const detail =
+    `Installed pack is v${serverVersion} but this tab is running ` +
+    `v${AUSBOSS_JS_VERSION} JavaScript from the browser cache. Hard-refresh ` +
+    "the tab (Ctrl+Shift+R) to load the updated frontend.";
+  try {
+    const toast = app.extensionManager?.toast;
+    if (typeof toast?.add === "function") {
+      toast.add({
+        severity: "warn",
+        summary: "AusBoss frontend is stale",
+        detail,
+        life: 15000,
+      });
+      return;
+    }
+  } catch (_error) {
+    // Toast store missing or incompatible: the console still works.
+  }
+  console.warn(`[AusBoss] ${detail}`);
+}
+
 function isAusbossNode(node) {
   const comfyClass = node?.comfyClass || "";
   return comfyClass.startsWith("AUSBOSS_NODES_") || comfyClass === "SimpleWatermarkRemover";
@@ -101,9 +128,7 @@ app.registerExtension({
       const payload = await response.json();
       const server = payload?.version;
       if (response.ok && server && server !== "unknown" && server !== AUSBOSS_JS_VERSION) {
-        console.warn(
-          `[AusBoss] Installed pack is v${server} but this tab is running v${AUSBOSS_JS_VERSION} JavaScript from the browser cache. Hard-refresh the tab (Ctrl+Shift+R) to load the updated frontend.`,
-        );
+        warnStaleJs(server);
       }
     } catch (_error) {
       // Old backend without the route, offline, or a non-JSON reply: silent.
