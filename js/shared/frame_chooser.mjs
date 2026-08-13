@@ -39,6 +39,15 @@ export function selectionSummary(selected, count) {
   return `${selected.size} of ${count} selected`;
 }
 
+// Countdown fragment for the header while a pause has a timeout armed.
+// Returns "" when no countdown applies so the caller can join with " - ".
+export function countdownText(remaining, policy) {
+  const seconds = Number(remaining);
+  if (!Number.isFinite(seconds) || seconds <= 0) return "";
+  const action = typeof policy === "string" && policy ? policy : "keep all";
+  return `${Math.ceil(seconds)}s to ${action}`;
+}
+
 // An empty selected list tells the server to keep every frame, so "Keep all"
 // posts [] instead of enumerating the batch.
 export function continuePayload(nodeId, selected) {

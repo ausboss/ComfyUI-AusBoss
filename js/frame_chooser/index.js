@@ -6,6 +6,7 @@ import {
   allFrames,
   cancelPayload,
   continuePayload,
+  countdownText,
   noFrames,
   selectionSummary,
   toggleFrame,
@@ -14,6 +15,8 @@ import {
 
 const NODE_NAME = "AUSBOSS_NODES_FrameChooser";
 const EVENT_NAME = "ausboss-frame-choose";
+const TICK_EVENT = "ausboss-frame-choose-tick";
+const DONE_EVENT = "ausboss-frame-choose-done";
 const PANEL_WIDGET = "ausboss_frame_chooser_panel";
 const CSS_ID = "ausboss-chooser-ui-v1";
 const MIN_WIDTH = 240;
@@ -61,7 +64,10 @@ function updateFace(state) {
     thumb.classList.toggle("selected", state.selected.has(Number(thumb.dataset.frame)));
   }
   if (state.active && state.count > 0) {
-    state.summary.textContent = `Paused - ${selectionSummary(state.selected, state.count)}`;
+    const countdown = countdownText(state.remaining, state.timeoutPolicy);
+    state.summary.textContent =
+      `Paused - ${selectionSummary(state.selected, state.count)}` +
+      (countdown ? ` - ${countdown}` : "");
   }
   const idle = !state.active;
   state.keepButton.disabled = idle || state.selected.size === 0;
@@ -74,9 +80,25 @@ function updateFace(state) {
 
 function resolvePanel(state, message) {
   state.active = false;
+  state.remaining = 0;
   state.summary.textContent = message;
   updateFace(state);
   state.node.setDirtyCanvas?.(true, true);
+}
+
+// The websocket events carry the execution id, which matches the graph node
+// id for top-level nodes; subgraph ids keep a colon-separated prefix.
+function findState(nodeId) {
+  const id = String(nodeId);
+  const tail = id.split(":").pop();
+  let state = panels.get(id) ?? panels.get(tail);
+  if (!state) {
+    // Ids in the map can lag a paste/duplicate; ask the graph directly.
+    const node = app.graph?.getNodeById?.(Number(tail));
+    state = node?.__ausbossFrameChooser ?? null;
+    if (state) panels.set(String(node.id), state);
+  }
+  return state;
 }
 
 async function postAnswer(state, payload) {
@@ -129,6 +151,8 @@ function populatePanel(state, detail) {
   state.activeId = String(detail.node_id);
   state.count = Number(detail.count) || (detail.urls?.length ?? 0);
   state.selected = validFrames(detail.previous, state.count);
+  state.remaining = Number(detail.remaining ?? detail.timeout_seconds) || 0;
+  state.timeoutPolicy = typeof detail.on_timeout === "string" ? detail.on_timeout : "";
   state.grid.replaceChildren();
   (detail.urls || []).forEach((file, position) => {
     const frame = position + 1;
@@ -219,6 +243,8 @@ function buildPanel(node) {
     activeId: String(node.id),
     count: 0,
     selected: noFrames(),
+    remaining: 0,
+    timeoutPolicy: "",
   });
 
   const widget = node.addDOMWidget(PANEL_WIDGET, "ausboss_chooser", root, {
@@ -314,20 +340,29 @@ app.registerExtension({
     api.addEventListener(EVENT_NAME, (event) => {
       const detail = event?.detail;
       if (!detail?.node_id) return;
-      const id = String(detail.node_id);
-      const tail = id.split(":").pop();
-      let state = panels.get(id) ?? panels.get(tail);
+      const state = findState(detail.node_id);
       if (!state) {
-        // Ids in the map can lag a paste/duplicate; ask the graph directly.
-        const node = app.graph?.getNodeById?.(Number(tail));
-        state = node?.__ausbossFrameChooser ?? null;
-        if (state) panels.set(String(node.id), state);
-      }
-      if (!state) {
-        console.warn(`[AusBoss] Frame Chooser paused for unknown node ${id}; use the queue's stop button to release it.`);
+        console.warn(`[AusBoss] Frame Chooser paused for unknown node ${detail.node_id}; use the queue's stop button to release it.`);
         return;
       }
       populatePanel(state, detail);
+    });
+    api.addEventListener(TICK_EVENT, (event) => {
+      const detail = event?.detail;
+      if (!detail?.node_id) return;
+      const state = findState(detail.node_id);
+      if (!state?.active) return;
+      state.remaining = Number(detail.remaining) || 0;
+      updateFace(state);
+    });
+    api.addEventListener(DONE_EVENT, (event) => {
+      const detail = event?.detail;
+      if (!detail?.node_id) return;
+      const state = findState(detail.node_id);
+      if (!state) return;
+      if (detail.reason === "timeout" && state.active) {
+        resolvePanel(state, `Timed out - continuing with ${detail.kept} of ${detail.count} frames.`);
+      }
     });
     const releaseAll = (message) => {
       for (const state of panels.values()) {

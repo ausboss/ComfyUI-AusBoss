@@ -8,7 +8,9 @@ stays importable without ComfyUI installed.
 
 from __future__ import annotations
 
+import math
 import threading
+import time
 from pathlib import Path
 
 import torch
@@ -22,6 +24,19 @@ except ImportError:  # Offline tests import this module without ComfyUI.
 POLL_SECONDS = 0.1
 THUMBNAIL_SUBFOLDER = "ausboss_chooser"
 EVENT_NAME = "ausboss-frame-choose"
+TICK_EVENT = "ausboss-frame-choose-tick"
+DONE_EVENT = "ausboss-frame-choose-done"
+
+TIMEOUT_KEEP_ALL = "keep all"
+TIMEOUT_KEEP_FIRST = "keep first"
+TIMEOUT_KEEP_LAST = "keep last"
+TIMEOUT_CANCEL = "cancel"
+TIMEOUT_POLICIES = [
+    TIMEOUT_KEEP_ALL,
+    TIMEOUT_KEEP_FIRST,
+    TIMEOUT_KEEP_LAST,
+    TIMEOUT_CANCEL,
+]
 
 
 # --- pure selection logic ----------------------------------------------------
@@ -95,6 +110,23 @@ def effective_indices(one_based: list[int], frame_count: int) -> list[int]:
 def indices_string(one_based: list[int]) -> str:
     """One-based indices joined for the STRING output, e.g. '1,4,9'."""
     return ",".join(str(value) for value in one_based)
+
+
+def resolve_timeout_policy(policy: str, frame_count: int) -> list[int] | None:
+    """Selection applied when a paused chooser's countdown expires.
+
+    Returns a one-based selection ([] = keep all), or None for the cancel
+    policy, which the caller turns into a queue interrupt. Unknown policy
+    strings fall back to keep-all: an expired timer must never guess a
+    destructive answer."""
+    count = int(frame_count)
+    if policy == TIMEOUT_CANCEL:
+        return None
+    if policy == TIMEOUT_KEEP_FIRST:
+        return [1] if count >= 1 else []
+    if policy == TIMEOUT_KEEP_LAST:
+        return [count] if count >= 1 else []
+    return []
 
 
 # --- thumbnails ---------------------------------------------------------------
@@ -174,19 +206,33 @@ def remember_selection(node_id: str, selection: list[int]) -> None:
 
 
 def await_selection(
-    node_id: str, frame_count: int, files: list[dict], previous: list[int] | None
+    node_id: str,
+    frame_count: int,
+    files: list[dict],
+    previous: list[int] | None,
+    timeout_seconds: int = 0,
+    on_timeout: str = TIMEOUT_KEEP_ALL,
 ) -> list[int]:
     """Announce the pause to the browser and block until it answers.
 
     Returns the validated one-based selection ([] = keep all). Raises
     InterruptProcessingException when the browser cancels or the queue is
-    interrupted, so ComfyUI unwinds the run exactly like pressing stop."""
+    interrupted, so ComfyUI unwinds the run exactly like pressing stop.
+
+    With timeout_seconds > 0 the wait also arms a countdown: once per second
+    a TICK_EVENT ({node_id, remaining}) refreshes the panel's timer, and on
+    expiry the on_timeout policy answers instead of the browser (the cancel
+    policy raises the same interrupt as pressing stop)."""
     import comfy.model_management as model_management
     from server import PromptServer
 
     store = _store()
     key = str(node_id)
-    pending = _PendingChoice(frame_count)
+    count = int(frame_count)
+    pending = _PendingChoice(count)
+    deadline = None
+    if int(timeout_seconds) > 0:
+        deadline = time.monotonic() + int(timeout_seconds)
     with store["lock"]:
         store["pending"][key] = pending
     try:
@@ -195,19 +241,54 @@ def await_selection(
             {
                 "node_id": key,
                 "urls": files,
-                "count": int(frame_count),
+                "count": count,
                 "previous": list(previous) if previous else [],
+                "timeout_seconds": int(timeout_seconds),
+                "on_timeout": str(on_timeout),
             },
         )
+        last_tick = None
         while not pending.event.wait(POLL_SECONDS):
             if model_management.processing_interrupted():
                 raise model_management.InterruptProcessingException()
+            if deadline is None:
+                continue
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                fallback = resolve_timeout_policy(str(on_timeout), count)
+                if fallback is None:
+                    raise model_management.InterruptProcessingException()
+                _send_done(key, fallback, count, "timeout")
+                return list(fallback)
+            whole = math.ceil(remaining)
+            if whole != last_tick:
+                last_tick = whole
+                PromptServer.instance.send_sync(
+                    TICK_EVENT, {"node_id": key, "remaining": whole}
+                )
         if pending.cancelled:
             raise model_management.InterruptProcessingException()
         return list(pending.selection or [])
     finally:
         with store["lock"]:
             store["pending"].pop(key, None)
+
+
+def _send_done(node_id: str, selection: list[int], frame_count: int, reason: str) -> None:
+    """Tell every open tab how a pause resolved (panel release + writeback)."""
+    from server import PromptServer
+
+    kept = effective_indices(list(selection), int(frame_count))
+    PromptServer.instance.send_sync(
+        DONE_EVENT,
+        {
+            "node_id": str(node_id),
+            "indices": indices_string(kept),
+            "kept": len(kept),
+            "count": int(frame_count),
+            "reason": str(reason),
+        },
+    )
 
 
 def register_chooser_route() -> None:
@@ -258,9 +339,16 @@ def register_chooser_route() -> None:
 
 
 __all__ = [
+    "DONE_EVENT",
     "EVENT_NAME",
     "POLL_SECONDS",
     "THUMBNAIL_SUBFOLDER",
+    "TICK_EVENT",
+    "TIMEOUT_CANCEL",
+    "TIMEOUT_KEEP_ALL",
+    "TIMEOUT_KEEP_FIRST",
+    "TIMEOUT_KEEP_LAST",
+    "TIMEOUT_POLICIES",
     "await_selection",
     "effective_indices",
     "indices_string",
@@ -269,6 +357,7 @@ __all__ = [
     "recall_selection",
     "register_chooser_route",
     "remember_selection",
+    "resolve_timeout_policy",
     "usable_remembered",
     "write_thumbnails",
 ]

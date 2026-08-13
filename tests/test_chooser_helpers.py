@@ -18,10 +18,15 @@ if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
     del sys.modules["nodes"]
 
 from nodes._chooser_helpers import (
+    TIMEOUT_CANCEL,
+    TIMEOUT_KEEP_ALL,
+    TIMEOUT_KEEP_FIRST,
+    TIMEOUT_KEEP_LAST,
     effective_indices,
     indices_string,
     keep_frames,
     normalize_selection,
+    resolve_timeout_policy,
     usable_remembered,
 )
 
@@ -86,6 +91,25 @@ class KeepFramesTests(unittest.TestCase):
     def test_rejects_non_bhwc_input(self):
         with self.assertRaises(ValueError):
             keep_frames(torch.zeros((3, 3)), [1])
+
+
+class ResolveTimeoutPolicyTests(unittest.TestCase):
+    def test_keep_all_is_the_empty_keep_all_selection(self):
+        self.assertEqual(resolve_timeout_policy(TIMEOUT_KEEP_ALL, 8), [])
+
+    def test_keep_first_and_last_pick_the_batch_edges(self):
+        self.assertEqual(resolve_timeout_policy(TIMEOUT_KEEP_FIRST, 8), [1])
+        self.assertEqual(resolve_timeout_policy(TIMEOUT_KEEP_LAST, 8), [8])
+
+    def test_cancel_returns_none_for_the_caller_to_interrupt(self):
+        self.assertIsNone(resolve_timeout_policy(TIMEOUT_CANCEL, 8))
+
+    def test_unknown_policy_falls_back_to_keep_all(self):
+        self.assertEqual(resolve_timeout_policy("keep some", 8), [])
+
+    def test_empty_batch_edges_degrade_to_keep_all(self):
+        self.assertEqual(resolve_timeout_policy(TIMEOUT_KEEP_FIRST, 0), [])
+        self.assertEqual(resolve_timeout_policy(TIMEOUT_KEEP_LAST, 0), [])
 
 
 class ReportTests(unittest.TestCase):

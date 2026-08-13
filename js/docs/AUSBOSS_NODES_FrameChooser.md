@@ -12,6 +12,12 @@ resumes with just those frames — always in their original order.
   when no previous answer fits the current batch.
 - **preview_max_size**: Longest edge of the filmstrip thumbnails. Smaller
   values encode and load faster; the full-resolution frames are untouched.
+- **timeout_seconds**: How long a pause waits before **on_timeout** answers
+  for you. `0` waits forever. While armed, the panel header counts down the
+  seconds left.
+- **on_timeout**: What an expired countdown does — `keep all`, `keep first`,
+  `keep last`, or `cancel` (interrupts the run like the stop button). Ignored
+  while **timeout_seconds** is `0`.
 
 ## While paused
 

@@ -5,6 +5,8 @@ from __future__ import annotations
 import uuid
 
 from ._chooser_helpers import (
+    TIMEOUT_KEEP_ALL,
+    TIMEOUT_POLICIES,
     await_selection,
     effective_indices,
     indices_string,
@@ -73,6 +75,32 @@ class AusBossFrameChooser:
                     },
                 ),
             },
+            "optional": {
+                "timeout_seconds": (
+                    "INT",
+                    {
+                        "default": 0,
+                        "min": 0,
+                        "max": 86400,
+                        "tooltip": (
+                            "How long a pause waits for an answer before on_timeout "
+                            "decides. 0 waits forever. While counting down, the panel "
+                            "shows the seconds left."
+                        ),
+                    },
+                ),
+                "on_timeout": (
+                    TIMEOUT_POLICIES,
+                    {
+                        "default": TIMEOUT_KEEP_ALL,
+                        "tooltip": (
+                            "What an expired countdown answers: keep every frame, only "
+                            "the first, only the last, or cancel the run like pressing "
+                            "stop. Ignored while timeout_seconds is 0."
+                        ),
+                    },
+                ),
+            },
             "hidden": {"unique_id": "UNIQUE_ID"},
         }
 
@@ -85,7 +113,15 @@ class AusBossFrameChooser:
     )
     FUNCTION = "choose"
 
-    def choose(self, frames, behavior, preview_max_size, unique_id=None):
+    def choose(
+        self,
+        frames,
+        behavior,
+        preview_max_size,
+        timeout_seconds=0,
+        on_timeout=TIMEOUT_KEEP_ALL,
+        unique_id=None,
+    ):
         node_id = str(unique_id)
         frame_count = int(frames.shape[0])
         previous = recall_selection(node_id)
@@ -96,7 +132,14 @@ class AusBossFrameChooser:
         if selection is None:
             files = write_thumbnails(frames, uuid.uuid4().hex[:12], int(preview_max_size))
             preselect = usable_remembered(previous or [], frame_count)
-            selection = await_selection(node_id, frame_count, files, preselect)
+            selection = await_selection(
+                node_id,
+                frame_count,
+                files,
+                preselect,
+                int(timeout_seconds),
+                str(on_timeout),
+            )
             selection = normalize_selection(selection, frame_count)
         remember_selection(node_id, selection)
 

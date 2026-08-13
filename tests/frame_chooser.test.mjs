@@ -5,6 +5,7 @@ import {
   allFrames,
   cancelPayload,
   continuePayload,
+  countdownText,
   noFrames,
   selectionSummary,
   sortedFrames,
@@ -46,4 +47,17 @@ test("continue payloads are one-based, sorted, and keep-all posts an empty list"
 test("the header summary counts the selection against the batch", () => {
   assert.equal(selectionSummary(new Set([1, 2, 3]), 24), "3 of 24 selected");
   assert.equal(selectionSummary(noFrames(), 24), "0 of 24 selected");
+});
+
+test("the countdown names the seconds left and the timeout policy", () => {
+  assert.equal(countdownText(42, "keep all"), "42s to keep all");
+  assert.equal(countdownText(4.2, "cancel"), "5s to cancel");
+  assert.equal(countdownText(3, ""), "3s to keep all");
+});
+
+test("no countdown renders while the timer is off or expired", () => {
+  assert.equal(countdownText(0, "keep all"), "");
+  assert.equal(countdownText(-2, "cancel"), "");
+  assert.equal(countdownText(undefined, "keep all"), "");
+  assert.equal(countdownText("soon", "keep all"), "");
 });
