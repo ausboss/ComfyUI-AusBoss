@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ._media_helpers import list_input_videos, resolve_input_path
-from ._video_load_helpers import decode_video_range, lazy_audio_range
+from ._video_load_helpers import core_trimmed_video, decode_video_range, lazy_audio_range
 
 
 NODE_ID = "AUSBOSS_NODES_LoadVideo"
@@ -14,7 +14,8 @@ class AusBossLoadVideo:
     DESCRIPTION = (
         "Loads a video as a BHWC frame batch plus its audio, trimmed to an "
         "optional start/end window selected on the preview timeline, with frame count, "
-        "fps, size, and duration outputs ready for downstream wiring."
+        "fps, size, and duration outputs ready for downstream wiring, plus a lazy "
+        "core VIDEO output for nodes that consume whole videos."
     )
     SEARCH_ALIASES = ["load video", "video loader", "trim video", "video frames", "ausboss"]
 
@@ -78,8 +79,8 @@ class AusBossLoadVideo:
             }
         }
 
-    RETURN_TYPES = ("IMAGE", "AUDIO", "INT", "FLOAT", "INT", "INT", "FLOAT")
-    RETURN_NAMES = ("frames", "audio", "frame_count", "fps", "width", "height", "duration")
+    RETURN_TYPES = ("IMAGE", "AUDIO", "INT", "FLOAT", "INT", "INT", "FLOAT", "VIDEO")
+    RETURN_NAMES = ("frames", "audio", "frame_count", "fps", "width", "height", "duration", "video")
     OUTPUT_TOOLTIPS = (
         "Trimmed BHWC frame batch.",
         "Audio for the same trim window; silent when the video has no audio track.",
@@ -88,6 +89,9 @@ class AusBossLoadVideo:
         "Frame width after any custom sizing.",
         "Frame height after any custom sizing.",
         "Duration in seconds of the returned frames.",
+        "Core VIDEO for the same trim window at the source size; frames decode "
+        "only when a consumer asks for them. None on ComfyUI cores without the "
+        "comfy_api VIDEO type (needs ComfyUI 0.3.26 or newer).",
     )
     FUNCTION = "load_video"
 
@@ -101,6 +105,8 @@ class AusBossLoadVideo:
         # Deferred: the audio track is only decoded if a downstream node
         # actually reads the AUDIO output.
         audio = lazy_audio_range(path, float(start_seconds), float(start_seconds) + duration)
+        # Lazy core VIDEO for the same window; None on cores without the API.
+        core_video = core_trimmed_video(path, float(start_seconds), float(end_seconds))
         return (
             frames,
             audio,
@@ -109,6 +115,7 @@ class AusBossLoadVideo:
             int(frames.shape[2]),
             int(frames.shape[1]),
             float(duration),
+            core_video,
         )
 
     @classmethod

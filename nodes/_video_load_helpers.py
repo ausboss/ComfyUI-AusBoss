@@ -175,6 +175,47 @@ def decode_video_range(
     return batch, fps
 
 
+def core_trim_args(start_seconds: float, end_seconds: float) -> tuple[float, float]:
+    """Map the node's start/end widgets onto core's (start_time, duration).
+
+    Core's VIDEO trim treats duration 0 as "until the end", which matches
+    end_seconds 0. Degenerate windows (end at or before start) also collapse
+    to 0 here, but VALIDATE_INPUTS rejects those graphs before execution.
+    """
+    start = max(0.0, float(start_seconds))
+    end = float(end_seconds)
+    duration = end - start if end > 0.0 else 0.0
+    return start, max(0.0, duration)
+
+
+def core_trimmed_video(path: Path, start_seconds: float, end_seconds: float):
+    """Core VIDEO object for the trim window; no frames decode until consumed.
+
+    Imported at call time and fail-soft: returns None when the running
+    ComfyUI core predates the comfy_api VIDEO type, so the pack still loads
+    (the node tooltip documents the requirement). Inside ComfyUI the module
+    is already imported, so the lookup is a sys.modules hit.
+    """
+    try:
+        from comfy_api.input_impl import VideoFromFile
+    except Exception:
+        return None
+    video = VideoFromFile(str(path))
+    start, duration = core_trim_args(start_seconds, end_seconds)
+    if start <= 0.0 and duration <= 0.0:
+        return video
+    try:
+        return video.as_trimmed(start, duration, strict_duration=False)
+    except Exception:
+        # A core with VideoFromFile but a different trim surface: surface
+        # nothing rather than a wrongly windowed video.
+        print(
+            "[AusBoss] Load Video: this ComfyUI core cannot trim VIDEO "
+            "objects; the video output is None."
+        )
+        return None
+
+
 def silent_audio(duration: float) -> dict:
     samples = max(1, round(max(0.0, duration) * FALLBACK_SAMPLE_RATE))
     return {
@@ -254,6 +295,8 @@ def lazy_audio_range(path: Path, start_seconds: float, end_seconds: float) -> La
 
 __all__ = [
     "LazyAudio",
+    "core_trim_args",
+    "core_trimmed_video",
     "decode_audio_range",
     "decode_video_range",
     "lazy_audio_range",

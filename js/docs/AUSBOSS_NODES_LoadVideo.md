@@ -30,6 +30,11 @@ height follows the node width with a compact lower bound.
 - **frame_count / fps / width / height / duration**: Ready-made wiring for
   video combine nodes and info displays. `duration` covers the returned
   frames, not the whole file.
+- **video**: A lazy core `VIDEO` handle for the same source trim at its native
+  size. Connect it directly to core video-aware nodes without materializing a
+  second frame batch. Older ComfyUI cores without the `VIDEO` API return no
+  handle; the original seven outputs remain unchanged.
 
 The trim window is decoded directly — untrimmed parts of the video are never
-loaded into memory.
+loaded into the `frames` output, while the `video` output stays lazy until a
+downstream consumer requests it.
