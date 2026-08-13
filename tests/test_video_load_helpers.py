@@ -19,6 +19,7 @@ import av
 from nodes._video_load_helpers import (
     decode_audio_range,
     decode_video_range,
+    memory_budget_error,
     output_size,
     trim_window,
 )
@@ -105,6 +106,31 @@ class VideoLoadHelperTests(unittest.TestCase):
         self.assertEqual(output_size(640, 480, 320, 0), (320, 240))
         self.assertEqual(output_size(640, 480, 0, 240), (320, 240))
         self.assertEqual(output_size(640, 480, 100, 100), (100, 100))
+
+    def test_memory_budget_allows_batches_inside_the_budget(self):
+        # 24 frames at 64x48 = 24 * 48 * 64 * 12 bytes, far under 1 GB.
+        self.assertIsNone(memory_budget_error(24, 64, 48, 1_000_000_000))
+
+    def test_memory_budget_blocks_oversized_batches_with_a_clear_error(self):
+        # 3000 frames at 1920x1080 needs ~74.6 GB float32.
+        message = memory_budget_error(3000, 1920, 1080, 16_000_000_000)
+        self.assertIsNotNone(message)
+        self.assertIn("3000", message)
+        self.assertIn("74.6 GB", message)
+        self.assertIn("16.0 GB", message)
+        self.assertIn("custom_width", message)
+        self.assertIn("shorter", message)
+
+    def test_memory_budget_applies_the_safety_factor(self):
+        needed = 10 * 8 * 8 * 3 * 4
+        self.assertIsNone(memory_budget_error(10, 8, 8, needed * 2))
+        self.assertIsNotNone(memory_budget_error(10, 8, 8, needed))  # 0.8 * needed < needed
+
+    def test_memory_budget_fails_soft_without_availability_data(self):
+        self.assertIsNone(memory_budget_error(10**9, 4096, 4096, None))
+        self.assertIsNone(memory_budget_error(10**9, 4096, 4096, 0))
+        self.assertIsNone(memory_budget_error(0, 4096, 4096, 1))
+        self.assertIsNone(memory_budget_error(10, 0, 0, 1))
 
     def test_trim_validation_errors(self):
         with self.assertRaisesRegex(ValueError, "smaller than"):
