@@ -1,8 +1,9 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { chainCallback, notifyAusbossChange } from "../shared/index.mjs";
+import { formatTimecode, parseTimecode } from "../shared/timecode.mjs";
 import {
-  formatTime,
+  mediaInfo,
   mediaViewQuery,
   responsivePreviewHeight,
   splitMediaName,
@@ -97,12 +98,14 @@ function updateTrimFace(state) {
   state.selection.style.width = `${Math.max(0, endPercent - startPercent)}%`;
   state.startHandle.style.left = `${startPercent}%`;
   state.endHandle.style.left = `${endPercent}%`;
-  if (document.activeElement !== state.startInput) state.startInput.value = bounds.start.toFixed(2);
-  if (document.activeElement !== state.endInput) state.endInput.value = bounds.end.toFixed(2);
+  if (document.activeElement !== state.startInput) state.startInput.value = formatTimecode(bounds.start);
+  if (document.activeElement !== state.endInput) state.endInput.value = formatTimecode(bounds.end);
   const selected = Math.max(0, bounds.end - bounds.start);
-  state.durationLabel.textContent = duration > 0 ? `${formatTime(selected)} selected` : "load a video to trim";
+  state.durationLabel.textContent = duration > 0
+    ? `${formatTimecode(selected)} of ${formatTimecode(duration)}`
+    : "load a video to trim";
   state.status.textContent = duration > 0
-    ? `${formatTime(bounds.start)} → ${formatTime(bounds.end)}`
+    ? `${formatTimecode(bounds.start)} → ${formatTimecode(bounds.end)}`
     : state.status.textContent;
 }
 
@@ -262,7 +265,14 @@ function watchTrimWidget(state, widget) {
 function commitTimeInput(state, edge, input) {
   const duration = Number.isFinite(state.video.duration) ? state.video.duration : 0;
   if (duration <= 0) return;
-  const fraction = Number(input.value) / duration;
+  const seconds = parseTimecode(input.value);
+  if (seconds === null) {
+    // Malformed entry: restore the previous value and keep focus for a retry.
+    const bounds = currentBounds(state);
+    input.value = formatTimecode(edge === "start" ? bounds.start : bounds.end);
+    return;
+  }
+  const fraction = seconds / duration;
   writeTrim(state, dragTrimHandle(duration, currentBounds(state), edge, fraction), edge);
   notifyAusbossChange();
   input.blur();
@@ -321,6 +331,8 @@ function buildPreview(node) {
     const input = document.createElement("input");
     input.type = "text";
     input.inputMode = "decimal";
+    input.placeholder = "m:ss.s";
+    input.title = `${labelText} point - type seconds (95.5) or a timecode (1:35.5, 1:02:03.5)`;
     input.addEventListener("keydown", (event) => {
       event.stopPropagation();
       if (event.key === "Enter") input.dispatchEvent(new Event("change"));
@@ -396,7 +408,10 @@ function buildPreview(node) {
       writeTrim(state, { start: Math.max(0, bounds.end - MIN_TRIM_SECONDS), end: bounds.end });
     }
     video.currentTime = currentBounds(state).start;
-    setReady(state, `${formatTime(currentBounds(state).start)} → ${formatTime(currentBounds(state).end)}`);
+    setReady(state, `${formatTimecode(currentBounds(state).start)} → ${formatTimecode(currentBounds(state).end)}`);
+    // Quiet source hint: resolution and duration from the loaded metadata.
+    const sourceInfo = mediaInfo(null, video);
+    durationLabel.title = sourceInfo ? `Source: ${sourceInfo}` : "";
     updateTrimFace(state);
     node.setDirtyCanvas?.(true, true);
   }, { signal: abort.signal });
