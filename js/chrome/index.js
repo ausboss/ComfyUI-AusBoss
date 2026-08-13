@@ -1,13 +1,25 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
-import { BRAND, BRAND_BODY } from "../shared/index.mjs";
-import { composeTitle, stripQueuePrefix } from "../shared/chrome.mjs";
+import { BRAND, BRAND_BODY, chainCallback } from "../shared/index.mjs";
+import {
+  advanceExecution,
+  composeTitle,
+  createRunState,
+  formatDuration,
+  stripQueuePrefix,
+} from "../shared/chrome.mjs";
 
-// Pack-wide browser-chrome status: favicon + tab-title queue status. Pure
-// decision logic lives in js/shared/chrome.mjs; this file only wires DOM
-// and api events.
+// Pack-wide browser-chrome status: favicon + tab-title queue status, and
+// optional per-node runtime badges. Pure decision logic lives in
+// js/shared/chrome.mjs; this file only wires DOM, api events, and drawing.
 
 const FAVICON_SETTING = "AusBoss.Chrome.FaviconStatus";
+const RUNTIME_SETTING = "AusBoss.Chrome.NodeRuntime";
+const RUNTIME_KEY = "ausbossRuntimeSeconds";
+
+// ---------------------------------------------------------------------------
+// Favicon + tab title
+// ---------------------------------------------------------------------------
 
 const favicon = {
   enabled: false,
@@ -159,6 +171,124 @@ function disableFavicon() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Per-node runtime badges
+// ---------------------------------------------------------------------------
+
+const runtime = {
+  enabled: false,
+  abort: null,
+  state: createRunState(),
+};
+
+function graphNodes() {
+  return app.graph?._nodes || app.graph?.nodes || [];
+}
+
+function clearBadges() {
+  // Assign undefined, never delete — deleting node properties breaks
+  // reactivity under the Nodes 2.0 renderer.
+  for (const node of graphNodes()) {
+    if (node[RUNTIME_KEY] !== undefined) node[RUNTIME_KEY] = undefined;
+  }
+}
+
+function stampUpdates(updates) {
+  for (const { id, seconds } of updates) {
+    const node = app.graph?.getNodeById?.(Number(id)) ?? app.graph?.getNodeById?.(id);
+    if (node) node[RUNTIME_KEY] = seconds;
+  }
+  if (updates.length) app.graph?.setDirtyCanvas?.(true, false);
+}
+
+function enableRuntime() {
+  if (runtime.abort) return;
+  runtime.abort = new AbortController();
+  const signal = runtime.abort.signal;
+  const closeRun = () => stampUpdates(advanceExecution(runtime.state, null, performance.now()));
+  api.addEventListener(
+    "execution_start",
+    () => {
+      runtime.state = createRunState();
+      clearBadges();
+    },
+    { signal },
+  );
+  api.addEventListener(
+    "executing",
+    (event) =>
+      stampUpdates(advanceExecution(runtime.state, executingNodeId(event?.detail), performance.now())),
+    { signal },
+  );
+  api.addEventListener("execution_success", closeRun, { signal });
+  api.addEventListener("execution_error", closeRun, { signal });
+  api.addEventListener("execution_interrupted", closeRun, { signal });
+}
+
+function disableRuntime() {
+  runtime.abort?.abort();
+  runtime.abort = null;
+  runtime.state = createRunState();
+  try {
+    clearBadges();
+    app.graph?.setDirtyCanvas?.(true, false);
+  } catch {
+    /* Never throw from a toggle. */
+  }
+}
+
+function drawRuntimeBadge(node, ctx) {
+  try {
+    if (!runtime.enabled) return;
+    const seconds = node?.[RUNTIME_KEY];
+    if (typeof seconds !== "number") return;
+    if (node.flags?.collapsed) return;
+    // Zoomed way out the text is unreadable anyway — skip the work.
+    if ((app.canvas?.ds?.scale ?? 1) < 0.5) return;
+    const text = formatDuration(seconds);
+    if (!text) return;
+    const titleHeight = globalThis.LiteGraph?.NODE_TITLE_HEIGHT ?? 30;
+    ctx.save();
+    ctx.font = "10px monospace";
+    const padX = 5;
+    const height = 15;
+    const width = Math.ceil(ctx.measureText(text).width) + padX * 2;
+    // Top-right, floating just above the title bar so it never covers
+    // the node title or its widgets.
+    const x = node.size[0] - width;
+    const y = -titleHeight - height - 4;
+    roundedRectPath(ctx, x, y, width, height, 4);
+    ctx.fillStyle = "rgba(8, 20, 19, 0.85)";
+    ctx.fill();
+    ctx.strokeStyle = BRAND;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = "#d8f5f3";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, x + padX, y + height / 2 + 0.5);
+    ctx.restore();
+  } catch {
+    /* Drawing must never break the canvas loop. */
+  }
+}
+
+let drawHookInstalled = false;
+
+function installDrawHook() {
+  if (drawHookInstalled) return;
+  const proto = globalThis.LiteGraph?.LGraphNode?.prototype;
+  if (!proto) return;
+  drawHookInstalled = true;
+  chainCallback(proto, "onDrawForeground", function (ctx) {
+    drawRuntimeBadge(this, ctx);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Registration
+// ---------------------------------------------------------------------------
+
 app.registerExtension({
   name: "AusBoss.Chrome",
   settings: [
@@ -183,14 +313,39 @@ app.registerExtension({
         else disableFavicon();
       },
     },
+    {
+      id: RUNTIME_SETTING,
+      name: "Node runtime badges",
+      type: "boolean",
+      defaultValue: false,
+      category: ["🆎 AusBoss", "Chrome", "Node runtime"],
+      tooltip:
+        "After a run, shows a small badge above each executed node's " +
+        "top-right corner with the seconds it took; a node revisited by a " +
+        "batched loop shows its summed time. Off by default because it " +
+        "adds visual noise to the graph.",
+      onChange(value) {
+        const on = value === true;
+        if (on === runtime.enabled) return;
+        runtime.enabled = on;
+        if (on) enableRuntime();
+        else disableRuntime();
+      },
+    },
   ],
   setup() {
-    // onChange only fires on later edits on some frontends, so seed from
-    // the stored value here.
+    // onChange only fires on later edits on some frontends, so seed both
+    // features from the stored values here.
     const stored = app.ui?.settings?.getSettingValue?.(FAVICON_SETTING);
     if (stored !== false && !favicon.enabled) {
       favicon.enabled = true;
       enableFavicon();
     }
+    const runtimeStored = app.ui?.settings?.getSettingValue?.(RUNTIME_SETTING);
+    if (runtimeStored === true && !runtime.enabled) {
+      runtime.enabled = true;
+      enableRuntime();
+    }
+    installDrawHook();
   },
 });
