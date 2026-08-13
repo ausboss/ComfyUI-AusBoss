@@ -8,7 +8,9 @@ import {
   SCRUB_PIXELS_PER_STEP,
   clampHighlight,
   clampStrength,
+  commonFolderPrefix,
   filterLoras,
+  groupByFolder,
   highlightedName,
   isScrubbing,
   moveHighlight,
@@ -20,7 +22,10 @@ import {
   scrubValue,
   serializeRows,
   setStrength,
+  strengthOutOfRange,
   summarizeRows,
+  toggleAllRows,
+  toggleAllState,
   toggleTrigger,
 } from "../js/shared/lora_stack.mjs";
 
@@ -116,4 +121,49 @@ test("row summary counts only named rows", () => {
   assert.equal(summarizeRows([]), "no LoRAs");
   const rows = normalizeRows([{ name: "a" }, { name: "b", enabled: false }, { name: "" }]);
   assert.equal(summarizeRows(rows), "1 / 2 on");
+});
+
+test("master toggle reports on/off/mixed and blank rows do not vote", () => {
+  const mixed = normalizeRows([{ name: "a" }, { name: "b", enabled: false }, { name: "" }]);
+  assert.equal(toggleAllState(mixed), "mixed");
+  assert.equal(toggleAllState(normalizeRows([{ name: "a" }, { name: "" }])), "on");
+  assert.equal(toggleAllState(normalizeRows([{ name: "a", enabled: false }])), "off");
+  assert.equal(toggleAllState(normalizeRows([{ name: "" }])), "off");
+});
+
+test("master toggle click: mixed and off turn all on, on turns all off", () => {
+  const mixed = normalizeRows([{ name: "a" }, { name: "b", enabled: false }]);
+  const allOn = toggleAllRows(mixed);
+  assert.equal(toggleAllState(allOn), "on");
+  const allOff = toggleAllRows(allOn);
+  assert.equal(toggleAllState(allOff), "off");
+  assert.equal(toggleAllState(toggleAllRows(allOff)), "on");
+});
+
+test("common folder prefix strips whole segments only, never a lone file's dir", () => {
+  assert.equal(
+    commonFolderPrefix(["styles/wan/a.safetensors", "styles/wan/b.safetensors"]),
+    "styles/wan/"
+  );
+  assert.equal(commonFolderPrefix(["styles/a.safetensors", "faces/b.safetensors"]), "");
+  assert.equal(commonFolderPrefix(["only/one.safetensors"]), "");
+  // The shared segment is also one entry's full remaining path: stop above it.
+  assert.equal(commonFolderPrefix(["styles/a.safetensors", "styles/wan/b.safetensors"]), "styles/");
+});
+
+test("folder grouping buckets by top folder in first-appearance order", () => {
+  const groups = groupByFolder(["root.safetensors", "styles/a", "faces/b", "styles/c"]);
+  assert.deepEqual(
+    groups.map((group) => [group.folder, group.names.length]),
+    [["", 1], ["styles", 2], ["faces", 1]]
+  );
+});
+
+test("strength range flags only real finite bounds", () => {
+  assert.equal(strengthOutOfRange(1.5, { min: 0, max: 1 }), true);
+  assert.equal(strengthOutOfRange(-0.5, { min: 0, max: 1 }), true);
+  assert.equal(strengthOutOfRange(0.5, { min: 0, max: 1 }), false);
+  assert.equal(strengthOutOfRange(5, { min: null, max: null }), false);
+  assert.equal(strengthOutOfRange(5, null), false);
+  assert.equal(strengthOutOfRange(0.5, { max: 1 }), false);
 });

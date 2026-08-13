@@ -1,6 +1,7 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { BRAND, chainCallback, notifyAusbossChange } from "./index.mjs";
+import { normalizeFillColor } from "./fill_color.mjs";
 import {
   canvasLocalPoint,
   clamp,
@@ -485,10 +486,18 @@ function buildControls(state, sidebar) {
   const node = state.node;
   const cropSection = createElement("section", "ausboss-transform-section"); cropSection.append(sectionHeading("Crop", "crop"));
   const ratio = createElement("select");
-  for (const optionValue of ["free", "source", "1:1", "9:16", "16:9", "2:3", "3:2", "3:4", "4:3", "9:21", "21:9"]) {
+  // Options come from the widget the backend registered, so custom presets
+  // from ausboss_presets.json appear here automatically.
+  const ratioWidget = widget(node, "crop_aspect_ratio");
+  let ratioValues = ratioWidget?.options?.values;
+  if (typeof ratioValues === "function") ratioValues = ratioValues(ratioWidget, node);
+  if (!Array.isArray(ratioValues) || !ratioValues.length) ratioValues = ["free", "source", "1:1", "9:16", "16:9", "2:3", "3:2", "3:4", "4:3", "9:21", "21:9"];
+  const currentRatio = String(value(node, "crop_aspect_ratio", "free"));
+  if (!ratioValues.includes(currentRatio)) ratioValues = [...ratioValues, currentRatio];
+  for (const optionValue of ratioValues) {
     const option = createElement("option", "", optionValue); option.value = optionValue; ratio.append(option);
   }
-  ratio.value = value(node, "crop_aspect_ratio", "free"); ratio.addEventListener("change", () => { setValue(node, "crop_aspect_ratio", ratio.value); fitCrop(state); });
+  ratio.value = currentRatio; ratio.addEventListener("change", () => { setValue(node, "crop_aspect_ratio", ratio.value); fitCrop(state); });
   addLabeledControl(cropSection, "Aspect", ratio);
   const fit = createElement("button", "", "Fit crop to source"); fit.addEventListener("click", () => fitCrop(state)); cropSection.append(fit);
 
@@ -712,7 +721,22 @@ function setRotation(state, degrees) {
   fitCrop(state); draw(state); updateModalInfo(state);
 }
 function resetView(state) { state.view = { zoom: 1, panX: 0, panY: 0 }; }
-function normalizeColor(value) { const text = String(value || "#808080"); return /^#[0-9a-f]{6}$/i.test(text) ? text : "#808080"; }
+
+// Resolve CSS color names with the browser's own parser. An invalid
+// assignment leaves fillStyle unchanged, so probing twice from different
+// starting values separates "parsed" from "ignored".
+let colorProbeContext = null;
+function resolveCssColorName(name) {
+  try {
+    colorProbeContext ??= document.createElement("canvas").getContext("2d");
+    const context = colorProbeContext;
+    context.fillStyle = "#000000"; context.fillStyle = name;
+    const first = String(context.fillStyle);
+    context.fillStyle = "#ffffff"; context.fillStyle = name;
+    return first === String(context.fillStyle) && /^#[0-9a-f]{6}$/i.test(first) ? first : null;
+  } catch { return null; }
+}
+function normalizeColor(value) { return normalizeFillColor(value, resolveCssColorName); }
 
 function renderGeometry(state, width, height) {
   const source = rotatedSize(state.sourceWidth, state.sourceHeight, value(state.node, "rotation_degrees", 0));
@@ -924,6 +948,15 @@ function updateModalInfo(state) {
 }
 function drawEmpty(state, text) { for (const canvas of [state.canvas, state.previewCanvas]) { if (!canvas) continue; const prepared = prepareCanvas(canvas); drawEmptyCanvas(prepared.context, prepared.width, prepared.height, text); } }
 function drawEmptyCanvas(context, width, height, text) { context.fillStyle = "#111"; context.fillRect(0, 0, width, height); context.fillStyle = "#9ba2aa"; context.font = "13px system-ui"; context.textAlign = "center"; context.fillText(text, width / 2, height / 2); context.textAlign = "left"; }
+
+// True when the node is an AusBoss transform node whose editor can open
+// (installed by installTransformNode). Used by the pack-wide command.
+export function openTransformEditorForNode(node) {
+  const state = node?.__ausbossTransformState;
+  if (!state) return false;
+  openEditor(state);
+  return true;
+}
 
 export function disposeTransformNode(node) {
   const state = node.__ausbossTransformState; if (!state) return; state.disposed = true; closeEditor(state); state.frameController?.abort(); if (state.frameObjectUrl) URL.revokeObjectURL(state.frameObjectUrl);

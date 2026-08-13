@@ -137,3 +137,62 @@ export function summarizeRows(rows) {
   const total = rows.filter((row) => row.name).length;
   return total === 0 ? "no LoRAs" : `${on} / ${total} on`;
 }
+
+// Master toggle model: "on" when every named row is enabled, "off" when none
+// are, "mixed" otherwise. Blank rows don't vote.
+export function toggleAllState(rows) {
+  const named = rows.filter((row) => row.name);
+  if (!named.length) return "off";
+  const on = named.filter((row) => row.enabled).length;
+  return on === 0 ? "off" : on === named.length ? "on" : "mixed";
+}
+
+// Clicking the master pill: anything not fully-on turns everything on;
+// fully-on turns everything off.
+export function toggleAllRows(rows) {
+  const enabled = toggleAllState(rows) !== "on";
+  return rows.map((row) => (row.name ? { ...row, enabled } : row));
+}
+
+// Longest common folder prefix (whole segments only) across displayed names,
+// so a picker full of "styles/wan22/x.safetensors" reads as just "x".
+export function commonFolderPrefix(names) {
+  if (names.length < 2) return "";
+  const split = names.map((name) => name.split("/"));
+  const first = split[0];
+  let depth = 0;
+  while (
+    depth < first.length - 1 &&
+    split.every((parts) => parts.length > depth + 1 && parts[depth] === first[depth])
+  ) {
+    depth += 1;
+  }
+  return depth ? first.slice(0, depth).join("/") + "/" : "";
+}
+
+// Folder grouping for the picker's browse view: names bucketed by their
+// top-level folder in first-appearance order; root files group under "".
+export function groupByFolder(names) {
+  const groups = [];
+  const index = new Map();
+  for (const name of names) {
+    const slash = name.indexOf("/");
+    const folder = slash >= 0 ? name.slice(0, slash) : "";
+    if (!index.has(folder)) {
+      index.set(folder, { folder, names: [] });
+      groups.push(index.get(folder));
+    }
+    index.get(folder).names.push(name);
+  }
+  return groups;
+}
+
+// A suggested range is advisory: null/absent bounds never flag.
+export function strengthOutOfRange(value, range) {
+  if (!range) return false;
+  const low = Number.isFinite(range.min) ? range.min : null;
+  const high = Number.isFinite(range.max) ? range.max : null;
+  if (low !== null && value < low) return true;
+  if (high !== null && value > high) return true;
+  return false;
+}

@@ -17,8 +17,11 @@ if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
 import av
 
 from nodes._video_load_helpers import (
+    LazyAudio,
     decode_audio_range,
     decode_video_range,
+    lazy_audio_range,
+    memory_budget_error,
     output_size,
     trim_window,
 )
@@ -105,6 +108,53 @@ class VideoLoadHelperTests(unittest.TestCase):
         self.assertEqual(output_size(640, 480, 320, 0), (320, 240))
         self.assertEqual(output_size(640, 480, 0, 240), (320, 240))
         self.assertEqual(output_size(640, 480, 100, 100), (100, 100))
+
+    def test_lazy_audio_defers_the_loader_until_first_key_read(self):
+        calls = []
+
+        def loader():
+            calls.append(1)
+            return {"waveform": torch.zeros((1, 1, 4)), "sample_rate": 22050}
+
+        audio = LazyAudio(loader)
+        self.assertEqual(calls, [])  # construction must not decode
+        self.assertEqual(audio["sample_rate"], 22050)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(audio.get("sample_rate"), 22050)
+        self.assertEqual(set(audio), {"waveform", "sample_rate"})
+        self.assertEqual(len(audio), 2)
+        self.assertEqual(len(calls), 1)  # cached: still a single decode
+
+    def test_lazy_audio_range_matches_the_eager_decode(self):
+        lazy = lazy_audio_range(self.video, 0.5, 1.5)
+        eager = decode_audio_range(self.video, 0.5, 1.5)
+        self.assertEqual(lazy["sample_rate"], eager["sample_rate"])
+        self.assertTrue(torch.equal(lazy["waveform"], eager["waveform"]))
+
+    def test_memory_budget_allows_batches_inside_the_budget(self):
+        # 24 frames at 64x48 = 24 * 48 * 64 * 12 bytes, far under 1 GB.
+        self.assertIsNone(memory_budget_error(24, 64, 48, 1_000_000_000))
+
+    def test_memory_budget_blocks_oversized_batches_with_a_clear_error(self):
+        # 3000 frames at 1920x1080 needs ~74.6 GB float32.
+        message = memory_budget_error(3000, 1920, 1080, 16_000_000_000)
+        self.assertIsNotNone(message)
+        self.assertIn("3000", message)
+        self.assertIn("74.6 GB", message)
+        self.assertIn("16.0 GB", message)
+        self.assertIn("custom_width", message)
+        self.assertIn("shorter", message)
+
+    def test_memory_budget_applies_the_safety_factor(self):
+        needed = 10 * 8 * 8 * 3 * 4
+        self.assertIsNone(memory_budget_error(10, 8, 8, needed * 2))
+        self.assertIsNotNone(memory_budget_error(10, 8, 8, needed))  # 0.8 * needed < needed
+
+    def test_memory_budget_fails_soft_without_availability_data(self):
+        self.assertIsNone(memory_budget_error(10**9, 4096, 4096, None))
+        self.assertIsNone(memory_budget_error(10**9, 4096, 4096, 0))
+        self.assertIsNone(memory_budget_error(0, 4096, 4096, 1))
+        self.assertIsNone(memory_budget_error(10, 0, 0, 1))
 
     def test_trim_validation_errors(self):
         with self.assertRaisesRegex(ValueError, "smaller than"):
