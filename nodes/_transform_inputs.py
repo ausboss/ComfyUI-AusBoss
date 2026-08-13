@@ -2,10 +2,75 @@
 
 from __future__ import annotations
 
+import json
+import re
+from pathlib import Path
+
 from ._transform_engine import TransformSpec
 
 
 ASPECT_RATIOS = ["free", "source", "1:1", "9:16", "16:9", "2:3", "3:2", "3:4", "4:3", "9:21", "21:9"]
+
+# Optional user presets: copy ausboss_presets_example.json (repo root) to
+# ausboss_presets.json (gitignored) and edit. Read fresh at INPUT_TYPES time,
+# so a browser reload picks up edits. Any problem warns once (ASCII) and
+# falls back to the built-in list - never breaks node registration.
+PRESETS_PATH = Path(__file__).resolve().parent.parent / "ausboss_presets.json"
+
+_RATIO_PATTERN = re.compile(r"^[1-9]\d*:[1-9]\d*$")
+_warned_presets: set[str] = set()
+
+
+def _warn_once(message: str) -> None:
+    if message in _warned_presets:
+        return
+    if len(_warned_presets) > 64:
+        _warned_presets.clear()
+    _warned_presets.add(message)
+    print(f"[AusBoss] {message}")
+
+
+def load_custom_aspect_ratios(path: Path | None = None) -> list[str]:
+    """Extra crop_aspect_ratio entries from the optional presets file."""
+    path = PRESETS_PATH if path is None else Path(path)
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return []
+    except OSError as exc:
+        _warn_once(f"Presets: could not read {path.name}: {exc}")
+        return []
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        _warn_once(f"Presets: {path.name} is not valid JSON ({exc}); using built-in aspect ratios.")
+        return []
+    entries = data.get("crop_aspect_ratios") if isinstance(data, dict) else None
+    if not isinstance(entries, list):
+        _warn_once(f"Presets: {path.name} needs a crop_aspect_ratios list; using built-in aspect ratios.")
+        return []
+    valid: list[str] = []
+    skipped: list[str] = []
+    for entry in entries:
+        candidate = str(entry).strip()
+        if _RATIO_PATTERN.match(candidate) or candidate in ("free", "source"):
+            if candidate not in valid:
+                valid.append(candidate)
+        else:
+            skipped.append(candidate)
+    if skipped:
+        safe = ", ".join(item.encode("ascii", "backslashreplace").decode("ascii") for item in skipped)
+        _warn_once(f"Presets: skipped entries that are not W:H integer pairs: {safe}")
+    return valid
+
+
+def aspect_ratio_options(path: Path | None = None) -> list[str]:
+    """Built-in ratios extended with any user presets, order preserved."""
+    options = list(ASPECT_RATIOS)
+    for entry in load_custom_aspect_ratios(path):
+        if entry not in options:
+            options.append(entry)
+    return options
 
 
 def transform_inputs() -> dict[str, tuple]:
@@ -21,7 +86,7 @@ def transform_inputs() -> dict[str, tuple]:
             },
         ),
         "crop_aspect_ratio": (
-            ASPECT_RATIOS,
+            aspect_ratio_options(),
             {"default": "free", "tooltip": "Locks crop handles to a ratio; free allows any rectangle."},
         ),
         "crop_x": ("INT", {"default": 0, "min": 0, "max": 65536, "step": 1}),
@@ -62,7 +127,11 @@ def transform_inputs() -> dict[str, tuple]:
             "STRING",
             {
                 "default": "#808080",
-                "tooltip": "Color for rotation voids and padding; accepts #RRGGBB or R, G, B.",
+                "tooltip": (
+                    "Color for rotation voids and padding; accepts #RGB/#RRGGBB hex, "
+                    "R, G, B (0-255 or 0..1 floats), one grayscale number, or a CSS "
+                    "color name. Unparseable values fall back to mid-gray."
+                ),
             },
         ),
     }
