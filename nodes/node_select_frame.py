@@ -49,7 +49,7 @@ class AusBossSelectFrame:
 # No legacy "Frame Select" alias: that ID belongs to RES4LYF, whose node is
 # zero-based with a differently named widget, so an alias either loses the
 # load-order race or silently changes which frame old workflows select.
-NODE_CLASS_MAPPINGS = {NODE_ID: AusBossSelectFrame}
-NODE_DISPLAY_NAME_MAPPINGS = {NODE_ID: "Select Frame (AusBoss)"}
+NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_SelectFrame": AusBossSelectFrame}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_SelectFrame": "Select Frame (AusBoss)"}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

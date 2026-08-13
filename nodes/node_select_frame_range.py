@@ -65,7 +65,7 @@ class AusBossSelectFrameRange:
         return (selected, int(selected.shape[0]))
 
 
-NODE_CLASS_MAPPINGS = {NODE_ID: AusBossSelectFrameRange}
-NODE_DISPLAY_NAME_MAPPINGS = {NODE_ID: "Select Frame Range (AusBoss)"}
+NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_SelectFrameRange": AusBossSelectFrameRange}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_SelectFrameRange": "Select Frame Range (AusBoss)"}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

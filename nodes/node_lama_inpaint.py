@@ -108,12 +108,12 @@ class AusBossLegacySimpleWatermarkRemover:
 
 
 NODE_CLASS_MAPPINGS = {
-    NODE_ID: AusBossLaMaInpaint,
-    LEGACY_NODE_ID: AusBossLegacySimpleWatermarkRemover,
+    "AUSBOSS_NODES_LaMaInpaint": AusBossLaMaInpaint,
+    "SimpleWatermarkRemover": AusBossLegacySimpleWatermarkRemover,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
-    NODE_ID: "LaMa Inpaint (AusBoss)",
-    LEGACY_NODE_ID: "Simple Watermark Remover (AusBoss Compatibility)",
+    "AUSBOSS_NODES_LaMaInpaint": "LaMa Inpaint (AusBoss)",
+    "SimpleWatermarkRemover": "Simple Watermark Remover (AusBoss Compatibility)",
 }
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

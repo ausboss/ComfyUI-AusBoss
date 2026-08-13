@@ -112,7 +112,7 @@ class AusBossFrameChooser:
 
 register_chooser_route()
 
-NODE_CLASS_MAPPINGS = {NODE_ID: AusBossFrameChooser}
-NODE_DISPLAY_NAME_MAPPINGS = {NODE_ID: "Frame Chooser (AusBoss)"}
+NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_FrameChooser": AusBossFrameChooser}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_FrameChooser": "Frame Chooser (AusBoss)"}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

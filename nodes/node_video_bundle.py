@@ -157,14 +157,14 @@ class AusBossVideoBundleEdit:
 
 
 NODE_CLASS_MAPPINGS = {
-    BUNDLE_ID: AusBossVideoBundle,
-    UNBUNDLE_ID: AusBossVideoUnbundle,
-    EDIT_ID: AusBossVideoBundleEdit,
+    "AUSBOSS_NODES_VideoBundle": AusBossVideoBundle,
+    "AUSBOSS_NODES_VideoUnbundle": AusBossVideoUnbundle,
+    "AUSBOSS_NODES_VideoBundleEdit": AusBossVideoBundleEdit,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
-    BUNDLE_ID: "Video Bundle (AusBoss)",
-    UNBUNDLE_ID: "Video Unbundle (AusBoss)",
-    EDIT_ID: "Video Bundle Edit (AusBoss)",
+    "AUSBOSS_NODES_VideoBundle": "Video Bundle (AusBoss)",
+    "AUSBOSS_NODES_VideoUnbundle": "Video Unbundle (AusBoss)",
+    "AUSBOSS_NODES_VideoBundleEdit": "Video Bundle Edit (AusBoss)",
 }
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
