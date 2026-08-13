@@ -110,7 +110,7 @@ No minimum ComfyUI version is declared. If a frontend update changes custom-widg
 ```bash
 python scripts/validate_nodes.py
 python -m unittest discover -s tests -p "test_*.py" -v
-node --test tests/transform_geometry.test.mjs
+node --test tests/*.test.mjs
 ```
 
 See [`AGENTS.md`](AGENTS.md) for compatibility rules and [`docs/adding_a_node.md`](docs/adding_a_node.md) for the node checklist.

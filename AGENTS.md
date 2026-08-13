@@ -35,7 +35,8 @@ nodes/
                   # exports NODE_CLASS_MAPPINGS + NODE_DISPLAY_NAME_MAPPINGS
   _<topic>_helpers.py  # shared backend logic, underscore prefix = not a node
 js/
-  <name>/index.js # frontend entry per node (.js files auto-load)
+  <name>/index.js # frontend entry per node or pack-wide feature, e.g.
+                  # appearance/ (.js files auto-load)
   shared/*.mjs    # import-only shared modules (.mjs files do NOT auto-load)
 docs/             # developer docs
 scripts/          # validate_nodes.py — offline checks, stdlib only
@@ -58,12 +59,17 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   use `[project.optional-dependencies]` and fail soft at runtime.
 - Frontend JS never assigns prototype callbacks directly — use
   `chainCallback` from `js/shared/index.mjs`.
+- Frontend settings use `AusBoss.<Area>.<Name>` ids with
+  `category: ["🆎 AusBoss", "<Area>", "<Leaf>"]` and a distinct leaf per
+  setting. Node color schemes live in `js/shared/appearance.mjs`.
 
 ## Adding a node
 
 Follow `docs/adding_a_node.md`. Short version: create `nodes/node_<name>.py`
 from the template, add `"node_<name>"` to `NODE_MODULES` in `__init__.py`,
-optionally add `js/<name>/index.js`, then validate.
+optionally add `js/<name>/index.js`, then validate. Brand and design-language
+guidance (visual grammar, settings conventions, interaction etiquette) lives
+in `.claude/skills/ausboss-node-brand/SKILL.md`.
 
 ## Validation
 
