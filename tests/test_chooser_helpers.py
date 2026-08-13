@@ -26,6 +26,8 @@ from nodes._chooser_helpers import (
     indices_string,
     keep_frames,
     normalize_selection,
+    parse_pick_list,
+    pick_list_fingerprint,
     resolve_timeout_policy,
     usable_remembered,
 )
@@ -91,6 +93,41 @@ class KeepFramesTests(unittest.TestCase):
     def test_rejects_non_bhwc_input(self):
         with self.assertRaises(ValueError):
             keep_frames(torch.zeros((3, 3)), [1])
+
+
+class ParsePickListTests(unittest.TestCase):
+    def test_blank_widget_means_no_pre_answer(self):
+        for blank in (None, "", "   ", ", ,"):
+            self.assertIsNone(parse_pick_list(blank, 10))
+
+    def test_parses_commas_and_whitespace_into_a_sorted_selection(self):
+        self.assertEqual(parse_pick_list("1,4,9", 10), [1, 4, 9])
+        self.assertEqual(parse_pick_list(" 9 1\t4, 4 ", 10), [1, 4, 9])
+
+    def test_validates_exactly_like_the_answer_route(self):
+        with self.assertRaises(ValueError):
+            parse_pick_list("0", 10)
+        with self.assertRaises(ValueError):
+            parse_pick_list("11", 10)
+
+    def test_rejects_non_numeric_tokens_loudly(self):
+        for bad in ("1,two", "1.5", "-3", "3;4"):
+            with self.assertRaises(ValueError):
+                parse_pick_list(bad, 10)
+
+
+class PickListFingerprintTests(unittest.TestCase):
+    def test_equivalent_spellings_share_one_fingerprint(self):
+        self.assertEqual(
+            pick_list_fingerprint("1, 4, 9"), pick_list_fingerprint("4 1\t9 9")
+        )
+
+    def test_different_picks_get_different_fingerprints(self):
+        self.assertNotEqual(pick_list_fingerprint("1,4,9"), pick_list_fingerprint("1,4"))
+
+    def test_fingerprints_are_namespaced_and_stable_for_bad_text(self):
+        self.assertTrue(pick_list_fingerprint("1,4").startswith("picks:"))
+        self.assertEqual(pick_list_fingerprint("1,oops"), pick_list_fingerprint("1, oops"))
 
 
 class ResolveTimeoutPolicyTests(unittest.TestCase):

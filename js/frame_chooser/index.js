@@ -1,6 +1,6 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
-import { BRAND, chainCallback } from "../shared/index.mjs";
+import { BRAND, chainCallback, notifyAusbossChange } from "../shared/index.mjs";
 import { ensureVideoCss, makeToolButton } from "../shared/video_ui.mjs";
 import {
   allFrames,
@@ -193,6 +193,17 @@ function populatePanel(state, detail) {
   announcePause(state.count);
 }
 
+// Server -> widget writeback: an interactive answer lands in the visible
+// pick_list widget so the next queue reproduces the choice headlessly.
+function applyPickWriteback(state, indices) {
+  if (typeof indices !== "string") return;
+  const widget = (state.node.widgets || []).find((entry) => entry.name === "pick_list");
+  if (!widget || widget.value === indices) return;
+  widget.value = indices;
+  state.node.setDirtyCanvas?.(true, true);
+  notifyAusbossChange();
+}
+
 // A page reload drops every panel while the server keeps waiting. Ask the
 // backend which pauses are still open and re-render their filmstrips; runs
 // after the graph configures so the nodes exist to attach to.
@@ -383,7 +394,13 @@ app.registerExtension({
       if (!detail?.node_id) return;
       const state = findState(detail.node_id);
       if (!state) return;
-      if (detail.reason === "timeout" && state.active) {
+      if (detail.reason === "answered") {
+        applyPickWriteback(state, detail.indices);
+        if (state.active) {
+          // A second tab (or a restored panel) answered this pause.
+          resolvePanel(state, `Continuing with ${detail.kept} of ${detail.count} frames.`);
+        }
+      } else if (detail.reason === "timeout" && state.active) {
         resolvePanel(state, `Timed out - continuing with ${detail.kept} of ${detail.count} frames.`);
       }
     });

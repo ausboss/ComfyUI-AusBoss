@@ -18,6 +18,12 @@ resumes with just those frames — always in their original order.
 - **on_timeout**: What an expired countdown does — `keep all`, `keep first`,
   `keep last`, or `cancel` (interrupts the run like the stop button). Ignored
   while **timeout_seconds** is `0`.
+- **pick_list**: One-based frame numbers, e.g. `1,4,9` (commas or spaces).
+  When filled, the node applies them immediately — no pause, no filmstrip —
+  and the run can cache like any ordinary node. Answering a pause fills this
+  widget automatically with the kept indices, so the next queue reproduces
+  the same choice headlessly. **Clear it to make the node pause again.** A
+  number outside the batch fails the run instead of guessing.
 
 ## While paused
 

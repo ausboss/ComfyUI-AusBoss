@@ -8,7 +8,9 @@ stays importable without ComfyUI installed.
 
 from __future__ import annotations
 
+import hashlib
 import math
+import re
 import threading
 import time
 from pathlib import Path
@@ -110,6 +112,48 @@ def effective_indices(one_based: list[int], frame_count: int) -> list[int]:
 def indices_string(one_based: list[int]) -> str:
     """One-based indices joined for the STRING output, e.g. '1,4,9'."""
     return ",".join(str(value) for value in one_based)
+
+
+def _pick_tokens(text) -> list[str]:
+    """Split a pick_list string on commas and whitespace, dropping blanks."""
+    if text is None:
+        return []
+    return [token for token in re.split(r"[,\s]+", str(text).strip()) if token]
+
+
+def parse_pick_list(text, frame_count: int) -> list[int] | None:
+    """Turn the pick_list widget into a pre-answered selection.
+
+    Returns None when the widget is empty (the node should pause as usual)
+    and the validated one-based selection otherwise, deduplicated and
+    ascending exactly like an answer from the browser route. Any token that
+    is not a frame number inside this batch raises, so a typo fails the run
+    loudly instead of silently keeping the wrong frames."""
+    tokens = _pick_tokens(text)
+    if not tokens:
+        return None
+    values: list[int] = []
+    for token in tokens:
+        if not token.isdigit():
+            raise ValueError(
+                f"pick_list entry '{token}' is not a one-based frame number."
+            )
+        values.append(int(token))
+    return normalize_selection(values, frame_count)
+
+
+def pick_list_fingerprint(text) -> str:
+    """Stable IS_CHANGED value for a non-empty pick_list.
+
+    Equivalent spellings ('1, 4, 9' vs '4 1 9 9') share one fingerprint, so
+    a headless pre-answered run caches instead of re-executing every queue."""
+    tokens = _pick_tokens(text)
+    if tokens and all(token.isdigit() for token in tokens):
+        canonical = ",".join(str(value) for value in sorted({int(t) for t in tokens}))
+    else:
+        canonical = ",".join(tokens)
+    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return f"picks:{digest}"
 
 
 def resolve_timeout_policy(policy: str, frame_count: int) -> list[int] | None:
@@ -270,7 +314,11 @@ def await_selection(
                 )
         if pending.cancelled:
             raise model_management.InterruptProcessingException()
-        return list(pending.selection or [])
+        answer = list(pending.selection or [])
+        # Every open tab hears how the pause resolved: stale panels release
+        # and the pick_list widget receives the answer for headless reruns.
+        _send_done(key, answer, count, "answered")
+        return answer
     finally:
         with store["lock"]:
             store["pending"].pop(key, None)
@@ -372,6 +420,8 @@ __all__ = [
     "indices_string",
     "keep_frames",
     "normalize_selection",
+    "parse_pick_list",
+    "pick_list_fingerprint",
     "recall_selection",
     "register_chooser_route",
     "remember_selection",
