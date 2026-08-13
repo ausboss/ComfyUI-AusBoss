@@ -1,0 +1,351 @@
+from __future__ import annotations
+
+from pathlib import Path
+import sys
+import unittest
+
+import torch
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
+    del sys.modules["nodes"]
+
+from nodes._inpaint_crop_helpers import (
+    apply_stitch,
+    build_crop,
+    expand_rect_to_multiple,
+    fit_rect,
+    grow_rect,
+    mask_bbox,
+    round_up_to_multiple,
+)
+
+
+def rand_image(batch: int, height: int, width: int, seed: int = 0) -> torch.Tensor:
+    generator = torch.Generator().manual_seed(seed)
+    return torch.rand((batch, height, width, 3), generator=generator, dtype=torch.float32)
+
+
+def gradient_image(batch: int, height: int, width: int) -> torch.Tensor:
+    rows = torch.linspace(0.0, 1.0, height).view(1, height, 1, 1)
+    cols = torch.linspace(0.0, 1.0, width).view(1, 1, width, 1)
+    chans = torch.linspace(0.1, 0.3, 3).view(1, 1, 1, 3)
+    image = 0.35 * rows + 0.45 * cols + chans
+    return image.expand(batch, height, width, 3).clone().float()
+
+
+def box_mask(height: int, width: int, y0: int, y1: int, x0: int, x1: int) -> torch.Tensor:
+    mask = torch.zeros((1, height, width), dtype=torch.float32)
+    mask[:, y0:y1, x0:x1] = 1.0
+    return mask
+
+
+def shuffle_pixels(image: torch.Tensor) -> torch.Tensor:
+    """Deterministically change every pixel while staying inside [0, 1]."""
+    return ((image + 0.31) % 1.0).float()
+
+
+class GeometryTests(unittest.TestCase):
+    def test_round_up_to_multiple(self):
+        self.assertEqual(round_up_to_multiple(100, 8), 104)
+        self.assertEqual(round_up_to_multiple(104, 8), 104)
+        self.assertEqual(round_up_to_multiple(1, 8), 8)
+        self.assertEqual(round_up_to_multiple(37, 1), 37)
+
+    def test_mask_bbox_finds_the_tight_box(self):
+        mask = box_mask(20, 30, 5, 9, 11, 18)
+        self.assertEqual(mask_bbox(mask), (11, 5, 7, 4))
+
+    def test_mask_bbox_empty_mask_is_none(self):
+        self.assertIsNone(mask_bbox(torch.zeros((1, 8, 8))))
+
+    def test_mask_bbox_unions_across_the_batch(self):
+        frame_a = box_mask(20, 20, 2, 5, 3, 6)
+        frame_b = box_mask(20, 20, 10, 15, 12, 17)
+        bbox = mask_bbox(torch.cat([frame_a, frame_b], dim=0))
+        self.assertEqual(bbox, (3, 2, 14, 13))
+
+    def test_grow_rect_is_symmetric_and_identity_at_one(self):
+        self.assertEqual(grow_rect((10, 10, 20, 10), 1.0), (10, 10, 20, 10))
+        self.assertEqual(grow_rect((10, 10, 20, 10), 2.0), (0, 5, 40, 20))
+
+    def test_expand_rect_to_multiple_grows_symmetrically(self):
+        self.assertEqual(expand_rect_to_multiple((3, 5, 10, 10), 8), (0, 2, 16, 16))
+        self.assertEqual(expand_rect_to_multiple((3, 5, 16, 8), 8), (3, 5, 16, 8))
+
+    def test_fit_rect_shifts_into_bounds_when_it_fits(self):
+        self.assertEqual(fit_rect((-4, 3, 10, 10), 100, 50), (0, 3, 10, 10))
+        self.assertEqual(fit_rect((95, 45, 10, 10), 100, 50), (90, 40, 10, 10))
+        self.assertEqual(fit_rect((20, 20, 10, 10), 100, 50), (20, 20, 10, 10))
+
+    def test_fit_rect_centers_when_it_cannot_fit(self):
+        x, y, w, h = fit_rect((0, 0, 120, 40), 100, 50)
+        self.assertEqual((w, h), (120, 40))
+        self.assertEqual(x, -10)  # 20 px overflow split across both sides
+        self.assertEqual(y, 0)
+
+
+class CropContractTests(unittest.TestCase):
+    def test_stitcher_schema(self):
+        image = rand_image(1, 64, 96)
+        mask = box_mask(64, 96, 24, 40, 40, 56)
+        _, _, stitcher = build_crop(image, mask, 1.2, 8, 8)
+        for key in ("kind", "version", "canvas", "canvas_to_original", "crop_to_canvas", "blend", "scale"):
+            self.assertIn(key, stitcher)
+        self.assertEqual(stitcher["kind"], "ausboss_inpaint_stitcher")
+        self.assertEqual(stitcher["version"], 1)
+        self.assertIsNone(stitcher["scale"])
+        self.assertEqual(len(stitcher["canvas_to_original"]), 4)
+        self.assertEqual(len(stitcher["crop_to_canvas"]), 4)
+        self.assertEqual(stitcher["canvas"].shape[0], 1)
+        self.assertEqual(stitcher["blend"].shape, stitcher["canvas"].shape[:3])
+
+    def test_sampling_mask_is_the_raw_mask_never_feathered(self):
+        image = rand_image(1, 40, 40, seed=1)
+        mask = box_mask(40, 40, 10, 20, 10, 20)
+        _, sampling, stitcher = build_crop(image, mask, 2.0, 16, 1)
+        # context 2.0 on a 10x10 bbox with multiple 1 -> rect (5, 5, 20, 20)
+        self.assertEqual(stitcher["crop_to_canvas"], (5, 5, 20, 20))
+        self.assertTrue(torch.equal(sampling, mask[:, 5:25, 5:25]))
+        values = torch.unique(sampling)
+        self.assertTrue(all(v in (0.0, 1.0) for v in values.tolist()))
+        # The blend mask is feathered: it must contain intermediate values.
+        blend = stitcher["blend"]
+        self.assertTrue(bool(((blend > 0.0) & (blend < 1.0)).any()))
+
+    def test_native_crop_dims_round_up_to_output_multiple(self):
+        image = rand_image(1, 50, 70, seed=2)
+        mask = box_mask(50, 70, 10, 30, 10, 40)  # bbox 30x20
+        cropped, sampling, stitcher = build_crop(image, mask, 1.0, 0, 8)
+        self.assertEqual(cropped.shape, (1, 24, 32, 3))
+        self.assertEqual(sampling.shape, (1, 24, 32))
+        x, y, w, h = stitcher["crop_to_canvas"]
+        self.assertEqual((w, h), (32, 24))
+        self.assertTrue(torch.equal(sampling, mask[:, y : y + h, x : x + w]))
+
+    def test_target_dims_round_up_to_output_multiple(self):
+        image = rand_image(1, 64, 96, seed=3)
+        mask = box_mask(64, 96, 24, 40, 40, 56)
+        cropped, sampling, stitcher = build_crop(
+            image, mask, 1.5, 8, 8, target_width=100, target_height=60
+        )
+        self.assertEqual(cropped.shape, (1, 64, 104, 3))
+        self.assertEqual(sampling.shape, (1, 64, 104))
+        self.assertIsNotNone(stitcher["scale"])
+
+    def test_single_target_dim_keeps_aspect_and_multiple(self):
+        image = rand_image(1, 64, 96, seed=4)
+        mask = box_mask(64, 96, 24, 40, 40, 56)
+        cropped, _, stitcher = build_crop(image, mask, 1.5, 8, 8, target_width=128)
+        self.assertEqual(cropped.shape[2], 128)
+        self.assertEqual(cropped.shape[1] % 8, 0)
+        self.assertIsNotNone(stitcher["scale"])
+
+    def test_empty_mask_crops_the_full_image(self):
+        image = rand_image(1, 32, 48, seed=5)
+        mask = torch.zeros((1, 32, 48), dtype=torch.float32)
+        cropped, sampling, stitcher = build_crop(image, mask, 1.2, 16, 8)
+        self.assertTrue(torch.equal(cropped, image))
+        self.assertEqual(float(sampling.sum()), 0.0)
+        self.assertEqual(float(stitcher["blend"].sum()), 0.0)
+        out = apply_stitch(stitcher, shuffle_pixels(cropped))
+        self.assertTrue(torch.equal(out, image))
+
+    def test_accepts_a_2d_mask(self):
+        image = rand_image(1, 32, 32, seed=6)
+        mask2d = torch.zeros((32, 32), dtype=torch.float32)
+        mask2d[8:16, 8:16] = 1.0
+        cropped, sampling, stitcher = build_crop(image, mask2d, 1.2, 4, 8)
+        self.assertEqual(sampling.ndim, 3)
+        out = apply_stitch(stitcher, cropped)
+        self.assertTrue(torch.equal(out, image))
+
+    def test_rejects_a_mask_that_does_not_match_the_image(self):
+        image = rand_image(1, 32, 32, seed=7)
+        mask = torch.zeros((1, 16, 16), dtype=torch.float32)
+        with self.assertRaises(ValueError):
+            build_crop(image, mask, 1.2, 8, 8)
+
+
+class StitchExactnessTests(unittest.TestCase):
+    def test_identity_round_trip_is_bit_exact(self):
+        image = rand_image(1, 64, 96, seed=10)
+        mask = box_mask(64, 96, 24, 40, 40, 56)
+        cropped, _, stitcher = build_crop(image, mask, 1.2, 16, 8)
+        out = apply_stitch(stitcher, cropped)
+        self.assertTrue(torch.equal(out, image))
+
+    def test_pixels_outside_the_blend_region_are_bit_identical(self):
+        image = rand_image(1, 64, 96, seed=11)
+        mask = box_mask(64, 96, 24, 40, 40, 56)
+        cropped, _, stitcher = build_crop(image, mask, 2.0, 4, 8)
+        out = apply_stitch(stitcher, shuffle_pixels(cropped))
+        self.assertEqual(out.shape, image.shape)
+        # blend reach is grow(4) + blur radius (<= 5); margin 10 is conservative.
+        self.assertTrue(torch.equal(out[:, :14], image[:, :14]))
+        self.assertTrue(torch.equal(out[:, 50:], image[:, 50:]))
+        self.assertTrue(torch.equal(out[:, :, :30], image[:, :, :30]))
+        self.assertTrue(torch.equal(out[:, :, 66:], image[:, :, 66:]))
+        # The masked core really took the new content.
+        self.assertFalse(torch.equal(out[:, 30:34, 46:50], image[:, 30:34, 46:50]))
+
+    def test_mask_at_each_border_and_corner(self):
+        height, width = 48, 64
+        image = rand_image(1, height, width, seed=12)
+        placements = [
+            (0, 8, 28, 36),    # top edge
+            (40, 48, 28, 36),  # bottom edge
+            (20, 28, 0, 8),    # left edge
+            (20, 28, 56, 64),  # right edge
+            (0, 8, 0, 8),      # top-left corner
+            (0, 8, 56, 64),    # top-right corner
+            (40, 48, 0, 8),    # bottom-left corner
+            (40, 48, 56, 64),  # bottom-right corner
+        ]
+        for y0, y1, x0, x1 in placements:
+            with self.subTest(placement=(y0, y1, x0, x1)):
+                mask = box_mask(height, width, y0, y1, x0, x1)
+                cropped, _, stitcher = build_crop(image, mask, 1.5, 4, 8)
+                self.assertEqual(cropped.shape[1] % 8, 0)
+                self.assertEqual(cropped.shape[2] % 8, 0)
+                out = apply_stitch(stitcher, cropped)
+                self.assertTrue(torch.equal(out, image))
+
+    def test_grown_rect_exceeding_bounds_takes_the_canvas_path(self):
+        image = rand_image(1, 32, 32, seed=13)
+        mask = box_mask(32, 32, 2, 30, 2, 30)
+        cropped, _, stitcher = build_crop(image, mask, 3.0, 4, 8)
+        canvas = stitcher["canvas"]
+        self.assertGreater(canvas.shape[1], 32)
+        self.assertGreater(canvas.shape[2], 32)
+        ox, oy, ow, oh = stitcher["canvas_to_original"]
+        self.assertEqual((ow, oh), (32, 32))
+        # The original image lives verbatim inside the canvas...
+        self.assertTrue(torch.equal(canvas[:, oy : oy + oh, ox : ox + ow], image))
+        # ...and the padded margin replicates the image edges.
+        if oy > 0:
+            self.assertTrue(torch.equal(canvas[:, oy - 1, ox : ox + ow], image[:, 0, :]))
+        if ox > 0:
+            self.assertTrue(torch.equal(canvas[:, oy : oy + oh, ox - 1], image[:, :, 0]))
+        out = apply_stitch(stitcher, cropped)
+        self.assertTrue(torch.equal(out, image))
+
+    def test_target_rescale_round_trip(self):
+        image = gradient_image(1, 64, 64)
+        mask = box_mask(64, 64, 24, 40, 24, 40)
+        cropped, _, stitcher = build_crop(
+            image, mask, 2.0, 4, 8, target_width=96, target_height=96
+        )
+        self.assertEqual(cropped.shape, (1, 96, 96, 3))
+        out = apply_stitch(stitcher, cropped)
+        self.assertEqual(out.shape, image.shape)
+        # Outside the blend reach: bit exact even though the crop was rescaled.
+        self.assertTrue(torch.equal(out[:, :14], image[:, :14]))
+        self.assertTrue(torch.equal(out[:, 50:], image[:, 50:]))
+        self.assertTrue(torch.equal(out[:, :, :14], image[:, :, :14]))
+        self.assertTrue(torch.equal(out[:, :, 50:], image[:, :, 50:]))
+        # Inside the blend zone: the up/down rescale stays within tolerance.
+        self.assertTrue(
+            torch.allclose(out[:, 24:40, 24:40], image[:, 24:40, 24:40], atol=0.02)
+        )
+
+    def test_stitch_does_not_mutate_the_stitcher(self):
+        image = rand_image(1, 48, 48, seed=14)
+        mask = box_mask(48, 48, 16, 32, 16, 32)
+        cropped, _, stitcher = build_crop(image, mask, 1.5, 4, 8)
+        canvas_before = stitcher["canvas"].clone()
+        first = apply_stitch(stitcher, shuffle_pixels(cropped))
+        second = apply_stitch(stitcher, cropped)
+        self.assertTrue(torch.equal(stitcher["canvas"], canvas_before))
+        self.assertTrue(torch.equal(second, image))
+        self.assertFalse(torch.equal(first, second))
+
+
+class BatchTests(unittest.TestCase):
+    def test_batch_one_stitcher_broadcasts_over_frames(self):
+        image = rand_image(1, 64, 96, seed=20)
+        mask = box_mask(64, 96, 24, 40, 40, 56)
+        cropped, _, stitcher = build_crop(image, mask, 1.5, 4, 8)
+        frames = torch.cat(
+            [cropped, shuffle_pixels(cropped), cropped * 0.5, cropped.flip(2)], dim=0
+        )
+        out = apply_stitch(stitcher, frames)
+        self.assertEqual(out.shape, (4, 64, 96, 3))
+        # The identity frame reproduces the original exactly.
+        self.assertTrue(torch.equal(out[0:1], image))
+        # Every frame keeps the untouched region bit identical.
+        for index in range(4):
+            self.assertTrue(torch.equal(out[index : index + 1, :14], image[:, :14]))
+            self.assertTrue(torch.equal(out[index : index + 1, :, :30], image[:, :, :30]))
+
+    def test_matched_batch_to_batch_stitch(self):
+        base = gradient_image(3, 48, 48)
+        image = (base + torch.tensor([0.0, 0.02, 0.04]).view(3, 1, 1, 1)).clamp(0, 1)
+        mask = box_mask(48, 48, 16, 32, 16, 32)
+        cropped, _, stitcher = build_crop(image, mask, 1.5, 4, 8)
+        self.assertEqual(stitcher["canvas"].shape[0], 3)
+        self.assertEqual(cropped.shape[0], 3)
+        out = apply_stitch(stitcher, cropped)
+        self.assertTrue(torch.equal(out, image))
+
+    def test_mismatched_batches_are_rejected(self):
+        image = rand_image(3, 32, 32, seed=21)
+        mask = box_mask(32, 32, 8, 24, 8, 24)
+        cropped, _, stitcher = build_crop(image, mask, 1.5, 4, 8)
+        with self.assertRaises(ValueError):
+            apply_stitch(stitcher, cropped[:2])
+
+    def test_stitch_rejects_a_foreign_stitcher(self):
+        with self.assertRaises(ValueError):
+            apply_stitch({"kind": "something_else"}, rand_image(1, 8, 8))
+        with self.assertRaises(ValueError):
+            apply_stitch("not a dict", rand_image(1, 8, 8))
+
+
+class NodeWiringTests(unittest.TestCase):
+    def test_nodes_round_trip_through_the_public_wrappers(self):
+        from nodes.node_inpaint_crop_stitch import (
+            NODE_CLASS_MAPPINGS,
+            NODE_DISPLAY_NAME_MAPPINGS,
+        )
+
+        self.assertIn("AUSBOSS_NODES_CropForInpaint", NODE_CLASS_MAPPINGS)
+        self.assertIn("AUSBOSS_NODES_StitchInpaint", NODE_CLASS_MAPPINGS)
+        self.assertEqual(
+            NODE_DISPLAY_NAME_MAPPINGS["AUSBOSS_NODES_CropForInpaint"],
+            "Crop For Inpaint (AusBoss)",
+        )
+        self.assertEqual(
+            NODE_DISPLAY_NAME_MAPPINGS["AUSBOSS_NODES_StitchInpaint"],
+            "Stitch Inpaint (AusBoss)",
+        )
+
+        crop_cls = NODE_CLASS_MAPPINGS["AUSBOSS_NODES_CropForInpaint"]
+        stitch_cls = NODE_CLASS_MAPPINGS["AUSBOSS_NODES_StitchInpaint"]
+        self.assertIn("AusBoss/Inpaint", crop_cls.CATEGORY)
+        self.assertIn("AusBoss/Inpaint", stitch_cls.CATEGORY)
+        self.assertEqual(crop_cls.RETURN_TYPES, ("IMAGE", "MASK", "AUSBOSS_STITCHER"))
+        self.assertEqual(stitch_cls.RETURN_TYPES, ("IMAGE",))
+
+        image = rand_image(1, 64, 96, seed=30)
+        mask = box_mask(64, 96, 24, 40, 40, 56)
+        crop_result = getattr(crop_cls(), crop_cls.FUNCTION)(
+            image=image,
+            mask=mask,
+            context_factor=1.2,
+            blend_pixels=16,
+            output_multiple=8,
+            target_width=0,
+            target_height=0,
+        )
+        self.assertEqual(len(crop_result), 3)
+        stitch_result = getattr(stitch_cls(), stitch_cls.FUNCTION)(
+            stitcher=crop_result[2], inpainted=crop_result[0]
+        )
+        self.assertEqual(len(stitch_result), 1)
+        self.assertTrue(torch.equal(stitch_result[0], image))
+
+
+if __name__ == "__main__":
+    unittest.main()
