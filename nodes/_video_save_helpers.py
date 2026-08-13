@@ -9,8 +9,13 @@ from pathlib import Path
 import av
 import numpy as np
 import torch
+from av.video.reformatter import ColorRange, Colorspace
 
 AAC_FRAME_SIZE = 1024
+
+# AVCOL_PRI_BT709 / AVCOL_TRC_BT709 / AVCOL_SPC_BT709 all happen to be 1.
+_BT709 = 1
+_RANGE_MPEG = 1  # AVCOL_RANGE_MPEG: limited/tv range, standard for yuv420p
 
 
 def even_frames(frames: torch.Tensor) -> torch.Tensor:
@@ -84,6 +89,13 @@ def encode_video(
         stream.height = height
         stream.pix_fmt = "yuv420p"
         stream.options = {"crf": str(int(crf))}
+        # Tag the stream bt709 so players do not guess (and shift) colors;
+        # x264 copies these into the bitstream VUI and the muxer writes the
+        # matching colr atom.
+        stream.codec_context.color_primaries = _BT709
+        stream.codec_context.color_trc = _BT709
+        stream.codec_context.colorspace = _BT709
+        stream.codec_context.color_range = _RANGE_MPEG
         audio_stream = None
         if prepared_audio is not None:
             audio_stream = container.add_stream("aac", rate=prepared_audio[3])
@@ -93,7 +105,15 @@ def encode_video(
                 frame[..., :3].detach().cpu().float().clamp(0.0, 1.0).mul(255.0)
                 .round().to(torch.uint8).numpy()
             )
-            for packet in stream.encode(av.VideoFrame.from_ndarray(array, format="rgb24")):
+            # Convert RGB->YUV with the bt709 matrix ourselves; the implicit
+            # conversion inside encode() would use the bt601 default and
+            # contradict the stream tags.
+            video_frame = av.VideoFrame.from_ndarray(array, format="rgb24").reformat(
+                format="yuv420p",
+                dst_colorspace=Colorspace.ITU709,
+                dst_color_range=ColorRange.MPEG,
+            )
+            for packet in stream.encode(video_frame):
                 container.mux(packet)
         for packet in stream.encode():
             container.mux(packet)
