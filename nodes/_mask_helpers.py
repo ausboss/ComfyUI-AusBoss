@@ -84,14 +84,32 @@ def blur_mask(mask: torch.Tensor, sigma: float) -> torch.Tensor:
     return blurred.squeeze(1)
 
 
+def smooth_mask(mask: torch.Tensor, pixels: int) -> torch.Tensor:
+    """Melt staircase jaggies while keeping a hard edge.
+
+    Binarize at 0.5, gaussian-blur with sigma ~ pixels, re-binarize at 0.5.
+    Unlike blur_mask this never leaves soft values behind, so it de-jaggies
+    segmentation edges without feathering them.
+    """
+    if int(pixels) <= 0:
+        return mask
+    solid = (mask >= 0.5).to(mask.dtype)
+    return (blur_mask(solid, float(int(pixels))) >= 0.5).to(mask.dtype)
+
+
 def refine_mask(
-    mask: torch.Tensor, expand: int, blur: float, fill_holes: bool
+    mask: torch.Tensor,
+    expand: int,
+    blur: float,
+    fill_holes: bool,
+    smooth: int = 0,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Grow/shrink, optionally fill holes, then feather; returns (mask, inverted)."""
+    """Expand, fill holes, smooth, then feather; returns (mask, inverted)."""
     refined = _as_bhw(mask)
     refined = grow_shrink_mask(refined, expand)
     if fill_holes:
         refined = fill_mask_holes(refined)
+    refined = smooth_mask(refined, int(smooth))
     refined = blur_mask(refined, blur).clamp(0.0, 1.0)
     return refined, 1.0 - refined
 
@@ -101,4 +119,5 @@ __all__ = [
     "fill_mask_holes",
     "grow_shrink_mask",
     "refine_mask",
+    "smooth_mask",
 ]

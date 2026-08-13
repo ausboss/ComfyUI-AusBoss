@@ -17,6 +17,7 @@ from nodes._mask_helpers import (
     fill_mask_holes,
     grow_shrink_mask,
     refine_mask,
+    smooth_mask,
 )
 
 
@@ -60,6 +61,46 @@ class FillHolesTests(unittest.TestCase):
         filled = fill_mask_holes(opened)
         self.assertEqual(float(filled[:, 7, 8]), 0.0)  # inside the (now open) gap
         self.assertEqual(float(filled[:, 1, 8]), 0.0)  # the channel itself
+
+
+class SmoothTests(unittest.TestCase):
+    def test_zero_smooth_is_identity(self):
+        mask = donut_mask()
+        self.assertTrue(torch.equal(smooth_mask(mask, 0), mask))
+
+    def test_output_stays_binary(self):
+        mask = donut_mask()
+        smoothed = smooth_mask(mask, 2)
+        self.assertTrue(torch.all((smoothed == 0.0) | (smoothed == 1.0)))
+
+    def test_isolated_speck_and_pinhole_are_melted(self):
+        # A lone pixel blurs to a peak of K(0)^2 < 0.5, so re-binarizing at
+        # 0.5 removes it; by symmetry a lone hole in a solid field closes.
+        speck = torch.zeros((1, 15, 15), dtype=torch.float32)
+        speck[:, 7, 7] = 1.0
+        self.assertEqual(float(smooth_mask(speck, 1).sum()), 0.0)
+        pinhole = 1.0 - speck
+        self.assertEqual(float(smooth_mask(pinhole, 1).sum()), 15.0 * 15.0)
+
+    def test_straight_edge_survives_unchanged(self):
+        # Blurring a half-plane gives values that cross 0.5 exactly between
+        # the last 0 column and the first 1 column, so the edge snaps back.
+        mask = torch.zeros((1, 16, 16), dtype=torch.float32)
+        mask[:, :, 8:] = 1.0
+        self.assertTrue(torch.equal(smooth_mask(mask, 2), mask))
+
+    def test_smooth_does_not_feather_but_blur_does(self):
+        mask = donut_mask()
+        smoothed = smooth_mask(mask, 2)
+        blurred = blur_mask(mask, 2.0)
+        self.assertEqual(len(torch.unique(smoothed)), 2)
+        self.assertGreater(len(torch.unique(blurred)), 2)
+
+    def test_refine_smooth_default_preserves_previous_behavior(self):
+        mask = donut_mask()
+        legacy = refine_mask(mask, 1, 1.5, True)
+        keyword = refine_mask(mask, 1, 1.5, True, smooth=0)
+        self.assertTrue(torch.equal(legacy[0], keyword[0]))
 
 
 class BlurAndRefineTests(unittest.TestCase):

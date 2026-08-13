@@ -11,11 +11,12 @@ NODE_ID = "AUSBOSS_NODES_RefineMask"
 class AusBossRefineMask:
     CATEGORY = "🆎 AusBoss/Mask"
     DESCRIPTION = (
-        "Grows or shrinks a mask by whole pixels, optionally fills enclosed "
-        "holes, then feathers the edge with a gaussian blur. Returns the "
+        "Cleans up a mask in one fixed-order pass: expand (grow/shrink by "
+        "whole pixels), fill enclosed holes, smooth (melts staircase jaggies "
+        "without feathering), then feather with a gaussian blur. Returns the "
         "refined mask and its inverse."
     )
-    SEARCH_ALIASES = ["grow mask", "shrink mask", "expand mask", "feather", "fill holes", "ausboss"]
+    SEARCH_ALIASES = ["grow mask", "shrink mask", "expand mask", "feather", "fill holes", "smooth", "ausboss"]
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -52,6 +53,17 @@ class AusBossRefineMask:
                         "tooltip": "Fill fully enclosed gaps inside the mask before feathering.",
                     },
                 ),
+                "smooth": (
+                    "INT",
+                    {
+                        "default": 0,
+                        "min": 0,
+                        "max": 256,
+                        "step": 1,
+                        "tooltip": "Melts staircase jaggies by this many pixels while keeping "
+                        "a hard edge; 0 is off. Runs before the feather blur.",
+                    },
+                ),
             }
         }
 
@@ -63,8 +75,10 @@ class AusBossRefineMask:
     )
     FUNCTION = "refine"
 
-    def refine(self, mask, expand, blur, fill_holes):
-        return refine_mask(mask, int(expand), float(blur), bool(fill_holes))
+    def refine(self, mask, expand, blur, fill_holes, smooth):
+        return refine_mask(
+            mask, int(expand), float(blur), bool(fill_holes), smooth=int(smooth)
+        )
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_RefineMask": AusBossRefineMask}
