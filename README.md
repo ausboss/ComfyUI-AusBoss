@@ -96,6 +96,14 @@ Use the matching examples in [`example_workflows`](example_workflows) as small s
 - Reset view, reset padding, and reset all
 - Video first/last, ±1, ±25, ±50, ±100, playback, and timeline scrubbing
 
+## Settings
+
+Under **Settings → 🆎 AusBoss** you can pick an **AusBoss node color** scheme
+(Graphite, Slate, Teal, Moss, Plum, Rust, Navy). It recolors every AusBoss
+node in the open workflow immediately and applies to nodes you add later.
+Nodes you have colored by hand keep their own colors, and **Theme default**
+returns everything to the stock look.
+
 ## Compatibility
 
 - Classic V1 node definitions for broad ComfyUI compatibility

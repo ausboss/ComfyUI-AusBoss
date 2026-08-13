@@ -11,6 +11,7 @@ All notable changes to ComfyUI-AusBoss are documented here.
 - Added `AUSBOSS_NODES_LaMaInpaint` with bounded-VRAM video processing and explicit `models/lama` checkpoint discovery.
 - Added a compatibility alias for the published `SimpleWatermarkRemover` workflow contract.
 - Added the repaired Simple Video Watermark Remover example workflow.
+- Added an `AusBoss node color` setting (Settings → 🆎 AusBoss) with curated schemes that recolor every AusBoss node live; hand-colored nodes keep their own colors.
 
 ## 1.0.0
 
