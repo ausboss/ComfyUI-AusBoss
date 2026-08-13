@@ -17,3 +17,6 @@ _scratch/
 
 # Package-manager lockfile — this pack pins nothing; ComfyUI installs deps
 uv.lock
+
+# Local working notes
+ausboss_test_checklist.md
