@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ._media_helpers import list_input_videos, resolve_input_path
-from ._video_load_helpers import decode_audio_range, decode_video_range
+from ._video_load_helpers import decode_video_range, lazy_audio_range
 
 
 NODE_ID = "AUSBOSS_NODES_LoadVideo"
@@ -98,7 +98,9 @@ class AusBossLoadVideo:
         )
         frame_count = int(frames.shape[0])
         duration = frame_count / fps if fps > 0 else 0.0
-        audio = decode_audio_range(path, float(start_seconds), float(start_seconds) + duration)
+        # Deferred: the audio track is only decoded if a downstream node
+        # actually reads the AUDIO output.
+        audio = lazy_audio_range(path, float(start_seconds), float(start_seconds) + duration)
         return (
             frames,
             audio,
