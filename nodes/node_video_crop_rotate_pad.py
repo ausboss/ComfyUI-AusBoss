@@ -119,8 +119,8 @@ class AusBossVideoCropRotatePad:
 
 register_video_routes()
 
-NODE_CLASS_MAPPINGS = {NODE_ID: AusBossVideoCropRotatePad}
-NODE_DISPLAY_NAME_MAPPINGS = {NODE_ID: "Video Crop + Rotate + Pad (AusBoss)"}
+NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_VideoCropRotatePad": AusBossVideoCropRotatePad}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_VideoCropRotatePad": "Video Crop + Rotate + Pad (AusBoss)"}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
 

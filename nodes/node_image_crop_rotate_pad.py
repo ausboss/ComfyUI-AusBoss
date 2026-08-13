@@ -61,8 +61,8 @@ class AusBossImageCropRotatePad:
         return stable_file_fingerprint(path, {"image": image, **spec.__dict__})
 
 
-NODE_CLASS_MAPPINGS = {NODE_ID: AusBossImageCropRotatePad}
-NODE_DISPLAY_NAME_MAPPINGS = {NODE_ID: "Image Crop + Rotate + Pad (AusBoss)"}
+NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_ImageCropRotatePad": AusBossImageCropRotatePad}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_ImageCropRotatePad": "Image Crop + Rotate + Pad (AusBoss)"}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
 

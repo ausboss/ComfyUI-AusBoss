@@ -10,9 +10,15 @@ keywords = ["comfyui", "nodes", "image", "video", "crop", "rotate", "outpaint", 
 dependencies = []
 
 [project.urls]
+Homepage = "https://github.com/ausboss/ComfyUI-AusBoss"
 Repository = "https://github.com/ausboss/ComfyUI-AusBoss"
+Documentation = "https://github.com/ausboss/ComfyUI-AusBoss#readme"
 Issues = "https://github.com/ausboss/ComfyUI-AusBoss/issues"
 
 [tool.comfy]
 PublisherId = "ausboss"
 DisplayName = "AusBoss"
+Icon = "https://github.com/ausboss.png"
+# Oldest core the pack is validated against; Manager uses this to refuse
+# installs onto incompatible ComfyUI versions.
+supported_comfyui_version = ">=0.27.1"

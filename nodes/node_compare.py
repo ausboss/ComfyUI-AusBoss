@@ -112,7 +112,7 @@ class AusBossCompare:
         }
 
 
-NODE_CLASS_MAPPINGS = {NODE_ID: AusBossCompare}
-NODE_DISPLAY_NAME_MAPPINGS = {NODE_ID: "A/B Compare (AusBoss)"}
+NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_Compare": AusBossCompare}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_Compare": "A/B Compare (AusBoss)"}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

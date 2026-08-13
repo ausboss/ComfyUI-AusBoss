@@ -67,7 +67,7 @@ class AusBossRefineMask:
         return refine_mask(mask, int(expand), float(blur), bool(fill_holes))
 
 
-NODE_CLASS_MAPPINGS = {NODE_ID: AusBossRefineMask}
-NODE_DISPLAY_NAME_MAPPINGS = {NODE_ID: "Refine Mask (AusBoss)"}
+NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_RefineMask": AusBossRefineMask}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_RefineMask": "Refine Mask (AusBoss)"}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

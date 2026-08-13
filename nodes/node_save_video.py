@@ -118,7 +118,7 @@ class AusBossSaveVideo:
         return True
 
 
-NODE_CLASS_MAPPINGS = {NODE_ID: AusBossSaveVideo}
-NODE_DISPLAY_NAME_MAPPINGS = {NODE_ID: "Save Video (AusBoss)"}
+NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_SaveVideo": AusBossSaveVideo}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_SaveVideo": "Save Video (AusBoss)"}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

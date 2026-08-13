@@ -199,12 +199,12 @@ class AusBossStitchInpaint:
 
 
 NODE_CLASS_MAPPINGS = {
-    CROP_NODE_ID: AusBossCropForInpaint,
-    STITCH_NODE_ID: AusBossStitchInpaint,
+    "AUSBOSS_NODES_CropForInpaint": AusBossCropForInpaint,
+    "AUSBOSS_NODES_StitchInpaint": AusBossStitchInpaint,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
-    CROP_NODE_ID: "Crop For Inpaint (AusBoss)",
-    STITCH_NODE_ID: "Stitch Inpaint (AusBoss)",
+    "AUSBOSS_NODES_CropForInpaint": "Crop For Inpaint (AusBoss)",
+    "AUSBOSS_NODES_StitchInpaint": "Stitch Inpaint (AusBoss)",
 }
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

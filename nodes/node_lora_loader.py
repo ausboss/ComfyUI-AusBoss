@@ -80,8 +80,8 @@ class AusBossLoraLoader:
             return loras
 
 
-NODE_CLASS_MAPPINGS = {NODE_ID: AusBossLoraLoader}
-NODE_DISPLAY_NAME_MAPPINGS = {NODE_ID: "LoRA Loader (AusBoss)"}
+NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_LoraLoader": AusBossLoraLoader}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_LoraLoader": "LoRA Loader (AusBoss)"}
 
 register_lora_routes()
 
