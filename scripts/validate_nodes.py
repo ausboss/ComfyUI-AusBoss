@@ -29,6 +29,7 @@ PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_Compare",
     "AUSBOSS_NODES_CropForInpaint",
     "AUSBOSS_NODES_FrameChooser",
+    "AUSBOSS_NODES_FrameInterpolate",
     "AUSBOSS_NODES_ImageCropRotatePad",
     "AUSBOSS_NODES_LaMaInpaint",
     "AUSBOSS_NODES_LoadVideo",
