@@ -481,10 +481,18 @@ function buildControls(state, sidebar) {
   const node = state.node;
   const cropSection = createElement("section", "ausboss-transform-section"); cropSection.append(sectionHeading("Crop", "crop"));
   const ratio = createElement("select");
-  for (const optionValue of ["free", "source", "1:1", "9:16", "16:9", "2:3", "3:2", "3:4", "4:3", "9:21", "21:9"]) {
+  // Options come from the widget the backend registered, so custom presets
+  // from ausboss_presets.json appear here automatically.
+  const ratioWidget = widget(node, "crop_aspect_ratio");
+  let ratioValues = ratioWidget?.options?.values;
+  if (typeof ratioValues === "function") ratioValues = ratioValues(ratioWidget, node);
+  if (!Array.isArray(ratioValues) || !ratioValues.length) ratioValues = ["free", "source", "1:1", "9:16", "16:9", "2:3", "3:2", "3:4", "4:3", "9:21", "21:9"];
+  const currentRatio = String(value(node, "crop_aspect_ratio", "free"));
+  if (!ratioValues.includes(currentRatio)) ratioValues = [...ratioValues, currentRatio];
+  for (const optionValue of ratioValues) {
     const option = createElement("option", "", optionValue); option.value = optionValue; ratio.append(option);
   }
-  ratio.value = value(node, "crop_aspect_ratio", "free"); ratio.addEventListener("change", () => { setValue(node, "crop_aspect_ratio", ratio.value); fitCrop(state); });
+  ratio.value = currentRatio; ratio.addEventListener("change", () => { setValue(node, "crop_aspect_ratio", ratio.value); fitCrop(state); });
   addLabeledControl(cropSection, "Aspect", ratio);
   const fit = createElement("button", "", "Fit crop to source"); fit.addEventListener("click", () => fitCrop(state)); cropSection.append(fit);
 
