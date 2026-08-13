@@ -1,6 +1,6 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
-import { chainCallback } from "../shared/index.mjs";
+import { chainCallback, notifyAusbossChange } from "../shared/index.mjs";
 import {
   findVideoMetadata,
   mediaInfo,
@@ -106,6 +106,7 @@ function buildPreview(node) {
     node.properties.ausboss_save_video_loop = !getLoopEnabled(node);
     updateLoopButton();
     node.setDirtyCanvas?.(true, true);
+    notifyAusbossChange();
   });
   reloadButton.addEventListener("click", (event) => {
     event.preventDefault();

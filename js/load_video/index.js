@@ -1,6 +1,6 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
-import { chainCallback } from "../shared/index.mjs";
+import { chainCallback, notifyAusbossChange } from "../shared/index.mjs";
 import {
   formatTime,
   mediaViewQuery,
@@ -195,6 +195,8 @@ function installTrimDrag(state) {
           "start",
         );
       }
+      // One notification per gesture, on release — never per pointermove.
+      if (moved || initial.zone === "jump") notifyAusbossChange();
     };
     range.addEventListener("pointermove", move);
     range.addEventListener("pointerup", finish, { once: true });
@@ -262,6 +264,7 @@ function commitTimeInput(state, edge, input) {
   if (duration <= 0) return;
   const fraction = Number(input.value) / duration;
   writeTrim(state, dragTrimHandle(duration, currentBounds(state), edge, fraction), edge);
+  notifyAusbossChange();
   input.blur();
 }
 
@@ -362,6 +365,7 @@ function buildPreview(node) {
     node.properties.ausboss_load_video_loop = !getLoopEnabled(node);
     updateLoopButton();
     node.setDirtyCanvas?.(true, true);
+    notifyAusbossChange();
   });
 
   const refresh = () => {
