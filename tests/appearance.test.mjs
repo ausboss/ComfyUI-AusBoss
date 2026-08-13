@@ -6,6 +6,7 @@ import {
   NODE_COLOR_SCHEMES,
   schemeColors,
   shouldRecolor,
+  titleInk,
 } from "../js/shared/appearance.mjs";
 
 test("scheme table is well formed", () => {
@@ -48,4 +49,23 @@ test("color comparison ignores case and whitespace", () => {
   const plum = schemeColors("Plum");
   const noisy = { color: ` ${plum.title.toUpperCase()} `, bgcolor: plum.body.toUpperCase() };
   assert.equal(shouldRecolor(noisy, plum), true);
+});
+
+test("titleInk keeps light ink on every shipped scheme", () => {
+  for (const scheme of NODE_COLOR_SCHEMES.slice(1)) {
+    assert.equal(titleInk(scheme.colors.title), "#ffffff", scheme.name);
+  }
+});
+
+test("titleInk flips to dark ink on light colors", () => {
+  assert.equal(titleInk("#e0e0e0"), "#1a1a1a");
+  assert.equal(titleInk(" #FFFFFF "), "#1a1a1a");
+});
+
+test("titleInk falls back to light ink on malformed input", () => {
+  assert.equal(titleInk(undefined), "#ffffff");
+  assert.equal(titleInk(""), "#ffffff");
+  assert.equal(titleInk("#e0e"), "#ffffff");
+  assert.equal(titleInk("e0e0e0"), "#ffffff");
+  assert.equal(titleInk("#zzzzzz"), "#ffffff");
 });

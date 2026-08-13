@@ -1,7 +1,19 @@
 import { app } from "/scripts/app.js";
-import { DEFAULT_SCHEME, NODE_COLOR_SCHEMES, schemeColors, shouldRecolor } from "../shared/appearance.mjs";
+import {
+  DEFAULT_SCHEME,
+  NODE_COLOR_SCHEMES,
+  schemeColors,
+  shouldRecolor,
+  titleInk,
+} from "../shared/appearance.mjs";
 
 const SETTING_ID = "AusBoss.Appearance.NodeColor";
+
+// Every scheme title color (already lowercase in the table) — a node wearing
+// one of these was colored by us, whether by the setting or the node menu.
+const SCHEME_TITLES = new Set(
+  NODE_COLOR_SCHEMES.flatMap((scheme) => (scheme.colors ? [scheme.colors.title] : [])),
+);
 
 let activeScheme = DEFAULT_SCHEME;
 
@@ -29,6 +41,30 @@ function repaintAll(nextScheme, previousScheme) {
   app.graph?.setDirtyCanvas?.(true, true);
 }
 
+// Scheme titles are dark pigments, so the frontend's default title ink can
+// land unreadably close. Wrapping drawTitleText is the sanctioned exception
+// to the chainCallback rule: a draw method must return through the original,
+// so we save it once, delegate always, and only swap the default color in.
+// Nodes 2.0 renders titles in the DOM, not through drawTitleText — out of scope.
+function installTitleInk() {
+  const proto = window.LiteGraph?.LGraphNode?.prototype;
+  if (typeof proto?.drawTitleText !== "function") {
+    console.warn("[AusBoss] LGraphNode.drawTitleText not found; adaptive title ink disabled");
+    return;
+  }
+  if (proto.drawTitleText.ausbossTitleInk) return; // already wrapped
+  const original = proto.drawTitleText;
+  function drawTitleTextWithInk(ctx, options, ...rest) {
+    const color = typeof this?.color === "string" ? this.color.trim().toLowerCase() : "";
+    if (options && isAusbossNode(this) && SCHEME_TITLES.has(color)) {
+      options = { ...options, default_title_color: titleInk(color) };
+    }
+    return original.call(this, ctx, options, ...rest);
+  }
+  drawTitleTextWithInk.ausbossTitleInk = true;
+  proto.drawTitleText = drawTitleTextWithInk;
+}
+
 app.registerExtension({
   name: "AusBoss.Appearance",
   settings: [
@@ -54,6 +90,7 @@ app.registerExtension({
     // onChange only fires on later edits, so seed from the stored value here.
     const stored = app.ui?.settings?.getSettingValue?.(SETTING_ID);
     if (NODE_COLOR_SCHEMES.some((scheme) => scheme.name === stored)) activeScheme = stored;
+    installTitleInk();
   },
   nodeCreated(node) {
     if (!isAusbossNode(node)) return;

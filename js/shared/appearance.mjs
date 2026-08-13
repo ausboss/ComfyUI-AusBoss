@@ -24,6 +24,18 @@ export function schemeColors(name) {
 
 const normalize = (value) => (typeof value === "string" ? value.trim().toLowerCase() : "");
 
+// Perceived luminance (Rec. 601 weights) of the title color picks the ink
+// that keeps the title readable. Malformed input gets the light ink — every
+// shipped scheme is dark, so light is the safe fallback.
+export function titleInk(hex) {
+  const match = /^#([0-9a-f]{6})$/.exec(normalize(hex));
+  if (!match) return "#ffffff";
+  const rgb = parseInt(match[1], 16);
+  const luminance =
+    (0.299 * ((rgb >> 16) & 0xff) + 0.587 * ((rgb >> 8) & 0xff) + 0.114 * (rgb & 0xff)) / 255;
+  return luminance > 0.6 ? "#1a1a1a" : "#ffffff";
+}
+
 // A node is repainted only while it is still "following the setting": either
 // it carries no colors while the previous scheme was the theme default, or it
 // still wears exactly the previous scheme's pair. Anything else — a color the
