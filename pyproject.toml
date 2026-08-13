@@ -9,6 +9,11 @@ keywords = ["comfyui", "nodes", "image", "video", "crop", "rotate", "outpaint", 
 # The nodes use Pillow, NumPy, Torch, and PyAV supplied by ComfyUI.
 dependencies = []
 
+# Refine Mask edge_refine tiers; everything else runs without these.
+[project.optional-dependencies]
+guided-filter = ["opencv-contrib-python"]
+matting = ["pymatting"]
+
 [project.urls]
 Homepage = "https://github.com/ausboss/ComfyUI-AusBoss"
 Repository = "https://github.com/ausboss/ComfyUI-AusBoss"

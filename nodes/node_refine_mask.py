@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ._mask_helpers import refine_mask
+from ._mask_helpers import EDGE_REFINE_MODES, refine_mask
 
 
 NODE_ID = "AUSBOSS_NODES_RefineMask"
@@ -13,13 +13,14 @@ class AusBossRefineMask:
     DESCRIPTION = (
         "Cleans up a mask in one fixed-order pass: expand (grow/shrink by "
         "whole pixels), fill enclosed holes, smooth (melts staircase jaggies "
-        "without feathering), feather with a gaussian blur, then remap levels "
-        "with black_point/white_point to clear gray haze. Returns the refined "
-        "mask and its inverse."
+        "without feathering), feather with a gaussian blur, edge-refine "
+        "against the optional guide_image (guided filter or alpha matting), "
+        "then remap levels with black_point/white_point to clear gray haze. "
+        "Returns the refined mask and its inverse."
     )
     SEARCH_ALIASES = [
         "grow mask", "shrink mask", "expand mask", "feather", "fill holes",
-        "smooth", "levels", "ausboss",
+        "smooth", "levels", "guided filter", "alpha matting", "ausboss",
     ]
 
     @classmethod
@@ -90,7 +91,26 @@ class AusBossRefineMask:
                         "solidifies the mask core. Applied last.",
                     },
                 ),
-            }
+                "edge_refine": (
+                    list(EDGE_REFINE_MODES),
+                    {
+                        "default": "off",
+                        "tooltip": "Snap the mask edge to the guide_image. 'guided filter' "
+                        "is fast edge-aware filtering (needs opencv-contrib-python); "
+                        "'matting' solves closed-form alpha matting around the edge "
+                        "(needs pymatting). Both require the guide_image input.",
+                    },
+                ),
+            },
+            "optional": {
+                "guide_image": (
+                    "IMAGE",
+                    {
+                        "tooltip": "RGB frames the mask belongs to; required when "
+                        "edge_refine is 'guided filter' or 'matting'.",
+                    },
+                ),
+            },
         }
 
     RETURN_TYPES = ("MASK", "MASK")
@@ -101,7 +121,18 @@ class AusBossRefineMask:
     )
     FUNCTION = "refine"
 
-    def refine(self, mask, expand, blur, fill_holes, smooth, black_point, white_point):
+    def refine(
+        self,
+        mask,
+        expand,
+        blur,
+        fill_holes,
+        smooth,
+        black_point,
+        white_point,
+        edge_refine,
+        guide_image=None,
+    ):
         return refine_mask(
             mask,
             int(expand),
@@ -110,6 +141,8 @@ class AusBossRefineMask:
             smooth=int(smooth),
             black_point=float(black_point),
             white_point=float(white_point),
+            edge_refine=str(edge_refine),
+            guide_image=guide_image,
         )
 
 

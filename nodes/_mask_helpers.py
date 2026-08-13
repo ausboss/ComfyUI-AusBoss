@@ -97,6 +97,141 @@ def smooth_mask(mask: torch.Tensor, pixels: int) -> torch.Tensor:
     return (blur_mask(solid, float(int(pixels))) >= 0.5).to(mask.dtype)
 
 
+EDGE_REFINE_MODES = ("off", "guided filter", "matting")
+
+_GUIDED_FILTER_HINT = (
+    "Refine Mask edge_refine 'guided filter' needs the optional "
+    "opencv-contrib dependency. Install it into ComfyUI's python with: "
+    "pip install opencv-contrib-python (the pack's 'guided-filter' "
+    "optional-dependencies group), then restart ComfyUI."
+)
+_MATTING_HINT = (
+    "Refine Mask edge_refine 'matting' needs the optional pymatting "
+    "dependency. Install it into ComfyUI's python with: pip install "
+    "pymatting (the pack's 'matting' optional-dependencies group), then "
+    "restart ComfyUI."
+)
+
+
+def _optional_import(module_name: str):
+    """Import an optional dependency at call time; tests monkeypatch this."""
+    import importlib
+
+    return importlib.import_module(module_name)
+
+
+def _load_guided_filter():
+    try:
+        cv2 = _optional_import("cv2")
+    except ImportError as exc:
+        raise RuntimeError(_GUIDED_FILTER_HINT) from exc
+    ximgproc = getattr(cv2, "ximgproc", None)
+    if ximgproc is None or not hasattr(ximgproc, "guidedFilter"):
+        # Plain opencv-python ships without the contrib ximgproc module.
+        raise RuntimeError(_GUIDED_FILTER_HINT)
+    return ximgproc.guidedFilter
+
+
+def _load_alpha_matting():
+    try:
+        pymatting = _optional_import("pymatting")
+    except ImportError as exc:
+        raise RuntimeError(_MATTING_HINT) from exc
+    estimate = getattr(pymatting, "estimate_alpha_cf", None)
+    if estimate is None:
+        raise RuntimeError(_MATTING_HINT)
+    return estimate
+
+
+def _raise_if_interrupted() -> None:
+    try:
+        from comfy.model_management import throw_exception_if_processing_interrupted
+    except ImportError:  # Offline tests run without ComfyUI.
+        return
+    throw_exception_if_processing_interrupted()
+
+
+def _edge_radius(expand: int) -> int:
+    """Working radius at the edge, scaled with how far the mask was moved."""
+    return max(4, 2 * abs(int(expand)))
+
+
+def _guide_frames(
+    guide_image: torch.Tensor, count: int, height: int, width: int
+) -> torch.Tensor:
+    """Validate guide_image against the mask batch and return BHWC RGB frames."""
+    if (
+        not isinstance(guide_image, torch.Tensor)
+        or guide_image.ndim != 4
+        or guide_image.shape[-1] < 3
+    ):
+        raise ValueError("Refine Mask expected guide_image as a BHWC RGB IMAGE batch.")
+    if tuple(guide_image.shape[1:3]) != (height, width):
+        raise ValueError(
+            f"Refine Mask guide_image is {guide_image.shape[2]}x{guide_image.shape[1]} "
+            f"but the mask is {width}x{height}; connect the image the mask belongs to."
+        )
+    if guide_image.shape[0] not in {1, count}:
+        raise ValueError(
+            "Refine Mask needs one guide frame for the whole mask batch or one per mask."
+        )
+    frames = guide_image[..., :3].float().clamp(0.0, 1.0)
+    if frames.shape[0] == 1 and count > 1:
+        frames = frames.expand(count, -1, -1, -1)
+    return frames
+
+
+def guided_filter_refine(
+    mask: torch.Tensor, guide_image: torch.Tensor, expand: int
+) -> torch.Tensor:
+    """Snap soft mask edges to guide-image edges with an edge-aware filter."""
+    guided_filter = _load_guided_filter()
+    count, height, width = mask.shape
+    guides = _guide_frames(guide_image, count, height, width)
+    radius = _edge_radius(expand)
+    frames = []
+    for index in range(count):
+        _raise_if_interrupted()
+        guide = guides[index].detach().contiguous().cpu().numpy()
+        source = mask[index].detach().float().contiguous().cpu().numpy()
+        frames.append(torch.from_numpy(guided_filter(guide, source, radius, 1e-4)))
+    return torch.stack(frames).to(device=mask.device, dtype=mask.dtype).clamp(0.0, 1.0)
+
+
+def matting_refine(
+    mask: torch.Tensor, guide_image: torch.Tensor, expand: int
+) -> torch.Tensor:
+    """Closed-form alpha matting around the mask edge.
+
+    The binarized mask eroded by the edge radius is definite foreground, the
+    dilation marks where definite background begins, and the band between is
+    solved by pymatting's estimate_alpha_cf against the guide image.
+    """
+    estimate_alpha_cf = _load_alpha_matting()
+    count, height, width = mask.shape
+    guides = _guide_frames(guide_image, count, height, width)
+    band = _edge_radius(expand)
+    frames = []
+    for index in range(count):
+        _raise_if_interrupted()
+        solid = (mask[index].detach().float().cpu() >= 0.5).float().unsqueeze(0)
+        sure_fg = grow_shrink_mask(solid, -band).squeeze(0) >= 0.5
+        possible = grow_shrink_mask(solid, band).squeeze(0) >= 0.5
+        unknown = possible & ~sure_fg
+        if not bool(unknown.any()) or not bool(sure_fg.any()) or bool(possible.all()):
+            # Degenerate trimap (empty mask, mask everywhere, or a shape the
+            # band swallows whole): keep the binarized mask for this frame.
+            frames.append(solid.squeeze(0))
+            continue
+        trimap = torch.full((height, width), 0.5, dtype=torch.float64)
+        trimap[~possible] = 0.0
+        trimap[sure_fg] = 1.0
+        guide = guides[index].detach().contiguous().cpu().numpy().astype("float64")
+        alpha = estimate_alpha_cf(guide, trimap.numpy())
+        frames.append(torch.from_numpy(alpha).float())
+    return torch.stack(frames).to(device=mask.device, dtype=mask.dtype).clamp(0.0, 1.0)
+
+
 def remap_mask(
     mask: torch.Tensor, black_point: float, white_point: float
 ) -> torch.Tensor:
@@ -119,22 +254,42 @@ def refine_mask(
     smooth: int = 0,
     black_point: float = 0.0,
     white_point: float = 1.0,
+    edge_refine: str = "off",
+    guide_image: torch.Tensor | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Expand, fill holes, smooth, feather, then remap levels last."""
+    """Expand, fill holes, smooth, feather, edge-refine, then remap levels."""
+    if edge_refine not in EDGE_REFINE_MODES:
+        raise ValueError(
+            f"Refine Mask edge_refine must be one of {EDGE_REFINE_MODES}, "
+            f"not '{edge_refine}'."
+        )
+    if edge_refine != "off" and guide_image is None:
+        raise ValueError(
+            f"Refine Mask edge_refine '{edge_refine}' needs the guide_image "
+            "input; connect the RGB image the mask belongs to, or set "
+            "edge_refine back to 'off'."
+        )
     refined = _as_bhw(mask)
     refined = grow_shrink_mask(refined, expand)
     if fill_holes:
         refined = fill_mask_holes(refined)
     refined = smooth_mask(refined, int(smooth))
     refined = blur_mask(refined, blur).clamp(0.0, 1.0)
+    if edge_refine == "guided filter":
+        refined = guided_filter_refine(refined, guide_image, expand)
+    elif edge_refine == "matting":
+        refined = matting_refine(refined, guide_image, expand)
     refined = remap_mask(refined, black_point, white_point)
     return refined, 1.0 - refined
 
 
 __all__ = [
+    "EDGE_REFINE_MODES",
     "blur_mask",
     "fill_mask_holes",
     "grow_shrink_mask",
+    "guided_filter_refine",
+    "matting_refine",
     "refine_mask",
     "remap_mask",
     "smooth_mask",

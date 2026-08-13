@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import importlib
 from pathlib import Path
 import sys
+import types
 import unittest
 
 import torch
@@ -11,7 +13,9 @@ sys.path.insert(0, str(ROOT))
 if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
     del sys.modules["nodes"]
 
+from nodes import _mask_helpers as mask_helpers
 from nodes._mask_helpers import (
+    _guide_frames,
     _torch_fill_holes,
     blur_mask,
     fill_mask_holes,
@@ -20,6 +24,18 @@ from nodes._mask_helpers import (
     remap_mask,
     smooth_mask,
 )
+
+
+def _importable(module: str, attribute: str | None = None) -> bool:
+    try:
+        imported = importlib.import_module(module)
+    except Exception:
+        return False
+    return attribute is None or hasattr(imported, attribute)
+
+
+HAS_GUIDED_FILTER = _importable("cv2", "ximgproc")
+HAS_MATTING = _importable("pymatting")
 
 
 def donut_mask() -> torch.Tensor:
@@ -153,6 +169,130 @@ class BlurAndRefineTests(unittest.TestCase):
     def test_refine_rejects_wrong_rank(self):
         with self.assertRaisesRegex(ValueError, "BHW"):
             refine_mask(torch.zeros((1, 1, 4, 4)), 0, 0.0, False)
+
+
+def square_mask(batch: int = 1) -> torch.Tensor:
+    mask = torch.zeros((batch, 32, 32), dtype=torch.float32)
+    mask[:, 8:24, 8:24] = 1.0
+    return mask
+
+
+def square_guide(batch: int = 1) -> torch.Tensor:
+    image = torch.zeros((batch, 32, 32, 3), dtype=torch.float32)
+    image[:, 8:24, 8:24, :] = 1.0
+    return image
+
+
+class EdgeRefineSelectionTests(unittest.TestCase):
+    def test_each_tier_requires_the_guide_image(self):
+        for mode in ("guided filter", "matting"):
+            with self.assertRaisesRegex(ValueError, "guide_image"):
+                refine_mask(square_mask(), 0, 0.0, False, edge_refine=mode)
+
+    def test_unknown_mode_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "edge_refine"):
+            refine_mask(square_mask(), 0, 0.0, False, edge_refine="sharpen")
+
+    def test_off_ignores_a_connected_guide(self):
+        plain = refine_mask(square_mask(), 0, 1.0, False)
+        with_guide = refine_mask(
+            square_mask(), 0, 1.0, False, edge_refine="off", guide_image=square_guide()
+        )
+        self.assertTrue(torch.equal(plain[0], with_guide[0]))
+
+    def test_guide_frames_validates_rank_size_and_batch(self):
+        with self.assertRaisesRegex(ValueError, "BHWC"):
+            _guide_frames(torch.zeros((32, 32, 3)), 1, 32, 32)
+        with self.assertRaisesRegex(ValueError, "16x16"):
+            _guide_frames(torch.zeros((1, 16, 16, 3)), 1, 32, 32)
+        with self.assertRaisesRegex(ValueError, "one guide frame"):
+            _guide_frames(torch.zeros((3, 32, 32, 3)), 2, 32, 32)
+
+    def test_guide_frames_broadcasts_a_single_frame(self):
+        frames = _guide_frames(square_guide(1), 3, 32, 32)
+        self.assertEqual(tuple(frames.shape), (3, 32, 32, 3))
+
+
+class EdgeRefineDependencyTests(unittest.TestCase):
+    def _patched_import(self, replacement):
+        original = mask_helpers._optional_import
+        mask_helpers._optional_import = replacement
+        self.addCleanup(setattr, mask_helpers, "_optional_import", original)
+
+    def test_missing_cv2_names_the_optional_install(self):
+        def failing(name):
+            raise ImportError(f"No module named '{name}'")
+
+        self._patched_import(failing)
+        with self.assertRaisesRegex(RuntimeError, "opencv-contrib-python"):
+            refine_mask(
+                square_mask(), 0, 0.0, False,
+                edge_refine="guided filter", guide_image=square_guide(),
+            )
+
+    def test_cv2_without_contrib_names_the_optional_install(self):
+        self._patched_import(lambda name: types.SimpleNamespace())
+        with self.assertRaisesRegex(RuntimeError, "opencv-contrib-python"):
+            refine_mask(
+                square_mask(), 0, 0.0, False,
+                edge_refine="guided filter", guide_image=square_guide(),
+            )
+
+    def test_missing_pymatting_names_the_optional_install(self):
+        def failing(name):
+            raise ImportError(f"No module named '{name}'")
+
+        self._patched_import(failing)
+        with self.assertRaisesRegex(RuntimeError, "pymatting"):
+            refine_mask(
+                square_mask(), 0, 0.0, False,
+                edge_refine="matting", guide_image=square_guide(),
+            )
+
+
+@unittest.skipUnless(HAS_GUIDED_FILTER, "cv2.ximgproc is not installed")
+class GuidedFilterSmokeTests(unittest.TestCase):
+    def test_tier_runs_on_a_synthetic_mask_and_image(self):
+        refined, inverted = refine_mask(
+            square_mask(), 0, 2.0, False,
+            edge_refine="guided filter", guide_image=square_guide(),
+        )
+        self.assertEqual(tuple(refined.shape), (1, 32, 32))
+        self.assertGreaterEqual(float(refined.min()), 0.0)
+        self.assertLessEqual(float(refined.max()), 1.0)
+        self.assertTrue(torch.allclose(refined + inverted, torch.ones_like(refined)))
+        self.assertGreater(float(refined[0, 16, 16]), 0.5)
+        self.assertLess(float(refined[0, 2, 2]), 0.5)
+
+    def test_single_guide_frame_serves_a_mask_batch(self):
+        refined, _inverted = refine_mask(
+            square_mask(batch=2), 0, 0.0, False,
+            edge_refine="guided filter", guide_image=square_guide(1),
+        )
+        self.assertEqual(tuple(refined.shape), (2, 32, 32))
+
+
+@unittest.skipUnless(HAS_MATTING, "pymatting is not installed")
+class MattingSmokeTests(unittest.TestCase):
+    def test_tier_runs_on_a_synthetic_mask_and_image(self):
+        refined, inverted = refine_mask(
+            square_mask(), 0, 0.0, False,
+            edge_refine="matting", guide_image=square_guide(),
+        )
+        self.assertEqual(tuple(refined.shape), (1, 32, 32))
+        self.assertTrue(bool(torch.isfinite(refined).all()))
+        self.assertGreaterEqual(float(refined.min()), 0.0)
+        self.assertLessEqual(float(refined.max()), 1.0)
+        self.assertTrue(torch.allclose(refined + inverted, torch.ones_like(refined)))
+        self.assertGreater(float(refined[0, 16, 16]), 0.5)
+        self.assertLess(float(refined[0, 2, 2]), 0.5)
+
+    def test_degenerate_trimap_falls_back_to_the_binarized_mask(self):
+        empty = torch.zeros((1, 32, 32), dtype=torch.float32)
+        refined, _inverted = refine_mask(
+            empty, 0, 0.0, False, edge_refine="matting", guide_image=square_guide()
+        )
+        self.assertEqual(float(refined.sum()), 0.0)
 
 
 if __name__ == "__main__":
