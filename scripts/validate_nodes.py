@@ -29,6 +29,7 @@ PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_ImageCropRotatePad",
     "AUSBOSS_NODES_LaMaInpaint",
     "AUSBOSS_NODES_LoadVideo",
+    "AUSBOSS_NODES_LoraLoader",
     "AUSBOSS_NODES_RefineMask",
     "AUSBOSS_NODES_SaveVideo",
     "AUSBOSS_NODES_SelectFrame",
