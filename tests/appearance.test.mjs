@@ -2,9 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  CUSTOM_SCHEME,
   DEFAULT_SCHEME,
   NODE_COLOR_SCHEMES,
+  SCHEME_NAMES,
   collectGraphNodes,
+  customColors,
+  deriveBody,
+  normalizeHexColor,
   schemeColors,
   shouldRecolor,
   titleInk,
@@ -29,6 +34,63 @@ test("schemeColors resolves names and rejects unknowns", () => {
   assert.equal(schemeColors(undefined), null);
 });
 
+test("SCHEME_NAMES is the table plus Custom, all unique", () => {
+  assert.deepEqual(SCHEME_NAMES, [...NODE_COLOR_SCHEMES.map((s) => s.name), CUSTOM_SCHEME]);
+  assert.equal(new Set(SCHEME_NAMES).size, SCHEME_NAMES.length);
+});
+
+test("normalizeHexColor accepts bare and prefixed hex, drops alpha", () => {
+  assert.equal(normalizeHexColor("#aabbcc"), "#aabbcc");
+  assert.equal(normalizeHexColor("aabbcc"), "#aabbcc");
+  assert.equal(normalizeHexColor(" AABBCC "), "#aabbcc");
+  assert.equal(normalizeHexColor("#AABBCCDD"), "#aabbcc");
+  assert.equal(normalizeHexColor("aabbccdd"), "#aabbcc");
+});
+
+test("normalizeHexColor rejects junk", () => {
+  assert.equal(normalizeHexColor(undefined), null);
+  assert.equal(normalizeHexColor(""), null);
+  assert.equal(normalizeHexColor("#abc"), null);
+  assert.equal(normalizeHexColor("zzzzzz"), null);
+  assert.equal(normalizeHexColor("#aabbccd"), null);
+  assert.equal(normalizeHexColor(0xaabbcc), null);
+});
+
+test("deriveBody mixes the title halfway toward the dark neutral", () => {
+  assert.equal(deriveBody("#000000"), "#181818");
+  assert.equal(deriveBody("#ffffff"), "#979797");
+  assert.equal(deriveBody("00b4aa"), "#18726d");
+  // The neutral itself is the fixed point of the mix.
+  assert.equal(deriveBody("#2f2f2f"), "#2f2f2f");
+});
+
+test("deriveBody normalizes its input and rejects junk", () => {
+  assert.equal(deriveBody("#FFFFFF"), deriveBody("ffffff"));
+  assert.equal(deriveBody(undefined), null);
+  assert.equal(deriveBody("#abc"), null);
+  assert.equal(deriveBody("not hex"), null);
+});
+
+test("deriveBody always emits well-formed hex", () => {
+  for (const title of ["#010203", "#f00baa", "#deadbe", "#7f7f7f"]) {
+    assert.match(deriveBody(title), /^#[0-9a-f]{6}$/, title);
+  }
+});
+
+test("customColors pairs the normalized title with its derived body", () => {
+  assert.deepEqual(customColors("AABBCC"), { title: "#aabbcc", body: deriveBody("#aabbcc") });
+  assert.equal(customColors("junk"), null);
+  assert.equal(customColors(undefined), null);
+});
+
+test("schemeColors resolves Custom from the picked color only", () => {
+  assert.deepEqual(schemeColors(CUSTOM_SCHEME, "00b4aa"), customColors("00b4aa"));
+  assert.equal(schemeColors(CUSTOM_SCHEME), null);
+  assert.equal(schemeColors(CUSTOM_SCHEME, "junk"), null);
+  // Static names ignore the custom title entirely.
+  assert.equal(schemeColors("Slate", "00b4aa"), schemeColors("Slate"));
+});
+
 test("uncolored nodes follow the setting only from the theme default", () => {
   const bare = {};
   assert.equal(shouldRecolor(bare, null), true);
@@ -50,6 +112,19 @@ test("color comparison ignores case and whitespace", () => {
   const plum = schemeColors("Plum");
   const noisy = { color: ` ${plum.title.toUpperCase()} `, bgcolor: plum.body.toUpperCase() };
   assert.equal(shouldRecolor(noisy, plum), true);
+});
+
+test("custom-tinted nodes sweep like any scheme pair", () => {
+  const custom = schemeColors(CUSTOM_SCHEME, "00b4aa");
+  const wearing = { color: custom.title, bgcolor: custom.body };
+  // Still following the setting: a sweep away from Custom repaints it.
+  assert.equal(shouldRecolor(wearing, custom), true);
+  // A CustomColor edit sweeps too: the old pair is the "previous" colors.
+  const edited = schemeColors(CUSTOM_SCHEME, "ff0000");
+  assert.notDeepEqual(edited, custom);
+  assert.equal(shouldRecolor(wearing, edited), false);
+  // Hand-edited bodies win over any custom sweep.
+  assert.equal(shouldRecolor({ color: custom.title, bgcolor: "#123456" }, custom), false);
 });
 
 test("a menu-picked scheme survives a settings sweep", () => {
