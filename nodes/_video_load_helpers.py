@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
+from functools import partial
 from pathlib import Path
+from typing import Callable
 
 import av
 import numpy as np
@@ -217,9 +220,43 @@ def decode_audio_range(path: Path, start_seconds: float, end_seconds: float) -> 
     }
 
 
+class LazyAudio(Mapping):
+    """ComfyUI AUDIO that decodes on first access and caches the result.
+
+    Downstream nodes dict-access the "waveform"/"sample_rate" keys, so a
+    Mapping is a drop-in AUDIO value — but a graph that never consumes the
+    audio output now skips the extraction entirely.
+    """
+
+    def __init__(self, loader: Callable[[], dict]):
+        self._loader = loader
+        self._data: dict | None = None
+
+    def _resolve(self) -> dict:
+        if self._data is None:
+            self._data = dict(self._loader())
+        return self._data
+
+    def __getitem__(self, key):
+        return self._resolve()[key]
+
+    def __iter__(self):
+        return iter(self._resolve())
+
+    def __len__(self) -> int:
+        return len(self._resolve())
+
+
+def lazy_audio_range(path: Path, start_seconds: float, end_seconds: float) -> LazyAudio:
+    """AUDIO for [start, end) whose decode is deferred until first key read."""
+    return LazyAudio(partial(decode_audio_range, path, start_seconds, end_seconds))
+
+
 __all__ = [
+    "LazyAudio",
     "decode_audio_range",
     "decode_video_range",
+    "lazy_audio_range",
     "memory_budget_error",
     "output_size",
     "silent_audio",

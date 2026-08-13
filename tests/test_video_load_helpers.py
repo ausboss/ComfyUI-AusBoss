@@ -17,8 +17,10 @@ if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
 import av
 
 from nodes._video_load_helpers import (
+    LazyAudio,
     decode_audio_range,
     decode_video_range,
+    lazy_audio_range,
     memory_budget_error,
     output_size,
     trim_window,
@@ -106,6 +108,28 @@ class VideoLoadHelperTests(unittest.TestCase):
         self.assertEqual(output_size(640, 480, 320, 0), (320, 240))
         self.assertEqual(output_size(640, 480, 0, 240), (320, 240))
         self.assertEqual(output_size(640, 480, 100, 100), (100, 100))
+
+    def test_lazy_audio_defers_the_loader_until_first_key_read(self):
+        calls = []
+
+        def loader():
+            calls.append(1)
+            return {"waveform": torch.zeros((1, 1, 4)), "sample_rate": 22050}
+
+        audio = LazyAudio(loader)
+        self.assertEqual(calls, [])  # construction must not decode
+        self.assertEqual(audio["sample_rate"], 22050)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(audio.get("sample_rate"), 22050)
+        self.assertEqual(set(audio), {"waveform", "sample_rate"})
+        self.assertEqual(len(audio), 2)
+        self.assertEqual(len(calls), 1)  # cached: still a single decode
+
+    def test_lazy_audio_range_matches_the_eager_decode(self):
+        lazy = lazy_audio_range(self.video, 0.5, 1.5)
+        eager = decode_audio_range(self.video, 0.5, 1.5)
+        self.assertEqual(lazy["sample_rate"], eager["sample_rate"])
+        self.assertTrue(torch.equal(lazy["waveform"], eager["waveform"]))
 
     def test_memory_budget_allows_batches_inside_the_budget(self):
         # 24 frames at 64x48 = 24 * 48 * 64 * 12 bytes, far under 1 GB.

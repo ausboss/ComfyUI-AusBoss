@@ -16,6 +16,7 @@ if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
 
 import av
 
+from nodes._video_load_helpers import LazyAudio
 from nodes._video_save_helpers import encode_video, even_frames, workflow_metadata
 from nodes import node_save_video
 
@@ -73,6 +74,18 @@ class SaveVideoHelperTests(unittest.TestCase):
                 self.assertEqual(sum(1 for _ in container.decode(video)), 60)
                 self.assertEqual(sound.rate, 44100)
                 self.assertEqual(sound.channels, 2)
+
+    def test_encode_accepts_load_videos_lazy_audio_mapping(self):
+        tone = 0.3 * np.sin(np.linspace(0, 880 * np.pi, 8000)).astype(np.float32)
+        audio = LazyAudio(
+            lambda: {"waveform": torch.from_numpy(tone).view(1, 1, -1), "sample_rate": 16000}
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "lazy.mp4"
+            encode_video(path, gradient_batch(4, 32, 32), 8.0, audio, 23)
+            with av.open(str(path)) as container:
+                sound = next(s for s in container.streams if s.type == "audio")
+                self.assertEqual(sound.rate, 16000)
 
     def test_fractional_fps_survives_the_container(self):
         frames = gradient_batch(6, 32, 32)
