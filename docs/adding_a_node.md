@@ -25,6 +25,7 @@ Every visible field and output must earn its place. Published IDs, input order, 
 5. Namespace every route, extension, event, DOM marker, CSS class, cache, and browser state with `ausboss`.
 6. Chain lifecycle hooks through `chainCallback`; never replace core or third-party prototypes directly.
 7. Keep normal workflow and API execution independent from the custom frontend.
+8. Ship user-facing toggles as ComfyUI settings under the `AusBoss.*` namespace (see `.claude/skills/ausboss-node-brand/SKILL.md`). Node coloring is automatic for `AUSBOSS_NODES_*` classes via `js/appearance/` — no per-node work.
 
 ## Document and prove
 
