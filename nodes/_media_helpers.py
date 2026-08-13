@@ -483,6 +483,24 @@ def encode_preview(image: Image.Image, max_width: int, max_height: int) -> bytes
     return output.getvalue()
 
 
+_PACK_VERSION = None
+
+
+def _pack_version() -> str:
+    """Pack version straight from pyproject.toml, read once; fail-soft."""
+    global _PACK_VERSION
+    if _PACK_VERSION is None:
+        try:
+            text = (Path(__file__).resolve().parent.parent / "pyproject.toml").read_text(
+                encoding="utf-8"
+            )
+            match = re.search(r'^version\s*=\s*"([^"]+)"', text, re.MULTILINE)
+            _PACK_VERSION = match.group(1) if match else "unknown"
+        except Exception:
+            _PACK_VERSION = "unknown"
+    return _PACK_VERSION
+
+
 def register_video_routes() -> None:
     try:
         from aiohttp import web
@@ -563,6 +581,12 @@ def register_video_routes() -> None:
             return web.json_response(payload)
         except Exception as exc:
             return web.json_response({"error": _safe_route_error(exc)}, status=400)
+
+    # Lets the frontend detect a browser tab still running cached JavaScript
+    # from an older install of the pack.
+    @prompt_server.routes.get("/ausboss/pack_version")
+    async def ausboss_pack_version(request):
+        return web.json_response({"version": _pack_version()})
 
 
 def _safe_route_error(exc: Exception) -> str:

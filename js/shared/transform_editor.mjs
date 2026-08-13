@@ -1,6 +1,6 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
-import { BRAND, chainCallback } from "./index.mjs";
+import { BRAND, chainCallback, notifyAusbossChange } from "./index.mjs";
 import { normalizeFillColor } from "./fill_color.mjs";
 import {
   canvasLocalPoint,
@@ -206,7 +206,7 @@ export function installTransformNode(node, kind) {
     fileInput.type = "file"; fileInput.accept = "video/*"; fileInput.setAttribute("aria-label", "Upload video");
     fileInput.addEventListener("change", async () => {
       if (!fileInput.files?.[0]) return;
-      try { await uploadVideo(node, fileInput.files[0]); await onSourceChanged(state, true); }
+      try { await uploadVideo(node, fileInput.files[0]); await onSourceChanged(state, true); notifyAusbossChange(); }
       catch (error) { alert(`Video Crop + Rotate + Pad: ${error.message}`); }
       finally { fileInput.value = ""; }
     });
@@ -446,11 +446,16 @@ function openEditor(state) {
 }
 
 function closeEditor(state) {
+  const hadModal = Boolean(state.modal);
   stopPlayback(state);
   state.scrubPending = false;
   state.modalAbort?.abort(); state.resizeObserver?.disconnect(); state.modal?.remove();
   state.modal = null; state.canvas = null; state.finalPreviewCanvas = null; state.drag = null; state.grid = false;
   draw(state); state.node.setDirtyCanvas?.(true, true);
+  // Sidebar and timeline controls write widgets without a canvas drag, so a
+  // closing editor is their commit point. The disposal path (node removed,
+  // possibly mid-load teardown) must never trigger a capture.
+  if (hadModal && !state.disposed) notifyAusbossChange();
 }
 
 // Section headers carry a small marker matching the on-canvas handle for
@@ -914,7 +919,16 @@ function pointerMove(state, event) {
   draw(state); updateModalInfo(state);
 }
 
-function pointerUp(state, event) { if (!state.drag) return; state.drag = null; state.grid = false; try { state.canvas.releasePointerCapture(event.pointerId); } catch {} draw(state); state.node.setDirtyCanvas?.(true, true); }
+function pointerUp(state, event) {
+  if (!state.drag) return;
+  const kind = state.drag.kind;
+  state.drag = null; state.grid = false;
+  try { state.canvas.releasePointerCapture(event.pointerId); } catch {}
+  draw(state); state.node.setDirtyCanvas?.(true, true);
+  // Widgets were written throughout the drag; tell the tracker once, on
+  // release. A pan only moves the view and serializes nothing.
+  if (kind !== "pan") notifyAusbossChange();
+}
 function inside(point, rect) { return point.x >= rect.x && point.x <= rect.x + rect.width && point.y >= rect.y && point.y <= rect.y + rect.height; }
 function setCrop(node, crop) { setValue(node, "crop_x", crop.x); setValue(node, "crop_y", crop.y); setValue(node, "crop_width", crop.width); setValue(node, "crop_height", crop.height); }
 function updateCursor(state, point) {
