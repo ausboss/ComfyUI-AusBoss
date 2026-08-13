@@ -92,6 +92,26 @@ app.registerExtension({
     if (NODE_COLOR_SCHEMES.some((scheme) => scheme.name === stored)) activeScheme = stored;
     installTitleInk();
   },
+  getNodeMenuItems(node) {
+    if (!isAusbossNode(node)) return [];
+    return [
+      {
+        content: "AusBoss color",
+        has_submenu: true,
+        submenu: {
+          options: NODE_COLOR_SCHEMES.map((scheme) => ({
+            content: scheme.name,
+            callback: () => {
+              // A menu pick writes the colors directly; shouldRecolor then
+              // treats them as the user's choice during setting sweeps.
+              applyScheme(node, scheme.colors);
+              app.graph?.setDirtyCanvas?.(true, true);
+            },
+          })),
+        },
+      },
+    ];
+  },
   nodeCreated(node) {
     if (!isAusbossNode(node)) return;
     // Colors restored from a saved workflow (and manual picks) land before

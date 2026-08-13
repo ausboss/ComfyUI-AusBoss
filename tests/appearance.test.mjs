@@ -51,6 +51,15 @@ test("color comparison ignores case and whitespace", () => {
   assert.equal(shouldRecolor(noisy, plum), true);
 });
 
+test("a menu-picked scheme survives a settings sweep", () => {
+  // The user picked Plum from the node menu while the setting was Teal;
+  // sweeping the setting to anything else must leave the node alone.
+  const plum = schemeColors("Plum");
+  const picked = { color: plum.title, bgcolor: plum.body };
+  assert.equal(shouldRecolor(picked, schemeColors("Teal")), false);
+  assert.equal(shouldRecolor(picked, null), false);
+});
+
 test("titleInk keeps light ink on every shipped scheme", () => {
   for (const scheme of NODE_COLOR_SCHEMES.slice(1)) {
     assert.equal(titleInk(scheme.colors.title), "#ffffff", scheme.name);
