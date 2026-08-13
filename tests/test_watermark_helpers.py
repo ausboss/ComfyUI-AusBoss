@@ -12,7 +12,7 @@ if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
     del sys.modules["nodes"]
 
 from nodes._batch_helpers import select_one_based_frame
-from nodes._lama_helpers import inpaint_with_model
+from nodes._lama_helpers import frame_tensor_to_pil, inpaint_with_model
 
 
 class WhiteHoleModel(torch.nn.Module):
@@ -66,6 +66,23 @@ class LaMaHelperTests(unittest.TestCase):
         self.assertEqual(tuple(output.shape), tuple(images.shape))
         self.assertTrue(torch.all(output[:, 6:10, 6:10] == 1.0))
         self.assertTrue(torch.all(output[:, 0, 0] == 0.0))
+
+    def test_frame_tensor_to_pil_rounds_clamps_and_drops_alpha(self):
+        frame = torch.zeros((2, 3, 4), dtype=torch.float32)
+        frame[0, 0, :3] = torch.tensor([-0.5, 0.5, 1.5])
+        frame[..., 3] = 0.25
+        image = frame_tensor_to_pil(frame)
+        self.assertEqual(image.mode, "RGB")
+        self.assertEqual(image.size, (3, 2))
+        self.assertEqual(image.getpixel((0, 0)), (0, 128, 255))
+        self.assertEqual(image.getpixel((2, 1)), (0, 0, 0))
+
+    def test_frame_tensor_to_pil_rejects_batched_or_grayscale_input(self):
+        for bad in (torch.zeros((1, 2, 3, 4)), torch.zeros((2, 3, 1)), torch.zeros((2, 3))):
+            with self.subTest(shape=tuple(bad.shape)), self.assertRaisesRegex(
+                ValueError, "HWC RGB"
+            ):
+                frame_tensor_to_pil(bad)
 
     def test_rejects_ambiguous_mask_batch(self):
         with self.assertRaisesRegex(ValueError, "one mask"):

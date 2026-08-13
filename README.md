@@ -23,6 +23,14 @@ Targets an exact video frame from an uploaded input file or local path. The full
 
 Returns one unchanged frame from an `IMAGE` batch using a clear one-based frame number. Out-of-range requests report the valid range instead of silently selecting the wrong image.
 
+### Select Frame Range (AusBoss)
+
+Returns a contiguous sub-batch: one-based `start_frame` plus `frame_count` (`0` means through the last frame), along with the actual frame count as an `INT`. Out-of-range requests report the available range instead of clamping.
+
+### LoRA Loader (AusBoss)
+
+A stacked multi-LoRA node. Each row has an on/off pill, a searchable picker (type to filter, arrow keys + Enter to pick), and strengths you can **drag left/right to scrub** (Shift for fine steps) or click to type. The per-row info card shows the LoRA's preview image, base model, and trigger words from its file metadata, a one-click Civitai lookup, or your own saved words — click words to toggle them into the deduplicated `trigger_words` output. CLIP input is optional.
+
 ### LaMa Inpaint (AusBoss)
 
 Inpaints white mask regions with a TorchScript LaMa checkpoint, preserves pixels where the mask is zero, and processes large video batches one frame at a time to keep VRAM bounded. Place `big-lama.pt` in `ComfyUI/models/lama/`; the node never performs automatic downloads.
@@ -102,7 +110,13 @@ Under **Settings → 🆎 AusBoss** you can pick an **AusBoss node color** schem
 (Graphite, Slate, Teal, Moss, Plum, Rust, Navy). It recolors every AusBoss
 node in the open workflow immediately and applies to nodes you add later.
 Nodes you have colored by hand keep their own colors, and **Theme default**
-returns everything to the stock look.
+returns everything to the stock look. Right-click any AusBoss node for a
+per-node **AusBoss color** override, and press **Alt+E** (rebindable in
+Settings → Keybindings) to open the selected transform node's editor.
+
+Custom crop aspect-ratio presets live in an optional `ausboss_presets.json`
+next to the pack — copy `ausboss_presets_example.json` to start; your file is
+gitignored and survives updates.
 
 ## Compatibility
 
@@ -117,6 +131,7 @@ No minimum ComfyUI version is declared. If a frontend update changes custom-widg
 
 ```bash
 python scripts/validate_nodes.py
+python scripts/release_preflight.py
 python -m unittest discover -s tests -p "test_*.py" -v
 node --test tests/*.test.mjs
 ```
