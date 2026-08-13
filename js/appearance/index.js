@@ -2,6 +2,7 @@ import { app } from "/scripts/app.js";
 import {
   DEFAULT_SCHEME,
   NODE_COLOR_SCHEMES,
+  collectGraphNodes,
   schemeColors,
   shouldRecolor,
   titleInk,
@@ -30,10 +31,9 @@ function applyScheme(node, colors) {
 }
 
 function repaintAll(nextScheme, previousScheme) {
-  const nodes = app.graph?._nodes || app.graph?.nodes || [];
   const next = schemeColors(nextScheme);
   const previous = schemeColors(previousScheme);
-  for (const node of nodes) {
+  for (const node of collectGraphNodes(app.graph)) {
     if (!isAusbossNode(node)) continue;
     if (!shouldRecolor(node, previous)) continue;
     applyScheme(node, next);

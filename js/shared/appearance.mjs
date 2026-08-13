@@ -36,6 +36,22 @@ export function titleInk(hex) {
   return luminance > 0.6 ? "#1a1a1a" : "#ffffff";
 }
 
+// Flatten every node reachable from a graph, descending into subgraph
+// containers via `node.subgraph`. Accepts a graph exposing `_nodes` or
+// `nodes`, or a plain node array; the visited set breaks reference cycles.
+export function collectGraphNodes(graph, visited = new Set()) {
+  if (!graph || visited.has(graph)) return [];
+  visited.add(graph);
+  const nodes = Array.isArray(graph) ? graph : graph._nodes || graph.nodes || [];
+  const collected = [];
+  for (const node of nodes) {
+    if (!node) continue;
+    collected.push(node);
+    if (node.subgraph) collected.push(...collectGraphNodes(node.subgraph, visited));
+  }
+  return collected;
+}
+
 // A node is repainted only while it is still "following the setting": either
 // it carries no colors while the previous scheme was the theme default, or it
 // still wears exactly the previous scheme's pair. Anything else — a color the
