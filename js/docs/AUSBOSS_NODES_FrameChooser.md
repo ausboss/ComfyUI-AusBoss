@@ -28,6 +28,9 @@ resumes with just those frames — always in their original order.
   "just continue" can never produce an empty batch.
 - **Cancel** (or Escape while the panel is focused) interrupts the run exactly
   like ComfyUI's stop button. Interrupting the queue also releases the pause.
+- Reloading the page does not lose the pause: when the graph finishes
+  loading, the panel re-fetches every still-waiting chooser from the server
+  and re-renders its filmstrip (countdown included).
 
 ## Outputs
 

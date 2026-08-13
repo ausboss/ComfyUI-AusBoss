@@ -169,13 +169,17 @@ def write_thumbnails(frames: torch.Tensor, run_token: str, max_size: int) -> lis
 class _PendingChoice:
     """One paused Frame Chooser execution awaiting a browser answer."""
 
-    __slots__ = ("event", "frame_count", "selection", "cancelled")
+    __slots__ = ("event", "frame_count", "selection", "cancelled", "payload", "deadline")
 
-    def __init__(self, frame_count: int):
+    def __init__(self, frame_count: int, payload: dict | None = None, deadline: float | None = None):
         self.event = threading.Event()
         self.frame_count = int(frame_count)
         self.selection: list[int] | None = None
         self.cancelled = False
+        # The announce payload is kept so /pending can re-serve it after a
+        # page reload; the deadline lets that route report a live countdown.
+        self.payload = dict(payload) if payload else {}
+        self.deadline = deadline
 
 
 def _store() -> dict:
@@ -229,24 +233,22 @@ def await_selection(
     store = _store()
     key = str(node_id)
     count = int(frame_count)
-    pending = _PendingChoice(count)
     deadline = None
     if int(timeout_seconds) > 0:
         deadline = time.monotonic() + int(timeout_seconds)
+    payload = {
+        "node_id": key,
+        "urls": files,
+        "count": count,
+        "previous": list(previous) if previous else [],
+        "timeout_seconds": int(timeout_seconds),
+        "on_timeout": str(on_timeout),
+    }
+    pending = _PendingChoice(count, payload=payload, deadline=deadline)
     with store["lock"]:
         store["pending"][key] = pending
     try:
-        PromptServer.instance.send_sync(
-            EVENT_NAME,
-            {
-                "node_id": key,
-                "urls": files,
-                "count": count,
-                "previous": list(previous) if previous else [],
-                "timeout_seconds": int(timeout_seconds),
-                "on_timeout": str(on_timeout),
-            },
-        )
+        PromptServer.instance.send_sync(EVENT_NAME, payload)
         last_tick = None
         while not pending.event.wait(POLL_SECONDS):
             if model_management.processing_interrupted():
@@ -292,7 +294,9 @@ def _send_done(node_id: str, selection: list[int], frame_count: int, reason: str
 
 
 def register_chooser_route() -> None:
-    """POST /ausboss/frame_chooser answers or cancels a paused chooser."""
+    """POST /ausboss/frame_chooser answers or cancels a paused chooser;
+    GET /ausboss/frame_chooser/pending lists the pauses a reloaded page
+    must re-render."""
     try:
         from aiohttp import web
         from server import PromptServer
@@ -302,6 +306,20 @@ def register_chooser_route() -> None:
     if server is None or getattr(server, "_ausboss_chooser_route", False):
         return
     server._ausboss_chooser_route = True
+
+    @server.routes.get("/ausboss/frame_chooser/pending")
+    async def ausboss_frame_chooser_pending(request):
+        store = _store()
+        with store["lock"]:
+            waiting = list(store["pending"].values())
+        now = time.monotonic()
+        entries = []
+        for pending in waiting:
+            entry = dict(pending.payload)
+            if pending.deadline is not None:
+                entry["remaining"] = max(0, math.ceil(pending.deadline - now))
+            entries.append(entry)
+        return web.json_response({"pending": entries})
 
     @server.routes.post("/ausboss/frame_chooser")
     async def ausboss_frame_chooser(request):

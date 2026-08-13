@@ -193,6 +193,29 @@ function populatePanel(state, detail) {
   announcePause(state.count);
 }
 
+// A page reload drops every panel while the server keeps waiting. Ask the
+// backend which pauses are still open and re-render their filmstrips; runs
+// after the graph configures so the nodes exist to attach to.
+async function refreshPending() {
+  let data = null;
+  try {
+    const response = await api.fetchApi("/ausboss/frame_chooser/pending");
+    if (!response.ok) return;
+    data = await response.json();
+  } catch (_error) {
+    return; // transient fetch trouble: the next graph load asks again
+  }
+  for (const detail of data?.pending || []) {
+    if (!detail?.node_id) continue;
+    const state = findState(detail.node_id);
+    // No state: the paused chooser belongs to a workflow that is not open
+    // here. Already active: the panel survived (workflow switch), so leave
+    // the in-progress selection alone.
+    if (!state || (state.active && state.activeId === String(detail.node_id))) continue;
+    populatePanel(state, detail);
+  }
+}
+
 function buildPanel(node) {
   if (node.__ausbossFrameChooser) return node.__ausbossFrameChooser;
   ensureChooserCss();
@@ -371,6 +394,12 @@ app.registerExtension({
     };
     api.addEventListener("execution_interrupted", () => releaseAll("Run interrupted."));
     api.addEventListener("execution_error", () => releaseAll("Run stopped by an error."));
+    // Fallback for frontends that load without configuring a graph; the
+    // already-active guard in refreshPending makes the double call harmless.
+    setTimeout(refreshPending, 1500);
+  },
+  afterConfigureGraph() {
+    refreshPending();
   },
   beforeRegisterNodeDef(nodeType, nodeData) {
     if (nodeData?.name !== NODE_NAME) return;
