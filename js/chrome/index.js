@@ -1,21 +1,28 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
-import { BRAND, BRAND_BODY, chainCallback } from "../shared/index.mjs";
+import { AUSBOSS_JS_VERSION, BRAND, BRAND_BODY, chainCallback } from "../shared/index.mjs";
 import {
   advanceExecution,
+  applyStatus,
+  badgeFor,
+  clearStatuses,
   composeTitle,
   createRunState,
-  formatDuration,
+  createStatusState,
   stripQueuePrefix,
 } from "../shared/chrome.mjs";
 
-// Pack-wide browser-chrome status: favicon + tab-title queue status, and
-// optional per-node runtime badges. Pure decision logic lives in
-// js/shared/chrome.mjs; this file only wires DOM, api events, and drawing.
+// Pack-wide browser-chrome status: favicon + tab-title queue status, live
+// per-node status badges, and optional per-node runtime badges. Pure
+// decision logic lives in js/shared/chrome.mjs; this file only wires DOM,
+// api events, and drawing.
 
 const FAVICON_SETTING = "AusBoss.Chrome.FaviconStatus";
 const RUNTIME_SETTING = "AusBoss.Chrome.NodeRuntime";
 const RUNTIME_KEY = "ausbossRuntimeSeconds";
+const STATUS_SETTING = "AusBoss.Chrome.NodeStatus";
+const STATUS_KEY = "ausbossNodeStatus";
+const STATUS_EVENT = "ausboss-node-status";
 
 // ---------------------------------------------------------------------------
 // Favicon + tab title
@@ -185,6 +192,12 @@ function graphNodes() {
   return app.graph?._nodes || app.graph?.nodes || [];
 }
 
+// Ids arrive as strings over the wire but LiteGraph keys nodes by number on
+// most frontends, so try both.
+function nodeById(id) {
+  return app.graph?.getNodeById?.(Number(id)) ?? app.graph?.getNodeById?.(id);
+}
+
 function clearBadges() {
   // Assign undefined, never delete — deleting node properties breaks
   // reactivity under the Nodes 2.0 renderer.
@@ -195,7 +208,7 @@ function clearBadges() {
 
 function stampUpdates(updates) {
   for (const { id, seconds } of updates) {
-    const node = app.graph?.getNodeById?.(Number(id)) ?? app.graph?.getNodeById?.(id);
+    const node = nodeById(id);
     if (node) node[RUNTIME_KEY] = seconds;
   }
   if (updates.length) app.graph?.setDirtyCanvas?.(true, false);
@@ -237,22 +250,87 @@ function disableRuntime() {
   }
 }
 
-function drawRuntimeBadge(node, ctx) {
+// ---------------------------------------------------------------------------
+// Live per-node status badges
+// ---------------------------------------------------------------------------
+
+const status = {
+  enabled: false,
+  abort: null,
+  state: createStatusState(),
+};
+
+// Retire the statuses this run is done with, keeping the node still
+// executing (when one is passed) so its badge survives until it moves on.
+function retireStatuses(keepId) {
+  const cleared = clearStatuses(status.state, keepId);
+  for (const id of cleared) {
+    const node = nodeById(id);
+    if (node && node[STATUS_KEY] !== undefined) node[STATUS_KEY] = undefined;
+  }
+  if (cleared.length) app.graph?.setDirtyCanvas?.(true, false);
+}
+
+function enableStatus() {
+  if (status.abort) return;
+  status.abort = new AbortController();
+  const signal = status.abort.signal;
+  api.addEventListener(
+    STATUS_EVENT,
+    (event) => {
+      const id = applyStatus(status.state, event?.detail);
+      if (id === null) return;
+      const node = nodeById(id);
+      // undefined when the node retracted its status — assign, never delete.
+      if (node) node[STATUS_KEY] = status.state.entries.get(id);
+      app.graph?.setDirtyCanvas?.(true, false);
+    },
+    { signal },
+  );
+  // A status describes what a node is doing right now, so the run moving on,
+  // ending, failing, or being stopped all retire it.
+  api.addEventListener(
+    "executing",
+    (event) => retireStatuses(executingNodeId(event?.detail)),
+    { signal },
+  );
+  const retireAll = () => retireStatuses();
+  api.addEventListener("execution_start", retireAll, { signal });
+  api.addEventListener("execution_success", retireAll, { signal });
+  api.addEventListener("execution_error", retireAll, { signal });
+  api.addEventListener("execution_interrupted", retireAll, { signal });
+}
+
+function disableStatus() {
+  status.abort?.abort();
+  status.abort = null;
   try {
-    if (!runtime.enabled) return;
-    const seconds = node?.[RUNTIME_KEY];
-    if (typeof seconds !== "number") return;
-    if (node.flags?.collapsed) return;
+    retireStatuses();
+  } catch {
+    /* Never throw from a toggle. */
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Badge drawing
+// ---------------------------------------------------------------------------
+
+function drawNodeBadge(node, ctx) {
+  try {
+    if (node?.flags?.collapsed) return;
     // Zoomed way out the text is unreadable anyway — skip the work.
     if ((app.canvas?.ds?.scale ?? 1) < 0.5) return;
-    const text = formatDuration(seconds);
-    if (!text) return;
+    const badge = badgeFor(
+      status.enabled ? node?.[STATUS_KEY] : null,
+      runtime.enabled ? node?.[RUNTIME_KEY] : undefined,
+    );
+    if (!badge) return;
     const titleHeight = globalThis.LiteGraph?.NODE_TITLE_HEIGHT ?? 30;
     ctx.save();
     ctx.font = "10px monospace";
     const padX = 5;
     const height = 15;
-    const width = Math.ceil(ctx.measureText(text).width) + padX * 2;
+    const width = Math.ceil(ctx.measureText(badge.text).width) + padX * 2;
     // Top-right, floating just above the title bar so it never covers
     // the node title or its widgets.
     const x = node.size[0] - width;
@@ -260,13 +338,22 @@ function drawRuntimeBadge(node, ctx) {
     roundedRectPath(ctx, x, y, width, height, 4);
     ctx.fillStyle = "rgba(8, 20, 19, 0.85)";
     ctx.fill();
+    if (badge.progress !== null) {
+      // Proportional fill inside the badge's own outline — clipped to the
+      // rounded path that is still current after the fill above.
+      ctx.save();
+      ctx.clip();
+      ctx.fillStyle = "rgba(0, 180, 170, 0.45)";
+      ctx.fillRect(x, y, width * badge.progress, height);
+      ctx.restore();
+    }
     ctx.strokeStyle = BRAND;
     ctx.lineWidth = 1;
     ctx.stroke();
     ctx.fillStyle = "#d8f5f3";
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.fillText(text, x + padX, y + height / 2 + 0.5);
+    ctx.fillText(badge.text, x + padX, y + height / 2 + 0.5);
     ctx.restore();
   } catch {
     /* Drawing must never break the canvas loop. */
@@ -281,7 +368,7 @@ function installDrawHook() {
   if (!proto) return;
   drawHookInstalled = true;
   chainCallback(proto, "onDrawForeground", function (ctx) {
-    drawRuntimeBadge(this, ctx);
+    drawNodeBadge(this, ctx);
   });
 }
 
@@ -291,6 +378,20 @@ function installDrawHook() {
 
 app.registerExtension({
   name: "AusBoss.Chrome",
+  // Shown on Settings > About; the frontend's aboutPanelStore flat-maps each
+  // extension's aboutPageBadges ({ label, url, icon }) after the core rows.
+  aboutPageBadges: [
+    {
+      label: `ComfyUI-AusBoss v${AUSBOSS_JS_VERSION}`,
+      url: "https://github.com/ausboss/ComfyUI-AusBoss",
+      icon: "pi pi-github",
+    },
+    {
+      label: "Report an issue",
+      url: "https://github.com/ausboss/ComfyUI-AusBoss/issues",
+      icon: "pi pi-flag",
+    },
+  ],
   settings: [
     {
       id: FAVICON_SETTING,
@@ -332,10 +433,30 @@ app.registerExtension({
         else disableRuntime();
       },
     },
+    {
+      id: STATUS_SETTING,
+      name: "Live node status badges",
+      type: "boolean",
+      defaultValue: true,
+      category: ["🆎 AusBoss", "Chrome", "Live status"],
+      tooltip:
+        "While an AusBoss node reports progress — the LaMa inpainter's " +
+        "per-frame loop, for example — shows a badge above its top-right " +
+        "corner with the current step and a bar filled to match. The badge " +
+        "lasts only as long as the node runs: it clears when the node " +
+        "finishes and when a run ends, fails, or is stopped.",
+      onChange(value) {
+        const on = value !== false;
+        if (on === status.enabled) return;
+        status.enabled = on;
+        if (on) enableStatus();
+        else disableStatus();
+      },
+    },
   ],
   setup() {
-    // onChange only fires on later edits on some frontends, so seed both
-    // features from the stored values here.
+    // onChange only fires on later edits on some frontends, so seed every
+    // feature from its stored value here.
     const stored = app.ui?.settings?.getSettingValue?.(FAVICON_SETTING);
     if (stored !== false && !favicon.enabled) {
       favicon.enabled = true;
@@ -345,6 +466,11 @@ app.registerExtension({
     if (runtimeStored === true && !runtime.enabled) {
       runtime.enabled = true;
       enableRuntime();
+    }
+    const statusStored = app.ui?.settings?.getSettingValue?.(STATUS_SETTING);
+    if (statusStored !== false && !status.enabled) {
+      status.enabled = true;
+      enableStatus();
     }
     installDrawHook();
   },

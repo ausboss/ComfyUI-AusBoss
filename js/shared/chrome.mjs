@@ -1,5 +1,6 @@
 // Pure decision logic for the pack-wide browser-chrome features: the
-// favicon/tab-title queue status and the per-node runtime badges.
+// favicon/tab-title queue status, the live per-node status badges, and the
+// per-node runtime badges.
 //
 // No DOM or LiteGraph access here — js/chrome/index.js owns the wiring.
 // Everything exported is unit-tested in tests/chrome.test.mjs.
@@ -67,4 +68,69 @@ export function advanceExecution(state, nodeId, now) {
   state.runningId = nodeId == null ? null : String(nodeId);
   state.startedAt = timestamp;
   return updates;
+}
+
+// Fresh live-status store. `entries` maps node id (string) -> { text,
+// progress }, where progress is 0..1 or null when the node reports none.
+export function createStatusState() {
+  return { entries: new Map() };
+}
+
+const STATUS_MAX_LENGTH = 24;
+
+// Badge text is drawn on the canvas: one ASCII line, length-capped. The
+// backend sends str() of whatever the node passed, so junk is expected.
+function badgeText(text) {
+  if (typeof text !== "string") return "";
+  return text
+    .replace(/[^\x20-\x7e]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, STATUS_MAX_LENGTH);
+}
+
+// 0..1, or null for "this node reports no fraction" — which the backend
+// sends as null, and Number(null) would otherwise read as a 0% bar.
+function badgeProgress(progress) {
+  if (progress === null || progress === undefined || progress === "") return null;
+  const value = Number(progress);
+  if (!Number.isFinite(value)) return null;
+  return Math.min(1, Math.max(0, value));
+}
+
+// Fold one "ausboss-node-status" payload into the state. Returns the node id
+// whose badge changed, or null when the payload says nothing usable. Empty
+// text retracts that node's badge, so a node can clear itself mid-run.
+export function applyStatus(state, detail) {
+  const id = detail?.node_id;
+  if (id === undefined || id === null || id === "") return null;
+  const key = String(id);
+  const text = badgeText(detail.text);
+  if (!text) return state.entries.delete(key) ? key : null;
+  state.entries.set(key, { text, progress: badgeProgress(detail.progress) });
+  return key;
+}
+
+// Retire live statuses, keeping `keepId`'s entry when one is passed — that
+// is the node still executing. Returns the cleared ids so the caller can
+// clear their badges.
+export function clearStatuses(state, keepId) {
+  const keep = keepId == null ? null : String(keepId);
+  const cleared = [];
+  for (const id of state.entries.keys()) {
+    if (id !== keep) cleared.push(id);
+  }
+  for (const id of cleared) state.entries.delete(id);
+  return cleared;
+}
+
+// Which badge a node draws. A live status always wins — it is transient and
+// describes right now — and the post-run runtime badge fills in once the
+// status is retired. Returns { kind, text, progress } or null for nothing.
+export function badgeFor(status, seconds) {
+  const text = badgeText(status?.text);
+  if (text) return { kind: "live", text, progress: badgeProgress(status?.progress) };
+  if (typeof seconds !== "number") return null;
+  const duration = formatDuration(seconds);
+  return duration ? { kind: "runtime", text: duration, progress: null } : null;
 }

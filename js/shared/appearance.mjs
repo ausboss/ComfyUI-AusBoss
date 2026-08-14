@@ -18,11 +18,65 @@ export const NODE_COLOR_SCHEMES = [
 
 export const DEFAULT_SCHEME = NODE_COLOR_SCHEMES[0].name;
 
-export function schemeColors(name) {
-  return NODE_COLOR_SCHEMES.find((scheme) => scheme.name === name)?.colors ?? null;
-}
+// The "Custom" scheme is not a table row: its title comes from the
+// AusBoss.Appearance.CustomColor setting and its body is derived from it.
+export const CUSTOM_SCHEME = "Custom";
+
+// Every name the scheme combo and the per-node menu offer.
+export const SCHEME_NAMES = [...NODE_COLOR_SCHEMES.map((scheme) => scheme.name), CUSTOM_SCHEME];
 
 const normalize = (value) => (typeof value === "string" ? value.trim().toLowerCase() : "");
+
+// ComfyUI's color setting stores bare hex without "#" (the PrimeVue picker
+// contract), and its free-text field also accepts 8-digit hex. Normalize
+// either form to "#rrggbb" (alpha dropped); junk normalizes to null.
+export function normalizeHexColor(value) {
+  const raw = normalize(value).replace(/^#/, "");
+  const match = /^([0-9a-f]{6})(?:[0-9a-f]{2})?$/.exec(raw);
+  return match ? `#${match[1]}` : null;
+}
+
+// Custom bodies are the picked title mixed halfway toward a dark neutral, so
+// any title — including bright picks — yields a body that stays quiet on the
+// dark canvas. Very dark titles get a slightly lighter body (matching the
+// shipped schemes' title-darker-than-body grammar); bright titles get a
+// muted, darker body instead of a wall of pigment.
+const BODY_NEUTRAL = 0x2f; // per-channel dark neutral, near the Graphite body
+const BODY_KEEP = 0.5; // share of the title pigment the body keeps
+// A pick sitting on the neutral mixes to itself, which would draw a node with
+// no visible title bar at all. Only picks inside a narrow dark band collapse
+// this way, so the body steps lighter — the shipped schemes' grammar.
+const BODY_MIN_STEP = 10;
+
+export function deriveBody(hex) {
+  const title = normalizeHexColor(hex);
+  if (!title) return null;
+  const rgb = parseInt(title.slice(1), 16);
+  const channels = [(rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff];
+  let body = channels.map((channel) =>
+    Math.round(channel * BODY_KEEP + BODY_NEUTRAL * (1 - BODY_KEEP)),
+  );
+  const separation = Math.max(...body.map((value, index) => Math.abs(value - channels[index])));
+  if (separation < BODY_MIN_STEP) {
+    body = channels.map((channel) => Math.min(255, channel + BODY_MIN_STEP));
+  }
+  const packed = (body[0] << 16) | (body[1] << 8) | body[2];
+  return `#${packed.toString(16).padStart(6, "0")}`;
+}
+
+// Build the Custom scheme's color pair from the setting value; null when the
+// stored value is not usable hex, so callers fall back to doing nothing.
+export function customColors(titleHex) {
+  const title = normalizeHexColor(titleHex);
+  return title ? { title, body: deriveBody(title) } : null;
+}
+
+// Resolve a scheme name to its color pair. `customTitle` (the CustomColor
+// setting value) only matters for the Custom scheme; static names ignore it.
+export function schemeColors(name, customTitle) {
+  if (name === CUSTOM_SCHEME) return customColors(customTitle);
+  return NODE_COLOR_SCHEMES.find((scheme) => scheme.name === name)?.colors ?? null;
+}
 
 // Perceived luminance (Rec. 601 weights) of the title color picks the ink
 // that keeps the title readable. Malformed input gets the light ink — every
