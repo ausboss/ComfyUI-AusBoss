@@ -1,24 +1,43 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
-import { BRAND, chainCallback } from "../shared/index.mjs";
+import { BRAND, chainCallback, notifyAusbossChange } from "../shared/index.mjs";
 import { ensureVideoCss, makeToolButton } from "../shared/video_ui.mjs";
 import {
   allFrames,
+  answerIsStale,
+  beginSubmission,
   cancelPayload,
+  chooserKeyAction,
+  clearSubmission,
+  clickLocked,
   continuePayload,
+  countdownText,
+  endSubmission,
+  isStaleAnswerStatus,
+  isTypingTarget,
   noFrames,
+  pauseNoticeText,
+  rectOnScreen,
   selectionSummary,
+  shouldNotifyPause,
   toggleFrame,
   validFrames,
 } from "../shared/frame_chooser.mjs";
 
 const NODE_NAME = "AUSBOSS_NODES_FrameChooser";
 const EVENT_NAME = "ausboss-frame-choose";
+const TICK_EVENT = "ausboss-frame-choose-tick";
+const DONE_EVENT = "ausboss-frame-choose-done";
 const PANEL_WIDGET = "ausboss_frame_chooser_panel";
 const CSS_ID = "ausboss-chooser-ui-v1";
+const TAB_ALERT_CLASS = "ausboss-chooser-tab-alert";
 const MIN_WIDTH = 240;
 const IDLE_HEIGHT = 132;
 const ACTIVE_HEIGHT = 304;
+// The canvas positions DOM widgets on its own frame, so the panel's rect only
+// means something a beat after the pause lands.
+const NOTICE_DELAY_MS = 250;
+const TAB_ALERT_MS = 2400;
 
 // Live panels by graph node id; the websocket event carries the execution id,
 // which matches the node id for top-level nodes (subgraph ids keep a prefix).
@@ -43,6 +62,8 @@ function ensureChooserCss() {
 .ausboss-chooser-actions{display:flex;gap:6px;}
 .ausboss-chooser-actions .ausboss-video-tool{flex:1 1 auto;}
 .ausboss-chooser-root .ausboss-video-tool:disabled{opacity:.4;cursor:default;}
+.${TAB_ALERT_CLASS}{border-radius:4px;box-shadow:inset 0 0 0 2px ${BRAND};animation:ausboss-chooser-tab-pulse 1.2s ease-in-out 2;}
+@keyframes ausboss-chooser-tab-pulse{0%,100%{background:transparent;}50%{background:rgba(0,180,170,.3);}}
 `;
   document.head.appendChild(style);
 }
@@ -61,42 +82,92 @@ function updateFace(state) {
     thumb.classList.toggle("selected", state.selected.has(Number(thumb.dataset.frame)));
   }
   if (state.active && state.count > 0) {
-    state.summary.textContent = `Paused - ${selectionSummary(state.selected, state.count)}`;
+    const countdown = countdownText(state.remaining, state.timeoutPolicy);
+    state.summary.textContent =
+      `Paused - ${selectionSummary(state.selected, state.count)}` +
+      (countdown ? ` - ${countdown}` : "");
   }
   const idle = !state.active;
-  state.keepButton.disabled = idle || state.selected.size === 0;
-  state.keepAllButton.disabled = idle;
-  state.cancelButton.disabled = idle;
-  state.allButton.disabled = idle;
-  state.noneButton.disabled = idle;
+  // An answer already on the wire takes the controls with it: the pause is
+  // spoken for until the reply lands.
+  const busy = idle || state.submitting === true;
+  state.keepButton.disabled = busy || state.selected.size === 0;
+  state.keepAllButton.disabled = busy;
+  state.cancelButton.disabled = busy;
+  state.allButton.disabled = busy;
+  state.noneButton.disabled = busy;
   state.root.classList.toggle("is-idle", idle);
 }
 
 function resolvePanel(state, message) {
   state.active = false;
+  state.remaining = 0;
+  clearTimeout(state.noticeTimer); // answered before the "are you there?" check
   state.summary.textContent = message;
   updateFace(state);
   state.node.setDirtyCanvas?.(true, true);
 }
 
+// The websocket events carry the execution id, which matches the graph node
+// id for top-level nodes; subgraph ids keep a colon-separated prefix.
+function findState(nodeId) {
+  const id = String(nodeId);
+  const tail = id.split(":").pop();
+  let state = panels.get(id) ?? panels.get(tail);
+  if (!state) {
+    // Ids in the map can lag a paste/duplicate; ask the graph directly.
+    const node = app.graph?.getNodeById?.(Number(tail));
+    state = node?.__ausbossFrameChooser ?? null;
+    if (state) panels.set(String(node.id), state);
+  }
+  return state;
+}
+
+// The one door every answer leaves by. The latch serialises the paths that can
+// post - buttons, keys, the cancel a deleted node sends - so a rapid second
+// answer never repeats a token the server has already spent. The reply is then
+// matched against the pause it was posted for: one that lands after a timeout,
+// after another tab answered, or after a new pause took this node over is
+// dropped, so a late rejection cannot overwrite the result that did land.
 async function postAnswer(state, payload) {
+  const ticket = beginSubmission(state);
+  if (!ticket) return null; // an answer for this pause is already on its way
+  updateFace(state);
+  let data = null;
+  let failure = "";
+  let spent = false;
   try {
     const response = await api.fetchApi("/ausboss/frame_chooser", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data?.error || `HTTP ${response.status}`);
-    return data;
+    const body = await response.json().catch(() => ({}));
+    // A pause the server had already resolved is not a failure worth showing:
+    // the outcome that won arrives over the done event, and it can land after
+    // this rejection does.
+    if (isStaleAnswerStatus(response.status)) spent = true;
+    else if (!response.ok) throw new Error(body?.error || `HTTP ${response.status}`);
+    else data = body;
   } catch (error) {
-    state.summary.textContent = `Answer failed: ${error?.message || error}`;
+    failure = String(error?.message || error);
+  }
+  // Release first, and repaint either way: a panel that moved to a new pause
+  // while this was in flight must get its controls back.
+  if (endSubmission(state, ticket)) updateFace(state);
+  if (spent || answerIsStale(ticket, state)) return null;
+  if (failure) {
+    state.summary.textContent = `Answer failed: ${failure}`;
     return null;
   }
+  return data;
 }
 
 async function keepSelection(state, selected) {
-  const data = await postAnswer(state, continuePayload(state.activeId, selected));
+  const data = await postAnswer(
+    state,
+    continuePayload(state.activeId, selected, state.activeToken),
+  );
   if (data) {
     const kept = Number(data.kept ?? selected.size) || state.count;
     resolvePanel(state, `Continuing with ${kept} of ${state.count} frames.`);
@@ -104,31 +175,88 @@ async function keepSelection(state, selected) {
 }
 
 async function cancelRun(state) {
-  const data = await postAnswer(state, cancelPayload(state.activeId));
+  const data = await postAnswer(state, cancelPayload(state.activeId, state.activeToken));
   if (data) resolvePanel(state, "Cancelled - run interrupted.");
 }
 
-function announcePause(count) {
-  const message = `Frame Chooser paused the graph - pick from ${count} frames on the node.`;
-  try {
-    app.extensionManager?.toast?.add?.({
-      severity: "info",
-      summary: "Frame Chooser",
-      detail: message,
-      life: 5000,
-    });
-  } catch (_error) {
-    /* older frontends have no toast API */
+function panelOnScreen(state) {
+  return rectOnScreen(state.root?.getBoundingClientRect?.(), {
+    width: window.innerWidth,
+    height: window.innerHeight,
+  });
+}
+
+// Switching workflow tabs - or drilling into a subgraph - changes the graph
+// the canvas draws. A node whose graph is not that one cannot be seen here.
+function graphFronted(state) {
+  const shown = app.canvas?.graph ?? app.graph;
+  const graph = state.node?.graph;
+  return !graph || !shown || graph === shown;
+}
+
+// Best effort: the frontend renders one `.workflow-tab` per open workflow
+// with the filename in a span, and exposes no handle on the element. Match on
+// that label and skip the highlight when the markup is not there. Only the
+// fronted workflow can be named, so a pause in a background workflow gets the
+// toast alone rather than a guessed tab.
+function highlightWorkflowTab(state) {
+  if (!graphFronted(state)) return;
+  const label = app.extensionManager?.workflow?.activeWorkflow?.filename;
+  if (!label) return;
+  let tab = null;
+  for (const candidate of document.querySelectorAll(".workflow-tab")) {
+    if (candidate.querySelector("span")?.textContent?.trim() === label) {
+      tab = candidate;
+      break;
+    }
   }
-  console.log(`[AusBoss] ${message}`);
+  if (!tab) return;
+  tab.classList.add(TAB_ALERT_CLASS);
+  const timer = setTimeout(() => tab.classList.remove(TAB_ALERT_CLASS), TAB_ALERT_MS);
+  state.abort.signal.addEventListener(
+    "abort",
+    () => {
+      clearTimeout(timer);
+      tab.classList.remove(TAB_ALERT_CLASS);
+    },
+    { once: true },
+  );
+}
+
+// One nudge per pause, and only when the panel is out of sight: a filmstrip
+// the user is looking at speaks for itself. Runs a beat after the pause lands
+// so the panel's rect is real, and re-checks the token in case the pause was
+// answered in the meantime.
+function announcePause(state, token) {
+  if (!state.active || state.activeToken !== token) return;
+  const unseen = shouldNotifyPause({
+    documentHidden: document.hidden === true,
+    onScreen: panelOnScreen(state),
+    workflowFronted: graphFronted(state),
+    alreadyNotified: Boolean(token) && state.notifiedToken === token,
+  });
+  if (!unseen) return;
+  state.notifiedToken = token;
+  const detail = pauseNoticeText(state.node?.title, state.count);
+  const toast = app.extensionManager?.toast;
+  if (toast?.add) toast.add({ severity: "info", summary: "Frame Chooser", detail, life: 6000 });
+  else console.log(`[AusBoss] ${detail}`);
+  highlightWorkflowTab(state);
 }
 
 function populatePanel(state, detail) {
   state.active = true;
   state.populated = true;
+  // A new pause answers for itself; anything still in flight belongs to the
+  // one it replaced and is stale the moment it comes back.
+  clearSubmission(state);
   state.activeId = String(detail.node_id);
+  state.activeToken = String(detail.token || "");
   state.count = Number(detail.count) || (detail.urls?.length ?? 0);
   state.selected = validFrames(detail.previous, state.count);
+  state.remaining = Number(detail.remaining ?? detail.timeout_seconds) || 0;
+  state.timeoutPolicy = typeof detail.on_timeout === "string" ? detail.on_timeout : "";
+  state.shownAt = Date.now(); // starts the click cooldown
   state.grid.replaceChildren();
   (detail.urls || []).forEach((file, position) => {
     const frame = position + 1;
@@ -136,7 +264,10 @@ function populatePanel(state, detail) {
     thumb.type = "button";
     thumb.className = "ausboss-chooser-thumb";
     thumb.dataset.frame = String(frame);
-    thumb.title = `Frame ${frame} - click to toggle`;
+    thumb.title =
+      frame <= 9
+        ? `Frame ${frame} - click or press ${frame} to toggle`
+        : `Frame ${frame} - click to toggle`;
     const image = document.createElement("img");
     image.loading = "lazy";
     image.alt = `Frame ${frame}`;
@@ -166,7 +297,50 @@ function populatePanel(state, detail) {
   node.setDirtyCanvas?.(true, true);
   node.graph?.setDirtyCanvas?.(true, true);
   state.root.focus({ preventScroll: true });
-  announcePause(state.count);
+  const token = state.activeToken;
+  clearTimeout(state.noticeTimer);
+  state.noticeTimer = setTimeout(() => announcePause(state, token), NOTICE_DELAY_MS);
+}
+
+// Server -> widget writeback: an interactive answer lands in the visible
+// pick_list widget so the next queue reproduces the choice headlessly.
+function applyPickWriteback(state, indices) {
+  if (typeof indices !== "string") return;
+  const widget = (state.node.widgets || []).find((entry) => entry.name === "pick_list");
+  if (!widget || widget.value === indices) return;
+  widget.value = indices;
+  state.node.setDirtyCanvas?.(true, true);
+  notifyAusbossChange();
+}
+
+// A page reload drops every panel while the server keeps waiting. Ask the
+// backend which pauses are still open and re-render their filmstrips; runs
+// after the graph configures so the nodes exist to attach to.
+async function refreshPending() {
+  let data = null;
+  try {
+    const response = await api.fetchApi("/ausboss/frame_chooser/pending");
+    if (!response.ok) return;
+    data = await response.json();
+  } catch (_error) {
+    return; // transient fetch trouble: the next graph load asks again
+  }
+  for (const detail of data?.pending || []) {
+    if (!detail?.node_id) continue;
+    const state = findState(detail.node_id);
+    // No state: the paused chooser belongs to a workflow that is not open
+    // here. Already active: the panel survived (workflow switch), so leave
+    // the in-progress selection alone.
+    if (
+      !state ||
+      (state.active &&
+        state.activeId === String(detail.node_id) &&
+        state.activeToken === String(detail.token || ""))
+    ) {
+      continue;
+    }
+    populatePanel(state, detail);
+  }
 }
 
 function buildPanel(node) {
@@ -182,8 +356,8 @@ function buildPanel(node) {
   const summary = document.createElement("div");
   summary.className = "ausboss-chooser-summary";
   summary.textContent = "Queue a run to pick frames here.";
-  const allButton = makeToolButton("ALL", "Select every frame");
-  const noneButton = makeToolButton("NONE", "Clear the selection");
+  const allButton = makeToolButton("ALL", "Select every frame (A)");
+  const noneButton = makeToolButton("NONE", "Clear the selection (N)");
   head.append(summary, allButton, noneButton);
 
   const grid = document.createElement("div");
@@ -195,7 +369,7 @@ function buildPanel(node) {
 
   const actions = document.createElement("div");
   actions.className = "ausboss-chooser-actions";
-  const keepButton = makeToolButton("KEEP SELECTED", "Resume with the selected frames");
+  const keepButton = makeToolButton("KEEP SELECTED", "Resume with the selected frames (Enter)");
   const keepAllButton = makeToolButton("KEEP ALL", "Resume with every frame");
   const cancelButton = makeToolButton("CANCEL", "Interrupt the run (Escape)");
   actions.append(keepButton, keepAllButton, cancelButton);
@@ -217,9 +391,18 @@ function buildPanel(node) {
     active: false,
     populated: false,
     activeId: String(node.id),
+    activeToken: "",
     count: 0,
     selected: noFrames(),
+    remaining: 0,
+    timeoutPolicy: "",
+    shownAt: 0,
+    notifiedToken: null,
+    noticeTimer: null,
+    submitting: false, // an answer is on the wire; nothing else may post
+    submitSeq: 0,
   });
+  abort.signal.addEventListener("abort", () => clearTimeout(state.noticeTimer), { once: true });
 
   const widget = node.addDOMWidget(PANEL_WIDGET, "ausboss_chooser", root, {
     serialize: false,
@@ -282,14 +465,63 @@ function buildPanel(node) {
     { signal: abort.signal },
   );
 
-  // Escape cancels while the panel holds focus; other keys stay with the app.
+  // A pause can pop up under a pointer already travelling toward the canvas,
+  // so swallow clicks inside the panel for a moment after it appears, and
+  // again while an answer is on the wire. Capture phase keeps the thumbs and
+  // buttons from seeing them; no preventDefault, so a click on empty panel
+  // space still falls through to the node.
+  root.addEventListener(
+    "click",
+    (event) => {
+      if (!state.active) return;
+      if (state.submitting || clickLocked(Date.now() - state.shownAt)) event.stopPropagation();
+    },
+    { capture: true, signal: abort.signal },
+  );
+
+  // Keyboard map, live only while this panel holds focus and its pause is the
+  // active one. Mapped keys are consumed so canvas shortcuts do not also fire;
+  // anything else - and anything typed into a field - stays with the app.
   root.addEventListener(
     "keydown",
     (event) => {
-      if (event.key !== "Escape" || !state.active) return;
+      if (!state.active) return;
+      const hit = chooserKeyAction({
+        key: event.key,
+        typing: isTypingTarget(event.target?.tagName, event.target?.isContentEditable),
+        ctrl: event.ctrlKey,
+        meta: event.metaKey,
+        alt: event.altKey,
+      });
+      if (!hit) return;
       event.preventDefault();
       event.stopPropagation();
-      cancelRun(state);
+      // Mapped keys are still consumed while an answer is in flight - they
+      // belong to this panel - but the pause is already spoken for.
+      if (state.submitting) return;
+      switch (hit.action) {
+        case "toggle":
+          if (hit.frame > state.count) break;
+          state.selected = toggleFrame(state.selected, hit.frame);
+          updateFace(state);
+          break;
+        case "all":
+          state.selected = allFrames(state.count);
+          updateFace(state);
+          break;
+        case "none":
+          state.selected = noFrames();
+          updateFace(state);
+          break;
+        case "keep":
+          // Mirrors the disabled Keep selected button: nothing to keep, nothing
+          // to do. "Keep all" stays an explicit choice.
+          if (state.selected.size > 0) keepSelection(state, state.selected);
+          break;
+        case "cancel":
+          cancelRun(state);
+          break;
+      }
     },
     { signal: abort.signal },
   );
@@ -314,20 +546,37 @@ app.registerExtension({
     api.addEventListener(EVENT_NAME, (event) => {
       const detail = event?.detail;
       if (!detail?.node_id) return;
-      const id = String(detail.node_id);
-      const tail = id.split(":").pop();
-      let state = panels.get(id) ?? panels.get(tail);
+      const state = findState(detail.node_id);
       if (!state) {
-        // Ids in the map can lag a paste/duplicate; ask the graph directly.
-        const node = app.graph?.getNodeById?.(Number(tail));
-        state = node?.__ausbossFrameChooser ?? null;
-        if (state) panels.set(String(node.id), state);
-      }
-      if (!state) {
-        console.warn(`[AusBoss] Frame Chooser paused for unknown node ${id}; use the queue's stop button to release it.`);
+        console.warn(`[AusBoss] Frame Chooser paused for unknown node ${detail.node_id}; use the queue's stop button to release it.`);
         return;
       }
       populatePanel(state, detail);
+    });
+    api.addEventListener(TICK_EVENT, (event) => {
+      const detail = event?.detail;
+      if (!detail?.node_id) return;
+      const state = findState(detail.node_id);
+      if (!state?.active) return;
+      if (String(detail.token || "") !== state.activeToken) return;
+      state.remaining = Number(detail.remaining) || 0;
+      updateFace(state);
+    });
+    api.addEventListener(DONE_EVENT, (event) => {
+      const detail = event?.detail;
+      if (!detail?.node_id) return;
+      const state = findState(detail.node_id);
+      if (!state) return;
+      if (String(detail.token || "") !== state.activeToken) return;
+      if (detail.reason === "answered") {
+        applyPickWriteback(state, detail.indices);
+        if (state.active) {
+          // A second tab (or a restored panel) answered this pause.
+          resolvePanel(state, `Continuing with ${detail.kept} of ${detail.count} frames.`);
+        }
+      } else if (detail.reason === "timeout" && state.active) {
+        resolvePanel(state, `Timed out - continuing with ${detail.kept} of ${detail.count} frames.`);
+      }
     });
     const releaseAll = (message) => {
       for (const state of panels.values()) {
@@ -336,6 +585,12 @@ app.registerExtension({
     };
     api.addEventListener("execution_interrupted", () => releaseAll("Run interrupted."));
     api.addEventListener("execution_error", () => releaseAll("Run stopped by an error."));
+    // Fallback for frontends that load without configuring a graph; the
+    // already-active guard in refreshPending makes the double call harmless.
+    setTimeout(refreshPending, 1500);
+  },
+  afterConfigureGraph() {
+    refreshPending();
   },
   beforeRegisterNodeDef(nodeType, nodeData) {
     if (nodeData?.name !== NODE_NAME) return;
@@ -357,8 +612,10 @@ app.registerExtension({
     chainCallback(nodeType.prototype, "onRemoved", function () {
       const state = this.__ausbossFrameChooser;
       if (state?.active) {
-        // Deleting a paused node must not leave the queue hanging.
-        postAnswer(state, cancelPayload(state.activeId));
+        // Deleting a paused node must not leave the queue hanging. This is an
+        // answer like any other, so it goes through the latch too: an answer
+        // already in flight is releasing the same pause.
+        postAnswer(state, cancelPayload(state.activeId, state.activeToken));
       }
       state?.abort?.abort();
       for (const [key, value] of panels) {

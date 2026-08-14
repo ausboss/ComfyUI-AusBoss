@@ -5,11 +5,15 @@ from __future__ import annotations
 import uuid
 
 from ._chooser_helpers import (
+    TIMEOUT_KEEP_ALL,
+    TIMEOUT_POLICIES,
     await_selection,
     effective_indices,
     indices_string,
     keep_frames,
     normalize_selection,
+    parse_pick_list,
+    pick_list_fingerprint,
     recall_selection,
     register_chooser_route,
     remember_selection,
@@ -73,6 +77,44 @@ class AusBossFrameChooser:
                     },
                 ),
             },
+            "optional": {
+                "timeout_seconds": (
+                    "INT",
+                    {
+                        "default": 0,
+                        "min": 0,
+                        "max": 86400,
+                        "tooltip": (
+                            "How long a pause waits for an answer before on_timeout "
+                            "decides. 0 waits forever. While counting down, the panel "
+                            "shows the seconds left."
+                        ),
+                    },
+                ),
+                "on_timeout": (
+                    TIMEOUT_POLICIES,
+                    {
+                        "default": TIMEOUT_KEEP_ALL,
+                        "tooltip": (
+                            "What an expired countdown answers: keep every frame, only "
+                            "the first, only the last, or cancel the run like pressing "
+                            "stop. Ignored while timeout_seconds is 0."
+                        ),
+                    },
+                ),
+                "pick_list": (
+                    "STRING",
+                    {
+                        "default": "",
+                        "tooltip": (
+                            "One-based frame numbers, e.g. '1,4,9'. When filled, the "
+                            "node applies them immediately without pausing. Answering "
+                            "a pause fills this automatically so the next run repeats "
+                            "the choice headlessly; clear it to pause again."
+                        ),
+                    },
+                ),
+            },
             "hidden": {"unique_id": "UNIQUE_ID"},
         }
 
@@ -85,26 +127,48 @@ class AusBossFrameChooser:
     )
     FUNCTION = "choose"
 
-    def choose(self, frames, behavior, preview_max_size, unique_id=None):
+    def choose(
+        self,
+        frames,
+        behavior,
+        preview_max_size,
+        timeout_seconds=0,
+        on_timeout=TIMEOUT_KEEP_ALL,
+        pick_list="",
+        unique_id=None,
+    ):
         node_id = str(unique_id)
         frame_count = int(frames.shape[0])
-        previous = recall_selection(node_id)
 
-        selection = None
-        if behavior == BEHAVIOR_REMEMBER and previous is not None:
-            selection = usable_remembered(previous, frame_count)
+        # A filled pick_list is a headless pre-answer: no pause, no events.
+        selection = parse_pick_list(pick_list, frame_count)
         if selection is None:
-            files = write_thumbnails(frames, uuid.uuid4().hex[:12], int(preview_max_size))
-            preselect = usable_remembered(previous or [], frame_count)
-            selection = await_selection(node_id, frame_count, files, preselect)
-            selection = normalize_selection(selection, frame_count)
+            previous = recall_selection(node_id)
+            if behavior == BEHAVIOR_REMEMBER and previous is not None:
+                selection = usable_remembered(previous, frame_count)
+            if selection is None:
+                files = write_thumbnails(frames, uuid.uuid4().hex[:12], int(preview_max_size))
+                preselect = usable_remembered(previous or [], frame_count)
+                selection = await_selection(
+                    node_id,
+                    frame_count,
+                    files,
+                    preselect,
+                    int(timeout_seconds),
+                    str(on_timeout),
+                )
+                selection = normalize_selection(selection, frame_count)
         remember_selection(node_id, selection)
 
         kept = effective_indices(selection, frame_count)
         return (keep_frames(frames, selection), len(kept), indices_string(kept))
 
     @classmethod
-    def IS_CHANGED(cls, unique_id=None, **_inputs):
+    def IS_CHANGED(cls, pick_list="", unique_id=None, **_inputs):
+        # A filled pick_list answers headlessly and deterministically, so the
+        # run may cache: equivalent spellings share one stable fingerprint.
+        if str(pick_list or "").strip():
+            return pick_list_fingerprint(pick_list)
         key = str(unique_id)
         _RUN_COUNTERS[key] = _RUN_COUNTERS.get(key, 0) + 1
         return f"{key}:{_RUN_COUNTERS[key]}"

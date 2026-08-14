@@ -4,11 +4,22 @@ The pure functions at the top are covered by offline unit tests. Everything
 that talks to ComfyUI (thumbnail files, the websocket announcement, the
 answer route, the blocking wait) imports server modules lazily so this file
 stays importable without ComfyUI installed.
+
+Deciding a pause is deliberately not part of that: claim_pause and
+answer_pending take the store as an argument and touch no server module, so
+the races between a second click, a cancel chasing a continue, and the
+countdown expiring are all reachable from tests with real threads.
 """
 
 from __future__ import annotations
 
+import hashlib
+import hmac
+import math
+import re
+import secrets
 import threading
+import time
 from pathlib import Path
 
 import torch
@@ -22,6 +33,29 @@ except ImportError:  # Offline tests import this module without ComfyUI.
 POLL_SECONDS = 0.1
 THUMBNAIL_SUBFOLDER = "ausboss_chooser"
 EVENT_NAME = "ausboss-frame-choose"
+TICK_EVENT = "ausboss-frame-choose-tick"
+DONE_EVENT = "ausboss-frame-choose-done"
+
+TIMEOUT_KEEP_ALL = "keep all"
+TIMEOUT_KEEP_FIRST = "keep first"
+TIMEOUT_KEEP_LAST = "keep last"
+TIMEOUT_CANCEL = "cancel"
+TIMEOUT_POLICIES = [
+    TIMEOUT_KEEP_ALL,
+    TIMEOUT_KEEP_FIRST,
+    TIMEOUT_KEEP_LAST,
+    TIMEOUT_CANCEL,
+]
+
+# The three ways a pause can end. Exactly one is ever recorded against it.
+RESOLVED_CONTINUE = "continue"
+RESOLVED_CANCEL = "cancel"
+RESOLVED_TIMEOUT = "timeout"
+
+ALREADY_RESOLVED = (
+    "This Frame Chooser pause was already resolved - the answer that got "
+    "there first stands."
+)
 
 
 # --- pure selection logic ----------------------------------------------------
@@ -97,6 +131,79 @@ def indices_string(one_based: list[int]) -> str:
     return ",".join(str(value) for value in one_based)
 
 
+def _pick_tokens(text) -> list[str]:
+    """Split a pick_list string on commas and whitespace, dropping blanks."""
+    if text is None:
+        return []
+    return [token for token in re.split(r"[,\s]+", str(text).strip()) if token]
+
+
+def parse_pick_list(text, frame_count: int) -> list[int] | None:
+    """Turn the pick_list widget into a pre-answered selection.
+
+    Returns None when the widget is empty (the node should pause as usual)
+    and the validated one-based selection otherwise, deduplicated and
+    ascending exactly like an answer from the browser route. Any token that
+    is not a frame number inside this batch raises, so a typo fails the run
+    loudly instead of silently keeping the wrong frames."""
+    tokens = _pick_tokens(text)
+    if not tokens:
+        return None
+    values: list[int] = []
+    for token in tokens:
+        if not token.isdigit():
+            raise ValueError(
+                f"pick_list entry '{token}' is not a one-based frame number."
+            )
+        values.append(int(token))
+    return normalize_selection(values, frame_count)
+
+
+def pick_list_fingerprint(text) -> str:
+    """Stable IS_CHANGED value for a non-empty pick_list.
+
+    Equivalent spellings ('1, 4, 9' vs '4 1 9 9') share one fingerprint, so
+    a headless pre-answered run caches instead of re-executing every queue."""
+    tokens = _pick_tokens(text)
+    if tokens and all(token.isdigit() for token in tokens):
+        canonical = ",".join(str(value) for value in sorted({int(t) for t in tokens}))
+    else:
+        canonical = ",".join(tokens)
+    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return f"picks:{digest}"
+
+
+def token_matches(expected, supplied) -> bool:
+    """True only when a response carries this pause's own token.
+
+    Both sides must be non-empty strings; comparison is constant-time. A
+    stale panel (earlier pause, second tab left behind, reloaded page that
+    never re-fetched) fails this check and can never resolve the wrong
+    pause."""
+    if not isinstance(expected, str) or not isinstance(supplied, str):
+        return False
+    if not expected or not supplied:
+        return False
+    return hmac.compare_digest(expected, supplied)
+
+
+def resolve_timeout_policy(policy: str, frame_count: int) -> list[int] | None:
+    """Selection applied when a paused chooser's countdown expires.
+
+    Returns a one-based selection ([] = keep all), or None for the cancel
+    policy, which the caller turns into a queue interrupt. Unknown policy
+    strings fall back to keep-all: an expired timer must never guess a
+    destructive answer."""
+    count = int(frame_count)
+    if policy == TIMEOUT_CANCEL:
+        return None
+    if policy == TIMEOUT_KEEP_FIRST:
+        return [1] if count >= 1 else []
+    if policy == TIMEOUT_KEEP_LAST:
+        return [count] if count >= 1 else []
+    return []
+
+
 # --- thumbnails ---------------------------------------------------------------
 
 def write_thumbnails(frames: torch.Tensor, run_token: str, max_size: int) -> list[dict]:
@@ -137,13 +244,115 @@ def write_thumbnails(frames: torch.Tensor, run_token: str, max_size: int) -> lis
 class _PendingChoice:
     """One paused Frame Chooser execution awaiting a browser answer."""
 
-    __slots__ = ("event", "frame_count", "selection", "cancelled")
+    __slots__ = ("event", "frame_count", "resolution", "payload", "deadline", "token")
 
-    def __init__(self, frame_count: int):
+    def __init__(
+        self,
+        frame_count: int,
+        payload: dict | None = None,
+        deadline: float | None = None,
+        token: str = "",
+    ):
         self.event = threading.Event()
         self.frame_count = int(frame_count)
-        self.selection: list[int] | None = None
-        self.cancelled = False
+        # The single terminal outcome, written exactly once by claim_pause:
+        # (RESOLVED_*, selection) once some path has ended this pause, None
+        # while it is still waiting.
+        self.resolution: tuple[str, list[int] | None] | None = None
+        # The announce payload is kept so /pending can re-serve it after a
+        # page reload; the deadline lets that route report a live countdown.
+        self.payload = dict(payload) if payload else {}
+        self.deadline = deadline
+        # Per-pause random token: answers must echo it, so a stale panel or
+        # second tab can never resolve a pause it was not shown.
+        self.token = str(token)
+
+
+def new_store() -> dict:
+    """A fresh chooser store: the pending pauses, the remembered picks, and
+    the one lock every terminal decision is taken under."""
+    return {"pending": {}, "remembered": {}, "lock": threading.Lock()}
+
+
+def claim_pause(store: dict, pending, outcome: str, selection=None) -> bool:
+    """Record the one terminal outcome a paused chooser is allowed.
+
+    Continue, cancel and the expiring countdown all race for the same pause:
+    two clicks a frame apart, Escape chasing Enter, a POST landing as the
+    timer runs out, a node deleted mid-request. The winner is whichever path
+    reaches this first while holding ``store["lock"]``; every later claim
+    returns False and must then change nothing - not the selection, not the
+    result it reports back. The waiter is woken after the lock is released so
+    it never has to queue behind the claimer to read what was decided."""
+    with store["lock"]:
+        if pending.resolution is not None:
+            return False
+        pending.resolution = (
+            str(outcome),
+            list(selection) if selection is not None else None,
+        )
+    pending.event.set()
+    return True
+
+
+def read_resolution(store: dict, pending) -> tuple[str, list[int] | None]:
+    """How a pause ended, read under the lock that wrote it.
+
+    An unresolved pause reads as a cancel: the only way to reach here without
+    a claim is the wait loop unwinding, and releasing a graph on a selection
+    nobody chose would be worse than stopping."""
+    with store["lock"]:
+        return pending.resolution or (RESOLVED_CANCEL, None)
+
+
+def resumable_pauses(store: dict) -> list:
+    """The pauses a reloaded page should re-render.
+
+    A resolved pause lingers in the map until its waiter unwinds; re-serving
+    it would hand the page a panel whose only possible answer is 410."""
+    with store["lock"]:
+        return [p for p in store["pending"].values() if p.resolution is None]
+
+
+def answer_pending(store: dict, node_id, data: dict) -> tuple[int, dict]:
+    """Decide one POST to the answer route; returns (status, body).
+
+    Split out of the aiohttp handler so the races it has to survive are
+    reachable from offline tests with real threads. A pause that is already
+    resolved answers 410 rather than a second success: the browser that lost
+    the race must never be told its answer is the one that took effect."""
+    key = str(node_id)
+    with store["lock"]:
+        pending = store["pending"].get(key)
+    if pending is None:
+        return 404, {"error": "No Frame Chooser is paused under that id."}
+    if not token_matches(pending.token, data.get("token")):
+        return 409, {
+            "error": (
+                "This Frame Chooser answer belongs to an older pause. "
+                "Refresh the page and answer the currently paused panel."
+            )
+        }
+    action = data.get("action", "")
+    if action == "cancel":
+        if not claim_pause(store, pending, RESOLVED_CANCEL):
+            return 410, {"error": ALREADY_RESOLVED}
+        return 200, {"status": "cancelled"}
+    if action == "continue":
+        try:
+            selection = normalize_selection(data.get("selected", []), pending.frame_count)
+        except ValueError as exc:
+            # Rejected before any claim, so a malformed answer leaves the
+            # pause open: a corrected one - or the cancel a deleted node
+            # sends - can still release the graph.
+            return 400, {"error": str(exc)}
+        if not claim_pause(store, pending, RESOLVED_CONTINUE, selection):
+            return 410, {"error": ALREADY_RESOLVED}
+        return 200, {
+            "status": "continued",
+            "kept": len(effective_indices(selection, pending.frame_count)),
+        }
+    return 400, {"error": "Action must be 'continue' or 'cancel'."}
 
 
 def _store() -> dict:
@@ -154,7 +363,7 @@ def _store() -> dict:
     server = PromptServer.instance
     store = getattr(server, "_ausboss_frame_chooser", None)
     if store is None:
-        store = {"pending": {}, "remembered": {}, "lock": threading.Lock()}
+        store = new_store()
         server._ausboss_frame_chooser = store
     return store
 
@@ -174,44 +383,133 @@ def remember_selection(node_id: str, selection: list[int]) -> None:
 
 
 def await_selection(
-    node_id: str, frame_count: int, files: list[dict], previous: list[int] | None
+    node_id: str,
+    frame_count: int,
+    files: list[dict],
+    previous: list[int] | None,
+    timeout_seconds: int = 0,
+    on_timeout: str = TIMEOUT_KEEP_ALL,
 ) -> list[int]:
     """Announce the pause to the browser and block until it answers.
 
     Returns the validated one-based selection ([] = keep all). Raises
     InterruptProcessingException when the browser cancels or the queue is
-    interrupted, so ComfyUI unwinds the run exactly like pressing stop."""
+    interrupted, so ComfyUI unwinds the run exactly like pressing stop.
+
+    With timeout_seconds > 0 the wait also arms a countdown: once per second
+    a TICK_EVENT ({node_id, remaining}) refreshes the panel's timer, and on
+    expiry the on_timeout policy answers instead of the browser (the cancel
+    policy raises the same interrupt as pressing stop)."""
     import comfy.model_management as model_management
     from server import PromptServer
 
     store = _store()
     key = str(node_id)
-    pending = _PendingChoice(frame_count)
+    count = int(frame_count)
+    deadline = None
+    if int(timeout_seconds) > 0:
+        deadline = time.monotonic() + int(timeout_seconds)
+    payload = {
+        "node_id": key,
+        "token": secrets.token_urlsafe(24),
+        "urls": files,
+        "count": count,
+        "previous": list(previous) if previous else [],
+        "timeout_seconds": int(timeout_seconds),
+        "on_timeout": str(on_timeout),
+    }
+    pending = _PendingChoice(
+        count,
+        payload=payload,
+        deadline=deadline,
+        token=payload["token"],
+    )
     with store["lock"]:
         store["pending"][key] = pending
     try:
-        PromptServer.instance.send_sync(
-            EVENT_NAME,
-            {
-                "node_id": key,
-                "urls": files,
-                "count": int(frame_count),
-                "previous": list(previous) if previous else [],
-            },
-        )
+        PromptServer.instance.send_sync(EVENT_NAME, payload)
+        last_tick = None
         while not pending.event.wait(POLL_SECONDS):
             if model_management.processing_interrupted():
+                # Stopping the queue outranks the panel. Claim first so an
+                # answer landing in this same instant is told the pause is
+                # gone instead of that it succeeded, then unwind either way:
+                # a graph the user stopped must not run on regardless of who
+                # reached the claim.
+                claim_pause(store, pending, RESOLVED_CANCEL)
                 raise model_management.InterruptProcessingException()
-        if pending.cancelled:
+            if deadline is None:
+                continue
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                fallback = resolve_timeout_policy(str(on_timeout), count)
+                # Losing this claim is not an error: an answer arrived as the
+                # timer expired, and the read below reports whichever outcome
+                # the store actually recorded.
+                claim_pause(
+                    store,
+                    pending,
+                    RESOLVED_TIMEOUT if fallback is not None else RESOLVED_CANCEL,
+                    fallback,
+                )
+                break
+            whole = math.ceil(remaining)
+            if whole != last_tick:
+                last_tick = whole
+                PromptServer.instance.send_sync(
+                    TICK_EVENT,
+                    {"node_id": key, "token": pending.token, "remaining": whole},
+                )
+        outcome, selection = read_resolution(store, pending)
+        if outcome == RESOLVED_CANCEL:
             raise model_management.InterruptProcessingException()
-        return list(pending.selection or [])
+        answer = list(selection or [])
+        # Every open tab hears how the pause resolved: stale panels release
+        # and the pick_list widget receives the answer for headless reruns.
+        _send_done(
+            key,
+            pending.token,
+            answer,
+            count,
+            "timeout" if outcome == RESOLVED_TIMEOUT else "answered",
+        )
+        return answer
     finally:
         with store["lock"]:
-            store["pending"].pop(key, None)
+            # Only this run's own pause: a re-queue can already have put a
+            # fresh one under the same node id.
+            if store["pending"].get(key) is pending:
+                del store["pending"][key]
+
+
+def _send_done(
+    node_id: str,
+    token: str,
+    selection: list[int],
+    frame_count: int,
+    reason: str,
+) -> None:
+    """Tell every open tab how a pause resolved (panel release + writeback)."""
+    from server import PromptServer
+
+    kept = effective_indices(list(selection), int(frame_count))
+    PromptServer.instance.send_sync(
+        DONE_EVENT,
+        {
+            "node_id": str(node_id),
+            "token": str(token),
+            "indices": indices_string(kept),
+            "kept": len(kept),
+            "count": int(frame_count),
+            "reason": str(reason),
+        },
+    )
 
 
 def register_chooser_route() -> None:
-    """POST /ausboss/frame_chooser answers or cancels a paused chooser."""
+    """POST /ausboss/frame_chooser answers or cancels a paused chooser;
+    GET /ausboss/frame_chooser/pending lists the pauses a reloaded page
+    must re-render."""
     try:
         from aiohttp import web
         from server import PromptServer
@@ -222,53 +520,60 @@ def register_chooser_route() -> None:
         return
     server._ausboss_chooser_route = True
 
+    @server.routes.get("/ausboss/frame_chooser/pending")
+    async def ausboss_frame_chooser_pending(request):
+        waiting = resumable_pauses(_store())
+        now = time.monotonic()
+        entries = []
+        for pending in waiting:
+            entry = dict(pending.payload)
+            if pending.deadline is not None:
+                entry["remaining"] = max(0, math.ceil(pending.deadline - now))
+            entries.append(entry)
+        return web.json_response({"pending": entries})
+
     @server.routes.post("/ausboss/frame_chooser")
     async def ausboss_frame_chooser(request):
         try:
             data = await request.json()
         except Exception:
             return web.json_response({"error": "The request body must be JSON."}, status=400)
-        node_id = str(data.get("node_id", ""))
-        action = data.get("action", "")
-        store = _store()
-        with store["lock"]:
-            pending = store["pending"].get(node_id)
-        if pending is None:
-            return web.json_response(
-                {"error": "No Frame Chooser is paused under that id."}, status=404
-            )
-        if action == "cancel":
-            pending.cancelled = True
-            pending.event.set()
-            return web.json_response({"status": "cancelled"})
-        if action == "continue":
-            try:
-                selection = normalize_selection(data.get("selected", []), pending.frame_count)
-            except ValueError as exc:
-                return web.json_response({"error": str(exc)}, status=400)
-            pending.selection = selection
-            pending.event.set()
-            return web.json_response(
-                {
-                    "status": "continued",
-                    "kept": len(effective_indices(selection, pending.frame_count)),
-                }
-            )
-        return web.json_response({"error": "Action must be 'continue' or 'cancel'."}, status=400)
+        status, body = answer_pending(_store(), data.get("node_id", ""), data)
+        return web.json_response(body, status=status)
 
 
 __all__ = [
+    "ALREADY_RESOLVED",
+    "DONE_EVENT",
     "EVENT_NAME",
     "POLL_SECONDS",
+    "RESOLVED_CANCEL",
+    "RESOLVED_CONTINUE",
+    "RESOLVED_TIMEOUT",
     "THUMBNAIL_SUBFOLDER",
+    "TICK_EVENT",
+    "TIMEOUT_CANCEL",
+    "TIMEOUT_KEEP_ALL",
+    "TIMEOUT_KEEP_FIRST",
+    "TIMEOUT_KEEP_LAST",
+    "TIMEOUT_POLICIES",
+    "answer_pending",
     "await_selection",
+    "claim_pause",
     "effective_indices",
     "indices_string",
     "keep_frames",
+    "new_store",
     "normalize_selection",
+    "parse_pick_list",
+    "pick_list_fingerprint",
+    "read_resolution",
     "recall_selection",
     "register_chooser_route",
     "remember_selection",
+    "resumable_pauses",
+    "resolve_timeout_policy",
+    "token_matches",
     "usable_remembered",
     "write_thumbnails",
 ]
