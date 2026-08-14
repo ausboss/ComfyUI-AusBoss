@@ -12,7 +12,8 @@ exactly one saved-video surface per node.
 ## Controls
 
 - **frames**: BHWC frame batch to encode. Odd dimensions are cropped down one
-  pixel to the even sizes H.264 requires.
+  pixel to the even sizes H.264 requires. Optional only because a connected
+  `video` brings its own frames — connect one or the other.
 - **fps**: Playback frame rate. Wire Load Video's `fps` output to keep the
   source timing, including fractional rates like 29.97.
 - **filename_prefix**: Path under the output folder; subfolders are created

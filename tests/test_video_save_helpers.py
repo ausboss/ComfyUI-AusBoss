@@ -191,7 +191,7 @@ class SaveVideoHelperTests(unittest.TestCase):
             patch.object(node_save_video, "encode_video", return_value=(576, 1024, 188)),
         ):
             result = run_node(node_save_video.AusBossSaveVideo().save(
-                gradient_batch(1, 32, 32), 24.0, "AusBoss/video", 19
+                frames=gradient_batch(1, 32, 32), fps=24.0, filename_prefix="AusBoss/video", crf=19
             ))
 
         self.assertEqual(result["ui"]["images"], [{
@@ -262,7 +262,8 @@ class CoreVideoInputTests(unittest.TestCase):
             ) as encode,
         ):
             result = run_node(node_save_video.AusBossSaveVideo().save(
-                gradient_batch(1, 8, 8), 16.0, "AusBoss/video", 19, video=connected
+                frames=gradient_batch(1, 8, 8), fps=16.0, filename_prefix="AusBoss/video", crf=19,
+                video=connected,
             ))
 
         _path, encoded_frames, encoded_fps, encoded_audio, _crf, _metadata = encode.call_args.args
@@ -279,18 +280,53 @@ class CoreVideoInputTests(unittest.TestCase):
                 node_save_video, "encode_video", return_value=(8, 8, 2)
             ) as encode,
         ):
-            run_node(node_save_video.AusBossSaveVideo().save(images, 12.0, "AusBoss/video", 19))
+            run_node(node_save_video.AusBossSaveVideo().save(
+                frames=images, fps=12.0, filename_prefix="AusBoss/video", crf=19
+            ))
 
         _path, encoded_frames, encoded_fps, _audio, _crf, _metadata = encode.call_args.args
         self.assertIs(encoded_frames, images)
         self.assertAlmostEqual(encoded_fps, 12.0)
 
-    def test_the_video_input_is_optional_and_declared_after_audio(self):
-        optional = node_save_video.AusBossSaveVideo.INPUT_TYPES()["optional"]
-        self.assertEqual(list(optional), ["audio", "video"])
-        self.assertEqual(optional["video"][0], "VIDEO")
-        required = node_save_video.AusBossSaveVideo.INPUT_TYPES()["required"]
-        self.assertEqual(list(required), ["frames", "fps", "filename_prefix", "crf"])
+    def test_the_link_slot_order_saved_workflows_rely_on_is_unchanged(self):
+        # Saved workflows address inputs by slot index, and the frontend numbers
+        # them by walking required then optional and keeping the link types. A
+        # connected video carries its own frames, so frames leads the optional
+        # group rather than sitting in required — the slot order must not move.
+        spec = node_save_video.AusBossSaveVideo.INPUT_TYPES()
+        widget_types = {"INT", "FLOAT", "STRING", "BOOLEAN"}
+        sockets = [
+            name
+            for group in ("required", "optional")
+            for name, definition in spec.get(group, {}).items()
+            if isinstance(definition[0], str) and definition[0] not in widget_types
+        ]
+        self.assertEqual(sockets, ["frames", "audio", "video"])
+        self.assertEqual(spec["optional"]["frames"][0], "IMAGE")
+        self.assertEqual(spec["optional"]["video"][0], "VIDEO")
+        self.assertEqual(list(spec["required"]), ["fps", "filename_prefix", "crf"])
+
+    def test_a_video_alone_encodes_without_a_frames_connection(self):
+        images = gradient_batch(4, 16, 16)
+        connected = FakeCoreVideo(images, None, Fraction(12, 1))
+        with (
+            patch.object(node_save_video, "folder_paths", FakeFolderPaths),
+            patch.object(node_save_video, "encode_video", return_value=(16, 16, 4)) as encode,
+        ):
+            run_node(node_save_video.AusBossSaveVideo().save(
+                fps=16.0, filename_prefix="AusBoss/video", crf=19, video=connected
+            ))
+
+        _path, encoded_frames, encoded_fps, _audio, _crf, _metadata = encode.call_args.args
+        self.assertIs(encoded_frames, images)
+        self.assertAlmostEqual(encoded_fps, 12.0)
+
+    def test_neither_frames_nor_video_reports_what_to_connect(self):
+        with patch.object(node_save_video, "folder_paths", FakeFolderPaths):
+            with self.assertRaisesRegex(ValueError, "frames batch or a video"):
+                run_node(node_save_video.AusBossSaveVideo().save(
+                    fps=16.0, filename_prefix="AusBoss/video", crf=19
+                ))
 
 
 class AsyncSaveTests(unittest.TestCase):
@@ -323,7 +359,8 @@ class AsyncSaveTests(unittest.TestCase):
                     patch.object(node_save_video, "encode_video", slow_encode),
                 ):
                     await node_save_video.AusBossSaveVideo().save(
-                        gradient_batch(1, 32, 32), 24.0, "AusBoss/video", 19
+                        frames=gradient_batch(1, 32, 32), fps=24.0,
+                        filename_prefix="AusBoss/video", crf=19,
                     )
             finally:
                 beat.cancel()

@@ -35,10 +35,6 @@ class AusBossSaveVideo:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "frames": (
-                    "IMAGE",
-                    {"tooltip": "BHWC frame batch to encode."},
-                ),
                 "fps": (
                     "FLOAT",
                     {
@@ -71,7 +67,15 @@ class AusBossSaveVideo:
                     },
                 ),
             },
+            # frames leads the optional group so the socket order the frontend
+            # draws — frames, audio, video — is the order saved workflows
+            # already link against. It is optional only because a connected
+            # video carries its own frames; one of the two must be present.
             "optional": {
+                "frames": (
+                    "IMAGE",
+                    {"tooltip": "BHWC frame batch to encode. Not needed when a video is connected."},
+                ),
                 "audio": (
                     "AUDIO",
                     {"tooltip": "Optional track muxed into the file, e.g. Load Video's audio output."},
@@ -96,7 +100,7 @@ class AusBossSaveVideo:
     FUNCTION = "save"
 
     async def save(
-        self, frames, fps, filename_prefix, crf, audio=None, video=None, prompt=None, extra_pnginfo=None
+        self, fps, filename_prefix, crf, frames=None, audio=None, video=None, prompt=None, extra_pnginfo=None
     ):
         if folder_paths is None:
             raise RuntimeError("Save Video requires ComfyUI's folder_paths at runtime.")
@@ -111,6 +115,10 @@ class AusBossSaveVideo:
             fps, notice = resolve_encode_fps(float(fps), video_fps)
             if notice:
                 print(notice)
+        elif frames is None:
+            raise ValueError(
+                "Save Video: connect either a frames batch or a video to encode."
+            )
         full_output_folder, filename, counter, subfolder, filename_prefix = (
             folder_paths.get_save_image_path(
                 filename_prefix,
