@@ -8,6 +8,8 @@ from pathlib import Path
 import torch
 import torch.nn.functional as functional
 
+from ._status_helpers import push_node_status
+
 try:
     import folder_paths
 except ImportError:  # Offline tests import this module without ComfyUI.
@@ -162,6 +164,7 @@ def inpaint_with_model(
     masks: torch.Tensor,
     model,
     device: torch.device,
+    node_id=None,
 ) -> torch.Tensor:
     """Run one frame at a time and preserve pixels where the mask is zero."""
     _validate_images(images)
@@ -213,19 +216,24 @@ def inpaint_with_model(
                     detail = str(exc).encode("ascii", "replace").decode("ascii")
                     print(f"[AusBoss] LaMa frame previews unavailable: {detail}")
             progress.update_absolute(index + 1, image_count, preview)
+        # Same cadence as the progress bar, but on the node's own badge, so a
+        # long video inpaint says which frame it is on without the sidebar.
+        push_node_status(
+            node_id, f"frame {index + 1}/{image_count}", (index + 1) / image_count
+        )
 
     return torch.stack(outputs, dim=0)
 
 
 def run_lama_inpaint(
-    images: torch.Tensor, masks: torch.Tensor, model_name: str
+    images: torch.Tensor, masks: torch.Tensor, model_name: str, node_id=None
 ) -> torch.Tensor:
     model_path = resolve_lama_model(model_name)
     device = comfy_torch_device()
     model = load_lama_model(str(model_path))
     model.to(device)
     try:
-        return inpaint_with_model(images, masks, model, device)
+        return inpaint_with_model(images, masks, model, device, node_id)
     finally:
         if device.type != "cpu":
             model.to(torch.device("cpu"))

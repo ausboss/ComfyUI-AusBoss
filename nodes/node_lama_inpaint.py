@@ -43,7 +43,12 @@ class AusBossLaMaInpaint:
                         "tooltip": "TorchScript LaMa checkpoint from ComfyUI/models/lama.",
                     },
                 ),
-            }
+            },
+            # The executor injects the node's graph id here for the live frame
+            # badge. Hidden entries never become widgets or sockets, so the
+            # visible inputs and the saved widgets_values are unchanged;
+            # declaring UNIQUE_ID does add the node id to the cache signature.
+            "hidden": {"unique_id": "UNIQUE_ID"},
         }
 
     RETURN_TYPES = ("IMAGE",)
@@ -53,8 +58,8 @@ class AusBossLaMaInpaint:
     )
     FUNCTION = "inpaint"
 
-    def inpaint(self, image, mask, model):
-        return (run_lama_inpaint(image, mask, model),)
+    def inpaint(self, image, mask, model, unique_id=None):
+        return (run_lama_inpaint(image, mask, model, node_id=unique_id),)
 
     @classmethod
     def VALIDATE_INPUTS(cls, model, **_values):
