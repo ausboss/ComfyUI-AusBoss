@@ -4,11 +4,15 @@ import test from "node:test";
 import {
   CLICK_COOLDOWN_MS,
   allFrames,
+  answerIsStale,
+  beginSubmission,
   cancelPayload,
   chooserKeyAction,
+  clearSubmission,
   clickLocked,
   continuePayload,
   countdownText,
+  endSubmission,
   isTypingTarget,
   noFrames,
   pauseNoticeText,
@@ -16,6 +20,7 @@ import {
   selectionSummary,
   shouldNotifyPause,
   sortedFrames,
+  submissionAllowed,
   toggleFrame,
   validFrames,
 } from "../js/shared/frame_chooser.mjs";
@@ -151,6 +156,135 @@ test("panel rects decide visibility, and unreadable ones assume visible", () => 
   assert.equal(rectOnScreen(null, viewport), true);
   assert.equal(rectOnScreen({ left: 0, top: 0, width: 10, height: 10 }, null), true);
   assert.equal(rectOnScreen({ left: 0, top: 0, width: 10, height: 10 }, { width: NaN }), true);
+});
+
+// The answer path from js/frame_chooser/index.js, minus the DOM and the fetch:
+// take the latch, post, release, then drop a reply the panel has moved past.
+// `submit` hands back a `settle` so a test can land replies late or out of
+// order, which is exactly how the double-submit race used to bite.
+function pausedPanel({ token = "pause-a", id = "7" } = {}) {
+  return {
+    active: true,
+    activeId: id,
+    activeToken: token,
+    submitting: false,
+    submitSeq: 0,
+    summary: "Paused - 0 of 8 selected",
+  };
+}
+
+function submit(panel) {
+  const ticket = beginSubmission(panel);
+  if (!ticket) return { accepted: false, settle: null };
+  const settle = (reply) => {
+    endSubmission(panel, ticket);
+    if (answerIsStale(ticket, panel)) return "ignored";
+    if (reply.ok) {
+      panel.active = false; // resolvePanel
+      panel.summary = reply.message;
+      return "applied";
+    }
+    panel.summary = `Answer failed: ${reply.error}`;
+    return "failed";
+  };
+  return { accepted: true, settle };
+}
+
+test("a burst of answers puts exactly one submission on the wire", () => {
+  const panel = pausedPanel();
+  const attempts = [submit(panel), submit(panel), submit(panel), submit(panel)];
+  assert.equal(attempts.filter((attempt) => attempt.accepted).length, 1);
+  assert.equal(attempts[0].accepted, true);
+});
+
+test("the latch holds every path until the answer in flight settles", () => {
+  const panel = pausedPanel();
+  assert.equal(submissionAllowed(panel), true);
+  const first = submit(panel);
+  assert.equal(first.accepted, true);
+  // Keep all, Cancel, Enter, Escape - whichever asks next, the answer is out.
+  assert.equal(submissionAllowed(panel), false);
+  assert.equal(submit(panel).accepted, false);
+  assert.equal(first.settle({ ok: true, message: "Continuing with 3 of 8 frames." }), "applied");
+  // The latch is free again, but the pause it answered is over.
+  assert.equal(panel.submitting, false);
+  assert.equal(submissionAllowed(panel), false);
+  assert.equal(submit(panel).accepted, false);
+});
+
+test("a failed answer clears the latch so the retry can go out", () => {
+  const panel = pausedPanel();
+  const first = submit(panel);
+  assert.equal(first.settle({ ok: false, error: "NetworkError" }), "failed");
+  assert.equal(panel.summary, "Answer failed: NetworkError");
+  assert.equal(panel.submitting, false);
+  assert.equal(panel.active, true);
+  const retry = submit(panel);
+  assert.equal(retry.accepted, true);
+  assert.equal(retry.settle({ ok: true, message: "Continuing with 8 of 8 frames." }), "applied");
+  assert.equal(panel.summary, "Continuing with 8 of 8 frames.");
+});
+
+test("a rejection that lands late never paints over the answer that worked", () => {
+  const panel = pausedPanel();
+  const first = submit(panel);
+  // The done event (another tab, or a countdown that expired) resolves the
+  // pause while this request is still out; its 409 must not be believed.
+  panel.active = false;
+  panel.summary = "Continuing with 3 of 8 frames.";
+  assert.equal(first.settle({ ok: false, error: "HTTP 409" }), "ignored");
+  assert.equal(panel.summary, "Continuing with 3 of 8 frames.");
+});
+
+test("a stale success cannot re-resolve a pause that already finished", () => {
+  const panel = pausedPanel();
+  const first = submit(panel);
+  panel.active = false;
+  panel.summary = "Timed out - continuing with 8 of 8 frames.";
+  assert.equal(first.settle({ ok: true, message: "Continuing with 3 of 8 frames." }), "ignored");
+  assert.equal(panel.summary, "Timed out - continuing with 8 of 8 frames.");
+});
+
+test("a reply for the previous pause cannot answer or unlatch the new one", () => {
+  const panel = pausedPanel({ token: "pause-a" });
+  const first = submit(panel);
+  // A second pause lands on this node while the first answer is in flight.
+  panel.activeToken = "pause-b";
+  panel.summary = "Paused - 0 of 5 selected";
+  clearSubmission(panel);
+  const second = submit(panel);
+  assert.equal(second.accepted, true);
+  assert.equal(first.settle({ ok: true, message: "Continuing with 3 of 8 frames." }), "ignored");
+  assert.equal(panel.active, true);
+  assert.equal(panel.summary, "Paused - 0 of 5 selected");
+  assert.equal(panel.submitting, true); // the older reply left this latch alone
+  assert.equal(second.settle({ ok: true, message: "Continuing with 2 of 5 frames." }), "applied");
+  assert.equal(panel.summary, "Continuing with 2 of 5 frames.");
+});
+
+test("staleness weighs the pause a reply was posted for against the live panel", () => {
+  const ticket = { seq: 1, id: "7", token: "pause-a" };
+  const live = { active: true, activeId: "7", activeToken: "pause-a" };
+  assert.equal(answerIsStale(ticket, live), false);
+  assert.equal(answerIsStale(ticket, { ...live, active: false }), true);
+  assert.equal(answerIsStale(ticket, { ...live, activeToken: "pause-b" }), true);
+  // A duplicate or subgraph re-key moves the panel to another node id.
+  assert.equal(answerIsStale(ticket, { ...live, activeId: "9" }), true);
+  assert.equal(answerIsStale(null, live), true);
+  assert.equal(answerIsStale(ticket, null), true);
+});
+
+test("an idle panel has nothing to answer", () => {
+  assert.equal(submissionAllowed({ active: false, submitting: false }), false);
+  assert.equal(submissionAllowed(null), false);
+  assert.equal(beginSubmission({ active: false }), null);
+  // A reply can only release the submission still holding the latch.
+  const panel = pausedPanel();
+  const ticket = beginSubmission(panel);
+  assert.equal(endSubmission(panel, { ...ticket, seq: ticket.seq + 1 }), false);
+  assert.equal(panel.submitting, true);
+  assert.equal(endSubmission(panel, ticket), true);
+  assert.equal(panel.submitting, false);
 });
 
 test("the pause notice names the node and the batch", () => {

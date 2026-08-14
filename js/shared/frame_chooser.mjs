@@ -58,6 +58,59 @@ export function cancelPayload(nodeId, token) {
   return { node_id: nodeId, token, action: "cancel" };
 }
 
+// One answer at a time. Every path that can post - the buttons, the keyboard,
+// the cancel a deleted node sends - asks this first, so two quick Enters (or a
+// click chased by an Enter) cannot put the same token on the wire twice and
+// collect a rejection for the duplicate.
+export function submissionAllowed(state) {
+  if (!state || state.active !== true) return false;
+  return state.submitting !== true;
+}
+
+// Takes the latch and returns the ticket the reply must be matched against:
+// which pause was answered, and which submission this was. Returns null when
+// the guard refuses, and the caller then simply does not post.
+export function beginSubmission(state) {
+  if (!submissionAllowed(state)) return null;
+  const seq = (Number(state.submitSeq) || 0) + 1;
+  state.submitting = true;
+  state.submitSeq = seq;
+  return {
+    seq,
+    id: String(state.activeId ?? ""),
+    token: String(state.activeToken ?? ""),
+  };
+}
+
+// Releases the latch for the submission still holding it, whether the request
+// succeeded or failed, so a genuine network failure can be retried. A reply
+// from a superseded submission leaves the current one latched.
+export function endSubmission(state, ticket) {
+  if (!state || !ticket) return false;
+  if ((Number(state.submitSeq) || 0) !== ticket.seq) return false;
+  state.submitting = false;
+  return true;
+}
+
+// A fresh pause starts unlatched: anything still in flight was aimed at the
+// pause that just went away, and its reply is stale by definition.
+export function clearSubmission(state) {
+  if (!state) return;
+  state.submitting = false;
+}
+
+// True when a reply must be dropped rather than applied, because the panel has
+// moved on since it was posted: the pause was resolved (timeout, another tab,
+// the run stopping) or a new pause took the panel over. Dropping is what keeps
+// a late rejection from painting "Answer failed" over the result of the
+// request that actually worked.
+export function answerIsStale(ticket, state) {
+  if (!ticket || !state) return true;
+  if (state.active !== true) return true;
+  if (String(state.activeId ?? "") !== ticket.id) return true;
+  return String(state.activeToken ?? "") !== ticket.token;
+}
+
 // A pause can appear under a pointer already on its way down, so a freshly
 // shown panel ignores clicks for this long: a click aimed at the canvas must
 // never answer a filmstrip that just popped up.

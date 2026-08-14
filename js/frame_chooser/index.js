@@ -4,11 +4,15 @@ import { BRAND, chainCallback, notifyAusbossChange } from "../shared/index.mjs";
 import { ensureVideoCss, makeToolButton } from "../shared/video_ui.mjs";
 import {
   allFrames,
+  answerIsStale,
+  beginSubmission,
   cancelPayload,
   chooserKeyAction,
+  clearSubmission,
   clickLocked,
   continuePayload,
   countdownText,
+  endSubmission,
   isTypingTarget,
   noFrames,
   pauseNoticeText,
@@ -83,11 +87,14 @@ function updateFace(state) {
       (countdown ? ` - ${countdown}` : "");
   }
   const idle = !state.active;
-  state.keepButton.disabled = idle || state.selected.size === 0;
-  state.keepAllButton.disabled = idle;
-  state.cancelButton.disabled = idle;
-  state.allButton.disabled = idle;
-  state.noneButton.disabled = idle;
+  // An answer already on the wire takes the controls with it: the pause is
+  // spoken for until the reply lands.
+  const busy = idle || state.submitting === true;
+  state.keepButton.disabled = busy || state.selected.size === 0;
+  state.keepAllButton.disabled = busy;
+  state.cancelButton.disabled = busy;
+  state.allButton.disabled = busy;
+  state.noneButton.disabled = busy;
   state.root.classList.toggle("is-idle", idle);
 }
 
@@ -115,20 +122,39 @@ function findState(nodeId) {
   return state;
 }
 
+// The one door every answer leaves by. The latch serialises the paths that can
+// post - buttons, keys, the cancel a deleted node sends - so a rapid second
+// answer never repeats a token the server has already spent. The reply is then
+// matched against the pause it was posted for: one that lands after a timeout,
+// after another tab answered, or after a new pause took this node over is
+// dropped, so a late rejection cannot overwrite the result that did land.
 async function postAnswer(state, payload) {
+  const ticket = beginSubmission(state);
+  if (!ticket) return null; // an answer for this pause is already on its way
+  updateFace(state);
+  let data = null;
+  let failure = "";
   try {
     const response = await api.fetchApi("/ausboss/frame_chooser", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data?.error || `HTTP ${response.status}`);
-    return data;
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body?.error || `HTTP ${response.status}`);
+    data = body;
   } catch (error) {
-    state.summary.textContent = `Answer failed: ${error?.message || error}`;
+    failure = String(error?.message || error);
+  }
+  // Release first, and repaint either way: a panel that moved to a new pause
+  // while this was in flight must get its controls back.
+  if (endSubmission(state, ticket)) updateFace(state);
+  if (answerIsStale(ticket, state)) return null;
+  if (failure) {
+    state.summary.textContent = `Answer failed: ${failure}`;
     return null;
   }
+  return data;
 }
 
 async function keepSelection(state, selected) {
@@ -215,6 +241,9 @@ function announcePause(state, token) {
 function populatePanel(state, detail) {
   state.active = true;
   state.populated = true;
+  // A new pause answers for itself; anything still in flight belongs to the
+  // one it replaced and is stale the moment it comes back.
+  clearSubmission(state);
   state.activeId = String(detail.node_id);
   state.activeToken = String(detail.token || "");
   state.count = Number(detail.count) || (detail.urls?.length ?? 0);
@@ -364,6 +393,8 @@ function buildPanel(node) {
     shownAt: 0,
     notifiedToken: null,
     noticeTimer: null,
+    submitting: false, // an answer is on the wire; nothing else may post
+    submitSeq: 0,
   });
   abort.signal.addEventListener("abort", () => clearTimeout(state.noticeTimer), { once: true });
 
@@ -429,13 +460,15 @@ function buildPanel(node) {
   );
 
   // A pause can pop up under a pointer already travelling toward the canvas,
-  // so swallow clicks inside the panel for a moment after it appears. Capture
-  // phase keeps the thumbs and buttons from seeing them; no preventDefault,
-  // so a click on empty panel space still falls through to the node.
+  // so swallow clicks inside the panel for a moment after it appears, and
+  // again while an answer is on the wire. Capture phase keeps the thumbs and
+  // buttons from seeing them; no preventDefault, so a click on empty panel
+  // space still falls through to the node.
   root.addEventListener(
     "click",
     (event) => {
-      if (state.active && clickLocked(Date.now() - state.shownAt)) event.stopPropagation();
+      if (!state.active) return;
+      if (state.submitting || clickLocked(Date.now() - state.shownAt)) event.stopPropagation();
     },
     { capture: true, signal: abort.signal },
   );
@@ -457,6 +490,9 @@ function buildPanel(node) {
       if (!hit) return;
       event.preventDefault();
       event.stopPropagation();
+      // Mapped keys are still consumed while an answer is in flight - they
+      // belong to this panel - but the pause is already spoken for.
+      if (state.submitting) return;
       switch (hit.action) {
         case "toggle":
           if (hit.frame > state.count) break;
@@ -570,7 +606,9 @@ app.registerExtension({
     chainCallback(nodeType.prototype, "onRemoved", function () {
       const state = this.__ausbossFrameChooser;
       if (state?.active) {
-        // Deleting a paused node must not leave the queue hanging.
+        // Deleting a paused node must not leave the queue hanging. This is an
+        // answer like any other, so it goes through the latch too: an answer
+        // already in flight is releasing the same pause.
         postAnswer(state, cancelPayload(state.activeId, state.activeToken));
       }
       state?.abort?.abort();

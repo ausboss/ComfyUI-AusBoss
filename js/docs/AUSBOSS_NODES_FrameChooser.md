@@ -34,6 +34,9 @@ resumes with just those frames — always in their original order.
   "just continue" can never produce an empty batch.
 - **Cancel** interrupts the run exactly like ComfyUI's stop button.
   Interrupting the queue also releases the pause.
+- The controls grey out while an answer is on its way, so a doubled Enter or
+  click cannot send it twice; a reply that lands after the pause is already
+  over is ignored rather than reported as a failure.
 - Reloading the page does not lose the pause: when the graph finishes
   loading, the panel re-fetches every still-waiting chooser from the server
   and re-renders its filmstrip (countdown included).
