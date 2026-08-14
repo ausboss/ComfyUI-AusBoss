@@ -21,6 +21,7 @@ NODE_MODULES = [
     "node_compare",
     "node_drop_shadow",
     "node_frame_chooser",
+    "node_frame_interpolate",
     "node_image_crop_rotate_pad",
     "node_inpaint_crop_stitch",
     "node_lama_inpaint",
