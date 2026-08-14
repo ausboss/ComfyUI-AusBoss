@@ -37,6 +37,32 @@ def gradient_batch(count: int, height: int, width: int) -> torch.Tensor:
     return ramp.expand(count, height, width, 3).clone()
 
 
+# Types the frontend renders as a widget rather than a socket. Everything else
+# in a node definition gets a slot, and slots are numbered by walking required
+# then optional - the numbering saved workflows store in their links.
+WIDGET_TYPES = {"INT", "FLOAT", "STRING", "BOOLEAN"}
+
+
+def definition_sockets(spec: dict) -> list[tuple[str, str]]:
+    """(name, type) per socket, in the order the frontend numbers them."""
+    return [
+        (name, definition[0])
+        for group in ("required", "optional")
+        for name, definition in spec.get(group, {}).items()
+        if isinstance(definition[0], str) and definition[0] not in WIDGET_TYPES
+    ]
+
+
+def definition_widgets(spec: dict) -> list[tuple[str, str, dict]]:
+    """(name, type, options) per widget, in saved widgets_values order."""
+    return [
+        (name, definition[0], definition[1] if len(definition) > 1 else {})
+        for group in ("required", "optional")
+        for name, definition in spec.get(group, {}).items()
+        if isinstance(definition[0], str) and definition[0] in WIDGET_TYPES
+    ]
+
+
 def tone(samples: int, sample_rate: int = 44100) -> dict:
     """A mono AUDIO dict of `samples` samples, the shape Load Video hands over."""
     wave = (0.3 * np.sin(np.linspace(0, 880 * np.pi, samples))).astype(np.float32)
@@ -300,13 +326,7 @@ class CoreVideoInputTests(unittest.TestCase):
         # connected video carries its own frames, so frames leads the optional
         # group rather than sitting in required — the slot order must not move.
         spec = node_save_video.AusBossSaveVideo.INPUT_TYPES()
-        widget_types = {"INT", "FLOAT", "STRING", "BOOLEAN"}
-        sockets = [
-            name
-            for group in ("required", "optional")
-            for name, definition in spec.get(group, {}).items()
-            if isinstance(definition[0], str) and definition[0] not in widget_types
-        ]
+        sockets = [name for name, _type in definition_sockets(spec)]
         self.assertEqual(sockets, ["frames", "audio", "video"])
         self.assertEqual(spec["optional"]["frames"][0], "IMAGE")
         self.assertEqual(spec["optional"]["video"][0], "VIDEO")
@@ -333,6 +353,142 @@ class CoreVideoInputTests(unittest.TestCase):
                 run_node(node_save_video.AusBossSaveVideo().save(
                     fps=16.0, filename_prefix="AusBoss/video", crf=19
                 ))
+
+
+class LegacyWorkflowTests(unittest.TestCase):
+    """A workflow saved before frames moved to optional must still load.
+
+    OLD_SHAPE_WORKFLOW is lifted from the Save Video, Load Video and LaMa
+    Inpaint nodes of example_workflows/simple_video_watermark_remover.json as
+    it was saved when Save Video declared frames in the required group: the
+    Save Video node has no video socket at all, frames carries no optional
+    shape marker, and its widgets_values is the three-value list of that era.
+    """
+
+    maxDiff = None
+
+    SAVE_ID = 10
+
+    OLD_SHAPE_WORKFLOW = {
+        "last_node_id": 90,
+        "last_link_id": 106,
+        "nodes": [
+            {
+                "id": 11,
+                "type": "AUSBOSS_NODES_LoadVideo",
+                "inputs": [],
+                "outputs": [
+                    {"name": "frames", "type": "IMAGE", "links": [89]},
+                    {"name": "audio", "type": "AUDIO", "links": [87]},
+                    {"name": "frame_count", "type": "INT", "links": []},
+                    {"name": "fps", "type": "FLOAT", "links": [106]},
+                    {"name": "width", "type": "INT", "links": []},
+                    {"name": "height", "type": "INT", "links": []},
+                    {"name": "duration", "type": "FLOAT", "links": []},
+                ],
+                "widgets_values": ["input.mp4", 0.0, 0.0, 0, 0, "image", ""],
+            },
+            {
+                "id": 6,
+                "type": "AUSBOSS_NODES_LaMaInpaint",
+                "inputs": [
+                    {"name": "image", "type": "IMAGE", "link": None},
+                    {"name": "mask", "type": "MASK", "link": None},
+                ],
+                "outputs": [{"name": "image", "type": "IMAGE", "links": [17]}],
+                "widgets_values": ["big-lama.pt"],
+            },
+            {
+                "id": SAVE_ID,
+                "type": "AUSBOSS_NODES_SaveVideo",
+                "inputs": [
+                    {"name": "frames", "type": "IMAGE", "link": 17},
+                    {"name": "audio", "shape": 7, "type": "AUDIO", "link": 87},
+                    {"name": "fps", "type": "FLOAT", "widget": {"name": "fps"}, "link": 106},
+                ],
+                "outputs": [],
+                "properties": {"Node name for S&R": "AUSBOSS_NODES_SaveVideo"},
+                "widgets_values": [16.0, "AusBoss/video_watermark_remover", 19],
+            },
+        ],
+        "links": [
+            [17, 6, 0, SAVE_ID, 0, "IMAGE"],
+            [87, 11, 1, SAVE_ID, 1, "AUDIO"],
+            [89, 11, 0, 6, 0, "IMAGE"],
+            [106, 11, 3, SAVE_ID, 2, "FLOAT"],
+        ],
+        "version": 0.4,
+    }
+
+    def setUp(self):
+        self.spec = node_save_video.AusBossSaveVideo.INPUT_TYPES()
+        self.saved = next(
+            node for node in self.OLD_SHAPE_WORKFLOW["nodes"] if node["id"] == self.SAVE_ID
+        )
+        # Widget-driven inputs are appended to the saved slots when the user
+        # converts one; the plain sockets are the ones link slots count.
+        self.saved_sockets = [slot for slot in self.saved["inputs"] if "widget" not in slot]
+
+    def test_the_old_frames_link_still_resolves_to_the_frames_socket(self):
+        link = next(
+            link
+            for link in self.OLD_SHAPE_WORKFLOW["links"]
+            if link[3] == self.SAVE_ID and link[4] == 0
+        )
+        self.assertEqual((link[5], self.saved["inputs"][link[4]]["name"]), ("IMAGE", "frames"))
+        sockets = definition_sockets(self.spec)
+        # By index, the way the saved link addresses it.
+        self.assertEqual(sockets[link[4]], ("frames", "IMAGE"))
+        # And by name, the way the prompt built from the graph addresses it.
+        self.assertIn(("frames", "IMAGE"), sockets)
+
+    def test_the_new_video_socket_lands_after_every_slot_the_old_file_indexes(self):
+        sockets = definition_sockets(self.spec)
+        saved = [(slot["name"], slot["type"]) for slot in self.saved_sockets]
+        self.assertEqual(saved, [("frames", "IMAGE"), ("audio", "AUDIO")])
+        self.assertEqual(sockets[: len(saved)], saved)
+        self.assertEqual(sockets[len(saved) :], [("video", "VIDEO")])
+        # The old file predates the video socket entirely.
+        self.assertNotIn("video", [slot["name"] for slot in self.saved["inputs"]])
+
+    def test_the_old_widget_values_still_line_up_with_the_current_widgets(self):
+        widgets = definition_widgets(self.spec)
+        values = self.saved["widgets_values"]
+        self.assertEqual(
+            [name for name, _type, _options in widgets], ["fps", "filename_prefix", "crf"]
+        )
+        self.assertEqual(len(values), len(widgets))
+        for value, (name, declared, options) in zip(values, widgets):
+            with self.subTest(widget=name):
+                if declared == "STRING":
+                    self.assertIsInstance(value, str)
+                    continue
+                self.assertIsInstance(value, float if declared == "FLOAT" else int)
+                self.assertGreaterEqual(value, options["min"])
+                self.assertLessEqual(value, options["max"])
+
+    def test_the_old_workflow_still_drives_a_save(self):
+        # Exactly what the saved node hands the backend: widget values by
+        # position, then the three linked inputs on top - fps included, since
+        # that widget was converted to a socket.
+        widgets = definition_widgets(self.spec)
+        call = dict(zip([name for name, _type, _options in widgets], self.saved["widgets_values"]))
+        frames = gradient_batch(2, 16, 16)
+        audio = tone(2048, 16000)
+        call.update(frames=frames, audio=audio, fps=24.0)
+
+        with (
+            patch.object(node_save_video, "folder_paths", FakeFolderPaths),
+            patch.object(node_save_video, "encode_video", return_value=(16, 16, 2)) as encode,
+        ):
+            result = run_node(node_save_video.AusBossSaveVideo().save(**call))
+
+        _path, encoded_frames, encoded_fps, encoded_audio, crf, _metadata = encode.call_args.args
+        self.assertIs(encoded_frames, frames)
+        self.assertIs(encoded_audio, audio)
+        self.assertAlmostEqual(encoded_fps, 24.0)  # the link, not the 16.0 widget
+        self.assertEqual(crf, 19)
+        self.assertEqual(result["ui"]["images"][0]["frame_count"], 2)
 
 
 class AsyncSaveTests(unittest.TestCase):
