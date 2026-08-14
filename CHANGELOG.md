@@ -4,6 +4,18 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- Added `AUSBOSS_NODES_ColorMatch`: LAB mean/std transfer that harmonizes an inpainted or stitched region against its source, with optional mask and strength.
+- Added `AUSBOSS_NODES_PadImage` with color, edge, edge-pixel, and pillarbox-blur fills, returning a mask over exactly the new padding for outpainting.
+- Added `AUSBOSS_NODES_DropShadow` for padded and reframed compositions.
+- Added `AUSBOSS_NODES_FrameInterpolate`: fps-based interpolation (24 to 30 works, not just whole multiples) with blend and optical-flow methods, bounded memory, and scene-cut detection that holds across hard cuts instead of morphing.
+- Refine Mask gained a jaggy-melting `smooth` control, black/white point levels, and optional `guided filter` and `matting` edge-refine tiers.
+- Stitch Inpaint gained an optional `fix_edge_halo` toggle that removes the rim left by compositing a feathered seam twice; pixels outside the blend stay bit-identical either way.
+- Frame Chooser gained a countdown with timeout policies, reload recovery, a `pick_list` pre-answer for headless reruns with automatic writeback, stale-answer rejection, a keyboard map, and a notice when a pause begins out of sight.
+- Load Video exposes a lazy core `VIDEO` output and Save Video accepts a core `VIDEO` input, so the pack interoperates with ComfyUI's own video nodes; a connected video's frame rate wins over the fps widget.
+- Video decode and encode now run off the executor thread with per-frame progress, so long jobs no longer block the UI.
+- Added a live per-node status badge (`frame i/N` during a LaMa video inpaint), About-page badges, a toast for the stale-frontend warning, and a Custom node color scheme.
+- Fixed registry discovery: mapping keys are now string literals, so ComfyUI-Manager can see the pack's nodes and offer to install it for a shared workflow. `scripts/validate_nodes.py` guards against a regression.
+
 - Added `AUSBOSS_NODES_FrameChooser`: pause the graph on a clickable filmstrip and keep only the frames you pick, with a no-pause "keep last selection" mode.
 - Added `AUSBOSS_NODES_CropForInpaint` + `AUSBOSS_NODES_StitchInpaint`: native-resolution masked inpainting with a bit-exact paste-back contract and video batch broadcasting.
 - Added the `AUSBOSS_VIDEO` bundle wire (`Video Bundle` / `Unbundle` / `Bundle Edit`) carrying frames, audio, fps, and derived info on one connection.
