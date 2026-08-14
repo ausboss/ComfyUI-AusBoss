@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from ._media_helpers import list_input_videos, resolve_input_path
 from ._video_load_helpers import core_trimmed_video, decode_video_range, lazy_audio_range
 
@@ -95,10 +97,13 @@ class AusBossLoadVideo:
     )
     FUNCTION = "load_video"
 
-    def load_video(self, video, start_seconds, end_seconds, custom_width, custom_height):
+    async def load_video(self, video, start_seconds, end_seconds, custom_width, custom_height):
         path = resolve_input_path(video)
-        frames, fps = decode_video_range(
-            path, start_seconds, end_seconds, int(custom_width), int(custom_height)
+        # PyAV decoding blocks for as long as the trim is; to_thread keeps the
+        # executor's event loop answering while it runs, and carries the
+        # context ComfyUI needs to attribute progress and interrupts here.
+        frames, fps = await asyncio.to_thread(
+            decode_video_range, path, start_seconds, end_seconds, int(custom_width), int(custom_height)
         )
         frame_count = int(frames.shape[0])
         duration = frame_count / fps if fps > 0 else 0.0
@@ -106,7 +111,11 @@ class AusBossLoadVideo:
         # actually reads the AUDIO output.
         audio = lazy_audio_range(path, float(start_seconds), float(start_seconds) + duration)
         # Lazy core VIDEO for the same window; None on cores without the API.
-        core_video = core_trimmed_video(path, float(start_seconds), float(end_seconds))
+        # Building it probes the container for a duration, so it goes off the
+        # loop as well.
+        core_video = await asyncio.to_thread(
+            core_trimmed_video, path, float(start_seconds), float(end_seconds)
+        )
         return (
             frames,
             audio,

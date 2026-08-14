@@ -13,6 +13,7 @@ import numpy as np
 import torch
 from PIL import Image
 
+from ._execution_helpers import raise_if_interrupted
 from ._media_helpers import video_metadata
 
 try:
@@ -140,6 +141,9 @@ def decode_video_range(
             container.seek(max(0, offset), stream=stream, backward=True)
         size: tuple[int, int] | None = None
         for frame in container.decode(stream):
+            # Checked before the per-frame work, and on skipped frames too, so
+            # cancelling during a long lead-in still stops within one frame.
+            raise_if_interrupted()
             time = frame.time
             if time is None:
                 time = start + count / fps

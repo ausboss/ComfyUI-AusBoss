@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from ._video_save_helpers import (
@@ -94,12 +95,14 @@ class AusBossSaveVideo:
     OUTPUT_NODE = True
     FUNCTION = "save"
 
-    def save(
+    async def save(
         self, frames, fps, filename_prefix, crf, audio=None, video=None, prompt=None, extra_pnginfo=None
     ):
         if folder_paths is None:
             raise RuntimeError("Save Video requires ComfyUI's folder_paths at runtime.")
-        source = video_components(video)
+        # Pulling a VIDEO's components decodes the whole file, so it joins the
+        # encode on a worker thread rather than stalling the event loop.
+        source = await asyncio.to_thread(video_components, video)
         if source is not None:
             # A connected VIDEO supersedes the frames/audio inputs and keeps
             # its own timing; everything below is the unchanged encode path,
@@ -117,7 +120,8 @@ class AusBossSaveVideo:
             )
         )
         file = f"{filename}_{counter:05}_.mp4"
-        width, height, frame_count = encode_video(
+        width, height, frame_count = await asyncio.to_thread(
+            encode_video,
             Path(full_output_folder) / file,
             frames,
             float(fps),

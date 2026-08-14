@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import os
 import tempfile
 import unittest
@@ -30,7 +31,7 @@ from nodes._video_load_helpers import (
     output_size,
     trim_window,
 )
-from nodes import node_load_video
+from nodes import _video_load_helpers, node_load_video
 
 
 def core_video_api_available() -> bool:
@@ -57,6 +58,11 @@ def ensure_core_video_api() -> bool:
 def run_node(result):
     """Run a node FUNCTION result that may be sync or a coroutine."""
     return asyncio.run(result) if asyncio.iscoroutine(result) else result
+
+
+class FakeInterrupt(BaseException):
+    """Mirrors ComfyUI's InterruptProcessingException: not an Exception."""
+
 
 FPS = 12
 FRAMES = 24
@@ -298,6 +304,67 @@ class LoadVideoNodeTests(unittest.TestCase):
             self.assertAlmostEqual(core_video.get_duration(), 1.0, delta=0.15)
         else:
             self.assertIsNone(core_video)
+
+    def test_the_node_function_is_a_coroutine(self):
+        node = node_load_video.AusBossLoadVideo
+        self.assertTrue(inspect.iscoroutinefunction(getattr(node, node.FUNCTION)))
+
+    def test_the_event_loop_keeps_running_while_the_decode_blocks(self):
+        ticks = 0
+
+        async def drive():
+            nonlocal ticks
+
+            async def heartbeat():
+                nonlocal ticks
+                while True:
+                    ticks += 1
+                    await asyncio.sleep(0)
+
+            beat = asyncio.ensure_future(heartbeat())
+            try:
+                return await node_load_video.AusBossLoadVideo().load_video(
+                    str(self.video), 0.0, 0.0, 0, 0
+                )
+            finally:
+                beat.cancel()
+
+        with patch.object(node_load_video, "resolve_input_path", lambda _name: self.video):
+            result = asyncio.run(drive())
+
+        self.assertEqual(int(result[2]), FRAMES)
+        # A blocking decode inside the coroutine would have starved the
+        # heartbeat entirely; off the loop it keeps being scheduled.
+        self.assertGreater(ticks, 10)
+
+
+class DecodeInterruptTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls._tmp = tempfile.TemporaryDirectory()
+        cls.video = Path(cls._tmp.name) / "clip.mp4"
+        write_test_video(cls.video, with_audio=False)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._tmp.cleanup()
+
+    def test_the_decode_loop_aborts_promptly_on_an_interrupt(self):
+        calls = []
+
+        def interrupt_on_the_third_frame():
+            calls.append(1)
+            if len(calls) > 2:
+                raise FakeInterrupt()
+
+        with patch.object(
+            _video_load_helpers, "raise_if_interrupted", interrupt_on_the_third_frame
+        ):
+            with self.assertRaises(FakeInterrupt):
+                decode_video_range(self.video, 0.0, 0.0, 0, 0)
+
+        # Stopped on the third frame instead of decoding all 24.
+        self.assertEqual(len(calls), 3)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import asyncio
+import inspect
 import tempfile
+import threading
+import time
 import unittest
 from fractions import Fraction
 from unittest.mock import patch
@@ -25,12 +29,21 @@ from nodes._video_save_helpers import (
     video_components,
     workflow_metadata,
 )
-from nodes import node_save_video
+from nodes import _video_save_helpers, node_save_video
 
 
 def gradient_batch(count: int, height: int, width: int) -> torch.Tensor:
     ramp = torch.linspace(0.0, 1.0, count).view(-1, 1, 1, 1)
     return ramp.expand(count, height, width, 3).clone()
+
+
+def run_node(result):
+    """Run a node FUNCTION result that may be sync or a coroutine."""
+    return asyncio.run(result) if asyncio.iscoroutine(result) else result
+
+
+class FakeInterrupt(BaseException):
+    """Mirrors ComfyUI's InterruptProcessingException: not an Exception."""
 
 
 class FakeComponents:
@@ -169,9 +182,9 @@ class SaveVideoHelperTests(unittest.TestCase):
             patch.object(node_save_video, "folder_paths", FakeFolderPaths),
             patch.object(node_save_video, "encode_video", return_value=(576, 1024, 188)),
         ):
-            result = node_save_video.AusBossSaveVideo().save(
+            result = run_node(node_save_video.AusBossSaveVideo().save(
                 gradient_batch(1, 32, 32), 24.0, "AusBoss/video", 19
-            )
+            ))
 
         self.assertEqual(result["ui"]["images"], [{
             "filename": "video_00003_.mp4",
@@ -240,9 +253,9 @@ class CoreVideoInputTests(unittest.TestCase):
                 node_save_video, "encode_video", return_value=(32, 32, 5)
             ) as encode,
         ):
-            result = node_save_video.AusBossSaveVideo().save(
+            result = run_node(node_save_video.AusBossSaveVideo().save(
                 gradient_batch(1, 8, 8), 16.0, "AusBoss/video", 19, video=connected
-            )
+            ))
 
         _path, encoded_frames, encoded_fps, encoded_audio, _crf, _metadata = encode.call_args.args
         self.assertIs(encoded_frames, images)
@@ -258,7 +271,7 @@ class CoreVideoInputTests(unittest.TestCase):
                 node_save_video, "encode_video", return_value=(8, 8, 2)
             ) as encode,
         ):
-            node_save_video.AusBossSaveVideo().save(images, 12.0, "AusBoss/video", 19)
+            run_node(node_save_video.AusBossSaveVideo().save(images, 12.0, "AusBoss/video", 19))
 
         _path, encoded_frames, encoded_fps, _audio, _crf, _metadata = encode.call_args.args
         self.assertIs(encoded_frames, images)
@@ -270,6 +283,66 @@ class CoreVideoInputTests(unittest.TestCase):
         self.assertEqual(optional["video"][0], "VIDEO")
         required = node_save_video.AusBossSaveVideo.INPUT_TYPES()["required"]
         self.assertEqual(list(required), ["frames", "fps", "filename_prefix", "crf"])
+
+
+class AsyncSaveTests(unittest.TestCase):
+    def test_the_node_function_is_a_coroutine(self):
+        node = node_save_video.AusBossSaveVideo
+        self.assertTrue(inspect.iscoroutinefunction(getattr(node, node.FUNCTION)))
+
+    def test_the_event_loop_keeps_running_while_the_encode_blocks(self):
+        ticks = 0
+        encoded = threading.Event()
+
+        def slow_encode(*_args):
+            encoded.set()
+            time.sleep(0.05)
+            return (32, 32, 1)
+
+        async def drive():
+            nonlocal ticks
+
+            async def heartbeat():
+                nonlocal ticks
+                while True:
+                    ticks += 1
+                    await asyncio.sleep(0)
+
+            beat = asyncio.ensure_future(heartbeat())
+            try:
+                with (
+                    patch.object(node_save_video, "folder_paths", FakeFolderPaths),
+                    patch.object(node_save_video, "encode_video", slow_encode),
+                ):
+                    await node_save_video.AusBossSaveVideo().save(
+                        gradient_batch(1, 32, 32), 24.0, "AusBoss/video", 19
+                    )
+            finally:
+                beat.cancel()
+
+        asyncio.run(drive())
+        self.assertTrue(encoded.is_set())
+        # A blocking encode inside the coroutine would have starved the
+        # heartbeat entirely; off the loop it keeps being scheduled.
+        self.assertGreater(ticks, 10)
+
+    def test_the_encode_loop_aborts_promptly_on_an_interrupt(self):
+        calls = []
+
+        def interrupt_on_the_third_frame():
+            calls.append(1)
+            if len(calls) > 2:
+                raise FakeInterrupt()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(
+                _video_save_helpers, "raise_if_interrupted", interrupt_on_the_third_frame
+            ):
+                with self.assertRaises(FakeInterrupt):
+                    encode_video(Path(tmp) / "cancelled.mp4", gradient_batch(64, 32, 32), 8.0, None, 23)
+
+        # Stopped on the third frame instead of grinding through all 64.
+        self.assertEqual(len(calls), 3)
 
 
 if __name__ == "__main__":

@@ -12,6 +12,8 @@ import numpy as np
 import torch
 from av.video.reformatter import ColorRange, Colorspace
 
+from ._execution_helpers import raise_if_interrupted
+
 AAC_FRAME_SIZE = 1024
 
 # Rates closer than this render to the same 0.01-step fps widget value, so
@@ -149,6 +151,9 @@ def encode_video(
             audio_stream = container.add_stream("aac", rate=prepared_audio[3])
             audio_stream.layout = prepared_audio[1]
         for frame in batch:
+            # One frame of latency between cancelling the queue and unwinding;
+            # the container still closes cleanly on the way out.
+            raise_if_interrupted()
             array = (
                 frame[..., :3].detach().cpu().float().clamp(0.0, 1.0).mul(255.0)
                 .round().to(torch.uint8).numpy()
