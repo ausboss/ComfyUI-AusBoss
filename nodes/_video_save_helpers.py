@@ -99,7 +99,14 @@ def _prepare_audio(audio: dict | None):
 
 def _encode_audio(container, stream, prepared) -> None:
     packed, layout, channels, sample_rate, total_samples = prepared
-    for offset in range(0, total_samples, AAC_FRAME_SIZE):
+    # The waveform is already in memory, so the AAC frame total is known here
+    # the same way the batch size is known for the picture.
+    chunk_total = math.ceil(total_samples / AAC_FRAME_SIZE)
+    progress = frame_progress(chunk_total)
+    for encoded, offset in enumerate(range(0, total_samples, AAC_FRAME_SIZE), start=1):
+        # One AAC frame of latency - about 23ms of audio - between cancelling
+        # the queue and unwinding; the container still closes cleanly.
+        raise_if_interrupted()
         chunk = packed[:, offset * channels : (offset + AAC_FRAME_SIZE) * channels]
         frame = av.AudioFrame.from_ndarray(chunk, format="flt", layout=layout)
         frame.sample_rate = sample_rate
@@ -107,7 +114,12 @@ def _encode_audio(container, stream, prepared) -> None:
         frame.time_base = Fraction(1, sample_rate)
         for packet in stream.encode(frame):
             container.mux(packet)
+        advance_progress(progress, encoded, chunk_total)
+    # Flushing drains whatever the encoder still holds: the packet count is
+    # only known once it stops yielding, so there is no honest fraction to
+    # report and this loop takes the interrupt check alone.
     for packet in stream.encode():
+        raise_if_interrupted()
         container.mux(packet)
 
 

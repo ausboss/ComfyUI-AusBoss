@@ -45,4 +45,5 @@ separate audio-less copy.
 Encoding happens off ComfyUI's execution thread, so the server keeps answering
 while a long batch is written. The node fills its progress bar frame by frame,
 and **Cancel** stops the encode within a frame instead of at the end of the
-batch.
+batch. Muxed audio is encoded after the picture, so the bar restarts and counts
+that track's AAC frames; **Cancel** stops there within one of them.

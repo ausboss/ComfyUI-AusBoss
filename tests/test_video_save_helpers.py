@@ -37,6 +37,12 @@ def gradient_batch(count: int, height: int, width: int) -> torch.Tensor:
     return ramp.expand(count, height, width, 3).clone()
 
 
+def tone(samples: int, sample_rate: int = 44100) -> dict:
+    """A mono AUDIO dict of `samples` samples, the shape Load Video hands over."""
+    wave = (0.3 * np.sin(np.linspace(0, 880 * np.pi, samples))).astype(np.float32)
+    return {"waveform": torch.from_numpy(wave).view(1, 1, -1), "sample_rate": sample_rate}
+
+
 def run_node(result):
     """Run a node FUNCTION result that may be sync or a coroutine."""
     return asyncio.run(result) if asyncio.iscoroutine(result) else result
@@ -389,6 +395,27 @@ class AsyncSaveTests(unittest.TestCase):
         # Stopped on the third frame instead of grinding through all 64.
         self.assertEqual(len(calls), 3)
 
+    def test_the_audio_loop_aborts_on_an_interrupt_too(self):
+        # The picture is two frames, so the third check is the first AAC frame
+        # of a track that would otherwise take 44 of them.
+        calls = []
+
+        def interrupt_once_the_audio_starts():
+            calls.append(1)
+            if len(calls) > 2:
+                raise FakeInterrupt()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(
+                _video_save_helpers, "raise_if_interrupted", interrupt_once_the_audio_starts
+            ):
+                with self.assertRaises(FakeInterrupt):
+                    encode_video(
+                        Path(tmp) / "cancelled.mp4", gradient_batch(2, 32, 32), 8.0, tone(44100), 23
+                    )
+
+        self.assertEqual(len(calls), 3)
+
 
 class EncodeProgressTests(unittest.TestCase):
     def test_every_encoded_frame_advances_the_progress_bar(self):
@@ -410,6 +437,34 @@ class EncodeProgressTests(unittest.TestCase):
             ):
                 encode_video(Path(tmp) / "sized.mp4", gradient_batch(4, 32, 32), 8.0, None, 23)
         self.assertEqual(totals, [4])
+
+    def test_the_audio_phase_tracks_its_own_aac_frames(self):
+        bars = []
+
+        def new_bar(total):
+            bars.append((total, RecordingBar()))
+            return bars[-1][1]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(_video_save_helpers, "frame_progress", new_bar):
+                # 4196 samples is four full AAC frames plus a short tail, so the
+                # total has to round up or the last chunk goes unreported.
+                encode_video(Path(tmp) / "tracked.mp4", gradient_batch(3, 32, 32), 8.0, tone(4196), 23)
+
+        self.assertEqual([total for total, _bar in bars], [3, 5])
+        audio = bars[1][1]
+        self.assertEqual([update[0] for update in audio.updates], [1, 2, 3, 4, 5])
+        self.assertTrue(all(update[1] == 5 for update in audio.updates))
+        self.assertTrue(all(update[2] is None for update in audio.updates))
+
+    def test_a_silent_save_never_opens_an_audio_bar(self):
+        totals = []
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(
+                _video_save_helpers, "frame_progress", lambda total: totals.append(total) or None
+            ):
+                encode_video(Path(tmp) / "silent.mp4", gradient_batch(2, 32, 32), 8.0, None, 23)
+        self.assertEqual(totals, [2])
 
     def test_a_broken_progress_bar_never_breaks_the_encode(self):
         class BrokenBar:
