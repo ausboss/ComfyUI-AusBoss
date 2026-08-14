@@ -54,6 +54,11 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   (ComfyUI-Manager) AST-parse the source without importing it, so a variable
   key makes every node invisible and "install missing custom nodes" stops
   offering the pack. `scripts/validate_nodes.py` enforces this.
+- Assign each mapping **once**, at module level, to a non-empty dict literal,
+  and never mention the name again — no `update()`, no `del`, no
+  `alias = NODE_CLASS_MAPPINGS`. A scanner reads that one literal and stops,
+  so anything done to the mapping afterwards is invisible to it. Both
+  mappings must carry exactly the same keys.
 - Display name: `<Name> (AusBoss)` so typing "ausboss" surfaces every node.
 - Category: `🆎 AusBoss/<Group>`. The emoji is safe here — categories reach
   the frontend as JSON and are never printed to the console at import time.

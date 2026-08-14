@@ -41,6 +41,23 @@ class GoodModuleTests(unittest.TestCase):
         source = (FIXTURES / "good_module.py").read_text(encoding="utf-8")
         self.assertEqual(contract.class_mapping_keys(source), {"AUSBOSS_NODES_Good"})
 
+    def test_an_id_named_only_in_prose_is_not_a_registration(self):
+        # What separates the parsed keys from grepping the file for
+        # AUSBOSS_NODES_*: a retired id can go on being mentioned in a
+        # docstring or a search alias long after it stopped being registered.
+        source = (
+            '"""Replaces AUSBOSS_NODES_Old."""\n'
+            "\n"
+            "class New:\n"
+            '    SEARCH_ALIASES = ["AUSBOSS_NODES_Old", "ausboss"]\n'
+            "\n"
+            '# AUSBOSS_NODES_Old moved here in wave three.\n'
+            'NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_New": New}\n'
+            'NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_New": "New (AusBoss)"}\n'
+        )
+        self.assertEqual(contract.class_mapping_keys(source), {"AUSBOSS_NODES_New"})
+        self.assertEqual(contract.mapping_problems(source, "inline"), [])
+
     def test_every_shipped_node_module_conforms(self):
         modules = sorted((ROOT / "nodes").glob("node_*.py"))
         self.assertTrue(modules, "no node modules found")
@@ -81,7 +98,57 @@ class BadModuleTests(unittest.TestCase):
         self.assert_rejected("bad_update.py", "update()")
 
     def test_item_assignment_is_rejected(self):
-        self.assert_rejected("bad_item_assignment.py", "modified after assignment")
+        self.assert_rejected(
+            "bad_item_assignment.py", "has an entry assigned after assignment"
+        )
+
+    def test_empty_mappings_are_rejected(self):
+        # Two empty literals agree with each other, so the key-match rule is
+        # happy: only the emptiness check catches a module registering nothing.
+        self.assert_rejected(
+            "bad_empty.py",
+            "NODE_CLASS_MAPPINGS is empty",
+            "NODE_DISPLAY_NAME_MAPPINGS is empty",
+        )
+
+    def test_a_delete_is_rejected(self):
+        self.assert_rejected(
+            "bad_delete.py", "has an entry deleted after assignment"
+        )
+
+    def test_an_alias_is_rejected_where_it_is_made(self):
+        # _registry.update(...) never says NODE_CLASS_MAPPINGS, so the only
+        # place this is still visible is the line that binds the alias.
+        problems = problems_for("bad_alias.py")
+        joined = " | ".join(problems)
+        self.assertIn("NODE_CLASS_MAPPINGS is aliased after assignment", joined)
+        self.assertIn("NODE_DISPLAY_NAME_MAPPINGS is aliased after assignment", joined)
+
+    def test_a_bare_read_after_assignment_is_rejected(self):
+        # Strict on purpose: once the name can travel, no checker can promise
+        # where it ends up, so the contract is that it does not travel at all.
+        source = (
+            "class Node:\n"
+            "    pass\n"
+            'NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_A": Node}\n'
+            'NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_A": "A (AusBoss)"}\n'
+            "print(len(NODE_CLASS_MAPPINGS))\n"
+        )
+        problems = contract.mapping_problems(source, "inline")
+        self.assertEqual(len(problems), 1)
+        self.assertIn("NODE_CLASS_MAPPINGS is used after assignment", problems[0])
+
+    def test_a_delete_of_the_whole_mapping_is_rejected(self):
+        source = (
+            "class Node:\n"
+            "    pass\n"
+            'NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_A": Node}\n'
+            'NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_A": "A (AusBoss)"}\n'
+            "del NODE_CLASS_MAPPINGS\n"
+        )
+        problems = contract.mapping_problems(source, "inline")
+        self.assertEqual(len(problems), 1)
+        self.assertIn("NODE_CLASS_MAPPINGS is deleted after assignment", problems[0])
 
     def test_mismatched_keys_are_rejected(self):
         self.assert_rejected(
@@ -102,7 +169,7 @@ class BadModuleTests(unittest.TestCase):
 
     def test_every_bad_fixture_is_rejected(self):
         fixtures = sorted(FIXTURES.glob("bad_*.py"))
-        self.assertGreaterEqual(len(fixtures), 10)
+        self.assertGreaterEqual(len(fixtures), 13)
         for path in fixtures:
             with self.subTest(fixture=path.name):
                 self.assertTrue(problems_for(path.name), "fixture was accepted")

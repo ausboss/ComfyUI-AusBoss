@@ -7,14 +7,15 @@ Checks:
   1. Every .py file in the pack compiles.
   2. Every nodes/node_*.py keeps the registry contract from
      scripts/registry_contract.py: both mappings assigned exactly once, at
-     module level, to a dictionary literal with string-literal keys, never
-     mutated afterwards, and carrying the same keys as each other. Registry
-     scanners parse the source rather than importing it, so anything they
-     cannot read statically makes the node invisible to them.
+     module level, to a non-empty dictionary literal with string-literal
+     keys, never mentioned again afterwards, and carrying the same keys as
+     each other. Registry scanners parse the source rather than importing
+     it, so anything they cannot read statically makes the node invisible.
   3. Every module listed in NODE_MODULES in __init__.py has a file on
      disk, every node file is listed in NODE_MODULES (no orphans), and no
      mapping key is claimed by two modules.
-  4. Permanent public node IDs exist once their modules are present, and
+  4. Permanent public node IDs are still registered - measured against the
+     mapping keys parsed in check 2, not against the text of the file - and
      each public transform node declares exactly IMAGE then MASK outputs.
 
 Exit code 0 = all good, 1 = problems printed below.
@@ -87,10 +88,13 @@ for orphan in sorted(on_disk - listed):
     warnings.append(f"nodes/{orphan}.py exists but is not listed in NODE_MODULES")
 
 # --- 4. permanent transform contracts ---------------------------------------
-mapping_keys = set()
+# The keys parsed out of NODE_CLASS_MAPPINGS in check 2, not every
+# AUSBOSS_NODES_* string in the file: a docstring, a comment or a search
+# alias mentioning an id is not a registration, and matching those would let
+# a node lose its mapping entry while this check kept passing.
+mapping_keys = set().union(*keys_by_module.values()) if keys_by_module else set()
 for path in node_files:
     text = path.read_text(encoding="utf-8")
-    mapping_keys.update(re.findall(r'"(AUSBOSS_NODES_\w+)"', text))
     if path.stem in {"node_image_crop_rotate_pad", "node_video_crop_rotate_pad"}:
         tree = ast.parse(text)
         return_types = None
