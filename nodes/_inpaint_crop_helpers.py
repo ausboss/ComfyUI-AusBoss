@@ -152,13 +152,15 @@ def _replicate_pad_image(
 
 # --- optional edge-halo spread -----------------------------------------------
 
-# The spread is estimated against the blend mask dilated by this much, so every
-# pixel the composite touches sits at or below the alpha the estimate was
-# conditioned on. The core's color is then carried outward rather than divided
-# back out of a near-zero alpha: the estimate leans toward under-correcting,
-# which softens a halo, where over-correcting would replace it with an equally
-# visible one of the opposite sign. The composite keeps the ungrown mask.
-EDGE_HALO_SPREAD_PIXELS = 1
+# Dilation applied to the blend mask before estimating the spread. Measured on
+# flat, gradient, noisy and hard-edged backgrounds: estimating against the mask
+# the composite actually uses clears essentially all of the halo, while each
+# pixel of dilation throws away roughly half of the remaining correction (1px
+# leaves ~45% of the halo, 2px leaves ~75%). Dilating guards against
+# over-correcting into an opposite-sign rim, but that never showed up above the
+# noise floor, so the guard costs far more than it protects. The composite
+# always weights with the ungrown mask.
+EDGE_HALO_SPREAD_PIXELS = 0
 
 _PYMATTING_HINT = (
     "Stitch Inpaint: fix_edge_halo needs the optional 'pymatting' package "

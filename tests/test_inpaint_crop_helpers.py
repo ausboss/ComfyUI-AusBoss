@@ -436,7 +436,10 @@ class EdgeHaloTests(unittest.TestCase):
         halo = float((plain[band] - ideal[band]).abs().mean())
         residue = float((fixed[band] - ideal[band]).abs().mean())
         self.assertGreater(halo, 0.02)  # the halo is really there
-        self.assertLess(residue, halo * 0.6)
+        # A user who turns this on should stop seeing the rim, not see a
+        # slightly fainter one. Dilating the estimate's mask is what erodes
+        # this, so the bound is tight enough to catch that regression.
+        self.assertLess(residue, halo * 0.25)
         # ...and fixing it did not spill past the paste.
         self.assertTrue(torch.equal(fixed[untouched], image[untouched]))
 
