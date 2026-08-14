@@ -12,7 +12,8 @@ exactly one saved-video surface per node.
 ## Controls
 
 - **frames**: BHWC frame batch to encode. Odd dimensions are cropped down one
-  pixel to the even sizes H.264 requires.
+  pixel to the even sizes H.264 requires. Optional only because a connected
+  `video` brings its own frames — connect one or the other.
 - **fps**: Playback frame rate. Wire Load Video's `fps` output to keep the
   source timing, including fractional rates like 29.97.
 - **filename_prefix**: Path under the output folder; subfolders are created
@@ -21,8 +22,47 @@ exactly one saved-video surface per node.
   lossless for most content.
 - **audio** (optional): A track to mux into the file, e.g. Load Video's
   `audio` output.
+- **video** (optional): A core `VIDEO` handle, e.g. Load Video's `video`
+  output. Connecting it supersedes the `frames` and `audio` inputs — the
+  video's own frames and track are encoded instead. Core decodes it in one
+  uninterruptible step; see *The one phase Cancel cannot reach* below.
+
+## Frame rate precedence
+
+A connected `video` brings the rate its frames were cut at, and that rate wins
+over the `fps` widget: replaying those frames at a stale widget rate would
+drift the picture away from the audio muxed beside it. When the two differ,
+one line naming the rate actually used is written to the ComfyUI console. With
+nothing connected to `video`, the widget is the only source and the console
+stays quiet.
 
 ## Output
 
 One `.mp4` file per run. Audio and video land in a single file — there is no
 separate audio-less copy.
+
+## While it runs
+
+Encoding happens off ComfyUI's execution thread, so the server keeps answering
+while a long batch is written. The node fills its progress bar frame by frame,
+and **Cancel** stops the encode within a frame instead of at the end of the
+batch. Muxed audio is encoded after the picture, so the bar restarts and counts
+that track's AAC frames; **Cancel** stops there within one of them.
+
+### The one phase Cancel cannot reach
+
+Connecting `video` adds a step this node does not control. ComfyUI core reads
+the whole file — every frame, decoded to float32 — before the first frame
+reaches this pack, and the core call that does it, `VideoInput.get_components()`,
+takes no progress or interrupt argument to pass one in. So that phase shows no
+progress and does not stop on **Cancel**: the cancel is registered right away
+(the decode runs off the execution thread, so the server still answers) and
+takes effect at the first frame of the encode, once control returns here.
+
+How long that lasts scales with pixels, not with file size. Measured on one
+desktop: ten seconds of 832x480 at 16 fps came back in about 0.6 s, while ten
+seconds of 1080p at 30 fps took about 7 s and held 7.5 GB of frames in memory.
+Minutes of high-resolution footage are the case to avoid — RAM runs out before
+the wait does. Wiring Load Video's `frames` output instead of `video` keeps the
+whole run interruptible and progress-tracked, since that decode is this pack's
+own loop.

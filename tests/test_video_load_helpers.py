@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import asyncio
+import inspect
+import os
 import tempfile
 import unittest
 from fractions import Fraction
 from pathlib import Path
+from unittest.mock import patch
 import sys
 
 import numpy as np
@@ -18,6 +22,8 @@ import av
 
 from nodes._video_load_helpers import (
     LazyAudio,
+    core_trim_args,
+    core_trimmed_video,
     decode_audio_range,
     decode_video_range,
     lazy_audio_range,
@@ -25,6 +31,38 @@ from nodes._video_load_helpers import (
     output_size,
     trim_window,
 )
+from nodes import _video_load_helpers, node_load_video
+
+
+def core_video_api_available() -> bool:
+    """True when ComfyUI's comfy_api video types import in this interpreter."""
+    try:
+        import comfy_api.input_impl  # noqa: F401
+    except Exception:
+        return False
+    return True
+
+
+def ensure_core_video_api() -> bool:
+    """Make comfy_api importable when AUSBOSS_COMFY_ROOT points at a ComfyUI
+    checkout; appended (never prepended) so ComfyUI's top-level nodes.py can
+    never shadow this pack's nodes package."""
+    if core_video_api_available():
+        return True
+    root = os.environ.get("AUSBOSS_COMFY_ROOT", "")
+    if root and (Path(root) / "comfy_api").is_dir() and root not in sys.path:
+        sys.path.append(root)
+    return core_video_api_available()
+
+
+def run_node(result):
+    """Run a node FUNCTION result that may be sync or a coroutine."""
+    return asyncio.run(result) if asyncio.iscoroutine(result) else result
+
+
+class FakeInterrupt(BaseException):
+    """Mirrors ComfyUI's InterruptProcessingException: not an Exception."""
+
 
 FPS = 12
 FRAMES = 24
@@ -161,6 +199,210 @@ class VideoLoadHelperTests(unittest.TestCase):
             trim_window(10.0, 5.0, 5.0)
         with self.assertRaisesRegex(ValueError, "only"):
             trim_window(2.0, 3.0, 0.0)
+
+
+class CoreTrimArgsTests(unittest.TestCase):
+    def test_zeroes_pass_through_as_no_trim(self):
+        self.assertEqual(core_trim_args(0.0, 0.0), (0.0, 0.0))
+
+    def test_start_and_end_become_start_and_duration(self):
+        self.assertEqual(core_trim_args(0.5, 1.5), (0.5, 1.0))
+
+    def test_end_zero_means_until_the_end(self):
+        self.assertEqual(core_trim_args(2.0, 0.0), (2.0, 0.0))
+
+    def test_negative_start_clamps_to_zero(self):
+        self.assertEqual(core_trim_args(-1.0, 3.0), (0.0, 3.0))
+
+    def test_returns_none_when_the_core_api_is_unavailable(self):
+        if core_video_api_available():
+            self.skipTest("comfy_api is importable in this interpreter")
+        self.assertIsNone(core_trimmed_video(Path("/tmp/never.mp4"), 0.0, 0.0))
+
+
+class CoreVideoAdapterIntegrationTests(unittest.TestCase):
+    """Constructs the core VIDEO adapter against a tiny generated clip.
+
+    Runs only when comfy_api is importable — either natively or via
+    AUSBOSS_COMFY_ROOT pointing at a ComfyUI checkout."""
+
+    @classmethod
+    def setUpClass(cls):
+        if not ensure_core_video_api():
+            raise unittest.SkipTest(
+                "comfy_api is not importable; set AUSBOSS_COMFY_ROOT to a ComfyUI checkout"
+            )
+        cls._tmp = tempfile.TemporaryDirectory()
+        cls.video = Path(cls._tmp.name) / "clip.mp4"
+        write_test_video(cls.video, with_audio=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._tmp.cleanup()
+
+    def test_trimmed_adapter_reads_metadata_without_decoding_frames(self):
+        video = core_trimmed_video(self.video, 0.5, 1.5)
+        self.assertIsNotNone(video)
+        # get_components materializes every frame; blocking it proves the
+        # metadata reads stay decode-free.
+        with patch.object(
+            type(video), "get_components", side_effect=AssertionError("decoded all frames")
+        ):
+            self.assertEqual(video.get_dimensions(), (WIDTH, HEIGHT))
+            self.assertAlmostEqual(video.get_duration(), 1.0, delta=0.15)
+            self.assertAlmostEqual(float(video.get_frame_rate()), FPS, delta=0.01)
+
+    def test_trimmed_adapter_components_cover_the_requested_window(self):
+        video = core_trimmed_video(self.video, 0.5, 1.5)
+        components = video.get_components()
+        self.assertAlmostEqual(int(components.images.shape[0]), FPS, delta=2)
+        self.assertEqual(
+            (int(components.images.shape[2]), int(components.images.shape[1])),
+            (WIDTH, HEIGHT),
+        )
+        self.assertAlmostEqual(float(components.frame_rate), FPS, delta=0.01)
+
+    def test_untrimmed_adapter_spans_the_whole_clip(self):
+        video = core_trimmed_video(self.video, 0.0, 0.0)
+        self.assertAlmostEqual(video.get_duration(), FRAMES / FPS, delta=0.15)
+
+
+class LoadVideoNodeTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls._tmp = tempfile.TemporaryDirectory()
+        cls.video = Path(cls._tmp.name) / "clip.mp4"
+        write_test_video(cls.video, with_audio=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._tmp.cleanup()
+
+    def test_video_output_is_appended_after_the_original_seven(self):
+        node = node_load_video.AusBossLoadVideo
+        self.assertEqual(
+            node.RETURN_TYPES,
+            ("IMAGE", "AUDIO", "INT", "FLOAT", "INT", "INT", "FLOAT", "VIDEO"),
+        )
+        self.assertEqual(
+            node.RETURN_NAMES,
+            ("frames", "audio", "frame_count", "fps", "width", "height", "duration", "video"),
+        )
+        self.assertEqual(len(node.OUTPUT_TOOLTIPS), len(node.RETURN_TYPES))
+
+    def test_node_returns_the_trimmed_window_plus_a_core_video(self):
+        result = run_node(
+            node_load_video.AusBossLoadVideo().load_video(str(self.video), 0.5, 1.5, 0, 0)
+        )
+        self.assertEqual(len(result), 8)
+        frames, _audio, frame_count, fps, width, height, duration, core_video = result
+        self.assertEqual(frame_count, int(frames.shape[0]))
+        self.assertEqual((width, height), (WIDTH, HEIGHT))
+        self.assertAlmostEqual(fps, FPS, places=3)
+        self.assertAlmostEqual(duration, 1.0, delta=0.2)
+        if core_video_api_available():
+            self.assertAlmostEqual(core_video.get_duration(), 1.0, delta=0.15)
+        else:
+            self.assertIsNone(core_video)
+
+    def test_the_node_function_is_a_coroutine(self):
+        node = node_load_video.AusBossLoadVideo
+        self.assertTrue(inspect.iscoroutinefunction(getattr(node, node.FUNCTION)))
+
+    def test_the_event_loop_keeps_running_while_the_decode_blocks(self):
+        ticks = 0
+
+        async def drive():
+            nonlocal ticks
+
+            async def heartbeat():
+                nonlocal ticks
+                while True:
+                    ticks += 1
+                    await asyncio.sleep(0)
+
+            beat = asyncio.ensure_future(heartbeat())
+            try:
+                return await node_load_video.AusBossLoadVideo().load_video(
+                    str(self.video), 0.0, 0.0, 0, 0
+                )
+            finally:
+                beat.cancel()
+
+        with patch.object(node_load_video, "resolve_input_path", lambda _name: self.video):
+            result = asyncio.run(drive())
+
+        self.assertEqual(int(result[2]), FRAMES)
+        # A blocking decode inside the coroutine would have starved the
+        # heartbeat entirely; off the loop it keeps being scheduled.
+        self.assertGreater(ticks, 10)
+
+
+class RecordingBar:
+    def __init__(self):
+        self.updates = []
+
+    def update_absolute(self, value, total=None, preview=None):
+        self.updates.append((value, total, preview))
+
+
+class DecodeLoopTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls._tmp = tempfile.TemporaryDirectory()
+        cls.video = Path(cls._tmp.name) / "clip.mp4"
+        write_test_video(cls.video, with_audio=False)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._tmp.cleanup()
+
+    def test_every_decoded_frame_advances_the_progress_bar(self):
+        bar = RecordingBar()
+        with patch.object(_video_load_helpers, "frame_progress", lambda _total: bar):
+            frames, _fps = decode_video_range(self.video, 0.0, 0.0, 0, 0)
+
+        count = int(frames.shape[0])
+        self.assertEqual(count, FRAMES)
+        self.assertEqual([update[0] for update in bar.updates], list(range(1, count + 1)))
+        self.assertTrue(all(update[1] >= count for update in bar.updates))
+        # The in-node player already previews; progress carries no images.
+        self.assertTrue(all(update[2] is None for update in bar.updates))
+
+    def test_an_unknown_frame_total_skips_tracking_without_a_bar(self):
+        totals = []
+        with patch.object(
+            _video_load_helpers, "frame_progress", lambda total: totals.append(total) or None
+        ):
+            frames, _fps = decode_video_range(self.video, 0.0, 0.0, 0, 0)
+        self.assertEqual(int(frames.shape[0]), FRAMES)
+        self.assertEqual(len(totals), 1)
+
+    def test_a_broken_progress_bar_never_breaks_the_decode(self):
+        class BrokenBar:
+            def update_absolute(self, *_args, **_kwargs):
+                raise RuntimeError("the websocket went away")
+
+        with patch.object(_video_load_helpers, "frame_progress", lambda _total: BrokenBar()):
+            frames, _fps = decode_video_range(self.video, 0.0, 0.0, 0, 0)
+        self.assertEqual(int(frames.shape[0]), FRAMES)
+
+    def test_the_decode_loop_aborts_promptly_on_an_interrupt(self):
+        calls = []
+
+        def interrupt_on_the_third_frame():
+            calls.append(1)
+            if len(calls) > 2:
+                raise FakeInterrupt()
+
+        with patch.object(
+            _video_load_helpers, "raise_if_interrupted", interrupt_on_the_third_frame
+        ):
+            with self.assertRaises(FakeInterrupt):
+                decode_video_range(self.video, 0.0, 0.0, 0, 0)
+
+        # Stopped on the third frame instead of decoding all 24.
+        self.assertEqual(len(calls), 3)
 
 
 if __name__ == "__main__":

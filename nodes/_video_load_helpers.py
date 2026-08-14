@@ -13,6 +13,7 @@ import numpy as np
 import torch
 from PIL import Image
 
+from ._execution_helpers import advance_progress, frame_progress, raise_if_interrupted
 from ._media_helpers import video_metadata
 
 try:
@@ -129,6 +130,9 @@ def decode_video_range(
             raise ValueError(error)
     buffer: np.ndarray | None = None
     count = 0
+    # Sources that never declare a frame count leave `estimated` at 0, and the
+    # decode then runs without a progress bar rather than guessing a total.
+    progress = frame_progress(estimated)
     with av.open(str(path)) as container:
         stream = next(candidate for candidate in container.streams if candidate.type == "video")
         stream.thread_type = "AUTO"
@@ -140,6 +144,9 @@ def decode_video_range(
             container.seek(max(0, offset), stream=stream, backward=True)
         size: tuple[int, int] | None = None
         for frame in container.decode(stream):
+            # Checked before the per-frame work, and on skipped frames too, so
+            # cancelling during a long lead-in still stops within one frame.
+            raise_if_interrupted()
             time = frame.time
             if time is None:
                 time = start + count / fps
@@ -166,6 +173,7 @@ def decode_video_range(
                 buffer = grown
             buffer[count] = array
             count += 1
+            advance_progress(progress, count, estimated)
     if buffer is None or count == 0:
         raise ValueError(
             f"Load Video found no frames between {start:.2f}s and "
@@ -173,6 +181,47 @@ def decode_video_range(
         )
     batch = torch.from_numpy(buffer[:count]).float().div_(255.0)
     return batch, fps
+
+
+def core_trim_args(start_seconds: float, end_seconds: float) -> tuple[float, float]:
+    """Map the node's start/end widgets onto core's (start_time, duration).
+
+    Core's VIDEO trim treats duration 0 as "until the end", which matches
+    end_seconds 0. Degenerate windows (end at or before start) also collapse
+    to 0 here, but VALIDATE_INPUTS rejects those graphs before execution.
+    """
+    start = max(0.0, float(start_seconds))
+    end = float(end_seconds)
+    duration = end - start if end > 0.0 else 0.0
+    return start, max(0.0, duration)
+
+
+def core_trimmed_video(path: Path, start_seconds: float, end_seconds: float):
+    """Core VIDEO object for the trim window; no frames decode until consumed.
+
+    Imported at call time and fail-soft: returns None when the running
+    ComfyUI core predates the comfy_api VIDEO type, so the pack still loads
+    (the node tooltip documents the requirement). Inside ComfyUI the module
+    is already imported, so the lookup is a sys.modules hit.
+    """
+    try:
+        from comfy_api.input_impl import VideoFromFile
+    except Exception:
+        return None
+    video = VideoFromFile(str(path))
+    start, duration = core_trim_args(start_seconds, end_seconds)
+    if start <= 0.0 and duration <= 0.0:
+        return video
+    try:
+        return video.as_trimmed(start, duration, strict_duration=False)
+    except Exception:
+        # A core with VideoFromFile but a different trim surface: surface
+        # nothing rather than a wrongly windowed video.
+        print(
+            "[AusBoss] Load Video: this ComfyUI core cannot trim VIDEO "
+            "objects; the video output is None."
+        )
+        return None
 
 
 def silent_audio(duration: float) -> dict:
@@ -254,6 +303,8 @@ def lazy_audio_range(path: Path, start_seconds: float, end_seconds: float) -> La
 
 __all__ = [
     "LazyAudio",
+    "core_trim_args",
+    "core_trimmed_video",
     "decode_audio_range",
     "decode_video_range",
     "lazy_audio_range",

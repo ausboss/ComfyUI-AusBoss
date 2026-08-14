@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
-from ._video_save_helpers import encode_video, workflow_metadata
+from ._video_save_helpers import (
+    encode_video,
+    resolve_encode_fps,
+    video_components,
+    workflow_metadata,
+)
 
 try:
     import folder_paths
@@ -20,7 +26,8 @@ class AusBossSaveVideo:
     DESCRIPTION = (
         "Saves a frame batch as an H.264 mp4 with optional muxed audio and the "
         "workflow embedded, so the file drags back into ComfyUI. Wire fps "
-        "straight from Load Video (AusBoss) to keep the source timing."
+        "straight from Load Video (AusBoss) to keep the source timing, or "
+        "connect a core VIDEO to encode that whole video instead."
     )
     SEARCH_ALIASES = ["save video", "export video", "video combine", "mp4", "ausboss"]
 
@@ -28,10 +35,6 @@ class AusBossSaveVideo:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "frames": (
-                    "IMAGE",
-                    {"tooltip": "BHWC frame batch to encode."},
-                ),
                 "fps": (
                     "FLOAT",
                     {
@@ -39,7 +42,11 @@ class AusBossSaveVideo:
                         "min": 0.01,
                         "max": 240.0,
                         "step": 0.01,
-                        "tooltip": "Playback frame rate; wire Load Video's fps output to match the source.",
+                        "tooltip": (
+                            "Playback frame rate; wire Load Video's fps output to match "
+                            "the source. A connected video input brings its own rate and "
+                            "overrides this widget."
+                        ),
                     },
                 ),
                 "filename_prefix": (
@@ -60,10 +67,33 @@ class AusBossSaveVideo:
                     },
                 ),
             },
+            # frames leads the optional group so the socket order the frontend
+            # draws — frames, audio, video — is the order saved workflows
+            # already link against. It is optional only because a connected
+            # video carries its own frames; one of the two must be present.
             "optional": {
+                "frames": (
+                    "IMAGE",
+                    {"tooltip": "BHWC frame batch to encode. Not needed when a video is connected."},
+                ),
                 "audio": (
                     "AUDIO",
                     {"tooltip": "Optional track muxed into the file, e.g. Load Video's audio output."},
+                ),
+                "video": (
+                    "VIDEO",
+                    {
+                        "tooltip": (
+                            "Optional core VIDEO. When connected, its frames and audio "
+                            "supersede the frames and audio inputs, and its own frame "
+                            "rate wins over the fps widget; a differing widget rate is "
+                            "logged once to the console. ComfyUI core decodes the whole "
+                            "file into memory before this node sees a frame: that phase "
+                            "reports no progress and does not stop on Cancel, which "
+                            "takes effect once the encode starts. Wiring frames instead "
+                            "keeps the whole run interruptible."
+                        ),
+                    },
                 ),
             },
             "hidden": {"prompt": "PROMPT", "extra_pnginfo": "EXTRA_PNGINFO"},
@@ -73,9 +103,32 @@ class AusBossSaveVideo:
     OUTPUT_NODE = True
     FUNCTION = "save"
 
-    def save(self, frames, fps, filename_prefix, crf, audio=None, prompt=None, extra_pnginfo=None):
+    async def save(
+        self, fps, filename_prefix, crf, frames=None, audio=None, video=None, prompt=None, extra_pnginfo=None
+    ):
         if folder_paths is None:
             raise RuntimeError("Save Video requires ComfyUI's folder_paths at runtime.")
+        # Pulling a VIDEO's components decodes the whole file, so it joins the
+        # encode on a worker thread rather than stalling the event loop. It is
+        # the one phase here that cannot be instrumented: core declares
+        # VideoInput.get_components() with no arguments (comfy_api/latest/
+        # _input/video_types.py) and its VideoFromFile implementation runs a
+        # bare demux loop, so there is no progress or interrupt seam to pass.
+        # A Cancel raised during it is only noticed by the first frame check
+        # inside encode_video, once control comes back.
+        source = await asyncio.to_thread(video_components, video)
+        if source is not None:
+            # A connected VIDEO supersedes the frames/audio inputs and keeps
+            # its own timing; everything below is the unchanged encode path,
+            # so bt709 tagging, metadata and the result player still apply.
+            frames, audio, video_fps = source
+            fps, notice = resolve_encode_fps(float(fps), video_fps)
+            if notice:
+                print(notice)
+        elif frames is None:
+            raise ValueError(
+                "Save Video: connect either a frames batch or a video to encode."
+            )
         full_output_folder, filename, counter, subfolder, filename_prefix = (
             folder_paths.get_save_image_path(
                 filename_prefix,
@@ -85,7 +138,8 @@ class AusBossSaveVideo:
             )
         )
         file = f"{filename}_{counter:05}_.mp4"
-        width, height, frame_count = encode_video(
+        width, height, frame_count = await asyncio.to_thread(
+            encode_video,
             Path(full_output_folder) / file,
             frames,
             float(fps),

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from fractions import Fraction
 from pathlib import Path
 
@@ -11,7 +12,13 @@ import numpy as np
 import torch
 from av.video.reformatter import ColorRange, Colorspace
 
+from ._execution_helpers import advance_progress, frame_progress, raise_if_interrupted
+
 AAC_FRAME_SIZE = 1024
+
+# Rates closer than this render to the same 0.01-step fps widget value, so
+# they are the same rate as far as the user is concerned.
+FPS_EPSILON = 1e-3
 
 # AVCOL_PRI_BT709 / AVCOL_TRC_BT709 / AVCOL_SPC_BT709 all happen to be 1.
 _BT709 = 1
@@ -29,6 +36,49 @@ def _fps_fraction(fps: float) -> Fraction:
     if fps <= 0:
         raise ValueError("Save Video needs an fps greater than zero.")
     return Fraction(fps).limit_denominator(10000)
+
+
+def resolve_encode_fps(widget_fps: float, video_fps: float | None) -> tuple[float, str | None]:
+    """Rate to encode at, plus one log line when the two sources disagree.
+
+    A connected VIDEO carries the rate its own frames were cut at, so it wins
+    over the fps widget: replaying those frames at a stale widget rate would
+    drift the picture away from the audio muxed beside it. The message is
+    None when there is no video, or when the widget already agrees, so an
+    ordinary save stays silent.
+    """
+    widget = float(widget_fps)
+    if video_fps is None:
+        return widget, None
+    resolved = float(video_fps)
+    if not math.isfinite(resolved) or resolved <= 0.0:
+        return widget, None
+    if abs(resolved - widget) <= FPS_EPSILON:
+        return resolved, None
+    return resolved, (
+        f"[AusBoss] Save Video: encoding at the connected video's {resolved:.3f} fps, "
+        f"not the fps widget's {widget:.3f}."
+    )
+
+
+def video_components(video):
+    """(frames, audio, fps) from a connected core VIDEO; None when unconnected.
+
+    Duck-typed on purpose, the same fail-soft seam Load Video uses: the pack
+    never imports comfy_api's VIDEO type, so a core without that API still
+    loads every node and simply leaves this socket unconnectable.
+    """
+    if video is None:
+        return None
+    read_components = getattr(video, "get_components", None)
+    if not callable(read_components):
+        raise ValueError("Save Video's video input expects a ComfyUI core VIDEO object.")
+    components = read_components()
+    frames = getattr(components, "images", None)
+    if frames is None:
+        raise ValueError("Save Video: the connected video carries no frames.")
+    rate = getattr(components, "frame_rate", None)
+    return frames, getattr(components, "audio", None), None if rate is None else float(rate)
 
 
 def _prepare_audio(audio: dict | None):
@@ -49,7 +99,14 @@ def _prepare_audio(audio: dict | None):
 
 def _encode_audio(container, stream, prepared) -> None:
     packed, layout, channels, sample_rate, total_samples = prepared
-    for offset in range(0, total_samples, AAC_FRAME_SIZE):
+    # The waveform is already in memory, so the AAC frame total is known here
+    # the same way the batch size is known for the picture.
+    chunk_total = math.ceil(total_samples / AAC_FRAME_SIZE)
+    progress = frame_progress(chunk_total)
+    for encoded, offset in enumerate(range(0, total_samples, AAC_FRAME_SIZE), start=1):
+        # One AAC frame of latency - about 23ms of audio - between cancelling
+        # the queue and unwinding; the container still closes cleanly.
+        raise_if_interrupted()
         chunk = packed[:, offset * channels : (offset + AAC_FRAME_SIZE) * channels]
         frame = av.AudioFrame.from_ndarray(chunk, format="flt", layout=layout)
         frame.sample_rate = sample_rate
@@ -57,7 +114,12 @@ def _encode_audio(container, stream, prepared) -> None:
         frame.time_base = Fraction(1, sample_rate)
         for packet in stream.encode(frame):
             container.mux(packet)
+        advance_progress(progress, encoded, chunk_total)
+    # Flushing drains whatever the encoder still holds: the packet count is
+    # only known once it stops yielding, so there is no honest fraction to
+    # report and this loop takes the interrupt check alone.
     for packet in stream.encode():
+        raise_if_interrupted()
         container.mux(packet)
 
 
@@ -74,8 +136,11 @@ def encode_video(
     if batch.ndim != 4 or batch.shape[0] < 1:
         raise ValueError("Save Video expected a BHWC IMAGE batch.")
     height, width = int(batch.shape[1]), int(batch.shape[2])
+    frame_count = int(batch.shape[0])
     rate = _fps_fraction(fps)
     prepared_audio = _prepare_audio(audio)
+    # The batch is already in memory, so the total is always known here.
+    progress = frame_progress(frame_count)
     # Same movflags core uses: metadata tags survive the mp4 muxer and the
     # moov atom lands up front so previews start immediately.
     with av.open(str(path), "w", options={"movflags": "use_metadata_tags+faststart"}) as container:
@@ -100,7 +165,10 @@ def encode_video(
         if prepared_audio is not None:
             audio_stream = container.add_stream("aac", rate=prepared_audio[3])
             audio_stream.layout = prepared_audio[1]
-        for frame in batch:
+        for encoded, frame in enumerate(batch, start=1):
+            # One frame of latency between cancelling the queue and unwinding;
+            # the container still closes cleanly on the way out.
+            raise_if_interrupted()
             array = (
                 frame[..., :3].detach().cpu().float().clamp(0.0, 1.0).mul(255.0)
                 .round().to(torch.uint8).numpy()
@@ -115,11 +183,12 @@ def encode_video(
             )
             for packet in stream.encode(video_frame):
                 container.mux(packet)
+            advance_progress(progress, encoded, frame_count)
         for packet in stream.encode():
             container.mux(packet)
         if audio_stream is not None:
             _encode_audio(container, audio_stream, prepared_audio)
-    return width, height, int(batch.shape[0])
+    return width, height, frame_count
 
 
 def workflow_metadata(prompt, extra_pnginfo) -> dict:
@@ -132,4 +201,10 @@ def workflow_metadata(prompt, extra_pnginfo) -> dict:
     return metadata
 
 
-__all__ = ["encode_video", "even_frames", "workflow_metadata"]
+__all__ = [
+    "encode_video",
+    "even_frames",
+    "resolve_encode_fps",
+    "video_components",
+    "workflow_metadata",
+]
