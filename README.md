@@ -29,11 +29,27 @@ Returns a contiguous sub-batch: one-based `start_frame` plus `frame_count` (`0` 
 
 ### Frame Chooser (AusBoss)
 
-Pauses the graph and shows the incoming batch as a clickable filmstrip: pick the frames to keep, or Keep all / Cancel. A **keep last selection** mode replays your previous pick on re-runs without pausing. Outputs the kept sub-batch, its count, and the one-based indices.
+Pauses the graph and shows the incoming batch as a clickable filmstrip: pick the frames to keep, or Keep all / Cancel — with digits, `A`/`N`, `Enter` and `Escape` on the keyboard. A countdown can auto-answer with the policy you choose, a reload mid-pause restores the panel, and filling `pick_list` skips the pause entirely so a chosen take reruns headlessly (your interactive picks are written back there for you). Outputs the kept sub-batch, its count, and the one-based indices.
 
 ### LoRA Loader (AusBoss)
 
 A stacked multi-LoRA node. Each row has an on/off pill, a searchable picker (type to filter, arrow keys + Enter to pick; browse view groups by folder and hovering shows the preview image), and strengths you can **drag left/right to scrub** (Shift for fine steps) or click to type. A header pill toggles the whole stack. The per-row info card shows the LoRA's preview image, base model, trigger words from its file metadata, a one-click Civitai lookup, or your own saved words — click words to toggle them into the deduplicated `trigger_words` output — plus an optional suggested strength range that tints out-of-range values. CLIP input is optional.
+
+### Color Match (AusBoss)
+
+Harmonizes an image against a reference by transferring per-channel LAB mean and standard deviation — the fix for an inpainted or upscaled region that comes back slightly brighter or cooler than the plate it sits in. Optional mask restricts the correction to just that region, and `strength` blends it back toward the original.
+
+### Pad Image (AusBoss)
+
+Pads an image with a solid color, replicated edges, replicated edge pixels, or a **pillarbox blur** (a blurred, dimmed copy of the frame behind the sharp original — the standard look for reframing video to a new aspect). Also returns a mask covering exactly the new padding, ready to wire straight into an outpaint.
+
+### Drop Shadow (AusBoss)
+
+Drops a soft shadow behind a masked subject with signed offset, grow, blur, color, and opacity — what sells a padded or reframed composition as deliberate.
+
+### Frame Interpolate (AusBoss)
+
+Retimes a clip by **frames per second rather than a whole-number multiple**, so 24 to 30 works as naturally as doubling. Choose a fast `blend` crossfade or optical flow for real motion. Hard cuts are detected and held rather than interpolated across, avoiding the smeared morph other interpolators produce at a scene change. Memory is bounded by planning the work first and streaming results back to the CPU.
 
 ### LaMa Inpaint (AusBoss)
 
@@ -41,19 +57,19 @@ Inpaints white mask regions with a TorchScript LaMa checkpoint, preserves pixels
 
 ### Crop For Inpaint / Stitch Inpaint (AusBoss)
 
-Inpaint only where it matters: Crop For Inpaint grows the mask's bounding box by a context factor and emits the crop, the raw sampling mask, and a stitcher; Stitch Inpaint pastes the result back with a separately feathered blend so every pixel outside the blend region stays **bit-identical** to the original. The stitcher broadcasts across a video batch, so one crop serves a whole clip.
+Inpaint only where it matters: Crop For Inpaint grows the mask's bounding box by a context factor and emits the crop, the raw sampling mask, and a stitcher; Stitch Inpaint pastes the result back with a separately feathered blend so every pixel outside the blend region stays **bit-identical** to the original. The stitcher broadcasts across a video batch, so one crop serves a whole clip. An optional `fix_edge_halo` toggle removes the rim that appears when a feathered seam gets blended twice.
 
 ### Load Video (AusBoss)
 
-Loads a video as frames plus audio with `frame_count`, `fps`, `width`, `height`, and `duration` outputs. Its single responsive player includes a two-handle trim timeline: drag **IN** and **OUT** (shown as `h:mm:ss.s` timecodes you can type into), preview exactly that window, and optionally loop it. Only the selected window is decoded, with a memory guard that reports oversized trims instead of exhausting RAM; audio is extracted lazily only when consumed. Optional custom width/height with aspect-preserving single-side mode.
+Loads a video as frames plus audio with `frame_count`, `fps`, `width`, `height`, and `duration` outputs, plus a lazy core `VIDEO` handle so the clip chains straight into ComfyUI's own video nodes. Its single responsive player includes a two-handle trim timeline: drag **IN** and **OUT** (shown as `h:mm:ss.s` timecodes you can type into), preview exactly that window, and optionally loop it. Only the selected window is decoded, with a memory guard that reports oversized trims instead of exhausting RAM; audio is extracted lazily only when consumed. Optional custom width/height with aspect-preserving single-side mode.
 
 ### Refine Mask (AusBoss)
 
-Grows or shrinks a mask, optionally fills enclosed holes, and feathers the edge — returning both the refined mask and its inverse from one compact node.
+Grows or shrinks a mask, fills enclosed holes, melts jagged edges with a `smooth` control that does not feather, feathers, and rescales the extremes with black/white points — returning both the refined mask and its inverse. Optional `guided filter` and `matting` tiers refine the edge against a guide image when you install the matching extra.
 
 ### Save Video (AusBoss)
 
-Encodes frames to an H.264 mp4 tagged bt709 (so platforms don't shift your colors), with optional muxed audio and the workflow embedded — drag a saved mp4 back onto the canvas to restore its workflow. The responsive in-node player previews the encoded result with loop and reload controls. Wire `fps` from Load Video to preserve source timing; audio and video land in a single file.
+Encodes frames — or a connected core `VIDEO` — to an H.264 mp4 tagged bt709 (so platforms don't shift your colors), with optional muxed audio and the workflow embedded, so a saved mp4 dragged back onto the canvas restores its workflow. The responsive in-node player previews the encoded result with loop and reload controls. Wire `fps` from Load Video to preserve source timing; a connected video brings its own rate and overrides the widget. Encoding runs off the executor thread with per-frame progress, so a long export never freezes the UI.
 
 ### Video Bundle / Unbundle / Bundle Edit (AusBoss)
 
@@ -123,7 +139,8 @@ Use the matching examples in [`example_workflows`](example_workflows) as small s
 ## Settings
 
 Under **Settings → 🆎 AusBoss** you can pick an **AusBoss node color** scheme
-(Graphite, Slate, Teal, Moss, Plum, Rust, Navy). It recolors every AusBoss
+(Graphite, Slate, Teal, Moss, Plum, Rust, Navy, or **Custom** with your own
+picked tint). It recolors every AusBoss
 node in the open workflow immediately and applies to nodes you add later.
 Nodes you have colored by hand keep their own colors, and **Theme default**
 returns everything to the stock look. Right-click any AusBoss node for a
@@ -135,8 +152,10 @@ next to the pack — copy `ausboss_presets_example.json` to start; your file is
 gitignored and survives updates.
 
 Under **Chrome**: the browser tab's icon and title can show rendering state
-and queue depth (on by default), and optional **node runtime badges** stamp
-each node with its seconds after a run (off by default).
+and queue depth (on by default), **live status badges** report progress on the
+node itself while it works — `frame 43/120` through a video inpaint — (on by
+default), and optional **node runtime badges** stamp each node with its seconds
+after a run (off by default).
 
 ## Compatibility
 
