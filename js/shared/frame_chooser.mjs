@@ -99,6 +99,15 @@ export function clearSubmission(state) {
   state.submitting = false;
 }
 
+// The two rejections that mean "the server already dealt with this pause":
+// 409 for an answer aimed at an older pause, 410 for one that lost the race to
+// resolve this one. Neither is a failure the user can act on - the outcome
+// that did land arrives over the done event - so the panel stays quiet instead
+// of painting "Answer failed" over a run that is continuing perfectly well.
+export function isStaleAnswerStatus(status) {
+  return status === 409 || status === 410;
+}
+
 // True when a reply must be dropped rather than applied, because the panel has
 // moved on since it was posted: the pause was resolved (timeout, another tab,
 // the run stopping) or a new pause took the panel over. Dropping is what keeps

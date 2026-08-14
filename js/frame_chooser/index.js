@@ -13,6 +13,7 @@ import {
   continuePayload,
   countdownText,
   endSubmission,
+  isStaleAnswerStatus,
   isTypingTarget,
   noFrames,
   pauseNoticeText,
@@ -134,6 +135,7 @@ async function postAnswer(state, payload) {
   updateFace(state);
   let data = null;
   let failure = "";
+  let spent = false;
   try {
     const response = await api.fetchApi("/ausboss/frame_chooser", {
       method: "POST",
@@ -141,15 +143,19 @@ async function postAnswer(state, payload) {
       body: JSON.stringify(payload),
     });
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body?.error || `HTTP ${response.status}`);
-    data = body;
+    // A pause the server had already resolved is not a failure worth showing:
+    // the outcome that won arrives over the done event, and it can land after
+    // this rejection does.
+    if (isStaleAnswerStatus(response.status)) spent = true;
+    else if (!response.ok) throw new Error(body?.error || `HTTP ${response.status}`);
+    else data = body;
   } catch (error) {
     failure = String(error?.message || error);
   }
   // Release first, and repaint either way: a panel that moved to a new pause
   // while this was in flight must get its controls back.
   if (endSubmission(state, ticket)) updateFace(state);
-  if (answerIsStale(ticket, state)) return null;
+  if (spent || answerIsStale(ticket, state)) return null;
   if (failure) {
     state.summary.textContent = `Answer failed: ${failure}`;
     return null;

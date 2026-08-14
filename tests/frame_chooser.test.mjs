@@ -13,6 +13,7 @@ import {
   continuePayload,
   countdownText,
   endSubmission,
+  isStaleAnswerStatus,
   isTypingTarget,
   noFrames,
   pauseNoticeText,
@@ -178,7 +179,8 @@ function submit(panel) {
   if (!ticket) return { accepted: false, settle: null };
   const settle = (reply) => {
     endSubmission(panel, ticket);
-    if (answerIsStale(ticket, panel)) return "ignored";
+    // 409/410 mean the server already resolved this pause: no failure to show.
+    if (isStaleAnswerStatus(reply.status) || answerIsStale(ticket, panel)) return "ignored";
     if (reply.ok) {
       panel.active = false; // resolvePanel
       panel.summary = reply.message;
@@ -285,6 +287,46 @@ test("an idle panel has nothing to answer", () => {
   assert.equal(panel.submitting, true);
   assert.equal(endSubmission(panel, ticket), true);
   assert.equal(panel.submitting, false);
+});
+
+test("only the two already-resolved statuses are treated as spent", () => {
+  assert.equal(isStaleAnswerStatus(409), true);
+  assert.equal(isStaleAnswerStatus(410), true);
+  // Everything the user can actually act on stays a visible failure.
+  for (const status of [200, 400, 404, 500, 0, undefined, null, "410"]) {
+    assert.equal(isStaleAnswerStatus(status), false);
+  }
+});
+
+test("losing the race to resolve a pause is not an answer failure", () => {
+  // The backend hands the loser a 410, and it can beat the done event that
+  // carries the outcome that won. Painting "Answer failed" over a run that is
+  // continuing perfectly well is the bug this guards.
+  const panel = pausedPanel();
+  const attempt = submit(panel);
+  assert.equal(
+    attempt.settle({ ok: false, status: 410, error: "already resolved" }),
+    "ignored",
+  );
+  assert.equal(panel.summary, "Paused - 0 of 8 selected");
+  // A 409 for an answer aimed at an older pause is just as quiet.
+  const stale = submit(panel);
+  assert.equal(stale.settle({ ok: false, status: 409, error: "older pause" }), "ignored");
+  assert.equal(panel.summary, "Paused - 0 of 8 selected");
+  // The latch is free either way, so the panel is still answerable.
+  assert.equal(submissionAllowed(panel), true);
+  const retry = submit(panel);
+  assert.equal(retry.accepted, true);
+  assert.equal(retry.settle({ ok: true, message: "Continuing with 8 of 8 frames." }), "applied");
+});
+
+test("a real failure is still shown while a stale one is not", () => {
+  const panel = pausedPanel();
+  assert.equal(
+    submit(panel).settle({ ok: false, status: 500, error: "Internal Server Error" }),
+    "failed",
+  );
+  assert.equal(panel.summary, "Answer failed: Internal Server Error");
 });
 
 test("the pause notice names the node and the batch", () => {

@@ -72,3 +72,15 @@ cleanup; answers travel over a local `/ausboss/frame_chooser` route. The last
 selection is remembered per node id for the current server session only. Each
 pause has a one-use token, so an older panel cannot answer a later pause that
 reuses the same node id.
+
+## One answer per pause
+
+Several things can end the same pause: a second browser tab, Escape chasing
+Enter, the countdown expiring in the instant an answer arrives, or the queue
+being stopped. The server settles that on the way in — the first one to reach
+the pause decides it, and every later attempt is refused rather than allowed
+to overwrite the decision. So a cancel that lands behind a keep cannot stop a
+run that is already continuing, an expired timer cannot discard the answer you
+just gave, and the panel that lost never claims it was the one that counted.
+Whichever way the pause went is broadcast to every open tab, which is what
+releases the other panels and fills in `pick_list`.
