@@ -9,6 +9,11 @@ keywords = ["comfyui", "nodes", "image", "video", "crop", "rotate", "outpaint", 
 # The nodes use Pillow, NumPy, Torch, and PyAV supplied by ComfyUI.
 dependencies = []
 
+[project.optional-dependencies]
+# Stitch Inpaint's fix_edge_halo toggle; without it the toggle warns once
+# and pastes unchanged.
+edge-halo = ["pymatting>=1.1"]
+
 [project.urls]
 Homepage = "https://github.com/ausboss/ComfyUI-AusBoss"
 Repository = "https://github.com/ausboss/ComfyUI-AusBoss"

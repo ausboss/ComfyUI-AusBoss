@@ -13,7 +13,9 @@ with a feathered blend mask, then slices ``canvas_to_original`` back out.
 Because the original pixels sit verbatim in the canvas and the blend is
 applied as ``canvas + blend * (inpainted - canvas)`` with a hard zero
 guard, every pixel outside the blend region is bit-identical to the
-input image — nothing outside the crop ever round-trips a resize.
+input image — nothing outside the crop ever round-trips a resize. The
+optional edge-halo spread only swaps the color that gets blended in, so
+that guarantee holds with the toggle on as well.
 """
 
 from __future__ import annotations
@@ -148,6 +150,86 @@ def _replicate_pad_image(
     return padded.movedim(1, -1).contiguous()
 
 
+# --- optional edge-halo spread -----------------------------------------------
+
+# The spread is estimated against the blend mask dilated by this much, so every
+# pixel the composite touches sits at or below the alpha the estimate was
+# conditioned on. The core's color is then carried outward rather than divided
+# back out of a near-zero alpha: the estimate leans toward under-correcting,
+# which softens a halo, where over-correcting would replace it with an equally
+# visible one of the opposite sign. The composite keeps the ungrown mask.
+EDGE_HALO_SPREAD_PIXELS = 1
+
+_PYMATTING_HINT = (
+    "Stitch Inpaint: fix_edge_halo needs the optional 'pymatting' package "
+    "(pip install pymatting); pasting the edge pixels unchanged."
+)
+
+_warned: set[str] = set()
+
+
+def _warn_once(message: str) -> None:
+    """Print an ASCII console note at most once per process."""
+    if message in _warned:
+        return
+    _warned.add(message)
+    print(f"[AusBoss] {message}")
+
+
+def _foreground_estimator():
+    """pymatting's multi-level foreground estimator, or None when absent."""
+    try:
+        from pymatting import estimate_foreground_ml
+    except Exception:
+        return None
+    return estimate_foreground_ml
+
+
+def spread_edge_colors(patch: torch.Tensor, alpha: torch.Tensor) -> torch.Tensor:
+    """True foreground color of ``patch``, spread across the blend band.
+
+    A semi-transparent seam pixel carries a mix of the inpainted color and
+    the background it was generated against. Blending that mix in a second
+    time multiplies the background contribution twice and reads as a dark
+    or light halo along the seam. Estimating the unmixed color first and
+    compositing *that* keeps the seam neutral.
+
+    Returns ``patch`` untouched when pymatting is missing (one warning), when
+    the estimate fails, or when the mask has no semi-transparent pixels to
+    fix. Only the pasted color changes: the caller still weights with the
+    ungrown mask, so zero-weight pixels stay bit-identical.
+    """
+    if not bool(((alpha > 0.0) & (alpha < 1.0)).any()):
+        return patch
+    estimate = _foreground_estimator()
+    if estimate is None:
+        _warn_once(_PYMATTING_HINT)
+        return patch
+
+    spread_alpha = grow_shrink_mask(alpha, EDGE_HALO_SPREAD_PIXELS).clamp(0.0, 1.0)
+    if spread_alpha.shape[0] == 1 and patch.shape[0] > 1:
+        spread_alpha = spread_alpha.expand(patch.shape[0], -1, -1)
+
+    frames = []
+    for index in range(patch.shape[0]):
+        image = patch[index].detach().to(torch.float64).cpu().contiguous().numpy()
+        matte = spread_alpha[index].detach().to(torch.float64).cpu().contiguous().numpy()
+        try:
+            foreground = estimate(image, matte)
+        except Exception as exc:  # A failed estimate must never fail the paste.
+            detail = str(exc).encode("ascii", "replace").decode("ascii")
+            _warn_once(f"Stitch Inpaint: edge-halo spread failed ({detail}).")
+            return patch
+        frames.append(torch.as_tensor(foreground).to(dtype=patch.dtype, device=patch.device))
+
+    spread = torch.nan_to_num(torch.stack(frames, dim=0), nan=0.0, posinf=1.0, neginf=0.0)
+    # The spread redistributes colors the patch already holds; clamping to its
+    # own range keeps the fix from inventing a brighter ring than it removes.
+    low = float(torch.nan_to_num(patch.min(), nan=0.0))
+    high = float(torch.nan_to_num(patch.max(), nan=1.0))
+    return spread.clamp(low, high)
+
+
 # --- the crop / stitch pair --------------------------------------------------
 
 
@@ -236,13 +318,21 @@ def build_crop(
     return cropped, sampling, stitcher
 
 
-def apply_stitch(stitcher: dict, inpainted: torch.Tensor) -> torch.Tensor:
+def apply_stitch(
+    stitcher: dict, inpainted: torch.Tensor, fix_edge_halo: bool = False
+) -> torch.Tensor:
     """Blend the inpainted crop back and return the original-size image.
 
     Guarantees: pixels where the blend mask is zero are bit-identical to
     the original image, and passing the crop back unchanged reproduces
     the original exactly. A stitcher built from a single image legally
     broadcasts across an N-frame inpainted batch.
+
+    ``fix_edge_halo`` swaps the blended-in color for the spread foreground
+    color from :func:`spread_edge_colors`; it never widens the blend, so
+    the zero-weight guarantee is unaffected. Identity round trips are only
+    exact with the toggle off, since the spread deliberately rewrites the
+    feathered band.
     """
     if not isinstance(stitcher, dict) or stitcher.get("kind") != STITCHER_KIND:
         raise ValueError(
@@ -281,7 +371,10 @@ def apply_stitch(stitcher: dict, inpainted: torch.Tensor) -> torch.Tensor:
     if (patch.shape[1], patch.shape[2]) != (ch, cw):
         patch = _resize_image(patch, cw, ch)
 
-    weights = blend[:, cy : cy + ch, cx : cx + cw].unsqueeze(-1).to(out.device)
+    alpha = blend[:, cy : cy + ch, cx : cx + cw].to(out.device)
+    if fix_edge_halo:
+        patch = spread_edge_colors(patch, alpha)
+    weights = alpha.unsqueeze(-1)
     region = out[:, cy : cy + ch, cx : cx + cw, :]
     # canvas + blend * (inpainted - canvas): identical input reproduces the
     # canvas bitwise; the where-guard pins the zero-blend region regardless
@@ -293,6 +386,7 @@ def apply_stitch(stitcher: dict, inpainted: torch.Tensor) -> torch.Tensor:
 
 
 __all__ = [
+    "EDGE_HALO_SPREAD_PIXELS",
     "STITCHER_KIND",
     "STITCHER_VERSION",
     "apply_stitch",
@@ -303,4 +397,5 @@ __all__ = [
     "mask_bbox",
     "rect_margins",
     "round_up_to_multiple",
+    "spread_edge_colors",
 ]
