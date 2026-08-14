@@ -5,11 +5,17 @@ Run from anywhere:  python scripts/validate_nodes.py
 
 Checks:
   1. Every .py file in the pack compiles.
-  2. Every nodes/node_*.py defines NODE_CLASS_MAPPINGS and
-     NODE_DISPLAY_NAME_MAPPINGS.
+  2. Every nodes/node_*.py keeps the registry contract from
+     scripts/registry_contract.py: both mappings assigned exactly once, at
+     module level, to a non-empty dictionary literal with string-literal
+     keys, never mentioned again afterwards, and carrying the same keys as
+     each other. Registry scanners parse the source rather than importing
+     it, so anything they cannot read statically makes the node invisible.
   3. Every module listed in NODE_MODULES in __init__.py has a file on
-     disk, and every node file is listed in NODE_MODULES (no orphans).
-  4. Permanent public node IDs exist once their modules are present, and
+     disk, every node file is listed in NODE_MODULES (no orphans), and no
+     mapping key is claimed by two modules.
+  4. Permanent public node IDs are still registered - measured against the
+     mapping keys parsed in check 2, not against the text of the file - and
      each public transform node declares exactly IMAGE then MASK outputs.
 
 Exit code 0 = all good, 1 = problems printed below.
@@ -22,6 +28,13 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from registry_contract import (
+    class_mapping_keys,
+    duplicate_key_problems,
+    mapping_problems,
+)
+
 errors = []
 warnings = []
 
@@ -57,19 +70,16 @@ for path in sorted(ROOT.rglob("*.py")):
     except py_compile.PyCompileError as exc:
         errors.append(f"syntax error: {path.relative_to(ROOT)}\n    {exc.msg}")
 
-# --- 2. node files export their mappings -------------------------------------
+# --- 2. the registry contract each node module must keep --------------------
 node_files = sorted((ROOT / "nodes").glob("node_*.py"))
+keys_by_module = {}
 for path in node_files:
-    tree = ast.parse(path.read_text(encoding="utf-8"))
-    assigned = {
-        target.id
-        for node in ast.walk(tree)
-        for target in getattr(node, "targets", [])
-        if isinstance(target, ast.Name)
-    }
-    for required in ("NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"):
-        if required not in assigned:
-            errors.append(f"{path.name}: missing {required}")
+    source = path.read_text(encoding="utf-8")
+    errors.extend(mapping_problems(source, path.name))
+    keys_by_module[path.name] = class_mapping_keys(source)
+
+# Two modules claiming one key is a silent drop: the last import wins.
+errors.extend(duplicate_key_problems(keys_by_module))
 
 # --- 3. NODE_MODULES list matches the files on disk --------------------------
 init_text = (ROOT / "__init__.py").read_text(encoding="utf-8")
@@ -82,10 +92,13 @@ for orphan in sorted(on_disk - listed):
     warnings.append(f"nodes/{orphan}.py exists but is not listed in NODE_MODULES")
 
 # --- 4. permanent transform contracts ---------------------------------------
-mapping_keys = set()
+# The keys parsed out of NODE_CLASS_MAPPINGS in check 2, not every
+# AUSBOSS_NODES_* string in the file: a docstring, a comment or a search
+# alias mentioning an id is not a registration, and matching those would let
+# a node lose its mapping entry while this check kept passing.
+mapping_keys = set().union(*keys_by_module.values()) if keys_by_module else set()
 for path in node_files:
     text = path.read_text(encoding="utf-8")
-    mapping_keys.update(re.findall(r'"(AUSBOSS_NODES_\w+)"', text))
     if path.stem in {"node_image_crop_rotate_pad", "node_video_crop_rotate_pad"}:
         tree = ast.parse(text)
         return_types = None

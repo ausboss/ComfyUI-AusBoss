@@ -39,7 +39,9 @@ js/
                   # appearance/ (.js files auto-load)
   shared/*.mjs    # import-only shared modules (.mjs files do NOT auto-load)
 docs/             # developer docs
-scripts/          # validate_nodes.py — offline checks, stdlib only
+scripts/          # offline checks, stdlib only. validate_nodes.py is the
+                  # entry point; registry_contract.py holds the rules that
+                  # keep nodes visible to registry scanners.
 example_workflows/  # example workflows (regular workflow JSON, not API JSON)
 ```
 
@@ -47,6 +49,16 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
 
 - Public mapping keys use `AUSBOSS_NODES_<Purpose>`. The mapping key is the
   workflow-compatibility contract and must never be renamed after release.
+- Write those keys as **string literals** inside `NODE_CLASS_MAPPINGS` and
+  `NODE_DISPLAY_NAME_MAPPINGS` — never a `NODE_ID` variable. Registry scanners
+  (ComfyUI-Manager) AST-parse the source without importing it, so a variable
+  key makes every node invisible and "install missing custom nodes" stops
+  offering the pack. `scripts/validate_nodes.py` enforces this.
+- Assign each mapping **once**, at module level, to a non-empty dict literal,
+  and never mention the name again — no `update()`, no `del`, no
+  `alias = NODE_CLASS_MAPPINGS`. A scanner reads that one literal and stops,
+  so anything done to the mapping afterwards is invisible to it. Both
+  mappings must carry exactly the same keys.
 - Display name: `<Name> (AusBoss)` so typing "ausboss" surfaces every node.
 - Category: `🆎 AusBoss/<Group>`. The emoji is safe here — categories reach
   the frontend as JSON and are never printed to the console at import time.
