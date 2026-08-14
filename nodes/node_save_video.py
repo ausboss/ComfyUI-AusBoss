@@ -87,7 +87,11 @@ class AusBossSaveVideo:
                             "Optional core VIDEO. When connected, its frames and audio "
                             "supersede the frames and audio inputs, and its own frame "
                             "rate wins over the fps widget; a differing widget rate is "
-                            "logged once to the console."
+                            "logged once to the console. ComfyUI core decodes the whole "
+                            "file into memory before this node sees a frame: that phase "
+                            "reports no progress and does not stop on Cancel, which "
+                            "takes effect once the encode starts. Wiring frames instead "
+                            "keeps the whole run interruptible."
                         ),
                     },
                 ),
@@ -105,7 +109,13 @@ class AusBossSaveVideo:
         if folder_paths is None:
             raise RuntimeError("Save Video requires ComfyUI's folder_paths at runtime.")
         # Pulling a VIDEO's components decodes the whole file, so it joins the
-        # encode on a worker thread rather than stalling the event loop.
+        # encode on a worker thread rather than stalling the event loop. It is
+        # the one phase here that cannot be instrumented: core declares
+        # VideoInput.get_components() with no arguments (comfy_api/latest/
+        # _input/video_types.py) and its VideoFromFile implementation runs a
+        # bare demux loop, so there is no progress or interrupt seam to pass.
+        # A Cancel raised during it is only noticed by the first frame check
+        # inside encode_video, once control comes back.
         source = await asyncio.to_thread(video_components, video)
         if source is not None:
             # A connected VIDEO supersedes the frames/audio inputs and keeps
