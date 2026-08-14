@@ -6,7 +6,8 @@ Run from anywhere:  python scripts/validate_nodes.py
 Checks:
   1. Every .py file in the pack compiles.
   2. Every nodes/node_*.py defines NODE_CLASS_MAPPINGS and
-     NODE_DISPLAY_NAME_MAPPINGS.
+     NODE_DISPLAY_NAME_MAPPINGS, with string-literal keys so registry
+     scanners that parse (rather than import) can discover the nodes.
   3. Every module listed in NODE_MODULES in __init__.py has a file on
      disk, and every node file is listed in NODE_MODULES (no orphans).
   4. Permanent public node IDs exist once their modules are present, and
