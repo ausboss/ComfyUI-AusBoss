@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import contextlib
+import importlib.util
+import io
 from pathlib import Path
 import sys
 import unittest
@@ -11,6 +14,7 @@ sys.path.insert(0, str(ROOT))
 if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
     del sys.modules["nodes"]
 
+from nodes import _inpaint_crop_helpers as inpaint_helpers
 from nodes._inpaint_crop_helpers import (
     apply_stitch,
     build_crop,
@@ -20,6 +24,8 @@ from nodes._inpaint_crop_helpers import (
     mask_bbox,
     round_up_to_multiple,
 )
+
+HAS_PYMATTING = importlib.util.find_spec("pymatting") is not None
 
 
 def rand_image(batch: int, height: int, width: int, seed: int = 0) -> torch.Tensor:
@@ -44,6 +50,44 @@ def box_mask(height: int, width: int, y0: int, y1: int, x0: int, x1: int) -> tor
 def shuffle_pixels(image: torch.Tensor) -> torch.Tensor:
     """Deterministically change every pixel while staying inside [0, 1]."""
     return ((image + 0.31) % 1.0).float()
+
+
+def crop_alpha(stitcher: dict) -> torch.Tensor:
+    """The blend mask over the crop window, as BHWC weights."""
+    cx, cy, cw, ch = stitcher["crop_to_canvas"]
+    return stitcher["blend"][:, cy : cy + ch, cx : cx + cw].unsqueeze(-1)
+
+
+def contaminated_patch(stitcher: dict, color: torch.Tensor) -> torch.Tensor:
+    """An inpainted crop whose soft edge already carries the old background.
+
+    This is the halo case: the sampler faded its result toward the
+    surrounding pixels over the same feathered edge, so pasting it through
+    that edge a second time counts the background twice and rims the seam.
+    """
+    cx, cy, cw, ch = stitcher["crop_to_canvas"]
+    alpha = crop_alpha(stitcher)
+    region = stitcher["canvas"][:, cy : cy + ch, cx : cx + cw, :]
+    return alpha * color.view(1, 1, 1, 3) + (1.0 - alpha) * region
+
+
+def blend_bands(stitcher: dict) -> tuple[torch.Tensor, torch.Tensor]:
+    """(untouched, feathered) BHW masks over the original-size frame.
+
+    ``untouched`` is every pixel the paste cannot reach — outside the paste
+    window, or inside it at zero blend weight — and must stay bit-identical.
+    ``feathered`` is the semi-transparent band the halo fix may rewrite.
+    """
+    ox, oy, ow, oh = stitcher["canvas_to_original"]
+    cx, cy, cw, ch = stitcher["crop_to_canvas"]
+    blend = stitcher["blend"][:, oy : oy + oh, ox : ox + ow]
+    window = torch.zeros_like(blend, dtype=torch.bool)
+    y0, y1 = max(cy, oy) - oy, min(cy + ch, oy + oh) - oy
+    x0, x1 = max(cx, ox) - ox, min(cx + cw, ox + ow) - ox
+    if y1 > y0 and x1 > x0:
+        window[:, y0:y1, x0:x1] = True
+    pasted = window & (blend > 0.0)
+    return ~pasted, pasted & (blend < 1.0)
 
 
 class GeometryTests(unittest.TestCase):
@@ -301,6 +345,246 @@ class BatchTests(unittest.TestCase):
             apply_stitch({"kind": "something_else"}, rand_image(1, 8, 8))
         with self.assertRaises(ValueError):
             apply_stitch("not a dict", rand_image(1, 8, 8))
+
+
+class EdgeHaloTests(unittest.TestCase):
+    """fix_edge_halo may only change what is pasted, never how far."""
+
+    def setUp(self):
+        self.image = rand_image(1, 64, 96, seed=40)
+        self.mask = box_mask(64, 96, 24, 40, 40, 56)
+        self.cropped, _, self.stitcher = build_crop(self.image, self.mask, 1.5, 8, 8)
+
+    def disable_pymatting(self):
+        """Make the helper behave as if pymatting were not installed."""
+        original = inpaint_helpers._foreground_estimator
+        warned = set(inpaint_helpers._warned)
+        inpaint_helpers._foreground_estimator = lambda: None
+        inpaint_helpers._warned.clear()
+
+        def restore():
+            inpaint_helpers._foreground_estimator = original
+            inpaint_helpers._warned.clear()
+            inpaint_helpers._warned.update(warned)
+
+        self.addCleanup(restore)
+
+    def stub_helper(self, name, replacement):
+        """Swap one module-level seam for the length of a test."""
+        original = getattr(inpaint_helpers, name)
+        setattr(inpaint_helpers, name, replacement)
+        self.addCleanup(lambda: setattr(inpaint_helpers, name, original))
+
+    def stub_estimator(self, estimate):
+        self.stub_helper("_foreground_estimator", lambda: estimate)
+
+    def three_frames(self) -> torch.Tensor:
+        return torch.cat(
+            [self.cropped, shuffle_pixels(self.cropped), self.cropped * 0.5], dim=0
+        )
+
+    def test_toggle_off_is_the_paste_this_node_already_shipped(self):
+        patch = shuffle_pixels(self.cropped)
+        legacy = apply_stitch(self.stitcher, patch)
+        self.assertTrue(torch.equal(apply_stitch(self.stitcher, patch, False), legacy))
+        # The identity round trip stays exact on the default path.
+        self.assertTrue(torch.equal(apply_stitch(self.stitcher, self.cropped, False), self.image))
+
+    def test_toggle_on_without_pymatting_warns_once_and_pastes_unchanged(self):
+        self.disable_pymatting()
+        patch = shuffle_pixels(self.cropped)
+        plain = apply_stitch(self.stitcher, patch)
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            first = apply_stitch(self.stitcher, patch, True)
+            second = apply_stitch(self.stitcher, patch, True)
+        self.assertTrue(torch.equal(first, plain))
+        self.assertTrue(torch.equal(second, plain))
+        output = buffer.getvalue()
+        self.assertEqual(output.count("[AusBoss]"), 1)
+        self.assertIn("pymatting", output)
+        output.encode("ascii")  # console output must stay ASCII
+
+    def test_a_hard_blend_has_no_feathered_band_to_spread(self):
+        cropped, _, stitcher = build_crop(self.image, self.mask, 1.5, 0, 8)
+        patch = shuffle_pixels(cropped)
+        self.assertTrue(
+            torch.equal(apply_stitch(stitcher, patch, True), apply_stitch(stitcher, patch))
+        )
+
+    def test_empty_mask_with_the_toggle_still_returns_the_original(self):
+        empty = torch.zeros((1, 64, 96), dtype=torch.float32)
+        cropped, _, stitcher = build_crop(self.image, empty, 1.2, 16, 8)
+        out = apply_stitch(stitcher, shuffle_pixels(cropped), True)
+        self.assertTrue(torch.equal(out, self.image))
+
+    @unittest.skipUnless(HAS_PYMATTING, "pymatting is not installed")
+    def test_spread_keeps_the_untouched_region_bit_identical(self):
+        patch = shuffle_pixels(self.cropped)
+        untouched, band = blend_bands(self.stitcher)
+        self.assertTrue(bool(untouched.any()))
+        self.assertTrue(bool(band.any()))
+        out = apply_stitch(self.stitcher, patch, True)
+        self.assertEqual(out.shape, self.image.shape)
+        self.assertTrue(torch.equal(out[untouched], self.image[untouched]))
+        # The pasted content really did change under the feather.
+        self.assertFalse(torch.equal(out[band], apply_stitch(self.stitcher, patch)[band]))
+
+    @unittest.skipUnless(HAS_PYMATTING, "pymatting is not installed")
+    def test_spread_removes_the_double_blended_seam(self):
+        # Wide context against a modest feather, so the band is well inside
+        # the paste window instead of running off its edge.
+        image = gradient_image(1, 128, 128)
+        mask = box_mask(128, 128, 48, 80, 48, 80)
+        cropped, _, stitcher = build_crop(image, mask, 2.0, 6, 8)
+        untouched, band = blend_bands(stitcher)
+        self.assertGreater(int(band.sum()), 500)
+
+        color = torch.tensor([0.85, 0.30, 0.20])
+        clean = color.view(1, 1, 1, 3).expand_as(cropped).contiguous()
+        ideal = apply_stitch(stitcher, clean)  # one honest feathered paste
+        patch = contaminated_patch(stitcher, color)
+        plain = apply_stitch(stitcher, patch)
+        fixed = apply_stitch(stitcher, patch, True)
+
+        halo = float((plain[band] - ideal[band]).abs().mean())
+        residue = float((fixed[band] - ideal[band]).abs().mean())
+        self.assertGreater(halo, 0.02)  # the halo is really there
+        # A user who turns this on should stop seeing the rim, not see a
+        # slightly fainter one. Dilating the estimate's mask is what erodes
+        # this, so the bound is tight enough to catch that regression.
+        self.assertLess(residue, halo * 0.25)
+        # ...and fixing it did not spill past the paste.
+        self.assertTrue(torch.equal(fixed[untouched], image[untouched]))
+
+    @unittest.skipUnless(HAS_PYMATTING, "pymatting is not installed")
+    def test_spread_across_a_broadcast_frame_batch(self):
+        frames = torch.cat([self.cropped, shuffle_pixels(self.cropped)], dim=0)
+        untouched, _ = blend_bands(self.stitcher)
+        out = apply_stitch(self.stitcher, frames, True)
+        self.assertEqual(out.shape, (2, 64, 96, 3))
+        for index in range(2):
+            frame = out[index : index + 1]
+            self.assertTrue(torch.equal(frame[untouched], self.image[untouched]))
+
+    def test_a_cancel_lands_between_frames(self):
+        """A batch started by mistake stops at the next frame boundary."""
+        frames = self.three_frames()
+        solved = []
+
+        def solve(image, matte):
+            solved.append(image.shape)
+            return image  # a legal estimate; this test is about the loop
+
+        self.stub_estimator(solve)
+        expected = apply_stitch(self.stitcher, frames, True)
+        self.assertEqual(len(solved), 3)  # one solve per frame
+
+        class Cancelled(Exception):
+            pass
+
+        checks = []
+        cancel_at = [2]
+
+        def check():
+            checks.append(1)
+            if len(checks) == cancel_at[0]:
+                raise Cancelled
+
+        self.stub_helper("_raise_if_interrupted", check)
+        solved.clear()
+        canvas_before = self.stitcher["canvas"].clone()
+        frames_before = frames.clone()
+        with self.assertRaises(Cancelled):
+            apply_stitch(self.stitcher, frames, True)
+        # Checked before frame 0 and again before frame 1: the first frame's
+        # solve ran, the second never started.
+        self.assertEqual(len(checks), 2)
+        self.assertEqual(len(solved), 1)
+        # The cancelled run left nothing behind in the inputs...
+        self.assertTrue(torch.equal(frames, frames_before))
+        self.assertTrue(torch.equal(self.stitcher["canvas"], canvas_before))
+        # ...and the finished frame was neither kept nor double-counted: the
+        # same call reruns from scratch and returns the same pixels.
+        cancel_at[0] = 0
+        checks.clear()
+        solved.clear()
+        self.assertTrue(torch.equal(apply_stitch(self.stitcher, frames, True), expected))
+        self.assertEqual(len(checks), 3)
+        self.assertEqual(len(solved), 3)
+
+    def test_progress_is_reported_once_per_frame(self):
+        class Recorder:
+            def __init__(self, total):
+                self.total = total
+                self.updates = []
+
+            def update_absolute(self, value, total=None, preview=None):
+                self.updates.append((value, total))
+
+        bars = []
+
+        def make_bar(total):
+            bars.append(Recorder(total))
+            return bars[-1]
+
+        self.stub_helper("_progress_bar", make_bar)
+        self.stub_estimator(lambda image, matte: image)
+
+        apply_stitch(self.stitcher, self.three_frames(), True)
+        self.assertEqual(len(bars), 1)
+        self.assertEqual(bars[0].total, 3)
+        self.assertEqual(bars[0].updates, [(1, 3), (2, 3), (3, 3)])
+
+        # A single frame finishes before a bar would mean anything.
+        bars.clear()
+        apply_stitch(self.stitcher, self.cropped, True)
+        self.assertEqual(bars, [])
+
+    @unittest.skipUnless(HAS_PYMATTING, "pymatting is not installed")
+    def test_the_estimator_is_fed_float32_and_float64_would_not_change_it(self):
+        from pymatting import estimate_foreground_ml
+
+        seen = []
+
+        def estimate(image, matte):
+            seen.append((str(image.dtype), str(matte.dtype)))
+            result = estimate_foreground_ml(image, matte)
+            # Exactly the float64 round trip this helper used to make: widen
+            # the same float32 inputs and hand those over instead.
+            legacy = estimate_foreground_ml(
+                image.astype("float64"), matte.astype("float64")
+            )
+            self.assertTrue(bool((result == legacy).all()))
+            return result
+
+        self.stub_estimator(estimate)
+        patch = shuffle_pixels(self.cropped)
+        fixed = apply_stitch(self.stitcher, patch, True)
+        self.assertEqual(seen, [("float32", "float32")])
+        self.assertFalse(torch.equal(fixed, apply_stitch(self.stitcher, patch)))
+
+    def test_node_appends_the_toggle_as_an_optional_widget(self):
+        from nodes.node_inpaint_crop_stitch import NODE_CLASS_MAPPINGS
+
+        stitch_cls = NODE_CLASS_MAPPINGS["AUSBOSS_NODES_StitchInpaint"]
+        types = stitch_cls.INPUT_TYPES()
+        self.assertEqual(list(types["required"]), ["stitcher", "inpainted"])
+        self.assertEqual(list(types["optional"]), ["fix_edge_halo"])
+        kind, options = types["optional"]["fix_edge_halo"]
+        self.assertEqual(kind, "BOOLEAN")
+        self.assertIs(options["default"], False)
+        self.assertIn("pymatting", options["tooltip"])
+
+        node = stitch_cls()
+        patch = shuffle_pixels(self.cropped)
+        # A workflow saved before the widget existed omits it entirely.
+        legacy = getattr(node, stitch_cls.FUNCTION)(stitcher=self.stitcher, inpainted=patch)
+        self.assertTrue(torch.equal(legacy[0], apply_stitch(self.stitcher, patch)))
+        toggled = getattr(node, stitch_cls.FUNCTION)(
+            stitcher=self.stitcher, inpainted=patch, fix_edge_halo=True
+        )
+        self.assertTrue(torch.equal(toggled[0], apply_stitch(self.stitcher, patch, True)))
 
 
 class NodeWiringTests(unittest.TestCase):

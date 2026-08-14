@@ -9,6 +9,14 @@ keywords = ["comfyui", "nodes", "image", "video", "crop", "rotate", "outpaint", 
 # The nodes use Pillow, NumPy, Torch, and PyAV supplied by ComfyUI.
 dependencies = []
 
+# Optional extras. The pack runs fully without them; each unlocks one
+# opt-in control that warns once and falls back when its package is absent.
+[project.optional-dependencies]
+# Refine Mask edge_refine = "guided filter"
+guided-filter = ["opencv-contrib-python"]
+# Refine Mask edge_refine = "matting", and Stitch Inpaint's fix_edge_halo
+matting = ["pymatting>=1.1"]
+
 [project.urls]
 Homepage = "https://github.com/ausboss/ComfyUI-AusBoss"
 Repository = "https://github.com/ausboss/ComfyUI-AusBoss"

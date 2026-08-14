@@ -156,7 +156,8 @@ class AusBossStitchInpaint:
         "the original image, blending with the feathered mask recorded in "
         "the stitcher. Pixels outside the blend region are bit-identical to "
         "the original — they never pass through a resize. A stitcher built "
-        "from one image broadcasts across an inpainted frame batch."
+        "from one image broadcasts across an inpainted frame batch. Turn on "
+        "fix_edge_halo when the seam shows a dark or light rim."
     )
     SEARCH_ALIASES = [
         "stitch inpaint",
@@ -183,7 +184,23 @@ class AusBossStitchInpaint:
                         )
                     },
                 ),
-            }
+            },
+            "optional": {
+                "fix_edge_halo": (
+                    "BOOLEAN",
+                    {
+                        "default": False,
+                        "tooltip": (
+                            "Recover the true color under the feathered seam "
+                            "before pasting, so half-transparent edge pixels "
+                            "stop blending their background in twice and "
+                            "leaving a dark or light rim. Needs the optional "
+                            "pymatting package; without it the paste is "
+                            "unchanged and the console notes it once."
+                        ),
+                    },
+                ),
+            },
         }
 
     RETURN_TYPES = ("IMAGE",)
@@ -194,8 +211,8 @@ class AusBossStitchInpaint:
     )
     FUNCTION = "stitch"
 
-    def stitch(self, stitcher, inpainted):
-        return (apply_stitch(stitcher, inpainted),)
+    def stitch(self, stitcher, inpainted, fix_edge_halo=False):
+        return (apply_stitch(stitcher, inpainted, bool(fix_edge_halo)),)
 
 
 NODE_CLASS_MAPPINGS = {
