@@ -5,10 +5,16 @@ import { ensureVideoCss, makeToolButton } from "../shared/video_ui.mjs";
 import {
   allFrames,
   cancelPayload,
+  chooserKeyAction,
+  clickLocked,
   continuePayload,
   countdownText,
+  isTypingTarget,
   noFrames,
+  pauseNoticeText,
+  rectOnScreen,
   selectionSummary,
+  shouldNotifyPause,
   toggleFrame,
   validFrames,
 } from "../shared/frame_chooser.mjs";
@@ -19,9 +25,14 @@ const TICK_EVENT = "ausboss-frame-choose-tick";
 const DONE_EVENT = "ausboss-frame-choose-done";
 const PANEL_WIDGET = "ausboss_frame_chooser_panel";
 const CSS_ID = "ausboss-chooser-ui-v1";
+const TAB_ALERT_CLASS = "ausboss-chooser-tab-alert";
 const MIN_WIDTH = 240;
 const IDLE_HEIGHT = 132;
 const ACTIVE_HEIGHT = 304;
+// The canvas positions DOM widgets on its own frame, so the panel's rect only
+// means something a beat after the pause lands.
+const NOTICE_DELAY_MS = 250;
+const TAB_ALERT_MS = 2400;
 
 // Live panels by graph node id; the websocket event carries the execution id,
 // which matches the node id for top-level nodes (subgraph ids keep a prefix).
@@ -46,6 +57,8 @@ function ensureChooserCss() {
 .ausboss-chooser-actions{display:flex;gap:6px;}
 .ausboss-chooser-actions .ausboss-video-tool{flex:1 1 auto;}
 .ausboss-chooser-root .ausboss-video-tool:disabled{opacity:.4;cursor:default;}
+.${TAB_ALERT_CLASS}{border-radius:4px;box-shadow:inset 0 0 0 2px ${BRAND};animation:ausboss-chooser-tab-pulse 1.2s ease-in-out 2;}
+@keyframes ausboss-chooser-tab-pulse{0%,100%{background:transparent;}50%{background:rgba(0,180,170,.3);}}
 `;
   document.head.appendChild(style);
 }
@@ -81,6 +94,7 @@ function updateFace(state) {
 function resolvePanel(state, message) {
   state.active = false;
   state.remaining = 0;
+  clearTimeout(state.noticeTimer); // answered before the "are you there?" check
   state.summary.textContent = message;
   updateFace(state);
   state.node.setDirtyCanvas?.(true, true);
@@ -133,19 +147,69 @@ async function cancelRun(state) {
   if (data) resolvePanel(state, "Cancelled - run interrupted.");
 }
 
-function announcePause(count) {
-  const message = `Frame Chooser paused the graph - pick from ${count} frames on the node.`;
-  try {
-    app.extensionManager?.toast?.add?.({
-      severity: "info",
-      summary: "Frame Chooser",
-      detail: message,
-      life: 5000,
-    });
-  } catch (_error) {
-    /* older frontends have no toast API */
+function panelOnScreen(state) {
+  return rectOnScreen(state.root?.getBoundingClientRect?.(), {
+    width: window.innerWidth,
+    height: window.innerHeight,
+  });
+}
+
+// Switching workflow tabs - or drilling into a subgraph - changes the graph
+// the canvas draws. A node whose graph is not that one cannot be seen here.
+function graphFronted(state) {
+  const shown = app.canvas?.graph ?? app.graph;
+  const graph = state.node?.graph;
+  return !graph || !shown || graph === shown;
+}
+
+// Best effort: the frontend renders one `.workflow-tab` per open workflow
+// with the filename in a span, and exposes no handle on the element. Match on
+// that label and skip the highlight when the markup is not there. Only the
+// fronted workflow can be named, so a pause in a background workflow gets the
+// toast alone rather than a guessed tab.
+function highlightWorkflowTab(state) {
+  if (!graphFronted(state)) return;
+  const label = app.extensionManager?.workflow?.activeWorkflow?.filename;
+  if (!label) return;
+  let tab = null;
+  for (const candidate of document.querySelectorAll(".workflow-tab")) {
+    if (candidate.querySelector("span")?.textContent?.trim() === label) {
+      tab = candidate;
+      break;
+    }
   }
-  console.log(`[AusBoss] ${message}`);
+  if (!tab) return;
+  tab.classList.add(TAB_ALERT_CLASS);
+  const timer = setTimeout(() => tab.classList.remove(TAB_ALERT_CLASS), TAB_ALERT_MS);
+  state.abort.signal.addEventListener(
+    "abort",
+    () => {
+      clearTimeout(timer);
+      tab.classList.remove(TAB_ALERT_CLASS);
+    },
+    { once: true },
+  );
+}
+
+// One nudge per pause, and only when the panel is out of sight: a filmstrip
+// the user is looking at speaks for itself. Runs a beat after the pause lands
+// so the panel's rect is real, and re-checks the token in case the pause was
+// answered in the meantime.
+function announcePause(state, token) {
+  if (!state.active || state.activeToken !== token) return;
+  const unseen = shouldNotifyPause({
+    documentHidden: document.hidden === true,
+    onScreen: panelOnScreen(state),
+    workflowFronted: graphFronted(state),
+    alreadyNotified: Boolean(token) && state.notifiedToken === token,
+  });
+  if (!unseen) return;
+  state.notifiedToken = token;
+  const detail = pauseNoticeText(state.node?.title, state.count);
+  const toast = app.extensionManager?.toast;
+  if (toast?.add) toast.add({ severity: "info", summary: "Frame Chooser", detail, life: 6000 });
+  else console.log(`[AusBoss] ${detail}`);
+  highlightWorkflowTab(state);
 }
 
 function populatePanel(state, detail) {
@@ -157,6 +221,7 @@ function populatePanel(state, detail) {
   state.selected = validFrames(detail.previous, state.count);
   state.remaining = Number(detail.remaining ?? detail.timeout_seconds) || 0;
   state.timeoutPolicy = typeof detail.on_timeout === "string" ? detail.on_timeout : "";
+  state.shownAt = Date.now(); // starts the click cooldown
   state.grid.replaceChildren();
   (detail.urls || []).forEach((file, position) => {
     const frame = position + 1;
@@ -164,7 +229,10 @@ function populatePanel(state, detail) {
     thumb.type = "button";
     thumb.className = "ausboss-chooser-thumb";
     thumb.dataset.frame = String(frame);
-    thumb.title = `Frame ${frame} - click to toggle`;
+    thumb.title =
+      frame <= 9
+        ? `Frame ${frame} - click or press ${frame} to toggle`
+        : `Frame ${frame} - click to toggle`;
     const image = document.createElement("img");
     image.loading = "lazy";
     image.alt = `Frame ${frame}`;
@@ -194,7 +262,9 @@ function populatePanel(state, detail) {
   node.setDirtyCanvas?.(true, true);
   node.graph?.setDirtyCanvas?.(true, true);
   state.root.focus({ preventScroll: true });
-  announcePause(state.count);
+  const token = state.activeToken;
+  clearTimeout(state.noticeTimer);
+  state.noticeTimer = setTimeout(() => announcePause(state, token), NOTICE_DELAY_MS);
 }
 
 // Server -> widget writeback: an interactive answer lands in the visible
@@ -251,8 +321,8 @@ function buildPanel(node) {
   const summary = document.createElement("div");
   summary.className = "ausboss-chooser-summary";
   summary.textContent = "Queue a run to pick frames here.";
-  const allButton = makeToolButton("ALL", "Select every frame");
-  const noneButton = makeToolButton("NONE", "Clear the selection");
+  const allButton = makeToolButton("ALL", "Select every frame (A)");
+  const noneButton = makeToolButton("NONE", "Clear the selection (N)");
   head.append(summary, allButton, noneButton);
 
   const grid = document.createElement("div");
@@ -264,7 +334,7 @@ function buildPanel(node) {
 
   const actions = document.createElement("div");
   actions.className = "ausboss-chooser-actions";
-  const keepButton = makeToolButton("KEEP SELECTED", "Resume with the selected frames");
+  const keepButton = makeToolButton("KEEP SELECTED", "Resume with the selected frames (Enter)");
   const keepAllButton = makeToolButton("KEEP ALL", "Resume with every frame");
   const cancelButton = makeToolButton("CANCEL", "Interrupt the run (Escape)");
   actions.append(keepButton, keepAllButton, cancelButton);
@@ -291,7 +361,11 @@ function buildPanel(node) {
     selected: noFrames(),
     remaining: 0,
     timeoutPolicy: "",
+    shownAt: 0,
+    notifiedToken: null,
+    noticeTimer: null,
   });
+  abort.signal.addEventListener("abort", () => clearTimeout(state.noticeTimer), { once: true });
 
   const widget = node.addDOMWidget(PANEL_WIDGET, "ausboss_chooser", root, {
     serialize: false,
@@ -354,14 +428,58 @@ function buildPanel(node) {
     { signal: abort.signal },
   );
 
-  // Escape cancels while the panel holds focus; other keys stay with the app.
+  // A pause can pop up under a pointer already travelling toward the canvas,
+  // so swallow clicks inside the panel for a moment after it appears. Capture
+  // phase keeps the thumbs and buttons from seeing them; no preventDefault,
+  // so a click on empty panel space still falls through to the node.
+  root.addEventListener(
+    "click",
+    (event) => {
+      if (state.active && clickLocked(Date.now() - state.shownAt)) event.stopPropagation();
+    },
+    { capture: true, signal: abort.signal },
+  );
+
+  // Keyboard map, live only while this panel holds focus and its pause is the
+  // active one. Mapped keys are consumed so canvas shortcuts do not also fire;
+  // anything else - and anything typed into a field - stays with the app.
   root.addEventListener(
     "keydown",
     (event) => {
-      if (event.key !== "Escape" || !state.active) return;
+      if (!state.active) return;
+      const hit = chooserKeyAction({
+        key: event.key,
+        typing: isTypingTarget(event.target?.tagName, event.target?.isContentEditable),
+        ctrl: event.ctrlKey,
+        meta: event.metaKey,
+        alt: event.altKey,
+      });
+      if (!hit) return;
       event.preventDefault();
       event.stopPropagation();
-      cancelRun(state);
+      switch (hit.action) {
+        case "toggle":
+          if (hit.frame > state.count) break;
+          state.selected = toggleFrame(state.selected, hit.frame);
+          updateFace(state);
+          break;
+        case "all":
+          state.selected = allFrames(state.count);
+          updateFace(state);
+          break;
+        case "none":
+          state.selected = noFrames();
+          updateFace(state);
+          break;
+        case "keep":
+          // Mirrors the disabled Keep selected button: nothing to keep, nothing
+          // to do. "Keep all" stays an explicit choice.
+          if (state.selected.size > 0) keepSelection(state, state.selected);
+          break;
+        case "cancel":
+          cancelRun(state);
+          break;
+      }
     },
     { signal: abort.signal },
   );

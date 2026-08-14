@@ -32,11 +32,31 @@ resumes with just those frames — always in their original order.
 - **Keep selected** resumes with the chosen frames. **Keep all** resumes with
   every frame — an empty selection deliberately means keep-all, so a quick
   "just continue" can never produce an empty batch.
-- **Cancel** (or Escape while the panel is focused) interrupts the run exactly
-  like ComfyUI's stop button. Interrupting the queue also releases the pause.
+- **Cancel** interrupts the run exactly like ComfyUI's stop button.
+  Interrupting the queue also releases the pause.
 - Reloading the page does not lose the pause: when the graph finishes
   loading, the panel re-fetches every still-waiting chooser from the server
   and re-renders its filmstrip (countdown included).
+- A pause that starts out of sight — another browser tab, another workflow,
+  or the node scrolled off the canvas — raises a toast naming the node and
+  briefly highlights the waiting workflow tab. One notice per pause; a
+  filmstrip you can already see stays quiet.
+- The first moments after the filmstrip appears ignore clicks, so a click
+  meant for the canvas cannot answer a pause that popped up under the cursor.
+
+## Keyboard
+
+Active while the panel has focus — it takes focus when the pause opens, and a
+click anywhere on it returns focus. Keys typed into a text field are left
+alone.
+
+| Key | Action |
+| --- | --- |
+| `1`-`9` | Toggle that frame |
+| `A` | Select all |
+| `N` | Select none |
+| `Enter` | Keep selected |
+| `Escape` | Cancel the run |
 
 ## Outputs
 
