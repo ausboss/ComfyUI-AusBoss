@@ -369,6 +369,20 @@ class EdgeHaloTests(unittest.TestCase):
 
         self.addCleanup(restore)
 
+    def stub_helper(self, name, replacement):
+        """Swap one module-level seam for the length of a test."""
+        original = getattr(inpaint_helpers, name)
+        setattr(inpaint_helpers, name, replacement)
+        self.addCleanup(lambda: setattr(inpaint_helpers, name, original))
+
+    def stub_estimator(self, estimate):
+        self.stub_helper("_foreground_estimator", lambda: estimate)
+
+    def three_frames(self) -> torch.Tensor:
+        return torch.cat(
+            [self.cropped, shuffle_pixels(self.cropped), self.cropped * 0.5], dim=0
+        )
+
     def test_toggle_off_is_the_paste_this_node_already_shipped(self):
         patch = shuffle_pixels(self.cropped)
         legacy = apply_stitch(self.stitcher, patch)
@@ -452,6 +466,103 @@ class EdgeHaloTests(unittest.TestCase):
         for index in range(2):
             frame = out[index : index + 1]
             self.assertTrue(torch.equal(frame[untouched], self.image[untouched]))
+
+    def test_a_cancel_lands_between_frames(self):
+        """A batch started by mistake stops at the next frame boundary."""
+        frames = self.three_frames()
+        solved = []
+
+        def solve(image, matte):
+            solved.append(image.shape)
+            return image  # a legal estimate; this test is about the loop
+
+        self.stub_estimator(solve)
+        expected = apply_stitch(self.stitcher, frames, True)
+        self.assertEqual(len(solved), 3)  # one solve per frame
+
+        class Cancelled(Exception):
+            pass
+
+        checks = []
+        cancel_at = [2]
+
+        def check():
+            checks.append(1)
+            if len(checks) == cancel_at[0]:
+                raise Cancelled
+
+        self.stub_helper("_raise_if_interrupted", check)
+        solved.clear()
+        canvas_before = self.stitcher["canvas"].clone()
+        frames_before = frames.clone()
+        with self.assertRaises(Cancelled):
+            apply_stitch(self.stitcher, frames, True)
+        # Checked before frame 0 and again before frame 1: the first frame's
+        # solve ran, the second never started.
+        self.assertEqual(len(checks), 2)
+        self.assertEqual(len(solved), 1)
+        # The cancelled run left nothing behind in the inputs...
+        self.assertTrue(torch.equal(frames, frames_before))
+        self.assertTrue(torch.equal(self.stitcher["canvas"], canvas_before))
+        # ...and the finished frame was neither kept nor double-counted: the
+        # same call reruns from scratch and returns the same pixels.
+        cancel_at[0] = 0
+        checks.clear()
+        solved.clear()
+        self.assertTrue(torch.equal(apply_stitch(self.stitcher, frames, True), expected))
+        self.assertEqual(len(checks), 3)
+        self.assertEqual(len(solved), 3)
+
+    def test_progress_is_reported_once_per_frame(self):
+        class Recorder:
+            def __init__(self, total):
+                self.total = total
+                self.updates = []
+
+            def update_absolute(self, value, total=None, preview=None):
+                self.updates.append((value, total))
+
+        bars = []
+
+        def make_bar(total):
+            bars.append(Recorder(total))
+            return bars[-1]
+
+        self.stub_helper("_progress_bar", make_bar)
+        self.stub_estimator(lambda image, matte: image)
+
+        apply_stitch(self.stitcher, self.three_frames(), True)
+        self.assertEqual(len(bars), 1)
+        self.assertEqual(bars[0].total, 3)
+        self.assertEqual(bars[0].updates, [(1, 3), (2, 3), (3, 3)])
+
+        # A single frame finishes before a bar would mean anything.
+        bars.clear()
+        apply_stitch(self.stitcher, self.cropped, True)
+        self.assertEqual(bars, [])
+
+    @unittest.skipUnless(HAS_PYMATTING, "pymatting is not installed")
+    def test_the_estimator_is_fed_float32_and_float64_would_not_change_it(self):
+        from pymatting import estimate_foreground_ml
+
+        seen = []
+
+        def estimate(image, matte):
+            seen.append((str(image.dtype), str(matte.dtype)))
+            result = estimate_foreground_ml(image, matte)
+            # Exactly the float64 round trip this helper used to make: widen
+            # the same float32 inputs and hand those over instead.
+            legacy = estimate_foreground_ml(
+                image.astype("float64"), matte.astype("float64")
+            )
+            self.assertTrue(bool((result == legacy).all()))
+            return result
+
+        self.stub_estimator(estimate)
+        patch = shuffle_pixels(self.cropped)
+        fixed = apply_stitch(self.stitcher, patch, True)
+        self.assertEqual(seen, [("float32", "float32")])
+        self.assertFalse(torch.equal(fixed, apply_stitch(self.stitcher, patch)))
 
     def test_node_appends_the_toggle_as_an_optional_widget(self):
         from nodes.node_inpaint_crop_stitch import NODE_CLASS_MAPPINGS

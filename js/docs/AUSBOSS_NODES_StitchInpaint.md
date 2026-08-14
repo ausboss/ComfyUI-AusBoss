@@ -23,7 +23,8 @@ stitcher, and the original frame is sliced back out.
   can stitch a whole video; matched N-to-N batches also work.
 - **fix_edge_halo**: Off by default. Recovers the true color under the
   feathered seam before pasting, so half-transparent edge pixels stop
-  blending their background in a second time.
+  blending their background in a second time. It costs real time per frame
+  — read "What it costs" below before turning it on for a whole batch.
 
 ## Fixing an edge halo
 
@@ -36,8 +37,8 @@ as a dark or light rim around the repair.
 Turn `fix_edge_halo` on and the pasted color is re-derived first: the opaque
 core's color is spread outward across the blend band, and the paste blends
 toward that instead of the contaminated pixel. Leave it off when the seam
-already looks clean — the estimate costs a little time per frame, and a
-clean seam has nothing to gain.
+already looks clean — a clean seam has nothing to gain, and the estimate is
+not free.
 
 The fix needs the optional [`pymatting`](https://pypi.org/project/pymatting/)
 package:
@@ -48,6 +49,22 @@ pip install pymatting
 
 Without it the node prints one console note and pastes exactly as it would
 with the toggle off — the graph keeps running either way.
+
+### What it costs
+
+The estimate is a CPU solve run once per frame, and it scales with the paste
+window rather than with the whole image — roughly 90 ms per megapixel of that
+window. Measured on a 16-thread desktop CPU with pymatting 1.1.15: about
+48 ms for the 768x768 window a 1024x1024 frame produces, about the same for
+the 960x544 window from 720p, and about 106 ms for the 1440x816 window from
+1080p. Expect several times that on a modest laptop CPU.
+
+Per frame, that adds up: 300 frames of 1080p is over half a minute spent in
+the estimate alone. This is why the toggle ships off — it is meant for
+finishing a take you have already chosen, not for a long exploratory batch.
+Batches of more than one frame report per-frame progress and check for a
+cancel between frames, so a run started by mistake stops at the next frame
+boundary rather than playing out to the end.
 
 ## Outputs
 
