@@ -67,6 +67,24 @@ for path in node_files:
         if required not in assigned:
             errors.append(f"{path.name}: missing {required}")
 
+    # Registry scanners (ComfyUI-Manager) read the mapping keys straight out
+    # of the source with an AST walk and never import the module, so a key
+    # written as a variable resolves to nothing and the pack becomes
+    # undiscoverable. Keys must be written as string literals.
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign) or not isinstance(node.value, ast.Dict):
+            continue
+        names = {t.id for t in node.targets if isinstance(t, ast.Name)}
+        if not names & {"NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"}:
+            continue
+        for key in node.value.keys:
+            if not (isinstance(key, ast.Constant) and isinstance(key.value, str)):
+                shown = getattr(key, "id", type(key).__name__)
+                errors.append(
+                    f"{path.name}: mapping key {shown} must be a string literal "
+                    "so registry scanners can find it"
+                )
+
 # --- 3. NODE_MODULES list matches the files on disk --------------------------
 init_text = (ROOT / "__init__.py").read_text(encoding="utf-8")
 listed = set(re.findall(r'"(node_\w+)"', init_text))

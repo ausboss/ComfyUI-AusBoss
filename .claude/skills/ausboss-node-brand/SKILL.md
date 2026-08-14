@@ -12,7 +12,9 @@ allowed; read this for what makes a node feel like an AusBoss node.
 
 ## Identity
 
-- Mapping key `AUSBOSS_NODES_<Purpose>` — permanent API, never renamed.
+- Mapping key `AUSBOSS_NODES_<Purpose>` — permanent API, never renamed, and
+  always written as a string literal in both mapping dicts so registry
+  scanners (which parse, not import) can discover it.
 - Display name `<Name> (AusBoss)`; category `🆎 AusBoss/<Group>`.
 - Every node ships `DESCRIPTION`, input `tooltip`s, `OUTPUT_TOOLTIPS`, and
   `SEARCH_ALIASES` with intent words the display name lacks ("trim", "cut",

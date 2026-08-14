@@ -19,7 +19,7 @@ Every visible field and output must earn its place. Published IDs, input order, 
 ## Implement narrowly
 
 1. Put independently testable processing in an underscore-prefixed helper under `nodes/`.
-2. Add one V1 wrapper in `nodes/node_<purpose>.py` with `INPUT_TYPES`, `RETURN_TYPES`, `FUNCTION`, `CATEGORY`, and both mapping dictionaries.
+2. Add one V1 wrapper in `nodes/node_<purpose>.py` with `INPUT_TYPES`, `RETURN_TYPES`, `FUNCTION`, `CATEGORY`, and both mapping dictionaries — keys as string literals, never a `NODE_ID` variable, or registry scanners cannot see the node.
 3. Add the module to `NODE_MODULES` in `__init__.py`.
 4. Add frontend JavaScript only when the normal schema cannot provide the required interaction.
 5. Namespace every route, extension, event, DOM marker, CSS class, cache, and browser state with `ausboss`.
