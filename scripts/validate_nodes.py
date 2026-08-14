@@ -5,11 +5,15 @@ Run from anywhere:  python scripts/validate_nodes.py
 
 Checks:
   1. Every .py file in the pack compiles.
-  2. Every nodes/node_*.py defines NODE_CLASS_MAPPINGS and
-     NODE_DISPLAY_NAME_MAPPINGS, with string-literal keys so registry
-     scanners that parse (rather than import) can discover the nodes.
+  2. Every nodes/node_*.py keeps the registry contract from
+     scripts/registry_contract.py: both mappings assigned exactly once, at
+     module level, to a dictionary literal with string-literal keys, never
+     mutated afterwards, and carrying the same keys as each other. Registry
+     scanners parse the source rather than importing it, so anything they
+     cannot read statically makes the node invisible to them.
   3. Every module listed in NODE_MODULES in __init__.py has a file on
-     disk, and every node file is listed in NODE_MODULES (no orphans).
+     disk, every node file is listed in NODE_MODULES (no orphans), and no
+     mapping key is claimed by two modules.
   4. Permanent public node IDs exist once their modules are present, and
      each public transform node declares exactly IMAGE then MASK outputs.
 
@@ -23,6 +27,13 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from registry_contract import (
+    class_mapping_keys,
+    duplicate_key_problems,
+    mapping_problems,
+)
+
 errors = []
 warnings = []
 
@@ -54,37 +65,16 @@ for path in sorted(ROOT.rglob("*.py")):
     except py_compile.PyCompileError as exc:
         errors.append(f"syntax error: {path.relative_to(ROOT)}\n    {exc.msg}")
 
-# --- 2. node files export their mappings -------------------------------------
+# --- 2. the registry contract each node module must keep --------------------
 node_files = sorted((ROOT / "nodes").glob("node_*.py"))
+keys_by_module = {}
 for path in node_files:
-    tree = ast.parse(path.read_text(encoding="utf-8"))
-    assigned = {
-        target.id
-        for node in ast.walk(tree)
-        for target in getattr(node, "targets", [])
-        if isinstance(target, ast.Name)
-    }
-    for required in ("NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"):
-        if required not in assigned:
-            errors.append(f"{path.name}: missing {required}")
+    source = path.read_text(encoding="utf-8")
+    errors.extend(mapping_problems(source, path.name))
+    keys_by_module[path.name] = class_mapping_keys(source)
 
-    # Registry scanners (ComfyUI-Manager) read the mapping keys straight out
-    # of the source with an AST walk and never import the module, so a key
-    # written as a variable resolves to nothing and the pack becomes
-    # undiscoverable. Keys must be written as string literals.
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Assign) or not isinstance(node.value, ast.Dict):
-            continue
-        names = {t.id for t in node.targets if isinstance(t, ast.Name)}
-        if not names & {"NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"}:
-            continue
-        for key in node.value.keys:
-            if not (isinstance(key, ast.Constant) and isinstance(key.value, str)):
-                shown = getattr(key, "id", type(key).__name__)
-                errors.append(
-                    f"{path.name}: mapping key {shown} must be a string literal "
-                    "so registry scanners can find it"
-                )
+# Two modules claiming one key is a silent drop: the last import wins.
+errors.extend(duplicate_key_problems(keys_by_module))
 
 # --- 3. NODE_MODULES list matches the files on disk --------------------------
 init_text = (ROOT / "__init__.py").read_text(encoding="utf-8")

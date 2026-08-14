@@ -39,7 +39,9 @@ js/
                   # appearance/ (.js files auto-load)
   shared/*.mjs    # import-only shared modules (.mjs files do NOT auto-load)
 docs/             # developer docs
-scripts/          # validate_nodes.py — offline checks, stdlib only
+scripts/          # offline checks, stdlib only. validate_nodes.py is the
+                  # entry point; registry_contract.py holds the rules that
+                  # keep nodes visible to registry scanners.
 example_workflows/  # example workflows (regular workflow JSON, not API JSON)
 ```
 
