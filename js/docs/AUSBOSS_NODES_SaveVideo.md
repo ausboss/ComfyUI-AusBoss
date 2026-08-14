@@ -21,6 +21,18 @@ exactly one saved-video surface per node.
   lossless for most content.
 - **audio** (optional): A track to mux into the file, e.g. Load Video's
   `audio` output.
+- **video** (optional): A core `VIDEO` handle, e.g. Load Video's `video`
+  output. Connecting it supersedes the `frames` and `audio` inputs — the
+  video's own frames and track are encoded instead.
+
+## Frame rate precedence
+
+A connected `video` brings the rate its frames were cut at, and that rate wins
+over the `fps` widget: replaying those frames at a stale widget rate would
+drift the picture away from the audio muxed beside it. When the two differ,
+one line naming the rate actually used is written to the ComfyUI console. With
+nothing connected to `video`, the widget is the only source and the console
+stays quiet.
 
 ## Output
 

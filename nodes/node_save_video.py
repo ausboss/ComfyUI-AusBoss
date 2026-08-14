@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ._video_save_helpers import encode_video, workflow_metadata
+from ._video_save_helpers import (
+    encode_video,
+    resolve_encode_fps,
+    video_components,
+    workflow_metadata,
+)
 
 try:
     import folder_paths
@@ -20,7 +25,8 @@ class AusBossSaveVideo:
     DESCRIPTION = (
         "Saves a frame batch as an H.264 mp4 with optional muxed audio and the "
         "workflow embedded, so the file drags back into ComfyUI. Wire fps "
-        "straight from Load Video (AusBoss) to keep the source timing."
+        "straight from Load Video (AusBoss) to keep the source timing, or "
+        "connect a core VIDEO to encode that whole video instead."
     )
     SEARCH_ALIASES = ["save video", "export video", "video combine", "mp4", "ausboss"]
 
@@ -39,7 +45,11 @@ class AusBossSaveVideo:
                         "min": 0.01,
                         "max": 240.0,
                         "step": 0.01,
-                        "tooltip": "Playback frame rate; wire Load Video's fps output to match the source.",
+                        "tooltip": (
+                            "Playback frame rate; wire Load Video's fps output to match "
+                            "the source. A connected video input brings its own rate and "
+                            "overrides this widget."
+                        ),
                     },
                 ),
                 "filename_prefix": (
@@ -65,6 +75,17 @@ class AusBossSaveVideo:
                     "AUDIO",
                     {"tooltip": "Optional track muxed into the file, e.g. Load Video's audio output."},
                 ),
+                "video": (
+                    "VIDEO",
+                    {
+                        "tooltip": (
+                            "Optional core VIDEO. When connected, its frames and audio "
+                            "supersede the frames and audio inputs, and its own frame "
+                            "rate wins over the fps widget; a differing widget rate is "
+                            "logged once to the console."
+                        ),
+                    },
+                ),
             },
             "hidden": {"prompt": "PROMPT", "extra_pnginfo": "EXTRA_PNGINFO"},
         }
@@ -73,9 +94,20 @@ class AusBossSaveVideo:
     OUTPUT_NODE = True
     FUNCTION = "save"
 
-    def save(self, frames, fps, filename_prefix, crf, audio=None, prompt=None, extra_pnginfo=None):
+    def save(
+        self, frames, fps, filename_prefix, crf, audio=None, video=None, prompt=None, extra_pnginfo=None
+    ):
         if folder_paths is None:
             raise RuntimeError("Save Video requires ComfyUI's folder_paths at runtime.")
+        source = video_components(video)
+        if source is not None:
+            # A connected VIDEO supersedes the frames/audio inputs and keeps
+            # its own timing; everything below is the unchanged encode path,
+            # so bt709 tagging, metadata and the result player still apply.
+            frames, audio, video_fps = source
+            fps, notice = resolve_encode_fps(float(fps), video_fps)
+            if notice:
+                print(notice)
         full_output_folder, filename, counter, subfolder, filename_prefix = (
             folder_paths.get_save_image_path(
                 filename_prefix,

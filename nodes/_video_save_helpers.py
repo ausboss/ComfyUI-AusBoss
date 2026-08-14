@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from fractions import Fraction
 from pathlib import Path
 
@@ -12,6 +13,10 @@ import torch
 from av.video.reformatter import ColorRange, Colorspace
 
 AAC_FRAME_SIZE = 1024
+
+# Rates closer than this render to the same 0.01-step fps widget value, so
+# they are the same rate as far as the user is concerned.
+FPS_EPSILON = 1e-3
 
 # AVCOL_PRI_BT709 / AVCOL_TRC_BT709 / AVCOL_SPC_BT709 all happen to be 1.
 _BT709 = 1
@@ -29,6 +34,49 @@ def _fps_fraction(fps: float) -> Fraction:
     if fps <= 0:
         raise ValueError("Save Video needs an fps greater than zero.")
     return Fraction(fps).limit_denominator(10000)
+
+
+def resolve_encode_fps(widget_fps: float, video_fps: float | None) -> tuple[float, str | None]:
+    """Rate to encode at, plus one log line when the two sources disagree.
+
+    A connected VIDEO carries the rate its own frames were cut at, so it wins
+    over the fps widget: replaying those frames at a stale widget rate would
+    drift the picture away from the audio muxed beside it. The message is
+    None when there is no video, or when the widget already agrees, so an
+    ordinary save stays silent.
+    """
+    widget = float(widget_fps)
+    if video_fps is None:
+        return widget, None
+    resolved = float(video_fps)
+    if not math.isfinite(resolved) or resolved <= 0.0:
+        return widget, None
+    if abs(resolved - widget) <= FPS_EPSILON:
+        return resolved, None
+    return resolved, (
+        f"[AusBoss] Save Video: encoding at the connected video's {resolved:.3f} fps, "
+        f"not the fps widget's {widget:.3f}."
+    )
+
+
+def video_components(video):
+    """(frames, audio, fps) from a connected core VIDEO; None when unconnected.
+
+    Duck-typed on purpose, the same fail-soft seam Load Video uses: the pack
+    never imports comfy_api's VIDEO type, so a core without that API still
+    loads every node and simply leaves this socket unconnectable.
+    """
+    if video is None:
+        return None
+    read_components = getattr(video, "get_components", None)
+    if not callable(read_components):
+        raise ValueError("Save Video's video input expects a ComfyUI core VIDEO object.")
+    components = read_components()
+    frames = getattr(components, "images", None)
+    if frames is None:
+        raise ValueError("Save Video: the connected video carries no frames.")
+    rate = getattr(components, "frame_rate", None)
+    return frames, getattr(components, "audio", None), None if rate is None else float(rate)
 
 
 def _prepare_audio(audio: dict | None):
@@ -132,4 +180,10 @@ def workflow_metadata(prompt, extra_pnginfo) -> dict:
     return metadata
 
 
-__all__ = ["encode_video", "even_frames", "workflow_metadata"]
+__all__ = [
+    "encode_video",
+    "even_frames",
+    "resolve_encode_fps",
+    "video_components",
+    "workflow_metadata",
+]
