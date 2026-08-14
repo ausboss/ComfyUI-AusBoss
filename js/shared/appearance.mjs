@@ -43,15 +43,25 @@ export function normalizeHexColor(value) {
 // muted, darker body instead of a wall of pigment.
 const BODY_NEUTRAL = 0x2f; // per-channel dark neutral, near the Graphite body
 const BODY_KEEP = 0.5; // share of the title pigment the body keeps
+// A pick sitting on the neutral mixes to itself, which would draw a node with
+// no visible title bar at all. Only picks inside a narrow dark band collapse
+// this way, so the body steps lighter — the shipped schemes' grammar.
+const BODY_MIN_STEP = 10;
 
 export function deriveBody(hex) {
   const title = normalizeHexColor(hex);
   if (!title) return null;
   const rgb = parseInt(title.slice(1), 16);
-  const mix = (channel) => Math.round(channel * BODY_KEEP + BODY_NEUTRAL * (1 - BODY_KEEP));
-  const body =
-    (mix((rgb >> 16) & 0xff) << 16) | (mix((rgb >> 8) & 0xff) << 8) | mix(rgb & 0xff);
-  return `#${body.toString(16).padStart(6, "0")}`;
+  const channels = [(rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff];
+  let body = channels.map((channel) =>
+    Math.round(channel * BODY_KEEP + BODY_NEUTRAL * (1 - BODY_KEEP)),
+  );
+  const separation = Math.max(...body.map((value, index) => Math.abs(value - channels[index])));
+  if (separation < BODY_MIN_STEP) {
+    body = channels.map((channel) => Math.min(255, channel + BODY_MIN_STEP));
+  }
+  const packed = (body[0] << 16) | (body[1] << 8) | body[2];
+  return `#${packed.toString(16).padStart(6, "0")}`;
 }
 
 // Build the Custom scheme's color pair from the setting value; null when the

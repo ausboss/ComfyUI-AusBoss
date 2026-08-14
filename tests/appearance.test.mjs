@@ -60,8 +60,20 @@ test("deriveBody mixes the title halfway toward the dark neutral", () => {
   assert.equal(deriveBody("#000000"), "#181818");
   assert.equal(deriveBody("#ffffff"), "#979797");
   assert.equal(deriveBody("00b4aa"), "#18726d");
-  // The neutral itself is the fixed point of the mix.
-  assert.equal(deriveBody("#2f2f2f"), "#2f2f2f");
+});
+
+test("deriveBody never collapses the title and body into one flat color", () => {
+  // The neutral is the mix's fixed point, so it would otherwise return itself
+  // and draw a node with no visible title bar.
+  assert.equal(deriveBody("#2f2f2f"), "#393939");
+  assert.equal(deriveBody("#303030"), "#3a3a3a");
+  // Picks outside that band already separate on their own.
+  assert.equal(deriveBody("#f0f0f0"), "#909090");
+  for (let value = 0; value <= 255; value += 1) {
+    const title = `#${value.toString(16).padStart(2, "0").repeat(3)}`;
+    const body = deriveBody(title);
+    assert.notEqual(body, title, `${title} produced an identical body`);
+  }
 });
 
 test("deriveBody normalizes its input and rejects junk", () => {
