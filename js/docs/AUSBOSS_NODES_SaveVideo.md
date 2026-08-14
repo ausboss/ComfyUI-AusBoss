@@ -38,3 +38,10 @@ stays quiet.
 
 One `.mp4` file per run. Audio and video land in a single file — there is no
 separate audio-less copy.
+
+## While it runs
+
+Encoding happens off ComfyUI's execution thread, so the server keeps answering
+while a long batch is written. The node fills its progress bar frame by frame,
+and **Cancel** stops the encode within a frame instead of at the end of the
+batch.

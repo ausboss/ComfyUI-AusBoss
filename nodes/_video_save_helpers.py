@@ -12,7 +12,7 @@ import numpy as np
 import torch
 from av.video.reformatter import ColorRange, Colorspace
 
-from ._execution_helpers import raise_if_interrupted
+from ._execution_helpers import advance_progress, frame_progress, raise_if_interrupted
 
 AAC_FRAME_SIZE = 1024
 
@@ -124,8 +124,11 @@ def encode_video(
     if batch.ndim != 4 or batch.shape[0] < 1:
         raise ValueError("Save Video expected a BHWC IMAGE batch.")
     height, width = int(batch.shape[1]), int(batch.shape[2])
+    frame_count = int(batch.shape[0])
     rate = _fps_fraction(fps)
     prepared_audio = _prepare_audio(audio)
+    # The batch is already in memory, so the total is always known here.
+    progress = frame_progress(frame_count)
     # Same movflags core uses: metadata tags survive the mp4 muxer and the
     # moov atom lands up front so previews start immediately.
     with av.open(str(path), "w", options={"movflags": "use_metadata_tags+faststart"}) as container:
@@ -150,7 +153,7 @@ def encode_video(
         if prepared_audio is not None:
             audio_stream = container.add_stream("aac", rate=prepared_audio[3])
             audio_stream.layout = prepared_audio[1]
-        for frame in batch:
+        for encoded, frame in enumerate(batch, start=1):
             # One frame of latency between cancelling the queue and unwinding;
             # the container still closes cleanly on the way out.
             raise_if_interrupted()
@@ -168,11 +171,12 @@ def encode_video(
             )
             for packet in stream.encode(video_frame):
                 container.mux(packet)
+            advance_progress(progress, encoded, frame_count)
         for packet in stream.encode():
             container.mux(packet)
         if audio_stream is not None:
             _encode_audio(container, audio_stream, prepared_audio)
-    return width, height, int(batch.shape[0])
+    return width, height, frame_count
 
 
 def workflow_metadata(prompt, extra_pnginfo) -> dict:

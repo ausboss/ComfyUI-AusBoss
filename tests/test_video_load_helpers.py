@@ -338,7 +338,15 @@ class LoadVideoNodeTests(unittest.TestCase):
         self.assertGreater(ticks, 10)
 
 
-class DecodeInterruptTests(unittest.TestCase):
+class RecordingBar:
+    def __init__(self):
+        self.updates = []
+
+    def update_absolute(self, value, total=None, preview=None):
+        self.updates.append((value, total, preview))
+
+
+class DecodeLoopTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls._tmp = tempfile.TemporaryDirectory()
@@ -348,6 +356,36 @@ class DecodeInterruptTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls._tmp.cleanup()
+
+    def test_every_decoded_frame_advances_the_progress_bar(self):
+        bar = RecordingBar()
+        with patch.object(_video_load_helpers, "frame_progress", lambda _total: bar):
+            frames, _fps = decode_video_range(self.video, 0.0, 0.0, 0, 0)
+
+        count = int(frames.shape[0])
+        self.assertEqual(count, FRAMES)
+        self.assertEqual([update[0] for update in bar.updates], list(range(1, count + 1)))
+        self.assertTrue(all(update[1] >= count for update in bar.updates))
+        # The in-node player already previews; progress carries no images.
+        self.assertTrue(all(update[2] is None for update in bar.updates))
+
+    def test_an_unknown_frame_total_skips_tracking_without_a_bar(self):
+        totals = []
+        with patch.object(
+            _video_load_helpers, "frame_progress", lambda total: totals.append(total) or None
+        ):
+            frames, _fps = decode_video_range(self.video, 0.0, 0.0, 0, 0)
+        self.assertEqual(int(frames.shape[0]), FRAMES)
+        self.assertEqual(len(totals), 1)
+
+    def test_a_broken_progress_bar_never_breaks_the_decode(self):
+        class BrokenBar:
+            def update_absolute(self, *_args, **_kwargs):
+                raise RuntimeError("the websocket went away")
+
+        with patch.object(_video_load_helpers, "frame_progress", lambda _total: BrokenBar()):
+            frames, _fps = decode_video_range(self.video, 0.0, 0.0, 0, 0)
+        self.assertEqual(int(frames.shape[0]), FRAMES)
 
     def test_the_decode_loop_aborts_promptly_on_an_interrupt(self):
         calls = []

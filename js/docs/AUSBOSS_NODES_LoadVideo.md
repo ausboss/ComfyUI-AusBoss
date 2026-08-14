@@ -38,3 +38,10 @@ height follows the node width with a compact lower bound.
 The trim window is decoded directly — untrimmed parts of the video are never
 loaded into the `frames` output, while the `video` output stays lazy until a
 downstream consumer requests it.
+
+## While it runs
+
+Decoding happens off ComfyUI's execution thread, so the server keeps answering
+while a long trim loads. The node fills its progress bar frame by frame
+whenever the source declares a frame count, and **Cancel** stops the decode
+within a frame instead of at the end of the file.

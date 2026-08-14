@@ -46,6 +46,14 @@ class FakeInterrupt(BaseException):
     """Mirrors ComfyUI's InterruptProcessingException: not an Exception."""
 
 
+class RecordingBar:
+    def __init__(self):
+        self.updates = []
+
+    def update_absolute(self, value, total=None, preview=None):
+        self.updates.append((value, total, preview))
+
+
 class FakeComponents:
     def __init__(self, images, audio, frame_rate):
         self.images = images
@@ -343,6 +351,41 @@ class AsyncSaveTests(unittest.TestCase):
 
         # Stopped on the third frame instead of grinding through all 64.
         self.assertEqual(len(calls), 3)
+
+
+class EncodeProgressTests(unittest.TestCase):
+    def test_every_encoded_frame_advances_the_progress_bar(self):
+        bar = RecordingBar()
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(_video_save_helpers, "frame_progress", lambda _total: bar):
+                encode_video(Path(tmp) / "tracked.mp4", gradient_batch(9, 32, 32), 8.0, None, 23)
+
+        self.assertEqual([update[0] for update in bar.updates], list(range(1, 10)))
+        self.assertTrue(all(update[1] == 9 for update in bar.updates))
+        # The in-node player already previews; progress carries no images.
+        self.assertTrue(all(update[2] is None for update in bar.updates))
+
+    def test_the_bar_is_asked_for_the_batch_size(self):
+        totals = []
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(
+                _video_save_helpers, "frame_progress", lambda total: totals.append(total) or None
+            ):
+                encode_video(Path(tmp) / "sized.mp4", gradient_batch(4, 32, 32), 8.0, None, 23)
+        self.assertEqual(totals, [4])
+
+    def test_a_broken_progress_bar_never_breaks_the_encode(self):
+        class BrokenBar:
+            def update_absolute(self, *_args, **_kwargs):
+                raise RuntimeError("the websocket went away")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "resilient.mp4"
+            with patch.object(_video_save_helpers, "frame_progress", lambda _total: BrokenBar()):
+                self.assertEqual(encode_video(path, gradient_batch(4, 32, 32), 8.0, None, 23)[2], 4)
+            with av.open(str(path)) as container:
+                video = next(s for s in container.streams if s.type == "video")
+                self.assertEqual(sum(1 for _ in container.decode(video)), 4)
 
 
 if __name__ == "__main__":

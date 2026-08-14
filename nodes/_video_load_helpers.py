@@ -13,7 +13,7 @@ import numpy as np
 import torch
 from PIL import Image
 
-from ._execution_helpers import raise_if_interrupted
+from ._execution_helpers import advance_progress, frame_progress, raise_if_interrupted
 from ._media_helpers import video_metadata
 
 try:
@@ -130,6 +130,9 @@ def decode_video_range(
             raise ValueError(error)
     buffer: np.ndarray | None = None
     count = 0
+    # Sources that never declare a frame count leave `estimated` at 0, and the
+    # decode then runs without a progress bar rather than guessing a total.
+    progress = frame_progress(estimated)
     with av.open(str(path)) as container:
         stream = next(candidate for candidate in container.streams if candidate.type == "video")
         stream.thread_type = "AUTO"
@@ -170,6 +173,7 @@ def decode_video_range(
                 buffer = grown
             buffer[count] = array
             count += 1
+            advance_progress(progress, count, estimated)
     if buffer is None or count == 0:
         raise ValueError(
             f"Load Video found no frames between {start:.2f}s and "
