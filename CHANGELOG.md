@@ -4,6 +4,19 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- Fixed: a Frame Chooser pause survived being cancelled by an ordinary workflow load. LiteGraph clears the graph by removing every node, so undo, switching workflow tabs, Clear Workflow and opening another file all fired the teardown that a deleted node uses to release its pause - silently interrupting a run that was still going, with no way to get it back.
+- Fixed: answering "keep all" wrote the whole batch out as `1,2,...,N` into `pick_list`, pinning a batch-size-independent answer to one batch. The next run then dropped any frames past the end of that list, or failed outright on a shorter clip. It now writes the empty answer it was given.
+- Fixed: `pick_list` is only written back under `keep last selection`. It pre-answers the node, so filling it in automatically meant a chooser left at the default `always pause` paused exactly once and never again.
+- Fixed: Refine Mask's `smooth` no longer flattens a mask that is already soft; it applies only the change it made to the jaggy edge. Binary masks are bit-identical to before.
+- Fixed: Refine Mask's `blur` now reaches the `matting` edge-refine solve instead of being thresholded back out of the trimap.
+- Fixed: Frame Interpolate's copy path honours `batch_size`. It gathered every copied frame at once, which on a long clip at an integer multiple was a multi-gigabyte allocation on the frames device that no setting could bound.
+- Fixed: live status and runtime badges appear for nodes inside a subgraph, and a subgraph pause renders on the node that actually paused. Colon-prefixed execution ids are resolved by walking the subgraph chain rather than by stripping the prefix, which could match an unrelated node with the same number.
+- Fixed: choosing the Custom node colour scheme while the stored colour is unreadable no longer strips the colour off every AusBoss node.
+- Fixed: an unreadable colour in Drop Shadow or Pad Image names its own node and widget in the console instead of blaming Transform, and one node's warning no longer silences another's.
+- Fixed: a malformed Frame Chooser answer returns 400 rather than 500 - a non-ASCII token and a JSON body that is not an object both used to throw out of the route and strand the pause.
+- Fixed: `pick_list` rejects Unicode digits. `²` raised a bare `ValueError` during validation and `٣` was silently read as frame 3.
+- Fixed: `scripts/validate_nodes.py` parses `NODE_MODULES` instead of matching it anywhere in the text, and an unregistered node module is now an error rather than a warning - it used to exit 0 with no output at all. It also refuses mapping keys declared outside `nodes/`, which is how the registry test fixtures came to be advertised to ComfyUI-Manager as installable nodes; they are now `.py.txt`.
+
 - Added `AUSBOSS_NODES_ColorMatch`: LAB mean/std transfer that harmonizes an inpainted or stitched region against its source, with optional mask and strength.
 - Added `AUSBOSS_NODES_PadImage` with color, edge, edge-pixel, and pillarbox-blur fills, returning a mask over exactly the new padding for outpainting.
 - Added `AUSBOSS_NODES_DropShadow` for padded and reframed compositions.

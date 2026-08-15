@@ -19,6 +19,7 @@ if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
 
 from nodes._chooser_helpers import (
     TIMEOUT_CANCEL,
+    done_payload,
     TIMEOUT_KEEP_ALL,
     TIMEOUT_KEEP_FIRST,
     TIMEOUT_KEEP_LAST,
@@ -116,6 +117,21 @@ class ParsePickListTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 parse_pick_list(bad, 10)
 
+    def test_rejects_unicode_digits_with_the_widget_message(self):
+        # str.isdigit() is true for both of these. int() throws on the
+        # superscript, and silently accepts the Arabic-Indic one as a frame
+        # number nobody typed - so both have to fail the widget's own guard.
+        for bad in ("\u00b2", "\u0663", "\uff11", "1,\u00b3"):
+            with self.assertRaises(ValueError) as caught:
+                parse_pick_list(bad, 10)
+            self.assertIn("one-based frame number", str(caught.exception))
+
+    def test_fingerprints_unicode_digits_without_raising(self):
+        # IS_CHANGED calls this during validation, where a raw ValueError
+        # surfaces with no mention of Frame Chooser or pick_list.
+        for bad in ("\u00b2", "\u0663", "1,\u00b3"):
+            self.assertTrue(pick_list_fingerprint(bad).startswith("picks:"))
+
 
 class PickListFingerprintTests(unittest.TestCase):
     def test_equivalent_spellings_share_one_fingerprint(self):
@@ -140,6 +156,14 @@ class PauseTokenTests(unittest.TestCase):
     def test_empty_or_nonstring_expected_tokens_never_match(self):
         self.assertFalse(token_matches("", ""))
         self.assertFalse(token_matches(None, None))
+
+    def test_non_ascii_tokens_are_refused_rather_than_raising(self):
+        # hmac.compare_digest raises TypeError on non-ASCII text; letting that
+        # out of the route turned a malformed answer into an HTTP 500 and left
+        # the pause stranded behind it.
+        self.assertFalse(token_matches("pause-token", "tok\u00e9n"))
+        self.assertFalse(token_matches("tok\u00e9n", "pause-token"))
+        self.assertFalse(token_matches("tok\u00e9n", "tok\u00e9n"))
 
 
 class ResolveTimeoutPolicyTests(unittest.TestCase):
@@ -169,6 +193,27 @@ class ReportTests(unittest.TestCase):
     def test_indices_string_is_one_based_and_comma_joined(self):
         self.assertEqual(indices_string([1, 4, 9]), "1,4,9")
         self.assertEqual(indices_string([]), "")
+
+
+class DonePayloadTests(unittest.TestCase):
+    def test_keep_all_stays_the_empty_answer_it_was_posted_as(self):
+        # The panel writes `indices` into pick_list. Expanding keep-all to
+        # "1,...,N" pinned it to one batch size: a later, longer batch
+        # silently lost its extra frames and a shorter one failed outright.
+        payload = done_payload("7", "tok", [], 8, "answered")
+        self.assertEqual(payload["indices"], "")
+        self.assertEqual(payload["kept"], 8)
+        self.assertEqual(payload["count"], 8)
+
+    def test_a_real_pick_is_reported_verbatim(self):
+        payload = done_payload("7", "tok", [2, 5], 8, "answered")
+        self.assertEqual(payload["indices"], "2,5")
+        self.assertEqual(payload["kept"], 2)
+
+    def test_a_written_back_keep_all_survives_any_later_batch_size(self):
+        indices = done_payload("7", "tok", [], 8, "answered")["indices"]
+        for later in (1, 4, 8, 40):
+            self.assertIsNone(parse_pick_list(indices, later))
 
 
 if __name__ == "__main__":

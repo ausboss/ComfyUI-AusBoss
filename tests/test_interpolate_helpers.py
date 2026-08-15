@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 import torch
 
@@ -263,3 +264,46 @@ class FrameInterpolateNodeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CopyPathIsBatchedTests(unittest.TestCase):
+    """Copied frames go over in batches like the blends do.
+
+    Gathering every copy at once was the one allocation batch_size could not
+    bound: a long clip at an integer multiple copies most of its output in a
+    single index_select, on the device the input already lives on.
+    """
+
+    def frames(self, count: int) -> torch.Tensor:
+        ramp = torch.linspace(0.0, 1.0, count).view(-1, 1, 1, 1)
+        return ramp.expand(count, 4, 4, 3).clone()
+
+    def test_the_result_is_identical_at_every_batch_size(self):
+        frames = self.frames(12)
+        want = interpolate_frames(frames, 24.0, 48.0, BLEND_METHOD, 0.0, 64, CPU)[0]
+        for batch in (1, 2, 3, 5, 64):
+            got = interpolate_frames(frames, 24.0, 48.0, BLEND_METHOD, 0.0, batch, CPU)[0]
+            self.assertTrue(torch.equal(got, want), f"batch_size={batch}")
+
+    def test_a_copy_only_plan_is_still_chunked(self):
+        # 30 -> 15 fps is pure decimation: every job is a copy, so this path
+        # is the only one that runs.
+        frames = self.frames(12)
+        want = interpolate_frames(frames, 30.0, 15.0, BLEND_METHOD, 0.0, 64, CPU)[0]
+        for batch in (1, 4):
+            got = interpolate_frames(frames, 30.0, 15.0, BLEND_METHOD, 0.0, batch, CPU)[0]
+            self.assertTrue(torch.equal(got, want), f"batch_size={batch}")
+
+    def test_no_single_gather_exceeds_the_batch_size(self):
+        seen = []
+        real = torch.Tensor.index_select
+
+        def spy(self, dim, index):
+            seen.append(int(index.numel()))
+            return real(self, dim, index)
+
+        frames = self.frames(24)
+        with patch.object(torch.Tensor, "index_select", spy):
+            interpolate_frames(frames, 24.0, 48.0, BLEND_METHOD, 0.0, 4, CPU)
+        self.assertTrue(seen)
+        self.assertLessEqual(max(seen), 8)  # <= batch_size sources per gather

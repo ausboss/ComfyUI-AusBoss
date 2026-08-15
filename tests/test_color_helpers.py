@@ -5,6 +5,7 @@ import io
 from pathlib import Path
 import sys
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -73,3 +74,39 @@ class ParseFillColorTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FillColorWarningNamesTheWidgetTests(unittest.TestCase):
+    """An unreadable colour has to be reported against the control it came
+    from: the message used to say "Transform: ... fill_color" whichever node
+    called, and the once-per-value guard then silenced every other node."""
+
+    def setUp(self):
+        _color_helpers._warned_values.clear()
+        self.addCleanup(_color_helpers._warned_values.clear)
+
+    def capture(self, value, **kwargs):
+        printed = []
+        with patch("builtins.print", lambda *args: printed.append(" ".join(map(str, args)))):
+            rgb = parse_fill_color(value, **kwargs)
+        return rgb, printed
+
+    def test_the_default_label_still_names_the_transform_widget(self):
+        rgb, printed = self.capture("dark navy")
+        self.assertEqual(rgb, FALLBACK_RGB)
+        self.assertIn("Transform fill_color", printed[0])
+
+    def test_each_caller_names_its_own_node_and_widget(self):
+        _rgb, shadow = self.capture("dark navy", source="Drop Shadow shadow_color")
+        self.assertIn("Drop Shadow shadow_color", shadow[0])
+        self.assertNotIn("Transform", shadow[0])
+        _rgb, pad = self.capture("forest green", source="Pad Image fill_color")
+        self.assertIn("Pad Image fill_color", pad[0])
+
+    def test_one_node_warning_does_not_silence_another(self):
+        _rgb, first = self.capture("dark navy", source="Drop Shadow shadow_color")
+        _rgb, second = self.capture("dark navy", source="Pad Image fill_color")
+        self.assertTrue(first and second)
+        # Still once per node, though.
+        _rgb, repeat = self.capture("dark navy", source="Drop Shadow shadow_color")
+        self.assertEqual(repeat, [])

@@ -11,9 +11,13 @@ Checks:
      keys, never mentioned again afterwards, and carrying the same keys as
      each other. Registry scanners parse the source rather than importing
      it, so anything they cannot read statically makes the node invisible.
-  3. Every module listed in NODE_MODULES in __init__.py has a file on
-     disk, every node file is listed in NODE_MODULES (no orphans), and no
-     mapping key is claimed by two modules.
+  3. NODE_MODULES in __init__.py is parsed (not grepped) and matched
+     against the files on disk both ways - a listed module with no file and
+     a node file nobody imports are both errors - and no mapping key is
+     claimed by two modules.
+  5. No file outside nodes/ declares mapping keys. Registry scanners read
+     the whole checkout, so a fixture or sample that names AUSBOSS_NODES_*
+     in a mapping literal is advertised as an installable node.
   4. Permanent public node IDs are still registered - measured against the
      mapping keys parsed in check 2, not against the text of the file - and
      each public transform node declares exactly IMAGE then MASK outputs.
@@ -24,7 +28,6 @@ Exit code 0 = all good, 1 = problems printed below.
 import ast
 import pathlib
 import py_compile
-import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -33,6 +36,7 @@ from registry_contract import (
     class_mapping_keys,
     duplicate_key_problems,
     mapping_problems,
+    module_list,
 )
 
 errors = []
@@ -82,14 +86,28 @@ for path in node_files:
 errors.extend(duplicate_key_problems(keys_by_module))
 
 # --- 3. NODE_MODULES list matches the files on disk --------------------------
+# Parsed out of the list literal, not matched anywhere in the text: a name
+# left behind in a comment used to satisfy this, and because an unlisted
+# module was only a warning, forgetting to register a node exited 0 with
+# nothing printed at all.
 init_text = (ROOT / "__init__.py").read_text(encoding="utf-8")
-listed = set(re.findall(r'"(node_\w+)"', init_text))
+listed = module_list(init_text)
 on_disk = {path.stem for path in node_files}
 
-for missing in sorted(listed - on_disk):
-    errors.append(f"__init__.py lists {missing} but nodes/{missing}.py does not exist")
-for orphan in sorted(on_disk - listed):
-    warnings.append(f"nodes/{orphan}.py exists but is not listed in NODE_MODULES")
+if listed is None:
+    errors.append(
+        "__init__.py: NODE_MODULES must be a module-level list literal of "
+        "module names; this checker reads it without importing the package"
+    )
+else:
+    for missing in sorted(listed - on_disk):
+        errors.append(f"__init__.py lists {missing} but nodes/{missing}.py does not exist")
+    for orphan in sorted(on_disk - listed):
+        # Not a warning: an unlisted module is never imported, so the node
+        # simply does not exist in ComfyUI.
+        errors.append(
+            f"nodes/{orphan}.py is not listed in NODE_MODULES, so it is never imported"
+        )
 
 # --- 4. permanent transform contracts ---------------------------------------
 # The keys parsed out of NODE_CLASS_MAPPINGS in check 2, not every
@@ -123,6 +141,27 @@ for path in node_files:
 
 for missing_id in sorted(PUBLIC_NODE_IDS - mapping_keys):
     errors.append(f"missing permanent mapping key: {missing_id}")
+
+# --- 5. nothing outside nodes/ may declare mapping keys ----------------------
+# A scanner reads the whole checkout, not just the modules __init__ imports,
+# so any .py anywhere that assigns NODE_CLASS_MAPPINGS advertises those keys
+# as installable nodes. Test fixtures did exactly that: they published ids no
+# import ever registers, and Manager offered the pack for workflows using
+# them. Fixtures live as .py.txt for this reason - real source, not a module.
+for path in sorted(ROOT.rglob("*.py")):
+    parts = path.relative_to(ROOT).parts
+    # Scanners skip dot-directories and caches; so does this, or local
+    # scratch like .claude/worktrees would answer for the shipped tree.
+    if any(part.startswith(".") or part == "__pycache__" for part in parts):
+        continue
+    if path.parent == ROOT / "nodes":
+        continue
+    stray = class_mapping_keys(path.read_text(encoding="utf-8"))
+    for key in sorted(stray):
+        errors.append(
+            f"{path.relative_to(ROOT)}: declares mapping key {key} outside "
+            "nodes/, where registry scanners will advertise it as a node"
+        )
 
 # --- report ------------------------------------------------------------------
 for warning in warnings:

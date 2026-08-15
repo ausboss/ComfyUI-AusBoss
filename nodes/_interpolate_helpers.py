@@ -350,12 +350,21 @@ def _execute_jobs(
     copy_jobs = [job for job in jobs if job.is_copy]
     blend_jobs = [job for job in jobs if not job.is_copy]
 
-    if copy_jobs:
+    step = max(1, int(batch_size))
+
+    # Copied frames go over in the same batches the blends use. Gathering all
+    # of them at once was the one allocation batch_size could not bound: a
+    # 300-frame 1080p clip doubled to 48 fps copies 301 frames, which is a
+    # 7.5 GB transient on the frames device - VRAM, if that is where the batch
+    # already lives - on top of the input and the output.
+    for start in range(0, len(copy_jobs), step):
+        _raise_if_interrupted()
+        batch = copy_jobs[start : start + step]
         source_indices = torch.tensor(
-            [job.src_a for job in copy_jobs], dtype=torch.long, device=frames.device
+            [job.src_a for job in batch], dtype=torch.long, device=frames.device
         )
         output_indices = torch.tensor(
-            [job.output_index for job in copy_jobs], dtype=torch.long
+            [job.output_index for job in batch], dtype=torch.long
         )
         output[output_indices] = frames.index_select(0, source_indices).to("cpu")
 
@@ -363,8 +372,6 @@ def _execute_jobs(
     completed = len(copy_jobs)
     if progress is not None:
         progress.update_absolute(completed, total_out)
-
-    step = max(1, int(batch_size))
     for start in range(0, len(blend_jobs), step):
         _raise_if_interrupted()
         batch = blend_jobs[start : start + step]

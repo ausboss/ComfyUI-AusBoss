@@ -27,14 +27,19 @@ _NUMBER_PATTERN = re.compile(r"^-?\d+(\.\d+)?$")
 _warned_values: set[str] = set()
 
 
-def _warn_once(text: str) -> None:
-    if text in _warned_values:
+def _warn_once(text: str, source: str) -> None:
+    # Keyed by widget as well as value: the same unparseable color typed into
+    # two different nodes is two different mistakes to go and fix, and one
+    # node staying silent because another already complained is worse than a
+    # repeated line.
+    key = f"{source}\x00{text}"
+    if key in _warned_values:
         return
     if len(_warned_values) > 256:
         _warned_values.clear()
-    _warned_values.add(text)
+    _warned_values.add(key)
     safe = text.encode("ascii", "backslashreplace").decode("ascii")
-    print(f"[AusBoss] Transform: could not parse fill_color '{safe}'; using mid-gray 128,128,128.")
+    print(f"[AusBoss] {source}: could not parse '{safe}'; using mid-gray 128,128,128.")
 
 
 def _channels_from_numbers(numbers: list[float]) -> tuple[int, int, int]:
@@ -47,8 +52,13 @@ def _channels_from_numbers(numbers: list[float]) -> tuple[int, int, int]:
     return tuple(max(0, min(255, math.floor(number + 0.5))) for number in numbers)
 
 
-def parse_fill_color(value: object) -> tuple[int, int, int]:
-    """Parse a fill color leniently; never raises, falls back to mid-gray."""
+def parse_fill_color(value: object, source: str = "Transform fill_color") -> tuple[int, int, int]:
+    """Parse a fill color leniently; never raises, falls back to mid-gray.
+
+    ``source`` names the node and widget in the console note, so a colour the
+    parser could not read is reported against the control the user actually
+    typed it into rather than against whichever node happened to be first to
+    call this."""
     text = str("" if value is None else value).strip()
     lowered = text.lower()
 
@@ -74,7 +84,7 @@ def parse_fill_color(value: object) -> tuple[int, int, int]:
         except ValueError:
             pass
 
-    _warn_once(text)
+    _warn_once(text, source)
     return FALLBACK_RGB
 
 

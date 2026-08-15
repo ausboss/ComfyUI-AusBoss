@@ -87,15 +87,26 @@ def blur_mask(mask: torch.Tensor, sigma: float) -> torch.Tensor:
 def smooth_mask(mask: torch.Tensor, pixels: int) -> torch.Tensor:
     """Melt staircase jaggies while keeping a hard edge.
 
-    Binarize at 0.5, gaussian-blur with sigma ~ pixels, re-binarize at 0.5.
-    Unlike blur_mask this never leaves soft values behind, so it de-jaggies
-    segmentation edges without feathering them.
+    Binarize at 0.5, gaussian-blur with sigma ~ pixels, re-binarize at 0.5,
+    and apply only the DIFFERENCE that made to the mask it was given. Unlike
+    blur_mask this adds no softness of its own, so it de-jaggies segmentation
+    edges without feathering them.
+
+    Applying the difference rather than the re-binarized result is what lets
+    a mask that is already soft - a matte, or anything that has been
+    feathered upstream - keep its soft alpha. On a binary mask the difference
+    is the whole change, so the result is bit-identical to a plain threshold.
     """
     if int(pixels) <= 0:
         return mask
     solid = (mask >= 0.5).to(mask.dtype)
-    return (blur_mask(solid, float(int(pixels))) >= 0.5).to(mask.dtype)
+    melted = (blur_mask(solid, float(int(pixels))) >= 0.5).to(mask.dtype)
+    return (mask + (melted - solid)).clamp(0.0, 1.0)
 
+
+# Below this an alpha reads as empty, above 1 - this as fully opaque. Only
+# used to tell a feathered edge from a hard one when seeding a trimap.
+_SOFT_EPSILON = 1e-3
 
 EDGE_REFINE_MODES = ("off", "guided filter", "matting")
 
@@ -214,14 +225,23 @@ def matting_refine(
     frames = []
     for index in range(count):
         _raise_if_interrupted()
-        solid = (mask[index].detach().float().cpu() >= 0.5).float().unsqueeze(0)
-        sure_fg = grow_shrink_mask(solid, -band).squeeze(0) >= 0.5
-        possible = grow_shrink_mask(solid, band).squeeze(0) >= 0.5
+        alpha_in = mask[index].detach().float().cpu()
+        solid = (alpha_in >= 0.5).float().unsqueeze(0)
+        eroded = grow_shrink_mask(solid, -band).squeeze(0) >= 0.5
+        dilated = grow_shrink_mask(solid, band).squeeze(0) >= 0.5
+        # Definite foreground has to be opaque in the mask we were handed, and
+        # anything carrying any alpha at all is at least possible foreground.
+        # On a binary mask those reduce to exactly the eroded and dilated
+        # shapes; on a feathered one the soft ramp widens the unknown band,
+        # which is what lets the blur control reach the solve instead of being
+        # thresholded straight back out of it.
+        sure_fg = eroded & (alpha_in >= 1.0 - _SOFT_EPSILON)
+        possible = dilated | (alpha_in > _SOFT_EPSILON)
         unknown = possible & ~sure_fg
         if not bool(unknown.any()) or not bool(sure_fg.any()) or bool(possible.all()):
             # Degenerate trimap (empty mask, mask everywhere, or a shape the
-            # band swallows whole): keep the binarized mask for this frame.
-            frames.append(solid.squeeze(0))
+            # band swallows whole): keep this frame's mask as it arrived.
+            frames.append(alpha_in)
             continue
         trimap = torch.full((height, width), 0.5, dtype=torch.float64)
         trimap[~possible] = 0.0

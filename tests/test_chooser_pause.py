@@ -262,6 +262,16 @@ class FailedRequestTests(unittest.TestCase):
         # Which pause the panel was answering is the more useful complaint.
         self.assertEqual(post(store, "cancel", token="pause-token-bbbb")[0], 409)
 
+    def test_a_body_that_is_not_an_object_is_a_400(self):
+        # Valid JSON is not necessarily a dict; reaching .get() on a list
+        # threw an AttributeError out of the aiohttp handler as a 500.
+        store, pending = paused_store()
+        for body in ([], "answer", 5, None, True):
+            status, _ = answer_pending(store, NODE, body)
+            self.assertEqual(status, 400, repr(body))
+        self.assertIsNone(pending.resolution)
+        self.assertEqual(post(store, "continue", [1])[0], 200)
+
     def test_an_answer_after_the_waiter_unwound_is_a_404(self):
         store, pending = paused_store()
         claim_pause(store, pending, RESOLVED_CANCEL)

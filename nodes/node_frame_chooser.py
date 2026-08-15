@@ -108,9 +108,11 @@ class AusBossFrameChooser:
                         "default": "",
                         "tooltip": (
                             "One-based frame numbers, e.g. '1,4,9'. When filled, the "
-                            "node applies them immediately without pausing. Answering "
-                            "a pause fills this automatically so the next run repeats "
-                            "the choice headlessly; clear it to pause again."
+                            "node applies them immediately without pausing. Under "
+                            "'keep last selection', answering a pause fills this in "
+                            "for you so the next run repeats the choice headlessly; "
+                            "clear it to pause again. Under 'always pause' nothing is "
+                            "written here, so that setting keeps meaning what it says."
                         ),
                     },
                 ),

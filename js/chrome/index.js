@@ -1,6 +1,7 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 import { AUSBOSS_JS_VERSION, BRAND, BRAND_BODY, chainCallback } from "../shared/index.mjs";
+import { nodeByExecutionId } from "../shared/graph_ids.mjs";
 import {
   advanceExecution,
   applyStatus,
@@ -192,10 +193,12 @@ function graphNodes() {
   return app.graph?._nodes || app.graph?.nodes || [];
 }
 
-// Ids arrive as strings over the wire but LiteGraph keys nodes by number on
-// most frontends, so try both.
+// Ids arrive over the wire as ComfyUI execution ids: a plain number at the
+// top level, colon-joined inside a subgraph ("12:3"). Number("12:3") is NaN
+// and the root graph has no node under that string, so both badges used to
+// go missing entirely for any node inside a subgraph.
 function nodeById(id) {
-  return app.graph?.getNodeById?.(Number(id)) ?? app.graph?.getNodeById?.(id);
+  return nodeByExecutionId(app.rootGraph ?? app.graph, id);
 }
 
 function clearBadges() {

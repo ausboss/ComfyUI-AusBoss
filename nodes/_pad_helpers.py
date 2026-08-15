@@ -41,7 +41,7 @@ def _as_image(image: torch.Tensor) -> torch.Tensor:
 
 
 def _fill_tensor(fill_color: object, like: torch.Tensor) -> torch.Tensor:
-    rgb = [channel / 255.0 for channel in parse_fill_color(fill_color)]
+    rgb = [channel / 255.0 for channel in parse_fill_color(fill_color, "Pad Image fill_color")]
     channels = like.shape[3]
     if channels > len(rgb):
         rgb = rgb + [1.0] * (channels - len(rgb))

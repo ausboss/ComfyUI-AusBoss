@@ -43,16 +43,30 @@ def core_video_api_available() -> bool:
     return True
 
 
-def ensure_core_video_api() -> bool:
+def ensure_core_video_api(case: unittest.TestCase | None = None) -> bool:
     """Make comfy_api importable when AUSBOSS_COMFY_ROOT points at a ComfyUI
     checkout; appended (never prepended) so ComfyUI's top-level nodes.py can
-    never shadow this pack's nodes package."""
+    never shadow this pack's nodes package.
+
+    ``case`` registers the cleanup that takes the entry back out again. Left
+    on sys.path it changes the answer to "is ComfyUI importable?" for every
+    test that runs afterwards, which silently flips each `except ImportError`
+    fail-soft seam in the pack onto its other branch - the branch the offline
+    assertions are not written for.
+    """
     if core_video_api_available():
         return True
     root = os.environ.get("AUSBOSS_COMFY_ROOT", "")
     if root and (Path(root) / "comfy_api").is_dir() and root not in sys.path:
         sys.path.append(root)
+        if case is not None:
+            case.addClassCleanup(_drop_from_sys_path, root)
     return core_video_api_available()
+
+
+def _drop_from_sys_path(entry: str) -> None:
+    while entry in sys.path:
+        sys.path.remove(entry)
 
 
 def run_node(result):
@@ -215,9 +229,12 @@ class CoreTrimArgsTests(unittest.TestCase):
         self.assertEqual(core_trim_args(-1.0, 3.0), (0.0, 3.0))
 
     def test_returns_none_when_the_core_api_is_unavailable(self):
-        if core_video_api_available():
-            self.skipTest("comfy_api is importable in this interpreter")
-        self.assertIsNone(core_trimmed_video(Path("/tmp/never.mp4"), 0.0, 0.0))
+        # Forced, not inferred from the interpreter: reading the real import
+        # state made this assertion depend on whether an earlier class had
+        # already put ComfyUI on sys.path, so it self-skipped under any
+        # runner that reordered the classes and covered nothing.
+        with patch.dict(sys.modules, {"comfy_api.input_impl": None}):
+            self.assertIsNone(core_trimmed_video(Path("/tmp/never.mp4"), 0.0, 0.0))
 
 
 class CoreVideoAdapterIntegrationTests(unittest.TestCase):
@@ -228,7 +245,7 @@ class CoreVideoAdapterIntegrationTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        if not ensure_core_video_api():
+        if not ensure_core_video_api(cls):
             raise unittest.SkipTest(
                 "comfy_api is not importable; set AUSBOSS_COMFY_ROOT to a ComfyUI checkout"
             )
