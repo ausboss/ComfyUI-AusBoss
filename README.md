@@ -35,6 +35,18 @@ Pauses the graph and shows the incoming batch as a clickable filmstrip: pick the
 
 A stacked multi-LoRA node. Each row has an on/off pill, a searchable picker (type to filter, arrow keys + Enter to pick; browse view groups by folder and hovering shows the preview image), and strengths you can **drag left/right to scrub** (Shift for fine steps) or click to type. A header pill toggles the whole stack. The per-row info card shows the LoRA's preview image, base model, trigger words from its file metadata, a one-click Civitai lookup, or your own saved words — click words to toggle them into the deduplicated `trigger_words` output — plus an optional suggested strength range that tints out-of-range values. CLIP input is optional.
 
+### Align Image (AusBoss)
+
+Snaps width and height to a clean multiple of a number you pick — 16, 32, whatever the model wants. Qwen image models, VAEs, and many samplers behave best on cleanly divisible sizes. `resize` rescales to the nearest multiple, `crop` center-crops down, `pad` replicate-pads up, and the new size comes out as INTs for wiring into latent nodes.
+
+### Image Size (AusBoss)
+
+Reads an image's dimensions as INTs — width, height, longest edge, shortest edge — so resizes and latents key off the actual image instead of retyped numbers that drift.
+
+### LM Studio Chat (AusBoss)
+
+Sends a prompt (and optionally an image) to a local LM Studio server — or any OpenAI-compatible endpoint — and returns the reply as text. Empty model name means "whatever the server has loaded", reasoning-model `<think>` blocks come out on a separate output so the text stays clean for conditioning, and the seed doubles as the re-roll knob. Errors are actionable: a refused connection says how to start the server.
+
 ### Color Match (AusBoss)
 
 Harmonizes an image against a reference by transferring per-channel LAB mean and standard deviation — the fix for an inpainted or upscaled region that comes back slightly brighter or cooler than the plate it sits in. Optional mask restricts the correction to just that region, and `strength` blends it back toward the original.

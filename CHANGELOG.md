@@ -4,6 +4,10 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- Added `AUSBOSS_NODES_AlignImage`: snap an image's width and height to a clean multiple (16, 32, ...) by nearest-resize, center-crop, or replicate-pad, with the new size as INT outputs — for Qwen image models and anything else that wants cleanly divisible sizes.
+- Added `AUSBOSS_NODES_ImageSize`: width, height, longest edge, and shortest edge as INT outputs.
+- Added `AUSBOSS_NODES_LmStudioChat`: prompt + optional image to a local LM Studio (or any OpenAI-compatible) server. Empty model uses whatever is loaded, `<think>` blocks land on their own output, the seed re-rolls the cached reply, and every error names what to fix. Stdlib HTTP - no new dependencies.
+
 - Performance: mask dilation and erosion run as one separable pass instead of one 3x3 pool per pixel of growth - bit-identical, measured 6-7x at 32 px, and it feeds Drop Shadow's grow, Refine Mask's expand, and the matting trimap. The trimap's morphology is also built once per batch instead of once per frame (27x on that stage: 11.0 s -> 0.4 s for 48 frames of 832x480). Pad Image's pillarbox backdrop blurs at quarter resolution when the blur is heavy (6-7x on the stage that was ~90% of the node; mean difference ~0.001 in a backdrop that is then dimmed - light blurs keep the exact full-resolution path). Frame Interpolate estimates optical flow exactly once per source pair however small batch_size is, where a batch_size of 1 used to re-solve each pair once per output frame (4x the RAFT work at 24 -> 120 fps); the guide-image batch is no longer duplicated up front, and the scene-cut scan drops a full-chunk temporary.
 
 - Fixed: a Frame Chooser pause survived being cancelled by an ordinary workflow load. LiteGraph clears the graph by removing every node, so undo, switching workflow tabs, Clear Workflow and opening another file all fired the teardown that a deleted node uses to release its pause - silently interrupting a run that was still going, with no way to get it back.

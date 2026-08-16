@@ -43,6 +43,7 @@ errors = []
 warnings = []
 
 PUBLIC_NODE_IDS = {
+    "AUSBOSS_NODES_AlignImage",
     "AUSBOSS_NODES_ColorMatch",
     "AUSBOSS_NODES_Compare",
     "AUSBOSS_NODES_CropForInpaint",
@@ -50,7 +51,9 @@ PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_FrameChooser",
     "AUSBOSS_NODES_FrameInterpolate",
     "AUSBOSS_NODES_ImageCropRotatePad",
+    "AUSBOSS_NODES_ImageSize",
     "AUSBOSS_NODES_LaMaInpaint",
+    "AUSBOSS_NODES_LmStudioChat",
     "AUSBOSS_NODES_LoadVideo",
     "AUSBOSS_NODES_LoraLoader",
     "AUSBOSS_NODES_PadImage",
