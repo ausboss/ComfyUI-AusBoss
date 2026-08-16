@@ -67,16 +67,73 @@ test("every DOM panel keeps padding inside its box and clips overflow", () => {
   }
 });
 
-test("every resizable DOM panel declares its minimum width to the layout", () => {
+test("every resizable DOM panel declares its minimum width to BOTH layout paths", () => {
   // input_preview is a pointer-transparent thumbnail with no fixed-width
   // controls; there is nothing that could hang out of it.
   const exempt = new Set(["input_preview"]);
   for (const { name, source } of domWidgetEntries()) {
     if (exempt.has(name)) continue;
+    // Modern frontends read computeLayoutSize; older ones read the
+    // minNodeSize option. Missing either leaves one frontend family able to
+    // resize the node under the panel, which then holds its own minimum and
+    // pokes past the border - the overflow clip cuts at the panel's edge,
+    // not the node's.
     assert.match(
       source,
       /computeLayoutSize\s*=\s*\(\)\s*=>\s*\(\{\s*\n?\s*minWidth/,
       `${name}: DOM widget has no computeLayoutSize minWidth - the node can shrink out from under the panel`,
+    );
+    assert.match(
+      source,
+      /options\.minNodeSize\s*=\s*\[/,
+      `${name}: DOM widget has no options.minNodeSize - older frontends can shrink the node under the panel`,
+    );
+  }
+});
+
+test("every panel root class carries border-box and an overflow clip", () => {
+  // The entries that style their own root, mapped to that root's class.
+  // Entries mounting the shared video root are covered by its CSS, checked
+  // in the shared-root test below.
+  const roots = {
+    lora_loader: ".ausboss-lora-panel {",
+    frame_chooser: ".ausboss-chooser-root{",
+    compare: ".ausboss-compare-root{",
+    input_preview: ".ausboss-input-preview{",
+  };
+  for (const { name, source } of domWidgetEntries()) {
+    const marker = roots[name];
+    if (!marker) {
+      assert.ok(
+        source.includes(SHARED_ROOT_IMPORT),
+        `${name}: unknown DOM panel - add its root class to this test's map, `
+          + "or mount the shared video root",
+      );
+      continue;
+    }
+    assert.ok(source.includes(marker), `${name}: root rule ${marker} not found`);
+    // A guard may come from the root's own rule or from a group selector
+    // naming the root class (the lora panel takes border-box from a
+    // blanket). Any selector occurrence followed closely by the declaration
+    // counts; template interpolations close braces mid-rule, so windows
+    // beat brace-matching here.
+    const rootClass = marker.replace(/\s*\{$/, "");
+    const guarded = (pattern, window) => {
+      let from = 0;
+      while (true) {
+        const at = source.indexOf(rootClass, from);
+        if (at < 0) return false;
+        if (pattern.test(source.slice(at, at + window))) return true;
+        from = at + rootClass.length;
+      }
+    };
+    assert.ok(
+      guarded(/box-sizing:\s*border-box/, 300),
+      `${name}: no box-sizing: border-box reaches the root class`,
+    );
+    assert.ok(
+      guarded(/overflow(-x)?:\s*(hidden|clip)/, 600),
+      `${name}: no overflow clip reaches the root class`,
     );
   }
 });

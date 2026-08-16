@@ -453,6 +453,11 @@ function buildPanel(node) {
     minWidth: MIN_WIDTH,
     minHeight: state.populated ? ACTIVE_HEIGHT : IDLE_HEIGHT,
   });
+  // Older frontends enforce the node's floor through this option instead of
+  // computeLayoutSize. Without it the node could be resized under the panel,
+  // which holds MIN_WIDTH and pokes past the border - the overflow clip cuts
+  // at the panel's edge, not the node's.
+  widget.options.minNodeSize = [MIN_WIDTH, IDLE_HEIGHT];
   state.widget = widget;
 
   keepButton.addEventListener(

@@ -29,7 +29,7 @@ function ensureCss() {
   const style = document.createElement("style");
   style.id = CSS_ID;
   style.textContent = `
-.ausboss-input-preview{box-sizing:border-box;width:100%;height:100%;padding:2px 6px 6px;pointer-events:none;}
+.ausboss-input-preview{box-sizing:border-box;width:100%;height:100%;padding:2px 6px 6px;pointer-events:none;overflow:hidden;}
 .ausboss-input-preview-stage{position:relative;display:flex;align-items:center;justify-content:center;width:100%;height:100%;overflow:hidden;border:1px solid rgba(0,180,170,.27);border-radius:6px;background:rgba(0,0,0,.28);}
 .ausboss-input-preview-stage img,.ausboss-input-preview-stage video{display:none;max-width:100%;max-height:100%;object-fit:contain;}
 .ausboss-input-preview-stage.show-image img{display:block;}
