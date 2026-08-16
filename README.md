@@ -164,7 +164,7 @@ after a run (off by default).
 - API-mode execution does not require the editor to be open
 - Transform editors validated on ComfyUI `0.27.1`; the pack scaffold was also validated on `0.28.0`
 
-No minimum ComfyUI version is declared. If a frontend update changes custom-widget behavior, please include your ComfyUI and frontend versions in the issue.
+The declared minimum is ComfyUI `0.27.1` (`supported_comfyui_version` in `pyproject.toml`, which ComfyUI-Manager enforces at install time). If a frontend update changes custom-widget behavior, please include your ComfyUI and frontend versions in the issue.
 
 ## Development
 

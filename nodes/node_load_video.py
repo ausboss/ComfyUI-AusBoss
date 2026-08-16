@@ -93,7 +93,7 @@ class AusBossLoadVideo:
         "Duration in seconds of the returned frames.",
         "Core VIDEO for the same trim window at the source size; frames decode "
         "only when a consumer asks for them. None on ComfyUI cores without the "
-        "comfy_api VIDEO type (needs ComfyUI 0.3.26 or newer).",
+        "comfy_api VIDEO type (present on every version this pack supports).",
     )
     FUNCTION = "load_video"
 
