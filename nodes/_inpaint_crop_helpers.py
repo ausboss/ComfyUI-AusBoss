@@ -152,15 +152,11 @@ def _replicate_pad_image(
 
 # --- optional edge-halo spread -----------------------------------------------
 
-# Dilation applied to the blend mask before estimating the spread. Measured on
-# flat, gradient, noisy and hard-edged backgrounds: estimating against the mask
-# the composite actually uses clears essentially all of the halo, while each
-# pixel of dilation throws away roughly half of the remaining correction (1px
-# leaves ~45% of the halo, 2px leaves ~75%). Dilating guards against
-# over-correcting into an opposite-sign rim, but that never showed up above the
-# noise floor, so the guard costs far more than it protects. The composite
-# always weights with the ungrown mask.
-EDGE_HALO_SPREAD_PIXELS = 0
+# The spread estimates against the exact mask the composite uses - never a
+# dilated one. Measured on flat, gradient, noisy and hard-edged backgrounds:
+# each pixel of dilation throws away roughly half of the remaining correction
+# (1px leaves ~45% of the halo, 2px leaves ~75%), and the opposite-sign rim
+# dilation would guard against never showed up above the noise floor.
 
 _PYMATTING_HINT = (
     "Stitch Inpaint: fix_edge_halo needs the optional 'pymatting' package "
@@ -227,9 +223,9 @@ def spread_edge_colors(patch: torch.Tensor, alpha: torch.Tensor) -> torch.Tensor
         _warn_once(_PYMATTING_HINT)
         return patch
 
-    spread_alpha = grow_shrink_mask(alpha, EDGE_HALO_SPREAD_PIXELS).clamp(0.0, 1.0)
-    if spread_alpha.shape[0] == 1 and patch.shape[0] > 1:
-        spread_alpha = spread_alpha.expand(patch.shape[0], -1, -1)
+    matte_alpha = alpha
+    if matte_alpha.shape[0] == 1 and patch.shape[0] > 1:
+        matte_alpha = matte_alpha.expand(patch.shape[0], -1, -1)
 
     # Cost, measured on a 16-thread desktop CPU with pymatting 1.1.15: about
     # 90 ms per megapixel of paste window, per frame - 48 ms for the 768x768
@@ -247,7 +243,9 @@ def spread_edge_colors(patch: torch.Tensor, alpha: torch.Tensor) -> torch.Tensor
         # feeding float32 drops a float64 temporary of twice the size for a
         # bit-identical estimate.
         image = patch[index].detach().to(torch.float32).cpu().contiguous().numpy()
-        matte = spread_alpha[index].detach().to(torch.float32).cpu().contiguous().numpy()
+        matte = (
+            matte_alpha[index].detach().to(torch.float32).clamp(0.0, 1.0).cpu().contiguous().numpy()
+        )
         try:
             foreground = estimate(image, matte)
         except Exception as exc:  # A failed estimate must never fail the paste.
@@ -422,7 +420,6 @@ def apply_stitch(
 
 
 __all__ = [
-    "EDGE_HALO_SPREAD_PIXELS",
     "STITCHER_KIND",
     "STITCHER_VERSION",
     "apply_stitch",

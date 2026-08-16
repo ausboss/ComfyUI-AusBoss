@@ -11,7 +11,16 @@ sys.path.insert(0, str(ROOT))
 if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
     del sys.modules["nodes"]
 
-from nodes._pad_helpers import PAD_MODES, pad_image
+import math
+
+from nodes._pad_helpers import (
+    PAD_MODES,
+    _LOWRES_BLUR_MIN_SIGMA,
+    _SIGMA_DIVISOR,
+    _blur_image,
+    _resize_image,
+    pad_image,
+)
 
 
 def rand_image(batch: int, height: int, width: int, seed: int = 0) -> torch.Tensor:
@@ -166,3 +175,38 @@ class NodeWiringTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LowResBackdropBlurTests(unittest.TestCase):
+    """A heavy pillarbox blur runs at quarter resolution; a light one stays on
+    the exact full-resolution path."""
+
+    def test_heavy_blur_matches_the_full_resolution_reference(self):
+        torch.manual_seed(0)
+        image = torch.rand((2, 96, 160, 3))
+        out, _ = pad_image(image, 0, 120, 0, 120, "pillarbox blur", backdrop_blur=1.0)
+        # Rebuild the old full-resolution backdrop for the padded band.
+        canvas_h, canvas_w = 96 + 240, 160
+        scale = max(canvas_w / 160, canvas_h / 96)
+        sw = max(canvas_w, math.ceil(160 * scale))
+        sh = max(canvas_h, math.ceil(96 * scale))
+        backdrop = _resize_image(image, sw, sh)
+        cx, cy = (sw - canvas_w) // 2, (sh - canvas_h) // 2
+        backdrop = backdrop[:, cy : cy + canvas_h, cx : cx + canvas_w, :]
+        sigma = min(canvas_h, canvas_w) / _SIGMA_DIVISOR
+        self.assertGreaterEqual(sigma, _LOWRES_BLUR_MIN_SIGMA)  # heavy path taken
+        reference = _blur_image(backdrop, sigma) * 0.5
+        band = out[:, :120, :, :]
+        self.assertLess(float((band - reference[:, :120, :, :]).abs().mean()), 0.01)
+
+    def test_light_blur_stays_on_the_exact_path(self):
+        torch.manual_seed(1)
+        image = torch.rand((1, 40, 64, 3))
+        # sigma = 0.2 * 56 / 16 = 0.7, far below the low-res threshold.
+        sigma = 0.2 * min(40 + 16, 64) / _SIGMA_DIVISOR
+        self.assertLess(sigma, _LOWRES_BLUR_MIN_SIGMA)
+        out, _ = pad_image(image, 0, 8, 0, 8, "pillarbox blur", backdrop_blur=0.2)
+        self.assertEqual(tuple(out.shape), (1, 56, 64, 3))
+        # The padded band still derives from the picture, not a flat fill.
+        band = out[:, :8, :, :]
+        self.assertGreater(float(band.std()), 0.0)

@@ -379,3 +379,41 @@ class MattingSeesTheFeatherTests(unittest.TestCase):
         self.assertGreaterEqual(float(out.min()), 0.0)
         self.assertLessEqual(float(out.max()), 1.0)
         self.assertGreater(int(torch.unique(out).numel()), 2)
+
+
+class SeparableMorphologyTests(unittest.TestCase):
+    """grow_shrink_mask runs as one separable pass; the result must stay
+    bit-identical to the iterated 3x3 definition it replaced."""
+
+    @staticmethod
+    def iterated_reference(mask: torch.Tensor, pixels: int) -> torch.Tensor:
+        from torch.nn import functional
+        steps = abs(int(pixels))
+        if steps == 0:
+            return mask
+        grown = mask.unsqueeze(1)
+        for _ in range(steps):
+            if pixels > 0:
+                grown = functional.max_pool2d(grown, kernel_size=3, stride=1, padding=1)
+            else:
+                grown = -functional.max_pool2d(-grown, kernel_size=3, stride=1, padding=1)
+        return grown.squeeze(1)
+
+    def test_bit_identical_to_the_iterated_definition(self):
+        torch.manual_seed(0)
+        hard = torch.zeros((2, 40, 56))
+        hard[:, 10:30, 14:44] = 1.0
+        soft = (hard + 0.3 * torch.rand_like(hard)).clamp(0.0, 1.0)
+        for mask in (hard, soft):
+            for pixels in (1, 3, 8, -1, -3, -8):
+                with self.subTest(pixels=pixels, soft=bool(mask is soft)):
+                    self.assertTrue(
+                        torch.equal(
+                            grow_shrink_mask(mask, pixels),
+                            self.iterated_reference(mask, pixels),
+                        )
+                    )
+
+    def test_zero_is_still_the_same_object(self):
+        mask = torch.rand((1, 8, 8))
+        self.assertIs(grow_shrink_mask(mask, 0), mask)

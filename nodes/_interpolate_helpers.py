@@ -107,7 +107,10 @@ def adjacent_frame_differences(
         end = min(start + chunk_size, total - 1)
         first = frames[start:end].float()
         second = frames[start + 1 : end + 1].float()
-        differences.extend((second - first).abs().mean(dim=(1, 2, 3)).tolist())
+        # abs_ in place: the subtraction already allocated this chunk's
+        # temporary, and a second full-chunk copy (796 MB at a 32-frame
+        # 1080p chunk) bought nothing.
+        differences.extend((second - first).abs_().mean(dim=(1, 2, 3)).tolist())
     return differences
 
 
@@ -281,20 +284,52 @@ def _render_optical_flow(
     a_indices: torch.Tensor,
     b_indices: torch.Tensor,
     t_values: torch.Tensor,
-) -> torch.Tensor:
+    pair_keys: Sequence[tuple[int, int]],
+    flow_cache: dict[tuple[int, int], tuple[torch.Tensor, torch.Tensor]],
+) -> tuple[torch.Tensor, dict[tuple[int, int], tuple[torch.Tensor, torch.Tensor]]]:
     """Warp both frames of each pair toward time t and blend the warps.
 
-    Flow is estimated once per unique (a, b) pair in the batch, then reused
-    by every output frame that sits between that pair.
+    Flow is estimated once per unique GLOBAL (src_a, src_b) pair - not once
+    per batch it appears in. ``pair_keys`` names each job's pair in source
+    frame numbers, and ``flow_cache`` carries the previous batch's flows:
+    batches are pair-grouped, so a pair can only ever straddle two
+    consecutive batches, and one batch of carryover is enough to make every
+    solve unique. The returned cache holds exactly this batch's pairs, so
+    the extra memory stays bounded by the batch, never the clip.
     """
-    pairs = torch.stack((a_indices, b_indices), dim=1)
-    unique_pairs, inverse = torch.unique(pairs, dim=0, return_inverse=True)
+    order: list[tuple[int, int]] = []
+    first_job: dict[tuple[int, int], int] = {}
+    for job_index, key in enumerate(pair_keys):
+        if key not in first_job:
+            first_job[key] = job_index
+            order.append(key)
+    position = {key: index for index, key in enumerate(order)}
+    inverse = torch.tensor(
+        [position[key] for key in pair_keys], dtype=torch.long, device=sources.device
+    )
     chw = sources.permute(0, 3, 1, 2)
     rgb = chw[:, :3]
-    first = rgb.index_select(0, unique_pairs[:, 0])
-    second = rgb.index_select(0, unique_pairs[:, 1])
-    flow_forward = _estimate_flow(model, first, second)
-    flow_backward = _estimate_flow(model, second, first)
+    flows = {key: flow_cache[key] for key in order if key in flow_cache}
+    misses = [key for key in order if key not in flows]
+    if misses:
+        first_local = torch.tensor(
+            [int(a_indices[first_job[key]]) for key in misses],
+            dtype=torch.long,
+            device=sources.device,
+        )
+        second_local = torch.tensor(
+            [int(b_indices[first_job[key]]) for key in misses],
+            dtype=torch.long,
+            device=sources.device,
+        )
+        first = rgb.index_select(0, first_local)
+        second = rgb.index_select(0, second_local)
+        forward = _estimate_flow(model, first, second)
+        backward = _estimate_flow(model, second, first)
+        for index, key in enumerate(misses):
+            flows[key] = (forward[index], backward[index])
+    flow_forward = torch.stack([flows[key][0] for key in order])
+    flow_backward = torch.stack([flows[key][1] for key in order])
     weights = t_values.view(-1, 1, 1, 1)
     warped_a = backward_warp(
         chw.index_select(0, a_indices),
@@ -304,7 +339,8 @@ def _render_optical_flow(
         chw.index_select(0, b_indices),
         flow_backward.index_select(0, inverse) * -(1.0 - weights),
     )
-    return weighted_blend(warped_a, warped_b, weights).permute(0, 2, 3, 1)
+    blended = weighted_blend(warped_a, warped_b, weights).permute(0, 2, 3, 1)
+    return blended, flows
 
 
 def _raise_if_interrupted() -> None:
@@ -332,6 +368,31 @@ def _validate_frames(frames: torch.Tensor) -> None:
         raise ValueError("Frame Interpolate requires RGB frames.")
     if not torch.isfinite(frames).all():
         raise ValueError("Frame Interpolate received non-finite frame values.")
+
+
+def _pair_grouped_batches(
+    jobs: Sequence[FrameJob], step: int
+) -> list[list[FrameJob]]:
+    """Chunk jobs so a source pair's jobs share a batch wherever possible.
+
+    Greedy: whole (src_a, src_b) groups are packed up to ``step`` jobs per
+    batch; only a group bigger than ``step`` is split, so the memory bound
+    the caller advertises still holds."""
+    groups: dict[tuple[int, int], list[FrameJob]] = {}
+    for job in jobs:
+        groups.setdefault((job.src_a, job.src_b), []).append(job)
+    batches: list[list[FrameJob]] = []
+    current: list[FrameJob] = []
+    for group in groups.values():
+        for start in range(0, len(group), step):
+            piece = group[start : start + step]
+            if current and len(current) + len(piece) > step:
+                batches.append(current)
+                current = []
+            current.extend(piece)
+    if current:
+        batches.append(current)
+    return batches
 
 
 def _execute_jobs(
@@ -372,9 +433,19 @@ def _execute_jobs(
     completed = len(copy_jobs)
     if progress is not None:
         progress.update_absolute(completed, total_out)
-    for start in range(0, len(blend_jobs), step):
+    # Batches take whole (src_a, src_b) groups, so every output frame between
+    # one source pair lands in the same batch and its flow is estimated once.
+    # Slicing blend_jobs blindly split those groups: the same RAFT solve was
+    # repeated in every batch the pair leaked into - 4x the flow work at
+    # batch_size=1 for 24 -> 120 fps, where each pair feeds four blends.
+    # Output order is irrelevant here; every job writes to its own
+    # output_index. A group larger than the step still splits, keeping
+    # batch_size an honest memory bound - the one-batch flow_cache below is
+    # what keeps even a split pair at a single solve. Blend-only runs are
+    # unaffected because a lerp has no per-pair work to save.
+    flow_cache: dict[tuple[int, int], tuple[torch.Tensor, torch.Tensor]] = {}
+    for batch in _pair_grouped_batches(blend_jobs, step):
         _raise_if_interrupted()
-        batch = blend_jobs[start : start + step]
         unique_sources = sorted(
             {index for job in batch for index in (job.src_a, job.src_b)}
         )
@@ -393,8 +464,14 @@ def _execute_jobs(
         if flow_model is None:
             rendered = _render_blend(sources, a_indices, b_indices, t_values)
         else:
-            rendered = _render_optical_flow(
-                flow_model, sources, a_indices, b_indices, t_values
+            rendered, flow_cache = _render_optical_flow(
+                flow_model,
+                sources,
+                a_indices,
+                b_indices,
+                t_values,
+                [(job.src_a, job.src_b) for job in batch],
+                flow_cache,
             )
         output_indices = torch.tensor(
             [job.output_index for job in batch], dtype=torch.long
