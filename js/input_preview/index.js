@@ -7,7 +7,7 @@
 
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
-import { chainCallback } from "../shared/index.mjs";
+import { chainCallback, keepDomWidgetWidthAuto } from "../shared/index.mjs";
 import {
   describeSourcePreview,
   placeholderText,
@@ -148,6 +148,7 @@ function buildPanel(node, config) {
     hideOnZoom: false,
     getMinHeight: () => PANEL_HEIGHT,
   });
+  keepDomWidgetWidthAuto(widget);
   widget.computeSize = (width) => [Number(width || node.size?.[0] || 0), PANEL_HEIGHT];
 
   const state = node.__ausbossInputPreview = {

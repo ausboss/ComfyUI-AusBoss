@@ -58,3 +58,30 @@ export function notifyAusbossChange() {
   }, 120);
 }
 
+
+// The frontend sizes a DOM widget's wrapper as `widget.width ?? node.width`
+// (GraphView, useDomWidget's updateWidgets). LiteGraph's layout plants
+// widget.width during draws, and once planted it OUTRANKS the node width
+// forever: resize the node narrower and the wrapper keeps the old width,
+// parking the panel's right edge outside the node. The overflow clip cannot
+// help - it clips at the wrapper's edge, which is the thing that is too
+// wide. Discarding every write keeps the lookup on its node-width fallback,
+// so the wrapper tracks the node in both directions for the life of the
+// widget. Call it on every DOM widget right after addDOMWidget.
+export function keepDomWidgetWidthAuto(widget) {
+  if (!widget) return widget;
+  try {
+    Object.defineProperty(widget, "width", {
+      get() {
+        return undefined;
+      },
+      set(_value) {
+        /* a planted layout width must never outrank the node */
+      },
+      configurable: true,
+    });
+  } catch (_error) {
+    // A frozen widget object keeps its old behavior; nothing to break.
+  }
+  return widget;
+}
