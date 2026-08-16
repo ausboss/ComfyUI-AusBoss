@@ -31,14 +31,23 @@ const ROW_HEIGHT = 30;
 const ROW_GAP = 6;
 const FOOTER_HEIGHT = 34;
 const PANEL_PADDING = 10;
+// Narrowest node at which a row still works: toggle + picker + strength +
+// info + gaps + padding. Enforced through the DOM widget's layout minimum,
+// so the node cannot be resized to where the fixed-width row controls would
+// hang past the right edge.
+const PANEL_MIN_WIDTH = 320;
 
 function installStyles() {
   if (document.getElementById("ausboss-lora-styles")) return;
   const style = document.createElement("style");
   style.id = "ausboss-lora-styles";
   style.textContent = `
+  .ausboss-lora-panel, .ausboss-lora-panel *,
+  .ausboss-lora-pop, .ausboss-lora-pop *,
+  .ausboss-lora-hoverthumb { box-sizing: border-box; }
   .ausboss-lora-panel { display: flex; flex-direction: column; gap: ${ROW_GAP}px;
-    padding: ${PANEL_PADDING}px; font: 12px system-ui; color: #d7dde2; }
+    width: 100%; padding: ${PANEL_PADDING}px; font: 12px system-ui; color: #d7dde2;
+    overflow: hidden; }
   .ausboss-lora-row { display: flex; align-items: center; gap: 6px; height: ${ROW_HEIGHT}px; }
   .ausboss-lora-row.off { opacity: 0.45; }
   .ausboss-lora-toggle { width: 30px; height: 16px; border-radius: 8px; border: none;
@@ -756,7 +765,21 @@ function installLoraNode(node) {
     serialize: false,
     hideOnZoom: false,
   });
-  domWidget.computeSize = (width) => [Math.max(300, width), panelHeight(state)];
+  // The same minimum through every sizing path the frontends consult -
+  // legacy computeSize, modern computeLayoutSize, and the resize clamp -
+  // so the panel and the node can never disagree about how narrow is legal.
+  // Without the layout minimum, the node could be dragged below the panel's
+  // floor while the panel held its width, and the row's fixed-width strength
+  // and info controls hung past the node's right edge.
+  domWidget.computeSize = (width) => [
+    Math.max(PANEL_MIN_WIDTH, Number(width || node.size?.[0] || PANEL_MIN_WIDTH)),
+    panelHeight(state),
+  ];
+  domWidget.computeLayoutSize = () => ({
+    minWidth: PANEL_MIN_WIDTH,
+    minHeight: panelHeight(state),
+  });
+  domWidget.options.minNodeSize = [PANEL_MIN_WIDTH, 160];
 
   renderRows(state);
   node.setSize?.([Math.max(336, node.size?.[0] || 336), node.computeSize?.()[1] || 220]);
