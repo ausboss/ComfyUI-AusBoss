@@ -1,6 +1,6 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
-import { BRAND, chainCallback } from "../shared/index.mjs";
+import { BRAND, chainCallback, keepDomWidgetWidthAuto } from "../shared/index.mjs";
 import { mediaViewQuery, responsivePreviewHeight } from "../shared/video_preview.mjs";
 import { VIDEO_MIN_WIDTH, ensureVideoCss, makeToolButton } from "../shared/video_ui.mjs";
 import {
@@ -111,6 +111,7 @@ function buildPanel(node) {
     hideOnZoom: false,
     getMinHeight: () => 132,
   });
+  keepDomWidgetWidthAuto(widget);
   widget.computeSize = (width) => {
     const resolvedWidth = Math.max(VIDEO_MIN_WIDTH, Number(width || node.size?.[0] || 360));
     return [resolvedWidth, responsivePreviewHeight(resolvedWidth, 132, 520) + PANEL_CHROME];

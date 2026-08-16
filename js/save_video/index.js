@@ -1,6 +1,6 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
-import { chainCallback, notifyAusbossChange } from "../shared/index.mjs";
+import { chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import {
   findVideoMetadata,
   mediaInfo,
@@ -101,6 +101,7 @@ function buildPreview(node) {
     hideOnZoom: false,
     getMinHeight: () => 132,
   });
+  keepDomWidgetWidthAuto(widget);
   widget.computeSize = (width) => {
     const resolvedWidth = Math.max(VIDEO_MIN_WIDTH, Number(width || node.size?.[0] || 360));
     return [resolvedWidth, responsivePreviewHeight(resolvedWidth, 132, 520) + PREVIEW_CHROME];

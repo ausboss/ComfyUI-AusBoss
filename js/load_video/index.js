@@ -1,6 +1,6 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
-import { chainCallback, notifyAusbossChange } from "../shared/index.mjs";
+import { chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { formatTimecode, parseTimecode } from "../shared/timecode.mjs";
 import {
   mediaInfo,
@@ -353,6 +353,7 @@ function buildPreview(node) {
     hideOnZoom: false,
     getMinHeight: () => 200,
   });
+  keepDomWidgetWidthAuto(widget);
   widget.computeSize = (width) => {
     const resolvedWidth = Math.max(VIDEO_MIN_WIDTH, Number(width || node.size?.[0] || 320));
     return [resolvedWidth, responsivePreviewHeight(resolvedWidth) + PREVIEW_CHROME];

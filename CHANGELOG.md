@@ -4,6 +4,8 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- Fixed the LoRA panel (and every DOM panel) overflowing after a node was resized narrower: the frontend sizes a panel's wrapper as `widget.width ?? node.width`, and LiteGraph's layout plants `widget.width` during draws - once planted, it outranks the node width forever, so the wrapper kept an old, wider width and parked the row's controls outside the border. All six panels now discard those writes (`keepDomWidgetWidthAuto`), so the wrapper tracks the node in both directions. Diagnosed from a live browser measurement and verified end-to-end against a planted stale width.
+
 - Fixed: the LoRA Loader's strength box and info button could hang past the node's right edge. The panel now sizes its padding inside the widget's box, clips anything oversized, and declares its minimum width to the layout so the node cannot be resized out from under the row. A pack-wide test now requires every DOM panel to carry the same guards.
 - The same containment sweep covered every DOM panel: Frame Chooser gained the resize floor older frontends read (`minNodeSize`), the input-preview thumbnail clips at its root, and the pack-wide test now requires the full guard set - border-box, an overflow clip, and a minimum width on both frontend layout paths - of every panel.
 - Added `AUSBOSS_NODES_AlignImage`: snap an image's width and height to a clean multiple (16, 32, ...) by nearest-resize, center-crop, or replicate-pad, with the new size as INT outputs — for Qwen image models and anything else that wants cleanly divisible sizes.

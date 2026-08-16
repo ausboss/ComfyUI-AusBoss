@@ -1,6 +1,6 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
-import { BRAND, chainCallback, notifyAusbossChange } from "../shared/index.mjs";
+import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { nodeByExecutionId } from "../shared/graph_ids.mjs";
 import { ensureVideoCss, makeToolButton } from "../shared/video_ui.mjs";
 import {
@@ -445,6 +445,7 @@ function buildPanel(node) {
     hideOnZoom: false,
     getMinHeight: () => (state.populated ? ACTIVE_HEIGHT : IDLE_HEIGHT),
   });
+  keepDomWidgetWidthAuto(widget);
   widget.computeSize = (width) => [
     Math.max(MIN_WIDTH, Number(width || node.size?.[0] || MIN_WIDTH)),
     state.populated ? ACTIVE_HEIGHT : IDLE_HEIGHT,

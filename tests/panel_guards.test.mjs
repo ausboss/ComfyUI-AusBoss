@@ -91,6 +91,26 @@ test("every resizable DOM panel declares its minimum width to BOTH layout paths"
   }
 });
 
+test("every DOM panel discards planted layout widths", () => {
+  // The frontend sizes the wrapper as `widget.width ?? node.width`, and
+  // LiteGraph's layout PLANTS widget.width during draws. Once planted it
+  // outranks the node width forever: resize the node narrower and the
+  // wrapper keeps the old width, parking the row's controls outside the
+  // border - which no overflow clip can fix, because the wrapper itself is
+  // the thing that is too wide. keepDomWidgetWidthAuto discards the writes
+  // so the lookup stays on its node-width fallback.
+  for (const { name, source } of domWidgetEntries()) {
+    assert.match(
+      source,
+      /keepDomWidgetWidthAuto\(/,
+      `${name}: DOM widget never calls keepDomWidgetWidthAuto - a planted widget.width will outrank the node width`,
+    );
+  }
+  const shared = readFileSync(join(JS_ROOT, "shared", "index.mjs"), "utf-8");
+  assert.match(shared, /export function keepDomWidgetWidthAuto/);
+  assert.match(shared, /get\(\)\s*\{\s*\n?\s*return undefined/);
+});
+
 test("every panel root class carries border-box and an overflow clip", () => {
   // The entries that style their own root, mapped to that root's class.
   // Entries mounting the shared video root are covered by its CSS, checked

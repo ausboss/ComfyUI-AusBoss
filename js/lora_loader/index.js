@@ -1,6 +1,6 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
-import { BRAND, chainCallback } from "../shared/index.mjs";
+import { BRAND, chainCallback, keepDomWidgetWidthAuto } from "../shared/index.mjs";
 import {
   DEFAULT_STEP,
   FINE_STEP,
@@ -765,6 +765,7 @@ function installLoraNode(node) {
     serialize: false,
     hideOnZoom: false,
   });
+  keepDomWidgetWidthAuto(domWidget);
   // The same minimum through every sizing path the frontends consult -
   // legacy computeSize, modern computeLayoutSize, and the resize clamp -
   // so the panel and the node can never disagree about how narrow is legal.
