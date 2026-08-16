@@ -132,12 +132,14 @@ app.registerExtension({
       onChange(value) {
         const previous = activeScheme;
         activeScheme = value ?? DEFAULT_SCHEME;
-        if (previous !== activeScheme) {
-          repaintAll(
-            schemeColors(activeScheme, activeCustomColor),
-            schemeColors(previous, activeCustomColor),
-          );
-        }
+        if (previous === activeScheme) return;
+        const colors = schemeColors(activeScheme, activeCustomColor);
+        // Custom with an unusable stored color resolves to null, which reads
+        // downstream as "Theme default" and would strip the color off every
+        // AusBoss node in the graph. The per-node menu already refuses this;
+        // the setting has to refuse it too.
+        if (activeScheme === CUSTOM_SCHEME && !colors) return;
+        repaintAll(colors, schemeColors(previous, activeCustomColor));
       },
     },
     {

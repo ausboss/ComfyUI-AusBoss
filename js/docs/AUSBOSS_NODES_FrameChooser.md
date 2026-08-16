@@ -20,10 +20,17 @@ resumes with just those frames — always in their original order.
   while **timeout_seconds** is `0`.
 - **pick_list**: One-based frame numbers, e.g. `1,4,9` (commas or spaces).
   When filled, the node applies them immediately — no pause, no filmstrip —
-  and the run can cache like any ordinary node. Answering a pause fills this
-  widget automatically with the kept indices, so the next queue reproduces
-  the same choice headlessly. **Clear it to make the node pause again.** A
-  number outside the batch fails the run instead of guessing.
+  and the run can cache like any ordinary node. **Clear it to make the node
+  pause again.** A number outside the batch fails the run instead of
+  guessing.
+
+  Under **keep last selection**, answering a pause fills this widget in for
+  you with the kept indices, so the next queue reproduces the same choice
+  headlessly. Under **always pause** nothing is written here: a filled
+  `pick_list` pre-answers the node, so writing one back would answer every
+  later queue on its own and quietly retire the setting you chose. Keeping
+  all frames writes an empty list, not an enumeration of the batch — the
+  answer stays "keep everything" however long the next clip is.
 
 ## While paused
 

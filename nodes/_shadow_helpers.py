@@ -80,7 +80,7 @@ def drop_shadow(
 
     rgb = image[..., :3]
     color = torch.tensor(
-        [channel / 255.0 for channel in parse_fill_color(shadow_color)],
+        [channel / 255.0 for channel in parse_fill_color(shadow_color, "Drop Shadow shadow_color")],
         dtype=image.dtype,
         device=image.device,
     ).view(1, 1, 1, 3)

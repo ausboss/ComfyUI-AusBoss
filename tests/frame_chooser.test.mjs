@@ -343,3 +343,71 @@ test("the pause notice names the node and the batch", () => {
     "Frame Chooser paused the run - pick from 3 frames to continue.",
   );
 });
+
+// The two guards that decide whether a pause is answered or written back.
+// Both live in js/frame_chooser/index.js, which imports /scripts/app.js and
+// so cannot be loaded here; these mirror the exact conditions it applies.
+const ALWAYS_PAUSE = "always pause";
+const KEEP_LAST = "keep last selection";
+
+function writeback(node, indices, behaviorValue) {
+  const widgets = node.widgets || [];
+  const behavior = widgets.find((entry) => entry.name === "behavior");
+  if (typeof indices !== "string") return false;
+  if (String(behavior?.value ?? ALWAYS_PAUSE) === ALWAYS_PAUSE) return false;
+  const widget = widgets.find((entry) => entry.name === "pick_list");
+  if (!widget || widget.value === indices) return false;
+  widget.value = indices;
+  return true;
+}
+
+function chooserNode(behaviorValue) {
+  return {
+    widgets: [
+      { name: "behavior", value: behaviorValue },
+      { name: "pick_list", value: "" },
+    ],
+  };
+}
+
+test("always pause never gets a pick_list written under it", () => {
+  // The trap: the writeback pre-answers the node, so a node left at its
+  // default paused exactly once and then ran headlessly forever after.
+  const node = chooserNode(ALWAYS_PAUSE);
+  assert.equal(writeback(node, "2,3"), false);
+  assert.equal(node.widgets[1].value, "");
+  // Still true for keep-all, which arrives as the empty answer.
+  assert.equal(writeback(node, ""), false);
+  assert.equal(node.widgets[1].value, "");
+});
+
+test("keep last selection records the answer for a headless rerun", () => {
+  const node = chooserNode(KEEP_LAST);
+  assert.equal(writeback(node, "2,3"), true);
+  assert.equal(node.widgets[1].value, "2,3");
+  // Idempotent: the same answer twice is not a second graph mutation.
+  assert.equal(writeback(node, "2,3"), false);
+});
+
+test("a missing or unreadable behavior widget defaults to not writing back", () => {
+  const bare = { widgets: [{ name: "pick_list", value: "" }] };
+  assert.equal(writeback(bare, "2,3"), false);
+  assert.equal(writeback({ widgets: [] }, "2,3"), false);
+  assert.equal(writeback(chooserNode(KEEP_LAST), 7), false);
+});
+
+// onRemoved fires for every node when LiteGraph clears the graph - undo, a
+// workflow tab switch, Clear Workflow, opening another file - so the cancel
+// it posts must be gated on a real deletion.
+function teardownCancels(state, tearingDown) {
+  return Boolean(state?.active) && !tearingDown;
+}
+
+test("only a real deletion cancels a paused run", () => {
+  const paused = { active: true };
+  assert.equal(teardownCancels(paused, false), true);
+  // Same node, same pause, but the graph is being replaced under it.
+  assert.equal(teardownCancels(paused, true), false);
+  assert.equal(teardownCancels({ active: false }, false), false);
+  assert.equal(teardownCancels(null, false), false);
+});

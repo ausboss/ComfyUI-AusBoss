@@ -193,3 +193,29 @@ test("collectGraphNodes survives subgraph reference cycles", () => {
     [1, 2],
   );
 });
+
+// The node-color setting resolves a scheme to a colour pair before repainting.
+// Custom with an unusable stored colour resolves to null, which downstream
+// reads as "Theme default" and strips the colour off every AusBoss node - so
+// both the setting and the per-node menu have to refuse it.
+function repaintDecision(nextScheme, previousScheme, customColor) {
+  if (previousScheme === nextScheme) return "no change";
+  const colors = schemeColors(nextScheme, customColor);
+  if (nextScheme === "Custom" && !colors) return "refused";
+  return colors ? "repaint" : "theme default";
+}
+
+test("switching to Custom with an unusable colour repaints nothing", () => {
+  for (const bad of ["#abc", "", "red", "not a colour", null, undefined]) {
+    assert.equal(repaintDecision("Custom", "Teal", bad), "refused", String(bad));
+  }
+});
+
+test("switching to Custom with a usable colour repaints", () => {
+  assert.equal(repaintDecision("Custom", "Teal", "#ffee00"), "repaint");
+  assert.equal(repaintDecision("Custom", "Teal", "1f2c38"), "repaint");
+});
+
+test("Theme default still clears colours, which is its whole job", () => {
+  assert.equal(repaintDecision("Theme default", "Teal", "#ffee00"), "theme default");
+});

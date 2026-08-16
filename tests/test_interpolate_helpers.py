@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 import torch
 
@@ -16,6 +17,8 @@ from nodes._interpolate_helpers import (
     BLEND_METHOD,
     FLOW_METHOD,
     FrameJob,
+    _execute_jobs,
+    _pair_grouped_batches,
     adjacent_frame_differences,
     apply_scene_cuts,
     backward_warp,
@@ -263,3 +266,118 @@ class FrameInterpolateNodeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CopyPathIsBatchedTests(unittest.TestCase):
+    """Copied frames go over in batches like the blends do.
+
+    Gathering every copy at once was the one allocation batch_size could not
+    bound: a long clip at an integer multiple copies most of its output in a
+    single index_select, on the device the input already lives on.
+    """
+
+    def frames(self, count: int) -> torch.Tensor:
+        ramp = torch.linspace(0.0, 1.0, count).view(-1, 1, 1, 1)
+        return ramp.expand(count, 4, 4, 3).clone()
+
+    def test_the_result_is_identical_at_every_batch_size(self):
+        frames = self.frames(12)
+        want = interpolate_frames(frames, 24.0, 48.0, BLEND_METHOD, 0.0, 64, CPU)[0]
+        for batch in (1, 2, 3, 5, 64):
+            got = interpolate_frames(frames, 24.0, 48.0, BLEND_METHOD, 0.0, batch, CPU)[0]
+            self.assertTrue(torch.equal(got, want), f"batch_size={batch}")
+
+    def test_a_copy_only_plan_is_still_chunked(self):
+        # 30 -> 15 fps is pure decimation: every job is a copy, so this path
+        # is the only one that runs.
+        frames = self.frames(12)
+        want = interpolate_frames(frames, 30.0, 15.0, BLEND_METHOD, 0.0, 64, CPU)[0]
+        for batch in (1, 4):
+            got = interpolate_frames(frames, 30.0, 15.0, BLEND_METHOD, 0.0, batch, CPU)[0]
+            self.assertTrue(torch.equal(got, want), f"batch_size={batch}")
+
+    def test_no_single_gather_exceeds_the_batch_size(self):
+        seen = []
+        real = torch.Tensor.index_select
+
+        def spy(self, dim, index):
+            seen.append(int(index.numel()))
+            return real(self, dim, index)
+
+        frames = self.frames(24)
+        with patch.object(torch.Tensor, "index_select", spy):
+            interpolate_frames(frames, 24.0, 48.0, BLEND_METHOD, 0.0, 4, CPU)
+        self.assertTrue(seen)
+        self.assertLessEqual(max(seen), 8)  # <= batch_size sources per gather
+
+
+class FlowSolvedOncePerPairTests(unittest.TestCase):
+    """Every (a, b) source pair is flow-solved exactly once for the whole
+    plan, whatever batch_size is - batches take whole pair groups and a
+    one-batch cache covers a pair that a tiny batch_size splits."""
+
+    class ContentFlowModel:
+        """Stub RAFT whose flow DEPENDS on its inputs.
+
+        A zero-flow stub cannot catch a pair-association bug (identity
+        warps look right whichever pair's flow is used); a flow derived
+        from the frames themselves makes a mixed-up cache visible in the
+        output. Also counts the rows it is asked to solve.
+        """
+
+        def __init__(self):
+            self.rows = 0
+
+        def __call__(self, first, second):
+            self.rows += int(first.shape[0])
+            shift = (first - second).mean(dim=(1, 2, 3), keepdim=True)
+            flow = torch.zeros((first.shape[0], 2, first.shape[2], first.shape[3]))
+            return [flow + shift * 3.0]
+
+    def run_plan(self, batch_size):
+        torch.manual_seed(7)
+        frames = torch.rand((12, 16, 16, 3))
+        jobs = apply_scene_cuts(plan_frame_jobs(12, 24.0, 120.0), set())
+        model = self.ContentFlowModel()
+        out = _execute_jobs(frames, jobs, batch_size, CPU, model)
+        blends = [job for job in jobs if not job.is_copy]
+        pairs = {(job.src_a, job.src_b) for job in blends}
+        return out, model.rows, 2 * len(pairs), len(blends)
+
+    def test_solves_equal_unique_pairs_at_every_batch_size(self):
+        for batch_size in (1, 2, 3, 8, 64):
+            _out, rows, ideal, blend_count = self.run_plan(batch_size)
+            with self.subTest(batch_size=batch_size):
+                self.assertEqual(rows, ideal)
+                # And the old failure mode really was bigger than this.
+                self.assertLess(ideal, 2 * blend_count)
+
+    def test_outputs_match_across_batch_sizes(self):
+        # Tight allclose, not torch.equal: the stub's own mean() reduction
+        # jitters at the last float32 bit (~1e-7) with batch layout, exactly
+        # as a real conv stack would. A pair association bug shows up at the
+        # shift magnitude - four orders of magnitude above this tolerance.
+        reference, _rows, _ideal, _n = self.run_plan(64)
+        for batch_size in (1, 2, 3, 8):
+            out, _rows, _ideal, _n = self.run_plan(batch_size)
+            with self.subTest(batch_size=batch_size):
+                self.assertTrue(torch.allclose(out, reference, atol=1e-5, rtol=0.0))
+                self.assertLess(float((out - reference).abs().max()), 1e-5)
+
+    def test_pair_groups_fill_batches_without_splitting_small_groups(self):
+        jobs = apply_scene_cuts(plan_frame_jobs(12, 24.0, 120.0), set())
+        blends = [job for job in jobs if not job.is_copy]
+        batches = _pair_grouped_batches(blends, 8)
+        self.assertEqual(sum(len(batch) for batch in batches), len(blends))
+        for batch in batches[:-1]:
+            self.assertLessEqual(len(batch), 8)
+        # A batch never holds a fragment of a pair another batch also holds,
+        # unless that pair alone is bigger than the step.
+        seen = {}
+        for index, batch in enumerate(batches):
+            for job in batch:
+                seen.setdefault((job.src_a, job.src_b), set()).add(index)
+        for pair, indices in seen.items():
+            jobs_for_pair = sum(1 for job in blends if (job.src_a, job.src_b) == pair)
+            if jobs_for_pair <= 8:
+                self.assertEqual(len(indices), 1, pair)

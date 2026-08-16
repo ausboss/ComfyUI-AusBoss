@@ -297,3 +297,123 @@ class MattingSmokeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SmoothPreservesSoftAlphaTests(unittest.TestCase):
+    """smooth melts jaggies; it must not flatten a mask that is already soft."""
+
+    def soft_matte(self) -> torch.Tensor:
+        box = torch.zeros((1, 64, 64))
+        box[:, 16:48, 16:48] = 1.0
+        return blur_mask(box, 3.0).clamp(0.0, 1.0)
+
+    def test_a_binary_mask_is_smoothed_exactly_as_before(self):
+        # The delta form must be bit-identical on the input it was written
+        # for, or this fix would have changed every existing result.
+        jagged = torch.zeros((1, 64, 64))
+        jagged[:, 16:48, 16:48] = 1.0
+        for row in range(16, 48, 4):
+            jagged[:, row, 46:50] = 1.0
+        got = smooth_mask(jagged, 2)
+        solid = (jagged >= 0.5).to(jagged.dtype)
+        want = (blur_mask(solid, 2.0) >= 0.5).to(jagged.dtype)
+        self.assertTrue(torch.equal(got, want))
+
+    def test_a_soft_matte_keeps_its_soft_alpha(self):
+        soft = self.soft_matte()
+        levels_in = int(torch.unique(soft).numel())
+        self.assertGreater(levels_in, 100)  # genuinely soft to begin with
+        out = smooth_mask(soft, 1)
+        self.assertGreater(int(torch.unique(out).numel()), 100)
+
+    def test_the_interior_of_a_soft_matte_is_untouched(self):
+        soft = self.soft_matte()
+        out = smooth_mask(soft, 1)
+        interior = (slice(None), slice(28, 36), slice(28, 36))
+        self.assertTrue(torch.equal(out[interior], soft[interior]))
+
+    def test_output_stays_in_range(self):
+        out = smooth_mask(self.soft_matte(), 3)
+        self.assertGreaterEqual(float(out.min()), 0.0)
+        self.assertLessEqual(float(out.max()), 1.0)
+
+
+class MattingSeesTheFeatherTests(unittest.TestCase):
+    """The blur widget has to reach the matting solve, not be thresholded out.
+
+    The trimap used to be seeded from a hard 0.5 threshold, which discarded
+    the feather blur_mask had just applied: dragging blur produced almost no
+    change until it grew wide enough to break the trimap outright.
+    """
+
+    def setUp(self):
+        try:
+            import pymatting  # noqa: F401
+        except ImportError:
+            self.skipTest("pymatting is not installed in this interpreter")
+        torch.manual_seed(0)
+        self.mask = torch.zeros((1, 64, 64))
+        self.mask[:, 16:48, 16:48] = 1.0
+        self.guide = torch.rand((1, 64, 64, 3)) * 0.2
+        self.guide[:, 16:48, 16:48] += 0.6
+
+    def matted(self, blur: float) -> torch.Tensor:
+        return refine_mask(
+            self.mask, 0, blur, False, guide_image=self.guide, edge_refine="matting"
+        )[0]
+
+    def test_a_wider_feather_produces_a_richer_matte(self):
+        # Distinct alpha levels separate the two behaviours cleanly: seeding
+        # from the threshold moved this barely at all, seeding from the soft
+        # values multiplies it.
+        base = int(torch.unique(self.matted(0.0)).numel())
+        feathered = int(torch.unique(self.matted(8.0)).numel())
+        self.assertGreater(feathered, base * 2)
+
+    def test_the_matte_changes_materially_with_the_feather(self):
+        self.assertGreater(float((self.matted(8.0) - self.matted(0.0)).abs().max()), 0.25)
+
+    def test_an_unfeathered_hard_mask_still_solves(self):
+        out = self.matted(0.0)
+        self.assertEqual(out.shape, self.mask.shape)
+        self.assertGreaterEqual(float(out.min()), 0.0)
+        self.assertLessEqual(float(out.max()), 1.0)
+        self.assertGreater(int(torch.unique(out).numel()), 2)
+
+
+class SeparableMorphologyTests(unittest.TestCase):
+    """grow_shrink_mask runs as one separable pass; the result must stay
+    bit-identical to the iterated 3x3 definition it replaced."""
+
+    @staticmethod
+    def iterated_reference(mask: torch.Tensor, pixels: int) -> torch.Tensor:
+        from torch.nn import functional
+        steps = abs(int(pixels))
+        if steps == 0:
+            return mask
+        grown = mask.unsqueeze(1)
+        for _ in range(steps):
+            if pixels > 0:
+                grown = functional.max_pool2d(grown, kernel_size=3, stride=1, padding=1)
+            else:
+                grown = -functional.max_pool2d(-grown, kernel_size=3, stride=1, padding=1)
+        return grown.squeeze(1)
+
+    def test_bit_identical_to_the_iterated_definition(self):
+        torch.manual_seed(0)
+        hard = torch.zeros((2, 40, 56))
+        hard[:, 10:30, 14:44] = 1.0
+        soft = (hard + 0.3 * torch.rand_like(hard)).clamp(0.0, 1.0)
+        for mask in (hard, soft):
+            for pixels in (1, 3, 8, -1, -3, -8):
+                with self.subTest(pixels=pixels, soft=bool(mask is soft)):
+                    self.assertTrue(
+                        torch.equal(
+                            grow_shrink_mask(mask, pixels),
+                            self.iterated_reference(mask, pixels),
+                        )
+                    )
+
+    def test_zero_is_still_the_same_object(self):
+        mask = torch.rand((1, 8, 8))
+        self.assertIs(grow_shrink_mask(mask, 0), mask)

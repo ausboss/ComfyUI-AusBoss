@@ -138,6 +138,17 @@ def _pick_tokens(text) -> list[str]:
     return [token for token in re.split(r"[,\s]+", str(text).strip()) if token]
 
 
+def _is_frame_number(token: str) -> bool:
+    """True for a token int() will actually accept.
+
+    str.isdigit() is true for characters int() rejects outright, and for
+    others it silently converts - a superscript pasted from a caption threw
+    a raw ValueError out of IS_CHANGED, and an Arabic-Indic digit was read
+    as a frame number nobody typed. ASCII is the only spelling of a frame
+    index this widget means."""
+    return token.isascii() and token.isdigit()
+
+
 def parse_pick_list(text, frame_count: int) -> list[int] | None:
     """Turn the pick_list widget into a pre-answered selection.
 
@@ -151,7 +162,7 @@ def parse_pick_list(text, frame_count: int) -> list[int] | None:
         return None
     values: list[int] = []
     for token in tokens:
-        if not token.isdigit():
+        if not _is_frame_number(token):
             raise ValueError(
                 f"pick_list entry '{token}' is not a one-based frame number."
             )
@@ -165,7 +176,7 @@ def pick_list_fingerprint(text) -> str:
     Equivalent spellings ('1, 4, 9' vs '4 1 9 9') share one fingerprint, so
     a headless pre-answered run caches instead of re-executing every queue."""
     tokens = _pick_tokens(text)
-    if tokens and all(token.isdigit() for token in tokens):
+    if tokens and all(_is_frame_number(token) for token in tokens):
         canonical = ",".join(str(value) for value in sorted({int(t) for t in tokens}))
     else:
         canonical = ",".join(tokens)
@@ -183,6 +194,12 @@ def token_matches(expected, supplied) -> bool:
     if not isinstance(expected, str) or not isinstance(supplied, str):
         return False
     if not expected or not supplied:
+        return False
+    # compare_digest raises on non-ASCII text rather than returning False, so
+    # a token with an accent in it would leave the route throwing a 500 and
+    # the pause stranded. Our tokens are always token_urlsafe output; anything
+    # else is simply not this pause's token.
+    if not expected.isascii() or not supplied.isascii():
         return False
     return hmac.compare_digest(expected, supplied)
 
@@ -321,6 +338,8 @@ def answer_pending(store: dict, node_id, data: dict) -> tuple[int, dict]:
     reachable from offline tests with real threads. A pause that is already
     resolved answers 410 rather than a second success: the browser that lost
     the race must never be told its answer is the one that took effect."""
+    if not isinstance(data, dict):
+        return 400, {"error": "The request body must be a JSON object."}
     key = str(node_id)
     with store["lock"]:
         pending = store["pending"].get(key)
@@ -482,6 +501,33 @@ def await_selection(
                 del store["pending"][key]
 
 
+def done_payload(
+    node_id: str,
+    token: str,
+    selection: list[int],
+    frame_count: int,
+    reason: str,
+) -> dict:
+    """The DONE_EVENT body describing how a pause resolved.
+
+    ``indices`` carries the answer exactly as it was given, so keep-all stays
+    the empty string it was posted as. Expanding it to "1,2,...,N" pins a
+    batch-size-independent answer to the batch it happened to be given: the
+    panel writes that string into pick_list, and the next run then either
+    drops the frames the enumeration does not reach or fails outright on a
+    shorter batch. ``kept`` is the resolved count, which is what the panel
+    reports to the user."""
+    answer = list(selection)
+    return {
+        "node_id": str(node_id),
+        "token": str(token),
+        "indices": indices_string(answer),
+        "kept": len(effective_indices(answer, int(frame_count))),
+        "count": int(frame_count),
+        "reason": str(reason),
+    }
+
+
 def _send_done(
     node_id: str,
     token: str,
@@ -492,17 +538,9 @@ def _send_done(
     """Tell every open tab how a pause resolved (panel release + writeback)."""
     from server import PromptServer
 
-    kept = effective_indices(list(selection), int(frame_count))
     PromptServer.instance.send_sync(
         DONE_EVENT,
-        {
-            "node_id": str(node_id),
-            "token": str(token),
-            "indices": indices_string(kept),
-            "kept": len(kept),
-            "count": int(frame_count),
-            "reason": str(reason),
-        },
+        done_payload(node_id, token, selection, frame_count, reason),
     )
 
 
@@ -538,6 +576,12 @@ def register_chooser_route() -> None:
             data = await request.json()
         except Exception:
             return web.json_response({"error": "The request body must be JSON."}, status=400)
+        # Valid JSON is not necessarily an object: a bare list or number would
+        # reach .get() and throw a 500 out of the handler.
+        if not isinstance(data, dict):
+            return web.json_response(
+                {"error": "The request body must be a JSON object."}, status=400
+            )
         status, body = answer_pending(_store(), data.get("node_id", ""), data)
         return web.json_response(body, status=status)
 
@@ -560,6 +604,7 @@ __all__ = [
     "answer_pending",
     "await_selection",
     "claim_pause",
+    "done_payload",
     "effective_indices",
     "indices_string",
     "keep_frames",

@@ -1,6 +1,7 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { BRAND, chainCallback, notifyAusbossChange } from "../shared/index.mjs";
+import { nodeByExecutionId } from "../shared/graph_ids.mjs";
 import { ensureVideoCss, makeToolButton } from "../shared/video_ui.mjs";
 import {
   allFrames,
@@ -25,6 +26,8 @@ import {
 } from "../shared/frame_chooser.mjs";
 
 const NODE_NAME = "AUSBOSS_NODES_FrameChooser";
+// Must match BEHAVIOR_PAUSE in nodes/node_frame_chooser.py.
+const ALWAYS_PAUSE = "always pause";
 const EVENT_NAME = "ausboss-frame-choose";
 const TICK_EVENT = "ausboss-frame-choose-tick";
 const DONE_EVENT = "ausboss-frame-choose-done";
@@ -42,6 +45,27 @@ const TAB_ALERT_MS = 2400;
 // Live panels by graph node id; the websocket event carries the execution id,
 // which matches the node id for top-level nodes (subgraph ids keep a prefix).
 const panels = new Map();
+
+// True while a workflow load is replacing the graph. LiteGraph fires onRemoved
+// for every node during that clear, and a paused run must survive it.
+let graphTearingDown = false;
+let teardownTimer = null;
+
+function markGraphTeardown() {
+  graphTearingDown = true;
+  clearTimeout(teardownTimer);
+  // afterConfigureGraph clears this; the timer is the backstop for a load that
+  // throws, so a genuine deletion can never be permanently muted.
+  teardownTimer = setTimeout(() => {
+    graphTearingDown = false;
+  }, 5000);
+}
+
+function endGraphTeardown() {
+  clearTimeout(teardownTimer);
+  teardownTimer = null;
+  graphTearingDown = false;
+}
 
 function ensureChooserCss() {
   ensureVideoCss(); // tool-button styles shared with the video nodes
@@ -109,16 +133,20 @@ function resolvePanel(state, message) {
 }
 
 // The websocket events carry the execution id, which matches the graph node
-// id for top-level nodes; subgraph ids keep a colon-separated prefix.
+// id for top-level nodes and keeps a colon-separated prefix inside subgraphs.
+// A prefixed id is resolved by walking the subgraph chain, never by stripping
+// the prefix: subgraph node ids repeat the same small numbers the root graph
+// uses, so the bare tail would happily match an unrelated top-level chooser
+// and render one node's filmstrip on another's face.
 function findState(nodeId) {
   const id = String(nodeId);
-  const tail = id.split(":").pop();
-  let state = panels.get(id) ?? panels.get(tail);
+  let state = panels.get(id) ?? null;
+  if (!state && !id.includes(":")) state = panels.get(id.split(":").pop()) ?? null;
   if (!state) {
     // Ids in the map can lag a paste/duplicate; ask the graph directly.
-    const node = app.graph?.getNodeById?.(Number(tail));
+    const node = nodeByExecutionId(app.rootGraph ?? app.graph, id);
     state = node?.__ausbossFrameChooser ?? null;
-    if (state) panels.set(String(node.id), state);
+    if (state) panels.set(id, state);
   }
   return state;
 }
@@ -304,9 +332,17 @@ function populatePanel(state, detail) {
 
 // Server -> widget writeback: an interactive answer lands in the visible
 // pick_list widget so the next queue reproduces the choice headlessly.
+//
+// Only under "keep last selection". A filled pick_list pre-answers the node,
+// so writing one back under "always pause" would answer every later queue on
+// its own and silently retire the setting the user explicitly chose - the
+// node would pause exactly once and never again.
 function applyPickWriteback(state, indices) {
   if (typeof indices !== "string") return;
-  const widget = (state.node.widgets || []).find((entry) => entry.name === "pick_list");
+  const widgets = state.node.widgets || [];
+  const behavior = widgets.find((entry) => entry.name === "behavior");
+  if (String(behavior?.value ?? ALWAYS_PAUSE) === ALWAYS_PAUSE) return;
+  const widget = widgets.find((entry) => entry.name === "pick_list");
   if (!widget || widget.value === indices) return;
   widget.value = indices;
   state.node.setDirtyCanvas?.(true, true);
@@ -589,7 +625,15 @@ app.registerExtension({
     // already-active guard in refreshPending makes the double call harmless.
     setTimeout(refreshPending, 1500);
   },
+  beforeConfigureGraph() {
+    // Loading a workflow clears the graph, and LiteGraph fires onRemoved for
+    // every node when it does - undo, a workflow tab switch, Clear Workflow,
+    // opening another file. None of those is a deletion, so the pause must
+    // survive them; only a node the user actually removed cancels its run.
+    markGraphTeardown();
+  },
   afterConfigureGraph() {
+    endGraphTeardown();
     refreshPending();
   },
   beforeRegisterNodeDef(nodeType, nodeData) {
@@ -611,7 +655,7 @@ app.registerExtension({
     });
     chainCallback(nodeType.prototype, "onRemoved", function () {
       const state = this.__ausbossFrameChooser;
-      if (state?.active) {
+      if (state?.active && !graphTearingDown) {
         // Deleting a paused node must not leave the queue hanging. This is an
         // answer like any other, so it goes through the latch too: an answer
         // already in flight is releasing the same pause.

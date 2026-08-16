@@ -232,6 +232,36 @@ def class_mapping_keys(source: str) -> set[str]:
     return set()
 
 
+def module_list(source: str, name: str = "NODE_MODULES") -> set[str] | None:
+    """The module names a list literal declares, or None if it cannot be read.
+
+    Parsed, not grepped, for the same reason as the mapping keys: a name in a
+    docstring, a comment or a commented-out line is not a registration, and a
+    regex would count it as one. Returns None when the assignment is missing
+    or is not a literal, so the caller can say so instead of reporting an
+    empty list as though nothing were registered.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return None
+    for node in tree.body:
+        if (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id == name
+        ):
+            try:
+                value = ast.literal_eval(node.value)
+            except (ValueError, SyntaxError):
+                return None
+            if not isinstance(value, (list, tuple, set)):
+                return None
+            return {item for item in value if isinstance(item, str)}
+    return None
+
+
 def duplicate_key_problems(keys_by_label: dict[str, set[str]]) -> list[str]:
     """Mapping keys claimed by more than one module.
 
