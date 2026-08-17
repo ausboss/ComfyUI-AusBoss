@@ -1,7 +1,7 @@
 [project]
 name = "ausboss-nodes"
 description = "A curated collection of polished ComfyUI nodes for streamlined image and video workflows."
-version = "1.0.0"
+version = "1.1.0"
 license = { file = "LICENSE" }
 
 keywords = ["comfyui", "nodes", "image", "video", "crop", "rotate", "outpaint", "ausboss"]

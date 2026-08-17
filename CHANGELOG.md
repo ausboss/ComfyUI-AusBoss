@@ -4,6 +4,8 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+## 1.1.0
+
 - Image Crop + Rotate + Pad: the node's compact preview is now the editor stage in miniature — grab the crop squares, pad diamonds, and rotate knob (with a live degree readout) right on the node, and the panel grows with the node. Fit-only there, so the wheel keeps zooming the graph; the full editor keeps zoom, pan, and the sidebars, and both surfaces run the same hit-test and drag code, so they cannot drift. The video node's panel stays a passive preview.
 - Added `AUSBOSS_NODES_LoadImagePad`: a Load Image with an on-node outpaint canvas — drag any edge of the final rect to set that side's padding (the whole edge is the handle; the badge shows the true output size after rounding), with the four Pad Image fills, a mask feathered inward across the seam, canvas-multiple rounding, and a megapixel target that rescales the source *before* padding so the mask seam stays crisp. Outputs image, mask, and the final width/height as INTs.
 - Pad Image: the same on-node handle canvas — drag the final rect's edges to set the padding over a live preview of the input image (fed by execution, so it fills in after the first run; a wireframe stands in before that). Widgets, outputs, and saved workflows are unchanged.
