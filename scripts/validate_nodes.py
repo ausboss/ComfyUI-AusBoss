@@ -65,6 +65,17 @@ PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_VideoCropRotatePad",
 }
 
+# Ids from before the AUSBOSS_NODES_ convention. They stay registered forever
+# so workflows already published against them keep loading - the Civitai one
+# included. Held in their own set, not folded into PUBLIC_NODE_IDS, so the
+# next person to read this list can tell "kept for compatibility" apart from
+# "part of the current lineup" and does not tidy one away as a typo.
+LEGACY_NODE_IDS = {
+    "SimpleWatermarkRemover",
+}
+
+RELEASED_NODE_IDS = PUBLIC_NODE_IDS | LEGACY_NODE_IDS
+
 # --- 1. everything compiles --------------------------------------------------
 for path in sorted(ROOT.rglob("*.py")):
     if "__pycache__" in path.parts:
@@ -139,8 +150,21 @@ for path in node_files:
         if return_names != ("image", "mask"):
             errors.append(f"{path.name}: RETURN_NAMES must be exactly ('image', 'mask')")
 
-for missing_id in sorted(PUBLIC_NODE_IDS - mapping_keys):
+for missing_id in sorted(RELEASED_NODE_IDS - mapping_keys):
     errors.append(f"missing permanent mapping key: {missing_id}")
+
+# The same set is a gate in the OTHER direction too. A key nobody listed is a
+# node that reached the public pack without anyone deciding it should ship -
+# which is what the private lab repo exists to prevent, and what this catches
+# on the day the lab leaks. Adding the id above is the deliberate act of
+# publishing it, and after a release it can never be renamed: the key is the
+# workflow-compatibility contract.
+for unlisted_id in sorted(mapping_keys - RELEASED_NODE_IDS):
+    errors.append(
+        f"unlisted mapping key: {unlisted_id} is registered but not in "
+        "PUBLIC_NODE_IDS. Add it there to publish it deliberately, or move the "
+        "node to the lab repo"
+    )
 
 # --- 5. nothing outside nodes/ may declare mapping keys ----------------------
 # A scanner reads the whole checkout, not just the modules __init__ imports,
