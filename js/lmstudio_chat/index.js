@@ -297,19 +297,24 @@ function installChatNode(node) {
   }
 
   const row = buildToolbar(node, widgets);
+  // The frontend keeps ~16px of a DOM widget's declared height as wrapper
+  // margins, so the 22px buttons need 48 declared to get a 32px box —
+  // measured live against the deployed frontend, not assumed.
+  const TOOLBAR_DECLARED_HEIGHT = 48;
   const toolbarWidget = node.addDOMWidget("ausboss_chat_toolbar", "ausboss_chat_toolbar", row, {
     serialize: false,
     hideOnZoom: false,
-    // The frontend sizes DOM-widget wrappers from this option; without it
-    // the wrapper collapses to a sliver and clips the buttons.
-    getMinHeight: () => 32,
+    getMinHeight: () => TOOLBAR_DECLARED_HEIGHT,
   });
   keepDomWidgetWidthAuto(toolbarWidget);
   toolbarWidget.computeSize = (width) => [
     Math.max(TOOLBAR_MIN_WIDTH, Number(width || node.size?.[0] || TOOLBAR_MIN_WIDTH)),
-    32,
+    TOOLBAR_DECLARED_HEIGHT,
   ];
-  toolbarWidget.computeLayoutSize = () => ({ minWidth: TOOLBAR_MIN_WIDTH, minHeight: 32 });
+  toolbarWidget.computeLayoutSize = () => ({
+    minWidth: TOOLBAR_MIN_WIDTH,
+    minHeight: TOOLBAR_DECLARED_HEIGHT,
+  });
   toolbarWidget.options.minNodeSize = [TOOLBAR_MIN_WIDTH, 60];
 
   // The toolbar belongs directly under the endpoint field, not at the node's
