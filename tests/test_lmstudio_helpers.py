@@ -29,6 +29,7 @@ from nodes._lmstudio_helpers import (
     build_chat_payload,
     chat_completions_url,
     image_data_url,
+    models_url,
     parse_chat_text,
     request_chat,
     split_reasoning,
@@ -61,6 +62,17 @@ class ChatUrlTests(unittest.TestCase):
             chat_completions_url("https://box.local:8080/v1"),
             "https://box.local:8080/v1/chat/completions",
         )
+
+    def test_models_url_mirrors_every_endpoint_spelling(self):
+        expected = "http://127.0.0.1:1234/v1/models"
+        for endpoint in (
+            "http://127.0.0.1:1234/v1",
+            "http://127.0.0.1:1234",
+            "127.0.0.1:1234",
+            "http://127.0.0.1:1234/v1/chat/completions",
+        ):
+            self.assertEqual(models_url(endpoint), expected, endpoint)
+        self.assertEqual(models_url(""), DEFAULT_ENDPOINT.rstrip("/") + "/models")
 
 
 class PayloadTests(unittest.TestCase):

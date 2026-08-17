@@ -120,7 +120,7 @@ test("every panel root class carries border-box and an overflow clip", () => {
     frame_chooser: ".ausboss-chooser-root{",
     compare: ".ausboss-compare-root{",
     input_preview: ".ausboss-input-preview{",
-    lmstudio_chat: ".ausboss-chat-gearrow{",
+    lmstudio_chat: ".ausboss-chat-toolbar{",
   };
   for (const { name, source } of domWidgetEntries()) {
     const marker = roots[name];

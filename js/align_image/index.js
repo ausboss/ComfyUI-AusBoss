@@ -4,17 +4,42 @@ import { setWidgetVisible } from "../shared/widget_visibility.mjs";
 
 const NODE_CLASS = "AUSBOSS_NODES_AlignImage";
 
-// crop_position only means something while mode is "crop"; the widget hides
-// otherwise so the node face stays as compact as before the option existed.
-function syncCropPosition(node) {
-  const mode = node.widgets?.find((widget) => widget.name === "mode");
-  const position = node.widgets?.find((widget) => widget.name === "crop_position");
-  if (!mode || !position) return;
-  if (!setWidgetVisible(position, mode.value === "crop")) return;
+// Each anchor/fill widget only means something in its own mode, so the node
+// face stays as compact as before the options existed:
+//   crop_position          -> mode == "crop"
+//   pad_position, pad_fill -> mode == "pad"
+//   pad_color              -> mode == "pad" AND pad_fill == "color"
+function syncOptionWidgets(node) {
+  const widget = (name) => node.widgets?.find((item) => item.name === name);
+  const mode = widget("mode");
+  const padFill = widget("pad_fill");
+  if (!mode) return;
+  const wants = {
+    crop_position: mode.value === "crop",
+    pad_position: mode.value === "pad",
+    pad_fill: mode.value === "pad",
+    pad_color: mode.value === "pad" && padFill?.value === "color",
+  };
+  let changed = false;
+  for (const [name, visible] of Object.entries(wants)) {
+    const target = widget(name);
+    if (target && setWidgetVisible(target, visible)) changed = true;
+  }
+  if (!changed) return;
   const width = node.size?.[0] ?? 0;
-  const height = node.computeSize()[1];
-  node.setSize([Math.max(width, node.computeSize()[0]), height]);
+  node.setSize([Math.max(width, node.computeSize()[0]), node.computeSize()[1]]);
   node.graph?.setDirtyCanvas?.(true, true);
+}
+
+function watchWidget(node, name) {
+  const widget = node.widgets?.find((item) => item.name === name);
+  if (!widget) return;
+  const previous = widget.callback;
+  widget.callback = function (...args) {
+    const result = previous?.apply(this, args);
+    syncOptionWidgets(node);
+    return result;
+  };
 }
 
 app.registerExtension({
@@ -22,22 +47,14 @@ app.registerExtension({
   beforeRegisterNodeDef(nodeType, nodeData) {
     if (nodeData?.name !== NODE_CLASS) return;
     chainCallback(nodeType.prototype, "onNodeCreated", function () {
-      const mode = this.widgets?.find((widget) => widget.name === "mode");
-      if (mode) {
-        const previous = mode.callback;
-        const node = this;
-        mode.callback = function (...args) {
-          const result = previous?.apply(this, args);
-          syncCropPosition(node);
-          return result;
-        };
-      }
-      syncCropPosition(this);
+      watchWidget(this, "mode");
+      watchWidget(this, "pad_fill");
+      syncOptionWidgets(this);
     });
     chainCallback(nodeType.prototype, "onConfigure", function () {
       // Restored widget values land after creation; re-sync to the loaded
       // mode without disturbing the size the workflow saved.
-      queueMicrotask(() => syncCropPosition(this));
+      queueMicrotask(() => syncOptionWidgets(this));
     });
   },
 });

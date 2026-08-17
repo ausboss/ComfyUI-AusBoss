@@ -10,6 +10,7 @@ from ._lmstudio_helpers import (
     chat_completions_url,
     image_data_url,
     parse_chat_text,
+    register_lmstudio_routes,
     request_chat,
     split_reasoning,
 )
@@ -262,6 +263,19 @@ class AusBossLmStudioChat:
                         ),
                     },
                 ),
+                "unload_llm": (
+                    "BOOLEAN",
+                    {
+                        "default": False,
+                        "tooltip": (
+                            "Unload the language model right after the reply "
+                            "(LM Studio JIT ttl) so its VRAM is free for the "
+                            "diffusion models and text encoders that run "
+                            "next. Overrides the gear menu's idle-unload "
+                            "timer."
+                        ),
+                    },
+                ),
             },
         }
 
@@ -297,6 +311,7 @@ class AusBossLmStudioChat:
         reasoning_close_tag="</think>",
         idle_unload_seconds=0,
         free_comfy_vram=False,
+        unload_llm=False,
     ):
         if image is None and not str(prompt).strip():
             raise ValueError(
@@ -328,7 +343,8 @@ class AusBossLmStudioChat:
                 "min_p": min_p,
                 "presence_penalty": presence_penalty,
                 "thinking_mode": thinking_mode,
-                "idle_unload_seconds": idle_unload_seconds,
+                # The visible unload switch wins over the gear's idle timer.
+                "idle_unload_seconds": 1 if unload_llm else idle_unload_seconds,
             },
         )
         url = chat_completions_url(endpoint)
@@ -343,5 +359,7 @@ class AusBossLmStudioChat:
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_LmStudioChat": AusBossLmStudioChat}
 NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_LmStudioChat": "LM Studio Chat (AusBoss)"}
+
+register_lmstudio_routes()
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

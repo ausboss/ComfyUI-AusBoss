@@ -35,7 +35,11 @@ const PANEL_WIDGET = "ausboss_frame_chooser_panel";
 const CSS_ID = "ausboss-chooser-ui-v1";
 const TAB_ALERT_CLASS = "ausboss-chooser-tab-alert";
 const MIN_WIDTH = 240;
-const IDLE_HEIGHT = 132;
+// The chooser's fixed chrome (padding, head, gaps, action row) plus the
+// grid's floor. The grid flexes from a zero basis, so the action buttons
+// keep their full height at any panel height — the notice used to inflate
+// the grid's auto basis and squeeze the buttons into the bottom clip.
+const IDLE_HEIGHT = 152;
 const ACTIVE_HEIGHT = 304;
 // The canvas positions DOM widgets on its own frame, so the panel's rect only
 // means something a beat after the pause lands.
@@ -74,16 +78,16 @@ function ensureChooserCss() {
   style.id = CSS_ID;
   style.textContent = `
 .ausboss-chooser-root{box-sizing:border-box;display:flex;flex-direction:column;gap:6px;width:100%;height:100%;padding:2px 6px 6px;color:#d8eeee;font:11px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;outline:none;overflow:hidden;}
-.ausboss-chooser-head{display:flex;align-items:center;gap:5px;min-height:22px;}
+.ausboss-chooser-head{display:flex;align-items:center;gap:5px;min-height:22px;flex:none;}
 .ausboss-chooser-summary{flex:1 1 auto;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:#b8d3d1;}
-.ausboss-chooser-grid{flex:1 1 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px;align-content:start;overflow-y:auto;min-height:64px;padding:6px;border:1px solid rgba(0,180,170,.27);border-radius:6px;background:rgba(0,0,0,.28);}
+.ausboss-chooser-grid{flex:1 1 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px;align-content:start;overflow-y:auto;min-height:64px;padding:6px;border:1px solid rgba(0,180,170,.27);border-radius:6px;background:rgba(0,0,0,.28);}
 .ausboss-chooser-empty{grid-column:1/-1;align-self:center;padding:14px 6px;color:#78908e;text-align:center;}
 .ausboss-chooser-thumb{position:relative;display:block;width:100%;aspect-ratio:1/1;overflow:hidden;padding:0;border:2px solid transparent;border-radius:5px;background:#000;cursor:pointer;opacity:.45;transition:opacity .12s;}
 .ausboss-chooser-thumb img{display:block;width:100%;height:100%;object-fit:cover;pointer-events:none;}
 .ausboss-chooser-thumb .ausboss-chooser-index{position:absolute;left:3px;bottom:3px;padding:1px 4px;border-radius:3px;background:rgba(0,0,0,.72);font-size:9px;color:#c8dddd;pointer-events:none;}
 .ausboss-chooser-thumb.selected{border-color:${BRAND};opacity:1;box-shadow:0 0 6px rgba(0,180,170,.35);}
 .ausboss-chooser-root.is-idle .ausboss-chooser-thumb{cursor:default;}
-.ausboss-chooser-actions{display:flex;gap:6px;}
+.ausboss-chooser-actions{display:flex;gap:6px;flex:none;}
 .ausboss-chooser-actions .ausboss-video-tool{flex:1 1 auto;}
 .ausboss-chooser-root .ausboss-video-tool:disabled{opacity:.4;cursor:default;}
 .${TAB_ALERT_CLASS}{border-radius:4px;box-shadow:inset 0 0 0 2px ${BRAND};animation:ausboss-chooser-tab-pulse 1.2s ease-in-out 2;}

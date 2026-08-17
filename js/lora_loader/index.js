@@ -118,8 +118,10 @@ function installStyles() {
     padding: ${STACK_PADDING}px; border: 1px solid rgba(0,180,170,.22); border-radius: 6px;
     background: rgba(0,0,0,.38); }
   .ausboss-lora-blank { display: flex; align-items: center; justify-content: center;
-    height: ${BLANK_HEIGHT - 2}px; border: 1px dashed #3a4047; border-radius: 5px;
-    color: #9ba2aa; font-style: italic; text-align: center; padding: 0 10px; }
+    width: 100%; height: ${BLANK_HEIGHT - 2}px; border: 1px dashed #3a4047;
+    border-radius: 5px; background: transparent; color: #9ba2aa; font: italic 12px system-ui;
+    text-align: center; padding: 0 10px; cursor: pointer; }
+  .ausboss-lora-blank:hover { border-color: ${BRAND}; color: ${BRAND}; }
   .ausboss-lora-strength.out-of-range { color: #ffb26b; border-color: #7a5230; }
   .ausboss-lora-folder { padding: 6px 8px 2px; color: #9ba2aa; font-size: 11px;
     text-transform: uppercase; letter-spacing: 0.04em; }
@@ -765,18 +767,21 @@ function renderRows(state) {
   const panel = state.panel;
   panel.textContent = "";
 
-  const actions = el("div", "ausboss-lora-actions");
-  const add = el("button", "ausboss-lora-add", "+ Add LoRA");
-  add.type = "button";
-  add.disabled = state.rows.length >= MAX_ROWS;
-  add.addEventListener("click", () => {
+  const addRowAndPick = () => {
+    if (state.rows.length >= MAX_ROWS) return;
     const strength = roundStrength(state.settings?.default_strength ?? 1);
     const row = { ...newRow(), strength, strength_clip: strength };
     commitRows(state, [...state.rows, row], { structural: true });
     fitNode(state);
     const pickers = state.panel.querySelectorAll(".ausboss-lora-name");
     pickers[pickers.length - 1]?.click();
-  });
+  };
+
+  const actions = el("div", "ausboss-lora-actions");
+  const add = el("button", "ausboss-lora-add", "+ Add LoRA");
+  add.type = "button";
+  add.disabled = state.rows.length >= MAX_ROWS;
+  add.addEventListener("click", addRowAndPick);
   actions.append(add);
   panel.append(actions);
 
@@ -801,7 +806,11 @@ function renderRows(state) {
 
   const stack = el("div", "ausboss-lora-stack");
   if (!state.rows.length) {
-    stack.append(el("div", "ausboss-lora-blank", "No LoRAs yet — + Add LoRA starts the stack."));
+    const blank = el("button", "ausboss-lora-blank", "No LoRAs yet");
+    blank.type = "button";
+    blank.title = "Add a LoRA";
+    blank.addEventListener("click", addRowAndPick);
+    stack.append(blank);
   }
 
   state.rows.forEach((row, index) => {

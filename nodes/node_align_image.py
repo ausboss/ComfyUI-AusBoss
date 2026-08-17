@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-from ._align_helpers import ALIGN_MODES, CROP_POSITIONS, align_image
+from ._align_helpers import (
+    ALIGN_MODES,
+    CROP_POSITIONS,
+    PAD_FILLS,
+    PAD_POSITIONS,
+    align_image,
+)
 
 
 class AusBossAlignImage:
@@ -78,6 +84,38 @@ class AusBossAlignImage:
                         ),
                     },
                 ),
+                "pad_position": (
+                    list(PAD_POSITIONS),
+                    {
+                        "default": "center",
+                        "tooltip": (
+                            "Pad mode only: where the image sits on the "
+                            "grown canvas — the new pixels land on the "
+                            "opposite side. center splits them evenly."
+                        ),
+                    },
+                ),
+                "pad_fill": (
+                    list(PAD_FILLS),
+                    {
+                        "default": "replicate",
+                        "tooltip": (
+                            "Pad mode only: what fills the new area. "
+                            "replicate stretches the edge pixels out; color "
+                            "uses pad_color as a solid."
+                        ),
+                    },
+                ),
+                "pad_color": (
+                    "STRING",
+                    {
+                        "default": "#000000",
+                        "tooltip": (
+                            "Solid fill for pad_fill: color. Hex, R,G,B "
+                            "numbers, or a CSS color name."
+                        ),
+                    },
+                ),
             },
         }
 
@@ -90,9 +128,24 @@ class AusBossAlignImage:
     )
     FUNCTION = "align"
 
-    def align(self, image, multiple, mode, crop_position="center"):
+    def align(
+        self,
+        image,
+        multiple,
+        mode,
+        crop_position="center",
+        pad_position="center",
+        pad_fill="replicate",
+        pad_color="#000000",
+    ):
         aligned, width, height = align_image(
-            image, int(multiple), str(mode), str(crop_position)
+            image,
+            int(multiple),
+            str(mode),
+            str(crop_position),
+            str(pad_position),
+            str(pad_fill),
+            pad_color,
         )
         return (aligned, width, height)
 

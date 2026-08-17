@@ -1,25 +1,49 @@
+import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
-import { chainCallback, keepDomWidgetWidthAuto } from "../shared/index.mjs";
+import { chainCallback, keepDomWidgetWidthAuto, BRAND } from "../shared/index.mjs";
 import { hideWidget } from "../shared/widget_visibility.mjs";
 import {
+  gearIconSvg,
   loadSettings,
-  makeGearRow,
   openSettingsMenu,
 } from "../shared/settings_menu.mjs";
 
 const NODE_CLASS = "AUSBOSS_NODES_LmStudioChat";
 const SETTINGS_SCOPE = "lmstudio_chat";
-const GEAR_MIN_WIDTH = 120;
+const TOOLBAR_MIN_WIDTH = 200;
 
-// The gear strip is a DOM panel like any other, so it carries the same
+// The endpoint toolbar is a DOM panel like any other, so it carries the same
 // containment guards the panel audit enforces pack-wide.
 function installStyles() {
   if (document.getElementById("ausboss-chat-styles")) return;
   const style = document.createElement("style");
   style.id = "ausboss-chat-styles";
   style.textContent = `
-  .ausboss-chat-gearrow{box-sizing:border-box;overflow:hidden;width:100%;display:flex;
-    align-items:center;justify-content:flex-end;padding:0 2px;}
+  .ausboss-chat-toolbar{box-sizing:border-box;overflow:hidden;width:100%;display:flex;
+    align-items:center;gap:6px;padding:0 2px;font:12px system-ui;color:#9ba2aa;}
+  .ausboss-chat-toolbar *{box-sizing:border-box;}
+  .ausboss-chat-dot{width:9px;height:9px;border-radius:50%;flex:none;
+    background:#3a4047;transition:background .15s;}
+  .ausboss-chat-dot.ok{background:#27c93f;box-shadow:0 0 5px rgba(39,201,63,.6);}
+  .ausboss-chat-dot.fail{background:#ff5f56;box-shadow:0 0 5px rgba(255,95,86,.6);}
+  .ausboss-chat-btn{height:24px;border:1px solid #3a4047;border-radius:5px;
+    background:#23272c;color:#d7dde2;cursor:pointer;padding:0 10px;font:inherit;flex:none;}
+  .ausboss-chat-btn:hover{border-color:${BRAND};color:${BRAND};}
+  .ausboss-chat-btn:disabled{opacity:.45;cursor:default;}
+  .ausboss-chat-gap{flex:1 1 auto;min-width:0;}
+  .ausboss-chat-gearbtn{width:24px;height:24px;border:1px solid #3a4047;border-radius:5px;
+    background:#23272c;color:#9ba2aa;cursor:pointer;display:grid;place-items:center;
+    flex:none;padding:0;}
+  .ausboss-chat-gearbtn:hover{border-color:${BRAND};color:${BRAND};}
+  .ausboss-chat-pop{position:fixed;z-index:10000;background:#1c1f23;border:1px solid #3a4047;
+    border-radius:7px;box-shadow:0 8px 28px rgba(0,0,0,.5);font:12px system-ui;color:#d7dde2;
+    display:flex;flex-direction:column;min-width:220px;max-width:380px;}
+  .ausboss-chat-list{overflow-y:auto;max-height:44vh;padding:4px;}
+  .ausboss-chat-option{padding:5px 8px;border-radius:4px;cursor:pointer;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;}
+  .ausboss-chat-option:hover{background:#2c3238;}
+  .ausboss-chat-option.current{color:${BRAND};}
+  .ausboss-chat-note{padding:9px 10px;color:#9ba2aa;font-style:italic;}
   `;
   document.head.append(style);
 }
@@ -70,7 +94,8 @@ const SETTINGS_SCHEMA = [
   {
     key: "idle_unload_seconds", label: "Idle unload (seconds)", type: "number",
     default: 0, min: 0, max: 86400,
-    hint: "LM Studio unloads the model after idling this long. 0 keeps it loaded.",
+    hint: "LM Studio unloads the model after idling this long. 0 keeps it "
+      + "loaded. The node's unload_llm switch overrides this with 1s.",
   },
   {
     key: "free_comfy_vram", label: "Free ComfyUI VRAM first", type: "toggle",
@@ -96,6 +121,168 @@ function currentValues(widgets) {
   return values;
 }
 
+function toast(severity, summary, detail) {
+  try {
+    app.extensionManager?.toast?.add?.({ severity, summary, detail, life: 4500 });
+  } catch (_error) {
+    // No toast store on this frontend: the status dot still tells the story.
+  }
+}
+
+async function fetchModels(endpoint) {
+  const response = await api.fetchApi("/ausboss/lmstudio/models", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ endpoint }),
+  });
+  const data = await response.json();
+  if (!data.ok) throw new Error(data.error || "endpoint test failed");
+  return data.models ?? [];
+}
+
+// One floating popup at a time, torn down through one AbortController.
+let activePicker = null;
+
+function closePicker() {
+  if (!activePicker) return;
+  activePicker.abort.abort();
+  activePicker.element.remove();
+  activePicker = null;
+}
+
+function openModelPicker(anchorRect, models, current, onPick) {
+  closePicker();
+  const pop = document.createElement("div");
+  pop.className = "ausboss-chat-pop";
+  const list = document.createElement("div");
+  list.className = "ausboss-chat-list";
+  if (!models.length) {
+    const note = document.createElement("div");
+    note.className = "ausboss-chat-note";
+    note.textContent = "The server reports no models.";
+    pop.append(note);
+  }
+  for (const name of models) {
+    const option = document.createElement("div");
+    option.className = `ausboss-chat-option${name === current ? " current" : ""}`;
+    option.textContent = name;
+    option.title = name;
+    option.addEventListener("click", () => { closePicker(); onPick(name); });
+    list.append(option);
+  }
+  pop.append(list);
+  document.body.append(pop);
+  const place = () => {
+    const rect = pop.getBoundingClientRect();
+    let left = Math.min(anchorRect.left, window.innerWidth - rect.width - 8);
+    let top = anchorRect.bottom + 4;
+    if (top + rect.height > window.innerHeight - 8) {
+      top = Math.max(8, anchorRect.top - rect.height - 4);
+    }
+    pop.style.left = `${Math.max(8, left)}px`;
+    pop.style.top = `${top}px`;
+  };
+  place();
+  requestAnimationFrame(place);
+  const abort = new AbortController();
+  document.addEventListener(
+    "pointerdown",
+    (event) => { if (!pop.contains(event.target)) closePicker(); },
+    { capture: true, signal: abort.signal },
+  );
+  window.addEventListener(
+    "keydown",
+    (event) => { if (event.key === "Escape") { event.stopPropagation(); closePicker(); } },
+    { capture: true, signal: abort.signal },
+  );
+  activePicker = { element: pop, abort };
+}
+
+function buildToolbar(node, widgets) {
+  const endpointWidget = node.widgets?.find((item) => item.name === "endpoint");
+  const modelWidget = node.widgets?.find((item) => item.name === "model");
+
+  const row = document.createElement("div");
+  row.className = "ausboss-chat-toolbar";
+  const dot = document.createElement("span");
+  dot.className = "ausboss-chat-dot";
+  dot.title = "Endpoint status: gray untested, green reachable, red failed";
+
+  const test = document.createElement("button");
+  test.type = "button";
+  test.className = "ausboss-chat-btn";
+  test.textContent = "Test";
+  test.title = "Check the endpoint by asking it for its model list";
+  test.addEventListener("click", async () => {
+    test.disabled = true;
+    dot.className = "ausboss-chat-dot";
+    try {
+      const models = await fetchModels(endpointWidget?.value ?? "");
+      dot.className = "ausboss-chat-dot ok";
+      toast("success", "LM Studio endpoint OK",
+        models.length ? `${models.length} model(s) available.` : "Reachable; no models loaded.");
+    } catch (error) {
+      dot.className = "ausboss-chat-dot fail";
+      toast("warn", "LM Studio endpoint failed", String(error?.message ?? error));
+    } finally {
+      test.disabled = false;
+    }
+  });
+
+  const load = document.createElement("button");
+  load.type = "button";
+  load.className = "ausboss-chat-btn";
+  load.textContent = "Models";
+  load.title = "List the server's models and pick one into the model field";
+  load.addEventListener("click", async () => {
+    load.disabled = true;
+    try {
+      const models = await fetchModels(endpointWidget?.value ?? "");
+      dot.className = "ausboss-chat-dot ok";
+      openModelPicker(load.getBoundingClientRect(), models, modelWidget?.value, (name) => {
+        if (modelWidget) {
+          modelWidget.value = name;
+          modelWidget.callback?.(name);
+        }
+        node.graph?.setDirtyCanvas?.(true, true);
+      });
+    } catch (error) {
+      dot.className = "ausboss-chat-dot fail";
+      toast("warn", "LM Studio endpoint failed", String(error?.message ?? error));
+    } finally {
+      load.disabled = false;
+    }
+  });
+
+  const gap = document.createElement("span");
+  gap.className = "ausboss-chat-gap";
+
+  const gear = document.createElement("button");
+  gear.type = "button";
+  gear.className = "ausboss-chat-gearbtn";
+  gear.title = "LM Studio Chat settings";
+  gear.innerHTML = gearIconSvg();
+  gear.addEventListener("click", () => {
+    openSettingsMenu({
+      scope: SETTINGS_SCOPE,
+      schema: SETTINGS_SCHEMA,
+      anchor: gear.getBoundingClientRect(),
+      title: "LM Studio Chat settings",
+      initial: currentValues(widgets),
+      onChange: (values, key) => {
+        const keys = key ? [key] : SETTING_KEYS;
+        for (const name of keys) {
+          if (widgets[name]) widgets[name].value = values[name];
+        }
+        node.graph?.setDirtyCanvas?.(true, true);
+      },
+    });
+  });
+
+  row.append(dot, test, load, gap, gear);
+  return row;
+}
+
 function installChatNode(node) {
   installStyles();
   const widgets = advancedWidgets(node);
@@ -109,35 +296,30 @@ function installChatNode(node) {
     hideWidget(widget);
   }
 
-  const { row, button } = makeGearRow("LM Studio Chat settings");
-  button.addEventListener("click", () => {
-    openSettingsMenu({
-      scope: SETTINGS_SCOPE,
-      schema: SETTINGS_SCHEMA,
-      anchor: button.getBoundingClientRect(),
-      title: "LM Studio Chat settings",
-      initial: currentValues(widgets),
-      onChange: (values, key) => {
-        const keys = key ? [key] : SETTING_KEYS;
-        for (const name of keys) {
-          if (widgets[name]) widgets[name].value = values[name];
-        }
-        node.graph?.setDirtyCanvas?.(true, true);
-      },
-    });
-  });
-  row.classList.add("ausboss-chat-gearrow");
-  const gearWidget = node.addDOMWidget("ausboss_chat_gear", "ausboss_chat_gear", row, {
+  const row = buildToolbar(node, widgets);
+  const toolbarWidget = node.addDOMWidget("ausboss_chat_toolbar", "ausboss_chat_toolbar", row, {
     serialize: false,
     hideOnZoom: false,
   });
-  keepDomWidgetWidthAuto(gearWidget);
-  gearWidget.computeSize = (width) => [
-    Math.max(GEAR_MIN_WIDTH, Number(width || node.size?.[0] || GEAR_MIN_WIDTH)),
+  keepDomWidgetWidthAuto(toolbarWidget);
+  toolbarWidget.computeSize = (width) => [
+    Math.max(TOOLBAR_MIN_WIDTH, Number(width || node.size?.[0] || TOOLBAR_MIN_WIDTH)),
     28,
   ];
-  gearWidget.computeLayoutSize = () => ({ minWidth: GEAR_MIN_WIDTH, minHeight: 28 });
-  gearWidget.options.minNodeSize = [GEAR_MIN_WIDTH, 60];
+  toolbarWidget.computeLayoutSize = () => ({ minWidth: TOOLBAR_MIN_WIDTH, minHeight: 28 });
+  toolbarWidget.options.minNodeSize = [TOOLBAR_MIN_WIDTH, 60];
+
+  // The toolbar belongs directly under the endpoint field, not at the node's
+  // tail where addDOMWidget appends it.
+  const list = node.widgets ?? [];
+  const from = list.indexOf(toolbarWidget);
+  const endpointAt = list.findIndex((item) => item.name === "endpoint");
+  if (from >= 0 && endpointAt >= 0 && from !== endpointAt + 1) {
+    list.splice(from, 1);
+    list.splice(endpointAt + 1, 0, toolbarWidget);
+  }
+
+  chainCallback(node, "onRemoved", () => closePicker());
 
   node.setSize?.([
     Math.max(node.size?.[0] ?? 0, 300),

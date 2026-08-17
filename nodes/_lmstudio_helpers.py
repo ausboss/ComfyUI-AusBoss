@@ -65,6 +65,79 @@ def chat_completions_url(endpoint: str) -> str:
     return f"{text}/v1/chat/completions"
 
 
+def models_url(endpoint: str) -> str:
+    """The /v1/models URL for whatever spelling of the endpoint we got."""
+    text = str(endpoint or "").strip().rstrip("/")
+    if not text:
+        text = DEFAULT_ENDPOINT.rstrip("/")
+    if "://" not in text:
+        text = f"http://{text}"
+    if text.endswith("/chat/completions"):
+        text = text[: -len("/chat/completions")]
+    if text.endswith("/v1"):
+        return f"{text}/models"
+    return f"{text}/v1/models"
+
+
+def list_models(endpoint: str, timeout_seconds: int = 6) -> list[str]:
+    """Model ids the server reports at /v1/models, sorted.
+
+    Same error vocabulary as the chat call: what failed, at which URL, and
+    what to do about it."""
+    url = models_url(endpoint)
+    request = urllib.request.Request(url, method="GET")
+    try:
+        with urllib.request.urlopen(request, timeout=max(1, int(timeout_seconds))) as reply:
+            raw = reply.read()
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(f"LM Studio: HTTP {exc.code} from {url}") from None
+    except (urllib.error.URLError, TimeoutError):
+        raise RuntimeError("LM Studio: " + _CONNECT_HINT.format(url=url)) from None
+    try:
+        data = json.loads(raw.decode("utf-8"))
+    except Exception:
+        raise RuntimeError(
+            f"LM Studio: {url} answered, but not with JSON - check that the "
+            "endpoint points at an OpenAI-compatible server."
+        ) from None
+    rows = data.get("data") if isinstance(data, dict) else data
+    names = []
+    for row in rows if isinstance(rows, list) else []:
+        if isinstance(row, dict) and row.get("id"):
+            names.append(str(row["id"]))
+        elif isinstance(row, str):
+            names.append(row)
+    return sorted(set(names))
+
+
+def register_lmstudio_routes() -> None:
+    """The endpoint-test / model-list route behind the node's toolbar."""
+    try:
+        import asyncio as _asyncio
+
+        from aiohttp import web
+        from server import PromptServer
+    except ImportError:
+        return
+    prompt_server = getattr(PromptServer, "instance", None)
+    if prompt_server is None or getattr(prompt_server, "_ausboss_lmstudio_routes", False):
+        return
+    prompt_server._ausboss_lmstudio_routes = True
+
+    @prompt_server.routes.post("/ausboss/lmstudio/models")
+    async def ausboss_lmstudio_models(request):
+        try:
+            payload = await request.json()
+        except Exception:
+            payload = {}
+        endpoint = str(payload.get("endpoint", "") or "")
+        try:
+            names = await _asyncio.to_thread(list_models, endpoint)
+            return web.json_response({"ok": True, "models": names})
+        except Exception as exc:
+            return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+
 def image_data_url(image: torch.Tensor, max_edge: int = 0) -> str:
     """The first frame of a BHWC batch as a base64 PNG data URL.
 
@@ -270,8 +343,11 @@ __all__ = [
     "build_chat_payload",
     "chat_completions_url",
     "image_data_url",
+    "list_models",
     "merge_advanced_payload",
+    "models_url",
     "parse_chat_text",
+    "register_lmstudio_routes",
     "request_chat",
     "split_reasoning",
 ]
