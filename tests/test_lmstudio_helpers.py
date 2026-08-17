@@ -28,9 +28,12 @@ from nodes._lmstudio_helpers import (
     DEFAULT_ENDPOINT,
     build_chat_payload,
     chat_completions_url,
+    history_with_turn,
     image_data_url,
     models_url,
+    normalize_history,
     parse_chat_text,
+    parse_response_schema,
     request_chat,
     split_reasoning,
 )
@@ -331,7 +334,7 @@ class ChatNodeTests(unittest.TestCase):
     def test_returns_text_and_split_thinking(self):
         reply = {"choices": [{"message": {"content": "<think>hmm</think>A tabby cat."}}]}
         with patch("nodes.node_lmstudio_chat.request_chat", return_value=reply) as sent:
-            text, thinking = self.run_chat()
+            text, thinking, history = self.run_chat()
         self.assertEqual(text, "A tabby cat.")
         self.assertEqual(thinking, "hmm")
         url, payload, timeout = sent.call_args[0]
@@ -349,7 +352,7 @@ class ChatNodeTests(unittest.TestCase):
     def test_an_image_alone_is_a_valid_request(self):
         reply = {"choices": [{"message": {"content": "A photo."}}]}
         with patch("nodes.node_lmstudio_chat.request_chat", return_value=reply) as sent:
-            text, _ = self.run_chat(prompt="", image=torch.rand((1, 16, 16, 3)))
+            text, _, _history = self.run_chat(prompt="", image=torch.rand((1, 16, 16, 3)))
         self.assertEqual(text, "A photo.")
         content = sent.call_args[0][1]["messages"][0]["content"]
         self.assertEqual(content[0]["type"], "image_url")
@@ -358,6 +361,66 @@ class ChatNodeTests(unittest.TestCase):
         import inspect
 
         self.assertTrue(inspect.iscoroutinefunction(AusBossLmStudioChat.chat))
+
+
+class HistoryTests(unittest.TestCase):
+    def test_normalize_keeps_only_clean_user_assistant_turns(self):
+        raw = [
+            {"role": "user", "content": "hi"},
+            {"role": "assistant", "content": "hello"},
+            {"role": "system", "content": "nope"},
+            {"role": "user", "content": ""},
+            {"role": "user", "content": ["not", "a", "string"]},
+            "garbage",
+        ]
+        self.assertEqual(
+            normalize_history(raw),
+            [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello"}],
+        )
+        self.assertEqual(normalize_history(None), [])
+        self.assertEqual(normalize_history("nope"), [])
+
+    def test_history_turns_replay_between_system_and_the_new_prompt(self):
+        history = [{"role": "user", "content": "first"}, {"role": "assistant", "content": "reply"}]
+        payload = build_chat_payload(
+            "", "be brief", "second", None, 0.7, 128, 0, history=history
+        )
+        roles = [message["role"] for message in payload["messages"]]
+        self.assertEqual(roles, ["system", "user", "assistant", "user"])
+        self.assertEqual(payload["messages"][-1]["content"], "second")
+
+    def test_history_with_turn_appends_the_exchange(self):
+        grown = history_with_turn(None, "ask", False, "answer")
+        self.assertEqual(
+            grown,
+            [{"role": "user", "content": "ask"}, {"role": "assistant", "content": "answer"}],
+        )
+        with_image = history_with_turn(grown, "look", True, "seen")
+        self.assertEqual(with_image[2]["content"], "look [image attached]")
+        self.assertEqual(len(with_image), 4)
+
+
+class ResponseSchemaTests(unittest.TestCase):
+    def test_empty_schema_means_plain_text(self):
+        self.assertIsNone(parse_response_schema(""))
+        self.assertIsNone(parse_response_schema("   "))
+        payload = build_chat_payload("", "", "hi", None, 0.7, 64, 0)
+        self.assertNotIn("response_format", payload)
+
+    def test_schema_rides_the_payload_as_strict_json_schema(self):
+        body = parse_response_schema('{"type": "object"}')
+        self.assertEqual(body["type"], "json_schema")
+        self.assertTrue(body["json_schema"]["strict"])
+        payload = build_chat_payload(
+            "", "", "hi", None, 0.7, 64, 0, response_format=body
+        )
+        self.assertEqual(payload["response_format"]["json_schema"]["schema"], {"type": "object"})
+
+    def test_bad_schema_raises_with_the_fix_spelled_out(self):
+        with self.assertRaisesRegex(ValueError, "not valid JSON"):
+            parse_response_schema("{nope")
+        with self.assertRaisesRegex(ValueError, "JSON object"):
+            parse_response_schema('"just a string"')
 
 
 if __name__ == "__main__":

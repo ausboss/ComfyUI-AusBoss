@@ -5,9 +5,6 @@ from __future__ import annotations
 from ._batch_helpers import select_one_based_frame
 
 
-NODE_ID = "AUSBOSS_NODES_SelectFrame"
-
-
 class AusBossSelectFrame:
     CATEGORY = "🆎 AusBoss/Video"
     DESCRIPTION = (

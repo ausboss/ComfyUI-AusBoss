@@ -12,9 +12,6 @@ from ._transform_engine import stable_file_fingerprint, transform_pil_batch
 from ._transform_inputs import spec_from_values, transform_inputs
 
 
-NODE_ID = "AUSBOSS_NODES_VideoCropRotatePad"
-
-
 class AusBossVideoCropRotatePad:
     CATEGORY = "🆎 AusBoss/Video"
     DESCRIPTION = (

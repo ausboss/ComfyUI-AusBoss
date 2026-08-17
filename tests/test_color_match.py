@@ -12,6 +12,7 @@ if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
     del sys.modules["nodes"]
 
 from nodes._color_helpers import lab_to_rgb, match_colors, rgb_to_lab
+from nodes.node_color_match import AusBossColorMatch
 
 
 def rand_image(batch: int, height: int, width: int, seed: int = 0) -> torch.Tensor:
@@ -161,6 +162,28 @@ class NodeWiringTests(unittest.TestCase):
         )
         self.assertEqual(len(result), 1)
         self.assertTrue(torch.equal(result[0], image))
+
+
+class ReferenceModeTests(unittest.TestCase):
+    def test_first_frame_mode_needs_no_reference(self):
+        node = AusBossColorMatch()
+        frames = rand_image(3, 24, 24, seed=21)
+        (out,) = node.match(frames, 1.0, reference_mode="first_frame")
+        self.assertEqual(out.shape, frames.shape)
+        # The first frame is its own reference, so it barely moves.
+        self.assertTrue(torch.allclose(out[0], frames[0], atol=2e-3))
+
+    def test_first_frame_mode_matches_the_explicit_equivalent(self):
+        node = AusBossColorMatch()
+        frames = rand_image(4, 16, 16, seed=22)
+        (auto,) = node.match(frames, 1.0, reference_mode="first_frame")
+        explicit = match_colors(frames, frames[:1], 1.0)
+        self.assertTrue(torch.equal(auto, explicit))
+
+    def test_reference_mode_without_reference_raises_clearly(self):
+        node = AusBossColorMatch()
+        with self.assertRaisesRegex(ValueError, "first_frame"):
+            node.match(rand_image(2, 8, 8), 1.0)
 
 
 if __name__ == "__main__":

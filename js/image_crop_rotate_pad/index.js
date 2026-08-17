@@ -1,4 +1,44 @@
 import { registerTransformExtension } from "../shared/transform_editor.mjs";
+import { keepDomWidgetWidthAuto } from "../shared/index.mjs";
+import { stageHeightForWidth } from "../shared/transform_geometry.mjs";
 
-registerTransformExtension("AUSBOSS_NODES_ImageCropRotatePad", "image");
+const PANEL_MIN_WIDTH = 330;
+// Action row + column gaps + panel padding around the stage canvas.
+const PANEL_CHROME = 56;
+const PANEL_MIN_HEIGHT = stageHeightForWidth(0) + PANEL_CHROME;
 
+// Guard rule the DOM-panel audit (tests/panel_guards.test.mjs) checks next
+// to the addDOMWidget call: padding stays inside the widget's box and
+// oversized content clips at the panel edge instead of escaping the node.
+// The shared transform stylesheet carries the same declarations; this rule
+// keeps them greppable beside the mount that depends on them.
+const GUARD_CSS_ID = "ausboss-transform-panel-guards";
+const GUARD_CSS = ".ausboss-transform-panel{box-sizing:border-box;overflow:hidden}";
+
+function mountTransformPanel(node, panel) {
+  if (!document.getElementById(GUARD_CSS_ID)) {
+    const style = document.createElement("style");
+    style.id = GUARD_CSS_ID;
+    style.textContent = GUARD_CSS;
+    document.head.appendChild(style);
+  }
+  const widget = node.addDOMWidget("ausboss_transform_preview", "ausboss_transform_preview", panel, {
+    serialize: false,
+    hideOnZoom: false,
+    getMinHeight: () => PANEL_MIN_HEIGHT,
+  });
+  keepDomWidgetWidthAuto(widget);
+  widget.computeSize = (width) => {
+    const resolvedWidth = Math.max(PANEL_MIN_WIDTH, Number(width || node.size?.[0] || PANEL_MIN_WIDTH));
+    return [resolvedWidth, stageHeightForWidth(resolvedWidth) + PANEL_CHROME];
+  };
+  widget.computeLayoutSize = () => ({
+    minWidth: PANEL_MIN_WIDTH,
+    minHeight: PANEL_MIN_HEIGHT,
+  });
+  widget.options ??= {};
+  widget.options.minNodeSize = [PANEL_MIN_WIDTH, 320];
+  return widget;
+}
+
+registerTransformExtension("AUSBOSS_NODES_ImageCropRotatePad", "image", mountTransformPanel);

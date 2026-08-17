@@ -141,9 +141,45 @@ def _load_lora_file(path: Path) -> Any:
     return lora_sd
 
 
+def model_family(model) -> str:
+    """Family of a loaded comfy model, '' when unknown. Duck-typed, fail-soft.
+
+    comfy's model_base classes carry the family in their names (SDXL, SD3,
+    Flux, ...); plain SD1.5 is the base class itself, so "basemodel" maps
+    there. Anything unrecognized returns '' and never warns.
+    """
+    try:
+        name = type(model.model).__name__.lower()
+    except Exception:
+        return ""
+    for needle, family in (
+        ("flux", "Flux"), ("sd3", "SD3"), ("sdxl", "SDXL"),
+        ("sd20", "SD2"), ("sd21", "SD2"), ("basemodel", "SD1.5"),
+    ):
+        if needle in name:
+            return family
+    return ""
+
+
+_mismatch_warned: set[str] = set()
+
+
+def _warn_family_mismatch(row_name: str, lora_family: str, checkpoint_family: str) -> None:
+    key = f"{row_name}|{checkpoint_family}"
+    if key in _mismatch_warned:
+        return
+    _mismatch_warned.add(key)
+    print(
+        f"[AusBoss] LoRA Loader: '{row_name}' says it was trained for "
+        f"{lora_family}, but the connected model looks like {checkpoint_family}. "
+        "It will still apply, but usually does nothing or degrades the image."
+    )
+
+
 def apply_lora_stack(model, clip, rows: list[dict[str, Any]]):
     import comfy.sd
 
+    checkpoint_family = model_family(model)
     for row in rows:
         if not row["enabled"]:
             continue
@@ -151,6 +187,10 @@ def apply_lora_stack(model, clip, rows: list[dict[str, Any]]):
         if row["strength"] == 0 and strength_clip == 0:
             continue
         path = resolve_lora_path(row["name"])
+        if checkpoint_family:
+            lora_family = base_model_family(read_safetensors_metadata(path))
+            if lora_family and lora_family != checkpoint_family:
+                _warn_family_mismatch(row["name"], lora_family, checkpoint_family)
         lora_sd = _load_lora_file(path)
         model, clip = comfy.sd.load_lora_for_models(
             model, clip, lora_sd, row["strength"], strength_clip

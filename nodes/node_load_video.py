@@ -8,16 +8,15 @@ from ._media_helpers import list_input_videos, resolve_input_path
 from ._video_load_helpers import core_trimmed_video, decode_video_range, lazy_audio_range
 
 
-NODE_ID = "AUSBOSS_NODES_LoadVideo"
-
-
 class AusBossLoadVideo:
     CATEGORY = "🆎 AusBoss/Video"
     DESCRIPTION = (
         "Loads a video as a BHWC frame batch plus its audio, trimmed to an "
         "optional start/end window selected on the preview timeline, with frame count, "
         "fps, size, and duration outputs ready for downstream wiring, plus a lazy "
-        "core VIDEO output for nodes that consume whole videos."
+        "core VIDEO output for nodes that consume whole videos. every_nth thins "
+        "the batch and max_frames caps it, so long clips load without filling "
+        "memory."
     )
     SEARCH_ALIASES = ["load video", "video loader", "trim video", "video frames", "ausboss"]
 
@@ -78,7 +77,38 @@ class AusBossLoadVideo:
                         "tooltip": "0 keeps the source height; set one side only to preserve aspect.",
                     },
                 ),
-            }
+            },
+            "optional": {
+                "every_nth": (
+                    "INT",
+                    {
+                        "default": 1,
+                        "min": 1,
+                        "max": 512,
+                        "step": 1,
+                        "tooltip": (
+                            "Keep one frame in this many — 2 halves the frame "
+                            "count. The fps output divides to match, so the "
+                            "clip still plays at real speed downstream."
+                        ),
+                    },
+                ),
+                "max_frames": (
+                    "INT",
+                    {
+                        "default": 0,
+                        "min": 0,
+                        "max": 100000,
+                        "step": 1,
+                        "tooltip": (
+                            "Stop after this many kept frames; 0 loads the "
+                            "whole trim window. Caps memory on long clips — "
+                            "the decode ends early instead of loading and "
+                            "discarding."
+                        ),
+                    },
+                ),
+            },
         }
 
     RETURN_TYPES = ("IMAGE", "AUDIO", "INT", "FLOAT", "INT", "INT", "FLOAT", "VIDEO")
@@ -87,7 +117,8 @@ class AusBossLoadVideo:
         "Trimmed BHWC frame batch.",
         "Audio for the same trim window; silent when the video has no audio track.",
         "Number of frames returned.",
-        "Source frames per second.",
+        "Frames per second of the returned batch: the source rate divided "
+        "by every_nth.",
         "Frame width after any custom sizing.",
         "Frame height after any custom sizing.",
         "Duration in seconds of the returned frames.",
@@ -97,24 +128,49 @@ class AusBossLoadVideo:
     )
     FUNCTION = "load_video"
 
-    async def load_video(self, video, start_seconds, end_seconds, custom_width, custom_height):
+    async def load_video(
+        self,
+        video,
+        start_seconds,
+        end_seconds,
+        custom_width,
+        custom_height,
+        every_nth=1,
+        max_frames=0,
+    ):
         path = resolve_input_path(video)
+        nth = max(1, int(every_nth))
         # PyAV decoding blocks for as long as the trim is; to_thread keeps the
         # executor's event loop answering while it runs, and carries the
         # context ComfyUI needs to attribute progress and interrupts here.
-        frames, fps = await asyncio.to_thread(
-            decode_video_range, path, start_seconds, end_seconds, int(custom_width), int(custom_height)
+        frames, source_fps = await asyncio.to_thread(
+            decode_video_range,
+            path,
+            start_seconds,
+            end_seconds,
+            int(custom_width),
+            int(custom_height),
+            nth,
+            int(max_frames),
         )
+        # Thinned frames report a divided fps so real time survives the trip
+        # through Save Video and interpolators.
+        fps = source_fps / nth
         frame_count = int(frames.shape[0])
         duration = frame_count / fps if fps > 0 else 0.0
         # Deferred: the audio track is only decoded if a downstream node
-        # actually reads the AUDIO output.
+        # actually reads the AUDIO output. The window ends where the kept
+        # frames end, so a max_frames cap keeps picture and sound aligned.
         audio = lazy_audio_range(path, float(start_seconds), float(start_seconds) + duration)
         # Lazy core VIDEO for the same window; None on cores without the API.
         # Building it probes the container for a duration, so it goes off the
-        # loop as well.
+        # loop as well. every_nth does not apply to it — the VIDEO wire
+        # carries the source as-is — but a max_frames cap shortens it.
+        core_end = float(end_seconds)
+        if int(max_frames) > 0 and duration > 0.0:
+            core_end = float(start_seconds) + duration
         core_video = await asyncio.to_thread(
-            core_trimmed_video, path, float(start_seconds), float(end_seconds)
+            core_trimmed_video, path, float(start_seconds), core_end
         )
         return (
             frames,

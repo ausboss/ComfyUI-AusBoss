@@ -53,43 +53,53 @@ def ramp(batch: int, height: int, width: int) -> torch.Tensor:
 
 class AlignImageTests(unittest.TestCase):
     def test_resize_hits_the_nearest_multiple(self):
-        out, width, height = align_image(ramp(2, 500, 1000), 16, "resize")
+        out, width, height, ox, oy = align_image(ramp(2, 500, 1000), 16, "resize")
         self.assertEqual((width, height), (1008, 496))
         self.assertEqual(tuple(out.shape), (2, 496, 1008, 3))
+        self.assertEqual((ox, oy), (0, 0))
 
     def test_crop_is_centered_and_lossless_in_the_kept_region(self):
         frames = ramp(1, 100, 100)
-        out, width, height = align_image(frames, 32, "crop")
+        out, width, height, ox, oy = align_image(frames, 32, "crop")
         self.assertEqual((width, height), (96, 96))
         # Center crop of 100 -> 96 drops 2 columns each side.
         self.assertTrue(torch.equal(out, frames[:, 2:98, 2:98, :]))
+        # The original's corner now sits 2 px outside the output.
+        self.assertEqual((ox, oy), (-2, -2))
 
     def test_pad_replicates_edges_up_to_the_next_multiple(self):
         frames = ramp(1, 100, 100)
-        out, width, height = align_image(frames, 32, "pad")
+        out, width, height, ox, oy = align_image(frames, 32, "pad")
         self.assertEqual((width, height), (128, 128))
         # 28 extra pixels split 14/14; the original sits centered, untouched.
         self.assertTrue(torch.equal(out[:, 14:114, 14:114, :], frames))
+        # The offsets point exactly at where the original landed.
+        self.assertEqual((ox, oy), (14, 14))
+        self.assertTrue(
+            torch.equal(out[:, oy : oy + 100, ox : ox + 100, :], frames)
+        )
         # Padding replicates the border, so corners equal the corner pixel.
         self.assertTrue(torch.equal(out[0, 0, 0], frames[0, 0, 0]))
         self.assertTrue(torch.equal(out[0, -1, -1], frames[0, -1, -1]))
 
     def test_already_aligned_input_is_returned_as_the_same_object(self):
         frames = ramp(1, 64, 128)
-        out, width, height = align_image(frames, 32, "crop")
+        out, width, height, _ox, _oy = align_image(frames, 32, "crop")
         self.assertIs(out, frames)
         self.assertEqual((width, height), (128, 64))
 
     def test_crop_mode_pads_a_side_it_cannot_crop(self):
         # 20 px wide with multiple 32: crop cannot reach a multiple below,
         # so that side replicate-pads up to exactly one multiple.
-        out, width, height = align_image(ramp(1, 100, 20), 32, "crop")
+        out, width, height, ox, oy = align_image(ramp(1, 100, 20), 32, "crop")
         self.assertEqual((width, height), (32, 96))
         self.assertEqual(tuple(out.shape), (1, 96, 32, 3))
+        # Mixed axes: the padded side is positive, the cropped side negative.
+        self.assertEqual((ox, oy), (6, -2))
 
     def test_batch_and_values_survive(self):
         frames = ramp(3, 40, 40)
-        out, _w, _h = align_image(frames, 16, "pad")
+        out, _w, _h, _ox, _oy = align_image(frames, 16, "pad")
         self.assertEqual(out.shape[0], 3)
         self.assertGreaterEqual(float(out.min()), 0.0)
         self.assertLessEqual(float(out.max()), 1.0)
@@ -100,13 +110,14 @@ class AlignImageTests(unittest.TestCase):
 
 
 class AlignImageNodeTests(unittest.TestCase):
-    def test_node_returns_image_and_both_ints(self):
+    def test_node_returns_image_size_and_offsets(self):
         node = AusBossAlignImage()
-        out, width, height = node.align(ramp(1, 100, 100), 32, "pad")
+        out, width, height, ox, oy = node.align(ramp(1, 100, 100), 32, "pad")
         self.assertEqual((width, height), (128, 128))
         self.assertEqual(tuple(out.shape), (1, 128, 128, 3))
-        self.assertIsInstance(width, int)
-        self.assertIsInstance(height, int)
+        self.assertEqual((ox, oy), (14, 14))
+        for value in (width, height, ox, oy):
+            self.assertIsInstance(value, int)
 
     def test_mode_choices_match_the_helper(self):
         widget = AusBossAlignImage.INPUT_TYPES()["required"]["mode"][0]

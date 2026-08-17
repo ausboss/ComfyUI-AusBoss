@@ -168,6 +168,73 @@ def image_data_url(image: torch.Tensor, max_edge: int = 0) -> str:
     return f"data:image/png;base64,{encoded}"
 
 
+def normalize_history(value) -> list[dict]:
+    """Prior turns as clean [{role, content}] pairs; anything else is [].
+
+    Only user/assistant string turns survive: system prompts belong to the
+    node's own widget, and image parts are deliberately not replayed - the
+    tokens they cost per turn dwarf their value as context.
+    """
+    if not isinstance(value, list):
+        return []
+    cleaned: list[dict] = []
+    for entry in value:
+        if not isinstance(entry, dict):
+            continue
+        role = str(entry.get("role") or "")
+        content = entry.get("content")
+        if role in ("user", "assistant") and isinstance(content, str) and content.strip():
+            cleaned.append({"role": role, "content": content})
+    return cleaned
+
+
+def history_with_turn(history, prompt: str, had_image: bool, reply: str) -> list[dict]:
+    """The chat history grown by this exchange, ready for the next node.
+
+    The stored user turn is the text prompt (with a marker when an image
+    rode along); the assistant turn is the clean reply text - reasoning
+    blocks are stripped before this is called, so a thinking model's
+    context stays lean.
+    """
+    turns = normalize_history(history)
+    text = str(prompt or "").strip()
+    if had_image:
+        text = f"{text} [image attached]".strip()
+    if text:
+        turns.append({"role": "user", "content": text})
+    if str(reply or "").strip():
+        turns.append({"role": "assistant", "content": reply})
+    return turns
+
+
+def parse_response_schema(raw: str) -> dict | None:
+    """The response_format body for a JSON-schema string; None when empty.
+
+    The schema must parse to a JSON object; anything else raises with the
+    fix spelled out. The permissive schema {"type": "object"} is the way
+    to ask for free-form JSON.
+    """
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    try:
+        schema = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"LM Studio Chat: json_schema is not valid JSON ({exc.msg} at "
+            f"line {exc.lineno}). Leave it empty for plain text."
+        ) from None
+    if not isinstance(schema, dict):
+        raise ValueError(
+            "LM Studio Chat: json_schema must be a JSON object like "
+            '{"type": "object", ...}, not a bare value.'
+        )
+    return {
+        "type": "json_schema",
+        "json_schema": {"name": "ausboss_output", "strict": True, "schema": schema},
+    }
+
+
 def build_chat_payload(
     model: str,
     system_prompt: str,
@@ -177,6 +244,8 @@ def build_chat_payload(
     max_tokens: int,
     seed: int,
     advanced: dict | None = None,
+    history: list[dict] | None = None,
+    response_format: dict | None = None,
 ) -> dict:
     """The OpenAI-compatible request body.
 
@@ -185,12 +254,14 @@ def build_chat_payload(
     populated at ComfyUI startup goes stale (or empty) whenever LM Studio
     was not running yet. max_tokens -1 is omitted, leaving the length to
     the server. The seed is always sent; whether the server honors it, a
-    changed seed re-rolls this node's cached result either way.
+    changed seed re-rolls this node's cached result either way. ``history``
+    turns are replayed between the system prompt and the new user message.
     """
     messages: list[dict] = []
     system = str(system_prompt or "").strip()
     if system:
         messages.append({"role": "system", "content": system})
+    messages.extend(normalize_history(history))
     text = str(prompt or "").strip()
     if image_url:
         content: list[dict] = []
@@ -211,6 +282,8 @@ def build_chat_payload(
         payload["model"] = name
     if int(max_tokens) > 0:
         payload["max_tokens"] = int(max_tokens)
+    if response_format:
+        payload["response_format"] = response_format
     merge_advanced_payload(payload, advanced)
     return payload
 
@@ -342,11 +415,14 @@ __all__ = [
     "DEFAULT_ENDPOINT",
     "build_chat_payload",
     "chat_completions_url",
+    "history_with_turn",
     "image_data_url",
     "list_models",
     "merge_advanced_payload",
     "models_url",
+    "normalize_history",
     "parse_chat_text",
+    "parse_response_schema",
     "register_lmstudio_routes",
     "request_chat",
     "split_reasoning",

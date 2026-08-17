@@ -20,7 +20,7 @@ Loads an image and applies one reusable **rotate → crop → pad** transform. C
 
 ## Editor gestures
 
-Drag cyan squares to resize the crop, drag inside to move it, orange diamonds to add padding, and the green handle to rotate. Hold `Shift` while rotating to snap to 15 degrees. Use the wheel to zoom and middle mouse or `Alt`-drag to pan.
+Drag cyan squares to resize the crop, drag inside to move it, orange diamonds to add padding, and the green handle to rotate. Hold `Shift` while rotating to snap to 15 degrees. Use the wheel to zoom and middle mouse or `Alt`-drag to pan. The same handles work directly on the node's compact preview (fit-only there — the wheel keeps zooming the graph); zoom and pan are editor-only.
 
 The node performs no network requests and writes no files beyond a normal user-initiated ComfyUI upload.
 

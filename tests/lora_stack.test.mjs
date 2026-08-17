@@ -175,3 +175,55 @@ test("strength range flags only real finite bounds", () => {
   assert.equal(strengthOutOfRange(5, null), false);
   assert.equal(strengthOutOfRange(0.5, { max: 1 }), false);
 });
+
+test("templateFromRows snapshots rows without ids and trims the name", async () => {
+  const { templateFromRows } = await import("../js/shared/lora_stack.mjs");
+  const rows = [
+    { id: "r1", name: "styles/a.safetensors", strength: 0.8, strength_clip: 0.6, enabled: true, triggers: "foo" },
+  ];
+  const template = templateFromRows("  My Set  ", rows);
+  assert.equal(template.name, "My Set");
+  assert.equal(template.rows.length, 1);
+  assert.equal(template.rows[0].id, undefined);
+  assert.equal(template.rows[0].strength, 0.8);
+  assert.equal(templateFromRows("   ", rows), null);
+});
+
+test("applyTemplate mints fresh row ids and keeps values", async () => {
+  const { applyTemplate, templateFromRows } = await import("../js/shared/lora_stack.mjs");
+  const template = templateFromRows("set", [
+    { name: "a", strength: 0.5, strength_clip: 0.4, enabled: false, triggers: "x, y" },
+  ]);
+  const rows = applyTemplate(template);
+  assert.equal(rows.length, 1);
+  assert.ok(rows[0].id);
+  assert.equal(rows[0].strength, 0.5);
+  assert.equal(rows[0].enabled, false);
+  assert.equal(rows[0].triggers, "x, y");
+  assert.deepEqual(applyTemplate(null), []);
+});
+
+test("upsertTemplate replaces same names case-insensitively and sorts", async () => {
+  const { templateFromRows, upsertTemplate } = await import("../js/shared/lora_stack.mjs");
+  const a = templateFromRows("Beta", []);
+  const b = templateFromRows("alpha", []);
+  let list = upsertTemplate(upsertTemplate([], a), b);
+  assert.deepEqual(list.map((t) => t.name), ["alpha", "Beta"]);
+  const replacement = templateFromRows("BETA", [{ name: "x" }]);
+  list = upsertTemplate(list, replacement);
+  assert.deepEqual(list.map((t) => t.name), ["alpha", "BETA"]);
+  assert.equal(list[1].rows.length, 1);
+});
+
+test("removeTemplate and parseTemplates round-trip storage", async () => {
+  const { parseTemplates, removeTemplate, templateFromRows, upsertTemplate } = await import(
+    "../js/shared/lora_stack.mjs"
+  );
+  const list = upsertTemplate([], templateFromRows("keep", [{ name: "a" }]));
+  const stored = JSON.stringify(upsertTemplate(list, templateFromRows("drop", [])));
+  const loaded = parseTemplates(stored);
+  assert.deepEqual(loaded.map((t) => t.name), ["drop", "keep"]);
+  assert.deepEqual(removeTemplate(loaded, "DROP").map((t) => t.name), ["keep"]);
+  assert.deepEqual(parseTemplates("not json"), []);
+  assert.deepEqual(parseTemplates('{"name":"x"}'), []);
+});

@@ -136,6 +136,26 @@ class VideoLoadHelperTests(unittest.TestCase):
         # Frame at t=0.5 is index 6 (brightness 60/255); allow codec loss.
         self.assertAlmostEqual(float(frames[0].mean()), 60 / 255, delta=0.08)
 
+    def test_every_nth_thins_the_batch(self):
+        frames, fps = decode_video_range(self.video, 0.0, 0.0, 0, 0, every_nth=2)
+        self.assertEqual(frames.shape[0], FRAMES // 2)
+        # The helper reports the source rate; the node divides it.
+        self.assertAlmostEqual(fps, FPS, places=3)
+        # Kept frames are the even source indices: brightness steps by 20/255.
+        self.assertAlmostEqual(
+            float(frames[1].mean()) - float(frames[0].mean()), 20 / 255, delta=0.05
+        )
+
+    def test_max_frames_caps_the_decode(self):
+        frames, _fps = decode_video_range(self.video, 0.0, 0.0, 0, 0, max_frames=5)
+        self.assertEqual(frames.shape[0], 5)
+
+    def test_every_nth_and_cap_compose(self):
+        frames, _fps = decode_video_range(
+            self.video, 0.0, 0.0, 0, 0, every_nth=3, max_frames=4
+        )
+        self.assertEqual(frames.shape[0], 4)
+
     def test_single_custom_dimension_preserves_aspect(self):
         frames, _fps = decode_video_range(self.video, 0.0, 0.0, 32, 0)
         self.assertEqual((frames.shape[2], frames.shape[1]), (32, 24))

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ._inpaint_crop_helpers import apply_stitch, build_crop
+from ._inpaint_crop_helpers import RESIZE_ALGORITHMS, apply_stitch, build_crop
 
 
 CROP_NODE_ID = "AUSBOSS_NODES_CropForInpaint"
@@ -17,7 +17,9 @@ class AusBossCropForInpaint:
         "Stitch Inpaint 🆎 uses to paste the result back seamlessly. "
         "The selection can be inverted, grown or shrunk, and edge-softened "
         "before cropping; context comes from a growth factor plus optional "
-        "flat pixels. By default the sampling mask stays hard-edged; "
+        "flat pixels. target_megapixels rescales the crop to a sampler-"
+        "friendly area, and the extend inputs grow the frame itself for "
+        "outpainting. By default the sampling mask stays hard-edged; "
         "feathering lives in a separate blend mask used only while pasting. "
         "An empty mask selects the full image and stitches back unchanged."
     )
@@ -27,6 +29,8 @@ class AusBossCropForInpaint:
         "context crop",
         "masked region",
         "zoom inpaint",
+        "outpaint",
+        "extend image",
         "ausboss",
     ]
 
@@ -171,6 +175,89 @@ class AusBossCropForInpaint:
                         ),
                     },
                 ),
+                "target_megapixels": (
+                    "FLOAT",
+                    {
+                        "default": 0.0,
+                        "min": 0.0,
+                        "max": 64.0,
+                        "step": 0.05,
+                        "tooltip": (
+                            "Rescale the crop for the sampler so its area is "
+                            "about this many megapixels — 1.0 suits SDXL-class "
+                            "models, 0 keeps the native crop size. Explicit "
+                            "target_width/height overrides this."
+                        ),
+                    },
+                ),
+                "rescale_algorithm": (
+                    list(RESIZE_ALGORITHMS),
+                    {
+                        "default": "bilinear",
+                        "tooltip": (
+                            "Resize filter for the sampler round trip. "
+                            "bilinear is the safe default, bicubic keeps "
+                            "upscales a touch crisper, area suits heavy "
+                            "downscales, nearest never invents pixels."
+                        ),
+                    },
+                ),
+                "extend_left": (
+                    "INT",
+                    {
+                        "default": 0,
+                        "min": 0,
+                        "max": 8192,
+                        "step": 8,
+                        "tooltip": (
+                            "Outpainting: grow the frame this many pixels "
+                            "leftward. The new band is added to the mask and "
+                            "becomes part of the stitched output."
+                        ),
+                    },
+                ),
+                "extend_right": (
+                    "INT",
+                    {
+                        "default": 0,
+                        "min": 0,
+                        "max": 8192,
+                        "step": 8,
+                        "tooltip": (
+                            "Outpainting: grow the frame this many pixels "
+                            "rightward. The new band is added to the mask and "
+                            "becomes part of the stitched output."
+                        ),
+                    },
+                ),
+                "extend_up": (
+                    "INT",
+                    {
+                        "default": 0,
+                        "min": 0,
+                        "max": 8192,
+                        "step": 8,
+                        "tooltip": (
+                            "Outpainting: grow the frame this many pixels "
+                            "upward. The new band is added to the mask and "
+                            "becomes part of the stitched output."
+                        ),
+                    },
+                ),
+                "extend_down": (
+                    "INT",
+                    {
+                        "default": 0,
+                        "min": 0,
+                        "max": 8192,
+                        "step": 8,
+                        "tooltip": (
+                            "Outpainting: grow the frame this many pixels "
+                            "downward. The new band is added to the mask and "
+                            "becomes part of the stitched output."
+                        ),
+                    },
+                ),
             },
         }
 
@@ -196,6 +283,12 @@ class AusBossCropForInpaint:
         mask_blur=0.0,
         invert_mask=False,
         context_pixels=0,
+        target_megapixels=0.0,
+        rescale_algorithm="bilinear",
+        extend_left=0,
+        extend_right=0,
+        extend_up=0,
+        extend_down=0,
     ):
         return build_crop(
             image,
@@ -209,6 +302,12 @@ class AusBossCropForInpaint:
             float(mask_blur),
             bool(invert_mask),
             int(context_pixels),
+            float(target_megapixels),
+            str(rescale_algorithm),
+            int(extend_left),
+            int(extend_right),
+            int(extend_up),
+            int(extend_down),
         )
 
 

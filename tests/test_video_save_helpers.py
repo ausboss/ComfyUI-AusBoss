@@ -200,6 +200,48 @@ class SaveVideoHelperTests(unittest.TestCase):
                 video = next(s for s in container.streams if s.type == "video")
                 self.assertAlmostEqual(float(video.average_rate), 29.97, places=2)
 
+    def test_unknown_format_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "format"):
+            encode_video(
+                Path("/tmp/never.avi"), gradient_batch(1, 32, 32), 8.0, None, 19,
+                video_format="avi xvid",
+            )
+
+    def test_webm_vp9_round_trip_with_resampled_opus_audio(self):
+        try:
+            av.codec.Codec("libvpx-vp9", "w")
+            av.codec.Codec("libopus", "w")
+        except Exception:
+            self.skipTest("libvpx-vp9/libopus encoders unavailable")
+        frames = gradient_batch(6, 48, 64)
+        # 32 kHz source forces the opus 48 kHz resample path.
+        tone = 0.3 * np.sin(np.linspace(0, 880 * np.pi, 16000)).astype(np.float32)
+        audio = {"waveform": torch.from_numpy(tone).view(1, 1, -1), "sample_rate": 32000}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "out.webm"
+            width, height, count = encode_video(
+                path, frames, 12.0, audio, 30, None, "webm vp9"
+            )
+            self.assertEqual((width, height, count), (64, 48, 6))
+            with av.open(str(path)) as container:
+                names = {stream.codec_context.name for stream in container.streams}
+            self.assertIn("vp9", names)
+            self.assertIn("opus", names)
+
+    def test_h265_round_trip_when_encoder_present(self):
+        try:
+            av.codec.Codec("libx265", "w")
+        except Exception:
+            self.skipTest("libx265 encoder unavailable")
+        frames = gradient_batch(4, 48, 64)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "out.mp4"
+            _w, _h, count = encode_video(path, frames, 12.0, None, 23, None, "mp4 h265")
+            self.assertEqual(count, 4)
+            with av.open(str(path)) as container:
+                names = {stream.codec_context.name for stream in container.streams}
+            self.assertIn("hevc", names)
+
     def test_odd_dimensions_are_cropped_even_and_no_audio_is_fine(self):
         frames = gradient_batch(3, 49, 65)
         self.assertEqual(tuple(even_frames(frames).shape), (3, 48, 64, 3))
@@ -298,7 +340,7 @@ class CoreVideoInputTests(unittest.TestCase):
                 video=connected,
             ))
 
-        _path, encoded_frames, encoded_fps, encoded_audio, _crf, _metadata = encode.call_args.args
+        _path, encoded_frames, encoded_fps, encoded_audio, _crf, _metadata, _format = encode.call_args.args
         self.assertIs(encoded_frames, images)
         self.assertIs(encoded_audio, audio)
         self.assertAlmostEqual(encoded_fps, 23.976, places=3)
@@ -316,7 +358,7 @@ class CoreVideoInputTests(unittest.TestCase):
                 frames=images, fps=12.0, filename_prefix="AusBoss/video", crf=19
             ))
 
-        _path, encoded_frames, encoded_fps, _audio, _crf, _metadata = encode.call_args.args
+        _path, encoded_frames, encoded_fps, _audio, _crf, _metadata, _format = encode.call_args.args
         self.assertIs(encoded_frames, images)
         self.assertAlmostEqual(encoded_fps, 12.0)
 
@@ -343,7 +385,7 @@ class CoreVideoInputTests(unittest.TestCase):
                 fps=16.0, filename_prefix="AusBoss/video", crf=19, video=connected
             ))
 
-        _path, encoded_frames, encoded_fps, _audio, _crf, _metadata = encode.call_args.args
+        _path, encoded_frames, encoded_fps, _audio, _crf, _metadata, _format = encode.call_args.args
         self.assertIs(encoded_frames, images)
         self.assertAlmostEqual(encoded_fps, 12.0)
 
@@ -483,7 +525,7 @@ class LegacyWorkflowTests(unittest.TestCase):
         ):
             result = run_node(node_save_video.AusBossSaveVideo().save(**call))
 
-        _path, encoded_frames, encoded_fps, encoded_audio, crf, _metadata = encode.call_args.args
+        _path, encoded_frames, encoded_fps, encoded_audio, crf, _metadata, _format = encode.call_args.args
         self.assertIs(encoded_frames, frames)
         self.assertIs(encoded_audio, audio)
         self.assertAlmostEqual(encoded_fps, 24.0)  # the link, not the 16.0 widget

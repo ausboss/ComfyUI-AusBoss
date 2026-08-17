@@ -15,6 +15,14 @@ from av.video.reformatter import ColorRange, Colorspace
 from ._execution_helpers import advance_progress, frame_progress, raise_if_interrupted
 
 AAC_FRAME_SIZE = 1024
+OPUS_SAMPLE_RATE = 48000  # libopus encodes at 48 kHz; other rates resample.
+
+# format widget value -> (file extension, video codec, audio codec)
+VIDEO_FORMATS = {
+    "mp4 h264": ("mp4", "libx264", "aac"),
+    "mp4 h265": ("mp4", "libx265", "aac"),
+    "webm vp9": ("webm", "libvpx-vp9", "libopus"),
+}
 
 # Rates closer than this render to the same 0.01-step fps widget value, so
 # they are the same rate as far as the user is concerned.
@@ -97,17 +105,38 @@ def _prepare_audio(audio: dict | None):
     return packed, layout, channels, sample_rate, data.shape[1]
 
 
+def _resample_audio(prepared, target_rate: int):
+    """The prepared tuple resampled to ``target_rate``; unchanged when equal."""
+    packed, layout, channels, sample_rate, _total = prepared
+    if sample_rate == target_rate:
+        return prepared
+    from av.audio.resampler import AudioResampler
+
+    resampler = AudioResampler(format="flt", layout=layout, rate=target_rate)
+    frame = av.AudioFrame.from_ndarray(packed, format="flt", layout=layout)
+    frame.sample_rate = sample_rate
+    frame.pts = 0
+    frame.time_base = Fraction(1, sample_rate)
+    pieces = [chunk.to_ndarray() for chunk in resampler.resample(frame)]
+    pieces.extend(chunk.to_ndarray() for chunk in resampler.resample(None))
+    if not pieces:
+        return None
+    joined = np.ascontiguousarray(np.concatenate(pieces, axis=1), dtype=np.float32)
+    return joined, layout, channels, target_rate, joined.shape[1] // channels
+
+
 def _encode_audio(container, stream, prepared) -> None:
     packed, layout, channels, sample_rate, total_samples = prepared
-    # The waveform is already in memory, so the AAC frame total is known here
+    # The waveform is already in memory, so the frame total is known here
     # the same way the batch size is known for the picture.
-    chunk_total = math.ceil(total_samples / AAC_FRAME_SIZE)
+    frame_size = int(getattr(stream.codec_context, "frame_size", 0) or AAC_FRAME_SIZE)
+    chunk_total = math.ceil(total_samples / frame_size)
     progress = frame_progress(chunk_total)
-    for encoded, offset in enumerate(range(0, total_samples, AAC_FRAME_SIZE), start=1):
-        # One AAC frame of latency - about 23ms of audio - between cancelling
+    for encoded, offset in enumerate(range(0, total_samples, frame_size), start=1):
+        # One audio frame of latency - tens of ms - between cancelling
         # the queue and unwinding; the container still closes cleanly.
         raise_if_interrupted()
-        chunk = packed[:, offset * channels : (offset + AAC_FRAME_SIZE) * channels]
+        chunk = packed[:, offset * channels : (offset + frame_size) * channels]
         frame = av.AudioFrame.from_ndarray(chunk, format="flt", layout=layout)
         frame.sample_rate = sample_rate
         frame.pts = offset
@@ -130,8 +159,15 @@ def encode_video(
     audio: dict | None,
     crf: int,
     metadata: dict | None = None,
+    video_format: str = "mp4 h264",
 ) -> tuple[int, int, int]:
-    """Write an H.264 mp4; returns (width, height, frame_count)."""
+    """Write the encoded file; returns (width, height, frame_count)."""
+    if video_format not in VIDEO_FORMATS:
+        raise ValueError(
+            f"Save Video format must be one of {tuple(VIDEO_FORMATS)}, "
+            f"not '{video_format}'."
+        )
+    _extension, video_codec, audio_codec = VIDEO_FORMATS[video_format]
     batch = even_frames(frames)
     if batch.ndim != 4 or batch.shape[0] < 1:
         raise ValueError("Save Video expected a BHWC IMAGE batch.")
@@ -139,31 +175,45 @@ def encode_video(
     frame_count = int(batch.shape[0])
     rate = _fps_fraction(fps)
     prepared_audio = _prepare_audio(audio)
+    if prepared_audio is not None and audio_codec == "libopus":
+        prepared_audio = _resample_audio(prepared_audio, OPUS_SAMPLE_RATE)
     # The batch is already in memory, so the total is always known here.
     progress = frame_progress(frame_count)
     # Same movflags core uses: metadata tags survive the mp4 muxer and the
-    # moov atom lands up front so previews start immediately.
-    with av.open(str(path), "w", options={"movflags": "use_metadata_tags+faststart"}) as container:
+    # moov atom lands up front so previews start immediately. The webm muxer
+    # writes tags natively and takes no options.
+    container_options = (
+        {"movflags": "use_metadata_tags+faststart"} if _extension == "mp4" else {}
+    )
+    with av.open(str(path), "w", options=container_options) as container:
         for key, value in (metadata or {}).items():
             container.metadata[key] = value
         # Every stream must exist before the first mux writes the container
         # header; a stream added later never gets a valid time base and the
         # muxer dies with SIGFPE deep in libav.
-        stream = container.add_stream("libx264", rate=rate)
+        stream = container.add_stream(video_codec, rate=rate)
         stream.width = width
         stream.height = height
         stream.pix_fmt = "yuv420p"
-        stream.options = {"crf": str(int(crf))}
+        if video_codec == "libx265":
+            # x265 prints a banner per encode; keep the console quiet.
+            stream.options = {"crf": str(int(crf)), "x265-params": "log-level=error"}
+        elif video_codec == "libvpx-vp9":
+            # b=0 switches vp9 into constant-quality mode; row-mt uses the
+            # thread pool it otherwise leaves idle.
+            stream.options = {"crf": str(int(crf)), "b": "0", "row-mt": "1"}
+        else:
+            stream.options = {"crf": str(int(crf))}
         # Tag the stream bt709 so players do not guess (and shift) colors;
-        # x264 copies these into the bitstream VUI and the muxer writes the
-        # matching colr atom.
+        # the encoders copy these into the bitstream and the muxer writes the
+        # matching color metadata.
         stream.codec_context.color_primaries = _BT709
         stream.codec_context.color_trc = _BT709
         stream.codec_context.colorspace = _BT709
         stream.codec_context.color_range = _RANGE_MPEG
         audio_stream = None
         if prepared_audio is not None:
-            audio_stream = container.add_stream("aac", rate=prepared_audio[3])
+            audio_stream = container.add_stream(audio_codec, rate=prepared_audio[3])
             audio_stream.layout = prepared_audio[1]
         for encoded, frame in enumerate(batch, start=1):
             # One frame of latency between cancelling the queue and unwinding;
@@ -202,6 +252,7 @@ def workflow_metadata(prompt, extra_pnginfo) -> dict:
 
 
 __all__ = [
+    "VIDEO_FORMATS",
     "encode_video",
     "even_frames",
     "resolve_encode_fps",

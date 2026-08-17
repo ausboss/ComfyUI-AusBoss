@@ -12,6 +12,8 @@ import {
   resolvePadding,
   rotatedSize,
   sourceChanged,
+  stageHandleLayout,
+  stageHeightForWidth,
   zoomAround,
 } from "../js/shared/transform_geometry.mjs";
 
@@ -62,6 +64,40 @@ test("coordinate conversion accounts for CSS scaling", () => {
 
 test("zoom remains anchored under the pointer", () => {
   assert.deepEqual(zoomAround({ zoom: 1, panX: 0, panY: 0 }, 2, { x: 100, y: 50 }), { zoom: 2, panX: -100, panY: -50 });
+});
+
+test("panel stage height tracks node width within its clamps", () => {
+  assert.equal(stageHeightForWidth(100), 200); // floor
+  assert.equal(stageHeightForWidth(330), 218);
+  assert.equal(stageHeightForWidth(500), 330);
+  assert.equal(stageHeightForWidth(2000), 520); // ceiling
+  assert.equal(stageHeightForWidth(undefined), 200);
+});
+
+test("handle layout keeps the editor's classic geometry on large stages", () => {
+  // A full-screen editor stage must render exactly as before the panel
+  // re-home: classic offsets and the min(90, w/10, h/10) margin.
+  const layout = stageHandleLayout(1246, 758);
+  assert.equal(layout.padOffset, 38);
+  assert.equal(layout.rotateArm, 34);
+  assert.ok(Math.abs(layout.margin - 75.8) < 1e-9);
+});
+
+test("handle layout pulls handles inward but keeps them visible on the panel", () => {
+  const layout = stageHandleLayout(312, 214);
+  assert.ok(layout.padOffset < 38 && layout.padOffset >= 16);
+  assert.ok(layout.rotateArm < 34 && layout.rotateArm >= 14);
+  // The fit margin always covers the outboard handles: the pad diamond's
+  // half-diagonal (~11px) past its offset, the knob radius (13px) past the
+  // rotate arm — otherwise the panel would clip its own controls.
+  assert.ok(layout.margin >= layout.padOffset + 11);
+  assert.ok(layout.margin >= layout.rotateArm + 13);
+});
+
+test("handle layout stays finite on degenerate stage sizes", () => {
+  const layout = stageHandleLayout(0, 0);
+  assert.ok(Number.isFinite(layout.margin));
+  assert.ok(layout.padOffset >= 16 && layout.rotateArm >= 14);
 });
 
 test("reset and source change restore identity including timeline", () => {

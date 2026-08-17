@@ -622,6 +622,88 @@ class EdgeHaloTests(unittest.TestCase):
         self.assertTrue(torch.equal(toggled[0], apply_stitch(self.stitcher, patch, True)))
 
 
+class TargetMegapixelTests(unittest.TestCase):
+    def test_megapixels_rescales_the_crop_toward_the_target_area(self):
+        image = rand_image(1, 256, 256, seed=31)
+        mask = box_mask(256, 256, 96, 160, 96, 160)
+        cropped, sampling, stitcher = build_crop(
+            image, mask, 1.0, 0, 8, target_megapixels=0.25
+        )
+        area = cropped.shape[1] * cropped.shape[2]
+        # Multiple-of-8 rounding wobbles the exact area; it must land close.
+        self.assertGreater(area, 200_000)
+        self.assertLess(area, 320_000)
+        self.assertEqual(sampling.shape[1:], cropped.shape[1:3])
+        self.assertIsNotNone(stitcher["scale"])
+
+    def test_explicit_target_beats_megapixels(self):
+        image = rand_image(1, 128, 128, seed=32)
+        mask = box_mask(128, 128, 32, 96, 32, 96)
+        cropped, _sampling, _stitcher = build_crop(
+            image, mask, 1.0, 0, 8, target_width=64, target_height=64,
+            target_megapixels=4.0,
+        )
+        self.assertEqual(tuple(cropped.shape[1:3]), (64, 64))
+
+    def test_megapixel_round_trip_still_stitches_exactly(self):
+        image = rand_image(1, 96, 96, seed=33)
+        mask = box_mask(96, 96, 24, 72, 24, 72)
+        _cropped, _sampling, stitcher = build_crop(
+            image, mask, 1.2, 4, 8, target_megapixels=0.1
+        )
+        cx, cy, cw, ch = stitcher["crop_to_canvas"]
+        untouched = stitcher["canvas"][:, cy : cy + ch, cx : cx + cw, :]
+        out = apply_stitch(stitcher, untouched)
+        self.assertTrue(torch.equal(out, image))
+
+
+class RescaleAlgorithmTests(unittest.TestCase):
+    def test_unknown_algorithm_is_rejected(self):
+        image = rand_image(1, 64, 64, seed=34)
+        mask = box_mask(64, 64, 16, 48, 16, 48)
+        with self.assertRaisesRegex(ValueError, "rescale_algorithm"):
+            build_crop(image, mask, 1.0, 0, 8, rescale_algorithm="lanczos")
+
+    def test_algorithm_rides_the_stitcher_for_the_paste_back(self):
+        image = rand_image(1, 64, 64, seed=35)
+        mask = box_mask(64, 64, 16, 48, 16, 48)
+        for algorithm in ("bilinear", "bicubic", "area", "nearest"):
+            _c, _s, stitcher = build_crop(
+                image, mask, 1.0, 0, 8, rescale_algorithm=algorithm
+            )
+            self.assertEqual(stitcher["algorithm"], algorithm)
+
+
+class OutpaintExtendTests(unittest.TestCase):
+    def test_extension_grows_the_stitched_output(self):
+        image = rand_image(1, 32, 32, seed=36)
+        empty = torch.zeros((1, 32, 32), dtype=torch.float32)
+        cropped, sampling, stitcher = build_crop(
+            image, empty, 1.0, 0, 1, extend_right=16, extend_down=8
+        )
+        # The crop covers the whole extended frame...
+        self.assertEqual(tuple(cropped.shape[1:3]), (40, 48))
+        # ...and the extension bands are marked for painting.
+        self.assertEqual(float(sampling[:, :, 32:].min()), 1.0)
+        self.assertEqual(float(sampling[:, 32:, :].min()), 1.0)
+        self.assertEqual(float(sampling[:, :32, :32].max()), 0.0)
+        # Stitching returns the extended size, original area untouched.
+        out = apply_stitch(stitcher, cropped)
+        self.assertEqual(tuple(out.shape[1:3]), (40, 48))
+        self.assertTrue(torch.equal(out[:, :32, :32, :], image))
+
+    def test_extension_combines_with_a_drawn_mask(self):
+        image = rand_image(1, 48, 48, seed=37)
+        mask = box_mask(48, 48, 8, 16, 8, 16)
+        _cropped, _sampling, stitcher = build_crop(
+            image, mask, 1.0, 0, 1, extend_left=8
+        )
+        # The union bbox spans from the new left band to the drawn box.
+        cx, cy, cw, ch = stitcher["crop_to_canvas"]
+        self.assertEqual(cx, 0)
+        self.assertGreaterEqual(cw, 8 + 16)
+
+
 class NodeWiringTests(unittest.TestCase):
     def test_nodes_round_trip_through_the_public_wrappers(self):
         from nodes.node_inpaint_crop_stitch import (

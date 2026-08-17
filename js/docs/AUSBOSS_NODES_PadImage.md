@@ -4,6 +4,16 @@ Extends the canvas outward on any side and fills the new space four different
 ways. The second output is a mask covering exactly the padding — wire it
 straight into an inpainter as the outpaint mask, no extra mask node needed.
 
+## The on-node canvas
+
+The stage drawn on the node is the control: **drag any edge of the dashed
+final rect** to grow that side's padding — the whole edge is the handle, and
+the badge always shows the final output size. Because the source arrives on
+an IMAGE wire, the stage previews the real pixels after the first run
+("Run once to preview"); until then it shows the geometry as a wireframe.
+The hidden `pad_left/top/right/bottom` widgets hold the real values, so
+undo, save/load, and the API format are unchanged.
+
 ## Guarantees
 
 - The original pixels land **bit-identical** at their position in every mode.
