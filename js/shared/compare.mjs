@@ -8,11 +8,6 @@ export function normalizeCompareMode(value) {
   return COMPARE_MODES.includes(value) ? value : COMPARE_MODES[0];
 }
 
-export function nextCompareMode(value) {
-  const index = COMPARE_MODES.indexOf(normalizeCompareMode(value));
-  return COMPARE_MODES[(index + 1) % COMPARE_MODES.length];
-}
-
 // Fraction of the panel width covered by the pointer, clamped to 0..1.
 // Degenerate rectangles and non-finite input resolve to 0 (all-A).
 export function clipFraction(pointerX, rectLeft, rectWidth) {

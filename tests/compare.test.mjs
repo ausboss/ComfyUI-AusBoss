@@ -5,7 +5,6 @@ import {
   clipFraction,
   compareClip,
   findCompareImages,
-  nextCompareMode,
   normalizeCompareMode,
 } from "../js/shared/compare.mjs";
 
@@ -23,14 +22,11 @@ test("degenerate panels and junk input resolve to all-A", () => {
   assert.equal(clipFraction(150, 100, "wide"), 0);
 });
 
-test("mode normalization and cycling", () => {
+test("mode normalization", () => {
   assert.equal(normalizeCompareMode("slide"), "slide");
   assert.equal(normalizeCompareMode("hold"), "hold");
   assert.equal(normalizeCompareMode("wiggle"), "slide");
   assert.equal(normalizeCompareMode(undefined), "slide");
-  assert.equal(nextCompareMode("slide"), "hold");
-  assert.equal(nextCompareMode("hold"), "slide");
-  assert.equal(nextCompareMode("junk"), "hold");
 });
 
 test("clip CSS keeps B left of the seam and hides the seam at the edges", () => {
