@@ -4,6 +4,21 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+## 1.1.1
+
+- Registry metadata only; no node behaviour changes. The ComfyUI version floor
+  now actually reaches the registry: comfy-cli reads it from a `[tool.comfy]`
+  key named `requires-comfyui`, and the pack had been declaring
+  `supported_comfyui_version`, which is silently ignored - so 1.1.0 published
+  with an empty floor and Manager would not have refused an install on an
+  incompatible core.
+- Declared `Operating System :: OS Independent` so the registry records the
+  supported-OS list. Accelerator classifiers are deliberately omitted rather
+  than asserting untested hardware.
+- License publishes as a readable name instead of the literal string
+  `{"file": "LICENSE"}`. The LICENSE file itself is unchanged, still MIT.
+
+
 ## 1.1.0
 
 - Image Crop + Rotate + Pad: the node's compact preview is now the editor stage in miniature — grab the crop squares, pad diamonds, and rotate knob (with a live degree readout) right on the node, and the panel grows with the node. Fit-only there, so the wheel keeps zooming the graph; the full editor keeps zoom, pan, and the sidebars, and both surfaces run the same hit-test and drag code, so they cannot drift. The video node's panel stays a passive preview.

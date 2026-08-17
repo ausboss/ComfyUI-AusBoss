@@ -1,10 +1,19 @@
 [project]
 name = "ausboss-nodes"
 description = "A curated collection of polished ComfyUI nodes for streamlined image and video workflows."
-version = "1.1.0"
-license = { file = "LICENSE" }
+version = "1.1.1"
+# comfy-cli serializes this to JSON verbatim, so `file` publishes the literal
+# string {"file": "LICENSE"} to the registry listing. `text` puts a readable
+# name there instead. Both forms are supported; the LICENSE file is unchanged.
+license = { text = "MIT License" }
 
 keywords = ["comfyui", "nodes", "image", "video", "crop", "rotate", "outpaint", "ausboss"]
+
+# Read by comfy-cli into the registry's supported_os field. Nothing in the pack
+# is platform-specific. Accelerator claims (Environment :: GPU :: ...) are left
+# off deliberately - the nodes run wherever ComfyUI's torch runs, and listing
+# accelerators would assert testing that has not happened.
+classifiers = ["Operating System :: OS Independent"]
 
 # The nodes use Pillow, NumPy, Torch, and PyAV supplied by ComfyUI.
 dependencies = []
@@ -32,4 +41,8 @@ DisplayName = "AusBoss"
 Icon = "https://github.com/ausboss.png"
 # Oldest core the pack is validated against; Manager uses this to refuse
 # installs onto incompatible ComfyUI versions.
-supported_comfyui_version = ">=0.27.1"
+#
+# The key is `requires-comfyui`. comfy-cli reads exactly that name out of
+# [tool.comfy]; a key called supported_comfyui_version is silently ignored and
+# the registry stores an empty version floor, which is what 1.1.0 shipped with.
+requires-comfyui = ">=0.27.1"

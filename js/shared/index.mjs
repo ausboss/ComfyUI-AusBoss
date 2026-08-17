@@ -9,7 +9,7 @@ import { app } from "/scripts/app.js";
 // Must match `version` in pyproject.toml — scripts/release_preflight.py
 // enforces it. The backend serves its copy at /ausboss/pack_version; a
 // mismatch means the browser cached JavaScript from an older install.
-export const AUSBOSS_JS_VERSION = "1.1.0";
+export const AUSBOSS_JS_VERSION = "1.1.1";
 
 export const BRAND = "#00b4aa"; // AusBoss teal — keep node accents consistent.
 export const BRAND_DARK = "#007f78";
