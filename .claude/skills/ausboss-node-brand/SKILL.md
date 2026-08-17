@@ -24,6 +24,22 @@ allowed; read this for what makes a node feel like an AusBoss node.
 - Namespace everything frontend-visible with `ausboss`: routes, extension
   names, events, CSS classes, DOM markers, caches.
 
+**This identity is for the public pack only.** Experiments live in the private
+ComfyUI-AusBoss-Lab repo and wear a parallel grammar so the two never collide
+and a lab node is obvious on the canvas:
+
+| | public pack | lab |
+|---|---|---|
+| mapping key | `AUSBOSS_NODES_<Purpose>` | `AUSBOSS_LAB_<Purpose>` |
+| display name | `<Name> 🆎` | `<Name> 🧪` |
+| category | `🆎 AusBoss/<Group>` | `🧪 AusBoss Lab/<Group>` |
+
+Do not apply this skill's polish budget to a lab node. Lab nodes deliberately
+skip example workflows, thumbnails, frontend work and changelog entries —
+those are release-gate items, and adding them early is how a workshop turns
+into a second product. They also fall outside `js/appearance/`, which keys on
+the `AUSBOSS_NODES_` prefix, so they stay uncolored on purpose.
+
 ## Visual language
 
 - Editor handle grammar (keep it consistent everywhere): **cyan squares** =

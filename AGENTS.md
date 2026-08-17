@@ -7,6 +7,30 @@ A suite of polished ComfyUI custom nodes by ausboss. Public nodes must solve a
 repeated workflow need, keep a compact graph footprint, and pass backend plus
 browser acceptance before release.
 
+## This repo is the showroom, not the workshop
+
+Experiments live in the private **ComfyUI-AusBoss-Lab** repo, not here. Default
+a new node to the lab and promote it later; adding it here is the deliberate
+act of publishing it, and after a release its mapping key can never change.
+
+A node belongs in the lab, not this repo, when any of these is true:
+
+- it depends on a third-party pack or model most people will not have
+- it encodes constants owned by someone else — a model card, an upstream
+  default — that go stale when they change them, leaving this pack shipping
+  wrong advice under ausboss's name
+- it solved a need once rather than a repeated workflow need
+- its inputs are still moving
+
+The lab mirrors this repo's layout, so a promotion is a port, not a rewrite.
+Its namespaces are held apart (`AUSBOSS_LAB_` ids, `🧪 AusBoss Lab/`
+categories, `🧪` display suffix) so both packs install at once. The port steps
+and the release gate are in the lab's `docs/promoting.md`.
+
+`scripts/validate_nodes.py` enforces the boundary from this side: a mapping key
+that is registered but absent from `PUBLIC_NODE_IDS` fails the build, so an
+experiment cannot ride along into a release unnoticed.
+
 ## Hard rules
 
 - Never modify `LICENSE`.
