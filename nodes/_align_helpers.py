@@ -16,6 +16,29 @@ from ._pad_helpers import _replicate_pad, _resize_image
 
 ALIGN_MODES = ("resize", "crop", "pad")
 
+# Which region survives a crop. Vertical names anchor the height crop, the
+# horizontal pair anchors the width crop; the other axis stays centered.
+CROP_POSITIONS = ("center", "top", "bottom", "left", "right")
+
+
+def _crop_offsets(
+    width: int, height: int, target_w: int, target_h: int, position: str
+) -> tuple[int, int]:
+    """(left, top) of the kept window for a crop anchored at ``position``."""
+    excess_w = max(0, width - target_w)
+    excess_h = max(0, height - target_h)
+    left = excess_w // 2
+    top = excess_h // 2
+    if position == "left":
+        left = 0
+    elif position == "right":
+        left = excess_w
+    elif position == "top":
+        top = 0
+    elif position == "bottom":
+        top = excess_h
+    return left, top
+
 
 def _round_to_multiple(value: int, multiple: int, mode: str) -> int:
     """One dimension snapped to the multiple; never below one multiple."""
@@ -47,19 +70,24 @@ def aligned_size(width: int, height: int, multiple: int, mode: str) -> tuple[int
 
 
 def align_image(
-    image: torch.Tensor, multiple: int, mode: str
+    image: torch.Tensor, multiple: int, mode: str, crop_position: str = "center"
 ) -> tuple[torch.Tensor, int, int]:
     """Snap a BHWC batch to the multiple; returns (image, width, height).
 
     ``resize`` rescales to the nearest multiple (bilinear, antialiased when
-    shrinking). ``crop`` center-crops down to the next multiple. ``pad``
-    replicate-pads the edges up to the next multiple, split evenly. When a
-    dimension must grow in crop mode — it was smaller than one multiple —
-    the deficit is replicate-padded instead, so the node never errors on a
-    small input.
+    shrinking). ``crop`` crops down to the next multiple, keeping the region
+    ``crop_position`` names (center by default). ``pad`` replicate-pads the
+    edges up to the next multiple, split evenly. When a dimension must grow
+    in crop mode — it was smaller than one multiple — the deficit is
+    replicate-padded instead, so the node never errors on a small input.
     """
     if not isinstance(image, torch.Tensor) or image.ndim != 4:
         raise ValueError("Align Image expected a BHWC IMAGE batch.")
+    if crop_position not in CROP_POSITIONS:
+        raise ValueError(
+            f"Align Image crop_position must be one of {CROP_POSITIONS}, "
+            f"not '{crop_position}'."
+        )
     height, width = int(image.shape[1]), int(image.shape[2])
     target_w, target_h = aligned_size(width, height, multiple, mode)
     if (target_w, target_h) == (width, height):
@@ -69,13 +97,13 @@ def align_image(
         return _resize_image(image, target_w, target_h), target_w, target_h
 
     aligned = image
-    # Center-crop any excess first (only the crop mode ever has excess).
-    if width > target_w:
-        left = (width - target_w) // 2
-        aligned = aligned[:, :, left : left + target_w, :]
-    if height > target_h:
-        top = (height - target_h) // 2
-        aligned = aligned[:, top : top + target_h, :, :]
+    # Crop any excess first (only the crop mode ever has excess).
+    if width > target_w or height > target_h:
+        left, top = _crop_offsets(width, height, target_w, target_h, crop_position)
+        if width > target_w:
+            aligned = aligned[:, :, left : left + target_w, :]
+        if height > target_h:
+            aligned = aligned[:, top : top + target_h, :, :]
     # Replicate-pad any deficit, split evenly with the smaller half first.
     pad_w = max(0, target_w - aligned.shape[2])
     pad_h = max(0, target_h - aligned.shape[1])
@@ -86,4 +114,4 @@ def align_image(
     return aligned.contiguous(), target_w, target_h
 
 
-__all__ = ["ALIGN_MODES", "align_image", "aligned_size"]
+__all__ = ["ALIGN_MODES", "CROP_POSITIONS", "align_image", "aligned_size"]

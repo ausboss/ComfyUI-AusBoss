@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ._align_helpers import ALIGN_MODES, align_image
+from ._align_helpers import ALIGN_MODES, CROP_POSITIONS, align_image
 
 
 class AusBossAlignImage:
@@ -65,6 +65,20 @@ class AusBossAlignImage:
                     },
                 ),
             },
+            "optional": {
+                "crop_position": (
+                    list(CROP_POSITIONS),
+                    {
+                        "default": "center",
+                        "tooltip": (
+                            "Crop mode only: which part of the frame "
+                            "survives. center trims both edges evenly; top, "
+                            "bottom, left, or right pin that edge and trim "
+                            "the opposite one. Ignored by resize and pad."
+                        ),
+                    },
+                ),
+            },
         }
 
     RETURN_TYPES = ("IMAGE", "INT", "INT")
@@ -76,8 +90,10 @@ class AusBossAlignImage:
     )
     FUNCTION = "align"
 
-    def align(self, image, multiple, mode):
-        aligned, width, height = align_image(image, int(multiple), str(mode))
+    def align(self, image, multiple, mode, crop_position="center"):
+        aligned, width, height = align_image(
+            image, int(multiple), str(mode), str(crop_position)
+        )
         return (aligned, width, height)
 
 
