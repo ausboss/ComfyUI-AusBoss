@@ -146,6 +146,151 @@ def _pillarbox_canvas(
     return backdrop * (1.0 - _MAX_DIM * strength)
 
 
+def _round_half_up(value: float) -> int:
+    """Round a non-negative value half-up, matching JS Math.round so the
+    frontend's size badge mirrors the backend to the pixel (Python's round
+    banker-rounds .5 down on evens)."""
+    return int(value + 0.5)
+
+
+def round_up_to_multiple(value: int, multiple: int) -> int:
+    step = max(1, int(multiple))
+    return ((max(0, int(value)) + step - 1) // step) * step
+
+
+def resolve_pad_geometry(
+    width: int,
+    height: int,
+    pad_left: int,
+    pad_top: int,
+    pad_right: int,
+    pad_bottom: int,
+    canvas_multiple: int,
+) -> dict[str, int]:
+    """Clamp pads to >= 0 and ceil the canvas to the multiple, appending the
+    remainder to the right/bottom pads. Mirror of resolvePadding in
+    js/shared/transform_geometry.mjs — keep the two in sync."""
+    left = max(0, int(pad_left))
+    top = max(0, int(pad_top))
+    right = max(0, int(pad_right))
+    bottom = max(0, int(pad_bottom))
+    requested_w = int(width) + left + right
+    requested_h = int(height) + top + bottom
+    out_w = round_up_to_multiple(requested_w, canvas_multiple)
+    out_h = round_up_to_multiple(requested_h, canvas_multiple)
+    return {
+        "left": left,
+        "top": top,
+        "right": right + out_w - requested_w,
+        "bottom": bottom + out_h - requested_h,
+        "width": out_w,
+        "height": out_h,
+    }
+
+
+def plan_pad_canvas(
+    width: int,
+    height: int,
+    pad_left: int,
+    pad_top: int,
+    pad_right: int,
+    pad_bottom: int,
+    canvas_multiple: int,
+    target_megapixels: float = 0.0,
+) -> dict[str, float | int]:
+    """Full canvas plan for Load Image + Pad, megapixel target included.
+
+    The padding is resolved at source scale first; when target_megapixels is
+    on, the SOURCE is what gets rescaled (by s = sqrt(MP*1e6 / area)) and the
+    raw pads are scaled with it, then re-rounded to the multiple. Padding a
+    resized source keeps the mask seam one crisp pixel wide, where resizing
+    a padded result would smear it. Mirror of finalOutputSize in
+    js/shared/pad_canvas.mjs — keep the two in sync.
+    """
+    base = resolve_pad_geometry(
+        width, height, pad_left, pad_top, pad_right, pad_bottom, canvas_multiple
+    )
+    target = float(target_megapixels or 0.0)
+    if target <= 0.0 or base["width"] <= 0 or base["height"] <= 0:
+        return {"scale": 1.0, "source_width": int(width), "source_height": int(height), **base}
+    scale = math.sqrt(target * 1e6 / (base["width"] * base["height"]))
+    source_w = max(1, _round_half_up(int(width) * scale))
+    source_h = max(1, _round_half_up(int(height) * scale))
+    final = resolve_pad_geometry(
+        source_w,
+        source_h,
+        _round_half_up(max(0, int(pad_left)) * scale),
+        _round_half_up(max(0, int(pad_top)) * scale),
+        _round_half_up(max(0, int(pad_right)) * scale),
+        _round_half_up(max(0, int(pad_bottom)) * scale),
+        canvas_multiple,
+    )
+    return {"scale": scale, "source_width": source_w, "source_height": source_h, **final}
+
+
+def feather_pad_mask(
+    mask: torch.Tensor,
+    pad_left: int,
+    pad_top: int,
+    pad_right: int,
+    pad_bottom: int,
+    feather: int,
+) -> torch.Tensor:
+    """Ramp the outpaint mask linearly inward across the image edge on each
+    padded side, ramp width min(feather, image dimension). The padding stays
+    1.0 — the feather lets the sampler blend the seam into the original.
+    feather=0 (or no padding on a side) returns the mask untouched.
+    """
+    amount = max(0, int(feather))
+    left = max(0, int(pad_left))
+    top = max(0, int(pad_top))
+    right = max(0, int(pad_right))
+    bottom = max(0, int(pad_bottom))
+    if amount <= 0 or (left == 0 and top == 0 and right == 0 and bottom == 0):
+        return mask
+    batch, canvas_h, canvas_w = mask.shape
+    height = canvas_h - top - bottom
+    width = canvas_w - left - right
+    if height <= 0 or width <= 0:
+        return mask
+    result = mask.clone()
+
+    def ramp(count: int, inward: bool) -> torch.Tensor:
+        # Strictly between 1 and 0: linspace over count+2 with the endpoints
+        # dropped, so a 1-pixel feather is 0.5, not a hard 1 or 0.
+        values = torch.linspace(1.0, 0.0, count + 2, dtype=result.dtype, device=result.device)[1:-1]
+        return values if inward else values.flip(0)
+
+    def merge(y0: int, y1: int, x0: int, x1: int, values: torch.Tensor) -> None:
+        region = result[:, y0:y1, x0:x1]
+        result[:, y0:y1, x0:x1] = torch.maximum(region, values.expand(batch, y1 - y0, x1 - x0))
+
+    x0, x1 = left, left + width
+    y0, y1 = top, top + height
+    if top > 0:
+        depth = min(amount, height)
+        merge(y0, y0 + depth, x0, x1, ramp(depth, True).view(1, depth, 1))
+    if bottom > 0:
+        depth = min(amount, height)
+        merge(y1 - depth, y1, x0, x1, ramp(depth, False).view(1, depth, 1))
+    if left > 0:
+        depth = min(amount, width)
+        merge(y0, y1, x0, x0 + depth, ramp(depth, True).view(1, 1, depth))
+    if right > 0:
+        depth = min(amount, width)
+        merge(y0, y1, x1 - depth, x1, ramp(depth, False).view(1, 1, depth))
+    return result.clamp(0.0, 1.0)
+
+
+def resize_source(image: torch.Tensor, width: int, height: int) -> torch.Tensor:
+    """Bilinear resize of a BHWC batch (antialiased when shrinking) for the
+    megapixel-target path; a no-op when the size already matches."""
+    image = _as_image(image)
+    if image.shape[2] == int(width) and image.shape[1] == int(height):
+        return image
+    return _resize_image(image, max(1, int(width)), max(1, int(height)))
+
+
 def pad_image(
     image: torch.Tensor,
     pad_left: int,
@@ -191,4 +336,12 @@ def pad_image(
     return canvas.contiguous(), mask
 
 
-__all__ = ["PAD_MODES", "pad_image"]
+__all__ = [
+    "PAD_MODES",
+    "feather_pad_mask",
+    "pad_image",
+    "plan_pad_canvas",
+    "resize_source",
+    "resolve_pad_geometry",
+    "round_up_to_multiple",
+]

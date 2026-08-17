@@ -191,6 +191,54 @@ export function groupByFolder(names) {
 }
 
 // A suggested range is advisory: null/absent bounds never flag.
+// ---------- templates ----------
+// A template is a named snapshot of the row stack: { name, rows } with rows
+// stored id-less (ids are per-node identity, not part of the recipe).
+
+export function templateFromRows(name, rows) {
+  const label = String(name ?? "").trim();
+  if (!label) return null;
+  return {
+    name: label,
+    rows: normalizeRows(rows).map(({ id, ...rest }) => rest),
+  };
+}
+
+export function applyTemplate(template) {
+  return normalizeRows(template?.rows);
+}
+
+// Replace a same-named template (case-insensitive) or append; kept sorted so
+// the menu order is stable however the list was built.
+export function upsertTemplate(list, template) {
+  if (!template) return Array.isArray(list) ? list : [];
+  const base = Array.isArray(list) ? list : [];
+  const key = template.name.toLowerCase();
+  const next = base.filter((entry) => entry?.name?.toLowerCase() !== key);
+  next.push(template);
+  next.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+  return next;
+}
+
+export function removeTemplate(list, name) {
+  const key = String(name ?? "").toLowerCase();
+  return (Array.isArray(list) ? list : []).filter(
+    (entry) => entry?.name?.toLowerCase() !== key
+  );
+}
+
+export function parseTemplates(raw) {
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((entry) => templateFromRows(entry?.name, entry?.rows))
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 export function strengthOutOfRange(value, range) {
   if (!range) return false;
   const low = Number.isFinite(range.min) ? range.min : null;

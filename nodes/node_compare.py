@@ -15,9 +15,6 @@ except ImportError:  # Offline tests import this module without ComfyUI.
     folder_paths = None
 
 
-NODE_ID = "AUSBOSS_NODES_Compare"
-
-
 def first_frame_to_pil(image: torch.Tensor) -> Image.Image:
     """First frame of a BHWC float batch as a PIL image, ready to save."""
     if not isinstance(image, torch.Tensor) or image.ndim != 4:

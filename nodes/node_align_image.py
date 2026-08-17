@@ -26,8 +26,10 @@ class AusBossAlignImage:
         "multiple of 8",
         "multiple of 16",
         "divisible",
+        "divisible by",
         "snap size",
         "resize to multiple",
+        "image resize",
         "qwen",
         "ausboss",
     ]
@@ -119,12 +121,17 @@ class AusBossAlignImage:
             },
         }
 
-    RETURN_TYPES = ("IMAGE", "INT", "INT")
-    RETURN_NAMES = ("image", "width", "height")
+    RETURN_TYPES = ("IMAGE", "INT", "INT", "INT", "INT")
+    RETURN_NAMES = ("image", "width", "height", "offset_x", "offset_y")
     OUTPUT_TOOLTIPS = (
         "The aligned batch; both sides are multiples of the chosen number.",
         "Aligned width in pixels.",
         "Aligned height in pixels.",
+        "Where the original's left edge sits in the output: positive after "
+        "padding, negative after cropping, 0 after a resize — wire into a "
+        "crop to un-align after sampling.",
+        "Where the original's top edge sits in the output: positive after "
+        "padding, negative after cropping, 0 after a resize.",
     )
     FUNCTION = "align"
 
@@ -138,7 +145,7 @@ class AusBossAlignImage:
         pad_fill="replicate",
         pad_color="#000000",
     ):
-        aligned, width, height = align_image(
+        return align_image(
             image,
             int(multiple),
             str(mode),
@@ -147,7 +154,6 @@ class AusBossAlignImage:
             str(pad_fill),
             pad_color,
         )
-        return (aligned, width, height)
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_AlignImage": AusBossAlignImage}

@@ -188,3 +188,27 @@ export function zoomAround(view, nextZoom, anchor) {
     panY: anchor.y - (anchor.y - view.panY) * ratio,
   };
 }
+
+// Compact-panel stage height for a node width: a wider node earns a taller
+// stage, clamped so the panel neither collapses nor swallows the graph.
+export function stageHeightForWidth(width) {
+  return Math.round(clamp((Number(width) || 0) * 0.66, 200, 520));
+}
+
+// Stage-size-aware handle geometry shared by the editor stage and the
+// compact node panel. Large stages keep the editor's classic offsets; small
+// stages pull the outboard handles (padding diamonds, rotate knob) inward,
+// and the fit margin never drops below the clearance those handles need to
+// stay fully visible. Drawn handle sizes are constant CSS pixels on every
+// surface; hit radii stay ~2-3x the drawn size.
+export function stageHandleLayout(width, height) {
+  const safeWidth = Math.max(1, Number(width) || 1);
+  const safeHeight = Math.max(1, Number(height) || 1);
+  const short = Math.min(safeWidth, safeHeight);
+  const padOffset = Math.round(clamp(short * 0.09, 16, 38));
+  const rotateArm = Math.round(clamp(short * 0.085, 14, 34));
+  // Pad diamond half-diagonal is ~11px, the knob radius 13px plus stroke.
+  const clearance = Math.max(padOffset + 12, rotateArm + 15);
+  const margin = Math.max(clearance, Math.min(90, safeWidth * 0.1, safeHeight * 0.1));
+  return { padOffset, rotateArm, margin };
+}

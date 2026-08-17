@@ -22,8 +22,6 @@ from ._chooser_helpers import (
 )
 
 
-NODE_ID = "AUSBOSS_NODES_FrameChooser"
-
 BEHAVIOR_PAUSE = "always pause"
 BEHAVIOR_REMEMBER = "keep last selection"
 

@@ -126,12 +126,31 @@ def _as_mask(mask: torch.Tensor, image: torch.Tensor) -> torch.Tensor:
     return mask.float().clamp(0.0, 1.0)
 
 
-def _resize_image(image: torch.Tensor, width: int, height: int) -> torch.Tensor:
+RESIZE_ALGORITHMS = ("bilinear", "bicubic", "area", "nearest")
+
+
+def _resize_image(
+    image: torch.Tensor, width: int, height: int, algorithm: str = "bilinear"
+) -> torch.Tensor:
+    if algorithm not in RESIZE_ALGORITHMS:
+        raise ValueError(
+            f"Crop For Inpaint rescale_algorithm must be one of "
+            f"{RESIZE_ALGORITHMS}, not '{algorithm}'."
+        )
     moved = image.movedim(-1, 1).contiguous()
-    antialias = width < moved.shape[-1] or height < moved.shape[-2]
-    resized = functional.interpolate(
-        moved, size=(height, width), mode="bilinear", align_corners=False, antialias=antialias
-    )
+    if algorithm == "nearest":
+        resized = functional.interpolate(moved, size=(height, width), mode="nearest-exact")
+    elif algorithm == "area":
+        resized = functional.interpolate(moved, size=(height, width), mode="area")
+    else:
+        antialias = width < moved.shape[-1] or height < moved.shape[-2]
+        resized = functional.interpolate(
+            moved,
+            size=(height, width),
+            mode=algorithm,
+            align_corners=False,
+            antialias=antialias,
+        )
     return resized.movedim(1, -1).contiguous()
 
 
@@ -279,6 +298,12 @@ def build_crop(
     mask_blur: float = 0.0,
     invert_mask: bool = False,
     context_pixels: int = 0,
+    target_megapixels: float = 0.0,
+    rescale_algorithm: str = "bilinear",
+    extend_left: int = 0,
+    extend_right: int = 0,
+    extend_up: int = 0,
+    extend_down: int = 0,
 ) -> tuple[torch.Tensor, torch.Tensor, dict]:
     """Crop the masked region plus context; return (image, mask, stitcher).
 
@@ -290,11 +315,32 @@ def build_crop(
     An empty mask selects the full image without context growth, so the
     graph keeps running; its blend mask is empty, so stitching returns
     the original untouched.
+
+    ``target_megapixels`` rescales the crop for the sampler so its area is
+    about that many megapixels (0 = off); explicit ``target_width``/
+    ``target_height`` win over it. ``rescale_algorithm`` picks the resize
+    filter for both directions of the round trip. The ``extend_*`` pixel
+    counts grow the frame itself before anything else — the new bands are
+    replicate-filled, added to the mask, and become part of the stitched
+    output, which is how the pair outpaints.
     """
     image = _as_image(image)
     mask = _as_mask(mask, image)
     if invert_mask:
         mask = 1.0 - mask
+
+    ext_l, ext_r = max(0, int(extend_left)), max(0, int(extend_right))
+    ext_u, ext_d = max(0, int(extend_up)), max(0, int(extend_down))
+    if ext_l or ext_r or ext_u or ext_d:
+        src_h, src_w = image.shape[1], image.shape[2]
+        image = _replicate_pad_image(image, ext_l, ext_u, ext_r, ext_d)
+        extended = torch.ones(
+            (mask.shape[0], src_h + ext_u + ext_d, src_w + ext_l + ext_r),
+            dtype=mask.dtype,
+            device=mask.device,
+        )
+        extended[:, ext_u : ext_u + src_h, ext_l : ext_l + src_w] = mask
+        mask = extended
     grow_px = int(mask_grow)
     if grow_px:
         mask = grow_shrink_mask(mask, grow_px)
@@ -308,6 +354,12 @@ def build_crop(
     target_w = max(0, int(target_width))
     target_h = max(0, int(target_height))
     use_target = target_w > 0 or target_h > 0
+    megapixels = max(0.0, float(target_megapixels))
+    if rescale_algorithm not in RESIZE_ALGORITHMS:
+        raise ValueError(
+            f"Crop For Inpaint rescale_algorithm must be one of "
+            f"{RESIZE_ALGORITHMS}, not '{rescale_algorithm}'."
+        )
 
     bbox = mask_bbox(mask)
     if bbox is None:
@@ -322,6 +374,13 @@ def build_crop(
                 rect[3] + 2 * context_px,
             )
         rect = fit_rect(rect, width, height)
+    if not use_target and megapixels > 0.0:
+        # Megapixel sizing: scale the crop so its area lands on the target;
+        # explicit target_width/height always wins over this.
+        area_scale = (megapixels * 1_000_000.0 / (rect[2] * rect[3])) ** 0.5
+        target_w = max(1, round(rect[2] * area_scale))
+        target_h = max(1, round(rect[3] * area_scale))
+        use_target = True
     if not use_target:
         # Native sizing: the crop itself must satisfy the sampler multiple.
         rect = expand_rect_to_multiple(rect, multiple)
@@ -361,7 +420,7 @@ def build_crop(
         target_w = round_up_to_multiple(target_w, multiple)
         target_h = round_up_to_multiple(target_h, multiple)
         if (target_w, target_h) != (cw, ch):
-            cropped = _resize_image(cropped, target_w, target_h)
+            cropped = _resize_image(cropped, target_w, target_h, rescale_algorithm)
             sampling = _resize_mask(sampling, target_w, target_h)
         scale = (target_w / cw, target_h / ch)
 
@@ -373,6 +432,7 @@ def build_crop(
         "crop_to_canvas": crop_to_canvas,
         "blend": blend,
         "scale": scale,
+        "algorithm": rescale_algorithm,
     }
     return cropped, sampling, stitcher
 
@@ -428,7 +488,7 @@ def apply_stitch(
 
     patch = inpainted.to(dtype=out.dtype, device=out.device)
     if (patch.shape[1], patch.shape[2]) != (ch, cw):
-        patch = _resize_image(patch, cw, ch)
+        patch = _resize_image(patch, cw, ch, stitcher.get("algorithm", "bilinear"))
 
     alpha = blend[:, cy : cy + ch, cx : cx + cw].to(out.device)
     if fix_edge_halo:
@@ -445,6 +505,7 @@ def apply_stitch(
 
 
 __all__ = [
+    "RESIZE_ALGORITHMS",
     "STITCHER_KIND",
     "STITCHER_VERSION",
     "apply_stitch",

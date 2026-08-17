@@ -2,7 +2,25 @@
 
 from __future__ import annotations
 
+import random
+import string
+from pathlib import Path
+
+from PIL import Image
+
 from ._pad_helpers import PAD_MODES, pad_image
+
+try:
+    import folder_paths
+except ImportError:  # Offline tests import this module without ComfyUI.
+    folder_paths = None
+
+# The on-node handle canvas draws the INPUT image under its padding handles,
+# and an IMAGE wire has no file to preview — so pad() stashes a small temp
+# PNG of the first input frame and announces it through the ui payload.
+# Namespaced keys, not "images": the core frontend renders that key as its
+# own preview widget under the node, which would double up with the panel.
+_PREVIEW_MAX_EDGE = 1024
 
 
 class AusBossPadImage:
@@ -124,6 +142,11 @@ class AusBossPadImage:
     )
     FUNCTION = "pad"
 
+    def __init__(self):
+        # A distinct temp prefix per node instance, so two Pad Image nodes in
+        # one workflow never overwrite each other's previews.
+        self._prefix = "ausboss_pad_" + "".join(random.choices(string.ascii_lowercase, k=5))
+
     def pad(
         self,
         image,
@@ -135,7 +158,7 @@ class AusBossPadImage:
         fill_color,
         backdrop_blur,
     ):
-        return pad_image(
+        result = pad_image(
             image,
             int(pad_left),
             int(pad_top),
@@ -145,6 +168,41 @@ class AusBossPadImage:
             fill_color,
             float(backdrop_blur),
         )
+        preview = self._save_temp_preview(image)
+        if preview is None:
+            return result
+        return {
+            "ui": {
+                "ausboss_pad_preview": [preview],
+                "ausboss_pad_source": [[int(image.shape[2]), int(image.shape[1])]],
+            },
+            "result": result,
+        }
+
+    def _save_temp_preview(self, image):
+        """Best-effort input-frame preview for the handle canvas; never raises
+        (headless runs and tests have no folder_paths)."""
+        if folder_paths is None:
+            return None
+        try:
+            frame = image[0].detach().cpu().clamp(0.0, 1.0).mul(255.0).round().byte().numpy()
+            if frame.shape[-1] == 1:
+                frame = frame[..., 0]
+            preview = Image.fromarray(frame)
+            preview.thumbnail((_PREVIEW_MAX_EDGE, _PREVIEW_MAX_EDGE), Image.Resampling.LANCZOS)
+            full_output_folder, filename, counter, subfolder, _prefix = (
+                folder_paths.get_save_image_path(
+                    self._prefix,
+                    folder_paths.get_temp_directory(),
+                    preview.width,
+                    preview.height,
+                )
+            )
+            file = f"{filename}_{counter:05}_.png"
+            preview.save(Path(full_output_folder) / file, compress_level=4)
+            return {"filename": file, "subfolder": subfolder, "type": "temp"}
+        except Exception:
+            return None
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_PadImage": AusBossPadImage}

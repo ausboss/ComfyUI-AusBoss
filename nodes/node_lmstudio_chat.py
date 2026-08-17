@@ -8,8 +8,10 @@ from ._lmstudio_helpers import (
     DEFAULT_ENDPOINT,
     build_chat_payload,
     chat_completions_url,
+    history_with_turn,
     image_data_url,
     parse_chat_text,
+    parse_response_schema,
     register_lmstudio_routes,
     request_chat,
     split_reasoning,
@@ -23,8 +25,10 @@ class AusBossLmStudioChat:
         "server and returns the reply as text. Works with any OpenAI-"
         "compatible endpoint. Reasoning-model <think> blocks come out on "
         "their own output, so the text output stays clean for wiring into "
-        "a conditioning prompt. Caches like any node; change the seed to "
-        "re-roll the same inputs."
+        "a conditioning prompt. Chain the history output into another chat "
+        "node's history input for a multi-turn conversation, and fill "
+        "json_schema to force a structured JSON reply. Caches like any "
+        "node; change the seed to re-roll the same inputs."
     )
     SEARCH_ALIASES = [
         "lm studio",
@@ -276,16 +280,42 @@ class AusBossLmStudioChat:
                         ),
                     },
                 ),
+                "history": (
+                    "AUSBOSS_CHAT_HISTORY",
+                    {
+                        "tooltip": (
+                            "Prior turns from another LM Studio Chat 🆎 "
+                            "node's history output; they replay before this "
+                            "prompt so the model remembers the conversation. "
+                            "Images are not carried between turns."
+                        )
+                    },
+                ),
+                "json_schema": (
+                    "STRING",
+                    {
+                        "multiline": True,
+                        "default": "",
+                        "tooltip": (
+                            "Paste a JSON Schema to force the reply into "
+                            "that exact structure (LM Studio structured "
+                            "output). {\"type\": \"object\"} allows any "
+                            "JSON; empty replies as plain text."
+                        ),
+                    },
+                ),
             },
         }
 
-    RETURN_TYPES = ("STRING", "STRING")
-    RETURN_NAMES = ("text", "thinking")
+    RETURN_TYPES = ("STRING", "STRING", "AUSBOSS_CHAT_HISTORY")
+    RETURN_NAMES = ("text", "thinking", "history")
     OUTPUT_TOOLTIPS = (
         "The model's reply with any <think> blocks removed - safe to wire "
         "straight into a text encoder.",
         "The reasoning a thinking model emitted, empty for ordinary models. "
         "Useful for a preview node while tuning prompts.",
+        "The conversation including this exchange - wire into another chat "
+        "node's history input to continue the thread.",
     )
     FUNCTION = "chat"
 
@@ -312,11 +342,14 @@ class AusBossLmStudioChat:
         idle_unload_seconds=0,
         free_comfy_vram=False,
         unload_llm=False,
+        history=None,
+        json_schema="",
     ):
         if image is None and not str(prompt).strip():
             raise ValueError(
                 "LM Studio Chat: type a prompt or connect an image (or both)."
             )
+        response_format = parse_response_schema(json_schema)
         if free_comfy_vram:
             try:
                 import comfy.model_management as model_management
@@ -346,6 +379,8 @@ class AusBossLmStudioChat:
                 # The visible unload switch wins over the gear's idle timer.
                 "idle_unload_seconds": 1 if unload_llm else idle_unload_seconds,
             },
+            history=history,
+            response_format=response_format,
         )
         url = chat_completions_url(endpoint)
         # The POST blocks for as long as the model generates; a worker thread
@@ -354,7 +389,11 @@ class AusBossLmStudioChat:
         text, thinking = split_reasoning(
             parse_chat_text(data), str(reasoning_open_tag), str(reasoning_close_tag)
         )
-        return (text, thinking)
+        return (
+            text,
+            thinking,
+            history_with_turn(history, prompt, image is not None, text),
+        )
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_LmStudioChat": AusBossLmStudioChat}

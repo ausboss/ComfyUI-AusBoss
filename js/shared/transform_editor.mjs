@@ -15,6 +15,7 @@ import {
   resolvePadding,
   rotatedSize,
   sourceChanged,
+  stageHandleLayout,
   zoomAround,
 } from "./transform_geometry.mjs";
 
@@ -31,10 +32,10 @@ function installStyles() {
   const style = document.createElement("style");
   style.id = "ausboss-transform-styles";
   style.textContent = `
-    .ausboss-transform-panel{display:flex;flex-direction:column;gap:8px;padding:8px;color:#ddd;font:12px system-ui;box-sizing:border-box}
-    .ausboss-transform-preview{width:100%;height:180px;border:1px solid #50555b;border-radius:8px;background:#111;display:block}
+    .ausboss-transform-panel{display:flex;flex-direction:column;gap:8px;padding:8px;color:#ddd;font:12px system-ui;box-sizing:border-box;width:100%;height:100%;overflow:hidden}
+    .ausboss-transform-preview{width:100%;flex:1 1 180px;min-height:0;border:1px solid #50555b;border-radius:8px;background:#111;display:block;touch-action:none}
     .lg-node:has(.ausboss-transform-panel) .image-preview{display:none!important}
-    .ausboss-transform-row{display:flex;gap:7px;align-items:center}.ausboss-transform-row>*{min-width:0;flex:1}
+    .ausboss-transform-row{display:flex;gap:7px;align-items:center;flex:0 0 auto}.ausboss-transform-row>*{min-width:0;flex:1}
     .ausboss-transform-button,.ausboss-transform-modal button{background:#30343a;color:#eee;border:1px solid #555b63;border-radius:5px;padding:7px 10px;cursor:pointer}
     .ausboss-transform-button:hover,.ausboss-transform-modal button:hover{border-color:${BRAND};background:#383e44}
     .ausboss-transform-file{position:relative;text-align:center;overflow:hidden}.ausboss-transform-file input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
@@ -181,11 +182,11 @@ function addLabeledControl(section, title, control, suffix = "") {
   return label;
 }
 
-export function installTransformNode(node, kind) {
+export function installTransformNode(node, kind, mountPanel = null) {
   installStyles();
   const state = {
     node, kind, image: null, sourceWidth: 0, sourceHeight: 0, metadata: null,
-    modal: null, canvas: null, previewCanvas: null, render: null, drag: null,
+    modal: null, canvas: null, previewCanvas: null, render: null, panelRender: null, drag: null,
     view: { zoom: 1, panX: 0, panY: 0 }, grid: false, ready: false,
     source: sourceKey(node, kind), frameController: null, frameObjectUrl: null,
     playbackTimer: null, playing: false, playbackSession: 0, disposed: false, loadSerial: 0,
@@ -216,13 +217,33 @@ export function installTransformNode(node, kind) {
   state.previewCanvas = preview;
   open.addEventListener("click", () => openEditor(state));
 
-  if (typeof node.addDOMWidget === "function") {
+  if (typeof node.addDOMWidget === "function" && mountPanel) {
+    mountPanel(node, panel);
+  } else if (typeof node.addDOMWidget === "function") {
     const domWidget = node.addDOMWidget("ausboss_transform_preview", "ausboss_transform_preview", panel, { serialize: false });
     domWidget.computeSize = (width) => [Math.max(300, width), 230];
   } else {
     node.addWidget?.("button", "Open editor", null, () => openEditor(state), { serialize: false });
   }
-  node.setSize?.([Math.max(330, Math.min(520, node.size?.[0] || 330)), kind === "video" ? 455 : 390]);
+  const baseHeight = kind === "video" ? 455 : 390;
+  node.setSize?.([
+    Math.max(330, Math.min(520, node.size?.[0] || 330)),
+    Math.max(baseHeight, node.computeSize?.()[1] || 0),
+  ]);
+  if (kind === "image" && typeof node.addDOMWidget === "function") {
+    // The compact panel is a live stage for the image node: the same
+    // handles and drag logic as the editor over a fit-only view (no wheel
+    // zoom or pan on the node — the wheel keeps zooming the graph). The
+    // video panel stays a passive preview; its editor holds the timeline.
+    state.panelInteractive = true;
+    state.panelAbort = new AbortController();
+    attachStageHandlers(state, preview, state.panelAbort.signal);
+    // Redraw on wrapper size changes (node resize, zoom relayout) so the
+    // hit-test geometry always matches the canvas the pointer sees;
+    // node.onResize is unreliable across frontends.
+    state.panelResizeObserver = new ResizeObserver(() => draw(state));
+    state.panelResizeObserver.observe(preview);
+  }
 
   const watched = kind === "image" ? ["image"] : ["video", "source_mode", "local_path"];
   for (const name of watched) {
@@ -434,10 +455,7 @@ function openEditor(state) {
 
   const abort = new AbortController(); state.modalAbort = abort;
   close.addEventListener("click", () => closeEditor(state), { signal: abort.signal });
-  canvas.addEventListener("pointerdown", (event) => pointerDown(state, event), { signal: abort.signal });
-  canvas.addEventListener("pointermove", (event) => pointerMove(state, event), { signal: abort.signal });
-  canvas.addEventListener("pointerup", (event) => pointerUp(state, event), { signal: abort.signal });
-  canvas.addEventListener("pointercancel", (event) => pointerUp(state, event), { signal: abort.signal });
+  attachStageHandlers(state, canvas, abort.signal);
   canvas.addEventListener("wheel", (event) => wheelZoom(state, event), { signal: abort.signal, passive: false });
   window.addEventListener("keydown", (event) => keyDown(state, event), { signal: abort.signal });
   window.addEventListener("keyup", (event) => keyUp(state, event), { signal: abort.signal });
@@ -738,21 +756,34 @@ function resolveCssColorName(name) {
 }
 function normalizeColor(value) { return normalizeFillColor(value, resolveCssColorName); }
 
-function renderGeometry(state, width, height) {
+// The panel never zooms or pans: fit-only, so it cannot fight graph zoom.
+const PANEL_VIEW = Object.freeze({ zoom: 1, panX: 0, panY: 0 });
+
+// Geometry (source, crop, padding) is always read live from the widgets;
+// the screen mapping is either fitted fresh or, mid-drag, the frozen map
+// captured at pointerdown — a live refit would change the scale under the
+// pointer and make the grabbed handle slip.
+function renderGeometry(state, width, height, view, map = null) {
   const source = rotatedSize(state.sourceWidth, state.sourceHeight, value(state.node, "rotation_degrees", 0));
   const crop = resolveCrop(values(state.node), source); const padding = resolvePadding(values(state.node), crop);
-  const margin = Math.max(12, Math.min(90, width * 0.1, height * 0.1)); const union = { x: Math.min(0, crop.x - padding.left), y: Math.min(0, crop.y - padding.top) };
-  union.width = Math.max(source.width, crop.x - padding.left + padding.outputWidth) - union.x;
-  union.height = Math.max(source.height, crop.y - padding.top + padding.outputHeight) - union.y;
-  const fit = Math.max(0.01, Math.min((width - margin * 2) / union.width, (height - margin * 2) / union.height));
-  const scale = fit * state.view.zoom;
-  const originX = (width - union.width * fit) / 2 - union.x * fit + state.view.panX;
-  const originY = (height - union.height * fit) / 2 - union.y * fit + state.view.panY;
+  const layout = map?.layout ?? stageHandleLayout(width, height);
+  let scale, originX, originY;
+  if (map) {
+    ({ scale, originX, originY } = map);
+  } else {
+    const margin = layout.margin; const union = { x: Math.min(0, crop.x - padding.left), y: Math.min(0, crop.y - padding.top) };
+    union.width = Math.max(source.width, crop.x - padding.left + padding.outputWidth) - union.x;
+    union.height = Math.max(source.height, crop.y - padding.top + padding.outputHeight) - union.y;
+    const fit = Math.max(0.01, Math.min((width - margin * 2) / union.width, (height - margin * 2) / union.height));
+    scale = fit * view.zoom;
+    originX = (width - union.width * fit) / 2 - union.x * fit + view.panX;
+    originY = (height - union.height * fit) / 2 - union.y * fit + view.panY;
+  }
   const rect = (x, y, w, h) => ({ x: originX + x * scale, y: originY + y * scale, width: w * scale, height: h * scale });
   const sourceRect = rect(0, 0, source.width, source.height);
   const cropRect = rect(crop.x, crop.y, crop.width, crop.height);
   const outputRect = rect(crop.x - padding.left, crop.y - padding.top, padding.outputWidth, padding.outputHeight);
-  return { source, crop, padding, scale, originX, originY, sourceRect, cropRect, outputRect };
+  return { source, crop, padding, scale, originX, originY, layout, sourceRect, cropRect, outputRect };
 }
 
 function prepareCanvas(canvas) {
@@ -765,27 +796,33 @@ function prepareCanvas(canvas) {
 function draw(state) {
   for (const canvas of [state.canvas, state.previewCanvas]) {
     if (!canvas) continue;
+    const compact = canvas === state.previewCanvas;
     const { context, width, height } = prepareCanvas(canvas);
-    if (!state.image || !state.sourceWidth || !state.sourceHeight) { drawEmptyCanvas(context, width, height, "Choose a source to begin"); continue; }
-    const preview = canvas === state.previewCanvas; const render = renderGeometry(state, width, height); if (!preview) state.render = render;
-    drawScene(context, state, render, preview);
+    if (!state.image || !state.sourceWidth || !state.sourceHeight) {
+      if (compact) state.panelRender = null; else state.render = null;
+      drawEmptyCanvas(context, width, height, "Choose a source to begin"); continue;
+    }
+    const frozen = state.drag?.canvas === canvas ? state.drag.map : null;
+    const render = renderGeometry(state, width, height, compact ? PANEL_VIEW : state.view, frozen);
+    if (compact) state.panelRender = render; else state.render = render;
+    drawScene(context, state, render, compact, !compact || Boolean(state.panelInteractive));
   }
   drawFinalPreview(state);
 }
 
-function drawScene(context, state, render, preview) {
+function drawScene(context, state, render, compact, interactive) {
   const { sourceRect, cropRect, outputRect, padding } = render; context.save();
   context.fillStyle = normalizeColor(value(state.node, "fill_color", "#808080")); context.fillRect(outputRect.x, outputRect.y, outputRect.width, outputRect.height);
   context.save(); context.translate(sourceRect.x + sourceRect.width / 2, sourceRect.y + sourceRect.height / 2); context.rotate((Number(value(state.node, "rotation_degrees", 0)) || 0) * Math.PI / 180);
   drawSourceImage(context, state, render.scale); context.restore();
   context.save(); context.globalCompositeOperation = "source-over"; context.fillStyle = "rgba(8,10,12,.62)";
   const full = { x: 0, y: 0, width: context.canvas.width, height: context.canvas.height }; context.beginPath(); context.rect(full.x, full.y, full.width, full.height); context.rect(cropRect.x, cropRect.y, cropRect.width, cropRect.height); context.fill("evenodd"); context.restore();
-  context.strokeStyle = "#4bd8ef"; context.lineWidth = preview ? 1 : 2; context.setLineDash([7, 5]); context.strokeRect(cropRect.x, cropRect.y, cropRect.width, cropRect.height);
+  context.strokeStyle = "#4bd8ef"; context.lineWidth = compact ? 1 : 2; context.setLineDash([7, 5]); context.strokeRect(cropRect.x, cropRect.y, cropRect.width, cropRect.height);
   context.strokeStyle = "#ff9d42"; context.setLineDash([5, 5]); context.strokeRect(outputRect.x, outputRect.y, outputRect.width, outputRect.height); context.setLineDash([]);
-  if (!preview) {
+  if (interactive) {
     if (state.grid) drawGrid(context, cropRect);
     drawCropHandles(context, cropRect, state.drag?.kind === "crop" ? state.drag.name : null);
-    drawPaddingHandles(context, outputRect, state.drag?.kind === "padding" ? state.drag.name : null);
+    drawPaddingHandles(context, outputRect, render.layout.padOffset, state.drag?.kind === "padding" ? state.drag.name : null);
     drawRotationHandle(context, state, render, state.drag?.kind === "rotation");
     context.fillStyle = "#e9edf0"; context.font = "12px system-ui"; context.fillText(`${padding.outputWidth} x ${padding.outputHeight}`, outputRect.x + 8, outputRect.y + 18);
   }
@@ -821,8 +858,8 @@ function drawGrid(context, rect) {
 function drawCropHandles(context, rect, active) {
   for (const handle of cropHandleCenters(rect)) { context.fillStyle = handle.name === active ? "#fff" : "#4bd8ef"; context.fillRect(handle.x - 6, handle.y - 6, 12, 12); context.strokeStyle = "#08272d"; context.strokeRect(handle.x - 6, handle.y - 6, 12, 12); }
 }
-function drawPaddingHandles(context, rect, active) {
-  for (const handle of paddingHandleCenters(rect)) { context.save(); context.translate(handle.x, handle.y); context.rotate(Math.PI / 4); context.fillStyle = handle.name === active ? "#fff" : "#ff9d42"; context.fillRect(-8, -8, 16, 16); context.strokeStyle = "#3b2108"; context.strokeRect(-8, -8, 16, 16); context.restore(); }
+function drawPaddingHandles(context, rect, offset, active) {
+  for (const handle of paddingHandleCenters(rect, offset)) { context.save(); context.translate(handle.x, handle.y); context.rotate(Math.PI / 4); context.fillStyle = handle.name === active ? "#fff" : "#ff9d42"; context.fillRect(-8, -8, 16, 16); context.strokeStyle = "#3b2108"; context.strokeRect(-8, -8, 16, 16); context.restore(); }
 }
 // The knob rides the actual top-right corner of the image being rotated
 // (the rotated quad's corner, not any bounding box), so it stays physically
@@ -843,7 +880,8 @@ function rotationAnchor(state, render) {
   };
   const length = Math.hypot(corner.x - centerX, corner.y - centerY) || 1;
   const direction = { x: (corner.x - centerX) / length, y: (corner.y - centerY) / length };
-  return { corner, handle: { x: corner.x + direction.x * 34, y: corner.y + direction.y * 34 } };
+  const arm = render.layout?.rotateArm ?? 34;
+  return { corner, handle: { x: corner.x + direction.x * arm, y: corner.y + direction.y * arm } };
 }
 function rotationHandle(state, render) {
   return rotationAnchor(state, render).handle;
@@ -856,6 +894,22 @@ function drawRotationHandle(context, state, render, active) {
   context.beginPath(); context.arc(handle.x, handle.y, 13, 0, Math.PI * 2); context.fill();
   context.strokeStyle = "#173516"; context.stroke();
   drawRotateGlyph(context, handle.x, handle.y, 6, "#0c2210");
+  if (!active) return;
+  // Live readout while the knob is held, nudged to stay inside the stage.
+  const degrees = Number(value(state.node, "rotation_degrees", 0)) || 0;
+  const text = `${degrees.toFixed(1)}°`;
+  context.save();
+  context.font = "12px system-ui";
+  const textWidth = context.measureText(text).width;
+  const viewWidth = context.canvas.clientWidth || context.canvas.width;
+  const viewHeight = context.canvas.clientHeight || context.canvas.height;
+  const x = clamp(handle.x + 20, 8, Math.max(8, viewWidth - textWidth - 10));
+  const y = clamp(handle.y - 20, 18, Math.max(18, viewHeight - 8));
+  context.fillStyle = "rgba(8,10,12,0.85)";
+  context.beginPath(); context.roundRect(x - 5, y - 13, textWidth + 10, 18, 6); context.fill();
+  context.fillStyle = "#c9f2c4";
+  context.fillText(text, x, y);
+  context.restore();
 }
 
 // Vector rotate-arrow glyph (circular arc + arrowhead), crisp at any zoom
@@ -884,46 +938,99 @@ function drawRotateGlyph(context, x, y, radius, color) {
   context.restore();
 }
 
-function pointerDown(state, event) {
-  if (event.button === 1 || event.altKey) { state.drag = { kind: "pan", start: canvasLocalPoint(state.canvas, event), view: { ...state.view } }; }
-  else if (event.button === 0 && state.render) {
-    const point = canvasLocalPoint(state.canvas, event); const rotate = rotationHandle(state, state.render);
-    const selected = nearestHandle(point, [
-      { kind: "rotation", priority: 0, radius: 24, handles: [{ name: "rotation", ...rotate }] },
-      { kind: "padding", priority: 1, radius: 24, handles: paddingHandleCenters(state.render.outputRect) },
-      { kind: "crop", priority: 2, radius: 22, handles: cropHandleCenters(state.render.cropRect) },
-    ]);
-    if (selected) state.drag = { ...selected, start: point, crop: { ...state.render.crop }, padding: { ...state.render.padding }, rotation: Number(value(state.node, "rotation_degrees", 0)) };
-    else if (inside(point, state.render.cropRect)) state.drag = { kind: "move", start: point, crop: { ...state.render.crop } };
-  }
-  if (state.drag) { event.preventDefault(); event.stopPropagation(); state.canvas.setPointerCapture(event.pointerId); state.grid = state.drag.kind === "rotation"; draw(state); }
+// One wiring for both stages (editor canvas and compact panel): pointer
+// capture starts on handle hits only, empty presses fall through so the
+// node itself can still drag, and pointercancel plus mouseleave both end a
+// gesture in case the capture was refused.
+function attachStageHandlers(state, canvas, signal) {
+  canvas.addEventListener("pointerdown", (event) => pointerDown(state, canvas, event), { signal });
+  canvas.addEventListener("pointermove", (event) => pointerMove(state, canvas, event), { signal });
+  canvas.addEventListener("pointerup", (event) => pointerUp(state, canvas, event), { signal });
+  canvas.addEventListener("pointercancel", (event) => pointerUp(state, canvas, event), { signal });
+  canvas.addEventListener("mouseleave", (event) => {
+    if (state.drag?.canvas === canvas) pointerUp(state, canvas, event);
+    else canvas.style.cursor = "default";
+  }, { signal });
 }
 
-function pointerMove(state, event) {
-  const point = canvasLocalPoint(state.canvas, event); if (!state.drag) { updateCursor(state, point); return; }
-  event.preventDefault(); const dxScreen = point.x - state.drag.start.x; const dyScreen = point.y - state.drag.start.y;
-  if (state.drag.kind === "pan") { state.view.panX = state.drag.view.panX + dxScreen; state.view.panY = state.drag.view.panY + dyScreen; }
-  else if (state.drag.kind === "rotation") {
-    const center = { x: state.render.sourceRect.x + state.render.sourceRect.width / 2, y: state.render.sourceRect.y + state.render.sourceRect.height / 2 };
-    const startAngle = Math.atan2(state.drag.start.y - center.y, state.drag.start.x - center.x); const nextAngle = Math.atan2(point.y - center.y, point.x - center.x);
-    let degrees = state.drag.rotation + (nextAngle - startAngle) * 180 / Math.PI; if (event.shiftKey) degrees = Math.round(degrees / 15) * 15; setValue(state.node, "rotation_degrees", Math.round(clamp(degrees, -180, 180) * 10) / 10);
-  } else if (state.drag.kind === "crop") {
-    const source = state.render.source; const ratio = parseAspectRatio(value(state.node, "crop_aspect_ratio", "free"), source);
-    const crop = resizeCrop(state.drag.crop, state.drag.name, dxScreen / state.render.scale, dyScreen / state.render.scale, source, ratio); setCrop(state.node, crop);
-  } else if (state.drag.kind === "move") {
-    const crop = state.drag.crop; setCrop(state.node, { ...crop, x: Math.round(clamp(crop.x + dxScreen / state.render.scale, 0, state.render.source.width - crop.width)), y: Math.round(clamp(crop.y + dyScreen / state.render.scale, 0, state.render.source.height - crop.height)) });
-  } else if (state.drag.kind === "padding") {
-    const delta = (state.drag.name === "pad_left" || state.drag.name === "pad_right" ? dxScreen : dyScreen) / state.render.scale;
-    const sign = state.drag.name === "pad_left" || state.drag.name === "pad_top" ? -1 : 1; setValue(state.node, state.drag.name, Math.max(0, Math.round(state.drag.padding[state.drag.name.replace("pad_", "")] + delta * sign)));
+function surfaceRender(state, canvas) {
+  return canvas === state.previewCanvas ? state.panelRender : state.render;
+}
+
+// The single hit-test order both surfaces share; hit radii are ~2-3x the
+// drawn handle so handles stay grabbable on the compact panel.
+function handleGroups(state, render) {
+  return [
+    { kind: "rotation", priority: 0, radius: 24, handles: [{ name: "rotation", ...rotationHandle(state, render) }] },
+    { kind: "padding", priority: 1, radius: 24, handles: paddingHandleCenters(render.outputRect, render.layout.padOffset) },
+    { kind: "crop", priority: 2, radius: 22, handles: cropHandleCenters(render.cropRect) },
+  ];
+}
+
+function pointerDown(state, canvas, event) {
+  if (state.drag) return;
+  const render = surfaceRender(state, canvas);
+  if (canvas === state.canvas && (event.button === 1 || event.altKey)) {
+    state.drag = { kind: "pan", canvas, start: canvasLocalPoint(canvas, event), view: { ...state.view } };
+  } else if (event.button === 0 && render) {
+    const point = canvasLocalPoint(canvas, event);
+    const selected = nearestHandle(point, handleGroups(state, render));
+    const base = {
+      canvas, start: point,
+      // Everything a drag computes against, frozen at grab time (map plus
+      // world snapshots) so a mid-gesture refit cannot move the target.
+      map: { scale: render.scale, originX: render.originX, originY: render.originY, layout: render.layout },
+      source: { ...render.source },
+      center: { x: render.sourceRect.x + render.sourceRect.width / 2, y: render.sourceRect.y + render.sourceRect.height / 2 },
+      crop: { ...render.crop },
+      padding: { ...render.padding },
+      rotation: Number(value(state.node, "rotation_degrees", 0)),
+    };
+    if (selected) state.drag = { ...selected, ...base };
+    else if (inside(point, render.cropRect)) state.drag = { kind: "move", ...base };
+  }
+  // No hit: no capture and no preventDefault, so an empty press on the
+  // panel falls through and the node drags as usual.
+  if (!state.drag) return;
+  event.preventDefault(); event.stopPropagation();
+  try { canvas.setPointerCapture(event.pointerId); } catch { /* mouse fallback */ }
+  state.grid = state.drag.kind === "rotation";
+  draw(state);
+}
+
+function pointerMove(state, canvas, event) {
+  const point = canvasLocalPoint(canvas, event);
+  const drag = state.drag;
+  if (!drag || drag.canvas !== canvas) { updateCursor(state, canvas, point); return; }
+  event.preventDefault();
+  const dxScreen = point.x - drag.start.x; const dyScreen = point.y - drag.start.y;
+  if (drag.kind === "pan") { state.view.panX = drag.view.panX + dxScreen; state.view.panY = drag.view.panY + dyScreen; }
+  else if (drag.kind === "rotation") {
+    const startAngle = Math.atan2(drag.start.y - drag.center.y, drag.start.x - drag.center.x);
+    const nextAngle = Math.atan2(point.y - drag.center.y, point.x - drag.center.x);
+    let degrees = drag.rotation + (nextAngle - startAngle) * 180 / Math.PI;
+    if (event.shiftKey) degrees = Math.round(degrees / 15) * 15;
+    setValue(state.node, "rotation_degrees", Math.round(clamp(degrees, -180, 180) * 10) / 10);
+  } else if (drag.kind === "crop") {
+    const ratio = parseAspectRatio(value(state.node, "crop_aspect_ratio", "free"), drag.source);
+    setCrop(state.node, resizeCrop(drag.crop, drag.name, dxScreen / drag.map.scale, dyScreen / drag.map.scale, drag.source, ratio));
+  } else if (drag.kind === "move") {
+    const crop = drag.crop;
+    setCrop(state.node, { ...crop, x: Math.round(clamp(crop.x + dxScreen / drag.map.scale, 0, drag.source.width - crop.width)), y: Math.round(clamp(crop.y + dyScreen / drag.map.scale, 0, drag.source.height - crop.height)) });
+  } else if (drag.kind === "padding") {
+    const delta = (drag.name === "pad_left" || drag.name === "pad_right" ? dxScreen : dyScreen) / drag.map.scale;
+    const sign = drag.name === "pad_left" || drag.name === "pad_top" ? -1 : 1;
+    setValue(state.node, drag.name, Math.max(0, Math.round(drag.padding[drag.name.replace("pad_", "")] + delta * sign)));
   }
   draw(state); updateModalInfo(state);
 }
 
-function pointerUp(state, event) {
-  if (!state.drag) return;
-  const kind = state.drag.kind;
+function pointerUp(state, canvas, event) {
+  const drag = state.drag;
+  if (!drag || drag.canvas !== canvas) return;
+  const kind = drag.kind;
   state.drag = null; state.grid = false;
-  try { state.canvas.releasePointerCapture(event.pointerId); } catch {}
+  try { canvas.releasePointerCapture(event.pointerId); } catch {}
   draw(state); state.node.setDirtyCanvas?.(true, true);
   // Widgets were written throughout the drag; tell the tracker once, on
   // release. A pan only moves the view and serializes nothing.
@@ -931,12 +1038,11 @@ function pointerUp(state, event) {
 }
 function inside(point, rect) { return point.x >= rect.x && point.x <= rect.x + rect.width && point.y >= rect.y && point.y <= rect.y + rect.height; }
 function setCrop(node, crop) { setValue(node, "crop_x", crop.x); setValue(node, "crop_y", crop.y); setValue(node, "crop_width", crop.width); setValue(node, "crop_height", crop.height); }
-function updateCursor(state, point) {
-  if (!state.render) return; const rotate = rotationHandle(state, state.render); const selected = nearestHandle(point, [
-    { kind: "rotation", priority: 0, radius: 24, handles: [{ name: "rotation", ...rotate }] },
-    { kind: "padding", priority: 1, radius: 24, handles: paddingHandleCenters(state.render.outputRect) },
-    { kind: "crop", priority: 2, radius: 22, handles: cropHandleCenters(state.render.cropRect) },
-  ]); state.canvas.style.cursor = selected?.kind === "rotation" ? "crosshair" : selected ? "grab" : inside(point, state.render.cropRect) ? "move" : "default";
+function updateCursor(state, canvas, point) {
+  const render = surfaceRender(state, canvas);
+  if (!render) return;
+  const selected = nearestHandle(point, handleGroups(state, render));
+  canvas.style.cursor = selected?.kind === "rotation" ? "crosshair" : selected ? "grab" : inside(point, render.cropRect) ? "move" : "default";
 }
 function wheelZoom(state, event) { event.preventDefault(); const point = canvasLocalPoint(state.canvas, event); state.view = zoomAround(state.view, state.view.zoom * Math.exp(-event.deltaY * 0.0015), point); draw(state); }
 
@@ -946,7 +1052,7 @@ function updateModalInfo(state) {
   const frame = state.kind === "video" ? `\nFrame ${value(state.node, "frame_index", 0)} at ${Number(value(state.node, "frame_time", 0)).toFixed(3)}s` : "";
   status.textContent = `Source ${state.sourceWidth} x ${state.sourceHeight}\nRotated ${source.width} x ${source.height}\nCrop ${crop.x}, ${crop.y}, ${crop.width} x ${crop.height}\nOutput ${pad.outputWidth} x ${pad.outputHeight}${frame}`;
 }
-function drawEmpty(state, text) { for (const canvas of [state.canvas, state.previewCanvas]) { if (!canvas) continue; const prepared = prepareCanvas(canvas); drawEmptyCanvas(prepared.context, prepared.width, prepared.height, text); } }
+function drawEmpty(state, text) { state.render = null; state.panelRender = null; for (const canvas of [state.canvas, state.previewCanvas]) { if (!canvas) continue; const prepared = prepareCanvas(canvas); drawEmptyCanvas(prepared.context, prepared.width, prepared.height, text); } }
 function drawEmptyCanvas(context, width, height, text) { context.fillStyle = "#111"; context.fillRect(0, 0, width, height); context.fillStyle = "#9ba2aa"; context.font = "13px system-ui"; context.textAlign = "center"; context.fillText(text, width / 2, height / 2); context.textAlign = "left"; }
 
 // True when the node is an AusBoss transform node whose editor can open
@@ -959,7 +1065,7 @@ export function openTransformEditorForNode(node) {
 }
 
 export function disposeTransformNode(node) {
-  const state = node.__ausbossTransformState; if (!state) return; state.disposed = true; closeEditor(state); state.frameController?.abort(); if (state.frameObjectUrl) URL.revokeObjectURL(state.frameObjectUrl);
+  const state = node.__ausbossTransformState; if (!state) return; state.disposed = true; closeEditor(state); state.panelAbort?.abort(); state.panelResizeObserver?.disconnect(); state.frameController?.abort(); if (state.frameObjectUrl) URL.revokeObjectURL(state.frameObjectUrl);
   if (node.__ausbossImgsSuppressed) {
     const descriptor = node.__ausbossImgsDescriptor;
     if (descriptor) Object.defineProperty(node, "imgs", descriptor); else delete node.imgs;
@@ -971,12 +1077,12 @@ export function disposeTransformNode(node) {
   delete node.__ausbossTransformState;
 }
 
-export function registerTransformExtension(nodeClass, kind) {
+export function registerTransformExtension(nodeClass, kind, mountPanel = null) {
   app.registerExtension({
     name: `ausboss.transform.${kind}`,
     beforeRegisterNodeDef(nodeType, nodeData) {
       if (nodeData.name !== nodeClass) return;
-      chainCallback(nodeType.prototype, "onNodeCreated", function () { installTransformNode(this, kind); });
+      chainCallback(nodeType.prototype, "onNodeCreated", function () { installTransformNode(this, kind, mountPanel); });
       chainCallback(nodeType.prototype, "onRemoved", function () { disposeTransformNode(this); });
     },
   });

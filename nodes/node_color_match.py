@@ -16,7 +16,9 @@ class AusBossColorMatch:
         "correction to its white area (invert_mask flips that), which is "
         "why the node takes a mask but outputs none: the mask only scopes "
         "the fix, and passes through your graph unchanged. Strength blends "
-        "between the original and the fully matched result."
+        "between the original and the fully matched result. For video, "
+        "reference_mode: first_frame locks every frame to the batch's own "
+        "first frame — the one-node flicker fix, no reference needed."
     )
     SEARCH_ALIASES = [
         "color match",
@@ -35,16 +37,6 @@ class AusBossColorMatch:
                     "IMAGE",
                     {"tooltip": "BHWC image whose colors get corrected."},
                 ),
-                "reference": (
-                    "IMAGE",
-                    {
-                        "tooltip": (
-                            "The image whose color statistics to copy — for "
-                            "an inpainted crop, feed the original image here. "
-                            "A single reference broadcasts across a batch."
-                        )
-                    },
-                ),
                 "strength": (
                     "FLOAT",
                     {
@@ -60,6 +52,17 @@ class AusBossColorMatch:
                 ),
             },
             "optional": {
+                "reference": (
+                    "IMAGE",
+                    {
+                        "tooltip": (
+                            "The image whose color statistics to copy — for "
+                            "an inpainted crop, feed the original image here. "
+                            "A single reference broadcasts across a batch. "
+                            "Required unless reference_mode is first_frame."
+                        )
+                    },
+                ),
                 "method": (
                     list(COLOR_MATCH_METHODS),
                     {
@@ -98,6 +101,20 @@ class AusBossColorMatch:
                         ),
                     },
                 ),
+                "reference_mode": (
+                    ["reference", "first_frame"],
+                    {
+                        "default": "reference",
+                        "tooltip": (
+                            "Where the target statistics come from. "
+                            "reference uses the connected reference image. "
+                            "first_frame uses the batch's own first frame as "
+                            "the target for every frame — locks a video's "
+                            "color in place to kill flicker; the reference "
+                            "input is ignored."
+                        ),
+                    },
+                ),
             },
         }
 
@@ -108,7 +125,24 @@ class AusBossColorMatch:
     )
     FUNCTION = "match"
 
-    def match(self, image, reference, strength, method="lab", mask=None, invert_mask=False):
+    def match(
+        self,
+        image,
+        strength,
+        reference=None,
+        method="lab",
+        mask=None,
+        invert_mask=False,
+        reference_mode="reference",
+    ):
+        if reference_mode == "first_frame":
+            reference = image[:1]
+        elif reference is None:
+            raise ValueError(
+                "Color Match needs a reference image connected, or "
+                "reference_mode: first_frame to match against the batch's "
+                "own first frame."
+            )
         return (
             match_colors(
                 image, reference, float(strength), mask, str(method), bool(invert_mask)

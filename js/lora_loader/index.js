@@ -15,20 +15,25 @@ import {
   filterLoras,
   groupByFolder,
   highlightedName,
+  applyTemplate,
   isScrubbing,
   moveHighlight,
   moveRow,
   newRow,
   parseRows,
+  parseTemplates,
+  removeTemplate,
   roundStrength,
   scrubValue,
   serializeRows,
   setStrength,
   strengthOutOfRange,
   summarizeRows,
+  templateFromRows,
   toggleAllRows,
   toggleAllState,
   toggleTrigger,
+  upsertTemplate,
 } from "../shared/lora_stack.mjs";
 
 const NODE_CLASS = "AUSBOSS_NODES_LoraLoader";
@@ -171,6 +176,15 @@ function installStyles() {
     background: transparent; color: inherit; padding: 6px 8px; border-radius: 4px; cursor: pointer; }
   .ausboss-lora-menu button:hover:not(:disabled) { background: #2c3238; }
   .ausboss-lora-menu button:disabled { opacity: 0.35; cursor: default; }
+  .ausboss-lora-templates { padding: 8px; gap: 6px; display: flex; flex-direction: column; }
+  .ausboss-lora-template-row { display: flex; align-items: center; gap: 4px; }
+  .ausboss-lora-template-row > button:first-child { flex: 1 1 auto; min-width: 0; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; text-align: left; border: none;
+    background: transparent; color: inherit; padding: 6px 8px; border-radius: 4px; cursor: pointer; }
+  .ausboss-lora-template-row > button:first-child:hover { background: #2c3238; }
+  .ausboss-lora-template-x { flex: none; width: 22px; height: 22px; border: none; border-radius: 4px;
+    background: transparent; color: #9ba2aa; cursor: pointer; font-size: 14px; line-height: 1; }
+  .ausboss-lora-template-x:hover { background: #2c3238; color: #ff8a80; }
   .ausboss-lora-card { width: 300px; padding: 10px; gap: 8px; }
   .ausboss-lora-card img { max-width: 100%; max-height: 180px; object-fit: contain;
     border-radius: 5px; align-self: center; }
@@ -682,6 +696,81 @@ function openInfo(state, index, anchor) {
   load();
 }
 
+// ---------- templates ----------
+
+const TEMPLATES_KEY = "AusBoss.lora_loader.templates";
+
+function loadTemplates() {
+  try {
+    return parseTemplates(window.localStorage?.getItem(TEMPLATES_KEY) ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveTemplates(list) {
+  try {
+    window.localStorage?.setItem(TEMPLATES_KEY, JSON.stringify(list));
+  } catch {}
+}
+
+function openTemplates(state, anchor) {
+  const menu = el("div", "ausboss-lora-menu ausboss-lora-templates");
+  const rebuild = () => {
+    menu.textContent = "";
+    const saveRow = el("div", "ausboss-lora-custom");
+    const nameInput = el("input");
+    nameInput.placeholder = "Save current as...";
+    nameInput.title = "Name this stack; saving over an existing name replaces it";
+    const saveButton = el("button", "ausboss-lora-add", "Save");
+    saveButton.type = "button";
+    const save = () => {
+      const template = templateFromRows(nameInput.value, state.rows);
+      if (!template) return;
+      saveTemplates(upsertTemplate(loadTemplates(), template));
+      nameInput.value = "";
+      rebuild();
+    };
+    saveButton.addEventListener("click", save);
+    nameInput.addEventListener("keydown", (event) => {
+      event.stopPropagation();
+      if (event.key === "Enter") save();
+    });
+    saveRow.append(nameInput, saveButton);
+    menu.append(saveRow);
+
+    const templates = loadTemplates();
+    if (!templates.length) {
+      menu.append(el("div", "ausboss-lora-empty", "No saved templates yet."));
+      return;
+    }
+    for (const template of templates) {
+      const row = el("div", "ausboss-lora-template-row");
+      const apply = el("button", "", template.name);
+      apply.type = "button";
+      apply.title = `Replace this node's rows with "${template.name}" (${template.rows.length} LoRA${template.rows.length === 1 ? "" : "s"})`;
+      apply.addEventListener("click", () => {
+        closePopup();
+        commitRows(state, applyTemplate(template), { structural: true });
+        fitNode(state);
+      });
+      const remove = el("button", "ausboss-lora-template-x", "×");
+      remove.type = "button";
+      remove.title = `Delete "${template.name}"`;
+      remove.addEventListener("click", (event) => {
+        event.stopPropagation();
+        saveTemplates(removeTemplate(loadTemplates(), template.name));
+        rebuild();
+      });
+      row.append(apply, remove);
+      menu.append(row);
+    }
+  };
+  rebuild();
+  openPopup(menu, anchor.getBoundingClientRect(), { width: 240 });
+  menu.querySelector("input")?.focus();
+}
+
 // ---------- row menu ----------
 
 function openRowMenu(state, index, event) {
@@ -796,12 +885,16 @@ function renderRows(state) {
   master.addEventListener("click", () => {
     commitRows(state, toggleAllRows(state.rows), { structural: true });
   });
+  const templates = el("button", "ausboss-lora-gear", "▤");
+  templates.type = "button";
+  templates.title = "LoRA templates: save this stack, or apply a saved one";
+  templates.addEventListener("click", () => openTemplates(state, templates));
   const gear = el("button", "ausboss-lora-gear");
   gear.type = "button";
   gear.title = "LoRA Loader settings";
   gear.innerHTML = gearIconSvg();
   gear.addEventListener("click", () => openSettings(state, gear));
-  bar.append(master, el("span", "ausboss-lora-summary", summarizeRows(state.rows)), gear);
+  bar.append(master, el("span", "ausboss-lora-summary", summarizeRows(state.rows)), templates, gear);
   panel.append(bar);
 
   const stack = el("div", "ausboss-lora-stack");

@@ -43,8 +43,16 @@ def drop_shadow(
     blur: int,
     shadow_color: object = "#000000",
     opacity: float = 0.6,
-) -> torch.Tensor:
-    """Composite a colored drop shadow under the masked subject."""
+    blend: str = "normal",
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Composite a colored drop shadow under the masked subject.
+
+    Returns ``(image, shadow_mask)`` where ``shadow_mask`` is the effective
+    BHW shadow alpha — offset, grown, feathered, opacity-scaled, and carved
+    by the subject — so the shadow can be re-composited downstream.
+    ``blend`` is "normal" (mix toward the shadow color) or "multiply"
+    (darken the backdrop by the color, photographic on textured ground).
+    """
     if not isinstance(image, torch.Tensor) or image.ndim != 4:
         raise ValueError("Drop Shadow expected a BHWC IMAGE batch.")
     image = image.float()
@@ -65,10 +73,14 @@ def drop_shadow(
     mask = mask.float().clamp(0.0, 1.0)
     if mask.shape[0] == 1 and image.shape[0] > 1:
         mask = mask.expand(image.shape[0], -1, -1)
+    if blend not in ("normal", "multiply"):
+        raise ValueError(
+            f"Drop Shadow blend must be 'normal' or 'multiply', not '{blend}'."
+        )
 
     opacity = max(0.0, min(1.0, float(opacity)))
     if opacity == 0.0:
-        return image
+        return image, torch.zeros_like(mask)
 
     shadow = shift_mask(mask, offset_x, offset_y)
     shadow = grow_shrink_mask(shadow, max(0, int(grow)))
@@ -84,11 +96,16 @@ def drop_shadow(
         dtype=image.dtype,
         device=image.device,
     ).view(1, 1, 1, 3)
-    mixed = rgb + alpha * (color - rgb)
+    if blend == "multiply":
+        # Darken by the color in proportion to the shadow: full alpha
+        # multiplies the backdrop by the color, zero alpha leaves it alone.
+        mixed = rgb * (1.0 - alpha * (1.0 - color))
+    else:
+        mixed = rgb + alpha * (color - rgb)
     mixed = torch.where(alpha > 0, mixed, rgb)
     if image.shape[3] > 3:
         mixed = torch.cat([mixed, image[..., 3:]], dim=-1)
-    return mixed
+    return mixed, alpha.squeeze(-1)
 
 
 __all__ = ["drop_shadow", "shift_mask"]

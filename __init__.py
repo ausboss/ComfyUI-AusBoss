@@ -28,14 +28,13 @@ NODE_MODULES = [
     "node_inpaint_crop_stitch",
     "node_lama_inpaint",
     "node_lmstudio_chat",
+    "node_load_image_pad",
     "node_load_video",
     "node_lora_loader",
     "node_pad_image",
     "node_refine_mask",
     "node_save_video",
     "node_select_frame",
-    "node_select_frame_range",
-    "node_video_bundle",
     "node_video_crop_rotate_pad",
 ]
 

@@ -5,9 +5,6 @@ from __future__ import annotations
 from ._mask_helpers import EDGE_REFINE_MODES, refine_mask
 
 
-NODE_ID = "AUSBOSS_NODES_RefineMask"
-
-
 class AusBossRefineMask:
     CATEGORY = "🆎 AusBoss/Mask"
     DESCRIPTION = (
@@ -20,7 +17,8 @@ class AusBossRefineMask:
     )
     SEARCH_ALIASES = [
         "grow mask", "shrink mask", "expand mask", "feather", "fill holes",
-        "smooth", "levels", "guided filter", "alpha matting", "ausboss",
+        "smooth", "levels", "guided filter", "alpha matting", "mask blur",
+        "mask fix", "ausboss",
     ]
 
     @classmethod

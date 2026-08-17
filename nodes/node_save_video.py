@@ -6,6 +6,7 @@ import asyncio
 from pathlib import Path
 
 from ._video_save_helpers import (
+    VIDEO_FORMATS,
     encode_video,
     resolve_encode_fps,
     video_components,
@@ -18,18 +19,23 @@ except ImportError:  # Offline tests import this module without ComfyUI.
     folder_paths = None
 
 
-NODE_ID = "AUSBOSS_NODES_SaveVideo"
-
-
 class AusBossSaveVideo:
     CATEGORY = "🆎 AusBoss/Video"
     DESCRIPTION = (
-        "Saves a frame batch as an H.264 mp4 with optional muxed audio and the "
-        "workflow embedded, so the file drags back into ComfyUI. Wire fps "
-        "straight from Load Video 🆎 to keep the source timing, or "
-        "connect a core VIDEO to encode that whole video instead."
+        "Saves a frame batch as an H.264/H.265 mp4 or VP9 webm with optional "
+        "muxed audio and the workflow embedded, so the file drags back into "
+        "ComfyUI. Wire fps straight from Load Video 🆎 to keep the source "
+        "timing, or connect a core VIDEO to encode that whole video instead."
     )
-    SEARCH_ALIASES = ["save video", "export video", "video combine", "mp4", "ausboss"]
+    SEARCH_ALIASES = [
+        "save video",
+        "export video",
+        "video combine",
+        "mp4",
+        "webm",
+        "h265",
+        "ausboss",
+    ]
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -63,7 +69,11 @@ class AusBossSaveVideo:
                         "min": 0,
                         "max": 51,
                         "step": 1,
-                        "tooltip": "H.264 quality: lower is better and larger. 19 is visually lossless for most content.",
+                        "tooltip": (
+                            "Encode quality: lower is better and larger. 19 is "
+                            "visually lossless for h264; h265 and vp9 read the "
+                            "same scale (vp9 tolerates a few points higher)."
+                        ),
                     },
                 ),
             },
@@ -95,6 +105,18 @@ class AusBossSaveVideo:
                         ),
                     },
                 ),
+                "format": (
+                    list(VIDEO_FORMATS),
+                    {
+                        "default": "mp4 h264",
+                        "tooltip": (
+                            "Container and codec. mp4 h264 plays everywhere; "
+                            "mp4 h265 halves the size at the same quality "
+                            "where supported; webm vp9 suits the web and "
+                            "muxes Opus audio. crf applies to all three."
+                        ),
+                    },
+                ),
             },
             "hidden": {"prompt": "PROMPT", "extra_pnginfo": "EXTRA_PNGINFO"},
         }
@@ -104,7 +126,16 @@ class AusBossSaveVideo:
     FUNCTION = "save"
 
     async def save(
-        self, fps, filename_prefix, crf, frames=None, audio=None, video=None, prompt=None, extra_pnginfo=None
+        self,
+        fps,
+        filename_prefix,
+        crf,
+        frames=None,
+        audio=None,
+        video=None,
+        format="mp4 h264",
+        prompt=None,
+        extra_pnginfo=None,
     ):
         if folder_paths is None:
             raise RuntimeError("Save Video requires ComfyUI's folder_paths at runtime.")
@@ -137,7 +168,8 @@ class AusBossSaveVideo:
                 int(frames.shape[1]),
             )
         )
-        file = f"{filename}_{counter:05}_.mp4"
+        extension = VIDEO_FORMATS[format][0] if format in VIDEO_FORMATS else "mp4"
+        file = f"{filename}_{counter:05}_.{extension}"
         width, height, frame_count = await asyncio.to_thread(
             encode_video,
             Path(full_output_folder) / file,
@@ -146,6 +178,7 @@ class AusBossSaveVideo:
             audio,
             int(crf),
             workflow_metadata(prompt, extra_pnginfo),
+            str(format),
         )
         return {
             "ui": {

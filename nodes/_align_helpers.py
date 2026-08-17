@@ -127,8 +127,13 @@ def align_image(
     pad_position: str = "center",
     pad_fill: str = "replicate",
     pad_color: object = "#000000",
-) -> tuple[torch.Tensor, int, int]:
-    """Snap a BHWC batch to the multiple; returns (image, width, height).
+) -> tuple[torch.Tensor, int, int, int, int]:
+    """Snap a BHWC batch to the multiple.
+
+    Returns ``(image, width, height, offset_x, offset_y)`` where the offsets
+    locate the original image's top-left corner inside the output: positive
+    after padding, negative after cropping, zero after a resize. They are
+    what an un-align crop after sampling needs.
 
     ``resize`` rescales to the nearest multiple (bilinear, antialiased when
     shrinking). ``crop`` crops down to the next multiple, keeping the region
@@ -158,19 +163,22 @@ def align_image(
     height, width = int(image.shape[1]), int(image.shape[2])
     target_w, target_h = aligned_size(width, height, multiple, mode)
     if (target_w, target_h) == (width, height):
-        return image, width, height
+        return image, width, height, 0, 0
 
     if mode == "resize":
-        return _resize_image(image, target_w, target_h), target_w, target_h
+        return _resize_image(image, target_w, target_h), target_w, target_h, 0, 0
 
     aligned = image
+    offset_x = offset_y = 0
     # Crop any excess first (only the crop mode ever has excess).
     if width > target_w or height > target_h:
         left, top = _crop_offsets(width, height, target_w, target_h, crop_position)
         if width > target_w:
             aligned = aligned[:, :, left : left + target_w, :]
+            offset_x = -left
         if height > target_h:
             aligned = aligned[:, top : top + target_h, :, :]
+            offset_y = -top
     pad_w = max(0, target_w - aligned.shape[2])
     pad_h = max(0, target_h - aligned.shape[1])
     if pad_w or pad_h:
@@ -183,10 +191,13 @@ def align_image(
         else:
             # A crop-mode deficit (input smaller than one multiple): keep the
             # old even replicate split.
-            aligned = _replicate_pad(
-                aligned, pad_w // 2, pad_h // 2, pad_w - pad_w // 2, pad_h - pad_h // 2
-            )
-    return aligned.contiguous(), target_w, target_h
+            left, top = pad_w // 2, pad_h // 2
+            aligned = _replicate_pad(aligned, left, top, pad_w - left, pad_h - top)
+        if pad_w:
+            offset_x += left
+        if pad_h:
+            offset_y += top
+    return aligned.contiguous(), target_w, target_h, offset_x, offset_y
 
 
 __all__ = [

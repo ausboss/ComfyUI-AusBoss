@@ -100,28 +100,55 @@ class AusBossDropShadow:
                         "tooltip": "Shadow strength; 0 returns the image untouched.",
                     },
                 ),
-            }
+            },
+            "optional": {
+                "blend": (
+                    ["normal", "multiply"],
+                    {
+                        "default": "normal",
+                        "tooltip": (
+                            "normal mixes the backdrop toward the shadow "
+                            "color. multiply darkens the backdrop by the "
+                            "color instead, keeping its texture visible — "
+                            "the photographic choice on busy ground."
+                        ),
+                    },
+                ),
+            },
         }
 
-    RETURN_TYPES = ("IMAGE",)
-    RETURN_NAMES = ("image",)
+    RETURN_TYPES = ("IMAGE", "MASK")
+    RETURN_NAMES = ("image", "shadow_mask")
     OUTPUT_TOOLTIPS = (
         "The image with the shadow composited under the subject.",
+        "The effective shadow alpha — offset, grown, feathered, opacity-"
+        "scaled, and carved by the subject — for compositing the shadow "
+        "yourself downstream.",
     )
     FUNCTION = "cast"
 
-    def cast(self, image, mask, offset_x, offset_y, grow, blur, shadow_color, opacity):
-        return (
-            drop_shadow(
-                image,
-                mask,
-                int(offset_x),
-                int(offset_y),
-                int(grow),
-                int(blur),
-                shadow_color,
-                float(opacity),
-            ),
+    def cast(
+        self,
+        image,
+        mask,
+        offset_x,
+        offset_y,
+        grow,
+        blur,
+        shadow_color,
+        opacity,
+        blend="normal",
+    ):
+        return drop_shadow(
+            image,
+            mask,
+            int(offset_x),
+            int(offset_y),
+            int(grow),
+            int(blur),
+            shadow_color,
+            float(opacity),
+            str(blend),
         )
 
 

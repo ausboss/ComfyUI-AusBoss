@@ -117,11 +117,25 @@ def decode_video_range(
     end_seconds: float,
     custom_width: int,
     custom_height: int,
+    every_nth: int = 1,
+    max_frames: int = 0,
 ) -> tuple[torch.Tensor, float]:
-    """Decode [start, end) as a BHWC float batch plus the source fps."""
+    """Decode [start, end) as a BHWC float batch plus the source fps.
+
+    ``every_nth`` keeps one frame in that many (1 keeps all); the caller
+    divides the reported fps by it so timing survives. ``max_frames`` stops
+    the decode after that many kept frames (0 = no cap) — the cheap way to
+    sample a long clip without holding it all in memory.
+    """
     metadata = video_metadata(path)
     start, end = trim_window(float(metadata["duration"]), start_seconds, end_seconds)
+    nth = max(1, int(every_nth))
+    cap = max(0, int(max_frames))
     estimated = _estimate_window_frames(metadata, start, end)
+    if nth > 1 and estimated > 0:
+        estimated = math.ceil(estimated / nth)
+    if cap > 0:
+        estimated = min(estimated, cap) if estimated > 0 else cap
     source_width, source_height = int(metadata["width"]), int(metadata["height"])
     if estimated > 0 and source_width > 0 and source_height > 0:
         planned = output_size(source_width, source_height, custom_width, custom_height)
@@ -143,17 +157,22 @@ def decode_video_range(
             offset = int(start / stream.time_base) + (stream.start_time or 0)
             container.seek(max(0, offset), stream=stream, backward=True)
         size: tuple[int, int] | None = None
+        window_index = 0
         for frame in container.decode(stream):
             # Checked before the per-frame work, and on skipped frames too, so
             # cancelling during a long lead-in still stops within one frame.
             raise_if_interrupted()
             time = frame.time
             if time is None:
-                time = start + count / fps
+                time = start + window_index / fps
             if time < start - _TIME_EPSILON:
                 continue
             if time > end - _TIME_EPSILON:
                 break
+            keep = window_index % nth == 0
+            window_index += 1
+            if not keep:
+                continue
             array = frame.to_ndarray(format="rgb24")
             if size is None:
                 size = output_size(array.shape[1], array.shape[0], custom_width, custom_height)
@@ -174,6 +193,8 @@ def decode_video_range(
             buffer[count] = array
             count += 1
             advance_progress(progress, count, estimated)
+            if cap and count >= cap:
+                break
     if buffer is None or count == 0:
         raise ValueError(
             f"Load Video found no frames between {start:.2f}s and "
