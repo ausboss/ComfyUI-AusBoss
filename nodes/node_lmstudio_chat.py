@@ -172,6 +172,96 @@ class AusBossLmStudioChat:
                         )
                     },
                 ),
+                # Everything below is set from the node's gear menu and
+                # hidden on the canvas; neutral defaults are omitted from
+                # the request so the plain node behaves exactly as before.
+                "top_p": (
+                    "FLOAT",
+                    {
+                        "default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01,
+                        "tooltip": (
+                            "Nucleus sampling cap; 1 sends nothing and the "
+                            "server default applies."
+                        ),
+                    },
+                ),
+                "top_k": (
+                    "INT",
+                    {
+                        "default": 0, "min": 0, "max": 1000, "step": 1,
+                        "tooltip": "Top-k sampling cutoff; 0 sends nothing.",
+                    },
+                ),
+                "repeat_penalty": (
+                    "FLOAT",
+                    {
+                        "default": 1.0, "min": 0.0, "max": 4.0, "step": 0.01,
+                        "tooltip": "Repetition penalty; 1 sends nothing.",
+                    },
+                ),
+                "min_p": (
+                    "FLOAT",
+                    {
+                        "default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01,
+                        "tooltip": "Minimum token probability; 0 sends nothing.",
+                    },
+                ),
+                "presence_penalty": (
+                    "FLOAT",
+                    {
+                        "default": 0.0, "min": -2.0, "max": 2.0, "step": 0.01,
+                        "tooltip": "Presence penalty; 0 sends nothing.",
+                    },
+                ),
+                "thinking_mode": (
+                    ["model default", "on", "off"],
+                    {
+                        "default": "model default",
+                        "tooltip": (
+                            "Force a hybrid reasoning model to think or not "
+                            "via chat_template_kwargs (Qwen-style templates "
+                            "honor it; others ignore it)."
+                        ),
+                    },
+                ),
+                "reasoning_open_tag": (
+                    "STRING",
+                    {
+                        "default": "<think>",
+                        "tooltip": (
+                            "Tag that opens a reasoning block in the reply; "
+                            "the block moves to the thinking output."
+                        ),
+                    },
+                ),
+                "reasoning_close_tag": (
+                    "STRING",
+                    {
+                        "default": "</think>",
+                        "tooltip": "Tag that closes a reasoning block.",
+                    },
+                ),
+                "idle_unload_seconds": (
+                    "INT",
+                    {
+                        "default": 0, "min": 0, "max": 86400, "step": 5,
+                        "tooltip": (
+                            "LM Studio JIT TTL: unload the model after "
+                            "idling this many seconds. 0 sends nothing."
+                        ),
+                    },
+                ),
+                "free_comfy_vram": (
+                    "BOOLEAN",
+                    {
+                        "default": False,
+                        "tooltip": (
+                            "Unload ComfyUI's cached models before the "
+                            "request so a big LLM fits alongside a big "
+                            "diffusion model on one GPU."
+                        ),
+                    },
+                ),
             },
         }
 
@@ -197,22 +287,57 @@ class AusBossLmStudioChat:
         timeout_seconds,
         image_max_edge,
         image=None,
+        top_p=1.0,
+        top_k=0,
+        repeat_penalty=1.0,
+        min_p=0.0,
+        presence_penalty=0.0,
+        thinking_mode="model default",
+        reasoning_open_tag="<think>",
+        reasoning_close_tag="</think>",
+        idle_unload_seconds=0,
+        free_comfy_vram=False,
     ):
         if image is None and not str(prompt).strip():
             raise ValueError(
                 "LM Studio Chat: type a prompt or connect an image (or both)."
             )
+        if free_comfy_vram:
+            try:
+                import comfy.model_management as model_management
+
+                model_management.unload_all_models()
+                model_management.soft_empty_cache()
+            except Exception:
+                pass  # Standalone tests run without ComfyUI; the chat still works.
         picture = (
             image_data_url(image, int(image_max_edge)) if image is not None else None
         )
         payload = build_chat_payload(
-            model, system_prompt, prompt, picture, temperature, max_tokens, seed
+            model,
+            system_prompt,
+            prompt,
+            picture,
+            temperature,
+            max_tokens,
+            seed,
+            advanced={
+                "top_p": top_p,
+                "top_k": top_k,
+                "repeat_penalty": repeat_penalty,
+                "min_p": min_p,
+                "presence_penalty": presence_penalty,
+                "thinking_mode": thinking_mode,
+                "idle_unload_seconds": idle_unload_seconds,
+            },
         )
         url = chat_completions_url(endpoint)
         # The POST blocks for as long as the model generates; a worker thread
         # keeps the executor's event loop answering the UI meanwhile.
         data = await asyncio.to_thread(request_chat, url, payload, int(timeout_seconds))
-        text, thinking = split_reasoning(parse_chat_text(data))
+        text, thinking = split_reasoning(
+            parse_chat_text(data), str(reasoning_open_tag), str(reasoning_close_tag)
+        )
         return (text, thinking)
 
 
