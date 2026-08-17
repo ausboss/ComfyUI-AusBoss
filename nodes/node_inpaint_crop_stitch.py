@@ -15,9 +15,11 @@ class AusBossCropForInpaint:
         "Cuts the masked region plus surrounding context out of an image so "
         "an inpainter works at native resolution, and emits a stitcher that "
         "Stitch Inpaint (AusBoss) uses to paste the result back seamlessly. "
-        "The sampling mask stays hard-edged; feathering lives in a separate "
-        "blend mask used only while pasting. An empty mask selects the full "
-        "image and stitches back unchanged."
+        "The selection can be inverted, grown or shrunk, and edge-softened "
+        "before cropping; context comes from a growth factor plus optional "
+        "flat pixels. By default the sampling mask stays hard-edged; "
+        "feathering lives in a separate blend mask used only while pasting. "
+        "An empty mask selects the full image and stitches back unchanged."
     )
     SEARCH_ALIASES = [
         "inpaint crop",
@@ -116,6 +118,59 @@ class AusBossCropForInpaint:
                         ),
                     },
                 ),
+                "mask_grow": (
+                    "INT",
+                    {
+                        "default": 0,
+                        "min": -256,
+                        "max": 256,
+                        "step": 1,
+                        "tooltip": (
+                            "Dilate the sampling mask by this many pixels "
+                            "(negative shrinks) so the inpainter repaints "
+                            "past the drawn edge. Reshapes what gets "
+                            "painted, unlike blend_pixels which only "
+                            "feathers the paste-back."
+                        ),
+                    },
+                ),
+                "mask_blur": (
+                    "FLOAT",
+                    {
+                        "default": 0.0,
+                        "min": 0.0,
+                        "max": 64.0,
+                        "step": 0.5,
+                        "tooltip": (
+                            "Gaussian sigma softening the sampling mask's "
+                            "edge for models that honor soft masks. 0 keeps "
+                            "the hard edge."
+                        ),
+                    },
+                ),
+                "invert_mask": (
+                    "BOOLEAN",
+                    {
+                        "default": False,
+                        "tooltip": (
+                            "Inpaint the black area instead of the white "
+                            "area — everything outside the drawn region."
+                        ),
+                    },
+                ),
+                "context_pixels": (
+                    "INT",
+                    {
+                        "default": 0,
+                        "min": 0,
+                        "max": 4096,
+                        "step": 8,
+                        "tooltip": (
+                            "Flat extra context in pixels added around the "
+                            "mask box after context_factor's growth."
+                        ),
+                    },
+                ),
             },
         }
 
@@ -137,6 +192,10 @@ class AusBossCropForInpaint:
         output_multiple,
         target_width=0,
         target_height=0,
+        mask_grow=0,
+        mask_blur=0.0,
+        invert_mask=False,
+        context_pixels=0,
     ):
         return build_crop(
             image,
@@ -146,6 +205,10 @@ class AusBossCropForInpaint:
             int(output_multiple),
             int(target_width),
             int(target_height),
+            int(mask_grow),
+            float(mask_blur),
+            bool(invert_mask),
+            int(context_pixels),
         )
 
 

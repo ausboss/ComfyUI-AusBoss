@@ -275,18 +275,36 @@ def build_crop(
     output_multiple: int,
     target_width: int = 0,
     target_height: int = 0,
+    mask_grow: int = 0,
+    mask_blur: float = 0.0,
+    invert_mask: bool = False,
+    context_pixels: int = 0,
 ) -> tuple[torch.Tensor, torch.Tensor, dict]:
     """Crop the masked region plus context; return (image, mask, stitcher).
 
+    ``invert_mask`` flips the selection before anything else; ``mask_grow``
+    dilates (or erodes, negative) the sampling mask and ``mask_blur``
+    softens its edge — both reshape the region the inpainter paints, unlike
+    ``blend_pixels`` which only feathers the paste-back. ``context_pixels``
+    adds flat pixels of context on top of the ``context_factor`` growth.
     An empty mask selects the full image without context growth, so the
     graph keeps running; its blend mask is empty, so stitching returns
     the original untouched.
     """
     image = _as_image(image)
     mask = _as_mask(mask, image)
+    if invert_mask:
+        mask = 1.0 - mask
+    grow_px = int(mask_grow)
+    if grow_px:
+        mask = grow_shrink_mask(mask, grow_px)
+    blur_sigma = max(0.0, float(mask_blur))
+    if blur_sigma > 0.0:
+        mask = blur_mask(mask, blur_sigma).clamp(0.0, 1.0)
     height, width = image.shape[1], image.shape[2]
     multiple = max(1, int(output_multiple))
     blend_px = max(0, int(blend_pixels))
+    context_px = max(0, int(context_pixels))
     target_w = max(0, int(target_width))
     target_h = max(0, int(target_height))
     use_target = target_w > 0 or target_h > 0
@@ -296,6 +314,13 @@ def build_crop(
         rect = (0, 0, width, height)
     else:
         rect = grow_rect(bbox, max(1.0, float(context_factor)))
+        if context_px:
+            rect = (
+                rect[0] - context_px,
+                rect[1] - context_px,
+                rect[2] + 2 * context_px,
+                rect[3] + 2 * context_px,
+            )
         rect = fit_rect(rect, width, height)
     if not use_target:
         # Native sizing: the crop itself must satisfy the sampler multiple.
