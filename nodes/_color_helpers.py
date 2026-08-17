@@ -149,7 +149,13 @@ def lab_to_rgb(lab: torch.Tensor) -> torch.Tensor:
     return srgb.clamp(0.0, 1.0)
 
 
-# --- LAB statistics matching -------------------------------------------------
+# --- color statistics matching -----------------------------------------------
+
+# Method names are the node's combo values. All are textbook constructions
+# implemented here from the math: per-channel mean/std transfer in LAB or RGB,
+# the closed-form Monge-Kantorovich linear covariance mapping, and per-channel
+# histogram (quantile) matching.
+COLOR_MATCH_METHODS = ("lab", "rgb", "mkl", "histogram")
 
 
 def _weighted_lab_stats(
@@ -167,19 +173,132 @@ def _weighted_lab_stats(
     return mean, var.clamp_min(0.0).sqrt()
 
 
+def _stats_matched(
+    rgb: torch.Tensor,
+    reference: torch.Tensor,
+    mask: torch.Tensor | None,
+    in_lab: bool,
+) -> torch.Tensor:
+    """Mean/std transfer per channel, in LAB or straight RGB."""
+    source = rgb_to_lab(rgb) if in_lab else rgb
+    ref = rgb_to_lab(reference) if in_lab else reference
+    img_mean, img_std = _weighted_lab_stats(source, mask)
+    ref_mean, ref_std = _weighted_lab_stats(ref, None)
+    gain = ref_std / img_std.clamp_min(1e-6)
+    matched = (source - img_mean) * gain + ref_mean
+    return lab_to_rgb(matched) if in_lab else matched.clamp(0.0, 1.0)
+
+
+def _weighted_mean_cov(
+    pixels: torch.Tensor, weights: torch.Tensor | None
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """(mean[3], covariance[3,3]) of an N x 3 pixel list, optionally weighted."""
+    if weights is None:
+        mean = pixels.mean(dim=0)
+        centered = pixels - mean
+        cov = centered.T @ centered / max(1, pixels.shape[0])
+        return mean, cov
+    total = weights.sum().clamp_min(1e-8)
+    mean = (pixels * weights.unsqueeze(-1)).sum(dim=0) / total
+    centered = pixels - mean
+    cov = (centered * weights.unsqueeze(-1)).T @ centered / total
+    return mean, cov
+
+
+def _matrix_sqrt(matrix: torch.Tensor, inverse: bool = False) -> torch.Tensor:
+    """Symmetric PSD square root (or inverse square root) via eigh."""
+    values, vectors = torch.linalg.eigh(matrix.double())
+    values = values.clamp_min(1e-10)
+    roots = values.rsqrt() if inverse else values.sqrt()
+    return (vectors @ torch.diag(roots) @ vectors.T).to(matrix.dtype)
+
+
+def _mkl_matched(
+    rgb: torch.Tensor, reference: torch.Tensor, mask: torch.Tensor | None
+) -> torch.Tensor:
+    """Monge-Kantorovich linear color mapping (Pitie's closed form).
+
+    The unique linear map A with A @ cov_img @ A = cov_ref moves the image's
+    RGB covariance onto the reference's while touching pixels as little as
+    any linear map can. Frames are processed one at a time; batches here are
+    short next to the 3x3 eigendecompositions being cheap.
+    """
+    frames = []
+    for index in range(rgb.shape[0]):
+        pixels = rgb[index].reshape(-1, 3)
+        weights = None
+        if mask is not None:
+            weights = mask[index if mask.shape[0] > 1 else 0].reshape(-1)
+        img_mean, img_cov = _weighted_mean_cov(pixels, weights)
+        ref_pixels = reference[index if reference.shape[0] > 1 else 0].reshape(-1, 3)
+        ref_mean, ref_cov = _weighted_mean_cov(ref_pixels, None)
+        img_root = _matrix_sqrt(img_cov)
+        img_root_inv = _matrix_sqrt(img_cov, inverse=True)
+        middle = _matrix_sqrt(img_root @ ref_cov @ img_root)
+        mapping = img_root_inv @ middle @ img_root_inv
+        matched = (pixels - img_mean) @ mapping.T + ref_mean
+        frames.append(matched.reshape(rgb.shape[1], rgb.shape[2], 3))
+    return torch.stack(frames, dim=0).clamp(0.0, 1.0)
+
+
+def _histogram_matched(
+    rgb: torch.Tensor, reference: torch.Tensor, mask: torch.Tensor | None
+) -> torch.Tensor:
+    """Per-channel quantile mapping onto the reference's distribution.
+
+    Each image value's rank inside the (masked) region indexes the same
+    quantile of the reference channel — full histogram shape transfer, the
+    strongest and least linear of the methods.
+    """
+    frames = []
+    for index in range(rgb.shape[0]):
+        frame = rgb[index]
+        ref = reference[index if reference.shape[0] > 1 else 0]
+        selected = None
+        if mask is not None:
+            region = mask[index if mask.shape[0] > 1 else 0] > 0.5
+            if region.any():
+                selected = region
+        channels = []
+        for channel in range(3):
+            values = frame[..., channel]
+            pool = values[selected] if selected is not None else values.reshape(-1)
+            sorted_pool, _ = pool.reshape(-1).sort()
+            sorted_ref, _ = ref[..., channel].reshape(-1).sort()
+            # Rank every pixel against the measured pool, then read the same
+            # quantile off the reference.
+            ranks = torch.searchsorted(sorted_pool, values.reshape(-1).contiguous())
+            ranks = ranks.clamp_max(sorted_pool.numel() - 1)
+            quantiles = ranks.float() / max(1, sorted_pool.numel() - 1)
+            positions = quantiles * (sorted_ref.numel() - 1)
+            low = positions.floor().long()
+            high = positions.ceil().long()
+            fraction = positions - low.float()
+            mapped = sorted_ref[low] * (1.0 - fraction) + sorted_ref[high] * fraction
+            channels.append(mapped.reshape(values.shape))
+        frames.append(torch.stack(channels, dim=-1))
+    return torch.stack(frames, dim=0).clamp(0.0, 1.0)
+
+
 def match_colors(
     image: torch.Tensor,
     reference: torch.Tensor,
     strength: float,
     mask: torch.Tensor | None = None,
+    method: str = "lab",
+    invert_mask: bool = False,
 ) -> torch.Tensor:
-    """Transfer the reference's per-channel LAB mean/std onto the image.
+    """Transfer the reference's color statistics onto the image.
 
-    With a mask, both the measured statistics and the applied correction
-    are restricted to the white region; pixels where the mask is zero are
-    returned bit-identical. ``strength`` lerps between the original (0)
-    and the fully matched image (1). A batch-1 reference broadcasts
-    across an image batch.
+    ``method`` picks the construction: "lab" and "rgb" move per-channel
+    mean/std in that space, "mkl" maps the full RGB covariance through the
+    Monge-Kantorovich linear transform, "histogram" matches each channel's
+    quantiles exactly. With a mask, both the measured statistics and the
+    applied correction are restricted to the white region (``invert_mask``
+    flips which side that is); pixels where the mask is zero are returned
+    bit-identical. ``strength`` lerps between the original (0) and the
+    fully matched image (1). A batch-1 reference broadcasts across an
+    image batch.
     """
     if not isinstance(image, torch.Tensor) or image.ndim != 4:
         raise ValueError("Color Match expected a BHWC IMAGE batch.")
@@ -189,6 +308,11 @@ def match_colors(
         raise ValueError(
             f"Reference batch {reference.shape[0]} cannot broadcast across "
             f"image batch {image.shape[0]}."
+        )
+    if method not in COLOR_MATCH_METHODS:
+        raise ValueError(
+            f"Color Match method must be one of {COLOR_MATCH_METHODS}, "
+            f"not '{method}'."
         )
     image = image.float()
     reference = reference.float()
@@ -212,16 +336,19 @@ def match_colors(
                 f"image batch {image.shape[0]}."
             )
         mask = mask.float().clamp(0.0, 1.0)
+        if invert_mask:
+            mask = 1.0 - mask
         if mask.shape[0] == 1 and image.shape[0] > 1:
             mask = mask.expand(image.shape[0], -1, -1)
 
     rgb = image[..., :3]
-    lab = rgb_to_lab(rgb)
-    img_mean, img_std = _weighted_lab_stats(lab, mask)
-    ref_mean, ref_std = _weighted_lab_stats(rgb_to_lab(reference[..., :3]), None)
-
-    gain = ref_std / img_std.clamp_min(1e-6)
-    matched = lab_to_rgb((lab - img_mean) * gain + ref_mean)
+    ref_rgb = reference[..., :3]
+    if method == "mkl":
+        matched = _mkl_matched(rgb, ref_rgb, mask)
+    elif method == "histogram":
+        matched = _histogram_matched(rgb, ref_rgb, mask)
+    else:
+        matched = _stats_matched(rgb, ref_rgb, mask, in_lab=method == "lab")
 
     if mask is None:
         blend = torch.full(
@@ -239,6 +366,7 @@ def match_colors(
 
 
 __all__ = [
+    "COLOR_MATCH_METHODS",
     "FALLBACK_RGB",
     "lab_to_rgb",
     "match_colors",

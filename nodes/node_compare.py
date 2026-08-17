@@ -1,4 +1,4 @@
-"""A/B Compare (AusBoss)."""
+"""A/B Compare 🆎."""
 
 from __future__ import annotations
 
@@ -113,6 +113,6 @@ class AusBossCompare:
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_Compare": AusBossCompare}
-NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_Compare": "A/B Compare (AusBoss)"}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_Compare": "A/B Compare 🆎"}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

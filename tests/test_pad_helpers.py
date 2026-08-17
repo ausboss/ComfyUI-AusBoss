@@ -151,7 +151,7 @@ class NodeWiringTests(unittest.TestCase):
         self.assertIn("AUSBOSS_NODES_PadImage", NODE_CLASS_MAPPINGS)
         self.assertEqual(
             NODE_DISPLAY_NAME_MAPPINGS["AUSBOSS_NODES_PadImage"],
-            "Pad Image (AusBoss)",
+            "Pad Image 🆎",
         )
         cls = NODE_CLASS_MAPPINGS["AUSBOSS_NODES_PadImage"]
         self.assertIn("AusBoss/Image", cls.CATEGORY)

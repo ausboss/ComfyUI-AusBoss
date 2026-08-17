@@ -2,10 +2,13 @@
 // decision logic only — the DOM/graph wiring lives in js/appearance/index.js
 // so this module stays testable under node:test.
 
-// Each scheme pairs a title-bar color with a slightly lighter body color,
-// tuned against ComfyUI's dark canvas. `colors: null` means "leave the
-// theme's default colors alone".
+// Each scheme pairs a title-bar color with a body color tuned against
+// ComfyUI's dark canvas. `colors: null` means "leave the theme's default
+// colors alone". The flagship AusBoss row is the brand look the video nodes
+// shipped with — teal title over a near-black body — and is the pack-wide
+// default; the muted rows keep title darker than body.
 export const NODE_COLOR_SCHEMES = [
+  { name: "AusBoss", colors: { title: "#007f78", body: "#081413" } },
   { name: "Theme default", colors: null },
   { name: "Graphite", colors: { title: "#242424", body: "#2f2f2f" } },
   { name: "Slate", colors: { title: "#1f2c38", body: "#2a3b4a" } },

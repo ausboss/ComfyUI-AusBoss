@@ -1,4 +1,4 @@
-import { BRAND, BRAND_BODY, BRAND_DARK } from "./index.mjs";
+import { BRAND, BRAND_DARK } from "./index.mjs";
 
 export const CORE_VIDEO_PREVIEW_WIDGET = "video-preview";
 export const VIDEO_MIN_WIDTH = 220;
@@ -36,18 +36,6 @@ export function ensureVideoCss() {
 .ausboss-video-duration{overflow:hidden;color:#8ba3a1;text-align:center;white-space:nowrap;text-overflow:ellipsis;}
 `;
   document.head.appendChild(style);
-}
-
-export function applyVideoNodeColors(node) {
-  if (!node) return;
-  node.color = BRAND_DARK;
-  node.bgcolor = BRAND_BODY;
-  applyVideoNodeTitleColor(node);
-}
-
-export function applyVideoNodeTitleColor(node) {
-  if (!node) return;
-  node.title_text_color = "#f3fffe";
 }
 
 export function hideCanvasWidget(widget, element = null) {

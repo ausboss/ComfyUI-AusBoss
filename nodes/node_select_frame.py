@@ -1,4 +1,4 @@
-"""Select Frame (AusBoss)."""
+"""Select Frame 🆎."""
 
 from __future__ import annotations
 
@@ -50,6 +50,6 @@ class AusBossSelectFrame:
 # zero-based with a differently named widget, so an alias either loses the
 # load-order race or silently changes which frame old workflows select.
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_SelectFrame": AusBossSelectFrame}
-NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_SelectFrame": "Select Frame (AusBoss)"}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_SelectFrame": "Select Frame 🆎"}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

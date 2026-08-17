@@ -1,4 +1,4 @@
-// Dragging a Save Video (AusBoss) mp4 back onto the canvas restores the
+// Dragging a Save Video 🆎 mp4 back onto the canvas restores the
 // workflow embedded in its metadata. Core ComfyUI parses png/webp/json drops
 // but not mp4, so every dropped video would otherwise dead-end in an
 // "unsupported file" toast.

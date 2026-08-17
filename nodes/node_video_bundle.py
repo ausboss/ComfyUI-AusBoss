@@ -1,4 +1,4 @@
-"""Video Bundle / Unbundle / Bundle Edit (AusBoss) — one AUSBOSS_VIDEO wire."""
+"""Video Bundle / Unbundle / Bundle Edit 🆎 — one AUSBOSS_VIDEO wire."""
 
 from __future__ import annotations
 
@@ -84,7 +84,7 @@ class AusBossVideoUnbundle:
             "required": {
                 "video": (
                     BUNDLE_TYPE,
-                    {"tooltip": "A bundle from Video Bundle (AusBoss) or Video Bundle Edit (AusBoss)."},
+                    {"tooltip": "A bundle from Video Bundle 🆎 or Video Bundle Edit 🆎."},
                 ),
             }
         }
@@ -162,9 +162,9 @@ NODE_CLASS_MAPPINGS = {
     "AUSBOSS_NODES_VideoBundleEdit": AusBossVideoBundleEdit,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "AUSBOSS_NODES_VideoBundle": "Video Bundle (AusBoss)",
-    "AUSBOSS_NODES_VideoUnbundle": "Video Unbundle (AusBoss)",
-    "AUSBOSS_NODES_VideoBundleEdit": "Video Bundle Edit (AusBoss)",
+    "AUSBOSS_NODES_VideoBundle": "Video Bundle 🆎",
+    "AUSBOSS_NODES_VideoUnbundle": "Video Unbundle 🆎",
+    "AUSBOSS_NODES_VideoBundleEdit": "Video Bundle Edit 🆎",
 }
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

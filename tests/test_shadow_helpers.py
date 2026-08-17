@@ -133,7 +133,7 @@ class NodeWiringTests(unittest.TestCase):
         self.assertIn("AUSBOSS_NODES_DropShadow", NODE_CLASS_MAPPINGS)
         self.assertEqual(
             NODE_DISPLAY_NAME_MAPPINGS["AUSBOSS_NODES_DropShadow"],
-            "Drop Shadow (AusBoss)",
+            "Drop Shadow 🆎",
         )
         cls = NODE_CLASS_MAPPINGS["AUSBOSS_NODES_DropShadow"]
         self.assertIn("AusBoss/Image", cls.CATEGORY)

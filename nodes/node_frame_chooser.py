@@ -1,4 +1,4 @@
-"""Frame Chooser (AusBoss)."""
+"""Frame Chooser 🆎."""
 
 from __future__ import annotations
 
@@ -179,6 +179,6 @@ class AusBossFrameChooser:
 register_chooser_route()
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_FrameChooser": AusBossFrameChooser}
-NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_FrameChooser": "Frame Chooser (AusBoss)"}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_FrameChooser": "Frame Chooser 🆎"}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

@@ -150,7 +150,7 @@ class NodeWiringTests(unittest.TestCase):
         self.assertIn("AUSBOSS_NODES_ColorMatch", NODE_CLASS_MAPPINGS)
         self.assertEqual(
             NODE_DISPLAY_NAME_MAPPINGS["AUSBOSS_NODES_ColorMatch"],
-            "Color Match (AusBoss)",
+            "Color Match 🆎",
         )
         cls = NODE_CLASS_MAPPINGS["AUSBOSS_NODES_ColorMatch"]
         self.assertIn("AusBoss/Image", cls.CATEGORY)

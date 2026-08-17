@@ -1,4 +1,4 @@
-"""Load Video (AusBoss)."""
+"""Load Video 🆎."""
 
 from __future__ import annotations
 
@@ -147,6 +147,6 @@ class AusBossLoadVideo:
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_LoadVideo": AusBossLoadVideo}
-NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_LoadVideo": "Load Video (AusBoss)"}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_LoadVideo": "Load Video 🆎"}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

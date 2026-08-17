@@ -59,7 +59,10 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   `alias = NODE_CLASS_MAPPINGS`. A scanner reads that one literal and stops,
   so anything done to the mapping afterwards is invisible to it. Both
   mappings must carry exactly the same keys.
-- Display name: `<Name> (AusBoss)` so typing "ausboss" surfaces every node.
+- Display name: `<Name> 🆎` — the emoji is the pack signature. Typing
+  "ausboss" still surfaces every node through the `🆎 AusBoss/<Group>`
+  category, the `AUSBOSS_NODES_` id prefix, and the "ausboss" entry every
+  node keeps in `SEARCH_ALIASES`.
 - Category: `🆎 AusBoss/<Group>`. The emoji is safe here — categories reach
   the frontend as JSON and are never printed to the console at import time.
 - Every node gets `DESCRIPTION`, input `tooltip`s, and `OUTPUT_TOOLTIPS`.

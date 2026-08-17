@@ -1,4 +1,4 @@
-"""Planning and batched execution for Frame Interpolate (AusBoss).
+"""Planning and batched execution for Frame Interpolate.
 
 The planner is pure: it turns (frame count, source fps, target fps) into a
 list of FrameJob entries that either copy a source frame or interpolate

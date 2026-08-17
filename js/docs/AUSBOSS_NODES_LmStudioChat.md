@@ -31,7 +31,7 @@ image for img2img, or rewriting text mid-workflow.
   this before sending (`0` = full size). Vision models resize internally
   anyway, and a smaller upload prefills much faster.
 - **image** (optional): For vision models. Only the **first frame** of a
-  batch is sent — pick one with Select Frame (AusBoss) for video. A
+  batch is sent — pick one with Select Frame 🆎 for video. A
   text-only model will refuse an image server-side.
 
 ## Outputs

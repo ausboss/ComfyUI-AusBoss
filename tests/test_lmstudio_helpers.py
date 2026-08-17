@@ -29,6 +29,7 @@ from nodes._lmstudio_helpers import (
     build_chat_payload,
     chat_completions_url,
     image_data_url,
+    models_url,
     parse_chat_text,
     request_chat,
     split_reasoning,
@@ -61,6 +62,17 @@ class ChatUrlTests(unittest.TestCase):
             chat_completions_url("https://box.local:8080/v1"),
             "https://box.local:8080/v1/chat/completions",
         )
+
+    def test_models_url_mirrors_every_endpoint_spelling(self):
+        expected = "http://127.0.0.1:1234/v1/models"
+        for endpoint in (
+            "http://127.0.0.1:1234/v1",
+            "http://127.0.0.1:1234",
+            "127.0.0.1:1234",
+            "http://127.0.0.1:1234/v1/chat/completions",
+        ):
+            self.assertEqual(models_url(endpoint), expected, endpoint)
+        self.assertEqual(models_url(""), DEFAULT_ENDPOINT.rstrip("/") + "/models")
 
 
 class PayloadTests(unittest.TestCase):
@@ -99,6 +111,41 @@ class PayloadTests(unittest.TestCase):
 
     def test_max_tokens_minus_one_is_left_to_the_server(self):
         self.assertNotIn("max_tokens", build_chat_payload("", "", "hi", None, 0.7, -1, 0))
+
+    def test_neutral_advanced_values_change_nothing(self):
+        plain = build_chat_payload("", "", "hi", None, 0.7, 512, 0)
+        neutral = build_chat_payload(
+            "", "", "hi", None, 0.7, 512, 0,
+            advanced={
+                "top_p": 1.0, "top_k": 0, "repeat_penalty": 1.0, "min_p": 0.0,
+                "presence_penalty": 0.0, "thinking_mode": "model default",
+                "idle_unload_seconds": 0,
+            },
+        )
+        self.assertEqual(plain, neutral)
+
+    def test_active_advanced_values_land_in_the_body(self):
+        payload = build_chat_payload(
+            "", "", "hi", None, 0.7, 512, 0,
+            advanced={
+                "top_p": 0.9, "top_k": 40, "repeat_penalty": 1.1, "min_p": 0.05,
+                "presence_penalty": 0.5, "thinking_mode": "off",
+                "idle_unload_seconds": 300,
+            },
+        )
+        self.assertEqual(payload["top_p"], 0.9)
+        self.assertEqual(payload["top_k"], 40)
+        self.assertEqual(payload["repeat_penalty"], 1.1)
+        self.assertEqual(payload["min_p"], 0.05)
+        self.assertEqual(payload["presence_penalty"], 0.5)
+        self.assertEqual(payload["ttl"], 300)
+        self.assertEqual(payload["chat_template_kwargs"], {"enable_thinking": False})
+
+    def test_thinking_mode_on_asks_the_template_to_think(self):
+        payload = build_chat_payload(
+            "", "", "hi", None, 0.7, 512, 0, advanced={"thinking_mode": "on"}
+        )
+        self.assertEqual(payload["chat_template_kwargs"], {"enable_thinking": True})
 
 
 class ParseTests(unittest.TestCase):
@@ -141,6 +188,14 @@ class SplitReasoningTests(unittest.TestCase):
         answer, thinking = split_reasoning("<think>ran out of tok")
         self.assertEqual(answer, "")
         self.assertEqual(thinking, "ran out of tok")
+
+    def test_custom_tags_split_and_defaults_survive_blanks(self):
+        text = "<|sot|>plan<|eot|>done"
+        self.assertEqual(split_reasoning(text, "<|sot|>", "<|eot|>"), ("done", "plan"))
+        # Blank custom tags fall back to the <think> defaults.
+        self.assertEqual(
+            split_reasoning("<think>a</think>b", "", ""), ("b", "a")
+        )
 
 
 class ImageDataUrlTests(unittest.TestCase):

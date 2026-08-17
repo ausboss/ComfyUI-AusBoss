@@ -145,6 +145,41 @@ class CropContractTests(unittest.TestCase):
         self.assertEqual(stitcher["canvas"].shape[0], 1)
         self.assertEqual(stitcher["blend"].shape, stitcher["canvas"].shape[:3])
 
+    def test_mask_grow_widens_the_selection_and_the_crop(self):
+        image = rand_image(1, 40, 40, seed=2)
+        mask = box_mask(40, 40, 15, 25, 15, 25)
+        _, plain, _ = build_crop(image, mask, 1.0, 0, 1)
+        _, grown, grown_stitcher = build_crop(image, mask, 1.0, 0, 1, mask_grow=4)
+        self.assertGreater(grown.sum().item(), plain.sum().item())
+        # The crop window follows the grown mask's bbox.
+        self.assertEqual(grown_stitcher["crop_to_canvas"], (11, 11, 18, 18))
+
+    def test_mask_blur_softens_the_sampling_edge(self):
+        image = rand_image(1, 40, 40, seed=3)
+        mask = box_mask(40, 40, 15, 25, 15, 25)
+        _, sampling, _ = build_crop(image, mask, 1.5, 0, 1, mask_blur=2.0)
+        self.assertTrue(bool(((sampling > 0.0) & (sampling < 1.0)).any()))
+
+    def test_invert_mask_selects_the_outside(self):
+        image = rand_image(1, 40, 40, seed=4)
+        mask = box_mask(40, 40, 10, 30, 10, 30)
+        _, sampling, _ = build_crop(image, mask, 1.0, 0, 1, invert_mask=True)
+        # The inverted selection touches the frame edge, so the crop is the
+        # whole image and the sampled corner is white while the center is not.
+        self.assertEqual(sampling.shape[1:], (40, 40))
+        self.assertEqual(sampling[0, 0, 0].item(), 1.0)
+        self.assertEqual(sampling[0, 20, 20].item(), 0.0)
+
+    def test_context_pixels_add_flat_margin(self):
+        image = rand_image(1, 64, 64, seed=5)
+        mask = box_mask(64, 64, 28, 36, 28, 36)
+        _, _, tight = build_crop(image, mask, 1.0, 0, 1)
+        _, _, padded = build_crop(image, mask, 1.0, 0, 1, context_pixels=8)
+        tx, ty, tw, th = tight["crop_to_canvas"]
+        px, py, pw, ph = padded["crop_to_canvas"]
+        self.assertEqual((px, py), (tx - 8, ty - 8))
+        self.assertEqual((pw, ph), (tw + 16, th + 16))
+
     def test_sampling_mask_is_the_raw_mask_never_feathered(self):
         image = rand_image(1, 40, 40, seed=1)
         mask = box_mask(40, 40, 10, 20, 10, 20)
@@ -598,11 +633,11 @@ class NodeWiringTests(unittest.TestCase):
         self.assertIn("AUSBOSS_NODES_StitchInpaint", NODE_CLASS_MAPPINGS)
         self.assertEqual(
             NODE_DISPLAY_NAME_MAPPINGS["AUSBOSS_NODES_CropForInpaint"],
-            "Crop For Inpaint (AusBoss)",
+            "Crop For Inpaint 🆎",
         )
         self.assertEqual(
             NODE_DISPLAY_NAME_MAPPINGS["AUSBOSS_NODES_StitchInpaint"],
-            "Stitch Inpaint (AusBoss)",
+            "Stitch Inpaint 🆎",
         )
 
         crop_cls = NODE_CLASS_MAPPINGS["AUSBOSS_NODES_CropForInpaint"]

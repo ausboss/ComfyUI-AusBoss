@@ -1,4 +1,4 @@
-"""LaMa Inpaint (AusBoss)."""
+"""LaMa Inpaint 🆎."""
 
 from __future__ import annotations
 
@@ -78,7 +78,7 @@ class AusBossLegacySimpleWatermarkRemover:
     CATEGORY = "🆎 AusBoss/Compatibility"
     DESCRIPTION = (
         "Compatibility alias for older workflows that stored the class type "
-        "'SimpleWatermarkRemover'. Use LaMa Inpaint (AusBoss) in new workflows."
+        "'SimpleWatermarkRemover'. Use LaMa Inpaint 🆎 in new workflows."
     )
     DEPRECATED = True
 
@@ -117,7 +117,7 @@ NODE_CLASS_MAPPINGS = {
     "SimpleWatermarkRemover": AusBossLegacySimpleWatermarkRemover,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "AUSBOSS_NODES_LaMaInpaint": "LaMa Inpaint (AusBoss)",
+    "AUSBOSS_NODES_LaMaInpaint": "LaMa Inpaint 🆎",
     "SimpleWatermarkRemover": "Simple Watermark Remover (AusBoss Compatibility)",
 }
 

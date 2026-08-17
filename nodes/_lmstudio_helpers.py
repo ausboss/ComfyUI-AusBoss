@@ -30,8 +30,21 @@ _CONNECT_HINT = (
 # <think>...</think> blocks from reasoning models (DeepSeek R1 family and
 # friends). Pasting them into a prompt is never what a workflow wants, so
 # they are split onto their own output. An unclosed block - the model hit
-# max_tokens mid-thought - counts as reasoning to the end.
-_THINK_PATTERN = re.compile(r"<think>(.*?)(?:</think>|\Z)", re.IGNORECASE | re.DOTALL)
+# max_tokens mid-thought - counts as reasoning to the end. Custom tag pairs
+# (Granite's <|start_of_thought|>, and friends) compile on demand and cache.
+_THINK_PATTERNS: dict[tuple[str, str], re.Pattern] = {}
+
+
+def _think_pattern(open_tag: str, close_tag: str) -> re.Pattern:
+    key = (open_tag, close_tag)
+    pattern = _THINK_PATTERNS.get(key)
+    if pattern is None:
+        pattern = re.compile(
+            re.escape(open_tag) + r"(.*?)(?:" + re.escape(close_tag) + r"|\Z)",
+            re.IGNORECASE | re.DOTALL,
+        )
+        _THINK_PATTERNS[key] = pattern
+    return pattern
 
 
 def chat_completions_url(endpoint: str) -> str:
@@ -52,13 +65,86 @@ def chat_completions_url(endpoint: str) -> str:
     return f"{text}/v1/chat/completions"
 
 
+def models_url(endpoint: str) -> str:
+    """The /v1/models URL for whatever spelling of the endpoint we got."""
+    text = str(endpoint or "").strip().rstrip("/")
+    if not text:
+        text = DEFAULT_ENDPOINT.rstrip("/")
+    if "://" not in text:
+        text = f"http://{text}"
+    if text.endswith("/chat/completions"):
+        text = text[: -len("/chat/completions")]
+    if text.endswith("/v1"):
+        return f"{text}/models"
+    return f"{text}/v1/models"
+
+
+def list_models(endpoint: str, timeout_seconds: int = 6) -> list[str]:
+    """Model ids the server reports at /v1/models, sorted.
+
+    Same error vocabulary as the chat call: what failed, at which URL, and
+    what to do about it."""
+    url = models_url(endpoint)
+    request = urllib.request.Request(url, method="GET")
+    try:
+        with urllib.request.urlopen(request, timeout=max(1, int(timeout_seconds))) as reply:
+            raw = reply.read()
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(f"LM Studio: HTTP {exc.code} from {url}") from None
+    except (urllib.error.URLError, TimeoutError):
+        raise RuntimeError("LM Studio: " + _CONNECT_HINT.format(url=url)) from None
+    try:
+        data = json.loads(raw.decode("utf-8"))
+    except Exception:
+        raise RuntimeError(
+            f"LM Studio: {url} answered, but not with JSON - check that the "
+            "endpoint points at an OpenAI-compatible server."
+        ) from None
+    rows = data.get("data") if isinstance(data, dict) else data
+    names = []
+    for row in rows if isinstance(rows, list) else []:
+        if isinstance(row, dict) and row.get("id"):
+            names.append(str(row["id"]))
+        elif isinstance(row, str):
+            names.append(row)
+    return sorted(set(names))
+
+
+def register_lmstudio_routes() -> None:
+    """The endpoint-test / model-list route behind the node's toolbar."""
+    try:
+        import asyncio as _asyncio
+
+        from aiohttp import web
+        from server import PromptServer
+    except ImportError:
+        return
+    prompt_server = getattr(PromptServer, "instance", None)
+    if prompt_server is None or getattr(prompt_server, "_ausboss_lmstudio_routes", False):
+        return
+    prompt_server._ausboss_lmstudio_routes = True
+
+    @prompt_server.routes.post("/ausboss/lmstudio/models")
+    async def ausboss_lmstudio_models(request):
+        try:
+            payload = await request.json()
+        except Exception:
+            payload = {}
+        endpoint = str(payload.get("endpoint", "") or "")
+        try:
+            names = await _asyncio.to_thread(list_models, endpoint)
+            return web.json_response({"ok": True, "models": names})
+        except Exception as exc:
+            return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+
 def image_data_url(image: torch.Tensor, max_edge: int = 0) -> str:
     """The first frame of a BHWC batch as a base64 PNG data URL.
 
     ``max_edge`` > 0 downscales so the longest edge fits it - vision models
     resize internally anyway, and a smaller upload is dramatically faster to
     encode and to prefill. One frame only: a video batch means "describe
-    this shot", and Select Frame (AusBoss) picks which one.
+    this shot", and Select Frame picks which one.
     """
     from PIL import Image
 
@@ -90,6 +176,7 @@ def build_chat_payload(
     temperature: float,
     max_tokens: int,
     seed: int,
+    advanced: dict | None = None,
 ) -> dict:
     """The OpenAI-compatible request body.
 
@@ -124,6 +211,42 @@ def build_chat_payload(
         payload["model"] = name
     if int(max_tokens) > 0:
         payload["max_tokens"] = int(max_tokens)
+    merge_advanced_payload(payload, advanced)
+    return payload
+
+
+def merge_advanced_payload(payload: dict, advanced: dict | None) -> dict:
+    """Fold the gear-menu sampling knobs into the request body.
+
+    Values sitting on their neutral defaults are omitted so the everyday
+    request stays exactly what it always was and the server's own defaults
+    keep applying. ``thinking_mode`` on/off rides the chat_template_kwargs
+    convention (honored by Qwen-style templates, ignored elsewhere);
+    ``idle_unload_seconds`` becomes LM Studio's JIT ``ttl``.
+    """
+    if not advanced:
+        return payload
+    top_p = float(advanced.get("top_p", 1.0))
+    if top_p < 1.0:
+        payload["top_p"] = top_p
+    top_k = int(advanced.get("top_k", 0))
+    if top_k > 0:
+        payload["top_k"] = top_k
+    repeat_penalty = float(advanced.get("repeat_penalty", 1.0))
+    if repeat_penalty != 1.0:
+        payload["repeat_penalty"] = repeat_penalty
+    min_p = float(advanced.get("min_p", 0.0))
+    if min_p > 0.0:
+        payload["min_p"] = min_p
+    presence_penalty = float(advanced.get("presence_penalty", 0.0))
+    if presence_penalty != 0.0:
+        payload["presence_penalty"] = presence_penalty
+    ttl = int(advanced.get("idle_unload_seconds", 0))
+    if ttl > 0:
+        payload["ttl"] = ttl
+    mode = str(advanced.get("thinking_mode", "model default"))
+    if mode in ("on", "off"):
+        payload["chat_template_kwargs"] = {"enable_thinking": mode == "on"}
     return payload
 
 
@@ -151,13 +274,19 @@ def parse_chat_text(data: object) -> str:
     return str(content or "")
 
 
-def split_reasoning(text: str) -> tuple[str, str]:
-    """(answer, reasoning): <think> blocks pulled out of the reply.
+def split_reasoning(
+    text: str, open_tag: str = "<think>", close_tag: str = "</think>"
+) -> tuple[str, str]:
+    """(answer, reasoning): thinking blocks pulled out of the reply.
 
-    Non-reasoning models pass through untouched with an empty second half."""
+    Non-reasoning models pass through untouched with an empty second half.
+    Blank or mismatched custom tags fall back to the <think> defaults."""
     raw = str(text or "")
-    blocks = [match.strip() for match in _THINK_PATTERN.findall(raw) if match.strip()]
-    answer = _THINK_PATTERN.sub("", raw).strip()
+    opener = str(open_tag or "").strip() or "<think>"
+    closer = str(close_tag or "").strip() or "</think>"
+    pattern = _think_pattern(opener, closer)
+    blocks = [match.strip() for match in pattern.findall(raw) if match.strip()]
+    answer = pattern.sub("", raw).strip()
     return answer, "\n\n".join(blocks)
 
 
@@ -214,7 +343,11 @@ __all__ = [
     "build_chat_payload",
     "chat_completions_url",
     "image_data_url",
+    "list_models",
+    "merge_advanced_payload",
+    "models_url",
     "parse_chat_text",
+    "register_lmstudio_routes",
     "request_chat",
     "split_reasoning",
 ]

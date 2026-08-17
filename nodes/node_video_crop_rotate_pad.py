@@ -1,4 +1,4 @@
-"""Video Crop + Rotate + Pad (AusBoss)."""
+"""Video Crop + Rotate + Pad 🆎."""
 
 from __future__ import annotations
 
@@ -120,7 +120,7 @@ class AusBossVideoCropRotatePad:
 register_video_routes()
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_VideoCropRotatePad": AusBossVideoCropRotatePad}
-NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_VideoCropRotatePad": "Video Crop + Rotate + Pad (AusBoss)"}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_VideoCropRotatePad": "Video Crop + Rotate + Pad 🆎"}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
 

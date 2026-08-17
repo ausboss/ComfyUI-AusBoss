@@ -1,4 +1,4 @@
-"""Pad Image (AusBoss)."""
+"""Pad Image 🆎."""
 
 from __future__ import annotations
 
@@ -148,6 +148,6 @@ class AusBossPadImage:
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_PadImage": AusBossPadImage}
-NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_PadImage": "Pad Image (AusBoss)"}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_PadImage": "Pad Image 🆎"}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

@@ -1,4 +1,4 @@
-"""Refine Mask (AusBoss)."""
+"""Refine Mask 🆎."""
 
 from __future__ import annotations
 
@@ -147,6 +147,6 @@ class AusBossRefineMask:
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_RefineMask": AusBossRefineMask}
-NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_RefineMask": "Refine Mask (AusBoss)"}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_RefineMask": "Refine Mask 🆎"}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

@@ -7,7 +7,6 @@ import {
   clipFraction,
   compareClip,
   findCompareImages,
-  nextCompareMode,
   normalizeCompareMode,
 } from "../shared/compare.mjs";
 
@@ -69,10 +68,10 @@ function setReady(state) {
   state.status.textContent = `${size}${MODE_HINTS[mode]}`;
 }
 
-function updateModeButton(state) {
+function updateModeButtons(state) {
   const mode = getMode(state.node);
-  state.modeButton.textContent = mode.toUpperCase();
-  state.modeButton.classList.toggle("active", mode === "hold");
+  state.slideButton.classList.toggle("active", mode === "slide");
+  state.holdButton.classList.toggle("active", mode === "hold");
   if (!state.stage.classList.contains("is-empty")) setReady(state);
 }
 
@@ -101,8 +100,9 @@ function buildPanel(node) {
   status.textContent = "Run to load the A/B previews";
   const tools = document.createElement("div");
   tools.className = "ausboss-compare-tools";
-  const modeButton = makeToolButton("SLIDE", "Toggle between slide and hold comparison");
-  tools.append(modeButton);
+  const slideButton = makeToolButton("SLIDE", "Slide: the seam follows the pointer across the image");
+  const holdButton = makeToolButton("HOLD", "Hold: press and hold anywhere to see B, release for A");
+  tools.append(slideButton, holdButton);
   stage.append(imageA, imageB, seam, status, tools);
   root.append(stage);
 
@@ -122,27 +122,33 @@ function buildPanel(node) {
 
   const abort = new AbortController();
   const state = node.__ausbossCompare = {
-    node, root, stage, imageA, imageB, seam, status, modeButton,
+    node, root, stage, imageA, imageB, seam, status, slideButton, holdButton,
     widget, abort, refs: null, fraction: 0, loaded: 0, holding: false,
   };
   applyClip(state);
-  updateModeButton(state);
+  updateModeButtons(state);
 
   const signal = abort.signal;
-  modeButton.addEventListener("click", (event) => {
+  const setMode = (mode) => (event) => {
     event.preventDefault();
     event.stopPropagation();
-    node.properties.ausboss_compare_mode = nextCompareMode(getMode(node));
-    if (getMode(node) !== "hold") state.holding = false;
+    node.properties.ausboss_compare_mode = normalizeCompareMode(mode);
+    if (mode !== "hold") state.holding = false;
     state.fraction = 0;
     applyClip(state);
-    updateModeButton(state);
+    updateModeButtons(state);
     node.setDirtyCanvas?.(true, true);
-  }, { signal });
+  };
+  slideButton.addEventListener("click", setMode("slide"), { signal });
+  holdButton.addEventListener("click", setMode("hold"), { signal });
 
   // The panel owns pointer movement only inside itself; pointerdown is never
-  // prevented, so dragging the node from its title keeps working.
+  // prevented, so dragging the node from its title keeps working. Events
+  // born in the tools bar never reach the stage behaviors — in hold mode a
+  // stage pointerdown captures the pointer, which would retarget the
+  // release and eat the button's click (the "stuck on HOLD" bug).
   stage.addEventListener("pointermove", (event) => {
+    if (tools.contains(event.target)) return;
     if (!state.refs || getMode(node) !== "slide" || state.holding) return;
     const rect = stage.getBoundingClientRect();
     state.fraction = clipFraction(event.clientX, rect.left, rect.width);
@@ -150,6 +156,7 @@ function buildPanel(node) {
   }, { signal });
 
   stage.addEventListener("pointerdown", (event) => {
+    if (tools.contains(event.target)) return;
     if (!state.refs || getMode(node) !== "hold") return;
     state.holding = true;
     state.fraction = 1;
@@ -197,7 +204,7 @@ app.registerExtension({
     chainCallback(nodeType.prototype, "onConfigure", function () {
       queueMicrotask(() => {
         const state = buildPanel(this);
-        updateModeButton(state);
+        updateModeButtons(state);
       });
     });
     chainCallback(nodeType.prototype, "onExecuted", function (message) {

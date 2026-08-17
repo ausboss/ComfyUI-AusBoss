@@ -15,7 +15,9 @@ allowed; read this for what makes a node feel like an AusBoss node.
 - Mapping key `AUSBOSS_NODES_<Purpose>` — permanent API, never renamed, and
   always written as a string literal in both mapping dicts so registry
   scanners (which parse, not import) can discover it.
-- Display name `<Name> (AusBoss)`; category `🆎 AusBoss/<Group>`.
+- Display name `<Name> 🆎`; category `🆎 AusBoss/<Group>`. The category, the
+  `AUSBOSS_NODES_` id prefix, and the "ausboss" `SEARCH_ALIASES` entry keep
+  the pack searchable by name.
 - Every node ships `DESCRIPTION`, input `tooltip`s, `OUTPUT_TOOLTIPS`, and
   `SEARCH_ALIASES` with intent words the display name lacks ("trim", "cut",
   "outpaint", "watermark").
@@ -31,7 +33,9 @@ allowed; read this for what makes a node feel like an AusBoss node.
   [js/shared/appearance.mjs](../../../js/shared/appearance.mjs) — the single
   source of truth. Adding a scheme means adding one table row; the tests in
   `tests/appearance.test.mjs` validate it automatically. Title is always
-  darker than body; values are tuned against the dark canvas.
+  darker than body in the muted rows; the flagship "AusBoss" row (the
+  pack-wide default) pairs the teal title with a near-black body. Values are
+  tuned against the dark canvas.
 - Coloring is automatic: `js/appearance/index.js` targets every class whose
   `comfyClass` starts with `AUSBOSS_NODES_` (plus the `SimpleWatermarkRemover`
   alias). New nodes need zero per-node color work.

@@ -1,4 +1,4 @@
-"""Drop Shadow (AusBoss)."""
+"""Drop Shadow 🆎."""
 
 from __future__ import annotations
 
@@ -126,6 +126,6 @@ class AusBossDropShadow:
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_DropShadow": AusBossDropShadow}
-NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_DropShadow": "Drop Shadow (AusBoss)"}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_DropShadow": "Drop Shadow 🆎"}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

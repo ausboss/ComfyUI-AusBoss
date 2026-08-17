@@ -1,4 +1,4 @@
-"""LoRA Loader (AusBoss)."""
+"""LoRA Loader 🆎."""
 
 from __future__ import annotations
 
@@ -44,6 +44,17 @@ class AusBossLoraLoader:
             },
             "optional": {
                 "clip": ("CLIP", {"tooltip": "Optional CLIP to patch; without it, CLIP strengths are ignored."}),
+                "trigger_separator": (
+                    "STRING",
+                    {
+                        "default": ", ",
+                        "tooltip": (
+                            "Joins the enabled rows' trigger words into the "
+                            "trigger_words output. Set from the node's gear "
+                            "menu; hidden on the canvas."
+                        ),
+                    },
+                ),
             },
         }
 
@@ -56,10 +67,10 @@ class AusBossLoraLoader:
     )
     FUNCTION = "load_loras"
 
-    def load_loras(self, model, loras: str, clip=None):
+    def load_loras(self, model, loras: str, clip=None, trigger_separator=", "):
         rows = parse_lora_stack(loras)
         model, clip = apply_lora_stack(model, clip, rows)
-        return model, clip, collect_trigger_words(rows)
+        return model, clip, collect_trigger_words(rows, str(trigger_separator))
 
     @classmethod
     def VALIDATE_INPUTS(cls, loras, **_values):
@@ -81,7 +92,7 @@ class AusBossLoraLoader:
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_LoraLoader": AusBossLoraLoader}
-NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_LoraLoader": "LoRA Loader (AusBoss)"}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_LoraLoader": "LoRA Loader 🆎"}
 
 register_lora_routes()
 

@@ -11,83 +11,83 @@ ComfyUI-AusBoss is a curated collection of polished nodes designed to streamline
 
 ## Nodes
 
-### Image Crop + Rotate + Pad (AusBoss)
+### Image Crop + Rotate + Pad 🆎
 
 A Load Image-style node with a compact transformed preview and a full-screen editor for precise crop, rotation, padding, fill, mask feathering, and output-size alignment.
 
-### Video Crop + Rotate + Pad (AusBoss)
+### Video Crop + Rotate + Pad 🆎
 
 Targets an exact video frame from an uploaded input file or local path. The full-screen editor adds a long timeline, playback, exact frame steps, and the same transform controls as the image node.
 
-### Select Frame (AusBoss)
+### Select Frame 🆎
 
 Returns one unchanged frame from an `IMAGE` batch using a clear one-based frame number. Out-of-range requests report the valid range instead of silently selecting the wrong image.
 
-### Select Frame Range (AusBoss)
+### Select Frame Range 🆎
 
 Returns a contiguous sub-batch: one-based `start_frame` plus `frame_count` (`0` means through the last frame), along with the actual frame count as an `INT`. Out-of-range requests report the available range instead of clamping.
 
-### Frame Chooser (AusBoss)
+### Frame Chooser 🆎
 
 Pauses the graph and shows the incoming batch as a clickable filmstrip: pick the frames to keep, or Keep all / Cancel — with digits, `A`/`N`, `Enter` and `Escape` on the keyboard. A countdown can auto-answer with the policy you choose, a reload mid-pause restores the panel, and filling `pick_list` skips the pause entirely so a chosen take reruns headlessly (your interactive picks are written back there for you). Outputs the kept sub-batch, its count, and the one-based indices.
 
-### LoRA Loader (AusBoss)
+### LoRA Loader 🆎
 
 A stacked multi-LoRA node. Each row has an on/off pill, a searchable picker (type to filter, arrow keys + Enter to pick; browse view groups by folder and hovering shows the preview image), and strengths you can **drag left/right to scrub** (Shift for fine steps) or click to type. A header pill toggles the whole stack. The per-row info card shows the LoRA's preview image, base model, trigger words from its file metadata, a one-click Civitai lookup, or your own saved words — click words to toggle them into the deduplicated `trigger_words` output — plus an optional suggested strength range that tints out-of-range values. CLIP input is optional.
 
-### Align Image (AusBoss)
+### Align Image 🆎
 
 Snaps width and height to a clean multiple of a number you pick — 16, 32, whatever the model wants. Qwen image models, VAEs, and many samplers behave best on cleanly divisible sizes. `resize` rescales to the nearest multiple, `crop` center-crops down, `pad` replicate-pads up, and the new size comes out as INTs for wiring into latent nodes.
 
-### Image Size (AusBoss)
+### Image Size 🆎
 
 Reads an image's dimensions as INTs — width, height, longest edge, shortest edge — so resizes and latents key off the actual image instead of retyped numbers that drift.
 
-### LM Studio Chat (AusBoss)
+### LM Studio Chat 🆎
 
 Sends a prompt (and optionally an image) to a local LM Studio server — or any OpenAI-compatible endpoint — and returns the reply as text. Empty model name means "whatever the server has loaded", reasoning-model `<think>` blocks come out on a separate output so the text stays clean for conditioning, and the seed doubles as the re-roll knob. Errors are actionable: a refused connection says how to start the server.
 
-### Color Match (AusBoss)
+### Color Match 🆎
 
 Harmonizes an image against a reference by transferring per-channel LAB mean and standard deviation — the fix for an inpainted or upscaled region that comes back slightly brighter or cooler than the plate it sits in. Optional mask restricts the correction to just that region, and `strength` blends it back toward the original.
 
-### Pad Image (AusBoss)
+### Pad Image 🆎
 
 Pads an image with a solid color, replicated edges, replicated edge pixels, or a **pillarbox blur** (a blurred, dimmed copy of the frame behind the sharp original — the standard look for reframing video to a new aspect). Also returns a mask covering exactly the new padding, ready to wire straight into an outpaint.
 
-### Drop Shadow (AusBoss)
+### Drop Shadow 🆎
 
 Drops a soft shadow behind a masked subject with signed offset, grow, blur, color, and opacity — what sells a padded or reframed composition as deliberate.
 
-### Frame Interpolate (AusBoss)
+### Frame Interpolate 🆎
 
 Retimes a clip by **frames per second rather than a whole-number multiple**, so 24 to 30 works as naturally as doubling. Choose a fast `blend` crossfade or optical flow for real motion. Hard cuts are detected and held rather than interpolated across, avoiding the smeared morph other interpolators produce at a scene change. Memory is bounded by planning the work first and streaming results back to the CPU.
 
-### LaMa Inpaint (AusBoss)
+### LaMa Inpaint 🆎
 
 Inpaints white mask regions with a TorchScript LaMa checkpoint, preserves pixels where the mask is zero, and processes large video batches one frame at a time to keep VRAM bounded. Place `big-lama.pt` in `ComfyUI/models/lama/`; the node never performs automatic downloads.
 
-### Crop For Inpaint / Stitch Inpaint (AusBoss)
+### Crop For Inpaint / Stitch Inpaint 🆎
 
 Inpaint only where it matters: Crop For Inpaint grows the mask's bounding box by a context factor and emits the crop, the raw sampling mask, and a stitcher; Stitch Inpaint pastes the result back with a separately feathered blend so every pixel outside the blend region stays **bit-identical** to the original. The stitcher broadcasts across a video batch, so one crop serves a whole clip. An optional `fix_edge_halo` toggle removes the rim that appears when a feathered seam gets blended twice.
 
-### Load Video (AusBoss)
+### Load Video 🆎
 
 Loads a video as frames plus audio with `frame_count`, `fps`, `width`, `height`, and `duration` outputs, plus a lazy core `VIDEO` handle so the clip chains straight into ComfyUI's own video nodes. Its single responsive player includes a two-handle trim timeline: drag **IN** and **OUT** (shown as `h:mm:ss.s` timecodes you can type into), preview exactly that window, and optionally loop it. Only the selected window is decoded, with a memory guard that reports oversized trims instead of exhausting RAM; audio is extracted lazily only when consumed. Optional custom width/height with aspect-preserving single-side mode.
 
-### Refine Mask (AusBoss)
+### Refine Mask 🆎
 
 Grows or shrinks a mask, fills enclosed holes, melts jagged edges with a `smooth` control that does not feather, feathers, and rescales the extremes with black/white points — returning both the refined mask and its inverse. Optional `guided filter` and `matting` tiers refine the edge against a guide image when you install the matching extra.
 
-### Save Video (AusBoss)
+### Save Video 🆎
 
 Encodes frames — or a connected core `VIDEO` — to an H.264 mp4 tagged bt709 (so platforms don't shift your colors), with optional muxed audio and the workflow embedded, so a saved mp4 dragged back onto the canvas restores its workflow. The responsive in-node player previews the encoded result with loop and reload controls. Wire `fps` from Load Video to preserve source timing; a connected video brings its own rate and overrides the widget. Encoding runs off the executor thread with per-frame progress, so a long export never freezes the UI.
 
-### Video Bundle / Unbundle / Bundle Edit (AusBoss)
+### Video Bundle / Unbundle / Bundle Edit 🆎
 
 One wire for a whole video: frames, audio, fps, and derived frame count, size, and duration travel together as `AUSBOSS_VIDEO`. Bundle Edit overrides only what you connect and re-derives the rest, so the numbers can never drift.
 
-### Compare (AusBoss)
+### Compare 🆎
 
 A/B any two images: slide mode sweeps B over A under your pointer with a seam line, hold mode shows B while pressed. Passes image A through, so it sits mid-graph without rewiring.
 

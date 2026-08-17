@@ -11,7 +11,15 @@ import {
   shouldRecolor,
   titleInk,
 } from "../shared/appearance.mjs";
-import { AUSBOSS_JS_VERSION } from "../shared/index.mjs";
+import { AUSBOSS_JS_VERSION, chainCallback } from "../shared/index.mjs";
+import {
+  BADGE_RADIUS,
+  badgeCenter,
+  helpSections,
+  hitsBadge,
+  showBadge,
+} from "../shared/help_badge.mjs";
+import { openInfoCard } from "../shared/settings_menu.mjs";
 
 const SETTING_ID = "AusBoss.Appearance.NodeColor";
 const CUSTOM_SETTING_ID = "AusBoss.Appearance.CustomColor";
@@ -210,6 +218,7 @@ app.registerExtension({
   },
   nodeCreated(node) {
     if (!isAusbossNode(node)) return;
+    installHelpBadge(node);
     // Colors restored from a saved workflow (and manual picks) land before
     // this hook runs — an already-colored node is left alone.
     if (node.color || node.bgcolor) return;
@@ -217,3 +226,38 @@ app.registerExtension({
     if (colors) applyScheme(node, colors);
   },
 });
+
+// Every AusBoss node gets a quiet "?" in the title bar; clicking it opens a
+// card built from the node's own DESCRIPTION and tooltips, so the docs on
+// screen are exactly the docs in the source.
+function installHelpBadge(node) {
+  chainCallback(node, "onDrawForeground", function (ctx) {
+    if (!showBadge(this.size?.[0] ?? 0, this.flags?.collapsed)) return;
+    const [x, y] = badgeCenter(this.size[0]);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, BADGE_RADIUS, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(155,162,170,0.55)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = "rgba(155,162,170,0.8)";
+    ctx.font = "bold 9px system-ui";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("?", x, y + 0.5);
+    ctx.restore();
+  });
+  chainCallback(node, "onMouseDown", function (event, pos) {
+    if (!showBadge(this.size?.[0] ?? 0, this.flags?.collapsed)) return false;
+    if (!pos || !hitsBadge(pos, this.size[0])) return false;
+    const nodeData = this.constructor?.nodeData;
+    const clientX = event?.clientX ?? window.innerWidth / 2;
+    const clientY = event?.clientY ?? 80;
+    openInfoCard({
+      anchor: { left: clientX - 150, top: clientY, bottom: clientY + 6 },
+      title: this.title || nodeData?.display_name || "About this node",
+      sections: helpSections(nodeData),
+    });
+    return true; // consume the click so it does not start a drag
+  });
+}

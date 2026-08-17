@@ -10,8 +10,6 @@ import {
 } from "../shared/video_preview.mjs";
 import {
   VIDEO_MIN_WIDTH,
-  applyVideoNodeColors,
-  applyVideoNodeTitleColor,
   ensureVideoCss,
   hideCanvasWidget,
   makeToolButton,
@@ -286,7 +284,6 @@ function buildPreview(node) {
   if (!videoWidget || !startWidget || !endWidget) return null;
 
   ensureVideoCss();
-  applyVideoNodeColors(node);
   suppressCoreVideoPreview(node);
   hideCanvasWidget(startWidget);
   hideCanvasWidget(endWidget);
@@ -447,7 +444,6 @@ app.registerExtension({
       queueMicrotask(() => {
         const state = buildPreview(this);
         if (state) {
-          applyVideoNodeTitleColor(this);
           suppressCoreVideoPreview(this);
           state.refresh?.();
         }

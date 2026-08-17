@@ -1,8 +1,14 @@
-"""Align Image (AusBoss)."""
+"""Align Image 🆎."""
 
 from __future__ import annotations
 
-from ._align_helpers import ALIGN_MODES, align_image
+from ._align_helpers import (
+    ALIGN_MODES,
+    CROP_POSITIONS,
+    PAD_FILLS,
+    PAD_POSITIONS,
+    align_image,
+)
 
 
 class AusBossAlignImage:
@@ -65,6 +71,52 @@ class AusBossAlignImage:
                     },
                 ),
             },
+            "optional": {
+                "crop_position": (
+                    list(CROP_POSITIONS),
+                    {
+                        "default": "center",
+                        "tooltip": (
+                            "Crop mode only: which part of the frame "
+                            "survives. center trims both edges evenly; top, "
+                            "bottom, left, or right pin that edge and trim "
+                            "the opposite one. Ignored by resize and pad."
+                        ),
+                    },
+                ),
+                "pad_position": (
+                    list(PAD_POSITIONS),
+                    {
+                        "default": "center",
+                        "tooltip": (
+                            "Pad mode only: where the image sits on the "
+                            "grown canvas — the new pixels land on the "
+                            "opposite side. center splits them evenly."
+                        ),
+                    },
+                ),
+                "pad_fill": (
+                    list(PAD_FILLS),
+                    {
+                        "default": "replicate",
+                        "tooltip": (
+                            "Pad mode only: what fills the new area. "
+                            "replicate stretches the edge pixels out; color "
+                            "uses pad_color as a solid."
+                        ),
+                    },
+                ),
+                "pad_color": (
+                    "STRING",
+                    {
+                        "default": "#000000",
+                        "tooltip": (
+                            "Solid fill for pad_fill: color. Hex, R,G,B "
+                            "numbers, or a CSS color name."
+                        ),
+                    },
+                ),
+            },
         }
 
     RETURN_TYPES = ("IMAGE", "INT", "INT")
@@ -76,12 +128,29 @@ class AusBossAlignImage:
     )
     FUNCTION = "align"
 
-    def align(self, image, multiple, mode):
-        aligned, width, height = align_image(image, int(multiple), str(mode))
+    def align(
+        self,
+        image,
+        multiple,
+        mode,
+        crop_position="center",
+        pad_position="center",
+        pad_fill="replicate",
+        pad_color="#000000",
+    ):
+        aligned, width, height = align_image(
+            image,
+            int(multiple),
+            str(mode),
+            str(crop_position),
+            str(pad_position),
+            str(pad_fill),
+            pad_color,
+        )
         return (aligned, width, height)
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_AlignImage": AusBossAlignImage}
-NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_AlignImage": "Align Image (AusBoss)"}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_AlignImage": "Align Image 🆎"}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

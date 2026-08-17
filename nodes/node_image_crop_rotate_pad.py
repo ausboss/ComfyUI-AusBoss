@@ -1,4 +1,4 @@
-"""Image Crop + Rotate + Pad (AusBoss)."""
+"""Image Crop + Rotate + Pad 🆎."""
 
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ class AusBossImageCropRotatePad:
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_ImageCropRotatePad": AusBossImageCropRotatePad}
-NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_ImageCropRotatePad": "Image Crop + Rotate + Pad (AusBoss)"}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_ImageCropRotatePad": "Image Crop + Rotate + Pad 🆎"}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
 

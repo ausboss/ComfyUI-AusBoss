@@ -1,0 +1,353 @@
+// The gear menu: a floating settings popup shared by AusBoss panel nodes.
+// Values persist per scope in localStorage, so a preference set once applies
+// to every instance of that node in every workflow on this browser.
+//
+//   const values = loadSettings("lora_loader", SCHEMA);
+//   button.onclick = () =>
+//     openSettingsMenu({ scope: "lora_loader", schema: SCHEMA, anchor: rect,
+//                        title: "LoRA Loader settings",
+//                        onChange: (values, key) => rerender(values) });
+
+import { BRAND } from "./index.mjs";
+import { mergeSettings, schemaDefaults } from "./node_settings.mjs";
+
+const CSS_ID = "ausboss-settings-css";
+
+function storageKey(scope) {
+  return `ausboss.settings.${scope}`;
+}
+
+function readStored(scope) {
+  try {
+    const raw = window.localStorage?.getItem(storageKey(scope));
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (_error) {
+    return {};
+  }
+}
+
+function writeStored(scope, values) {
+  try {
+    window.localStorage?.setItem(storageKey(scope), JSON.stringify(values));
+  } catch (_error) {
+    // Storage full or blocked: the menu still works for this session.
+  }
+}
+
+export function loadSettings(scope, schema) {
+  return mergeSettings(schema, readStored(scope));
+}
+
+export function saveSetting(scope, schema, key, value) {
+  const stored = readStored(scope);
+  stored[key] = value;
+  writeStored(scope, stored);
+  return mergeSettings(schema, stored);
+}
+
+export function resetSettings(scope) {
+  try {
+    window.localStorage?.removeItem(storageKey(scope));
+  } catch (_error) {
+    // Ignore: defaults apply either way.
+  }
+}
+
+// A small hand-drawn gear so panels get a crisp icon without any asset file.
+export function gearIconSvg(size = 13) {
+  const teeth = [];
+  for (let i = 0; i < 8; i += 1) {
+    teeth.push(`<rect x="-1.4" y="-8" width="2.8" height="4.4" rx="1" transform="rotate(${i * 45})"/>`);
+  }
+  return (
+    `<svg width="${size}" height="${size}" viewBox="-8 -8 16 16" ` +
+    `fill="currentColor" aria-hidden="true"><g>${teeth.join("")}</g>` +
+    `<circle r="4.6"/><circle r="2.1" fill="#1c1f23"/></svg>`
+  );
+}
+
+function ensureSettingsCss() {
+  if (document.getElementById(CSS_ID)) return;
+  const style = document.createElement("style");
+  style.id = CSS_ID;
+  style.textContent = `
+  .ausboss-set-pop { position: fixed; z-index: 10000; width: 300px; background: #1c1f23;
+    border: 1px solid #3a4047; border-radius: 7px; box-shadow: 0 8px 28px rgba(0,0,0,.5);
+    font: 12px system-ui; color: #d7dde2; display: flex; flex-direction: column; }
+  .ausboss-set-pop * { box-sizing: border-box; }
+  .ausboss-set-head { display: flex; align-items: center; gap: 7px; padding: 9px 10px;
+    border-bottom: 1px solid #2c3238; color: ${BRAND}; font-weight: 600; }
+  .ausboss-set-head svg { flex: none; }
+  .ausboss-set-close { margin-left: auto; width: 22px; height: 22px; border: none;
+    border-radius: 5px; background: transparent; color: #9ba2aa; cursor: pointer;
+    font-size: 14px; line-height: 1; }
+  .ausboss-set-close:hover { background: #2c3238; color: #fff; }
+  .ausboss-set-body { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px 10px;
+    max-height: 60vh; overflow-y: auto; }
+  .ausboss-set-section { padding: 10px 0 3px; color: #9ba2aa; font-size: 10px;
+    font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+  .ausboss-set-row { display: flex; align-items: center; gap: 10px; min-height: 32px;
+    padding: 2px 0; }
+  .ausboss-set-label { flex: 1 1 auto; min-width: 0; }
+  .ausboss-set-label .hint { display: block; color: #9ba2aa; font-size: 10.5px;
+    line-height: 1.35; margin-top: 1px; }
+  .ausboss-set-toggle { width: 30px; height: 16px; border-radius: 8px; border: none;
+    background: #3a4047; cursor: pointer; position: relative; flex: none; padding: 0; }
+  .ausboss-set-toggle::after { content: ""; position: absolute; top: 2px; left: 2px;
+    width: 12px; height: 12px; border-radius: 50%; background: #9ba2aa; transition: left .12s; }
+  .ausboss-set-toggle.on { background: ${BRAND}; }
+  .ausboss-set-toggle.on::after { left: 16px; background: #fff; }
+  .ausboss-set-input { width: 72px; height: 24px; border: 1px solid #3a4047; border-radius: 5px;
+    background: #23272c; color: inherit; text-align: center; outline: none; flex: none; }
+  .ausboss-set-input.wide { width: 110px; text-align: left; padding: 0 8px; }
+  .ausboss-set-input:focus { border-color: ${BRAND}; }
+  .ausboss-set-seg { display: flex; flex: none; border: 1px solid #3a4047; border-radius: 5px;
+    overflow: hidden; }
+  .ausboss-set-seg button { height: 24px; border: none; background: #23272c; color: #9ba2aa;
+    cursor: pointer; padding: 0 9px; font: inherit; }
+  .ausboss-set-seg button + button { border-left: 1px solid #3a4047; }
+  .ausboss-set-seg button.on { background: ${BRAND}; color: #08211f; font-weight: 600; }
+  .ausboss-set-foot { display: flex; align-items: center; gap: 8px; padding: 9px 10px;
+    border-top: 1px solid #2c3238; }
+  .ausboss-set-gearrow { display: flex; align-items: center; justify-content: flex-end;
+    width: 100%; height: 24px; padding: 0 2px; box-sizing: border-box; }
+  .ausboss-set-gearbtn { width: 24px; height: 24px; border: 1px solid #3a4047;
+    border-radius: 5px; background: #23272c; color: #9ba2aa; cursor: pointer;
+    display: grid; place-items: center; flex: none; padding: 0; }
+  .ausboss-set-gearbtn:hover { border-color: ${BRAND}; color: ${BRAND}; }
+  .ausboss-set-text { color: #b9c2c9; font-size: 12px; line-height: 1.45;
+    padding: 4px 0 2px; }
+  .ausboss-set-dl { display: flex; flex-direction: column; gap: 5px; padding: 2px 0 4px; }
+  .ausboss-set-dl .term { color: ${BRAND}; font-weight: 600; }
+  .ausboss-set-dl .detail { color: #9ba2aa; line-height: 1.4; }
+  .ausboss-set-btn { height: 24px; border: 1px solid #3a4047; border-radius: 5px;
+    background: #23272c; color: #d7dde2; cursor: pointer; padding: 0 12px; font: inherit; }
+  .ausboss-set-btn:hover { border-color: ${BRAND}; }
+  .ausboss-set-btn.primary { margin-left: auto; border-color: ${BRAND}; color: ${BRAND}; }
+  .ausboss-set-btn.primary:hover { background: ${BRAND}; color: #08211f; }
+  `;
+  document.head.append(style);
+}
+
+function el(tag, className, text) {
+  const element = document.createElement(tag);
+  if (className) element.className = className;
+  if (text !== undefined) element.textContent = text;
+  return element;
+}
+
+// One popup at a time, every listener on one AbortController — the same
+// discipline the LoRA picker popups use, so teardown cannot leak.
+let activeMenu = null;
+
+export function closeSettingsMenu() {
+  if (!activeMenu) return;
+  activeMenu.abort.abort();
+  activeMenu.element.remove();
+  activeMenu = null;
+}
+
+function buildControl(entry, values, commit) {
+  if (entry.type === "toggle") {
+    const toggle = el("button", `ausboss-set-toggle${values[entry.key] ? " on" : ""}`);
+    toggle.type = "button";
+    toggle.addEventListener("click", () => {
+      const next = !toggle.classList.contains("on");
+      toggle.classList.toggle("on", next);
+      commit(entry, next);
+    });
+    return toggle;
+  }
+  if (entry.type === "choice") {
+    const seg = el("div", "ausboss-set-seg");
+    for (const option of entry.options ?? []) {
+      const button = el("button", values[entry.key] === option ? "on" : "", option);
+      button.type = "button";
+      button.addEventListener("click", () => {
+        for (const sibling of seg.children) sibling.classList.remove("on");
+        button.classList.add("on");
+        commit(entry, option);
+      });
+      seg.append(button);
+    }
+    return seg;
+  }
+  const input = el("input", `ausboss-set-input${entry.type === "text" ? " wide" : ""}`);
+  input.type = "text";
+  if (entry.type === "number") input.inputMode = "decimal";
+  if (entry.placeholder) input.placeholder = entry.placeholder;
+  input.value = String(values[entry.key]);
+  const commitInput = () => {
+    const coerced = commit(entry, input.value);
+    input.value = String(coerced);
+  };
+  input.addEventListener("change", commitInput);
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") { event.preventDefault(); commitInput(); }
+    event.stopPropagation();
+  });
+  return input;
+}
+
+// A right-aligned gear row for panels that have no other chrome to hang the
+// gear on. Returns the row element; wire the click yourself.
+export function makeGearRow(titleText) {
+  ensureSettingsCss();
+  const row = el("div", "ausboss-set-gearrow");
+  const button = el("button", "ausboss-set-gearbtn");
+  button.type = "button";
+  button.title = titleText ?? "Settings";
+  button.innerHTML = gearIconSvg();
+  row.append(button);
+  return { row, button };
+}
+
+// A read-only help card in the same popup slot as the settings menu — the
+// title-bar "?" badge opens one. `sections` mixes prose and term lists:
+//   { text: "..." } | { heading: "Inputs", items: [{ term, detail }] }
+export function openInfoCard({ anchor, title, sections }) {
+  ensureSettingsCss();
+  closeSettingsMenu();
+
+  const pop = el("div", "ausboss-set-pop");
+  const head = el("div", "ausboss-set-head");
+  const close = el("button", "ausboss-set-close", "×");
+  close.type = "button";
+  close.addEventListener("click", () => closeSettingsMenu());
+  head.append(el("span", "", title ?? "About this node"), close);
+
+  const body = el("div", "ausboss-set-body");
+  for (const section of sections ?? []) {
+    if (section.text) body.append(el("div", "ausboss-set-text", section.text));
+    if (!section.items?.length) continue;
+    if (section.heading) body.append(el("div", "ausboss-set-section", section.heading));
+    const list = el("div", "ausboss-set-dl");
+    for (const item of section.items) {
+      const row = el("div");
+      row.append(el("span", "term", item.term));
+      if (item.detail) row.append(el("span", "detail", ` — ${item.detail}`));
+      list.append(row);
+    }
+    body.append(list);
+  }
+  pop.append(head, body);
+  document.body.append(pop);
+
+  const abort = new AbortController();
+  const place = () => {
+    const rect = pop.getBoundingClientRect();
+    let left = Math.min(anchor.left, window.innerWidth - rect.width - 8);
+    let top = anchor.bottom + 4;
+    if (top + rect.height > window.innerHeight - 8) {
+      top = Math.max(8, anchor.top - rect.height - 4);
+    }
+    pop.style.left = `${Math.max(8, left)}px`;
+    pop.style.top = `${top}px`;
+  };
+  place();
+  requestAnimationFrame(place);
+  document.addEventListener(
+    "pointerdown",
+    (event) => { if (!pop.contains(event.target)) closeSettingsMenu(); },
+    { capture: true, signal: abort.signal },
+  );
+  window.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key === "Escape") { event.stopPropagation(); closeSettingsMenu(); }
+    },
+    { capture: true, signal: abort.signal },
+  );
+  activeMenu = { element: pop, abort };
+  return { close: closeSettingsMenu };
+}
+
+// `initial` (when given) seeds the menu from the caller's live values — a
+// node's own widgets — instead of the stored defaults; edits still persist
+// to storage so future nodes start there.
+export function openSettingsMenu({ scope, schema, anchor, title, onChange, initial }) {
+  ensureSettingsCss();
+  closeSettingsMenu();
+
+  let values = initial
+    ? mergeSettings(schema, initial)
+    : loadSettings(scope, schema);
+  const pop = el("div", "ausboss-set-pop");
+
+  const head = el("div", "ausboss-set-head");
+  const icon = el("span");
+  icon.innerHTML = gearIconSvg();
+  const close = el("button", "ausboss-set-close", "×");
+  close.type = "button";
+  close.addEventListener("click", () => closeSettingsMenu());
+  head.append(icon, el("span", "", title ?? "Settings"), close);
+
+  const body = el("div", "ausboss-set-body");
+  const commit = (entry, raw) => {
+    values = saveSetting(scope, schema, entry.key, raw);
+    onChange?.(values, entry.key);
+    return values[entry.key];
+  };
+  const renderRows = () => {
+    body.textContent = "";
+    for (const entry of schema) {
+      if (entry.key === undefined) {
+        body.append(el("div", "ausboss-set-section", entry.section));
+        continue;
+      }
+      const row = el("div", "ausboss-set-row");
+      const label = el("div", "ausboss-set-label", entry.label);
+      if (entry.hint) label.append(el("span", "hint", entry.hint));
+      row.append(label, buildControl(entry, values, commit));
+      body.append(row);
+    }
+  };
+  renderRows();
+
+  const foot = el("div", "ausboss-set-foot");
+  const reset = el("button", "ausboss-set-btn", "Reset");
+  reset.type = "button";
+  reset.title = "Back to defaults for this node type";
+  reset.addEventListener("click", () => {
+    resetSettings(scope);
+    values = schemaDefaults(schema);
+    renderRows();
+    onChange?.(values, null);
+  });
+  const done = el("button", "ausboss-set-btn primary", "Done");
+  done.type = "button";
+  done.addEventListener("click", () => closeSettingsMenu());
+  foot.append(reset, done);
+
+  pop.append(head, body, foot);
+  document.body.append(pop);
+
+  const abort = new AbortController();
+  const place = () => {
+    const rect = pop.getBoundingClientRect();
+    let left = Math.min(anchor.left, window.innerWidth - rect.width - 8);
+    let top = anchor.bottom + 4;
+    if (top + rect.height > window.innerHeight - 8) {
+      top = Math.max(8, anchor.top - rect.height - 4);
+    }
+    pop.style.left = `${Math.max(8, left)}px`;
+    pop.style.top = `${top}px`;
+  };
+  place();
+  requestAnimationFrame(place);
+  document.addEventListener(
+    "pointerdown",
+    (event) => { if (!pop.contains(event.target)) closeSettingsMenu(); },
+    { capture: true, signal: abort.signal },
+  );
+  window.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key === "Escape") { event.stopPropagation(); closeSettingsMenu(); }
+    },
+    { capture: true, signal: abort.signal },
+  );
+  activeMenu = { element: pop, abort };
+  return { close: closeSettingsMenu };
+}

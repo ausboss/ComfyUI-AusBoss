@@ -9,8 +9,6 @@ import {
 } from "../shared/video_preview.mjs";
 import {
   VIDEO_MIN_WIDTH,
-  applyVideoNodeColors,
-  applyVideoNodeTitleColor,
   ensureVideoCss,
   makeToolButton,
   suppressCoreVideoPreview,
@@ -74,7 +72,6 @@ function loadMetadata(state, meta) {
 function buildPreview(node) {
   if (node.__ausbossSaveVideo) return node.__ausbossSaveVideo;
   ensureVideoCss();
-  applyVideoNodeColors(node);
   suppressCoreVideoPreview(node);
 
   const root = document.createElement("div");
@@ -158,7 +155,6 @@ app.registerExtension({
     chainCallback(nodeType.prototype, "onConfigure", function () {
       queueMicrotask(() => {
         buildPreview(this);
-        applyVideoNodeTitleColor(this);
         suppressCoreVideoPreview(this);
       });
     });

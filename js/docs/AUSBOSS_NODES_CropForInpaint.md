@@ -2,7 +2,7 @@
 
 Cuts the masked region — plus enough surrounding context — out of an image
 so an inpainting model works at the region's native resolution instead of
-shrinking the whole frame. Pairs with **Stitch Inpaint (AusBoss)**, which
+shrinking the whole frame. Pairs with **Stitch Inpaint 🆎**, which
 pastes the result back exactly where it came from.
 
 ## Controls
