@@ -82,10 +82,13 @@ export function setStrength(rows, index, value, linked) {
 }
 
 // Scrub model: value follows horizontal pointer distance from the grab point.
-// Inside the dead zone nothing changes, so a plain click stays a click.
-export function scrubValue(startValue, deltaX, fine = false) {
+// Inside the dead zone nothing changes, so a plain click stays a click. The
+// coarse step is configurable (the gear menu's "Strength step"); Shift always
+// scrubs by the fine step.
+export function scrubValue(startValue, deltaX, fine = false, coarseStep = DEFAULT_STEP) {
   if (Math.abs(deltaX) <= SCRUB_DEAD_ZONE) return roundStrength(startValue);
-  const step = fine ? FINE_STEP : DEFAULT_STEP;
+  const coarse = Number.isFinite(coarseStep) && coarseStep > 0 ? coarseStep : DEFAULT_STEP;
+  const step = fine ? FINE_STEP : coarse;
   const travel = deltaX - Math.sign(deltaX) * SCRUB_DEAD_ZONE;
   const steps = Math.round(travel / SCRUB_PIXELS_PER_STEP);
   return roundStrength(startValue + steps * step);

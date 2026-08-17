@@ -2,6 +2,11 @@ import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto } from "../shared/index.mjs";
 import {
+  gearIconSvg,
+  loadSettings,
+  openSettingsMenu,
+} from "../shared/settings_menu.mjs";
+import {
   DEFAULT_STEP,
   FINE_STEP,
   MAX_ROWS,
@@ -29,8 +34,52 @@ import {
 const NODE_CLASS = "AUSBOSS_NODES_LoraLoader";
 const ROW_HEIGHT = 30;
 const ROW_GAP = 6;
-const FOOTER_HEIGHT = 34;
+const ACTIONS_HEIGHT = 26;
+const BAR_HEIGHT = 24;
+const STACK_PADDING = 8;
+const BLANK_HEIGHT = 44;
 const PANEL_PADDING = 10;
+
+// Per-node-type preferences behind the gear button; persisted in
+// localStorage so they follow the user across workflows.
+const SETTINGS_SCOPE = "lora_loader";
+const SETTINGS_SCHEMA = [
+  {
+    key: "default_strength", label: "Default strength", type: "number",
+    default: 1, min: -10, max: 10,
+    hint: "Strength a newly added LoRA starts at.",
+  },
+  {
+    key: "step", label: "Strength step", type: "number",
+    default: 0.05, min: 0.01, max: 1,
+    hint: "Scrub and arrow-key step. Shift always steps by 0.01.",
+  },
+  {
+    key: "separate_strengths", label: "Separate model / CLIP strength",
+    type: "toggle", default: false,
+    hint: "Two strength boxes per row. Applies to this node and to new ones.",
+  },
+  {
+    key: "separator", label: "Trigger word separator", type: "text",
+    default: ", ", placeholder: '", "',
+    hint: "Joins the trigger_words output. This node now, new nodes later.",
+  },
+  {
+    key: "hide_extension", label: "Hide file extension", type: "toggle",
+    default: true,
+    hint: "Show LoRA names without .safetensors.",
+  },
+  {
+    key: "thumbnails", label: "Preview thumbnails", type: "toggle",
+    default: true,
+    hint: "Poster image beside the picker while hovering a LoRA.",
+  },
+  {
+    key: "civitai_lookup", label: "Civitai lookup button", type: "toggle",
+    default: true,
+    hint: "Offer the online lookup inside the info card.",
+  },
+];
 // Narrowest node at which a row still works: toggle + picker + strength +
 // info + gaps + padding. Enforced through the DOM widget's layout minimum,
 // so the node cannot be resized to where the fixed-width row controls would
@@ -58,9 +107,19 @@ function installStyles() {
   .ausboss-lora-toggle.on::after { left: 16px; background: #fff; }
   .ausboss-lora-toggle.mixed { background: #4d6763; }
   .ausboss-lora-toggle.mixed::after { left: 9px; background: #cfd6da; }
-  .ausboss-lora-header { display: flex; align-items: center; gap: 8px; height: 22px;
-    color: #9ba2aa; }
-  .ausboss-lora-header .ausboss-lora-summary { text-align: right; flex: 1 1 auto; }
+  .ausboss-lora-actions { display: flex; height: ${ACTIONS_HEIGHT}px; }
+  .ausboss-lora-bar { display: flex; align-items: center; gap: 8px; height: ${BAR_HEIGHT}px;
+    padding: 0 2px; color: #9ba2aa; }
+  .ausboss-lora-gear { margin-left: auto; width: 24px; height: 24px; border: 1px solid #3a4047;
+    border-radius: 5px; background: #23272c; color: #9ba2aa; cursor: pointer;
+    display: grid; place-items: center; flex: none; padding: 0; }
+  .ausboss-lora-gear:hover { border-color: ${BRAND}; color: ${BRAND}; }
+  .ausboss-lora-stack { display: flex; flex-direction: column; gap: ${ROW_GAP}px;
+    padding: ${STACK_PADDING}px; border: 1px solid rgba(0,180,170,.22); border-radius: 6px;
+    background: rgba(0,0,0,.38); }
+  .ausboss-lora-blank { display: flex; align-items: center; justify-content: center;
+    height: ${BLANK_HEIGHT - 2}px; border: 1px dashed #3a4047; border-radius: 5px;
+    color: #9ba2aa; font-style: italic; text-align: center; padding: 0 10px; }
   .ausboss-lora-strength.out-of-range { color: #ffb26b; border-color: #7a5230; }
   .ausboss-lora-folder { padding: 6px 8px 2px; color: #9ba2aa; font-size: 11px;
     text-transform: uppercase; letter-spacing: 0.04em; }
@@ -83,18 +142,16 @@ function installStyles() {
   .ausboss-lora-strength:focus { cursor: text; border-color: ${BRAND}; outline: none;
     user-select: text; }
   .ausboss-lora-info { width: 24px; height: 24px; border: 1px solid #3a4047; border-radius: 5px;
-    background: #23272c; color: #9ba2aa; cursor: pointer; flex: none; font-style: italic;
-    font-family: Georgia, serif; }
+    background: #23272c; color: #9ba2aa; cursor: pointer; flex: none;
+    font: 700 11px system-ui; }
   .ausboss-lora-info:hover { border-color: ${BRAND}; color: ${BRAND}; }
-  .ausboss-lora-footer { display: flex; align-items: center; gap: 8px; height: ${FOOTER_HEIGHT - ROW_GAP}px; }
-  .ausboss-lora-add { height: 24px; border: 1px solid ${BRAND}; border-radius: 5px;
-    background: transparent; color: ${BRAND}; cursor: pointer; padding: 0 10px; }
-  .ausboss-lora-add:hover { background: ${BRAND}; color: #08211f; }
+  .ausboss-lora-add { flex: none; height: ${ACTIONS_HEIGHT}px; border: none;
+    border-radius: 6px; background: ${BRAND}; color: #06211f; font: 600 12px system-ui;
+    cursor: pointer; padding: 0 12px; }
+  .ausboss-lora-add:hover { background: #00c9be; }
   .ausboss-lora-add:disabled { opacity: 0.4; cursor: default; }
+  .ausboss-lora-actions .ausboss-lora-add { flex: 1 1 auto; }
   .ausboss-lora-summary { color: #9ba2aa; flex: 1 1 auto; text-align: right; }
-  .ausboss-lora-link { height: 24px; border: 1px solid #3a4047; border-radius: 5px;
-    background: #23272c; color: #9ba2aa; cursor: pointer; padding: 0 8px; }
-  .ausboss-lora-link.on { color: ${BRAND}; border-color: ${BRAND}; }
   .ausboss-lora-pop { position: fixed; z-index: 10000; background: #1c1f23;
     border: 1px solid #3a4047; border-radius: 7px; box-shadow: 0 8px 28px rgba(0,0,0,.5);
     font: 12px system-ui; color: #d7dde2; display: flex; flex-direction: column; }
@@ -212,10 +269,22 @@ function linked(state) {
   return state.node.properties?.ausbossLoraLinked !== false;
 }
 
+// Display names honor the hide-extension preference everywhere at once.
+function displayName(state, name) {
+  return state.settings?.hide_extension === false ? name : stripExtension(name);
+}
+
 function panelHeight(state) {
-  const rows = Math.max(1, state.rows.length);
-  const header = state.rows.some((row) => row.name) ? 22 + ROW_GAP : 0;
-  return PANEL_PADDING * 2 + header + rows * (ROW_HEIGHT + ROW_GAP) + FOOTER_HEIGHT;
+  const inner = state.rows.length
+    ? state.rows.length * (ROW_HEIGHT + ROW_GAP) - ROW_GAP
+    : BLANK_HEIGHT;
+  const stack = inner + STACK_PADDING * 2 + 2; // +2 for the stack border
+  return (
+    PANEL_PADDING * 2 +
+    ACTIONS_HEIGHT + ROW_GAP +
+    BAR_HEIGHT + ROW_GAP +
+    stack
+  );
 }
 
 function fitNode(state) {
@@ -285,7 +354,9 @@ function strengthBox(state, index, key) {
     const dx = event.clientX - drag.x;
     const dy = event.clientY - drag.y;
     if (!drag.scrubbed && isScrubbing(dx, dy)) drag.scrubbed = true;
-    if (drag.scrubbed) commitValue(scrubValue(drag.start, dx, event.shiftKey));
+    if (drag.scrubbed) {
+      commitValue(scrubValue(drag.start, dx, event.shiftKey, state.settings?.step));
+    }
   });
   const endDrag = (event) => {
     if (!drag) return;
@@ -306,7 +377,8 @@ function strengthBox(state, index, key) {
     if (event.key === "Enter") input.blur();
     else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
       event.preventDefault();
-      const step = (event.shiftKey ? FINE_STEP : DEFAULT_STEP) * (event.key === "ArrowUp" ? 1 : -1);
+      const coarse = state.settings?.step ?? DEFAULT_STEP;
+      const step = (event.shiftKey ? FINE_STEP : coarse) * (event.key === "ArrowUp" ? 1 : -1);
       commitValue(state.rows[index][key] + step);
       input.value = state.rows[index][key].toFixed(2);
       input.select();
@@ -349,6 +421,7 @@ function openPicker(state, index, anchor) {
   pop.append(hoverThumb);
 
   const showThumb = (name, optionRect) => {
+    if (state.settings?.thumbnails === false) return;
     const popRect = pop.getBoundingClientRect();
     const left = popRect.right + 188 <= window.innerWidth ? popRect.right + 6 : popRect.left - 188;
     hoverThumb.style.left = `${Math.max(4, left)}px`;
@@ -368,7 +441,7 @@ function openPicker(state, index, anchor) {
   };
 
   const appendOption = (name, flatIndex, label) => {
-    const option = el("div", "ausboss-lora-option", stripExtension(label));
+    const option = el("div", "ausboss-lora-option", displayName(state, label));
     option.title = name;
     if (flatIndex === highlight) option.classList.add("highlight");
     if (name === state.rows[index].name) option.classList.add("current");
@@ -469,7 +542,7 @@ function openInfo(state, index, anchor) {
     image.src = api.apiURL(`/ausboss/lora/thumb?name=${encodeURIComponent(row.name)}`);
     image.addEventListener("error", () => image.remove());
     if (info.has_preview) card.append(image);
-    card.append(el("h4", "", info.civitai_title || stripExtension(row.name)));
+    card.append(el("h4", "", info.civitai_title || displayName(state, row.name)));
     if (info.base_model) card.append(el("div", "ausboss-lora-meta", `Base model: ${info.base_model}`));
 
     const chipSection = (label, words) => {
@@ -500,7 +573,7 @@ function openInfo(state, index, anchor) {
     chipSection("From Civitai", info.civitai_triggers);
     chipSection("Your words", info.custom_triggers);
 
-    if (!info.has_civitai) {
+    if (!info.has_civitai && state.settings?.civitai_lookup !== false) {
       const fetchButton = el("button", "ausboss-lora-add ausboss-lora-fetch", "Fetch Civitai info");
       fetchButton.type = "button";
       fetchButton.addEventListener("click", async () => {
@@ -654,25 +727,81 @@ function updateRowValues(state) {
   }
 }
 
+function openSettings(state, anchor) {
+  openSettingsMenu({
+    scope: SETTINGS_SCOPE,
+    schema: SETTINGS_SCHEMA,
+    anchor: anchor.getBoundingClientRect(),
+    title: "LoRA Loader settings",
+    // The menu reflects THIS node's live state where the two overlap.
+    initial: {
+      ...state.settings,
+      separate_strengths: !linked(state),
+      ...(state.separatorWidget ? { separator: state.separatorWidget.value } : {}),
+    },
+    onChange: (values, key) => {
+      state.settings = values;
+      // Two settings also steer this node's own serialized state, so the
+      // change takes effect here immediately, not just on future nodes.
+      if (key === "separate_strengths" || key === null) {
+        state.node.properties.ausbossLoraLinked = !values.separate_strengths;
+        if (!values.separate_strengths) {
+          commitRows(
+            state,
+            state.rows.map((row) => ({ ...row, strength_clip: row.strength })),
+          );
+        }
+      }
+      if ((key === "separator" || key === null) && state.separatorWidget) {
+        state.separatorWidget.value = values.separator;
+      }
+      renderRows(state);
+      fitNode(state);
+    },
+  });
+}
+
 function renderRows(state) {
   const panel = state.panel;
   panel.textContent = "";
 
-  if (state.rows.some((row) => row.name)) {
-    const header = el("div", "ausboss-lora-header");
-    const overall = toggleAllState(state.rows);
-    const master = el(
-      "button",
-      `ausboss-lora-toggle ausboss-lora-master${overall === "on" ? " on" : overall === "mixed" ? " mixed" : ""}`
-    );
-    master.type = "button";
-    master.title = "Toggle every LoRA: mixed or off turns all on, on turns all off";
-    master.addEventListener("click", () => {
-      commitRows(state, toggleAllRows(state.rows), { structural: true });
-    });
-    header.append(master, el("span", "", "all"),
-      el("span", "ausboss-lora-summary", summarizeRows(state.rows)));
-    panel.append(header);
+  const actions = el("div", "ausboss-lora-actions");
+  const add = el("button", "ausboss-lora-add", "+ Add LoRA");
+  add.type = "button";
+  add.disabled = state.rows.length >= MAX_ROWS;
+  add.addEventListener("click", () => {
+    const strength = roundStrength(state.settings?.default_strength ?? 1);
+    const row = { ...newRow(), strength, strength_clip: strength };
+    commitRows(state, [...state.rows, row], { structural: true });
+    fitNode(state);
+    const pickers = state.panel.querySelectorAll(".ausboss-lora-name");
+    pickers[pickers.length - 1]?.click();
+  });
+  actions.append(add);
+  panel.append(actions);
+
+  const bar = el("div", "ausboss-lora-bar");
+  const overall = toggleAllState(state.rows);
+  const master = el(
+    "button",
+    `ausboss-lora-toggle ausboss-lora-master${overall === "on" ? " on" : overall === "mixed" ? " mixed" : ""}`
+  );
+  master.type = "button";
+  master.title = "Toggle every LoRA: mixed or off turns all on, on turns all off";
+  master.addEventListener("click", () => {
+    commitRows(state, toggleAllRows(state.rows), { structural: true });
+  });
+  const gear = el("button", "ausboss-lora-gear");
+  gear.type = "button";
+  gear.title = "LoRA Loader settings";
+  gear.innerHTML = gearIconSvg();
+  gear.addEventListener("click", () => openSettings(state, gear));
+  bar.append(master, el("span", "ausboss-lora-summary", summarizeRows(state.rows)), gear);
+  panel.append(bar);
+
+  const stack = el("div", "ausboss-lora-stack");
+  if (!state.rows.length) {
+    stack.append(el("div", "ausboss-lora-blank", "No LoRAs yet — + Add LoRA starts the stack."));
   }
 
   state.rows.forEach((row, index) => {
@@ -689,7 +818,7 @@ function renderRows(state) {
       commitRows(state, rows, { structural: true });
     });
 
-    const name = el("button", "ausboss-lora-name", row.name ? stripExtension(row.name) : "choose a LoRA...");
+    const name = el("button", "ausboss-lora-name", row.name ? displayName(state, row.name) : "choose a LoRA...");
     name.type = "button";
     name.title = row.name || "Pick a LoRA from models/loras";
     if (!row.name) name.classList.add("empty");
@@ -717,33 +846,10 @@ function renderRows(state) {
       event.stopPropagation();
       openRowMenu(state, index, event);
     });
-    panel.append(rowElement);
+    stack.append(rowElement);
   });
 
-  const footer = el("div", "ausboss-lora-footer");
-  const add = el("button", "ausboss-lora-add", "+ Add LoRA");
-  add.type = "button";
-  add.disabled = state.rows.length >= MAX_ROWS;
-  add.addEventListener("click", () => {
-    commitRows(state, [...state.rows, newRow()], { structural: true });
-    fitNode(state);
-    const pickers = state.panel.querySelectorAll(".ausboss-lora-name");
-    pickers[pickers.length - 1]?.click();
-  });
-  const link = el("button", `ausboss-lora-link${linked(state) ? " on" : ""}`, "linked");
-  link.type = "button";
-  link.title = "Linked: one strength drives model and CLIP. Unlink for separate CLIP strength.";
-  link.addEventListener("click", () => {
-    state.node.properties.ausbossLoraLinked = !linked(state);
-    if (linked(state)) {
-      commitRows(state, state.rows.map((row) => ({ ...row, strength_clip: row.strength })),
-        { structural: true });
-    } else {
-      renderRows(state);
-    }
-  });
-  footer.append(add, link);
-  panel.append(footer);
+  panel.append(stack);
 }
 
 // ---------- node install ----------
@@ -754,11 +860,21 @@ function installLoraNode(node) {
   if (!widget) return;
   hideWidget(widget);
 
+  const settings = loadSettings(SETTINGS_SCOPE, SETTINGS_SCHEMA);
   const panel = el("div", "ausboss-lora-panel");
-  const state = { node, widget, panel, rows: parseRows(widget.value) };
+  const state = { node, widget, panel, rows: parseRows(widget.value), settings };
   node.__ausbossLoraState = state;
   if (node.properties && node.properties.ausbossLoraLinked === undefined) {
-    node.properties.ausbossLoraLinked = true;
+    node.properties.ausbossLoraLinked = !settings.separate_strengths;
+  }
+
+  // The separator rides a hidden standard widget so save/load and the API
+  // format see it; a workflow restore overwrites this seed right after.
+  const separatorWidget = node.widgets?.find((item) => item.name === "trigger_separator");
+  if (separatorWidget) {
+    hideWidget(separatorWidget);
+    separatorWidget.value = settings.separator;
+    state.separatorWidget = separatorWidget;
   }
 
   const domWidget = node.addDOMWidget("ausboss_lora_rows", "ausboss_lora_rows", panel, {

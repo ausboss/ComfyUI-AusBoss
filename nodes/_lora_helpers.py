@@ -66,7 +66,7 @@ def parse_lora_stack(raw: str | None) -> list[dict[str, Any]]:
     return rows
 
 
-def collect_trigger_words(rows: list[dict[str, Any]]) -> str:
+def collect_trigger_words(rows: list[dict[str, Any]], separator: str = ", ") -> str:
     """Join enabled rows' trigger words, deduplicated, order preserved."""
     seen: set[str] = set()
     words: list[str] = []
@@ -79,7 +79,7 @@ def collect_trigger_words(rows: list[dict[str, Any]]) -> str:
             if word and key not in seen:
                 seen.add(key)
                 words.append(word)
-    return ", ".join(words)
+    return separator.join(words)
 
 
 def list_loras() -> list[str]:

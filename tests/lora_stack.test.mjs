@@ -84,6 +84,14 @@ test("scrubbing is inert inside the dead zone, then steps with distance", () => 
   assert.equal(scrubValue(-9.99, -10_000), -10);
 });
 
+test("scrubbing honors a custom coarse step but Shift stays fine", () => {
+  const travel = SCRUB_DEAD_ZONE + SCRUB_PIXELS_PER_STEP;
+  assert.equal(scrubValue(1, travel, false, 0.25), roundStrength(1.25));
+  assert.equal(scrubValue(1, travel, true, 0.25), roundStrength(1 + FINE_STEP));
+  assert.equal(scrubValue(1, travel, false, 0), roundStrength(1 + DEFAULT_STEP),
+    "junk steps fall back to the default");
+});
+
 test("a mostly-vertical drag is not a scrub", () => {
   assert.equal(isScrubbing(10, 4), true);
   assert.equal(isScrubbing(4, 10), false);
