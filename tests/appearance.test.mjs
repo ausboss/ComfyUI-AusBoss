@@ -19,8 +19,11 @@ test("scheme table is well formed", () => {
   const names = NODE_COLOR_SCHEMES.map((scheme) => scheme.name);
   assert.equal(new Set(names).size, names.length, "scheme names must be unique");
   assert.equal(NODE_COLOR_SCHEMES[0].name, DEFAULT_SCHEME);
-  assert.equal(NODE_COLOR_SCHEMES[0].colors, null, "default scheme leaves theme colors alone");
-  for (const scheme of NODE_COLOR_SCHEMES.slice(1)) {
+  assert.equal(DEFAULT_SCHEME, "AusBoss", "the brand scheme is the pack-wide default");
+  const themeDefault = NODE_COLOR_SCHEMES.find((scheme) => scheme.name === "Theme default");
+  assert.equal(themeDefault?.colors, null, "Theme default leaves theme colors alone");
+  for (const scheme of NODE_COLOR_SCHEMES) {
+    if (!scheme.colors) continue;
     assert.match(scheme.colors.title, /^#[0-9a-f]{6}$/);
     assert.match(scheme.colors.body, /^#[0-9a-f]{6}$/);
     assert.notEqual(scheme.colors.title, scheme.colors.body);
@@ -149,7 +152,8 @@ test("a menu-picked scheme survives a settings sweep", () => {
 });
 
 test("titleInk keeps light ink on every shipped scheme", () => {
-  for (const scheme of NODE_COLOR_SCHEMES.slice(1)) {
+  for (const scheme of NODE_COLOR_SCHEMES) {
+    if (!scheme.colors) continue;
     assert.equal(titleInk(scheme.colors.title), "#ffffff", scheme.name);
   }
 });

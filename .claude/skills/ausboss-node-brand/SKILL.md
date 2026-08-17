@@ -31,7 +31,9 @@ allowed; read this for what makes a node feel like an AusBoss node.
   [js/shared/appearance.mjs](../../../js/shared/appearance.mjs) — the single
   source of truth. Adding a scheme means adding one table row; the tests in
   `tests/appearance.test.mjs` validate it automatically. Title is always
-  darker than body; values are tuned against the dark canvas.
+  darker than body in the muted rows; the flagship "AusBoss" row (the
+  pack-wide default) pairs the teal title with a near-black body. Values are
+  tuned against the dark canvas.
 - Coloring is automatic: `js/appearance/index.js` targets every class whose
   `comfyClass` starts with `AUSBOSS_NODES_` (plus the `SimpleWatermarkRemover`
   alias). New nodes need zero per-node color work.
