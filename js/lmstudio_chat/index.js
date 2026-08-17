@@ -19,8 +19,8 @@ function installStyles() {
   const style = document.createElement("style");
   style.id = "ausboss-chat-styles";
   style.textContent = `
-  .ausboss-chat-toolbar{box-sizing:border-box;overflow:hidden;width:100%;height:100%;
-    display:flex;align-items:center;gap:6px;padding:0 2px;font:12px system-ui;color:#9ba2aa;}
+  .ausboss-chat-toolbar{box-sizing:border-box;overflow:hidden;width:100%;
+    display:flex;align-items:center;gap:6px;padding:2px;font:12px system-ui;color:#9ba2aa;}
   .ausboss-chat-toolbar *{box-sizing:border-box;}
   .ausboss-chat-dot{width:9px;height:9px;border-radius:50%;flex:none;
     background:#3a4047;transition:background .15s;}
