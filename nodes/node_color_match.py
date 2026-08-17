@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
-from ._color_helpers import match_colors
+from ._color_helpers import COLOR_MATCH_METHODS, match_colors
 
 
 class AusBossColorMatch:
     CATEGORY = "🆎 AusBoss/Image"
     DESCRIPTION = (
-        "Transfers the reference image's color statistics onto the input "
-        "with per-channel LAB mean/std matching — fixes the color shift on "
-        "inpainted or stitched regions. An optional mask restricts both "
-        "the measurement and the correction to the white area; strength "
-        "blends between the original and the fully matched result."
+        "Transfers the reference image's color statistics onto the input — "
+        "fixes the color shift on inpainted or stitched regions. Four "
+        "methods: lab and rgb move per-channel mean/std, mkl maps the full "
+        "color covariance, histogram matches each channel's distribution "
+        "exactly. An optional mask restricts both the measurement and the "
+        "correction to its white area (invert_mask flips that), which is "
+        "why the node takes a mask but outputs none: the mask only scopes "
+        "the fix, and passes through your graph unchanged. Strength blends "
+        "between the original and the fully matched result."
     )
     SEARCH_ALIASES = [
         "color match",
@@ -56,16 +60,42 @@ class AusBossColorMatch:
                 ),
             },
             "optional": {
+                "method": (
+                    list(COLOR_MATCH_METHODS),
+                    {
+                        "default": "lab",
+                        "tooltip": (
+                            "How the colors move. lab: perceptual mean/std "
+                            "shift, the safe default. rgb: the same in raw "
+                            "channels. mkl: full covariance mapping, best "
+                            "when hues are rotated, not just shifted. "
+                            "histogram: exact per-channel distribution "
+                            "match, the strongest and least subtle."
+                        ),
+                    },
+                ),
                 "mask": (
                     "MASK",
                     {
                         "tooltip": (
                             "Restricts the correction to the white area — both "
                             "the statistics measured on the image and where the "
-                            "fix is applied. Black pixels pass through "
-                            "bit-identical. Without a mask the whole image is "
-                            "matched."
+                            "fix is applied; typical for recoloring just an "
+                            "inpainted region. Black pixels pass through "
+                            "bit-identical, so the mask itself never changes — "
+                            "wire your original mask onward. Without a mask "
+                            "the whole image is matched."
                         )
+                    },
+                ),
+                "invert_mask": (
+                    "BOOLEAN",
+                    {
+                        "default": False,
+                        "tooltip": (
+                            "Treat the mask's black area as the region to "
+                            "correct instead of the white area."
+                        ),
                     },
                 ),
             },
@@ -78,8 +108,12 @@ class AusBossColorMatch:
     )
     FUNCTION = "match"
 
-    def match(self, image, reference, strength, mask=None):
-        return (match_colors(image, reference, float(strength), mask),)
+    def match(self, image, reference, strength, method="lab", mask=None, invert_mask=False):
+        return (
+            match_colors(
+                image, reference, float(strength), mask, str(method), bool(invert_mask)
+            ),
+        )
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_ColorMatch": AusBossColorMatch}
