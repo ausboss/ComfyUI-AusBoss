@@ -1,4 +1,4 @@
-"""Frame Interpolate (AusBoss)."""
+"""Frame Interpolate 🆎."""
 
 from __future__ import annotations
 
@@ -126,7 +126,7 @@ class AusBossFrameInterpolate:
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_FrameInterpolate": AusBossFrameInterpolate}
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "AUSBOSS_NODES_FrameInterpolate": "Frame Interpolate (AusBoss)"
+    "AUSBOSS_NODES_FrameInterpolate": "Frame Interpolate 🆎"
 }
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

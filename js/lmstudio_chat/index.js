@@ -19,15 +19,15 @@ function installStyles() {
   const style = document.createElement("style");
   style.id = "ausboss-chat-styles";
   style.textContent = `
-  .ausboss-chat-toolbar{box-sizing:border-box;overflow:hidden;width:100%;display:flex;
-    align-items:center;gap:6px;padding:0 2px;font:12px system-ui;color:#9ba2aa;}
+  .ausboss-chat-toolbar{box-sizing:border-box;overflow:hidden;width:100%;height:100%;
+    display:flex;align-items:center;gap:6px;padding:0 2px;font:12px system-ui;color:#9ba2aa;}
   .ausboss-chat-toolbar *{box-sizing:border-box;}
   .ausboss-chat-dot{width:9px;height:9px;border-radius:50%;flex:none;
     background:#3a4047;transition:background .15s;}
   .ausboss-chat-dot.ok{background:#27c93f;box-shadow:0 0 5px rgba(39,201,63,.6);}
   .ausboss-chat-dot.fail{background:#ff5f56;box-shadow:0 0 5px rgba(255,95,86,.6);}
-  .ausboss-chat-btn{height:24px;border:1px solid #3a4047;border-radius:5px;
-    background:#23272c;color:#d7dde2;cursor:pointer;padding:0 10px;font:inherit;flex:none;}
+  .ausboss-chat-btn{height:22px;line-height:20px;border:1px solid #3a4047;border-radius:5px;
+    background:#23272c;color:#d7dde2;cursor:pointer;padding:0 10px;font:11px system-ui;flex:none;}
   .ausboss-chat-btn:hover{border-color:${BRAND};color:${BRAND};}
   .ausboss-chat-btn:disabled{opacity:.45;cursor:default;}
   .ausboss-chat-gap{flex:1 1 auto;min-width:0;}
@@ -300,13 +300,16 @@ function installChatNode(node) {
   const toolbarWidget = node.addDOMWidget("ausboss_chat_toolbar", "ausboss_chat_toolbar", row, {
     serialize: false,
     hideOnZoom: false,
+    // The frontend sizes DOM-widget wrappers from this option; without it
+    // the wrapper collapses to a sliver and clips the buttons.
+    getMinHeight: () => 32,
   });
   keepDomWidgetWidthAuto(toolbarWidget);
   toolbarWidget.computeSize = (width) => [
     Math.max(TOOLBAR_MIN_WIDTH, Number(width || node.size?.[0] || TOOLBAR_MIN_WIDTH)),
-    28,
+    32,
   ];
-  toolbarWidget.computeLayoutSize = () => ({ minWidth: TOOLBAR_MIN_WIDTH, minHeight: 28 });
+  toolbarWidget.computeLayoutSize = () => ({ minWidth: TOOLBAR_MIN_WIDTH, minHeight: 32 });
   toolbarWidget.options.minNodeSize = [TOOLBAR_MIN_WIDTH, 60];
 
   // The toolbar belongs directly under the endpoint field, not at the node's

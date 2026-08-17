@@ -1,4 +1,4 @@
-"""LoRA Loader (AusBoss)."""
+"""LoRA Loader 🆎."""
 
 from __future__ import annotations
 
@@ -92,7 +92,7 @@ class AusBossLoraLoader:
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_LoraLoader": AusBossLoraLoader}
-NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_LoraLoader": "LoRA Loader (AusBoss)"}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_LoraLoader": "LoRA Loader 🆎"}
 
 register_lora_routes()
 

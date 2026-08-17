@@ -37,4 +37,4 @@ straight into an inpainter as the outpaint mask, no extra mask node needed.
 ## Notes
 
 For outpainting, pad with `edge` or `edge pixel`, then feather the mask a
-little with **Refine Mask (AusBoss)** if the sampler leaves a visible seam.
+little with **Refine Mask 🆎** if the sampler leaves a visible seam.

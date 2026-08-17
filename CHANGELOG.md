@@ -4,6 +4,9 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- Display names traded the " (AusBoss)" suffix for the pack's 🆎 signature — "LoRA Loader 🆎", "Color Match 🆎". Typing "ausboss" still surfaces everything through the 🆎 AusBoss category, the AUSBOSS_NODES_ id prefix, and each node's search aliases; mapping keys are untouched, so saved workflows load exactly as before.
+- Fixed: the LM Studio Chat endpoint toolbar rendered as a sliver that clipped its buttons — the DOM-widget wrapper takes its height from the getMinHeight option, which the toolbar never declared.
+
 - Every AusBoss node now wears the brand look out of the box: the teal-title scheme the video nodes shipped with became the "AusBoss" row in the appearance table and the pack-wide default, and Load/Save Video stopped hard-painting themselves so the appearance setting (and the per-node color menu) governs them like everyone else. "Theme default" remains available for anyone who wants uncolored nodes.
 - Every AusBoss node grew a quiet "?" badge in the title bar; clicking it opens a card built from the node's own DESCRIPTION and input/output tooltips, so the docs on screen are exactly the docs in the source.
 - New gear-settings menus, persisted in the browser: the LoRA Loader's gear holds default strength, strength step, separate model/CLIP strengths, the trigger-word separator, hide-extension, thumbnail, and Civitai-lookup preferences; LM Studio Chat's gear holds the advanced sampling knobs (top-p, top-k, min-p, repeat and presence penalty), thinking control with custom reasoning tags, LM Studio idle-unload TTL, and a free-ComfyUI-VRAM-first switch. The LM Studio values ride hidden standard widgets, so they save with the workflow and reach the API like any widget.

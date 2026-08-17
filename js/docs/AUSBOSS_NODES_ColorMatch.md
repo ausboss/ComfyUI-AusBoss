@@ -26,5 +26,5 @@ an inpainted or stitched region that came back with a slight color cast.
 
 - The transfer is per-channel mean/std in LAB, so it corrects overall casts
   and contrast without shifting individual hues around.
-- Pair it with **Stitch Inpaint (AusBoss)**: stitch first, then match the
+- Pair it with **Stitch Inpaint 🆎**: stitch first, then match the
   blended region back to the original using the inpaint mask.

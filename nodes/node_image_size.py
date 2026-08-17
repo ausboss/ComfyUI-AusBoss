@@ -1,4 +1,4 @@
-"""Image Size (AusBoss)."""
+"""Image Size 🆎."""
 
 from __future__ import annotations
 
@@ -51,6 +51,6 @@ class AusBossImageSize:
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_ImageSize": AusBossImageSize}
-NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_ImageSize": "Image Size (AusBoss)"}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_ImageSize": "Image Size 🆎"}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

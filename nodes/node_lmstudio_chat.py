@@ -1,4 +1,4 @@
-"""LM Studio Chat (AusBoss)."""
+"""LM Studio Chat 🆎."""
 
 from __future__ import annotations
 
@@ -168,7 +168,7 @@ class AusBossLmStudioChat:
                         "tooltip": (
                             "Optional image for vision models. Only the "
                             "FIRST frame of a batch is sent - pick one with "
-                            "Select Frame (AusBoss) for video. A text-only "
+                            "Select Frame 🆎 for video. A text-only "
                             "model errors server-side if an image arrives."
                         )
                     },
@@ -358,7 +358,7 @@ class AusBossLmStudioChat:
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_LmStudioChat": AusBossLmStudioChat}
-NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_LmStudioChat": "LM Studio Chat (AusBoss)"}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_LmStudioChat": "LM Studio Chat 🆎"}
 
 register_lmstudio_routes()
 

@@ -395,7 +395,7 @@ def apply_stitch(
     """
     if not isinstance(stitcher, dict) or stitcher.get("kind") != STITCHER_KIND:
         raise ValueError(
-            "Stitch Inpaint needs the stitcher output of Crop For Inpaint (AusBoss)."
+            "Stitch Inpaint needs the stitcher output of Crop For Inpaint."
         )
     inpainted = _as_image(inpainted)
     canvas = stitcher["canvas"]

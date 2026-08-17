@@ -6,8 +6,8 @@ wire itself.
 
 ## Inputs
 
-- **video**: A bundle from Video Bundle (AusBoss) or Video Bundle Edit
-  (AusBoss).
+- **video**: A bundle from Video Bundle 🆎 or Video Bundle Edit
+  🆎.
 
 ## Outputs
 

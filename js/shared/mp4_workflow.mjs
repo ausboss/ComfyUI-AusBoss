@@ -1,4 +1,4 @@
-// Pure byte parsing for the workflow Save Video (AusBoss) embeds in its mp4s.
+// Pure byte parsing for the workflow Save Video 🆎 embeds in its mp4s.
 //
 // The backend writes container metadata with ffmpeg's use_metadata_tags flag,
 // which lands as the ISO BMFF "mdta" scheme: moov > udta > meta holding a

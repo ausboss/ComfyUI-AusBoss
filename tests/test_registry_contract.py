@@ -53,7 +53,7 @@ class GoodModuleTests(unittest.TestCase):
             "\n"
             '# AUSBOSS_NODES_Old moved here in wave three.\n'
             'NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_New": New}\n'
-            'NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_New": "New (AusBoss)"}\n'
+            'NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_New": "New 🆎"}\n'
         )
         self.assertEqual(contract.class_mapping_keys(source), {"AUSBOSS_NODES_New"})
         self.assertEqual(contract.mapping_problems(source, "inline"), [])
@@ -136,7 +136,7 @@ class BadModuleTests(unittest.TestCase):
             "class Node:\n"
             "    pass\n"
             'NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_A": Node}\n'
-            'NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_A": "A (AusBoss)"}\n'
+            'NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_A": "A 🆎"}\n'
             "print(len(NODE_CLASS_MAPPINGS))\n"
         )
         problems = contract.mapping_problems(source, "inline")
@@ -148,7 +148,7 @@ class BadModuleTests(unittest.TestCase):
             "class Node:\n"
             "    pass\n"
             'NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_A": Node}\n'
-            'NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_A": "A (AusBoss)"}\n'
+            'NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_A": "A 🆎"}\n'
             "del NODE_CLASS_MAPPINGS\n"
         )
         problems = contract.mapping_problems(source, "inline")

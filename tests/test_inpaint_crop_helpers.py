@@ -633,11 +633,11 @@ class NodeWiringTests(unittest.TestCase):
         self.assertIn("AUSBOSS_NODES_StitchInpaint", NODE_CLASS_MAPPINGS)
         self.assertEqual(
             NODE_DISPLAY_NAME_MAPPINGS["AUSBOSS_NODES_CropForInpaint"],
-            "Crop For Inpaint (AusBoss)",
+            "Crop For Inpaint 🆎",
         )
         self.assertEqual(
             NODE_DISPLAY_NAME_MAPPINGS["AUSBOSS_NODES_StitchInpaint"],
-            "Stitch Inpaint (AusBoss)",
+            "Stitch Inpaint 🆎",
         )
 
         crop_cls = NODE_CLASS_MAPPINGS["AUSBOSS_NODES_CropForInpaint"]

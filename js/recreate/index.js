@@ -1,4 +1,4 @@
-// Recreate node (AusBoss) — right-click utility on every AusBoss node.
+// Recreate node 🆎 — right-click utility on every AusBoss node.
 //
 // After a node definition changes (new widget, renamed slot, updated
 // defaults), instances saved in open workflows keep their stale shape.
@@ -9,7 +9,7 @@
 // the graph back and keeps the original node.
 import { app } from "/scripts/app.js";
 
-const MENU_LABEL = "Recreate node (AusBoss)";
+const MENU_LABEL = "Recreate node 🆎";
 
 function isAusbossNode(node) {
   const comfyClass = node?.comfyClass || "";

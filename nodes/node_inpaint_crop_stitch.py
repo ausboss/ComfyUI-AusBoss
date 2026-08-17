@@ -1,4 +1,4 @@
-"""Crop For Inpaint / Stitch Inpaint (AusBoss) — a tight node family."""
+"""Crop For Inpaint / Stitch Inpaint 🆎 — a tight node family."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ class AusBossCropForInpaint:
     DESCRIPTION = (
         "Cuts the masked region plus surrounding context out of an image so "
         "an inpainter works at native resolution, and emits a stitcher that "
-        "Stitch Inpaint (AusBoss) uses to paste the result back seamlessly. "
+        "Stitch Inpaint 🆎 uses to paste the result back seamlessly. "
         "The selection can be inverted, grown or shrunk, and edge-softened "
         "before cropping; context comes from a growth factor plus optional "
         "flat pixels. By default the sampling mask stays hard-edged; "
@@ -179,7 +179,7 @@ class AusBossCropForInpaint:
     OUTPUT_TOOLTIPS = (
         "Cropped BHWC region around the mask, sized for the sampler.",
         "Hard-edged sampling mask matching the crop; never feathered.",
-        "Stitch data for Stitch Inpaint (AusBoss): canvas, rects, blend mask, scale.",
+        "Stitch data for Stitch Inpaint 🆎: canvas, rects, blend mask, scale.",
     )
     FUNCTION = "crop"
 
@@ -215,7 +215,7 @@ class AusBossCropForInpaint:
 class AusBossStitchInpaint:
     CATEGORY = "🆎 AusBoss/Inpaint"
     DESCRIPTION = (
-        "Pastes an inpainted crop from Crop For Inpaint (AusBoss) back into "
+        "Pastes an inpainted crop from Crop For Inpaint 🆎 back into "
         "the original image, blending with the feathered mask recorded in "
         "the stitcher. Pixels outside the blend region are bit-identical to "
         "the original — they never pass through a resize. A stitcher built "
@@ -236,7 +236,7 @@ class AusBossStitchInpaint:
             "required": {
                 "stitcher": (
                     "AUSBOSS_STITCHER",
-                    {"tooltip": "The stitcher output of Crop For Inpaint (AusBoss)."},
+                    {"tooltip": "The stitcher output of Crop For Inpaint 🆎."},
                 ),
                 "inpainted": (
                     "IMAGE",
@@ -283,8 +283,8 @@ NODE_CLASS_MAPPINGS = {
     "AUSBOSS_NODES_StitchInpaint": AusBossStitchInpaint,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "AUSBOSS_NODES_CropForInpaint": "Crop For Inpaint (AusBoss)",
-    "AUSBOSS_NODES_StitchInpaint": "Stitch Inpaint (AusBoss)",
+    "AUSBOSS_NODES_CropForInpaint": "Crop For Inpaint 🆎",
+    "AUSBOSS_NODES_StitchInpaint": "Stitch Inpaint 🆎",
 }
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

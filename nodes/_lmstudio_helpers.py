@@ -144,7 +144,7 @@ def image_data_url(image: torch.Tensor, max_edge: int = 0) -> str:
     ``max_edge`` > 0 downscales so the longest edge fits it - vision models
     resize internally anyway, and a smaller upload is dramatically faster to
     encode and to prefill. One frame only: a video batch means "describe
-    this shot", and Select Frame (AusBoss) picks which one.
+    this shot", and Select Frame picks which one.
     """
     from PIL import Image
 

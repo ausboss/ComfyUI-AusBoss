@@ -1,4 +1,4 @@
-"""Save Video (AusBoss)."""
+"""Save Video 🆎."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ class AusBossSaveVideo:
     DESCRIPTION = (
         "Saves a frame batch as an H.264 mp4 with optional muxed audio and the "
         "workflow embedded, so the file drags back into ComfyUI. Wire fps "
-        "straight from Load Video (AusBoss) to keep the source timing, or "
+        "straight from Load Video 🆎 to keep the source timing, or "
         "connect a core VIDEO to encode that whole video instead."
     )
     SEARCH_ALIASES = ["save video", "export video", "video combine", "mp4", "ausboss"]
@@ -173,6 +173,6 @@ class AusBossSaveVideo:
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_SaveVideo": AusBossSaveVideo}
-NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_SaveVideo": "Save Video (AusBoss)"}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_SaveVideo": "Save Video 🆎"}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

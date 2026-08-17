@@ -1,4 +1,4 @@
-"""Color Match (AusBoss)."""
+"""Color Match 🆎."""
 
 from __future__ import annotations
 
@@ -117,6 +117,6 @@ class AusBossColorMatch:
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_ColorMatch": AusBossColorMatch}
-NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_ColorMatch": "Color Match (AusBoss)"}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_ColorMatch": "Color Match 🆎"}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

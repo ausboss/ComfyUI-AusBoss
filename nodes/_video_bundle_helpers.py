@@ -86,7 +86,7 @@ def unbundle_video(bundle: dict) -> tuple:
 def require_video_bundle(bundle) -> None:
     if not isinstance(bundle, dict) or "frames" not in bundle:
         raise ValueError(
-            "Expected an AUSBOSS_VIDEO bundle from Video Bundle (AusBoss)."
+            "Expected an AUSBOSS_VIDEO bundle from Video Bundle."
         )
 
 

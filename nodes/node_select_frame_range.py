@@ -1,4 +1,4 @@
-"""Select Frame Range (AusBoss)."""
+"""Select Frame Range 🆎."""
 
 from __future__ import annotations
 
@@ -66,6 +66,6 @@ class AusBossSelectFrameRange:
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_SelectFrameRange": AusBossSelectFrameRange}
-NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_SelectFrameRange": "Select Frame Range (AusBoss)"}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_SelectFrameRange": "Select Frame Range 🆎"}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

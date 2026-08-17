@@ -1,6 +1,6 @@
 # Stitch Inpaint
 
-Pastes an inpainted crop from **Crop For Inpaint (AusBoss)** back into the
+Pastes an inpainted crop from **Crop For Inpaint 🆎** back into the
 original image. The crop is resized to its source window if the sampler
 changed its size, blended in with the feathered mask recorded in the
 stitcher, and the original frame is sliced back out.

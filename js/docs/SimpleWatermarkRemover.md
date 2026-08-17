@@ -6,7 +6,7 @@ run unchanged.
 
 It accepts the same inputs the original did and runs the same LaMa inpaint
 underneath. For anything new, use
-[LaMa Inpaint (AusBoss)](AUSBOSS_NODES_LaMaInpaint.md) instead — it is the
+[LaMa Inpaint 🆎](AUSBOSS_NODES_LaMaInpaint.md) instead — it is the
 same engine with the full set of controls, live previews, and video-batch
 support.
 
