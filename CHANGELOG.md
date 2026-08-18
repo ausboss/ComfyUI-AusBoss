@@ -4,6 +4,17 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- Video Crop + Rotate + Pad 🆎: the preview no longer stretches when the node is
+  resized. Its canvas is CSS-stretched to whatever box the panel is given, but
+  the backing store is only re-sized when something draws — and the panel's
+  resize observer sat inside an `image`-only branch next to the interactive drag
+  handlers, so the image node redrew on resize and the video node, a passive
+  preview with no other reason to redraw, kept painting its last frame into a
+  box that had changed shape. Latent until panels started taking the node's
+  leftover height, because before that the box could not change shape without a
+  width change forcing a relayout. A test now fails if the observer is gated on
+  node kind again, or if a canvas-painting panel ships without one.
+
 - Added **Krea 2 Encode 🆎** and **Krea 2 Outpaint Model Patch 🆎**, promoted
   from the lab. Together they make Krea 2 outpaint the source instead of
   painting something next to it: the encode attaches reference latents to the

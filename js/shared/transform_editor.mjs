@@ -231,6 +231,19 @@ export function installTransformNode(node, kind, mountPanel = null) {
     Math.max(330, Math.min(520, node.size?.[0] || 330)),
     Math.max(baseHeight, node.computeSize?.()[1] || 0),
   ]);
+  if (typeof node.addDOMWidget === "function") {
+    // Redraw on wrapper size changes (node resize, zoom relayout);
+    // node.onResize is unreliable across frontends.
+    //
+    // This is not only about hit-testing. prepareCanvas() sizes the backing
+    // store from the element at DRAW time, and the canvas is CSS-stretched to
+    // its box, so a box that changes shape without a redraw displays the last
+    // frame at the wrong aspect. Both kinds need it: the video panel is a
+    // passive preview and has no other reason to redraw, which is exactly why
+    // it was the one that came out stretched.
+    state.panelResizeObserver = new ResizeObserver(() => draw(state));
+    state.panelResizeObserver.observe(preview);
+  }
   if (kind === "image" && typeof node.addDOMWidget === "function") {
     // The compact panel is a live stage for the image node: the same
     // handles and drag logic as the editor over a fit-only view (no wheel
@@ -239,11 +252,6 @@ export function installTransformNode(node, kind, mountPanel = null) {
     state.panelInteractive = true;
     state.panelAbort = new AbortController();
     attachStageHandlers(state, preview, state.panelAbort.signal);
-    // Redraw on wrapper size changes (node resize, zoom relayout) so the
-    // hit-test geometry always matches the canvas the pointer sees;
-    // node.onResize is unreliable across frontends.
-    state.panelResizeObserver = new ResizeObserver(() => draw(state));
-    state.panelResizeObserver.observe(preview);
   }
 
   const watched = kind === "image" ? ["image"] : ["video", "source_mode", "local_path"];
