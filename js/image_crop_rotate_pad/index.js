@@ -1,5 +1,6 @@
 import { registerTransformExtension } from "../shared/transform_editor.mjs";
 import { keepDomWidgetWidthAuto } from "../shared/index.mjs";
+import { fillNodeHeight } from "../shared/panel_layout.mjs";
 import { stageHeightForWidth } from "../shared/transform_geometry.mjs";
 
 const PANEL_MIN_WIDTH = 330;
@@ -28,16 +29,11 @@ function mountTransformPanel(node, panel) {
     getMinHeight: () => PANEL_MIN_HEIGHT,
   });
   keepDomWidgetWidthAuto(widget);
-  widget.computeSize = (width) => {
-    const resolvedWidth = Math.max(PANEL_MIN_WIDTH, Number(width || node.size?.[0] || PANEL_MIN_WIDTH));
-    return [resolvedWidth, stageHeightForWidth(resolvedWidth) + PANEL_CHROME];
-  };
-  widget.computeLayoutSize = () => ({
+  fillNodeHeight(widget, {
     minWidth: PANEL_MIN_WIDTH,
     minHeight: PANEL_MIN_HEIGHT,
+    minNodeSize: [PANEL_MIN_WIDTH, 320],
   });
-  widget.options ??= {};
-  widget.options.minNodeSize = [PANEL_MIN_WIDTH, 320];
   return widget;
 }
 

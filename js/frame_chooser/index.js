@@ -1,6 +1,7 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
+import { fillNodeHeight } from "../shared/panel_layout.mjs";
 import { nodeByExecutionId } from "../shared/graph_ids.mjs";
 import { ensureVideoCss, makeToolButton } from "../shared/video_ui.mjs";
 import {
@@ -450,19 +451,15 @@ function buildPanel(node) {
     getMinHeight: () => (state.populated ? ACTIVE_HEIGHT : IDLE_HEIGHT),
   });
   keepDomWidgetWidthAuto(widget);
-  widget.computeSize = (width) => [
-    Math.max(MIN_WIDTH, Number(width || node.size?.[0] || MIN_WIDTH)),
-    state.populated ? ACTIVE_HEIGHT : IDLE_HEIGHT,
-  ];
-  widget.computeLayoutSize = () => ({
-    minWidth: MIN_WIDTH,
-    minHeight: state.populated ? ACTIVE_HEIGHT : IDLE_HEIGHT,
-  });
-  // Older frontends enforce the node's floor through this option instead of
+  // Older frontends enforce the node's floor through minNodeSize instead of
   // computeLayoutSize. Without it the node could be resized under the panel,
   // which holds MIN_WIDTH and pokes past the border - the overflow clip cuts
   // at the panel's edge, not the node's.
-  widget.options.minNodeSize = [MIN_WIDTH, IDLE_HEIGHT];
+  fillNodeHeight(widget, {
+    minWidth: MIN_WIDTH,
+    minHeight: () => (state.populated ? ACTIVE_HEIGHT : IDLE_HEIGHT),
+    minNodeSize: [MIN_WIDTH, IDLE_HEIGHT],
+  });
   state.widget = widget;
 
   keepButton.addEventListener(

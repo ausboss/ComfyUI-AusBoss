@@ -1,6 +1,7 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto } from "../shared/index.mjs";
+import { fillNodeHeight } from "../shared/panel_layout.mjs";
 import { mediaViewQuery, responsivePreviewHeight } from "../shared/video_preview.mjs";
 import { VIDEO_MIN_WIDTH, ensureVideoCss, makeToolButton } from "../shared/video_ui.mjs";
 import {
@@ -117,15 +118,11 @@ function buildPanel(node) {
     getMinHeight: () => 132,
   });
   keepDomWidgetWidthAuto(widget);
-  // No computeSize on purpose. The layout gives a widget that defines one a
-  // FIXED height and leaves it out of the free-space split, so the panel kept
-  // a width-derived height and dragging the node taller only added dead space
-  // below it. Declaring just a minimum through computeLayoutSize puts the
-  // panel in the split, where an absent maxHeight means "take what is left" —
-  // so the stage now follows the node's height as well as its width.
-  widget.computeLayoutSize = () => ({ minWidth: VIDEO_MIN_WIDTH, minHeight: PANEL_MIN_HEIGHT });
-  widget.options ??= {};
-  widget.options.minNodeSize = [VIDEO_MIN_WIDTH, 220];
+  fillNodeHeight(widget, {
+    minWidth: VIDEO_MIN_WIDTH,
+    minHeight: PANEL_MIN_HEIGHT,
+    minNodeSize: [VIDEO_MIN_WIDTH, 220],
+  });
 
   const abort = new AbortController();
   const state = node.__ausbossCompare = {

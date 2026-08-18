@@ -1,6 +1,7 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
+import { fillNodeHeight } from "../shared/panel_layout.mjs";
 import {
   findVideoMetadata,
   mediaInfo,
@@ -17,6 +18,13 @@ import {
 const NODE_NAME = "AUSBOSS_NODES_SaveVideo";
 const PREVIEW_WIDGET = "ausboss_save_video_viewer";
 const PREVIEW_CHROME = 12;
+// Height the node opens at. It used to fall out of the panel's computeSize;
+// with the panel free to follow the node, the default has to be stated. Same
+// 16:9-ish stage the width-derived formula produced, plus the widget rows.
+const DEFAULT_NODE_SIZE = [
+  380,
+  responsivePreviewHeight(380, 132, 520) + PREVIEW_CHROME + 150,
+];
 
 // ComfyUI resolves %date:yyyy-MM-dd%-style tokens in filename_prefix only for
 // its own save nodes. Serializing the widget through the core replacement
@@ -99,13 +107,11 @@ function buildPreview(node) {
     getMinHeight: () => 132,
   });
   keepDomWidgetWidthAuto(widget);
-  widget.computeSize = (width) => {
-    const resolvedWidth = Math.max(VIDEO_MIN_WIDTH, Number(width || node.size?.[0] || 360));
-    return [resolvedWidth, responsivePreviewHeight(resolvedWidth, 132, 520) + PREVIEW_CHROME];
-  };
-  widget.computeLayoutSize = () => ({ minWidth: VIDEO_MIN_WIDTH, minHeight: 144 });
-  widget.options ??= {};
-  widget.options.minNodeSize = [VIDEO_MIN_WIDTH, 270];
+  fillNodeHeight(widget, {
+    minWidth: VIDEO_MIN_WIDTH,
+    minHeight: 144,
+    minNodeSize: [VIDEO_MIN_WIDTH, 270],
+  });
 
   const abort = new AbortController();
   const state = node.__ausbossSaveVideo = {
@@ -151,6 +157,12 @@ app.registerExtension({
     chainCallback(nodeType.prototype, "onNodeCreated", function () {
       buildPreview(this);
       installFilenameTokens(this);
+      // Only for a genuinely new node: onConfigure restores a saved size after
+      // this runs, so a workflow's own dimensions still win.
+      this.setSize?.([
+        Math.max(DEFAULT_NODE_SIZE[0], this.size?.[0] ?? 0),
+        Math.max(DEFAULT_NODE_SIZE[1], this.size?.[1] ?? 0),
+      ]);
     });
     chainCallback(nodeType.prototype, "onConfigure", function () {
       queueMicrotask(() => {
