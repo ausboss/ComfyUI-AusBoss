@@ -54,12 +54,19 @@ def definition_sockets(spec: dict) -> list[tuple[str, str]]:
 
 
 def definition_widgets(spec: dict) -> list[tuple[str, str, dict]]:
-    """(name, type, options) per widget, in saved widgets_values order."""
+    """(name, type, options) per widget, in saved widgets_values order.
+
+    A combo — an input declared as a list of choices rather than a type name —
+    is a widget too and takes its own slot in widgets_values. Leaving those out
+    made this list agree with saved files only by accident, for as long as no
+    widget was ever declared after one.
+    """
     return [
-        (name, definition[0], definition[1] if len(definition) > 1 else {})
+        (name, definition[0] if isinstance(definition[0], str) else "COMBO",
+         definition[1] if len(definition) > 1 else {})
         for group in ("required", "optional")
         for name, definition in spec.get(group, {}).items()
-        if isinstance(definition[0], str) and definition[0] in WIDGET_TYPES
+        if not isinstance(definition[0], str) or definition[0] in WIDGET_TYPES
     ]
 
 
@@ -280,6 +287,206 @@ class SaveVideoHelperTests(unittest.TestCase):
         }])
 
 
+class FormatTests(unittest.TestCase):
+    """Every entry of the format widget has to actually produce a file.
+
+    A format that cannot open its encoder is worse than one that is not
+    offered, so each is encoded for real and read back rather than trusted
+    from its table row.
+    """
+
+    # NVENC is compiled into the libav build whether or not there is a card
+    # behind it, and it refuses frames below roughly 145x49, so the clip here
+    # is comfortably above that on both axes.
+    CLIP = (8, 128, 160)
+
+    def encodable(self, spec) -> bool:
+        if not spec.video_codec:
+            return True
+        try:
+            av.codec.Codec(spec.video_codec, "w")
+        except Exception:
+            return False
+        return True
+
+    def test_every_offered_format_encodes_and_reads_back(self):
+        frames = gradient_batch(*self.CLIP)
+        for name, spec in _video_save_helpers.VIDEO_FORMATS.items():
+            with self.subTest(format=name):
+                if not self.encodable(spec):
+                    self.skipTest(f"{spec.video_codec} unavailable")
+                with tempfile.TemporaryDirectory() as tmp:
+                    path = Path(tmp) / f"clip.{spec.extension}"
+                    try:
+                        width, height, count = encode_video(
+                            path, frames, 12.0, None, 23, None, name
+                        )
+                    except RuntimeError as exc:
+                        # The one honest reason to skip: the encoder is present
+                        # but no GPU can open it on this machine.
+                        if "nvenc" in str(exc):
+                            self.skipTest(str(exc))
+                        raise
+                    self.assertEqual((width, height, count), (160, 128, 8))
+                    self.assertGreater(path.stat().st_size, 0)
+                    if spec.video_codec:
+                        with av.open(str(path)) as container:
+                            video = next(s for s in container.streams if s.type == "video")
+                            self.assertEqual(sum(1 for _ in container.decode(video)), 8)
+                    else:
+                        from PIL import Image
+
+                        with Image.open(path) as animation:
+                            self.assertEqual(getattr(animation, "n_frames", 1), 8)
+
+    def test_ffv1_is_bit_exact_lossless(self):
+        # The point of offering it: planar RGB in, planar RGB out, no matrix
+        # applied, so an intermediate save loses nothing at all.
+        frames = gradient_batch(3, 34, 46)  # odd-ish, and never cropped even
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "lossless.mkv"
+            width, height, _count = encode_video(path, frames, 8.0, None, 0, None, "mkv ffv1")
+            self.assertEqual((width, height), (46, 34))
+            with av.open(str(path)) as container:
+                video = next(s for s in container.streams if s.type == "video")
+                decoded = np.stack(
+                    [frame.to_ndarray(format="rgb24") for frame in container.decode(video)]
+                )
+        expected = (frames[..., :3].clamp(0.0, 1.0) * 255.0).round().to(torch.uint8).numpy()
+        np.testing.assert_array_equal(decoded, expected)
+
+    def test_the_still_image_formats_carry_no_audio_stream(self):
+        for name in ("gif", "webp"):
+            with self.subTest(format=name):
+                with tempfile.TemporaryDirectory() as tmp:
+                    path = Path(tmp) / f"loop.{name}"
+                    encode_video(path, gradient_batch(4, 64, 64), 10.0, tone(8000), 23, None, name)
+                    self.assertGreater(path.stat().st_size, 0)
+
+    def test_workflow_metadata_survives_the_containers_that_can_hold_it(self):
+        # Matroska uppercases tag keys, and the isobmff muxers drop unknown
+        # keys entirely without the movflags this encoder passes.
+        frames = gradient_batch(2, 64, 64)
+        for name, key in (("mp4 h264", "prompt"), ("webm vp9", "PROMPT"), ("mov prores", "prompt")):
+            with self.subTest(format=name):
+                extension = _video_save_helpers.VIDEO_FORMATS[name].extension
+                with tempfile.TemporaryDirectory() as tmp:
+                    path = Path(tmp) / f"tagged.{extension}"
+                    encode_video(path, frames, 8.0, None, 23, {"prompt": "ausboss-test"}, name)
+                    with av.open(str(path)) as container:
+                        self.assertEqual(container.metadata.get(key), "ausboss-test")
+
+    def test_stream_options_map_crf_onto_each_codecs_own_dial(self):
+        options = _video_save_helpers.stream_options
+        self.assertEqual(options("libx264", 19)["crf"], "19")
+        self.assertEqual(options("libvpx-vp9", 30)["b"], "0")  # constant quality
+        # NVENC has no crf at all; cq is the equivalent and needs b=0 to bite.
+        nvenc = options("h264_nvenc", 23)
+        self.assertEqual((nvenc["cq"], nvenc["b"]), ("23", "0"))
+        self.assertNotIn("crf", nvenc)
+        # Lossless and ProRes have their own ladders, so crf says nothing.
+        self.assertNotIn("crf", options("ffv1", 19))
+        self.assertNotIn("crf", options("prores_ks", 19))
+
+
+class PingPongTests(unittest.TestCase):
+    def test_the_bounce_does_not_repeat_the_turnaround_frames(self):
+        frames = gradient_batch(5, 8, 8)
+        bounced = _video_save_helpers.pingpong_frames(frames)
+        self.assertEqual(bounced.shape[0], 8)  # 5 forward + 3 interior back
+        order = [round(float(frame[0, 0, 0]), 4) for frame in bounced]
+        forward = [round(float(frame[0, 0, 0]), 4) for frame in frames]
+        self.assertEqual(order, forward + forward[-2:0:-1])
+        # The seam frames appear once each, which is what makes the loop smooth.
+        self.assertEqual(order.count(forward[0]), 1)
+        self.assertEqual(order.count(forward[-1]), 1)
+
+    def test_clips_too_short_to_bounce_come_back_untouched(self):
+        for count in (1, 2):
+            frames = gradient_batch(count, 8, 8)
+            self.assertIs(_video_save_helpers.pingpong_frames(frames), frames)
+
+    def test_the_node_encodes_and_reports_the_bounced_length(self):
+        frames = gradient_batch(6, 16, 16)
+        with (
+            patch.object(node_save_video, "folder_paths", FakeFolderPaths),
+            patch.object(node_save_video, "encode_video", return_value=(16, 16, 10)) as encode,
+        ):
+            result = run_node(node_save_video.AusBossSaveVideo().save(
+                frames=frames, fps=10.0, filename_prefix="AusBoss/video", crf=19, pingpong=True
+            ))
+        _path, encoded_frames, *_rest = encode.call_args.args
+        self.assertEqual(encoded_frames.shape[0], 10)
+        # The bounce is part of the clip, so the preview's duration counts it.
+        self.assertEqual(result["ui"]["images"][0]["frame_count"], 10)
+        self.assertAlmostEqual(result["ui"]["images"][0]["duration"], 1.0)
+
+    def test_pingpong_off_is_the_default_and_leaves_the_batch_alone(self):
+        frames = gradient_batch(6, 16, 16)
+        with (
+            patch.object(node_save_video, "folder_paths", FakeFolderPaths),
+            patch.object(node_save_video, "encode_video", return_value=(16, 16, 6)) as encode,
+        ):
+            run_node(node_save_video.AusBossSaveVideo().save(
+                frames=frames, fps=10.0, filename_prefix="AusBoss/video", crf=19
+            ))
+        self.assertIs(encode.call_args.args[1], frames)
+
+
+class SaveMetadataToggleTests(unittest.TestCase):
+    def test_metadata_is_embedded_by_default(self):
+        with (
+            patch.object(node_save_video, "folder_paths", FakeFolderPaths),
+            patch.object(node_save_video, "encode_video", return_value=(16, 16, 1)) as encode,
+        ):
+            run_node(node_save_video.AusBossSaveVideo().save(
+                frames=gradient_batch(1, 16, 16), fps=8.0, filename_prefix="AusBoss/video",
+                crf=19, prompt={"1": {}}, extra_pnginfo={"workflow": {"nodes": []}},
+            ))
+        metadata = encode.call_args.args[5]
+        self.assertEqual(sorted(metadata), ["prompt", "workflow"])
+
+    def test_turning_it_off_sends_no_prompt_or_workflow_to_the_encoder(self):
+        with (
+            patch.object(node_save_video, "folder_paths", FakeFolderPaths),
+            patch.object(node_save_video, "encode_video", return_value=(16, 16, 1)) as encode,
+        ):
+            run_node(node_save_video.AusBossSaveVideo().save(
+                frames=gradient_batch(1, 16, 16), fps=8.0, filename_prefix="AusBoss/video",
+                crf=19, save_metadata=False,
+                prompt={"1": {}}, extra_pnginfo={"workflow": {"nodes": []}},
+            ))
+        self.assertIsNone(encode.call_args.args[5])
+
+    def test_a_file_saved_with_it_off_carries_no_workflow(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "clean.mp4"
+            encode_video(path, gradient_batch(2, 64, 64), 8.0, None, 23, None, "mp4 h264")
+            with av.open(str(path)) as container:
+                self.assertNotIn("prompt", container.metadata)
+                self.assertNotIn("workflow", container.metadata)
+
+
+class FpsWidgetTests(unittest.TestCase):
+    def test_fps_stays_float_so_ntsc_rates_and_the_load_video_link_survive(self):
+        spec = node_save_video.AusBossSaveVideo.INPUT_TYPES()["required"]["fps"]
+        declared, options = spec[0], spec[1]
+        # Load Video's fps output is a FLOAT; an INT here would refuse the link
+        # and would round 29.97 to 30, drifting the picture off its audio.
+        self.assertEqual(declared, "FLOAT")
+        # step 1 is what makes it read and nudge like whole frames.
+        self.assertEqual(options["step"], 1.0)
+        self.assertLess(options["min"], 1.0)
+
+    def test_a_fractional_rate_still_reaches_the_container(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "ntsc.mp4"
+            encode_video(path, gradient_batch(4, 64, 64), 23.976, None, 23)
+            with av.open(str(path)) as container:
+                video = next(s for s in container.streams if s.type == "video")
+                self.assertAlmostEqual(float(video.average_rate), 23.976, places=2)
+
+
 class EncodeFpsPrecedenceTests(unittest.TestCase):
     def test_no_video_keeps_the_widget_rate_and_stays_quiet(self):
         self.assertEqual(resolve_encode_fps(16.0, None), (16.0, None))
@@ -496,10 +703,17 @@ class LegacyWorkflowTests(unittest.TestCase):
     def test_the_old_widget_values_still_line_up_with_the_current_widgets(self):
         widgets = definition_widgets(self.spec)
         values = self.saved["widgets_values"]
+        names = [name for name, _type, _options in widgets]
+        # widgets_values is positional, so the three the old file stored have
+        # to stay at the front in the same order or its values land on the
+        # wrong widgets. Everything added since is appended behind them - that
+        # is the whole rule, and the full list is spelled out so inserting a
+        # widget in the middle fails here rather than in someone's workflow.
+        self.assertEqual(names[: len(values)], ["fps", "filename_prefix", "crf"])
         self.assertEqual(
-            [name for name, _type, _options in widgets], ["fps", "filename_prefix", "crf"]
+            names,
+            ["fps", "filename_prefix", "crf", "format", "pingpong", "save_metadata"],
         )
-        self.assertEqual(len(values), len(widgets))
         for value, (name, declared, options) in zip(values, widgets):
             with self.subTest(widget=name):
                 if declared == "STRING":

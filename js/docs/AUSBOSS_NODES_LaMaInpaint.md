@@ -26,3 +26,17 @@ refresh the browser or restart ComfyUI so the model list is updated.
 
 - **image**: A finite BHWC image batch with the original batch size, dimensions,
   data type, extra channels, and unmasked pixels preserved.
+
+## Preview
+
+The panel shows the inpainted result, and before a run it falls back to a
+thumbnail of whatever feeds the **image** input. A video inpaint streams each
+finished frame to the panel as it goes, so a long run shows its progress
+rather than sitting blank.
+
+There is one preview surface: ComfyUI's own result preview for this node is
+stood down so the picture does not appear twice, once in the panel and again
+underneath the node.
+
+The node performs no network requests. It writes one preview PNG per run into
+ComfyUI's temp folder, alongside what `PreviewImage` writes.

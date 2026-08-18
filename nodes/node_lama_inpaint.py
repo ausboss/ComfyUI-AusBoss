@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ._lama_helpers import DEFAULT_MODEL_NAME, list_lama_models, run_lama_inpaint
+from ._preview_helpers import preview_payload, temp_prefix
 
 
 NODE_ID = "AUSBOSS_NODES_LaMaInpaint"
@@ -58,8 +59,15 @@ class AusBossLaMaInpaint:
     )
     FUNCTION = "inpaint"
 
+    def __init__(self):
+        self._prefix = temp_prefix("lama_inpaint")
+
     def inpaint(self, image, mask, model, unique_id=None):
-        return (run_lama_inpaint(image, mask, model, node_id=unique_id),)
+        # A video inpaint streams each finished frame to the panel as it goes;
+        # this is the still that stays there afterwards, and the only preview a
+        # single-image run ever had - it used to finish with a blank panel.
+        inpainted = run_lama_inpaint(image, mask, model, node_id=unique_id)
+        return preview_payload(inpainted, self._prefix, "LaMa Inpaint", (inpainted,))
 
     @classmethod
     def VALIDATE_INPUTS(cls, model, **_values):

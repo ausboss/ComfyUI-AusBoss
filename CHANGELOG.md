@@ -4,6 +4,76 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Image Compare A/B: nothing is drawn over the picture any more.** The
+  status chip that sat in the top-left corner carried the resolution and a
+  hint about how to use the panel; it covered part of the image to say
+  something you only need once. The resolution moved to a caption centred
+  under the panel, and when the two sides are different sizes both are named
+  there - the panel scales them to fit, so nothing else on screen would show
+  it. The empty and error states still use the middle of the stage.
+
+- **Image Compare A/B's HOLD became an A/B toggle.** Press-and-hold meant the
+  comparison only existed while a mouse button was down. Each click now swaps
+  the whole panel and the button says which side you are looking at, so you
+  can flick between them - which is how a small difference actually becomes
+  visible. A workflow saved on `hold` opens on the toggle it became rather
+  than dropping back to slide.
+
+- Updated `example_workflows/simple_video_watermark_remover.json`: the
+  overview still credited `SimpleWatermarkRemover` (the deprecated
+  compatibility id) rather than LaMa Inpaint 🆎, still called the node Refine
+  Mask, and its GitHub link pointed at `github.com/auboss`, which does not
+  exist. It also gained model-setup and requirements sections, consistent
+  node titles, and the mask settings its single-frame test was missing - that
+  path shipped with every Mask Refine control at zero, so the frame it
+  previewed was not the result the full run would produce.
+
+- **Renamed Refine Mask 🆎 to Mask Refine 🆎.** The mapping key
+  (`AUSBOSS_NODES_RefineMask`) is unchanged, so saved workflows are unaffected,
+  and "refine mask" is now a search alias. ComfyUI's node search cuts at 64
+  results and only ranks a name that STARTS with what you typed near the top -
+  as "Refine Mask" this node came 121st for "mask" and was never on screen.
+  It is 15th now. Search aliases cannot fix this on their own: the frontend
+  indexes them but drops them from that ranking because they are a list rather
+  than a string, so they decide whether a node is found at all, not where.
+
+- **Mask Refine, LaMa Inpaint and Select Frame preview their own result.**
+  The panel used to show whatever fed the node's input, which is nothing at
+  all when a segmentation node is upstream - Mask Refine's panel was blank
+  however the mask turned out. Each now returns its result as a preview and
+  the panel shows that, falling back to the input thumbnail before the first
+  run. ComfyUI's own preview for these nodes is stood down, so the picture
+  appears once, in the panel, instead of also underneath the node.
+
+- **Fixed: LaMa Inpaint finished a single image with an empty panel.** Frame
+  previews were only attached when the batch had more than one frame, on the
+  assumption that one image would preview through the output path - which
+  does not exist for a node that is not an output node.
+
+- **Mask Refine opens on `expand` and `blur`**, with `fill_holes`, `smooth`,
+  `black_point`, `white_point` and `edge_refine` behind a **MORE** button.
+  Hidden widgets keep their values and their saved order, so nothing changes
+  for a workflow that set them. A new **AUTO** button sets `expand` and `blur`
+  from the mask's size, scaled off the 8/4 that was hand-tuned for the video
+  watermark workflow at 576px: a feather is a fraction of the picture, not a
+  fixed pixel count.
+
+- **Save Video gained formats, pingpong and a metadata switch.** Alongside
+  mp4 h264/h265 and webm vp9 there are now `mp4 h264 nvenc` and
+  `mp4 h265 nvenc` (GPU encoding), `webm av1`, `mov prores` (ProRes HQ),
+  `mkv ffv1` (bit-exact lossless), `gif` and `webp`. `pingpong` bounces the
+  clip for a seamless loop without repeating the turnaround frames, and
+  `save_metadata` turns off embedding the prompt and workflow. Both are
+  appended after `format`, where positional widget values cannot shift.
+  `fps` steps in whole frames now but stays a FLOAT - an INT would refuse
+  Load Video's `fps` link and would round 29.97 to 30, drifting picture away
+  from audio. `mov` files now carry the embedded workflow too; they silently
+  did not before.
+
+- Removed Save Video's **↻** reload button. It only ever re-fetched the
+  preview already on screen, and after a page reload there was no saved file
+  in memory for it to fetch at all.
+
 - **Frame Chooser 🆎 moved to the lab** (`AUSBOSS_NODES_FrameChooser` is gone;
   it is `AUSBOSS_LAB_FrameChooser` there now). Pausing the graph for an
   interactive pick is a bigger surface than the rest of the pack - a server

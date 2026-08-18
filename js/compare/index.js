@@ -7,6 +7,7 @@ import { VIDEO_MIN_WIDTH, ensureVideoCss, makeToolButton } from "../shared/video
 import {
   clipFraction,
   compareClip,
+  compareSizeLabel,
   findCompareImages,
   normalizeCompareMode,
 } from "../shared/compare.mjs";
@@ -14,17 +15,17 @@ import {
 const NODE_NAME = "AUSBOSS_NODES_Compare";
 const PANEL_WIDGET = "ausboss_compare_panel";
 const PANEL_CHROME = 12;
-const PANEL_MIN_HEIGHT = 144;
+// The stage floor plus the caption row that now sits under it.
+const CAPTION_HEIGHT = 15;
+const PANEL_MIN_HEIGHT = 144 + CAPTION_HEIGHT;
 // Height the node opens at. It used to fall out of computeSize; with the panel
 // now free to grow, the default has to be stated somewhere, and a 16:9-ish
 // stage is the shape most A/B pairs want.
-const DEFAULT_NODE_SIZE = [420, responsivePreviewHeight(420, 132, 520) + PANEL_CHROME + 60];
-const CSS_ID = "ausboss-compare-ui-v1";
-
-const MODE_HINTS = {
-  slide: "Move across the panel to reveal B",
-  hold: "Press and hold to see B",
-};
+const DEFAULT_NODE_SIZE = [
+  420,
+  responsivePreviewHeight(420, 132, 520) + PANEL_CHROME + CAPTION_HEIGHT + 60,
+];
+const CSS_ID = "ausboss-compare-ui-v2";
 
 function ensureCompareCss() {
   ensureVideoCss(); // tool button styles are shared with the video panels
@@ -38,9 +39,13 @@ function ensureCompareCss() {
 .ausboss-compare-stage.is-empty img{visibility:hidden;}
 .ausboss-compare-seam{position:absolute;top:0;bottom:0;z-index:2;width:1px;margin-left:-0.5px;background:${BRAND};box-shadow:0 0 4px rgba(0,180,170,.55);opacity:0;pointer-events:none;}
 .ausboss-compare-status{position:absolute;left:7px;top:7px;z-index:3;max-width:calc(100% - 112px);padding:3px 6px;border-radius:4px;background:rgba(0,0,0,.7);color:#b8d3d1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;backdrop-filter:blur(4px);}
+/* Once the previews are up the status has nothing to say, and an empty chip
+   over the corner of the picture is just something in the way. */
+.ausboss-compare-status:empty{display:none;}
 .ausboss-compare-stage.is-empty .ausboss-compare-status{left:50%;top:50%;max-width:82%;transform:translate(-50%,-50%);color:#78908e;text-align:center;white-space:normal;}
 .ausboss-compare-tools{position:absolute;right:6px;top:6px;z-index:4;display:flex;gap:4px;opacity:.9;}
 .ausboss-compare-tools:hover{opacity:1;}
+.ausboss-compare-caption{flex:none;height:${CAPTION_HEIGHT}px;overflow:hidden;color:#8ba3a1;font-size:10px;line-height:${CAPTION_HEIGHT}px;text-align:center;white-space:nowrap;text-overflow:ellipsis;}
 `;
   document.head.appendChild(style);
 }
@@ -63,22 +68,36 @@ function applyClip(state) {
 function setEmpty(state, text) {
   state.stage.classList.add("is-empty");
   state.status.textContent = text;
+  state.caption.textContent = "";
 }
 
 function setReady(state) {
   state.stage.classList.remove("is-empty");
-  const mode = getMode(state.node);
-  const size = state.refs?.a?.width
-    ? `${state.refs.a.width}×${state.refs.a.height} · `
-    : "";
-  state.status.textContent = `${size}${MODE_HINTS[mode]}`;
+  // Nothing overlays the picture once it is up: the status chip goes away
+  // (it collapses when empty) and the resolution moves to the caption below.
+  state.status.textContent = "";
+  state.caption.textContent = compareSizeLabel(state.refs);
 }
 
 function updateModeButtons(state) {
   const mode = getMode(state.node);
   state.slideButton.classList.toggle("active", mode === "slide");
-  state.holdButton.classList.toggle("active", mode === "hold");
-  if (!state.stage.classList.contains("is-empty")) setReady(state);
+  state.abButton.classList.toggle("active", mode === "toggle");
+  // The label names what is on screen right now, not what the next click
+  // will do, so the button reads as a status as much as a control.
+  state.abButton.textContent = mode === "toggle" && state.showingB ? "B" : "A";
+  state.abButton.title = mode === "toggle"
+    ? `Showing ${state.showingB ? "B" : "A"} - click to switch to ${state.showingB ? "A" : "B"}`
+    : "Switch between A and B with a click";
+}
+
+// In toggle mode the reveal is all or nothing; slide keeps whatever fraction
+// the pointer last set.
+function applyToggle(state) {
+  state.fraction = state.showingB ? 1 : 0;
+  applyClip(state);
+  updateModeButtons(state);
+  state.node.setDirtyCanvas?.(true, true);
 }
 
 function loadPreviews(state, refs) {
@@ -107,10 +126,12 @@ function buildPanel(node) {
   const tools = document.createElement("div");
   tools.className = "ausboss-compare-tools";
   const slideButton = makeToolButton("SLIDE", "Slide: the seam follows the pointer across the image");
-  const holdButton = makeToolButton("HOLD", "Hold: press and hold anywhere to see B, release for A");
-  tools.append(slideButton, holdButton);
+  const abButton = makeToolButton("A", "Switch between A and B with a click");
+  tools.append(slideButton, abButton);
   stage.append(imageA, imageB, seam, status, tools);
-  root.append(stage);
+  const caption = document.createElement("div");
+  caption.className = "ausboss-compare-caption";
+  root.append(stage, caption);
 
   const widget = node.addDOMWidget(PANEL_WIDGET, "ausboss_compare", root, {
     serialize: false,
@@ -126,61 +147,49 @@ function buildPanel(node) {
 
   const abort = new AbortController();
   const state = node.__ausbossCompare = {
-    node, root, stage, imageA, imageB, seam, status, slideButton, holdButton,
-    widget, abort, refs: null, fraction: 0, loaded: 0, holding: false,
+    node, root, stage, imageA, imageB, seam, status, caption,
+    slideButton, abButton,
+    widget, abort, refs: null, fraction: 0, loaded: 0, showingB: false,
   };
   applyClip(state);
   updateModeButtons(state);
 
   const signal = abort.signal;
-  const setMode = (mode) => (event) => {
+  slideButton.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    node.properties.ausboss_compare_mode = normalizeCompareMode(mode);
-    if (mode !== "hold") state.holding = false;
+    node.properties.ausboss_compare_mode = normalizeCompareMode("slide");
+    state.showingB = false;
     state.fraction = 0;
     applyClip(state);
     updateModeButtons(state);
     node.setDirtyCanvas?.(true, true);
-  };
-  slideButton.addEventListener("click", setMode("slide"), { signal });
-  holdButton.addEventListener("click", setMode("hold"), { signal });
+  }, { signal });
+
+  abButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    // Arriving from slide mode, the first click is what selects this mode, and
+    // it lands on B - the point of reaching for it is to see the other one.
+    // After that each click just flips.
+    const wasToggle = getMode(node) === "toggle";
+    node.properties.ausboss_compare_mode = normalizeCompareMode("toggle");
+    state.showingB = wasToggle ? !state.showingB : true;
+    applyToggle(state);
+  }, { signal });
 
   // The panel owns pointer movement only inside itself; pointerdown is never
-  // prevented, so dragging the node from its title keeps working. Events
-  // born in the tools bar never reach the stage behaviors — in hold mode a
-  // stage pointerdown captures the pointer, which would retarget the
-  // release and eat the button's click (the "stuck on HOLD" bug).
+  // prevented, so dragging the node from its title keeps working. Events born
+  // in the tools bar never reach the stage, or a click on a button would also
+  // read as a slide. Toggle mode needs no pointer handling at all - the
+  // button is the whole interaction, which is why it replaced press-and-hold.
   stage.addEventListener("pointermove", (event) => {
     if (tools.contains(event.target)) return;
-    if (!state.refs || getMode(node) !== "slide" || state.holding) return;
+    if (!state.refs || getMode(node) !== "slide") return;
     const rect = stage.getBoundingClientRect();
     state.fraction = clipFraction(event.clientX, rect.left, rect.width);
     applyClip(state);
   }, { signal });
-
-  stage.addEventListener("pointerdown", (event) => {
-    if (tools.contains(event.target)) return;
-    if (!state.refs || getMode(node) !== "hold") return;
-    state.holding = true;
-    state.fraction = 1;
-    applyClip(state);
-    try {
-      stage.setPointerCapture(event.pointerId);
-    } catch {
-      // Pointer capture is best-effort; release still arrives via the
-      // window when the browser refuses it.
-    }
-  }, { signal });
-
-  const endHold = () => {
-    if (!state.holding) return;
-    state.holding = false;
-    state.fraction = 0;
-    applyClip(state);
-  };
-  stage.addEventListener("pointerup", endHold, { signal });
-  stage.addEventListener("pointercancel", endHold, { signal });
 
   const onImageLoad = () => {
     state.loaded += 1;

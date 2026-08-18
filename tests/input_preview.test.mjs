@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  describeNodePreview,
+  describeOwnResult,
   describeSourcePreview,
   linkById,
   placeholderText,
@@ -78,5 +80,36 @@ test("unpreviewable sources fall back to the quiet placeholder", () => {
   assert.equal(describeSourcePreview({ widgets: [{ name: "image", value: "" }] }), null);
   assert.equal(placeholderText(false, "an image"), "connect an image to preview");
   assert.equal(placeholderText(false, "a mask"), "connect a mask to preview");
-  assert.equal(placeholderText(true, "a mask"), "source has no preview yet");
+  // Connected but nothing to show yet: the node has to run to make a picture,
+  // which is the whole instruction the panel can usefully give.
+  assert.equal(placeholderText(true, "a mask"), "run to preview");
+});
+
+test("the node's own result is the newest image it has", () => {
+  // Progress frames append during a run, so the last entry is the current one.
+  assert.deepEqual(
+    describeOwnResult({ imgs: [{ src: "frame1" }, { src: "frame9" }] }),
+    { kind: "url", url: "frame9" },
+  );
+  assert.equal(describeOwnResult({ imgs: [] }), null);
+  assert.equal(describeOwnResult({ imgs: [{ src: "" }] }), null);
+  assert.equal(describeOwnResult({}), null);
+  assert.equal(describeOwnResult(null), null);
+});
+
+test("a node's own result outranks the input feeding it", () => {
+  const source = { imgs: [{ src: "upstream" }] };
+  const graph = {
+    links: new Map([[1, { origin_id: 5 }]]),
+    getNodeById: () => source,
+  };
+  const node = { graph, inputs: [{ name: "image", link: 1 }] };
+
+  // Before the run there is only the input to look at...
+  assert.deepEqual(describeNodePreview(node, "image"), { kind: "url", url: "upstream" });
+  // ...and once this node has produced something, that is what matters.
+  node.imgs = [{ src: "own-result" }];
+  assert.deepEqual(describeNodePreview(node, "image"), { kind: "url", url: "own-result" });
+  // Nothing anywhere stays null so the caller shows its placeholder.
+  assert.equal(describeNodePreview({ inputs: [] }, "image"), null);
 });

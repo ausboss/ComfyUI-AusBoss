@@ -2,10 +2,29 @@
 // wiring lives in js/compare/index.js so this module stays testable
 // under node:test.
 
-export const COMPARE_MODES = ["slide", "hold"];
+export const COMPARE_MODES = ["slide", "toggle"];
+
+// "hold" was the press-and-hold mode that toggle replaced. Mapping it keeps a
+// workflow saved with it on the button it became, instead of quietly dropping
+// back to slide - the panel would still work, but not the way it was left.
+const LEGACY_MODES = { hold: "toggle" };
 
 export function normalizeCompareMode(value) {
-  return COMPARE_MODES.includes(value) ? value : COMPARE_MODES[0];
+  const mapped = LEGACY_MODES[value] ?? value;
+  return COMPARE_MODES.includes(mapped) ? mapped : COMPARE_MODES[0];
+}
+
+// The caption under the stage: the compared resolution, or "" when nothing
+// has been loaded yet. Both sides are normally the same size, so A speaks for
+// the pair; when they differ, both are named rather than one quietly winning.
+export function compareSizeLabel(refs) {
+  const a = refs?.a;
+  const b = refs?.b;
+  if (!(a?.width > 0) || !(a?.height > 0)) return "";
+  if (b?.width > 0 && b?.height > 0 && (b.width !== a.width || b.height !== a.height)) {
+    return `A ${a.width}×${a.height} · B ${b.width}×${b.height}`;
+  }
+  return `${a.width}×${a.height}`;
 }
 
 // Fraction of the panel width covered by the pointer, clamped to 0..1.

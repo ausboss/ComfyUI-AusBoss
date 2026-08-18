@@ -2,30 +2,15 @@
 
 from __future__ import annotations
 
-import random
-import string
-from pathlib import Path
-
-import torch
 from PIL import Image
 
-try:
-    import folder_paths
-except ImportError:  # Offline tests import this module without ComfyUI.
-    folder_paths = None
+from ._preview_helpers import save_temp_preview, temp_prefix
+from ._preview_helpers import first_frame_to_pil as _first_frame_to_pil
 
 
-def first_frame_to_pil(image: torch.Tensor) -> Image.Image:
+def first_frame_to_pil(image) -> Image.Image:
     """First frame of a BHWC float batch as a PIL image, ready to save."""
-    if not isinstance(image, torch.Tensor) or image.ndim != 4:
-        raise ValueError("Compare expected a BHWC IMAGE batch.")
-    if int(image.shape[0]) < 1:
-        raise ValueError("Compare received an empty IMAGE batch.")
-    frame = image[0].detach().cpu().clamp(0.0, 1.0).mul(255.0).round().to(torch.uint8)
-    array = frame.numpy()
-    if array.shape[-1] == 1:
-        array = array[..., 0]
-    return Image.fromarray(array)
+    return _first_frame_to_pil(image, "Compare")
 
 
 class AusBossCompare:
@@ -40,9 +25,7 @@ class AusBossCompare:
     def __init__(self):
         # A distinct temp prefix per node instance, so two Compare nodes in
         # one workflow never overwrite each other's previews.
-        self._prefix = "ausboss_compare_" + "".join(
-            random.choices(string.ascii_lowercase, k=5)
-        )
+        self._prefix = temp_prefix("compare")
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -78,8 +61,6 @@ class AusBossCompare:
     FUNCTION = "compare"
 
     def compare(self, image_a, image_b):
-        if folder_paths is None:
-            raise RuntimeError("Compare requires ComfyUI's folder_paths at runtime.")
         return {
             "ui": {
                 "a_images": [self._save_temp_preview(image_a)],
@@ -89,24 +70,7 @@ class AusBossCompare:
         }
 
     def _save_temp_preview(self, image):
-        preview = first_frame_to_pil(image)
-        full_output_folder, filename, counter, subfolder, _prefix = (
-            folder_paths.get_save_image_path(
-                self._prefix,
-                folder_paths.get_temp_directory(),
-                preview.width,
-                preview.height,
-            )
-        )
-        file = f"{filename}_{counter:05}_.png"
-        preview.save(Path(full_output_folder) / file, compress_level=4)
-        return {
-            "filename": file,
-            "subfolder": subfolder,
-            "type": "temp",
-            "width": preview.width,
-            "height": preview.height,
-        }
+        return save_temp_preview(image, self._prefix, "Compare")
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_Compare": AusBossCompare}
