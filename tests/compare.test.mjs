@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   clipFraction,
   compareClip,
+  compareSizeLabel,
   findCompareImages,
   normalizeCompareMode,
 } from "../js/shared/compare.mjs";
@@ -24,9 +25,40 @@ test("degenerate panels and junk input resolve to all-A", () => {
 
 test("mode normalization", () => {
   assert.equal(normalizeCompareMode("slide"), "slide");
-  assert.equal(normalizeCompareMode("hold"), "hold");
+  assert.equal(normalizeCompareMode("toggle"), "toggle");
   assert.equal(normalizeCompareMode("wiggle"), "slide");
   assert.equal(normalizeCompareMode(undefined), "slide");
+});
+
+test("a workflow saved on the old hold mode lands on the toggle it became", () => {
+  // Dropping it to slide instead would silently change how a saved node
+  // behaves, which is exactly what someone reopening their graph notices.
+  assert.equal(normalizeCompareMode("hold"), "toggle");
+});
+
+test("the caption names the compared resolution, once", () => {
+  assert.equal(
+    compareSizeLabel({ a: { width: 576, height: 1024 }, b: { width: 576, height: 1024 } }),
+    "576×1024",
+  );
+  // One side only is the common case mid-load; A speaks for the pair.
+  assert.equal(compareSizeLabel({ a: { width: 512, height: 512 } }), "512×512");
+});
+
+test("a size mismatch is stated rather than hidden behind A", () => {
+  // Comparing images of different sizes is usually a wiring mistake, and the
+  // panel stretches both to fit, so nothing else on screen would show it.
+  assert.equal(
+    compareSizeLabel({ a: { width: 512, height: 512 }, b: { width: 1024, height: 1024 } }),
+    "A 512×512 · B 1024×1024",
+  );
+});
+
+test("nothing loaded means no caption at all", () => {
+  assert.equal(compareSizeLabel(null), "");
+  assert.equal(compareSizeLabel({}), "");
+  assert.equal(compareSizeLabel({ a: { width: 0, height: 0 } }), "");
+  assert.equal(compareSizeLabel({ a: { filename: "x.png" } }), "");
 });
 
 test("clip CSS keeps B left of the seam and hides the seam at the edges", () => {

@@ -83,7 +83,7 @@ Encodes frames — or a connected core `VIDEO` — to mp4 (h264/h265, CPU or NVE
 
 ### Image Compare A/B 🆎
 
-A/B any two images: slide mode sweeps B over A under your pointer with a seam line, hold mode shows B while pressed. Passes image A through, so it sits mid-graph without rewiring.
+A/B any two images: slide mode sweeps B over A under your pointer with a seam line, or flip the whole panel with the A/B toggle — the button says which one you're looking at, and flicking between them in place is how you catch a small change. Nothing is drawn over the picture; the resolution sits centred beneath it. Passes image A through, so it sits mid-graph without rewiring.
 
 The two transform nodes return exactly:
 

@@ -4,6 +4,30 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Image Compare A/B: nothing is drawn over the picture any more.** The
+  status chip that sat in the top-left corner carried the resolution and a
+  hint about how to use the panel; it covered part of the image to say
+  something you only need once. The resolution moved to a caption centred
+  under the panel, and when the two sides are different sizes both are named
+  there - the panel scales them to fit, so nothing else on screen would show
+  it. The empty and error states still use the middle of the stage.
+
+- **Image Compare A/B's HOLD became an A/B toggle.** Press-and-hold meant the
+  comparison only existed while a mouse button was down. Each click now swaps
+  the whole panel and the button says which side you are looking at, so you
+  can flick between them - which is how a small difference actually becomes
+  visible. A workflow saved on `hold` opens on the toggle it became rather
+  than dropping back to slide.
+
+- Updated `example_workflows/simple_video_watermark_remover.json`: the
+  overview still credited `SimpleWatermarkRemover` (the deprecated
+  compatibility id) rather than LaMa Inpaint 🆎, still called the node Refine
+  Mask, and its GitHub link pointed at `github.com/auboss`, which does not
+  exist. It also gained model-setup and requirements sections, consistent
+  node titles, and the mask settings its single-frame test was missing - that
+  path shipped with every Mask Refine control at zero, so the frame it
+  previewed was not the result the full run would produce.
+
 - **Renamed Refine Mask 🆎 to Mask Refine 🆎.** The mapping key
   (`AUSBOSS_NODES_RefineMask`) is unchanged, so saved workflows are unaffected,
   and "refine mask" is now a search alias. ComfyUI's node search cuts at 64
