@@ -37,7 +37,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
   indexes them but drops them from that ranking because they are a list rather
   than a string, so they decide whether a node is found at all, not where.
 
-- **Mask Refine, LaMa Inpaint and Select Frame preview their own result.**
+- **Mask Refine, LaMa Inpaint and Select Frame preview their own result**, in
+  a panel that now follows the node's height like every other stage in the
+  pack. It was pinned at 140px, correctly, while it showed a small thumbnail
+  of the node's INPUT; showing the result makes it a viewport onto a picture,
+  and the guard that classifies panels as growing or fixed has been updated to
+  match - moving a panel between those two sets is now explicitly the call to
+  review whenever what a panel displays changes, not only when one is added.
   The panel used to show whatever fed the node's input, which is nothing at
   all when a segmentation node is upstream - Mask Refine's panel was blank
   however the mask turned out. Each now returns its result as a preview and
