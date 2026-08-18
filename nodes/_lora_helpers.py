@@ -141,45 +141,53 @@ def _load_lora_file(path: Path) -> Any:
     return lora_sd
 
 
-def model_family(model) -> str:
-    """Family of a loaded comfy model, '' when unknown. Duck-typed, fail-soft.
+def patch_total(model, clip) -> int | None:
+    """Applied patch entries across model + CLIP, None when unreadable.
 
-    comfy's model_base classes carry the family in their names (SDXL, SD3,
-    Flux, ...); plain SD1.5 is the base class itself, so "basemodel" maps
-    there. Anything unrecognized returns '' and never warns.
+    comfy records every patched weight on the ModelPatcher as
+    {weight_key: [patch, ...]}, so a LoRA that matched no keys leaves the
+    total untouched. Duck-typed and fail-soft: an unreadable patcher (a
+    future comfy refactor) returns None and simply disables the check.
     """
-    try:
-        name = type(model.model).__name__.lower()
-    except Exception:
-        return ""
-    for needle, family in (
-        ("flux", "Flux"), ("sd3", "SD3"), ("sdxl", "SDXL"),
-        ("sd20", "SD2"), ("sd21", "SD2"), ("basemodel", "SD1.5"),
-    ):
-        if needle in name:
-            return family
-    return ""
+    total = 0
+    readable = False
+    for patcher in (model, getattr(clip, "patcher", None)):
+        patches = getattr(patcher, "patches", None)
+        if not isinstance(patches, dict):
+            continue
+        readable = True
+        for entries in patches.values():
+            try:
+                total += len(entries)
+            except TypeError:
+                total += 1
+    return total if readable else None
 
 
-_mismatch_warned: set[str] = set()
+_no_effect_warned: set[str] = set()
 
 
-def _warn_family_mismatch(row_name: str, lora_family: str, checkpoint_family: str) -> None:
-    key = f"{row_name}|{checkpoint_family}"
-    if key in _mismatch_warned:
+def _warn_no_effect(row_name: str, declared_family: str) -> None:
+    """Warn once per LoRA that patched nothing on the connected model.
+
+    Keyed on the name alone: the same LoRA against a second model is the
+    same user-facing mistake, and repeating it every run is noise.
+    """
+    if row_name in _no_effect_warned:
         return
-    _mismatch_warned.add(key)
+    _no_effect_warned.add(row_name)
+    trained_for = f" It declares base model '{declared_family}'." if declared_family else ""
     print(
-        f"[AusBoss] LoRA Loader: '{row_name}' says it was trained for "
-        f"{lora_family}, but the connected model looks like {checkpoint_family}. "
-        "It will still apply, but usually does nothing or degrades the image."
+        f"[AusBoss] LoRA Loader: '{row_name}' matched nothing in the connected "
+        f"model, so it had no effect on this run.{trained_for} It is almost "
+        "certainly built for a different base model - check the LoRA's base "
+        "model against the checkpoint feeding this node."
     )
 
 
 def apply_lora_stack(model, clip, rows: list[dict[str, Any]]):
     import comfy.sd
 
-    checkpoint_family = model_family(model)
     for row in rows:
         if not row["enabled"]:
             continue
@@ -187,14 +195,16 @@ def apply_lora_stack(model, clip, rows: list[dict[str, Any]]):
         if row["strength"] == 0 and strength_clip == 0:
             continue
         path = resolve_lora_path(row["name"])
-        if checkpoint_family:
-            lora_family = base_model_family(read_safetensors_metadata(path))
-            if lora_family and lora_family != checkpoint_family:
-                _warn_family_mismatch(row["name"], lora_family, checkpoint_family)
         lora_sd = _load_lora_file(path)
+        before = patch_total(model, clip)
         model, clip = comfy.sd.load_lora_for_models(
             model, clip, lora_sd, row["strength"], strength_clip
         )
+        after = patch_total(model, clip)
+        # Measured, not guessed: this holds for every model family, present
+        # and future, and never fires on a LoRA that actually did something.
+        if before is not None and after is not None and after == before:
+            _warn_no_effect(row["name"], base_model_family(read_safetensors_metadata(path)))
     return model, clip
 
 
@@ -264,16 +274,27 @@ def file_trigger_words(metadata: dict[str, Any]) -> list[str]:
 
 
 def base_model_family(metadata: dict[str, Any]) -> str:
+    """Base model a LoRA declares, '' when it declares nothing.
+
+    Only the two *declarative* keys are read. `ss_sd_model_name` is the
+    trainer's source filename, not an architecture, so mining it for
+    substrings reported any `..._v1.safetensors` as SD1.5 - a wrong label on
+    a working LoRA is worse than no label.
+    """
     haystack = " ".join(
         str(metadata.get(key) or "")
-        for key in ("modelspec.architecture", "ss_base_model_version", "ss_sd_model_name")
+        for key in ("modelspec.architecture", "ss_base_model_version")
     ).lower()
     for needle, family in (
         ("flux", "Flux"), ("sd3", "SD3"), ("xl", "SDXL"), ("v2", "SD2"), ("v1", "SD1.5"),
     ):
         if needle in haystack:
             return family
-    return ""
+    # Families newer than that table still declare themselves ("krea2/lora",
+    # "qwen_image"); show what the file claims rather than nothing.
+    declared = str(metadata.get("modelspec.architecture")
+                   or metadata.get("ss_base_model_version") or "").strip()
+    return declared.split("/")[0].strip()
 
 
 def _user_store_dir() -> Path | None:

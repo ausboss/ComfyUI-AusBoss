@@ -16,6 +16,7 @@ if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
 
 from nodes import _inpaint_crop_helpers as inpaint_helpers
 from nodes._inpaint_crop_helpers import (
+    build_canvas_stitcher,
     apply_stitch,
     build_crop,
     expand_rect_to_multiple,
@@ -750,3 +751,53 @@ class NodeWiringTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CanvasStitcherTests(unittest.TestCase):
+    """Padding sends the whole canvas to the sampler, so its stitcher is the
+    identity crop with the pad band as the blend."""
+
+    def setUp(self):
+        torch.manual_seed(7)
+        self.source = torch.rand(1, 32, 24, 3)
+        self.canvas = torch.rand(1, 48, 40, 3)
+        self.canvas[:, 8:40, 8:32, :] = self.source          # source at (8, 8)
+        self.mask = torch.ones(1, 48, 40)
+        self.mask[:, 8:40, 8:32] = 0.0                       # protect the source
+
+    def test_zero_blend_region_is_bit_identical(self):
+        stitcher = build_canvas_stitcher(self.canvas, self.mask)
+        out = apply_stitch(stitcher, torch.rand_like(self.canvas))
+        self.assertTrue(torch.equal(out[:, 8:40, 8:32, :], self.source))
+
+    def test_masked_band_takes_the_sampled_pixels(self):
+        stitcher = build_canvas_stitcher(self.canvas, self.mask)
+        sampled = torch.rand_like(self.canvas)
+        out = apply_stitch(stitcher, sampled)
+        band = self.mask[0] >= 1.0
+        self.assertTrue(torch.allclose(out[0][band], sampled[0][band], atol=1e-6))
+
+    def test_identity_round_trip_is_exact(self):
+        stitcher = build_canvas_stitcher(self.canvas, self.mask)
+        self.assertTrue(torch.equal(apply_stitch(stitcher, self.canvas), self.canvas))
+
+    def test_output_keeps_the_full_canvas_size(self):
+        stitcher = build_canvas_stitcher(self.canvas, self.mask)
+        out = apply_stitch(stitcher, torch.rand_like(self.canvas))
+        self.assertEqual(out.shape, self.canvas.shape)
+
+    def test_a_feathered_band_blends_rather_than_replaces(self):
+        soft = self.mask.clone()
+        soft[:, 6:8, 8:32] = 0.5
+        stitcher = build_canvas_stitcher(self.canvas, soft)
+        sampled = torch.zeros_like(self.canvas)
+        out = apply_stitch(stitcher, sampled)
+        expected = self.canvas[:, 6:8, 8:32, :] * 0.5
+        self.assertTrue(torch.allclose(out[:, 6:8, 8:32, :], expected, atol=1e-6))
+
+    def test_stitch_node_accepts_it(self):
+        # Same stitcher shape as Crop For Inpaint, so one stitch node serves both.
+        stitcher = build_canvas_stitcher(self.canvas, self.mask)
+        self.assertEqual(stitcher["kind"], inpaint_helpers.STITCHER_KIND)
+        self.assertEqual(stitcher["crop_to_canvas"], (0, 0, 40, 48))
+        self.assertEqual(stitcher["canvas_to_original"], (0, 0, 40, 48))

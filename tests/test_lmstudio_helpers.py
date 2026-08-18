@@ -32,7 +32,10 @@ from nodes._lmstudio_helpers import (
     image_data_url,
     models_url,
     normalize_history,
+    describe_empty_reply,
     parse_chat_text,
+    parse_finish_reason,
+    parse_reasoning_content,
     parse_response_schema,
     request_chat,
     split_reasoning,
@@ -425,3 +428,58 @@ class ResponseSchemaTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# The gemma/qwen-style hybrid shape: the whole reply lands in a sibling
+# reasoning_content field and `content` comes back empty.
+REASONING_ONLY = {
+    "choices": [{
+        "index": 0,
+        "message": {"role": "assistant", "content": "",
+                    "reasoning_content": "*  Subject: a cabin.\n*  Dusk.",
+                    "tool_calls": []},
+        "finish_reason": "length",
+    }],
+}
+
+
+class ReasoningContentTests(unittest.TestCase):
+    def test_reads_the_servers_own_reasoning_field(self):
+        self.assertIn("Subject: a cabin", parse_reasoning_content(REASONING_ONLY))
+
+    def test_accepts_the_shorter_reasoning_spelling(self):
+        data = {"choices": [{"message": {"content": "", "reasoning": "thought"}}]}
+        self.assertEqual(parse_reasoning_content(data), "thought")
+
+    def test_absent_reasoning_is_empty_not_an_error(self):
+        self.assertEqual(parse_reasoning_content({"choices": [{"message": {"content": "hi"}}]}), "")
+        self.assertEqual(parse_reasoning_content({}), "")
+        self.assertEqual(parse_reasoning_content(None), "")
+
+    def test_blank_reasoning_does_not_count(self):
+        data = {"choices": [{"message": {"content": "", "reasoning_content": "   "}}]}
+        self.assertEqual(parse_reasoning_content(data), "")
+
+    def test_finish_reason_read_and_tolerated(self):
+        self.assertEqual(parse_finish_reason(REASONING_ONLY), "length")
+        self.assertEqual(parse_finish_reason({}), "")
+        self.assertEqual(parse_finish_reason(None), "")
+
+
+class EmptyReplyDiagnosisTests(unittest.TestCase):
+    def test_truncated_thinking_names_the_token_budget(self):
+        message = describe_empty_reply("thought", "length", 300)
+        self.assertIn("all 300 tokens", message)
+        self.assertIn("max_tokens", message)
+        message.encode("ascii")
+
+    def test_unknown_budget_stays_readable(self):
+        self.assertIn("its whole budget", describe_empty_reply("thought", "length", -1))
+
+    def test_reasoning_without_truncation_suggests_turning_thinking_off(self):
+        message = describe_empty_reply("thought", "stop", 512)
+        self.assertIn("thinking to 'off'", message)
+
+    def test_no_reasoning_means_no_diagnosis(self):
+        # A plain model returning "" is a different problem; do not guess.
+        self.assertEqual(describe_empty_reply("", "length", 300), "")

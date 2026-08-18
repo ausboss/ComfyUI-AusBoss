@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 
 import {
   coerceSetting,
+  isOverrideActive,
+  isOverrideEntry,
   mergeSettings,
+  overrideEnableValue,
+  overrideIsCustom,
   schemaDefaults,
 } from "../js/shared/node_settings.mjs";
 
@@ -58,4 +62,62 @@ test("choice keeps valid stored picks", () => {
   const merged = mergeSettings(SCHEMA, { memory: "fast", linked: false });
   assert.equal(merged.memory, "fast");
   assert.equal(merged.linked, false);
+});
+
+// ---------- override entries ----------
+
+const TOP_P = {
+  key: "top_p", label: "Top-p", type: "number",
+  default: 1, neutral: 1, active: 0.95, min: 0, max: 1,
+};
+const PRESENCE = {
+  key: "presence_penalty", label: "Presence penalty", type: "number",
+  default: 0, neutral: 0, active: 0.5, min: -2, max: 2,
+};
+const PLAIN = { key: "steps", label: "Steps", type: "number", default: 8, min: 1, max: 50 };
+
+test("only entries declaring a neutral value are overrides", () => {
+  assert.equal(isOverrideEntry(TOP_P), true);
+  assert.equal(isOverrideEntry(PLAIN), false);
+  assert.equal(isOverrideEntry({ section: "Sampling" }), false);
+  assert.equal(isOverrideEntry(undefined), false);
+});
+
+test("an override sitting on its neutral value is off", () => {
+  assert.equal(isOverrideActive(TOP_P, 1), false);
+  assert.equal(isOverrideActive(TOP_P, 0.9), true);
+  assert.equal(isOverrideActive(PRESENCE, 0), false);
+  assert.equal(isOverrideActive(PRESENCE, -0.5), true);
+});
+
+test("a hand-typed neutral value reads as off", () => {
+  // The checkbox has to follow the number box, not just the other way round.
+  assert.equal(isOverrideActive(TOP_P, "1"), false);
+});
+
+test("plain entries are always active", () => {
+  assert.equal(isOverrideActive(PLAIN, 8), true);
+});
+
+test("ticking on prefers the user's previous value", () => {
+  assert.equal(overrideEnableValue(TOP_P, 0.8), 0.8);
+});
+
+test("ticking on falls back to the suggested active value", () => {
+  assert.equal(overrideEnableValue(TOP_P, undefined), 0.95);
+  assert.equal(overrideEnableValue(PRESENCE, undefined), 0.5);
+});
+
+test("ticking on never lands back on neutral", () => {
+  // A remembered value of exactly neutral would leave a ticked box sending
+  // nothing, which reads as a broken control.
+  assert.notEqual(overrideEnableValue(TOP_P, 1), 1);
+  const stuck = { key: "x", type: "number", default: 0, neutral: 0, min: 0, max: 1 };
+  assert.notEqual(overrideEnableValue(stuck, 0), 0);
+});
+
+test("the reset affordance shows only for an on, customized row", () => {
+  assert.equal(overrideIsCustom(TOP_P, 1), false);     // off
+  assert.equal(overrideIsCustom(TOP_P, 0.95), false);  // on, at the suggestion
+  assert.equal(overrideIsCustom(TOP_P, 0.3), true);    // on, customized
 });

@@ -4,6 +4,73 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- Pad Image and Load Image + Pad gained a `stitcher` output, so an outpaint can
+  put the source back exactly. Feed it to the existing **Stitch Inpaint 🆎**
+  with the sampled result and every pixel outside the padded band comes back
+  bit-identical to the input — only the new padding is the model's work, which
+  is what stops a full-canvas sample from quietly resoftening the whole photo.
+  No new node: padding now builds the same stitcher shape Crop For Inpaint
+  emits (the crop is simply the whole canvas), so one stitch node serves both.
+  The output is appended last, so saved workflows keep their existing links.
+
+- Compare: the A/B stage now grows when you drag the node **taller**, not only
+  wider. Its panel declared a `computeSize`, and the widget layout gives any
+  widget that defines one a fixed height and leaves it out of the leftover-space
+  split — so the stage was sized purely from the node's width (capped at 520px)
+  and extra height became dead space under the image. It now declares only a
+  minimum, which puts it in the split and lets it take the height that is left.
+  The node also opens at a 16:9-ish default instead of inheriting one from the
+  removed calculation; saved workflows keep their own size.
+
+- LoRA Loader: the "wrong base model" warning now *measures* the result instead
+  of guessing from names. It compares comfy's applied-patch count across the
+  model and CLIP before and after each row, and warns — naming the LoRA — when
+  a row patched nothing, which is what a mismatched LoRA actually does. The old
+  check keyed off comfy's model *class name* against a hardcoded table that
+  covered 8 of the 81 classes comfy ships, so on anything newer than Flux
+  (Krea 2, Qwen, WAN, LTXV, Z-Image, Chroma, HiDream, …) it read "unknown" and
+  silently skipped the check; an SD 1.5 LoRA on Krea 2 did nothing to the image
+  and said nothing about it. The new check needs no table, no LoRA metadata,
+  and works on every model family.
+- LoRA Loader: a LoRA's declared base model is read only from the declarative
+  metadata keys. `ss_sd_model_name` is the trainer's source *filename*, and
+  mining it for substrings labelled any `..._v1.safetensors` as SD1.5 and
+  anything with `xl` in the name as SDXL — a wrong label on a working LoRA.
+  Families newer than the known-name table now show what the file declares
+  (`krea2`) instead of nothing.
+- LM Studio Chat: reasoning that the server returns in its own
+  `reasoning_content` field now reaches the `thinking` output. Reasoning models
+  report two ways — inline `<think>` tags inside the content, or that sibling
+  field (what LM Studio sends for gemma/qwen-style hybrids) — and only the
+  first was read, so with those models the entire reply landed in a field the
+  node never looked at and `text` came back silently blank.
+- LM Studio Chat: an empty answer now says why instead of returning "". When
+  the model produced reasoning but no answer, the node reports whether it ran
+  out of tokens mid-thought (naming the max_tokens budget it hit) or simply
+  answered nothing, and points at the fix. A reasoning model can spend an
+  entire small token budget thinking, which read as "the node is broken".
+  instead of magic numbers. Each of Top-p, Top-k, Min-p, Repeat penalty and
+  Presence penalty has a checkbox, a reset button that appears once you change
+  it, and — for the 0-1 ones — a slider beside the number. Ticking one on
+  starts from LM Studio's own default (top-p 0.95, top-k 40, min-p 0.05,
+  repeat 1.1) rather than the value that means "off", and ticking it back on
+  returns the value you had before. Unticked still sends nothing, so the
+  payload, the widgets, and existing workflows are byte-for-byte unchanged;
+  what changed is that "off" now looks off instead of requiring you to know
+  that top-p 1 happens to mean off.
+- Settings menus: editing one row no longer reverts the others. The menu seeds
+  from the open node's values, but each save handed back a value set rebuilt
+  from stored defaults, so changing any one setting silently replaced every
+  other row with whatever the stored default was — visible as a value quietly
+  reverting on a node whose saved workflow differed from those defaults.
+- LoRA Loader: fixed the templates popover — a blanket `.ausboss-lora-menu
+  button` rule outranked the specialized buttons inside it, forcing them to
+  `width: 100%`, which clipped **Save** off the panel edge and stretched each
+  saved row's delete `×` across the whole row. The rule now targets only the
+  menu's direct children, which are the plain list rows. Action buttons also
+  read as buttons: matching 26px height with the name field, a border, and
+  pressed/keyboard-focus states.
+
 ## 1.1.1
 
 - Registry metadata only; no node behaviour changes. The ComfyUI version floor

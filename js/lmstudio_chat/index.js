@@ -52,28 +52,35 @@ function installStyles() {
 // values save with the workflow and reach the API like any widget; the gear
 // also stores them as the defaults new nodes start from.
 const SETTINGS_SCHEMA = [
+  // Each sampler is an override: unticked sends nothing and the server's own
+  // setting stands. `neutral` is that off value - and it is also each
+  // sampler's no-op value, so the payload is identical either way and old
+  // workflows keep loading unchanged. `active` mirrors LM Studio's defaults.
   { section: "Sampling" },
   {
     key: "top_p", label: "Top-p", type: "number", default: 1, min: 0, max: 1,
-    hint: "Nucleus cap. 1 leaves the server default.",
+    neutral: 1, active: 0.95, slider: true, step: 0.01,
+    hint: "Nucleus cap: consider only the most likely tokens summing to this.",
   },
   {
     key: "top_k", label: "Top-k", type: "number", default: 0, min: 0, max: 1000,
-    hint: "0 leaves the server default.",
+    neutral: 0, active: 40,
+    hint: "Consider only this many top tokens.",
   },
   {
     key: "min_p", label: "Min-p", type: "number", default: 0, min: 0, max: 1,
-    hint: "Minimum token probability. 0 leaves the server default.",
+    neutral: 0, active: 0.05, slider: true, step: 0.01,
+    hint: "Drop tokens below this share of the top token's probability.",
   },
   {
     key: "repeat_penalty", label: "Repeat penalty", type: "number",
-    default: 1, min: 0, max: 4,
-    hint: "1 leaves the server default.",
+    default: 1, min: 0, max: 4, neutral: 1, active: 1.1,
+    hint: "Above 1 discourages repeating what it already said.",
   },
   {
     key: "presence_penalty", label: "Presence penalty", type: "number",
-    default: 0, min: -2, max: 2,
-    hint: "0 leaves the server default.",
+    default: 0, min: -2, max: 2, neutral: 0, active: 0.5,
+    hint: "Above 0 pushes toward new topics.",
   },
   { section: "Thinking" },
   {

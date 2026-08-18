@@ -9,7 +9,14 @@
 //                        onChange: (values, key) => rerender(values) });
 
 import { BRAND } from "./index.mjs";
-import { mergeSettings, schemaDefaults } from "./node_settings.mjs";
+import {
+  isOverrideActive,
+  isOverrideEntry,
+  mergeSettings,
+  overrideEnableValue,
+  overrideIsCustom,
+  schemaDefaults,
+} from "./node_settings.mjs";
 
 const CSS_ID = "ausboss-settings-css";
 
@@ -126,6 +133,25 @@ function ensureSettingsCss() {
   .ausboss-set-btn:hover { border-color: ${BRAND}; }
   .ausboss-set-btn.primary { margin-left: auto; border-color: ${BRAND}; color: ${BRAND}; }
   .ausboss-set-btn.primary:hover { background: ${BRAND}; color: #08211f; }
+  .ausboss-set-check { flex: none; width: 14px; height: 14px; margin: 0; accent-color: ${BRAND};
+    cursor: pointer; }
+  .ausboss-set-labeltop { display: flex; align-items: center; gap: 7px; }
+  .ausboss-set-row.off .ausboss-set-label { color: #7e868e; }
+  .ausboss-set-row.off .ausboss-set-label .hint { color: #6a727a; }
+  .ausboss-set-ctl { display: flex; align-items: center; gap: 6px; flex: none; }
+  .ausboss-set-ctl.off { opacity: .38; }
+  .ausboss-set-slider { flex: none; width: 76px; height: 14px; accent-color: ${BRAND};
+    cursor: pointer; margin: 0; }
+  .ausboss-set-ctl.off .ausboss-set-slider, .ausboss-set-ctl.off .ausboss-set-input {
+    pointer-events: none; }
+  .ausboss-set-trash { flex: none; width: 20px; height: 20px; border: none; border-radius: 4px;
+    background: transparent; color: #9ba2aa; cursor: pointer; padding: 0; display: grid;
+    place-items: center; }
+  .ausboss-set-trash:hover { background: #2c3238; color: #ff8a80; }
+  .ausboss-set-trash.hidden { visibility: hidden; pointer-events: none; }
+  .ausboss-set-moddot { flex: none; width: 5px; height: 5px; border-radius: 50%;
+    background: ${BRAND}; }
+  .ausboss-set-moddot.hidden { visibility: hidden; }
   `;
   document.head.append(style);
 }
@@ -187,7 +213,32 @@ function buildControl(entry, values, commit) {
     if (event.key === "Enter") { event.preventDefault(); commitInput(); }
     event.stopPropagation();
   });
-  return input;
+  if (!entry.slider) return input;
+
+  // Slider + box drive one value: the range is the coarse gesture, the box is
+  // the exact one, so neither is authoritative and both mirror each other.
+  const wrap = el("div", "ausboss-set-ctl");
+  const slider = el("input", "ausboss-set-slider");
+  slider.type = "range";
+  slider.min = String(entry.min ?? 0);
+  slider.max = String(entry.max ?? 1);
+  slider.step = String(entry.step ?? 0.01);
+  slider.value = String(values[entry.key]);
+  slider.addEventListener("input", () => {
+    const coerced = commit(entry, slider.value);
+    input.value = String(coerced);
+  });
+  input.addEventListener("change", () => { slider.value = input.value; });
+  wrap.append(slider, input);
+  return wrap;
+}
+
+function trashIconSvg() {
+  return (
+    '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
+    'stroke-width="1.5" stroke-linecap="round" aria-hidden="true">' +
+    '<path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.2h5.8l.6-8.2M6.8 7v3.4M9.2 7v3.4"/></svg>'
+  );
 }
 
 // A right-aligned gear row for panels that have no other chrome to hang the
@@ -284,8 +335,16 @@ export function openSettingsMenu({ scope, schema, anchor, title, onChange, initi
   head.append(icon, el("span", "", title ?? "Settings"), close);
 
   const body = el("div", "ausboss-set-body");
+  // What each override held before it was switched off, so ticking it back on
+  // returns the user's own value rather than a canned one.
+  const lastActive = {};
   const commit = (entry, raw) => {
-    values = saveSetting(scope, schema, entry.key, raw);
+    // Saving also records the value as the default new nodes start from, but
+    // the menu is showing THIS node: merge back only the key that changed.
+    // Taking saveSetting's whole return would rebuild every other row from
+    // storage and silently revert values the open node actually holds.
+    const saved = saveSetting(scope, schema, entry.key, raw);
+    values = { ...values, [entry.key]: saved[entry.key] };
     onChange?.(values, entry.key);
     return values[entry.key];
   };
@@ -297,9 +356,67 @@ export function openSettingsMenu({ scope, schema, anchor, title, onChange, initi
         continue;
       }
       const row = el("div", "ausboss-set-row");
-      const label = el("div", "ausboss-set-label", entry.label);
-      if (entry.hint) label.append(el("span", "hint", entry.hint));
-      row.append(label, buildControl(entry, values, commit));
+
+      if (!isOverrideEntry(entry)) {
+        const label = el("div", "ausboss-set-label", entry.label);
+        if (entry.hint) label.append(el("span", "hint", entry.hint));
+        row.append(label, buildControl(entry, values, commit));
+        body.append(row);
+        continue;
+      }
+
+      // Override row: an explicit on/off box, so "off" reads as off instead
+      // of relying on the user knowing the neutral value by heart.
+      const check = el("input", "ausboss-set-check");
+      check.type = "checkbox";
+      check.title = `Send ${entry.label} with the request; off leaves it to the server`;
+      const dot = el("span", "ausboss-set-moddot hidden");
+      dot.title = "Changed from the suggested value";
+      const trash = el("button", "ausboss-set-trash hidden");
+      trash.type = "button";
+      trash.innerHTML = trashIconSvg();
+      trash.title = `Reset ${entry.label} to ${overrideEnableValue(entry, undefined)}`;
+
+      const syncRow = () => {
+        const on = isOverrideActive(entry, values[entry.key]);
+        const custom = overrideIsCustom(entry, values[entry.key]);
+        check.checked = on;
+        row.classList.toggle("off", !on);
+        wrap.classList.toggle("off", !on);
+        dot.classList.toggle("hidden", !custom);
+        trash.classList.toggle("hidden", !custom);
+      };
+      // Typing the neutral value by hand must uncheck the box, so the row
+      // re-syncs after every edit the control itself makes.
+      const control = buildControl(entry, values, (rowEntry, raw) => {
+        const out = commit(rowEntry, raw);
+        syncRow();
+        return out;
+      });
+      const wrap = control.classList.contains("ausboss-set-ctl")
+        ? control
+        : el("div", "ausboss-set-ctl");
+      if (wrap !== control) wrap.append(control);
+
+      check.addEventListener("change", () => {
+        if (!check.checked) lastActive[entry.key] = values[entry.key];
+        commit(entry, check.checked
+          ? overrideEnableValue(entry, lastActive[entry.key])
+          : entry.neutral);
+        renderRows();
+      });
+      trash.addEventListener("click", () => {
+        commit(entry, overrideEnableValue(entry, undefined));
+        renderRows();
+      });
+
+      const labelBox = el("div", "ausboss-set-label");
+      const labelTop = el("div", "ausboss-set-labeltop");
+      labelTop.append(check, el("span", "", entry.label));
+      labelBox.append(labelTop);
+      if (entry.hint) labelBox.append(el("span", "hint", entry.hint));
+      row.append(labelBox, dot, trash, wrap);
+      syncRow();
       body.append(row);
     }
   };

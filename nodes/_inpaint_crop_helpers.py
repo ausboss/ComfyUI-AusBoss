@@ -437,6 +437,34 @@ def build_crop(
     return cropped, sampling, stitcher
 
 
+def build_canvas_stitcher(canvas: torch.Tensor, blend: torch.Tensor) -> dict:
+    """A stitcher that pastes a full-frame result back over ``canvas``.
+
+    The crop/stitch pair sends a *region* to the sampler. Padding sends the
+    whole canvas instead, so the crop is the identity rectangle and ``blend``
+    marks the padded band. :func:`apply_stitch` then keeps every pixel where
+    the blend is zero bit-identical to ``canvas`` - the original photo - and
+    takes the sampler's version only inside the band, which is what makes an
+    outpaint leave the source untouched.
+
+    Sharing one stitcher shape means Stitch Inpaint 🆎 accepts either
+    producer; no second stitch node has to exist.
+    """
+    canvas = _as_image(canvas)
+    blend = _as_mask(blend, canvas)
+    height, width = canvas.shape[1], canvas.shape[2]
+    return {
+        "kind": STITCHER_KIND,
+        "version": STITCHER_VERSION,
+        "canvas": canvas,
+        "canvas_to_original": (0, 0, width, height),
+        "crop_to_canvas": (0, 0, width, height),
+        "blend": blend,
+        "scale": (1.0, 1.0),
+        "algorithm": "bilinear",
+    }
+
+
 def apply_stitch(
     stitcher: dict, inpainted: torch.Tensor, fix_edge_halo: bool = False
 ) -> torch.Tensor:
@@ -507,6 +535,7 @@ def apply_stitch(
 __all__ = [
     "RESIZE_ALGORITHMS",
     "STITCHER_KIND",
+    "build_canvas_stitcher",
     "STITCHER_VERSION",
     "apply_stitch",
     "build_crop",
