@@ -1,8 +1,9 @@
-"""Refine Mask 🆎."""
+"""Mask Refine 🆎."""
 
 from __future__ import annotations
 
 from ._mask_helpers import EDGE_REFINE_MODES, refine_mask
+from ._preview_helpers import mask_to_preview_batch, preview_payload, temp_prefix
 
 
 class AusBossRefineMask:
@@ -15,10 +16,15 @@ class AusBossRefineMask:
         "then remap levels with black_point/white_point to clear gray haze. "
         "Returns the refined mask and its inverse."
     )
+    # "refine mask" first: the node shipped under that display name, so the
+    # phrase people already know has to keep finding it. The name itself now
+    # leads with the noun because ComfyUI's search dialog cuts at 64 results
+    # and only ranks a name that STARTS with the query near the top - as
+    # "Refine Mask" this node came 121st for "mask" and was never on screen.
     SEARCH_ALIASES = [
-        "grow mask", "shrink mask", "expand mask", "feather", "fill holes",
-        "smooth", "levels", "guided filter", "alpha matting", "mask blur",
-        "mask fix", "ausboss",
+        "refine mask", "grow mask", "shrink mask", "expand mask", "feather",
+        "fill holes", "smooth", "levels", "guided filter", "alpha matting",
+        "mask blur", "mask fix", "ausboss",
     ]
 
     @classmethod
@@ -119,6 +125,11 @@ class AusBossRefineMask:
     )
     FUNCTION = "refine"
 
+    def __init__(self):
+        # Per instance, so two of these in one graph never overwrite each
+        # other's preview file.
+        self._prefix = temp_prefix("mask_refine")
+
     def refine(
         self,
         mask,
@@ -131,7 +142,7 @@ class AusBossRefineMask:
         edge_refine,
         guide_image=None,
     ):
-        return refine_mask(
+        refined, inverted = refine_mask(
             mask,
             int(expand),
             float(blur),
@@ -142,9 +153,19 @@ class AusBossRefineMask:
             edge_refine=str(edge_refine),
             guide_image=guide_image,
         )
+        # The refined mask itself is the preview. Before this the panel showed
+        # whatever fed the mask input, and a segmentation node upstream has no
+        # picture to show, so the panel stayed empty however the mask turned
+        # out - exactly the case where seeing the result matters most.
+        return preview_payload(
+            mask_to_preview_batch(refined, "Mask Refine"),
+            self._prefix,
+            "Mask Refine",
+            (refined, inverted),
+        )
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_RefineMask": AusBossRefineMask}
-NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_RefineMask": "Refine Mask 🆎"}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_RefineMask": "Mask Refine 🆎"}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

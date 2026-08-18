@@ -1,4 +1,4 @@
-# Refine Mask
+# Mask Refine
 
 Cleans up a segmentation mask in one pass: grow or shrink the coverage,
 optionally fill enclosed holes, melt staircase jaggies, feather the edge,
@@ -6,11 +6,32 @@ optionally snap the edge to a guide image, then remap the levels. Both the
 refined mask and its inverse are returned, so no separate invert node is
 needed.
 
+The panel shows the refined mask itself once the node has run, so the effect
+of a setting is visible without wiring a preview node beside it.
+
+## The panel buttons
+
+- **AUTO** — reads the size of the mask on the panel and sets **expand** and
+  **blur** to a sensible starting point for it. A feather is a fraction of the
+  picture, not a fixed pixel count: the 8 px grow that covers a watermark's
+  rim on a 576-tall clip is a smear on a thumbnail and invisible on a 4K
+  plate, so the values scale with the mask's short edge. They are a starting
+  point to nudge, not a correct answer — how far a mask has to grow depends on
+  how tight the segmentation was, which nothing can read off the picture.
+  Needs one run first, since that is when the panel learns the mask's size.
+- **MORE / LESS** — shows or hides the advanced controls below. The node opens
+  on **expand** and **blur** alone; the rest are one click away. Hidden
+  widgets keep their values, so a workflow that set them is unaffected, and
+  the choice is remembered per node.
+
 ## Controls
 
 - **mask**: BHW mask; white is the selected area.
 - **expand**: Pixels to grow (`+`) or shrink (`-`). Soft input values survive.
 - **blur**: Gaussian feather strength in pixels; `0` keeps hard edges.
+
+### Advanced (behind **MORE**)
+
 - **fill_holes**: Fills fully enclosed gaps inside the mask before feathering.
   Gaps that touch the image border are left alone.
 - **smooth**: Melts staircase jaggies by this many pixels while keeping a

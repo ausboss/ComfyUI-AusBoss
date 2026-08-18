@@ -65,6 +65,14 @@ function setReady(state, text) {
   state.status.textContent = text;
 }
 
+// gif and webp are animated images, not video: a <video> element cannot play
+// either, so the same saved file needs a different tag to preview at all.
+const STILL_IMAGE_EXTENSIONS = new Set(["gif", "webp"]);
+
+function isStillImage(filename) {
+  return STILL_IMAGE_EXTENSIONS.has(String(filename).split(".").pop().toLowerCase());
+}
+
 function loadMetadata(state, meta) {
   if (!meta?.filename) {
     setEmpty(state, "No saved video was returned");
@@ -72,8 +80,17 @@ function loadMetadata(state, meta) {
   }
   state.meta = { ...meta };
   setEmpty(state, `Loading ${meta.filename}…`);
+  const url = api.apiURL(`/view?${mediaViewQuery(meta, "output")}`);
+  const still = isStillImage(meta.filename);
+  state.stage.classList.toggle("is-still", still);
   state.video.pause();
-  state.video.src = api.apiURL(`/view?${mediaViewQuery(meta, "output")}`);
+  if (still) {
+    state.video.removeAttribute("src");
+    state.image.src = url;
+    return;
+  }
+  state.image.removeAttribute("src");
+  state.video.src = url;
   state.video.load();
 }
 
@@ -90,15 +107,19 @@ function buildPreview(node) {
   video.controls = true;
   video.preload = "metadata";
   video.playsInline = true;
+  const image = document.createElement("img");
+  image.className = "ausboss-video-still";
   const status = document.createElement("div");
   status.className = "ausboss-video-status";
   status.textContent = "Run to preview the saved video";
   const tools = document.createElement("div");
   tools.className = "ausboss-video-tools";
+  // No reload button: the preview is already the last saved file, so the
+  // button only ever re-fetched what was on screen, and after a page reload
+  // there is no saved file in memory for it to fetch at all.
   const loopButton = makeToolButton("LOOP", "Toggle looping for this saved preview");
-  const reloadButton = makeToolButton("↻", "Reload the last saved preview");
-  tools.append(loopButton, reloadButton);
-  stage.append(video, status, tools);
+  tools.append(loopButton);
+  stage.append(video, image, status, tools);
   root.append(stage);
 
   const widget = node.addDOMWidget(PREVIEW_WIDGET, "ausboss_video", root, {
@@ -115,7 +136,7 @@ function buildPreview(node) {
 
   const abort = new AbortController();
   const state = node.__ausbossSaveVideo = {
-    node, root, stage, video, status, tools, loopButton, reloadButton,
+    node, root, stage, video, image, status, tools, loopButton,
     widget, abort, meta: null,
   };
   const updateLoopButton = () => {
@@ -133,19 +154,21 @@ function buildPreview(node) {
     node.setDirtyCanvas?.(true, true);
     notifyAusbossChange();
   });
-  reloadButton.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (state.meta) loadMetadata(state, state.meta);
-    else setEmpty(state, "Run once before reloading a preview");
-  });
   video.addEventListener("loadedmetadata", () => {
     setReady(state, mediaInfo(state.meta, video) || state.meta?.filename || "Preview ready");
     node.setDirtyCanvas?.(true, true);
   }, { signal: abort.signal });
-  video.addEventListener("error", () => setEmpty(state, "Saved video preview could not load"), {
-    signal: abort.signal,
-  });
+  video.addEventListener("error", () => {
+    // Only a genuine video failure: clearing src for a gif fires error too.
+    if (video.getAttribute("src")) setEmpty(state, "Saved video preview could not load");
+  }, { signal: abort.signal });
+  image.addEventListener("load", () => {
+    setReady(state, state.meta?.filename || "Preview ready");
+    node.setDirtyCanvas?.(true, true);
+  }, { signal: abort.signal });
+  image.addEventListener("error", () => {
+    if (image.getAttribute("src")) setEmpty(state, "Saved animation preview could not load");
+  }, { signal: abort.signal });
 
   return state;
 }

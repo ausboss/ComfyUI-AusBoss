@@ -40,7 +40,7 @@
           "links": null
         }
       ],
-      "title": "Refine Mask",
+      "title": "Mask Refine",
       "properties": {
         "cnr_id": "ausboss-nodes",
         "ver": "1.0.0",
@@ -631,7 +631,7 @@
           "links": null
         }
       ],
-      "title": "Refine Mask",
+      "title": "Mask Refine",
       "properties": {
         "cnr_id": "ausboss-nodes",
         "ver": "1.0.0",

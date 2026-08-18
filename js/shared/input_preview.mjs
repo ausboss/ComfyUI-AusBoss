@@ -63,7 +63,27 @@ export function describeSourcePreview(sourceNode) {
   return null;
 }
 
+// The node's own latest result, if it has produced one.
+//
+// imgs is where the frontend leaves both the streamed progress frames of a
+// running node and the images from its ui payload, so the last entry is the
+// most recent thing this node made. The panel prefers it over the upstream
+// input for the obvious reason: once a node has a result, its result is what
+// you want to look at.
+export function describeOwnResult(node) {
+  const images = node?.imgs;
+  if (!Array.isArray(images) || images.length === 0) return null;
+  const src = images[images.length - 1]?.src;
+  return typeof src === "string" && src ? { kind: "url", url: src } : null;
+}
+
+// What the panel shows, best first: this node's result, then whatever feeds
+// it, then nothing.
+export function describeNodePreview(node, inputName) {
+  return describeOwnResult(node) ?? describeSourcePreview(upstreamNode(node, inputName));
+}
+
 // Quiet ASCII placeholder copy; never an error.
 export function placeholderText(connected, noun = "an image") {
-  return connected ? "source has no preview yet" : `connect ${noun} to preview`;
+  return connected ? "run to preview" : `connect ${noun} to preview`;
 }

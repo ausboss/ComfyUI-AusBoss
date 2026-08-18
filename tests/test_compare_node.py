@@ -14,7 +14,7 @@ sys.path.insert(0, str(ROOT))
 if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
     del sys.modules["nodes"]
 
-from nodes import node_compare
+from nodes import _preview_helpers
 from nodes.node_compare import AusBossCompare, first_frame_to_pil
 
 
@@ -49,7 +49,9 @@ class CompareNodeTests(unittest.TestCase):
         image_a = torch.rand(2, 8, 12, 3)
         image_b = torch.rand(1, 8, 12, 3)
         with tempfile.TemporaryDirectory() as tmp:
-            with patch.object(node_compare, "folder_paths", fake_folder_paths(tmp)):
+            # folder_paths is imported by the shared preview helper now, which
+            # is where every node's temp preview is written.
+            with patch.object(_preview_helpers, "folder_paths", fake_folder_paths(tmp)):
                 result = AusBossCompare().compare(image_a, image_b)
 
             self.assertIs(result["result"][0], image_a)

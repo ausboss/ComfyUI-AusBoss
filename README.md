@@ -21,7 +21,7 @@ Picks **one frame** out of a video from an uploaded input file or local path, an
 
 ### Select Frame 🆎
 
-Returns one unchanged frame from an `IMAGE` batch using a clear one-based frame number. Out-of-range requests report the valid range instead of silently selecting the wrong image.
+Returns one unchanged frame from an `IMAGE` batch using a clear one-based frame number. Out-of-range requests report the valid range instead of silently selecting the wrong image, and the panel shows the frame you picked so you can check it without a separate preview node.
 
 ### LoRA Loader 🆎
 
@@ -63,7 +63,7 @@ Retimes a clip by **frames per second rather than a whole-number multiple**, so 
 
 ### LaMa Inpaint 🆎
 
-Inpaints white mask regions with a TorchScript LaMa checkpoint, preserves pixels where the mask is zero, and processes large video batches one frame at a time to keep VRAM bounded. Place `big-lama.pt` in `ComfyUI/models/lama/`; the node never performs automatic downloads.
+Inpaints white mask regions with a TorchScript LaMa checkpoint, preserves pixels where the mask is zero, and processes large video batches one frame at a time to keep VRAM bounded. Its panel streams each finished frame during a video run and holds the result afterwards — one preview surface, not ComfyUI's stacked underneath as well. Place `big-lama.pt` in `ComfyUI/models/lama/`; the node never performs automatic downloads.
 
 ### Crop For Inpaint / Stitch Inpaint 🆎
 
@@ -73,13 +73,13 @@ Inpaint only where it matters: Crop For Inpaint grows the mask's bounding box by
 
 Loads a video as frames plus audio with `frame_count`, `fps`, `width`, `height`, and `duration` outputs, plus a lazy core `VIDEO` handle so the clip chains straight into ComfyUI's own video nodes. Its single responsive player includes a two-handle trim timeline: drag **IN** and **OUT** (shown as `h:mm:ss.s` timecodes you can type into), preview exactly that window, and optionally loop it. Only the selected window is decoded, with a memory guard that reports oversized trims instead of exhausting RAM; audio is extracted lazily only when consumed. Optional custom width/height with aspect-preserving single-side mode; `every_nth` thins long clips (the fps output divides to match) and `max_frames` caps the decode outright.
 
-### Refine Mask 🆎
+### Mask Refine 🆎
 
-Grows or shrinks a mask, fills enclosed holes, melts jagged edges with a `smooth` control that does not feather, feathers, and rescales the extremes with black/white points — returning both the refined mask and its inverse. Optional `guided filter` and `matting` tiers refine the edge against a guide image when you install the matching extra.
+Grows or shrinks a mask, fills enclosed holes, melts jagged edges with a `smooth` control that does not feather, feathers, and rescales the extremes with black/white points — returning both the refined mask and its inverse. Optional `guided filter` and `matting` tiers refine the edge against a guide image when you install the matching extra. The panel previews the refined mask itself, so you can see what a setting did. It opens on `expand` and `blur` alone with the rest behind **MORE**, and **AUTO** sets both from the mask's size — a feather is a fraction of the picture, so what covers a watermark rim at 576px is a smear on a thumbnail.
 
 ### Save Video 🆎
 
-Encodes frames — or a connected core `VIDEO` — to an H.264/H.265 mp4 or VP9 webm (all CRF-controlled) tagged bt709 (so platforms don't shift your colors), with optional muxed audio and the workflow embedded, so a saved mp4 dragged back onto the canvas restores its workflow. The responsive in-node player previews the encoded result with loop and reload controls. Wire `fps` from Load Video to preserve source timing; a connected video brings its own rate and overrides the widget. Encoding runs off the executor thread with per-frame progress, so a long export never freezes the UI.
+Encodes frames — or a connected core `VIDEO` — to mp4 (h264/h265, CPU or NVENC), webm (vp9/av1), ProRes mov, bit-exact lossless ffv1 mkv, gif or webp. The video formats are tagged bt709 (so platforms don't shift your colors), take optional muxed audio, and embed the workflow, so a saved mp4 dragged back onto the canvas restores its graph — `save_metadata` turns that off when you'd rather not ship your prompts. `pingpong` bounces the clip for a seamless loop without repeating the turnaround frames. The responsive in-node player previews the encoded result. Wire `fps` from Load Video to preserve source timing; a connected video brings its own rate and overrides the widget. Encoding runs off the executor thread with per-frame progress, so a long export never freezes the UI.
 
 ### Image Compare A/B 🆎
 

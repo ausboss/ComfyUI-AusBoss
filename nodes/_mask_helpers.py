@@ -17,7 +17,7 @@ def _as_bhw(mask: torch.Tensor) -> torch.Tensor:
     if isinstance(mask, torch.Tensor) and mask.ndim == 2:
         mask = mask.unsqueeze(0)
     if not isinstance(mask, torch.Tensor) or mask.ndim != 3:
-        raise ValueError("Refine Mask expected a BHW MASK.")
+        raise ValueError("Mask Refine expected a BHW MASK.")
     return mask.float().clamp(0.0, 1.0)
 
 
@@ -122,13 +122,13 @@ _SOFT_EPSILON = 1e-3
 EDGE_REFINE_MODES = ("off", "guided filter", "matting")
 
 _GUIDED_FILTER_HINT = (
-    "Refine Mask edge_refine 'guided filter' needs the optional "
+    "Mask Refine edge_refine 'guided filter' needs the optional "
     "opencv-contrib dependency. Install it into ComfyUI's python with: "
     "pip install opencv-contrib-python (the pack's 'guided-filter' "
     "optional-dependencies group), then restart ComfyUI."
 )
 _MATTING_HINT = (
-    "Refine Mask edge_refine 'matting' needs the optional pymatting "
+    "Mask Refine edge_refine 'matting' needs the optional pymatting "
     "dependency. Install it into ComfyUI's python with: pip install "
     "pymatting (the pack's 'matting' optional-dependencies group), then "
     "restart ComfyUI."
@@ -187,15 +187,15 @@ def _guide_frames(
         or guide_image.ndim != 4
         or guide_image.shape[-1] < 3
     ):
-        raise ValueError("Refine Mask expected guide_image as a BHWC RGB IMAGE batch.")
+        raise ValueError("Mask Refine expected guide_image as a BHWC RGB IMAGE batch.")
     if tuple(guide_image.shape[1:3]) != (height, width):
         raise ValueError(
-            f"Refine Mask guide_image is {guide_image.shape[2]}x{guide_image.shape[1]} "
+            f"Mask Refine guide_image is {guide_image.shape[2]}x{guide_image.shape[1]} "
             f"but the mask is {width}x{height}; connect the image the mask belongs to."
         )
     if guide_image.shape[0] not in {1, count}:
         raise ValueError(
-            "Refine Mask needs one guide frame for the whole mask batch or one per mask."
+            "Mask Refine needs one guide frame for the whole mask batch or one per mask."
         )
     # Validated view only - the float()/clamp() copy happens per frame at the
     # call sites, so a whole-batch duplicate of the guide (398 MB for 16
@@ -300,12 +300,12 @@ def refine_mask(
     """Expand, fill holes, smooth, feather, edge-refine, then remap levels."""
     if edge_refine not in EDGE_REFINE_MODES:
         raise ValueError(
-            f"Refine Mask edge_refine must be one of {EDGE_REFINE_MODES}, "
+            f"Mask Refine edge_refine must be one of {EDGE_REFINE_MODES}, "
             f"not '{edge_refine}'."
         )
     if edge_refine != "off" and guide_image is None:
         raise ValueError(
-            f"Refine Mask edge_refine '{edge_refine}' needs the guide_image "
+            f"Mask Refine edge_refine '{edge_refine}' needs the guide_image "
             "input; connect the RGB image the mask belongs to, or set "
             "edge_refine back to 'off'."
         )

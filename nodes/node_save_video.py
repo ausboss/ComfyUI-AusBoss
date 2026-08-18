@@ -8,6 +8,7 @@ from pathlib import Path
 from ._video_save_helpers import (
     VIDEO_FORMATS,
     encode_video,
+    pingpong_frames,
     resolve_encode_fps,
     video_components,
     workflow_metadata,
@@ -22,10 +23,12 @@ except ImportError:  # Offline tests import this module without ComfyUI.
 class AusBossSaveVideo:
     CATEGORY = "🆎 AusBoss/Video"
     DESCRIPTION = (
-        "Saves a frame batch as an H.264/H.265 mp4 or VP9 webm with optional "
-        "muxed audio and the workflow embedded, so the file drags back into "
-        "ComfyUI. Wire fps straight from Load Video 🆎 to keep the source "
-        "timing, or connect a core VIDEO to encode that whole video instead."
+        "Saves a frame batch as mp4 (h264/h265, CPU or NVENC), webm (vp9/av1), "
+        "ProRes mov, lossless ffv1 mkv, gif or webp - with optional muxed audio "
+        "and the workflow embedded, so the file drags back into ComfyUI. "
+        "pingpong bounces the clip for a seamless loop. Wire fps straight from "
+        "Load Video 🆎 to keep the source timing, or connect a core VIDEO to "
+        "encode that whole video instead."
     )
     SEARCH_ALIASES = [
         "save video",
@@ -34,6 +37,11 @@ class AusBossSaveVideo:
         "mp4",
         "webm",
         "h265",
+        "gif",
+        "webp",
+        "prores",
+        "nvenc",
+        "pingpong",
         "ausboss",
     ]
 
@@ -41,17 +49,22 @@ class AusBossSaveVideo:
     def INPUT_TYPES(cls):
         return {
             "required": {
+                # FLOAT, not INT, however whole the number usually looks: the
+                # real broadcast rates are 23.976, 29.97 and 59.94, and Load
+                # Video's fps output is a FLOAT that would no longer connect
+                # here. step 1 is what makes it read and nudge like an integer.
                 "fps": (
                     "FLOAT",
                     {
                         "default": 16.0,
                         "min": 0.01,
                         "max": 240.0,
-                        "step": 0.01,
+                        "step": 1.0,
                         "tooltip": (
                             "Playback frame rate; wire Load Video's fps output to match "
                             "the source. A connected video input brings its own rate and "
-                            "overrides this widget."
+                            "overrides this widget. Fractional rates like 23.976 and "
+                            "29.97 can be typed in."
                         ),
                     },
                 ),
@@ -110,10 +123,40 @@ class AusBossSaveVideo:
                     {
                         "default": "mp4 h264",
                         "tooltip": (
-                            "Container and codec. mp4 h264 plays everywhere; "
-                            "mp4 h265 halves the size at the same quality "
-                            "where supported; webm vp9 suits the web and "
-                            "muxes Opus audio. crf applies to all three."
+                            "Container and codec. mp4 h264 plays everywhere; mp4 h265 "
+                            "halves the size at the same quality where supported; the "
+                            "nvenc pair encodes on an NVIDIA GPU instead of the CPU "
+                            "(much faster, slightly larger); webm vp9 and webm av1 suit "
+                            "the web and mux Opus; mov prores is a ProRes HQ editing "
+                            "master; mkv ffv1 is bit-exact lossless and very large. "
+                            "gif and webp are silent, loop forever, and hold every "
+                            "frame in memory - keep those to short clips."
+                        ),
+                    },
+                ),
+                # Appended after format on purpose: widgets_values is positional,
+                # so anything inserted earlier would shift the values a saved
+                # workflow already stores against fps, filename_prefix and crf.
+                "pingpong": (
+                    "BOOLEAN",
+                    {
+                        "default": False,
+                        "tooltip": (
+                            "Play the clip forward then backward so it loops seamlessly. "
+                            "Roughly doubles the frame count and the encode time; the "
+                            "first and last frames are not repeated at the turnaround."
+                        ),
+                    },
+                ),
+                "save_metadata": (
+                    "BOOLEAN",
+                    {
+                        "default": True,
+                        "tooltip": (
+                            "Embed the prompt and workflow in the file, so an mp4 "
+                            "dragged back onto the canvas restores its graph. Turn off "
+                            "to share a file without your prompts and node graph inside "
+                            "it. gif and webp never carry metadata."
                         ),
                     },
                 ),
@@ -134,6 +177,8 @@ class AusBossSaveVideo:
         audio=None,
         video=None,
         format="mp4 h264",
+        pingpong=False,
+        save_metadata=True,
         prompt=None,
         extra_pnginfo=None,
     ):
@@ -160,6 +205,11 @@ class AusBossSaveVideo:
             raise ValueError(
                 "Save Video: connect either a frames batch or a video to encode."
             )
+        # Before get_save_image_path, which reads the batch's dimensions, and
+        # before the duration the preview reports: the bounce is part of the
+        # clip, not a playback trick, so every frame count downstream counts it.
+        if pingpong:
+            frames = pingpong_frames(frames)
         full_output_folder, filename, counter, subfolder, filename_prefix = (
             folder_paths.get_save_image_path(
                 filename_prefix,
@@ -177,7 +227,7 @@ class AusBossSaveVideo:
             float(fps),
             audio,
             int(crf),
-            workflow_metadata(prompt, extra_pnginfo),
+            workflow_metadata(prompt, extra_pnginfo) if save_metadata else None,
             str(format),
         )
         return {

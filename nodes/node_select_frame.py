@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ._batch_helpers import select_one_based_frame
+from ._preview_helpers import preview_payload, temp_prefix
 
 
 class AusBossSelectFrame:
@@ -39,8 +40,12 @@ class AusBossSelectFrame:
     OUTPUT_TOOLTIPS = ("The selected frame as a one-image BHWC batch.",)
     FUNCTION = "select_frame"
 
+    def __init__(self):
+        self._prefix = temp_prefix("select_frame")
+
     def select_frame(self, frames, frame_number):
-        return (select_one_based_frame(frames, frame_number),)
+        selected = select_one_based_frame(frames, frame_number)
+        return preview_payload(selected, self._prefix, "Select Frame", (selected,))
 
 
 # No legacy "Frame Select" alias: that ID belongs to RES4LYF, whose node is

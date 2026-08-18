@@ -1,9 +1,17 @@
 import { BRAND, BRAND_DARK } from "./index.mjs";
 
-export const CORE_VIDEO_PREVIEW_WIDGET = "video-preview";
+// Re-exported, not redefined: suppressing a core preview is the same job
+// whether the node draws video or stills, and it lives in core_preview.mjs
+// now so the image-only nodes can reach it without importing this stylesheet.
+export {
+  CORE_VIDEO_PREVIEW_WIDGET,
+  hideCanvasWidget,
+  suppressCoreVideoPreview,
+} from "./core_preview.mjs";
+
 export const VIDEO_MIN_WIDTH = 220;
 
-const CSS_ID = "ausboss-video-ui-v2";
+const CSS_ID = "ausboss-video-ui-v3";
 
 export function ensureVideoCss() {
   if (document.getElementById(CSS_ID)) return;
@@ -14,6 +22,11 @@ export function ensureVideoCss() {
 .ausboss-video-stage{position:relative;flex:1 1 auto;min-height:112px;overflow:hidden;border:1px solid rgba(0,180,170,.34);border-radius:6px;background:#000;box-shadow:inset 0 0 0 1px rgba(255,255,255,.025);}
 .ausboss-video-stage video{display:block;width:100%;height:100%;min-height:112px;object-fit:contain;background:#000;}
 .ausboss-video-stage.is-empty video{visibility:hidden;}
+.ausboss-video-still{display:none;width:100%;height:100%;object-fit:contain;background:#000;}
+.ausboss-video-stage.is-still video{display:none;}
+.ausboss-video-stage.is-still .ausboss-video-still{display:block;}
+.ausboss-video-stage.is-still .ausboss-video-tools{display:none;}
+.ausboss-video-stage.is-empty .ausboss-video-still{visibility:hidden;}
 .ausboss-video-status{position:absolute;left:7px;top:7px;z-index:3;max-width:calc(100% - 112px);padding:3px 6px;border-radius:4px;background:rgba(0,0,0,.7);color:#b8d3d1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;backdrop-filter:blur(4px);}
 .ausboss-video-stage.is-empty .ausboss-video-status{left:50%;top:50%;max-width:82%;transform:translate(-50%,-50%);color:#78908e;text-align:center;white-space:normal;}
 .ausboss-video-tools{position:absolute;right:6px;top:6px;z-index:4;display:flex;gap:4px;opacity:.9;}
@@ -36,36 +49,6 @@ export function ensureVideoCss() {
 .ausboss-video-duration{overflow:hidden;color:#8ba3a1;text-align:center;white-space:nowrap;text-overflow:ellipsis;}
 `;
   document.head.appendChild(style);
-}
-
-export function hideCanvasWidget(widget, element = null) {
-  if (!widget || widget.__ausbossHidden) return;
-  widget.__ausbossHidden = true;
-  widget.hidden = true;
-  widget._hidden = true;
-  widget.computeSize = () => [0, -4];
-  widget.computeLayoutSize = () => ({ minWidth: 0, minHeight: 0 });
-  widget.draw = () => {};
-  widget.mouse = () => false;
-  if (element) element.style.display = "none";
-}
-
-export function suppressCoreVideoPreview(node) {
-  if (!node || node.__ausbossCorePreviewSuppressed) return;
-  node.__ausbossCorePreviewSuppressed = true;
-  const prior = node.addDOMWidget;
-  if (typeof prior === "function") {
-    node.addDOMWidget = function (name, type, element, options) {
-      const widget = prior.call(this, name, type, element, options);
-      if (name === CORE_VIDEO_PREVIEW_WIDGET) hideCanvasWidget(widget, element);
-      return widget;
-    };
-  }
-  for (const widget of node.widgets || []) {
-    if (widget.name === CORE_VIDEO_PREVIEW_WIDGET) {
-      hideCanvasWidget(widget, widget.element || node.videoContainer);
-    }
-  }
 }
 
 export function makeToolButton(label, title) {
