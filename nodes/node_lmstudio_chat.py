@@ -8,9 +8,12 @@ from ._lmstudio_helpers import (
     DEFAULT_ENDPOINT,
     build_chat_payload,
     chat_completions_url,
+    describe_empty_reply,
     history_with_turn,
     image_data_url,
     parse_chat_text,
+    parse_finish_reason,
+    parse_reasoning_content,
     parse_response_schema,
     register_lmstudio_routes,
     request_chat,
@@ -389,6 +392,18 @@ class AusBossLmStudioChat:
         text, thinking = split_reasoning(
             parse_chat_text(data), str(reasoning_open_tag), str(reasoning_close_tag)
         )
+        # Reasoning reaches us either inline (split above) or in the server's
+        # own reasoning_content field; keep both so the thinking output is
+        # complete whichever way the model reports it.
+        field_reasoning = parse_reasoning_content(data)
+        if field_reasoning:
+            thinking = f"{thinking}\n\n{field_reasoning}".strip() if thinking else field_reasoning
+        if not text.strip():
+            complaint = describe_empty_reply(
+                thinking, parse_finish_reason(data), int(max_tokens)
+            )
+            if complaint:
+                raise RuntimeError(complaint)
         return (
             text,
             thinking,

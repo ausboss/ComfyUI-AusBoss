@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 import torch
 
+from ._inpaint_crop_helpers import build_canvas_stitcher
 from ._media_helpers import list_input_images, load_image_frames, resolve_input_path
 from ._pad_helpers import (
     PAD_MODES,
@@ -181,8 +182,8 @@ class AusBossLoadImagePad:
             }
         }
 
-    RETURN_TYPES = ("IMAGE", "MASK", "INT", "INT")
-    RETURN_NAMES = ("image", "mask", "width", "height")
+    RETURN_TYPES = ("IMAGE", "MASK", "INT", "INT", "AUSBOSS_STITCHER")
+    RETURN_NAMES = ("image", "mask", "width", "height", "stitcher")
     OUTPUT_TOOLTIPS = (
         "The padded image; the original pixels are untouched (resized only "
         "when a megapixel target is set).",
@@ -190,6 +191,8 @@ class AusBossLoadImagePad:
         "— feed it straight to an inpainter as the outpaint mask.",
         "Final canvas width after multiple/megapixel rounding.",
         "Final canvas height after multiple/megapixel rounding.",
+        "Hand to Stitch Inpaint 🆎 with the sampled result to keep only the "
+        "new padding and restore the original pixels bit-identically.",
     )
     FUNCTION = "load_pad"
 
@@ -233,7 +236,10 @@ class AusBossLoadImagePad:
         mask = feather_pad_mask(
             mask, plan["left"], plan["top"], plan["right"], plan["bottom"], int(feather)
         )
-        return output, mask, int(plan["width"]), int(plan["height"])
+        # The padded canvas is the stitch base, so whatever the sampler does
+        # outside the feathered band is discarded and the source survives.
+        stitcher = build_canvas_stitcher(output, mask)
+        return output, mask, int(plan["width"]), int(plan["height"]), stitcher
 
     @classmethod
     def VALIDATE_INPUTS(cls, image, **_values):

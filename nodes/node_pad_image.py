@@ -8,6 +8,7 @@ from pathlib import Path
 
 from PIL import Image
 
+from ._inpaint_crop_helpers import build_canvas_stitcher
 from ._pad_helpers import PAD_MODES, pad_image
 
 try:
@@ -133,12 +134,14 @@ class AusBossPadImage:
             }
         }
 
-    RETURN_TYPES = ("IMAGE", "MASK")
-    RETURN_NAMES = ("image", "mask")
+    RETURN_TYPES = ("IMAGE", "MASK", "AUSBOSS_STITCHER")
+    RETURN_NAMES = ("image", "mask", "stitcher")
     OUTPUT_TOOLTIPS = (
         "The padded image; the original region is bit-identical to the input.",
         "White over the new padding, black over the original — feed it "
         "straight to an inpainter as the outpaint mask.",
+        "Hand to Stitch Inpaint 🆎 with the sampled result to keep only the "
+        "new padding and restore the original pixels bit-identically.",
     )
     FUNCTION = "pad"
 
@@ -158,7 +161,7 @@ class AusBossPadImage:
         fill_color,
         backdrop_blur,
     ):
-        result = pad_image(
+        padded, mask = pad_image(
             image,
             int(pad_left),
             int(pad_top),
@@ -168,6 +171,9 @@ class AusBossPadImage:
             fill_color,
             float(backdrop_blur),
         )
+        # The padded canvas is the stitch base, so whatever the sampler does
+        # outside the padded band is discarded and the source survives.
+        result = (padded, mask, build_canvas_stitcher(padded, mask))
         preview = self._save_temp_preview(image)
         if preview is None:
             return result

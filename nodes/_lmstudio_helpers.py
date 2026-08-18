@@ -347,6 +347,60 @@ def parse_chat_text(data: object) -> str:
     return str(content or "")
 
 
+def parse_reasoning_content(data: object) -> str:
+    """Reasoning the server returned in its own field, '' when there is none.
+
+    Reasoning models reach us two ways: inline ``<think>`` tags inside the
+    content (handled by split_reasoning), or a sibling ``reasoning_content``
+    field, which is what LM Studio sends for gemma/qwen-style hybrids. Without
+    this the whole answer can land in a field we never read, and the node
+    hands back a blank string.
+    """
+    try:
+        message = data["choices"][0]["message"]
+    except (KeyError, IndexError, TypeError):
+        return ""
+    if not isinstance(message, dict):
+        return ""
+    for key in ("reasoning_content", "reasoning"):
+        value = message.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def parse_finish_reason(data: object) -> str:
+    """choices[0].finish_reason, '' when the server did not say."""
+    try:
+        reason = data["choices"][0].get("finish_reason")
+    except (KeyError, IndexError, TypeError, AttributeError):
+        return ""
+    return str(reason or "")
+
+
+def describe_empty_reply(reasoning: str, finish_reason: str, max_tokens: int) -> str:
+    """Why the answer came back blank, in words the user can act on.
+
+    Returns '' when the reply was not blank-with-reasoning, so callers can
+    treat a non-empty result as "raise this".
+    """
+    if not reasoning:
+        return ""
+    if finish_reason == "length":
+        budget = f"all {max_tokens} tokens" if max_tokens and max_tokens > 0 else "its whole budget"
+        return (
+            f"LM Studio: the model spent {budget} thinking and never reached an "
+            "answer, so 'text' is empty (the reasoning is on the 'thinking' "
+            "output). Raise max_tokens, or set thinking to 'off' in the gear "
+            "menu for models that support it."
+        )
+    return (
+        "LM Studio: the model returned reasoning but no answer, so 'text' is "
+        "empty (the reasoning is on the 'thinking' output). Try setting "
+        "thinking to 'off' in the gear menu, or a plainer system prompt."
+    )
+
+
 def split_reasoning(
     text: str, open_tag: str = "<think>", close_tag: str = "</think>"
 ) -> tuple[str, str]:
@@ -421,7 +475,10 @@ __all__ = [
     "merge_advanced_payload",
     "models_url",
     "normalize_history",
+    "describe_empty_reply",
     "parse_chat_text",
+    "parse_finish_reason",
+    "parse_reasoning_content",
     "parse_response_schema",
     "register_lmstudio_routes",
     "request_chat",

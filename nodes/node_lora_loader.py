@@ -19,9 +19,9 @@ class AusBossLoraLoader:
         "Each row has an enable toggle, a searchable LoRA picker, and "
         "drag-to-scrub model/CLIP strengths; trigger words from all enabled "
         "rows are joined into one string output. The bar's ▤ button saves "
-        "and applies named templates of the whole stack, and a LoRA trained "
-        "for a different base model than the connected checkpoint logs a "
-        "console warning."
+        "and applies named templates of the whole stack, and a LoRA that "
+        "patches nothing on the connected model - the usual sign it was "
+        "built for a different base model - logs a console warning."
     )
     SEARCH_ALIASES = ["lora", "lora stack", "lora loader", "trigger words", "ausboss"]
 

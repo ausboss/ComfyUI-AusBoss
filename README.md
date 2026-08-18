@@ -29,7 +29,7 @@ Pauses the graph and shows the incoming batch as a clickable filmstrip: pick the
 
 ### LoRA Loader 🆎
 
-A stacked multi-LoRA node. Each row has an on/off pill, a searchable picker (type to filter, arrow keys + Enter to pick; browse view groups by folder and hovering shows the preview image), and strengths you can **drag left/right to scrub** (Shift for fine steps) or click to type. A header pill toggles the whole stack. The per-row info card shows the LoRA's preview image, base model, trigger words from its file metadata, a one-click Civitai lookup, or your own saved words — click words to toggle them into the deduplicated `trigger_words` output — plus an optional suggested strength range that tints out-of-range values. The bar's ▤ button saves and applies named templates of the whole stack, and a LoRA trained for a different base model than the connected checkpoint logs a console warning. CLIP input is optional.
+A stacked multi-LoRA node. Each row has an on/off pill, a searchable picker (type to filter, arrow keys + Enter to pick; browse view groups by folder and hovering shows the preview image), and strengths you can **drag left/right to scrub** (Shift for fine steps) or click to type. A header pill toggles the whole stack. The per-row info card shows the LoRA's preview image, base model, trigger words from its file metadata, a one-click Civitai lookup, or your own saved words — click words to toggle them into the deduplicated `trigger_words` output — plus an optional suggested strength range that tints out-of-range values. The bar's ▤ button saves and applies named templates of the whole stack, and a LoRA that patches nothing on the connected model — the usual sign it was built for a different base model — logs a console warning naming it. CLIP input is optional.
 
 ### Align Image 🆎
 
@@ -41,7 +41,7 @@ Reads an image's dimensions as INTs — width, height, longest edge, shortest ed
 
 ### LM Studio Chat 🆎
 
-Sends a prompt (and optionally an image) to a local LM Studio server — or any OpenAI-compatible endpoint — and returns the reply as text. Empty model name means "whatever the server has loaded", reasoning-model `<think>` blocks come out on a separate output so the text stays clean for conditioning, and the seed doubles as the re-roll knob. Chain the `history` output into another chat node's `history` input for multi-turn conversations, or fill `json_schema` to force a structured JSON reply. Errors are actionable: a refused connection says how to start the server.
+Sends a prompt (and optionally an image) to a local LM Studio server — or any OpenAI-compatible endpoint — and returns the reply as text. Empty model name means "whatever the server has loaded", reasoning comes out on a separate output so the text stays clean for conditioning — both inline `<think>` blocks and the `reasoning_content` field servers return for hybrid models — and the seed doubles as the re-roll knob. Give reasoning models a generous `max_tokens`: they spend tokens thinking *before* answering, and if the budget runs out mid-thought the node tells you so by name rather than handing back an empty string. Chain the `history` output into another chat node's `history` input for multi-turn conversations, or fill `json_schema` to force a structured JSON reply. Errors are actionable: a refused connection says how to start the server.
 
 ### Color Match 🆎
 
@@ -49,11 +49,11 @@ Harmonizes an image against a reference by transferring per-channel LAB mean and
 
 ### Pad Image 🆎
 
-Pads an image with a solid color, replicated edges, replicated edge pixels, or a **pillarbox blur** (a blurred, dimmed copy of the frame behind the sharp original — the standard look for reframing video to a new aspect). Also returns a mask covering exactly the new padding, ready to wire straight into an outpaint. The stage on the node is the control: drag any edge of the final rect to set that side's padding over a live preview of the input (run once to fill it in).
+Pads an image with a solid color, replicated edges, replicated edge pixels, or a **pillarbox blur** (a blurred, dimmed copy of the frame behind the sharp original — the standard look for reframing video to a new aspect). Also returns a mask covering exactly the new padding, ready to wire straight into an outpaint, plus a `stitcher` — hand that and the sampled result to Stitch Inpaint 🆎 and every pixel outside the padding comes back bit-identical to the input, so only the new band is generated. The stage on the node is the control: drag any edge of the final rect to set that side's padding over a live preview of the input (run once to fill it in).
 
 ### Load Image + Pad 🆎
 
-A Load Image that opens straight into an outpaint canvas: drag any edge of the final rect drawn on the node to grow that side's padding — the whole edge is the handle, per-side pixel counts ride the bands, and the badge always shows the true output size. The mask covers exactly the padding with an optional **feather** ramped inward across the seam, the canvas rounds up to a clean multiple, and a **megapixel target** rescales the source *before* padding so the mask seam stays crisp at sampler-friendly sizes. Outputs the canvas, the mask, and the final width/height as INTs.
+A Load Image that opens straight into an outpaint canvas: drag any edge of the final rect drawn on the node to grow that side's padding — the whole edge is the handle, per-side pixel counts ride the bands, and the badge always shows the true output size. The mask covers exactly the padding with an optional **feather** ramped inward across the seam, the canvas rounds up to a clean multiple, and a **megapixel target** rescales the source *before* padding so the mask seam stays crisp at sampler-friendly sizes. Outputs the canvas, the mask, the final width/height as INTs, and a `stitcher` for Stitch Inpaint 🆎 that restores the original pixels bit-identically after sampling.
 
 ### Drop Shadow 🆎
 

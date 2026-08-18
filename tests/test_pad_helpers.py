@@ -159,8 +159,8 @@ class NodeWiringTests(unittest.TestCase):
         )
         cls = NODE_CLASS_MAPPINGS["AUSBOSS_NODES_PadImage"]
         self.assertIn("AusBoss/Image", cls.CATEGORY)
-        self.assertEqual(cls.RETURN_TYPES, ("IMAGE", "MASK"))
-        self.assertEqual(cls.RETURN_NAMES, ("image", "mask"))
+        self.assertEqual(cls.RETURN_TYPES, ("IMAGE", "MASK", "AUSBOSS_STITCHER"))
+        self.assertEqual(cls.RETURN_NAMES, ("image", "mask", "stitcher"))
         image = rand_image(1, 8, 8, seed=8)
         result = getattr(cls(), cls.FUNCTION)(
             image=image,
@@ -172,7 +172,7 @@ class NodeWiringTests(unittest.TestCase):
             fill_color="#000000",
             backdrop_blur=0.5,
         )
-        self.assertEqual(len(result), 2)
+        self.assertEqual(len(result), 3)
         self.assertEqual(result[0].shape, (1, 14, 12, 3))
         self.assertEqual(result[1].shape, (1, 14, 12))
 
@@ -358,11 +358,15 @@ class LoadImagePadNodeTests(unittest.TestCase):
 
         cls = self.make_node()
         self.assertIn("AusBoss/Image", cls.CATEGORY)
-        self.assertEqual(cls.RETURN_TYPES, ("IMAGE", "MASK", "INT", "INT"))
-        self.assertEqual(cls.RETURN_NAMES, ("image", "mask", "width", "height"))
+        self.assertEqual(
+            cls.RETURN_TYPES, ("IMAGE", "MASK", "INT", "INT", "AUSBOSS_STITCHER")
+        )
+        self.assertEqual(
+            cls.RETURN_NAMES, ("image", "mask", "width", "height", "stitcher")
+        )
         with tempfile.TemporaryDirectory() as tmp:
             path = self.write_image(tmp)
-            (image, mask, width, height), _ = self.run_node(cls, path)
+            (image, mask, width, height, _), _ = self.run_node(cls, path)
             self.assertEqual((width, height), (72, 56))  # 70x56 ceiled to 8
             self.assertEqual(tuple(image.shape), (1, 56, 72, 3))
             self.assertEqual(tuple(mask.shape), (1, 56, 72))
@@ -376,7 +380,7 @@ class LoadImagePadNodeTests(unittest.TestCase):
         cls = self.make_node()
         with tempfile.TemporaryDirectory() as tmp:
             path = self.write_image(tmp)
-            (image, mask, width, height), values = self.run_node(
+            (image, mask, width, height, _), values = self.run_node(
                 cls, path, target_megapixels=0.05
             )
             plan = plan_pad_canvas(64, 48, 2, 3, 4, 5, 8, 0.05)
@@ -403,7 +407,7 @@ class LoadImagePadNodeTests(unittest.TestCase):
         cls = self.make_node()
         with tempfile.TemporaryDirectory() as tmp:
             path = self.write_image(tmp)
-            (_, mask, _, _), _ = self.run_node(cls, path, feather=6)
+            (_, mask, _, _, _), _ = self.run_node(cls, path, feather=6)
             values = torch.unique(mask).tolist()
             self.assertTrue(any(0.0 < value < 1.0 for value in values))
             self.assertEqual(float(mask[0, 0, 0]), 1.0)  # padding stays solid

@@ -152,10 +152,12 @@ function installStyles() {
     background: #23272c; color: #9ba2aa; cursor: pointer; flex: none;
     font: 700 11px system-ui; }
   .ausboss-lora-info:hover { border-color: ${BRAND}; color: ${BRAND}; }
-  .ausboss-lora-add { flex: none; height: ${ACTIONS_HEIGHT}px; border: none;
+  .ausboss-lora-add { flex: none; height: ${ACTIONS_HEIGHT}px; border: 1px solid ${BRAND};
     border-radius: 6px; background: ${BRAND}; color: #06211f; font: 600 12px system-ui;
-    cursor: pointer; padding: 0 12px; }
-  .ausboss-lora-add:hover { background: #00c9be; }
+    cursor: pointer; padding: 0 12px; white-space: nowrap; box-shadow: 0 1px 0 rgba(0,0,0,.35); }
+  .ausboss-lora-add:hover { background: #00c9be; border-color: #00c9be; }
+  .ausboss-lora-add:active { transform: translateY(1px); box-shadow: none; }
+  .ausboss-lora-add:focus-visible { outline: 2px solid #9becf5; outline-offset: 1px; }
   .ausboss-lora-add:disabled { opacity: 0.4; cursor: default; }
   .ausboss-lora-actions .ausboss-lora-add { flex: 1 1 auto; }
   .ausboss-lora-summary { color: #9ba2aa; flex: 1 1 auto; text-align: right; }
@@ -172,11 +174,16 @@ function installStyles() {
   .ausboss-lora-option.current { color: ${BRAND}; }
   .ausboss-lora-empty { padding: 10px; color: #9ba2aa; font-style: italic; }
   .ausboss-lora-menu { min-width: 140px; padding: 4px; }
-  .ausboss-lora-menu button { display: block; width: 100%; text-align: left; border: none;
+  /* Direct children only - those are the plain list rows. Buttons that sit
+     inside a wrapper row (Save, apply, delete) are specialized and keep their
+     own look; as a blanket descendant rule this outranked them and forced
+     width:100%, which clipped the Save button and stretched the delete x. */
+  .ausboss-lora-menu > button { display: block; width: 100%; text-align: left; border: none;
     background: transparent; color: inherit; padding: 6px 8px; border-radius: 4px; cursor: pointer; }
-  .ausboss-lora-menu button:hover:not(:disabled) { background: #2c3238; }
+  .ausboss-lora-menu > button:hover:not(:disabled) { background: #2c3238; }
   .ausboss-lora-menu button:disabled { opacity: 0.35; cursor: default; }
-  .ausboss-lora-templates { padding: 8px; gap: 6px; display: flex; flex-direction: column; }
+  .ausboss-lora-templates { min-width: 240px; padding: 8px; gap: 6px; display: flex;
+    flex-direction: column; }
   .ausboss-lora-template-row { display: flex; align-items: center; gap: 4px; }
   .ausboss-lora-template-row > button:first-child { flex: 1 1 auto; min-width: 0; overflow: hidden;
     text-overflow: ellipsis; white-space: nowrap; text-align: left; border: none;
@@ -196,9 +203,11 @@ function installStyles() {
     color: inherit; cursor: pointer; padding: 2px 8px; font-size: 11px; }
   .ausboss-lora-chip.active { border-color: ${BRAND}; color: ${BRAND}; }
   .ausboss-lora-fetch { align-self: flex-start; }
-  .ausboss-lora-custom { display: flex; gap: 6px; }
-  .ausboss-lora-custom input { flex: 1 1 auto; height: 24px; border: 1px solid #3a4047;
+  .ausboss-lora-custom { display: flex; gap: 6px; align-items: center; }
+  .ausboss-lora-custom input { flex: 1 1 auto; min-width: 0; height: ${ACTIONS_HEIGHT}px;
+    border: 1px solid #3a4047; box-sizing: border-box;
     border-radius: 5px; background: #23272c; color: inherit; padding: 0 8px; outline: none; }
+  .ausboss-lora-custom input:focus { border-color: ${BRAND}; }
   `;
   document.head.append(style);
 }
