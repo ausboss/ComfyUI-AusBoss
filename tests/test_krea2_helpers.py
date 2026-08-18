@@ -16,8 +16,10 @@ from nodes._krea2_helpers import (
     REFERENCE_MAX_EDGE,
     build_reference_image,
     extract_bbox_norm,
+    placement_warning,
     reference_size,
     snap16,
+    source_pixel_bbox,
 )
 
 
@@ -132,6 +134,66 @@ class ExtractBboxNormTests(unittest.TestCase):
         # bad stitcher degrades instead of raising mid-sample.
         for value in (None, {}, {"kind": "something else"}, "not a stitcher", 42):
             self.assertEqual(extract_bbox_norm(value), [0.0, 0.0, 1.0, 1.0])
+
+
+class PlacementWarningTests(unittest.TestCase):
+    """The reference implementation spans one whole canvas axis and splits
+    anything else into two passes. One pass on a two-axis canvas is outside
+    what the weights do, so it has to be said out loud."""
+
+    def stitcher(self, canvas_w, canvas_h, bbox):
+        canvas = torch.zeros(1, canvas_h, canvas_w, 3)
+        mask = torch.zeros(1, canvas_h, canvas_w)
+        return build_canvas_stitcher(canvas, mask, bbox=bbox)
+
+    def test_a_horizontal_extend_is_fine(self):
+        # Source spans the full height: pad left and right only.
+        s = self.stitcher(1416, 1024, (231, 0, 1255, 1024))
+        self.assertIsNone(placement_warning(s))
+
+    def test_a_vertical_extend_is_fine(self):
+        # Source spans the full width: pad top and bottom only.
+        s = self.stitcher(720, 1568, (0, 0, 720, 1280))
+        self.assertIsNone(placement_warning(s))
+
+    def test_padding_both_axes_warns(self):
+        s = self.stitcher(864, 1760, (29, 0, 833, 1429))
+        message = placement_warning(s)
+        self.assertIsNotNone(message)
+        self.assertIn("BOTH", message)
+        self.assertIn("60px spare width", message)    # 864 - (833 - 29)
+        self.assertIn("331px spare height", message)  # 1760 - 1429
+
+    def test_a_rounding_sliver_still_warns(self):
+        # Padded only at the bottom, but canvas_multiple rounded the width up
+        # by 11px. A sliver breaks the span exactly like a deliberate pad does,
+        # which is the trap the message has to name.
+        s = self.stitcher(832, 1792, (0, 0, 821, 1459))
+        message = placement_warning(s)
+        self.assertIsNotNone(message)
+        self.assertIn("canvas multiple", message)
+
+    def test_a_sliver_inside_the_tolerance_is_ignored(self):
+        s = self.stitcher(728, 1568, (0, 0, 720, 1280))  # 8px spare width
+        self.assertIsNone(placement_warning(s))
+
+    def test_the_message_stays_ascii(self):
+        # Import-time and console output on a cp1252 Windows console.
+        s = self.stitcher(864, 1760, (29, 0, 833, 1429))
+        placement_warning(s).encode("ascii")
+
+    def test_no_bbox_means_no_opinion(self):
+        canvas = torch.zeros(1, 64, 64, 3)
+        plain = build_canvas_stitcher(canvas, torch.zeros(1, 64, 64))
+        self.assertIsNone(placement_warning(plain))
+        for junk in (None, {}, {"kind": "other"}, 7):
+            self.assertIsNone(placement_warning(junk))
+
+    def test_source_pixel_bbox_rebuilds_from_normalized_only(self):
+        canvas = torch.zeros(1, 1024, 1416, 3)
+        s = build_canvas_stitcher(canvas, torch.zeros(1, 1024, 1416), bbox=(231, 0, 1255, 1024))
+        del s["source_bbox"]
+        self.assertEqual(source_pixel_bbox(s), (231, 0, 1255, 1024, 1416, 1024))
 
 
 class Krea2NodeContractTests(unittest.TestCase):

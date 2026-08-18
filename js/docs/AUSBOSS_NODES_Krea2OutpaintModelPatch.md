@@ -26,6 +26,26 @@ Place it **after** any LoRA loader and **before** the sampler.
 
 - **MODEL**: The model with reference tokens registered into the canvas grid.
 
+## One axis at a time
+
+**This is the constraint that decides whether an outpaint works.** The model
+places the source spanning one whole canvas axis — pad left/right and the
+source must span the full height, pad top/bottom and it must span the full
+width. Padding *both* axes puts the placement outside what the weights were
+trained on, and the new region breaks up: hard cuts at the old edge, mangled
+anatomy, a flat band where content should continue.
+
+The node says so in the console when it sees it. To fix:
+
+1. Pad one axis, run it, save the result.
+2. Load that result and pad the other axis. Run again.
+
+**A rounding sliver counts.** If you pad only the bottom but `canvas_multiple`
+rounds the width up by 11px, the source no longer spans the width and the run
+degrades exactly the same way. Either lower the multiple or pick one that
+already divides that dimension — 720 wide is fine at 16, not at 32. The
+warning reports the spare pixels on each axis so you can see which it is.
+
 ## Notes and limitations
 
 - **Nothing happens without reference latents.** If the conditioning carries

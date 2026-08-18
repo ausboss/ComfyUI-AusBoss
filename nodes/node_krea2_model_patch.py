@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from ._krea2_helpers import extract_bbox_norm
+from ._krea2_helpers import extract_bbox_norm, placement_warning
 
 # comfy and _krea2_core (which reaches into comfy's flux layers) are imported
 # inside patch(), not here. A core update that moves one of those internals
@@ -75,6 +75,10 @@ class AusBossKrea2OutpaintModelPatch:
         import comfy.conds
 
         from . import _krea2_core as core
+
+        complaint = placement_warning(stitcher)
+        if complaint:
+            print(complaint)
 
         bbox_norm = extract_bbox_norm(stitcher)
 
