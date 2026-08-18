@@ -4,6 +4,33 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- Added **Krea 2 Encode 🆎** and **Krea 2 Outpaint Model Patch 🆎**, promoted
+  from the lab. Together they make Krea 2 outpaint the source instead of
+  painting something next to it: the encode attaches reference latents to the
+  positive conditioning (and emits the negative from the same node, so a turbo
+  graph at CFG 1.0 stops carrying a second text encode that does nothing), and
+  the patch registers those reference tokens into the target grid at the
+  rectangle the stitcher records. Reference latents with no position are only
+  a style hint — the model borrows the look and reinvents the content, which
+  is the failure this pair fixes.
+
+  The patch reaches into comfy's flux attention layers, so it imports them when
+  you run it rather than at startup: a core release that moves one surfaces as
+  an error on that node instead of deleting it from the menu and leaving saved
+  workflows reporting it missing.
+
+- Load Image + Pad 🆎 gained a `reference` output — the unpadded source, fitted
+  to a 384px long edge and a multiple of 16, ready for reference conditioning.
+  It is **appended** after `stitcher`, not inserted, because a workflow stores
+  links by output slot index and anything else would silently rewire every
+  saved graph.
+
+- The stitcher now records where the source sits on the canvas, as
+  `source_bbox` in pixels and `bbox_normalized` in 0..1. Padding knows the
+  rectangle exactly, so it rides along with the canvas rather than on a
+  parallel wire that can be left unplugged. Stitching itself never reads
+  either key, so an older stitcher still stitches identically.
+
 - Removed **Drop Shadow 🆎** (`AUSBOSS_NODES_DropShadow`). The result never
   looked like a real cast shadow — a mask offset, grown and blurred has no
   contact darkening and no perspective, so it read as a sticker halo rather

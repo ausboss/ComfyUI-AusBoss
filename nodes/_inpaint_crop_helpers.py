@@ -437,7 +437,11 @@ def build_crop(
     return cropped, sampling, stitcher
 
 
-def build_canvas_stitcher(canvas: torch.Tensor, blend: torch.Tensor) -> dict:
+def build_canvas_stitcher(
+    canvas: torch.Tensor,
+    blend: torch.Tensor,
+    bbox: tuple[int, int, int, int] | None = None,
+) -> dict:
     """A stitcher that pastes a full-frame result back over ``canvas``.
 
     The crop/stitch pair sends a *region* to the sampler. Padding sends the
@@ -449,11 +453,20 @@ def build_canvas_stitcher(canvas: torch.Tensor, blend: torch.Tensor) -> dict:
 
     Sharing one stitcher shape means Stitch Inpaint 🆎 accepts either
     producer; no second stitch node has to exist.
+
+    ``bbox`` is where the *source* sits inside the canvas, as
+    ``(x0, y0, x1, y1)`` pixels. Padding knows it exactly, and a model that
+    places reference tokens on the canvas grid needs it, so it rides along
+    here rather than on a parallel wire that can be left unplugged. It is
+    stored twice - ``source_bbox`` in pixels and ``bbox_normalized`` in 0..1 -
+    because a consumer reading normalized coordinates should not have to know
+    the canvas size. Omitted when unknown; :func:`apply_stitch` never reads
+    either key, so an older stitcher still stitches.
     """
     canvas = _as_image(canvas)
     blend = _as_mask(blend, canvas)
     height, width = canvas.shape[1], canvas.shape[2]
-    return {
+    stitcher = {
         "kind": STITCHER_KIND,
         "version": STITCHER_VERSION,
         "canvas": canvas,
@@ -463,6 +476,16 @@ def build_canvas_stitcher(canvas: torch.Tensor, blend: torch.Tensor) -> dict:
         "scale": (1.0, 1.0),
         "algorithm": "bilinear",
     }
+    if bbox is not None:
+        x0, y0, x1, y1 = (int(value) for value in bbox)
+        stitcher["source_bbox"] = (x0, y0, x1, y1)
+        stitcher["bbox_normalized"] = [
+            x0 / float(width),
+            y0 / float(height),
+            x1 / float(width),
+            y1 / float(height),
+        ]
+    return stitcher
 
 
 def apply_stitch(

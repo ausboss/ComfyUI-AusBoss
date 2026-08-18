@@ -25,6 +25,8 @@ NODE_MODULES = [
     "node_image_crop_rotate_pad",
     "node_image_size",
     "node_inpaint_crop_stitch",
+    "node_krea2_encode",
+    "node_krea2_model_patch",
     "node_lama_inpaint",
     "node_lmstudio_chat",
     "node_load_image_pad",

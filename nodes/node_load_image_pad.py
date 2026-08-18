@@ -6,6 +6,7 @@ import numpy as np
 import torch
 
 from ._inpaint_crop_helpers import build_canvas_stitcher
+from ._krea2_helpers import build_reference_image
 from ._media_helpers import list_input_images, load_image_frames, resolve_input_path
 from ._pad_helpers import (
     PAD_MODES,
@@ -182,8 +183,11 @@ class AusBossLoadImagePad:
             }
         }
 
-    RETURN_TYPES = ("IMAGE", "MASK", "INT", "INT", "AUSBOSS_STITCHER")
-    RETURN_NAMES = ("image", "mask", "width", "height", "stitcher")
+    # `reference` is appended, never inserted: a workflow stores links by
+    # output slot index, so putting it anywhere else would silently rewire
+    # every saved graph that already reads width/height/stitcher.
+    RETURN_TYPES = ("IMAGE", "MASK", "INT", "INT", "AUSBOSS_STITCHER", "IMAGE")
+    RETURN_NAMES = ("image", "mask", "width", "height", "stitcher", "reference")
     OUTPUT_TOOLTIPS = (
         "The padded image; the original pixels are untouched (resized only "
         "when a megapixel target is set).",
@@ -192,7 +196,12 @@ class AusBossLoadImagePad:
         "Final canvas width after multiple/megapixel rounding.",
         "Final canvas height after multiple/megapixel rounding.",
         "Hand to Stitch Inpaint 🆎 with the sampled result to keep only the "
-        "new padding and restore the original pixels bit-identically.",
+        "new padding and restore the original pixels bit-identically. Also "
+        "carries where the source sits on the canvas, which Krea 2 Outpaint "
+        "Model Patch 🆎 reads to place the reference.",
+        "The source alone, no padding, fitted to a small multiple of 16 — "
+        "the reference image for Krea 2 Encode 🆎 and other reference "
+        "conditioning. Wire it nowhere and nothing is computed.",
     )
     FUNCTION = "load_pad"
 
@@ -236,10 +245,26 @@ class AusBossLoadImagePad:
         mask = feather_pad_mask(
             mask, plan["left"], plan["top"], plan["right"], plan["bottom"], int(feather)
         )
+        # Padding knows exactly where the source landed, so the bbox rides on
+        # the stitcher rather than on a wire that can be left unplugged.
+        bbox = (
+            plan["left"],
+            plan["top"],
+            plan["left"] + plan["source_width"],
+            plan["top"] + plan["source_height"],
+        )
         # The padded canvas is the stitch base, so whatever the sampler does
         # outside the feathered band is discarded and the source survives.
-        stitcher = build_canvas_stitcher(output, mask)
-        return output, mask, int(plan["width"]), int(plan["height"]), stitcher
+        stitcher = build_canvas_stitcher(output, mask, bbox=bbox)
+        reference = build_reference_image(frames)
+        return (
+            output,
+            mask,
+            int(plan["width"]),
+            int(plan["height"]),
+            stitcher,
+            reference,
+        )
 
     @classmethod
     def VALIDATE_INPUTS(cls, image, **_values):

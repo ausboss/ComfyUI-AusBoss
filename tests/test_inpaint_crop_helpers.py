@@ -801,3 +801,46 @@ class CanvasStitcherTests(unittest.TestCase):
         self.assertEqual(stitcher["kind"], inpaint_helpers.STITCHER_KIND)
         self.assertEqual(stitcher["crop_to_canvas"], (0, 0, 40, 48))
         self.assertEqual(stitcher["canvas_to_original"], (0, 0, 40, 48))
+
+
+class CanvasStitcherBboxTests(unittest.TestCase):
+    """Where the source sits inside the canvas rides on the stitcher, so a
+    model that places reference tokens on the canvas grid cannot be handed a
+    canvas without its placement."""
+
+    def setUp(self):
+        torch.manual_seed(11)
+        self.canvas = torch.rand(1, 48, 40, 3)
+        self.mask = torch.zeros(1, 48, 40)
+        self.mask[:, :8, :] = 1.0
+
+    def test_bbox_is_absent_unless_given(self):
+        stitcher = build_canvas_stitcher(self.canvas, self.mask)
+        self.assertNotIn("source_bbox", stitcher)
+        self.assertNotIn("bbox_normalized", stitcher)
+
+    def test_bbox_is_stored_in_pixels_and_normalized(self):
+        stitcher = build_canvas_stitcher(self.canvas, self.mask, bbox=(8, 8, 32, 40))
+        self.assertEqual(stitcher["source_bbox"], (8, 8, 32, 40))
+        # Canvas is 40 wide, 48 tall: x over width, y over height.
+        self.assertEqual(
+            stitcher["bbox_normalized"], [8 / 40, 8 / 48, 32 / 40, 40 / 48]
+        )
+
+    def test_a_full_canvas_bbox_normalizes_to_the_unit_square(self):
+        stitcher = build_canvas_stitcher(self.canvas, self.mask, bbox=(0, 0, 40, 48))
+        self.assertEqual(stitcher["bbox_normalized"], [0.0, 0.0, 1.0, 1.0])
+
+    def test_floats_are_taken_as_pixels(self):
+        stitcher = build_canvas_stitcher(self.canvas, self.mask, bbox=(8.0, 8.0, 32.0, 40.0))
+        self.assertEqual(stitcher["source_bbox"], (8, 8, 32, 40))
+
+    def test_stitching_ignores_the_bbox_entirely(self):
+        # apply_stitch never reads it, so an older stitcher still stitches and
+        # a newer one stitches identically.
+        plain = build_canvas_stitcher(self.canvas, self.mask)
+        with_bbox = build_canvas_stitcher(self.canvas, self.mask, bbox=(8, 8, 32, 40))
+        sampled = torch.zeros_like(self.canvas)
+        self.assertTrue(
+            torch.equal(apply_stitch(plain, sampled), apply_stitch(with_bbox, sampled))
+        )

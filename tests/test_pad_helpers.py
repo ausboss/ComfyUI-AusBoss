@@ -327,14 +327,16 @@ class LoadImagePadNodeTests(unittest.TestCase):
         cls = self.make_node()
         self.assertIn("AusBoss/Image", cls.CATEGORY)
         self.assertEqual(
-            cls.RETURN_TYPES, ("IMAGE", "MASK", "INT", "INT", "AUSBOSS_STITCHER")
+            cls.RETURN_TYPES,
+            ("IMAGE", "MASK", "INT", "INT", "AUSBOSS_STITCHER", "IMAGE"),
         )
         self.assertEqual(
-            cls.RETURN_NAMES, ("image", "mask", "width", "height", "stitcher")
+            cls.RETURN_NAMES,
+            ("image", "mask", "width", "height", "stitcher", "reference"),
         )
         with tempfile.TemporaryDirectory() as tmp:
             path = self.write_image(tmp)
-            (image, mask, width, height, _), _ = self.run_node(cls, path)
+            (image, mask, width, height, _, _), _ = self.run_node(cls, path)
             self.assertEqual((width, height), (72, 56))  # 70x56 ceiled to 8
             self.assertEqual(tuple(image.shape), (1, 56, 72, 3))
             self.assertEqual(tuple(mask.shape), (1, 56, 72))
@@ -348,7 +350,7 @@ class LoadImagePadNodeTests(unittest.TestCase):
         cls = self.make_node()
         with tempfile.TemporaryDirectory() as tmp:
             path = self.write_image(tmp)
-            (image, mask, width, height, _), values = self.run_node(
+            (image, mask, width, height, _, _), values = self.run_node(
                 cls, path, target_megapixels=0.05
             )
             plan = plan_pad_canvas(64, 48, 2, 3, 4, 5, 8, 0.05)
@@ -375,10 +377,69 @@ class LoadImagePadNodeTests(unittest.TestCase):
         cls = self.make_node()
         with tempfile.TemporaryDirectory() as tmp:
             path = self.write_image(tmp)
-            (_, mask, _, _, _), _ = self.run_node(cls, path, feather=6)
+            (_, mask, _, _, _, _), _ = self.run_node(cls, path, feather=6)
             values = torch.unique(mask).tolist()
             self.assertTrue(any(0.0 < value < 1.0 for value in values))
             self.assertEqual(float(mask[0, 0, 0]), 1.0)  # padding stays solid
+
+    def test_reference_is_the_unpadded_source_snapped_to_16(self):
+        import tempfile
+
+        cls = self.make_node()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self.write_image(tmp)
+            (_, _, _, _, _, reference), _ = self.run_node(cls, path)
+            # 64x48 is already under the 384 cap and already /16.
+            self.assertEqual(tuple(reference.shape), (1, 48, 64, 3))
+            # It is the SOURCE, not the canvas: no padding colour in it.
+            self.assertGreater(float(reference.min()), 0.0)
+
+    def test_reference_downscales_a_large_source_to_a_multiple_of_16(self):
+        import tempfile
+
+        cls = self.make_node()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self.write_image(tmp, width=1000, height=750)
+            (_, _, _, _, _, reference), _ = self.run_node(cls, path)
+            _batch, height, width, _channels = reference.shape
+            self.assertLessEqual(max(width, height), 384)
+            self.assertEqual(width % 16, 0)
+            self.assertEqual(height % 16, 0)
+
+    def test_stitcher_carries_where_the_source_sits(self):
+        import tempfile
+
+        cls = self.make_node()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self.write_image(tmp)
+            (_, mask, width, height, stitcher, _), _ = self.run_node(cls, path)
+            # pad_left=2, pad_top=3 on a 64x48 source.
+            self.assertEqual(stitcher["source_bbox"], (2, 3, 66, 51))
+            x0, y0, x1, y1 = stitcher["bbox_normalized"]
+            self.assertAlmostEqual(x0, 2 / width)
+            self.assertAlmostEqual(y0, 3 / height)
+            self.assertAlmostEqual(x1, 66 / width)
+            self.assertAlmostEqual(y1, 51 / height)
+            # The bbox is exactly the region the mask protects.
+            inner = mask[0, 3:51, 2:66]
+            self.assertEqual(float(inner.sum()), 0.0)
+            self.assertEqual(float(mask.sum()), float(mask.numel() - inner.numel()))
+
+    def test_bbox_tracks_the_megapixel_resize(self):
+        import tempfile
+
+        cls = self.make_node()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self.write_image(tmp)
+            (_, mask, _, _, stitcher, _), _ = self.run_node(
+                cls, path, target_megapixels=0.05
+            )
+            plan = plan_pad_canvas(64, 48, 2, 3, 4, 5, 8, 0.05)
+            x0, y0, x1, y1 = stitcher["source_bbox"]
+            self.assertEqual((x0, y0), (plan["left"], plan["top"]))
+            self.assertEqual(x1 - x0, plan["source_width"])
+            self.assertEqual(y1 - y0, plan["source_height"])
+            self.assertEqual(float(mask[0, y0:y1, x0:x1].sum()), 0.0)
 
     def test_validation_and_fingerprint(self):
         import tempfile
