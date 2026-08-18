@@ -4,6 +4,25 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- Renamed **Video Crop + Rotate + Pad 🆎** to **Video Crop + Rotate + Pad →
+  Frame 🆎**. The old name reads like it transforms a clip; it takes one frame
+  out of a video and returns a single image, and the editor's timeline is there
+  to *find* that frame rather than to trim a range. "grab frame", "extract
+  frame" and "frame from video" join the search aliases. The mapping key
+  `AUSBOSS_NODES_VideoCropRotatePad` is untouched — it is the
+  workflow-compatibility contract — so saved workflows are unaffected.
+
+- Video Crop + Rotate + Pad 🆎: the preview no longer stretches when the node is
+  resized. Its canvas is CSS-stretched to whatever box the panel is given, but
+  the backing store is only re-sized when something draws — and the panel's
+  resize observer sat inside an `image`-only branch next to the interactive drag
+  handlers, so the image node redrew on resize and the video node, a passive
+  preview with no other reason to redraw, kept painting its last frame into a
+  box that had changed shape. Latent until panels started taking the node's
+  leftover height, because before that the box could not change shape without a
+  width change forcing a relayout. A test now fails if the observer is gated on
+  node kind again, or if a canvas-painting panel ships without one.
+
 - Added **Krea 2 Encode 🆎** and **Krea 2 Outpaint Model Patch 🆎**, promoted
   from the lab. Together they make Krea 2 outpaint the source instead of
   painting something next to it: the encode attaches reference latents to the

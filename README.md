@@ -15,9 +15,9 @@ ComfyUI-AusBoss is a curated collection of polished nodes designed to streamline
 
 A Load Image-style node with a compact transformed preview and a full-screen editor for precise crop, rotation, padding, fill, mask feathering, and output-size alignment. The preview is itself a live stage — drag the crop handles, padding diamonds, and rotate knob directly on the node, and open the editor when you want zoom, pan, and the numeric sidebar.
 
-### Video Crop + Rotate + Pad 🆎
+### Video Crop + Rotate + Pad → Frame 🆎
 
-Targets an exact video frame from an uploaded input file or local path. The full-screen editor adds a long timeline, playback, exact frame steps, and the same transform controls as the image node.
+Picks **one frame** out of a video from an uploaded input file or local path, and applies the same transform controls as the image node. The output is a single image, not a clip — the full-screen editor's long timeline, playback and exact frame steps are there to *find* the frame, not to trim a range.
 
 ### Select Frame 🆎
 

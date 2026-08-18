@@ -1,4 +1,7 @@
-# Video Crop + Rotate + Pad
+# Video Crop + Rotate + Pad → Frame
+
+**Outputs one frame, not a clip.** The timeline in the editor is for finding
+the frame; the node returns that single image and its mask.
 
 Loads one exact video frame and applies the same **rotate → crop → pad** transform as the image node. It outputs an image and generated-area mask, not a re-encoded video.
 

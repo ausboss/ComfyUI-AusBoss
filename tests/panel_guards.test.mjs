@@ -247,3 +247,46 @@ test("the lora panel carries all three guards by name", () => {
   assert.match(source, /minWidth:\s*PANEL_MIN_WIDTH/);
   assert.match(source, /minNodeSize\s*=\s*\[PANEL_MIN_WIDTH/);
 });
+
+// A canvas panel is stretched by CSS to whatever box it is given, but its
+// backing store is only resized when something draws. So a panel that paints
+// into a canvas MUST redraw on element resize, or a node dragged to a new
+// shape displays the last frame at the wrong aspect ratio.
+//
+// This bit Video Crop + Rotate + Pad: the observer lived inside a
+// `kind === "image"` branch next to the interactive drag handlers, so the
+// image node redrew and the video node did not. It only became visible once
+// panels started taking the node's leftover height, because until then the
+// box could not change shape without a width change to trigger a relayout.
+//
+// Panels that present media through <img>/<video> with object-fit: contain
+// are exempt — the browser rescales those on any box, with no redraw.
+test("every canvas-painting panel redraws when its element resizes", () => {
+  const painters = ["shared/pad_panel.mjs", "shared/transform_editor.mjs"];
+  for (const rel of painters) {
+    const source = readFileSync(join(JS_ROOT, ...rel.split("/")), "utf-8");
+    assert.ok(
+      source.includes('getContext("2d")'),
+      `${rel} no longer paints a canvas - drop it from this list`,
+    );
+    assert.match(
+      source,
+      /new ResizeObserver\(/,
+      `${rel} paints a canvas but never observes its size`,
+    );
+  }
+});
+
+test("the transform panel observes resize for video as well as image", () => {
+  const source = readFileSync(join(JS_ROOT, "shared", "transform_editor.mjs"), "utf-8");
+  const observer = source.indexOf("state.panelResizeObserver = new ResizeObserver(");
+  assert.ok(observer > 0, "the panel resize observer is gone");
+  // Walk back to the guard that encloses it. Anything narrowing the observer
+  // to one kind leaves the other painting stale frames into a resized box.
+  const guard = source.lastIndexOf("if (", observer);
+  const condition = source.slice(guard, source.indexOf(") {", guard));
+  assert.ok(
+    !condition.includes('kind === "image"') && !condition.includes('kind === "video"'),
+    `the resize observer is gated on node kind: ${condition.trim()}`,
+  );
+});
