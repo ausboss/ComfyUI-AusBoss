@@ -68,11 +68,11 @@ test("every DOM panel keeps padding inside its box and clips overflow", () => {
 });
 
 test("every resizable DOM panel declares its minimum width to BOTH layout paths", () => {
-  // input_preview is a pointer-transparent thumbnail with no fixed-width
-  // controls; there is nothing that could hang out of it.
-  const exempt = new Set(["input_preview"]);
+  // No exemptions. input_preview was one while it was a pointer-transparent
+  // thumbnail with nothing in it that could hang out; it now carries the
+  // AUTO/MORE buttons and follows the node's height, so it needs a floor like
+  // the rest.
   for (const { name, source } of domWidgetEntries()) {
-    if (exempt.has(name)) continue;
     // Modern frontends read computeLayoutSize; older ones read the
     // minNodeSize option. Missing either leaves one frontend family able to
     // resize the node under the panel, which then holds its own minimum and
@@ -106,13 +106,22 @@ test("a panel that should follow the node's height never declares computeSize", 
   const mustGrow = new Set([
     "compare",
     "image_crop_rotate_pad",
+    "input_preview",
     "load_image_pad",
     "load_video",
     "save_video",
   ]);
-  // Fixed by design: a status thumbnail and a button row. Both are content
-  // whose height is a constant, not a viewport onto something bigger.
-  const fixedByDesign = new Set(["input_preview", "lmstudio_chat", "lora_loader"]);
+  // Fixed by design: a button row and a toolbar. Both are content whose height
+  // is a constant, not a viewport onto something bigger.
+  //
+  // input_preview used to sit here, and that was right while it showed a small
+  // thumbnail of the node's INPUT. It now shows the node's own result, which
+  // makes it a viewport like every other stage - and the reclassification was
+  // missed when the behaviour changed, so Mask Refine, LaMa Inpaint and Select
+  // Frame all shipped pinned at 140px with dead space under them. Moving a
+  // panel between these two sets is the decision to review whenever what a
+  // panel DISPLAYS changes, not just when a new one is added.
+  const fixedByDesign = new Set(["lmstudio_chat", "lora_loader"]);
   const seen = new Set();
   for (const { name, source } of domWidgetEntries()) {
     seen.add(name);

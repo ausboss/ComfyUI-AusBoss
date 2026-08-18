@@ -12,6 +12,7 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto } from "../shared/index.mjs";
+import { fillNodeHeight } from "../shared/panel_layout.mjs";
 import { suppressCoreImagePreview } from "../shared/core_preview.mjs";
 import { autoMaskValues } from "../shared/mask_auto.mjs";
 import { setWidgetVisible } from "../shared/widget_visibility.mjs";
@@ -24,7 +25,10 @@ import {
 
 const CSS_ID = "ausboss-input-preview-css";
 const WIDGET_NAME = "ausboss_input_preview";
+// The panel's floor, and the node's: narrower than this and the AUTO/MORE
+// buttons have nowhere to sit.
 const PANEL_HEIGHT = 140;
+const PANEL_MIN_WIDTH = 200;
 const INPUT_SIDE = 1; // LiteGraph.INPUT
 
 // Mask Refine opens on expand and blur alone. The other five are real
@@ -325,7 +329,15 @@ function buildPanel(node, config) {
     getMinHeight: () => PANEL_HEIGHT,
   });
   keepDomWidgetWidthAuto(widget);
-  widget.computeSize = (width) => [Number(width || node.size?.[0] || 0), PANEL_HEIGHT];
+  // A floor, not a fixed height. This was a constant-height strip back when it
+  // showed a thumbnail of the node's input; now that it shows the result, it is
+  // a viewport onto a picture, and pinning it left dead space under every node
+  // dragged taller.
+  fillNodeHeight(widget, {
+    minWidth: PANEL_MIN_WIDTH,
+    minHeight: PANEL_HEIGHT,
+    minNodeSize: [PANEL_MIN_WIDTH, 200],
+  });
 
   const abort = new AbortController();
   const state = node.__ausbossInputPreview = {
