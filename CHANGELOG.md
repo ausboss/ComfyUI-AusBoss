@@ -11,7 +11,15 @@ All notable changes to ComfyUI-AusBoss are documented here.
   a tuning problem. A saved workflow containing the node will report it as
   missing on load; delete it, or composite the shadow in an image editor.
 
-- Pad Image and Load Image + Pad gained a `stitcher` output, so an outpaint can
+- Removed **Pad Image 🆎** (`AUSBOSS_NODES_PadImage`). Load Image + Pad 🆎 does
+  the same job from the same stage and starts from the file, so keeping a
+  second node whose only difference was taking an IMAGE wire earned its slot in
+  the menu twice over from one idea. A saved workflow containing it will report
+  it as missing on load. The padding helpers, the modes and the mask are
+  unchanged — they were always shared, and Load Image + Pad keeps all of them
+  plus feather, canvas rounding and the megapixel target.
+
+- Load Image + Pad gained a `stitcher` output, so an outpaint can
   put the source back exactly. Feed it to the existing **Stitch Inpaint 🆎**
   with the sampled result and every pixel outside the padded band comes back
   bit-identical to the input — only the new padding is the model's work, which

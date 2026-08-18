@@ -7,12 +7,10 @@ import {
   canvasHeightForWidth,
   edgeCursor,
   finalOutputSize,
-  findPadPreview,
   fitRect,
   hitPadEdge,
   labelMode,
   padDragValue,
-  padEmptyStateText,
   padGeometry,
   parseImageReference,
 } from "../js/shared/pad_canvas.mjs";
@@ -133,21 +131,3 @@ test("fitRect centers the world rect at the limiting scale", () => {
   assert.equal(fit.y, 10);
 });
 
-test("empty states diagnose wire-versus-run", () => {
-  assert.equal(padEmptyStateText(false), "Connect an image");
-  assert.equal(padEmptyStateText(true), "Run once to preview");
-});
-
-test("execution previews need both the file ref and the true source size", () => {
-  const message = {
-    ausboss_pad_preview: [{ filename: "p.png", subfolder: "ausboss", type: "temp" }],
-    ausboss_pad_source: [[832, 480]],
-  };
-  assert.deepEqual(findPadPreview(message), {
-    filename: "p.png", subfolder: "ausboss", type: "temp", width: 832, height: 480,
-  });
-  assert.equal(findPadPreview({ ausboss_pad_preview: [{ filename: "p.png" }] }), null);
-  assert.equal(findPadPreview({ ausboss_pad_source: [[1, 1]] }), null);
-  assert.equal(findPadPreview({ ...message, ausboss_pad_source: [[0, 480]] }), null);
-  assert.equal(findPadPreview(null), null);
-});

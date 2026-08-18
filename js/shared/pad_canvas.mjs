@@ -1,5 +1,5 @@
-// Pure geometry and decision logic for the on-node padding canvases
-// (Load Image + Pad, Pad Image). No DOM in here — the drawing and pointer
+// Pure geometry and decision logic for the on-node padding canvas
+// (Load Image + Pad). No DOM in here — the drawing and pointer
 // wiring live in js/shared/pad_panel.mjs and the per-node entries, so this
 // module stays testable under node:test.
 
@@ -128,26 +128,3 @@ export function fitRect(worldW, worldH, viewW, viewH, margin = 26) {
   return { scale, x: (viewW - worldW * scale) / 2, y: (viewH - worldH * scale) / 2 };
 }
 
-// Two-state empty-state copy for the execution-fed panel.
-export function padEmptyStateText(wired) {
-  return wired ? "Run once to preview" : "Connect an image";
-}
-
-// Pull the input-frame preview out of a Pad Image onExecuted payload:
-// { filename, subfolder, type, width, height } or null. width/height are
-// the TRUE source dimensions (the temp preview may be a thumbnail).
-export function findPadPreview(message) {
-  const ref = message?.ausboss_pad_preview?.[0] ?? null;
-  const size = message?.ausboss_pad_source?.[0] ?? null;
-  if (!ref?.filename || !Array.isArray(size) || size.length < 2) return null;
-  const width = Math.round(Number(size[0]) || 0);
-  const height = Math.round(Number(size[1]) || 0);
-  if (width < 1 || height < 1) return null;
-  return {
-    filename: String(ref.filename),
-    subfolder: String(ref.subfolder || ""),
-    type: String(ref.type || "temp"),
-    width,
-    height,
-  };
-}
