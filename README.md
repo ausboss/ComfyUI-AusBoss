@@ -23,10 +23,6 @@ Picks **one frame** out of a video from an uploaded input file or local path, an
 
 Returns one unchanged frame from an `IMAGE` batch using a clear one-based frame number. Out-of-range requests report the valid range instead of silently selecting the wrong image.
 
-### Frame Chooser 🆎
-
-Pauses the graph and shows the incoming batch as a clickable filmstrip: pick the frames to keep, or Keep all / Cancel — with digits, `A`/`N`, `Enter` and `Escape` on the keyboard. A countdown can auto-answer with the policy you choose, a reload mid-pause restores the panel, and filling `pick_list` skips the pause entirely so a chosen take reruns headlessly (your interactive picks are written back there for you). Outputs the kept sub-batch, its count, and the one-based indices.
-
 ### LoRA Loader 🆎
 
 A stacked multi-LoRA node. Each row has an on/off pill, a searchable picker (type to filter, arrow keys + Enter to pick; browse view groups by folder and hovering shows the preview image), and strengths you can **drag left/right to scrub** (Shift for fine steps) or click to type. A header pill toggles the whole stack. The per-row info card shows the LoRA's preview image, base model, trigger words from its file metadata, a one-click Civitai lookup, or your own saved words — click words to toggle them into the deduplicated `trigger_words` output — plus an optional suggested strength range that tints out-of-range values. The bar's ▤ button saves and applies named templates of the whole stack, and a LoRA that patches nothing on the connected model — the usual sign it was built for a different base model — logs a console warning naming it. CLIP input is optional.

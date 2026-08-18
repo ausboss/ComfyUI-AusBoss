@@ -46,7 +46,7 @@ const SHARED_ROOT_IMPORT = "ensureVideoCss";
 
 test("the audit sees the panels it exists to guard", () => {
   const names = domWidgetEntries().map((entry) => entry.name);
-  for (const expected of ["lora_loader", "frame_chooser", "load_video", "save_video"]) {
+  for (const expected of ["lora_loader", "load_video", "save_video"]) {
     assert.ok(names.includes(expected), `${expected} not found by the audit`);
   }
 });
@@ -105,7 +105,6 @@ test("a panel that should follow the node's height never declares computeSize", 
   // is this a stage that should grow, or a fixed row?
   const mustGrow = new Set([
     "compare",
-    "frame_chooser",
     "image_crop_rotate_pad",
     "load_image_pad",
     "load_video",
@@ -178,7 +177,6 @@ test("every panel root class carries border-box and an overflow clip", () => {
   // in the shared-root test below.
   const roots = {
     lora_loader: ".ausboss-lora-panel {",
-    frame_chooser: ".ausboss-chooser-root{",
     compare: ".ausboss-compare-root{",
     input_preview: ".ausboss-input-preview{",
     lmstudio_chat: ".ausboss-chat-toolbar{",

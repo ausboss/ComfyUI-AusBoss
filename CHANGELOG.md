@@ -4,6 +4,15 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Frame Chooser 🆎 moved to the lab** (`AUSBOSS_NODES_FrameChooser` is gone;
+  it is `AUSBOSS_LAB_FrameChooser` there now). Pausing the graph for an
+  interactive pick is a bigger surface than the rest of the pack - a server
+  route, a resumable pause, a panel that has to survive a reload - and it has
+  open issues that are not worth holding a release for. It keeps working from
+  ComfyUI-AusBoss-Lab; a saved workflow using the public id will report it as
+  missing. Its `/ausboss/frame_chooser` routes moved to `/ausboss_lab/` so both
+  packs can be installed at once.
+
 - Renamed **Video Crop + Rotate + Pad 🆎** to **Video Crop + Rotate + Pad →
   Frame 🆎**. The old name reads like it transforms a clip; it takes one frame
   out of a video and returns a single image, and the editor's timeline is there
