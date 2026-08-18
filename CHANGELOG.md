@@ -4,6 +4,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- Removed **Drop Shadow 🆎** (`AUSBOSS_NODES_DropShadow`). The result never
+  looked like a real cast shadow — a mask offset, grown and blurred has no
+  contact darkening and no perspective, so it read as a sticker halo rather
+  than something in the scene, and that is a limit of the approach rather than
+  a tuning problem. A saved workflow containing the node will report it as
+  missing on load; delete it, or composite the shadow in an image editor.
+
 - Pad Image and Load Image + Pad gained a `stitcher` output, so an outpaint can
   put the source back exactly. Feed it to the existing **Stitch Inpaint 🆎**
   with the sampled result and every pixel outside the padded band comes back

@@ -55,10 +55,6 @@ Pads an image with a solid color, replicated edges, replicated edge pixels, or a
 
 A Load Image that opens straight into an outpaint canvas: drag any edge of the final rect drawn on the node to grow that side's padding — the whole edge is the handle, per-side pixel counts ride the bands, and the badge always shows the true output size. The mask covers exactly the padding with an optional **feather** ramped inward across the seam, the canvas rounds up to a clean multiple, and a **megapixel target** rescales the source *before* padding so the mask seam stays crisp at sampler-friendly sizes. Outputs the canvas, the mask, the final width/height as INTs, and a `stitcher` for Stitch Inpaint 🆎 that restores the original pixels bit-identically after sampling.
 
-### Drop Shadow 🆎
-
-Drops a soft shadow behind a masked subject with signed offset, grow, blur, color, and opacity — what sells a padded or reframed composition as deliberate. A multiply blend mode keeps the backdrop's texture, and the `shadow_mask` output hands the effective shadow alpha to downstream compositing.
-
 ### Frame Interpolate 🆎
 
 Retimes a clip by **frames per second rather than a whole-number multiple**, so 24 to 30 works as naturally as doubling. Choose a fast `blend` crossfade or optical flow for real motion. Hard cuts are detected and held rather than interpolated across, avoiding the smeared morph other interpolators produce at a scene change. Memory is bounded by planning the work first and streaming results back to the CPU.
