@@ -75,7 +75,7 @@ Grows or shrinks a mask, fills enclosed holes, melts jagged edges with a `smooth
 
 Encodes frames — or a connected core `VIDEO` — to an H.264/H.265 mp4 or VP9 webm (all CRF-controlled) tagged bt709 (so platforms don't shift your colors), with optional muxed audio and the workflow embedded, so a saved mp4 dragged back onto the canvas restores its workflow. The responsive in-node player previews the encoded result with loop and reload controls. Wire `fps` from Load Video to preserve source timing; a connected video brings its own rate and overrides the widget. Encoding runs off the executor thread with per-frame progress, so a long export never freezes the UI.
 
-### Compare 🆎
+### Image Compare A/B 🆎
 
 A/B any two images: slide mode sweeps B over A under your pointer with a seam line, hold mode shows B while pressed. Passes image A through, so it sits mid-graph without rewiring.
 

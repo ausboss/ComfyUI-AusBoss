@@ -1,4 +1,4 @@
-# A/B Compare
+# Image Compare A/B
 
 Shows two images on one panel so differences pop out instead of hiding in a
 side-by-side. The first frame of each batch is previewed; `image_a` passes

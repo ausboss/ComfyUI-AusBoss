@@ -1,4 +1,4 @@
-"""A/B Compare 🆎."""
+"""Image Compare A/B 🆎."""
 
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ class AusBossCompare:
         "pointer, or switch to hold mode and press to flash B over A. "
         "image_a passes through unchanged so the node can sit mid-graph."
     )
-    SEARCH_ALIASES = ["compare", "a/b", "before after", "slider", "diff", "ausboss"]
+    SEARCH_ALIASES = ["image compare", "compare", "a/b", "before after", "slider", "diff", "ausboss"]
 
     def __init__(self):
         # A distinct temp prefix per node instance, so two Compare nodes in
@@ -110,6 +110,6 @@ class AusBossCompare:
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_Compare": AusBossCompare}
-NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_Compare": "A/B Compare 🆎"}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_Compare": "Image Compare A/B 🆎"}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
