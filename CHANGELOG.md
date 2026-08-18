@@ -19,6 +19,14 @@ All notable changes to ComfyUI-AusBoss are documented here.
   an error on that node instead of deleting it from the menu and leaving saved
   workflows reporting it missing.
 
+- Krea 2 Outpaint Model Patch 🆎 warns when the source is padded on **both**
+  axes. The model places the source spanning one whole canvas axis; the
+  reference pipeline splits anything else into two passes, and doing it in one
+  is not a slightly worse result — the extended region breaks up. The warning
+  reports the spare pixels on each axis, because the usual cause is not a
+  deliberate second pad but `canvas_multiple` rounding the other axis up by a
+  few pixels, which breaks the span just as completely.
+
 - Load Image + Pad 🆎 gained a `reference` output — the unpadded source, fitted
   to a 384px long edge and a multiple of 16, ready for reference conditioning.
   It is **appended** after `stitcher`, not inserted, because a workflow stores

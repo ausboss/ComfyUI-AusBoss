@@ -109,10 +109,64 @@ def extract_bbox_norm(stitcher: dict | None) -> list[float]:
     ]
 
 
+def source_pixel_bbox(stitcher: dict | None) -> tuple[int, int, int, int, int, int] | None:
+    """``(x0, y0, x1, y1, canvas_width, canvas_height)`` in pixels, or None."""
+    if not isinstance(stitcher, dict) or stitcher.get("kind") != STITCHER_KIND:
+        return None
+    canvas = stitcher.get("canvas")
+    if canvas is None or getattr(canvas, "ndim", 0) != 4:
+        return None
+    height, width = int(canvas.shape[1]), int(canvas.shape[2])
+    pixels = stitcher.get("source_bbox")
+    if pixels is None:
+        normalized = stitcher.get("bbox_normalized")
+        if normalized is None:
+            return None
+        x0, y0, x1, y1 = normalized
+        pixels = (x0 * width, y0 * height, x1 * width, y1 * height)
+    x0, y0, x1, y1 = (int(round(float(value))) for value in pixels)
+    return x0, y0, x1, y1, width, height
+
+
+# The reference implementation places the source so it spans one whole canvas
+# axis and splits anything else into two passes. One pass on a placement that
+# spans neither axis is not a worse result of the same kind - it is outside
+# what the weights were trained to do, and the extended region falls apart.
+_SPAN_TOLERANCE_PX = 8
+
+
+def placement_warning(stitcher: dict | None, tolerance_px: int = _SPAN_TOLERANCE_PX) -> str | None:
+    """Warn when the source spans neither canvas axis. None when it is fine.
+
+    Padding one side is not enough on its own: rounding the canvas up to a
+    multiple leaves a sliver on the other axis, and a sliver still breaks the
+    span. That is why the message reports the slack in pixels.
+    """
+    box = source_pixel_bbox(stitcher)
+    if box is None:
+        return None
+    x0, y0, x1, y1, width, height = box
+    slack_x = width - (x1 - x0)
+    slack_y = height - (y1 - y0)
+    if slack_x <= tolerance_px or slack_y <= tolerance_px:
+        return None
+    return (
+        "[AusBoss] Krea 2 Outpaint Model Patch: the source is padded on BOTH "
+        f"axes ({slack_x}px spare width, {slack_y}px spare height), so it spans "
+        "neither side of the canvas. This model extends one axis at a time; a "
+        "two-axis canvas in a single pass usually breaks up in the new area. "
+        "Pad one axis, run it, then pad the other and run again. If you only "
+        "padded one side, the canvas multiple is rounding the other axis up - "
+        "lower it, or pick a multiple that already divides that dimension."
+    )
+
+
 __all__ = [
     "REFERENCE_MAX_EDGE",
     "build_reference_image",
     "extract_bbox_norm",
+    "placement_warning",
     "reference_size",
     "snap16",
+    "source_pixel_bbox",
 ]

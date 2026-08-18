@@ -59,6 +59,8 @@ Encodes a Krea 2 prompt pair and attaches reference latents in one node. Wire a 
 
 Tells Krea 2 **where** the reference sits. Reference latents normally arrive with no position, so the model treats them as a loose style hint and reinvents the content; this registers them into the target grid at the rectangle Load Image + Pad 🆎 records on the `stitcher`, which is what makes an outpaint continue the source instead of painting something adjacent to it. Place it after any LoRA loader and before the sampler. It patches comfy's flux attention internals, so it imports them when you run it rather than at startup — a core change that moves them surfaces as an error on this node instead of quietly dropping it from the menu.
 
+**Extend one axis at a time.** The source has to span one whole canvas axis: pad left/right and it spans the full height, pad top/bottom and it spans the full width. Padding both at once puts the placement outside what the weights do and the new region breaks up — hard cuts at the old edge, mangled content. Do it in two runs instead. A rounding sliver counts too, so if `canvas_multiple` rounds the other axis up by even a few pixels, lower it or pick one that divides that dimension. The node prints exactly this, with the spare pixels on each axis, when it sees a placement that spans neither.
+
 ### Frame Interpolate 🆎
 
 Retimes a clip by **frames per second rather than a whole-number multiple**, so 24 to 30 works as naturally as doubling. Choose a fast `blend` crossfade or optical flow for real motion. Hard cuts are detected and held rather than interpolated across, avoiding the smeared morph other interpolators produce at a scene change. Memory is bounded by planning the work first and streaming results back to the CPU.
