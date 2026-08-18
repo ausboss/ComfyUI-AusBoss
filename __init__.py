@@ -20,7 +20,6 @@ NODE_MODULES = [
     "node_align_image",
     "node_color_match",
     "node_compare",
-    "node_frame_chooser",
     "node_frame_interpolate",
     "node_image_crop_rotate_pad",
     "node_image_size",
