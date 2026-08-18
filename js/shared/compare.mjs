@@ -1,4 +1,4 @@
-// Pure decision logic for the A/B Compare panel. No DOM in here — the
+// Pure decision logic for the Image Compare A/B panel. No DOM in here — the
 // wiring lives in js/compare/index.js so this module stays testable
 // under node:test.
 

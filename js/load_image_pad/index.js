@@ -1,6 +1,7 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
+import { fillNodeHeight } from "../shared/panel_layout.mjs";
 import { hideWidget } from "../shared/widget_visibility.mjs";
 import { canvasHeightForWidth, parseImageReference } from "../shared/pad_canvas.mjs";
 import { createPadStage } from "../shared/pad_panel.mjs";
@@ -9,6 +10,8 @@ const NODE_NAME = "AUSBOSS_NODES_LoadImagePad";
 const PANEL_WIDGET = "ausboss_load_image_pad";
 const PAD_MIN_WIDTH = 340;
 const PANEL_CHROME = 12;
+// Stage height the node opens at, plus room for the widget column above it.
+const DEFAULT_NODE_HEIGHT = canvasHeightForWidth(PAD_MIN_WIDTH + 20) + PANEL_CHROME + 300;
 const CSS_ID = "ausboss-loadpad-ui-v1";
 const DEFAULT_SOURCE = { width: 512, height: 512 };
 const CORE_IMAGE_PREVIEW_WIDGET = "$$canvas-image-preview";
@@ -94,16 +97,11 @@ function buildPanel(node) {
     getMinHeight: () => 190,
   });
   keepDomWidgetWidthAuto(widget);
-  widget.computeSize = (width) => {
-    const resolvedWidth = Math.max(PAD_MIN_WIDTH, Number(width || node.size?.[0] || PAD_MIN_WIDTH));
-    return [resolvedWidth, canvasHeightForWidth(resolvedWidth) + PANEL_CHROME];
-  };
-  widget.computeLayoutSize = () => ({
+  fillNodeHeight(widget, {
     minWidth: PAD_MIN_WIDTH,
     minHeight: 190,
+    minNodeSize: [PAD_MIN_WIDTH, 320],
   });
-  widget.options ??= {};
-  widget.options.minNodeSize = [PAD_MIN_WIDTH, 320];
 
   const state = {
     node,
@@ -181,9 +179,13 @@ function buildPanel(node) {
     watchWidget(node, name, () => stage.draw());
   }
 
+  // computeSize()[1] is no longer the stage's height — the panel takes the
+  // node's leftover space now, so the node's minimum is only the panel's
+  // floor. State the opening height from the same width-derived shape the
+  // stage used to pin itself to; a saved size still wins through onConfigure.
   node.setSize?.([
     Math.max(PAD_MIN_WIDTH + 20, node.size?.[0] || 0),
-    node.computeSize?.()[1] || 420,
+    Math.max(node.size?.[1] || 0, DEFAULT_NODE_HEIGHT),
   ]);
   setTimeout(refresh, 0);
   return state;

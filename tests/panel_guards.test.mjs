@@ -80,15 +80,76 @@ test("every resizable DOM panel declares its minimum width to BOTH layout paths"
     // not the node's.
     assert.match(
       source,
-      /computeLayoutSize\s*=\s*\(\)\s*=>\s*\(\{\s*\n?\s*minWidth/,
+      /(computeLayoutSize\s*=\s*\(\)\s*=>\s*\(\{\s*\n?\s*minWidth|fillNodeHeight\([\s\S]{0,120}?minWidth)/,
       `${name}: DOM widget has no computeLayoutSize minWidth - the node can shrink out from under the panel`,
     );
     assert.match(
       source,
-      /options\.minNodeSize\s*=\s*\[/,
-      `${name}: DOM widget has no options.minNodeSize - older frontends can shrink the node under the panel`,
+      /(options\.minNodeSize\s*=\s*\[|minNodeSize:\s*\[)/,
+      `${name}: DOM widget has no minNodeSize - older frontends can shrink the node under the panel`,
     );
   }
+});
+
+test("a panel that should follow the node's height never declares computeSize", () => {
+  // The layout walks widgets once (LGraphNode._arrangeWidgets):
+  //   if (computeSize) -> fixed height, OUT of the free-space split
+  //   else if (computeLayoutSize) -> joins distributeSpace
+  // It is an else-if, so any computeSize wins and the panel is pinned. Every
+  // stage/player/filmstrip in this pack derived that fixed height from the
+  // node's WIDTH, which is why dragging a node taller only added dead space
+  // underneath it. These panels go through fillNodeHeight instead, which
+  // deletes computeSize and declares a floor with no ceiling.
+  //
+  // Listed here rather than derived, so adding a panel is a deliberate call:
+  // is this a stage that should grow, or a fixed row?
+  const mustGrow = new Set([
+    "compare",
+    "frame_chooser",
+    "image_crop_rotate_pad",
+    "load_image_pad",
+    "load_video",
+    "save_video",
+  ]);
+  // Fixed by design: a status thumbnail and a button row. Both are content
+  // whose height is a constant, not a viewport onto something bigger.
+  const fixedByDesign = new Set(["input_preview", "lmstudio_chat", "lora_loader"]);
+  const seen = new Set();
+  for (const { name, source } of domWidgetEntries()) {
+    seen.add(name);
+    if (fixedByDesign.has(name)) continue;
+    assert.ok(
+      mustGrow.has(name),
+      `${name}: new DOM panel - add it to mustGrow (a stage that follows the `
+        + "node) or fixedByDesign (a constant-height row) in this test",
+    );
+    assert.match(
+      source,
+      /fillNodeHeight\(/,
+      `${name}: panel does not use fillNodeHeight - it will not follow the node's height`,
+    );
+    assert.doesNotMatch(
+      source,
+      /\.computeSize\s*=/,
+      `${name}: panel assigns computeSize - that pins its height and undoes fillNodeHeight`,
+    );
+  }
+  for (const name of mustGrow) {
+    assert.ok(seen.has(name), `${name} is listed as a growing panel but the audit never saw it`);
+  }
+});
+
+test("the shared transform panel mounted on the video node also follows height", () => {
+  // Video Crop + Rotate + Pad has no js/<name>/index.js of its own - it
+  // registers through shared/transform_editor.mjs, so the audit above cannot
+  // see it. Its fallback DOM widget is the one that used to pin 230px.
+  const shared = readFileSync(join(JS_ROOT, "shared", "transform_editor.mjs"), "utf-8");
+  assert.match(shared, /fillNodeHeight\(domWidget/);
+  assert.doesNotMatch(
+    shared,
+    /domWidget\.computeSize\s*=/,
+    "the shared transform panel pins its height again",
+  );
 });
 
 test("every DOM panel discards planted layout widths", () => {

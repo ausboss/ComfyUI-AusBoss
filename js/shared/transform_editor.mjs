@@ -1,6 +1,7 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { BRAND, chainCallback, notifyAusbossChange } from "./index.mjs";
+import { fillNodeHeight } from "./panel_layout.mjs";
 import { normalizeFillColor } from "./fill_color.mjs";
 import {
   canvasLocalPoint,
@@ -221,7 +222,7 @@ export function installTransformNode(node, kind, mountPanel = null) {
     mountPanel(node, panel);
   } else if (typeof node.addDOMWidget === "function") {
     const domWidget = node.addDOMWidget("ausboss_transform_preview", "ausboss_transform_preview", panel, { serialize: false });
-    domWidget.computeSize = (width) => [Math.max(300, width), 230];
+    fillNodeHeight(domWidget, { minWidth: 300, minHeight: 230 });
   } else {
     node.addWidget?.("button", "Open editor", null, () => openEditor(state), { serialize: false });
   }
