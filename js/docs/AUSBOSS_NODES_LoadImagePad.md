@@ -29,8 +29,8 @@ exactly the padding, ready for an inpainter.
 ## Controls
 
 - **image**: Choose or upload from ComfyUI's input folder.
-- **mode / fill_color / backdrop_blur**: The same four fills as
-  **Pad Image 🆎** — `color`, `edge`, `edge pixel`, `pillarbox blur`.
+- **mode / fill_color / backdrop_blur**: Four fills — `color`, `edge`,
+  `edge pixel`, `pillarbox blur`.
 - **feather**: Ramps the mask *inward* across the image edge on each padded
   side (ramp width capped by the image size), so the sampler blends the
   seam. `0` keeps the seam hard. The padding itself always stays solid.

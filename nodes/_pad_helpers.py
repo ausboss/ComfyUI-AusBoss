@@ -40,12 +40,16 @@ _LOWRES_BLUR_FACTOR = 4
 
 def _as_image(image: torch.Tensor) -> torch.Tensor:
     if not isinstance(image, torch.Tensor) or image.ndim != 4:
-        raise ValueError("Pad Image expected a BHWC IMAGE batch.")
+        raise ValueError("Padding expected a BHWC IMAGE batch.")
     return image.float()
 
 
-def _fill_tensor(fill_color: object, like: torch.Tensor) -> torch.Tensor:
-    rgb = [channel / 255.0 for channel in parse_fill_color(fill_color, "Pad Image fill_color")]
+def _fill_tensor(
+    fill_color: object, like: torch.Tensor, source: str = "Load Image + Pad fill_color"
+) -> torch.Tensor:
+    # `source` names the node and widget in the console note; Align Image passes
+    # its own, so a colour it could not read is never reported against padding.
+    rgb = [channel / 255.0 for channel in parse_fill_color(fill_color, source)]
     channels = like.shape[3]
     if channels > len(rgb):
         rgb = rgb + [1.0] * (channels - len(rgb))
@@ -312,7 +316,7 @@ def pad_image(
     right = max(0, int(pad_right))
     bottom = max(0, int(pad_bottom))
     if mode not in PAD_MODES:
-        raise ValueError(f"Pad Image mode must be one of {PAD_MODES}, got '{mode}'.")
+        raise ValueError(f"Pad mode must be one of {PAD_MODES}, got '{mode}'.")
 
     batch, height, width, _ = image.shape
     canvas_h = height + top + bottom

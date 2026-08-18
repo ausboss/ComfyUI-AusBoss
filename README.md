@@ -47,17 +47,9 @@ Sends a prompt (and optionally an image) to a local LM Studio server — or any 
 
 Harmonizes an image against a reference by transferring per-channel LAB mean and standard deviation — the fix for an inpainted or upscaled region that comes back slightly brighter or cooler than the plate it sits in. Optional mask restricts the correction to just that region, and `strength` blends it back toward the original. For video, `reference_mode: first_frame` locks every frame to the batch's own first frame — the one-node flicker fix.
 
-### Pad Image 🆎
-
-Pads an image with a solid color, replicated edges, replicated edge pixels, or a **pillarbox blur** (a blurred, dimmed copy of the frame behind the sharp original — the standard look for reframing video to a new aspect). Also returns a mask covering exactly the new padding, ready to wire straight into an outpaint, plus a `stitcher` — hand that and the sampled result to Stitch Inpaint 🆎 and every pixel outside the padding comes back bit-identical to the input, so only the new band is generated. The stage on the node is the control: drag any edge of the final rect to set that side's padding over a live preview of the input (run once to fill it in).
-
 ### Load Image + Pad 🆎
 
 A Load Image that opens straight into an outpaint canvas: drag any edge of the final rect drawn on the node to grow that side's padding — the whole edge is the handle, per-side pixel counts ride the bands, and the badge always shows the true output size. The mask covers exactly the padding with an optional **feather** ramped inward across the seam, the canvas rounds up to a clean multiple, and a **megapixel target** rescales the source *before* padding so the mask seam stays crisp at sampler-friendly sizes. Outputs the canvas, the mask, the final width/height as INTs, and a `stitcher` for Stitch Inpaint 🆎 that restores the original pixels bit-identically after sampling.
-
-### Drop Shadow 🆎
-
-Drops a soft shadow behind a masked subject with signed offset, grow, blur, color, and opacity — what sells a padded or reframed composition as deliberate. A multiply blend mode keeps the backdrop's texture, and the `shadow_mask` output hands the effective shadow alpha to downstream compositing.
 
 ### Frame Interpolate 🆎
 

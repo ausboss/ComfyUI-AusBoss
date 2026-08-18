@@ -145,38 +145,6 @@ class PillarboxBlurModeTests(unittest.TestCase):
         )
 
 
-class NodeWiringTests(unittest.TestCase):
-    def test_node_mapping_and_execution(self):
-        from nodes.node_pad_image import (
-            NODE_CLASS_MAPPINGS,
-            NODE_DISPLAY_NAME_MAPPINGS,
-        )
-
-        self.assertIn("AUSBOSS_NODES_PadImage", NODE_CLASS_MAPPINGS)
-        self.assertEqual(
-            NODE_DISPLAY_NAME_MAPPINGS["AUSBOSS_NODES_PadImage"],
-            "Pad Image 🆎",
-        )
-        cls = NODE_CLASS_MAPPINGS["AUSBOSS_NODES_PadImage"]
-        self.assertIn("AusBoss/Image", cls.CATEGORY)
-        self.assertEqual(cls.RETURN_TYPES, ("IMAGE", "MASK", "AUSBOSS_STITCHER"))
-        self.assertEqual(cls.RETURN_NAMES, ("image", "mask", "stitcher"))
-        image = rand_image(1, 8, 8, seed=8)
-        result = getattr(cls(), cls.FUNCTION)(
-            image=image,
-            pad_left=1,
-            pad_top=2,
-            pad_right=3,
-            pad_bottom=4,
-            mode="color",
-            fill_color="#000000",
-            backdrop_blur=0.5,
-        )
-        self.assertEqual(len(result), 3)
-        self.assertEqual(result[0].shape, (1, 14, 12, 3))
-        self.assertEqual(result[1].shape, (1, 14, 12))
-
-
 if __name__ == "__main__":
     unittest.main()
 

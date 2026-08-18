@@ -104,18 +104,18 @@ class FillColorWarningNamesTheWidgetTests(unittest.TestCase):
         self.assertIn("Transform fill_color", printed[0])
 
     def test_each_caller_names_its_own_node_and_widget(self):
-        _rgb, shadow = self.capture("dark navy", source="Drop Shadow shadow_color")
-        self.assertIn("Drop Shadow shadow_color", shadow[0])
-        self.assertNotIn("Transform", shadow[0])
-        _rgb, pad = self.capture("forest green", source="Pad Image fill_color")
-        self.assertIn("Pad Image fill_color", pad[0])
+        _rgb, pad = self.capture("dark navy", source="Align Image pad_color")
+        self.assertIn("Align Image pad_color", pad[0])
+        self.assertNotIn("Transform", pad[0])
+        _rgb, transform = self.capture("forest green")
+        self.assertIn("Transform fill_color", transform[0])
 
     def test_one_node_warning_does_not_silence_another(self):
-        _rgb, first = self.capture("dark navy", source="Drop Shadow shadow_color")
-        _rgb, second = self.capture("dark navy", source="Pad Image fill_color")
+        _rgb, first = self.capture("dark navy", source="Align Image pad_color")
+        _rgb, second = self.capture("dark navy")
         self.assertTrue(first and second)
         # Still once per node, though.
-        _rgb, repeat = self.capture("dark navy", source="Drop Shadow shadow_color")
+        _rgb, repeat = self.capture("dark navy", source="Align Image pad_color")
         self.assertEqual(repeat, [])
 
 
