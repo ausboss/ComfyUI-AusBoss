@@ -1,4 +1,4 @@
-"""Video Crop + Rotate + Pad 🆎."""
+"""Video Crop + Rotate + Pad -> Frame 🆎."""
 
 from __future__ import annotations
 
@@ -15,10 +15,21 @@ from ._transform_inputs import spec_from_values, transform_inputs
 class AusBossVideoCropRotatePad:
     CATEGORY = "🆎 AusBoss/Video"
     DESCRIPTION = (
-        "Targets one exact video frame and applies the same visual rotate, crop, and pad "
-        "transform used by the image loader."
+        "Picks ONE frame out of a video and applies the same visual rotate, "
+        "crop, and pad transform as the image node. The output is a single "
+        "image, not a clip — the editor's timeline is there to find the frame, "
+        "not to trim a range."
     )
-    SEARCH_ALIASES = ["video crop", "video frame", "rotate video", "pad video", "ausboss"]
+    SEARCH_ALIASES = [
+        "video crop",
+        "video frame",
+        "grab frame",
+        "extract frame",
+        "frame from video",
+        "rotate video",
+        "pad video",
+        "ausboss",
+    ]
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -117,7 +128,9 @@ class AusBossVideoCropRotatePad:
 register_video_routes()
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_VideoCropRotatePad": AusBossVideoCropRotatePad}
-NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_VideoCropRotatePad": "Video Crop + Rotate + Pad 🆎"}
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "AUSBOSS_NODES_VideoCropRotatePad": "Video Crop + Rotate + Pad → Frame 🆎"
+}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
 

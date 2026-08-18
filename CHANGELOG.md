@@ -4,6 +4,14 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- Renamed **Video Crop + Rotate + Pad 🆎** to **Video Crop + Rotate + Pad →
+  Frame 🆎**. The old name reads like it transforms a clip; it takes one frame
+  out of a video and returns a single image, and the editor's timeline is there
+  to *find* that frame rather than to trim a range. "grab frame", "extract
+  frame" and "frame from video" join the search aliases. The mapping key
+  `AUSBOSS_NODES_VideoCropRotatePad` is untouched — it is the
+  workflow-compatibility contract — so saved workflows are unaffected.
+
 - Video Crop + Rotate + Pad 🆎: the preview no longer stretches when the node is
   resized. Its canvas is CSS-stretched to whatever box the panel is given, but
   the backing store is only re-sized when something draws — and the panel's
