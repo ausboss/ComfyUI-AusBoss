@@ -51,6 +51,8 @@ PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_FrameInterpolate",
     "AUSBOSS_NODES_ImageCropRotatePad",
     "AUSBOSS_NODES_ImageSize",
+    "AUSBOSS_NODES_Krea2Encode",
+    "AUSBOSS_NODES_Krea2OutpaintModelPatch",
     "AUSBOSS_NODES_LaMaInpaint",
     "AUSBOSS_NODES_LmStudioChat",
     "AUSBOSS_NODES_LoadImagePad",

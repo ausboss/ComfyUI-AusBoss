@@ -49,7 +49,15 @@ Harmonizes an image against a reference by transferring per-channel LAB mean and
 
 ### Load Image + Pad 🆎
 
-A Load Image that opens straight into an outpaint canvas: drag any edge of the final rect drawn on the node to grow that side's padding — the whole edge is the handle, per-side pixel counts ride the bands, and the badge always shows the true output size. The mask covers exactly the padding with an optional **feather** ramped inward across the seam, the canvas rounds up to a clean multiple, and a **megapixel target** rescales the source *before* padding so the mask seam stays crisp at sampler-friendly sizes. Outputs the canvas, the mask, the final width/height as INTs, and a `stitcher` for Stitch Inpaint 🆎 that restores the original pixels bit-identically after sampling.
+A Load Image that opens straight into an outpaint canvas: drag any edge of the final rect drawn on the node to grow that side's padding — the whole edge is the handle, per-side pixel counts ride the bands, and the badge always shows the true output size. The mask covers exactly the padding with an optional **feather** ramped inward across the seam, the canvas rounds up to a clean multiple, and a **megapixel target** rescales the source *before* padding so the mask seam stays crisp at sampler-friendly sizes. Outputs the canvas, the mask, the final width/height as INTs, a `stitcher` for Stitch Inpaint 🆎 that restores the original pixels bit-identically after sampling, and a `reference` — the unpadded source fitted to a small multiple of 16 for reference conditioning.
+
+### Krea 2 Encode 🆎
+
+Encodes a Krea 2 prompt pair and attaches reference latents in one node. Wire a VAE and a reference image and the reference is encoded onto the positive conditioning; leave them unwired and it is a plain two-prompt encoder. The negative comes out of the same node, so a turbo graph at CFG 1.0 is not carrying a second text encode that does nothing. References are fitted to a 384px long edge and a multiple of 16 — the VAE downsamples by 8 and the DiT patchifies by 2, so an odd edge lands on a partial patch.
+
+### Krea 2 Outpaint Model Patch 🆎
+
+Tells Krea 2 **where** the reference sits. Reference latents normally arrive with no position, so the model treats them as a loose style hint and reinvents the content; this registers them into the target grid at the rectangle Load Image + Pad 🆎 records on the `stitcher`, which is what makes an outpaint continue the source instead of painting something adjacent to it. Place it after any LoRA loader and before the sampler. It patches comfy's flux attention internals, so it imports them when you run it rather than at startup — a core change that moves them surfaces as an error on this node instead of quietly dropping it from the menu.
 
 ### Frame Interpolate 🆎
 
