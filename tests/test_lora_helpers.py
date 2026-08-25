@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import contextlib
 import io
+import json
 from pathlib import Path
 import sys
+import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -88,6 +91,91 @@ class NoEffectWarningTests(unittest.TestCase):
     def test_warns_once_per_lora(self):
         self.assertNotEqual(self._warn("x.safetensors"), "")
         self.assertEqual(self._warn("x.safetensors"), "")
+
+
+class _FolderPaths:
+    def __init__(self, lora_root: Path, user_root: Path):
+        self.lora_root = lora_root
+        self.user_root = user_root
+
+    def get_full_path(self, kind: str, name: str) -> str | None:
+        if kind != "loras":
+            return None
+        path = self.lora_root / name
+        return str(path) if path.is_file() else None
+
+    def get_folder_paths(self, kind: str) -> list[str]:
+        return [str(self.lora_root)] if kind == "loras" else []
+
+    def get_user_directory(self) -> str:
+        return str(self.user_root)
+
+
+class LoraCivitaiSidecarTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        base = Path(self._tmp.name)
+        self.lora_root = base / "models" / "loras"
+        self.user_root = base / "user"
+        self.lora = self.lora_root / "Krea 2" / "candid.safetensors"
+        self.lora.parent.mkdir(parents=True)
+        self.lora.write_bytes(b"not a real safetensors file")
+        self.folder_paths = _FolderPaths(self.lora_root, self.user_root)
+        self.folder_paths_patch = patch.object(_lora_helpers, "folder_paths", self.folder_paths)
+        self.folder_paths_patch.start()
+
+    def tearDown(self):
+        self.folder_paths_patch.stop()
+        self._tmp.cleanup()
+
+    def test_writes_raw_standard_sidecar_beside_the_lora(self):
+        payload = {
+            "id": 456,
+            "modelId": 123,
+            "baseModel": "Krea 2",
+            "trainedWords": ["candid style"],
+            "model": {"name": "Candid Slider", "type": "LORA"},
+            "images": [{"url": "https://example.invalid/preview.jpeg"}],
+        }
+
+        saved = _lora_helpers.save_civitai_sidecar("Krea 2/candid.safetensors", payload)
+
+        expected = self.lora.with_suffix(".civitai.info")
+        self.assertEqual(saved, expected)
+        self.assertEqual(json.loads(expected.read_text(encoding="utf-8")), payload)
+        self.assertFalse(Path(str(self.lora) + ".civitai.info").exists())
+
+    def test_reads_a_standard_sidecar_created_by_another_comfyui_tool(self):
+        payload = {
+            "id": "456",
+            "modelId": "123",
+            "baseModel": "Krea 2",
+            "trainedWords": [" candid style ", "film grain"],
+            "model": {"name": "Candid Slider"},
+        }
+        self.lora.with_suffix(".civitai.info").write_text(
+            json.dumps(payload), encoding="utf-8"
+        )
+
+        cached = _lora_helpers.load_civitai_cache("Krea 2/candid.safetensors")
+        info = _lora_helpers.lora_info("Krea 2/candid.safetensors")
+
+        self.assertEqual(cached["title"], "Candid Slider")
+        self.assertEqual(cached["trained_words"], ["candid style", "film grain"])
+        self.assertEqual(cached["model_id"], 123)
+        self.assertEqual(cached["version_id"], 456)
+        self.assertTrue(info["has_civitai"])
+        self.assertEqual(info["civitai_triggers"], ["candid style", "film grain"])
+        self.assertEqual(info["civitai_model_id"], 123)
+        self.assertEqual(info["civitai_version_id"], 456)
+
+    def test_invalid_sidecar_is_ignored(self):
+        self.lora.with_suffix(".civitai.info").write_text("{}", encoding="utf-8")
+
+        self.assertEqual(
+            _lora_helpers.load_civitai_cache("Krea 2/candid.safetensors"), {}
+        )
+        self.assertFalse(_lora_helpers.lora_info("Krea 2/candid.safetensors")["has_civitai"])
 
 
 if __name__ == "__main__":

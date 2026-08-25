@@ -23,10 +23,11 @@ row shows a separate CLIP strength.
 ## Trigger words
 
 The info card gathers words from three places: the LoRA file's own metadata,
-Civitai (one click to fetch, cached locally in ComfyUI's user folder, never
-in the models folder), and words you add yourself (remembered per LoRA across
-workflows). Click a word to toggle it into the row; enabled rows' selected
-words are joined into the `trigger_words` output, deduplicated, in row order.
+Civitai (one click to fetch, saved beside the LoRA as the standard
+`<model>.civitai.info` sidecar), and words you add yourself (remembered per
+LoRA across workflows). Click a word to toggle it into the row; enabled rows'
+selected words are joined into the `trigger_words` output, deduplicated, in
+row order.
 
 ## Outputs
 
