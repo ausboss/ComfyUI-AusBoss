@@ -399,26 +399,68 @@ def save_custom_triggers(name: str, words: list[str]) -> list[str]:
     return save_custom_lora_data(name, words, bounds).get("words", [])
 
 
-def _civitai_cache_path(name: str) -> Path | None:
-    import hashlib
+def _civitai_sidecar_path(name: str) -> Path:
+    """ComfyUI's shared Civitai metadata sidecar beside the LoRA file."""
+    return resolve_lora_path(name).with_suffix(".civitai.info")
 
-    base = _user_store_dir()
-    if base is None:
+
+def _clean_civitai_id(value: Any) -> int | None:
+    if isinstance(value, bool):
         return None
-    cache_dir = base / "lora_civitai"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    return cache_dir / (hashlib.sha1(name.encode("utf-8")).hexdigest()[:16] + ".json")
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value.isdigit():
+        return int(value)
+    return None
+
+
+def _normalize_civitai_info(data: Any) -> dict[str, Any]:
+    """Normalize either a raw standard sidecar or this pack's old cache shape."""
+    if not isinstance(data, dict):
+        return {}
+    model = data.get("model")
+    model = model if isinstance(model, dict) else {}
+    raw_words = data.get("trainedWords", data.get("trained_words", []))
+    trained_words = (
+        [str(word).strip() for word in raw_words if str(word).strip()][:40]
+        if isinstance(raw_words, list)
+        else []
+    )
+    info = {
+        "found": bool(data.get("found", True)),
+        "title": str(model.get("name") or data.get("title") or data.get("name") or ""),
+        "base_model": str(data.get("baseModel") or data.get("base_model") or ""),
+        "trained_words": trained_words,
+        "model_id": _clean_civitai_id(data.get("modelId", data.get("model_id"))),
+        "version_id": _clean_civitai_id(data.get("id", data.get("version_id"))),
+    }
+    recognized = any(
+        info[key] not in (None, "", [])
+        for key in ("title", "base_model", "trained_words", "model_id", "version_id")
+    )
+    return info if info["found"] and recognized else {}
 
 
 def load_civitai_cache(name: str) -> dict[str, Any]:
-    cache = _civitai_cache_path(name)
-    if cache is None or not cache.is_file():
+    try:
+        sidecar = _civitai_sidecar_path(name)
+    except ValueError:
+        return {}
+    if not sidecar.is_file():
         return {}
     try:
-        data = json.loads(cache.read_text(encoding="utf-8"))
-        return data if isinstance(data, dict) else {}
+        return _normalize_civitai_info(json.loads(sidecar.read_text(encoding="utf-8")))
     except Exception:
         return {}
+
+
+def save_civitai_sidecar(name: str, payload: dict[str, Any]) -> Path:
+    """Write the raw Civitai response using the shared sibling-file convention."""
+    if not isinstance(payload, dict):
+        raise ValueError("Civitai response must be a JSON object.")
+    sidecar = _civitai_sidecar_path(name)
+    _atomic_write_json(sidecar, payload)
+    return sidecar
 
 
 def _hash_cache_path() -> Path | None:
@@ -466,6 +508,8 @@ def lora_info(name: str) -> dict[str, Any]:
         "file_triggers": file_trigger_words(metadata),
         "civitai_triggers": civitai.get("trained_words", []),
         "civitai_title": civitai.get("title", ""),
+        "civitai_model_id": civitai.get("model_id"),
+        "civitai_version_id": civitai.get("version_id"),
         "custom_triggers": load_custom_triggers(name),
         "range": load_custom_range(name),
         "has_preview": find_thumbnail(name) is not None,
@@ -474,7 +518,7 @@ def lora_info(name: str) -> dict[str, Any]:
 
 
 async def fetch_civitai_info(name: str) -> dict[str, Any]:
-    """Look the LoRA up on Civitai by file hash and cache the useful subset."""
+    """Look up the exact LoRA hash and save Civitai's raw standard sidecar."""
     import aiohttp
     import asyncio
 
@@ -483,23 +527,20 @@ async def fetch_civitai_info(name: str) -> dict[str, Any]:
     timeout = aiohttp.ClientTimeout(total=30, connect=10)
     async with aiohttp.ClientSession(timeout=timeout) as session:
         async with session.get(
-            f"https://civitai.com/api/v1/model-versions/by-hash/{sha}"
+            f"https://civitai.com/api/v1/model-versions/by-hash/{sha}",
+            headers={"User-Agent": "ComfyUI-AusBoss"},
         ) as response:
             if response.status == 404:
                 return {"found": False}
             response.raise_for_status()
-            payload = await response.json()
-    info = {
-        "found": True,
-        "title": str(payload.get("model", {}).get("name") or payload.get("name") or ""),
-        "base_model": str(payload.get("baseModel") or ""),
-        "trained_words": [str(w) for w in payload.get("trainedWords") or [] if str(w).strip()][:40],
-        "model_id": payload.get("modelId"),
-        "version_id": payload.get("id"),
-    }
-    cache = _civitai_cache_path(name)
-    if cache is not None:
-        _atomic_write_json(cache, info)
+            body = await response.content.read(4 * 1024 * 1024 + 1)
+            if len(body) > 4 * 1024 * 1024:
+                raise ValueError("Civitai response is too large.")
+            payload = json.loads(body)
+    info = _normalize_civitai_info(payload)
+    if not info:
+        return {"found": False}
+    save_civitai_sidecar(name, payload)
     return info
 
 

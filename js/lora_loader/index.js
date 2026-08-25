@@ -198,6 +198,8 @@ function installStyles() {
   .ausboss-lora-card h4 { margin: 0; font-size: 12px; color: #fff; overflow: hidden;
     text-overflow: ellipsis; white-space: nowrap; }
   .ausboss-lora-meta { color: #9ba2aa; }
+  .ausboss-lora-civitai-link { color: ${BRAND}; text-decoration: none; align-self: flex-start; }
+  .ausboss-lora-civitai-link:hover { text-decoration: underline; }
   .ausboss-lora-chips { display: flex; flex-wrap: wrap; gap: 4px; }
   .ausboss-lora-chip { border: 1px solid #3a4047; border-radius: 10px; background: #23272c;
     color: inherit; cursor: pointer; padding: 2px 8px; font-size: 11px; }
@@ -569,6 +571,15 @@ function openInfo(state, index, anchor) {
     if (info.has_preview) card.append(image);
     card.append(el("h4", "", info.civitai_title || displayName(state, row.name)));
     if (info.base_model) card.append(el("div", "ausboss-lora-meta", `Base model: ${info.base_model}`));
+    if (Number.isInteger(info.civitai_model_id)) {
+      const link = el("a", "ausboss-lora-civitai-link", "View on Civitai ↗");
+      const version = Number.isInteger(info.civitai_version_id)
+        ? `?modelVersionId=${info.civitai_version_id}` : "";
+      link.href = `https://civitai.com/models/${info.civitai_model_id}${version}`;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      card.append(link);
+    }
 
     const chipSection = (label, words) => {
       if (!words?.length) return;
@@ -598,8 +609,9 @@ function openInfo(state, index, anchor) {
     chipSection("From Civitai", info.civitai_triggers);
     chipSection("Your words", info.custom_triggers);
 
-    if (!info.has_civitai && state.settings?.civitai_lookup !== false) {
-      const fetchButton = el("button", "ausboss-lora-add ausboss-lora-fetch", "Fetch Civitai info");
+    if (state.settings?.civitai_lookup !== false) {
+      const label = info.has_civitai ? "Refresh Civitai info" : "Fetch Civitai info";
+      const fetchButton = el("button", "ausboss-lora-add ausboss-lora-fetch", label);
       fetchButton.type = "button";
       fetchButton.addEventListener("click", async () => {
         fetchButton.disabled = true;
@@ -612,9 +624,13 @@ function openInfo(state, index, anchor) {
           });
           const data = await response.json();
           if (!data.ok) throw new Error(data.error || "fetch failed");
+          if (data.info?.found === false) {
+            fetchButton.textContent = "Not found on Civitai";
+            return;
+          }
           load();
         } catch (error) {
-          fetchButton.textContent = "Not found on Civitai";
+          fetchButton.textContent = "Civitai lookup failed";
         }
       });
       card.append(fetchButton);
