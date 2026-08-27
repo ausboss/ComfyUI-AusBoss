@@ -37,6 +37,7 @@ NODE_MODULES = [
     "node_lora_loader",
     "node_math",
     "node_refine_mask",
+    "node_save_image",
     "node_save_video",
     "node_select_frame",
     "node_show_text",
