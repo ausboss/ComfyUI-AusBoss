@@ -34,7 +34,9 @@ experiment cannot ride along into a release unnoticed.
 ## Hard rules
 
 - Never modify `LICENSE`.
-- Never bump `version` in `pyproject.toml` unless explicitly asked.
+- Never bump `version` in `pyproject.toml` unless explicitly asked — a
+  version bump that lands on main **publishes to the Comfy Registry
+  automatically** (see Releasing).
 - Never add agent attribution to commits or PRs — no `Co-Authored-By`
   trailers, no "generated with" footers. Commits are authored by ausboss alone.
 - Do not read or analyze `__pycache__`, `.git`, or editor config directories.
@@ -126,6 +128,29 @@ Then restart ComfyUI fully, watch the AusBoss banner for failed modules,
 confirm the node appears in `GET http://127.0.0.1:8188/object_info`, queue a
 tiny API graph, and load its example workflow. After JS changes, hard-refresh
 the browser tab (Ctrl+Shift+R).
+
+## Releasing
+
+There is no separate "upload" step: landing a `pyproject.toml` change on
+main IS publishing. `.github/workflows/publish_action.yml`
+(Comfy-Org/publish-node-action, repo secret `REGISTRY_ACCESS_TOKEN`)
+pushes the version to the Comfy Registry (`ausboss-nodes`, publisher
+`ausboss`) on every pyproject change that reaches main — so treat the
+version line as the trigger it is.
+
+A release, when explicitly asked for:
+
+1. Bump `version` in `pyproject.toml` **and** sync `AUSBOSS_JS_VERSION`
+   in `js/shared/index.mjs` — the pair must match or the stale-frontend
+   warning fires on fresh installs. `python scripts/release_preflight.py`
+   enforces this and the other release checks.
+2. Retitle the CHANGELOG `## Unreleased` section to `## X.Y.Z - date`.
+3. If the node roster changed, update the pyproject `description` and
+   `keywords`: the registry shows the description verbatim and
+   ComfyUI-Manager search matches against it, so it must name the actual
+   nodes — never a generic blurb.
+4. Merge to main and watch the publish run in the Actions tab; verify
+   with `https://api.comfy.org/nodes/ausboss-nodes/versions`.
 
 ## Phase 2: porting an existing node
 

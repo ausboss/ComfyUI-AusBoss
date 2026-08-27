@@ -23,6 +23,9 @@ allowed; read this for what makes a node feel like an AusBoss node.
   "outpaint", "watermark").
 - Namespace everything frontend-visible with `ausboss`: routes, extension
   names, events, CSS classes, DOM markers, caches.
+- A new public node also gets named in the pyproject `description` at the
+  next release — registry listings and ComfyUI-Manager search match that
+  text, so an unnamed node is an undiscoverable one (AGENTS.md §Releasing).
 
 **This identity is for the public pack only.** Experiments live in the private
 ComfyUI-AusBoss-Lab repo and wear a parallel grammar so the two never collide
