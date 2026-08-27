@@ -110,6 +110,7 @@ test("a panel that should follow the node's height never declares computeSize", 
     "load_image_pad",
     "load_video",
     "save_video",
+    "show_text",
   ]);
   // Fixed by design: a button row and a toolbar. Both are content whose height
   // is a constant, not a viewport onto something bigger.
@@ -191,6 +192,7 @@ test("every panel root class carries border-box and an overflow clip", () => {
     lmstudio_chat: ".ausboss-chat-toolbar{",
     load_image_pad: ".ausboss-loadpad-root{",
     image_crop_rotate_pad: ".ausboss-transform-panel{",
+    show_text: ".ausboss-show-text{",
   };
   for (const { name, source } of domWidgetEntries()) {
     const marker = roots[name];

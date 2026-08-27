@@ -286,6 +286,51 @@ class SaveVideoHelperTests(unittest.TestCase):
             "duration": 188 / 24.0,
         }])
 
+    def test_save_node_returns_the_saved_files_absolute_path(self):
+        with (
+            patch.object(node_save_video, "folder_paths", FakeFolderPaths),
+            patch.object(node_save_video, "encode_video", return_value=(16, 16, 1)),
+        ):
+            result = run_node(node_save_video.AusBossSaveVideo().save(
+                frames=gradient_batch(1, 16, 16), fps=8.0,
+                filename_prefix="AusBoss/video", crf=19,
+            ))
+        # The path the encoder wrote to, verbatim, as the node's one output.
+        self.assertEqual(result["result"], ("/tmp/video_00003_.mp4",))
+        self.assertTrue(Path(result["result"][0]).is_absolute())
+
+    def test_the_file_path_output_is_appended_and_the_node_stays_an_output(self):
+        node = node_save_video.AusBossSaveVideo
+        self.assertEqual(node.RETURN_TYPES, ("STRING",))
+        self.assertEqual(node.RETURN_NAMES, ("file_path",))
+        self.assertEqual(len(node.OUTPUT_TOOLTIPS), 1)
+        # Still an output node: it saves whether or not anything is wired.
+        self.assertTrue(node.OUTPUT_NODE)
+
+
+class FormatWidgetTableTests(unittest.TestCase):
+    """The frontend's format-aware widget table must track VIDEO_FORMATS.
+
+    js/shared/save_video_formats.mjs decides which Save Video widgets show
+    per format, keyed by the same names as the backend's format dict. A key
+    added or renamed on one side without the other would silently hide (or
+    orphan) a widget, so the two lists are compared by reading the .mjs
+    source as text - no JavaScript runtime needed.
+    """
+
+    def test_the_mjs_table_names_every_backend_format(self):
+        import re
+
+        source = (ROOT / "js" / "shared" / "save_video_formats.mjs").read_text(
+            encoding="utf-8"
+        )
+        table = re.search(
+            r"FORMAT_WIDGET_SETS\s*=\s*\{(.*?)\}", source, re.DOTALL
+        )
+        self.assertIsNotNone(table, "FORMAT_WIDGET_SETS not found in the .mjs")
+        keys = set(re.findall(r'"([^"]+)"\s*:', table.group(1)))
+        self.assertEqual(keys, set(_video_save_helpers.VIDEO_FORMATS))
+
 
 class FormatTests(unittest.TestCase):
     """Every entry of the format widget has to actually produce a file.

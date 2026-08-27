@@ -18,22 +18,28 @@ import traceback
 # nothing functional.
 NODE_MODULES = [
     "node_align_image",
+    "node_batch_utils",
     "node_color_match",
     "node_compare",
     "node_frame_interpolate",
+    "node_free_memory",
     "node_image_crop_rotate_pad",
+    "node_image_resize",
     "node_image_size",
     "node_inpaint_crop_stitch",
     "node_krea2_encode",
     "node_krea2_model_patch",
     "node_lama_inpaint",
+    "node_literals",
     "node_lmstudio_chat",
     "node_load_image_pad",
     "node_load_video",
     "node_lora_loader",
+    "node_math",
     "node_refine_mask",
     "node_save_video",
     "node_select_frame",
+    "node_show_text",
     "node_video_crop_rotate_pad",
 ]
 

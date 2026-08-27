@@ -1,13 +1,17 @@
 # Select Frame
 
 Selects one unchanged image from an `IMAGE` batch. Frame numbers are one-based,
-so `1` is the first frame and the last valid value is the batch size.
+so `1` is the first frame and the last valid value is the batch size. Negative
+numbers count from the end: `-1` is the last frame, `-2` the one before it —
+handy when the batch length varies, as a video's often does. `0` is invalid in
+both directions.
 
 ## Controls
 
 - **frames**: A BHWC image batch, commonly the frame output of a video loader.
-- **frame_number**: The one-based frame to return. An out-of-range value stops
-  with the available range instead of silently clamping.
+- **frame_number**: The one-based frame to return; negative counts from the
+  end (`-1` is the last frame). An out-of-range value stops with the
+  available range instead of silently clamping.
 
 ## Output
 

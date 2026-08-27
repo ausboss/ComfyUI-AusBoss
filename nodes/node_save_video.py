@@ -164,7 +164,12 @@ class AusBossSaveVideo:
             "hidden": {"prompt": "PROMPT", "extra_pnginfo": "EXTRA_PNGINFO"},
         }
 
-    RETURN_TYPES = ()
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("file_path",)
+    OUTPUT_TOOLTIPS = (
+        "Absolute path of the file this run saved, for downstream nodes "
+        "that want the file itself.",
+    )
     OUTPUT_NODE = True
     FUNCTION = "save"
 
@@ -220,9 +225,10 @@ class AusBossSaveVideo:
         )
         extension = VIDEO_FORMATS[format][0] if format in VIDEO_FORMATS else "mp4"
         file = f"{filename}_{counter:05}_.{extension}"
+        output_path = Path(full_output_folder) / file
         width, height, frame_count = await asyncio.to_thread(
             encode_video,
-            Path(full_output_folder) / file,
+            output_path,
             frames,
             float(fps),
             audio,
@@ -243,7 +249,8 @@ class AusBossSaveVideo:
                     "duration": frame_count / float(fps),
                 }],
                 "animated": (True,),
-            }
+            },
+            "result": (str(output_path),),
         }
 
     @classmethod

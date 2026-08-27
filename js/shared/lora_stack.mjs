@@ -64,13 +64,53 @@ export function serializeRows(rows) {
   return JSON.stringify(rows);
 }
 
-export function moveRow(rows, index, delta) {
-  const target = index + delta;
-  if (index < 0 || index >= rows.length || target < 0 || target >= rows.length) return rows;
+export function reorderRows(rows, from, to) {
+  if (from === to) return rows;
+  if (from < 0 || from >= rows.length || to < 0 || to >= rows.length) return rows;
   const next = rows.slice();
-  const [row] = next.splice(index, 1);
-  next.splice(target, 0, row);
+  const [row] = next.splice(from, 1);
+  next.splice(to, 0, row);
   return next;
+}
+
+export function moveRow(rows, index, delta) {
+  return reorderRows(rows, index, index + delta);
+}
+
+// Drag-to-reorder model: which visual slot the pointer is over, given the
+// vertical centers of the rows in their current on-screen order. Past the
+// last center means the last slot; an empty stack has no slot.
+export function hoverRowIndex(centers, y) {
+  for (let i = 0; i < centers.length; i += 1) {
+    if (y < centers[i]) return i;
+  }
+  return centers.length - 1;
+}
+
+// Hover-thumbnail placement: below-right of the cursor, flipped left when the
+// viewport edge is near, never off-screen. `edge` is the thumb's largest side
+// plus its margin.
+export function thumbPosition(x, y, viewportWidth, viewportHeight, edge = 188, offset = 14) {
+  let left = x + offset;
+  if (left + edge > viewportWidth) left = Math.max(4, x - edge - offset);
+  let top = y + offset;
+  if (top + edge > viewportHeight) top = Math.max(4, viewportHeight - edge);
+  return { left, top };
+}
+
+export function formatFileSize(bytes) {
+  const size = Number(bytes);
+  if (!Number.isFinite(size) || size < 0) return "";
+  let value = size;
+  let unit = "B";
+  for (const next of ["KB", "MB", "GB", "TB"]) {
+    if (value < 1024) break;
+    value /= 1024;
+    unit = next;
+  }
+  const text =
+    unit === "B" ? String(Math.round(value)) : value.toFixed(1).replace(/\.0$/, "");
+  return `${text} ${unit}`;
 }
 
 export function setStrength(rows, index, value, linked) {

@@ -66,6 +66,7 @@ class AusBossKrea2OutpaintModelPatch:
         }
 
     RETURN_TYPES = ("MODEL",)
+    RETURN_NAMES = ("model",)
     OUTPUT_TOOLTIPS = (
         "The model with reference tokens registered into the canvas grid.",
     )

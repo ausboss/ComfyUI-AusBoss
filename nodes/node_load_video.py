@@ -5,7 +5,12 @@ from __future__ import annotations
 import asyncio
 
 from ._media_helpers import list_input_videos, resolve_input_path
-from ._video_load_helpers import core_trimmed_video, decode_video_range, lazy_audio_range
+from ._video_load_helpers import (
+    core_trimmed_video,
+    decode_video_range,
+    effective_load_args,
+    lazy_audio_range,
+)
 
 
 class AusBossLoadVideo:
@@ -16,9 +21,17 @@ class AusBossLoadVideo:
         "fps, size, and duration outputs ready for downstream wiring, plus a lazy "
         "core VIDEO output for nodes that consume whole videos. every_nth thins "
         "the batch and max_frames caps it, so long clips load without filling "
-        "memory."
+        "memory. single_frame flips the loader into a frame picker that "
+        "returns just the frame at the IN time as a one-image batch."
     )
-    SEARCH_ALIASES = ["load video", "video loader", "trim video", "video frames", "ausboss"]
+    SEARCH_ALIASES = [
+        "load video",
+        "video loader",
+        "trim video",
+        "video frames",
+        "frame picker",
+        "ausboss",
+    ]
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -108,6 +121,19 @@ class AusBossLoadVideo:
                         ),
                     },
                 ),
+                "single_frame": (
+                    "BOOLEAN",
+                    {
+                        "default": False,
+                        "tooltip": (
+                            "Load only the frame at the IN time as a "
+                            "one-image batch. The preview's trim strip "
+                            "becomes a frame picker (the FRAME button "
+                            "toggles this), and end_seconds, every_nth, "
+                            "and max_frames are ignored."
+                        ),
+                    },
+                ),
             },
         }
 
@@ -137,9 +163,14 @@ class AusBossLoadVideo:
         custom_height,
         every_nth=1,
         max_frames=0,
+        single_frame=False,
     ):
         path = resolve_input_path(video)
-        nth = max(1, int(every_nth))
+        # Single-frame mode collapses the trim to a one-frame cap; the rest
+        # of the pipeline then describes that frame's window on its own.
+        end, nth, cap = effective_load_args(
+            bool(single_frame), end_seconds, every_nth, max_frames
+        )
         # PyAV decoding blocks for as long as the trim is; to_thread keeps the
         # executor's event loop answering while it runs, and carries the
         # context ComfyUI needs to attribute progress and interrupts here.
@@ -147,11 +178,11 @@ class AusBossLoadVideo:
             decode_video_range,
             path,
             start_seconds,
-            end_seconds,
+            end,
             int(custom_width),
             int(custom_height),
             nth,
-            int(max_frames),
+            cap,
         )
         # Thinned frames report a divided fps so real time survives the trip
         # through Save Video and interpolators.
@@ -166,8 +197,8 @@ class AusBossLoadVideo:
         # Building it probes the container for a duration, so it goes off the
         # loop as well. every_nth does not apply to it — the VIDEO wire
         # carries the source as-is — but a max_frames cap shortens it.
-        core_end = float(end_seconds)
-        if int(max_frames) > 0 and duration > 0.0:
+        core_end = float(end)
+        if cap > 0 and duration > 0.0:
             core_end = float(start_seconds) + duration
         core_video = await asyncio.to_thread(
             core_trimmed_video, path, float(start_seconds), core_end
@@ -197,8 +228,11 @@ class AusBossLoadVideo:
             resolve_input_path(video)
         except Exception as exc:
             return f"Load Video: {exc}"
-        if float(end_seconds) > 0.0 and float(start_seconds) >= float(end_seconds):
-            return "Load Video: start_seconds must be smaller than end_seconds."
+        # A single-frame load ignores end_seconds, so a stale trim window left
+        # over from trim mode must not block the graph.
+        if not _values.get("single_frame"):
+            if float(end_seconds) > 0.0 and float(start_seconds) >= float(end_seconds):
+                return "Load Video: start_seconds must be smaller than end_seconds."
         return True
 
 

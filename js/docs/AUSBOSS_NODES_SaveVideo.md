@@ -70,12 +70,24 @@ trace.
 before the first byte is written — keep those to short clips. Neither carries
 metadata, so an embedded workflow is not available for them.
 
+The node's face follows the table: widgets the chosen format ignores are
+hidden rather than left to look meaningful. `crf` disappears for `mov prores`,
+`mkv ffv1` and `gif` (their rows read *ignored* above), and `save_metadata`
+disappears for `gif` and `webp`, which cannot carry it. Hidden is not removed:
+the widget keeps its position and its value, saved workflows store and restore
+it exactly as before, and switching the format back brings it back with the
+number it had.
+
 ## Output
 
 One file per run. Audio and video land in a single file — there is no separate
 audio-less copy. The embedded workflow survives in mp4, mov, webm and mkv;
 matroska uppercases the tag names, which is only visible to tools that read
 them directly.
+
+The node also has a **file_path** output: the absolute path of the file it
+just wrote, for wiring into downstream nodes that want the file itself.
+Leaving it unconnected changes nothing — the node saves either way.
 
 ## While it runs
 

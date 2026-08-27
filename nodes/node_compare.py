@@ -17,7 +17,7 @@ class AusBossCompare:
     CATEGORY = "🆎 AusBoss/Image"
     DESCRIPTION = (
         "Shows A and B on one panel: slide across it to reveal B up to the "
-        "pointer, or switch to hold mode and press to flash B over A. "
+        "pointer, or use the A/B toggle to flip the whole panel with a click. "
         "image_a passes through unchanged so the node can sit mid-graph."
     )
     SEARCH_ALIASES = ["image compare", "compare", "a/b", "before after", "slider", "diff", "ausboss"]
@@ -45,7 +45,7 @@ class AusBossCompare:
                     {
                         "tooltip": (
                             "Comparison batch. Its first frame is preview B, revealed by "
-                            "sliding across or holding on the panel."
+                            "sliding across the panel or flipping the A/B toggle."
                         ),
                     },
                 ),

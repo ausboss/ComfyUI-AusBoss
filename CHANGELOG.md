@@ -4,6 +4,155 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **New: Replace with AusBoss nodes 🆎 (prototype).** A canvas-menu and
+  command-palette action that finds third-party nodes in the open workflow —
+  missing-node placeholders and installed types alike — and offers to swap
+  the ones this pack can stand in for: VHS Load Video/Video Combine, KJNodes
+  ColorMatch and GrowMaskWithBlur, LayerStyle LaMa, and the easy/Derfuu
+  image-size nodes. Nothing changes silently: a preview lists every
+  candidate with a per-node opt-out, widget values translate across (VHS
+  format ids to Save Video 🆎 formats, KJ color methods to lab/mkl/histogram,
+  frame trims to seconds where the rate is known), and anything that cannot
+  carry losslessly is flagged in the preview instead of guessed — a
+  frame-index trim without a known fps stays at the default with a "check
+  trim" note. Each swap remaps links by declared name/slot mapping, rolls
+  back on failure, and the whole apply is one undo step. Nodes with no
+  equivalent (model loaders, WanVideo pipeline nodes, controlnet
+  preprocessors) are listed with the reason they are refused; multi-node
+  swaps are declared but wait for phase 2. The map and its widget
+  translators live in `js/shared/replace_map.mjs` under node:test coverage.
+
+- **New node: Image Resize 🆎.** The single most common reason a shared
+  workflow drags in a heavy pack, as one dependency-free node: target an
+  exact width+height, a longest or shortest edge, a megapixel budget, or a
+  scale factor, then stretch, fit, cover-crop, or pad when the aspect
+  changes — pad fills with a color and marks the new bars as 1.0 in the
+  mask output, the pack's usual generated-area contract. `divisible_by`
+  snaps the result to a clean multiple (16 for WAN), 0 in a size widget
+  keeps the source, an optional mask rides through the identical
+  transform, and resampling is lanczos (PIL, in float), bicubic, bilinear,
+  nearest, or area.
+
+- **Added the Utility group** — nine small nodes for the gaps that used to
+  mean installing a 200-node pack for a text box: **Text 🆎**, **Integer 🆎**
+  and **Float 🆎** (typed constants on their own wires), **Show Text 🆎**
+  (shows the string it receives on the node face — selectable for copying,
+  saved with the workflow — and passes it through), **Math Expression 🆎**
+  (arithmetic over a/b/c with FLOAT and INT outputs, parsed with `ast`
+  against a whitelist and never `eval`'d, so a shared workflow cannot
+  smuggle code through it), **Select Every Nth 🆎**, **Split Batch 🆎** and
+  **Merge Batches 🆎** (IMAGE-batch thinning, splitting and joining, with an
+  explicit resize policy instead of a silent one when sizes differ), and
+  **Free Memory 🆎** (a wildcard passthrough that unloads comfy's models and
+  empties the CUDA cache between heavy stages — every step fail-soft and
+  imported at run time, so a core API move skips the step instead of
+  deleting the node).
+
+- **Video I/O polish: format-aware Save Video, drop-to-restore, an honest
+  Load Video label.** Save Video's face now follows the chosen format —
+  `crf` hides for `mov prores`, `mkv ffv1` and `gif`, which ignore it, and
+  `save_metadata` hides for `gif` and `webp`, which cannot carry it; hidden
+  widgets keep their position and value, so saved workflows are untouched
+  and switching back restores the number. Dropping a video onto a Load
+  Video node (as opposed to onto empty canvas, which still restores the
+  whole embedded workflow) makes it that node's source — copied into the
+  input folder, identical re-drops reusing the existing file — and an
+  AusBoss save also restores the trim, `every_nth`, `max_frames`, sizing
+  and FRAME values its embedded workflow stored. And since the preview
+  cannot re-render frame drops, its label now reports what one Run will
+  actually load — `0:04.0 of 0:10.0 · 48 frames @ 12 fps`, or
+  `1 frame at 0:05.2` in FRAME mode — computed from the source's probed
+  frame rate with `every_nth` and `max_frames` applied, and omitted rather
+  than guessed when a deciding value arrives over a link.
+
+- **LoRA Loader: rows drag to reorder.** Every row grew a dotted grip; drag it
+  and the stack shuffles live under the pointer, committing to the serialized
+  widget only on drop — an abandoned drag never dirties the workflow. LoRAs
+  apply in row order, so order is part of the recipe; the right-click Move
+  up/down items remain for one-step moves.
+
+- **LoRA Loader: hover thumbnails on rows, not just in the picker.** Hovering
+  a row's name floats the LoRA's sidecar preview image beside the cursor, the
+  same way the picker list already did; both now share one floating element
+  that follows the pointer and flips sides at the screen edge. It appears only
+  once the image has actually loaded, so a LoRA with no preview file shows
+  nothing instead of an empty bordered box, and nothing on the node ever
+  shifts.
+
+- **LoRA Loader: the info card states the file's size and modified date**,
+  read from disk by the same route that serves its trigger words — quick
+  ground truth for "which of these two 143 MB epochs is the newer one".
+
+- **Image Resize never invents pixels unless explicitly asked.** In every
+  target mode except `width+height` the box is derived from the source's
+  own aspect, so there is nothing to letterbox against — yet `pad` used to
+  answer a `divisible_by` snap by inventing a sliver of bar (one bottom
+  row on an 855×480 source at longest_edge 512, /16). All scale-derived
+  modes now resolve the snap the way `fit` always has: an invisible
+  sub-half-step resize, a black mask, nothing for the user to think
+  about. Bars — and white in the mask — can only appear when a
+  `width+height` box that disagrees with the source is combined with
+  `pad`, which is the one place they are the explicit request.
+
+- **Added `example_workflows/ausboss_node_tour.json`** — a model-free tour
+  that wires 17 node types into one runnable graph: load and thin a clip,
+  split and rejoin the batch, pad-resize with the bars masked, de-flicker
+  against the first frame everywhere except those bars, retime back to
+  double rate, free VRAM, and save — with the fps, frame budget, filename
+  prefix, and CRF all arriving over wires from Math Expression, Image Size,
+  Text, and Integer nodes, the saved path landing in Show Text, and first
+  vs last frame in the A/B panel. Pick any video and Queue; nothing else
+  is required.
+
+- **The flagship node color deepened to slate-teal.** The pack-wide default
+  scheme now pairs a deep slate-teal title (`#14424d`) with a softly lifted
+  near-black body (`#161f21`) — quieter on a busy canvas than the original
+  bright teal. Nodes in saved workflows still wearing the old pair upgrade
+  automatically on load (`LEGACY_SCHEME_PAIRS`); colors a user picked by
+  hand are untouched, as ever.
+
+- **An optional completion chime.** A new off-by-default setting
+  (🆎 AusBoss → Notifications → Completion sound) plays a soft two-note
+  WebAudio chime when the prompt queue empties, so a long video render can
+  run unwatched in another window. No audio asset ships; the tone is
+  synthesized on the spot.
+
+- **Stale text and metadata cleaned up across the pack.** Image Compare
+  A/B's description and tooltip now describe the A/B toggle instead of the
+  removed hold mode; Krea 2 Outpaint Model Patch gained the `RETURN_NAMES`
+  its socket label was missing; `seek_mode`, `crop_x`/`crop_y`, and the four
+  `pad_*` inputs gained the tooltips the pack's own rules require; Frame
+  Interpolate no longer answers a "rife" search it cannot honor; and LaMa
+  Inpaint moved into the Inpaint category beside its crop/stitch companions.
+
+- **Four nodes gained the outputs real workflows kept asking for.** Stitch
+  Inpaint now also returns `blend_mask` — the feathered paste band in
+  original-image coordinates, so the docs' own stitch-then-Color-Match loop
+  wires directly. Save Video, which had no outputs at all, returns the saved
+  file's absolute path for chaining. Select Frame accepts negative frame
+  numbers counting from the end (`-1` is the last frame — the
+  feed-the-last-frame-to-I2V move). Image Size adds a `count` output for the
+  batch size. All outputs are appended, so saved workflows load unchanged.
+
+- **Six help pages caught up with their nodes.** Color Match's page (which
+  still described a single-method node), Align Image, Crop For Inpaint (ten
+  undocumented inputs), Load Image + Pad (the Krea 2 outputs), LM Studio
+  Chat (the history output and gear-menu controls), and Load Video
+  (every_nth / max_frames) now match what ships.
+
+- Fixed `tests/test_inpaint_crop_helpers.py` ending its direct run at a
+  mid-file `unittest.main()`: the two canvas-stitcher test classes defined
+  below it never executed. The block moved to the end of the file; all 68
+  tests (up from 57) run and pass.
+
+- **Load Video can pick a single frame.** A FRAME button on the preview turns
+  the trim strip into a frame picker: only the frame at the marker loads, as a
+  one-image batch ready for image workflows. Click or drag the rail to scrub,
+  or type an exact time into the AT field; playback runs the whole source
+  freely while picking, and the trim window comes back untouched when the
+  toggle turns off. Backed by a `single_frame` widget appended after the
+  existing inputs, so saved workflows keep loading unchanged.
+
 - **Image Compare A/B: nothing is drawn over the picture any more.** The
   status chip that sat in the top-left corner carried the resolution and a
   hint about how to use the panel; it covered part of the image to say

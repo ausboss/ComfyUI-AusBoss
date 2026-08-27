@@ -69,6 +69,61 @@ export function slideTrimWindow(durationValue, bounds, deltaValue) {
   return { start: nextStart, end: nextStart + length };
 }
 
+// Single-frame mode: the chosen instant, kept just inside the source so the
+// decoder always finds a frame at or after it. An unknown duration passes the
+// value through, so a typed time survives until metadata arrives.
+export function singleFrameTime(durationValue, timeValue) {
+  const duration = Math.max(0, finiteNumber(durationValue, 0));
+  const time = Math.max(0, finiteNumber(timeValue, 0));
+  if (duration <= 0) return time;
+  return Math.min(time, Math.max(0, duration - MIN_TRIM_SECONDS));
+}
+
+export function singleFrameFraction(durationValue, timeValue) {
+  const duration = Math.max(0, finiteNumber(durationValue, 0));
+  if (duration <= 0) return 0;
+  return clamp(singleFrameTime(duration, timeValue) / duration, 0, 1);
+}
+
+// Playback rate for the label, trimmed of float noise: 24 -> "24",
+// 12.5 -> "12.5", 23.976023... -> "23.976".
+export function formatFps(value) {
+  const fps = finiteNumber(value, 0);
+  if (fps <= 0) return "0";
+  return String(Number(fps.toFixed(3)));
+}
+
+// What one Run will actually load, as text for the label under the trim
+// strip - or "" when there is nothing honest to say (unknown fps, an empty
+// window). The preview cannot re-render frame drops, so it reports them
+// instead, mirroring the backend's own arithmetic (decode_video_range):
+// ceil(window x fps) frames in the trim, one kept in every_nth, capped by
+// max_frames; single-frame mode always loads exactly one.
+export function loadSummary(
+  durationValue,
+  bounds,
+  sourceFpsValue,
+  everyNthValue = 1,
+  maxFramesValue = 0,
+  singleFrame = false,
+) {
+  if (singleFrame) return "1 frame";
+  const duration = Math.max(0, finiteNumber(durationValue, 0));
+  const fps = finiteNumber(sourceFpsValue, 0);
+  if (duration <= 0 || fps <= 0) return "";
+  const start = clamp(finiteNumber(bounds?.start, 0), 0, duration);
+  const requestedEnd = finiteNumber(bounds?.end, duration);
+  const end = clamp(requestedEnd > 0 ? requestedEnd : duration, 0, duration);
+  if (end <= start) return "";
+  const nth = Math.max(1, Math.floor(finiteNumber(everyNthValue, 1)));
+  const cap = Math.max(0, Math.floor(finiteNumber(maxFramesValue, 0)));
+  let frames = Math.ceil(Math.ceil((end - start) * fps) / nth);
+  if (cap > 0) frames = Math.min(frames, cap);
+  if (frames <= 0) return "";
+  if (frames === 1) return "1 frame";
+  return `${frames} frames @ ${formatFps(fps / nth)} fps`;
+}
+
 export function clampTrimSeek(timeValue, bounds, epsilon = 0.04) {
   const time = finiteNumber(timeValue, bounds.start);
   if (time < bounds.start) return bounds.start;

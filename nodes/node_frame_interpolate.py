@@ -18,7 +18,6 @@ class AusBossFrameInterpolate:
         "interpolation",
         "fps convert",
         "slow motion",
-        "rife",
         "smooth video",
         "ausboss",
     ]

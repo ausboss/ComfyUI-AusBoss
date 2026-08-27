@@ -52,7 +52,13 @@ class AusBossVideoCropRotatePad:
                     ),
                 },
             ),
-            "seek_mode": (["frame index", "time seconds"], {"default": "frame index"}),
+            "seek_mode": (
+                ["frame index", "time seconds"],
+                {
+                    "default": "frame index",
+                    "tooltip": "Picks the frame by frame_index or by frame_time seconds; the other widget is ignored.",
+                },
+            ),
             "frame_index": (
                 "INT",
                 {"default": 0, "min": 0, "max": 100000000, "step": 1, "tooltip": "Zero-based target frame."},

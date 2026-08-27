@@ -24,6 +24,7 @@ from nodes._inpaint_crop_helpers import (
     grow_rect,
     mask_bbox,
     round_up_to_multiple,
+    stitch_blend_mask,
 )
 
 HAS_PYMATTING = importlib.util.find_spec("pymatting") is not None
@@ -705,6 +706,84 @@ class OutpaintExtendTests(unittest.TestCase):
         self.assertGreaterEqual(cw, 8 + 16)
 
 
+class BlendMaskOutputTests(unittest.TestCase):
+    """blend_mask maps the paste feather back onto the stitched image."""
+
+    def setUp(self):
+        self.image = rand_image(1, 64, 96, seed=50)
+        self.mask = box_mask(64, 96, 24, 40, 40, 56)
+
+    def test_matches_the_blend_over_the_original_window(self):
+        _c, _s, stitcher = build_crop(self.image, self.mask, 1.5, 8, 8)
+        out_mask = stitch_blend_mask(stitcher)
+        ox, oy, ow, oh = stitcher["canvas_to_original"]
+        self.assertEqual(tuple(out_mask.shape), (1, oh, ow))
+        self.assertTrue(
+            torch.equal(out_mask, stitcher["blend"][:, oy : oy + oh, ox : ox + ow])
+        )
+        # It is the feathered paste mask: intermediate values exist, and far
+        # corners the paste cannot reach stay zero.
+        self.assertTrue(bool(((out_mask > 0.0) & (out_mask < 1.0)).any()))
+        self.assertEqual(float(out_mask[:, :8, :8].max()), 0.0)
+
+    def test_shape_follows_the_stitched_image(self):
+        cropped, _s, stitcher = build_crop(self.image, self.mask, 1.5, 8, 8)
+        out = apply_stitch(stitcher, cropped)
+        out_mask = stitch_blend_mask(stitcher, out.shape[0])
+        self.assertEqual(tuple(out_mask.shape), tuple(out.shape[:3]))
+
+    def test_a_padded_canvas_slices_back_to_the_original_size(self):
+        image = rand_image(1, 32, 32, seed=51)
+        mask = box_mask(32, 32, 2, 30, 2, 30)
+        _c, _s, stitcher = build_crop(image, mask, 3.0, 4, 8)
+        self.assertGreater(stitcher["canvas"].shape[1], 32)  # really padded
+        out_mask = stitch_blend_mask(stitcher)
+        self.assertEqual(tuple(out_mask.shape), (1, 32, 32))
+
+    def test_a_single_image_stitcher_broadcasts_across_frames(self):
+        _c, _s, stitcher = build_crop(self.image, self.mask, 1.5, 8, 8)
+        single = stitch_blend_mask(stitcher, 1)
+        broadcast = stitch_blend_mask(stitcher, 4)
+        self.assertEqual(broadcast.shape[0], 4)
+        for index in range(4):
+            self.assertTrue(torch.equal(broadcast[index : index + 1], single))
+
+    def test_batches_that_cannot_broadcast_are_rejected(self):
+        image = rand_image(3, 48, 48, seed=52)
+        mask = box_mask(48, 48, 16, 32, 16, 32).repeat(3, 1, 1)
+        _c, _s, stitcher = build_crop(image, mask, 1.5, 4, 8)
+        self.assertEqual(stitcher["blend"].shape[0], 3)
+        with self.assertRaises(ValueError):
+            stitch_blend_mask(stitcher, 2)
+
+    def test_a_foreign_stitcher_is_rejected(self):
+        with self.assertRaises(ValueError):
+            stitch_blend_mask({"kind": "something_else"})
+        with self.assertRaises(ValueError):
+            stitch_blend_mask("not a dict")
+
+    def test_an_empty_mask_yields_an_empty_blend_mask(self):
+        empty = torch.zeros((1, 64, 96), dtype=torch.float32)
+        _c, _s, stitcher = build_crop(self.image, empty, 1.2, 16, 8)
+        self.assertEqual(float(stitch_blend_mask(stitcher).sum()), 0.0)
+
+    def test_the_node_returns_image_then_blend_mask(self):
+        from nodes.node_inpaint_crop_stitch import NODE_CLASS_MAPPINGS
+
+        stitch_cls = NODE_CLASS_MAPPINGS["AUSBOSS_NODES_StitchInpaint"]
+        cropped, _s, stitcher = build_crop(self.image, self.mask, 1.5, 8, 8)
+        frames = torch.cat([cropped, shuffle_pixels(cropped)], dim=0)
+        result = getattr(stitch_cls(), stitch_cls.FUNCTION)(
+            stitcher=stitcher, inpainted=frames
+        )
+        self.assertEqual(len(result), 2)
+        # BHW MASK, batched like the stitched image so downstream nodes
+        # (e.g. a color match) can consume the pair directly.
+        self.assertEqual(result[1].ndim, 3)
+        self.assertEqual(result[1].shape[0], result[0].shape[0])
+        self.assertEqual(tuple(result[1].shape[1:]), tuple(result[0].shape[1:3]))
+
+
 class NodeWiringTests(unittest.TestCase):
     def test_nodes_round_trip_through_the_public_wrappers(self):
         from nodes.node_inpaint_crop_stitch import (
@@ -728,7 +807,10 @@ class NodeWiringTests(unittest.TestCase):
         self.assertIn("AusBoss/Inpaint", crop_cls.CATEGORY)
         self.assertIn("AusBoss/Inpaint", stitch_cls.CATEGORY)
         self.assertEqual(crop_cls.RETURN_TYPES, ("IMAGE", "MASK", "AUSBOSS_STITCHER"))
-        self.assertEqual(stitch_cls.RETURN_TYPES, ("IMAGE",))
+        # blend_mask is appended after image; the existing slot never moves.
+        self.assertEqual(stitch_cls.RETURN_TYPES, ("IMAGE", "MASK"))
+        self.assertEqual(stitch_cls.RETURN_NAMES, ("image", "blend_mask"))
+        self.assertEqual(len(stitch_cls.OUTPUT_TOOLTIPS), 2)
 
         image = rand_image(1, 64, 96, seed=30)
         mask = box_mask(64, 96, 24, 40, 40, 56)
@@ -745,12 +827,11 @@ class NodeWiringTests(unittest.TestCase):
         stitch_result = getattr(stitch_cls(), stitch_cls.FUNCTION)(
             stitcher=crop_result[2], inpainted=crop_result[0]
         )
-        self.assertEqual(len(stitch_result), 1)
+        self.assertEqual(len(stitch_result), 2)
         self.assertTrue(torch.equal(stitch_result[0], image))
-
-
-if __name__ == "__main__":
-    unittest.main()
+        self.assertTrue(
+            torch.equal(stitch_result[1], stitch_blend_mask(crop_result[2]))
+        )
 
 
 class CanvasStitcherTests(unittest.TestCase):
@@ -844,3 +925,7 @@ class CanvasStitcherBboxTests(unittest.TestCase):
         self.assertTrue(
             torch.equal(apply_stitch(plain, sampled), apply_stitch(with_bbox, sampled))
         )
+
+
+if __name__ == "__main__":
+    unittest.main()

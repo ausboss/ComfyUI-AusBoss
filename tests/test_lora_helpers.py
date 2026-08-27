@@ -169,6 +169,13 @@ class LoraCivitaiSidecarTests(unittest.TestCase):
         self.assertEqual(info["civitai_model_id"], 123)
         self.assertEqual(info["civitai_version_id"], 456)
 
+    def test_lora_info_reports_file_facts(self):
+        info = _lora_helpers.lora_info("Krea 2/candid.safetensors")
+
+        stat = self.lora.stat()
+        self.assertEqual(info["size_bytes"], stat.st_size)
+        self.assertEqual(info["mtime"], stat.st_mtime)
+
     def test_invalid_sidecar_is_ignored(self):
         self.lora.with_suffix(".civitai.info").write_text("{}", encoding="utf-8")
 
