@@ -64,6 +64,7 @@ PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_MathExpression",
     "AUSBOSS_NODES_MergeBatches",
     "AUSBOSS_NODES_RefineMask",
+    "AUSBOSS_NODES_SaveImage",
     "AUSBOSS_NODES_SaveVideo",
     "AUSBOSS_NODES_SelectEveryNth",
     "AUSBOSS_NODES_SelectFrame",

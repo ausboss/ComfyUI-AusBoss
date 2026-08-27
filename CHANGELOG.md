@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 1.2.0 - 2026-08-27
 
 - **New: Replace with AusBoss nodes 🆎 (prototype).** A canvas-menu and
   command-palette action that finds third-party nodes in the open workflow —
@@ -82,6 +82,22 @@ All notable changes to ComfyUI-AusBoss are documented here.
 - **LoRA Loader: the info card states the file's size and modified date**,
   read from disk by the same route that serves its trigger words — quick
   ground truth for "which of these two 143 MB epochs is the newer one".
+
+- **New node: Save Image 🆎.** PNG or lossless JPEG XL (optional
+  `pillow-jxl-plugin`, listed as the pack's `jxl` extra), workflow
+  embedding on or off — and an `exact_name` mode that saves under exactly
+  that filename with no counter suffix, so a caption or edit pass keeps
+  the source file's name: `photo123.jpg` in, `photo123.png` out, paired
+  with the `photo123.txt` sidecar the optional `caption` input writes.
+  `on_existing` decides overwrite/skip/error, `output_dir` accepts a
+  subfolder of ComfyUI's output or an absolute dataset path, and the node
+  returns the saved `file_path`. Classic prefix+counter saving that never
+  overwrites remains the default.
+
+- **The registry description now names the nodes.** Manager search matches
+  against the description text, so "a curated collection of polished
+  nodes" told searchers nothing — it now lists every node family, and the
+  keywords grew to match.
 
 - **Image Resize never invents pixels unless explicitly asked.** In every
   target mode except `width+height` the box is derived from the source's
