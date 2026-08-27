@@ -127,12 +127,12 @@ class AlignImageNodeTests(unittest.TestCase):
 class ImageSizeNodeTests(unittest.TestCase):
     def test_reports_width_height_and_both_edges(self):
         node = AusBossImageSize()
-        self.assertEqual(node.measure(torch.zeros((2, 480, 832, 3))), (832, 480, 832, 480))
-        self.assertEqual(node.measure(torch.zeros((1, 1080, 608, 3))), (608, 1080, 1080, 608))
+        self.assertEqual(node.measure(torch.zeros((2, 480, 832, 3))), (832, 480, 832, 480, 2))
+        self.assertEqual(node.measure(torch.zeros((1, 1080, 608, 3))), (608, 1080, 1080, 608, 1))
 
     def test_square_images_agree_on_both_edges(self):
         node = AusBossImageSize()
-        self.assertEqual(node.measure(torch.zeros((1, 512, 512, 3))), (512, 512, 512, 512))
+        self.assertEqual(node.measure(torch.zeros((1, 512, 512, 3))), (512, 512, 512, 512, 1))
 
     def test_rejects_non_bhwc_input(self):
         with self.assertRaises(ValueError):

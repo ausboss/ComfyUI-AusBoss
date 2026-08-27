@@ -10,6 +10,7 @@ import {
   schemeColors,
   shouldRecolor,
   titleInk,
+  wearsLegacyScheme,
 } from "../shared/appearance.mjs";
 import { AUSBOSS_JS_VERSION, chainCallback } from "../shared/index.mjs";
 import {
@@ -220,8 +221,10 @@ app.registerExtension({
     if (!isAusbossNode(node)) return;
     installHelpBadge(node);
     // Colors restored from a saved workflow (and manual picks) land before
-    // this hook runs — an already-colored node is left alone.
-    if (node.color || node.bgcolor) return;
+    // this hook runs — an already-colored node is left alone, unless it
+    // wears a retired flagship pair: those colors were ours, so the node
+    // upgrades to the active scheme instead of keeping them forever.
+    if ((node.color || node.bgcolor) && !wearsLegacyScheme(node)) return;
     const colors = schemeColors(activeScheme, activeCustomColor);
     if (colors) applyScheme(node, colors);
   },

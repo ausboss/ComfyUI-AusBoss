@@ -555,6 +555,34 @@ def apply_stitch(
     return out[:, oy : oy + oh, ox : ox + ow, :].contiguous()
 
 
+def stitch_blend_mask(stitcher: dict, frames: int = 1) -> torch.Tensor:
+    """The feathered blend mask in original-image coordinates (BHW).
+
+    This is the very mask :func:`apply_stitch` blends with — the sampling
+    mask grown by ``blend_pixels`` and blurred — sliced out of the canvas by
+    ``canvas_to_original`` so it lines up pixel for pixel with the stitched
+    image. A single-image stitcher broadcasts across ``frames``, matching
+    the batch :func:`apply_stitch` returns, so a downstream color match or
+    composite can weight exactly the pixels the paste touched.
+    """
+    if not isinstance(stitcher, dict) or stitcher.get("kind") != STITCHER_KIND:
+        raise ValueError(
+            "Stitch Inpaint needs the stitcher output of Crop For Inpaint."
+        )
+    blend = stitcher["blend"]
+    ox, oy, ow, oh = stitcher["canvas_to_original"]
+    frames = max(1, int(frames))
+    if blend.shape[0] not in (1, frames):
+        raise ValueError(
+            f"Blend mask batch {blend.shape[0]} cannot broadcast across "
+            f"{frames} inpainted frame(s)."
+        )
+    mask = blend[:, oy : oy + oh, ox : ox + ow]
+    if mask.shape[0] == 1 and frames > 1:
+        mask = mask.expand(frames, -1, -1)
+    return mask.contiguous()
+
+
 __all__ = [
     "RESIZE_ALGORITHMS",
     "STITCHER_KIND",
@@ -562,6 +590,7 @@ __all__ = [
     "STITCHER_VERSION",
     "apply_stitch",
     "build_crop",
+    "stitch_blend_mask",
     "expand_rect_to_multiple",
     "fit_rect",
     "grow_rect",

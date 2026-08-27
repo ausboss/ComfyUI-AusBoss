@@ -502,8 +502,11 @@ def lora_info(name: str) -> dict[str, Any]:
     path = resolve_lora_path(name)
     metadata = read_safetensors_metadata(path)
     civitai = load_civitai_cache(name)
+    stat = path.stat()
     return {
         "name": name,
+        "size_bytes": stat.st_size,
+        "mtime": stat.st_mtime,
         "base_model": base_model_family(metadata) or civitai.get("base_model", ""),
         "file_triggers": file_trigger_words(metadata),
         "civitai_triggers": civitai.get("trained_words", []),

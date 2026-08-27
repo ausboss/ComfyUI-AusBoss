@@ -26,6 +26,7 @@ from nodes._video_load_helpers import (
     core_trimmed_video,
     decode_audio_range,
     decode_video_range,
+    effective_load_args,
     lazy_audio_range,
     memory_budget_error,
     output_size,
@@ -235,6 +236,15 @@ class VideoLoadHelperTests(unittest.TestCase):
             trim_window(2.0, 3.0, 0.0)
 
 
+class EffectiveLoadArgsTests(unittest.TestCase):
+    def test_trim_mode_passes_through_sanitized(self):
+        self.assertEqual(effective_load_args(False, 2.5, 2, 10), (2.5, 2, 10))
+        self.assertEqual(effective_load_args(False, 0.0, 0, -3), (0.0, 1, 0))
+
+    def test_single_frame_overrides_to_a_one_frame_open_window(self):
+        self.assertEqual(effective_load_args(True, 7.0, 4, 99), (0.0, 1, 1))
+
+
 class CoreTrimArgsTests(unittest.TestCase):
     def test_zeroes_pass_through_as_no_trim(self):
         self.assertEqual(core_trim_args(0.0, 0.0), (0.0, 0.0))
@@ -341,6 +351,30 @@ class LoadVideoNodeTests(unittest.TestCase):
             self.assertAlmostEqual(core_video.get_duration(), 1.0, delta=0.15)
         else:
             self.assertIsNone(core_video)
+
+    def test_single_frame_returns_one_frame_at_the_in_time(self):
+        # end_seconds deliberately sits before start_seconds: a stale trim
+        # window left over from trim mode must not affect a single-frame load.
+        result = run_node(
+            node_load_video.AusBossLoadVideo().load_video(
+                str(self.video), 0.5, 0.2, 0, 0, single_frame=True
+            )
+        )
+        frames, _audio, frame_count, fps, _width, _height, duration, _core = result
+        self.assertEqual(frame_count, 1)
+        self.assertEqual(int(frames.shape[0]), 1)
+        # The brightness ramp puts frame t=0.5 (index 6) at 60/255.
+        self.assertAlmostEqual(float(frames[0].mean()), 60 / 255, delta=0.08)
+        self.assertAlmostEqual(fps, FPS, places=3)
+        self.assertAlmostEqual(duration, 1 / FPS, delta=0.02)
+
+    def test_validation_ignores_the_trim_window_in_single_frame_mode(self):
+        node = node_load_video.AusBossLoadVideo
+        with patch.object(node_load_video, "resolve_input_path", lambda _name: self.video):
+            self.assertIn("start_seconds", node.VALIDATE_INPUTS("clip.mp4", 5.0, 1.0))
+            self.assertIs(
+                node.VALIDATE_INPUTS("clip.mp4", 5.0, 1.0, single_frame=True), True
+            )
 
     def test_the_node_function_is_a_coroutine(self):
         node = node_load_video.AusBossLoadVideo

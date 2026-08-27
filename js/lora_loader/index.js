@@ -13,8 +13,10 @@ import {
   clampHighlight,
   commonFolderPrefix,
   filterLoras,
+  formatFileSize,
   groupByFolder,
   highlightedName,
+  hoverRowIndex,
   applyTemplate,
   isScrubbing,
   moveHighlight,
@@ -23,10 +25,12 @@ import {
   parseRows,
   parseTemplates,
   removeTemplate,
+  reorderRows,
   roundStrength,
   scrubValue,
   serializeRows,
   setStrength,
+  thumbPosition,
   strengthOutOfRange,
   summarizeRows,
   templateFromRows,
@@ -104,6 +108,12 @@ function installStyles() {
     overflow: hidden; }
   .ausboss-lora-row { display: flex; align-items: center; gap: 6px; height: ${ROW_HEIGHT}px; }
   .ausboss-lora-row.off { opacity: 0.45; }
+  .ausboss-lora-row.dragging { opacity: 0.55; }
+  .ausboss-lora-grip { width: 14px; height: 24px; border: none; background: transparent;
+    color: #5c646c; cursor: grab; flex: none; padding: 0; display: grid; place-items: center;
+    touch-action: none; }
+  .ausboss-lora-grip:hover { color: #9ba2aa; }
+  .ausboss-lora-row.dragging .ausboss-lora-grip { cursor: grabbing; }
   .ausboss-lora-toggle { width: 30px; height: 16px; border-radius: 8px; border: none;
     background: #3a4047; cursor: pointer; position: relative; flex: none; padding: 0; }
   .ausboss-lora-toggle::after { content: ""; position: absolute; top: 2px; left: 2px;
@@ -225,6 +235,13 @@ function stripExtension(name) {
   return name.replace(/\.(safetensors|sft|ckpt|pt)$/i, "");
 }
 
+// Six-dot drag grip, hand-drawn like the shared gear so no glyph font is
+// trusted to have it.
+function gripIconSvg() {
+  const dots = [2, 7, 12].flatMap((y) => [2, 6].map((x) => `<circle cx="${x}" cy="${y}" r="1.3"/>`));
+  return `<svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor" aria-hidden="true">${dots.join("")}</svg>`;
+}
+
 function hideWidget(widget) {
   if (!widget || widget.__ausbossHidden) return;
   widget.__ausbossHidden = true;
@@ -246,10 +263,59 @@ async function fetchLoraList() {
 let activePopup = null;
 
 function closePopup() {
+  hideHoverThumb();
   if (!activePopup) return;
   activePopup.abort.abort();
   activePopup.element.remove();
   activePopup = null;
+}
+
+// ---------- hover thumbnail ----------
+
+// One floating preview image for the whole pack tab, shared by row hover and
+// the picker. Fixed-positioned and pointer-events: none, so it can never
+// shift layout or steal the cursor; it stays hidden until the image actually
+// loads, so a LoRA without a sidecar preview shows nothing at all.
+let hoverThumb = null;
+
+function ensureHoverThumb() {
+  if (hoverThumb) return hoverThumb;
+  hoverThumb = el("img", "ausboss-lora-hoverthumb");
+  hoverThumb.alt = "";
+  hoverThumb.style.display = "none";
+  hoverThumb.addEventListener("load", () => {
+    if (hoverThumb.dataset.show === "1") hoverThumb.style.display = "";
+  });
+  hoverThumb.addEventListener("error", () => { hoverThumb.style.display = "none"; });
+  document.body.append(hoverThumb);
+  return hoverThumb;
+}
+
+function moveHoverThumb(x, y) {
+  if (!hoverThumb || hoverThumb.dataset.show !== "1") return;
+  const spot = thumbPosition(x, y, window.innerWidth, window.innerHeight);
+  hoverThumb.style.left = `${spot.left}px`;
+  hoverThumb.style.top = `${spot.top}px`;
+}
+
+function showHoverThumb(state, name, x, y) {
+  if (!name || state.settings?.thumbnails === false) return;
+  const thumb = ensureHoverThumb();
+  thumb.dataset.show = "1";
+  if (thumb.dataset.name !== name) {
+    thumb.dataset.name = name;
+    thumb.style.display = "none";
+    thumb.src = api.apiURL(`/ausboss/lora/thumb?name=${encodeURIComponent(name)}`);
+  } else if (thumb.complete && thumb.naturalWidth > 0) {
+    thumb.style.display = "";
+  }
+  moveHoverThumb(x, y);
+}
+
+function hideHoverThumb() {
+  if (!hoverThumb) return;
+  hoverThumb.dataset.show = "0";
+  hoverThumb.style.display = "none";
 }
 
 function openPopup(element, anchorRect, { width } = {}) {
@@ -439,24 +505,6 @@ function openPicker(state, index, anchor) {
   let filtered = [];
   let highlight = -1;
 
-  // One floating poster image per picker; repositioned beside the popup on
-  // hover, hidden when a LoRA has no preview file.
-  const hoverThumb = el("img", "ausboss-lora-hoverthumb");
-  hoverThumb.alt = "";
-  hoverThumb.style.display = "none";
-  hoverThumb.addEventListener("error", () => { hoverThumb.style.display = "none"; });
-  pop.append(hoverThumb);
-
-  const showThumb = (name, optionRect) => {
-    if (state.settings?.thumbnails === false) return;
-    const popRect = pop.getBoundingClientRect();
-    const left = popRect.right + 188 <= window.innerWidth ? popRect.right + 6 : popRect.left - 188;
-    hoverThumb.style.left = `${Math.max(4, left)}px`;
-    hoverThumb.style.top = `${Math.min(optionRect.top, window.innerHeight - 190)}px`;
-    hoverThumb.style.display = "";
-    hoverThumb.src = api.apiURL(`/ausboss/lora/thumb?name=${encodeURIComponent(name)}`);
-  };
-
   const pick = (name) => {
     if (!name) return;
     closePopup();
@@ -472,13 +520,17 @@ function openPicker(state, index, anchor) {
     option.title = name;
     if (flatIndex === highlight) option.classList.add("highlight");
     if (name === state.rows[index].name) option.classList.add("current");
-    option.addEventListener("pointerenter", () => {
+    option.addEventListener("pointerenter", (event) => {
       if (highlight !== flatIndex) {
         highlight = flatIndex;
         renderList();
       }
-      showThumb(name, option.getBoundingClientRect());
+      showHoverThumb(state, name, event.clientX, event.clientY);
     });
+    option.addEventListener("pointermove", (event) => {
+      showHoverThumb(state, name, event.clientX, event.clientY);
+    });
+    option.addEventListener("pointerleave", hideHoverThumb);
     option.addEventListener("click", () => pick(name));
     option.dataset.ausbossFlat = String(flatIndex);
     list.append(option);
@@ -488,7 +540,7 @@ function openPicker(state, index, anchor) {
     filtered = filterLoras(names, search.value);
     highlight = clampHighlight(highlight, filtered.length);
     list.textContent = "";
-    hoverThumb.style.display = "none";
+    hideHoverThumb();
     if (!filtered.length) {
       list.append(el("div", "ausboss-lora-empty",
         names.length ? "No matches." : "Put LoRA files in models/loras."));
@@ -571,6 +623,13 @@ function openInfo(state, index, anchor) {
     if (info.has_preview) card.append(image);
     card.append(el("h4", "", info.civitai_title || displayName(state, row.name)));
     if (info.base_model) card.append(el("div", "ausboss-lora-meta", `Base model: ${info.base_model}`));
+    const size = formatFileSize(info.size_bytes);
+    if (size) {
+      const when = Number.isFinite(info.mtime)
+        ? ` · modified ${new Date(info.mtime * 1000).toLocaleDateString()}`
+        : "";
+      card.append(el("div", "ausboss-lora-meta", `${size}${when}`));
+    }
     if (Number.isInteger(info.civitai_model_id)) {
       const link = el("a", "ausboss-lora-civitai-link", "View on Civitai ↗");
       const version = Number.isInteger(info.civitai_version_id)
@@ -935,6 +994,44 @@ function renderRows(state) {
     const rowElement = el("div", "ausboss-lora-row");
     if (!row.enabled) rowElement.classList.add("off");
 
+    const grip = el("button", "ausboss-lora-grip");
+    grip.type = "button";
+    grip.title = "Drag to reorder";
+    grip.innerHTML = gripIconSvg();
+    grip.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || state.rows.length < 2) return;
+      event.preventDefault();
+      grip.setPointerCapture(event.pointerId);
+      hideHoverThumb();
+      rowElement.classList.add("dragging");
+      let current = index;
+      const rowElements = () => Array.from(stack.querySelectorAll(".ausboss-lora-row"));
+      const onMove = (moveEvent) => {
+        const elements = rowElements();
+        const centers = elements.map((element) => {
+          const rect = element.getBoundingClientRect();
+          return rect.top + rect.height / 2;
+        });
+        const target = hoverRowIndex(centers, moveEvent.clientY);
+        if (target === current || target < 0) return;
+        // Live preview shuffles only the DOM; the serialized stack changes
+        // once, on drop, so an abandoned drag never dirties the widget.
+        if (target > current) elements[target].after(rowElement);
+        else elements[target].before(rowElement);
+        current = target;
+      };
+      const finish = (commit) => {
+        grip.removeEventListener("pointermove", onMove);
+        rowElement.classList.remove("dragging");
+        if (current === index) return;
+        if (commit) commitRows(state, reorderRows(state.rows, index, current), { structural: true });
+        else renderRows(state);
+      };
+      grip.addEventListener("pointermove", onMove);
+      grip.addEventListener("pointerup", () => finish(true), { once: true });
+      grip.addEventListener("pointercancel", () => finish(false), { once: true });
+    });
+
     const toggle = el("button", `ausboss-lora-toggle${row.enabled ? " on" : ""}`);
     toggle.type = "button";
     toggle.title = "Enable or disable this LoRA";
@@ -950,11 +1047,16 @@ function renderRows(state) {
     name.title = row.name || "Pick a LoRA from models/loras";
     if (!row.name) name.classList.add("empty");
     name.addEventListener("click", () => openPicker(state, index, name));
+    name.addEventListener("pointerenter", (event) =>
+      showHoverThumb(state, row.name, event.clientX, event.clientY));
+    name.addEventListener("pointermove", (event) =>
+      showHoverThumb(state, row.name, event.clientX, event.clientY));
+    name.addEventListener("pointerleave", hideHoverThumb);
 
     const strength = strengthBox(state, index, "strength");
     strength.__ausbossRead = () => state.rows[index]?.strength.toFixed(2) ?? "1.00";
     strength.__ausbossTint = () => state.rows[index] && applyRangeTint(strength, state.rows[index], "strength");
-    rowElement.append(toggle, name, strength);
+    rowElement.append(grip, toggle, name, strength);
     if (!linked(state)) {
       const clip = strengthBox(state, index, "strength_clip");
       clip.__ausbossRead = () => state.rows[index]?.strength_clip.toFixed(2) ?? "1.00";

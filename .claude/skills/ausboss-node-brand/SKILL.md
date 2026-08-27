@@ -50,8 +50,10 @@ the `AUSBOSS_NODES_` prefix, so they stay uncolored on purpose.
   source of truth. Adding a scheme means adding one table row; the tests in
   `tests/appearance.test.mjs` validate it automatically. Title is always
   darker than body in the muted rows; the flagship "AusBoss" row (the
-  pack-wide default) pairs the teal title with a near-black body. Values are
-  tuned against the dark canvas.
+  pack-wide default) pairs a deep slate-teal title with a near-black body.
+  Values are tuned against the dark canvas. A retired flagship pair goes
+  into `LEGACY_SCHEME_PAIRS` so saved workflows upgrade instead of keeping
+  the old colors as if the user had picked them.
 - Coloring is automatic: `js/appearance/index.js` targets every class whose
   `comfyClass` starts with `AUSBOSS_NODES_` (plus the `SimpleWatermarkRemover`
   alias). New nodes need zero per-node color work.
@@ -83,6 +85,12 @@ the `AUSBOSS_NODES_` prefix, so they stay uncolored on purpose.
   save/load, undo, and API format work through LiteGraph's default path.
 - Chain lifecycle hooks with `chainCallback` from `js/shared/index.mjs`;
   never assign prototype callbacks directly.
+- Panels that display something (stage, player, filmstrip) follow the node's
+  height through `fillNodeHeight` (`js/shared/panel_layout.mjs`); only
+  constant-height rows (a toolbar, a button row) may keep a fixed
+  `computeSize`. `tests/panel_guards.test.mjs` holds the pack-wide roster —
+  register every new panel there as `mustGrow` or `fixedByDesign`, and
+  re-review the classification whenever what a panel displays changes.
 - Build API URLs through the `api` module helpers — never write root-relative
   strings like `/view?...`, which break behind proxies and hosted frontends.
 

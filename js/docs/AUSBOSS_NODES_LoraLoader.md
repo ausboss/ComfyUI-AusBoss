@@ -7,6 +7,9 @@ come out of one socket, ready to wire into a prompt.
 
 ## Rows
 
+- **grip** (the dotted handle): Drag up or down to reorder the stack. LoRAs
+  apply in row order, so the order is part of the recipe; the move commits
+  when you drop, and a cancelled drag changes nothing.
 - **toggle**: Enable or disable the row without losing its settings.
 - **name**: Opens the picker. Type to search, use **Arrow Up/Down** to
   highlight, **Enter** to select, **Escape** to close. The list is refreshed
@@ -14,11 +17,23 @@ come out of one socket, ready to wire into a prompt.
 - **strength**: Drag left/right on the number to scrub it, click to type an
   exact value, or use the arrow keys. Hold **Shift** while scrubbing or
   stepping for fine 0.01 moves. Range is -10 to 10.
-- **i**: Preview image, base model, and trigger words for that LoRA.
+- **i**: Info card with the preview image, base model, file size and
+  modified date, and trigger words for that LoRA.
 
-Right-click a row to move, duplicate, or remove it. The **linked** button in
-the footer controls whether one strength drives both model and CLIP or the
-row shows a separate CLIP strength.
+Right-click a row to move, duplicate, or remove it. Whether one strength
+drives both model and CLIP or the row shows a separate CLIP strength is the
+gear menu's **Separate model / CLIP strength** switch — stored on the node
+itself, so each node keeps its own mode across save and load. Stacks saved
+with a single strength load as equal model/CLIP values.
+
+## Preview thumbnails
+
+Hovering a row's name — or any entry in the picker — floats a small preview
+beside the cursor when a sidecar image sits next to the LoRA file (same
+basename: `.preview.png` / `.preview.jpg` / `.preview.jpeg` / `.preview.webp`,
+or the bare `.png` / `.jpg` / `.jpeg` / `.webp`). No sidecar, no thumbnail —
+nothing appears and nothing shifts. The gear menu's **Preview thumbnails**
+switch turns the behavior off.
 
 ## Trigger words
 

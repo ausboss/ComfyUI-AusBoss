@@ -69,6 +69,12 @@ boundary rather than playing out to the end.
 ## Outputs
 
 - **image**: The original-size image with the inpainted region blended in.
+- **blend_mask**: The feathered paste mask in the stitched image's own
+  coordinates — white where the inpaint blended in, zero where the original
+  survived untouched. Wire it into a color-match or compositing node to
+  treat exactly the pasted region without rebuilding the mask by hand. It
+  is batched like **image**, so a single-image stitcher broadcasting across
+  a frame batch hands every frame its mask.
 
 ## Wiring
 

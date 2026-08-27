@@ -46,3 +46,11 @@ exactly the padding, ready for an inpainter.
 - **mask**: The outpaint mask (white = padding, feathered per `feather`).
 - **width / height**: The final canvas size — the badge's numbers as INTs,
   for wiring into latent nodes.
+- **stitcher**: Hand to **Stitch Inpaint 🆎** with the sampled result to
+  keep only the new padding and restore the original pixels bit-identically
+  — whatever the sampler did inside the source area is discarded. It also
+  records where the source sits on the canvas, which **Krea 2 Outpaint
+  Model Patch 🆎** reads to place the reference.
+- **reference**: The source alone, no padding, fitted to a small multiple
+  of 16 — the reference image for **Krea 2 Encode 🆎** and other
+  reference conditioning. Wire it nowhere and nothing is computed.

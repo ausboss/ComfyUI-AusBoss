@@ -204,6 +204,21 @@ def decode_video_range(
     return batch, fps
 
 
+def effective_load_args(
+    single_frame: bool, end_seconds: float, every_nth: int, max_frames: int
+) -> tuple[float, int, int]:
+    """Decode args for the trim, or the one-frame override when single_frame is on.
+
+    Single-frame mode reuses the whole trim pipeline unchanged: an open end
+    window with a one-frame cap stops the decode at the first frame at or
+    after start_seconds, so the audio window, duration, and core VIDEO trim
+    all describe exactly that frame.
+    """
+    if single_frame:
+        return 0.0, 1, 1
+    return float(end_seconds), max(1, int(every_nth)), max(0, int(max_frames))
+
+
 def core_trim_args(start_seconds: float, end_seconds: float) -> tuple[float, float]:
     """Map the node's start/end widgets onto core's (start_time, duration).
 
@@ -328,6 +343,7 @@ __all__ = [
     "core_trimmed_video",
     "decode_audio_range",
     "decode_video_range",
+    "effective_load_args",
     "lazy_audio_range",
     "memory_budget_error",
     "output_size",

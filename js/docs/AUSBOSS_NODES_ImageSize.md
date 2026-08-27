@@ -1,7 +1,7 @@
 # Image Size
 
 Reads an image's dimensions and hands them out as INTs: **width**,
-**height**, **longest_edge**, and **shortest_edge**.
+**height**, **longest_edge**, **shortest_edge**, and **count**.
 
 Wire them wherever a workflow wants numbers that must match the actual
 image — an Empty Latent sized to the source, a resize keyed off the longest
@@ -15,9 +15,11 @@ wire, they can never drift out of date the way retyped numbers do.
   keys on.
 - **shortest_edge**: `min(width, height)` — the number crop-to-fill and
   many preprocessing pipelines key on.
+- **count**: The number of images in the batch — `1` for a single image,
+  the frame count for video frames.
 
 ## Notes
 
 A batch reports the size its frames share (IMAGE batches are uniform by
 construction). The node does no work worth caching or canceling — it reads
-two numbers off the tensor's shape.
+its numbers off the tensor's shape.

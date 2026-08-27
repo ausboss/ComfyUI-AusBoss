@@ -10,15 +10,19 @@ import {
   clampStrength,
   commonFolderPrefix,
   filterLoras,
+  formatFileSize,
   groupByFolder,
   highlightedName,
+  hoverRowIndex,
   isScrubbing,
   moveHighlight,
   moveRow,
   newRow,
   normalizeRows,
   parseRows,
+  reorderRows,
   roundStrength,
+  thumbPosition,
   scrubValue,
   serializeRows,
   setStrength,
@@ -63,6 +67,45 @@ test("moveRow reorders within bounds and ignores impossible moves", () => {
   assert.deepEqual(moved.map((r) => r.name), ["a", "c", "b"]);
   assert.equal(moveRow(rows, 0, -1), rows);
   assert.equal(moveRow(rows, 2, 1), rows);
+});
+
+test("reorderRows drops a row into any slot and rejects impossible moves", () => {
+  const rows = normalizeRows([{ name: "a" }, { name: "b" }, { name: "c" }, { name: "d" }]);
+  assert.deepEqual(reorderRows(rows, 0, 2).map((r) => r.name), ["b", "c", "a", "d"]);
+  assert.deepEqual(reorderRows(rows, 3, 0).map((r) => r.name), ["d", "a", "b", "c"]);
+  assert.equal(reorderRows(rows, 1, 1), rows, "no-op move returns the same array");
+  assert.equal(reorderRows(rows, -1, 2), rows);
+  assert.equal(reorderRows(rows, 0, 4), rows);
+  const moved = reorderRows(rows, 0, 2);
+  assert.equal(moved[2], rows[0], "row objects move untouched, not copied");
+});
+
+test("hoverRowIndex maps a pointer y to the visual slot it is over", () => {
+  const centers = [15, 45, 75];
+  assert.equal(hoverRowIndex(centers, 0), 0, "above everything is the first slot");
+  assert.equal(hoverRowIndex(centers, 30), 1);
+  assert.equal(hoverRowIndex(centers, 60), 2);
+  assert.equal(hoverRowIndex(centers, 500), 2, "past the last center stays on the last slot");
+  assert.equal(hoverRowIndex([], 10), -1, "an empty stack has no slot");
+});
+
+test("thumbPosition trails the cursor and flips or clamps at the edges", () => {
+  assert.deepEqual(thumbPosition(100, 100, 1000, 800), { left: 114, top: 114 });
+  const flipped = thumbPosition(950, 100, 1000, 800);
+  assert.equal(flipped.left, 950 - 188 - 14, "flips to the cursor's left at the right edge");
+  const clamped = thumbPosition(100, 780, 1000, 800);
+  assert.equal(clamped.top, 800 - 188, "pins above the bottom edge");
+  assert.equal(thumbPosition(2, 2, 100, 100).left, 4, "never goes off-screen");
+});
+
+test("formatFileSize picks a sane unit and hides junk", () => {
+  assert.equal(formatFileSize(512), "512 B");
+  assert.equal(formatFileSize(1536), "1.5 KB");
+  assert.equal(formatFileSize(Math.round(143.4 * 1024 * 1024)), "143.4 MB");
+  assert.equal(formatFileSize(150 * 1024 * 1024), "150 MB", "a whole value drops the .0");
+  assert.equal(formatFileSize(2.5 * 1024 ** 3), "2.5 GB");
+  assert.equal(formatFileSize(-1), "");
+  assert.equal(formatFileSize("junk"), "");
 });
 
 test("setStrength mirrors to clip only while linked", () => {

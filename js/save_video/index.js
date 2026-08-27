@@ -2,6 +2,8 @@ import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { fillNodeHeight } from "../shared/panel_layout.mjs";
+import { formatWidgetVisibility } from "../shared/save_video_formats.mjs";
+import { setWidgetVisible } from "../shared/widget_visibility.mjs";
 import {
   findVideoMetadata,
   mediaInfo,
@@ -44,6 +46,37 @@ function installFilenameTokens(node) {
     } catch {
       return raw;
     }
+  };
+}
+
+// Only the widgets the chosen format actually reads stay on the face: crf
+// disappears for the formats with no quality number, save_metadata for the
+// Pillow formats that cannot carry it. Hidden widgets keep their place and
+// their serialized value (widget_visibility collapses rendering only), so
+// widgets_values order never changes and switching back restores the number
+// the user had. The preview stage fills the node's height, so freed rows go
+// to it and no resize is needed.
+function syncFormatWidgets(node) {
+  const format = node.widgets?.find((item) => item.name === "format");
+  if (!format) return;
+  const wants = formatWidgetVisibility(String(format.value));
+  let changed = false;
+  for (const [name, visible] of Object.entries(wants)) {
+    const target = node.widgets?.find((item) => item.name === name);
+    if (target && setWidgetVisible(target, visible)) changed = true;
+  }
+  if (changed) node.setDirtyCanvas?.(true, true);
+}
+
+function watchFormatWidget(node) {
+  const format = node.widgets?.find((item) => item.name === "format");
+  if (!format || format.__ausbossFormatWatch) return;
+  format.__ausbossFormatWatch = true;
+  const prior = format.callback;
+  format.callback = function (...args) {
+    const result = prior?.apply(this, args);
+    syncFormatWidgets(node);
+    return result;
   };
 }
 
@@ -180,6 +213,8 @@ app.registerExtension({
     chainCallback(nodeType.prototype, "onNodeCreated", function () {
       buildPreview(this);
       installFilenameTokens(this);
+      watchFormatWidget(this);
+      syncFormatWidgets(this);
       // Only for a genuinely new node: onConfigure restores a saved size after
       // this runs, so a workflow's own dimensions still win.
       this.setSize?.([
@@ -191,6 +226,9 @@ app.registerExtension({
       queueMicrotask(() => {
         buildPreview(this);
         suppressCoreVideoPreview(this);
+        // Restored widget values land after creation; re-sync visibility to
+        // the loaded format without touching the values themselves.
+        syncFormatWidgets(this);
       });
     });
     chainCallback(nodeType.prototype, "onExecuted", function (message) {

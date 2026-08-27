@@ -11,7 +11,7 @@ LEGACY_NODE_ID = "SimpleWatermarkRemover"
 
 
 class AusBossLaMaInpaint:
-    CATEGORY = "🆎 AusBoss/Image"
+    CATEGORY = "🆎 AusBoss/Inpaint"
     DESCRIPTION = (
         "Removes masked content with a TorchScript LaMa model while preserving "
         "unmasked pixels. Models are read from ComfyUI/models/lama and are never "

@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from ._inpaint_crop_helpers import RESIZE_ALGORITHMS, apply_stitch, build_crop
+from ._inpaint_crop_helpers import (
+    RESIZE_ALGORITHMS,
+    apply_stitch,
+    build_crop,
+    stitch_blend_mask,
+)
 
 
 CROP_NODE_ID = "AUSBOSS_NODES_CropForInpaint"
@@ -319,7 +324,9 @@ class AusBossStitchInpaint:
         "the stitcher. Pixels outside the blend region are bit-identical to "
         "the original — they never pass through a resize. A stitcher built "
         "from one image broadcasts across an inpainted frame batch. Turn on "
-        "fix_edge_halo when the seam shows a dark or light rim."
+        "fix_edge_halo when the seam shows a dark or light rim. The "
+        "blend_mask output is the feathered paste mask in the stitched "
+        "image's own coordinates, ready for a downstream color match."
     )
     SEARCH_ALIASES = [
         "stitch inpaint",
@@ -365,16 +372,21 @@ class AusBossStitchInpaint:
             },
         }
 
-    RETURN_TYPES = ("IMAGE",)
-    RETURN_NAMES = ("image",)
+    RETURN_TYPES = ("IMAGE", "MASK")
+    RETURN_NAMES = ("image", "blend_mask")
     OUTPUT_TOOLTIPS = (
         "Original-size image with the inpainted crop blended in; pixels "
         "outside the blend region are untouched.",
+        "The feathered paste mask in the stitched image's coordinates - "
+        "white where the inpaint blended in, zero where the original "
+        "survived. Wire it to a color-match or compositing node to treat "
+        "exactly the pasted region without rebuilding the mask.",
     )
     FUNCTION = "stitch"
 
     def stitch(self, stitcher, inpainted, fix_edge_halo=False):
-        return (apply_stitch(stitcher, inpainted, bool(fix_edge_halo)),)
+        image = apply_stitch(stitcher, inpainted, bool(fix_edge_halo))
+        return (image, stitch_blend_mask(stitcher, image.shape[0]))
 
 
 NODE_CLASS_MAPPINGS = {

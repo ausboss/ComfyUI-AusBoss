@@ -4,11 +4,12 @@
 
 // Each scheme pairs a title-bar color with a body color tuned against
 // ComfyUI's dark canvas. `colors: null` means "leave the theme's default
-// colors alone". The flagship AusBoss row is the brand look the video nodes
-// shipped with — teal title over a near-black body — and is the pack-wide
-// default; the muted rows keep title darker than body.
+// colors alone". The flagship AusBoss row is the pack-wide default — a deep
+// slate-teal title over a near-black body (chosen 2026-08 over the original
+// bright teal, which lives on in LEGACY_SCHEME_PAIRS below so old saved
+// workflows upgrade); the muted rows keep title darker than body.
 export const NODE_COLOR_SCHEMES = [
-  { name: "AusBoss", colors: { title: "#007f78", body: "#081413" } },
+  { name: "AusBoss", colors: { title: "#14424d", body: "#161f21" } },
   { name: "Theme default", colors: null },
   { name: "Graphite", colors: { title: "#242424", body: "#2f2f2f" } },
   { name: "Slate", colors: { title: "#1f2c38", body: "#2a3b4a" } },
@@ -29,6 +30,22 @@ export const CUSTOM_SCHEME = "Custom";
 export const SCHEME_NAMES = [...NODE_COLOR_SCHEMES.map((scheme) => scheme.name), CUSTOM_SCHEME];
 
 const normalize = (value) => (typeof value === "string" ? value.trim().toLowerCase() : "");
+
+// Color pairs earlier releases shipped as the flagship default. A node
+// restored from a saved workflow wearing one of these was colored by us,
+// not by the user, so it upgrades to the active scheme on creation instead
+// of being protected as a manual pick.
+export const LEGACY_SCHEME_PAIRS = [
+  { title: "#007f78", body: "#081413" }, // flagship bright teal through 2026-08
+];
+
+export function wearsLegacyScheme(node) {
+  const color = normalize(node?.color);
+  const bgcolor = normalize(node?.bgcolor);
+  return LEGACY_SCHEME_PAIRS.some(
+    (pair) => color === pair.title && bgcolor === pair.body,
+  );
+}
 
 // ComfyUI's color setting stores bare hex without "#" (the PrimeVue picker
 // contract), and its free-text field also accepts 8-digit hex. Normalize

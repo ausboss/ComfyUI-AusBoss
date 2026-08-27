@@ -11,7 +11,7 @@ export {
 
 export const VIDEO_MIN_WIDTH = 220;
 
-const CSS_ID = "ausboss-video-ui-v3";
+const CSS_ID = "ausboss-video-ui-v4";
 
 export function ensureVideoCss() {
   if (document.getElementById(CSS_ID)) return;
@@ -47,6 +47,10 @@ export function ensureVideoCss() {
 .ausboss-video-value input{box-sizing:border-box;width:66px;min-width:0;padding:2px 4px;border:1px solid transparent;border-radius:3px;outline:none;background:transparent;color:#d8eeee;font:11px/1.2 "Segoe UI",sans-serif;}
 .ausboss-video-value input:hover,.ausboss-video-value input:focus{border-color:rgba(0,180,170,.55);background:rgba(0,0,0,.28);}
 .ausboss-video-duration{overflow:hidden;color:#8ba3a1;text-align:center;white-space:nowrap;text-overflow:ellipsis;}
+.ausboss-video-root.is-single-frame .ausboss-video-selection{display:none;}
+.ausboss-video-root.is-single-frame .ausboss-video-handle.is-end{display:none;}
+.ausboss-video-root.is-single-frame .ausboss-video-value.is-end{visibility:hidden;}
+.ausboss-video-root.is-single-frame .ausboss-video-loop{display:none;}
 `;
   document.head.appendChild(style);
 }

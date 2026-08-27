@@ -98,6 +98,12 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   use `[project.optional-dependencies]` and fail soft at runtime.
 - Frontend JS never assigns prototype callbacks directly — use
   `chainCallback` from `js/shared/index.mjs`.
+- A DOM panel that shows a stage/preview claims the node's free height via
+  `fillNodeHeight` from `js/shared/panel_layout.mjs` — never a hand-rolled
+  `computeSize`, which pins the panel and leaves dead space when the node is
+  dragged taller. `tests/panel_guards.test.mjs` enforces this pack-wide: a
+  new panel entry must be added to its `mustGrow` set (or `fixedByDesign`
+  for genuinely constant-height rows), so the choice is always explicit.
 - Frontend settings use `AusBoss.<Area>.<Name>` ids with
   `category: ["🆎 AusBoss", "<Area>", "<Leaf>"]` and a distinct leaf per
   setting. Node color schemes live in `js/shared/appearance.mjs`.

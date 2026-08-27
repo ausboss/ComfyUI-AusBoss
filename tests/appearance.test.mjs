@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   CUSTOM_SCHEME,
   DEFAULT_SCHEME,
+  LEGACY_SCHEME_PAIRS,
   NODE_COLOR_SCHEMES,
   SCHEME_NAMES,
   collectGraphNodes,
@@ -13,6 +14,7 @@ import {
   schemeColors,
   shouldRecolor,
   titleInk,
+  wearsLegacyScheme,
 } from "../js/shared/appearance.mjs";
 
 test("scheme table is well formed", () => {
@@ -149,6 +151,22 @@ test("a menu-picked scheme survives a settings sweep", () => {
   const picked = { color: plum.title, bgcolor: plum.body };
   assert.equal(shouldRecolor(picked, schemeColors("Teal")), false);
   assert.equal(shouldRecolor(picked, null), false);
+});
+
+test("retired flagship pairs upgrade instead of counting as manual picks", () => {
+  assert.equal(wearsLegacyScheme({ color: "#007f78", bgcolor: "#081413" }), true);
+  assert.equal(wearsLegacyScheme({ color: " #007F78 ", bgcolor: "#081413" }), true);
+  // Half-matching means the user edited one channel: protected, not upgraded.
+  assert.equal(wearsLegacyScheme({ color: "#123456", bgcolor: "#081413" }), false);
+  assert.equal(wearsLegacyScheme({}), false);
+  // No shipped scheme may reuse a retired title, or the sweep logic and the
+  // upgrade path would fight over the same nodes.
+  for (const scheme of NODE_COLOR_SCHEMES) {
+    if (!scheme.colors) continue;
+    for (const pair of LEGACY_SCHEME_PAIRS) {
+      assert.notEqual(scheme.colors.title, pair.title, scheme.name);
+    }
+  }
 });
 
 test("titleInk keeps light ink on every shipped scheme", () => {

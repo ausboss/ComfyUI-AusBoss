@@ -1,0 +1,1253 @@
+{
+ "last_node_id": 20,
+ "last_link_id": 26,
+ "nodes": [
+  {
+   "id": 1,
+   "type": "AUSBOSS_NODES_LoadVideo",
+   "pos": [
+    40,
+    200
+   ],
+   "size": [
+    380,
+    620
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [
+    {
+     "name": "frames",
+     "type": "IMAGE",
+     "links": [
+      1
+     ],
+     "slot_index": 0
+    },
+    {
+     "name": "audio",
+     "type": "AUDIO",
+     "links": [
+      18
+     ],
+     "slot_index": 1
+    },
+    {
+     "name": "frame_count",
+     "type": "INT",
+     "links": [],
+     "slot_index": 2
+    },
+    {
+     "name": "fps",
+     "type": "FLOAT",
+     "links": [
+      11,
+      13
+     ],
+     "slot_index": 3
+    },
+    {
+     "name": "width",
+     "type": "INT",
+     "links": [],
+     "slot_index": 4
+    },
+    {
+     "name": "height",
+     "type": "INT",
+     "links": [],
+     "slot_index": 5
+    },
+    {
+     "name": "duration",
+     "type": "FLOAT",
+     "links": [],
+     "slot_index": 6
+    },
+    {
+     "name": "video",
+     "type": "VIDEO",
+     "links": [],
+     "slot_index": 7
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_LoadVideo"
+   },
+   "widgets_values": [
+    "choose_a_video.mp4",
+    0.0,
+    3.0,
+    0,
+    0,
+    2,
+    72,
+    false
+   ]
+  },
+  {
+   "id": 2,
+   "type": "AUSBOSS_NODES_SelectEveryNth",
+   "pos": [
+    500,
+    200
+   ],
+   "size": [
+    250,
+    102
+   ],
+   "flags": {},
+   "order": 1,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "images",
+     "type": "IMAGE",
+     "link": 1
+    }
+   ],
+   "outputs": [
+    {
+     "name": "images",
+     "type": "IMAGE",
+     "links": [
+      2
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_SelectEveryNth"
+   },
+   "widgets_values": [
+    1,
+    0
+   ]
+  },
+  {
+   "id": 3,
+   "type": "AUSBOSS_NODES_SplitBatch",
+   "pos": [
+    810,
+    200
+   ],
+   "size": [
+    250,
+    78
+   ],
+   "flags": {},
+   "order": 2,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "images",
+     "type": "IMAGE",
+     "link": 2
+    }
+   ],
+   "outputs": [
+    {
+     "name": "a",
+     "type": "IMAGE",
+     "links": [
+      3
+     ],
+     "slot_index": 0
+    },
+    {
+     "name": "b",
+     "type": "IMAGE",
+     "links": [
+      4
+     ],
+     "slot_index": 1
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_SplitBatch"
+   },
+   "widgets_values": [
+    8
+   ]
+  },
+  {
+   "id": 4,
+   "type": "AUSBOSS_NODES_MergeBatches",
+   "pos": [
+    1120,
+    200
+   ],
+   "size": [
+    250,
+    102
+   ],
+   "flags": {},
+   "order": 3,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "a",
+     "type": "IMAGE",
+     "link": 3
+    },
+    {
+     "name": "b",
+     "type": "IMAGE",
+     "link": 4
+    }
+   ],
+   "outputs": [
+    {
+     "name": "images",
+     "type": "IMAGE",
+     "links": [
+      5
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_MergeBatches"
+   },
+   "widgets_values": [
+    "resize to a"
+   ]
+  },
+  {
+   "id": 5,
+   "type": "AUSBOSS_NODES_ImageResize",
+   "pos": [
+    1430,
+    200
+   ],
+   "size": [
+    290,
+    320
+   ],
+   "flags": {},
+   "order": 4,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "image",
+     "type": "IMAGE",
+     "link": 5
+    },
+    {
+     "name": "mask",
+     "type": "MASK",
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "name": "image",
+     "type": "IMAGE",
+     "links": [
+      6,
+      7
+     ],
+     "slot_index": 0
+    },
+    {
+     "name": "mask",
+     "type": "MASK",
+     "links": [
+      8
+     ],
+     "slot_index": 1
+    },
+    {
+     "name": "width",
+     "type": "INT",
+     "links": [],
+     "slot_index": 2
+    },
+    {
+     "name": "height",
+     "type": "INT",
+     "links": [],
+     "slot_index": 3
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_ImageResize"
+   },
+   "widgets_values": [
+    "width+height",
+    512,
+    512,
+    512,
+    1.0,
+    0.5,
+    "pad",
+    "#14424d",
+    16,
+    "lanczos"
+   ]
+  },
+  {
+   "id": 6,
+   "type": "AUSBOSS_NODES_RefineMask",
+   "pos": [
+    1430,
+    620
+   ],
+   "size": [
+    290,
+    260
+   ],
+   "flags": {},
+   "order": 5,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "mask",
+     "type": "MASK",
+     "link": 8
+    },
+    {
+     "name": "guide_image",
+     "type": "IMAGE",
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "name": "mask",
+     "type": "MASK",
+     "links": [
+      9
+     ],
+     "slot_index": 0
+    },
+    {
+     "name": "mask_inverted",
+     "type": "MASK",
+     "links": [],
+     "slot_index": 1
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_RefineMask"
+   },
+   "widgets_values": [
+    0,
+    4.0,
+    false,
+    0,
+    0.0,
+    1.0,
+    "off"
+   ]
+  },
+  {
+   "id": 7,
+   "type": "AUSBOSS_NODES_Float",
+   "pos": [
+    1500,
+    950
+   ],
+   "size": [
+    210,
+    60
+   ],
+   "flags": {},
+   "order": 6,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [
+    {
+     "name": "float",
+     "type": "FLOAT",
+     "links": [
+      10
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_Float"
+   },
+   "widgets_values": [
+    1.0
+   ]
+  },
+  {
+   "id": 8,
+   "type": "AUSBOSS_NODES_ColorMatch",
+   "pos": [
+    1810,
+    200
+   ],
+   "size": [
+    290,
+    230
+   ],
+   "flags": {},
+   "order": 7,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "image",
+     "type": "IMAGE",
+     "link": 6
+    },
+    {
+     "name": "reference",
+     "type": "IMAGE",
+     "link": null
+    },
+    {
+     "name": "mask",
+     "type": "MASK",
+     "link": 9
+    },
+    {
+     "name": "strength",
+     "type": "FLOAT",
+     "link": 10,
+     "widget": {
+      "name": "strength"
+     }
+    }
+   ],
+   "outputs": [
+    {
+     "name": "image",
+     "type": "IMAGE",
+     "links": [
+      12,
+      23,
+      24
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_ColorMatch"
+   },
+   "widgets_values": [
+    1.0,
+    "lab",
+    true,
+    "first_frame"
+   ]
+  },
+  {
+   "id": 9,
+   "type": "AUSBOSS_NODES_ImageSize",
+   "pos": [
+    1810,
+    520
+   ],
+   "size": [
+    250,
+    130
+   ],
+   "flags": {},
+   "order": 8,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "image",
+     "type": "IMAGE",
+     "link": 7
+    }
+   ],
+   "outputs": [
+    {
+     "name": "width",
+     "type": "INT",
+     "links": [],
+     "slot_index": 0
+    },
+    {
+     "name": "height",
+     "type": "INT",
+     "links": [],
+     "slot_index": 1
+    },
+    {
+     "name": "longest_edge",
+     "type": "INT",
+     "links": [],
+     "slot_index": 2
+    },
+    {
+     "name": "shortest_edge",
+     "type": "INT",
+     "links": [],
+     "slot_index": 3
+    },
+    {
+     "name": "count",
+     "type": "INT",
+     "links": [
+      15
+     ],
+     "slot_index": 4
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_ImageSize"
+   },
+   "widgets_values": []
+  },
+  {
+   "id": 10,
+   "type": "AUSBOSS_NODES_MathExpression",
+   "pos": [
+    1810,
+    750
+   ],
+   "size": [
+    270,
+    150
+   ],
+   "flags": {},
+   "order": 9,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "a",
+     "type": "FLOAT",
+     "link": 11,
+     "widget": {
+      "name": "a"
+     }
+    },
+    {
+     "name": "b",
+     "type": "FLOAT",
+     "link": null,
+     "widget": {
+      "name": "b"
+     }
+    },
+    {
+     "name": "c",
+     "type": "FLOAT",
+     "link": null,
+     "widget": {
+      "name": "c"
+     }
+    }
+   ],
+   "outputs": [
+    {
+     "name": "float",
+     "type": "FLOAT",
+     "links": [
+      14
+     ],
+     "slot_index": 0
+    },
+    {
+     "name": "int",
+     "type": "INT",
+     "links": [],
+     "slot_index": 1
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_MathExpression"
+   },
+   "widgets_values": [
+    "a * 2",
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "id": 11,
+   "type": "AUSBOSS_NODES_FrameInterpolate",
+   "pos": [
+    2170,
+    200
+   ],
+   "size": [
+    290,
+    230
+   ],
+   "flags": {},
+   "order": 10,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "frames",
+     "type": "IMAGE",
+     "link": 12
+    },
+    {
+     "name": "source_fps",
+     "type": "FLOAT",
+     "link": 13,
+     "widget": {
+      "name": "source_fps"
+     }
+    },
+    {
+     "name": "target_fps",
+     "type": "FLOAT",
+     "link": 14,
+     "widget": {
+      "name": "target_fps"
+     }
+    },
+    {
+     "name": "batch_size",
+     "type": "INT",
+     "link": 15,
+     "widget": {
+      "name": "batch_size"
+     }
+    }
+   ],
+   "outputs": [
+    {
+     "name": "frames",
+     "type": "IMAGE",
+     "links": [
+      16
+     ],
+     "slot_index": 0
+    },
+    {
+     "name": "fps",
+     "type": "FLOAT",
+     "links": [
+      19
+     ],
+     "slot_index": 1
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_FrameInterpolate"
+   },
+   "widgets_values": [
+    24.0,
+    30.0,
+    "blend",
+    0.35,
+    8
+   ]
+  },
+  {
+   "id": 12,
+   "type": "AUSBOSS_NODES_FreeMemory",
+   "pos": [
+    2520,
+    200
+   ],
+   "size": [
+    230,
+    60
+   ],
+   "flags": {},
+   "order": 11,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "value",
+     "type": "*",
+     "link": 16
+    }
+   ],
+   "outputs": [
+    {
+     "name": "value",
+     "type": "*",
+     "links": [
+      17
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_FreeMemory"
+   },
+   "widgets_values": []
+  },
+  {
+   "id": 13,
+   "type": "AUSBOSS_NODES_Text",
+   "pos": [
+    2520,
+    620
+   ],
+   "size": [
+    270,
+    90
+   ],
+   "flags": {},
+   "order": 12,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [
+    {
+     "name": "text",
+     "type": "STRING",
+     "links": [
+      20
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_Text"
+   },
+   "widgets_values": [
+    "AusBoss/tour"
+   ]
+  },
+  {
+   "id": 14,
+   "type": "AUSBOSS_NODES_Integer",
+   "pos": [
+    2520,
+    780
+   ],
+   "size": [
+    210,
+    60
+   ],
+   "flags": {},
+   "order": 13,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [
+    {
+     "name": "int",
+     "type": "INT",
+     "links": [
+      21
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_Integer"
+   },
+   "widgets_values": [
+    19
+   ]
+  },
+  {
+   "id": 15,
+   "type": "AUSBOSS_NODES_SaveVideo",
+   "pos": [
+    2860,
+    200
+   ],
+   "size": [
+    340,
+    560
+   ],
+   "flags": {},
+   "order": 14,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "frames",
+     "type": "IMAGE",
+     "link": 17
+    },
+    {
+     "name": "audio",
+     "type": "AUDIO",
+     "link": 18
+    },
+    {
+     "name": "video",
+     "type": "VIDEO",
+     "link": null
+    },
+    {
+     "name": "fps",
+     "type": "FLOAT",
+     "link": 19,
+     "widget": {
+      "name": "fps"
+     }
+    },
+    {
+     "name": "filename_prefix",
+     "type": "STRING",
+     "link": 20,
+     "widget": {
+      "name": "filename_prefix"
+     }
+    },
+    {
+     "name": "crf",
+     "type": "INT",
+     "link": 21,
+     "widget": {
+      "name": "crf"
+     }
+    }
+   ],
+   "outputs": [
+    {
+     "name": "file_path",
+     "type": "STRING",
+     "links": [
+      22
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_SaveVideo"
+   },
+   "widgets_values": [
+    16.0,
+    "AusBoss/video",
+    19,
+    "mp4 h264",
+    false,
+    true
+   ]
+  },
+  {
+   "id": 16,
+   "type": "AUSBOSS_NODES_ShowText",
+   "pos": [
+    3280,
+    200
+   ],
+   "size": [
+    300,
+    170
+   ],
+   "flags": {},
+   "order": 15,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "text",
+     "type": "STRING",
+     "link": 22
+    }
+   ],
+   "outputs": [
+    {
+     "name": "text",
+     "type": "STRING",
+     "links": [],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_ShowText"
+   },
+   "widgets_values": []
+  },
+  {
+   "id": 17,
+   "type": "AUSBOSS_NODES_SelectFrame",
+   "pos": [
+    2170,
+    950
+   ],
+   "size": [
+    260,
+    320
+   ],
+   "flags": {},
+   "order": 16,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "frames",
+     "type": "IMAGE",
+     "link": 23
+    }
+   ],
+   "outputs": [
+    {
+     "name": "image",
+     "type": "IMAGE",
+     "links": [
+      25
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_SelectFrame"
+   },
+   "widgets_values": [
+    1
+   ]
+  },
+  {
+   "id": 18,
+   "type": "AUSBOSS_NODES_SelectFrame",
+   "pos": [
+    2170,
+    1330
+   ],
+   "size": [
+    260,
+    320
+   ],
+   "flags": {},
+   "order": 17,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "frames",
+     "type": "IMAGE",
+     "link": 24
+    }
+   ],
+   "outputs": [
+    {
+     "name": "image",
+     "type": "IMAGE",
+     "links": [
+      26
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_SelectFrame"
+   },
+   "widgets_values": [
+    -1
+   ]
+  },
+  {
+   "id": 19,
+   "type": "AUSBOSS_NODES_Compare",
+   "pos": [
+    2560,
+    950
+   ],
+   "size": [
+    430,
+    520
+   ],
+   "flags": {},
+   "order": 18,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "image_a",
+     "type": "IMAGE",
+     "link": 25
+    },
+    {
+     "name": "image_b",
+     "type": "IMAGE",
+     "link": 26
+    }
+   ],
+   "outputs": [
+    {
+     "name": "image_a",
+     "type": "IMAGE",
+     "links": [],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_Compare"
+   },
+   "widgets_values": []
+  },
+  {
+   "id": 20,
+   "type": "Note",
+   "pos": [
+    40,
+    880
+   ],
+   "size": [
+    380,
+    220
+   ],
+   "flags": {},
+   "order": 19,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "Note"
+   },
+   "widgets_values": [
+    "AusBoss node tour \u2014 every wire is the point.\n\n1) Pick any video in Load Video (this graph needs no models).\n2) Queue. The clip is thinned, split and rejoined, padded to a 512 square with the pad bars masked, de-flickered against its first frame everywhere except those bars, retimed back to double rate, and saved \u2014 with the fps, frame budget, filename, and CRF all arriving over wires from Math, Image Size, Text, and Integer nodes.\n3) Read the saved path in Show Text; flick first vs last frame in the A/B panel."
+   ]
+  }
+ ],
+ "links": [
+  [
+   1,
+   1,
+   0,
+   2,
+   0,
+   "IMAGE"
+  ],
+  [
+   2,
+   2,
+   0,
+   3,
+   0,
+   "IMAGE"
+  ],
+  [
+   3,
+   3,
+   0,
+   4,
+   0,
+   "IMAGE"
+  ],
+  [
+   4,
+   3,
+   1,
+   4,
+   1,
+   "IMAGE"
+  ],
+  [
+   5,
+   4,
+   0,
+   5,
+   0,
+   "IMAGE"
+  ],
+  [
+   6,
+   5,
+   0,
+   8,
+   0,
+   "IMAGE"
+  ],
+  [
+   7,
+   5,
+   0,
+   9,
+   0,
+   "IMAGE"
+  ],
+  [
+   8,
+   5,
+   1,
+   6,
+   0,
+   "MASK"
+  ],
+  [
+   9,
+   6,
+   0,
+   8,
+   2,
+   "MASK"
+  ],
+  [
+   10,
+   7,
+   0,
+   8,
+   3,
+   "FLOAT"
+  ],
+  [
+   11,
+   1,
+   3,
+   10,
+   0,
+   "FLOAT"
+  ],
+  [
+   12,
+   8,
+   0,
+   11,
+   0,
+   "IMAGE"
+  ],
+  [
+   13,
+   1,
+   3,
+   11,
+   1,
+   "FLOAT"
+  ],
+  [
+   14,
+   10,
+   0,
+   11,
+   2,
+   "FLOAT"
+  ],
+  [
+   15,
+   9,
+   4,
+   11,
+   3,
+   "INT"
+  ],
+  [
+   16,
+   11,
+   0,
+   12,
+   0,
+   "IMAGE"
+  ],
+  [
+   17,
+   12,
+   0,
+   15,
+   0,
+   "IMAGE"
+  ],
+  [
+   18,
+   1,
+   1,
+   15,
+   1,
+   "AUDIO"
+  ],
+  [
+   19,
+   11,
+   1,
+   15,
+   3,
+   "FLOAT"
+  ],
+  [
+   20,
+   13,
+   0,
+   15,
+   4,
+   "STRING"
+  ],
+  [
+   21,
+   14,
+   0,
+   15,
+   5,
+   "INT"
+  ],
+  [
+   22,
+   15,
+   0,
+   16,
+   0,
+   "STRING"
+  ],
+  [
+   23,
+   8,
+   0,
+   17,
+   0,
+   "IMAGE"
+  ],
+  [
+   24,
+   8,
+   0,
+   18,
+   0,
+   "IMAGE"
+  ],
+  [
+   25,
+   17,
+   0,
+   19,
+   0,
+   "IMAGE"
+  ],
+  [
+   26,
+   18,
+   0,
+   19,
+   1,
+   "IMAGE"
+  ]
+ ],
+ "groups": [
+  {
+   "title": "1 \u00b7 Load, thin, split & rejoin",
+   "bounding": [
+    20,
+    120,
+    1360,
+    760
+   ],
+   "color": "#14424d",
+   "font_size": 24,
+   "flags": {}
+  },
+  {
+   "title": "2 \u00b7 Resize, pad-mask, de-flicker",
+   "bounding": [
+    1400,
+    120,
+    680,
+    940
+   ],
+   "color": "#1f2c38",
+   "font_size": 24,
+   "flags": {}
+  },
+  {
+   "title": "3 \u00b7 Retime, free VRAM, save, report",
+   "bounding": [
+    2140,
+    120,
+    1470,
+    760
+   ],
+   "color": "#23331c",
+   "font_size": 24,
+   "flags": {}
+  },
+  {
+   "title": "4 \u00b7 First vs last, A/B",
+   "bounding": [
+    2140,
+    890,
+    880,
+    790
+   ],
+   "color": "#2e1f38",
+   "font_size": 24,
+   "flags": {}
+  }
+ ],
+ "config": {},
+ "extra": {},
+ "version": 0.4
+}

@@ -89,8 +89,14 @@ def transform_inputs() -> dict[str, tuple]:
             aspect_ratio_options(),
             {"default": "free", "tooltip": "Locks crop handles to a ratio; free allows any rectangle."},
         ),
-        "crop_x": ("INT", {"default": 0, "min": 0, "max": 65536, "step": 1}),
-        "crop_y": ("INT", {"default": 0, "min": 0, "max": 65536, "step": 1}),
+        "crop_x": (
+            "INT",
+            {"default": 0, "min": 0, "max": 65536, "step": 1, "tooltip": "Left edge of the crop in pixels, measured on the rotated image."},
+        ),
+        "crop_y": (
+            "INT",
+            {"default": 0, "min": 0, "max": 65536, "step": 1, "tooltip": "Top edge of the crop in pixels, measured on the rotated image."},
+        ),
         "crop_width": (
             "INT",
             {"default": 0, "min": 0, "max": 65536, "step": 1, "tooltip": "0 keeps the full available width."},
@@ -99,10 +105,22 @@ def transform_inputs() -> dict[str, tuple]:
             "INT",
             {"default": 0, "min": 0, "max": 65536, "step": 1, "tooltip": "0 keeps the full available height."},
         ),
-        "pad_left": ("INT", {"default": 0, "min": 0, "max": 32768, "step": 1}),
-        "pad_top": ("INT", {"default": 0, "min": 0, "max": 32768, "step": 1}),
-        "pad_right": ("INT", {"default": 0, "min": 0, "max": 32768, "step": 1}),
-        "pad_bottom": ("INT", {"default": 0, "min": 0, "max": 32768, "step": 1}),
+        "pad_left": (
+            "INT",
+            {"default": 0, "min": 0, "max": 32768, "step": 1, "tooltip": "Fill-color pixels added on the left; padding lands in the output mask."},
+        ),
+        "pad_top": (
+            "INT",
+            {"default": 0, "min": 0, "max": 32768, "step": 1, "tooltip": "Fill-color pixels added on top; padding lands in the output mask."},
+        ),
+        "pad_right": (
+            "INT",
+            {"default": 0, "min": 0, "max": 32768, "step": 1, "tooltip": "Fill-color pixels added on the right; padding lands in the output mask."},
+        ),
+        "pad_bottom": (
+            "INT",
+            {"default": 0, "min": 0, "max": 32768, "step": 1, "tooltip": "Fill-color pixels added on the bottom; padding lands in the output mask."},
+        ),
         "feather": (
             "INT",
             {

@@ -10,9 +10,17 @@ class AusBossSelectFrame:
     CATEGORY = "🆎 AusBoss/Video"
     DESCRIPTION = (
         "Selects one frame from an IMAGE batch with a one-based frame number. "
-        "The selected frame is returned unchanged as a one-image batch."
+        "Negative numbers count from the end: -1 is the last frame, -2 the "
+        "one before it; 0 is invalid. The selected frame is returned "
+        "unchanged as a one-image batch."
     )
-    SEARCH_ALIASES = ["frame select", "pick video frame", "image batch", "ausboss"]
+    SEARCH_ALIASES = [
+        "frame select",
+        "pick video frame",
+        "last frame",
+        "image batch",
+        "ausboss",
+    ]
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -26,10 +34,14 @@ class AusBossSelectFrame:
                     "INT",
                     {
                         "default": 1,
-                        "min": 1,
+                        "min": -2_147_483_647,
                         "max": 2_147_483_647,
                         "step": 1,
-                        "tooltip": "One-based frame number: 1 selects the first frame.",
+                        "tooltip": (
+                            "One-based frame number: 1 selects the first "
+                            "frame. Negative counts from the end: -1 is the "
+                            "last frame, -2 the one before it. 0 is invalid."
+                        ),
                     },
                 ),
             }
