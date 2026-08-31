@@ -7,7 +7,6 @@ from ._lora_helpers import (
     collect_trigger_words,
     parse_lora_stack,
     register_lora_routes,
-    resolve_lora_path,
     stack_fingerprint,
 )
 
@@ -16,14 +15,20 @@ class AusBossLoraLoader:
     CATEGORY = "🆎 AusBoss/Loaders"
     DESCRIPTION = (
         "Applies a stack of LoRAs to a model and CLIP from one compact node. "
-        "Each row has an enable toggle, a searchable LoRA picker, and "
-        "drag-to-scrub model/CLIP strengths; trigger words from all enabled "
-        "rows are joined into one string output. The bar's ▤ button saves "
-        "and applies named templates of the whole stack, and a LoRA that "
-        "patches nothing on the connected model - the usual sign it was "
-        "built for a different base model - logs a console warning."
+        "Each row has an enable toggle, a searchable LoRA picker, "
+        "drag-to-scrub model/CLIP strengths, and a center-zero strength bar "
+        "behind its name; trigger words from all enabled rows are joined "
+        "into one string output. The bar's ▤ button saves and applies named "
+        "templates of the whole stack, and a gear-menu action absorbs every "
+        "LoRA loader wired into the model chain - upstream and downstream - "
+        "into this stack and bypasses the originals. Moved LoRA files "
+        "resolve by name at run time; a missing one warns and skips instead "
+        "of failing the whole run."
     )
-    SEARCH_ALIASES = ["lora", "lora stack", "lora loader", "trigger words", "ausboss"]
+    SEARCH_ALIASES = [
+        "lora", "lora stack", "lora loader", "trigger words",
+        "strength bars", "import loras", "ausboss",
+    ]
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -77,11 +82,11 @@ class AusBossLoraLoader:
 
     @classmethod
     def VALIDATE_INPUTS(cls, loras, **_values):
+        # Structural validation only. A row whose FILE is gone must not block
+        # the queue: apply_lora_stack resolves moved files by basename, and a
+        # genuinely missing one warns and skips so the rest of the run stands.
         try:
-            rows = parse_lora_stack(loras)
-            for row in rows:
-                if row["enabled"]:
-                    resolve_lora_path(row["name"])
+            parse_lora_stack(loras)
         except ValueError as exc:
             return f"LoRA Loader: {exc}"
         return True

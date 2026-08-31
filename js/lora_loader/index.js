@@ -1,17 +1,20 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
-import { BRAND, chainCallback, keepDomWidgetWidthAuto } from "../shared/index.mjs";
+import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
 import { hideWidget as collapseWidget } from "../shared/widget_visibility.mjs";
 import {
+  closeSettingsMenu,
   gearIconSvg,
   loadSettings,
   openSettingsMenu,
 } from "../shared/settings_menu.mjs";
 import {
+  BYPASS_MODE,
   DEFAULT_STEP,
   FINE_STEP,
   MAX_ROWS,
+  MUTE_MODE,
   clampHighlight,
   commonFolderPrefix,
   filterLoras,
@@ -20,7 +23,13 @@ import {
   highlightedName,
   hoverRowIndex,
   applyTemplate,
+  cycleMasterToggle,
+  duplicateLoraKeys,
+  importNeedsSeparateStrengths,
+  importSummary,
   isScrubbing,
+  loaderLoraEntries,
+  mergeImportedRows,
   moveHighlight,
   moveRow,
   newRow,
@@ -29,14 +38,18 @@ import {
   removeTemplate,
   reorderRows,
   roundStrength,
+  resolveLoraName,
   scrubValue,
   serializeRows,
   setStrength,
+  shortLoraName,
+  snapshotEnabled,
+  strengthBarBackground,
+  strengthBarScale,
   thumbPosition,
   strengthOutOfRange,
   summarizeRows,
   templateFromRows,
-  toggleAllRows,
   toggleAllState,
   toggleTrigger,
   upsertTemplate,
@@ -50,6 +63,12 @@ const GROUP_HEIGHT = 36;
 const STACK_PADDING = 8;
 const BLANK_HEIGHT = 44;
 const PANEL_PADDING = 10;
+// How many of the slot band's pixels the panel climbs back up into. Three output slots reserve 66px of node height before the first
+// widget, and the band's whole middle is empty - so the control bar rides
+// there (like Pixaroma's controls do) and the row stack starts at the
+// band's bottom edge. 52 puts the 36px bar at y 24..60, clear of the title
+// and flush with the band.
+const BAND_RECLAIM = 52;
 
 // Per-node-type preferences behind the gear button; persisted in
 // localStorage so they follow the user across workflows.
@@ -66,9 +85,21 @@ const SETTINGS_SCHEMA = [
     hint: "Scrub and arrow-key step. Shift always steps by 0.01.",
   },
   {
+    // persist:false - this mirrors THE OPEN NODE's linked state, so it must
+    // never become the stored default: new nodes always start unified. (An
+    // absorb can flip a node whose imported rows patch model and CLIP
+    // differently; that flip stays on that node.)
     key: "separate_strengths", label: "Separate model / CLIP strength",
-    type: "toggle", default: false,
-    hint: "Two strength boxes per row. Applies to this node and to new ones.",
+    type: "toggle", default: false, persist: false,
+    hint: "Two strength boxes per row on this node. New nodes always start "
+      + "unified.",
+  },
+  {
+    key: "strength_bars", label: "Strength bars", type: "toggle",
+    default: true,
+    hint: "Center-zero bar behind each name: teal grows right for positive "
+      + "strength, red grows left for negative, scaled so the stack's "
+      + "largest magnitude spans the field (never less than 1.0).",
   },
   {
     key: "separator", label: "Trigger word separator", type: "text",
@@ -79,6 +110,18 @@ const SETTINGS_SCHEMA = [
     key: "hide_extension", label: "Hide file extension", type: "toggle",
     default: true,
     hint: "Show LoRA names without .safetensors.",
+  },
+  {
+    key: "hide_folders", label: "Hide folder names", type: "toggle",
+    default: true,
+    hint: "Rows show just the file name; the full path stays in the "
+      + "tooltip and the picker keeps its folders.",
+  },
+  {
+    key: "name_scrub", label: "Scrub strength on the name", type: "toggle",
+    default: true,
+    hint: "Drag left/right on a row's name to change its model strength - "
+      + "the bar rides along. A plain click still opens the picker.",
   },
   {
     key: "thumbnails", label: "Preview thumbnails", type: "toggle",
@@ -106,14 +149,24 @@ function installStyles() {
   .ausboss-lora-pop, .ausboss-lora-pop *,
   .ausboss-lora-hoverthumb { box-sizing: border-box; }
   .ausboss-lora-panel { width: 100%; height: 100%;
-    font: 12px system-ui; color: #d7dde2; }
+    font: 12px system-ui; color: #d7dde2; pointer-events: none; }
   /* The body is the panel's layout box: it fences every child and carries
      the overflow clip. height: 100% tracks whatever box the frontend
      allocates, so a short allocation shrinks the stack instead of
      chopping its bottom border. */
+  /* pointer-events: the panel overlays the slot band's middle (see
+     BAND_RECLAIM), so everything down to the body passes clicks through to
+     the canvas - slot dots stay wirable, empty band areas still drag the
+     node - and the three real surfaces opt back in below. The wrapper rule
+     needs !important because the frontend writes pointer-events: auto
+     inline on its own wrapper each frame; pointer-events does not inherit,
+     so the interactive children stay clickable regardless. */
+  .dom-widget:has(> .ausboss-lora-panel) { pointer-events: none !important; }
   .ausboss-lora-body { display: flex; flex-direction: column; gap: ${ROW_GAP}px;
     box-sizing: border-box; width: 100%; height: 100%; padding: ${PANEL_PADDING}px;
-    overflow: hidden; }
+    overflow: hidden; pointer-events: none; }
+  .ausboss-lora-bargroup, .ausboss-lora-stack,
+  .ausboss-lora-actions { pointer-events: auto; }
   .ausboss-lora-row { flex: none; display: flex; align-items: center; gap: 6px; height: ${ROW_HEIGHT}px; }
   .ausboss-lora-row.off { opacity: 0.45; }
   .ausboss-lora-row.dragging { opacity: 0.55; }
@@ -130,13 +183,20 @@ function installStyles() {
   .ausboss-lora-toggle.on::after { left: 16px; background: #fff; }
   .ausboss-lora-toggle.mixed { background: #4d6763; }
   .ausboss-lora-toggle.mixed::after { left: 9px; background: #cfd6da; }
-  .ausboss-lora-actions { flex: none; display: flex; height: ${ACTIONS_HEIGHT}px; }
+  /* Inside the stack container, pinned to its bottom edge: the auto margin
+     soaks up whatever free height the stack was handed. */
+  .ausboss-lora-actions { flex: none; display: flex; height: ${ACTIONS_HEIGHT}px;
+    margin-top: auto; }
   /* The control bar is the panel's first row, sitting directly on top of
      the stack; the bordered group inside it holds the controls as one
      centered cluster. */
   .ausboss-lora-bar { flex: none; display: flex; justify-content: center; }
+  /* The group stretches toward the panel width but stops short of the slot
+     labels it rides between (see BAND_RECLAIM); the summary flexes in the
+     middle so the controls spread instead of huddling. */
   .ausboss-lora-bargroup { display: flex; align-items: center;
-    gap: 8px; min-width: 0; max-width: 100%; height: ${GROUP_HEIGHT}px; padding: 0 8px;
+    gap: 8px; min-width: 0; flex: 1 1 auto;
+    max-width: min(440px, calc(100% - 116px)); height: ${GROUP_HEIGHT}px; padding: 0 10px;
     border: 1px solid #3a4047; border-radius: 7px; background: rgba(255,255,255,.05);
     color: #9ba2aa; }
   .ausboss-lora-gear { width: 24px; height: 24px; border: 1px solid #3a4047;
@@ -165,9 +225,13 @@ function installStyles() {
   .ausboss-lora-range input:focus { border-color: ${BRAND}; }
   .ausboss-lora-name { flex: 1 1 auto; min-width: 0; height: 24px; border: 1px solid #3a4047;
     border-radius: 5px; background: #23272c; color: inherit; text-align: left; padding: 0 8px;
-    cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    touch-action: none; }
   .ausboss-lora-name:hover { border-color: ${BRAND}; }
   .ausboss-lora-name.missing { color: #ff8a80; }
+  .ausboss-lora-name.moved { border-style: dashed; border-color: #3c6663; }
+  .ausboss-lora-name.dup { border-color: #f0a11e;
+    box-shadow: inset 0 0 0 1px rgba(240,161,30,.4); }
   .ausboss-lora-name.empty { color: #9ba2aa; font-style: italic; }
   .ausboss-lora-strengthbox { display: flex; width: 66px; height: 24px; border: 1px solid #3a4047;
     border-radius: 5px; background: #23272c; overflow: hidden; flex: none; }
@@ -193,8 +257,8 @@ function installStyles() {
   .ausboss-lora-add:focus-visible { outline: 2px solid #9becf5; outline-offset: 1px; }
   .ausboss-lora-add:disabled { opacity: 0.4; cursor: default; }
   .ausboss-lora-actions .ausboss-lora-add { flex: 1 1 auto; }
-  .ausboss-lora-summary { color: #9ba2aa; flex: 0 1 auto; min-width: 0; overflow: hidden;
-    text-overflow: ellipsis; white-space: nowrap; }
+  .ausboss-lora-summary { color: #9ba2aa; flex: 1 1 auto; min-width: 0; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; text-align: center; }
   .ausboss-lora-pop { position: fixed; z-index: 10000; background: #1c1f23;
     border: 1px solid #3a4047; border-radius: 7px; box-shadow: 0 8px 28px rgba(0,0,0,.5);
     font: 12px system-ui; color: #d7dde2; display: flex; flex-direction: column; }
@@ -255,9 +319,6 @@ function el(tag, className, text) {
   return element;
 }
 
-function stripExtension(name) {
-  return name.replace(/\.(safetensors|sft|ckpt|pt)$/i, "");
-}
 
 // Six-dot drag grip, hand-drawn like the shared gear so no glyph font is
 // trusted to have it.
@@ -334,7 +395,8 @@ function showHoverThumb(state, name, x, y) {
   if (thumb.dataset.name !== name) {
     thumb.dataset.name = name;
     thumb.style.display = "none";
-    thumb.src = api.apiURL(`/ausboss/lora/thumb?name=${encodeURIComponent(name)}`);
+    thumb.src = api.apiURL(
+      `/ausboss/lora/thumb?name=${encodeURIComponent(effectiveLoraName(state, name))}`);
   } else if (thumb.complete && thumb.naturalWidth > 0) {
     thumb.style.display = "";
   }
@@ -391,18 +453,72 @@ function linked(state) {
   return state.node.properties?.ausbossLoraLinked !== false;
 }
 
-// Display names honor the hide-extension preference everywhere at once.
+// Picker options honor only hide-extension: their folder context is the
+// disambiguator (group headers, search prefixes), so it stays.
 function displayName(state, name) {
-  return state.settings?.hide_extension === false ? name : stripExtension(name);
+  return shortLoraName(name, {
+    hideFolders: false,
+    hideExtension: state.settings?.hide_extension !== false,
+  });
 }
 
-// CSS pixels the panel needs to show every row with no scrolling.
+// A row's label (and the info card title) also hides the folder by
+// default; the full path lives in the tooltip.
+function rowLabel(state, name) {
+  return shortLoraName(name, {
+    hideFolders: state.settings?.hide_folders !== false,
+    hideExtension: state.settings?.hide_extension !== false,
+  });
+}
+
+// Each named row's fit against the install's lora list,
+// cached per name; refreshAvailable clears the cache when the list changes.
+function nameStatus(state, name) {
+  if (!name || !Array.isArray(state.available)) return null;
+  if (!state.nameStatus) state.nameStatus = new Map();
+  if (!state.nameStatus.has(name)) {
+    state.nameStatus.set(name, resolveLoraName(name, state.available));
+  }
+  return state.nameStatus.get(name);
+}
+
+// The name the SERVER should be asked about: a remapped row's saved path
+// would 404 on the thumb/info routes (they may be served by the public
+// pack's copy, which resolves strictly), so ask with the resolved one.
+function effectiveLoraName(state, name) {
+  const status = nameStatus(state, name);
+  return status?.status === "remapped" ? status.name : name;
+}
+
+function refreshAvailable(state) {
+  fetchLoraList()
+    .then((names) => {
+      state.available = names;
+      state.nameStatus = new Map();
+      decorateRows(state);
+      // Rows whose range lookup 404ed under the stale path get a second
+      // chance under the resolved one.
+      for (const row of state.rows) {
+        if (!row.name) continue;
+        if (nameStatus(state, row.name)?.status === "remapped"
+            && rangeCache.get(row.name) === null) {
+          rangeCache.delete(row.name);
+          ensureRange(state, row.name);
+        }
+      }
+    })
+    .catch(() => {});
+}
+
+// CSS pixels the panel needs to show every row with no scrolling. The add
+// button lives inside the stack now, so its height (plus the gap above it)
+// counts inside the stack box.
 function panelHeight(state) {
   const inner = state.rows.length
     ? state.rows.length * (ROW_HEIGHT + ROW_GAP) - ROW_GAP
     : BLANK_HEIGHT;
-  const stack = inner + STACK_PADDING * 2 + 2; // +2 for the stack border
-  return PANEL_PADDING * 2 + GROUP_HEIGHT + ROW_GAP + stack + ROW_GAP + ACTIONS_HEIGHT;
+  const stack = inner + ROW_GAP + ACTIONS_HEIGHT + STACK_PADDING * 2 + 2; // +2 border
+  return PANEL_PADDING * 2 + GROUP_HEIGHT + ROW_GAP + stack;
 }
 
 function fitNode(state) {
@@ -425,7 +541,7 @@ const rangeFetches = new Set();
 function ensureRange(state, name) {
   if (!name || rangeCache.has(name) || rangeFetches.has(name)) return;
   rangeFetches.add(name);
-  api.fetchApi(`/ausboss/lora/info?name=${encodeURIComponent(name)}`)
+  api.fetchApi(`/ausboss/lora/info?name=${encodeURIComponent(effectiveLoraName(state, name))}`)
     .then((response) => response.json())
     .then((data) => {
       rangeCache.set(name, data.ok ? data.info.range ?? null : null);
@@ -652,6 +768,9 @@ function openPicker(state, index, anchor) {
   fetchLoraList()
     .then((fetched) => {
       names = fetched;
+      // The picker's fresh list is also the row decorator's fresh list.
+      state.available = fetched;
+      state.nameStatus = new Map();
       const currentIndex = filterLoras(names, "").indexOf(state.rows[index].name);
       highlight = currentIndex >= 0 ? currentIndex : -1;
       renderList();
@@ -667,6 +786,9 @@ function openPicker(state, index, anchor) {
 function openInfo(state, index, anchor) {
   const row = state.rows[index];
   if (!row.name) return;
+  // Every server call in the card goes through the resolved name, so the
+  // card works for a moved file too.
+  const serverName = effectiveLoraName(state, row.name);
   const card = el("div", "ausboss-lora-card");
   card.append(el("div", "ausboss-lora-empty", "Loading..."));
   openPopup(card, anchor.getBoundingClientRect());
@@ -675,10 +797,10 @@ function openInfo(state, index, anchor) {
     card.textContent = "";
     const image = el("img");
     image.alt = "";
-    image.src = api.apiURL(`/ausboss/lora/thumb?name=${encodeURIComponent(row.name)}`);
+    image.src = api.apiURL(`/ausboss/lora/thumb?name=${encodeURIComponent(serverName)}`);
     image.addEventListener("error", () => image.remove());
     if (info.has_preview) card.append(image);
-    card.append(el("h4", "", info.civitai_title || displayName(state, row.name)));
+    card.append(el("h4", "", info.civitai_title || rowLabel(state, row.name)));
     if (info.base_model) card.append(el("div", "ausboss-lora-meta", `Base model: ${info.base_model}`));
     const size = formatFileSize(info.size_bytes);
     if (size) {
@@ -736,7 +858,7 @@ function openInfo(state, index, anchor) {
           const response = await api.fetchApi("/ausboss/lora/civitai", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: row.name }),
+            body: JSON.stringify({ name: serverName }),
           });
           const data = await response.json();
           if (!data.ok) throw new Error(data.error || "fetch failed");
@@ -769,7 +891,7 @@ function openInfo(state, index, anchor) {
         const minValue = Number(range.querySelector("[data-bound=min]").value);
         const maxValue = Number(range.querySelector("[data-bound=max]").value);
         const payload = {
-          name: row.name,
+          name: serverName,
           words: info.custom_triggers || [],
           min: range.querySelector("[data-bound=min]").value === "" ? null : minValue,
           max: range.querySelector("[data-bound=max]").value === "" ? null : maxValue,
@@ -809,7 +931,7 @@ function openInfo(state, index, anchor) {
         await api.fetchApi("/ausboss/lora/triggers", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: row.name, words }),
+          body: JSON.stringify({ name: serverName, words }),
         });
       } catch {}
       const rows = state.rows.map((entry, i) =>
@@ -823,7 +945,7 @@ function openInfo(state, index, anchor) {
   };
 
   const load = () => {
-    api.fetchApi(`/ausboss/lora/info?name=${encodeURIComponent(row.name)}`)
+    api.fetchApi(`/ausboss/lora/info?name=${encodeURIComponent(serverName)}`)
       .then((response) => response.json())
       .then((data) => {
         if (!data.ok) throw new Error(data.error);
@@ -944,6 +1066,50 @@ function openRowMenu(state, index, event) {
 
 // ---------- rendering ----------
 
+// Per-row decoration. The strength bar behind each name (inline styles,
+// not CSS classes - every bar's geometry is data-driven; the pure math
+// lives in js/shared/lora_stack.mjs), the amber duplicate ring,
+// and the moved/missing tint against the install's list. Runs on every
+// value update - the bar scale can change whenever any row's strength does.
+function decorateRows(state) {
+  const showBars = state.settings?.strength_bars !== false;
+  const scale = strengthBarScale(state.rows);
+  const dups = duplicateLoraKeys(state.rows);
+  state.panel.querySelectorAll(".ausboss-lora-name").forEach((button, index) => {
+    const row = state.rows[index];
+    if (!row?.name) {
+      button.style.background = "";
+      button.classList.remove("dup", "moved", "missing");
+      return;
+    }
+    const notes = [row.name];
+    if (showBars) {
+      button.style.background = strengthBarBackground(row.strength, scale);
+      notes.push(`Model strength ${row.strength.toFixed(2)}; `
+        + `bar edges are ±${scale.toFixed(2)}`);
+    } else {
+      button.style.background = "";
+    }
+    const dup = dups.has(row.name.toLowerCase());
+    button.classList.toggle("dup", dup);
+    if (dup) notes.push("Duplicate: another row loads this same LoRA.");
+    const status = nameStatus(state, row.name);
+    button.classList.toggle("moved", status?.status === "remapped");
+    button.classList.toggle(
+      "missing",
+      status?.status === "missing" || status?.status === "ambiguous",
+    );
+    if (status?.status === "remapped") {
+      notes.push(`Not at its saved path; the run will use "${status.name}".`);
+    } else if (status?.status === "missing") {
+      notes.push("No matching file in models/loras - this row is skipped at run time.");
+    } else if (status?.status === "ambiguous") {
+      notes.push("Several files match this name - pick one to settle it.");
+    }
+    button.title = notes.join("\n");
+  });
+}
+
 function updateRowValues(state) {
   state.panel.querySelectorAll(".ausboss-lora-strength").forEach((input) => {
     if (input.readOnly && input.__ausbossRead) input.value = input.__ausbossRead();
@@ -957,12 +1123,256 @@ function updateRowValues(state) {
     master.classList.toggle("on", overall === "on");
     master.classList.toggle("mixed", overall === "mixed");
   }
+  decorateRows(state);
+}
+
+// ---------- absorb the loader chain ----------
+
+// The graph walk stays here (it needs live LiteGraph objects); which node
+// types contribute rows and how is pure logic in lora_stack.mjs.
+const IMPORT_SOURCE_TYPES = new Set([
+  "LoraLoader",
+  "LoraLoaderModelOnly",
+  "Power Lora Loader (rgthree)",
+  "PixaromaLoraLoader",
+  "AUSBOSS_NODES_LoraLoader",
+  // The lab fork serializes the same stack; absorbing one keeps working
+  // for anyone with both packs installed.
+  "AUSBOSS_LAB_LoraLoader",
+]);
+
+function upstreamModelNode(node) {
+  const graph = node.graph;
+  if (!graph) return null;
+  const input = node.inputs?.find((entry) => entry?.name === "model") ?? node.inputs?.[0];
+  const linkId = input?.link;
+  if (linkId === null || linkId === undefined) return null;
+  const link = graph.links?.[linkId] ?? graph._links?.get?.(linkId);
+  if (!link) return null;
+  return graph.getNodeById?.(link.origin_id) ?? null;
+}
+
+// Loader nodes feeding the model input, nearest-first. Reroutes are walked
+// through; already-bypassed loaders stay in the chain (bypass passes the
+// model through, so the walk continues past them) but contribute no rows.
+function collectUpstreamLoaders(node) {
+  const chain = [];
+  const seen = new Set([node.id]);
+  let current = upstreamModelNode(node);
+  while (current && !seen.has(current.id)) {
+    seen.add(current.id);
+    const type = String(current.type ?? current.comfyClass ?? "");
+    if (type === "Reroute") {
+      current = upstreamModelNode(current);
+      continue;
+    }
+    if (!IMPORT_SOURCE_TYPES.has(type)) break;
+    chain.push(current);
+    current = upstreamModelNode(current);
+  }
+  return chain;
+}
+
+// The single node this node's model output feeds - and only when it feeds
+// exactly one. A fan-out ends the walk: bypassing a loader on one branch
+// would silently change what every other branch computes.
+function downstreamModelNode(node) {
+  const graph = node.graph;
+  if (!graph) return null;
+  const output = node.outputs?.find((entry) => entry?.name === "model")
+    ?? node.outputs?.[0];
+  const links = output?.links;
+  if (!Array.isArray(links) || links.length !== 1) return null;
+  const link = graph.links?.[links[0]] ?? graph._links?.get?.(links[0]);
+  if (!link) return null;
+  return graph.getNodeById?.(link.target_id) ?? null;
+}
+
+// Loader nodes the model output feeds, nearest-first (= their apply order).
+// Same rules as upstream: Reroutes pass through, an unrecognized type or a
+// fan-out ends the walk.
+function collectDownstreamLoaders(node) {
+  const chain = [];
+  const seen = new Set([node.id]);
+  let current = downstreamModelNode(node);
+  while (current && !seen.has(current.id)) {
+    seen.add(current.id);
+    const type = String(current.type ?? current.comfyClass ?? "");
+    if (type === "Reroute") {
+      current = downstreamModelNode(current);
+      continue;
+    }
+    if (!IMPORT_SOURCE_TYPES.has(type)) break;
+    chain.push(current);
+    current = downstreamModelNode(current);
+  }
+  return chain;
+}
+
+// Circular reconnect arrow, hand-drawn like the shared gear so no glyph
+// font is trusted to have it.
+function reloadIconSvg() {
+  return (
+    '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
+    'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M13.4 8a5.4 5.4 0 1 1-1.8-4"/><polyline points="13.6 1.4 13.6 4.6 10.4 4.6"/></svg>'
+  );
+}
+
+// Re-check every row against a FRESH lora list and repair
+// what it can. A row whose file moved (or was restored after being missing)
+// reconnects by rewriting the row to the resolved path - exactly what
+// deleting and re-adding the row did by hand. Wired to the bar's reconnect
+// button and to ComfyUI's own R refresh; quiet mode only toasts when it
+// actually repaired something.
+async function runReconnect(state, { quiet = false } = {}) {
+  let list;
+  try {
+    list = await fetchLoraList();
+  } catch {
+    if (!quiet) loraToast("Could not refresh the LoRA list.");
+    return;
+  }
+  state.available = list;
+  state.nameStatus = new Map();
+  let repaired = 0;
+  const rows = state.rows.map((row) => {
+    if (!row.name) return row;
+    const fit = resolveLoraName(row.name, list);
+    if (fit.status !== "remapped") return row;
+    repaired += 1;
+    rangeCache.delete(row.name);
+    return { ...row, name: fit.name };
+  });
+  const unresolved = rows.filter(
+    (row) => row.name && resolveLoraName(row.name, list).status !== "exact",
+  ).length;
+  if (repaired) {
+    commitRows(state, rows, { structural: true });
+    notifyAusbossChange();
+  } else {
+    decorateRows(state);
+  }
+  if (!quiet || repaired) {
+    const lead = repaired
+      ? `Reconnected ${repaired} LoRA path${repaired === 1 ? "" : "s"}`
+      : "LoRA list refreshed";
+    if (unresolved) {
+      loraToast(`${lead}; ${unresolved} row${unresolved === 1 ? "" : "s"} still missing.`);
+    } else {
+      loraToast(repaired ? `${lead}.` : `${lead}; every row points at a real file.`);
+    }
+  }
+}
+
+function loraToast(detail) {
+  const toaster = app.extensionManager?.toast;
+  if (toaster?.add) {
+    toaster.add({ severity: "info", summary: "LoRA Loader \u{1F18E}", detail, life: 7000 });
+  } else {
+    console.log(`[AusBoss] ${detail}`);
+  }
+}
+
+async function runImportChain(state) {
+  // A bypassed or muted loader is not shaping the current render; importing
+  // its rows would change the image. Leave it alone.
+  const isActive = (loader) =>
+    loader.mode !== BYPASS_MODE && loader.mode !== MUTE_MODE;
+  const activeUp = collectUpstreamLoaders(state.node).filter(isActive);
+  const activeDown = collectDownstreamLoaders(state.node).filter(isActive);
+  const entriesOf = (loader) => loaderLoraEntries({
+    type: String(loader.type ?? loader.comfyClass ?? ""),
+    widgets: (loader.widgets ?? []).map((widget) => ({
+      name: widget.name,
+      value: widget.value,
+    })),
+  }) ?? [];
+  // Upstream walks nearest-first, so reversed = the order the chain applies
+  // them; downstream nearest-first already IS its apply order.
+  const upEntries = activeUp.slice().reverse().flatMap(entriesOf);
+  const downEntries = activeDown.flatMap(entriesOf);
+  if (!upEntries.length && !downEntries.length) {
+    loraToast(importSummary({}));
+    return;
+  }
+  let available = [];
+  try {
+    available = await fetchLoraList();
+    state.available = available;
+    state.nameStatus = new Map();
+  } catch {
+    // Offline: names import verbatim; the rows tint and the run-time
+    // resolver gets the next chance.
+  }
+  let remapped = 0;
+  let missing = 0;
+  let ambiguous = 0;
+  const resolve = (item) => {
+    if (!available.length) return { ...item };
+    const fit = resolveLoraName(item.name, available);
+    if (fit.status === "remapped") remapped += 1;
+    else if (fit.status === "missing") missing += 1;
+    else if (fit.status === "ambiguous") ambiguous += 1;
+    return { ...item, name: fit.name };
+  };
+  const upResolved = upEntries.map(resolve);
+  const downResolved = downEntries.map(resolve);
+  // Upstream rows apply before this stack, downstream rows after; the
+  // dedupe accumulates across both merges so nothing lands twice.
+  const beforeMerge = mergeImportedRows(state.rows, upResolved);
+  const afterMerge = mergeImportedRows(beforeMerge.rows, downResolved,
+    { position: "after" });
+  // Rows that patch model and CLIP differently need both boxes visible, or
+  // the difference is invisible and lost on the first scrub. The flip is
+  // node-local (unified stays the default for new nodes) and the toast
+  // names it so it never reads as a settings change.
+  let separated = false;
+  if (importNeedsSeparateStrengths([...upResolved, ...downResolved])
+      && linked(state)) {
+    state.node.properties.ausbossLoraLinked = false;
+    separated = true;
+  }
+  const absorbed = [...activeUp, ...activeDown];
+  for (const loader of absorbed) loader.mode = BYPASS_MODE;
+  commitRows(state, afterMerge.rows, { structural: true });
+  fitNode(state);
+  notifyAusbossChange();
+  loraToast(importSummary({
+    added: beforeMerge.added + afterMerge.added,
+    skipped: beforeMerge.skipped + afterMerge.skipped,
+    bypassed: absorbed.length,
+    remapped,
+    missing,
+    ambiguous,
+  }) + (separated
+    ? " An imported row patches model and CLIP differently, so this node "
+      + "now shows both strength boxes."
+    : ""));
 }
 
 function openSettings(state, anchor) {
+  // The import action rides the gear menu but is per-node and one-shot, so
+  // the schema is composed per call; persistence still uses SETTINGS_SCHEMA.
+  const menuSchema = [
+    ...SETTINGS_SCHEMA,
+    {
+      key: "_import_chain",
+      label: "Absorb chain LoRAs",
+      type: "action",
+      button: "Absorb",
+      hint: "Pull every LoRA loader wired into this node's model chain - "
+        + "upstream and downstream - into this stack and bypass those "
+        + "nodes; the graph keeps computing the same thing.",
+      onAction: () => {
+        closeSettingsMenu();
+        runImportChain(state);
+      },
+    },
+  ];
   openSettingsMenu({
     scope: SETTINGS_SCOPE,
-    schema: SETTINGS_SCHEMA,
+    schema: menuSchema,
     anchor: anchor.getBoundingClientRect(),
     title: "LoRA Loader settings",
     // The menu reflects THIS node's live state where the two overlap.
@@ -1016,21 +1426,32 @@ function renderRows(state) {
     `ausboss-lora-toggle ausboss-lora-master${overall === "on" ? " on" : overall === "mixed" ? " mixed" : ""}`
   );
   master.type = "button";
-  master.title = "Toggle every LoRA: mixed or off turns all on, on turns all off";
+  master.title = "Toggle every LoRA: mixed saves your setup and turns all on; "
+    + "on turns all off; off brings your saved setup back";
+  // The master pill remembers the mixed setup it destroys,
+  // so an accidental click is always one more click from home.
   master.addEventListener("click", () => {
-    commitRows(state, toggleAllRows(state.rows), { structural: true });
+    const cycled = cycleMasterToggle(state.rows, state.toggleSnapshot);
+    state.toggleSnapshot = cycled.snapshot;
+    commitRows(state, cycled.rows, { structural: true });
   });
   const templates = el("button", "ausboss-lora-gear", "▤");
   templates.type = "button";
   templates.title = "LoRA templates: save this stack, or apply a saved one";
   templates.addEventListener("click", () => openTemplates(state, templates));
+  const recheck = el("button", "ausboss-lora-gear");
+  recheck.type = "button";
+  recheck.title = "Re-check LoRA files: refresh the list and reconnect rows "
+    + "whose files moved or came back";
+  recheck.innerHTML = reloadIconSvg();
+  recheck.addEventListener("click", () => runReconnect(state));
   const gear = el("button", "ausboss-lora-gear");
   gear.type = "button";
   gear.title = "LoRA Loader settings";
   gear.innerHTML = gearIconSvg();
   gear.addEventListener("click", () => openSettings(state, gear));
   const group = el("div", "ausboss-lora-bargroup");
-  group.append(templates, master, el("span", "ausboss-lora-summary", summarizeRows(state.rows)), gear);
+  group.append(templates, master, el("span", "ausboss-lora-summary", summarizeRows(state.rows)), recheck, gear);
   bar.append(group);
   body.append(bar);
 
@@ -1098,17 +1519,63 @@ function renderRows(state) {
       const rows = state.rows.map((entry, i) =>
         i === index ? { ...entry, enabled: !entry.enabled } : entry
       );
+      // Every hand-made toggle refreshes the master pill's memory.
+      state.toggleSnapshot = snapshotEnabled(rows);
       commitRows(state, rows, { structural: true });
     });
 
-    const name = el("button", "ausboss-lora-name", row.name ? displayName(state, row.name) : "choose a LoRA...");
+    const name = el("button", "ausboss-lora-name", row.name ? rowLabel(state, row.name) : "choose a LoRA...");
     name.type = "button";
     name.title = row.name || "Pick a LoRA from models/loras";
     if (!row.name) name.classList.add("empty");
-    name.addEventListener("click", () => openPicker(state, index, name));
+    // The name is also a scrub surface - the bar behind it
+    // makes it the natural drag target for model strength. The shared dead
+    // zone keeps a plain click a click, which still opens the picker; a
+    // scrub that ends on the button swallows the click it fires.
+    let nameDrag = null;
+    name.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || !row.name
+          || state.settings?.name_scrub === false) return;
+      nameDrag = { x: event.clientX, y: event.clientY,
+                   start: state.rows[index].strength, scrubbed: false };
+      name.setPointerCapture(event.pointerId);
+    });
+    name.addEventListener("pointermove", (event) => {
+      if (!nameDrag) {
+        showHoverThumb(state, row.name, event.clientX, event.clientY);
+        return;
+      }
+      const dx = event.clientX - nameDrag.x;
+      const dy = event.clientY - nameDrag.y;
+      if (!nameDrag.scrubbed && isScrubbing(dx, dy)) {
+        nameDrag.scrubbed = true;
+        hideHoverThumb();
+      }
+      if (nameDrag.scrubbed) {
+        commitRows(state, setStrength(
+          state.rows,
+          index,
+          scrubValue(nameDrag.start, dx, event.shiftKey, state.settings?.step),
+          linked(state),
+        ));
+      }
+    });
+    const endNameDrag = (event) => {
+      if (!nameDrag) return;
+      try { name.releasePointerCapture(event.pointerId); } catch {}
+      if (nameDrag.scrubbed) name.dataset.ausbossScrubbed = "1";
+      nameDrag = null;
+    };
+    name.addEventListener("pointerup", endNameDrag);
+    name.addEventListener("pointercancel", endNameDrag);
+    name.addEventListener("click", () => {
+      if (name.dataset.ausbossScrubbed) {
+        delete name.dataset.ausbossScrubbed;
+        return;
+      }
+      openPicker(state, index, name);
+    });
     name.addEventListener("pointerenter", (event) =>
-      showHoverThumb(state, row.name, event.clientX, event.clientY));
-    name.addEventListener("pointermove", (event) =>
       showHoverThumb(state, row.name, event.clientX, event.clientY));
     name.addEventListener("pointerleave", hideHoverThumb);
 
@@ -1128,17 +1595,18 @@ function renderRows(state) {
     });
     stack.append(rowElement);
   });
-  body.append(stack);
-
-  // The add button closes the panel: pinned under the stack, so it stays on
-  // the node's bottom edge however tall the node is dragged.
+  // The add button lives INSIDE the stack container and pins to its bottom
+  // edge (margin-top: auto), so it stays put however tall the node is
+  // dragged - the stack absorbs the free height above it.
   const actions = el("div", "ausboss-lora-actions");
-  const add = el("button", "ausboss-lora-add", "+ Add LoRA");
+  const add = el("button", "ausboss-lora-add", "+ LoRA");
   add.type = "button";
   add.disabled = state.rows.length >= MAX_ROWS;
   add.addEventListener("click", addRowAndPick);
   actions.append(add);
-  body.append(actions);
+  stack.append(actions);
+  body.append(stack);
+  decorateRows(state);
 }
 
 // ---------- node install ----------
@@ -1150,11 +1618,16 @@ function installLoraNode(node) {
   hideWidget(widget);
 
   const settings = loadSettings(SETTINGS_SCOPE, SETTINGS_SCHEMA);
+  // Unified strengths are the hard default: separate_strengths is per-node
+  // (persist:false in the schema), so any stored value is legacy noise from
+  // before it stopped persisting - never a reason to split a fresh node.
+  settings.separate_strengths = false;
   const panel = el("div", "ausboss-lora-panel");
   const state = { node, widget, panel, rows: parseRows(widget.value), settings };
+  state.toggleSnapshot = snapshotEnabled(state.rows);
   node.__ausbossLoraState = state;
   if (node.properties && node.properties.ausbossLoraLinked === undefined) {
-    node.properties.ausbossLoraLinked = !settings.separate_strengths;
+    node.properties.ausbossLoraLinked = true;
   }
 
   // The separator rides a hidden standard widget so save/load and the API
@@ -1169,7 +1642,7 @@ function installLoraNode(node) {
   const domWidget = node.addDOMWidget("ausboss_lora_rows", "ausboss_lora_rows", panel, {
     serialize: false,
     hideOnZoom: false,
-    getMinHeight: () => panelHeight(state) + WIDGET_FRAME,
+    getMinHeight: () => panelHeight(state) + WIDGET_FRAME - BAND_RECLAIM,
   });
   keepDomWidgetWidthAuto(domWidget);
   // fillNodeHeight, not a pinned computeSize: the panel joins the layout's
@@ -1177,23 +1650,55 @@ function installLoraNode(node) {
   // button stays on the bottom edge), and a floor that carries WIDGET_FRAME
   // guarantees the element box never comes up short of the rows. The width
   // minimum rides the same call so the node cannot shrink to where the row's
-  // fixed-width controls would hang past its right edge.
+  // fixed-width controls would hang past its right edge. The floor sheds
+  // BAND_RECLAIM because that many pixels come out of the slot band, not
+  // out of the space below it.
   fillNodeHeight(domWidget, {
     minWidth: PANEL_MIN_WIDTH,
-    minHeight: () => panelHeight(state) + WIDGET_FRAME,
+    minHeight: () => panelHeight(state) + WIDGET_FRAME - BAND_RECLAIM,
     minNodeSize: [PANEL_MIN_WIDTH, 160],
   });
+  // Climb the panel up into the slot band. The layout
+  // assigns this widget a y below the last output slot and a height from
+  // the free-space split; these getters show the element BAND_RECLAIM
+  // higher and taller than assigned, in canvas units, so the offset scales
+  // with zoom and the panel's bottom edge stays exactly where the layout
+  // put it. Writes keep landing in the backing values, so the layout's own
+  // accounting never sees the shift.
+  {
+    let assignedY = Number(domWidget.y) || 0;
+    Object.defineProperty(domWidget, "y", {
+      configurable: true,
+      get: () => Math.max(14, assignedY - BAND_RECLAIM),
+      set: (value) => { assignedY = Number(value) || 0; },
+    });
+  }
+  // The wrapper's height still comes from the layout (its computedHeight
+  // feeds node sizing, so it cannot be inflated without a feedback loop);
+  // the y pin moves the whole box up, leaving it BAND_RECLAIM short at the
+  // bottom. The panel stretches past its wrapper by exactly that much -
+  // inner CSS pixels are pre-transform canvas units, so this stays correct
+  // at every zoom.
+  panel.style.height = `calc(100% + ${BAND_RECLAIM}px)`;
 
   renderRows(state);
+  refreshAvailable(state);
   node.setSize?.([Math.max(336, node.size?.[0] || 336), node.computeSize?.()[1] || 220]);
 
   // Workflow restore lands widget values after creation: re-read then.
   chainCallback(node, "onConfigure", function () {
     state.rows = parseRows(widget.value);
+    state.toggleSnapshot = snapshotEnabled(state.rows);
     renderRows(state);
+    refreshAvailable(state);
     requestAnimationFrame(() => fitNode(state));
   });
   chainCallback(node, "onRemoved", () => closePopup());
+  // ComfyUI's R refresh re-reads node definitions; ride it so files that
+  // moved or came back reconnect without touching the node by hand.
+  chainCallback(node, "refreshComboInNode", function () {
+    runReconnect(state, { quiet: true });
+  });
 }
 
 app.registerExtension({
