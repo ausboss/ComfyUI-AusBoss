@@ -4,6 +4,56 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **LoRA Loader: strength bars you can grab.** Every named row paints a
+  center-zero bar behind its name — teal right of center for positive model
+  strength, muted red left for negative, a brighter cap at the value's edge —
+  on one shared scale (the stack's largest magnitude, floored at 1.0) so the
+  everyday 0..1 range reads absolutely and one strong row rescales the whole
+  stack instead of clipping. The name is also a scrub surface: drag it to
+  change the strength, bar riding along; a plain click still opens the
+  picker. Both have gear-menu off switches.
+
+- **LoRA Loader: absorb the loader chain.** A gear-menu action walks the
+  model chain on both sides of the node and lifts every recognized loader —
+  core `LoraLoader` / `LoraLoaderModelOnly`, rgthree's Power Lora Loader,
+  Pixaroma's loader, another AusBoss loader; Reroutes walked through — into
+  the stack, appended below your existing rows in chain order, then
+  bypasses the originals, so an old
+  workflow's loader daisy-chain collapses into one node without changing
+  what the graph computes. Names resolve against this install's list,
+  duplicates are skipped not doubled, a fan-out stops the downstream walk,
+  and a row imported with unequal model/CLIP strengths flips that node into
+  separate-strengths mode so the difference stays visible.
+
+- **LoRA Loader: moved and missing files just work.** A row whose file
+  moved folders resolves by name at run time (exact → unique
+  case-insensitive path → unique basename, one console note) and shows a
+  dashed border naming the file the run will use; a genuinely missing LoRA
+  warns once and skips its row instead of failing the whole run, and
+  validation no longer blocks the queue over a missing file. The bar's new
+  reconnect button — and ComfyUI's own R refresh, quietly — re-checks the
+  list and rewrites repaired rows in place. Thumbnails, the info card, and
+  range lookups all use the resolved name.
+
+- **LoRA Loader: row awareness.** Rows show just the file name by default
+  (full path in the tooltip, folders kept in the picker; gear switch to
+  restore), and any LoRA loaded on two rows wears an amber duplicate ring —
+  same basename under different folders is deliberately not flagged, since
+  the stack would truly load both files.
+
+- **LoRA Loader: the master pill remembers.** It now cycles mixed → all on
+  → all off → back to the mixed setup it destroyed; every hand-made row
+  toggle refreshes the memory, so an accidental master click is always one
+  more click from home.
+
+- **LoRA Loader: the control bar rides the slot band.** The
+  templates/master/reconnect/gear cluster moved up into the empty middle of
+  the output-slot band, cutting ~52px of dead space from every node; slot
+  dots stay wirable beside it. The add button is now **+ LoRA** and lives
+  inside the stack container, pinned to its bottom edge. Strengths are
+  unified by default on every new node — the separate-strengths switch is
+  per-node and no longer leaks into the stored default.
+
 - **The README stops advertising a stale release.** The front-page badge
   said 1.0.0 through two releases; it is now a dynamic shields.io badge
   that reads the version out of `pyproject.toml` on main at view time, so

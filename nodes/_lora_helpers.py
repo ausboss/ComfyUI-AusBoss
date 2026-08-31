@@ -91,10 +91,61 @@ def list_loras() -> list[str]:
         return []
 
 
+_LORA_EXTENSIONS = (".safetensors", ".sft", ".ckpt", ".pt")
+
+
+def _lora_basename(name: str) -> str:
+    stem = str(name).replace("\\", "/").rsplit("/", 1)[-1].lower()
+    for extension in _LORA_EXTENSIONS:
+        if stem.endswith(extension):
+            return stem[: -len(extension)]
+    return stem
+
+
+def match_lora_name(name: str, available: list[str]) -> tuple[str, str]:
+    """Fit a stored LoRA path to this install's list; mirrors the frontend.
+
+    Exact wins; then a unique case-insensitive full-path match; then a unique
+    basename match ignoring folders and extension - which is what lets a
+    workflow whose files were reorganized (or saved on another machine's
+    layout) land on the same file here. Returns (best name, status) with
+    status one of exact | remapped | ambiguous | missing.
+    """
+    if name in available:
+        return name, "exact"
+    lowered = str(name).lower()
+    full_matches = [entry for entry in available if entry.lower() == lowered]
+    if len(full_matches) == 1:
+        return full_matches[0], "remapped"
+    wanted = _lora_basename(name)
+    base_matches = [entry for entry in available if _lora_basename(entry) == wanted]
+    if len(base_matches) == 1:
+        return base_matches[0], "remapped"
+    return name, ("ambiguous" if base_matches else "missing")
+
+
+_remap_noted: set[str] = set()
+
+
 def resolve_lora_path(name: str) -> Path:
     if folder_paths is None:
         raise ValueError("folder_paths is unavailable outside ComfyUI.")
     full = folder_paths.get_full_path("loras", name)
+    if not full:
+        # The saved path is stale; a moved file should just keep working.
+        candidate, status = match_lora_name(str(name), list_loras())
+        if status == "remapped":
+            if name not in _remap_noted:
+                _remap_noted.add(name)
+                print(
+                    f"[AusBoss] LoRA Loader: '{name}' is not at its saved "
+                    f"path; using '{candidate}'."
+                )
+            full = folder_paths.get_full_path("loras", candidate)
+        elif status == "ambiguous":
+            raise ValueError(
+                f"LoRA name matches several files in models/loras: {name}"
+            )
     if not full:
         raise ValueError(f"LoRA file not found in models/loras: {name}")
     path = Path(full).resolve()
@@ -185,6 +236,24 @@ def _warn_no_effect(row_name: str, declared_family: str) -> None:
     )
 
 
+_missing_warned: set[str] = set()
+
+
+def _warn_missing(row_name: str, reason: str) -> None:
+    """Warn once per LoRA that could not be found anywhere in models/loras.
+
+    A missing file skips its row instead of killing the run: the rest of the
+    stack still applies, and the panel marks the row so the miss is visible.
+    """
+    if row_name in _missing_warned:
+        return
+    _missing_warned.add(row_name)
+    print(
+        f"[AusBoss] LoRA Loader: skipping '{row_name}' - {reason} The rest "
+        "of the stack still applies; fix or remove the row to clear this."
+    )
+
+
 def apply_lora_stack(model, clip, rows: list[dict[str, Any]]):
     import comfy.sd
 
@@ -194,7 +263,11 @@ def apply_lora_stack(model, clip, rows: list[dict[str, Any]]):
         strength_clip = row["strength_clip"] if clip is not None else 0.0
         if row["strength"] == 0 and strength_clip == 0:
             continue
-        path = resolve_lora_path(row["name"])
+        try:
+            path = resolve_lora_path(row["name"])
+        except ValueError as exc:
+            _warn_missing(row["name"], str(exc))
+            continue
         lora_sd = _load_lora_file(path)
         before = patch_total(model, clip)
         model, clip = comfy.sd.load_lora_for_models(

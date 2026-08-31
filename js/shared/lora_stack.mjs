@@ -1,6 +1,8 @@
 // Pure state logic for the LoRA Loader rows: stack normalization, strength
-// scrubbing math, and the picker's filter/keyboard model. DOM wiring lives in
-// js/lora_loader/index.js; everything here runs under node:test.
+// scrubbing math, the picker's filter/keyboard model, the strength-bar
+// visualizer, the absorb-the-chain import, moved-file resolution, and the
+// master-toggle memory. DOM wiring lives in js/lora_loader/index.js;
+// everything here runs under node:test.
 
 export const STRENGTH_MIN = -10;
 export const STRENGTH_MAX = 10;
@@ -286,4 +288,298 @@ export function strengthOutOfRange(value, range) {
   if (low !== null && value < low) return true;
   if (high !== null && value > high) return true;
   return false;
+}
+
+// ---------- strength bars ----------
+//
+// Each row's name field gets a center-zero bar behind the text: positive
+// model strength grows right of center, negative grows left. One shared
+// scale across the whole stack, floored at 1.0, so the everyday 0..1 range
+// reads absolutely, and one +2.0 row rescales every bar rather than
+// clipping. Colors stay muted so the filename stays the foreground.
+
+export const BAR_COLORS = {
+  positiveFill: "rgba(0, 180, 170, 0.28)",
+  positiveCap: "rgba(0, 220, 205, 0.9)",
+  negativeFill: "rgba(235, 106, 96, 0.26)",
+  negativeCap: "rgba(255, 138, 128, 0.9)",
+  tick: "rgba(215, 221, 226, 0.30)",
+  base: "#23272c",
+};
+
+// Bars ignore values this close to zero; the center tick alone marks them.
+const BAR_EPSILON = 0.005;
+
+export function strengthBarScale(rows) {
+  let peak = 0;
+  for (const row of rows ?? []) {
+    if (!row?.name) continue;
+    const value = Math.abs(Number(row.strength));
+    if (Number.isFinite(value)) peak = Math.max(peak, value);
+  }
+  return Math.max(1, peak);
+}
+
+// The bar's extent as percentages of the field width, 50 = zero.
+export function strengthBarSpan(value, scale) {
+  const magnitude = Math.abs(Number(value)) / (Number(scale) || 1);
+  const half = 50 * Math.min(1, Number.isFinite(magnitude) ? magnitude : 0);
+  return Number(value) >= 0
+    ? { from: 50, to: 50 + half }
+    : { from: 50 - half, to: 50 };
+}
+
+const pct = (value) => `${Number(value.toFixed(2))}%`;
+
+// A complete CSS background value: outer-edge cap (2px), center tick (1px),
+// translucent fill, base color. Empty-name rows and bars-off pass through
+// the caller, which clears the inline style instead.
+export function strengthBarBackground(value, scale, colors = BAR_COLORS) {
+  const tick =
+    `linear-gradient(to right, transparent calc(50% - 0.5px), ${colors.tick} ` +
+    `calc(50% - 0.5px), ${colors.tick} calc(50% + 0.5px), transparent calc(50% + 0.5px))`;
+  if (Math.abs(Number(value)) < BAR_EPSILON || !Number.isFinite(Number(value))) {
+    return `${tick} ${colors.base}`;
+  }
+  const span = strengthBarSpan(value, scale);
+  const positive = Number(value) >= 0;
+  const fill = positive ? colors.positiveFill : colors.negativeFill;
+  const capColor = positive ? colors.positiveCap : colors.negativeCap;
+  const bar =
+    `linear-gradient(to right, transparent ${pct(span.from)}, ${fill} ` +
+    `${pct(span.from)}, ${fill} ${pct(span.to)}, transparent ${pct(span.to)})`;
+  const cap = positive
+    ? `linear-gradient(to right, transparent calc(${pct(span.to)} - 2px), ` +
+      `${capColor} calc(${pct(span.to)} - 2px), ${capColor} ${pct(span.to)}, ` +
+      `transparent ${pct(span.to)})`
+    : `linear-gradient(to right, transparent ${pct(span.from)}, ${capColor} ` +
+      `${pct(span.from)}, ${capColor} calc(${pct(span.from)} + 2px), ` +
+      `transparent calc(${pct(span.from)} + 2px))`;
+  return `${cap}, ${tick}, ${bar} ${colors.base}`;
+}
+
+// ---------- display names ----------
+
+// What a row SHOWS for its lora; the serialized stack always keeps the full
+// path. Folder and extension hiding are independent preferences.
+export function shortLoraName(name, { hideFolders = true, hideExtension = true } = {}) {
+  let text = String(name ?? "");
+  if (hideFolders) text = text.split("/").pop().split("\\").pop();
+  if (hideExtension) text = text.replace(/\.(safetensors|sft|ckpt|pt)$/i, "");
+  return text;
+}
+
+// ---------- duplicate rows ----------
+
+// Full names (case-insensitive) that appear on more than one row. Every copy
+// gets flagged - symmetric, so the user picks which one to keep. Same file
+// under two different folders is NOT a duplicate here: the stack would load
+// both files, and that is worth showing truthfully.
+export function duplicateLoraKeys(rows) {
+  const counts = new Map();
+  for (const row of rows ?? []) {
+    if (!row?.name) continue;
+    const key = row.name.toLowerCase();
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return new Set(
+    [...counts].filter(([, count]) => count > 1).map(([key]) => key),
+  );
+}
+
+// ---------- master-toggle memory ----------
+
+// The master pill cycles: mixed -> all on -> all off -> the remembered mixed
+// state -> all on -> ... The snapshot is captured whenever the cycle leaves
+// a mixed state, and refreshed by every individual toggle (the caller feeds
+// snapshotEnabled back in), so an accidental master click is always one more
+// click from the setup it destroyed.
+
+export function snapshotEnabled(rows) {
+  const map = {};
+  for (const row of rows ?? []) {
+    if (row?.name) map[row.id] = row.enabled !== false;
+  }
+  return map;
+}
+
+export function cycleMasterToggle(rows, snapshot) {
+  const set = (enabled) =>
+    rows.map((row) => (row.name ? { ...row, enabled } : row));
+  const state = toggleAllState(rows);
+  if (state === "mixed") return { rows: set(true), snapshot: snapshotEnabled(rows) };
+  if (state === "on") return { rows: set(false), snapshot };
+  // All off: restore the remembered setup when it still lights anything;
+  // otherwise this is a plain binary toggle and everything turns on.
+  const restored = rows.map((row) =>
+    row.name && snapshot && row.id in snapshot
+      ? { ...row, enabled: snapshot[row.id] }
+      : row,
+  );
+  const remembersAnything = restored.some((row) => row.name && row.enabled);
+  return remembersAnything ? { rows: restored, snapshot } : { rows: set(true), snapshot };
+}
+
+// ---------- absorb the loader chain ----------
+//
+// The gear menu's absorb action walks the model chain on BOTH sides of this
+// node, lifts every recognized loader's rows into the stack, and bypasses
+// the originals - so an old workflow's loader chain collapses into one
+// AusBoss node without changing what the graph computes.
+
+// LiteGraph node modes: 4 = bypass (pass-through), 2 = mute.
+export const BYPASS_MODE = 4;
+export const MUTE_MODE = 2;
+
+const widgetValue = (nodeLike, name) =>
+  nodeLike?.widgets?.find((widget) => widget?.name === name)?.value;
+
+const cleanStrength = (value, fallback = 1) => {
+  const number = Number(value);
+  return roundStrength(Number.isFinite(number) ? number : fallback);
+};
+
+function entry(name, strength, strengthClip, enabled = true, triggers = "") {
+  return {
+    name: String(name),
+    strength: cleanStrength(strength),
+    strength_clip: cleanStrength(strengthClip, cleanStrength(strength)),
+    enabled: enabled !== false,
+    triggers: String(triggers ?? ""),
+  };
+}
+
+// The loader rows a recognized node contributes, in its own apply order.
+// Returns null for a node type this import does not understand - the caller
+// stops walking there. nodeLike is a plain shape:
+// { type, widgets: [{ name, value }] }.
+export function loaderLoraEntries(nodeLike) {
+  const type = String(nodeLike?.type ?? "");
+  if (type === "LoraLoader") {
+    const name = widgetValue(nodeLike, "lora_name");
+    if (!name || name === "None") return [];
+    return [entry(name, widgetValue(nodeLike, "strength_model"),
+                  widgetValue(nodeLike, "strength_clip"))];
+  }
+  if (type === "LoraLoaderModelOnly") {
+    const name = widgetValue(nodeLike, "lora_name");
+    if (!name || name === "None") return [];
+    // Model-only means CLIP untouched: clip strength 0 reproduces that
+    // faithfully even when this node has a CLIP connected.
+    return [entry(name, widgetValue(nodeLike, "strength_model"), 0)];
+  }
+  if (type === "Power Lora Loader (rgthree)") {
+    const rows = [];
+    for (const widget of nodeLike?.widgets ?? []) {
+      const value = widget?.value;
+      if (!value || typeof value !== "object" || !value.lora) continue;
+      if (value.lora === "None") continue;
+      const two = Number(value.strengthTwo);
+      rows.push(entry(
+        value.lora,
+        value.strength,
+        Number.isFinite(two) ? two : value.strength,
+        value.on !== false,
+      ));
+    }
+    return rows;
+  }
+  if (type === "PixaromaLoraLoader") {
+    // Interop with the Pixaroma loader's serialized panel state: one widget
+    // ("loras_ui") holding { loras: [{ name, on, sm, sc }] }.
+    const panelState = widgetValue(nodeLike, "loras_ui");
+    const list = panelState && typeof panelState === "object" ? panelState.loras : null;
+    if (!Array.isArray(list)) return [];
+    return list
+      .filter((item) => item && typeof item === "object" && item.name && item.name !== "None")
+      .map((item) => entry(item.name, item.sm, item.sc, item.on !== false));
+  }
+  if (type === "AUSBOSS_NODES_LoraLoader" || type === "AUSBOSS_LAB_LoraLoader") {
+    try {
+      const parsed = JSON.parse(String(widgetValue(nodeLike, "loras") ?? "[]"));
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .filter((row) => row && typeof row === "object" && row.name)
+        .map((row) => entry(row.name, row.strength,
+                            row.strength_clip ?? row.strength,
+                            row.enabled, row.triggers));
+    } catch {
+      return [];
+    }
+  }
+  return null;
+}
+
+const baseName = (path) =>
+  String(path).split("/").pop().split("\\").pop().toLowerCase();
+const stripExt = (name) =>
+  name.replace(/\.(safetensors|sft|ckpt|pt)$/i, "");
+
+// Fit a foreign lora path to this install's list. Exact wins; then a unique
+// case-insensitive full-path match; then a unique basename match ignoring
+// the extension - which is what lets a workflow saved on another machine's
+// folder layout land on the same file here.
+export function resolveLoraName(name, available) {
+  const list = Array.isArray(available) ? available : [];
+  if (list.includes(name)) return { name, status: "exact" };
+  const lower = String(name).toLowerCase();
+  const fullMatches = list.filter((candidate) => candidate.toLowerCase() === lower);
+  if (fullMatches.length === 1) return { name: fullMatches[0], status: "remapped" };
+  const wanted = stripExt(baseName(name));
+  const baseMatches = list.filter(
+    (candidate) => stripExt(baseName(candidate)) === wanted,
+  );
+  if (baseMatches.length === 1) return { name: baseMatches[0], status: "remapped" };
+  if (baseMatches.length > 1) return { name, status: "ambiguous" };
+  return { name, status: "missing" };
+}
+
+// The absorb appends imported rows BELOW the existing stack (position
+// "after") - existing rows stay where the user put them; "before" remains
+// for callers that need to prepend. Either way the imports keep their own
+// order and a lora already in the stack (by name, case-insensitive) is
+// skipped rather than doubled.
+export function mergeImportedRows(existing, imported,
+                                  { makeRow = newRow, position = "before" } = {}) {
+  const have = new Set(
+    (existing ?? []).filter((row) => row?.name)
+      .map((row) => row.name.toLowerCase()),
+  );
+  const added = [];
+  let skipped = 0;
+  for (const item of imported ?? []) {
+    const key = String(item.name).toLowerCase();
+    if (have.has(key)) {
+      skipped += 1;
+      continue;
+    }
+    have.add(key);
+    added.push({ ...makeRow(), ...item });
+  }
+  const rows = (position === "after"
+    ? [...(existing ?? []), ...added]
+    : [...added, ...(existing ?? [])]).slice(0, MAX_ROWS);
+  return { rows, added: added.length, skipped };
+}
+
+// Linked mode shows one strength per row; imported rows that patch model
+// and CLIP differently (a model-only loader, an rgthree dual row) need the
+// separate boxes or the difference would be invisible and lost on the
+// first scrub.
+export function importNeedsSeparateStrengths(entries) {
+  return (entries ?? []).some(
+    (item) => Number(item.strength) !== Number(item.strength_clip),
+  );
+}
+
+export function importSummary({ added = 0, skipped = 0, bypassed = 0,
+                                remapped = 0, missing = 0, ambiguous = 0 } = {}) {
+  if (!added && !skipped && !bypassed) return "No LoRA loaders found in the model chain.";
+  const parts = [`Imported ${added} LoRA${added === 1 ? "" : "s"}`];
+  if (bypassed) parts.push(`bypassed ${bypassed} loader node${bypassed === 1 ? "" : "s"}`);
+  if (skipped) parts.push(`skipped ${skipped} already in the stack`);
+  if (remapped) parts.push(`${remapped} path${remapped === 1 ? "" : "s"} remapped to this install`);
+  const broken = missing + ambiguous;
+  if (broken) parts.push(`${broken} name${broken === 1 ? "" : "s"} not resolved - check the red rows`);
+  return `${parts.join("; ")}.`;
 }

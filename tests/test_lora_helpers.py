@@ -187,3 +187,49 @@ class LoraCivitaiSidecarTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestMatchLoraName(unittest.TestCase):
+    AVAILABLE = [
+        "krea2/Beauty.safetensors",
+        "styles/Beauty.safetensors",
+        "klein/outpaint_v1.safetensors",
+    ]
+
+    def test_exact_wins(self):
+        self.assertEqual(
+            _lora_helpers.match_lora_name("klein/outpaint_v1.safetensors", self.AVAILABLE),
+            ("klein/outpaint_v1.safetensors", "exact"),
+        )
+
+    def test_case_insensitive_full_path(self):
+        self.assertEqual(
+            _lora_helpers.match_lora_name("KLEIN/Outpaint_V1.safetensors", self.AVAILABLE),
+            ("klein/outpaint_v1.safetensors", "remapped"),
+        )
+
+    def test_moved_file_resolves_by_unique_basename(self):
+        # The whole point: a file reorganized into another folder (or a
+        # workflow from another machine's layout) lands on the same file.
+        self.assertEqual(
+            _lora_helpers.match_lora_name("old\\path\\outpaint_v1.safetensors", self.AVAILABLE),
+            ("klein/outpaint_v1.safetensors", "remapped"),
+        )
+
+    def test_extension_ignored_in_basename_match(self):
+        self.assertEqual(
+            _lora_helpers.match_lora_name("outpaint_v1.ckpt", self.AVAILABLE),
+            ("klein/outpaint_v1.safetensors", "remapped"),
+        )
+
+    def test_ambiguous_basename_stays_put(self):
+        name, status = _lora_helpers.match_lora_name(
+            "elsewhere/Beauty.safetensors", self.AVAILABLE
+        )
+        self.assertEqual((name, status), ("elsewhere/Beauty.safetensors", "ambiguous"))
+
+    def test_missing_is_reported(self):
+        self.assertEqual(
+            _lora_helpers.match_lora_name("gone.safetensors", self.AVAILABLE)[1],
+            "missing",
+        )

@@ -46,10 +46,12 @@ export function loadSettings(scope, schema) {
   return mergeSettings(schema, readStored(scope));
 }
 
-export function saveSetting(scope, schema, key, value) {
+export function saveSetting(scope, schema, key, value, { persist = true } = {}) {
   const stored = readStored(scope);
   stored[key] = value;
-  writeStored(scope, stored);
+  // persist:false coerces and applies the value without recording it as the
+  // default new nodes start from - for entries that mirror per-node state.
+  if (persist) writeStored(scope, stored);
   return mergeSettings(schema, stored);
 }
 
@@ -175,6 +177,14 @@ export function closeSettingsMenu() {
 }
 
 function buildControl(entry, values, commit) {
+  if (entry.type === "action") {
+    // A one-shot command living among the settings: no value, no storage,
+    // just a button. { key, label, hint, type: "action", button, onAction }.
+    const button = el("button", "ausboss-set-btn", entry.button ?? "Run");
+    button.type = "button";
+    button.addEventListener("click", () => entry.onAction?.());
+    return button;
+  }
   if (entry.type === "toggle") {
     const toggle = el("button", `ausboss-set-toggle${values[entry.key] ? " on" : ""}`);
     toggle.type = "button";
@@ -339,11 +349,13 @@ export function openSettingsMenu({ scope, schema, anchor, title, onChange, initi
   // returns the user's own value rather than a canned one.
   const lastActive = {};
   const commit = (entry, raw) => {
-    // Saving also records the value as the default new nodes start from, but
-    // the menu is showing THIS node: merge back only the key that changed.
-    // Taking saveSetting's whole return would rebuild every other row from
+    // Saving also records the value as the default new nodes start from
+    // (unless the entry opts out with persist: false), but the menu is
+    // showing THIS node: merge back only the key that changed. Taking
+    // saveSetting's whole return would rebuild every other row from
     // storage and silently revert values the open node actually holds.
-    const saved = saveSetting(scope, schema, entry.key, raw);
+    const saved = saveSetting(scope, schema, entry.key, raw,
+      { persist: entry.persist !== false });
     values = { ...values, [entry.key]: saved[entry.key] };
     onChange?.(values, entry.key);
     return values[entry.key];
