@@ -3,7 +3,7 @@ name = "ausboss-nodes"
 # Manager/registry search matches against this text, so it names the actual
 # nodes instead of describing the collection abstractly.
 description = "Polished image and video nodes: Load Video with trim and single-frame picking, Save Video, Save Image (PNG or lossless JPEG XL, exact filenames, caption sidecars), Image Resize, Inpaint Crop and Stitch, LaMa object removal, Mask Refine, Color Match, Frame Interpolate, A/B Image Compare, crop/rotate/pad editors, LoRA Loader with trigger words, LM Studio chat, Select Frame, batch utilities, Math Expression, Show Text, text/number literals, Free Memory, and a Replace Missing Nodes button that swaps known third-party nodes for these."
-version = "1.2.0"
+version = "1.3.0"
 # comfy-cli serializes this to JSON verbatim, so `file` publishes the literal
 # string {"file": "LICENSE"} to the registry listing. `text` puts a readable
 # name there instead. Both forms are supported; the LICENSE file is unchanged.

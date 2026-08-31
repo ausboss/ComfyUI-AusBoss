@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 1.3.0 - 2026-08-31
 
 - **LoRA Loader: strength bars you can grab.** Every named row paints a
   center-zero bar behind its name — teal right of center for positive model
