@@ -68,9 +68,10 @@ this node — upstream through the `model` input, downstream from the `model`
 output — and for every loader it recognizes (`LoraLoader`,
 `LoraLoaderModelOnly`, `Power Lora Loader (rgthree)`, `PixaromaLoraLoader`,
 another AusBoss LoRA Loader; Reroutes are walked through) lifts its rows
-into this stack — upstream rows above the existing rows, downstream rows
-below, so chain order stays apply order — and sets the original nodes to
-**bypass**. The graph keeps computing exactly what it did, from one node.
+into this stack — appended below your existing rows, upstream loaders
+first in chain order, then downstream — and sets the original nodes to
+**bypass**. The graph keeps computing exactly what it did, from one node
+(LoRA patches accumulate, so row order does not change the math).
 
 Details that keep the absorb faithful:
 

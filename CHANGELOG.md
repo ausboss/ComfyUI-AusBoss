@@ -17,7 +17,8 @@ All notable changes to ComfyUI-AusBoss are documented here.
   model chain on both sides of the node and lifts every recognized loader —
   core `LoraLoader` / `LoraLoaderModelOnly`, rgthree's Power Lora Loader,
   Pixaroma's loader, another AusBoss loader; Reroutes walked through — into
-  the stack in chain order, then bypasses the originals, so an old
+  the stack, appended below your existing rows in chain order, then
+  bypasses the originals, so an old
   workflow's loader daisy-chain collapses into one node without changing
   what the graph computes. Names resolve against this install's list,
   duplicates are skipped not doubled, a fan-out stops the downstream walk,

@@ -534,11 +534,11 @@ export function resolveLoraName(name, available) {
   return { name, status: "missing" };
 }
 
-// Upstream loaders apply before this node, so their rows go ABOVE the
-// existing stack (position "before", the default); downstream loaders apply
-// after, so theirs append ("after"). Either way chain order is kept and a
-// lora already in the stack (by name, case-insensitive) is skipped rather
-// than doubled.
+// The absorb appends imported rows BELOW the existing stack (position
+// "after") - existing rows stay where the user put them; "before" remains
+// for callers that need to prepend. Either way the imports keep their own
+// order and a lora already in the stack (by name, case-insensitive) is
+// skipped rather than doubled.
 export function mergeImportedRows(existing, imported,
                                   { makeRow = newRow, position = "before" } = {}) {
   const have = new Set(

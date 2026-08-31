@@ -1318,10 +1318,14 @@ async function runImportChain(state) {
   };
   const upResolved = upEntries.map(resolve);
   const downResolved = downEntries.map(resolve);
-  // Upstream rows apply before this stack, downstream rows after; the
-  // dedupe accumulates across both merges so nothing lands twice.
-  const beforeMerge = mergeImportedRows(state.rows, upResolved);
-  const afterMerge = mergeImportedRows(beforeMerge.rows, downResolved,
+  // Absorbed rows append BELOW the existing stack - your rows stay where
+  // you put them, imports read as additions. Upstream entries first (in
+  // chain order), then downstream; LoRA patches accumulate, so the apply
+  // order does not change what the graph computes. The dedupe accumulates
+  // across both merges so nothing lands twice.
+  const upMerge = mergeImportedRows(state.rows, upResolved,
+    { position: "after" });
+  const downMerge = mergeImportedRows(upMerge.rows, downResolved,
     { position: "after" });
   // Rows that patch model and CLIP differently need both boxes visible, or
   // the difference is invisible and lost on the first scrub. The flip is
@@ -1335,12 +1339,12 @@ async function runImportChain(state) {
   }
   const absorbed = [...activeUp, ...activeDown];
   for (const loader of absorbed) loader.mode = BYPASS_MODE;
-  commitRows(state, afterMerge.rows, { structural: true });
+  commitRows(state, downMerge.rows, { structural: true });
   fitNode(state);
   notifyAusbossChange();
   loraToast(importSummary({
-    added: beforeMerge.added + afterMerge.added,
-    skipped: beforeMerge.skipped + afterMerge.skipped,
+    added: upMerge.added + downMerge.added,
+    skipped: upMerge.skipped + downMerge.skipped,
     bypassed: absorbed.length,
     remapped,
     missing,
