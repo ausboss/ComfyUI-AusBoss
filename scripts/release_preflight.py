@@ -9,9 +9,10 @@ Checks:
      BOM breaks installs silently.
   2. AUSBOSS_JS_VERSION in js/shared/index.mjs equals the pyproject
      version, so the stale-browser warning never fires on a fresh install.
-  3. The README release badge names the pyproject version, so the repo
-     front page never advertises a stale release (1.0.0 sat there through
-     two releases before this check existed).
+  3. The README release badge is the DYNAMIC shields.io kind - it reads
+     the version out of pyproject.toml on main at view time, so it can
+     never go stale (a hardcoded badge sat at 1.0.0 through two releases).
+     The check guards against someone swapping a static badge back in.
 
 Exit code 0 = ready to release, 1 = problems printed below.
 """
@@ -58,23 +59,26 @@ if pyproject_version and js_version and pyproject_version != js_version:
         f"AUSBOSS_JS_VERSION is {js_version}"
     )
 
-# --- 3. the README release badge matches -------------------------------------
-readme_version = None
+# --- 3. the README release badge stays dynamic -------------------------------
+DYNAMIC_BADGE = (
+    "img.shields.io/badge/dynamic/toml"
+    "?url=https%3A%2F%2Fraw.githubusercontent.com%2Fausboss%2FComfyUI-AusBoss"
+    "%2Fmain%2Fpyproject.toml&query=%24.project.version"
+)
 try:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    badge = re.search(r"badge/release-(\d+\.\d+\.\d+)-", readme)
-    if badge:
-        readme_version = badge.group(1)
-    else:
-        errors.append("README.md has no release badge (badge/release-X.Y.Z-...)")
+    if DYNAMIC_BADGE not in readme:
+        errors.append(
+            "README.md release badge is not the dynamic pyproject-reading "
+            "shields.io badge; a hardcoded version WILL go stale"
+        )
+    if re.search(r"badge/release-\d+\.\d+\.\d+-", readme):
+        errors.append(
+            "README.md carries a hardcoded release-X.Y.Z badge; use the "
+            "dynamic badge only"
+        )
 except OSError as exc:
     errors.append(f"could not read README.md: {exc}")
-
-if pyproject_version and readme_version and pyproject_version != readme_version:
-    errors.append(
-        f"version mismatch: pyproject.toml says {pyproject_version} but the "
-        f"README release badge says {readme_version}"
-    )
 
 # --- report ------------------------------------------------------------------
 for error in errors:

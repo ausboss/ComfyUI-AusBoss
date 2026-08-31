@@ -3,8 +3,10 @@
   <p><strong>Polished nodes for the workflows I use most.</strong></p>
   <p>
     <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT License">
-    <!-- release_preflight.py checks this badge against the pyproject version -->
-    <img src="https://img.shields.io/badge/release-1.2.0-00b4aa?style=flat-square" alt="Release 1.2.0">
+    <!-- Dynamic: shields.io reads the version out of pyproject.toml on main
+         at view time, so this badge can never go stale. release_preflight.py
+         checks it stays the dynamic kind. -->
+    <img src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fausboss%2FComfyUI-AusBoss%2Fmain%2Fpyproject.toml&query=%24.project.version&label=release&color=00b4aa&style=flat-square" alt="Release">
   </p>
 </div>
 
