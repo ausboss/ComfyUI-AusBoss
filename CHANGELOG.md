@@ -4,6 +4,17 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **The README stops advertising a stale release.** The front-page badge
+  said 1.0.0 through two releases; it now says 1.2.0 and
+  `release_preflight.py` gained a third check so the badge, `pyproject`
+  version, and `AUSBOSS_JS_VERSION` can never disagree again. The README
+  also names the real ComfyUI-floor key (`requires-comfyui`), and
+  AGENTS.md's release steps now cover the two failure modes that were
+  silently eating releases: a failed push-triggered publish run (re-run
+  via workflow_dispatch) and registry versions parked in
+  `NodeVersionStatusFlagged` — invisible in Manager's version picker
+  until the Comfy team reviews them.
+
 - **Image Crop + Rotate + Pad: resize the output to a megapixel budget.**
   A new resize block (off by default) scales the transformed result to a
   pixel budget with core Scale Image to Total Pixels semantics — megapixels
