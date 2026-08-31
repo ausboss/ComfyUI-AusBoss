@@ -3,7 +3,8 @@
   <p><strong>Polished nodes for the workflows I use most.</strong></p>
   <p>
     <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT License">
-    <img src="https://img.shields.io/badge/release-1.0.0-00b4aa?style=flat-square" alt="Release 1.0.0">
+    <!-- release_preflight.py checks this badge against the pyproject version -->
+    <img src="https://img.shields.io/badge/release-1.2.0-00b4aa?style=flat-square" alt="Release 1.2.0">
   </p>
 </div>
 
@@ -170,7 +171,7 @@ after a run (off by default).
 - API-mode execution does not require the editor to be open
 - Transform editors validated on ComfyUI `0.27.1`; the pack scaffold was also validated on `0.28.0`
 
-The declared minimum is ComfyUI `0.27.1` (`supported_comfyui_version` in `pyproject.toml`, which ComfyUI-Manager enforces at install time). If a frontend update changes custom-widget behavior, please include your ComfyUI and frontend versions in the issue.
+The declared minimum is ComfyUI `0.27.1` (`requires-comfyui` under `[tool.comfy]` in `pyproject.toml`, which ComfyUI-Manager enforces at install time). If a frontend update changes custom-widget behavior, please include your ComfyUI and frontend versions in the issue.
 
 ## Development
 

@@ -156,17 +156,38 @@ version line as the trigger it is.
 
 A release, when explicitly asked for:
 
-1. Bump `version` in `pyproject.toml` **and** sync `AUSBOSS_JS_VERSION`
-   in `js/shared/index.mjs` — the pair must match or the stale-frontend
-   warning fires on fresh installs. `python scripts/release_preflight.py`
-   enforces this and the other release checks.
+1. Bump the version in ALL THREE places it lives: `version` in
+   `pyproject.toml`, `AUSBOSS_JS_VERSION` in `js/shared/index.mjs` (or the
+   stale-frontend warning fires on fresh installs), and the README release
+   badge. `python scripts/release_preflight.py` enforces all three and the
+   other release checks.
 2. Retitle the CHANGELOG `## Unreleased` section to `## X.Y.Z - date`.
 3. If the node roster changed, update the pyproject `description` and
    `keywords`: the registry shows the description verbatim and
    ComfyUI-Manager search matches against it, so it must name the actual
    nodes — never a generic blurb.
-4. Merge to main and watch the publish run in the Actions tab; verify
-   with `https://api.comfy.org/nodes/ausboss-nodes/versions`.
+4. Merge to main and watch the publish run in the Actions tab. The
+   push-triggered run has failed before (the 1.2.0 merge's run died and
+   the version only published because someone noticed): if it fails,
+   re-run it by hand — Actions → "Publish to Comfy registry" → Run
+   workflow — and treat a red run as an unpublished release until proven
+   otherwise.
+5. Verify the version AND ITS STATUS on the registry:
+
+   ```bash
+   curl -s https://api.comfy.org/nodes/ausboss-nodes/versions | python3 -c "import json,sys; [print(v['version'], v['status']) for v in json.load(sys.stdin)]"
+   ```
+
+   `NodeVersionStatusActive` is the only status users can see. A fresh
+   version usually lands as `NodeVersionStatusFlagged` — the registry's
+   automated security scan holding it for human review — and a flagged
+   version is INVISIBLE in ComfyUI-Manager's "Select Version" picker and
+   sets no "last update" on the listing, so the release is not actually
+   out until the Comfy team clears it. Every version this pack has
+   published (1.1.0, 1.1.1, 1.2.0) sat flagged; ask for review through
+   the Comfy Registry / Comfy-Org channels (their Discord, or the
+   registry's support contact) rather than re-publishing, and re-check
+   the status afterwards.
 
 ## Phase 2: porting an existing node
 
