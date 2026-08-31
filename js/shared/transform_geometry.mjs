@@ -212,3 +212,20 @@ export function stageHandleLayout(width, height) {
   const margin = Math.max(clearance, Math.min(90, safeWidth * 0.1, safeHeight * 0.1));
   return { padOffset, rotateArm, margin };
 }
+
+// JS mirror of nodes/_transform_engine.py scale_to_megapixels, so the
+// editor can show the exact size the backend will produce. Budget is
+// megapixels * 1024 * 1024 (core Scale Image to Total Pixels semantics);
+// each dimension rounds independently to a multiple of steps, never below
+// one step. Keep the two in sync.
+export function scaleToMegapixels(width, height, megapixels, steps = 1) {
+  const sourceWidth = Math.max(1, Math.round(Number(width) || 1));
+  const sourceHeight = Math.max(1, Math.round(Number(height) || 1));
+  const total = Math.max(1, (Number(megapixels) || 1) * 1024 * 1024);
+  const scale = Math.sqrt(total / (sourceWidth * sourceHeight));
+  const step = Math.max(1, Math.round(Number(steps) || 1));
+  return {
+    width: Math.max(step, Math.round((sourceWidth * scale) / step) * step),
+    height: Math.max(step, Math.round((sourceHeight * scale) / step) * step),
+  };
+}

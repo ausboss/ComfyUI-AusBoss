@@ -3,15 +3,22 @@
 from __future__ import annotations
 
 from ._media_helpers import list_input_images, load_image_frames, resolve_input_path
-from ._transform_engine import stable_file_fingerprint, transform_pil_batch
-from ._transform_inputs import spec_from_values, transform_inputs
+from ._transform_engine import (
+    resize_batch_to_megapixels,
+    stable_file_fingerprint,
+    transform_pil_batch,
+)
+from ._transform_inputs import resize_inputs, spec_from_values, transform_inputs
 
 
 class AusBossImageCropRotatePad:
     CATEGORY = "🆎 AusBoss/Image"
     DESCRIPTION = (
         "Loads an image and applies one visual rotate, crop, and pad transform. "
-        "The mask marks source transparency, rotation voids, and new padding."
+        "The mask marks source transparency, rotation voids, and new padding. "
+        "Optionally resizes the result to a megapixel budget (core Scale Image "
+        "to Total Pixels semantics: aspect preserved, dimensions rounded to "
+        "resolution_steps)."
     )
     SEARCH_ALIASES = ["image crop", "rotate image", "pad image", "outpaint canvas", "ausboss"]
 
@@ -24,6 +31,9 @@ class AusBossImageCropRotatePad:
             )
         }
         required.update(transform_inputs())
+        # Appended AFTER the stable V1 widgets, so saved workflows' positional
+        # widgets_values keep loading; missing values fall back to defaults.
+        required.update(resize_inputs())
         return {"required": required}
 
     RETURN_TYPES = ("IMAGE", "MASK")
@@ -34,10 +44,22 @@ class AusBossImageCropRotatePad:
     )
     FUNCTION = "load_transform"
 
-    def load_transform(self, image: str, **values):
+    def load_transform(
+        self,
+        image: str,
+        resize_to_megapixels=False,
+        megapixels=1.0,
+        resize_method="lanczos",
+        resolution_steps=1,
+        **values,
+    ):
         path = resolve_input_path(image)
         frames = load_image_frames(path)
         output, mask, _ = transform_pil_batch(frames, spec_from_values(**values))
+        if resize_to_megapixels:
+            output, mask = resize_batch_to_megapixels(
+                output, mask, float(megapixels), str(resize_method), int(resolution_steps)
+            )
         return output, mask
 
     @classmethod
@@ -55,7 +77,10 @@ class AusBossImageCropRotatePad:
         except Exception:
             path = image or ""
         spec = spec_from_values(**values)
-        return stable_file_fingerprint(path, {"image": image, **spec.__dict__})
+        # The resize values live outside TransformSpec, so fingerprint them
+        # explicitly or changing the budget would not re-run the node.
+        resize = {name: values.get(name) for name in resize_inputs()}
+        return stable_file_fingerprint(path, {"image": image, **spec.__dict__, **resize})
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_ImageCropRotatePad": AusBossImageCropRotatePad}

@@ -155,6 +155,55 @@ def transform_inputs() -> dict[str, tuple]:
     }
 
 
+# Image-node only (the video node keeps its frame geometry): resize the
+# transformed output to a pixel budget, core ImageScaleToTotalPixels-style.
+RESIZE_METHODS = ["lanczos", "area", "bicubic", "bilinear", "nearest-exact"]
+
+
+def resize_inputs() -> dict[str, tuple]:
+    return {
+        "resize_to_megapixels": (
+            "BOOLEAN",
+            {
+                "default": False,
+                "tooltip": "Resize the output to the megapixel budget below, aspect preserved.",
+            },
+        ),
+        "megapixels": (
+            "FLOAT",
+            {
+                "default": 1.0,
+                "min": 0.01,
+                "max": 16.0,
+                "step": 0.01,
+                "tooltip": (
+                    "Output pixel budget in megapixels (x 1024x1024, matching "
+                    "the core Scale Image to Total Pixels node)."
+                ),
+            },
+        ),
+        "resize_method": (
+            RESIZE_METHODS,
+            {
+                "default": "lanczos",
+                "tooltip": "Sampling filter for the resize; lanczos is the sharp default.",
+            },
+        ),
+        "resolution_steps": (
+            "INT",
+            {
+                "default": 1,
+                "min": 1,
+                "max": 256,
+                "tooltip": (
+                    "Rounds each resized dimension to a multiple of this - "
+                    "8 or 64 keeps VAE-friendly sizes."
+                ),
+            },
+        ),
+    }
+
+
 def spec_from_values(**values) -> TransformSpec:
     names = TransformSpec.__dataclass_fields__.keys()
     return TransformSpec(**{name: values[name] for name in names if name in values}).normalized()

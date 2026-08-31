@@ -15,6 +15,7 @@ import {
   stageHandleLayout,
   stageHeightForWidth,
   zoomAround,
+  scaleToMegapixels,
 } from "../js/shared/transform_geometry.mjs";
 
 test("rotated size handles positive and negative angles", () => {
@@ -109,4 +110,12 @@ test("reset and source change restore identity including timeline", () => {
   assert.equal(sourceChanged("a", "b", true), true);
   assert.equal(sourceChanged("a", "b", false), false);
   assert.equal(sourceChanged("a", "a", true), false);
+});
+
+test("scaleToMegapixels mirrors the backend fixtures", () => {
+  assert.deepEqual(scaleToMegapixels(1024, 1024, 1.0, 1), { width: 1024, height: 1024 });
+  assert.deepEqual(scaleToMegapixels(512, 512, 4.0, 1), { width: 2048, height: 2048 });
+  assert.deepEqual(scaleToMegapixels(1920, 1080, 1.0, 64), { width: 1344, height: 768 });
+  assert.deepEqual(scaleToMegapixels(1000, 707, 1.0, 8), { width: 1216, height: 864 });
+  assert.deepEqual(scaleToMegapixels(100, 100, 0.01, 64), { width: 128, height: 128 });
 });
