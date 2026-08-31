@@ -5,10 +5,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
 ## Unreleased
 
 - **The README stops advertising a stale release.** The front-page badge
-  said 1.0.0 through two releases; it now says 1.2.0 and
-  `release_preflight.py` gained a third check so the badge, `pyproject`
-  version, and `AUSBOSS_JS_VERSION` can never disagree again. The README
-  also names the real ComfyUI-floor key (`requires-comfyui`), and
+  said 1.0.0 through two releases; it is now a dynamic shields.io badge
+  that reads the version out of `pyproject.toml` on main at view time, so
+  it can never go stale, and `release_preflight.py` gained a third check
+  that keeps it the dynamic kind (a hardcoded badge fails preflight). The
+  README also names the real ComfyUI-floor key (`requires-comfyui`), and
   AGENTS.md's release steps now cover the two failure modes that were
   silently eating releases: a failed push-triggered publish run (re-run
   via workflow_dispatch) and registry versions parked in

@@ -156,10 +156,12 @@ version line as the trigger it is.
 
 A release, when explicitly asked for:
 
-1. Bump the version in ALL THREE places it lives: `version` in
-   `pyproject.toml`, `AUSBOSS_JS_VERSION` in `js/shared/index.mjs` (or the
-   stale-frontend warning fires on fresh installs), and the README release
-   badge. `python scripts/release_preflight.py` enforces all three and the
+1. Bump `version` in `pyproject.toml` **and** sync `AUSBOSS_JS_VERSION`
+   in `js/shared/index.mjs` — the pair must match or the stale-frontend
+   warning fires on fresh installs. The README release badge is dynamic
+   (shields.io reads pyproject off main at view time) and must stay that
+   way — never swap a hardcoded version badge back in.
+   `python scripts/release_preflight.py` enforces all of this and the
    other release checks.
 2. Retitle the CHANGELOG `## Unreleased` section to `## X.Y.Z - date`.
 3. If the node roster changed, update the pyproject `description` and
