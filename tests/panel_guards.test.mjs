@@ -109,11 +109,12 @@ test("a panel that should follow the node's height never declares computeSize", 
     "input_preview",
     "load_image_pad",
     "load_video",
+    "lora_loader",
     "save_video",
     "show_text",
   ]);
-  // Fixed by design: a button row and a toolbar. Both are content whose height
-  // is a constant, not a viewport onto something bigger.
+  // Fixed by design: a toolbar - content whose height is a constant, not a
+  // viewport onto something bigger.
   //
   // input_preview used to sit here, and that was right while it showed a small
   // thumbnail of the node's INPUT. It now shows the node's own result, which
@@ -122,7 +123,14 @@ test("a panel that should follow the node's height never declares computeSize", 
   // Frame all shipped pinned at 140px with dead space under them. Moving a
   // panel between these two sets is the decision to review whenever what a
   // panel DISPLAYS changes, not just when a new one is added.
-  const fixedByDesign = new Set(["lmstudio_chat", "lora_loader"]);
+  //
+  // lora_loader also sat here, and its pinned computeSize was how the stack's
+  // rounded bottom border got clipped flat: the frontend insets a DOM widget's
+  // element by a frame the exact-pixel sum never carried, and a pinned panel
+  // is excluded from the free-space split so it could never absorb the
+  // difference. It now grows: the stack flexes and the add button rides the
+  // node's bottom edge.
+  const fixedByDesign = new Set(["lmstudio_chat"]);
   const seen = new Set();
   for (const { name, source } of domWidgetEntries()) {
     seen.add(name);
@@ -186,7 +194,10 @@ test("every panel root class carries border-box and an overflow clip", () => {
   // Entries mounting the shared video root are covered by its CSS, checked
   // in the shared-root test below.
   const roots = {
-    lora_loader: ".ausboss-lora-panel {",
+    // The lora panel's guards live on its BODY: the body is the panel's
+    // layout box, and it carries both the border-box blanket and the
+    // overflow clip by name.
+    lora_loader: ".ausboss-lora-body {",
     compare: ".ausboss-compare-root{",
     input_preview: ".ausboss-input-preview{",
     lmstudio_chat: ".ausboss-chat-toolbar{",
@@ -240,21 +251,33 @@ test("the shared video root really carries the guards it is trusted for", () => 
 test("the lora panel carries all three guards by name", () => {
   const source = readFileSync(join(JS_ROOT, "lora_loader", "index.js"), "utf-8");
   // Regexes cannot use [^}] here: the CSS lives in a template literal whose
-  // ${...} interpolations close braces mid-rule. Slice the panel rule out
+  // ${...} interpolations close braces mid-rule. Slice the body rule out
   // by its neighbors instead.
   assert.match(
     source,
     /\.ausboss-lora-panel,\s*\.ausboss-lora-panel \*[\s\S]{0,120}box-sizing:\s*border-box/,
     "the border-box blanket over the panel and its children is gone",
   );
-  const start = source.indexOf(".ausboss-lora-panel {");
+  const start = source.indexOf(".ausboss-lora-body {");
   const end = source.indexOf(".ausboss-lora-row", start);
-  assert.ok(start > 0 && end > start, "the panel rule is missing");
+  assert.ok(start > 0 && end > start, "the body rule is missing");
   const rule = source.slice(start, end);
-  assert.ok(rule.includes("overflow: hidden"), "the panel no longer clips overflow");
-  assert.ok(rule.includes("width: 100%"), "the panel no longer pins to the widget width");
+  assert.ok(rule.includes("overflow: hidden"), "the body no longer clips overflow");
+  assert.ok(rule.includes("width: 100%"), "the body no longer pins to the widget width");
+  // height: 100% is the anti-clip guard: the body tracks whatever box the
+  // frontend actually allocates and the flexible stack absorbs a shortfall,
+  // so the stack's rounded bottom border cannot be cut flat again.
+  assert.ok(rule.includes("height: 100%"), "the body no longer tracks the allocated height");
+  // The declared floor must carry WIDGET_FRAME: the frontend insets the
+  // element by a margin per side, and a floor without the allowance hands
+  // the panel fewer CSS pixels than its rows need.
+  assert.match(
+    source,
+    /minHeight:\s*\(\)\s*=>\s*panelHeight\(state\)\s*\+\s*WIDGET_FRAME/,
+    "the height floor dropped the DOM-widget frame allowance",
+  );
   assert.match(source, /minWidth:\s*PANEL_MIN_WIDTH/);
-  assert.match(source, /minNodeSize\s*=\s*\[PANEL_MIN_WIDTH/);
+  assert.match(source, /minNodeSize:\s*\[PANEL_MIN_WIDTH/);
 });
 
 // A canvas panel is stretched by CSS to whatever box it is given, but its

@@ -1,7 +1,7 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
-import { fillNodeHeight } from "../shared/panel_layout.mjs";
+import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
 import { formatTimecode, parseTimecode } from "../shared/timecode.mjs";
 import {
   mediaInfo,
@@ -33,6 +33,11 @@ import {
 const NODE_NAME = "AUSBOSS_NODES_LoadVideo";
 const PREVIEW_WIDGET = "ausboss_load_video_viewer";
 const PREVIEW_CHROME = 88;
+// The shared video root's CSS minimum: 8px root padding + the stage's 112px
+// floor + 6px gap + the 76px trim strip. The declared floor adds
+// WIDGET_FRAME on top, or the element comes up short and clips the trim
+// strip's bottom border at the node's minimum height.
+const PANEL_MIN_HEIGHT = 202;
 // Height the node opens at. It used to fall out of the panel's computeSize;
 // with the panel free to follow the node, the default has to be stated. The
 // chrome covers the transport row and the trim strip under the player.
@@ -516,12 +521,12 @@ function buildPreview(node) {
   const widget = node.addDOMWidget(PREVIEW_WIDGET, "ausboss_video", root, {
     serialize: false,
     hideOnZoom: false,
-    getMinHeight: () => 200,
+    getMinHeight: () => PANEL_MIN_HEIGHT + WIDGET_FRAME,
   });
   keepDomWidgetWidthAuto(widget);
   fillNodeHeight(widget, {
     minWidth: VIDEO_MIN_WIDTH,
-    minHeight: 200,
+    minHeight: PANEL_MIN_HEIGHT + WIDGET_FRAME,
     minNodeSize: [VIDEO_MIN_WIDTH, 310],
   });
 

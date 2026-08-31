@@ -1,7 +1,7 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto } from "../shared/index.mjs";
-import { fillNodeHeight } from "../shared/panel_layout.mjs";
+import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
 import { mediaViewQuery, responsivePreviewHeight } from "../shared/video_preview.mjs";
 import { VIDEO_MIN_WIDTH, ensureVideoCss, makeToolButton } from "../shared/video_ui.mjs";
 import {
@@ -136,12 +136,15 @@ function buildPanel(node) {
   const widget = node.addDOMWidget(PANEL_WIDGET, "ausboss_compare", root, {
     serialize: false,
     hideOnZoom: false,
-    getMinHeight: () => 132,
+    getMinHeight: () => PANEL_MIN_HEIGHT + WIDGET_FRAME,
   });
   keepDomWidgetWidthAuto(widget);
+  // + WIDGET_FRAME: the frontend insets the element, so a bare floor hands
+  // the panel fewer CSS pixels than the stage + caption minimums and shaves
+  // the caption's glyphs at the node's minimum height.
   fillNodeHeight(widget, {
     minWidth: VIDEO_MIN_WIDTH,
-    minHeight: PANEL_MIN_HEIGHT,
+    minHeight: PANEL_MIN_HEIGHT + WIDGET_FRAME,
     minNodeSize: [VIDEO_MIN_WIDTH, 220],
   });
 

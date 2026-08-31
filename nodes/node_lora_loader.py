@@ -50,7 +50,7 @@ class AusBossLoraLoader:
                         "default": ", ",
                         "tooltip": (
                             "Joins the enabled rows' trigger words into the "
-                            "trigger_words output. Set from the node's gear "
+                            "triggers output. Set from the node's gear "
                             "menu; hidden on the canvas."
                         ),
                     },
@@ -59,7 +59,10 @@ class AusBossLoraLoader:
         }
 
     RETURN_TYPES = ("MODEL", "CLIP", "STRING")
-    RETURN_NAMES = ("model", "clip", "trigger_words")
+    # "triggers", not "trigger_words": output links ride slot indices, so the
+    # label is free to be short - and the narrow name is what leaves room for
+    # the control cluster floating in the slot band on the frontend.
+    RETURN_NAMES = ("model", "clip", "triggers")
     OUTPUT_TOOLTIPS = (
         "The model with every enabled LoRA applied in row order.",
         "The CLIP with every enabled LoRA applied in row order.",

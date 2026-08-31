@@ -1,6 +1,8 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto } from "../shared/index.mjs";
+import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
+import { hideWidget as collapseWidget } from "../shared/widget_visibility.mjs";
 import {
   gearIconSvg,
   loadSettings,
@@ -44,7 +46,7 @@ const NODE_CLASS = "AUSBOSS_NODES_LoraLoader";
 const ROW_HEIGHT = 30;
 const ROW_GAP = 6;
 const ACTIONS_HEIGHT = 26;
-const BAR_HEIGHT = 24;
+const GROUP_HEIGHT = 36;
 const STACK_PADDING = 8;
 const BLANK_HEIGHT = 44;
 const PANEL_PADDING = 10;
@@ -71,7 +73,7 @@ const SETTINGS_SCHEMA = [
   {
     key: "separator", label: "Trigger word separator", type: "text",
     default: ", ", placeholder: '", "',
-    hint: "Joins the trigger_words output. This node now, new nodes later.",
+    hint: "Joins the triggers output. This node now, new nodes later.",
   },
   {
     key: "hide_extension", label: "Hide file extension", type: "toggle",
@@ -103,10 +105,16 @@ function installStyles() {
   .ausboss-lora-panel, .ausboss-lora-panel *,
   .ausboss-lora-pop, .ausboss-lora-pop *,
   .ausboss-lora-hoverthumb { box-sizing: border-box; }
-  .ausboss-lora-panel { display: flex; flex-direction: column; gap: ${ROW_GAP}px;
-    width: 100%; padding: ${PANEL_PADDING}px; font: 12px system-ui; color: #d7dde2;
+  .ausboss-lora-panel { width: 100%; height: 100%;
+    font: 12px system-ui; color: #d7dde2; }
+  /* The body is the panel's layout box: it fences every child and carries
+     the overflow clip. height: 100% tracks whatever box the frontend
+     allocates, so a short allocation shrinks the stack instead of
+     chopping its bottom border. */
+  .ausboss-lora-body { display: flex; flex-direction: column; gap: ${ROW_GAP}px;
+    box-sizing: border-box; width: 100%; height: 100%; padding: ${PANEL_PADDING}px;
     overflow: hidden; }
-  .ausboss-lora-row { display: flex; align-items: center; gap: 6px; height: ${ROW_HEIGHT}px; }
+  .ausboss-lora-row { flex: none; display: flex; align-items: center; gap: 6px; height: ${ROW_HEIGHT}px; }
   .ausboss-lora-row.off { opacity: 0.45; }
   .ausboss-lora-row.dragging { opacity: 0.55; }
   .ausboss-lora-grip { width: 14px; height: 24px; border: none; background: transparent;
@@ -122,22 +130,30 @@ function installStyles() {
   .ausboss-lora-toggle.on::after { left: 16px; background: #fff; }
   .ausboss-lora-toggle.mixed { background: #4d6763; }
   .ausboss-lora-toggle.mixed::after { left: 9px; background: #cfd6da; }
-  .ausboss-lora-actions { display: flex; height: ${ACTIONS_HEIGHT}px; }
-  .ausboss-lora-bar { display: flex; align-items: center; gap: 8px; height: ${BAR_HEIGHT}px;
-    padding: 0 2px; color: #9ba2aa; }
-  .ausboss-lora-gear { margin-left: auto; width: 24px; height: 24px; border: 1px solid #3a4047;
+  .ausboss-lora-actions { flex: none; display: flex; height: ${ACTIONS_HEIGHT}px; }
+  /* The control bar is the panel's first row, sitting directly on top of
+     the stack; the bordered group inside it holds the controls as one
+     centered cluster. */
+  .ausboss-lora-bar { flex: none; display: flex; justify-content: center; }
+  .ausboss-lora-bargroup { display: flex; align-items: center;
+    gap: 8px; min-width: 0; max-width: 100%; height: ${GROUP_HEIGHT}px; padding: 0 8px;
+    border: 1px solid #3a4047; border-radius: 7px; background: rgba(255,255,255,.05);
+    color: #9ba2aa; }
+  .ausboss-lora-gear { width: 24px; height: 24px; border: 1px solid #3a4047;
     border-radius: 5px; background: #23272c; color: #9ba2aa; cursor: pointer;
     display: grid; place-items: center; flex: none; padding: 0; }
   .ausboss-lora-gear:hover { border-color: ${BRAND}; color: ${BRAND}; }
-  .ausboss-lora-stack { display: flex; flex-direction: column; gap: ${ROW_GAP}px;
+  .ausboss-lora-stack { flex: 1 1 auto; min-height: 0; overflow: hidden;
+    display: flex; flex-direction: column; gap: ${ROW_GAP}px;
     padding: ${STACK_PADDING}px; border: 1px solid rgba(0,180,170,.22); border-radius: 6px;
     background: rgba(0,0,0,.38); }
-  .ausboss-lora-blank { display: flex; align-items: center; justify-content: center;
-    width: 100%; height: ${BLANK_HEIGHT - 2}px; border: 1px dashed #3a4047;
+  .ausboss-lora-blank { flex: 1 1 auto; display: flex; align-items: center; justify-content: center;
+    width: 100%; min-height: ${BLANK_HEIGHT}px; border: 1px dashed #3a4047;
     border-radius: 5px; background: transparent; color: #9ba2aa; font: italic 12px system-ui;
     text-align: center; padding: 0 10px; cursor: pointer; }
   .ausboss-lora-blank:hover { border-color: ${BRAND}; color: ${BRAND}; }
-  .ausboss-lora-strength.out-of-range { color: #ffb26b; border-color: #7a5230; }
+  .ausboss-lora-strength.out-of-range { color: #ffb26b; }
+  .ausboss-lora-strengthbox.out-of-range { border-color: #7a5230; }
   .ausboss-lora-folder { padding: 6px 8px 2px; color: #9ba2aa; font-size: 11px;
     text-transform: uppercase; letter-spacing: 0.04em; }
   .ausboss-lora-hoverthumb { position: fixed; z-index: 10001; max-width: 180px;
@@ -153,11 +169,18 @@ function installStyles() {
   .ausboss-lora-name:hover { border-color: ${BRAND}; }
   .ausboss-lora-name.missing { color: #ff8a80; }
   .ausboss-lora-name.empty { color: #9ba2aa; font-style: italic; }
-  .ausboss-lora-strength { width: 52px; height: 24px; border: 1px solid #3a4047; border-radius: 5px;
-    background: #23272c; color: inherit; text-align: center; cursor: ew-resize; flex: none;
+  .ausboss-lora-strengthbox { display: flex; width: 66px; height: 24px; border: 1px solid #3a4047;
+    border-radius: 5px; background: #23272c; overflow: hidden; flex: none; }
+  .ausboss-lora-strengthbox:focus-within { border-color: ${BRAND}; }
+  .ausboss-lora-strength { flex: 1 1 auto; min-width: 0; height: 100%; border: none; padding: 0;
+    background: transparent; color: inherit; text-align: center; cursor: ew-resize;
     user-select: none; }
-  .ausboss-lora-strength:focus { cursor: text; border-color: ${BRAND}; outline: none;
-    user-select: text; }
+  .ausboss-lora-strength:focus { cursor: text; outline: none; user-select: text; }
+  .ausboss-lora-step { flex: none; width: 14px; display: flex; flex-direction: column;
+    border-left: 1px solid #3a4047; }
+  .ausboss-lora-step button { flex: 1 1 0; border: none; background: transparent; color: #9ba2aa;
+    cursor: pointer; padding: 0; display: grid; place-items: center; }
+  .ausboss-lora-step button:hover { color: ${BRAND}; background: rgba(255,255,255,.05); }
   .ausboss-lora-info { width: 24px; height: 24px; border: 1px solid #3a4047; border-radius: 5px;
     background: #23272c; color: #9ba2aa; cursor: pointer; flex: none;
     font: 700 11px system-ui; }
@@ -170,7 +193,8 @@ function installStyles() {
   .ausboss-lora-add:focus-visible { outline: 2px solid #9becf5; outline-offset: 1px; }
   .ausboss-lora-add:disabled { opacity: 0.4; cursor: default; }
   .ausboss-lora-actions .ausboss-lora-add { flex: 1 1 auto; }
-  .ausboss-lora-summary { color: #9ba2aa; flex: 1 1 auto; text-align: right; }
+  .ausboss-lora-summary { color: #9ba2aa; flex: 0 1 auto; min-width: 0; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; }
   .ausboss-lora-pop { position: fixed; z-index: 10000; background: #1c1f23;
     border: 1px solid #3a4047; border-radius: 7px; box-shadow: 0 8px 28px rgba(0,0,0,.5);
     font: 12px system-ui; color: #d7dde2; display: flex; flex-direction: column; }
@@ -242,12 +266,17 @@ function gripIconSvg() {
   return `<svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor" aria-hidden="true">${dots.join("")}</svg>`;
 }
 
+// Stepper chevrons, hand-drawn for the same reason.
+function chevronIconSvg(up) {
+  const points = up ? "1.5,4 4.5,1 7.5,4" : "1.5,1 4.5,4 7.5,1";
+  return `<svg width="9" height="5" viewBox="0 0 9 5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="${points}"/></svg>`;
+}
+
+// The shared collapse handles the sizing hooks; a text widget can also carry
+// a DOM element on some frontends, so blank that too.
 function hideWidget(widget) {
-  if (!widget || widget.__ausbossHidden) return;
-  widget.__ausbossHidden = true;
-  widget.hidden = true;
-  widget.computeSize = () => [0, -4];
-  widget.computeLayoutSize = () => ({ minHeight: 0, maxHeight: 0, minWidth: 0 });
+  if (!widget) return;
+  collapseWidget(widget);
   if (widget.element) widget.element.style.display = "none";
   if (widget.inputEl) widget.inputEl.style.display = "none";
 }
@@ -367,22 +396,20 @@ function displayName(state, name) {
   return state.settings?.hide_extension === false ? name : stripExtension(name);
 }
 
+// CSS pixels the panel needs to show every row with no scrolling.
 function panelHeight(state) {
   const inner = state.rows.length
     ? state.rows.length * (ROW_HEIGHT + ROW_GAP) - ROW_GAP
     : BLANK_HEIGHT;
   const stack = inner + STACK_PADDING * 2 + 2; // +2 for the stack border
-  return (
-    PANEL_PADDING * 2 +
-    ACTIONS_HEIGHT + ROW_GAP +
-    BAR_HEIGHT + ROW_GAP +
-    stack
-  );
+  return PANEL_PADDING * 2 + GROUP_HEIGHT + ROW_GAP + stack + ROW_GAP + ACTIONS_HEIGHT;
 }
 
 function fitNode(state) {
   const width = Math.max(320, state.node.size?.[0] || 320);
-  const height = state.node.computeSize ? state.node.computeSize()[1] : panelHeight(state) + 80;
+  const height = state.node.computeSize
+    ? state.node.computeSize()[1]
+    : panelHeight(state) + WIDGET_FRAME + 80;
   state.node.setSize?.([width, height]);
   state.node.graph?.setDirtyCanvas(true, true);
 }
@@ -410,7 +437,10 @@ function ensureRange(state, name) {
 
 function applyRangeTint(input, row, key) {
   const range = rangeCache.get(row.name);
-  input.classList.toggle("out-of-range", strengthOutOfRange(row[key], range ?? null));
+  const outside = strengthOutOfRange(row[key], range ?? null);
+  input.classList.toggle("out-of-range", outside);
+  // The border moved to the wrapper when the stepper arrived; tint it too.
+  input.closest(".ausboss-lora-strengthbox")?.classList.toggle("out-of-range", outside);
   input.title = range && (range.min !== null || range.max !== null)
     ? `Suggested range ${range.min ?? "any"} to ${range.max ?? "any"}. ` + input.dataset.baseTitle
     : input.dataset.baseTitle;
@@ -419,14 +449,16 @@ function applyRangeTint(input, row, key) {
 // ---------- strength boxes ----------
 
 function strengthBox(state, index, key) {
+  const box = el("div", "ausboss-lora-strengthbox");
   const input = el("input", "ausboss-lora-strength");
   input.value = state.rows[index][key].toFixed(2);
   input.dataset.baseTitle = key === "strength"
     ? "Model strength. Drag left/right to scrub, click to type, arrows to step. Shift = fine."
     : "CLIP strength. Drag left/right to scrub, click to type, arrows to step. Shift = fine.";
   input.readOnly = true;
+  input.__ausbossRead = () => state.rows[index]?.[key].toFixed(2) ?? "1.00";
+  input.__ausbossTint = () => state.rows[index] && applyRangeTint(input, state.rows[index], key);
   ensureRange(state, state.rows[index].name);
-  applyRangeTint(input, state.rows[index], key);
 
   const commitValue = (value, structural = false) => {
     let rows = state.rows;
@@ -485,7 +517,27 @@ function strengthBox(state, index, key) {
     }
     input.value = state.rows[index][key].toFixed(2);
   });
-  return input;
+
+  // Click-to-step arrows: the third way to set a strength, next to scrubbing
+  // and typing. Steps by the configured step (gear menu); Shift steps fine.
+  const steps = el("div", "ausboss-lora-step");
+  const stepButton = (direction) => {
+    const button = el("button");
+    button.type = "button";
+    button.tabIndex = -1;
+    button.title = `Strength ${direction > 0 ? "up" : "down"} one step. Shift = fine.`;
+    button.innerHTML = chevronIconSvg(direction > 0);
+    button.addEventListener("click", (event) => {
+      const coarse = state.settings?.step ?? DEFAULT_STEP;
+      commitValue(state.rows[index][key] + (event.shiftKey ? FINE_STEP : coarse) * direction);
+      input.value = state.rows[index][key].toFixed(2);
+    });
+    return button;
+  };
+  steps.append(stepButton(1), stepButton(-1));
+  box.append(input, steps);
+  applyRangeTint(input, state.rows[index], key);
+  return box;
 }
 
 // ---------- picker ----------
@@ -522,8 +574,13 @@ function openPicker(state, index, anchor) {
     if (name === state.rows[index].name) option.classList.add("current");
     option.addEventListener("pointerenter", (event) => {
       if (highlight !== flatIndex) {
+        // Class swap, never renderList(): a hover-time rebuild repositioned
+        // the popup and blinked the thumbnail on every row crossed, and a
+        // rebuild landing between mousedown and click detaches the option
+        // mid-gesture, killing that click.
+        list.querySelector(".ausboss-lora-option.highlight")?.classList.remove("highlight");
         highlight = flatIndex;
-        renderList();
+        option.classList.add("highlight");
       }
       showHoverThumb(state, name, event.clientX, event.clientY);
     });
@@ -939,6 +996,8 @@ function openSettings(state, anchor) {
 function renderRows(state) {
   const panel = state.panel;
   panel.textContent = "";
+  const body = el("div", "ausboss-lora-body");
+  panel.append(body);
 
   const addRowAndPick = () => {
     if (state.rows.length >= MAX_ROWS) return;
@@ -949,14 +1008,6 @@ function renderRows(state) {
     const pickers = state.panel.querySelectorAll(".ausboss-lora-name");
     pickers[pickers.length - 1]?.click();
   };
-
-  const actions = el("div", "ausboss-lora-actions");
-  const add = el("button", "ausboss-lora-add", "+ Add LoRA");
-  add.type = "button";
-  add.disabled = state.rows.length >= MAX_ROWS;
-  add.addEventListener("click", addRowAndPick);
-  actions.append(add);
-  panel.append(actions);
 
   const bar = el("div", "ausboss-lora-bar");
   const overall = toggleAllState(state.rows);
@@ -978,8 +1029,10 @@ function renderRows(state) {
   gear.title = "LoRA Loader settings";
   gear.innerHTML = gearIconSvg();
   gear.addEventListener("click", () => openSettings(state, gear));
-  bar.append(master, el("span", "ausboss-lora-summary", summarizeRows(state.rows)), templates, gear);
-  panel.append(bar);
+  const group = el("div", "ausboss-lora-bargroup");
+  group.append(templates, master, el("span", "ausboss-lora-summary", summarizeRows(state.rows)), gear);
+  bar.append(group);
+  body.append(bar);
 
   const stack = el("div", "ausboss-lora-stack");
   if (!state.rows.length) {
@@ -1001,10 +1054,10 @@ function renderRows(state) {
     grip.addEventListener("pointerdown", (event) => {
       if (event.button !== 0 || state.rows.length < 2) return;
       event.preventDefault();
-      grip.setPointerCapture(event.pointerId);
       hideHoverThumb();
       rowElement.classList.add("dragging");
       let current = index;
+      const abort = new AbortController();
       const rowElements = () => Array.from(stack.querySelectorAll(".ausboss-lora-row"));
       const onMove = (moveEvent) => {
         const elements = rowElements();
@@ -1021,15 +1074,21 @@ function renderRows(state) {
         current = target;
       };
       const finish = (commit) => {
-        grip.removeEventListener("pointermove", onMove);
+        abort.abort();
         rowElement.classList.remove("dragging");
         if (current === index) return;
         if (commit) commitRows(state, reorderRows(state.rows, index, current), { structural: true });
         else renderRows(state);
       };
-      grip.addEventListener("pointermove", onMove);
-      grip.addEventListener("pointerup", () => finish(true), { once: true });
-      grip.addEventListener("pointercancel", () => finish(false), { once: true });
+      // The gesture listens on the window, capture phase - never through
+      // setPointerCapture on the grip. The preview above reparents the row,
+      // and a reparent removes the grip from the document for an instant,
+      // which silently releases its pointer capture: the pointerup then
+      // never reached the grip, the drop never committed, and the row rode
+      // the cursor until the next render snapped it back.
+      window.addEventListener("pointermove", onMove, { capture: true, signal: abort.signal });
+      window.addEventListener("pointerup", () => finish(true), { capture: true, signal: abort.signal });
+      window.addEventListener("pointercancel", () => finish(false), { capture: true, signal: abort.signal });
     });
 
     const toggle = el("button", `ausboss-lora-toggle${row.enabled ? " on" : ""}`);
@@ -1053,16 +1112,8 @@ function renderRows(state) {
       showHoverThumb(state, row.name, event.clientX, event.clientY));
     name.addEventListener("pointerleave", hideHoverThumb);
 
-    const strength = strengthBox(state, index, "strength");
-    strength.__ausbossRead = () => state.rows[index]?.strength.toFixed(2) ?? "1.00";
-    strength.__ausbossTint = () => state.rows[index] && applyRangeTint(strength, state.rows[index], "strength");
-    rowElement.append(grip, toggle, name, strength);
-    if (!linked(state)) {
-      const clip = strengthBox(state, index, "strength_clip");
-      clip.__ausbossRead = () => state.rows[index]?.strength_clip.toFixed(2) ?? "1.00";
-      clip.__ausbossTint = () => state.rows[index] && applyRangeTint(clip, state.rows[index], "strength_clip");
-      rowElement.append(clip);
-    }
+    rowElement.append(grip, toggle, name, strengthBox(state, index, "strength"));
+    if (!linked(state)) rowElement.append(strengthBox(state, index, "strength_clip"));
 
     const info = el("button", "ausboss-lora-info", "i");
     info.type = "button";
@@ -1077,8 +1128,17 @@ function renderRows(state) {
     });
     stack.append(rowElement);
   });
+  body.append(stack);
 
-  panel.append(stack);
+  // The add button closes the panel: pinned under the stack, so it stays on
+  // the node's bottom edge however tall the node is dragged.
+  const actions = el("div", "ausboss-lora-actions");
+  const add = el("button", "ausboss-lora-add", "+ Add LoRA");
+  add.type = "button";
+  add.disabled = state.rows.length >= MAX_ROWS;
+  add.addEventListener("click", addRowAndPick);
+  actions.append(add);
+  body.append(actions);
 }
 
 // ---------- node install ----------
@@ -1109,23 +1169,20 @@ function installLoraNode(node) {
   const domWidget = node.addDOMWidget("ausboss_lora_rows", "ausboss_lora_rows", panel, {
     serialize: false,
     hideOnZoom: false,
+    getMinHeight: () => panelHeight(state) + WIDGET_FRAME,
   });
   keepDomWidgetWidthAuto(domWidget);
-  // The same minimum through every sizing path the frontends consult -
-  // legacy computeSize, modern computeLayoutSize, and the resize clamp -
-  // so the panel and the node can never disagree about how narrow is legal.
-  // Without the layout minimum, the node could be dragged below the panel's
-  // floor while the panel held its width, and the row's fixed-width strength
-  // and info controls hung past the node's right edge.
-  domWidget.computeSize = (width) => [
-    Math.max(PANEL_MIN_WIDTH, Number(width || node.size?.[0] || PANEL_MIN_WIDTH)),
-    panelHeight(state),
-  ];
-  domWidget.computeLayoutSize = () => ({
+  // fillNodeHeight, not a pinned computeSize: the panel joins the layout's
+  // free-space split, follows the node when it is dragged taller (the add
+  // button stays on the bottom edge), and a floor that carries WIDGET_FRAME
+  // guarantees the element box never comes up short of the rows. The width
+  // minimum rides the same call so the node cannot shrink to where the row's
+  // fixed-width controls would hang past its right edge.
+  fillNodeHeight(domWidget, {
     minWidth: PANEL_MIN_WIDTH,
-    minHeight: panelHeight(state),
+    minHeight: () => panelHeight(state) + WIDGET_FRAME,
+    minNodeSize: [PANEL_MIN_WIDTH, 160],
   });
-  domWidget.options.minNodeSize = [PANEL_MIN_WIDTH, 160];
 
   renderRows(state);
   node.setSize?.([Math.max(336, node.size?.[0] || 336), node.computeSize?.()[1] || 220]);

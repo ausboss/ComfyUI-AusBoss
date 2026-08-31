@@ -41,7 +41,7 @@ The info card gathers words from three places: the LoRA file's own metadata,
 Civitai (one click to fetch, saved beside the LoRA as the standard
 `<model>.civitai.info` sidecar), and words you add yourself (remembered per
 LoRA across workflows). Click a word to toggle it into the row; enabled rows'
-selected words are joined into the `trigger_words` output, deduplicated, in
+selected words are joined into the `triggers` output, deduplicated, in
 row order.
 
 ## Outputs
@@ -49,7 +49,7 @@ row order.
 - **model**: The model with every enabled LoRA applied in row order.
 - **clip**: The CLIP with every enabled LoRA applied (unchanged when no CLIP
   is connected).
-- **trigger_words**: Comma-joined selected trigger words from enabled rows.
+- **triggers**: Comma-joined selected trigger words from enabled rows.
 
 Rows with a strength of `0` (both model and CLIP) are skipped at load time
 but still contribute their trigger words, so you can park a LoRA at zero
