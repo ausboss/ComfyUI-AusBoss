@@ -31,6 +31,18 @@ and the release gate are in the lab's `docs/promoting.md`.
 that is registered but absent from `PUBLIC_NODE_IDS` fails the build, so an
 experiment cannot ride along into a release unnoticed.
 
+The lab **vendors** this repo's shared modules (`js/shared/*.mjs`,
+`nodes/_*_helpers.py`, their tests) and this repo is the source of truth for
+those copies. After changing any of them here, refresh the lab's copies:
+
+```bash
+python ../ComfyUI-AusBoss-Lab/scripts/sync_shared.py pull
+```
+
+The lab's `docs/shared_sync.md` holds the full design; its validator also
+notices stale copies on its own, so this is a courtesy, not the only line of
+defense.
+
 ## Hard rules
 
 - Never modify `LICENSE`.
@@ -100,6 +112,10 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   use `[project.optional-dependencies]` and fail soft at runtime.
 - Frontend JS never assigns prototype callbacks directly — use
   `chainCallback` from `js/shared/index.mjs`.
+- Numeric fields in pack panels are scrub controls, Adobe-style: drag the
+  value to scrub, click to type, chevron arrows step, Shift is always the
+  fine step. Use `makeScrubInput` from `js/shared/scrub_input.mjs` — never
+  a bare `<input type=number>`.
 - A DOM panel that shows a stage/preview claims the node's free height via
   `fillNodeHeight` from `js/shared/panel_layout.mjs` — never a hand-rolled
   `computeSize`, which pins the panel and leaves dead space when the node is

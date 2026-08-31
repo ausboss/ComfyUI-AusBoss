@@ -99,6 +99,14 @@ the `AUSBOSS_NODES_` prefix, so they stay uncolored on purpose.
 
 ## Interaction etiquette
 
+- Numbers scrub, Adobe-style — this is a signature of the pack. Every
+  numeric field is a scrub control: drag left/right on the value to change
+  it, click to type an exact value (typed values are honored, never
+  re-snapped), chevron arrows on the right step it, ArrowUp/Down step from
+  the keyboard, and Shift always means the fine step. Build them with
+  `makeScrubInput` from `js/shared/scrub_input.mjs` (the LoRA loader's
+  strength box is the reference feel); a bare `<input type=number>` in a
+  panel is a bug.
 - A click on empty panel space must fall through (no `preventDefault`) so the
   node stays draggable from its body.
 - Wheel and middle-click belong to the graph (zoom/pan) unless the widget is

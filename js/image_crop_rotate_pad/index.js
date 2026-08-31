@@ -4,8 +4,9 @@ import { fillNodeHeight } from "../shared/panel_layout.mjs";
 import { stageHeightForWidth } from "../shared/transform_geometry.mjs";
 
 const PANEL_MIN_WIDTH = 330;
-// Action row + column gaps + panel padding around the stage canvas.
-const PANEL_CHROME = 56;
+// Two action rows (open editor + the reset/feather/resize quick row),
+// column gaps, and panel padding around the stage canvas.
+const PANEL_CHROME = 92;
 const PANEL_MIN_HEIGHT = stageHeightForWidth(0) + PANEL_CHROME;
 
 // Guard rule the DOM-panel audit (tests/panel_guards.test.mjs) checks next

@@ -12,6 +12,13 @@ Loads an image and applies one reusable **rotate → crop → pad** transform. C
 - **feather**: Feathers the mask into kept pixels and fades the image edge into the fill color, so outpaints blend instead of ending at a hard seam.
 - **canvas_multiple**: Rounds the final canvas up by adding the minimum extra pixels to the right and bottom.
 - **fill_color**: `#RRGGBB` or three RGB values used for generated pixels.
+- **resize_to_megapixels / megapixels / resize_method / resolution_steps**: Optional resize of the finished output to a pixel budget, with core *Scale Image to Total Pixels* semantics — the budget is `megapixels × 1024 × 1024`, aspect is preserved, and each dimension rounds to a multiple of `resolution_steps` (8 or 64 keeps VAE-friendly sizes). The image uses the chosen filter; the mask always resizes bilinear so feathered edges cannot ring.
+
+## Quick row (on the node)
+
+Under the compact canvas: **Reset** zeroes rotation, crop, and padding in one click (resize settings are output options and survive); **Feather** toggles feathering on and off, remembering the amount it turned off; **Resize** enables the megapixel budget and reveals its number box. The full method/steps controls live in the editor's **Resize output** section, and the status panel there names the exact resized size.
+
+The output pixel size is drawn centered just below the image — outside the pixels being judged — and shows the resize target when one is active (`576 x 1024 → 768 x 1344`).
 
 ## Outputs
 

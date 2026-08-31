@@ -300,3 +300,48 @@ def stable_file_fingerprint(path: str | os.PathLike[str], inputs: dict[str, obje
     payload = {"file": file_state, "inputs": inputs}
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def scale_to_megapixels(
+    width: int, height: int, megapixels: float, steps: int = 1
+) -> tuple[int, int]:
+    """Target size whose pixel count is ~megapixels, aspect preserved.
+
+    Mirrors core ImageScaleToTotalPixels semantics so the two stay
+    interchangeable in a workflow: the budget is megapixels * 1024 * 1024,
+    and each dimension rounds independently to the nearest multiple of
+    steps (never below one step)."""
+    source_width = max(1, int(width))
+    source_height = max(1, int(height))
+    total = max(1.0, float(megapixels) * 1024 * 1024)
+    scale = (total / (source_width * source_height)) ** 0.5
+    step = max(1, int(steps))
+    scaled_width = max(step, round(source_width * scale / step) * step)
+    scaled_height = max(step, round(source_height * scale / step) * step)
+    return int(scaled_width), int(scaled_height)
+
+
+def resize_batch_to_megapixels(output, mask, megapixels, method, steps):
+    """Resize the transform's BHWC image (and BHW mask) to a pixel budget.
+
+    The image uses the chosen method; the mask always resizes bilinear -
+    it is a soft coverage map, and ringing methods (lanczos/bicubic) would
+    push it outside 0..1 at the feather edge."""
+    import comfy.utils
+
+    height = int(output.shape[1])
+    width = int(output.shape[2])
+    target_width, target_height = scale_to_megapixels(width, height, megapixels, steps)
+    if (target_width, target_height) == (width, height):
+        return output, mask
+    samples = output.movedim(-1, 1)
+    samples = comfy.utils.common_upscale(
+        samples, target_width, target_height, str(method), "disabled"
+    )
+    output = samples.movedim(1, -1).clamp(0.0, 1.0)
+    mask_samples = mask.unsqueeze(1)
+    mask_samples = comfy.utils.common_upscale(
+        mask_samples, target_width, target_height, "bilinear", "disabled"
+    )
+    mask = mask_samples.squeeze(1).clamp(0.0, 1.0)
+    return output, mask

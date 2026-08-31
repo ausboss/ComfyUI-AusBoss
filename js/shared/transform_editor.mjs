@@ -1,8 +1,9 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
-import { BRAND, chainCallback, notifyAusbossChange } from "./index.mjs";
+import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "./index.mjs";
 import { fillNodeHeight } from "./panel_layout.mjs";
 import { normalizeFillColor } from "./fill_color.mjs";
+import { makeScrubInput } from "./scrub_input.mjs";
 import {
   canvasLocalPoint,
   clamp,
@@ -15,6 +16,7 @@ import {
   resolveCrop,
   resolvePadding,
   rotatedSize,
+  scaleToMegapixels,
   sourceChanged,
   stageHandleLayout,
   zoomAround,
@@ -24,7 +26,11 @@ const HIDDEN_WIDGETS = [
   "rotation_degrees", "crop_aspect_ratio", "crop_x", "crop_y", "crop_width", "crop_height",
   "pad_left", "pad_top", "pad_right", "pad_bottom", "feather", "canvas_multiple", "fill_color",
   "seek_mode", "frame_index", "frame_time",
+  // Image-node resize block; hideWidget on a missing widget is a no-op, so
+  // the video node sharing this list is unaffected.
+  "resize_to_megapixels", "megapixels", "resize_method", "resolution_steps",
 ];
+const RESIZE_METHODS = ["lanczos", "area", "bicubic", "bilinear", "nearest-exact"];
 const TRANSFORM_DEFAULTS = resetTransformValues(false);
 const CORE_IMAGE_PREVIEW_WIDGET = "$$canvas-image-preview";
 
@@ -37,6 +43,9 @@ function installStyles() {
     .ausboss-transform-preview{width:100%;flex:1 1 180px;min-height:0;border:1px solid #50555b;border-radius:8px;background:#111;display:block;touch-action:none}
     .lg-node:has(.ausboss-transform-panel) .image-preview{display:none!important}
     .ausboss-transform-row{display:flex;gap:7px;align-items:center;flex:0 0 auto}.ausboss-transform-row>*{min-width:0;flex:1}
+    .ausboss-transform-check{display:flex;align-items:center;justify-content:center;gap:5px;background:#30343a;color:#eee;border:1px solid #555b63;border-radius:5px;padding:6px 8px;cursor:pointer;white-space:nowrap;user-select:none}
+    .ausboss-transform-check:hover{border-color:${BRAND};background:#383e44}
+    .ausboss-transform-check input{accent-color:${BRAND};margin:0;flex:0 0 auto;cursor:pointer}
     .ausboss-transform-button,.ausboss-transform-modal button{background:#30343a;color:#eee;border:1px solid #555b63;border-radius:5px;padding:7px 10px;cursor:pointer}
     .ausboss-transform-button:hover,.ausboss-transform-modal button:hover{border-color:${BRAND};background:#383e44}
     .ausboss-transform-file{position:relative;text-align:center;overflow:hidden}.ausboss-transform-file input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
@@ -215,6 +224,7 @@ export function installTransformNode(node, kind, mountPanel = null) {
     choose.append(fileInput); row.prepend(choose);
   }
   panel.append(preview, row);
+  if (kind === "image") panel.append(buildImageQuickRow(state));
   state.previewCanvas = preview;
   open.addEventListener("click", () => openEditor(state));
 
@@ -222,7 +232,8 @@ export function installTransformNode(node, kind, mountPanel = null) {
     mountPanel(node, panel);
   } else if (typeof node.addDOMWidget === "function") {
     const domWidget = node.addDOMWidget("ausboss_transform_preview", "ausboss_transform_preview", panel, { serialize: false });
-    fillNodeHeight(domWidget, { minWidth: 300, minHeight: 230 });
+    keepDomWidgetWidthAuto(domWidget);
+    fillNodeHeight(domWidget, { minWidth: 300, minHeight: 230, minNodeSize: [300, 300] });
   } else {
     node.addWidget?.("button", "Open editor", null, () => openEditor(state), { serialize: false });
   }
@@ -270,6 +281,81 @@ export function installTransformNode(node, kind, mountPanel = null) {
     await onSourceChanged(state, false);
   });
   return state;
+}
+
+// The image node's quick row under the canvas: reset, the feather on/off,
+// and the resize-to-megapixels toggle with its budget box. These mirror
+// hidden widgets, so the row re-reads them after a workflow restore lands
+// (onConfigure) — the panel is built before the saved values arrive.
+function buildImageQuickRow(state) {
+  const node = state.node;
+  const row = createElement("div", "ausboss-transform-row");
+
+  const reset = createElement("button", "ausboss-transform-button", "Reset");
+  reset.title = "Reset rotation, crop, and padding";
+  reset.addEventListener("click", () => {
+    resetTransform(node, false);
+    draw(state);
+    notifyAusbossChange();
+  });
+
+  const makeCheck = (text, title) => {
+    const label = createElement("label", "ausboss-transform-check");
+    const box = createElement("input");
+    box.type = "checkbox";
+    label.append(box, createElement("span", "", text));
+    label.title = title;
+    return { label, box };
+  };
+
+  // Feather is an amount, so the toggle remembers the amount it turns off:
+  // off writes 0, on restores the stashed value (or the 24px default).
+  const feather = makeCheck("Feather", "Feather the mask and image edge into the fill color");
+  feather.box.addEventListener("change", () => {
+    if (feather.box.checked) {
+      const stashed = Number(node.properties?.ausbossFeatherMemory) || 24;
+      setValue(node, "feather", stashed);
+    } else {
+      node.properties ??= {};
+      node.properties.ausbossFeatherMemory = value(node, "feather", 24) || 24;
+      setValue(node, "feather", 0);
+    }
+    draw(state);
+    notifyAusbossChange();
+  });
+
+  const resize = makeCheck("Resize", "Resize the output to a megapixel budget (aspect preserved)");
+  // The pack's standard scrub control (drag / type / arrows, Shift = fine),
+  // same box the LoRA loader strengths use.
+  const budget = makeScrubInput({
+    value: value(node, "megapixels", 1),
+    min: 0.01, max: 16, step: 0.05, fineStep: 0.01, decimals: 2, width: 74,
+    title: "Output budget in megapixels (x 1024x1024).",
+    onChange: (amount) => {
+      setValue(node, "megapixels", amount);
+      updateModalInfo(state);
+    },
+    onSettle: () => notifyAusbossChange(),
+  });
+  resize.box.addEventListener("change", () => {
+    setValue(node, "resize_to_megapixels", resize.box.checked);
+    budget.root.style.display = resize.box.checked ? "" : "none";
+    updateModalInfo(state);
+    notifyAusbossChange();
+  });
+
+  const sync = () => {
+    feather.box.checked = Number(value(node, "feather", 24)) > 0;
+    resize.box.checked = Boolean(value(node, "resize_to_megapixels", false));
+    budget.set(value(node, "megapixels", 1));
+    budget.root.style.display = resize.box.checked ? "" : "none";
+  };
+  sync();
+  state.syncQuickRow = sync;
+  chainCallback(node, "onConfigure", () => queueMicrotask(sync));
+
+  row.append(reset, feather.label, resize.label, budget.root);
+  return row;
 }
 
 async function onSourceChanged(state, reset) {
@@ -556,6 +642,53 @@ function buildControls(state, sidebar) {
   addLabeledControl(padSection, "Multiple", multiple, "px");
   const resetPad = createElement("button", "", "Reset padding"); resetPad.addEventListener("click", () => { for (const name of ["pad_left", "pad_top", "pad_right", "pad_bottom"]) setValue(node, name, 0); draw(state); }); padSection.append(resetPad);
 
+  // Resize to a pixel budget (image node only): mirrors the core Scale
+  // Image to Total Pixels trio - megapixels, method, resolution steps -
+  // so the output lands render-ready without another node.
+  let resizeSection = null;
+  if (state.kind === "image") {
+    resizeSection = createElement("section", "ausboss-transform-section");
+    resizeSection.append(sectionHeading("Resize output"));
+    const enable = createElement("input"); enable.type = "checkbox";
+    enable.checked = Boolean(value(node, "resize_to_megapixels", false));
+    const applyResize = () => {
+      setValue(node, "resize_to_megapixels", enable.checked);
+      state.syncQuickRow?.();
+      updateModalInfo(state);
+    };
+    enable.addEventListener("change", applyResize);
+    addLabeledControl(resizeSection, "Resize", enable);
+    const budget = makeScrubInput({
+      value: value(node, "megapixels", 1),
+      min: 0.01, max: 16, step: 0.05, fineStep: 0.01, decimals: 2,
+      title: "Output budget in megapixels (x 1024x1024).",
+      onChange: (amount) => {
+        setValue(node, "megapixels", amount);
+        state.syncQuickRow?.();
+        updateModalInfo(state);
+      },
+    });
+    addLabeledControl(resizeSection, "Megapixels", budget.root, "MP");
+    const method = createElement("select");
+    for (const name of RESIZE_METHODS) {
+      const option = createElement("option", "", name); option.value = name; method.append(option);
+    }
+    method.value = String(value(node, "resize_method", "lanczos"));
+    if (!RESIZE_METHODS.includes(method.value)) method.value = "lanczos";
+    method.addEventListener("change", () => { setValue(node, "resize_method", method.value); });
+    addLabeledControl(resizeSection, "Method", method);
+    const steps = makeScrubInput({
+      value: value(node, "resolution_steps", 1),
+      min: 1, max: 256, step: 1, decimals: 0,
+      title: "Rounds each resized dimension to a multiple of this.",
+      onChange: (step) => {
+        setValue(node, "resolution_steps", step);
+        updateModalInfo(state);
+      },
+    });
+    addLabeledControl(resizeSection, "Steps", steps.root, "px");
+  }
+
   const actions = createElement("section", "ausboss-transform-section"); actions.append(sectionHeading("View & reset"));
   const resetViewButton = createElement("button", "", "Reset view"); resetViewButton.addEventListener("click", () => { resetView(state); draw(state); });
   const resetAll = createElement("button", "ausboss-transform-danger", "Reset all"); resetAll.addEventListener("click", () => { resetTransform(node, state.kind === "video"); resetView(state); draw(state); updateModalInfo(state); });
@@ -569,7 +702,9 @@ function buildControls(state, sidebar) {
   previewSection.append(finalPreview);
   state.finalPreviewCanvas = finalPreview;
 
-  sidebar.append(cropSection, rotateSection, padSection, actions, previewSection);
+  sidebar.append(cropSection, rotateSection, padSection);
+  if (resizeSection) sidebar.append(resizeSection);
+  sidebar.append(actions, previewSection);
 }
 
 // Renders what the node will actually output: fill background, the rotated
@@ -833,8 +968,36 @@ function drawScene(context, state, render, compact, interactive) {
     drawCropHandles(context, cropRect, state.drag?.kind === "crop" ? state.drag.name : null);
     drawPaddingHandles(context, outputRect, render.layout.padOffset, state.drag?.kind === "padding" ? state.drag.name : null);
     drawRotationHandle(context, state, render, state.drag?.kind === "rotation");
-    context.fillStyle = "#e9edf0"; context.font = "12px system-ui"; context.fillText(`${padding.outputWidth} x ${padding.outputHeight}`, outputRect.x + 8, outputRect.y + 18);
+    drawOutputSize(context, state, outputRect, padding);
   }
+  context.restore();
+}
+
+// The output pixel size, drawn OUTSIDE the image: centered under the output
+// rect's bottom edge, flipping above the top edge when the bottom would run
+// off the stage - so it never sits on the pixels being judged. A resize
+// budget appends its target so the readout names what the run will emit.
+function drawOutputSize(context, state, outputRect, padding) {
+  let text = `${padding.outputWidth} x ${padding.outputHeight}`;
+  if (state.kind === "image" && value(state.node, "resize_to_megapixels", false)) {
+    const target = scaleToMegapixels(
+      padding.outputWidth, padding.outputHeight,
+      value(state.node, "megapixels", 1), value(state.node, "resolution_steps", 1),
+    );
+    text += `  →  ${target.width} x ${target.height}`;
+  }
+  context.save();
+  context.font = "12px system-ui";
+  const textWidth = context.measureText(text).width;
+  const viewWidth = context.canvas.clientWidth || context.canvas.width;
+  const viewHeight = context.canvas.clientHeight || context.canvas.height;
+  const x = clamp(outputRect.x + outputRect.width / 2 - textWidth / 2, 6, Math.max(6, viewWidth - textWidth - 6));
+  let y = outputRect.y + outputRect.height + 17;
+  if (y > viewHeight - 6) y = Math.max(15, outputRect.y - 9);
+  context.fillStyle = "rgba(8,10,12,0.8)";
+  context.beginPath(); context.roundRect(x - 6, y - 12, textWidth + 12, 17, 6); context.fill();
+  context.fillStyle = "#e9edf0";
+  context.fillText(text, x, y);
   context.restore();
 }
 
@@ -1059,7 +1222,15 @@ function updateModalInfo(state) {
   if (!state.modal || !state.sourceWidth) return; const status = state.modal.querySelector("[data-ausboss-status]"); if (!status) return;
   const source = rotatedSize(state.sourceWidth, state.sourceHeight, value(state.node, "rotation_degrees", 0)); const crop = resolveCrop(values(state.node), source); const pad = resolvePadding(values(state.node), crop);
   const frame = state.kind === "video" ? `\nFrame ${value(state.node, "frame_index", 0)} at ${Number(value(state.node, "frame_time", 0)).toFixed(3)}s` : "";
-  status.textContent = `Source ${state.sourceWidth} x ${state.sourceHeight}\nRotated ${source.width} x ${source.height}\nCrop ${crop.x}, ${crop.y}, ${crop.width} x ${crop.height}\nOutput ${pad.outputWidth} x ${pad.outputHeight}${frame}`;
+  let resized = "";
+  if (state.kind === "image" && value(state.node, "resize_to_megapixels", false)) {
+    const target = scaleToMegapixels(
+      pad.outputWidth, pad.outputHeight,
+      value(state.node, "megapixels", 1), value(state.node, "resolution_steps", 1),
+    );
+    resized = `\nResized ${target.width} x ${target.height} (${(target.width * target.height / 1048576).toFixed(2)} MP)`;
+  }
+  status.textContent = `Source ${state.sourceWidth} x ${state.sourceHeight}\nRotated ${source.width} x ${source.height}\nCrop ${crop.x}, ${crop.y}, ${crop.width} x ${crop.height}\nOutput ${pad.outputWidth} x ${pad.outputHeight}${resized}${frame}`;
 }
 function drawEmpty(state, text) { state.render = null; state.panelRender = null; for (const canvas of [state.canvas, state.previewCanvas]) { if (!canvas) continue; const prepared = prepareCanvas(canvas); drawEmptyCanvas(prepared.context, prepared.width, prepared.height, text); } }
 function drawEmptyCanvas(context, width, height, text) { context.fillStyle = "#111"; context.fillRect(0, 0, width, height); context.fillStyle = "#9ba2aa"; context.font = "13px system-ui"; context.textAlign = "center"; context.fillText(text, width / 2, height / 2); context.textAlign = "left"; }

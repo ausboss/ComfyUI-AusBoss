@@ -536,10 +536,16 @@ async def fetch_civitai_info(name: str) -> dict[str, Any]:
             if response.status == 404:
                 return {"found": False}
             response.raise_for_status()
-            body = await response.content.read(4 * 1024 * 1024 + 1)
-            if len(body) > 4 * 1024 * 1024:
-                raise ValueError("Civitai response is too large.")
-            payload = json.loads(body)
+            # StreamReader.read(n) hands back whatever the buffer holds, not
+            # the full body - a real hit is ~150KB of JSON and the first TCP
+            # chunk is ~1KB, so a single read truncated every successful
+            # lookup mid-string. Accumulate to EOF, capping as chunks arrive.
+            body = bytearray()
+            async for chunk in response.content.iter_chunked(64 * 1024):
+                body.extend(chunk)
+                if len(body) > 4 * 1024 * 1024:
+                    raise ValueError("Civitai response is too large.")
+            payload = json.loads(bytes(body))
     info = _normalize_civitai_info(payload)
     if not info:
         return {"found": False}

@@ -2,7 +2,78 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## 1.2.0 - 2026-08-27
+## Unreleased
+
+- **Image Crop + Rotate + Pad: resize the output to a megapixel budget.**
+  A new resize block (off by default) scales the transformed result to a
+  pixel budget with core Scale Image to Total Pixels semantics — megapixels
+  × 1024², aspect preserved, each dimension rounded to `resolution_steps` —
+  using the chosen filter (lanczos, area, bicubic, bilinear, nearest-exact);
+  the mask always resizes bilinear so feathered edges cannot ring. The big
+  editor gains a Resize output section and its status names the exact
+  resized size; appended after the stable V1 widgets, so saved workflows
+  keep loading.
+
+- **Image Crop + Rotate + Pad: a quick row under the canvas.** Reset
+  (rotation, crop, and padding in one click), a Feather on/off that
+  remembers the amount it turns off, and the Resize toggle with its
+  megapixel box — the everyday knobs without opening the editor.
+
+- **Image Crop + Rotate + Pad: the size readout moved off the pixels.**
+  The output dimensions now sit centered just below the image (flipping
+  above when the bottom edge leaves the stage) instead of overlapping the
+  corner of the picture being judged, and they show the resize target too:
+  `576 x 1024 → 768 x 1344`.
+
+- **Scrubbable numbers become a pack standard.** The LoRA loader's strength
+  box grew into a shared control (`js/shared/scrub_input.mjs`): drag the
+  value to scrub it, click to type an exact value, chevron arrows step,
+  Shift is always the fine step. First adopters are the Image Crop + Rotate
+  + Pad megapixel boxes (quick row and editor) and the editor's resolution
+  steps; new numeric fields use it by convention.
+
+- **LoRA Loader: drag-to-reorder actually drops now.** The row preview
+  reparents the row mid-drag, and a reparent silently releases pointer
+  capture — so the pointerup never landed, the drop never committed, and the
+  row rode the cursor until a re-render snapped it back. The gesture now
+  listens on the window for its whole lifetime instead of trusting capture.
+
+- **LoRA Loader: step arrows on every strength box.** A third way to set a
+  strength next to scrubbing and typing: small up/down chevrons step by the
+  configured step (default 0.05); Shift steps by 0.01. Out-of-range tinting
+  and the suggested-range tooltip carry over to the new box.
+
+- **LoRA Loader: layout matches the hand.** The templates, stack toggle,
+  on-count and settings now sit together in one bordered cluster directly on
+  top of the row stack, and **+ Add LoRA** is pinned to the node's bottom
+  edge, where it stays however tall the node is dragged — the row stack
+  flexes in between. The third output was renamed `trigger_words` →
+  `triggers` for a narrower slot label; output links ride slot indices, so
+  saved workflows reconnect unchanged.
+
+- **LoRA Loader: Civitai lookup actually completes.** The fetch read the
+  response with a single `StreamReader.read(n)`, which returns whatever the
+  buffer holds — the first ~1KB TCP chunk — not the full body. A real hit is
+  ~150KB of JSON, so every successful lookup died mid-parse as "Civitai
+  lookup failed" while only the 404 path worked. The body is now accumulated
+  to EOF with the size cap enforced per chunk.
+
+- **LoRA Loader: calmer picker hover.** Moving the mouse down the LoRA list
+  used to rebuild the whole list on every row crossed — repositioning the
+  popup, blinking the hover thumbnail, and risking the click landing on a
+  detached row. The highlight now moves by class swap only.
+
+- **Fixed the clipped flat edge under the LoRA stack — and the same latent
+  bug pack-wide.** The frontend mounts every DOM widget's element inside a
+  ~10px frame, so the element gets ~20 fewer CSS pixels of height than the
+  layout allocates; the LoRA panel demanded its exact pixel sum with only
+  10px of slack, so the stack's rounded bottom border was clipped flat on
+  every render. The panel now follows the node's height (`fillNodeHeight`)
+  with a floor that carries the frame allowance — now a shared
+  `WIDGET_FRAME` constant — and the same allowance fixed Load Video's trim
+  strip (clipped by 22px at minimum height) and Compare's caption row
+  (shaved by 2px). The Video Crop + Rotate + Pad fallback panel also gained
+  the width guards every other panel already had.
 
 - **New: Replace with AusBoss nodes 🆎 (prototype).** A canvas-menu and
   command-palette action that finds third-party nodes in the open workflow —

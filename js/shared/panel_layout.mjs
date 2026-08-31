@@ -14,6 +14,14 @@
 // dragging a node taller only added dead space underneath: the panel had
 // already been given a height and excluded from the leftover-space split.
 //
+// The frontend mounts a DOM widget's element inside a frame: DomWidgets.vue
+// insets it by `options.margin` per side (default 10), so the element gets
+// 20 fewer CSS pixels of height than the layout hands the widget. Any floor
+// meant to guarantee room for fixed-height content must add this allowance,
+// or the panel's bottom edge renders clipped flat - which is how the LoRA
+// stack's rounded bottom border once went missing.
+export const WIDGET_FRAME = 20;
+
 // distributeSpace reads a missing maxSize as Infinity, so declaring a floor
 // with no ceiling means "take whatever is left" - which is exactly "fill the
 // node". minWidth/minHeight accept a number or a function, for panels whose

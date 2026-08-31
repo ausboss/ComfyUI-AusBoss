@@ -20,6 +20,7 @@ if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
 
 from nodes._media_helpers import decode_video_frame, video_metadata
 from nodes._transform_engine import (
+    scale_to_megapixels,
     TransformSpec,
     stable_file_fingerprint,
     transform_pil,
@@ -303,3 +304,20 @@ class LocalPreviewGateTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestScaleToMegapixels(unittest.TestCase):
+    def test_square_megapixel_is_1024(self):
+        self.assertEqual(scale_to_megapixels(1024, 1024, 1.0, 1), (1024, 1024))
+        self.assertEqual(scale_to_megapixels(512, 512, 4.0, 1), (2048, 2048))
+
+    def test_hd_at_one_megapixel_on_64_grid(self):
+        # The everyday case: 1920x1080 to ~1MP on a VAE-friendly grid.
+        self.assertEqual(scale_to_megapixels(1920, 1080, 1.0, 64), (1344, 768))
+
+    def test_steps_round_each_dimension_independently(self):
+        self.assertEqual(scale_to_megapixels(1000, 707, 1.0, 8), (1216, 864))
+
+    def test_never_below_one_step(self):
+        width, height = scale_to_megapixels(100, 100, 0.01, 64)
+        self.assertEqual((width, height), (128, 128))
