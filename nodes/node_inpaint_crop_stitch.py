@@ -324,7 +324,10 @@ class AusBossStitchInpaint:
         "the stitcher. Pixels outside the blend region are bit-identical to "
         "the original — they never pass through a resize. A stitcher built "
         "from one image broadcasts across an inpainted frame batch. Turn on "
-        "fix_edge_halo when the seam shows a dark or light rim. The "
+        "fix_edge_halo when the seam shows a dark or light rim; raise "
+        "color_match when the new region reads lighter or warmer than the "
+        "picture — it measures the drift in the feathered overlap and "
+        "shifts the paste onto the original's tone. The "
         "blend_mask output is the feathered paste mask in the stitched "
         "image's own coordinates, ready for a downstream color match."
     )
@@ -369,6 +372,26 @@ class AusBossStitchInpaint:
                         ),
                     },
                 ),
+                "color_match": (
+                    "FLOAT",
+                    {
+                        "default": 0.0,
+                        "min": 0.0,
+                        "max": 1.0,
+                        "step": 0.05,
+                        "tooltip": (
+                            "Pull the inpainted region's tone onto the "
+                            "original's before pasting. The shift is measured "
+                            "in the feathered band, where the sampler's "
+                            "version and the true pixels overlap, so it "
+                            "reads the model's own drift - the lighter or "
+                            "warmer bands an outpaint often comes back "
+                            "with. 1 applies the full measured shift, 0 is "
+                            "off. Needs a feather (an overlap) to measure; "
+                            "with none it does nothing."
+                        ),
+                    },
+                ),
             },
         }
 
@@ -384,8 +407,8 @@ class AusBossStitchInpaint:
     )
     FUNCTION = "stitch"
 
-    def stitch(self, stitcher, inpainted, fix_edge_halo=False):
-        image = apply_stitch(stitcher, inpainted, bool(fix_edge_halo))
+    def stitch(self, stitcher, inpainted, fix_edge_halo=False, color_match=0.0):
+        image = apply_stitch(stitcher, inpainted, bool(fix_edge_halo), float(color_match))
         return (image, stitch_blend_mask(stitcher, image.shape[0]))
 
 

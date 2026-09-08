@@ -1,12 +1,23 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
+import { hideInputsInDef, hideWidget } from "./widget_visibility.mjs";
+import { mountTransformTrim } from "./transform_trim.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "./index.mjs";
 import { fillNodeHeight } from "./panel_layout.mjs";
 import { normalizeFillColor } from "./fill_color.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
+import { featherGeneratedMask, overlayPlan, stitchBlendFromMask } from "./stitch_preview.mjs";
+import {
+  INPUT_FOLDER_MODE,
+  LOCAL_PATH_MODE,
+  normalizeVideoOptions,
+  mediaSourceState,
+  videoSourceState,
+} from "./video_source_card.mjs";
 import {
   canvasLocalPoint,
   clamp,
+  fitSourceToAspect,
   cropHandleCenters,
   nearestHandle,
   paddingHandleCenters,
@@ -23,9 +34,14 @@ import {
 } from "./transform_geometry.mjs";
 
 const HIDDEN_WIDGETS = [
+  "image", "upload",
+  "video", "source_mode", "local_path",
   "rotation_degrees", "crop_aspect_ratio", "crop_x", "crop_y", "crop_width", "crop_height",
   "pad_left", "pad_top", "pad_right", "pad_bottom", "feather", "canvas_multiple", "fill_color",
   "seek_mode", "frame_index", "frame_time",
+  "start_seconds", "end_seconds", "every_nth", "max_frames", "frame_snap",
+  // Clip-node stitch settings, driven by the editor's Inpaint & Stitch section.
+  "stitch_blend", "stitch_grow",
   // Image-node resize block; hideWidget on a missing widget is a no-op, so
   // the video node sharing this list is unaffected.
   "resize_to_megapixels", "megapixels", "resize_method", "resolution_steps",
@@ -41,11 +57,29 @@ function installStyles() {
   style.textContent = `
     .ausboss-transform-panel{display:flex;flex-direction:column;gap:8px;padding:8px;color:#ddd;font:12px system-ui;box-sizing:border-box;width:100%;height:100%;overflow:hidden}
     .ausboss-transform-preview{width:100%;flex:1 1 180px;min-height:0;border:1px solid #50555b;border-radius:8px;background:#111;display:block;touch-action:none}
+    .ausboss-transform-source{display:flex;flex-direction:column;gap:7px;flex:0 0 auto;padding:8px;border:1px solid rgba(0,184,174,.28);border-radius:8px;background:rgba(0,0,0,.24)}
+    .ausboss-transform-source-heading{color:${BRAND};font:600 10px system-ui;letter-spacing:.08em;text-transform:uppercase}
+    .ausboss-transform-source-mode{display:grid;grid-template-columns:1fr 1fr;height:30px;padding:3px;border:1px solid #2a3437;border-radius:7px;background:#0f1516}
+    .ausboss-transform-source-mode button{border:0;border-radius:5px;background:transparent;color:#8ba3a1;font:600 12px system-ui;cursor:pointer}
+    .ausboss-transform-source-mode button:hover{color:#fff}.ausboss-transform-source-mode button.on{background:${BRAND};color:#04201d}
+    .ausboss-transform-source-field{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;align-items:center}
+    .ausboss-transform-source-field select,.ausboss-transform-source-field input{box-sizing:border-box;width:100%;height:34px;min-width:0;padding:0 10px;border:1px solid #2a3437;border-radius:7px;outline:0;background:#0b0f10;color:#dce9e8;font:12px ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+    .ausboss-transform-source-field select:focus,.ausboss-transform-source-field input:focus{border-color:${BRAND}}
+    .ausboss-transform-source-action{height:34px;box-sizing:border-box;white-space:nowrap}
+    .ausboss-transform-source-field:has(input[type=text]){grid-template-columns:minmax(0,1fr)}
+    .ausboss-transform-source-hint{overflow:hidden;color:#6f8886;font-size:10.5px;line-height:1.25;white-space:nowrap;text-overflow:ellipsis}
     .lg-node:has(.ausboss-transform-panel) .image-preview{display:none!important}
     .ausboss-transform-row{display:flex;gap:7px;align-items:center;flex:0 0 auto}.ausboss-transform-row>*{min-width:0;flex:1}
     .ausboss-transform-check{display:flex;align-items:center;justify-content:center;gap:5px;background:#30343a;color:#eee;border:1px solid #555b63;border-radius:5px;padding:6px 8px;cursor:pointer;white-space:nowrap;user-select:none}
     .ausboss-transform-check:hover{border-color:${BRAND};background:#383e44}
     .ausboss-transform-check input{accent-color:${BRAND};margin:0;flex:0 0 auto;cursor:pointer}
+    .ausboss-transform-aspects{display:flex;gap:5px;align-items:center;flex:0 0 auto}
+    .ausboss-transform-aspects>span{flex:0 0 auto;color:#8ca8a5;font-size:10px;padding:0 3px;user-select:none}
+    .ausboss-transform-aspect{flex:1 1 0;min-width:0;background:#262a30;color:#cfd6dc;border:1px solid #4a5058;border-radius:4px;height:28px;padding:3px 2px;font:600 10px system-ui;font-variant-numeric:tabular-nums;white-space:nowrap;cursor:pointer;text-align:center}
+    .ausboss-transform-aspect-flip{flex:0 0 30px;display:flex;align-items:center;justify-content:center;margin-right:3px}
+    .ausboss-transform-aspect-glyph{display:block;border:1px solid currentColor;border-radius:1px;box-sizing:border-box}
+    .ausboss-transform-aspect:hover{border-color:${BRAND};color:#fff}
+    .ausboss-transform-aspect.active{background:rgba(0,184,174,.18);border-color:${BRAND};color:#e5fffc}
     .ausboss-transform-button,.ausboss-transform-modal button{background:#30343a;color:#eee;border:1px solid #555b63;border-radius:5px;padding:7px 10px;cursor:pointer}
     .ausboss-transform-button:hover,.ausboss-transform-modal button:hover{border-color:${BRAND};background:#383e44}
     .ausboss-transform-file{position:relative;text-align:center;overflow:hidden}.ausboss-transform-file input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
@@ -67,11 +101,18 @@ function installStyles() {
     .ausboss-legend-pad{background:#ff9d42;border:1px solid #3b2108;width:9px;height:9px;transform:rotate(45deg)}
     .ausboss-final-preview{display:block;max-width:100%;margin:2px auto 0;border:1px solid #34383d;border-radius:6px;background:#0c0e10}
     .ausboss-transform-section label{display:grid;grid-template-columns:88px 1fr 58px;gap:7px;align-items:center;margin:7px 0}
+    .ausboss-transform-section label>.ausboss-scrub:last-child{width:58px}
+    .ausboss-transform-section label>*{min-width:0}
     .ausboss-transform-section input,.ausboss-transform-section select{box-sizing:border-box;width:100%;background:#0e1012;color:#eee;border:1px solid #454b52;border-radius:4px;padding:5px}
     .ausboss-transform-stage{position:relative;min-width:0;min-height:0;background-color:#0c0e10;background-image:radial-gradient(#292d31 1px,transparent 1px);background-size:18px 18px;overflow:hidden}
     .ausboss-transform-canvas{width:100%;height:100%;display:block;touch-action:none}
     .ausboss-transform-status{line-height:1.55;color:#b8bec5;white-space:pre-wrap}.ausboss-transform-help{line-height:1.55;color:#aeb4ba}
-    .ausboss-transform-timeline{display:flex;align-items:center;gap:6px;padding:8px 12px;border-top:1px solid #30343a;background:#17191c}
+    .ausboss-transform-sidebar.right .ausboss-transform-section{margin-top:13px}
+    .ausboss-transform-section details{margin:8px 0 0}.ausboss-transform-section summary{cursor:pointer;color:#8de0da;font-size:11px;text-transform:uppercase;letter-spacing:.06em;list-style:none;user-select:none}
+    .ausboss-transform-section summary::before{content:"▸";display:inline-block;width:12px;transition:transform .12s}.ausboss-transform-section details[open] summary::before{transform:rotate(90deg)}
+    .ausboss-transform-section input[type=checkbox]{width:auto;justify-self:start;accent-color:${BRAND}}
+    .ausboss-transform-timeline{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 12px;border-top:1px solid #30343a;background:#17191c}
+    .ausboss-transform-timeline>.ausboss-transform-trim{flex-basis:100%}
     .ausboss-transform-timeline input[type=range]{flex:1}.ausboss-transform-steps{display:flex;gap:4px;flex-wrap:wrap}.ausboss-transform-steps button{padding:5px 7px}
     .ausboss-transform-badge{padding:3px 7px;border-radius:99px;background:#263034;color:#8de0da;font-size:11px}
     @media(max-width:900px){.ausboss-transform-body{grid-template-columns:220px minmax(260px,1fr)}.ausboss-transform-sidebar.right{display:none}}
@@ -89,15 +130,6 @@ function setValue(node, name, next) {
 }
 function values(node) {
   return Object.fromEntries(Object.keys(TRANSFORM_DEFAULTS).map((name) => [name, value(node, name, TRANSFORM_DEFAULTS[name])]));
-}
-function hideWidget(target) {
-  if (!target || target.__ausbossHidden) return;
-  target.__ausbossHidden = true;
-  target.__ausbossComputeSize = target.computeSize;
-  target.computeSize = () => [0, -4];
-  target.options ??= {};
-  target.options.hidden = true;
-  target.hidden = true;
 }
 
 function suppressCoreImagePreview(node) {
@@ -126,11 +158,11 @@ function suppressCoreImagePreview(node) {
 
 function sourceKey(node, kind) {
   if (kind === "image") return String(value(node, "image", ""));
-  const mode = value(node, "source_mode", "input folder");
-  const selection = String(mode === "local path" ? value(node, "local_path", "") : value(node, "video", ""));
-  // Empty selection is "no source yet": switching modes before picking a
-  // file must not count as a source change (which would reset transforms).
-  return selection ? `${mode === "local path" ? "local" : "input"}:${selection}` : "";
+  return videoSourceState(
+    value(node, "source_mode", INPUT_FOLDER_MODE),
+    value(node, "video", ""),
+    value(node, "local_path", ""),
+  ).key;
 }
 
 function parseInputReference(selection) {
@@ -145,35 +177,39 @@ function imageSourceUrl(selection) {
   return api.apiURL(`/view?${new URLSearchParams(reference)}`);
 }
 
-function videoParams(node, maxSize = 1600) {
+// peekIndex previews a frame other than the committed position (a trim
+// handle mid-drag) without touching the preview widgets.
+function videoParams(node, maxSize = 1600, peekIndex = null) {
+  const peeking = Number.isFinite(peekIndex);
   return new URLSearchParams({
     source_mode: String(value(node, "source_mode", "input folder")),
     video: String(value(node, "video", "")),
     local_path: String(value(node, "local_path", "")),
-    seek_mode: String(value(node, "seek_mode", "frame index")),
-    frame_index: String(Math.max(0, Math.round(Number(value(node, "frame_index", 0)) || 0))),
+    seek_mode: peeking ? "frame index" : String(value(node, "seek_mode", "frame index")),
+    frame_index: String(peeking ? Math.max(0, Math.round(peekIndex)) : Math.max(0, Math.round(Number(value(node, "frame_index", 0)) || 0))),
     frame_time: String(Math.max(0, Number(value(node, "frame_time", 0)) || 0)),
     max_width: String(maxSize),
     max_height: String(maxSize),
   });
 }
 
-async function uploadVideo(node, file) {
+async function uploadMedia(node, kind, file) {
   const body = new FormData();
   body.append("image", file, file.name);
   body.append("type", "input");
   const response = await api.fetchApi("/upload/image", { method: "POST", body });
-  if (!response.ok) throw new Error((await response.text()) || "Video upload failed.");
+  if (!response.ok) throw new Error((await response.text()) || "Upload failed.");
   const result = await response.json();
   const selection = result.subfolder ? `${result.subfolder}/${result.name}` : result.name;
-  const target = widget(node, "video");
-  if (target?.options?.values && !target.options.values.includes(selection)) target.options.values.push(selection);
-  setValue(node, "source_mode", "input folder");
-  setValue(node, "video", selection);
+  const target = widget(node, kind);
+  if (Array.isArray(target?.options?.values) && !target.options.values.includes(selection)) target.options.values.push(selection);
+  if (kind === "video") setValue(node, "source_mode", "input folder");
+  setValue(node, kind, selection);
   return selection;
 }
 
 function resetTransform(node, includeTimeline = false) {
+  if (node.properties) delete node.properties.ausboss_fit_aspect;
   for (const [name, next] of Object.entries(resetTransformValues(includeTimeline))) setValue(node, name, next);
   node.setDirtyCanvas?.(true, true);
 }
@@ -192,6 +228,125 @@ function addLabeledControl(section, title, control, suffix = "") {
   return label;
 }
 
+function buildMediaSourceCard(state) {
+  const { node, kind } = state;
+  const root = createElement("div", "ausboss-transform-source");
+  const modes = createElement("div", "ausboss-transform-source-mode");
+  const uploadsMode = createElement("button", "", "Uploads");
+  const localMode = createElement("button", "", "Local path");
+  uploadsMode.type = localMode.type = "button";
+  uploadsMode.title = "Choose a video already in ComfyUI's input folder or upload another.";
+  localMode.title = "Read a video directly from an absolute path on this server without copying it.";
+  modes.append(uploadsMode, localMode);
+
+  const field = createElement("div", "ausboss-transform-source-field");
+  const selection = createElement("select");
+  selection.setAttribute("aria-label", `Uploaded ${kind}`);
+  const localPath = createElement("input");
+  localPath.type = "text";
+  localPath.spellcheck = false;
+  localPath.placeholder = "/absolute/path/to/video.mp4";
+  localPath.setAttribute("aria-label", "Local video path");
+  const upload = createElement("label", "ausboss-transform-button ausboss-transform-file ausboss-transform-source-action");
+  const uploadText = createElement("span", "", "Upload");
+  upload.append(uploadText);
+  const fileInput = createElement("input");
+  fileInput.type = "file";
+  fileInput.accept = `${kind}/*`;
+  fileInput.setAttribute("aria-label", `Upload ${kind}`);
+  upload.append(fileInput);
+  const hint = createElement("div", "ausboss-transform-source-hint");
+  field.append(selection, upload);
+  root.append(kind === "image" ? createElement("div", "ausboss-transform-source-heading", "Image source") : modes, field, hint);
+
+  const currentOptions = () => {
+    const target = widget(node, kind);
+    let options = target?.options?.values;
+    if (typeof options === "function") options = options(target, node);
+    return normalizeVideoOptions(options, target?.value);
+  };
+  const sync = () => {
+    const source = mediaSourceState(
+      kind,
+      value(node, "source_mode", INPUT_FOLDER_MODE),
+      value(node, kind, ""),
+      value(node, "local_path", ""),
+    );
+    uploadsMode.classList.toggle("on", source.mode === INPUT_FOLDER_MODE);
+    localMode.classList.toggle("on", source.mode === LOCAL_PATH_MODE);
+    selection.replaceChildren();
+    const empty = createElement("option", "", `Choose an uploaded ${kind}…`);
+    empty.value = "";
+    selection.append(empty);
+    for (const name of currentOptions()) {
+      const option = createElement("option", "", name);
+      option.value = name;
+      selection.append(option);
+    }
+    selection.value = String(value(node, kind, ""));
+    selection.title = selection.value || `Choose an uploaded ${kind}`;
+    localPath.value = String(value(node, "local_path", ""));
+    field.replaceChildren();
+    if (source.mode === LOCAL_PATH_MODE) field.append(localPath);
+    else field.append(selection, upload);
+    hint.textContent = source.hint;
+    hint.title = source.mode === LOCAL_PATH_MODE
+      ? `${source.hint} Editor previews also require local preview access to be enabled by the server owner.`
+      : source.hint;
+  };
+  const chooseMode = (mode) => {
+    if (value(node, "source_mode", INPUT_FOLDER_MODE) === mode) return;
+    setValue(node, "source_mode", mode);
+    sync();
+    notifyAusbossChange();
+  };
+  uploadsMode.addEventListener("click", () => chooseMode(INPUT_FOLDER_MODE));
+  localMode.addEventListener("click", () => chooseMode(LOCAL_PATH_MODE));
+  selection.addEventListener("change", () => {
+    setValue(node, kind, selection.value);
+    sync();
+    notifyAusbossChange();
+  });
+  const commitLocalPath = () => {
+    const next = localPath.value.trim();
+    if (next !== String(value(node, "local_path", ""))) {
+      setValue(node, "local_path", next);
+      notifyAusbossChange();
+    }
+    sync();
+  };
+  localPath.addEventListener("keydown", (event) => {
+    event.stopPropagation();
+    if (event.key === "Enter") localPath.blur();
+    if (event.key === "Escape") { localPath.value = String(value(node, "local_path", "")); localPath.blur(); }
+  });
+  localPath.addEventListener("blur", commitLocalPath);
+  fileInput.addEventListener("change", async () => {
+    if (!fileInput.files?.[0]) return;
+    fileInput.disabled = true;
+    uploadText.textContent = "Uploading…";
+    upload.setAttribute("aria-busy", "true");
+    try {
+      await uploadMedia(node, kind, fileInput.files[0]);
+      sync();
+      notifyAusbossChange();
+    } catch (error) {
+      alert(`Crop + Rotate + Pad: ${error.message}`);
+    } finally {
+      fileInput.value = "";
+      fileInput.disabled = false;
+      uploadText.textContent = "Upload";
+      upload.removeAttribute("aria-busy");
+    }
+  });
+  root.addEventListener("pointerdown", (event) => {
+    if (event.target.closest("button,select,input,label")) event.stopPropagation();
+  });
+  state.syncSourceCard = sync;
+  sync();
+  return root;
+}
+
 export function installTransformNode(node, kind, mountPanel = null) {
   installStyles();
   const state = {
@@ -202,7 +357,17 @@ export function installTransformNode(node, kind, mountPanel = null) {
     playbackTimer: null, playing: false, playbackSession: 0, disposed: false, loadSerial: 0,
   };
   node.__ausbossTransformState = state;
+  state.isClip = Boolean(widget(node, "start_seconds") && widget(node, "end_seconds"));
+  state.trimViews = new Set();
+  if (state.isClip) {
+    // The executor includes every input in its cache key, even when
+    // IS_CHANGED ignores it. Preview position is UI state, not clip input.
+    for (const [name, constant] of [["seek_mode", "frame index"], ["frame_index", 0], ["frame_time", 0]]) {
+      widget(node, name).serializeValue = () => constant;
+    }
+  }
   if (kind === "image") suppressCoreImagePreview(node);
+  if (kind === "video") installVideoDrop(state);
   for (const name of HIDDEN_WIDGETS) hideWidget(widget(node, name));
 
   const panel = createElement("div", "ausboss-transform-panel");
@@ -210,20 +375,11 @@ export function installTransformNode(node, kind, mountPanel = null) {
   const row = createElement("div", "ausboss-transform-row");
   const open = createElement("button", "ausboss-transform-button", "Open editor");
   row.append(open);
-  if (kind === "video") {
-    const choose = createElement("label", "ausboss-transform-button ausboss-transform-file");
-    choose.append(createElement("span", "", "Upload video"));
-    const fileInput = createElement("input");
-    fileInput.type = "file"; fileInput.accept = "video/*"; fileInput.setAttribute("aria-label", "Upload video");
-    fileInput.addEventListener("change", async () => {
-      if (!fileInput.files?.[0]) return;
-      try { await uploadVideo(node, fileInput.files[0]); await onSourceChanged(state, true); notifyAusbossChange(); }
-      catch (error) { alert(`Video Crop + Rotate + Pad: ${error.message}`); }
-      finally { fileInput.value = ""; }
-    });
-    choose.append(fileInput); row.prepend(choose);
-  }
-  panel.append(preview, row);
+  panel.append(buildMediaSourceCard(state));
+  panel.append(preview);
+  panel.append(buildAspectChipRow(state));
+  if (state.isClip) panel.append(buildTrim(state));
+  panel.append(row);
   if (kind === "image") panel.append(buildImageQuickRow(state));
   state.previewCanvas = preview;
   open.addEventListener("click", () => openEditor(state));
@@ -233,11 +389,11 @@ export function installTransformNode(node, kind, mountPanel = null) {
   } else if (typeof node.addDOMWidget === "function") {
     const domWidget = node.addDOMWidget("ausboss_transform_preview", "ausboss_transform_preview", panel, { serialize: false });
     keepDomWidgetWidthAuto(domWidget);
-    fillNodeHeight(domWidget, { minWidth: 300, minHeight: 230, minNodeSize: [300, 300] });
+    fillNodeHeight(domWidget, { minWidth: 330, minHeight: state.isClip ? 480 : kind === "video" ? 360 : 260, minNodeSize: [330, state.isClip ? 680 : 420] });
   } else {
     node.addWidget?.("button", "Open editor", null, () => openEditor(state), { serialize: false });
   }
-  const baseHeight = kind === "video" ? 455 : 390;
+  const baseHeight = state.isClip ? 720 : kind === "video" ? 485 : 475;
   node.setSize?.([
     Math.max(330, Math.min(520, node.size?.[0] || 330)),
     Math.max(baseHeight, node.computeSize?.()[1] || 0),
@@ -254,12 +410,16 @@ export function installTransformNode(node, kind, mountPanel = null) {
     // it was the one that came out stretched.
     state.panelResizeObserver = new ResizeObserver(() => draw(state));
     state.panelResizeObserver.observe(preview);
+    // The graph scales the DOM widget with its zoom, so the backing store
+    // sized at one zoom turns to mush at another: redraw when it changes.
+    chainCallback(node, "onDrawForeground", function () {
+      if (state.disposed || state.zoomRedraw || Math.abs(panelOversample() - (state.panelOversample ?? 1)) < 0.01) return;
+      state.zoomRedraw = requestAnimationFrame(() => { state.zoomRedraw = null; if (!state.disposed) draw(state); });
+    });
   }
-  if (kind === "image" && typeof node.addDOMWidget === "function") {
-    // The compact panel is a live stage for the image node: the same
-    // handles and drag logic as the editor over a fit-only view (no wheel
-    // zoom or pan on the node — the wheel keeps zooming the graph). The
-    // video panel stays a passive preview; its editor holds the timeline.
+  if (typeof node.addDOMWidget === "function") {
+    // All transform nodes share inline handles. Wheel/middle-drag still
+    // belong to the graph; only direct handle gestures are captured.
     state.panelInteractive = true;
     state.panelAbort = new AbortController();
     attachStageHandlers(state, preview, state.panelAbort.signal);
@@ -269,18 +429,124 @@ export function installTransformNode(node, kind, mountPanel = null) {
   for (const name of watched) {
     const target = widget(node, name);
     if (!target) continue;
-    const prior = target.callback;
-    target.callback = function (...args) {
-      const result = prior?.apply(this, args);
+    chainCallback(target, "callback", function () {
+      state.syncSourceCard?.();
       if (state.ready) onSourceChanged(state, true);
-      return result;
-    };
+    });
   }
+  chainCallback(node, "onConfigure", () => queueMicrotask(() => {
+    if (state.disposed) return;
+    for (const name of HIDDEN_WIDGETS) hideWidget(widget(node, name));
+    state.syncSourceCard?.();
+    for (const trim of state.trimViews) trim.sync();
+    if (state.ready) onSourceChanged(state, false);
+  }));
   queueMicrotask(async () => {
+    // Core's upload helper can add its button after our creation hook.
+    for (const name of HIDDEN_WIDGETS) hideWidget(widget(node, name));
     state.ready = true;
     await onSourceChanged(state, false);
   });
   return state;
+}
+
+// Dropping a video file on the node uploads it and makes it the source,
+// as core's upload widgets do for their own nodes. Core's canvas drop
+// handler asks the node under the cursor first; a handled drop keeps it
+// from spawning a separate Load Video node for the file.
+const VIDEO_FILE_PATTERN = /\.(avi|m2ts|m4v|mkv|mov|mp4|mpeg|mpg|mts|webm)$/i;
+
+function installVideoDrop(state) {
+  const node = state.node;
+  node.onDragOver = (event) => {
+    const items = event?.dataTransfer?.items;
+    return Boolean(items && Array.from(items).some((item) => item.kind === "file"));
+  };
+  node.onDragDrop = async (event) => {
+    const file = Array.from(event?.dataTransfer?.files ?? []).find(
+      (candidate) => String(candidate.type).startsWith("video/") || VIDEO_FILE_PATTERN.test(candidate.name),
+    );
+    if (!file) return false;
+    try {
+      await uploadMedia(node, "video", file);
+      state.syncSourceCard?.();
+      if (state.ready) await onSourceChanged(state, true);
+      notifyAusbossChange();
+    } catch (error) {
+      alert(`Crop + Rotate + Pad: ${error.message}`);
+    }
+    return true;
+  };
+}
+
+// Format chips right under the preview: one tap pads the whole source to
+// that aspect with centered fill bands (the editor's Pad to aspect), so an
+// outpaint canvas is a single click. Tapping the lit chip clears it again.
+const ASPECT_CHIP_ORDER = ["1:1", "4:3", "3:2", "16:9", "21:9"];
+
+function buildAspectChipRow(state) {
+  const node = state.node;
+  const row = createElement("div", "ausboss-transform-aspects");
+  const flip = createElement("button", "ausboss-transform-aspect ausboss-transform-aspect-flip");
+  flip.type = "button";
+  const glyph = createElement("span", "ausboss-transform-aspect-glyph");
+  flip.append(glyph);
+  row.append(flip);
+  const caption = createElement("span", "", "Pad");
+  caption.title = "Pad the whole source to a format with centered fill bands. Tap the lit chip to clear it.";
+  row.append(caption);
+  const portrait = () => {
+    const [w, h] = String(node.properties?.ausboss_fit_aspect ?? "").split(":").map(Number);
+    return w && h && w !== h ? h > w : Boolean(node.properties?.ausboss_pad_portrait);
+  };
+  const oriented = (aspect) => portrait() ? aspect.split(":").reverse().join(":") : aspect;
+  flip.addEventListener("click", () => {
+    const next = !portrait();
+    const current = String(node.properties?.ausboss_fit_aspect ?? "");
+    node.properties ??= {};
+    node.properties.ausboss_pad_portrait = next;
+    if (state.image && /^\d+:\d+$/.test(current) && current !== "1:1") {
+      fitAspect(state, current.split(":").reverse().join(":"), "pad");
+    }
+    sync();
+    notifyAusbossChange();
+  });
+  const chips = [];
+  for (const aspect of ASPECT_CHIP_ORDER) {
+    const chip = createElement("button", "ausboss-transform-aspect", aspect);
+    chip.type = "button";
+    chip.addEventListener("click", () => {
+      if (!state.image) return;
+      node.properties ??= {};
+      node.properties.ausboss_pad_portrait = portrait();
+      if (chip.classList.contains("active")) {
+        fitAspect(state, "free", "pad");
+        delete node.properties.ausboss_fit_aspect;
+      } else {
+        fitAspect(state, oriented(aspect), "pad");
+      }
+      sync();
+    });
+    chips.push({ chip, aspect }); row.append(chip);
+  }
+  const sync = () => {
+    const current = String(node.properties?.ausboss_fit_aspect ?? "");
+    flip.title = `${portrait() ? "Portrait" : "Landscape"} padding — click to flip to ${portrait() ? "landscape" : "portrait"}`;
+    flip.setAttribute("aria-label", flip.title);
+    flip.setAttribute("aria-pressed", String(portrait()));
+    glyph.style.width = portrait() ? "10px" : "16px";
+    glyph.style.height = portrait() ? "16px" : "10px";
+    for (const { chip, aspect } of chips) {
+      const ratio = oriented(aspect);
+      chip.textContent = ratio;
+      chip.title = `Pad to ${ratio}: keep every source pixel and add centered fill bands. Tap again to clear.`;
+      chip.classList.toggle("active", ratio === current);
+      chip.setAttribute("aria-pressed", String(ratio === current));
+    }
+  };
+  sync();
+  state.syncAspectChips = sync;
+  return row;
 }
 
 // The image node's quick row under the canvas: reset, the feather on/off,
@@ -333,6 +599,7 @@ function buildImageQuickRow(state) {
     title: "Output budget in megapixels (x 1024x1024).",
     onChange: (amount) => {
       setValue(node, "megapixels", amount);
+      draw(state);
       updateModalInfo(state);
     },
     onSettle: () => notifyAusbossChange(),
@@ -340,6 +607,7 @@ function buildImageQuickRow(state) {
   resize.box.addEventListener("change", () => {
     setValue(node, "resize_to_megapixels", resize.box.checked);
     budget.root.style.display = resize.box.checked ? "" : "none";
+    draw(state);
     updateModalInfo(state);
     notifyAusbossChange();
   });
@@ -362,9 +630,10 @@ async function onSourceChanged(state, reset) {
   const key = sourceKey(state.node, state.kind);
   if (reset && sourceChanged(state.source, key, state.ready)) {
     resetTransform(state.node, state.kind === "video");
+    if (state.isClip) { setValue(state.node, "start_seconds", 0); setValue(state.node, "end_seconds", 0); }
     resetView(state);
   }
-  state.source = key;
+  if (key) state.source = key;
   await loadSource(state);
 }
 
@@ -373,13 +642,16 @@ async function loadSource(state) {
   try {
     if (state.kind === "image") {
       const selection = value(state.node, "image", "");
-      if (!selection) return;
+      if (!selection) {
+        state.image = null; state.sourceWidth = state.sourceHeight = 0;
+        drawEmpty(state, "Choose a source to begin"); return;
+      }
       const image = new Image();
       await new Promise((resolve, reject) => {
         image.onload = resolve; image.onerror = () => reject(new Error("Could not load image preview."));
         image.src = imageSourceUrl(selection);
       });
-      if (serial !== state.loadSerial) return;
+      if (serial !== state.loadSerial || state.disposed) return;
       state.image = image; state.sourceWidth = image.naturalWidth; state.sourceHeight = image.naturalHeight;
       // Core's image-upload helper also installs a source preview. This node has
       // its own transformed preview, so keep only the useful one.
@@ -403,6 +675,7 @@ async function loadSource(state) {
     }
     draw(state); updateModalInfo(state);
   } catch (error) {
+    if (serial !== state.loadSerial || state.disposed) return;
     if (error?.name === "AbortError") return;
     state.image = null;
     drawEmpty(state, error.message);
@@ -410,8 +683,10 @@ async function loadSource(state) {
 }
 
 function syncTimelineRange(state) {
+  for (const trim of state.trimViews) trim.sync();
   if (!state.timelineSlider) return;
   state.timelineSlider.max = String(Math.max(0, (state.metadata?.frame_count || 1) - 1));
+  state.timelineSlider.value = String(value(state.node, "frame_index", 0));
   if (state.timelineLabel) state.timelineLabel.textContent = `${state.timelineSlider.value} / ${state.timelineSlider.max}`;
 }
 
@@ -482,7 +757,7 @@ function requestScrubFrame(state) {
     while (state.scrubPending && !state.disposed) {
       state.scrubPending = false;
       try {
-        await loadVideoFrame(state, ++state.loadSerial, { maxSize: SCRUB_PREVIEW_SIZE, syncWidgets: false });
+        await loadVideoFrame(state, ++state.loadSerial, { maxSize: SCRUB_PREVIEW_SIZE, syncWidgets: false, peekIndex: state.peekIndex });
         draw(state); updateModalInfo(state);
       } catch (error) {
         if (error?.name !== "AbortError") { drawEmpty(state, error.message); break; }
@@ -493,11 +768,11 @@ function requestScrubFrame(state) {
 }
 
 async function loadVideoFrame(state, serial = ++state.loadSerial, options = {}) {
-  const { maxSize = 1600, syncWidgets = true } = options;
+  const { maxSize = 1600, syncWidgets = true, peekIndex = null } = options;
   state.frameController?.abort();
   const controller = new AbortController();
   state.frameController = controller;
-  const response = await api.fetchApi(`/ausboss/transform/video/frame?${videoParams(state.node, maxSize)}`, { signal: controller.signal });
+  const response = await api.fetchApi(`/ausboss/transform/video/frame?${videoParams(state.node, maxSize, peekIndex)}`, { signal: controller.signal });
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
     throw new Error(payload.error || "Could not decode video preview frame.");
@@ -521,6 +796,7 @@ async function loadVideoFrame(state, serial = ++state.loadSerial, options = {}) 
       const actualTime = Number(response.headers.get("X-AusBoss-Frame-Time"));
       if (Number.isFinite(actualIndex)) setValue(state.node, "frame_index", actualIndex);
       if (Number.isFinite(actualTime)) setValue(state.node, "frame_time", actualTime);
+      syncTimelineRange(state);
     }
   } catch (error) {
     URL.revokeObjectURL(objectUrl);
@@ -545,6 +821,7 @@ function openEditor(state) {
   buildControls(state, left);
   const status = createElement("div", "ausboss-transform-status"); status.dataset.ausbossStatus = ""; right.append(status);
   right.append(createElement("div", "ausboss-transform-help", "Drag cyan squares to crop. Drag inside the crop to move it. Orange diamonds add padding. The rotate knob at the top-right corner rotates; hold Shift to snap to 15 degrees. Wheel zooms. Middle mouse or Alt-drag pans."));
+  if (state.isClip && widget(state.node, "stitch_blend")) right.append(buildStitchSection(state));
   if (state.kind === "video") modal.append(buildTimeline(state));
   document.body.append(modal);
 
@@ -561,14 +838,98 @@ function openEditor(state) {
 function closeEditor(state) {
   const hadModal = Boolean(state.modal);
   stopPlayback(state);
-  state.scrubPending = false;
+  state.scrubPending = false; state.peekIndex = null;
   state.modalAbort?.abort(); state.resizeObserver?.disconnect(); state.modal?.remove();
-  state.modal = null; state.canvas = null; state.finalPreviewCanvas = null; state.drag = null; state.grid = false;
+  if (state.modalTrim) state.trimViews.delete(state.modalTrim);
+  state.modalTrim = null; state.timelineSlider = null; state.timelineLabel = null;
+  state.modal = null; state.canvas = null; state.finalPreviewCanvas = null; state.drag = null; state.grid = false; state.syncEditorControls = null; state.syncStitchControls = null; state.blendOverlay = null;
   draw(state); state.node.setDirtyCanvas?.(true, true);
   // Sidebar and timeline controls write widgets without a canvas drag, so a
   // closing editor is their commit point. The disposal path (node removed,
   // possibly mid-load teardown) must never trigger a capture.
   if (hadModal && !state.disposed) notifyAusbossChange();
+}
+
+// Inpaint & Stitch (clip node): the stitcher this node emits pastes the source
+// frames back over the generated clip. Blend is the ramp where generated
+// pixels take over; it is deliberately separate from the padding feather,
+// which shapes the mask the model sees. Grow moves the paste boundary and
+// sits behind a disclosure - most outpaints never touch it.
+function buildStitchSection(state) {
+  const node = state.node;
+  const section = createElement("section", "ausboss-transform-section");
+  section.append(sectionHeading("Inpaint & Stitch"));
+  section.append(createElement("div", "ausboss-transform-help", "Outside the paste mask the stitcher puts the source frames back bit-for-bit. Inside it - the padded and rotated-in area plus the blend ramp - the generation takes over."));
+  const blend = makeScrubInput({ value: value(node, "stitch_blend", 32), min: 0, max: 512, step: 1, decimals: 0,
+    title: "Ramp where generated pixels fade over the source, in pixels of the output. Separate from the padding feather.",
+    onChange: (amount) => { setValue(node, "stitch_blend", amount); draw(state); updateModalInfo(state); }, onSettle: notifyAusbossChange });
+  addLabeledControl(section, "Blend", blend.root, "px");
+  const show = createElement("input"); show.type = "checkbox"; show.checked = Boolean(state.showBlend);
+  show.title = "Tint the paste mask the stitcher will use - the same mask math as the backend, at preview resolution.";
+  show.addEventListener("change", () => { state.showBlend = show.checked; draw(state); });
+  addLabeledControl(section, "Show blend", show);
+  const advanced = createElement("details"); advanced.append(createElement("summary", "", "Advanced"));
+  const grow = makeScrubInput({ value: value(node, "stitch_grow", 0), min: -256, max: 256, step: 1, decimals: 0,
+    title: "Moves the paste boundary before the ramp. Positive lets the generation replace a strip of the source next to the seam; negative keeps more source.",
+    onChange: (amount) => { setValue(node, "stitch_grow", amount); draw(state); updateModalInfo(state); }, onSettle: notifyAusbossChange });
+  addLabeledControl(advanced, "Grow paste", grow.root, "px");
+  advanced.append(createElement("div", "ausboss-transform-help", "Use a few pixels of grow when a seam still shows: the generation then repaints the source edge too."));
+  section.append(advanced);
+  state.syncStitchControls = () => { blend.set(value(node, "stitch_blend", 32)); grow.set(value(node, "stitch_grow", 0)); };
+  return section;
+}
+
+// Show blend: the stitcher's paste mask, computed the way the backend
+// computes it, at preview resolution. The generated-area mask (padding and
+// rotation voids, everything the rotated source does not cover inside the
+// crop) is rasterised on the pre-resize canvas, feathered like the
+// transform, then grown and blurred by the stitch settings converted from
+// output pixels through any resize - the same steps as
+// stitch_blend_from_mask, mirrored in stitch_preview.mjs and tested against
+// the Python helper. Cached on its inputs: a drag that changes geometry
+// rebuilds it, a pan or zoom does not.
+function blendOverlayCanvas(state, render) {
+  const node = state.node;
+  const { source, crop, padding } = render;
+  const rotation = Number(value(node, "rotation_degrees", 0)) || 0;
+  const feather = Math.max(0, Number(value(node, "feather", 0)) || 0);
+  const blend = Math.max(0, Number(value(node, "stitch_blend", 32)) || 0);
+  const grow = Number(value(node, "stitch_grow", 0)) || 0;
+  const resize = value(node, "resize_to_megapixels", false)
+    ? scaleToMegapixels(padding.outputWidth, padding.outputHeight, value(node, "megapixels", 1), value(node, "resolution_steps", 1))
+    : null;
+  const key = JSON.stringify([state.sourceWidth, state.sourceHeight, rotation, crop, padding, feather, blend, grow, resize]);
+  if (state.blendOverlay?.key === key) return state.blendOverlay.canvas;
+  const plan = overlayPlan(padding.outputWidth, padding.outputHeight, resize);
+  const { width, height, k } = plan;
+  const raster = document.createElement("canvas"); raster.width = width; raster.height = height;
+  const rc = raster.getContext("2d", { willReadFrequently: true });
+  rc.fillStyle = "#fff"; rc.fillRect(0, 0, width, height);
+  rc.save();
+  rc.beginPath(); rc.rect(padding.left * k, padding.top * k, crop.width * k, crop.height * k); rc.clip();
+  rc.translate((padding.left - crop.x) * k + source.width * k / 2, (padding.top - crop.y) * k + source.height * k / 2);
+  rc.rotate(rotation * Math.PI / 180);
+  rc.fillStyle = "#000"; rc.fillRect(-state.sourceWidth * k / 2, -state.sourceHeight * k / 2, state.sourceWidth * k, state.sourceHeight * k);
+  rc.restore();
+  const pixels = rc.getImageData(0, 0, width, height).data;
+  let mask = new Float32Array(width * height);
+  for (let i = 0; i < mask.length; i++) mask[i] = pixels[i * 4] / 255;
+  mask = featherGeneratedMask(mask, width, height, feather * k);
+  mask = stitchBlendFromMask(mask, width, height, blend * plan.unit, grow * plan.unit);
+  const overlay = document.createElement("canvas"); overlay.width = width; overlay.height = height;
+  const oc = overlay.getContext("2d"); const image = oc.createImageData(width, height); const data = image.data;
+  for (let i = 0; i < mask.length; i++) { data[i * 4] = 0; data[i * 4 + 1] = 184; data[i * 4 + 2] = 174; data[i * 4 + 3] = Math.round(mask[i] * 150); }
+  oc.putImageData(image, 0, 0);
+  state.blendOverlay = { key, canvas: overlay, mask, width, height };
+  return overlay;
+}
+
+function drawBlendOverlay(context, state, render) {
+  const overlay = blendOverlayCanvas(state, render);
+  const { outputRect } = render;
+  context.save(); context.imageSmoothingEnabled = true;
+  context.drawImage(overlay, outputRect.x, outputRect.y, outputRect.width, outputRect.height);
+  context.restore();
 }
 
 // Section headers carry a small marker matching the on-canvas handle for
@@ -605,22 +966,38 @@ function buildControls(state, sidebar) {
   let ratioValues = ratioWidget?.options?.values;
   if (typeof ratioValues === "function") ratioValues = ratioValues(ratioWidget, node);
   if (!Array.isArray(ratioValues) || !ratioValues.length) ratioValues = ["free", "source", "1:1", "9:16", "16:9", "2:3", "3:2", "3:4", "4:3", "9:21", "21:9"];
-  const currentRatio = String(value(node, "crop_aspect_ratio", "free"));
+  // The target is a UI preference, separate from the inner crop lock.
+  // Pad to aspect deliberately unlocks that inner crop to keep all pixels.
+  const currentRatio = String(node.properties?.ausboss_fit_aspect ?? value(node, "crop_aspect_ratio", "free"));
   if (!ratioValues.includes(currentRatio)) ratioValues = [...ratioValues, currentRatio];
   for (const optionValue of ratioValues) {
     const option = createElement("option", "", optionValue); option.value = optionValue; ratio.append(option);
   }
-  ratio.value = currentRatio; ratio.addEventListener("change", () => { setValue(node, "crop_aspect_ratio", ratio.value); fitCrop(state); });
-  addLabeledControl(cropSection, "Aspect", ratio);
-  const fit = createElement("button", "", "Fit crop to source"); fit.addEventListener("click", () => fitCrop(state)); cropSection.append(fit);
+  ratio.value = currentRatio;
+  ratio.setAttribute("aria-label", "Target aspect");
+  ratio.title = "Choose a target, then Crop or Pad. Changing the target alone does not alter your framing.";
+  ratio.addEventListener("change", () => {
+    node.properties ??= {}; node.properties.ausboss_fit_aspect = ratio.value;
+    notifyAusbossChange();
+  });
+  addLabeledControl(cropSection, "Target aspect", ratio);
+  const fitRow = createElement("div", "ausboss-transform-row");
+  for (const [mode, title, tip] of [
+    ["crop", "Crop to aspect", "Center the largest crop inside the rotated source. Removes pixels and resets padding."],
+    ["pad", "Pad to aspect", "Keep the full rotated source. Add centered fill-color bands to reach the target aspect; no stretching or cropping."],
+  ]) {
+    const button = createElement("button", "", title); button.title = tip;
+    button.addEventListener("click", () => fitAspect(state, ratio.value, mode)); fitRow.append(button);
+  }
+  cropSection.append(fitRow, createElement("div", "ausboss-transform-help", "Crop trims. Pad keeps the whole source. Both replace the current crop and padding; rotation stays. Free restores the full source."));
 
   const rotateSection = createElement("section", "ausboss-transform-section"); rotateSection.append(sectionHeading("Rotate", "rotate"));
   const rotation = createElement("input"); rotation.type = "range"; rotation.min = "-180"; rotation.max = "180"; rotation.step = "0.1"; rotation.value = value(node, "rotation_degrees", 0);
-  const rotationNumber = createElement("input"); rotationNumber.type = "number"; rotationNumber.min = "-180"; rotationNumber.max = "180"; rotationNumber.step = "0.1"; rotationNumber.value = rotation.value;
-  rotation.addEventListener("input", () => { rotationNumber.value = rotation.value; setRotation(state, Number(rotation.value)); });
-  rotationNumber.addEventListener("change", () => { rotation.value = rotationNumber.value; setRotation(state, Number(rotationNumber.value)); });
-  addLabeledControl(rotateSection, "Degrees", rotation, ""); rotateSection.append(rotationNumber);
-  const zeroRotation = createElement("button", "", "Reset rotation"); zeroRotation.addEventListener("click", () => { rotation.value = "0"; rotationNumber.value = "0"; setRotation(state, 0); }); rotateSection.append(zeroRotation);
+  const rotationNumber = makeScrubInput({ value: Number(rotation.value), min: -180, max: 180, step: 1, fineStep: 0.1, decimals: 1,
+    title: "Rotation in degrees. Shift scrubs in tenths.", onChange: (degrees) => setRotation(state, degrees), onSettle: notifyAusbossChange });
+  rotation.addEventListener("input", () => setRotation(state, Number(rotation.value)));
+  addLabeledControl(rotateSection, "Degrees", rotation, ""); rotateSection.append(rotationNumber.root);
+  const zeroRotation = createElement("button", "", "Reset rotation"); zeroRotation.addEventListener("click", () => setRotation(state, 0)); rotateSection.append(zeroRotation);
 
   const padSection = createElement("section", "ausboss-transform-section"); padSection.append(sectionHeading("Padding & mask", "pad"));
   const color = createElement("input"); color.type = "color"; color.value = normalizeColor(value(node, "fill_color", "#808080")); color.addEventListener("input", () => { setValue(node, "fill_color", color.value); draw(state); });
@@ -628,32 +1005,32 @@ function buildControls(state, sidebar) {
   // Feather: slider for coarse sweeps plus a number box (with up/down
   // arrows) for granular single-pixel control.
   const feather = createElement("input"); feather.type = "range"; feather.min = "0"; feather.max = "512"; feather.step = "1"; feather.value = value(node, "feather", 24);
-  const featherNumber = createElement("input"); featherNumber.type = "number"; featherNumber.min = "0"; featherNumber.max = "4096"; featherNumber.step = "1"; featherNumber.value = feather.value;
   const applyFeather = (raw) => {
     const amount = Math.max(0, Math.min(4096, Math.round(Number(raw) || 0)));
-    feather.value = String(Math.min(512, amount)); featherNumber.value = String(amount);
     setValue(node, "feather", amount); draw(state);
   };
+  const featherNumber = makeScrubInput({ value: Number(feather.value), min: 0, max: 4096, step: 1, decimals: 0,
+    title: "Mask feather in pixels.", onChange: applyFeather, onSettle: notifyAusbossChange });
   feather.addEventListener("input", () => applyFeather(feather.value));
-  featherNumber.addEventListener("input", () => applyFeather(featherNumber.value));
-  const featherLabel = addLabeledControl(padSection, "Feather", feather); featherLabel.lastElementChild.replaceWith(featherNumber);
-  const multiple = createElement("input"); multiple.type = "number"; multiple.min = "1"; multiple.max = "4096"; multiple.step = "1"; multiple.value = value(node, "canvas_multiple", 1);
-  multiple.addEventListener("change", () => { setValue(node, "canvas_multiple", Math.max(1, Number(multiple.value) || 1)); draw(state); });
-  addLabeledControl(padSection, "Multiple", multiple, "px");
+  const featherLabel = addLabeledControl(padSection, "Feather", feather); featherLabel.lastElementChild.replaceWith(featherNumber.root);
+  const multiple = makeScrubInput({ value: value(node, "canvas_multiple", 1), min: 1, max: 4096, step: 1, decimals: 0,
+    title: "Round the outer canvas up to a pixel multiple. This can slightly change the fitted aspect.",
+    onChange: (amount) => { setValue(node, "canvas_multiple", amount); draw(state); }, onSettle: notifyAusbossChange });
+  addLabeledControl(padSection, "Multiple", multiple.root, "px");
   const resetPad = createElement("button", "", "Reset padding"); resetPad.addEventListener("click", () => { for (const name of ["pad_left", "pad_top", "pad_right", "pad_bottom"]) setValue(node, name, 0); draw(state); }); padSection.append(resetPad);
 
-  // Resize to a pixel budget (image node only): mirrors the core Scale
+  // Resize to a pixel budget (image and clip nodes): mirrors the core Scale
   // Image to Total Pixels trio - megapixels, method, resolution steps -
   // so the output lands render-ready without another node.
   let resizeSection = null;
-  if (state.kind === "image") {
+  if (widget(node, "resize_to_megapixels")) {
     resizeSection = createElement("section", "ausboss-transform-section");
     resizeSection.append(sectionHeading("Resize output"));
     const enable = createElement("input"); enable.type = "checkbox";
     enable.checked = Boolean(value(node, "resize_to_megapixels", false));
     const applyResize = () => {
       setValue(node, "resize_to_megapixels", enable.checked);
-      state.syncQuickRow?.();
+      draw(state);
       updateModalInfo(state);
     };
     enable.addEventListener("change", applyResize);
@@ -664,7 +1041,7 @@ function buildControls(state, sidebar) {
       title: "Output budget in megapixels (x 1024x1024).",
       onChange: (amount) => {
         setValue(node, "megapixels", amount);
-        state.syncQuickRow?.();
+        draw(state);
         updateModalInfo(state);
       },
     });
@@ -683,6 +1060,7 @@ function buildControls(state, sidebar) {
       title: "Rounds each resized dimension to a multiple of this.",
       onChange: (step) => {
         setValue(node, "resolution_steps", step);
+        draw(state);
         updateModalInfo(state);
       },
     });
@@ -705,6 +1083,12 @@ function buildControls(state, sidebar) {
   sidebar.append(cropSection, rotateSection, padSection);
   if (resizeSection) sidebar.append(resizeSection);
   sidebar.append(actions, previewSection);
+  state.syncEditorControls = () => {
+    rotation.value = value(node, "rotation_degrees", 0); rotationNumber.set(Number(rotation.value));
+    feather.value = Math.min(512, value(node, "feather", 24)); featherNumber.set(value(node, "feather", 24));
+    multiple.set(value(node, "canvas_multiple", 1)); color.value = normalizeColor(value(node, "fill_color", "#808080"));
+    ratio.value = node.properties?.ausboss_fit_aspect ?? value(node, "crop_aspect_ratio", "free");
+  };
 }
 
 // Renders what the node will actually output: fill background, the rotated
@@ -802,7 +1186,40 @@ function buildTimeline(state) {
   // that was actually decoded.
   slider.addEventListener("change", () => seekFrame(state));
   state.timelineSlider = slider; state.timelineLabel = label;
-  label.textContent = `${slider.value} / ${slider.max}`; timeline.append(slider, label, steps); return timeline;
+  slider.setAttribute("aria-label", state.isClip ? "Preview frame (does not trim)" : "Output frame");
+  label.textContent = `${slider.value} / ${slider.max}`; timeline.append(slider, label, steps);
+  if (state.isClip) {
+    const trim = buildTrim(state);
+    trim.style.gridColumn = "1 / -1";
+    timeline.append(trim);
+    state.modalTrim = [...state.trimViews].at(-1);
+  }
+  return timeline;
+}
+
+function buildTrim(state) {
+  const control = mountTransformTrim({
+    get: (name, fallback) => value(state.node, name, fallback),
+    set: (name, next) => {
+      setValue(state.node, name, next);
+      for (const view of state.trimViews) view.sync();
+    },
+    has: (name) => Boolean(widget(state.node, name)),
+    metadata: () => state.metadata,
+    // A moving IN/OUT handle peeks: the stage shows the frame under the
+    // handle and returns to the playhead on release. The scrub bar and the
+    // preview-position widgets never move with a trim.
+    onSeek: (seconds, settled) => {
+      if (settled) { state.peekIndex = null; void seekFrame(state); return; }
+      const fps = Math.max(1, state.metadata?.fps || 30);
+      const index = Math.min(Math.max(0, (state.metadata?.frame_count || 1) - 1), Math.round(seconds * fps));
+      state.peekIndex = index;
+      showScrubGhost(state, index); requestScrubFrame(state);
+    },
+    onCommit: notifyAusbossChange,
+  });
+  state.trimViews.add(control);
+  return control.root;
 }
 
 // Light variant for continuous motion (playback, held arrow keys): reduced
@@ -878,6 +1295,13 @@ function keyUp(state, event) {
 function fitCrop(state) {
   setValue(state.node, "crop_x", 0); setValue(state.node, "crop_y", 0); setValue(state.node, "crop_width", 0); setValue(state.node, "crop_height", 0); draw(state);
 }
+function fitAspect(state, aspect, mode) {
+  if (!state.image || !state.sourceWidth || !state.sourceHeight) return;
+  const source = rotatedSize(state.sourceWidth, state.sourceHeight, value(state.node, "rotation_degrees", 0));
+  for (const [name, next] of Object.entries(fitSourceToAspect(source, aspect, mode))) setValue(state.node, name, next);
+  state.node.properties ??= {}; state.node.properties.ausboss_fit_aspect = aspect;
+  resetView(state); draw(state); updateModalInfo(state); notifyAusbossChange();
+}
 function setRotation(state, degrees) {
   setValue(state.node, "rotation_degrees", Math.round(clamp(degrees, -180, 180) * 10) / 10);
   fitCrop(state); draw(state); updateModalInfo(state);
@@ -930,18 +1354,32 @@ function renderGeometry(state, width, height, view, map = null) {
   return { source, crop, padding, scale, originX, originY, layout, sourceRect, cropRect, outputRect };
 }
 
-function prepareCanvas(canvas) {
-  const width = Math.max(1, canvas.clientWidth || 1); const height = Math.max(1, canvas.clientHeight || 1); const dpr = window.devicePixelRatio || 1;
+// The node preview sits in a DOM widget the graph scales with its zoom, so
+// its backing store is sized for the zoom in play (capped) - the same
+// sharpness core's canvas-drawn image previews get for free.
+const PREVIEW_MAX_OVERSAMPLE = 4;
+function panelOversample() {
+  const zoom = Number(app.canvas?.ds?.scale) || 1;
+  return clamp(zoom, 1, PREVIEW_MAX_OVERSAMPLE);
+}
+
+function prepareCanvas(canvas, oversample = 1) {
+  const width = Math.max(1, canvas.clientWidth || 1); const height = Math.max(1, canvas.clientHeight || 1); const dpr = (window.devicePixelRatio || 1) * oversample;
   const pixelWidth = Math.round(width * dpr); const pixelHeight = Math.round(height * dpr);
   if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) { canvas.width = pixelWidth; canvas.height = pixelHeight; }
   const context = canvas.getContext("2d"); context.setTransform(dpr, 0, 0, dpr, 0, 0); context.clearRect(0, 0, width, height); return { context, width, height };
 }
 
 function draw(state) {
+  state.syncQuickRow?.();
+  state.syncAspectChips?.();
+  state.syncEditorControls?.();
+  state.syncStitchControls?.();
   for (const canvas of [state.canvas, state.previewCanvas]) {
     if (!canvas) continue;
     const compact = canvas === state.previewCanvas;
-    const { context, width, height } = prepareCanvas(canvas);
+    if (compact) state.panelOversample = panelOversample();
+    const { context, width, height } = prepareCanvas(canvas, compact ? state.panelOversample : 1);
     if (!state.image || !state.sourceWidth || !state.sourceHeight) {
       if (compact) state.panelRender = null; else state.render = null;
       drawEmptyCanvas(context, width, height, "Choose a source to begin"); continue;
@@ -961,6 +1399,7 @@ function drawScene(context, state, render, compact, interactive) {
   drawSourceImage(context, state, render.scale); context.restore();
   context.save(); context.globalCompositeOperation = "source-over"; context.fillStyle = "rgba(8,10,12,.62)";
   const full = { x: 0, y: 0, width: context.canvas.width, height: context.canvas.height }; context.beginPath(); context.rect(full.x, full.y, full.width, full.height); context.rect(cropRect.x, cropRect.y, cropRect.width, cropRect.height); context.fill("evenodd"); context.restore();
+  if (!compact && state.isClip && state.showBlend) drawBlendOverlay(context, state, render);
   context.strokeStyle = "#4bd8ef"; context.lineWidth = compact ? 1 : 2; context.setLineDash([7, 5]); context.strokeRect(cropRect.x, cropRect.y, cropRect.width, cropRect.height);
   context.strokeStyle = "#ff9d42"; context.setLineDash([5, 5]); context.strokeRect(outputRect.x, outputRect.y, outputRect.width, outputRect.height); context.setLineDash([]);
   if (interactive) {
@@ -979,7 +1418,7 @@ function drawScene(context, state, render, compact, interactive) {
 // budget appends its target so the readout names what the run will emit.
 function drawOutputSize(context, state, outputRect, padding) {
   let text = `${padding.outputWidth} x ${padding.outputHeight}`;
-  if (state.kind === "image" && value(state.node, "resize_to_megapixels", false)) {
+  if (value(state.node, "resize_to_megapixels", false)) {
     const target = scaleToMegapixels(
       padding.outputWidth, padding.outputHeight,
       value(state.node, "megapixels", 1), value(state.node, "resolution_steps", 1),
@@ -1222,15 +1661,16 @@ function updateModalInfo(state) {
   if (!state.modal || !state.sourceWidth) return; const status = state.modal.querySelector("[data-ausboss-status]"); if (!status) return;
   const source = rotatedSize(state.sourceWidth, state.sourceHeight, value(state.node, "rotation_degrees", 0)); const crop = resolveCrop(values(state.node), source); const pad = resolvePadding(values(state.node), crop);
   const frame = state.kind === "video" ? `\nFrame ${value(state.node, "frame_index", 0)} at ${Number(value(state.node, "frame_time", 0)).toFixed(3)}s` : "";
+  const stitch = state.isClip && widget(state.node, "stitch_blend") ? `\nStitch blend ${value(state.node, "stitch_blend", 32)} px${Number(value(state.node, "stitch_grow", 0)) ? `, grow ${value(state.node, "stitch_grow", 0)} px` : ""}` : "";
   let resized = "";
-  if (state.kind === "image" && value(state.node, "resize_to_megapixels", false)) {
+  if (value(state.node, "resize_to_megapixels", false)) {
     const target = scaleToMegapixels(
       pad.outputWidth, pad.outputHeight,
       value(state.node, "megapixels", 1), value(state.node, "resolution_steps", 1),
     );
     resized = `\nResized ${target.width} x ${target.height} (${(target.width * target.height / 1048576).toFixed(2)} MP)`;
   }
-  status.textContent = `Source ${state.sourceWidth} x ${state.sourceHeight}\nRotated ${source.width} x ${source.height}\nCrop ${crop.x}, ${crop.y}, ${crop.width} x ${crop.height}\nOutput ${pad.outputWidth} x ${pad.outputHeight}${resized}${frame}`;
+  status.textContent = `Source ${state.sourceWidth} x ${state.sourceHeight}\nRotated ${source.width} x ${source.height}\nCrop ${crop.x}, ${crop.y}, ${crop.width} x ${crop.height}\nOutput ${pad.outputWidth} x ${pad.outputHeight}${resized}${stitch}${frame}`;
 }
 function drawEmpty(state, text) { state.render = null; state.panelRender = null; for (const canvas of [state.canvas, state.previewCanvas]) { if (!canvas) continue; const prepared = prepareCanvas(canvas); drawEmptyCanvas(prepared.context, prepared.width, prepared.height, text); } }
 function drawEmptyCanvas(context, width, height, text) { context.fillStyle = "#111"; context.fillRect(0, 0, width, height); context.fillStyle = "#9ba2aa"; context.font = "13px system-ui"; context.textAlign = "center"; context.fillText(text, width / 2, height / 2); context.textAlign = "left"; }
@@ -1259,9 +1699,10 @@ export function disposeTransformNode(node) {
 
 export function registerTransformExtension(nodeClass, kind, mountPanel = null) {
   app.registerExtension({
-    name: `ausboss.transform.${kind}`,
+    name: `ausboss.transform.${nodeClass}`,
     beforeRegisterNodeDef(nodeType, nodeData) {
       if (nodeData.name !== nodeClass) return;
+      hideInputsInDef(nodeData, HIDDEN_WIDGETS);
       chainCallback(nodeType.prototype, "onNodeCreated", function () { installTransformNode(this, kind, mountPanel); });
       chainCallback(nodeType.prototype, "onRemoved", function () { disposeTransformNode(this); });
     },

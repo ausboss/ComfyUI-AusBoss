@@ -13,6 +13,11 @@ stitcher, and the original frame is sliced back out.
   never how far the paste reaches.
 - Feeding the crop back unchanged reproduces the original image exactly
   (with `fix_edge_halo` off; the fix rewrites the feathered band on purpose).
+- A stitcher built from one image broadcasts over any number of inpainted
+  frames. A stitcher built from **more** frames than came back is trimmed to
+  the leading ones with a console note - video models keep 8n+1 (LTX) or
+  4n+1 (Wan) frames and drop the tail - so a long run is never thrown away
+  over the count. More inpainted frames than source frames is still an error.
 
 ## Controls
 
@@ -25,6 +30,40 @@ stitcher, and the original frame is sliced back out.
   feathered seam before pasting, so half-transparent edge pixels stop
   blending their background in a second time. It costs real time per frame
   — read "What it costs" below before turning it on for a whole batch.
+- **color_match**: `0` (off) to `1`. Shifts the pasted region's tone onto
+  the original's before blending. For an outpaint the shift is read across
+  each seam — the model's new pixels just outside the source against the
+  true pixels just inside it — so it measures the model's own drift, not
+  the mixed band. Read "Matching the tone" below.
+
+## Matching the tone
+
+An outpaint comes back a few percent off the picture it extends — Krea 2
+a touch darker, Klein a touch lighter — and the padding colour makes no
+difference to that. The feathered sampler mask then smears the step into
+the band inside the source, so without a match the seam shows as a faded
+band even though the content continues perfectly.
+
+`color_match` reads the drift **across each padded side's seam, line by
+line**: for a left or right side, every row compares the 24 generated
+pixels just outside the seam with the 24 original pixels just inside it;
+a top or bottom side does the same per column. Sky and water on the same
+seam drift by different amounts, and one number for the whole picture
+leaves one of them showing. Each line's reading is clamped to a few LAB
+units around its side's average — a pier post leaving the frame is
+content, not drift — and smoothed so no single line prints a stripe.
+Where two padded sides meet, their curves blend by distance, so the
+correction turns the corner without a crease.
+
+The shift is subtracted from the pasted region before the blend. In the
+padding that is the whole shift; inside the feathered band the paste
+alpha scales it, which is exactly the share of each band pixel the
+sampler painted. Source pixels stay bit-identical. A crop stitcher, which
+has no source rectangle, gets a single global shift measured in its
+blend band instead.
+
+It corrects tone, not content — a dark wall at the picture's edge next to
+a lit continuation is the model's choice, not a colour drift.
 
 ## Fixing an edge halo
 

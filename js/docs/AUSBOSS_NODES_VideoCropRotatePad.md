@@ -7,7 +7,8 @@ Loads one exact video frame and applies the same **rotate → crop → pad** tra
 
 ## Source and frame
 
-- **video**: Video inside ComfyUI's input folder. Use **Upload video** on the node to add one.
+- **Uploads**: Pick an input video, click **Upload** in the compact source card, or
+  drop a video file onto the node.
 - **source_mode**: `input folder` or `local path`. Local path mode avoids copying large files.
 - **local_path**: Absolute path used only in local path mode. Queued workflows always
   read it; the editor's live preview of paths outside ComfyUI's own folders requires
@@ -21,5 +22,13 @@ The editor includes first/last, ±1, ±25, ±50, ±100, play/pause, keyboard arr
 
 Rotation, crop, padding, feathering, fill, canvas multiple, gestures, `image`, and `mask` match the image node. The output batch contains one frame.
 
-Video metadata and preview routes validate extensions and return only the information needed by the editor. The node performs no remote network requests and does not rewrite the source video.
+The crop, padding and rotation handles work on the node preview as well as in the
+editor, and the format chips right under the preview (16:9, 9:16, 1:1, 4:3 ...) pad
+the whole frame to that aspect with centered fill bands in one tap; tap the lit chip
+to clear the bands again. Choose a **Target aspect**, then **Crop to aspect** to trim a centered crop,
+or **Pad to aspect** to preserve the full source and add centered fill-color bands.
+Both actions replace existing crop/padding and retain rotation. The target selection
+alone does not alter the transform. Padding unlocks the inner crop so it keeps every
+source pixel; canvas/resize rounding may slightly change the final aspect.
 
+Video metadata and preview routes validate extensions and return only the information needed by the editor. The node performs no remote network requests and does not rewrite the source video.

@@ -63,6 +63,25 @@ class AusBossKrea2OutpaintModelPatch:
                     },
                 ),
             },
+            "optional": {
+                "placement": (
+                    ["source rectangle", "whole canvas"],
+                    {
+                        "default": "source rectangle",
+                        "tooltip": (
+                            "Where the reference tokens are registered. "
+                            "'source rectangle' pins the unpadded source to the "
+                            "rectangle the stitcher reports - the Registered "
+                            "Outpaint LoRA's contract, one padded axis per pass. "
+                            "'whole canvas' spreads the reference over the full "
+                            "frame - for the AnyPaint LoRA, where the reference "
+                            "IS the padded canvas and the sampler's noise mask "
+                            "keeps the known pixels, so every side can be padded "
+                            "at once."
+                        ),
+                    },
+                ),
+            },
         }
 
     RETURN_TYPES = ("MODEL",)
@@ -72,16 +91,18 @@ class AusBossKrea2OutpaintModelPatch:
     )
     FUNCTION = "patch"
 
-    def patch(self, model, stitcher, kv_cache=True):
+    def patch(self, model, stitcher, kv_cache=True, placement="source rectangle"):
         import comfy.conds
 
         from . import _krea2_core as core
 
-        complaint = placement_warning(stitcher)
-        if complaint:
-            print(complaint)
-
-        bbox_norm = extract_bbox_norm(stitcher)
+        if placement == "whole canvas":
+            bbox_norm = [0.0, 0.0, 1.0, 1.0]
+        else:
+            complaint = placement_warning(stitcher)
+            if complaint:
+                print(complaint)
+            bbox_norm = extract_bbox_norm(stitcher)
 
         patched = model.clone()
         base_model = patched.model

@@ -1,0 +1,926 @@
+{
+  "last_node_id": 10,
+  "last_link_id": 8,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "AUSBOSS_NODES_WorkflowNote",
+      "pos": [
+        -620,
+        100
+      ],
+      "size": [
+        560,
+        940
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "note",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "note"
+          }
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote",
+        "ver": "2.0.0"
+      },
+      "widgets_values": [
+        "{\"v\": 1, \"title\": \"Image and Video Transform\", \"subtitle\": \"Explore both editors, inspect generated-area masks, and align the final image.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"body\": \"## Setup\\nCopy the included pier PNG and MP4 from example_workflows/inputs into ComfyUI/input. No models or extra packs are needed.\\n\\n## Image editor\\nDrag the crop, padding and rotation handles on Image Crop + Rotate + Pad, or open its full-screen editor. The sample starts with a slight rotation and visible padding so the generated-area mask is easy to inspect.\\n\\n## Alignment\\nAlign Image pads the transformed image to a multiple of 64. Compare shows that aligned result against the transform. Alignment outputs the image and dimensions; the mask preview is from the transform before alignment. Use Image Resize with an input mask if image and mask must follow one resize together.\\n\\n## Video frame editor\\nThe Frame variant selects exactly one frame. Move the timeline, then queue to update the image and mask previews. For a whole trimmed sequence, use the Clip variant as shown in the LTX example.\\n\\n## Gesture guide\\nCyan squares crop, orange diamonds pad, green rotates. Shift snaps rotation. Wheel zoom and middle-button pan belong to the full-screen editor; on the compact stage they still navigate the graph.\", \"models\": [], \"packs\": []}"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "AUSBOSS_NODES_ImageCropRotatePad",
+      "pos": [
+        0,
+        100
+      ],
+      "size": [
+        440,
+        900
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "image"
+          }
+        },
+        {
+          "name": "rotation_degrees",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "rotation_degrees"
+          }
+        },
+        {
+          "name": "crop_aspect_ratio",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "crop_aspect_ratio"
+          }
+        },
+        {
+          "name": "crop_x",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "crop_x"
+          }
+        },
+        {
+          "name": "crop_y",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "crop_y"
+          }
+        },
+        {
+          "name": "crop_width",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "crop_width"
+          }
+        },
+        {
+          "name": "crop_height",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "crop_height"
+          }
+        },
+        {
+          "name": "pad_left",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "pad_left"
+          }
+        },
+        {
+          "name": "pad_top",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "pad_top"
+          }
+        },
+        {
+          "name": "pad_right",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "pad_right"
+          }
+        },
+        {
+          "name": "pad_bottom",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "pad_bottom"
+          }
+        },
+        {
+          "name": "feather",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "feather"
+          }
+        },
+        {
+          "name": "canvas_multiple",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "canvas_multiple"
+          }
+        },
+        {
+          "name": "fill_color",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "fill_color"
+          }
+        },
+        {
+          "name": "resize_to_megapixels",
+          "type": "BOOLEAN",
+          "link": null,
+          "widget": {
+            "name": "resize_to_megapixels"
+          }
+        },
+        {
+          "name": "megapixels",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "megapixels"
+          }
+        },
+        {
+          "name": "resize_method",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "resize_method"
+          }
+        },
+        {
+          "name": "resolution_steps",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "resolution_steps"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            3,
+            5
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "links": [
+            1
+          ],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "Node name for S&R": "AUSBOSS_NODES_ImageCropRotatePad",
+        "ver": "2.0.0"
+      },
+      "widgets_values": {
+        "image": "ausboss_pier_sunrise.png",
+        "rotation_degrees": 5,
+        "crop_aspect_ratio": "free",
+        "crop_x": 0,
+        "crop_y": 0,
+        "crop_width": 0,
+        "crop_height": 0,
+        "pad_left": 96,
+        "pad_top": 0,
+        "pad_right": 96,
+        "pad_bottom": 0,
+        "feather": 8,
+        "canvas_multiple": 8,
+        "fill_color": "#808080",
+        "resize_to_megapixels": false,
+        "megapixels": 1.0,
+        "resize_method": "lanczos",
+        "resolution_steps": 1
+      }
+    },
+    {
+      "id": 3,
+      "type": "MaskToImage",
+      "pos": [
+        520,
+        100
+      ],
+      "size": [
+        360,
+        70
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            2
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "Node name for S&R": "MaskToImage"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 4,
+      "type": "PreviewImage",
+      "pos": [
+        520,
+        220
+      ],
+      "size": [
+        360,
+        610
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [],
+      "title": "Image transform · generated-area mask"
+    },
+    {
+      "id": 5,
+      "type": "AUSBOSS_NODES_AlignImage",
+      "pos": [
+        960,
+        100
+      ],
+      "size": [
+        420,
+        230
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 3
+        },
+        {
+          "name": "multiple",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "multiple"
+          }
+        },
+        {
+          "name": "mode",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "mode"
+          }
+        },
+        {
+          "name": "crop_position",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "crop_position"
+          }
+        },
+        {
+          "name": "pad_position",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "pad_position"
+          }
+        },
+        {
+          "name": "pad_fill",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "pad_fill"
+          }
+        },
+        {
+          "name": "pad_color",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "pad_color"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            4
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "links": [],
+          "slot_index": 1
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": [],
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "Node name for S&R": "AUSBOSS_NODES_AlignImage",
+        "ver": "2.0.0"
+      },
+      "widgets_values": [
+        64,
+        "pad",
+        "center",
+        "center",
+        "replicate",
+        "#000000"
+      ]
+    },
+    {
+      "id": 6,
+      "type": "AUSBOSS_NODES_Compare",
+      "pos": [
+        960,
+        390
+      ],
+      "size": [
+        420,
+        610
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image_a",
+          "type": "IMAGE",
+          "link": 4
+        },
+        {
+          "name": "image_b",
+          "type": "IMAGE",
+          "link": 5
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image_a",
+          "type": "IMAGE",
+          "links": [],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "Node name for S&R": "AUSBOSS_NODES_Compare",
+        "ver": "2.0.0"
+      },
+      "widgets_values": [],
+      "title": "Aligned image A · transformed image B"
+    },
+    {
+      "id": 7,
+      "type": "AUSBOSS_NODES_VideoCropRotatePad",
+      "pos": [
+        1460,
+        100
+      ],
+      "size": [
+        460,
+        1020
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "video"
+          }
+        },
+        {
+          "name": "source_mode",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "source_mode"
+          }
+        },
+        {
+          "name": "local_path",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "local_path"
+          }
+        },
+        {
+          "name": "seek_mode",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "seek_mode"
+          }
+        },
+        {
+          "name": "frame_index",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "frame_index"
+          }
+        },
+        {
+          "name": "frame_time",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "frame_time"
+          }
+        },
+        {
+          "name": "rotation_degrees",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "rotation_degrees"
+          }
+        },
+        {
+          "name": "crop_aspect_ratio",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "crop_aspect_ratio"
+          }
+        },
+        {
+          "name": "crop_x",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "crop_x"
+          }
+        },
+        {
+          "name": "crop_y",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "crop_y"
+          }
+        },
+        {
+          "name": "crop_width",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "crop_width"
+          }
+        },
+        {
+          "name": "crop_height",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "crop_height"
+          }
+        },
+        {
+          "name": "pad_left",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "pad_left"
+          }
+        },
+        {
+          "name": "pad_top",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "pad_top"
+          }
+        },
+        {
+          "name": "pad_right",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "pad_right"
+          }
+        },
+        {
+          "name": "pad_bottom",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "pad_bottom"
+          }
+        },
+        {
+          "name": "feather",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "feather"
+          }
+        },
+        {
+          "name": "canvas_multiple",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "canvas_multiple"
+          }
+        },
+        {
+          "name": "fill_color",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "fill_color"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            6
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "links": [
+            7
+          ],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "Node name for S&R": "AUSBOSS_NODES_VideoCropRotatePad",
+        "ver": "2.0.0"
+      },
+      "widgets_values": {
+        "video": "ausboss_pier_9x16.mp4",
+        "source_mode": "input folder",
+        "local_path": "",
+        "seek_mode": "frame index",
+        "frame_index": 24,
+        "frame_time": 0.0,
+        "rotation_degrees": -3,
+        "crop_aspect_ratio": "free",
+        "crop_x": 0,
+        "crop_y": 0,
+        "crop_width": 0,
+        "crop_height": 0,
+        "pad_left": 96,
+        "pad_top": 0,
+        "pad_right": 96,
+        "pad_bottom": 0,
+        "feather": 24,
+        "canvas_multiple": 8,
+        "fill_color": "#808080"
+      }
+    },
+    {
+      "id": 8,
+      "type": "PreviewImage",
+      "pos": [
+        2000,
+        100
+      ],
+      "size": [
+        460,
+        440
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 6
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [],
+      "title": "Selected video frame · transformed"
+    },
+    {
+      "id": 9,
+      "type": "MaskToImage",
+      "pos": [
+        2000,
+        600
+      ],
+      "size": [
+        460,
+        70
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            8
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "Node name for S&R": "MaskToImage"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 10,
+      "type": "PreviewImage",
+      "pos": [
+        2000,
+        730
+      ],
+      "size": [
+        460,
+        440
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 8
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [],
+      "title": "Video frame · generated-area mask"
+    }
+  ],
+  "links": [
+    [
+      1,
+      2,
+      1,
+      3,
+      0,
+      "MASK"
+    ],
+    [
+      2,
+      3,
+      0,
+      4,
+      0,
+      "IMAGE"
+    ],
+    [
+      3,
+      2,
+      0,
+      5,
+      0,
+      "IMAGE"
+    ],
+    [
+      4,
+      5,
+      0,
+      6,
+      0,
+      "IMAGE"
+    ],
+    [
+      5,
+      2,
+      0,
+      6,
+      1,
+      "IMAGE"
+    ],
+    [
+      6,
+      7,
+      0,
+      8,
+      0,
+      "IMAGE"
+    ],
+    [
+      7,
+      7,
+      1,
+      9,
+      0,
+      "MASK"
+    ],
+    [
+      8,
+      9,
+      0,
+      10,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [
+    {
+      "title": "1 · Image editor",
+      "bounding": [
+        -20,
+        40,
+        480,
+        980
+      ],
+      "color": "#235d64",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "title": "2 · Inspect the image mask",
+      "bounding": [
+        500,
+        40,
+        400,
+        810
+      ],
+      "color": "#366451",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "title": "3 · Align + compare",
+      "bounding": [
+        940,
+        40,
+        460,
+        980
+      ],
+      "color": "#5d527c",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "title": "4 · Video frame editor",
+      "bounding": [
+        1440,
+        40,
+        500,
+        1100
+      ],
+      "color": "#795b38",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "title": "5 · Inspect frame + mask",
+      "bounding": [
+        1980,
+        40,
+        500,
+        1150
+      ],
+      "color": "#345d7c",
+      "font_size": 24,
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.5127,
+      "offset": [
+        816.04,
+        301.58
+      ]
+    }
+  },
+  "version": 0.4
+}

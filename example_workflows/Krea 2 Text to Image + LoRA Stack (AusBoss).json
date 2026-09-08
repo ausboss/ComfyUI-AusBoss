@@ -1,0 +1,847 @@
+{
+  "id": "ausboss-showcase",
+  "revision": 0,
+  "last_node_id": 15,
+  "last_link_id": 15,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "AUSBOSS_NODES_WorkflowNote",
+      "pos": [
+        -1680,
+        100
+      ],
+      "size": [
+        560,
+        1010
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0"
+      },
+      "widgets_values": [
+        "{\"v\": 1, \"title\": \"Krea 2 Text to Image + LoRA Stack\", \"subtitle\": \"The clean Krea 2 Turbo graph with one LoRA Loader for the whole stack. Trigger words flow into the prompt on their own wire.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose each installed model in its loader; saved selections may include local subfolders. Download links below name the standard destination folders.\\n\\n## How it works\\n1. **LoRA Loader** holds every LoRA in one node. The pill turns a row on or off, the name is a drag-to-scrub strength, and the **ⓘ** card lists the file's trigger words — click a word to add it to the `triggers` output.\\n2. **Concatenate** puts those trigger words in front of your prompt, so switching LoRAs never means editing the prompt.\\n3. **Krea 2 Encode** encodes both prompts in one node. **Seed** is pinned (Fixed) to reproduce this exact image; switch it to Random for variations, and *Use last run* brings a good one back.\\n4. **Queue.** The Run Timer shows how long the render took.\\n\\n## Try\\n- The tarot row is enabled. The optional anime row starts off; download and select that LoRA before enabling it.\\n- Drag a row's name left or right to scrub its strength. Shift is the fine step.\\n- Gear menu → **Absorb loader chain** pulls any other LoRA loaders wired into the model line into this stack.\\n- 8 steps, CFG 1, `er_sde` / `simple` is the Krea 2 Turbo recipe. 832×1216 is the portrait size the tarot look likes.\", \"models\": [{\"name\": \"krea2_turbo_fp8.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"Tested local FP8 Turbo filename. The download is the official krea2_turbo_fp8_scaled.safetensors build; select that downloaded file in the loader if using it.\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}, {\"name\": \"krea2_vintagetarot.safetensors\", \"dir\": \"loras\", \"size\": \"469 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/loras/krea2_vintagetarot.safetensors\", \"note\": \"trigger: vintage tarot style\"}, {\"name\": \"krea2_retroanime.safetensors\", \"dir\": \"loras\", \"size\": \"469 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/loras/krea2_retroanime.safetensors\", \"note\": \"trigger: purple retro anime style — off by default, flip it on to swap the look\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_LoraLoader\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "UNETLoader",
+      "pos": [
+        -1060,
+        100
+      ],
+      "size": [
+        430,
+        82
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            1
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "UNETLoader",
+        "models": [
+          {
+            "name": "krea2_turbo_fp8_scaled.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors",
+            "directory": "diffusion_models"
+          }
+        ]
+      },
+      "widgets_values": [
+        "Krea 2/krea2_turbo_fp8.safetensors",
+        "default"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "CLIPLoader",
+      "pos": [
+        -1060,
+        232
+      ],
+      "size": [
+        430,
+        106
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            2
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPLoader",
+        "models": [
+          {
+            "name": "qwen3vl_4b_fp8_scaled.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors",
+            "directory": "text_encoders"
+          }
+        ]
+      },
+      "widgets_values": [
+        "qwen3vl_4b_fp8_scaled.safetensors",
+        "krea2",
+        "default"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "VAELoader",
+      "pos": [
+        -1060,
+        388
+      ],
+      "size": [
+        430,
+        58
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            14
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAELoader",
+        "models": [
+          {
+            "name": "qwen_image_vae.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors",
+            "directory": "vae"
+          }
+        ]
+      },
+      "widgets_values": [
+        "qwen_image_vae.safetensors"
+      ]
+    },
+    {
+      "id": 5,
+      "type": "AUSBOSS_NODES_LoraLoader",
+      "pos": [
+        -1060,
+        496
+      ],
+      "size": [
+        430,
+        224
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 1
+        },
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "links": [
+            8
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "links": [
+            5
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "triggers",
+          "type": "STRING",
+          "links": [
+            3
+          ],
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_LoraLoader",
+        "models": [
+          {
+            "name": "krea2_vintagetarot.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/loras/krea2_vintagetarot.safetensors",
+            "directory": "loras"
+          },
+          {
+            "name": "krea2_retroanime.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/loras/krea2_retroanime.safetensors",
+            "directory": "loras"
+          }
+        ],
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0"
+      },
+      "widgets_values": [
+        "[{\"name\": \"krea2_vintagetarot.safetensors\", \"strength\": 1.0, \"enabled\": true, \"triggers\": \"vintage tarot style\"}, {\"name\": \"krea2_retroanime.safetensors\", \"strength\": 0.9, \"enabled\": false, \"triggers\": \"purple retro anime style\"}]",
+        ", ",
+        ""
+      ],
+      "title": "LoRA Loader 🆎  ·  the whole stack in one node"
+    },
+    {
+      "id": 6,
+      "type": "EmptySD3LatentImage",
+      "pos": [
+        -1060,
+        830
+      ],
+      "size": [
+        430,
+        106
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            11
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "EmptySD3LatentImage"
+      },
+      "widgets_values": [
+        832,
+        1216,
+        1
+      ]
+    },
+    {
+      "id": 7,
+      "type": "AUSBOSS_NODES_Text",
+      "pos": [
+        -580,
+        100
+      ],
+      "size": [
+        460,
+        200
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "links": [
+            4
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_Text",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0"
+      },
+      "widgets_values": [
+        "a knight in ornate armor kneeling in a moonlit forest clearing, holding a glowing lantern, fireflies, mist between the trees, a banner reading \"THE HERMIT\" along the bottom, rich symbolic illustration"
+      ],
+      "title": "Text 🆎  ·  your prompt"
+    },
+    {
+      "id": 8,
+      "type": "StringConcatenate",
+      "pos": [
+        -580,
+        350
+      ],
+      "size": [
+        460,
+        166
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "string_a",
+          "type": "STRING",
+          "link": 3,
+          "widget": {
+            "name": "string_a"
+          }
+        },
+        {
+          "name": "string_b",
+          "type": "STRING",
+          "link": 4,
+          "widget": {
+            "name": "string_b"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            6,
+            7
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "StringConcatenate"
+      },
+      "widgets_values": [
+        "",
+        "",
+        ", "
+      ],
+      "title": "Concatenate  ·  trigger words + prompt"
+    },
+    {
+      "id": 9,
+      "type": "AUSBOSS_NODES_Krea2Encode",
+      "pos": [
+        -580,
+        566
+      ],
+      "size": [
+        460,
+        304
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 5
+        },
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "link": 6,
+          "widget": {
+            "name": "prompt"
+          }
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": null
+        },
+        {
+          "name": "reference",
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "extra_image",
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "links": [
+            9
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "links": [
+            10
+          ],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_Krea2Encode",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0"
+      },
+      "widgets_values": [
+        "",
+        "",
+        false
+      ],
+      "title": "Krea 2 Encode 🆎"
+    },
+    {
+      "id": 10,
+      "type": "AUSBOSS_NODES_Seed",
+      "pos": [
+        -580,
+        920
+      ],
+      "size": [
+        460,
+        216
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "seed",
+          "type": "INT",
+          "links": [
+            12
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_Seed",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0"
+      },
+      "widgets_values": [
+        20260902,
+        "fixed"
+      ]
+    },
+    {
+      "id": 11,
+      "type": "KSampler",
+      "pos": [
+        -80,
+        100
+      ],
+      "size": [
+        320,
+        262
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 8
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 9
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 10
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 11
+        },
+        {
+          "name": "seed",
+          "type": "INT",
+          "link": 12,
+          "widget": {
+            "name": "seed"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            13
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "KSampler"
+      },
+      "widgets_values": [
+        20260902,
+        "fixed",
+        8,
+        1.0,
+        "er_sde",
+        "simple",
+        1.0
+      ]
+    },
+    {
+      "id": 12,
+      "type": "VAEDecode",
+      "pos": [
+        -80,
+        412
+      ],
+      "size": [
+        320,
+        46
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 13
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 14
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            15
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecode"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 13,
+      "type": "AUSBOSS_NODES_RunTimer",
+      "pos": [
+        -80,
+        508
+      ],
+      "size": [
+        196,
+        62
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_RunTimer",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 14,
+      "type": "AUSBOSS_NODES_ShowText",
+      "pos": [
+        -80,
+        620
+      ],
+      "size": [
+        320,
+        160
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 7,
+          "widget": {
+            "name": "text"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_ShowText",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0"
+      },
+      "widgets_values": [],
+      "title": "Show Text 🆎  ·  what the encoder got"
+    },
+    {
+      "id": 15,
+      "type": "SaveImage",
+      "pos": [
+        280,
+        100
+      ],
+      "size": [
+        560,
+        760
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 15
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "AusBoss/krea2_lora_stack"
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      2,
+      0,
+      5,
+      0,
+      "MODEL"
+    ],
+    [
+      2,
+      3,
+      0,
+      5,
+      1,
+      "CLIP"
+    ],
+    [
+      3,
+      5,
+      2,
+      8,
+      0,
+      "STRING"
+    ],
+    [
+      4,
+      7,
+      0,
+      8,
+      1,
+      "STRING"
+    ],
+    [
+      5,
+      5,
+      1,
+      9,
+      0,
+      "CLIP"
+    ],
+    [
+      6,
+      8,
+      0,
+      9,
+      1,
+      "STRING"
+    ],
+    [
+      7,
+      8,
+      0,
+      14,
+      0,
+      "STRING"
+    ],
+    [
+      8,
+      5,
+      0,
+      11,
+      0,
+      "MODEL"
+    ],
+    [
+      9,
+      9,
+      0,
+      11,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      10,
+      9,
+      1,
+      11,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      11,
+      6,
+      0,
+      11,
+      3,
+      "LATENT"
+    ],
+    [
+      12,
+      10,
+      0,
+      11,
+      4,
+      "INT"
+    ],
+    [
+      13,
+      11,
+      0,
+      12,
+      0,
+      "LATENT"
+    ],
+    [
+      14,
+      4,
+      0,
+      12,
+      1,
+      "VAE"
+    ],
+    [
+      15,
+      12,
+      0,
+      15,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "1 · Models + LoRA stack",
+      "bounding": [
+        -1080,
+        40,
+        470,
+        700
+      ],
+      "color": "#235d64",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 2,
+      "title": "2 · Size",
+      "bounding": [
+        -1080,
+        770,
+        470,
+        186
+      ],
+      "color": "#366451",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 3,
+      "title": "3 · Prompt: triggers + text → encode",
+      "bounding": [
+        -600,
+        40,
+        500,
+        1116
+      ],
+      "color": "#5d527c",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 4,
+      "title": "4 · Sample + save",
+      "bounding": [
+        -100,
+        40,
+        960,
+        840
+      ],
+      "color": "#795b38",
+      "font_size": 24,
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.6231,
+      "offset": [
+        1848.39,
+        242.83
+      ]
+    }
+  },
+  "version": 0.4
+}

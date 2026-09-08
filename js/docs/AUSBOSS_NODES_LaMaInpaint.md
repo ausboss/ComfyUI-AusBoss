@@ -40,3 +40,7 @@ underneath the node.
 
 The node performs no network requests. It writes one preview PNG per run into
 ComfyUI's temp folder, alongside what `PreviewImage` writes.
+
+The small **preview** switch at the right of the bar above the picture turns
+it off: the picture's box disappears, the node is that much shorter, and no
+preview file is written. The switch is the node's optional `preview` input.

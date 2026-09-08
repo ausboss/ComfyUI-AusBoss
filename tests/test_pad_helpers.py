@@ -145,8 +145,6 @@ class PillarboxBlurModeTests(unittest.TestCase):
         )
 
 
-if __name__ == "__main__":
-    unittest.main()
 
 
 class LowResBackdropBlurTests(unittest.TestCase):
@@ -282,6 +280,34 @@ class FeatherPadMaskTests(unittest.TestCase):
         # The whole image column is ramped but values stay in (0, 1].
         self.assertGreater(float(out[0, 12, 12]), 0.0)
         self.assertLessEqual(float(out.max()), 1.0)
+
+
+class FeatherCornerTests(unittest.TestCase):
+    """Two padded sides meet without a crease: the ramps unite instead of
+    taking their maximum, so the corner is bilinear."""
+
+    def test_corner_is_the_union_of_the_two_ramps(self):
+        _, mask = pad_image(rand_image(1, 16, 20, seed=11), 3, 5, 2, 4, "color")
+        out = feather_pad_mask(mask, 3, 5, 2, 4, 3)
+        # Row 5 is the first image row (top ramp 0.75), col 3 the first image
+        # column (left ramp 0.75): union 1 - 0.25 * 0.25, not max 0.75.
+        self.assertAlmostEqual(float(out[0, 5, 3]), 1.0 - 0.25 * 0.25, places=5)
+        self.assertAlmostEqual(float(out[0, 6, 4]), 1.0 - 0.5 * 0.5, places=5)
+        # Along a side the other ramp is 0, so nothing changes there.
+        self.assertAlmostEqual(float(out[0, 5, 12]), 0.75, places=5)
+        self.assertAlmostEqual(float(out[0, 10, 3]), 0.75, places=5)
+
+    def test_corner_has_no_diagonal_crease(self):
+        # With max(), stepping across the corner's diagonal flips which ramp
+        # wins and the gradient jumps. With the union the value along the
+        # diagonal is symmetric and the differences to its two neighbours
+        # are equal - no crease to print.
+        _, mask = pad_image(rand_image(1, 60, 60, seed=12), 20, 20, 20, 20, "color")
+        out = feather_pad_mask(mask, 20, 20, 20, 20, 16)
+        for step in range(1, 15):
+            y, x = 20 + step, 20 + step
+            self.assertAlmostEqual(float(out[0, y, x - 1]), float(out[0, y - 1, x]), places=5)
+            self.assertLess(float(out[0, y, x]), float(out[0, y, x - 1]))
 
 
 class LoadImagePadNodeTests(unittest.TestCase):
@@ -454,3 +480,7 @@ class LoadImagePadNodeTests(unittest.TestCase):
             second = cls.IS_CHANGED(image=path, pad_left=2, feather=0)
             self.assertIsInstance(first, str)
             self.assertNotEqual(first, second)
+
+
+if __name__ == "__main__":
+    unittest.main()

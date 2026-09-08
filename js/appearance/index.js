@@ -234,6 +234,10 @@ app.registerExtension({
 // card built from the node's own DESCRIPTION and tooltips, so the docs on
 // screen are exactly the docs in the source.
 function installHelpBadge(node) {
+  // A title-less node (Run Timer) has no bar to hang the badge on; its
+  // help stays reachable through the node's context menu.
+  const noTitle = node.constructor?.title_mode === (globalThis.LiteGraph?.NO_TITLE ?? 1);
+  if (noTitle) return;
   chainCallback(node, "onDrawForeground", function (ctx) {
     if (!showBadge(this.size?.[0] ?? 0, this.flags?.collapsed)) return;
     const [x, y] = badgeCenter(this.size[0]);

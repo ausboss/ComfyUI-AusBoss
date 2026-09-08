@@ -1,0 +1,1143 @@
+{
+  "id": "",
+  "revision": 0,
+  "last_node_id": 20,
+  "last_link_id": 23,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "UNETLoader",
+      "pos": [
+        -1060,
+        100
+      ],
+      "size": [
+        430,
+        82
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            14
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "UNETLoader"
+      },
+      "widgets_values": [
+        "Flux.2 Klein 9B/flux-2-klein-9b-int8-convrot.safetensors",
+        "default"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "CLIPLoader",
+      "pos": [
+        -1060,
+        232
+      ],
+      "size": [
+        430,
+        106
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            7
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPLoader"
+      },
+      "widgets_values": [
+        "qwen_3_8b_fp8mixed.safetensors",
+        "flux2",
+        "default"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "VAELoader",
+      "pos": [
+        -1060,
+        388
+      ],
+      "size": [
+        430,
+        58
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            6,
+            20
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAELoader"
+      },
+      "widgets_values": [
+        "flux2-vae.safetensors"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "LoadImage",
+      "pos": [
+        -1060,
+        530
+      ],
+      "size": [
+        430,
+        690
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "ausboss_pier_sunrise.png",
+        "image"
+      ]
+    },
+    {
+      "id": 5,
+      "type": "AUSBOSS_NODES_ImageResize",
+      "pos": [
+        -580,
+        100
+      ],
+      "size": [
+        460,
+        330
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": null,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            2,
+            5,
+            22
+          ]
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "links": []
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "links": []
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_ImageResize",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0"
+      },
+      "widgets_values": [
+        "megapixels",
+        0,
+        0,
+        1024,
+        1.0,
+        0.5,
+        "fit",
+        "#000000",
+        16,
+        "lanczos"
+      ],
+      "title": "Image Resize 🆎  ·  Klein works at 1 MP"
+    },
+    {
+      "id": 6,
+      "type": "AUSBOSS_NODES_ImageSize",
+      "pos": [
+        -580,
+        480
+      ],
+      "size": [
+        460,
+        130
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "width",
+          "type": "INT",
+          "links": [
+            3
+          ]
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": [
+            4
+          ]
+        },
+        {
+          "name": "longest_edge",
+          "type": "INT",
+          "links": []
+        },
+        {
+          "name": "shortest_edge",
+          "type": "INT",
+          "links": []
+        },
+        {
+          "name": "count",
+          "type": "INT",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_ImageSize",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0"
+      },
+      "widgets_values": [],
+      "title": "Image Size 🆎  ·  same size out as in"
+    },
+    {
+      "id": 7,
+      "type": "EmptyFlux2LatentImage",
+      "pos": [
+        -580,
+        660
+      ],
+      "size": [
+        460,
+        106
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "width",
+          "type": "INT",
+          "widget": {
+            "name": "width"
+          },
+          "link": 3
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "widget": {
+            "name": "height"
+          },
+          "link": 4
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            17
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "EmptyFlux2LatentImage"
+      },
+      "widgets_values": [
+        1024,
+        1024,
+        1
+      ]
+    },
+    {
+      "id": 8,
+      "type": "VAEEncode",
+      "pos": [
+        -580,
+        816
+      ],
+      "size": [
+        460,
+        46
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "pixels",
+          "type": "IMAGE",
+          "link": 5
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 6
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            10,
+            13
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEEncode"
+      },
+      "widgets_values": [],
+      "title": "VAE Encode  ·  source as reference"
+    },
+    {
+      "id": 9,
+      "type": "AUSBOSS_NODES_Text",
+      "pos": [
+        -60,
+        100
+      ],
+      "size": [
+        420,
+        190
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "links": [
+            8
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_Text",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0"
+      },
+      "widgets_values": [
+        "Change the season to winter: fresh snow on the pier and along the shore, the far mountains white, a thin skin of ice on the lake with open water around the boat, pale overcast sky. Keep the rowboat and the composition."
+      ],
+      "title": "Text 🆎  ·  the edit instruction"
+    },
+    {
+      "id": 10,
+      "type": "CLIPTextEncode",
+      "pos": [
+        -60,
+        340
+      ],
+      "size": [
+        420,
+        88
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 7
+        },
+        {
+          "name": "text",
+          "type": "STRING",
+          "widget": {
+            "name": "text"
+          },
+          "link": 8
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            9,
+            11
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": [
+        ""
+      ],
+      "title": "CLIP Text Encode  ·  positive"
+    },
+    {
+      "id": 11,
+      "type": "ReferenceLatent",
+      "pos": [
+        -60,
+        478
+      ],
+      "size": [
+        420,
+        46
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 9
+        },
+        {
+          "name": "latent",
+          "type": "LATENT",
+          "link": 10,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            15
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ReferenceLatent"
+      },
+      "widgets_values": [],
+      "title": "Reference Latent  ·  positive"
+    },
+    {
+      "id": 12,
+      "type": "ConditioningZeroOut",
+      "pos": [
+        -60,
+        574
+      ],
+      "size": [
+        420,
+        46
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 11
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            12
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ConditioningZeroOut"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 13,
+      "type": "ReferenceLatent",
+      "pos": [
+        -60,
+        670
+      ],
+      "size": [
+        420,
+        46
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 12
+        },
+        {
+          "name": "latent",
+          "type": "LATENT",
+          "link": 13,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            16
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ReferenceLatent"
+      },
+      "widgets_values": [],
+      "title": "Reference Latent  ·  negative"
+    },
+    {
+      "id": 14,
+      "type": "AUSBOSS_NODES_Seed",
+      "pos": [
+        -60,
+        766
+      ],
+      "size": [
+        420,
+        216
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "seed",
+          "type": "INT",
+          "links": [
+            18
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_Seed",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0"
+      },
+      "widgets_values": [
+        20260903,
+        "fixed"
+      ]
+    },
+    {
+      "id": 15,
+      "type": "KSampler",
+      "pos": [
+        460,
+        100
+      ],
+      "size": [
+        440,
+        262
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 14
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 15
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 16
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 17
+        },
+        {
+          "name": "seed",
+          "type": "INT",
+          "widget": {
+            "name": "seed"
+          },
+          "link": 18
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            19
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "KSampler"
+      },
+      "widgets_values": [
+        20260903,
+        "fixed",
+        4,
+        1.0,
+        "euler",
+        "simple",
+        1.0
+      ],
+      "title": "KSampler  ·  Klein: 4 steps, CFG 1"
+    },
+    {
+      "id": 16,
+      "type": "VAEDecode",
+      "pos": [
+        460,
+        412
+      ],
+      "size": [
+        440,
+        46
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 19
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 20
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            21
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecode"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 17,
+      "type": "AUSBOSS_NODES_RunTimer",
+      "pos": [
+        460,
+        508
+      ],
+      "size": [
+        196,
+        62
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_RunTimer",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 18,
+      "type": "AUSBOSS_NODES_Compare",
+      "pos": [
+        960,
+        100
+      ],
+      "size": [
+        560,
+        560
+      ],
+      "flags": {},
+      "order": 18,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image_a",
+          "type": "IMAGE",
+          "link": 21
+        },
+        {
+          "name": "image_b",
+          "type": "IMAGE",
+          "link": 22
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image_a",
+          "type": "IMAGE",
+          "links": [
+            23
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_Compare",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0"
+      },
+      "widgets_values": [
+        ""
+      ],
+      "title": "Image Compare A/B 🆎  ·  edit vs source"
+    },
+    {
+      "id": 19,
+      "type": "AUSBOSS_NODES_SaveImage",
+      "pos": [
+        960,
+        710
+      ],
+      "size": [
+        560,
+        390
+      ],
+      "flags": {},
+      "order": 19,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 23
+        },
+        {
+          "name": "filename",
+          "type": "STRING",
+          "link": null,
+          "shape": 7,
+          "widget": {
+            "name": "filename"
+          }
+        },
+        {
+          "name": "caption_text",
+          "type": "STRING",
+          "link": null,
+          "shape": 7,
+          "widget": {
+            "name": "caption_text"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "file_path",
+          "type": "STRING",
+          "links": []
+        },
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_SaveImage",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0"
+      },
+      "widgets_values": [
+        "AusBoss/klein_edit",
+        "png",
+        true,
+        "",
+        "overwrite",
+        "",
+        ""
+      ]
+    },
+    {
+      "id": 20,
+      "type": "AUSBOSS_NODES_WorkflowNote",
+      "pos": [
+        -1680,
+        100
+      ],
+      "size": [
+        560,
+        900
+      ],
+      "flags": {},
+      "order": 20,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0"
+      },
+      "widgets_values": [
+        "{\"v\": 1, \"title\": \"Klein 9B Edit\", \"subtitle\": \"One picture in, an instruction, one picture out. Image Resize sets the working size, Image Size keeps the output the same shape, Compare shows what changed.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose each installed model in its loader; saved selections may include local subfolders. Download links below name the standard destination folders.\\n\\n## How it works\\n1. **Load Image → Image Resize** — the source is brought to a 1 MP budget in steps of 16, the size Klein 9B was trained to edit at. **Image Size** reads that size back so the output latent matches the source exactly and nothing is stretched.\\n2. **Prompt + reference** — the resized picture is VAE-encoded once and attached as a *reference latent* to both the positive prompt and the zeroed negative; that is how Klein sees the image it is editing. The **Text** node holds the instruction: say what changes and what stays.\\n3. **Sample** — the distilled recipe: 4 steps, CFG 1, `euler` / `simple`, on a fresh latent. **Seed** is pinned so reruns are comparable; *Use last run* brings a good one back.\\n4. **Compare + save** — **Compare** slides the edit against the resized source; **Save Image** writes a PNG with the workflow embedded. About 5 s on a 32 GB card once the models are loaded.\\n\\n## Try\\n- **Bigger output**: raise *Megapixels* on Image Resize to 1.5–2. Klein holds together to about 2 MP; past that details start to drift from the source.\\n- **Partial edits**: for a change confined to one region, use the *Klein 9B Inpaint* example — it crops around a painted mask and stitches only that area back.\\n- **Second reference**: a second Reference Latent chained after the first lets you hand Klein an object or a style image alongside the source.\", \"models\": [{\"name\": \"flux-2-klein-9b-int8-convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"\", \"url\": \"https://huggingface.co/Winnougan/Klein9b-Distilled-Base-INT8-Convrot/resolve/main/flux-2-klein-9b-int8-convrot.safetensors\", \"note\": \"Tested build. Select its installed subfolder in the loader; use a distilled Klein 9B model.\"}, {\"name\": \"qwen_3_8b_fp8mixed.safetensors\", \"dir\": \"text_encoders\", \"size\": \"8.7 GB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors\", \"note\": \"\"}, {\"name\": \"flux2-vae.safetensors\", \"dir\": \"vae\", \"size\": \"336 MB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/vae/flux2-vae.safetensors\", \"note\": \"\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_ImageResize\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      4,
+      0,
+      5,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      5,
+      0,
+      6,
+      0,
+      "IMAGE"
+    ],
+    [
+      3,
+      6,
+      0,
+      7,
+      0,
+      "INT"
+    ],
+    [
+      4,
+      6,
+      1,
+      7,
+      1,
+      "INT"
+    ],
+    [
+      5,
+      5,
+      0,
+      8,
+      0,
+      "IMAGE"
+    ],
+    [
+      6,
+      3,
+      0,
+      8,
+      1,
+      "VAE"
+    ],
+    [
+      7,
+      2,
+      0,
+      10,
+      0,
+      "CLIP"
+    ],
+    [
+      8,
+      9,
+      0,
+      10,
+      1,
+      "STRING"
+    ],
+    [
+      9,
+      10,
+      0,
+      11,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      10,
+      8,
+      0,
+      11,
+      1,
+      "LATENT"
+    ],
+    [
+      11,
+      10,
+      0,
+      12,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      12,
+      12,
+      0,
+      13,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      13,
+      8,
+      0,
+      13,
+      1,
+      "LATENT"
+    ],
+    [
+      14,
+      1,
+      0,
+      15,
+      0,
+      "MODEL"
+    ],
+    [
+      15,
+      11,
+      0,
+      15,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      16,
+      13,
+      0,
+      15,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      17,
+      7,
+      0,
+      15,
+      3,
+      "LATENT"
+    ],
+    [
+      18,
+      14,
+      0,
+      15,
+      4,
+      "INT"
+    ],
+    [
+      19,
+      15,
+      0,
+      16,
+      0,
+      "LATENT"
+    ],
+    [
+      20,
+      3,
+      0,
+      16,
+      1,
+      "VAE"
+    ],
+    [
+      21,
+      16,
+      0,
+      18,
+      0,
+      "IMAGE"
+    ],
+    [
+      22,
+      5,
+      0,
+      18,
+      1,
+      "IMAGE"
+    ],
+    [
+      23,
+      18,
+      0,
+      19,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "1 · Models",
+      "bounding": [
+        -1080,
+        40,
+        470,
+        426
+      ],
+      "flags": {},
+      "font_size": 24,
+      "color": "#235d64"
+    },
+    {
+      "id": 2,
+      "title": "2 · Source",
+      "bounding": [
+        -1080,
+        470,
+        470,
+        770
+      ],
+      "flags": {},
+      "font_size": 24,
+      "color": "#366451"
+    },
+    {
+      "id": 3,
+      "title": "3 · Working size + reference",
+      "bounding": [
+        -600,
+        40,
+        500,
+        842
+      ],
+      "flags": {},
+      "font_size": 24,
+      "color": "#5d527c"
+    },
+    {
+      "id": 4,
+      "title": "4 · Instruction, seed",
+      "bounding": [
+        -80,
+        40,
+        460,
+        962
+      ],
+      "flags": {},
+      "font_size": 24,
+      "color": "#795b38"
+    },
+    {
+      "id": 5,
+      "title": "5 · Sample",
+      "bounding": [
+        440,
+        40,
+        480,
+        550
+      ],
+      "flags": {},
+      "font_size": 24,
+      "color": "#345d7c"
+    },
+    {
+      "id": 6,
+      "title": "6 · Compare, save",
+      "bounding": [
+        940,
+        40,
+        600,
+        1080
+      ],
+      "flags": {},
+      "font_size": 24,
+      "color": "#65515e"
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.4939,
+      "offset": [
+        1881.98,
+        314.2
+      ]
+    }
+  },
+  "version": 0.4
+}

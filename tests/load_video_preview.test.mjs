@@ -7,6 +7,7 @@ import {
   dragTrimHandle,
   formatFps,
   loadSummary,
+  snapFrameCount,
   playbackBoundaryAction,
   responsivePreviewHeight,
   singleFrameFraction,
@@ -175,4 +176,20 @@ test("fps formatting trims float noise but keeps real fractions", () => {
   assert.equal(formatFps(12.5), "12.5");
   assert.equal(formatFps(24000 / 1001), "23.976");
   assert.equal(formatFps(0), "0");
+});
+
+test("snapFrameCount keeps the largest video-model count and free keeps everything", () => {
+  assert.equal(snapFrameCount(78, "8n+1"), 73);
+  assert.equal(snapFrameCount(97, "8n+1"), 97);
+  assert.equal(snapFrameCount(78, "4n+1"), 77);
+  assert.equal(snapFrameCount(78, "free"), 78);
+  assert.equal(snapFrameCount(5, "8n+1"), 1);
+  assert.equal(snapFrameCount(0, "8n+1"), 0);
+  assert.equal(snapFrameCount(30, "nonsense"), 30);
+});
+
+test("loadSummary reports the snapped count", () => {
+  // 3.0 s at 30 fps = 90 frames; 8n+1 keeps 89.
+  assert.equal(loadSummary(10, { start: 0, end: 3 }, 30, 1, 0, false, "8n+1"), "89 frames @ 30 fps");
+  assert.equal(loadSummary(10, { start: 0, end: 3 }, 30, 1, 0, false, "free"), "90 frames @ 30 fps");
 });

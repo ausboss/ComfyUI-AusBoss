@@ -39,3 +39,15 @@ export function fillNodeHeight(widget, { minWidth = 0, minHeight = 0, minNodeSiz
   if (minNodeSize) widget.options.minNodeSize = minNodeSize;
   return widget;
 }
+
+// Grow a node to the height its widgets ask for. A workflow saved before a
+// panel or card existed carries the node's old size, and the frontend keeps
+// that size on load - the new panel is then squeezed under its floor and
+// clipped flat. Returns true when the node was resized.
+export function ensureNodeMinHeight(node) {
+  const min = Number(node?.computeSize?.()?.[1]);
+  const current = Number(node?.size?.[1]);
+  if (!Number.isFinite(min) || !Number.isFinite(current) || current >= min) return false;
+  node.setSize?.([node.size[0], min]);
+  return true;
+}

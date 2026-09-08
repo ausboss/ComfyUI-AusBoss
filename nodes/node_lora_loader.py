@@ -5,6 +5,7 @@ from __future__ import annotations
 from ._lora_helpers import (
     apply_lora_stack,
     collect_trigger_words,
+    missing_lora_rows,
     parse_lora_stack,
     register_lora_routes,
     stack_fingerprint,
@@ -22,8 +23,9 @@ class AusBossLoraLoader:
         "templates of the whole stack, and a gear-menu action absorbs every "
         "LoRA loader wired into the model chain - upstream and downstream - "
         "into this stack and bypasses the originals. Moved LoRA files "
-        "resolve by name at run time; a missing one warns and skips instead "
-        "of failing the whole run."
+        "resolve by name at run time; a genuinely missing one fails validation "
+        "before anything is sampled and the error names the file - turn the "
+        "gear menu's Stop on missing LoRA switch off to warn and skip it instead."
     )
     SEARCH_ALIASES = [
         "lora", "lora stack", "lora loader", "trigger words",
@@ -60,6 +62,21 @@ class AusBossLoraLoader:
                         ),
                     },
                 ),
+                "on_missing": (
+                    ["skip", "error"],
+                    {
+                        "default": "error",
+                        "tooltip": (
+                            "What happens when an enabled row's file cannot be "
+                            "found. error (the default) fails validation before "
+                            "sampling and names the file, so an unattended or "
+                            "scripted run never renders without a LoRA it asked "
+                            "for; skip warns once in the console and applies the "
+                            "rest of the stack. Set from the node's gear menu "
+                            "(Stop on missing LoRA); hidden on the canvas."
+                        ),
+                    },
+                ),
             },
         }
 
@@ -75,20 +92,32 @@ class AusBossLoraLoader:
     )
     FUNCTION = "load_loras"
 
-    def load_loras(self, model, loras: str, clip=None, trigger_separator=", "):
+    def load_loras(self, model, loras: str, clip=None, trigger_separator=", ", on_missing="error"):
         rows = parse_lora_stack(loras)
-        model, clip = apply_lora_stack(model, clip, rows)
+        model, clip = apply_lora_stack(model, clip, rows, on_missing=on_missing)
         return model, clip, collect_trigger_words(rows, str(trigger_separator))
 
     @classmethod
-    def VALIDATE_INPUTS(cls, loras, **_values):
-        # Structural validation only. A row whose FILE is gone must not block
-        # the queue: apply_lora_stack resolves moved files by basename, and a
-        # genuinely missing one warns and skips so the rest of the run stands.
+    def VALIDATE_INPUTS(cls, loras, on_missing="error", **_values):
+        # Structural validation always. A row whose FILE is gone blocks the
+        # queue unless the node was switched to 'skip': apply_lora_stack
+        # resolves moved files by basename either way, so only a genuinely
+        # missing file gets this far. Old graphs saved without the input get
+        # the default, which is strict.
         try:
-            parse_lora_stack(loras)
+            rows = parse_lora_stack(loras)
         except ValueError as exc:
             return f"LoRA Loader: {exc}"
+        if on_missing != "skip":
+            missing = missing_lora_rows(rows)
+            if missing:
+                detail = "; ".join(f"'{name}' - {reason}" for name, reason in missing)
+                return (
+                    f"LoRA Loader: missing LoRA file, so the run stopped before sampling: {detail} "
+                    "Stop on missing LoRA is on (the default). Fix or remove the row, or turn "
+                    "'Stop on missing LoRA' off in the node's settings menu (the gear icon on "
+                    "the node) to warn and skip instead; in API graphs that is on_missing: skip."
+                )
         return True
 
     @classmethod

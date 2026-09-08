@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Iterable
 
 import numpy as np
+from ._execution_helpers import advance_progress, frame_progress, raise_if_interrupted
 from PIL import Image, ImageFilter
 import torch
 
@@ -284,6 +285,41 @@ def transform_tensor_batch(
 
     output, mask, geometry = transform_pil_batch(pil_frames, spec)
     return output.to(device=device, dtype=dtype), mask.to(device=device, dtype=dtype), geometry
+
+
+def transform_tensor_batch_chunked(
+    image: torch.Tensor, spec: TransformSpec, chunk_size: int = 16
+) -> tuple[torch.Tensor, torch.Tensor, TransformGeometry]:
+    """transform_tensor_batch over a long batch, one chunk of frames at a time.
+
+    Every chunk goes through the same PIL round trip, but peak memory stays
+    at the finished output plus one chunk instead of every frame twice, and
+    the queue's interrupt and progress bar are serviced between chunks - the
+    video node feeds whole clips through here.
+    """
+    if not isinstance(image, torch.Tensor) or image.ndim != 4:
+        received = tuple(image.shape) if isinstance(image, torch.Tensor) else type(image).__name__
+        raise ValueError(f"Transform: input 'image' expected a BHWC batch, received {received}.")
+    total = int(image.shape[0])
+    size = max(1, int(chunk_size))
+    output = mask = geometry = None
+    progress = frame_progress(total)
+    for start in range(0, total, size):
+        raise_if_interrupted()
+        chunk_output, chunk_mask, chunk_geometry = transform_tensor_batch(image[start : start + size], spec)
+        if output is None:
+            geometry = chunk_geometry
+            output = torch.empty((total, *chunk_output.shape[1:]), dtype=chunk_output.dtype, device=chunk_output.device)
+            mask = torch.empty((total, *chunk_mask.shape[1:]), dtype=chunk_mask.dtype, device=chunk_mask.device)
+        elif chunk_output.shape[1:] != output.shape[1:]:
+            raise ValueError(f"Transform: frame {start} produced dimensions that differ from frame 0.")
+        count = int(chunk_output.shape[0])
+        output[start : start + count] = chunk_output
+        mask[start : start + count] = chunk_mask
+        advance_progress(progress, min(start + count, total), total)
+    if output is None or mask is None or geometry is None:
+        raise ValueError("Transform: source contained no decodable frames.")
+    return output, mask, geometry
 
 
 def stable_file_fingerprint(path: str | os.PathLike[str], inputs: dict[str, object]) -> str:

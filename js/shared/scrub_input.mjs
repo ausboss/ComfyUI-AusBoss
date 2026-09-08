@@ -67,6 +67,7 @@ function ensureScrubCss() {
     padding:0;margin:0;background:transparent;color:inherit;text-align:center;cursor:ew-resize;
     user-select:none;font:inherit;outline:none;border-radius:0}
   .ausboss-scrub>.ausboss-scrub-input:focus{cursor:text;user-select:text}
+  .ausboss-scrub>.ausboss-scrub-unit{flex:none;align-self:center;padding:0 3px 0 1px;color:#5f7674;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;text-align:center;user-select:none;pointer-events:none}
   .ausboss-scrub>.ausboss-scrub-step{flex:none;width:14px;display:flex;flex-direction:column;
     border-left:1px solid #3a4047}
   .ausboss-scrub>.ausboss-scrub-step>button{flex:1 1 0;min-height:0;border:none;background:transparent;
@@ -88,6 +89,7 @@ export function makeScrubInput(options = {}) {
     value: 0, min: -Infinity, max: Infinity,
     step: 1, fineStep: null, decimals: 2,
     width: null, title: "", onChange: null, onSettle: null,
+    unit: "", unitWidth: 0,
     ...options,
   };
   let current = quantizeScrubValue(opts.value, opts);
@@ -196,7 +198,22 @@ export function makeScrubInput(options = {}) {
     steppers.append(button);
   }
 
-  box.append(input, steppers);
+  if (opts.unit || opts.unitWidth > 0) {
+    // The unit rides inside the box, ahead of the chevrons. A `unitWidth`
+    // reserves that slot at a fixed width whether or not this field has a
+    // unit, so in a column of fields every number is centred on the same
+    // axis - a "px" here and nothing there no longer nudges one of them.
+    const unit = document.createElement("span");
+    unit.className = "ausboss-scrub-unit";
+    unit.textContent = opts.unit;
+    if (opts.unitWidth > 0) {
+      unit.style.width = `${opts.unitWidth}px`;
+      unit.style.padding = "0";
+    }
+    box.append(input, unit, steppers);
+  } else {
+    box.append(input, steppers);
+  }
   return {
     root: box,
     input,

@@ -242,8 +242,9 @@ _missing_warned: set[str] = set()
 def _warn_missing(row_name: str, reason: str) -> None:
     """Warn once per LoRA that could not be found anywhere in models/loras.
 
-    A missing file skips its row instead of killing the run: the rest of the
-    stack still applies, and the panel marks the row so the miss is visible.
+    Only reached in skip mode (on_missing="skip"): the row is dropped, the rest
+    of the stack still applies, and the panel marks the row so the miss is
+    visible. The default, "error", stops the run before sampling instead.
     """
     if row_name in _missing_warned:
         return
@@ -254,7 +255,29 @@ def _warn_missing(row_name: str, reason: str) -> None:
     )
 
 
-def apply_lora_stack(model, clip, rows: list[dict[str, Any]]):
+MISSING_MODES = ("skip", "error")
+
+
+def missing_lora_rows(rows: list[dict[str, Any]]) -> list[tuple[str, str]]:
+    """(name, reason) for every enabled, non-zero row whose file does not resolve.
+
+    Shared by validation and execution so a strict stack fails before sampling
+    with the same message it would otherwise have failed with mid-run.
+    """
+    missing: list[tuple[str, str]] = []
+    for row in rows:
+        if not row.get("enabled", True):
+            continue
+        if row.get("strength", 0) == 0 and row.get("strength_clip", 0) == 0:
+            continue
+        try:
+            resolve_lora_path(row["name"])
+        except ValueError as exc:
+            missing.append((row["name"], str(exc)))
+    return missing
+
+
+def apply_lora_stack(model, clip, rows: list[dict[str, Any]], on_missing: str = "error"):
     import comfy.sd
 
     for row in rows:
@@ -266,6 +289,17 @@ def apply_lora_stack(model, clip, rows: list[dict[str, Any]]):
         try:
             path = resolve_lora_path(row["name"])
         except ValueError as exc:
+            if on_missing != "skip":
+                # Strict is the default: rendering without a LoRA the graph
+                # asked for is worse than not rendering, above all for scripted
+                # and agent-driven runs that would happily judge the result.
+                raise ValueError(
+                    f"LoRA Loader: '{row['name']}' - {exc} Stop on missing LoRA is on "
+                    "(the default), so the run stopped instead of rendering without it. "
+                    "Fix or remove the row, or turn 'Stop on missing LoRA' off in the "
+                    "node's settings menu (the gear icon on the node) to warn and skip "
+                    "instead; in API graphs that is on_missing: skip."
+                )
             _warn_missing(row["name"], str(exc))
             continue
         lora_sd = _load_lora_file(path)

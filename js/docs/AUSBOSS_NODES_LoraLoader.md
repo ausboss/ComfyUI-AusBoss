@@ -36,9 +36,12 @@ Every named row paints a center-zero bar behind its name: teal grows right
 of center for positive model strength, muted red grows left for negative,
 a 1px tick marks zero and a brighter 2px cap marks the value's edge. One
 shared scale across the stack: the field edges represent the largest
-absolute strength among the rows, floored at 1.0 — so an everyday stack of
-0.5s reads absolutely as half-bars, and one row at 2.0 rescales every bar
-rather than clipping. The scale in play is named in each row's tooltip.
+absolute strength among the **enabled** rows, floored at 1.0 — so an
+everyday stack of 0.5s reads absolutely as half-bars, one row at 2.0
+rescales every bar rather than clipping, and switching that row off hands
+the scale back to the strongest row still in play (the dimmed row's own
+bar clamps at the edge meanwhile). The scale in play is named in each
+row's tooltip.
 Gear menu → "Strength bars" turns them off; "Scrub strength on the name"
 turns the name-drag off.
 
@@ -99,9 +102,18 @@ data.
 
 The run side matches: a stale saved path resolves by name at load time
 (exact → unique case-insensitive path → unique basename, with a one-line
-console note when it remaps), and a LoRA that is genuinely missing **warns
-once and skips its row** instead of failing the whole run. Validation
-never blocks the queue over a missing file — only over a malformed stack.
+console note when it remaps). A LoRA that is genuinely missing **stops the
+run before anything is sampled**, and the error names the file — a picture
+that rendered without its LoRA is worse than no picture, above all for a
+script or an agent that would happily judge it. The error also says where
+the switch is.
+
+Gear menu → **Stop on missing LoRA** (on by default) turns that off for this
+node: a missing row then warns once in the console and is skipped while the
+rest of the stack applies, which suits a person at the canvas who wants to
+see the rest of the picture. In API graphs the same switch is the
+`on_missing` input (`"error"`, the default, or `"skip"`); graphs saved before
+the input existed get the default.
 
 ## Preview thumbnails
 

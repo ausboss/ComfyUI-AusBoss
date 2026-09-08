@@ -34,33 +34,33 @@ class AusBossMathExpression:
             },
             "optional": {
                 "a": (
-                    "FLOAT",
+                    "FLOAT,INT",
                     {
-                        "default": 0.0,
-                        "min": -1.0e15,
-                        "max": 1.0e15,
-                        "step": 0.001,
-                        "tooltip": "The value of a in the expression.",
+                        "forceInput": True,
+                        "tooltip": (
+                            "The value of a in the expression - wire a FLOAT or "
+                            "an INT; unwired reads as 0."
+                        ),
                     },
                 ),
                 "b": (
-                    "FLOAT",
+                    "FLOAT,INT",
                     {
-                        "default": 0.0,
-                        "min": -1.0e15,
-                        "max": 1.0e15,
-                        "step": 0.001,
-                        "tooltip": "The value of b in the expression.",
+                        "forceInput": True,
+                        "tooltip": (
+                            "The value of b in the expression - wire a FLOAT or "
+                            "an INT; unwired reads as 0."
+                        ),
                     },
                 ),
                 "c": (
-                    "FLOAT",
+                    "FLOAT,INT",
                     {
-                        "default": 0.0,
-                        "min": -1.0e15,
-                        "max": 1.0e15,
-                        "step": 0.001,
-                        "tooltip": "The value of c in the expression.",
+                        "forceInput": True,
+                        "tooltip": (
+                            "The value of c in the expression - wire a FLOAT or "
+                            "an INT; unwired reads as 0."
+                        ),
                     },
                 ),
             },

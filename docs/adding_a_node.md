@@ -21,7 +21,7 @@ Every visible field and output must earn its place. Published IDs, input order, 
 1. Put independently testable processing in an underscore-prefixed helper under `nodes/`.
 2. Add one V1 wrapper in `nodes/node_<purpose>.py` with `INPUT_TYPES`, `RETURN_TYPES`, `FUNCTION`, `CATEGORY`, and both mapping dictionaries — keys as string literals, never a `NODE_ID` variable, or registry scanners cannot see the node.
 3. Add the module to `NODE_MODULES` in `__init__.py`.
-4. Add frontend JavaScript only when the normal schema cannot provide the required interaction.
+4. Give the node its face. Any INT, FLOAT, BOOLEAN, COMBO or STRING widget on a public node is shown through a widget card entry in `js/widget_cards/index.js` (see AGENTS.md §Conventions: numbers scrub, booleans are off | on pills, one linkable widget per row, `top: true` or `forceInput` for values people wire). Write more frontend JavaScript only when the card grammar cannot provide the interaction (a stage, a player, an editor).
 5. Namespace every route, extension, event, DOM marker, CSS class, cache, and browser state with `ausboss`.
 6. Chain lifecycle hooks through `chainCallback`; never replace core or third-party prototypes directly.
 7. Keep normal workflow and API execution independent from the custom frontend.
@@ -35,7 +35,7 @@ Every visible field and output must earn its place. Published IDs, input order, 
 - Add pure Python and dependency-free JavaScript tests.
 - Compile with ComfyUI's embedded Python.
 - Verify `/object_info/<mapping-key>`, ownership, served assets, routes, API execution, and queued dimensions/masks.
-- Test the actual canvas in Classic and Nodes 2.0, including save/reload, duplication, graph zoom, source replacement, and teardown.
+- Test the actual canvas in Classic and Nodes 2.0, including save/reload, duplication, graph zoom, source replacement, and teardown. Drag a real link onto every card row and socket and look at where it lands (`docs/live_testing.md`); save before/after screenshots under `_scratch/node_screenshots/` for review.
 - Scan the diff for paths, hosts, secrets, obsolete branding, placeholders, agent attribution, and non-ASCII import output.
 
 Do not release a node that only works in the editor, only works for one source, or returns debugging outputs users do not need.

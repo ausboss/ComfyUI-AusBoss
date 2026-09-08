@@ -99,6 +99,17 @@ export function formatFps(value) {
 // instead, mirroring the backend's own arithmetic (decode_video_range):
 // ceil(window x fps) frames in the trim, one kept in every_nth, capped by
 // max_frames; single-frame mode always loads exactly one.
+// Mirror of the clip node's snap_frame_count: the largest step*n + 1 not
+// above count for a rule like "8n+1"; "free" keeps count.
+export function snapFrameCount(count, rule = "free") {
+  const frames = Math.max(0, Math.floor(finiteNumber(count, 0)));
+  const text = String(rule ?? "free").trim().toLowerCase();
+  if (!text.endsWith("n+1")) return frames;
+  const step = Number(text.slice(0, -"n+1".length));
+  if (!Number.isInteger(step) || step <= 0 || frames <= 1) return frames;
+  return Math.floor((frames - 1) / step) * step + 1;
+}
+
 export function loadSummary(
   durationValue,
   bounds,
@@ -106,6 +117,7 @@ export function loadSummary(
   everyNthValue = 1,
   maxFramesValue = 0,
   singleFrame = false,
+  frameSnap = "free",
 ) {
   if (singleFrame) return "1 frame";
   const duration = Math.max(0, finiteNumber(durationValue, 0));
@@ -119,6 +131,7 @@ export function loadSummary(
   const cap = Math.max(0, Math.floor(finiteNumber(maxFramesValue, 0)));
   let frames = Math.ceil(Math.ceil((end - start) * fps) / nth);
   if (cap > 0) frames = Math.min(frames, cap);
+  frames = snapFrameCount(frames, frameSnap);
   if (frames <= 0) return "";
   if (frames === 1) return "1 frame";
   return `${frames} frames @ ${formatFps(fps / nth)} fps`;

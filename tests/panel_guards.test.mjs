@@ -104,6 +104,7 @@ test("a panel that should follow the node's height never declares computeSize", 
   // Listed here rather than derived, so adding a panel is a deliberate call:
   // is this a stage that should grow, or a fixed row?
   const mustGrow = new Set([
+    "resolution",
     "compare",
     "image_crop_rotate_pad",
     "input_preview",
@@ -112,6 +113,7 @@ test("a panel that should follow the node's height never declares computeSize", 
     "lora_loader",
     "save_video",
     "show_text",
+    "workflow_note",
   ]);
   // Fixed by design: a toolbar - content whose height is a constant, not a
   // viewport onto something bigger.
@@ -130,7 +132,10 @@ test("a panel that should follow the node's height never declares computeSize", 
   // is excluded from the free-space split so it could never absorb the
   // difference. It now grows: the stack flexes and the add button rides the
   // node's bottom edge.
-  const fixedByDesign = new Set(["lmstudio_chat"]);
+  //
+  // seed and run_timer are single rows of readouts and buttons under plain
+  // widgets - a constant height by nature, nothing bigger behind them.
+  const fixedByDesign = new Set(["run_timer", "save_image", "seed", "widget_cards"]);
   const seen = new Set();
   for (const { name, source } of domWidgetEntries()) {
     seen.add(name);
@@ -200,10 +205,14 @@ test("every panel root class carries border-box and an overflow clip", () => {
     lora_loader: ".ausboss-lora-body {",
     compare: ".ausboss-compare-root{",
     input_preview: ".ausboss-input-preview{",
-    lmstudio_chat: ".ausboss-chat-toolbar{",
+    resolution: ".ausboss-res-panel {",
     load_image_pad: ".ausboss-loadpad-root{",
     image_crop_rotate_pad: ".ausboss-transform-panel{",
+    save_image: ".ausboss-save{",
     show_text: ".ausboss-show-text{",
+    workflow_note: ".ausboss-note{",
+    seed: ".ausboss-seed{",
+    run_timer: ".ausboss-timer{",
   };
   for (const { name, source } of domWidgetEntries()) {
     const marker = roots[name];

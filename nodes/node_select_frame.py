@@ -44,7 +44,19 @@ class AusBossSelectFrame:
                         ),
                     },
                 ),
-            }
+            },
+            "optional": {
+                "preview": (
+                    "BOOLEAN",
+                    {
+                        "default": True,
+                        "tooltip": (
+                            "Show the selected frame on the node. Off skips "
+                            "writing the preview file to ComfyUI's temp folder."
+                        ),
+                    },
+                ),
+            },
         }
 
     RETURN_TYPES = ("IMAGE",)
@@ -55,8 +67,10 @@ class AusBossSelectFrame:
     def __init__(self):
         self._prefix = temp_prefix("select_frame")
 
-    def select_frame(self, frames, frame_number):
+    def select_frame(self, frames, frame_number, preview=True):
         selected = select_one_based_frame(frames, frame_number)
+        if not preview:
+            return (selected,)
         return preview_payload(selected, self._prefix, "Select Frame", (selected,))
 
 

@@ -1,94 +1,23 @@
 {
   "id": "8ff23428-65fa-4d32-a991-e3ca923d33ae",
   "revision": 0,
-  "last_node_id": 103,
+  "last_node_id": 102,
   "last_link_id": 139,
   "nodes": [
-    {
-      "id": 78,
-      "type": "MarkdownNote",
-      "pos": [
-        -814.2448994696199,
-        -1623.8657448262422
-      ],
-      "size": [
-        291.6770995521895,
-        185.07581204956387
-      ],
-      "flags": {},
-      "order": 0,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [],
-      "title": "Workflow Modes",
-      "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "version": "7.7",
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "## 🔀 Workflow Modes\n\nUse these toggles to choose which mode to run:\n\n- **Main Workflow = ON** → runs the full video workflow\n- **Single-Frame Test = ON** → runs the one-frame test (recommended first)\n\n👉 Turn **off** the main workflow to test a single frame.  \n👉 Turn **off** the test workflow to run the full video."
-      ],
-      "widgets_values_named": {
-        "text": "## 🔀 Workflow Modes\n\nUse these toggles to choose which mode to run:\n\n- **Main Workflow = ON** → runs the full video workflow\n- **Single-Frame Test = ON** → runs the one-frame test (recommended first)\n\n👉 Turn **off** the main workflow to test a single frame.  \n👉 Turn **off** the test workflow to run the full video."
-      },
-      "color": "#222",
-      "bgcolor": "#000"
-    },
-    {
-      "id": 87,
-      "type": "Label (rgthree)",
-      "pos": [
-        444.4268370814372,
-        -1330.7170380157074
-      ],
-      "size": [
-        95.05000305175781,
-        18
-      ],
-      "flags": {
-        "allow_interaction": true
-      },
-      "order": 1,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [],
-      "title": "by AusBoss",
-      "properties": {
-        "fontSize": 18,
-        "fontFamily": "Arial",
-        "fontColor": "#ffffff",
-        "textAlign": "left",
-        "backgroundColor": "transparent",
-        "padding": 0,
-        "borderRadius": 0,
-        "angle": 0,
-        "ue_properties": {
-          "version": "7.7",
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        }
-      },
-      "color": "#fff0",
-      "bgcolor": "#fff0",
-      "shape": 1
-    },
     {
       "id": 93,
       "type": "AUSBOSS_NODES_LaMaInpaint",
       "pos": [
-        367.156249716417,
-        -1212.6956718906404
+        1000,
+        100
       ],
       "size": [
-        270,
-        434
+        560,
+        400
       ],
       "flags": {},
       "order": 13,
-      "mode": 4,
+      "mode": 0,
       "inputs": [
         {
           "name": "image",
@@ -112,7 +41,7 @@
       ],
       "properties": {
         "cnr_id": "ausboss-nodes",
-        "ver": "6d5d790ddccf265d068cdc4f73352f19e10df97f",
+        "ver": "2.0.0",
         "Node name for S&R": "AUSBOSS_NODES_LaMaInpaint"
       },
       "widgets_values": [
@@ -129,16 +58,16 @@
       "id": 100,
       "type": "AUSBOSS_NODES_SaveVideo",
       "pos": [
-        661.1806211676204,
-        -1216.1332800128846
+        1000,
+        550
       ],
       "size": [
-        368.59648626154,
-        689.3350677440123
+        560,
+        560
       ],
       "flags": {},
       "order": 15,
-      "mode": 4,
+      "mode": 0,
       "inputs": [
         {
           "name": "frames",
@@ -170,7 +99,7 @@
       "outputs": [],
       "properties": {
         "cnr_id": "ausboss-nodes",
-        "ver": "6d5d790ddccf265d068cdc4f73352f19e10df97f",
+        "ver": "2.0.0",
         "Node name for S&R": "AUSBOSS_NODES_SaveVideo",
         "ausboss_save_video_loop": false
       },
@@ -199,12 +128,12 @@
       "id": 101,
       "type": "AUSBOSS_NODES_SelectFrame",
       "pos": [
-        -440.6612647359069,
-        -318.2938247317346
+        1640,
+        100
       ],
       "size": [
-        276.6395948334766,
-        282
+        400,
+        340
       ],
       "flags": {},
       "order": 9,
@@ -229,11 +158,12 @@
       ],
       "properties": {
         "cnr_id": "ausboss-nodes",
-        "ver": "6d5d790ddccf265d068cdc4f73352f19e10df97f",
+        "ver": "2.0.0",
         "Node name for S&R": "AUSBOSS_NODES_SelectFrame"
       },
       "widgets_values": [
-        16
+        1,
+        true
       ],
       "widgets_values_named": {
         "frame_number": 16
@@ -243,97 +173,15 @@
       "title": "Select Frame"
     },
     {
-      "id": 82,
-      "type": "easy showAnything",
-      "pos": [
-        -440.6612647359069,
-        10.79901508675971
-      ],
-      "size": [
-        210,
-        88
-      ],
-      "flags": {},
-      "order": 10,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "anything",
-          "shape": 7,
-          "type": "*",
-          "link": 119
-        }
-      ],
-      "outputs": [
-        {
-          "name": "output",
-          "type": "*",
-          "links": null
-        }
-      ],
-      "title": "Total Frames",
-      "properties": {
-        "cnr_id": "comfyui-workflow-encrypt",
-        "ver": "1.0.0",
-        "Node name for S&R": "easy showAnything",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.7"
-        }
-      },
-      "widgets_values": [
-        "113"
-      ],
-      "widgets_values_named": {
-        "text": "113"
-      },
-      "color": "#113E3D",
-      "bgcolor": "#2A5756"
-    },
-    {
-      "id": 81,
-      "type": "MarkdownNote",
-      "pos": [
-        -440.6612647359069,
-        153.2812074081707
-      ],
-      "size": [
-        286.0422558627471,
-        133.95131537433764
-      ],
-      "flags": {},
-      "order": 2,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [],
-      "title": "Single-Frame Test",
-      "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "version": "7.7",
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "## 🧪 Single-Frame Test\n\nOptional, but recommended.\n\nThis lets you test the workflow on **one frame first** before processing the full video, so you can tune the mask without waiting on a whole clip.\n\nPick any valid frame number between **1** and the **total frame count** shown above."
-      ],
-      "widgets_values_named": {
-        "text": "## 🧪 Single-Frame Test\n\nOptional, but recommended.\n\nThis lets you test the workflow on **one frame first** before processing the full video, so you can tune the mask without waiting on a whole clip.\n\nPick any valid frame number between **1** and the **total frame count** shown above."
-      },
-      "color": "#222",
-      "bgcolor": "#000"
-    },
-    {
       "id": 96,
       "type": "AUSBOSS_NODES_Compare",
       "pos": [
-        831.1806211676202,
-        -318.2938247317346
+        2120,
+        550
       ],
       "size": [
-        324.0000000000001,
-        396.2200232691035
+        520,
+        600
       ],
       "flags": {},
       "order": 17,
@@ -354,12 +202,12 @@
         {
           "name": "image_a",
           "type": "IMAGE",
-          "links": null
+          "links": []
         }
       ],
       "properties": {
         "cnr_id": "ausboss-nodes",
-        "ver": "6d5d790ddccf265d068cdc4f73352f19e10df97f",
+        "ver": "2.0.0",
         "Node name for S&R": "AUSBOSS_NODES_Compare",
         "ausboss_compare_mode": "slide"
       },
@@ -377,12 +225,12 @@
       "id": 94,
       "type": "AUSBOSS_NODES_LaMaInpaint",
       "pos": [
-        547.2655934550037,
-        -309.2009849132403
+        2120,
+        100
       ],
       "size": [
-        270,
-        290
+        520,
+        400
       ],
       "flags": {},
       "order": 16,
@@ -410,7 +258,7 @@
       ],
       "properties": {
         "cnr_id": "ausboss-nodes",
-        "ver": "6d5d790ddccf265d068cdc4f73352f19e10df97f",
+        "ver": "2.0.0",
         "Node name for S&R": "AUSBOSS_NODES_LaMaInpaint"
       },
       "widgets_values": [
@@ -427,16 +275,16 @@
       "id": 50,
       "type": "SAM3Segment",
       "pos": [
-        -418,
-        -1212.6956718906404
+        520,
+        100
       ],
       "size": [
-        340,
-        394
+        400,
+        410
       ],
       "flags": {},
       "order": 8,
-      "mode": 4,
+      "mode": 0,
       "inputs": [
         {
           "name": "image",
@@ -486,7 +334,7 @@
         0,
         "Auto",
         false,
-        false,
+        true,
         "Alpha",
         "#222222"
       ],
@@ -511,12 +359,12 @@
       "id": 102,
       "type": "AUSBOSS_NODES_RefineMask",
       "pos": [
-        232.156249716417,
-        -309.2009849132403
+        1640,
+        950
       ],
       "size": [
-        270,
-        434
+        400,
+        470
       ],
       "flags": {},
       "order": 14,
@@ -545,12 +393,12 @@
         {
           "name": "mask_inverted",
           "type": "MASK",
-          "links": null
+          "links": []
         }
       ],
       "properties": {
         "cnr_id": "ausboss-nodes",
-        "ver": "0e4749db6b03864b7322867c8c81937f21ea2430",
+        "ver": "2.0.0",
         "Node name for S&R": "AUSBOSS_NODES_RefineMask"
       },
       "widgets_values": [
@@ -579,12 +427,12 @@
       "id": 66,
       "type": "SAM3Segment",
       "pos": [
-        -140.50112924413511,
-        -318.2938247317346
+        1640,
+        490
       ],
       "size": [
-        340,
-        394
+        400,
+        410
       ],
       "flags": {},
       "order": 12,
@@ -636,7 +484,7 @@
         0,
         "Auto",
         false,
-        false,
+        true,
         "Alpha",
         "#222222"
       ],
@@ -658,140 +506,28 @@
       "bgcolor": "#364254"
     },
     {
-      "id": 83,
-      "type": "MarkdownNote",
-      "pos": [
-        581.8578922010117,
-        -1456.4611981253577
-      ],
-      "size": [
-        258.0391209610526,
-        149.61746021334727
-      ],
-      "flags": {},
-      "order": 3,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [],
-      "title": "Connect",
-      "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "version": "7.7",
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "## 🌐 Connect with me\n\n- 🐦 X: [Zanzibased](https://x.com/Zanzibased)\n- 💻 GitHub: [ausboss](https://github.com/ausboss)\n- 🎨 Civitai: [AusBoss](https://civitai.com/user/AusBoss)\n- 🎥 YouTube: *coming soon*\n- 💬 Discord: *coming soon*\n\n✨ More workflows and experiments coming soon"
-      ],
-      "widgets_values_named": {
-        "text": "## 🌐 Connect with me\n\n- 🐦 X: [Zanzibased](https://x.com/Zanzibased)\n- 💻 GitHub: [ausboss](https://github.com/ausboss)\n- 🎨 Civitai: [AusBoss](https://civitai.com/user/AusBoss)\n- 🎥 YouTube: *coming soon*\n- 💬 Discord: *coming soon*\n\n✨ More workflows and experiments coming soon"
-      },
-      "color": "#222",
-      "bgcolor": "#000"
-    },
-    {
-      "id": 75,
-      "type": "Fast Groups Bypasser (rgthree)",
-      "pos": [
-        -813.5041675551382,
-        -1392.1849589949354
-      ],
-      "size": [
-        290.675968308818,
-        98.69588446447938
-      ],
-      "flags": {},
-      "order": 4,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "OPT_CONNECTION",
-          "type": "*",
-          "links": null
-        }
-      ],
-      "title": "Workflow Modes",
-      "properties": {
-        "matchColors": "",
-        "matchTitle": "",
-        "showNav": true,
-        "showAllGraphs": true,
-        "sort": "position",
-        "customSortAlphabet": "",
-        "toggleRestriction": "default",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.7"
-        }
-      }
-    },
-    {
-      "id": 86,
-      "type": "Label (rgthree)",
-      "pos": [
-        -418,
-        -1455.7899327766784
-      ],
-      "size": [
-        981.75,
-        64
-      ],
-      "flags": {
-        "allow_interaction": true
-      },
-      "order": 5,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [],
-      "title": "Simple Video Watermark Remover",
-      "properties": {
-        "fontSize": 64,
-        "fontFamily": "Arial",
-        "fontColor": "#ffffff",
-        "textAlign": "left",
-        "backgroundColor": "transparent",
-        "padding": 0,
-        "borderRadius": 0,
-        "angle": 0,
-        "ue_properties": {
-          "version": "7.7",
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        }
-      },
-      "color": "#fff0",
-      "bgcolor": "#fff0",
-      "shape": 1
-    },
-    {
       "id": 62,
-      "type": "MarkdownNote",
+      "type": "AUSBOSS_NODES_WorkflowNote",
       "pos": [
-        -1515.7408387883006,
-        -1220.520365103764
+        -620,
+        100
       ],
       "size": [
-        439.92987728524963,
-        416.3277402120399
+        560,
+        1100
       ],
       "flags": {},
       "order": 6,
       "mode": 0,
       "inputs": [],
       "outputs": [],
-      "title": "Overview",
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "version": "7.7",
-          "input_ue_unconnectable": {}
-        }
+        "cnr_id": "ausboss-nodes",
+        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote",
+        "ver": "2.0.0"
       },
       "widgets_values": [
-        "# 🎬✨ Video Watermark Removal\n\nRemove annoying watermarks from your video automatically, frame by frame. Especially useful for Sora-style watermarks. It's not perfect and can leave behind some artifacts, but it's fast and gets the job done.\n\n## 🧠 How it works\n\n1. 🎥 **Load Video**  \n   Splits your video into frames and keeps the original audio.\n\n2. 🔍 **Detect Watermark (SAM3)**  \n   Uses `SAM3Segment` with the prompt **\"watermark\"** to find the watermark in each frame and generate a mask.\n\n3. 🫧 **Mask Refine**  \n   The mask is grown and feathered so coverage is solid and edges blend smoothly. Press **AUTO** on the node to size both for your video.\n\n4. 🧼 **Remove Watermark**  \n   The refined mask is passed into `LaMa Inpaint 🆎` using `big-lama.pt`.\n\n5. 🎞️ **Rebuild Video**  \n   Frames are stitched back together with the original audio and FPS preserved.\n\n## 📦 Model setup\n\nPlace `big-lama.pt` at `ComfyUI/models/lama/big-lama.pt`, then restart ComfyUI. The AusBoss node never downloads models automatically.\n\n## 💡 Notes\n\n- ✅ Works best with consistent/static watermarks\n- 🪶 Feathering helps avoid ugly edges\n- 📦 Outputs H.264 MP4 by default; Save Video also writes h265, webm, ProRes, lossless and gif/webp\n\n## 📦 Requires\n\n- 🧩 **ComfyUI-AusBoss** — Load Video, Select Frame, Mask Refine, LaMa Inpaint, Image Compare A/B, Save Video\n- 🧩 **ComfyUI-RMBG** — SAM3 segmentation\n- 🧩 **rgthree-comfy** — labels and the group toggles\n- 🧩 **ComfyUI-Easy-Use** — the Total Frames readout\n- 📥 **Model**: a TorchScript `big-lama.pt` in `ComfyUI/models/lama/`"
+        "{\"v\": 1, \"title\": \"Simple Video Watermark Remover\", \"subtitle\": \"\", \"author\": \"AusBoss\", \"layout\": \"card\", \"body\": \"## Setup\\nInstall ComfyUI-RMBG for its SAM3 Segment node and configure its SAM3 model. Put big-lama.pt in models/lama. This is the one example that requires another custom node pack.\\n\\nCopy the included ausboss_pier_9x16.mp4 to ComfyUI/input or upload your own clip. The supplied clip has no watermark: it is a safe setup check, and an empty detection mask should leave it unchanged.\\n\\n## First check\\nQueue the short one-second window. The single-frame branch shows the mask and an A/B comparison. Change the detection prompt when the overlay has a more specific description.\\n\\n## Full clip\\nBoth branches are enabled; the upper branch writes the cleaned video with its original audio. Once the mask is right, increase the trim window and frame limit. To work only on the still, select the full-video group and use ComfyUI’s Mute command.\\n\\nSAM3 detects each frame separately and unloads its model after each branch to leave room for LaMa. LaMa processes frames independently; challenging backgrounds can flicker. Review the output before extending the run.\", \"models\": [{\"name\": \"big-lama.pt\", \"dir\": \"lama\", \"url\": \"https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt\"}], \"packs\": [{\"name\": \"ComfyUI-RMBG\", \"node\": \"SAM3Segment\", \"url\": \"https://github.com/1038lab/ComfyUI-RMBG\"}]}"
       ],
       "widgets_values_named": {
         "text": "# 🎬✨ Video Watermark Removal\n\nRemove annoying watermarks from your video automatically, frame by frame. Especially useful for Sora-style watermarks. It's not perfect and can leave behind some artifacts, but it's fast and gets the job done.\n\n## 🧠 How it works\n\n1. 🎥 **Load Video**  \n   Splits your video into frames and keeps the original audio.\n\n2. 🔍 **Detect Watermark (SAM3)**  \n   Uses `SAM3Segment` with the prompt **\"watermark\"** to find the watermark in each frame and generate a mask.\n\n3. 🫧 **Mask Refine**  \n   The mask is grown and feathered so coverage is solid and edges blend smoothly. Press **AUTO** on the node to size both for your video.\n\n4. 🧼 **Remove Watermark**  \n   The refined mask is passed into `LaMa Inpaint 🆎` using `big-lama.pt`.\n\n5. 🎞️ **Rebuild Video**  \n   Frames are stitched back together with the original audio and FPS preserved.\n\n## 📦 Model setup\n\nPlace `big-lama.pt` at `ComfyUI/models/lama/big-lama.pt`, then restart ComfyUI. The AusBoss node never downloads models automatically.\n\n## 💡 Notes\n\n- ✅ Works best with consistent/static watermarks\n- 🪶 Feathering helps avoid ugly edges\n- 📦 Outputs H.264 MP4 by default; Save Video also writes h265, webm, ProRes, lossless and gif/webp\n\n## 📦 Requires\n\n- 🧩 **ComfyUI-AusBoss** — Load Video, Select Frame, Mask Refine, LaMa Inpaint, Image Compare A/B, Save Video\n- 🧩 **ComfyUI-RMBG** — SAM3 segmentation\n- 🧩 **rgthree-comfy** — labels and the group toggles\n- 🧩 **ComfyUI-Easy-Use** — the Total Frames readout\n- 📥 **Model**: a TorchScript `big-lama.pt` in `ComfyUI/models/lama/`"
@@ -803,12 +539,12 @@
       "id": 95,
       "type": "AUSBOSS_NODES_LoadVideo",
       "pos": [
-        -901.5738127350896,
-        -1234.6626307352851
+        0,
+        100
       ],
       "size": [
-        413.86843580322613,
-        827.0256602894457
+        440,
+        700
       ],
       "flags": {},
       "order": 7,
@@ -834,9 +570,7 @@
         {
           "name": "frame_count",
           "type": "INT",
-          "links": [
-            119
-          ]
+          "links": []
         },
         {
           "name": "fps",
@@ -848,38 +582,38 @@
         {
           "name": "width",
           "type": "INT",
-          "links": null
+          "links": []
         },
         {
           "name": "height",
           "type": "INT",
-          "links": null
+          "links": []
         },
         {
           "name": "duration",
           "type": "FLOAT",
-          "links": null
+          "links": []
         },
         {
           "name": "video",
           "type": "VIDEO",
-          "links": null
+          "links": []
         }
       ],
       "properties": {
         "cnr_id": "ausboss-nodes",
-        "ver": "6d5d790ddccf265d068cdc4f73352f19e10df97f",
+        "ver": "2.0.0",
         "Node name for S&R": "AUSBOSS_NODES_LoadVideo",
         "ausboss_load_video_loop": true
       },
       "widgets_values": {
-        "video": "v09044g40000c66m6j3c77ubl0cip87g.mp4",
-        "start_seconds": 5.26,
-        "end_seconds": 9.01,
+        "video": "ausboss_pier_9x16.mp4",
+        "start_seconds": 0,
+        "end_seconds": 1,
         "custom_width": 0,
         "custom_height": 0,
         "every_nth": 1,
-        "max_frames": 0
+        "max_frames": 24
       },
       "widgets_values_named": {
         "video": "v09044g40000c66m6j3c77ubl0cip87g.mp4",
@@ -900,16 +634,16 @@
       "id": 99,
       "type": "AUSBOSS_NODES_RefineMask",
       "pos": [
-        -9.912221052486675,
-        -1212.6956718906404
+        520,
+        560
       ],
       "size": [
-        313.6306248649747,
-        434
+        400,
+        470
       ],
       "flags": {},
       "order": 11,
-      "mode": 4,
+      "mode": 0,
       "inputs": [
         {
           "name": "mask",
@@ -934,12 +668,12 @@
         {
           "name": "mask_inverted",
           "type": "MASK",
-          "links": null
+          "links": []
         }
       ],
       "properties": {
         "cnr_id": "ausboss-nodes",
-        "ver": "6d5d790ddccf265d068cdc4f73352f19e10df97f",
+        "ver": "2.0.0",
         "Node name for S&R": "AUSBOSS_NODES_RefineMask"
       },
       "widgets_values": [
@@ -981,14 +715,6 @@
       93,
       0,
       "IMAGE"
-    ],
-    [
-      119,
-      95,
-      2,
-      82,
-      0,
-      "INT"
     ],
     [
       122,
@@ -1097,27 +823,63 @@
   ],
   "groups": [
     {
-      "id": 4,
-      "title": "Main Workflow",
+      "title": "1 · Source + trim",
       "bounding": [
-        -456.4026375674729,
-        -1286.6295895799299,
-        1497.5832587350933,
-        878.9926191340904
+        -20,
+        40,
+        480,
+        980
       ],
-      "color": "#3f789e",
+      "color": "#235d64",
+      "font_size": 24,
       "flags": {}
     },
     {
-      "id": 5,
-      "title": "Single-Frame Test",
+      "title": "2 · Detect + refine · full video",
       "bounding": [
-        -452.6851075783738,
-        -384.3187925918293,
-        1663.742946064448,
-        694.3583428512577
+        500,
+        40,
+        440,
+        1010
       ],
-      "color": "#255725",
+      "color": "#366451",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "title": "3 · Inpaint + save · full video",
+      "bounding": [
+        980,
+        40,
+        600,
+        1090
+      ],
+      "color": "#5d527c",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "title": "4 · Single-frame check",
+      "bounding": [
+        1620,
+        40,
+        440,
+        1400
+      ],
+      "color": "#795b38",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "title": "5 · Inpaint + compare · single frame",
+      "bounding": [
+        2100,
+        40,
+        560,
+        1130
+      ],
+      "color": "#345d7c",
+      "font_size": 24,
       "flags": {}
     }
   ],
@@ -1125,10 +887,10 @@
   "extra": {
     "ue_links": [],
     "ds": {
-      "scale": 0.7972024500000143,
+      "scale": 0.485,
       "offset": [
-        1095.5012243991416,
-        1470.9339670330596
+        824.95,
+        320.52
       ]
     },
     "links_added_by_ue": [],

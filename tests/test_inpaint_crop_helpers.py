@@ -17,6 +17,7 @@ if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
 from nodes import _inpaint_crop_helpers as inpaint_helpers
 from nodes._inpaint_crop_helpers import (
     build_canvas_stitcher,
+    stitch_blend_from_mask,
     apply_stitch,
     build_crop,
     expand_rect_to_multiple,
@@ -370,12 +371,22 @@ class BatchTests(unittest.TestCase):
         out = apply_stitch(stitcher, cropped)
         self.assertTrue(torch.equal(out, image))
 
-    def test_mismatched_batches_are_rejected(self):
+    def test_a_shorter_generated_batch_stitches_the_leading_frames(self):
+        # A video model keeps 8n+1 frames and drops the tail: the frames
+        # that came back land on their own source frames, the rest go.
+        image = rand_image(5, 32, 32, seed=21)
+        mask = box_mask(32, 32, 8, 24, 8, 24)
+        cropped, _, stitcher = build_crop(image, mask, 1.5, 4, 8)
+        out = apply_stitch(stitcher, cropped[:3])
+        self.assertEqual(out.shape[0], 3)
+        self.assertTrue(torch.equal(out, image[:3]))
+
+    def test_a_longer_generated_batch_is_rejected(self):
         image = rand_image(3, 32, 32, seed=21)
         mask = box_mask(32, 32, 8, 24, 8, 24)
         cropped, _, stitcher = build_crop(image, mask, 1.5, 4, 8)
         with self.assertRaises(ValueError):
-            apply_stitch(stitcher, cropped[:2])
+            apply_stitch(stitcher, torch.cat([cropped, cropped], dim=0))
 
     def test_stitch_rejects_a_foreign_stitcher(self):
         with self.assertRaises(ValueError):
@@ -607,7 +618,7 @@ class EdgeHaloTests(unittest.TestCase):
         stitch_cls = NODE_CLASS_MAPPINGS["AUSBOSS_NODES_StitchInpaint"]
         types = stitch_cls.INPUT_TYPES()
         self.assertEqual(list(types["required"]), ["stitcher", "inpainted"])
-        self.assertEqual(list(types["optional"]), ["fix_edge_halo"])
+        self.assertEqual(list(types["optional"]), ["fix_edge_halo", "color_match"])
         kind, options = types["optional"]["fix_edge_halo"]
         self.assertEqual(kind, "BOOLEAN")
         self.assertIs(options["default"], False)
@@ -925,6 +936,184 @@ class CanvasStitcherBboxTests(unittest.TestCase):
         self.assertTrue(
             torch.equal(apply_stitch(plain, sampled), apply_stitch(with_bbox, sampled))
         )
+
+
+
+
+class ToneMatchTests(unittest.TestCase):
+    """color_match: the drift is read off the feathered band and undone."""
+
+    def _pad_stitcher(self):
+        # A 1x40x60 canvas: source in the middle 20 columns, padding either
+        # side, and a feathered blend ramping 8px into the source on each side.
+        canvas = torch.full((1, 40, 60, 3), 0.40)
+        canvas[:, :, 20:40, :] = 0.40
+        blend = torch.ones((1, 40, 60))
+        blend[:, :, 20:40] = 0.0
+        ramp = torch.linspace(1.0, 0.0, 8)
+        blend[:, :, 20:28] = ramp.view(1, 1, 8)
+        blend[:, :, 32:40] = ramp.flip(0).view(1, 1, 8)
+        # The source sits in columns 20..40: the bbox is what lets the tone
+        # match measure each padded side line by line.
+        return inpaint_helpers.build_canvas_stitcher(canvas, blend, bbox=(20, 0, 40, 40))
+
+    def test_offset_is_recovered_from_a_partially_regenerated_band(self):
+        stitcher = self._pad_stitcher()
+        canvas, blend = stitcher["canvas"], stitcher["blend"]
+        # The sampler drifted +0.1 brighter everywhere it generated; in the
+        # band the drift shows scaled by the mask, as the sampler mixes it.
+        drift = 0.10
+        inpainted = canvas + drift * blend.unsqueeze(-1)
+        offset = inpaint_helpers.estimate_tone_offset(inpainted, canvas, blend)
+        from nodes._color_helpers import rgb_to_lab
+        expected = rgb_to_lab(torch.full((1, 1, 1, 3), 0.50)) - rgb_to_lab(torch.full((1, 1, 1, 3), 0.40))
+        self.assertTrue(torch.allclose(offset, expected.view(1, 3), atol=0.35), (offset, expected))
+
+    def test_no_band_means_no_offset(self):
+        canvas = torch.rand((1, 8, 8, 3))
+        hard = (torch.rand((1, 8, 8)) > 0.5).float()
+        offset = inpaint_helpers.estimate_tone_offset(canvas + 0.2, canvas, hard)
+        self.assertTrue(torch.equal(offset, torch.zeros((1, 3))))
+
+    def test_color_match_moves_the_bands_and_leaves_the_source_bit_identical(self):
+        stitcher = self._pad_stitcher()
+        canvas, blend = stitcher["canvas"], stitcher["blend"]
+        inpainted = (canvas + 0.10 * blend.unsqueeze(-1)).clamp(0, 1)
+        plain = inpaint_helpers.apply_stitch(stitcher, inpainted, color_match=0.0)
+        matched = inpaint_helpers.apply_stitch(stitcher, inpainted, color_match=1.0)
+        # Source columns (blend 0) never change, matched or not.
+        self.assertTrue(torch.equal(matched[:, :, 28:32, :], canvas[:, :, 28:32, :]))
+        self.assertTrue(torch.equal(plain[:, :, 28:32, :], canvas[:, :, 28:32, :]))
+        # The fully generated bands come back down toward the canvas tone.
+        self.assertGreater(float(plain[:, :, :20, :].mean()), 0.49)
+        self.assertLess(float(matched[:, :, :20, :].mean()), 0.44)
+        self.assertGreater(float(matched[:, :, :20, :].mean()), 0.36)
+
+    def test_zero_strength_is_the_plain_stitch(self):
+        stitcher = self._pad_stitcher()
+        inpainted = torch.rand_like(stitcher["canvas"])
+        self.assertTrue(torch.equal(
+            inpaint_helpers.apply_stitch(stitcher, inpainted),
+            inpaint_helpers.apply_stitch(stitcher, inpainted, color_match=0.0),
+        ))
+
+    def test_drift_that_varies_along_the_seam_is_matched_line_by_line(self):
+        stitcher = self._pad_stitcher()
+        canvas, blend = stitcher["canvas"], stitcher["blend"]
+        # Top half drifted brighter, bottom half darker - one global shift
+        # could not fix both; the per-row field must.
+        drift = torch.zeros((1, 40, 1, 1))
+        drift[:, :20] = 0.05
+        drift[:, 20:] = -0.05
+        inpainted = (canvas + drift * blend.unsqueeze(-1)).clamp(0, 1)
+        matched = inpaint_helpers.apply_stitch(stitcher, inpainted, color_match=1.0)
+        top = float(matched[:, :16, :20, :].mean())
+        bottom = float(matched[:, 24:, :20, :].mean())
+        self.assertAlmostEqual(top, 0.40, delta=0.02)
+        self.assertAlmostEqual(bottom, 0.40, delta=0.02)
+        self.assertTrue(torch.equal(matched[:, :, 28:32, :], canvas[:, :, 28:32, :]))
+
+    def test_a_line_far_from_its_side_average_is_clamped_not_matched(self):
+        # LINE_DRIFT_CLAMP: a line whose overlap differs from its band by
+        # more than a few LAB units is treated as content (a reflection
+        # under open water), so only the side average plus the clamp is
+        # removed. A twenty-unit step between the halves therefore keeps
+        # part of its drift - by design, not by accident.
+        stitcher = self._pad_stitcher()
+        canvas, blend = stitcher["canvas"], stitcher["blend"]
+        drift = torch.zeros((1, 40, 1, 1))
+        drift[:, :20] = 0.12
+        drift[:, 20:] = -0.08
+        inpainted = (canvas + drift * blend.unsqueeze(-1)).clamp(0, 1)
+        matched = inpaint_helpers.apply_stitch(stitcher, inpainted, color_match=1.0)
+        top = float(matched[:, :16, :20, :].mean())
+        bottom = float(matched[:, 24:, :20, :].mean())
+        # Part of the drift comes off (the side average plus the clamp), but
+        # not all of it - unlike the flat 0.40 a clamp-free match reaches.
+        self.assertLess(top, 0.40 + 0.12 - 0.03)
+        self.assertGreater(top, 0.40 + 0.02)
+        self.assertGreater(bottom, 0.40 - 0.08 + 0.02)
+        self.assertLess(bottom, 0.40 - 0.02)
+        with_clamp_lifted = inpaint_helpers.LINE_DRIFT_CLAMP
+        try:
+            inpaint_helpers.LINE_DRIFT_CLAMP = 100.0
+            flat = inpaint_helpers.apply_stitch(stitcher, inpainted, color_match=1.0)
+        finally:
+            inpaint_helpers.LINE_DRIFT_CLAMP = with_clamp_lifted
+        self.assertAlmostEqual(float(flat[:, :16, :20, :].mean()), 0.40, delta=0.03)
+        self.assertAlmostEqual(float(flat[:, 24:, :20, :].mean()), 0.40, delta=0.03)
+
+
+class ToneMatchSeamTests(unittest.TestCase):
+    """The drift is read across the seam and blended between sides."""
+
+    def _four_side_stitcher(self):
+        # 100x100 canvas, source 60x60 in the middle, 20 px of padding on
+        # every side, feathered 8 px into the source.
+        canvas = torch.full((1, 100, 100, 3), 0.40)
+        mask = torch.ones((1, 100, 100))
+        mask[:, 20:80, 20:80] = 0.0
+        from nodes._pad_helpers import feather_pad_mask
+        blend = feather_pad_mask(mask, 20, 20, 20, 20, 8)
+        return inpaint_helpers.build_canvas_stitcher(canvas, blend, bbox=(20, 20, 80, 80))
+
+    def test_drift_is_read_outside_the_seam_not_in_the_mixed_band(self):
+        stitcher = self._four_side_stitcher()
+        canvas, blend = stitcher["canvas"], stitcher["blend"]
+        # The sampler painted the padding 0.1 brighter and, as samplers do,
+        # smeared that into the feathered band in proportion to the mask.
+        inpainted = (canvas + 0.10 * blend.unsqueeze(-1)).clamp(0, 1)
+        matched = inpaint_helpers.apply_stitch(stitcher, inpainted, color_match=1.0)
+        # Padding comes back to the canvas tone on all four sides ...
+        for region in (matched[:, 40:60, :16], matched[:, 40:60, 84:], matched[:, :16, 40:60], matched[:, 84:, 40:60]):
+            self.assertAlmostEqual(float(region.mean()), 0.40, delta=0.015)
+        # ... and so does the band, whose mixed pixels get the same share of
+        # the correction the sampler gave them.
+        self.assertAlmostEqual(float(matched[:, 40:60, 20:28].mean()), 0.40, delta=0.015)
+        self.assertTrue(torch.equal(matched[:, 40:60, 40:60], canvas[:, 40:60, 40:60]))
+
+    def test_corner_blends_two_sides_without_a_crease(self):
+        stitcher = self._four_side_stitcher()
+        canvas, blend = stitcher["canvas"], stitcher["blend"]
+        # Left side drifted bright, top side dark: the field must turn the
+        # corner between them smoothly rather than switch on the diagonal.
+        drift = torch.zeros((1, 100, 100, 1))
+        drift[:, :, :20] = 0.08
+        drift[:, :20, 20:] = -0.08
+        inpainted = (canvas + drift * blend.unsqueeze(-1)).clamp(0, 1)
+        field = inpaint_helpers.tone_offset_field(inpainted, canvas, blend, stitcher["source_bbox"])
+        lum = field[0, :, :, 0]
+        # Far from the corner each side gets its own sign.
+        self.assertGreater(float(lum[50, 5]), 2.0)
+        self.assertLess(float(lum[5, 50]), -2.0)
+        # Along the corner's diagonal the field changes by small steps only:
+        # no pixel jumps by more than a fraction of the side difference.
+        jumps = [abs(float(lum[i, 19 - i]) - float(lum[i + 1, 18 - i])) for i in range(0, 18)]
+        self.assertLess(max(jumps), 0.25 * (float(lum[50, 5]) - float(lum[5, 50])))
+
+
+class StitchBlendFromMaskTests(unittest.TestCase):
+    def test_zero_settings_return_an_equal_copy(self):
+        mask = torch.zeros((1, 20, 30))
+        mask[:, :, :10] = 1.0
+        blend = stitch_blend_from_mask(mask, 0)
+        self.assertTrue(torch.equal(blend, mask))
+        self.assertIsNot(blend, mask)
+
+    def test_blend_ramps_into_the_kept_side_only(self):
+        mask = torch.zeros((1, 20, 30))
+        mask[:, :, :10] = 1.0
+        blend = stitch_blend_from_mask(mask, 3)
+        # Inside the band the blur kernel's float sum lands a hair under 1.
+        self.assertTrue(torch.all(blend[:, :, :10] >= 1.0 - 1e-5))
+        self.assertGreater(float(blend[:, :, 10:13].min()), 0.0)
+        self.assertEqual(float(blend[:, :, 20:].max()), 0.0)
+
+    def test_grow_moves_the_boundary_before_the_ramp(self):
+        mask = torch.zeros((1, 20, 30))
+        mask[:, :, :10] = 1.0
+        self.assertTrue(torch.all(stitch_blend_from_mask(mask, 0, 4)[:, :, :14] == 1.0))
+        self.assertTrue(torch.all(stitch_blend_from_mask(mask, 0, -4)[:, :, 6:] == 0.0))
 
 
 if __name__ == "__main__":

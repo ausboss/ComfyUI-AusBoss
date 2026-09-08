@@ -2,6 +2,292 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## 2.0.0 - 2026-09-07
+
+- **Breaking: LM Studio Chat is removed.** The Registry identified an
+  unrestricted server-side request through its workflow-controlled endpoint.
+  The node, HTTP helper, frontend, help page, and tests are removed. Existing
+  workflows using `AUSBOSS_NODES_LmStudioChat` must replace that node; a Text
+  node can supply a fixed prompt where live chat is unnecessary. Other public
+  mapping keys remain unchanged.
+- Added Resolution Master, Seed, Workflow Note, Run Timer, and Video Crop +
+  Rotate + Pad → Clip, alongside 15 organized example workflows.
+- The README now includes eight visuals using actual editor screenshots and
+  tested renders, including an animated video outpaint comparison.
+- Release PRs now run offline validation and frontend tests in Actions. A
+  separate Registry approval check reports the exact version's status and
+  review reason after publishing, with manual rechecks that do not republish.
+
+- Klein 9B Outpaint now samples the encoded padded image through a noise mask and uses a 64 px feather. Controlled comparisons showed a cleaner seam than the previous empty latent and 24 px feather; Stitch Inpaint still preserves the protected source exactly.
+- Completed the public-pack readiness review: grouped README sections cover every public node; all example graphs have setup notes, stage groups, and matching thumbnails. Added the model-free Image and Video Transform example for both editors and Align Image. Corrected installed model selections, literal line breaks in the LoRA example note, card-driven layout overlaps, and the tour's sample and timing instructions.
+- Load Image + Pad now uses a widget card for source/upload, fill, feather, alignment, and budget, with individually linkable exact padding controls. Text uses a growing multiline card, and Krea 2 Outpaint Model Patch exposes both reference placement and KV caching in its card.
+- The watermark example keeps SAM3 detection while removing rgthree presentation helpers and the Easy Use frame-count display. Its setup card names ComfyUI-RMBG, and SAM3 unloads between branches to leave GPU memory for LaMa.
+- Release preflight now checks saved links in both directions, stage containment, title-bar overlaps, and setup-note formatting. Backend tests have a process-isolated runner so ComfyUI stubs cannot leak between test files.
+
+- **LoRA Loader 🆎** now stops on a missing LoRA by default: an enabled row whose file cannot be found fails validation before sampling with an error that names the file and says where the switch is, instead of warning and rendering without it — what scripted and agent-driven runs need. Gear menu → **Stop on missing LoRA** (API input `on_missing`, `"error"` by default or `"skip"`) restores the old warn-and-skip behaviour per node; graphs saved before the input existed get the default.
+
+- Added rendered MiniMax H3 Text to Video and First + Last Frame examples, plus a model-free Resolution Master example. Corrected H3 duration rounding to never undershoot the requested seconds. Tested and corrected the Klein PixaOutpaint prompt and conditioning; the protected source interior remains pixel-exact.
+
+- **Resolution Master 🆎** joins the public pack: an explicit orientation toggle, ratio chips, canvas handles, sub-1 MP budgets and an empty latent output. Corrected zoomed drags, bounded extreme ratios, linked-axis controls and restore behavior; removed the external font request.
+
+- **Five new showcase workflows.** `Klein 9B Inpaint` (a painted mask
+  through Mask Refine 🆎 and Crop For Inpaint 🆎, Klein 9B edits only that
+  crop, Stitch Inpaint 🆎 puts it back), `Klein 9B Edit` (Image Resize 🆎
+  sets the 1 MP working size and Image Size 🆎 keeps the output the
+  source's shape), `Klein 9B Outpaint` (Load Image + Pad 🆎 on any side at
+  once, PixaOutpaint in the LoRA Loader 🆎, a padded reference and masked
+  Flux 2 starting latent),
+  `MiniMax H3 Image to Video` (Image Resize 🆎 to H3's 768 px canvas,
+  Float 🆎 + Math Expression 🆎 for the model's 17k+5 frame grid, the turbo
+  LoRA model-only, Save Video 🆎 with the model's own audio) and `Krea 2
+  Prompt from Image` (core Text Generate on the Krea 2 text encoder, Show
+  Text 🆎, the prompt wired into Krea 2 Encode 🆎). Each opens with a
+  Workflow Note 🆎 and ships a thumbnail; a masked copy of the sample
+  picture joins `example_workflows/inputs/`. Every node in the pack now
+  appears in at least one example, including the node tour.
+
+- **Krea 2 outpaints on every side at once.** The `Krea 2 Outpaint`
+  example is rebuilt around yijunwang2's **AnyPaint** LoRA
+  (`krea2_anypaint_rank32`). The old one-axis rule was never a Krea 2
+  limit: the patch's registered placement is the contract of the same
+  author's Registered Outpaint LoRA, which was trained on a source spanning
+  one whole canvas axis - and the shipped example did not load that LoRA at
+  all. AnyPaint is trained the other way round: the grey-padded canvas is
+  the reference, spread over the whole frame, and the sampler's noise mask
+  keeps the known pixels, so left, right, top and bottom can grow in one
+  pass. Krea 2 Outpaint Model Patch 🆎 gained an optional `placement`
+  input for it - `source rectangle` (the default, the old behaviour) or
+  `whole canvas` - and its help page explains which LoRA wants which.
+  Saved graphs load unchanged.
+
+- **Outpaint seams: no more dark band, no more corner diagonals.** A
+  four-side outpaint used to show a faded band along the source's edges
+  and 45° lines running out of its corners. Measured on the pier sample:
+  the model paints the new area a few percent off the source's tone on
+  every side (fill colour makes no difference), the feathered sampler mask
+  smears that step into the band inside the source, and the pad feather
+  merged its per-side ramps with a maximum, whose iso-lines crease at the
+  corners and print as diagonals. Stitch Inpaint 🆎's `color_match` now
+  reads the drift ACROSS each seam - the generated pixels just outside
+  against the original pixels just inside, line by line - instead of
+  inside the mixed band, and blends the sides by distance instead of
+  picking the nearest, so the correction turns the corner smoothly and the
+  band gets exactly the share the sampler gave it. Load Image + Pad 🆎's
+  feather (and every stitcher built from it) now unites its ramps instead
+  of taking their maximum: identical along a side, bilinear in the corner.
+  Both outpaint examples run with `color_match` 1 again; their seam steps
+  drop from 2-6 % to under 1 % of luminance.
+
+
+- **Video Crop + Rotate + Pad → Clip 🆎.** The transform nodes' third
+  member: one rotate, crop and pad applied to every frame of a trimmed
+  video, with Load Video's `start_seconds` / `end_seconds`, `every_nth`
+  and `max_frames`, and the same outputs (frames, the window's audio,
+  frame count, fps, size, duration) plus the generated-area `mask` — so a
+  clip can lose a border or a tilt, or grow the black bands a video
+  outpaint paints into. It shares the frame picker's editor (the timeline
+  picks the preview frame; scrubbing never re-runs the clip) and gains the
+  image node's megapixel resize, which the editor now shows for any node
+  that carries those widgets. Frames go through the transform in chunks
+  with the queue's progress bar and cancel serviced between them. It also
+  emits a **stitcher** (a ninth output, after the existing eight) built from
+  the final resized frames, so Stitch Inpaint pastes the source back over a
+  generated clip without a Crop For Inpaint node; the editor's right sidebar
+  gained an **Inpaint & Stitch** section - blend ramp, a stage overlay of
+  where the paste lands, and grow behind a disclosure - kept separate from
+  the padding feather. The feathered paste mask is now one shared helper
+  for every stitcher producer. A **Snap** select on the trim strip
+  (`frame_snap`: free / 8n+1 / 4n+1) drops trailing frames to a count the
+  video model keeps, so `frame_count`, the audio window and the stitcher
+  match the clip that comes back; the showcase workflow wires the clip's
+  size and count into the empty latent and snaps at 8n+1.
+
+- **Transform nodes: drop a video, pad to a format in one tap, a sharp
+  preview at any zoom, trim without losing the playhead.** A video file
+  dropped onto Video Crop + Rotate + Pad (frame or clip) uploads and
+  becomes the source, as core's upload widgets do for their nodes. A row of
+  format chips right under every transform preview (16:9, 9:16, 1:1, 4:3
+  ...) pads the whole source to that aspect with centered fill bands - the
+  editor's Pad to aspect without opening it; the lit chip clears it again.
+  The node preview's backing store now follows the graph zoom (up to 4x),
+  so zooming in on the node no longer shows a blurry, pixelated stage.
+  Dragging an IN/OUT handle now peeks at the frame under the handle and
+  returns to the playhead on release, instead of moving the scrub bar and
+  the saved preview position along with the trim.
+
+- **Stitch Inpaint takes a shorter generated batch.** A stitcher built
+  from more frames than came back is trimmed to the leading ones with a
+  console note instead of failing after the run - video models keep 8n+1
+  or 4n+1 frames and drop the tail. More inpainted frames than source
+  frames is still an error.
+
+- **Save Image redesigned as one card.** Folder with a Browse into the
+  output folder, Filename, a live path preview that turns into the first
+  file written after a run, the name tags as chips - Counter (on, the next
+  free number for that stem, never a collision), Date, Time, Size and
+  Batch # - PNG / lossless WebP (new) / lossless JXL pills, and an Embed
+  workflow switch. Two link-only inputs: `filename` takes the exact name
+  from upstream (its image extension swapped for the chosen format's, a
+  blank value stops the run rather than inventing a name) and
+  `caption_text` writes the paired .txt. The old widgets stay underneath in
+  their saved order, so existing workflows load as they were and a legacy
+  `exact_name` shows in the field tagged *exact*. Local names lose core's
+  trailing underscore (`shot_00001.png`, not `shot_00001_.png`); numbering
+  restarts at 00001 beside the old files without touching them.
+
+- **Align Image drops its offset outputs.** `offset_x` / `offset_y` were
+  never wired in practice; the node stops at image, width, height. A saved
+  workflow that linked them loses those two links.
+
+- **Select Frame, Mask Refine and LaMa Inpaint previews can be switched
+  off.** A thin bar sits between the settings and the picture - the node's
+  tools (Mask Refine's AUTO) on the left, a small `preview` switch on the
+  right. Off, the picture's box is gone and the node is that much shorter;
+  the switch stays where it was, and the node writes no file to the temp
+  folder (a new optional `preview` input carries the choice).
+
+- **Units live inside the scrub box** (`px`, `MP`, `×`), ahead of the
+  chevrons, and every single-field row in a card reserves the same slot
+  for one whether it has a unit or not, so the numbers down a card share
+  one centre line - a `px` no longer nudges its number left of the row
+  above.
+
+- **Widget cards: the classic canvas widgets are gone from every node
+  face.** Image Resize, Color Match, Stitch Inpaint, Crop For Inpaint,
+  Mask Refine, Save Image, Save Video, Load Video, Align Image, Frame
+  Interpolate, Math Expression, Select Every Nth, Split Batch, Select
+  Frame, Merge Batches, Integer, Float, LaMa Inpaint, Krea 2 Encode and
+  the Krea 2 Outpaint Model Patch now carry one compact card in place of
+  the full-width rows with an arrow at each end: numbers are the pack's
+  scrub control, short choices a segmented pill, long ones a select,
+  booleans an off | on pill as wide as the other controls, hex colors a
+  swatch. Rows that only mean something in
+  one mode (a resize target's size, a pad color) show in that mode; the
+  rarely-touched settings fold behind one disclosure (Crop For Inpaint's
+  targets and extend, Save Image's exact-name and folder, Mask Refine's
+  More). The widgets underneath are untouched - saved workflows, the API
+  format and widget-to-input links work as before, and a row driven by a
+  link dims out. Shared in `js/shared/widget_card.mjs`.
+
+- **Links still land on card rows.** The frontend only draws a widget's
+  input socket while a link is being dragged or once it is connected, at
+  the widget's own place - which a hidden widget no longer had. Each row
+  now lends its position to the widget it stands for: drag a link over a
+  card and a socket appears beside every row that can take it, drop it on
+  the row (the socket, the label or the field itself) and that widget is
+  driven by the link, exactly as with the classic widget. One socket per
+  row, so no row holds two linkable fields: Image Resize's width and
+  height, Frame Interpolate's two rates and Save Video's fps and crf keep
+  their side-by-side layout but their sockets sit with the node's inputs
+  (under `image` / `mask`), where a link greys the field out like the old
+  converted input; Crop For Inpaint's target and extend values, Mask
+  Refine's levels and Load Video's size and every-nth / limit are single
+  rows now, one socket each.
+
+- **Math Expression: `a`, `b`, `c` are sockets.** The three values arrive
+  on the node's left edge and take a `FLOAT` or an `INT` (an image width
+  wires straight in); the card is the expression alone. An unwired value
+  reads as 0. A workflow that had typed a constant into `a`, `b` or `c`
+  should carry it in the expression instead - those boxes are gone.
+
+- **Krea 2 Encode is one card.** The prompt, the negative prompt and the
+  VLM reference switch sit in a single panel; the prompt box takes the
+  node's spare height when it is dragged taller. The node is unchanged
+  underneath: a plain two-prompt encoder without a VAE and reference, and
+  an edit/outpaint encoder with them (checked both ways on a Krea 2 turbo
+  render).
+
+- **A node that loaded shorter than its new card grows on load.** A
+  workflow saved before a card or the preview bar existed kept the old
+  node height, which squeezed the panel under its floor and clipped it
+  flat (LaMa Inpaint's preview box); the node now takes at least the
+  height its widgets ask for.
+
+- **LoRA Loader: the bar scale follows the enabled rows.** Switching a
+  row off hands the shared strength scale to the strongest row still in
+  play; the dimmed row's own bar clamps at the edge meanwhile.
+
+- **Workflow Note 🆎: the card for sharing a workflow.** A big title, a
+  Markdown how-to, the models the workflow needs with Download buttons
+  grouped under the `📂 ComfyUI/models/<folder>` they belong in, the node
+  packs it depends on, and the author's links — the note every shared
+  workflow carries, without a second pack. Every model file and node pack
+  on the card is checked against the install that opened it (teal dot and
+  an *installed* pill when found, subfolders included; red dot and the
+  Download button when not), so the person who downloaded the workflow
+  sees what is left to do before the first run. A pencil opens the
+  editor (form or raw JSON; *Detect from this workflow* fills the pack
+  list from the open graph); the Banner layout turns the same node into
+  a title label. Stored as JSON in one STRING widget; rendered as text,
+  never HTML; only http(s) URLs become links.
+
+- **Seed 🆎: the seed that remembers what ran.** One INT wire, one
+  card: the number (click to type, ⧉ copies), a Random / Fixed / Step
+  segment that drives the sampler's own after-generate control, and the
+  buttons a run needs — New seed rolls and pins one, Use last run puts
+  back the seed the last run actually used (reported by the backend, so
+  it is right even after Random has already advanced the box) and pins
+  it, ▾ lists the last eight. The history saves with the workflow.
+
+- **Run Timer 🆎: a stopwatch for the whole queue.** One black readout
+  with no title bar, no pack badge, no wires and no padding — the node
+  is the display, painted by the node itself on the classic canvas, so
+  it drags from anywhere and resizes by the corner with the digits
+  scaling along (a DOM panel stands in under the Nodes 2.0 renderer).
+  Starts on `execution_start`, ticks, holds the total at the end (amber
+  while running, teal done, red failed); the last time saves with the
+  workflow and the right-click menu lists the few before it.
+
+- **Stitch Inpaint: `color_match`.** An outpaint often comes back a step
+  lighter or warmer than the picture it extends, and the seam shows even
+  when the content continues perfectly. The new 0..1 control measures
+  that drift in the feathered band — where the sampler's pixels and the
+  true pixels overlap, so it reads the model's own shift rather than
+  comparing unrelated content — per padded side and per line along the
+  seam (sky and water drift differently), smoothed — and pulls the
+  pasted region back onto the original's tone before the blend. Source
+  pixels stay bit-identical. Off by default; the outpaint showcase ships
+  with it at 1.
+
+- **Panels hide their storage widgets under Nodes 2.0 too.** The Vue
+  renderer ignores the classic canvas collapse and filters widgets on
+  its own `options.hidden` flag, so the Seed card, the Workflow Note, the
+  LoRA loader and Load Image + Pad all showed their raw storage widget
+  above the panel there. The shared hide helper now throws both switches.
+  Run Timer's Nodes 2.0 fallback also drops the renderer's 225px minimum
+  width and its footer badge, so the readout stays the whole node.
+
+- **The Registry archive stops shipping the workshop.** A documented
+  `.comfyignore` keeps tests, offline scripts, CI, agent instructions and
+  the root docs out of the published zip (comfy-cli's packer honours it),
+  which also removes the test fixtures the Registry scanner kept flagging.
+  `release_preflight.py` now checks the file covers those paths and never
+  swallows a runtime one, parses every example workflow, and pairs each
+  thumbnail with its workflow; the stale thumbnail generator is gone.
+
+- **Showcase workflows** in `example_workflows/`, four graphs on
+  ComfyUI core plus this pack and nothing else. **Krea 2 Studio**: draft,
+  then refine - the plain Krea 2 Turbo draft goes through a learned 4x
+  upscaler, Image Resize lands it on a 2.3 MP budget, and a second
+  KSampler repaints it at denoise 0.15 with the same prompt and seed
+  (measured against plain resize, learned-only, pixel-pass and
+  latent-upscale routes on a portrait, a tarot illustration and a street
+  scene: 0.12-0.2 is clean, 0.3 speckles skin, latent upscale is worst);
+  Color Match keeps the draft's tone, a gentle core sharpen finishes,
+  Compare A/B shows final against draft, and every stage bypasses on its
+  own (each combination verified to execute); about 15 s on a 5090. An
+  **LTX 2.3 video outpaint** that turns a 9:16 clip into 16:9 - the clip
+  node pads the black bars an outpaint IC-LoRA paints new scene into,
+  core LTX nodes only (`LTXV Add Guide` + `Get IC-LoRA Parameters`, no
+  Lightricks pack), then Stitch Inpaint puts the original frames back
+  from the clip's own stitcher with `color_match` and Save Video keeps
+  the clip's audio; about a minute for 97 frames at 1280×704 on an RTX
+  5090, with a 9:16 sample clip in `example_workflows/inputs/`. Plus the
+  Krea 2 one-axis outpaint and a Krea 2 text-to-image with the LoRA
+  Loader, each with a matching preview JPG and `properties.models`
+  download metadata on the loaders so ComfyUI's own missing-model check
+  offers the files too.
+
 ## 1.3.0 - 2026-08-31
 
 - **LoRA Loader: strength bars you can grab.** Every named row paints a

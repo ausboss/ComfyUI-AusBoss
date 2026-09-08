@@ -57,15 +57,17 @@ PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_Krea2Encode",
     "AUSBOSS_NODES_Krea2OutpaintModelPatch",
     "AUSBOSS_NODES_LaMaInpaint",
-    "AUSBOSS_NODES_LmStudioChat",
     "AUSBOSS_NODES_LoadImagePad",
     "AUSBOSS_NODES_LoadVideo",
     "AUSBOSS_NODES_LoraLoader",
     "AUSBOSS_NODES_MathExpression",
     "AUSBOSS_NODES_MergeBatches",
     "AUSBOSS_NODES_RefineMask",
+    "AUSBOSS_NODES_Resolution",
+    "AUSBOSS_NODES_RunTimer",
     "AUSBOSS_NODES_SaveImage",
     "AUSBOSS_NODES_SaveVideo",
+    "AUSBOSS_NODES_Seed",
     "AUSBOSS_NODES_SelectEveryNth",
     "AUSBOSS_NODES_SelectFrame",
     "AUSBOSS_NODES_ShowText",
@@ -73,6 +75,8 @@ PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_StitchInpaint",
     "AUSBOSS_NODES_Text",
     "AUSBOSS_NODES_VideoCropRotatePad",
+    "AUSBOSS_NODES_VideoCropRotatePadClip",
+    "AUSBOSS_NODES_WorkflowNote",
 }
 
 # Ids from before the AUSBOSS_NODES_ convention. They stay registered forever

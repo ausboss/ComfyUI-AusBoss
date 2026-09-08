@@ -79,8 +79,6 @@ class ParseFillColorTests(unittest.TestCase):
             self.assertEqual(normalize_fill_color("definitely broken"), "#808080")
 
 
-if __name__ == "__main__":
-    unittest.main()
 
 
 class FillColorWarningNamesTheWidgetTests(unittest.TestCase):
@@ -163,3 +161,7 @@ class ColorMatchMethodTests(unittest.TestCase):
     def test_unknown_method_raises(self):
         with self.assertRaises(ValueError):
             match_colors(self.image, self.reference, 1.0, None, "vibes")
+
+
+if __name__ == "__main__":
+    unittest.main()

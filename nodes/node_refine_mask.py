@@ -107,6 +107,16 @@ class AusBossRefineMask:
                 ),
             },
             "optional": {
+                "preview": (
+                    "BOOLEAN",
+                    {
+                        "default": True,
+                        "tooltip": (
+                            "Show this node's result on its face. Off skips "
+                            "writing the preview file to ComfyUI's temp folder."
+                        ),
+                    },
+                ),
                 "guide_image": (
                     "IMAGE",
                     {
@@ -141,6 +151,7 @@ class AusBossRefineMask:
         white_point,
         edge_refine,
         guide_image=None,
+        preview=True,
     ):
         refined, inverted = refine_mask(
             mask,
@@ -157,6 +168,8 @@ class AusBossRefineMask:
         # whatever fed the mask input, and a segmentation node upstream has no
         # picture to show, so the panel stayed empty however the mask turned
         # out - exactly the case where seeing the result matters most.
+        if not preview:
+            return (refined, inverted)
         return preview_payload(
             mask_to_preview_batch(refined, "Mask Refine"),
             self._prefix,

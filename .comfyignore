@@ -1,0 +1,33 @@
+# Files comfy-cli leaves OUT of the Registry archive (gitignore syntax; the
+# packer zips git-tracked files minus these). Runtime code, node help,
+# example workflows, README, LICENSE and pyproject stay in. Everything below
+# is development-only: it added nothing for a user and gave the Registry's
+# security scan test fixtures and tooling to flag.
+#
+# scripts/release_preflight.py checks this file keeps covering these paths
+# and never swallows a runtime one (js/docs/ is node help and must ship).
+
+# tests and offline tooling
+tests/
+scripts/
+
+# CI and repository automation
+.github/
+
+# agent instructions and developer docs (docs/ at the root only)
+AGENTS.md
+CLAUDE.md
+.claude/
+.agents/
+/docs/
+
+# editor and working files
+.gitignore
+.comfyignore
+todo.md
+todo
+workflow_ideas.md
+*.swp
+.*.swp
+*.kate-swp
+.*.kate-swp
