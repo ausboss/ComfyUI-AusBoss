@@ -24,6 +24,21 @@ export function resetTransformValues(includeTimeline = false) {
     : { ...IDENTITY_TRANSFORM };
 }
 
+// What Reset returns to: the node's own declared defaults (the clip node
+// ships a black fill and feather 0 for video outpaint, the image nodes grey
+// and 24) laid over the shared identity for anything the definition lacks.
+export function declaredTransformDefaults(nodeData, includeTimeline = false) {
+  const base = resetTransformValues(includeTimeline);
+  const groups = nodeData?.input;
+  if (!groups || typeof groups !== "object") return base;
+  for (const name of Object.keys(base)) {
+    const spec = groups.required?.[name] ?? groups.optional?.[name];
+    const declared = Array.isArray(spec) ? spec[1]?.default : undefined;
+    if (declared !== undefined && declared !== null) base[name] = declared;
+  }
+  return base;
+}
+
 export function sourceChanged(previousKey, nextKey, ready = true) {
   return Boolean(ready && nextKey && previousKey !== nextKey);
 }
@@ -261,4 +276,113 @@ export function scaleToMegapixels(width, height, megapixels, steps = 1) {
     width: Math.max(step, Math.round((sourceWidth * scale) / step) * step),
     height: Math.max(step, Math.round((sourceHeight * scale) / step) * step),
   };
+}
+
+// --- Aspect lock ------------------------------------------------------------
+// A locked format chip keeps the output canvas (crop plus padding) at one
+// ratio through every handle gesture. The axis a gesture moved is the
+// driver; the other axis's padding follows, split over its two sides and
+// never below zero. When the follower cannot give enough, the driver's own
+// padding grows instead - a crop pulled inward gets fill back, so the canvas
+// keeps its shape and the model paints what was cut - and when nothing can
+// shrink, the smallest canvas that holds the crop at the ratio wins.
+
+function nonNegative(value) {
+  return Math.max(0, Math.round(Number(value) || 0));
+}
+
+function paddingOf(values) {
+  return {
+    left: nonNegative(values.pad_left),
+    top: nonNegative(values.pad_top),
+    right: nonNegative(values.pad_right),
+    bottom: nonNegative(values.pad_bottom),
+  };
+}
+
+// Spread `delta` over an axis's two sides, half each, clamped at zero; null
+// when the pair cannot absorb a shrink that large.
+function splitDelta(delta, first, second) {
+  if (first + second + delta < 0) return null;
+  const half = Math.floor(delta / 2);
+  let a = first + half;
+  let b = second + (delta - half);
+  if (a < 0) { b += a; a = 0; }
+  if (b < 0) { a += b; b = 0; }
+  return [a, b];
+}
+
+// A canvas already counts as on-ratio when either side is the rounded
+// counterpart of the other, so a solved state - or the ceil-padded canvas a
+// format chip produced - is a fixed point and never creeps by a pixel.
+function onRatio(width, height, ratio) {
+  return width === Math.round(height * ratio) || height === Math.round(width / ratio);
+}
+
+function solveAxis(axis, pads, crop, ratio) {
+  const width = crop.width + pads.left + pads.right;
+  const height = crop.height + pads.top + pads.bottom;
+  if (onRatio(width, height, ratio)) return { ...pads };
+  if (axis === "x") {
+    const pair = splitDelta(Math.round(height * ratio) - width, pads.left, pads.right);
+    return pair ? { ...pads, left: pair[0], right: pair[1] } : null;
+  }
+  const pair = splitDelta(Math.round(width / ratio) - height, pads.top, pads.bottom);
+  return pair ? { ...pads, top: pair[0], bottom: pair[1] } : null;
+}
+
+function fitAround(crop, ratio) {
+  const width = Math.max(crop.width, Math.ceil(crop.height * ratio));
+  const height = Math.max(crop.height, Math.ceil(crop.width / ratio));
+  const left = Math.floor((width - crop.width) / 2);
+  const top = Math.floor((height - crop.height) / 2);
+  return { left, top, right: width - crop.width - left, bottom: height - crop.height - top };
+}
+
+export function paddingAxis(name) {
+  return name === "pad_left" || name === "pad_right" ? "x" : "y";
+}
+
+// Padding values that hold `ratio` (width / height) around the resolved
+// `crop`, changing the follower of `driver` first. Null for no ratio.
+export function lockPadding(values, crop, ratio, driver = "x") {
+  if (!(ratio > 0) || !(crop?.width > 0) || !(crop?.height > 0)) return null;
+  const pads = paddingOf(values);
+  const follower = driver === "y" ? "x" : "y";
+  let solved = solveAxis(follower, pads, crop, ratio) ?? solveAxis(driver, pads, crop, ratio);
+  if (!solved) {
+    const base = driver === "x" ? { ...pads, top: 0, bottom: 0 } : { ...pads, left: 0, right: 0 };
+    solved = solveAxis(follower, base, crop, ratio) ?? solveAxis(driver, base, crop, ratio) ?? fitAround(crop, ratio);
+  }
+  return { pad_left: solved.left, pad_top: solved.top, pad_right: solved.right, pad_bottom: solved.bottom };
+}
+
+// The least a padding side can be dragged to under the lock: the other
+// axis must still fit its crop with no padding at all. Below this the
+// handle simply stops.
+export function lockedPadMinimum(values, crop, ratio, name) {
+  if (!(ratio > 0) || !(crop?.width > 0) || !(crop?.height > 0)) return 0;
+  const pads = paddingOf(values);
+  if (paddingAxis(name) === "y") {
+    const other = name === "pad_top" ? pads.bottom : pads.top;
+    return Math.max(0, Math.ceil(crop.width / ratio) - crop.height - other);
+  }
+  const other = name === "pad_left" ? pads.right : pads.left;
+  return Math.max(0, Math.ceil(crop.height * ratio) - crop.width - other);
+}
+
+// --- Source changes -----------------------------------------------------------
+// A new source keeps the canvas style (fill, feather, canvas multiple) and
+// whatever a lit format chip asked for: those describe the job, not the old
+// pixels. Only what was measured against the old source goes back to
+// identity: rotation, crop, padding - and the playhead when asked.
+export const SOURCE_GEOMETRY_KEYS = Object.freeze([
+  "rotation_degrees", "crop_aspect_ratio", "crop_x", "crop_y", "crop_width", "crop_height",
+  "pad_left", "pad_top", "pad_right", "pad_bottom",
+]);
+
+export function sourceResetValues(includeTimeline = false) {
+  const defaults = resetTransformValues(includeTimeline);
+  const keys = includeTimeline ? [...SOURCE_GEOMETRY_KEYS, "seek_mode", "frame_index", "frame_time"] : [...SOURCE_GEOMETRY_KEYS];
+  return Object.fromEntries(keys.map((name) => [name, defaults[name]]));
 }

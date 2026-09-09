@@ -2,6 +2,46 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Video timeline overhaul (Video Crop + Rotate + Pad → Clip / → Frame).**
+  The rail under the node's preview is now a real timeline: press or drag it
+  to scrub a **playhead** on the node face, no editor needed, and the frame
+  picker's face got the same rail for its output frame. IN and OUT are
+  frames on the source's grid (the boxes take frame numbers; the stored
+  seconds are derived and resolve back to exactly those frames), the
+  playhead rides on a dragged handle so the stage shows the first or last
+  frame the run keeps and stays there on release, and the bright part of
+  the selection is what reaches the output after the frame limit and Snap.
+  The editor's slider is replaced by the same rail, plus **Set IN / Set
+  OUT** buttons and **I** / **O** keys. The Snap select no longer clips at
+  the node's minimum width.
+- **Scrubbing no longer flickers.** The storyboard tile only stands in
+  while it is nearer the target than the frame already on the stage (with
+  one keyframe per clip it used to be frame 0 on every pointer move), and
+  storyboard tiles are now decoded at their target times instead of the
+  keyframe before them. Two backend fixes: asking the scrub session for the
+  frame it already decoded returned the frame after it, so every drag
+  release landed one frame late; and served preview frames are kept in a
+  small cache so revisiting a region costs no decode.
+- **Swapping the clip no longer breaks the canvas.** Choosing another video
+  used to reset the fill to grey, the feather to 24 and clear the padding -
+  silently, since none of those showed on the node - which is precisely what
+  the LTX outpaint LoRA cannot work with. A new source now keeps fill,
+  feather, the resize budget, Snap and Limit, and is padded to the lit
+  format chip; only rotation, crop and the trim window start over. Both
+  video nodes also gained a canvas row under the format chips (fill swatch,
+  feather, resize budget), so those values are visible and editable on the
+  node face. A fresh clip node now starts outpaint-ready - black fill,
+  feather 0 - and the editor's **Reset all** returns to the node's own
+  defaults instead of the grey, feathered canvas the image nodes keep.
+- **Aspect lock.** Tapping a lit format chip locks the format (padlock on
+  the chip); crop and padding drags then keep the canvas at that aspect
+  with the other axis's padding following, and a padding handle stops
+  where the other axis would have to go negative. A third tap clears the
+  bands and the lock. **Lock aspect** in the editor's Crop section is the
+  same switch.
+
 ## 2.0.0 - 2026-09-07
 
 - **Breaking: LM Studio Chat is removed.** The Registry identified an

@@ -34,7 +34,9 @@
       "widgets_values": [
         "minimax-h3/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
         "default"
-      ]
+      ],
+      "color": "#223",
+      "bgcolor": "#335"
     },
     {
       "id": 2,
@@ -67,7 +69,9 @@
         "minimax-h3/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
         "minimax",
         "default"
-      ]
+      ],
+      "color": "#432",
+      "bgcolor": "#653"
     },
     {
       "id": 3,
@@ -100,7 +104,9 @@
       "widgets_values": [
         "minimax_h3_video_vae_fp16.safetensors"
       ],
-      "title": "Load VAE  ·  video"
+      "title": "Load VAE  ·  video",
+      "color": "#322",
+      "bgcolor": "#533"
     },
     {
       "id": 4,
@@ -132,7 +138,9 @@
       "widgets_values": [
         "minimax_h3_audio_vae_fp32.safetensors"
       ],
-      "title": "Load VAE  ·  audio"
+      "title": "Load VAE  ·  audio",
+      "color": "#322",
+      "bgcolor": "#533"
     },
     {
       "id": 5,
@@ -932,7 +940,7 @@
       ],
       "size": [
         560,
-        1100
+        1290
       ],
       "flags": {},
       "order": 21,

@@ -73,7 +73,11 @@ def aspect_ratio_options(path: Path | None = None) -> list[str]:
     return options
 
 
-def transform_inputs() -> dict[str, tuple]:
+def transform_inputs(*, feather: int = 24, fill_color: str = "#808080") -> dict[str, tuple]:
+    """The shared rotate/crop/pad widgets. ``feather`` and ``fill_color`` are
+    the defaults a fresh node starts with: the image nodes keep the soft grey
+    canvas inpaint models like, the clip node asks for black and a hard edge.
+    """
     return {
         "rotation_degrees": (
             "FLOAT",
@@ -124,7 +128,7 @@ def transform_inputs() -> dict[str, tuple]:
         "feather": (
             "INT",
             {
-                "default": 24,
+                "default": int(feather),
                 "min": 0,
                 "max": 4096,
                 "step": 1,
@@ -144,7 +148,7 @@ def transform_inputs() -> dict[str, tuple]:
         "fill_color": (
             "STRING",
             {
-                "default": "#808080",
+                "default": str(fill_color),
                 "tooltip": (
                     "Color for rotation voids and padding; accepts #RGB/#RRGGBB hex, "
                     "R, G, B (0-255 or 0..1 floats), one grayscale number, or a CSS "

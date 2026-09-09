@@ -92,7 +92,7 @@ Link `filename` to retain an upstream name, or `caption_text` to write a matchin
 
 ![Animated comparison of a vertical pier clip and its wider LTX 2.3 outpainted result, showing the added lake and shoreline.](assets/readme/video-outpaint.gif)
 
-**Give a vertical clip a wider world.** This LTX 2.3 example extends the sides and stitches the source frames back into the result. The saved video retains the source audio; this preview is a silent loop. [Open the video outpaint workflow →](example_workflows/LTX%202.3%20Video%20Outpaint%20%28AusBoss%29.json)
+**Give a vertical clip a wider world.** This LTX 2.3 example extends the sides and stitches the source frames back into the result. The saved video retains the source audio; this preview is a silent loop. The IC-LoRA keys on the canvas, not the format: a pure black fill with feather 0 painted every aspect ratio tested, from 1:1 to 2.5:1 and on any side, while grey, white or feathered bands come back flat. [Open the video outpaint workflow →](example_workflows/LTX%202.3%20Video%20Outpaint%20%28AusBoss%29.json)
 
 ### Load Video 🆎
 
@@ -102,11 +102,11 @@ Returns frames, lazy audio, frame count, fps, width, height, duration, and a cor
 
 ### Video Crop + Rotate + Pad → Frame 🆎
 
-Find **one frame** in an uploaded or local video, then apply the image transform controls. The editor provides exact frame stepping, playback, and a timeline. Returns one transformed `image` and its generated-area `mask`. Use the Clip variant for an entire sequence.
+Find **one frame** in an uploaded or local video, then apply the image transform controls. A playhead rail on the node scrubs to the frame; the editor adds exact frame stepping and playback. Returns one transformed `image` and its generated-area `mask`. Use the Clip variant for an entire sequence.
 
 ### Video Crop + Rotate + Pad → Clip 🆎
 
-Apply one transform to every frame of a trimmed clip. The node combines source selection, IN/OUT trimming, frame thinning, a frame limit, crop/rotate/pad handles, and output resizing. **Snap** trims the tail to an 8n+1 or 4n+1 frame count when the next video model needs it.
+Apply one transform to every frame of a trimmed clip. The node combines source selection, a timeline with a playhead and frame-accurate IN/OUT handles, frame thinning, a frame limit, crop/rotate/pad handles, and output resizing. Dragging a trim handle shows the exact first or last frame the run keeps, and the selection's bright part is what reaches the output. Fill, feather and the resize budget sit on the node face, and a new clip keeps them, so the black hard-edged canvas a video outpaint model needs survives a source swap; a fresh Clip node starts with that canvas and the editor's Reset returns to it. **Snap** trims the tail to an 8n+1 or 4n+1 frame count when the next video model needs it. The format chips under the preview pad to a format in one tap and lock it on a second, so later crop and padding drags keep the aspect.
 
 Returns frames, mask, audio, frame count, fps, size, duration, and a `stitcher`. **Inpaint & Stitch** in the editor controls the protected source region and blend preview. Wire that stitcher directly to **Stitch Inpaint** after a video outpaint; no intermediate Crop For Inpaint is needed. Processing is chunked to limit temporary memory.
 
@@ -284,7 +284,7 @@ The fourteen other examples use core nodes plus this pack. Model-free examples a
 - Cyan squares crop, orange diamonds pad, and the green handle rotates. Shift snaps rotation to 15°.
 - In the full-screen editor, use the mouse wheel to zoom and middle mouse or Alt-drag to pan. On the compact node stage, wheel and middle mouse continue to control the graph.
 - **Alt+E** opens the selected transform editor; change it in Settings → Keybindings.
-- Video editors offer frame stepping, playback, and exact timeline seeking. The Clip node's IN/OUT controls select the decoded window.
+- Video editors offer frame stepping, playback, and exact timeline seeking, on the node face as well as in the editor. The Clip node's IN/OUT handles are frames on the source's own grid, so the frame shown for IN is the first frame decoded and the frame shown for OUT is the last.
 - Optional aspect presets live in `ausboss_presets.json` beside the pack. Copy [`ausboss_presets_example.json`](ausboss_presets_example.json) to start; the user file survives updates.
 
 **Settings → 🆎 AusBoss** contains the pack color scheme, including AusBoss, Graphite, Slate, Teal, Moss, Plum, Rust, Navy, Custom, and Theme default. Hand-colored nodes keep their overrides. Right-click a node for its **AusBoss color** menu.

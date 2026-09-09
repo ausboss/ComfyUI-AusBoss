@@ -1,122 +1,15 @@
 {
   "id": "ausboss-showcase-ltx-video-outpaint",
   "revision": 0,
-  "last_node_id": 22,
-  "last_link_id": 33,
+  "last_node_id": 25,
+  "last_link_id": 42,
   "nodes": [
-    {
-      "id": 1,
-      "type": "AUSBOSS_NODES_WorkflowNote",
-      "pos": [
-        -1740,
-        100
-      ],
-      "size": [
-        560,
-        1120
-      ],
-      "flags": {},
-      "order": 0,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "note",
-          "name": "note",
-          "type": "STRING",
-          "widget": {
-            "name": "note"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [],
-      "properties": {
-        "cnr_id": "ausboss-nodes",
-        "ver": "2.0.0",
-        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote"
-      },
-      "widgets_values": [
-        "{\"v\": 1, \"title\": \"LTX 2.3 Video Outpaint\", \"subtitle\": \"Turn a vertical clip into a 16:9 one. An in-context LoRA fills the black bars with scene that moves with the footage, and Stitch puts your original pixels back.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose each installed model in its loader; saved selections may include local subfolders. Download links below name the standard destination folders.\\n\\n## How it works\\n1. **Video Crop + Rotate + Pad → Clip** — pick or upload a clip on the node's source card (the sample clip is linked at the bottom of this card; drop it in ComfyUI/input). Open the editor, choose **16:9** and click **Pad to aspect**: the whole clip stays and centered black bands bring the canvas to 16:9. The crop, padding and rotate handles also work right on the node's preview — cut off a border or a logo, straighten a tilt. Keep `fill_color` #000000 and `feather` 0: pure black with a hard edge is the LoRA's *paint here* signal. Grey bands in the result mean feather was on.\\n2. **Trim** — drag the IN/OUT handles on the node's strip or type exact times; **Snap** 8n+1 drops trailing frames to a count LTX keeps (49, 97, 121, 145), so any IN/OUT window works; **Limit** 97 caps the sample at about four seconds. **Resize** stays on at 0.86 MP, steps 32, which lands the padded sample on 1280×704.\\n3. **Prompt** — describe the *whole finished shot*, not just the new bands. The LTX text encoder is the Gemma model plus the small projection file in the second slot.\\n4. **Sample** — the guide frames ride along in-context (`LTXV Add Guide` + `Get IC-LoRA Parameters`), 8 steps, CFG 1 on the distilled LoRA. About a minute for 97 frames on a 32 GB card.\\n5. **Stitch + save** — the clip node's `stitcher` output feeds Stitch Inpaint, which pastes the source frames back bit-for-bit and blends the new bands in across the **Blend** set in the editor's Inpaint & Stitch section (32 px here); its `color_match` pulls the bands onto the footage's tone. Save Video muxes the original audio.\\n\\n## Tips\\n- Wider bands cost nothing extra: the model paints whatever is black. Pad one axis per run; for a landscape clip choose **9:16** and Pad to aspect instead.\\n- A seam still showing? In the editor, turn on **Show blend**, raise **Blend**, or give **Grow paste** a few pixels so the generation repaints the source edge too.\\n- Dark footage (night, underwater) can read as *bar* to the model. The LoRA author's fix is a gamma round trip: brighten before the canvas, invert after decode.\\n- The seed is pinned so your first run matches this one. Switch it to randomize for variations; the source frames never change.\\n- Runs out of VRAM? Drop to 960×544, or swap the transformer for the int8_convrot build listed on its download.\\n- LTX 2.3 is released under the LTX-2 Community License; the outpaint IC-LoRA is by oumoumad on Hugging Face.\", \"models\": [{\"name\": \"ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"21.9 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/diffusion_models/ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors\", \"note\": \"the dev transformer; int8_convrot in the same folder fits smaller cards\"}, {\"name\": \"gemma_3_12B_it_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"12.3 GB\", \"url\": \"https://huggingface.co/Comfy-Org/ltx-2/resolve/main/split_files/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors\", \"note\": \"fp4_mixed (8.8 GB) also works\"}, {\"name\": \"ltx-2.3_text_projection_bf16.safetensors\", \"dir\": \"text_encoders\", \"size\": \"2.2 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/text_encoders/ltx-2.3_text_projection_bf16.safetensors\", \"note\": \"second slot of the text encoder loader\"}, {\"name\": \"LTX23_video_vae_bf16.safetensors\", \"dir\": \"vae\", \"size\": \"1.4 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/vae/LTX23_video_vae_bf16.safetensors\", \"note\": \"\"}, {\"name\": \"ltx-2.3-22b-distilled-1.1_lora-dynamic_fro09_avg_rank_111_bf16.safetensors\", \"dir\": \"loras\", \"size\": \"2.6 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/loras/ltx-2.3-22b-distilled-1.1_lora-dynamic_fro09_avg_rank_111_bf16.safetensors\", \"note\": \"distilled LoRA: 8 steps, CFG 1\"}, {\"name\": \"ltx-2.3-22b-ic-lora-outpaint.safetensors\", \"dir\": \"loras\", \"size\": \"1.2 GB\", \"url\": \"https://huggingface.co/oumoumad/LTX-2.3-22b-IC-LoRA-Outpaint/resolve/main/ltx-2.3-22b-ic-lora-outpaint.safetensors\", \"note\": \"outpaint IC-LoRA by oumoumad, fills pure-black bars\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_VideoCropRotatePadClip\"}], \"links\": [{\"label\": \"Sample clip · ausboss_pier_9x16.mp4\", \"url\": \"https://raw.githubusercontent.com/ausboss/ComfyUI-AusBoss/main/example_workflows/inputs/ausboss_pier_9x16.mp4\"}, {\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
-      ],
-      "widgets_values_named": {
-        "note": "{\"v\": 1, \"title\": \"LTX 2.3 Video Outpaint\", \"subtitle\": \"Turn a vertical clip into a 16:9 one. An in-context LoRA fills the black bars with scene that moves with the footage, and Stitch puts your original pixels back.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## How it works\\n1. **Video Crop + Rotate + Pad → Clip** — pick or upload a clip on the node's source card (the sample clip is linked at the bottom of this card; drop it in ComfyUI/input). Open the editor, choose **16:9** and click **Pad to aspect**: the whole clip stays and centered black bands bring the canvas to 16:9. The crop, padding and rotate handles also work right on the node's preview — cut off a border or a logo, straighten a tilt. Keep `fill_color` #000000 and `feather` 0: pure black is the LoRA's *paint here* signal.\\n2. **Trim** — drag the IN/OUT handles on the node's strip or type exact times; **Limit** 97 keeps the sample at 8n+1 frames (49, 97, 121, 145). **Resize** stays on at 0.86 MP, steps 32, which lands the padded sample on 1280×704.\\n3. **Prompt** — describe the *whole finished shot*, not just the new bands. The LTX text encoder is the Gemma model plus the small projection file in the second slot.\\n4. **Sample** — the guide frames ride along in-context (`LTXV Add Guide` + `Get IC-LoRA Parameters`), 8 steps, CFG 1 on the distilled LoRA. About a minute for 97 frames on a 32 GB card.\\n5. **Stitch + save** — the clip node's `stitcher` output feeds Stitch Inpaint, which pastes the source frames back bit-for-bit and blends the new bands in across the **Blend** set in the editor's Inpaint & Stitch section (32 px here); its `color_match` pulls the bands onto the footage's tone. Save Video muxes the original audio.\\n\\n## Tips\\n- Wider bands cost nothing extra: the model paints whatever is black. Pad one axis per run; for a landscape clip choose **9:16** and Pad to aspect instead.\\n- A seam still showing? In the editor, turn on **Show blend**, raise **Blend**, or give **Grow paste** a few pixels so the generation repaints the source edge too.\\n- Dark footage (night, underwater) can read as *bar* to the model. The LoRA author's fix is a gamma round trip: brighten before the canvas, invert after decode.\\n- The seed is pinned so your first run matches this one. Switch it to randomize for variations; the source frames never change.\\n- Runs out of VRAM? Drop to 960×544, or swap the transformer for the int8_convrot build listed on its download.\\n- LTX 2.3 is released under the LTX-2 Community License; the outpaint IC-LoRA is by oumoumad on Hugging Face.\", \"models\": [{\"name\": \"ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"21.9 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/diffusion_models/ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors\", \"note\": \"the dev transformer; int8_convrot in the same folder fits smaller cards\"}, {\"name\": \"gemma_3_12B_it_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"12.3 GB\", \"url\": \"https://huggingface.co/Comfy-Org/ltx-2/resolve/main/split_files/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors\", \"note\": \"fp4_mixed (8.8 GB) also works\"}, {\"name\": \"ltx-2.3_text_projection_bf16.safetensors\", \"dir\": \"text_encoders\", \"size\": \"2.2 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/text_encoders/ltx-2.3_text_projection_bf16.safetensors\", \"note\": \"second slot of the text encoder loader\"}, {\"name\": \"LTX23_video_vae_bf16.safetensors\", \"dir\": \"vae\", \"size\": \"1.4 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/vae/LTX23_video_vae_bf16.safetensors\", \"note\": \"\"}, {\"name\": \"ltx-2.3-22b-distilled-1.1_lora-dynamic_fro09_avg_rank_111_bf16.safetensors\", \"dir\": \"loras\", \"size\": \"2.6 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/loras/ltx-2.3-22b-distilled-1.1_lora-dynamic_fro09_avg_rank_111_bf16.safetensors\", \"note\": \"distilled LoRA: 8 steps, CFG 1\"}, {\"name\": \"ltx-2.3-22b-ic-lora-outpaint.safetensors\", \"dir\": \"loras\", \"size\": \"1.2 GB\", \"url\": \"https://huggingface.co/oumoumad/LTX-2.3-22b-IC-LoRA-Outpaint/resolve/main/ltx-2.3-22b-ic-lora-outpaint.safetensors\", \"note\": \"outpaint IC-LoRA by oumoumad, fills pure-black bars\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_VideoCropRotatePadClip\"}], \"links\": [{\"label\": \"Sample clip · ausboss_pier_9x16.mp4\", \"url\": \"https://raw.githubusercontent.com/ausboss/ComfyUI-AusBoss/main/example_workflows/inputs/ausboss_pier_9x16.mp4\"}, {\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}",
-        "ausboss_workflow_note_panel": ""
-      },
-      "color": "#14424d",
-      "bgcolor": "#161f21"
-    },
-    {
-      "id": 2,
-      "type": "UNETLoader",
-      "pos": [
-        -1120,
-        100
-      ],
-      "size": [
-        430,
-        82
-      ],
-      "flags": {},
-      "order": 1,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "unet_name",
-          "name": "unet_name",
-          "type": "COMBO",
-          "widget": {
-            "name": "unet_name"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "weight_dtype",
-          "name": "weight_dtype",
-          "type": "COMBO",
-          "widget": {
-            "name": "weight_dtype"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "MODEL",
-          "name": "MODEL",
-          "type": "MODEL",
-          "slot_index": 0,
-          "links": [
-            1
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.34.0",
-        "Node name for S&R": "UNETLoader",
-        "models": [
-          {
-            "name": "ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors",
-            "url": "https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/diffusion_models/ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors",
-            "directory": "diffusion_models"
-          }
-        ]
-      },
-      "widgets_values": [
-        "LTXV 2.3/ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors",
-        "default"
-      ],
-      "widgets_values_named": {
-        "unet_name": "ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors",
-        "weight_dtype": "default"
-      }
-    },
     {
       "id": 3,
       "type": "LoraLoaderModelOnly",
       "pos": [
-        -1120,
-        232
+        -1053.4074720384444,
+        236.03052358190646
       ],
       "size": [
         430,
@@ -180,16 +73,18 @@
         0.5
       ],
       "widgets_values_named": {
-        "lora_name": "ltx-2.3-22b-distilled-1.1_lora-dynamic_fro09_avg_rank_111_bf16.safetensors",
+        "lora_name": "ltx2.3/ltx-2.3-22b-distilled-1.1_lora-dynamic_fro09_avg_rank_111_bf16.safetensors",
         "strength_model": 0.5
-      }
+      },
+      "color": "#223",
+      "bgcolor": "#335"
     },
     {
       "id": 4,
       "type": "LoraLoaderModelOnly",
       "pos": [
-        -1120,
-        364
+        -1053.4074720384444,
+        368.03052358190644
       ],
       "size": [
         430,
@@ -254,16 +149,18 @@
         1
       ],
       "widgets_values_named": {
-        "lora_name": "ltx-2.3-22b-ic-lora-outpaint.safetensors",
+        "lora_name": "ltx2.3/ltx-2.3-22b-ic-lora-outpaint.safetensors",
         "strength_model": 1
-      }
+      },
+      "color": "#223",
+      "bgcolor": "#335"
     },
     {
       "id": 5,
       "type": "GetICLoRAParameters",
       "pos": [
-        -1120,
-        496
+        -1053.4074720384444,
+        500.03052358190644
       ],
       "size": [
         300,
@@ -295,173 +192,421 @@
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
         "Node name for S&R": "GetICLoRAParameters"
-      }
-    },
-    {
-      "id": 6,
-      "type": "DualCLIPLoader",
-      "pos": [
-        -1120,
-        592
-      ],
-      "size": [
-        430,
-        130
-      ],
-      "flags": {},
-      "order": 2,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "clip_name1",
-          "name": "clip_name1",
-          "type": "COMBO",
-          "widget": {
-            "name": "clip_name1"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "clip_name2",
-          "name": "clip_name2",
-          "type": "COMBO",
-          "widget": {
-            "name": "clip_name2"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "type",
-          "name": "type",
-          "type": "COMBO",
-          "widget": {
-            "name": "type"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "device",
-          "name": "device",
-          "shape": 7,
-          "type": "COMBO",
-          "widget": {
-            "name": "device"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "CLIP",
-          "name": "CLIP",
-          "type": "CLIP",
-          "slot_index": 0,
-          "links": [
-            4,
-            5
-          ]
-        }
-      ],
-      "title": "DualCLIPLoader · Gemma + LTX projection",
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.34.0",
-        "Node name for S&R": "DualCLIPLoader",
-        "models": [
-          {
-            "name": "gemma_3_12B_it_fp8_scaled.safetensors",
-            "url": "https://huggingface.co/Comfy-Org/ltx-2/resolve/main/split_files/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors",
-            "directory": "text_encoders"
-          },
-          {
-            "name": "ltx-2.3_text_projection_bf16.safetensors",
-            "url": "https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/text_encoders/ltx-2.3_text_projection_bf16.safetensors",
-            "directory": "text_encoders"
-          }
-        ]
       },
-      "widgets_values": [
-        "gemma_3_12B_it_fp8_scaled.safetensors",
-        "LTX/ltx-2.3_text_projection_bf16.safetensors",
-        "ltxv",
-        "default"
-      ],
-      "widgets_values_named": {
-        "clip_name1": "gemma_3_12B_it_fp8_scaled.safetensors",
-        "clip_name2": "ltx-2.3_text_projection_bf16.safetensors",
-        "type": "ltxv",
-        "device": "default"
-      }
+      "color": "#223",
+      "bgcolor": "#335"
     },
     {
-      "id": 7,
-      "type": "VAELoader",
+      "id": 9,
+      "type": "LTXVPreprocess",
       "pos": [
-        -1120,
-        772
+        -583.4074720384444,
+        934.0305235819064
       ],
       "size": [
-        430,
+        300,
         58
       ],
       "flags": {},
-      "order": 3,
+      "order": 9,
       "mode": 0,
       "inputs": [
         {
-          "localized_name": "vae_name",
-          "name": "vae_name",
-          "type": "COMBO",
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "link": 6
+        },
+        {
+          "localized_name": "img_compression",
+          "name": "img_compression",
+          "type": "INT",
           "widget": {
-            "name": "vae_name"
+            "name": "img_compression"
           },
           "link": null
         }
       ],
       "outputs": [
         {
-          "localized_name": "VAE",
-          "name": "VAE",
-          "type": "VAE",
+          "localized_name": "output_image",
+          "name": "output_image",
+          "type": "IMAGE",
           "slot_index": 0,
           "links": [
-            15,
-            28
+            17
           ]
         }
       ],
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
-        "Node name for S&R": "VAELoader",
-        "models": [
-          {
-            "name": "LTX23_video_vae_bf16.safetensors",
-            "url": "https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/vae/LTX23_video_vae_bf16.safetensors",
-            "directory": "vae"
-          }
-        ]
+        "Node name for S&R": "LTXVPreprocess"
       },
       "widgets_values": [
-        "LTX/LTX23_video_vae_bf16.safetensors"
+        18
       ],
       "widgets_values_named": {
-        "vae_name": "LTX23_video_vae_bf16.safetensors"
+        "img_compression": 18
+      }
+    },
+    {
+      "id": 15,
+      "type": "LTXVAddGuide",
+      "pos": [
+        448.440568885523,
+        284.0305235819062
+      ],
+      "size": [
+        300,
+        202
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "positive",
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 13
+        },
+        {
+          "localized_name": "negative",
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 14
+        },
+        {
+          "localized_name": "vae",
+          "name": "vae",
+          "type": "VAE",
+          "link": 15
+        },
+        {
+          "localized_name": "latent",
+          "name": "latent",
+          "type": "LATENT",
+          "link": 16
+        },
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "link": 17
+        },
+        {
+          "localized_name": "attention_mask",
+          "name": "attention_mask",
+          "shape": 7,
+          "type": "MASK",
+          "link": null
+        },
+        {
+          "localized_name": "iclora_parameters",
+          "name": "iclora_parameters",
+          "shape": 7,
+          "type": "IC_LORA_PARAMETERS",
+          "link": 18
+        },
+        {
+          "localized_name": "frame_idx",
+          "name": "frame_idx",
+          "type": "INT",
+          "widget": {
+            "name": "frame_idx"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "strength",
+          "name": "strength",
+          "type": "FLOAT",
+          "widget": {
+            "name": "strength"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "positive",
+          "name": "positive",
+          "type": "CONDITIONING",
+          "slot_index": 0,
+          "links": [
+            20,
+            24
+          ]
+        },
+        {
+          "localized_name": "negative",
+          "name": "negative",
+          "type": "CONDITIONING",
+          "slot_index": 1,
+          "links": [
+            21,
+            25
+          ]
+        },
+        {
+          "localized_name": "latent",
+          "name": "latent",
+          "type": "LATENT",
+          "slot_index": 2,
+          "links": [
+            22
+          ]
+        }
+      ],
+      "title": "LTXV Add Guide  ·  in-context frames",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.34.0",
+        "Node name for S&R": "LTXVAddGuide"
+      },
+      "widgets_values": [
+        0,
+        1
+      ],
+      "widgets_values_named": {
+        "frame_idx": 0,
+        "strength": 1
+      }
+    },
+    {
+      "id": 17,
+      "type": "KSampler",
+      "pos": [
+        448.440568885523,
+        802.0305235819062
+      ],
+      "size": [
+        320,
+        262
+      ],
+      "flags": {},
+      "order": 18,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "model",
+          "name": "model",
+          "type": "MODEL",
+          "link": 19
+        },
+        {
+          "localized_name": "positive",
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 20
+        },
+        {
+          "localized_name": "negative",
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 21
+        },
+        {
+          "localized_name": "latent_image",
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 22
+        },
+        {
+          "localized_name": "seed",
+          "name": "seed",
+          "type": "INT",
+          "widget": {
+            "name": "seed"
+          },
+          "link": 23
+        },
+        {
+          "localized_name": "steps",
+          "name": "steps",
+          "type": "INT",
+          "widget": {
+            "name": "steps"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "cfg",
+          "name": "cfg",
+          "type": "FLOAT",
+          "widget": {
+            "name": "cfg"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "sampler_name",
+          "name": "sampler_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "sampler_name"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "scheduler",
+          "name": "scheduler",
+          "type": "COMBO",
+          "widget": {
+            "name": "scheduler"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "denoise",
+          "name": "denoise",
+          "type": "FLOAT",
+          "widget": {
+            "name": "denoise"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "LATENT",
+          "name": "LATENT",
+          "type": "LATENT",
+          "slot_index": 0,
+          "links": [
+            26
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.34.0",
+        "Node name for S&R": "KSampler"
+      },
+      "widgets_values": [
+        20260903,
+        "fixed",
+        8,
+        1,
+        "euler_ancestral",
+        "linear_quadratic",
+        1
+      ],
+      "widgets_values_named": {
+        "seed": 20260903,
+        "control_after_generate": "fixed",
+        "steps": 8,
+        "cfg": 1,
+        "sampler_name": "euler_ancestral",
+        "scheduler": "linear_quadratic",
+        "denoise": 1
+      }
+    },
+    {
+      "id": 18,
+      "type": "AUSBOSS_NODES_RunTimer",
+      "pos": [
+        448.440568885523,
+        1114.030523581906
+      ],
+      "size": [
+        176,
+        56
+      ],
+      "flags": {
+        "no_title": true
+      },
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0",
+        "Node name for S&R": "AUSBOSS_NODES_RunTimer"
+      },
+      "color": "#07090a",
+      "bgcolor": "#07090a"
+    },
+    {
+      "id": 19,
+      "type": "LTXVCropGuides",
+      "pos": [
+        811.1346742329574,
+        104.03052358190646
+      ],
+      "size": [
+        300,
+        78
+      ],
+      "flags": {},
+      "order": 19,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "positive",
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 24
+        },
+        {
+          "localized_name": "negative",
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 25
+        },
+        {
+          "localized_name": "latent",
+          "name": "latent",
+          "type": "LATENT",
+          "link": 26
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "positive",
+          "name": "positive",
+          "type": "CONDITIONING",
+          "slot_index": 0,
+          "links": []
+        },
+        {
+          "localized_name": "negative",
+          "name": "negative",
+          "type": "CONDITIONING",
+          "slot_index": 1,
+          "links": []
+        },
+        {
+          "localized_name": "latent",
+          "name": "latent",
+          "type": "LATENT",
+          "slot_index": 2,
+          "links": [
+            27
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.34.0",
+        "Node name for S&R": "LTXVCropGuides"
       }
     },
     {
       "id": 8,
       "type": "AUSBOSS_NODES_VideoCropRotatePadClip",
       "pos": [
-        -630,
-        100
+        -583.4074720384444,
+        104.03052358190646
       ],
       "size": [
         450,
-        720
+        780
       ],
       "flags": {},
-      "order": 4,
+      "order": 6,
       "mode": 0,
       "inputs": [
         {
@@ -710,6 +855,16 @@
           "link": null
         },
         {
+          "localized_name": "frame_snap",
+          "name": "frame_snap",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "frame_snap"
+          },
+          "link": null
+        },
+        {
           "localized_name": "stitch_blend",
           "name": "stitch_blend",
           "shape": 7,
@@ -737,7 +892,8 @@
           "type": "IMAGE",
           "slot_index": 0,
           "links": [
-            6
+            6,
+            41
           ]
         },
         {
@@ -810,7 +966,7 @@
           ]
         }
       ],
-      "title": "Video Crop + Rotate + Pad → Clip 🆎  ·  16:9 · Pad to aspect",
+      "title": "Video Crop + Rotate + Pad → Clip 🆎 · fill #000000, feather 0",
       "properties": {
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
@@ -845,9 +1001,9 @@
         "resolution_steps": 32,
         "every_nth": 1,
         "max_frames": 97,
+        "frame_snap": "8n+1",
         "stitch_blend": 32,
-        "stitch_grow": 0,
-        "frame_snap": "8n+1"
+        "stitch_grow": 0
       },
       "widgets_values_named": {
         "video": "ausboss_pier_9x16.mp4",
@@ -877,253 +1033,74 @@
         "resolution_steps": 32,
         "every_nth": 1,
         "max_frames": 97,
+        "frame_snap": "8n+1",
         "stitch_blend": 32,
         "stitch_grow": 0,
-        "ausboss_transform_preview": "",
-        "frame_snap": "8n+1"
+        "ausboss_transform_preview": ""
       },
       "color": "#14424d",
       "bgcolor": "#161f21"
     },
     {
-      "id": 9,
-      "type": "LTXVPreprocess",
+      "id": 16,
+      "type": "AUSBOSS_NODES_Seed",
       "pos": [
-        -630,
-        890
+        448.440568885523,
+        536.0305235819062
       ],
       "size": [
-        300,
-        58
+        320,
+        216
       ],
       "flags": {},
-      "order": 10,
+      "order": 2,
       "mode": 0,
       "inputs": [
         {
-          "localized_name": "image",
-          "name": "image",
-          "type": "IMAGE",
-          "link": 6
-        },
-        {
-          "localized_name": "img_compression",
-          "name": "img_compression",
+          "localized_name": "seed",
+          "name": "seed",
           "type": "INT",
           "widget": {
-            "name": "img_compression"
+            "name": "seed"
           },
           "link": null
         }
       ],
       "outputs": [
         {
-          "localized_name": "output_image",
-          "name": "output_image",
-          "type": "IMAGE",
+          "localized_name": "seed",
+          "name": "seed",
+          "type": "INT",
           "slot_index": 0,
           "links": [
-            17
+            23
           ]
         }
       ],
       "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.34.0",
-        "Node name for S&R": "LTXVPreprocess"
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0",
+        "Node name for S&R": "AUSBOSS_NODES_Seed"
       },
       "widgets_values": [
-        18
+        20260903,
+        "fixed",
+        ""
       ],
       "widgets_values_named": {
-        "img_compression": 18
-      }
-    },
-    {
-      "id": 11,
-      "type": "CLIPTextEncode",
-      "pos": [
-        -140,
-        100
-      ],
-      "size": [
-        460,
-        200
-      ],
-      "flags": {},
-      "order": 8,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "clip",
-          "name": "clip",
-          "type": "CLIP",
-          "link": 4
-        },
-        {
-          "localized_name": "text",
-          "name": "text",
-          "type": "STRING",
-          "widget": {
-            "name": "text"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "CONDITIONING",
-          "name": "CONDITIONING",
-          "type": "CONDITIONING",
-          "slot_index": 0,
-          "links": [
-            7
-          ]
-        }
-      ],
-      "title": "Positive  ·  the whole finished shot",
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.34.0",
-        "Node name for S&R": "CLIPTextEncode"
+        "seed": 20260903,
+        "control_after_generate": "fixed",
+        "ausboss_seed_panel": ""
       },
-      "widgets_values": [
-        "A wooden pier stretches into a calm alpine lake at sunrise, mist drifting over still water, forested mountains on both shores under a soft pastel sky, a small rowboat tied to the posts, the camera pans slowly across the scene, photorealistic, cinematic wide shot, natural light, high detail"
-      ],
-      "widgets_values_named": {
-        "text": "A wooden pier stretches into a calm alpine lake at sunrise, mist drifting over still water, forested mountains on both shores under a soft pastel sky, a small rowboat tied to the posts, the camera pans slowly across the scene, photorealistic, cinematic wide shot, natural light, high detail"
-      }
-    },
-    {
-      "id": 12,
-      "type": "CLIPTextEncode",
-      "pos": [
-        -140,
-        350
-      ],
-      "size": [
-        460,
-        130
-      ],
-      "flags": {},
-      "order": 9,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "clip",
-          "name": "clip",
-          "type": "CLIP",
-          "link": 5
-        },
-        {
-          "localized_name": "text",
-          "name": "text",
-          "type": "STRING",
-          "widget": {
-            "name": "text"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "CONDITIONING",
-          "name": "CONDITIONING",
-          "type": "CONDITIONING",
-          "slot_index": 0,
-          "links": [
-            8
-          ]
-        }
-      ],
-      "title": "Negative",
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.34.0",
-        "Node name for S&R": "CLIPTextEncode"
-      },
-      "widgets_values": [
-        "blurry, out of focus, low quality, distorted, black bars, letterbox, border, frame, text, watermark, flicker, jitter, static, still image"
-      ],
-      "widgets_values_named": {
-        "text": "blurry, out of focus, low quality, distorted, black bars, letterbox, border, frame, text, watermark, flicker, jitter, static, still image"
-      }
-    },
-    {
-      "id": 13,
-      "type": "LTXVConditioning",
-      "pos": [
-        -140,
-        530
-      ],
-      "size": [
-        300,
-        78
-      ],
-      "flags": {},
-      "order": 13,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "positive",
-          "name": "positive",
-          "type": "CONDITIONING",
-          "link": 7
-        },
-        {
-          "localized_name": "negative",
-          "name": "negative",
-          "type": "CONDITIONING",
-          "link": 8
-        },
-        {
-          "localized_name": "frame_rate",
-          "name": "frame_rate",
-          "type": "FLOAT",
-          "widget": {
-            "name": "frame_rate"
-          },
-          "link": 9
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "positive",
-          "name": "positive",
-          "type": "CONDITIONING",
-          "slot_index": 0,
-          "links": [
-            13
-          ]
-        },
-        {
-          "localized_name": "negative",
-          "name": "negative",
-          "type": "CONDITIONING",
-          "slot_index": 1,
-          "links": [
-            14
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.34.0",
-        "Node name for S&R": "LTXVConditioning"
-      },
-      "widgets_values": [
-        24
-      ],
-      "widgets_values_named": {
-        "frame_rate": 24
-      }
+      "color": "#14424d",
+      "bgcolor": "#161f21"
     },
     {
       "id": 14,
       "type": "EmptyLTXVLatentVideo",
       "pos": [
-        -140,
-        660
+        448.440568885523,
+        104.03052358190646
       ],
       "size": [
         300,
@@ -1200,370 +1177,129 @@
       }
     },
     {
-      "id": 15,
-      "type": "LTXVAddGuide",
+      "id": 1,
+      "type": "AUSBOSS_NODES_WorkflowNote",
       "pos": [
-        -140,
-        840
+        -1659.6251211472054,
+        74.03052358190646
       ],
       "size": [
-        300,
-        202
-      ],
-      "flags": {},
-      "order": 15,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "positive",
-          "name": "positive",
-          "type": "CONDITIONING",
-          "link": 13
-        },
-        {
-          "localized_name": "negative",
-          "name": "negative",
-          "type": "CONDITIONING",
-          "link": 14
-        },
-        {
-          "localized_name": "vae",
-          "name": "vae",
-          "type": "VAE",
-          "link": 15
-        },
-        {
-          "localized_name": "latent",
-          "name": "latent",
-          "type": "LATENT",
-          "link": 16
-        },
-        {
-          "localized_name": "image",
-          "name": "image",
-          "type": "IMAGE",
-          "link": 17
-        },
-        {
-          "localized_name": "attention_mask",
-          "name": "attention_mask",
-          "shape": 7,
-          "type": "MASK",
-          "link": null
-        },
-        {
-          "localized_name": "iclora_parameters",
-          "name": "iclora_parameters",
-          "shape": 7,
-          "type": "IC_LORA_PARAMETERS",
-          "link": 18
-        },
-        {
-          "localized_name": "frame_idx",
-          "name": "frame_idx",
-          "type": "INT",
-          "widget": {
-            "name": "frame_idx"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "strength",
-          "name": "strength",
-          "type": "FLOAT",
-          "widget": {
-            "name": "strength"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "positive",
-          "name": "positive",
-          "type": "CONDITIONING",
-          "slot_index": 0,
-          "links": [
-            20,
-            24
-          ]
-        },
-        {
-          "localized_name": "negative",
-          "name": "negative",
-          "type": "CONDITIONING",
-          "slot_index": 1,
-          "links": [
-            21,
-            25
-          ]
-        },
-        {
-          "localized_name": "latent",
-          "name": "latent",
-          "type": "LATENT",
-          "slot_index": 2,
-          "links": [
-            22
-          ]
-        }
-      ],
-      "title": "LTXV Add Guide  ·  in-context frames",
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.34.0",
-        "Node name for S&R": "LTXVAddGuide"
-      },
-      "widgets_values": [
-        0,
-        1
-      ],
-      "widgets_values_named": {
-        "frame_idx": 0,
-        "strength": 1
-      }
-    },
-    {
-      "id": 16,
-      "type": "AUSBOSS_NODES_Seed",
-      "pos": [
-        -140,
-        1092
-      ],
-      "size": [
-        460,
-        216
+        586.217649108761,
+        1880
       ],
       "flags": {},
       "order": 5,
       "mode": 0,
       "inputs": [
         {
-          "localized_name": "seed",
-          "name": "seed",
-          "type": "INT",
+          "localized_name": "note",
+          "name": "note",
+          "type": "STRING",
           "widget": {
-            "name": "seed"
+            "name": "note"
           },
           "link": null
         }
       ],
-      "outputs": [
-        {
-          "localized_name": "seed",
-          "name": "seed",
-          "type": "INT",
-          "slot_index": 0,
-          "links": [
-            23
-          ]
-        }
-      ],
+      "outputs": [],
       "properties": {
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
-        "Node name for S&R": "AUSBOSS_NODES_Seed"
+        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote"
       },
       "widgets_values": [
-        20260903,
-        "fixed",
+        "{\"v\": 1, \"title\": \"LTX 2.3 Video Outpaint\", \"subtitle\": \"Turn a vertical clip into a 16:9 one. An in-context LoRA fills the black bars with scene that moves with the footage, and Stitch puts your original pixels back.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose each installed model in its loader; saved selections may include local subfolders. Download links below name the standard destination folders.\\n\\n## What must be right (tested)\\nFifty-three renders over six clips - 640\\u00d7360 to 1080p, 24 to 60 fps, 1.5 s to 108 s, phone footage, a TV sketch and model outputs - at every format chip came down to two settings:\\n- **Fill #000000.** Pure black is the IC-LoRA's *paint here* signal. Grey, white or any colour comes back as a flat bar that Stitch's colour match then tints to the footage. #0a0a0a still painted; #202020 did not.\\n- **Feather 0.** A soft edge between footage and band hides the band from the model: feather 24 came back flat on every clip, feather 4 still painted.\\nEverything else painted: every chip in both orientations, 2.5:1, one band only, all four sides, a 10\\u00b0 tilt, 0.5 to 1.3 MP, 33 to 225 frames, a long file (Limit takes its first 97 frames). A fresh clip node starts with fill #000000 and feather 0 and the editor's **Reset all** returns to them; the canvas row under the format chips shows fill, feather and size, and choosing another clip keeps them and re-pads to the lit chip.\\n\\n## How it works\\n1. **Video Crop + Rotate + Pad \\u2192 Clip** \\u2014 pick or upload a clip on the node's source card (the sample clip is linked at the bottom of this card; drop it in ComfyUI/input). Tap the **16:9** chip under the preview: the whole clip stays and centered black bands bring the canvas to 16:9. Tap the lit chip again to **lock** the format \\u2014 the crop and padding handles on the preview then keep 16:9 while you drag, so cutting off a border, a logo or a tilt never breaks the canvas. Keep `fill_color` #000000 and `feather` 0: pure black with a hard edge is the LoRA's *paint here* signal. Grey bands in the result mean feather was on.\\n2. **Trim** \\u2014 the rail under the preview is the timeline: drag it to scrub the playhead, drag the IN/OUT handles to trim (the picture follows the handle, so you always see the first and last frame that will render), or type frame numbers in the boxes. The bright part of the selection is what the run outputs: **Snap** 8n+1 drops trailing frames to a count LTX keeps (49, 97, 121, 145), and **Limit** 97 caps the sample at about four seconds. **Resize** stays on at 0.86 MP, steps 32, which lands the padded sample on 1280\\u00d7704.\\n3. **Prompt** \\u2014 written for you: **Select Frame** hands the first padded frame to **Generate Text**, which runs on the same Gemma model the LTX text encoder loads (plus the small projection file in the second slot), with instructions to describe the *whole finished shot* \\u2014 the visible scenery and what continues to its sides \\u2014 and **Show Text** displays the result on its way into the Positive encoder. Padding top and bottom instead? Change *to the sides* in the instructions to *above and below*. Prefer your own words? Unlink Show Text from Positive and type there.\\n4. **Sample** \\u2014 the guide frames ride along in-context (`LTXV Add Guide` + `Get IC-LoRA Parameters`), 8 steps, CFG 1 on the distilled LoRA. About a minute for 97 frames on a 32 GB card.\\n5. **Stitch + save** \\u2014 the clip node's `stitcher` output feeds Stitch Inpaint, which pastes the source frames back bit-for-bit and blends the new bands in across the **Blend** set in the editor's Inpaint & Stitch section (32 px here); its `color_match` pulls the bands onto the footage's tone. Save Video muxes the original audio.\\n\\n## Tips\\n- Wider bands cost nothing extra: the model paints whatever is black, on any side or all four at once; for a landscape clip choose **9:16** instead.\\n- A 60 fps source with **Limit** 97 is 1.6 s of video. Set **Every nth** to 2 or 3 to keep more seconds at 30 or 20 fps; both painted fine. The whole 225-frame cat clip rendered at 1280\\u00d7704 in three minutes on a 32 GB card.\\n- A seam still showing? In the editor, turn on **Show blend**, raise **Blend**, or give **Grow paste** a few pixels so the generation repaints the source edge too.\\n- An empty or dark backdrop is painted as more of the same: a dark floor under a subject on a plain stage, a vignette that fades to black. That is the model reading the scene, not a missed band - a missed band is flat with a hard edge.\\n- Dark footage (night, underwater) can read as *bar* to the model. The LoRA author's fix is a gamma round trip: brighten before the canvas, invert after decode.\\n- The seed is pinned so your first run matches this one. Switch it to randomize for variations; the source frames never change.\\n- Runs out of VRAM? Drop to 960\\u00d7544, or swap the transformer for the int8_convrot build listed on its download.\\n- LTX 2.3 is released under the LTX-2 Community License; the outpaint IC-LoRA is by oumoumad on Hugging Face.\", \"models\": [{\"name\": \"ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"21.9 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/diffusion_models/ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors\", \"note\": \"the dev transformer; int8_convrot in the same folder fits smaller cards\"}, {\"name\": \"gemma_3_12B_it_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"12.3 GB\", \"url\": \"https://huggingface.co/Comfy-Org/ltx-2/resolve/main/split_files/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors\", \"note\": \"fp4_mixed (8.8 GB) also works\"}, {\"name\": \"ltx-2.3_text_projection_bf16.safetensors\", \"dir\": \"text_encoders\", \"size\": \"2.2 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/text_encoders/ltx-2.3_text_projection_bf16.safetensors\", \"note\": \"second slot of the text encoder loader\"}, {\"name\": \"LTX23_video_vae_bf16.safetensors\", \"dir\": \"vae\", \"size\": \"1.4 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/vae/LTX23_video_vae_bf16.safetensors\", \"note\": \"\"}, {\"name\": \"ltx-2.3-22b-distilled-1.1_lora-dynamic_fro09_avg_rank_111_bf16.safetensors\", \"dir\": \"loras\", \"size\": \"2.6 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/loras/ltx-2.3-22b-distilled-1.1_lora-dynamic_fro09_avg_rank_111_bf16.safetensors\", \"note\": \"distilled LoRA: 8 steps, CFG 1\"}, {\"name\": \"ltx-2.3-22b-ic-lora-outpaint.safetensors\", \"dir\": \"loras\", \"size\": \"1.2 GB\", \"url\": \"https://huggingface.co/oumoumad/LTX-2.3-22b-IC-LoRA-Outpaint/resolve/main/ltx-2.3-22b-ic-lora-outpaint.safetensors\", \"note\": \"outpaint IC-LoRA by oumoumad, fills pure-black bars\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_VideoCropRotatePadClip\"}], \"links\": [{\"label\": \"Sample clip \\u00b7 ausboss_pier_9x16.mp4\", \"url\": \"https://raw.githubusercontent.com/ausboss/ComfyUI-AusBoss/main/example_workflows/inputs/ausboss_pier_9x16.mp4\"}, {\"label\": \"GitHub \\u00b7 ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai \\u00b7 AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X \\u00b7 Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}",
         ""
       ],
       "widgets_values_named": {
-        "seed": 20260903,
-        "control_after_generate": "fixed",
-        "ausboss_seed_panel": ""
+        "note": "{\"v\": 1, \"title\": \"LTX 2.3 Video Outpaint\", \"subtitle\": \"Turn a vertical clip into a 16:9 one. An in-context LoRA fills the black bars with scene that moves with the footage, and Stitch puts your original pixels back.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose each installed model in its loader; saved selections may include local subfolders. Download links below name the standard destination folders.\\n\\n## What must be right (tested)\\nThirty-seven renders over three clips, seven aspect ratios and a range of sizes, frame rates and lengths came down to two settings:\\n- **Fill #000000.** Pure black is the IC-LoRA's *paint here* signal. Grey, white or any colour comes back as a flat bar that Stitch's colour match then tints to the footage. #0a0a0a still painted; #202020 did not.\\n- **Feather 0.** A soft edge between footage and band hides the band from the model: feather 24 came back flat on every clip, feather 4 still painted.\\nEverything else painted: 1:1, 4:3, 21:9, 2.5:1, 1.37:1, 9:16, one band only, all four sides, a 10\\u00b0 tilt, 0.5 to 1.3 MP, 49 to 225 frames, 24 and 60 fps sources. The canvas row under the format chips shows fill, feather and size, and choosing another clip keeps them and re-pads to the lit chip.\\n\\n## How it works\\n1. **Video Crop + Rotate + Pad \\u2192 Clip** \\u2014 pick or upload a clip on the node's source card (the sample clip is linked at the bottom of this card; drop it in ComfyUI/input). Tap the **16:9** chip under the preview: the whole clip stays and centered black bands bring the canvas to 16:9. Tap the lit chip again to **lock** the format \\u2014 the crop and padding handles on the preview then keep 16:9 while you drag, so cutting off a border, a logo or a tilt never breaks the canvas. Keep `fill_color` #000000 and `feather` 0: pure black with a hard edge is the LoRA's *paint here* signal. Grey bands in the result mean feather was on.\\n2. **Trim** \\u2014 the rail under the preview is the timeline: drag it to scrub the playhead, drag the IN/OUT handles to trim (the picture follows the handle, so you always see the first and last frame that will render), or type frame numbers in the boxes. The bright part of the selection is what the run outputs: **Snap** 8n+1 drops trailing frames to a count LTX keeps (49, 97, 121, 145), and **Limit** 97 caps the sample at about four seconds. **Resize** stays on at 0.86 MP, steps 32, which lands the padded sample on 1280\\u00d7704.\\n3. **Prompt** \\u2014 written for you: **Select Frame** hands the first padded frame to **Generate Text**, which runs on the same Gemma model the LTX text encoder loads (plus the small projection file in the second slot), with instructions to describe the *whole finished shot* \\u2014 the visible scenery and what continues to its sides \\u2014 and **Show Text** displays the result on its way into the Positive encoder. Padding top and bottom instead? Change *to the sides* in the instructions to *above and below*. Prefer your own words? Unlink Show Text from Positive and type there.\\n4. **Sample** \\u2014 the guide frames ride along in-context (`LTXV Add Guide` + `Get IC-LoRA Parameters`), 8 steps, CFG 1 on the distilled LoRA. About a minute for 97 frames on a 32 GB card.\\n5. **Stitch + save** \\u2014 the clip node's `stitcher` output feeds Stitch Inpaint, which pastes the source frames back bit-for-bit and blends the new bands in across the **Blend** set in the editor's Inpaint & Stitch section (32 px here); its `color_match` pulls the bands onto the footage's tone. Save Video muxes the original audio.\\n\\n## Tips\\n- Wider bands cost nothing extra: the model paints whatever is black, on any side or all four at once; for a landscape clip choose **9:16** instead.\\n- A 60 fps source with **Limit** 97 is 1.6 s of video. Set **Every nth** to 2 or 3 to keep more seconds at 30 or 20 fps; both painted fine. The whole 225-frame cat clip rendered at 1280\\u00d7704 in three minutes on a 32 GB card.\\n- A seam still showing? In the editor, turn on **Show blend**, raise **Blend**, or give **Grow paste** a few pixels so the generation repaints the source edge too.\\n- Dark footage (night, underwater) can read as *bar* to the model. The LoRA author's fix is a gamma round trip: brighten before the canvas, invert after decode.\\n- The seed is pinned so your first run matches this one. Switch it to randomize for variations; the source frames never change.\\n- Runs out of VRAM? Drop to 960\\u00d7544, or swap the transformer for the int8_convrot build listed on its download.\\n- LTX 2.3 is released under the LTX-2 Community License; the outpaint IC-LoRA is by oumoumad on Hugging Face.\", \"models\": [{\"name\": \"ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"21.9 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/diffusion_models/ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors\", \"note\": \"the dev transformer; int8_convrot in the same folder fits smaller cards\"}, {\"name\": \"gemma_3_12B_it_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"12.3 GB\", \"url\": \"https://huggingface.co/Comfy-Org/ltx-2/resolve/main/split_files/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors\", \"note\": \"fp4_mixed (8.8 GB) also works\"}, {\"name\": \"ltx-2.3_text_projection_bf16.safetensors\", \"dir\": \"text_encoders\", \"size\": \"2.2 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/text_encoders/ltx-2.3_text_projection_bf16.safetensors\", \"note\": \"second slot of the text encoder loader\"}, {\"name\": \"LTX23_video_vae_bf16.safetensors\", \"dir\": \"vae\", \"size\": \"1.4 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/vae/LTX23_video_vae_bf16.safetensors\", \"note\": \"\"}, {\"name\": \"ltx-2.3-22b-distilled-1.1_lora-dynamic_fro09_avg_rank_111_bf16.safetensors\", \"dir\": \"loras\", \"size\": \"2.6 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/loras/ltx-2.3-22b-distilled-1.1_lora-dynamic_fro09_avg_rank_111_bf16.safetensors\", \"note\": \"distilled LoRA: 8 steps, CFG 1\"}, {\"name\": \"ltx-2.3-22b-ic-lora-outpaint.safetensors\", \"dir\": \"loras\", \"size\": \"1.2 GB\", \"url\": \"https://huggingface.co/oumoumad/LTX-2.3-22b-IC-LoRA-Outpaint/resolve/main/ltx-2.3-22b-ic-lora-outpaint.safetensors\", \"note\": \"outpaint IC-LoRA by oumoumad, fills pure-black bars\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_VideoCropRotatePadClip\"}], \"links\": [{\"label\": \"Sample clip \\u00b7 ausboss_pier_9x16.mp4\", \"url\": \"https://raw.githubusercontent.com/ausboss/ComfyUI-AusBoss/main/example_workflows/inputs/ausboss_pier_9x16.mp4\"}, {\"label\": \"GitHub \\u00b7 ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai \\u00b7 AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X \\u00b7 Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}",
+        "ausboss_workflow_note_panel": ""
       },
       "color": "#14424d",
       "bgcolor": "#161f21"
     },
     {
-      "id": 17,
-      "type": "KSampler",
+      "id": 24,
+      "type": "AUSBOSS_NODES_ShowText",
       "pos": [
-        -140,
-        1358
+        -83.40747203844445,
+        567.0610471638129
       ],
       "size": [
-        320,
-        262
+        460,
+        266.96947641809356
       ],
       "flags": {},
-      "order": 16,
+      "order": 13,
       "mode": 0,
       "inputs": [
         {
-          "localized_name": "model",
-          "name": "model",
-          "type": "MODEL",
-          "link": 19
-        },
-        {
-          "localized_name": "positive",
-          "name": "positive",
-          "type": "CONDITIONING",
-          "link": 20
-        },
-        {
-          "localized_name": "negative",
-          "name": "negative",
-          "type": "CONDITIONING",
-          "link": 21
-        },
-        {
-          "localized_name": "latent_image",
-          "name": "latent_image",
-          "type": "LATENT",
-          "link": 22
-        },
-        {
-          "localized_name": "seed",
-          "name": "seed",
-          "type": "INT",
-          "widget": {
-            "name": "seed"
-          },
-          "link": 23
-        },
-        {
-          "localized_name": "steps",
-          "name": "steps",
-          "type": "INT",
-          "widget": {
-            "name": "steps"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "cfg",
-          "name": "cfg",
-          "type": "FLOAT",
-          "widget": {
-            "name": "cfg"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "sampler_name",
-          "name": "sampler_name",
-          "type": "COMBO",
-          "widget": {
-            "name": "sampler_name"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "scheduler",
-          "name": "scheduler",
-          "type": "COMBO",
-          "widget": {
-            "name": "scheduler"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "denoise",
-          "name": "denoise",
-          "type": "FLOAT",
-          "widget": {
-            "name": "denoise"
-          },
-          "link": null
+          "localized_name": "text",
+          "name": "text",
+          "type": "STRING",
+          "link": 39
         }
       ],
       "outputs": [
         {
-          "localized_name": "LATENT",
-          "name": "LATENT",
-          "type": "LATENT",
-          "slot_index": 0,
+          "localized_name": "text",
+          "name": "text",
+          "type": "STRING",
           "links": [
-            26
+            40
           ]
         }
       ],
       "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.34.0",
-        "Node name for S&R": "KSampler"
-      },
-      "widgets_values": [
-        20260903,
-        "fixed",
-        8,
-        1,
-        "euler_ancestral",
-        "linear_quadratic",
-        1
-      ],
-      "widgets_values_named": {
-        "seed": 20260903,
-        "control_after_generate": "fixed",
-        "steps": 8,
-        "cfg": 1,
-        "sampler_name": "euler_ancestral",
-        "scheduler": "linear_quadratic",
-        "denoise": 1
-      }
-    },
-    {
-      "id": 18,
-      "type": "AUSBOSS_NODES_RunTimer",
-      "pos": [
-        -140,
-        1670
-      ],
-      "size": [
-        176,
-        56
-      ],
-      "flags": {
-        "no_title": true
-      },
-      "order": 6,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [],
-      "properties": {
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
-        "Node name for S&R": "AUSBOSS_NODES_RunTimer"
+        "Node name for S&R": "AUSBOSS_NODES_ShowText"
       },
-      "color": "#07090a",
-      "bgcolor": "#07090a"
+      "widgets_values": [
+        ""
+      ],
+      "widgets_values_named": {
+        "ausboss_show_text_panel": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21",
+      "title": "Show Text 🆎  ·  the prompt the sampler gets"
     },
     {
-      "id": 19,
-      "type": "LTXVCropGuides",
+      "id": 13,
+      "type": "LTXVConditioning",
       "pos": [
-        380,
-        100
+        -72.48345157646071,
+        1180.0305235819064
       ],
       "size": [
         300,
         78
       ],
       "flags": {},
-      "order": 17,
+      "order": 16,
       "mode": 0,
       "inputs": [
         {
           "localized_name": "positive",
           "name": "positive",
           "type": "CONDITIONING",
-          "link": 24
+          "link": 7
         },
         {
           "localized_name": "negative",
           "name": "negative",
           "type": "CONDITIONING",
-          "link": 25
+          "link": 8
         },
         {
-          "localized_name": "latent",
-          "name": "latent",
-          "type": "LATENT",
-          "link": 26
+          "localized_name": "frame_rate",
+          "name": "frame_rate",
+          "type": "FLOAT",
+          "widget": {
+            "name": "frame_rate"
+          },
+          "link": 9
         }
       ],
       "outputs": [
@@ -1572,44 +1308,793 @@
           "name": "positive",
           "type": "CONDITIONING",
           "slot_index": 0,
-          "links": []
+          "links": [
+            13
+          ]
         },
         {
           "localized_name": "negative",
           "name": "negative",
           "type": "CONDITIONING",
           "slot_index": 1,
-          "links": []
-        },
-        {
-          "localized_name": "latent",
-          "name": "latent",
-          "type": "LATENT",
-          "slot_index": 2,
           "links": [
-            27
+            14
           ]
         }
       ],
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
-        "Node name for S&R": "LTXVCropGuides"
+        "Node name for S&R": "LTXVConditioning"
+      },
+      "widgets_values": [
+        24
+      ],
+      "widgets_values_named": {
+        "frame_rate": 24
       }
+    },
+    {
+      "id": 22,
+      "type": "AUSBOSS_NODES_SaveVideo",
+      "pos": [
+        811.1346742329574,
+        627.0305235819064
+      ],
+      "size": [
+        476.99464122494055,
+        580
+      ],
+      "flags": {},
+      "order": 22,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "frames",
+          "name": "frames",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 31
+        },
+        {
+          "localized_name": "audio",
+          "name": "audio",
+          "shape": 7,
+          "type": "AUDIO",
+          "link": 32
+        },
+        {
+          "localized_name": "video",
+          "name": "video",
+          "shape": 7,
+          "type": "VIDEO",
+          "link": null
+        },
+        {
+          "localized_name": "fps",
+          "name": "fps",
+          "type": "FLOAT",
+          "link": 33
+        },
+        {
+          "localized_name": "filename_prefix",
+          "name": "filename_prefix",
+          "type": "STRING",
+          "widget": {
+            "name": "filename_prefix"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "crf",
+          "name": "crf",
+          "type": "INT",
+          "link": null
+        },
+        {
+          "localized_name": "format",
+          "name": "format",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "format"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "pingpong",
+          "name": "pingpong",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "pingpong"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "save_metadata",
+          "name": "save_metadata",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "save_metadata"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "file_path",
+          "name": "file_path",
+          "type": "STRING",
+          "slot_index": 0,
+          "links": []
+        }
+      ],
+      "title": "Save Video 🆎  ·  with the source audio",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0",
+        "Node name for S&R": "AUSBOSS_NODES_SaveVideo",
+        "ausboss_save_video_loop": true
+      },
+      "widgets_values": {
+        "fps": 24,
+        "filename_prefix": "AusBoss/ltx_video_outpaint",
+        "crf": 17,
+        "format": "mp4 h264",
+        "pingpong": false,
+        "save_metadata": true
+      },
+      "widgets_values_named": {
+        "fps": 24,
+        "filename_prefix": "AusBoss/ltx_video_outpaint",
+        "crf": 17,
+        "format": "mp4 h264",
+        "pingpong": false,
+        "save_metadata": true,
+        "ausboss_widget_card": "",
+        "ausboss_save_video_viewer": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 21,
+      "type": "AUSBOSS_NODES_StitchInpaint",
+      "pos": [
+        811.1346742329574,
+        432.03052358190644
+      ],
+      "size": [
+        476.99464122494055,
+        151.62061846180836
+      ],
+      "flags": {},
+      "order": 21,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "stitcher",
+          "name": "stitcher",
+          "type": "AUSBOSS_STITCHER",
+          "link": 29
+        },
+        {
+          "localized_name": "inpainted",
+          "name": "inpainted",
+          "type": "IMAGE",
+          "link": 30
+        },
+        {
+          "localized_name": "fix_edge_halo",
+          "name": "fix_edge_halo",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "fix_edge_halo"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "color_match",
+          "name": "color_match",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "color_match"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "slot_index": 0,
+          "links": [
+            31
+          ]
+        },
+        {
+          "localized_name": "blend_mask",
+          "name": "blend_mask",
+          "type": "MASK",
+          "slot_index": 1,
+          "links": []
+        }
+      ],
+      "title": "Stitch Inpaint 🆎  ·  original pixels back, tone matched",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0",
+        "Node name for S&R": "AUSBOSS_NODES_StitchInpaint"
+      },
+      "widgets_values": [
+        false,
+        1,
+        ""
+      ],
+      "widgets_values_named": {
+        "fix_edge_halo": false,
+        "color_match": 1,
+        "ausboss_widget_card": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 6,
+      "type": "DualCLIPLoader",
+      "pos": [
+        -1053.4074720384444,
+        596.0305235819064
+      ],
+      "size": [
+        430,
+        130
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "clip_name1",
+          "name": "clip_name1",
+          "type": "COMBO",
+          "widget": {
+            "name": "clip_name1"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "clip_name2",
+          "name": "clip_name2",
+          "type": "COMBO",
+          "widget": {
+            "name": "clip_name2"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "type",
+          "name": "type",
+          "type": "COMBO",
+          "widget": {
+            "name": "type"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "device",
+          "name": "device",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "device"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "CLIP",
+          "name": "CLIP",
+          "type": "CLIP",
+          "slot_index": 0,
+          "links": [
+            4,
+            5,
+            35
+          ]
+        }
+      ],
+      "title": "DualCLIPLoader · Gemma + LTX projection",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.34.0",
+        "Node name for S&R": "DualCLIPLoader",
+        "models": [
+          {
+            "name": "gemma_3_12B_it_fp8_scaled.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/ltx-2/resolve/main/split_files/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors",
+            "directory": "text_encoders"
+          },
+          {
+            "name": "ltx-2.3_text_projection_bf16.safetensors",
+            "url": "https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/text_encoders/ltx-2.3_text_projection_bf16.safetensors",
+            "directory": "text_encoders"
+          }
+        ]
+      },
+      "widgets_values": [
+        "gemma_3_12B_it_fp8_scaled.safetensors",
+        "LTX/ltx-2.3_text_projection_bf16.safetensors",
+        "ltxv",
+        "default"
+      ],
+      "widgets_values_named": {
+        "clip_name1": "gemma_3_12B_it_fp8_scaled.safetensors",
+        "clip_name2": "LTX/ltx-2.3_text_projection_bf16.safetensors",
+        "type": "ltxv",
+        "device": "default"
+      },
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 2,
+      "type": "UNETLoader",
+      "pos": [
+        -1053.4074720384444,
+        104.03052358190646
+      ],
+      "size": [
+        430,
+        82
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "unet_name",
+          "name": "unet_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "unet_name"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "weight_dtype",
+          "name": "weight_dtype",
+          "type": "COMBO",
+          "widget": {
+            "name": "weight_dtype"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "MODEL",
+          "name": "MODEL",
+          "type": "MODEL",
+          "slot_index": 0,
+          "links": [
+            1
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.34.0",
+        "Node name for S&R": "UNETLoader",
+        "models": [
+          {
+            "name": "ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors",
+            "url": "https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/diffusion_models/ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors",
+            "directory": "diffusion_models"
+          }
+        ]
+      },
+      "widgets_values": [
+        "LTXV 2.3/ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors",
+        "default"
+      ],
+      "widgets_values_named": {
+        "unet_name": "LTXV 2.3/ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors",
+        "weight_dtype": "default"
+      },
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 7,
+      "type": "VAELoader",
+      "pos": [
+        -1053.4074720384444,
+        776.0305235819064
+      ],
+      "size": [
+        430,
+        58
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "vae_name",
+          "name": "vae_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "vae_name"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "VAE",
+          "name": "VAE",
+          "type": "VAE",
+          "slot_index": 0,
+          "links": [
+            15,
+            28
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.34.0",
+        "Node name for S&R": "VAELoader",
+        "models": [
+          {
+            "name": "LTX23_video_vae_bf16.safetensors",
+            "url": "https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/vae/LTX23_video_vae_bf16.safetensors",
+            "directory": "vae"
+          }
+        ]
+      },
+      "widgets_values": [
+        "LTX/LTX23_video_vae_bf16.safetensors"
+      ],
+      "widgets_values_named": {
+        "vae_name": "LTX/LTX23_video_vae_bf16.safetensors"
+      },
+      "color": "#322",
+      "bgcolor": "#533"
+    },
+    {
+      "id": 11,
+      "type": "CLIPTextEncode",
+      "pos": [
+        -59.104070038269036,
+        894.0305235819064
+      ],
+      "size": [
+        210,
+        88
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "clip",
+          "name": "clip",
+          "type": "CLIP",
+          "link": 4
+        },
+        {
+          "localized_name": "text",
+          "name": "text",
+          "type": "STRING",
+          "widget": {
+            "name": "text"
+          },
+          "link": 40
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "CONDITIONING",
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "slot_index": 0,
+          "links": [
+            7
+          ]
+        }
+      ],
+      "title": "Positive",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.34.0",
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": [
+        ""
+      ],
+      "widgets_values_named": {
+        "text": ""
+      },
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 12,
+      "type": "CLIPTextEncode",
+      "pos": [
+        -72.48345157646071,
+        1012.0305235819062
+      ],
+      "size": [
+        460,
+        130
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "clip",
+          "name": "clip",
+          "type": "CLIP",
+          "link": 5
+        },
+        {
+          "localized_name": "text",
+          "name": "text",
+          "type": "STRING",
+          "widget": {
+            "name": "text"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "CONDITIONING",
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "slot_index": 0,
+          "links": [
+            8
+          ]
+        }
+      ],
+      "title": "Negative",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.34.0",
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": [
+        "blurry, out of focus, low quality, distorted, black bars, letterbox, border, frame, text, watermark, flicker, jitter, static, still image"
+      ],
+      "widgets_values_named": {
+        "text": "blurry, out of focus, low quality, distorted, black bars, letterbox, border, frame, text, watermark, flicker, jitter, static, still image"
+      }
+    },
+    {
+      "id": 23,
+      "type": "TextGenerate",
+      "pos": [
+        -83.40747203844445,
+        104.03052358190646
+      ],
+      "size": [
+        460,
+        412
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "clip",
+          "name": "clip",
+          "type": "CLIP",
+          "link": 35
+        },
+        {
+          "localized_name": "image",
+          "name": "image",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 42
+        },
+        {
+          "localized_name": "video",
+          "name": "video",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "localized_name": "audio",
+          "name": "audio",
+          "shape": 7,
+          "type": "AUDIO",
+          "link": null
+        },
+        {
+          "localized_name": "prompt",
+          "name": "prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "prompt"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "max_length",
+          "name": "max_length",
+          "type": "INT",
+          "widget": {
+            "name": "max_length"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "sampling_mode",
+          "name": "sampling_mode",
+          "type": "COMFY_DYNAMICCOMBO_V3",
+          "widget": {
+            "name": "sampling_mode"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "temperature",
+          "name": "sampling_mode.temperature",
+          "type": "FLOAT",
+          "widget": {
+            "name": "sampling_mode.temperature"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "top_k",
+          "name": "sampling_mode.top_k",
+          "type": "INT",
+          "widget": {
+            "name": "sampling_mode.top_k"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "top_p",
+          "name": "sampling_mode.top_p",
+          "type": "FLOAT",
+          "widget": {
+            "name": "sampling_mode.top_p"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "min_p",
+          "name": "sampling_mode.min_p",
+          "type": "FLOAT",
+          "widget": {
+            "name": "sampling_mode.min_p"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "repetition_penalty",
+          "name": "sampling_mode.repetition_penalty",
+          "type": "FLOAT",
+          "widget": {
+            "name": "sampling_mode.repetition_penalty"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "seed",
+          "name": "sampling_mode.seed",
+          "type": "INT",
+          "widget": {
+            "name": "sampling_mode.seed"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "presence_penalty",
+          "name": "sampling_mode.presence_penalty",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "sampling_mode.presence_penalty"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "thinking",
+          "name": "thinking",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "thinking"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "use_default_template",
+          "name": "use_default_template",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "use_default_template"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "generated_text",
+          "name": "generated_text",
+          "type": "STRING",
+          "links": [
+            39
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.34.5",
+        "Node name for S&R": "TextGenerate"
+      },
+      "widgets_values": [
+        "Write a video-generation prompt describing the shot in this image as one flowing paragraph of 60 to 100 words in the present tense. Treat it as a wide shot: describe the visible scenery together with the scenery that naturally surrounds it to the sides, as one continuous view. Begin directly with the subject or the setting. Cover the setting, the subjects and what they are doing, the lighting and time of day, colours and materials, the weather, and the camera framing. Only what can be seen: no moods, feelings, smells or temperature, no real place names, no camera movement unless it is clearly happening, no new people, text or watermarks. Use plain, restrained wording and present-progressive verbs for anything moving, such as water rippling or mist drifting. Never mention the image, the frame, black bands, bars, borders, cropping or outpainting, and never say that something lies outside or beyond the view. Output only the paragraph.",
+        512,
+        "on",
+        0.7,
+        64,
+        0.95,
+        0.05,
+        1.05,
+        0,
+        0,
+        false,
+        true
+      ],
+      "widgets_values_named": {
+        "prompt": "Write a video-generation prompt describing the shot in this image as one flowing paragraph of 60 to 100 words in the present tense. Treat it as a wide shot: describe the visible scenery together with the scenery that naturally surrounds it to the sides, as one continuous view. Begin directly with the subject or the setting. Cover the setting, the subjects and what they are doing, the lighting and time of day, colours and materials, the weather, and the camera framing. Only what can be seen: no moods, feelings, smells or temperature, no real place names, no camera movement unless it is clearly happening, no new people, text or watermarks. Use plain, restrained wording and present-progressive verbs for anything moving, such as water rippling or mist drifting. Never mention the image, the frame, black bands, bars, borders, cropping or outpainting, and never say that something lies outside or beyond the view. Output only the paragraph.",
+        "max_length": 512,
+        "sampling_mode": "on",
+        "sampling_mode.temperature": 0.7,
+        "sampling_mode.top_k": 64,
+        "sampling_mode.top_p": 0.95,
+        "sampling_mode.min_p": 0.05,
+        "sampling_mode.repetition_penalty": 1.05,
+        "sampling_mode.seed": 0,
+        "sampling_mode.presence_penalty": 0,
+        "thinking": false,
+        "use_default_template": true
+      },
+      "title": "Generate Text  ·  prompt from the first frame"
     },
     {
       "id": 20,
       "type": "VAEDecodeTiled",
       "pos": [
-        380,
-        228
+        811.1346742329574,
+        232.03052358190646
       ],
       "size": [
         300,
-        150
+        169.99999999999997
       ],
       "flags": {},
-      "order": 18,
+      "order": 20,
       "mode": 0,
       "inputs": [
         {
@@ -1691,49 +2176,42 @@
       }
     },
     {
-      "id": 21,
-      "type": "AUSBOSS_NODES_StitchInpaint",
+      "id": 25,
+      "type": "AUSBOSS_NODES_SelectFrame",
       "pos": [
-        380,
-        428
+        -583.4074720384444,
+        1040.0305235819064
       ],
       "size": [
-        400,
-        145
+        340,
+        134
       ],
       "flags": {},
-      "order": 19,
+      "order": 10,
       "mode": 0,
       "inputs": [
         {
-          "localized_name": "stitcher",
-          "name": "stitcher",
-          "type": "AUSBOSS_STITCHER",
-          "link": 29
-        },
-        {
-          "localized_name": "inpainted",
-          "name": "inpainted",
+          "localized_name": "frames",
+          "name": "frames",
           "type": "IMAGE",
-          "link": 30
+          "link": 41
         },
         {
-          "localized_name": "fix_edge_halo",
-          "name": "fix_edge_halo",
-          "shape": 7,
-          "type": "BOOLEAN",
+          "localized_name": "frame_number",
+          "name": "frame_number",
+          "type": "INT",
           "widget": {
-            "name": "fix_edge_halo"
+            "name": "frame_number"
           },
           "link": null
         },
         {
-          "localized_name": "color_match",
-          "name": "color_match",
+          "localized_name": "preview",
+          "name": "preview",
           "shape": 7,
-          "type": "FLOAT",
+          "type": "BOOLEAN",
           "widget": {
-            "name": "color_match"
+            "name": "preview"
           },
           "link": null
         }
@@ -1745,160 +2223,23 @@
           "type": "IMAGE",
           "slot_index": 0,
           "links": [
-            31
+            42
           ]
-        },
-        {
-          "localized_name": "blend_mask",
-          "name": "blend_mask",
-          "type": "MASK",
-          "slot_index": 1,
-          "links": []
         }
       ],
-      "title": "Stitch Inpaint 🆎  ·  original pixels back, tone matched",
+      "title": "Select Frame 🆎  ·  first frame for the prompt",
       "properties": {
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
-        "Node name for S&R": "AUSBOSS_NODES_StitchInpaint"
+        "Node name for S&R": "AUSBOSS_NODES_SelectFrame"
       },
       "widgets_values": [
-        false,
-        1
+        1,
+        false
       ],
       "widgets_values_named": {
-        "fix_edge_halo": false,
-        "color_match": 1
-      },
-      "color": "#14424d",
-      "bgcolor": "#161f21"
-    },
-    {
-      "id": 22,
-      "type": "AUSBOSS_NODES_SaveVideo",
-      "pos": [
-        380,
-        623
-      ],
-      "size": [
-        620,
-        560
-      ],
-      "flags": {},
-      "order": 20,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "frames",
-          "name": "frames",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": 31
-        },
-        {
-          "localized_name": "audio",
-          "name": "audio",
-          "shape": 7,
-          "type": "AUDIO",
-          "link": 32
-        },
-        {
-          "localized_name": "video",
-          "name": "video",
-          "shape": 7,
-          "type": "VIDEO",
-          "link": null
-        },
-        {
-          "localized_name": "fps",
-          "name": "fps",
-          "type": "FLOAT",
-          "widget": {
-            "name": "fps"
-          },
-          "link": 33
-        },
-        {
-          "localized_name": "filename_prefix",
-          "name": "filename_prefix",
-          "type": "STRING",
-          "widget": {
-            "name": "filename_prefix"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "crf",
-          "name": "crf",
-          "type": "INT",
-          "widget": {
-            "name": "crf"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "format",
-          "name": "format",
-          "shape": 7,
-          "type": "COMBO",
-          "widget": {
-            "name": "format"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "pingpong",
-          "name": "pingpong",
-          "shape": 7,
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "pingpong"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "save_metadata",
-          "name": "save_metadata",
-          "shape": 7,
-          "type": "BOOLEAN",
-          "widget": {
-            "name": "save_metadata"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "file_path",
-          "name": "file_path",
-          "type": "STRING",
-          "slot_index": 0,
-          "links": []
-        }
-      ],
-      "title": "Save Video 🆎  ·  with the source audio",
-      "properties": {
-        "cnr_id": "ausboss-nodes",
-        "ver": "2.0.0",
-        "Node name for S&R": "AUSBOSS_NODES_SaveVideo",
-        "ausboss_save_video_loop": true
-      },
-      "widgets_values": {
-        "fps": 24,
-        "filename_prefix": "AusBoss/ltx_video_outpaint",
-        "crf": 17,
-        "format": "mp4 h264",
-        "pingpong": false,
-        "save_metadata": true
-      },
-      "widgets_values_named": {
-        "fps": 24,
-        "filename_prefix": "AusBoss/ltx_video_outpaint",
-        "crf": 17,
-        "format": "mp4 h264",
-        "pingpong": false,
-        "save_metadata": true,
-        "ausboss_save_video_viewer": ""
+        "frame_number": 1,
+        "preview": false
       },
       "color": "#14424d",
       "bgcolor": "#161f21"
@@ -2168,6 +2509,46 @@
       22,
       3,
       "FLOAT"
+    ],
+    [
+      35,
+      6,
+      0,
+      23,
+      0,
+      "CLIP"
+    ],
+    [
+      39,
+      23,
+      0,
+      24,
+      0,
+      "STRING"
+    ],
+    [
+      40,
+      24,
+      0,
+      11,
+      1,
+      "STRING"
+    ],
+    [
+      41,
+      8,
+      0,
+      25,
+      0,
+      "IMAGE"
+    ],
+    [
+      42,
+      25,
+      0,
+      23,
+      1,
+      "IMAGE"
     ]
   ],
   "groups": [
@@ -2175,8 +2556,8 @@
       "id": 1,
       "title": "1 · Models",
       "bounding": [
-        -1140,
-        40,
+        -1073.4074720384444,
+        44.030523581906465,
         470,
         810
       ],
@@ -2187,10 +2568,10 @@
       "id": 2,
       "title": "2 · Source video + canvas",
       "bounding": [
-        -650,
-        40,
+        -603.4074720384444,
+        44.030523581906465,
         490,
-        928
+        1154.0
       ],
       "color": "#366451",
       "flags": {}
@@ -2199,10 +2580,10 @@
       "id": 3,
       "title": "3 · Prompt",
       "bounding": [
-        -160,
-        40,
-        500,
-        588
+        -113.40747203844445,
+        44.030523581906465,
+        541.8480409239675,
+        1250.0
       ],
       "color": "#5d527c",
       "flags": {}
@@ -2211,10 +2592,10 @@
       "id": 4,
       "title": "4 · Sample",
       "bounding": [
-        -160,
-        600,
-        500,
-        1146
+        428.440568885523,
+        44.030523581906465,
+        362.6941053474344,
+        1250.0
       ],
       "color": "#795b38",
       "flags": {}
@@ -2223,10 +2604,10 @@
       "id": 5,
       "title": "5 · Decode, stitch, save",
       "bounding": [
-        360,
-        40,
-        660,
-        1163
+        791.1346742329574,
+        44.030523581906465,
+        523.2577462898112,
+        1250.0
       ],
       "color": "#345d7c",
       "flags": {}
@@ -2235,10 +2616,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.4263,
+      "scale": 0.6241458300000006,
       "offset": [
-        1967.66,
-        368.78
+        1851.0220774272439,
+        247.77660722747748
       ]
     }
   },

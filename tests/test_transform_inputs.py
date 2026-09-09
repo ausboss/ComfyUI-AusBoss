@@ -85,5 +85,23 @@ class AspectPresetTests(unittest.TestCase):
         self.assertEqual(options, ASPECT_RATIOS + ["16:10"])
 
 
+class CanvasDefaultTests(unittest.TestCase):
+    def test_shared_defaults_keep_the_soft_grey_canvas(self):
+        inputs = transform_inputs()
+        self.assertEqual(inputs["feather"][1]["default"], 24)
+        self.assertEqual(inputs["fill_color"][1]["default"], "#808080")
+
+    def test_a_node_can_declare_an_outpaint_ready_canvas(self):
+        inputs = transform_inputs(feather=0, fill_color="#000000")
+        self.assertEqual(inputs["feather"][1]["default"], 0)
+        self.assertEqual(inputs["fill_color"][1]["default"], "#000000")
+        # Only the two canvas defaults move; the rest of the block is shared.
+        shared = transform_inputs()
+        for name in inputs:
+            if name in ("feather", "fill_color"):
+                continue
+            self.assertEqual(inputs[name], shared[name], name)
+
+
 if __name__ == "__main__":
     unittest.main()
