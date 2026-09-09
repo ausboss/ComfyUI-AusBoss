@@ -112,10 +112,44 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   use `[project.optional-dependencies]` and fail soft at runtime.
 - Frontend JS never assigns prototype callbacks directly — use
   `chainCallback` from `js/shared/index.mjs`.
-- Numeric fields in pack panels are scrub controls, Adobe-style: drag the
-  value to scrub, click to type, chevron arrows step, Shift is always the
-  fine step. Use `makeScrubInput` from `js/shared/scrub_input.mjs` — never
-  a bare `<input type=number>`.
+- Every INT and FLOAT a public node exposes reaches the user as a scrub
+  control, Adobe-style: drag the value to scrub, click to type, chevron
+  arrows step, Shift is always the fine step. Use `makeScrubInput` from
+  `js/shared/scrub_input.mjs` — never a bare `<input type=number>`, and
+  never a classic canvas number widget on a finished node face. Units
+  (`px`, `MP`, `×`) ride inside the box in a fixed-width slot that every
+  single-field row reserves, so the numbers down a card share one centre
+  line. Known, deliberate exceptions: the Seed card's seed (typed) and Load
+  Video's trim timecodes (typed).
+- **Node faces are widget cards.** A node whose face would be classic
+  LiteGraph widgets (full-width rows with an arrow at each end) gets an
+  entry in `js/widget_cards/index.js` instead: `mountWidgetCard` from
+  `js/shared/widget_card.mjs` hides the standard widgets and mirrors them
+  in one compact DOM card — numbers → scrub, ≤ 4 short choices → segmented
+  pill (else a select), booleans → an off | on pill as wide as the other
+  controls (never a small switch inside a card), strings → text field,
+  multiline → `kind: "textarea"` (`grow: true` takes the node's spare
+  height), hex colors → swatch. Rows can depend on other values (`when`)
+  and fold behind a disclosure (`group`). The widgets underneath stay the
+  single source of truth (save/load, undo, API, links). Design detail and
+  the reasons behind it: `.claude/skills/ausboss-node-brand/SKILL.md`.
+- **One linkable widget per row.** The frontend (≥ 1.10.4, "Widget Input
+  Socket" RFC #9) gives every widget an input socket drawn at the widget's
+  own row, only while a link is dragged, hovered or connected; "convert to
+  input" no longer exists. The card lends each hidden widget its row's
+  position, so two widgets on one row would stack two sockets on one pixel
+  and nobody could aim. A `pair` row is therefore only allowed with
+  `top: true`, which lifts its sockets into the node's slot column under
+  the real inputs (Image Resize width/height); everything else is one
+  widget per row. A value that is meant to be wired rather than typed is a
+  backend `forceInput: True` socket (Math Expression `a`/`b`/`c`), and a
+  multi-type string such as `"FLOAT,INT"` accepts either kind of link.
+- Preview-carrying nodes (Select Frame, Mask Refine, LaMa Inpaint) share
+  `js/input_preview/`: a thin bar (node tools left, a small `preview`
+  switch right) above the picture, the picture gone and the node shorter
+  when the switch is off, backed by an optional `preview` BOOLEAN input
+  that also skips the temp file. A new node with a result picture reuses
+  it rather than growing its own.
 - A DOM panel that shows a stage/preview claims the node's free height via
   `fillNodeHeight` from `js/shared/panel_layout.mjs` — never a hand-rolled
   `computeSize`, which pins the panel and leaves dead space when the node is
@@ -138,12 +172,25 @@ in `.claude/skills/ausboss-node-brand/SKILL.md`.
 
 ```bash
 python scripts/validate_nodes.py
+node --test tests/*.test.mjs
 ```
 
-Then restart ComfyUI fully, watch the AusBoss banner for failed modules,
-confirm the node appears in `GET http://127.0.0.1:8188/object_info`, queue a
-tiny API graph, and load its example workflow. After JS changes, hard-refresh
-the browser tab (Ctrl+Shift+R).
+Then restart ComfyUI fully (a changed `INPUT_TYPES` is only served after a
+restart), watch the AusBoss banner for failed modules, confirm the node
+appears in `GET http://127.0.0.1:8188/object_info`, queue a tiny API graph,
+and load its example workflow. After JS changes, hard-refresh the browser
+tab (Ctrl+Shift+R) — the frontend caches `.mjs` modules aggressively.
+
+Frontend work is proven on a real canvas, not by reading code: the
+headless-Chrome harness in `scripts/dev/` (recipe, gotchas and the
+screenshot convention in `docs/live_testing.md`) creates nodes, drives real
+mouse drags, and clips screenshots into `_scratch/node_screenshots/` for
+review. A link-drop test that only checks which input got the link is not
+enough — look at the picture and ask whether a person could have aimed
+there.
+
+After changing any `js/shared/*.mjs`, `nodes/_*_helpers.py` or their tests,
+refresh the lab's vendored copies (see the top of this file).
 
 ## Releasing
 
@@ -168,28 +215,33 @@ A release, when explicitly asked for:
    `keywords`: the registry shows the description verbatim and
    ComfyUI-Manager search matches against it, so it must name the actual
    nodes — never a generic blurb.
-4. Merge to main and watch the publish run in the Actions tab. The
-   push-triggered run has failed before (the 1.2.0 merge's run died and
-   the version only published because someone noticed): if it fails,
-   re-run it by hand — Actions → "Publish to Comfy registry" → Run
-   workflow — and treat a red run as an unpublished release until proven
-   otherwise.
+4. Merge to main only when the release is ready, then watch the publish
+   run in Actions. If it fails, inspect both the job and the Registry
+   before retrying: an upload may have succeeded before a later step
+   failed, and published version contents cannot be overwritten. Re-run
+   "Publish to Comfy registry" only after confirming that the upload did
+   not create the version.
 5. Verify the version AND ITS STATUS on the registry:
 
    ```bash
-   curl -s https://api.comfy.org/nodes/ausboss-nodes/versions | python3 -c "import json,sys; [print(v['version'], v['status']) for v in json.load(sys.stdin)]"
+   python scripts/registry_status.py
    ```
 
-   `NodeVersionStatusActive` is the only status users can see. A fresh
-   version usually lands as `NodeVersionStatusFlagged` — the registry's
-   automated security scan holding it for human review — and a flagged
-   version is INVISIBLE in ComfyUI-Manager's "Select Version" picker and
-   sets no "last update" on the listing, so the release is not actually
-   out until the Comfy team clears it. Every version this pack has
-   published (1.1.0, 1.1.1, 1.2.0) sat flagged; ask for review through
-   the Comfy Registry / Comfy-Org channels (their Discord, or the
-   registry's support contact) rather than re-publishing, and re-check
-   the status afterwards.
+   Require `NodeVersionStatusActive` for the exact new version before
+   calling the release available in Manager. The script reads
+   `include_status_reason=true`; exit 0 means Active, 2 means not approved,
+   and 1 means the status could not be established. The separate "Check
+   Registry approval" Action runs after successful publication and can
+   be dispatched manually to recheck without publishing again.
+
+   As of 2026-09-07, versions 1.1.0, 1.1.1, 1.2.0, and 1.3.0 are Banned,
+   not merely Flagged. The older decisions identify LM Studio's unrestricted
+   endpoint; 1.2.0/1.3.0 carry a broader code-execution verdict. Review is
+   tracked in https://github.com/Comfy-Org/registry-backend/issues/216.
+   Resolve the recorded finding and request review of a corrected candidate;
+   a fresh version number alone does not resolve a ban. Confirm the current
+   issue history before posting, and obtain explicit authorization to send
+   any external follow-up unless it was already authorized in the session.
 
 ## Phase 2: porting an existing node
 

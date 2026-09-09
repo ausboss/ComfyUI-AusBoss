@@ -264,8 +264,6 @@ class FrameInterpolateNodeTests(unittest.TestCase):
         self.assertEqual(fps, 24.0)
 
 
-if __name__ == "__main__":
-    unittest.main()
 
 
 class CopyPathIsBatchedTests(unittest.TestCase):
@@ -381,3 +379,7 @@ class FlowSolvedOncePerPairTests(unittest.TestCase):
             jobs_for_pair = sum(1 for job in blends if (job.src_a, job.src_b) == pair)
             if jobs_for_pair <= 8:
                 self.assertEqual(len(indices), 1, pair)
+
+
+if __name__ == "__main__":
+    unittest.main()

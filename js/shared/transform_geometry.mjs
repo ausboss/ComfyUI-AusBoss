@@ -102,6 +102,39 @@ export function resolvePadding(values, crop) {
   };
 }
 
+// Fit actions replace previous crop/padding, but retain rotation, fill and
+// resize settings. Padding must unlock the INNER crop or the backend would
+// trim the source before adding the new outer canvas.
+export function fitSourceToAspect(source, aspect, mode = "crop") {
+  const ratio = parseAspectRatio(aspect, source);
+  const patch = {
+    crop_aspect_ratio: mode === "pad" ? "free" : aspect,
+    crop_x: 0, crop_y: 0, crop_width: source.width, crop_height: source.height,
+    pad_left: 0, pad_top: 0, pad_right: 0, pad_bottom: 0,
+  };
+  if (!ratio || aspect === "source") return patch;
+  if (mode === "pad") {
+    const width = Math.max(source.width, Math.ceil(source.height * ratio));
+    const height = Math.max(source.height, Math.ceil(source.width / ratio));
+    patch.pad_left = Math.floor((width - source.width) / 2);
+    patch.pad_right = width - source.width - patch.pad_left;
+    patch.pad_top = Math.floor((height - source.height) / 2);
+    patch.pad_bottom = height - source.height - patch.pad_top;
+  } else {
+    const crop = resolveCrop(patch, source);
+    // Leave one dimension open so rounding is applied exactly once when
+    // the backend resolves this centered crop.
+    if (source.width / source.height > ratio) {
+      patch.crop_x = Math.floor((source.width - crop.width) / 2);
+      patch.crop_width = 0;
+    } else {
+      patch.crop_y = Math.floor((source.height - crop.height) / 2);
+      patch.crop_height = 0;
+    }
+  }
+  return patch;
+}
+
 export function canvasLocalPoint(canvas, event) {
   const bounds = canvas.getBoundingClientRect();
   const width = Math.max(1, canvas.clientWidth || bounds.width || 1);

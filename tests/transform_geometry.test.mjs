@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   canvasLocalPoint,
+  fitSourceToAspect,
   cropHandleCenters,
   nearestHandle,
   paddingHandleCenters,
@@ -43,6 +44,47 @@ test("crop clamps and honors ratios", () => {
 
 test("canvas multiple adds only right and bottom", () => {
   assert.deepEqual(resolvePadding({ pad_left: 0, pad_top: 0, pad_right: 0, pad_bottom: 0, canvas_multiple: 8 }, { width: 101, height: 99 }), { left: 0, top: 0, right: 3, bottom: 5, outputWidth: 104, outputHeight: 104 });
+});
+
+test("pad to aspect preserves portrait and centers new landscape canvas", () => {
+  const source = { width: 576, height: 1024 };
+  const patch = fitSourceToAspect(source, "16:9", "pad");
+  const crop = resolveCrop(patch, source);
+  assert.deepEqual(crop, { x: 0, y: 0, ...source });
+  assert.equal(patch.crop_aspect_ratio, "free");
+  assert.deepEqual(resolvePadding(patch, crop), {
+    left: 622, right: 623, top: 0, bottom: 0, outputWidth: 1821, outputHeight: 1024,
+  });
+});
+
+test("pad to portrait and rotation preserve all source pixels", () => {
+  const source = rotatedSize(576, 1024, 90);
+  const patch = fitSourceToAspect(source, "9:16", "pad");
+  assert.equal(patch.pad_left, 0);
+  assert.equal(patch.pad_right, 0);
+  assert.equal(patch.pad_top, 622);
+  assert.equal(patch.pad_bottom, 623);
+  assert.deepEqual(resolveCrop(patch, source), { x: 0, y: 0, ...source });
+});
+
+test("crop to aspect centers the largest crop and clears old padding", () => {
+  for (const [source, aspect, expected] of [
+    [{ width: 576, height: 1024 }, "16:9", { x: 0, y: 350, width: 576, height: 324 }],
+    [{ width: 1024, height: 576 }, "9:16", { x: 350, y: 0, width: 324, height: 576 }],
+  ]) {
+    const patch = fitSourceToAspect(source, aspect);
+    assert.deepEqual(resolveCrop(patch, source), expected);
+    assert.equal(patch.pad_left + patch.pad_right + patch.pad_top + patch.pad_bottom, 0);
+  }
+});
+
+test("free, source and already-matching aspects do not add padding", () => {
+  const source = { width: 1920, height: 1080 };
+  for (const aspect of ["free", "source", "16:9"]) {
+    const patch = fitSourceToAspect(source, aspect, "pad");
+    assert.deepEqual(resolveCrop(patch, source), { x: 0, y: 0, ...source });
+    assert.equal(patch.pad_left + patch.pad_right + patch.pad_top + patch.pad_bottom, 0);
+  }
 });
 
 test("handle priority and closest distance are deterministic", () => {

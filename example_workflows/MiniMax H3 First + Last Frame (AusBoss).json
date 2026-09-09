@@ -1,0 +1,1640 @@
+{
+  "id": "38d93e0d-9cc8-493e-8338-09eb994e7406",
+  "revision": 0,
+  "last_node_id": 71,
+  "last_link_id": 24,
+  "nodes": [
+    {
+      "id": 51,
+      "type": "UNETLoader",
+      "pos": [
+        0,
+        100
+      ],
+      "size": [
+        440,
+        82
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "unet_name",
+          "name": "unet_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "unet_name"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "weight_dtype",
+          "name": "weight_dtype",
+          "type": "COMBO",
+          "widget": {
+            "name": "weight_dtype"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "MODEL",
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            23
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.34.0",
+        "Node name for S&R": "UNETLoader",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        "minimax-h3/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+        "default"
+      ],
+      "widgets_values_named": {
+        "unet_name": "minimax-h3/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+        "weight_dtype": "default"
+      }
+    },
+    {
+      "id": 52,
+      "type": "CLIPLoader",
+      "pos": [
+        0,
+        232
+      ],
+      "size": [
+        440,
+        106
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "clip_name",
+          "name": "clip_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "clip_name"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "type",
+          "name": "type",
+          "type": "COMBO",
+          "widget": {
+            "name": "type"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "device",
+          "name": "device",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "device"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "CLIP",
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            4
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.34.0",
+        "Node name for S&R": "CLIPLoader",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        "minimax-h3/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+        "minimax",
+        "default"
+      ],
+      "widgets_values_named": {
+        "clip_name": "minimax-h3/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+        "type": "minimax",
+        "device": "default"
+      }
+    },
+    {
+      "id": 53,
+      "type": "VAELoader",
+      "pos": [
+        0,
+        388
+      ],
+      "size": [
+        440,
+        58
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "vae_name",
+          "name": "vae_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "vae_name"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "VAE",
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            5,
+            18
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.34.0",
+        "Node name for S&R": "VAELoader",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        "minimax_h3_video_vae_fp16.safetensors"
+      ],
+      "widgets_values_named": {
+        "vae_name": "minimax_h3_video_vae_fp16.safetensors"
+      }
+    },
+    {
+      "id": 54,
+      "type": "VAELoader",
+      "pos": [
+        0,
+        496
+      ],
+      "size": [
+        440,
+        58
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "vae_name",
+          "name": "vae_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "vae_name"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "VAE",
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            20
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.34.0",
+        "Node name for S&R": "VAELoader",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        "minimax_h3_audio_vae_fp32.safetensors"
+      ],
+      "widgets_values_named": {
+        "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+      }
+    },
+    {
+      "id": 56,
+      "type": "MiniMaxH3SigmaShift",
+      "pos": [
+        0,
+        604
+      ],
+      "size": [
+        440,
+        82
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "model",
+          "name": "model",
+          "type": "MODEL",
+          "link": 23
+        },
+        {
+          "localized_name": "shift_video",
+          "name": "shift_video",
+          "type": "FLOAT",
+          "widget": {
+            "name": "shift_video"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "shift_audio",
+          "name": "shift_audio",
+          "type": "FLOAT",
+          "widget": {
+            "name": "shift_audio"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "MODEL",
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            13
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.34.0",
+        "Node name for S&R": "MiniMaxH3SigmaShift",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        12,
+        3
+      ],
+      "widgets_values_named": {
+        "shift_video": 12,
+        "shift_audio": 3
+      }
+    },
+    {
+      "id": 57,
+      "type": "AUSBOSS_NODES_Resolution",
+      "pos": [
+        1040,
+        100
+      ],
+      "size": [
+        340,
+        531
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "width",
+          "name": "width",
+          "type": "INT",
+          "link": null
+        },
+        {
+          "localized_name": "height",
+          "name": "height",
+          "type": "INT",
+          "link": null
+        },
+        {
+          "localized_name": "latent",
+          "name": "latent",
+          "shape": 7,
+          "type": "COMBO",
+          "link": null
+        },
+        {
+          "localized_name": "batch_size",
+          "name": "batch_size",
+          "shape": 7,
+          "type": "INT",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "width",
+          "name": "width",
+          "type": "INT",
+          "links": [
+            6
+          ]
+        },
+        {
+          "localized_name": "height",
+          "name": "height",
+          "type": "INT",
+          "links": [
+            7
+          ]
+        },
+        {
+          "localized_name": "latent",
+          "name": "latent",
+          "type": "LATENT",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0",
+        "Node name for S&R": "AUSBOSS_NODES_Resolution",
+        "ausbossResolutionPortrait": true,
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        768,
+        1120,
+        "16ch",
+        1,
+        ""
+      ],
+      "widgets_values_named": {
+        "width": 768,
+        "height": 1120,
+        "latent": "16ch",
+        "batch_size": 1,
+        "ausboss_resolution_panel": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 58,
+      "type": "AUSBOSS_NODES_Float",
+      "pos": [
+        1040,
+        681
+      ],
+      "size": [
+        440,
+        94
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "value",
+          "name": "value",
+          "type": "FLOAT",
+          "widget": {
+            "name": "value"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "float",
+          "name": "float",
+          "type": "FLOAT",
+          "links": [
+            3
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0",
+        "Node name for S&R": "AUSBOSS_NODES_Float",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        5,
+        ""
+      ],
+      "widgets_values_named": {
+        "value": 5,
+        "ausboss_widget_card": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 59,
+      "type": "AUSBOSS_NODES_MathExpression",
+      "pos": [
+        1040,
+        825
+      ],
+      "size": [
+        440,
+        134
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "a",
+          "name": "a",
+          "shape": 7,
+          "type": "FLOAT,INT",
+          "link": 3
+        },
+        {
+          "localized_name": "b",
+          "name": "b",
+          "shape": 7,
+          "type": "FLOAT,INT",
+          "link": null
+        },
+        {
+          "localized_name": "c",
+          "name": "c",
+          "shape": 7,
+          "type": "FLOAT,INT",
+          "link": null
+        },
+        {
+          "localized_name": "expression",
+          "name": "expression",
+          "type": "STRING",
+          "widget": {
+            "name": "expression"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "float",
+          "name": "float",
+          "type": "FLOAT",
+          "links": null
+        },
+        {
+          "localized_name": "int",
+          "name": "int",
+          "type": "INT",
+          "links": [
+            8
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0",
+        "Node name for S&R": "AUSBOSS_NODES_MathExpression",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        "max(5, ceil((a * 24 - 5) / 17) * 17 + 5)",
+        ""
+      ],
+      "widgets_values_named": {
+        "expression": "max(5, ceil((a * 24 - 5) / 17) * 17 + 5)",
+        "ausboss_widget_card": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 60,
+      "type": "AUSBOSS_NODES_Text",
+      "pos": [
+        1560,
+        100
+      ],
+      "size": [
+        460,
+        340
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "text",
+          "name": "text",
+          "type": "STRING",
+          "widget": {
+            "name": "text"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "text",
+          "name": "text",
+          "type": "STRING",
+          "links": [
+            9
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0",
+        "Node name for S&R": "AUSBOSS_NODES_Text",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        "How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 5.17-second mark of the target video.\n\nintegrated_multimodal_description: [Shot 1] Live-action, cinematic, the opening composition matches Picture 1: a wide view across an alpine lake at sunrise, with the low wooden pier entering from the right and a small rowboat beside its far end. The camera holds a static shot. The boat glides across the water toward its position in Picture 2, leaving small spreading ripples. Thin mist drifts above the water. Keep the pier low in the frame and the distant mountains and shoreline consistent. The view settles into the boat position, spacing, viewpoint and lighting of Picture 2.\n\noverall_soundscape: Soft water laps against the wooden posts throughout, with faint distant birdsong.\n\nnon_diegetic_music: N/A"
+      ],
+      "widgets_values_named": {
+        "text": "How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 5.17-second mark of the target video.\n\nintegrated_multimodal_description: [Shot 1] Live-action, cinematic, the opening composition matches Picture 1: a wide view across an alpine lake at sunrise, with the low wooden pier entering from the right and a small rowboat beside its far end. The camera holds a static shot. The boat glides across the water toward its position in Picture 2, leaving small spreading ripples. Thin mist drifts above the water. Keep the pier low in the frame and the distant mountains and shoreline consistent. The view settles into the boat position, spacing, viewpoint and lighting of Picture 2.\n\noverall_soundscape: Soft water laps against the wooden posts throughout, with faint distant birdsong.\n\nnon_diegetic_music: N/A"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 61,
+      "type": "MiniMaxH3ImageToVideo",
+      "pos": [
+        1560,
+        490
+      ],
+      "size": [
+        460,
+        260
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "clip",
+          "name": "clip",
+          "type": "CLIP",
+          "link": 4
+        },
+        {
+          "localized_name": "vae",
+          "name": "vae",
+          "type": "VAE",
+          "link": 5
+        },
+        {
+          "localized_name": "first_frame",
+          "name": "first_frame",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 10
+        },
+        {
+          "localized_name": "last_frame",
+          "name": "last_frame",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 11
+        },
+        {
+          "localized_name": "prompt",
+          "name": "prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "prompt"
+          },
+          "link": 9
+        },
+        {
+          "localized_name": "width",
+          "name": "width",
+          "type": "INT",
+          "widget": {
+            "name": "width"
+          },
+          "link": 6
+        },
+        {
+          "localized_name": "height",
+          "name": "height",
+          "type": "INT",
+          "widget": {
+            "name": "height"
+          },
+          "link": 7
+        },
+        {
+          "localized_name": "length",
+          "name": "length",
+          "type": "INT",
+          "widget": {
+            "name": "length"
+          },
+          "link": 8
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "positive",
+          "name": "positive",
+          "type": "CONDITIONING",
+          "links": [
+            12,
+            14
+          ]
+        },
+        {
+          "localized_name": "LATENT",
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            16
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.34.0",
+        "Node name for S&R": "MiniMaxH3ImageToVideo",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        "",
+        1344,
+        768,
+        124
+      ],
+      "widgets_values_named": {
+        "prompt": "",
+        "width": 1344,
+        "height": 768,
+        "length": 124
+      }
+    },
+    {
+      "id": 62,
+      "type": "LoadImage",
+      "pos": [
+        520,
+        100
+      ],
+      "size": [
+        440,
+        490
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "COMBO",
+          "widget": {
+            "name": "image"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "choose file to upload",
+          "name": "upload",
+          "type": "IMAGEUPLOAD",
+          "widget": {
+            "name": "upload"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "IMAGE",
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            10
+          ]
+        },
+        {
+          "localized_name": "MASK",
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "title": "Opening image",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.34.0",
+        "Node name for S&R": "LoadImage",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        "ausboss_pier_sunrise.png",
+        "image"
+      ],
+      "widgets_values_named": {
+        "image": "ausboss_pier_sunrise.png",
+        "upload": "image"
+      }
+    },
+    {
+      "id": 63,
+      "type": "LoadImage",
+      "pos": [
+        520,
+        640
+      ],
+      "size": [
+        440,
+        490
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "COMBO",
+          "widget": {
+            "name": "image"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "choose file to upload",
+          "name": "upload",
+          "type": "IMAGEUPLOAD",
+          "widget": {
+            "name": "upload"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "IMAGE",
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            11
+          ]
+        },
+        {
+          "localized_name": "MASK",
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "title": "Ending image",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.34.0",
+        "Node name for S&R": "LoadImage",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        "ausboss_pier_rowboat.png",
+        "image"
+      ],
+      "widgets_values_named": {
+        "image": "ausboss_pier_rowboat.png",
+        "upload": "image"
+      }
+    },
+    {
+      "id": 64,
+      "type": "ConditioningZeroOut",
+      "pos": [
+        1560,
+        800
+      ],
+      "size": [
+        460,
+        26
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "conditioning",
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 12
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "CONDITIONING",
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            15
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.34.0",
+        "Node name for S&R": "ConditioningZeroOut",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      }
+    },
+    {
+      "id": 65,
+      "type": "KSampler",
+      "pos": [
+        2100,
+        366
+      ],
+      "size": [
+        440,
+        262
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "model",
+          "name": "model",
+          "type": "MODEL",
+          "link": 13
+        },
+        {
+          "localized_name": "positive",
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 14
+        },
+        {
+          "localized_name": "negative",
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 15
+        },
+        {
+          "localized_name": "latent_image",
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 16
+        },
+        {
+          "localized_name": "seed",
+          "name": "seed",
+          "type": "INT",
+          "widget": {
+            "name": "seed"
+          },
+          "link": 24
+        },
+        {
+          "localized_name": "steps",
+          "name": "steps",
+          "type": "INT",
+          "widget": {
+            "name": "steps"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "cfg",
+          "name": "cfg",
+          "type": "FLOAT",
+          "widget": {
+            "name": "cfg"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "sampler_name",
+          "name": "sampler_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "sampler_name"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "scheduler",
+          "name": "scheduler",
+          "type": "COMBO",
+          "widget": {
+            "name": "scheduler"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "denoise",
+          "name": "denoise",
+          "type": "FLOAT",
+          "widget": {
+            "name": "denoise"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "LATENT",
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            17,
+            19
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.34.0",
+        "Node name for S&R": "KSampler",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        20260905,
+        "fixed",
+        20,
+        1,
+        "res_multistep",
+        "simple",
+        1
+      ],
+      "widgets_values_named": {
+        "seed": 20260905,
+        "control_after_generate": "randomize",
+        "steps": 20,
+        "cfg": 1,
+        "sampler_name": "res_multistep",
+        "scheduler": "simple",
+        "denoise": 1
+      }
+    },
+    {
+      "id": 66,
+      "type": "VAEDecode",
+      "pos": [
+        2100,
+        678
+      ],
+      "size": [
+        440,
+        46
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "samples",
+          "name": "samples",
+          "type": "LATENT",
+          "link": 17
+        },
+        {
+          "localized_name": "vae",
+          "name": "vae",
+          "type": "VAE",
+          "link": 18
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "IMAGE",
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            21
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.34.0",
+        "Node name for S&R": "VAEDecode",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      }
+    },
+    {
+      "id": 67,
+      "type": "VAEDecodeAudio",
+      "pos": [
+        2100,
+        774
+      ],
+      "size": [
+        440,
+        46
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "samples",
+          "name": "samples",
+          "type": "LATENT",
+          "link": 19
+        },
+        {
+          "localized_name": "vae",
+          "name": "vae",
+          "type": "VAE",
+          "link": 20
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "AUDIO",
+          "name": "AUDIO",
+          "type": "AUDIO",
+          "links": [
+            22
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.34.0",
+        "Node name for S&R": "VAEDecodeAudio",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      }
+    },
+    {
+      "id": 68,
+      "type": "AUSBOSS_NODES_SaveVideo",
+      "pos": [
+        2620,
+        100
+      ],
+      "size": [
+        620,
+        700
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "frames",
+          "name": "frames",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 21
+        },
+        {
+          "localized_name": "audio",
+          "name": "audio",
+          "shape": 7,
+          "type": "AUDIO",
+          "link": 22
+        },
+        {
+          "localized_name": "video",
+          "name": "video",
+          "shape": 7,
+          "type": "VIDEO",
+          "link": null
+        },
+        {
+          "localized_name": "fps",
+          "name": "fps",
+          "type": "FLOAT",
+          "link": null
+        },
+        {
+          "localized_name": "filename_prefix",
+          "name": "filename_prefix",
+          "type": "STRING",
+          "widget": {
+            "name": "filename_prefix"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "crf",
+          "name": "crf",
+          "type": "INT",
+          "link": null
+        },
+        {
+          "localized_name": "format",
+          "name": "format",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "format"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "pingpong",
+          "name": "pingpong",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "pingpong"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "save_metadata",
+          "name": "save_metadata",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "save_metadata"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "file_path",
+          "name": "file_path",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0",
+        "Node name for S&R": "AUSBOSS_NODES_SaveVideo",
+        "ausboss_save_video_loop": true,
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": {
+        "fps": 24,
+        "filename_prefix": "AusBoss/minimax_h3_first_last_base",
+        "crf": 17,
+        "format": "mp4 h264",
+        "pingpong": false,
+        "save_metadata": true
+      },
+      "widgets_values_named": {
+        "fps": 24,
+        "filename_prefix": "AusBoss/minimax_h3_first_last_base",
+        "crf": 17,
+        "format": "mp4 h264",
+        "pingpong": false,
+        "save_metadata": true,
+        "ausboss_widget_card": "",
+        "ausboss_save_video_viewer": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 69,
+      "type": "AUSBOSS_NODES_WorkflowNote",
+      "pos": [
+        -620,
+        100
+      ],
+      "size": [
+        560,
+        1100
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "note",
+          "name": "note",
+          "type": "STRING",
+          "widget": {
+            "name": "note"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0",
+        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        "{\"v\": 1, \"title\": \"MiniMax H3 First + Last Frame\", \"subtitle\": \"Two endpoint images, a stable transition and native audio.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose each installed model in its loader; saved selections may include local subfolders. Download links below name the standard destination folders.\\n\\n## Start here\\nChoose the four installed H3 model files. This example uses the base model without a turbo LoRA: 20 res_multistep/simple steps, CFG 1, video sigma shift 12 and audio shift 3. It is slower than the turbo examples, but the tested shot keeps the scene much more consistent.\\n\\n## Your shot\\nUpload the two sample images from example_workflows/inputs, or choose your own. Opening image and Ending image connect separately to H3. Resolution Master sets the target canvas to 768 × 1120. Similar framing and lighting in both images make the transition easier.\\n\\nSeconds rounds up to the 17k+5 grid at 24 fps: five seconds becomes 124 frames, or 5.17 seconds. Keep the frame rate at 24. If you change Seconds, update the final alignment time in the prompt too (frame count / 24).\\n\\nThe supplied prompt keeps the camera fixed while the boat, water and mist move gently. The image inputs guide the opening and ending; inspect the render before using it. Both video and native audio are saved together.\\n\\n## Why no turbo LoRA?\\nIn a same-seed comparison, the 4-step LoRA invented large foreground objects and an unnatural spray arc. The 20-step base run kept a stable lake and pier with subtle motion. That is evidence for this sample, not a guarantee for every shot.\\n\\n[Native H3 workflow documentation](https://docs.comfy.org/tutorials/video/minimax/minimax-h3)\", \"models\": [{\"name\": \"minimax_h3_fl2va_pruned_int8_convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"21 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors\", \"note\": \"fp8_scaled (21 GB) and nvfp4 builds of the pruned fl2va model also work\"}, {\"name\": \"qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\", \"dir\": \"text_encoders\", \"size\": \"15.7 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\", \"note\": \"does not need a Blackwell card\"}, {\"name\": \"minimax_h3_video_vae_fp16.safetensors\", \"dir\": \"vae\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_fp16.safetensors\", \"note\": \"\"}, {\"name\": \"minimax_h3_audio_vae_fp32.safetensors\", \"dir\": \"vae\", \"size\": \"605 MB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors\", \"note\": \"\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_MathExpression\"}]}"
+      ],
+      "widgets_values_named": {
+        "note": "{\"v\":1,\"title\":\"MiniMax H3 First + Last Frame\",\"subtitle\":\"Two endpoint images, a stable transition and native audio.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"\",\"body\":\"## Start here\\nChoose the four installed H3 model files. This example uses the base model without a turbo LoRA: 20 res_multistep/simple steps, CFG 1, video sigma shift 12 and audio shift 3. It is slower than the turbo examples, but the tested shot keeps the scene much more consistent.\\n\\n## Your shot\\nUpload the two sample images from example_workflows/inputs, or choose your own. Opening image and Ending image connect separately to H3. Resolution Master sets the target canvas to 768 × 1120. Similar framing and lighting in both images make the transition easier.\\n\\nSeconds rounds up to the 17k+5 grid at 24 fps: five seconds becomes 124 frames, or 5.17 seconds. Keep the frame rate at 24. If you change Seconds, update the final alignment time in the prompt too (frame count / 24).\\n\\nThe supplied prompt keeps the camera fixed while the boat, water and mist move gently. The image inputs guide the opening and ending; inspect the render before using it. Both video and native audio are saved together.\\n\\n## Why no turbo LoRA?\\nIn a same-seed comparison, the 4-step LoRA invented large foreground objects and an unnatural spray arc. The 20-step base run kept a stable lake and pier with subtle motion. That is evidence for this sample, not a guarantee for every shot.\\n\\n[Native H3 workflow documentation](https://docs.comfy.org/tutorials/video/minimax/minimax-h3)\"}",
+        "ausboss_workflow_note_panel": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 70,
+      "type": "AUSBOSS_NODES_Seed",
+      "pos": [
+        2100,
+        100
+      ],
+      "size": [
+        440,
+        216
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "seed",
+          "type": "INT",
+          "links": [
+            24
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_Seed",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0"
+      },
+      "widgets_values": [
+        20260905,
+        "fixed"
+      ]
+    },
+    {
+      "id": 71,
+      "type": "AUSBOSS_NODES_RunTimer",
+      "pos": [
+        2100,
+        870
+      ],
+      "size": [
+        196,
+        62
+      ],
+      "flags": {},
+      "order": 19,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_RunTimer",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0"
+      },
+      "widgets_values": []
+    }
+  ],
+  "links": [
+    [
+      3,
+      58,
+      0,
+      59,
+      0,
+      "FLOAT"
+    ],
+    [
+      4,
+      52,
+      0,
+      61,
+      0,
+      "CLIP"
+    ],
+    [
+      5,
+      53,
+      0,
+      61,
+      1,
+      "VAE"
+    ],
+    [
+      6,
+      57,
+      0,
+      61,
+      5,
+      "INT"
+    ],
+    [
+      7,
+      57,
+      1,
+      61,
+      6,
+      "INT"
+    ],
+    [
+      8,
+      59,
+      1,
+      61,
+      7,
+      "INT"
+    ],
+    [
+      9,
+      60,
+      0,
+      61,
+      4,
+      "STRING"
+    ],
+    [
+      10,
+      62,
+      0,
+      61,
+      2,
+      "IMAGE"
+    ],
+    [
+      11,
+      63,
+      0,
+      61,
+      3,
+      "IMAGE"
+    ],
+    [
+      12,
+      61,
+      0,
+      64,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      13,
+      56,
+      0,
+      65,
+      0,
+      "MODEL"
+    ],
+    [
+      14,
+      61,
+      0,
+      65,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      15,
+      64,
+      0,
+      65,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      16,
+      61,
+      1,
+      65,
+      3,
+      "LATENT"
+    ],
+    [
+      17,
+      65,
+      0,
+      66,
+      0,
+      "LATENT"
+    ],
+    [
+      18,
+      53,
+      0,
+      66,
+      1,
+      "VAE"
+    ],
+    [
+      19,
+      65,
+      0,
+      67,
+      0,
+      "LATENT"
+    ],
+    [
+      20,
+      54,
+      0,
+      67,
+      1,
+      "VAE"
+    ],
+    [
+      21,
+      66,
+      0,
+      68,
+      0,
+      "IMAGE"
+    ],
+    [
+      22,
+      67,
+      0,
+      68,
+      1,
+      "AUDIO"
+    ],
+    [
+      23,
+      51,
+      0,
+      56,
+      0,
+      "MODEL"
+    ],
+    [
+      24,
+      70,
+      0,
+      65,
+      4,
+      "INT"
+    ]
+  ],
+  "groups": [
+    {
+      "title": "1 · Models",
+      "bounding": [
+        -20,
+        40,
+        480,
+        666
+      ],
+      "color": "#235d64",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "title": "2 · Opening + ending pictures",
+      "bounding": [
+        500,
+        40,
+        480,
+        1110
+      ],
+      "color": "#366451",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "title": "3 · Canvas + duration",
+      "bounding": [
+        1020,
+        40,
+        480,
+        939
+      ],
+      "color": "#5d527c",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "title": "4 · Shot + conditioning",
+      "bounding": [
+        1540,
+        40,
+        500,
+        806
+      ],
+      "color": "#795b38",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "title": "5 · Seed, sample + decode",
+      "bounding": [
+        2080,
+        40,
+        480,
+        912
+      ],
+      "color": "#345d7c",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "title": "6 · Video + audio output",
+      "bounding": [
+        2600,
+        40,
+        660,
+        780
+      ],
+      "color": "#65515e",
+      "font_size": 24,
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.4112,
+      "offset": [
+        854.55,
+        383.42
+      ]
+    },
+    "comfyui_mcp": {
+      "workflow_uuid": "9afa7ed4-022f-436f-955b-6fc59c8a4479"
+    },
+    "ue_links": []
+  },
+  "version": 0.4
+}

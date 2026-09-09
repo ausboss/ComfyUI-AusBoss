@@ -31,17 +31,21 @@ NODE_MODULES = [
     "node_krea2_model_patch",
     "node_lama_inpaint",
     "node_literals",
-    "node_lmstudio_chat",
     "node_load_image_pad",
     "node_load_video",
     "node_lora_loader",
     "node_math",
     "node_refine_mask",
+    "node_run_timer",
     "node_save_image",
     "node_save_video",
+    "node_seed",
+    "node_resolution",
     "node_select_frame",
     "node_show_text",
     "node_video_crop_rotate_pad",
+    "node_video_crop_rotate_pad_clip",
+    "node_workflow_note",
 ]
 
 NODE_CLASS_MAPPINGS = {}

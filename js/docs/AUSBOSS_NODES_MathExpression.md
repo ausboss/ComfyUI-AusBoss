@@ -11,9 +11,10 @@ strength ramps, frame counts.
   the functions `min`, `max`, `abs`, `round`, `floor`, `ceil`, `sqrt`.
   Examples: `a * 2`, `floor(a / 64) * 64`, `min(a, b) + 0.5`,
   `sqrt(a*a + b*b)`.
-- **a**, **b**, **c**: The values the expression reads. Type them or convert
-  them to inputs and wire numbers in; an unused one costs nothing and an
-  unwired one reads as its widget value.
+- **a**, **b**, **c**: The values the expression reads, as three sockets on
+  the node's left edge that take a `FLOAT` or an `INT`. An unwired one reads
+  as `0`, and an unused one costs nothing; a constant belongs in the
+  expression itself (`a * 2`, `floor(a / 64) * 64`).
 
 ## Outputs
 

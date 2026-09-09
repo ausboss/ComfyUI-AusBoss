@@ -21,8 +21,10 @@ import {
 const NODE_TYPES = new Set([
   "AUSBOSS_NODES_ImageCropRotatePad",
   "AUSBOSS_NODES_VideoCropRotatePad",
+  "AUSBOSS_NODES_VideoCropRotatePadClip",
   "AUSBOSS_NODES_LoadVideo",
   "AUSBOSS_NODES_SaveVideo",
+  "AUSBOSS_NODES_SaveImage",
 ]);
 
 app.registerExtension({

@@ -10,7 +10,9 @@ output width/height come back as INTs ready to wire onward.
 
 Each mode reads only its own widget(s); the others are ignored.
 
-- **width+height**: The two size widgets. `0` keeps that source dimension,
+- **width+height**: The two size fields. Their input sockets sit with the
+  node's inputs, under `image` and `mask`; a linked one greys its field out.
+  `0` keeps that source dimension,
   and with only one set the other follows the source aspect.
 - **longest_edge** / **shortest_edge**: Scales until that edge equals
   `edge_length` exactly; the other edge keeps the aspect. `0` keeps the

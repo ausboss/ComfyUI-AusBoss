@@ -1,0 +1,346 @@
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "revision": 0,
+  "last_node_id": 54,
+  "last_link_id": 3,
+  "nodes": [
+    {
+      "id": 51,
+      "type": "AUSBOSS_NODES_Resolution",
+      "pos": [
+        0,
+        100
+      ],
+      "size": [
+        340,
+        531
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "width",
+          "name": "width",
+          "type": "INT",
+          "link": null
+        },
+        {
+          "localized_name": "height",
+          "name": "height",
+          "type": "INT",
+          "link": null
+        },
+        {
+          "localized_name": "latent",
+          "name": "latent",
+          "shape": 7,
+          "type": "COMBO",
+          "link": null
+        },
+        {
+          "localized_name": "batch_size",
+          "name": "batch_size",
+          "shape": 7,
+          "type": "INT",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "width",
+          "name": "width",
+          "type": "INT",
+          "links": [
+            1
+          ]
+        },
+        {
+          "localized_name": "height",
+          "name": "height",
+          "type": "INT",
+          "links": [
+            2
+          ]
+        },
+        {
+          "localized_name": "latent",
+          "name": "latent",
+          "type": "LATENT",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "AUSBOSS_NODES_Resolution",
+        "ausbossResolutionPortrait": false
+      },
+      "widgets_values": [
+        1024,
+        1024,
+        "16ch",
+        1,
+        ""
+      ],
+      "widgets_values_named": {
+        "width": 1024,
+        "height": 1024,
+        "latent": "16ch",
+        "batch_size": 1,
+        "ausboss_resolution_panel": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 52,
+      "type": "EmptyImage",
+      "pos": [
+        440,
+        100
+      ],
+      "size": [
+        300,
+        170
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "width",
+          "name": "width",
+          "type": "INT",
+          "widget": {
+            "name": "width"
+          },
+          "link": 1
+        },
+        {
+          "localized_name": "height",
+          "name": "height",
+          "type": "INT",
+          "widget": {
+            "name": "height"
+          },
+          "link": 2
+        },
+        {
+          "localized_name": "batch_size",
+          "name": "batch_size",
+          "type": "INT",
+          "widget": {
+            "name": "batch_size"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "color",
+          "name": "color",
+          "type": "INT",
+          "widget": {
+            "name": "color"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "IMAGE",
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            3
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.34.0",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "EmptyImage"
+      },
+      "widgets_values": [
+        512,
+        512,
+        1,
+        1458762
+      ],
+      "widgets_values_named": {
+        "width": 512,
+        "height": 512,
+        "batch_size": 1,
+        "color": 1458762
+      }
+    },
+    {
+      "id": 53,
+      "type": "PreviewImage",
+      "pos": [
+        840,
+        100
+      ],
+      "size": [
+        460,
+        540
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.34.0",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "PreviewImage"
+      }
+    },
+    {
+      "id": 54,
+      "type": "AUSBOSS_NODES_WorkflowNote",
+      "pos": [
+        -620,
+        100
+      ],
+      "size": [
+        560,
+        510
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "note",
+          "name": "note",
+          "type": "STRING",
+          "widget": {
+            "name": "note"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote"
+      },
+      "widgets_values": [
+        "{\"v\": 1, \"title\": \"Resolution Master\", \"subtitle\": \"A small canvas test with no models to download.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"Choose portrait or landscape, then a ratio. Scrub the MP field to make a smaller or larger canvas. Queue to preview that size as a solid color.\\n\\nFor image generation, wire the latent output into your sampler instead. Choose the correct latent layout in the gear. For video generation, use the width and height outputs, as in the MiniMax H3 examples.\\n\\nTyped dimensions remain exact; latent dimensions round down to complete cells. Use multiples of the chosen latent layout’s downsample factor when sampling directly.\"}"
+      ],
+      "widgets_values_named": {
+        "note": "{\"v\":1,\"title\":\"Resolution Master\",\"subtitle\":\"A small canvas test with no models to download.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"\",\"body\":\"Choose portrait or landscape, then a ratio. Scrub the MP field to make a smaller or larger canvas. Queue to preview that size as a solid color.\\n\\nFor image generation, wire the latent output into your sampler instead. Choose the correct latent layout in the gear. For video generation, use the width and height outputs, as in the MiniMax H3 examples.\\n\\nTyped dimensions remain exact; latent dimensions round down to complete cells. Use multiples of the chosen latent layout’s downsample factor when sampling directly.\"}",
+        "ausboss_workflow_note_panel": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    }
+  ],
+  "links": [
+    [
+      1,
+      51,
+      0,
+      52,
+      0,
+      "INT"
+    ],
+    [
+      2,
+      51,
+      1,
+      52,
+      1,
+      "INT"
+    ],
+    [
+      3,
+      52,
+      0,
+      53,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [
+    {
+      "title": "1 · Choose the canvas",
+      "bounding": [
+        -20,
+        40,
+        380,
+        611
+      ],
+      "color": "#235d64",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "title": "2 · Build a preview",
+      "bounding": [
+        420,
+        40,
+        340,
+        250
+      ],
+      "color": "#366451",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "title": "3 · Check the result",
+      "bounding": [
+        820,
+        40,
+        500,
+        620
+      ],
+      "color": "#5d527c",
+      "font_size": 24,
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ue_links": [],
+    "ds": {
+      "scale": 0.81,
+      "offset": [
+        758.77,
+        179.88
+      ]
+    }
+  },
+  "version": 0.4
+}

@@ -2,7 +2,7 @@ import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { fillNodeHeight } from "../shared/panel_layout.mjs";
-import { hideWidget } from "../shared/widget_visibility.mjs";
+import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
 import { canvasHeightForWidth, parseImageReference } from "../shared/pad_canvas.mjs";
 import { createPadStage } from "../shared/pad_panel.mjs";
 
@@ -132,6 +132,8 @@ function buildPanel(node) {
       target_megapixels: numberValue(node, "target_megapixels", 0),
     }),
     writePad: (side, value) => {
+      const input = node.inputs?.find((entry) => entry.name === `pad_${side}`);
+      if (input?.link != null) return;
       const target = findWidget(node, `pad_${side}`);
       if (!target) return;
       target.value = value;
@@ -195,6 +197,7 @@ app.registerExtension({
   name: "ausboss.load_image_pad.panel",
   beforeRegisterNodeDef(nodeType, nodeData) {
     if (nodeData?.name !== NODE_NAME) return;
+    hideInputsInDef(nodeData, ["pad_left", "pad_top", "pad_right", "pad_bottom"]);
     chainCallback(nodeType.prototype, "onNodeCreated", function () {
       buildPanel(this);
     });

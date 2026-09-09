@@ -13,6 +13,14 @@ Checks:
      the version out of pyproject.toml on main at view time, so it can
      never go stale (a hardcoded badge sat at 1.0.0 through two releases).
      The check guards against someone swapping a static badge back in.
+  4. .comfyignore keeps development-only paths (tests, scripts, CI, agent
+     instructions, root docs) out of the Registry archive and never
+     swallows a runtime path (nodes/, js/ including js/docs/, the example
+     workflows, README, LICENSE, pyproject). comfy-cli's packer honours
+     the file with gitignore semantics; this check reads it the same way.
+  5. example_workflows/: every UI graph has a matching thumbnail, consistent
+     links, setup instructions, and stage groups containing its nodes without
+     overlaps (including title bars).
 
 Exit code 0 = ready to release, 1 = problems printed below.
 """
@@ -20,6 +28,8 @@ Exit code 0 = ready to release, 1 = problems printed below.
 import pathlib
 import re
 import sys
+
+from workflow_contract import example_problems
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 errors = []
@@ -79,6 +89,96 @@ try:
         )
 except OSError as exc:
     errors.append(f"could not read README.md: {exc}")
+
+# --- 4. .comfyignore covers the development-only paths -----------------------
+import fnmatch
+
+
+def comfyignore_patterns(text):
+    patterns = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        patterns.append(line)
+    return patterns
+
+
+def ignored(path, patterns):
+    """gitignore-style match, the subset .comfyignore uses: a trailing slash
+    names a directory anywhere in the tree, a leading slash anchors to the
+    root, anything else matches a path segment or the full path."""
+    parts = path.split("/")
+    for pattern in patterns:
+        anchored = pattern.startswith("/")
+        body = pattern.lstrip("/")
+        directory = body.endswith("/")
+        body = body.rstrip("/")
+        if anchored:
+            if directory and parts[0] == body and len(parts) > 1:
+                return True
+            if not directory and fnmatch.fnmatch(path, body):
+                return True
+            continue
+        if directory:
+            if body in parts[:-1]:
+                return True
+            continue
+        if fnmatch.fnmatch(path, body) or any(fnmatch.fnmatch(part, body) for part in parts):
+            return True
+    return False
+
+
+DEV_ONLY = [
+    "tests/test_math_helpers.py", "tests/panel_guards.test.mjs",
+    "scripts/validate_nodes.py", "scripts/release_preflight.py",
+    ".github/workflows/publish_action.yml", "AGENTS.md", "CLAUDE.md",
+    ".claude/skills/ausboss-node-brand/SKILL.md", ".agents/skills/ausboss-node-brand/SKILL.md",
+    "docs/adding_a_node.md", "todo.md", "todo", "workflow_ideas.md",
+]
+RUNTIME = [
+    "__init__.py", "nodes/node_seed.py", "nodes/_lora_helpers.py",
+    "js/seed/index.js", "js/shared/index.mjs", "js/docs/AUSBOSS_NODES_Seed.md",
+    "example_workflows/Krea 2 Outpaint (AusBoss).json",
+    "example_workflows/inputs/ausboss_pier_sunrise.png",
+    "README.md", "LICENSE", "pyproject.toml", "ausboss_presets_example.json",
+]
+try:
+    patterns = comfyignore_patterns((ROOT / ".comfyignore").read_text(encoding="utf-8"))
+except OSError as exc:
+    patterns = None
+    errors.append(f"could not read .comfyignore: {exc}")
+if patterns is not None:
+    for path in DEV_ONLY:
+        if not ignored(path, patterns):
+            errors.append(f".comfyignore does not exclude development-only path {path}")
+    for path in RUNTIME:
+        if ignored(path, patterns):
+            errors.append(f".comfyignore would drop runtime path {path} from the archive")
+
+# --- 5. example workflows parse and pair with thumbnails ---------------------
+import json
+
+examples = ROOT / "example_workflows"
+if examples.is_dir():
+    workflows = {path.stem: path for path in examples.glob("*.json")}
+    for stem, path in sorted(workflows.items()):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            errors.append(f"example_workflows/{path.name} is not valid JSON: {exc}")
+            continue
+        if not isinstance(data, dict) or not isinstance(data.get("nodes"), list) or not data["nodes"]:
+            errors.append(
+                f"example_workflows/{path.name} is not a UI workflow (no nodes list) - "
+                "the template browser needs the saved-workflow format, not API JSON"
+            )
+        if not (examples / f"{stem}.jpg").is_file():
+            errors.append(f"example_workflows/{path.name} has no {stem}.jpg - it shows a blank template card")
+    for path in sorted(examples.glob("*.jpg")):
+        if path.stem not in workflows:
+            errors.append(f"example_workflows/{path.name} has no matching {path.stem}.json")
+    errors.extend(example_problems(examples))
 
 # --- report ------------------------------------------------------------------
 for error in errors:

@@ -110,14 +110,18 @@ class AlignImageTests(unittest.TestCase):
 
 
 class AlignImageNodeTests(unittest.TestCase):
-    def test_node_returns_image_size_and_offsets(self):
+    def test_node_returns_image_and_size_only(self):
+        # The helper still reports offsets; the node's face stops at the
+        # three outputs a graph wires (offsets were dropped 2026-09-03).
         node = AusBossAlignImage()
-        out, width, height, ox, oy = node.align(ramp(1, 100, 100), 32, "pad")
+        result = node.align(ramp(1, 100, 100), 32, "pad")
+        self.assertEqual(len(result), 3)
+        out, width, height = result
         self.assertEqual((width, height), (128, 128))
         self.assertEqual(tuple(out.shape), (1, 128, 128, 3))
-        self.assertEqual((ox, oy), (14, 14))
-        for value in (width, height, ox, oy):
+        for value in (width, height):
             self.assertIsInstance(value, int)
+        self.assertEqual(AusBossAlignImage.RETURN_NAMES, ("image", "width", "height"))
 
     def test_mode_choices_match_the_helper(self):
         widget = AusBossAlignImage.INPUT_TYPES()["required"]["mode"][0]

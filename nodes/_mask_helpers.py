@@ -123,15 +123,14 @@ EDGE_REFINE_MODES = ("off", "guided filter", "matting")
 
 _GUIDED_FILTER_HINT = (
     "Mask Refine edge_refine 'guided filter' needs the optional "
-    "opencv-contrib dependency. Install it into ComfyUI's python with: "
-    "pip install opencv-contrib-python (the pack's 'guided-filter' "
-    "optional-dependencies group), then restart ComfyUI."
+    "opencv-contrib dependency. Add the opencv-contrib-python package to "
+    "ComfyUI's python (the pack's 'guided-filter' optional-dependencies "
+    "group), then restart ComfyUI."
 )
 _MATTING_HINT = (
     "Mask Refine edge_refine 'matting' needs the optional pymatting "
-    "dependency. Install it into ComfyUI's python with: pip install "
-    "pymatting (the pack's 'matting' optional-dependencies group), then "
-    "restart ComfyUI."
+    "dependency. Add the pymatting package to ComfyUI's python (the pack's "
+    "'matting' optional-dependencies group), then restart ComfyUI."
 )
 
 

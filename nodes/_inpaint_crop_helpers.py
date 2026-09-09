@@ -179,7 +179,7 @@ def _replicate_pad_image(
 
 _PYMATTING_HINT = (
     "Stitch Inpaint: fix_edge_halo needs the optional 'pymatting' package "
-    "(pip install pymatting); pasting the edge pixels unchanged."
+    "(add the pymatting package); pasting the edge pixels unchanged."
 )
 
 _warned: set[str] = set()
@@ -401,11 +401,7 @@ def build_crop(
     )
     canvas_mask[:, top : top + height, left : left + width] = mask
 
-    if blend_px > 0:
-        blend = grow_shrink_mask(canvas_mask, blend_px)
-        blend = blur_mask(blend, blend_px / 3.0).clamp(0.0, 1.0)
-    else:
-        blend = canvas_mask.clone()
+    blend = stitch_blend_from_mask(canvas_mask, blend_px)
 
     cx, cy, cw, ch = crop_to_canvas
     cropped = canvas[:, cy : cy + ch, cx : cx + cw, :].clone()
@@ -435,6 +431,30 @@ def build_crop(
         "algorithm": rescale_algorithm,
     }
     return cropped, sampling, stitcher
+
+
+def stitch_blend_from_mask(
+    mask: torch.Tensor, blend_pixels: int, grow_pixels: int = 0
+) -> torch.Tensor:
+    """The paste mask :func:`apply_stitch` blends with, from a generated-area mask.
+
+    ``grow_pixels`` first moves the paste boundary: positive lets the
+    generation replace a strip of the source next to the seam, negative keeps
+    a strip of the generated area out. ``blend_pixels`` then ramps the mask
+    into the kept pixels - grown by that many pixels and blurred - so the
+    paste fades in instead of ending at a hard cut. Crop For Inpaint and the
+    padding producers all feather through here, so a stitch looks the same
+    whichever node built it.
+    """
+    blend = mask
+    grow = int(grow_pixels)
+    if grow:
+        blend = grow_shrink_mask(blend, grow)
+    ramp = max(0, int(blend_pixels))
+    if ramp > 0:
+        blend = grow_shrink_mask(blend, ramp)
+        blend = blur_mask(blend, ramp / 3.0)
+    return blend.clamp(0.0, 1.0) if (grow or ramp) else blend.clone()
 
 
 def build_canvas_stitcher(
@@ -489,20 +509,30 @@ def build_canvas_stitcher(
 
 
 def apply_stitch(
-    stitcher: dict, inpainted: torch.Tensor, fix_edge_halo: bool = False
+    stitcher: dict,
+    inpainted: torch.Tensor,
+    fix_edge_halo: bool = False,
+    color_match: float = 0.0,
 ) -> torch.Tensor:
     """Blend the inpainted crop back and return the original-size image.
 
     Guarantees: pixels where the blend mask is zero are bit-identical to
     the original image, and passing the crop back unchanged reproduces
     the original exactly. A stitcher built from a single image legally
-    broadcasts across an N-frame inpainted batch.
+    broadcasts across an N-frame inpainted batch, and a stitcher built
+    from more frames than came back is trimmed to the leading ``N``
+    (video models return 8n+1 or 4n+1 frames and drop the tail).
 
     ``fix_edge_halo`` swaps the blended-in color for the spread foreground
     color from :func:`spread_edge_colors`; it never widens the blend, so
     the zero-weight guarantee is unaffected. Identity round trips are only
     exact with the toggle off, since the spread deliberately rewrites the
     feathered band.
+
+    ``color_match`` (0..1) shifts the patch's tone by the offset measured
+    in the feathered band (:func:`estimate_tone_offset`) before blending,
+    so an outpaint whose new bands came out a touch lighter or warmer than
+    the picture lands on the picture's own tone. 0 leaves the patch alone.
     """
     if not isinstance(stitcher, dict) or stitcher.get("kind") != STITCHER_KIND:
         raise ValueError(
@@ -520,11 +550,25 @@ def apply_stitch(
         out = canvas.clone()
     elif batch == 1:
         out = canvas.expand(frames, -1, -1, -1).clone()
+    elif frames < batch:
+        # Video models hand back fewer frames than they were given (LTX
+        # keeps 8n+1, Wan 4n+1) and drop the tail. Paste what came back
+        # over the matching leading source frames and say so, rather than
+        # throw away a long run over the count.
+        print(
+            f"[AusBoss] Stitch Inpaint: {frames} inpainted frame(s) for a "
+            f"stitcher built from {batch}; stitching the first {frames} and "
+            f"dropping the last {batch - frames} source frame(s)."
+        )
+        out = canvas[:frames].clone()
+        if blend.shape[0] == batch:
+            blend = blend[:frames]
     else:
         raise ValueError(
             f"Cannot stitch {frames} inpainted frame(s) into a stitcher "
-            f"built from {batch} image(s); batches must match or the "
-            "stitcher must come from a single image."
+            f"built from {batch} image(s); a stitcher built from one image "
+            "broadcasts, and a longer stitcher is trimmed to the frames "
+            "that came back, but it cannot invent frames it never had."
         )
     if inpainted.shape[3] != canvas.shape[3]:
         raise ValueError(
@@ -542,6 +586,22 @@ def apply_stitch(
         patch = _resize_image(patch, cw, ch, stitcher.get("algorithm", "bilinear"))
 
     alpha = blend[:, cy : cy + ch, cx : cx + cw].to(out.device)
+    if color_match > 0:
+        # Measured against the canvas region the patch lands on; the shift
+        # reaches every patch pixel but only the blended ones survive, so
+        # the zero-blend guarantee below is untouched.
+        bbox = stitcher.get("source_bbox")
+        if bbox is not None:
+            # The bbox is in canvas pixels; the crop window is the identity
+            # for a padded canvas, so it maps straight onto the patch.
+            bbox = (bbox[0] - cx, bbox[1] - cy, bbox[2] - cx, bbox[3] - cy)
+        field = tone_offset_field(patch, out[:, cy : cy + ch, cx : cx + cw, :], alpha, bbox)
+        # Weighted by the blend: a fully generated pixel drifted by the whole
+        # field, a band pixel the sampler mixed at alpha drifted by alpha of
+        # it, and the blend below scales the correction by alpha once more.
+        # Shifting the band by the full field would land it alpha*(1-alpha)
+        # of the drift below the picture - a faint dark line along the seam.
+        patch = shift_tone(patch, field * alpha.unsqueeze(-1), min(1.0, float(color_match)))
     if fix_edge_halo:
         patch = spread_edge_colors(patch, alpha)
     weights = alpha.unsqueeze(-1)
@@ -553,6 +613,207 @@ def apply_stitch(
     mixed = torch.where(weights > 0, mixed, region)
     out[:, cy : cy + ch, cx : cx + cw, :] = mixed
     return out[:, oy : oy + oh, ox : ox + ow, :].contiguous()
+
+
+def estimate_tone_offset(
+    inpainted: torch.Tensor, canvas: torch.Tensor, blend: torch.Tensor
+) -> torch.Tensor:
+    """Per-frame LAB mean offset of the inpainted patch against the canvas,
+    measured where both hold real content: the feathered band (0 < blend
+    < 1), inside the original picture but partly regenerated.
+
+    The sampler mixes original and generated latent by the mask, so a band
+    pixel comes out roughly ``blend * generated + (1 - blend) * original``.
+    Dividing that difference back out is the weighted least-squares
+    estimate ``sum(blend * (patch - canvas)) / sum(blend**2)`` per channel -
+    the tone the model drifted by, read off pixels whose true color is
+    known. Returns [B, 3] in LAB; zeros when there is no band to measure.
+    """
+    from ._color_helpers import rgb_to_lab
+
+    diff = rgb_to_lab(inpainted[..., :3]) - rgb_to_lab(canvas[..., :3])
+    band = _band_weights(blend)
+    weights = band.unsqueeze(-1)
+    numerator = (weights * diff).sum(dim=(1, 2))
+    denominator = (weights * weights).sum(dim=(1, 2)).clamp_min(1e-6)
+    offset = numerator / denominator
+    measured = (band.sum(dim=(1, 2)) > 0).unsqueeze(-1)
+    return torch.where(measured, offset, torch.zeros_like(offset))
+
+
+def _band_weights(blend: torch.Tensor) -> torch.Tensor:
+    return torch.where((blend > 0.001) & (blend < 0.999), blend, torch.zeros_like(blend))
+
+
+def _fill_nearest(values: torch.Tensor, valid: torch.Tensor) -> torch.Tensor:
+    """values [N, C], valid [N] bool: copy each invalid entry from the
+    nearest valid one. All-invalid input comes back unchanged."""
+    index = torch.nonzero(valid).flatten()
+    if index.numel() == 0 or index.numel() == valid.numel():
+        return values
+    positions = torch.arange(values.shape[0], device=values.device)
+    # For every position, the nearest valid index by absolute distance.
+    distance = (positions.unsqueeze(1) - index.unsqueeze(0)).abs()
+    nearest = index[distance.argmin(dim=1)]
+    return values[nearest]
+
+
+def _smooth_lines(curve: torch.Tensor, sigma: float) -> torch.Tensor:
+    """Gaussian-smooth [B, N, C] along N with reflect padding."""
+    length = curve.shape[1]
+    if sigma <= 0 or length < 3:
+        return curve
+    radius = max(1, min(int(3 * sigma), length - 1))
+    taps = torch.arange(-radius, radius + 1, dtype=curve.dtype, device=curve.device)
+    kernel = torch.exp(-(taps * taps) / (2 * sigma * sigma))
+    kernel = kernel / kernel.sum()
+    channels = curve.shape[2]
+    x = curve.permute(0, 2, 1)  # [B, C, N]
+    x = torch.nn.functional.pad(x, (radius, radius), mode="reflect")
+    weight = kernel.view(1, 1, -1).expand(channels, 1, -1)
+    return torch.nn.functional.conv1d(x, weight, groups=channels).permute(0, 2, 1)
+
+
+# How far one line's drift may stray from its side's average, in LAB
+# units. A line whose seam holds different content on its two sides (a
+# pier post leaving the frame, a boat's reflection under open water)
+# would otherwise print its content difference onto the band as a tone
+# shift.
+LINE_DRIFT_CLAMP = 6.0
+
+# The drift is read across the seam: this many generated pixels just
+# outside the source against this many original pixels just inside it.
+# Inside the feathered band the sampler mixed generated and original
+# tone, so the band itself is the one place a clean reading cannot come
+# from; the pixels either side of it can.
+SEAM_BAND_PX = 24
+
+# Softening of the inverse-square distance blend between sides, in
+# pixels: at a corner the two nearest sides' curves mix smoothly instead
+# of switching on a diagonal.
+SEAM_BLEND_SOFT_PX = 8.0
+
+
+def _finish_lines(lines: torch.Tensor, cover: torch.Tensor) -> torch.Tensor:
+    """Turn raw per-line drifts [B, N, 3] into a curve fit to print: the
+    side's own average, plus each line's deviation from it clamped to
+    LINE_DRIFT_CLAMP, uncovered lines (cover [B, N] <= 0) filled from
+    their nearest covered neighbour, and the curve smoothed so a single
+    line cannot print a stripe."""
+    weight = (cover > 0).to(lines.dtype).unsqueeze(-1)
+    side_average = (lines * weight).sum(dim=1, keepdim=True) / weight.sum(dim=1, keepdim=True).clamp_min(1e-6)
+    lines = side_average + (lines - side_average).clamp(-LINE_DRIFT_CLAMP, LINE_DRIFT_CLAMP)
+    out = torch.zeros_like(lines)
+    for b in range(lines.shape[0]):
+        valid = cover[b] > 0
+        filled = torch.where(valid.unsqueeze(-1), lines[b], side_average[b].expand_as(lines[b]))
+        out[b] = _fill_nearest(filled, valid) if valid.any() else filled
+    sigma = max(6.0, 0.03 * lines.shape[1])
+    return _smooth_lines(out, sigma)
+
+
+def _seam_lines(
+    outside: torch.Tensor, inside: torch.Tensor, along_rows: bool
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Per-line drift across one seam: the mean LAB of the generated strip
+    just outside it minus the mean of the original strip just inside it,
+    per row (along_rows) or per column. ``outside`` and ``inside`` are the
+    two strips as [B, H, w, 3] / [B, h, W, 3] slices. Returns the finished
+    curve [B, N, 3] and its cover [B, N]."""
+    reduce_dim = 2 if along_rows else 1
+    lines = outside.mean(dim=reduce_dim) - inside.mean(dim=reduce_dim)
+    cover = torch.ones(lines.shape[:2], dtype=lines.dtype, device=lines.device)
+    return _finish_lines(lines, cover), cover
+
+
+def tone_offset_field(
+    inpainted: torch.Tensor,
+    canvas: torch.Tensor,
+    blend: torch.Tensor,
+    source_bbox: tuple[int, int, int, int] | None,
+) -> torch.Tensor:
+    """A per-pixel LAB drift field [B, H, W, 3] for the patch.
+
+    With a source rectangle (an outpaint), each padded side's drift is read
+    ACROSS its seam, line by line - per row for a left or right side, per
+    column for a top or bottom one: the generated pixels just outside the
+    source against the original pixels just inside it (SEAM_BAND_PX each).
+    Sky and water on the same seam drift by different amounts, and one
+    number for the whole picture leaves one of them showing. Every pixel
+    then takes an inverse-square-distance blend of the sides' curves, so
+    where two padded sides meet the correction turns the corner without
+    a crease. Without a rectangle, or with nothing to measure, the field is
+    the single global offset.
+    """
+    from ._color_helpers import rgb_to_lab
+
+    lab_patch = rgb_to_lab(inpainted[..., :3])
+    lab_canvas = rgb_to_lab(canvas[..., :3])
+    batch, height, width = lab_patch.shape[:3]
+    global_offset = estimate_tone_offset(inpainted, canvas, blend)
+    field = global_offset.view(batch, 1, 1, 3).expand(batch, height, width, 3).clone()
+    if source_bbox is None:
+        return field
+    x0, y0, x1, y1 = (int(v) for v in source_bbox)
+    x0, y0 = max(0, x0), max(0, y0)
+    x1, y1 = min(width, x1), min(height, y1)
+    if x1 - x0 <= 0 or y1 - y0 <= 0:
+        return field
+    device = lab_patch.device
+    cols = torch.arange(width, device=device, dtype=lab_patch.dtype).view(1, 1, width)
+    rows = torch.arange(height, device=device, dtype=lab_patch.dtype).view(1, height, 1)
+    row_index = torch.arange(height, device=device).clamp(y0, y1 - 1) - y0
+    col_index = torch.arange(width, device=device).clamp(x0, x1 - 1) - x0
+    sides = []  # (distance to the seam [1,H,W], drift field [B,H,W,3])
+
+    def expand_rows(curve: torch.Tensor) -> torch.Tensor:
+        # curve [B, y1-y0, 3] -> every row of the canvas, padding rows
+        # taking the nearest source row's value.
+        return curve[:, row_index].unsqueeze(2).expand(batch, height, width, 3)
+
+    def expand_cols(curve: torch.Tensor) -> torch.Tensor:
+        return curve[:, col_index].unsqueeze(1).expand(batch, height, width, 3)
+
+    if x0 > 0:
+        wo, wi = min(SEAM_BAND_PX, x0), min(SEAM_BAND_PX, x1 - x0)
+        curve, _ = _seam_lines(lab_patch[:, y0:y1, x0 - wo : x0], lab_canvas[:, y0:y1, x0 : x0 + wi], along_rows=True)
+        sides.append(((cols - x0).abs().expand(1, height, width), expand_rows(curve)))
+    if x1 < width:
+        wo, wi = min(SEAM_BAND_PX, width - x1), min(SEAM_BAND_PX, x1 - x0)
+        curve, _ = _seam_lines(lab_patch[:, y0:y1, x1 : x1 + wo], lab_canvas[:, y0:y1, x1 - wi : x1], along_rows=True)
+        sides.append(((cols - (x1 - 1)).abs().expand(1, height, width), expand_rows(curve)))
+    if y0 > 0:
+        wo, wi = min(SEAM_BAND_PX, y0), min(SEAM_BAND_PX, y1 - y0)
+        curve, _ = _seam_lines(lab_patch[:, y0 - wo : y0, x0:x1], lab_canvas[:, y0 : y0 + wi, x0:x1], along_rows=False)
+        sides.append(((rows - y0).abs().expand(1, height, width), expand_cols(curve)))
+    if y1 < height:
+        wo, wi = min(SEAM_BAND_PX, height - y1), min(SEAM_BAND_PX, y1 - y0)
+        curve, _ = _seam_lines(lab_patch[:, y1 : y1 + wo, x0:x1], lab_canvas[:, y1 - wi : y1, x0:x1], along_rows=False)
+        sides.append(((rows - (y1 - 1)).abs().expand(1, height, width), expand_cols(curve)))
+    if not sides:
+        return field
+    numerator = torch.zeros_like(field)
+    denominator = torch.zeros((1, height, width, 1), dtype=field.dtype, device=device)
+    for distance, side_field in sides:
+        weight = (1.0 / (distance + SEAM_BLEND_SOFT_PX) ** 2).unsqueeze(-1)
+        numerator = numerator + weight * side_field
+        denominator = denominator + weight
+    return numerator / denominator
+
+
+def shift_tone(image: torch.Tensor, offset: torch.Tensor, strength: float) -> torch.Tensor:
+    """Subtract ``strength * offset`` from every pixel, in LAB. ``offset``
+    is [B, 3] (one shift per frame) or a [B, H, W, 3] field."""
+    from ._color_helpers import lab_to_rgb, rgb_to_lab
+
+    if strength <= 0:
+        return image
+    lab = rgb_to_lab(image[..., :3])
+    shift = offset.view(-1, 1, 1, 3) if offset.dim() == 2 else offset
+    rgb = lab_to_rgb(lab - shift * float(strength)).clamp(0.0, 1.0)
+    if image.shape[3] > 3:
+        return torch.cat([rgb, image[..., 3:]], dim=-1)
+    return rgb
 
 
 def stitch_blend_mask(stitcher: dict, frames: int = 1) -> torch.Tensor:
@@ -587,6 +848,7 @@ __all__ = [
     "RESIZE_ALGORITHMS",
     "STITCHER_KIND",
     "build_canvas_stitcher",
+    "stitch_blend_from_mask",
     "STITCHER_VERSION",
     "apply_stitch",
     "build_crop",

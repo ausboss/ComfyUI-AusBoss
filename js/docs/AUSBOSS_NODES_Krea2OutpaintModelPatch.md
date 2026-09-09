@@ -12,6 +12,10 @@ Place it **after** any LoRA loader and **before** the sampler.
 
 ## Controls
 
+The node's card shows **Reference** (`source rect` / `whole canvas`) and
+**KV cache** (`every step` / `once per run`). Both accept links and retain
+their saved values when the workflow is reloaded.
+
 - **model**: A Krea 2 model. Patch last, so a LoRA loaded afterwards does not
   replace the patched forward pass.
 - **stitcher**: From Load Image + Pad 🆎. Supplies the source rectangle. A
@@ -21,30 +25,56 @@ Place it **after** any LoRA loader and **before** the sampler.
 - **kv_cache**: Compute the reference's keys and values once per run instead
   of once per step. The reference does not change while sampling, so this is
   free speed. Turn it off only to rule the cache out when debugging.
+- **placement**: Where the reference tokens go. `source rectangle` (default)
+  pins them to the rectangle the stitcher reports. `whole canvas` spreads
+  them over the full frame. Which one is right depends on the LoRA — see
+  below.
 
 ## Output
 
 - **MODEL**: The model with reference tokens registered into the canvas grid.
 
-## One axis at a time
+## Two LoRAs, two placements
 
-**This is the constraint that decides whether an outpaint works.** The model
-places the source spanning one whole canvas axis — pad left/right and the
-source must span the full height, pad top/bottom and it must span the full
-width. Padding *both* axes puts the placement outside what the weights were
-trained on, and the new region breaks up: hard cuts at the old edge, mangled
-anatomy, a flat band where content should continue.
+The base Krea 2 weights were never trained on registered references; what
+makes this patch work is a LoRA trained for it, and the two that exist want
+different placements.
 
-The node says so in the console when it sees it. To fix:
+**Every side at once — `whole canvas` + AnyPaint.** yijunwang2's
+[Krea 2 AnyPaint](https://huggingface.co/yijunwang2/krea2-anypaint)
+(`krea2_anypaint_rank32.safetensors`) was trained with the grey-padded canvas
+itself as the reference, spread over the whole frame, and the known pixels
+held in place by the sampler. Wire it like the *Krea 2 Outpaint* example:
 
-1. Pad one axis, run it, save the result.
-2. Load that result and pad the other axis. Run again.
+- Load Image + Pad 🆎 with any padding you like — left, right, top and
+  bottom together are fine. Flat colour fill.
+- Krea 2 Encode 🆎 with the pad node's **image** output (the padded canvas,
+  not the unpadded *reference* output) as the reference, and `vlm_reference`
+  **on**.
+- This patch on `whole canvas`.
+- VAE Encode the padded canvas, Set Latent Noise Mask with the pad mask, and
+  sample from that latent at full denoise. The mask is what keeps the source
+  pixels; the reference is what tells the model what they are.
 
-**A rounding sliver counts.** If you pad only the bottom but `canvas_multiple`
-rounds the width up by 11px, the source no longer spans the width and the run
-degrades exactly the same way. Either lower the multiple or pick one that
-already divides that dimension — 720 wide is fine at 16, not at 32. The
-warning reports the spare pixels on each axis so you can see which it is.
+Any white mask pixel is *generate*, so the same wiring inpaints: paint over
+something in the mask editor and pad at the same time.
+
+**One axis per pass — `source rectangle` + Registered Outpaint.** The same
+author's [Registered Outpaint](https://huggingface.co/yijunwang2/krea2-outpaint)
+(`krea2_outpaint_rank32.safetensors`) is the LoRA this placement was built
+for: the *unpadded* source goes in as the reference (the pad node's
+`reference` output, `vlm_reference` off) and is pinned to its rectangle. It
+was trained on a source spanning one whole canvas axis — pad left/right and
+the source must span the full height, pad top/bottom and it must span the
+full width. Padding both axes in one pass is outside its training and the
+new region can break up; the node says so in the console when it sees it,
+and the cure is two passes: pad one axis, run, load the result, pad the
+other. **A rounding sliver counts**: if `canvas_multiple` rounds the other
+axis up by 11 px the source no longer spans it. The warning reports the
+spare pixels on each axis.
+
+Without either LoRA the patch still places the reference, but the bare
+Turbo model treats it loosely and results are hit and miss.
 
 ## Notes and limitations
 

@@ -11,11 +11,11 @@
 
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
-import { BRAND, chainCallback, keepDomWidgetWidthAuto } from "../shared/index.mjs";
-import { fillNodeHeight } from "../shared/panel_layout.mjs";
+import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
+import { ensureNodeMinHeight, fillNodeHeight } from "../shared/panel_layout.mjs";
 import { suppressCoreImagePreview } from "../shared/core_preview.mjs";
 import { autoMaskValues } from "../shared/mask_auto.mjs";
-import { setWidgetVisible } from "../shared/widget_visibility.mjs";
+import { hideInputsInDef, hideWidget, setWidgetVisible } from "../shared/widget_visibility.mjs";
 import {
   describeNodePreview,
   placeholderText,
@@ -25,10 +25,16 @@ import {
 
 const CSS_ID = "ausboss-input-preview-css";
 const WIDGET_NAME = "ausboss_input_preview";
-// The panel's floor, and the node's: narrower than this and the AUTO/MORE
-// buttons have nowhere to sit.
-const PANEL_HEIGHT = 140;
+// The stage's floor, and the node's: narrower than this and the AUTO
+// button and the switch have nowhere to sit.
+const STAGE_HEIGHT = 140;
 const PANEL_MIN_WIDTH = 200;
+// The bar above the stage: the node's tools on the left, the preview
+// switch on the right. It is the whole panel while the preview is off, so
+// the switch is always in the same place and the stage simply goes away.
+const BAR_HEIGHT = 20;
+const PANEL_HEIGHT = STAGE_HEIGHT + BAR_HEIGHT + 4 + 16;
+const OFF_HEIGHT = BAR_HEIGHT + 16;
 const INPUT_SIDE = 1; // LiteGraph.INPUT
 
 // Mask Refine opens on expand and blur alone. The other five are real
@@ -64,18 +70,25 @@ function ensureCss() {
   const style = document.createElement("style");
   style.id = CSS_ID;
   style.textContent = `
-.ausboss-input-preview{box-sizing:border-box;width:100%;height:100%;padding:2px 6px 6px;pointer-events:none;overflow:hidden;}
-.ausboss-input-preview-stage{position:relative;display:flex;align-items:center;justify-content:center;width:100%;height:100%;overflow:hidden;border:1px solid rgba(0,180,170,.27);border-radius:6px;background:rgba(0,0,0,.28);}
+.ausboss-input-preview{box-sizing:border-box;display:flex;flex-direction:column;gap:4px;width:100%;height:100%;padding:0 6px 6px;pointer-events:none;overflow:hidden;}
+.ausboss-input-preview-bar{box-sizing:border-box;flex:none;display:flex;align-items:center;gap:6px;height:${BAR_HEIGHT}px;padding:0 2px;pointer-events:none;}
+.ausboss-input-preview-stage{position:relative;flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;width:100%;overflow:hidden;border:1px solid rgba(0,180,170,.27);border-radius:6px;background:rgba(0,0,0,.28);}
+.ausboss-input-preview.preview-off .ausboss-input-preview-stage{display:none;}
 .ausboss-input-preview-stage img,.ausboss-input-preview-stage video{display:none;max-width:100%;max-height:100%;object-fit:contain;}
 .ausboss-input-preview-stage.show-image img{display:block;}
 .ausboss-input-preview-stage.show-video video{display:block;}
 .ausboss-input-preview-hint{display:none;max-width:86%;color:#78908e;font:11px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-align:center;}
 .ausboss-input-preview-stage:not(.show-image):not(.show-video) .ausboss-input-preview-hint{display:block;}
-.ausboss-input-preview-tools{position:absolute;right:5px;top:5px;z-index:4;display:flex;gap:4px;pointer-events:auto;opacity:.86;}
-.ausboss-input-preview-tools:hover{opacity:1;}
-.ausboss-input-preview-tool{box-sizing:border-box;height:20px;min-width:24px;padding:0 6px;border:1px solid rgba(0,180,170,.52);border-radius:4px;background:rgba(0,0,0,.7);color:#c8dddd;font:700 9px/18px "Segoe UI",sans-serif;cursor:pointer;}
+.ausboss-input-preview-tools{display:flex;gap:4px;pointer-events:auto;}
+.ausboss-input-preview-tool{box-sizing:border-box;height:${BAR_HEIGHT}px;min-width:24px;padding:0 6px;border:1px solid rgba(0,180,170,.52);border-radius:4px;background:rgba(0,0,0,.7);color:#c8dddd;font:700 9px/18px "Segoe UI",sans-serif;cursor:pointer;}
 .ausboss-input-preview-tool:hover{border-color:${BRAND};color:#fff;background:rgba(0,79,75,.78);}
 .ausboss-input-preview-tool.active{border-color:${BRAND};color:${BRAND};}
+.ausboss-input-preview-toggle{display:flex;align-items:center;gap:6px;margin-left:auto;pointer-events:auto;cursor:pointer;user-select:none;}
+.ausboss-input-preview-toggle span{color:#5f7674;font:10px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.08em;text-transform:uppercase;}
+.ausboss-input-preview-switch{box-sizing:border-box;width:24px;height:13px;border-radius:7px;border:none;background:#3a4047;position:relative;cursor:pointer;padding:0;flex:none;pointer-events:auto}
+.ausboss-input-preview-switch::after{content:"";position:absolute;top:2px;left:2px;width:9px;height:9px;border-radius:50%;background:#9ba2aa;transition:left .12s}
+.ausboss-input-preview-switch.on{background:${BRAND}}
+.ausboss-input-preview-switch.on::after{left:13px;background:#fff}
 .ausboss-input-preview-toast{position:absolute;left:50%;bottom:6px;z-index:5;max-width:88%;padding:3px 7px;border-radius:4px;background:rgba(0,0,0,.78);color:#b8d3d1;font:10px/1.3 "Segoe UI",sans-serif;text-align:center;transform:translateX(-50%);pointer-events:none;}
 `;
   document.head.appendChild(style);
@@ -147,11 +160,21 @@ function syncAdvanced(state) {
   if (!names?.length) return;
   const shown = advancedShown(state.node);
   let changed = false;
-  for (const name of names) {
-    const widget = widgetByName(state.node, name);
-    if (widget && setWidgetVisible(widget, shown)) changed = true;
+  const card = state.node.__ausbossCard;
+  if (card) {
+    // The widget card owns these rows now (js/widget_cards); it reads the
+    // same node property, so the button only has to ask it to re-read.
+    card.refresh?.();
+  } else {
+    for (const name of names) {
+      const widget = widgetByName(state.node, name);
+      if (widget && setWidgetVisible(widget, shown)) changed = true;
+    }
   }
   const button = state.toolButtons?.MORE;
+  // The widget card (js/widget_cards) mounts right after this panel in the
+  // same creation pass; once it is there its own disclosure is the switch.
+  if (button) queueMicrotask(() => { if (state.node.__ausbossCard) button.style.display = "none"; });
   if (button) {
     button.textContent = shown ? "LESS" : "MORE";
     button.title = shown ? "Hide the advanced mask controls" : "Show the advanced mask controls";
@@ -168,6 +191,73 @@ function toggleAdvanced(state) {
   state.node.properties ??= {};
   state.node.properties[ADVANCED_PROPERTY] = !advancedShown(state.node);
   syncAdvanced(state);
+}
+
+// The preview switch: one small pill at the right of the bar, driving the
+// node's hidden `preview` widget so the backend knows not to write a temp
+// file when nobody is looking. Off, the stage below the bar is gone and the
+// node is just that much shorter.
+function previewEnabled(state) {
+  return state.previewWidget ? state.previewWidget.value !== false : true;
+}
+
+function makePreviewToggle(state, signal) {
+  const toggle = document.createElement("div");
+  toggle.className = "ausboss-input-preview-toggle";
+  toggle.title = "Show this node's result here. Off also skips writing the preview file to the temp folder.";
+  const caption = document.createElement("span");
+  caption.textContent = "preview";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "ausboss-input-preview-switch";
+  button.setAttribute("role", "switch");
+  toggle.append(caption, button);
+  toggle.addEventListener("pointerdown", (event) => event.stopPropagation(), { signal });
+  toggle.addEventListener("click", (event) => {
+    event.preventDefault(); event.stopPropagation();
+    const next = !previewEnabled(state);
+    state.previewWidget.value = next;
+    state.previewWidget.callback?.(next);
+    syncPreviewMode(state, true);
+    notifyAusbossChange();
+  }, { signal });
+  state.switchButton = button;
+  return toggle;
+}
+
+function installPreviewSwitch(state, signal) {
+  const widget = state.previewWidget;
+  if (!widget) return;
+  hideWidget(widget);
+  state.bar.append(makePreviewToggle(state, signal));
+  chainCallback(state.node, "onConfigure", () => queueMicrotask(() => {
+    if (!state.alive) return;
+    hideWidget(widget);
+    syncPreviewMode(state, false);
+    ensureNodeMinHeight(state.node);
+  }));
+  syncPreviewMode(state, false);
+}
+
+function syncPreviewMode(state, resize) {
+  const enabled = previewEnabled(state);
+  state.root.classList.toggle("preview-off", !enabled);
+  if (state.switchButton) {
+    state.switchButton.classList.toggle("on", enabled);
+    state.switchButton.setAttribute("aria-checked", String(enabled));
+  }
+  if (!enabled) {
+    // Nothing to show and nothing to fetch: drop the picture so a stale
+    // frame cannot flash back when the panel returns.
+    state.img.removeAttribute("src");
+  }
+  if (resize) {
+    // Off: the node shrinks to what is left. On: it grows back to the
+    // stage's floor; anything taller it had is the user's to drag again.
+    const node = state.node;
+    node.setSize?.([node.size?.[0] ?? PANEL_MIN_WIDTH, node.computeSize?.()[1] ?? PANEL_HEIGHT]);
+    node.setDirtyCanvas?.(true, true);
+  }
 }
 
 function buildTools(state, tools, signal) {
@@ -321,22 +411,26 @@ function buildPanel(node, config) {
   toastEl.className = "ausboss-input-preview-toast";
   toastEl.style.display = "none";
   stage.append(img, video, hint, toastEl);
-  root.append(stage);
+  const bar = document.createElement("div");
+  bar.className = "ausboss-input-preview-bar";
+  root.append(bar, stage);
 
+  const previewWidget = widgetByName(node, "preview");
+  const enabled = () => (previewWidget ? previewWidget.value !== false : true);
   const widget = node.addDOMWidget(WIDGET_NAME, "ausboss_input_preview", root, {
     serialize: false,
     hideOnZoom: false,
-    getMinHeight: () => PANEL_HEIGHT,
+    getMinHeight: () => (enabled() ? PANEL_HEIGHT : OFF_HEIGHT),
   });
   keepDomWidgetWidthAuto(widget);
   // A floor, not a fixed height. This was a constant-height strip back when it
   // showed a thumbnail of the node's input; now that it shows the result, it is
   // a viewport onto a picture, and pinning it left dead space under every node
-  // dragged taller.
+  // dragged taller. With the preview off the floor is the bar alone.
   fillNodeHeight(widget, {
     minWidth: PANEL_MIN_WIDTH,
-    minHeight: PANEL_HEIGHT,
-    minNodeSize: [PANEL_MIN_WIDTH, 200],
+    minHeight: () => (enabled() ? PANEL_HEIGHT : OFF_HEIGHT),
+    minNodeSize: [PANEL_MIN_WIDTH, 90],
   });
 
   const abort = new AbortController();
@@ -345,18 +439,19 @@ function buildPanel(node, config) {
     inputName: config.inputName,
     noun: config.noun,
     advanced: config.advanced,
-    root, stage, img, video, hint, widget, abort,
+    root, bar, stage, img, video, hint, widget, abort,
     toast: toastEl,
     toastTimer: 0,
     toolButtons: null,
+    switchButton: null,
     watched: null,
     timer: 0,
     alive: true,
+    previewWidget,
   };
-  if (config.tools?.length) {
-    stage.append(buildTools(state, config.tools, abort.signal));
-  }
+  if (config.tools?.length) bar.append(buildTools(state, config.tools, abort.signal));
   syncAdvanced(state);
+  installPreviewSwitch(state, abort.signal);
 
   img.addEventListener("load", () => showMedia(state, "image"));
   img.addEventListener("error", () => {
@@ -378,6 +473,7 @@ app.registerExtension({
   beforeRegisterNodeDef(nodeType, nodeData) {
     const config = NODE_CONFIG[nodeData?.name];
     if (!config) return;
+    hideInputsInDef(nodeData, ["preview"]);
     chainCallback(nodeType.prototype, "onNodeCreated", function () {
       buildPanel(this, config);
     });

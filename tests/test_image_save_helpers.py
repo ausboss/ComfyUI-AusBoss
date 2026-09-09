@@ -202,5 +202,99 @@ class SaveImageNodeTests(unittest.TestCase):
         self.assertIs(node.VALIDATE_INPUTS(), True)
 
 
+
+
+class LocalNamingTests(unittest.TestCase):
+    def test_stem_appends_tags_in_a_fixed_order(self):
+        from datetime import datetime
+        from nodes._image_save_helpers import name_stem
+        now = datetime(2026, 9, 3, 14, 5, 9)
+        self.assertEqual(name_stem("shot", {}, now, 1024, 1536), "shot")
+        self.assertEqual(
+            name_stem("shot", {"size": True, "time": True, "date": True}, now, 1024, 1536),
+            "shot_2026-09-03_14-05-09_1024x1536",
+        )
+
+    def test_local_names_counter_and_batch_shapes(self):
+        from nodes._image_save_helpers import plan_local_names
+        self.assertEqual(plan_local_names("s", "png", 1, counter=True, batch=False, next_counter=4), ["s_00004.png"])
+        self.assertEqual(plan_local_names("s", "png", 2, counter=True, batch=False, next_counter=4), ["s_00004.png", "s_00005.png"])
+        self.assertEqual(plan_local_names("s", "png", 2, counter=True, batch=True, next_counter=4), ["s_00004_b001.png", "s_00004_b002.png"])
+        self.assertEqual(plan_local_names("s", "png", 1, counter=False, batch=True), ["s.png"])
+        self.assertEqual(plan_local_names("s", "png", 2, counter=False, batch=False), ["s_001.png", "s_002.png"])
+        self.assertEqual(plan_local_names("s", "png", 0, counter=True, batch=False), [])
+
+    def test_next_free_counter_reads_only_its_own_stem(self):
+        from nodes._image_save_helpers import next_free_counter
+        names = ["s_00003.png", "s_00007_b002.webp", "s2_00099.png", "s_00011_.png", "s_abc.png"]
+        self.assertEqual(next_free_counter(names, "s"), 8)
+        self.assertEqual(next_free_counter([], "s"), 1)
+
+    def test_split_prefix(self):
+        from nodes._image_save_helpers import split_prefix
+        self.assertEqual(split_prefix("datasets/portraits/shot"), ("datasets/portraits", "shot"))
+        self.assertEqual(split_prefix("shot"), ("", "shot"))
+        self.assertEqual(split_prefix(""), ("", "image"))
+
+
+class WebpEncodeTests(unittest.TestCase):
+    def test_webp_lossless_roundtrips_bit_identical_with_exif_metadata(self):
+        from nodes._image_save_helpers import encode_image
+        frame = gradient_batch(1, 8, 16)[0]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "x.webp"
+            encode_image(path, frame, "webp lossless", {"prompt": "{}", "workflow": "{\"a\": 1}"})
+            with Image.open(path) as image:
+                back = torch.from_numpy(__import__("numpy").asarray(image.convert("RGB"))).float() / 255.0
+                exif = image.getexif()
+            expected = (frame * 255).round().clamp(0, 255) / 255.0
+            self.assertTrue(torch.allclose(back, expected, atol=1 / 255))
+            self.assertTrue(str(exif.get(0x010F, "")).startswith("prompt:"))
+
+
+class SaveImageLocalModeTests(SaveImageNodeTests):
+    def test_local_mode_appends_tags_and_takes_the_next_free_counter(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            first = self.run_node(tmp, filename_prefix="sets/shot", name_size=True)
+            second = self.run_node(tmp, filename_prefix="sets/shot", name_size=True)
+            self.assertEqual(Path(first["result"][0]).name, "shot_16x8_00001.png")
+            self.assertEqual(Path(second["result"][0]).name, "shot_16x8_00002.png")
+            self.assertEqual(Path(first["result"][0]).parent, Path(tmp) / "sets")
+            self.assertEqual(first["ui"]["ausboss_saved_path"], ["sets/shot_16x8_00001.png"])
+
+    def test_batch_tag_shares_one_counter(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_node(tmp, images=gradient_batch(2, 8, 16), filename_prefix="shot", name_batch=True)
+            names = sorted(p.name for p in Path(tmp).glob("*.png"))
+            self.assertEqual(names, ["shot_00001_b001.png", "shot_00001_b002.png"])
+            self.assertEqual(Path(result["result"][0]).name, "shot_00001_b001.png")
+
+    def test_counter_off_reuses_the_path_and_overwrites(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            first = self.run_node(tmp, filename_prefix="shot", name_counter=False)
+            second = self.run_node(tmp, filename_prefix="shot", name_counter=False)
+            self.assertEqual(first["result"][0], second["result"][0])
+            self.assertEqual([p.name for p in Path(tmp).glob("*.png")], ["shot.png"])
+
+    def test_linked_filename_wins_and_a_blank_one_stops_the_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_node(tmp, exact_name="legacy", filename="from_upstream.jpg")
+            self.assertEqual(Path(result["result"][0]).name, "from_upstream.png")
+            with self.assertRaises(ValueError):
+                self.run_node(tmp, filename="   ")
+
+    def test_linked_caption_beats_the_legacy_box(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_node(tmp, exact_name="photo", caption="old", caption_text="new caption")
+            self.assertEqual((Path(tmp) / "photo.txt").read_text(encoding="utf-8"), "new caption")
+            result = self.run_node(tmp, exact_name="photo2", caption="old", caption_text="")
+            self.assertEqual((Path(tmp) / "photo2.txt").read_text(encoding="utf-8"), "old")
+
+    def test_prefix_validation_rejects_escapes(self):
+        node = node_save_image.AusBossSaveImage
+        self.assertIsInstance(node.VALIDATE_INPUTS(filename_prefix="../x"), str)
+        self.assertIs(node.VALIDATE_INPUTS(filename_prefix="a/b"), True)
+
+
 if __name__ == "__main__":
     unittest.main()

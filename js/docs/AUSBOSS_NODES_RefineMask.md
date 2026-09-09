@@ -7,7 +7,10 @@ refined mask and its inverse are returned, so no separate invert node is
 needed.
 
 The panel shows the refined mask itself once the node has run, so the effect
-of a setting is visible without wiring a preview node beside it.
+of a setting is visible without wiring a preview node beside it. The small
+**preview** switch at the right of the bar above the picture turns it off:
+the picture's box disappears, the node is that much shorter, and no preview
+file is written. The switch is the node's optional `preview` input.
 
 ## The panel buttons
 

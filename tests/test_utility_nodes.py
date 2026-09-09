@@ -14,7 +14,10 @@ if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
 from nodes.node_free_memory import AusBossFreeMemory
 from nodes.node_literals import AusBossFloat, AusBossInteger, AusBossText
 from nodes.node_math import AusBossMathExpression
+from nodes.node_run_timer import AusBossRunTimer
+from nodes.node_seed import MAX_SEED, AusBossSeed
 from nodes.node_show_text import AusBossShowText
+from nodes.node_workflow_note import AusBossWorkflowNote
 
 
 class LiteralNodeTests(unittest.TestCase):
@@ -67,6 +70,45 @@ class FreeMemoryNodeTests(unittest.TestCase):
         schema = AusBossFreeMemory.INPUT_TYPES()
         self.assertEqual(str(schema["required"]["value"][0]), "*")
         self.assertEqual(str(AusBossFreeMemory.RETURN_TYPES[0]), "*")
+
+
+
+
+class SeedNodeTests(unittest.TestCase):
+    def test_reports_the_seed_it_ran_with_and_passes_it_through(self):
+        result = AusBossSeed().emit(976771647159643)
+        self.assertEqual(result["ui"], {"seed": [976771647159643]})
+        self.assertEqual(result["result"], (976771647159643,))
+
+    def test_seed_widget_covers_the_sampler_range_and_has_a_control(self):
+        spec = AusBossSeed.INPUT_TYPES()["required"]["seed"]
+        self.assertEqual(spec[0], "INT")
+        self.assertEqual(spec[1]["min"], 0)
+        self.assertEqual(spec[1]["max"], MAX_SEED)
+        self.assertEqual(spec[1]["max"], 0xFFFFFFFFFFFFFFFF)
+        self.assertTrue(spec[1]["control_after_generate"])
+        self.assertEqual(AusBossSeed.RETURN_TYPES, ("INT",))
+
+
+class PresentationNodeTests(unittest.TestCase):
+    """Workflow Note and Run Timer never execute: no outputs, not output nodes."""
+
+    def test_workflow_note_stores_the_card_in_one_string_widget(self):
+        inputs = AusBossWorkflowNote.INPUT_TYPES()
+        self.assertEqual(list(inputs["required"]), ["note"])
+        spec = inputs["required"]["note"]
+        self.assertEqual(spec[0], "STRING")
+        self.assertTrue(spec[1]["multiline"])
+        self.assertEqual(spec[1]["default"], "{}")
+        self.assertEqual(AusBossWorkflowNote.RETURN_TYPES, ())
+        self.assertFalse(getattr(AusBossWorkflowNote, "OUTPUT_NODE", False))
+        self.assertEqual(AusBossWorkflowNote().noop("{}"), ())
+
+    def test_run_timer_has_no_wires_at_all(self):
+        self.assertEqual(AusBossRunTimer.INPUT_TYPES(), {"required": {}})
+        self.assertEqual(AusBossRunTimer.RETURN_TYPES, ())
+        self.assertFalse(getattr(AusBossRunTimer, "OUTPUT_NODE", False))
+        self.assertEqual(AusBossRunTimer().noop(), ())
 
 
 if __name__ == "__main__":

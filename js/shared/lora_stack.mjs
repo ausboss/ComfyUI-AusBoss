@@ -310,10 +310,14 @@ export const BAR_COLORS = {
 // Bars ignore values this close to zero; the center tick alone marks them.
 const BAR_EPSILON = 0.005;
 
+// Bars share one scale so magnitudes compare across rows: the largest
+// enabled strength fills its half, never less than 1. A disabled row is
+// dimmed and sits out, so switching one off rescales the others to the
+// strongest row still in play (its own bar clamps at the edge meanwhile).
 export function strengthBarScale(rows) {
   let peak = 0;
   for (const row of rows ?? []) {
-    if (!row?.name) continue;
+    if (!row?.name || row.enabled === false) continue;
     const value = Math.abs(Number(row.strength));
     if (Number.isFinite(value)) peak = Math.max(peak, value);
   }

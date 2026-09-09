@@ -302,8 +302,6 @@ class LocalPreviewGateTests(unittest.TestCase):
             self.assertTrue(local_preview_allowed(str(Path.home() / "video.mp4")))
 
 
-if __name__ == "__main__":
-    unittest.main()
 
 
 class TestScaleToMegapixels(unittest.TestCase):
@@ -321,3 +319,7 @@ class TestScaleToMegapixels(unittest.TestCase):
     def test_never_below_one_step(self):
         width, height = scale_to_megapixels(100, 100, 0.01, 64)
         self.assertEqual((width, height), (128, 128))
+
+
+if __name__ == "__main__":
+    unittest.main()

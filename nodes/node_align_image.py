@@ -121,17 +121,12 @@ class AusBossAlignImage:
             },
         }
 
-    RETURN_TYPES = ("IMAGE", "INT", "INT", "INT", "INT")
-    RETURN_NAMES = ("image", "width", "height", "offset_x", "offset_y")
+    RETURN_TYPES = ("IMAGE", "INT", "INT")
+    RETURN_NAMES = ("image", "width", "height")
     OUTPUT_TOOLTIPS = (
         "The aligned batch; both sides are multiples of the chosen number.",
         "Aligned width in pixels.",
         "Aligned height in pixels.",
-        "Where the original's left edge sits in the output: positive after "
-        "padding, negative after cropping, 0 after a resize — wire into a "
-        "crop to un-align after sampling.",
-        "Where the original's top edge sits in the output: positive after "
-        "padding, negative after cropping, 0 after a resize.",
     )
     FUNCTION = "align"
 
@@ -145,7 +140,9 @@ class AusBossAlignImage:
         pad_fill="replicate",
         pad_color="#000000",
     ):
-        return align_image(
+        # The helper also reports where the original landed; the node keeps
+        # its face to the three outputs a graph actually wires.
+        aligned, width, height, _offset_x, _offset_y = align_image(
             image,
             int(multiple),
             str(mode),
@@ -154,6 +151,7 @@ class AusBossAlignImage:
             str(pad_fill),
             pad_color,
         )
+        return (aligned, width, height)
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_AlignImage": AusBossAlignImage}

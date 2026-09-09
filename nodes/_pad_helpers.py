@@ -266,8 +266,15 @@ def feather_pad_mask(
         return values if inward else values.flip(0)
 
     def merge(y0: int, y1: int, x0: int, x1: int, values: torch.Tensor) -> None:
+        # Union of the ramps, not their maximum: where two padded sides meet,
+        # max() creases the iso-lines at 45 degrees from the inner corner
+        # and any tone difference across the band prints that crease as a
+        # diagonal line. 1 - (1 - a)(1 - b) is identical along each side
+        # (the other ramp is 0 there) and bilinear in the corner, so the
+        # blend has no crease. The padding itself stays exactly 1.
         region = result[:, y0:y1, x0:x1]
-        result[:, y0:y1, x0:x1] = torch.maximum(region, values.expand(batch, y1 - y0, x1 - x0))
+        ramp = values.expand(batch, y1 - y0, x1 - x0)
+        result[:, y0:y1, x0:x1] = 1.0 - (1.0 - region) * (1.0 - ramp)
 
     x0, x1 = left, left + width
     y0, y1 = top, top + height

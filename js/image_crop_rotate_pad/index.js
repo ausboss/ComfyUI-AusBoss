@@ -4,9 +4,9 @@ import { fillNodeHeight } from "../shared/panel_layout.mjs";
 import { stageHeightForWidth } from "../shared/transform_geometry.mjs";
 
 const PANEL_MIN_WIDTH = 330;
-// Two action rows (open editor + the reset/feather/resize quick row),
-// column gaps, and panel padding around the stage canvas.
-const PANEL_CHROME = 92;
+// Source card, the format chips under the stage, two action rows (open
+// editor and reset/feather/resize), column gaps, and panel padding.
+const PANEL_CHROME = 210;
 const PANEL_MIN_HEIGHT = stageHeightForWidth(0) + PANEL_CHROME;
 
 // Guard rule the DOM-panel audit (tests/panel_guards.test.mjs) checks next
@@ -33,7 +33,7 @@ function mountTransformPanel(node, panel) {
   fillNodeHeight(widget, {
     minWidth: PANEL_MIN_WIDTH,
     minHeight: PANEL_MIN_HEIGHT,
-    minNodeSize: [PANEL_MIN_WIDTH, 320],
+    minNodeSize: [PANEL_MIN_WIDTH, 470],
   });
   return widget;
 }

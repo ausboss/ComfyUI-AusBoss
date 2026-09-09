@@ -196,5 +196,38 @@ class NodePreviewContractTests(unittest.TestCase):
                 self.assertNotEqual(factory()._prefix, factory()._prefix)
 
 
+
+
+class PreviewSwitchTests(unittest.TestCase):
+    """preview=False returns the plain outputs and writes nothing."""
+
+    def test_every_preview_node_offers_the_switch_off_by_widget(self):
+        for module, cls in (
+            (node_select_frame, "AusBossSelectFrame"),
+            (node_refine_mask, "AusBossRefineMask"),
+            (node_lama_inpaint, "AusBossLaMaInpaint"),
+        ):
+            optional = getattr(module, cls).INPUT_TYPES()["optional"]
+            self.assertIn("preview", optional, cls)
+            self.assertEqual(optional["preview"][0], "BOOLEAN", cls)
+            self.assertTrue(optional["preview"][1]["default"], cls)
+
+    def test_select_frame_off_returns_a_bare_tuple(self):
+        with patch.object(_preview_helpers, "save_temp_preview") as save:
+            result = node_select_frame.AusBossSelectFrame().select_frame(torch.zeros((3, 8, 8, 3)), 2, preview=False)
+        self.assertIsInstance(result, tuple)
+        self.assertEqual(tuple(result[0].shape), (1, 8, 8, 3))
+        save.assert_not_called()
+
+    def test_mask_refine_off_returns_both_masks_without_a_preview(self):
+        with patch.object(_preview_helpers, "save_temp_preview") as save:
+            result = node_refine_mask.AusBossRefineMask().refine(
+                torch.ones((1, 8, 8)), 0, 0.0, False, 0, 0.0, 1.0, "off", preview=False,
+            )
+        self.assertIsInstance(result, tuple)
+        self.assertEqual(len(result), 2)
+        save.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

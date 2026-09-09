@@ -1,40 +1,53 @@
 # Save Image
 
-Saves an `IMAGE` batch as **PNG** or **lossless JPEG XL**, with the workflow
-embedded or deliberately left out — and, when you need it, under an **exact
-filename with no counter suffix**, so a caption or edit pass can keep the
-source file's name.
+Saves an `IMAGE` batch as **PNG**, **lossless WebP** or **lossless JPEG XL**,
+with the workflow embedded or deliberately left out. The name is either
+composed on the node from a prefix plus the tags you switch on, or supplied
+exactly by the `filename` input, so a caption or edit pass keeps the source
+file's name. A caption on the `caption_text` input writes the paired `.txt`.
 
-## Two naming modes
+## The card
 
-- **Classic** (default): `filename_prefix` plus a counter —
-  `AusBoss/image_00001_.png` — in ComfyUI's output folder. Never overwrites,
-  subfolders in the prefix work as usual.
-- **Exact**: set `exact_name` and the file saves as exactly that name. An
-  image extension on the value is replaced by the chosen format's own, so
-  `photo123.jpg` saves as `photo123.png` and pairs with `photo123.txt`.
-  Subfolders are allowed (`set1/photo123`); rooted paths and `..` are
-  rejected. A batch cannot share one name, so its frames become
-  `name_001`, `name_002`, …
+- **Folder**: empty saves to ComfyUI's output folder; a relative path is a
+  subfolder of it; an absolute path saves anywhere you can write. **Browse**
+  walks the subfolders of the output folder.
+- **Filename**: the local name, subfolders allowed (`sets/shot`). While the
+  `filename` input is linked the field reads `{{filename}}` and the tags fold
+  away - an exact name is never decorated. A workflow saved with the old
+  `exact_name` shows that name tagged *exact*; clear it to compose locally.
+- **Path preview**: the name this save will produce, in the order the tags
+  are appended: `prefix[_YYYY-MM-DD][_HH-mm-ss][_WIDTHxHEIGHT][_#####][_b###]`.
+  After a run it shows the first file actually written.
+- **Tags**: **Counter** (on by default) appends the next free five-digit
+  number for that stem in that folder, so a save never collides. **Date**
+  and **Time** stamp the local clock. **Size** appends `1024x1536`.
+  **Batch #** appends `b001, b002...` across an image batch, which then
+  shares one counter; without it each frame takes the next number. With the
+  counter off a single image reuses the same path and replaces the file - the
+  dataset replacement case - and a batch still numbers its frames.
+- **Format**: PNG saves everywhere and keeps alpha. WebP lossless is usually
+  smaller than PNG, keeps alpha, and carries the workflow in EXIF. JPEG XL
+  lossless is the most compact; it needs the optional `pillow-jxl-plugin` in
+  ComfyUI's python (also the pack's `jxl` extra) and few browsers preview it.
+- **Embed workflow**: on stores the prompt and workflow in the file (PNG text
+  chunks, EXIF in webp and jxl) so it drags back into ComfyUI; off writes a
+  clean file for sharing or datasets. `--disable-metadata` on the server wins.
 
-## Controls
+## Inputs
 
-- **format**: `png` everywhere; `jxl lossless` keeps every pixel
-  bit-identical in a smaller file. JPEG XL needs the optional
-  `pillow-jxl-plugin` in ComfyUI's python (`pip install pillow-jxl-plugin`,
-  also listed as the pack's `jxl` extra) and the node says so when missing.
-- **save_metadata**: on embeds the prompt and workflow (PNG text chunks,
-  EXIF in jxl) so the file drags back into ComfyUI; off writes a clean file
-  for sharing without shipping the recipe.
-- **on_existing** (exact mode): `overwrite` replaces the file — the usual
-  reason to want an exact name — `skip` leaves it, `error` stops the run.
-- **output_dir**: empty saves to ComfyUI's output folder; a relative path is
-  a subfolder of it; an absolute path saves anywhere you can write, e.g.
-  straight into a dataset folder. The on-node preview only appears for
-  files inside the output folder — outside saves are reported by path.
-- **caption**: when not empty, writes the text as a UTF-8 `.txt` sidecar
-  with the same basename as each saved image — the image/caption pair
-  training tools expect.
+- **filename** (STRING, link only): the exact name from upstream - a Load
+  Image name, a caption tool's id. Its image extension is swapped for the
+  chosen format's (`photo123.jpg` -> `photo123.png`); a batch appends
+  `_001`, `_002`... A linked but empty value stops the run instead of saving
+  under a made-up name.
+- **caption_text** (STRING, link only): saved as a UTF-8 `.txt` beside every
+  image with the same name (`portrait.png` -> `portrait.txt`). Empty writes
+  no sidecar. The old `caption` box still works underneath; a linked caption
+  wins.
+
+Rooted paths and `..` in names are rejected before the run. `on_existing`
+from older workflows is still honored wherever a save can land on an
+existing file (counter off, exact or linked names).
 
 ## Outputs
 

@@ -39,9 +39,7 @@ replicate-padded evenly).
 - **width** / **height**: The new size as INTs — wire them into an Empty
   Latent, a resize, or conditioning nodes so the numbers can never drift
   from the actual image.
-- **offset_x** / **offset_y**: Where the original's left/top edge sits in
-  the output: positive after padding, negative after cropping, `0` after a
-  resize — wire into a crop to un-align after sampling.
+
 
 ## Notes
 

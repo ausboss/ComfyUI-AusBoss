@@ -1,0 +1,29 @@
+name: Validate release candidate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - run: python scripts/validate_nodes.py
+      - run: python scripts/release_preflight.py
+      - run: python tests/test_registry_status.py
+      - run: node --test --test-isolation=none tests/*.test.mjs

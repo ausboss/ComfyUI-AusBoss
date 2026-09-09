@@ -8,6 +8,7 @@
 //                        title: "LoRA Loader settings",
 //                        onChange: (values, key) => rerender(values) });
 
+import { makeScrubInput } from "./scrub_input.mjs";
 import { BRAND } from "./index.mjs";
 import {
   isOverrideActive,
@@ -208,6 +209,15 @@ function buildControl(entry, values, commit) {
       seg.append(button);
     }
     return seg;
+  }
+  if (entry.type === "number" && entry.scrub) {
+    const control = makeScrubInput({
+      value: values[entry.key], min: entry.min, max: entry.max,
+      step: entry.step ?? 1, fineStep: entry.step ?? 1, decimals: 0,
+      title: entry.hint ?? entry.label,
+      onChange: (value) => commit(entry, value),
+    });
+    return control.root;
   }
   const input = el("input", `ausboss-set-input${entry.type === "text" ? " wide" : ""}`);
   input.type = "text";

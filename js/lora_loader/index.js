@@ -2,7 +2,7 @@ import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
-import { hideWidget as collapseWidget } from "../shared/widget_visibility.mjs";
+import { hideInputsInDef, hideWidget as collapseWidget } from "../shared/widget_visibility.mjs";
 import {
   closeSettingsMenu,
   gearIconSvg,
@@ -105,6 +105,13 @@ const SETTINGS_SCHEMA = [
     key: "separator", label: "Trigger word separator", type: "text",
     default: ", ", placeholder: '", "',
     hint: "Joins the triggers output. This node now, new nodes later.",
+  },
+  {
+    key: "strict_missing", label: "Stop on missing LoRA", type: "toggle",
+    default: true,
+    hint: "On (the default): fail the run before sampling when an enabled row's "
+      + "file cannot be found, with an error naming it. Off: skip that row with "
+      + "a console warning and render without it. This node now, new nodes later.",
   },
   {
     key: "hide_extension", label: "Hide file extension", type: "toggle",
@@ -1102,7 +1109,13 @@ function decorateRows(state) {
     if (status?.status === "remapped") {
       notes.push(`Not at its saved path; the run will use "${status.name}".`);
     } else if (status?.status === "missing") {
-      notes.push("No matching file in models/loras - this row is skipped at run time.");
+      notes.push(
+        state.onMissingWidget?.value === "skip"
+          ? "No matching file in models/loras - this row is skipped at run time "
+            + "(Stop on missing LoRA is off)."
+          : "No matching file in models/loras - the run stops before sampling. Fix "
+            + "the row, or turn Stop on missing LoRA off in the gear menu to skip it.",
+      );
     } else if (status?.status === "ambiguous") {
       notes.push("Several files match this name - pick one to settle it.");
     }
@@ -1384,6 +1397,9 @@ function openSettings(state, anchor) {
       ...state.settings,
       separate_strengths: !linked(state),
       ...(state.separatorWidget ? { separator: state.separatorWidget.value } : {}),
+      ...(state.onMissingWidget
+        ? { strict_missing: state.onMissingWidget.value === "error" }
+        : {}),
     },
     onChange: (values, key) => {
       state.settings = values;
@@ -1400,6 +1416,9 @@ function openSettings(state, anchor) {
       }
       if ((key === "separator" || key === null) && state.separatorWidget) {
         state.separatorWidget.value = values.separator;
+      }
+      if ((key === "strict_missing" || key === null) && state.onMissingWidget) {
+        state.onMissingWidget.value = values.strict_missing ? "error" : "skip";
       }
       renderRows(state);
       fitNode(state);
@@ -1642,6 +1661,14 @@ function installLoraNode(node) {
     separatorWidget.value = settings.separator;
     state.separatorWidget = separatorWidget;
   }
+  // Same arrangement for the missing-file policy: a hidden standard combo
+  // carries "skip" | "error" through save/load and the API format.
+  const onMissingWidget = node.widgets?.find((item) => item.name === "on_missing");
+  if (onMissingWidget) {
+    hideWidget(onMissingWidget);
+    onMissingWidget.value = settings.strict_missing ? "error" : "skip";
+    state.onMissingWidget = onMissingWidget;
+  }
 
   const domWidget = node.addDOMWidget("ausboss_lora_rows", "ausboss_lora_rows", panel, {
     serialize: false,
@@ -1709,6 +1736,7 @@ app.registerExtension({
   name: "AusBoss.LoraLoader",
   beforeRegisterNodeDef(nodeType, nodeData) {
     if (nodeData?.name !== NODE_CLASS) return;
+    hideInputsInDef(nodeData, ["loras", "trigger_separator", "on_missing"]);
     chainCallback(nodeType.prototype, "onNodeCreated", function () {
       installLoraNode(this);
     });

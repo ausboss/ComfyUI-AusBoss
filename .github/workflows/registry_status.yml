@@ -1,0 +1,37 @@
+name: Check Registry approval
+
+on:
+  workflow_run:
+    workflows: ["Publish to Comfy registry"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to check; blank uses pyproject.toml"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  registry-status:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Verify exact published version is Active
+        env:
+          AUSBOSS_TARGET_VERSION: ${{ inputs.version }}
+        run: |
+          if [ -n "$AUSBOSS_TARGET_VERSION" ]; then
+            python scripts/registry_status.py --version "$AUSBOSS_TARGET_VERSION"
+          else
+            python scripts/registry_status.py
+          fi

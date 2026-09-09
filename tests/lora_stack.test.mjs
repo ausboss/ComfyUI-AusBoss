@@ -307,6 +307,13 @@ test("nameless rows do not vote on the scale", () => {
   assert.equal(strengthBarScale([row("", 5), row("a", 0.5)]), 1);
 });
 
+test("strengthBarScale follows the enabled rows only", () => {
+  const off = { ...row("a", 2), enabled: false };
+  assert.equal(strengthBarScale([off, row("b", 0.5)]), 1);
+  assert.equal(strengthBarScale([off, row("b", 1.5)]), 1.5);
+  assert.equal(strengthBarScale([off, { ...row("b", 1.5), enabled: false }]), 1);
+});
+
 // ---------- span ----------
 
 test("positive strength grows right of center", () => {

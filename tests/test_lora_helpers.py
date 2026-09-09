@@ -185,8 +185,6 @@ class LoraCivitaiSidecarTests(unittest.TestCase):
         self.assertFalse(_lora_helpers.lora_info("Krea 2/candid.safetensors")["has_civitai"])
 
 
-if __name__ == "__main__":
-    unittest.main()
 
 
 class TestMatchLoraName(unittest.TestCase):
@@ -233,3 +231,83 @@ class TestMatchLoraName(unittest.TestCase):
             _lora_helpers.match_lora_name("gone.safetensors", self.AVAILABLE)[1],
             "missing",
         )
+
+
+class MissingRowPolicyTests(unittest.TestCase):
+    """on_missing: error (the default) stops before sampling, skip warns and keeps going."""
+
+    ROW = {"name": "gone.safetensors", "strength": 1.0, "strength_clip": 1.0,
+           "enabled": True, "triggers": ""}
+
+    def setUp(self):
+        _lora_helpers._missing_warned.clear()
+        self.addCleanup(_lora_helpers._missing_warned.clear)
+        # apply_lora_stack imports comfy.sd lazily; the missing-file branch runs
+        # before any of it is used, so an empty stand-in module is enough.
+        import types
+
+        fake_comfy = types.ModuleType("comfy")
+        fake_sd = types.ModuleType("comfy.sd")
+        fake_comfy.sd = fake_sd
+        self.modules = patch.dict(sys.modules, {"comfy": fake_comfy, "comfy.sd": fake_sd})
+        self.modules.start()
+        self.addCleanup(self.modules.stop)
+        self.gone = patch.object(
+            _lora_helpers, "resolve_lora_path",
+            side_effect=ValueError("LoRA file not found in models/loras: gone.safetensors"),
+        )
+        self.gone.start()
+        self.addCleanup(self.gone.stop)
+
+    def test_missing_rows_ignores_disabled_and_zero_rows(self):
+        rows = [
+            dict(self.ROW),
+            {**self.ROW, "name": "off.safetensors", "enabled": False},
+            {**self.ROW, "name": "parked.safetensors", "strength": 0, "strength_clip": 0},
+        ]
+        self.assertEqual(
+            [name for name, _ in _lora_helpers.missing_lora_rows(rows)],
+            ["gone.safetensors"],
+        )
+
+    def test_skip_warns_once_and_keeps_going(self):
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            model, clip = _lora_helpers.apply_lora_stack(
+                "model", None, [dict(self.ROW)], on_missing="skip"
+            )
+            _lora_helpers.apply_lora_stack("model", None, [dict(self.ROW)], on_missing="skip")
+        self.assertEqual((model, clip), ("model", None))
+        self.assertEqual(buffer.getvalue().count("skipping 'gone.safetensors'"), 1)
+
+    def test_error_is_the_default_and_names_the_file_and_the_switch(self):
+        for kwargs in ({}, {"on_missing": "error"}):
+            with self.assertRaises(ValueError) as caught:
+                _lora_helpers.apply_lora_stack("model", None, [dict(self.ROW)], **kwargs)
+            message = str(caught.exception)
+            self.assertIn("gone.safetensors", message)
+            self.assertIn("Stop on missing LoRA", message)
+            self.assertIn("settings menu", message)
+            self.assertIn("on_missing: skip", message)
+            message.encode("ascii")  # Windows cp1252 consoles
+
+    def test_node_validation_blocks_by_default_and_passes_in_skip_mode(self):
+        try:
+            from nodes.node_lora_loader import AusBossLoraLoader
+        except Exception as exc:  # pragma: no cover - needs the package importable
+            self.skipTest(f"node module not importable offline: {exc}")
+        stack = json.dumps([dict(self.ROW)])
+        self.assertIs(AusBossLoraLoader.VALIDATE_INPUTS(stack, on_missing="skip"), True)
+        for kwargs in ({}, {"on_missing": "error"}):
+            verdict = AusBossLoraLoader.VALIDATE_INPUTS(stack, **kwargs)
+            self.assertIsInstance(verdict, str)
+            self.assertIn("gone.safetensors", verdict)
+            self.assertIn("settings menu", verdict)
+            verdict.encode("ascii")
+        # The input's declared default matches the code paths above.
+        on_missing = AusBossLoraLoader.INPUT_TYPES()["optional"]["on_missing"]
+        self.assertEqual(on_missing[1]["default"], "error")
+
+
+if __name__ == "__main__":
+    unittest.main()

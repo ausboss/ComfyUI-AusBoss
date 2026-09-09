@@ -295,8 +295,6 @@ class MattingSmokeTests(unittest.TestCase):
         self.assertEqual(float(refined.sum()), 0.0)
 
 
-if __name__ == "__main__":
-    unittest.main()
 
 
 class SmoothPreservesSoftAlphaTests(unittest.TestCase):
@@ -417,3 +415,7 @@ class SeparableMorphologyTests(unittest.TestCase):
     def test_zero_is_still_the_same_object(self):
         mask = torch.rand((1, 8, 8))
         self.assertIs(grow_shrink_mask(mask, 0), mask)
+
+
+if __name__ == "__main__":
+    unittest.main()

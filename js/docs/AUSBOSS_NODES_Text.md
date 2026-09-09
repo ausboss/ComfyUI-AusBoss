@@ -1,6 +1,6 @@
 # Text
 
-A multiline text box on its own `STRING` wire. Type a prompt, a caption, or
+A growing multiline widget card on its own `STRING` wire. Type a prompt, a caption, or
 any other text once and feed it to every node that needs it — changing it in
 one place updates them all.
 

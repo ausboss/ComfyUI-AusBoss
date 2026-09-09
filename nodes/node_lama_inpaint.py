@@ -49,6 +49,18 @@ class AusBossLaMaInpaint:
             # badge. Hidden entries never become widgets or sockets, so the
             # visible inputs and the saved widgets_values are unchanged;
             # declaring UNIQUE_ID does add the node id to the cache signature.
+            "optional": {
+                "preview": (
+                    "BOOLEAN",
+                    {
+                        "default": True,
+                        "tooltip": (
+                            "Show this node's result on its face. Off skips "
+                            "writing the preview file to ComfyUI's temp folder."
+                        ),
+                    },
+                ),
+            },
             "hidden": {"unique_id": "UNIQUE_ID"},
         }
 
@@ -62,11 +74,14 @@ class AusBossLaMaInpaint:
     def __init__(self):
         self._prefix = temp_prefix("lama_inpaint")
 
-    def inpaint(self, image, mask, model, unique_id=None):
+    def inpaint(self, image, mask, model, unique_id=None, preview=True):
         # A video inpaint streams each finished frame to the panel as it goes;
         # this is the still that stays there afterwards, and the only preview a
         # single-image run ever had - it used to finish with a blank panel.
-        inpainted = run_lama_inpaint(image, mask, model, node_id=unique_id)
+        # With the preview off neither the stream nor the still is written.
+        inpainted = run_lama_inpaint(image, mask, model, node_id=unique_id if preview else None)
+        if not preview:
+            return (inpainted,)
         return preview_payload(inpainted, self._prefix, "LaMa Inpaint", (inpainted,))
 
     @classmethod

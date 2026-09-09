@@ -63,6 +63,71 @@ the `AUSBOSS_NODES_` prefix, so they stay uncolored on purpose.
 - Node faces stay compact. Big interactions get a fullscreen editor or an
   inline mode — never a node with a huge fixed minimum size.
 
+## Node faces: the widget card
+
+The classic LiteGraph widget — a full-width rounded row with an arrow at
+each end — is not the pack's look. Every public node whose face is made of
+plain widgets gets an entry in `js/widget_cards/index.js`; `mountWidgetCard`
+(`js/shared/widget_card.mjs`, pure decisions in `widget_card_math.mjs`)
+hides the standard widgets and mirrors them in one compact DOM card. The
+widgets underneath stay the single source of truth, so save/load, undo, the
+API format and links never change.
+
+The grammar, as ausboss signed it off in September 2026:
+
+- **Layout.** One card per node, a label column (30 %, muted) and a control
+  column. Rows are 26 px; captions (`section`) and disclosures (`group`,
+  state in `node.properties.ausboss_show_<group>`) fold the rarely touched
+  settings away — Crop For Inpaint opens on six rows, its targets and
+  extends behind "Target size, extend". Rows that only mean something in
+  one mode (`when`) show in that mode. No captions on plain number rows.
+- **Numbers** are `makeScrubInput` boxes: centred value, chevrons on the
+  right, the unit (`px`, `MP`, `×`) inside the box ahead of the chevrons in
+  a fixed 22 px slot that every single-field row reserves whether it has a
+  unit or not — that is what keeps the numbers on one centre line; a unit
+  outside the box, or only in some boxes, was rejected because it nudged
+  the numbers apart.
+- **Choices**: ≤ 4 short labels → a segmented pill (`off | guided | matting`),
+  otherwise a select with readable labels (`Width × height`).
+- **Booleans** are a two-segment pill as wide as the other controls,
+  `off` on the left, the on-state on the right, with short state names when
+  they help (`off | embed workflow`, `every step | once per run`) and the
+  explanation on the tooltip. A small 30 px switch inside a card was
+  rejected as out of scale; the only small switch in the pack is the
+  preview bar's, which is meant to be discreet.
+- **Strings** are text fields; a multiline prompt is a `kind: "textarea"`
+  row (`grow: true` takes the node's spare height) so a prompt node is one
+  card, not a card under two loose text boxes (Krea 2 Encode).
+- **Hex colors** get a swatch plus the text.
+- **One linkable widget per row.** The frontend's Widget Input Socket model
+  (RFC #9, frontend ≥ 1.10.4; "convert to input" is gone) draws a widget's
+  socket at the widget's own row and only while a link is dragged, hovered
+  or connected. The card lends each hidden widget its row's position, so a
+  link dropped on a row lands on that row's widget — but two widgets on one
+  row would put two sockets on one pixel, which nobody can aim at (this
+  shipped once and was caught on a screenshot). So a `pair` row is only
+  allowed with `top: true`, which lifts the pair's sockets into the node's
+  slot column under the real inputs and greys the field when linked (Image
+  Resize width/height, Frame Interpolate's rates, Save Video fps/crf).
+  Everything else is one widget per row, and a value that exists to be
+  wired is a backend `forceInput` socket (Math Expression `a`/`b`/`c`,
+  typed `"FLOAT,INT"` so either kind of number wires in).
+- **Preview nodes** (Select Frame, Mask Refine, LaMa Inpaint) put a thin bar
+  between the card and the picture: the node's tools (AUTO) on the left, a
+  small `PREVIEW` switch on the right; off, the picture's box is gone and the
+  node is shorter, and the backend writes no temp file. A toggle inside the
+  picture box was rejected — the point is to remove the box.
+- **A node that loaded shorter than its card grows on load**
+  (`ensureNodeMinHeight`, `js/shared/panel_layout.mjs`) so old workflows
+  never clip a panel.
+- Save Image has its own card (`js/save_image/`) built from the same
+  grammar: folder + browse, filename with a linked tag, live path preview,
+  tag chips, format pill, embed switch.
+
+What ausboss asked to remove, so it does not come back: offset outputs on
+Align Image, captions under Crop For Inpaint's rows, the small switch, units
+outside the box, and typed boxes for values that are only ever wired.
+
 ## Settings conventions
 
 - Ids are `AusBoss.<Area>.<Name>`; register declaratively via the
@@ -106,7 +171,14 @@ the `AUSBOSS_NODES_` prefix, so they stay uncolored on purpose.
   the keyboard, and Shift always means the fine step. Build them with
   `makeScrubInput` from `js/shared/scrub_input.mjs` (the LoRA loader's
   strength box is the reference feel); a bare `<input type=number>` in a
-  panel is a bug.
+  panel is a bug, and so is a classic number widget left on a finished
+  node face. Card scrubs derive their steps from the widget: the fine step
+  is the widget's own increment, the coarse step is 0.05 for a 0..1 float,
+  ten increments for a wide float, 8 for an integer with a range past 2048.
+- Links must be aimable. Before calling a face done, drag a real link onto
+  every row and socket and look at the screenshot (`docs/live_testing.md`);
+  a check that only reads which input got the link proves nothing about
+  whether a person could have hit it.
 - A click on empty panel space must fall through (no `preventDefault`) so the
   node stays draggable from its body.
 - Wheel and middle-click belong to the graph (zoom/pan) unless the widget is
@@ -140,3 +212,7 @@ node --test tests/*.test.mjs
 Then the full checklist in [docs/adding_a_node.md](../../../docs/adding_a_node.md):
 restart ComfyUI, watch the banner, check `/object_info`, queue an API graph,
 load the example workflow, and hard-refresh the browser after JS changes.
+For anything visual, the headless-Chrome harness in `scripts/dev/` and the
+recipe in [docs/live_testing.md](../../../docs/live_testing.md) produce the
+screenshots ausboss reviews; save them under `_scratch/node_screenshots/`
+with clear names (`<round>_<Node>_<state>.png`).
