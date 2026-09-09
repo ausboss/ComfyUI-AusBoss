@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.0.1 - 2026-09-09
 
 - **Local path mode is opt-in beyond ComfyUI's folders.** The video
   transform nodes' `local_path` used to be read by every queued run, which
