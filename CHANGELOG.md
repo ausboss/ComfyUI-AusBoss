@@ -4,6 +4,14 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Local path mode is opt-in beyond ComfyUI's folders.** The video
+  transform nodes' `local_path` used to be read by every queued run, which
+  means any client that can reach the unauthenticated `/prompt` route could
+  make the server open any video on the disk. By default the mode now reaches
+  only ComfyUI's input, output and temp folders, for queued runs and editor
+  previews alike; starting ComfyUI with `AUSBOSS_TRANSFORM_LOCAL_PREVIEW=1`
+  restores full-disk access on that server. Nothing else in the pack reads a
+  path or contacts a host taken from a widget.
 - **Video timeline overhaul (Video Crop + Rotate + Pad → Clip / → Frame).**
   The rail under the node's preview is now a real timeline: press or drag it
   to scrub a **playhead** on the node face, no editor needed, and the frame

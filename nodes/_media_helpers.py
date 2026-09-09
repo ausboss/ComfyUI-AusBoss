@@ -22,9 +22,12 @@ except ImportError:  # Offline tests import this module without ComfyUI.
     folder_paths = None
 
 
-# Editor previews of arbitrary local paths are opt-in. Queued workflows are
-# unaffected: queueing is an explicit user action, while the preview routes
-# answer any HTTP client that can reach the server.
+# Reading a video from an arbitrary local path is opt-in, for queued runs
+# and the preview routes alike: a widget value arrives through the
+# unauthenticated /prompt route and the previews answer any HTTP client
+# that can reach the server, so by default local path mode only reaches
+# ComfyUI's own input, output and temp folders. The server operator turns
+# the rest of the disk on with this environment variable.
 LOCAL_PREVIEW_ENV = "AUSBOSS_TRANSFORM_LOCAL_PREVIEW"
 
 VIDEO_EXTENSIONS = {
@@ -92,6 +95,11 @@ def resolve_video_path(source_mode: str, video: str, local_path: str) -> Path:
         text = str(local_path or "").strip().strip('"')
         if not text:
             raise ValueError("Local path mode requires a video path.")
+        if not local_preview_allowed(text):
+            raise ValueError(
+                "Local path mode reads only ComfyUI's input, output and temp folders "
+                f"unless ComfyUI is started with {LOCAL_PREVIEW_ENV}=1."
+            )
         path = Path(text).expanduser().resolve()
         if not path.is_file():
             raise ValueError("The local video file does not exist.")
@@ -117,9 +125,9 @@ def _comfy_managed_roots() -> list[Path]:
 
 
 def local_preview_allowed(candidate: str) -> bool:
-    """Preview routes may read a local path when the user opted in via the
-    environment flag, or when the path is already inside a ComfyUI-managed
-    folder (input/output/temp) that core routes serve anyway."""
+    """A local path may be read when the operator opted in via the environment
+    flag, or when the path is already inside a ComfyUI-managed folder
+    (input/output/temp) that core routes serve anyway."""
     if os.environ.get(LOCAL_PREVIEW_ENV, "").strip().lower() in {"1", "true", "yes", "on"}:
         return True
     try:
@@ -618,9 +626,8 @@ def register_video_routes() -> None:
         # used to probe which paths exist.
         if source_mode == "local path" and not local_preview_allowed(local_path):
             raise ValueError(
-                "Local path previews are disabled by default; queued workflows still "
-                f"read the file. Start ComfyUI with {LOCAL_PREVIEW_ENV}=1 to enable "
-                "editor previews for local paths."
+                "Local path mode reads only ComfyUI's input, output and temp folders "
+                f"unless ComfyUI is started with {LOCAL_PREVIEW_ENV}=1."
             )
         return resolve_video_path(source_mode, request.query.get("video", ""), local_path)
 

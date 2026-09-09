@@ -291,7 +291,7 @@ The fourteen other examples use core nodes plus this pack. Model-free examples a
 
 Under **Chrome**, queue status can appear in the browser title/favicon, live badges report node progress, and optional runtime badges display per-node execution time. LoRA Loader and Resolution Master have their own gear menus.
 
-Queued transforms can read local video paths. Live previews outside ComfyUI's folders require the explicit startup option `AUSBOSS_TRANSFORM_LOCAL_PREVIEW=1`; see [the video transform help](js/docs/AUSBOSS_NODES_VideoCropRotatePad.md).
+The video transform nodes' local path mode reads only ComfyUI's input, output and temp folders unless ComfyUI is started with the explicit option `AUSBOSS_TRANSFORM_LOCAL_PREVIEW=1`, for queued runs and live previews alike; see [the video transform help](js/docs/AUSBOSS_NODES_VideoCropRotatePad.md).
 
 ## Optional extras
 

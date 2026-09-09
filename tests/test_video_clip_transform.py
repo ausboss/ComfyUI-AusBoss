@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 import torch
@@ -64,9 +66,14 @@ class VideoClipNodeTests(unittest.TestCase):
         cls._tmp = tempfile.TemporaryDirectory()
         cls.video = Path(cls._tmp.name) / "clip.mp4"
         write_test_video(cls.video, with_audio=True)
+        # The fixture lives outside ComfyUI's folders; local path mode only
+        # reaches it with the operator's opt-in.
+        cls._env = unittest.mock.patch.dict(os.environ, {"AUSBOSS_TRANSFORM_LOCAL_PREVIEW": "1"})
+        cls._env.start()
 
     @classmethod
     def tearDownClass(cls):
+        cls._env.stop()
         cls._tmp.cleanup()
 
     def run_node(self, **overrides):

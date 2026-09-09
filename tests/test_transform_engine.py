@@ -389,6 +389,19 @@ class LocalPreviewGateTests(unittest.TestCase):
         ):
             self.assertTrue(local_preview_allowed(str(Path.home() / "video.mp4")))
 
+    def test_queued_local_path_reads_follow_the_same_gate(self):
+        from nodes._media_helpers import resolve_video_path
+
+        with tempfile.TemporaryDirectory() as folder:
+            outside = Path(folder) / "clip.mp4"
+            outside.write_bytes(b"")
+            with unittest.mock.patch.dict(os.environ, {}, clear=False):
+                os.environ.pop("AUSBOSS_TRANSFORM_LOCAL_PREVIEW", None)
+                with self.assertRaisesRegex(ValueError, "AUSBOSS_TRANSFORM_LOCAL_PREVIEW"):
+                    resolve_video_path("local path", "", str(outside))
+            with unittest.mock.patch.dict(os.environ, {"AUSBOSS_TRANSFORM_LOCAL_PREVIEW": "1"}):
+                self.assertEqual(resolve_video_path("local path", "", str(outside)), outside.resolve())
+
 
 
 
