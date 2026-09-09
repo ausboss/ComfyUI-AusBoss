@@ -60,7 +60,9 @@
       "widgets_values_named": {
         "unet_name": "krea2_turbo_fp8_scaled.safetensors",
         "weight_dtype": "default"
-      }
+      },
+      "color": "#223",
+      "bgcolor": "#335"
     },
     {
       "id": 2,
@@ -130,7 +132,9 @@
         "clip_name": "qwen3vl_4b_fp8_scaled.safetensors",
         "type": "krea2",
         "device": "default"
-      }
+      },
+      "color": "#432",
+      "bgcolor": "#653"
     },
     {
       "id": 3,
@@ -179,7 +183,9 @@
       ],
       "widgets_values_named": {
         "vae_name": "qwen_image_vae.safetensors"
-      }
+      },
+      "color": "#322",
+      "bgcolor": "#533"
     },
     {
       "id": 4,
@@ -1665,7 +1671,7 @@
       ],
       "size": [
         560,
-        1060
+        1230
       ],
       "flags": {},
       "order": 8,

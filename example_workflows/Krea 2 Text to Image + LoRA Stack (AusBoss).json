@@ -13,7 +13,7 @@
       ],
       "size": [
         560,
-        1010
+        1040
       ],
       "flags": {},
       "order": 0,
@@ -67,7 +67,9 @@
       "widgets_values": [
         "Krea 2/krea2_turbo_fp8.safetensors",
         "default"
-      ]
+      ],
+      "color": "#223",
+      "bgcolor": "#335"
     },
     {
       "id": 3,
@@ -108,7 +110,9 @@
         "qwen3vl_4b_fp8_scaled.safetensors",
         "krea2",
         "default"
-      ]
+      ],
+      "color": "#432",
+      "bgcolor": "#653"
     },
     {
       "id": 4,
@@ -147,7 +151,9 @@
       },
       "widgets_values": [
         "qwen_image_vae.safetensors"
-      ]
+      ],
+      "color": "#322",
+      "bgcolor": "#533"
     },
     {
       "id": 5,

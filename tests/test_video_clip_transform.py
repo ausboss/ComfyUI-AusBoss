@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 import torch
@@ -32,6 +34,16 @@ def transform_defaults(**overrides) -> dict:
     return values
 
 
+class ClipDefaultsTests(unittest.TestCase):
+    def test_a_fresh_clip_node_is_outpaint_ready(self):
+        # The in-context video models the clip feeds paint pure black behind
+        # a hard edge; a grey or feathered band comes back untouched.
+        required = AusBossVideoCropRotatePadClip.INPUT_TYPES()["required"]
+        self.assertEqual(required["feather"][1]["default"], 0)
+        self.assertEqual(required["fill_color"][1]["default"], "#000000")
+        self.assertEqual(transform_inputs()["feather"][1]["default"], 24)
+
+
 class ChunkedTransformTests(unittest.TestCase):
     def test_chunks_match_the_single_pass_transform(self):
         torch.manual_seed(7)
@@ -54,9 +66,14 @@ class VideoClipNodeTests(unittest.TestCase):
         cls._tmp = tempfile.TemporaryDirectory()
         cls.video = Path(cls._tmp.name) / "clip.mp4"
         write_test_video(cls.video, with_audio=True)
+        # The fixture lives outside ComfyUI's folders; local path mode only
+        # reaches it with the operator's opt-in.
+        cls._env = unittest.mock.patch.dict(os.environ, {"AUSBOSS_TRANSFORM_LOCAL_PREVIEW": "1"})
+        cls._env.start()
 
     @classmethod
     def tearDownClass(cls):
+        cls._env.stop()
         cls._tmp.cleanup()
 
     def run_node(self, **overrides):

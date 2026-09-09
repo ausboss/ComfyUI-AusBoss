@@ -242,6 +242,94 @@ class VideoDecodeTests(unittest.TestCase):
                 self.assertEqual(fast[1], fresh[1])
                 self.assertTrue(np.array_equal(np.asarray(fast[0]), np.asarray(fresh[0])))
 
+    def test_repeating_a_frame_request_returns_that_frame(self):
+        # A scrub that settles on the frame it already showed asks for the
+        # same index twice. The session used to decode "forward" to it and
+        # hand back the frame after - the picture jumped one frame on every
+        # release.
+        path = Path(self.directory, "repeat.mp4")
+        self._write_video(path, frames=40, step=6)
+        first = decode_video_frame(path, "frame index", 12, 0.0)
+        again = decode_video_frame(path, "frame index", 12, 0.0)
+        self.assertEqual((first[1], again[1]), (12, 12))
+        self.assertTrue(np.array_equal(np.asarray(first[0]), np.asarray(again[0])))
+        following = decode_video_frame(path, "frame index", 13, 0.0)
+        self.assertEqual(following[1], 13)
+        self.assertFalse(np.array_equal(np.asarray(first[0]), np.asarray(following[0])))
+
+    def test_preview_cache_serves_a_revisited_frame_without_decoding(self):
+        from nodes import _media_helpers
+
+        path = Path(self.directory, "revisit.mp4")
+        self._write_video(path, frames=20, step=12)
+        _media_helpers.clear_preview_cache()
+        body, index, moment = _media_helpers.cached_preview(path, "frame index", 7, 0.0, 640, 640)
+        self.assertEqual(index, 7)
+        self.assertGreater(len(body), 0)
+        with unittest.mock.patch.object(
+            _media_helpers, "decode_video_frame", side_effect=AssertionError("decoded again")
+        ):
+            hit = _media_helpers.cached_preview(path, "frame index", 7, 0.0, 640, 640)
+            # Time mode naming the same frame is the same cache entry.
+            fps = float(video_metadata(path)["fps"])
+            by_time = _media_helpers.cached_preview(path, "time seconds", 0, 7 / fps, 640, 640)
+        self.assertEqual(hit, (body, index, moment))
+        self.assertEqual(by_time, (body, index, moment))
+        # Another size is another entry, decoded on its own.
+        with _media_helpers._PREVIEW_CACHE_LOCK:
+            entries = len(_media_helpers._PREVIEW_CACHE)
+        _media_helpers.cached_preview(path, "frame index", 7, 0.0, 320, 320)
+        with _media_helpers._PREVIEW_CACHE_LOCK:
+            self.assertEqual(len(_media_helpers._PREVIEW_CACHE), entries + 1)
+        _media_helpers.clear_preview_cache()
+
+    def test_preview_cache_forgets_a_rewritten_file(self):
+        from nodes import _media_helpers
+
+        path = Path(self.directory, "rewrite.mp4")
+        self._write_video(path, frames=10, step=20)
+        _media_helpers.clear_preview_cache()
+        before = _media_helpers.cached_preview(path, "frame index", 3, 0.0, 640, 640)
+        _media_helpers.close_scrub_sessions()
+        self._write_video(path, frames=10, step=1)
+        os.utime(path, (time.time() + 5, time.time() + 5))
+        after = _media_helpers.cached_preview(path, "frame index", 3, 0.0, 640, 640)
+        self.assertNotEqual(before[0], after[0])
+        _media_helpers.clear_preview_cache()
+
+    def test_storyboard_tiles_spread_over_the_clip(self):
+        from nodes import _media_helpers
+
+        path = Path(self.directory, "spread.mp4")
+        # 40 frames at 5 fps: 8 s, so 16 tiles half a second apart.
+        self._write_video(path, frames=40, step=6)
+        key = _media_helpers._file_key(path)
+        with _media_helpers._STORYBOARDS_LOCK:
+            _media_helpers._STORYBOARDS[key] = {"status": "building"}
+        _media_helpers._build_storyboard(path, key)
+        ready = _media_helpers.storyboard_payload(path)
+        self.assertEqual(ready["status"], "ready")
+        self.assertEqual(ready["count"], 16)
+        for step, moment in enumerate(ready["times"]):
+            self.assertAlmostEqual(moment, step * 0.5, delta=0.11)
+
+    def test_storyboard_seek_path_reaches_its_targets(self):
+        from nodes import _media_helpers
+
+        path = Path(self.directory, "seekboard.mp4")
+        self._write_video(path, frames=40, step=6)
+        key = _media_helpers._file_key(path)
+        with _media_helpers._STORYBOARDS_LOCK:
+            _media_helpers._STORYBOARDS[key] = {"status": "building"}
+        # Force the long-clip path: keyframe seek plus a capped forward decode.
+        with unittest.mock.patch.object(_media_helpers, "_STORYBOARD_SEQUENTIAL_FRAMES", 0):
+            _media_helpers._build_storyboard(path, key)
+        ready = _media_helpers.storyboard_payload(path)
+        self.assertEqual(ready["status"], "ready")
+        self.assertGreaterEqual(ready["count"], 12)
+        self.assertGreater(ready["times"][-1], 6.0)
+        self.assertEqual(ready["times"], sorted(ready["times"]))
+
     def test_storyboard_builds_ready_payload(self):
         import base64
         from io import BytesIO
@@ -300,6 +388,19 @@ class LocalPreviewGateTests(unittest.TestCase):
             os.environ, {"AUSBOSS_TRANSFORM_LOCAL_PREVIEW": "1"}
         ):
             self.assertTrue(local_preview_allowed(str(Path.home() / "video.mp4")))
+
+    def test_queued_local_path_reads_follow_the_same_gate(self):
+        from nodes._media_helpers import resolve_video_path
+
+        with tempfile.TemporaryDirectory() as folder:
+            outside = Path(folder) / "clip.mp4"
+            outside.write_bytes(b"")
+            with unittest.mock.patch.dict(os.environ, {}, clear=False):
+                os.environ.pop("AUSBOSS_TRANSFORM_LOCAL_PREVIEW", None)
+                with self.assertRaisesRegex(ValueError, "AUSBOSS_TRANSFORM_LOCAL_PREVIEW"):
+                    resolve_video_path("local path", "", str(outside))
+            with unittest.mock.patch.dict(os.environ, {"AUSBOSS_TRANSFORM_LOCAL_PREVIEW": "1"}):
+                self.assertEqual(resolve_video_path("local path", "", str(outside)), outside.resolve())
 
 
 

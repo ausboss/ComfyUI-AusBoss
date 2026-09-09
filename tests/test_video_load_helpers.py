@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import math
 import os
 import tempfile
 import unittest
@@ -73,6 +74,16 @@ def _drop_from_sys_path(entry: str) -> None:
 def run_node(result):
     """Run a node FUNCTION result that may be sync or a coroutine."""
     return asyncio.run(result) if asyncio.iscoroutine(result) else result
+
+
+# The timeline's windowSeconds (js/shared/timeline_math.mjs), transcribed:
+# IN is the largest hundredth that still keeps `first`, OUT the smallest that
+# still keeps `last` and drops the frame after it.
+def frame_window_seconds(fps: float, count: int, first: int, last: int) -> tuple[float, float]:
+    epsilon = 1e-4
+    start = 0.0 if first == 0 else max(0.0, round(math.floor((first / fps + epsilon) / 0.01 + 1e-9) * 0.01, 6))
+    end = 0.0 if last >= count - 1 else round(math.ceil((last / fps + epsilon) / 0.01 - 1e-9) * 0.01, 6)
+    return start, end
 
 
 class FakeInterrupt(BaseException):
@@ -234,6 +245,34 @@ class VideoLoadHelperTests(unittest.TestCase):
             trim_window(10.0, 5.0, 5.0)
         with self.assertRaisesRegex(ValueError, "only"):
             trim_window(2.0, 3.0, 0.0)
+
+
+class TrimFrameWindowTests(unittest.TestCase):
+    """The timeline stores hundredth-grid seconds for a frame window; the
+    decode must keep exactly those frames."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls._tmp = tempfile.TemporaryDirectory()
+        cls.video = Path(cls._tmp.name) / "window.mp4"
+        write_test_video(cls.video, with_audio=False)
+        whole, fps = decode_video_range(cls.video, 0.0, 0.0, 0, 0)
+        cls.whole, cls.fps = whole, fps
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._tmp.cleanup()
+
+    def test_grid_seconds_keep_exactly_the_chosen_frames(self):
+        count = int(self.whole.shape[0])
+        self.assertEqual(count, FRAMES)
+        for first, last in [(0, 0), (0, 5), (1, 1), (3, 10), (7, 22), (11, 23), (23, 23), (5, 23)]:
+            with self.subTest(first=first, last=last):
+                start, end = frame_window_seconds(self.fps, count, first, last)
+                batch, _ = decode_video_range(self.video, start, end, 0, 0)
+                self.assertEqual(int(batch.shape[0]), last - first + 1)
+                self.assertTrue(torch.equal(batch[0], self.whole[first]))
+                self.assertTrue(torch.equal(batch[-1], self.whole[last]))
 
 
 class EffectiveLoadArgsTests(unittest.TestCase):

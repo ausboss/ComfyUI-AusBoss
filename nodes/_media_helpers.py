@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import base64
+from collections import OrderedDict
 from io import BytesIO
+import math
 import os
 from pathlib import Path
 import re
@@ -20,9 +22,12 @@ except ImportError:  # Offline tests import this module without ComfyUI.
     folder_paths = None
 
 
-# Editor previews of arbitrary local paths are opt-in. Queued workflows are
-# unaffected: queueing is an explicit user action, while the preview routes
-# answer any HTTP client that can reach the server.
+# Reading a video from an arbitrary local path is opt-in, for queued runs
+# and the preview routes alike: a widget value arrives through the
+# unauthenticated /prompt route and the previews answer any HTTP client
+# that can reach the server, so by default local path mode only reaches
+# ComfyUI's own input, output and temp folders. The server operator turns
+# the rest of the disk on with this environment variable.
 LOCAL_PREVIEW_ENV = "AUSBOSS_TRANSFORM_LOCAL_PREVIEW"
 
 VIDEO_EXTENSIONS = {
@@ -90,6 +95,11 @@ def resolve_video_path(source_mode: str, video: str, local_path: str) -> Path:
         text = str(local_path or "").strip().strip('"')
         if not text:
             raise ValueError("Local path mode requires a video path.")
+        if not local_preview_allowed(text):
+            raise ValueError(
+                "Local path mode reads only ComfyUI's input, output and temp folders "
+                f"unless ComfyUI is started with {LOCAL_PREVIEW_ENV}=1."
+            )
         path = Path(text).expanduser().resolve()
         if not path.is_file():
             raise ValueError("The local video file does not exist.")
@@ -115,9 +125,9 @@ def _comfy_managed_roots() -> list[Path]:
 
 
 def local_preview_allowed(candidate: str) -> bool:
-    """Preview routes may read a local path when the user opted in via the
-    environment flag, or when the path is already inside a ComfyUI-managed
-    folder (input/output/temp) that core routes serve anyway."""
+    """A local path may be read when the operator opted in via the environment
+    flag, or when the path is already inside a ComfyUI-managed folder
+    (input/output/temp) that core routes serve anyway."""
     if os.environ.get(LOCAL_PREVIEW_ENV, "").strip().lower() in {"1", "true", "yes", "on"}:
         return True
     try:
@@ -265,6 +275,10 @@ class _ScrubSession:
         self.stream = _video_stream(self.container)
         self.lock = threading.Lock()
         self.last_index = -1  # -1 = position unknown, force a seek
+        # The frame at last_index. Asking for the same frame again (a scrub
+        # that settles on the frame it already showed) is answered from
+        # here; decoding "forward" to it would hand back the frame after.
+        self.last_frame = None
         self.last_used = time.monotonic()
 
     def close(self) -> None:
@@ -329,9 +343,12 @@ def _session_decode(path: Path, target_index: int, requested_time: float, fps: f
     session = _get_session(path)
     with session.lock:
         stream = session.stream
+        if session.last_index == target_index and session.last_frame is not None:
+            index, time_value = _frame_position(session.last_frame, fps, target_index)
+            return session.last_frame.to_image().convert("RGBA"), index, time_value
         forward = (
             session.last_index >= 0
-            and 0 <= target_index - session.last_index <= _FORWARD_DECODE_GAP
+            and 0 < target_index - session.last_index <= _FORWARD_DECODE_GAP
         )
         if not forward:
             try:
@@ -339,15 +356,18 @@ def _session_decode(path: Path, target_index: int, requested_time: float, fps: f
                 session.container.seek(offset, stream=stream, backward=True, any_frame=False)
             except Exception:
                 session.last_index = -1
+                session.last_frame = None
                 return None
         tolerance = (0.5 / fps) if fps > 0 else 0.0
         last = None
         for frame in session.container.decode(stream):
             if frame.time is None:
                 session.last_index = -1
+                session.last_frame = None
                 return None
             last = frame
             session.last_index = int(round(float(frame.time) * fps)) if fps > 0 else 0
+            session.last_frame = frame
             if forward:
                 if session.last_index >= target_index:
                     break
@@ -355,15 +375,15 @@ def _session_decode(path: Path, target_index: int, requested_time: float, fps: f
                 break
         if last is None:
             session.last_index = -1  # exhausted decoder: next request re-seeks
+            session.last_frame = None
             return None
         index, time_value = _frame_position(last, fps, target_index)
         return last.to_image().convert("RGBA"), index, time_value
 
 
-def decode_video_frame(
-    path: Path, seek_mode: str, frame_index: int, frame_time: float
-) -> tuple[Image.Image, int, float]:
-    metadata = cached_video_metadata(path)
+def seek_target(metadata: dict, seek_mode: str, frame_index: int, frame_time: float) -> tuple[int, float]:
+    """The frame a preview request means, as (index, seconds), clamped to
+    the source."""
     fps = float(metadata["fps"] or 0.0)
     if seek_mode == "time seconds":
         requested_time = max(0.0, float(frame_time))
@@ -378,6 +398,15 @@ def decode_video_frame(
         target_index = frame_count - 1
         if fps > 0:
             requested_time = target_index / fps
+    return target_index, requested_time
+
+
+def decode_video_frame(
+    path: Path, seek_mode: str, frame_index: int, frame_time: float
+) -> tuple[Image.Image, int, float]:
+    metadata = cached_video_metadata(path)
+    fps = float(metadata["fps"] or 0.0)
+    target_index, requested_time = seek_target(metadata, seek_mode, frame_index, frame_time)
 
     # Fast path: persistent session (forward decode or keyframe seek without
     # reopening the container). Stateless keyframe seek and the sequential
@@ -403,6 +432,12 @@ def decode_video_frame(
 
 _STORYBOARD_TILE_EDGE = 168
 _STORYBOARD_MAX_TILES = 96
+# Short clips decode once, front to back, taking a tile as each target time
+# goes by; longer ones seek to the keyframe before each target and decode
+# forward to it, giving up after this many frames so a sparse-keyframe file
+# still finishes in the background.
+_STORYBOARD_SEQUENTIAL_FRAMES = 3000
+_STORYBOARD_FORWARD_CAP = 150
 _STORYBOARDS: dict[tuple[str, int, int], dict] = {}
 _STORYBOARDS_LOCK = threading.Lock()
 
@@ -412,26 +447,48 @@ def _build_storyboard(path: Path, key: tuple[str, int, int]) -> None:
         metadata = cached_video_metadata(path)
         duration = float(metadata["duration"] or 0.0)
         fps = float(metadata["fps"] or 0.0)
-        count = min(_STORYBOARD_MAX_TILES, max(12, int(duration)))
+        count = min(_STORYBOARD_MAX_TILES, max(12, math.ceil(duration * 2)))
+        targets = [duration * step / count if duration > 0 else 0.0 for step in range(count)]
+        tolerance = (0.5 / fps) if fps > 0 else 0.0
         tiles: list[tuple[Image.Image, float]] = []
+
+        def take(frame) -> None:
+            thumb = frame.to_image()
+            thumb.thumbnail((_STORYBOARD_TILE_EDGE, _STORYBOARD_TILE_EDGE))
+            # Two targets can resolve to one frame; keep each frame once.
+            if not tiles or float(frame.time) > tiles[-1][1] + 1e-6:
+                tiles.append((thumb, float(frame.time)))
+
         with av.open(str(path)) as container:
             stream = _video_stream(container)
-            for step in range(count):
-                position = duration * step / count if duration > 0 else 0.0
-                try:
-                    offset = int(position / stream.time_base) + (stream.start_time or 0)
-                    container.seek(offset, stream=stream, backward=True, any_frame=False)
-                except Exception:
-                    continue
-                frame = next(container.decode(stream), None)
-                if frame is None or frame.time is None:
-                    continue
-                thumb = frame.to_image()
-                thumb.thumbnail((_STORYBOARD_TILE_EDGE, _STORYBOARD_TILE_EDGE))
-                # Seeks are keyframe-aligned, so consecutive steps often land
-                # on the same keyframe; keep each keyframe once.
-                if not tiles or float(frame.time) > tiles[-1][1] + 1e-6:
-                    tiles.append((thumb, float(frame.time)))
+            if int(metadata["frame_count"] or 0) <= _STORYBOARD_SEQUENTIAL_FRAMES:
+                pending = list(targets)
+                for frame in container.decode(stream):
+                    if frame.time is None:
+                        break
+                    if pending and float(frame.time) + tolerance >= pending[0]:
+                        take(frame)
+                        while pending and float(frame.time) + tolerance >= pending[0]:
+                            pending.pop(0)
+                    if not pending:
+                        break
+            else:
+                for position in targets:
+                    try:
+                        offset = int(position / stream.time_base) + (stream.start_time or 0)
+                        container.seek(offset, stream=stream, backward=True, any_frame=False)
+                    except Exception:
+                        continue
+                    frame = None
+                    for decoded, candidate in enumerate(container.decode(stream)):
+                        if candidate.time is None:
+                            break
+                        frame = candidate
+                        if float(candidate.time) + tolerance >= position or decoded >= _STORYBOARD_FORWARD_CAP:
+                            break
+                    if frame is None or frame.time is None:
+                        continue
+                    take(frame)
         if not tiles:
             raise ValueError("no storyboard frames decoded")
         tile_width, tile_height = tiles[0][0].size
@@ -472,8 +529,58 @@ def storyboard_payload(path: Path) -> dict:
     return {"status": "building"}
 
 
+def preview_edge(max_width: int, max_height: int) -> int:
+    return max(64, min(2048, int(max(max_width, max_height))))
+
+
+# --- served-frame cache -------------------------------------------------------
+# Scrubbing back and forth over a region asks for the same frames again and
+# again; each is a decode from the previous keyframe. The encoded previews
+# that were served are kept in a small byte-bounded LRU keyed by file state,
+# frame and size, so a revisit costs nothing.
+
+_PREVIEW_CACHE: "OrderedDict[tuple, tuple[bytes, int, float]]" = OrderedDict()
+_PREVIEW_CACHE_LOCK = threading.Lock()
+_PREVIEW_CACHE_BYTES = 48 * 1024 * 1024
+_preview_cache_size = 0
+
+
+def clear_preview_cache() -> None:
+    global _preview_cache_size
+    with _PREVIEW_CACHE_LOCK:
+        _PREVIEW_CACHE.clear()
+        _preview_cache_size = 0
+
+
+def cached_preview(
+    path: Path, seek_mode: str, frame_index: int, frame_time: float, max_width: int, max_height: int
+) -> tuple[bytes, int, float]:
+    """The encoded preview for a frame request plus the decoded position,
+    from the cache when that frame was served at that size recently."""
+    global _preview_cache_size
+    edge = preview_edge(max_width, max_height)
+    target_index, _ = seek_target(cached_video_metadata(path), seek_mode, frame_index, frame_time)
+    key = (_file_key(path), target_index, edge)
+    with _PREVIEW_CACHE_LOCK:
+        hit = _PREVIEW_CACHE.get(key)
+        if hit is not None:
+            _PREVIEW_CACHE.move_to_end(key)
+            return hit
+    image, actual_index, actual_time = decode_video_frame(path, seek_mode, frame_index, frame_time)
+    entry = (encode_preview(image, edge, edge), actual_index, actual_time)
+    with _PREVIEW_CACHE_LOCK:
+        if key in _PREVIEW_CACHE:
+            _preview_cache_size -= len(_PREVIEW_CACHE.pop(key)[0])
+        _PREVIEW_CACHE[key] = entry
+        _preview_cache_size += len(entry[0])
+        while _preview_cache_size > _PREVIEW_CACHE_BYTES and len(_PREVIEW_CACHE) > 1:
+            _, evicted = _PREVIEW_CACHE.popitem(last=False)
+            _preview_cache_size -= len(evicted[0])
+    return entry
+
+
 def encode_preview(image: Image.Image, max_width: int, max_height: int) -> bytes:
-    maximum = max(64, min(2048, int(max(max_width, max_height))))
+    maximum = preview_edge(max_width, max_height)
     preview = image.convert("RGB")
     preview.thumbnail((maximum, maximum), Image.Resampling.LANCZOS)
     output = BytesIO()
@@ -519,9 +626,8 @@ def register_video_routes() -> None:
         # used to probe which paths exist.
         if source_mode == "local path" and not local_preview_allowed(local_path):
             raise ValueError(
-                "Local path previews are disabled by default; queued workflows still "
-                f"read the file. Start ComfyUI with {LOCAL_PREVIEW_ENV}=1 to enable "
-                "editor previews for local paths."
+                "Local path mode reads only ComfyUI's input, output and temp folders "
+                f"unless ComfyUI is started with {LOCAL_PREVIEW_ENV}=1."
             )
         return resolve_video_path(source_mode, request.query.get("video", ""), local_path)
 
@@ -550,14 +656,8 @@ def register_video_routes() -> None:
             max_width = _query_int(request, "max_width", 1600)
             max_height = _query_int(request, "max_height", 1600)
 
-            def decode_and_encode():
-                image, actual_index, actual_time = decode_video_frame(
-                    path, seek_mode, frame_index, frame_time
-                )
-                return encode_preview(image, max_width, max_height), actual_index, actual_time
-
             body, actual_index, actual_time = await asyncio.get_running_loop().run_in_executor(
-                None, decode_and_encode
+                None, cached_preview, path, seek_mode, frame_index, frame_time, max_width, max_height
             )
             return web.Response(
                 body=body,

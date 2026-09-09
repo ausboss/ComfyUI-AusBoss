@@ -93,15 +93,16 @@ class AusBossVideoCropRotatePadClip:
             ),
             "source_mode": (
                 ["input folder", "local path"],
-                {"default": "input folder", "tooltip": "Local path mode avoids copying large videos."},
+                {"default": "input folder", "tooltip": "Local path mode reads a file in place instead of copying it into the input folder."},
             ),
             "local_path": (
                 "STRING",
                 {
                     "default": "",
                     "tooltip": (
-                        "Absolute local video path used only in local path mode. Queued runs "
-                        "always read it; editor previews need AUSBOSS_TRANSFORM_LOCAL_PREVIEW=1."
+                        "Absolute video path used only in local path mode. By default only "
+                        "ComfyUI's input, output and temp folders are readable; start ComfyUI "
+                        "with AUSBOSS_TRANSFORM_LOCAL_PREVIEW=1 to allow any path."
                     ),
                 },
             ),
@@ -130,8 +131,8 @@ class AusBossVideoCropRotatePadClip:
                 {
                     "default": "frame index",
                     "tooltip": (
-                        "Editor preview position only: frame_index or frame_time picks the "
-                        "frame the editor shows. The output covers the whole trim window."
+                        "Playhead position only: frame_index or frame_time picks the frame "
+                        "the node and editor show. The output covers the whole trim window."
                     ),
                 },
             ),
@@ -142,7 +143,7 @@ class AusBossVideoCropRotatePadClip:
                     "min": 0,
                     "max": 100000000,
                     "step": 1,
-                    "tooltip": "Zero-based preview frame for the editor; does not affect the output.",
+                    "tooltip": "Zero-based playhead frame shown on the node and in the editor; does not affect the output.",
                 },
             ),
             "frame_time": (
@@ -152,11 +153,15 @@ class AusBossVideoCropRotatePadClip:
                     "min": 0.0,
                     "max": 86400.0,
                     "step": 0.001,
-                    "tooltip": "Preview seconds for the editor in time mode; does not affect the output.",
+                    "tooltip": "Playhead position in seconds for time mode; does not affect the output.",
                 },
             ),
         }
-        required.update(transform_inputs())
+        # A fresh clip starts outpaint-ready: the in-context video models
+        # this feeds (LTX IC-LoRA) paint pure black behind a hard edge and
+        # leave a grey or feathered band untouched, so those are the defaults
+        # here and what the editor's Reset returns to.
+        required.update(transform_inputs(feather=0, fill_color="#000000"))
         required.update(resize_inputs())
         optional = {
             "every_nth": (

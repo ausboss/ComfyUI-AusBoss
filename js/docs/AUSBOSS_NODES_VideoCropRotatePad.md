@@ -8,15 +8,23 @@ Loads one exact video frame and applies the same **rotate → crop → pad** tra
 ## Source and frame
 
 - **Uploads**: Pick an input video, click **Upload** in the compact source card, or
-  drop a video file onto the node.
+  drop a video file onto the node. Another video keeps the fill, feather and resize
+  settings and the lit format chip (the new frame is padded to it); rotation, crop and
+  the playhead start over.
+- **Canvas row** under the format chips: fill swatch, feather amount and resize
+  budget on the node face.
 - **source_mode**: `input folder` or `local path`. Local path mode avoids copying large files.
-- **local_path**: Absolute path used only in local path mode. Queued workflows always
-  read it; the editor's live preview of paths outside ComfyUI's own folders requires
-  starting ComfyUI with `AUSBOSS_TRANSFORM_LOCAL_PREVIEW=1`.
-- **seek_mode**: Exact zero-based frame index or time in seconds.
-- **frame_index / frame_time**: Saved timeline position.
+- **local_path**: Absolute path used only in local path mode. By default it reaches
+  only ComfyUI's own input, output and temp folders, for queued runs and the editor's
+  live preview alike; starting ComfyUI with `AUSBOSS_TRANSFORM_LOCAL_PREVIEW=1` opens
+  the rest of the disk.
+- **Playhead**: The rail under the node's preview is the timeline: press or drag it to
+  scrub, or type a frame in the **Frame** box; the frame on the stage is the frame the
+  node outputs (`frame_index`, with `frame_time` kept in step).
+- **seek_mode / frame_time**: Time-based seeking for graphs that drive the position by
+  link; the editor itself always works in frames.
 
-The editor includes first/last, ±1, ±25, ±50, ±100, play/pause, keyboard arrows, and a full-width timeline. Only one frame preview request remains active; stale requests are cancelled.
+The editor has the same rail full width, plus first/last, ±1, ±25, ±50, ±100, play/pause, keyboard arrows and Home/End. Only one frame preview request remains active; stale requests are cancelled, and frames already shown are served from a small cache.
 
 ## Transform and outputs
 
@@ -24,8 +32,10 @@ Rotation, crop, padding, feathering, fill, canvas multiple, gestures, `image`, a
 
 The crop, padding and rotation handles work on the node preview as well as in the
 editor, and the format chips right under the preview (16:9, 9:16, 1:1, 4:3 ...) pad
-the whole frame to that aspect with centered fill bands in one tap; tap the lit chip
-to clear the bands again. Choose a **Target aspect**, then **Crop to aspect** to trim a centered crop,
+the whole frame to that aspect with centered fill bands in one tap. Tap the lit chip
+again to lock the format (a padlock appears): crop and padding drags then keep the
+canvas at that aspect with the other axis's padding following; a third tap clears
+both. The editor's **Lock aspect** box is the same switch. Choose a **Target aspect**, then **Crop to aspect** to trim a centered crop,
 or **Pad to aspect** to preserve the full source and add centered fill-color bands.
 Both actions replace existing crop/padding and retain rotation. The target selection
 alone does not alter the transform. Padding unlocks the inner crop so it keeps every

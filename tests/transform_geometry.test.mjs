@@ -161,3 +161,136 @@ test("scaleToMegapixels mirrors the backend fixtures", () => {
   assert.deepEqual(scaleToMegapixels(1000, 707, 1.0, 8), { width: 1216, height: 864 });
   assert.deepEqual(scaleToMegapixels(100, 100, 0.01, 64), { width: 128, height: 128 });
 });
+
+// --- Aspect lock ------------------------------------------------------------
+import { lockPadding, lockedPadMinimum, paddingAxis } from "../js/shared/transform_geometry.mjs";
+
+const RATIO_16_9 = 16 / 9;
+
+function canvasOf(pads, crop) {
+  return {
+    width: crop.width + pads.pad_left + pads.pad_right,
+    height: crop.height + pads.pad_top + pads.pad_bottom,
+  };
+}
+
+function assertRatio(pads, crop, ratio) {
+  const { width, height } = canvasOf(pads, crop);
+  assert.ok(Math.abs(width / height - ratio) * height <= 1.01, `${width}x${height} is not ${ratio}`);
+  for (const value of Object.values(pads)) assert.ok(value >= 0);
+}
+
+test("lock: a taller padding drag widens the side bands symmetrically", () => {
+  // The 16:9 pad of a 9:16 source, then pad_top pulled up by 100.
+  const crop = { width: 576, height: 1024 };
+  const pads = lockPadding({ pad_left: 622, pad_right: 623, pad_top: 100, pad_bottom: 0 }, crop, RATIO_16_9, "y");
+  assertRatio(pads, crop, RATIO_16_9);
+  assert.equal(pads.pad_top, 100);
+  assert.equal(pads.pad_bottom, 0);
+  assert.ok(Math.abs(pads.pad_right - pads.pad_left) <= 2); // the 622/623 split stays centred
+  assert.equal(canvasOf(pads, crop).height, 1124);
+});
+
+test("lock: a side pad cannot shrink below what the crop's height needs", () => {
+  const crop = { width: 576, height: 1024 };
+  const values = { pad_left: 622, pad_right: 623, pad_top: 0, pad_bottom: 0 };
+  // 16:9 around a 1024-tall crop is 1821 wide: left can go no lower than
+  // 1821 - 576 - 623 = 622, i.e. not at all.
+  assert.equal(lockedPadMinimum(values, crop, RATIO_16_9, "pad_left"), 622);
+  // With bands above and below there is room to narrow.
+  assert.equal(lockedPadMinimum({ ...values, pad_top: 200, pad_bottom: 200 }, crop, RATIO_16_9, "pad_left"), 622);
+  assert.equal(lockedPadMinimum({ ...values, pad_top: 200 }, crop, RATIO_16_9, "pad_top"), 0);
+  assert.equal(paddingAxis("pad_left"), "x");
+  assert.equal(paddingAxis("pad_bottom"), "y");
+});
+
+test("lock: cropping the height in narrows the bands", () => {
+  const crop = { width: 576, height: 924 };
+  const pads = lockPadding({ pad_left: 622, pad_right: 623, pad_top: 0, pad_bottom: 0 }, crop, RATIO_16_9, "y");
+  assertRatio(pads, crop, RATIO_16_9);
+  assert.equal(pads.pad_top + pads.pad_bottom, 0);
+  assert.ok(pads.pad_left < 622 && pads.pad_right < 623);
+});
+
+test("lock: cropping the width in gives the strip back as fill", () => {
+  // No vertical bands to shrink, so the canvas keeps its width: the 100
+  // cropped pixels come back as padding split over left and right.
+  const crop = { width: 476, height: 1024 };
+  const pads = lockPadding({ pad_left: 622, pad_right: 623, pad_top: 0, pad_bottom: 0 }, crop, RATIO_16_9, "x");
+  assertRatio(pads, crop, RATIO_16_9);
+  const canvas = canvasOf(pads, crop);
+  assert.equal(canvas.height, 1024);
+  assert.ok(canvas.width === 1820 || canvas.width === 1821, `width ${canvas.width}`);
+  assert.equal(pads.pad_top + pads.pad_bottom, 0);
+});
+
+test("lock: the canvas a format chip padded is already a fixed point", () => {
+  const source = { width: 576, height: 1024 };
+  const padded = fitSourceToAspect(source, "16:9", "pad");
+  for (const driver of ["x", "y"]) {
+    assert.deepEqual(lockPadding(padded, source, RATIO_16_9, driver), {
+      pad_left: 622, pad_top: 0, pad_right: 623, pad_bottom: 0,
+    });
+  }
+});
+
+test("lock: with nothing to shrink the canvas refits around the crop", () => {
+  // A square lock on a crop with zero padding on both axes: the only way is
+  // to grow the short axis around the crop.
+  const crop = { width: 1000, height: 400 };
+  const pads = lockPadding({ pad_left: 0, pad_right: 0, pad_top: 0, pad_bottom: 0 }, crop, 1, "y");
+  assert.deepEqual(pads, { pad_left: 0, pad_right: 0, pad_top: 300, pad_bottom: 300 });
+  // A rotation that made the crop taller than the 16:9 canvas can hold:
+  // side bands cannot go negative, so the bands regrow around the crop.
+  const tall = lockPadding({ pad_left: 10, pad_right: 10, pad_top: 0, pad_bottom: 0 }, { width: 500, height: 1000 }, RATIO_16_9, "x");
+  assertRatio(tall, { width: 500, height: 1000 }, RATIO_16_9);
+  assert.equal(tall.pad_top + tall.pad_bottom, 0);
+});
+
+test("lock: an invalid ratio or crop is a no-op", () => {
+  assert.equal(lockPadding({}, { width: 10, height: 10 }, null), null);
+  assert.equal(lockPadding({}, { width: 0, height: 10 }, 1), null);
+  assert.equal(lockedPadMinimum({}, { width: 10, height: 10 }, 0, "pad_left"), 0);
+});
+
+test("lock: the result already satisfies a second pass", () => {
+  const crop = { width: 640, height: 360 };
+  for (const ratio of [1, 4 / 3, RATIO_16_9, 9 / 16, 21 / 9]) {
+    for (const driver of ["x", "y"]) {
+      const first = lockPadding({ pad_left: 30, pad_right: 5, pad_top: 80, pad_bottom: 0 }, crop, ratio, driver);
+      assertRatio(first, crop, ratio);
+      assert.deepEqual(lockPadding(first, crop, ratio, driver), first);
+    }
+  }
+});
+
+// --- Source changes ---------------------------------------------------------
+import { SOURCE_GEOMETRY_KEYS, declaredTransformDefaults, sourceResetValues } from "../js/shared/transform_geometry.mjs";
+
+test("a source change resets geometry but never the canvas style", () => {
+  const reset = sourceResetValues(true);
+  for (const name of ["fill_color", "feather", "canvas_multiple"]) assert.ok(!(name in reset), `${name} must survive a source swap`);
+  for (const name of SOURCE_GEOMETRY_KEYS) assert.ok(name in reset);
+  assert.equal(reset.pad_left, 0);
+  assert.equal(reset.rotation_degrees, 0);
+  assert.equal(reset.crop_aspect_ratio, "free");
+  assert.equal(reset.frame_index, 0);
+  assert.ok(!("frame_index" in sourceResetValues(false)));
+});
+
+test("reset returns to the node's declared defaults over the shared identity", () => {
+  // The clip node declares a black fill and feather 0 (video outpaint);
+  // the image nodes keep the shared grey / 24.
+  const clipDef = { input: { required: { feather: ["INT", { default: 0, hidden: true }], fill_color: ["STRING", { default: "#000000" }] } } };
+  const reset = declaredTransformDefaults(clipDef, true);
+  assert.equal(reset.feather, 0);
+  assert.equal(reset.fill_color, "#000000");
+  assert.equal(reset.pad_left, 0);
+  assert.equal(reset.frame_index, 0);
+  assert.deepEqual(declaredTransformDefaults(undefined, false), resetTransformValues(false));
+  assert.deepEqual(declaredTransformDefaults({ input: { required: {} } }, false), resetTransformValues(false));
+  // A declared default only overrides keys the transform owns.
+  const stray = declaredTransformDefaults({ input: { optional: { feather: ["INT", { default: 8 }], every_nth: ["INT", { default: 2 }] } } });
+  assert.equal(stray.feather, 8);
+  assert.ok(!("every_nth" in stray));
+});
