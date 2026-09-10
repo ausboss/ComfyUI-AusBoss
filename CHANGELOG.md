@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.0.2 - 2026-09-10
 
 - The LoRA loader validates the SHA-256 used in its fixed Civitai URL and
   refuses redirects, so the lookup cannot follow another host.
