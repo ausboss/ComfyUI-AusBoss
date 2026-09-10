@@ -22,13 +22,14 @@ except ImportError:  # Offline tests import this module without ComfyUI.
     folder_paths = None
 
 
-# Reading a video from an arbitrary local path is opt-in, for queued runs
-# and the preview routes alike: a widget value arrives through the
-# unauthenticated /prompt route and the previews answer any HTTP client
-# that can reach the server, so by default local path mode only reaches
-# ComfyUI's own input, output and temp folders. The server operator turns
-# the rest of the disk on with this environment variable.
-LOCAL_PREVIEW_ENV = "AUSBOSS_TRANSFORM_LOCAL_PREVIEW"
+# Local path mode reads only from ComfyUI's input, output and temp folders,
+# for queued runs and the preview routes alike: a widget value arrives
+# through the unauthenticated /prompt route, and the previews answer any
+# HTTP client that can reach the server.
+LOCAL_PATH_RULE = (
+    "Local path mode reads only videos inside ComfyUI's input, output or temp "
+    "folder. Move the video there, or use Upload."
+)
 
 VIDEO_EXTENSIONS = {
     ".avi",
@@ -76,6 +77,8 @@ def list_input_videos() -> list[str]:
 def resolve_input_path(selection: str) -> Path:
     if not selection:
         raise ValueError("Select or upload a source file first.")
+    if str(selection).replace("\\", "/").startswith("//"):
+        raise ValueError("Network source paths are not allowed.")
     if folder_paths is None:
         path = Path(selection).expanduser().resolve()
     else:
@@ -96,10 +99,7 @@ def resolve_video_path(source_mode: str, video: str, local_path: str) -> Path:
         if not text:
             raise ValueError("Local path mode requires a video path.")
         if not local_preview_allowed(text):
-            raise ValueError(
-                "Local path mode reads only ComfyUI's input, output and temp folders "
-                f"unless ComfyUI is started with {LOCAL_PREVIEW_ENV}=1."
-            )
+            raise ValueError(LOCAL_PATH_RULE)
         path = Path(text).expanduser().resolve()
         if not path.is_file():
             raise ValueError("The local video file does not exist.")
@@ -125,13 +125,14 @@ def _comfy_managed_roots() -> list[Path]:
 
 
 def local_preview_allowed(candidate: str) -> bool:
-    """A local path may be read when the operator opted in via the environment
-    flag, or when the path is already inside a ComfyUI-managed folder
-    (input/output/temp) that core routes serve anyway."""
-    if os.environ.get(LOCAL_PREVIEW_ENV, "").strip().lower() in {"1", "true", "yes", "on"}:
-        return True
+    """A local path may be read only inside ComfyUI's input, output and temp
+    folders, the folders core routes serve anyway. A network path is refused
+    from its text alone, before anything could contact its host."""
+    text = str(candidate or "").strip().strip('"')
+    if not text or text.replace("\\", "/").startswith("//"):
+        return False
     try:
-        resolved = Path(str(candidate or "").strip().strip('"')).expanduser().resolve()
+        resolved = Path(text).expanduser().resolve()
     except (OSError, ValueError):
         return False
     return any(resolved == root or root in resolved.parents for root in _comfy_managed_roots())
@@ -625,10 +626,7 @@ def register_video_routes() -> None:
         # Gate before touching the filesystem so a denied request can not be
         # used to probe which paths exist.
         if source_mode == "local path" and not local_preview_allowed(local_path):
-            raise ValueError(
-                "Local path mode reads only ComfyUI's input, output and temp folders "
-                f"unless ComfyUI is started with {LOCAL_PREVIEW_ENV}=1."
-            )
+            raise ValueError(LOCAL_PATH_RULE)
         return resolve_video_path(source_mode, request.query.get("video", ""), local_path)
 
     # Decodes run in worker threads: a blocking decode inside these async

@@ -66,9 +66,12 @@ class VideoClipNodeTests(unittest.TestCase):
         cls._tmp = tempfile.TemporaryDirectory()
         cls.video = Path(cls._tmp.name) / "clip.mp4"
         write_test_video(cls.video, with_audio=True)
-        # The fixture lives outside ComfyUI's folders; local path mode only
-        # reaches it with the operator's opt-in.
-        cls._env = unittest.mock.patch.dict(os.environ, {"AUSBOSS_TRANSFORM_LOCAL_PREVIEW": "1"})
+        # Local path mode reads only ComfyUI's input/output/temp folders;
+        # the fixture's temporary folder stands in for one.
+        from nodes import _media_helpers
+
+        root = Path(cls._tmp.name).resolve()
+        cls._env = unittest.mock.patch.object(_media_helpers, "_comfy_managed_roots", lambda: [root])
         cls._env.start()
 
     @classmethod

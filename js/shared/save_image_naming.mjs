@@ -68,8 +68,12 @@ export function previewFolder(values, outputLabel = "ComfyUI/output") {
   const prefix = String(values.filename_prefix ?? "").trim().replace(/\\/g, "/");
   const mode = namingMode({ filenameLinked: values.filenameLinked, exactName: values.exact_name });
   const prefixFolder = mode === "local" ? prefix.split("/").filter((part) => part && part !== ".").slice(0, -1).join("/") : "";
-  const absolute = /^([A-Za-z]:[\\/]|\/|~)/.test(folder);
-  const segments = absolute ? [folder.replace(/\/+$/, "")] : [outputLabel, folder.replace(/^\/+|\/+$/g, "")];
+  // Save Image writes only inside the output folder; say so where the path
+  // would be, before a run refuses it.
+  if (/^(\/|~)/.test(folder) || folder.includes(":") || folder.split("/").includes("..")) {
+    return `Not saved: use a subfolder of ${outputLabel}`;
+  }
+  const segments = [outputLabel, folder.replace(/^\/+|\/+$/g, "")];
   if (prefixFolder) segments.push(prefixFolder);
   return segments.filter(Boolean).join("/") + "/";
 }

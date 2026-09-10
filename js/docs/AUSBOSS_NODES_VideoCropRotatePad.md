@@ -14,10 +14,9 @@ Loads one exact video frame and applies the same **rotate → crop → pad** tra
 - **Canvas row** under the format chips: fill swatch, feather amount and resize
   budget on the node face.
 - **source_mode**: `input folder` or `local path`. Local path mode avoids copying large files.
-- **local_path**: Absolute path used only in local path mode. By default it reaches
-  only ComfyUI's own input, output and temp folders, for queued runs and the editor's
-  live preview alike; starting ComfyUI with `AUSBOSS_TRANSFORM_LOCAL_PREVIEW=1` opens
-  the rest of the disk.
+- **local_path**: Absolute path used only in local path mode, read in place without an
+  upload copy. It must point inside ComfyUI's input, output or temp folder, for queued
+  runs and the editor's live preview alike; paths anywhere else are refused.
 - **Playhead**: The rail under the node's preview is the timeline: press or drag it to
   scrub, or type a frame in the **Frame** box; the frame on the stage is the frame the
   node outputs (`frame_index`, with `frame_time` kept in step).

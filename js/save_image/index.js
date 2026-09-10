@@ -201,7 +201,7 @@ function buildCard(node) {
   // Folder
   root.append(el("div", "ausboss-save-cap", "Folder"));
   const folderRow = el("div", "ausboss-save-row");
-  const folder = textField(state, "output_dir", "ComfyUI/output", "Where to save. Empty is ComfyUI's output folder; a relative path is a subfolder of it; an absolute path saves anywhere you can write.");
+  const folder = textField(state, "output_dir", "ComfyUI/output", "Subfolder of ComfyUI's output folder to save into, such as sets/portraits. Empty saves to the output folder itself; Save Image never writes outside it.");
   const browse = el("button", "ausboss-card-btn", "Browse");
   browse.title = "Pick a subfolder of ComfyUI's output folder";
   browse.addEventListener("click", () => openBrowse(state, browse));

@@ -108,6 +108,12 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   even for one output: `(value,)`.
 - Console output at import time must stay ASCII — ComfyUI on Windows often
   runs a cp1252 console, and a UnicodeEncodeError there kills the whole pack.
+- Widget values and route parameters are attacker-controlled: ComfyUI's
+  `/prompt` and the pack's routes need no login. A node never contacts a
+  host taken from one, never hands one to a subprocess, and reads or writes
+  only inside ComfyUI's input, output and temp folders - no opt-in
+  switches, no "any folder" settings, no folder pickers. The Registry bans
+  versions for exactly this.
 - No new pip dependencies without an explicit decision; if truly optional,
   use `[project.optional-dependencies]` and fail soft at runtime.
 - Frontend JS never assigns prototype callbacks directly — use

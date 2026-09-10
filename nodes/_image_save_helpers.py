@@ -78,7 +78,7 @@ def sanitize_exact_name(name: str) -> str:
     text = str(name or "").strip().replace("\\", "/")
     if not text:
         return ""
-    if PureWindowsPath(text).drive or text.startswith("/"):
+    if ":" in text or PureWindowsPath(text).drive or text.startswith("/"):
         raise ValueError("Save Image: exact_name must be a relative name, not a rooted path.")
     parts = [part for part in text.split("/") if part not in ("", ".")]
     if any(part == ".." for part in parts):
@@ -88,19 +88,46 @@ def sanitize_exact_name(name: str) -> str:
     return "/".join(parts)
 
 
+OUTPUT_DIR_RULE = (
+    "Save Image saves only inside ComfyUI's output folder: output_dir takes a "
+    "subfolder name such as sets/portraits, or stays empty for the output folder itself."
+)
+
+
 def resolve_output_root(output_dir: str, default_root: str | Path) -> Path:
-    """'' -> the default root; relative -> under it; absolute -> as given."""
+    """'' -> the output folder; otherwise a subfolder inside it.
+
+    output_dir is a widget, and widget values arrive through ComfyUI's
+    unauthenticated /prompt route, so Save Image writes only inside the
+    output folder, like ComfyUI's own Save Image. Rooted paths, drive
+    letters, network paths, '~' and '..' are refused from the text alone,
+    before anything touches the disk; a subfolder that a link would carry
+    outside the output folder is refused as well.
+    """
     text = str(output_dir or "").strip()
     default = Path(default_root)
     if not text:
         return default
-    candidate = Path(text).expanduser()
-    if candidate.is_absolute():
-        return candidate
-    resolved = (default / candidate).resolve()
-    if default.resolve() not in resolved.parents and resolved != default.resolve():
-        raise ValueError("Save Image: a relative output_dir may not escape the output folder.")
+    written = text.replace("\\", "/")
+    parts = [part for part in written.split("/") if part not in ("", ".")]
+    if written.startswith(("/", "~")) or ":" in written or PureWindowsPath(text).drive or ".." in parts:
+        raise ValueError(OUTPUT_DIR_RULE)
+    if not parts:
+        return default
+    root = default.resolve()
+    resolved = (root / "/".join(parts)).resolve()
+    if resolved != root and root not in resolved.parents:
+        raise ValueError(OUTPUT_DIR_RULE)
     return resolved
+
+
+def require_output_path(path: Path, output_root: Path) -> Path:
+    """Check the final destination too: a filename or caption can be a symlink."""
+    root = output_root.resolve()
+    resolved = path.resolve()
+    if root not in resolved.parents and resolved != root:
+        raise ValueError("Save destination must stay inside ComfyUI's output folder.")
+    return path
 
 
 def plan_exact_names(base: str, extension: str, count: int) -> list[str]:
@@ -279,6 +306,7 @@ __all__ = [
     "IMAGE_EXTENSIONS",
     "IMAGE_FORMATS",
     "NAME_MODIFIERS",
+    "OUTPUT_DIR_RULE",
     "counter_pattern",
     "encode_image",
     "existing_action",
@@ -289,6 +317,7 @@ __all__ = [
     "next_free_counter",
     "plan_exact_names",
     "plan_local_names",
+    "require_output_path",
     "resolve_output_root",
     "sanitize_exact_name",
     "sidecar_path",
