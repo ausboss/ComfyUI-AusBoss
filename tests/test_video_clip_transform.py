@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import sys
 import tempfile
@@ -67,8 +68,12 @@ class VideoClipNodeTests(unittest.TestCase):
         cls.video = Path(cls._tmp.name) / "clip.mp4"
         write_test_video(cls.video, with_audio=True)
         # The fixture lives outside ComfyUI's folders; local path mode only
-        # reaches it with the operator's opt-in.
-        cls._env = unittest.mock.patch.dict(os.environ, {"AUSBOSS_TRANSFORM_LOCAL_PREVIEW": "1"})
+        # reaches it once its folder is approved.
+        from nodes import _folder_access_helpers
+
+        approvals = Path(cls._tmp.name) / "folder_access.json"
+        approvals.write_text(json.dumps({"approved": [cls._tmp.name]}), encoding="utf-8")
+        cls._env = unittest.mock.patch.object(_folder_access_helpers, "config_path", lambda: approvals)
         cls._env.start()
 
     @classmethod

@@ -9,8 +9,15 @@ file's name. A caption on the `caption_text` input writes the paired `.txt`.
 ## The card
 
 - **Folder**: empty saves to ComfyUI's output folder; a relative path is a
-  subfolder of it; an absolute path saves anywhere you can write. **Browse**
-  walks the subfolders of the output folder.
+  subfolder of it. **Browse** walks the subfolders of the output folder, and
+  its **Choose another folder…** opens the system folder dialog on the ComfyUI
+  computer: a folder chosen there stays approved for saving. Any other folder
+  is refused until it is approved that way - a workflow alone never chooses
+  where on the disk the server writes. A server with no screen approves
+  folders by hand in `<ComfyUI user folder>/ausboss/folder_access.json`
+  (`"approved": ["D:/Datasets"]`, or `"any_folder": true`). Folders that hold
+  ComfyUI itself - its install, custom node and model folders - are never
+  used.
 - **Filename**: the local name, subfolders allowed (`sets/shot`). While the
   `filename` input is linked the field reads `{{filename}}` and the tags fold
   away - an exact name is never decorated. A workflow saved with the old

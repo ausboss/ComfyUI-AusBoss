@@ -373,35 +373,65 @@ class VideoDecodeTests(unittest.TestCase):
 
 
 class LocalPreviewGateTests(unittest.TestCase):
+    def setUp(self):
+        # A private approvals file, so the machine's own never leaks in.
+        from nodes import _folder_access_helpers
+
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.approvals = Path(self._tmp.name) / "folder_access.json"
+        patcher = unittest.mock.patch.object(_folder_access_helpers, "config_path", lambda: self.approvals)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def approve(self, **access):
+        import json
+
+        self.approvals.write_text(json.dumps(access), encoding="utf-8")
+
     def test_disabled_by_default_outside_managed_folders(self):
         from nodes._media_helpers import local_preview_allowed
 
-        with unittest.mock.patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("AUSBOSS_TRANSFORM_LOCAL_PREVIEW", None)
-            self.assertFalse(local_preview_allowed(str(Path.home() / "video.mp4")))
-            self.assertFalse(local_preview_allowed(""))
+        self.assertFalse(local_preview_allowed(str(Path.home() / "video.mp4")))
+        self.assertFalse(local_preview_allowed(""))
 
-    def test_environment_flag_enables_previews(self):
+    def test_any_folder_opens_every_folder_outside_comfyui(self):
         from nodes._media_helpers import local_preview_allowed
 
-        with unittest.mock.patch.dict(
-            os.environ, {"AUSBOSS_TRANSFORM_LOCAL_PREVIEW": "1"}
-        ):
-            self.assertTrue(local_preview_allowed(str(Path.home() / "video.mp4")))
+        with tempfile.TemporaryDirectory() as folder:
+            clip = str(Path(folder) / "video.mp4")
+            self.assertFalse(local_preview_allowed(clip))
+            self.approve(any_folder=True)
+            self.assertTrue(local_preview_allowed(clip))
 
     def test_queued_local_path_reads_follow_the_same_gate(self):
         from nodes._media_helpers import resolve_video_path
 
         with tempfile.TemporaryDirectory() as folder:
-            outside = Path(folder) / "clip.mp4"
-            outside.write_bytes(b"")
-            with unittest.mock.patch.dict(os.environ, {}, clear=False):
-                os.environ.pop("AUSBOSS_TRANSFORM_LOCAL_PREVIEW", None)
-                with self.assertRaisesRegex(ValueError, "AUSBOSS_TRANSFORM_LOCAL_PREVIEW"):
-                    resolve_video_path("local path", "", str(outside))
-            with unittest.mock.patch.dict(os.environ, {"AUSBOSS_TRANSFORM_LOCAL_PREVIEW": "1"}):
-                self.assertEqual(resolve_video_path("local path", "", str(outside)), outside.resolve())
+            clip = Path(folder) / "clip.mp4"
+            clip.write_bytes(b"")
+            with self.assertRaisesRegex(ValueError, "not approved"):
+                resolve_video_path("local path", "", str(clip))
+            self.approve(approved=[folder])
+            self.assertEqual(resolve_video_path("local path", "", str(clip)), clip.resolve())
 
+    def test_the_preview_route_explains_a_refusal_without_server_paths(self):
+        from nodes import _media_helpers
+
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaises(ValueError) as caught:
+                _media_helpers.resolve_video_path("local path", "", str(Path(folder) / "clip.mp4"))
+            message = _media_helpers._safe_route_error(caught.exception)
+            self.assertIn("not approved", message)
+            self.assertNotIn(folder, message)
+
+    def test_the_retired_environment_switch_opens_nothing(self):
+        from nodes._media_helpers import local_preview_allowed
+
+        with tempfile.TemporaryDirectory() as folder, unittest.mock.patch.dict(
+            os.environ, {"AUSBOSS_TRANSFORM_LOCAL_PREVIEW": "1"}
+        ):
+            self.assertFalse(local_preview_allowed(str(Path(folder) / "video.mp4")))
 
 
 

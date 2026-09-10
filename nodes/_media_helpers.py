@@ -22,13 +22,11 @@ except ImportError:  # Offline tests import this module without ComfyUI.
     folder_paths = None
 
 
-# Reading a video from an arbitrary local path is opt-in, for queued runs
-# and the preview routes alike: a widget value arrives through the
-# unauthenticated /prompt route and the previews answer any HTTP client
-# that can reach the server, so by default local path mode only reaches
-# ComfyUI's own input, output and temp folders. The server operator turns
-# the rest of the disk on with this environment variable.
-LOCAL_PREVIEW_ENV = "AUSBOSS_TRANSFORM_LOCAL_PREVIEW"
+# Local path mode reads a video only from a folder the pack may use (see
+# _folder_access_helpers): a widget value arrives through the
+# unauthenticated /prompt route, and the previews answer any HTTP client
+# that can reach the server.
+from ._folder_access_helpers import FolderRefused, file_allowed, refusal, register_folder_access_routes
 
 VIDEO_EXTENSIONS = {
     ".avi",
@@ -96,10 +94,7 @@ def resolve_video_path(source_mode: str, video: str, local_path: str) -> Path:
         if not text:
             raise ValueError("Local path mode requires a video path.")
         if not local_preview_allowed(text):
-            raise ValueError(
-                "Local path mode reads only ComfyUI's input, output and temp folders "
-                f"unless ComfyUI is started with {LOCAL_PREVIEW_ENV}=1."
-            )
+            raise _local_path_refusal(text)
         path = Path(text).expanduser().resolve()
         if not path.is_file():
             raise ValueError("The local video file does not exist.")
@@ -112,29 +107,16 @@ def resolve_video_path(source_mode: str, video: str, local_path: str) -> Path:
     return path
 
 
-def _comfy_managed_roots() -> list[Path]:
-    if folder_paths is None:
-        return []
-    roots: list[Path] = []
-    for getter in ("get_input_directory", "get_output_directory", "get_temp_directory"):
-        try:
-            roots.append(Path(getattr(folder_paths, getter)()).resolve())
-        except Exception:
-            continue
-    return roots
-
-
 def local_preview_allowed(candidate: str) -> bool:
-    """A local path may be read when the operator opted in via the environment
-    flag, or when the path is already inside a ComfyUI-managed folder
-    (input/output/temp) that core routes serve anyway."""
-    if os.environ.get(LOCAL_PREVIEW_ENV, "").strip().lower() in {"1", "true", "yes", "on"}:
-        return True
-    try:
-        resolved = Path(str(candidate or "").strip().strip('"')).expanduser().resolve()
-    except (OSError, ValueError):
-        return False
-    return any(resolved == root or root in resolved.parents for root in _comfy_managed_roots())
+    """A local video may be read when its folder is one the pack may use:
+    ComfyUI's input, output or temp folder, or a folder approved on the
+    ComfyUI computer (see _folder_access_helpers)."""
+    return file_allowed(str(candidate or "").strip().strip('"'))
+
+
+def _local_path_refusal(text: str) -> FolderRefused:
+    folder = os.path.dirname(os.path.abspath(os.path.expanduser(str(text or "").strip().strip('"'))))
+    return refusal(folder)
 
 
 def load_image_frames(path: Path) -> list[Image.Image]:
@@ -618,6 +600,7 @@ def register_video_routes() -> None:
     if prompt_server is None or getattr(prompt_server, "_ausboss_transform_routes", False):
         return
     prompt_server._ausboss_transform_routes = True
+    register_folder_access_routes()
 
     def request_path(request) -> Path:
         source_mode = request.query.get("source_mode", "input folder")
@@ -625,10 +608,7 @@ def register_video_routes() -> None:
         # Gate before touching the filesystem so a denied request can not be
         # used to probe which paths exist.
         if source_mode == "local path" and not local_preview_allowed(local_path):
-            raise ValueError(
-                "Local path mode reads only ComfyUI's input, output and temp folders "
-                f"unless ComfyUI is started with {LOCAL_PREVIEW_ENV}=1."
-            )
+            raise _local_path_refusal(local_path)
         return resolve_video_path(source_mode, request.query.get("video", ""), local_path)
 
     # Decodes run in worker threads: a blocking decode inside these async
@@ -690,6 +670,8 @@ def register_video_routes() -> None:
 
 
 def _safe_route_error(exc: Exception) -> str:
+    if isinstance(exc, FolderRefused):
+        return exc.public
     text = str(exc).strip() or "The media request failed."
     if os.path.isabs(text) or re.search(r"(?:[A-Za-z]:[\\/]|/(?:home|Users|mnt|tmp)/)", text):
         return "The media request failed."

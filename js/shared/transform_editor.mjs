@@ -5,6 +5,7 @@ import { mountTransformTrim } from "./transform_trim.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "./index.mjs";
 import { fillNodeHeight } from "./panel_layout.mjs";
 import { normalizeFillColor } from "./fill_color.mjs";
+import { chooseOnServer, choiceOutcome } from "./folder_access.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
 import { featherGeneratedMask, overlayPlan, stitchBlendFromMask } from "./stitch_preview.mjs";
 import {
@@ -72,8 +73,9 @@ function installStyles() {
     .ausboss-transform-source-field select,.ausboss-transform-source-field input{box-sizing:border-box;width:100%;height:34px;min-width:0;padding:0 10px;border:1px solid #2a3437;border-radius:7px;outline:0;background:#0b0f10;color:#dce9e8;font:12px ui-monospace,"SF Mono",Menlo,Consolas,monospace}
     .ausboss-transform-source-field select:focus,.ausboss-transform-source-field input:focus{border-color:${BRAND}}
     .ausboss-transform-source-action{height:34px;box-sizing:border-box;white-space:nowrap}
-    .ausboss-transform-source-field:has(input[type=text]){grid-template-columns:minmax(0,1fr)}
+    .ausboss-transform-source-field:has(input[type=text]){grid-template-columns:minmax(0,1fr) auto}
     .ausboss-transform-source-hint{overflow:hidden;color:#6f8886;font-size:10.5px;line-height:1.25;white-space:nowrap;text-overflow:ellipsis}
+    .ausboss-transform-source-hint.open{white-space:normal;overflow:visible;color:#c9b27a}
     .lg-node:has(.ausboss-transform-panel) .image-preview{display:none!important}
     .ausboss-transform-row{display:flex;gap:7px;align-items:center;flex:0 0 auto}.ausboss-transform-row>*{min-width:0;flex:1}
     .ausboss-transform-check{display:flex;align-items:center;justify-content:center;gap:5px;background:#30343a;color:#eee;border:1px solid #555b63;border-radius:5px;padding:6px 8px;cursor:pointer;white-space:nowrap;user-select:none}
@@ -259,6 +261,9 @@ function buildMediaSourceCard(state) {
   localPath.spellcheck = false;
   localPath.placeholder = "/absolute/path/to/video.mp4";
   localPath.setAttribute("aria-label", "Local video path");
+  const browseLocal = createElement("button", "ausboss-transform-button ausboss-transform-source-action", "Browse…");
+  browseLocal.type = "button";
+  browseLocal.title = "Choose the video in the system file dialog on the ComfyUI computer. Its folder stays approved for reading.";
   const upload = createElement("label", "ausboss-transform-button ausboss-transform-file ausboss-transform-source-action");
   const uploadText = createElement("span", "", "Upload");
   upload.append(uploadText);
@@ -299,11 +304,12 @@ function buildMediaSourceCard(state) {
     selection.title = selection.value || `Choose an uploaded ${kind}`;
     localPath.value = String(value(node, "local_path", ""));
     field.replaceChildren();
-    if (source.mode === LOCAL_PATH_MODE) field.append(localPath);
+    if (source.mode === LOCAL_PATH_MODE) field.append(localPath, browseLocal);
     else field.append(selection, upload);
+    hint.classList.remove("open");
     hint.textContent = source.hint;
     hint.title = source.mode === LOCAL_PATH_MODE
-      ? `${source.hint} Editor previews also require local preview access to be enabled by the server owner.`
+      ? `${source.hint} A folder outside ComfyUI's input, output and temp folders must be approved once: Browse… opens the system file dialog on the ComfyUI computer.`
       : source.hint;
   };
   const chooseMode = (mode) => {
@@ -333,6 +339,27 @@ function buildMediaSourceCard(state) {
     if (event.key === "Escape") { localPath.value = String(value(node, "local_path", "")); localPath.blur(); }
   });
   localPath.addEventListener("blur", commitLocalPath);
+  browseLocal.addEventListener("click", async () => {
+    browseLocal.disabled = true;
+    browseLocal.textContent = "Waiting…";
+    let outcome;
+    try {
+      outcome = choiceOutcome(await chooseOnServer(api, "video"));
+    } finally {
+      browseLocal.disabled = false;
+      browseLocal.textContent = "Browse…";
+    }
+    if (outcome.path) {
+      setValue(node, "local_path", outcome.path);
+      notifyAusbossChange();
+    }
+    sync();
+    if (outcome.message) {
+      hint.textContent = outcome.message;
+      hint.title = outcome.message;
+      hint.classList.add("open");
+    }
+  });
   fileInput.addEventListener("change", async () => {
     if (!fileInput.files?.[0]) return;
     fileInput.disabled = true;

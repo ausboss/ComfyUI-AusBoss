@@ -2,6 +2,26 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Folders outside ComfyUI's are approved by a person, never by a
+  workflow.** Save Image's `output_dir` used to take any absolute path, so any
+  client that can reach the unauthenticated `/prompt` route could make the
+  server write an image and a caption `.txt` of its choosing into any folder
+  ComfyUI can write, overwriting by default - one step from code execution
+  through a custom node's `requirements.txt`. Save Image and the video nodes'
+  local path mode now reach a folder outside ComfyUI's input, output and temp
+  folders only once it is approved on the ComfyUI computer: **Browse** →
+  **Choose another folder…** on Save Image and **Browse…** in local path mode
+  open the system dialog there, and a folder chosen in it stays approved.
+  Servers with no screen approve folders by hand in
+  `<ComfyUI user folder>/ausboss/folder_access.json` (`"approved"`, or
+  `"any_folder": true`). Folders that hold ComfyUI itself - its install
+  folder, custom node and model folders - are never read or written, approved
+  or not. A refused folder is reported before the run, with the way to approve
+  it. The 2.0.1 `AUSBOSS_TRANSFORM_LOCAL_PREVIEW` switch is retired:
+  `"any_folder": true` in that file does its job.
+
 ## 2.0.1 - 2026-09-09
 
 - **Local path mode is opt-in beyond ComfyUI's folders.** The video

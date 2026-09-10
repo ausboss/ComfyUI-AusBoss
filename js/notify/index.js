@@ -1,11 +1,13 @@
 // Completion sound 🆎 — a soft two-note chime when the queue finishes.
 //
 // Off by default (a sound nobody asked for is a surprise); one boolean
-// setting turns it on. The chime is synthesized with WebAudio, so the pack
-// ships no audio asset and nothing loads until the first chime plays.
+// setting turns it on. The chime is built once as a small WAV in memory
+// and played through an ordinary audio element, so the pack ships no sound
+// file and nothing is built until the first chime plays.
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { queueRemaining, shouldChime } from "../shared/notify.mjs";
+import { chimeSamples, wavBytes } from "./chime.mjs";
 
 const SETTING_ID = "AusBoss.Notifications.CompletionSound";
 
@@ -13,30 +15,16 @@ let enabled = false;
 // Start at 0 so a page opened onto an idle queue never chimes; the first
 // queued prompt raises it and the run's final 0 triggers the chime.
 let lastRemaining = 0;
-let audioContext = null;
+let chimeUrl = null;
 
 function playChime() {
   try {
-    audioContext ??= new (window.AudioContext || window.webkitAudioContext)();
-    const ctx = audioContext;
-    // Browsers suspend fresh contexts until a user gesture; queuing a prompt
-    // was one, so resume is allowed by the time a run can finish.
-    if (ctx.state === "suspended") ctx.resume?.();
-    const now = ctx.currentTime;
-    for (const [offset, frequency] of [[0, 660], [0.16, 880]]) {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = frequency;
-      gain.gain.setValueAtTime(0.0001, now + offset);
-      gain.gain.exponentialRampToValueAtTime(0.08, now + offset + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.5);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(now + offset);
-      osc.stop(now + offset + 0.55);
-    }
+    chimeUrl ??= URL.createObjectURL(new Blob([wavBytes(chimeSamples())], { type: "audio/wav" }));
+    // Queuing a prompt was a click, so the page may play sound by the time
+    // a run finishes; a refusal is swallowed like any other failure.
+    new Audio(chimeUrl).play()?.catch?.(() => {});
   } catch (_error) {
-    // No audio device or a blocked context: the chime is advice, not a
+    // No audio device or playback blocked: the chime is advice, not a
     // feature — never let it break the status stream.
   }
 }

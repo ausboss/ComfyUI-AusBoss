@@ -8,6 +8,7 @@ bottom and are the only functions that touch PIL.
 from __future__ import annotations
 
 import json
+import os
 import re
 from datetime import datetime
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -15,6 +16,8 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 import numpy as np
 import torch
 from PIL import Image
+
+from ._folder_access_helpers import folder_allowed, looks_unc, refusal_message
 
 # Extensions recognized (and stripped) on an exact filename, so pairing a
 # save with "photo123.jpg" under png format yields photo123.png, not
@@ -88,17 +91,36 @@ def sanitize_exact_name(name: str) -> str:
     return "/".join(parts)
 
 
+def _within(path: Path, root: Path) -> bool:
+    return path == root or root in path.parents
+
+
 def resolve_output_root(output_dir: str, default_root: str | Path) -> Path:
-    """'' -> the default root; relative -> under it; absolute -> as given."""
+    """'' -> the default root; relative -> under it; absolute -> only a
+    folder this computer allows writing to.
+
+    output_dir is a widget, and widget values arrive through the
+    unauthenticated /prompt route, so an absolute folder is taken only when
+    it lies inside the output folder, in ComfyUI's input or temp folder, or
+    in a folder approved on the ComfyUI computer (_folder_access_helpers).
+    """
     text = str(output_dir or "").strip()
     default = Path(default_root)
     if not text:
         return default
+    if looks_unc(text):
+        # Judged by its text: resolving a network path contacts its host.
+        if folder_allowed(text):
+            return Path(os.path.abspath(text))
+        raise ValueError(refusal_message(text, "Save Image"))
     candidate = Path(text).expanduser()
     if candidate.is_absolute():
-        return candidate
+        resolved = candidate.resolve()
+        if _within(resolved, default.resolve()) or folder_allowed(str(resolved)):
+            return resolved
+        raise ValueError(refusal_message(str(resolved), "Save Image"))
     resolved = (default / candidate).resolve()
-    if default.resolve() not in resolved.parents and resolved != default.resolve():
+    if not _within(resolved, default.resolve()):
         raise ValueError("Save Image: a relative output_dir may not escape the output folder.")
     return resolved
 

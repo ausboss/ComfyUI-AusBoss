@@ -8,6 +8,7 @@
 // field shows {{filename}} and the tags fold away, since an exact name is
 // never decorated.
 import { api } from "/scripts/api.js";
+import { chooseOnServer, choiceOutcome } from "../shared/folder_access.mjs";
 import { app } from "/scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
@@ -65,6 +66,7 @@ function ensureCss() {
 .ausboss-save-browse button{display:block;width:100%;padding:6px 8px;border:none;border-radius:5px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .ausboss-save-browse button:hover{background:#2a3037}
 .ausboss-save-browse button.use{color:${BRAND};font-weight:600}
+.ausboss-save-browse-note{padding:6px 8px;color:#c9b27a;font:11px/1.35 ${FONT};white-space:normal}
 `;
   document.head.append(style);
 }
@@ -132,6 +134,24 @@ async function openBrowse(state, anchor) {
   const render = async () => {
     popup.textContent = "";
     popup.append(el("div", "ausboss-save-browse-head", `ComfyUI/output/${path}`));
+    const other = el("button", "", "📂 Choose another folder…");
+    other.title = "Opens the system folder dialog on the ComfyUI computer. A folder chosen there stays approved for saving.";
+    other.addEventListener("click", async () => {
+      other.disabled = true;
+      other.textContent = "Waiting for the folder dialog on the ComfyUI computer…";
+      const outcome = choiceOutcome(await chooseOnServer(api, "folder"));
+      if (outcome.path) {
+        setValue(state.node, "output_dir", outcome.path);
+        state.refresh();
+        notifyAusbossChange();
+        closeBrowse();
+        return;
+      }
+      other.disabled = false;
+      other.textContent = "📂 Choose another folder…";
+      if (outcome.message) popup.append(el("div", "ausboss-save-browse-note", outcome.message));
+    });
+    popup.append(other);
     let listing;
     try {
       listing = await listFolders(path);
@@ -201,9 +221,9 @@ function buildCard(node) {
   // Folder
   root.append(el("div", "ausboss-save-cap", "Folder"));
   const folderRow = el("div", "ausboss-save-row");
-  const folder = textField(state, "output_dir", "ComfyUI/output", "Where to save. Empty is ComfyUI's output folder; a relative path is a subfolder of it; an absolute path saves anywhere you can write.");
+  const folder = textField(state, "output_dir", "ComfyUI/output", "Where to save. Empty is ComfyUI's output folder; a relative path is a subfolder of it. Any other folder must be approved once: Browse › Choose another folder… opens the system folder dialog on the ComfyUI computer.");
   const browse = el("button", "ausboss-card-btn", "Browse");
-  browse.title = "Pick a subfolder of ComfyUI's output folder";
+  browse.title = "Pick a subfolder of ComfyUI's output folder, or approve another folder in the system dialog";
   browse.addEventListener("click", () => openBrowse(state, browse));
   folderRow.append(folder, browse);
   root.append(folderRow);

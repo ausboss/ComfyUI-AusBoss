@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
+from ._folder_access_helpers import register_folder_access_routes
 from ._image_save_helpers import (
     EXISTING_POLICIES,
     FORMAT_EXTENSIONS,
@@ -167,9 +168,11 @@ class AusBossSaveImage:
                         "default": "",
                         "tooltip": (
                             "Where to save. Empty is ComfyUI's output folder; "
-                            "a relative path is a subfolder of it; an absolute "
-                            "path saves anywhere you can write. The node "
-                            "preview only shows files inside the output folder."
+                            "a relative path is a subfolder of it. Any other "
+                            "folder must be approved on the ComfyUI computer "
+                            "once: Browse > Choose another folder opens the "
+                            "system folder dialog there. The node preview only "
+                            "shows files inside the output folder."
                         ),
                     },
                 ),
@@ -381,10 +384,19 @@ class AusBossSaveImage:
                     sanitize_exact_name(value)
                 except ValueError as exc:
                     return str(exc).replace("exact_name", label)
+        # **_values carries every input, so core skips its own checks here:
+        # the folder is refused before the run, not mid-save.
+        output_dir = _values.get("output_dir")
+        if isinstance(output_dir, str) and output_dir.strip() and folder_paths is not None:
+            try:
+                resolve_output_root(output_dir, folder_paths.get_output_directory())
+            except ValueError as exc:
+                return str(exc)
         return True
 
 
 _register_folder_route()
+register_folder_access_routes()
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_SaveImage": AusBossSaveImage}
 NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_SaveImage": "Save Image 🆎"}

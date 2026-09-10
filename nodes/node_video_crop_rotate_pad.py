@@ -47,9 +47,9 @@ class AusBossVideoCropRotatePad:
                 {
                     "default": "",
                     "tooltip": (
-                        "Absolute video path used only in local path mode. By default only "
-                        "ComfyUI's input, output and temp folders are readable; start ComfyUI "
-                        "with AUSBOSS_TRANSFORM_LOCAL_PREVIEW=1 to allow any path."
+                        "Absolute video path used only in local path mode. Its folder must be "
+                        "ComfyUI's input, output or temp folder or one approved on the ComfyUI "
+                        "computer: Browse... opens the system file dialog there."
                     ),
                 },
             ),

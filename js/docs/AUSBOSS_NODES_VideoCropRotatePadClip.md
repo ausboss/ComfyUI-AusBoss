@@ -22,10 +22,11 @@ model that paints black regions.
   sizes rounded to 32 - so a wrong value shows here before a render is wasted.
   A fresh clip node starts with that pair (black, feather 0) and the editor's
   **Reset all** returns to it; the image nodes keep their soft grey canvas.
-- **Local path**: Read a file on the ComfyUI server in place without copying it. By
-  default only ComfyUI's own input, output and temp folders are readable, for queued
-  runs and the editor's live preview alike; starting ComfyUI with
-  `AUSBOSS_TRANSFORM_LOCAL_PREVIEW=1` opens the rest of the disk.
+- **Local path**: Read a file on the ComfyUI server in place without copying it. The
+  video's folder must be ComfyUI's input, output or temp folder or one approved on the
+  ComfyUI computer: **Browse…** beside the field opens the system file dialog there,
+  and the folder of the video chosen in it stays approved. A server with no screen
+  approves folders by hand in `<ComfyUI user folder>/ausboss/folder_access.json`.
 - **Timeline**: The rail on the node and in the editor is one timeline. Press or
   drag anywhere on it to scrub the **playhead**; the stage shows that frame. Drag the
   **IN** or **OUT** handle to trim: the playhead rides on the handle, so what you see

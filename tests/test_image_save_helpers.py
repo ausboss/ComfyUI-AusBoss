@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import os
 import sys
 import tempfile
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import patch
 
@@ -25,7 +27,36 @@ from nodes._image_save_helpers import (
     sidecar_path,
     strip_image_extension,
 )
-from nodes import node_save_image
+from nodes import _folder_access_helpers, node_save_image
+
+
+@contextmanager
+def approvals(*folders):
+    """A throwaway ComfyUI with its own approvals file. Yields approve(),
+    which approves ``folders`` the way the system dialog does."""
+    with tempfile.TemporaryDirectory() as comfy:
+        class FakeFolderPaths:
+            base_path = str(Path(comfy) / "ComfyUI")
+            folder_names_and_paths = {}
+
+            @staticmethod
+            def get_user_directory():
+                return str(Path(comfy) / "user")
+
+            @staticmethod
+            def get_input_directory():
+                return str(Path(comfy) / "ComfyUI" / "input")
+
+            @staticmethod
+            def get_output_directory():
+                return str(Path(comfy) / "ComfyUI" / "output")
+
+            @staticmethod
+            def get_temp_directory():
+                return str(Path(comfy) / "ComfyUI" / "temp")
+
+        with patch.object(_folder_access_helpers, "folder_paths", FakeFolderPaths):
+            yield lambda: [_folder_access_helpers.approve_folder(folder) for folder in folders]
 
 
 def gradient_batch(count: int, height: int, width: int) -> torch.Tensor:
@@ -74,10 +105,25 @@ class NamingTests(unittest.TestCase):
             default = Path(tmp)
             self.assertEqual(resolve_output_root("", default), default)
             self.assertEqual(resolve_output_root("sub/dir", default), (default / "sub/dir").resolve())
-            absolute = Path(tmp) / "elsewhere"
-            self.assertEqual(resolve_output_root(str(absolute), default), absolute)
+            # An absolute path inside the output folder is still fine.
+            inside = Path(tmp) / "elsewhere"
+            self.assertEqual(resolve_output_root(str(inside), default), inside.resolve())
             with self.assertRaises(ValueError):
                 resolve_output_root("../outside", default)
+
+    def test_absolute_output_dir_needs_an_approved_folder(self):
+        # output_dir is a widget, so a workflow alone must never choose
+        # where on the disk the server writes.
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as elsewhere:
+            default = Path(tmp)
+            with approvals(elsewhere) as approve:
+                with self.assertRaisesRegex(ValueError, "not approved"):
+                    resolve_output_root(elsewhere, default)
+                with self.assertRaises(ValueError):
+                    resolve_output_root("/", default)
+                approve()
+                target = Path(elsewhere) / "datasets"
+                self.assertEqual(resolve_output_root(str(target), default), target.resolve())
 
     def test_sidecar_shares_the_basename(self):
         self.assertEqual(sidecar_path(Path("/x/photo123.png")), Path("/x/photo123.txt"))
@@ -181,11 +227,34 @@ class SaveImageNodeTests(unittest.TestCase):
             self.assertTrue((Path(tmp) / "clip_001.png").exists())
             self.assertTrue((Path(tmp) / "clip_002.png").exists())
 
-    def test_absolute_output_dir_saves_outside_and_skips_preview(self):
+    def test_unapproved_absolute_output_dir_is_refused(self):
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as elsewhere:
-            result = self.run_node(tmp, exact_name="photo", output_dir=elsewhere)
-            self.assertEqual(Path(result["result"][0]).parent, Path(elsewhere))
+            with approvals(elsewhere):
+                with self.assertRaisesRegex(ValueError, "not approved"):
+                    self.run_node(tmp, exact_name="photo", caption="x", output_dir=elsewhere)
+            self.assertEqual(list(Path(elsewhere).iterdir()), [])
+
+    def test_approved_absolute_output_dir_saves_outside_and_skips_preview(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as elsewhere:
+            with approvals(elsewhere) as approve:
+                approve()
+                result = self.run_node(tmp, exact_name="photo", output_dir=elsewhere)
+            self.assertEqual(Path(result["result"][0]).parent, Path(elsewhere).resolve())
             self.assertEqual(result["ui"]["images"], [])
+
+    def test_validation_refuses_an_unapproved_output_dir_early(self):
+        class FakeFolderPaths:
+            @staticmethod
+            def get_output_directory():
+                return "/nonexistent/comfy/output"
+
+        node = node_save_image.AusBossSaveImage
+        with patch.object(node_save_image, "folder_paths", FakeFolderPaths), approvals():
+            message = node.VALIDATE_INPUTS(output_dir="/etc")
+            self.assertIsInstance(message, str)
+            self.assertIn("not approved", message)
+            self.assertIs(node.VALIDATE_INPUTS(output_dir="datasets/portraits"), True)
+            self.assertIs(node.VALIDATE_INPUTS(output_dir="/nonexistent/comfy/output/sets"), True)
 
     def test_classic_mode_counters_and_never_overwrites(self):
         with tempfile.TemporaryDirectory() as tmp:
