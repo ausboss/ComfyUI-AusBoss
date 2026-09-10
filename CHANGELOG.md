@@ -4,6 +4,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- The LoRA loader validates the SHA-256 used in its fixed Civitai URL and
+  refuses redirects, so the lookup cannot follow another host.
+- The completion chime is a small WAV generated in memory and played
+  through an audio element, preserving the sound without WebAudio graph
+  connections or a bundled audio asset.
 - **Save Image writes only inside ComfyUI's output folder.** `output_dir`
   used to take any absolute path, so any client that can reach the
   unauthenticated `/prompt` route could make the server write an image and a

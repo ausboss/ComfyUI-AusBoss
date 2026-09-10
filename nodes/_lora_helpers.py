@@ -631,15 +631,24 @@ async def fetch_civitai_info(name: str) -> dict[str, Any]:
     """Look up the exact LoRA hash and save Civitai's raw standard sidecar."""
     import aiohttp
     import asyncio
+    import re
 
     path = resolve_lora_path(name)
     sha = await asyncio.get_running_loop().run_in_executor(None, file_sha256, path)
+    # The hash is the only part of the URL that varies, and a cached one is
+    # read back from a file: it reaches the fixed Civitai host only as a
+    # plain SHA-256.
+    if not re.fullmatch(r"[0-9a-f]{64}", str(sha).lower()):
+        raise ValueError("LoRA Loader: could not hash this LoRA file for the Civitai lookup.")
     timeout = aiohttp.ClientTimeout(total=30, connect=10)
     async with aiohttp.ClientSession(timeout=timeout) as session:
         async with session.get(
             f"https://civitai.com/api/v1/model-versions/by-hash/{sha}",
             headers={"User-Agent": "ComfyUI-AusBoss"},
+            allow_redirects=False,
         ) as response:
+            if 300 <= response.status < 400:
+                raise ValueError("Civitai lookup refused a redirect away from the fixed endpoint.")
             if response.status == 404:
                 return {"found": False}
             response.raise_for_status()

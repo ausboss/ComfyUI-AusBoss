@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -307,6 +307,44 @@ class MissingRowPolicyTests(unittest.TestCase):
         # The input's declared default matches the code paths above.
         on_missing = AusBossLoraLoader.INPUT_TYPES()["optional"]["on_missing"]
         self.assertEqual(on_missing[1]["default"], "error")
+
+
+class CivitaiNetworkBoundaryTests(unittest.IsolatedAsyncioTestCase):
+    async def test_cached_hash_cannot_change_the_request_url(self):
+        with (
+            patch.object(_lora_helpers, "resolve_lora_path", return_value=Path("fixture")),
+            patch.object(_lora_helpers, "file_sha256", return_value="../../other-endpoint"),
+            patch("aiohttp.ClientSession") as session,
+        ):
+            with self.assertRaisesRegex(ValueError, "could not hash"):
+                await _lora_helpers.fetch_civitai_info("fixture")
+            session.assert_not_called()
+
+    async def test_fixed_url_never_follows_redirects(self):
+        for status in (302, 404):
+            with self.subTest(status=status):
+                response = MagicMock(status=status)
+                request = MagicMock()
+                request.__aenter__.return_value = response
+                session = MagicMock()
+                session.get.return_value = request
+                with (
+                    patch.object(_lora_helpers, "resolve_lora_path", return_value=Path("fixture")),
+                    patch.object(_lora_helpers, "file_sha256", return_value="a" * 64),
+                    patch("aiohttp.ClientSession") as factory,
+                    patch.object(_lora_helpers, "save_civitai_sidecar") as save,
+                ):
+                    factory.return_value.__aenter__.return_value = session
+                    if status == 302:
+                        with self.assertRaisesRegex(ValueError, "redirect"):
+                            await _lora_helpers.fetch_civitai_info("fixture")
+                    else:
+                        self.assertEqual(await _lora_helpers.fetch_civitai_info("fixture"), {"found": False})
+                    session.get.assert_called_once_with(
+                        "https://civitai.com/api/v1/model-versions/by-hash/" + "a" * 64,
+                        headers={"User-Agent": "ComfyUI-AusBoss"}, allow_redirects=False,
+                    )
+                    save.assert_not_called()
 
 
 if __name__ == "__main__":
