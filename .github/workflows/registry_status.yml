@@ -18,6 +18,7 @@ jobs:
   registry-status:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v7
         with:
@@ -26,12 +27,15 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-      - name: Verify exact published version is Active
+      # Review happens after upload. Pending/Flagged are a successful status
+      # report, not approval; a ban, missing version or broken lookup still fails.
+      - name: Report exact published version's approval state
+        id: registry
         env:
           AUSBOSS_TARGET_VERSION: ${{ inputs.version }}
         run: |
           if [ -n "$AUSBOSS_TARGET_VERSION" ]; then
-            python scripts/registry_status.py --version "$AUSBOSS_TARGET_VERSION"
+            python scripts/registry_status.py --report --version "$AUSBOSS_TARGET_VERSION"
           else
-            python scripts/registry_status.py
+            python scripts/registry_status.py --report
           fi

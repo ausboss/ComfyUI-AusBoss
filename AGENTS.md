@@ -239,6 +239,11 @@ A release, when explicitly asked for:
    and 1 means the status could not be established. The separate "Check
    Registry approval" Action runs after successful publication and can
    be dispatched manually to recheck without publishing again.
+   It uses `--report`: Pending/Flagged are successful status reports with
+   `approved=false`, not approval. Banned/Deleted, a missing version after
+   retries, and lookup errors still fail. The default CLI above remains
+   strict: only Active exits 0. The report retries transient service errors
+   and brief publication visibility delays; it never retries publication.
 
    As of 2026-09-07, versions 1.1.0, 1.1.1, 1.2.0, and 1.3.0 are Banned,
    not merely Flagged. The older decisions identify LM Studio's unrestricted
