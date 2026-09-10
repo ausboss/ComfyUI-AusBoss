@@ -93,16 +93,16 @@ class AusBossVideoCropRotatePadClip:
             ),
             "source_mode": (
                 ["input folder", "local path"],
-                {"default": "input folder", "tooltip": "Local path mode reads a file in place instead of copying it into the input folder."},
+                {"default": "input folder", "tooltip": "Local path mode reads a video already inside ComfyUI's input, output or temp folder in place, without an upload copy."},
             ),
             "local_path": (
                 "STRING",
                 {
                     "default": "",
                     "tooltip": (
-                        "Absolute video path used only in local path mode. By default only "
-                        "ComfyUI's input, output and temp folders are readable; start ComfyUI "
-                        "with AUSBOSS_TRANSFORM_LOCAL_PREVIEW=1 to allow any path."
+                        "Absolute path to a video inside ComfyUI's input, output or temp "
+                        "folder, used only in local path mode and read in place without a "
+                        "copy. Paths anywhere else are refused."
                     ),
                 },
             ),

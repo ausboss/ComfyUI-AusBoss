@@ -248,7 +248,7 @@ function buildMediaSourceCard(state) {
   const localMode = createElement("button", "", "Local path");
   uploadsMode.type = localMode.type = "button";
   uploadsMode.title = "Choose a video already in ComfyUI's input folder or upload another.";
-  localMode.title = "Read a video directly from an absolute path on this server without copying it.";
+  localMode.title = "Read a video inside ComfyUI's input, output or temp folder in place, without copying it.";
   modes.append(uploadsMode, localMode);
 
   const field = createElement("div", "ausboss-transform-source-field");
@@ -303,7 +303,7 @@ function buildMediaSourceCard(state) {
     else field.append(selection, upload);
     hint.textContent = source.hint;
     hint.title = source.mode === LOCAL_PATH_MODE
-      ? `${source.hint} Editor previews also require local preview access to be enabled by the server owner.`
+      ? `${source.hint} Only videos inside ComfyUI's input, output or temp folder can be read.`
       : source.hint;
   };
   const chooseMode = (mode) => {

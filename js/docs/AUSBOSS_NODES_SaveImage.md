@@ -8,9 +8,11 @@ file's name. A caption on the `caption_text` input writes the paired `.txt`.
 
 ## The card
 
-- **Folder**: empty saves to ComfyUI's output folder; a relative path is a
-  subfolder of it; an absolute path saves anywhere you can write. **Browse**
-  walks the subfolders of the output folder.
+- **Folder**: empty saves to ComfyUI's output folder; a name such as
+  `sets/portraits` saves to that subfolder, created if missing. Save Image
+  never writes outside the output folder: absolute paths, drive letters, `~`
+  and `..` are refused before the run, and the path preview says so as you
+  type. **Browse** walks the subfolders of the output folder.
 - **Filename**: the local name, subfolders allowed (`sets/shot`). While the
   `filename` input is linked the field reads `{{filename}}` and the tags fold
   away - an exact name is never decorated. A workflow saved with the old

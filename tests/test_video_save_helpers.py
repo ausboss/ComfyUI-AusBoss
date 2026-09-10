@@ -299,6 +299,23 @@ class SaveVideoHelperTests(unittest.TestCase):
         self.assertEqual(result["result"], ("/tmp/video_00003_.mp4",))
         self.assertTrue(Path(result["result"][0]).is_absolute())
 
+    def test_symlinked_prefix_is_refused_before_core_creates_folders(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as outside:
+            (Path(tmp) / "link").symlink_to(outside, target_is_directory=True)
+            with (
+                patch.object(node_save_video, "folder_paths") as folders,
+                patch.object(node_save_video, "encode_video") as encode,
+            ):
+                folders.get_output_directory.return_value = tmp
+                with self.assertRaisesRegex(ValueError, "inside ComfyUI's output folder"):
+                    run_node(node_save_video.AusBossSaveVideo().save(
+                        frames=gradient_batch(1, 16, 16), fps=8.0,
+                        filename_prefix="link/new/video", crf=19,
+                    ))
+                folders.get_save_image_path.assert_not_called()
+                encode.assert_not_called()
+                self.assertEqual(list(Path(outside).iterdir()), [])
+
     def test_the_file_path_output_is_appended_and_the_node_stays_an_output(self):
         node = node_save_video.AusBossSaveVideo
         self.assertEqual(node.RETURN_TYPES, ("STRING",))

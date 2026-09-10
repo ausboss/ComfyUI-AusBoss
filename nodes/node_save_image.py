@@ -17,6 +17,7 @@ from ._image_save_helpers import (
     plan_exact_names,
     plan_local_names,
     resolve_output_root,
+    require_output_path,
     sanitize_exact_name,
     sidecar_path,
     split_prefix,
@@ -49,7 +50,7 @@ def _register_folder_route() -> None:
         root = Path(folder_paths.get_output_directory()).resolve()
         relative = str(request.rel_url.query.get("path", "")).strip().replace("\\", "/")
         try:
-            target = (root / relative).resolve() if relative else root
+            target = resolve_output_root(relative, root)
         except Exception:
             return web.json_response({"error": "bad path"}, status=400)
         if target != root and root not in target.parents:
@@ -58,7 +59,7 @@ def _register_folder_route() -> None:
             return web.json_response({"error": "not a folder"}, status=404)
         folders = sorted(
             entry.name for entry in target.iterdir()
-            if entry.is_dir() and not entry.name.startswith(".")
+            if not entry.name.startswith(".") and not entry.is_symlink() and entry.is_dir()
         )
         shown = "" if target == root else target.relative_to(root).as_posix()
         return web.json_response({"path": shown, "folders": folders})
@@ -166,10 +167,10 @@ class AusBossSaveImage:
                     {
                         "default": "",
                         "tooltip": (
-                            "Where to save. Empty is ComfyUI's output folder; "
-                            "a relative path is a subfolder of it; an absolute "
-                            "path saves anywhere you can write. The node "
-                            "preview only shows files inside the output folder."
+                            "Subfolder of ComfyUI's output folder to save into, "
+                            "such as sets/portraits; created if missing. Empty "
+                            "saves to the output folder itself. Save Image never "
+                            "writes outside the output folder."
                         ),
                     },
                 ),
@@ -315,6 +316,7 @@ class AusBossSaveImage:
         else:
             subfolder, base = split_prefix(filename_prefix)
             folder = root / subfolder if subfolder else root
+            require_output_path(folder, output_root)
             stem = name_stem(
                 base,
                 {"date": bool(name_date), "time": bool(name_time), "size": bool(name_size)},
@@ -332,6 +334,12 @@ class AusBossSaveImage:
             # legacy policy decides, and its default deliberately overwrites.
             policy = "overwrite" if counter else on_existing
             planned.extend((folder / name, policy) for name in names)
+
+        # Validate the whole batch before any write, including caption targets.
+        for path, _policy in planned:
+            require_output_path(path, output_root)
+            if caption_value.strip():
+                require_output_path(sidecar_path(path), output_root)
 
         saved: list[Path] = []
         for (path, policy), frame in zip(planned, images):
@@ -381,6 +389,14 @@ class AusBossSaveImage:
                     sanitize_exact_name(value)
                 except ValueError as exc:
                     return str(exc).replace("exact_name", label)
+        # **_values carries every input, so core skips its own checks here:
+        # a folder outside the output folder is refused before the run.
+        output_dir = _values.get("output_dir")
+        if isinstance(output_dir, str) and output_dir.strip() and folder_paths is not None:
+            try:
+                resolve_output_root(output_dir, folder_paths.get_output_directory())
+            except ValueError as exc:
+                return str(exc)
         return True
 
 

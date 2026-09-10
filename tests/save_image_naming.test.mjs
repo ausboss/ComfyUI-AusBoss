@@ -30,7 +30,9 @@ test("previewName in exact and linked modes", () => {
 test("previewFolder joins the output folder, the folder field and the prefix's subfolders", () => {
   assert.equal(previewFolder({ output_dir: "", filename_prefix: "shot" }), "ComfyUI/output/");
   assert.equal(previewFolder({ output_dir: "datasets/portraits", filename_prefix: "sets/shot" }), "ComfyUI/output/datasets/portraits/sets/");
-  assert.equal(previewFolder({ output_dir: "/mnt/data/", filename_prefix: "shot" }), "/mnt/data/");
+  for (const outside of ["/mnt/data/", "C:\\Pictures", "~/Pictures", "sets/../..", "\\\\host\\share"]) {
+    assert.equal(previewFolder({ output_dir: outside, filename_prefix: "shot" }), "Not saved: use a subfolder of ComfyUI/output");
+  }
   assert.equal(previewFolder({ output_dir: "", filename_prefix: "sets/shot", filenameLinked: true }), "ComfyUI/output/");
 });
 

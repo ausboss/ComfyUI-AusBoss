@@ -2,6 +2,26 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Save Image writes only inside ComfyUI's output folder.** `output_dir`
+  used to take any absolute path, so any client that can reach the
+  unauthenticated `/prompt` route could make the server write an image and a
+  caption `.txt` of its choosing into any folder ComfyUI can write,
+  overwriting by default - one step from code execution through a custom
+  node's `requirements.txt`. `output_dir` now takes a subfolder name inside
+  the output folder, like ComfyUI's own Save Image; absolute paths, drive
+  letters, `~` and `..` are refused before the run, and the card's path
+  preview says so as you type. Workflows that saved into an absolute folder
+  need a subfolder name instead.
+- **Local path mode reads only ComfyUI's input, output and temp folders.**
+  The 2.0.1 `AUSBOSS_TRANSFORM_LOCAL_PREVIEW` switch that opened the rest of
+  the disk is gone; a refused path says where the video has to be.
+- Save Image checks the complete image and caption destinations, and Save
+  Video checks both the prefix and final file, rejecting symlinks that lead
+  outside the output folder. Windows drive and alternate-stream syntax is
+  rejected before filesystem access.
+
 ## 2.0.1 - 2026-09-09
 
 - **Local path mode is opt-in beyond ComfyUI's folders.** The video

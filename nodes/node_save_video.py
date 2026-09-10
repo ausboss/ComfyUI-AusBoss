@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
+from ._image_save_helpers import require_output_path, sanitize_exact_name
 
 from ._video_save_helpers import (
     VIDEO_FORMATS,
@@ -215,6 +216,9 @@ class AusBossSaveVideo:
         # clip, not a playback trick, so every frame count downstream counts it.
         if pingpong:
             frames = pingpong_frames(frames)
+        filename_prefix = sanitize_exact_name(filename_prefix)
+        output_root = Path(folder_paths.get_output_directory())
+        require_output_path(output_root / filename_prefix, output_root)
         full_output_folder, filename, counter, subfolder, filename_prefix = (
             folder_paths.get_save_image_path(
                 filename_prefix,
@@ -226,6 +230,7 @@ class AusBossSaveVideo:
         extension = VIDEO_FORMATS[format][0] if format in VIDEO_FORMATS else "mp4"
         file = f"{filename}_{counter:05}_.{extension}"
         output_path = Path(full_output_folder) / file
+        require_output_path(output_path, output_root)
         width, height, frame_count = await asyncio.to_thread(
             encode_video,
             output_path,

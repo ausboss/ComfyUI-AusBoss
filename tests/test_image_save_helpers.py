@@ -52,6 +52,9 @@ class NamingTests(unittest.TestCase):
             sanitize_exact_name("/rooted/photo")
         with self.assertRaises(ValueError):
             sanitize_exact_name("C:\\rooted\\photo")
+        for name in ("sets/C:photo", "photo:stream", "sets/photo:stream"):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                sanitize_exact_name(name)
 
     def test_single_image_gets_exactly_the_name(self):
         self.assertEqual(plan_exact_names("photo123", "png", 1), ["photo123.png"])
@@ -74,10 +77,32 @@ class NamingTests(unittest.TestCase):
             default = Path(tmp)
             self.assertEqual(resolve_output_root("", default), default)
             self.assertEqual(resolve_output_root("sub/dir", default), (default / "sub/dir").resolve())
-            absolute = Path(tmp) / "elsewhere"
-            self.assertEqual(resolve_output_root(str(absolute), default), absolute)
-            with self.assertRaises(ValueError):
-                resolve_output_root("../outside", default)
+            self.assertEqual(resolve_output_root("sub\\dir/", default), (default / "sub/dir").resolve())
+            self.assertEqual(resolve_output_root("./", default), default)
+
+    def test_output_dir_never_leaves_the_output_folder(self):
+        # output_dir is a widget, so it may only name a subfolder: anything
+        # rooted is refused from its text, before the disk is touched.
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as elsewhere:
+            default = Path(tmp)
+            for refused in (
+                elsewhere,
+                str(Path(tmp) / "inside_but_absolute"),
+                "/",
+                "~/Pictures",
+                r"C:\Users\me",
+                "C:relative",
+                r"\\host\share",
+                "//host/share",
+                "../outside",
+                "sets/../../outside",
+            ):
+                with self.subTest(output_dir=refused):
+                    with self.assertRaisesRegex(ValueError, "only inside ComfyUI's output folder"):
+                        resolve_output_root(refused, default)
+            (Path(tmp) / "link").symlink_to(elsewhere, target_is_directory=True)
+            with self.assertRaisesRegex(ValueError, "only inside ComfyUI's output folder"):
+                resolve_output_root("link/sets", default)
 
     def test_sidecar_shares_the_basename(self):
         self.assertEqual(sidecar_path(Path("/x/photo123.png")), Path("/x/photo123.txt"))
@@ -181,11 +206,49 @@ class SaveImageNodeTests(unittest.TestCase):
             self.assertTrue((Path(tmp) / "clip_001.png").exists())
             self.assertTrue((Path(tmp) / "clip_002.png").exists())
 
-    def test_absolute_output_dir_saves_outside_and_skips_preview(self):
+    def test_an_absolute_output_dir_is_refused_and_nothing_is_written(self):
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as elsewhere:
-            result = self.run_node(tmp, exact_name="photo", output_dir=elsewhere)
-            self.assertEqual(Path(result["result"][0]).parent, Path(elsewhere))
-            self.assertEqual(result["ui"]["images"], [])
+            with self.assertRaisesRegex(ValueError, "only inside ComfyUI's output folder"):
+                self.run_node(tmp, exact_name="photo", caption="x", output_dir=elsewhere)
+            self.assertEqual(list(Path(elsewhere).iterdir()), [])
+
+    def test_a_subfolder_output_dir_saves_there_with_a_preview(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_node(tmp, exact_name="photo", output_dir="sets/portraits")
+            self.assertEqual(Path(result["result"][0]).parent, (Path(tmp) / "sets" / "portraits").resolve())
+            self.assertEqual(result["ui"]["images"][0]["subfolder"], "sets/portraits")
+
+    def test_filename_and_caption_symlinks_cannot_escape(self):
+        for mode in ("exact_name", "filename", "filename_prefix", "image", "caption"):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as outside:
+                root, other = Path(tmp), Path(outside)
+                sentinel = other / "requirements.txt"
+                sentinel.write_text("unchanged")
+                values = {"caption": "replacement", "name_counter": False}
+                if mode in ("image", "caption"):
+                    (root / ("photo.png" if mode == "image" else "photo.txt")).symlink_to(sentinel)
+                    values["exact_name"] = "photo"
+                else:
+                    (root / "link").symlink_to(other, target_is_directory=True)
+                    values[mode] = "link/photo"
+                with self.assertRaisesRegex(ValueError, "inside ComfyUI's output folder"):
+                    self.run_node(tmp, **values)
+                self.assertEqual(sentinel.read_text(), "unchanged")
+                self.assertEqual(sorted(p.name for p in other.iterdir()), ["requirements.txt"])
+                self.assertFalse((root / "photo.png").is_file() and mode == "caption")
+
+    def test_validation_refuses_an_absolute_output_dir_early(self):
+        class FakeFolderPaths:
+            @staticmethod
+            def get_output_directory():
+                return "/nonexistent/comfy/output"
+
+        node = node_save_image.AusBossSaveImage
+        with patch.object(node_save_image, "folder_paths", FakeFolderPaths):
+            message = node.VALIDATE_INPUTS(output_dir="/etc")
+            self.assertIsInstance(message, str)
+            self.assertIn("only inside ComfyUI's output folder", message)
+            self.assertIs(node.VALIDATE_INPUTS(output_dir="datasets/portraits"), True)
 
     def test_classic_mode_counters_and_never_overwrites(self):
         with tempfile.TemporaryDirectory() as tmp:
