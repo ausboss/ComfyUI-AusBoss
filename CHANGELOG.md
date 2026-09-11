@@ -4,6 +4,9 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- LTX 2.3 Video Outpaint example: disable Stitch Inpaint color matching,
+  which can spread moving seam content into flickering dark or light bands
+  across the generated area. Source restoration and blending remain on.
 - LoRA Loader: right-click a row to insert an empty LoRA slot above or
   below it, preserving the order and settings of the existing stack.
 
