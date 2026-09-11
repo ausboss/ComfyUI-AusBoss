@@ -62,8 +62,16 @@ sampler painted. Source pixels stay bit-identical. A crop stitcher, which
 has no source rectangle, gets a single global shift measured in its
 blend band instead.
 
-It corrects tone, not content — a dark wall at the picture's edge next to
-a lit continuation is the model's choice, not a colour drift.
+The estimate assumes neighbouring strips depict similar content. It cannot
+reliably distinguish a tone shift from a different object or shadow at the
+seam, even with the clamp and smoothing.
+
+For video, start with **color_match at 0**. The estimate runs independently
+on each frame, so moving subjects or camera motion can turn those content
+differences into flickering dark or light bands across the generated area.
+Compare the decoded frames before stitching with the stitched result; if
+the bands appear only after stitching, disable color matching. The source
+paste and feathered blend still work with it off.
 
 ## Fixing an edge halo
 
