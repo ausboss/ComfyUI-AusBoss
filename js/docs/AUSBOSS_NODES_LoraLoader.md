@@ -23,7 +23,11 @@ come out of one socket, ready to wire into a prompt.
 - **i**: Info card with the preview image, base model, file size and
   modified date, and trigger words for that LoRA.
 
-Right-click a row to move, duplicate, or remove it. One strength drives both
+Right-click a row to insert an empty LoRA above or below it, move, duplicate,
+or remove it. Inserting keeps the existing rows and their settings in order;
+the new slot uses the gear menu's default strength (initially 1).
+The stack holds up to 64 rows.
+One strength drives both
 model and CLIP by default; the gear menu's **Separate model / CLIP
 strength** switch shows a second box per row. The switch is per-node — new
 nodes always start unified — and an absorb that imports a row with unequal

@@ -1052,6 +1052,16 @@ function openRowMenu(state, index, event) {
     button.addEventListener("click", () => { closePopup(); action(); });
     menu.append(button);
   };
+  const insertEmpty = (position) => {
+    if (state.rows.length >= MAX_ROWS) return;
+    const strength = roundStrength(state.settings?.default_strength ?? 1);
+    const rows = state.rows.slice();
+    rows.splice(position, 0, { ...newRow(), strength, strength_clip: strength });
+    commitRows(state, rows, { structural: true });
+    fitNode(state);
+  };
+  item("Insert empty LoRA above", () => insertEmpty(index), state.rows.length >= MAX_ROWS);
+  item("Insert empty LoRA below", () => insertEmpty(index + 1), state.rows.length >= MAX_ROWS);
   item("Move up", () => commitRows(state, moveRow(state.rows, index, -1), { structural: true }), index === 0);
   item("Move down", () => commitRows(state, moveRow(state.rows, index, 1), { structural: true }),
     index === state.rows.length - 1);
