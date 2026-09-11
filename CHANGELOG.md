@@ -2,6 +2,11 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- LoRA Loader: right-click a row to insert an empty LoRA slot above or
+  below it, preserving the order and settings of the existing stack.
+
 ## 2.0.2 - 2026-09-10
 
 - The LoRA loader validates the SHA-256 used in its fixed Civitai URL and
