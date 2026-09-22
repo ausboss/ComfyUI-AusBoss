@@ -1,0 +1,1097 @@
+{
+  "id": "9723e7bb-e924-43aa-ba0c-70e6847a03a3",
+  "revision": 0,
+  "last_node_id": 65,
+  "last_link_id": 15,
+  "nodes": [
+    {
+      "id": 51,
+      "type": "AUSBOSS_NODES_WorkflowNote",
+      "pos": [
+        -620,
+        100
+      ],
+      "size": [
+        560,
+        1240
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "Start here · setup + downloads",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.2",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote"
+      },
+      "widgets_values": [
+        "{\"v\":1,\"title\":\"Qwen Image 2.1 Text to Image\",\"subtitle\":\"Your prompt, your canvas, an optional LoRA stack. A clear path from text to PNG.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"#69b9c4\",\"body\":\"## Start here\\nDownload the three files below into the named folders under `ComfyUI/models/`. Refresh the model list, select them in the loaders, write a prompt and queue. Requires ComfyUI with **Text Encode Qwen Image 2.1**.\\n\\n## Make it yours\\n1. **LoRA Loader** starts empty. Add only adapters made for Qwen Image 2.1; selected trigger words join your text automatically.\\n2. **Resolution Master** picks the canvas. Its width and height drive the core empty latent. Keep the 32-pixel snap; start at 1024 × 1024, or try 2048 × 2048 for a larger render.\\n3. **Text** holds your description. **Qwen Encode** handles positive and negative conditioning together.\\n4. **Seed** starts fixed for repeatable comparisons. Switch to Random for variations. **Save Image** writes a PNG with this workflow inside.\\n\\n## Sampling\\n25 steps, CFG 1, Euler / simple, denoise 1. These starting values match the supplied template. Try 40 steps for a more complete render. Negative text has no effect at CFG 1.\\n\\n## Transparent output\\nAsk explicitly for an RGBA image, a transparent background and an alpha channel. Keep PNG selected so transparency survives saving.\\n\\n## Models\\nThe buttons below download the selected INT8 pair and the 2.1 VAE. BF16 alternatives are linked on the model repository. If files are in subfolders, select those paths in the loaders.\",\"models\":[{\"name\":\"qwen_image_2.1_int8_convrot.safetensors\",\"dir\":\"diffusion_models\",\"size\":\"7.26 GB\",\"note\":\"Selected INT8 diffusion model.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors\"},{\"name\":\"qwen3vl_8b_int8_convrot.safetensors\",\"dir\":\"text_encoders\",\"size\":\"9.35 GB\",\"note\":\"Selected Qwen3-VL 8B encoder; CLIP type: qwen_image.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\"},{\"name\":\"qwen_image_2.1_vae_bf16.safetensors\",\"dir\":\"vae\",\"size\":\"676 MB\",\"note\":\"Use the Qwen Image 2.1 VAE.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors\"}],\"packs\":[],\"links\":[{\"label\":\"Qwen 2.1 model files + BF16 alternatives\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1\"},{\"label\":\"Qwen model guide\",\"url\":\"https://huggingface.co/Qwen/Qwen-Image-2.1\"}]}",
+        ""
+      ],
+      "widgets_values_named": {
+        "note": "{\"v\":1,\"title\":\"Qwen Image 2.1 Text to Image\",\"subtitle\":\"Your prompt, your canvas, an optional LoRA stack. A clear path from text to PNG.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"#69b9c4\",\"body\":\"## Start here\\nDownload the three files below into the named folders under `ComfyUI/models/`. Refresh the model list, select them in the loaders, write a prompt and queue. Requires ComfyUI with **Text Encode Qwen Image 2.1**.\\n\\n## Make it yours\\n1. **LoRA Loader** starts empty. Add only adapters made for Qwen Image 2.1; selected trigger words join your text automatically.\\n2. **Resolution Master** picks the canvas. Its width and height drive the core empty latent. Keep the 32-pixel snap; start at 1024 × 1024, or try 2048 × 2048 for a larger render.\\n3. **Text** holds your description. **Qwen Encode** handles positive and negative conditioning together.\\n4. **Seed** starts fixed for repeatable comparisons. Switch to Random for variations. **Save Image** writes a PNG with this workflow inside.\\n\\n## Sampling\\n25 steps, CFG 1, Euler / simple, denoise 1. These starting values match the supplied template. Try 40 steps for a more complete render. Negative text has no effect at CFG 1.\\n\\n## Transparent output\\nAsk explicitly for an RGBA image, a transparent background and an alpha channel. Keep PNG selected so transparency survives saving.\\n\\n## Models\\nThe buttons below download the selected INT8 pair and the 2.1 VAE. BF16 alternatives are linked on the model repository. If files are in subfolders, select those paths in the loaders.\",\"models\":[{\"name\":\"qwen_image_2.1_int8_convrot.safetensors\",\"dir\":\"diffusion_models\",\"size\":\"7.26 GB\",\"note\":\"Selected INT8 diffusion model.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors\"},{\"name\":\"qwen3vl_8b_int8_convrot.safetensors\",\"dir\":\"text_encoders\",\"size\":\"9.35 GB\",\"note\":\"Selected Qwen3-VL 8B encoder; CLIP type: qwen_image.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\"},{\"name\":\"qwen_image_2.1_vae_bf16.safetensors\",\"dir\":\"vae\",\"size\":\"676 MB\",\"note\":\"Use the Qwen Image 2.1 VAE.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors\"}],\"packs\":[],\"links\":[{\"label\":\"Qwen 2.1 model files + BF16 alternatives\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1\"},{\"label\":\"Qwen model guide\",\"url\":\"https://huggingface.co/Qwen/Qwen-Image-2.1\"}]}",
+        "ausboss_workflow_note_panel": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 52,
+      "type": "UNETLoader",
+      "pos": [
+        0,
+        100
+      ],
+      "size": [
+        440,
+        82
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "title": "Diffusion model · Qwen Image 2.1 INT8",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "UNETLoader",
+        "models": [
+          {
+            "name": "qwen_image_2.1_int8_convrot.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors",
+            "directory": "diffusion_models"
+          }
+        ]
+      },
+      "widgets_values": [
+        "qwen_image_2.1_int8_convrot.safetensors",
+        "default"
+      ],
+      "widgets_values_named": {
+        "unet_name": "qwen_image_2.1_int8_convrot.safetensors",
+        "weight_dtype": "default"
+      }
+    },
+    {
+      "id": 53,
+      "type": "CLIPLoader",
+      "pos": [
+        0,
+        242
+      ],
+      "size": [
+        440,
+        106
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            5
+          ]
+        }
+      ],
+      "title": "Text encoder · Qwen3-VL 8B INT8",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "CLIPLoader",
+        "models": [
+          {
+            "name": "qwen3vl_8b_int8_convrot.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors",
+            "directory": "text_encoders"
+          }
+        ]
+      },
+      "widgets_values": [
+        "qwen3vl_8b_int8_convrot.safetensors",
+        "qwen_image",
+        "default"
+      ],
+      "widgets_values_named": {
+        "clip_name": "qwen3vl_8b_int8_convrot.safetensors",
+        "type": "qwen_image",
+        "device": "default"
+      }
+    },
+    {
+      "id": 54,
+      "type": "VAELoader",
+      "pos": [
+        0,
+        408
+      ],
+      "size": [
+        440,
+        58
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            14
+          ]
+        }
+      ],
+      "title": "VAE · Qwen Image 2.1",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "VAELoader",
+        "models": [
+          {
+            "name": "qwen_image_2.1_vae_bf16.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors",
+            "directory": "vae"
+          }
+        ]
+      },
+      "widgets_values": [
+        "qwen_image_2.1_vae_bf16.safetensors"
+      ],
+      "widgets_values_named": {
+        "vae_name": "qwen_image_2.1_vae_bf16.safetensors"
+      }
+    },
+    {
+      "id": 55,
+      "type": "AUSBOSS_NODES_LoraLoader",
+      "pos": [
+        0,
+        526
+      ],
+      "size": [
+        440,
+        210
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 1
+        },
+        {
+          "name": "clip",
+          "shape": 7,
+          "type": "CLIP",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "links": [
+            8
+          ]
+        },
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "links": null
+        },
+        {
+          "name": "triggers",
+          "type": "STRING",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "title": "LoRA stack · optional, starts empty",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.2",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "AUSBOSS_NODES_LoraLoader",
+        "ausbossLoraLinked": true
+      },
+      "widgets_values": [
+        "[]",
+        ", ",
+        "error",
+        ""
+      ],
+      "widgets_values_named": {
+        "loras": "[]",
+        "trigger_separator": ", ",
+        "on_missing": "error",
+        "ausboss_lora_rows": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 56,
+      "type": "AUSBOSS_NODES_Resolution",
+      "pos": [
+        0,
+        830
+      ],
+      "size": [
+        340,
+        531
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "width",
+          "type": "INT",
+          "link": null
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "link": null
+        },
+        {
+          "name": "latent",
+          "shape": 7,
+          "type": "COMBO",
+          "link": null
+        },
+        {
+          "name": "batch_size",
+          "shape": 7,
+          "type": "INT",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "width",
+          "type": "INT",
+          "links": [
+            6
+          ]
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": [
+            7
+          ]
+        },
+        {
+          "name": "latent",
+          "type": "LATENT",
+          "links": null
+        }
+      ],
+      "title": "Canvas · pick the aspect and size",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.2",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "AUSBOSS_NODES_Resolution",
+        "ausbossResolutionPortrait": false,
+        "ausbossResolutionSnap": 32
+      },
+      "widgets_values": [
+        1024,
+        1024,
+        "4ch",
+        1,
+        ""
+      ],
+      "widgets_values_named": {
+        "width": 1024,
+        "height": 1024,
+        "latent": "4ch",
+        "batch_size": 1,
+        "ausboss_resolution_panel": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 57,
+      "type": "AUSBOSS_NODES_Text",
+      "pos": [
+        500,
+        100
+      ],
+      "size": [
+        460,
+        220
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "links": [
+            3
+          ]
+        }
+      ],
+      "title": "Prompt · describe your image",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.2",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "AUSBOSS_NODES_Text"
+      },
+      "widgets_values": [
+        "Editorial product photograph of a compact teal camping lantern on a weathered wooden pier beside an alpine lake at blue hour. The lantern casts a warm amber pool of light, with precise metal details and realistic glass reflections. Snowy mountain silhouettes and a softly glowing sky behind it. An embossed brass badge on the lantern clearly reads \"AUSBOSS\". Balanced composition, premium outdoor magazine cover photography, no other text.",
+        ""
+      ],
+      "widgets_values_named": {
+        "text": "Editorial product photograph of a compact teal camping lantern on a weathered wooden pier beside an alpine lake at blue hour. The lantern casts a warm amber pool of light, with precise metal details and realistic glass reflections. Snowy mountain silhouettes and a softly glowing sky behind it. An embossed brass badge on the lantern clearly reads \"AUSBOSS\". Balanced composition, premium outdoor magazine cover photography, no other text.",
+        "ausboss_widget_card": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 58,
+      "type": "StringConcatenate",
+      "pos": [
+        500,
+        380
+      ],
+      "size": [
+        460,
+        150
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "string_a",
+          "type": "STRING",
+          "widget": {
+            "name": "string_a"
+          },
+          "link": 2
+        },
+        {
+          "name": "string_b",
+          "type": "STRING",
+          "widget": {
+            "name": "string_b"
+          },
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            4
+          ]
+        }
+      ],
+      "title": "Prompt assembly · LoRA triggers + text",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "StringConcatenate"
+      },
+      "widgets_values": [
+        "",
+        "",
+        ", "
+      ],
+      "widgets_values_named": {
+        "string_a": "",
+        "string_b": "",
+        "delimiter": ", "
+      }
+    },
+    {
+      "id": 59,
+      "type": "TextEncodeQwenImage21",
+      "pos": [
+        500,
+        590
+      ],
+      "size": [
+        460,
+        300
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 5
+        },
+        {
+          "name": "images.image_1",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "vae",
+          "shape": 7,
+          "type": "VAE",
+          "link": null
+        },
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "prompt"
+          },
+          "link": 4
+        }
+      ],
+      "outputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "links": [
+            9
+          ]
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "links": [
+            10
+          ]
+        },
+        {
+          "name": "latent",
+          "type": "LATENT",
+          "links": null
+        }
+      ],
+      "title": "Qwen 2.1 · positive + negative",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "TextEncodeQwenImage21"
+      },
+      "widgets_values": [
+        "",
+        "",
+        1024
+      ],
+      "widgets_values_named": {
+        "prompt": "",
+        "negative_prompt": "",
+        "resolution": 1024
+      }
+    },
+    {
+      "id": 60,
+      "type": "AUSBOSS_NODES_Seed",
+      "pos": [
+        500,
+        950
+      ],
+      "size": [
+        460,
+        216
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "seed",
+          "type": "INT",
+          "links": [
+            12
+          ]
+        }
+      ],
+      "title": "Seed · fixed or fresh variations",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.2",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "AUSBOSS_NODES_Seed"
+      },
+      "widgets_values": [
+        20260922,
+        "fixed",
+        ""
+      ],
+      "widgets_values_named": {
+        "seed": 20260922,
+        "control_after_generate": "fixed",
+        "ausboss_seed_panel": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 61,
+      "type": "EmptyLatentImage",
+      "pos": [
+        1020,
+        650
+      ],
+      "size": [
+        400,
+        106
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "width",
+          "type": "INT",
+          "widget": {
+            "name": "width"
+          },
+          "link": 6
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "widget": {
+            "name": "height"
+          },
+          "link": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            11
+          ]
+        }
+      ],
+      "title": "Empty canvas · dimensions from Resolution",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "EmptyLatentImage"
+      },
+      "widgets_values": [
+        1024,
+        1024,
+        1
+      ],
+      "widgets_values_named": {
+        "width": 1024,
+        "height": 1024,
+        "batch_size": 1
+      }
+    },
+    {
+      "id": 62,
+      "type": "KSampler",
+      "pos": [
+        1020,
+        100
+      ],
+      "size": [
+        400,
+        270
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 8
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 9
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 10
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 11
+        },
+        {
+          "name": "seed",
+          "type": "INT",
+          "widget": {
+            "name": "seed"
+          },
+          "link": 12
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            13
+          ]
+        }
+      ],
+      "title": "Sample · 25 steps / CFG 1",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "KSampler"
+      },
+      "widgets_values": [
+        20260922,
+        "fixed",
+        25,
+        1,
+        "euler",
+        "simple",
+        1
+      ],
+      "widgets_values_named": {
+        "seed": 20260922,
+        "control_after_generate": "fixed",
+        "steps": 25,
+        "cfg": 1,
+        "sampler_name": "euler",
+        "scheduler": "simple",
+        "denoise": 1
+      }
+    },
+    {
+      "id": 63,
+      "type": "VAEDecode",
+      "pos": [
+        1020,
+        430
+      ],
+      "size": [
+        400,
+        50
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 13
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 14
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            15
+          ]
+        }
+      ],
+      "title": "Decode · image + alpha",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "VAEDecode"
+      }
+    },
+    {
+      "id": 64,
+      "type": "AUSBOSS_NODES_RunTimer",
+      "pos": [
+        1020,
+        850
+      ],
+      "size": [
+        400,
+        127
+      ],
+      "flags": {
+        "no_title": true
+      },
+      "order": 7,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "Render time",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.2",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "AUSBOSS_NODES_RunTimer"
+      },
+      "color": "#07090a",
+      "bgcolor": "#07090a"
+    },
+    {
+      "id": 65,
+      "type": "AUSBOSS_NODES_SaveImage",
+      "pos": [
+        1480,
+        100
+      ],
+      "size": [
+        560,
+        900
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 15
+        },
+        {
+          "name": "filename",
+          "shape": 7,
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "name": "caption_text",
+          "shape": 7,
+          "type": "STRING",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "file_path",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "title": "Save PNG · workflow included",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.2",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "AUSBOSS_NODES_SaveImage"
+      },
+      "widgets_values": {
+        "filename_prefix": "AusBoss/qwen21_t2i",
+        "format": "png",
+        "save_metadata": true,
+        "exact_name": "",
+        "on_existing": "overwrite",
+        "output_dir": "",
+        "caption": "",
+        "name_counter": true,
+        "name_date": false,
+        "name_time": false,
+        "name_size": false,
+        "name_batch": false
+      },
+      "widgets_values_named": {
+        "filename_prefix": "AusBoss/qwen21_t2i",
+        "format": "png",
+        "save_metadata": true,
+        "exact_name": "",
+        "on_existing": "overwrite",
+        "output_dir": "",
+        "ausboss_save_image_card": "",
+        "caption": "",
+        "name_counter": true,
+        "name_date": false,
+        "name_time": false,
+        "name_size": false,
+        "name_batch": false
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    }
+  ],
+  "links": [
+    [
+      1,
+      52,
+      0,
+      55,
+      0,
+      "MODEL"
+    ],
+    [
+      2,
+      55,
+      2,
+      58,
+      0,
+      "STRING"
+    ],
+    [
+      3,
+      57,
+      0,
+      58,
+      1,
+      "STRING"
+    ],
+    [
+      4,
+      58,
+      0,
+      59,
+      3,
+      "STRING"
+    ],
+    [
+      5,
+      53,
+      0,
+      59,
+      0,
+      "CLIP"
+    ],
+    [
+      6,
+      56,
+      0,
+      61,
+      0,
+      "INT"
+    ],
+    [
+      7,
+      56,
+      1,
+      61,
+      1,
+      "INT"
+    ],
+    [
+      8,
+      55,
+      0,
+      62,
+      0,
+      "MODEL"
+    ],
+    [
+      9,
+      59,
+      0,
+      62,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      10,
+      59,
+      1,
+      62,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      11,
+      61,
+      0,
+      62,
+      3,
+      "LATENT"
+    ],
+    [
+      12,
+      60,
+      0,
+      62,
+      4,
+      "INT"
+    ],
+    [
+      13,
+      62,
+      0,
+      63,
+      0,
+      "LATENT"
+    ],
+    [
+      14,
+      54,
+      0,
+      63,
+      1,
+      "VAE"
+    ],
+    [
+      15,
+      63,
+      0,
+      65,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "1 · Models + optional LoRAs",
+      "bounding": [
+        -20,
+        40,
+        480,
+        720
+      ],
+      "color": "#235d64",
+      "flags": {}
+    },
+    {
+      "id": 2,
+      "title": "2 · Canvas",
+      "bounding": [
+        -20,
+        770,
+        480,
+        600
+      ],
+      "color": "#366451",
+      "flags": {}
+    },
+    {
+      "id": 3,
+      "title": "3 · Prompt + seed",
+      "bounding": [
+        480,
+        40,
+        500,
+        1160
+      ],
+      "color": "#5d527c",
+      "flags": {}
+    },
+    {
+      "id": 4,
+      "title": "4 · Sample",
+      "bounding": [
+        1000,
+        40,
+        440,
+        990
+      ],
+      "color": "#795b38",
+      "flags": {}
+    },
+    {
+      "id": 5,
+      "title": "5 · Save",
+      "bounding": [
+        1460,
+        40,
+        600,
+        1000
+      ],
+      "color": "#345d7c",
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.5,
+      "offset": [
+        740,
+        320
+      ]
+    }
+  },
+  "version": 0.4
+}

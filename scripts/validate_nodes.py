@@ -159,10 +159,10 @@ for path in node_files:
                         return_types = value
                     else:
                         return_names = value
-        if return_types != ("IMAGE", "MASK"):
-            errors.append(f"{path.name}: RETURN_TYPES must be exactly ('IMAGE', 'MASK')")
-        if return_names != ("image", "mask"):
-            errors.append(f"{path.name}: RETURN_NAMES must be exactly ('image', 'mask')")
+        if return_types != ("IMAGE", "MASK", "AUSBOSS_STITCHER", "IMAGE"):
+            errors.append(f"{path.name}: expected image, mask, stitcher, and original outputs")
+        if return_names != ("image", "mask", "stitcher", "original"):
+            errors.append(f"{path.name}: existing image/mask slots must precede stitcher/original")
 
 for missing_id in sorted(RELEASED_NODE_IDS - mapping_keys):
     errors.append(f"missing permanent mapping key: {missing_id}")

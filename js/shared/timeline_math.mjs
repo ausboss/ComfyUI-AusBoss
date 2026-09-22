@@ -116,6 +116,22 @@ export function setTrimFrame(window, edge, index, info) {
   return { first, last };
 }
 
+// Fixed length is measured at OUTPUT fps, but the handles sit on source frames.
+// Keep the requested count exact: an oversized request is invalid, not truncated.
+export function fixedFrameWindow(info, first, frames, outputFps) {
+  if (frames === null) return { unresolved: true };
+  const count = Math.max(0, Math.trunc(finite(frames)));
+  if (!count) return null;
+  if (!(outputFps > 0) || !(info?.fps > 0) || !info.count) return { frames: count, unresolved: true };
+  const seconds = count / outputFps;
+  const duration = info.duration || info.count / info.fps;
+  const tooLong = seconds > duration + 1e-7;
+  const span = Math.max(1, Math.ceil(seconds * info.fps - 1e-7));
+  const latest = Math.max(0, Math.floor((duration - seconds) * info.fps + 1e-7));
+  const head = clamp(Math.round(finite(first)), 0, Math.min(latest, Math.max(0, info.count - span)));
+  return { first: head, last: Math.min(info.count - 1, head + span - 1), frames: count, seconds, tooLong };
+}
+
 // What a run keeps out of the window after thinning, the cap and the snap
 // rule (the backend's decode_video_range + snap_frame_count), and the index
 // of the last frame that actually reaches the output.

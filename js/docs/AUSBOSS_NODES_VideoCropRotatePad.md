@@ -9,10 +9,10 @@ Loads one exact video frame and applies the same **rotate → crop → pad** tra
 
 - **Uploads**: Pick an input video, click **Upload** in the compact source card, or
   drop a video file onto the node. Another video keeps the fill, feather and resize
-  settings and the lit format chip (the new frame is padded to it); rotation, crop and
+  settings and the lit format chip (the new frame uses its Crop / Pad mode); rotation, crop and
   the playhead start over.
-- **Canvas row** under the format chips: fill swatch, feather amount and resize
-  budget on the node face.
+- **Canvas row** under the format chips: fill swatch and feather amount on the node face.
+- **Upload** streams to the input folder, so videos larger than the buffered image-upload limit can be selected here or dropped onto the node.
 - **source_mode**: `input folder` or `local path`. Local path mode avoids copying large files.
 - **local_path**: Absolute path used only in local path mode, read in place without an
   upload copy. It must point inside ComfyUI's input, output or temp folder, for queued
@@ -29,15 +29,15 @@ The editor has the same rail full width, plus first/last, ±1, ±25, ±50, ±100
 
 Rotation, crop, padding, feathering, fill, canvas multiple, gestures, `image`, and `mask` match the image node. The output batch contains one frame.
 
-The crop, padding and rotation handles work on the node preview as well as in the
-editor, and the format chips right under the preview (16:9, 9:16, 1:1, 4:3 ...) pad
-the whole frame to that aspect with centered fill bands in one tap. Tap the lit chip
-again to lock the format (a padlock appears): crop and padding drags then keep the
-canvas at that aspect with the other axis's padding following; a third tap clears
-both. The editor's **Lock aspect** box is the same switch. Choose a **Target aspect**, then **Crop to aspect** to trim a centered crop,
-or **Pad to aspect** to preserve the full source and add centered fill-color bands.
-Both actions replace existing crop/padding and retain rotation. The target selection
-alone does not alter the transform. Padding unlocks the inner crop so it keeps every
-source pixel; canvas/resize rounding may slightly change the final aspect.
+The handles work on both the node and the editor. **Crop / Pad** below the
+format chips chooses between trimming to a locked ratio without padding and
+preserving the whole source with fill bands. In Pad mode, tap the active ratio
+again to lock the outer canvas; the next tap clears it. **Reset crop** restores the
+full crop while keeping rotation and padding. **Align** sets the canvas pixel
+multiple, with 1 disabling alignment padding.
+
+The appended **stitcher** output restores kept pixels after generation with a
+32-pixel blend. **original** returns the chosen RGB frame before the transform.
+The existing image and mask sockets keep their positions.
 
 Video metadata and preview routes validate extensions and return only the information needed by the editor. The node performs no remote network requests and does not rewrite the source video.

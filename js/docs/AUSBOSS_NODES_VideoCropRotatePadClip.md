@@ -1,8 +1,8 @@
 # Video Crop + Rotate + Pad → Clip
 
 **Outputs the whole clip.** One **rotate → crop → pad** transform is applied to
-every frame of the trim window; the editor's timeline only picks the frame you
-adjust it on.
+every frame of the trim window. The timeline selects that window and the
+playhead picks the frame you adjust the transform on.
 
 Use it to cut a border, a logo corner, or a tilt out of a video, or to grow
 fill-color bands around it for a **video outpaint**: the `mask` output marks the
@@ -21,7 +21,7 @@ model that paints black regions.
   on - the LTX IC-LoRA paints **pure black** with a **hard edge** (feather 0) at
   sizes rounded to 32 - so a wrong value shows here before a render is wasted.
   A fresh clip node starts with that pair (black, feather 0) and the editor's
-  **Reset all** returns to it; the image nodes keep their soft grey canvas.
+  **Reset transform** returns to it; the image nodes keep their soft grey canvas.
 - **Local path**: Read a video on the ComfyUI server in place without an upload copy.
   It must sit inside ComfyUI's input, output or temp folder, for queued runs and the
   editor's live preview alike; paths anywhere else are refused.
@@ -36,6 +36,15 @@ model that paints black regions.
   after the frame limit and Snap; a dim tail means those frames are dropped. In the
   editor, **Set IN** / **Set OUT** (or the **I** / **O** keys) put a trim point at the
   playhead, and **Full clip** resets the window.
+- **Fixed frames** (`fixed_frames`): Set or connect an exact output count. **120
+  frames at 24 fps selects five seconds**. Drag either handle or the highlighted
+  selection to slide the whole window; its length stays fixed at both ends of the
+  source. IN/OUT fields and Set IN/OUT move the whole window too. Alt-drag the rail
+  to scrub inside the selection. **To start** moves it to the source beginning.
+  Set 0 for ordinary free trim. Duration follows output fps, including `force_rate`
+  and Every nth. Fixed frames overrides OUT/`end_frame`, Limit/`frame_load_cap`, and
+  Snap. Choose a model-compatible count yourself. If the source is too short, the
+  node reports the required duration instead of returning a shorter clip.
 - **every_nth / max_frames**: Thin the batch or cap it. The `fps` output divides to match every_nth, so the clip keeps real-time downstream.
 - **Snap** (`frame_snap`): Drop trailing frames so the count is one a video model keeps:
   **8n+1** for LTX (49, 97, 121), **4n+1** for Wan. Free keeps every frame in the window.
@@ -48,13 +57,16 @@ model that paints black regions.
 
 Crop squares, padding diamonds and the rotation handle also work directly on the
 node preview. The graph still owns wheel zoom and middle-button pan. The format chips
-right under the preview (16:9, 9:16, 1:1, 4:3 ...) pad the whole clip to that aspect
-with centered fill bands in one tap - the editor's **Pad to aspect** without opening
-it. Tap the lit chip again to **lock** the format (a padlock appears): crop and
-padding drags then keep the canvas at that aspect, the padding on the other axis
-following along - pull the top band up and the side bands widen to match, crop a
-strip off and it comes back as fill. A third tap clears the bands and the lock. The
-editor's **Lock aspect** box is the same switch.
+work with the **Crop / Pad** choice beneath them. Crop trims to a locked ratio
+without adding padding. Pad preserves the source with centered fill bands; tap
+its active ratio again to lock the outer canvas, then again to clear it.
+**Reset crop** restores the full crop without changing rotation, padding or trim.
+**Reset transform** in the editor resets rotation, crop, padding, fill and feather;
+it keeps the source, current frame, trim, Fixed frames, resize and stitch settings.
+**Align** sets the canvas pixel multiple (1 disables alignment padding).
+
+Video Upload and file drop use a streaming route into ComfyUI's input folder,
+so the buffered image-upload size limit does not prevent long-video uploads.
 
 Choose **Target aspect**, then **Crop to aspect** to center the largest crop inside
 the rotated source, or **Pad to aspect** to keep the entire source and add centered
@@ -73,7 +85,8 @@ the core Scale Image to Total Pixels node.
 
 Outputs: `frames` (BHWC), `mask` (BHW, one per frame), `audio` for the same window
 (silent when the source has none), `frame_count`, `fps`, `width`, `height`, `duration`,
-and a `stitcher`.
+a `stitcher`, and `original`: the same selected source frames before the spatial
+transform and resize. Existing output socket positions are preserved.
 
 ## Inpaint & Stitch
 
@@ -95,3 +108,40 @@ Frames are transformed a few at a time so long clips do not double in memory, an
 queue's progress bar and cancel work throughout.
 
 The node performs no remote network requests and does not rewrite the source video.
+
+
+## Connected timing inputs
+
+Five optional sockets sit on the left, above the editor:
+
+| Input | Meaning |
+| --- | --- |
+| `force_rate` | Sample at this fps before Every nth. 0 keeps the source rate. Drops or repeats frames to keep playback speed. Accepts FLOAT or INT. |
+| `start_frame` | Zero-based source start frame. Overrides timeline IN. |
+| `end_frame` | Exclusive source end frame. 0 means the end of the source. Overrides timeline OUT. |
+| `fixed_frames` | Exact output frames. 0 means free trim. Both handles move together; a linked IN anchors the entire window. |
+| `frame_load_cap` | Maximum frames after rate conversion and Every nth, before Snap. 0 means unlimited. Overrides Limit. |
+
+Frame bounds use the source's frame-rate grid, independent of `force_rate`.
+The footer labels **Source fps** separately from **Output fps**. A direct
+numeric rate connection (including a reroute) can be shown before running;
+calculated rates are labeled as determined at run time. `force_rate` is the
+requested sampling rate before Every nth: 24 with Every nth 2 outputs 12 fps.
+Connect the node's `fps` output to `CreateVideo.fps` or `Save Video.fps` so
+the next node uses the actual rate rather than changing playback speed.
+For example, start 24 and end 72 select two seconds from a 24 fps source.
+A 12 fps forced rate returns 24 frames; a cap of 10 then keeps only the first
+10 of those. Audio and duration follow the returned batch.
+
+A connected start or end locks that handle and its IN/OUT field on both
+the node and fullscreen editor. Hover to see why. Disconnect to restore
+local control. A connected cap locks Limit. While timing inputs are connected,
+the preview shows the local trim as a reference and avoids claiming an output
+count before the linked values are evaluated at run time.
+
+For a movable fixed window, connect your frame-count control to `fixed_frames`
+and leave IN unconnected. Literal Integer/Float nodes (including AusBoss cards
+and reroutes) update the window before running. Calculated counts or rates show
+“resolves at run time” and disable positioning until the length is known. A
+connected IN anchors both handles; a connected OUT is ignored in fixed mode.
+The existing frame cap keeps its maximum-limit behavior for saved workflows.

@@ -620,6 +620,18 @@ def register_video_routes() -> None:
         return
     prompt_server._ausboss_transform_routes = True
 
+    @prompt_server.routes.post("/ausboss/transform/video/upload")
+    async def ausboss_video_upload(request):
+        from ._media_upload import stream_video_upload
+
+        try:
+            result = await stream_video_upload(
+                request, Path(folder_paths.get_input_directory()), VIDEO_EXTENSIONS
+            )
+            return web.json_response(result)
+        except Exception as exc:
+            return web.json_response({"error": _safe_route_error(exc)}, status=400)
+
     def request_path(request) -> Path:
         source_mode = request.query.get("source_mode", "input folder")
         local_path = request.query.get("local_path", "")

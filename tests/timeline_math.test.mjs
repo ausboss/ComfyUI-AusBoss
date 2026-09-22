@@ -12,6 +12,7 @@ import {
   frameAtFraction,
   frameTime,
   frameWindow,
+  fixedFrameWindow,
   keptEndFraction,
   keptFrames,
   keyboardStep,
@@ -148,4 +149,33 @@ test("frame helpers clamp and format", () => {
   assert.equal(keyboardStep(info, false), 24);
   assert.equal(keyboardStep(info, true), 1);
   assert.equal(keyboardStep(clipInfo({}), false), 1);
+});
+
+
+test("fixed window translates and stops at both ends without shrinking", () => {
+  const info = clipInfo({fps: 24, frame_count: 240, duration: 10});
+  for (const [requested, first] of [[0, 0], [60, 60], [200, 120], [-20, 0]]) {
+    const window = fixedFrameWindow(info, requested, 120, 24);
+    assert.equal(window.first, first);
+    assert.equal(window.last - window.first + 1, 120);
+    assert.equal(window.seconds, 5);
+  }
+  assert.equal(fixedFrameWindow(info, 0, 0, 24), null);
+  assert.equal(fixedFrameWindow(info, 0, 241, 24).tooLong, true);
+  assert.equal(fixedFrameWindow(info, 0, null, 24).unresolved, true);
+  assert.equal(fixedFrameWindow(info, 0, 120, null).unresolved, true);
+});
+
+test("fixed frame duration follows output fps while position follows source fps", () => {
+  const info = clipInfo({fps: 30, frame_count: 300, duration: 10});
+  for (const [frames, rate] of [[120, 24], [60, 12]]) {
+    const window = fixedFrameWindow(info, 250, frames, rate);
+    assert.equal(window.first, 150);
+    assert.equal(window.last, 299);
+    assert.equal(window.seconds, 5);
+  }
+  const fractional = fixedFrameWindow(info, 299, 97, 24);
+  assert.equal(fractional.first, 178);
+  assert.equal(fractional.last, 299);
+  assert.equal(fractional.seconds, 97 / 24);
 });

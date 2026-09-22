@@ -2,6 +2,7 @@ import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { hideInputsInDef, hideWidget } from "./widget_visibility.mjs";
 import { mountTransformTrim } from "./transform_trim.mjs";
+import { clipOutputRate, inputNumber } from "./clip_rate.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "./index.mjs";
 import { fillNodeHeight } from "./panel_layout.mjs";
 import { normalizeFillColor } from "./fill_color.mjs";
@@ -38,6 +39,7 @@ import {
   zoomAround,
 } from "./transform_geometry.mjs";
 import { clampFrame, clipInfo, frameTime, frameWindow, windowSeconds } from "./timeline_math.mjs";
+import { liftSocket } from "./widget_card.mjs";
 
 const HIDDEN_WIDGETS = [
   "image", "upload",
@@ -45,13 +47,17 @@ const HIDDEN_WIDGETS = [
   "rotation_degrees", "crop_aspect_ratio", "crop_x", "crop_y", "crop_width", "crop_height",
   "pad_left", "pad_top", "pad_right", "pad_bottom", "feather", "canvas_multiple", "fill_color",
   "seek_mode", "frame_index", "frame_time",
-  "start_seconds", "end_seconds", "every_nth", "max_frames", "frame_snap",
+  "start_seconds", "end_seconds", "every_nth", "max_frames", "frame_snap", "fixed_frames",
   // Clip-node stitch settings, driven by the editor's Inpaint & Stitch section.
   "stitch_blend", "stitch_grow",
   // Image-node resize block; hideWidget on a missing widget is a no-op, so
   // the video node sharing this list is unaffected.
   "resize_to_megapixels", "megapixels", "resize_method", "resolution_steps",
 ];
+const trimInputDriven = (node, name) => node.inputs?.some(
+  (input) => (input.name === name || input.widget?.name === name) && input.link != null,
+) ?? false;
+
 const RESIZE_METHODS = ["lanczos", "area", "bicubic", "bilinear", "nearest-exact"];
 const TRANSFORM_DEFAULTS = resetTransformValues(false);
 const CORE_IMAGE_PREVIEW_WIDGET = "$$canvas-image-preview";
@@ -209,8 +215,14 @@ async function uploadMedia(node, kind, file) {
   const body = new FormData();
   body.append("image", file, file.name);
   body.append("type", "input");
-  const response = await api.fetchApi("/upload/image", { method: "POST", body });
-  if (!response.ok) throw new Error((await response.text()) || "Upload failed.");
+  const route = kind === "video" ? "/ausboss/transform/video/upload" : "/upload/image";
+  const response = await api.fetchApi(route, { method: "POST", body });
+  if (!response.ok) {
+    const text = await response.text();
+    let message = text;
+    try { message = JSON.parse(text).error || text; } catch {}
+    throw new Error(message || "Upload failed.");
+  }
   const result = await response.json();
   const selection = result.subfolder ? `${result.subfolder}/${result.name}` : result.name;
   const target = widget(node, kind);
@@ -382,15 +394,23 @@ export function installTransformNode(node, kind, mountPanel = null) {
   if (kind === "image") suppressCoreImagePreview(node);
   if (kind === "video") installVideoDrop(state);
   for (const name of HIDDEN_WIDGETS) hideWidget(widget(node, name));
+  liftSocket(node, "fixed_frames");
 
   const panel = createElement("div", "ausboss-transform-panel");
   const preview = createElement("canvas", "ausboss-transform-preview");
   const row = createElement("div", "ausboss-transform-row");
   const open = createElement("button", "ausboss-transform-button", "Open editor");
-  row.append(open);
+  const resetCrop = createElement("button", "ausboss-transform-button", "Reset crop");
+  resetCrop.title = "Restore the full source crop; keep rotation, padding and timeline.";
+  resetCrop.addEventListener("click", () => {
+    setValue(node, "crop_aspect_ratio", "free");
+    if (node.properties) { delete node.properties.ausboss_fit_aspect; node.properties.ausboss_aspect_lock = false; }
+    fitCrop(state); updateModalInfo(state); notifyAusbossChange();
+  });
+  row.append(open, resetCrop);
   panel.append(buildMediaSourceCard(state));
   panel.append(preview);
-  panel.append(buildAspectChipRow(state));
+  panel.append(buildAspectChipRow(state), buildAspectModeRow(state));
   // Both video nodes get the timeline on their face: the clip node trims
   // with it, the frame picker scrubs its output frame with it. Their canvas
   // row shows what a video model keys on - fill, feather, size - so a wrong
@@ -406,11 +426,11 @@ export function installTransformNode(node, kind, mountPanel = null) {
   } else if (typeof node.addDOMWidget === "function") {
     const domWidget = node.addDOMWidget("ausboss_transform_preview", "ausboss_transform_preview", panel, { serialize: false });
     keepDomWidgetWidthAuto(domWidget);
-    fillNodeHeight(domWidget, { minWidth: 330, minHeight: state.isClip ? 534 : kind === "video" ? 474 : 260, minNodeSize: [330, state.isClip ? 734 : kind === "video" ? 534 : 420] });
+    fillNodeHeight(domWidget, { minWidth: 330, minHeight: state.isClip ? 602 : kind === "video" ? 510 : 296, minNodeSize: [330, state.isClip ? 802 : kind === "video" ? 570 : 456] });
   } else {
     node.addWidget?.("button", "Open editor", null, () => openEditor(state), { serialize: false });
   }
-  const baseHeight = state.isClip ? 774 : kind === "video" ? 599 : 475;
+  const baseHeight = state.isClip ? 842 : kind === "video" ? 635 : 511;
   node.setSize?.([
     Math.max(330, Math.min(520, node.size?.[0] || 330)),
     Math.max(baseHeight, node.computeSize?.()[1] || 0),
@@ -430,6 +450,14 @@ export function installTransformNode(node, kind, mountPanel = null) {
     // The graph scales the DOM widget with its zoom, so the backing store
     // sized at one zoom turns to mush at another: redraw when it changes.
     chainCallback(node, "onDrawForeground", function () {
+      if (state.isClip && !state.disposed) {
+        const rate = clipOutputRate(node, state.metadata?.fps, value(node, "every_nth", 1));
+        const signature = JSON.stringify([rate, ...["fixed_frames", "start_frame", "start_seconds"].map(name => inputNumber(node, name, value(node, name, 0)))]);
+        if (signature !== state.trimRate) {
+          state.trimRate = signature;
+          for (const trim of state.trimViews) trim.sync();
+        }
+      }
       if (state.disposed || state.zoomRedraw || Math.abs(panelOversample() - (state.panelOversample ?? 1)) < 0.01) return;
       state.zoomRedraw = requestAnimationFrame(() => { state.zoomRedraw = null; if (!state.disposed) draw(state); });
     });
@@ -451,9 +479,13 @@ export function installTransformNode(node, kind, mountPanel = null) {
       if (state.ready) onSourceChanged(state, true);
     });
   }
+  chainCallback(node, "onConnectionsChange", () => queueMicrotask(() => {
+    for (const trim of state.trimViews) trim.sync();
+  }));
   chainCallback(node, "onConfigure", () => queueMicrotask(() => {
     if (state.disposed) return;
     for (const name of HIDDEN_WIDGETS) hideWidget(widget(node, name));
+    liftSocket(node, "fixed_frames");
     state.syncSourceCard?.();
     for (const trim of state.trimViews) trim.sync();
     if (state.ready) onSourceChanged(state, false);
@@ -461,6 +493,7 @@ export function installTransformNode(node, kind, mountPanel = null) {
   queueMicrotask(async () => {
     // Core's upload helper can add its button after our creation hook.
     for (const name of HIDDEN_WIDGETS) hideWidget(widget(node, name));
+    liftSocket(node, "fixed_frames");
     state.ready = true;
     await onSourceChanged(state, false);
   });
@@ -509,8 +542,8 @@ function buildAspectChipRow(state) {
   const glyph = createElement("span", "ausboss-transform-aspect-glyph");
   flip.append(glyph);
   row.append(flip);
-  const caption = createElement("span", "", "Pad");
-  caption.title = "Pad the whole source to a format with centered fill bands. Tap the lit chip to lock the format, so crop and padding drags keep it; tap a locked chip to clear.";
+  const caption = createElement("span", "", "Ratio");
+  caption.title = "Choose the target ratio, then use Crop or Pad below. Crop locks the crop shape without adding padding.";
   row.append(caption);
   const portrait = () => {
     const [w, h] = String(node.properties?.ausboss_fit_aspect ?? "").split(":").map(Number);
@@ -523,7 +556,7 @@ function buildAspectChipRow(state) {
     node.properties ??= {};
     node.properties.ausboss_pad_portrait = next;
     if (state.image && /^\d+:\d+$/.test(current) && current !== "1:1") {
-      fitAspect(state, current.split(":").reverse().join(":"), "pad");
+      fitAspect(state, current.split(":").reverse().join(":"), aspectMode(state));
     }
     sync();
     notifyAusbossChange();
@@ -538,7 +571,7 @@ function buildAspectChipRow(state) {
       node.properties ??= {};
       node.properties.ausboss_pad_portrait = portrait();
       const ratio = oriented(aspect);
-      if (String(node.properties.ausboss_fit_aspect ?? "") !== ratio) fitAspect(state, ratio, "pad");
+      if (String(node.properties.ausboss_fit_aspect ?? "") !== ratio) fitAspect(state, ratio, aspectMode(state));
       else if (!node.properties.ausboss_aspect_lock) setAspectLock(state, true);
       else clearAspect(state);
       sync();
@@ -548,7 +581,7 @@ function buildAspectChipRow(state) {
   const sync = () => {
     const current = String(node.properties?.ausboss_fit_aspect ?? "");
     const locked = Boolean(node.properties?.ausboss_aspect_lock);
-    flip.title = `${portrait() ? "Portrait" : "Landscape"} padding — click to flip to ${portrait() ? "landscape" : "portrait"}`;
+    flip.title = `${portrait() ? "Portrait" : "Landscape"} — click to flip to ${portrait() ? "landscape" : "portrait"}`;
     flip.setAttribute("aria-label", flip.title);
     flip.setAttribute("aria-pressed", String(portrait()));
     glyph.style.width = portrait() ? "10px" : "16px";
@@ -559,9 +592,9 @@ function buildAspectChipRow(state) {
       chip.replaceChildren(document.createTextNode(ratio));
       if (active && locked) chip.append(lockGlyph());
       chip.title = !active
-        ? `Pad to ${ratio}: keep every source pixel and add centered fill bands.`
+        ? aspectMode(state) === "crop" ? `Crop to ${ratio}: lock the crop shape without padding.` : `Pad to ${ratio}: keep every source pixel and add centered fill bands.`
         : locked
-          ? `Locked to ${ratio}: crop and padding drags keep the canvas at this format. Tap to clear.`
+          ? `Locked to ${ratio} in ${aspectMode(state)} mode. Tap to clear.`
           : `Padded to ${ratio}. Tap again to lock the format for crop and padding drags.`;
       chip.classList.toggle("active", active);
       chip.classList.toggle("locked", active && locked);
@@ -570,6 +603,46 @@ function buildAspectChipRow(state) {
   };
   sync();
   state.syncAspectChips = sync;
+  return row;
+}
+
+function aspectMode(state) {
+  return state.node.properties?.ausboss_aspect_mode === "crop" ? "crop" : "pad";
+}
+
+function buildAspectModeRow(state) {
+  const row = createElement("div", "ausboss-transform-row ausboss-transform-aspect-modes");
+  const buttons = [];
+  for (const mode of ["crop", "pad"]) {
+    const button = createElement("button", "ausboss-transform-aspect", mode === "crop" ? "Crop" : "Pad");
+    button.type = "button";
+    button.title = mode === "crop" ? "Fit and lock the crop to the selected ratio; no padding." : "Keep the whole source and pad to the selected ratio.";
+    button.addEventListener("click", () => {
+      state.node.properties ??= {};
+      state.node.properties.ausboss_aspect_mode = mode;
+      const ratio = state.node.properties.ausboss_fit_aspect;
+      if (ratio && ratio !== "free") fitAspect(state, ratio, mode);
+      draw(state); notifyAusbossChange();
+    });
+    buttons.push([mode, button]); row.append(button);
+  }
+  const alignment = createElement("label", "ausboss-transform-alignment");
+  alignment.style.cssText = "display:flex;align-items:center;gap:5px;flex:0 0 118px";
+  const multiple = makeScrubInput({ value: value(state.node, "canvas_multiple", 1),
+    min: 1, max: 4096, step: 8, fineStep: 1, decimals: 0, width: 82, unit: "px",
+    title: "Align the output canvas to a pixel multiple (1 disables). Adds pixels on the right/bottom when needed.",
+    onChange: (amount) => { setValue(state.node, "canvas_multiple", amount); draw(state); updateModalInfo(state); },
+    onSettle: notifyAusbossChange });
+  alignment.append(createElement("span", "", "Align"), multiple.root);
+  row.append(alignment);
+  state.syncAspectMode = () => {
+    multiple.set(value(state.node, "canvas_multiple", 1));
+    for (const [mode, button] of buttons) {
+      button.classList.toggle("active", aspectMode(state) === mode);
+      button.setAttribute("aria-pressed", String(aspectMode(state) === mode));
+    }
+  };
+  state.syncAspectMode();
   return row;
 }
 
@@ -587,7 +660,7 @@ function lockGlyph() {
 // that ratio (lockPadding, transform_geometry.mjs).
 function lockRatio(state) {
   const properties = state.node.properties;
-  if (!properties?.ausboss_aspect_lock || !state.sourceWidth || !state.sourceHeight) return null;
+  if (aspectMode(state) === "crop" || !properties?.ausboss_aspect_lock || !state.sourceWidth || !state.sourceHeight) return null;
   const source = rotatedSize(state.sourceWidth, state.sourceHeight, value(state.node, "rotation_degrees", 0));
   return parseAspectRatio(String(properties.ausboss_fit_aspect ?? ""), source);
 }
@@ -606,12 +679,13 @@ function applyAspectLock(state, driver = "x") {
 function setAspectLock(state, on) {
   state.node.properties ??= {};
   state.node.properties.ausboss_aspect_lock = Boolean(on);
-  if (on) applyAspectLock(state, "x");
+  if (aspectMode(state) === "crop") setValue(state.node, "crop_aspect_ratio", on ? state.node.properties.ausboss_fit_aspect : "free");
+  else if (on) applyAspectLock(state, "x");
   draw(state); updateModalInfo(state); notifyAusbossChange();
 }
 
 function clearAspect(state) {
-  fitAspect(state, "free", "pad");
+  fitAspect(state, "free", aspectMode(state));
   if (state.node.properties) { delete state.node.properties.ausboss_fit_aspect; state.node.properties.ausboss_aspect_lock = false; }
   draw(state); updateModalInfo(state); notifyAusbossChange();
 }
@@ -654,7 +728,8 @@ function buildVideoCanvasRow(state) {
     draw(state); updateModalInfo(state); notifyAusbossChange();
   });
   resizeLabel.append(createElement("span", "", "Resize"), resize, budget.root);
-  row.append(fillLabel, featherLabel, resizeLabel);
+  row.append(fillLabel, featherLabel);
+  if (widget(node, "resize_to_megapixels")) row.append(resizeLabel);
   const sync = () => {
     fill.value = normalizeColor(value(node, "fill_color", "#808080"));
     fill.title = `${fill.title.split(" Now ")[0]} Now ${fill.value}.`;
@@ -769,7 +844,7 @@ async function onSourceChanged(state, reset) {
 function refitAspect(state) {
   const aspect = String(state.node.properties?.ausboss_fit_aspect ?? "");
   if (!/^\d+:\d+$/.test(aspect)) return;
-  fitAspect(state, aspect, "pad");
+  fitAspect(state, aspect, aspectMode(state));
 }
 
 async function loadSource(state) {
@@ -1126,7 +1201,10 @@ function buildControls(state, sidebar) {
   ratio.addEventListener("change", () => {
     node.properties ??= {}; node.properties.ausboss_fit_aspect = ratio.value;
     if (node.properties.ausboss_aspect_lock) {
-      if (ratio.value === "free") node.properties.ausboss_aspect_lock = false;
+      if (aspectMode(state) === "crop") {
+        setValue(node, "crop_aspect_ratio", ratio.value);
+        if (ratio.value === "free") node.properties.ausboss_aspect_lock = false;
+      } else if (ratio.value === "free") node.properties.ausboss_aspect_lock = false;
       else applyAspectLock(state, "x");
     }
     draw(state); updateModalInfo(state);
@@ -1134,7 +1212,7 @@ function buildControls(state, sidebar) {
   });
   addLabeledControl(cropSection, "Target aspect", ratio);
   const lock = createElement("input"); lock.type = "checkbox";
-  lock.title = "Keep the output canvas at the target aspect while dragging crop or padding handles: the other axis's padding follows. Same as tapping a lit format chip on the node.";
+  lock.title = "Crop mode locks the crop rectangle without padding. Pad mode adjusts padding to keep the output ratio.";
   lock.addEventListener("change", () => {
     if (lock.checked && ratio.value === "free") { lock.checked = false; return; }
     node.properties ??= {};
@@ -1231,7 +1309,9 @@ function buildControls(state, sidebar) {
 
   const actions = createElement("section", "ausboss-transform-section"); actions.append(sectionHeading("View & reset"));
   const resetViewButton = createElement("button", "", "Reset view"); resetViewButton.addEventListener("click", () => { resetView(state); draw(state); });
-  const resetAll = createElement("button", "ausboss-transform-danger", "Reset all"); resetAll.addEventListener("click", () => { resetTransform(node, state.kind === "video"); resetView(state); draw(state); updateModalInfo(state); });
+  const resetAll = createElement("button", "ausboss-transform-danger", "Reset transform");
+  resetAll.title = "Reset rotation, crop, padding, fill and feather. Keep the source, current frame, trim window, fixed length, resize and stitch settings.";
+  resetAll.addEventListener("click", () => { resetTransform(node); resetView(state); draw(state); updateModalInfo(state); });
   actions.append(resetViewButton, resetAll);
 
   // Live preview of the actual output composite (no overlays), so the final
@@ -1366,6 +1446,9 @@ function buildTrim(state) {
       for (const view of state.trimViews) if (view !== control) view.sync();
     },
     has: (name) => Boolean(widget(state.node, name)),
+    driven: (name) => trimInputDriven(state.node, name),
+    number: (name, fallback) => inputNumber(state.node, name, value(state.node, name, fallback)),
+    outputRate: () => clipOutputRate(state.node, state.metadata?.fps, value(state.node, "every_nth", 1)),
     metadata: () => state.metadata,
     trim: state.isClip,
     onSeek: (frame, settled) => scrubTo(state, frame, settled),
@@ -1415,13 +1498,17 @@ async function timelineCommand(state, command, light = false) {
   const current = clampFrame(value(state.node, "frame_index", 0), info);
   if (command === "setIn" || command === "setOut") {
     if (!state.isClip) return;
+    const edge = command === "setIn" ? "start" : "end";
+    const trim = [...state.trimViews][0];
+    if (trim?.fixed()) { trim.moveEdge(edge, current, true); return; }
+    if (trimInputDriven(state.node, `${edge}_frame`) || trimInputDriven(state.node, `${edge}_seconds`)) return;
     const window = frameWindow(info, value(state.node, "start_seconds", 0), value(state.node, "end_seconds", 0));
     const next = command === "setIn"
       ? { first: current, last: Math.max(current, window.last) }
       : { first: Math.min(current, window.first), last: current };
     const seconds = windowSeconds(info, next.first, next.last);
-    setValue(state.node, "start_seconds", seconds.start_seconds);
-    setValue(state.node, "end_seconds", seconds.end_seconds);
+    if (!trimInputDriven(state.node, "start_frame") && !trimInputDriven(state.node, "start_seconds")) setValue(state.node, "start_seconds", seconds.start_seconds);
+    if (!trimInputDriven(state.node, "end_frame") && !trimInputDriven(state.node, "end_seconds")) setValue(state.node, "end_seconds", seconds.end_seconds);
     syncTimelineRange(state); notifyAusbossChange();
     return;
   }
@@ -1492,6 +1579,8 @@ function fitAspect(state, aspect, mode) {
   const source = rotatedSize(state.sourceWidth, state.sourceHeight, value(state.node, "rotation_degrees", 0));
   for (const [name, next] of Object.entries(fitSourceToAspect(source, aspect, mode))) setValue(state.node, name, next);
   state.node.properties ??= {}; state.node.properties.ausboss_fit_aspect = aspect;
+  state.node.properties.ausboss_aspect_mode = mode;
+  state.node.properties.ausboss_aspect_lock = mode === "crop" && aspect !== "free";
   if (aspect === "free") state.node.properties.ausboss_aspect_lock = false;
   resetView(state); draw(state); updateModalInfo(state); notifyAusbossChange();
 }
@@ -1567,6 +1656,7 @@ function draw(state) {
   state.syncQuickRow?.();
   state.syncCanvasRow?.();
   state.syncAspectChips?.();
+  state.syncAspectMode?.();
   state.syncEditorControls?.();
   state.syncStitchControls?.();
   for (const canvas of [state.canvas, state.previewCanvas]) {

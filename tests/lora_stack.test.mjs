@@ -593,3 +593,95 @@ test("snapshotEnabled records named rows only", () => {
     { "t-a.safetensors": true },
   );
 });
+
+test("rgthree stack imports numbered rows in order with shared strengths", () => {
+  const rows = loaderLoraEntries({type: "Lora Loader Stack (rgthree)", widgets: widgets({
+    lora_03: "c.safetensors", strength_03: -0.25,
+    lora_01: "a.safetensors", strength_01: 0.8,
+    lora_02: "None", strength_02: 1,
+  })});
+  assert.deepEqual(rows.map(r => [r.name, r.strength, r.strength_clip]), [
+    ["a.safetensors", 0.8, 0.8], ["c.safetensors", -0.25, -0.25],
+  ]);
+});
+
+test("JPS loader retains its Off switch instead of enabling the LoRA", () => {
+  for (const setting of ["Off", "On"]) {
+    const rows = loaderLoraEntries({type: "Lora Loader (JPS)", widgets: widgets({
+      switch: setting, lora_name: "a.safetensors", strength_model: 0.5, strength_clip: 0.2,
+    })});
+    assert.equal(rows[0].enabled, setting === "On");
+    assert.equal(rows[0].strength_clip, 0.2);
+  }
+});
+
+test("rgthree null strengthTwo means linked strengths, not zero CLIP", () => {
+  const rows = loaderLoraEntries({type: "Power Lora Loader (rgthree)", widgets: [
+    {name: "lora_1", value: {on: true, lora: "a.safetensors", strength: 0.8, strengthTwo: null}},
+  ]});
+  assert.equal(rows[0].strength_clip, 0.8);
+});
+
+
+test("absorb walks a mixed stack in both directions regardless of canvas position", async () => {
+  const { collectUpstreamLoaders, collectDownstreamLoaders } = await import("../js/shared/lora_stack.mjs");
+  const graph = { links: {}, getNodeById: id => nodes.find(n => n.id === id) };
+  const types = ["Lora Loader (JPS)", "Power Lora Loader (rgthree)", "Lora Loader Stack (rgthree)", "AUSBOSS_NODES_LoraLoader"];
+  const nodes = types.map((type, id) => ({ id, type, graph, widgets: [], pos: [500 - id * 100, id * 30],
+    inputs: [{ name: "model", type: "MODEL", link: id ? id : null }],
+    outputs: [{ name: "MODEL", type: "MODEL", links: id < 3 ? [id + 1] : [] }],
+  }));
+  for (let id = 1; id < 4; id++) graph.links[id] = { origin_id: id - 1, target_id: id };
+  assert.deepEqual(collectUpstreamLoaders(nodes[3]).map(n => n.id), [2, 1, 0]);
+  // Put AusBoss before the foreign loaders in the same connected chain.
+  nodes[0].type = "AUSBOSS_NODES_LoraLoader";
+  nodes[3].type = "Lora Loader (JPS)";
+  assert.deepEqual(collectDownstreamLoaders(nodes[0]).map(n => n.id), [1, 2, 3]);
+  nodes[1].type = "Reroute";
+  assert.deepEqual(collectDownstreamLoaders(nodes[0]).map(n => n.id), [2, 3]);
+  nodes[1].outputs[0].links.push(99);
+  assert.deepEqual(collectDownstreamLoaders(nodes[0]), []);
+});
+
+test("absorption keeps repeated applications in upstream, current, downstream order", () => {
+  const existing = [row("same.safetensors", 0.4)];
+  const before = mergeImportedRows(existing, [row("same.safetensors", 0.2)], {position: "before", deduplicate: false});
+  const after = mergeImportedRows(before.rows, [row("same.safetensors", 0.7)], {position: "after", deduplicate: false});
+  assert.deepEqual(after.rows.map(r => r.strength), [0.2, 0.4, 0.7]);
+  assert.equal(after.skipped, 0);
+});
+
+test("absorption refuses shared model paths, mismatched CLIP paths and used trigger outputs", async () => {
+  const {absorbChainIssue} = await import("../js/shared/lora_stack.mjs");
+  const nodes = [];
+  const graph = {links: {}, getNodeById: id => nodes[id]};
+  const make = id => nodes[id] = {id, type: "LoraLoader", graph,
+    widgets: widgets({lora_name:"a.safetensors",strength_model:1,strength_clip:1}),
+    inputs:[{type:"MODEL",link:900},{type:"CLIP",link:901}],
+    outputs:[{type:"MODEL",links:[]},{type:"CLIP",links:[]}]};
+  const source=make(0), target=make(1);
+  const wire=(from,out,to,input,id)=>{graph.links[id]={origin_id:from.id,origin_slot:out,target_id:to.id,target_slot:input};from.outputs[out].links.push(id);to.inputs[input].link=id};
+  wire(source,0,target,0,1);wire(source,1,target,1,2);
+  assert.equal(absorbChainIssue(target,[source],[]),null);
+  target.mode = 4;
+  assert.match(absorbChainIssue(target,[source],[]),/Enable this/);
+  target.mode = 0; target.inputs.push({name:"loras",type:"STRING",link:9});
+  assert.match(absorbChainIssue(target,[source],[]),/connected input/);
+  target.inputs.pop();
+  source.outputs[0].links.push(3);
+  assert.match(absorbChainIssue(target,[source],[]),/model chain branches/);
+  source.outputs[0].links.pop();source.outputs[1].links.push(3);
+  assert.match(absorbChainIssue(target,[source],[]),/CLIP/);
+  source.outputs[1].links.pop();target.inputs[1].link=null;
+  assert.match(absorbChainIssue(target,[source],[]),/CLIP/);
+  target.inputs[1].link=2;
+  source.outputs.push({type:"STRING",links:[3]});
+  assert.match(absorbChainIssue(target,[source],[]),/trigger words/);
+  source.outputs.pop();
+  // A reroute before the target must not hide a shared branch.
+  const reroute=make(2);reroute.type="Reroute";
+  source.outputs[0].links=[];wire(source,0,reroute,0,4);wire(reroute,0,target,0,5);
+  assert.equal(absorbChainIssue(target,[source],[]),null);
+  reroute.outputs[0].links.push(6);
+  assert.match(absorbChainIssue(target,[source],[]),/model chain branches/);
+});

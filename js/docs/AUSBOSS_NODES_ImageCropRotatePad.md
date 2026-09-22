@@ -18,7 +18,15 @@ Loads an image and applies one reusable **rotate → crop → pad** transform. C
 
 ## Quick row (on the node)
 
-Right under the compact canvas, the format chips (16:9, 9:16, 1:1, 4:3 ...) pad the whole image to that aspect with centered fill bands in one tap - the editor's **Pad to aspect** without opening it; tap the lit chip to clear the bands. Below the Open editor button: **Reset** zeroes rotation, crop, and padding in one click (resize settings are output options and survive); **Feather** toggles feathering on and off, remembering the amount it turned off; **Resize** enables the megapixel budget and reveals its number box. The full method/steps controls live in the editor's **Resize output** section, and the status panel there names the exact resized size.
+Choose **Crop** or **Pad** below the format chips. Crop trims to the selected
+ratio and keeps that shape while dragging, without adding padding. Pad preserves
+the whole source and adds centered bands; tap its active ratio again to lock the
+outer canvas, and again to clear. **Align** exposes the canvas pixel multiple
+(1 disables it; 8/16/32 can add pixels on the right and bottom).
+
+**Reset crop** restores the full source crop without changing rotation or padding.
+**Reset** clears the entire transform. **Feather** remembers its previous amount;
+**Resize** reveals the megapixel budget. Filter and resize steps stay in the editor.
 
 The output pixel size is drawn centered just below the image — outside the pixels being judged — and shows the resize target when one is active (`576 x 1024 → 768 x 1344`).
 
@@ -30,6 +38,8 @@ refreshes the source card and preview without resetting the saved framing.
 
 - **image**: BHWC float image batch. Animated image frames receive the identical transform.
 - **mask**: BHW generated-area mask combining source transparency, empty rotation corners, and padding.
+- **stitcher**: Wire to Stitch Inpaint to restore the kept canvas around an outpaint result, with a 32-pixel blend into the source. It follows the final resized canvas.
+- **original**: The loaded RGB image batch before rotation, crop, padding, or resize. Existing image and mask sockets keep their positions.
 
 ## Editor gestures
 

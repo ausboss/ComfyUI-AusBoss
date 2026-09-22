@@ -1,8 +1,8 @@
 {
   "id": "38d93e0d-9cc8-493e-8338-09eb994e7406",
   "revision": 0,
-  "last_node_id": 71,
-  "last_link_id": 24,
+  "last_node_id": 77,
+  "last_link_id": 34,
   "nodes": [
     {
       "id": 51,
@@ -328,7 +328,7 @@
       "id": 57,
       "type": "AUSBOSS_NODES_Resolution",
       "pos": [
-        1040,
+        1560,
         100
       ],
       "size": [
@@ -422,7 +422,7 @@
       "id": 58,
       "type": "AUSBOSS_NODES_Float",
       "pos": [
-        1040,
+        1560,
         681
       ],
       "size": [
@@ -478,7 +478,7 @@
       "id": 59,
       "type": "AUSBOSS_NODES_MathExpression",
       "pos": [
-        1040,
+        1560,
         825
       ],
       "size": [
@@ -561,7 +561,7 @@
       "id": 60,
       "type": "AUSBOSS_NODES_Text",
       "pos": [
-        1560,
+        2080,
         100
       ],
       "size": [
@@ -588,7 +588,7 @@
           "name": "text",
           "type": "STRING",
           "links": [
-            9
+            32
           ]
         }
       ],
@@ -603,19 +603,17 @@
         }
       },
       "widgets_values": [
-        "How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 5.17-second mark of the target video.\n\nintegrated_multimodal_description: [Shot 1] Live-action, cinematic, the opening composition matches Picture 1: a wide view across an alpine lake at sunrise, with the low wooden pier entering from the right and a small rowboat beside its far end. The camera holds a static shot. The boat glides across the water toward its position in Picture 2, leaving small spreading ripples. Thin mist drifts above the water. Keep the pier low in the frame and the distant mountains and shoreline consistent. The view settles into the boat position, spacing, viewpoint and lighting of Picture 2.\n\noverall_soundscape: Soft water laps against the wooden posts throughout, with faint distant birdsong.\n\nnon_diegetic_music: N/A"
+        "The opening composition matches Picture 1; the final composition matches Picture 2.\n\nintegrated_multimodal_description: [Shot 1] Live-action, cinematic, the opening composition matches Picture 1: a wide view across an alpine lake at sunrise, with the low wooden pier entering from the right and a small rowboat beside its far end. The camera holds a static shot. The boat glides across the water toward its position in Picture 2, leaving small spreading ripples. Thin mist drifts above the water. Keep the pier low in the frame and the distant mountains and shoreline consistent. The view settles into the boat position, spacing, viewpoint and lighting of Picture 2.\n\noverall_soundscape: Soft water laps against the wooden posts throughout, with faint distant birdsong.\n\nnon_diegetic_music: N/A"
       ],
-      "widgets_values_named": {
-        "text": "How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 5.17-second mark of the target video.\n\nintegrated_multimodal_description: [Shot 1] Live-action, cinematic, the opening composition matches Picture 1: a wide view across an alpine lake at sunrise, with the low wooden pier entering from the right and a small rowboat beside its far end. The camera holds a static shot. The boat glides across the water toward its position in Picture 2, leaving small spreading ripples. Thin mist drifts above the water. Keep the pier low in the frame and the distant mountains and shoreline consistent. The view settles into the boat position, spacing, viewpoint and lighting of Picture 2.\n\noverall_soundscape: Soft water laps against the wooden posts throughout, with faint distant birdsong.\n\nnon_diegetic_music: N/A"
-      },
       "color": "#14424d",
-      "bgcolor": "#161f21"
+      "bgcolor": "#161f21",
+      "title": "Transition, camera and sound · your direction"
     },
     {
       "id": 61,
       "type": "MiniMaxH3ImageToVideo",
       "pos": [
-        1560,
+        2080,
         490
       ],
       "size": [
@@ -659,7 +657,7 @@
           "widget": {
             "name": "prompt"
           },
-          "link": 9
+          "link": 34
         },
         {
           "localized_name": "width",
@@ -771,7 +769,8 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            10
+            10,
+            26
           ]
         },
         {
@@ -841,7 +840,8 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            11
+            11,
+            28
           ]
         },
         {
@@ -875,7 +875,7 @@
       "id": 64,
       "type": "ConditioningZeroOut",
       "pos": [
-        1560,
+        2080,
         800
       ],
       "size": [
@@ -918,7 +918,7 @@
       "id": 65,
       "type": "KSampler",
       "pos": [
-        2100,
+        2620,
         366
       ],
       "size": [
@@ -1052,7 +1052,7 @@
       "id": 66,
       "type": "VAEDecode",
       "pos": [
-        2100,
+        2620,
         678
       ],
       "size": [
@@ -1101,7 +1101,7 @@
       "id": 67,
       "type": "VAEDecodeAudio",
       "pos": [
-        2100,
+        2620,
         774
       ],
       "size": [
@@ -1150,7 +1150,7 @@
       "id": 68,
       "type": "AUSBOSS_NODES_SaveVideo",
       "pos": [
-        2620,
+        3140,
         100
       ],
       "size": [
@@ -1283,7 +1283,7 @@
       ],
       "size": [
         560,
-        1100
+        1340
       ],
       "flags": {},
       "order": 9,
@@ -1311,12 +1311,8 @@
         }
       },
       "widgets_values": [
-        "{\"v\": 1, \"title\": \"MiniMax H3 First + Last Frame\", \"subtitle\": \"Two endpoint images, a stable transition and native audio.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose each installed model in its loader; saved selections may include local subfolders. Download links below name the standard destination folders.\\n\\n## Start here\\nChoose the four installed H3 model files. This example uses the base model without a turbo LoRA: 20 res_multistep/simple steps, CFG 1, video sigma shift 12 and audio shift 3. It is slower than the turbo examples, but the tested shot keeps the scene much more consistent.\\n\\n## Your shot\\nUpload the two sample images from example_workflows/inputs, or choose your own. Opening image and Ending image connect separately to H3. Resolution Master sets the target canvas to 768 × 1120. Similar framing and lighting in both images make the transition easier.\\n\\nSeconds rounds up to the 17k+5 grid at 24 fps: five seconds becomes 124 frames, or 5.17 seconds. Keep the frame rate at 24. If you change Seconds, update the final alignment time in the prompt too (frame count / 24).\\n\\nThe supplied prompt keeps the camera fixed while the boat, water and mist move gently. The image inputs guide the opening and ending; inspect the render before using it. Both video and native audio are saved together.\\n\\n## Why no turbo LoRA?\\nIn a same-seed comparison, the 4-step LoRA invented large foreground objects and an unnatural spray arc. The 20-step base run kept a stable lake and pier with subtle motion. That is evidence for this sample, not a guarantee for every shot.\\n\\n[Native H3 workflow documentation](https://docs.comfy.org/tutorials/video/minimax/minimax-h3)\", \"models\": [{\"name\": \"minimax_h3_fl2va_pruned_int8_convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"21 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors\", \"note\": \"fp8_scaled (21 GB) and nvfp4 builds of the pruned fl2va model also work\"}, {\"name\": \"qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\", \"dir\": \"text_encoders\", \"size\": \"15.7 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\", \"note\": \"does not need a Blackwell card\"}, {\"name\": \"minimax_h3_video_vae_fp16.safetensors\", \"dir\": \"vae\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_fp16.safetensors\", \"note\": \"\"}, {\"name\": \"minimax_h3_audio_vae_fp32.safetensors\", \"dir\": \"vae\", \"size\": \"605 MB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors\", \"note\": \"\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_MathExpression\"}]}"
+        "{\"v\": 1, \"title\": \"MiniMax H3 First + Last Frame\", \"subtitle\": \"Two endpoint images, a stable transition and native audio.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose each installed model in its loader; saved selections may include local subfolders. Download links below name the standard destination folders.\\n\\n## Start here\\nChoose the four installed H3 model files. This example uses the base model without a turbo LoRA: 20 res_multistep/simple steps, CFG 1, video sigma shift 12 and audio shift 3. It is slower than the turbo examples, but the tested shot keeps the scene much more consistent.\\n\\n## Your shot\\nUpload the two sample images from example_workflows/inputs, or choose your own. Opening image and Ending image connect separately to H3. Resolution Master sets the target canvas to 768 × 1120. Similar framing and lighting in both images make the transition easier.\\n\\nSeconds rounds up to the 17k+5 grid at 24 fps: five seconds becomes 124 frames, or 5.17 seconds. Keep the frame rate at 24. The prompt describes opening and final compositions, so changing Seconds does not require editing a timestamp.\\n\\nThe supplied prompt keeps the camera fixed while the boat, water and mist move gently. The image inputs guide the opening and ending; inspect the render before using it. Both video and native audio are saved together.\\n\\n## Why no turbo LoRA?\\nIn a same-seed comparison, the 4-step LoRA invented large foreground objects and an unnatural spray arc. The 20-step base run kept a stable lake and pier with subtle motion. That is evidence for this sample, not a guarantee for every shot.\\n\\n[Native H3 workflow documentation](https://docs.comfy.org/tutorials/video/minimax/minimax-h3)\\n\\n## Describe both endpoints\\nThe Qwen3-VL caption model describes each reference separately. Their labeled descriptions are joined with your transition and sound direction, and Show Text displays the prompt sent to H3. The text refers to the opening and final compositions without a hardcoded duration. Change the transition instructions when replacing the references. For a manual prompt, connect the transition Text directly to H3 and mute the caption stage.\", \"models\": [{\"name\": \"minimax_h3_fl2va_pruned_int8_convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"21 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors\", \"note\": \"fp8_scaled (21 GB) and nvfp4 builds of the pruned fl2va model also work\"}, {\"name\": \"qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\", \"dir\": \"text_encoders\", \"size\": \"15.7 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\", \"note\": \"does not need a Blackwell card\"}, {\"name\": \"minimax_h3_video_vae_fp16.safetensors\", \"dir\": \"vae\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_fp16.safetensors\", \"note\": \"\"}, {\"name\": \"minimax_h3_audio_vae_fp32.safetensors\", \"dir\": \"vae\", \"size\": \"605 MB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_8b_int8_convrot.safetensors\", \"dir\": \"text_encoders\", \"size\": \"9.35 GB\", \"note\": \"Source captioning only. Use CLIP type qwen_image; the renderer still uses its own encoder. Requires current ComfyUI with Qwen Image 2.1 support.\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_MathExpression\"}]}"
       ],
-      "widgets_values_named": {
-        "note": "{\"v\":1,\"title\":\"MiniMax H3 First + Last Frame\",\"subtitle\":\"Two endpoint images, a stable transition and native audio.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"\",\"body\":\"## Start here\\nChoose the four installed H3 model files. This example uses the base model without a turbo LoRA: 20 res_multistep/simple steps, CFG 1, video sigma shift 12 and audio shift 3. It is slower than the turbo examples, but the tested shot keeps the scene much more consistent.\\n\\n## Your shot\\nUpload the two sample images from example_workflows/inputs, or choose your own. Opening image and Ending image connect separately to H3. Resolution Master sets the target canvas to 768 × 1120. Similar framing and lighting in both images make the transition easier.\\n\\nSeconds rounds up to the 17k+5 grid at 24 fps: five seconds becomes 124 frames, or 5.17 seconds. Keep the frame rate at 24. If you change Seconds, update the final alignment time in the prompt too (frame count / 24).\\n\\nThe supplied prompt keeps the camera fixed while the boat, water and mist move gently. The image inputs guide the opening and ending; inspect the render before using it. Both video and native audio are saved together.\\n\\n## Why no turbo LoRA?\\nIn a same-seed comparison, the 4-step LoRA invented large foreground objects and an unnatural spray arc. The 20-step base run kept a stable lake and pier with subtle motion. That is evidence for this sample, not a guarantee for every shot.\\n\\n[Native H3 workflow documentation](https://docs.comfy.org/tutorials/video/minimax/minimax-h3)\"}",
-        "ausboss_workflow_note_panel": ""
-      },
       "color": "#14424d",
       "bgcolor": "#161f21"
     },
@@ -1324,7 +1320,7 @@
       "id": 70,
       "type": "AUSBOSS_NODES_Seed",
       "pos": [
-        2100,
+        2620,
         100
       ],
       "size": [
@@ -1358,7 +1354,7 @@
       "id": 71,
       "type": "AUSBOSS_NODES_RunTimer",
       "pos": [
-        2100,
+        2620,
         870
       ],
       "size": [
@@ -1376,6 +1372,343 @@
         "ver": "2.0.0"
       },
       "widgets_values": []
+    },
+    {
+      "id": 72,
+      "type": "CLIPLoader",
+      "pos": [
+        1040,
+        100
+      ],
+      "size": [
+        460,
+        106
+      ],
+      "flags": {},
+      "order": 20,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            25,
+            27
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPLoader",
+        "models": [
+          {
+            "name": "qwen3vl_4b_fp8_scaled.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors",
+            "directory": "text_encoders"
+          }
+        ]
+      },
+      "widgets_values": [
+        "qwen3vl_8b_int8_convrot.safetensors",
+        "qwen_image",
+        "default"
+      ],
+      "color": "#432",
+      "bgcolor": "#653",
+      "title": "Caption model · Qwen3-VL 8B"
+    },
+    {
+      "id": 73,
+      "type": "TextGenerate",
+      "pos": [
+        1040,
+        260
+      ],
+      "size": [
+        460,
+        440
+      ],
+      "flags": {},
+      "order": 21,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 25
+        },
+        {
+          "name": "sampling_mode",
+          "type": "COMFY_DYNAMICCOMBO_V3",
+          "link": null
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 26,
+          "shape": 7
+        },
+        {
+          "name": "video",
+          "type": "IMAGE",
+          "link": null,
+          "shape": 7
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": null,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "generated_text",
+          "type": "STRING",
+          "links": [
+            29
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "TextGenerate"
+      },
+      "widgets_values": [
+        "Describe only the visible subject, setting, materials, composition and lighting in 60 to 90 words. Use plain factual language. Do not invent actions, camera motion, sound or objects. Output only the description. Begin with the exact label Opening picture:.",
+        180,
+        "on",
+        0.3,
+        64,
+        0.95,
+        0.05,
+        1.05,
+        20260922,
+        0.0,
+        false,
+        true,
+        "auto"
+      ],
+      "title": "Describe opening picture"
+    },
+    {
+      "id": 74,
+      "type": "TextGenerate",
+      "pos": [
+        1040,
+        750
+      ],
+      "size": [
+        460,
+        440
+      ],
+      "flags": {},
+      "order": 22,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 27
+        },
+        {
+          "name": "sampling_mode",
+          "type": "COMFY_DYNAMICCOMBO_V3",
+          "link": null
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 28,
+          "shape": 7
+        },
+        {
+          "name": "video",
+          "type": "IMAGE",
+          "link": null,
+          "shape": 7
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": null,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "generated_text",
+          "type": "STRING",
+          "links": [
+            30
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "TextGenerate"
+      },
+      "widgets_values": [
+        "Describe only the visible subject, setting, materials, composition and lighting in 60 to 90 words. Use plain factual language. Do not invent actions, camera motion, sound or objects. Output only the description. Begin with the exact label Ending picture:.",
+        180,
+        "on",
+        0.3,
+        64,
+        0.95,
+        0.05,
+        1.05,
+        20260922,
+        0.0,
+        false,
+        true,
+        "auto"
+      ],
+      "title": "Describe ending picture"
+    },
+    {
+      "id": 75,
+      "type": "StringConcatenate",
+      "pos": [
+        1040,
+        1240
+      ],
+      "size": [
+        460,
+        166
+      ],
+      "flags": {},
+      "order": 23,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "string_a",
+          "type": "STRING",
+          "link": 29,
+          "widget": {
+            "name": "string_a"
+          }
+        },
+        {
+          "name": "string_b",
+          "type": "STRING",
+          "link": 30,
+          "widget": {
+            "name": "string_b"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            31
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "StringConcatenate"
+      },
+      "widgets_values": [
+        "",
+        "",
+        "\n\n"
+      ],
+      "title": "Reference descriptions · opening + ending"
+    },
+    {
+      "id": 76,
+      "type": "StringConcatenate",
+      "pos": [
+        1040,
+        1456
+      ],
+      "size": [
+        460,
+        166
+      ],
+      "flags": {},
+      "order": 24,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "string_a",
+          "type": "STRING",
+          "link": 31,
+          "widget": {
+            "name": "string_a"
+          }
+        },
+        {
+          "name": "string_b",
+          "type": "STRING",
+          "link": 32,
+          "widget": {
+            "name": "string_b"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            33
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "StringConcatenate"
+      },
+      "widgets_values": [
+        "",
+        "",
+        "\n\n"
+      ],
+      "title": "Prompt · references + transition"
+    },
+    {
+      "id": 77,
+      "type": "AUSBOSS_NODES_ShowText",
+      "pos": [
+        1040,
+        1672
+      ],
+      "size": [
+        460,
+        280
+      ],
+      "flags": {},
+      "order": 25,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 33,
+          "widget": {
+            "name": "text"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "links": [
+            34
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_ShowText",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0"
+      },
+      "widgets_values": [],
+      "title": "Prompt sent to H3"
     }
   ],
   "links": [
@@ -1426,14 +1759,6 @@
       61,
       7,
       "INT"
-    ],
-    [
-      9,
-      60,
-      0,
-      61,
-      4,
-      "STRING"
     ],
     [
       10,
@@ -1554,6 +1879,86 @@
       65,
       4,
       "INT"
+    ],
+    [
+      25,
+      72,
+      0,
+      73,
+      0,
+      "CLIP"
+    ],
+    [
+      26,
+      62,
+      0,
+      73,
+      2,
+      "IMAGE"
+    ],
+    [
+      27,
+      72,
+      0,
+      74,
+      0,
+      "CLIP"
+    ],
+    [
+      28,
+      63,
+      0,
+      74,
+      2,
+      "IMAGE"
+    ],
+    [
+      29,
+      73,
+      0,
+      75,
+      0,
+      "STRING"
+    ],
+    [
+      30,
+      74,
+      0,
+      75,
+      1,
+      "STRING"
+    ],
+    [
+      31,
+      75,
+      0,
+      76,
+      0,
+      "STRING"
+    ],
+    [
+      32,
+      60,
+      0,
+      76,
+      1,
+      "STRING"
+    ],
+    [
+      33,
+      76,
+      0,
+      77,
+      0,
+      "STRING"
+    ],
+    [
+      34,
+      77,
+      0,
+      61,
+      4,
+      "STRING"
     ]
   ],
   "groups": [
@@ -1582,9 +1987,9 @@
       "flags": {}
     },
     {
-      "title": "3 · Canvas + duration",
+      "title": "4 · Canvas + duration",
       "bounding": [
-        1020,
+        1540,
         40,
         480,
         939
@@ -1594,9 +1999,9 @@
       "flags": {}
     },
     {
-      "title": "4 · Shot + conditioning",
+      "title": "5 · Shot + conditioning",
       "bounding": [
-        1540,
+        2060,
         40,
         500,
         806
@@ -1606,9 +2011,9 @@
       "flags": {}
     },
     {
-      "title": "5 · Seed, sample + decode",
+      "title": "6 · Seed, sample + decode",
       "bounding": [
-        2080,
+        2600,
         40,
         480,
         912
@@ -1618,14 +2023,26 @@
       "flags": {}
     },
     {
-      "title": "6 · Video + audio output",
+      "title": "7 · Video + audio output",
       "bounding": [
-        2600,
+        3120,
         40,
         660,
         780
       ],
       "color": "#65515e",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "title": "3 · Describe both references",
+      "bounding": [
+        1020,
+        40,
+        500,
+        1940
+      ],
+      "color": "#42686c",
       "font_size": 24,
       "flags": {}
     }

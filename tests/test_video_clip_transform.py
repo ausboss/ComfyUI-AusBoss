@@ -92,6 +92,76 @@ class VideoClipNodeTests(unittest.TestCase):
         args.update(overrides)
         return asyncio.run(AusBossVideoCropRotatePadClip().load_transform(**args))
 
+    def test_linked_frame_bounds_override_stale_timeline_and_cap(self):
+        out = self.run_node(start_seconds=9, end_seconds=2, start_frame=6, end_frame=18,
+                            max_frames=1, frame_load_cap=4)
+        self.assertEqual(out[3], 4)
+        self.assertAlmostEqual(out[7], 4 / FPS)
+        reference = self.run_node(start_seconds=6 / FPS, end_seconds=18 / FPS, max_frames=4)
+        self.assertTrue(torch.equal(out[0], reference[0]))
+
+    def test_force_rate_preserves_time_drops_or_repeats_frames(self):
+        original = self.run_node()
+        for rate in (FPS / 2, FPS * 2):
+            out = self.run_node(force_rate=rate)
+            self.assertEqual(out[3], int(FRAMES * rate / FPS))
+            self.assertEqual(out[4], rate)
+            self.assertAlmostEqual(out[7], original[7])
+            if rate > FPS:
+                self.assertTrue(torch.equal(out[0][0], out[0][1]))
+            else:
+                self.assertTrue(torch.equal(out[0][1], original[0][2]))
+
+    def test_force_rate_cap_and_thinning_apply_before_snap(self):
+        out = self.run_node(start_frame=3, end_frame=21, force_rate=24,
+                            every_nth=2, frame_load_cap=10, frame_snap="4n+1")
+        self.assertEqual(out[3], 9)
+        self.assertEqual(out[4], 12)
+        self.assertAlmostEqual(out[7], 0.75)
+        self.assertAlmostEqual(out[2]["waveform"].shape[-1] / out[2]["sample_rate"], 0.75, delta=0.01)
+
+    def test_linked_bounds_do_not_validate_stale_widget_window(self):
+        self.assertIs(AusBossVideoCropRotatePadClip.VALIDATE_INPUTS(
+            "", "local path", str(self.video), 9, 2, force_rate=None, input_types={"start_frame": "INT", "force_rate": "INT"}), True)
+        self.assertIsNot(AusBossVideoCropRotatePadClip.VALIDATE_INPUTS(
+            "", "local path", str(self.video), 0, 0, input_types={"start_frame": "STRING"}), True)
+
+    def test_invalid_force_rate_and_backwards_frame_bounds_fail(self):
+        for rate in (-1, float("nan"), 1001):
+            with self.assertRaises(ValueError):
+                self.run_node(force_rate=rate)
+        with self.assertRaises(ValueError):
+            self.run_node(start_frame=18, end_frame=6)
+
+    def test_fixed_frames_move_as_one_window_and_override_limits(self):
+        out = self.run_node(start_seconds=99, end_seconds=0.1, end_frame=1,
+                            fixed_frames=12, frame_load_cap=2, max_frames=1, frame_snap="8n+1")
+        reference = self.run_node(start_seconds=1, end_seconds=2)
+        self.assertEqual(out[3], 12)
+        self.assertTrue(torch.equal(out[0], reference[0]))
+        self.assertTrue(torch.equal(out[9], reference[9]))
+        self.assertEqual(out[8]["canvas"].shape[0], 12)
+        self.assertAlmostEqual(out[7], 1)
+        self.assertAlmostEqual(out[2]["waveform"].shape[-1] / out[2]["sample_rate"], 1, delta=0.01)
+
+    def test_fixed_frames_uses_output_rate_after_thinning(self):
+        for rate, nth, count in [(24, 2, 12), (24, 1, 24), (0, 2, 6), (10, 1, 9)]:
+            out = self.run_node(start_frame=23, fixed_frames=count, force_rate=rate, every_nth=nth)
+            self.assertEqual(out[3], count)
+            self.assertEqual(out[4], (rate or FPS) / nth)
+            self.assertAlmostEqual(out[7], count / out[4])
+            self.assertAlmostEqual(out[2]["waveform"].shape[-1] / out[2]["sample_rate"], out[7], delta=0.01)
+
+    def test_fixed_frames_too_long_is_explicit_and_zero_preserves_free_trim(self):
+        with self.assertRaisesRegex(ValueError, "source is only"):
+            self.run_node(fixed_frames=FRAMES + 1)
+        free = self.run_node(start_seconds=0.5, end_seconds=1, fixed_frames=0)
+        self.assertEqual(free[3], 6)
+        self.assertIs(AusBossVideoCropRotatePadClip.VALIDATE_INPUTS(
+            "", "local path", str(self.video), 9, 2, fixed_frames=12), True)
+        self.assertIn("source is only", AusBossVideoCropRotatePadClip.VALIDATE_INPUTS(
+            "", "local path", str(self.video), 0, 0, fixed_frames=FRAMES + 1))
+
     def test_padding_applies_to_every_frame_and_lands_in_the_mask(self):
         frames, mask, audio, count, fps, width, height, duration = self.run_node(pad_left=16, feather=0)[:8]
         self.assertEqual(tuple(frames.shape), (FRAMES, HEIGHT, WIDTH + 16, 3))
@@ -158,7 +228,9 @@ class VideoClipNodeTests(unittest.TestCase):
         free = self.run_node(start_seconds=0.0, end_seconds=0.0)
         self.assertEqual(free[3], FRAMES)
         snapped = self.run_node(start_seconds=0.0, end_seconds=0.0, frame_snap="4n+1")
-        frames, mask, audio, count, fps, _, _, duration, stitcher = snapped
+        frames, mask, audio, count, fps, _, _, duration, stitcher, original = snapped
+        self.assertEqual(original.shape[0], count)
+        self.assertEqual(tuple(original.shape[1:3]), (HEIGHT, WIDTH))
         self.assertEqual(count, ((FRAMES - 1) // 4) * 4 + 1)
         self.assertEqual(frames.shape[0], count)
         self.assertEqual(mask.shape[0], count)

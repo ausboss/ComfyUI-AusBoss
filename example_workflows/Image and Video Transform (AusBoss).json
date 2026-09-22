@@ -1,6 +1,6 @@
 {
   "last_node_id": 10,
-  "last_link_id": 8,
+  "last_link_id": 11,
   "nodes": [
     {
       "id": 1,
@@ -11,7 +11,7 @@
       ],
       "size": [
         560,
-        940
+        1180
       ],
       "flags": {},
       "order": 0,
@@ -33,7 +33,7 @@
         "ver": "2.0.0"
       },
       "widgets_values": [
-        "{\"v\": 1, \"title\": \"Image and Video Transform\", \"subtitle\": \"Explore both editors, inspect generated-area masks, and align the final image.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"body\": \"## Setup\\nCopy the included pier PNG and MP4 from example_workflows/inputs into ComfyUI/input. No models or extra packs are needed.\\n\\n## Image editor\\nDrag the crop, padding and rotation handles on Image Crop + Rotate + Pad, or open its full-screen editor. The sample starts with a slight rotation and visible padding so the generated-area mask is easy to inspect.\\n\\n## Alignment\\nAlign Image pads the transformed image to a multiple of 64. Compare shows that aligned result against the transform. Alignment outputs the image and dimensions; the mask preview is from the transform before alignment. Use Image Resize with an input mask if image and mask must follow one resize together.\\n\\n## Video frame editor\\nThe Frame variant selects exactly one frame. Move the timeline, then queue to update the image and mask previews. For a whole trimmed sequence, use the Clip variant as shown in the LTX example.\\n\\n## Gesture guide\\nCyan squares crop, orange diamonds pad, green rotates. Shift snaps rotation. Wheel zoom and middle-button pan belong to the full-screen editor; on the compact stage they still navigate the graph.\", \"models\": [], \"packs\": []}"
+        "{\"v\": 1, \"title\": \"Image and Video Transform\", \"subtitle\": \"Explore both editors, inspect generated-area masks, and align the final image.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"body\": \"## Setup\\nCopy the included pier PNG and MP4 from example_workflows/inputs into ComfyUI/input. No models or extra packs are needed.\\n\\n## Image editor\\nDrag the crop, padding and rotation handles on Image Crop + Rotate + Pad, or open its full-screen editor. The sample starts with a slight rotation and visible padding so the generated-area mask is easy to inspect.\\n\\n## Alignment\\nAlign Image pads the transformed image to a multiple of 64. Compare shows that aligned result against the transform. Alignment outputs the image and dimensions; the mask preview is from the transform before alignment. Use Image Resize with an input mask if image and mask must follow one resize together.\\n\\n## Video frame editor\\nThe Frame variant selects exactly one frame. Move the timeline, then queue to update the image and mask previews. For a whole trimmed sequence, use the Clip variant as shown in the LTX example.\\n\\n## Gesture guide\\nCyan squares crop, orange diamonds pad, green rotates. Shift snaps rotation. Wheel zoom and middle-button pan belong to the full-screen editor; on the compact stage they still navigate the graph.\\n\\n## New transform controls\\nChoose **Crop** or **Pad** below the ratio chips. **Reset crop** keeps rotation and padding; **Align** rounds the canvas to a pixel multiple (1 disables). Both Compare nodes now use the new **original** output for a source/result comparison. Image and frame transforms also expose **stitcher** for an outpaint result; connect it to Stitch Inpaint when extending this graph.\", \"models\": [], \"packs\": []}"
       ]
     },
     {
@@ -201,8 +201,7 @@
           "name": "image",
           "type": "IMAGE",
           "links": [
-            3,
-            5
+            3
           ],
           "slot_index": 0
         },
@@ -213,6 +212,18 @@
             1
           ],
           "slot_index": 1
+        },
+        {
+          "name": "stitcher",
+          "type": "AUSBOSS_STITCHER",
+          "links": []
+        },
+        {
+          "name": "original",
+          "type": "IMAGE",
+          "links": [
+            9
+          ]
         }
       ],
       "properties": {
@@ -442,7 +453,7 @@
         {
           "name": "image_b",
           "type": "IMAGE",
-          "link": 5
+          "link": 9
         }
       ],
       "outputs": [
@@ -459,7 +470,7 @@
         "ver": "2.0.0"
       },
       "widgets_values": [],
-      "title": "Aligned image A · transformed image B"
+      "title": "Compare · aligned result / original source"
     },
     {
       "id": 7,
@@ -634,7 +645,7 @@
           "name": "image",
           "type": "IMAGE",
           "links": [
-            6
+            10
           ],
           "slot_index": 0
         },
@@ -645,6 +656,18 @@
             7
           ],
           "slot_index": 1
+        },
+        {
+          "name": "stitcher",
+          "type": "AUSBOSS_STITCHER",
+          "links": []
+        },
+        {
+          "name": "original",
+          "type": "IMAGE",
+          "links": [
+            11
+          ]
         }
       ],
       "properties": {
@@ -676,7 +699,7 @@
     },
     {
       "id": 8,
-      "type": "PreviewImage",
+      "type": "AUSBOSS_NODES_Compare",
       "pos": [
         2000,
         100
@@ -686,29 +709,36 @@
         440
       ],
       "flags": {},
-      "order": 7,
+      "order": 13,
       "mode": 0,
       "inputs": [
         {
-          "name": "images",
+          "name": "image_a",
           "type": "IMAGE",
-          "link": 6
+          "link": 10
+        },
+        {
+          "name": "image_b",
+          "type": "IMAGE",
+          "link": 11
         }
       ],
       "outputs": [
         {
-          "name": "images",
+          "name": "image_a",
           "type": "IMAGE",
-          "links": [],
-          "slot_index": 0
+          "links": []
         }
       ],
       "properties": {
-        "cnr_id": "comfy-core",
-        "Node name for S&R": "PreviewImage"
+        "Node name for S&R": "AUSBOSS_NODES_Compare",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0"
       },
-      "widgets_values": [],
-      "title": "Selected video frame · transformed"
+      "widgets_values": [
+        ""
+      ],
+      "title": "Compare · transformed frame / original"
     },
     {
       "id": 9,
@@ -818,22 +848,6 @@
       "IMAGE"
     ],
     [
-      5,
-      2,
-      0,
-      6,
-      1,
-      "IMAGE"
-    ],
-    [
-      6,
-      7,
-      0,
-      8,
-      0,
-      "IMAGE"
-    ],
-    [
       7,
       7,
       1,
@@ -847,6 +861,30 @@
       0,
       10,
       0,
+      "IMAGE"
+    ],
+    [
+      9,
+      2,
+      3,
+      6,
+      1,
+      "IMAGE"
+    ],
+    [
+      10,
+      7,
+      0,
+      8,
+      0,
+      "IMAGE"
+    ],
+    [
+      11,
+      7,
+      3,
+      8,
+      1,
       "IMAGE"
     ]
   ],

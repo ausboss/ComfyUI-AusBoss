@@ -16,12 +16,12 @@ import {
   boundaryAtFraction,
   clampFrame,
   clipInfo,
-  dragTrimBoundary,
   formatFps,
   fractionOfFrame,
   frameAtFraction,
   frameTime,
   frameWindow,
+  fixedFrameWindow,
   keptEndFraction,
   keptFrames,
   keyboardStep,
@@ -77,12 +77,13 @@ const pct = (fraction) => `${(fraction * 100).toFixed(3)}%`;
 // options:
 //   get(name, fallback) / set(name, value)  widget access
 //   has(name)                                whether a widget exists
+//   driven(name)                             whether an input is linked
 //   metadata()                               the source's {fps, frame_count, duration}
 //   trim                                     IN/OUT handles and the sampling rows
 //                                            (the clip node) or playhead only
 //   onSeek(frame, settled)                   the playhead moved; settled on release
 //   onCommit()                               a stored value settled (undo point)
-export function mountTransformTrim({ get, set, has = () => true, metadata, trim = true, onSeek, onCommit }) {
+export function mountTransformTrim({ get, set, has = () => true, driven = () => false, number = (name, fallback) => get(name, fallback), outputRate, metadata, trim = true, onSeek, onCommit }) {
   installCss();
   const root = el("div", "ausboss-transform-trim");
   const rail = el("div", "ausboss-transform-trim-rail");
@@ -94,12 +95,29 @@ export function mountTransformTrim({ get, set, has = () => true, metadata, trim 
   rail.append(playhead);
 
   const info = () => clipInfo(metadata());
+  const fixed = (first = 0) => trim ? fixedFrameWindow(info(), first, number("fixed_frames", 0), outputRate ? outputRate() : info().fps) : null;
   const currentWindow = () => {
     const clip = info();
-    return trim ? frameWindow(clip, get("start_seconds", 0), get("end_seconds", 0)) : { first: 0, last: Math.max(0, clip.count - 1) };
+    if (!trim) return { first: 0, last: Math.max(0, clip.count - 1) };
+    const startFrame = driven("start_frame") ? number("start_frame", null) : null;
+    const start = startFrame != null ? startFrame / clip.fps : number("start_seconds", get("start_seconds", 0));
+    const window = frameWindow(clip, start, get("end_seconds", 0));
+    const plan = fixed(window.first);
+    return plan && !plan.unresolved ? plan : window;
   };
   const playheadFrame = () => clampFrame(get("frame_index", 0), info());
   const controls = {};
+  const locked = (edge) => {
+    const plan = fixed();
+    return plan ? Boolean(plan.unresolved || plan.tooLong || driven("start_frame") || driven("start_seconds")) : driven(`${edge}_frame`) || driven(`${edge}_seconds`);
+  };
+  const lockTip = (edge) => `The ${edge === "start" ? "starting" : "ending"} frame is supplied by a connected input. Disconnect it to edit ${edge === "start" ? "IN" : "OUT"} here.`;
+  const disableControl = (control, disabled, tip) => {
+    if (!control) return;
+    control.root.style.opacity = disabled ? ".45" : "";
+    control.root.inert = disabled;
+    control.root.parentElement.title = disabled ? tip : "";
+  };
 
   const seek = (frame, settled) => {
     onSeek?.(clampFrame(frame, info()), settled);
@@ -107,13 +125,16 @@ export function mountTransformTrim({ get, set, has = () => true, metadata, trim 
   };
   const writeWindow = (next) => {
     const seconds = windowSeconds(info(), next.first, next.last);
-    set("start_seconds", seconds.start_seconds);
-    set("end_seconds", seconds.end_seconds);
+    if (!locked("start")) set("start_seconds", seconds.start_seconds);
+    if (!locked("end")) set("end_seconds", seconds.end_seconds);
     return next;
   };
   // A trim edge moved: store it and park the playhead on that edge's
   // frame, so the stage shows the first or last frame the run keeps.
-  const moveEdge = (edge, next, settled) => {
+  const moveEdge = (edge, frame, settled) => {
+    if (locked(edge)) return;
+    const window = currentWindow();
+    const next = fixed() ? fixed(frame - (edge === "end" ? window.last - window.first : 0)) : setTrimFrame(window, edge, frame, info());
     writeWindow(next);
     seek(edge === "start" ? next.first : next.last, settled);
     if (settled) onCommit?.();
@@ -125,6 +146,12 @@ export function mountTransformTrim({ get, set, has = () => true, metadata, trim 
   const sync = () => {
     const clip = info();
     const window = currentWindow();
+    const plan = fixed(window.first);
+    if (controls.reset) {
+      controls.reset.textContent = plan ? "To start" : "Full clip";
+      controls.reset.title = plan ? "Move the fixed window to the start of the source." : "Reset IN/OUT to the full source. Keeps frame skipping and the frame limit.";
+      controls.reset.disabled = Boolean(plan && locked("start"));
+    }
     const head = playheadFrame();
     rail.classList.toggle("is-disabled", !clip.count);
     playhead.style.left = pct(fractionOfFrame(head, clip, "center"));
@@ -148,6 +175,11 @@ export function mountTransformTrim({ get, set, has = () => true, metadata, trim 
       const frame = edge === "start" ? window.first : window.last;
       handle.style.left = pct(edge === "start" ? startFraction : endFraction);
       handle.disabled = !clip.count;
+      handle.setAttribute("aria-disabled", String(locked(edge) || !clip.count));
+      handle.style.opacity = locked(edge) ? ".35" : "";
+      handle.style.cursor = locked(edge) ? "not-allowed" : "";
+      handle.title = plan ? (locked(edge) ? "Fixed window is supplied by a link or cannot be positioned yet." : "Move the fixed-length window. Both handles move together; Shift + arrow moves one source frame.") : locked(edge) ? lockTip(edge) : `Drag ${edge === "start" ? "IN" : "OUT"} to trim; Shift + arrow moves one frame.`;
+      disableControl(controls[`${edge}_seconds`], locked(edge), lockTip(edge));
       handle.setAttribute("aria-valuemin", "0");
       handle.setAttribute("aria-valuemax", String(Math.max(0, clip.count - 1)));
       handle.setAttribute("aria-valuenow", String(frame));
@@ -157,16 +189,37 @@ export function mountTransformTrim({ get, set, has = () => true, metadata, trim 
     controls.end_seconds?.set(window.last);
     controls.every_nth?.set(get("every_nth", 1));
     controls.max_frames?.set(get("max_frames", 0));
-    if (controls.frame_snap) controls.frame_snap.value = String(get("frame_snap", "free"));
+    controls.fixed_frames?.set(number("fixed_frames", get("fixed_frames", 0)) ?? get("fixed_frames", 0));
+    disableControl(controls.fixed_frames, driven("fixed_frames"), "Fixed frames is supplied by a connected input.");
+    disableControl(controls.max_frames, Boolean(plan) || driven("frame_load_cap") || driven("max_frames"), plan ? "Fixed frames sets the exact count; Limit is ignored." : "Frame limit is supplied by a connected input. Disconnect it to edit Limit here.");
+    disableControl(controls.every_nth, driven("every_nth"), "Every nth is supplied by a connected input.");
+    if (controls.frame_snap) {
+      controls.frame_snap.value = String(get("frame_snap", "free"));
+      controls.frame_snap.disabled = Boolean(plan) || driven("frame_snap");
+      controls.frame_snap.title = plan ? "Fixed frames sets the exact count; Snap is ignored." : "Drop trailing frames to a model-compatible count.";
+    }
     if (!clip.count) {
       summary.textContent = "Choose a source to set the clip window";
       summary.title = "";
       return;
     }
+    if (plan) {
+      kept.style.width = plan.unresolved || plan.tooLong ? "0%" : span.style.width;
+      summary.textContent = plan.unresolved ? "Fixed length resolves at run time" : plan.tooLong ? `Fixed length needs ${plan.seconds.toFixed(3)}s; source is ${clip.duration.toFixed(3)}s` : `Fixed ${plan.frames} fr · ${plan.seconds.toFixed(3)}s · ${formatFps(outputRate?.() ?? clip.fps)} fps`;
+      summary.title = "Fixed frames overrides OUT, Limit and Snap. Drag either handle or the highlighted selection to reposition the whole window. Alt-drag inside it to scrub. 0 returns to free trim.";
+      return;
+    }
+    if (["start_frame", "end_frame", "force_rate", "frame_load_cap", "start_seconds", "end_seconds", "max_frames", "every_nth", "frame_snap"].some(driven)) {
+      const rate = outputRate?.();
+      summary.textContent = `Source ${formatFps(clip.fps)} fps → Output ${rate == null ? "rate at run time" : `${formatFps(rate)} fps`}`;
+      summary.title = "IN, OUT and the playhead refer to source frames. Output fps includes frame-rate conversion and Every nth. Connected inputs determine the exact frame count at run time. Connect the fps output to the next video node's fps input.";
+      kept.style.width = "0%";
+      return;
+    }
     const count = keep.cut ? `${keep.frames} of ${keep.total} frames` : `${keep.frames} frames`;
     const from = formatTimecode(frameTime(window.first, clip));
     const to = formatTimecode((keep.lastKept + 1) / clip.fps);
-    summary.textContent = `${count} @ ${formatFps(clip.fps / keep.nth)} fps · ${from} → ${to}`;
+    summary.textContent = `Source ${formatFps(clip.fps)} fps → Output ${formatFps(clip.fps / keep.nth)} fps · ${count} · ${from} → ${to}`;
     summary.title = keep.cut
       ? `The window holds ${keep.total} frames; every nth, the frame limit or the snap rule keep ${keep.frames} of them, ending at frame ${keep.lastKept}. The bright part of the bar is what the run outputs.`
       : "Frames the run outputs, at the fps the node reports. Counts are estimated from the source's frame rate.";
@@ -191,26 +244,32 @@ export function mountTransformTrim({ get, set, has = () => true, metadata, trim 
     // Handles stacked on one spot split by side: left of them is IN.
     let zone = "playhead";
     if (Math.min(toIn, toOut) <= HANDLE_HIT_PX) zone = toIn < toOut || (toIn === toOut && x <= inX) ? "start" : "end";
+    else if (fixed() && !event.altKey && x > inX && x < outX) zone = "window";
     return { fraction, zone };
   };
-  const applyPointer = (zone, fraction, settled) => {
+  const applyPointer = (zone, fraction, settled, gesture = drag) => {
     const clip = info();
     if (zone === "playhead") { seek(frameAtFraction(fraction, clip), settled); return; }
-    moveEdge(zone, dragTrimBoundary(currentWindow(), zone, boundaryAtFraction(fraction, clip), clip), settled);
+    if (zone === "window") {
+      if (gesture) moveEdge("start", gesture.first + Math.round((fraction - gesture.origin) * clip.count), settled);
+      return;
+    }
+    moveEdge(zone, boundaryAtFraction(fraction, clip) - (zone === "end" ? 1 : 0), settled);
   };
   let drag = null;
   rail.addEventListener("pointerdown", (event) => {
     if (event.button !== 0 || !info().count) return;
     event.preventDefault(); event.stopPropagation();
     const { fraction, zone } = hit(event);
-    drag = { zone, fraction, pointerId: event.pointerId };
+    if (zone !== "playhead" && locked(zone)) return;
+    drag = { zone, fraction, origin: fraction, first: currentWindow().first, pointerId: event.pointerId };
     try { rail.setPointerCapture(event.pointerId); } catch { /* mouse fallback */ }
     applyPointer(zone, fraction, false);
   });
   rail.addEventListener("pointermove", (event) => {
     if (!drag) {
       const { zone } = info().count ? hit(event) : { zone: "playhead" };
-      rail.style.cursor = zone === "playhead" ? "pointer" : "ew-resize";
+      rail.style.cursor = zone === "playhead" ? "pointer" : locked(zone) ? "not-allowed" : "ew-resize";
       return;
     }
     event.preventDefault(); event.stopPropagation();
@@ -219,11 +278,12 @@ export function mountTransformTrim({ get, set, has = () => true, metadata, trim 
   });
   const finish = (event) => {
     if (!drag) return;
-    const { zone, fraction, pointerId } = drag;
+    const gesture = drag;
+    const { zone, fraction, pointerId } = gesture;
     drag = null;
     try { if (rail.hasPointerCapture(pointerId)) rail.releasePointerCapture(pointerId); } catch { /* released already */ }
     if (event?.type === "pointerup") event.stopPropagation();
-    applyPointer(zone, fraction, true);
+    applyPointer(zone, fraction, true, gesture);
   };
   rail.addEventListener("pointerup", finish);
   rail.addEventListener("pointercancel", finish);
@@ -241,12 +301,12 @@ export function mountTransformTrim({ get, set, has = () => true, metadata, trim 
         if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
         event.preventDefault(); event.stopPropagation();
         const clip = info();
-        if (!clip.count) return;
+        if (!clip.count || locked(edge)) return;
         const window = currentWindow();
         const current = edge === "start" ? window.first : window.last;
         const step = keyboardStep(clip, event.shiftKey) * (event.key === "ArrowLeft" ? -1 : 1);
         const target = event.key === "Home" ? 0 : event.key === "End" ? clip.count - 1 : current + step;
-        moveEdge(edge, setTrimFrame(window, edge, target, clip), true);
+        moveEdge(edge, target, true);
       });
       handles[edge] = handle;
       rail.append(handle);
@@ -262,7 +322,7 @@ export function mountTransformTrim({ get, set, has = () => true, metadata, trim 
       controls[name] = makeScrubInput({
         value: 0, min: 0, max: 10000000, step: 1, decimals: 0,
         title: `${caption} frame: the ${edge === "start" ? "first" : "last"} frame the run keeps (stored as ${name}).`,
-        onChange: (frame) => moveEdge(edge, setTrimFrame(currentWindow(), edge, frame, info()), false),
+        onChange: (frame) => moveEdge(edge, frame, false),
         onSettle: () => { const window = currentWindow(); seek(edge === "start" ? window.first : window.last, true); onCommit?.(); },
       });
       label.append(controls[name].root);
@@ -284,6 +344,15 @@ export function mountTransformTrim({ get, set, has = () => true, metadata, trim 
   root.append(rail, timeRow);
 
   if (trim) {
+    if (has("fixed_frames")) {
+      const lengthRow = el("div", "ausboss-transform-trim-line");
+      const label = el("label", "", "Fixed frames");
+      controls.fixed_frames = makeScrubInput({ value: get("fixed_frames", 0), min: 0, max: 100000, step: 1, decimals: 0, unit: "fr", width: 100,
+        title: "0 = free trim. Exact output frames; both handles move together. 120 frames at 24 fps = 5 seconds.",
+        onChange: next => { if (!driven("fixed_frames")) set("fixed_frames", next); sync(); }, onSettle: onCommit });
+      label.append(controls.fixed_frames.root); lengthRow.append(label, el("span", "ausboss-transform-trim-readout", "0 = free trim"));
+      root.append(lengthRow);
+    }
     const sampling = el("div", "ausboss-transform-trim-line wrap");
     for (const [name, caption, min, max, tip] of [
       ["every_nth", "Every nth", 1, 512, "Keep one frame in this many. Output fps is adjusted to keep real-time playback."],
@@ -291,7 +360,7 @@ export function mountTransformTrim({ get, set, has = () => true, metadata, trim 
     ]) {
       const label = el("label", "", caption);
       controls[name] = makeScrubInput({ value: get(name, min), min, max, step: 1, decimals: 0, title: tip,
-        onChange: (next) => { set(name, next); sync(); }, onSettle: onCommit,
+        onChange: (next) => { if (!driven(name) && !(name === "max_frames" && driven("frame_load_cap"))) set(name, next); sync(); }, onSettle: onCommit,
       });
       label.append(controls[name].root);
       sampling.append(label);
@@ -315,9 +384,10 @@ export function mountTransformTrim({ get, set, has = () => true, metadata, trim 
     }
     const footer = el("div", "ausboss-transform-trim-line");
     const reset = el("button", "ausboss-transform-trim-reset", "Full clip");
+    controls.reset = reset;
     reset.type = "button";
     reset.title = "Reset IN/OUT to the full source. Keeps frame skipping and the frame limit.";
-    reset.addEventListener("click", () => { set("start_seconds", 0); set("end_seconds", 0); sync(); onCommit?.(); });
+    reset.addEventListener("click", () => { if (fixed()) moveEdge("start", 0, true); else { if (!locked("start")) set("start_seconds", 0); if (!locked("end")) set("end_seconds", 0); sync(); onCommit?.(); } });
     footer.append(summary, reset);
     root.append(sampling, footer);
   }
@@ -325,5 +395,5 @@ export function mountTransformTrim({ get, set, has = () => true, metadata, trim 
     if (event.target.closest("button,input,select")) event.stopPropagation();
   });
   sync();
-  return { root, sync, info, window: currentWindow };
+  return { root, sync, info, window: currentWindow, moveEdge, fixed };
 }

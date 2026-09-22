@@ -459,11 +459,12 @@ function entry(name, strength, strengthClip, enabled = true, triggers = "") {
 // { type, widgets: [{ name, value }] }.
 export function loaderLoraEntries(nodeLike) {
   const type = String(nodeLike?.type ?? "");
-  if (type === "LoraLoader") {
+  if (type === "LoraLoader" || type === "Lora Loader (JPS)") {
     const name = widgetValue(nodeLike, "lora_name");
     if (!name || name === "None") return [];
     return [entry(name, widgetValue(nodeLike, "strength_model"),
-                  widgetValue(nodeLike, "strength_clip"))];
+                  widgetValue(nodeLike, "strength_clip"),
+                  type !== "Lora Loader (JPS)" || widgetValue(nodeLike, "switch") === "On")];
   }
   if (type === "LoraLoaderModelOnly") {
     const name = widgetValue(nodeLike, "lora_name");
@@ -472,13 +473,22 @@ export function loaderLoraEntries(nodeLike) {
     // faithfully even when this node has a CLIP connected.
     return [entry(name, widgetValue(nodeLike, "strength_model"), 0)];
   }
+  if (type === "Lora Loader Stack (rgthree)") {
+    return (nodeLike.widgets ?? [])
+      .filter((widget) => /^lora_\d+$/.test(widget.name) && widget.value && widget.value !== "None")
+      .sort((a, b) => Number(a.name.slice(5)) - Number(b.name.slice(5)))
+      .map((widget) => {
+        const strength = widgetValue(nodeLike, `strength_${widget.name.slice(5)}`);
+        return entry(widget.value, strength, strength);
+      });
+  }
   if (type === "Power Lora Loader (rgthree)") {
     const rows = [];
     for (const widget of nodeLike?.widgets ?? []) {
       const value = widget?.value;
       if (!value || typeof value !== "object" || !value.lora) continue;
       if (value.lora === "None") continue;
-      const two = Number(value.strengthTwo);
+      const two = value.strengthTwo == null ? NaN : Number(value.strengthTwo);
       rows.push(entry(
         value.lora,
         value.strength,
@@ -538,13 +548,10 @@ export function resolveLoraName(name, available) {
   return { name, status: "missing" };
 }
 
-// The absorb appends imported rows BELOW the existing stack (position
-// "after") - existing rows stay where the user put them; "before" remains
-// for callers that need to prepend. Either way the imports keep their own
-// order and a lora already in the stack (by name, case-insensitive) is
-// skipped rather than doubled.
+// Merge rows for imports. Absorbing a live chain sets deduplicate=false:
+// repeated filenames are separate patch applications and must all survive.
 export function mergeImportedRows(existing, imported,
-                                  { makeRow = newRow, position = "before" } = {}) {
+                                  { makeRow = newRow, position = "before", deduplicate = true } = {}) {
   const have = new Set(
     (existing ?? []).filter((row) => row?.name)
       .map((row) => row.name.toLowerCase()),
@@ -553,7 +560,7 @@ export function mergeImportedRows(existing, imported,
   let skipped = 0;
   for (const item of imported ?? []) {
     const key = String(item.name).toLowerCase();
-    if (have.has(key)) {
+    if (deduplicate && have.has(key)) {
       skipped += 1;
       continue;
     }
@@ -586,4 +593,123 @@ export function importSummary({ added = 0, skipped = 0, bypassed = 0,
   const broken = missing + ambiguous;
   if (broken) parts.push(`${broken} name${broken === 1 ? "" : "s"} not resolved - check the red rows`);
   return `${parts.join("; ")}.`;
+}
+
+function upstreamModelNode(node) {
+  const graph = node.graph;
+  if (!graph) return null;
+  const input = node.inputs?.find((entry) =>
+    String(entry?.type).toUpperCase() === "MODEL" || String(entry?.name).toLowerCase() === "model",
+  ) ?? node.inputs?.[0];
+  const linkId = input?.link;
+  if (linkId === null || linkId === undefined) return null;
+  const link = graph.links?.[linkId] ?? graph._links?.get?.(linkId);
+  if (!link) return null;
+  return graph.getNodeById?.(link.origin_id) ?? null;
+}
+
+// Loader nodes feeding the model input, nearest-first. Reroutes are walked
+// through; already-bypassed loaders stay in the chain (bypass passes the
+// model through, so the walk continues past them) but contribute no rows.
+export function collectUpstreamLoaders(node) {
+  const chain = [];
+  const seen = new Set([node.id]);
+  let current = upstreamModelNode(node);
+  while (current && !seen.has(current.id)) {
+    seen.add(current.id);
+    const type = String(current.type ?? current.comfyClass ?? "");
+    if (type === "Reroute") {
+      current = upstreamModelNode(current);
+      continue;
+    }
+    if (loaderLoraEntries({ type, widgets: current.widgets }) === null) break;
+    chain.push(current);
+    current = upstreamModelNode(current);
+  }
+  return chain;
+}
+
+// The single node this node's model output feeds - and only when it feeds
+// exactly one. A fan-out ends the walk: bypassing a loader on one branch
+// would silently change what every other branch computes.
+function downstreamModelNode(node) {
+  const graph = node.graph;
+  if (!graph) return null;
+  const output = node.outputs?.find((entry) =>
+    String(entry?.type).toUpperCase() === "MODEL" || String(entry?.name).toLowerCase() === "model",
+  ) ?? node.outputs?.[0];
+  const links = output?.links;
+  if (!Array.isArray(links) || links.length !== 1) return null;
+  const link = graph.links?.[links[0]] ?? graph._links?.get?.(links[0]);
+  if (!link) return null;
+  return graph.getNodeById?.(link.target_id) ?? null;
+}
+
+// Loader nodes the model output feeds, nearest-first (= their apply order).
+// Same rules as upstream: Reroutes pass through, an unrecognized type or a
+// fan-out ends the walk.
+export function collectDownstreamLoaders(node) {
+  const chain = [];
+  const seen = new Set([node.id]);
+  let current = downstreamModelNode(node);
+  while (current && !seen.has(current.id)) {
+    seen.add(current.id);
+    const type = String(current.type ?? current.comfyClass ?? "");
+    if (type === "Reroute") {
+      current = downstreamModelNode(current);
+      continue;
+    }
+    if (loaderLoraEntries({ type, widgets: current.widgets }) === null) break;
+    chain.push(current);
+    current = downstreamModelNode(current);
+  }
+  return chain;
+}
+
+// Absorption moves patches and bypasses their old owners. Only a serial path
+// can keep every consumer seeing the same patches, including CLIP consumers.
+export function absorbChainIssue(node, upstream, downstream) {
+  if ([2, 4].includes(node.mode ?? 0)) return "Enable this LoRA Loader before absorbing a chain.";
+  if (node.inputs?.some(input => input.name === "loras" && input.link != null)) {
+    return "This stack is supplied by a connected input. Disconnect it before absorbing; nothing was changed.";
+  }
+  const chain = [...upstream].reverse().concat(node, downstream);
+  const active = item => ![2, 4].includes(item.mode ?? 0);
+  const slotOf = (item, direction, type) => item[direction]?.find(slot => String(slot.type).toUpperCase() === type);
+  const feedsOnly = (source, target, type) => {
+    const seen = new Set();
+    let output = slotOf(source, "outputs", type);
+    while (output?.links?.length === 1) {
+      const id = output.links[0];
+      if (seen.has(id)) return false;
+      seen.add(id);
+      const graph = source.graph;
+      const link = graph?.links?.[id] ?? graph?._links?.get?.(id);
+      const next = graph?.getNodeById?.(link?.target_id);
+      if (next === target) return target.inputs?.[link.target_slot] === slotOf(target, "inputs", type);
+      if (next?.type !== "Reroute") return false;
+      output = next.outputs?.[0];
+    }
+    return false;
+  };
+  for (let index = 1; index < chain.length; index++) {
+    if (!feedsOnly(chain[index - 1], chain[index], "MODEL")) {
+      return "The model chain branches or changes before reaching this stack. Keep shared loaders separate; nothing was absorbed.";
+    }
+  }
+  const sources = [...upstream, ...downstream].filter(active);
+  if (sources.some(source => source.outputs?.some(output =>
+    !["MODEL", "CLIP"].includes(String(output.type).toUpperCase()) && output.links?.length))) {
+    return "A source loader has another connected output, such as trigger words. Bypassing it would break that connection; nothing was absorbed.";
+  }
+  const movesClip = sources.some(source => slotOf(source, "inputs", "CLIP")?.link != null &&
+    loaderLoraEntries({type: source.type, widgets: source.widgets})?.some(row => row.enabled && row.strength_clip !== 0));
+  if (movesClip) {
+    const clipChain = chain.filter(item => slotOf(item, "outputs", "CLIP"));
+    if (slotOf(node, "inputs", "CLIP")?.link == null || clipChain.some((item, index) =>
+      index > 0 && !feedsOnly(clipChain[index - 1], item, "CLIP"))) {
+      return "CLIP must follow the same serial loader chain as MODEL to preserve its patches. Nothing was absorbed.";
+    }
+  }
+  return null;
 }

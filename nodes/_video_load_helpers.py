@@ -111,6 +111,76 @@ def _estimate_window_frames(metadata: dict, start: float, end: float) -> int:
     return estimated
 
 
+def clip_load_window(path, start_seconds, end_seconds, max_frames=0,
+                     start_frame=None, end_frame=None, frame_load_cap=None):
+    """Linked source-frame bounds override seconds; the end frame is exclusive."""
+    if start_frame is not None or end_frame is not None:
+        fps = float(video_metadata(path).get("fps") or 0)
+        if not math.isfinite(fps) or fps <= 0:
+            raise ValueError("Frame bounds require a known source frame rate.")
+        if start_frame is not None:
+            start_seconds = max(0, int(start_frame)) / fps
+        if end_frame is not None:
+            end_seconds = max(0, int(end_frame)) / fps
+    cap = max_frames if frame_load_cap is None else frame_load_cap
+    return float(start_seconds), float(end_seconds), max(0, int(cap))
+
+
+def fixed_clip_window(metadata, start_seconds, frames, force_rate=0, every_nth=1):
+    """Place an exact output-frame window on the source grid, sliding at ends."""
+    fps = float(metadata.get("fps") or 0)
+    duration = float(metadata.get("duration") or 0)
+    if not math.isfinite(fps) or fps <= 0 or not math.isfinite(duration) or duration <= 0:
+        raise ValueError("Fixed frames requires a known source frame rate and duration.")
+    rate = float(force_rate)
+    if not math.isfinite(rate) or not 0 <= rate <= 1000:
+        raise ValueError("force_rate must be finite and between 0 and 1000 fps.")
+    length = int(frames) * max(1, int(every_nth)) / (rate or fps)
+    if length > duration + 1e-7:
+        raise ValueError(f"Fixed frames needs {length:.3f}s but the source is only {duration:.3f}s. Reduce Fixed frames.")
+    # A source-frame start keeps the preview, decode and audio in agreement.
+    latest = max(0, math.floor((duration - length) * fps + 1e-7))
+    first = min(latest, max(0, math.ceil((float(start_seconds) - _TIME_EPSILON) * fps)))
+    start = first / fps
+    return start, start + length, int(frames)
+
+
+def _frames_at_rate(decoded, fps, start, end, rate):
+    """Sample-and-hold on a uniform grid; stream frames without a second batch.
+
+    A positive rate drops or repeats source frames, preserving playback time.
+    Zero retains the original decode path. The last frame lasts one source tick.
+    """
+    previous = None
+    tick = 0
+    index = 0
+    previous_time = 0.0
+    for frame in decoded:
+        raise_if_interrupted()
+        time = frame.time if frame.time is not None else start + index / fps
+        index += 1
+        if rate <= 0:
+            yield frame, time
+            continue
+        if previous is not None:
+            boundary = min(time, end)
+            while start + tick / rate < boundary - _TIME_EPSILON:
+                target = start + tick / rate
+                tick += 1
+                if target >= previous_time - _TIME_EPSILON:
+                    yield previous, target
+        previous, previous_time = frame, time
+        if time >= end - _TIME_EPSILON:
+            return
+    if rate > 0 and previous is not None:
+        boundary = min(previous_time + 1 / fps, end)
+        while start + tick / rate < boundary - _TIME_EPSILON:
+            target = start + tick / rate
+            tick += 1
+            if target >= previous_time - _TIME_EPSILON:
+                yield previous, target
+
+
 def decode_video_range(
     path: Path,
     start_seconds: float,
@@ -119,19 +189,28 @@ def decode_video_range(
     custom_height: int,
     every_nth: int = 1,
     max_frames: int = 0,
+    force_rate: float = 0.0,
 ) -> tuple[torch.Tensor, float]:
-    """Decode [start, end) as a BHWC float batch plus the source fps.
+    """Decode [start, end) as a BHWC float batch plus its pre-thinning fps.
 
     ``every_nth`` keeps one frame in that many (1 keeps all); the caller
     divides the reported fps by it so timing survives. ``max_frames`` stops
     the decode after that many kept frames (0 = no cap) — the cheap way to
-    sample a long clip without holding it all in memory.
+    sample a long clip without holding it all in memory. A positive
+    ``force_rate`` resamples before thinning; the returned rate reflects it.
     """
+    rate = float(force_rate)
+    if not math.isfinite(rate) or rate < 0 or rate > 1000:
+        raise ValueError("force_rate must be finite and between 0 and 1000 fps.")
     metadata = video_metadata(path)
     start, end = trim_window(float(metadata["duration"]), start_seconds, end_seconds)
     nth = max(1, int(every_nth))
     cap = max(0, int(max_frames))
     estimated = _estimate_window_frames(metadata, start, end)
+    if rate > 0:
+        window_end = min(end, float(metadata["duration"]))
+        if math.isfinite(window_end) and window_end > start:
+            estimated = math.ceil((window_end - start) * rate)
     if nth > 1 and estimated > 0:
         estimated = math.ceil(estimated / nth)
     if cap > 0:
@@ -158,13 +237,10 @@ def decode_video_range(
             container.seek(max(0, offset), stream=stream, backward=True)
         size: tuple[int, int] | None = None
         window_index = 0
-        for frame in container.decode(stream):
+        for frame, time in _frames_at_rate(container.decode(stream), fps, start, end, rate):
             # Checked before the per-frame work, and on skipped frames too, so
             # cancelling during a long lead-in still stops within one frame.
             raise_if_interrupted()
-            time = frame.time
-            if time is None:
-                time = start + window_index / fps
             if time < start - _TIME_EPSILON:
                 continue
             if time > end - _TIME_EPSILON:
@@ -201,7 +277,7 @@ def decode_video_range(
             f"{'the end' if end == float('inf') else f'{end:.2f}s'} in '{path.name}'."
         )
     batch = torch.from_numpy(buffer[:count]).float().div_(255.0)
-    return batch, fps
+    return batch, rate or fps
 
 
 def effective_load_args(

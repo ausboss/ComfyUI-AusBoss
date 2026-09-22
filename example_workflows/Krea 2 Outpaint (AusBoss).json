@@ -1,8 +1,8 @@
 {
   "id": "",
   "revision": 0,
-  "last_node_id": 17,
-  "last_link_id": 22,
+  "last_node_id": 22,
+  "last_link_id": 28,
   "nodes": [
     {
       "id": 1,
@@ -58,7 +58,8 @@
           "name": "CLIP",
           "type": "CLIP",
           "links": [
-            4
+            4,
+            23
           ]
         }
       ],
@@ -219,7 +220,9 @@
         {
           "name": "reference",
           "type": "IMAGE",
-          "links": []
+          "links": [
+            24
+          ]
         }
       ],
       "properties": {
@@ -248,7 +251,7 @@
       "id": 6,
       "type": "AUSBOSS_NODES_Krea2Encode",
       "pos": [
-        -60,
+        460,
         100
       ],
       "size": [
@@ -281,6 +284,14 @@
           "type": "IMAGE",
           "link": null,
           "shape": 7
+        },
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "prompt"
+          },
+          "link": 28
         }
       ],
       "outputs": [
@@ -305,9 +316,9 @@
         "ver": "2.0.0"
       },
       "widgets_values": [
-        "a long wooden pier stretching into a calm alpine lake at sunrise, soft pastel sky with thin streaks of cloud, morning mist over the water, forested mountains on both shores, a single small rowboat tied to the pier, even gentle light, photographic, complete coherent composition",
         "",
-        true
+        "",
+        false
       ],
       "title": "Krea 2 Encode 🆎  ·  describe the whole picture"
     },
@@ -315,7 +326,7 @@
       "id": 7,
       "type": "AUSBOSS_NODES_Krea2OutpaintModelPatch",
       "pos": [
-        -60,
+        460,
         454
       ],
       "size": [
@@ -361,7 +372,7 @@
       "id": 8,
       "type": "VAEEncode",
       "pos": [
-        -60,
+        460,
         676
       ],
       "size": [
@@ -402,7 +413,7 @@
       "id": 9,
       "type": "SetLatentNoiseMask",
       "pos": [
-        -60,
+        460,
         772
       ],
       "size": [
@@ -443,7 +454,7 @@
       "id": 10,
       "type": "AUSBOSS_NODES_Seed",
       "pos": [
-        -60,
+        460,
         868
       ],
       "size": [
@@ -477,7 +488,7 @@
       "id": 11,
       "type": "KSampler",
       "pos": [
-        460,
+        980,
         100
       ],
       "size": [
@@ -544,7 +555,7 @@
       "id": 12,
       "type": "VAEDecode",
       "pos": [
-        460,
+        980,
         412
       ],
       "size": [
@@ -584,7 +595,7 @@
       "id": 13,
       "type": "AUSBOSS_NODES_StitchInpaint",
       "pos": [
-        460,
+        980,
         508
       ],
       "size": [
@@ -635,7 +646,7 @@
       "id": 14,
       "type": "AUSBOSS_NODES_RunTimer",
       "pos": [
-        460,
+        980,
         703
       ],
       "size": [
@@ -658,7 +669,7 @@
       "id": 15,
       "type": "AUSBOSS_NODES_Compare",
       "pos": [
-        960,
+        1480,
         100
       ],
       "size": [
@@ -703,7 +714,7 @@
       "id": 16,
       "type": "AUSBOSS_NODES_SaveImage",
       "pos": [
-        960,
+        1480,
         710
       ],
       "size": [
@@ -774,7 +785,7 @@
       ],
       "size": [
         560,
-        1270
+        1510
       ],
       "flags": {},
       "order": 17,
@@ -787,8 +798,210 @@
         "ver": "2.0.0"
       },
       "widgets_values": [
-        "{\"v\": 1, \"title\": \"Krea 2 Outpaint\", \"subtitle\": \"Extend a picture on any side, all at once. The AnyPaint LoRA and the model patch make Krea 2 continue the scene into the padding instead of painting a new one beside it.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose each installed model in its loader; saved selections may include local subfolders. Download links below name the standard destination folders.\\n\\n## How it works\\n1. **Load Image + Pad** — drag any edge of the dashed rectangle outward; all four at once is fine. The padding is flat grey, the mask covers exactly the new area with a short inward feather.\\n2. **Krea 2 Encode** — describe the *whole finished picture*. The **padded canvas** rides along as the reference with *VLM reference* on, so the text encoder sees the grey and knows what is missing.\\n3. **AnyPaint LoRA + model patch** — the LoRA (yijunwang2/krea2-anypaint) was trained on exactly this: a grey-padded canvas as the reference, spread over the whole frame. The **Outpaint Model Patch** on *whole canvas* registers it there and caches its keys and values once per run.\\n4. **Noise mask** — the padded canvas is VAE-encoded and given the pad mask; the sampler restores the known pixels at every step and only paints the grey.\\n5. **Sample, stitch, save** — 8 steps, CFG 1, `er_sde` / `simple`. **Stitch Inpaint** lays the untouched source back over the result through the pad's feather. Its *Tone match* reads how far the model's new area drifted from the source along each seam and lifts it back, so the padding and the source meet on one tone. **Compare** slides result against the padded canvas. About 15 s on a 32 GB card for a 1280×1664 canvas.\\n\\n## One axis at a time? Not any more\\nThe pack's first Krea 2 outpaint pinned the *unpadded* source to its rectangle (the Registered Outpaint LoRA's contract) and that only holds up when the source spans one whole canvas axis — pad left and right, or top and bottom, never both. AnyPaint uses the padded canvas itself as the reference, so the placement is always the full frame and every side can grow in one pass. Switch the patch back to *source rectangle*, load `krea2_outpaint_rank32` and wire the pad node's *reference* output instead to get the old behaviour.\\n\\n## Try\\n- **Inpaint too**: AnyPaint treats any white mask pixel as *generate*. Paint over something in the picture with the mask editor and pad at the same time.\\n- **More canvas**: the new area copes with roughly doubling the picture; past that it starts to invent a second scene. Grow in two runs instead.\\n- **Bypass the LoRA** (Ctrl+B) to see how much of the result it carries.\", \"models\": [{\"name\": \"krea2_turbo_fp8.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"Tested local FP8 Turbo filename. The download is the official krea2_turbo_fp8_scaled.safetensors build; select that downloaded file in the loader if using it.\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}, {\"name\": \"krea2_anypaint_rank32.safetensors\", \"dir\": \"loras\", \"size\": \"229 MB\", \"url\": \"https://huggingface.co/yijunwang2/krea2-anypaint/resolve/main/krea2_anypaint_rank32.safetensors\", \"note\": \"Krea 2 AnyPaint by yijunwang2 - arbitrary-mask inpaint + outpaint adapter; Krea 2 Community License\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_Krea2OutpaintModelPatch\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+        "{\"v\": 1, \"title\": \"Krea 2 Outpaint\", \"subtitle\": \"Extend a picture on any side, all at once. The AnyPaint LoRA and the model patch make Krea 2 continue the scene into the padding instead of painting a new one beside it.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose each installed model in its loader; saved selections may include local subfolders. Download links below name the standard destination folders.\\n\\n## How it works\\n1. **Load Image + Pad** — drag any edge of the dashed rectangle outward; all four at once is fine. The padding is flat grey, the mask covers exactly the new area with a short inward feather.\\n2. **Krea 2 Encode** — describe the *whole finished picture*. The **padded canvas** rides along as the reference with *VLM reference* on, so the text encoder sees the grey and knows what is missing.\\n3. **AnyPaint LoRA + model patch** — the LoRA (yijunwang2/krea2-anypaint) was trained on exactly this: a grey-padded canvas as the reference, spread over the whole frame. The **Outpaint Model Patch** on *whole canvas* registers it there and caches its keys and values once per run.\\n4. **Noise mask** — the padded canvas is VAE-encoded and given the pad mask; the sampler restores the known pixels at every step and only paints the grey.\\n5. **Sample, stitch, save** — 8 steps, CFG 1, `er_sde` / `simple`. **Stitch Inpaint** lays the untouched source back over the result through the pad's feather. Its *Tone match* reads how far the model's new area drifted from the source along each seam and lifts it back, so the padding and the source meet on one tone. **Compare** slides result against the padded canvas. About 15 s on a 32 GB card for a 1280×1664 canvas.\\n\\n## One axis at a time? Not any more\\nThe pack's first Krea 2 outpaint pinned the *unpadded* source to its rectangle (the Registered Outpaint LoRA's contract) and that only holds up when the source spans one whole canvas axis — pad left and right, or top and bottom, never both. AnyPaint uses the padded canvas itself as the reference, so the placement is always the full frame and every side can grow in one pass. Switch the patch back to *source rectangle*, load `krea2_outpaint_rank32` and wire the pad node's *reference* output instead to get the old behaviour.\\n\\n## Try\\n- **Inpaint too**: AnyPaint treats any white mask pixel as *generate*. Paint over something in the picture with the mask editor and pad at the same time.\\n- **More canvas**: the new area copes with roughly doubling the picture; past that it starts to invent a second scene. Grow in two runs instead.\\n- **Bypass the LoRA** (Ctrl+B) to see how much of the result it carries.\\n\\n## Automatic source description\\nKrea’s Qwen3-VL text encoder describes the unpadded reference, then combines it with **Outpaint direction**. Review the text on Show Text. The renderer still uses the Krea encoder and the padded AnyPaint reference. To write the entire prompt yourself, connect Outpaint direction directly to Krea 2 Encode and mute the caption stage. Keep caption sampling on with the supplied settings. No separate caption model is required.\", \"models\": [{\"name\": \"krea2_turbo_fp8.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"Tested local FP8 Turbo filename. The download is the official krea2_turbo_fp8_scaled.safetensors build; select that downloaded file in the loader if using it.\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}, {\"name\": \"krea2_anypaint_rank32.safetensors\", \"dir\": \"loras\", \"size\": \"229 MB\", \"url\": \"https://huggingface.co/yijunwang2/krea2-anypaint/resolve/main/krea2_anypaint_rank32.safetensors\", \"note\": \"Krea 2 AnyPaint by yijunwang2 - arbitrary-mask inpaint + outpaint adapter; Krea 2 Community License\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_Krea2OutpaintModelPatch\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
       ]
+    },
+    {
+      "id": 19,
+      "type": "TextGenerate",
+      "pos": [
+        -60,
+        100
+      ],
+      "size": [
+        460,
+        440
+      ],
+      "flags": {},
+      "order": 18,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 23
+        },
+        {
+          "name": "sampling_mode",
+          "type": "COMFY_DYNAMICCOMBO_V3",
+          "link": null
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 24,
+          "shape": 7
+        },
+        {
+          "name": "video",
+          "type": "IMAGE",
+          "link": null,
+          "shape": 7
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": null,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "generated_text",
+          "type": "STRING",
+          "links": [
+            25
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "TextGenerate"
+      },
+      "widgets_values": [
+        "Describe only the visible subject, setting, materials, composition and lighting in 60 to 90 words. Use plain factual language. Do not invent actions, camera motion, sound or objects. Output only the description.",
+        180,
+        "on",
+        0.7,
+        64,
+        0.95,
+        0.05,
+        1.05,
+        20260922,
+        0.0,
+        false,
+        true,
+        "auto"
+      ],
+      "title": "Describe source · Krea 2 text encoder"
+    },
+    {
+      "id": 20,
+      "type": "AUSBOSS_NODES_ShowText",
+      "pos": [
+        -60,
+        590
+      ],
+      "size": [
+        460,
+        260
+      ],
+      "flags": {},
+      "order": 19,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 25,
+          "widget": {
+            "name": "text"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "links": [
+            26
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_ShowText",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0"
+      },
+      "widgets_values": [],
+      "title": "Source description · inspect before rendering"
+    },
+    {
+      "id": 21,
+      "type": "AUSBOSS_NODES_Text",
+      "pos": [
+        -60,
+        900
+      ],
+      "size": [
+        460,
+        150
+      ],
+      "flags": {},
+      "order": 20,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "links": [
+            27
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_Text",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0"
+      },
+      "widgets_values": [
+        "Extend this scene naturally into the added canvas. Preserve the existing viewpoint, materials and lighting."
+      ],
+      "title": "Outpaint direction · optional extra detail"
+    },
+    {
+      "id": 22,
+      "type": "StringConcatenate",
+      "pos": [
+        -60,
+        1100
+      ],
+      "size": [
+        460,
+        166
+      ],
+      "flags": {},
+      "order": 21,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "string_a",
+          "type": "STRING",
+          "link": 26,
+          "widget": {
+            "name": "string_a"
+          }
+        },
+        {
+          "name": "string_b",
+          "type": "STRING",
+          "link": 27,
+          "widget": {
+            "name": "string_b"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            28
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "StringConcatenate"
+      },
+      "widgets_values": [
+        "",
+        "",
+        "\n\n"
+      ],
+      "title": "Prompt · description + direction"
     }
   ],
   "links": [
@@ -967,6 +1180,54 @@
       16,
       0,
       "IMAGE"
+    ],
+    [
+      23,
+      2,
+      0,
+      19,
+      0,
+      "CLIP"
+    ],
+    [
+      24,
+      5,
+      5,
+      19,
+      2,
+      "IMAGE"
+    ],
+    [
+      25,
+      19,
+      0,
+      20,
+      0,
+      "STRING"
+    ],
+    [
+      26,
+      20,
+      0,
+      22,
+      0,
+      "STRING"
+    ],
+    [
+      27,
+      21,
+      0,
+      22,
+      1,
+      "STRING"
+    ],
+    [
+      28,
+      22,
+      0,
+      6,
+      4,
+      "STRING"
     ]
   ],
   "groups": [
@@ -998,9 +1259,9 @@
     },
     {
       "id": 3,
-      "title": "3 · Prompt, placement, noise mask",
+      "title": "4 · Prompt, placement, noise mask",
       "bounding": [
-        -80,
+        440,
         40,
         500,
         1064
@@ -1011,9 +1272,9 @@
     },
     {
       "id": 4,
-      "title": "4 · Sample + stitch",
+      "title": "5 · Sample + stitch",
       "bounding": [
-        440,
+        960,
         40,
         480,
         745
@@ -1024,9 +1285,9 @@
     },
     {
       "id": 5,
-      "title": "5 · Compare, save",
+      "title": "6 · Compare, save",
       "bounding": [
-        940,
+        1460,
         40,
         600,
         1080
@@ -1034,6 +1295,18 @@
       "flags": {},
       "font_size": 24,
       "color": "#345d7c"
+    },
+    {
+      "title": "3 · Describe the source",
+      "bounding": [
+        -80,
+        40,
+        500,
+        1250
+      ],
+      "color": "#42686c",
+      "font_size": 24,
+      "flags": {}
     }
   ],
   "config": {},

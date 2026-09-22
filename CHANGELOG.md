@@ -2,7 +2,58 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.1.0 - 2026-09-22
+
+- LoRA absorption preserves repeated applications and upstream → stack →
+  downstream order. Shared MODEL/CLIP paths, used auxiliary outputs, a bypassed
+  destination or linked stack values leave the original loaders untouched.
+- Rename the editor’s Reset all action to Reset transform and explain which
+  settings it keeps. Keep the selected video frame during a transform reset
+  so the picture and timeline stay in agreement. Document the Clip node’s original-frame output in README.
+
+- Video Clip: add Fixed frames for an exact-length selection. Drag either
+  handle or the highlighted band to move both ends together. Duration follows
+  output fps; frame/audio counts stay aligned. Existing frame caps retain their
+  maximum-limit behavior. Too-short sources report the required duration.
+
+- Refresh related examples: Krea/Klein Outpaint and both image-guided H3 graphs
+  describe their sources with tested Qwen3-VL caption paths. Krea reuses its
+  own text encoder; Klein and H3 list the extra caption model download.
+  Setup cards explain manual prompts and Krea's caption sampling settings.
+- LTX Outpaint captions the unpadded original frame. H3 First + Last Frame
+  no longer hardcodes the ending timestamp. Krea Studio includes LoRA trigger
+  words, the LoRA Stack example saves a prompt sidecar, and the transform
+  example compares results against the new original outputs.
+
+- LoRA Loader: refresh restored rows when widget values arrive after node
+  configuration, including undo, without switching workflow tabs.
+- Video transform uploads stream into the input folder instead of buffering
+  through the image-upload endpoint, allowing files over 100 MB.
+- All Crop + Rotate + Pad nodes: add Crop / Pad mode, crop-only ratio locking,
+  Reset crop, and pixel alignment on the node face. Image and frame nodes
+  append stitcher and original outputs; the clip node appends original frames.
+- Image Resize: new nodes start in megapixels mode; saved modes are retained.
+
+- Add Qwen Image 2.1 Text to Image and Edit examples with numbered stage
+  groups, model download cards, AusBoss size and seed controls, and PNG
+  saving. Text to Image includes an empty optional LoRA stack; Edit uses
+  source-matched Qwen conditioning and a before/after comparison.
+
+- Video Crop + Rotate + Pad → Clip: distinguish source and output fps in
+  the trim footer, including a connected numeric rate and Every nth.
+
+- LoRA Loader: separate single-row removal from a red, trash-marked
+  Delete all LoRAs action with confirmation. LoRA files are never deleted.
+
+- LoRA Loader: absorb rgthree Lora Loader Stack and JPS Lora Loader nodes
+  on either side of the connected model chain. Preserve disabled JPS rows
+  and rgthree's linked strengths; refuse linked settings or an overflowing
+  stack before bypassing the source loaders.
+- Video Crop + Rotate + Pad → Clip: add optional `force_rate`, `start_frame`,
+  `end_frame`, and `frame_load_cap` sockets. Connected frame bounds lock the
+  matching timeline handle; a connected cap locks Limit. Rate conversion
+  drops or repeats frames while preserving playback timing.
+- Image Resize: add compact W/H labels beside the paired size fields.
 
 - LTX 2.3 Video Outpaint example: disable Stitch Inpaint color matching,
   which can spread moving seam content into flickering dark or light bands

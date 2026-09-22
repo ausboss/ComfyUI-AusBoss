@@ -29,6 +29,9 @@ import {
   importSummary,
   isScrubbing,
   loaderLoraEntries,
+  collectUpstreamLoaders,
+  collectDownstreamLoaders,
+  absorbChainIssue,
   mergeImportedRows,
   moveHighlight,
   moveRow,
@@ -287,6 +290,8 @@ function installStyles() {
     background: transparent; color: inherit; padding: 6px 8px; border-radius: 4px; cursor: pointer; }
   .ausboss-lora-menu > button:hover:not(:disabled) { background: #2c3238; }
   .ausboss-lora-menu button:disabled { opacity: 0.35; cursor: default; }
+  .ausboss-lora-menu > button.ausboss-lora-danger { color: #ff8585;
+    border-top: 1px solid #574047; margin-top: 6px; padding-top: 8px; }
   .ausboss-lora-templates { min-width: 240px; padding: 8px; gap: 6px; display: flex;
     flex-direction: column; }
   .ausboss-lora-template-row { display: flex; align-items: center; gap: 4px; }
@@ -451,6 +456,7 @@ function openPopup(element, anchorRect, { width } = {}) {
 function commitRows(state, rows, { structural = false } = {}) {
   state.rows = rows;
   state.widget.value = serializeRows(rows);
+  state.renderedValue = state.widget.value;
   state.node.graph?.setDirtyCanvas(true, true);
   if (structural) renderRows(state);
   else updateRowValues(state);
@@ -1051,6 +1057,7 @@ function openRowMenu(state, index, event) {
     button.disabled = disabled;
     button.addEventListener("click", () => { closePopup(); action(); });
     menu.append(button);
+    return button;
   };
   const insertEmpty = (position) => {
     if (state.rows.length >= MAX_ROWS) return;
@@ -1072,12 +1079,32 @@ function openRowMenu(state, index, event) {
     commitRows(state, rows, { structural: true });
     fitNode(state);
   }, state.rows.length >= MAX_ROWS);
-  item("Remove", () => {
+  item("Remove this LoRA", () => {
     const rows = state.rows.slice();
     rows.splice(index, 1);
     commitRows(state, rows, { structural: true });
     fitNode(state);
   });
+  item("🗑 Delete all LoRAs…", () => {
+    const confirmation = el("div", "ausboss-lora-menu");
+    const message = el("div", "ausboss-lora-empty",
+      `Remove all ${state.rows.length} LoRA rows from this node? Files on disk are kept.`);
+    const cancel = el("button", "", "Cancel — keep LoRAs");
+    const remove = el("button", "ausboss-lora-danger", "🗑 Yes, delete all rows");
+    cancel.type = remove.type = "button";
+    cancel.addEventListener("click", closePopup);
+    remove.addEventListener("click", () => {
+      closePopup();
+      commitRows(state, [], { structural: true });
+      fitNode(state);
+      notifyAusbossChange();
+    });
+    confirmation.append(message, cancel, remove);
+    openPopup(confirmation,
+      { left: event.clientX, top: event.clientY, bottom: event.clientY, width: 0 },
+      { width: 270 });
+    cancel.focus();
+  }).classList.add("ausboss-lora-danger");
   openPopup(menu, { left: event.clientX, top: event.clientY, bottom: event.clientY, width: 0 });
 }
 
@@ -1151,87 +1178,7 @@ function updateRowValues(state) {
 
 // ---------- absorb the loader chain ----------
 
-// The graph walk stays here (it needs live LiteGraph objects); which node
-// types contribute rows and how is pure logic in lora_stack.mjs.
-const IMPORT_SOURCE_TYPES = new Set([
-  "LoraLoader",
-  "LoraLoaderModelOnly",
-  "Power Lora Loader (rgthree)",
-  "PixaromaLoraLoader",
-  "AUSBOSS_NODES_LoraLoader",
-  // The lab fork serializes the same stack; absorbing one keeps working
-  // for anyone with both packs installed.
-  "AUSBOSS_LAB_LoraLoader",
-]);
-
-function upstreamModelNode(node) {
-  const graph = node.graph;
-  if (!graph) return null;
-  const input = node.inputs?.find((entry) => entry?.name === "model") ?? node.inputs?.[0];
-  const linkId = input?.link;
-  if (linkId === null || linkId === undefined) return null;
-  const link = graph.links?.[linkId] ?? graph._links?.get?.(linkId);
-  if (!link) return null;
-  return graph.getNodeById?.(link.origin_id) ?? null;
-}
-
-// Loader nodes feeding the model input, nearest-first. Reroutes are walked
-// through; already-bypassed loaders stay in the chain (bypass passes the
-// model through, so the walk continues past them) but contribute no rows.
-function collectUpstreamLoaders(node) {
-  const chain = [];
-  const seen = new Set([node.id]);
-  let current = upstreamModelNode(node);
-  while (current && !seen.has(current.id)) {
-    seen.add(current.id);
-    const type = String(current.type ?? current.comfyClass ?? "");
-    if (type === "Reroute") {
-      current = upstreamModelNode(current);
-      continue;
-    }
-    if (!IMPORT_SOURCE_TYPES.has(type)) break;
-    chain.push(current);
-    current = upstreamModelNode(current);
-  }
-  return chain;
-}
-
-// The single node this node's model output feeds - and only when it feeds
-// exactly one. A fan-out ends the walk: bypassing a loader on one branch
-// would silently change what every other branch computes.
-function downstreamModelNode(node) {
-  const graph = node.graph;
-  if (!graph) return null;
-  const output = node.outputs?.find((entry) => entry?.name === "model")
-    ?? node.outputs?.[0];
-  const links = output?.links;
-  if (!Array.isArray(links) || links.length !== 1) return null;
-  const link = graph.links?.[links[0]] ?? graph._links?.get?.(links[0]);
-  if (!link) return null;
-  return graph.getNodeById?.(link.target_id) ?? null;
-}
-
-// Loader nodes the model output feeds, nearest-first (= their apply order).
-// Same rules as upstream: Reroutes pass through, an unrecognized type or a
-// fan-out ends the walk.
-function collectDownstreamLoaders(node) {
-  const chain = [];
-  const seen = new Set([node.id]);
-  let current = downstreamModelNode(node);
-  while (current && !seen.has(current.id)) {
-    seen.add(current.id);
-    const type = String(current.type ?? current.comfyClass ?? "");
-    if (type === "Reroute") {
-      current = downstreamModelNode(current);
-      continue;
-    }
-    if (!IMPORT_SOURCE_TYPES.has(type)) break;
-    chain.push(current);
-    current = downstreamModelNode(current);
-  }
-  return chain;
-}
-
+// Loader recognition and graph traversal share one tested source in lora_stack.mjs.
 // Circular reconnect arrow, hand-drawn like the shared gear so no glyph
 // font is trusted to have it.
 function reloadIconSvg() {
@@ -1302,15 +1249,27 @@ async function runImportChain(state) {
   // its rows would change the image. Leave it alone.
   const isActive = (loader) =>
     loader.mode !== BYPASS_MODE && loader.mode !== MUTE_MODE;
-  const activeUp = collectUpstreamLoaders(state.node).filter(isActive);
-  const activeDown = collectDownstreamLoaders(state.node).filter(isActive);
+  const upstream = collectUpstreamLoaders(state.node);
+  const downstream = collectDownstreamLoaders(state.node);
+  const issue = absorbChainIssue(state.node, upstream, downstream);
+  if (issue) { loraToast(issue); return; }
+  const activeUp = upstream.filter(isActive);
+  const activeDown = downstream.filter(isActive);
+  const sources = [...activeUp, ...activeDown];
+  // A snapshot cannot reproduce values calculated by another node at run time.
+  if (sources.some((loader) => loader.inputs?.some((input) => input.link != null
+      && !["MODEL", "CLIP"].includes(String(input.type).toUpperCase())))) {
+    loraToast("A source loader has linked LoRA settings. Disconnect those settings before absorbing; source loaders remain active.");
+    return;
+  }
   const entriesOf = (loader) => loaderLoraEntries({
     type: String(loader.type ?? loader.comfyClass ?? ""),
     widgets: (loader.widgets ?? []).map((widget) => ({
       name: widget.name,
       value: widget.value,
     })),
-  }) ?? [];
+  })?.map(row => ({ ...row, strength_clip: loader.inputs?.some(input =>
+    String(input.type).toUpperCase() === "CLIP" && input.link != null) ? row.strength_clip : 0 })) ?? [];
   // Upstream walks nearest-first, so reversed = the order the chain applies
   // them; downstream nearest-first already IS its apply order.
   const upEntries = activeUp.slice().reverse().flatMap(entriesOf);
@@ -1341,15 +1300,17 @@ async function runImportChain(state) {
   };
   const upResolved = upEntries.map(resolve);
   const downResolved = downEntries.map(resolve);
-  // Absorbed rows append BELOW the existing stack - your rows stay where
-  // you put them, imports read as additions. Upstream entries first (in
-  // chain order), then downstream; LoRA patches accumulate, so the apply
-  // order does not change what the graph computes. The dedupe accumulates
-  // across both merges so nothing lands twice.
+  // Preserve upstream → this stack → downstream application order, including
+  // repeated files: the same LoRA in two loaders represents two applications.
   const upMerge = mergeImportedRows(state.rows, upResolved,
-    { position: "after" });
+    { position: "before", deduplicate: false });
   const downMerge = mergeImportedRows(upMerge.rows, downResolved,
-    { position: "after" });
+    { position: "after", deduplicate: false });
+  // Never bypass a source if any of its rows would be lost to the stack limit.
+  if (state.rows.length + upMerge.added + downMerge.added > MAX_ROWS) {
+    loraToast(`Absorb needs more than ${MAX_ROWS} rows. Free some stack rows first; source loaders remain active.`);
+    return;
+  }
   // Rows that patch model and CLIP differently need both boxes visible, or
   // the difference is invisible and lost on the first scrub. The flip is
   // node-local (unified stays the default for new nodes) and the toast
@@ -1656,7 +1617,7 @@ function installLoraNode(node) {
   // before it stopped persisting - never a reason to split a fresh node.
   settings.separate_strengths = false;
   const panel = el("div", "ausboss-lora-panel");
-  const state = { node, widget, panel, rows: parseRows(widget.value), settings };
+  const state = { node, widget, panel, rows: parseRows(widget.value), settings, renderedValue: widget.value };
   state.toggleSnapshot = snapshotEnabled(state.rows);
   node.__ausbossLoraState = state;
   if (node.properties && node.properties.ausbossLoraLinked === undefined) {
@@ -1726,13 +1687,24 @@ function installLoraNode(node) {
   refreshAvailable(state);
   node.setSize?.([Math.max(336, node.size?.[0] || 336), node.computeSize?.()[1] || 220]);
 
-  // Workflow restore lands widget values after creation: re-read then.
-  chainCallback(node, "onConfigure", function () {
-    state.rows = parseRows(widget.value);
+  // Workflow restore and undo may commit values after onConfigure. Reconcile
+  // from the widget after that commit and before the next visible frame.
+  const syncRestoredRows = () => {
+    const current = node.widgets?.find((item) => item.name === "loras");
+    if (!current || current.value === state.renderedValue) return;
+    state.widget = current;
+    state.rows = parseRows(current.value);
+    state.renderedValue = current.value;
     state.toggleSnapshot = snapshotEnabled(state.rows);
     renderRows(state);
-    refreshAvailable(state);
-    requestAnimationFrame(() => fitNode(state));
+    fitNode(state);
+  };
+  chainCallback(node, "onConfigure", function () {
+    queueMicrotask(() => { syncRestoredRows(); refreshAvailable(state); });
+    requestAnimationFrame(() => { syncRestoredRows(); fitNode(state); });
+  });
+  chainCallback(node, "onDrawForeground", function () {
+    syncRestoredRows();
   });
   chainCallback(node, "onRemoved", () => closePopup());
   // ComfyUI's R refresh re-reads node definitions; ride it so files that

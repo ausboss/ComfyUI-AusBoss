@@ -26,6 +26,7 @@ CLAUDE.md
 .comfyignore
 todo.md
 todo
+todo2
 workflow_ideas.md
 *.swp
 .*.swp

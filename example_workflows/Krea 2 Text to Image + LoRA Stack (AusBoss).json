@@ -2,7 +2,7 @@
   "id": "ausboss-showcase",
   "revision": 0,
   "last_node_id": 15,
-  "last_link_id": 15,
+  "last_link_id": 17,
   "nodes": [
     {
       "id": 1,
@@ -13,7 +13,7 @@
       ],
       "size": [
         560,
-        1040
+        1280
       ],
       "flags": {},
       "order": 0,
@@ -26,7 +26,7 @@
         "ver": "2.0.0"
       },
       "widgets_values": [
-        "{\"v\": 1, \"title\": \"Krea 2 Text to Image + LoRA Stack\", \"subtitle\": \"The clean Krea 2 Turbo graph with one LoRA Loader for the whole stack. Trigger words flow into the prompt on their own wire.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose each installed model in its loader; saved selections may include local subfolders. Download links below name the standard destination folders.\\n\\n## How it works\\n1. **LoRA Loader** holds every LoRA in one node. The pill turns a row on or off, the name is a drag-to-scrub strength, and the **ⓘ** card lists the file's trigger words — click a word to add it to the `triggers` output.\\n2. **Concatenate** puts those trigger words in front of your prompt, so switching LoRAs never means editing the prompt.\\n3. **Krea 2 Encode** encodes both prompts in one node. **Seed** is pinned (Fixed) to reproduce this exact image; switch it to Random for variations, and *Use last run* brings a good one back.\\n4. **Queue.** The Run Timer shows how long the render took.\\n\\n## Try\\n- The tarot row is enabled. The optional anime row starts off; download and select that LoRA before enabling it.\\n- Drag a row's name left or right to scrub its strength. Shift is the fine step.\\n- Gear menu → **Absorb loader chain** pulls any other LoRA loaders wired into the model line into this stack.\\n- 8 steps, CFG 1, `er_sde` / `simple` is the Krea 2 Turbo recipe. 832×1216 is the portrait size the tarot look likes.\", \"models\": [{\"name\": \"krea2_turbo_fp8.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"Tested local FP8 Turbo filename. The download is the official krea2_turbo_fp8_scaled.safetensors build; select that downloaded file in the loader if using it.\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}, {\"name\": \"krea2_vintagetarot.safetensors\", \"dir\": \"loras\", \"size\": \"469 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/loras/krea2_vintagetarot.safetensors\", \"note\": \"trigger: vintage tarot style\"}, {\"name\": \"krea2_retroanime.safetensors\", \"dir\": \"loras\", \"size\": \"469 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/loras/krea2_retroanime.safetensors\", \"note\": \"trigger: purple retro anime style — off by default, flip it on to swap the look\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_LoraLoader\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+        "{\"v\": 1, \"title\": \"Krea 2 Text to Image + LoRA Stack\", \"subtitle\": \"The clean Krea 2 Turbo graph with one LoRA Loader for the whole stack. Trigger words flow into the prompt on their own wire.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose each installed model in its loader; saved selections may include local subfolders. Download links below name the standard destination folders.\\n\\n## How it works\\n1. **LoRA Loader** holds every LoRA in one node. The pill turns a row on or off, the name is a drag-to-scrub strength, and the **ⓘ** card lists the file's trigger words — click a word to add it to the `triggers` output.\\n2. **Concatenate** puts those trigger words in front of your prompt, so switching LoRAs never means editing the prompt.\\n3. **Krea 2 Encode** encodes both prompts in one node. **Seed** is pinned (Fixed) to reproduce this exact image; switch it to Random for variations, and *Use last run* brings a good one back.\\n4. **Queue.** The Run Timer shows how long the render took.\\n\\n## Try\\n- The tarot row is enabled. The optional anime row starts off; download and select that LoRA before enabling it.\\n- Drag a row's name left or right to scrub its strength. Shift is the fine step.\\n- Gear menu → **Absorb loader chain** pulls any other LoRA loaders wired into the model line into this stack.\\n- 8 steps, CFG 1, `er_sde` / `simple` is the Krea 2 Turbo recipe. 832×1216 is the portrait size the tarot look likes.\\n\\n## Save the prompt\\nSave Image writes the PNG with its workflow and a matching `.txt` sidecar containing the assembled LoRA triggers and prompt. Disconnect caption_text if you only want the image.\", \"models\": [{\"name\": \"krea2_turbo_fp8.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"Tested local FP8 Turbo filename. The download is the official krea2_turbo_fp8_scaled.safetensors build; select that downloaded file in the loader if using it.\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}, {\"name\": \"krea2_vintagetarot.safetensors\", \"dir\": \"loras\", \"size\": \"469 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/loras/krea2_vintagetarot.safetensors\", \"note\": \"trigger: vintage tarot style\"}, {\"name\": \"krea2_retroanime.safetensors\", \"dir\": \"loras\", \"size\": \"469 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/loras/krea2_retroanime.safetensors\", \"note\": \"trigger: purple retro anime style — off by default, flip it on to swap the look\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_LoraLoader\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
       ]
     },
     {
@@ -338,7 +338,8 @@
           "type": "STRING",
           "links": [
             6,
-            7
+            7,
+            17
           ],
           "slot_index": 0
         }
@@ -560,7 +561,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            15
+            16
           ],
           "slot_index": 0
         }
@@ -635,7 +636,7 @@
     },
     {
       "id": 15,
-      "type": "SaveImage",
+      "type": "AUSBOSS_NODES_SaveImage",
       "pos": [
         280,
         100
@@ -651,16 +652,54 @@
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 15
+          "link": 16
+        },
+        {
+          "name": "filename",
+          "type": "STRING",
+          "link": null,
+          "shape": 7,
+          "widget": {
+            "name": "filename"
+          }
+        },
+        {
+          "name": "caption_text",
+          "type": "STRING",
+          "link": 17,
+          "shape": 7,
+          "widget": {
+            "name": "caption_text"
+          }
         }
       ],
-      "outputs": [],
+      "outputs": [
+        {
+          "name": "file_path",
+          "type": "STRING",
+          "links": []
+        },
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": []
+        }
+      ],
       "properties": {
-        "Node name for S&R": "SaveImage"
+        "Node name for S&R": "AUSBOSS_NODES_SaveImage",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.0"
       },
-      "widgets_values": [
-        "AusBoss/krea2_lora_stack"
-      ]
+      "widgets_values": {
+        "filename_prefix": "AusBoss/krea2_lora_stack",
+        "format": "png",
+        "save_metadata": true,
+        "exact_name": "",
+        "on_existing": "overwrite",
+        "output_dir": "",
+        "caption": ""
+      },
+      "title": "Save PNG · workflow + prompt"
     }
   ],
   "links": [
@@ -777,12 +816,20 @@
       "VAE"
     ],
     [
-      15,
+      16,
       12,
       0,
       15,
       0,
       "IMAGE"
+    ],
+    [
+      17,
+      8,
+      0,
+      15,
+      2,
+      "STRING"
     ]
   ],
   "groups": [

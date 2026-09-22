@@ -124,7 +124,7 @@ function widgetSlot(node, name) {
 // A `top: true` row's widgets keep their input slots but the slots stop
 // being widget inputs: the frontend then measures and draws them in the
 // node's slot column, and a link into one is resolved by input name.
-function liftSocket(node, name) {
+export function liftSocket(node, name) {
   const slot = node.inputs?.find((input) => input?.widget?.name === name);
   if (!slot) return false;
   delete slot.widget;
@@ -380,6 +380,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       const widget = findWidget(node, name);
       const kind = rowKind(row, widget);
       if (kind === "skip" || !widget) return;
+      if (row.prefixes?.[index]) control.append(el("span", "ausboss-card-sep", row.prefixes[index]));
       const field = el("div", "ausboss-card-field");
       syncs.push(builders[kind](name, row, field));
       control.append(field);

@@ -381,3 +381,11 @@ def resize_batch_to_megapixels(output, mask, megapixels, method, steps):
     )
     mask = mask_samples.squeeze(1).clamp(0.0, 1.0)
     return output, mask
+
+
+def original_image_batch(images: Iterable[Image.Image]) -> torch.Tensor:
+    """Untransformed, EXIF-oriented RGB source frames for reference outputs."""
+    return torch.stack([
+        torch.from_numpy(np.asarray(image.convert("RGB"), dtype=np.float32).copy() / 255.0)
+        for image in images
+    ])

@@ -3,16 +3,17 @@
 from __future__ import annotations
 
 import asyncio
+import math
 
-from ._inpaint_crop_helpers import build_canvas_stitcher, stitch_blend_from_mask
-from ._media_helpers import list_input_videos, register_video_routes, resolve_video_path
+from ._inpaint_crop_helpers import build_transform_stitcher as clip_stitcher
+from ._media_helpers import list_input_videos, register_video_routes, resolve_video_path, video_metadata
 from ._transform_engine import (
     resize_batch_to_megapixels,
     stable_file_fingerprint,
     transform_tensor_batch_chunked,
 )
 from ._transform_inputs import resize_inputs, spec_from_values, transform_inputs
-from ._video_load_helpers import decode_video_range, lazy_audio_range
+from ._video_load_helpers import clip_load_window, decode_video_range, fixed_clip_window, lazy_audio_range
 
 
 FRAME_SNAP_RULES = ("free", "8n+1", "4n+1")
@@ -39,28 +40,6 @@ def snap_frame_count(count: int, rule: str) -> int:
     return ((count - 1) // step) * step + 1
 
 
-def clip_stitcher(frames, mask, geometry, blend_pixels: int, grow_pixels: int = 0) -> dict:
-    """A full-frame stitcher for the finished clip.
-
-    The generated clip is the whole canvas, so the crop is the identity
-    rectangle and the paste mask is the transform's generated-area mask -
-    padding and rotation voids - ramped by the stitch settings. It is built
-    from the final frames, after any resize, so the paste lines up with what
-    the sampler actually returns; the source bbox rides along scaled the
-    same way.
-    """
-    blend = stitch_blend_from_mask(mask, blend_pixels, grow_pixels)
-    scale_x = frames.shape[2] / float(geometry.output_width)
-    scale_y = frames.shape[1] / float(geometry.output_height)
-    bbox = (
-        int(round(geometry.pad_left * scale_x)),
-        int(round(geometry.pad_top * scale_y)),
-        int(round((geometry.pad_left + geometry.crop_width) * scale_x)),
-        int(round((geometry.pad_top + geometry.crop_height) * scale_y)),
-    )
-    return build_canvas_stitcher(frames, blend, bbox=bbox)
-
-
 class AusBossVideoCropRotatePadClip:
     CATEGORY = "🆎 AusBoss/Video"
     DESCRIPTION = (
@@ -70,8 +49,8 @@ class AusBossVideoCropRotatePadClip:
         "mask of the generated area (rotation corners and padding), the audio "
         "for the same window, the frame count, fps, size, and duration, and a "
         "stitcher so Stitch Inpaint can paste the source frames back over the "
-        "generated clip. The editor's timeline only chooses the preview "
-        "frame; the whole start/end window is processed."
+        "generated clip. Fixed frames makes a movable window with an exact "
+        "output count; 0 restores free IN/OUT trimming."
     )
     SEARCH_ALIASES = [
         "video crop",
@@ -230,22 +209,53 @@ class AusBossVideoCropRotatePadClip:
                 },
             ),
         }
+        # Append timing controls: saved positional widget values stay intact.
+        optional.update({
+            "force_rate": ("FLOAT,INT", {
+                "forceInput": True,
+                "tooltip": "Output sampling rate before Every nth; 0 keeps the source rate. "
+                           "Frames are dropped or repeated to preserve playback speed.",
+            }),
+            "start_frame": ("INT", {
+                "forceInput": True, "min": 0,
+                "tooltip": "Zero-based source start frame; overrides and locks timeline IN. "
+                           "Uses the source frame-rate grid.",
+            }),
+            "end_frame": ("INT", {
+                "forceInput": True, "min": 0,
+                "tooltip": "Exclusive source end frame; 0 means source end. Overrides and "
+                           "locks timeline OUT. Uses the source frame-rate grid.",
+            }),
+            "frame_load_cap": ("INT", {
+                "forceInput": True, "min": 0,
+                "tooltip": "Maximum returned frames after rate conversion and Every nth, "
+                           "before Snap. Overrides and locks Limit; 0 means unlimited.",
+            }),
+            "fixed_frames": ("INT", {
+                "default": 0, "min": 0, "max": 100000,
+                "tooltip": "Exact output frames after rate conversion and Every nth; 0 = free trim. "
+                           "Drag either handle to move the whole window. Overrides OUT/end_frame, Limit, "
+                           "frame_load_cap and Snap. Duration = frames / output fps; 120 frames at 24 fps = 5 seconds. "
+                           "The source must be long enough. A linked IN anchors the window.",
+            }),
+        })
         return {"required": required, "optional": optional}
 
     # Appended outputs only: saved workflows address these by index.
-    RETURN_TYPES = ("IMAGE", "MASK", "AUDIO", "INT", "FLOAT", "INT", "INT", "FLOAT", "AUSBOSS_STITCHER")
-    RETURN_NAMES = ("frames", "mask", "audio", "frame_count", "fps", "width", "height", "duration", "stitcher")
+    RETURN_TYPES = ("IMAGE", "MASK", "AUDIO", "INT", "FLOAT", "INT", "INT", "FLOAT", "AUSBOSS_STITCHER", "IMAGE")
+    RETURN_NAMES = ("frames", "mask", "audio", "frame_count", "fps", "width", "height", "duration", "stitcher", "original")
     OUTPUT_TOOLTIPS = (
         "Every frame of the trim window, transformed, as a BHWC batch.",
         "BHW generated-area mask per frame: rotation corners and padding, feathered.",
         "Audio for the same window; silent when the video has no audio track.",
         "Number of frames returned.",
-        "Frames per second of the returned batch: the source rate divided by every_nth.",
+        "Frames per second of the returned batch: the forced rate (or source rate) divided by every_nth.",
         "Frame width after the transform and any resize.",
         "Frame height after the transform and any resize.",
         "Duration in seconds of the returned frames.",
         "For Stitch Inpaint: pastes the source frames back over a generated clip "
         "of this size, blending only across the padded and rotated-in area.",
+        "The selected source frames before rotation, crop, padding, or resize; same timing as frames.",
     )
     FUNCTION = "load_transform"
 
@@ -268,23 +278,38 @@ class AusBossVideoCropRotatePadClip:
         frame_snap="free",
         stitch_blend=32,
         stitch_grow=0,
+        force_rate=0.0,
+        start_frame=None,
+        end_frame=None,
+        frame_load_cap=None,
+        fixed_frames=0,
         **values,
     ):
         path = resolve_video_path(source_mode, video, local_path)
         nth = max(1, int(every_nth))
-        cap = max(0, int(max_frames))
+        start_seconds, end_seconds, cap = clip_load_window(
+            path, start_seconds, end_seconds, max_frames, start_frame, end_frame, frame_load_cap
+        )
+        fixed_frames = int(fixed_frames)
+        if not 0 <= fixed_frames <= 100000:
+            raise ValueError("Fixed frames must be between 0 and 100000.")
+        if fixed_frames:
+            start_seconds, end_seconds, cap = fixed_clip_window(
+                video_metadata(path), start_seconds, fixed_frames, force_rate, nth
+            )
         # The decode blocks for as long as the trim is; off the loop so the
         # executor keeps answering, with the context ComfyUI's progress and
         # interrupt hooks need carried along.
         frames, source_fps = await asyncio.to_thread(
-            decode_video_range, path, float(start_seconds), float(end_seconds), 0, 0, nth, cap
+            decode_video_range, path, float(start_seconds), float(end_seconds), 0, 0, nth, cap, force_rate
         )
-        keep = snap_frame_count(int(frames.shape[0]), frame_snap)
+        if fixed_frames and int(frames.shape[0]) != fixed_frames:
+            raise ValueError("The source did not decode enough frames for Fixed frames. Reduce the requested length.")
+        keep = fixed_frames or snap_frame_count(int(frames.shape[0]), frame_snap)
         if keep < frames.shape[0]:
             frames = frames[:keep]
         spec = spec_from_values(**values)
         output, mask, geometry = await asyncio.to_thread(transform_tensor_batch_chunked, frames, spec)
-        del frames
         if resize_to_megapixels:
             output, mask = resize_batch_to_megapixels(
                 output, mask, float(megapixels), str(resize_method), int(resolution_steps)
@@ -306,12 +331,39 @@ class AusBossVideoCropRotatePadClip:
             int(output.shape[1]),
             float(duration),
             stitcher,
+            frames,
         )
 
     @classmethod
-    def VALIDATE_INPUTS(cls, video, source_mode, local_path, start_seconds, end_seconds, **_values):
+    def VALIDATE_INPUTS(
+        cls, video, source_mode, local_path, start_seconds, end_seconds,
+        start_frame=None, end_frame=None, force_rate=0.0, fixed_frames=0, every_nth=1, input_types=None, **_values,
+    ):
         try:
-            resolve_video_path(source_mode, video, local_path)
+            path = resolve_video_path(source_mode, video, local_path)
+            if force_rate is not None and (
+                not math.isfinite(float(force_rate)) or not 0 <= float(force_rate) <= 1000
+            ):
+                return "Video Crop + Rotate + Pad: force_rate must be between 0 and 1000 fps."
+            # Linked values are evaluated at execution; stale widget values must
+            # not reject a valid override before those values are available.
+            schema = cls.INPUT_TYPES()
+            definitions = schema["required"] | schema["optional"]
+            for name, actual in (input_types or {}).items():
+                expected = definitions.get(name, (None,))[0]
+                received = {part.strip() for part in str(actual).split(",")}
+                if isinstance(expected, str) and "*" not in received and not received.intersection(expected.split(",")):
+                    return f"Video Crop + Rotate + Pad: incompatible input type for {name}."
+            if any(name in (input_types or {}) for name in ("start_frame", "end_frame", "start_seconds", "end_seconds", "fixed_frames", "force_rate", "every_nth")):
+                return True
+            start_seconds, end_seconds, _ = clip_load_window(
+                path, start_seconds, end_seconds, start_frame=start_frame, end_frame=end_frame
+            )
+            if not 0 <= int(fixed_frames or 0) <= 100000:
+                return "Fixed frames must be between 0 and 100000."
+            if fixed_frames:
+                fixed_clip_window(video_metadata(path), start_seconds, fixed_frames, force_rate, every_nth)
+                return True
         except Exception as exc:
             return f"Video Crop + Rotate + Pad: {exc}"
         if float(end_seconds) > 0.0 and float(start_seconds) >= float(end_seconds):
@@ -354,6 +406,7 @@ class AusBossVideoCropRotatePadClip:
                 "every_nth": max(1, int(every_nth)),
                 "max_frames": max(0, int(max_frames)),
                 "frame_snap": str(frame_snap),
+                **{name: values.get(name) for name in ("force_rate", "start_frame", "end_frame", "frame_load_cap", "fixed_frames")},
                 "stitch_blend": int(stitch_blend),
                 "stitch_grow": int(stitch_grow),
                 **spec.__dict__,

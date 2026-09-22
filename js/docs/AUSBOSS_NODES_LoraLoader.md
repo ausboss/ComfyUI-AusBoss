@@ -24,7 +24,9 @@ come out of one socket, ready to wire into a prompt.
   modified date, and trigger words for that LoRA.
 
 Right-click a row to insert an empty LoRA above or below it, move, duplicate,
-or remove it. Inserting keeps the existing rows and their settings in order;
+or remove it. **Delete all LoRAs…** is a separate red, trash-marked action
+with confirmation; it clears this node's rows and keeps all files on disk.
+Cancel or Escape keeps the stack. Inserting keeps the existing rows and their settings in order;
 the new slot uses the gear menu's default strength (initially 1).
 The stack holds up to 64 rows.
 One strength drives both
@@ -75,10 +77,10 @@ this node — upstream through the `model` input, downstream from the `model`
 output — and for every loader it recognizes (`LoraLoader`,
 `LoraLoaderModelOnly`, `Power Lora Loader (rgthree)`, `PixaromaLoraLoader`,
 another AusBoss LoRA Loader; Reroutes are walked through) lifts its rows
-into this stack — appended below your existing rows, upstream loaders
-first in chain order, then downstream — and sets the original nodes to
-**bypass**. The graph keeps computing exactly what it did, from one node
-(LoRA patches accumulate, so row order does not change the math).
+into this stack in application order: upstream loaders, your existing rows,
+then downstream loaders. The original loaders are set to **bypass** only when
+their connections can be preserved. Repeated filenames remain separate rows,
+with their own strengths and toggles.
 
 Details that keep the absorb faithful:
 
@@ -87,12 +89,15 @@ Details that keep the absorb faithful:
   workflows saved on another machine's layout); unresolved names import
   verbatim and the rows tint red
 - `LoraLoaderModelOnly` rows import with CLIP strength 0
-- a LoRA already in the stack is skipped, not doubled; the dedupe spans
-  both directions
-- already-bypassed or muted loaders contribute nothing but do not stop the
-  walk; a fan-out (the model output feeding more than one node) stops the
-  downstream walk, because bypassing a loader there would change what the
-  other branches compute
+- repeated LoRAs are kept: applying a file twice is part of the original recipe
+- a shared model path, including a branch hidden behind a reroute, blocks
+  absorption instead of changing another branch
+- when CLIP patches move, CLIP must follow the same serial chain as MODEL;
+  rows from a loader without a connected CLIP import with CLIP strength 0
+- connected auxiliary outputs, such as trigger words, block absorption because
+  bypassing their source would break those connections
+- linked LoRA settings and stacks beyond the row limit leave the sources active
+- already-bypassed or muted loaders contribute no rows
 - a toast summarizes what was imported, bypassed, remapped, and skipped
 
 ## Moved and missing files
@@ -147,3 +152,14 @@ row order.
 Rows with a strength of `0` (both model and CLIP) are skipped at load time
 but still contribute their trigger words, so you can park a LoRA at zero
 while comparing.
+
+
+Absorption recognizes core LoRA and model-only loaders, rgthree Power Lora
+Loader and Lora Loader Stack, JPS Lora Loader, Pixaroma, and AusBoss loaders.
+It follows connections upstream and downstream regardless of where nodes sit
+on the canvas, passing through reroutes. JPS Off rows stay disabled; rgthree
+stack strengths apply to both model and CLIP. Muted or bypassed sources do
+not contribute new rows. Unknown nodes and downstream forks stop the walk.
+Linked LoRA settings cannot be captured as fixed rows; disconnect those
+settings before absorption. If the imports exceed the stack's row limit,
+the operation stops without bypassing the sources.

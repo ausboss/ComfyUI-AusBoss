@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from ._media_helpers import list_input_images, load_image_frames, resolve_input_path
+from ._inpaint_crop_helpers import build_transform_stitcher
 from ._transform_engine import (
+    original_image_batch,
     resize_batch_to_megapixels,
     stable_file_fingerprint,
     transform_pil_batch,
@@ -36,11 +38,13 @@ class AusBossImageCropRotatePad:
         required.update(resize_inputs())
         return {"required": required}
 
-    RETURN_TYPES = ("IMAGE", "MASK")
-    RETURN_NAMES = ("image", "mask")
+    RETURN_TYPES = ("IMAGE", "MASK", "AUSBOSS_STITCHER", "IMAGE")
+    RETURN_NAMES = ("image", "mask", "stitcher", "original")
     OUTPUT_TOOLTIPS = (
         "The transformed image batch in BHWC format.",
         "BHW generated-area mask: transparency, rotation corners, and padding.",
+        "Full-canvas stitcher: restores kept source pixels over an outpaint result; wire to Stitch Inpaint.",
+        "The source image before rotation, crop, padding, or resize, as a BHWC RGB batch.",
     )
     FUNCTION = "load_transform"
 
@@ -55,12 +59,13 @@ class AusBossImageCropRotatePad:
     ):
         path = resolve_input_path(image)
         frames = load_image_frames(path)
-        output, mask, _ = transform_pil_batch(frames, spec_from_values(**values))
+        output, mask, geometry = transform_pil_batch(frames, spec_from_values(**values))
         if resize_to_megapixels:
             output, mask = resize_batch_to_megapixels(
                 output, mask, float(megapixels), str(resize_method), int(resolution_steps)
             )
-        return output, mask
+        stitcher = build_transform_stitcher(output, mask, geometry, 32)
+        return output, mask, stitcher, original_image_batch(frames)
 
     @classmethod
     def VALIDATE_INPUTS(cls, image, **_values):

@@ -19,7 +19,7 @@ const CARDS = {
         labels: { "width+height": "Width × height", longest_edge: "Longest edge", shortest_edge: "Shortest edge", megapixels: "Megapixels", scale_factor: "Scale factor" } },
       // Sockets for the pair sit among the node's inputs (one socket per
       // row is the rule, and a size is what people wire).
-      { pair: ["width", "height"], label: "Size", sep: "×", top: true, when: isMode("target_mode", "width+height") },
+      { pair: ["width", "height"], label: "Size", prefixes: ["W", "H"], sep: "×", top: true, when: isMode("target_mode", "width+height") },
       { widget: "edge_length", label: "Edge", suffix: "px", when: isMode("target_mode", "longest_edge", "shortest_edge") },
       { widget: "megapixels", label: "Budget", suffix: "MP", when: isMode("target_mode", "megapixels") },
       { widget: "scale_factor", label: "Scale", suffix: "×", when: isMode("target_mode", "scale_factor") },

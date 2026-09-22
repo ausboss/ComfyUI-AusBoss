@@ -1,0 +1,14 @@
+# Public-pack TODOs
+
+Completed locally 2026-09-22; backend and real-canvas checks recorded in `_scratch/`.
+
+- [x] Show restored LoRA rows without switching workflow tabs. Reconcile values that arrive after node configuration; also covers undo.
+- [x] Upload videos larger than the 100 MB buffered request limit. Both video transform nodes use a streaming upload route into ComfyUI/input; verified with a 106 MB MP4.
+- [x] Choose Crop or Pad below the aspect ratios. Crop locks the crop shape without automatically adding padding, across image, video frame and video clip nodes.
+- [x] Append `stitcher` and `original` outputs to Image Crop + Rotate + Pad and the video frame node. Append original frames to the clip node; preserve existing socket positions.
+- [x] Add Reset crop directly to all three transform node faces. Keep rotation, padding and timeline settings when resetting only the crop.
+- [x] Expose Align on the node face as the canvas pixel multiple (1 disables; explicit alignment can add right/bottom pixels).
+- [x] Apply the shared transform controls consistently across image, video frame and video clip nodes.
+- [x] Start new Image Resize nodes in megapixels mode. Retain the mode saved in existing workflows.
+
+The separate Lab Pick Best requests are also complete; live verification is recorded in `todo.md`.

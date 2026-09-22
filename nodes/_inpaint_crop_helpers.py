@@ -861,3 +861,25 @@ __all__ = [
     "round_up_to_multiple",
     "spread_edge_colors",
 ]
+
+
+def build_transform_stitcher(frames, mask, geometry, blend_pixels: int, grow_pixels: int = 0) -> dict:
+    """A full-canvas stitcher for a transformed image or clip.
+
+    The generated clip is the whole canvas, so the crop is the identity
+    rectangle and the paste mask is the transform's generated-area mask -
+    padding and rotation voids - ramped by the stitch settings. It is built
+    from the final frames, after any resize, so the paste lines up with what
+    the sampler actually returns; the source bbox rides along scaled the
+    same way.
+    """
+    blend = stitch_blend_from_mask(mask, blend_pixels, grow_pixels)
+    scale_x = frames.shape[2] / float(geometry.output_width)
+    scale_y = frames.shape[1] / float(geometry.output_height)
+    bbox = (
+        int(round(geometry.pad_left * scale_x)),
+        int(round(geometry.pad_top * scale_y)),
+        int(round((geometry.pad_left + geometry.crop_width) * scale_x)),
+        int(round((geometry.pad_top + geometry.crop_height) * scale_y)),
+    )
+    return build_canvas_stitcher(frames, blend, bbox=bbox)

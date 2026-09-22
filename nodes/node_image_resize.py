@@ -45,7 +45,7 @@ class AusBossImageResize:
                 "target_mode": (
                     list(TARGET_MODES),
                     {
-                        "default": "width+height",
+                        "default": "megapixels",
                         "tooltip": (
                             "What sets the output size: width+height reads "
                             "the two size widgets; longest_edge and "
