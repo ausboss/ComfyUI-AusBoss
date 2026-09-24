@@ -1,0 +1,1271 @@
+{
+  "id": "812acc81-be18-4e81-84c6-2d81beb0a831",
+  "revision": 0,
+  "last_node_id": 13,
+  "last_link_id": 10,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "AUSBOSS_NODES_WorkflowNote",
+      "pos": [
+        -620,
+        100
+      ],
+      "size": [
+        560,
+        640
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "note",
+          "name": "note",
+          "type": "STRING",
+          "widget": {
+            "name": "note"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [],
+      "title": "Start here · setup",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote"
+      },
+      "widgets_values": [
+        "{\"v\":1,\"title\":\"Dataset Frames from a Clip\",\"subtitle\":\"Pull evenly spaced frames from a video, give them one size and save each with a caption file. No models needed.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"\",\"body\":\"## Start here\\nCopy `ausboss_pier_9x16.mp4` from the pack's `example_workflows/inputs/` folder into `ComfyUI/input/`, or choose your own clip in Load Video, and queue. No models or extra node packs.\\n\\n## What happens\\n1. **Load Video** decodes the clip: all 97 frames of the sample. Drag the IN and OUT handles under the preview to use part of a longer clip.\\n2. **Select Every Nth** keeps frames 1, 13, 25 … 97: nine frames spread across the shot.\\n3. **Image Resize** scales the shortest edge to 768 px, and **Align Image** center-crops the long edge to a multiple of 64. Every frame comes out 768 × 1344.\\n4. **Save Image** writes `pier_dataset_768x1344_00001.png` onward: the **Size** and **Counter** tags build the names, and the workflow is left out of the files. The **Text** caption arrives on `caption_text`, so every PNG gets a `.txt` with the same name.\\n5. **Image Size** measures the saved batch, and three core **Preview as Text** nodes show its width, height and count (Show Text takes text only). **Show Text** displays the path of the first file written.\\n\\n## Try\\n- More or fewer frames: change **Every nth** on Select Every Nth; 6 keeps 17 frames.\\n- Start the caption with your trigger word, then describe what changes between shots.\\n- Collect a set in its own folder: type a subfolder such as `datasets/pier` in Save Image's **Folder** field.\",\"models\":[],\"packs\":[],\"links\":[{\"label\":\"Sample clip · ausboss_pier_9x16.mp4\",\"url\":\"https://raw.githubusercontent.com/ausboss/ComfyUI-AusBoss/main/example_workflows/inputs/ausboss_pier_9x16.mp4\"}]}",
+        ""
+      ],
+      "widgets_values_named": {
+        "note": "{\"v\":1,\"title\":\"Dataset Frames from a Clip\",\"subtitle\":\"Pull evenly spaced frames from a video, give them one size and save each with a caption file. No models needed.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"\",\"body\":\"## Start here\\nCopy `ausboss_pier_9x16.mp4` from the pack's `example_workflows/inputs/` folder into `ComfyUI/input/`, or choose your own clip in Load Video, and queue. No models or extra node packs.\\n\\n## What happens\\n1. **Load Video** decodes the clip: all 97 frames of the sample. Drag the IN and OUT handles under the preview to use part of a longer clip.\\n2. **Select Every Nth** keeps frames 1, 13, 25 … 97: nine frames spread across the shot.\\n3. **Image Resize** scales the shortest edge to 768 px, and **Align Image** center-crops the long edge to a multiple of 64. Every frame comes out 768 × 1344.\\n4. **Save Image** writes `pier_dataset_768x1344_00001.png` onward: the **Size** and **Counter** tags build the names, and the workflow is left out of the files. The **Text** caption arrives on `caption_text`, so every PNG gets a `.txt` with the same name.\\n5. **Image Size** measures the saved batch, and three core **Preview as Text** nodes show its width, height and count (Show Text takes text only). **Show Text** displays the path of the first file written.\\n\\n## Try\\n- More or fewer frames: change **Every nth** on Select Every Nth; 6 keeps 17 frames.\\n- Start the caption with your trigger word, then describe what changes between shots.\\n- Collect a set in its own folder: type a subfolder such as `datasets/pier` in Save Image's **Folder** field.\",\"models\":[],\"packs\":[],\"links\":[{\"label\":\"Sample clip · ausboss_pier_9x16.mp4\",\"url\":\"https://raw.githubusercontent.com/ausboss/ComfyUI-AusBoss/main/example_workflows/inputs/ausboss_pier_9x16.mp4\"}]}",
+        "ausboss_workflow_note_panel": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 2,
+      "type": "AUSBOSS_NODES_LoadVideo",
+      "pos": [
+        0,
+        100
+      ],
+      "size": [
+        400,
+        800
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "video",
+          "name": "video",
+          "type": "COMBO",
+          "widget": {
+            "name": "video"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "start_seconds",
+          "name": "start_seconds",
+          "type": "FLOAT",
+          "widget": {
+            "name": "start_seconds"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "end_seconds",
+          "name": "end_seconds",
+          "type": "FLOAT",
+          "widget": {
+            "name": "end_seconds"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "custom_width",
+          "name": "custom_width",
+          "type": "INT",
+          "widget": {
+            "name": "custom_width"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "custom_height",
+          "name": "custom_height",
+          "type": "INT",
+          "widget": {
+            "name": "custom_height"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "every_nth",
+          "name": "every_nth",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "every_nth"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "max_frames",
+          "name": "max_frames",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "max_frames"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "single_frame",
+          "name": "single_frame",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "single_frame"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "upload",
+          "name": "upload",
+          "type": "IMAGEUPLOAD",
+          "widget": {
+            "name": "upload"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "frames",
+          "name": "frames",
+          "type": "IMAGE",
+          "links": [
+            1
+          ]
+        },
+        {
+          "localized_name": "audio",
+          "name": "audio",
+          "type": "AUDIO",
+          "links": null
+        },
+        {
+          "localized_name": "frame_count",
+          "name": "frame_count",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "localized_name": "fps",
+          "name": "fps",
+          "type": "FLOAT",
+          "links": null
+        },
+        {
+          "localized_name": "width",
+          "name": "width",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "localized_name": "height",
+          "name": "height",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "localized_name": "duration",
+          "name": "duration",
+          "type": "FLOAT",
+          "links": null
+        },
+        {
+          "localized_name": "video",
+          "name": "video",
+          "type": "VIDEO",
+          "links": null
+        }
+      ],
+      "title": "Load Video 🆎 · whole clip",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_LoadVideo",
+        "ausboss_load_video_loop": true
+      },
+      "widgets_values": {
+        "video": "ausboss_pier_9x16.mp4",
+        "start_seconds": 0,
+        "end_seconds": 0,
+        "custom_width": 0,
+        "custom_height": 0,
+        "every_nth": 1,
+        "max_frames": 0,
+        "single_frame": false
+      },
+      "widgets_values_named": {
+        "video": "ausboss_pier_9x16.mp4",
+        "start_seconds": 0,
+        "end_seconds": 0,
+        "custom_width": 0,
+        "custom_height": 0,
+        "every_nth": 1,
+        "max_frames": 0,
+        "single_frame": false,
+        "upload": "image",
+        "ausboss_widget_card": "",
+        "ausboss_load_video_viewer": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 3,
+      "type": "AUSBOSS_NODES_SelectEveryNth",
+      "pos": [
+        480,
+        100
+      ],
+      "size": [
+        400,
+        125
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "localized_name": "nth",
+          "name": "nth",
+          "type": "INT",
+          "widget": {
+            "name": "nth"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "offset",
+          "name": "offset",
+          "type": "INT",
+          "widget": {
+            "name": "offset"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "title": "Select Every Nth 🆎 · 1 in 12",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_SelectEveryNth"
+      },
+      "widgets_values": [
+        12,
+        0,
+        ""
+      ],
+      "widgets_values_named": {
+        "nth": 12,
+        "offset": 0,
+        "ausboss_widget_card": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 4,
+      "type": "AUSBOSS_NODES_ImageResize",
+      "pos": [
+        480,
+        285
+      ],
+      "size": [
+        400,
+        278
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "link": 2
+        },
+        {
+          "localized_name": "mask",
+          "name": "mask",
+          "shape": 7,
+          "type": "MASK",
+          "link": null
+        },
+        {
+          "localized_name": "target_mode",
+          "name": "target_mode",
+          "type": "COMBO",
+          "widget": {
+            "name": "target_mode"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "width",
+          "name": "width",
+          "type": "INT",
+          "link": null
+        },
+        {
+          "localized_name": "height",
+          "name": "height",
+          "type": "INT",
+          "link": null
+        },
+        {
+          "localized_name": "edge_length",
+          "name": "edge_length",
+          "type": "INT",
+          "widget": {
+            "name": "edge_length"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "megapixels",
+          "name": "megapixels",
+          "type": "FLOAT",
+          "widget": {
+            "name": "megapixels"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "scale_factor",
+          "name": "scale_factor",
+          "type": "FLOAT",
+          "widget": {
+            "name": "scale_factor"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "keep_proportion",
+          "name": "keep_proportion",
+          "type": "COMBO",
+          "widget": {
+            "name": "keep_proportion"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "fill_color",
+          "name": "fill_color",
+          "type": "STRING",
+          "widget": {
+            "name": "fill_color"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "divisible_by",
+          "name": "divisible_by",
+          "type": "INT",
+          "widget": {
+            "name": "divisible_by"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "interpolation",
+          "name": "interpolation",
+          "type": "COMBO",
+          "widget": {
+            "name": "interpolation"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            3
+          ]
+        },
+        {
+          "localized_name": "mask",
+          "name": "mask",
+          "type": "MASK",
+          "links": null
+        },
+        {
+          "localized_name": "width",
+          "name": "width",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "localized_name": "height",
+          "name": "height",
+          "type": "INT",
+          "links": null
+        }
+      ],
+      "title": "Image Resize 🆎 · shortest edge 768",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_ImageResize"
+      },
+      "widgets_values": [
+        "shortest_edge",
+        0,
+        0,
+        768,
+        1,
+        0.5,
+        "fit",
+        "#000000",
+        1,
+        "lanczos",
+        ""
+      ],
+      "widgets_values_named": {
+        "target_mode": "shortest_edge",
+        "width": 0,
+        "height": 0,
+        "edge_length": 768,
+        "megapixels": 1,
+        "scale_factor": 0.5,
+        "keep_proportion": "fit",
+        "fill_color": "#000000",
+        "divisible_by": 1,
+        "interpolation": "lanczos",
+        "ausboss_widget_card": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 5,
+      "type": "AUSBOSS_NODES_AlignImage",
+      "pos": [
+        480,
+        623
+      ],
+      "size": [
+        400,
+        196
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "link": 3
+        },
+        {
+          "localized_name": "multiple",
+          "name": "multiple",
+          "type": "INT",
+          "widget": {
+            "name": "multiple"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "mode",
+          "name": "mode",
+          "type": "COMBO",
+          "widget": {
+            "name": "mode"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "crop_position",
+          "name": "crop_position",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "crop_position"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "pad_position",
+          "name": "pad_position",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "pad_position"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "pad_fill",
+          "name": "pad_fill",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "pad_fill"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "pad_color",
+          "name": "pad_color",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "pad_color"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            4
+          ]
+        },
+        {
+          "localized_name": "width",
+          "name": "width",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "localized_name": "height",
+          "name": "height",
+          "type": "INT",
+          "links": null
+        }
+      ],
+      "title": "Align Image 🆎 · crop to × 64",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_AlignImage"
+      },
+      "widgets_values": [
+        64,
+        "crop",
+        "center",
+        "center",
+        "replicate",
+        "#000000",
+        ""
+      ],
+      "widgets_values_named": {
+        "multiple": 64,
+        "mode": "crop",
+        "crop_position": "center",
+        "pad_position": "center",
+        "pad_fill": "replicate",
+        "pad_color": "#000000",
+        "ausboss_widget_card": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 6,
+      "type": "AUSBOSS_NODES_Text",
+      "pos": [
+        960,
+        100
+      ],
+      "size": [
+        460,
+        200
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "text",
+          "name": "text",
+          "type": "STRING",
+          "widget": {
+            "name": "text"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "text",
+          "name": "text",
+          "type": "STRING",
+          "links": [
+            5
+          ]
+        }
+      ],
+      "title": "Text 🆎 · caption for every frame",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_Text"
+      },
+      "widgets_values": [
+        "photo of a weathered wooden pier stretching into a calm, misty lake at sunrise, a small white rowboat moored beside it, mountains on the horizon, soft pastel sky",
+        ""
+      ],
+      "widgets_values_named": {
+        "text": "photo of a weathered wooden pier stretching into a calm, misty lake at sunrise, a small white rowboat moored beside it, mountains on the horizon, soft pastel sky",
+        "ausboss_widget_card": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 7,
+      "type": "AUSBOSS_NODES_SaveImage",
+      "pos": [
+        960,
+        360
+      ],
+      "size": [
+        460,
+        840
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "link": 4
+        },
+        {
+          "localized_name": "filename",
+          "name": "filename",
+          "shape": 7,
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "localized_name": "caption_text",
+          "name": "caption_text",
+          "shape": 7,
+          "type": "STRING",
+          "link": 5
+        },
+        {
+          "localized_name": "filename_prefix",
+          "name": "filename_prefix",
+          "type": "STRING",
+          "widget": {
+            "name": "filename_prefix"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "format",
+          "name": "format",
+          "type": "COMBO",
+          "widget": {
+            "name": "format"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "save_metadata",
+          "name": "save_metadata",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "save_metadata"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "exact_name",
+          "name": "exact_name",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "exact_name"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "on_existing",
+          "name": "on_existing",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "on_existing"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "output_dir",
+          "name": "output_dir",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "output_dir"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "caption",
+          "name": "caption",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "caption"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "name_counter",
+          "name": "name_counter",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "name_counter"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "name_date",
+          "name": "name_date",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "name_date"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "name_time",
+          "name": "name_time",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "name_time"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "name_size",
+          "name": "name_size",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "name_size"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "name_batch",
+          "name": "name_batch",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "name_batch"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "file_path",
+          "name": "file_path",
+          "type": "STRING",
+          "links": [
+            10
+          ]
+        },
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            6
+          ]
+        }
+      ],
+      "title": "Save Image 🆎 · PNG + caption .txt",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_SaveImage"
+      },
+      "widgets_values": {
+        "filename_prefix": "pier_dataset",
+        "format": "png",
+        "save_metadata": false,
+        "exact_name": "",
+        "on_existing": "overwrite",
+        "output_dir": "",
+        "caption": "",
+        "name_counter": true,
+        "name_date": false,
+        "name_time": false,
+        "name_size": true,
+        "name_batch": false
+      },
+      "widgets_values_named": {
+        "filename_prefix": "pier_dataset",
+        "format": "png",
+        "save_metadata": false,
+        "exact_name": "",
+        "on_existing": "overwrite",
+        "output_dir": "",
+        "ausboss_save_image_card": "",
+        "caption": "",
+        "name_counter": true,
+        "name_date": false,
+        "name_time": false,
+        "name_size": true,
+        "name_batch": false
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 8,
+      "type": "AUSBOSS_NODES_ImageSize",
+      "pos": [
+        1500,
+        100
+      ],
+      "size": [
+        400,
+        130
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "link": 6
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "width",
+          "name": "width",
+          "type": "INT",
+          "links": [
+            7
+          ]
+        },
+        {
+          "localized_name": "height",
+          "name": "height",
+          "type": "INT",
+          "links": [
+            8
+          ]
+        },
+        {
+          "localized_name": "longest_edge",
+          "name": "longest_edge",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "localized_name": "shortest_edge",
+          "name": "shortest_edge",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "localized_name": "count",
+          "name": "count",
+          "type": "INT",
+          "links": [
+            9
+          ]
+        }
+      ],
+      "title": "Image Size 🆎 · saved batch",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_ImageSize"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 9,
+      "type": "PreviewAny",
+      "pos": [
+        1500,
+        290
+      ],
+      "size": [
+        400,
+        122
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "source",
+          "name": "source",
+          "type": "*",
+          "link": 7
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "STRING",
+          "name": "STRING",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "title": "width",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "Node name for S&R": "PreviewAny"
+      },
+      "widgets_values": [],
+      "widgets_values_named": {}
+    },
+    {
+      "id": 10,
+      "type": "PreviewAny",
+      "pos": [
+        1500,
+        472
+      ],
+      "size": [
+        400,
+        122
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "source",
+          "name": "source",
+          "type": "*",
+          "link": 8
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "STRING",
+          "name": "STRING",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "title": "height",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "Node name for S&R": "PreviewAny"
+      },
+      "widgets_values": [],
+      "widgets_values_named": {}
+    },
+    {
+      "id": 11,
+      "type": "PreviewAny",
+      "pos": [
+        1500,
+        654
+      ],
+      "size": [
+        400,
+        122
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "source",
+          "name": "source",
+          "type": "*",
+          "link": 9
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "STRING",
+          "name": "STRING",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "title": "images saved",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "Node name for S&R": "PreviewAny"
+      },
+      "widgets_values": [],
+      "widgets_values_named": {}
+    },
+    {
+      "id": 12,
+      "type": "AUSBOSS_NODES_ShowText",
+      "pos": [
+        1500,
+        836
+      ],
+      "size": [
+        400,
+        160
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "text",
+          "name": "text",
+          "type": "STRING",
+          "link": 10
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "text",
+          "name": "text",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "title": "Show Text 🆎 · first file written",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_ShowText"
+      },
+      "widgets_values": [
+        ""
+      ],
+      "widgets_values_named": {
+        "ausboss_show_text_panel": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 13,
+      "type": "AUSBOSS_NODES_RunTimer",
+      "pos": [
+        1500,
+        1056
+      ],
+      "size": [
+        176,
+        56
+      ],
+      "flags": {
+        "no_title": true
+      },
+      "order": 12,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_RunTimer"
+      },
+      "color": "#07090a",
+      "bgcolor": "#07090a"
+    }
+  ],
+  "links": [
+    [
+      1,
+      2,
+      0,
+      3,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      3,
+      0,
+      4,
+      0,
+      "IMAGE"
+    ],
+    [
+      3,
+      4,
+      0,
+      5,
+      0,
+      "IMAGE"
+    ],
+    [
+      4,
+      5,
+      0,
+      7,
+      0,
+      "IMAGE"
+    ],
+    [
+      5,
+      6,
+      0,
+      7,
+      2,
+      "STRING"
+    ],
+    [
+      6,
+      7,
+      1,
+      8,
+      0,
+      "IMAGE"
+    ],
+    [
+      7,
+      8,
+      0,
+      9,
+      0,
+      "INT"
+    ],
+    [
+      8,
+      8,
+      1,
+      10,
+      0,
+      "INT"
+    ],
+    [
+      9,
+      8,
+      4,
+      11,
+      0,
+      "INT"
+    ],
+    [
+      10,
+      7,
+      0,
+      12,
+      0,
+      "STRING"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "1 · Load the clip",
+      "bounding": [
+        -20,
+        40,
+        440,
+        880
+      ],
+      "color": "#235d64",
+      "flags": {}
+    },
+    {
+      "id": 2,
+      "title": "2 · Pick + size the frames",
+      "bounding": [
+        460,
+        40,
+        440,
+        799
+      ],
+      "color": "#366451",
+      "flags": {}
+    },
+    {
+      "id": 3,
+      "title": "3 · Caption + save",
+      "bounding": [
+        940,
+        40,
+        500,
+        1180
+      ],
+      "color": "#5d527c",
+      "flags": {}
+    },
+    {
+      "id": 4,
+      "title": "4 · Check the set",
+      "bounding": [
+        1480,
+        40,
+        440,
+        1092
+      ],
+      "color": "#795b38",
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.7,
+      "offset": [
+        691.43,
+        131.43
+      ]
+    }
+  },
+  "version": 0.4
+}
