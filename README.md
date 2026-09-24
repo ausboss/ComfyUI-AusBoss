@@ -218,7 +218,7 @@ Share one seed across samplers. **Random**, **Fixed**, and **Step** control what
 
 ### Select Every Nth 🆎
 
-Keep every nth image, starting after a zero-based offset. For example, nth 2 with offset 0 keeps frames 1, 3, 5; offset 1 keeps 2, 4, 6. The output retains source order. This node changes the image batch only; adjust video timing separately.
+Keep every nth image, starting after a zero-based offset. For example, nth 2 with offset 0 keeps frames 1, 3, 5; offset 1 keeps 2, 4, 6. The output retains source order. Wire the batch's fps in, and the `fps` output divides it by nth so the thinned clip keeps its duration.
 
 ### Split Batch 🆎
 
