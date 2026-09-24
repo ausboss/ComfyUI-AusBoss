@@ -84,6 +84,8 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ### Examples
 
+- Three new examples. Video Reframe and Slow Motion and Dataset Frames from
+  a Clip need no models; LaMa Object Removal needs only `big-lama.pt`.
 - Loaders select the official file names from their download links and
   carry matching download info, so a fresh install finds every model the
   Workflow Note lists. The caption encoders link the Qwen3-VL 8B file they
