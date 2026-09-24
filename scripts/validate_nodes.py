@@ -4,7 +4,10 @@
 Run from anywhere:  python scripts/validate_nodes.py
 
 Checks:
-  1. Every .py file in the pack compiles.
+  1. Every .py file a registry scanner would read compiles: tracked and
+     untracked-but-not-ignored files in a checkout, so local folders such
+     as _scratch/ never answer for the pack. Compiled in memory, so the
+     check writes no bytecode into the tree it inspects.
   2. Every nodes/node_*.py keeps the registry contract from
      scripts/registry_contract.py: both mappings assigned exactly once, at
      module level, to a non-empty dictionary literal with string-literal
@@ -27,7 +30,6 @@ Exit code 0 = all good, 1 = problems printed below.
 
 import ast
 import pathlib
-import py_compile
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -37,6 +39,7 @@ from registry_contract import (
     duplicate_key_problems,
     mapping_problems,
     module_list,
+    scanned_python_files,
 )
 
 errors = []
@@ -90,14 +93,21 @@ LEGACY_NODE_IDS = {
 
 RELEASED_NODE_IDS = PUBLIC_NODE_IDS | LEGACY_NODE_IDS
 
+# The files a registry scanner reads: checks 1 and 5 look at nothing else,
+# so ignored local folders such as _scratch/ neither fail nor pass the build.
+python_files = scanned_python_files(ROOT)
+
 # --- 1. everything compiles --------------------------------------------------
-for path in sorted(ROOT.rglob("*.py")):
-    if "__pycache__" in path.parts:
-        continue
+# compile() in memory rather than py_compile, which wrote a __pycache__
+# folder next to every file it checked.
+for path in python_files:
+    label = path.relative_to(ROOT).as_posix()
     try:
-        py_compile.compile(str(path), doraise=True)
-    except py_compile.PyCompileError as exc:
-        errors.append(f"syntax error: {path.relative_to(ROOT)}\n    {exc.msg}")
+        compile(path.read_bytes(), label, "exec", dont_inherit=True)
+    except SyntaxError as exc:
+        errors.append(f"syntax error: {label}:{exc.lineno}: {exc.msg}")
+    except (OSError, ValueError) as exc:
+        errors.append(f"cannot compile {label}: {exc}")
 
 # --- 2. the registry contract each node module must keep --------------------
 node_files = sorted((ROOT / "nodes").glob("node_*.py"))
@@ -186,12 +196,7 @@ for unlisted_id in sorted(mapping_keys - RELEASED_NODE_IDS):
 # as installable nodes. Test fixtures did exactly that: they published ids no
 # import ever registers, and Manager offered the pack for workflows using
 # them. Fixtures live as .py.txt for this reason - real source, not a module.
-for path in sorted(ROOT.rglob("*.py")):
-    parts = path.relative_to(ROOT).parts
-    # Scanners skip dot-directories and caches; so does this, or local
-    # scratch like .claude/worktrees would answer for the shipped tree.
-    if any(part.startswith(".") or part == "__pycache__" for part in parts):
-        continue
+for path in python_files:
     if path.parent == ROOT / "nodes":
         continue
     stray = class_mapping_keys(path.read_text(encoding="utf-8"))

@@ -23,12 +23,15 @@ its own globals by string (`globals()["NODE_CLASS_MAPPINGS"]`); that names
 nothing this can read, and no node module has any reason to.
 
 `mapping_problems` takes source text so it is testable against fixtures;
-`duplicate_key_problems` compares the keys collected across modules.
+`duplicate_key_problems` compares the keys collected across modules;
+`scanned_python_files` is the set of files a scanner reads in the first place.
 """
 
 from __future__ import annotations
 
 import ast
+import subprocess
+from pathlib import Path
 
 MAPPING_NAMES = ("NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS")
 # Methods that would change a mapping after its literal assignment.
@@ -277,3 +280,53 @@ def duplicate_key_problems(keys_by_label: dict[str, set[str]]) -> list[str]:
         for key, labels in sorted(owners.items())
         if len(labels) > 1
     ]
+
+
+# Folders no scanner ever sees: gitignored scratch and bytecode caches.
+_LOCAL_DIRS = frozenset({"__pycache__", "_scratch"})
+
+
+def git_paths(root: Path, *args: str) -> list[str] | None:
+    """The paths ``git ls-files -z <args>`` lists for ``root``, or None.
+
+    None means git cannot answer for this tree: no git binary, no
+    repository, or ``root`` is a folder inside another repository (an
+    installed copy under ComfyUI's own checkout) rather than its top level.
+    """
+    root = Path(root).resolve()
+    try:
+        top = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--show-toplevel"],
+            capture_output=True, check=True,
+        ).stdout.decode("utf-8", "surrogateescape").strip()
+        if not top or Path(top).resolve() != root:
+            return None
+        listed = subprocess.run(
+            ["git", "-C", str(root), "ls-files", "-z", *args],
+            capture_output=True, check=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return [name for name in listed.decode("utf-8", "surrogateescape").split("\0") if name]
+
+
+def scanned_python_files(root: Path) -> list[Path]:
+    """The .py files a registry scanner would read in this checkout.
+
+    With git: every tracked file plus every untracked one that is not
+    ignored, so a new node module counts before it is committed while
+    _scratch/, caches and nested checkouts never do. Without git (an
+    installed copy): a walk that skips dot-directories, caches and _scratch.
+    """
+    root = Path(root).resolve()
+    listed = git_paths(root, "--cached", "--others", "--exclude-standard", "--", "*.py")
+    if listed is not None:
+        return sorted({root / name for name in listed if (root / name).is_file()})
+    return sorted(
+        path
+        for path in root.rglob("*.py")
+        if not any(
+            part.startswith(".") or part in _LOCAL_DIRS
+            for part in path.relative_to(root).parts
+        )
+    )
