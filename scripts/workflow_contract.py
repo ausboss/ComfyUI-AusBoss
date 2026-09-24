@@ -3,7 +3,59 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
+
+UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+# Below this saved zoom the frontend stops drawing widget text (about 0.57 on
+# a standard display), so an example would open as unreadable boxes.
+MIN_ZOOM = 0.6
+# Where each save node keeps its filename prefix in a positional save.
+PREFIX_SLOT = {"AUSBOSS_NODES_SaveImage": 0, "AUSBOSS_NODES_SaveVideo": 1}
+
+
+def widget_value_list(node: dict) -> list:
+    values = node.get("widgets_values")
+    if isinstance(values, dict):
+        return list(values.values())
+    return values if isinstance(values, list) else []
+
+
+def selected_files(node: dict) -> set[str]:
+    """Every file name a node selects: its string widget values, plus the rows
+    of a LoRA Loader stack, which saves them as one JSON string."""
+    names = set()
+    for value in widget_value_list(node):
+        if not isinstance(value, str):
+            continue
+        names.add(value)
+        if value.startswith("["):
+            try:
+                rows = json.loads(value)
+            except ValueError:
+                continue
+            names.update(row["name"] for row in rows if isinstance(row, dict) and isinstance(row.get("name"), str))
+    return names
+
+
+def named_copy_problems(node: dict) -> list[str]:
+    """The frontend saves widget values by position and again by name, and
+    restores by name when its experimental setting is on: a stale named copy
+    loads different values than the ones the example was tested with."""
+    named = node.get("widgets_values_named")
+    values = node.get("widgets_values")
+    if not isinstance(named, dict):
+        return []
+    if isinstance(values, dict):
+        pairs = [(key, named[key], values[key]) for key in named if key in values]
+    elif isinstance(values, list):
+        # Panel widgets the frontend saves as "" have no positional twin.
+        keys = [key for key in named if not (key.startswith("ausboss_") and named[key] in ("", None))]
+        pairs = [(key, named[key], value) for key, value in zip(keys, values)]
+    else:
+        return []
+    stale = [key for key, saved, loaded in pairs if saved != loaded]
+    return [f"node {node['id']} has stale named widget values: {', '.join(stale)}"] if stale else []
 
 
 def workflow_problems(data: dict) -> list[str]:
@@ -46,6 +98,26 @@ def workflow_problems(data: dict) -> list[str]:
         problems.append("last_node_id is behind the graph")
     if by_link and data.get("last_link_id", -1) < max(by_link):
         problems.append("last_link_id is behind the graph")
+
+    ident = data.get("id")
+    if ident is not None and (not isinstance(ident, str) or not UUID.fullmatch(ident) or not ident.strip("0-")):
+        problems.append("workflow id must be absent or a random UUID")
+    scale = (data.get("extra") or {}).get("ds", {}).get("scale")
+    if isinstance(scale, (int, float)) and scale < MIN_ZOOM:
+        problems.append(f"saved zoom {scale} is below {MIN_ZOOM}; widget text would not draw")
+    for n in nodes:
+        problems.extend(named_copy_problems(n))
+        selected = selected_files(n)
+        for model in (n.get("properties") or {}).get("models") or []:
+            name = model.get("name") if isinstance(model, dict) else None
+            if name and name not in selected:
+                problems.append(f"node {n['id']} carries download info for {name}, which it does not select")
+        if n["type"] in PREFIX_SLOT:
+            saved = n.get("widgets_values")
+            prefix = saved.get("filename_prefix") if isinstance(saved, dict) else (
+                saved[PREFIX_SLOT[n["type"]]] if isinstance(saved, list) and len(saved) > PREFIX_SLOT[n["type"]] else None)
+            if isinstance(prefix, str) and "/" in prefix.replace("\\", "/"):
+                problems.append(f"node {n['id']} saves into a folder ({prefix}); examples save to the output folder itself")
 
     groups = data.get("groups", [])
     if not groups:
