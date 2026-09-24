@@ -930,8 +930,8 @@
         "Node name for S&R": "CLIPLoader",
         "models": [
           {
-            "name": "qwen3vl_4b_fp8_scaled.safetensors",
-            "url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors",
+            "name": "qwen3vl_8b_int8_convrot.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors",
             "directory": "text_encoders"
           }
         ]
