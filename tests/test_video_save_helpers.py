@@ -5,6 +5,7 @@ import inspect
 import tempfile
 import threading
 import time
+import types
 import unittest
 from fractions import Fraction
 from unittest.mock import patch
@@ -516,6 +517,26 @@ class SaveMetadataToggleTests(unittest.TestCase):
             run_node(node_save_video.AusBossSaveVideo().save(
                 frames=gradient_batch(1, 16, 16), fps=8.0, filename_prefix="AusBoss/video",
                 crf=19, save_metadata=False,
+                prompt={"1": {}}, extra_pnginfo={"workflow": {"nodes": []}},
+            ))
+        self.assertIsNone(encode.call_args.args[5])
+
+    def test_the_disable_metadata_launch_flag_beats_the_toggle(self):
+        # --disable-metadata is the server owner's decision: like Save Image
+        # and core's Save Video, the file then carries no prompt or workflow
+        # even with the toggle left on.
+        fake_comfy = types.ModuleType("comfy")
+        fake_cli_args = types.ModuleType("comfy.cli_args")
+        fake_cli_args.args = types.SimpleNamespace(disable_metadata=True)
+        fake_comfy.cli_args = fake_cli_args
+        with (
+            patch.dict(sys.modules, {"comfy": fake_comfy, "comfy.cli_args": fake_cli_args}),
+            patch.object(node_save_video, "folder_paths", FakeFolderPaths),
+            patch.object(node_save_video, "encode_video", return_value=(16, 16, 1)) as encode,
+        ):
+            run_node(node_save_video.AusBossSaveVideo().save(
+                frames=gradient_batch(1, 16, 16), fps=8.0, filename_prefix="AusBoss/video",
+                crf=19, save_metadata=True,
                 prompt={"1": {}}, extra_pnginfo={"workflow": {"nodes": []}},
             ))
         self.assertIsNone(encode.call_args.args[5])

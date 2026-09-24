@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from ._image_save_helpers import require_output_path, sanitize_exact_name
+from ._image_save_helpers import metadata_disabled, require_output_path, sanitize_exact_name
 
 from ._video_save_helpers import (
     VIDEO_FORMATS,
@@ -231,6 +231,9 @@ class AusBossSaveVideo:
         file = f"{filename}_{counter:05}_.{extension}"
         output_path = Path(full_output_folder) / file
         require_output_path(output_path, output_root)
+        # --disable-metadata is the server owner's call and beats the widget,
+        # as it does for Save Image and core's own Save Video.
+        embed = save_metadata and not metadata_disabled()
         width, height, frame_count = await asyncio.to_thread(
             encode_video,
             output_path,
@@ -238,7 +241,7 @@ class AusBossSaveVideo:
             float(fps),
             audio,
             int(crf),
-            workflow_metadata(prompt, extra_pnginfo) if save_metadata else None,
+            workflow_metadata(prompt, extra_pnginfo) if embed else None,
             str(format),
         )
         return {
