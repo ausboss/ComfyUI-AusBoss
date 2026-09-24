@@ -4,6 +4,10 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Save Image and Save Video save to the output folder itself by
+  default** (`image_...`, `video_...`) instead of an `AusBoss` subfolder,
+  and the example workflows save without a folder too. Saved workflows keep
+  whatever prefix they already have.
 - **The pack makes no network requests.** LoRA Loader's Civitai lookup is
   removed: the info-card button, its gear-menu switch and the server route.
   A `.civitai.info` sidecar already beside a LoRA, from an earlier lookup or
@@ -14,12 +18,98 @@ All notable changes to ComfyUI-AusBoss are documented here.
 - Recreate node and Replace with AusBoss nodes create links through one
   shared helper that calls LiteGraph's `connectSlots` directly: the same
   checks and callbacks as before, without the index-based connect call that
-  the Registry scan reads as a network socket.
-- Release preflight fails when shipped code contains an HTTP or socket
-  client, or that connect call.
-- Add SECURITY.md (what the pack reads, writes and never does, and how to
-  report a problem) and CONTRIBUTING.md. Remove a finished checklist that was
-  committed with 2.1.0.
+  the Registry scan reads as a network socket. Release preflight fails when
+  shipped code contains an HTTP or socket client, or that connect call.
+
+### Video
+
+- Load Video, both video transform nodes and their previews count time from
+  the video stream's first frame. Transport streams (`.mts`, `.m2ts`,
+  `.mpg`) and MP4s whose video starts late loaded the wrong window or no
+  frames at all; seeks now start from a keyframe, and audio stays in step
+  with the picture.
+- Video Crop + Rotate + Pad → Frame gains the megapixel resize the image
+  and clip nodes have, and both it and Image Crop + Rotate + Pad append
+  `width` and `height` outputs.
+- The three Crop + Rotate + Pad faces share one set of controls: a canvas
+  row with fill colour, feather in pixels and the resize budget where the
+  node has one, and Open editor | Reset crop | Reset. The image node's
+  feather was an on/off box and had no fill colour; only it had a full
+  Reset. Reset clears rotation, crop and padding and keeps fill, feather
+  and Align.
+- The video transform panels no longer vanish when the graph is zoomed out.
+- Dropping an AusBoss-saved video on Load Video restores its trim and
+  sampling values again; current frontends' own upload handler had taken
+  the drop.
+- Select Every Nth takes an optional `fps` and appends an `fps` output
+  divided by nth, so a thinned clip keeps its duration.
+- Stitch Inpaint no longer fails when a video model returns fewer frames
+  than the stitcher holds (LTX keeps 8n+1).
+- Save Video honours ComfyUI's `--disable-metadata`, and shows its CRF and
+  Metadata rows only for the formats that read them.
+
+### Image, mask and LoRA
+
+- Load Image + Pad has a Reset padding button on its stage.
+- Save Image: with `on_existing` set to error, the whole batch is checked
+  before any file is written. Editing a legacy exact name no longer
+  overwrites the filename prefix, the Browse popup no longer closes itself
+  and closes on Esc, and Embed workflow is an off | embed pill like every
+  other boolean on a card.
+- LoRA Loader: a row skipped because its file is missing adds no trigger
+  words (rows parked at strength 0 still do). Every number is a scrub
+  control, including the gear menu's default strength and step and the
+  info card's suggested range, which can be left at "any". The gear menu's
+  Reset no longer folds separate CLIP strengths into the model strengths,
+  and row edits enter undo history.
+- Krea 2 Encode's tooltips and help describe both outpaint setups: VLM
+  reference on for AnyPaint, off for Registered Outpaint.
+
+### Pack-wide
+
+- Replace with AusBoss nodes keeps the saved settings of missing nodes;
+  current frontends give their placeholders stand-in widgets that it read
+  instead, so every replacement started from defaults.
+- Clicking a node's **?** badge no longer starts a drag; Run Timer, which
+  has no title bar, has **About this node** in its menu.
+- Copy buttons report a blocked clipboard instead of a false success (plain
+  http on a LAN address has no clipboard API), and Show Text gets one.
+- Messages that used a blocking `alert()` or only the console are toasts.
+- Errors name the node you are using: Save Video, the Clip node, Stitch
+  Inpaint and the padding nodes no longer borrow another node's name.
+- Gear menu resets keep the settings that belong to the node itself.
+  Compare's mode and Mask Refine's AUTO enter undo history.
+
+### Examples
+
+- Loaders select the official file names from their download links and
+  carry matching download info, so a fresh install finds every model the
+  Workflow Note lists. The caption encoders link the Qwen3-VL 8B file they
+  load, SAM3 Segment names ComfyUI-RMBG, and six LoRA Loaders save their
+  missing-file rule.
+- Krea 2 Outpaint turns VLM reference back on, the AnyPaint recipe its note
+  describes. The node tour thins with Select Every Nth and carries the rate
+  through it.
+- Every example has a valid id, opens at a zoom that draws widget text,
+  drops other tools' leftover metadata, stores its named widget values in
+  agreement with the loaded ones, and stops promising audio from the silent
+  sample clip.
+
+### Repository
+
+- README: install through ComfyUI-Manager or comfy-cli, a corrected upgrade
+  note, working commands for the optional extras, the pack-wide tools, and
+  links to the changelog, contributing guide and security policy. Help
+  pages that had drifted from their nodes are corrected, and the 1.2.0
+  changelog heading is back.
+- The Registry archive leaves out the README media (14 MB to 7 MB), and the
+  preflight lists the real archive and holds it to a size budget.
+- Publishing happens only when main's version changes, after the offline
+  checks pass. Pull requests also run the standard-library Python tests, a
+  JavaScript syntax check and ruff.
+- Add SECURITY.md, CONTRIBUTING.md, issue and pull request templates,
+  `.editorconfig` and `.gitattributes`; remove a finished checklist that
+  was committed with 2.1.0 and two dated review reports.
 
 ## 2.1.0 - 2026-09-22
 
