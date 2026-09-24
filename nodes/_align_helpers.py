@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import torch
 
-# Two copies of the BHWC resize/pad plumbing already exist (a known cleanup);
-# importing one of them beats adding a third.
+# Several helper modules already carry their own BHWC resize/pad plumbing (a
+# known cleanup); importing _pad_helpers' beats adding another copy.
 from ._pad_helpers import _fill_tensor, _replicate_pad, _resize_image
 
 ALIGN_MODES = ("resize", "crop", "pad")

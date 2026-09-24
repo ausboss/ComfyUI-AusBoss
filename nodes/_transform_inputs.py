@@ -1,4 +1,4 @@
-"""Stable V1 widget definitions shared by the two transform nodes."""
+"""Stable V1 widget definitions shared by the three Crop + Rotate + Pad nodes."""
 
 from __future__ import annotations
 
@@ -166,8 +166,9 @@ def transform_inputs(*, feather: int = 24, fill_color: str = "#808080") -> dict[
     }
 
 
-# Image-node only (the video node keeps its frame geometry): resize the
-# transformed output to a pixel budget, core ImageScaleToTotalPixels-style.
+# The image and clip nodes only (the frame node keeps its source geometry):
+# resize the transformed output to a pixel budget, core
+# ImageScaleToTotalPixels-style.
 RESIZE_METHODS = ["lanczos", "area", "bicubic", "bilinear", "nearest-exact"]
 
 

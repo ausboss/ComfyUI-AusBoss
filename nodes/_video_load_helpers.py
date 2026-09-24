@@ -1,4 +1,5 @@
-"""Range-trimmed video and audio decoding for the AusBoss Load Video node."""
+"""Range-trimmed video and audio decoding for Load Video and the
+Video Crop + Rotate + Pad -> Clip node."""
 
 from __future__ import annotations
 

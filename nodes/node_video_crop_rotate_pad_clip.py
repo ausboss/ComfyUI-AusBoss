@@ -397,8 +397,11 @@ class AusBossVideoCropRotatePadClip:
         stitch_grow=0,
         **values,
     ):
-        # The preview position (seek_mode, frame_index, frame_time) is left
-        # out on purpose: scrubbing the editor must not re-run a whole clip.
+        # The preview position (seek_mode, frame_index, frame_time) never
+        # changes the output, so it stays out of the fingerprint. That alone
+        # cannot stop a scrub from re-running the clip - every input is in
+        # ComfyUI's cache key - which is why the frontend queues those three
+        # widgets as fixed values (installTransformNode, transform_editor.mjs).
         try:
             path = resolve_video_path(source_mode, video, local_path)
         except Exception:

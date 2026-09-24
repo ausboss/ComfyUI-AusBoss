@@ -1,4 +1,5 @@
-"""Naming, policy, and encoding for the AusBoss Save Image node.
+"""Naming, policy, and encoding for the AusBoss Save Image node. Save Video
+shares its name check, output-folder check and --disable-metadata switch.
 
 The naming and collision logic is pure so tests can drive it without a
 filesystem; the three encoders (PNG, lossless WebP, JPEG XL) sit at the

@@ -841,10 +841,13 @@ __all__ = [
     "RESIZE_ALGORITHMS",
     "STITCHER_KIND",
     "build_canvas_stitcher",
+    "build_transform_stitcher",
     "stitch_blend_from_mask",
     "STITCHER_VERSION",
     "apply_stitch",
     "build_crop",
+    "estimate_tone_offset",
+    "shift_tone",
     "stitch_blend_mask",
     "expand_rect_to_multiple",
     "fit_rect",
@@ -853,6 +856,7 @@ __all__ = [
     "rect_margins",
     "round_up_to_multiple",
     "spread_edge_colors",
+    "tone_offset_field",
 ]
 
 
