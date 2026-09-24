@@ -27,3 +27,9 @@ ausboss_presets.json
 
 # Local duplicate of the versioned .claude brand skill
 /.agents/skills/ausboss-node-brand/
+
+# Local tool output: the archive `comfy node pack` writes, and per-machine
+# worktrees and settings
+node.zip
+.claude/worktrees/
+.claude/settings.local.json
