@@ -1360,6 +1360,7 @@ function openSettings(state, anchor) {
       }
       renderRows(state);
       fitNode(state);
+      notifyAusbossChange();
     },
   });
 }

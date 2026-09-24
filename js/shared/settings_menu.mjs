@@ -450,7 +450,14 @@ export function openSettingsMenu({ scope, schema, anchor, title, onChange, initi
   reset.title = "Back to defaults for this node type";
   reset.addEventListener("click", () => {
     resetSettings(scope);
-    values = schemaDefaults(schema);
+    // persist:false entries mirror the open node, not a stored default, so
+    // a reset leaves them as they are: resetting the LoRA Loader's gear must
+    // not fold a node's separate CLIP strengths into its model strengths.
+    const kept = {};
+    for (const entry of schema) {
+      if (entry.key !== undefined && entry.persist === false) kept[entry.key] = values[entry.key];
+    }
+    values = { ...schemaDefaults(schema), ...kept };
     renderRows();
     onChange?.(values, null);
   });
