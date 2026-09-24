@@ -17,9 +17,10 @@ class AusBossAlignImage:
         "Snaps an image's width and height to a clean multiple of a number "
         "you choose — 8, 16, 32, whatever the model wants. Qwen image "
         "models, VAEs, and many samplers behave best on cleanly divisible "
-        "sizes. Resize rescales to the nearest multiple, crop center-crops "
-        "down, pad replicate-pads the edges up; the new size comes out as "
-        "INTs for wiring into latent nodes."
+        "sizes. Resize rescales to the nearest multiple, crop trims down to "
+        "one from the anchor you pick, pad grows up to one with edge pixels "
+        "or a colour; the new size comes out as INTs for wiring into latent "
+        "nodes."
     )
     SEARCH_ALIASES = [
         "align",
@@ -63,10 +64,11 @@ class AusBossAlignImage:
                         "tooltip": (
                             "How to reach the multiple. resize rescales to "
                             "the NEAREST multiple (slight stretch, keeps "
-                            "every pixel's content). crop center-crops DOWN "
-                            "to the next multiple (no distortion, trims "
-                            "edges). pad replicate-pads UP to the next "
-                            "multiple (no distortion, adds edges). A side "
+                            "every pixel's content). crop trims DOWN to the "
+                            "next multiple at the chosen anchor (no "
+                            "distortion, loses edges). pad adds edges UP to "
+                            "the next multiple with edge pixels or a colour "
+                            "(no distortion). A side "
                             "smaller than one multiple always grows to "
                             "exactly one."
                         ),
