@@ -272,7 +272,7 @@ Copy the files in [`example_workflows/inputs/`](example_workflows/inputs) into `
 |---|---|---|
 | [Resolution Master](example_workflows/Resolution%20Master%20%28AusBoss%29.json) | Orientation, ratios, MP budgeting, and a solid-color preview | Core + this pack; no models |
 | [Image and Video Transform](example_workflows/Image%20and%20Video%20Transform%20%28AusBoss%29.json) | Crop/Pad controls, masks, alignment, and comparison against the original source | Core + this pack; included picture and clip |
-| [AusBoss node tour](example_workflows/ausboss_node_tour.json) | Trim, split, merge, resize, mask, retime, compare, and save a clip | Core + this pack; included clip |
+| [Video Node Tour](example_workflows/Video%20Node%20Tour%20%28AusBoss%29.json) | Trim, split, merge, resize, mask, retime, compare, and save a clip | Core + this pack; included clip |
 | [Video Reframe and Slow Motion](example_workflows/Video%20Reframe%20and%20Slow%20Motion%20%28AusBoss%29.json) | Crop a vertical clip to a square, double its frames, and save it at half speed | Core + this pack; included clip |
 | [Dataset Frames from a Clip](example_workflows/Dataset%20Frames%20from%20a%20Clip%20%28AusBoss%29.json) | Every nth frame at one size, saved as PNGs with caption sidecars | Core + this pack; included clip |
 | [LaMa Object Removal](example_workflows/LaMa%20Object%20Removal%20%28AusBoss%29.json) | Refine a painted mask, remove the object with LaMa, and stitch it back | `big-lama.pt`; included masked image |
@@ -289,7 +289,7 @@ Copy the files in [`example_workflows/inputs/`](example_workflows/inputs) into `
 | [MiniMax H3 Text to Video](example_workflows/MiniMax%20H3%20Text%20to%20Video%20%28AusBoss%29.json) | Five-second request rounded to 124 frames, with generated audio | H3 FL2VA components + 4-step turbo LoRA |
 | [MiniMax H3 Image to Video](example_workflows/MiniMax%20H3%20Image%20to%20Video%20%28AusBoss%29.json) | Source description plus your motion/audio direction | H3 components + turbo LoRA + Qwen3-VL 8B INT8 caption model; included image |
 | [MiniMax H3 First + Last Frame](example_workflows/MiniMax%20H3%20First%20%2B%20Last%20Frame%20%28AusBoss%29.json) | Describe both endpoints, then guide a 20-step base-model transition | H3 FL2VA components + Qwen3-VL 8B INT8 caption model; two included images |
-| [Simple Video Watermark Remover](example_workflows/simple_video_watermark_remover.json) | Detect and remove an overlay, with a single-frame comparison branch | **ComfyUI-RMBG / SAM3** plus `big-lama.pt` and this pack |
+| [Simple Video Watermark Remover](example_workflows/Simple%20Video%20Watermark%20Remover%20%28AusBoss%29.json) | Detect and remove an overlay, with a single-frame comparison branch | **ComfyUI-RMBG / SAM3** plus `big-lama.pt` and this pack |
 
 The other nineteen examples use core nodes plus this pack. Model-free examples are the quickest installation check. Generation speed and memory depend on the selected weights, dimensions, frame count, and other GPU workloads; the graph settings are reproducible, hardware timing is not.
 

@@ -707,7 +707,7 @@ class LegacyWorkflowTests(unittest.TestCase):
     """A workflow saved before frames moved to optional must still load.
 
     OLD_SHAPE_WORKFLOW is lifted from the Save Video, Load Video and LaMa
-    Inpaint nodes of example_workflows/simple_video_watermark_remover.json as
+    Inpaint nodes of example_workflows/Simple Video Watermark Remover (AusBoss).json as
     it was saved when Save Video declared frames in the required group: the
     Save Video node has no video socket at all, frames carries no optional
     shape marker, and its widgets_values is the three-value list of that era.
