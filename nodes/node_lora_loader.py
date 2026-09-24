@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ._lora_helpers import (
+    MISSING_MODES,
     apply_lora_stack,
     collect_trigger_words,
     missing_lora_rows,
@@ -63,7 +64,7 @@ class AusBossLoraLoader:
                     },
                 ),
                 "on_missing": (
-                    ["skip", "error"],
+                    list(MISSING_MODES),
                     {
                         "default": "error",
                         "tooltip": (

@@ -305,6 +305,15 @@ class MissingRowPolicyTests(unittest.TestCase):
             )
         self.assertEqual(triggers, "kept word, parked word")
 
+    def test_the_on_missing_choices_come_from_the_helper(self):
+        try:
+            from nodes.node_lora_loader import AusBossLoraLoader
+        except Exception as exc:  # pragma: no cover - needs the package importable
+            self.skipTest(f"node module not importable offline: {exc}")
+        choices = AusBossLoraLoader.INPUT_TYPES()["optional"]["on_missing"][0]
+        self.assertEqual(choices, list(_lora_helpers.MISSING_MODES))
+        self.assertEqual(choices, ["skip", "error"])  # saved graphs store these
+
     def test_error_is_the_default_and_names_the_file_and_the_switch(self):
         for kwargs in ({}, {"on_missing": "error"}):
             with self.assertRaises(ValueError) as caught:
