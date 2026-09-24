@@ -2,6 +2,25 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **The pack makes no network requests.** LoRA Loader's Civitai lookup is
+  removed: the info-card button, its gear-menu switch and the server route.
+  A `.civitai.info` sidecar already beside a LoRA, from an earlier lookup or
+  another tool, still fills in the title, base model, Civitai trigger words
+  and model link. The lookup's hash cache,
+  `ComfyUI/user/ausboss/lora_hashes.json`, is no longer used and can be
+  deleted.
+- Recreate node and Replace with AusBoss nodes create links through one
+  shared helper that calls LiteGraph's `connectSlots` directly: the same
+  checks and callbacks as before, without the index-based connect call that
+  the Registry scan reads as a network socket.
+- Release preflight fails when shipped code contains an HTTP or socket
+  client, or that connect call.
+- Add SECURITY.md (what the pack reads, writes and never does, and how to
+  report a problem) and CONTRIBUTING.md. Remove a finished checklist that was
+  committed with 2.1.0.
+
 ## 2.1.0 - 2026-09-22
 
 - LoRA absorption preserves repeated applications and upstream → stack →
