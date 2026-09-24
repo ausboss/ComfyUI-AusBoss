@@ -574,6 +574,8 @@ All notable changes to ComfyUI-AusBoss are documented here.
   (shaved by 2px). The Video Crop + Rotate + Pad fallback panel also gained
   the width guards every other panel already had.
 
+## 1.2.0 - 2026-08-27
+
 - **New: Replace with AusBoss nodes 🆎 (prototype).** A canvas-menu and
   command-palette action that finds third-party nodes in the open workflow —
   missing-node placeholders and installed types alike — and offers to swap
