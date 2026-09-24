@@ -6,10 +6,6 @@ from ._lama_helpers import DEFAULT_MODEL_NAME, list_lama_models, run_lama_inpain
 from ._preview_helpers import preview_payload, temp_prefix
 
 
-NODE_ID = "AUSBOSS_NODES_LaMaInpaint"
-LEGACY_NODE_ID = "SimpleWatermarkRemover"
-
-
 class AusBossLaMaInpaint:
     CATEGORY = "🆎 AusBoss/Inpaint"
     DESCRIPTION = (

@@ -29,8 +29,6 @@ EXISTING_POLICIES = ("overwrite", "skip", "error")
 
 FORMAT_EXTENSIONS = {"png": "png", "webp lossless": "webp", "jxl lossless": "jxl"}
 
-# The name modifiers of local mode, in the order they are appended.
-NAME_MODIFIERS = ("date", "time", "size", "counter", "batch")
 COUNTER_WIDTH = 5
 BATCH_WIDTH = 3
 
@@ -307,7 +305,6 @@ __all__ = [
     "FORMAT_EXTENSIONS",
     "IMAGE_EXTENSIONS",
     "IMAGE_FORMATS",
-    "NAME_MODIFIERS",
     "OUTPUT_DIR_RULE",
     "counter_pattern",
     "encode_image",

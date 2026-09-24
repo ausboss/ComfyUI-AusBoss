@@ -10,10 +10,6 @@ from ._inpaint_crop_helpers import (
 )
 
 
-CROP_NODE_ID = "AUSBOSS_NODES_CropForInpaint"
-STITCH_NODE_ID = "AUSBOSS_NODES_StitchInpaint"
-
-
 class AusBossCropForInpaint:
     CATEGORY = "🆎 AusBoss/Inpaint"
     DESCRIPTION = (
