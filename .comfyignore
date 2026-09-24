@@ -17,6 +17,8 @@ scripts/
 # agent instructions and developer docs (docs/ at the root only)
 AGENTS.md
 CLAUDE.md
+CONTRIBUTING.md
+SECURITY.md
 .claude/
 .agents/
 /docs/
