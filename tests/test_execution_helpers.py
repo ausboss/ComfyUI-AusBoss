@@ -8,7 +8,10 @@ from pathlib import Path
 import sys
 from unittest.mock import patch
 
-import torch
+try:
+    import torch
+except ImportError:  # CI runs this file with the standard library alone.
+    torch = None
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -162,6 +165,7 @@ class WarnOnceTests(unittest.TestCase):
         self.assertEqual(len(kept), 5)
 
 
+@unittest.skipIf(torch is None, "needs torch")
 class ComfyTorchDeviceTests(unittest.TestCase):
     def test_comfy_chooses_the_device(self):
         entries = fake_comfy(model_management={"get_torch_device": lambda: "cpu"})
@@ -174,6 +178,7 @@ class ComfyTorchDeviceTests(unittest.TestCase):
             self.assertEqual(comfy_torch_device().type, expected)
 
 
+@unittest.skipIf(torch is None, "the helper modules need torch")
 class SharedSeamTests(unittest.TestCase):
     def test_the_helpers_share_one_copy_of_each_seam(self):
         from nodes import _inpaint_crop_helpers, _interpolate_helpers, _lama_helpers, _mask_helpers

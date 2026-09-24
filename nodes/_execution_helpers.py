@@ -11,8 +11,6 @@ compute device live here too, so no helper module keeps its own copy.
 
 from __future__ import annotations
 
-import torch
-
 
 def raise_if_interrupted() -> None:
     """Abort the running node as soon as the queue is cancelled.
@@ -98,8 +96,14 @@ def warn_once(
     print(f"[AusBoss] {message}")
 
 
-def comfy_torch_device() -> torch.device:
-    """The device ComfyUI computes on; CUDA when available outside ComfyUI."""
+def comfy_torch_device():
+    """The device ComfyUI computes on; CUDA when available outside ComfyUI.
+
+    torch is imported here, not at the top, so the rest of this module stays
+    importable where torch is absent (the standard-library tests in CI).
+    """
+    import torch
+
     try:
         from comfy.model_management import get_torch_device
 
