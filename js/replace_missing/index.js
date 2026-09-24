@@ -12,7 +12,7 @@ import { app } from "/scripts/app.js";
 import { linkSlots, restoreOutputLinks, snapshotLinks } from "../shared/graph_links.mjs";
 import { BRAND, notifyAusbossChange } from "../shared/index.mjs";
 import {
-  decodeWidgetValues,
+  candidateWidgetValues,
   findReplacement,
   mapInputName,
   mapOutputSlot,
@@ -31,19 +31,6 @@ function isRegistered(type) {
   return Boolean(globalThis.LiteGraph?.registered_node_types?.[type]);
 }
 
-// Live widgets when the definition exists; the serialized values (object or
-// positional array) when the node is a missing-type placeholder.
-function serializedWidgetValues(node) {
-  if (Array.isArray(node.widgets) && node.widgets.length) {
-    const values = {};
-    for (const widget of node.widgets) {
-      if (widget?.name != null) values[widget.name] = widget.value;
-    }
-    return values;
-  }
-  return node.widgets_values ?? null;
-}
-
 function collectCandidates(graph) {
   const candidates = [];
   for (const node of graph?._nodes ?? []) {
@@ -56,7 +43,7 @@ function collectCandidates(graph) {
       type,
       title: node.title,
       registered,
-      widgetValues: serializedWidgetValues(node),
+      widgetValues: candidateWidgetValues(node, registered),
       node,
     });
   }

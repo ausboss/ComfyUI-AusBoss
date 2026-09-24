@@ -356,6 +356,21 @@ export function findReplacement(classType) {
   return byPattern;
 }
 
+// The widget values to translate for one candidate node. A registered node's
+// live widgets carry their real names. A missing-type placeholder's widgets
+// are the frontend's display stand-ins, named UNKNOWN, UNKNOWN_1, ..., so its
+// saved widgets_values (object or positional array) are the real record.
+export function candidateWidgetValues(node, registered) {
+  if (registered && Array.isArray(node?.widgets) && node.widgets.length) {
+    const values = {};
+    for (const widget of node.widgets) {
+      if (widget?.name != null) values[widget.name] = widget.value;
+    }
+    return values;
+  }
+  return node?.widgets_values ?? null;
+}
+
 // widgets_values arrives as a name-keyed object (VHS and other packs with
 // custom serialization), a positional array (LiteGraph's default — decoded
 // through old_widget_ids), or nothing at all. Always returns an object;
