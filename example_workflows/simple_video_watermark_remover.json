@@ -887,7 +887,7 @@
   "extra": {
     "ue_links": [],
     "ds": {
-      "scale": 0.485,
+      "scale": 0.6,
       "offset": [
         824.95,
         320.52
