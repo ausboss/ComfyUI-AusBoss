@@ -153,8 +153,10 @@ row order.
 - **model**: The model with every enabled LoRA applied in row order.
 - **clip**: The CLIP with every enabled LoRA applied (unchanged when no CLIP
   is connected).
-- **triggers**: Comma-joined selected trigger words from enabled rows.
+- **triggers**: The selected trigger words from enabled rows, deduplicated,
+  joined with the gear menu's separator (a comma by default).
 
 Rows with a strength of `0` (both model and CLIP) are skipped at load time
 but still contribute their trigger words, so you can park a LoRA at zero
-while comparing.
+while comparing. A row skipped because its file is missing contributes none:
+that LoRA is not in the picture.
