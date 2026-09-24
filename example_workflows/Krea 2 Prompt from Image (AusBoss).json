@@ -29,10 +29,17 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "UNETLoader"
+        "Node name for S&R": "UNETLoader",
+        "models": [
+          {
+            "name": "krea2_turbo_fp8_scaled.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors",
+            "directory": "diffusion_models"
+          }
+        ]
       },
       "widgets_values": [
-        "Krea 2/krea2_turbo_fp8.safetensors",
+        "krea2_turbo_fp8_scaled.safetensors",
         "default"
       ],
       "color": "#223",
@@ -64,7 +71,14 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "CLIPLoader"
+        "Node name for S&R": "CLIPLoader",
+        "models": [
+          {
+            "name": "qwen3vl_4b_fp8_scaled.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors",
+            "directory": "text_encoders"
+          }
+        ]
       },
       "widgets_values": [
         "qwen3vl_4b_fp8_scaled.safetensors",
@@ -99,7 +113,14 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "VAELoader"
+        "Node name for S&R": "VAELoader",
+        "models": [
+          {
+            "name": "qwen_image_vae.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors",
+            "directory": "vae"
+          }
+        ]
       },
       "widgets_values": [
         "qwen_image_vae.safetensors"
@@ -665,7 +686,7 @@
         "ver": "2.0.0"
       },
       "widgets_values": [
-        "{\"v\": 1, \"title\": \"Krea 2 Prompt from Image\", \"subtitle\": \"Krea 2's own text encoder describes a picture, Show Text shows the prompt it wrote, and Krea 2 renders it. Nothing but ComfyUI core and this pack.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose each installed model in its loader; saved selections may include local subfolders. Download links below name the standard destination folders.\\n\\n## How it works\\n1. **Text Generate** — a ComfyUI core node. Krea 2's text encoder is a Qwen3-VL vision-language model, so the same file that will encode the prompt can also *look at a picture and write one*. No extra model, no server, nothing leaves your machine. The instruction tells it what kind of prompt to write.\\n2. **Show Text** — the generated prompt lands here so you can read it, copy it, or edit the instruction and run again.\\n3. **Krea 2 Encode** — takes the prompt by wire (the field greys out while it is connected). Unplug it to type your own.\\n4. **Sample** — the plain Krea 2 Turbo recipe: 8 steps, CFG 1, `er_sde` / `simple`, 832×1216. **Seed** is pinned; *Use last run* brings a good one back.\\n5. **Compare + save** — the new render slides against the picture it was described from. About 20 s on a 32 GB card, most of it the description.\\n\\n## Try\\n- **Style transfer by words**: tell Text Generate to describe the picture *as a watercolour* or *as a 1970s film still* and Krea 2 paints that version.\\n- **Prompt enhancer**: unplug the image and feed Text Generate a rough sentence instead — it expands it into a full prompt the same way.\\n- **Batch of ideas**: raise Text Generate's temperature toward 1.0 for more varied descriptions; lower it for a faithful one.\\n- The description reruns only when its inputs change, so reseeding the sampler is free.\\n\\n## Caption sampling\\nKeep Text Generate’s sampling mode on with the supplied settings. The tested Krea encoder produced a useful description with these settings, while a greedy (sampling off) probe returned empty text. No separate caption model is needed.\", \"models\": [{\"name\": \"krea2_turbo_fp8.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"Tested local FP8 Turbo filename. The download is the official krea2_turbo_fp8_scaled.safetensors build; select that downloaded file in the loader if using it.\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_ShowText\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+        "{\"v\": 1, \"title\": \"Krea 2 Prompt from Image\", \"subtitle\": \"Krea 2's own text encoder describes a picture, Show Text shows the prompt it wrote, and Krea 2 renders it. Nothing but ComfyUI core and this pack.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose each installed model in its loader; if you keep models in subfolders, select those paths. Download links below name the standard destination folders.\\n\\n## How it works\\n1. **Text Generate** — a ComfyUI core node. Krea 2's text encoder is a Qwen3-VL vision-language model, so the same file that will encode the prompt can also *look at a picture and write one*. No extra model, no server, nothing leaves your machine. The instruction tells it what kind of prompt to write.\\n2. **Show Text** — the generated prompt lands here so you can read it, copy it, or edit the instruction and run again.\\n3. **Krea 2 Encode** — takes the prompt by wire (the field greys out while it is connected). Unplug it to type your own.\\n4. **Sample** — the plain Krea 2 Turbo recipe: 8 steps, CFG 1, `er_sde` / `simple`, 832×1216. **Seed** is pinned; *Use last run* brings a good one back.\\n5. **Compare + save** — the new render slides against the picture it was described from. About 20 s on a 32 GB card, most of it the description.\\n\\n## Try\\n- **Style transfer by words**: tell Text Generate to describe the picture *as a watercolour* or *as a 1970s film still* and Krea 2 paints that version.\\n- **Prompt enhancer**: unplug the image and feed Text Generate a rough sentence instead — it expands it into a full prompt the same way.\\n- **Batch of ideas**: raise Text Generate's temperature toward 1.0 for more varied descriptions; lower it for a faithful one.\\n- The description reruns only when its inputs change, so reseeding the sampler is free.\\n\\n## Caption sampling\\nKeep Text Generate’s sampling mode on with the supplied settings. The tested Krea encoder produced a useful description with these settings, while a greedy (sampling off) probe returned empty text. No separate caption model is needed.\", \"models\": [{\"name\": \"krea2_turbo_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"Official FP8 Turbo build, selected in the loader. The example was tested with a different local FP8 Turbo file.\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_ShowText\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
       ]
     }
   ],
