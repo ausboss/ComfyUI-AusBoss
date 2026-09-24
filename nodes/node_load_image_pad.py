@@ -201,7 +201,8 @@ class AusBossLoadImagePad:
         "Model Patch 🆎 reads to place the reference.",
         "The source alone, no padding, fitted to a small multiple of 16 — "
         "the reference image for Krea 2 Encode 🆎 and other reference "
-        "conditioning. Wire it nowhere and nothing is computed.",
+        "conditioning. It is a quick resize, made on every run whether "
+        "wired or not.",
     )
     FUNCTION = "load_pad"
 

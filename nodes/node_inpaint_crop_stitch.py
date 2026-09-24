@@ -76,7 +76,8 @@ class AusBossCropForInpaint:
                         "tooltip": (
                             "Feather width for pasting the result back: the paste "
                             "mask is widened by this many pixels and blurred. "
-                            "The sampling mask is never feathered. 0 pastes hard."
+                            "It never touches the sampling mask (mask_blur "
+                            "softens that). 0 pastes hard."
                         ),
                     },
                 ),
@@ -266,7 +267,8 @@ class AusBossCropForInpaint:
     RETURN_NAMES = ("image", "mask", "stitcher")
     OUTPUT_TOOLTIPS = (
         "Cropped BHWC region around the mask, sized for the sampler.",
-        "Hard-edged sampling mask matching the crop; never feathered.",
+        "The sampling mask, cropped like the image: the input mask after "
+        "invert, grow and blur. blend_pixels never feathers it.",
         "Stitch data for Stitch Inpaint 🆎: canvas, rects, blend mask, scale.",
     )
     FUNCTION = "crop"
@@ -315,9 +317,11 @@ class AusBossCropForInpaint:
 class AusBossStitchInpaint:
     CATEGORY = "🆎 AusBoss/Inpaint"
     DESCRIPTION = (
-        "Pastes an inpainted crop from Crop For Inpaint 🆎 back into "
-        "the original image, blending with the feathered mask recorded in "
-        "the stitcher. Pixels outside the blend region are bit-identical to "
+        "Pastes an inpainted crop from Crop For Inpaint 🆎, or an "
+        "outpainted canvas from Load Image + Pad 🆎 or a Crop + Rotate + "
+        "Pad 🆎 node, back into the original image, blending with the "
+        "feathered mask recorded in the stitcher. Pixels outside the blend "
+        "region are bit-identical to "
         "the original — they never pass through a resize. A stitcher built "
         "from one image broadcasts across an inpainted frame batch. Turn on "
         "fix_edge_halo when the seam shows a dark or light rim; raise "
@@ -341,7 +345,12 @@ class AusBossStitchInpaint:
             "required": {
                 "stitcher": (
                     "AUSBOSS_STITCHER",
-                    {"tooltip": "The stitcher output of Crop For Inpaint 🆎."},
+                    {
+                        "tooltip": (
+                            "The stitcher from Crop For Inpaint 🆎, Load Image "
+                            "+ Pad 🆎 or a Crop + Rotate + Pad 🆎 node."
+                        )
+                    },
                 ),
                 "inpainted": (
                     "IMAGE",

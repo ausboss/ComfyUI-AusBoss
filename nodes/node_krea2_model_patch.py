@@ -43,10 +43,10 @@ class AusBossKrea2OutpaintModelPatch:
                     "AUSBOSS_STITCHER",
                     {
                         "tooltip": (
-                            "From Load Image + Pad 🆎 — supplies the rectangle "
-                            "the source occupies on the canvas. A stitcher "
-                            "without one places the reference over the full "
-                            "frame."
+                            "From Load Image + Pad 🆎 or a Crop + Rotate + "
+                            "Pad 🆎 node — supplies the rectangle the source "
+                            "occupies on the canvas. A stitcher without one "
+                            "places the reference over the full frame."
                         )
                     },
                 ),

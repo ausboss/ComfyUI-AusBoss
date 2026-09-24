@@ -522,7 +522,8 @@ def apply_stitch(
     """
     if not isinstance(stitcher, dict) or stitcher.get("kind") != STITCHER_KIND:
         raise ValueError(
-            "Stitch Inpaint needs the stitcher output of Crop For Inpaint."
+            "Stitch Inpaint needs a stitcher from Crop For Inpaint, Load Image + Pad "
+            "or a Crop + Rotate + Pad node."
         )
     inpainted = _as_image(inpainted, "Stitch Inpaint")
     canvas = stitcher["canvas"]
@@ -815,7 +816,8 @@ def stitch_blend_mask(stitcher: dict, frames: int = 1) -> torch.Tensor:
     """
     if not isinstance(stitcher, dict) or stitcher.get("kind") != STITCHER_KIND:
         raise ValueError(
-            "Stitch Inpaint needs the stitcher output of Crop For Inpaint."
+            "Stitch Inpaint needs a stitcher from Crop For Inpaint, Load Image + Pad "
+            "or a Crop + Rotate + Pad node."
         )
     blend = stitcher["blend"]
     ox, oy, ow, oh = stitcher["canvas_to_original"]

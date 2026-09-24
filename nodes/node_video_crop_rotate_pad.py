@@ -79,7 +79,7 @@ class AusBossVideoCropRotatePad:
         "The selected and transformed frame as a one-image BHWC batch.",
         "BHW generated-area mask: rotation corners and padding.",
         "Full-canvas stitcher: restores kept source pixels over an outpaint result; wire to Stitch Inpaint.",
-        "The source image before rotation, crop, padding, or resize, as a BHWC RGB batch.",
+        "The picked source frame before rotation, crop, or padding, as a BHWC RGB batch.",
     )
     FUNCTION = "load_transform"
 
