@@ -5,8 +5,10 @@
 # it added nothing for a user, and the development files gave the
 # Registry's security scan test fixtures and tooling to flag.
 #
-# scripts/release_preflight.py checks this file keeps covering these paths
-# and never swallows a runtime one (js/docs/ is node help and must ship).
+# scripts/release_preflight.py lists the archive the same way and fails when
+# a path outside its runtime allowlist ships, when a runtime file is dropped
+# (js/docs/ is node help and must ship), or when the archive outgrows its
+# size budget.
 
 # tests and offline tooling
 tests/

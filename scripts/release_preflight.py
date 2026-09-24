@@ -13,12 +13,15 @@ Checks:
      the version out of pyproject.toml on main at view time, so it can
      never go stale (a hardcoded badge sat at 1.0.0 through two releases).
      The check guards against someone swapping a static badge back in.
-  4. .comfyignore keeps development-only paths (tests, scripts, CI, agent
-     instructions, root docs) and README media out of the Registry archive
-     and never swallows a runtime path (nodes/, js/ including js/docs/, the
-     example workflows, README, LICENSE, pyproject). comfy-cli's packer
-     honours the file with gitignore semantics; this check reads it the
-     same way.
+  4. The Registry archive holds runtime files only. With git it is listed
+     the way comfy-cli packs it - tracked files minus those .comfyignore
+     matches - and every shipped path must sit under the runtime allowlist
+     (nodes/, js/, example_workflows/, README, LICENSE, CHANGELOG,
+     pyproject, __init__.py, the presets example). No runtime file may be
+     dropped, every allowlist entry plus js/docs/ and
+     example_workflows/inputs/ must ship, and the archive must stay under
+     its size budget. Without git (an installed copy) .comfyignore is tried
+     on sample paths instead.
   5. example_workflows/: every UI graph has a matching thumbnail, consistent
      links, setup instructions, and stage groups containing its nodes without
      overlaps (including title bars).
@@ -33,6 +36,7 @@ import pathlib
 import re
 import sys
 
+from registry_contract import git_paths
 from workflow_contract import example_problems
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -94,8 +98,35 @@ try:
 except OSError as exc:
     errors.append(f"could not read README.md: {exc}")
 
-# --- 4. .comfyignore covers the development-only paths -----------------------
+# --- 4. the Registry archive holds runtime files only ------------------------
+# comfy-cli packs `git ls-files` minus whatever .comfyignore matches, and git
+# answers the second half with the same gitignore rules, so with git this
+# checks the real archive instead of trying the patterns on sample paths.
 import fnmatch
+
+ARCHIVE_ALLOWLIST = (
+    "__init__.py", "nodes/", "js/", "example_workflows/", "README.md",
+    "LICENSE", "CHANGELOG.md", "pyproject.toml", "ausboss_presets_example.json",
+)
+# Besides every allowlist entry these must ship too: the node help pages and
+# the sample media the example workflows load.
+ARCHIVE_MUST_SHIP = ("js/docs/", "example_workflows/inputs/")
+# Bytes before compression. Without the README media the archive is about
+# 7 MB, nearly all of it example thumbnails and inputs.
+ARCHIVE_BUDGET = 12_000_000
+
+
+def within(path, entry):
+    return path.startswith(entry) if entry.endswith("/") else path == entry
+
+
+def is_runtime(path):
+    return any(within(path, entry) for entry in ARCHIVE_ALLOWLIST)
+
+
+def sample(paths, limit=3):
+    shown = ", ".join(paths[:limit])
+    return shown if len(paths) <= limit else f"{shown} and {len(paths) - limit} more"
 
 
 def comfyignore_patterns(text):
@@ -133,6 +164,7 @@ def ignored(path, patterns):
     return False
 
 
+# Sample paths for the check without git.
 DEV_ONLY = [
     "tests/test_math_helpers.py", "tests/panel_guards.test.mjs",
     "scripts/validate_nodes.py", "scripts/release_preflight.py",
@@ -147,18 +179,63 @@ RUNTIME = [
     "example_workflows/inputs/ausboss_pier_sunrise.png",
     "README.md", "LICENSE", "pyproject.toml", "ausboss_presets_example.json",
 ]
-try:
-    patterns = comfyignore_patterns((ROOT / ".comfyignore").read_text(encoding="utf-8"))
-except OSError as exc:
-    patterns = None
-    errors.append(f"could not read .comfyignore: {exc}")
-if patterns is not None:
-    for path in DEV_ONLY:
-        if not ignored(path, patterns):
-            errors.append(f".comfyignore does not exclude {path}, which must stay out of the archive")
-    for path in RUNTIME:
-        if ignored(path, patterns):
-            errors.append(f".comfyignore would drop runtime path {path} from the archive")
+
+tracked = git_paths(ROOT)
+if tracked is not None:
+    comfyignore = ROOT / ".comfyignore"
+    if comfyignore.is_file():
+        dropped = set(git_paths(ROOT, "--cached", "--ignored", f"--exclude-from={comfyignore}") or ())
+    else:
+        errors.append(".comfyignore is missing, so every tracked file would ship")
+        dropped = set()
+    # The packer also skips a tracked file that is gone from the working tree.
+    shipped = [path for path in tracked if path not in dropped and (ROOT / path).is_file()]
+
+    strays = {}
+    for path in shipped:
+        if not is_runtime(path):
+            top, slash, _ = path.partition("/")
+            strays.setdefault(top + slash, []).append(path)
+    for top, paths in sorted(strays.items()):
+        what = top if paths == [top] else f"{top} ({sample(paths)})"
+        errors.append(
+            f"{what} would ship in the Registry archive but is not a runtime "
+            "path; add it to .comfyignore, or to ARCHIVE_ALLOWLIST in "
+            "scripts/release_preflight.py if users need it"
+        )
+    lost = sorted(path for path in dropped if is_runtime(path))
+    if lost:
+        errors.append(f".comfyignore drops runtime files from the archive: {sample(lost)}")
+    for entry in ARCHIVE_ALLOWLIST + ARCHIVE_MUST_SHIP:
+        if not any(within(path, entry) for path in shipped):
+            errors.append(f"the Registry archive has no {entry}, which must ship")
+    size = sum((ROOT / path).stat().st_size for path in shipped)
+    if size > ARCHIVE_BUDGET:
+        errors.append(
+            f"the Registry archive is {size / 1e6:.1f} MB, over its "
+            f"{ARCHIVE_BUDGET / 1e6:.0f} MB budget; shrink the media it "
+            "carries or raise ARCHIVE_BUDGET deliberately"
+        )
+    archive_summary = (
+        f"Registry archive: {len(shipped)} files, {size / 1e6:.1f} MB "
+        f"(budget {ARCHIVE_BUDGET / 1e6:.0f} MB)"
+    )
+else:
+    # No git (an installed copy has no .git), so the archive cannot be
+    # listed: read .comfyignore directly and try it on sample paths.
+    try:
+        patterns = comfyignore_patterns((ROOT / ".comfyignore").read_text(encoding="utf-8"))
+    except OSError as exc:
+        patterns = None
+        errors.append(f"could not read .comfyignore: {exc}")
+    if patterns is not None:
+        for path in DEV_ONLY:
+            if not ignored(path, patterns):
+                errors.append(f".comfyignore does not exclude {path}, which must stay out of the archive")
+        for path in RUNTIME:
+            if ignored(path, patterns):
+                errors.append(f".comfyignore would drop runtime path {path} from the archive")
+    archive_summary = "Registry archive: git cannot list it here; .comfyignore tried on sample paths only"
 
 # --- 5. example workflows parse and pair with thumbnails ---------------------
 import json
@@ -212,6 +289,7 @@ for path in shipped_source:
             )
 
 # --- report ------------------------------------------------------------------
+print(archive_summary)
 for error in errors:
     print(f"ERROR {error}")
 
