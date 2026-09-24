@@ -39,6 +39,13 @@ export function chainHandler(proto, name, fn) {
   };
 }
 
+// Every public AusBoss node, plus the pre-convention LaMa alias that saved
+// workflows still load.
+export function isAusbossNode(node) {
+  const comfyClass = node?.comfyClass || "";
+  return comfyClass.startsWith("AUSBOSS_NODES_") || comfyClass === "SimpleWatermarkRemover";
+}
+
 // One toast for every AusBoss message. The frontend's toast store queues a
 // PrimeVue toast; a frontend without one gets the console instead, and this
 // never throws - a message must not break the action that raised it.

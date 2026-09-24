@@ -9,13 +9,9 @@
 // the graph back and keeps the original node.
 import { app } from "/scripts/app.js";
 import { linkSlots, restoreOutputLinks, snapshotLinks } from "../shared/graph_links.mjs";
+import { isAusbossNode } from "../shared/index.mjs";
 
 const MENU_LABEL = "Recreate node 🆎";
-
-function isAusbossNode(node) {
-  const comfyClass = node?.comfyClass || "";
-  return comfyClass.startsWith("AUSBOSS_NODES_") || comfyClass === "SimpleWatermarkRemover";
-}
 
 function snapshotNode(node, graph) {
   const widgetValues = new Map();

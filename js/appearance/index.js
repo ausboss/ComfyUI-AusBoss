@@ -12,7 +12,7 @@ import {
   titleInk,
   wearsLegacyScheme,
 } from "../shared/appearance.mjs";
-import { AUSBOSS_JS_VERSION, chainCallback, chainHandler, showToast } from "../shared/index.mjs";
+import { AUSBOSS_JS_VERSION, chainCallback, chainHandler, isAusbossNode, showToast } from "../shared/index.mjs";
 import {
   BADGE_RADIUS,
   badgeCenter,
@@ -58,11 +58,6 @@ function warnStaleJs(serverVersion) {
       "the tab (Ctrl+Shift+R) to load the updated frontend.",
     life: 15000,
   });
-}
-
-function isAusbossNode(node) {
-  const comfyClass = node?.comfyClass || "";
-  return comfyClass.startsWith("AUSBOSS_NODES_") || comfyClass === "SimpleWatermarkRemover";
 }
 
 function applyScheme(node, colors) {
