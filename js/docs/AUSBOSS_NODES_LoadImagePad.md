@@ -21,6 +21,8 @@ padding value unchanged.
 - The badge in the corner is the truth: the **final output size** after the
   canvas-multiple and megapixel math, exactly what the `width`/`height`
   outputs will say.
+- **Reset padding** appears in the top-right corner while there is padding
+  to clear; it sets every side a link does not drive back to 0.
 - Clicks on empty canvas space fall through, so the node still drags.
 - The hidden `pad_left/top/right/bottom` widgets hold the real values — the
   canvas is their remote control, so undo, save/load, and the API format all

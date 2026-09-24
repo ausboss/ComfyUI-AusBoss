@@ -62,6 +62,8 @@ work with the **Crop / Pad** choice beneath them. Crop trims to a locked ratio
 without adding padding. Pad preserves the source with centered fill bands; tap
 its active ratio again to lock the outer canvas, then again to clear it.
 **Reset crop** restores the full crop without changing rotation, padding or trim.
+**Reset** on the node clears rotation, crop and padding; fill, feather, Align and
+the timeline stay.
 **Reset transform** in the editor resets rotation, crop, padding, fill, feather and
 Align; it keeps the source, current frame, trim, Fixed frames, resize and stitch settings.
 **Align** sets the canvas pixel multiple (1 disables alignment padding).
