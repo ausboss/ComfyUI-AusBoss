@@ -25,8 +25,9 @@ outer canvas, and again to clear. **Align** exposes the canvas pixel multiple
 (1 disables it; 8/16/32 can add pixels on the right and bottom).
 
 **Reset crop** restores the full source crop without changing rotation or padding.
-**Reset** clears the entire transform. **Feather** remembers its previous amount;
-**Resize** reveals the megapixel budget. Filter and resize steps stay in the editor.
+**Reset** clears rotation, crop and padding; fill, feather and **Align** stay.
+**Feather** remembers its previous amount; **Resize** reveals the megapixel
+budget. **Method** and **Steps** stay in the editor, under **Resize output**.
 
 The output pixel size is drawn centered just below the image — outside the pixels being judged — and shows the resize target when one is active (`576 x 1024 → 768 x 1344`).
 

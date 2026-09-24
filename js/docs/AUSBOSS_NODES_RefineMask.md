@@ -12,7 +12,7 @@ of a setting is visible without wiring a preview node beside it. The small
 the picture's box disappears, the node is that much shorter, and no preview
 file is written. The switch is the node's optional `preview` input.
 
-## The panel buttons
+## The buttons
 
 - **AUTO** — reads the size of the mask on the panel and sets **expand** and
   **blur** to a sensible starting point for it. A feather is a fraction of the
@@ -22,10 +22,10 @@ file is written. The switch is the node's optional `preview` input.
   point to nudge, not a correct answer — how far a mask has to grow depends on
   how tight the segmentation was, which nothing can read off the picture.
   Needs one run first, since that is when the panel learns the mask's size.
-- **MORE / LESS** — shows or hides the advanced controls below. The node opens
-  on **expand** and **blur** alone; the rest are one click away. Hidden
-  widgets keep their values, so a workflow that set them is unaffected, and
-  the choice is remembered per node.
+- **MORE** — the fold on the card under **blur** shows or hides the advanced
+  rows. The node opens on **expand** and **blur** alone; the rest are one
+  click away. Hidden rows keep their values, so a workflow that set them is
+  unaffected, and the choice is remembered per node.
 
 ## Controls
 

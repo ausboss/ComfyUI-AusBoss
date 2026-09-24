@@ -61,8 +61,8 @@ work with the **Crop / Pad** choice beneath them. Crop trims to a locked ratio
 without adding padding. Pad preserves the source with centered fill bands; tap
 its active ratio again to lock the outer canvas, then again to clear it.
 **Reset crop** restores the full crop without changing rotation, padding or trim.
-**Reset transform** in the editor resets rotation, crop, padding, fill and feather;
-it keeps the source, current frame, trim, Fixed frames, resize and stitch settings.
+**Reset transform** in the editor resets rotation, crop, padding, fill, feather and
+Align; it keeps the source, current frame, trim, Fixed frames, resize and stitch settings.
 **Align** sets the canvas pixel multiple (1 disables alignment padding).
 
 Video Upload and file drop use a streaming route into ComfyUI's input folder,
