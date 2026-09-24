@@ -39,6 +39,24 @@ export function chainHandler(proto, name, fn) {
   };
 }
 
+// One toast for every AusBoss message. The frontend's toast store queues a
+// PrimeVue toast; a frontend without one gets the console instead, and this
+// never throws - a message must not break the action that raised it.
+export function showToast({ detail, severity = "info", summary = "AusBoss", life = 5000 } = {}) {
+  try {
+    const toast = app?.extensionManager?.toast;
+    if (typeof toast?.add === "function") {
+      toast.add({ severity, summary, detail, life });
+      return;
+    }
+  } catch (_error) {
+    // Toast store missing or incompatible: fall through to the console.
+  }
+  const line = `[AusBoss] ${summary === "AusBoss" ? "" : `${summary}: `}${detail}`;
+  if (severity === "error" || severity === "warn") console.warn(line);
+  else console.log(line);
+}
+
 // ComfyUI's undo/dirty tracker snapshots the graph on canvas mouse-up, but
 // our DOM panels commit widget values and node.properties from click/change/
 // pointerup handlers that run one phase later. Without a nudge those edits

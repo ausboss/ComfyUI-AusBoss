@@ -1,6 +1,6 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
-import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
+import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "../shared/index.mjs";
 import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
 import { hideInputsInDef, hideWidget as collapseWidget } from "../shared/widget_visibility.mjs";
 import {
@@ -1202,12 +1202,7 @@ async function runReconnect(state, { quiet = false } = {}) {
 }
 
 function loraToast(detail) {
-  const toaster = app.extensionManager?.toast;
-  if (toaster?.add) {
-    toaster.add({ severity: "info", summary: "LoRA Loader \u{1F18E}", detail, life: 7000 });
-  } else {
-    console.log(`[AusBoss] ${detail}`);
-  }
+  showToast({ summary: "LoRA Loader \u{1F18E}", detail, life: 7000 });
 }
 
 async function runImportChain(state) {

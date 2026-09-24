@@ -12,7 +12,7 @@ import {
   titleInk,
   wearsLegacyScheme,
 } from "../shared/appearance.mjs";
-import { AUSBOSS_JS_VERSION, chainCallback, chainHandler } from "../shared/index.mjs";
+import { AUSBOSS_JS_VERSION, chainCallback, chainHandler, showToast } from "../shared/index.mjs";
 import {
   BADGE_RADIUS,
   badgeCenter,
@@ -47,29 +47,17 @@ function setActiveCustomColor(value) {
 
 // Surface the stale-cache warning where the user actually looks. On current
 // frontends app.extensionManager is the workspace store, whose `toast` is the
-// toast store: add({ severity, summary, detail, life }) queues a PrimeVue
-// toast. Older frontends without it fall back to the console, and nothing in
-// here may ever throw — this is advice, not a feature.
+// toast (the console on frontends without one) - advice, not a feature.
 function warnStaleJs(serverVersion) {
-  const detail =
-    `Installed pack is v${serverVersion} but this tab is running ` +
-    `v${AUSBOSS_JS_VERSION} JavaScript from the browser cache. Hard-refresh ` +
-    "the tab (Ctrl+Shift+R) to load the updated frontend.";
-  try {
-    const toast = app.extensionManager?.toast;
-    if (typeof toast?.add === "function") {
-      toast.add({
-        severity: "warn",
-        summary: "AusBoss frontend is stale",
-        detail,
-        life: 15000,
-      });
-      return;
-    }
-  } catch (_error) {
-    // Toast store missing or incompatible: the console still works.
-  }
-  console.warn(`[AusBoss] ${detail}`);
+  showToast({
+    severity: "warn",
+    summary: "AusBoss frontend is stale",
+    detail:
+      `Installed pack is v${serverVersion} but this tab is running ` +
+      `v${AUSBOSS_JS_VERSION} JavaScript from the browser cache. Hard-refresh ` +
+      "the tab (Ctrl+Shift+R) to load the updated frontend.",
+    life: 15000,
+  });
 }
 
 function isAusbossNode(node) {

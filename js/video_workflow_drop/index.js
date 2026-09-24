@@ -13,7 +13,7 @@
 
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
-import { notifyAusbossChange } from "../shared/index.mjs";
+import { notifyAusbossChange, showToast } from "../shared/index.mjs";
 import {
   isVideoFileName,
   loadVideoRestoreValues,
@@ -81,7 +81,7 @@ async function handleLoadVideoDrop(node, file) {
     const uploadedName = await uploadToInput(file);
     applyDropToLoadVideo(node, restored, uploadedName);
   } catch (error) {
-    console.warn("[AusBoss] video drop onto Load Video failed:", error);
+    showToast({ severity: "error", summary: "Load Video \u{1F18E}", detail: `The dropped video could not be loaded: ${error?.message || error}` });
   }
   return true;
 }

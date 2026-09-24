@@ -1,4 +1,5 @@
 import { app } from "/scripts/app.js";
+import { showToast } from "../shared/index.mjs";
 import { openTransformEditorForNode } from "../shared/transform_editor.mjs";
 
 // Alt+E opens the transform editor of the selected Crop + Rotate + Pad node.
@@ -11,9 +12,7 @@ function selectedTransformNode() {
 }
 
 function notify(detail) {
-  const toast = app.extensionManager?.toast;
-  if (toast?.add) toast.add({ severity: "info", summary: "AusBoss", detail, life: 3000 });
-  else console.log(`[AusBoss] ${detail}`);
+  showToast({ detail, life: 3000 });
 }
 
 app.registerExtension({

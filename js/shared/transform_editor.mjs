@@ -3,7 +3,7 @@ import { app } from "/scripts/app.js";
 import { hideInputsInDef, hideWidget } from "./widget_visibility.mjs";
 import { mountTransformTrim } from "./transform_trim.mjs";
 import { clipOutputRate, inputNumber } from "./clip_rate.mjs";
-import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "./index.mjs";
+import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "./index.mjs";
 import { fillNodeHeight } from "./panel_layout.mjs";
 import { normalizeFillColor } from "./fill_color.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
@@ -363,7 +363,7 @@ function buildMediaSourceCard(state) {
       sync();
       notifyAusbossChange();
     } catch (error) {
-      alert(`Crop + Rotate + Pad: ${error.message}`);
+      showToast({ severity: "error", summary: "Crop + Rotate + Pad \u{1F18E}", detail: error.message, life: 8000 });
     } finally {
       fileInput.value = "";
       fileInput.disabled = false;
@@ -534,7 +534,7 @@ function installVideoDrop(state) {
       if (state.ready) await onSourceChanged(state, true);
       notifyAusbossChange();
     } catch (error) {
-      alert(`Crop + Rotate + Pad: ${error.message}`);
+      showToast({ severity: "error", summary: "Crop + Rotate + Pad \u{1F18E}", detail: error.message, life: 8000 });
     }
     return true;
   };

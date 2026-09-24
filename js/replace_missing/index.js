@@ -10,7 +10,7 @@
 // registered on the backend.
 import { app } from "/scripts/app.js";
 import { linkSlots, restoreOutputLinks, snapshotLinks } from "../shared/graph_links.mjs";
-import { BRAND, notifyAusbossChange } from "../shared/index.mjs";
+import { BRAND, notifyAusbossChange, showToast } from "../shared/index.mjs";
 import {
   candidateWidgetValues,
   findReplacement,
@@ -22,9 +22,7 @@ import {
 const COMMAND_LABEL = "Replace with AusBoss nodes 🆎";
 
 function notify(detail, severity = "info") {
-  const toast = app.extensionManager?.toast;
-  if (toast?.add) toast.add({ severity, summary: "AusBoss", detail, life: 5000 });
-  else console.log(`[AusBoss] ${detail}`);
+  showToast({ detail, severity });
 }
 
 function isRegistered(type) {
