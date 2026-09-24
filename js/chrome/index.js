@@ -334,9 +334,10 @@ function drawNodeBadge(node, ctx) {
     const padX = 5;
     const height = 15;
     const width = Math.ceil(ctx.measureText(badge.text).width) + padX * 2;
-    // Top-right, floating just above the title bar so it never covers
-    // the node title or its widgets.
-    const x = node.size[0] - width;
+    // Top-left, floating just above the title bar so it never covers the
+    // node title or its widgets. The right side belongs to the frontend's
+    // own node-source badge, which sits at the same height.
+    const x = 0;
     const y = -titleHeight - height - 4;
     roundedRectPath(ctx, x, y, width, height, 4);
     ctx.fillStyle = "rgba(8, 20, 19, 0.85)";

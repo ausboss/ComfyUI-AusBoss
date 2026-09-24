@@ -79,6 +79,8 @@ All notable changes to ComfyUI-AusBoss are documented here.
   Inpaint and the padding nodes no longer borrow another node's name.
 - Gear menu resets keep the settings that belong to the node itself.
   Compare's mode and Mask Refine's AUTO enter undo history.
+- The optional live status and runtime badges sit above the left end of
+  the title bar, clear of the frontend's own node-source badge.
 
 ### Examples
 
