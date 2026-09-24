@@ -4,7 +4,10 @@
 Run from anywhere:  python scripts/validate_nodes.py
 
 Checks:
-  1. Every .py file in the pack compiles.
+  1. Every .py file a registry scanner would read compiles: tracked and
+     untracked-but-not-ignored files in a checkout, so local folders such
+     as _scratch/ never answer for the pack. Compiled in memory, so the
+     check writes no bytecode into the tree it inspects.
   2. Every nodes/node_*.py keeps the registry contract from
      scripts/registry_contract.py: both mappings assigned exactly once, at
      module level, to a non-empty dictionary literal with string-literal
@@ -15,19 +18,22 @@ Checks:
      against the files on disk both ways - a listed module with no file and
      a node file nobody imports are both errors - and no mapping key is
      claimed by two modules.
+  4. Permanent public node IDs are still registered - measured against the
+     mapping keys parsed in check 2, not against the text of the file - and
+     each public frame transform node keeps IMAGE, MASK, AUSBOSS_STITCHER,
+     IMAGE (image, mask, stitcher, original) as its first outputs; outputs
+     appended after them are allowed.
   5. No file outside nodes/ declares mapping keys. Registry scanners read
      the whole checkout, so a fixture or sample that names AUSBOSS_NODES_*
      in a mapping literal is advertised as an installable node.
-  4. Permanent public node IDs are still registered - measured against the
-     mapping keys parsed in check 2, not against the text of the file - and
-     each public transform node declares exactly IMAGE then MASK outputs.
+  6. Every public node's display name ends with the pack suffix " 🆎".
+  7. Every public node has its help page at js/docs/<mapping key>.md.
 
 Exit code 0 = all good, 1 = problems printed below.
 """
 
 import ast
 import pathlib
-import py_compile
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -37,10 +43,10 @@ from registry_contract import (
     duplicate_key_problems,
     mapping_problems,
     module_list,
+    scanned_python_files,
 )
 
 errors = []
-warnings = []
 
 PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_AlignImage",
@@ -90,22 +96,68 @@ LEGACY_NODE_IDS = {
 
 RELEASED_NODE_IDS = PUBLIC_NODE_IDS | LEGACY_NODE_IDS
 
-# --- 1. everything compiles --------------------------------------------------
-for path in sorted(ROOT.rglob("*.py")):
-    if "__pycache__" in path.parts:
-        continue
+# The pack signature every public display name ends with.
+PACK_SUFFIX = " 🆎"
+
+# The permanent first outputs of the two public frame transform nodes.
+TRANSFORM_OUTPUT_TYPES = ("IMAGE", "MASK", "AUSBOSS_STITCHER", "IMAGE")
+TRANSFORM_OUTPUT_NAMES = ("image", "mask", "stitcher", "original")
+
+
+def display_names(source):
+    """NODE_DISPLAY_NAME_MAPPINGS read the way a scanner reads it: each
+    string-literal key with its value, or None where that is not a string
+    literal."""
     try:
-        py_compile.compile(str(path), doraise=True)
-    except py_compile.PyCompileError as exc:
-        errors.append(f"syntax error: {path.relative_to(ROOT)}\n    {exc.msg}")
+        tree = ast.parse(source)
+    except SyntaxError:
+        return {}
+    for node in tree.body:
+        if (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id == "NODE_DISPLAY_NAME_MAPPINGS"
+            and isinstance(node.value, ast.Dict)
+        ):
+            return {
+                key.value: value.value if isinstance(value, ast.Constant) else None
+                for key, value in zip(node.value.keys, node.value.values)
+                if isinstance(key, ast.Constant) and isinstance(key.value, str)
+            }
+    return {}
+
+
+def leading(values, count):
+    """The first ``count`` entries of a parsed tuple or list, else None."""
+    return tuple(values[:count]) if isinstance(values, (tuple, list)) else None
+
+
+# The files a registry scanner reads: checks 1 and 5 look at nothing else,
+# so ignored local folders such as _scratch/ neither fail nor pass the build.
+python_files = scanned_python_files(ROOT)
+
+# --- 1. everything compiles --------------------------------------------------
+# compile() in memory rather than py_compile, which wrote a __pycache__
+# folder next to every file it checked.
+for path in python_files:
+    label = path.relative_to(ROOT).as_posix()
+    try:
+        compile(path.read_bytes(), label, "exec", dont_inherit=True)
+    except SyntaxError as exc:
+        errors.append(f"syntax error: {label}:{exc.lineno}: {exc.msg}")
+    except (OSError, ValueError) as exc:
+        errors.append(f"cannot compile {label}: {exc}")
 
 # --- 2. the registry contract each node module must keep --------------------
 node_files = sorted((ROOT / "nodes").glob("node_*.py"))
 keys_by_module = {}
+display_by_key = {}
 for path in node_files:
     source = path.read_text(encoding="utf-8")
     errors.extend(mapping_problems(source, path.name))
     keys_by_module[path.name] = class_mapping_keys(source)
+    display_by_key.update(display_names(source))
 
 # Two modules claiming one key is a silent drop: the last import wins.
 errors.extend(duplicate_key_problems(keys_by_module))
@@ -159,9 +211,14 @@ for path in node_files:
                         return_types = value
                     else:
                         return_names = value
-        if return_types != ("IMAGE", "MASK", "AUSBOSS_STITCHER", "IMAGE"):
-            errors.append(f"{path.name}: expected image, mask, stitcher, and original outputs")
-        if return_names != ("image", "mask", "stitcher", "original"):
+        # A prefix, not the whole tuple. Saved workflows link outputs by slot
+        # index, so these four can never move, but an output appended after
+        # them leaves every existing link where it was and must not fail the
+        # build.
+        count = len(TRANSFORM_OUTPUT_TYPES)
+        if leading(return_types, count) != TRANSFORM_OUTPUT_TYPES:
+            errors.append(f"{path.name}: expected image, mask, stitcher, and original as the first outputs")
+        if leading(return_names, count) != TRANSFORM_OUTPUT_NAMES:
             errors.append(f"{path.name}: existing image/mask slots must precede stitcher/original")
 
 for missing_id in sorted(RELEASED_NODE_IDS - mapping_keys):
@@ -186,12 +243,7 @@ for unlisted_id in sorted(mapping_keys - RELEASED_NODE_IDS):
 # as installable nodes. Test fixtures did exactly that: they published ids no
 # import ever registers, and Manager offered the pack for workflows using
 # them. Fixtures live as .py.txt for this reason - real source, not a module.
-for path in sorted(ROOT.rglob("*.py")):
-    parts = path.relative_to(ROOT).parts
-    # Scanners skip dot-directories and caches; so does this, or local
-    # scratch like .claude/worktrees would answer for the shipped tree.
-    if any(part.startswith(".") or part == "__pycache__" for part in parts):
-        continue
+for path in python_files:
     if path.parent == ROOT / "nodes":
         continue
     stray = class_mapping_keys(path.read_text(encoding="utf-8"))
@@ -201,9 +253,24 @@ for path in sorted(ROOT.rglob("*.py")):
             "nodes/, where registry scanners will advertise it as a node"
         )
 
+# --- 6. public display names carry the pack suffix ---------------------------
+# Names go through ascii(): a Windows console may not encode the emoji, and
+# a crash while printing would hide every other problem.
+for key in sorted(PUBLIC_NODE_IDS & display_by_key.keys()):
+    name = display_by_key[key]
+    if not (isinstance(name, str) and name.endswith(PACK_SUFFIX)):
+        errors.append(
+            f"{key}: display name {ascii(name)} does not end with the pack "
+            f"suffix {ascii(PACK_SUFFIX)}"
+        )
+
+# --- 7. every public node has a help page -----------------------------------
+# The frontend serves js/docs/<mapping key>.md as the node's help panel.
+for key in sorted(PUBLIC_NODE_IDS):
+    if not (ROOT / "js" / "docs" / f"{key}.md").is_file():
+        errors.append(f"{key} has no help page: add js/docs/{key}.md")
+
 # --- report ------------------------------------------------------------------
-for warning in warnings:
-    print(f"WARN  {warning}")
 for error in errors:
     print(f"ERROR {error}")
 

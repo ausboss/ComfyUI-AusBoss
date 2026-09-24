@@ -5,6 +5,7 @@ import inspect
 import tempfile
 import threading
 import time
+import types
 import unittest
 from fractions import Fraction
 from unittest.mock import patch
@@ -316,6 +317,22 @@ class SaveVideoHelperTests(unittest.TestCase):
                 encode.assert_not_called()
                 self.assertEqual(list(Path(outside).iterdir()), [])
 
+    def test_a_rooted_or_escaping_prefix_is_reported_against_save_video(self):
+        for prefix, detail in (("/abs/x", "must be a relative name"), ("../x", "may not contain")):
+            with (
+                self.subTest(prefix=prefix),
+                patch.object(node_save_video, "folder_paths", FakeFolderPaths),
+                patch.object(node_save_video, "encode_video") as encode,
+            ):
+                with self.assertRaises(ValueError) as caught:
+                    run_node(node_save_video.AusBossSaveVideo().save(
+                        frames=gradient_batch(1, 16, 16), fps=8.0, filename_prefix=prefix, crf=19,
+                    ))
+                message = str(caught.exception)
+                self.assertTrue(message.startswith("Save Video: filename_prefix "), message)
+                self.assertIn(detail, message)
+                encode.assert_not_called()
+
     def test_the_file_path_output_is_appended_and_the_node_stays_an_output(self):
         node = node_save_video.AusBossSaveVideo
         self.assertEqual(node.RETURN_TYPES, ("STRING",))
@@ -520,6 +537,26 @@ class SaveMetadataToggleTests(unittest.TestCase):
             ))
         self.assertIsNone(encode.call_args.args[5])
 
+    def test_the_disable_metadata_launch_flag_beats_the_toggle(self):
+        # --disable-metadata is the server owner's decision: like Save Image
+        # and core's Save Video, the file then carries no prompt or workflow
+        # even with the toggle left on.
+        fake_comfy = types.ModuleType("comfy")
+        fake_cli_args = types.ModuleType("comfy.cli_args")
+        fake_cli_args.args = types.SimpleNamespace(disable_metadata=True)
+        fake_comfy.cli_args = fake_cli_args
+        with (
+            patch.dict(sys.modules, {"comfy": fake_comfy, "comfy.cli_args": fake_cli_args}),
+            patch.object(node_save_video, "folder_paths", FakeFolderPaths),
+            patch.object(node_save_video, "encode_video", return_value=(16, 16, 1)) as encode,
+        ):
+            run_node(node_save_video.AusBossSaveVideo().save(
+                frames=gradient_batch(1, 16, 16), fps=8.0, filename_prefix="AusBoss/video",
+                crf=19, save_metadata=True,
+                prompt={"1": {}}, extra_pnginfo={"workflow": {"nodes": []}},
+            ))
+        self.assertIsNone(encode.call_args.args[5])
+
     def test_a_file_saved_with_it_off_carries_no_workflow(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "clean.mp4"
@@ -670,7 +707,7 @@ class LegacyWorkflowTests(unittest.TestCase):
     """A workflow saved before frames moved to optional must still load.
 
     OLD_SHAPE_WORKFLOW is lifted from the Save Video, Load Video and LaMa
-    Inpaint nodes of example_workflows/simple_video_watermark_remover.json as
+    Inpaint nodes of example_workflows/Simple Video Watermark Remover (AusBoss).json as
     it was saved when Save Video declared frames in the required group: the
     Save Video node has no video socket at all, frames carries no optional
     shape marker, and its widgets_values is the three-value list of that era.

@@ -23,6 +23,7 @@ from __future__ import annotations
 import torch
 import torch.nn.functional as functional
 
+from ._execution_helpers import progress_bar, raise_if_interrupted, warn_once
 from ._mask_helpers import blur_mask, grow_shrink_mask
 
 STITCHER_KIND = "ausboss_inpaint_stitcher"
@@ -102,17 +103,21 @@ def rect_margins(rect: Rect, bounds_w: int, bounds_h: int) -> tuple[int, int, in
 # --- tensor plumbing ---------------------------------------------------------
 
 
-def _as_image(image: torch.Tensor) -> torch.Tensor:
+# ``source`` is the node an error names: the crop, the stitch and every
+# stitcher producer validate through these two.
+def _as_image(image: torch.Tensor, source: str = "Crop For Inpaint") -> torch.Tensor:
     if not isinstance(image, torch.Tensor) or image.ndim != 4:
-        raise ValueError("Crop For Inpaint expected a BHWC IMAGE batch.")
+        raise ValueError(f"{source} expected a BHWC IMAGE batch.")
     return image.float()
 
 
-def _as_mask(mask: torch.Tensor, image: torch.Tensor) -> torch.Tensor:
+def _as_mask(
+    mask: torch.Tensor, image: torch.Tensor, source: str = "Crop For Inpaint"
+) -> torch.Tensor:
     if isinstance(mask, torch.Tensor) and mask.ndim == 2:
         mask = mask.unsqueeze(0)
     if not isinstance(mask, torch.Tensor) or mask.ndim != 3:
-        raise ValueError("Crop For Inpaint expected a BHW MASK.")
+        raise ValueError(f"{source} expected a BHW MASK.")
     if mask.shape[1:] != image.shape[1:3]:
         raise ValueError(
             f"Mask size {tuple(mask.shape[1:])} does not match "
@@ -182,15 +187,8 @@ _PYMATTING_HINT = (
     "(add the pymatting package); pasting the edge pixels unchanged."
 )
 
+# Notes already printed this process; each prints once, with no cap.
 _warned: set[str] = set()
-
-
-def _warn_once(message: str) -> None:
-    """Print an ASCII console note at most once per process."""
-    if message in _warned:
-        return
-    _warned.add(message)
-    print(f"[AusBoss] {message}")
 
 
 def _foreground_estimator():
@@ -200,22 +198,6 @@ def _foreground_estimator():
     except Exception:
         return None
     return estimate_foreground_ml
-
-
-def _raise_if_interrupted() -> None:
-    try:
-        from comfy.model_management import throw_exception_if_processing_interrupted
-    except ImportError:  # Offline tests run without ComfyUI.
-        return
-    throw_exception_if_processing_interrupted()
-
-
-def _progress_bar(total: int):
-    try:
-        from comfy.utils import ProgressBar
-    except ImportError:  # Offline tests run without ComfyUI.
-        return None
-    return ProgressBar(total)
 
 
 def spread_edge_colors(patch: torch.Tensor, alpha: torch.Tensor) -> torch.Tensor:
@@ -239,7 +221,7 @@ def spread_edge_colors(patch: torch.Tensor, alpha: torch.Tensor) -> torch.Tensor
         return patch
     estimate = _foreground_estimator()
     if estimate is None:
-        _warn_once(_PYMATTING_HINT)
+        warn_once(_PYMATTING_HINT, _warned)
         return patch
 
     matte_alpha = alpha
@@ -254,10 +236,10 @@ def spread_edge_colors(patch: torch.Tensor, alpha: torch.Tensor) -> torch.Tensor
     # is over half a minute of solving. The per-frame cancel check and progress
     # update keep such a batch stoppable at the next frame boundary.
     total = patch.shape[0]
-    progress = _progress_bar(total) if total > 1 else None
+    progress = progress_bar(total) if total > 1 else None
     spread = torch.empty_like(patch)
     for index in range(total):
-        _raise_if_interrupted()
+        raise_if_interrupted()
         # pymatting solves in float32 and casts whatever it is handed, so
         # feeding float32 drops a float64 temporary of twice the size for a
         # bit-identical estimate.
@@ -269,7 +251,7 @@ def spread_edge_colors(patch: torch.Tensor, alpha: torch.Tensor) -> torch.Tensor
             foreground = estimate(image, matte)
         except Exception as exc:  # A failed estimate must never fail the paste.
             detail = str(exc).encode("ascii", "replace").decode("ascii")
-            _warn_once(f"Stitch Inpaint: edge-halo spread failed ({detail}).")
+            warn_once(f"Stitch Inpaint: edge-halo spread failed ({detail}).", _warned)
             return patch
         spread[index] = torch.as_tensor(foreground)  # copy_ handles dtype/device
         if progress is not None:
@@ -461,6 +443,7 @@ def build_canvas_stitcher(
     canvas: torch.Tensor,
     blend: torch.Tensor,
     bbox: tuple[int, int, int, int] | None = None,
+    source: str = "Stitcher",
 ) -> dict:
     """A stitcher that pastes a full-frame result back over ``canvas``.
 
@@ -482,9 +465,12 @@ def build_canvas_stitcher(
     because a consumer reading normalized coordinates should not have to know
     the canvas size. Omitted when unknown; :func:`apply_stitch` never reads
     either key, so an older stitcher still stitches.
+
+    ``source`` is the producing node, named if its canvas or mask is not a
+    usable batch.
     """
-    canvas = _as_image(canvas)
-    blend = _as_mask(blend, canvas)
+    canvas = _as_image(canvas, source)
+    blend = _as_mask(blend, canvas, source)
     height, width = canvas.shape[1], canvas.shape[2]
     stitcher = {
         "kind": STITCHER_KIND,
@@ -536,9 +522,10 @@ def apply_stitch(
     """
     if not isinstance(stitcher, dict) or stitcher.get("kind") != STITCHER_KIND:
         raise ValueError(
-            "Stitch Inpaint needs the stitcher output of Crop For Inpaint."
+            "Stitch Inpaint needs a stitcher from Crop For Inpaint, Load Image + Pad "
+            "or a Crop + Rotate + Pad node."
         )
-    inpainted = _as_image(inpainted)
+    inpainted = _as_image(inpainted, "Stitch Inpaint")
     canvas = stitcher["canvas"]
     blend = stitcher["blend"]
     cx, cy, cw, ch = stitcher["crop_to_canvas"]
@@ -822,17 +809,23 @@ def stitch_blend_mask(stitcher: dict, frames: int = 1) -> torch.Tensor:
     This is the very mask :func:`apply_stitch` blends with — the sampling
     mask grown by ``blend_pixels`` and blurred — sliced out of the canvas by
     ``canvas_to_original`` so it lines up pixel for pixel with the stitched
-    image. A single-image stitcher broadcasts across ``frames``, matching
-    the batch :func:`apply_stitch` returns, so a downstream color match or
-    composite can weight exactly the pixels the paste touched.
+    image. It follows the batch :func:`apply_stitch` returns: a single-image
+    stitcher broadcasts across ``frames``, and a longer one is trimmed to
+    the leading ``frames`` just as the stitch was, so a downstream color
+    match or composite can weight exactly the pixels the paste touched.
     """
     if not isinstance(stitcher, dict) or stitcher.get("kind") != STITCHER_KIND:
         raise ValueError(
-            "Stitch Inpaint needs the stitcher output of Crop For Inpaint."
+            "Stitch Inpaint needs a stitcher from Crop For Inpaint, Load Image + Pad "
+            "or a Crop + Rotate + Pad node."
         )
     blend = stitcher["blend"]
     ox, oy, ow, oh = stitcher["canvas_to_original"]
     frames = max(1, int(frames))
+    if blend.shape[0] > frames:
+        # A video model handed back fewer frames than the stitcher holds and
+        # apply_stitch kept the leading ones; the mask has to match them.
+        blend = blend[:frames]
     if blend.shape[0] not in (1, frames):
         raise ValueError(
             f"Blend mask batch {blend.shape[0]} cannot broadcast across "
@@ -848,10 +841,13 @@ __all__ = [
     "RESIZE_ALGORITHMS",
     "STITCHER_KIND",
     "build_canvas_stitcher",
+    "build_transform_stitcher",
     "stitch_blend_from_mask",
     "STITCHER_VERSION",
     "apply_stitch",
     "build_crop",
+    "estimate_tone_offset",
+    "shift_tone",
     "stitch_blend_mask",
     "expand_rect_to_multiple",
     "fit_rect",
@@ -860,10 +856,13 @@ __all__ = [
     "rect_margins",
     "round_up_to_multiple",
     "spread_edge_colors",
+    "tone_offset_field",
 ]
 
 
-def build_transform_stitcher(frames, mask, geometry, blend_pixels: int, grow_pixels: int = 0) -> dict:
+def build_transform_stitcher(
+    frames, mask, geometry, blend_pixels: int, grow_pixels: int = 0, source: str = "Stitcher"
+) -> dict:
     """A full-canvas stitcher for a transformed image or clip.
 
     The generated clip is the whole canvas, so the crop is the identity
@@ -871,7 +870,7 @@ def build_transform_stitcher(frames, mask, geometry, blend_pixels: int, grow_pix
     padding and rotation voids - ramped by the stitch settings. It is built
     from the final frames, after any resize, so the paste lines up with what
     the sampler actually returns; the source bbox rides along scaled the
-    same way.
+    same way. ``source`` is the transform node, named in any input error.
     """
     blend = stitch_blend_from_mask(mask, blend_pixels, grow_pixels)
     scale_x = frames.shape[2] / float(geometry.output_width)
@@ -882,4 +881,4 @@ def build_transform_stitcher(frames, mask, geometry, blend_pixels: int, grow_pix
         int(round((geometry.pad_left + geometry.crop_width) * scale_x)),
         int(round((geometry.pad_top + geometry.crop_height) * scale_y)),
     )
-    return build_canvas_stitcher(frames, blend, bbox=bbox)
+    return build_canvas_stitcher(frames, blend, bbox=bbox, source=source)

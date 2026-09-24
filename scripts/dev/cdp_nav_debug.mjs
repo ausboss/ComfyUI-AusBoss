@@ -2,9 +2,13 @@
 // crash (Inspector.targetCrashed) or a dialog (Page.javascriptDialogOpening)
 // shows itself.
 const port = process.argv[2];
-const COMFY = "http://127.0.0.1:8188/";
+const COMFY = new URL(process.env.COMFY_URL || "http://127.0.0.1:8188/").href;
 const list = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
 const page = list.find((t) => t.type === "page" && t.url.startsWith(COMFY));
+if (!page) {
+  console.error(`No ComfyUI tab at ${COMFY} in the browser on CDP port ${port}. Open one first (cdp.mjs does), or set COMFY_URL to the address ComfyUI runs at.`);
+  process.exit(1);
+}
 const ws = new WebSocket(page.webSocketDebuggerUrl);
 await new Promise((r) => (ws.onopen = r));
 let id = 0; const pending = new Map(); const events = [];

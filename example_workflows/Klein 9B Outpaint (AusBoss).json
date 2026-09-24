@@ -1,5 +1,5 @@
 {
-  "id": "",
+  "id": "1a7287f6-9bfc-4037-8914-c1be147cd0f3",
   "revision": 0,
   "last_node_id": 25,
   "last_link_id": 35,
@@ -29,10 +29,17 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "UNETLoader"
+        "Node name for S&R": "UNETLoader",
+        "models": [
+          {
+            "name": "flux-2-klein-9b-int8-convrot.safetensors",
+            "url": "https://huggingface.co/Winnougan/Klein9b-Distilled-Base-INT8-Convrot/resolve/main/flux-2-klein-9b-int8-convrot.safetensors",
+            "directory": "diffusion_models"
+          }
+        ]
       },
       "widgets_values": [
-        "Flux.2 Klein 9B/flux-2-klein-9b-int8-convrot.safetensors",
+        "flux-2-klein-9b-int8-convrot.safetensors",
         "default"
       ],
       "color": "#223",
@@ -63,7 +70,14 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "CLIPLoader"
+        "Node name for S&R": "CLIPLoader",
+        "models": [
+          {
+            "name": "qwen_3_8b_fp8mixed.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors",
+            "directory": "text_encoders"
+          }
+        ]
       },
       "widgets_values": [
         "qwen_3_8b_fp8mixed.safetensors",
@@ -99,7 +113,14 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "VAELoader"
+        "Node name for S&R": "VAELoader",
+        "models": [
+          {
+            "name": "flux2-vae.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/vae/flux2-vae.safetensors",
+            "directory": "vae"
+          }
+        ]
       },
       "widgets_values": [
         "flux2-vae.safetensors"
@@ -161,6 +182,7 @@
       "widgets_values": [
         "[{\"name\":\"Flux.2 Klein 9B/pixaoutpaint.safetensors\",\"strength\":1,\"enabled\":true,\"triggers\":\"pixaoutpaint\"}]",
         ", ",
+        "error",
         ""
       ],
       "title": "LoRA Loader 🆎  ·  the outpaint LoRA"
@@ -803,7 +825,7 @@
         "ver": "2.0.0"
       },
       "widgets_values": [
-        "AusBoss/klein_outpaint",
+        "klein_outpaint",
         "png",
         true,
         "",
@@ -834,7 +856,7 @@
         "ver": "2.0.0"
       },
       "widgets_values": [
-        "{\"v\": 1, \"title\": \"Klein 9B Outpaint\", \"subtitle\": \"Extend a picture with PixaOutpaint for Klein 9B. Condition on the padded source, sample its masked latent, then restore protected pixels with Stitch Inpaint.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose the installed Klein 9B diffusion model, Qwen encoder and Flux 2 VAE in their loaders; saved selections may include local subfolders. Add PixaOutpaint at strength 1. Download links below name the standard destination folders.\\n\\n## How it works\\n1. **Load Image + Pad** — drag the borders outward. Keep the fill flat gray (#808080). The example uses a 1.6 MP canvas and a 64 px seam feather.\\n2. **Reference and starting latent** — VAE Encode supplies the padded reference to both conditioning branches. Set Latent Noise Mask also sends that encoded canvas to the sampler with the padding mask. The model generates the new borders and blends across the seam while the known image anchors the result.\\n3. **Prompt** — keep the pixaoutpaint trigger and the instruction to replace solid gray areas. In testing, alternative wording left borders unfilled even with the same seed. Add scene details after this instruction.\\n4. **Sample** — this distilled Klein 9B example uses 4 steps, CFG 1, euler/simple and full denoise. The Seed node controls repeatability.\\n5. **Stitch** — restore the source outside the 64 px feathered seam. Tone match starts at 1; reduce it if it shifts a new region too far. Compare the result against the padded input, then save.\\n\\n## If a border stays gray\\nCheck that the PixaOutpaint LoRA is enabled and the trigger matches. Restore the supplied prompt, try another seed, or extend fewer sides per pass. Tone match blends a finished outpaint; it cannot fill a region the model left gray.\\n\\n## Tested\\nFour-sided 1120 × 1456 outpaint with the supplied pier image, PixaOutpaint and the INT8 Klein 9B model. Compared raw and stitched images at the same seed: the masked starting latent and 64 px feather reduced the seam left by the empty-latent/24 px setup. The protected source interior remained pixel-exact. Image content, seed and padding amount still affect the result.\\n\\n## Source-aware outpaint prompt\\nQwen3-VL describes the unpadded reference. The prompt keeps the **pixaoutpaint** trigger and gray-area replacement instruction first, then adds the source description. Review the combined prompt on Show Text. For a manual prompt, connect the instruction Text directly to CLIP Text Encode and mute the caption stage. The extra 8B encoder below is only for captioning; Klein retains its own text encoder.\", \"models\": [{\"name\": \"flux-2-klein-9b-int8-convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"\", \"url\": \"https://huggingface.co/Winnougan/Klein9b-Distilled-Base-INT8-Convrot/resolve/main/flux-2-klein-9b-int8-convrot.safetensors\", \"note\": \"Tested build. Select its installed subfolder in the loader; use a distilled Klein 9B model.\"}, {\"name\": \"qwen_3_8b_fp8mixed.safetensors\", \"dir\": \"text_encoders\", \"size\": \"8.7 GB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors\", \"note\": \"\"}, {\"name\": \"flux2-vae.safetensors\", \"dir\": \"vae\", \"size\": \"336 MB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/vae/flux2-vae.safetensors\", \"note\": \"\"}, {\"name\": \"pixaoutpaint.safetensors\", \"dir\": \"loras\", \"size\": \"\", \"url\": \"https://huggingface.co/Pixaroma/experimental_loras/resolve/main/pixaoutpaint.safetensors\", \"note\": \"Pixaroma’s experimental Klein 9B outpaint LoRA. Trigger: pixaoutpaint. Strength: 1.\"}, {\"name\": \"qwen3vl_8b_int8_convrot.safetensors\", \"dir\": \"text_encoders\", \"size\": \"9.35 GB\", \"note\": \"Source captioning only. Use CLIP type qwen_image; the renderer still uses its own encoder. Requires current ComfyUI with Qwen Image 2.1 support.\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_LoadImagePad\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+        "{\"v\": 1, \"title\": \"Klein 9B Outpaint\", \"subtitle\": \"Extend a picture with PixaOutpaint for Klein 9B. Condition on the padded source, sample its masked latent, then restore protected pixels with Stitch Inpaint.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose the installed Klein 9B diffusion model, Qwen encoder and Flux 2 VAE in their loaders; if you keep models in subfolders, select those paths. Add PixaOutpaint at strength 1. Download links below name the standard destination folders.\\n\\n## How it works\\n1. **Load Image + Pad** — drag the borders outward. Keep the fill flat gray (#808080). The example uses a 1.6 MP canvas and a 64 px seam feather.\\n2. **Reference and starting latent** — VAE Encode supplies the padded reference to both conditioning branches. Set Latent Noise Mask also sends that encoded canvas to the sampler with the padding mask. The model generates the new borders and blends across the seam while the known image anchors the result.\\n3. **Prompt** — keep the pixaoutpaint trigger and the instruction to replace solid gray areas. In testing, alternative wording left borders unfilled even with the same seed. Add scene details after this instruction.\\n4. **Sample** — this distilled Klein 9B example uses 4 steps, CFG 1, euler/simple and full denoise. The Seed node controls repeatability.\\n5. **Stitch** — restore the source outside the 64 px feathered seam. Tone match starts at 1; reduce it if it shifts a new region too far. Compare the result against the padded input, then save.\\n\\n## If a border stays gray\\nCheck that the PixaOutpaint LoRA is enabled and the trigger matches. Restore the supplied prompt, try another seed, or extend fewer sides per pass. Tone match blends a finished outpaint; it cannot fill a region the model left gray.\\n\\n## Tested\\nFour-sided 1120 × 1456 outpaint with the supplied pier image, PixaOutpaint and the INT8 Klein 9B model. Compared raw and stitched images at the same seed: the masked starting latent and 64 px feather reduced the seam left by the empty-latent/24 px setup. The protected source interior remained pixel-exact. Image content, seed and padding amount still affect the result.\\n\\n## Source-aware outpaint prompt\\nQwen3-VL describes the unpadded reference. The prompt keeps the **pixaoutpaint** trigger and gray-area replacement instruction first, then adds the source description. Review the combined prompt on Show Text. For a manual prompt, connect the instruction Text directly to CLIP Text Encode and mute the caption stage. The extra 8B encoder below is only for captioning; Klein retains its own text encoder.\", \"models\": [{\"name\": \"flux-2-klein-9b-int8-convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"\", \"url\": \"https://huggingface.co/Winnougan/Klein9b-Distilled-Base-INT8-Convrot/resolve/main/flux-2-klein-9b-int8-convrot.safetensors\", \"note\": \"Tested build; use a distilled Klein 9B model.\"}, {\"name\": \"qwen_3_8b_fp8mixed.safetensors\", \"dir\": \"text_encoders\", \"size\": \"8.7 GB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors\", \"note\": \"\"}, {\"name\": \"flux2-vae.safetensors\", \"dir\": \"vae\", \"size\": \"336 MB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/vae/flux2-vae.safetensors\", \"note\": \"\"}, {\"name\": \"pixaoutpaint.safetensors\", \"dir\": \"loras\", \"size\": \"\", \"url\": \"https://huggingface.co/Pixaroma/experimental_loras/resolve/main/pixaoutpaint.safetensors\", \"note\": \"Pixaroma’s experimental Klein 9B outpaint LoRA. Trigger: pixaoutpaint. Strength: 1.\"}, {\"name\": \"qwen3vl_8b_int8_convrot.safetensors\", \"dir\": \"text_encoders\", \"size\": \"9.35 GB\", \"note\": \"Source captioning only. Use CLIP type qwen_image; the renderer still uses its own encoder. Requires current ComfyUI with Qwen Image 2.1 support.\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_LoadImagePad\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
       ]
     },
     {
@@ -909,8 +931,8 @@
         "Node name for S&R": "CLIPLoader",
         "models": [
           {
-            "name": "qwen3vl_4b_fp8_scaled.safetensors",
-            "url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors",
+            "name": "qwen3vl_8b_int8_convrot.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors",
             "directory": "text_encoders"
           }
         ]
@@ -1354,6 +1376,18 @@
       "color": "#366451"
     },
     {
+      "title": "3 · Describe the source",
+      "bounding": [
+        -80,
+        40,
+        500,
+        1250
+      ],
+      "color": "#42686c",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
       "id": 3,
       "title": "4 · Prompt, reference, seed",
       "bounding": [
@@ -1391,24 +1425,12 @@
       "flags": {},
       "font_size": 24,
       "color": "#345d7c"
-    },
-    {
-      "title": "3 · Describe the source",
-      "bounding": [
-        -80,
-        40,
-        500,
-        1250
-      ],
-      "color": "#42686c",
-      "font_size": 24,
-      "flags": {}
     }
   ],
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.4939,
+      "scale": 0.6,
       "offset": [
         1881.98,
         314.2

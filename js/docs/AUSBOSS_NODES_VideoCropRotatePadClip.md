@@ -22,9 +22,10 @@ model that paints black regions.
   sizes rounded to 32 - so a wrong value shows here before a render is wasted.
   A fresh clip node starts with that pair (black, feather 0) and the editor's
   **Reset transform** returns to it; the image nodes keep their soft grey canvas.
-- **Local path**: Read a video on the ComfyUI server in place without an upload copy.
-  It must sit inside ComfyUI's input, output or temp folder, for queued runs and the
-  editor's live preview alike; paths anywhere else are refused.
+- **Local path** (`source_mode` / `local_path`): Read a video on the ComfyUI server in
+  place without an upload copy. It must sit inside ComfyUI's input, output or temp
+  folder, for queued runs and the editor's live preview alike; paths anywhere else are
+  refused.
 - **Timeline**: The rail on the node and in the editor is one timeline. Press or
   drag anywhere on it to scrub the **playhead**; the stage shows that frame. Drag the
   **IN** or **OUT** handle to trim: the playhead rides on the handle, so what you see
@@ -45,7 +46,7 @@ model that paints black regions.
   and Every nth. Fixed frames overrides OUT/`end_frame`, Limit/`frame_load_cap`, and
   Snap. Choose a model-compatible count yourself. If the source is too short, the
   node reports the required duration instead of returning a shorter clip.
-- **every_nth / max_frames**: Thin the batch or cap it. The `fps` output divides to match every_nth, so the clip keeps real-time downstream.
+- **Every nth** / **Limit** (`every_nth` / `max_frames`): Thin the batch or cap it. The `fps` output divides to match every_nth, so the clip keeps real-time downstream.
 - **Snap** (`frame_snap`): Drop trailing frames so the count is one a video model keeps:
   **8n+1** for LTX (49, 97, 121), **4n+1** for Wan. Free keeps every frame in the window.
   With it on, `frame_count`, `duration`, the audio window and the stitcher all match the
@@ -61,8 +62,10 @@ work with the **Crop / Pad** choice beneath them. Crop trims to a locked ratio
 without adding padding. Pad preserves the source with centered fill bands; tap
 its active ratio again to lock the outer canvas, then again to clear it.
 **Reset crop** restores the full crop without changing rotation, padding or trim.
-**Reset transform** in the editor resets rotation, crop, padding, fill and feather;
-it keeps the source, current frame, trim, Fixed frames, resize and stitch settings.
+**Reset** on the node clears rotation, crop and padding; fill, feather, Align and
+the timeline stay.
+**Reset transform** in the editor resets rotation, crop, padding, fill, feather and
+Align; it keeps the source, current frame, trim, Fixed frames, resize and stitch settings.
 **Align** sets the canvas pixel multiple (1 disables alignment padding).
 
 Video Upload and file drop use a streaming route into ComfyUI's input folder,
@@ -95,12 +98,13 @@ painted the padded bands (or rotation corners), Stitch puts the source frames ba
 bit-for-bit and takes the generation only inside the generated area, so no separate
 Crop For Inpaint node is needed. The editor's right sidebar holds the settings:
 
-- **Blend**: the ramp, in output pixels, where generated pixels fade over the source.
-  It is separate from the padding **Feather**, which shapes the mask the model sees -
-  a black-band outpaint wants feather 0 and a blend of a few dozen pixels.
+- **Blend** (`stitch_blend`): the ramp, in output pixels, where generated pixels fade
+  over the source. It is separate from the padding **Feather**, which shapes the mask
+  the model sees - a black-band outpaint wants feather 0 and a blend of a few dozen
+  pixels.
 - **Show blend** tints the stage with the paste mask itself: the generated area (padding, rotation corners), the transform feather, then grow and blend applied in output pixels through any resize - the backend's mask math run at preview resolution.
-- **Advanced → Grow paste** moves the paste boundary first: a few positive pixels let
-  the generation repaint the source edge when a seam still shows.
+- **Advanced → Grow paste** (`stitch_grow`) moves the paste boundary first: a few
+  positive pixels let the generation repaint the source edge when a seam still shows.
 
 The stitcher is built from the final resized frames, so it lines up with what the
 sampler returns at this node's `width` × `height`.

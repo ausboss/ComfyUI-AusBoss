@@ -184,7 +184,7 @@ test("a combo string absent from a dynamic file list still restores by name", ()
 // --- Legacy positional arrays --------------------------------------------
 
 test("the shipped Load Video example array migrates by widget order", () => {
-  // example_workflows/simple_video_watermark_remover.json — the trailing
+  // example_workflows/Simple Video Watermark Remover (AusBoss).json — the trailing
   // "image" and "" belong to frontend-added upload/preview widgets and must
   // be ignored, not force-fed into anything.
   const widgets = loadVideoWidgets(["input.mp4"]);

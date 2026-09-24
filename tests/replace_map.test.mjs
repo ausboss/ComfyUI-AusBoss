@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   REPLACEMENTS,
+  candidateWidgetValues,
   decodeWidgetValues,
   findReplacement,
   mapInputName,
@@ -399,4 +400,30 @@ test("every declared entry names a tier the pipeline understands", () => {
     if (entry.tier === "refuse") assert.ok(entry.reason);
     else assert.match(entry.new_node_id, /^AUSBOSS_NODES_/);
   }
+});
+
+// ------------------------------------------------------ candidateWidgetValues
+
+test("a registered node's live widgets are read by name", () => {
+  const node = {
+    widgets: [{ name: "method", value: "mkl" }, { name: "strength", value: 0.75 }],
+    widgets_values: ["stale", 1],
+  };
+  assert.deepEqual(candidateWidgetValues(node, true), { method: "mkl", strength: 0.75 });
+});
+
+test("a missing-type placeholder's stand-in widgets are ignored for its saved values", () => {
+  // Frontend 1.53 gives placeholders display widgets named UNKNOWN, UNKNOWN_1.
+  const node = {
+    widgets: [{ name: "UNKNOWN", value: "mkl" }, { name: "UNKNOWN_1", value: 0.75 }],
+    widgets_values: ["mkl", 0.75],
+  };
+  const values = candidateWidgetValues(node, false);
+  assert.deepEqual(values, ["mkl", 0.75]);
+  assert.deepEqual(decodeWidgetValues(entryFor("ColorMatch"), values), { method: "mkl", strength: 0.75 });
+});
+
+test("a placeholder with no saved values yields null, so translators use defaults", () => {
+  assert.equal(candidateWidgetValues({ widgets: [] }, false), null);
+  assert.equal(candidateWidgetValues(null, false), null);
 });

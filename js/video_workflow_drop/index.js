@@ -13,7 +13,7 @@
 
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
-import { notifyAusbossChange } from "../shared/index.mjs";
+import { notifyAusbossChange, showToast } from "../shared/index.mjs";
 import {
   isVideoFileName,
   loadVideoRestoreValues,
@@ -81,13 +81,38 @@ async function handleLoadVideoDrop(node, file) {
     const uploadedName = await uploadToInput(file);
     applyDropToLoadVideo(node, restored, uploadedName);
   } catch (error) {
-    console.warn("[AusBoss] video drop onto Load Video failed:", error);
+    showToast({ severity: "error", summary: "Load Video \u{1F18E}", detail: `The dropped video could not be loaded: ${error?.message || error}` });
   }
   return true;
 }
 
+function droppedVideo(event) {
+  return Array.from(event?.dataTransfer?.files ?? [])
+    .find((candidate) => isVideoFileName(candidate.name));
+}
+
+// Current frontends give a node with an upload button its own onDragDrop,
+// which shadows the prototype hook below and uploads the file itself, so the
+// trim restore never ran. Take video files first on the instance and hand
+// every other drop to the frontend's handler.
+function claimVideoDrops(node) {
+  if (!Object.prototype.hasOwnProperty.call(node, "onDragDrop")) return;
+  const own = node.onDragDrop;
+  if (typeof own !== "function" || own.__ausbossVideoDrop) return;
+  const wrapped = async function (event, ...rest) {
+    const file = droppedVideo(event);
+    if (file) return handleLoadVideoDrop(this, file);
+    return own.apply(this, [event, ...rest]);
+  };
+  wrapped.__ausbossVideoDrop = true;
+  node.onDragDrop = wrapped;
+}
+
 app.registerExtension({
   name: "ausboss.video_workflow_drop",
+  nodeCreated(node) {
+    if (node?.comfyClass === LOAD_VIDEO_NODE) claimVideoDrops(node);
+  },
   beforeRegisterNodeDef(nodeType, nodeData) {
     if (nodeData?.name !== LOAD_VIDEO_NODE) return;
     const proto = nodeType.prototype;
@@ -107,8 +132,7 @@ app.registerExtension({
     const priorDrop = proto.onDragDrop;
     proto.onDragDrop = async function (event, ...rest) {
       if (await priorDrop?.apply(this, [event, ...rest])) return true;
-      const file = Array.from(event?.dataTransfer?.files ?? [])
-        .find((candidate) => isVideoFileName(candidate.name));
+      const file = droppedVideo(event);
       if (!file) return false;
       return handleLoadVideoDrop(this, file);
     };

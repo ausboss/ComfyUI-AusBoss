@@ -1,5 +1,5 @@
 {
-  "id": "00000000-0000-0000-0000-000000000000",
+  "id": "b00f1dd5-33ac-4fea-92af-f12b7241cc53",
   "revision": 0,
   "last_node_id": 54,
   "last_link_id": 3,
@@ -73,10 +73,6 @@
       "properties": {
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "Node name for S&R": "AUSBOSS_NODES_Resolution",
         "ausbossResolutionPortrait": false
       },
@@ -162,10 +158,6 @@
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "Node name for S&R": "EmptyImage"
       },
       "widgets_values": [
@@ -214,10 +206,6 @@
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "Node name for S&R": "PreviewImage"
       }
     },
@@ -250,17 +238,13 @@
       "properties": {
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "Node name for S&R": "AUSBOSS_NODES_WorkflowNote"
       },
       "widgets_values": [
         "{\"v\": 1, \"title\": \"Resolution Master\", \"subtitle\": \"A small canvas test with no models to download.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"Choose portrait or landscape, then a ratio. Scrub the MP field to make a smaller or larger canvas. Queue to preview that size as a solid color.\\n\\nFor image generation, wire the latent output into your sampler instead. Choose the correct latent layout in the gear. For video generation, use the width and height outputs, as in the MiniMax H3 examples.\\n\\nTyped dimensions remain exact; latent dimensions round down to complete cells. Use multiples of the chosen latent layout’s downsample factor when sampling directly.\"}"
       ],
       "widgets_values_named": {
-        "note": "{\"v\":1,\"title\":\"Resolution Master\",\"subtitle\":\"A small canvas test with no models to download.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"\",\"body\":\"Choose portrait or landscape, then a ratio. Scrub the MP field to make a smaller or larger canvas. Queue to preview that size as a solid color.\\n\\nFor image generation, wire the latent output into your sampler instead. Choose the correct latent layout in the gear. For video generation, use the width and height outputs, as in the MiniMax H3 examples.\\n\\nTyped dimensions remain exact; latent dimensions round down to complete cells. Use multiples of the chosen latent layout’s downsample factor when sampling directly.\"}",
+        "note": "{\"v\": 1, \"title\": \"Resolution Master\", \"subtitle\": \"A small canvas test with no models to download.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"Choose portrait or landscape, then a ratio. Scrub the MP field to make a smaller or larger canvas. Queue to preview that size as a solid color.\\n\\nFor image generation, wire the latent output into your sampler instead. Choose the correct latent layout in the gear. For video generation, use the width and height outputs, as in the MiniMax H3 examples.\\n\\nTyped dimensions remain exact; latent dimensions round down to complete cells. Use multiples of the chosen latent layout’s downsample factor when sampling directly.\"}",
         "ausboss_workflow_note_panel": ""
       },
       "color": "#14424d",
@@ -333,7 +317,6 @@
   ],
   "config": {},
   "extra": {
-    "ue_links": [],
     "ds": {
       "scale": 0.81,
       "offset": [

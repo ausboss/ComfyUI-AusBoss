@@ -1,18 +1,18 @@
 # Load Image + Pad
 
-The widget card holds Source and Upload, fill mode, color or backdrop blur,
-Feather, Multiple, and Budget. **Exact padding** opens a separate scrub row
-for each side. Every row can take a link; linked controls dim, and their
-values and links save with the workflow. The canvas remains available below
-the card for dragging the borders.
-Linked sides are controlled upstream; dragging their borders leaves the saved
-padding value unchanged.
-
 Loads an image and builds an outpaint canvas around it in one node. The
 canvas drawn on the node is the control: **drag any edge of the dashed
 final rect** to grow that side's padding — the whole edge is the handle,
 and corners grab the nearer edge. The second output is a mask covering
 exactly the padding, ready for an inpainter.
+
+The widget card holds Source and Upload, Fill, Color or Backdrop, Feather,
+Multiple, and Budget. **Exact padding** opens a separate scrub row
+for each side. Every row can take a link; linked controls dim, and their
+values and links save with the workflow. The canvas remains available below
+the card for dragging the borders.
+Linked sides are controlled upstream; dragging their borders leaves the saved
+padding value unchanged.
 
 ## The on-node canvas
 
@@ -21,6 +21,8 @@ exactly the padding, ready for an inpainter.
 - The badge in the corner is the truth: the **final output size** after the
   canvas-multiple and megapixel math, exactly what the `width`/`height`
   outputs will say.
+- **Reset padding** appears in the top-right corner while there is padding
+  to clear; it sets every side a link does not drive back to 0.
 - Clicks on empty canvas space fall through, so the node still drags.
 - The hidden `pad_left/top/right/bottom` widgets hold the real values — the
   canvas is their remote control, so undo, save/load, and the API format all
@@ -36,17 +38,20 @@ exactly the padding, ready for an inpainter.
 
 ## Controls
 
-- **image**: Choose or upload from ComfyUI's input folder.
-- **mode / fill_color / backdrop_blur**: Four fills — `color`, `edge`,
-  `edge pixel`, `pillarbox blur`.
+- **Source** (`image`): Choose or upload from ComfyUI's input folder.
+- **Fill** / **Color** / **Backdrop** (`mode` / `fill_color` /
+  `backdrop_blur`): Four fills — `color`, `edge`, `edge pixel`,
+  `pillarbox blur`. **Color** shows for `color`, **Backdrop** for
+  `pillarbox blur`.
 - **feather**: Ramps the mask *inward* across the image edge on each padded
   side (ramp width capped by the image size), so the sampler blends the
   seam. `0` keeps the seam hard. The padding itself always stays solid.
-- **canvas_multiple**: The final canvas rounds up to this multiple; the
-  remainder joins the right and bottom padding.
-- **target_megapixels**: `0` = off. Rescales the **source** so the padded
-  canvas lands on this many megapixels, then re-rounds to the multiple —
-  the way to outpaint a small or huge image at a sampler-friendly size.
+- **Multiple** (`canvas_multiple`): The final canvas rounds up to this
+  multiple; the remainder joins the right and bottom padding.
+- **Budget** (`target_megapixels`): `0` = off. Rescales the **source** so
+  the padded canvas lands on this many megapixels, then re-rounds to the
+  multiple — the way to outpaint a small or huge image at a sampler-friendly
+  size.
 
 ## Outputs
 
@@ -61,4 +66,5 @@ exactly the padding, ready for an inpainter.
   Model Patch 🆎** reads to place the reference.
 - **reference**: The source alone, no padding, fitted to a small multiple
   of 16 — the reference image for **Krea 2 Encode 🆎** and other
-  reference conditioning. Wire it nowhere and nothing is computed.
+  reference conditioning. It is built on every run; leave it unconnected
+  when nothing needs it.

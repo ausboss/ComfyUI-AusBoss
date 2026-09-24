@@ -5,6 +5,7 @@ import importlib.util
 import io
 from pathlib import Path
 import sys
+import types
 import unittest
 
 import torch
@@ -47,6 +48,15 @@ def gradient_image(batch: int, height: int, width: int) -> torch.Tensor:
 def box_mask(height: int, width: int, y0: int, y1: int, x0: int, x1: int) -> torch.Tensor:
     mask = torch.zeros((1, height, width), dtype=torch.float32)
     mask[:, y0:y1, x0:x1] = 1.0
+    return mask
+
+
+def moving_box_mask(frames: int, height: int, width: int) -> torch.Tensor:
+    """A per-frame mask whose 8x8 box steps diagonally, so no two frames match."""
+    mask = torch.zeros((frames, height, width), dtype=torch.float32)
+    for index in range(frames):
+        offset = 8 + 4 * index
+        mask[index, offset : offset + 8, offset : offset + 8] = 1.0
     return mask
 
 
@@ -539,7 +549,7 @@ class EdgeHaloTests(unittest.TestCase):
             if len(checks) == cancel_at[0]:
                 raise Cancelled
 
-        self.stub_helper("_raise_if_interrupted", check)
+        self.stub_helper("raise_if_interrupted", check)
         solved.clear()
         canvas_before = self.stitcher["canvas"].clone()
         frames_before = frames.clone()
@@ -576,7 +586,7 @@ class EdgeHaloTests(unittest.TestCase):
             bars.append(Recorder(total))
             return bars[-1]
 
-        self.stub_helper("_progress_bar", make_bar)
+        self.stub_helper("progress_bar", make_bar)
         self.stub_estimator(lambda image, matte: image)
 
         apply_stitch(self.stitcher, self.three_frames(), True)
@@ -759,13 +769,25 @@ class BlendMaskOutputTests(unittest.TestCase):
         for index in range(4):
             self.assertTrue(torch.equal(broadcast[index : index + 1], single))
 
-    def test_batches_that_cannot_broadcast_are_rejected(self):
-        image = rand_image(3, 48, 48, seed=52)
-        mask = box_mask(48, 48, 16, 32, 16, 32).repeat(3, 1, 1)
-        _c, _s, stitcher = build_crop(image, mask, 1.5, 4, 8)
-        self.assertEqual(stitcher["blend"].shape[0], 3)
+    def test_a_longer_stitcher_is_trimmed_to_the_leading_frames(self):
+        # apply_stitch keeps the leading frames when fewer come back; the
+        # mask must follow it rather than refuse the shorter batch.
+        _c, _s, stitcher = build_crop(
+            rand_image(3, 48, 48, seed=52), moving_box_mask(3, 48, 48), 1.5, 4, 8
+        )
+        blend = stitcher["blend"]
+        self.assertEqual(blend.shape[0], 3)
+        self.assertFalse(torch.equal(blend[1], blend[2]))  # per-frame, not one
+        ox, oy, ow, oh = stitcher["canvas_to_original"]
+        trimmed = stitch_blend_mask(stitcher, 2)
+        self.assertTrue(torch.equal(trimmed, blend[:2, oy : oy + oh, ox : ox + ow]))
+
+    def test_frames_the_stitcher_never_had_are_rejected(self):
+        _c, _s, stitcher = build_crop(
+            rand_image(3, 48, 48, seed=52), moving_box_mask(3, 48, 48), 1.5, 4, 8
+        )
         with self.assertRaises(ValueError):
-            stitch_blend_mask(stitcher, 2)
+            stitch_blend_mask(stitcher, 4)
 
     def test_a_foreign_stitcher_is_rejected(self):
         with self.assertRaises(ValueError):
@@ -793,6 +815,34 @@ class BlendMaskOutputTests(unittest.TestCase):
         self.assertEqual(result[1].ndim, 3)
         self.assertEqual(result[1].shape[0], result[0].shape[0])
         self.assertEqual(tuple(result[1].shape[1:]), tuple(result[0].shape[1:3]))
+
+    def test_the_node_stitches_fewer_frames_than_a_per_frame_mask_holds(self):
+        # A video model keeps 8n+1 or 4n+1 frames: nine went in, five came
+        # back. The stitch pastes the leading five and the mask follows it.
+        from nodes.node_inpaint_crop_stitch import NODE_CLASS_MAPPINGS
+
+        crop_cls = NODE_CLASS_MAPPINGS["AUSBOSS_NODES_CropForInpaint"]
+        stitch_cls = NODE_CLASS_MAPPINGS["AUSBOSS_NODES_StitchInpaint"]
+        image = rand_image(9, 48, 64, seed=53)
+        cropped, _s, stitcher = getattr(crop_cls(), crop_cls.FUNCTION)(
+            image=image,
+            mask=moving_box_mask(9, 48, 64),
+            context_factor=1.2,
+            blend_pixels=8,
+            output_multiple=8,
+        )
+        self.assertEqual(stitcher["blend"].shape[0], 9)
+        with contextlib.redirect_stdout(io.StringIO()) as note:
+            stitched, blend_mask = getattr(stitch_cls(), stitch_cls.FUNCTION)(
+                stitcher=stitcher, inpainted=cropped[:5]
+            )
+        self.assertIn("stitching the first 5", note.getvalue())
+        self.assertTrue(torch.equal(stitched, image[:5]))
+        ox, oy, ow, oh = stitcher["canvas_to_original"]
+        self.assertEqual(tuple(blend_mask.shape), (5, 48, 64))
+        self.assertTrue(
+            torch.equal(blend_mask, stitcher["blend"][:5, oy : oy + oh, ox : ox + ow])
+        )
 
 
 class NodeWiringTests(unittest.TestCase):
@@ -1114,6 +1164,40 @@ class StitchBlendFromMaskTests(unittest.TestCase):
         mask[:, :, :10] = 1.0
         self.assertTrue(torch.all(stitch_blend_from_mask(mask, 0, 4)[:, :, :14] == 1.0))
         self.assertTrue(torch.all(stitch_blend_from_mask(mask, 0, -4)[:, :, 6:] == 0.0))
+
+
+class ErrorSourceTests(unittest.TestCase):
+    """Input errors name the node the user is looking at."""
+
+    def test_crop_for_inpaint_keeps_its_wording(self):
+        with self.assertRaisesRegex(ValueError, r"^Crop For Inpaint expected a BHWC IMAGE batch\.$"):
+            build_crop(torch.zeros((8, 8, 3)), torch.zeros((1, 8, 8)), 1.2, 0, 8)
+        with self.assertRaisesRegex(ValueError, r"^Crop For Inpaint expected a BHW MASK\.$"):
+            build_crop(rand_image(1, 8, 8), torch.zeros(8), 1.2, 0, 8)
+
+    def test_stitch_inpaint_names_itself(self):
+        _c, _s, stitcher = build_crop(
+            rand_image(1, 32, 32), box_mask(32, 32, 8, 24, 8, 24), 1.2, 0, 8
+        )
+        with self.assertRaisesRegex(ValueError, r"^Stitch Inpaint expected a BHWC IMAGE batch\.$"):
+            apply_stitch(stitcher, torch.zeros((32, 32, 3)))
+
+    def test_stitcher_producers_name_themselves(self):
+        canvas = rand_image(1, 16, 16)
+        with self.assertRaisesRegex(ValueError, r"^Load Image \+ Pad expected a BHWC IMAGE batch\.$"):
+            build_canvas_stitcher(canvas[0], torch.zeros((1, 16, 16)), source="Load Image + Pad")
+        with self.assertRaisesRegex(ValueError, r"^Load Image \+ Pad expected a BHW MASK\.$"):
+            build_canvas_stitcher(canvas, torch.zeros(16), source="Load Image + Pad")
+        geometry = types.SimpleNamespace(
+            output_width=16, output_height=16, pad_left=0, pad_top=0, crop_width=16, crop_height=16
+        )
+        with self.assertRaisesRegex(
+            ValueError, r"^Video Crop \+ Rotate \+ Pad -> Clip expected a BHWC IMAGE batch\.$"
+        ):
+            inpaint_helpers.build_transform_stitcher(
+                canvas[0], torch.zeros((1, 16, 16)), geometry, 0,
+                source="Video Crop + Rotate + Pad -> Clip",
+            )
 
 
 if __name__ == "__main__":

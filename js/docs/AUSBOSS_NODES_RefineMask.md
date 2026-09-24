@@ -12,7 +12,7 @@ of a setting is visible without wiring a preview node beside it. The small
 the picture's box disappears, the node is that much shorter, and no preview
 file is written. The switch is the node's optional `preview` input.
 
-## The panel buttons
+## The buttons
 
 - **AUTO** — reads the size of the mask on the panel and sets **expand** and
   **blur** to a sensible starting point for it. A feather is a fraction of the
@@ -22,10 +22,10 @@ file is written. The switch is the node's optional `preview` input.
   point to nudge, not a correct answer — how far a mask has to grow depends on
   how tight the segmentation was, which nothing can read off the picture.
   Needs one run first, since that is when the panel learns the mask's size.
-- **MORE / LESS** — shows or hides the advanced controls below. The node opens
-  on **expand** and **blur** alone; the rest are one click away. Hidden
-  widgets keep their values, so a workflow that set them is unaffected, and
-  the choice is remembered per node.
+- **MORE** — the fold on the card under **blur** shows or hides the advanced
+  rows. The node opens on **expand** and **blur** alone; the rest are one
+  click away. Hidden rows keep their values, so a workflow that set them is
+  unaffected, and the choice is remembered per node.
 
 ## Controls
 
@@ -46,9 +46,9 @@ file is written. The switch is the node's optional `preview` input.
   become fully white; the range between rescales linearly. Raise
   `black_point` a little to clear gray haze, lower `white_point` to solidify
   the core. The defaults (`0.0` / `1.0`) change nothing.
-- **edge_refine**: `off`, `guided filter`, or `matting`. Both refinements
-  snap the mask edge to the connected **guide_image** and run per frame, so
-  video batches stay interruptible:
+- **Edge** (`edge_refine`): `off`, **guided** (`guided filter`), or
+  `matting`. Both refinements snap the mask edge to the connected
+  **guide_image** and run per frame, so video batches stay interruptible:
   - `guided filter` — fast edge-aware filtering of the soft mask against the
     guide image. The filter radius scales with **expand**.
   - `matting` — closed-form alpha matting: the binarized mask eroded by the
@@ -64,8 +64,11 @@ file is written. The switch is the node's optional `preview` input.
 Everything above runs on the pack's stock dependencies except the two
 `edge_refine` tiers:
 
-- `guided filter` needs opencv-contrib: `pip install opencv-contrib-python`
-- `matting` needs pymatting: `pip install pymatting`
+- `guided filter` needs opencv-contrib: `python -m pip install opencv-contrib-python`
+- `matting` needs pymatting: `python -m pip install "pymatting>=1.1"`
+
+Run them with the Python that runs ComfyUI (for the Windows portable build,
+`python_embeded\python.exe -m pip install ...`).
 
 They are listed in the pack's `pyproject.toml` under
 `[project.optional-dependencies]` as the `guided-filter` and `matting`

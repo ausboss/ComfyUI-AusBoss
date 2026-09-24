@@ -1,6 +1,6 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
-import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
+import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "../shared/index.mjs";
 import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
 import { hideInputsInDef, hideWidget as collapseWidget } from "../shared/widget_visibility.mjs";
 import {
@@ -9,12 +9,15 @@ import {
   loadSettings,
   openSettingsMenu,
 } from "../shared/settings_menu.mjs";
+import { makeScrubInput } from "../shared/scrub_input.mjs";
 import {
   BYPASS_MODE,
   DEFAULT_STEP,
   FINE_STEP,
   MAX_ROWS,
   MUTE_MODE,
+  STRENGTH_MAX,
+  STRENGTH_MIN,
   clampHighlight,
   commonFolderPrefix,
   filterLoras,
@@ -79,12 +82,12 @@ const SETTINGS_SCOPE = "lora_loader";
 const SETTINGS_SCHEMA = [
   {
     key: "default_strength", label: "Default strength", type: "number",
-    default: 1, min: -10, max: 10,
+    default: 1, min: -10, max: 10, scrub: true, step: 0.05, fineStep: 0.01, decimals: 2,
     hint: "Strength a newly added LoRA starts at.",
   },
   {
     key: "step", label: "Strength step", type: "number",
-    default: 0.05, min: 0.01, max: 1,
+    default: 0.05, min: 0.01, max: 1, scrub: true, step: 0.01, fineStep: 0.01, decimals: 2,
     hint: "Scrub and arrow-key step. Shift always steps by 0.01.",
   },
   {
@@ -137,11 +140,6 @@ const SETTINGS_SCHEMA = [
     key: "thumbnails", label: "Preview thumbnails", type: "toggle",
     default: true,
     hint: "Poster image beside the picker while hovering a LoRA.",
-  },
-  {
-    key: "civitai_lookup", label: "Civitai lookup button", type: "toggle",
-    default: true,
-    hint: "Offer the online lookup inside the info card.",
   },
 ];
 // Narrowest node at which a row still works: toggle + picker + strength +
@@ -230,9 +228,6 @@ function installStyles() {
     max-height: 180px; border-radius: 6px; border: 1px solid #3a4047;
     box-shadow: 0 8px 28px rgba(0,0,0,.5); pointer-events: none; background: #1c1f23; }
   .ausboss-lora-range { display: flex; align-items: center; gap: 6px; }
-  .ausboss-lora-range input { width: 56px; height: 24px; border: 1px solid #3a4047;
-    border-radius: 5px; background: #23272c; color: inherit; text-align: center; outline: none; }
-  .ausboss-lora-range input:focus { border-color: ${BRAND}; }
   .ausboss-lora-name { flex: 1 1 auto; min-width: 0; height: 24px; border: 1px solid #3a4047;
     border-radius: 5px; background: #23272c; color: inherit; text-align: left; padding: 0 8px;
     cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -314,7 +309,6 @@ function installStyles() {
   .ausboss-lora-chip { border: 1px solid #3a4047; border-radius: 10px; background: #23272c;
     color: inherit; cursor: pointer; padding: 2px 8px; font-size: 11px; }
   .ausboss-lora-chip.active { border-color: ${BRAND}; color: ${BRAND}; }
-  .ausboss-lora-fetch { align-self: flex-start; }
   .ausboss-lora-custom { display: flex; gap: 6px; align-items: center; }
   .ausboss-lora-custom input { flex: 1 1 auto; min-width: 0; height: ${ACTIONS_HEIGHT}px;
     border: 1px solid #3a4047; box-sizing: border-box;
@@ -453,13 +447,16 @@ function openPopup(element, anchorRect, { width } = {}) {
   return { place };
 }
 
-function commitRows(state, rows, { structural = false } = {}) {
+// Every commit is a user gesture and enters undo history; a drag passes
+// record: false for its intermediate values and records once on release.
+function commitRows(state, rows, { structural = false, record = true } = {}) {
   state.rows = rows;
   state.widget.value = serializeRows(rows);
   state.renderedValue = state.widget.value;
   state.node.graph?.setDirtyCanvas(true, true);
   if (structural) renderRows(state);
   else updateRowValues(state);
+  if (record) notifyAusbossChange();
 }
 
 function linked(state) {
@@ -589,11 +586,11 @@ function strengthBox(state, index, key) {
   input.__ausbossTint = () => state.rows[index] && applyRangeTint(input, state.rows[index], key);
   ensureRange(state, state.rows[index].name);
 
-  const commitValue = (value, structural = false) => {
+  const commitValue = (value, { record = true } = {}) => {
     let rows = state.rows;
     if (key === "strength") rows = setStrength(rows, index, value, linked(state));
     else rows = rows.map((row, i) => (i === index ? { ...row, strength_clip: roundStrength(value) } : row));
-    commitRows(state, rows, { structural });
+    commitRows(state, rows, { record });
   };
 
   let drag = null;
@@ -609,7 +606,7 @@ function strengthBox(state, index, key) {
     const dy = event.clientY - drag.y;
     if (!drag.scrubbed && isScrubbing(dx, dy)) drag.scrubbed = true;
     if (drag.scrubbed) {
-      commitValue(scrubValue(drag.start, dx, event.shiftKey, state.settings?.step));
+      commitValue(scrubValue(drag.start, dx, event.shiftKey, state.settings?.step), { record: false });
     }
   });
   const endDrag = (event) => {
@@ -617,6 +614,7 @@ function strengthBox(state, index, key) {
     try { input.releasePointerCapture(event.pointerId); } catch {}
     const wasClick = !drag.scrubbed;
     drag = null;
+    if (!wasClick) notifyAusbossChange();
     if (wasClick) {
       input.readOnly = false;
       input.focus();
@@ -860,69 +858,37 @@ function openInfo(state, index, anchor) {
     chipSection("From Civitai", info.civitai_triggers);
     chipSection("Your words", info.custom_triggers);
 
-    if (state.settings?.civitai_lookup !== false) {
-      const label = info.has_civitai ? "Refresh Civitai info" : "Fetch Civitai info";
-      const fetchButton = el("button", "ausboss-lora-add ausboss-lora-fetch", label);
-      fetchButton.type = "button";
-      fetchButton.addEventListener("click", async () => {
-        fetchButton.disabled = true;
-        fetchButton.textContent = "Fetching...";
-        try {
-          const response = await api.fetchApi("/ausboss/lora/civitai", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: serverName }),
-          });
-          const data = await response.json();
-          if (!data.ok) throw new Error(data.error || "fetch failed");
-          if (data.info?.found === false) {
-            fetchButton.textContent = "Not found on Civitai";
-            return;
-          }
-          load();
-        } catch (error) {
-          fetchButton.textContent = "Civitai lookup failed";
-        }
-      });
-      card.append(fetchButton);
-    }
-
     const range = el("div", "ausboss-lora-range");
     range.append(el("span", "ausboss-lora-meta", "Suggested strength"));
-    const bound = (key, placeholder) => {
-      const inputEl = el("input");
-      inputEl.type = "number";
-      inputEl.step = "0.05";
-      inputEl.placeholder = placeholder;
-      const current = info.range?.[key];
-      if (current !== null && current !== undefined) inputEl.value = String(current);
-      inputEl.addEventListener("keydown", (event) => {
-        event.stopPropagation();
-        if (event.key === "Enter") inputEl.blur();
-      });
-      inputEl.addEventListener("change", async () => {
-        const minValue = Number(range.querySelector("[data-bound=min]").value);
-        const maxValue = Number(range.querySelector("[data-bound=max]").value);
-        const payload = {
-          name: serverName,
-          words: info.custom_triggers || [],
-          min: range.querySelector("[data-bound=min]").value === "" ? null : minValue,
-          max: range.querySelector("[data-bound=max]").value === "" ? null : maxValue,
-        };
-        try {
-          await api.fetchApi("/ausboss/lora/triggers", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-          rangeCache.delete(row.name);
-          ensureRange(state, row.name);
-        } catch {}
-      });
-      inputEl.dataset.bound = key;
-      return inputEl;
+    // Each bound is optional: erase it for "any". Saved when a gesture ends.
+    const bounds = {};
+    const saveRange = async () => {
+      const payload = {
+        name: serverName,
+        words: info.custom_triggers || [],
+        min: bounds.min.get(),
+        max: bounds.max.get(),
+      };
+      try {
+        await api.fetchApi("/ausboss/lora/triggers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        rangeCache.delete(row.name);
+        ensureRange(state, row.name);
+      } catch {}
     };
-    range.append(bound("min", "min"), el("span", "ausboss-lora-meta", "to"), bound("max", "max"));
+    for (const key of ["min", "max"]) {
+      bounds[key] = makeScrubInput({
+        value: info.range?.[key] ?? null, allowEmpty: true, emptyStart: key === "min" ? 0 : 1,
+        placeholder: "any", min: STRENGTH_MIN, max: STRENGTH_MAX,
+        step: 0.05, fineStep: 0.01, decimals: 2, width: 76,
+        title: `Suggested ${key === "min" ? "lowest" : "highest"} strength; erase it for any.`,
+        onSettle: saveRange,
+      });
+    }
+    range.append(bounds.min.root, el("span", "ausboss-lora-meta", "to"), bounds.max.root);
     range.title = "Advisory range for this LoRA; out-of-range strengths tint orange on the row.";
     card.append(range);
 
@@ -1236,12 +1202,7 @@ async function runReconnect(state, { quiet = false } = {}) {
 }
 
 function loraToast(detail) {
-  const toaster = app.extensionManager?.toast;
-  if (toaster?.add) {
-    toaster.add({ severity: "info", summary: "LoRA Loader \u{1F18E}", detail, life: 7000 });
-  } else {
-    console.log(`[AusBoss] ${detail}`);
-  }
+  showToast({ summary: "LoRA Loader \u{1F18E}", detail, life: 7000 });
 }
 
 async function runImportChain(state) {
@@ -1393,6 +1354,7 @@ function openSettings(state, anchor) {
       }
       renderRows(state);
       fitNode(state);
+      notifyAusbossChange();
     },
   });
 }
@@ -1551,13 +1513,16 @@ function renderRows(state) {
           index,
           scrubValue(nameDrag.start, dx, event.shiftKey, state.settings?.step),
           linked(state),
-        ));
+        ), { record: false });
       }
     });
     const endNameDrag = (event) => {
       if (!nameDrag) return;
       try { name.releasePointerCapture(event.pointerId); } catch {}
-      if (nameDrag.scrubbed) name.dataset.ausbossScrubbed = "1";
+      if (nameDrag.scrubbed) {
+        name.dataset.ausbossScrubbed = "1";
+        notifyAusbossChange();
+      }
       nameDrag = null;
     };
     name.addEventListener("pointerup", endNameDrag);

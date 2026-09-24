@@ -12,7 +12,7 @@ import {
   titleInk,
   wearsLegacyScheme,
 } from "../shared/appearance.mjs";
-import { AUSBOSS_JS_VERSION, chainCallback } from "../shared/index.mjs";
+import { AUSBOSS_JS_VERSION, chainCallback, chainHandler, isAusbossNode, showToast } from "../shared/index.mjs";
 import {
   BADGE_RADIUS,
   badgeCenter,
@@ -47,34 +47,17 @@ function setActiveCustomColor(value) {
 
 // Surface the stale-cache warning where the user actually looks. On current
 // frontends app.extensionManager is the workspace store, whose `toast` is the
-// toast store: add({ severity, summary, detail, life }) queues a PrimeVue
-// toast. Older frontends without it fall back to the console, and nothing in
-// here may ever throw — this is advice, not a feature.
+// toast (the console on frontends without one) - advice, not a feature.
 function warnStaleJs(serverVersion) {
-  const detail =
-    `Installed pack is v${serverVersion} but this tab is running ` +
-    `v${AUSBOSS_JS_VERSION} JavaScript from the browser cache. Hard-refresh ` +
-    "the tab (Ctrl+Shift+R) to load the updated frontend.";
-  try {
-    const toast = app.extensionManager?.toast;
-    if (typeof toast?.add === "function") {
-      toast.add({
-        severity: "warn",
-        summary: "AusBoss frontend is stale",
-        detail,
-        life: 15000,
-      });
-      return;
-    }
-  } catch (_error) {
-    // Toast store missing or incompatible: the console still works.
-  }
-  console.warn(`[AusBoss] ${detail}`);
-}
-
-function isAusbossNode(node) {
-  const comfyClass = node?.comfyClass || "";
-  return comfyClass.startsWith("AUSBOSS_NODES_") || comfyClass === "SimpleWatermarkRemover";
+  showToast({
+    severity: "warn",
+    summary: "AusBoss frontend is stale",
+    detail:
+      `Installed pack is v${serverVersion} but this tab is running ` +
+      `v${AUSBOSS_JS_VERSION} JavaScript from the browser cache. Hard-refresh ` +
+      "the tab (Ctrl+Shift+R) to load the updated frontend.",
+    life: 15000,
+  });
 }
 
 function applyScheme(node, colors) {
@@ -195,7 +178,12 @@ app.registerExtension({
   },
   getNodeMenuItems(node) {
     if (!isAusbossNode(node)) return [];
+    // A title-less node has no bar for the "?" badge; its card opens here.
+    const about = isTitleless(node)
+      ? [{ content: "About this node", callback: () => openHelpCard(node, null) }]
+      : [];
     return [
+      ...about,
       {
         content: "AusBoss color",
         has_submenu: true,
@@ -230,14 +218,28 @@ app.registerExtension({
   },
 });
 
+function isTitleless(node) {
+  return node.constructor?.title_mode === (globalThis.LiteGraph?.NO_TITLE ?? 1);
+}
+
+function openHelpCard(node, event) {
+  const nodeData = node.constructor?.nodeData;
+  const clientX = event?.clientX ?? window.innerWidth / 2;
+  const clientY = event?.clientY ?? 80;
+  openInfoCard({
+    anchor: { left: clientX - 150, top: clientY, bottom: clientY + 6 },
+    title: node.title || nodeData?.display_name || "About this node",
+    sections: helpSections(nodeData),
+  });
+}
+
 // Every AusBoss node gets a quiet "?" in the title bar; clicking it opens a
 // card built from the node's own DESCRIPTION and tooltips, so the docs on
 // screen are exactly the docs in the source.
 function installHelpBadge(node) {
   // A title-less node (Run Timer) has no bar to hang the badge on; its
-  // help stays reachable through the node's context menu.
-  const noTitle = node.constructor?.title_mode === (globalThis.LiteGraph?.NO_TITLE ?? 1);
-  if (noTitle) return;
+  // card opens from the node's context menu instead.
+  if (isTitleless(node)) return;
   chainCallback(node, "onDrawForeground", function (ctx) {
     if (!showBadge(this.size?.[0] ?? 0, this.flags?.collapsed)) return;
     const [x, y] = badgeCenter(this.size[0]);
@@ -254,17 +256,10 @@ function installHelpBadge(node) {
     ctx.fillText("?", x, y + 0.5);
     ctx.restore();
   });
-  chainCallback(node, "onMouseDown", function (event, pos) {
+  chainHandler(node, "onMouseDown", function (event, pos) {
     if (!showBadge(this.size?.[0] ?? 0, this.flags?.collapsed)) return false;
     if (!pos || !hitsBadge(pos, this.size[0])) return false;
-    const nodeData = this.constructor?.nodeData;
-    const clientX = event?.clientX ?? window.innerWidth / 2;
-    const clientY = event?.clientY ?? 80;
-    openInfoCard({
-      anchor: { left: clientX - 150, top: clientY, bottom: clientY + 6 },
-      title: this.title || nodeData?.display_name || "About this node",
-      sections: helpSections(nodeData),
-    });
+    openHelpCard(this, event);
     return true; // consume the click so it does not start a drag
   });
 }

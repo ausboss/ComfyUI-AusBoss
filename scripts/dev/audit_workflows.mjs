@@ -7,7 +7,7 @@ import path from "node:path";
 const [port, outDir, ...requested] = process.argv.slice(2);
 if (!port || !outDir) throw new Error("Expected CDP port and output directory");
 fs.mkdirSync(outDir, { recursive: true });
-const root = "http://127.0.0.1:8188/";
+const root = new URL(process.env.COMFY_URL || "http://127.0.0.1:8188/").href;
 const tabs = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
 const tab = tabs.find(t => t.type === "page" && t.url.startsWith(root));
 if (!tab) throw new Error("Open ComfyUI with cdp.mjs first");

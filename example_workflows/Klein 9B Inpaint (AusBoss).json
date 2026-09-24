@@ -1,5 +1,5 @@
 {
-  "id": "",
+  "id": "f81752e3-ff59-49d7-968b-951750189815",
   "revision": 0,
   "last_node_id": 22,
   "last_link_id": 27,
@@ -29,10 +29,17 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "UNETLoader"
+        "Node name for S&R": "UNETLoader",
+        "models": [
+          {
+            "name": "flux-2-klein-9b-int8-convrot.safetensors",
+            "url": "https://huggingface.co/Winnougan/Klein9b-Distilled-Base-INT8-Convrot/resolve/main/flux-2-klein-9b-int8-convrot.safetensors",
+            "directory": "diffusion_models"
+          }
+        ]
       },
       "widgets_values": [
-        "Flux.2 Klein 9B/flux-2-klein-9b-int8-convrot.safetensors",
+        "flux-2-klein-9b-int8-convrot.safetensors",
         "default"
       ],
       "color": "#223",
@@ -63,7 +70,14 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "CLIPLoader"
+        "Node name for S&R": "CLIPLoader",
+        "models": [
+          {
+            "name": "qwen_3_8b_fp8mixed.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors",
+            "directory": "text_encoders"
+          }
+        ]
       },
       "widgets_values": [
         "qwen_3_8b_fp8mixed.safetensors",
@@ -99,7 +113,14 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "VAELoader"
+        "Node name for S&R": "VAELoader",
+        "models": [
+          {
+            "name": "flux2-vae.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/vae/flux2-vae.safetensors",
+            "directory": "vae"
+          }
+        ]
       },
       "widgets_values": [
         "flux2-vae.safetensors"
@@ -947,7 +968,7 @@
         "ver": "2.0.0"
       },
       "widgets_values": [
-        "AusBoss/klein_inpaint",
+        "klein_inpaint",
         "png",
         true,
         "",
@@ -978,7 +999,7 @@
         "ver": "2.0.0"
       },
       "widgets_values": [
-        "{\"v\": 1, \"title\": \"Klein 9B Inpaint\", \"subtitle\": \"Paint a mask, describe the change. Crop For Inpaint hands Klein 9B just the masked region at a sharp working size and Stitch Inpaint puts the result back where it came from.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose each installed model in its loader; saved selections may include local subfolders. Download links below name the standard destination folders.\\n\\n## How it works\\n1. **Load Image** — the sample already carries a painted mask over the rowboat. For your own picture, right-click the node → *Open in MaskEditor* and paint what should change.\\n2. **Mask Refine** — grows the mask a little and softens its edge so the seam has room to blend. The preview shows exactly what the stitch will use.\\n3. **Crop For Inpaint** — cuts the masked region plus context out of the picture and scales that crop to 1 MP. Klein only ever sees this crop, so a small edit on a big photo stays fast and sharp; **Image Size** hands the crop's size to the latent.\\n4. **Prompt + reference** — Klein 9B is an edit model: the crop goes in as a *reference latent* on both the positive and the (zeroed) negative, and the **Text** node holds the instruction. Describe the change, not the whole picture.\\n5. **Sample** — the distilled Klein recipe: 4 steps, CFG 1, `euler` / `simple`. **Seed** is pinned; *Use last run* brings a good one back.\\n6. **Stitch, compare, save** — **Stitch Inpaint** pastes only the masked area back into the original, feathered by the crop's blend margin, with a light colour match. **Compare** slides result against source; **Save Image** writes a PNG with the workflow embedded. About 3 s on a 32 GB card once the models are loaded.\\n\\n## Try\\n- **Bigger context**: raise *Context factor* (or *Context pixels*) on Crop For Inpaint when the edit needs to see more of the scene — a reflection, a shadow, a matching texture.\\n- **Soft vs hard seams**: *Blend pixels* on Crop For Inpaint is the stitch feather; *Expand* on Mask Refine decides how far outside your brush strokes the change may reach.\\n- **Removals**: \\\"remove the rowboat, calm water where it was\\\" works too; distilled Klein at CFG 1 sometimes re-renders the object instead — reroll the seed or grow the mask.\\n- Swap the sample for your own photo: everything downstream adapts to the mask.\", \"models\": [{\"name\": \"flux-2-klein-9b-int8-convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"\", \"url\": \"https://huggingface.co/Winnougan/Klein9b-Distilled-Base-INT8-Convrot/resolve/main/flux-2-klein-9b-int8-convrot.safetensors\", \"note\": \"Tested build. Select its installed subfolder in the loader; use a distilled Klein 9B model.\"}, {\"name\": \"qwen_3_8b_fp8mixed.safetensors\", \"dir\": \"text_encoders\", \"size\": \"8.7 GB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors\", \"note\": \"\"}, {\"name\": \"flux2-vae.safetensors\", \"dir\": \"vae\", \"size\": \"336 MB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/vae/flux2-vae.safetensors\", \"note\": \"\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_CropForInpaint\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+        "{\"v\": 1, \"title\": \"Klein 9B Inpaint\", \"subtitle\": \"Paint a mask, describe the change. Crop For Inpaint hands Klein 9B just the masked region at a sharp working size and Stitch Inpaint puts the result back where it came from.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose each installed model in its loader; if you keep models in subfolders, select those paths. Download links below name the standard destination folders.\\n\\n## How it works\\n1. **Load Image** — the sample already carries a painted mask over the rowboat. For your own picture, right-click the node → *Open in MaskEditor* and paint what should change.\\n2. **Mask Refine** — grows the mask a little and softens its edge so the seam has room to blend. The preview shows exactly what the stitch will use.\\n3. **Crop For Inpaint** — cuts the masked region plus context out of the picture and scales that crop to 1 MP. Klein only ever sees this crop, so a small edit on a big photo stays fast and sharp; **Image Size** hands the crop's size to the latent.\\n4. **Prompt + reference** — Klein 9B is an edit model: the crop goes in as a *reference latent* on both the positive and the (zeroed) negative, and the **Text** node holds the instruction. Describe the change, not the whole picture.\\n5. **Sample** — the distilled Klein recipe: 4 steps, CFG 1, `euler` / `simple`. **Seed** is pinned; *Use last run* brings a good one back.\\n6. **Stitch, compare, save** — **Stitch Inpaint** pastes only the masked area back into the original, feathered by the crop's blend margin, with a light colour match. **Compare** slides result against source; **Save Image** writes a PNG with the workflow embedded. About 3 s on a 32 GB card once the models are loaded.\\n\\n## Try\\n- **Bigger context**: raise *Context factor* (or *Context pixels*) on Crop For Inpaint when the edit needs to see more of the scene — a reflection, a shadow, a matching texture.\\n- **Soft vs hard seams**: *Blend pixels* on Crop For Inpaint is the stitch feather; *Expand* on Mask Refine decides how far outside your brush strokes the change may reach.\\n- **Removals**: \\\"remove the rowboat, calm water where it was\\\" works too; distilled Klein at CFG 1 sometimes re-renders the object instead — reroll the seed or grow the mask.\\n- Swap the sample for your own photo: everything downstream adapts to the mask.\", \"models\": [{\"name\": \"flux-2-klein-9b-int8-convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"\", \"url\": \"https://huggingface.co/Winnougan/Klein9b-Distilled-Base-INT8-Convrot/resolve/main/flux-2-klein-9b-int8-convrot.safetensors\", \"note\": \"Tested build; use a distilled Klein 9B model.\"}, {\"name\": \"qwen_3_8b_fp8mixed.safetensors\", \"dir\": \"text_encoders\", \"size\": \"8.7 GB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors\", \"note\": \"\"}, {\"name\": \"flux2-vae.safetensors\", \"dir\": \"vae\", \"size\": \"336 MB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/vae/flux2-vae.safetensors\", \"note\": \"\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_CropForInpaint\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
       ]
     }
   ],
@@ -1283,7 +1304,7 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.4939,
+      "scale": 0.6,
       "offset": [
         1881.98,
         314.2

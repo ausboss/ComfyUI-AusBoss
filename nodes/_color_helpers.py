@@ -19,27 +19,17 @@ import re
 import torch
 from PIL import ImageColor
 
+from ._execution_helpers import warn_once
+
 FALLBACK_RGB = (128, 128, 128)
 
 _HEX_PATTERN = re.compile(r"^#?([0-9a-f]{3}|[0-9a-f]{6})$")
 _NUMBER_PATTERN = re.compile(r"^-?\d+(\.\d+)?$")
 
+# Unparseable colors already reported. They are typed values, so past this
+# many remembered notes the set starts over rather than growing all session.
 _warned_values: set[str] = set()
-
-
-def _warn_once(text: str, source: str) -> None:
-    # Keyed by widget as well as value: the same unparseable color typed into
-    # two different nodes is two different mistakes to go and fix, and one
-    # node staying silent because another already complained is worse than a
-    # repeated line.
-    key = f"{source}\x00{text}"
-    if key in _warned_values:
-        return
-    if len(_warned_values) > 256:
-        _warned_values.clear()
-    _warned_values.add(key)
-    safe = text.encode("ascii", "backslashreplace").decode("ascii")
-    print(f"[AusBoss] {source}: could not parse '{safe}'; using mid-gray 128,128,128.")
+_WARNED_VALUE_LIMIT = 256
 
 
 def _channels_from_numbers(numbers: list[float]) -> tuple[int, int, int]:
@@ -84,7 +74,17 @@ def parse_fill_color(value: object, source: str = "Transform fill_color") -> tup
         except ValueError:
             pass
 
-    _warn_once(text, source)
+    # Keyed by widget as well as value: the same unparseable color typed into
+    # two different nodes is two different mistakes to go and fix, and one
+    # node staying silent because another already complained is worse than a
+    # repeated line.
+    safe = text.encode("ascii", "backslashreplace").decode("ascii")
+    warn_once(
+        f"{source}: could not parse '{safe}'; using mid-gray 128,128,128.",
+        _warned_values,
+        key=f"{source}\x00{text}",
+        limit=_WARNED_VALUE_LIMIT,
+    )
     return FALLBACK_RGB
 
 

@@ -8,32 +8,36 @@ file's name. A caption on the `caption_text` input writes the paired `.txt`.
 
 ## The card
 
-- **Folder**: empty saves to ComfyUI's output folder; a name such as
-  `sets/portraits` saves to that subfolder, created if missing. Save Image
-  never writes outside the output folder: absolute paths, drive letters, `~`
-  and `..` are refused before the run, and the path preview says so as you
-  type. **Browse** walks the subfolders of the output folder.
-- **Filename**: the local name, subfolders allowed (`sets/shot`). While the
-  `filename` input is linked the field reads `{{filename}}` and the tags fold
-  away - an exact name is never decorated. A workflow saved with the old
-  `exact_name` shows that name tagged *exact*; clear it to compose locally.
+- **Folder** (`output_dir`): empty saves to ComfyUI's output folder; a name
+  such as `sets/portraits` saves to that subfolder, created if missing. Save
+  Image never writes outside the output folder: absolute paths, drive
+  letters, `~` and `..` are refused before the run, and the path preview says
+  so as you type. **Browse** walks the subfolders of the output folder.
+- **Filename** (`filename_prefix`): the local name, subfolders allowed
+  (`sets/shot`). While the `filename` input is linked the field reads
+  `{{filename}}` and the tags fold away - an exact name is never decorated.
+  A workflow saved with the old `exact_name` shows that name tagged *exact*;
+  clear it to compose locally.
 - **Path preview**: the name this save will produce, in the order the tags
   are appended: `prefix[_YYYY-MM-DD][_HH-mm-ss][_WIDTHxHEIGHT][_#####][_b###]`.
   After a run it shows the first file actually written.
-- **Tags**: **Counter** (on by default) appends the next free five-digit
-  number for that stem in that folder, so a save never collides. **Date**
-  and **Time** stamp the local clock. **Size** appends `1024x1536`.
-  **Batch #** appends `b001, b002...` across an image batch, which then
+- **Tags**: **Counter** (`name_counter`, on by default) appends the next
+  free five-digit number for that stem in that folder, so a save never
+  collides. **Date** and **Time** (`name_date`, `name_time`) stamp the local
+  clock. **Size** (`name_size`) appends `1024x1536`. **Batch #**
+  (`name_batch`) appends `b001, b002...` across an image batch, which then
   shares one counter; without it each frame takes the next number. With the
   counter off a single image reuses the same path and replaces the file - the
   dataset replacement case - and a batch still numbers its frames.
-- **Format**: PNG saves everywhere and keeps alpha. WebP lossless is usually
-  smaller than PNG, keeps alpha, and carries the workflow in EXIF. JPEG XL
-  lossless is the most compact; it needs the optional `pillow-jxl-plugin` in
-  ComfyUI's python (also the pack's `jxl` extra) and few browsers preview it.
-- **Embed workflow**: on stores the prompt and workflow in the file (PNG text
-  chunks, EXIF in webp and jxl) so it drags back into ComfyUI; off writes a
-  clean file for sharing or datasets. `--disable-metadata` on the server wins.
+- **Format**: **PNG** saves everywhere and keeps alpha. **WebP**
+  (`webp lossless`) is usually smaller than PNG, keeps alpha, and carries the
+  workflow in EXIF. **JXL** (`jxl lossless`, lossless JPEG XL) is the most
+  compact; it needs the optional `pillow-jxl-plugin` in ComfyUI's python
+  (also the pack's `jxl` extra) and few browsers preview it.
+- **Workflow** (`save_metadata`): **embed workflow** stores the prompt and
+  workflow in the file (PNG text chunks, EXIF in webp and jxl) so it drags
+  back into ComfyUI; **off** writes a clean file for sharing or datasets.
+  `--disable-metadata` on the server wins.
 
 ## Inputs
 

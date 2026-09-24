@@ -99,7 +99,7 @@ class AusBossSaveImage:
                 "filename_prefix": (
                     "STRING",
                     {
-                        "default": "AusBoss/image",
+                        "default": "image",
                         "tooltip": (
                             "The local filename, with optional subfolders: the "
                             "name tags (date, time, size, counter, batch) are "
@@ -335,15 +335,18 @@ class AusBossSaveImage:
             policy = "overwrite" if counter else on_existing
             planned.extend((folder / name, policy) for name in names)
 
-        # Validate the whole batch before any write, including caption targets.
+        # Validate the whole batch before any write, including caption targets,
+        # then settle every collision: an "error" on a later frame must stop
+        # the run before the first frame lands, not after.
         for path, _policy in planned:
             require_output_path(path, output_root)
             if caption_value.strip():
                 require_output_path(sidecar_path(path), output_root)
+        actions = [existing_action(path.exists(), policy) for path, policy in planned]
 
         saved: list[Path] = []
-        for (path, policy), frame in zip(planned, images):
-            if existing_action(path.exists(), policy) == "skip":
+        for (path, _policy), action, frame in zip(planned, actions, images):
+            if action == "skip":
                 continue
             path.parent.mkdir(parents=True, exist_ok=True)
             encode_image(path, frame, format, metadata)
@@ -351,24 +354,20 @@ class AusBossSaveImage:
                 sidecar_path(path).write_text(caption_value, encoding="utf-8")
             saved.append(path)
 
-        # The frontend can only serve previews from inside the output
-        # folder; anything saved elsewhere is reported by path instead.
+        # Every destination was confined to the output folder above, so each
+        # saved file previews from there and is shown relative to it.
         previews: list[dict] = []
         resolved_root = output_root.resolve()
         shown_paths: list[str] = []
         for path in saved:
             resolved = path.resolve()
-            inside = resolved_root == resolved.parent or resolved_root in resolved.parents
-            if inside:
-                relative = resolved.parent.relative_to(resolved_root)
-                previews.append({
-                    "filename": resolved.name,
-                    "subfolder": "" if relative == Path(".") else str(relative),
-                    "type": "output",
-                })
-                shown_paths.append(resolved.relative_to(resolved_root).as_posix())
-            else:
-                shown_paths.append(str(resolved))
+            relative = resolved.parent.relative_to(resolved_root)
+            previews.append({
+                "filename": resolved.name,
+                "subfolder": "" if relative == Path(".") else str(relative),
+                "type": "output",
+            })
+            shown_paths.append(resolved.relative_to(resolved_root).as_posix())
         return {
             "ui": {"images": previews, "ausboss_saved_path": shown_paths[:1]},
             "result": (str(saved[0]) if saved else "", images),

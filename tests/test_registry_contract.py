@@ -1,14 +1,17 @@
 """The registry contract, checked against fixtures that really break it.
 
-Every ``bad_*.py`` under tests/fixtures/registry is a way a node module can
-load and run perfectly while a registry scanner -- which parses the source
-rather than importing it -- sees no nodes at all. That failure is invisible
-from inside ComfyUI, so each shape is pinned here.
+Every ``bad_*.py.txt`` under tests/fixtures/registry is a way a node module
+can load and run perfectly while a registry scanner -- which parses the
+source rather than importing it -- sees no nodes at all. That failure is
+invisible from inside ComfyUI, so each shape is pinned here.
 """
 
 from __future__ import annotations
 
 import importlib.util
+import shutil
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -245,16 +248,57 @@ class ModuleListTests(unittest.TestCase):
         # names AUSBOSS_NODES_* in a mapping literal is advertised as an
         # installable node the pack never registers.
         stray = {}
-        for path in sorted(ROOT.rglob("*.py")):
-            parts = path.relative_to(ROOT).parts
-            if any(part.startswith(".") or part == "__pycache__" for part in parts):
-                continue
+        for path in contract.scanned_python_files(ROOT):
             if path.parent == ROOT / "nodes":
                 continue
             keys = contract.class_mapping_keys(path.read_text(encoding="utf-8"))
             if keys:
                 stray[str(path.relative_to(ROOT))] = sorted(keys)
         self.assertEqual(stray, {})
+
+
+class ScannedFilesTests(unittest.TestCase):
+    """Only files a scanner reads may fail the checks; local scratch may not."""
+
+    LAYOUT = (
+        "nodes/node_a.py",
+        "tools/helper.py",
+        "_scratch/port.py",
+        "tests/_scratch/old.py",
+        ".hidden/tool.py",
+        "nodes/__pycache__/cached.py",
+    )
+
+    def build(self, root: Path) -> None:
+        for name in self.LAYOUT:
+            path = root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("x = 1\n", encoding="utf-8")
+
+    def scanned(self, root: Path) -> list[str]:
+        return [
+            path.relative_to(root.resolve()).as_posix()
+            for path in contract.scanned_python_files(root)
+        ]
+
+    def test_without_git_the_walk_skips_local_folders(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.build(Path(tmp))
+            self.assertEqual(self.scanned(Path(tmp)), ["nodes/node_a.py", "tools/helper.py"])
+
+    @unittest.skipUnless(shutil.which("git"), "git is not installed")
+    def test_with_git_ignored_files_drop_out_and_new_ones_count(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
+            (root / ".gitignore").write_text("_scratch/\n__pycache__/\n", encoding="utf-8")
+            self.build(root)
+            # Nothing is committed: a new node module is checked before it
+            # is, and git lists a dot-folder like any other.
+            self.assertEqual(
+                self.scanned(root),
+                [".hidden/tool.py", "nodes/node_a.py", "tools/helper.py"],
+            )
 
 
 if __name__ == "__main__":

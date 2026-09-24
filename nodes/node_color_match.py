@@ -17,8 +17,9 @@ class AusBossColorMatch:
         "why the node takes a mask but outputs none: the mask only scopes "
         "the fix, and passes through your graph unchanged. Strength blends "
         "between the original and the fully matched result. For video, "
-        "reference_mode: first_frame locks every frame to the batch's own "
-        "first frame — the one-node flicker fix, no reference needed."
+        "reference_mode: first_frame matches every frame to the batch's own "
+        "first frame, which reduces colour drift between frames without a "
+        "reference; it does not stabilise motion."
     )
     SEARCH_ALIASES = [
         "color match",
@@ -109,9 +110,9 @@ class AusBossColorMatch:
                             "Where the target statistics come from. "
                             "reference uses the connected reference image. "
                             "first_frame uses the batch's own first frame as "
-                            "the target for every frame — locks a video's "
-                            "color in place to kill flicker; the reference "
-                            "input is ignored."
+                            "the target for every frame, which reduces a "
+                            "video's colour drift; the reference input is "
+                            "ignored."
                         ),
                     },
                 ),

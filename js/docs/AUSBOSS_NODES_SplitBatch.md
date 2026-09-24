@@ -6,8 +6,8 @@ halves to different treatments, or peel leading frames off a batch.
 ## Controls
 
 - **images**: The BHWC batch to split.
-- **index**: The one-based split point: frames 1 through `index` come out as
-  **a**, the rest as **b**.
+- **Split after** (`index`): The one-based split point: frames 1 through
+  `index` come out as **a**, the rest as **b**.
 
 ## Outputs
 

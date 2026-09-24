@@ -953,7 +953,7 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.5127,
+      "scale": 0.6,
       "offset": [
         816.04,
         301.58

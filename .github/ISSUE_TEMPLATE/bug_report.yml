@@ -1,0 +1,64 @@
+name: Bug report
+description: A node errors, gives a wrong result, or looks broken.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Security problems go through the
+        [security policy](https://github.com/ausboss/ComfyUI-AusBoss/security/policy),
+        not a public issue.
+  - type: input
+    id: comfyui-version
+    attributes:
+      label: ComfyUI and frontend versions
+      description: Both are under Settings → About.
+      placeholder: ComfyUI v0.x.y, frontend v1.x.y
+    validations:
+      required: true
+  - type: input
+    id: pack-version
+    attributes:
+      label: AusBoss version
+      description: The console banner prints it when ComfyUI starts, as "AusBoss vX.Y.Z".
+      placeholder: AusBoss v2.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: Installed with
+      options:
+        - ComfyUI-Manager or the Comfy Registry
+        - git clone
+  - type: input
+    id: nodes
+    attributes:
+      label: Node(s)
+      placeholder: Save Image 🆎
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Load the attached workflow
+        2. Set ...
+        3. Queue it
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead
+      description: Include any error from the ComfyUI console or the browser console.
+    validations:
+      required: true
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Workflow or screenshot
+      description: Drag the smallest workflow .json that shows the problem, or a screenshot, into this box.

@@ -1,4 +1,5 @@
-"""Range-trimmed video and audio decoding for the AusBoss Load Video node."""
+"""Range-trimmed video and audio decoding for Load Video and the
+Video Crop + Rotate + Pad -> Clip node."""
 
 from __future__ import annotations
 
@@ -14,7 +15,7 @@ import torch
 from PIL import Image
 
 from ._execution_helpers import advance_progress, frame_progress, raise_if_interrupted
-from ._media_helpers import video_metadata
+from ._media_helpers import decode_from, stream_origin, stream_seconds, video_metadata
 
 try:
     import psutil  # ComfyUI core dependency; fail soft for offline tests.
@@ -31,6 +32,13 @@ _TIME_EPSILON = 1e-4
 MEMORY_SAFETY_FACTOR = 0.8
 _BYTES_PER_PIXEL = 3 * 4  # rgb float32, the BHWC batch ComfyUI consumes
 
+# What to change when a decode will not fit, in Load Video's own inputs. A
+# caller with different inputs passes its own advice along with its name.
+LOAD_VIDEO_MEMORY_ADVICE = (
+    "Trim a shorter start/end window or set custom_width/custom_height to "
+    "shrink the frames."
+)
+
 
 def memory_budget_error(
     frame_count: int,
@@ -38,11 +46,15 @@ def memory_budget_error(
     height: int,
     available_bytes: int | None,
     safety_factor: float = MEMORY_SAFETY_FACTOR,
+    source: str = "Load Video",
+    advice: str = LOAD_VIDEO_MEMORY_ADVICE,
 ) -> str | None:
     """Message when the decoded batch cannot fit in memory; None when it can.
 
     Pure math so tests can drive it with a fake available_bytes. Unknown
     availability (None or <= 0) skips the guard rather than blocking loads.
+    ``source`` is the node the message names and ``advice`` the inputs it
+    suggests, so each caller only points at controls it actually has.
     """
     if not available_bytes or available_bytes <= 0 or frame_count <= 0:
         return None
@@ -52,10 +64,9 @@ def memory_budget_error(
     if needed <= int(available_bytes * safety_factor):
         return None
     return (
-        f"Load Video would need about {needed / 1e9:.1f} GB for {frame_count} "
+        f"{source} would need about {needed / 1e9:.1f} GB for {frame_count} "
         f"frames at {width}x{height}, but only {available_bytes / 1e9:.1f} GB "
-        "of memory is available. Trim a shorter start/end window or set "
-        "custom_width/custom_height to shrink the frames."
+        f"of memory is available. {advice}"
     )
 
 
@@ -83,15 +94,17 @@ def output_size(
     return max(2, width), custom_height
 
 
-def trim_window(duration: float, start_seconds: float, end_seconds: float) -> tuple[float, float]:
-    """Validate the requested trim against the source duration."""
+def trim_window(
+    duration: float, start_seconds: float, end_seconds: float, source: str = "Load Video"
+) -> tuple[float, float]:
+    """Validate the requested trim against the source duration; errors name ``source``."""
     start = max(0.0, float(start_seconds))
     end = float(end_seconds) if float(end_seconds) > 0.0 else float("inf")
     if start >= end:
-        raise ValueError("Load Video needs start_seconds smaller than end_seconds.")
+        raise ValueError(f"{source} needs start_seconds smaller than end_seconds.")
     if duration > 0 and start >= duration - _TIME_EPSILON:
         raise ValueError(
-            f"Load Video starts at {start:.2f}s but the video is only "
+            f"{source} starts at {start:.2f}s but the video is only "
             f"{duration:.2f}s long."
         )
     return start, end
@@ -145,11 +158,12 @@ def fixed_clip_window(metadata, start_seconds, frames, force_rate=0, every_nth=1
     return start, start + length, int(frames)
 
 
-def _frames_at_rate(decoded, fps, start, end, rate):
+def _frames_at_rate(decoded, stream, fps, start, end, rate):
     """Sample-and-hold on a uniform grid; stream frames without a second batch.
 
     A positive rate drops or repeats source frames, preserving playback time.
     Zero retains the original decode path. The last frame lasts one source tick.
+    Times are on the video clock (stream_seconds), like start and end.
     """
     previous = None
     tick = 0
@@ -157,7 +171,9 @@ def _frames_at_rate(decoded, fps, start, end, rate):
     previous_time = 0.0
     for frame in decoded:
         raise_if_interrupted()
-        time = frame.time if frame.time is not None else start + index / fps
+        time = stream_seconds(frame.time, stream)
+        if time is None:
+            time = start + index / fps
         index += 1
         if rate <= 0:
             yield frame, time
@@ -190,6 +206,9 @@ def decode_video_range(
     every_nth: int = 1,
     max_frames: int = 0,
     force_rate: float = 0.0,
+    *,
+    source: str = "Load Video",
+    memory_advice: str = LOAD_VIDEO_MEMORY_ADVICE,
 ) -> tuple[torch.Tensor, float]:
     """Decode [start, end) as a BHWC float batch plus its pre-thinning fps.
 
@@ -198,12 +217,14 @@ def decode_video_range(
     the decode after that many kept frames (0 = no cap) — the cheap way to
     sample a long clip without holding it all in memory. A positive
     ``force_rate`` resamples before thinning; the returned rate reflects it.
+    ``source`` is the node errors name, and ``memory_advice`` the inputs a
+    too-large decode suggests changing.
     """
     rate = float(force_rate)
     if not math.isfinite(rate) or rate < 0 or rate > 1000:
         raise ValueError("force_rate must be finite and between 0 and 1000 fps.")
     metadata = video_metadata(path)
-    start, end = trim_window(float(metadata["duration"]), start_seconds, end_seconds)
+    start, end = trim_window(float(metadata["duration"]), start_seconds, end_seconds, source)
     nth = max(1, int(every_nth))
     cap = max(0, int(max_frames))
     estimated = _estimate_window_frames(metadata, start, end)
@@ -218,7 +239,10 @@ def decode_video_range(
     source_width, source_height = int(metadata["width"]), int(metadata["height"])
     if estimated > 0 and source_width > 0 and source_height > 0:
         planned = output_size(source_width, source_height, custom_width, custom_height)
-        error = memory_budget_error(estimated, planned[0], planned[1], _available_memory_bytes())
+        error = memory_budget_error(
+            estimated, planned[0], planned[1], _available_memory_bytes(),
+            source=source, advice=memory_advice,
+        )
         if error:
             raise ValueError(error)
     buffer: np.ndarray | None = None
@@ -231,13 +255,14 @@ def decode_video_range(
         stream.thread_type = "AUTO"
         fps = float(stream.average_rate or stream.base_rate or 0.0) or 30.0
         if start > 0 and stream.time_base:
-            # Keyframe at or before the trim start (backward=True), offset by
-            # the stream start time to match the preview seek helpers.
-            offset = int(start / stream.time_base) + (stream.start_time or 0)
-            container.seek(max(0, offset), stream=stream, backward=True)
+            # From the keyframe at or before the trim start, found the way
+            # the preview seek helpers find it.
+            decoded = decode_from(container, stream, start, fps)
+        else:
+            decoded = container.decode(stream)
         size: tuple[int, int] | None = None
         window_index = 0
-        for frame, time in _frames_at_rate(container.decode(stream), fps, start, end, rate):
+        for frame, time in _frames_at_rate(decoded, stream, fps, start, end, rate):
             # Checked before the per-frame work, and on skipped frames too, so
             # cancelling during a long lead-in still stops within one frame.
             raise_if_interrupted()
@@ -273,7 +298,7 @@ def decode_video_range(
                 break
     if buffer is None or count == 0:
         raise ValueError(
-            f"Load Video found no frames between {start:.2f}s and "
+            f"{source} found no frames between {start:.2f}s and "
             f"{'the end' if end == float('inf') else f'{end:.2f}s'} in '{path.name}'."
         )
     batch = torch.from_numpy(buffer[:count]).float().div_(255.0)
@@ -324,6 +349,11 @@ def core_trimmed_video(path: Path, start_seconds: float, end_seconds: float):
     start, duration = core_trim_args(start_seconds, end_seconds)
     if start <= 0.0 and duration <= 0.0:
         return video
+    # Core trims on the file's own timestamps; the window is on the video
+    # clock (stream_seconds), so it moves by the stream's start time.
+    with av.open(str(path)) as container:
+        stream = next(candidate for candidate in container.streams if candidate.type == "video")
+        start += stream_origin(stream)
     try:
         return video.as_trimmed(start, duration, strict_duration=False)
     except Exception:
@@ -345,19 +375,27 @@ def silent_audio(duration: float) -> dict:
 
 
 def decode_audio_range(path: Path, start_seconds: float, end_seconds: float) -> dict:
-    """ComfyUI AUDIO for the same window; silence when there is no audio track."""
+    """ComfyUI AUDIO for the same window; silence when there is no audio track.
+
+    The window is on the video clock (stream_seconds) and the audio is cut on
+    it too, so a track that starts before or after the picture keeps the
+    offset the file gives it against the frames.
+    """
     start = max(0.0, float(start_seconds))
     end = max(start, float(end_seconds))
     with av.open(str(path)) as container:
         stream = next((candidate for candidate in container.streams if candidate.type == "audio"), None)
         if stream is None:
             return silent_audio(end - start)
+        clock = next((candidate for candidate in container.streams if candidate.type == "video"), stream)
         rate = int(stream.rate or FALLBACK_SAMPLE_RATE)
         resampler = av.AudioResampler(format="fltp", layout=stream.layout, rate=rate)
         chunks: list[np.ndarray] = []
         first_time: float | None = None
         for frame in container.decode(stream):
-            time = frame.time if frame.time is not None else 0.0
+            time = stream_seconds(frame.time, clock)
+            if time is None:
+                time = 0.0
             span = frame.samples / float(frame.sample_rate or rate)
             if time + span < start - _TIME_EPSILON:
                 continue
@@ -370,7 +408,12 @@ def decode_audio_range(path: Path, start_seconds: float, end_seconds: float) -> 
     if not chunks or first_time is None:
         return silent_audio(end - start)
     data = np.concatenate(chunks, axis=1)
-    begin = max(0, round((start - first_time) * rate))
+    lead = round((first_time - start) * rate)
+    if lead > 0:
+        # The track begins inside the window: silence until it does, so its
+        # first sample still plays with the frame shown at that time.
+        data = np.concatenate((np.zeros((data.shape[0], lead), dtype=data.dtype), data), axis=1)
+    begin = max(0, -lead)
     length = max(1, round((end - start) * rate))
     data = data[:, begin : begin + length]
     if data.size == 0:

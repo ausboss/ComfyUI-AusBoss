@@ -56,6 +56,17 @@ class NamingTests(unittest.TestCase):
             with self.subTest(name=name), self.assertRaises(ValueError):
                 sanitize_exact_name(name)
 
+    def test_errors_name_the_calling_node_and_input(self):
+        # Save Image's wording is unchanged; Save Video names itself.
+        with self.assertRaisesRegex(
+            ValueError, r"^Save Image: exact_name must be a relative name, not a rooted path\.$"
+        ):
+            sanitize_exact_name("/rooted/photo")
+        with self.assertRaisesRegex(ValueError, r"^Save Image: exact_name may not contain '\.\.'\.$"):
+            sanitize_exact_name("../photo")
+        with self.assertRaisesRegex(ValueError, r"^Save Video: filename_prefix must be a relative"):
+            sanitize_exact_name("/abs/x", "Save Video: filename_prefix")
+
     def test_single_image_gets_exactly_the_name(self):
         self.assertEqual(plan_exact_names("photo123", "png", 1), ["photo123.png"])
 
@@ -191,6 +202,21 @@ class SaveImageNodeTests(unittest.TestCase):
             (Path(tmp) / "photo.png").write_bytes(b"x")
             with self.assertRaises(ValueError):
                 self.run_node(tmp, exact_name="photo", on_existing="error")
+
+    def test_a_collision_later_in_the_batch_stops_the_run_before_any_write(self):
+        # Frame two collides; "error" must stop the run before frame one or
+        # any caption sidecar lands, not halfway through the batch.
+        for naming in ({"exact_name": "shot"}, {"filename_prefix": "shot", "name_counter": False}):
+            with self.subTest(**naming), tempfile.TemporaryDirectory() as tmp:
+                existing = Path(tmp) / "shot_002.png"
+                existing.write_bytes(b"x")
+                with self.assertRaisesRegex(ValueError, "already exists"):
+                    self.run_node(
+                        tmp, images=gradient_batch(3, 8, 16), on_existing="error",
+                        caption="a caption", **naming,
+                    )
+                self.assertEqual(sorted(p.name for p in Path(tmp).iterdir()), ["shot_002.png"])
+                self.assertEqual(existing.read_bytes(), b"x")
 
     def test_caption_writes_the_paired_sidecar(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -348,9 +374,9 @@ class SaveImageLocalModeTests(SaveImageNodeTests):
 
     def test_linked_caption_beats_the_legacy_box(self):
         with tempfile.TemporaryDirectory() as tmp:
-            result = self.run_node(tmp, exact_name="photo", caption="old", caption_text="new caption")
+            self.run_node(tmp, exact_name="photo", caption="old", caption_text="new caption")
             self.assertEqual((Path(tmp) / "photo.txt").read_text(encoding="utf-8"), "new caption")
-            result = self.run_node(tmp, exact_name="photo2", caption="old", caption_text="")
+            self.run_node(tmp, exact_name="photo2", caption="old", caption_text="")
             self.assertEqual((Path(tmp) / "photo2.txt").read_text(encoding="utf-8"), "old")
 
     def test_prefix_validation_rejects_escapes(self):

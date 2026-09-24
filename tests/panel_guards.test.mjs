@@ -331,3 +331,41 @@ test("the transform panel observes resize for video as well as image", () => {
     `the resize observer is gated on node kind: ${condition.trim()}`,
   );
 });
+
+// The frontend hides a DOM widget below a zoom threshold unless it opts out,
+// and every AusBoss panel is the node's face: hidden, the node is an empty
+// box. The video transform nodes shipped that way because their mount was
+// the one addDOMWidget call without the flag.
+test("every DOM widget stays visible when the graph is zoomed out", () => {
+  const files = [];
+  const walk = (dir) => {
+    for (const name of readdirSync(dir)) {
+      const path = join(dir, name);
+      if (statSync(path).isDirectory()) walk(path);
+      else if (/\.m?js$/.test(name)) files.push(path);
+    }
+  };
+  walk(JS_ROOT);
+  let calls = 0;
+  for (const path of files) {
+    const source = readFileSync(path, "utf-8");
+    let from = 0;
+    for (;;) {
+      const start = source.indexOf("addDOMWidget(", from);
+      if (start < 0) break;
+      // Walk to the call's closing parenthesis.
+      let depth = 0;
+      let end = start + "addDOMWidget".length;
+      for (; end < source.length; end += 1) {
+        if (source[end] === "(") depth += 1;
+        else if (source[end] === ")" && --depth === 0) break;
+      }
+      const call = source.slice(start, end + 1);
+      from = end + 1;
+      if (/typeof\s+node\.addDOMWidget|addDOMWidget\s*===|\.addDOMWidget\s*\?/.test(source.slice(start - 30, start + 13))) continue;
+      calls += 1;
+      assert.match(call, /hideOnZoom:\s*false/, `${path.slice(JS_ROOT.length + 1)}: addDOMWidget without hideOnZoom: false`);
+    }
+  }
+  assert.ok(calls >= 14, `expected the pack's DOM widgets, found ${calls}`);
+});

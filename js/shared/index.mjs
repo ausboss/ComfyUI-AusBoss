@@ -9,7 +9,7 @@ import { app } from "/scripts/app.js";
 // Must match `version` in pyproject.toml — scripts/release_preflight.py
 // enforces it. The backend serves its copy at /ausboss/pack_version; a
 // mismatch means the browser cached JavaScript from an older install.
-export const AUSBOSS_JS_VERSION = "2.1.0";
+export const AUSBOSS_JS_VERSION = "2.2.0";
 
 export const BRAND = "#00b4aa"; // AusBoss teal — keep node accents consistent.
 export const BRAND_DARK = "#007f78";
@@ -25,6 +25,43 @@ export function chainCallback(proto, name, fn) {
     fn.apply(this, args);
     return result;
   };
+}
+
+// chainCallback for handlers whose truthy return tells LiteGraph the event
+// was consumed (onMouseDown skips the node drag): the chain reports consumed
+// when either handler did. chainCallback would drop this handler's verdict.
+export function chainHandler(proto, name, fn) {
+  const prior = proto[name];
+  proto[name] = function (...args) {
+    const result = prior?.apply(this, args);
+    const handled = fn.apply(this, args);
+    return result || handled;
+  };
+}
+
+// Every public AusBoss node, plus the pre-convention LaMa alias that saved
+// workflows still load.
+export function isAusbossNode(node) {
+  const comfyClass = node?.comfyClass || "";
+  return comfyClass.startsWith("AUSBOSS_NODES_") || comfyClass === "SimpleWatermarkRemover";
+}
+
+// One toast for every AusBoss message. The frontend's toast store queues a
+// PrimeVue toast; a frontend without one gets the console instead, and this
+// never throws - a message must not break the action that raised it.
+export function showToast({ detail, severity = "info", summary = "AusBoss", life = 5000 } = {}) {
+  try {
+    const toast = app?.extensionManager?.toast;
+    if (typeof toast?.add === "function") {
+      toast.add({ severity, summary, detail, life });
+      return;
+    }
+  } catch (_error) {
+    // Toast store missing or incompatible: fall through to the console.
+  }
+  const line = `[AusBoss] ${summary === "AusBoss" ? "" : `${summary}: `}${detail}`;
+  if (severity === "error" || severity === "warn") console.warn(line);
+  else console.log(line);
 }
 
 // ComfyUI's undo/dirty tracker snapshots the graph on canvas mouse-up, but

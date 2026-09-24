@@ -1,6 +1,7 @@
 {
+  "id": "0e3a9419-62b4-40d7-b614-299a291a4cd6",
   "last_node_id": 20,
-  "last_link_id": 26,
+  "last_link_id": 29,
   "nodes": [
     {
       "id": 1,
@@ -44,8 +45,7 @@
           "name": "fps",
           "type": "FLOAT",
           "links": [
-            11,
-            13
+            27
           ],
           "slot_index": 3
         },
@@ -85,7 +85,7 @@
         3,
         0,
         0,
-        2,
+        1,
         72,
         false
       ]
@@ -109,6 +109,11 @@
           "name": "images",
           "type": "IMAGE",
           "link": 1
+        },
+        {
+          "name": "fps",
+          "type": "FLOAT",
+          "link": 27
         }
       ],
       "outputs": [
@@ -119,6 +124,15 @@
             2
           ],
           "slot_index": 0
+        },
+        {
+          "name": "fps",
+          "type": "FLOAT",
+          "links": [
+            28,
+            29
+          ],
+          "slot_index": 1
         }
       ],
       "properties": {
@@ -127,7 +141,7 @@
         "ver": "2.0.0"
       },
       "widgets_values": [
-        1,
+        2,
         0
       ]
     },
@@ -533,7 +547,7 @@
         {
           "name": "a",
           "type": "FLOAT",
-          "link": 11,
+          "link": 28,
           "widget": {
             "name": "a"
           }
@@ -606,7 +620,7 @@
         {
           "name": "source_fps",
           "type": "FLOAT",
-          "link": 13,
+          "link": 29,
           "widget": {
             "name": "source_fps"
           }
@@ -728,7 +742,7 @@
         "ver": "2.0.0"
       },
       "widgets_values": [
-        "AusBoss/tour"
+        "tour"
       ]
     },
     {
@@ -837,7 +851,7 @@
       },
       "widgets_values": [
         16.0,
-        "AusBoss/video",
+        "video",
         19,
         "mp4 h264",
         false,
@@ -1023,7 +1037,7 @@
         "ver": "2.0.0"
       },
       "widgets_values": [
-        "{\"v\": 1, \"title\": \"AusBoss node tour\", \"subtitle\": \"\", \"author\": \"AusBoss\", \"layout\": \"card\", \"body\": \"## Setup\\nCopy inputs/ausboss_pier_9x16.mp4 into ComfyUI/input. No models or extra node packs are needed. Queue the graph to produce a three-second 512 × 512 video and compare the first and last frames.\\n\\n## Follow the groups\\n1. Load Video trims and thins the clip; Select Every Nth, Split Batch and Merge Batches show reusable batch operations.\\n2. Image Resize adds a square backdrop. Mask Refine and Color Match restrict the grade to the source region.\\n3. Frame Interpolate doubles the loaded rate (12 → 24 fps for this sample). Free Memory passes the frames onward while releasing caches.\\n4. Save Video preserves audio and writes the file. Show Text reports its path.\\n5. Select Frame uses 1 and -1 to preview the first and last frames; Compare lets you review them.\\n\\nSelect Every Nth changes frame count only; it does not adjust fps. The Load Video thinning control does adjust fps. Keep timing connected through Frame Interpolate as shown.\", \"models\": [], \"packs\": []}"
+        "{\"v\": 1, \"title\": \"Video Node Tour\", \"subtitle\": \"\", \"author\": \"AusBoss\", \"layout\": \"card\", \"body\": \"## Setup\\nCopy inputs/ausboss_pier_9x16.mp4 into ComfyUI/input. No models or extra node packs are needed. Queue the graph to produce a three-second 512 × 512 video and compare the first and last frames.\\n\\n## Follow the groups\\n1. Load Video trims the clip; Select Every Nth keeps every other frame and passes the halved frame rate on; Split Batch and Merge Batches show reusable batch operations.\\n2. Image Resize adds a square backdrop. Mask Refine and Color Match restrict the grade to the source region.\\n3. Frame Interpolate doubles the thinned rate (12 → 24 fps for this sample). Free Memory passes the frames onward while releasing caches.\\n4. Save Video writes the file, keeping the source audio when the clip has a track (the sample clip is silent). Show Text reports its path.\\n5. Select Frame uses 1 and -1 to preview the first and last frames; Compare lets you review them.\\n\\nSelect Every Nth's fps output carries the thinned rate, so the timing stays right through Frame Interpolate and Save Video. Load Video's own every nth control does the same in one step.\", \"models\": [], \"packs\": []}"
       ]
     }
   ],
@@ -1109,28 +1123,12 @@
       "FLOAT"
     ],
     [
-      11,
-      1,
-      3,
-      10,
-      0,
-      "FLOAT"
-    ],
-    [
       12,
       8,
       0,
       11,
       0,
       "IMAGE"
-    ],
-    [
-      13,
-      1,
-      3,
-      11,
-      1,
-      "FLOAT"
     ],
     [
       14,
@@ -1235,6 +1233,30 @@
       19,
       1,
       "IMAGE"
+    ],
+    [
+      27,
+      1,
+      3,
+      2,
+      1,
+      "FLOAT"
+    ],
+    [
+      28,
+      2,
+      1,
+      10,
+      0,
+      "FLOAT"
+    ],
+    [
+      29,
+      2,
+      1,
+      11,
+      1,
+      "FLOAT"
     ]
   ],
   "groups": [
@@ -1314,7 +1336,7 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.4602,
+      "scale": 0.6,
       "offset": [
         833.84,
         339.4

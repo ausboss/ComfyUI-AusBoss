@@ -9,9 +9,9 @@ both directions.
 ## Controls
 
 - **frames**: A BHWC image batch, commonly the frame output of a video loader.
-- **frame_number**: The one-based frame to return; negative counts from the
-  end (`-1` is the last frame). An out-of-range value stops with the
-  available range instead of silently clamping.
+- **Frame** (`frame_number`): The one-based frame to return; negative
+  counts from the end (`-1` is the last frame). An out-of-range value stops
+  with the available range instead of silently clamping.
 
 ## Output
 
@@ -21,8 +21,8 @@ both directions.
 
 The panel shows the frame that was selected, so a picked frame can be checked
 without a separate preview node. It updates when the graph runs — changing
-**frame_number** does not re-render it on its own, because the frame's pixels
-only exist on the server.
+**Frame** does not re-render it on its own, because the frame's pixels only
+exist on the server.
 
 The node performs no network requests. It writes one preview PNG per run into
 ComfyUI's temp folder, the same place `PreviewImage` writes, which is cleared

@@ -88,6 +88,21 @@ class SelectEveryNthTests(unittest.TestCase):
             select_every_nth(frames, 2, -1)
 
 
+class SelectEveryNthNodeTests(unittest.TestCase):
+    def test_fps_output_divides_the_wired_rate_by_nth(self):
+        from nodes.node_batch_utils import AusBossSelectEveryNth
+
+        node = AusBossSelectEveryNth()
+        kept, rate = node.select(numbered_batch(6), 2, 0, fps=24.0)
+        self.assertEqual(frame_numbers(kept), [1.0, 3.0, 5.0])
+        self.assertEqual(rate, 12.0)
+        # Nothing wired: the frames still come out, and the rate reads 0.
+        kept, rate = node.select(numbered_batch(6), 3, 0)
+        self.assertEqual(frame_numbers(kept), [1.0, 4.0])
+        self.assertEqual(rate, 0.0)
+        self.assertEqual(AusBossSelectEveryNth.RETURN_NAMES, ("images", "fps"))
+
+
 class SplitBatchTests(unittest.TestCase):
     def test_splits_after_the_one_based_index(self):
         frames = numbered_batch(5)

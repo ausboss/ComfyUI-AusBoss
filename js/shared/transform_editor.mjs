@@ -3,7 +3,7 @@ import { app } from "/scripts/app.js";
 import { hideInputsInDef, hideWidget } from "./widget_visibility.mjs";
 import { mountTransformTrim } from "./transform_trim.mjs";
 import { clipOutputRate, inputNumber } from "./clip_rate.mjs";
-import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "./index.mjs";
+import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "./index.mjs";
 import { fillNodeHeight } from "./panel_layout.mjs";
 import { normalizeFillColor } from "./fill_color.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
@@ -82,9 +82,6 @@ function installStyles() {
     .ausboss-transform-source-hint{overflow:hidden;color:#6f8886;font-size:10.5px;line-height:1.25;white-space:nowrap;text-overflow:ellipsis}
     .lg-node:has(.ausboss-transform-panel) .image-preview{display:none!important}
     .ausboss-transform-row{display:flex;gap:7px;align-items:center;flex:0 0 auto}.ausboss-transform-row>*{min-width:0;flex:1}
-    .ausboss-transform-check{display:flex;align-items:center;justify-content:center;gap:5px;background:#30343a;color:#eee;border:1px solid #555b63;border-radius:5px;padding:6px 8px;cursor:pointer;white-space:nowrap;user-select:none}
-    .ausboss-transform-check:hover{border-color:${BRAND};background:#383e44}
-    .ausboss-transform-check input{accent-color:${BRAND};margin:0;flex:0 0 auto;cursor:pointer}
     .ausboss-transform-canvas-row{justify-content:space-between}
     .ausboss-transform-canvas-row>label{flex:0 0 auto;display:flex;align-items:center;gap:6px;color:#aeb4ba;font-size:11px;white-space:nowrap;cursor:default;user-select:none}
     .ausboss-transform-canvas-row>label>span{color:#8ca8a5;font-weight:600;font-size:10px;letter-spacing:.06em;text-transform:uppercase}
@@ -238,6 +235,14 @@ function resetTransform(node, includeTimeline = false) {
   node.setDirtyCanvas?.(true, true);
 }
 
+// The node face's Reset: only the shape - rotation, crop, padding. Fill,
+// feather and Align stay, as they do when the source changes.
+function resetGeometry(node) {
+  if (node.properties) { delete node.properties.ausboss_fit_aspect; delete node.properties.ausboss_aspect_lock; }
+  for (const [name, next] of Object.entries(sourceResetValues(false))) setValue(node, name, next);
+  node.setDirtyCanvas?.(true, true);
+}
+
 function createElement(tag, className, text) {
   const element = document.createElement(tag);
   if (className) element.className = className;
@@ -355,7 +360,7 @@ function buildMediaSourceCard(state) {
       sync();
       notifyAusbossChange();
     } catch (error) {
-      alert(`Crop + Rotate + Pad: ${error.message}`);
+      showToast({ severity: "error", summary: "Crop + Rotate + Pad \u{1F18E}", detail: error.message, life: 8000 });
     } finally {
       fileInput.value = "";
       fileInput.disabled = false;
@@ -407,24 +412,33 @@ export function installTransformNode(node, kind, mountPanel = null) {
     if (node.properties) { delete node.properties.ausboss_fit_aspect; node.properties.ausboss_aspect_lock = false; }
     fitCrop(state); updateModalInfo(state); notifyAusbossChange();
   });
-  row.append(open, resetCrop);
+  const reset = createElement("button", "ausboss-transform-button", "Reset");
+  reset.title = "Reset rotation, crop and padding. Fill, feather, Align and the timeline stay.";
+  reset.addEventListener("click", () => {
+    resetGeometry(node);
+    fitCrop(state); updateModalInfo(state); notifyAusbossChange();
+  });
+  row.append(open, resetCrop, reset);
   panel.append(buildMediaSourceCard(state));
   panel.append(preview);
   panel.append(buildAspectChipRow(state), buildAspectModeRow(state));
-  // Both video nodes get the timeline on their face: the clip node trims
-  // with it, the frame picker scrubs its output frame with it. Their canvas
-  // row shows what a video model keys on - fill, feather, size - so a wrong
-  // value is seen on the node, not discovered in the render.
-  if (kind === "video") panel.append(buildVideoCanvasRow(state), buildTrim(state));
+  // Every transform node shows its canvas on the face - fill, feather and,
+  // where the node has it, the resize budget - so a wrong value is seen on
+  // the node, not discovered in the render. Both video nodes also get the
+  // timeline: the clip node trims with it, the frame picker scrubs with it.
+  panel.append(buildCanvasRow(state));
+  if (kind === "video") panel.append(buildTrim(state));
   panel.append(row);
-  if (kind === "image") panel.append(buildImageQuickRow(state));
   state.previewCanvas = preview;
   open.addEventListener("click", () => openEditor(state));
 
   if (typeof node.addDOMWidget === "function" && mountPanel) {
     mountPanel(node, panel);
   } else if (typeof node.addDOMWidget === "function") {
-    const domWidget = node.addDOMWidget("ausboss_transform_preview", "ausboss_transform_preview", panel, { serialize: false });
+    const domWidget = node.addDOMWidget("ausboss_transform_preview", "ausboss_transform_preview", panel, {
+      serialize: false,
+      hideOnZoom: false,
+    });
     keepDomWidgetWidthAuto(domWidget);
     fillNodeHeight(domWidget, { minWidth: 330, minHeight: state.isClip ? 602 : kind === "video" ? 510 : 296, minNodeSize: [330, state.isClip ? 802 : kind === "video" ? 570 : 456] });
   } else {
@@ -523,7 +537,7 @@ function installVideoDrop(state) {
       if (state.ready) await onSourceChanged(state, true);
       notifyAusbossChange();
     } catch (error) {
-      alert(`Crop + Rotate + Pad: ${error.message}`);
+      showToast({ severity: "error", summary: "Crop + Rotate + Pad \u{1F18E}", detail: error.message, life: 8000 });
     }
     return true;
   };
@@ -703,18 +717,23 @@ function cropDriver(before, after, handle) {
 // amount and the resize budget - the three values a video outpaint model
 // keys on (LTX's IC-LoRA wants pure black, a hard edge and 32-px sizes),
 // editable on the face and mirrored from the hidden widgets on every draw.
-function buildVideoCanvasRow(state) {
+function buildCanvasRow(state) {
   const node = state.node;
+  const video = state.kind === "video";
   const row = createElement("div", "ausboss-transform-row ausboss-transform-canvas-row");
   const fillLabel = createElement("label");
   const fill = createElement("input"); fill.type = "color"; fill.className = "ausboss-transform-swatch";
-  fill.title = "Fill colour of the padding and rotation corners. Video outpaint models key on it: the LTX IC-LoRA paints pure black (#000000) and leaves other colours alone.";
+  fill.title = video
+    ? "Fill colour of the padding and rotation corners. Video outpaint models key on it: the LTX IC-LoRA paints pure black (#000000) and leaves other colours alone."
+    : "Fill colour of the padding and rotation corners.";
   fill.addEventListener("input", () => { setValue(node, "fill_color", fill.value); draw(state); });
   fill.addEventListener("change", () => notifyAusbossChange());
   fillLabel.append(createElement("span", "", "Fill"), fill);
   const featherLabel = createElement("label");
   const feather = makeScrubInput({ value: value(node, "feather", 0), min: 0, max: 4096, step: 1, decimals: 0, width: 62, unit: "px",
-    title: "Feather of the mask and image edge into the fill. 0 keeps the hard edge a black-band outpaint needs; grey bands in a render mean feather was on.",
+    title: video
+      ? "Feather of the mask and image edge into the fill. 0 keeps the hard edge a black-band outpaint needs; grey bands in a render mean feather was on."
+      : "Feather of the mask and image edge into the fill, in pixels; 0 keeps a hard edge.",
     onChange: (amount) => { setValue(node, "feather", amount); draw(state); updateModalInfo(state); }, onSettle: notifyAusbossChange });
   featherLabel.append(createElement("span", "", "Feather"), feather.root);
   const resizeLabel = createElement("label");
@@ -742,83 +761,6 @@ function buildVideoCanvasRow(state) {
   state.syncCanvasRow = sync;
   chainCallback(node, "onConfigure", () => queueMicrotask(sync));
   row.addEventListener("pointerdown", (event) => { if (event.target.closest("input,label")) event.stopPropagation(); });
-  return row;
-}
-
-// The image node's quick row under the canvas: reset, the feather on/off,
-// and the resize-to-megapixels toggle with its budget box. These mirror
-// hidden widgets, so the row re-reads them after a workflow restore lands
-// (onConfigure) — the panel is built before the saved values arrive.
-function buildImageQuickRow(state) {
-  const node = state.node;
-  const row = createElement("div", "ausboss-transform-row");
-
-  const reset = createElement("button", "ausboss-transform-button", "Reset");
-  reset.title = "Reset rotation, crop, and padding";
-  reset.addEventListener("click", () => {
-    resetTransform(node, false);
-    draw(state);
-    notifyAusbossChange();
-  });
-
-  const makeCheck = (text, title) => {
-    const label = createElement("label", "ausboss-transform-check");
-    const box = createElement("input");
-    box.type = "checkbox";
-    label.append(box, createElement("span", "", text));
-    label.title = title;
-    return { label, box };
-  };
-
-  // Feather is an amount, so the toggle remembers the amount it turns off:
-  // off writes 0, on restores the stashed value (or the 24px default).
-  const feather = makeCheck("Feather", "Feather the mask and image edge into the fill color");
-  feather.box.addEventListener("change", () => {
-    if (feather.box.checked) {
-      const stashed = Number(node.properties?.ausbossFeatherMemory) || 24;
-      setValue(node, "feather", stashed);
-    } else {
-      node.properties ??= {};
-      node.properties.ausbossFeatherMemory = value(node, "feather", 24) || 24;
-      setValue(node, "feather", 0);
-    }
-    draw(state);
-    notifyAusbossChange();
-  });
-
-  const resize = makeCheck("Resize", "Resize the output to a megapixel budget (aspect preserved)");
-  // The pack's standard scrub control (drag / type / arrows, Shift = fine),
-  // same box the LoRA loader strengths use.
-  const budget = makeScrubInput({
-    value: value(node, "megapixels", 1),
-    min: 0.01, max: 16, step: 0.05, fineStep: 0.01, decimals: 2, width: 74,
-    title: "Output budget in megapixels (x 1024x1024).",
-    onChange: (amount) => {
-      setValue(node, "megapixels", amount);
-      draw(state);
-      updateModalInfo(state);
-    },
-    onSettle: () => notifyAusbossChange(),
-  });
-  resize.box.addEventListener("change", () => {
-    setValue(node, "resize_to_megapixels", resize.box.checked);
-    budget.root.style.display = resize.box.checked ? "" : "none";
-    draw(state);
-    updateModalInfo(state);
-    notifyAusbossChange();
-  });
-
-  const sync = () => {
-    feather.box.checked = Number(value(node, "feather", 24)) > 0;
-    resize.box.checked = Boolean(value(node, "resize_to_megapixels", false));
-    budget.set(value(node, "megapixels", 1));
-    budget.root.style.display = resize.box.checked ? "" : "none";
-  };
-  sync();
-  state.syncQuickRow = sync;
-  chainCallback(node, "onConfigure", () => queueMicrotask(sync));
-
-  row.append(reset, feather.label, resize.label, budget.root);
   return row;
 }
 
@@ -1310,7 +1252,7 @@ function buildControls(state, sidebar) {
   const actions = createElement("section", "ausboss-transform-section"); actions.append(sectionHeading("View & reset"));
   const resetViewButton = createElement("button", "", "Reset view"); resetViewButton.addEventListener("click", () => { resetView(state); draw(state); });
   const resetAll = createElement("button", "ausboss-transform-danger", "Reset transform");
-  resetAll.title = "Reset rotation, crop, padding, fill and feather. Keep the source, current frame, trim window, fixed length, resize and stitch settings.";
+  resetAll.title = "Reset rotation, crop, padding, fill, feather and Align. Keep the source, current frame, trim window, fixed length, resize and stitch settings.";
   resetAll.addEventListener("click", () => { resetTransform(node); resetView(state); draw(state); updateModalInfo(state); });
   actions.append(resetViewButton, resetAll);
 
@@ -1653,7 +1595,6 @@ function prepareCanvas(canvas, oversample = 1) {
 }
 
 function draw(state) {
-  state.syncQuickRow?.();
   state.syncCanvasRow?.();
   state.syncAspectChips?.();
   state.syncAspectMode?.();

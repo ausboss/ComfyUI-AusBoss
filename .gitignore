@@ -21,15 +21,15 @@ uv.lock
 # User aspect-ratio presets - personal copy of ausboss_presets_example.json
 ausboss_presets.json
 
-# Local working notes
-ausboss_test_checklist.md
-ausboss_idea_backlog.md
-/todo
-/todo.md
-/workflow_ideas.md
-/docs/push_readiness.md
-/CLAUDE_KREA_WORKFLOW_HANDOFF.md
-.claude/skills/comfyui-node-api/SKILL.md
+# Local working notes: keep them in _scratch/ or a root ausboss_*.md file,
+# never in a new name that needs its own line here
+/ausboss_*.md
 
 # Local duplicate of the versioned .claude brand skill
 /.agents/skills/ausboss-node-brand/
+
+# Local tool output: the archive `comfy node pack` writes, and per-machine
+# worktrees and settings
+node.zip
+.claude/worktrees/
+.claude/settings.local.json

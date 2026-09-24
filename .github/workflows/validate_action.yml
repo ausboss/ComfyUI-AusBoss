@@ -13,6 +13,7 @@ permissions:
 jobs:
   offline-checks:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
         with:
@@ -25,5 +26,34 @@ jobs:
           node-version: "24"
       - run: python scripts/validate_nodes.py
       - run: python scripts/release_preflight.py
-      - run: python tests/test_registry_status.py
+      # The test files that need only the standard library. The rest import
+      # torch, NumPy or PyAV and run in ComfyUI's own Python environment.
+      - name: Standard-library Python tests
+        run: >-
+          python scripts/run_python_tests.py
+          tests/test_execution_helpers.py
+          tests/test_lora_helpers.py
+          tests/test_math_helpers.py
+          tests/test_memory_helpers.py
+          tests/test_node_api.py
+          tests/test_registry_contract.py
+          tests/test_registry_status.py
+          tests/test_resolution.py
+          tests/test_status_helpers.py
+          tests/test_utility_nodes.py
+          tests/test_workflow_contract.py
+      # `node --check file.js` passes a broken file that uses import or
+      # export when no package.json marks it as a module, so each file goes
+      # in on stdin with the module type stated.
+      - name: JavaScript syntax
+        run: |
+          status=0
+          while IFS= read -r -d '' file; do
+            node --input-type=module --check < "$file" || { echo "::error file=$file::syntax error"; status=1; }
+          done < <(git ls-files -z -- 'js/*.js' '*.mjs')
+          exit "$status"
       - run: node --test --test-isolation=none tests/*.test.mjs
+      - name: Ruff (pyflakes and syntax errors)
+        run: |
+          python -m pip install ruff==0.16.3
+          ruff check --select F,E9 .

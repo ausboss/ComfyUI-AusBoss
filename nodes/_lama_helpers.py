@@ -8,6 +8,7 @@ from pathlib import Path
 import torch
 import torch.nn.functional as functional
 
+from ._execution_helpers import comfy_torch_device, progress_bar, raise_if_interrupted
 from ._status_helpers import push_node_status
 
 try:
@@ -65,15 +66,6 @@ def resolve_lama_model(model_name: str) -> Path:
     )
 
 
-def comfy_torch_device() -> torch.device:
-    try:
-        from comfy.model_management import get_torch_device
-
-        return torch.device(get_torch_device())
-    except ImportError:
-        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
 @lru_cache(maxsize=2)
 def load_lama_model(model_path: str):
     # Cached on CPU so ComfyUI's VRAM stays free between runs; run_lama_inpaint
@@ -81,22 +73,6 @@ def load_lama_model(model_path: str):
     model = torch.jit.load(model_path, map_location="cpu")
     model.eval()
     return model
-
-
-def _raise_if_interrupted() -> None:
-    try:
-        from comfy.model_management import throw_exception_if_processing_interrupted
-    except ImportError:  # Offline tests run without ComfyUI.
-        return
-    throw_exception_if_processing_interrupted()
-
-
-def _progress_bar(total: int):
-    try:
-        from comfy.utils import ProgressBar
-    except ImportError:  # Offline tests run without ComfyUI.
-        return None
-    return ProgressBar(total)
 
 
 def frame_tensor_to_pil(frame: torch.Tensor):
@@ -171,11 +147,11 @@ def inpaint_with_model(
     image_count, height, width, _channels = images.shape
     normalized_masks = _normalized_masks(masks, image_count, height, width)
     outputs: list[torch.Tensor] = []
-    progress = _progress_bar(image_count)
+    progress = progress_bar(image_count)
     preview_failed = False
 
     for index in range(image_count):
-        _raise_if_interrupted()
+        raise_if_interrupted()
         source = images[index].float().clamp(0.0, 1.0)
         rgb = source[..., :3].permute(2, 0, 1).unsqueeze(0).to(device)
         soft_mask = normalized_masks[index].unsqueeze(0).unsqueeze(0).to(device)

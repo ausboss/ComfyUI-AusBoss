@@ -211,9 +211,10 @@ function buildControl(entry, values, commit) {
     return seg;
   }
   if (entry.type === "number" && entry.scrub) {
+    // Whole numbers unless the entry asks for decimals (a strength).
     const control = makeScrubInput({
       value: values[entry.key], min: entry.min, max: entry.max,
-      step: entry.step ?? 1, fineStep: entry.step ?? 1, decimals: 0,
+      step: entry.step ?? 1, fineStep: entry.fineStep ?? entry.step ?? 1, decimals: entry.decimals ?? 0,
       title: entry.hint ?? entry.label,
       onChange: (value) => commit(entry, value),
     });
@@ -450,7 +451,14 @@ export function openSettingsMenu({ scope, schema, anchor, title, onChange, initi
   reset.title = "Back to defaults for this node type";
   reset.addEventListener("click", () => {
     resetSettings(scope);
-    values = schemaDefaults(schema);
+    // persist:false entries mirror the open node, not a stored default, so
+    // a reset leaves them as they are: resetting the LoRA Loader's gear must
+    // not fold a node's separate CLIP strengths into its model strengths.
+    const kept = {};
+    for (const entry of schema) {
+      if (entry.key !== undefined && entry.persist === false) kept[entry.key] = values[entry.key];
+    }
+    values = { ...schemaDefaults(schema), ...kept };
     renderRows();
     onChange?.(values, null);
   });

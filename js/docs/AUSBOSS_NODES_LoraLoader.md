@@ -57,7 +57,8 @@ The bar rides the empty middle of the output-slot band, so the node spends
 its height on rows, not chrome. Left to right:
 
 - **▤ templates** — save the current stack under a name, or apply/delete a
-  saved one. Templates are shared across workflows.
+  saved one. Templates are kept in this browser and shared by every
+  workflow opened in it.
 - **master pill** — cycles *mixed → all on → all off → back to the mixed
   setup it destroyed*. Every hand-made row toggle refreshes that memory, so
   an accidental master click is always one more click from home.
@@ -74,16 +75,21 @@ its height on rows, not chrome. Left to right:
 
 Gear menu → **Absorb chain LoRAs**. Walks the model chain on BOTH sides of
 this node — upstream through the `model` input, downstream from the `model`
-output — and for every loader it recognizes (`LoraLoader`,
-`LoraLoaderModelOnly`, `Power Lora Loader (rgthree)`, `PixaromaLoraLoader`,
-another AusBoss LoRA Loader; Reroutes are walked through) lifts its rows
-into this stack in application order: upstream loaders, your existing rows,
-then downstream loaders. The original loaders are set to **bypass** only when
-their connections can be preserved. Repeated filenames remain separate rows,
-with their own strengths and toggles.
+output — and for every loader it recognizes (core `LoraLoader` and
+`LoraLoaderModelOnly`, rgthree Power Lora Loader and Lora Loader Stack, JPS
+Lora Loader, `PixaromaLoraLoader`, another AusBoss LoRA Loader; Reroutes are
+walked through) lifts its rows into this stack in application order:
+upstream loaders, your existing rows, then downstream loaders. The original
+loaders are set to **bypass** only when their connections can be preserved.
+Repeated filenames remain separate rows, with their own strengths and
+toggles.
 
 Details that keep the absorb faithful:
 
+- the walk follows connections, not canvas position, and stops at unknown
+  nodes and downstream forks
+- JPS rows switched off stay disabled; an rgthree Lora Loader Stack strength
+  applies to both model and CLIP
 - names are resolved against this install's `models/loras` — exact match
   first, then a unique basename match ignoring folders and extension (for
   workflows saved on another machine's layout); unresolved names import
@@ -136,9 +142,9 @@ switch turns the behavior off.
 ## Trigger words
 
 The info card gathers words from three places: the LoRA file's own metadata,
-Civitai (one click to fetch, saved beside the LoRA as the standard
-`<model>.civitai.info` sidecar), and words you add yourself (remembered per
-LoRA across workflows). Click a word to toggle it into the row; enabled rows'
+a standard `<model>.civitai.info` sidecar when one sits beside the file
+(other Civitai tools write these; the pack reads them and never goes online
+itself), and words you add yourself (remembered per LoRA across workflows). Click a word to toggle it into the row; enabled rows'
 selected words are joined into the `triggers` output, deduplicated, in
 row order.
 
@@ -147,19 +153,10 @@ row order.
 - **model**: The model with every enabled LoRA applied in row order.
 - **clip**: The CLIP with every enabled LoRA applied (unchanged when no CLIP
   is connected).
-- **triggers**: Comma-joined selected trigger words from enabled rows.
+- **triggers**: The selected trigger words from enabled rows, deduplicated,
+  joined with the gear menu's separator (a comma by default).
 
 Rows with a strength of `0` (both model and CLIP) are skipped at load time
 but still contribute their trigger words, so you can park a LoRA at zero
-while comparing.
-
-
-Absorption recognizes core LoRA and model-only loaders, rgthree Power Lora
-Loader and Lora Loader Stack, JPS Lora Loader, Pixaroma, and AusBoss loaders.
-It follows connections upstream and downstream regardless of where nodes sit
-on the canvas, passing through reroutes. JPS Off rows stay disabled; rgthree
-stack strengths apply to both model and CLIP. Muted or bypassed sources do
-not contribute new rows. Unknown nodes and downstream forks stop the walk.
-Linked LoRA settings cannot be captured as fixed rows; disconnect those
-settings before absorption. If the imports exceed the stack's row limit,
-the operation stops without bypassing the sources.
+while comparing. A row skipped because its file is missing contributes none:
+that LoRA is not in the picture.

@@ -299,9 +299,15 @@ class AusBossVideoCropRotatePadClip:
             )
         # The decode blocks for as long as the trim is; off the loop so the
         # executor keeps answering, with the context ComfyUI's progress and
-        # interrupt hooks need carried along.
+        # interrupt hooks need carried along. Its errors name this node and
+        # suggest only inputs it has - there is no custom size here.
         frames, source_fps = await asyncio.to_thread(
-            decode_video_range, path, float(start_seconds), float(end_seconds), 0, 0, nth, cap, force_rate
+            decode_video_range, path, float(start_seconds), float(end_seconds), 0, 0, nth, cap, force_rate,
+            source="Video Crop + Rotate + Pad -> Clip",
+            memory_advice=(
+                "Trim a shorter start/end window, raise every_nth, or load fewer "
+                "frames with max_frames or fixed_frames."
+            ),
         )
         if fixed_frames and int(frames.shape[0]) != fixed_frames:
             raise ValueError("The source did not decode enough frames for Fixed frames. Reduce the requested length.")
@@ -314,7 +320,10 @@ class AusBossVideoCropRotatePadClip:
             output, mask = resize_batch_to_megapixels(
                 output, mask, float(megapixels), str(resize_method), int(resolution_steps)
             )
-        stitcher = clip_stitcher(output, mask, geometry, int(stitch_blend), int(stitch_grow))
+        stitcher = clip_stitcher(
+            output, mask, geometry, int(stitch_blend), int(stitch_grow),
+            source="Video Crop + Rotate + Pad -> Clip",
+        )
         fps = source_fps / nth
         frame_count = int(output.shape[0])
         duration = frame_count / fps if fps > 0 else 0.0
@@ -388,8 +397,11 @@ class AusBossVideoCropRotatePadClip:
         stitch_grow=0,
         **values,
     ):
-        # The preview position (seek_mode, frame_index, frame_time) is left
-        # out on purpose: scrubbing the editor must not re-run a whole clip.
+        # The preview position (seek_mode, frame_index, frame_time) never
+        # changes the output, so it stays out of the fingerprint. That alone
+        # cannot stop a scrub from re-running the clip - every input is in
+        # ComfyUI's cache key - which is why the frontend queues those three
+        # widgets as fixed values (installTransformNode, transform_editor.mjs).
         try:
             path = resolve_video_path(source_mode, video, local_path)
         except Exception:

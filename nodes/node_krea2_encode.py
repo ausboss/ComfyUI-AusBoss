@@ -81,9 +81,10 @@ class AusBossKrea2Encode:
                     "IMAGE",
                     {
                         "tooltip": (
-                            "The `reference` output of Load Image + Pad 🆎 — "
-                            "the unpadded source. Any image works; it is "
-                            "fitted to a multiple of 16 first."
+                            "The image the result follows: Load Image + Pad 🆎's "
+                            "padded image for AnyPaint, or its unpadded "
+                            "`reference` output for Registered Outpaint. Any "
+                            "image works; it is fitted to a multiple of 16 first."
                         )
                     },
                 ),
@@ -97,9 +98,10 @@ class AusBossKrea2Encode:
                         "default": False,
                         "tooltip": (
                             "Also show the references to the vision tower, so "
-                            "the text encoder describes them. Off for outpaint "
-                            "— the latents already carry the picture, and the "
-                            "description tends to pull the result toward a "
+                            "the text encoder describes them. On for AnyPaint "
+                            "with the padded canvas as the reference; off for "
+                            "Registered Outpaint with the unpadded source, where "
+                            "the description tends to pull the result toward a "
                             "paraphrase of the source."
                         ),
                     },

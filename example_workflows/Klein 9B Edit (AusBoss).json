@@ -1,5 +1,5 @@
 {
-  "id": "",
+  "id": "ab2b44d6-2e2a-4be7-a569-089534b8dec1",
   "revision": 0,
   "last_node_id": 20,
   "last_link_id": 23,
@@ -29,10 +29,17 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "UNETLoader"
+        "Node name for S&R": "UNETLoader",
+        "models": [
+          {
+            "name": "flux-2-klein-9b-int8-convrot.safetensors",
+            "url": "https://huggingface.co/Winnougan/Klein9b-Distilled-Base-INT8-Convrot/resolve/main/flux-2-klein-9b-int8-convrot.safetensors",
+            "directory": "diffusion_models"
+          }
+        ]
       },
       "widgets_values": [
-        "Flux.2 Klein 9B/flux-2-klein-9b-int8-convrot.safetensors",
+        "flux-2-klein-9b-int8-convrot.safetensors",
         "default"
       ],
       "color": "#223",
@@ -63,7 +70,14 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "CLIPLoader"
+        "Node name for S&R": "CLIPLoader",
+        "models": [
+          {
+            "name": "qwen_3_8b_fp8mixed.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors",
+            "directory": "text_encoders"
+          }
+        ]
       },
       "widgets_values": [
         "qwen_3_8b_fp8mixed.safetensors",
@@ -99,7 +113,14 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "VAELoader"
+        "Node name for S&R": "VAELoader",
+        "models": [
+          {
+            "name": "flux2-vae.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/vae/flux2-vae.safetensors",
+            "directory": "vae"
+          }
+        ]
       },
       "widgets_values": [
         "flux2-vae.safetensors"
@@ -834,7 +855,7 @@
         "ver": "2.0.0"
       },
       "widgets_values": [
-        "AusBoss/klein_edit",
+        "klein_edit",
         "png",
         true,
         "",
@@ -865,7 +886,7 @@
         "ver": "2.0.0"
       },
       "widgets_values": [
-        "{\"v\": 1, \"title\": \"Klein 9B Edit\", \"subtitle\": \"One picture in, an instruction, one picture out. Image Resize sets the working size, Image Size keeps the output the same shape, Compare shows what changed.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose each installed model in its loader; saved selections may include local subfolders. Download links below name the standard destination folders.\\n\\n## How it works\\n1. **Load Image → Image Resize** — the source is brought to a 1 MP budget in steps of 16, the size Klein 9B was trained to edit at. **Image Size** reads that size back so the output latent matches the source exactly and nothing is stretched.\\n2. **Prompt + reference** — the resized picture is VAE-encoded once and attached as a *reference latent* to both the positive prompt and the zeroed negative; that is how Klein sees the image it is editing. The **Text** node holds the instruction: say what changes and what stays.\\n3. **Sample** — the distilled recipe: 4 steps, CFG 1, `euler` / `simple`, on a fresh latent. **Seed** is pinned so reruns are comparable; *Use last run* brings a good one back.\\n4. **Compare + save** — **Compare** slides the edit against the resized source; **Save Image** writes a PNG with the workflow embedded. About 5 s on a 32 GB card once the models are loaded.\\n\\n## Try\\n- **Bigger output**: raise *Megapixels* on Image Resize to 1.5–2. Klein holds together to about 2 MP; past that details start to drift from the source.\\n- **Partial edits**: for a change confined to one region, use the *Klein 9B Inpaint* example — it crops around a painted mask and stitches only that area back.\\n- **Second reference**: a second Reference Latent chained after the first lets you hand Klein an object or a style image alongside the source.\", \"models\": [{\"name\": \"flux-2-klein-9b-int8-convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"\", \"url\": \"https://huggingface.co/Winnougan/Klein9b-Distilled-Base-INT8-Convrot/resolve/main/flux-2-klein-9b-int8-convrot.safetensors\", \"note\": \"Tested build. Select its installed subfolder in the loader; use a distilled Klein 9B model.\"}, {\"name\": \"qwen_3_8b_fp8mixed.safetensors\", \"dir\": \"text_encoders\", \"size\": \"8.7 GB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors\", \"note\": \"\"}, {\"name\": \"flux2-vae.safetensors\", \"dir\": \"vae\", \"size\": \"336 MB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/vae/flux2-vae.safetensors\", \"note\": \"\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_ImageResize\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+        "{\"v\": 1, \"title\": \"Klein 9B Edit\", \"subtitle\": \"One picture in, an instruction, one picture out. Image Resize sets the working size, Image Size keeps the output the same shape, Compare shows what changed.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose each installed model in its loader; if you keep models in subfolders, select those paths. Download links below name the standard destination folders.\\n\\n## How it works\\n1. **Load Image → Image Resize** — the source is brought to a 1 MP budget in steps of 16, the size Klein 9B was trained to edit at. **Image Size** reads that size back so the output latent matches the source exactly and nothing is stretched.\\n2. **Prompt + reference** — the resized picture is VAE-encoded once and attached as a *reference latent* to both the positive prompt and the zeroed negative; that is how Klein sees the image it is editing. The **Text** node holds the instruction: say what changes and what stays.\\n3. **Sample** — the distilled recipe: 4 steps, CFG 1, `euler` / `simple`, on a fresh latent. **Seed** is pinned so reruns are comparable; *Use last run* brings a good one back.\\n4. **Compare + save** — **Compare** slides the edit against the resized source; **Save Image** writes a PNG with the workflow embedded. About 5 s on a 32 GB card once the models are loaded.\\n\\n## Try\\n- **Bigger output**: raise *Megapixels* on Image Resize to 1.5–2. Klein holds together to about 2 MP; past that details start to drift from the source.\\n- **Partial edits**: for a change confined to one region, use the *Klein 9B Inpaint* example — it crops around a painted mask and stitches only that area back.\\n- **Second reference**: a second Reference Latent chained after the first lets you hand Klein an object or a style image alongside the source.\", \"models\": [{\"name\": \"flux-2-klein-9b-int8-convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"\", \"url\": \"https://huggingface.co/Winnougan/Klein9b-Distilled-Base-INT8-Convrot/resolve/main/flux-2-klein-9b-int8-convrot.safetensors\", \"note\": \"Tested build; use a distilled Klein 9B model.\"}, {\"name\": \"qwen_3_8b_fp8mixed.safetensors\", \"dir\": \"text_encoders\", \"size\": \"8.7 GB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors\", \"note\": \"\"}, {\"name\": \"flux2-vae.safetensors\", \"dir\": \"vae\", \"size\": \"336 MB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/vae/flux2-vae.safetensors\", \"note\": \"\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_ImageResize\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
       ]
     }
   ],
@@ -1138,7 +1159,7 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.4939,
+      "scale": 0.6,
       "offset": [
         1881.98,
         314.2

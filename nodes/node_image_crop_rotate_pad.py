@@ -38,13 +38,16 @@ class AusBossImageCropRotatePad:
         required.update(resize_inputs())
         return {"required": required}
 
-    RETURN_TYPES = ("IMAGE", "MASK", "AUSBOSS_STITCHER", "IMAGE")
-    RETURN_NAMES = ("image", "mask", "stitcher", "original")
+    # Appended outputs only: saved links ride slot indices.
+    RETURN_TYPES = ("IMAGE", "MASK", "AUSBOSS_STITCHER", "IMAGE", "INT", "INT")
+    RETURN_NAMES = ("image", "mask", "stitcher", "original", "width", "height")
     OUTPUT_TOOLTIPS = (
         "The transformed image batch in BHWC format.",
         "BHW generated-area mask: transparency, rotation corners, and padding.",
         "Full-canvas stitcher: restores kept source pixels over an outpaint result; wire to Stitch Inpaint.",
         "The source image before rotation, crop, padding, or resize, as a BHWC RGB batch.",
+        "Output width after the transform and any resize.",
+        "Output height after the transform and any resize.",
     )
     FUNCTION = "load_transform"
 
@@ -64,8 +67,11 @@ class AusBossImageCropRotatePad:
             output, mask = resize_batch_to_megapixels(
                 output, mask, float(megapixels), str(resize_method), int(resolution_steps)
             )
-        stitcher = build_transform_stitcher(output, mask, geometry, 32)
-        return output, mask, stitcher, original_image_batch(frames)
+        stitcher = build_transform_stitcher(output, mask, geometry, 32, source="Image Crop + Rotate + Pad")
+        return (
+            output, mask, stitcher, original_image_batch(frames),
+            int(output.shape[2]), int(output.shape[1]),
+        )
 
     @classmethod
     def VALIDATE_INPUTS(cls, image, **_values):
@@ -82,8 +88,10 @@ class AusBossImageCropRotatePad:
         except Exception:
             path = image or ""
         spec = spec_from_values(**values)
-        # The resize values live outside TransformSpec, so fingerprint them
-        # explicitly or changing the budget would not re-run the node.
+        # Every widget value is already part of ComfyUI's cache key, so a
+        # changed transform or budget re-runs the node without this; the
+        # fingerprint's job is noticing the image file change on disk. The
+        # resize values live outside TransformSpec and ride along beside it.
         resize = {name: values.get(name) for name in resize_inputs()}
         return stable_file_fingerprint(path, {"image": image, **spec.__dict__, **resize})
 

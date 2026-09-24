@@ -1,4 +1,4 @@
-"""Stable V1 widget definitions shared by the two transform nodes."""
+"""Stable V1 widget definitions shared by the three Crop + Rotate + Pad nodes."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import json
 import re
 from pathlib import Path
 
+from ._execution_helpers import warn_once
 from ._transform_engine import TransformSpec
 
 
@@ -18,16 +19,10 @@ ASPECT_RATIOS = ["free", "source", "1:1", "9:16", "16:9", "2:3", "3:2", "3:4", "
 PRESETS_PATH = Path(__file__).resolve().parent.parent / "ausboss_presets.json"
 
 _RATIO_PATTERN = re.compile(r"^[1-9]\d*:[1-9]\d*$")
+# Preset warnings quote what the user wrote, so the set is capped at this
+# many notes rather than kept for the whole session.
 _warned_presets: set[str] = set()
-
-
-def _warn_once(message: str) -> None:
-    if message in _warned_presets:
-        return
-    if len(_warned_presets) > 64:
-        _warned_presets.clear()
-    _warned_presets.add(message)
-    print(f"[AusBoss] {message}")
+_PRESET_WARNING_LIMIT = 64
 
 
 def load_custom_aspect_ratios(path: Path | None = None) -> list[str]:
@@ -38,16 +33,25 @@ def load_custom_aspect_ratios(path: Path | None = None) -> list[str]:
     except FileNotFoundError:
         return []
     except OSError as exc:
-        _warn_once(f"Presets: could not read {path.name}: {exc}")
+        warn_once(
+            f"Presets: could not read {path.name}: {exc}",
+            _warned_presets, limit=_PRESET_WARNING_LIMIT,
+        )
         return []
     try:
         data = json.loads(text)
     except json.JSONDecodeError as exc:
-        _warn_once(f"Presets: {path.name} is not valid JSON ({exc}); using built-in aspect ratios.")
+        warn_once(
+            f"Presets: {path.name} is not valid JSON ({exc}); using built-in aspect ratios.",
+            _warned_presets, limit=_PRESET_WARNING_LIMIT,
+        )
         return []
     entries = data.get("crop_aspect_ratios") if isinstance(data, dict) else None
     if not isinstance(entries, list):
-        _warn_once(f"Presets: {path.name} needs a crop_aspect_ratios list; using built-in aspect ratios.")
+        warn_once(
+            f"Presets: {path.name} needs a crop_aspect_ratios list; using built-in aspect ratios.",
+            _warned_presets, limit=_PRESET_WARNING_LIMIT,
+        )
         return []
     valid: list[str] = []
     skipped: list[str] = []
@@ -60,7 +64,10 @@ def load_custom_aspect_ratios(path: Path | None = None) -> list[str]:
             skipped.append(candidate)
     if skipped:
         safe = ", ".join(item.encode("ascii", "backslashreplace").decode("ascii") for item in skipped)
-        _warn_once(f"Presets: skipped entries that are not W:H integer pairs: {safe}")
+        warn_once(
+            f"Presets: skipped entries that are not W:H integer pairs: {safe}",
+            _warned_presets, limit=_PRESET_WARNING_LIMIT,
+        )
     return valid
 
 
@@ -159,7 +166,7 @@ def transform_inputs(*, feather: int = 24, fill_color: str = "#808080") -> dict[
     }
 
 
-# Image-node only (the video node keeps its frame geometry): resize the
+# Every transform node, appended after its other widgets: resize the
 # transformed output to a pixel budget, core ImageScaleToTotalPixels-style.
 RESIZE_METHODS = ["lanczos", "area", "bicubic", "bilinear", "nearest-exact"]
 

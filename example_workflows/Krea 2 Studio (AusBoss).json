@@ -1,5 +1,5 @@
 {
-  "id": "",
+  "id": "6266093f-ca0e-4aa1-9c21-5e711d925515",
   "revision": 0,
   "last_node_id": 24,
   "last_link_id": 33,
@@ -51,10 +51,17 @@
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
-        "Node name for S&R": "UNETLoader"
+        "Node name for S&R": "UNETLoader",
+        "models": [
+          {
+            "name": "krea2_turbo_fp8_scaled.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors",
+            "directory": "diffusion_models"
+          }
+        ]
       },
       "widgets_values": [
-        "Krea 2/krea2_turbo_fp8.safetensors",
+        "krea2_turbo_fp8_scaled.safetensors",
         "default"
       ],
       "widgets_values_named": {
@@ -121,7 +128,14 @@
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
-        "Node name for S&R": "CLIPLoader"
+        "Node name for S&R": "CLIPLoader",
+        "models": [
+          {
+            "name": "qwen3vl_4b_fp8_scaled.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors",
+            "directory": "text_encoders"
+          }
+        ]
       },
       "widgets_values": [
         "qwen3vl_4b_fp8_scaled.safetensors",
@@ -176,7 +190,14 @@
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
-        "Node name for S&R": "VAELoader"
+        "Node name for S&R": "VAELoader",
+        "models": [
+          {
+            "name": "qwen_image_vae.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors",
+            "directory": "vae"
+          }
+        ]
       },
       "widgets_values": [
         "qwen_image_vae.safetensors"
@@ -272,11 +293,13 @@
       "widgets_values": [
         "[]",
         ", ",
+        "error",
         ""
       ],
       "widgets_values_named": {
         "loras": "[]",
         "trigger_separator": ", ",
+        "on_missing": "error",
         "ausboss_lora_rows": ""
       },
       "color": "#14424d",
@@ -820,10 +843,17 @@
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
-        "Node name for S&R": "UpscaleModelLoader"
+        "Node name for S&R": "UpscaleModelLoader",
+        "models": [
+          {
+            "name": "4x_foolhardy_Remacri.pth",
+            "url": "https://huggingface.co/FacehugmanIII/4x_foolhardy_Remacri/resolve/main/4x_foolhardy_Remacri.pth",
+            "directory": "upscale_models"
+          }
+        ]
       },
       "widgets_values": [
-        "Upscale-Models/4x_foolhardy_Remacri.pth"
+        "4x_foolhardy_Remacri.pth"
       ],
       "widgets_values_named": {
         "model_name": "4x_foolhardy_Remacri.pth"
@@ -1566,7 +1596,7 @@
         "Node name for S&R": "AUSBOSS_NODES_SaveImage"
       },
       "widgets_values": [
-        "AusBoss/krea2_studio",
+        "krea2_studio",
         "png",
         true,
         "",
@@ -1575,7 +1605,7 @@
         ""
       ],
       "widgets_values_named": {
-        "filename_prefix": "AusBoss/krea2_studio",
+        "filename_prefix": "krea2_studio",
         "format": "png",
         "save_metadata": true,
         "exact_name": "",
@@ -1696,7 +1726,7 @@
         "Node name for S&R": "AUSBOSS_NODES_WorkflowNote"
       },
       "widgets_values": [
-        "{\"v\": 1, \"title\": \"Krea 2 Studio\", \"subtitle\": \"Draft, then refine. A learned 4x upscale and a second low-denoise pass turn a 1 MP Krea 2 draft into a 2.3 MP image with real texture, finished with a draft-matched grade and a gentle sharpen. ComfyUI core + AusBoss, nothing else.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose each installed model in its loader; saved selections may include local subfolders. Download links below name the standard destination folders.\\n\\n## How it works\\n1. **Draft** — the plain Krea 2 Turbo recipe: 8 steps, CFG 1, `er_sde` / `simple`, 832×1216. **Seed** is pinned so both passes and every rerun line up; *Use last run* brings a good one back.\\n2. **Hires** — the draft goes through a learned 4x upscaler, **Image Resize** brings it down to the refine budget (2.3 MP, steps of 16), and a second KSampler repaints it at **denoise 0.15** with the same prompt, LoRAs and seed. That pass is where the pores, fabric and stone come from; the composition stays put.\\n3. **Finish** — **Color Match** pulls the refined image back to the draft's tone (a second pass tends to warm skin a touch), then a gentle core **Sharpen**. Both are subtle on purpose.\\n4. **Review + save** — the **Compare** slider shows final against draft; **Save Image** writes the final PNG with the workflow embedded. About 15 s on a 32 GB card.\\n\\n## Stages you can switch off\\n- Skip the refine pass: select the *refine pass* KSampler and press **Ctrl+B** (bypass). The upscaled draft flows straight to the finish.\\n- Skip the learned upscale: bypass **Upscale Image** and **Load Upscale Model** together; Image Resize then does the lift on its own.\\n- Skip a finish step: bypass Color Match or Sharpen on their own.\\n\\n## Try\\n- **Refine strength**: denoise 0.10–0.20 on the second KSampler. 0.12 is the safest on faces, 0.2 digs out more texture, 0.3 starts to speckle skin.\\n- **Refine budget**: the megapixels box on Image Resize. 2.3 MP is 1.5× the draft's edges; 4 MP works but the pass takes about twice as long.\\n- **Upscaler**: any ESRGAN-style 4x model in `models/upscale_models` — Remacri is a general-purpose pick; Siax and UltraSharp are common alternatives.\\n- Add LoRAs in the **LoRA Loader**; enabled trigger words are joined with your prompt for both passes.\\n\\nRemacri is a community ESRGAN model by FoolhardyVEVO; the Hugging Face mirror above is not the author's.\\n\\n## LoRA trigger words\\nEnabled LoRA trigger words are now joined with your prompt automatically, just as in the LoRA Stack example. Both sampling passes share that same assembled prompt.\", \"models\": [{\"name\": \"krea2_turbo_fp8.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"Tested local FP8 Turbo filename. The download is the official krea2_turbo_fp8_scaled.safetensors build; select that downloaded file in the loader if using it.\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}, {\"name\": \"4x_foolhardy_Remacri.pth\", \"dir\": \"upscale_models\", \"size\": \"67 MB\", \"url\": \"https://huggingface.co/FacehugmanIII/4x_foolhardy_Remacri/resolve/main/4x_foolhardy_Remacri.pth\", \"note\": \"community ESRGAN 4x by FoolhardyVEVO; any 4x upscaler works here\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_ImageResize\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+        "{\"v\": 1, \"title\": \"Krea 2 Studio\", \"subtitle\": \"Draft, then refine. A learned 4x upscale and a second low-denoise pass turn a 1 MP Krea 2 draft into a 2.3 MP image with real texture, finished with a draft-matched grade and a gentle sharpen. ComfyUI core + AusBoss, nothing else.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose each installed model in its loader; if you keep models in subfolders, select those paths. Download links below name the standard destination folders.\\n\\n## How it works\\n1. **Draft** — the plain Krea 2 Turbo recipe: 8 steps, CFG 1, `er_sde` / `simple`, 832×1216. **Seed** is pinned so both passes and every rerun line up; *Use last run* brings a good one back.\\n2. **Hires** — the draft goes through a learned 4x upscaler, **Image Resize** brings it down to the refine budget (2.3 MP, steps of 16), and a second KSampler repaints it at **denoise 0.15** with the same prompt, LoRAs and seed. That pass is where the pores, fabric and stone come from; the composition stays put.\\n3. **Finish** — **Color Match** pulls the refined image back to the draft's tone (a second pass tends to warm skin a touch), then a gentle core **Sharpen**. Both are subtle on purpose.\\n4. **Review + save** — the **Compare** slider shows final against draft; **Save Image** writes the final PNG with the workflow embedded. About 15 s on a 32 GB card.\\n\\n## Stages you can switch off\\n- Skip the refine pass: select the *refine pass* KSampler and press **Ctrl+B** (bypass). The upscaled draft flows straight to the finish.\\n- Skip the learned upscale: bypass **Upscale Image** and **Load Upscale Model** together; Image Resize then does the lift on its own.\\n- Skip a finish step: bypass Color Match or Sharpen on their own.\\n\\n## Try\\n- **Refine strength**: denoise 0.10–0.20 on the second KSampler. 0.12 is the safest on faces, 0.2 digs out more texture, 0.3 starts to speckle skin.\\n- **Refine budget**: the megapixels box on Image Resize. 2.3 MP is 1.5× the draft's edges; 4 MP works but the pass takes about twice as long.\\n- **Upscaler**: any ESRGAN-style 4x model in `models/upscale_models` — Remacri is a general-purpose pick; Siax and UltraSharp are common alternatives.\\n- Add LoRAs in the **LoRA Loader**; enabled trigger words are joined with your prompt for both passes.\\n\\nRemacri is a community ESRGAN model by FoolhardyVEVO; the Hugging Face mirror above is not the author's.\\n\\n## LoRA trigger words\\nEnabled LoRA trigger words are now joined with your prompt automatically, just as in the LoRA Stack example. Both sampling passes share that same assembled prompt.\", \"models\": [{\"name\": \"krea2_turbo_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"Official FP8 Turbo build, selected in the loader. The example was tested with a different local FP8 Turbo file.\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}, {\"name\": \"4x_foolhardy_Remacri.pth\", \"dir\": \"upscale_models\", \"size\": \"67 MB\", \"url\": \"https://huggingface.co/FacehugmanIII/4x_foolhardy_Remacri/resolve/main/4x_foolhardy_Remacri.pth\", \"note\": \"community ESRGAN 4x by FoolhardyVEVO; any 4x upscaler works here\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_ImageResize\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
       ],
       "color": "#14424d",
       "bgcolor": "#161f21"
@@ -2077,7 +2107,7 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.432,
+      "scale": 0.6,
       "offset": [
         1905.19,
         363.52

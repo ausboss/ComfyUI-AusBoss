@@ -21,7 +21,9 @@ class AusBossSelectEveryNth:
         "Keeps every nth frame of an IMAGE batch — halve a video's frame "
         "count before an expensive stage, or thin a sweep down to samples. "
         "offset skips that many frames before the first kept one, so "
-        "nth 2 / offset 0 keeps frames 1, 3, 5 and offset 1 keeps 2, 4, 6."
+        "nth 2 / offset 0 keeps frames 1, 3, 5 and offset 1 keeps 2, 4, 6. "
+        "Wire the batch's fps in and the fps output divides it by nth, so "
+        "the thinned clip keeps its duration."
     )
     SEARCH_ALIASES = ["every nth", "skip frames", "thin batch", "reduce frames", "ausboss"]
 
@@ -54,15 +56,33 @@ class AusBossSelectEveryNth:
                     },
                 ),
             },
+            "optional": {
+                "fps": (
+                    "FLOAT",
+                    {
+                        "forceInput": True,
+                        "tooltip": (
+                            "Optional: the batch's frame rate, such as Load "
+                            "Video's fps. The fps output divides it by nth."
+                        ),
+                    },
+                ),
+            },
         }
 
-    RETURN_TYPES = ("IMAGE",)
-    RETURN_NAMES = ("images",)
-    OUTPUT_TOOLTIPS = ("The kept frames, in their original order.",)
+    RETURN_TYPES = ("IMAGE", "FLOAT")
+    RETURN_NAMES = ("images", "fps")
+    OUTPUT_TOOLTIPS = (
+        "The kept frames, in their original order.",
+        "The wired fps divided by nth, so the kept frames still span the same "
+        "time; 0 when no fps is wired.",
+    )
     FUNCTION = "select"
 
-    def select(self, images, nth, offset):
-        return (select_every_nth(images, nth, offset),)
+    def select(self, images, nth, offset, fps=None):
+        kept = select_every_nth(images, nth, offset)
+        rate = float(fps) / int(nth) if fps else 0.0
+        return (kept, rate)
 
 
 class AusBossSplitBatch:

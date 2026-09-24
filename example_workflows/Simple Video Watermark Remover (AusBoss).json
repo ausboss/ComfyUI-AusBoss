@@ -105,7 +105,7 @@
       },
       "widgets_values": {
         "fps": 16,
-        "filename_prefix": "AusBoss/video",
+        "filename_prefix": "video",
         "crf": 19,
         "format": "mp4 h264",
         "pingpong": false,
@@ -113,7 +113,7 @@
       },
       "widgets_values_named": {
         "fps": 16,
-        "filename_prefix": "AusBoss/video",
+        "filename_prefix": "video",
         "crf": 19,
         "format": "mp4 h264",
         "pingpong": false,
@@ -166,7 +166,8 @@
         true
       ],
       "widgets_values_named": {
-        "frame_number": 16
+        "frame_number": 1,
+        "preview": true
       },
       "color": "#007f78",
       "bgcolor": "#081413",
@@ -315,14 +316,9 @@
       ],
       "title": "Detect Watermark (SAM3)",
       "properties": {
-        "cnr_id": "comfyui-workflow-encrypt",
-        "ver": "1.0.0",
-        "Node name for S&R": "SAM3Segment",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.7"
-        }
+        "cnr_id": "comfyui-rmbg",
+        "ver": "3.1.0",
+        "Node name for S&R": "SAM3Segment"
       },
       "widgets_values": [
         "watermark",
@@ -348,7 +344,7 @@
         "mask_offset": 0,
         "device": "Auto",
         "invert_output": false,
-        "unload_model": false,
+        "unload_model": true,
         "background": "Alpha",
         "background_color": "#222222"
       },
@@ -465,14 +461,9 @@
       ],
       "title": "Detect Watermark (SAM3)",
       "properties": {
-        "cnr_id": "comfyui-workflow-encrypt",
-        "ver": "1.0.0",
-        "Node name for S&R": "SAM3Segment",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.7"
-        }
+        "cnr_id": "comfyui-rmbg",
+        "ver": "3.1.0",
+        "Node name for S&R": "SAM3Segment"
       },
       "widgets_values": [
         "watermark",
@@ -498,7 +489,7 @@
         "mask_offset": 0,
         "device": "Auto",
         "invert_output": false,
-        "unload_model": false,
+        "unload_model": true,
         "background": "Alpha",
         "background_color": "#222222"
       },
@@ -527,10 +518,10 @@
         "ver": "2.0.0"
       },
       "widgets_values": [
-        "{\"v\": 1, \"title\": \"Simple Video Watermark Remover\", \"subtitle\": \"\", \"author\": \"AusBoss\", \"layout\": \"card\", \"body\": \"## Setup\\nInstall ComfyUI-RMBG for its SAM3 Segment node and configure its SAM3 model. Put big-lama.pt in models/lama. This is the one example that requires another custom node pack.\\n\\nCopy the included ausboss_pier_9x16.mp4 to ComfyUI/input or upload your own clip. The supplied clip has no watermark: it is a safe setup check, and an empty detection mask should leave it unchanged.\\n\\n## First check\\nQueue the short one-second window. The single-frame branch shows the mask and an A/B comparison. Change the detection prompt when the overlay has a more specific description.\\n\\n## Full clip\\nBoth branches are enabled; the upper branch writes the cleaned video with its original audio. Once the mask is right, increase the trim window and frame limit. To work only on the still, select the full-video group and use ComfyUI’s Mute command.\\n\\nSAM3 detects each frame separately and unloads its model after each branch to leave room for LaMa. LaMa processes frames independently; challenging backgrounds can flicker. Review the output before extending the run.\", \"models\": [{\"name\": \"big-lama.pt\", \"dir\": \"lama\", \"url\": \"https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt\"}], \"packs\": [{\"name\": \"ComfyUI-RMBG\", \"node\": \"SAM3Segment\", \"url\": \"https://github.com/1038lab/ComfyUI-RMBG\"}]}"
+        "{\"v\": 1, \"title\": \"Simple Video Watermark Remover\", \"subtitle\": \"\", \"author\": \"AusBoss\", \"layout\": \"card\", \"body\": \"## Setup\\nInstall ComfyUI-RMBG for its SAM3 Segment node and configure its SAM3 model. Put big-lama.pt in models/lama. This is the one example that requires another custom node pack.\\n\\nCopy the included ausboss_pier_9x16.mp4 to ComfyUI/input or upload your own clip. The supplied clip has no watermark: it is a safe setup check, and an empty detection mask should leave it unchanged.\\n\\n## First check\\nQueue the short one-second window. The single-frame branch shows the mask and an A/B comparison. Change the detection prompt when the overlay has a more specific description.\\n\\n## Full clip\\nBoth branches are enabled; the upper branch writes the cleaned video and keeps its original audio when the clip has a track (the supplied clip is silent). Once the mask is right, increase the trim window and frame limit. To work only on the still, select the full-video group and use ComfyUI’s Mute command.\\n\\nSAM3 detects each frame separately and unloads its model after each branch to leave room for LaMa. LaMa processes frames independently; challenging backgrounds can flicker. Review the output before extending the run.\", \"models\": [{\"name\": \"big-lama.pt\", \"dir\": \"lama\", \"url\": \"https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt\"}], \"packs\": [{\"name\": \"ComfyUI-RMBG\", \"node\": \"SAM3Segment\", \"url\": \"https://github.com/1038lab/ComfyUI-RMBG\"}]}"
       ],
       "widgets_values_named": {
-        "text": "# 🎬✨ Video Watermark Removal\n\nRemove annoying watermarks from your video automatically, frame by frame. Especially useful for Sora-style watermarks. It's not perfect and can leave behind some artifacts, but it's fast and gets the job done.\n\n## 🧠 How it works\n\n1. 🎥 **Load Video**  \n   Splits your video into frames and keeps the original audio.\n\n2. 🔍 **Detect Watermark (SAM3)**  \n   Uses `SAM3Segment` with the prompt **\"watermark\"** to find the watermark in each frame and generate a mask.\n\n3. 🫧 **Mask Refine**  \n   The mask is grown and feathered so coverage is solid and edges blend smoothly. Press **AUTO** on the node to size both for your video.\n\n4. 🧼 **Remove Watermark**  \n   The refined mask is passed into `LaMa Inpaint 🆎` using `big-lama.pt`.\n\n5. 🎞️ **Rebuild Video**  \n   Frames are stitched back together with the original audio and FPS preserved.\n\n## 📦 Model setup\n\nPlace `big-lama.pt` at `ComfyUI/models/lama/big-lama.pt`, then restart ComfyUI. The AusBoss node never downloads models automatically.\n\n## 💡 Notes\n\n- ✅ Works best with consistent/static watermarks\n- 🪶 Feathering helps avoid ugly edges\n- 📦 Outputs H.264 MP4 by default; Save Video also writes h265, webm, ProRes, lossless and gif/webp\n\n## 📦 Requires\n\n- 🧩 **ComfyUI-AusBoss** — Load Video, Select Frame, Mask Refine, LaMa Inpaint, Image Compare A/B, Save Video\n- 🧩 **ComfyUI-RMBG** — SAM3 segmentation\n- 🧩 **rgthree-comfy** — labels and the group toggles\n- 🧩 **ComfyUI-Easy-Use** — the Total Frames readout\n- 📥 **Model**: a TorchScript `big-lama.pt` in `ComfyUI/models/lama/`"
+        "text": "{\"v\": 1, \"title\": \"Simple Video Watermark Remover\", \"subtitle\": \"\", \"author\": \"AusBoss\", \"layout\": \"card\", \"body\": \"## Setup\\nInstall ComfyUI-RMBG for its SAM3 Segment node and configure its SAM3 model. Put big-lama.pt in models/lama. This is the one example that requires another custom node pack.\\n\\nCopy the included ausboss_pier_9x16.mp4 to ComfyUI/input or upload your own clip. The supplied clip has no watermark: it is a safe setup check, and an empty detection mask should leave it unchanged.\\n\\n## First check\\nQueue the short one-second window. The single-frame branch shows the mask and an A/B comparison. Change the detection prompt when the overlay has a more specific description.\\n\\n## Full clip\\nBoth branches are enabled; the upper branch writes the cleaned video and keeps its original audio when the clip has a track (the supplied clip is silent). Once the mask is right, increase the trim window and frame limit. To work only on the still, select the full-video group and use ComfyUI’s Mute command.\\n\\nSAM3 detects each frame separately and unloads its model after each branch to leave room for LaMa. LaMa processes frames independently; challenging backgrounds can flicker. Review the output before extending the run.\", \"models\": [{\"name\": \"big-lama.pt\", \"dir\": \"lama\", \"url\": \"https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt\"}], \"packs\": [{\"name\": \"ComfyUI-RMBG\", \"node\": \"SAM3Segment\", \"url\": \"https://github.com/1038lab/ComfyUI-RMBG\"}]}"
       },
       "color": "#222",
       "bgcolor": "#000"
@@ -616,13 +607,13 @@
         "max_frames": 24
       },
       "widgets_values_named": {
-        "video": "v09044g40000c66m6j3c77ubl0cip87g.mp4",
-        "start_seconds": 5.26,
-        "end_seconds": 9.01,
+        "video": "ausboss_pier_9x16.mp4",
+        "start_seconds": 0,
+        "end_seconds": 1,
         "custom_width": 0,
         "custom_height": 0,
         "every_nth": 1,
-        "max_frames": 0,
+        "max_frames": 24,
         "upload": "image",
         "ausboss_load_video_viewer": ""
       },
@@ -885,23 +876,14 @@
   ],
   "config": {},
   "extra": {
-    "ue_links": [],
     "ds": {
-      "scale": 0.485,
+      "scale": 0.6,
       "offset": [
         824.95,
         320.52
       ]
     },
-    "links_added_by_ue": [],
-    "frontendVersion": "1.49.6",
-    "VHS_latentpreview": false,
-    "VHS_latentpreviewrate": 0,
-    "VHS_MetadataImage": true,
-    "VHS_KeepIntermediate": true,
-    "comfyui_mcp": {
-      "workflow_uuid": "2df4dae2-794a-4e65-823b-0e4a089a60be"
-    }
+    "frontendVersion": "1.49.6"
   },
   "version": 0.4
 }

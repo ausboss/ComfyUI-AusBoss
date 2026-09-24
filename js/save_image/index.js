@@ -2,7 +2,7 @@
 //
 // Folder (with a Browse into ComfyUI's output folder), Filename, a live
 // Path preview, the name tags as small chips, the Format pills and the
-// Embed workflow switch. The standard widgets stay the source of truth and
+// Embed workflow pill. The standard widgets stay the source of truth and
 // stay serialized in their old order; the card only reads and writes them.
 // When the `filename` input is linked the name comes from upstream: the
 // field shows {{filename}} and the tags fold away, since an exact name is
@@ -20,7 +20,7 @@ const NODE_CLASS = "AUSBOSS_NODES_SaveImage";
 const WIDGET_NAME = "ausboss_save_image_card";
 const CSS_ID = "ausboss-save-image-css";
 const NODE_MIN_WIDTH = 340;
-// Captions, fields, the two-line preview, chips, pills, the switch row and
+// Captions, fields, the two-line preview, chips, pills, the embed row and
 // the gaps between them; the frontend's wrapper insets ride on top.
 const CARD_HEIGHT = 288;
 const WRAPPER_INSET = 16;
@@ -53,13 +53,7 @@ function ensureCss() {
 .ausboss-save-chip:hover{color:#fff;border-color:${BRAND}}
 .ausboss-save-chip.on{background:${BRAND};border-color:${BRAND};color:#04201d}
 .ausboss-save-chips.off .ausboss-save-chip{opacity:.4;pointer-events:none}
-.ausboss-save-switch-row{display:flex;align-items:center;justify-content:space-between;flex:none;height:26px;padding:0 2px;pointer-events:auto}
-.ausboss-save-switch{flex:none;width:30px;height:16px;border-radius:8px;border:none;background:#3a4047;cursor:pointer;position:relative;padding:0}
-.ausboss-save-switch::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#9ba2aa;transition:left .12s}
-.ausboss-save-switch.on{background:${BRAND}}
-.ausboss-save-switch.on::after{left:16px;background:#fff}
-.ausboss-save-switch:focus-visible{outline:2px solid ${BRAND};outline-offset:2px}
-.ausboss-save-switch-row span{color:#8ba3a1;font-size:11px;user-select:none}
+.ausboss-save-embed-label{flex:0 0 30%;color:#8ba3a1;font-size:11px;user-select:none}
 .ausboss-save-browse{position:fixed;z-index:10000;width:260px;max-height:320px;overflow:auto;padding:4px;border:1px solid #3a4047;border-radius:7px;background:#1c1f23;box-shadow:0 8px 28px rgba(0,0,0,.5);font:12px/1.3 ${FONT};color:#d8ecea}
 .ausboss-save-browse-head{padding:5px 8px 6px;border-bottom:1px solid #2c3238;color:#78908e;font:10px/1 ${FONT};letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ausboss-save-browse button{display:block;width:100%;padding:6px 8px;border:none;border-radius:5px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
@@ -109,7 +103,8 @@ function readValues(node) {
 
 let openPopup = null;
 function closeBrowse() {
-  openPopup?.remove();
+  openPopup?.abort.abort();
+  openPopup?.element.remove();
   openPopup = null;
 }
 
@@ -126,7 +121,10 @@ async function openBrowse(state, anchor) {
   popup.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 270))}px`;
   popup.style.top = `${rect.bottom + 4}px`;
   document.body.append(popup);
-  openPopup = popup;
+  // The dismiss listeners live and die with this popup, so a second Browse
+  // never leaves an old one behind to close the new popup.
+  const abort = new AbortController();
+  openPopup = { element: popup, anchor, abort };
   const current = String(value(state.node, "output_dir", "")).trim().replace(/\\/g, "/");
   let path = /^([A-Za-z]:[\\/]|\/|~)/.test(current) ? "" : current.replace(/^\/+|\/+$/g, "");
   const render = async () => {
@@ -155,13 +153,16 @@ async function openBrowse(state, anchor) {
     }
     if (!listing.folders.length) popup.append(el("div", "ausboss-save-browse-head", "no subfolders here"));
   };
-  await render();
-  const dismiss = (event) => {
+  window.addEventListener("pointerdown", (event) => {
     if (popup.contains(event.target) || event.target === anchor) return;
     closeBrowse();
-    window.removeEventListener("pointerdown", dismiss, true);
-  };
-  window.addEventListener("pointerdown", dismiss, true);
+  }, { capture: true, signal: abort.signal });
+  window.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    event.stopPropagation();
+    closeBrowse();
+  }, { capture: true, signal: abort.signal });
+  await render();
 }
 
 // ---------- the card ----------
@@ -169,9 +170,12 @@ async function openBrowse(state, anchor) {
 function textField(state, name, placeholder, title) {
   const input = el("input", "ausboss-card-text");
   input.type = "text"; input.placeholder = placeholder; input.title = title; input.spellcheck = false;
+  // A field may stand in for another widget (the name field shows a legacy
+  // exact name); dataset.target names the widget it currently edits.
+  const target = () => input.dataset.target || name;
   const commit = () => {
     if (input.disabled) return;
-    if (setValue(state.node, name, input.value.trim())) { state.savedPath = null; notifyAusbossChange(); }
+    if (setValue(state.node, target(), input.value.trim())) { state.savedPath = null; notifyAusbossChange(); }
     state.refresh();
   };
   input.addEventListener("change", commit);
@@ -179,7 +183,7 @@ function textField(state, name, placeholder, title) {
   input.addEventListener("keydown", (event) => {
     event.stopPropagation();
     if (event.key === "Enter") input.blur();
-    if (event.key === "Escape") { input.value = String(value(state.node, name, "")); input.blur(); }
+    if (event.key === "Escape") { input.value = String(value(state.node, target(), "")); input.blur(); }
   });
   return input;
 }
@@ -204,7 +208,10 @@ function buildCard(node) {
   const folder = textField(state, "output_dir", "ComfyUI/output", "Subfolder of ComfyUI's output folder to save into, such as sets/portraits. Empty saves to the output folder itself; Save Image never writes outside it.");
   const browse = el("button", "ausboss-card-btn", "Browse");
   browse.title = "Pick a subfolder of ComfyUI's output folder";
-  browse.addEventListener("click", () => openBrowse(state, browse));
+  browse.addEventListener("click", () => {
+    if (openPopup?.anchor === browse) closeBrowse();
+    else openBrowse(state, browse);
+  });
   folderRow.append(folder, browse);
   root.append(folderRow);
 
@@ -256,15 +263,20 @@ function buildCard(node) {
   }
   root.append(seg);
 
-  // Embed workflow
-  const switchRow = el("div", "ausboss-save-switch-row");
-  const switchLabel = el("span", "", "Embed workflow");
-  const toggle = el("button", "ausboss-save-switch");
-  toggle.type = "button"; toggle.setAttribute("role", "switch");
-  toggle.title = "On stores the prompt and workflow in the image for drag-back. Off writes a clean image for sharing or datasets.";
-  toggle.addEventListener("click", () => { if (setValue(node, "save_metadata", !Boolean(value(node, "save_metadata", true)))) notifyAusbossChange(); state.refresh(); });
-  switchRow.append(switchLabel, toggle);
-  root.append(switchRow);
+  // Embed workflow: an off | embed pill, the pack's boolean.
+  const embedRow = el("div", "ausboss-save-row");
+  const embedSeg = el("div", "ausboss-card-seg ausboss-card-bool");
+  embedSeg.setAttribute("role", "radiogroup");
+  const embedButtons = new Map();
+  const embedTitle = "Embed stores the prompt and workflow in the image for drag-back. Off writes a clean image for sharing or datasets.";
+  for (const [on, text] of [[false, "off"], [true, "embed workflow"]]) {
+    const button = el("button", "", text);
+    button.type = "button"; button.title = embedTitle;
+    button.addEventListener("click", () => { if (setValue(node, "save_metadata", on)) notifyAusbossChange(); state.refresh(); });
+    embedSeg.append(button); embedButtons.set(on, button);
+  }
+  embedRow.append(el("span", "ausboss-save-embed-label", "Workflow"), embedSeg);
+  root.append(embedRow);
 
   root.addEventListener("pointerdown", (event) => {
     if (event.target.closest("button,input,select")) event.stopPropagation();
@@ -305,16 +317,11 @@ function buildCard(node) {
     for (const [key, chip] of chipButtons) chip.classList.toggle("on", Boolean(values[key]));
     for (const [key, button] of formatButtons) button.classList.toggle("on", values.format === key);
     const embed = Boolean(values.save_metadata);
-    toggle.classList.toggle("on", embed); toggle.setAttribute("aria-checked", String(embed));
-  };
-  // The one field serves both the prefix and a legacy exact name.
-  nameField.addEventListener("change", () => {
-    const target = nameField.dataset.target;
-    if (target === "exact_name") {
-      if (setValue(node, "exact_name", nameField.value.trim())) { state.savedPath = null; notifyAusbossChange(); }
+    for (const [on, button] of embedButtons) {
+      button.classList.toggle("on", on === embed);
+      button.setAttribute("aria-checked", String(on === embed));
     }
-    state.refresh();
-  });
+  };
 
   const domWidget = node.addDOMWidget(WIDGET_NAME, WIDGET_NAME, root, {
     serialize: false,

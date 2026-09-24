@@ -14,8 +14,8 @@ import os
 import re
 import traceback
 
-# One entry per file in nodes/. Keep alphabetical-ish; order only affects
-# nothing functional.
+# One entry per file in nodes/, kept alphabetical. The order has no
+# functional effect.
 NODE_MODULES = [
     "node_align_image",
     "node_batch_utils",
@@ -36,11 +36,11 @@ NODE_MODULES = [
     "node_lora_loader",
     "node_math",
     "node_refine_mask",
+    "node_resolution",
     "node_run_timer",
     "node_save_image",
     "node_save_video",
     "node_seed",
-    "node_resolution",
     "node_select_frame",
     "node_show_text",
     "node_video_crop_rotate_pad",

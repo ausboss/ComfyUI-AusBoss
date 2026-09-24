@@ -10,12 +10,12 @@ class AusBossSeed:
     DESCRIPTION = (
         "A seed on its own INT wire, so several samplers share one number "
         "and a shared workflow can pin the exact seed that made its example. "
-        "The control under the value works like a sampler's: fixed, "
-        "increment, decrement or randomize after each queue. Because "
-        "randomize replaces the value the moment a run is queued, the node "
-        "reports the seed it actually ran with — the row under the box shows "
-        "it, ↺ puts it back in the box and pins it, and the history menu "
-        "keeps the last few so a good result is never lost to the next click."
+        "Random, Fixed and Step work like a sampler's control after "
+        "generate. Because Random replaces the value the moment a run is "
+        "queued, the node reports the seed it actually ran with: the line "
+        "under the box shows it, Use last run puts it back in the box and "
+        "pins it, and the history menu keeps the last few so a good result "
+        "is never lost to the next click."
     )
     SEARCH_ALIASES = ["seed", "random seed", "noise seed", "last seed", "ausboss"]
 

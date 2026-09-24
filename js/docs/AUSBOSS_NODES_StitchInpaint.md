@@ -1,9 +1,10 @@
 # Stitch Inpaint
 
-Pastes an inpainted crop from **Crop For Inpaint 🆎** back into the
-original image. The crop is resized to its source window if the sampler
-changed its size, blended in with the feathered mask recorded in the
-stitcher, and the original frame is sliced back out.
+Pastes a generated crop or outpaint back into its original image, using
+the stitcher from **Crop For Inpaint 🆎**, **Load Image + Pad 🆎** or any
+**Crop + Rotate + Pad 🆎** node. The result is resized to its source window
+if the sampler changed its size, blended in with the feathered mask recorded
+in the stitcher, and the original frame is sliced back out.
 
 ## Guarantees
 
@@ -21,7 +22,7 @@ stitcher, and the original frame is sliced back out.
 
 ## Controls
 
-- **stitcher**: The stitcher output of Crop For Inpaint. It carries the
+- **stitcher**: The stitcher from one of the nodes above. It carries the
   paste window, the blend mask, and the untouched original pixels.
 - **inpainted**: The inpainted crop. A stitcher built from a single image
   broadcasts across an N-frame inpainted batch, so one still-image crop
@@ -30,11 +31,11 @@ stitcher, and the original frame is sliced back out.
   feathered seam before pasting, so half-transparent edge pixels stop
   blending their background in a second time. It costs real time per frame
   — read "What it costs" below before turning it on for a whole batch.
-- **color_match**: `0` (off) to `1`. Shifts the pasted region's tone onto
-  the original's before blending. For an outpaint the shift is read across
-  each seam — the model's new pixels just outside the source against the
-  true pixels just inside it — so it measures the model's own drift, not
-  the mixed band. Read "Matching the tone" below.
+- **Tone match** (`color_match`): `0` (off) to `1`. Shifts the pasted
+  region's tone onto the original's before blending. For an outpaint the
+  shift is read across each seam — the model's new pixels just outside the
+  source against the true pixels just inside it — so it measures the
+  model's own drift, not the mixed band. Read "Matching the tone" below.
 
 ## Matching the tone
 
@@ -66,7 +67,7 @@ The estimate assumes neighbouring strips depict similar content. It cannot
 reliably distinguish a tone shift from a different object or shadow at the
 seam, even with the clamp and smoothing.
 
-For video, start with **color_match at 0**. The estimate runs independently
+For video, start with **Tone match at 0**. The estimate runs independently
 on each frame, so moving subjects or camera motion can turn those content
 differences into flickering dark or light bands across the generated area.
 Compare the decoded frames before stitching with the stitched result; if
@@ -88,10 +89,10 @@ already looks clean — a clean seam has nothing to gain, and the estimate is
 not free.
 
 The fix needs the optional [`pymatting`](https://pypi.org/project/pymatting/)
-package:
+package, installed with the Python that runs ComfyUI:
 
 ```bash
-pip install pymatting
+python -m pip install "pymatting>=1.1"
 ```
 
 Without it the node prints one console note and pastes exactly as it would

@@ -32,7 +32,7 @@ their saved values when the workflow is reloaded.
 
 ## Output
 
-- **MODEL**: The model with reference tokens registered into the canvas grid.
+- **model**: The model with reference tokens registered into the canvas grid.
 
 ## Two LoRAs, two placements
 

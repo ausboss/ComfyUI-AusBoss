@@ -1,5 +1,5 @@
 {
-  "id": "00000000-0000-0000-0000-000000000000",
+  "id": "b88a89ed-6ca7-4e9a-9e23-af565f64170b",
   "revision": 0,
   "last_node_id": 71,
   "last_link_id": 21,
@@ -49,20 +49,23 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
-        "Node name for S&R": "UNETLoader"
+        "Node name for S&R": "UNETLoader",
+        "models": [
+          {
+            "name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+            "directory": "diffusion_models"
+          }
+        ]
       },
       "widgets_values": [
-        "minimax-h3/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+        "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
         "default"
       ],
       "widgets_values_named": {
-        "unet_name": "minimax-h3/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+        "unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
         "weight_dtype": "default"
       },
       "color": "#223",
@@ -123,21 +126,24 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
-        "Node name for S&R": "CLIPLoader"
+        "Node name for S&R": "CLIPLoader",
+        "models": [
+          {
+            "name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+            "directory": "text_encoders"
+          }
+        ]
       },
       "widgets_values": [
-        "minimax-h3/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+        "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
         "minimax",
         "default"
       ],
       "widgets_values_named": {
-        "clip_name": "minimax-h3/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+        "clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
         "type": "minimax",
         "device": "default"
       },
@@ -181,13 +187,16 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
-        "Node name for S&R": "VAELoader"
+        "Node name for S&R": "VAELoader",
+        "models": [
+          {
+            "name": "minimax_h3_video_vae_fp16.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_fp16.safetensors",
+            "directory": "vae"
+          }
+        ]
       },
       "widgets_values": [
         "minimax_h3_video_vae_fp16.safetensors"
@@ -234,13 +243,16 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
-        "Node name for S&R": "VAELoader"
+        "Node name for S&R": "VAELoader",
+        "models": [
+          {
+            "name": "minimax_h3_audio_vae_fp32.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors",
+            "directory": "vae"
+          }
+        ]
       },
       "widgets_values": [
         "minimax_h3_audio_vae_fp32.safetensors"
@@ -322,10 +334,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
         "Node name for S&R": "AUSBOSS_NODES_LoraLoader",
@@ -334,11 +342,13 @@
       "widgets_values": [
         "[{\"name\":\"minimaxh3/minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors\",\"strength\":1,\"enabled\":true,\"triggers\":\"\"}]",
         ", ",
+        "error",
         ""
       ],
       "widgets_values_named": {
         "loras": "[{\"name\":\"minimaxh3/minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors\",\"strength\":1,\"enabled\":true,\"triggers\":\"\"}]",
         "trigger_separator": ", ",
+        "on_missing": "error",
         "ausboss_lora_rows": ""
       },
       "color": "#14424d",
@@ -395,10 +405,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
         "Node name for S&R": "MiniMaxH3SigmaShift"
@@ -479,10 +485,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
         "Node name for S&R": "AUSBOSS_NODES_Resolution",
@@ -541,10 +543,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
         "Node name for S&R": "AUSBOSS_NODES_Float"
@@ -623,10 +621,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
         "Node name for S&R": "AUSBOSS_NODES_MathExpression"
@@ -678,10 +672,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
         "Node name for S&R": "AUSBOSS_NODES_Text"
@@ -793,10 +783,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
         "Node name for S&R": "MiniMaxH3ImageToVideo"
@@ -847,10 +833,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
         "Node name for S&R": "ConditioningZeroOut"
@@ -962,10 +944,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
         "Node name for S&R": "KSampler"
@@ -981,7 +959,7 @@
       ],
       "widgets_values_named": {
         "seed": 20260905,
-        "control_after_generate": "randomize",
+        "control_after_generate": "fixed",
         "steps": 4,
         "cfg": 1,
         "sampler_name": "res_multistep",
@@ -1028,10 +1006,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
         "Node name for S&R": "VAEDecode"
@@ -1076,10 +1050,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
         "Node name for S&R": "VAEDecodeAudio"
@@ -1182,10 +1152,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
         "Node name for S&R": "AUSBOSS_NODES_SaveVideo",
@@ -1193,7 +1159,7 @@
       },
       "widgets_values": {
         "fps": 24,
-        "filename_prefix": "AusBoss/minimax_h3_text",
+        "filename_prefix": "minimax_h3_text",
         "crf": 17,
         "format": "mp4 h264",
         "pingpong": false,
@@ -1201,7 +1167,7 @@
       },
       "widgets_values_named": {
         "fps": 24,
-        "filename_prefix": "AusBoss/minimax_h3_text",
+        "filename_prefix": "minimax_h3_text",
         "crf": 17,
         "format": "mp4 h264",
         "pingpong": false,
@@ -1239,19 +1205,15 @@
       ],
       "outputs": [],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
         "Node name for S&R": "AUSBOSS_NODES_WorkflowNote"
       },
       "widgets_values": [
-        "{\"v\": 1, \"title\": \"MiniMax H3 Text to Video\", \"subtitle\": \"One shot with native audio.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose each installed model in its loader; saved selections may include local subfolders. Download links below name the standard destination folders.\\n\\n## Start here\\nChoose the four installed models and the 4-step turbo LoRA, then edit the prompt. Resolution Master supplies dimensions; this example uses 1344 × 768. The frame calculation rounds up to the 17k+5 grid: five seconds becomes 124 frames at 24 fps. Keep the frame rate at 24 for H3.\\n\\nBoth frame inputs are intentionally empty for text-to-video.\\n\\nThe turbo LoRA and four sampling steps belong together. For the base model, remove the turbo LoRA and follow its current sampling recommendations. Higher resolutions need more memory.\\n\\n[Native H3 workflow documentation](https://docs.comfy.org/tutorials/video/minimax/minimax-h3)\", \"models\": [{\"name\": \"minimax_h3_fl2va_pruned_int8_convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"21 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors\", \"note\": \"fp8_scaled (21 GB) and nvfp4 builds of the pruned fl2va model also work\"}, {\"name\": \"qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\", \"dir\": \"text_encoders\", \"size\": \"15.7 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\", \"note\": \"does not need a Blackwell card\"}, {\"name\": \"minimax_h3_video_vae_fp16.safetensors\", \"dir\": \"vae\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_fp16.safetensors\", \"note\": \"\"}, {\"name\": \"minimax_h3_audio_vae_fp32.safetensors\", \"dir\": \"vae\", \"size\": \"605 MB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors\", \"note\": \"\"}, {\"name\": \"minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors\", \"dir\": \"loras\", \"size\": \"2.0 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors\", \"note\": \"LightX2V turbo LoRA; the 8-step build from the same folder trades speed for a little quality\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_MathExpression\"}]}"
+        "{\"v\": 1, \"title\": \"MiniMax H3 Text to Video\", \"subtitle\": \"One shot with native audio.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose each installed model in its loader; if you keep models in subfolders, select those paths. Download links below name the standard destination folders.\\n\\n## Start here\\nChoose the four installed models and the 4-step turbo LoRA, then edit the prompt. Resolution Master supplies dimensions; this example uses 1344 × 768. The frame calculation rounds up to the 17k+5 grid: five seconds becomes 124 frames at 24 fps. Keep the frame rate at 24 for H3.\\n\\nBoth frame inputs are intentionally empty for text-to-video.\\n\\nThe turbo LoRA and four sampling steps belong together. For the base model, remove the turbo LoRA and follow its current sampling recommendations. Higher resolutions need more memory.\\n\\n[Native H3 workflow documentation](https://docs.comfy.org/tutorials/video/minimax/minimax-h3)\", \"models\": [{\"name\": \"minimax_h3_fl2va_pruned_int8_convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"21 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors\", \"note\": \"fp8_scaled (21 GB) and nvfp4 builds of the pruned fl2va model also work\"}, {\"name\": \"qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\", \"dir\": \"text_encoders\", \"size\": \"15.7 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\", \"note\": \"does not need a Blackwell card\"}, {\"name\": \"minimax_h3_video_vae_fp16.safetensors\", \"dir\": \"vae\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_fp16.safetensors\", \"note\": \"\"}, {\"name\": \"minimax_h3_audio_vae_fp32.safetensors\", \"dir\": \"vae\", \"size\": \"605 MB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors\", \"note\": \"\"}, {\"name\": \"minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors\", \"dir\": \"loras\", \"size\": \"2.0 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors\", \"note\": \"LightX2V turbo LoRA; the 8-step build from the same folder trades speed for a little quality\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_MathExpression\"}]}"
       ],
       "widgets_values_named": {
-        "note": "{\"v\":1,\"title\":\"MiniMax H3 Text to Video\",\"subtitle\":\"One shot with native audio.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"\",\"body\":\"## Start here\\nChoose the four installed models and the 4-step turbo LoRA, then edit the prompt. Resolution Master supplies dimensions; this example uses 1344 × 768. The frame calculation rounds up to the 17k+5 grid: five seconds becomes 124 frames at 24 fps. Keep the frame rate at 24 for H3.\\n\\nBoth frame inputs are intentionally empty for text-to-video.\\n\\nThe turbo LoRA and four sampling steps belong together. For the base model, remove the turbo LoRA and follow its current sampling recommendations. Higher resolutions need more memory.\\n\\n[Native H3 workflow documentation](https://docs.comfy.org/tutorials/video/minimax/minimax-h3)\"}",
+        "note": "{\"v\": 1, \"title\": \"MiniMax H3 Text to Video\", \"subtitle\": \"One shot with native audio.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose each installed model in its loader; if you keep models in subfolders, select those paths. Download links below name the standard destination folders.\\n\\n## Start here\\nChoose the four installed models and the 4-step turbo LoRA, then edit the prompt. Resolution Master supplies dimensions; this example uses 1344 × 768. The frame calculation rounds up to the 17k+5 grid: five seconds becomes 124 frames at 24 fps. Keep the frame rate at 24 for H3.\\n\\nBoth frame inputs are intentionally empty for text-to-video.\\n\\nThe turbo LoRA and four sampling steps belong together. For the base model, remove the turbo LoRA and follow its current sampling recommendations. Higher resolutions need more memory.\\n\\n[Native H3 workflow documentation](https://docs.comfy.org/tutorials/video/minimax/minimax-h3)\", \"models\": [{\"name\": \"minimax_h3_fl2va_pruned_int8_convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"21 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors\", \"note\": \"fp8_scaled (21 GB) and nvfp4 builds of the pruned fl2va model also work\"}, {\"name\": \"qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\", \"dir\": \"text_encoders\", \"size\": \"15.7 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\", \"note\": \"does not need a Blackwell card\"}, {\"name\": \"minimax_h3_video_vae_fp16.safetensors\", \"dir\": \"vae\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_fp16.safetensors\", \"note\": \"\"}, {\"name\": \"minimax_h3_audio_vae_fp32.safetensors\", \"dir\": \"vae\", \"size\": \"605 MB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors\", \"note\": \"\"}, {\"name\": \"minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors\", \"dir\": \"loras\", \"size\": \"2.0 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors\", \"note\": \"LightX2V turbo LoRA; the 8-step build from the same folder trades speed for a little quality\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_MathExpression\"}]}",
         "ausboss_workflow_note_panel": ""
       },
       "color": "#14424d",
@@ -1550,7 +1512,7 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.4737,
+      "scale": 0.6,
       "offset": [
         828.88,
         328.88

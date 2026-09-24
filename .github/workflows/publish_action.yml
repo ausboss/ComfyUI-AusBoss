@@ -7,15 +7,71 @@ on:
     paths:
       - "pyproject.toml"
 
-# Publishes the pack to registry.comfy.org whenever pyproject.toml changes
-# on main (i.e. on a version bump) or on manual dispatch. Requires the
-# repository secret REGISTRY_ACCESS_TOKEN, an API key created for the
-# "ausboss" publisher at registry.comfy.org.
+# Publishes the pack to registry.comfy.org when a push to main changes the
+# version in pyproject.toml, or on a manual run from main. Editing another
+# pyproject field (description, keywords) without a new version publishes
+# nothing, and the offline checks must pass before anything is uploaded.
+# Requires the repository secret REGISTRY_ACCESS_TOKEN, an API key created
+# for the "ausboss" publisher at registry.comfy.org.
+permissions:
+  contents: read
+
+concurrency:
+  group: registry-publish
+  cancel-in-progress: false
+
 jobs:
+  check:
+    name: Check version and validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: ${{ github.repository == 'ausboss/ComfyUI-AusBoss' && github.ref == 'refs/heads/main' }}
+    outputs:
+      publish: ${{ steps.version.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Did the version change?
+        id: version
+        env:
+          BEFORE: ${{ github.event.before }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          read_version='import sys, tomllib; print(tomllib.loads(sys.stdin.read())["project"]["version"])'
+          current=$(python -c "$read_version" < pyproject.toml)
+          previous=""
+          if [ -n "$BEFORE" ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            previous=$(git show "$BEFORE:pyproject.toml" | python -c "$read_version")
+          fi
+          if [ "$EVENT" = "workflow_dispatch" ] || [ "$current" != "$previous" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "Publishing $current (was ${previous:-unknown})."
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "pyproject.toml changed but the version stayed $current; nothing to publish."
+          fi
+      - uses: actions/setup-node@v7
+        if: steps.version.outputs.publish == 'true'
+        with:
+          node-version: "24"
+      - name: Offline checks
+        if: steps.version.outputs.publish == 'true'
+        run: |
+          python scripts/validate_nodes.py
+          python scripts/release_preflight.py
+          node --test --test-isolation=none tests/*.test.mjs
+
   publish-node:
     name: Publish Custom Node to registry
+    needs: check
+    if: ${{ needs.check.outputs.publish == 'true' }}
     runs-on: ubuntu-latest
-    if: ${{ github.repository == 'ausboss/ComfyUI-AusBoss' }}
+    timeout-minutes: 15
     steps:
       - name: Check out code
         uses: actions/checkout@v7

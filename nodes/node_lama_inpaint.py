@@ -6,10 +6,6 @@ from ._lama_helpers import DEFAULT_MODEL_NAME, list_lama_models, run_lama_inpain
 from ._preview_helpers import preview_payload, temp_prefix
 
 
-NODE_ID = "AUSBOSS_NODES_LaMaInpaint"
-LEGACY_NODE_ID = "SimpleWatermarkRemover"
-
-
 class AusBossLaMaInpaint:
     CATEGORY = "🆎 AusBoss/Inpaint"
     DESCRIPTION = (
@@ -45,10 +41,6 @@ class AusBossLaMaInpaint:
                     },
                 ),
             },
-            # The executor injects the node's graph id here for the live frame
-            # badge. Hidden entries never become widgets or sockets, so the
-            # visible inputs and the saved widgets_values are unchanged;
-            # declaring UNIQUE_ID does add the node id to the cache signature.
             "optional": {
                 "preview": (
                     "BOOLEAN",
@@ -61,6 +53,10 @@ class AusBossLaMaInpaint:
                     },
                 ),
             },
+            # The executor injects the node's graph id here for the live frame
+            # badge. Hidden entries never become widgets or sockets, so the
+            # visible inputs and the saved widgets_values are unchanged;
+            # declaring UNIQUE_ID does add the node id to the cache signature.
             "hidden": {"unique_id": "UNIQUE_ID"},
         }
 

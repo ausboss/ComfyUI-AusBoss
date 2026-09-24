@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -127,23 +127,6 @@ class LoraCivitaiSidecarTests(unittest.TestCase):
     def tearDown(self):
         self.folder_paths_patch.stop()
         self._tmp.cleanup()
-
-    def test_writes_raw_standard_sidecar_beside_the_lora(self):
-        payload = {
-            "id": 456,
-            "modelId": 123,
-            "baseModel": "Krea 2",
-            "trainedWords": ["candid style"],
-            "model": {"name": "Candid Slider", "type": "LORA"},
-            "images": [{"url": "https://example.invalid/preview.jpeg"}],
-        }
-
-        saved = _lora_helpers.save_civitai_sidecar("Krea 2/candid.safetensors", payload)
-
-        expected = self.lora.with_suffix(".civitai.info")
-        self.assertEqual(saved, expected)
-        self.assertEqual(json.loads(expected.read_text(encoding="utf-8")), payload)
-        self.assertFalse(Path(str(self.lora) + ".civitai.info").exists())
 
     def test_reads_a_standard_sidecar_created_by_another_comfyui_tool(self):
         payload = {
@@ -280,6 +263,57 @@ class MissingRowPolicyTests(unittest.TestCase):
         self.assertEqual((model, clip), ("model", None))
         self.assertEqual(buffer.getvalue().count("skipping 'gone.safetensors'"), 1)
 
+    def test_skip_mode_reports_the_rows_it_left_out(self):
+        missing = []
+        rows = [
+            dict(self.ROW),
+            {**self.ROW, "name": "parked.safetensors", "strength": 0, "strength_clip": 0},
+        ]
+        with contextlib.redirect_stdout(io.StringIO()):
+            _lora_helpers.apply_lora_stack("model", None, rows, on_missing="skip", missing=missing)
+        self.assertEqual([row["name"] for row in missing], ["gone.safetensors"])
+
+    def test_a_row_skipped_as_missing_adds_no_trigger_words(self):
+        # A LoRA that never loaded must not put its words in the prompt. A
+        # row parked at strength 0 keeps its words, as the node docs promise,
+        # so comparing with and without it changes only the weights.
+        try:
+            from nodes.node_lora_loader import AusBossLoraLoader
+        except Exception as exc:  # pragma: no cover - needs the package importable
+            self.skipTest(f"node module not importable offline: {exc}")
+
+        def resolve(name):
+            if name == "gone.safetensors":
+                raise ValueError("LoRA file not found in models/loras: gone.safetensors")
+            return Path(name)
+
+        rows = [
+            {**self.ROW, "name": "kept.safetensors", "triggers": "kept word"},
+            {**self.ROW, "triggers": "ghost word"},
+            {**self.ROW, "name": "parked.safetensors", "strength": 0, "strength_clip": 0,
+             "triggers": "parked word"},
+            {**self.ROW, "name": "off.safetensors", "enabled": False, "triggers": "off word"},
+        ]
+        sys.modules["comfy.sd"].load_lora_for_models = lambda model, clip, *_args: (model, clip)
+        with (
+            patch.object(_lora_helpers, "resolve_lora_path", side_effect=resolve),
+            patch.object(_lora_helpers, "_load_lora_file", return_value={}),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            _model, _clip, triggers = AusBossLoraLoader().load_loras(
+                "model", json.dumps(rows), on_missing="skip"
+            )
+        self.assertEqual(triggers, "kept word, parked word")
+
+    def test_the_on_missing_choices_come_from_the_helper(self):
+        try:
+            from nodes.node_lora_loader import AusBossLoraLoader
+        except Exception as exc:  # pragma: no cover - needs the package importable
+            self.skipTest(f"node module not importable offline: {exc}")
+        choices = AusBossLoraLoader.INPUT_TYPES()["optional"]["on_missing"][0]
+        self.assertEqual(choices, list(_lora_helpers.MISSING_MODES))
+        self.assertEqual(choices, ["skip", "error"])  # saved graphs store these
+
     def test_error_is_the_default_and_names_the_file_and_the_switch(self):
         for kwargs in ({}, {"on_missing": "error"}):
             with self.assertRaises(ValueError) as caught:
@@ -307,44 +341,6 @@ class MissingRowPolicyTests(unittest.TestCase):
         # The input's declared default matches the code paths above.
         on_missing = AusBossLoraLoader.INPUT_TYPES()["optional"]["on_missing"]
         self.assertEqual(on_missing[1]["default"], "error")
-
-
-class CivitaiNetworkBoundaryTests(unittest.IsolatedAsyncioTestCase):
-    async def test_cached_hash_cannot_change_the_request_url(self):
-        with (
-            patch.object(_lora_helpers, "resolve_lora_path", return_value=Path("fixture")),
-            patch.object(_lora_helpers, "file_sha256", return_value="../../other-endpoint"),
-            patch("aiohttp.ClientSession") as session,
-        ):
-            with self.assertRaisesRegex(ValueError, "could not hash"):
-                await _lora_helpers.fetch_civitai_info("fixture")
-            session.assert_not_called()
-
-    async def test_fixed_url_never_follows_redirects(self):
-        for status in (302, 404):
-            with self.subTest(status=status):
-                response = MagicMock(status=status)
-                request = MagicMock()
-                request.__aenter__.return_value = response
-                session = MagicMock()
-                session.get.return_value = request
-                with (
-                    patch.object(_lora_helpers, "resolve_lora_path", return_value=Path("fixture")),
-                    patch.object(_lora_helpers, "file_sha256", return_value="a" * 64),
-                    patch("aiohttp.ClientSession") as factory,
-                    patch.object(_lora_helpers, "save_civitai_sidecar") as save,
-                ):
-                    factory.return_value.__aenter__.return_value = session
-                    if status == 302:
-                        with self.assertRaisesRegex(ValueError, "redirect"):
-                            await _lora_helpers.fetch_civitai_info("fixture")
-                    else:
-                        self.assertEqual(await _lora_helpers.fetch_civitai_info("fixture"), {"found": False})
-                    session.get.assert_called_once_with(
-                        "https://civitai.com/api/v1/model-versions/by-hash/" + "a" * 64,
-                        headers={"User-Agent": "ComfyUI-AusBoss"}, allow_redirects=False,
-                    )
-                    save.assert_not_called()
 
 
 if __name__ == "__main__":

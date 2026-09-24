@@ -1,0 +1,28 @@
+name: Workflow idea
+description: A workflow problem the pack could solve.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        The pack admits nodes deliberately: each one solves a problem that
+        comes up again and again, in a compact node
+        ([how a node gets added](https://github.com/ausboss/ComfyUI-AusBoss/blob/main/docs/adding_a_node.md)).
+        Start with the problem; the node can come later.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What do you keep doing by hand, or with a pile of nodes?
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: How you handle it today
+      description: The nodes or steps you use now. A workflow .json or a screenshot helps.
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help
+      description: Optional. A new node, or a change to an existing one.

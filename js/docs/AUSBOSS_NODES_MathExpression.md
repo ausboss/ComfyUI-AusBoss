@@ -6,9 +6,10 @@ strength ramps, frame counts.
 
 ## Controls
 
-- **expression**: The arithmetic to evaluate. Allowed: numbers, the names
-  `a`/`b`/`c`, the operators `+ - * / // % **`, parentheses, unary minus, and
-  the functions `min`, `max`, `abs`, `round`, `floor`, `ceil`, `sqrt`.
+- **f(a, b, c)** (`expression`): The arithmetic to evaluate. Allowed:
+  numbers, the names `a`/`b`/`c`, the operators `+ - * / // % **`,
+  parentheses, unary minus, and the functions `min`, `max`, `abs`, `round`,
+  `floor`, `ceil`, `sqrt`.
   Examples: `a * 2`, `floor(a / 64) * 64`, `min(a, b) + 0.5`,
   `sqrt(a*a + b*b)`.
 - **a**, **b**, **c**: The values the expression reads, as three sockets on

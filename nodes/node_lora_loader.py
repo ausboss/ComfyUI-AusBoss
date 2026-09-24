@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ._lora_helpers import (
+    MISSING_MODES,
     apply_lora_stack,
     collect_trigger_words,
     missing_lora_rows,
@@ -63,7 +64,7 @@ class AusBossLoraLoader:
                     },
                 ),
                 "on_missing": (
-                    ["skip", "error"],
+                    list(MISSING_MODES),
                     {
                         "default": "error",
                         "tooltip": (
@@ -88,14 +89,22 @@ class AusBossLoraLoader:
     OUTPUT_TOOLTIPS = (
         "The model with every enabled LoRA applied in row order.",
         "The CLIP with every enabled LoRA applied in row order.",
-        "Comma-joined trigger words from enabled rows, deduplicated.",
+        "Enabled rows' trigger words, deduplicated and joined with "
+        "trigger_separator (set in the gear menu). A row skipped for a "
+        "missing file adds none.",
     )
     FUNCTION = "load_loras"
 
     def load_loras(self, model, loras: str, clip=None, trigger_separator=", ", on_missing="error"):
         rows = parse_lora_stack(loras)
-        model, clip = apply_lora_stack(model, clip, rows, on_missing=on_missing)
-        return model, clip, collect_trigger_words(rows, str(trigger_separator))
+        missing: list[dict] = []
+        model, clip = apply_lora_stack(model, clip, rows, on_missing=on_missing, missing=missing)
+        # A row skipped for a missing file loaded nothing, so its words stay
+        # out of the prompt. A row parked at strength 0 keeps them on purpose
+        # (see the node docs): comparing with and without it changes only
+        # the weights.
+        worded = [row for row in rows if not any(row is gone for gone in missing)]
+        return model, clip, collect_trigger_words(worded, str(trigger_separator))
 
     @classmethod
     def VALIDATE_INPUTS(cls, loras, on_missing="error", **_values):
