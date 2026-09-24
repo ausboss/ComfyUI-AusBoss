@@ -335,15 +335,18 @@ class AusBossSaveImage:
             policy = "overwrite" if counter else on_existing
             planned.extend((folder / name, policy) for name in names)
 
-        # Validate the whole batch before any write, including caption targets.
+        # Validate the whole batch before any write, including caption targets,
+        # then settle every collision: an "error" on a later frame must stop
+        # the run before the first frame lands, not after.
         for path, _policy in planned:
             require_output_path(path, output_root)
             if caption_value.strip():
                 require_output_path(sidecar_path(path), output_root)
+        actions = [existing_action(path.exists(), policy) for path, policy in planned]
 
         saved: list[Path] = []
-        for (path, policy), frame in zip(planned, images):
-            if existing_action(path.exists(), policy) == "skip":
+        for (path, _policy), action, frame in zip(planned, actions, images):
+            if action == "skip":
                 continue
             path.parent.mkdir(parents=True, exist_ok=True)
             encode_image(path, frame, format, metadata)

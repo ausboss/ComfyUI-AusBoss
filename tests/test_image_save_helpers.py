@@ -192,6 +192,21 @@ class SaveImageNodeTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self.run_node(tmp, exact_name="photo", on_existing="error")
 
+    def test_a_collision_later_in_the_batch_stops_the_run_before_any_write(self):
+        # Frame two collides; "error" must stop the run before frame one or
+        # any caption sidecar lands, not halfway through the batch.
+        for naming in ({"exact_name": "shot"}, {"filename_prefix": "shot", "name_counter": False}):
+            with self.subTest(**naming), tempfile.TemporaryDirectory() as tmp:
+                existing = Path(tmp) / "shot_002.png"
+                existing.write_bytes(b"x")
+                with self.assertRaisesRegex(ValueError, "already exists"):
+                    self.run_node(
+                        tmp, images=gradient_batch(3, 8, 16), on_existing="error",
+                        caption="a caption", **naming,
+                    )
+                self.assertEqual(sorted(p.name for p in Path(tmp).iterdir()), ["shot_002.png"])
+                self.assertEqual(existing.read_bytes(), b"x")
+
     def test_caption_writes_the_paired_sidecar(self):
         with tempfile.TemporaryDirectory() as tmp:
             self.run_node(tmp, exact_name="photo123", caption="a red bicycle")
