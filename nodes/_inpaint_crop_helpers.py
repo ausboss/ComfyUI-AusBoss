@@ -822,9 +822,10 @@ def stitch_blend_mask(stitcher: dict, frames: int = 1) -> torch.Tensor:
     This is the very mask :func:`apply_stitch` blends with — the sampling
     mask grown by ``blend_pixels`` and blurred — sliced out of the canvas by
     ``canvas_to_original`` so it lines up pixel for pixel with the stitched
-    image. A single-image stitcher broadcasts across ``frames``, matching
-    the batch :func:`apply_stitch` returns, so a downstream color match or
-    composite can weight exactly the pixels the paste touched.
+    image. It follows the batch :func:`apply_stitch` returns: a single-image
+    stitcher broadcasts across ``frames``, and a longer one is trimmed to
+    the leading ``frames`` just as the stitch was, so a downstream color
+    match or composite can weight exactly the pixels the paste touched.
     """
     if not isinstance(stitcher, dict) or stitcher.get("kind") != STITCHER_KIND:
         raise ValueError(
@@ -833,6 +834,10 @@ def stitch_blend_mask(stitcher: dict, frames: int = 1) -> torch.Tensor:
     blend = stitcher["blend"]
     ox, oy, ow, oh = stitcher["canvas_to_original"]
     frames = max(1, int(frames))
+    if blend.shape[0] > frames:
+        # A video model handed back fewer frames than the stitcher holds and
+        # apply_stitch kept the leading ones; the mask has to match them.
+        blend = blend[:frames]
     if blend.shape[0] not in (1, frames):
         raise ValueError(
             f"Blend mask batch {blend.shape[0]} cannot broadcast across "

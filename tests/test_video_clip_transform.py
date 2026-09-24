@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import io
 import os
 import sys
 import tempfile
@@ -23,6 +25,7 @@ from nodes._transform_engine import (
 )
 from nodes._inpaint_crop_helpers import STITCHER_KIND, apply_stitch, stitch_blend_from_mask
 from nodes._transform_inputs import resize_inputs, transform_inputs
+from nodes.node_inpaint_crop_stitch import AusBossStitchInpaint
 from nodes.node_video_crop_rotate_pad_clip import AusBossVideoCropRotatePadClip, snap_frame_count
 from test_video_load_helpers import FPS, FRAMES, HEIGHT, WIDTH, ensure_core_video_api, write_test_video
 
@@ -277,6 +280,21 @@ class VideoClipNodeTests(unittest.TestCase):
         frames, stitcher = out[0], out[8]
         self.assertEqual(float(stitcher["blend"].max()), 0.0)
         self.assertTrue(torch.equal(apply_stitch(stitcher, torch.rand_like(frames)), frames))
+
+    def test_a_shorter_generated_clip_stitches_with_a_matching_mask(self):
+        # frame_snap "free" keeps every frame, but LTX hands back 8n+1: the
+        # stitch keeps the leading frames and blend_mask has to match them.
+        out = self.run_node(pad_left=16, feather=0, stitch_blend=4)
+        frames, stitcher = out[0], out[8]
+        self.assertEqual(stitcher["blend"].shape[0], FRAMES)  # one mask per frame
+        kept = snap_frame_count(FRAMES, "8n+1")
+        self.assertLess(kept, FRAMES)
+        generated = torch.rand_like(frames[:kept])
+        with contextlib.redirect_stdout(io.StringIO()):
+            stitched, blend_mask = AusBossStitchInpaint().stitch(stitcher, generated)
+        self.assertEqual(tuple(stitched.shape), (kept, *frames.shape[1:]))
+        self.assertTrue(torch.equal(blend_mask, stitcher["blend"][:kept]))
+        self.assertTrue(torch.equal(stitched[:, :, 32:], frames[:kept, :, 32:]))
 
     def test_stitch_grow_moves_the_paste_boundary(self):
         base = self.run_node(pad_left=16, feather=0, stitch_blend=0)[8]["blend"]
