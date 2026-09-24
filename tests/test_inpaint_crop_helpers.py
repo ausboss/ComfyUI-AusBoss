@@ -5,6 +5,7 @@ import importlib.util
 import io
 from pathlib import Path
 import sys
+import types
 import unittest
 
 import torch
@@ -1163,6 +1164,40 @@ class StitchBlendFromMaskTests(unittest.TestCase):
         mask[:, :, :10] = 1.0
         self.assertTrue(torch.all(stitch_blend_from_mask(mask, 0, 4)[:, :, :14] == 1.0))
         self.assertTrue(torch.all(stitch_blend_from_mask(mask, 0, -4)[:, :, 6:] == 0.0))
+
+
+class ErrorSourceTests(unittest.TestCase):
+    """Input errors name the node the user is looking at."""
+
+    def test_crop_for_inpaint_keeps_its_wording(self):
+        with self.assertRaisesRegex(ValueError, r"^Crop For Inpaint expected a BHWC IMAGE batch\.$"):
+            build_crop(torch.zeros((8, 8, 3)), torch.zeros((1, 8, 8)), 1.2, 0, 8)
+        with self.assertRaisesRegex(ValueError, r"^Crop For Inpaint expected a BHW MASK\.$"):
+            build_crop(rand_image(1, 8, 8), torch.zeros(8), 1.2, 0, 8)
+
+    def test_stitch_inpaint_names_itself(self):
+        _c, _s, stitcher = build_crop(
+            rand_image(1, 32, 32), box_mask(32, 32, 8, 24, 8, 24), 1.2, 0, 8
+        )
+        with self.assertRaisesRegex(ValueError, r"^Stitch Inpaint expected a BHWC IMAGE batch\.$"):
+            apply_stitch(stitcher, torch.zeros((32, 32, 3)))
+
+    def test_stitcher_producers_name_themselves(self):
+        canvas = rand_image(1, 16, 16)
+        with self.assertRaisesRegex(ValueError, r"^Load Image \+ Pad expected a BHWC IMAGE batch\.$"):
+            build_canvas_stitcher(canvas[0], torch.zeros((1, 16, 16)), source="Load Image + Pad")
+        with self.assertRaisesRegex(ValueError, r"^Load Image \+ Pad expected a BHW MASK\.$"):
+            build_canvas_stitcher(canvas, torch.zeros(16), source="Load Image + Pad")
+        geometry = types.SimpleNamespace(
+            output_width=16, output_height=16, pad_left=0, pad_top=0, crop_width=16, crop_height=16
+        )
+        with self.assertRaisesRegex(
+            ValueError, r"^Video Crop \+ Rotate \+ Pad -> Clip expected a BHWC IMAGE batch\.$"
+        ):
+            inpaint_helpers.build_transform_stitcher(
+                canvas[0], torch.zeros((1, 16, 16)), geometry, 0,
+                source="Video Crop + Rotate + Pad -> Clip",
+            )
 
 
 if __name__ == "__main__":

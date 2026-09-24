@@ -320,7 +320,10 @@ class AusBossVideoCropRotatePadClip:
             output, mask = resize_batch_to_megapixels(
                 output, mask, float(megapixels), str(resize_method), int(resolution_steps)
             )
-        stitcher = clip_stitcher(output, mask, geometry, int(stitch_blend), int(stitch_grow))
+        stitcher = clip_stitcher(
+            output, mask, geometry, int(stitch_blend), int(stitch_grow),
+            source="Video Crop + Rotate + Pad -> Clip",
+        )
         fps = source_fps / nth
         frame_count = int(output.shape[0])
         duration = frame_count / fps if fps > 0 else 0.0

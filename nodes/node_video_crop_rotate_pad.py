@@ -96,7 +96,9 @@ class AusBossVideoCropRotatePad:
         path = resolve_video_path(source_mode, video, local_path)
         frame, _, _ = decode_video_frame(path, seek_mode, frame_index, frame_time)
         output, mask, geometry = transform_pil_batch([frame], spec_from_values(**values))
-        stitcher = build_transform_stitcher(output, mask, geometry, 32)
+        stitcher = build_transform_stitcher(
+            output, mask, geometry, 32, source="Video Crop + Rotate + Pad -> Frame"
+        )
         return output, mask, stitcher, original_image_batch([frame])
 
     @classmethod

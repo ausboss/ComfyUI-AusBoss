@@ -102,17 +102,21 @@ def rect_margins(rect: Rect, bounds_w: int, bounds_h: int) -> tuple[int, int, in
 # --- tensor plumbing ---------------------------------------------------------
 
 
-def _as_image(image: torch.Tensor) -> torch.Tensor:
+# ``source`` is the node an error names: the crop, the stitch and every
+# stitcher producer validate through these two.
+def _as_image(image: torch.Tensor, source: str = "Crop For Inpaint") -> torch.Tensor:
     if not isinstance(image, torch.Tensor) or image.ndim != 4:
-        raise ValueError("Crop For Inpaint expected a BHWC IMAGE batch.")
+        raise ValueError(f"{source} expected a BHWC IMAGE batch.")
     return image.float()
 
 
-def _as_mask(mask: torch.Tensor, image: torch.Tensor) -> torch.Tensor:
+def _as_mask(
+    mask: torch.Tensor, image: torch.Tensor, source: str = "Crop For Inpaint"
+) -> torch.Tensor:
     if isinstance(mask, torch.Tensor) and mask.ndim == 2:
         mask = mask.unsqueeze(0)
     if not isinstance(mask, torch.Tensor) or mask.ndim != 3:
-        raise ValueError("Crop For Inpaint expected a BHW MASK.")
+        raise ValueError(f"{source} expected a BHW MASK.")
     if mask.shape[1:] != image.shape[1:3]:
         raise ValueError(
             f"Mask size {tuple(mask.shape[1:])} does not match "
@@ -461,6 +465,7 @@ def build_canvas_stitcher(
     canvas: torch.Tensor,
     blend: torch.Tensor,
     bbox: tuple[int, int, int, int] | None = None,
+    source: str = "Stitcher",
 ) -> dict:
     """A stitcher that pastes a full-frame result back over ``canvas``.
 
@@ -482,9 +487,12 @@ def build_canvas_stitcher(
     because a consumer reading normalized coordinates should not have to know
     the canvas size. Omitted when unknown; :func:`apply_stitch` never reads
     either key, so an older stitcher still stitches.
+
+    ``source`` is the producing node, named if its canvas or mask is not a
+    usable batch.
     """
-    canvas = _as_image(canvas)
-    blend = _as_mask(blend, canvas)
+    canvas = _as_image(canvas, source)
+    blend = _as_mask(blend, canvas, source)
     height, width = canvas.shape[1], canvas.shape[2]
     stitcher = {
         "kind": STITCHER_KIND,
@@ -538,7 +546,7 @@ def apply_stitch(
         raise ValueError(
             "Stitch Inpaint needs the stitcher output of Crop For Inpaint."
         )
-    inpainted = _as_image(inpainted)
+    inpainted = _as_image(inpainted, "Stitch Inpaint")
     canvas = stitcher["canvas"]
     blend = stitcher["blend"]
     cx, cy, cw, ch = stitcher["crop_to_canvas"]
@@ -868,7 +876,9 @@ __all__ = [
 ]
 
 
-def build_transform_stitcher(frames, mask, geometry, blend_pixels: int, grow_pixels: int = 0) -> dict:
+def build_transform_stitcher(
+    frames, mask, geometry, blend_pixels: int, grow_pixels: int = 0, source: str = "Stitcher"
+) -> dict:
     """A full-canvas stitcher for a transformed image or clip.
 
     The generated clip is the whole canvas, so the crop is the identity
@@ -876,7 +886,7 @@ def build_transform_stitcher(frames, mask, geometry, blend_pixels: int, grow_pix
     padding and rotation voids - ramped by the stitch settings. It is built
     from the final frames, after any resize, so the paste lines up with what
     the sampler actually returns; the source bbox rides along scaled the
-    same way.
+    same way. ``source`` is the transform node, named in any input error.
     """
     blend = stitch_blend_from_mask(mask, blend_pixels, grow_pixels)
     scale_x = frames.shape[2] / float(geometry.output_width)
@@ -887,4 +897,4 @@ def build_transform_stitcher(frames, mask, geometry, blend_pixels: int, grow_pix
         int(round((geometry.pad_left + geometry.crop_width) * scale_x)),
         int(round((geometry.pad_top + geometry.crop_height) * scale_y)),
     )
-    return build_canvas_stitcher(frames, blend, bbox=bbox)
+    return build_canvas_stitcher(frames, blend, bbox=bbox, source=source)

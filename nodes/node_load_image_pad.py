@@ -255,7 +255,7 @@ class AusBossLoadImagePad:
         )
         # The padded canvas is the stitch base, so whatever the sampler does
         # outside the feathered band is discarded and the source survives.
-        stitcher = build_canvas_stitcher(output, mask, bbox=bbox)
+        stitcher = build_canvas_stitcher(output, mask, bbox=bbox, source="Load Image + Pad")
         reference = build_reference_image(frames)
         return (
             output,

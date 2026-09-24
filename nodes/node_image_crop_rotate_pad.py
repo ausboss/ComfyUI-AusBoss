@@ -64,7 +64,7 @@ class AusBossImageCropRotatePad:
             output, mask = resize_batch_to_megapixels(
                 output, mask, float(megapixels), str(resize_method), int(resolution_steps)
             )
-        stitcher = build_transform_stitcher(output, mask, geometry, 32)
+        stitcher = build_transform_stitcher(output, mask, geometry, 32, source="Image Crop + Rotate + Pad")
         return output, mask, stitcher, original_image_batch(frames)
 
     @classmethod
