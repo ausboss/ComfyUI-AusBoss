@@ -238,6 +238,14 @@ function resetTransform(node, includeTimeline = false) {
   node.setDirtyCanvas?.(true, true);
 }
 
+// The node face's Reset: only the shape - rotation, crop, padding. Fill,
+// feather and Align stay, as they do when the source changes.
+function resetGeometry(node) {
+  if (node.properties) { delete node.properties.ausboss_fit_aspect; delete node.properties.ausboss_aspect_lock; }
+  for (const [name, next] of Object.entries(sourceResetValues(false))) setValue(node, name, next);
+  node.setDirtyCanvas?.(true, true);
+}
+
 function createElement(tag, className, text) {
   const element = document.createElement(tag);
   if (className) element.className = className;
@@ -757,9 +765,9 @@ function buildImageQuickRow(state) {
   const row = createElement("div", "ausboss-transform-row");
 
   const reset = createElement("button", "ausboss-transform-button", "Reset");
-  reset.title = "Reset rotation, crop, and padding";
+  reset.title = "Reset rotation, crop and padding. Fill, feather and Align stay.";
   reset.addEventListener("click", () => {
-    resetTransform(node, false);
+    resetGeometry(node);
     draw(state);
     notifyAusbossChange();
   });
@@ -1313,7 +1321,7 @@ function buildControls(state, sidebar) {
   const actions = createElement("section", "ausboss-transform-section"); actions.append(sectionHeading("View & reset"));
   const resetViewButton = createElement("button", "", "Reset view"); resetViewButton.addEventListener("click", () => { resetView(state); draw(state); });
   const resetAll = createElement("button", "ausboss-transform-danger", "Reset transform");
-  resetAll.title = "Reset rotation, crop, padding, fill and feather. Keep the source, current frame, trim window, fixed length, resize and stitch settings.";
+  resetAll.title = "Reset rotation, crop, padding, fill, feather and Align. Keep the source, current frame, trim window, fixed length, resize and stitch settings.";
   resetAll.addEventListener("click", () => { resetTransform(node); resetView(state); draw(state); updateModalInfo(state); });
   actions.append(resetViewButton, resetAll);
 
