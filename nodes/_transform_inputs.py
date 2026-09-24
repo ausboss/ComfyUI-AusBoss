@@ -166,9 +166,8 @@ def transform_inputs(*, feather: int = 24, fill_color: str = "#808080") -> dict[
     }
 
 
-# The image and clip nodes only (the frame node keeps its source geometry):
-# resize the transformed output to a pixel budget, core
-# ImageScaleToTotalPixels-style.
+# Every transform node, appended after its other widgets: resize the
+# transformed output to a pixel budget, core ImageScaleToTotalPixels-style.
 RESIZE_METHODS = ["lanczos", "area", "bicubic", "bilinear", "nearest-exact"]
 
 

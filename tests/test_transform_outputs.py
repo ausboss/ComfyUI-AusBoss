@@ -55,6 +55,22 @@ class TransformOutputTests(unittest.TestCase):
         self.assertEqual(tuple(original.shape), (1, 96, 128, 3))
         self.assertEqual(tuple(apply_stitch(stitcher, image).shape), tuple(image.shape))
 
+    @unittest.skipUnless(COMFY_ROOT, "Set AUSBOSS_COMFY_ROOT for core resize integration")
+    def test_video_frame_resizes_to_a_budget_like_the_image_node(self):
+        with patch('nodes.node_video_crop_rotate_pad.resolve_video_path', return_value=Path('source.mp4')), patch('nodes.node_video_crop_rotate_pad.decode_video_frame', return_value=(self.source, 0, 0)):
+            image, mask, stitcher, original, width, height = AusBossVideoCropRotatePad().load_transform(
+                'source.mp4', 'input folder', '', 'frame index', 0, 0,
+                resize_to_megapixels=True, megapixels=.05, resolution_steps=16, pad_left=32, feather=0,
+            )
+        self.assertEqual((width, height), (int(image.shape[2]), int(image.shape[1])))
+        # 0.05 MP x 1024 x 1024 is larger than the 160 x 96 canvas: the
+        # budget scales the frame to it either way, aspect kept, to steps of 16.
+        budget = 0.05 * 1024 * 1024
+        self.assertLess(abs(width * height - budget) / budget, 0.1)
+        self.assertEqual((width % 16, height % 16), (0, 0))
+        self.assertEqual(tuple(stitcher['canvas'].shape), tuple(image.shape))
+        self.assertEqual(tuple(original.shape), (1, 96, 128, 3))
+
 
 if __name__ == '__main__':
     unittest.main()

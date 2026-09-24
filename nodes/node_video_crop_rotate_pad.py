@@ -9,8 +9,13 @@ from ._media_helpers import (
     resolve_video_path,
 )
 from ._inpaint_crop_helpers import build_transform_stitcher
-from ._transform_engine import original_image_batch, stable_file_fingerprint, transform_pil_batch
-from ._transform_inputs import spec_from_values, transform_inputs
+from ._transform_engine import (
+    original_image_batch,
+    resize_batch_to_megapixels,
+    stable_file_fingerprint,
+    transform_pil_batch,
+)
+from ._transform_inputs import resize_inputs, spec_from_values, transform_inputs
 
 
 class AusBossVideoCropRotatePad:
@@ -71,6 +76,9 @@ class AusBossVideoCropRotatePad:
             ),
         }
         required.update(transform_inputs())
+        # Appended AFTER the stable widgets, so saved workflows' positional
+        # widgets_values keep loading; missing values fall back to defaults.
+        required.update(resize_inputs())
         return {"required": required}
 
     # Appended outputs only: saved links ride slot indices.
@@ -80,9 +88,9 @@ class AusBossVideoCropRotatePad:
         "The selected and transformed frame as a one-image BHWC batch.",
         "BHW generated-area mask: rotation corners and padding.",
         "Full-canvas stitcher: restores kept source pixels over an outpaint result; wire to Stitch Inpaint.",
-        "The picked source frame before rotation, crop, or padding, as a BHWC RGB batch.",
-        "Output width after the transform.",
-        "Output height after the transform.",
+        "The picked source frame before rotation, crop, padding, or resize, as a BHWC RGB batch.",
+        "Output width after the transform and any resize.",
+        "Output height after the transform and any resize.",
     )
     FUNCTION = "load_transform"
 
@@ -94,11 +102,19 @@ class AusBossVideoCropRotatePad:
         seek_mode: str,
         frame_index: int,
         frame_time: float,
+        resize_to_megapixels=False,
+        megapixels=1.0,
+        resize_method="lanczos",
+        resolution_steps=1,
         **values,
     ):
         path = resolve_video_path(source_mode, video, local_path)
         frame, _, _ = decode_video_frame(path, seek_mode, frame_index, frame_time)
         output, mask, geometry = transform_pil_batch([frame], spec_from_values(**values))
+        if resize_to_megapixels:
+            output, mask = resize_batch_to_megapixels(
+                output, mask, float(megapixels), str(resize_method), int(resolution_steps)
+            )
         stitcher = build_transform_stitcher(
             output, mask, geometry, 32, source="Video Crop + Rotate + Pad -> Frame"
         )
@@ -131,6 +147,7 @@ class AusBossVideoCropRotatePad:
         except Exception:
             path = local_path if source_mode == "local path" else video
         spec = spec_from_values(**values)
+        resize = {name: values.get(name) for name in resize_inputs()}
         return stable_file_fingerprint(
             path,
             {
@@ -140,6 +157,7 @@ class AusBossVideoCropRotatePad:
                 "frame_index": int(frame_index),
                 "frame_time": round(float(frame_time), 6),
                 **spec.__dict__,
+                **resize,
             },
         )
 

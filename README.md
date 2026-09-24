@@ -109,7 +109,7 @@ Returns frames, lazy audio, frame count, fps, width, height, duration, and a cor
 
 ### Video Crop + Rotate + Pad → Frame 🆎
 
-Find **one frame** in an uploaded or local video, then apply the image transform controls. A playhead rail on the node scrubs to the frame; the editor adds exact frame stepping and playback. Returns one transformed `image`, its generated-area `mask`, a `stitcher`, the selected `original` frame, and the output `width` and `height`. Use the Clip variant for an entire sequence.
+Find **one frame** in an uploaded or local video, then apply the image transform controls and an optional megapixel resize. A playhead rail on the node scrubs to the frame; the editor adds exact frame stepping and playback. Returns one transformed `image`, its generated-area `mask`, a `stitcher`, the selected `original` frame, and the output `width` and `height`. Use the Clip variant for an entire sequence.
 
 ### Video Crop + Rotate + Pad → Clip 🆎
 
