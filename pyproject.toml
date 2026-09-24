@@ -2,8 +2,8 @@
 name = "ausboss-nodes"
 # Manager/registry search matches against this text, so it names the actual
 # nodes instead of describing the collection abstractly.
-description = "Image and video nodes with compact controls: Image and Video Crop + Rotate + Pad (frame or clip), Load Image + Pad, Image Resize, Align Image, Image Size, Color Match, Image Compare A/B, Save Image (PNG, lossless WebP/JXL, exact names, captions), Load Video, Save Video, Select Frame, Frame Interpolate, Mask Refine, LaMa Inpaint, Crop For Inpaint, Stitch Inpaint, LoRA Loader, Krea 2 Encode and Outpaint Model Patch, Resolution Master, Seed, Select Every Nth, Split Batch, Merge Batches, Text, Integer, Float, Math Expression, Show Text, Free Memory, Workflow Note, and Run Timer."
-version = "2.1.0"
+description = "Image and video nodes with compact controls: Image and Video Crop + Rotate + Pad (frame or clip), Load Image + Pad, Image Resize, Align Image, Image Size, Color Match, Image Compare A/B, Save Image (PNG, lossless WebP/JXL, exact names, captions), Load Video, Save Video, Select Frame, Frame Interpolate, Mask Refine, LaMa Inpaint, Crop For Inpaint, Stitch Inpaint, LoRA Loader, Krea 2 Encode and Outpaint Model Patch, Resolution Master, Seed, Select Every Nth, Split Batch, Merge Batches, Text, Integer, Float, Math Expression, Show Text, Free Memory, Workflow Note, and Run Timer. Example workflows for Qwen Image 2.1, Krea 2, Klein 9B, LTX 2.3 and MiniMax H3."
+version = "2.2.0"
 # comfy-cli serializes this to JSON verbatim, so `file` publishes the literal
 # string {"file": "LICENSE"} to the registry listing. `text` puts a readable
 # name there instead. Both forms are supported; the LICENSE file is unchanged.
@@ -15,6 +15,7 @@ keywords = [
     "inpaint", "lama", "mask", "color match", "frame interpolation",
     "lora", "resize", "trim video",
     "resolution", "seed", "workflow notes", "timer", "krea2", "batch",
+    "qwen image", "qwen", "krea 2", "klein", "ltx",
 ]
 
 # Read by comfy-cli into the registry's supported_os field. Nothing in the pack

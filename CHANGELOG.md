@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.2.0 - 2026-09-24
 
 - **Save Image and Save Video save to the output folder itself by
   default** (`image_...`, `video_...`) instead of an `AusBoss` subfolder,
