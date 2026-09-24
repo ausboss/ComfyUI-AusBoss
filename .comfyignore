@@ -32,3 +32,5 @@ SECURITY.md
 # repository files
 .gitignore
 .comfyignore
+.gitattributes
+.editorconfig
