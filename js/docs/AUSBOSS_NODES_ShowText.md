@@ -15,8 +15,9 @@ it can sit in the middle of a wire instead of at a dead end.
 ## Panel
 
 The panel fills the node, so drag the node taller to read more at once. The
-text can be selected and copied straight off the node; empty panel space
-still drags the node and the wheel still zooms the graph.
+text can be selected and copied straight off the node, and **⧉** in the
+corner copies all of it; empty panel space still drags the node and the
+wheel still zooms the graph.
 
 The last shown text is saved with the workflow, so a reloaded graph reopens
 showing its previous result. Very long strings are cut off in the display
