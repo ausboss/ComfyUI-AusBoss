@@ -293,7 +293,11 @@ stranger with only the files its Workflow Note lists.
 - Numbered groups hold every node, nothing overlaps (title bars included),
   the saved zoom is at least 0.6 so widget text draws, the workflow `id` is
   a real uuid4, and the `.jpg` beside the `.json` shows a real output.
-  `scripts/workflow_contract.py` checks the structure; the rest is review.
+- The frontend saves widget values twice, by position and by name
+  (`widgets_values_named`), and can restore by name; both copies must agree.
+- `scripts/workflow_contract.py` checks links, groups, overlaps, the note,
+  the id, the zoom, the named copies, the download info and the save
+  prefixes. Whether the note tells the truth about the graph is review.
 - Text-to-image examples have no source to describe. Edit and inpaint
   examples keep an explicit change instruction: a description of the old
   scene is not an edit. MiniMax H3 and Klein caption their sources with
