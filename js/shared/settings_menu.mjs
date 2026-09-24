@@ -211,9 +211,10 @@ function buildControl(entry, values, commit) {
     return seg;
   }
   if (entry.type === "number" && entry.scrub) {
+    // Whole numbers unless the entry asks for decimals (a strength).
     const control = makeScrubInput({
       value: values[entry.key], min: entry.min, max: entry.max,
-      step: entry.step ?? 1, fineStep: entry.step ?? 1, decimals: 0,
+      step: entry.step ?? 1, fineStep: entry.fineStep ?? entry.step ?? 1, decimals: entry.decimals ?? 0,
       title: entry.hint ?? entry.label,
       onChange: (value) => commit(entry, value),
     });

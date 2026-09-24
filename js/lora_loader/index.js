@@ -9,12 +9,15 @@ import {
   loadSettings,
   openSettingsMenu,
 } from "../shared/settings_menu.mjs";
+import { makeScrubInput } from "../shared/scrub_input.mjs";
 import {
   BYPASS_MODE,
   DEFAULT_STEP,
   FINE_STEP,
   MAX_ROWS,
   MUTE_MODE,
+  STRENGTH_MAX,
+  STRENGTH_MIN,
   clampHighlight,
   commonFolderPrefix,
   filterLoras,
@@ -79,12 +82,12 @@ const SETTINGS_SCOPE = "lora_loader";
 const SETTINGS_SCHEMA = [
   {
     key: "default_strength", label: "Default strength", type: "number",
-    default: 1, min: -10, max: 10,
+    default: 1, min: -10, max: 10, scrub: true, step: 0.05, fineStep: 0.01, decimals: 2,
     hint: "Strength a newly added LoRA starts at.",
   },
   {
     key: "step", label: "Strength step", type: "number",
-    default: 0.05, min: 0.01, max: 1,
+    default: 0.05, min: 0.01, max: 1, scrub: true, step: 0.01, fineStep: 0.01, decimals: 2,
     hint: "Scrub and arrow-key step. Shift always steps by 0.01.",
   },
   {
@@ -225,9 +228,6 @@ function installStyles() {
     max-height: 180px; border-radius: 6px; border: 1px solid #3a4047;
     box-shadow: 0 8px 28px rgba(0,0,0,.5); pointer-events: none; background: #1c1f23; }
   .ausboss-lora-range { display: flex; align-items: center; gap: 6px; }
-  .ausboss-lora-range input { width: 56px; height: 24px; border: 1px solid #3a4047;
-    border-radius: 5px; background: #23272c; color: inherit; text-align: center; outline: none; }
-  .ausboss-lora-range input:focus { border-color: ${BRAND}; }
   .ausboss-lora-name { flex: 1 1 auto; min-width: 0; height: 24px; border: 1px solid #3a4047;
     border-radius: 5px; background: #23272c; color: inherit; text-align: left; padding: 0 8px;
     cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -860,40 +860,35 @@ function openInfo(state, index, anchor) {
 
     const range = el("div", "ausboss-lora-range");
     range.append(el("span", "ausboss-lora-meta", "Suggested strength"));
-    const bound = (key, placeholder) => {
-      const inputEl = el("input");
-      inputEl.type = "number";
-      inputEl.step = "0.05";
-      inputEl.placeholder = placeholder;
-      const current = info.range?.[key];
-      if (current !== null && current !== undefined) inputEl.value = String(current);
-      inputEl.addEventListener("keydown", (event) => {
-        event.stopPropagation();
-        if (event.key === "Enter") inputEl.blur();
-      });
-      inputEl.addEventListener("change", async () => {
-        const minValue = Number(range.querySelector("[data-bound=min]").value);
-        const maxValue = Number(range.querySelector("[data-bound=max]").value);
-        const payload = {
-          name: serverName,
-          words: info.custom_triggers || [],
-          min: range.querySelector("[data-bound=min]").value === "" ? null : minValue,
-          max: range.querySelector("[data-bound=max]").value === "" ? null : maxValue,
-        };
-        try {
-          await api.fetchApi("/ausboss/lora/triggers", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-          rangeCache.delete(row.name);
-          ensureRange(state, row.name);
-        } catch {}
-      });
-      inputEl.dataset.bound = key;
-      return inputEl;
+    // Each bound is optional: erase it for "any". Saved when a gesture ends.
+    const bounds = {};
+    const saveRange = async () => {
+      const payload = {
+        name: serverName,
+        words: info.custom_triggers || [],
+        min: bounds.min.get(),
+        max: bounds.max.get(),
+      };
+      try {
+        await api.fetchApi("/ausboss/lora/triggers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        rangeCache.delete(row.name);
+        ensureRange(state, row.name);
+      } catch {}
     };
-    range.append(bound("min", "min"), el("span", "ausboss-lora-meta", "to"), bound("max", "max"));
+    for (const key of ["min", "max"]) {
+      bounds[key] = makeScrubInput({
+        value: info.range?.[key] ?? null, allowEmpty: true, emptyStart: key === "min" ? 0 : 1,
+        placeholder: "any", min: STRENGTH_MIN, max: STRENGTH_MAX,
+        step: 0.05, fineStep: 0.01, decimals: 2, width: 76,
+        title: `Suggested ${key === "min" ? "lowest" : "highest"} strength; erase it for any.`,
+        onSettle: saveRange,
+      });
+    }
+    range.append(bounds.min.root, el("span", "ausboss-lora-meta", "to"), bounds.max.root);
     range.title = "Advisory range for this LoRA; out-of-range strengths tint orange on the row.";
     card.append(range);
 

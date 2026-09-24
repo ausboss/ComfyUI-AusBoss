@@ -14,6 +14,10 @@
 //     onSettle: () => ...,    // a gesture finished (scrub released, value
 //   });                       // typed, arrow clicked) - the undo point
 //   parent.append(control.root); control.set(next); control.get();
+//
+// An optional number (a bound that may be absent) passes allowEmpty: true.
+// It then holds null, shows its placeholder, clears when the typed text is
+// erased, and starts a scrub or step from `emptyStart`.
 
 // Keep in sync with BRAND in shared/index.mjs - importing it would pull
 // /scripts/app.js into node:test, and this module's math must stay testable.
@@ -90,9 +94,13 @@ export function makeScrubInput(options = {}) {
     step: 1, fineStep: null, decimals: 2,
     width: null, title: "", onChange: null, onSettle: null,
     unit: "", unitWidth: 0,
+    allowEmpty: false, emptyStart: 0, placeholder: "",
     ...options,
   };
-  let current = quantizeScrubValue(opts.value, opts);
+  const isEmpty = (value) => opts.allowEmpty && (value === null || value === undefined || value === "");
+  let current = isEmpty(opts.value) ? null : quantizeScrubValue(opts.value, opts);
+  // Where a scrub or a step starts: the value, or emptyStart while empty.
+  const base = () => (current === null ? quantizeScrubValue(opts.emptyStart, opts) : current);
 
   const box = document.createElement("div");
   box.className = "ausboss-scrub";
@@ -102,13 +110,14 @@ export function makeScrubInput(options = {}) {
   input.type = "text";
   input.inputMode = "decimal";
   input.readOnly = true;
+  if (opts.placeholder) input.placeholder = opts.placeholder;
   if (opts.title) input.title = `${opts.title} Drag to scrub, click to type, arrows to step; Shift = fine.`;
 
-  const format = (value) => value.toFixed(Math.max(0, opts.decimals));
+  const format = (value) => (value === null ? "" : value.toFixed(Math.max(0, opts.decimals)));
   input.value = format(current);
 
   const commit = (value) => {
-    const next = quantizeScrubValue(value, opts);
+    const next = isEmpty(value) ? null : quantizeScrubValue(value, opts);
     const changed = next !== current;
     current = next;
     input.value = format(current);
@@ -121,7 +130,7 @@ export function makeScrubInput(options = {}) {
   let drag = null;
   input.addEventListener("pointerdown", (event) => {
     if (event.button !== 0 || !input.readOnly) return;
-    drag = { x: event.clientX, y: event.clientY, start: current, scrubbed: false };
+    drag = { x: event.clientX, y: event.clientY, start: base(), scrubbed: false };
     input.setPointerCapture(event.pointerId);
     event.preventDefault();
   });
@@ -166,7 +175,7 @@ export function makeScrubInput(options = {}) {
     else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
       event.preventDefault();
       const size = event.shiftKey ? (opts.fineStep ?? opts.step) : opts.step;
-      commit(current + size * (event.key === "ArrowUp" ? 1 : -1));
+      commit(base() + size * (event.key === "ArrowUp" ? 1 : -1));
       input.select();
       settle();
     }
@@ -175,8 +184,12 @@ export function makeScrubInput(options = {}) {
   // last good value rather than guessing.
   input.addEventListener("blur", () => {
     if (!input.readOnly) {
-      const number = Number(input.value);
-      if (Number.isFinite(number) && commit(number) !== undefined) settle();
+      if (opts.allowEmpty && input.value.trim() === "") {
+        if (current !== null) { commit(null); settle(); }
+      } else {
+        const number = Number(input.value);
+        if (Number.isFinite(number) && commit(number) !== undefined) settle();
+      }
       input.readOnly = true;
     }
     input.value = format(current);
@@ -192,7 +205,7 @@ export function makeScrubInput(options = {}) {
     button.innerHTML = chevronSvg(direction > 0);
     button.addEventListener("click", (event) => {
       const size = event.shiftKey ? (opts.fineStep ?? opts.step) : opts.step;
-      commit(current + size * direction);
+      commit(base() + size * direction);
       settle();
     });
     steppers.append(button);
@@ -219,7 +232,7 @@ export function makeScrubInput(options = {}) {
     input,
     get: () => current,
     set: (value) => {
-      current = quantizeScrubValue(value, opts);
+      current = isEmpty(value) ? null : quantizeScrubValue(value, opts);
       if (input.readOnly) input.value = format(current);
     },
   };
