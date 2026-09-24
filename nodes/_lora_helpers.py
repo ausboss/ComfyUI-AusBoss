@@ -507,7 +507,8 @@ def save_custom_triggers(name: str, words: list[str]) -> list[str]:
 
 
 def _civitai_sidecar_path(name: str) -> Path:
-    """ComfyUI's shared Civitai metadata sidecar beside the LoRA file."""
+    """The standard Civitai metadata sidecar beside the LoRA file. Other
+    tools write it; this pack only reads it and never contacts Civitai."""
     return resolve_lora_path(name).with_suffix(".civitai.info")
 
 
@@ -561,50 +562,6 @@ def load_civitai_cache(name: str) -> dict[str, Any]:
         return {}
 
 
-def save_civitai_sidecar(name: str, payload: dict[str, Any]) -> Path:
-    """Write the raw Civitai response using the shared sibling-file convention."""
-    if not isinstance(payload, dict):
-        raise ValueError("Civitai response must be a JSON object.")
-    sidecar = _civitai_sidecar_path(name)
-    _atomic_write_json(sidecar, payload)
-    return sidecar
-
-
-def _hash_cache_path() -> Path | None:
-    base = _user_store_dir()
-    return None if base is None else base / "lora_hashes.json"
-
-
-def file_sha256(path: Path) -> str:
-    """SHA256 of the file, cached by (mtime, size) — LoRAs are hundreds of MB."""
-    import hashlib
-
-    stat = path.stat()
-    identity = f"{stat.st_mtime_ns}:{stat.st_size}"
-    cache_file = _hash_cache_path()
-    cache: dict[str, Any] = {}
-    if cache_file is not None and cache_file.is_file():
-        try:
-            cache = json.loads(cache_file.read_text(encoding="utf-8"))
-        except Exception:
-            cache = {}
-    entry = cache.get(str(path))
-    if isinstance(entry, dict) and entry.get("identity") == identity:
-        return str(entry.get("sha256", ""))
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    sha = digest.hexdigest()
-    if cache_file is not None:
-        cache[str(path)] = {"identity": identity, "sha256": sha}
-        try:
-            _atomic_write_json(cache_file, cache)
-        except OSError:
-            pass
-    return sha
-
-
 def lora_info(name: str) -> dict[str, Any]:
     path = resolve_lora_path(name)
     metadata = read_safetensors_metadata(path)
@@ -625,48 +582,6 @@ def lora_info(name: str) -> dict[str, Any]:
         "has_preview": find_thumbnail(name) is not None,
         "has_civitai": bool(civitai),
     }
-
-
-async def fetch_civitai_info(name: str) -> dict[str, Any]:
-    """Look up the exact LoRA hash and save Civitai's raw standard sidecar."""
-    import aiohttp
-    import asyncio
-    import re
-
-    path = resolve_lora_path(name)
-    sha = await asyncio.get_running_loop().run_in_executor(None, file_sha256, path)
-    # The hash is the only part of the URL that varies, and a cached one is
-    # read back from a file: it reaches the fixed Civitai host only as a
-    # plain SHA-256.
-    if not re.fullmatch(r"[0-9a-f]{64}", str(sha).lower()):
-        raise ValueError("LoRA Loader: could not hash this LoRA file for the Civitai lookup.")
-    timeout = aiohttp.ClientTimeout(total=30, connect=10)
-    async with aiohttp.ClientSession(timeout=timeout) as session:
-        async with session.get(
-            f"https://civitai.com/api/v1/model-versions/by-hash/{sha}",
-            headers={"User-Agent": "ComfyUI-AusBoss"},
-            allow_redirects=False,
-        ) as response:
-            if 300 <= response.status < 400:
-                raise ValueError("Civitai lookup refused a redirect away from the fixed endpoint.")
-            if response.status == 404:
-                return {"found": False}
-            response.raise_for_status()
-            # StreamReader.read(n) hands back whatever the buffer holds, not
-            # the full body - a real hit is ~150KB of JSON and the first TCP
-            # chunk is ~1KB, so a single read truncated every successful
-            # lookup mid-string. Accumulate to EOF, capping as chunks arrive.
-            body = bytearray()
-            async for chunk in response.content.iter_chunked(64 * 1024):
-                body.extend(chunk)
-                if len(body) > 4 * 1024 * 1024:
-                    raise ValueError("Civitai response is too large.")
-            payload = json.loads(bytes(body))
-    info = _normalize_civitai_info(payload)
-    if not info:
-        return {"found": False}
-    save_civitai_sidecar(name, payload)
-    return info
 
 
 def register_lora_routes() -> None:
@@ -695,17 +610,6 @@ def register_lora_routes() -> None:
     async def ausboss_lora_info(request):
         try:
             info = await asyncio_run_in_executor(lora_info, request.query.get("name", ""))
-            return web.json_response({"ok": True, "info": info})
-        except Exception as exc:
-            return web.json_response({"ok": False, "error": str(exc)}, status=400)
-
-    @prompt_server.routes.post("/ausboss/lora/civitai")
-    async def ausboss_lora_civitai(request):
-        try:
-            body = await request.json()
-            if not isinstance(body, dict):
-                raise ValueError("Request body must be a JSON object.")
-            info = await fetch_civitai_info(str(body.get("name", "")))
             return web.json_response({"ok": True, "info": info})
         except Exception as exc:
             return web.json_response({"ok": False, "error": str(exc)}, status=400)

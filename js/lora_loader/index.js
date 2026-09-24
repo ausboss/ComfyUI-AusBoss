@@ -138,11 +138,6 @@ const SETTINGS_SCHEMA = [
     default: true,
     hint: "Poster image beside the picker while hovering a LoRA.",
   },
-  {
-    key: "civitai_lookup", label: "Civitai lookup button", type: "toggle",
-    default: true,
-    hint: "Offer the online lookup inside the info card.",
-  },
 ];
 // Narrowest node at which a row still works: toggle + picker + strength +
 // info + gaps + padding. Enforced through the DOM widget's layout minimum,
@@ -314,7 +309,6 @@ function installStyles() {
   .ausboss-lora-chip { border: 1px solid #3a4047; border-radius: 10px; background: #23272c;
     color: inherit; cursor: pointer; padding: 2px 8px; font-size: 11px; }
   .ausboss-lora-chip.active { border-color: ${BRAND}; color: ${BRAND}; }
-  .ausboss-lora-fetch { align-self: flex-start; }
   .ausboss-lora-custom { display: flex; gap: 6px; align-items: center; }
   .ausboss-lora-custom input { flex: 1 1 auto; min-width: 0; height: ${ACTIONS_HEIGHT}px;
     border: 1px solid #3a4047; box-sizing: border-box;
@@ -859,33 +853,6 @@ function openInfo(state, index, anchor) {
     chipSection("From the file", info.file_triggers);
     chipSection("From Civitai", info.civitai_triggers);
     chipSection("Your words", info.custom_triggers);
-
-    if (state.settings?.civitai_lookup !== false) {
-      const label = info.has_civitai ? "Refresh Civitai info" : "Fetch Civitai info";
-      const fetchButton = el("button", "ausboss-lora-add ausboss-lora-fetch", label);
-      fetchButton.type = "button";
-      fetchButton.addEventListener("click", async () => {
-        fetchButton.disabled = true;
-        fetchButton.textContent = "Fetching...";
-        try {
-          const response = await api.fetchApi("/ausboss/lora/civitai", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: serverName }),
-          });
-          const data = await response.json();
-          if (!data.ok) throw new Error(data.error || "fetch failed");
-          if (data.info?.found === false) {
-            fetchButton.textContent = "Not found on Civitai";
-            return;
-          }
-          load();
-        } catch (error) {
-          fetchButton.textContent = "Civitai lookup failed";
-        }
-      });
-      card.append(fetchButton);
-    }
 
     const range = el("div", "ausboss-lora-range");
     range.append(el("span", "ausboss-lora-meta", "Suggested strength"));

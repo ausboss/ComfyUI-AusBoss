@@ -176,7 +176,7 @@ Keep a complete stack in one node: enable each row, choose a model from the sear
 
 **One stack, a distinct look.** Krea 2 with the Vintage Tarot LoRA enabled; the other rows are parked for later. [Try the LoRA stack example →](example_workflows/Krea%202%20Text%20to%20Image%20%2B%20LoRA%20Stack%20%28AusBoss%29.json)
 
-The toolbar holds the stack toggle, saved templates, reconnect, and settings. **Absorb loader chain** moves recognized loaders into this stack in application order, retaining repeated LoRAs. It bypasses the originals only when MODEL, CLIP, and auxiliary connections can be preserved. Shared branches and linked stack settings leave the chain untouched. File metadata, optional Civitai lookup, and your saved words populate each LoRA's information card; selected trigger words flow through the `triggers` output.
+The toolbar holds the stack toggle, saved templates, reconnect, and settings. **Absorb loader chain** moves recognized loaders into this stack in application order, retaining repeated LoRAs. It bypasses the originals only when MODEL, CLIP, and auxiliary connections can be preserved. Shared branches and linked stack settings leave the chain untouched. File metadata, a `.civitai.info` sidecar beside the file, and your saved words populate each LoRA's information card; selected trigger words flow through the `triggers` output.
 
 Moved files resolve by basename when the match is unambiguous. A missing enabled LoRA stops validation by default. **Stop on missing LoRA** can be turned off to warn and skip instead. A LoRA that patches nothing on the model reports a warning naming the file.
 
