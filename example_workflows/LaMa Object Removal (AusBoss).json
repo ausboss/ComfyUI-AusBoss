@@ -1,0 +1,1116 @@
+{
+  "id": "d353a2d6-ae95-4b68-ba59-9ca4f4b68d09",
+  "revision": 0,
+  "last_node_id": 9,
+  "last_link_id": 10,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "AUSBOSS_NODES_WorkflowNote",
+      "pos": [
+        -620,
+        100
+      ],
+      "size": [
+        560,
+        1000
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "note",
+          "name": "note",
+          "type": "STRING",
+          "widget": {
+            "name": "note"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [],
+      "title": "Start here · setup + download",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote"
+      },
+      "widgets_values": [
+        "{\"v\":1,\"title\":\"LaMa Object Removal\",\"subtitle\":\"Paint over an object and LaMa fills the hole from the surrounding scene. One small model, no prompt.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"\",\"body\":\"## Start here\\nCopy `ausboss_pier_rowboat.png` from the pack's `example_workflows/inputs/` folder into `ComfyUI/input/`. Its alpha channel already holds a mask painted over the rowboat. Download **big-lama.pt** below into `ComfyUI/models/lama/`, refresh and queue. No prompt, no other packs, and it runs in seconds even on a CPU.\\n\\n## What happens\\n1. **Load Image** reads the picture, and its **MASK** output is the painted area. For your own image, right-click Load Image, open the mask editor and paint over what should go.\\n2. **Mask Refine** grows the mask by 8 px and softens its edge, so the fill also covers the outline and the reflection.\\n3. **Crop For Inpaint** cuts out the masked area with 2× context, and **LaMa Inpaint** fills it at native resolution.\\n4. **Stitch Inpaint** pastes the fill back with a 16 px feather; every pixel outside that blend stays untouched. **Compare** slides the result over the source, and **Save Image** writes the PNG with this workflow inside.\\n\\n## Try\\n- An outline of the object left behind? Raise **Expand** on Mask Refine.\\n- A smeared or repeated texture? Raise **Context** on Crop For Inpaint so LaMa sees more of the scene.\\n- LaMa removes; it does not add. To paint something new into the hole, see the Klein 9B Inpaint example.\",\"models\":[{\"name\":\"big-lama.pt\",\"dir\":\"lama\",\"size\":\"206 MB\",\"note\":\"LaMa inpainting checkpoint; ComfyUI/models/lama.\",\"url\":\"https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt\"}],\"packs\":[],\"links\":[{\"label\":\"Sample image · ausboss_pier_rowboat.png\",\"url\":\"https://raw.githubusercontent.com/ausboss/ComfyUI-AusBoss/main/example_workflows/inputs/ausboss_pier_rowboat.png\"}]}",
+        ""
+      ],
+      "widgets_values_named": {
+        "note": "{\"v\":1,\"title\":\"LaMa Object Removal\",\"subtitle\":\"Paint over an object and LaMa fills the hole from the surrounding scene. One small model, no prompt.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"\",\"body\":\"## Start here\\nCopy `ausboss_pier_rowboat.png` from the pack's `example_workflows/inputs/` folder into `ComfyUI/input/`. Its alpha channel already holds a mask painted over the rowboat. Download **big-lama.pt** below into `ComfyUI/models/lama/`, refresh and queue. No prompt, no other packs, and it runs in seconds even on a CPU.\\n\\n## What happens\\n1. **Load Image** reads the picture, and its **MASK** output is the painted area. For your own image, right-click Load Image, open the mask editor and paint over what should go.\\n2. **Mask Refine** grows the mask by 8 px and softens its edge, so the fill also covers the outline and the reflection.\\n3. **Crop For Inpaint** cuts out the masked area with 2× context, and **LaMa Inpaint** fills it at native resolution.\\n4. **Stitch Inpaint** pastes the fill back with a 16 px feather; every pixel outside that blend stays untouched. **Compare** slides the result over the source, and **Save Image** writes the PNG with this workflow inside.\\n\\n## Try\\n- An outline of the object left behind? Raise **Expand** on Mask Refine.\\n- A smeared or repeated texture? Raise **Context** on Crop For Inpaint so LaMa sees more of the scene.\\n- LaMa removes; it does not add. To paint something new into the hole, see the Klein 9B Inpaint example.\",\"models\":[{\"name\":\"big-lama.pt\",\"dir\":\"lama\",\"size\":\"206 MB\",\"note\":\"LaMa inpainting checkpoint; ComfyUI/models/lama.\",\"url\":\"https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt\"}],\"packs\":[],\"links\":[{\"label\":\"Sample image · ausboss_pier_rowboat.png\",\"url\":\"https://raw.githubusercontent.com/ausboss/ComfyUI-AusBoss/main/example_workflows/inputs/ausboss_pier_rowboat.png\"}]}",
+        "ausboss_workflow_note_panel": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 2,
+      "type": "LoadImage",
+      "pos": [
+        0,
+        100
+      ],
+      "size": [
+        440,
+        760
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "COMBO",
+          "widget": {
+            "name": "image"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "choose file to upload",
+          "name": "upload",
+          "type": "IMAGEUPLOAD",
+          "widget": {
+            "name": "upload"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "IMAGE",
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            2,
+            9
+          ]
+        },
+        {
+          "localized_name": "MASK",
+          "name": "MASK",
+          "type": "MASK",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "title": "Load Image · rowboat masked in alpha",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "ausboss_pier_rowboat.png",
+        "image"
+      ],
+      "widgets_values_named": {
+        "image": "ausboss_pier_rowboat.png",
+        "upload": "image"
+      }
+    },
+    {
+      "id": 3,
+      "type": "AUSBOSS_NODES_RefineMask",
+      "pos": [
+        520,
+        100
+      ],
+      "size": [
+        400,
+        620
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "mask",
+          "name": "mask",
+          "type": "MASK",
+          "link": 1
+        },
+        {
+          "localized_name": "guide_image",
+          "name": "guide_image",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "localized_name": "expand",
+          "name": "expand",
+          "type": "INT",
+          "widget": {
+            "name": "expand"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "blur",
+          "name": "blur",
+          "type": "FLOAT",
+          "widget": {
+            "name": "blur"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "fill_holes",
+          "name": "fill_holes",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "fill_holes"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "smooth",
+          "name": "smooth",
+          "type": "INT",
+          "widget": {
+            "name": "smooth"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "black_point",
+          "name": "black_point",
+          "type": "FLOAT",
+          "widget": {
+            "name": "black_point"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "white_point",
+          "name": "white_point",
+          "type": "FLOAT",
+          "widget": {
+            "name": "white_point"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "edge_refine",
+          "name": "edge_refine",
+          "type": "COMBO",
+          "widget": {
+            "name": "edge_refine"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "preview",
+          "name": "preview",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "preview"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "mask",
+          "name": "mask",
+          "type": "MASK",
+          "links": [
+            3
+          ]
+        },
+        {
+          "localized_name": "mask_inverted",
+          "name": "mask_inverted",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "title": "Mask Refine 🆎 · grow 8 px, soften",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_RefineMask"
+      },
+      "widgets_values": [
+        8,
+        4,
+        false,
+        0,
+        0,
+        1,
+        "off",
+        true,
+        "",
+        ""
+      ],
+      "widgets_values_named": {
+        "expand": 8,
+        "blur": 4,
+        "fill_holes": false,
+        "smooth": 0,
+        "black_point": 0,
+        "white_point": 1,
+        "edge_refine": "off",
+        "preview": true,
+        "ausboss_widget_card": "",
+        "ausboss_input_preview": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 4,
+      "type": "AUSBOSS_NODES_CropForInpaint",
+      "pos": [
+        1000,
+        100
+      ],
+      "size": [
+        400,
+        320
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "link": 2
+        },
+        {
+          "localized_name": "mask",
+          "name": "mask",
+          "type": "MASK",
+          "link": 3
+        },
+        {
+          "localized_name": "context_factor",
+          "name": "context_factor",
+          "type": "FLOAT",
+          "widget": {
+            "name": "context_factor"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "blend_pixels",
+          "name": "blend_pixels",
+          "type": "INT",
+          "widget": {
+            "name": "blend_pixels"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "output_multiple",
+          "name": "output_multiple",
+          "type": "INT",
+          "widget": {
+            "name": "output_multiple"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "target_width",
+          "name": "target_width",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "target_width"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "target_height",
+          "name": "target_height",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "target_height"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "mask_grow",
+          "name": "mask_grow",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "mask_grow"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "mask_blur",
+          "name": "mask_blur",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "mask_blur"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "invert_mask",
+          "name": "invert_mask",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "invert_mask"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "context_pixels",
+          "name": "context_pixels",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "context_pixels"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "target_megapixels",
+          "name": "target_megapixels",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "target_megapixels"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "rescale_algorithm",
+          "name": "rescale_algorithm",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "rescale_algorithm"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "extend_left",
+          "name": "extend_left",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "extend_left"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "extend_right",
+          "name": "extend_right",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "extend_right"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "extend_up",
+          "name": "extend_up",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "extend_up"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "extend_down",
+          "name": "extend_down",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "extend_down"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            4
+          ]
+        },
+        {
+          "localized_name": "mask",
+          "name": "mask",
+          "type": "MASK",
+          "links": [
+            5
+          ]
+        },
+        {
+          "localized_name": "stitcher",
+          "name": "stitcher",
+          "type": "AUSBOSS_STITCHER",
+          "links": [
+            6
+          ]
+        }
+      ],
+      "title": "Crop For Inpaint 🆎 · 2× context",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_CropForInpaint"
+      },
+      "widgets_values": [
+        2,
+        16,
+        8,
+        0,
+        0,
+        0,
+        0,
+        false,
+        0,
+        0,
+        "bilinear",
+        0,
+        0,
+        0,
+        0,
+        ""
+      ],
+      "widgets_values_named": {
+        "context_factor": 2,
+        "blend_pixels": 16,
+        "output_multiple": 8,
+        "target_width": 0,
+        "target_height": 0,
+        "mask_grow": 0,
+        "mask_blur": 0,
+        "invert_mask": false,
+        "context_pixels": 0,
+        "target_megapixels": 0,
+        "rescale_algorithm": "bilinear",
+        "extend_left": 0,
+        "extend_right": 0,
+        "extend_up": 0,
+        "extend_down": 0,
+        "ausboss_widget_card": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 5,
+      "type": "AUSBOSS_NODES_LaMaInpaint",
+      "pos": [
+        1000,
+        480
+      ],
+      "size": [
+        400,
+        400
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "link": 4
+        },
+        {
+          "localized_name": "mask",
+          "name": "mask",
+          "type": "MASK",
+          "link": 5
+        },
+        {
+          "localized_name": "model",
+          "name": "model",
+          "type": "COMBO",
+          "widget": {
+            "name": "model"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "preview",
+          "name": "preview",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "preview"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            7
+          ]
+        }
+      ],
+      "title": "LaMa Inpaint 🆎 · fill the crop",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_LaMaInpaint"
+      },
+      "widgets_values": [
+        "big-lama.pt",
+        true,
+        "",
+        ""
+      ],
+      "widgets_values_named": {
+        "model": "big-lama.pt",
+        "preview": true,
+        "ausboss_widget_card": "",
+        "ausboss_input_preview": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 6,
+      "type": "AUSBOSS_NODES_StitchInpaint",
+      "pos": [
+        1480,
+        100
+      ],
+      "size": [
+        480,
+        145
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "stitcher",
+          "name": "stitcher",
+          "type": "AUSBOSS_STITCHER",
+          "link": 6
+        },
+        {
+          "localized_name": "inpainted",
+          "name": "inpainted",
+          "type": "IMAGE",
+          "link": 7
+        },
+        {
+          "localized_name": "fix_edge_halo",
+          "name": "fix_edge_halo",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "fix_edge_halo"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "color_match",
+          "name": "color_match",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "color_match"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            8,
+            10
+          ]
+        },
+        {
+          "localized_name": "blend_mask",
+          "name": "blend_mask",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "title": "Stitch Inpaint 🆎 · paste back",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_StitchInpaint"
+      },
+      "widgets_values": [
+        false,
+        0,
+        ""
+      ],
+      "widgets_values_named": {
+        "fix_edge_halo": false,
+        "color_match": 0,
+        "ausboss_widget_card": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 7,
+      "type": "AUSBOSS_NODES_Compare",
+      "pos": [
+        1480,
+        305
+      ],
+      "size": [
+        480,
+        700
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "image_a",
+          "name": "image_a",
+          "type": "IMAGE",
+          "link": 8
+        },
+        {
+          "localized_name": "image_b",
+          "name": "image_b",
+          "type": "IMAGE",
+          "link": 9
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "image_a",
+          "name": "image_a",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "title": "Compare 🆎 · result / source",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_Compare",
+        "ausboss_compare_mode": "slide"
+      },
+      "widgets_values": [
+        ""
+      ],
+      "widgets_values_named": {
+        "ausboss_compare_panel": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 8,
+      "type": "AUSBOSS_NODES_SaveImage",
+      "pos": [
+        2040,
+        100
+      ],
+      "size": [
+        440,
+        800
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "link": 10
+        },
+        {
+          "localized_name": "filename",
+          "name": "filename",
+          "shape": 7,
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "localized_name": "caption_text",
+          "name": "caption_text",
+          "shape": 7,
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "localized_name": "filename_prefix",
+          "name": "filename_prefix",
+          "type": "STRING",
+          "widget": {
+            "name": "filename_prefix"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "format",
+          "name": "format",
+          "type": "COMBO",
+          "widget": {
+            "name": "format"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "save_metadata",
+          "name": "save_metadata",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "save_metadata"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "exact_name",
+          "name": "exact_name",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "exact_name"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "on_existing",
+          "name": "on_existing",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "on_existing"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "output_dir",
+          "name": "output_dir",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "output_dir"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "caption",
+          "name": "caption",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "caption"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "name_counter",
+          "name": "name_counter",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "name_counter"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "name_date",
+          "name": "name_date",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "name_date"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "name_time",
+          "name": "name_time",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "name_time"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "name_size",
+          "name": "name_size",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "name_size"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "name_batch",
+          "name": "name_batch",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "name_batch"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "file_path",
+          "name": "file_path",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "title": "Save Image 🆎 · PNG, workflow included",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_SaveImage"
+      },
+      "widgets_values": {
+        "filename_prefix": "pier_rowboat_removed",
+        "format": "png",
+        "save_metadata": true,
+        "exact_name": "",
+        "on_existing": "overwrite",
+        "output_dir": "",
+        "caption": "",
+        "name_counter": true,
+        "name_date": false,
+        "name_time": false,
+        "name_size": false,
+        "name_batch": false
+      },
+      "widgets_values_named": {
+        "filename_prefix": "pier_rowboat_removed",
+        "format": "png",
+        "save_metadata": true,
+        "exact_name": "",
+        "on_existing": "overwrite",
+        "output_dir": "",
+        "ausboss_save_image_card": "",
+        "caption": "",
+        "name_counter": true,
+        "name_date": false,
+        "name_time": false,
+        "name_size": false,
+        "name_batch": false
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 9,
+      "type": "AUSBOSS_NODES_RunTimer",
+      "pos": [
+        2040,
+        960
+      ],
+      "size": [
+        176,
+        56
+      ],
+      "flags": {
+        "no_title": true
+      },
+      "order": 8,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_RunTimer"
+      },
+      "color": "#07090a",
+      "bgcolor": "#07090a"
+    }
+  ],
+  "links": [
+    [
+      1,
+      2,
+      1,
+      3,
+      0,
+      "MASK"
+    ],
+    [
+      2,
+      2,
+      0,
+      4,
+      0,
+      "IMAGE"
+    ],
+    [
+      3,
+      3,
+      0,
+      4,
+      1,
+      "MASK"
+    ],
+    [
+      4,
+      4,
+      0,
+      5,
+      0,
+      "IMAGE"
+    ],
+    [
+      5,
+      4,
+      1,
+      5,
+      1,
+      "MASK"
+    ],
+    [
+      6,
+      4,
+      2,
+      6,
+      0,
+      "AUSBOSS_STITCHER"
+    ],
+    [
+      7,
+      5,
+      0,
+      6,
+      1,
+      "IMAGE"
+    ],
+    [
+      8,
+      6,
+      0,
+      7,
+      0,
+      "IMAGE"
+    ],
+    [
+      9,
+      2,
+      0,
+      7,
+      1,
+      "IMAGE"
+    ],
+    [
+      10,
+      6,
+      0,
+      8,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "1 · Load the painted image",
+      "bounding": [
+        -20,
+        40,
+        480,
+        840
+      ],
+      "color": "#235d64",
+      "flags": {}
+    },
+    {
+      "id": 2,
+      "title": "2 · Refine the mask",
+      "bounding": [
+        500,
+        40,
+        440,
+        700
+      ],
+      "color": "#366451",
+      "flags": {}
+    },
+    {
+      "id": 3,
+      "title": "3 · Crop + LaMa",
+      "bounding": [
+        980,
+        40,
+        440,
+        860
+      ],
+      "color": "#5d527c",
+      "flags": {}
+    },
+    {
+      "id": 4,
+      "title": "4 · Stitch + compare",
+      "bounding": [
+        1460,
+        40,
+        520,
+        985
+      ],
+      "color": "#795b38",
+      "flags": {}
+    },
+    {
+      "id": 5,
+      "title": "5 · Save",
+      "bounding": [
+        2020,
+        40,
+        480,
+        996
+      ],
+      "color": "#345d7c",
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.6,
+      "offset": [
+        703.33,
+        160.0
+      ]
+    }
+  },
+  "version": 0.4
+}
