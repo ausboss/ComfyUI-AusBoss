@@ -21,13 +21,9 @@ CLAUDE.md
 .agents/
 /docs/
 
-# editor and working files
+# editor and repository files
 .gitignore
 .comfyignore
-todo.md
-todo
-todo2
-workflow_ideas.md
 *.swp
 .*.swp
 *.kate-swp

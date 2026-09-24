@@ -134,7 +134,7 @@ DEV_ONLY = [
     "scripts/validate_nodes.py", "scripts/release_preflight.py",
     ".github/workflows/publish_action.yml", "AGENTS.md", "CLAUDE.md",
     ".claude/skills/ausboss-node-brand/SKILL.md", ".agents/skills/ausboss-node-brand/SKILL.md",
-    "docs/adding_a_node.md", "todo.md", "todo", "todo2", "workflow_ideas.md",
+    "docs/adding_a_node.md",
 ]
 RUNTIME = [
     "__init__.py", "nodes/node_seed.py", "nodes/_lora_helpers.py",
