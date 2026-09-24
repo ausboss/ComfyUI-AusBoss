@@ -6,10 +6,13 @@
 // and a `group` row folds the rarely-touched settings behind one click.
 import { app } from "/scripts/app.js";
 import { chainCallback } from "../shared/index.mjs";
+import { formatWidgetVisibility } from "../shared/save_video_formats.mjs";
 import { hideInputsInDef } from "../shared/widget_visibility.mjs";
 import { mountWidgetCard } from "../shared/widget_card.mjs";
 
 const isMode = (name, ...modes) => (values) => modes.includes(values[name]);
+// Save Video rows that only some formats read (crf, save_metadata).
+const formatReads = (name) => (values) => formatWidgetVisibility(String(values.format))[name];
 
 const CARDS = {
   AUSBOSS_NODES_ImageResize: {
@@ -162,9 +165,12 @@ const CARDS = {
     rows: [
       { widget: "filename_prefix", label: "Prefix", placeholder: "AusBoss/video" },
       { widget: "format", label: "Format", kind: "select" },
-      { pair: ["fps", "crf"], label: "FPS · CRF", sep: "·", top: true },
+      // CRF and Metadata show only for the formats that read them; fps keeps
+      // its lifted socket either way.
+      { pair: ["fps", "crf"], label: "FPS · CRF", sep: "·", top: true, when: formatReads("crf") },
+      { widget: "fps", label: "FPS", top: true, when: (values) => !formatReads("crf")(values) },
       { widget: "pingpong", label: "Ping-pong", onText: "forward, back", offText: "off" },
-      { widget: "save_metadata", label: "Metadata", title: "On embeds the workflow in the video file, so dropping the file back on the canvas restores the graph that made it." },
+      { widget: "save_metadata", label: "Metadata", when: formatReads("save_metadata"), title: "On embeds the workflow in the video file, so dropping the file back on the canvas restores the graph that made it." },
     ],
   },
 };
