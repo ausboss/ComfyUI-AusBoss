@@ -6,6 +6,7 @@ import asyncio
 import base64
 from collections import OrderedDict
 from io import BytesIO
+import itertools
 import math
 import os
 from pathlib import Path
@@ -165,8 +166,8 @@ def load_image_frames(path: Path) -> list[Image.Image]:
 # MP4/MOV edit list's delay. The container's start is no zero either, since
 # audio often opens a little ahead of the picture (a transport stream's
 # B-frame delay) and would push frame 0 to a later index. So a decoded time
-# passes through stream_seconds before it meets a window, and the seeks go
-# the other way with int(seconds / time_base) + stream.start_time.
+# passes through stream_seconds before it meets a window, and the seeks
+# (decode_from) go the other way with int(seconds / time_base) + start_time.
 
 
 def stream_origin(stream) -> float:
@@ -226,6 +227,40 @@ def _frame_position(frame, stream, fps: float, fallback_index: int) -> tuple[int
     return fallback_index, (fallback_index / fps if fps > 0 else 0.0)
 
 
+def decode_from(container, stream, seconds: float, fps: float):
+    """Frames of ``stream`` decoded from at or before ``seconds`` on the video
+    clock: a keyframe seek, then the decoder's output as an iterator.
+
+    A transport stream seeks to whichever packet precedes the target, not to
+    a keyframe, and the decoder then drops everything up to the next keyframe
+    - past the target, or past the whole clip when it has one keyframe. When
+    the first frame out lands after the target, the seek is retried from a
+    second earlier, then twice as far back each time, and from the top last.
+    """
+    tolerance = 0.5 / fps if fps > 0 else 1e-4
+    back = 0.0
+    while True:
+        target = seconds - back
+        top = not target > 0
+        if top:
+            # Below every timestamp: the first packet, even when a seek to
+            # the stream's own start would land past its first keyframe.
+            offset = min(0, stream.start_time or 0)
+        else:
+            offset = int(target / stream.time_base) + (stream.start_time or 0)
+        container.seek(offset, stream=stream, backward=True, any_frame=False)
+        frames = container.decode(stream)
+        first = next(frames, None)
+        if first is None:
+            if top:
+                return iter(())
+        else:
+            moment = stream_seconds(first.time, stream)
+            if top or moment is None or moment <= seconds + tolerance:
+                return itertools.chain((first,), frames)
+        back = max(1.0, back * 2)
+
+
 def _decode_with_seek(path: Path, requested_time: float, fps: float):
     """Keyframe-seek then decode forward. Returns None when the file has no
     usable timestamps so the caller can fall back to a sequential scan."""
@@ -234,13 +269,12 @@ def _decode_with_seek(path: Path, requested_time: float, fps: float):
         if not stream.time_base:
             return None
         try:
-            offset = int(requested_time / stream.time_base) + (stream.start_time or 0)
-            container.seek(offset, stream=stream, backward=True, any_frame=False)
+            frames = decode_from(container, stream, requested_time, fps)
         except Exception:
             return None
         tolerance = (0.5 / fps) if fps > 0 else 0.0
         last = None
-        for frame in container.decode(stream):
+        for frame in frames:
             moment = stream_seconds(frame.time, stream)
             if moment is None:
                 return None
@@ -385,17 +419,18 @@ def _session_decode(path: Path, target_index: int, requested_time: float, fps: f
             session.last_index >= 0
             and 0 < target_index - session.last_index <= _FORWARD_DECODE_GAP
         )
-        if not forward:
+        if forward:
+            frames = session.container.decode(stream)
+        else:
             try:
-                offset = int(requested_time / stream.time_base) + (stream.start_time or 0)
-                session.container.seek(offset, stream=stream, backward=True, any_frame=False)
+                frames = decode_from(session.container, stream, requested_time, fps)
             except Exception:
                 session.last_index = -1
                 session.last_frame = None
                 return None
         tolerance = (0.5 / fps) if fps > 0 else 0.0
         last = None
-        for frame in session.container.decode(stream):
+        for frame in frames:
             moment = stream_seconds(frame.time, stream)
             if moment is None:
                 session.last_index = -1

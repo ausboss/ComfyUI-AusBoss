@@ -71,14 +71,16 @@ def _mux(container, packets, shift: int) -> None:
         container.mux(packet)
 
 
-def write_clip(path: Path, *, video_start=0.0, audio_start=None) -> None:
+def write_clip(path: Path, *, fmt=None, codec="mpeg4", b_frames=0, gop=12,
+               video_start=0.0, audio_start=None) -> None:
     """FRAMES brightness-coded frames whose timestamps begin at video_start;
     audio_start adds a PCM ramp (ramp(k) at sample k) beginning there."""
-    with av.open(str(path), "w") as container:
+    with av.open(str(path), "w", format=fmt) as container:
         # No scene cuts: every brightness step would otherwise open a GOP.
-        video = container.add_stream("mpeg4", rate=FPS, options={"sc_threshold": "1000000000"})
+        video = container.add_stream(codec, rate=FPS, options={"sc_threshold": "1000000000"})
         video.width, video.height, video.pix_fmt = WIDTH, HEIGHT, "yuv420p"
-        video.codec_context.gop_size = 12
+        video.codec_context.gop_size = gop
+        video.codec_context.max_b_frames = b_frames
         video.codec_context.bit_rate = 4_000_000
         audio = None
         if audio_start is not None:
@@ -114,6 +116,11 @@ def setUpModule():
     global _FOLDER, _ROOTS
     _FOLDER = tempfile.TemporaryDirectory()
     folder = Path(_FOLDER.name)
+    # MPEG-2 with B-frames in a transport stream, as .mpg/.m2ts carry it;
+    # the second has a keyframe only at the top.
+    write_clip(folder / "shifted.mts", fmt="mpegts", codec="mpeg2video", b_frames=2, video_start=1.4)
+    write_clip(folder / "one_key.mts", fmt="mpegts", codec="mpeg2video", b_frames=2, gop=FRAMES,
+               video_start=1.4)
     # An MP4 whose edit list delays the picture.
     write_clip(folder / "edit.mp4", video_start=1.4)
     # Audio from 0 with the picture from 0.5 s, and the other way round.
@@ -135,9 +142,9 @@ def tearDownModule():
 class Clips(unittest.TestCase):
     def setUp(self):
         folder = Path(_FOLDER.name)
-        self.edit = folder / "edit.mp4"
+        self.ts, self.edit = folder / "shifted.mts", folder / "edit.mp4"
         self.lead, self.late, self.zero = folder / "lead.mkv", folder / "late.mkv", folder / "zero.mkv"
-        self.shifted = (self.edit, self.lead)
+        self.shifted = (self.ts, self.edit, self.lead)
         self.every = self.shifted + (self.zero,)
 
     def tearDown(self):
@@ -147,7 +154,7 @@ class Clips(unittest.TestCase):
 
 class StreamClockTests(Clips):
     def test_fixtures_really_start_late(self):
-        for path, earliest in ((self.edit, 1.4), (self.lead, 0.5)):
+        for path, earliest in ((self.ts, 1.4), (self.edit, 1.4), (self.lead, 0.5)):
             with self.subTest(path.name), av.open(str(path)) as container:
                 self.assertGreater(stream_origin(container.streams.video[0]), earliest - 0.01)
 
@@ -190,7 +197,18 @@ class TrimWindowTests(Clips):
                 self.assert_frames(decode_video_range(path, 1.0, 0.0, 0, 0)[0], 24, 71)
                 self.assert_frames(decode_video_range(path, 0.0, 0.0, 0, 0)[0], 0, 71)
 
+    def test_a_single_keyframe_transport_stream_trims_and_seeks(self):
+        # A seek anywhere past the top used to leave its decoder nothing to
+        # show: "Load Video found no frames".
+        path = Path(_FOLDER.name) / "one_key.mts"
+        self.assert_frames(decode_video_range(path, 1.0, 3.0, 0, 0)[0], 24, 71)
+        for target in (40, 0, 71):
+            image, index, _ = decode_video_frame(path, "frame index", target, 0.0)
+            self.assertEqual((index, frame_number(np.asarray(image.convert("RGB")) / 255.0)), (target, target))
+
     def test_timeline_frame_windows_round_trip(self):
+        # Windows that open between keyframes: the transport stream's seek
+        # lands on a packet before the target, not on a keyframe.
         for path in self.every:
             for first, last in [(1, 1), (5, 30), (13, 13), (23, 40), (37, 71), (70, 71)]:
                 with self.subTest(path.name, first=first, last=last):
@@ -298,7 +316,9 @@ class NodeTests(Clips):
     def test_core_video_covers_the_same_window(self):
         if not ensure_core_video_api(self):
             self.skipTest("Set AUSBOSS_COMFY_ROOT to test ComfyUI's VIDEO type.")
-        for path in self.every:
+        # Core seeks straight to a timestamp, which a transport stream cannot
+        # honour; the MP4 and MKV delays are what the shift has to cover.
+        for path in (self.edit, self.lead, self.zero):
             with self.subTest(path.name):
                 images = core_trimmed_video(path, 1.0, 2.0).get_components().images
                 self.assertEqual(int(images.shape[0]), 24)

@@ -15,7 +15,7 @@ import torch
 from PIL import Image
 
 from ._execution_helpers import advance_progress, frame_progress, raise_if_interrupted
-from ._media_helpers import stream_origin, stream_seconds, video_metadata
+from ._media_helpers import decode_from, stream_origin, stream_seconds, video_metadata
 
 try:
     import psutil  # ComfyUI core dependency; fail soft for offline tests.
@@ -255,13 +255,14 @@ def decode_video_range(
         stream.thread_type = "AUTO"
         fps = float(stream.average_rate or stream.base_rate or 0.0) or 30.0
         if start > 0 and stream.time_base:
-            # Keyframe at or before the trim start (backward=True), offset by
-            # the stream start time to match the preview seek helpers.
-            offset = int(start / stream.time_base) + (stream.start_time or 0)
-            container.seek(max(0, offset), stream=stream, backward=True)
+            # From the keyframe at or before the trim start, found the way
+            # the preview seek helpers find it.
+            decoded = decode_from(container, stream, start, fps)
+        else:
+            decoded = container.decode(stream)
         size: tuple[int, int] | None = None
         window_index = 0
-        for frame, time in _frames_at_rate(container.decode(stream), stream, fps, start, end, rate):
+        for frame, time in _frames_at_rate(decoded, stream, fps, start, end, rate):
             # Checked before the per-frame work, and on skipped frames too, so
             # cancelling during a long lead-in still stops within one frame.
             raise_if_interrupted()
