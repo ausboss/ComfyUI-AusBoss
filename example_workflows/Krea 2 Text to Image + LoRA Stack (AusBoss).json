@@ -691,7 +691,7 @@
         "ver": "2.0.0"
       },
       "widgets_values": {
-        "filename_prefix": "AusBoss/krea2_lora_stack",
+        "filename_prefix": "krea2_lora_stack",
         "format": "png",
         "save_metadata": true,
         "exact_name": "",

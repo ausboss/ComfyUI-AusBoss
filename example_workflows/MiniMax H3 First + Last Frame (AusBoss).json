@@ -1255,7 +1255,7 @@
       },
       "widgets_values": {
         "fps": 24,
-        "filename_prefix": "AusBoss/minimax_h3_first_last_base",
+        "filename_prefix": "minimax_h3_first_last_base",
         "crf": 17,
         "format": "mp4 h264",
         "pingpong": false,
@@ -1263,7 +1263,7 @@
       },
       "widgets_values_named": {
         "fps": 24,
-        "filename_prefix": "AusBoss/minimax_h3_first_last_base",
+        "filename_prefix": "minimax_h3_first_last_base",
         "crf": 17,
         "format": "mp4 h264",
         "pingpong": false,

@@ -947,7 +947,7 @@
         "ver": "2.0.0"
       },
       "widgets_values": [
-        "AusBoss/klein_inpaint",
+        "klein_inpaint",
         "png",
         true,
         "",

@@ -728,7 +728,7 @@
         "ver": "2.0.0"
       },
       "widgets_values": [
-        "AusBoss/tour"
+        "tour"
       ]
     },
     {
@@ -837,7 +837,7 @@
       },
       "widgets_values": [
         16.0,
-        "AusBoss/video",
+        "video",
         19,
         "mp4 h264",
         false,

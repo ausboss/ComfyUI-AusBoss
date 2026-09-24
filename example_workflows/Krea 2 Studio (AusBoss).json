@@ -1566,7 +1566,7 @@
         "Node name for S&R": "AUSBOSS_NODES_SaveImage"
       },
       "widgets_values": [
-        "AusBoss/krea2_studio",
+        "krea2_studio",
         "png",
         true,
         "",
@@ -1575,7 +1575,7 @@
         ""
       ],
       "widgets_values_named": {
-        "filename_prefix": "AusBoss/krea2_studio",
+        "filename_prefix": "krea2_studio",
         "format": "png",
         "save_metadata": true,
         "exact_name": "",

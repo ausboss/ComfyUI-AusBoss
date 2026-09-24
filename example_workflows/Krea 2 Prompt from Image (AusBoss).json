@@ -634,7 +634,7 @@
         "ver": "2.0.0"
       },
       "widgets_values": [
-        "AusBoss/krea2_from_image",
+        "krea2_from_image",
         "png",
         true,
         "",

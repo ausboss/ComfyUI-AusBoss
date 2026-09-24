@@ -803,7 +803,7 @@
         "ver": "2.0.0"
       },
       "widgets_values": [
-        "AusBoss/klein_outpaint",
+        "klein_outpaint",
         "png",
         true,
         "",

@@ -767,7 +767,7 @@
         "ver": "2.0.0"
       },
       "widgets_values": [
-        "AusBoss/krea2_outpaint",
+        "krea2_outpaint",
         "png",
         true,
         "",

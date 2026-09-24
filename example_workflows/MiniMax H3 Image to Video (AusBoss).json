@@ -924,7 +924,7 @@
       },
       "widgets_values": [
         24.0,
-        "AusBoss/minimax_h3_i2v",
+        "minimax_h3_i2v",
         17,
         "mp4 h264",
         false,

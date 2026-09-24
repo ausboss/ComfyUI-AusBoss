@@ -72,7 +72,7 @@ class AusBossSaveVideo:
                 "filename_prefix": (
                     "STRING",
                     {
-                        "default": "AusBoss/video",
+                        "default": "video",
                         "tooltip": "Saved under the output folder; subfolders are created automatically.",
                     },
                 ),

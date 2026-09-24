@@ -163,7 +163,7 @@ const CARDS = {
   AUSBOSS_NODES_SaveVideo: {
     minWidth: 320, first: true,
     rows: [
-      { widget: "filename_prefix", label: "Prefix", placeholder: "AusBoss/video" },
+      { widget: "filename_prefix", label: "Prefix", placeholder: "video" },
       { widget: "format", label: "Format", kind: "select" },
       // CRF and Metadata show only for the formats that read them; fps keeps
       // its lifted socket either way.

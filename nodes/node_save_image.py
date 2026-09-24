@@ -99,7 +99,7 @@ class AusBossSaveImage:
                 "filename_prefix": (
                     "STRING",
                     {
-                        "default": "AusBoss/image",
+                        "default": "image",
                         "tooltip": (
                             "The local filename, with optional subfolders: the "
                             "name tags (date, time, size, counter, batch) are "

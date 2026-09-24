@@ -867,7 +867,7 @@
         "Node name for S&R": "AUSBOSS_NODES_SaveImage"
       },
       "widgets_values": {
-        "filename_prefix": "AusBoss/qwen21_t2i",
+        "filename_prefix": "qwen21_t2i",
         "format": "png",
         "save_metadata": true,
         "exact_name": "",
@@ -881,7 +881,7 @@
         "name_batch": false
       },
       "widgets_values_named": {
-        "filename_prefix": "AusBoss/qwen21_t2i",
+        "filename_prefix": "qwen21_t2i",
         "format": "png",
         "save_metadata": true,
         "exact_name": "",

@@ -843,7 +843,7 @@
         "Node name for S&R": "AUSBOSS_NODES_SaveImage"
       },
       "widgets_values": {
-        "filename_prefix": "AusBoss/qwen21_edit",
+        "filename_prefix": "qwen21_edit",
         "format": "png",
         "save_metadata": true,
         "exact_name": "",
@@ -857,7 +857,7 @@
         "name_batch": false
       },
       "widgets_values_named": {
-        "filename_prefix": "AusBoss/qwen21_edit",
+        "filename_prefix": "qwen21_edit",
         "format": "png",
         "save_metadata": true,
         "exact_name": "",
