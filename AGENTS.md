@@ -33,13 +33,16 @@ experiment cannot ride along into a release unnoticed.
 
 The lab **vendors** this repo's shared modules (`js/shared/*.mjs`,
 `nodes/_*_helpers.py`, their tests) and this repo is the source of truth for
-those copies. After changing any of them here, refresh the lab's copies:
+those copies. The lab is private, so this step is the maintainer's: after
+changing any of them here, refresh the lab's copies
 
 ```bash
 python ../ComfyUI-AusBoss-Lab/scripts/sync_shared.py pull
 ```
 
-The lab's `docs/shared_sync.md` holds the full design; its validator also
+(run the bare command first to see the status, and pull only when the lab
+has no uncommitted work in those files). The lab's `docs/shared_sync.md`
+holds the full design; its validator also
 notices stale copies on its own, so this is a courtesy, not the only line of
 defense.
 
@@ -52,6 +55,8 @@ defense.
 - Never add agent attribution to commits or PRs — no `Co-Authored-By`
   trailers, no "generated with" footers. Commits are authored by ausboss alone.
 - Do not read or analyze `__pycache__`, `.git`, or editor config directories.
+- Local notes and handoffs stay out of git: keep them in `_scratch/` or a
+  root-level `ausboss_*.md` file (both ignored), never in a new name.
 - Ask before whole-repo sweeps or large refactors; propose a short plan first.
 - Keep diffs minimal: touch only the lines the task needs.
 - Be concise; skip pleasantries.
@@ -77,9 +82,11 @@ js/
                   # appearance/ (.js files auto-load)
   shared/*.mjs    # import-only shared modules (.mjs files do NOT auto-load)
 docs/             # developer docs
-scripts/          # offline checks, stdlib only. validate_nodes.py is the
-                  # entry point; registry_contract.py holds the rules that
-                  # keep nodes visible to registry scanners.
+scripts/          # offline checks in stdlib Python. validate_nodes.py is
+                  # the entry point; registry_contract.py holds the rules
+                  # that keep nodes visible to registry scanners;
+                  # registry_status.py reads the Registry API; dev/ is the
+                  # Node.js canvas harness (docs/live_testing.md).
 example_workflows/  # example workflows (regular workflow JSON, not API JSON)
 ```
 
@@ -109,15 +116,23 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
 - Console output at import time must stay ASCII — ComfyUI on Windows often
   runs a cp1252 console, and a UnicodeEncodeError there kills the whole pack.
 - Widget values and route parameters are attacker-controlled: ComfyUI's
-  `/prompt` and the pack's routes need no login. A node never contacts a
-  host taken from one, never hands one to a subprocess, and reads or writes
-  only inside ComfyUI's input, output and temp folders - no opt-in
-  switches, no "any folder" settings, no folder pickers. The Registry bans
-  versions for exactly this.
+  `/prompt` and the pack's routes need no login. Media reads and writes stay
+  inside ComfyUI's input, output and temp folders - no opt-in switches, no
+  "any folder" settings, no folder pickers. Besides those the pack only reads
+  its registered model folders and keeps its own settings files in
+  ComfyUI's user folder (`user/ausboss/`). Nothing is handed to a
+  subprocess. The Registry bans versions for exactly this.
+- The pack makes no network requests: no HTTP or socket client in shipped
+  code (`release_preflight.py` fails on one). Graph links are made with
+  `linkSlots` from `js/shared/graph_links.mjs`, never the index-based
+  `node.connect(...)`, which registry scans read as a network socket.
+  SECURITY.md states the model for users.
 - No new pip dependencies without an explicit decision; if truly optional,
   use `[project.optional-dependencies]` and fail soft at runtime.
 - Frontend JS never assigns prototype callbacks directly — use
-  `chainCallback` from `js/shared/index.mjs`.
+  `chainCallback` from `js/shared/index.mjs`, or `chainHandler` where the
+  return value matters (a truthy `onMouseDown` result is what stops a node
+  drag). Messages to the user go through `showToast`, never `alert()`.
 - Every INT and FLOAT a public node exposes reaches the user as a scrub
   control, Adobe-style: drag the value to scrub, click to type, chevron
   arrows step, Shift is always the fine step. Use `makeScrubInput` from
@@ -169,8 +184,10 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
 ## Adding a node
 
 Follow `docs/adding_a_node.md`. Short version: create `nodes/node_<name>.py`
-from the template, add `"node_<name>"` to `NODE_MODULES` in `__init__.py`,
-optionally add `js/<name>/index.js`, then validate. Brand and design-language
+modelled on a small existing node such as `nodes/node_image_size.py`, add
+`"node_<name>"` to `NODE_MODULES` in `__init__.py` and the key to
+`PUBLIC_NODE_IDS` in `scripts/validate_nodes.py`, give it a help page at
+`js/docs/<KEY>.md`, optionally add `js/<name>/index.js`, then validate. Brand and design-language
 guidance (visual grammar, settings conventions, interaction etiquette) lives
 in `.claude/skills/ausboss-node-brand/SKILL.md`.
 
@@ -178,6 +195,8 @@ in `.claude/skills/ausboss-node-brand/SKILL.md`.
 
 ```bash
 python scripts/validate_nodes.py
+python scripts/release_preflight.py
+python scripts/run_python_tests.py   # with ComfyUI's Python
 node --test tests/*.test.mjs
 ```
 
@@ -200,12 +219,13 @@ refresh the lab's vendored copies (see the top of this file).
 
 ## Releasing
 
-There is no separate "upload" step: landing a `pyproject.toml` change on
-main IS publishing. `.github/workflows/publish_action.yml`
+There is no separate "upload" step: landing a new `version` in
+`pyproject.toml` on main IS publishing. `.github/workflows/publish_action.yml`
 (Comfy-Org/publish-node-action, repo secret `REGISTRY_ACCESS_TOKEN`)
-pushes the version to the Comfy Registry (`ausboss-nodes`, publisher
-`ausboss`) on every pyproject change that reaches main — so treat the
-version line as the trigger it is.
+compares the version with the previous commit, runs the offline checks, and
+pushes it to the Comfy Registry (`ausboss-nodes`, publisher `ausboss`).
+Editing other pyproject fields without a new version publishes nothing, but
+treat the version line as the trigger it is.
 
 A release, when explicitly asked for:
 
@@ -214,8 +234,10 @@ A release, when explicitly asked for:
    warning fires on fresh installs. The README release badge is dynamic
    (shields.io reads pyproject off main at view time) and must stay that
    way — never swap a hardcoded version badge back in.
-   `python scripts/release_preflight.py` enforces all of this and the
-   other release checks.
+   `python scripts/release_preflight.py` checks the version pair, the
+   badge, what the Registry archive would hold, the example workflows and
+   the no-network rule. It does not read the CHANGELOG or the pyproject
+   description, so steps 2 and 3 are yours.
 2. Retitle the CHANGELOG `## Unreleased` section to `## X.Y.Z - date`.
 3. If the node roster changed, update the pyproject `description` and
    `keywords`: the registry shows the description verbatim and
@@ -245,20 +267,44 @@ A release, when explicitly asked for:
    strict: only Active exits 0. The report retries transient service errors
    and brief publication visibility delays; it never retries publication.
 
-   As of 2026-09-07, versions 1.1.0, 1.1.1, 1.2.0, and 1.3.0 are Banned,
-   not merely Flagged. The older decisions identify LM Studio's unrestricted
-   endpoint; 1.2.0/1.3.0 carry a broader code-execution verdict. Review is
-   tracked in https://github.com/Comfy-Org/registry-backend/issues/216.
-   Resolve the recorded finding and request review of a corrected candidate;
-   a fresh version number alone does not resolve a ban. Confirm the current
-   issue history before posting, and obtain explicit authorization to send
-   any external follow-up unless it was already authorized in the session.
+   History worth knowing: 1.1.0-1.3.0 are Banned (1.1.x for LM Studio's
+   workflow-controlled endpoint; 1.2.0/1.3.0 for code execution through
+   `/prompt`, most likely Save Image's then-unrestricted output folder),
+   2.0.0 and 2.0.1 stayed Flagged, and 2.0.2 was approved after a code
+   review. Flags have come from informational scanner rules (network and
+   socket patterns), which is why the no-network rule above is enforced.
+   Review threads live in
+   https://github.com/Comfy-Org/registry-backend/issues/216. A fresh version
+   number alone does not lift a ban: resolve the recorded finding and ask
+   for review of the corrected version. Read the current issue history
+   before posting, and obtain explicit authorization to post anything
+   there unless it was already given in the session.
+
+## Example workflows
+
+Examples are what most people run first, so each one must work for a
+stranger with only the files its Workflow Note lists.
+
+- Every loader selects the official file name, the basename of its
+  download URL, carries that file in `properties.models`
+  (`name`, `url`, `directory`), and the Note's model row names the same
+  file. People who keep models in subfolders pick their copy.
+- Save nodes use a filename prefix without a folder. Seeds are fixed.
+- Numbered groups hold every node, nothing overlaps (title bars included),
+  the saved zoom is at least 0.6 so widget text draws, the workflow `id` is
+  a real uuid4, and the `.jpg` beside the `.json` shows a real output.
+  `scripts/workflow_contract.py` checks the structure; the rest is review.
+- Text-to-image examples have no source to describe. Edit and inpaint
+  examples keep an explicit change instruction: a description of the old
+  scene is not an edit. MiniMax H3 and Klein caption their sources with
+  Qwen3-VL 8B because their own text encoders returned only punctuation
+  when asked to describe an image.
 
 ## Phase 2: porting an existing node
 
 1. Drop the old file in `_scratch/` (gitignored) and read it fully first.
-2. Rebuild the core compute in a clean `nodes/node_<name>.py` from the
-   template — port logic deliberately, don't paste wholesale.
+2. Rebuild the core compute in a clean `nodes/node_<name>.py`, modelled on
+   an existing node — port logic deliberately, don't paste wholesale.
 3. Shared logic goes to `nodes/_<topic>_helpers.py`, not duplicated.
 4. Frontend goes to `js/<name>/index.js`; reusable bits to `js/shared/`.
 5. Keep the old class-name string as the mapping key only if existing saved

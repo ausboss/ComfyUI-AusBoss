@@ -93,7 +93,7 @@ The grammar, as ausboss signed it off in September 2026:
   `off` on the left, the on-state on the right, with short state names when
   they help (`off | embed workflow`, `every step | once per run`) and the
   explanation on the tooltip. A small 30 px switch inside a card was
-  rejected as out of scale; the only small switch in the pack is the
+  rejected as out of scale; the only small switch on a card is the
   preview bar's, which is meant to be discreet.
 - **Strings** are text fields; a multiline prompt is a `kind: "textarea"`
   row (`grow: true` takes the node's spare height) so a prompt node is one
@@ -122,7 +122,7 @@ The grammar, as ausboss signed it off in September 2026:
   never clip a panel.
 - Save Image has its own card (`js/save_image/`) built from the same
   grammar: folder + browse, filename with a linked tag, live path preview,
-  tag chips, format pill, embed switch.
+  tag chips, format pill, and an off | embed workflow pill.
 
 What ausboss asked to remove, so it does not come back: offset outputs on
 Align Image, captions under Crop For Inpaint's rows, the small switch, units
@@ -151,8 +151,11 @@ outside the box, and typed boxes for values that are only ever wired.
 - **Widgets are the single source of truth.** Rich UI drives hidden standard
   widgets (`serialize: false` on DOM widgets); no custom serialization, so
   save/load, undo, and API format work through LiteGraph's default path.
-- Chain lifecycle hooks with `chainCallback` from `js/shared/index.mjs`;
-  never assign prototype callbacks directly.
+- Chain lifecycle hooks with `chainCallback` from `js/shared/index.mjs`
+  (`chainHandler` when the return value matters, as for `onMouseDown`);
+  never assign prototype callbacks directly. Messages go through
+  `showToast`, copies through `copyToClipboard`
+  (`js/shared/clipboard.mjs`), which reports whether they worked.
 - Panels that display something (stage, player, filmstrip) follow the node's
   height through `fillNodeHeight` (`js/shared/panel_layout.mjs`); only
   constant-height rows (a toolbar, a button row) may keep a fixed
@@ -206,12 +209,15 @@ outside the box, and typed boxes for values that are only ever wired.
 
 ```bash
 python scripts/validate_nodes.py
+python scripts/release_preflight.py
+python scripts/run_python_tests.py   # with ComfyUI's Python
 node --test tests/*.test.mjs
 ```
 
-Then the full checklist in [docs/adding_a_node.md](../../../docs/adding_a_node.md):
-restart ComfyUI, watch the banner, check `/object_info`, queue an API graph,
-load the example workflow, and hard-refresh the browser after JS changes.
+Then the checklists in [AGENTS.md](../../../AGENTS.md) § Validation and
+[docs/adding_a_node.md](../../../docs/adding_a_node.md): restart ComfyUI,
+watch the banner, check `/object_info`, queue an API graph, load the example
+workflow, and hard-refresh the browser after JS changes.
 For anything visual, the headless-Chrome harness in `scripts/dev/` and the
 recipe in [docs/live_testing.md](../../../docs/live_testing.md) produce the
 screenshots ausboss reviews; save them under `_scratch/node_screenshots/`
