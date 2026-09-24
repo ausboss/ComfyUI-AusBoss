@@ -4,7 +4,7 @@
 // evaluates checkEval and screenshots again.
 import fs from "node:fs";
 const [port, setupFile, midPng, afterPng, checkFile] = process.argv.slice(2);
-const COMFY = "http://127.0.0.1:8188/";
+const COMFY = new URL(process.env.COMFY_URL || "http://127.0.0.1:8188/").href;
 const list = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
 const page = list.find((t) => t.type === "page" && t.url.startsWith(COMFY));
 if (!page) throw new Error("no comfy tab");
@@ -12,7 +12,7 @@ const ws = new WebSocket(page.webSocketDebuggerUrl);
 await new Promise((r) => (ws.onopen = r));
 let id = 0; const pending = new Map();
 ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.id && pending.has(d.id)) { pending.get(d.id)(d); pending.delete(d.id); } else if (d.method === "Page.javascriptDialogOpening") { ws.send(JSON.stringify({ id: ++id, method: "Page.handleJavaScriptDialog", params: { accept: true } })); } };
-const send = (method, params = {}) => new Promise((r) => { const i = ++id; pending.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
+const send = (method, params = {}) => new Promise((r, reject) => { const i = ++id; const timer = setTimeout(() => { pending.delete(i); reject(new Error(`CDP timeout: ${method}`)); }, 25000); pending.set(i, (d) => { clearTimeout(timer); r(d); }); ws.send(JSON.stringify({ id: i, method, params })); });
 const evalJs = async (expr) => {
   const r = await send("Runtime.evaluate", { expression: expr, awaitPromise: true, returnByValue: true });
   if (r.result?.exceptionDetails) throw new Error(JSON.stringify(r.result.exceptionDetails.exception?.description ?? r.result.exceptionDetails));

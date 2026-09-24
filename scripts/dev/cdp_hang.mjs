@@ -1,7 +1,7 @@
 // Pre-arm the debugger on a blank tab, navigate to ComfyUI, and if the page
 // stops answering, pause it and print where it is spinning.
 const port = process.argv[2];
-const COMFY = "http://127.0.0.1:8188/";
+const COMFY = new URL(process.env.COMFY_URL || "http://127.0.0.1:8188/").href;
 const page = await (await fetch(`http://127.0.0.1:${port}/json/new?about:blank`, { method: "PUT" })).json();
 const ws = new WebSocket(page.webSocketDebuggerUrl);
 await new Promise((r) => (ws.onopen = r));

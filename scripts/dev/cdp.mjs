@@ -5,7 +5,7 @@
 import fs from "node:fs";
 const [port, wfPath, outPng, evalFile, waitArg] = process.argv.slice(2);
 const waitMs = Number(waitArg ?? 1500);
-const COMFY = "http://127.0.0.1:8188/";
+const COMFY = new URL(process.env.COMFY_URL || "http://127.0.0.1:8188/").href;
 const list = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
 let page = list.find((t) => t.type === "page" && t.url.startsWith(COMFY));
 if (page && process.env.CDP_RELOAD === "1") {

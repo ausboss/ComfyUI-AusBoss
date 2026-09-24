@@ -9,10 +9,11 @@ recipe.
 
 ## The pieces
 
-- **ComfyUI** on `http://127.0.0.1:8188`, with this repository installed or
-  linked into `custom_nodes`. A changed `INPUT_TYPES` is served only after
-  a full restart. Stop the test instance, then start it from the ComfyUI
-  checkout using that installation's Python environment:
+- **ComfyUI** on `http://127.0.0.1:8188` (set `COMFY_URL` to point the
+  scripts elsewhere), with this repository installed or linked into
+  `custom_nodes`. A changed `INPUT_TYPES` is served only after a full
+  restart. Stop the test instance, then start it from the ComfyUI checkout
+  using that installation's Python environment:
 
   ```bash
   python main.py --listen 127.0.0.1
@@ -55,7 +56,7 @@ An eval creates the node at `pos [0, 0]`, sets `app.canvas.ds.scale = 1` and
 (`r` is the canvas element's bounding rect). Shots go to
 `_scratch/node_screenshots/` (gitignored) named `<round>_<Node>[_state].png`,
 `_mid` for a screenshot taken during a drag and `_after` for the result.
-Side-by-side pairs live in `pairs/`.
+Side-by-side pairs live in `_scratch/node_screenshots/pairs/`.
 
 ## Gotchas learned the hard way
 
@@ -66,7 +67,8 @@ Side-by-side pairs live in `pairs/`.
 - **A real mouse drag marks the workflow modified.** The next in-place
   navigation raises ComfyUI's `beforeunload` dialog and the whole tab stops
   answering every CDP call, even `1+1`; it looks exactly like a renderer
-  hang. The scripts auto-accept dialogs and reload into a fresh tab.
+  hang. The scripts auto-accept dialogs, and `CDP_RELOAD=1` makes `cdp.mjs`
+  reload into a fresh tab rather than navigate the old one.
 - **Reset a half-finished link drag** (`app.canvas.linkConnector.reset()`)
   before clearing the graph in an eval.
 - The mid-drag screenshot shows the socket lit and the tooltip, not the
@@ -74,7 +76,8 @@ Side-by-side pairs live in `pairs/`.
 - Widget input sockets are drawn only while a link is dragged, hovered, or
   connected, so a "no socket visible" screenshot at rest is normal; the
   mid-drag shot is the one that shows where a link can land.
-- `cdp.mjs` requests time out after 25 s; the workflow audit allows 45 s.
+- `cdp.mjs` and `cdp_drag.mjs` requests time out after 25 s; the workflow
+  audit allows 45 s.
   Inspect the browser's dialogs and logs when a request stops responding.
 - Keep review renders and logs in the ignored `_scratch/` directory. Only
   deliberately shipped sample media belongs in `example_workflows/inputs/`.
