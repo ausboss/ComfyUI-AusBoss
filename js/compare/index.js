@@ -1,6 +1,6 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
-import { BRAND, chainCallback, keepDomWidgetWidthAuto } from "../shared/index.mjs";
+import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
 import { mediaViewQuery, responsivePreviewHeight } from "../shared/video_preview.mjs";
 import { VIDEO_MIN_WIDTH, ensureVideoCss, makeToolButton } from "../shared/video_ui.mjs";
@@ -161,12 +161,15 @@ function buildPanel(node) {
   slideButton.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
+    const changed = getMode(node) !== "slide";
     node.properties.ausboss_compare_mode = normalizeCompareMode("slide");
     state.showingB = false;
     state.fraction = 0;
     applyClip(state);
     updateModeButtons(state);
     node.setDirtyCanvas?.(true, true);
+    // The mode saves with the workflow; flipping A/B within it does not.
+    if (changed) notifyAusbossChange();
   }, { signal });
 
   abButton.addEventListener("click", (event) => {
@@ -179,6 +182,7 @@ function buildPanel(node) {
     node.properties.ausboss_compare_mode = normalizeCompareMode("toggle");
     state.showingB = wasToggle ? !state.showingB : true;
     applyToggle(state);
+    if (!wasToggle) notifyAusbossChange();
   }, { signal });
 
   // The panel owns pointer movement only inside itself; pointerdown is never

@@ -447,13 +447,16 @@ function openPopup(element, anchorRect, { width } = {}) {
   return { place };
 }
 
-function commitRows(state, rows, { structural = false } = {}) {
+// Every commit is a user gesture and enters undo history; a drag passes
+// record: false for its intermediate values and records once on release.
+function commitRows(state, rows, { structural = false, record = true } = {}) {
   state.rows = rows;
   state.widget.value = serializeRows(rows);
   state.renderedValue = state.widget.value;
   state.node.graph?.setDirtyCanvas(true, true);
   if (structural) renderRows(state);
   else updateRowValues(state);
+  if (record) notifyAusbossChange();
 }
 
 function linked(state) {
@@ -583,11 +586,11 @@ function strengthBox(state, index, key) {
   input.__ausbossTint = () => state.rows[index] && applyRangeTint(input, state.rows[index], key);
   ensureRange(state, state.rows[index].name);
 
-  const commitValue = (value, structural = false) => {
+  const commitValue = (value, { record = true } = {}) => {
     let rows = state.rows;
     if (key === "strength") rows = setStrength(rows, index, value, linked(state));
     else rows = rows.map((row, i) => (i === index ? { ...row, strength_clip: roundStrength(value) } : row));
-    commitRows(state, rows, { structural });
+    commitRows(state, rows, { record });
   };
 
   let drag = null;
@@ -603,7 +606,7 @@ function strengthBox(state, index, key) {
     const dy = event.clientY - drag.y;
     if (!drag.scrubbed && isScrubbing(dx, dy)) drag.scrubbed = true;
     if (drag.scrubbed) {
-      commitValue(scrubValue(drag.start, dx, event.shiftKey, state.settings?.step));
+      commitValue(scrubValue(drag.start, dx, event.shiftKey, state.settings?.step), { record: false });
     }
   });
   const endDrag = (event) => {
@@ -611,6 +614,7 @@ function strengthBox(state, index, key) {
     try { input.releasePointerCapture(event.pointerId); } catch {}
     const wasClick = !drag.scrubbed;
     drag = null;
+    if (!wasClick) notifyAusbossChange();
     if (wasClick) {
       input.readOnly = false;
       input.focus();
@@ -1519,13 +1523,16 @@ function renderRows(state) {
           index,
           scrubValue(nameDrag.start, dx, event.shiftKey, state.settings?.step),
           linked(state),
-        ));
+        ), { record: false });
       }
     });
     const endNameDrag = (event) => {
       if (!nameDrag) return;
       try { name.releasePointerCapture(event.pointerId); } catch {}
-      if (nameDrag.scrubbed) name.dataset.ausbossScrubbed = "1";
+      if (nameDrag.scrubbed) {
+        name.dataset.ausbossScrubbed = "1";
+        notifyAusbossChange();
+      }
       nameDrag = null;
     };
     name.addEventListener("pointerup", endNameDrag);

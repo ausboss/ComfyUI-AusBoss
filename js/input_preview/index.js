@@ -146,6 +146,7 @@ function applyAutoValues(state) {
   setWidgetValue(state.node, "blur", values.blur);
   toast(state, `${size.width}x${size.height}: expand ${values.expand}, blur ${values.blur}`);
   state.node.setDirtyCanvas?.(true, true);
+  notifyAusbossChange();
 }
 
 function advancedShown(node) {
