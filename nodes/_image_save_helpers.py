@@ -67,22 +67,24 @@ def strip_image_extension(name: str) -> str:
     return text
 
 
-def sanitize_exact_name(name: str) -> str:
+def sanitize_exact_name(name: str, source: str = "Save Image: exact_name") -> str:
     """Normalize an exact name into a safe relative subpath.
 
     Widget values are attacker-controlled: parent traversal, drive letters,
     and rooted paths are rejected rather than silently rewritten, so the
     save always lands inside the chosen output root. Forward and backward
-    slashes both separate subfolders.
+    slashes both separate subfolders. ``source`` names the node and input
+    in the error, as "Node: input", so Save Video's prefix is reported
+    against Save Video.
     """
     text = str(name or "").strip().replace("\\", "/")
     if not text:
         return ""
     if ":" in text or PureWindowsPath(text).drive or text.startswith("/"):
-        raise ValueError("Save Image: exact_name must be a relative name, not a rooted path.")
+        raise ValueError(f"{source} must be a relative name, not a rooted path.")
     parts = [part for part in text.split("/") if part not in ("", ".")]
     if any(part == ".." for part in parts):
-        raise ValueError("Save Image: exact_name may not contain '..'.")
+        raise ValueError(f"{source} may not contain '..'.")
     if not parts:
         return ""
     return "/".join(parts)

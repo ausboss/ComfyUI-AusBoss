@@ -56,6 +56,17 @@ class NamingTests(unittest.TestCase):
             with self.subTest(name=name), self.assertRaises(ValueError):
                 sanitize_exact_name(name)
 
+    def test_errors_name_the_calling_node_and_input(self):
+        # Save Image's wording is unchanged; Save Video names itself.
+        with self.assertRaisesRegex(
+            ValueError, r"^Save Image: exact_name must be a relative name, not a rooted path\.$"
+        ):
+            sanitize_exact_name("/rooted/photo")
+        with self.assertRaisesRegex(ValueError, r"^Save Image: exact_name may not contain '\.\.'\.$"):
+            sanitize_exact_name("../photo")
+        with self.assertRaisesRegex(ValueError, r"^Save Video: filename_prefix must be a relative"):
+            sanitize_exact_name("/abs/x", "Save Video: filename_prefix")
+
     def test_single_image_gets_exactly_the_name(self):
         self.assertEqual(plan_exact_names("photo123", "png", 1), ["photo123.png"])
 

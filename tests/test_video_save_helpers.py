@@ -317,6 +317,22 @@ class SaveVideoHelperTests(unittest.TestCase):
                 encode.assert_not_called()
                 self.assertEqual(list(Path(outside).iterdir()), [])
 
+    def test_a_rooted_or_escaping_prefix_is_reported_against_save_video(self):
+        for prefix, detail in (("/abs/x", "must be a relative name"), ("../x", "may not contain")):
+            with (
+                self.subTest(prefix=prefix),
+                patch.object(node_save_video, "folder_paths", FakeFolderPaths),
+                patch.object(node_save_video, "encode_video") as encode,
+            ):
+                with self.assertRaises(ValueError) as caught:
+                    run_node(node_save_video.AusBossSaveVideo().save(
+                        frames=gradient_batch(1, 16, 16), fps=8.0, filename_prefix=prefix, crf=19,
+                    ))
+                message = str(caught.exception)
+                self.assertTrue(message.startswith("Save Video: filename_prefix "), message)
+                self.assertIn(detail, message)
+                encode.assert_not_called()
+
     def test_the_file_path_output_is_appended_and_the_node_stays_an_output(self):
         node = node_save_video.AusBossSaveVideo
         self.assertEqual(node.RETURN_TYPES, ("STRING",))

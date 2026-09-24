@@ -216,7 +216,7 @@ class AusBossSaveVideo:
         # clip, not a playback trick, so every frame count downstream counts it.
         if pingpong:
             frames = pingpong_frames(frames)
-        filename_prefix = sanitize_exact_name(filename_prefix)
+        filename_prefix = sanitize_exact_name(filename_prefix, "Save Video: filename_prefix")
         output_root = Path(folder_paths.get_output_directory())
         require_output_path(output_root / filename_prefix, output_root)
         full_output_folder, filename, counter, subfolder, filename_prefix = (
