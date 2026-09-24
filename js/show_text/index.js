@@ -11,7 +11,8 @@
 // Show Text node.
 
 import { app } from "/scripts/app.js";
-import { chainCallback, keepDomWidgetWidthAuto } from "../shared/index.mjs";
+import { BRAND, chainCallback, keepDomWidgetWidthAuto } from "../shared/index.mjs";
+import { copyToClipboard } from "../shared/clipboard.mjs";
 import { fillNodeHeight } from "../shared/panel_layout.mjs";
 import { displayText, textFromExecuted } from "../shared/show_text.mjs";
 
@@ -29,15 +30,18 @@ function ensureCss() {
   style.textContent = `
 .ausboss-show-text{box-sizing:border-box;width:100%;height:100%;padding:2px 6px 6px;pointer-events:none;overflow:hidden;}
 .ausboss-show-text-stage{box-sizing:border-box;position:relative;display:flex;flex-direction:column;width:100%;height:100%;overflow:hidden;border:1px solid rgba(0,180,170,.27);border-radius:6px;background:rgba(0,0,0,.28);}
-.ausboss-show-text-body{flex:1;margin:0;padding:6px 8px;overflow-y:auto;pointer-events:auto;user-select:text;-webkit-user-select:text;cursor:text;color:#c8dddd;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;}
+.ausboss-show-text-body{flex:1;margin:0;padding:6px 30px 6px 8px;overflow-y:auto;pointer-events:auto;user-select:text;-webkit-user-select:text;cursor:text;color:#c8dddd;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;}
 .ausboss-show-text-hint{margin:auto;max-width:86%;padding:6px;color:#78908e;font:11px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-align:center;}
 .ausboss-show-text-note{flex:none;padding:3px 8px;border-top:1px solid rgba(0,180,170,.18);color:#78908e;font:10px/1.3 "Segoe UI",sans-serif;}
+.ausboss-show-text-copy{position:absolute;top:4px;right:4px;width:22px;height:20px;padding:0;border:1px solid #3a4047;border-radius:4px;background:rgba(20,24,26,.92);color:#8ba3a1;font:12px/1 system-ui;cursor:pointer;pointer-events:auto;}
+.ausboss-show-text-copy:hover{color:${BRAND};border-color:${BRAND};}
 `;
   document.head.appendChild(style);
 }
 
 function render(state) {
   const text = state.node.properties?.[TEXT_PROPERTY];
+  state.copy.style.display = "none";
   if (typeof text !== "string") {
     state.body.style.display = "none";
     state.note.style.display = "none";
@@ -53,6 +57,7 @@ function render(state) {
     return;
   }
   const shown = displayText(text);
+  state.copy.style.display = "block";
   state.hint.style.display = "none";
   state.body.style.display = "block";
   state.body.textContent = shown.text;
@@ -78,10 +83,22 @@ function buildPanel(node) {
   hint.className = "ausboss-show-text-hint";
   const note = document.createElement("div");
   note.className = "ausboss-show-text-note";
-  stage.append(body, hint, note);
+  // Copies the whole string, even when the panel shows only its start.
+  const copy = document.createElement("button");
+  copy.type = "button";
+  copy.className = "ausboss-show-text-copy";
+  copy.textContent = "⧉";
+  copy.title = "Copy the text";
+  stage.append(body, hint, note, copy);
   root.append(stage);
 
   const abort = new AbortController();
+  copy.addEventListener("pointerdown", (event) => event.stopPropagation(), { signal: abort.signal });
+  copy.addEventListener("click", async () => {
+    const copied = await copyToClipboard(node.properties?.[TEXT_PROPERTY] ?? "");
+    copy.textContent = copied ? "✓" : "✕";
+    setTimeout(() => { copy.textContent = "⧉"; }, copied ? 700 : 1400);
+  }, { signal: abort.signal });
   // Text selection must not read as a node drag: the press stops here and
   // the browser's own selection takes over inside the block.
   body.addEventListener("pointerdown", (event) => event.stopPropagation(), {
@@ -100,7 +117,7 @@ function buildPanel(node) {
     minNodeSize: [PANEL_MIN_WIDTH, 150],
   });
 
-  const state = (node.__ausbossShowText = { node, root, stage, body, hint, note, widget, abort });
+  const state = (node.__ausbossShowText = { node, root, stage, body, hint, note, copy, widget, abort });
   render(state);
   return state;
 }
