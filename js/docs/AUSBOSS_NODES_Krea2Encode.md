@@ -17,13 +17,15 @@ there doing nothing.
   the normal case there.
 - **vae**: Needed to turn the reference images into latents. Without it the
   references are skipped and only the prompts are encoded.
-- **reference**: The `reference` output of Load Image + Pad 🆎 — the unpadded
-  source. Any image works; it is fitted to a multiple of 16 first.
+- **reference**: The image the result follows. For AnyPaint that is Load
+  Image + Pad 🆎's padded `image`; for Registered Outpaint, its unpadded
+  `reference` output. Any image works; it is fitted to a multiple of 16 first.
 - **extra_image**: A second reference, e.g. a style or character plate.
-- **vlm_reference**: Also show the references to the vision tower, so the text
-  encoder describes them. Off for outpaint: the latents already carry the
-  picture, and the description tends to pull the result toward a paraphrase of
-  the source.
+- **VLM reference** (`vlm_reference`): Also show the references to the vision
+  tower, so the text encoder describes them. On for AnyPaint with the padded
+  canvas as the reference; off for Registered Outpaint with the unpadded
+  source, where the description tends to pull the result toward a paraphrase
+  of the source. The Krea 2 Outpaint Model Patch page covers both setups.
 
 ## Outputs
 
