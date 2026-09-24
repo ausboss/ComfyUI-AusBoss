@@ -129,6 +129,22 @@ class VideoClipNodeTests(unittest.TestCase):
         self.assertIsNot(AusBossVideoCropRotatePadClip.VALIDATE_INPUTS(
             "", "local path", str(self.video), 0, 0, input_types={"start_frame": "STRING"}), True)
 
+    def test_decode_errors_name_this_node_and_only_its_inputs(self):
+        # The shared decode used to report "Load Video" and advise
+        # custom_width/custom_height, which this node does not have.
+        with self.assertRaisesRegex(ValueError, r"^Video Crop \+ Rotate \+ Pad -> Clip starts at 99\.00s"):
+            self.run_node(start_seconds=99.0)
+        from nodes import _video_load_helpers
+
+        with unittest.mock.patch.object(_video_load_helpers, "_available_memory_bytes", return_value=1000):
+            with self.assertRaises(ValueError) as caught:
+                self.run_node()
+        message = str(caught.exception)
+        self.assertTrue(message.startswith("Video Crop + Rotate + Pad -> Clip would need"), message)
+        self.assertIn("every_nth", message)
+        self.assertNotIn("custom_width", message)
+        message.encode("ascii")
+
     def test_invalid_force_rate_and_backwards_frame_bounds_fail(self):
         for rate in (-1, float("nan"), 1001):
             with self.assertRaises(ValueError):

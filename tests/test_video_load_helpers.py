@@ -229,6 +229,24 @@ class VideoLoadHelperTests(unittest.TestCase):
         self.assertIn("custom_width", message)
         self.assertIn("shorter", message)
 
+    def test_memory_budget_names_the_caller_and_only_its_inputs(self):
+        # Load Video's wording is unchanged; another caller names itself and
+        # suggests its own inputs instead of custom_width/custom_height.
+        self.assertEqual(
+            memory_budget_error(3000, 1920, 1080, 16_000_000_000),
+            "Load Video would need about 74.6 GB for 3000 frames at 1920x1080, "
+            "but only 16.0 GB of memory is available. Trim a shorter start/end "
+            "window or set custom_width/custom_height to shrink the frames.",
+        )
+        message = memory_budget_error(
+            3000, 1920, 1080, 16_000_000_000, source="Clip", advice="Raise every_nth."
+        )
+        self.assertEqual(
+            message,
+            "Clip would need about 74.6 GB for 3000 frames at 1920x1080, but only "
+            "16.0 GB of memory is available. Raise every_nth.",
+        )
+
     def test_memory_budget_applies_the_safety_factor(self):
         needed = 10 * 8 * 8 * 3 * 4
         self.assertIsNone(memory_budget_error(10, 8, 8, needed * 2))
@@ -245,6 +263,14 @@ class VideoLoadHelperTests(unittest.TestCase):
             trim_window(10.0, 5.0, 5.0)
         with self.assertRaisesRegex(ValueError, "only"):
             trim_window(2.0, 3.0, 0.0)
+
+    def test_trim_errors_name_the_calling_node(self):
+        with self.assertRaisesRegex(ValueError, "^Load Video needs start_seconds smaller"):
+            trim_window(10.0, 5.0, 5.0)
+        with self.assertRaisesRegex(ValueError, "^Clip needs start_seconds smaller"):
+            trim_window(10.0, 5.0, 5.0, "Clip")
+        with self.assertRaisesRegex(ValueError, r"^Clip starts at 3\.00s"):
+            trim_window(2.0, 3.0, 0.0, "Clip")
 
 
 class TrimFrameWindowTests(unittest.TestCase):

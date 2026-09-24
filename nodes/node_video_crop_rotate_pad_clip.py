@@ -299,9 +299,15 @@ class AusBossVideoCropRotatePadClip:
             )
         # The decode blocks for as long as the trim is; off the loop so the
         # executor keeps answering, with the context ComfyUI's progress and
-        # interrupt hooks need carried along.
+        # interrupt hooks need carried along. Its errors name this node and
+        # suggest only inputs it has - there is no custom size here.
         frames, source_fps = await asyncio.to_thread(
-            decode_video_range, path, float(start_seconds), float(end_seconds), 0, 0, nth, cap, force_rate
+            decode_video_range, path, float(start_seconds), float(end_seconds), 0, 0, nth, cap, force_rate,
+            source="Video Crop + Rotate + Pad -> Clip",
+            memory_advice=(
+                "Trim a shorter start/end window, raise every_nth, or load fewer "
+                "frames with max_frames or fixed_frames."
+            ),
         )
         if fixed_frames and int(frames.shape[0]) != fixed_frames:
             raise ValueError("The source did not decode enough frames for Fixed frames. Reduce the requested length.")
