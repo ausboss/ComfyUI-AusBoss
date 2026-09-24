@@ -1,6 +1,6 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
-import { chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
+import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { fillNodeHeight } from "../shared/panel_layout.mjs";
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
 import { canvasHeightForWidth, parseImageReference } from "../shared/pad_canvas.mjs";
@@ -21,8 +21,10 @@ function ensurePadCss() {
   const style = document.createElement("style");
   style.id = CSS_ID;
   style.textContent = `
-.ausboss-loadpad-root{box-sizing:border-box;width:100%;height:100%;display:flex;flex-direction:column;padding:2px 6px 6px;overflow:hidden;}
+.ausboss-loadpad-root{position:relative;box-sizing:border-box;width:100%;height:100%;display:flex;flex-direction:column;padding:2px 6px 6px;overflow:hidden;}
 .ausboss-loadpad-root canvas{flex:1 1 auto;min-height:0;width:100%;display:block;border:1px solid rgba(0,180,170,.34);border-radius:6px;background:#0c0e10;touch-action:none;}
+.ausboss-loadpad-reset{position:absolute;top:8px;right:12px;height:20px;padding:0 8px;border:1px solid #3a4047;border-radius:4px;background:rgba(20,24,26,.92);color:#8ba3a1;font:600 10.5px/1 system-ui;cursor:pointer;}
+.ausboss-loadpad-reset:hover{color:${BRAND};border-color:${BRAND};}
 `;
   document.head.appendChild(style);
 }
@@ -89,7 +91,14 @@ function buildPanel(node) {
   const root = document.createElement("div");
   root.className = "ausboss-loadpad-root";
   const canvas = document.createElement("canvas");
-  root.append(canvas);
+  // Clears the padding on every side a link does not drive; shown only
+  // while there is some to clear.
+  const reset = document.createElement("button");
+  reset.type = "button";
+  reset.className = "ausboss-loadpad-reset";
+  reset.textContent = "Reset padding";
+  reset.title = "Set every unlinked side's padding back to 0";
+  root.append(canvas, reset);
 
   const widget = node.addDOMWidget(PANEL_WIDGET, "ausboss_load_image_pad", root, {
     serialize: false,
@@ -146,6 +155,27 @@ function buildPanel(node) {
   });
   state.stage = stage;
 
+  const sides = ["left", "top", "right", "bottom"];
+  const unlinked = (side) => node.inputs?.find((entry) => entry.name === `pad_${side}`)?.link == null;
+  const syncReset = () => {
+    reset.style.display = sides.some((side) => unlinked(side) && numberValue(node, `pad_${side}`) > 0) ? "block" : "none";
+  };
+  reset.addEventListener("pointerdown", (event) => event.stopPropagation());
+  reset.addEventListener("click", () => {
+    for (const side of sides) {
+      if (!unlinked(side)) continue;
+      const target = findWidget(node, `pad_${side}`);
+      if (!target || Number(target.value) === 0) continue;
+      target.value = 0;
+      target.callback?.(0);
+    }
+    stage.draw();
+    syncReset();
+    notifyAusbossChange();
+    node.setDirtyCanvas?.(true, true);
+  });
+  state.syncReset = syncReset;
+
   const refresh = () => {
     const serial = ++state.loadSerial;
     const reference = parseImageReference(imageWidget.value);
@@ -178,8 +208,9 @@ function buildPanel(node) {
 
   watchWidget(node, "image", refresh);
   for (const name of ["pad_left", "pad_top", "pad_right", "pad_bottom", "canvas_multiple", "target_megapixels"]) {
-    watchWidget(node, name, () => stage.draw());
+    watchWidget(node, name, () => { stage.draw(); syncReset(); });
   }
+  syncReset();
 
   // computeSize()[1] is no longer the stage's height — the panel takes the
   // node's leftover space now, so the node's minimum is only the panel's
@@ -209,6 +240,7 @@ app.registerExtension({
         if (state) {
           suppressCoreImagePreview(this);
           state.refresh?.();
+          state.syncReset?.();
         }
       });
     });
