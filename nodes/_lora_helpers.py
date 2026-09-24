@@ -277,7 +277,15 @@ def missing_lora_rows(rows: list[dict[str, Any]]) -> list[tuple[str, str]]:
     return missing
 
 
-def apply_lora_stack(model, clip, rows: list[dict[str, Any]], on_missing: str = "error"):
+def apply_lora_stack(
+    model, clip, rows: list[dict[str, Any]], on_missing: str = "error", missing: list | None = None
+):
+    """Apply the enabled, non-zero rows in order and return (model, clip).
+
+    In skip mode a row whose file cannot be found is warned about and left
+    out; pass a list as ``missing`` to collect those rows, which is how the
+    node keeps a LoRA that never loaded from adding its trigger words.
+    """
     import comfy.sd
 
     for row in rows:
@@ -301,6 +309,8 @@ def apply_lora_stack(model, clip, rows: list[dict[str, Any]], on_missing: str = 
                     "instead; in API graphs that is on_missing: skip."
                 )
             _warn_missing(row["name"], str(exc))
+            if missing is not None:
+                missing.append(row)
             continue
         lora_sd = _load_lora_file(path)
         before = patch_total(model, clip)

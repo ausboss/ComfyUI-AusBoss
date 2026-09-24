@@ -263,6 +263,48 @@ class MissingRowPolicyTests(unittest.TestCase):
         self.assertEqual((model, clip), ("model", None))
         self.assertEqual(buffer.getvalue().count("skipping 'gone.safetensors'"), 1)
 
+    def test_skip_mode_reports_the_rows_it_left_out(self):
+        missing = []
+        rows = [
+            dict(self.ROW),
+            {**self.ROW, "name": "parked.safetensors", "strength": 0, "strength_clip": 0},
+        ]
+        with contextlib.redirect_stdout(io.StringIO()):
+            _lora_helpers.apply_lora_stack("model", None, rows, on_missing="skip", missing=missing)
+        self.assertEqual([row["name"] for row in missing], ["gone.safetensors"])
+
+    def test_a_row_skipped_as_missing_adds_no_trigger_words(self):
+        # A LoRA that never loaded must not put its words in the prompt. A
+        # row parked at strength 0 keeps its words, as the node docs promise,
+        # so comparing with and without it changes only the weights.
+        try:
+            from nodes.node_lora_loader import AusBossLoraLoader
+        except Exception as exc:  # pragma: no cover - needs the package importable
+            self.skipTest(f"node module not importable offline: {exc}")
+
+        def resolve(name):
+            if name == "gone.safetensors":
+                raise ValueError("LoRA file not found in models/loras: gone.safetensors")
+            return Path(name)
+
+        rows = [
+            {**self.ROW, "name": "kept.safetensors", "triggers": "kept word"},
+            {**self.ROW, "triggers": "ghost word"},
+            {**self.ROW, "name": "parked.safetensors", "strength": 0, "strength_clip": 0,
+             "triggers": "parked word"},
+            {**self.ROW, "name": "off.safetensors", "enabled": False, "triggers": "off word"},
+        ]
+        sys.modules["comfy.sd"].load_lora_for_models = lambda model, clip, *_args: (model, clip)
+        with (
+            patch.object(_lora_helpers, "resolve_lora_path", side_effect=resolve),
+            patch.object(_lora_helpers, "_load_lora_file", return_value={}),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            _model, _clip, triggers = AusBossLoraLoader().load_loras(
+                "model", json.dumps(rows), on_missing="skip"
+            )
+        self.assertEqual(triggers, "kept word, parked word")
+
     def test_error_is_the_default_and_names_the_file_and_the_switch(self):
         for kwargs in ({}, {"on_missing": "error"}):
             with self.assertRaises(ValueError) as caught:
