@@ -1,7 +1,7 @@
 // The on-node padding stage: dotted backdrop, source bitmap (or wireframe),
 // the FINAL canvas rect with whole-edge drag handles, per-side "+N px"
-// labels, and the output-size badge. Shared by js/load_image_pad/index.js
-// (file-fed source) and js/pad_image/index.js (execution-fed source).
+// labels, and the output-size badge. Load Image + Pad (js/load_image_pad/)
+// feeds it a file; a node fed by execution can inject its own source.
 //
 // Pure math lives in pad_canvas.mjs; this module owns canvas drawing and
 // pointer wiring only, with everything node-specific injected:

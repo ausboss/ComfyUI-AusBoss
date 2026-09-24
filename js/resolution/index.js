@@ -10,9 +10,9 @@
 // Layout: SHAPE (a flip container beside a 3-column ratio-chip container),
 // the stage, SIZE & BUDGET (grip-scrub W/H fields, swap, typeable snap
 // with ladder arrows, gear), and SIZES — quick picks for the CURRENT
-// ratio, regenerated whenever the ratio or snap changes. The node is
-// fixed-width (Pixaroma-style) so everything spaces evenly; height stays
-// draggable and the stage absorbs it.
+// ratio, regenerated whenever the ratio or snap changes. The node has a
+// fixed footprint (Pixaroma-style) so everything spaces evenly; it cannot
+// be resized.
 //
 // Interaction grammar: EDGES change shape (one axis, snapped), the CORNER
 // changes size at the exact locked ratio (Shift frees it), Alt drops the
