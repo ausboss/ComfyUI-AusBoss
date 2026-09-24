@@ -315,8 +315,8 @@
       ],
       "title": "Detect Watermark (SAM3)",
       "properties": {
-        "cnr_id": "comfyui-workflow-encrypt",
-        "ver": "1.0.0",
+        "cnr_id": "comfyui-rmbg",
+        "ver": "3.1.0",
         "Node name for S&R": "SAM3Segment",
         "ue_properties": {
           "widget_ue_connectable": {},
@@ -465,8 +465,8 @@
       ],
       "title": "Detect Watermark (SAM3)",
       "properties": {
-        "cnr_id": "comfyui-workflow-encrypt",
-        "ver": "1.0.0",
+        "cnr_id": "comfyui-rmbg",
+        "ver": "3.1.0",
         "Node name for S&R": "SAM3Segment",
         "ue_properties": {
           "widget_ue_connectable": {},
