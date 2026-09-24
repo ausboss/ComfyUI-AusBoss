@@ -30,6 +30,11 @@ follows a few fixed rules.
 `scripts/release_preflight.py` fails a release whose shipped code contains an
 HTTP or socket client.
 
+These rules protect a ComfyUI server from the requests it receives. They do
+not defend against someone who can already change files on the ComfyUI
+machine, and exposing ComfyUI beyond a trusted network is still a risk of
+its own.
+
 ## Reporting a vulnerability
 
 Report privately through this repository's **Security** tab →
