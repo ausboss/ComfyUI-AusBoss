@@ -1,9 +1,9 @@
 """The registry contract, checked against fixtures that really break it.
 
-Every ``bad_*.py`` under tests/fixtures/registry is a way a node module can
-load and run perfectly while a registry scanner -- which parses the source
-rather than importing it -- sees no nodes at all. That failure is invisible
-from inside ComfyUI, so each shape is pinned here.
+Every ``bad_*.py.txt`` under tests/fixtures/registry is a way a node module
+can load and run perfectly while a registry scanner -- which parses the
+source rather than importing it -- sees no nodes at all. That failure is
+invisible from inside ComfyUI, so each shape is pinned here.
 """
 
 from __future__ import annotations
