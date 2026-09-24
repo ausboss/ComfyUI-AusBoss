@@ -19,7 +19,7 @@ from urllib.parse import urlparse
 import torch
 import torch.nn.functional as functional
 
-from ._lama_helpers import comfy_torch_device
+from ._execution_helpers import comfy_torch_device, progress_bar, raise_if_interrupted
 
 BLEND_METHOD = "blend"
 FLOW_METHOD = "optical flow (requires cached RAFT weights)"
@@ -343,22 +343,6 @@ def _render_optical_flow(
     return blended, flows
 
 
-def _raise_if_interrupted() -> None:
-    try:
-        from comfy.model_management import throw_exception_if_processing_interrupted
-    except ImportError:  # Offline tests run without ComfyUI.
-        return
-    throw_exception_if_processing_interrupted()
-
-
-def _progress_bar(total: int):
-    try:
-        from comfy.utils import ProgressBar
-    except ImportError:  # Offline tests run without ComfyUI.
-        return None
-    return ProgressBar(total)
-
-
 def _validate_frames(frames: torch.Tensor) -> None:
     if not isinstance(frames, torch.Tensor) or frames.ndim != 4:
         raise ValueError("Frame Interpolate expected frames in BHWC format.")
@@ -419,7 +403,7 @@ def _execute_jobs(
     # 7.5 GB transient on the frames device - VRAM, if that is where the batch
     # already lives - on top of the input and the output.
     for start in range(0, len(copy_jobs), step):
-        _raise_if_interrupted()
+        raise_if_interrupted()
         batch = copy_jobs[start : start + step]
         source_indices = torch.tensor(
             [job.src_a for job in batch], dtype=torch.long, device=frames.device
@@ -429,7 +413,7 @@ def _execute_jobs(
         )
         output[output_indices] = frames.index_select(0, source_indices).to("cpu")
 
-    progress = _progress_bar(total_out)
+    progress = progress_bar(total_out)
     completed = len(copy_jobs)
     if progress is not None:
         progress.update_absolute(completed, total_out)
@@ -445,7 +429,7 @@ def _execute_jobs(
     # unaffected because a lerp has no per-pair work to save.
     flow_cache: dict[tuple[int, int], tuple[torch.Tensor, torch.Tensor]] = {}
     for batch in _pair_grouped_batches(blend_jobs, step):
-        _raise_if_interrupted()
+        raise_if_interrupted()
         unique_sources = sorted(
             {index for job in batch for index in (job.src_a, job.src_b)}
         )

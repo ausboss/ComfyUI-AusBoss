@@ -7,6 +7,8 @@ import math
 import torch
 import torch.nn.functional as functional
 
+from ._execution_helpers import raise_if_interrupted
+
 try:
     from scipy.ndimage import binary_fill_holes as _scipy_fill_holes
 except Exception:  # scipy is optional; the torch fallback below covers it.
@@ -164,14 +166,6 @@ def _load_alpha_matting():
     return estimate
 
 
-def _raise_if_interrupted() -> None:
-    try:
-        from comfy.model_management import throw_exception_if_processing_interrupted
-    except ImportError:  # Offline tests run without ComfyUI.
-        return
-    throw_exception_if_processing_interrupted()
-
-
 def _edge_radius(expand: int) -> int:
     """Working radius at the edge, scaled with how far the mask was moved."""
     return max(4, 2 * abs(int(expand)))
@@ -215,7 +209,7 @@ def guided_filter_refine(
     radius = _edge_radius(expand)
     frames = []
     for index in range(count):
-        _raise_if_interrupted()
+        raise_if_interrupted()
         guide = guides[index].detach().float().clamp(0.0, 1.0).contiguous().cpu().numpy()
         source = mask[index].detach().float().contiguous().cpu().numpy()
         frames.append(torch.from_numpy(guided_filter(guide, source, radius, 1e-4)))
@@ -244,7 +238,7 @@ def matting_refine(
     dilated_all = grow_shrink_mask(solid_all, band) >= 0.5
     frames = []
     for index in range(count):
-        _raise_if_interrupted()
+        raise_if_interrupted()
         alpha_in = alpha_all[index]
         # Definite foreground has to be opaque in the mask we were handed, and
         # anything carrying any alpha at all is at least possible foreground.

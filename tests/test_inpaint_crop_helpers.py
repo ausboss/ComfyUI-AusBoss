@@ -549,7 +549,7 @@ class EdgeHaloTests(unittest.TestCase):
             if len(checks) == cancel_at[0]:
                 raise Cancelled
 
-        self.stub_helper("_raise_if_interrupted", check)
+        self.stub_helper("raise_if_interrupted", check)
         solved.clear()
         canvas_before = self.stitcher["canvas"].clone()
         frames_before = frames.clone()
@@ -586,7 +586,7 @@ class EdgeHaloTests(unittest.TestCase):
             bars.append(Recorder(total))
             return bars[-1]
 
-        self.stub_helper("_progress_bar", make_bar)
+        self.stub_helper("progress_bar", make_bar)
         self.stub_estimator(lambda image, matte: image)
 
         apply_stitch(self.stitcher, self.three_frames(), True)

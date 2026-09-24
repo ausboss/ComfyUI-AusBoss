@@ -23,6 +23,7 @@ from __future__ import annotations
 import torch
 import torch.nn.functional as functional
 
+from ._execution_helpers import progress_bar, raise_if_interrupted, warn_once
 from ._mask_helpers import blur_mask, grow_shrink_mask
 
 STITCHER_KIND = "ausboss_inpaint_stitcher"
@@ -186,15 +187,8 @@ _PYMATTING_HINT = (
     "(add the pymatting package); pasting the edge pixels unchanged."
 )
 
+# Notes already printed this process; each prints once, with no cap.
 _warned: set[str] = set()
-
-
-def _warn_once(message: str) -> None:
-    """Print an ASCII console note at most once per process."""
-    if message in _warned:
-        return
-    _warned.add(message)
-    print(f"[AusBoss] {message}")
 
 
 def _foreground_estimator():
@@ -204,22 +198,6 @@ def _foreground_estimator():
     except Exception:
         return None
     return estimate_foreground_ml
-
-
-def _raise_if_interrupted() -> None:
-    try:
-        from comfy.model_management import throw_exception_if_processing_interrupted
-    except ImportError:  # Offline tests run without ComfyUI.
-        return
-    throw_exception_if_processing_interrupted()
-
-
-def _progress_bar(total: int):
-    try:
-        from comfy.utils import ProgressBar
-    except ImportError:  # Offline tests run without ComfyUI.
-        return None
-    return ProgressBar(total)
 
 
 def spread_edge_colors(patch: torch.Tensor, alpha: torch.Tensor) -> torch.Tensor:
@@ -243,7 +221,7 @@ def spread_edge_colors(patch: torch.Tensor, alpha: torch.Tensor) -> torch.Tensor
         return patch
     estimate = _foreground_estimator()
     if estimate is None:
-        _warn_once(_PYMATTING_HINT)
+        warn_once(_PYMATTING_HINT, _warned)
         return patch
 
     matte_alpha = alpha
@@ -258,10 +236,10 @@ def spread_edge_colors(patch: torch.Tensor, alpha: torch.Tensor) -> torch.Tensor
     # is over half a minute of solving. The per-frame cancel check and progress
     # update keep such a batch stoppable at the next frame boundary.
     total = patch.shape[0]
-    progress = _progress_bar(total) if total > 1 else None
+    progress = progress_bar(total) if total > 1 else None
     spread = torch.empty_like(patch)
     for index in range(total):
-        _raise_if_interrupted()
+        raise_if_interrupted()
         # pymatting solves in float32 and casts whatever it is handed, so
         # feeding float32 drops a float64 temporary of twice the size for a
         # bit-identical estimate.
@@ -273,7 +251,7 @@ def spread_edge_colors(patch: torch.Tensor, alpha: torch.Tensor) -> torch.Tensor
             foreground = estimate(image, matte)
         except Exception as exc:  # A failed estimate must never fail the paste.
             detail = str(exc).encode("ascii", "replace").decode("ascii")
-            _warn_once(f"Stitch Inpaint: edge-halo spread failed ({detail}).")
+            warn_once(f"Stitch Inpaint: edge-halo spread failed ({detail}).", _warned)
             return patch
         spread[index] = torch.as_tensor(foreground)  # copy_ handles dtype/device
         if progress is not None:
