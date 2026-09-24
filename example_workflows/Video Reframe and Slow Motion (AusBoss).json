@@ -1,0 +1,1196 @@
+{
+  "id": "54a28d5d-2cc4-490f-88c7-007e044a20ee",
+  "revision": 0,
+  "last_node_id": 9,
+  "last_link_id": 10,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "AUSBOSS_NODES_WorkflowNote",
+      "pos": [
+        -620,
+        100
+      ],
+      "size": [
+        560,
+        1180
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "note",
+          "name": "note",
+          "type": "STRING",
+          "widget": {
+            "name": "note"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [],
+      "title": "Start here · setup",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote"
+      },
+      "widgets_values": [
+        "{\"v\":1,\"title\":\"Video Reframe and Slow Motion\",\"subtitle\":\"Crop a vertical clip to a square, double its frames and save it at half speed. No models needed.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"\",\"body\":\"## Start here\\nCopy `ausboss_pier_9x16.mp4` from the pack's `example_workflows/inputs/` folder into `ComfyUI/input/`, or pick your own clip on the Clip node, and queue. No models or extra node packs; the sample runs in seconds on a CPU.\\n\\n## What happens\\n1. **Video Crop + Rotate + Pad → Clip** loads the whole clip and crops every frame to a centered square: **Crop** mode with the **1:1** chip locked. Drag the crop box on the preview to reframe; rotation and padding work the same way.\\n2. **Math Expression** doubles the clip's fps (`a * 2`). **Frame Interpolate** resamples 24 → 48 fps with **blend**: every source frame is kept and one crossfaded in-between lands between each pair.\\n3. **Save Video** takes its fps from the Clip, not from Frame Interpolate, so the doubled frames play at the source 24 fps: **2× slow motion**. 97 frames become 194 and four seconds become eight.\\n4. **Select Frame** and **Compare** check the new frames: source frame 25 against result frame 50, the in-between halfway to source frame 26. Odd result frames (49, 51) are exact copies of source frames.\\n\\n## Try\\n- Same speed, smoother motion: wire Frame Interpolate's **fps** output into Save Video instead.\\n- Slower still: change the expression to `a * 4` and look at result frame 98 in the check.\\n- Blend softens fast motion. **Optical flow** gives sharper in-betweens but only uses RAFT weights that are already cached; it never downloads them.\",\"models\":[],\"packs\":[],\"links\":[{\"label\":\"Sample clip · ausboss_pier_9x16.mp4\",\"url\":\"https://raw.githubusercontent.com/ausboss/ComfyUI-AusBoss/main/example_workflows/inputs/ausboss_pier_9x16.mp4\"}]}",
+        ""
+      ],
+      "widgets_values_named": {
+        "note": "{\"v\":1,\"title\":\"Video Reframe and Slow Motion\",\"subtitle\":\"Crop a vertical clip to a square, double its frames and save it at half speed. No models needed.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"\",\"body\":\"## Start here\\nCopy `ausboss_pier_9x16.mp4` from the pack's `example_workflows/inputs/` folder into `ComfyUI/input/`, or pick your own clip on the Clip node, and queue. No models or extra node packs; the sample runs in seconds on a CPU.\\n\\n## What happens\\n1. **Video Crop + Rotate + Pad → Clip** loads the whole clip and crops every frame to a centered square: **Crop** mode with the **1:1** chip locked. Drag the crop box on the preview to reframe; rotation and padding work the same way.\\n2. **Math Expression** doubles the clip's fps (`a * 2`). **Frame Interpolate** resamples 24 → 48 fps with **blend**: every source frame is kept and one crossfaded in-between lands between each pair.\\n3. **Save Video** takes its fps from the Clip, not from Frame Interpolate, so the doubled frames play at the source 24 fps: **2× slow motion**. 97 frames become 194 and four seconds become eight.\\n4. **Select Frame** and **Compare** check the new frames: source frame 25 against result frame 50, the in-between halfway to source frame 26. Odd result frames (49, 51) are exact copies of source frames.\\n\\n## Try\\n- Same speed, smoother motion: wire Frame Interpolate's **fps** output into Save Video instead.\\n- Slower still: change the expression to `a * 4` and look at result frame 98 in the check.\\n- Blend softens fast motion. **Optical flow** gives sharper in-betweens but only uses RAFT weights that are already cached; it never downloads them.\",\"models\":[],\"packs\":[],\"links\":[{\"label\":\"Sample clip · ausboss_pier_9x16.mp4\",\"url\":\"https://raw.githubusercontent.com/ausboss/ComfyUI-AusBoss/main/example_workflows/inputs/ausboss_pier_9x16.mp4\"}]}",
+        "ausboss_workflow_note_panel": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 2,
+      "type": "AUSBOSS_NODES_VideoCropRotatePadClip",
+      "pos": [
+        0,
+        100
+      ],
+      "size": [
+        460,
+        900
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "force_rate",
+          "name": "force_rate",
+          "shape": 7,
+          "type": "FLOAT,INT",
+          "link": null
+        },
+        {
+          "localized_name": "start_frame",
+          "name": "start_frame",
+          "shape": 7,
+          "type": "INT",
+          "link": null
+        },
+        {
+          "localized_name": "end_frame",
+          "name": "end_frame",
+          "shape": 7,
+          "type": "INT",
+          "link": null
+        },
+        {
+          "localized_name": "frame_load_cap",
+          "name": "frame_load_cap",
+          "shape": 7,
+          "type": "INT",
+          "link": null
+        },
+        {
+          "localized_name": "video",
+          "name": "video",
+          "type": "COMBO",
+          "widget": {
+            "name": "video"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "source_mode",
+          "name": "source_mode",
+          "type": "COMBO",
+          "widget": {
+            "name": "source_mode"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "local_path",
+          "name": "local_path",
+          "type": "STRING",
+          "widget": {
+            "name": "local_path"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "start_seconds",
+          "name": "start_seconds",
+          "type": "FLOAT",
+          "widget": {
+            "name": "start_seconds"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "end_seconds",
+          "name": "end_seconds",
+          "type": "FLOAT",
+          "widget": {
+            "name": "end_seconds"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "seek_mode",
+          "name": "seek_mode",
+          "type": "COMBO",
+          "widget": {
+            "name": "seek_mode"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "frame_index",
+          "name": "frame_index",
+          "type": "INT",
+          "widget": {
+            "name": "frame_index"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "frame_time",
+          "name": "frame_time",
+          "type": "FLOAT",
+          "widget": {
+            "name": "frame_time"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "rotation_degrees",
+          "name": "rotation_degrees",
+          "type": "FLOAT",
+          "widget": {
+            "name": "rotation_degrees"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "crop_aspect_ratio",
+          "name": "crop_aspect_ratio",
+          "type": "COMBO",
+          "widget": {
+            "name": "crop_aspect_ratio"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "crop_x",
+          "name": "crop_x",
+          "type": "INT",
+          "widget": {
+            "name": "crop_x"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "crop_y",
+          "name": "crop_y",
+          "type": "INT",
+          "widget": {
+            "name": "crop_y"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "crop_width",
+          "name": "crop_width",
+          "type": "INT",
+          "widget": {
+            "name": "crop_width"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "crop_height",
+          "name": "crop_height",
+          "type": "INT",
+          "widget": {
+            "name": "crop_height"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "pad_left",
+          "name": "pad_left",
+          "type": "INT",
+          "widget": {
+            "name": "pad_left"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "pad_top",
+          "name": "pad_top",
+          "type": "INT",
+          "widget": {
+            "name": "pad_top"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "pad_right",
+          "name": "pad_right",
+          "type": "INT",
+          "widget": {
+            "name": "pad_right"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "pad_bottom",
+          "name": "pad_bottom",
+          "type": "INT",
+          "widget": {
+            "name": "pad_bottom"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "feather",
+          "name": "feather",
+          "type": "INT",
+          "widget": {
+            "name": "feather"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "canvas_multiple",
+          "name": "canvas_multiple",
+          "type": "INT",
+          "widget": {
+            "name": "canvas_multiple"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "fill_color",
+          "name": "fill_color",
+          "type": "STRING",
+          "widget": {
+            "name": "fill_color"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "resize_to_megapixels",
+          "name": "resize_to_megapixels",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "resize_to_megapixels"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "megapixels",
+          "name": "megapixels",
+          "type": "FLOAT",
+          "widget": {
+            "name": "megapixels"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "resize_method",
+          "name": "resize_method",
+          "type": "COMBO",
+          "widget": {
+            "name": "resize_method"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "resolution_steps",
+          "name": "resolution_steps",
+          "type": "INT",
+          "widget": {
+            "name": "resolution_steps"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "every_nth",
+          "name": "every_nth",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "every_nth"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "max_frames",
+          "name": "max_frames",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "max_frames"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "frame_snap",
+          "name": "frame_snap",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "frame_snap"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "stitch_blend",
+          "name": "stitch_blend",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "stitch_blend"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "stitch_grow",
+          "name": "stitch_grow",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "stitch_grow"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "fixed_frames",
+          "name": "fixed_frames",
+          "shape": 7,
+          "type": "INT",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "frames",
+          "name": "frames",
+          "type": "IMAGE",
+          "links": [
+            1,
+            7
+          ]
+        },
+        {
+          "localized_name": "mask",
+          "name": "mask",
+          "type": "MASK",
+          "links": null
+        },
+        {
+          "localized_name": "audio",
+          "name": "audio",
+          "type": "AUDIO",
+          "links": null
+        },
+        {
+          "localized_name": "frame_count",
+          "name": "frame_count",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "localized_name": "fps",
+          "name": "fps",
+          "type": "FLOAT",
+          "links": [
+            2,
+            3,
+            6
+          ]
+        },
+        {
+          "localized_name": "width",
+          "name": "width",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "localized_name": "height",
+          "name": "height",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "localized_name": "duration",
+          "name": "duration",
+          "type": "FLOAT",
+          "links": null
+        },
+        {
+          "localized_name": "stitcher",
+          "name": "stitcher",
+          "type": "AUSBOSS_STITCHER",
+          "links": null
+        },
+        {
+          "localized_name": "original",
+          "name": "original",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "title": "Video Crop + Rotate + Pad → Clip 🆎 · 1:1 crop",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_VideoCropRotatePadClip",
+        "ausboss_fit_aspect": "1:1",
+        "ausboss_aspect_mode": "crop",
+        "ausboss_aspect_lock": true
+      },
+      "widgets_values": {
+        "video": "ausboss_pier_9x16.mp4",
+        "source_mode": "input folder",
+        "local_path": "",
+        "start_seconds": 0,
+        "end_seconds": 0,
+        "seek_mode": "frame index",
+        "frame_index": 24,
+        "frame_time": 1,
+        "rotation_degrees": 0,
+        "crop_aspect_ratio": "1:1",
+        "crop_x": 0,
+        "crop_y": 224,
+        "crop_width": 576,
+        "crop_height": 0,
+        "pad_left": 0,
+        "pad_top": 0,
+        "pad_right": 0,
+        "pad_bottom": 0,
+        "feather": 0,
+        "canvas_multiple": 1,
+        "fill_color": "#000000",
+        "resize_to_megapixels": false,
+        "megapixels": 1,
+        "resize_method": "lanczos",
+        "resolution_steps": 1,
+        "every_nth": 1,
+        "max_frames": 0,
+        "frame_snap": "free",
+        "stitch_blend": 32,
+        "stitch_grow": 0,
+        "fixed_frames": 0
+      },
+      "widgets_values_named": {
+        "video": "ausboss_pier_9x16.mp4",
+        "source_mode": "input folder",
+        "local_path": "",
+        "start_seconds": 0,
+        "end_seconds": 0,
+        "seek_mode": "frame index",
+        "frame_index": 24,
+        "frame_time": 1,
+        "rotation_degrees": 0,
+        "crop_aspect_ratio": "1:1",
+        "crop_x": 0,
+        "crop_y": 224,
+        "crop_width": 576,
+        "crop_height": 0,
+        "pad_left": 0,
+        "pad_top": 0,
+        "pad_right": 0,
+        "pad_bottom": 0,
+        "feather": 0,
+        "canvas_multiple": 1,
+        "fill_color": "#000000",
+        "resize_to_megapixels": false,
+        "megapixels": 1,
+        "resize_method": "lanczos",
+        "resolution_steps": 1,
+        "every_nth": 1,
+        "max_frames": 0,
+        "frame_snap": "free",
+        "stitch_blend": 32,
+        "stitch_grow": 0,
+        "fixed_frames": 0,
+        "ausboss_transform_preview": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 3,
+      "type": "AUSBOSS_NODES_MathExpression",
+      "pos": [
+        520,
+        100
+      ],
+      "size": [
+        400,
+        134
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "a",
+          "name": "a",
+          "shape": 7,
+          "type": "FLOAT,INT",
+          "link": 2
+        },
+        {
+          "localized_name": "b",
+          "name": "b",
+          "shape": 7,
+          "type": "FLOAT,INT",
+          "link": null
+        },
+        {
+          "localized_name": "c",
+          "name": "c",
+          "shape": 7,
+          "type": "FLOAT,INT",
+          "link": null
+        },
+        {
+          "localized_name": "expression",
+          "name": "expression",
+          "type": "STRING",
+          "widget": {
+            "name": "expression"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "float",
+          "name": "float",
+          "type": "FLOAT",
+          "links": [
+            4
+          ]
+        },
+        {
+          "localized_name": "int",
+          "name": "int",
+          "type": "INT",
+          "links": null
+        }
+      ],
+      "title": "Math Expression 🆎 · target fps = a × 2",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_MathExpression"
+      },
+      "widgets_values": [
+        "a * 2",
+        ""
+      ],
+      "widgets_values_named": {
+        "expression": "a * 2",
+        "ausboss_widget_card": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 4,
+      "type": "AUSBOSS_NODES_FrameInterpolate",
+      "pos": [
+        520,
+        294
+      ],
+      "size": [
+        400,
+        227
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "frames",
+          "name": "frames",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "localized_name": "source_fps",
+          "name": "source_fps",
+          "type": "FLOAT",
+          "link": 3
+        },
+        {
+          "localized_name": "target_fps",
+          "name": "target_fps",
+          "type": "FLOAT",
+          "link": 4
+        },
+        {
+          "localized_name": "method",
+          "name": "method",
+          "type": "COMBO",
+          "widget": {
+            "name": "method"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "scene_cut_threshold",
+          "name": "scene_cut_threshold",
+          "type": "FLOAT",
+          "widget": {
+            "name": "scene_cut_threshold"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "batch_size",
+          "name": "batch_size",
+          "type": "INT",
+          "widget": {
+            "name": "batch_size"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "frames",
+          "name": "frames",
+          "type": "IMAGE",
+          "links": [
+            5,
+            8
+          ]
+        },
+        {
+          "localized_name": "fps",
+          "name": "fps",
+          "type": "FLOAT",
+          "links": null
+        }
+      ],
+      "title": "Frame Interpolate 🆎 · 24 → 48 fps",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_FrameInterpolate"
+      },
+      "widgets_values": [
+        24,
+        48,
+        "blend",
+        0.35,
+        8,
+        ""
+      ],
+      "widgets_values_named": {
+        "source_fps": 24,
+        "target_fps": 48,
+        "method": "blend",
+        "scene_cut_threshold": 0.35,
+        "batch_size": 8,
+        "ausboss_widget_card": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 5,
+      "type": "AUSBOSS_NODES_RunTimer",
+      "pos": [
+        520,
+        581
+      ],
+      "size": [
+        176,
+        56
+      ],
+      "flags": {
+        "no_title": true
+      },
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_RunTimer"
+      },
+      "color": "#07090a",
+      "bgcolor": "#07090a"
+    },
+    {
+      "id": 6,
+      "type": "AUSBOSS_NODES_SaveVideo",
+      "pos": [
+        980,
+        100
+      ],
+      "size": [
+        460,
+        720
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "frames",
+          "name": "frames",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 5
+        },
+        {
+          "localized_name": "audio",
+          "name": "audio",
+          "shape": 7,
+          "type": "AUDIO",
+          "link": null
+        },
+        {
+          "localized_name": "video",
+          "name": "video",
+          "shape": 7,
+          "type": "VIDEO",
+          "link": null
+        },
+        {
+          "localized_name": "fps",
+          "name": "fps",
+          "type": "FLOAT",
+          "link": 6
+        },
+        {
+          "localized_name": "filename_prefix",
+          "name": "filename_prefix",
+          "type": "STRING",
+          "widget": {
+            "name": "filename_prefix"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "crf",
+          "name": "crf",
+          "type": "INT",
+          "link": null
+        },
+        {
+          "localized_name": "format",
+          "name": "format",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "format"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "pingpong",
+          "name": "pingpong",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "pingpong"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "save_metadata",
+          "name": "save_metadata",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "save_metadata"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "file_path",
+          "name": "file_path",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "title": "Save Video 🆎 · source fps = 2× slow motion",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_SaveVideo",
+        "ausboss_save_video_loop": true
+      },
+      "widgets_values": {
+        "fps": 24,
+        "filename_prefix": "pier_slow_motion",
+        "crf": 19,
+        "format": "mp4 h264",
+        "pingpong": false,
+        "save_metadata": true
+      },
+      "widgets_values_named": {
+        "fps": 24,
+        "filename_prefix": "pier_slow_motion",
+        "crf": 19,
+        "format": "mp4 h264",
+        "pingpong": false,
+        "save_metadata": true,
+        "ausboss_widget_card": "",
+        "ausboss_save_video_viewer": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 7,
+      "type": "AUSBOSS_NODES_SelectFrame",
+      "pos": [
+        1500,
+        100
+      ],
+      "size": [
+        320,
+        420
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "frames",
+          "name": "frames",
+          "type": "IMAGE",
+          "link": 7
+        },
+        {
+          "localized_name": "frame_number",
+          "name": "frame_number",
+          "type": "INT",
+          "widget": {
+            "name": "frame_number"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "preview",
+          "name": "preview",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "preview"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            10
+          ]
+        }
+      ],
+      "title": "Select Frame 🆎 · source frame 25",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_SelectFrame"
+      },
+      "widgets_values": [
+        25,
+        true,
+        "",
+        ""
+      ],
+      "widgets_values_named": {
+        "frame_number": 25,
+        "preview": true,
+        "ausboss_widget_card": "",
+        "ausboss_input_preview": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 8,
+      "type": "AUSBOSS_NODES_SelectFrame",
+      "pos": [
+        1840,
+        100
+      ],
+      "size": [
+        320,
+        420
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "frames",
+          "name": "frames",
+          "type": "IMAGE",
+          "link": 8
+        },
+        {
+          "localized_name": "frame_number",
+          "name": "frame_number",
+          "type": "INT",
+          "widget": {
+            "name": "frame_number"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "preview",
+          "name": "preview",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "preview"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            9
+          ]
+        }
+      ],
+      "title": "Select Frame 🆎 · result frame 50",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_SelectFrame"
+      },
+      "widgets_values": [
+        50,
+        true,
+        "",
+        ""
+      ],
+      "widgets_values_named": {
+        "frame_number": 50,
+        "preview": true,
+        "ausboss_widget_card": "",
+        "ausboss_input_preview": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 9,
+      "type": "AUSBOSS_NODES_Compare",
+      "pos": [
+        1500,
+        580
+      ],
+      "size": [
+        660,
+        700
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "image_a",
+          "name": "image_a",
+          "type": "IMAGE",
+          "link": 9
+        },
+        {
+          "localized_name": "image_b",
+          "name": "image_b",
+          "type": "IMAGE",
+          "link": 10
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "image_a",
+          "name": "image_a",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "title": "Compare 🆎 · in-between / source frame",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.1.0",
+        "Node name for S&R": "AUSBOSS_NODES_Compare",
+        "ausboss_compare_mode": "slide"
+      },
+      "widgets_values": [
+        ""
+      ],
+      "widgets_values_named": {
+        "ausboss_compare_panel": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    }
+  ],
+  "links": [
+    [
+      1,
+      2,
+      0,
+      4,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      2,
+      4,
+      3,
+      0,
+      "FLOAT"
+    ],
+    [
+      3,
+      2,
+      4,
+      4,
+      1,
+      "FLOAT"
+    ],
+    [
+      4,
+      3,
+      0,
+      4,
+      2,
+      "FLOAT"
+    ],
+    [
+      5,
+      4,
+      0,
+      6,
+      0,
+      "IMAGE"
+    ],
+    [
+      6,
+      2,
+      4,
+      6,
+      3,
+      "FLOAT"
+    ],
+    [
+      7,
+      2,
+      0,
+      7,
+      0,
+      "IMAGE"
+    ],
+    [
+      8,
+      4,
+      0,
+      8,
+      0,
+      "IMAGE"
+    ],
+    [
+      9,
+      8,
+      0,
+      9,
+      0,
+      "IMAGE"
+    ],
+    [
+      10,
+      7,
+      0,
+      9,
+      1,
+      "IMAGE"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "1 · Load + reframe",
+      "bounding": [
+        -20,
+        40,
+        500,
+        980
+      ],
+      "color": "#235d64",
+      "flags": {}
+    },
+    {
+      "id": 2,
+      "title": "2 · Double the frames",
+      "bounding": [
+        500,
+        40,
+        440,
+        617
+      ],
+      "color": "#366451",
+      "flags": {}
+    },
+    {
+      "id": 3,
+      "title": "3 · Save as slow motion",
+      "bounding": [
+        960,
+        40,
+        500,
+        800
+      ],
+      "color": "#5d527c",
+      "flags": {}
+    },
+    {
+      "id": 4,
+      "title": "4 · Check an in-between",
+      "bounding": [
+        1480,
+        40,
+        700,
+        1260
+      ],
+      "color": "#795b38",
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.65,
+      "offset": [
+        696.92,
+        144.62
+      ]
+    }
+  },
+  "version": 0.4
+}
