@@ -13,6 +13,7 @@
 
 import { app } from "/scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
+import { copyToClipboard } from "../shared/clipboard.mjs";
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
 import { formatSeed, pushSeed, seedFromExecuted } from "../shared/seed_history.mjs";
 
@@ -197,13 +198,10 @@ function showMenu(state) {
 
 async function copySeed(state) {
   const value = seedWidget(state.node)?.value;
-  try {
-    await navigator.clipboard?.writeText(formatSeed(Number(value)));
-    state.copy.textContent = "✓";
-    setTimeout(() => { state.copy.textContent = "⧉"; }, 700);
-  } catch {
-    // Clipboard blocked: the number is on screen to read.
-  }
+  const copied = await copyToClipboard(formatSeed(Number(value)));
+  // A blocked clipboard says so; the number is on screen to copy by hand.
+  state.copy.textContent = copied ? "✓" : "✕";
+  setTimeout(() => { state.copy.textContent = "⧉"; }, copied ? 700 : 1400);
 }
 
 function el(tag, className, text) {

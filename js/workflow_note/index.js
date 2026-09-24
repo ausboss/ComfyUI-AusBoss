@@ -13,6 +13,7 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
+import { copyToClipboard } from "../shared/clipboard.mjs";
 import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
 import {
@@ -240,14 +241,12 @@ function markdownInto(parent, text) {
 }
 
 async function copyText(text, element) {
-  try {
-    await navigator.clipboard?.writeText(text);
-    const before = element.textContent;
-    element.textContent = "copied";
-    setTimeout(() => { if (element.textContent === "copied") element.textContent = before; }, 700);
-  } catch {
-    // Clipboard blocked: the name is still on screen.
-  }
+  const copied = await copyToClipboard(text);
+  // A blocked clipboard says so; the name is still on screen to copy by hand.
+  const note = copied ? "copied" : "copy blocked";
+  const before = element.textContent;
+  element.textContent = note;
+  setTimeout(() => { if (element.textContent === note) element.textContent = before; }, copied ? 700 : 1400);
 }
 
 // ---------------------------------------------------------------------------
