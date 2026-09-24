@@ -156,6 +156,36 @@ def load_image_frames(path: Path) -> list[Image.Image]:
     return frames
 
 
+# --- the video clock -----------------------------------------------------------
+# Trim windows, frame indices, durations and preview times all count seconds
+# from the video stream's first frame, so frame i sits at i / fps - how the
+# editors' timelines (js/shared/timeline_math.mjs) and the frame_index,
+# start_frame and end_frame widgets count. A file's own timestamps begin
+# wherever its muxer put them: about 1.4 s into an .mts/.m2ts, later after an
+# MP4/MOV edit list's delay. The container's start is no zero either, since
+# audio often opens a little ahead of the picture (a transport stream's
+# B-frame delay) and would push frame 0 to a later index. So a decoded time
+# passes through stream_seconds before it meets a window, and the seeks go
+# the other way with int(seconds / time_base) + stream.start_time.
+
+
+def stream_origin(stream) -> float:
+    """The file's timestamp, in seconds, of the stream's first frame; 0 when
+    the container does not say."""
+    if stream.start_time is None or not stream.time_base:
+        return 0.0
+    return float(stream.start_time * stream.time_base)
+
+
+def stream_seconds(time: float | None, stream) -> float | None:
+    """A timestamp from the file (a decoded frame's ``frame.time``, from this
+    stream or a sibling such as the audio) as seconds since ``stream``'s first
+    frame. None, a frame without a timestamp, stays None."""
+    if time is None:
+        return None
+    return float(time) - stream_origin(stream)
+
+
 def video_metadata(path: Path) -> dict[str, float | int | str]:
     with av.open(str(path)) as container:
         stream = next((candidate for candidate in container.streams if candidate.type == "video"), None)
@@ -164,7 +194,10 @@ def video_metadata(path: Path) -> dict[str, float | int | str]:
         fps = float(stream.average_rate or stream.base_rate or 0.0)
         duration = float(stream.duration * stream.time_base) if stream.duration is not None else 0.0
         if duration <= 0 and container.duration is not None:
-            duration = float(container.duration / av.time_base)
+            # The container's span can open before the video (leading audio):
+            # the stream's own length runs from its first frame to the end.
+            end = (container.start_time or 0) + container.duration
+            duration = max(0.0, stream_seconds(end / av.time_base, stream))
         frame_count = int(stream.frames or 0)
         if frame_count <= 0 and duration > 0 and fps > 0:
             frame_count = max(1, int(round(duration * fps)))
@@ -185,9 +218,9 @@ def _video_stream(container):
     return stream
 
 
-def _frame_position(frame, fps: float, fallback_index: int) -> tuple[int, float]:
-    if frame.time is not None:
-        time_value = float(frame.time)
+def _frame_position(frame, stream, fps: float, fallback_index: int) -> tuple[int, float]:
+    time_value = stream_seconds(frame.time, stream)
+    if time_value is not None:
         index = int(round(time_value * fps)) if fps > 0 else fallback_index
         return index, time_value
     return fallback_index, (fallback_index / fps if fps > 0 else 0.0)
@@ -208,14 +241,15 @@ def _decode_with_seek(path: Path, requested_time: float, fps: float):
         tolerance = (0.5 / fps) if fps > 0 else 0.0
         last = None
         for frame in container.decode(stream):
-            if frame.time is None:
+            moment = stream_seconds(frame.time, stream)
+            if moment is None:
                 return None
             last = frame
-            if float(frame.time) + tolerance >= requested_time:
+            if moment + tolerance >= requested_time:
                 break
         if last is None:
             return None
-        index, time_value = _frame_position(last, fps, 0)
+        index, time_value = _frame_position(last, stream, fps, 0)
         return last.to_image().convert("RGBA"), index, time_value
 
 
@@ -230,7 +264,7 @@ def _decode_sequential(path: Path, target_index: int, fps: float):
         if last is None:
             raise ValueError("The requested video frame could not be decoded.")
         frame, index = last
-        position_index, position_time = _frame_position(frame, fps, index)
+        position_index, position_time = _frame_position(frame, stream, fps, index)
         return frame.to_image().convert("RGBA"), position_index, position_time
 
 
@@ -345,7 +379,7 @@ def _session_decode(path: Path, target_index: int, requested_time: float, fps: f
     with session.lock:
         stream = session.stream
         if session.last_index == target_index and session.last_frame is not None:
-            index, time_value = _frame_position(session.last_frame, fps, target_index)
+            index, time_value = _frame_position(session.last_frame, stream, fps, target_index)
             return session.last_frame.to_image().convert("RGBA"), index, time_value
         forward = (
             session.last_index >= 0
@@ -362,23 +396,24 @@ def _session_decode(path: Path, target_index: int, requested_time: float, fps: f
         tolerance = (0.5 / fps) if fps > 0 else 0.0
         last = None
         for frame in session.container.decode(stream):
-            if frame.time is None:
+            moment = stream_seconds(frame.time, stream)
+            if moment is None:
                 session.last_index = -1
                 session.last_frame = None
                 return None
             last = frame
-            session.last_index = int(round(float(frame.time) * fps)) if fps > 0 else 0
+            session.last_index = int(round(moment * fps)) if fps > 0 else 0
             session.last_frame = frame
             if forward:
                 if session.last_index >= target_index:
                     break
-            elif float(frame.time) + tolerance >= requested_time:
+            elif moment + tolerance >= requested_time:
                 break
         if last is None:
             session.last_index = -1  # exhausted decoder: next request re-seeks
             session.last_frame = None
             return None
-        index, time_value = _frame_position(last, fps, target_index)
+        index, time_value = _frame_position(last, stream, fps, target_index)
         return last.to_image().convert("RGBA"), index, time_value
 
 
@@ -453,23 +488,24 @@ def _build_storyboard(path: Path, key: tuple[str, int, int]) -> None:
         tolerance = (0.5 / fps) if fps > 0 else 0.0
         tiles: list[tuple[Image.Image, float]] = []
 
-        def take(frame) -> None:
+        def take(frame, moment: float) -> None:
             thumb = frame.to_image()
             thumb.thumbnail((_STORYBOARD_TILE_EDGE, _STORYBOARD_TILE_EDGE))
             # Two targets can resolve to one frame; keep each frame once.
-            if not tiles or float(frame.time) > tiles[-1][1] + 1e-6:
-                tiles.append((thumb, float(frame.time)))
+            if not tiles or moment > tiles[-1][1] + 1e-6:
+                tiles.append((thumb, moment))
 
         with av.open(str(path)) as container:
             stream = _video_stream(container)
             if int(metadata["frame_count"] or 0) <= _STORYBOARD_SEQUENTIAL_FRAMES:
                 pending = list(targets)
                 for frame in container.decode(stream):
-                    if frame.time is None:
+                    moment = stream_seconds(frame.time, stream)
+                    if moment is None:
                         break
-                    if pending and float(frame.time) + tolerance >= pending[0]:
-                        take(frame)
-                        while pending and float(frame.time) + tolerance >= pending[0]:
+                    if pending and moment + tolerance >= pending[0]:
+                        take(frame, moment)
+                        while pending and moment + tolerance >= pending[0]:
                             pending.pop(0)
                     if not pending:
                         break
@@ -480,16 +516,17 @@ def _build_storyboard(path: Path, key: tuple[str, int, int]) -> None:
                         container.seek(offset, stream=stream, backward=True, any_frame=False)
                     except Exception:
                         continue
-                    frame = None
+                    frame = moment = None
                     for decoded, candidate in enumerate(container.decode(stream)):
-                        if candidate.time is None:
+                        reached = stream_seconds(candidate.time, stream)
+                        if reached is None:
                             break
-                        frame = candidate
-                        if float(candidate.time) + tolerance >= position or decoded >= _STORYBOARD_FORWARD_CAP:
+                        frame, moment = candidate, reached
+                        if moment + tolerance >= position or decoded >= _STORYBOARD_FORWARD_CAP:
                             break
-                    if frame is None or frame.time is None:
+                    if frame is None:
                         continue
-                    take(frame)
+                    take(frame, moment)
         if not tiles:
             raise ValueError("no storyboard frames decoded")
         tile_width, tile_height = tiles[0][0].size

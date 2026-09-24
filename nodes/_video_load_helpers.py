@@ -15,7 +15,7 @@ import torch
 from PIL import Image
 
 from ._execution_helpers import advance_progress, frame_progress, raise_if_interrupted
-from ._media_helpers import video_metadata
+from ._media_helpers import stream_origin, stream_seconds, video_metadata
 
 try:
     import psutil  # ComfyUI core dependency; fail soft for offline tests.
@@ -158,11 +158,12 @@ def fixed_clip_window(metadata, start_seconds, frames, force_rate=0, every_nth=1
     return start, start + length, int(frames)
 
 
-def _frames_at_rate(decoded, fps, start, end, rate):
+def _frames_at_rate(decoded, stream, fps, start, end, rate):
     """Sample-and-hold on a uniform grid; stream frames without a second batch.
 
     A positive rate drops or repeats source frames, preserving playback time.
     Zero retains the original decode path. The last frame lasts one source tick.
+    Times are on the video clock (stream_seconds), like start and end.
     """
     previous = None
     tick = 0
@@ -170,7 +171,9 @@ def _frames_at_rate(decoded, fps, start, end, rate):
     previous_time = 0.0
     for frame in decoded:
         raise_if_interrupted()
-        time = frame.time if frame.time is not None else start + index / fps
+        time = stream_seconds(frame.time, stream)
+        if time is None:
+            time = start + index / fps
         index += 1
         if rate <= 0:
             yield frame, time
@@ -258,7 +261,7 @@ def decode_video_range(
             container.seek(max(0, offset), stream=stream, backward=True)
         size: tuple[int, int] | None = None
         window_index = 0
-        for frame, time in _frames_at_rate(container.decode(stream), fps, start, end, rate):
+        for frame, time in _frames_at_rate(container.decode(stream), stream, fps, start, end, rate):
             # Checked before the per-frame work, and on skipped frames too, so
             # cancelling during a long lead-in still stops within one frame.
             raise_if_interrupted()
@@ -345,6 +348,11 @@ def core_trimmed_video(path: Path, start_seconds: float, end_seconds: float):
     start, duration = core_trim_args(start_seconds, end_seconds)
     if start <= 0.0 and duration <= 0.0:
         return video
+    # Core trims on the file's own timestamps; the window is on the video
+    # clock (stream_seconds), so it moves by the stream's start time.
+    with av.open(str(path)) as container:
+        stream = next(candidate for candidate in container.streams if candidate.type == "video")
+        start += stream_origin(stream)
     try:
         return video.as_trimmed(start, duration, strict_duration=False)
     except Exception:
@@ -366,19 +374,27 @@ def silent_audio(duration: float) -> dict:
 
 
 def decode_audio_range(path: Path, start_seconds: float, end_seconds: float) -> dict:
-    """ComfyUI AUDIO for the same window; silence when there is no audio track."""
+    """ComfyUI AUDIO for the same window; silence when there is no audio track.
+
+    The window is on the video clock (stream_seconds) and the audio is cut on
+    it too, so a track that starts before or after the picture keeps the
+    offset the file gives it against the frames.
+    """
     start = max(0.0, float(start_seconds))
     end = max(start, float(end_seconds))
     with av.open(str(path)) as container:
         stream = next((candidate for candidate in container.streams if candidate.type == "audio"), None)
         if stream is None:
             return silent_audio(end - start)
+        clock = next((candidate for candidate in container.streams if candidate.type == "video"), stream)
         rate = int(stream.rate or FALLBACK_SAMPLE_RATE)
         resampler = av.AudioResampler(format="fltp", layout=stream.layout, rate=rate)
         chunks: list[np.ndarray] = []
         first_time: float | None = None
         for frame in container.decode(stream):
-            time = frame.time if frame.time is not None else 0.0
+            time = stream_seconds(frame.time, clock)
+            if time is None:
+                time = 0.0
             span = frame.samples / float(frame.sample_rate or rate)
             if time + span < start - _TIME_EPSILON:
                 continue
@@ -391,7 +407,12 @@ def decode_audio_range(path: Path, start_seconds: float, end_seconds: float) -> 
     if not chunks or first_time is None:
         return silent_audio(end - start)
     data = np.concatenate(chunks, axis=1)
-    begin = max(0, round((start - first_time) * rate))
+    lead = round((first_time - start) * rate)
+    if lead > 0:
+        # The track begins inside the window: silence until it does, so its
+        # first sample still plays with the frame shown at that time.
+        data = np.concatenate((np.zeros((data.shape[0], lead), dtype=data.dtype), data), axis=1)
+    begin = max(0, -lead)
     length = max(1, round((end - start) * rate))
     data = data[:, begin : begin + length]
     if data.size == 0:
