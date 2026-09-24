@@ -9,6 +9,7 @@
 // This is purely a graph rewrite; no third-party class name is ever
 // registered on the backend.
 import { app } from "/scripts/app.js";
+import { linkSlots, restoreOutputLinks, snapshotLinks } from "../shared/graph_links.mjs";
 import { BRAND, notifyAusbossChange } from "../shared/index.mjs";
 import {
   decodeWidgetValues,
@@ -24,12 +25,6 @@ function notify(detail, severity = "info") {
   const toast = app.extensionManager?.toast;
   if (toast?.add) toast.add({ severity, summary: "AusBoss", detail, life: 5000 });
   else console.log(`[AusBoss] ${detail}`);
-}
-
-// graph.links is a plain object on older frontends and a Map on newer ones.
-function lookupLink(graph, linkId) {
-  if (linkId == null) return null;
-  return graph.links?.get?.(linkId) ?? graph.links?.[linkId] ?? null;
 }
 
 function isRegistered(type) {
@@ -74,27 +69,9 @@ function displayNameFor(type) {
 
 // ------------------------------------------------------------------- apply
 
-// Same resolution discipline as Recreate node 🆎: everything becomes node
-// ids and slot positions up front so the snapshot survives link teardown.
 function snapshotNode(node, graph) {
-  const inputs = [];
-  for (const input of node.inputs || []) {
-    const link = lookupLink(graph, input.link);
-    if (!link) continue;
-    inputs.push({ name: input.name, originId: link.origin_id, originSlot: link.origin_slot });
-  }
-  const outputs = [];
-  (node.outputs || []).forEach((output, slot) => {
-    const targets = [];
-    for (const linkId of output.links || []) {
-      const link = lookupLink(graph, linkId);
-      if (link) targets.push({ nodeId: link.target_id, slot: link.target_slot });
-    }
-    if (targets.length) outputs.push({ name: output.name, slot, targets });
-  });
   return {
-    inputs,
-    outputs,
+    ...snapshotLinks(node, graph),
     pos: [...node.pos],
     size: [...node.size],
     title: node.title,
@@ -103,20 +80,6 @@ function snapshotNode(node, graph) {
     flags: { ...(node.flags || {}) },
     mode: node.mode,
   };
-}
-
-// A rollback has to hand back any target input the replacement's outputs
-// stole from the original before the failure.
-function repairOriginalOutputs(node, shot, graph) {
-  for (const output of shot.outputs) {
-    for (const target of output.targets) {
-      const targetNode = graph.getNodeById(target.nodeId);
-      if (!targetNode) continue;
-      const current = lookupLink(graph, targetNode.inputs?.[target.slot]?.link);
-      if (current?.origin_id === node.id) continue; // never stolen
-      node.connect(output.slot, targetNode, target.slot);
-    }
-  }
 }
 
 // Swap one node for its AusBoss replacement. Returns the names of links
@@ -155,10 +118,10 @@ function swapNode(row, graph) {
       const newName = mapInputName(entry, input.name);
       const slot = newName != null ? fresh.findInputSlot?.(newName) : -1;
       const origin = graph.getNodeById(input.originId);
-      // connect() runs LiteGraph's own type validation, so an incompatible
+      // linkSlots runs LiteGraph's own type validation, so an incompatible
       // pair fails into the dropped list instead of mis-wiring the graph.
       const link =
-        origin && slot != null && slot >= 0 ? origin.connect(input.originSlot, fresh, slot) : null;
+        origin && slot != null && slot >= 0 ? linkSlots(origin, input.originSlot, fresh, slot) : null;
       if (!link) dropped.push(`input ${input.name}`);
     }
 
@@ -167,7 +130,7 @@ function swapNode(row, graph) {
       const valid = newSlot != null && newSlot >= 0 && (fresh.outputs || [])[newSlot];
       for (const target of output.targets) {
         const targetNode = graph.getNodeById(target.nodeId);
-        const link = valid && targetNode ? fresh.connect(newSlot, targetNode, target.slot) : null;
+        const link = valid && targetNode ? linkSlots(fresh, newSlot, targetNode, target.slot) : null;
         if (!link) dropped.push(`output ${output.name}`);
       }
     }
@@ -183,7 +146,7 @@ function swapNode(row, graph) {
   } catch (error) {
     try {
       if (fresh) graph.remove(fresh);
-      if (shot) repairOriginalOutputs(node, shot, graph);
+      if (shot) restoreOutputLinks(node, shot.outputs, graph);
     } catch (rollbackError) {
       // Nothing more can be done safely; the caller still reports.
     }

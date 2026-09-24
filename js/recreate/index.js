@@ -8,6 +8,7 @@
 // widgets that no longer exist are skipped silently. Any failure rolls
 // the graph back and keeps the original node.
 import { app } from "/scripts/app.js";
+import { linkSlots, restoreOutputLinks, snapshotLinks } from "../shared/graph_links.mjs";
 
 const MENU_LABEL = "Recreate node 🆎";
 
@@ -16,39 +17,13 @@ function isAusbossNode(node) {
   return comfyClass.startsWith("AUSBOSS_NODES_") || comfyClass === "SimpleWatermarkRemover";
 }
 
-// graph.links is a plain object on older frontends and a Map on newer ones.
-function lookupLink(graph, linkId) {
-  if (linkId == null) return null;
-  return graph.links?.get?.(linkId) ?? graph.links?.[linkId] ?? null;
-}
-
-// Resolve everything to node ids and slot positions up front so the
-// snapshot stays valid even after individual links are torn down.
 function snapshotNode(node, graph) {
   const widgetValues = new Map();
   for (const widget of node.widgets || []) widgetValues.set(widget.name, widget.value);
 
-  const inputs = [];
-  for (const input of node.inputs || []) {
-    const link = lookupLink(graph, input.link);
-    if (!link) continue;
-    inputs.push({ name: input.name, originId: link.origin_id, originSlot: link.origin_slot });
-  }
-
-  const outputs = [];
-  (node.outputs || []).forEach((output, slot) => {
-    const targets = [];
-    for (const linkId of output.links || []) {
-      const link = lookupLink(graph, linkId);
-      if (link) targets.push({ nodeId: link.target_id, slot: link.target_slot });
-    }
-    if (targets.length) outputs.push({ name: output.name, slot, targets });
-  });
-
   return {
     widgetValues,
-    inputs,
-    outputs,
+    ...snapshotLinks(node, graph),
     pos: [...node.pos],
     size: [...node.size],
     title: node.title,
@@ -87,7 +62,7 @@ function reconnectInputs(fresh, shot, graph) {
     const origin = graph.getNodeById(input.originId);
     const slot = fresh.findInputSlot?.(input.name);
     if (!origin || slot == null || slot < 0) continue; // vanished slot
-    origin.connect(input.originSlot, fresh, slot);
+    linkSlots(origin, input.originSlot, fresh, slot);
   }
 }
 
@@ -97,21 +72,7 @@ function reconnectOutputs(fresh, shot, graph) {
     if (slot == null || slot < 0) continue; // vanished slot
     for (const target of output.targets) {
       const targetNode = graph.getNodeById(target.nodeId);
-      if (targetNode) fresh.connect(slot, targetNode, target.slot);
-    }
-  }
-}
-
-// Wiring the replacement's outputs steals the target inputs from the
-// original, so a rollback has to hand any stolen link back.
-function repairOriginalOutputs(node, shot, graph) {
-  for (const output of shot.outputs) {
-    for (const target of output.targets) {
-      const targetNode = graph.getNodeById(target.nodeId);
-      if (!targetNode) continue;
-      const current = lookupLink(graph, targetNode.inputs?.[target.slot]?.link);
-      if (current?.origin_id === node.id) continue; // never stolen
-      node.connect(output.slot, targetNode, target.slot);
+      if (targetNode) linkSlots(fresh, slot, targetNode, target.slot);
     }
   }
 }
@@ -134,7 +95,7 @@ function rebuildNode(node) {
   } catch (error) {
     try {
       if (fresh) graph.remove(fresh);
-      if (shot) repairOriginalOutputs(node, shot, graph);
+      if (shot) restoreOutputLinks(node, shot.outputs, graph);
       app.canvas?.setDirty?.(true, true);
     } catch (rollbackError) {
       // Nothing more can be done safely; the warn below still fires.
