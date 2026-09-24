@@ -1280,6 +1280,18 @@
       "color": "#366451"
     },
     {
+      "title": "3 · Describe the source",
+      "bounding": [
+        -80,
+        40,
+        500,
+        1250
+      ],
+      "color": "#42686c",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
       "id": 3,
       "title": "4 · Prompt, placement, noise mask",
       "bounding": [
@@ -1317,18 +1329,6 @@
       "flags": {},
       "font_size": 24,
       "color": "#345d7c"
-    },
-    {
-      "title": "3 · Describe the source",
-      "bounding": [
-        -80,
-        40,
-        500,
-        1250
-      ],
-      "color": "#42686c",
-      "font_size": 24,
-      "flags": {}
     }
   ],
   "config": {},

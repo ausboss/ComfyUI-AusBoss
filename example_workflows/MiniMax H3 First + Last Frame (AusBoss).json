@@ -1925,6 +1925,18 @@
       "flags": {}
     },
     {
+      "title": "3 · Describe both references",
+      "bounding": [
+        1020,
+        40,
+        500,
+        1940
+      ],
+      "color": "#42686c",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
       "title": "4 · Canvas + duration",
       "bounding": [
         1540,
@@ -1969,18 +1981,6 @@
         780
       ],
       "color": "#65515e",
-      "font_size": 24,
-      "flags": {}
-    },
-    {
-      "title": "3 · Describe both references",
-      "bounding": [
-        1020,
-        40,
-        500,
-        1940
-      ],
-      "color": "#42686c",
       "font_size": 24,
       "flags": {}
     }
