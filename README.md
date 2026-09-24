@@ -10,7 +10,7 @@
   </p>
 </div>
 
-ComfyUI-AusBoss provides compact image, video, inpaint, and workflow utility nodes. Numeric controls scrub by dragging, click to type, and use Shift for fine steps. Visual tools share the same crop, pad, and rotation controls. Every node has a **?** help card with its inputs, outputs, and usage notes.
+ComfyUI-AusBoss provides compact image, video, inpaint, and workflow utility nodes. Numeric controls scrub by dragging, click to type, and use Shift for fine steps. Visual tools share the same crop, pad, and rotation controls. The **?** in each node's title bar opens a card with its inputs and outputs, and a longer help page for every node opens in ComfyUI's node help panel.
 
 ![LoRA Loader absorbs a connected LoRA chain, shows strength changes while scrubbing, and restores the previous toggle selection.](assets/readme/lora-chain-demo.gif)
 
@@ -20,16 +20,18 @@ ComfyUI-AusBoss provides compact image, video, inpaint, and workflow utility nod
 
 **Make room for more.** Load Image + Pad prepares the canvas; Krea 2 + AnyPaint generates the extension; Stitch Inpaint brings the original back. [Open the outpaint workflow →](example_workflows/Krea%202%20Outpaint%20%28AusBoss%29.json)
 
-## Start here
+## Install
+
+In **ComfyUI-Manager**, open the Custom Nodes Manager, search for **AusBoss** and install it; `comfy node install ausboss-nodes` does the same from the command line. To follow the newest changes, clone the repository instead:
 
 ```bash
 cd ComfyUI/custom_nodes
 git clone https://github.com/ausboss/ComfyUI-AusBoss.git
 ```
 
-Restart ComfyUI and search for **AusBoss**. After updating, hard-refresh the browser with **Ctrl+Shift+R**.
+Restart ComfyUI and search the node library for **AusBoss**. After an update, through Manager or `git pull`, restart again and hard-refresh the browser with **Ctrl+Shift+R**: the browser otherwise keeps the old JavaScript, and the pack shows a warning when it does. A new version reaches Manager once the Comfy Registry has reviewed it, so GitHub can be a little ahead.
 
-**Upgrading from 1.x:** 2.0.0 removes **LM Studio Chat**. Existing workflows using that node need a replacement; use **Text** when a fixed prompt is enough. All other public mapping keys are retained.
+**Upgrading from 1.x:** 2.0 removed **LM Studio Chat** (use **Text** for a fixed prompt), Align Image's `offset_x`/`offset_y` outputs, and Math Expression's typed `a`/`b`/`c` boxes, which are sockets now: put constants in the expression. 1.2 removed **Drop Shadow**, **Pad Image** (use **Load Image + Pad**) and **Frame Chooser**. Save Image writes only inside ComfyUI's output folder. The [changelog](CHANGELOG.md) has the details.
 
 The pack uses Pillow, NumPy, Torch, and PyAV supplied by ComfyUI. Model workflows need the weights listed on their Workflow Note cards. LaMa additionally needs [`big-lama.pt`](https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt) in `ComfyUI/models/lama/`; it never downloads weights automatically.
 
@@ -41,6 +43,7 @@ The pack uses Pillow, NumPy, Torch, and PyAV supplied by ComfyUI. Model workflow
 | [Models and conditioning](#models-and-conditioning) | LoRA stack, Krea 2 prompt and reference conditioning |
 | [Workflow utilities](#workflow-utilities) | Resolution, seed, batch operations, math, text, memory, notes, timer |
 | [Examples](#example-workflows) | Seventeen grouped graphs with setup cards and thumbnails |
+| [Pack-wide tools](#pack-wide-tools) | Help cards, node colors, recreate and replace, run status, completion sound |
 
 ## Image nodes
 
@@ -96,7 +99,7 @@ Link `filename` to retain an upstream name, or `caption_text` to write a matchin
 
 ![Animated comparison of a vertical pier clip and its wider LTX 2.3 outpainted result, showing the added lake and shoreline.](assets/readme/video-outpaint.gif)
 
-**Give a vertical clip a wider world.** This LTX 2.3 example extends the sides and stitches the source frames back into the result. The saved video retains the source audio; this preview is a silent loop. The IC-LoRA keys on the canvas, not the format: a pure black fill with feather 0 painted every aspect ratio tested, from 1:1 to 2.5:1 and on any side, while grey, white or feathered bands come back flat. [Open the video outpaint workflow →](example_workflows/LTX%202.3%20Video%20Outpaint%20%28AusBoss%29.json)
+**Give a vertical clip a wider world.** This LTX 2.3 example extends the sides and stitches the source frames back in, keeping the clip's audio when it has any (this preview loop is silent). The outpaint LoRA needs a pure black fill with feather 0; grey, white or feathered bands come back flat. With that canvas it works at any aspect ratio and on any side. [Open the video outpaint workflow →](example_workflows/LTX%202.3%20Video%20Outpaint%20%28AusBoss%29.json)
 
 ### Load Video 🆎
 
@@ -176,7 +179,7 @@ Keep a complete stack in one node: enable each row, choose a model from the sear
 
 **One stack, a distinct look.** Krea 2 with the Vintage Tarot LoRA enabled; the other rows are parked for later. [Try the LoRA stack example →](example_workflows/Krea%202%20Text%20to%20Image%20%2B%20LoRA%20Stack%20%28AusBoss%29.json)
 
-The toolbar holds the stack toggle, saved templates, reconnect, and settings. **Absorb loader chain** moves recognized loaders into this stack in application order, retaining repeated LoRAs. It bypasses the originals only when MODEL, CLIP, and auxiliary connections can be preserved. Shared branches and linked stack settings leave the chain untouched. File metadata, a `.civitai.info` sidecar beside the file, and your saved words populate each LoRA's information card; selected trigger words flow through the `triggers` output.
+The toolbar holds the stack toggle, saved templates, reconnect, and settings. **Absorb chain LoRAs** in the settings menu moves recognized loaders into this stack in application order, retaining repeated LoRAs. It bypasses the originals only when MODEL, CLIP, and auxiliary connections can be preserved. Shared branches and linked stack settings leave the chain untouched. File metadata, a `.civitai.info` sidecar beside the file, and your saved words populate each LoRA's information card; selected trigger words flow through the `triggers` output.
 
 Moved files resolve by basename when the match is unambiguous. A missing enabled LoRA stops validation by default. **Stop on missing LoRA** can be turned off to warn and skip instead. A LoRA that patches nothing on the model reports a warning naming the file.
 
@@ -287,6 +290,15 @@ Copy the files in [`example_workflows/inputs/`](example_workflows/inputs) into `
 
 The other sixteen examples use core nodes plus this pack. Model-free examples are the quickest installation check. Generation speed and memory depend on the selected weights, dimensions, frame count, and other GPU workloads; the graph settings are reproducible, hardware timing is not.
 
+## Pack-wide tools
+
+- **Help cards:** the **?** in a node's title bar opens its description, inputs and outputs. Run Timer, which has no title bar, has **About this node** in its right-click menu.
+- **Recreate node 🆎** (right-click an AusBoss node) rebuilds a node saved by an older version from the current definition, keeping its values, links, position and colors.
+- **Replace with AusBoss nodes 🆎** (canvas right-click or the command palette) finds third-party nodes this pack can stand in for, such as VideoHelperSuite's Load Video and Video Combine or KJNodes' Color Match, previews each swap, and replaces the ones you leave ticked.
+- **Node colors:** Settings → 🆎 AusBoss → Appearance sets the scheme for every AusBoss node (AusBoss, Graphite, Slate, Teal, Moss, Plum, Rust, Navy, Custom, or Theme default), and a node's right-click **AusBoss color** menu recolors one. Hand-colored nodes keep their colors.
+- **Run status:** under Settings → 🆎 AusBoss → Chrome, queue status can appear in the browser tab's title and icon, running nodes get live progress badges, and per-node run times can be shown.
+- **Completion sound:** Settings → 🆎 AusBoss → Notifications plays a short chime when the queue finishes.
+
 ## Editor controls and settings
 
 - Cyan squares crop, orange diamonds pad, and the green handle rotates. Shift snaps rotation to 15°.
@@ -295,27 +307,25 @@ The other sixteen examples use core nodes plus this pack. Model-free examples ar
 - Video editors offer frame stepping, playback, and exact timeline seeking, on the node face as well as in the editor. The Clip node's IN/OUT handles are frames on the source's own grid, so the frame shown for IN is the first frame decoded and the frame shown for OUT is the last.
 - Optional aspect presets live in `ausboss_presets.json` beside the pack. Copy [`ausboss_presets_example.json`](ausboss_presets_example.json) to start; the user file survives updates.
 
-**Settings → 🆎 AusBoss** contains the pack color scheme, including AusBoss, Graphite, Slate, Teal, Moss, Plum, Rust, Navy, Custom, and Theme default. Hand-colored nodes keep their overrides. Right-click a node for its **AusBoss color** menu.
-
-Under **Chrome**, queue status can appear in the browser title/favicon, live badges report node progress, and optional runtime badges display per-node execution time. LoRA Loader and Resolution Master have their own gear menus.
+LoRA Loader and Resolution Master have their own gear menus for per-node preferences.
 
 The video transform nodes' local path mode reads only videos inside ComfyUI's input, output and temp folders, and Save Image writes only inside the output folder: no widget can point the pack anywhere else on the disk; see [the video transform help](js/docs/AUSBOSS_NODES_VideoCropRotatePad.md).
 
 ## Optional extras
 
-Install extras with the Python interpreter ComfyUI actually uses, from this pack's directory:
+Three features need an extra Python package. Install it with the Python that runs ComfyUI; for the Windows portable build that is `python_embeded\python.exe -m pip install ...` from the portable folder.
 
 ```bash
-python -m pip install '.[guided-filter]'  # Mask Refine: guided filter
-python -m pip install '.[matting]'        # Mask Refine: matting; Stitch: edge halo
-python -m pip install '.[jxl]'            # Save Image: lossless JPEG XL
+python -m pip install opencv-contrib-python   # Mask Refine: guided filter
+python -m pip install "pymatting>=1.1"        # Mask Refine: matting; Stitch Inpaint: edge halo
+python -m pip install pillow-jxl-plugin       # Save Image: lossless JPEG XL
 ```
 
 Default mask operations, ordinary stitching, PNG, and lossless WebP do not need these extras. Optical flow needs cached RAFT weights; model setup is described in the corresponding node help. Codec support depends on the ComfyUI environment.
 
 ## Compatibility and development
 
-The declared minimum is ComfyUI **0.27.1**. Newer model examples require a core that includes their model family; updating only this pack cannot add missing core model support. The current review uses ComfyUI **0.37.0** with frontend **1.53.6**. The pack supports classic canvas and Nodes 2.0, and backend execution does not require an editor to be open.
+The declared minimum is ComfyUI **0.27.1**. Newer model examples require a core that includes their model family; updating only this pack cannot add missing core model support. It is tested with ComfyUI **0.37.0** and frontend **1.53.6**. The pack supports classic canvas and Nodes 2.0, and backend execution does not require an editor to be open.
 
 Backend changes need a full ComfyUI restart. Frontend changes need a hard refresh. Use ComfyUI's Python for backend tests:
 
@@ -326,7 +336,11 @@ python scripts/run_python_tests.py
 node --test tests/*.test.mjs
 ```
 
-Backend tests run in separate processes because their offline ComfyUI stubs must not leak between files. See [`docs/live_testing.md`](docs/live_testing.md) for canvas, mouse-drag, save/reload, and workflow execution checks. [`docs/adding_a_node.md`](docs/adding_a_node.md) and [`AGENTS.md`](AGENTS.md) define the public-node and release gates.
+Backend tests run in separate processes because their offline ComfyUI stubs must not leak between files. [CONTRIBUTING.md](CONTRIBUTING.md) covers bug reports and pull requests; [`docs/live_testing.md`](docs/live_testing.md) covers canvas, mouse-drag, save/reload, and workflow execution checks; [`docs/adding_a_node.md`](docs/adding_a_node.md) and [`AGENTS.md`](AGENTS.md) define the public-node and release gates.
+
+## Feedback
+
+Bug reports and workflow ideas are welcome in [issues](https://github.com/ausboss/ComfyUI-AusBoss/issues). Security problems go through [SECURITY.md](SECURITY.md). Every release is described in the [changelog](CHANGELOG.md).
 
 ## License
 
