@@ -97,6 +97,18 @@ class AlignImageTests(unittest.TestCase):
         # Mixed axes: the padded side is positive, the cropped side negative.
         self.assertEqual((ox, oy), (6, -2))
 
+    def test_color_pad_keeps_an_alpha_channel_opaque(self):
+        frames = torch.cat([ramp(1, 20, 20), torch.full((1, 20, 20, 1), 0.25)], dim=-1)
+        out, width, height, ox, oy = align_image(
+            frames, 16, "pad", pad_fill="color", pad_color="#ff0000"
+        )
+        self.assertEqual((width, height), (32, 32))
+        self.assertEqual(tuple(out.shape), (1, 32, 32, 4))
+        self.assertTrue(torch.equal(out[:, oy : oy + 20, ox : ox + 20, :], frames))
+        # The padded border takes the color, and the alpha channel pads opaque.
+        self.assertTrue(torch.equal(out[0, 0, 0], torch.tensor([1.0, 0.0, 0.0, 1.0])))
+        self.assertTrue(torch.equal(out[0, -1, -1], torch.tensor([1.0, 0.0, 0.0, 1.0])))
+
     def test_batch_and_values_survive(self):
         frames = ramp(3, 40, 40)
         out, _w, _h, _ox, _oy = align_image(frames, 16, "pad")

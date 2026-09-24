@@ -354,24 +354,20 @@ class AusBossSaveImage:
                 sidecar_path(path).write_text(caption_value, encoding="utf-8")
             saved.append(path)
 
-        # The frontend can only serve previews from inside the output
-        # folder; anything saved elsewhere is reported by path instead.
+        # Every destination was confined to the output folder above, so each
+        # saved file previews from there and is shown relative to it.
         previews: list[dict] = []
         resolved_root = output_root.resolve()
         shown_paths: list[str] = []
         for path in saved:
             resolved = path.resolve()
-            inside = resolved_root == resolved.parent or resolved_root in resolved.parents
-            if inside:
-                relative = resolved.parent.relative_to(resolved_root)
-                previews.append({
-                    "filename": resolved.name,
-                    "subfolder": "" if relative == Path(".") else str(relative),
-                    "type": "output",
-                })
-                shown_paths.append(resolved.relative_to(resolved_root).as_posix())
-            else:
-                shown_paths.append(str(resolved))
+            relative = resolved.parent.relative_to(resolved_root)
+            previews.append({
+                "filename": resolved.name,
+                "subfolder": "" if relative == Path(".") else str(relative),
+                "type": "output",
+            })
+            shown_paths.append(resolved.relative_to(resolved_root).as_posix())
         return {
             "ui": {"images": previews, "ausboss_saved_path": shown_paths[:1]},
             "result": (str(saved[0]) if saved else "", images),

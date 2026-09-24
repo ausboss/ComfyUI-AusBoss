@@ -53,17 +53,13 @@ def _color_pad(
     bottom: int,
     pad_color: object,
 ) -> torch.Tensor:
-    """Pad with a solid parsed color instead of replicated edges."""
+    """Pad with a solid parsed color instead of replicated edges.
+
+    ``_fill_tensor`` already sizes the color to the image's channels, so an
+    alpha (or any extra) channel pads fully opaque.
+    """
     batch, height, width, channels = image.shape
     fill = _fill_tensor(pad_color, image, "Align Image pad_color").view(1, 1, 1, -1)
-    if channels > fill.shape[-1]:
-        # Alpha (or extra) channels pad fully opaque.
-        extra = torch.ones(
-            (1, 1, 1, channels - fill.shape[-1]),
-            dtype=image.dtype,
-            device=image.device,
-        )
-        fill = torch.cat([fill, extra], dim=-1)
     canvas = fill.expand(
         batch, height + top + bottom, width + left + right, channels
     ).clone()
