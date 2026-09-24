@@ -95,7 +95,9 @@ All notable changes to ComfyUI-AusBoss are documented here.
   load, SAM3 Segment names ComfyUI-RMBG, and six LoRA Loaders save their
   missing-file rule.
 - Krea 2 Outpaint turns VLM reference back on, the AnyPaint recipe its note
-  describes. The node tour thins with Select Every Nth and carries the rate
+  describes, and works on a 1.6 MP canvas budget like Klein 9B Outpaint. At
+  full size a big photo's canvas (4 MP) painted its new sky darker, creased
+  at the corners and cut invented limbs at the old edge. The node tour thins with Select Every Nth and carries the rate
   through it.
 - Every example has a valid id, opens at a zoom that draws widget text,
   drops other tools' leftover metadata, stores its named widget values in
