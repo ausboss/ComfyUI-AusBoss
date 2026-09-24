@@ -21,6 +21,9 @@ Checks:
   5. example_workflows/: every UI graph has a matching thumbnail, consistent
      links, setup instructions, and stage groups containing its nodes without
      overlaps (including title bars).
+  6. Shipped source makes no network requests: no HTTP or socket client in
+     the backend, and no index-based LiteGraph connect call in the frontend,
+     which the Registry scan reads as a socket and flags the release for.
 
 Exit code 0 = ready to release, 1 = problems printed below.
 """
@@ -179,6 +182,33 @@ if examples.is_dir():
         if path.stem not in workflows:
             errors.append(f"example_workflows/{path.name} has no matching {path.stem}.json")
     errors.extend(example_problems(examples))
+
+# --- 6. shipped source makes no network requests -----------------------------
+# SECURITY.md promises that no backend code contacts a host. The frontend
+# wires graph links through linkSlots (js/shared/graph_links.mjs) because
+# the Registry scan reads every `.connect(` as a network socket.
+NETWORK_PATTERNS = {
+    ".py": ("ClientSession", "urllib.request", "urlopen", "http.client",
+            "import requests", "import httpx", "import socket", "from socket"),
+    ".js": (".connect(",),
+    ".mjs": (".connect(",),
+}
+shipped_source = [ROOT / "__init__.py", *sorted((ROOT / "nodes").rglob("*.py"))]
+shipped_source += sorted(p for p in (ROOT / "js").rglob("*") if p.suffix in (".js", ".mjs"))
+for path in shipped_source:
+    if "__pycache__" in path.parts or not path.is_file():
+        continue
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        errors.append(f"could not read {path.relative_to(ROOT)}: {exc}")
+        continue
+    for pattern in NETWORK_PATTERNS[path.suffix]:
+        if pattern in text:
+            errors.append(
+                f"{path.relative_to(ROOT).as_posix()} contains {pattern!r}; shipped code "
+                "makes no network requests (use linkSlots for graph links)"
+            )
 
 # --- report ------------------------------------------------------------------
 for error in errors:
