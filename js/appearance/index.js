@@ -12,7 +12,7 @@ import {
   titleInk,
   wearsLegacyScheme,
 } from "../shared/appearance.mjs";
-import { AUSBOSS_JS_VERSION, chainCallback } from "../shared/index.mjs";
+import { AUSBOSS_JS_VERSION, chainCallback, chainHandler } from "../shared/index.mjs";
 import {
   BADGE_RADIUS,
   badgeCenter,
@@ -195,7 +195,12 @@ app.registerExtension({
   },
   getNodeMenuItems(node) {
     if (!isAusbossNode(node)) return [];
+    // A title-less node has no bar for the "?" badge; its card opens here.
+    const about = isTitleless(node)
+      ? [{ content: "About this node", callback: () => openHelpCard(node, null) }]
+      : [];
     return [
+      ...about,
       {
         content: "AusBoss color",
         has_submenu: true,
@@ -230,14 +235,28 @@ app.registerExtension({
   },
 });
 
+function isTitleless(node) {
+  return node.constructor?.title_mode === (globalThis.LiteGraph?.NO_TITLE ?? 1);
+}
+
+function openHelpCard(node, event) {
+  const nodeData = node.constructor?.nodeData;
+  const clientX = event?.clientX ?? window.innerWidth / 2;
+  const clientY = event?.clientY ?? 80;
+  openInfoCard({
+    anchor: { left: clientX - 150, top: clientY, bottom: clientY + 6 },
+    title: node.title || nodeData?.display_name || "About this node",
+    sections: helpSections(nodeData),
+  });
+}
+
 // Every AusBoss node gets a quiet "?" in the title bar; clicking it opens a
 // card built from the node's own DESCRIPTION and tooltips, so the docs on
 // screen are exactly the docs in the source.
 function installHelpBadge(node) {
   // A title-less node (Run Timer) has no bar to hang the badge on; its
-  // help stays reachable through the node's context menu.
-  const noTitle = node.constructor?.title_mode === (globalThis.LiteGraph?.NO_TITLE ?? 1);
-  if (noTitle) return;
+  // card opens from the node's context menu instead.
+  if (isTitleless(node)) return;
   chainCallback(node, "onDrawForeground", function (ctx) {
     if (!showBadge(this.size?.[0] ?? 0, this.flags?.collapsed)) return;
     const [x, y] = badgeCenter(this.size[0]);
@@ -254,17 +273,10 @@ function installHelpBadge(node) {
     ctx.fillText("?", x, y + 0.5);
     ctx.restore();
   });
-  chainCallback(node, "onMouseDown", function (event, pos) {
+  chainHandler(node, "onMouseDown", function (event, pos) {
     if (!showBadge(this.size?.[0] ?? 0, this.flags?.collapsed)) return false;
     if (!pos || !hitsBadge(pos, this.size[0])) return false;
-    const nodeData = this.constructor?.nodeData;
-    const clientX = event?.clientX ?? window.innerWidth / 2;
-    const clientY = event?.clientY ?? 80;
-    openInfoCard({
-      anchor: { left: clientX - 150, top: clientY, bottom: clientY + 6 },
-      title: this.title || nodeData?.display_name || "About this node",
-      sections: helpSections(nodeData),
-    });
+    openHelpCard(this, event);
     return true; // consume the click so it does not start a drag
   });
 }

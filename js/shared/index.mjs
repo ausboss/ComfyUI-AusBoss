@@ -27,6 +27,18 @@ export function chainCallback(proto, name, fn) {
   };
 }
 
+// chainCallback for handlers whose truthy return tells LiteGraph the event
+// was consumed (onMouseDown skips the node drag): the chain reports consumed
+// when either handler did. chainCallback would drop this handler's verdict.
+export function chainHandler(proto, name, fn) {
+  const prior = proto[name];
+  proto[name] = function (...args) {
+    const result = prior?.apply(this, args);
+    const handled = fn.apply(this, args);
+    return result || handled;
+  };
+}
+
 // ComfyUI's undo/dirty tracker snapshots the graph on canvas mouse-up, but
 // our DOM panels commit widget values and node.properties from click/change/
 // pointerup handlers that run one phase later. Without a nudge those edits
