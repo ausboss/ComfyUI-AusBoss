@@ -13,8 +13,8 @@ needs.
   a new seed, Fixed keeps it, Step increments it (click Step again to
   switch to decrement). This is the sampler's own *control after generate*,
   just readable.
-- **New seed** — rolls a fresh seed and pins it (Fixed), for when a random
-  run landed somewhere good and you want to stay near it.
+- **New seed** — rolls a fresh seed and pins it (Fixed), so the following
+  runs all use it.
 - **Use last run** — puts the seed of the most recent run back in the box
   and pins it. Random mode replaces the seed the moment a run is queued, so
   the number in the box is already the *next* one while the image is still
@@ -36,4 +36,5 @@ needs.
 - Sampler seeds go up to 2⁶⁴−1; the box accepts that range. Seeds rolled by
   the buttons stay below 2⁵⁰, the same ceiling ComfyUI's own randomize
   uses, so the number stays exact.
-- Convert **seed** to an input and the box goes read-only: the wire owns it.
+- Link a value into the **seed** row and the box goes read-only: the wire
+  owns it.

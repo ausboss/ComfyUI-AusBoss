@@ -1,5 +1,11 @@
 # Load Image + Pad
 
+Loads an image and builds an outpaint canvas around it in one node. The
+canvas drawn on the node is the control: **drag any edge of the dashed
+final rect** to grow that side's padding — the whole edge is the handle,
+and corners grab the nearer edge. The second output is a mask covering
+exactly the padding, ready for an inpainter.
+
 The widget card holds Source and Upload, fill mode, color or backdrop blur,
 Feather, Multiple, and Budget. **Exact padding** opens a separate scrub row
 for each side. Every row can take a link; linked controls dim, and their
@@ -7,12 +13,6 @@ values and links save with the workflow. The canvas remains available below
 the card for dragging the borders.
 Linked sides are controlled upstream; dragging their borders leaves the saved
 padding value unchanged.
-
-Loads an image and builds an outpaint canvas around it in one node. The
-canvas drawn on the node is the control: **drag any edge of the dashed
-final rect** to grow that side's padding — the whole edge is the handle,
-and corners grab the nearer edge. The second output is a mask covering
-exactly the padding, ready for an inpainter.
 
 ## The on-node canvas
 
@@ -61,4 +61,5 @@ exactly the padding, ready for an inpainter.
   Model Patch 🆎** reads to place the reference.
 - **reference**: The source alone, no padding, fitted to a small multiple
   of 16 — the reference image for **Krea 2 Encode 🆎** and other
-  reference conditioning. Wire it nowhere and nothing is computed.
+  reference conditioning. It is built on every run; leave it unconnected
+  when nothing needs it.

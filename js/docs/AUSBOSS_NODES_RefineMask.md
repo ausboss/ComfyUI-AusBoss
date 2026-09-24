@@ -64,8 +64,11 @@ file is written. The switch is the node's optional `preview` input.
 Everything above runs on the pack's stock dependencies except the two
 `edge_refine` tiers:
 
-- `guided filter` needs opencv-contrib: `pip install opencv-contrib-python`
-- `matting` needs pymatting: `pip install pymatting`
+- `guided filter` needs opencv-contrib: `python -m pip install opencv-contrib-python`
+- `matting` needs pymatting: `python -m pip install "pymatting>=1.1"`
+
+Run them with the Python that runs ComfyUI (for the Windows portable build,
+`python_embeded\python.exe -m pip install ...`).
 
 They are listed in the pack's `pyproject.toml` under
 `[project.optional-dependencies]` as the `guided-filter` and `matting`

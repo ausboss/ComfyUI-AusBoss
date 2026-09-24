@@ -1,14 +1,17 @@
 # Video Crop + Rotate + Pad → Frame
 
 **Outputs one frame, not a clip.** The timeline in the editor is for finding
-the frame; the node returns that single image and its mask.
+the frame; the node returns that single image, not a re-encoded video.
 
-Loads one exact video frame and applies the same **rotate → crop → pad** transform as the image node. It outputs an image and generated-area mask, not a re-encoded video.
+Loads one exact video frame and applies the same **rotate → crop → pad**
+transform as the image node. It returns the transformed `image`, its
+generated-area `mask`, a `stitcher` for Stitch Inpaint, and the selected
+`original` frame before the transform.
 
 ## Source and frame
 
 - **Uploads**: Pick an input video, click **Upload** in the compact source card, or
-  drop a video file onto the node. Another video keeps the fill, feather and resize
+  drop a video file onto the node. Another video keeps the fill and feather
   settings and the lit format chip (the new frame uses its Crop / Pad mode); rotation, crop and
   the playhead start over.
 - **Canvas row** under the format chips: fill swatch and feather amount on the node face.

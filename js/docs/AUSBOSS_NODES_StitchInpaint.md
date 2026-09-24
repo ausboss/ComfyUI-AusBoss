@@ -1,9 +1,10 @@
 # Stitch Inpaint
 
-Pastes an inpainted crop from **Crop For Inpaint 🆎** back into the
-original image. The crop is resized to its source window if the sampler
-changed its size, blended in with the feathered mask recorded in the
-stitcher, and the original frame is sliced back out.
+Pastes a generated crop or outpaint back into its original image, using
+the stitcher from **Crop For Inpaint 🆎**, **Load Image + Pad 🆎** or any
+**Crop + Rotate + Pad 🆎** node. The result is resized to its source window
+if the sampler changed its size, blended in with the feathered mask recorded
+in the stitcher, and the original frame is sliced back out.
 
 ## Guarantees
 
@@ -21,7 +22,7 @@ stitcher, and the original frame is sliced back out.
 
 ## Controls
 
-- **stitcher**: The stitcher output of Crop For Inpaint. It carries the
+- **stitcher**: The stitcher from one of the nodes above. It carries the
   paste window, the blend mask, and the untouched original pixels.
 - **inpainted**: The inpainted crop. A stitcher built from a single image
   broadcasts across an N-frame inpainted batch, so one still-image crop
@@ -88,10 +89,10 @@ already looks clean — a clean seam has nothing to gain, and the estimate is
 not free.
 
 The fix needs the optional [`pymatting`](https://pypi.org/project/pymatting/)
-package:
+package, installed with the Python that runs ComfyUI:
 
 ```bash
-pip install pymatting
+python -m pip install "pymatting>=1.1"
 ```
 
 Without it the node prints one console note and pastes exactly as it would

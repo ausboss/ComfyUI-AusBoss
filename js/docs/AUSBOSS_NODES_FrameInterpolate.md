@@ -12,10 +12,13 @@ and only the true in-betweens are synthesized.
   moving pixels.
 - **optical flow**: Estimates RAFT motion vectors in both directions, warps
   both neighbors toward the in-between time, and blends the warps. Much
-  sharper on motion. It only reads the official RAFT-small checkpoint from
-  the torch hub cache and never downloads it during execution. If the file is
-  absent, the node reports its exact expected path and source URL; approve and
-  place the model there separately, or use **blend**.
+  sharper on motion. It reads torchvision's official RAFT-small checkpoint,
+  `raft_small_C_T_V2-01064c6d.pth`, from the torch hub cache
+  (`~/.cache/torch/hub/checkpoints/` unless `TORCH_HOME` moves it) and never
+  downloads it during a run. Download it from
+  `https://download.pytorch.org/models/raft_small_C_T_V2-01064c6d.pth` into
+  that folder; without it the node names the exact path it looked in. Or use
+  **blend**.
 
 ## Scene cuts
 
