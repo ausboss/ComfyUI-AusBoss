@@ -6,8 +6,9 @@ before an expensive stage, or thin a long sweep down to samples.
 ## Controls
 
 - **images**: The BHWC batch to thin out.
-- **nth**: Keep one frame in every `nth`. `2` keeps every other frame, `1`
-  keeps everything (useful with **offset** alone to drop leading frames).
+- **Every nth** (`nth`): Keep one frame in every `nth`. `2` keeps every
+  other frame, `1` keeps everything (useful with **offset** alone to drop
+  leading frames).
 - **offset**: Frames to skip before the first kept frame. With `nth` 2,
   offset `0` keeps frames 1, 3, 5 and offset `1` keeps frames 2, 4, 6
   (one-based, as the rest of the pack counts frames).

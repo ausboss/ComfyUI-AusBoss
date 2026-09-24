@@ -41,23 +41,24 @@ embedded workflow replaces the whole graph.
 
 ## Controls
 
-- **video**: A file in the input folder; the upload button adds new ones.
-- **IN / start_seconds**: Skip everything before this time.
-- **OUT / end_seconds**: Stop at this time; `0` means the source end until a
+- **Source** (`video`): A file in the input folder; **Upload** adds new ones.
+- **IN** (`start_seconds`): Skip everything before this time.
+- **OUT** (`end_seconds`): Stop at this time; `0` means the source end until a
   handle is moved.
 - **every_nth**: Keep one frame in this many — `2` halves the frame count.
   The `fps` output divides to match, so the clip still plays at real speed
   downstream.
-- **max_frames**: Stop after this many kept frames; `0` loads the whole trim
-  window. Caps memory on long clips — the decode ends early instead of
-  loading and discarding.
+- **Limit** (`max_frames`): Stop after this many kept frames; `0` loads the
+  whole trim window. Caps memory on long clips — the decode ends early
+  instead of loading and discarding.
 - **LOOP**: Repeat the selected window during preview.
-- **FRAME / single_frame**: Load only the frame at the IN time as a one-image
-  batch; `end_seconds`, `every_nth`, and `max_frames` are ignored while it is
-  on.
+- **FRAME** (`single_frame`): Load only the frame at the IN time (the field
+  reads **AT** while FRAME is on) as a one-image batch; `end_seconds`,
+  `every_nth`, and `max_frames` are ignored while it is on.
 - **↻**: Reload the selected source preview.
-- **custom_width / custom_height**: `0` keeps the source size. Set one side
-  only and the other follows the aspect ratio, rounded to an even number.
+- **Width** / **Height** (`custom_width` / `custom_height`): `0` keeps the
+  source size. Set one side only and the other follows the aspect ratio,
+  rounded to an even number.
 
 ## Outputs
 

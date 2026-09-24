@@ -46,9 +46,9 @@ file is written. The switch is the node's optional `preview` input.
   become fully white; the range between rescales linearly. Raise
   `black_point` a little to clear gray haze, lower `white_point` to solidify
   the core. The defaults (`0.0` / `1.0`) change nothing.
-- **edge_refine**: `off`, `guided filter`, or `matting`. Both refinements
-  snap the mask edge to the connected **guide_image** and run per frame, so
-  video batches stay interruptible:
+- **Edge** (`edge_refine`): `off`, **guided** (`guided filter`), or
+  `matting`. Both refinements snap the mask edge to the connected
+  **guide_image** and run per frame, so video batches stay interruptible:
   - `guided filter` — fast edge-aware filtering of the soft mask against the
     guide image. The filter radius scales with **expand**.
   - `matting` — closed-form alpha matting: the binarized mask eroded by the

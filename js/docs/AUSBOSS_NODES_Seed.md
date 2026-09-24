@@ -9,10 +9,10 @@ needs.
 
 - **The number** — click to type a seed; **⧉** copies it. In Random mode
   the tag reads *next*: that is the seed the next queue will use.
-- **Random / Fixed / Step** — what happens after each queue. Random rolls
-  a new seed, Fixed keeps it, Step increments it (click Step again to
-  switch to decrement). This is the sampler's own *control after generate*,
-  just readable.
+- **Random / Fixed / Step +1** — what happens after each queue. Random
+  rolls a new seed, Fixed keeps it, Step +1 increments it (click it again
+  for **Step −1**, which decrements). This is the sampler's own *control
+  after generate*, just readable.
 - **New seed** — rolls a fresh seed and pins it (Fixed), so the following
   runs all use it.
 - **Use last run** — puts the seed of the most recent run back in the box

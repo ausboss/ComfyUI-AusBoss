@@ -16,7 +16,7 @@ generated-area `mask`, a `stitcher` for Stitch Inpaint, and the selected
   the playhead start over.
 - **Canvas row** under the format chips: fill swatch and feather amount on the node face.
 - **Upload** streams to the input folder, so videos larger than the buffered image-upload limit can be selected here or dropped onto the node.
-- **source_mode**: `input folder` or `local path`. Local path mode avoids copying large files.
+- **Uploads** / **Local path** (`source_mode`: `input folder` / `local path`): the source card's switch. Local path mode avoids copying large files.
 - **local_path**: Absolute path used only in local path mode, read in place without an
   upload copy. It must point inside ComfyUI's input, output or temp folder, for queued
   runs and the editor's live preview alike; paths anywhere else are refused.

@@ -7,10 +7,11 @@ split batch, append a comparison strip to a run, or chain clips.
 
 - **a**: The first batch; its frames lead the result.
 - **b**: The second batch, appended after **a**'s frames.
-- **on_mismatch**: What to do when the two resolutions differ:
-  - `resize to a` (default): **b**'s frames are bilinear-resized to **a**'s
-    size.
-  - `resize to b`: **a**'s frames are resized to **b**'s size instead.
+- **Mismatch** (`on_mismatch`): What to do when the two resolutions differ:
+  - **match a** (`resize to a`, the default): **b**'s frames are
+    bilinear-resized to **a**'s size.
+  - **match b** (`resize to b`): **a**'s frames are resized to **b**'s size
+    instead.
   - `error`: stop, naming both sizes — for graphs where a silent resize
     would hide a bug.
 

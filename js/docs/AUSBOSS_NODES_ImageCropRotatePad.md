@@ -7,14 +7,14 @@ Loads an image and applies one reusable **rotate → crop → pad** transform. C
 - **Image source**: Pick an existing input image or click **Upload** in the compact
   source card. Dropping an image onto the node still works. The original `image`
   widget remains the saved/API value; the old picker and upload rows are hidden.
-- **rotation_degrees**: Clockwise rotation before crop and padding.
+- **Rotate → Degrees** (`rotation_degrees`): Clockwise rotation before crop and padding.
 - **crop_aspect_ratio**: Free crop, source ratio, or a fixed ratio.
 - **crop_x / crop_y / crop_width / crop_height**: Crop in rotated-image pixels. Width and height `0` mean the full available dimension.
 - **pad_left / pad_top / pad_right / pad_bottom**: New pixels around the crop.
 - **feather**: Feathers the mask into kept pixels and fades the image edge into the fill color, so outpaints blend instead of ending at a hard seam.
-- **canvas_multiple**: Rounds the final canvas up by adding the minimum extra pixels to the right and bottom.
-- **fill_color**: `#RRGGBB` or three RGB values used for generated pixels.
-- **resize_to_megapixels / megapixels / resize_method / resolution_steps**: Optional resize of the finished output to a pixel budget, with core *Scale Image to Total Pixels* semantics — the budget is `megapixels × 1024 × 1024`, aspect is preserved, and each dimension rounds to a multiple of `resolution_steps` (8 or 64 keeps VAE-friendly sizes). The image uses the chosen filter; the mask always resizes bilinear so feathered edges cannot ring.
+- **Align** (`canvas_multiple`; **Multiple** in the editor): Rounds the final canvas up by adding the minimum extra pixels to the right and bottom.
+- **Padding & mask → Fill** (`fill_color`): `#RRGGBB` or three RGB values used for generated pixels.
+- **Resize output → Resize / Megapixels / Method / Steps** (`resize_to_megapixels` / `megapixels` / `resize_method` / `resolution_steps`): Optional resize of the finished output to a pixel budget, with core *Scale Image to Total Pixels* semantics — the budget is `megapixels × 1024 × 1024`, aspect is preserved, and each dimension rounds to a multiple of **Steps** (8 or 64 keeps VAE-friendly sizes). The image uses the chosen **Method**; the mask always resizes bilinear so feathered edges cannot ring.
 
 ## Quick row (on the node)
 

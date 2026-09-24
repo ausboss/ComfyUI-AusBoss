@@ -6,8 +6,8 @@ final rect** to grow that side's padding — the whole edge is the handle,
 and corners grab the nearer edge. The second output is a mask covering
 exactly the padding, ready for an inpainter.
 
-The widget card holds Source and Upload, fill mode, color or backdrop blur,
-Feather, Multiple, and Budget. **Exact padding** opens a separate scrub row
+The widget card holds Source and Upload, Fill, Color or Backdrop, Feather,
+Multiple, and Budget. **Exact padding** opens a separate scrub row
 for each side. Every row can take a link; linked controls dim, and their
 values and links save with the workflow. The canvas remains available below
 the card for dragging the borders.
@@ -36,17 +36,20 @@ padding value unchanged.
 
 ## Controls
 
-- **image**: Choose or upload from ComfyUI's input folder.
-- **mode / fill_color / backdrop_blur**: Four fills — `color`, `edge`,
-  `edge pixel`, `pillarbox blur`.
+- **Source** (`image`): Choose or upload from ComfyUI's input folder.
+- **Fill** / **Color** / **Backdrop** (`mode` / `fill_color` /
+  `backdrop_blur`): Four fills — `color`, `edge`, `edge pixel`,
+  `pillarbox blur`. **Color** shows for `color`, **Backdrop** for
+  `pillarbox blur`.
 - **feather**: Ramps the mask *inward* across the image edge on each padded
   side (ramp width capped by the image size), so the sampler blends the
   seam. `0` keeps the seam hard. The padding itself always stays solid.
-- **canvas_multiple**: The final canvas rounds up to this multiple; the
-  remainder joins the right and bottom padding.
-- **target_megapixels**: `0` = off. Rescales the **source** so the padded
-  canvas lands on this many megapixels, then re-rounds to the multiple —
-  the way to outpaint a small or huge image at a sampler-friendly size.
+- **Multiple** (`canvas_multiple`): The final canvas rounds up to this
+  multiple; the remainder joins the right and bottom padding.
+- **Budget** (`target_megapixels`): `0` = off. Rescales the **source** so
+  the padded canvas lands on this many megapixels, then re-rounds to the
+  multiple — the way to outpaint a small or huge image at a sampler-friendly
+  size.
 
 ## Outputs
 

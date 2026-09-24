@@ -20,16 +20,16 @@ video element cannot play either.
   source timing. It steps in whole frames but stays a float, because the real
   broadcast rates are 23.976, 29.97 and 59.94 — those can be typed in, and an
   integer input would refuse Load Video's `fps` link entirely.
-- **filename_prefix**: Path under the output folder; subfolders are created
-  automatically.
+- **Prefix** (`filename_prefix`): Path under the output folder; subfolders
+  are created automatically.
 - **crf**: Quality — lower is better and larger. `19` is visually lossless for
   h264. What it means locally depends on the codec; see the format table.
 - **format**: Container and codec, see below.
 - **pingpong**: Plays the clip forward then backward so it loops seamlessly.
   Roughly doubles the frame count and the encode time. The first and last
   frames are not repeated at the turnaround, so the loop does not hitch.
-- **save_metadata**: On by default. Turn it off to share a file without your
-  prompt and node graph embedded in it.
+- **Metadata** (`save_metadata`): On by default. Turn it off to share a file
+  without your prompt and node graph embedded in it.
 - **audio** (optional): A track to mux into the file, e.g. Load Video's
   `audio` output.
 - **video** (optional): A core `VIDEO` handle, e.g. Load Video's `video`
@@ -71,9 +71,10 @@ before the first byte is written — keep those to short clips. Neither carries
 metadata, so an embedded workflow is not available for them.
 
 The node's face follows the table: widgets the chosen format ignores are
-hidden rather than left to look meaningful. `crf` disappears for `mov prores`,
-`mkv ffv1` and `gif` (their rows read *ignored* above), and `save_metadata`
-disappears for `gif` and `webp`, which cannot carry it. Hidden is not removed:
+hidden rather than left to look meaningful. The CRF field leaves the
+**FPS · CRF** row for `mov prores`, `mkv ffv1` and `gif` (their rows read
+*ignored* above), and the **Metadata** row disappears for `gif` and `webp`,
+which cannot carry it. Hidden is not removed:
 the widget keeps its position and its value, saved workflows store and restore
 it exactly as before, and switching the format back brings it back with the
 number it had.
