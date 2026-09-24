@@ -52,11 +52,6 @@
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
         "Node name for S&R": "UNETLoader",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.8"
-        },
         "models": [
           {
             "name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
@@ -134,11 +129,6 @@
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
         "Node name for S&R": "CLIPLoader",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.8"
-        },
         "models": [
           {
             "name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
@@ -200,11 +190,6 @@
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
         "Node name for S&R": "VAELoader",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.8"
-        },
         "models": [
           {
             "name": "minimax_h3_video_vae_fp16.safetensors",
@@ -261,11 +246,6 @@
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
         "Node name for S&R": "VAELoader",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.8"
-        },
         "models": [
           {
             "name": "minimax_h3_audio_vae_fp32.safetensors",
@@ -336,12 +316,7 @@
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
-        "Node name for S&R": "MiniMaxH3SigmaShift",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.8"
-        }
+        "Node name for S&R": "MiniMaxH3SigmaShift"
       },
       "widgets_values": [
         12,
@@ -422,12 +397,7 @@
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
         "Node name for S&R": "AUSBOSS_NODES_Resolution",
-        "ausbossResolutionPortrait": true,
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.8"
-        }
+        "ausbossResolutionPortrait": true
       },
       "widgets_values": [
         768,
@@ -484,12 +454,7 @@
       "properties": {
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
-        "Node name for S&R": "AUSBOSS_NODES_Float",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.8"
-        }
+        "Node name for S&R": "AUSBOSS_NODES_Float"
       },
       "widgets_values": [
         5,
@@ -567,12 +532,7 @@
       "properties": {
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
-        "Node name for S&R": "AUSBOSS_NODES_MathExpression",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.8"
-        }
+        "Node name for S&R": "AUSBOSS_NODES_MathExpression"
       },
       "widgets_values": [
         "max(5, ceil((a * 24 - 5) / 17) * 17 + 5)",
@@ -623,12 +583,7 @@
       "properties": {
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
-        "Node name for S&R": "AUSBOSS_NODES_Text",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.8"
-        }
+        "Node name for S&R": "AUSBOSS_NODES_Text"
       },
       "widgets_values": [
         "The opening composition matches Picture 1; the final composition matches Picture 2.\n\nintegrated_multimodal_description: [Shot 1] Live-action, cinematic, the opening composition matches Picture 1: a wide view across an alpine lake at sunrise, with the low wooden pier entering from the right and a small rowboat beside its far end. The camera holds a static shot. The boat glides across the water toward its position in Picture 2, leaving small spreading ripples. Thin mist drifts above the water. Keep the pier low in the frame and the distant mountains and shoreline consistent. The view settles into the boat position, spacing, viewpoint and lighting of Picture 2.\n\noverall_soundscape: Soft water laps against the wooden posts throughout, with faint distant birdsong.\n\nnon_diegetic_music: N/A"
@@ -737,12 +692,7 @@
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
-        "Node name for S&R": "MiniMaxH3ImageToVideo",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.8"
-        }
+        "Node name for S&R": "MiniMaxH3ImageToVideo"
       },
       "widgets_values": [
         "",
@@ -812,12 +762,7 @@
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
-        "Node name for S&R": "LoadImage",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.8"
-        }
+        "Node name for S&R": "LoadImage"
       },
       "widgets_values": [
         "ausboss_pier_sunrise.png",
@@ -883,12 +828,7 @@
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
-        "Node name for S&R": "LoadImage",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.8"
-        }
+        "Node name for S&R": "LoadImage"
       },
       "widgets_values": [
         "ausboss_pier_rowboat.png",
@@ -934,12 +874,7 @@
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
-        "Node name for S&R": "ConditioningZeroOut",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.8"
-        }
+        "Node name for S&R": "ConditioningZeroOut"
       }
     },
     {
@@ -1050,12 +985,7 @@
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
-        "Node name for S&R": "KSampler",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.8"
-        }
+        "Node name for S&R": "KSampler"
       },
       "widgets_values": [
         20260905,
@@ -1117,12 +1047,7 @@
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
-        "Node name for S&R": "VAEDecode",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.8"
-        }
+        "Node name for S&R": "VAEDecode"
       }
     },
     {
@@ -1166,12 +1091,7 @@
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
-        "Node name for S&R": "VAEDecodeAudio",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.8"
-        }
+        "Node name for S&R": "VAEDecodeAudio"
       }
     },
     {
@@ -1274,12 +1194,7 @@
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
         "Node name for S&R": "AUSBOSS_NODES_SaveVideo",
-        "ausboss_save_video_loop": true,
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.8"
-        }
+        "ausboss_save_video_loop": true
       },
       "widgets_values": {
         "fps": 24,
@@ -1331,12 +1246,7 @@
       "properties": {
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
-        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.8"
-        }
+        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote"
       },
       "widgets_values": [
         "{\"v\": 1, \"title\": \"MiniMax H3 First + Last Frame\", \"subtitle\": \"Two endpoint images, a stable transition and native audio.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose each installed model in its loader; if you keep models in subfolders, select those paths. Download links below name the standard destination folders.\\n\\n## Start here\\nChoose the four installed H3 model files. This example uses the base model without a turbo LoRA: 20 res_multistep/simple steps, CFG 1, video sigma shift 12 and audio shift 3. It is slower than the turbo examples, but the tested shot keeps the scene much more consistent.\\n\\n## Your shot\\nUpload the two sample images from example_workflows/inputs, or choose your own. Opening image and Ending image connect separately to H3. Resolution Master sets the target canvas to 768 × 1120. Similar framing and lighting in both images make the transition easier.\\n\\nSeconds rounds up to the 17k+5 grid at 24 fps: five seconds becomes 124 frames, or 5.17 seconds. Keep the frame rate at 24. The prompt describes opening and final compositions, so changing Seconds does not require editing a timestamp.\\n\\nThe supplied prompt keeps the camera fixed while the boat, water and mist move gently. The image inputs guide the opening and ending; inspect the render before using it. Both video and native audio are saved together.\\n\\n## Why no turbo LoRA?\\nIn a same-seed comparison, the 4-step LoRA invented large foreground objects and an unnatural spray arc. The 20-step base run kept a stable lake and pier with subtle motion. That is evidence for this sample, not a guarantee for every shot.\\n\\n[Native H3 workflow documentation](https://docs.comfy.org/tutorials/video/minimax/minimax-h3)\\n\\n## Describe both endpoints\\nThe Qwen3-VL caption model describes each reference separately. Their labeled descriptions are joined with your transition and sound direction, and Show Text displays the prompt sent to H3. The text refers to the opening and final compositions without a hardcoded duration. Change the transition instructions when replacing the references. For a manual prompt, connect the transition Text directly to H3 and mute the caption stage.\", \"models\": [{\"name\": \"minimax_h3_fl2va_pruned_int8_convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"21 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors\", \"note\": \"fp8_scaled (21 GB) and nvfp4 builds of the pruned fl2va model also work\"}, {\"name\": \"qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\", \"dir\": \"text_encoders\", \"size\": \"15.7 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\", \"note\": \"does not need a Blackwell card\"}, {\"name\": \"minimax_h3_video_vae_fp16.safetensors\", \"dir\": \"vae\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_fp16.safetensors\", \"note\": \"\"}, {\"name\": \"minimax_h3_audio_vae_fp32.safetensors\", \"dir\": \"vae\", \"size\": \"605 MB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_8b_int8_convrot.safetensors\", \"dir\": \"text_encoders\", \"size\": \"9.35 GB\", \"note\": \"Source captioning only. Use CLIP type qwen_image; the renderer still uses its own encoder. Requires current ComfyUI with Qwen Image 2.1 support.\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_MathExpression\"}]}"
@@ -2083,11 +1993,7 @@
         854.55,
         383.42
       ]
-    },
-    "comfyui_mcp": {
-      "workflow_uuid": "9afa7ed4-022f-436f-955b-6fc59c8a4479"
-    },
-    "ue_links": []
+    }
   },
   "version": 0.4
 }

@@ -317,12 +317,7 @@
       "properties": {
         "cnr_id": "comfyui-rmbg",
         "ver": "3.1.0",
-        "Node name for S&R": "SAM3Segment",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.7"
-        }
+        "Node name for S&R": "SAM3Segment"
       },
       "widgets_values": [
         "watermark",
@@ -467,12 +462,7 @@
       "properties": {
         "cnr_id": "comfyui-rmbg",
         "ver": "3.1.0",
-        "Node name for S&R": "SAM3Segment",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.7"
-        }
+        "Node name for S&R": "SAM3Segment"
       },
       "widgets_values": [
         "watermark",
@@ -885,7 +875,6 @@
   ],
   "config": {},
   "extra": {
-    "ue_links": [],
     "ds": {
       "scale": 0.6,
       "offset": [
@@ -893,15 +882,7 @@
         320.52
       ]
     },
-    "links_added_by_ue": [],
-    "frontendVersion": "1.49.6",
-    "VHS_latentpreview": false,
-    "VHS_latentpreviewrate": 0,
-    "VHS_MetadataImage": true,
-    "VHS_KeepIntermediate": true,
-    "comfyui_mcp": {
-      "workflow_uuid": "2df4dae2-794a-4e65-823b-0e4a089a60be"
-    }
+    "frontendVersion": "1.49.6"
   },
   "version": 0.4
 }

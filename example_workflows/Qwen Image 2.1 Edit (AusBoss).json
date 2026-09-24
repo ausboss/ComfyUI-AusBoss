@@ -24,10 +24,6 @@
       "properties": {
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.2",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "Node name for S&R": "AUSBOSS_NODES_WorkflowNote"
       },
       "widgets_values": [
@@ -69,10 +65,6 @@
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.37.0",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "Node name for S&R": "UNETLoader",
         "models": [
           {
@@ -119,10 +111,6 @@
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.37.0",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "Node name for S&R": "CLIPLoader",
         "models": [
           {
@@ -172,10 +160,6 @@
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.37.0",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "Node name for S&R": "VAELoader",
         "models": [
           {
@@ -226,10 +210,6 @@
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.37.0",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "Node name for S&R": "QwenImage21Cache"
       },
       "widgets_values": [
@@ -274,10 +254,6 @@
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.37.0",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "Node name for S&R": "LoadImage"
       },
       "widgets_values": [
@@ -355,10 +331,6 @@
       "properties": {
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.2",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "Node name for S&R": "AUSBOSS_NODES_ImageResize"
       },
       "widgets_values": [
@@ -418,10 +390,6 @@
       "properties": {
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.2",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "Node name for S&R": "AUSBOSS_NODES_Text"
       },
       "widgets_values": [
@@ -509,10 +477,6 @@
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.37.0",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "Node name for S&R": "TextEncodeQwenImage21"
       },
       "widgets_values": [
@@ -554,10 +518,6 @@
       "properties": {
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.2",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "Node name for S&R": "AUSBOSS_NODES_Seed"
       },
       "widgets_values": [
@@ -630,10 +590,6 @@
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.37.0",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "Node name for S&R": "KSampler"
       },
       "widgets_values": [
@@ -694,10 +650,6 @@
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.37.0",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "Node name for S&R": "VAEDecode"
       }
     },
@@ -723,10 +675,6 @@
       "properties": {
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.2",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "Node name for S&R": "AUSBOSS_NODES_RunTimer"
       },
       "color": "#07090a",
@@ -771,10 +719,6 @@
       "properties": {
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.2",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "Node name for S&R": "AUSBOSS_NODES_Compare",
         "ausboss_compare_mode": "slide"
       },
@@ -836,10 +780,6 @@
       "properties": {
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.2",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "Node name for S&R": "AUSBOSS_NODES_SaveImage"
       },
       "widgets_values": {

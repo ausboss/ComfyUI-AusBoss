@@ -73,10 +73,6 @@
       "properties": {
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "Node name for S&R": "AUSBOSS_NODES_Resolution",
         "ausbossResolutionPortrait": false
       },
@@ -162,10 +158,6 @@
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "Node name for S&R": "EmptyImage"
       },
       "widgets_values": [
@@ -214,10 +206,6 @@
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "Node name for S&R": "PreviewImage"
       }
     },
@@ -250,10 +238,6 @@
       "properties": {
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "Node name for S&R": "AUSBOSS_NODES_WorkflowNote"
       },
       "widgets_values": [
@@ -333,7 +317,6 @@
   ],
   "config": {},
   "extra": {
-    "ue_links": [],
     "ds": {
       "scale": 0.81,
       "offset": [

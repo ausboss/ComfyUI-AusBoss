@@ -49,10 +49,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
         "Node name for S&R": "UNETLoader",
@@ -130,10 +126,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
         "Node name for S&R": "CLIPLoader",
@@ -195,10 +187,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
         "Node name for S&R": "VAELoader",
@@ -255,10 +243,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
         "Node name for S&R": "VAELoader",
@@ -350,10 +334,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
         "Node name for S&R": "AUSBOSS_NODES_LoraLoader",
@@ -425,10 +405,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
         "Node name for S&R": "MiniMaxH3SigmaShift"
@@ -509,10 +485,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
         "Node name for S&R": "AUSBOSS_NODES_Resolution",
@@ -571,10 +543,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
         "Node name for S&R": "AUSBOSS_NODES_Float"
@@ -653,10 +621,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
         "Node name for S&R": "AUSBOSS_NODES_MathExpression"
@@ -708,10 +672,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
         "Node name for S&R": "AUSBOSS_NODES_Text"
@@ -823,10 +783,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
         "Node name for S&R": "MiniMaxH3ImageToVideo"
@@ -877,10 +833,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
         "Node name for S&R": "ConditioningZeroOut"
@@ -992,10 +944,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
         "Node name for S&R": "KSampler"
@@ -1058,10 +1006,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
         "Node name for S&R": "VAEDecode"
@@ -1106,10 +1050,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "comfy-core",
         "ver": "0.34.0",
         "Node name for S&R": "VAEDecodeAudio"
@@ -1212,10 +1152,6 @@
         }
       ],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
         "Node name for S&R": "AUSBOSS_NODES_SaveVideo",
@@ -1269,10 +1205,6 @@
       ],
       "outputs": [],
       "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
         "cnr_id": "ausboss-nodes",
         "ver": "2.0.0",
         "Node name for S&R": "AUSBOSS_NODES_WorkflowNote"
