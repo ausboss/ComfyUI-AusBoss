@@ -14,10 +14,11 @@ Checks:
      never go stale (a hardcoded badge sat at 1.0.0 through two releases).
      The check guards against someone swapping a static badge back in.
   4. .comfyignore keeps development-only paths (tests, scripts, CI, agent
-     instructions, root docs) out of the Registry archive and never
-     swallows a runtime path (nodes/, js/ including js/docs/, the example
-     workflows, README, LICENSE, pyproject). comfy-cli's packer honours
-     the file with gitignore semantics; this check reads it the same way.
+     instructions, root docs) and README media out of the Registry archive
+     and never swallows a runtime path (nodes/, js/ including js/docs/, the
+     example workflows, README, LICENSE, pyproject). comfy-cli's packer
+     honours the file with gitignore semantics; this check reads it the
+     same way.
   5. example_workflows/: every UI graph has a matching thumbnail, consistent
      links, setup instructions, and stage groups containing its nodes without
      overlaps (including title bars).
@@ -136,8 +137,8 @@ DEV_ONLY = [
     "tests/test_math_helpers.py", "tests/panel_guards.test.mjs",
     "scripts/validate_nodes.py", "scripts/release_preflight.py",
     ".github/workflows/publish_action.yml", "AGENTS.md", "CLAUDE.md",
-    ".claude/skills/ausboss-node-brand/SKILL.md", ".agents/skills/ausboss-node-brand/SKILL.md",
-    "docs/adding_a_node.md",
+    ".claude/skills/ausboss-node-brand/SKILL.md", "docs/adding_a_node.md",
+    "assets/readme/lora-chain-demo.gif",
 ]
 RUNTIME = [
     "__init__.py", "nodes/node_seed.py", "nodes/_lora_helpers.py",
@@ -154,7 +155,7 @@ except OSError as exc:
 if patterns is not None:
     for path in DEV_ONLY:
         if not ignored(path, patterns):
-            errors.append(f".comfyignore does not exclude development-only path {path}")
+            errors.append(f".comfyignore does not exclude {path}, which must stay out of the archive")
     for path in RUNTIME:
         if ignored(path, patterns):
             errors.append(f".comfyignore would drop runtime path {path} from the archive")

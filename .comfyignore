@@ -1,8 +1,9 @@
 # Files comfy-cli leaves OUT of the Registry archive (gitignore syntax; the
-# packer zips git-tracked files minus these). Runtime code, node help,
-# example workflows, README, LICENSE and pyproject stay in. Everything below
-# is development-only: it added nothing for a user and gave the Registry's
-# security scan test fixtures and tooling to flag.
+# packer zips git-tracked files minus these, so untracked local files need
+# no entry). Runtime code, node help, example workflows, README, LICENSE and
+# pyproject stay in. Everything below is development-only or README media:
+# it added nothing for a user, and the development files gave the
+# Registry's security scan test fixtures and tooling to flag.
 #
 # scripts/release_preflight.py checks this file keeps covering these paths
 # and never swallows a runtime one (js/docs/ is node help and must ship).
@@ -20,13 +21,12 @@ CLAUDE.md
 CONTRIBUTING.md
 SECURITY.md
 .claude/
-.agents/
 /docs/
 
-# editor and repository files
+# README media: GitHub shows it on the repository page, nothing in the
+# pack loads it
+/assets/
+
+# repository files
 .gitignore
 .comfyignore
-*.swp
-.*.swp
-*.kate-swp
-.*.kate-swp
