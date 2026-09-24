@@ -184,6 +184,7 @@
       "widgets_values": [
         "[{\"name\": \"krea2_anypaint_rank32.safetensors\", \"strength\": 1.0, \"enabled\": true, \"triggers\": \"\"}]",
         ", ",
+        "error",
         ""
       ],
       "title": "LoRA Loader 🆎  ·  AnyPaint LoRA"

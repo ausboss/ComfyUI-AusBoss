@@ -224,6 +224,7 @@
       "widgets_values": [
         "[{\"name\":\"minimaxh3/minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors\",\"strength\":1,\"enabled\":true,\"triggers\":\"\"}]",
         ", ",
+        "error",
         ""
       ],
       "title": "LoRA Loader 🆎  ·  turbo LoRA, model only"

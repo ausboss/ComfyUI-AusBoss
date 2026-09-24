@@ -293,11 +293,13 @@
       "widgets_values": [
         "[]",
         ", ",
+        "error",
         ""
       ],
       "widgets_values_named": {
         "loras": "[]",
         "trigger_separator": ", ",
+        "on_missing": "error",
         "ausboss_lora_rows": ""
       },
       "color": "#14424d",

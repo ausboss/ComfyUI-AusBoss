@@ -182,6 +182,7 @@
       "widgets_values": [
         "[{\"name\":\"Flux.2 Klein 9B/pixaoutpaint.safetensors\",\"strength\":1,\"enabled\":true,\"triggers\":\"pixaoutpaint\"}]",
         ", ",
+        "error",
         ""
       ],
       "title": "LoRA Loader 🆎  ·  the outpaint LoRA"

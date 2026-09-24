@@ -227,6 +227,7 @@
       "widgets_values": [
         "[{\"name\": \"krea2_vintagetarot.safetensors\", \"strength\": 1.0, \"enabled\": true, \"triggers\": \"vintage tarot style\"}, {\"name\": \"krea2_retroanime.safetensors\", \"strength\": 0.9, \"enabled\": false, \"triggers\": \"purple retro anime style\"}]",
         ", ",
+        "error",
         ""
       ],
       "title": "LoRA Loader 🆎  ·  the whole stack in one node"
