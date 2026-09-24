@@ -3,8 +3,8 @@
 Transfers the color statistics of a reference image onto the input — the
 classic fix for an inpainted or stitched region that came back with a slight
 color cast. Four methods cover everything from a gentle cast fix to an exact
-distribution match, and a first-frame mode turns the same node into a
-one-node de-flicker for video.
+distribution match, and a first-frame mode matches every frame of a video
+to its first, which can reduce color drift between frames.
 
 ## Controls
 
@@ -33,9 +33,9 @@ one-node de-flicker for video.
   instead of the white area.
 - **reference_mode**: Where the target statistics come from. `reference`
   uses the connected reference image. `first_frame` uses the batch's own
-  first frame as the target for every frame — locks a video's color in
-  place to kill flicker, no reference needed; the `reference` input is
-  ignored.
+  first frame as the target for every frame, no reference needed; the
+  `reference` input is ignored. That can reduce color drift between
+  frames; it does not stabilize motion.
 
 ## Outputs
 
@@ -48,5 +48,7 @@ one-node de-flicker for video.
   mask onward.
 - Pair it with **Stitch Inpaint 🆎**: stitch first, then match the
   blended region back to the original using the inpaint mask.
-- For flickering video, `reference_mode: first_frame` on its own is usually
-  enough — every frame is matched to the clip's opening color.
+- For video whose color drifts between frames, `reference_mode: first_frame`
+  matches every frame to the clip's opening color. It cannot stabilize
+  motion, and frames whose content changes, such as a pan onto a darker
+  scene, are pulled toward the first frame's colors as well.
