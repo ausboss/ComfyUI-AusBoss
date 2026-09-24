@@ -38,13 +38,16 @@ class AusBossImageCropRotatePad:
         required.update(resize_inputs())
         return {"required": required}
 
-    RETURN_TYPES = ("IMAGE", "MASK", "AUSBOSS_STITCHER", "IMAGE")
-    RETURN_NAMES = ("image", "mask", "stitcher", "original")
+    # Appended outputs only: saved links ride slot indices.
+    RETURN_TYPES = ("IMAGE", "MASK", "AUSBOSS_STITCHER", "IMAGE", "INT", "INT")
+    RETURN_NAMES = ("image", "mask", "stitcher", "original", "width", "height")
     OUTPUT_TOOLTIPS = (
         "The transformed image batch in BHWC format.",
         "BHW generated-area mask: transparency, rotation corners, and padding.",
         "Full-canvas stitcher: restores kept source pixels over an outpaint result; wire to Stitch Inpaint.",
         "The source image before rotation, crop, padding, or resize, as a BHWC RGB batch.",
+        "Output width after the transform and any resize.",
+        "Output height after the transform and any resize.",
     )
     FUNCTION = "load_transform"
 
@@ -65,7 +68,10 @@ class AusBossImageCropRotatePad:
                 output, mask, float(megapixels), str(resize_method), int(resolution_steps)
             )
         stitcher = build_transform_stitcher(output, mask, geometry, 32, source="Image Crop + Rotate + Pad")
-        return output, mask, stitcher, original_image_batch(frames)
+        return (
+            output, mask, stitcher, original_image_batch(frames),
+            int(output.shape[2]), int(output.shape[1]),
+        )
 
     @classmethod
     def VALIDATE_INPUTS(cls, image, **_values):

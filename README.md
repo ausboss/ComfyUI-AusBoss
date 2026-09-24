@@ -51,7 +51,7 @@ The pack uses Pillow, NumPy, Torch, and PyAV supplied by ComfyUI. Model workflow
 
 Load an image and **rotate → crop → pad** it. Drag cyan crop handles, orange padding diamonds, and the green rotation handle directly on the compact preview, or open the full-screen editor for precise dimensions, zoom, and pan. Choose **Crop** or **Pad** below the aspect chips: Crop locks a crop ratio; Pad grows the canvas to the chosen shape. **Reset crop** restores the full crop, and **Align** sets the canvas pixel multiple. Feather and output resizing are available on the node and in the editor.
 
-Returns the transformed `image`, a generated-area `mask`, a `stitcher`, and the untransformed `original`. The mask covers padding, source transparency, and rotation corners. Connect the stitcher to **Stitch Inpaint** after generation; **Load Image + Pad** offers additional fill choices and a separate conditioning reference.
+Returns the transformed `image`, a generated-area `mask`, a `stitcher`, the untransformed `original`, and the output `width` and `height`. The mask covers padding, source transparency, and rotation corners. Connect the stitcher to **Stitch Inpaint** after generation; **Load Image + Pad** offers additional fill choices and a separate conditioning reference.
 
 ![The full-screen image editor with a rotated lake photo, cyan crop handles, orange padding handles, aspect ratios, and dimension controls.](assets/readme/image-editor.webp)
 
@@ -109,7 +109,7 @@ Returns frames, lazy audio, frame count, fps, width, height, duration, and a cor
 
 ### Video Crop + Rotate + Pad → Frame 🆎
 
-Find **one frame** in an uploaded or local video, then apply the image transform controls. A playhead rail on the node scrubs to the frame; the editor adds exact frame stepping and playback. Returns one transformed `image`, its generated-area `mask`, a `stitcher`, and the selected `original` frame. Use the Clip variant for an entire sequence.
+Find **one frame** in an uploaded or local video, then apply the image transform controls. A playhead rail on the node scrubs to the frame; the editor adds exact frame stepping and playback. Returns one transformed `image`, its generated-area `mask`, a `stitcher`, the selected `original` frame, and the output `width` and `height`. Use the Clip variant for an entire sequence.
 
 ### Video Crop + Rotate + Pad → Clip 🆎
 

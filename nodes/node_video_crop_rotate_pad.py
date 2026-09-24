@@ -73,13 +73,16 @@ class AusBossVideoCropRotatePad:
         required.update(transform_inputs())
         return {"required": required}
 
-    RETURN_TYPES = ("IMAGE", "MASK", "AUSBOSS_STITCHER", "IMAGE")
-    RETURN_NAMES = ("image", "mask", "stitcher", "original")
+    # Appended outputs only: saved links ride slot indices.
+    RETURN_TYPES = ("IMAGE", "MASK", "AUSBOSS_STITCHER", "IMAGE", "INT", "INT")
+    RETURN_NAMES = ("image", "mask", "stitcher", "original", "width", "height")
     OUTPUT_TOOLTIPS = (
         "The selected and transformed frame as a one-image BHWC batch.",
         "BHW generated-area mask: rotation corners and padding.",
         "Full-canvas stitcher: restores kept source pixels over an outpaint result; wire to Stitch Inpaint.",
         "The picked source frame before rotation, crop, or padding, as a BHWC RGB batch.",
+        "Output width after the transform.",
+        "Output height after the transform.",
     )
     FUNCTION = "load_transform"
 
@@ -99,7 +102,10 @@ class AusBossVideoCropRotatePad:
         stitcher = build_transform_stitcher(
             output, mask, geometry, 32, source="Video Crop + Rotate + Pad -> Frame"
         )
-        return output, mask, stitcher, original_image_batch([frame])
+        return (
+            output, mask, stitcher, original_image_batch([frame]),
+            int(output.shape[2]), int(output.shape[1]),
+        )
 
     @classmethod
     def VALIDATE_INPUTS(cls, video, source_mode, local_path, **_values):

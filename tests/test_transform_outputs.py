@@ -23,7 +23,8 @@ class TransformOutputTests(unittest.TestCase):
         self.source = Image.fromarray(np.arange(96 * 128 * 3, dtype=np.uint8).reshape(96, 128, 3))
 
     def assert_outputs(self, outputs):
-        image, mask, stitcher, original = outputs
+        image, mask, stitcher, original, width, height = outputs
+        self.assertEqual((width, height), (160, 96))
         expected = torch.from_numpy(np.asarray(self.source).astype(np.float32) / 255)
         self.assertTrue(torch.equal(original[0], expected))
         self.assertEqual(tuple(image.shape[1:3]), (96, 160))
@@ -48,7 +49,8 @@ class TransformOutputTests(unittest.TestCase):
     @unittest.skipUnless(COMFY_ROOT, "Set AUSBOSS_COMFY_ROOT for core resize integration")
     def test_stitcher_uses_resized_canvas_dimensions(self):
         with patch('nodes.node_image_crop_rotate_pad.resolve_input_path', return_value=Path('source.png')), patch('nodes.node_image_crop_rotate_pad.load_image_frames', return_value=[self.source]):
-            image, mask, stitcher, original = AusBossImageCropRotatePad().load_transform('source.png', pad_left=32, feather=0, resize_to_megapixels=True, megapixels=.05, resolution_steps=16)
+            image, mask, stitcher, original, width, height = AusBossImageCropRotatePad().load_transform('source.png', pad_left=32, feather=0, resize_to_megapixels=True, megapixels=.05, resolution_steps=16)
+        self.assertEqual((width, height), (int(image.shape[2]), int(image.shape[1])))
         self.assertEqual(tuple(stitcher['canvas'].shape), tuple(image.shape))
         self.assertEqual(tuple(original.shape), (1, 96, 128, 3))
         self.assertEqual(tuple(apply_stitch(stitcher, image).shape), tuple(image.shape))
