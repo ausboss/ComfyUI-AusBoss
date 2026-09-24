@@ -374,9 +374,9 @@ class SaveImageLocalModeTests(SaveImageNodeTests):
 
     def test_linked_caption_beats_the_legacy_box(self):
         with tempfile.TemporaryDirectory() as tmp:
-            result = self.run_node(tmp, exact_name="photo", caption="old", caption_text="new caption")
+            self.run_node(tmp, exact_name="photo", caption="old", caption_text="new caption")
             self.assertEqual((Path(tmp) / "photo.txt").read_text(encoding="utf-8"), "new caption")
-            result = self.run_node(tmp, exact_name="photo2", caption="old", caption_text="")
+            self.run_node(tmp, exact_name="photo2", caption="old", caption_text="")
             self.assertEqual((Path(tmp) / "photo2.txt").read_text(encoding="utf-8"), "old")
 
     def test_prefix_validation_rejects_escapes(self):

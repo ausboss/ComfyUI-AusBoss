@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import io
-import os
 import sys
 import tempfile
 import unittest
@@ -23,7 +22,7 @@ from nodes._transform_engine import (
     transform_tensor_batch,
     transform_tensor_batch_chunked,
 )
-from nodes._inpaint_crop_helpers import STITCHER_KIND, apply_stitch, stitch_blend_from_mask
+from nodes._inpaint_crop_helpers import STITCHER_KIND, apply_stitch
 from nodes._transform_inputs import resize_inputs, transform_inputs
 from nodes.node_inpaint_crop_stitch import AusBossStitchInpaint
 from nodes.node_video_crop_rotate_pad_clip import AusBossVideoCropRotatePadClip, snap_frame_count
