@@ -424,7 +424,10 @@ export function installTransformNode(node, kind, mountPanel = null) {
   if (typeof node.addDOMWidget === "function" && mountPanel) {
     mountPanel(node, panel);
   } else if (typeof node.addDOMWidget === "function") {
-    const domWidget = node.addDOMWidget("ausboss_transform_preview", "ausboss_transform_preview", panel, { serialize: false });
+    const domWidget = node.addDOMWidget("ausboss_transform_preview", "ausboss_transform_preview", panel, {
+      serialize: false,
+      hideOnZoom: false,
+    });
     keepDomWidgetWidthAuto(domWidget);
     fillNodeHeight(domWidget, { minWidth: 330, minHeight: state.isClip ? 602 : kind === "video" ? 510 : 296, minNodeSize: [330, state.isClip ? 802 : kind === "video" ? 570 : 456] });
   } else {
