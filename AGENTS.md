@@ -94,6 +94,13 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
 
 - Public mapping keys use `AUSBOSS_NODES_<Purpose>`. The mapping key is the
   workflow-compatibility contract and must never be renamed after release.
+- Inputs and outputs only grow after a release: append an input as
+  optional, append an output, and never rename, reorder, remove or newly
+  require one. Saved workflows keep widget values by position and links by
+  slot, and an API prompt must carry every required input.
+  `tests/test_node_api.py` holds the pack to `tests/fixtures/node_api.json`;
+  refresh that snapshot with the test's `--update` after a compatible change
+  or a new node.
 - Write those keys as **string literals** inside `NODE_CLASS_MAPPINGS` and
   `NODE_DISPLAY_NAME_MAPPINGS` — never a `NODE_ID` variable. Registry scanners
   (ComfyUI-Manager) AST-parse the source without importing it, so a variable

@@ -1,0 +1,846 @@
+{
+  "AUSBOSS_NODES_AlignImage": {
+    "required": [
+      "image",
+      "multiple",
+      "mode"
+    ],
+    "optional": [
+      "crop_position",
+      "pad_position",
+      "pad_fill",
+      "pad_color"
+    ],
+    "outputs": [
+      [
+        "IMAGE",
+        "image"
+      ],
+      [
+        "INT",
+        "width"
+      ],
+      [
+        "INT",
+        "height"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_ColorMatch": {
+    "required": [
+      "image",
+      "strength"
+    ],
+    "optional": [
+      "reference",
+      "method",
+      "mask",
+      "invert_mask",
+      "reference_mode"
+    ],
+    "outputs": [
+      [
+        "IMAGE",
+        "image"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_Compare": {
+    "required": [
+      "image_a",
+      "image_b"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "IMAGE",
+        "image_a"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_CropForInpaint": {
+    "required": [
+      "image",
+      "mask",
+      "context_factor",
+      "blend_pixels",
+      "output_multiple"
+    ],
+    "optional": [
+      "target_width",
+      "target_height",
+      "mask_grow",
+      "mask_blur",
+      "invert_mask",
+      "context_pixels",
+      "target_megapixels",
+      "rescale_algorithm",
+      "extend_left",
+      "extend_right",
+      "extend_up",
+      "extend_down"
+    ],
+    "outputs": [
+      [
+        "IMAGE",
+        "image"
+      ],
+      [
+        "MASK",
+        "mask"
+      ],
+      [
+        "AUSBOSS_STITCHER",
+        "stitcher"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_Float": {
+    "required": [
+      "value"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "FLOAT",
+        "float"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_FrameInterpolate": {
+    "required": [
+      "frames",
+      "source_fps",
+      "target_fps",
+      "method",
+      "scene_cut_threshold",
+      "batch_size"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "IMAGE",
+        "frames"
+      ],
+      [
+        "FLOAT",
+        "fps"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_FreeMemory": {
+    "required": [
+      "value"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "*",
+        "value"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_ImageCropRotatePad": {
+    "required": [
+      "image",
+      "rotation_degrees",
+      "crop_aspect_ratio",
+      "crop_x",
+      "crop_y",
+      "crop_width",
+      "crop_height",
+      "pad_left",
+      "pad_top",
+      "pad_right",
+      "pad_bottom",
+      "feather",
+      "canvas_multiple",
+      "fill_color",
+      "resize_to_megapixels",
+      "megapixels",
+      "resize_method",
+      "resolution_steps"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "IMAGE",
+        "image"
+      ],
+      [
+        "MASK",
+        "mask"
+      ],
+      [
+        "AUSBOSS_STITCHER",
+        "stitcher"
+      ],
+      [
+        "IMAGE",
+        "original"
+      ],
+      [
+        "INT",
+        "width"
+      ],
+      [
+        "INT",
+        "height"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_ImageResize": {
+    "required": [
+      "image",
+      "target_mode",
+      "width",
+      "height",
+      "edge_length",
+      "megapixels",
+      "scale_factor",
+      "keep_proportion",
+      "fill_color",
+      "divisible_by",
+      "interpolation"
+    ],
+    "optional": [
+      "mask"
+    ],
+    "outputs": [
+      [
+        "IMAGE",
+        "image"
+      ],
+      [
+        "MASK",
+        "mask"
+      ],
+      [
+        "INT",
+        "width"
+      ],
+      [
+        "INT",
+        "height"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_ImageSize": {
+    "required": [
+      "image"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "INT",
+        "width"
+      ],
+      [
+        "INT",
+        "height"
+      ],
+      [
+        "INT",
+        "longest_edge"
+      ],
+      [
+        "INT",
+        "shortest_edge"
+      ],
+      [
+        "INT",
+        "count"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_Integer": {
+    "required": [
+      "value"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "INT",
+        "int"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_Krea2Encode": {
+    "required": [
+      "clip",
+      "prompt"
+    ],
+    "optional": [
+      "negative_prompt",
+      "vae",
+      "reference",
+      "extra_image",
+      "vlm_reference"
+    ],
+    "outputs": [
+      [
+        "CONDITIONING",
+        "positive"
+      ],
+      [
+        "CONDITIONING",
+        "negative"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_Krea2OutpaintModelPatch": {
+    "required": [
+      "model",
+      "stitcher",
+      "kv_cache"
+    ],
+    "optional": [
+      "placement"
+    ],
+    "outputs": [
+      [
+        "MODEL",
+        "model"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_LaMaInpaint": {
+    "required": [
+      "image",
+      "mask",
+      "model"
+    ],
+    "optional": [
+      "preview"
+    ],
+    "outputs": [
+      [
+        "IMAGE",
+        "image"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_LoadImagePad": {
+    "required": [
+      "image",
+      "pad_left",
+      "pad_top",
+      "pad_right",
+      "pad_bottom",
+      "mode",
+      "fill_color",
+      "backdrop_blur",
+      "feather",
+      "canvas_multiple",
+      "target_megapixels"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "IMAGE",
+        "image"
+      ],
+      [
+        "MASK",
+        "mask"
+      ],
+      [
+        "INT",
+        "width"
+      ],
+      [
+        "INT",
+        "height"
+      ],
+      [
+        "AUSBOSS_STITCHER",
+        "stitcher"
+      ],
+      [
+        "IMAGE",
+        "reference"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_LoadVideo": {
+    "required": [
+      "video",
+      "start_seconds",
+      "end_seconds",
+      "custom_width",
+      "custom_height"
+    ],
+    "optional": [
+      "every_nth",
+      "max_frames",
+      "single_frame"
+    ],
+    "outputs": [
+      [
+        "IMAGE",
+        "frames"
+      ],
+      [
+        "AUDIO",
+        "audio"
+      ],
+      [
+        "INT",
+        "frame_count"
+      ],
+      [
+        "FLOAT",
+        "fps"
+      ],
+      [
+        "INT",
+        "width"
+      ],
+      [
+        "INT",
+        "height"
+      ],
+      [
+        "FLOAT",
+        "duration"
+      ],
+      [
+        "VIDEO",
+        "video"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_LoraLoader": {
+    "required": [
+      "model",
+      "loras"
+    ],
+    "optional": [
+      "clip",
+      "trigger_separator",
+      "on_missing"
+    ],
+    "outputs": [
+      [
+        "MODEL",
+        "model"
+      ],
+      [
+        "CLIP",
+        "clip"
+      ],
+      [
+        "STRING",
+        "triggers"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_MathExpression": {
+    "required": [
+      "expression"
+    ],
+    "optional": [
+      "a",
+      "b",
+      "c"
+    ],
+    "outputs": [
+      [
+        "FLOAT",
+        "float"
+      ],
+      [
+        "INT",
+        "int"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_MergeBatches": {
+    "required": [
+      "a",
+      "b",
+      "on_mismatch"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "IMAGE",
+        "images"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_RefineMask": {
+    "required": [
+      "mask",
+      "expand",
+      "blur",
+      "fill_holes",
+      "smooth",
+      "black_point",
+      "white_point",
+      "edge_refine"
+    ],
+    "optional": [
+      "preview",
+      "guide_image"
+    ],
+    "outputs": [
+      [
+        "MASK",
+        "mask"
+      ],
+      [
+        "MASK",
+        "mask_inverted"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_Resolution": {
+    "required": [
+      "width",
+      "height"
+    ],
+    "optional": [
+      "latent",
+      "batch_size"
+    ],
+    "outputs": [
+      [
+        "INT",
+        "width"
+      ],
+      [
+        "INT",
+        "height"
+      ],
+      [
+        "LATENT",
+        "latent"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_RunTimer": {
+    "required": [],
+    "optional": [],
+    "outputs": []
+  },
+  "AUSBOSS_NODES_SaveImage": {
+    "required": [
+      "images",
+      "filename_prefix",
+      "format",
+      "save_metadata"
+    ],
+    "optional": [
+      "exact_name",
+      "on_existing",
+      "output_dir",
+      "caption",
+      "filename",
+      "caption_text",
+      "name_counter",
+      "name_date",
+      "name_time",
+      "name_size",
+      "name_batch"
+    ],
+    "outputs": [
+      [
+        "STRING",
+        "file_path"
+      ],
+      [
+        "IMAGE",
+        "images"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_SaveVideo": {
+    "required": [
+      "fps",
+      "filename_prefix",
+      "crf"
+    ],
+    "optional": [
+      "frames",
+      "audio",
+      "video",
+      "format",
+      "pingpong",
+      "save_metadata"
+    ],
+    "outputs": [
+      [
+        "STRING",
+        "file_path"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_Seed": {
+    "required": [
+      "seed"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "INT",
+        "seed"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_SelectEveryNth": {
+    "required": [
+      "images",
+      "nth",
+      "offset"
+    ],
+    "optional": [
+      "fps"
+    ],
+    "outputs": [
+      [
+        "IMAGE",
+        "images"
+      ],
+      [
+        "FLOAT",
+        "fps"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_SelectFrame": {
+    "required": [
+      "frames",
+      "frame_number"
+    ],
+    "optional": [
+      "preview"
+    ],
+    "outputs": [
+      [
+        "IMAGE",
+        "image"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_ShowText": {
+    "required": [
+      "text"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "STRING",
+        "text"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_SplitBatch": {
+    "required": [
+      "images",
+      "index"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "IMAGE",
+        "a"
+      ],
+      [
+        "IMAGE",
+        "b"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_StitchInpaint": {
+    "required": [
+      "stitcher",
+      "inpainted"
+    ],
+    "optional": [
+      "fix_edge_halo",
+      "color_match"
+    ],
+    "outputs": [
+      [
+        "IMAGE",
+        "image"
+      ],
+      [
+        "MASK",
+        "blend_mask"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_Text": {
+    "required": [
+      "text"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "STRING",
+        "text"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_VideoCropRotatePad": {
+    "required": [
+      "video",
+      "source_mode",
+      "local_path",
+      "seek_mode",
+      "frame_index",
+      "frame_time",
+      "rotation_degrees",
+      "crop_aspect_ratio",
+      "crop_x",
+      "crop_y",
+      "crop_width",
+      "crop_height",
+      "pad_left",
+      "pad_top",
+      "pad_right",
+      "pad_bottom",
+      "feather",
+      "canvas_multiple",
+      "fill_color"
+    ],
+    "optional": [
+      "resize_to_megapixels",
+      "megapixels",
+      "resize_method",
+      "resolution_steps"
+    ],
+    "outputs": [
+      [
+        "IMAGE",
+        "image"
+      ],
+      [
+        "MASK",
+        "mask"
+      ],
+      [
+        "AUSBOSS_STITCHER",
+        "stitcher"
+      ],
+      [
+        "IMAGE",
+        "original"
+      ],
+      [
+        "INT",
+        "width"
+      ],
+      [
+        "INT",
+        "height"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_VideoCropRotatePadClip": {
+    "required": [
+      "video",
+      "source_mode",
+      "local_path",
+      "start_seconds",
+      "end_seconds",
+      "seek_mode",
+      "frame_index",
+      "frame_time",
+      "rotation_degrees",
+      "crop_aspect_ratio",
+      "crop_x",
+      "crop_y",
+      "crop_width",
+      "crop_height",
+      "pad_left",
+      "pad_top",
+      "pad_right",
+      "pad_bottom",
+      "feather",
+      "canvas_multiple",
+      "fill_color",
+      "resize_to_megapixels",
+      "megapixels",
+      "resize_method",
+      "resolution_steps"
+    ],
+    "optional": [
+      "every_nth",
+      "max_frames",
+      "frame_snap",
+      "stitch_blend",
+      "stitch_grow",
+      "force_rate",
+      "start_frame",
+      "end_frame",
+      "frame_load_cap",
+      "fixed_frames"
+    ],
+    "outputs": [
+      [
+        "IMAGE",
+        "frames"
+      ],
+      [
+        "MASK",
+        "mask"
+      ],
+      [
+        "AUDIO",
+        "audio"
+      ],
+      [
+        "INT",
+        "frame_count"
+      ],
+      [
+        "FLOAT",
+        "fps"
+      ],
+      [
+        "INT",
+        "width"
+      ],
+      [
+        "INT",
+        "height"
+      ],
+      [
+        "FLOAT",
+        "duration"
+      ],
+      [
+        "AUSBOSS_STITCHER",
+        "stitcher"
+      ],
+      [
+        "IMAGE",
+        "original"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_WorkflowNote": {
+    "required": [
+      "note"
+    ],
+    "optional": [],
+    "outputs": []
+  },
+  "SimpleWatermarkRemover": {
+    "required": [
+      "image",
+      "mask",
+      "method"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "IMAGE",
+        "image"
+      ]
+    ]
+  }
+}

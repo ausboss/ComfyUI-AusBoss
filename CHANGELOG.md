@@ -29,8 +29,9 @@ All notable changes to ComfyUI-AusBoss are documented here.
   frames at all; seeks now start from a keyframe, and audio stays in step
   with the picture.
 - Video Crop + Rotate + Pad → Frame gains the megapixel resize the image
-  and clip nodes have, and both it and Image Crop + Rotate + Pad append
-  `width` and `height` outputs.
+  and clip nodes have, as optional inputs so older API prompts still run,
+  and both it and Image Crop + Rotate + Pad append `width` and `height`
+  outputs.
 - The three Crop + Rotate + Pad faces share one set of controls: a canvas
   row with fill colour, feather in pixels and the resize budget where the
   node has one, and Open editor | Reset crop | Reset. The image node's
@@ -111,6 +112,8 @@ All notable changes to ComfyUI-AusBoss are documented here.
 - Publishing happens only when main's version changes, after the offline
   checks pass. Pull requests also run the standard-library Python tests, a
   JavaScript syntax check and ruff.
+- A node API snapshot test fails when a released input or output is
+  renamed, reordered, removed or newly required.
 - Add SECURITY.md, CONTRIBUTING.md, issue and pull request templates,
   `.editorconfig` and `.gitattributes`; remove a finished checklist that
   was committed with 2.1.0 and two dated review reports.

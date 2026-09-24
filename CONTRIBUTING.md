@@ -22,7 +22,9 @@ issue.
   a pull request.
 - Mapping keys, input names and order, and output order are a permanent API:
   saved workflows depend on them. Append optional inputs and outputs instead
-  of renaming or reordering.
+  of renaming or reordering. `tests/test_node_api.py` checks this against a
+  snapshot; its docstring shows how to refresh the snapshot after a
+  compatible change.
 - Leave `version` in `pyproject.toml` alone. A version change that reaches
   `main` publishes to the Comfy Registry.
 - Run the offline checks. None of them needs a GPU; the Python tests need

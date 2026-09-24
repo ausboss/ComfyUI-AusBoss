@@ -34,6 +34,7 @@ Every visible field and output must earn its place. Published IDs, input order, 
 - A DOM panel goes into `tests/panel_guards.test.mjs` as `mustGrow` or `fixedByDesign`.
 - At the next release, name the node in the pyproject `description`: Registry and Manager search read it.
 - Extend `scripts/validate_nodes.py` when the new contract needs a permanent assertion.
+- Add the node to the API snapshot: `AUSBOSS_COMFY_ROOT=<ComfyUI> python tests/test_node_api.py --update` with ComfyUI's Python. From then on its inputs and outputs may only be appended.
 - Add pure Python and dependency-free JavaScript tests.
 - Compile with ComfyUI's embedded Python.
 - Verify `/object_info/<mapping-key>`, ownership, served assets, routes, API execution, and queued dimensions/masks.

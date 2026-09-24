@@ -76,10 +76,9 @@ class AusBossVideoCropRotatePad:
             ),
         }
         required.update(transform_inputs())
-        # Appended AFTER the stable widgets, so saved workflows' positional
-        # widgets_values keep loading; missing values fall back to defaults.
-        required.update(resize_inputs())
-        return {"required": required}
+        # Optional and last: saved workflows' positional widgets_values keep
+        # loading, and API prompts from before resize existed still validate.
+        return {"required": required, "optional": resize_inputs()}
 
     # Appended outputs only: saved links ride slot indices.
     RETURN_TYPES = ("IMAGE", "MASK", "AUSBOSS_STITCHER", "IMAGE", "INT", "INT")
