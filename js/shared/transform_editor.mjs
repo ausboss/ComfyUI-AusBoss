@@ -5,6 +5,8 @@ import { mountTransformTrim } from "./transform_trim.mjs";
 import { clipOutputRate, inputNumber } from "./clip_rate.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "./index.mjs";
 import { fillNodeHeight } from "./panel_layout.mjs";
+import { mediaViewQuery } from "./media_list.mjs";
+import { createMediaPicker } from "./media_picker.mjs";
 import { normalizeFillColor } from "./fill_color.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
 import { featherGeneratedMask, overlayPlan, stitchBlendFromMask } from "./stitch_preview.mjs";
@@ -77,6 +79,8 @@ function installStyles() {
     .ausboss-transform-source-field{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;align-items:center}
     .ausboss-transform-source-field select,.ausboss-transform-source-field input{box-sizing:border-box;width:100%;height:34px;min-width:0;padding:0 10px;border:1px solid #2a3437;border-radius:7px;outline:0;background:#0b0f10;color:#dce9e8;font:12px ui-monospace,"SF Mono",Menlo,Consolas,monospace}
     .ausboss-transform-source-field select:focus,.ausboss-transform-source-field input:focus{border-color:${BRAND}}
+    .ausboss-transform-source-field .ausboss-media-pick{box-sizing:border-box;width:100%;height:34px;min-width:0;padding:0 28px 0 10px;border:1px solid #2a3437;border-radius:7px;background:#0b0f10 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238ba3a1' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 10px center;color:#dce9e8;font:12px ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+    .ausboss-transform-source-field .ausboss-media-pick:hover,.ausboss-transform-source-field .ausboss-media-pick:focus-visible{border-color:${BRAND};outline:0}
     .ausboss-transform-source-action{height:34px;box-sizing:border-box;white-space:nowrap}
     .ausboss-transform-source-field:has(input[type=text]){grid-template-columns:minmax(0,1fr)}
     .ausboss-transform-source-hint{overflow:hidden;color:#6f8886;font-size:10.5px;line-height:1.25;white-space:nowrap;text-overflow:ellipsis}
@@ -269,8 +273,20 @@ function buildMediaSourceCard(state) {
   modes.append(uploadsMode, localMode);
 
   const field = createElement("div", "ausboss-transform-source-field");
-  const selection = createElement("select");
-  selection.setAttribute("aria-label", `Uploaded ${kind}`);
+  // The media picker previews the hovered file, which a native <select> cannot.
+  const picker = createMediaPicker({
+    kind: kind === "video" ? "video" : "image",
+    placeholder: `Choose an uploaded ${kind}…`,
+    label: `Uploaded ${kind}`,
+    viewUrl: (name) => api.apiURL(`/view?${mediaViewQuery(name)}`),
+    getOptions: () => currentOptions(),
+    getValue: () => value(node, kind, ""),
+    onChange: (name) => {
+      setValue(node, kind, name);
+      sync();
+      notifyAusbossChange();
+    },
+  });
   const localPath = createElement("input");
   localPath.type = "text";
   localPath.spellcheck = false;
@@ -285,7 +301,7 @@ function buildMediaSourceCard(state) {
   fileInput.setAttribute("aria-label", `Upload ${kind}`);
   upload.append(fileInput);
   const hint = createElement("div", "ausboss-transform-source-hint");
-  field.append(selection, upload);
+  field.append(picker.element, upload);
   root.append(kind === "image" ? createElement("div", "ausboss-transform-source-heading", "Image source") : modes, field, hint);
 
   const currentOptions = () => {
@@ -303,21 +319,11 @@ function buildMediaSourceCard(state) {
     );
     uploadsMode.classList.toggle("on", source.mode === INPUT_FOLDER_MODE);
     localMode.classList.toggle("on", source.mode === LOCAL_PATH_MODE);
-    selection.replaceChildren();
-    const empty = createElement("option", "", `Choose an uploaded ${kind}…`);
-    empty.value = "";
-    selection.append(empty);
-    for (const name of currentOptions()) {
-      const option = createElement("option", "", name);
-      option.value = name;
-      selection.append(option);
-    }
-    selection.value = String(value(node, kind, ""));
-    selection.title = selection.value || `Choose an uploaded ${kind}`;
+    picker.refresh(value(node, kind, ""));
     localPath.value = String(value(node, "local_path", ""));
     field.replaceChildren();
     if (source.mode === LOCAL_PATH_MODE) field.append(localPath);
-    else field.append(selection, upload);
+    else field.append(picker.element, upload);
     hint.textContent = source.hint;
     hint.title = source.mode === LOCAL_PATH_MODE
       ? `${source.hint} Only videos inside ComfyUI's input, output or temp folder can be read.`
@@ -331,11 +337,6 @@ function buildMediaSourceCard(state) {
   };
   uploadsMode.addEventListener("click", () => chooseMode(INPUT_FOLDER_MODE));
   localMode.addEventListener("click", () => chooseMode(LOCAL_PATH_MODE));
-  selection.addEventListener("change", () => {
-    setValue(node, kind, selection.value);
-    sync();
-    notifyAusbossChange();
-  });
   const commitLocalPath = () => {
     const next = localPath.value.trim();
     if (next !== String(value(node, "local_path", ""))) {

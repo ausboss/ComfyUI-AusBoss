@@ -68,7 +68,7 @@ Returns the transformed `image`, a generated-area `mask`, a `stitcher`, the untr
 
 ### Load Image + Pad 🆎
 
-Build an outpaint canvas by dragging its edges. The card offers solid color, edge-average, edge-pixel, or blurred-image fill, a seam feather, canvas multiple, and megapixel budget. **Exact padding** opens one scrub control per side. A zero budget keeps the source size; a positive budget resizes the source before padding.
+Build an outpaint canvas by dragging its edges. The Source list previews the image under the pointer. The card offers solid color, edge-average, edge-pixel, or blurred-image fill, a seam feather, canvas multiple, and megapixel budget. **Exact padding** opens one scrub control per side. A zero budget keeps the source size; a positive budget resizes the source before padding.
 
 Returns the padded `image`, padding `mask`, `width`, `height`, a `stitcher`, and a smaller unpadded `reference` for conditioning. Connect the stitcher to **Stitch Inpaint** after generation to preserve the source outside the seam.
 
@@ -112,7 +112,7 @@ Link `filename` to retain an upstream name, or `caption_text` to write a matchin
 
 ### Load Video 🆎
 
-Upload a video and trim it with IN/OUT handles or typed timecodes. The player previews the selected window and can loop it. Width and height can resize during decode; setting only one preserves aspect. `every_nth` thins frames and adjusts the reported fps to preserve timing; `max_frames` limits the decode.
+Upload a video, or pick one from a Source list that plays the clip under the pointer, and trim it with IN/OUT handles or typed timecodes. The player previews the selected window and can loop it. Width and height can resize during decode; setting only one preserves aspect. `every_nth` thins frames and adjusts the reported fps to preserve timing; `max_frames` limits the decode.
 
 Returns frames, lazy audio, frame count, fps, width, height, duration, and a core `VIDEO` handle. Only the selected window is decoded, with a memory check before a large allocation. Connect its fps downstream when saving the frames.
 

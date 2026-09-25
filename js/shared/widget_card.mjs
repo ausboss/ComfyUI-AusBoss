@@ -31,6 +31,7 @@
 // scrubs, where a socket sits) live in widget_card_math.mjs for node:test;
 // this file is the DOM.
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "./index.mjs";
+import { createMediaPicker } from "./media_picker.mjs";
 import { ensureNodeMinHeight, fillNodeHeight } from "./panel_layout.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
 import { hideWidget } from "./widget_visibility.mjs";
@@ -161,7 +162,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
   ensureCardCss();
   const root = el("div", "ausboss-card");
   const managed = [];
-  const state = { node, root, rows: [], groups: {}, height: 0, widget: null, rowTop: new Map(), rowSpan: new Map(), socketed: [] };
+  const state = { node, root, rows: [], groups: {}, height: 0, widget: null, rowTop: new Map(), rowSpan: new Map(), socketed: [], pickers: [] };
   node.__ausbossCard = state;
 
   const values = () => Object.fromEntries((node.widgets ?? []).map((widget) => [widget.name, widget.value]));
@@ -223,6 +224,24 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
 
   const buildSelect = (name, row, into) => {
     const widget = findWidget(node, name);
+    // A file source (`preview: { kind, url }`) gets the media picker: a list
+    // that previews the hovered file, which a native <select> cannot do.
+    if (row.preview) {
+      const noun = row.preview.kind === "video" ? "video" : "image";
+      const picker = createMediaPicker({
+        kind: noun,
+        className: "ausboss-card-select",
+        placeholder: row.preview.placeholder ?? `Choose an uploaded ${noun}…`,
+        viewUrl: row.preview.url,
+        label: row.label,
+        getOptions: () => comboValues(widget),
+        getValue: () => widget?.value,
+        onChange: (value) => setWidget(name, value),
+      });
+      state.pickers.push(picker);
+      into.append(picker.element);
+      return (vals) => picker.refresh(vals[name]);
+    }
     const select = el("select", "ausboss-card-select");
     select.title = row.title ?? widget?.options?.tooltip ?? "";
     const fill = (current) => {
@@ -584,6 +603,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
   chainCallback(node, "onConnectionsChange", () => queueMicrotask(refresh));
   chainCallback(node, "onRemoved", () => {
     state.disposed = true;
+    for (const picker of state.pickers) picker.dispose();
     for (const entry of state.socketed) entry.restore();
     if (typeof originalGetWidgetOnPos === "function") delete node.getWidgetOnPos;
     if (typeof originalGetInputOnPos === "function") delete node.getInputOnPos;

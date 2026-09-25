@@ -10,7 +10,7 @@ generated-area `mask`, a `stitcher` for Stitch Inpaint, the selected
 
 ## Source and frame
 
-- **Uploads**: Pick an input video, click **Upload** in the compact source card, or
+- **Uploads**: Pick an input video (the list plays the clip under the pointer, muted, and filters as you type), click **Upload** in the compact source card, or
   drop a video file onto the node. Another video keeps the fill, feather and resize
   settings and the lit format chip (the new frame uses its Crop / Pad mode); rotation, crop and
   the playhead start over.
