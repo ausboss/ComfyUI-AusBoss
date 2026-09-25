@@ -223,7 +223,7 @@ Returns width, height, and an empty **image latent**. The gear chooses 4-, 16-, 
 
 ### Seed 🆎
 
-Share one seed across samplers. **Random**, **Fixed**, and **Step** control what happens after generation. **New seed** rolls and pins a value; **Use last run** restores the value the backend actually used. The recent-history menu retains eight seeds and saves with the workflow.
+Share one seed across samplers. **Random**, **Fixed**, and **Step** control what happens after generation; switching to Random, or from Fixed to Step, moves the seed right away so the next queue is a new run. **New seed** rolls and pins a value; **Use last run** restores the value the backend actually used. The recent-history menu retains eight seeds and saves with the workflow.
 
 ### Select Every Nth 🆎
 

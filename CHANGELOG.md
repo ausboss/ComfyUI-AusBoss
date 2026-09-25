@@ -10,6 +10,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
   stops at once, so Krea 2 Prompt from Image could write nothing. Krea 2
   Prompt from Image, Krea 2 Outpaint, Klein 9B Outpaint and both MiniMax H3
   image workflows now keep it on, and the Krea notes say why.
+- **Seed: switching to Random rolls a new seed right away.** The mode
+  only rewrites the seed after a queue, so the first queue after
+  switching from Fixed used to repeat the last run and ComfyUI returned
+  the cached result. Switching from Fixed to Step takes the first step
+  the same way; flipping Step's direction leaves the number alone.
 
 ## 2.2.0 - 2026-09-24
 
