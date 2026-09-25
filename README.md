@@ -20,6 +20,8 @@ ComfyUI-AusBoss provides compact image, video, inpaint, and workflow utility nod
 
 **Make room for more.** Load Image + Pad prepares the canvas; Krea 2 + AnyPaint generates the extension; Stitch Inpaint brings the original back. [Open the outpaint workflow →](example_workflows/Krea%202%20Outpaint%20%28AusBoss%29.json)
 
+Ready-to-run workflows built on these nodes are on [Civitai](https://civitai.com/user/AusBoss), and I post new ones on [X @Zanzibased](https://x.com/Zanzibased). If a node saves you time, a ⭐ helps other people find it.
+
 ## Install
 
 In **ComfyUI-Manager**, open the Custom Nodes Manager, search for **AusBoss** and install it; `comfy node install ausboss-nodes` does the same from the command line. To follow the newest changes, clone the repository instead:
@@ -49,6 +51,7 @@ The pack uses Pillow, NumPy, Torch, and PyAV supplied by ComfyUI. Model workflow
 | [Models and conditioning](#models-and-conditioning) | LoRA stack, Krea 2 prompt and reference conditioning |
 | [Workflow utilities](#workflow-utilities) | Resolution, seed, batch operations, math, text, memory, notes, timer |
 | [Examples](#example-workflows) | Twenty grouped graphs with setup cards and thumbnails |
+| [For workflow creators](#for-workflow-creators) | Setup cards, before and after, repeatable seeds, measured run times |
 | [Pack-wide tools](#pack-wide-tools) | Help cards, node colors, recreate and replace, run status, completion sound |
 
 ## Image nodes
@@ -220,7 +223,7 @@ Returns width, height, and an empty **image latent**. The gear chooses 4-, 16-, 
 
 ### Seed 🆎
 
-Share one seed across samplers. **Random**, **Fixed**, and **Step** control what happens after generation. **New seed** rolls and pins a value; **Use last run** restores the value the backend actually used. The recent-history menu retains eight seeds and saves with the workflow.
+Share one seed across samplers. **Random**, **Fixed**, and **Step** control what happens after generation; switching to Random, or from Fixed to Step, moves the seed right away so the next queue is a new run. **New seed** rolls and pins a value; **Use last run** restores the value the backend actually used. The recent-history menu retains eight seeds and saves with the workflow.
 
 ### Select Every Nth 🆎
 
@@ -298,6 +301,18 @@ Copy the files in [`example_workflows/inputs/`](example_workflows/inputs) into `
 | [Simple Video Watermark Remover](example_workflows/Simple%20Video%20Watermark%20Remover%20%28AusBoss%29.json) | Detect and remove an overlay, with a single-frame comparison branch | **ComfyUI-RMBG / SAM3** plus `big-lama.pt` and this pack |
 
 The other nineteen examples use core nodes plus this pack. Model-free examples are the quickest installation check. Generation speed and memory depend on the selected weights, dimensions, frame count, and other GPU workloads; the graph settings are reproducible, hardware timing is not.
+
+## For workflow creators
+
+Sharing a workflow? A few nodes make it easier for the people who download it:
+
+- **Workflow Note** puts a setup card on the canvas with each model's download link, folder and size, the node packs it needs, and your links, and checks them against the reader's install.
+- **Image Compare A/B** shows the result against its source with a sliding reveal.
+- **Seed** keeps runs repeatable, and **Use last run** brings back the seed the backend actually used.
+- **Run Timer** shows how long the whole run took, so speed notes are measured.
+- **Save Image** embeds the workflow in PNG, lossless WebP or JPEG XL files with names you control.
+
+Readers get the nodes through ComfyUI-Manager's missing-node install, like any other pack.
 
 ## Pack-wide tools
 
