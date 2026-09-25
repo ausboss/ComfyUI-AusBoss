@@ -4,6 +4,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **The Qwen3-VL caption steps keep Text Generate's thinking on.** Krea 2's
+  text encoder is Qwen3-VL-4B-Instruct, which has no thinking mode; with
+  thinking off, ComfyUI appends an empty think block and the model often
+  stops at once, so Krea 2 Prompt from Image could write nothing. Krea 2
+  Prompt from Image, Krea 2 Outpaint, Klein 9B Outpaint and both MiniMax H3
+  image workflows now keep it on, and the Krea notes say why.
 - **Seed: switching to Random rolls a new seed right away.** The mode
   only rewrites the seed after a queue, so the first queue after
   switching from Fixed used to repeat the last run and ComfyUI returned
