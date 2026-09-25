@@ -277,11 +277,26 @@ function buildPanel(node) {
   input.addEventListener("focus", () => input.select());
   input.addEventListener("blur", commitTyped);
   copy.addEventListener("click", () => copySeed(state));
-  segRandom.addEventListener("click", () => { setControl(node, "randomize"); render(state); notifyAusbossChange(); });
+  // The control only rewrites the seed after a queue, so switching modes
+  // alone would run the shown seed once more and ComfyUI would hand back
+  // the cached result. Entering Random rolls now, and leaving Fixed for
+  // Step takes the first step now, so the next queue is a new run.
+  segRandom.addEventListener("click", () => {
+    const wasRandom = controlWidget(node)?.value === "randomize";
+    setControl(node, "randomize");
+    if (!wasRandom && !seedLinked(node)) setSeed(node, rollSeed(), { pin: false });
+    render(state);
+    notifyAusbossChange();
+  });
   segFixed.addEventListener("click", () => { setControl(node, "fixed"); render(state); notifyAusbossChange(); });
   segStep.addEventListener("click", () => {
     const current = controlWidget(node)?.value;
-    setControl(node, current === "increment" ? "decrement" : "increment");
+    const next = current === "increment" ? "decrement" : "increment";
+    setControl(node, next);
+    if (current === "fixed" && !seedLinked(node)) {
+      const value = Number(seed.value) || 0;
+      setSeed(node, next === "increment" ? value + 1 : Math.max(0, value - 1), { pin: false });
+    }
     render(state);
     notifyAusbossChange();
   });

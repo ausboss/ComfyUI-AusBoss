@@ -12,7 +12,10 @@ needs.
 - **Random / Fixed / Step +1** — what happens after each queue. Random
   rolls a new seed, Fixed keeps it, Step +1 increments it (click it again
   for **Step −1**, which decrements). This is the sampler's own *control
-  after generate*, just readable.
+  after generate*, just readable. Switching to Random also rolls a new
+  seed right away, and switching from Fixed to Step takes the first step,
+  so the next queue never repeats the run you just saw (ComfyUI would
+  hand back its cached result).
 - **New seed** — rolls a fresh seed and pins it (Fixed), so the following
   runs all use it.
 - **Use last run** — puts the seed of the most recent run back in the box

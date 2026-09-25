@@ -2,6 +2,14 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Seed: switching to Random rolls a new seed right away.** The mode
+  only rewrites the seed after a queue, so the first queue after
+  switching from Fixed used to repeat the last run and ComfyUI returned
+  the cached result. Switching from Fixed to Step takes the first step
+  the same way; flipping Step's direction leaves the number alone.
+
 ## 2.2.0 - 2026-09-24
 
 - **Save Image and Save Video save to the output folder itself by
