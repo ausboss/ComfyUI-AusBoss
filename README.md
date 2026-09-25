@@ -31,6 +31,12 @@ git clone https://github.com/ausboss/ComfyUI-AusBoss.git
 
 Restart ComfyUI and search the node library for **AusBoss**. After an update, through Manager or `git pull`, restart again and hard-refresh the browser with **Ctrl+Shift+R**: the browser otherwise keeps the old JavaScript, and the pack shows a warning when it does. A new version reaches Manager once the Comfy Registry has reviewed it, so GitHub can be a little ahead.
 
+### If Manager can't find AusBoss
+
+The classic ComfyUI-Manager window can answer **Install Missing Custom Nodes** with *Failed to find the following ComfyRegistry list: ausboss-nodes*. That comes from a Manager setting, not from the pack: open **Manager**, and if the **Channel** box is empty, pick **default**, then click **Install Missing Custom Nodes** again. The newer Manager panel (**Extensions → Missing Nodes**) finds the pack without this step.
+
+![The classic Manager window: pick default in the empty Channel box, then click Install Missing Custom Nodes](assets/readme/manager-channel-fix.webp)
+
 **Upgrading from 1.x:** 2.0 removed **LM Studio Chat** (use **Text** for a fixed prompt), Align Image's `offset_x`/`offset_y` outputs, and Math Expression's typed `a`/`b`/`c` boxes, which are sockets now: put constants in the expression. 1.2 removed **Drop Shadow**, **Pad Image** (use **Load Image + Pad**) and **Frame Chooser**. Save Image writes only inside ComfyUI's output folder. The [changelog](CHANGELOG.md) has the details.
 
 The pack uses Pillow, NumPy, Torch, and PyAV supplied by ComfyUI. Model workflows need the weights listed on their Workflow Note cards. LaMa additionally needs [`big-lama.pt`](https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt) in `ComfyUI/models/lama/`; it never downloads weights automatically.
