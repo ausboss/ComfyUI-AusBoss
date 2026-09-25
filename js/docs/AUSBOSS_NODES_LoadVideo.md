@@ -5,7 +5,7 @@ audio. One responsive player shows the source and previews the selected trim.
 Drag the high-contrast **IN** and **OUT** handles below it, drag the selected
 range to move the whole window, or type exact seconds into the two fields.
 The playhead follows each edit, so the frame at either boundary is visible
-while trimming.
+while trimming. In **Source**, the list plays the clip under the pointer, muted, and filters as you type.
 
 Playback is constrained to the selected window. **LOOP** repeats it; turn loop
 off and playback pauses at OUT. The reload button refreshes the source without

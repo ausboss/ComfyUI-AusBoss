@@ -2,6 +2,15 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Source lists preview the file under the pointer.** Load Image + Pad,
+  Load Video and the crop / rotate / pad editors replace the browser's plain
+  drop-down, where you picked by filename alone, with a list that shows the
+  hovered picture or plays the hovered clip (muted, with its size and
+  length) and filters as you type. Arrow keys, Enter and Escape work too.
+  The saved value is still the node's own `image` / `video` widget.
+
 ## 2.2.0 - 2026-09-24
 
 - **Save Image and Save Video save to the output folder itself by

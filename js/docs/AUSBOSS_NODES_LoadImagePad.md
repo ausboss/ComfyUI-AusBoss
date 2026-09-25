@@ -38,7 +38,7 @@ padding value unchanged.
 
 ## Controls
 
-- **Source** (`image`): Choose or upload from ComfyUI's input folder.
+- **Source** (`image`): Choose or upload from ComfyUI's input folder; the list previews the image under the pointer and filters as you type.
 - **Fill** / **Color** / **Backdrop** (`mode` / `fill_color` /
   `backdrop_blur`): Four fills — `color`, `edge`, `edge pixel`,
   `pillarbox blur`. **Color** shows for `color`, **Backdrop** for

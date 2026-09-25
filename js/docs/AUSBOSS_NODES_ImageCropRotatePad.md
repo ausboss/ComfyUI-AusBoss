@@ -4,7 +4,7 @@ Loads an image and applies one reusable **rotate → crop → pad** transform. C
 
 ## Controls
 
-- **Image source**: Pick an existing input image or click **Upload** in the compact
+- **Image source**: Pick an existing input image (the list previews the image under the pointer and filters as you type) or click **Upload** in the compact
   source card. Dropping an image onto the node still works. The original `image`
   widget remains the saved/API value; the old picker and upload rows are hidden.
 - **Rotate → Degrees** (`rotation_degrees`): Clockwise rotation before crop and padding.

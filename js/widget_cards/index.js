@@ -4,11 +4,16 @@
 // mirrors them, so the backend, saved workflows and widget-to-input links
 // are untouched. Rows with `when` appear only while they mean something,
 // and a `group` row folds the rarely-touched settings behind one click.
+import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { chainCallback } from "../shared/index.mjs";
 import { formatWidgetVisibility } from "../shared/save_video_formats.mjs";
 import { hideInputsInDef } from "../shared/widget_visibility.mjs";
 import { mountWidgetCard } from "../shared/widget_card.mjs";
+import { mediaViewQuery } from "../shared/media_list.mjs";
+
+// The Source lists preview the hovered file straight from ComfyUI's /view.
+const viewUrl = (value) => api.apiURL(`/view?${mediaViewQuery(value)}`);
 
 const isMode = (name, ...modes) => (values) => modes.includes(values[name]);
 // Save Video rows that only some formats read (crf, save_metadata).
@@ -134,7 +139,7 @@ const CARDS = {
   AUSBOSS_NODES_LoadVideo: {
     minWidth: 320, first: true, hide: ["upload"],
     rows: [
-      { widget: "video", label: "Source", kind: "select",
+      { widget: "video", label: "Source", kind: "select", preview: { kind: "video", url: viewUrl },
         button: { text: "Upload", title: "Upload a video into ComfyUI's input folder", onClick: (node) => node.widgets?.find((w) => w.name === "upload")?.callback?.() } },
       { widget: "custom_width", label: "Width", suffix: "px", title: "0 keeps the source width; set one side only to keep the aspect." },
       { widget: "custom_height", label: "Height", suffix: "px", title: "0 keeps the source height; set one side only to keep the aspect." },
@@ -145,7 +150,7 @@ const CARDS = {
   AUSBOSS_NODES_LoadImagePad: {
     minWidth: 340, first: true, hide: ["upload"],
     rows: [
-      { widget: "image", label: "Source", kind: "select",
+      { widget: "image", label: "Source", kind: "select", preview: { kind: "image", url: viewUrl },
         button: { text: "Upload", title: "Upload an image into ComfyUI's input folder", onClick: (node) => node.widgets?.find((w) => w.name === "upload")?.callback?.() } },
       { widget: "mode", label: "Fill", kind: "select" },
       { widget: "fill_color", label: "Color", kind: "color", when: isMode("mode", "color") },

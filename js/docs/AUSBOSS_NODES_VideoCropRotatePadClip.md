@@ -11,7 +11,7 @@ model that paints black regions.
 
 ## Source and window
 
-- **Uploads**: Pick an existing input video, click **Upload**, or drop a video file
+- **Uploads**: Pick an existing input video (the list plays the clip under the pointer, muted, and filters as you type), click **Upload**, or drop a video file
   onto the node. The old source widgets remain compatible with saved workflows, but
   are now driven by this compact card. Choosing another video keeps the canvas
   settings - fill, feather, resize budget, Snap, Limit - and pads the new clip to the
