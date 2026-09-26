@@ -14,6 +14,7 @@ import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { copyToClipboard } from "../shared/clipboard.mjs";
+import { confirmDiscard } from "../shared/discard_prompt.mjs";
 import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
 import {
@@ -739,19 +740,38 @@ async function openEditor(state) {
     state.node.setDirtyCanvas?.(true, true);
     notifyAusbossChange();
   };
+  // Every way out that is not Save asks first when the note changed, then
+  // drops the draft, including one carried over by the JSON/Form toggle.
+  const saved = () => JSON.stringify(normalizeNote(state.valueWidget.value));
+  const changed = () => {
+    if (!showingJson) return JSON.stringify(readForm()) !== saved();
+    try { return JSON.stringify(normalizeNote(JSON.parse(jsonBox.value))) !== saved(); } catch { return true; }
+  };
+  let asking = false;
+  const cancelEdits = async () => {
+    if (asking) return;
+    if (changed()) {
+      asking = true;
+      const discard = await confirmDiscard();
+      asking = false;
+      if (!discard) return;
+    }
+    state.note = normalizeNote(state.valueWidget.value);
+    closeEditor();
+  };
   save.addEventListener("click", commit);
-  cancel.addEventListener("click", closeEditor);
+  cancel.addEventListener("click", cancelEdits);
 
   const abort = new AbortController();
   // Keys typed into the dialog are the dialog's, not the canvas's shortcuts.
   overlay.addEventListener("keydown", (event) => {
     event.stopPropagation();
-    if (event.key === "Escape") closeEditor();
+    if (event.key === "Escape") void cancelEdits();
     if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) commit();
   }, { signal: abort.signal });
   overlay.addEventListener("pointerdown", (event) => {
     event.stopPropagation();
-    if (event.target === overlay) closeEditor();
+    if (event.target === overlay) void cancelEdits();
   }, { signal: abort.signal });
   overlay.addEventListener("wheel", (event) => event.stopPropagation(), { signal: abort.signal });
   document.body.append(overlay);
