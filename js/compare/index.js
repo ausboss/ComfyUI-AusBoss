@@ -45,7 +45,9 @@ function ensureCompareCss() {
 .ausboss-compare-stage.is-empty .ausboss-compare-status{left:50%;top:50%;max-width:82%;transform:translate(-50%,-50%);color:#78908e;text-align:center;white-space:normal;}
 .ausboss-compare-footer{display:flex;align-items:center;gap:8px;flex:none;height:24px;}
 .ausboss-compare-tools{display:flex;gap:4px;flex:none;opacity:.9;}
-.ausboss-compare-identity{position:absolute;left:50%;top:7px;transform:translateX(-50%);z-index:3;padding:3px 8px;border-radius:4px;background:rgba(0,0,0,.7);color:#d8eeee;font-weight:600;pointer-events:none;}
+.ausboss-compare-identity{position:absolute;left:50%;top:7px;transform:translateX(-50%);z-index:3;display:flex;padding:3px 4px;border-radius:4px;background:rgba(0,0,0,.7);color:#d8eeee;font-weight:600;pointer-events:none;}
+.ausboss-compare-identity span{width:22px;text-align:center;line-height:16px;}
+.ausboss-compare-identity.is-split::after{content:"";position:absolute;left:50%;top:5px;bottom:5px;width:1px;transform:translateX(-50%);background:rgba(216,238,238,.5);}
 .ausboss-compare-stage.is-empty .ausboss-compare-identity{display:none;}
 .ausboss-compare-tools:hover{opacity:1;}
 .ausboss-compare-caption{flex:1;min-width:0;height:${CAPTION_HEIGHT}px;overflow:hidden;color:#8ba3a1;font-size:10px;line-height:${CAPTION_HEIGHT}px;text-align:center;white-space:nowrap;text-overflow:ellipsis;}
@@ -66,8 +68,12 @@ function applyClip(state) {
   state.imageB.style.clipPath = clipPath;
   state.seam.style.left = seamLeft;
   state.seam.style.opacity = seamVisible ? "1" : "0";
-  state.identity.textContent = state.fraction === 0 ? "A" : state.fraction === 1 ? "B" : "B ⎹ A";
-  state.identity.title = seamVisible ? "B on the left · A on the right" : `Showing ${state.identity.textContent}`;
+  state.identity.classList.toggle("is-split", seamVisible);
+  state.identityLeft.textContent = state.fraction === 0 ? "A" : "B";
+  state.identityRight.hidden = !seamVisible;
+  state.identityRight.textContent = seamVisible ? "A" : "";
+  state.identity.title = seamVisible ? "B on the left · A on the right" : `Showing ${state.identityLeft.textContent}`;
+  state.identity.setAttribute("aria-label", state.identity.title);
 }
 
 function setEmpty(state, text) {
@@ -126,6 +132,9 @@ function buildPanel(node) {
   status.textContent = "Run to load the A/B previews";
   const identity = document.createElement("div");
   identity.className = "ausboss-compare-identity";
+  const identityLeft = document.createElement("span");
+  const identityRight = document.createElement("span");
+  identity.append(identityLeft, identityRight);
   const tools = document.createElement("div");
   tools.className = "ausboss-compare-tools";
   const slideButton = makeToolButton("SLIDE", "Slide: the seam follows the pointer across the image");
@@ -159,7 +168,7 @@ function buildPanel(node) {
 
   const abort = new AbortController();
   const state = node.__ausbossCompare = {
-    node, root, stage, imageA, imageB, seam, status, caption, identity,
+    node, root, stage, imageA, imageB, seam, status, caption, identity, identityLeft, identityRight,
     slideButton, aButton, bButton,
     widget, abort, refs: null, fraction: 0, loaded: 0, showingB: false,
   };
