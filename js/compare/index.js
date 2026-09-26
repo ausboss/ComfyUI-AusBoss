@@ -65,14 +65,14 @@ function getMode(node) {
 
 function applyClip(state) {
   const { clipPath, seamLeft, seamVisible } = compareClip(state.fraction);
-  state.imageB.style.clipPath = clipPath;
+  state.imageA.style.clipPath = clipPath;
   state.seam.style.left = seamLeft;
   state.seam.style.opacity = seamVisible ? "1" : "0";
   state.identity.classList.toggle("is-split", seamVisible);
-  state.identityLeft.textContent = state.fraction === 0 ? "A" : "B";
+  state.identityLeft.textContent = state.fraction === 0 ? "B" : "A";
   state.identityRight.hidden = !seamVisible;
-  state.identityRight.textContent = seamVisible ? "A" : "";
-  state.identity.title = seamVisible ? "B on the left · A on the right" : `Showing ${state.identityLeft.textContent}`;
+  state.identityRight.textContent = seamVisible ? "B" : "";
+  state.identity.title = seamVisible ? "A on the left · B on the right" : `Showing ${state.identityLeft.textContent}`;
   state.identity.setAttribute("aria-label", state.identity.title);
 }
 
@@ -101,7 +101,7 @@ function updateModeButtons(state) {
 
 // In toggle mode the reveal is all or nothing.
 function applyToggle(state) {
-  state.fraction = state.showingB ? 1 : 0;
+  state.fraction = state.showingB ? 0 : 1;
   applyClip(state);
   updateModeButtons(state);
   state.node.setDirtyCanvas?.(true, true);
@@ -143,7 +143,7 @@ function buildPanel(node) {
   tools.setAttribute("role", "group");
   tools.setAttribute("aria-label", "Compare preview mode");
   tools.append(slideButton, aButton, bButton);
-  stage.append(imageA, imageB, seam, status, identity);
+  stage.append(imageB, imageA, seam, status, identity);
   const caption = document.createElement("div");
   caption.className = "ausboss-compare-caption";
   const footer = document.createElement("div");
@@ -170,7 +170,7 @@ function buildPanel(node) {
   const state = node.__ausbossCompare = {
     node, root, stage, imageA, imageB, seam, status, caption, identity, identityLeft, identityRight,
     slideButton, aButton, bButton,
-    widget, abort, refs: null, fraction: 0, loaded: 0, showingB: false,
+    widget, abort, refs: null, fraction: 1, loaded: 0, showingB: false,
   };
   applyClip(state);
   updateModeButtons(state);
@@ -182,7 +182,7 @@ function buildPanel(node) {
     const changed = getMode(node) !== "slide";
     node.properties.ausboss_compare_mode = normalizeCompareMode("slide");
     state.showingB = false;
-    state.fraction = 0;
+    state.fraction = 1;
     applyClip(state);
     updateModeButtons(state);
     node.setDirtyCanvas?.(true, true);

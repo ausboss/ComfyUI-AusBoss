@@ -28,7 +28,7 @@ export function compareSizeLabel(refs) {
 }
 
 // Fraction of the panel width covered by the pointer, clamped to 0..1.
-// Degenerate rectangles and non-finite input resolve to 0 (all-A).
+// Degenerate rectangles and non-finite input resolve to 0 (no left overlay).
 export function clipFraction(pointerX, rectLeft, rectWidth) {
   const width = Number(rectWidth);
   if (!Number.isFinite(width) || width <= 0) return 0;
@@ -47,7 +47,7 @@ export function slideFraction(pointerX, rectLeft, rectWidth, leaving = false) {
   return fraction;
 }
 
-// CSS for a given reveal fraction: image B keeps its left portion up to the
+// CSS for a given reveal fraction: the overlay keeps its left portion up to the
 // seam, the rest is clipped away. The seam only shows while both images are
 // partially visible.
 export function compareClip(fraction) {

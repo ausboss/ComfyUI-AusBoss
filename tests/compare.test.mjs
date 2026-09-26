@@ -17,7 +17,7 @@ test("clip fraction follows the pointer and clamps to the panel", () => {
   assert.equal(clipFraction(900, 100, 200), 1);
 });
 
-test("degenerate panels and junk input resolve to all-A", () => {
+test("degenerate panels and junk input resolve to no left overlay", () => {
   assert.equal(clipFraction(150, 100, 0), 0);
   assert.equal(clipFraction(150, 100, -5), 0);
   assert.equal(clipFraction(NaN, 100, 200), 0);
@@ -62,7 +62,7 @@ test("nothing loaded means no caption at all", () => {
   assert.equal(compareSizeLabel({ a: { filename: "x.png" } }), "");
 });
 
-test("clip CSS keeps B left of the seam and hides the seam at the edges", () => {
+test("clip CSS keeps the overlay left of the seam and hides the seam at the edges", () => {
   assert.deepEqual(compareClip(0.25), {
     clipPath: "inset(0 75.00% 0 0)",
     seamLeft: "25.00%",
