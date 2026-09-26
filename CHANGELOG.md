@@ -4,6 +4,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Save Image: a preview switch, and plainer wording.** The saved picture
+  now sits in the pack's preview panel with the same small `PREVIEW` switch
+  as Select Frame and Mask Refine; off, the picture goes away and the node is
+  shorter (the file is saved and listed in the queue either way). The
+  Workflow row now reads **Embed workflow: no | yes**.
 - **The Qwen3-VL caption steps keep Text Generate's thinking on.** Krea 2's
   text encoder is Qwen3-VL-4B-Instruct, which has no thinking mode; with
   thinking off, ComfyUI appends an empty think block and the model often

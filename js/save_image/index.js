@@ -2,8 +2,9 @@
 //
 // Folder (with a Browse into ComfyUI's output folder), Filename, a live
 // Path preview, the name tags as small chips, the Format pills and the
-// Embed workflow pill. The standard widgets stay the source of truth and
-// stay serialized in their old order; the card only reads and writes them.
+// Embed workflow pill. The saved picture below is js/input_preview's panel.
+// The standard widgets stay the source of truth and stay serialized in
+// their old order; the card only reads and writes them.
 // When the `filename` input is linked the name comes from upstream: the
 // field shows {{filename}} and the tags fold away, since an exact name is
 // never decorated.
@@ -263,19 +264,19 @@ function buildCard(node) {
   }
   root.append(seg);
 
-  // Embed workflow: an off | embed pill, the pack's boolean.
+  // Embed workflow: a no | yes pill, the pack's boolean.
   const embedRow = el("div", "ausboss-save-row");
   const embedSeg = el("div", "ausboss-card-seg ausboss-card-bool");
   embedSeg.setAttribute("role", "radiogroup");
   const embedButtons = new Map();
   const embedTitle = "Embed stores the prompt and workflow in the image for drag-back. Off writes a clean image for sharing or datasets.";
-  for (const [on, text] of [[false, "off"], [true, "embed workflow"]]) {
+  for (const [on, text] of [[false, "no"], [true, "yes"]]) {
     const button = el("button", "", text);
     button.type = "button"; button.title = embedTitle;
     button.addEventListener("click", () => { if (setValue(node, "save_metadata", on)) notifyAusbossChange(); state.refresh(); });
     embedSeg.append(button); embedButtons.set(on, button);
   }
-  embedRow.append(el("span", "ausboss-save-embed-label", "Workflow"), embedSeg);
+  embedRow.append(el("span", "ausboss-save-embed-label", "Embed workflow"), embedSeg);
   root.append(embedRow);
 
   root.addEventListener("pointerdown", (event) => {
