@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   clipFraction,
+  slideFraction,
   compareClip,
   compareSizeLabel,
   findCompareImages,
@@ -80,4 +81,18 @@ test("compare previews are pulled from the execution payload as a pair", () => {
   assert.equal(findCompareImages({ a_images: [a] }), null);
   assert.equal(findCompareImages({ a_images: [{}], b_images: [b] }), null);
   assert.equal(findCompareImages(null), null);
+});
+
+test("slide gives edges a forgiving landing zone without disturbing the middle", () => {
+  assert.equal(slideFraction(110, 100, 200), 0);
+  assert.equal(slideFraction(290, 100, 200), 1);
+  assert.equal(slideFraction(150, 100, 200), 0.25);
+});
+
+test("leaving above or below settles to the nearest full image", () => {
+  assert.equal(slideFraction(175, 100, 200, true), 0);
+  assert.equal(slideFraction(225, 100, 200, true), 1);
+  assert.equal(slideFraction(200, 100, 200, true), 1);
+  assert.equal(slideFraction(50, 100, 200, true), 0);
+  assert.equal(slideFraction(350, 100, 200, true), 1);
 });
