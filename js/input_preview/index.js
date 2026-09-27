@@ -1,4 +1,5 @@
-// The in-node preview panel for LaMa Inpaint, Mask Refine and Select Frame.
+// The in-node preview panel for LaMa Inpaint, Mask Refine, Select Frame and
+// Save Image.
 //
 // It shows this node's own result once it has one, and falls back to a
 // thumbnail of whatever feeds its IMAGE/MASK input before the graph has run.
@@ -63,6 +64,8 @@ const NODE_CONFIG = {
     ],
   },
   AUSBOSS_NODES_SelectFrame: { inputName: "frames", noun: "frames" },
+  // Its result is the file it just saved; the card sits above the panel.
+  AUSBOSS_NODES_SaveImage: { inputName: "images", noun: "an image" },
 };
 
 function ensureCss() {

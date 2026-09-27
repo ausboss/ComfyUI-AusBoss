@@ -248,6 +248,17 @@ class AusBossSaveImage:
                         ),
                     },
                 ),
+                "preview": (
+                    "BOOLEAN",
+                    {
+                        "default": True,
+                        "tooltip": (
+                            "Show the saved image on the node. Display only: "
+                            "the file is saved either way, and still listed "
+                            "in the queue."
+                        ),
+                    },
+                ),
             },
             "hidden": {"prompt": "PROMPT", "extra_pnginfo": "EXTRA_PNGINFO"},
         }
@@ -279,6 +290,7 @@ class AusBossSaveImage:
         name_time=False,
         name_size=False,
         name_batch=False,
+        preview=True,
         prompt=None,
         extra_pnginfo=None,
     ):
@@ -355,7 +367,9 @@ class AusBossSaveImage:
             saved.append(path)
 
         # Every destination was confined to the output folder above, so each
-        # saved file previews from there and is shown relative to it.
+        # saved file previews from there and is shown relative to it. The
+        # preview switch is display only: these entries are also how the
+        # queue lists the save, and there is no temp file to skip.
         previews: list[dict] = []
         resolved_root = output_root.resolve()
         shown_paths: list[str] = []

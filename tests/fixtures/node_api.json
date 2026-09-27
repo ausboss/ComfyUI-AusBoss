@@ -542,7 +542,8 @@
       "name_date",
       "name_time",
       "name_size",
-      "name_batch"
+      "name_batch",
+      "preview"
     ],
     "outputs": [
       [

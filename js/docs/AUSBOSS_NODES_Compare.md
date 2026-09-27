@@ -15,18 +15,18 @@ without breaking anything downstream.
 
 Run the workflow once to load the previews, then compare:
 
-- **SLIDE** (default): move the pointer across the panel. B is revealed up
-  to the pointer with a thin seam marking the split.
-- **A / B**: a toggle. Each click swaps the whole panel between the two, and
-  the button's label says which one you are looking at. Clicking it from
-  slide mode selects it and lands on B, since seeing the other one is the
-  reason to reach for it. Flicking back and forth in place is the way to
-  catch a small change; the eye spots it far better than a moving seam does.
+- **SLIDE** (default): move the pointer across the panel. A appears on the
+  left of the seam and B on the right. The outer 6% on either side snaps to
+  a full image. Leaving the preview in any direction settles to the nearest
+  edge, including when you leave through the top or bottom.
+- **A** / **B**: turn sliding off and lock the selected preview. Clicking
+  the same choice again keeps it locked; choose SLIDE to follow the pointer
+  again. The three choices sit below the image.
 
-The chosen mode is stored with the node. Nothing is drawn over the picture —
-the compared resolution sits in a caption centred beneath the panel, and if
-the two sides are different sizes both are named there, since the panel
-scales them to fit and nothing else on screen would reveal it.
+The top-centre label reads **A** or **B** for a full image and **A | B** while
+both are visible, matching their left/right positions. The chosen mode and locked side are
+stored with the node, including support for modes from older workflows. The resolution
+sits beneath the panel; differing sizes are labeled individually.
 
 ## Output
 
