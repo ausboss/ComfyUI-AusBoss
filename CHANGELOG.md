@@ -26,6 +26,20 @@ All notable changes to ComfyUI-AusBoss are documented here.
   hovered picture or plays the hovered clip (muted, with its size and
   length) and filters as you type. Arrow keys, Enter and Escape work too.
   The saved value is still the node's own `image` / `video` widget.
+- **Crop + Rotate + Pad: feather softens the mask only.** Image Crop +
+  Rotate + Pad and both Video Crop nodes also faded the picture into the
+  fill colour, unlike Load Image + Pad. Outpaint models read that ramp as
+  content: the Qwen 2.1 outpaint LoRA painted a darker band along a tilted
+  edge, and LTX's IC-LoRA left feathered black bars unpainted. The stitcher
+  kept the faded pixels too, so Stitch's colour match measured its drift
+  against them and pulled the fill toward grey (colour error 3 → 18 on a
+  straight pad at feather 24). The picture now keeps a hard edge against
+  the fill at any feather; the mask, and the stitch blend built from it, are
+  unchanged. Saved workflows with feather above 0 get a hard-edged `image`.
+- **Image Crop + Rotate + Pad: `stitch_blend` and `stitch_grow`.** The
+  stitcher's blend was fixed at 32 px; it now has the clip node's two
+  optional inputs (defaults 32 and 0), and the editor shows the same
+  Inpaint & Stitch section with Show blend.
 
 ## 2.2.0 - 2026-09-24
 

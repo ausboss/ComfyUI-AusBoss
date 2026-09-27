@@ -11,7 +11,8 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from nodes.node_image_crop_rotate_pad import AusBossImageCropRotatePad
 from nodes.node_video_crop_rotate_pad import AusBossVideoCropRotatePad
-from nodes._inpaint_crop_helpers import apply_stitch
+from nodes._color_helpers import rgb_to_lab
+from nodes._inpaint_crop_helpers import apply_stitch, stitch_blend_from_mask
 
 COMFY_ROOT = os.environ.get('AUSBOSS_COMFY_ROOT')
 if COMFY_ROOT:
@@ -70,6 +71,64 @@ class TransformOutputTests(unittest.TestCase):
         self.assertEqual((width % 16, height % 16), (0, 0))
         self.assertEqual(tuple(stitcher['canvas'].shape), tuple(image.shape))
         self.assertEqual(tuple(original.shape), (1, 96, 128, 3))
+
+
+class FeatheredStitchTests(unittest.TestCase):
+    """Feather shapes the mask; the canvas and the stitcher keep real pixels.
+
+    The transform used to fade the picture into the fill colour across the
+    feather ramp and hand that faded canvas to the stitcher, so color match
+    measured drift against it and pulled the fill toward grey.
+    """
+
+    COLOUR = (46, 150, 72)
+    LAYOUTS = {
+        "straight pads": dict(pad_left=32, pad_top=24, pad_right=32, pad_bottom=24),
+        "rotated": dict(rotation_degrees=17),
+        "rotated and padded": dict(rotation_degrees=-9, pad_left=24, pad_right=40),
+    }
+
+    def load(self, source, **values):
+        with patch('nodes.node_image_crop_rotate_pad.resolve_input_path', return_value=Path('source.png')), patch('nodes.node_image_crop_rotate_pad.load_image_frames', return_value=[source]):
+            return AusBossImageCropRotatePad().load_transform('source.png', **values)
+
+    def test_color_match_keeps_the_fill_of_a_perfect_continuation(self):
+        # A model that continues a flat green picture perfectly paints the
+        # whole canvas that green; color match 1 must find no drift to fix.
+        source = Image.new('RGB', (128, 96), self.COLOUR)
+        colour = torch.tensor(self.COLOUR, dtype=torch.float32) / 255
+        # Rotated AND padded is left out: the seam reading then counts the
+        # rotation corners inside the crop as picture, feather or not.
+        for name in ("straight pads", "rotated"):
+            layout = self.LAYOUTS[name]
+            with self.subTest(layout=name):
+                image, mask, stitcher, *_ = self.load(source, feather=24, **layout)
+                continuation = colour.expand_as(image).clone()
+                stitched = apply_stitch(stitcher, continuation, color_match=1.0)
+                fill = mask > 0.5
+                error = (rgb_to_lab(stitched) - rgb_to_lab(continuation)).norm(dim=-1)
+                self.assertTrue(fill.any())
+                self.assertLess(float(error[fill].max()), 0.5)
+                self.assertLess(float(error.max()), 1.0)
+
+    def test_identity_round_trip_stays_exact(self):
+        source = Image.fromarray(np.random.default_rng(3).integers(0, 256, (96, 128, 3), dtype=np.uint8))
+        for name, layout in self.LAYOUTS.items():
+            with self.subTest(layout=name):
+                image, mask, stitcher, *_ = self.load(source, feather=24, **layout)
+                hard, *_ = self.load(source, feather=0, **layout)
+                # The feathered canvas is the unfeathered one, pixel for pixel.
+                self.assertTrue(torch.equal(image, hard))
+                self.assertTrue(torch.equal(apply_stitch(stitcher, image), image))
+
+    def test_stitch_blend_and_grow_reach_the_stitcher(self):
+        source = Image.new('RGB', (128, 96), self.COLOUR)
+        _, mask, stitcher, *_ = self.load(source, pad_left=32, feather=8)
+        self.assertTrue(torch.equal(stitcher['blend'], stitch_blend_from_mask(mask, 32, 0)))
+        _, mask, stitcher, *_ = self.load(source, pad_left=32, feather=8, stitch_blend=6, stitch_grow=-3)
+        self.assertTrue(torch.equal(stitcher['blend'], stitch_blend_from_mask(mask, 6, -3)))
+        _, mask, stitcher, *_ = self.load(source, pad_left=32, feather=0, stitch_blend=0)
+        self.assertTrue(torch.equal(stitcher['blend'], mask))
 
 
 if __name__ == '__main__':

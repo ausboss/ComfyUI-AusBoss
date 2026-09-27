@@ -50,7 +50,7 @@ const HIDDEN_WIDGETS = [
   "pad_left", "pad_top", "pad_right", "pad_bottom", "feather", "canvas_multiple", "fill_color",
   "seek_mode", "frame_index", "frame_time",
   "start_seconds", "end_seconds", "every_nth", "max_frames", "frame_snap", "fixed_frames",
-  // Clip-node stitch settings, driven by the editor's Inpaint & Stitch section.
+  // Stitch settings (clip and image nodes), driven by the editor's Inpaint & Stitch section.
   "stitch_blend", "stitch_grow",
   // Image-node resize block; hideWidget on a missing widget is a no-op, so
   // the video node sharing this list is unaffected.
@@ -733,8 +733,8 @@ function buildCanvasRow(state) {
   const featherLabel = createElement("label");
   const feather = makeScrubInput({ value: value(node, "feather", 0), min: 0, max: 4096, step: 1, decimals: 0, width: 62, unit: "px",
     title: video
-      ? "Feather of the mask and image edge into the fill. 0 keeps the hard edge a black-band outpaint needs; grey bands in a render mean feather was on."
-      : "Feather of the mask and image edge into the fill, in pixels; 0 keeps a hard edge.",
+      ? "Feather of the mask into the kept frames, in pixels. The frames keep a hard edge against the fill whatever the feather, so a black-band outpaint still sees its bars."
+      : "Feather of the mask into the kept pixels; the image keeps a hard edge against the fill.",
     onChange: (amount) => { setValue(node, "feather", amount); draw(state); updateModalInfo(state); }, onSettle: notifyAusbossChange });
   featherLabel.append(createElement("span", "", "Feather"), feather.root);
   const resizeLabel = createElement("label");
@@ -986,7 +986,7 @@ function openEditor(state) {
   buildControls(state, left);
   const status = createElement("div", "ausboss-transform-status"); status.dataset.ausbossStatus = ""; right.append(status);
   right.append(createElement("div", "ausboss-transform-help", "Drag cyan squares to crop. Drag inside the crop to move it. Orange diamonds add padding. The rotate knob at the top-right corner rotates; hold Shift to snap to 15 degrees. Wheel zooms. Middle mouse or Alt-drag pans."));
-  if (state.isClip && widget(state.node, "stitch_blend")) right.append(buildStitchSection(state));
+  if (widget(state.node, "stitch_blend")) right.append(buildStitchSection(state));
   if (state.kind === "video") modal.append(buildTimeline(state));
   document.body.append(modal);
 
@@ -1015,8 +1015,8 @@ function closeEditor(state) {
   if (hadModal && !state.disposed) notifyAusbossChange();
 }
 
-// Inpaint & Stitch (clip node): the stitcher this node emits pastes the source
-// frames back over the generated clip. Blend is the ramp where generated
+// Inpaint & Stitch (clip and image nodes): the stitcher this node emits pastes
+// the source back over the generated result. Blend is the ramp where generated
 // pixels take over; it is deliberately separate from the padding feather,
 // which shapes the mask the model sees. Grow moves the paste boundary and
 // sits behind a disclosure - most outpaints never touch it.
@@ -1024,7 +1024,7 @@ function buildStitchSection(state) {
   const node = state.node;
   const section = createElement("section", "ausboss-transform-section");
   section.append(sectionHeading("Inpaint & Stitch"));
-  section.append(createElement("div", "ausboss-transform-help", "Outside the paste mask the stitcher puts the source frames back bit-for-bit. Inside it - the padded and rotated-in area plus the blend ramp - the generation takes over."));
+  section.append(createElement("div", "ausboss-transform-help", "Outside the paste mask the stitcher puts the source back bit-for-bit. Inside it - the padded and rotated-in area plus the blend ramp - the generation takes over."));
   const blend = makeScrubInput({ value: value(node, "stitch_blend", 32), min: 0, max: 512, step: 1, decimals: 0,
     title: "Ramp where generated pixels fade over the source, in pixels of the output. Separate from the padding feather.",
     onChange: (amount) => { setValue(node, "stitch_blend", amount); draw(state); updateModalInfo(state); }, onSettle: notifyAusbossChange });
@@ -1310,45 +1310,6 @@ function drawFinalPreview(state) {
   context.rotate((Number(current.rotation_degrees) || 0) * Math.PI / 180);
   drawSourceImage(context, state, scale);
   context.restore();
-
-  // Live feather: a miniature of the backend blend. Build the generated-area
-  // mask (everything the image does not cover: padding, rotation corners,
-  // source transparency), blur it, draw it twice (alpha ~doubles, matching
-  // the engine's ramp that starts at full strength on the edge), tint with
-  // the fill color, and overlay.
-  const featherPreviewPx = Math.min(60, (Number(current.feather) || 0) * scale);
-  if (featherPreviewPx >= 0.3) {
-    const maskLayer = document.createElement("canvas");
-    maskLayer.width = pixelWidth; maskLayer.height = pixelHeight;
-    const maskContext = maskLayer.getContext("2d");
-    maskContext.setTransform(dpr, 0, 0, dpr, 0, 0);
-    maskContext.fillStyle = "#fff";
-    maskContext.fillRect(0, 0, width, height);
-    maskContext.save();
-    maskContext.beginPath();
-    maskContext.rect(padding.left * scale, padding.top * scale, crop.width * scale, crop.height * scale);
-    maskContext.clip();
-    maskContext.globalCompositeOperation = "destination-out";
-    maskContext.translate(
-      (padding.left - crop.x) * scale + source.width * scale / 2,
-      (padding.top - crop.y) * scale + source.height * scale / 2
-    );
-    maskContext.rotate((Number(current.rotation_degrees) || 0) * Math.PI / 180);
-    drawSourceImage(maskContext, state, scale);
-    maskContext.restore();
-
-    const soft = document.createElement("canvas");
-    soft.width = pixelWidth; soft.height = pixelHeight;
-    const softContext = soft.getContext("2d");
-    softContext.filter = `blur(${featherPreviewPx * dpr}px)`;
-    softContext.drawImage(maskLayer, 0, 0);
-    softContext.drawImage(maskLayer, 0, 0);
-    softContext.filter = "none";
-    softContext.globalCompositeOperation = "source-in";
-    softContext.fillStyle = normalizeColor(current.fill_color);
-    softContext.fillRect(0, 0, pixelWidth, pixelHeight);
-    context.drawImage(soft, 0, 0, width, height);
-  }
 }
 
 function buildTimeline(state) {
@@ -1625,7 +1586,7 @@ function drawScene(context, state, render, compact, interactive) {
   drawSourceImage(context, state, render.scale); context.restore();
   context.save(); context.globalCompositeOperation = "source-over"; context.fillStyle = "rgba(8,10,12,.62)";
   const full = { x: 0, y: 0, width: context.canvas.width, height: context.canvas.height }; context.beginPath(); context.rect(full.x, full.y, full.width, full.height); context.rect(cropRect.x, cropRect.y, cropRect.width, cropRect.height); context.fill("evenodd"); context.restore();
-  if (!compact && state.isClip && state.showBlend) drawBlendOverlay(context, state, render);
+  if (!compact && state.showBlend && widget(state.node, "stitch_blend")) drawBlendOverlay(context, state, render);
   context.strokeStyle = "#4bd8ef"; context.lineWidth = compact ? 1 : 2; context.setLineDash([7, 5]); context.strokeRect(cropRect.x, cropRect.y, cropRect.width, cropRect.height);
   context.strokeStyle = "#ff9d42"; context.setLineDash([5, 5]); context.strokeRect(outputRect.x, outputRect.y, outputRect.width, outputRect.height); context.setLineDash([]);
   if (interactive) {
@@ -1896,7 +1857,7 @@ function updateModalInfo(state) {
   if (!state.modal || !state.sourceWidth) return; const status = state.modal.querySelector("[data-ausboss-status]"); if (!status) return;
   const source = rotatedSize(state.sourceWidth, state.sourceHeight, value(state.node, "rotation_degrees", 0)); const crop = resolveCrop(values(state.node), source); const pad = resolvePadding(values(state.node), crop);
   const frame = state.kind === "video" ? `\nFrame ${value(state.node, "frame_index", 0)} at ${Number(value(state.node, "frame_time", 0)).toFixed(3)}s` : "";
-  const stitch = state.isClip && widget(state.node, "stitch_blend") ? `\nStitch blend ${value(state.node, "stitch_blend", 32)} px${Number(value(state.node, "stitch_grow", 0)) ? `, grow ${value(state.node, "stitch_grow", 0)} px` : ""}` : "";
+  const stitch = widget(state.node, "stitch_blend") ? `\nStitch blend ${value(state.node, "stitch_blend", 32)} px${Number(value(state.node, "stitch_grow", 0)) ? `, grow ${value(state.node, "stitch_grow", 0)} px` : ""}` : "";
   let resized = "";
   if (value(state.node, "resize_to_megapixels", false)) {
     const target = scaleToMegapixels(

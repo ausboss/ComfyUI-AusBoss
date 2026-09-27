@@ -161,7 +161,10 @@
       "resize_method",
       "resolution_steps"
     ],
-    "optional": [],
+    "optional": [
+      "stitch_blend",
+      "stitch_grow"
+    ],
     "outputs": [
       [
         "IMAGE",
