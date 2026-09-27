@@ -16,31 +16,6 @@ All notable changes to ComfyUI-AusBoss are documented here.
   as Select Frame and Mask Refine; off, the picture goes away and the node is
   shorter (the file is saved and listed in the queue either way). The
   Workflow row now reads **Embed workflow: no | yes**.
-- **Crop + Rotate + Pad: rotating keeps the crop.** The crop keeps its size
-  and stays over the same part of the picture, from the knob, the editor's
-  slider, its number box and Reset rotation alike. The slider used to throw
-  the crop away (a centred 1:1 crop jumped to the top), and the knob slid it
-  off the picture as the canvas grew.
-- **Crop + Rotate + Pad: the size explains itself.** A line under the picture
-  names every step that sets the output size (`crop → pad → align → resize`),
-  warns when the resize Step stretches the picture by more than 1% and when
-  Align pads a strip of fill ahead of a resize, and the editor's panel lists
-  the same steps. Ticking Resize on the node now shows the resize **Step** next
-  to the megapixel budget.
-- **Video Crop + Rotate + Pad → Clip: one way to set the length.** The Fixed
-  frames and Limit boxes are gone from the node face. OUT ends the clip, and a
-  **Length** switch (off by default) sets it by a frame count instead: OUT then
-  follows IN at that distance and the count survives a video swap. OUT always
-  sits on the last frame the run outputs (Every nth and Snap included), where
-  Limit used to end the clip short of it. Connecting `fixed_frames` or
-  `frame_load_cap` hands the length to that input: the OUT handle goes away and
-  only IN is left to set. No inputs changed; saved Limit values read as a
-  Length, and an old Fixed frames value becomes one on the first edit.
-- **Crop + Rotate + Pad: exact aspect sizes.** A crop at a locked ratio no
-  longer loses a pixel to rounding (21:9, 9:21, source), so the size shown on
-  the node always equals the run. A few saved crops come out 1 px larger.
-- **Image Crop + Rotate + Pad: API prompts saved before the resize inputs
-  existed validate again**; the four resize inputs are optional.
 - **The Qwen3-VL caption steps keep Text Generate's thinking on.** Krea 2's
   text encoder is Qwen3-VL-4B-Instruct, which has no thinking mode; with
   thinking off, ComfyUI appends an empty think block and the model often
@@ -68,16 +43,59 @@ All notable changes to ComfyUI-AusBoss are documented here.
   straight pad at feather 24). The picture now keeps a hard edge against
   the fill at any feather; the mask, and the stitch blend built from it, are
   unchanged. Saved workflows with feather above 0 get a hard-edged `image`.
-- **Image Crop + Rotate + Pad: `stitch_blend` and `stitch_grow`.** The
-  stitcher's blend was fixed at 32 px; it now has the clip node's two
-  optional inputs (defaults 32 and 0), and the editor shows the same
-  Inpaint & Stitch section with Show blend.
 - **Stitch Inpaint's tone match no longer pulls a rotated outpaint toward
   the fill colour.** On a Crop + Rotate + Pad canvas that was rotated and
   padded (a canvas multiple's few extra pixels count), `color_match` read
   the rotation's empty corners as picture and shifted the whole fill, by
   up to 33 dE on a flat test. It now reads only picture pixels at each
   seam. Load Image + Pad and Crop For Inpaint stitch exactly as before.
+- **Load Image + Pad no longer adds a strip along an edge you did not
+  pad.** Rounding the canvas to Multiple put the leftover on the right and
+  bottom whatever you padded, so the published Krea 2 Outpaint workflow
+  (top and bottom padded, Multiple 16) grew a 6 px grey strip down the
+  photo's right edge. Krea painted it flat and lighter, the feather opened
+  the photo beside it to the sampler, and Stitch Inpaint's color match read
+  the strip as a seam and darkened that band. The leftover now joins a side
+  you padded (the right or bottom one when both are). Where you padded
+  neither left nor right, or neither top nor bottom, a Budget scales the
+  photo onto the multiple instead, keeping its shape, and without a Budget
+  the photo loses those few pixels evenly from both edges; the node's
+  canvas shows them as −N px. Saved workflows can come out slightly
+  different: with only the left or top padded, the photo sits up to one
+  multiple minus a pixel further right or down (15 px at 16, 63 px at 64);
+  with a pair of edges unpadded, that side can be one multiple smaller
+  without a Budget, and with one the photo's scale shifts a little, which
+  can move either side by a multiple or so. The shipped examples pad every side and
+  are unchanged. Crop + Rotate + Pad keeps the old rule for now.
+- **Image Crop + Rotate + Pad: `stitch_blend` and `stitch_grow`.** The
+  stitcher's blend was fixed at 32 px; it now has the clip node's two
+  optional inputs (defaults 32 and 0), and the editor shows the same
+  Inpaint & Stitch section with Show blend.
+- **Crop + Rotate + Pad: rotating keeps the crop.** The crop keeps its size
+  and stays over the same part of the picture, from the knob, the editor's
+  slider, its number box and Reset rotation alike. The slider used to throw
+  the crop away (a centred 1:1 crop jumped to the top), and the knob slid it
+  off the picture as the canvas grew.
+- **Crop + Rotate + Pad: the size explains itself.** A line under the picture
+  names every step that sets the output size (`crop → pad → align → resize`),
+  warns when the resize Step stretches the picture by more than 1% and when
+  Align pads a strip of fill ahead of a resize, and the editor's panel lists
+  the same steps. Ticking Resize on the node now shows the resize **Step** next
+  to the megapixel budget.
+- **Crop + Rotate + Pad: exact aspect sizes.** A crop at a locked ratio no
+  longer loses a pixel to rounding (21:9, 9:21, source), so the size shown on
+  the node always equals the run. A few saved crops come out 1 px larger.
+- **Image Crop + Rotate + Pad: API prompts saved before the resize inputs
+  existed validate again**; the four resize inputs are optional.
+- **Video Crop + Rotate + Pad → Clip: one way to set the length.** The Fixed
+  frames and Limit boxes are gone from the node face. OUT ends the clip, and a
+  **Length** switch (off by default) sets it by a frame count instead: OUT then
+  follows IN at that distance and the count survives a video swap. OUT always
+  sits on the last frame the run outputs (Every nth and Snap included), where
+  Limit used to end the clip short of it. Connecting `fixed_frames` or
+  `frame_load_cap` hands the length to that input: the OUT handle goes away and
+  only IN is left to set. No inputs changed; saved Limit values read as a
+  Length, and an old Fixed frames value becomes one on the first edit.
 
 ## 2.2.0 - 2026-09-24
 

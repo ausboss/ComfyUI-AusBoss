@@ -13,6 +13,7 @@ import {
   padDragValue,
   padGeometry,
   parseImageReference,
+  stageGeometry,
 } from "../js/shared/pad_canvas.mjs";
 
 test("image references parse subfolders, backslashes, and type annotations", () => {
@@ -41,15 +42,90 @@ test("image references parse subfolders, backslashes, and type annotations", () 
   assert.equal(parseImageReference(null), null);
 });
 
-test("pad geometry appends the multiple remainder to right and bottom", () => {
+const NO_TRIM = { trimLeft: 0, trimTop: 0, trimRight: 0, trimBottom: 0 };
+const pads = (left, top, right, bottom, canvas_multiple, target_megapixels = 0) => ({
+  pad_left: left, pad_top: top, pad_right: right, pad_bottom: bottom, canvas_multiple, target_megapixels,
+});
+
+test("both padded sides keep the multiple remainder on the far side", () => {
   const geom = padGeometry(800, 600, {
     pad_left: 10, pad_top: 20, pad_right: 30, pad_bottom: 40, canvas_multiple: 8,
   });
   // Pinned against nodes/_pad_helpers.py resolve_pad_geometry — the same
   // numbers appear in tests/test_pad_helpers.py so drift breaks both.
   assert.deepEqual(geom, {
-    left: 10, top: 20, right: 30, bottom: 44, outputWidth: 840, outputHeight: 664,
+    left: 10, top: 20, right: 30, bottom: 44, outputWidth: 840, outputHeight: 664, ...NO_TRIM,
   });
+});
+
+test("one padded side takes the whole remainder", () => {
+  // Pinned in tests/test_pad_helpers.py too.
+  assert.deepEqual(padGeometry(100, 64, pads(20, 0, 0, 0, 16)), {
+    left: 28, top: 0, right: 0, bottom: 0, outputWidth: 128, outputHeight: 64, ...NO_TRIM,
+  });
+  assert.deepEqual(padGeometry(100, 64, pads(0, 0, 20, 0, 16)), {
+    left: 0, top: 0, right: 28, bottom: 0, outputWidth: 128, outputHeight: 64, ...NO_TRIM,
+  });
+  assert.deepEqual(padGeometry(128, 100, pads(0, 30, 0, 0, 64)), {
+    left: 0, top: 92, right: 0, bottom: 0, outputWidth: 128, outputHeight: 192, ...NO_TRIM,
+  });
+  assert.deepEqual(padGeometry(128, 100, pads(0, 0, 0, 30, 64)), {
+    left: 0, top: 0, right: 0, bottom: 92, outputWidth: 128, outputHeight: 192, ...NO_TRIM,
+  });
+});
+
+test("an axis nobody padded trims the source instead of growing a strip", () => {
+  assert.deepEqual(padGeometry(1130, 638, pads(0, 271, 0, 509, 16)), {
+    left: 0, top: 271, right: 0, bottom: 515, outputWidth: 1120, outputHeight: 1424,
+    trimLeft: 5, trimTop: 0, trimRight: 5, trimBottom: 0,
+  });
+  assert.deepEqual(padGeometry(1000, 750, pads(0, 0, 0, 0, 64)), {
+    left: 0, top: 0, right: 0, bottom: 0, outputWidth: 960, outputHeight: 704,
+    trimLeft: 20, trimTop: 23, trimRight: 20, trimBottom: 23,
+  });
+  const odd = padGeometry(1001, 64, pads(0, 0, 0, 0, 16));
+  assert.deepEqual([odd.trimLeft, odd.trimRight, odd.outputWidth], [4, 5, 992]);
+  // Smaller than one multiple: nothing to trim to, so it grows on the far side.
+  const tiny = padGeometry(10, 750, pads(0, 0, 0, 0, 16));
+  assert.deepEqual([tiny.right, tiny.outputWidth, tiny.trimTop, tiny.trimBottom], [6, 16, 7, 7]);
+});
+
+test("the published Krea 2 Outpaint canvas has no strip, to the pixel of the Python plan", () => {
+  // plan_pad_canvas(2720, 1536, 0, 652, 0, 1212, 16, 1.6): the width is
+  // resized onto the multiple and sets the scale, where it used to leave a
+  // 6 px strip on the right.
+  const bridge = finalOutputSize(2720, 1536, pads(0, 652, 0, 1212, 16, 1.6));
+  assert.deepEqual(bridge, { width: 1136, height: 1424, scale: 1136 / 2720 });
+  assert.deepEqual(finalOutputSize(2720, 1536, pads(0, 652, 0, 1212, 64, 1.6)), {
+    width: 1088, height: 1408, scale: 0.4,
+  });
+  // Padded top and right: the height's remainder joins the top.
+  const rain = finalOutputSize(502, 634, pads(0, 240, 320, 0, 16, 1.6));
+  assert.deepEqual([rain.width, rain.height], [1216, 1296]);
+  assert.equal(rain.scale, 1.4782809899727065);
+  // Nothing padded: each side snaps to the nearest multiple.
+  const plain = finalOutputSize(1000, 750, pads(0, 0, 0, 0, 16, 1.0));
+  assert.deepEqual([plain.width, plain.height], [1152, 864]);
+});
+
+test("a side under half a multiple keeps the budget scale", () => {
+  // plan_pad_canvas(2000, 20, 100, 0, 100, 0, 64, 0.25): snapping 26 px up
+  // to 64 would more than double the scale, so it grows on the far side.
+  assert.deepEqual(finalOutputSize(2000, 20, pads(100, 0, 100, 0, 64, 0.25)), {
+    width: 2944, height: 64, scale: Math.sqrt(0.25e6 / (2240 * 64)),
+  });
+});
+
+test("the stage draws an unpadded axis edge to edge when a megapixel target resizes it", () => {
+  const values = pads(0, 271, 0, 509, 16);
+  assert.deepEqual(stageGeometry(1130, 638, values), padGeometry(1130, 638, values));
+  const resized = stageGeometry(1130, 638, { ...values, target_megapixels: 1.6 });
+  assert.deepEqual(resized, {
+    left: 0, top: 271, right: 0, bottom: 515, outputWidth: 1130, outputHeight: 1424, ...NO_TRIM,
+  });
+  // Also below one multiple, where the geometry alone would grow a strip.
+  const tiny = stageGeometry(10, 64, pads(0, 8, 0, 8, 16, 1.0));
+  assert.deepEqual([tiny.right, tiny.outputWidth], [0, 10]);
 });
 
 test("final output size mirrors the Python megapixel plan to the pixel", () => {

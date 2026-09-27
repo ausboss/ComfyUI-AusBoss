@@ -3,7 +3,7 @@
 // wiring live in js/shared/pad_panel.mjs and the per-node entries, so this
 // module stays testable under node:test.
 
-import { clamp, resolvePadding } from "./transform_geometry.mjs";
+import { clamp } from "./transform_geometry.mjs";
 
 // The whole final-rect edge is the handle; this is the grab tolerance on
 // either side of it, in CSS pixels (hit zones stay larger than the drawn
@@ -35,36 +35,109 @@ export function parseImageReference(value) {
   return { filename, subfolder: slash < 0 ? "" : normalized.slice(0, slash), type };
 }
 
-// Effective per-side padding and canvas size at source scale — the rect the
-// canvas draws. Delegates to resolvePadding so the remainder-to-right/bottom
-// rule has exactly one implementation.
+function padValues(values) {
+  const pad = (name) => Math.max(0, Math.round(Number(values[name]) || 0));
+  return {
+    left: pad("pad_left"),
+    top: pad("pad_top"),
+    right: pad("pad_right"),
+    bottom: pad("pad_bottom"),
+    multiple: Math.max(1, Math.round(Number(values.canvas_multiple) || 1)),
+  };
+}
+
+// One axis: the leftover joins a padded side (the far one when both are);
+// an axis nobody padded is trimmed evenly to the multiple below instead of
+// growing a strip. Mirror of _axis_layout in nodes/_pad_helpers.py.
+function axisLayout(size, before, after, multiple) {
+  const requested = size + before + after;
+  const length = Math.ceil(requested / multiple) * multiple;
+  const leftover = length - requested;
+  if (leftover === 0 || after > 0) return { before, after: after + leftover, trimBefore: 0, trimAfter: 0, length };
+  if (before > 0) return { before: before + leftover, after, trimBefore: 0, trimAfter: 0, length };
+  const kept = Math.floor(size / multiple) * multiple;
+  if (kept <= 0) return { before, after: after + leftover, trimBefore: 0, trimAfter: 0, length };
+  const trimBefore = Math.floor((size - kept) / 2);
+  return { before: 0, after: 0, trimBefore, trimAfter: size - kept - trimBefore, length: kept };
+}
+
+// Effective per-side padding, source trim and canvas size at source scale.
+// Mirror of resolve_pad_geometry in nodes/_pad_helpers.py — keep the two in
+// sync. (Crop + Rotate + Pad keeps its own rule in resolvePadding.)
 export function padGeometry(sourceW, sourceH, values) {
-  return resolvePadding(values, { width: Math.max(1, sourceW), height: Math.max(1, sourceH) });
+  const { left, top, right, bottom, multiple } = padValues(values);
+  const x = axisLayout(Math.max(1, sourceW), left, right, multiple);
+  const y = axisLayout(Math.max(1, sourceH), top, bottom, multiple);
+  return {
+    left: x.before,
+    top: y.before,
+    right: x.after,
+    bottom: y.after,
+    trimLeft: x.trimBefore,
+    trimTop: y.trimBefore,
+    trimRight: x.trimAfter,
+    trimBottom: y.trimAfter,
+    outputWidth: x.length,
+    outputHeight: y.length,
+  };
+}
+
+// The composition the stage draws, at source scale. Without a megapixel
+// target it is padGeometry. With one, the backend resizes the source onto
+// the multiple along an axis nobody padded rather than trimming it, so
+// that axis is drawn edge to edge.
+export function stageGeometry(sourceW, sourceH, values) {
+  const geom = padGeometry(sourceW, sourceH, values);
+  if (!((Number(values.target_megapixels) || 0) > 0)) return geom;
+  const { left, top, right, bottom } = padValues(values);
+  if (left + right === 0) {
+    Object.assign(geom, { left: 0, right: 0, trimLeft: 0, trimRight: 0, outputWidth: Math.max(1, sourceW) });
+  }
+  if (top + bottom === 0) {
+    Object.assign(geom, { top: 0, bottom: 0, trimTop: 0, trimBottom: 0, outputHeight: Math.max(1, sourceH) });
+  }
+  return geom;
 }
 
 // Final output size after the multiple AND megapixel math — what the badge
 // shows ("the badge is the truth"). Mirror of plan_pad_canvas in
 // nodes/_pad_helpers.py — keep the two in sync.
 export function finalOutputSize(sourceW, sourceH, values) {
-  const base = padGeometry(sourceW, sourceH, values);
   const target = Number(values.target_megapixels) || 0;
-  if (target <= 0 || base.outputWidth <= 0 || base.outputHeight <= 0) {
+  if (target <= 0) {
+    const base = padGeometry(sourceW, sourceH, values);
     return { width: base.outputWidth, height: base.outputHeight, scale: 1 };
   }
-  const scale = Math.sqrt((target * 1e6) / (base.outputWidth * base.outputHeight));
-  const pad = (name) => Math.round(Math.max(0, Number(values[name]) || 0) * scale);
-  const final = padGeometry(
-    Math.max(1, Math.round(sourceW * scale)),
-    Math.max(1, Math.round(sourceH * scale)),
-    {
-      ...values,
-      pad_left: pad("pad_left"),
-      pad_top: pad("pad_top"),
-      pad_right: pad("pad_right"),
-      pad_bottom: pad("pad_bottom"),
-      target_megapixels: 0,
-    },
-  );
+  const { left, top, right, bottom, multiple } = padValues(values);
+  const w = Math.max(1, sourceW);
+  const h = Math.max(1, sourceH);
+  const ceil = (value) => Math.ceil(value / multiple) * multiple;
+  // The budget is measured against the requested canvas rounded up.
+  let scale = Math.sqrt((target * 1e6) / (ceil(w + left + right) * ceil(h + top + bottom)));
+  let width = Math.max(1, Math.round(w * scale));
+  let height = Math.max(1, Math.round(h * scale));
+  // 0 = not snapped: padded, or under half a multiple.
+  const snapW = left + right === 0 ? Math.round((w * scale) / multiple) * multiple : 0;
+  const snapH = top + bottom === 0 ? Math.round((h * scale) / multiple) * multiple : 0;
+  if (snapW && snapH) {
+    width = snapW;
+    height = snapH;
+  } else if (snapW) {
+    scale = snapW / w;
+    width = snapW;
+    height = Math.max(1, Math.round(h * scale));
+  } else if (snapH) {
+    scale = snapH / h;
+    width = Math.max(1, Math.round(w * scale));
+    height = snapH;
+  }
+  const final = padGeometry(width, height, {
+    pad_left: Math.round(left * scale),
+    pad_top: Math.round(top * scale),
+    pad_right: Math.round(right * scale),
+    pad_bottom: Math.round(bottom * scale),
+    canvas_multiple: multiple,
+  });
   return { width: final.outputWidth, height: final.outputHeight, scale };
 }
 

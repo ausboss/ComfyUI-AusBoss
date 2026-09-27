@@ -182,19 +182,22 @@ class LowResBackdropBlurTests(unittest.TestCase):
         self.assertGreater(float(band.std()), 0.0)
 
 
+NO_TRIM = {"trim_left": 0, "trim_top": 0, "trim_right": 0, "trim_bottom": 0}
+
+
 class ResolvePadGeometryTests(unittest.TestCase):
-    def test_multiple_remainder_lands_on_right_and_bottom(self):
+    def test_both_sides_padded_keeps_the_remainder_on_the_far_side(self):
         geometry = resolve_pad_geometry(10, 8, 1, 2, 3, 4, 16)
         self.assertEqual(
             geometry,
-            {"left": 1, "top": 2, "right": 5, "bottom": 6, "width": 16, "height": 16},
+            {"left": 1, "top": 2, "right": 5, "bottom": 6, "width": 16, "height": 16, **NO_TRIM},
         )
 
     def test_multiple_one_and_negatives_are_normalized(self):
         geometry = resolve_pad_geometry(10, 8, -5, 0, 3, 0, 1)
         self.assertEqual(
             geometry,
-            {"left": 0, "top": 0, "right": 3, "bottom": 0, "width": 13, "height": 8},
+            {"left": 0, "top": 0, "right": 3, "bottom": 0, "width": 13, "height": 8, **NO_TRIM},
         )
         self.assertEqual(round_up_to_multiple(0, 8), 0)
         self.assertEqual(round_up_to_multiple(1, 8), 8)
@@ -206,8 +209,81 @@ class ResolvePadGeometryTests(unittest.TestCase):
         geometry = resolve_pad_geometry(800, 600, 10, 20, 30, 40, 8)
         self.assertEqual(
             geometry,
-            {"left": 10, "top": 20, "right": 30, "bottom": 44, "width": 840, "height": 664},
+            {"left": 10, "top": 20, "right": 30, "bottom": 44, "width": 840, "height": 664, **NO_TRIM},
         )
+
+    def test_one_padded_side_takes_the_whole_remainder(self):
+        # Pinned in tests/pad_canvas.test.mjs as well. 100 + 20 rounds to
+        # 128 at 16, 100 + 30 to 192 at 64; the other axis is a multiple.
+        cases = {
+            (100, 64, 20, 0, 0, 0, 16): {"left": 28, "top": 0, "right": 0, "bottom": 0, "width": 128, "height": 64},
+            (100, 64, 0, 0, 20, 0, 16): {"left": 0, "top": 0, "right": 28, "bottom": 0, "width": 128, "height": 64},
+            (128, 100, 0, 30, 0, 0, 64): {"left": 0, "top": 92, "right": 0, "bottom": 0, "width": 128, "height": 192},
+            (128, 100, 0, 0, 0, 30, 64): {"left": 0, "top": 0, "right": 0, "bottom": 92, "width": 128, "height": 192},
+        }
+        for args, expected in cases.items():
+            with self.subTest(args=args):
+                self.assertEqual(resolve_pad_geometry(*args), {**expected, **NO_TRIM})
+
+    def test_an_axis_nobody_padded_trims_the_source_instead_of_growing_a_strip(self):
+        # The published Krea 2 Outpaint case at source scale: top and bottom
+        # padded, the 1130 px width left alone. It used to grow to 1136 with a
+        # 6 px strip on the right; now the source loses 5 px on each side.
+        self.assertEqual(
+            resolve_pad_geometry(1130, 638, 0, 271, 0, 509, 16),
+            {
+                "left": 0, "top": 271, "right": 0, "bottom": 515, "width": 1120, "height": 1424,
+                "trim_left": 5, "trim_top": 0, "trim_right": 5, "trim_bottom": 0,
+            },
+        )
+        self.assertEqual(
+            resolve_pad_geometry(1000, 750, 0, 0, 0, 0, 64),
+            {
+                "left": 0, "top": 0, "right": 0, "bottom": 0, "width": 960, "height": 704,
+                "trim_left": 20, "trim_top": 23, "trim_right": 20, "trim_bottom": 23,
+            },
+        )
+        # An odd trim puts the extra pixel on the far side, like Align Image.
+        geometry = resolve_pad_geometry(1001, 64, 0, 0, 0, 0, 16)
+        self.assertEqual((geometry["trim_left"], geometry["trim_right"], geometry["width"]), (4, 5, 992))
+
+    def test_a_source_smaller_than_one_multiple_still_grows(self):
+        # Nothing to trim down to: the width grows on the far side, while the
+        # unpadded height above one multiple is trimmed as usual.
+        self.assertEqual(
+            resolve_pad_geometry(10, 750, 0, 0, 0, 0, 16),
+            {
+                "left": 0, "top": 0, "right": 6, "bottom": 0, "width": 16, "height": 736,
+                "trim_left": 0, "trim_top": 7, "trim_right": 0, "trim_bottom": 7,
+            },
+        )
+
+    def test_the_remainder_never_lands_on_an_edge_nobody_padded(self):
+        import random
+
+        rng = random.Random(7)
+        for _ in range(3000):
+            size = rng.randint(1, 3000)
+            multiple = rng.choice([1, 8, 16, 64, rng.randint(2, 128)])
+            before = rng.choice([0, 0, rng.randint(1, 500)])
+            after = rng.choice([0, 0, rng.randint(1, 500)])
+            geometry = resolve_pad_geometry(size, 64, before, 0, after, 0, multiple)
+            left, right = geometry["left"], geometry["right"]
+            trim_left, trim_right = geometry["trim_left"], geometry["trim_right"]
+            with self.subTest(size=size, multiple=multiple, before=before, after=after):
+                self.assertEqual(geometry["width"] % multiple, 0)
+                self.assertEqual(size - trim_left - trim_right + left + right, geometry["width"])
+                self.assertGreaterEqual(left, before)
+                self.assertGreaterEqual(right, after)
+                if before == 0 and left:
+                    self.fail("the remainder landed on an unpadded left edge")
+                if after == 0 and right and (before or size >= multiple):
+                    self.fail("the remainder landed on an unpadded right edge")
+                if before or after:
+                    self.assertEqual((trim_left, trim_right), (0, 0))
+                else:
+                    self.assertLess(trim_left + trim_right, multiple)
+                    self.assertIn(trim_right - trim_left, (0, 1))
 
 
 class PlanPadCanvasTests(unittest.TestCase):
@@ -231,6 +307,103 @@ class PlanPadCanvasTests(unittest.TestCase):
         # The source was scaled, and the scaled pads add up to the canvas.
         self.assertEqual(plan["source_width"] + plan["left"] + plan["right"], plan["width"])
         self.assertEqual(plan["source_height"] + plan["top"] + plan["bottom"], plan["height"])
+
+    def test_target_off_trims_an_axis_nobody_padded(self):
+        plan = plan_pad_canvas(1130, 638, 0, 271, 0, 509, 16, 0.0)
+        self.assertEqual((plan["source_width"], plan["source_height"]), (1130, 638))
+        self.assertEqual((plan["trim_left"], plan["trim_right"]), (5, 5))
+        self.assertEqual((plan["left"], plan["right"], plan["width"]), (0, 0, 1120))
+
+    def test_published_krea2_outpaint_canvas_has_no_strip(self):
+        # The Krea 2 Outpaint workflow as published: a 2720x1536 photo padded
+        # top and bottom at 16 and 1.6 MP. It used to place the source 1130
+        # wide on an 1136 canvas, a 6 px strip on the right that nobody
+        # padded. The width is now resized onto the multiple and sets the
+        # scale for the height, so the photo spans the canvas at its own
+        # shape. Pinned in tests/pad_canvas.test.mjs too.
+        plan = plan_pad_canvas(2720, 1536, 0, 652, 0, 1212, 16, 1.6)
+        self.assertEqual(plan["scale"], 1136 / 2720)
+        self.assertEqual((plan["source_width"], plan["source_height"]), (1136, 642))
+        self.assertEqual((plan["left"], plan["right"], plan["width"]), (0, 0, 1136))
+        self.assertEqual((plan["top"], plan["bottom"], plan["height"]), (272, 510, 1424))
+        self.assertEqual(
+            (plan["trim_left"], plan["trim_top"], plan["trim_right"], plan["trim_bottom"]),
+            (0, 0, 0, 0),
+        )
+        # The same at 64: still one scale for both axes.
+        plan = plan_pad_canvas(2720, 1536, 0, 652, 0, 1212, 64, 1.6)
+        self.assertEqual((plan["source_width"], plan["source_height"]), (1088, 614))
+        self.assertEqual((plan["left"], plan["right"], plan["width"], plan["height"]), (0, 0, 1088, 1408))
+
+    def test_one_padded_side_takes_the_remainder_after_the_resize(self):
+        # A photo padded top and right: the height's remainder joins the top
+        # now, where it used to add a 4 px strip along the unpadded bottom.
+        plan = plan_pad_canvas(502, 634, 0, 240, 320, 0, 16, 1.6)
+        self.assertEqual((plan["source_width"], plan["source_height"]), (742, 937))
+        self.assertEqual((plan["top"], plan["bottom"], plan["height"]), (359, 0, 1296))
+        self.assertEqual((plan["left"], plan["right"], plan["width"]), (0, 474, 1216))
+        plan = plan_pad_canvas(502, 634, 0, 240, 320, 0, 64, 1.6)
+        self.assertEqual((plan["top"], plan["bottom"], plan["height"]), (415, 0, 1344))
+        self.assertEqual((plan["left"], plan["right"], plan["width"]), (0, 481, 1216))
+
+    def test_a_side_under_half_a_multiple_is_not_snapped(self):
+        # 20 px tall at 64: snapping it up to one multiple would more than
+        # double the scale and the padded width with it. It keeps the budget
+        # scale and grows on the far side instead.
+        plan = plan_pad_canvas(2000, 20, 100, 0, 100, 0, 64, 0.25)
+        self.assertEqual(plan["scale"], math.sqrt(0.25e6 / (2240 * 64)))
+        self.assertEqual((plan["source_width"], plan["source_height"]), (2641, 26))
+        self.assertEqual((plan["top"], plan["bottom"], plan["height"]), (0, 38, 64))
+        self.assertEqual(plan["width"], 2944)
+
+    def test_no_padding_snaps_each_side_like_align_image_resize(self):
+        plan = plan_pad_canvas(1000, 750, 0, 0, 0, 0, 16, 1.0)
+        self.assertEqual((plan["source_width"], plan["source_height"]), (1152, 864))
+        self.assertEqual((plan["width"], plan["height"]), (1152, 864))
+        self.assertEqual((plan["left"], plan["top"], plan["right"], plan["bottom"]), (0, 0, 0, 0))
+
+    def test_target_on_never_leaves_a_strip_or_trim_on_an_unpadded_axis(self):
+        import random
+
+        rng = random.Random(11)
+        for _ in range(2000):
+            width, height = rng.randint(16, 4000), rng.randint(16, 4000)
+            multiple = rng.choice([8, 16, 64])
+            pads = [rng.choice([0, 0, rng.randint(40, 1500)]) for _ in range(4)]
+            target = rng.choice([0.5, 1.0, 1.6, 4.0])
+            plan = plan_pad_canvas(width, height, *pads, multiple, target)
+            left, top, right, bottom = pads
+            with self.subTest(size=(width, height), pads=pads, multiple=multiple, target=target):
+                self.assertEqual(plan["width"] % multiple, 0)
+                self.assertEqual(plan["height"] % multiple, 0)
+                snapped = []
+                for size, before, after, pad_before, pad_after in (
+                    (plan["source_width"], plan["left"], plan["right"], left, right),
+                    (plan["source_height"], plan["top"], plan["bottom"], top, bottom),
+                ):
+                    if pad_before + pad_after:
+                        continue
+                    if size % multiple == 0:
+                        snapped.append(True)
+                        self.assertEqual((before, after), (0, 0))
+                    else:
+                        # Under half a multiple at the budget scale: left
+                        # alone and grown on the far side.
+                        self.assertLess(size, multiple)
+                        self.assertEqual(before, 0)
+                self.assertEqual(
+                    (plan["trim_left"], plan["trim_top"], plan["trim_right"], plan["trim_bottom"]),
+                    (0, 0, 0, 0),
+                )
+                if snapped and (left + right == 0) != (top + bottom == 0):
+                    # One unpadded axis sets a single scale: no stretch
+                    # beyond the other side's half-pixel rounding.
+                    aspect = width / height
+                    self.assertAlmostEqual(
+                        plan["source_width"] / plan["source_height"],
+                        aspect,
+                        delta=aspect / min(plan["source_width"], plan["source_height"]),
+                    )
 
 
 class FeatherPadMaskTests(unittest.TestCase):
@@ -466,6 +639,43 @@ class LoadImagePadNodeTests(unittest.TestCase):
             self.assertEqual(x1 - x0, plan["source_width"])
             self.assertEqual(y1 - y0, plan["source_height"])
             self.assertEqual(float(mask[0, y0:y1, x0:x1].sum()), 0.0)
+
+    def test_an_edge_nobody_padded_stays_photo_through_the_stitch(self):
+        import tempfile
+
+        from PIL import Image
+
+        from nodes._inpaint_crop_helpers import apply_stitch
+
+        cls = self.make_node()
+        generator = torch.Generator().manual_seed(21)
+        pixels = (torch.rand((50, 70, 3), generator=generator) * 255).to(torch.uint8)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = str(Path(tmp) / "source.png")
+            Image.fromarray(pixels.numpy()).save(path)
+            source = pixels.float().unsqueeze(0) / 255.0
+            for target in (0.0, 0.01):
+                with self.subTest(target_megapixels=target):
+                    (image, mask, width, height, stitcher, _), _ = self.run_node(
+                        cls, path, pad_left=0, pad_top=6, pad_right=0, pad_bottom=10,
+                        canvas_multiple=16, target_megapixels=target,
+                    )
+                    self.assertEqual(width % 16, 0)
+                    # The source spans the whole width: no strip for the model
+                    # to paint, no seam for tone match to read on either side.
+                    x0, y0, x1, y1 = stitcher["source_bbox"]
+                    self.assertEqual((x0, x1), (0, width))
+                    self.assertEqual(float(mask[0, y0:y1].sum()), 0.0)
+                    if target == 0.0:
+                        # 70 px trims to 64, three columns off each side, and
+                        # what is kept lands bit-identical.
+                        self.assertEqual(width, 64)
+                        self.assertTrue(torch.equal(image[:, y0:y1], source[:, :, 3:67]))
+                    # Whatever the sampler returns, both unpadded edges come
+                    # back as photo.
+                    stitched = apply_stitch(stitcher, torch.rand(image.shape, generator=generator))
+                    self.assertTrue(torch.equal(stitched[:, y0:y1, :1], image[:, y0:y1, :1]))
+                    self.assertTrue(torch.equal(stitched[:, y0:y1, -1:], image[:, y0:y1, -1:]))
 
     def test_validation_and_fingerprint(self):
         import tempfile
