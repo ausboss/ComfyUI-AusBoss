@@ -99,20 +99,10 @@ def _with_stage_preview(frames: torch.Tensor, unique_id, result: tuple):
     }
 
 
-def _link_type_problem(cls, input_types) -> str | None:
-    """Core's own link-type check, run here because asking for input_types
-    switches it off for the whole node (execution.py validate_inputs)."""
-    try:
-        from comfy_execution.graph import get_input_info
-        from comfy_execution.validation import validate_node_input
-    except ImportError:  # Offline tests run without ComfyUI.
-        return None
-    declared = cls.INPUT_TYPES()
-    for name, received in input_types.items():
-        expected, _, _ = get_input_info(cls, name, declared)
-        if expected is not None and not validate_node_input(received, expected):
-            return f"{name}, received_type({received}) mismatch input_type({expected})"
-    return None
+# Default for source_image in VALIDATE_INPUTS. ComfyUI hands a linked input
+# to validation as None (its value only exists at execution), while an
+# optional input nobody wired is left out and keeps this default.
+_UNWIRED = object()
 
 
 class AusBossLoadImagePad:
@@ -390,14 +380,10 @@ class AusBossLoadImagePad:
         return _with_stage_preview(source, unique_id, result)
 
     @classmethod
-    def VALIDATE_INPUTS(cls, image, input_types=None, **_values):
-        input_types = input_types or {}
-        problem = _link_type_problem(cls, input_types)
-        if problem:
-            return f"Load Image + Pad: {problem}"
+    def VALIDATE_INPUTS(cls, image, source_image=_UNWIRED):
         # A wired source replaces the file, so the file choice may be
         # missing or stale without stopping the run.
-        if "source_image" in input_types:
+        if source_image is None:
             return True
         try:
             resolve_input_path(image)

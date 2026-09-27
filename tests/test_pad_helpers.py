@@ -764,10 +764,16 @@ class LoadImagePadNodeTests(unittest.TestCase):
             self.assertIsInstance(plain, tuple)
 
     def test_validation_skips_the_file_when_a_source_is_wired(self):
+        import inspect
+
         cls = self.make_node()
-        wired = cls.VALIDATE_INPUTS(image="gone.png", input_types={"source_image": "IMAGE"})
-        self.assertIs(wired, True)
-        self.assertIn("Load Image + Pad", cls.VALIDATE_INPUTS(image="gone.png", input_types={}))
+        # Named inputs only: **kwargs would switch off ComfyUI's own list and
+        # range checks for every input on the node.
+        self.assertIsNone(inspect.getfullargspec(cls.VALIDATE_INPUTS).varkw)
+        # ComfyUI passes a linked input to validation as None; an unwired
+        # optional input is left out.
+        self.assertIs(cls.VALIDATE_INPUTS(image="gone.png", source_image=None), True)
+        self.assertIn("Load Image + Pad", cls.VALIDATE_INPUTS(image="gone.png"))
 
 
 if __name__ == "__main__":
