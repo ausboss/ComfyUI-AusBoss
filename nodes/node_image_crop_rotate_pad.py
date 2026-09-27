@@ -34,11 +34,13 @@ class AusBossImageCropRotatePad:
         }
         required.update(transform_inputs())
         # Appended AFTER the stable V1 widgets, so saved workflows' positional
-        # widgets_values keep loading; missing values fall back to defaults.
-        required.update(resize_inputs())
-        # Optional and last, as on the clip node: older saved workflows and
-        # API prompts keep loading with the 32 px blend they always had.
-        optional = {
+        # widgets_values keep loading, and optional, so an API prompt from
+        # before they existed still validates; missing values fall back to
+        # load_transform's defaults. The stitch settings come last, as on
+        # the clip node: older saved workflows and API prompts keep the
+        # 32 px blend they always had.
+        optional = resize_inputs()
+        optional.update({
             "stitch_blend": (
                 "INT",
                 {
@@ -67,7 +69,7 @@ class AusBossImageCropRotatePad:
                     ),
                 },
             ),
-        }
+        })
         return {"required": required, "optional": optional}
 
     # Appended outputs only: saved links ride slot indices.

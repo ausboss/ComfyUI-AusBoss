@@ -135,6 +135,24 @@ def _rotate_rgba(image: Image.Image, spec: TransformSpec) -> Image.Image:
     )
 
 
+def _ratio_box(width: int, height: int, ratio_width: int, ratio_height: int) -> tuple[int, int]:
+    """The largest ratio_width:ratio_height box inside width x height.
+
+    Integer maths: the float version lost a pixel on the limiting side
+    (21 * (3813 / 21) is 3812.99...). A box already within a pixel of the
+    ratio on either side is kept, so a resolved crop written back resolves
+    to itself. transform_geometry.mjs ratioBox is the same rule, which keeps
+    the editor's size readout equal to the run.
+    """
+    fit_height = width * ratio_height // ratio_width
+    fit_width = height * ratio_width // ratio_height
+    if height == fit_height or width == fit_width:
+        return width, height
+    if width * ratio_height > height * ratio_width:
+        return max(1, fit_width), height
+    return width, max(1, fit_height)
+
+
 def _geometry(rotated: Image.Image, spec: TransformSpec) -> TransformGeometry:
     rotated_width, rotated_height = rotated.size
     crop_x = min(spec.crop_x, rotated_width - 1)
@@ -150,9 +168,7 @@ def _geometry(rotated: Image.Image, spec: TransformSpec) -> TransformGeometry:
             ratio_width, ratio_height = rotated_width, rotated_height
         else:
             ratio_width, ratio_height = (int(part) for part in spec.crop_aspect_ratio.split(":"))
-        scale = min(crop_width / ratio_width, crop_height / ratio_height)
-        crop_width = max(1, min(available_width, int(math.floor(ratio_width * scale))))
-        crop_height = max(1, min(available_height, int(math.floor(ratio_height * scale))))
+        crop_width, crop_height = _ratio_box(crop_width, crop_height, ratio_width, ratio_height)
 
     requested_width = crop_width + spec.pad_left + spec.pad_right
     requested_height = crop_height + spec.pad_top + spec.pad_bottom

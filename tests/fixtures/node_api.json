@@ -155,13 +155,13 @@
       "pad_bottom",
       "feather",
       "canvas_multiple",
-      "fill_color",
+      "fill_color"
+    ],
+    "optional": [
       "resize_to_megapixels",
       "megapixels",
       "resize_method",
-      "resolution_steps"
-    ],
-    "optional": [
+      "resolution_steps",
       "stitch_blend",
       "stitch_grow"
     ],

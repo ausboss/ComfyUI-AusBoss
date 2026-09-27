@@ -10,27 +10,40 @@
 // and stays there on release. IN, OUT and the playhead are frames, snapped
 // to the source's own frame grid; the seconds the widgets store are derived
 // from them and round-trip exactly.
+//
+// The clip's length is set one way at a time (clipLengthPlan): by OUT; by a
+// Length that keeps OUT a set number of frames after IN; or by a connected
+// fixed_frames / frame_load_cap input, which leaves only IN to set. OUT
+// always sits on the last frame the run outputs - every nth, the snap rule
+// and the Length included - so the handle and the bright bar agree.
 import { makeScrubInput } from "./scrub_input.mjs";
 import { formatTimecode } from "./timecode.mjs";
 import {
   boundaryAtFraction,
   clampFrame,
   clipInfo,
+  clipLengthPlan,
   formatFps,
   fractionOfFrame,
   frameAtFraction,
   frameTime,
-  frameWindow,
-  fixedFrameWindow,
-  keptEndFraction,
-  keptFrames,
+  framesThrough,
   keyboardStep,
+  lastFrameFor,
+  latestFirstFor,
   setTrimFrame,
+  snapStep,
+  snapToValid,
   windowSeconds,
 } from "./timeline_math.mjs";
 
-const CSS_ID = "ausboss-transform-trim-css-v2";
+const CSS_ID = "ausboss-transform-trim-css-v3";
 const HANDLE_HIT_PX = 9;
+// Connected inputs that set the length themselves, in the backend's order of
+// precedence: fixed_frames replaces the window, a cap replaces the Length.
+const LENGTH_INPUTS = ["fixed_frames", "frame_load_cap", "max_frames"];
+// Connected inputs whose value only the run knows make the count unknowable.
+const COUNT_INPUTS = ["start_frame", "end_frame", "start_seconds", "end_seconds", "every_nth", "frame_snap", "force_rate"];
 
 function installCss() {
   if (document.getElementById(CSS_ID)) return;
@@ -44,6 +57,7 @@ function installCss() {
     .ausboss-transform-trim-span{position:absolute;top:11px;height:6px;border-radius:4px;background:rgba(0,180,170,.3);pointer-events:none}
     .ausboss-transform-trim-kept{position:absolute;top:11px;height:6px;border-radius:4px;background:#00b4aa;pointer-events:none}
     .ausboss-transform-trim-handle{position:absolute!important;top:2px;width:12px!important;height:24px;min-width:0;padding:0!important;margin:0!important;transform:translateX(-50%);border:2px solid #00b4aa!important;border-radius:4px!important;background:#e5fffc!important;cursor:ew-resize;touch-action:none;z-index:2}
+    .ausboss-transform-trim-handle[hidden]{display:none!important}
     .ausboss-transform-trim-handle:focus-visible{outline:2px solid white;outline-offset:2px}
     .ausboss-transform-trim-playhead{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:#f4fffd;box-shadow:0 0 0 1px rgba(0,0,0,.55);pointer-events:none;z-index:3}
     .ausboss-transform-trim-playhead:before{content:"";position:absolute;top:-1px;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top:6px solid #f4fffd;filter:drop-shadow(0 0 1px rgba(0,0,0,.7))}
@@ -58,6 +72,13 @@ function installCss() {
     .ausboss-transform-trim-caption{color:#00b4aa;font-weight:650;font-size:10px;letter-spacing:.06em}
     .ausboss-transform-trim-readout{flex:1 1 0;min-width:0;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#8ca8a5;font-variant-numeric:tabular-nums}
     .ausboss-transform-trim-readout b{color:#e5fffc;font-weight:600}
+    .ausboss-transform-trim-pill{display:inline-flex;flex:none;height:22px;border:1px solid #2c4d4b;border-radius:5px;overflow:hidden;background:#1b2627}
+    .ausboss-transform-trim-pill button{border:0;margin:0;background:transparent;color:#8ca8a5;font:600 10px system-ui;letter-spacing:.04em;padding:0 9px;cursor:pointer}
+    .ausboss-transform-trim-pill button:hover{color:#e5fffc}
+    .ausboss-transform-trim-pill button.on{background:#00b4aa;color:#04201d}
+    .ausboss-transform-trim-pill.is-disabled{opacity:.45}
+    .ausboss-transform-trim-pill.is-disabled button{cursor:not-allowed}
+    .ausboss-transform-trim-hint{flex:1 1 0;min-width:0;color:#6f8886;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .ausboss-transform-trim-summary{flex:1 1 0;min-width:0;color:#8ca8a5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
     .ausboss-transform-trim-reset{flex:none;border:0;background:transparent;color:#8ca8a5;font:11px system-ui;cursor:pointer;padding:0}
     .ausboss-transform-trim-reset:hover{color:#e5fffc}
@@ -78,8 +99,11 @@ const pct = (fraction) => `${(fraction * 100).toFixed(3)}%`;
 //   get(name, fallback) / set(name, value)  widget access
 //   has(name)                                whether a widget exists
 //   driven(name)                             whether an input is linked
+//   number(name, fallback)                   a linked literal's value, null
+//                                            when only the run knows it
+//   outputRate()                             output fps, null when unknown
 //   metadata()                               the source's {fps, frame_count, duration}
-//   trim                                     IN/OUT handles and the sampling rows
+//   trim                                     IN/OUT handles and the length rows
 //                                            (the clip node) or playhead only
 //   onSeek(frame, settled)                   the playhead moved; settled on release
 //   onCommit()                               a stored value settled (undo point)
@@ -95,23 +119,60 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
   rail.append(playhead);
 
   const info = () => clipInfo(metadata());
-  const fixed = (first = 0) => trim ? fixedFrameWindow(info(), first, number("fixed_frames", 0), outputRate ? outputRate() : info().fps) : null;
+  const everyNth = () => Math.max(1, Math.trunc(Number(number("every_nth", get("every_nth", 1))) || 1));
+  const snapRule = () => String(get("frame_snap", "free"));
+  const wiredBy = () => LENGTH_INPUTS.find((name) => driven(name)) ?? null;
+  // Seconds the run starts and ends at, a connected frame bound included.
+  const boundSeconds = (edge) => {
+    const clip = info();
+    if (driven(`${edge}_frame`)) {
+      const frame = number(`${edge}_frame`, null);
+      if (frame != null && clip.fps > 0) return Math.max(0, frame) / clip.fps;
+    }
+    const name = `${edge}_seconds`;
+    return number(name, get(name, 0)) ?? get(name, 0);
+  };
+  const countAtRunTime = () => COUNT_INPUTS.some((name) => driven(name) && number(name, null) == null);
+  const plan = () => {
+    if (!trim) return null;
+    const clip = info();
+    const wired = wiredBy();
+    return clipLengthPlan(clip, {
+      start: boundSeconds("start"),
+      end: boundSeconds("end"),
+      everyNth: everyNth(),
+      frameSnap: snapRule(),
+      maxFrames: get("max_frames", 0),
+      fixedFrames: driven("fixed_frames") ? 0 : get("fixed_frames", 0),
+      wired,
+      wiredFrames: wired ? number(wired, null) : null,
+      outputFps: outputRate ? outputRate() : clip.fps,
+      resampled: driven("force_rate"),
+    });
+  };
   const currentWindow = () => {
     const clip = info();
     if (!trim) return { first: 0, last: Math.max(0, clip.count - 1) };
-    const startFrame = driven("start_frame") ? number("start_frame", null) : null;
-    const start = startFrame != null ? startFrame / clip.fps : number("start_seconds", get("start_seconds", 0));
-    const window = frameWindow(clip, start, get("end_seconds", 0));
-    const plan = fixed(window.first);
-    return plan && !plan.unresolved ? plan : window;
+    const current = plan();
+    return { first: current.first, last: current.last ?? current.windowLast };
   };
   const playheadFrame = () => clampFrame(get("frame_index", 0), info());
   const controls = {};
+  let syncLength = () => {};
+  // IN is locked by a connected bound; OUT by a connected bound in free
+  // trim, and always when a connected input sets the length.
   const locked = (edge) => {
-    const plan = fixed();
-    return plan ? Boolean(plan.unresolved || plan.tooLong || driven("start_frame") || driven("start_seconds")) : driven(`${edge}_frame`) || driven(`${edge}_seconds`);
+    if (edge === "start") return driven("start_frame") || driven("start_seconds");
+    const mode = plan()?.mode;
+    if (mode === "wired") return true;
+    if (mode === "free") return driven("end_frame") || driven("end_seconds");
+    return false;
   };
-  const lockTip = (edge) => `The ${edge === "start" ? "starting" : "ending"} frame is supplied by a connected input. Disconnect it to edit ${edge === "start" ? "IN" : "OUT"} here.`;
+  const lockTip = (edge) => edge === "start"
+    ? "The starting frame is supplied by a connected input. Disconnect it to edit IN here."
+    : wiredBy()
+      ? `The connected ${wiredBy()} input sets the length, so the clip ends where it says. Disconnect it to use OUT or Length.`
+      : "The ending frame is supplied by a connected input. Disconnect it to edit OUT here.";
   const disableControl = (control, disabled, tip) => {
     if (!control) return;
     control.root.style.opacity = disabled ? ".45" : "";
@@ -123,21 +184,72 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
     onSeek?.(clampFrame(frame, info()), settled);
     sync();
   };
-  const writeWindow = (next) => {
-    const seconds = windowSeconds(info(), next.first, next.last);
-    if (!locked("start")) set("start_seconds", seconds.start_seconds);
-    if (!locked("end")) set("end_seconds", seconds.end_seconds);
-    return next;
+  const writeStart = (first) => {
+    if (!locked("start")) set("start_seconds", windowSeconds(info(), first, first).start_seconds);
   };
-  // A trim edge moved: store it and park the playhead on that edge's
-  // frame, so the stage shows the first or last frame the run keeps.
+  const writeEnd = (first, last) => set("end_seconds", windowSeconds(info(), first, last).end_seconds);
+  // An older face's Fixed frames reads as a Length; the first edit makes it
+  // one, keeping the window where the fixed count had placed it.
+  const adoptLength = (current) => {
+    if (current.mode !== "fixed") return current;
+    set("fixed_frames", 0);
+    set("max_frames", Math.max(1, current.requested ?? current.frames ?? 1));
+    set("end_seconds", 0);
+    writeStart(current.first);
+    return plan();
+  };
+  // A trim edge moved: store it and park the playhead on that edge's frame,
+  // so the stage shows the first or last frame the run keeps.
   const moveEdge = (edge, frame, settled) => {
-    if (locked(edge)) return;
-    const window = currentWindow();
-    const next = fixed() ? fixed(frame - (edge === "end" ? window.last - window.first : 0)) : setTrimFrame(window, edge, frame, info());
-    writeWindow(next);
-    seek(edge === "start" ? next.first : next.last, settled);
+    if (!trim || locked(edge)) return;
+    const clip = info();
+    const current = adoptLength(plan());
+    const nth = everyNth();
+    let parked;
+    if (edge === "start") {
+      if (current.mode === "length") {
+        // A Length drags the whole window, stopping where OUT meets the end.
+        parked = Math.max(0, Math.min(clampFrame(frame, clip), latestFirstFor(clip, current.requested ?? get("max_frames", 1), nth)));
+        set("end_seconds", 0);
+      } else {
+        parked = setTrimFrame({ first: current.first, last: current.windowLast }, "start", frame, clip).first;
+      }
+      writeStart(parked);
+    } else {
+      const target = Math.max(current.first, clampFrame(frame, clip));
+      const frames = framesThrough(current.first, target, nth, snapRule());
+      if (current.mode === "length") {
+        set("max_frames", frames);
+        set("end_seconds", 0);
+        parked = Math.min(clip.count - 1, lastFrameFor(current.first, frames, nth));
+      } else {
+        parked = driven("force_rate") ? target : lastFrameFor(current.first, frames, nth);
+        writeEnd(current.first, parked);
+      }
+    }
+    seek(parked, settled);
     if (settled) onCommit?.();
+  };
+  // Length on keeps what the rail shows now as the count; off turns the
+  // Length into an OUT at the same frame. Either way nothing moves.
+  const setLength = (on) => {
+    const current = plan();
+    if (!current || current.mode === "wired" || (on === (current.mode !== "free"))) return;
+    const clip = info();
+    if (on) {
+      const frames = current.frames ?? framesThrough(current.first, current.windowLast, everyNth(), snapRule());
+      set("max_frames", Math.max(1, frames));
+      set("end_seconds", 0);
+    } else {
+      const last = current.last ?? current.windowLast;
+      writeStart(current.first);
+      writeEnd(current.first, last);
+      set("max_frames", 0);
+      if (!driven("fixed_frames")) set("fixed_frames", 0);
+      seek(clampFrame(last, clip), true);
+    }
+    sync();
+    onCommit?.();
   };
 
   const readout = el("span", "ausboss-transform-trim-readout");
@@ -145,13 +257,6 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
 
   const sync = () => {
     const clip = info();
-    const window = currentWindow();
-    const plan = fixed(window.first);
-    if (controls.reset) {
-      controls.reset.textContent = plan ? "To start" : "Full clip";
-      controls.reset.title = plan ? "Move the fixed window to the start of the source." : "Reset IN/OUT to the full source. Keeps frame skipping and the frame limit.";
-      controls.reset.disabled = Boolean(plan && locked("start"));
-    }
     const head = playheadFrame();
     rail.classList.toggle("is-disabled", !clip.count);
     playhead.style.left = pct(fractionOfFrame(head, clip, "center"));
@@ -163,66 +268,99 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
     }
     controls.frame?.set(head);
     if (!trim) return;
-    const keep = keptFrames(window, get("every_nth", 1), get("max_frames", 0), get("frame_snap", "free"));
-    const startFraction = fractionOfFrame(window.first, clip, "start");
-    const endFraction = fractionOfFrame(window.last, clip, "end");
+    const current = plan();
+    const wired = wiredBy();
+    const unknown = countAtRunTime();
+    const hasOut = current.last != null && current.mode !== "wired";
+    const outFrame = current.last ?? current.windowLast;
+    const startFraction = fractionOfFrame(current.first, clip, "start");
+    const endFraction = fractionOfFrame(outFrame, clip, "end");
+    // Dim: frames the free window holds but the run drops (every nth, snap).
+    const tailFraction = current.mode === "free" ? fractionOfFrame(current.windowLast, clip, "end") : endFraction;
     span.style.left = pct(startFraction);
-    span.style.width = pct(Math.max(0, endFraction - startFraction));
+    span.style.width = pct(current.last == null && current.mode !== "free" ? 0 : Math.max(0, tailFraction - startFraction));
     kept.style.left = pct(startFraction);
-    kept.style.width = pct(Math.max(0, keptEndFraction(window, keep, clip) - startFraction));
+    kept.style.width = current.last == null || unknown ? "0%" : pct(Math.max(0, endFraction - startFraction));
     for (const edge of ["start", "end"]) {
       const handle = handles[edge];
-      const frame = edge === "start" ? window.first : window.last;
+      const frame = edge === "start" ? current.first : outFrame;
+      const isLocked = locked(edge);
+      handle.hidden = edge === "end" && !hasOut;
       handle.style.left = pct(edge === "start" ? startFraction : endFraction);
       handle.disabled = !clip.count;
-      handle.setAttribute("aria-disabled", String(locked(edge) || !clip.count));
-      handle.style.opacity = locked(edge) ? ".35" : "";
-      handle.style.cursor = locked(edge) ? "not-allowed" : "";
-      handle.title = plan ? (locked(edge) ? "Fixed window is supplied by a link or cannot be positioned yet." : "Move the fixed-length window. Both handles move together; Shift + arrow moves one source frame.") : locked(edge) ? lockTip(edge) : `Drag ${edge === "start" ? "IN" : "OUT"} to trim; Shift + arrow moves one frame.`;
-      disableControl(controls[`${edge}_seconds`], locked(edge), lockTip(edge));
+      handle.setAttribute("aria-disabled", String(isLocked || !clip.count));
+      handle.style.opacity = isLocked ? ".35" : "";
+      handle.style.cursor = isLocked ? "not-allowed" : "";
+      handle.title = isLocked ? lockTip(edge)
+        : edge === "start"
+          ? current.mode === "free" ? "Drag IN to trim; Shift + arrow moves one frame." : "Drag IN to move the clip; OUT follows at the Length. Shift + arrow moves one frame."
+          : current.mode === "free" ? "Drag OUT to trim; it lands on the last frame the run keeps." : "Drag OUT to change the Length; IN stays.";
       handle.setAttribute("aria-valuemin", "0");
       handle.setAttribute("aria-valuemax", String(Math.max(0, clip.count - 1)));
       handle.setAttribute("aria-valuenow", String(frame));
       handle.setAttribute("aria-valuetext", `frame ${frame}, ${formatTimecode(frameTime(frame, clip))}`);
     }
-    controls.start_seconds?.set(window.first);
-    controls.end_seconds?.set(window.last);
+    controls.start_seconds?.set(current.first);
+    controls.end_seconds?.set(outFrame);
+    disableControl(controls.start_seconds, locked("start"), lockTip("start"));
+    disableControl(controls.end_seconds, locked("end") || !hasOut, lockTip("end"));
+    syncLength(current, wired);
+    if (controls.reset) {
+      const free = current.mode === "free";
+      controls.reset.textContent = free ? "Full clip" : "To start";
+      controls.reset.title = free ? "Reset IN/OUT to the full source. Keeps Every nth and Snap." : "Move IN to the start of the source; the length stays.";
+      controls.reset.disabled = !free && locked("start");
+    }
     controls.every_nth?.set(get("every_nth", 1));
-    controls.max_frames?.set(get("max_frames", 0));
-    controls.fixed_frames?.set(number("fixed_frames", get("fixed_frames", 0)) ?? get("fixed_frames", 0));
-    disableControl(controls.fixed_frames, driven("fixed_frames"), "Fixed frames is supplied by a connected input.");
-    disableControl(controls.max_frames, Boolean(plan) || driven("frame_load_cap") || driven("max_frames"), plan ? "Fixed frames sets the exact count; Limit is ignored." : "Frame limit is supplied by a connected input. Disconnect it to edit Limit here.");
     disableControl(controls.every_nth, driven("every_nth"), "Every nth is supplied by a connected input.");
     if (controls.frame_snap) {
-      controls.frame_snap.value = String(get("frame_snap", "free"));
-      controls.frame_snap.disabled = Boolean(plan) || driven("frame_snap");
-      controls.frame_snap.title = plan ? "Fixed frames sets the exact count; Snap is ignored." : "Drop trailing frames to a model-compatible count.";
+      controls.frame_snap.value = snapRule();
+      const exact = current.mode === "fixed" || (current.mode === "wired" && wired === "fixed_frames");
+      controls.frame_snap.disabled = exact || driven("frame_snap");
+      controls.frame_snap.title = exact ? "An exact fixed_frames count is used as it is; Snap does not apply." : "Keep a frame count video models take: 8n+1 for LTX, 4n+1 for Wan. OUT and Length step to those counts.";
     }
+    syncSummary(clip, current, wired, unknown);
+  };
+
+  const syncSummary = (clip, current, wired, unknown) => {
     if (!clip.count) {
       summary.textContent = "Choose a source to set the clip window";
       summary.title = "";
       return;
     }
-    if (plan) {
-      kept.style.width = plan.unresolved || plan.tooLong ? "0%" : span.style.width;
-      summary.textContent = plan.unresolved ? "Fixed length resolves at run time" : plan.tooLong ? `Fixed length needs ${plan.seconds.toFixed(3)}s; source is ${clip.duration.toFixed(3)}s` : `Fixed ${plan.frames} fr · ${plan.seconds.toFixed(3)}s · ${formatFps(outputRate?.() ?? clip.fps)} fps`;
-      summary.title = "Fixed frames overrides OUT, Limit and Snap. Drag either handle or the highlighted selection to reposition the whole window. Alt-drag inside it to scrub. 0 returns to free trim.";
+    const rate = outputRate?.();
+    const fps = `Source ${formatFps(clip.fps)} fps → Output ${rate == null ? "rate at run time" : `${formatFps(rate)} fps`}`;
+    if (current.mode === "wired") {
+      summary.textContent = current.frames == null ? `${fps} · length from ${wired} at run time` : `${fps} · ${current.frames} frames from ${wired}`;
+      summary.title = `The connected ${wired} input sets the length, so only IN is set here. Disconnect it to use OUT or a Length.`;
       return;
     }
-    if (["start_frame", "end_frame", "force_rate", "frame_load_cap", "start_seconds", "end_seconds", "max_frames", "every_nth", "frame_snap"].some(driven)) {
-      const rate = outputRate?.();
-      summary.textContent = `Source ${formatFps(clip.fps)} fps → Output ${rate == null ? "rate at run time" : `${formatFps(rate)} fps`}`;
-      summary.title = "IN, OUT and the playhead refer to source frames. Output fps includes frame-rate conversion and Every nth. Connected inputs determine the exact frame count at run time. Connect the fps output to the next video node's fps input.";
-      kept.style.width = "0%";
+    if (unknown || current.frames == null) {
+      summary.textContent = `${fps} · frame count at run time`;
+      summary.title = "IN, OUT and the playhead refer to source frames. A connected input decides the exact frame count when the workflow runs. Connect the fps output to the next video node's fps input.";
       return;
     }
-    const count = keep.cut ? `${keep.frames} of ${keep.total} frames` : `${keep.frames} frames`;
-    const from = formatTimecode(frameTime(window.first, clip));
-    const to = formatTimecode((keep.lastKept + 1) / clip.fps);
-    summary.textContent = `Source ${formatFps(clip.fps)} fps → Output ${formatFps(clip.fps / keep.nth)} fps · ${count} · ${from} → ${to}`;
-    summary.title = keep.cut
-      ? `The window holds ${keep.total} frames; every nth, the frame limit or the snap rule keep ${keep.frames} of them, ending at frame ${keep.lastKept}. The bright part of the bar is what the run outputs.`
-      : "Frames the run outputs, at the fps the node reports. Counts are estimated from the source's frame rate.";
+    const from = formatTimecode(frameTime(current.first, clip));
+    const to = formatTimecode((current.last + 1) / clip.fps);
+    if (current.mode === "fixed") {
+      summary.textContent = current.tooLong
+        ? `Fixed length needs more than the source's ${clip.duration.toFixed(3)}s`
+        : `${fps} · exactly ${current.frames} frames · ${from} → ${to}`;
+      summary.title = "An older Fixed frames value: an exact count from IN. Any change here turns it into a Length.";
+      return;
+    }
+    const total = current.windowLast - current.first + 1;
+    const count = current.mode === "length"
+      ? current.truncated ? `${current.frames} of ${current.requested} frames, source ends` : `${current.frames} frames`
+      : current.frames < total ? `${current.frames} of ${total} frames` : `${current.frames} frames`;
+    summary.textContent = `${fps} · ${count} · ${from} → ${to}`;
+    summary.title = current.mode === "length"
+      ? current.truncated
+        ? `The source ends ${current.frames} frames after IN, before the Length of ${current.requested}. Move IN earlier or shorten the Length.`
+        : "Length keeps OUT this many output frames after IN; drag IN to move the clip, OUT to change the Length."
+      : current.frames < total
+        ? `The window holds ${total} frames; every nth and the snap rule keep ${current.frames}, ending at frame ${current.last}, where OUT sits. The dim part is dropped.`
+        : "Frames the run outputs, at the fps the node reports.";
   };
 
   // --- rail gestures --------------------------------------------------------
@@ -233,18 +371,19 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
     const fraction = x / width;
     if (!trim) return { fraction, zone: "playhead" };
     if (event.target === handles.start) return { fraction, zone: "start" };
-    if (event.target === handles.end) return { fraction, zone: "end" };
+    if (event.target === handles.end && !handles.end.hidden) return { fraction, zone: "end" };
     const clip = info();
+    const current = plan();
     const window = currentWindow();
     const inX = fractionOfFrame(window.first, clip, "start") * width;
     const outX = fractionOfFrame(window.last, clip, "end") * width;
     const toIn = Math.abs(x - inX);
-    const toOut = Math.abs(x - outX);
+    const toOut = handles.end.hidden ? Infinity : Math.abs(x - outX);
     // Screen pixels, so the zone keeps its size whatever the graph zoom.
     // Handles stacked on one spot split by side: left of them is IN.
     let zone = "playhead";
     if (Math.min(toIn, toOut) <= HANDLE_HIT_PX) zone = toIn < toOut || (toIn === toOut && x <= inX) ? "start" : "end";
-    else if (fixed() && !event.altKey && x > inX && x < outX) zone = "window";
+    else if ((current.mode === "length" || current.mode === "fixed") && current.last != null && !event.altKey && x > inX && x < outX) zone = "window";
     return { fraction, zone };
   };
   const applyPointer = (zone, fraction, settled, gesture = drag) => {
@@ -261,7 +400,7 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
     if (event.button !== 0 || !info().count) return;
     event.preventDefault(); event.stopPropagation();
     const { fraction, zone } = hit(event);
-    if (zone !== "playhead" && locked(zone)) return;
+    if (zone !== "playhead" && zone !== "window" && locked(zone)) return;
     drag = { zone, fraction, origin: fraction, first: currentWindow().first, pointerId: event.pointerId };
     try { rail.setPointerCapture(event.pointerId); } catch { /* mouse fallback */ }
     applyPointer(zone, fraction, false);
@@ -269,7 +408,7 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
   rail.addEventListener("pointermove", (event) => {
     if (!drag) {
       const { zone } = info().count ? hit(event) : { zone: "playhead" };
-      rail.style.cursor = zone === "playhead" ? "pointer" : locked(zone) ? "not-allowed" : "ew-resize";
+      rail.style.cursor = zone === "playhead" ? "pointer" : zone === "window" ? "grab" : locked(zone) ? "not-allowed" : "ew-resize";
       return;
     }
     event.preventDefault(); event.stopPropagation();
@@ -296,17 +435,25 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
       handle.type = "button";
       handle.setAttribute("role", "slider");
       handle.setAttribute("aria-label", edge === "start" ? "Clip IN" : "Clip OUT");
-      handle.title = `Drag ${edge === "start" ? "IN" : "OUT"} to trim; the stage shows that frame. Arrow keys move one second, Shift one frame.`;
       handle.addEventListener("keydown", (event) => {
         if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
         event.preventDefault(); event.stopPropagation();
         const clip = info();
         if (!clip.count || locked(edge)) return;
+        const direction = event.key === "ArrowLeft" || event.key === "Home" ? -1 : 1;
         const window = currentWindow();
-        const current = edge === "start" ? window.first : window.last;
-        const step = keyboardStep(clip, event.shiftKey) * (event.key === "ArrowLeft" ? -1 : 1);
-        const target = event.key === "Home" ? 0 : event.key === "End" ? clip.count - 1 : current + step;
-        moveEdge(edge, target, true);
+        if (edge === "start") {
+          const target = event.key === "Home" ? 0 : event.key === "End" ? clip.count - 1 : window.first + keyboardStep(clip, event.shiftKey) * direction;
+          moveEdge("start", target, true);
+          return;
+        }
+        // OUT steps by output frames, to the next count the snap rule keeps.
+        const current = plan();
+        const nth = everyNth();
+        const frames = current.frames ?? framesThrough(window.first, window.last, nth, snapRule());
+        const step = Math.max(1, Math.round(keyboardStep(clip, event.shiftKey) / nth));
+        const next = event.key === "Home" ? 1 : event.key === "End" ? framesThrough(window.first, clip.count - 1, nth, snapRule()) : snapToValid(frames + step * direction, snapRule(), direction);
+        moveEdge("end", lastFrameFor(window.first, next, nth), true);
       });
       handles[edge] = handle;
       rail.append(handle);
@@ -321,7 +468,7 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
       label.append(el("span", "ausboss-transform-trim-caption", caption));
       controls[name] = makeScrubInput({
         value: 0, min: 0, max: 10000000, step: 1, decimals: 0,
-        title: `${caption} frame: the ${edge === "start" ? "first" : "last"} frame the run keeps (stored as ${name}).`,
+        title: edge === "start" ? "IN frame: the first frame the run keeps (stored as start_seconds)." : "OUT frame: the last frame the run keeps. With Length on it follows IN; typing it changes the Length.",
         onChange: (frame) => moveEdge(edge, frame, false),
         onSettle: () => { const window = currentWindow(); seek(edge === "start" ? window.first : window.last, true); onCommit?.(); },
       });
@@ -343,29 +490,64 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
   }
   root.append(rail, timeRow);
 
+  // Length: off, OUT ends the clip; on, a frame count from IN (max_frames,
+  // end left open), so OUT follows IN and the count survives a new source.
+  if (trim && has("max_frames")) {
+    const lengthRow = el("div", "ausboss-transform-trim-line");
+    const label = el("label", "", "Length");
+    const pill = el("div", "ausboss-transform-trim-pill");
+    const off = el("button", "", "off");
+    const on = el("button", "", "on");
+    off.type = on.type = "button";
+    off.title = "OUT ends the clip: drag both handles freely.";
+    on.title = "Set the clip by a frame count from IN: OUT follows IN, and the count stays when you swap the video.";
+    off.addEventListener("click", () => setLength(false));
+    on.addEventListener("click", () => setLength(true));
+    pill.append(off, on);
+    const hint = el("span", "ausboss-transform-trim-hint");
+    const count = makeScrubInput({ value: 1, min: 1, max: 100000, step: 1, decimals: 0, unit: "fr", width: 78,
+      title: "Output frames from IN. Under a snap rule it steps to the counts the model keeps (97, 105, ... for 8n+1).",
+      onChange: (next) => {
+        const current = adoptLength(plan());
+        if (current.mode !== "length") { sync(); return; }
+        const was = current.requested ?? get("max_frames", 1);
+        set("max_frames", snapToValid(next, snapRule(), Math.sign(next - was)));
+        set("end_seconds", 0);
+        sync();
+      },
+      onSettle: () => { const window = currentWindow(); seek(window.last, true); onCommit?.(); },
+    });
+    label.append(pill, count.root);
+    lengthRow.append(label, hint);
+    root.append(lengthRow);
+    syncLength = (current, wired) => {
+      const active = current.mode !== "free";
+      const blocked = current.mode === "wired";
+      off.classList.toggle("on", !active);
+      on.classList.toggle("on", active);
+      off.setAttribute("aria-pressed", String(!active));
+      on.setAttribute("aria-pressed", String(active));
+      pill.classList.toggle("is-disabled", blocked);
+      off.disabled = on.disabled = blocked;
+      pill.title = blocked ? lockTip("end") : "";
+      count.root.style.display = active ? "" : "none";
+      const step = snapStep(snapRule());
+      count.setStep(step, step);
+      count.set(blocked ? (current.frames ?? current.requested ?? 0) : (current.requested ?? get("max_frames", 1)));
+      disableControl(count, blocked, lockTip("end"));
+      hint.textContent = blocked ? `from ${wired}` : current.mode === "fixed" ? "exact (older setting)" : active ? "" : "OUT ends the clip";
+    };
+  }
+
   if (trim) {
-    if (has("fixed_frames")) {
-      const lengthRow = el("div", "ausboss-transform-trim-line");
-      const label = el("label", "", "Fixed frames");
-      controls.fixed_frames = makeScrubInput({ value: get("fixed_frames", 0), min: 0, max: 100000, step: 1, decimals: 0, unit: "fr", width: 100,
-        title: "0 = free trim. Exact output frames; both handles move together. 120 frames at 24 fps = 5 seconds.",
-        onChange: next => { if (!driven("fixed_frames")) set("fixed_frames", next); sync(); }, onSettle: onCommit });
-      label.append(controls.fixed_frames.root); lengthRow.append(label, el("span", "ausboss-transform-trim-readout", "0 = free trim"));
-      root.append(lengthRow);
-    }
     const sampling = el("div", "ausboss-transform-trim-line wrap");
-    for (const [name, caption, min, max, tip] of [
-      ["every_nth", "Every nth", 1, 512, "Keep one frame in this many. Output fps is adjusted to keep real-time playback."],
-      ["max_frames", "Limit", 0, 100000, "Maximum returned frames. 0 keeps the whole selection."],
-    ]) {
-      const label = el("label", "", caption);
-      controls[name] = makeScrubInput({ value: get(name, min), min, max, step: 1, decimals: 0, title: tip,
-        onChange: (next) => { if (!driven(name) && !(name === "max_frames" && driven("frame_load_cap"))) set(name, next); sync(); }, onSettle: onCommit,
-      });
-      label.append(controls[name].root);
-      sampling.append(label);
-      if (name === "every_nth") sampling.append(el("span", "spacer"));
-    }
+    const nthLabel = el("label", "", "Every nth");
+    controls.every_nth = makeScrubInput({ value: get("every_nth", 1), min: 1, max: 512, step: 1, decimals: 0,
+      title: "Keep one frame in this many. Output fps is adjusted to keep real-time playback; a Length counts the frames kept.",
+      onChange: (next) => { if (!driven("every_nth")) set("every_nth", next); sync(); }, onSettle: onCommit,
+    });
+    nthLabel.append(controls.every_nth.root);
+    sampling.append(nthLabel, el("span", "spacer"));
     if (has("frame_snap")) {
       // Video models keep 8n+1 (LTX) or 4n+1 (Wan) frames and drop the
       // rest; snapping here keeps the clip, its audio, and its stitcher the
@@ -373,11 +555,15 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
       const label = el("label", "", "Snap");
       label.style.marginLeft = "auto";
       const select = el("select");
-      select.title = "Drop trailing frames to a count video models keep: 8n+1 for LTX, 4n+1 for Wan. Free keeps every frame.";
       for (const rule of ["free", "8n+1", "4n+1"]) {
         const option = el("option", "", rule); option.value = rule; select.append(option);
       }
-      select.addEventListener("change", () => { set("frame_snap", select.value); sync(); onCommit?.(); });
+      select.addEventListener("change", () => {
+        set("frame_snap", select.value);
+        // A Length moves to the nearest count the new rule keeps.
+        if (plan()?.mode === "length") set("max_frames", snapToValid(get("max_frames", 1), select.value));
+        sync(); onCommit?.();
+      });
       controls.frame_snap = select;
       label.append(select);
       sampling.append(label);
@@ -386,8 +572,16 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
     const reset = el("button", "ausboss-transform-trim-reset", "Full clip");
     controls.reset = reset;
     reset.type = "button";
-    reset.title = "Reset IN/OUT to the full source. Keeps frame skipping and the frame limit.";
-    reset.addEventListener("click", () => { if (fixed()) moveEdge("start", 0, true); else { if (!locked("start")) set("start_seconds", 0); if (!locked("end")) set("end_seconds", 0); sync(); onCommit?.(); } });
+    reset.addEventListener("click", () => {
+      const current = plan();
+      if (current.mode === "free") {
+        if (!locked("start")) set("start_seconds", 0);
+        if (!locked("end")) set("end_seconds", 0);
+        sync(); onCommit?.();
+      } else {
+        moveEdge("start", 0, true);
+      }
+    });
     footer.append(summary, reset);
     root.append(sampling, footer);
   }
@@ -395,5 +589,5 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
     if (event.target.closest("button,input,select")) event.stopPropagation();
   });
   sync();
-  return { root, sync, info, window: currentWindow, moveEdge, fixed };
+  return { root, sync, info, window: currentWindow, moveEdge, plan };
 }

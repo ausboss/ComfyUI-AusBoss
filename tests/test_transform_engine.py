@@ -20,12 +20,26 @@ if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
 
 from nodes._media_helpers import decode_video_frame, video_metadata
 from nodes._transform_engine import (
+    _ratio_box,
     scale_to_megapixels,
     TransformSpec,
     stable_file_fingerprint,
     transform_pil,
     transform_tensor_batch,
 )
+
+# (width, height, ratio_width, ratio_height) -> box. The same table sits in
+# tests/transform_geometry.test.mjs: the editor's readout must match the run.
+RATIO_BOX_FIXTURES = [
+    ((3813, 1961, 21, 9), (3813, 1634)),
+    ((1000, 562, 16, 9), (1000, 562)),
+    ((1000, 1000, 16, 9), (1000, 562)),
+    ((1000, 500, 16, 9), (888, 500)),
+    ((888, 500, 16, 9), (888, 500)),
+    ((1920, 1080, 16, 9), (1920, 1080)),
+    ((832, 1216, 1, 1), (832, 832)),
+    ((239, 1284, 936, 1284), (239, 327)),
+]
 
 
 def solid(width=12, height=8, color=(30, 80, 140, 255)):
@@ -117,6 +131,23 @@ class TransformEngineTests(unittest.TestCase):
         row = np.asarray(output)[10]
         self.assertEqual(int(row[9].max()), 0)  # padding is the fill color
         self.assertEqual(int(row[10].min()), 255)  # first kept column untouched
+
+    def test_aspect_crop_uses_integer_maths(self):
+        for args, expected in RATIO_BOX_FIXTURES:
+            with self.subTest(args):
+                self.assertEqual(_ratio_box(*args), expected)
+        _, _, geometry = transform_pil(solid(3813, 1961), TransformSpec(crop_aspect_ratio="21:9"))
+        self.assertEqual((geometry.crop_width, geometry.crop_height), (3813, 1634))
+
+    def test_a_resolved_aspect_crop_resolves_to_itself(self):
+        rng = np.random.default_rng(3)
+        for _ in range(4000):
+            width, height = (int(v) for v in rng.integers(1, 5000, 2))
+            ratio = tuple(int(v) for v in rng.integers(1, 40, 2))
+            box = _ratio_box(width, height, *ratio)
+            self.assertLessEqual(box[0], width)
+            self.assertLessEqual(box[1], height)
+            self.assertEqual(_ratio_box(*box, *ratio), box)
 
     def test_canvas_multiple_rounds_only_right_and_bottom(self):
         output, mask, geometry = transform_pil(

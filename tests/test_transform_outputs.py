@@ -47,6 +47,13 @@ class TransformOutputTests(unittest.TestCase):
             outputs = AusBossVideoCropRotatePad().load_transform('source.mp4', 'input folder', '', 'frame index', 0, 0, pad_left=32, feather=0)
         self.assert_outputs(outputs)
 
+    def test_resize_inputs_are_optional_for_old_api_prompts(self):
+        inputs = AusBossImageCropRotatePad.INPUT_TYPES()
+        resize = ["resize_to_megapixels", "megapixels", "resize_method", "resolution_steps"]
+        # The resize inputs keep their widget positions; the stitch settings follow.
+        self.assertEqual(list(inputs["optional"]), resize + ["stitch_blend", "stitch_grow"])
+        self.assertFalse(set(resize) & set(inputs["required"]))
+
     @unittest.skipUnless(COMFY_ROOT, "Set AUSBOSS_COMFY_ROOT for core resize integration")
     def test_stitcher_uses_resized_canvas_dimensions(self):
         with patch('nodes.node_image_crop_rotate_pad.resolve_input_path', return_value=Path('source.png')), patch('nodes.node_image_crop_rotate_pad.load_image_frames', return_value=[self.source]):
