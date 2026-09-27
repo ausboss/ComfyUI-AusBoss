@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.3.0 - 2026-09-27
 
 - **LoRA Loader accepts a LoRA file that is a link.** A LoRA kept on another
   drive and linked into `models/loras` was refused as "escapes the loras
