@@ -172,7 +172,8 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   widget per row. A value that is meant to be wired rather than typed is a
   backend `forceInput: True` socket (Math Expression `a`/`b`/`c`), and a
   multi-type string such as `"FLOAT,INT"` accepts either kind of link.
-- Preview-carrying nodes (Select Frame, Mask Refine, LaMa Inpaint) share
+- Preview-carrying nodes (Select Frame, Mask Refine, LaMa Inpaint, Save
+  Image) share
   `js/input_preview/`: a thin bar (node tools left, a small `preview`
   switch right) above the picture, the picture gone and the node shorter
   when the switch is off, backed by an optional `preview` BOOLEAN input

@@ -112,7 +112,7 @@ The grammar, as ausboss signed it off in September 2026:
   Everything else is one widget per row, and a value that exists to be
   wired is a backend `forceInput` socket (Math Expression `a`/`b`/`c`,
   typed `"FLOAT,INT"` so either kind of number wires in).
-- **Preview nodes** (Select Frame, Mask Refine, LaMa Inpaint) put a thin bar
+- **Preview nodes** (Select Frame, Mask Refine, LaMa Inpaint, Save Image) put a thin bar
   between the card and the picture: the node's tools (AUTO) on the left, a
   small `PREVIEW` switch on the right; off, the picture's box is gone and the
   node is shorter, and the backend writes no temp file. A toggle inside the
