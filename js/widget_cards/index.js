@@ -107,6 +107,16 @@ const CARDS = {
       { widget: "pad_color", label: "Pad color", kind: "color", when: (values) => values.mode === "pad" && values.pad_fill === "color" },
     ],
   },
+  AUSBOSS_NODES_RealignToSource: {
+    minWidth: 300,
+    rows: [
+      { widget: "fit", label: "Fit", kind: "segment",
+        titles: { "zoom + shift": "A separate horizontal and vertical zoom plus a shift: how Qwen edits drift", affine: "Also a slight rotation or shear" } },
+      { widget: "empty_fill", label: "Empty fill", kind: "segment",
+        titles: { edge: "Stretch the nearest edge pixels", source: "The original's pixels", gray: "Flat #808080, for an inpaint pass" } },
+      { widget: "max_zoom", label: "Max zoom", suffix: "%" },
+    ],
+  },
   // a, b and c are socket-only inputs (forceInput), so the card is the
   // expression alone; the values arrive on the node's left edge.
   AUSBOSS_NODES_MathExpression: {

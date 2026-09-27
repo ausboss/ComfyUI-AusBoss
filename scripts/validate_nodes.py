@@ -68,6 +68,7 @@ PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_LoraLoader",
     "AUSBOSS_NODES_MathExpression",
     "AUSBOSS_NODES_MergeBatches",
+    "AUSBOSS_NODES_RealignToSource",
     "AUSBOSS_NODES_RefineMask",
     "AUSBOSS_NODES_Resolution",
     "AUSBOSS_NODES_RunTimer",
