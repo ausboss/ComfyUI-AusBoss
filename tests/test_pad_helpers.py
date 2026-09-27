@@ -691,6 +691,84 @@ class LoadImagePadNodeTests(unittest.TestCase):
             self.assertIsInstance(first, str)
             self.assertNotEqual(first, second)
 
+    def test_source_image_is_an_appended_optional_input(self):
+        cls = self.make_node()
+        types = cls.INPUT_TYPES()
+        self.assertEqual(
+            list(types["required"]),
+            [
+                "image", "pad_left", "pad_top", "pad_right", "pad_bottom", "mode",
+                "fill_color", "backdrop_blur", "feather", "canvas_multiple",
+                "target_megapixels",
+            ],
+        )
+        self.assertEqual(types["optional"]["source_image"][0], "IMAGE")
+
+    def test_a_wired_source_replaces_the_file(self):
+        import tempfile
+
+        cls = self.make_node()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self.write_image(tmp)
+            (file_image, file_mask, *_), _ = self.run_node(cls, path)
+            # Same pixels as the file, plus an alpha channel a wire may carry;
+            # the file choice points nowhere, and must not be read.
+            rgb = torch.tensor([30, 180, 90], dtype=torch.float32) / 255.0
+            rgba = torch.cat([rgb.expand(1, 48, 64, 3), torch.zeros(1, 48, 64, 1)], dim=-1)
+            (image, mask, width, height, _, reference), _ = self.run_node(
+                cls, str(Path(tmp) / "gone.png"), source_image=rgba
+            )
+        self.assertEqual((width, height), (72, 56))
+        self.assertTrue(torch.allclose(image, file_image, atol=1e-6))
+        self.assertTrue(torch.equal(mask, file_mask))
+        self.assertEqual(int(reference.shape[-1]), 3)
+
+    def test_a_wired_batch_pads_every_frame_the_same_way(self):
+        cls = self.make_node()
+        batch = rand_image(3, 40, 30, seed=7)
+        (image, mask, width, height, _, _), _ = self.run_node(cls, "unused.png", source_image=batch)
+        self.assertEqual(tuple(image.shape), (3, height, width, 3))
+        for frame in range(3):
+            self.assertTrue(torch.equal(image[frame, 3:43, 2:32], batch[frame]))
+
+    def test_a_wired_run_hands_the_canvas_a_small_preview(self):
+        import tempfile
+        from unittest.mock import patch
+
+        import nodes.node_load_image_pad as module
+
+        cls = self.make_node()
+        source = rand_image(1, 900, 1200, seed=3)
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = type("FolderPaths", (), {"get_temp_directory": staticmethod(lambda: tmp)})
+            with patch.object(module, "folder_paths", fake):
+                out = getattr(cls(), cls.FUNCTION)(
+                    image="unused.png", pad_left=0, pad_top=0, pad_right=64, pad_bottom=0,
+                    mode="color", fill_color="#808080", backdrop_blur=0.5, feather=0,
+                    canvas_multiple=8, target_megapixels=0.0, source_image=source,
+                    unique_id="12:5",
+                )
+            ui = out["ui"]
+            self.assertEqual(ui["ausboss_pad_source"], [[1200, 900]])
+            ref = ui["ausboss_pad_preview"][0]
+            self.assertEqual(ref, {"filename": "12_5.jpg", "subfolder": module.STAGE_PREVIEW_SUBFOLDER, "type": "temp"})
+            from PIL import Image
+
+            with Image.open(Path(tmp) / ref["subfolder"] / ref["filename"]) as preview:
+                self.assertLessEqual(max(preview.size), 512)
+            self.assertEqual(len(out["result"]), 6)
+        # A file-driven run keeps returning the plain tuple.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self.write_image(tmp)
+            plain, _ = self.run_node(cls, path)
+            self.assertIsInstance(plain, tuple)
+
+    def test_validation_skips_the_file_when_a_source_is_wired(self):
+        cls = self.make_node()
+        wired = cls.VALIDATE_INPUTS(image="gone.png", input_types={"source_image": "IMAGE"})
+        self.assertIs(wired, True)
+        self.assertIn("Load Image + Pad", cls.VALIDATE_INPUTS(image="gone.png", input_types={}))
+
 
 if __name__ == "__main__":
     unittest.main()

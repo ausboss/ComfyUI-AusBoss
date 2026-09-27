@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 import numpy as np
 import torch
 
 from ._inpaint_crop_helpers import build_canvas_stitcher
 from ._krea2_helpers import build_reference_image
-from ._media_helpers import list_input_images, load_image_frames, resolve_input_path
+from ._media_helpers import (
+    encode_preview,
+    list_input_images,
+    load_image_frames,
+    resolve_input_path,
+)
 from ._pad_helpers import (
     PAD_MODES,
     feather_pad_mask,
@@ -16,7 +24,18 @@ from ._pad_helpers import (
     resize_source,
     trim_source,
 )
+from ._preview_helpers import first_frame_to_pil
 from ._transform_engine import stable_file_fingerprint
+
+try:
+    import folder_paths
+except ImportError:  # Offline tests import this module without ComfyUI.
+    folder_paths = None
+
+# Temp subfolder for the wired source's stage preview. One file per node,
+# overwritten on every run, so a queue of thousands of images leaves one
+# small JPEG behind rather than thousands.
+STAGE_PREVIEW_SUBFOLDER = "ausboss_load_image_pad"
 
 
 def _frames_to_tensor(frames) -> torch.Tensor:
@@ -26,6 +45,74 @@ def _frames_to_tensor(frames) -> torch.Tensor:
         array = np.asarray(frame.convert("RGB"), dtype=np.float32) / 255.0
         stacked.append(torch.from_numpy(array.copy()))
     return torch.stack(stacked, dim=0)
+
+
+def _wired_frames(image) -> torch.Tensor:
+    """A wired IMAGE batch as the BHWC RGB float batch the file path yields.
+
+    Alpha is dropped the same way a loaded file's is, and a one-channel
+    batch is spread to RGB so padding and the reference see three channels.
+    """
+    if not isinstance(image, torch.Tensor) or image.ndim != 4 or int(image.shape[0]) < 1:
+        raise ValueError("Load Image + Pad: source_image must be a BHWC IMAGE batch.")
+    frames = image.detach().to("cpu", torch.float32)
+    channels = int(frames.shape[-1])
+    if channels == 1:
+        frames = frames.expand(-1, -1, -1, 3)
+    elif channels >= 3:
+        frames = frames[..., :3]
+    else:
+        raise ValueError(f"Load Image + Pad: source_image has {channels} channels.")
+    return frames.contiguous()
+
+
+def _with_stage_preview(frames: torch.Tensor, unique_id, result: tuple):
+    """Attach a small preview of the wired source for the on-node canvas.
+
+    The canvas cannot fetch a wired picture the way it fetches a file, so the
+    run hands it the first frame and the true source size. A preview is a
+    convenience, never the job: if writing it fails the outputs still return.
+    """
+    if folder_paths is None:
+        return result
+    width, height = int(frames.shape[2]), int(frames.shape[1])
+    # unique_id comes from the prompt, so only filename-safe characters
+    # reach the path (subgraph ids look like "12:5").
+    name = re.sub(r"[^A-Za-z0-9_-]", "_", str(unique_id or "node"))[:64] + ".jpg"
+    try:
+        folder = Path(folder_paths.get_temp_directory()) / STAGE_PREVIEW_SUBFOLDER
+        folder.mkdir(parents=True, exist_ok=True)
+        pil = first_frame_to_pil(frames, "Load Image + Pad")
+        (folder / name).write_bytes(encode_preview(pil, 512, 512))
+    except Exception as exc:  # noqa: BLE001 - any failure here is non-fatal
+        detail = str(exc).encode("ascii", "replace").decode("ascii")
+        print(f"[AusBoss] Load Image + Pad: stage preview unavailable ({detail}).")
+        return result
+    return {
+        "ui": {
+            "ausboss_pad_preview": [
+                {"filename": name, "subfolder": STAGE_PREVIEW_SUBFOLDER, "type": "temp"}
+            ],
+            "ausboss_pad_source": [[width, height]],
+        },
+        "result": result,
+    }
+
+
+def _link_type_problem(cls, input_types) -> str | None:
+    """Core's own link-type check, run here because asking for input_types
+    switches it off for the whole node (execution.py validate_inputs)."""
+    try:
+        from comfy_execution.graph import get_input_info
+        from comfy_execution.validation import validate_node_input
+    except ImportError:  # Offline tests run without ComfyUI.
+        return None
+    declared = cls.INPUT_TYPES()
+    for name, received in input_types.items():
+        expected, _, _ = get_input_info(cls, name, declared)
+        if expected is not None and not validate_node_input(received, expected):
+            return f"{name}, received_type({received}) mismatch input_type({expected})"
+    return None
 
 
 class AusBossLoadImagePad:
@@ -186,7 +273,24 @@ class AusBossLoadImagePad:
                         ),
                     },
                 ),
-            }
+            },
+            # Appended as optional, so saved workflows and API prompts load
+            # unchanged; the socket has no widget, so widget positions hold.
+            "optional": {
+                "source_image": (
+                    "IMAGE",
+                    {
+                        "tooltip": (
+                            "Optional. Wire an image here to pad it instead of "
+                            "the file chosen above; the wire wins. The canvas "
+                            "on the node shows the last image it padded, and "
+                            "the same padding applies to every image that "
+                            "arrives."
+                        ),
+                    },
+                ),
+            },
+            "hidden": {"unique_id": "UNIQUE_ID"},
         }
 
     # `reference` is appended, never inserted: a workflow stores links by
@@ -226,9 +330,14 @@ class AusBossLoadImagePad:
         feather,
         canvas_multiple,
         target_megapixels,
+        source_image=None,
+        unique_id=None,
     ):
-        path = resolve_input_path(image)
-        frames = _frames_to_tensor(load_image_frames(path))
+        if source_image is not None:
+            frames = _wired_frames(source_image)
+        else:
+            frames = _frames_to_tensor(load_image_frames(resolve_input_path(image)))
+        source = frames
         plan = plan_pad_canvas(
             frames.shape[2],
             frames.shape[1],
@@ -268,7 +377,7 @@ class AusBossLoadImagePad:
         # outside the feathered band is discarded and the source survives.
         stitcher = build_canvas_stitcher(output, mask, bbox=bbox, source="Load Image + Pad")
         reference = build_reference_image(frames)
-        return (
+        result = (
             output,
             mask,
             int(plan["width"]),
@@ -276,9 +385,20 @@ class AusBossLoadImagePad:
             stitcher,
             reference,
         )
+        if source_image is None:
+            return result
+        return _with_stage_preview(source, unique_id, result)
 
     @classmethod
-    def VALIDATE_INPUTS(cls, image, **_values):
+    def VALIDATE_INPUTS(cls, image, input_types=None, **_values):
+        input_types = input_types or {}
+        problem = _link_type_problem(cls, input_types)
+        if problem:
+            return f"Load Image + Pad: {problem}"
+        # A wired source replaces the file, so the file choice may be
+        # missing or stale without stopping the run.
+        if "source_image" in input_types:
+            return True
         try:
             resolve_input_path(image)
         except Exception as exc:

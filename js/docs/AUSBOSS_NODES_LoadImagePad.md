@@ -42,6 +42,12 @@ padding value unchanged.
 ## Controls
 
 - **Source** (`image`): Choose or upload from ComfyUI's input folder; the list previews the image under the pointer and filters as you type.
+- **source_image** (optional socket): Wire an image from another node here
+  and it is padded instead of the file; the Source row dims while the wire
+  is connected. The canvas can only show a wired picture after a run, so it
+  draws an outline until then, and afterwards the last image it padded at
+  its true size. The padding applies to every image that arrives, so a
+  loader that feeds one image per run pads a whole folder the same way.
 - **Fill** / **Color** / **Backdrop** (`mode` / `fill_color` /
   `backdrop_blur`): Four fills — `color`, `edge`, `edge pixel`,
   `pillarbox blur`. **Color** shows for `color`, **Backdrop** for

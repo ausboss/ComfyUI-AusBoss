@@ -4,6 +4,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Load Image + Pad takes a wired image.** A new optional `source_image`
+  socket pads an image from another node instead of the chosen file, so a
+  step before it (putting a transparent picture on white, say) no longer
+  has to be saved and loaded back. The Source row dims while it is wired,
+  and the on-node canvas shows the last image it padded. Saved workflows
+  load unchanged: the socket is appended and has no widget.
 - **Editors can be closed without saving.** The Crop + Rotate + Pad editor
   (image, video and clip) gains a **Cancel** button beside Save & close, and
   Escape now cancels instead of saving. When something changed, Cancel asks
