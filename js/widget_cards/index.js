@@ -160,7 +160,7 @@ const CARDS = {
   AUSBOSS_NODES_LoadImagePad: {
     minWidth: 340, first: true, hide: ["upload"],
     rows: [
-      { widget: "image", label: "Source", kind: "select", preview: { kind: "image", url: viewUrl },
+      { widget: "image", label: "Source", kind: "select", preview: { kind: "image", url: viewUrl }, linkedBy: ["source_image"],
         button: { text: "Upload", title: "Upload an image into ComfyUI's input folder", onClick: (node) => node.widgets?.find((w) => w.name === "upload")?.callback?.() } },
       { widget: "mode", label: "Fill", kind: "select" },
       { widget: "fill_color", label: "Color", kind: "color", when: isMode("mode", "color") },

@@ -146,7 +146,11 @@ function isFloatWidget(widget) {
 }
 
 // Mount a card on `node`. Rows:
-//   { widget, label?, kind?, labels?, suffix?, title?, when?, group? }
+//   { widget, label?, kind?, labels?, suffix?, title?, when?, group?, linkedBy? }
+//                                          - `linkedBy` names other inputs
+//                                            whose link also dims the row
+//                                            (a wired source replacing a
+//                                            file picker)
 //   { widget, kind: "textarea", placeholder?, height, grow? }  - a multiline
 //                                             string; `grow` takes the node's
 //                                             spare height
@@ -569,7 +573,8 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       // A single field dims with its row; in a pair only the linked field
       // dims, the others stay editable.
       const linkedNames = (entry.names ?? []).filter((name) => widgetLinked(node, name));
-      const linked = linkedNames.length > 0 && linkedNames.length === (entry.names ?? []).length;
+      const linked = (linkedNames.length > 0 && linkedNames.length === (entry.names ?? []).length)
+        || (entry.row.linkedBy ?? []).some((name) => widgetLinked(node, name));
       entry.element.classList.toggle("linked", linked);
       for (const [name, field] of entry.fields ?? []) field.classList.toggle("linked", linkedNames.includes(name));
       for (const sync of entry.syncs) sync(vals, linked);

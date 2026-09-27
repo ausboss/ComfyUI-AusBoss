@@ -15,6 +15,9 @@ const DEFAULT_NODE_HEIGHT = canvasHeightForWidth(PAD_MIN_WIDTH + 20) + PANEL_CHR
 const CSS_ID = "ausboss-loadpad-ui-v1";
 const DEFAULT_SOURCE = { width: 512, height: 512 };
 const CORE_IMAGE_PREVIEW_WIDGET = "$$canvas-image-preview";
+// Optional IMAGE socket; when linked it replaces the file picker.
+const SOURCE_INPUT = "source_image";
+const WIRED_EMPTY_TEXT = "Run once to see the wired image";
 
 function ensurePadCss() {
   if (document.getElementById(CSS_ID)) return;
@@ -31,6 +34,29 @@ function ensurePadCss() {
 
 function findWidget(node, name) {
   return node.widgets?.find((widget) => widget.name === name);
+}
+
+function isSourceWired(node) {
+  return node.inputs?.find((input) => input?.name === SOURCE_INPUT)?.link != null;
+}
+
+// The wired source's preview from a run's ui payload:
+// { filename, subfolder, type, width, height } or null. width/height are the
+// TRUE source size; the temp file itself is a thumbnail.
+function findStagePreview(message) {
+  const ref = message?.ausboss_pad_preview?.[0] ?? null;
+  const size = message?.ausboss_pad_source?.[0] ?? null;
+  if (!ref?.filename || !Array.isArray(size) || size.length < 2) return null;
+  const width = Math.round(Number(size[0]) || 0);
+  const height = Math.round(Number(size[1]) || 0);
+  if (width < 1 || height < 1) return null;
+  return {
+    filename: String(ref.filename),
+    subfolder: String(ref.subfolder || ""),
+    type: String(ref.type || "temp"),
+    width,
+    height,
+  };
 }
 
 function numberValue(node, name, fallback = 0) {
@@ -117,10 +143,14 @@ function buildPanel(node) {
     canvas,
     imageWidget,
     bitmap: null,
+    known: false,
     sourceWidth: DEFAULT_SOURCE.width,
     sourceHeight: DEFAULT_SOURCE.height,
     emptyText: "Choose or upload an image",
     loadSerial: 0,
+    // Last run's preview of the wired source, and which mode refresh drew.
+    wiredPreview: null,
+    wired: false,
   };
   node.__ausbossLoadImagePad = state;
 
@@ -129,7 +159,7 @@ function buildPanel(node) {
       bitmap: state.bitmap,
       width: state.sourceWidth,
       height: state.sourceHeight,
-      known: !!state.bitmap,
+      known: state.known,
       emptyText: state.bitmap ? null : state.emptyText,
     }),
     getValues: () => ({
@@ -178,9 +208,38 @@ function buildPanel(node) {
 
   const refresh = () => {
     const serial = ++state.loadSerial;
+    state.wired = isSourceWired(node);
+    // A wired picture only exists after a run: draw that run's thumbnail at
+    // the true source size, or a wireframe until the first run.
+    if (state.wired) {
+      const preview = state.wiredPreview;
+      state.bitmap = null;
+      state.emptyText = WIRED_EMPTY_TEXT;
+      state.known = !!preview;
+      if (!preview) {
+        stage.draw();
+        return;
+      }
+      state.sourceWidth = preview.width;
+      state.sourceHeight = preview.height;
+      const { width, height, ...reference } = preview;
+      const image = new Image();
+      image.onload = () => {
+        if (serial !== state.loadSerial) return;
+        state.bitmap = image;
+        stage.draw();
+      };
+      // Temp previews vanish on a server restart: keep the size, show the
+      // wireframe until the next run.
+      image.onerror = () => {};
+      image.src = api.apiURL(`/view?${new URLSearchParams({ ...reference, t: String(Date.now()) })}`);
+      stage.draw();
+      return;
+    }
     const reference = parseImageReference(imageWidget.value);
     if (!reference) {
       state.bitmap = null;
+      state.known = false;
       state.emptyText = "Choose or upload an image";
       stage.draw();
       return;
@@ -190,6 +249,7 @@ function buildPanel(node) {
     image.onload = () => {
       if (serial !== state.loadSerial) return;
       state.bitmap = image;
+      state.known = true;
       state.sourceWidth = image.naturalWidth || DEFAULT_SOURCE.width;
       state.sourceHeight = image.naturalHeight || DEFAULT_SOURCE.height;
       suppressCoreImagePreview(node);
@@ -199,6 +259,7 @@ function buildPanel(node) {
     image.onerror = () => {
       if (serial !== state.loadSerial) return;
       state.bitmap = null;
+      state.known = false;
       state.emptyText = "Preview could not load this image";
       stage.draw();
     };
@@ -243,6 +304,18 @@ app.registerExtension({
           state.syncReset?.();
         }
       });
+    });
+    chainCallback(nodeType.prototype, "onExecuted", function (message) {
+      const preview = findStagePreview(message);
+      const state = preview ? buildPanel(this) : null;
+      if (!state) return;
+      state.wiredPreview = preview;
+      state.refresh?.();
+    });
+    chainCallback(nodeType.prototype, "onConnectionsChange", function () {
+      // Only a change of source (file <-> wire) needs a redraw from scratch.
+      const state = this.__ausbossLoadImagePad;
+      if (state && isSourceWired(this) !== state.wired) state.refresh?.();
     });
     chainCallback(nodeType.prototype, "onRemoved", function () {
       this.__ausbossLoadImagePad?.stage?.dispose?.();
