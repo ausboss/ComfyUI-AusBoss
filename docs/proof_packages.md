@@ -35,9 +35,15 @@ before asking for a merge or a publish.
    dependencies and merge order, and what is left.
 
 Keep the evidence in `_scratch/proof/<name>/` (gitignored), with `proof.md`
-summarising points 1–5 and giving the server URLs. The PR description gets a
-**Proof** section with the claim, the numbers, the sheet names and how to run
-the workflows.
+summarising points 1–5 and giving the server URLs. Tell ausboss about the
+servers and the `PROOF` folder directly, in the session and in the project's
+status notes.
+
+**The PR is public.** Its **Proof** section holds only what anyone can check
+from the repo: the claim, the tests by name with main failing and the branch
+passing, and the measured numbers. Server URLs, ports, workflow folders,
+`_scratch` paths, sheet files and scripts that aren't in the repo never go in a
+PR description or a commit message. They only work on ausboss's machine.
 
 ## Models (LoRAs, new model workflows)
 
@@ -54,14 +60,7 @@ the workflows.
 
 ## Dev servers
 
-- **Ports 8400–8499,** one per branch or per model test. Never 8188 (ausboss's
-  install) or 8192 (the shared bench), and never stop a server you didn't
-  start.
-- **Base directory** `/dev/shm/proof/<name>/B`, with
-  `custom_nodes/ComfyUI-AusBoss` symlinked to the branch's worktree, and user,
-  input, output and temp folders inside it. Runtime state stays off `/mnt/data`.
-- **CPU by default.** For a model run, check `nvidia-smi` first. Free the bench's
-  VRAM with `POST /free` only when nobody is rendering on it, and keep one GPU
-  job at a time.
-- **Name the URL and the workflow folder** in `proof.md`, in the PR, and in the
-  project's Agent Ledger update.
+The ports, folders and GPU rules for these servers belong to ausboss's machine,
+so they live in ausboss's creator playbook (the `comfy-community` shared skill,
+`references/testing.md`), not in this repo. A server's URL goes in `proof.md`
+and in the report to ausboss, never in the PR.
