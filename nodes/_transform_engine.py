@@ -216,15 +216,11 @@ def transform_pil(image: Image.Image, spec: TransformSpec) -> tuple[Image.Image,
         # fully masked.
         feathered = np.maximum(original, np.minimum(blurred * 2, 255).astype(np.uint8))
         mask = Image.fromarray(feathered)
-        # Fade the visible output into the fill color across the same ramp so
-        # the image blends into the padding instead of ending at a hard cut.
-        # The band lies inside the mask, so samplers regenerate it anyway.
-        weight = (feathered.astype(np.float32) / 255.0)[..., None]
-        rgb = np.asarray(output, dtype=np.float32)
-        fill_pixel = np.asarray(fill, dtype=np.float32)
-        output = Image.fromarray(
-            (rgb * (1.0 - weight) + fill_pixel * weight).round().astype(np.uint8)
-        )
+        # Only the mask is feathered; the picture keeps its hard edge against
+        # the fill, as Load Image + Pad's does. Outpaint models key on a solid
+        # hard-edged fill and read a faded ramp as content (a darker band, or
+        # LTX's IC-LoRA leaving the bars unpainted), and the stitcher built
+        # from this canvas must hold real pixels for its color match.
 
     return output, mask, geometry
 

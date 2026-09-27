@@ -18,10 +18,11 @@ model that paints black regions.
   lit format chip; only rotation, crop and the trim window start over.
 - **Canvas row** (under the format chips): the fill swatch, the feather amount and
   the resize budget, right on the node. These are what a video outpaint model keys
-  on - the LTX IC-LoRA paints **pure black** with a **hard edge** (feather 0) at
-  sizes rounded to 32 - so a wrong value shows here before a render is wasted.
-  A fresh clip node starts with that pair (black, feather 0) and the editor's
-  **Reset transform** returns to it; the image nodes keep their soft grey canvas.
+  on - the LTX IC-LoRA paints **pure black** at sizes rounded to 32 - so a wrong
+  value shows here before a render is wasted. Feather only softens the mask and the
+  stitch; the frames always meet the fill with a hard edge. A fresh clip node starts
+  with black and feather 0 and the editor's **Reset transform** returns to them; the
+  image nodes keep their grey fill and feathered mask.
 - **Local path** (`source_mode` / `local_path`): Read a video on the ComfyUI server in
   place without an upload copy. It must sit inside ComfyUI's input, output or temp
   folder, for queued runs and the editor's live preview alike; paths anywhere else are
@@ -100,7 +101,7 @@ Crop For Inpaint node is needed. The editor's right sidebar holds the settings:
 
 - **Blend** (`stitch_blend`): the ramp, in output pixels, where generated pixels fade
   over the source. It is separate from the padding **Feather**, which shapes the mask
-  the model sees - a black-band outpaint wants feather 0 and a blend of a few dozen
+  output - a black-band outpaint does well with feather 0 and a blend of a few dozen
   pixels.
 - **Show blend** tints the stage with the paste mask itself: the generated area (padding, rotation corners), the transform feather, then grow and blend applied in output pixels through any resize - the backend's mask math run at preview resolution.
 - **Advanced → Grow paste** (`stitch_grow`) moves the paste boundary first: a few
