@@ -21,6 +21,24 @@ All notable changes to ComfyUI-AusBoss are documented here.
   hovered picture or plays the hovered clip (muted, with its size and
   length) and filters as you type. Arrow keys, Enter and Escape work too.
   The saved value is still the node's own `image` / `video` widget.
+- **Load Image + Pad no longer adds a strip along an edge you did not
+  pad.** Rounding the canvas to Multiple put the leftover on the right and
+  bottom whatever you padded, so the published Krea 2 Outpaint workflow
+  (top and bottom padded, Multiple 16) grew a 6 px grey strip down the
+  photo's right edge. Krea painted it flat and lighter, the feather opened
+  the photo beside it to the sampler, and Stitch Inpaint's color match read
+  the strip as a seam and darkened that band. The leftover now joins a side
+  you padded (the right or bottom one when both are). Where you padded
+  neither left nor right, or neither top nor bottom, a Budget scales the
+  photo onto the multiple instead, keeping its shape, and without a Budget
+  the photo loses those few pixels evenly from both edges; the node's
+  canvas shows them as −N px. Saved workflows can come out slightly
+  different: with only the left or top padded, the photo sits up to one
+  multiple minus a pixel further right or down (15 px at 16, 63 px at 64);
+  with a pair of edges unpadded, that side can be one multiple smaller
+  without a Budget, and with one the photo's scale shifts a little, which
+  can move either side by a multiple or so. The shipped examples pad every side and
+  are unchanged. Crop + Rotate + Pad keeps the old rule for now.
 
 ## 2.2.0 - 2026-09-24
 

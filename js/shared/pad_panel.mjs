@@ -18,7 +18,7 @@ import {
   hitPadEdge,
   labelMode,
   padDragValue,
-  padGeometry,
+  stageGeometry,
 } from "./pad_canvas.mjs";
 
 const MARGIN = 26;
@@ -26,6 +26,7 @@ const FONT = "11px system-ui, sans-serif";
 const PAD_TINT = "rgba(255,157,66,0.16)"; // orange = padding, per the pack grammar
 const PAD_LINE = "#ff9d42";
 const IMAGE_LINE = "rgba(216,238,238,0.55)";
+const TRIM_SHADE = "rgba(8,10,12,0.62)"; // the editor's outside-crop shade
 
 function cssSize(canvas) {
   const bounds = canvas.getBoundingClientRect();
@@ -109,10 +110,11 @@ function pillWidth(ctx, text) {
 
 // One side's label: on the band when it is thick enough, otherwise hopped
 // just inside the image on a contrast pill. Skipped entirely for untouched
-// sides unless that side is mid-drag (live feedback beats quiet).
+// sides unless that side is mid-drag (live feedback beats quiet). A negative
+// amount is source the multiple trims off, always on a pill.
 function drawSideLabel(ctx, side, amount, band, imageRect, dragging) {
-  if (amount <= 0 && !dragging) return;
-  const text = `+${amount} px`;
+  if (amount === 0 && !dragging) return;
+  const text = amount < 0 ? `−${-amount} px` : `+${amount} px`;
   const midX = imageRect.x + imageRect.width / 2;
   const midY = imageRect.y + imageRect.height / 2;
   const onBand = labelMode(band) === "band";
@@ -133,6 +135,17 @@ function drawSideLabel(ctx, side, amount, band, imageRect, dragging) {
   }
 }
 
+// The canvas fitted to the view, with the source at its offset on it
+// (negative where the multiple trims it).
+function fitRender(geom, w, h) {
+  const fit = fitRect(geom.outputWidth, geom.outputHeight, w, h, MARGIN);
+  return {
+    scale: fit.scale,
+    imageX: fit.x + (geom.left - geom.trimLeft) * fit.scale,
+    imageY: fit.y + (geom.top - geom.trimTop) * fit.scale,
+  };
+}
+
 export function createPadStage(canvas, options) {
   const state = {
     drag: null,
@@ -149,19 +162,11 @@ export function createPadStage(canvas, options) {
     drawBackdrop(ctx, w, h);
     const source = options.getSource();
     const values = options.getValues();
-    const geom = padGeometry(source.width, source.height, values);
+    const geom = stageGeometry(source.width, source.height, values);
     // The render scale/anchor freezes at pointerdown for the whole gesture:
     // a live refit makes the edge slip out from under the pointer as the
     // composition shrinks to fit the growing canvas.
-    let render = state.drag?.render;
-    if (!render) {
-      const fit = fitRect(geom.outputWidth, geom.outputHeight, w, h, MARGIN);
-      render = {
-        scale: fit.scale,
-        imageX: fit.x + geom.left * fit.scale,
-        imageY: fit.y + geom.top * fit.scale,
-      };
-    }
+    const render = state.drag?.render ?? fitRender(geom, w, h);
     const scale = render.scale;
     const imageRect = {
       x: render.imageX,
@@ -170,8 +175,8 @@ export function createPadStage(canvas, options) {
       height: source.height * scale,
     };
     const finalRect = {
-      x: render.imageX - geom.left * scale,
-      y: render.imageY - geom.top * scale,
+      x: render.imageX - (geom.left - geom.trimLeft) * scale,
+      y: render.imageY - (geom.top - geom.trimTop) * scale,
       width: geom.outputWidth * scale,
       height: geom.outputHeight * scale,
     };
@@ -204,10 +209,30 @@ export function createPadStage(canvas, options) {
       ctx.restore();
     }
 
+    // Source the multiple trims off, where nobody padded: shaded outside
+    // the canvas.
+    if (geom.trimLeft || geom.trimTop || geom.trimRight || geom.trimBottom) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(imageRect.x, imageRect.y, imageRect.width, imageRect.height);
+      ctx.clip();
+      ctx.beginPath();
+      ctx.rect(imageRect.x, imageRect.y, imageRect.width, imageRect.height);
+      ctx.rect(finalRect.x, finalRect.y, finalRect.width, finalRect.height);
+      ctx.fillStyle = TRIM_SHADE;
+      ctx.fill("evenodd");
+      ctx.restore();
+    }
+
     dashedRect(ctx, imageRect, IMAGE_LINE, [4, 4]);
     dashedRect(ctx, finalRect, PAD_LINE, [7, 5]);
 
-    const bands = { left: geom.left, top: geom.top, right: geom.right, bottom: geom.bottom };
+    const bands = {
+      left: geom.left - geom.trimLeft,
+      top: geom.top - geom.trimTop,
+      right: geom.right - geom.trimRight,
+      bottom: geom.bottom - geom.trimBottom,
+    };
     for (const side of ["left", "top", "right", "bottom"]) {
       drawSideLabel(
         ctx, side, bands[side], bands[side] * scale, imageRect, state.drag?.side === side,
@@ -255,9 +280,7 @@ export function createPadStage(canvas, options) {
     try { canvas.setPointerCapture(event.pointerId); } catch { /* mouse fallback */ }
     const source = options.getSource();
     const values = options.getValues();
-    const geom = padGeometry(source.width, source.height, values);
     const { w, h } = cssSize(canvas);
-    const fit = fitRect(geom.outputWidth, geom.outputHeight, w, h, MARGIN);
     state.drag = {
       side,
       pointerId: event.pointerId,
@@ -269,11 +292,7 @@ export function createPadStage(canvas, options) {
         bottom: Math.max(0, Number(values.pad_bottom) || 0),
       },
       moved: false,
-      render: {
-        scale: fit.scale,
-        imageX: fit.x + geom.left * fit.scale,
-        imageY: fit.y + geom.top * fit.scale,
-      },
+      render: fitRender(stageGeometry(source.width, source.height, values), w, h),
     };
     scheduleDraw();
   }, { signal });

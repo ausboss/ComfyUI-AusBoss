@@ -162,6 +162,36 @@ def round_up_to_multiple(value: int, multiple: int) -> int:
     return ((max(0, int(value)) + step - 1) // step) * step
 
 
+def _axis_layout(
+    size: int, before: int, after: int, multiple: int
+) -> tuple[int, int, int, int, int]:
+    """One axis of the canvas: (before, after, trim_before, trim_after, length).
+
+    The canvas rounds up to the multiple and the leftover joins a side the
+    user padded: the far one (right/bottom) when both are. An axis nobody
+    padded never grows a strip, because a strip there is an edge to
+    generate that nobody asked for: outpaint models leave a thin one flat
+    and off-tone, and Stitch's tone match then reads it as a seam and
+    shifts the photo beside it. The source is trimmed to the multiple below
+    instead, evenly from both edges like Align Image's crop, so the pixels
+    it keeps stay untouched. A source smaller than one multiple has nothing
+    to trim to and grows on the far side.
+    """
+    requested = size + before + after
+    length = round_up_to_multiple(requested, multiple)
+    leftover = length - requested
+    if leftover == 0 or after > 0:
+        return before, after + leftover, 0, 0, length
+    if before > 0:
+        return before + leftover, after, 0, 0, length
+    step = max(1, int(multiple))
+    kept = (size // step) * step
+    if kept <= 0:
+        return before, after + leftover, 0, 0, length
+    trim = size - kept
+    return 0, 0, trim // 2, trim - trim // 2, kept
+
+
 def resolve_pad_geometry(
     width: int,
     height: int,
@@ -171,24 +201,27 @@ def resolve_pad_geometry(
     pad_bottom: int,
     canvas_multiple: int,
 ) -> dict[str, int]:
-    """Clamp pads to >= 0 and ceil the canvas to the multiple, appending the
-    remainder to the right/bottom pads. Mirror of resolvePadding in
-    js/shared/transform_geometry.mjs — keep the two in sync."""
-    left = max(0, int(pad_left))
-    top = max(0, int(pad_top))
-    right = max(0, int(pad_right))
-    bottom = max(0, int(pad_bottom))
-    requested_w = int(width) + left + right
-    requested_h = int(height) + top + bottom
-    out_w = round_up_to_multiple(requested_w, canvas_multiple)
-    out_h = round_up_to_multiple(requested_h, canvas_multiple)
+    """Clamp pads to >= 0 and round the canvas to the multiple one axis at a
+    time (see _axis_layout). ``trim_*`` is what comes off the source before
+    padding. Mirror of padGeometry in js/shared/pad_canvas.mjs — keep the
+    two in sync."""
+    left, right, trim_left, trim_right, out_w = _axis_layout(
+        int(width), max(0, int(pad_left)), max(0, int(pad_right)), canvas_multiple
+    )
+    top, bottom, trim_top, trim_bottom, out_h = _axis_layout(
+        int(height), max(0, int(pad_top)), max(0, int(pad_bottom)), canvas_multiple
+    )
     return {
         "left": left,
         "top": top,
-        "right": right + out_w - requested_w,
-        "bottom": bottom + out_h - requested_h,
+        "right": right,
+        "bottom": bottom,
         "width": out_w,
         "height": out_h,
+        "trim_left": trim_left,
+        "trim_top": trim_top,
+        "trim_right": trim_right,
+        "trim_bottom": trim_bottom,
     }
 
 
@@ -208,25 +241,52 @@ def plan_pad_canvas(
     on, the SOURCE is what gets rescaled (by s = sqrt(MP*1e6 / area)) and the
     raw pads are scaled with it, then re-rounded to the multiple. Padding a
     resized source keeps the mask seam one crisp pixel wide, where resizing
-    a padded result would smear it. Mirror of finalOutputSize in
-    js/shared/pad_canvas.mjs — keep the two in sync.
+    a padded result would smear it.
+
+    An axis nobody padded is resized onto the nearest multiple rather than
+    trimmed (_axis_layout), since the source is resampled anyway. When only
+    one axis is unpadded, its snapped size sets the scale for both, so the
+    picture keeps its shape; when neither is padded, each snaps on its own,
+    as in Align Image's resize. A side under half a multiple at the budget
+    scale is not snapped, so snapping never more than doubles the scale;
+    it grows on the far side like any source smaller than one multiple.
+    Mirror of finalOutputSize in js/shared/pad_canvas.mjs — keep the two in
+    sync.
     """
-    base = resolve_pad_geometry(
-        width, height, pad_left, pad_top, pad_right, pad_bottom, canvas_multiple
+    width, height = int(width), int(height)
+    left, top, right, bottom = (
+        max(0, int(value)) for value in (pad_left, pad_top, pad_right, pad_bottom)
     )
     target = float(target_megapixels or 0.0)
-    if target <= 0.0 or base["width"] <= 0 or base["height"] <= 0:
-        return {"scale": 1.0, "source_width": int(width), "source_height": int(height), **base}
-    scale = math.sqrt(target * 1e6 / (base["width"] * base["height"]))
-    source_w = max(1, _round_half_up(int(width) * scale))
-    source_h = max(1, _round_half_up(int(height) * scale))
+    if target <= 0.0:
+        base = resolve_pad_geometry(width, height, left, top, right, bottom, canvas_multiple)
+        return {"scale": 1.0, "source_width": width, "source_height": height, **base}
+    # The budget is measured against the requested canvas rounded up.
+    area = round_up_to_multiple(width + left + right, canvas_multiple) * round_up_to_multiple(
+        height + top + bottom, canvas_multiple
+    )
+    scale = math.sqrt(target * 1e6 / area)
+    step = max(1, int(canvas_multiple))
+    source_w = max(1, _round_half_up(width * scale))
+    source_h = max(1, _round_half_up(height * scale))
+    # 0 = not snapped: padded, or under half a multiple.
+    snap_w = _round_half_up(width * scale / step) * step if left + right == 0 else 0
+    snap_h = _round_half_up(height * scale / step) * step if top + bottom == 0 else 0
+    if snap_w and snap_h:
+        source_w, source_h = snap_w, snap_h
+    elif snap_w:
+        scale = snap_w / width
+        source_w, source_h = snap_w, max(1, _round_half_up(height * scale))
+    elif snap_h:
+        scale = snap_h / height
+        source_w, source_h = max(1, _round_half_up(width * scale)), snap_h
     final = resolve_pad_geometry(
         source_w,
         source_h,
-        _round_half_up(max(0, int(pad_left)) * scale),
-        _round_half_up(max(0, int(pad_top)) * scale),
-        _round_half_up(max(0, int(pad_right)) * scale),
-        _round_half_up(max(0, int(pad_bottom)) * scale),
+        _round_half_up(left * scale),
+        _round_half_up(top * scale),
+        _round_half_up(right * scale),
+        _round_half_up(bottom * scale),
         canvas_multiple,
     )
     return {"scale": scale, "source_width": source_w, "source_height": source_h, **final}
@@ -302,6 +362,16 @@ def resize_source(image: torch.Tensor, width: int, height: int) -> torch.Tensor:
     return _resize_image(image, max(1, int(width)), max(1, int(height)))
 
 
+def trim_source(image: torch.Tensor, left: int, top: int, right: int, bottom: int) -> torch.Tensor:
+    """Cut the plan's trim_* pixels off a BHWC batch's edges; a no-op when
+    there is nothing to trim."""
+    image = _as_image(image)
+    if left == 0 and top == 0 and right == 0 and bottom == 0:
+        return image
+    height, width = image.shape[1], image.shape[2]
+    return image[:, top : height - bottom, left : width - right, :].contiguous()
+
+
 def pad_image(
     image: torch.Tensor,
     pad_left: int,
@@ -355,4 +425,5 @@ __all__ = [
     "resize_source",
     "resolve_pad_geometry",
     "round_up_to_multiple",
+    "trim_source",
 ]

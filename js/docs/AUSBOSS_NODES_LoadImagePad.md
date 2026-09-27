@@ -17,7 +17,9 @@ padding value unchanged.
 ## The on-node canvas
 
 - Each padded side shows its **"+N px"** count on the band; when the band is
-  too thin to read, the label hops inside the image onto a pill.
+  too thin to read, the label hops inside the image onto a pill. A side that
+  **Multiple** trims shows **"−N px"** instead, with the cut-off strip of the
+  image shaded.
 - The badge in the corner is the truth: the **final output size** after the
   canvas-multiple and megapixel math, exactly what the `width`/`height`
   outputs will say.
@@ -33,6 +35,7 @@ padding value unchanged.
 - The original pixels land **bit-identical** at their position (resized
   only when a megapixel target is set — and then resized *before* padding,
   so the mask seam stays one crisp pixel wide).
+- No strip is ever added along edges you did not pad; see **Multiple**.
 - The mask is `1.0` over every padded pixel and `0.0` over the source,
   ramped only where **feather** says so.
 
@@ -46,8 +49,15 @@ padding value unchanged.
 - **feather**: Ramps the mask *inward* across the image edge on each padded
   side (ramp width capped by the image size), so the sampler blends the
   seam. `0` keeps the seam hard. The padding itself always stays solid.
-- **Multiple** (`canvas_multiple`): The final canvas rounds up to this
-  multiple; the remainder joins the right and bottom padding.
+- **Multiple** (`canvas_multiple`): The final canvas rounds to this
+  multiple. The extra pixels join a side you padded (the right or bottom one
+  when you padded both). If you padded neither left nor right, or neither
+  top nor bottom, nothing is added there: a strip along an edge you left
+  alone would be one more edge for the model to paint, and a thin one comes
+  out flat and off-tone. With a **Budget** the source is scaled to fit
+  instead, keeping its shape (with no padding at all, each side snaps on
+  its own); without one it loses those few pixels, evenly from both edges,
+  and the rest stays bit-identical.
 - **Budget** (`target_megapixels`): `0` = off. Rescales the **source** so
   the padded canvas lands on this many megapixels, then re-rounds to the
   multiple — the way to outpaint a small or huge image at a sampler-friendly

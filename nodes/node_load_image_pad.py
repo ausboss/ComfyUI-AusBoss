@@ -14,6 +14,7 @@ from ._pad_helpers import (
     pad_image,
     plan_pad_canvas,
     resize_source,
+    trim_source,
 )
 from ._transform_engine import stable_file_fingerprint
 
@@ -33,9 +34,10 @@ class AusBossLoadImagePad:
         "Loads an image and pads it into an outpaint canvas in one node. "
         "Drag any edge of the canvas drawn on the node to set the per-side "
         "padding visually; the mask covers exactly the new padding, "
-        "optionally feathered inward across the seam. The canvas rounds up "
-        "to a clean multiple, and a megapixel target rescales the source "
-        "first so the mask seam stays crisp."
+        "optionally feathered inward across the seam. The canvas rounds to "
+        "a clean multiple without adding a strip to an edge you did not "
+        "pad, and a megapixel target rescales the source first so the mask "
+        "seam stays crisp."
     )
     SEARCH_ALIASES = [
         "load image",
@@ -160,8 +162,12 @@ class AusBossLoadImagePad:
                         "max": 4096,
                         "step": 1,
                         "tooltip": (
-                            "Rounds the final canvas up to this multiple; the "
-                            "remainder joins the right and bottom padding."
+                            "Rounds the final canvas to this multiple. The "
+                            "extra pixels join a side you padded; if you padded "
+                            "neither left nor right (or neither top nor bottom), "
+                            "none are added there: the source is scaled to fit "
+                            "when a megapixel target is set, otherwise trimmed "
+                            "by those few pixels, evenly from both edges."
                         ),
                     },
                 ),
@@ -190,7 +196,8 @@ class AusBossLoadImagePad:
     RETURN_NAMES = ("image", "mask", "width", "height", "stitcher", "reference")
     OUTPUT_TOOLTIPS = (
         "The padded image; the original pixels are untouched (resized only "
-        "when a megapixel target is set).",
+        "when a megapixel target is set; without one, Multiple may trim a "
+        "few pixels off a pair of edges you did not pad).",
         "White over the new padding, feathered inward per the feather widget "
         "— feed it straight to an inpainter as the outpaint mask.",
         "Final canvas width after multiple/megapixel rounding.",
@@ -233,6 +240,9 @@ class AusBossLoadImagePad:
             float(target_megapixels),
         )
         frames = resize_source(frames, plan["source_width"], plan["source_height"])
+        frames = trim_source(
+            frames, plan["trim_left"], plan["trim_top"], plan["trim_right"], plan["trim_bottom"]
+        )
         output, mask = pad_image(
             frames,
             plan["left"],
@@ -251,8 +261,8 @@ class AusBossLoadImagePad:
         bbox = (
             plan["left"],
             plan["top"],
-            plan["left"] + plan["source_width"],
-            plan["top"] + plan["source_height"],
+            plan["left"] + frames.shape[2],
+            plan["top"] + frames.shape[1],
         )
         # The padded canvas is the stitch base, so whatever the sampler does
         # outside the feathered band is discarded and the source survives.
