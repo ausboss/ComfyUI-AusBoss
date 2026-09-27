@@ -21,6 +21,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   hovered picture or plays the hovered clip (muted, with its size and
   length) and filters as you type. Arrow keys, Enter and Escape work too.
   The saved value is still the node's own `image` / `video` widget.
+- **Stitch Inpaint's tone match no longer pulls a rotated outpaint toward
+  the fill colour.** On a Crop + Rotate + Pad canvas that was rotated and
+  padded (a canvas multiple's few extra pixels count), `color_match` read
+  the rotation's empty corners as picture and shifted the whole fill, by
+  up to 33 dE on a flat test. It now reads only picture pixels at each
+  seam. Load Image + Pad and Crop For Inpaint stitch exactly as before.
 
 ## 2.2.0 - 2026-09-24
 
