@@ -31,10 +31,6 @@ All notable changes to ComfyUI-AusBoss are documented here.
   `frame_load_cap` hands the length to that input: the OUT handle goes away and
   only IN is left to set. No inputs changed; saved Limit values read as a
   Length, and an old Fixed frames value becomes one on the first edit.
-- **Crop + Rotate + Pad: Stitch puts the source back exactly.** With feather
-  above 0 the stitcher pasted the faded edge band back into the result (a dark
-  or grey halo inside the picture); it now keeps the unfaded source. What the
-  model sees is unchanged.
 - **Crop + Rotate + Pad: exact aspect sizes.** A crop at a locked ratio no
   longer loses a pixel to rounding (21:9, 9:21, source), so the size shown on
   the node always equals the run. A few saved crops come out 1 px larger.

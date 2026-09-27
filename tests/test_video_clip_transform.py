@@ -57,17 +57,6 @@ class ChunkedTransformTests(unittest.TestCase):
         self.assertTrue(torch.equal(out, whole_out))
         self.assertTrue(torch.equal(mask, whole_mask))
 
-    def test_chunks_keep_the_unfaded_clip_only_when_feathered(self):
-        torch.manual_seed(7)
-        batch = torch.rand((5, 40, 56, 3))
-        spec = TransformSpec(pad_left=9, feather=6)
-        whole = transform_tensor_batch(batch, spec, keep_unfaded=True)
-        out, mask, geometry, unfaded = transform_tensor_batch_chunked(batch, spec, chunk_size=2, keep_unfaded=True)
-        self.assertTrue(torch.equal(unfaded, whole[3]))
-        self.assertFalse(torch.equal(unfaded, out))
-        hard = transform_tensor_batch_chunked(batch, TransformSpec(pad_left=9), chunk_size=2, keep_unfaded=True)
-        self.assertIs(hard[3], hard[0])
-
     def test_empty_batch_is_reported(self):
         with self.assertRaisesRegex(ValueError, "no decodable frames"):
             transform_tensor_batch_chunked(torch.zeros((0, 8, 8, 3)), TransformSpec())

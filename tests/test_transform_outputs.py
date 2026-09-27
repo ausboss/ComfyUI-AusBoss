@@ -46,21 +46,6 @@ class TransformOutputTests(unittest.TestCase):
             outputs = AusBossVideoCropRotatePad().load_transform('source.mp4', 'input folder', '', 'frame index', 0, 0, pad_left=32, feather=0)
         self.assert_outputs(outputs)
 
-    def test_stitch_restores_the_source_under_a_feather(self):
-        # The feather fades the output into the fill for the sampler. The
-        # stitcher must paste the true source back, not the faded band: with
-        # a perfect generation the kept picture comes back unchanged.
-        with patch('nodes.node_image_crop_rotate_pad.resolve_input_path', return_value=Path('source.png')), patch('nodes.node_image_crop_rotate_pad.load_image_frames', return_value=[self.source]):
-            image, mask, stitcher, original, width, height = AusBossImageCropRotatePad().load_transform(
-                'source.png', pad_left=32, feather=24, fill_color='#000000'
-            )
-        source = original[0]
-        self.assertGreater(float((image[0, :, 32:] - source).abs().max()), 0.05)
-        generated = image.clone()
-        generated[0, :, 32:] = source
-        stitched = apply_stitch(stitcher, generated)
-        self.assertLess(float((stitched[0, :, 32:] - source).abs().max()), 1e-6)
-
     def test_resize_inputs_are_optional_for_old_api_prompts(self):
         inputs = AusBossImageCropRotatePad.INPUT_TYPES()
         resize = ["resize_to_megapixels", "megapixels", "resize_method", "resolution_steps"]

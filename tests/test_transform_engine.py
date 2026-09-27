@@ -25,7 +25,6 @@ from nodes._transform_engine import (
     TransformSpec,
     stable_file_fingerprint,
     transform_pil,
-    transform_pil_layers,
     transform_tensor_batch,
 )
 
@@ -127,17 +126,6 @@ class TransformEngineTests(unittest.TestCase):
         self.assertLessEqual(int(row[9].max()), 40)  # padding stays fill color
         self.assertTrue(40 < int(row[11][0]) < 240)  # visible blend band
         self.assertGreaterEqual(int(row[25].min()), 250)  # interior untouched
-
-    def test_unfaded_layer_keeps_the_source_under_the_feather(self):
-        output, mask, _, unfaded = transform_pil_layers(
-            solid(20, 20, (255, 255, 255, 255)),
-            TransformSpec(pad_left=10, feather=3, fill_color="#000000"),
-        )
-        self.assertTrue(40 < int(np.asarray(output)[10, 11, 0]) < 240)  # the sampler sees the fade
-        self.assertEqual(int(np.asarray(unfaded)[10, 11:].min()), 255)  # the stitcher keeps the source
-        self.assertEqual(int(np.asarray(unfaded)[10, :10].max()), 0)  # padding is still fill
-        same = transform_pil_layers(solid(), TransformSpec(pad_left=4))
-        self.assertIs(same[0], same[3])
 
     def test_aspect_crop_uses_integer_maths(self):
         for args, expected in RATIO_BOX_FIXTURES:

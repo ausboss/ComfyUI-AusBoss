@@ -197,20 +197,6 @@ def _geometry(rotated: Image.Image, spec: TransformSpec) -> TransformGeometry:
 
 def transform_pil(image: Image.Image, spec: TransformSpec) -> tuple[Image.Image, Image.Image, TransformGeometry]:
     """Apply rotate -> crop -> pad and return opaque RGB, BHW-style mask image, and geometry."""
-    output, mask, geometry, _unfaded = transform_pil_layers(image, spec)
-    return output, mask, geometry
-
-
-def transform_pil_layers(
-    image: Image.Image, spec: TransformSpec
-) -> tuple[Image.Image, Image.Image, TransformGeometry, Image.Image]:
-    """transform_pil plus the output before the feather fade.
-
-    The fade toward the fill colour is a hint for the sampler. A stitcher
-    must paste the kept source back from the unfaded layer, or a feathered
-    band of faded pixels ends up in the final image. With feather 0 the two
-    are the same object.
-    """
     _validate_source(image)
     spec = spec.normalized()
     rotated = _rotate_rgba(image, spec)
@@ -234,7 +220,6 @@ def transform_pil_layers(
     generated_crop = Image.fromarray(255 - np.asarray(alpha, dtype=np.uint8))
     mask = Image.new("L", output.size, 255)
     mask.paste(generated_crop, (geometry.pad_left, geometry.pad_top))
-    unfaded = output
     if spec.feather > 0:
         original = np.asarray(mask, dtype=np.uint8)
         blurred = np.asarray(
@@ -257,51 +242,36 @@ def transform_pil_layers(
             (rgb * (1.0 - weight) + fill_pixel * weight).round().astype(np.uint8)
         )
 
-    return output, mask, geometry, unfaded
+    return output, mask, geometry
 
 
-def _pil_to_tensor(image: Image.Image) -> torch.Tensor:
-    return torch.from_numpy(np.asarray(image, dtype=np.float32) / 255.0)
-
-
-def transform_pil_batch(images: Iterable[Image.Image], spec: TransformSpec, *, keep_unfaded: bool = False):
-    """(frames, masks, geometry) for a PIL batch.
-
-    ``keep_unfaded`` appends a fourth value: the frames before the feather
-    fade, the canvas a stitcher pastes back from (see transform_pil_layers).
-    With feather 0 it is the frames tensor itself, so nothing extra is held.
-    """
+def transform_pil_batch(
+    images: Iterable[Image.Image], spec: TransformSpec
+) -> tuple[torch.Tensor, torch.Tensor, TransformGeometry]:
     frames: list[torch.Tensor] = []
     masks: list[torch.Tensor] = []
-    unfaded_frames: list[torch.Tensor] = []
     first_geometry: TransformGeometry | None = None
     for index, image in enumerate(images):
-        output, mask, geometry, unfaded = transform_pil_layers(image, spec)
+        output, mask, geometry = transform_pil(image, spec)
         if first_geometry is None:
             first_geometry = geometry
         elif output.size != (first_geometry.output_width, first_geometry.output_height):
             raise ValueError(
                 f"Transform: frame {index} produced dimensions that differ from frame 0."
             )
-        frames.append(_pil_to_tensor(output))
-        masks.append(_pil_to_tensor(mask))
-        if keep_unfaded and unfaded is not output:
-            unfaded_frames.append(_pil_to_tensor(unfaded))
+        image_array = np.asarray(output, dtype=np.float32) / 255.0
+        mask_array = np.asarray(mask, dtype=np.float32) / 255.0
+        frames.append(torch.from_numpy(image_array.copy()))
+        masks.append(torch.from_numpy(mask_array.copy()))
 
     if not frames or first_geometry is None:
         raise ValueError("Transform: source contained no decodable frames.")
-    batch, mask_batch = torch.stack(frames, dim=0), torch.stack(masks, dim=0)
-    if not keep_unfaded:
-        return batch, mask_batch, first_geometry
-    unfaded_batch = torch.stack(unfaded_frames, dim=0) if unfaded_frames else batch
-    return batch, mask_batch, first_geometry, unfaded_batch
+    return torch.stack(frames, dim=0), torch.stack(masks, dim=0), first_geometry
 
 
 def transform_tensor_batch(
-    image: torch.Tensor, spec: TransformSpec, source_mask: torch.Tensor | None = None,
-    *, keep_unfaded: bool = False,
-):
-    """transform_pil_batch for a BHWC tensor, on the tensor's device and dtype."""
+    image: torch.Tensor, spec: TransformSpec, source_mask: torch.Tensor | None = None
+) -> tuple[torch.Tensor, torch.Tensor, TransformGeometry]:
     if not isinstance(image, torch.Tensor) or image.ndim != 4 or image.shape[-1] not in (3, 4):
         received = tuple(image.shape) if isinstance(image, torch.Tensor) else type(image).__name__
         raise ValueError(
@@ -329,58 +299,43 @@ def transform_tensor_batch(
             alpha = np.minimum(alpha, ((1.0 - mask_cpu[index].numpy()) * 255.0).round().astype(np.uint8))
         pil_frames.append(Image.fromarray(np.dstack((rgb, alpha))))
 
-    result = transform_pil_batch(pil_frames, spec, keep_unfaded=keep_unfaded)
-    output, mask, geometry = result[:3]
-    moved = (output.to(device=device, dtype=dtype), mask.to(device=device, dtype=dtype), geometry)
-    if not keep_unfaded:
-        return moved
-    unfaded = moved[0] if result[3] is output else result[3].to(device=device, dtype=dtype)
-    return (*moved, unfaded)
+    output, mask, geometry = transform_pil_batch(pil_frames, spec)
+    return output.to(device=device, dtype=dtype), mask.to(device=device, dtype=dtype), geometry
 
 
 def transform_tensor_batch_chunked(
-    image: torch.Tensor, spec: TransformSpec, chunk_size: int = 16, *, keep_unfaded: bool = False
-):
+    image: torch.Tensor, spec: TransformSpec, chunk_size: int = 16
+) -> tuple[torch.Tensor, torch.Tensor, TransformGeometry]:
     """transform_tensor_batch over a long batch, one chunk of frames at a time.
 
     Every chunk goes through the same PIL round trip, but peak memory stays
     at the finished output plus one chunk instead of every frame twice, and
     the queue's interrupt and progress bar are serviced between chunks - the
-    video node feeds whole clips through here. ``keep_unfaded`` works as in
-    transform_pil_batch; a second clip-sized tensor exists only when the
-    spec feathers.
+    video node feeds whole clips through here.
     """
     if not isinstance(image, torch.Tensor) or image.ndim != 4:
         received = tuple(image.shape) if isinstance(image, torch.Tensor) else type(image).__name__
         raise ValueError(f"Transform: input 'image' expected a BHWC batch, received {received}.")
     total = int(image.shape[0])
     size = max(1, int(chunk_size))
-    faded = keep_unfaded and spec.normalized().feather > 0
-    output = mask = geometry = unfaded = None
+    output = mask = geometry = None
     progress = frame_progress(total)
     for start in range(0, total, size):
         raise_if_interrupted()
-        chunk = transform_tensor_batch(image[start : start + size], spec, keep_unfaded=faded)
-        chunk_output, chunk_mask, chunk_geometry = chunk[:3]
+        chunk_output, chunk_mask, chunk_geometry = transform_tensor_batch(image[start : start + size], spec)
         if output is None:
             geometry = chunk_geometry
             output = torch.empty((total, *chunk_output.shape[1:]), dtype=chunk_output.dtype, device=chunk_output.device)
             mask = torch.empty((total, *chunk_mask.shape[1:]), dtype=chunk_mask.dtype, device=chunk_mask.device)
-            if faded:
-                unfaded = torch.empty_like(output)
         elif chunk_output.shape[1:] != output.shape[1:]:
             raise ValueError(f"Transform: frame {start} produced dimensions that differ from frame 0.")
         count = int(chunk_output.shape[0])
         output[start : start + count] = chunk_output
         mask[start : start + count] = chunk_mask
-        if faded:
-            unfaded[start : start + count] = chunk[3]
         advance_progress(progress, min(start + count, total), total)
     if output is None or mask is None or geometry is None:
         raise ValueError("Transform: source contained no decodable frames.")
-    if not keep_unfaded:
-        return output, mask, geometry
-    return output, mask, geometry, unfaded if faded else output
+    return output, mask, geometry
 
 
 def stable_file_fingerprint(path: str | os.PathLike[str], inputs: dict[str, object]) -> str:
@@ -442,15 +397,6 @@ def resize_batch_to_megapixels(output, mask, megapixels, method, steps):
     )
     mask = mask_samples.squeeze(1).clamp(0.0, 1.0)
     return output, mask
-
-
-def resize_transform_to_megapixels(output, mask, canvas, megapixels, method, steps):
-    """resize_batch_to_megapixels for a transform's output, mask and the
-    unfaded stitch canvas beside it (the output itself when feather is 0)."""
-    if canvas is not output:
-        canvas, _ = resize_batch_to_megapixels(canvas, mask, megapixels, method, steps)
-    resized, mask = resize_batch_to_megapixels(output, mask, megapixels, method, steps)
-    return resized, mask, resized if canvas is output else canvas
 
 
 def original_image_batch(images: Iterable[Image.Image]) -> torch.Tensor:

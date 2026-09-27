@@ -6,7 +6,7 @@ from ._media_helpers import list_input_images, load_image_frames, resolve_input_
 from ._inpaint_crop_helpers import build_transform_stitcher
 from ._transform_engine import (
     original_image_batch,
-    resize_transform_to_megapixels,
+    resize_batch_to_megapixels,
     stable_file_fingerprint,
     transform_pil_batch,
 )
@@ -63,14 +63,12 @@ class AusBossImageCropRotatePad:
     ):
         path = resolve_input_path(image)
         frames = load_image_frames(path)
-        # canvas: the output before the feather fade, which is what the
-        # stitcher pastes back over the kept source.
-        output, mask, geometry, canvas = transform_pil_batch(frames, spec_from_values(**values), keep_unfaded=True)
+        output, mask, geometry = transform_pil_batch(frames, spec_from_values(**values))
         if resize_to_megapixels:
-            output, mask, canvas = resize_transform_to_megapixels(
-                output, mask, canvas, float(megapixels), str(resize_method), int(resolution_steps)
+            output, mask = resize_batch_to_megapixels(
+                output, mask, float(megapixels), str(resize_method), int(resolution_steps)
             )
-        stitcher = build_transform_stitcher(canvas, mask, geometry, 32, source="Image Crop + Rotate + Pad")
+        stitcher = build_transform_stitcher(output, mask, geometry, 32, source="Image Crop + Rotate + Pad")
         return (
             output, mask, stitcher, original_image_batch(frames),
             int(output.shape[2]), int(output.shape[1]),
