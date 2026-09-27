@@ -201,6 +201,10 @@ in `.claude/skills/ausboss-node-brand/SKILL.md`.
 
 ## Validation
 
+Before asking for a merge or a publish, every fix PR and every model release
+ships a proof package: a failing-then-passing test, before/after evidence, and
+a dev server with ready-to-run workflows. See `docs/proof_packages.md`.
+
 ```bash
 python scripts/validate_nodes.py
 python scripts/release_preflight.py
