@@ -72,6 +72,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   stitcher's blend was fixed at 32 px; it now has the clip node's two
   optional inputs (defaults 32 and 0), and the editor shows the same
   Inpaint & Stitch section with Show blend.
+- **Stitch Inpaint's tone match no longer pulls a rotated outpaint toward
+  the fill colour.** On a Crop + Rotate + Pad canvas that was rotated and
+  padded (a canvas multiple's few extra pixels count), `color_match` read
+  the rotation's empty corners as picture and shifted the whole fill, by
+  up to 33 dE on a flat test. It now reads only picture pixels at each
+  seam. Load Image + Pad and Crop For Inpaint stitch exactly as before.
 
 ## 2.2.0 - 2026-09-24
 

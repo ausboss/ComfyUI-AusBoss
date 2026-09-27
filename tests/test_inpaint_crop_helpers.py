@@ -1141,6 +1141,26 @@ class ToneMatchSeamTests(unittest.TestCase):
         jumps = [abs(float(lum[i, 19 - i]) - float(lum[i + 1, 18 - i])) for i in range(0, 18)]
         self.assertLess(max(jumps), 0.25 * (float(lum[50, 5]) - float(lum[5, 50])))
 
+    def test_only_picture_pixels_are_read_inside_the_seam(self):
+        # [1, 6 rows, 4 px] strips: lines 0-1 are all fill, lines 2-5 keep
+        # their two inner pixels. Only kept pixels reach the inside mean.
+        outside = torch.full((1, 6, 4, 3), 5.0)
+        inside = torch.zeros((1, 6, 4, 3))
+        inside[:, :, :2] = 40.0
+        kept = torch.zeros((1, 6, 4))
+        kept[:, 2:, 2:] = 1.0
+        fallback = torch.tensor([[1.0, -2.0, 3.0]])
+        _, cover = inpaint_helpers._seam_lines(outside, inside, True, fallback, kept)
+        self.assertEqual(cover[0].tolist(), [0.0, 0.0, 2.0, 2.0, 2.0, 2.0])
+        # With nothing kept at all the side has no reading of its own and
+        # takes the fallback (the band's global offset) everywhere.
+        curve, _ = inpaint_helpers._seam_lines(outside, inside, True, fallback, torch.zeros_like(kept))
+        self.assertTrue(torch.allclose(curve, fallback.view(1, 1, 3).expand_as(curve), atol=1e-5))
+        # Everything kept is the plain unweighted reading.
+        plain, _ = inpaint_helpers._seam_lines(outside, inside, True, fallback)
+        weighted, _ = inpaint_helpers._seam_lines(outside, inside, True, fallback, torch.ones_like(kept))
+        self.assertTrue(torch.allclose(plain, weighted, atol=1e-5))
+
 
 class StitchBlendFromMaskTests(unittest.TestCase):
     def test_zero_settings_return_an_equal_copy(self):

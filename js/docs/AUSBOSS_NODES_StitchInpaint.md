@@ -63,6 +63,11 @@ sampler painted. Source pixels stay bit-identical. A crop stitcher, which
 has no source rectangle, gets a single global shift measured in its
 blend band instead.
 
+On a Crop + Rotate + Pad canvas the source rectangle is the crop, so it
+can also hold the rotation's empty corners and any transparency. The
+inside pixels skip those, and a line with no picture inside its seam takes
+the global shift, read in the blend band along the picture's real edge.
+
 The estimate assumes neighbouring strips depict similar content. It cannot
 reliably distinguish a tone shift from a different object or shadow at the
 seam, even with the clamp and smoothing.
