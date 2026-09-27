@@ -343,5 +343,52 @@ class MissingRowPolicyTests(unittest.TestCase):
         self.assertEqual(on_missing[1]["default"], "error")
 
 
+class ResolveLoraPathTests(unittest.TestCase):
+    """The file a name resolves to, and the check that keeps it in models/loras."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        base = Path(tmp.name)
+        self.root = base / "loras"
+        self.root.mkdir()
+        self.outside = base / "other_drive"
+        self.outside.mkdir()
+        (self.root / "plain.safetensors").write_bytes(b"x")
+        (self.outside / "real.safetensors").write_bytes(b"x")
+        # A LoRA kept on another drive and linked into models/loras, which
+        # ComfyUI's own loaders accept.
+        (self.root / "linked.safetensors").symlink_to(self.outside / "real.safetensors")
+        self.full_path = lambda kind, name: (
+            str(self.root / name) if (self.root / name).is_file() else None
+        )
+        fake = type("FakeFolderPaths", (), {})()
+        fake.get_full_path = lambda kind, name: self.full_path(kind, name)
+        fake.get_folder_paths = lambda kind: [str(self.root)]
+        fake.get_filename_list = lambda kind: ["linked.safetensors", "plain.safetensors"]
+        patcher = patch.object(_lora_helpers, "folder_paths", fake)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_plain_file_resolves(self):
+        path = _lora_helpers.resolve_lora_path("plain.safetensors")
+        self.assertEqual(path.name, "plain.safetensors")
+        self.assertTrue(path.is_file())
+
+    def test_symlinked_file_resolves_inside_the_folder(self):
+        path = _lora_helpers.resolve_lora_path("linked.safetensors")
+        self.assertEqual(path.parent, self.root)
+        self.assertTrue(path.is_file())
+
+    def test_symlinked_file_is_not_reported_missing(self):
+        rows = [{"name": "linked.safetensors", "strength": 1.0, "strength_clip": 1.0, "enabled": True}]
+        self.assertEqual(_lora_helpers.missing_lora_rows(rows), [])
+
+    def test_path_outside_the_folders_is_refused(self):
+        self.full_path = lambda kind, name: str(self.root / ".." / "other_drive" / "real.safetensors")
+        with self.assertRaisesRegex(ValueError, "escapes the loras folders"):
+            _lora_helpers.resolve_lora_path("../other_drive/real.safetensors")
+
+
 if __name__ == "__main__":
     unittest.main()

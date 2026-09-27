@@ -8,6 +8,7 @@ the web server imports lazily and fails soft.
 from __future__ import annotations
 
 import json
+import os
 from collections import OrderedDict
 from pathlib import Path
 from typing import Any
@@ -148,9 +149,12 @@ def resolve_lora_path(name: str) -> Path:
             )
     if not full:
         raise ValueError(f"LoRA file not found in models/loras: {name}")
-    path = Path(full).resolve()
-    roots = [Path(root).resolve() for root in folder_paths.get_folder_paths("loras")]
-    if not any(root in path.parents or root == path.parent for root in roots):
+    # Containment is checked on the path as written, with ".." folded but
+    # links not followed: a LoRA kept on another drive and linked into
+    # models/loras is the user's own choice, and ComfyUI loads it too.
+    path = Path(os.path.abspath(full))
+    roots = [Path(os.path.abspath(root)) for root in folder_paths.get_folder_paths("loras")]
+    if not any(root in path.parents for root in roots):
         raise ValueError(f"LoRA path escapes the loras folders: {name}")
     return path
 

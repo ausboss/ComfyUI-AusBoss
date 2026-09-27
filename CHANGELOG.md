@@ -4,6 +4,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **LoRA Loader accepts a LoRA file that is a link.** A LoRA kept on another
+  drive and linked into `models/loras` was refused as "escapes the loras
+  folders" and then reported missing, which stops the run in a workflow
+  set to stop on a missing LoRA. The check now reads the path as written, so
+  a linked file loads as it does in ComfyUI's own loaders, and a name that
+  climbs out of the folder with `..` is still refused.
 - **Qwen Image 2.1 Edit example: the consistency LoRA.** Qwen Image 2.1
   restyles often come back about 4-5% taller and shifted off the source's
   frame. The example now loads the Qwen Image 2.1 Consistency LoRA
