@@ -1,6 +1,6 @@
 # Image Crop + Rotate + Pad
 
-Loads an image and applies one reusable **rotate → crop → pad** transform. Click **Open editor** for the full-screen canvas; normal queued and API execution use the saved widget values without needing the editor.
+Loads an image and applies one reusable **rotate → crop → pad** transform. Click **Open editor** for the full-screen canvas (**Save & close** keeps your edits; **Cancel** or Escape puts everything back, asking first if anything changed); normal queued and API execution use the saved widget values without needing the editor.
 
 ## Controls
 

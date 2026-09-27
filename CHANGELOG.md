@@ -4,6 +4,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Editors can be closed without saving.** The Crop + Rotate + Pad editor
+  (image, video and clip) gains a **Cancel** button beside Save & close, and
+  Escape now cancels instead of saving. When something changed, Cancel asks
+  first, and Discard puts the node back exactly as it was when the editor
+  opened. The Workflow Note editor asks the same before Cancel, Escape or a
+  click outside throws edits away, and a JSON edit carried back to the form
+  no longer survives a Cancel.
 - **Save Image: a preview switch, and plainer wording.** The saved picture
   now sits in the pack's preview panel with the same small `PREVIEW` switch
   as Select Frame and Mask Refine; off, the picture goes away and the node is

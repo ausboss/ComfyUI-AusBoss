@@ -9,6 +9,7 @@ import { mediaViewQuery } from "./media_list.mjs";
 import { createMediaPicker } from "./media_picker.mjs";
 import { normalizeFillColor } from "./fill_color.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
+import { confirmDiscard } from "./discard_prompt.mjs";
 import { featherGeneratedMask, overlayPlan, stitchBlendFromMask } from "./stitch_preview.mjs";
 import {
   INPUT_FOLDER_MODE,
@@ -975,14 +976,16 @@ function openEditor(state) {
   const header = createElement("div", "ausboss-transform-header");
   header.append(createElement("strong", "", `${state.kind === "video" ? "Video" : "Image"} Crop + Rotate + Pad`), createElement("span", "ausboss-transform-badge", "AusBoss"));
   header.append(createElement("span", "spacer"));
-  const close = createElement("button", "ausboss-transform-close", "Save & close"); header.append(close);
+  const cancel = createElement("button", "", "Cancel");
+  cancel.title = "Close without saving: puts back everything as it was when the editor opened (Esc)";
+  const close = createElement("button", "ausboss-transform-close", "Save & close"); header.append(cancel, close);
   const body = createElement("div", "ausboss-transform-body");
   const left = createElement("aside", "ausboss-transform-sidebar");
   const stage = createElement("main", "ausboss-transform-stage");
   const canvas = createElement("canvas", "ausboss-transform-canvas"); stage.append(canvas);
   const right = createElement("aside", "ausboss-transform-sidebar right");
   body.append(left, stage, right); modal.append(header, body);
-  state.modal = modal; state.canvas = canvas;
+  state.modal = modal; state.canvas = canvas; state.openSnapshot = editorSnapshot(state.node);
   buildControls(state, left);
   const status = createElement("div", "ausboss-transform-status"); status.dataset.ausbossStatus = ""; right.append(status);
   right.append(createElement("div", "ausboss-transform-help", "Drag cyan squares to crop. Drag inside the crop to move it. Orange diamonds add padding. The rotate knob at the top-right corner rotates; hold Shift to snap to 15 degrees. Wheel zooms. Middle mouse or Alt-drag pans."));
@@ -992,6 +995,7 @@ function openEditor(state) {
 
   const abort = new AbortController(); state.modalAbort = abort;
   close.addEventListener("click", () => closeEditor(state), { signal: abort.signal });
+  cancel.addEventListener("click", () => void cancelEditor(state), { signal: abort.signal });
   attachStageHandlers(state, canvas, abort.signal);
   canvas.addEventListener("wheel", (event) => wheelZoom(state, event), { signal: abort.signal, passive: false });
   window.addEventListener("keydown", (event) => keyDown(state, event), { signal: abort.signal });
@@ -1007,12 +1011,73 @@ function closeEditor(state) {
   state.modalAbort?.abort(); state.resizeObserver?.disconnect(); state.modal?.remove();
   if (state.modalTrim) state.trimViews.delete(state.modalTrim);
   state.modalTrim = null; state.timelineLabel = null;
-  state.modal = null; state.canvas = null; state.finalPreviewCanvas = null; state.drag = null; state.grid = false; state.syncEditorControls = null; state.syncStitchControls = null; state.blendOverlay = null;
+  state.modal = null; state.openSnapshot = null; state.canvas = null; state.finalPreviewCanvas = null; state.drag = null; state.grid = false; state.syncEditorControls = null; state.syncStitchControls = null; state.blendOverlay = null;
   draw(state); state.node.setDirtyCanvas?.(true, true);
   // Sidebar and timeline controls write widgets without a canvas drag, so a
   // closing editor is their commit point. The disposal path (node removed,
   // possibly mid-load teardown) must never trigger a capture.
   if (hadModal && !state.disposed) notifyAusbossChange();
+}
+
+// Cancel is the editor's undo-everything: the controls write the node's
+// widgets live, so the snapshot taken at open is what a cancel puts back.
+// Properties carry the aspect lock and pad/crop mode; the preview DOM widget
+// is display only.
+function editorSnapshot(node) {
+  const widgets = {};
+  for (const item of node.widgets ?? []) {
+    if (!item.name || item.name === "ausboss_transform_preview") continue;
+    const current = item.value;
+    if (current === null || ["string", "number", "boolean"].includes(typeof current)) widgets[item.name] = current;
+  }
+  const properties = {};
+  for (const [key, current] of Object.entries(node.properties ?? {})) {
+    if (key.startsWith("ausboss_")) properties[key] = JSON.stringify(current);
+  }
+  return { widgets, properties };
+}
+
+// The clip node's playhead never reaches its output, so looking around the
+// clip alone is not an edit worth a prompt. A discard still puts it back.
+const CLIP_PLAYHEAD_WIDGETS = new Set(["seek_mode", "frame_index", "frame_time"]);
+
+function editorChanged(state) {
+  const before = state.openSnapshot; if (!before) return false;
+  const now = editorSnapshot(state.node);
+  const keys = (a, b) => new Set([...Object.keys(a), ...Object.keys(b)]);
+  for (const name of keys(before.widgets, now.widgets)) {
+    if (state.isClip && CLIP_PLAYHEAD_WIDGETS.has(name)) continue;
+    if (!Object.is(before.widgets[name], now.widgets[name])) return true;
+  }
+  for (const key of keys(before.properties, now.properties)) if (before.properties[key] !== now.properties[key]) return true;
+  return false;
+}
+
+function restoreSnapshot(state, snapshot) {
+  const node = state.node;
+  node.properties ??= {};
+  for (const key of Object.keys(node.properties)) {
+    if (key.startsWith("ausboss_") && !(key in snapshot.properties)) delete node.properties[key];
+  }
+  for (const [key, text] of Object.entries(snapshot.properties)) node.properties[key] = JSON.parse(text);
+  // Only changed widgets go back, through their callbacks, so a source that
+  // never changed is not reloaded.
+  for (const [name, previous] of Object.entries(snapshot.widgets)) {
+    if (!Object.is(value(node, name, undefined), previous)) setValue(node, name, previous);
+  }
+}
+
+async function cancelEditor(state) {
+  if (!state.modal || state.discardPending) return;
+  if (editorChanged(state)) {
+    state.discardPending = true;
+    stopPlayback(state);
+    const discard = await confirmDiscard();
+    state.discardPending = false;
+    if (!discard || !state.modal) return;
+    restoreSnapshot(state, state.openSnapshot);
+  }
+  closeEditor(state);
 }
 
 // Inpaint & Stitch (clip node): the stitcher this node emits pastes the source
@@ -1495,7 +1560,8 @@ function stopPlayback(state) {
 
 function keyDown(state, event) {
   if (!state.modal || ["INPUT", "SELECT", "TEXTAREA"].includes(event.target?.tagName)) return;
-  if (event.key === "Escape") { closeEditor(state); return; }
+  if (state.discardPending) return;
+  if (event.key === "Escape") { void cancelEditor(state); return; }
   if (state.kind === "video" && event.code === "Space") { event.preventDefault(); timelineCommand(state, "play"); }
   if (state.kind === "video" && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
     // Light fetches while the key repeats; keyup lands a full-size frame.
