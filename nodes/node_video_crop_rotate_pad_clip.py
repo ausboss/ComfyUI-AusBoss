@@ -8,7 +8,7 @@ import math
 from ._inpaint_crop_helpers import build_transform_stitcher as clip_stitcher
 from ._media_helpers import list_input_videos, register_video_routes, resolve_video_path, video_metadata
 from ._transform_engine import (
-    resize_batch_to_megapixels,
+    resize_transform_to_megapixels,
     stable_file_fingerprint,
     transform_tensor_batch_chunked,
 )
@@ -315,13 +315,17 @@ class AusBossVideoCropRotatePadClip:
         if keep < frames.shape[0]:
             frames = frames[:keep]
         spec = spec_from_values(**values)
-        output, mask, geometry = await asyncio.to_thread(transform_tensor_batch_chunked, frames, spec)
+        # canvas is the clip before the feather fade (the output itself at
+        # feather 0): the stitcher pastes source frames back from it.
+        output, mask, geometry, canvas = await asyncio.to_thread(
+            transform_tensor_batch_chunked, frames, spec, keep_unfaded=True
+        )
         if resize_to_megapixels:
-            output, mask = resize_batch_to_megapixels(
-                output, mask, float(megapixels), str(resize_method), int(resolution_steps)
+            output, mask, canvas = resize_transform_to_megapixels(
+                output, mask, canvas, float(megapixels), str(resize_method), int(resolution_steps)
             )
         stitcher = clip_stitcher(
-            output, mask, geometry, int(stitch_blend), int(stitch_grow),
+            canvas, mask, geometry, int(stitch_blend), int(stitch_grow),
             source="Video Crop + Rotate + Pad -> Clip",
         )
         fps = source_fps / nth

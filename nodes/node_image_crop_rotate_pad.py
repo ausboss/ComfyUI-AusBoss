@@ -6,7 +6,7 @@ from ._media_helpers import list_input_images, load_image_frames, resolve_input_
 from ._inpaint_crop_helpers import build_transform_stitcher
 from ._transform_engine import (
     original_image_batch,
-    resize_batch_to_megapixels,
+    resize_transform_to_megapixels,
     stable_file_fingerprint,
     transform_pil_batch,
 )
@@ -34,9 +34,10 @@ class AusBossImageCropRotatePad:
         }
         required.update(transform_inputs())
         # Appended AFTER the stable V1 widgets, so saved workflows' positional
-        # widgets_values keep loading; missing values fall back to defaults.
-        required.update(resize_inputs())
-        return {"required": required}
+        # widgets_values keep loading, and optional, so an API prompt from
+        # before they existed still validates; missing values fall back to
+        # load_transform's defaults.
+        return {"required": required, "optional": resize_inputs()}
 
     # Appended outputs only: saved links ride slot indices.
     RETURN_TYPES = ("IMAGE", "MASK", "AUSBOSS_STITCHER", "IMAGE", "INT", "INT")
@@ -62,12 +63,14 @@ class AusBossImageCropRotatePad:
     ):
         path = resolve_input_path(image)
         frames = load_image_frames(path)
-        output, mask, geometry = transform_pil_batch(frames, spec_from_values(**values))
+        # canvas: the output before the feather fade, which is what the
+        # stitcher pastes back over the kept source.
+        output, mask, geometry, canvas = transform_pil_batch(frames, spec_from_values(**values), keep_unfaded=True)
         if resize_to_megapixels:
-            output, mask = resize_batch_to_megapixels(
-                output, mask, float(megapixels), str(resize_method), int(resolution_steps)
+            output, mask, canvas = resize_transform_to_megapixels(
+                output, mask, canvas, float(megapixels), str(resize_method), int(resolution_steps)
             )
-        stitcher = build_transform_stitcher(output, mask, geometry, 32, source="Image Crop + Rotate + Pad")
+        stitcher = build_transform_stitcher(canvas, mask, geometry, 32, source="Image Crop + Rotate + Pad")
         return (
             output, mask, stitcher, original_image_batch(frames),
             int(output.shape[2]), int(output.shape[1]),

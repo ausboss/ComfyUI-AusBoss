@@ -11,7 +11,7 @@ from ._media_helpers import (
 from ._inpaint_crop_helpers import build_transform_stitcher
 from ._transform_engine import (
     original_image_batch,
-    resize_batch_to_megapixels,
+    resize_transform_to_megapixels,
     stable_file_fingerprint,
     transform_pil_batch,
 )
@@ -109,13 +109,14 @@ class AusBossVideoCropRotatePad:
     ):
         path = resolve_video_path(source_mode, video, local_path)
         frame, _, _ = decode_video_frame(path, seek_mode, frame_index, frame_time)
-        output, mask, geometry = transform_pil_batch([frame], spec_from_values(**values))
+        output, mask, geometry, canvas = transform_pil_batch([frame], spec_from_values(**values), keep_unfaded=True)
         if resize_to_megapixels:
-            output, mask = resize_batch_to_megapixels(
-                output, mask, float(megapixels), str(resize_method), int(resolution_steps)
+            output, mask, canvas = resize_transform_to_megapixels(
+                output, mask, canvas, float(megapixels), str(resize_method), int(resolution_steps)
             )
+        # The unfaded canvas, so the stitch restores source pixels, not faded ones.
         stitcher = build_transform_stitcher(
-            output, mask, geometry, 32, source="Video Crop + Rotate + Pad -> Frame"
+            canvas, mask, geometry, 32, source="Video Crop + Rotate + Pad -> Frame"
         )
         return (
             output, mask, stitcher, original_image_batch([frame]),

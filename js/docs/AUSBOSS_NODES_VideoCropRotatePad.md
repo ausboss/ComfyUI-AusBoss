@@ -14,7 +14,7 @@ generated-area `mask`, a `stitcher` for Stitch Inpaint, the selected
   drop a video file onto the node. Another video keeps the fill, feather and resize
   settings and the lit format chip (the new frame uses its Crop / Pad mode); rotation, crop and
   the playhead start over.
-- **Canvas row** under the format chips: fill swatch, feather amount and the resize budget on the node face.
+- **Canvas row** under the format chips: fill swatch, feather amount and Resize on the node face; ticking Resize opens the megapixel budget and its Step. The line under the picture names each step that sets the output size, as on the image node.
 - **Upload** streams to the input folder, so videos larger than the buffered image-upload limit can be selected here or dropped onto the node.
 - **Uploads** / **Local path** (`source_mode`: `input folder` / `local path`): the source card's switch. Local path mode avoids copying large files.
 - **local_path**: Absolute path used only in local path mode, read in place without an

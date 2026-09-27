@@ -4,6 +4,43 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Editors can be closed without saving.** The Crop + Rotate + Pad editor
+  (image, video and clip) gains a **Cancel** button beside Save & close, and
+  Escape now cancels instead of saving. When something changed, Cancel asks
+  first, and Discard puts the node back exactly as it was when the editor
+  opened. The Workflow Note editor asks the same before Cancel, Escape or a
+  click outside throws edits away, and a JSON edit carried back to the form
+  no longer survives a Cancel.
+- **Crop + Rotate + Pad: rotating keeps the crop.** The crop keeps its size
+  and stays over the same part of the picture, from the knob, the editor's
+  slider, its number box and Reset rotation alike. The slider used to throw
+  the crop away (a centred 1:1 crop jumped to the top), and the knob slid it
+  off the picture as the canvas grew.
+- **Crop + Rotate + Pad: the size explains itself.** A line under the picture
+  names every step that sets the output size (`crop → pad → align → resize`),
+  warns when the resize Step stretches the picture by more than 1% and when
+  Align pads a strip of fill ahead of a resize, and the editor's panel lists
+  the same steps. Ticking Resize on the node now shows the resize **Step** next
+  to the megapixel budget.
+- **Video Crop + Rotate + Pad → Clip: one way to set the length.** The Fixed
+  frames and Limit boxes are gone from the node face. OUT ends the clip, and a
+  **Length** switch (off by default) sets it by a frame count instead: OUT then
+  follows IN at that distance and the count survives a video swap. OUT always
+  sits on the last frame the run outputs (Every nth and Snap included), where
+  Limit used to end the clip short of it. Connecting `fixed_frames` or
+  `frame_load_cap` hands the length to that input: the OUT handle goes away and
+  only IN is left to set. No inputs changed; saved Limit values read as a
+  Length, and an old Fixed frames value becomes one on the first edit.
+- **Crop + Rotate + Pad: Stitch puts the source back exactly.** With feather
+  above 0 the stitcher pasted the faded edge band back into the result (a dark
+  or grey halo inside the picture); it now keeps the unfaded source. What the
+  model sees is unchanged.
+- **Crop + Rotate + Pad: exact aspect sizes.** A crop at a locked ratio no
+  longer loses a pixel to rounding (21:9, 9:21, source), so the size shown on
+  the node always equals the run. A few saved crops come out 1 px larger.
+- **Image Crop + Rotate + Pad: API prompts saved before the resize inputs
+  existed validate again**; the four resize inputs are optional.
+
 - **The Qwen3-VL caption steps keep Text Generate's thinking on.** Krea 2's
   text encoder is Qwen3-VL-4B-Instruct, which has no thinking mode; with
   thinking off, ComfyUI appends an empty think block and the model often

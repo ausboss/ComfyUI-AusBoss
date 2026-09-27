@@ -235,5 +235,8 @@ export function makeScrubInput(options = {}) {
       current = isEmpty(value) ? null : quantizeScrubValue(value, opts);
       if (input.readOnly) input.value = format(current);
     },
+    // For a value whose valid steps change with another setting (a frame
+    // count under a snap rule steps by 8, not 1).
+    setStep: (step, fineStep = null) => { opts.step = step; opts.fineStep = fineStep; },
   };
 }
