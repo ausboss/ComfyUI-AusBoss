@@ -4,6 +4,17 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Qwen Image 2.1 Edit example: the consistency LoRA.** Qwen Image 2.1
+  restyles often come back about 4-5% taller and shifted off the source's
+  frame. The example now loads the Qwen Image 2.1 Consistency LoRA
+  (`ausboss/Qwen-Image-2.1-Consistency-LoRA` on Hugging Face) in a LoRA
+  Loader between the diffusion model and the reference cache: step 1500 is
+  on, and the tighter step 2000 file is one switch away. Over 36 held-out
+  restyles the worst corner moved 24.3 px (median) without it and 1.6 px
+  with it. The Loader stops the run when the file is missing instead of
+  quietly rendering plain Qwen 2.1; switch its row off to run without it.
+  The Workflow Note lists both files, and the picture beside the example is
+  a new render with the LoRA.
 - **New node (experimental): Realign to Source (EXPERIMENTAL 🧪) 🆎.** Qwen
   Image 2.1 draws broad edits (watercolor, anime, oil) a few percent taller
   than the source, up to about 12%, differently for every seed, and

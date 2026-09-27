@@ -1,8 +1,8 @@
 {
   "id": "24bf75f6-d241-4cb5-9205-d0f3b99a73b7",
   "revision": 0,
-  "last_node_id": 65,
-  "last_link_id": 16,
+  "last_node_id": 66,
+  "last_link_id": 17,
   "nodes": [
     {
       "id": 51,
@@ -27,11 +27,11 @@
         "Node name for S&R": "AUSBOSS_NODES_WorkflowNote"
       },
       "widgets_values": [
-        "{\"v\":1,\"title\":\"Qwen Image 2.1 Edit\",\"subtitle\":\"A source, an instruction, a matching canvas. Compare the change before saving.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"#78b39a\",\"body\":\"## Start here\\nCopy `ausboss_pier_sunrise.png` from the pack's `example_workflows/inputs/` folder into `ComfyUI/input/`, or choose your own image. Select the three downloaded models and queue.\\n\\n## Make the edit\\n1. **Image Resize** sets a 1 MP working image and snaps its edges to 32 pixels. It starts in megapixels mode.\\n2. **Text** describes the change. Name the subject to preserve and refer to the source as `<image1>`.\\n3. **Qwen Encode** reads the source with its VAE and returns both conditioning and a matching empty latent. Resolution 0 keeps the already resized picture.\\n4. **Compare** slides the result against that working image. **Save Image** writes a PNG with this workflow inside.\\n\\n## More references\\nConnect another Load Image to the encoder's next image socket, then name it `<image2>` in the instruction. Continue for up to 10 references. The first image determines the output size; leave the encoder's latent wired to the sampler.\\n\\n## Sampling\\n25 steps, CFG 1, Euler / simple, denoise 1. These starting values match the supplied template. Try 40 steps for a more complete render. Negative text has no effect at CFG 1. The cache starts at auto / default.\\n\\n## Models\\nEach Download button below names its destination under `ComfyUI/models/`. Refresh the model list after copying files. The model repository also provides optional BF16 alternatives.\",\"models\":[{\"name\":\"qwen_image_2.1_int8_convrot.safetensors\",\"dir\":\"diffusion_models\",\"size\":\"7.26 GB\",\"note\":\"Selected INT8 diffusion model.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors\"},{\"name\":\"qwen3vl_8b_int8_convrot.safetensors\",\"dir\":\"text_encoders\",\"size\":\"9.35 GB\",\"note\":\"Selected Qwen3-VL 8B encoder; CLIP type: qwen_image.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\"},{\"name\":\"qwen_image_2.1_vae_bf16.safetensors\",\"dir\":\"vae\",\"size\":\"676 MB\",\"note\":\"Use the Qwen Image 2.1 VAE.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors\"}],\"packs\":[],\"links\":[{\"label\":\"Qwen 2.1 model files + BF16 alternatives\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1\"},{\"label\":\"Qwen model guide\",\"url\":\"https://huggingface.co/Qwen/Qwen-Image-2.1\"}]}",
+        "{\"v\":1,\"title\":\"Qwen Image 2.1 Edit\",\"subtitle\":\"A source, an instruction, a matching canvas. Compare the change before saving.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"#78b39a\",\"body\":\"## Start here\\nCopy `ausboss_pier_sunrise.png` from the pack's `example_workflows/inputs/` folder into `ComfyUI/input/`, or choose your own image. Select the four downloaded models and queue.\\n\\n**Consistency LoRA:** it keeps the edit on the original's frame. Without it, Qwen Image 2.1 restyles often come back about 4-5% taller and shifted: over 36 held-out restyles the worst corner moved 24.3 px (median) without it and 1.6 px with it. If its file is missing, the run stops before sampling; switch its row off to run plain Qwen 2.1.\\n\\n## Make the edit\\n1. **Image Resize** sets a 1 MP working image and snaps its edges to 32 pixels. It starts in megapixels mode.\\n2. **Text** describes the change. Name the subject to preserve and refer to the source as `<image1>`.\\n3. **Qwen Encode** reads the source with its VAE and returns both conditioning and a matching empty latent. Resolution 0 keeps the already resized picture.\\n4. **Compare** slides the result against that working image. **Save Image** writes a PNG with this workflow inside.\\n\\n## More references\\nConnect another Load Image to the encoder's next image socket, then name it `<image2>` in the instruction. Continue for up to 10 references. The first image determines the output size; leave the encoder's latent wired to the sampler.\\n\\n## Sampling\\n25 steps, CFG 1, Euler / simple, denoise 1. These starting values match the supplied template. Try 40 steps for a more complete render. Negative text has no effect at CFG 1. The cache starts at auto / default.\\n\\n## Models\\nEach Download button below names its destination under `ComfyUI/models/`. Refresh the model list after copying files. The model repository also provides optional BF16 alternatives.\",\"models\":[{\"name\":\"qwen_image_2.1_int8_convrot.safetensors\",\"dir\":\"diffusion_models\",\"size\":\"7.26 GB\",\"note\":\"Selected INT8 diffusion model.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors\"},{\"name\":\"qwen3vl_8b_int8_convrot.safetensors\",\"dir\":\"text_encoders\",\"size\":\"9.35 GB\",\"note\":\"Selected Qwen3-VL 8B encoder; CLIP type: qwen_image.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\"},{\"name\":\"qwen_image_2.1_vae_bf16.safetensors\",\"dir\":\"vae\",\"size\":\"676 MB\",\"note\":\"Use the Qwen Image 2.1 VAE.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors\"},{\"name\":\"qwen-image-2.1-consistency.safetensors\",\"dir\":\"loras\",\"size\":\"159 MB\",\"note\":\"My consistency LoRA, step 1500: keeps the edit on the source's frame. Strength 1.\",\"url\":\"https://huggingface.co/ausboss/Qwen-Image-2.1-Consistency-LoRA/resolve/main/qwen-image-2.1-consistency.safetensors\"},{\"name\":\"qwen-image-2.1-consistency-2000.safetensors\",\"dir\":\"loras\",\"size\":\"159 MB\",\"note\":\"Optional step 2000: tighter fit, paler paintings. Turn its row on instead.\",\"url\":\"https://huggingface.co/ausboss/Qwen-Image-2.1-Consistency-LoRA/resolve/main/qwen-image-2.1-consistency-2000.safetensors\"}],\"packs\":[],\"links\":[{\"label\":\"Consistency LoRA on Hugging Face\",\"url\":\"https://huggingface.co/ausboss/Qwen-Image-2.1-Consistency-LoRA\"},{\"label\":\"Consistency LoRA on Civitai\",\"url\":\"https://civitai.com/models/2969143\"},{\"label\":\"Qwen 2.1 model files + BF16 alternatives\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1\"},{\"label\":\"Qwen model guide\",\"url\":\"https://huggingface.co/Qwen/Qwen-Image-2.1\"}]}",
         ""
       ],
       "widgets_values_named": {
-        "note": "{\"v\":1,\"title\":\"Qwen Image 2.1 Edit\",\"subtitle\":\"A source, an instruction, a matching canvas. Compare the change before saving.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"#78b39a\",\"body\":\"## Start here\\nCopy `ausboss_pier_sunrise.png` from the pack's `example_workflows/inputs/` folder into `ComfyUI/input/`, or choose your own image. Select the three downloaded models and queue.\\n\\n## Make the edit\\n1. **Image Resize** sets a 1 MP working image and snaps its edges to 32 pixels. It starts in megapixels mode.\\n2. **Text** describes the change. Name the subject to preserve and refer to the source as `<image1>`.\\n3. **Qwen Encode** reads the source with its VAE and returns both conditioning and a matching empty latent. Resolution 0 keeps the already resized picture.\\n4. **Compare** slides the result against that working image. **Save Image** writes a PNG with this workflow inside.\\n\\n## More references\\nConnect another Load Image to the encoder's next image socket, then name it `<image2>` in the instruction. Continue for up to 10 references. The first image determines the output size; leave the encoder's latent wired to the sampler.\\n\\n## Sampling\\n25 steps, CFG 1, Euler / simple, denoise 1. These starting values match the supplied template. Try 40 steps for a more complete render. Negative text has no effect at CFG 1. The cache starts at auto / default.\\n\\n## Models\\nEach Download button below names its destination under `ComfyUI/models/`. Refresh the model list after copying files. The model repository also provides optional BF16 alternatives.\",\"models\":[{\"name\":\"qwen_image_2.1_int8_convrot.safetensors\",\"dir\":\"diffusion_models\",\"size\":\"7.26 GB\",\"note\":\"Selected INT8 diffusion model.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors\"},{\"name\":\"qwen3vl_8b_int8_convrot.safetensors\",\"dir\":\"text_encoders\",\"size\":\"9.35 GB\",\"note\":\"Selected Qwen3-VL 8B encoder; CLIP type: qwen_image.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\"},{\"name\":\"qwen_image_2.1_vae_bf16.safetensors\",\"dir\":\"vae\",\"size\":\"676 MB\",\"note\":\"Use the Qwen Image 2.1 VAE.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors\"}],\"packs\":[],\"links\":[{\"label\":\"Qwen 2.1 model files + BF16 alternatives\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1\"},{\"label\":\"Qwen model guide\",\"url\":\"https://huggingface.co/Qwen/Qwen-Image-2.1\"}]}",
+        "note": "{\"v\":1,\"title\":\"Qwen Image 2.1 Edit\",\"subtitle\":\"A source, an instruction, a matching canvas. Compare the change before saving.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"#78b39a\",\"body\":\"## Start here\\nCopy `ausboss_pier_sunrise.png` from the pack's `example_workflows/inputs/` folder into `ComfyUI/input/`, or choose your own image. Select the four downloaded models and queue.\\n\\n**Consistency LoRA:** it keeps the edit on the original's frame. Without it, Qwen Image 2.1 restyles often come back about 4-5% taller and shifted: over 36 held-out restyles the worst corner moved 24.3 px (median) without it and 1.6 px with it. If its file is missing, the run stops before sampling; switch its row off to run plain Qwen 2.1.\\n\\n## Make the edit\\n1. **Image Resize** sets a 1 MP working image and snaps its edges to 32 pixels. It starts in megapixels mode.\\n2. **Text** describes the change. Name the subject to preserve and refer to the source as `<image1>`.\\n3. **Qwen Encode** reads the source with its VAE and returns both conditioning and a matching empty latent. Resolution 0 keeps the already resized picture.\\n4. **Compare** slides the result against that working image. **Save Image** writes a PNG with this workflow inside.\\n\\n## More references\\nConnect another Load Image to the encoder's next image socket, then name it `<image2>` in the instruction. Continue for up to 10 references. The first image determines the output size; leave the encoder's latent wired to the sampler.\\n\\n## Sampling\\n25 steps, CFG 1, Euler / simple, denoise 1. These starting values match the supplied template. Try 40 steps for a more complete render. Negative text has no effect at CFG 1. The cache starts at auto / default.\\n\\n## Models\\nEach Download button below names its destination under `ComfyUI/models/`. Refresh the model list after copying files. The model repository also provides optional BF16 alternatives.\",\"models\":[{\"name\":\"qwen_image_2.1_int8_convrot.safetensors\",\"dir\":\"diffusion_models\",\"size\":\"7.26 GB\",\"note\":\"Selected INT8 diffusion model.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors\"},{\"name\":\"qwen3vl_8b_int8_convrot.safetensors\",\"dir\":\"text_encoders\",\"size\":\"9.35 GB\",\"note\":\"Selected Qwen3-VL 8B encoder; CLIP type: qwen_image.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\"},{\"name\":\"qwen_image_2.1_vae_bf16.safetensors\",\"dir\":\"vae\",\"size\":\"676 MB\",\"note\":\"Use the Qwen Image 2.1 VAE.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors\"},{\"name\":\"qwen-image-2.1-consistency.safetensors\",\"dir\":\"loras\",\"size\":\"159 MB\",\"note\":\"My consistency LoRA, step 1500: keeps the edit on the source's frame. Strength 1.\",\"url\":\"https://huggingface.co/ausboss/Qwen-Image-2.1-Consistency-LoRA/resolve/main/qwen-image-2.1-consistency.safetensors\"},{\"name\":\"qwen-image-2.1-consistency-2000.safetensors\",\"dir\":\"loras\",\"size\":\"159 MB\",\"note\":\"Optional step 2000: tighter fit, paler paintings. Turn its row on instead.\",\"url\":\"https://huggingface.co/ausboss/Qwen-Image-2.1-Consistency-LoRA/resolve/main/qwen-image-2.1-consistency-2000.safetensors\"}],\"packs\":[],\"links\":[{\"label\":\"Consistency LoRA on Hugging Face\",\"url\":\"https://huggingface.co/ausboss/Qwen-Image-2.1-Consistency-LoRA\"},{\"label\":\"Consistency LoRA on Civitai\",\"url\":\"https://civitai.com/models/2969143\"},{\"label\":\"Qwen 2.1 model files + BF16 alternatives\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1\"},{\"label\":\"Qwen model guide\",\"url\":\"https://huggingface.co/Qwen/Qwen-Image-2.1\"}]}",
         "ausboss_workflow_note_panel": ""
       },
       "color": "#14424d",
@@ -177,15 +177,15 @@
       }
     },
     {
-      "id": 55,
-      "type": "QwenImage21Cache",
+      "id": 66,
+      "type": "AUSBOSS_NODES_LoraLoader",
       "pos": [
         0,
         526
       ],
       "size": [
         440,
-        100
+        224
       ],
       "flags": {},
       "order": 8,
@@ -195,6 +195,86 @@
           "name": "model",
           "type": "MODEL",
           "link": 1
+        },
+        {
+          "name": "clip",
+          "shape": 7,
+          "type": "CLIP",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "links": [
+            17
+          ]
+        },
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "links": null
+        },
+        {
+          "name": "triggers",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "title": "Consistency LoRA · 1500 on, 2000 off",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.0.2",
+        "Node name for S&R": "AUSBOSS_NODES_LoraLoader",
+        "ausbossLoraLinked": true,
+        "models": [
+          {
+            "name": "qwen-image-2.1-consistency.safetensors",
+            "url": "https://huggingface.co/ausboss/Qwen-Image-2.1-Consistency-LoRA/resolve/main/qwen-image-2.1-consistency.safetensors",
+            "directory": "loras"
+          },
+          {
+            "name": "qwen-image-2.1-consistency-2000.safetensors",
+            "url": "https://huggingface.co/ausboss/Qwen-Image-2.1-Consistency-LoRA/resolve/main/qwen-image-2.1-consistency-2000.safetensors",
+            "directory": "loras"
+          }
+        ]
+      },
+      "widgets_values": [
+        "[{\"name\": \"qwen-image-2.1-consistency.safetensors\", \"strength\": 1, \"enabled\": true, \"triggers\": \"\"}, {\"name\": \"qwen-image-2.1-consistency-2000.safetensors\", \"strength\": 1, \"enabled\": false, \"triggers\": \"\"}]",
+        ", ",
+        "error",
+        ""
+      ],
+      "widgets_values_named": {
+        "loras": "[{\"name\": \"qwen-image-2.1-consistency.safetensors\", \"strength\": 1, \"enabled\": true, \"triggers\": \"\"}, {\"name\": \"qwen-image-2.1-consistency-2000.safetensors\", \"strength\": 1, \"enabled\": false, \"triggers\": \"\"}]",
+        "trigger_separator": ", ",
+        "on_missing": "error",
+        "ausboss_lora_rows": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 55,
+      "type": "QwenImage21Cache",
+      "pos": [
+        0,
+        810
+      ],
+      "size": [
+        440,
+        100
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 17
         }
       ],
       "outputs": [
@@ -226,7 +306,7 @@
       "type": "LoadImage",
       "pos": [
         0,
-        760
+        1044
       ],
       "size": [
         440,
@@ -277,7 +357,7 @@
         330
       ],
       "flags": {},
-      "order": 9,
+      "order": 10,
       "mode": 0,
       "inputs": [
         {
@@ -415,7 +495,7 @@
         360
       ],
       "flags": {},
-      "order": 10,
+      "order": 11,
       "mode": 0,
       "inputs": [
         {
@@ -545,7 +625,7 @@
         270
       ],
       "flags": {},
-      "order": 11,
+      "order": 12,
       "mode": 0,
       "inputs": [
         {
@@ -623,7 +703,7 @@
         50
       ],
       "flags": {},
-      "order": 12,
+      "order": 13,
       "mode": 0,
       "inputs": [
         {
@@ -692,7 +772,7 @@
         560
       ],
       "flags": {},
-      "order": 13,
+      "order": 14,
       "mode": 0,
       "inputs": [
         {
@@ -743,7 +823,7 @@
         620
       ],
       "flags": {},
-      "order": 14,
+      "order": 15,
       "mode": 0,
       "inputs": [
         {
@@ -820,7 +900,7 @@
       1,
       52,
       0,
-      55,
+      66,
       0,
       "MODEL"
     ],
@@ -943,6 +1023,14 @@
       65,
       0,
       "IMAGE"
+    ],
+    [
+      17,
+      66,
+      0,
+      55,
+      0,
+      "MODEL"
     ]
   ],
   "groups": [
@@ -953,7 +1041,7 @@
         -20,
         40,
         480,
-        630
+        914
       ],
       "color": "#235d64",
       "flags": {}
@@ -963,7 +1051,7 @@
       "title": "2 · Source",
       "bounding": [
         -20,
-        700,
+        984,
         480,
         670
       ],
