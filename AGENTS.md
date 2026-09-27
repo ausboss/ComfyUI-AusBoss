@@ -205,6 +205,11 @@ Before asking for a merge or a publish, every fix PR and every model release
 ships a proof package: a failing-then-passing test, before/after evidence, and
 a dev server with ready-to-run workflows. See `docs/proof_packages.md`.
 
+Publishing workflows to Civitai, cover videos, replies to users and the test
+servers are covered by ausboss's creator playbook, the `comfy-community` shared
+skill (`~/Documents/openclaw-shared-skills/comfy-community`; start at its "Get up
+to speed" section).
+
 ```bash
 python scripts/validate_nodes.py
 python scripts/release_preflight.py
