@@ -137,9 +137,9 @@ class AusBossVideoCropRotatePadClip:
             ),
         }
         # A fresh clip starts outpaint-ready: the in-context video models
-        # this feeds (LTX IC-LoRA) paint pure black behind a hard edge and
-        # leave a grey or feathered band untouched, so those are the defaults
-        # here and what the editor's Reset returns to.
+        # this feeds (LTX IC-LoRA) paint pure black and leave a grey band
+        # untouched, so black and an unfeathered mask are the defaults here
+        # and what the editor's Reset returns to.
         required.update(transform_inputs(feather=0, fill_color="#000000"))
         required.update(resize_inputs())
         optional = {

@@ -14,14 +14,18 @@ model that paints black regions.
 - **Uploads**: Pick an existing input video (the list plays the clip under the pointer, muted, and filters as you type), click **Upload**, or drop a video file
   onto the node. The old source widgets remain compatible with saved workflows, but
   are now driven by this compact card. Choosing another video keeps the canvas
-  settings - fill, feather, resize budget, Snap, Limit - and pads the new clip to the
+  settings - fill, feather, resize budget, Snap, Length - and pads the new clip to the
   lit format chip; only rotation, crop and the trim window start over.
 - **Canvas row** (under the format chips): the fill swatch, the feather amount and
-  the resize budget, right on the node. These are what a video outpaint model keys
-  on - the LTX IC-LoRA paints **pure black** with a **hard edge** (feather 0) at
-  sizes rounded to 32 - so a wrong value shows here before a render is wasted.
-  A fresh clip node starts with that pair (black, feather 0) and the editor's
-  **Reset transform** returns to it; the image nodes keep their soft grey canvas.
+  Resize, right on the node; ticking Resize opens the megapixel budget and its
+  **Step**. These are what a video outpaint model keys on - the LTX IC-LoRA paints
+  **pure black** at sizes rounded to 32 - so a wrong value shows here before a
+  render is wasted. Feather only softens the mask and the stitch; the frames always
+  meet the fill with a hard edge. The line under the picture names each step that
+  sets the size (`576×1024 → pad 1821×1024 → resize 1280×704`) and warns in amber
+  when the Step stretches the picture by more than 1%. A fresh clip node starts
+  with black and feather 0 and the editor's **Reset transform** returns to them;
+  the image nodes keep their grey fill and feathered mask.
 - **Local path** (`source_mode` / `local_path`): Read a video on the ComfyUI server in
   place without an upload copy. It must sit inside ComfyUI's input, output or temp
   folder, for queued runs and the editor's live preview alike; paths anywhere else are
@@ -33,22 +37,24 @@ model that paints black regions.
   go. IN and OUT are frames, snapped to the source's frame grid; the boxes under the
   rail take a frame number, and `start_seconds` / `end_seconds` are derived from them
   (OUT is exclusive, 0 means the end of the source). Arrow keys on a handle move one
-  second, Shift one frame. The bright part of the selection is what the run outputs
-  after the frame limit and Snap; a dim tail means those frames are dropped. In the
-  editor, **Set IN** / **Set OUT** (or the **I** / **O** keys) put a trim point at the
-  playhead, and **Full clip** resets the window.
-- **Fixed frames** (`fixed_frames`): Set or connect an exact output count. **120
-  frames at 24 fps selects five seconds**. Drag either handle or the highlighted
-  selection to slide the whole window; its length stays fixed at both ends of the
-  source. IN/OUT fields and Set IN/OUT move the whole window too. Alt-drag the rail
-  to scrub inside the selection. **To start** moves it to the source beginning.
-  Set 0 for ordinary free trim. Duration follows output fps, including `force_rate`
-  and Every nth. Fixed frames overrides OUT/`end_frame`, Limit/`frame_load_cap`, and
-  Snap. Choose a model-compatible count yourself. If the source is too short, the
-  node reports the required duration instead of returning a shorter clip.
-- **Every nth** / **Limit** (`every_nth` / `max_frames`): Thin the batch or cap it. The `fps` output divides to match every_nth, so the clip keeps real-time downstream.
-- **Snap** (`frame_snap`): Drop trailing frames so the count is one a video model keeps:
+  second, Shift one frame. **OUT always sits on the last frame the run outputs**, so
+  the handle and the bright bar end together; with Every nth or Snap it steps to the
+  frames the run keeps, and a dim tail marks frames the window holds but the run
+  drops. In the editor, **Set IN** / **Set OUT** (or the **I** / **O** keys) put a
+  trim point at the playhead, and **Full clip** resets the window.
+- **Length** (`max_frames`): the one other way to set how long the clip is. **Off**
+  (the default): OUT ends the clip. **On**: a number of output frames from IN; OUT
+  sits that many frames after IN and follows it when you drag IN, and dragging OUT or
+  typing the number changes the Length. Drag the bright bar to move the whole clip.
+  The Length stays when you swap the video, so a workflow built for 97 frames keeps
+  taking 97. Turning it on or off never moves anything: the count becomes the OUT,
+  or the OUT the count. If the source ends first, the footer says how many frames
+  are left. **To start** moves IN to the start of the source.
+- **Every nth** (`every_nth`): Thin the batch. The `fps` output divides to match
+  every_nth, so the clip keeps real-time downstream; a Length counts the frames kept.
+- **Snap** (`frame_snap`): Keep a frame count a video model takes:
   **8n+1** for LTX (49, 97, 121), **4n+1** for Wan. Free keeps every frame in the window.
+  OUT drags and the Length step through those counts.
   With it on, `frame_count`, `duration`, the audio window and the stitcher all match the
   clip the sampler hands back, so wiring `frame_count` into the empty latent's length
   never leaves the stitch with more source frames than generated ones.
@@ -65,7 +71,7 @@ its active ratio again to lock the outer canvas, then again to clear it.
 **Reset** on the node clears rotation, crop and padding; fill, feather, Align and
 the timeline stay.
 **Reset transform** in the editor resets rotation, crop, padding, fill, feather and
-Align; it keeps the source, current frame, trim, Fixed frames, resize and stitch settings.
+Align; it keeps the source, current frame, trim, Length, resize and stitch settings.
 **Align** sets the canvas pixel multiple (1 disables alignment padding).
 
 Video Upload and file drop use a streaming route into ComfyUI's input folder,
@@ -100,7 +106,7 @@ Crop For Inpaint node is needed. The editor's right sidebar holds the settings:
 
 - **Blend** (`stitch_blend`): the ramp, in output pixels, where generated pixels fade
   over the source. It is separate from the padding **Feather**, which shapes the mask
-  the model sees - a black-band outpaint wants feather 0 and a blend of a few dozen
+  output - a black-band outpaint does well with feather 0 and a blend of a few dozen
   pixels.
 - **Show blend** tints the stage with the paste mask itself: the generated area (padding, rotation corners), the transform feather, then grow and blend applied in output pixels through any resize - the backend's mask math run at preview resolution.
 - **Advanced → Grow paste** (`stitch_grow`) moves the paste boundary first: a few
@@ -123,8 +129,8 @@ Five optional sockets sit on the left, above the editor:
 | `force_rate` | Sample at this fps before Every nth. 0 keeps the source rate. Drops or repeats frames to keep playback speed. Accepts FLOAT or INT. |
 | `start_frame` | Zero-based source start frame. Overrides timeline IN. |
 | `end_frame` | Exclusive source end frame. 0 means the end of the source. Overrides timeline OUT. |
-| `fixed_frames` | Exact output frames. 0 means free trim. Both handles move together; a linked IN anchors the entire window. |
-| `frame_load_cap` | Maximum frames after rate conversion and Every nth, before Snap. 0 means unlimited. Overrides Limit. |
+| `fixed_frames` | Exact output frames from IN; the source must be long enough. Connected, it sets the length: OUT and Length step aside. |
+| `frame_load_cap` | Maximum frames after rate conversion and Every nth, before Snap. 0 means unlimited. Connected, it sets the length in place of Length. |
 
 Frame bounds use the source's frame-rate grid, independent of `force_rate`.
 The footer labels **Source fps** separately from **Output fps**. A direct
@@ -139,13 +145,15 @@ A 12 fps forced rate returns 24 frames; a cap of 10 then keeps only the first
 
 A connected start or end locks that handle and its IN/OUT field on both
 the node and fullscreen editor. Hover to see why. Disconnect to restore
-local control. A connected cap locks Limit. While timing inputs are connected,
-the preview shows the local trim as a reference and avoids claiming an output
-count before the linked values are evaluated at run time.
+local control. While timing inputs are connected, the preview shows the local
+trim as a reference and avoids claiming an output count before the linked
+values are evaluated at run time.
 
-For a movable fixed window, connect your frame-count control to `fixed_frames`
-and leave IN unconnected. Literal Integer/Float nodes (including AusBoss cards
-and reroutes) update the window before running. Calculated counts or rates show
-“resolves at run time” and disable positioning until the length is known. A
-connected IN anchors both handles; a connected OUT is ignored in fixed mode.
-The existing frame cap keeps its maximum-limit behavior for saved workflows.
+**A connected length input takes over the length.** Connect a count to
+`fixed_frames` (exact) or `frame_load_cap` (at most) and the OUT handle goes
+away, OUT and Length grey out, and only IN is left to set: the clip starts at
+IN and the input decides where it ends. Literal Integer/Float nodes (including
+AusBoss cards and reroutes) show the resulting frames on the rail before
+running; calculated counts show "at run time". An older workflow that saved a
+Fixed frames number without a connection reads as a Length; the first change
+here turns it into one.

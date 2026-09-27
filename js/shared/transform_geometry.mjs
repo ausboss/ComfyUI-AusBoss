@@ -82,6 +82,29 @@ export function parseAspectRatio(value, source) {
   return parts[0] / parts[1];
 }
 
+// A crop_aspect_ratio as the integer pair the backend uses, or null for
+// free (and anything the backend would refuse). "source" is the rotated
+// canvas's own size.
+export function aspectPair(value, source) {
+  if (!value || value === "free") return null;
+  if (value === "source") return [Math.max(1, Math.round(source.width)), Math.max(1, Math.round(source.height))];
+  const parts = String(value).split(":").map(Number);
+  if (parts.length !== 2 || parts.some((part) => !Number.isInteger(part) || part <= 0)) return null;
+  return parts;
+}
+
+// The largest box of a ratio inside width x height, in integers exactly as
+// _transform_engine._geometry computes it. A box already within a pixel of
+// the ratio on either side is kept as it is, so a resolved crop written
+// back resolves to itself.
+export function ratioBox(width, height, [ratioWidth, ratioHeight]) {
+  const fitHeight = Math.floor((width * ratioHeight) / ratioWidth);
+  const fitWidth = Math.floor((height * ratioWidth) / ratioHeight);
+  if (height === fitHeight || width === fitWidth) return { width, height };
+  if (width * ratioHeight > height * ratioWidth) return { width: Math.max(1, fitWidth), height };
+  return { width, height: Math.max(1, fitHeight) };
+}
+
 export function resolveCrop(values, source) {
   const x = Math.round(clamp(values.crop_x, 0, Math.max(0, source.width - 1)));
   const y = Math.round(clamp(values.crop_y, 0, Math.max(0, source.height - 1)));
@@ -89,11 +112,8 @@ export function resolveCrop(values, source) {
   let height = Number(values.crop_height) > 0 ? Number(values.crop_height) : source.height - y;
   width = Math.max(1, Math.min(Math.round(width), source.width - x));
   height = Math.max(1, Math.min(Math.round(height), source.height - y));
-  const ratio = parseAspectRatio(values.crop_aspect_ratio, source);
-  if (ratio) {
-    if (width / height > ratio) width = Math.max(1, Math.floor(height * ratio));
-    else height = Math.max(1, Math.floor(width / ratio));
-  }
+  const pair = aspectPair(values.crop_aspect_ratio, source);
+  if (pair) ({ width, height } = ratioBox(width, height, pair));
   return { x, y, width, height };
 }
 
@@ -276,6 +296,108 @@ export function scaleToMegapixels(width, height, megapixels, steps = 1) {
     width: Math.max(step, Math.round((sourceWidth * scale) / step) * step),
     height: Math.max(step, Math.round((sourceHeight * scale) / step) * step),
   };
+}
+
+// --- Rotation keeps the crop ------------------------------------------------
+// Crop values that keep the framing when the rotation moves from one angle
+// to another. Crop numbers live in rotated-canvas pixels and that canvas
+// changes size with every degree, so leaving them alone slid the crop off
+// the picture, and zeroing them threw the crop away. Instead the crop keeps
+// its size and stays over the same point of the picture: the offset of its
+// centre from the picture centre turns with the picture, then the box is
+// clamped into the new canvas (shrunk evenly, at its ratio, when it no
+// longer fits). A crop that was the whole canvas stays open, so an
+// uncropped canvas still grows to hold the tilted picture.
+export function cropForRotation(values, sourceWidth, sourceHeight, fromDegrees, toDegrees) {
+  const before = rotatedSize(sourceWidth, sourceHeight, fromDegrees);
+  const after = rotatedSize(sourceWidth, sourceHeight, toDegrees);
+  const crop = resolveCrop(values, before);
+  if (crop.x === 0 && crop.y === 0 && crop.width === before.width && crop.height === before.height) {
+    return { crop_x: 0, crop_y: 0, crop_width: 0, crop_height: 0 };
+  }
+  const turn = ((Number(toDegrees) || 0) - (Number(fromDegrees) || 0)) * Math.PI / 180;
+  const cos = Math.cos(turn);
+  const sin = Math.sin(turn);
+  const offsetX = crop.x + crop.width / 2 - before.width / 2;
+  const offsetY = crop.y + crop.height / 2 - before.height / 2;
+  const centerX = after.width / 2 + offsetX * cos - offsetY * sin;
+  const centerY = after.height / 2 + offsetX * sin + offsetY * cos;
+  const fit = Math.min(1, after.width / crop.width, after.height / crop.height);
+  let box = { width: Math.max(1, Math.floor(crop.width * fit)), height: Math.max(1, Math.floor(crop.height * fit)) };
+  const pair = aspectPair(values.crop_aspect_ratio, after);
+  if (pair && fit < 1) box = ratioBox(box.width, box.height, pair);
+  return {
+    crop_x: Math.round(clamp(centerX - box.width / 2, 0, after.width - box.width)),
+    crop_y: Math.round(clamp(centerY - box.height / 2, 0, after.height - box.height)),
+    crop_width: box.width,
+    crop_height: box.height,
+  };
+}
+
+// --- Size chain ---------------------------------------------------------------
+// Every step that sets the output size, in the order the backend runs them,
+// so the face can say why the canvas is the size it is: the crop, the crop
+// plus padding, that rounded up to canvas_multiple, then the resize. Also
+// the surprises worth naming. Each resized side rounds to the steps on its
+// own, which stretches the picture a little (`stretch`, the fraction by
+// which the width scaled more than the height; negative is taller). Align
+// pads the right and bottom with fill (`alignAdded`), which ahead of a
+// resize is only a strip for the model to paint, and a resize whose sides
+// are not multiples of canvas_multiple undoes it anyway (`alignLost`).
+// `resize` is { megapixels, steps } or null.
+export function sizeChain(values, source, resize = null) {
+  const crop = resolveCrop(values, source);
+  const padding = resolvePadding(values, crop);
+  const pads = paddingOf(values);
+  const multiple = Math.max(1, Math.round(Number(values.canvas_multiple) || 1));
+  const chain = {
+    source: { width: source.width, height: source.height },
+    crop,
+    cropped: crop.width !== source.width || crop.height !== source.height,
+    padded: { width: crop.width + pads.left + pads.right, height: crop.height + pads.top + pads.bottom },
+    canvas: { width: padding.outputWidth, height: padding.outputHeight },
+    multiple,
+    resized: null,
+    stretch: 0,
+    alignLost: false,
+  };
+  // The fill strip Align adds on the right and bottom.
+  chain.alignAdded = { right: chain.canvas.width - chain.padded.width, bottom: chain.canvas.height - chain.padded.height };
+  if (resize) {
+    const resized = scaleToMegapixels(chain.canvas.width, chain.canvas.height, resize.megapixels, resize.steps);
+    chain.resized = resized;
+    chain.stretch = (resized.width / chain.canvas.width) / (resized.height / chain.canvas.height) - 1;
+    chain.alignLost = multiple > 1 && (resized.width % multiple !== 0 || resized.height % multiple !== 0);
+  }
+  return chain;
+}
+
+// The chain as short readout tokens, the last one the size the run emits,
+// plus warnings. A step that changes nothing is left out.
+export function sizeChainTokens(chain) {
+  const size = ({ width, height }) => `${width}×${height}`;
+  const tokens = [{ label: chain.cropped ? "crop" : "", text: size(chain.crop) }];
+  if (chain.padded.width !== chain.crop.width || chain.padded.height !== chain.crop.height) {
+    tokens.push({ label: "pad", text: size(chain.padded) });
+  }
+  if (chain.canvas.width !== chain.padded.width || chain.canvas.height !== chain.padded.height) {
+    tokens.push({ label: `align ${chain.multiple}`, text: size(chain.canvas) });
+  }
+  if (chain.resized) tokens.push({ label: "resize", text: size(chain.resized) });
+  const warnings = [];
+  if (Math.abs(chain.stretch) > 0.01) {
+    warnings.push(`${(Math.abs(chain.stretch) * 100).toFixed(1)}% ${chain.stretch > 0 ? "wider" : "taller"} from steps`);
+  }
+  // Ahead of a resize, Align's strip is only fill for the model to paint:
+  // the Step already rounds the size. Name where it went.
+  const { right, bottom } = chain.alignAdded ?? { right: 0, bottom: 0 };
+  if (chain.resized && (right || bottom)) {
+    const sides = [right ? `${right} px right` : "", bottom ? `${bottom} px bottom` : ""].filter(Boolean).join(" + ");
+    warnings.push(`align ${chain.multiple} adds ${sides} of fill`);
+  } else if (chain.alignLost) {
+    warnings.push(`resize undoes align ${chain.multiple}`);
+  }
+  return { tokens, warnings };
 }
 
 // --- Aspect lock ------------------------------------------------------------

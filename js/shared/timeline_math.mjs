@@ -157,6 +157,111 @@ export function keptEndFraction(window, kept, info) {
   return fractionOfFrame(kept.lastKept, info, "end");
 }
 
+// --- One way to set the length ---------------------------------------------
+// The clip node's face sets how long the output is in exactly one of these
+// ways, and the rail only offers the one in charge:
+//   "free"   IN -> OUT: the OUT handle ends the clip.
+//   "length" Length on: a frame count from IN, stored as max_frames with an
+//            open end, so OUT follows IN and the count survives a new source.
+//   "fixed"  a fixed_frames value saved by an older face: an exact window.
+//            The first edit turns it into a Length.
+//   "wired"  a connected fixed_frames, frame_load_cap or max_frames input
+//            decides the length; only IN is left to set.
+export function lengthMode({ maxFrames = 0, fixedFrames = 0, wired = null } = {}) {
+  if (wired) return "wired";
+  if (Math.trunc(finite(fixedFrames)) > 0) return "fixed";
+  if (Math.trunc(finite(maxFrames)) > 0) return "length";
+  return "free";
+}
+
+// The n in a "<n>n+1" snap rule (8 for LTX, 4 for Wan); 1 for free.
+export function snapStep(rule) {
+  const match = /^\s*(\d+)\s*n\s*\+\s*1\s*$/i.exec(String(rule ?? ""));
+  const step = match ? Number(match[1]) : 1;
+  return step > 0 ? step : 1;
+}
+
+// A count the snap rule keeps (step * n + 1, at least 1). Direction 0 takes
+// the nearest, 1 the next at or above, -1 the next at or below - so a stepper
+// arrow always moves to a new valid count instead of rounding back.
+export function snapToValid(count, rule, direction = 0) {
+  const step = snapStep(rule);
+  const value = Math.max(1, Math.round(finite(count, 1)));
+  if (step <= 1) return value;
+  const below = Math.floor((value - 1) / step) * step + 1;
+  const above = below === value ? value : below + step;
+  if (direction > 0) return above;
+  if (direction < 0) return below;
+  return value - below <= above - value ? below : above;
+}
+
+// How many frames a run outputs from `first` through source frame `target`:
+// one in every nth, then the snap rule (never below one frame).
+export function framesThrough(first, target, everyNth = 1, frameSnap = "free") {
+  const nth = Math.max(1, Math.floor(finite(everyNth, 1)) || 1);
+  const span = Math.max(1, Math.round(finite(target)) - Math.round(finite(first)) + 1);
+  return Math.max(1, snapFrameCount(Math.ceil(span / nth), frameSnap));
+}
+
+// The source frame the last of `frames` output frames from `first` sits on.
+export function lastFrameFor(first, frames, everyNth = 1) {
+  const nth = Math.max(1, Math.floor(finite(everyNth, 1)) || 1);
+  return Math.round(finite(first)) + (Math.max(1, Math.trunc(finite(frames, 1))) - 1) * nth;
+}
+
+// The latest IN that still fits a Length of `frames` inside the source, so
+// dragging a locked window to the end stops there instead of shortening it.
+export function latestFirstFor(info, frames, everyNth = 1) {
+  if (!info?.count) return 0;
+  return Math.max(0, info.count - 1 - (lastFrameFor(0, frames, everyNth)));
+}
+
+// Everything the rail draws for the clip node, from the stored values:
+//   mode        which way sets the length (lengthMode)
+//   first       IN, the first source frame the run keeps
+//   last        the source frame OUT sits on - the last one the run keeps -
+//               or null when only the run can tell (a computed input)
+//   windowLast  the stored window's end; frames between last and it are
+//               kept by the window but dropped (every nth, the snap rule)
+//   frames      output frames, or null when unknown
+//   requested   the Length (or the wired count) asked for
+//   truncated   the source ends before the Length is reached
+//   tooLong     a fixed window longer than the source (the run refuses it)
+// `values`: start and end seconds (linked frame bounds already converted),
+// everyNth, frameSnap, maxFrames, fixedFrames, wired (the name of a length
+// input that is connected, or null), wiredFrames (its value when it can be
+// read), outputFps (the output rate, null when only the run knows it) and
+// resampled (a connected force_rate: source frames no longer count output
+// frames one for one, so only an exact window can still be placed).
+export function clipLengthPlan(info, values = {}) {
+  const nth = Math.max(1, Math.floor(finite(values.everyNth, 1)) || 1);
+  const snap = values.frameSnap ?? "free";
+  const window = frameWindow(info, values.start, values.end);
+  const mode = lengthMode(values);
+  const base = { mode, first: window.first, last: null, windowLast: window.last, frames: null, requested: null, truncated: false, tooLong: false };
+  if (!info?.count) return { ...base, last: 0, windowLast: 0 };
+  const exact = (frames) => {
+    const fixed = fixedFrameWindow(info, window.first, frames, values.outputFps === undefined ? info.fps / nth : values.outputFps);
+    if (!fixed || fixed.unresolved) return { ...base, requested: frames };
+    return { ...base, first: fixed.first, last: fixed.last, windowLast: fixed.last, frames: fixed.frames, requested: frames, tooLong: fixed.tooLong };
+  };
+  const capped = (cap) => {
+    const requested = cap > 0 ? snapFrameCount(cap, snap) : null;
+    if (values.resampled) return { ...base, last: cap > 0 ? null : window.last, requested };
+    const kept = keptFrames(window, nth, cap, snap);
+    return { ...base, last: kept.lastKept, frames: kept.frames, requested, truncated: requested != null && kept.frames < requested };
+  };
+  const stored = Math.max(0, Math.trunc(finite(values.maxFrames)));
+  if (mode === "fixed") return exact(Math.trunc(finite(values.fixedFrames)));
+  if (mode === "wired") {
+    if (values.wiredFrames == null) return base;
+    const frames = Math.max(0, Math.trunc(finite(values.wiredFrames)));
+    if (values.wired === "fixed_frames") return frames > 0 ? exact(frames) : capped(stored);
+    return capped(frames);
+  }
+  return capped(mode === "length" ? stored : 0);
+}
+
 // Playback rate for a label, trimmed of float noise: 24 -> "24",
 // 23.976023... -> "23.976".
 export function formatFps(value) {

@@ -21,6 +21,7 @@ import {
 import {
   canvasLocalPoint,
   clamp,
+  cropForRotation,
   declaredTransformDefaults,
   fitSourceToAspect,
   cropHandleCenters,
@@ -36,12 +37,14 @@ import {
   resolvePadding,
   rotatedSize,
   scaleToMegapixels,
+  sizeChain,
+  sizeChainTokens,
   sourceChanged,
   sourceResetValues,
   stageHandleLayout,
   zoomAround,
 } from "./transform_geometry.mjs";
-import { clampFrame, clipInfo, frameTime, frameWindow, windowSeconds } from "./timeline_math.mjs";
+import { clampFrame, clipInfo, frameTime } from "./timeline_math.mjs";
 import { liftSocket } from "./widget_card.mjs";
 
 const HIDDEN_WIDGETS = [
@@ -51,7 +54,7 @@ const HIDDEN_WIDGETS = [
   "pad_left", "pad_top", "pad_right", "pad_bottom", "feather", "canvas_multiple", "fill_color",
   "seek_mode", "frame_index", "frame_time",
   "start_seconds", "end_seconds", "every_nth", "max_frames", "frame_snap", "fixed_frames",
-  // Clip-node stitch settings, driven by the editor's Inpaint & Stitch section.
+  // Stitch settings (clip and image nodes), driven by the editor's Inpaint & Stitch section.
   "stitch_blend", "stitch_grow",
   // Image-node resize block; hideWidget on a missing widget is a no-op, so
   // the video node sharing this list is unaffected.
@@ -93,6 +96,11 @@ function installStyles() {
     .ausboss-transform-swatch{width:30px;height:22px;padding:1px;border:1px solid #555b63;border-radius:5px;background:#23272c;cursor:pointer}
     .ausboss-transform-swatch::-webkit-color-swatch-wrapper{padding:1px}.ausboss-transform-swatch::-webkit-color-swatch{border:0;border-radius:3px}
     .ausboss-transform-canvas-row input[type=checkbox]{accent-color:${BRAND};margin:0;cursor:pointer}
+    .ausboss-transform-resize-row{justify-content:flex-start;gap:14px}
+    .ausboss-transform-readout{flex:0 0 auto;margin-top:-3px;color:#c9d0d6;font:11px/14px system-ui;font-variant-numeric:tabular-nums;text-align:center;overflow:hidden;max-height:42px;cursor:default;user-select:none}
+    .ausboss-transform-readout:empty{display:none}
+    .ausboss-transform-readout span{color:#8ca8a5}.ausboss-transform-readout b{color:#fff;font-weight:600}
+    .ausboss-transform-readout i{display:block;color:#ffc46b;font-style:normal}
     .ausboss-transform-aspects{display:flex;gap:5px;align-items:center;flex:0 0 auto}
     .ausboss-transform-aspects>span{flex:0 0 auto;color:#8ca8a5;font-size:10px;padding:0 3px;user-select:none}
     .ausboss-transform-aspect{flex:1 1 0;min-width:0;background:#262a30;color:#cfd6dc;border:1px solid #4a5058;border-radius:4px;height:28px;padding:3px 2px;font:600 10px system-ui;font-variant-numeric:tabular-nums;white-space:nowrap;cursor:pointer;text-align:center}
@@ -422,13 +430,15 @@ export function installTransformNode(node, kind, mountPanel = null) {
   });
   row.append(open, resetCrop, reset);
   panel.append(buildMediaSourceCard(state));
-  panel.append(preview);
+  const readout = createElement("div", "ausboss-transform-readout");
+  state.readout = readout;
+  panel.append(preview, readout);
   panel.append(buildAspectChipRow(state), buildAspectModeRow(state));
   // Every transform node shows its canvas on the face - fill, feather and,
-  // where the node has it, the resize budget - so a wrong value is seen on
-  // the node, not discovered in the render. Both video nodes also get the
-  // timeline: the clip node trims with it, the frame picker scrubs with it.
-  panel.append(buildCanvasRow(state));
+  // where the node has it, the resize budget and step - so a wrong value is
+  // seen on the node, not discovered in the render. Both video nodes also
+  // get the timeline: the clip node trims with it, the frame picker scrubs.
+  panel.append(...buildCanvasRow(state));
   if (kind === "video") panel.append(buildTrim(state));
   panel.append(row);
   state.previewCanvas = preview;
@@ -468,7 +478,8 @@ export function installTransformNode(node, kind, mountPanel = null) {
     chainCallback(node, "onDrawForeground", function () {
       if (state.isClip && !state.disposed) {
         const rate = clipOutputRate(node, state.metadata?.fps, value(node, "every_nth", 1));
-        const signature = JSON.stringify([rate, ...["fixed_frames", "start_frame", "start_seconds"].map(name => inputNumber(node, name, value(node, name, 0)))]);
+        const linked = ["fixed_frames", "frame_load_cap", "max_frames", "start_frame", "end_frame", "start_seconds", "end_seconds", "every_nth"];
+        const signature = JSON.stringify([rate, ...linked.map(name => inputNumber(node, name, value(node, name, 0)))]);
         if (signature !== state.trimRate) {
           state.trimRate = signature;
           for (const trim of state.trimViews) trim.sync();
@@ -734,36 +745,75 @@ function buildCanvasRow(state) {
   const featherLabel = createElement("label");
   const feather = makeScrubInput({ value: value(node, "feather", 0), min: 0, max: 4096, step: 1, decimals: 0, width: 62, unit: "px",
     title: video
-      ? "Feather of the mask and image edge into the fill. 0 keeps the hard edge a black-band outpaint needs; grey bands in a render mean feather was on."
-      : "Feather of the mask and image edge into the fill, in pixels; 0 keeps a hard edge.",
+      ? "Feather of the mask into the kept frames, in pixels. The frames keep a hard edge against the fill whatever the feather, so a black-band outpaint still sees its bars."
+      : "Feather of the mask into the kept pixels; the image keeps a hard edge against the fill.",
     onChange: (amount) => { setValue(node, "feather", amount); draw(state); updateModalInfo(state); }, onSettle: notifyAusbossChange });
   featherLabel.append(createElement("span", "", "Feather"), feather.root);
   const resizeLabel = createElement("label");
   const resize = createElement("input"); resize.type = "checkbox";
-  resize.title = "Resize the output to a megapixel budget, each side rounded to the resolution step (32 for LTX and Wan).";
-  const budget = makeScrubInput({ value: value(node, "megapixels", 1), min: 0.01, max: 16, step: 0.05, fineStep: 0.01, decimals: 2, width: 66, unit: "MP",
-    title: "Output budget in megapixels (x 1024x1024).",
-    onChange: (amount) => { setValue(node, "megapixels", amount); draw(state); updateModalInfo(state); }, onSettle: notifyAusbossChange });
+  resize.title = "Resize the output to a megapixel budget, each side rounded to the step (32 for LTX and Wan). The budget and step open in a row below.";
   resize.addEventListener("change", () => {
     setValue(node, "resize_to_megapixels", resize.checked);
     draw(state); updateModalInfo(state); notifyAusbossChange();
   });
-  resizeLabel.append(createElement("span", "", "Resize"), resize, budget.root);
+  resizeLabel.append(createElement("span", "", "Resize"), resize);
   row.append(fillLabel, featherLabel);
-  if (widget(node, "resize_to_megapixels")) row.append(resizeLabel);
+  // The resize budget and its step share a row that only shows while
+  // Resize is on: the step decides the final size as much as the budget
+  // (LTX wants 32), so it belongs on the face, not only in the editor.
+  const resizeRow = createElement("div", "ausboss-transform-row ausboss-transform-canvas-row ausboss-transform-resize-row");
+  const budgetLabel = createElement("label");
+  const budget = makeScrubInput({ value: value(node, "megapixels", 1), min: 0.01, max: 16, step: 0.05, fineStep: 0.01, decimals: 2, width: 72, unit: "MP",
+    title: "Output budget in megapixels (x 1024x1024). The size readout under the picture shows where it lands.",
+    onChange: (amount) => { setValue(node, "megapixels", amount); draw(state); updateModalInfo(state); }, onSettle: notifyAusbossChange });
+  budgetLabel.append(createElement("span", "", "Megapixels"), budget.root);
+  const stepLabel = createElement("label");
+  const steps = makeScrubInput({ value: value(node, "resolution_steps", 1), min: 1, max: 256, step: 8, fineStep: 1, decimals: 0, width: 66, unit: "px",
+    title: "Rounds each resized side to a multiple of this (32 for LTX and Wan, 8 or 64 for image models). Each side rounds on its own, so a large step can stretch the picture slightly; the readout warns above 1%.",
+    onChange: (amount) => { setValue(node, "resolution_steps", amount); draw(state); updateModalInfo(state); }, onSettle: notifyAusbossChange });
+  stepLabel.append(createElement("span", "", "Step"), steps.root);
+  resizeRow.append(budgetLabel, stepLabel);
+  const hasResize = Boolean(widget(node, "resize_to_megapixels"));
+  if (hasResize) row.append(resizeLabel);
   const sync = () => {
     fill.value = normalizeColor(value(node, "fill_color", "#808080"));
     fill.title = `${fill.title.split(" Now ")[0]} Now ${fill.value}.`;
     feather.set(value(node, "feather", 0));
     resize.checked = Boolean(value(node, "resize_to_megapixels", false));
     budget.set(value(node, "megapixels", 1));
-    budget.root.style.visibility = resize.checked ? "" : "hidden";
+    steps.set(value(node, "resolution_steps", 1));
+    resizeRow.style.display = hasResize && resize.checked ? "" : "none";
   };
   sync();
   state.syncCanvasRow = sync;
   chainCallback(node, "onConfigure", () => queueMicrotask(sync));
-  row.addEventListener("pointerdown", (event) => { if (event.target.closest("input,label")) event.stopPropagation(); });
-  return row;
+  for (const element of [row, resizeRow]) {
+    element.addEventListener("pointerdown", (event) => { if (event.target.closest("input,label")) event.stopPropagation(); });
+  }
+  return [row, resizeRow];
+}
+
+// The size chain in words under the stage: every step that sets the output
+// size, the one the run emits last and brightest, and an amber line when the
+// steps stretch the picture or the resize undoes Align. Its tooltip spells
+// the whole chain out. A DOM line rather than canvas text, so it wraps on a
+// narrow node and never covers the picture being judged.
+function syncReadout(state) {
+  const readout = state.readout;
+  if (!readout) return;
+  if (!state.image || !state.sourceWidth || !state.sourceHeight) { readout.replaceChildren(); readout.title = ""; return; }
+  const current = values(state.node);
+  const source = rotatedSize(state.sourceWidth, state.sourceHeight, current.rotation_degrees);
+  const { tokens, warnings } = sizeChainTokens(sizeChain(current, source, resizeRequest(state.node)));
+  const parts = [];
+  tokens.forEach((token, index) => {
+    if (index) parts.push(" → ");
+    if (token.label) parts.push(createElement("span", "", `${token.label} `));
+    parts.push(index === tokens.length - 1 ? createElement("b", "", token.text) : token.text);
+  });
+  if (warnings.length) parts.push(createElement("i", "", `⚠ ${warnings.join(" · ")}`));
+  readout.replaceChildren(...parts);
+  readout.title = sizeLines(state).join("\n");
 }
 
 async function onSourceChanged(state, reset) {
@@ -989,7 +1039,7 @@ function openEditor(state) {
   buildControls(state, left);
   const status = createElement("div", "ausboss-transform-status"); status.dataset.ausbossStatus = ""; right.append(status);
   right.append(createElement("div", "ausboss-transform-help", "Drag cyan squares to crop. Drag inside the crop to move it. Orange diamonds add padding. The rotate knob at the top-right corner rotates; hold Shift to snap to 15 degrees. Wheel zooms. Middle mouse or Alt-drag pans."));
-  if (state.isClip && widget(state.node, "stitch_blend")) right.append(buildStitchSection(state));
+  if (widget(state.node, "stitch_blend")) right.append(buildStitchSection(state));
   if (state.kind === "video") modal.append(buildTimeline(state));
   document.body.append(modal);
 
@@ -1080,8 +1130,8 @@ async function cancelEditor(state) {
   closeEditor(state);
 }
 
-// Inpaint & Stitch (clip node): the stitcher this node emits pastes the source
-// frames back over the generated clip. Blend is the ramp where generated
+// Inpaint & Stitch (clip and image nodes): the stitcher this node emits pastes
+// the source back over the generated result. Blend is the ramp where generated
 // pixels take over; it is deliberately separate from the padding feather,
 // which shapes the mask the model sees. Grow moves the paste boundary and
 // sits behind a disclosure - most outpaints never touch it.
@@ -1089,7 +1139,7 @@ function buildStitchSection(state) {
   const node = state.node;
   const section = createElement("section", "ausboss-transform-section");
   section.append(sectionHeading("Inpaint & Stitch"));
-  section.append(createElement("div", "ausboss-transform-help", "Outside the paste mask the stitcher puts the source frames back bit-for-bit. Inside it - the padded and rotated-in area plus the blend ramp - the generation takes over."));
+  section.append(createElement("div", "ausboss-transform-help", "Outside the paste mask the stitcher puts the source back bit-for-bit. Inside it - the padded and rotated-in area plus the blend ramp - the generation takes over."));
   const blend = makeScrubInput({ value: value(node, "stitch_blend", 32), min: 0, max: 512, step: 1, decimals: 0,
     title: "Ramp where generated pixels fade over the source, in pixels of the output. Separate from the padding feather.",
     onChange: (amount) => { setValue(node, "stitch_blend", amount); draw(state); updateModalInfo(state); }, onSettle: notifyAusbossChange });
@@ -1241,10 +1291,14 @@ function buildControls(state, sidebar) {
   const rotateSection = createElement("section", "ausboss-transform-section"); rotateSection.append(sectionHeading("Rotate", "rotate"));
   const rotation = createElement("input"); rotation.type = "range"; rotation.min = "-180"; rotation.max = "180"; rotation.step = "0.1"; rotation.value = value(node, "rotation_degrees", 0);
   const rotationNumber = makeScrubInput({ value: Number(rotation.value), min: -180, max: 180, step: 1, fineStep: 0.1, decimals: 1,
-    title: "Rotation in degrees. Shift scrubs in tenths.", onChange: (degrees) => setRotation(state, degrees), onSettle: notifyAusbossChange });
+    title: "Rotation in degrees. Shift scrubs in tenths. The crop stays over the same part of the picture.",
+    onChange: (degrees) => setRotation(state, degrees), onSettle: () => { settleRotation(state); notifyAusbossChange(); } });
   rotation.addEventListener("input", () => setRotation(state, Number(rotation.value)));
+  rotation.addEventListener("change", () => { settleRotation(state); notifyAusbossChange(); });
   addLabeledControl(rotateSection, "Degrees", rotation, ""); rotateSection.append(rotationNumber.root);
-  const zeroRotation = createElement("button", "", "Reset rotation"); zeroRotation.addEventListener("click", () => setRotation(state, 0)); rotateSection.append(zeroRotation);
+  const zeroRotation = createElement("button", "", "Reset rotation");
+  zeroRotation.addEventListener("click", () => { setRotation(state, 0); settleRotation(state); notifyAusbossChange(); });
+  rotateSection.append(zeroRotation);
 
   const padSection = createElement("section", "ausboss-transform-section"); padSection.append(sectionHeading("Padding & mask", "pad"));
   const color = createElement("input"); color.type = "color"; color.value = normalizeColor(value(node, "fill_color", "#808080")); color.addEventListener("input", () => { setValue(node, "fill_color", color.value); draw(state); });
@@ -1375,45 +1429,6 @@ function drawFinalPreview(state) {
   context.rotate((Number(current.rotation_degrees) || 0) * Math.PI / 180);
   drawSourceImage(context, state, scale);
   context.restore();
-
-  // Live feather: a miniature of the backend blend. Build the generated-area
-  // mask (everything the image does not cover: padding, rotation corners,
-  // source transparency), blur it, draw it twice (alpha ~doubles, matching
-  // the engine's ramp that starts at full strength on the edge), tint with
-  // the fill color, and overlay.
-  const featherPreviewPx = Math.min(60, (Number(current.feather) || 0) * scale);
-  if (featherPreviewPx >= 0.3) {
-    const maskLayer = document.createElement("canvas");
-    maskLayer.width = pixelWidth; maskLayer.height = pixelHeight;
-    const maskContext = maskLayer.getContext("2d");
-    maskContext.setTransform(dpr, 0, 0, dpr, 0, 0);
-    maskContext.fillStyle = "#fff";
-    maskContext.fillRect(0, 0, width, height);
-    maskContext.save();
-    maskContext.beginPath();
-    maskContext.rect(padding.left * scale, padding.top * scale, crop.width * scale, crop.height * scale);
-    maskContext.clip();
-    maskContext.globalCompositeOperation = "destination-out";
-    maskContext.translate(
-      (padding.left - crop.x) * scale + source.width * scale / 2,
-      (padding.top - crop.y) * scale + source.height * scale / 2
-    );
-    maskContext.rotate((Number(current.rotation_degrees) || 0) * Math.PI / 180);
-    drawSourceImage(maskContext, state, scale);
-    maskContext.restore();
-
-    const soft = document.createElement("canvas");
-    soft.width = pixelWidth; soft.height = pixelHeight;
-    const softContext = soft.getContext("2d");
-    softContext.filter = `blur(${featherPreviewPx * dpr}px)`;
-    softContext.drawImage(maskLayer, 0, 0);
-    softContext.drawImage(maskLayer, 0, 0);
-    softContext.filter = "none";
-    softContext.globalCompositeOperation = "source-in";
-    softContext.fillStyle = normalizeColor(current.fill_color);
-    softContext.fillRect(0, 0, pixelWidth, pixelHeight);
-    context.drawImage(soft, 0, 0, width, height);
-  }
 }
 
 function buildTimeline(state) {
@@ -1506,18 +1521,19 @@ async function timelineCommand(state, command, light = false) {
   const current = clampFrame(value(state.node, "frame_index", 0), info);
   if (command === "setIn" || command === "setOut") {
     if (!state.isClip) return;
-    const edge = command === "setIn" ? "start" : "end";
+    // The rail knows which way the length is set (OUT, a Length, a
+    // connected input) and what that edge may do.
     const trim = [...state.trimViews][0];
-    if (trim?.fixed()) { trim.moveEdge(edge, current, true); return; }
-    if (trimInputDriven(state.node, `${edge}_frame`) || trimInputDriven(state.node, `${edge}_seconds`)) return;
-    const window = frameWindow(info, value(state.node, "start_seconds", 0), value(state.node, "end_seconds", 0));
-    const next = command === "setIn"
-      ? { first: current, last: Math.max(current, window.last) }
-      : { first: Math.min(current, window.first), last: current };
-    const seconds = windowSeconds(info, next.first, next.last);
-    if (!trimInputDriven(state.node, "start_frame") && !trimInputDriven(state.node, "start_seconds")) setValue(state.node, "start_seconds", seconds.start_seconds);
-    if (!trimInputDriven(state.node, "end_frame") && !trimInputDriven(state.node, "end_seconds")) setValue(state.node, "end_seconds", seconds.end_seconds);
-    syncTimelineRange(state); notifyAusbossChange();
+    if (!trim) return;
+    const edge = command === "setIn" ? "start" : "end";
+    const window = trim.window();
+    // In free trim a mark past the other edge takes that edge along.
+    if (trim.plan()?.mode === "free") {
+      if (edge === "start" && current > window.last) trim.moveEdge("end", current, false);
+      if (edge === "end" && current < window.first) trim.moveEdge("start", current, false);
+    }
+    trim.moveEdge(edge, current, true);
+    syncTimelineRange(state);
     return;
   }
   let next = current;
@@ -1593,9 +1609,39 @@ function fitAspect(state, aspect, mode) {
   if (aspect === "free") state.node.properties.ausboss_aspect_lock = false;
   resetView(state); draw(state); updateModalInfo(state); notifyAusbossChange();
 }
+// Every rotation control (slider, number box, Reset rotation, the knob)
+// comes through rotateTo, so they all keep the crop the same way
+// (cropForRotation). The crop is carried from where the gesture began, not
+// step by step: a sweep out and back returns the same crop, and a crop
+// squeezed at a canvas edge mid-sweep grows back. The start is re-taken
+// whenever anything but rotateTo changed the geometry since its last write.
+const ROTATION_KEYS = [
+  "rotation_degrees", "crop_aspect_ratio", "crop_x", "crop_y", "crop_width", "crop_height",
+  "pad_left", "pad_top", "pad_right", "pad_bottom",
+];
+function rotationBase(state) {
+  const now = values(state.node);
+  const base = state.rotationBase;
+  if (base?.written && ROTATION_KEYS.every((name) => now[name] === base.written[name])) return base;
+  state.rotationBase = { rotation: Number(now.rotation_degrees) || 0, values: now, written: null };
+  return state.rotationBase;
+}
+function settleRotation(state) { state.rotationBase = null; }
+function rotateTo(state, degrees) {
+  const base = rotationBase(state);
+  const next = Math.round(clamp(degrees, -180, 180) * 10) / 10;
+  setValue(state.node, "rotation_degrees", next);
+  if (state.sourceWidth && state.sourceHeight) {
+    const crop = cropForRotation(base.values, state.sourceWidth, state.sourceHeight, base.rotation, next);
+    for (const [name, amount] of Object.entries(crop)) setValue(state.node, name, amount);
+    // The lock re-solves padding from the gesture's starting pads.
+    for (const name of ["pad_left", "pad_top", "pad_right", "pad_bottom"]) setValue(state.node, name, base.values[name]);
+  }
+  applyAspectLock(state, "x");
+  base.written = values(state.node);
+}
 function setRotation(state, degrees) {
-  setValue(state.node, "rotation_degrees", Math.round(clamp(degrees, -180, 180) * 10) / 10);
-  fitCrop(state); applyAspectLock(state, "x"); draw(state); updateModalInfo(state);
+  rotateTo(state, degrees); draw(state); updateModalInfo(state);
 }
 function resetView(state) { state.view = { zoom: 1, panX: 0, panY: 0 }; }
 
@@ -1662,6 +1708,7 @@ function prepareCanvas(canvas, oversample = 1) {
 }
 
 function draw(state) {
+  syncReadout(state);
   state.syncCanvasRow?.();
   state.syncAspectChips?.();
   state.syncAspectMode?.();
@@ -1682,16 +1729,37 @@ function draw(state) {
     drawScene(context, state, render, compact, !compact || Boolean(state.panelInteractive));
   }
   drawFinalPreview(state);
+  keepStageRoom(state);
+}
+
+// The face's size readout and its resize row must not squeeze the stage:
+// when the picture's box drops under this floor, the node grows by the
+// difference, so a toggled Resize or a readout that wraps costs node
+// height, not picture. Never shrinks a node.
+const STAGE_FLOOR = 130;
+function keepStageRoom(state) {
+  const height = state.previewCanvas?.clientHeight ?? 0;
+  const node = state.node;
+  if (state.disposed || !height || !node.size) return;
+  if (height >= STAGE_FLOOR) { state.stageGrowth = null; return; }
+  // The DOM follows a new node size a frame later, so a second draw before
+  // then reads the same short stage: wait for it instead of growing twice.
+  const pending = state.stageGrowth;
+  if (pending && pending.height === height && node.size[1] >= pending.target) return;
+  const target = node.size[1] + (STAGE_FLOOR - height);
+  state.stageGrowth = { height, target };
+  node.setSize?.([node.size[0], target]);
+  node.setDirtyCanvas?.(true, true);
 }
 
 function drawScene(context, state, render, compact, interactive) {
-  const { sourceRect, cropRect, outputRect, padding } = render; context.save();
+  const { sourceRect, cropRect, outputRect } = render; context.save();
   context.fillStyle = normalizeColor(value(state.node, "fill_color", "#808080")); context.fillRect(outputRect.x, outputRect.y, outputRect.width, outputRect.height);
   context.save(); context.translate(sourceRect.x + sourceRect.width / 2, sourceRect.y + sourceRect.height / 2); context.rotate((Number(value(state.node, "rotation_degrees", 0)) || 0) * Math.PI / 180);
   drawSourceImage(context, state, render.scale); context.restore();
   context.save(); context.globalCompositeOperation = "source-over"; context.fillStyle = "rgba(8,10,12,.62)";
   const full = { x: 0, y: 0, width: context.canvas.width, height: context.canvas.height }; context.beginPath(); context.rect(full.x, full.y, full.width, full.height); context.rect(cropRect.x, cropRect.y, cropRect.width, cropRect.height); context.fill("evenodd"); context.restore();
-  if (!compact && state.isClip && state.showBlend) drawBlendOverlay(context, state, render);
+  if (!compact && state.showBlend && widget(state.node, "stitch_blend")) drawBlendOverlay(context, state, render);
   context.strokeStyle = "#4bd8ef"; context.lineWidth = compact ? 1 : 2; context.setLineDash([7, 5]); context.strokeRect(cropRect.x, cropRect.y, cropRect.width, cropRect.height);
   context.strokeStyle = "#ff9d42"; context.setLineDash([5, 5]); context.strokeRect(outputRect.x, outputRect.y, outputRect.width, outputRect.height); context.setLineDash([]);
   if (interactive) {
@@ -1699,36 +1767,78 @@ function drawScene(context, state, render, compact, interactive) {
     drawCropHandles(context, cropRect, state.drag?.kind === "crop" ? state.drag.name : null);
     drawPaddingHandles(context, outputRect, render.layout.padOffset, state.drag?.kind === "padding" ? state.drag.name : null);
     drawRotationHandle(context, state, render, state.drag?.kind === "rotation");
-    drawOutputSize(context, state, outputRect, padding);
+    // The face has its readout line under the stage (syncReadout).
+    if (!compact) drawOutputSize(context, state, render);
   }
   context.restore();
 }
 
-// The output pixel size, drawn OUTSIDE the image: centered under the output
-// rect's bottom edge, flipping above the top edge when the bottom would run
-// off the stage - so it never sits on the pixels being judged. A resize
-// budget appends its target so the readout names what the run will emit.
-function drawOutputSize(context, state, outputRect, padding) {
-  let text = `${padding.outputWidth} x ${padding.outputHeight}`;
-  if (value(state.node, "resize_to_megapixels", false)) {
-    const target = scaleToMegapixels(
-      padding.outputWidth, padding.outputHeight,
-      value(state.node, "megapixels", 1), value(state.node, "resolution_steps", 1),
-    );
-    text += `  →  ${target.width} x ${target.height}`;
-  }
+function resizeRequest(node) {
+  return value(node, "resize_to_megapixels", false)
+    ? { megapixels: value(node, "megapixels", 1), steps: value(node, "resolution_steps", 1) }
+    : null;
+}
+
+// The size readout, drawn OUTSIDE the image: under the output rect, above
+// it when the bottom would run off the stage, so it never sits on the
+// pixels being judged. It names every step that sets the size - crop,
+// padding, the Align rounding, the resize - wrapping at the arrows on a
+// narrow stage, with the size the run emits last and brightest, and an
+// amber line when the steps stretch the picture or the resize undoes Align.
+const READOUT_LINE = 15;
+function drawOutputSize(context, state, render) {
+  const { tokens, warnings } = sizeChainTokens(sizeChain(values(state.node), render.source, resizeRequest(state.node)));
+  const { outputRect } = render;
   context.save();
-  context.font = "12px system-ui";
-  const textWidth = context.measureText(text).width;
   const viewWidth = context.canvas.clientWidth || context.canvas.width;
   const viewHeight = context.canvas.clientHeight || context.canvas.height;
-  const x = clamp(outputRect.x + outputRect.width / 2 - textWidth / 2, 6, Math.max(6, viewWidth - textWidth - 6));
-  let y = outputRect.y + outputRect.height + 17;
-  if (y > viewHeight - 6) y = Math.max(15, outputRect.y - 9);
-  context.fillStyle = "rgba(8,10,12,0.8)";
-  context.beginPath(); context.roundRect(x - 6, y - 12, textWidth + 12, 17, 6); context.fill();
-  context.fillStyle = "#e9edf0";
-  context.fillText(text, x, y);
+  const maxWidth = Math.max(80, viewWidth - 24);
+  const muted = "11px system-ui";
+  const strong = "600 12px system-ui";
+  const measure = (font, text) => { context.font = font; return context.measureText(text).width; };
+  // Every piece after the first starts with its arrow, also at the start of
+  // a wrapped line, so a line's width is the sum of its pieces.
+  const arrow = "→ ";
+  const pieces = tokens.map((token, index) => {
+    const last = index === tokens.length - 1;
+    const lead = index ? arrow : "";
+    const label = token.label ? `${token.label} ` : "";
+    const gap = last ? 0 : measure(muted, "  ");
+    return { lead, label, text: token.text, last, width: measure(muted, lead + label) + measure(last ? strong : muted, token.text) + gap };
+  });
+  const lines = [[]];
+  let lineWidth = 0;
+  for (const piece of pieces) {
+    if (lines.at(-1).length && lineWidth + piece.width > maxWidth) { lines.push([]); lineWidth = 0; }
+    lines.at(-1).push(piece);
+    lineWidth += piece.width;
+  }
+  const warningText = warnings.length ? `⚠ ${warnings.join(" · ")}` : "";
+  const widths = lines.map((line) => line.reduce((sum, piece) => sum + piece.width, 0));
+  if (warningText) widths.push(measure(muted, warningText));
+  const boxWidth = Math.min(viewWidth - 8, Math.max(...widths) + 12);
+  const boxHeight = (lines.length + (warningText ? 1 : 0)) * READOUT_LINE + 5;
+  const x = clamp(outputRect.x + outputRect.width / 2 - boxWidth / 2, 4, Math.max(4, viewWidth - boxWidth - 4));
+  let top = outputRect.y + outputRect.height + 6;
+  if (top + boxHeight > viewHeight - 4) top = outputRect.y - 6 - boxHeight;
+  if (top < 4) top = Math.max(4, viewHeight - boxHeight - 4);
+  context.fillStyle = "rgba(8,10,12,0.82)";
+  context.beginPath(); context.roundRect(x, top, boxWidth, boxHeight, 6); context.fill();
+  const write = (font, color, text, cursor, baseline) => {
+    context.font = font; context.fillStyle = color; context.fillText(text, cursor, baseline);
+    return cursor + context.measureText(text).width;
+  };
+  lines.forEach((line, row) => {
+    const baseline = top + 1 + (row + 1) * READOUT_LINE;
+    let cursor = x + 6;
+    for (const piece of line) {
+      cursor = write(muted, "#7f8b93", piece.lead, cursor, baseline);
+      cursor = write(muted, "#8ca8a5", piece.label, cursor, baseline);
+      cursor = write(piece.last ? strong : muted, piece.last ? "#ffffff" : "#c9d0d6", piece.text, cursor, baseline);
+      cursor += piece.last ? 0 : measure(muted, "  ");
+    }
+  });
+  if (warningText) write(muted, "#ffc46b", warningText, x + 6, top + 1 + (lines.length + 1) * READOUT_LINE);
   context.restore();
 }
 
@@ -1895,6 +2005,7 @@ function pointerDown(state, canvas, event) {
   // No hit: no capture and no preventDefault, so an empty press on the
   // panel falls through and the node drags as usual.
   if (!state.drag) return;
+  if (state.drag.kind === "rotation") settleRotation(state);
   event.preventDefault(); event.stopPropagation();
   try { canvas.setPointerCapture(event.pointerId); } catch { /* mouse fallback */ }
   state.grid = state.drag.kind === "rotation";
@@ -1913,8 +2024,7 @@ function pointerMove(state, canvas, event) {
     const nextAngle = Math.atan2(point.y - drag.center.y, point.x - drag.center.x);
     let degrees = drag.rotation + (nextAngle - startAngle) * 180 / Math.PI;
     if (event.shiftKey) degrees = Math.round(degrees / 15) * 15;
-    setValue(state.node, "rotation_degrees", Math.round(clamp(degrees, -180, 180) * 10) / 10);
-    applyAspectLock(state, "x");
+    rotateTo(state, degrees);
   } else if (drag.kind === "crop") {
     const ratio = parseAspectRatio(value(state.node, "crop_aspect_ratio", "free"), drag.source);
     const next = resizeCrop(drag.crop, drag.name, dxScreen / drag.map.scale, dyScreen / drag.map.scale, drag.source, ratio);
@@ -1942,6 +2052,7 @@ function pointerUp(state, canvas, event) {
   if (!drag || drag.canvas !== canvas) return;
   const kind = drag.kind;
   state.drag = null; state.grid = false;
+  if (kind === "rotation") settleRotation(state);
   try { canvas.releasePointerCapture(event.pointerId); } catch {}
   draw(state); state.node.setDirtyCanvas?.(true, true);
   // Widgets were written throughout the drag; tell the tracker once, on
@@ -1960,20 +2071,41 @@ function wheelZoom(state, event) { event.preventDefault(); const point = canvasL
 
 function updateModalInfo(state) {
   if (!state.modal || !state.sourceWidth) return; const status = state.modal.querySelector("[data-ausboss-status]"); if (!status) return;
-  const source = rotatedSize(state.sourceWidth, state.sourceHeight, value(state.node, "rotation_degrees", 0)); const crop = resolveCrop(values(state.node), source); const pad = resolvePadding(values(state.node), crop);
   const frame = state.kind === "video" ? `\nFrame ${value(state.node, "frame_index", 0)} at ${Number(value(state.node, "frame_time", 0)).toFixed(3)}s` : "";
-  const stitch = state.isClip && widget(state.node, "stitch_blend") ? `\nStitch blend ${value(state.node, "stitch_blend", 32)} px${Number(value(state.node, "stitch_grow", 0)) ? `, grow ${value(state.node, "stitch_grow", 0)} px` : ""}` : "";
-  let resized = "";
-  if (value(state.node, "resize_to_megapixels", false)) {
-    const target = scaleToMegapixels(
-      pad.outputWidth, pad.outputHeight,
-      value(state.node, "megapixels", 1), value(state.node, "resolution_steps", 1),
-    );
-    resized = `\nResized ${target.width} x ${target.height} (${(target.width * target.height / 1048576).toFixed(2)} MP)`;
-  }
-  status.textContent = `Source ${state.sourceWidth} x ${state.sourceHeight}\nRotated ${source.width} x ${source.height}\nCrop ${crop.x}, ${crop.y}, ${crop.width} x ${crop.height}\nOutput ${pad.outputWidth} x ${pad.outputHeight}${resized}${stitch}${frame}`;
+  const stitch = widget(state.node, "stitch_blend") ? `\nStitch blend ${value(state.node, "stitch_blend", 32)} px${Number(value(state.node, "stitch_grow", 0)) ? `, grow ${value(state.node, "stitch_grow", 0)} px` : ""}` : "";
+  status.textContent = `${sizeLines(state).join("\n")}${stitch}${frame}`;
 }
-function drawEmpty(state, text) { state.render = null; state.panelRender = null; for (const canvas of [state.canvas, state.previewCanvas]) { if (!canvas) continue; const prepared = prepareCanvas(canvas); drawEmptyCanvas(prepared.context, prepared.width, prepared.height, text); } }
+
+// The output size in the order the run builds it, one step per line: the
+// editor's status panel and the face readout's tooltip.
+function sizeLines(state) {
+  const current = values(state.node);
+  const source = rotatedSize(state.sourceWidth, state.sourceHeight, current.rotation_degrees);
+  const resize = resizeRequest(state.node);
+  const chain = sizeChain(current, source, resize);
+  const pad = resolvePadding(current, chain.crop);
+  const lines = [
+    `Source ${state.sourceWidth} x ${state.sourceHeight}`,
+    `Rotated ${source.width} x ${source.height}`,
+    `Crop ${chain.crop.x}, ${chain.crop.y}, ${chain.crop.width} x ${chain.crop.height}`,
+    `Padding ${current.pad_left} / ${current.pad_top} / ${current.pad_right} / ${current.pad_bottom} → ${chain.padded.width} x ${chain.padded.height}`,
+  ];
+  const extraRight = pad.right - Math.max(0, Math.round(Number(current.pad_right) || 0));
+  const extraBottom = pad.bottom - Math.max(0, Math.round(Number(current.pad_bottom) || 0));
+  lines.push(extraRight || extraBottom
+    ? `Align ${chain.multiple} → ${chain.canvas.width} x ${chain.canvas.height} (+${extraRight} right, +${extraBottom} bottom)`
+    : `Canvas ${chain.canvas.width} x ${chain.canvas.height}`);
+  if (chain.resized) {
+    const megapixels = (chain.resized.width * chain.resized.height / 1048576).toFixed(2);
+    lines.push(`Resize ${Number(resize.megapixels).toFixed(2)} MP, steps ${resize.steps} → ${chain.resized.width} x ${chain.resized.height} (${megapixels} MP)`);
+  }
+  for (const warning of sizeChainTokens(chain).warnings) lines.push(`⚠ ${warning}`);
+  if (chain.resized && (extraRight || extraBottom)) {
+    lines.push("Align's strip is fill the model paints. With Resize on, Step already rounds the size, so Align 1 leaves no strip.");
+  }
+  return lines;
+}
+function drawEmpty(state, text) { state.render = null; state.panelRender = null; syncReadout(state); for (const canvas of [state.canvas, state.previewCanvas]) { if (!canvas) continue; const prepared = prepareCanvas(canvas); drawEmptyCanvas(prepared.context, prepared.width, prepared.height, text); } }
 function drawEmptyCanvas(context, width, height, text) { context.fillStyle = "#111"; context.fillRect(0, 0, width, height); context.fillStyle = "#9ba2aa"; context.font = "13px system-ui"; context.textAlign = "center"; context.fillText(text, width / 2, height / 2); context.textAlign = "left"; }
 
 // True when the node is an AusBoss transform node whose editor can open

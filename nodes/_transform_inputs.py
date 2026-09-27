@@ -139,7 +139,7 @@ def transform_inputs(*, feather: int = 24, fill_color: str = "#808080") -> dict[
                 "min": 0,
                 "max": 4096,
                 "step": 1,
-                "tooltip": "Feathers the mask into kept pixels and fades the image edge into the fill color.",
+                "tooltip": "Feathers the mask into kept pixels; the image keeps a hard edge against the fill.",
             },
         ),
         "canvas_multiple": (

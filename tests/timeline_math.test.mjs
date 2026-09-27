@@ -179,3 +179,77 @@ test("fixed frame duration follows output fps while position follows source fps"
   assert.equal(fractional.last, 299);
   assert.equal(fractional.seconds, 97 / 24);
 });
+
+// --- One way to set the length -------------------------------------------------
+import { clipLengthPlan, framesThrough, lastFrameFor, latestFirstFor, lengthMode, snapStep, snapToValid } from "../js/shared/timeline_math.mjs";
+
+test("one mode sets the length: a wired input, an old fixed count, a Length, or OUT", () => {
+  assert.equal(lengthMode({}), "free");
+  assert.equal(lengthMode({ maxFrames: 97 }), "length");
+  assert.equal(lengthMode({ maxFrames: 97, fixedFrames: 49 }), "fixed");
+  assert.equal(lengthMode({ maxFrames: 97, fixedFrames: 49, wired: "frame_load_cap" }), "wired");
+});
+
+test("snap counts step from one valid count to the next", () => {
+  assert.equal(snapStep("8n+1"), 8);
+  assert.equal(snapStep("4n+1"), 4);
+  assert.equal(snapStep("free"), 1);
+  assert.equal(snapToValid(100, "8n+1"), 97);
+  assert.equal(snapToValid(102, "8n+1"), 105);
+  assert.equal(snapToValid(98, "8n+1", 1), 105);
+  assert.equal(snapToValid(96, "8n+1", -1), 89);
+  assert.equal(snapToValid(97, "8n+1", 1), 97);
+  assert.equal(snapToValid(0, "4n+1"), 1);
+  assert.equal(snapToValid(50, "free"), 50);
+});
+
+test("OUT lands on a frame the run keeps", () => {
+  assert.equal(framesThrough(24, 54), 31);
+  assert.equal(framesThrough(24, 54, 1, "8n+1"), 25);
+  assert.equal(lastFrameFor(24, framesThrough(24, 54, 1, "8n+1")), 48);
+  assert.equal(framesThrough(0, 9, 3), 4);
+  assert.equal(lastFrameFor(0, 4, 3), 9);
+  assert.equal(framesThrough(30, 10), 1);
+  const info = clipInfo(PIER);
+  assert.equal(latestFirstFor(info, 20), 77);
+  assert.equal(latestFirstFor(info, 97), 0);
+  assert.equal(latestFirstFor(info, 200), 0);
+});
+
+test("free trim: the handles are IN and the last frame the run keeps", () => {
+  const info = clipInfo(PIER);
+  const window = windowSeconds(info, 24, 54);
+  const plan = clipLengthPlan(info, { start: window.start_seconds, end: window.end_seconds });
+  assert.deepEqual([plan.mode, plan.first, plan.last, plan.frames], ["free", 24, 54, 31]);
+  // 8n+1 keeps 25 of the 31: OUT sits on frame 48 and 49..54 show as dropped.
+  const snapped = clipLengthPlan(info, { start: window.start_seconds, end: window.end_seconds, frameSnap: "8n+1" });
+  assert.deepEqual([snapped.last, snapped.windowLast, snapped.frames], [48, 54, 25]);
+});
+
+test("a Length keeps OUT a fixed distance after IN and says when the source runs out", () => {
+  const info = clipInfo(PIER);
+  // The report's case: IN 24 with Limit 20 ended at frame 43, not at OUT 54.
+  const window = windowSeconds(info, 24, 54);
+  const limited = clipLengthPlan(info, { start: window.start_seconds, end: window.end_seconds, maxFrames: 20 });
+  assert.deepEqual([limited.mode, limited.first, limited.last, limited.frames], ["length", 24, 43, 20]);
+  // The LTX example: whole clip, Length 97 at 8n+1.
+  const ltx = clipLengthPlan(info, { start: 0, end: 0, maxFrames: 97, frameSnap: "8n+1" });
+  assert.deepEqual([ltx.last, ltx.frames, ltx.requested, ltx.truncated], [96, 97, 97, false]);
+  const late = clipLengthPlan(info, { start: windowSeconds(info, 80, 96).start_seconds, end: 0, maxFrames: 97 });
+  assert.deepEqual([late.last, late.frames, late.truncated], [96, 17, true]);
+});
+
+test("an old fixed count, a wired input and a connected rate", () => {
+  const info = clipInfo({ fps: 24, frame_count: 240, duration: 10 });
+  const fixed = clipLengthPlan(info, { start: 5, end: 0, fixedFrames: 120 });
+  assert.deepEqual([fixed.mode, fixed.first, fixed.last, fixed.frames], ["fixed", 120, 239, 120]);
+  const unknown = clipLengthPlan(info, { start: 0, end: 0, wired: "fixed_frames", wiredFrames: null });
+  assert.deepEqual([unknown.mode, unknown.last, unknown.frames], ["wired", null, null]);
+  const literal = clipLengthPlan(info, { start: 1, end: 0, wired: "fixed_frames", wiredFrames: 48 });
+  assert.deepEqual([literal.first, literal.last, literal.frames], [24, 71, 48]);
+  const cap = clipLengthPlan(info, { start: 0, end: 0, wired: "frame_load_cap", wiredFrames: 30, frameSnap: "4n+1" });
+  assert.deepEqual([cap.last, cap.frames], [28, 29]);
+  const resampled = clipLengthPlan(info, { start: 0, end: 5, resampled: true, outputFps: null });
+  assert.deepEqual([resampled.last, resampled.frames], [119, null]);
+  assert.equal(clipLengthPlan(info, { start: 0, end: 0, maxFrames: 50, resampled: true }).last, null);
+});

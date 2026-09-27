@@ -294,3 +294,117 @@ test("reset returns to the node's declared defaults over the shared identity", (
   assert.equal(stray.feather, 8);
   assert.ok(!("every_nth" in stray));
 });
+
+// --- Integer aspect maths ---------------------------------------------------
+import { ratioBox, cropForRotation, sizeChain, sizeChainTokens } from "../js/shared/transform_geometry.mjs";
+
+// The same table sits in tests/test_transform_engine.py (_ratio_box): the
+// readout on the node must name the size the run produces.
+const RATIO_BOX_FIXTURES = [
+  [[3813, 1961, 21, 9], [3813, 1634]],
+  [[1000, 562, 16, 9], [1000, 562]],
+  [[1000, 1000, 16, 9], [1000, 562]],
+  [[1000, 500, 16, 9], [888, 500]],
+  [[888, 500, 16, 9], [888, 500]],
+  [[1920, 1080, 16, 9], [1920, 1080]],
+  [[832, 1216, 1, 1], [832, 832]],
+  [[239, 1284, 936, 1284], [239, 327]],
+];
+
+test("ratio box matches the backend fixtures", () => {
+  for (const [[width, height, rw, rh], [ew, eh]] of RATIO_BOX_FIXTURES) {
+    assert.deepEqual(ratioBox(width, height, [rw, rh]), { width: ew, height: eh }, `${width}x${height} at ${rw}:${rh}`);
+  }
+  // The float maths this replaced lost the limiting side's last pixel here.
+  assert.deepEqual(resolveCrop({ crop_aspect_ratio: "21:9" }, { width: 3813, height: 1961 }), { x: 0, y: 0, width: 3813, height: 1634 });
+});
+
+test("a resolved crop written back resolves to itself", () => {
+  let seed = 11;
+  const random = (limit) => { seed = (seed * 1103515245 + 12345) % 2147483648; return 1 + (seed % limit); };
+  for (let index = 0; index < 4000; index += 1) {
+    const source = { width: random(4000), height: random(4000) };
+    const ratio = `${random(39)}:${random(39)}`;
+    const values = { crop_x: random(source.width) - 1, crop_y: random(source.height) - 1, crop_aspect_ratio: ratio };
+    const crop = resolveCrop(values, source);
+    const again = resolveCrop({ ...values, crop_x: crop.x, crop_y: crop.y, crop_width: crop.width, crop_height: crop.height }, source);
+    assert.deepEqual(again, crop);
+  }
+});
+
+// --- Rotation keeps the crop -------------------------------------------------
+const CROP_KEYS = ["crop_x", "crop_y", "crop_width", "crop_height"];
+const pickCrop = (values) => Object.fromEntries(CROP_KEYS.map((name) => [name, values[name]]));
+
+test("rotating keeps a centred crop centred and its size", () => {
+  // The Reframe example: a centred 1:1 crop of a 576x1024 clip.
+  const values = { crop_aspect_ratio: "1:1", crop_x: 0, crop_y: 224, crop_width: 576, crop_height: 0 };
+  const next = cropForRotation(values, 576, 1024, 0, 10);
+  const canvas = rotatedSize(576, 1024, 10);
+  assert.equal(next.crop_width, 576);
+  assert.equal(next.crop_height, 576);
+  assert.ok(Math.abs(next.crop_x + 288 - canvas.width / 2) <= 1);
+  assert.ok(Math.abs(next.crop_y + 288 - canvas.height / 2) <= 1);
+});
+
+test("an off-centre crop turns with the picture and comes back exactly", () => {
+  const values = { crop_aspect_ratio: "free", crop_x: 800, crop_y: 60, crop_width: 400, crop_height: 300 };
+  const turned = cropForRotation(values, 1280, 720, 0, 90);
+  // Its centre sits up and right of the picture's; a quarter turn clockwise
+  // carries that point to the lower right of the new portrait canvas.
+  assert.equal(turned.crop_width, 400);
+  assert.equal(turned.crop_height, 300);
+  assert.ok(turned.crop_x + 200 > 360, "right of centre");
+  assert.ok(turned.crop_y + 150 > 640, "below centre");
+  assert.deepEqual(cropForRotation({ ...values, ...turned }, 1280, 720, 90, 0), pickCrop(values));
+  assert.deepEqual(cropForRotation(values, 1280, 720, 0, 0), pickCrop(values));
+});
+
+test("an uncropped canvas stays open so it grows with the rotation", () => {
+  const open = { crop_aspect_ratio: "free", crop_x: 0, crop_y: 0, crop_width: 0, crop_height: 0 };
+  assert.deepEqual(cropForRotation(open, 832, 1216, 0, 10), pickCrop(open));
+  // A Pad chip writes the whole source explicitly; it still counts as
+  // uncropped instead of cutting the grown canvas's right and bottom off.
+  const padded = { crop_aspect_ratio: "free", crop_x: 0, crop_y: 0, crop_width: 832, crop_height: 1216 };
+  assert.deepEqual(cropForRotation(padded, 832, 1216, 0, 10), pickCrop(open));
+});
+
+test("a crop that no longer fits shrinks evenly at its ratio", () => {
+  const values = { crop_aspect_ratio: "16:9", crop_x: 0, crop_y: 0, crop_width: 1600, crop_height: 890 };
+  const next = cropForRotation(values, 1600, 900, 0, 90);
+  const canvas = rotatedSize(1600, 900, 90);
+  assert.ok(next.crop_width <= canvas.width && next.crop_height <= canvas.height);
+  assert.deepEqual(resolveCrop({ ...values, ...next }, canvas), { x: next.crop_x, y: next.crop_y, width: next.crop_width, height: next.crop_height });
+  assert.ok(Math.abs(next.crop_width / next.crop_height - 16 / 9) < 0.01);
+});
+
+// --- Size chain readout ------------------------------------------------------
+test("the size chain names every step and the stretch the steps cause", () => {
+  // LTX example: 576x1024 padded to 16:9, 0.86 MP at steps of 32.
+  const values = { crop_aspect_ratio: "free", pad_left: 622, pad_right: 623, pad_top: 0, pad_bottom: 0, canvas_multiple: 1 };
+  const chain = sizeChain(values, { width: 576, height: 1024 }, { megapixels: 0.86, steps: 32 });
+  assert.deepEqual(chain.canvas, { width: 1821, height: 1024 });
+  assert.deepEqual(chain.resized, { width: 1280, height: 704 });
+  const { tokens, warnings } = sizeChainTokens(chain);
+  assert.deepEqual(tokens.map((token) => `${token.label} ${token.text}`.trim()), ["576×1024", "pad 1821×1024", "resize 1280×704"]);
+  assert.deepEqual(warnings, ["2.2% wider from steps"]);
+});
+
+test("the size chain shows Align and names its strip ahead of a resize", () => {
+  // The review's example A: 10 degrees, 16:9 crop, 64 px pads, Align 64, 1 MP.
+  const source = rotatedSize(1920, 1080, 10);
+  const values = { crop_aspect_ratio: "16:9", pad_left: 64, pad_top: 64, pad_right: 64, pad_bottom: 64, canvas_multiple: 64 };
+  const { tokens, warnings } = sizeChainTokens(sizeChain(values, source, { megapixels: 1, steps: 1 }));
+  assert.deepEqual(tokens.map((token) => `${token.label} ${token.text}`.trim()), ["crop 2080×1170", "pad 2208×1298", "align 64 2240×1344", "resize 1322×793"]);
+  assert.deepEqual(warnings, ["align 64 adds 32 px right + 46 px bottom of fill"]);
+  // Without a resize the strip is what Align is for: no warning.
+  assert.deepEqual(sizeChainTokens(sizeChain(values, source, null)).warnings, []);
+  // The report's case: a 1824-wide picture, Align 64, Resize at Step 64.
+  // The resized size is a multiple of 64, but the strip is still there.
+  const arcade = sizeChainTokens(sizeChain({ canvas_multiple: 64 }, { width: 1824, height: 2304 }, { megapixels: 1, steps: 64 }));
+  assert.deepEqual(arcade.tokens.map((token) => `${token.label} ${token.text}`.trim()), ["1824×2304", "align 64 1856×2304", "resize 896×1152"]);
+  assert.deepEqual(arcade.warnings, ["3.4% taller from steps", "align 64 adds 32 px right of fill"]);
+  // Align that adds nothing but a resize that breaks the multiple.
+  const lost = sizeChainTokens(sizeChain({ canvas_multiple: 64 }, { width: 1280, height: 768 }, { megapixels: 0.5, steps: 1 }));
+  assert.deepEqual(lost.warnings, ["resize undoes align 64"]);
+});

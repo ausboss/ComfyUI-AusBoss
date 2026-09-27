@@ -34,9 +34,43 @@ class AusBossImageCropRotatePad:
         }
         required.update(transform_inputs())
         # Appended AFTER the stable V1 widgets, so saved workflows' positional
-        # widgets_values keep loading; missing values fall back to defaults.
-        required.update(resize_inputs())
-        return {"required": required}
+        # widgets_values keep loading, and optional, so an API prompt from
+        # before they existed still validates; missing values fall back to
+        # load_transform's defaults. The stitch settings come last, as on
+        # the clip node: older saved workflows and API prompts keep the
+        # 32 px blend they always had.
+        optional = resize_inputs()
+        optional.update({
+            "stitch_blend": (
+                "INT",
+                {
+                    "default": 32,
+                    "min": 0,
+                    "max": 512,
+                    "step": 1,
+                    "tooltip": (
+                        "Ramp of the stitcher's paste, in pixels, into the kept "
+                        "picture: where generated pixels fade over the source. "
+                        "Separate from feather, which shapes the mask itself."
+                    ),
+                },
+            ),
+            "stitch_grow": (
+                "INT",
+                {
+                    "default": 0,
+                    "min": -256,
+                    "max": 256,
+                    "step": 1,
+                    "tooltip": (
+                        "Moves the paste boundary before the ramp: positive lets "
+                        "the generation replace a strip of the source next to "
+                        "the seam, negative keeps more of the source."
+                    ),
+                },
+            ),
+        })
+        return {"required": required, "optional": optional}
 
     # Appended outputs only: saved links ride slot indices.
     RETURN_TYPES = ("IMAGE", "MASK", "AUSBOSS_STITCHER", "IMAGE", "INT", "INT")
@@ -58,6 +92,8 @@ class AusBossImageCropRotatePad:
         megapixels=1.0,
         resize_method="lanczos",
         resolution_steps=1,
+        stitch_blend=32,
+        stitch_grow=0,
         **values,
     ):
         path = resolve_input_path(image)
@@ -67,7 +103,10 @@ class AusBossImageCropRotatePad:
             output, mask = resize_batch_to_megapixels(
                 output, mask, float(megapixels), str(resize_method), int(resolution_steps)
             )
-        stitcher = build_transform_stitcher(output, mask, geometry, 32, source="Image Crop + Rotate + Pad")
+        stitcher = build_transform_stitcher(
+            output, mask, geometry, int(stitch_blend), int(stitch_grow),
+            source="Image Crop + Rotate + Pad",
+        )
         return (
             output, mask, stitcher, original_image_batch(frames),
             int(output.shape[2]), int(output.shape[1]),

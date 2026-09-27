@@ -108,7 +108,7 @@ Link `filename` to retain an upstream name, or `caption_text` to write a matchin
 
 ![Animated comparison of a vertical pier clip and its wider LTX 2.3 outpainted result, showing the added lake and shoreline.](assets/readme/video-outpaint.gif)
 
-**Give a vertical clip a wider world.** This LTX 2.3 example extends the sides and stitches the source frames back in, keeping the clip's audio when it has any (this preview loop is silent). The outpaint LoRA needs a pure black fill with feather 0; grey, white or feathered bands come back flat. With that canvas it works at any aspect ratio and on any side. [Open the video outpaint workflow →](example_workflows/LTX%202.3%20Video%20Outpaint%20%28AusBoss%29.json)
+**Give a vertical clip a wider world.** This LTX 2.3 example extends the sides and stitches the source frames back in, keeping the clip's audio when it has any (this preview loop is silent). The outpaint LoRA needs a pure black fill; grey or white bands come back flat. With that canvas it works at any aspect ratio and on any side. [Open the video outpaint workflow →](example_workflows/LTX%202.3%20Video%20Outpaint%20%28AusBoss%29.json)
 
 ### Load Video 🆎
 
