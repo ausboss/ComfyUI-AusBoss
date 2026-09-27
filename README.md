@@ -45,12 +45,12 @@ The pack uses Pillow, NumPy, Torch, and PyAV supplied by ComfyUI. Model workflow
 
 | Find a node | What is included |
 |---|---|
-| [Image](#image-nodes) | Load and transform, resize, align, measure, compare, save |
+| [Image](#image-nodes) | Load and transform, resize, align, realign edits, measure, compare, save |
 | [Video](#video-nodes) | Load and trim, pick a frame, transform a clip, interpolate, save |
 | [Mask and inpaint](#mask-and-inpaint-nodes) | Refine masks, LaMa removal, crop and stitch |
 | [Models and conditioning](#models-and-conditioning) | LoRA stack, Krea 2 prompt and reference conditioning |
 | [Workflow utilities](#workflow-utilities) | Resolution, seed, batch operations, math, text, memory, notes, timer |
-| [Examples](#example-workflows) | Twenty grouped graphs with setup cards and thumbnails |
+| [Examples](#example-workflows) | Twenty-one grouped graphs with setup cards and thumbnails |
 | [For workflow creators](#for-workflow-creators) | Setup cards, before and after, repeatable seeds, measured run times |
 | [Pack-wide tools](#pack-wide-tools) | Help cards, node colors, recreate and replace, run status, completion sound |
 
@@ -89,6 +89,12 @@ Read `width`, `height`, `longest_edge`, `shortest_edge`, and batch `count` as in
 ### Color Match 🆎
 
 Match an image to a reference with **LAB**, **RGB**, **MKL**, or **histogram** transfer. Strength controls the blend; an optional mask and invert control limit the correction. With `reference_mode` set to **first frame**, every frame uses the batch's first frame as its reference. This can reduce color drift between frames, but does not stabilize motion.
+
+### Realign to Source (EXPERIMENTAL 🧪) 🆎
+
+Undo the zoom and shift an edit model adds to a broad edit. Qwen Image 2.1 draws style changes a few percent taller, up to about 12%, differently for every seed. Wire the edit and the picture it was made from: the node measures the drift and warps the edit back onto the source's frame, at the source's size. It fixes the whole-frame zoom and shift, not shapes a restyle redrew in a new place, so the result lines up closely rather than pixel for pixel.
+
+**Fit** is zoom + shift (how Qwen edits drift) or affine. The model pushes a thin strip out of view: `empty_mask` marks it to crop or inpaint, and **Empty fill** chooses what it shows meanwhile. `report` gives the measured zoom and shift. A frame it cannot measure passes through at the source's size, and the report says why. [Try the Qwen Image 2.1 Edit + Realign example →](example_workflows/Qwen%20Image%202.1%20Edit%20%2B%20Realign%20%28AusBoss%29.json)
 
 ### Image Compare A/B 🆎
 
@@ -291,6 +297,7 @@ Copy the files in [`example_workflows/inputs/`](example_workflows/inputs) into `
 | [Krea 2 Outpaint](example_workflows/Krea%202%20Outpaint%20%28AusBoss%29.json) | Describe the unpadded source, extend several sides, then stitch it back | Krea 2 Turbo + AnyPaint LoRA; reuses its text encoder for captions |
 | [Qwen Image 2.1 Text to Image](example_workflows/Qwen%20Image%202.1%20Text%20to%20Image%20%28AusBoss%29.json) | Prompt, optional LoRA stack, visual canvas sizing, and PNG output | Qwen Image 2.1 INT8, Qwen3-VL 8B INT8, and the 2.1 VAE; downloads on the note card |
 | [Qwen Image 2.1 Edit](example_workflows/Qwen%20Image%202.1%20Edit%20%28AusBoss%29.json) | Instruction-based editing at a source-derived size, with before/after comparison | Same Qwen 2.1 components; included pier image; supports additional references |
+| [Qwen Image 2.1 Edit + Realign](example_workflows/Qwen%20Image%202.1%20Edit%20%2B%20Realign%20%28AusBoss%29.json) | A style edit that came back taller, realigned onto its source and compared before and after | Same Qwen 2.1 components; included pier image |
 | [Klein 9B Edit](example_workflows/Klein%209B%20Edit%20%28AusBoss%29.json) | Edit a picture at a source-derived working size | Distilled Klein 9B, Qwen encoder, Flux 2 VAE |
 | [Klein 9B Inpaint](example_workflows/Klein%209B%20Inpaint%20%28AusBoss%29.json) | Refine the painted mask, crop, edit, and stitch | Same Klein components; included masked image |
 | [Klein 9B Outpaint](example_workflows/Klein%209B%20Outpaint%20%28AusBoss%29.json) | Source description, padded reference, masked latent, source-preserving stitch | Klein components + PixaOutpaint LoRA + Qwen3-VL 8B INT8 caption model |
@@ -300,7 +307,7 @@ Copy the files in [`example_workflows/inputs/`](example_workflows/inputs) into `
 | [MiniMax H3 First + Last Frame](example_workflows/MiniMax%20H3%20First%20%2B%20Last%20Frame%20%28AusBoss%29.json) | Describe both endpoints, then guide a 20-step base-model transition | H3 FL2VA components + Qwen3-VL 8B INT8 caption model; two included images |
 | [Simple Video Watermark Remover](example_workflows/Simple%20Video%20Watermark%20Remover%20%28AusBoss%29.json) | Detect and remove an overlay, with a single-frame comparison branch | **ComfyUI-RMBG / SAM3** plus `big-lama.pt` and this pack |
 
-The other nineteen examples use core nodes plus this pack. Model-free examples are the quickest installation check. Generation speed and memory depend on the selected weights, dimensions, frame count, and other GPU workloads; the graph settings are reproducible, hardware timing is not.
+The other twenty examples use core nodes plus this pack. Model-free examples are the quickest installation check. Generation speed and memory depend on the selected weights, dimensions, frame count, and other GPU workloads; the graph settings are reproducible, hardware timing is not.
 
 ## For workflow creators
 
