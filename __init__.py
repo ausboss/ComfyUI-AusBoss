@@ -35,6 +35,7 @@ NODE_MODULES = [
     "node_load_video",
     "node_lora_loader",
     "node_math",
+    "node_realign_to_source",
     "node_refine_mask",
     "node_resolution",
     "node_run_timer",

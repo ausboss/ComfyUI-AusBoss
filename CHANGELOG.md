@@ -4,6 +4,20 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **New node (experimental): Realign to Source (EXPERIMENTAL 🧪) 🆎.** Qwen
+  Image 2.1 draws broad edits (watercolor, anime, oil) a few percent taller
+  than the source, up to about 12%, differently for every seed, and
+  snapping sizes to 32, 64 or 112 does not change it. The node measures that
+  zoom and shift against the source picture and warps the edit back onto
+  the source's frame, at the source's size. It fixes the whole-frame zoom
+  and shift, not shapes a restyle redrew in a new place. `empty_mask` marks
+  the thin strip the model pushed out of view, to crop or inpaint, and
+  `report` gives the measured zoom, shift and worst-corner error. A frame
+  it cannot measure passes through at the source's size, and the report
+  says why. Measured on 166 Qwen 2.1 edits: the worst corner of the style
+  edits went from 35.5 px to 4.6 px (median). It is marked experimental
+  while it is tried on more edit models. New example: **Qwen Image 2.1
+  Edit + Realign**.
 - **Editors can be closed without saving.** The Crop + Rotate + Pad editor
   (image, video and clip) gains a **Cancel** button beside Save & close, and
   Escape now cancels instead of saving. When something changed, Cancel asks

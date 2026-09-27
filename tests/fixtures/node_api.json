@@ -472,6 +472,30 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_RealignToSource": {
+    "required": [
+      "edited",
+      "source",
+      "fit",
+      "empty_fill",
+      "max_zoom"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "IMAGE",
+        "image"
+      ],
+      [
+        "MASK",
+        "empty_mask"
+      ],
+      [
+        "STRING",
+        "report"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_RefineMask": {
     "required": [
       "mask",
