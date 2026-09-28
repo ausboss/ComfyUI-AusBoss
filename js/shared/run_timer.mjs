@@ -55,3 +55,29 @@ export function historyLine(history) {
   if (!history?.length) return "";
   return history.map(formatElapsed).join(" · ");
 }
+
+// The readout's glow is a blur, and a blur on the graph canvas is what
+// dragged the whole frontend to ~17 fps (issue #77): Chrome sends every
+// filtered draw through an offscreen layer the size of the entire canvas.
+// So the blurred layer is painted into its own small canvas only when
+// `key` changes, and every other frame gets that canvas back untouched.
+export function cachedLayer(cache, key, width, height, paint, createCanvas) {
+  if (cache.canvas && cache.key === key) return cache.canvas;
+  const canvas = (cache.canvas ??= createCanvas());
+  // Setting the size, even to the same value, also clears the bitmap and
+  // resets the context's transform and state.
+  canvas.width = Math.max(1, Math.ceil(width));
+  canvas.height = Math.max(1, Math.ceil(height));
+  paint(canvas.getContext("2d"));
+  cache.key = key;
+  return canvas;
+}
+
+// Pixel density for that layer: the canvas's current scale rounded UP to a
+// quarter octave, so a zoom gesture repaints it a handful of times rather
+// than every frame, and capped so a deep zoom cannot allocate a huge bitmap.
+export function layerScale(pixelScale, width, maxSide = 2048) {
+  const raw = Number.isFinite(pixelScale) && pixelScale > 0 ? pixelScale : 1;
+  const stepped = 2 ** (Math.ceil(Math.log2(raw) * 4) / 4);
+  return Math.min(stepped, maxSide / Math.max(1, width));
+}
