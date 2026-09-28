@@ -18,7 +18,8 @@ class AusBossCropForInpaint:
         "Stitch Inpaint 🆎 uses to paste the result back seamlessly. "
         "The selection can be inverted, grown or shrunk, and edge-softened "
         "before cropping; context comes from a growth factor plus optional "
-        "flat pixels. target_megapixels rescales the crop to a sampler-"
+        "flat pixels, and stops at the picture's edges unless keep_inside "
+        "is off. target_megapixels rescales the crop to a sampler-"
         "friendly area, and the extend inputs grow the frame itself for "
         "outpainting. By default the sampling mask stays hard-edged; "
         "feathering lives in a separate blend mask used only while pasting. "
@@ -260,6 +261,19 @@ class AusBossCropForInpaint:
                         ),
                     },
                 ),
+                "keep_inside": (
+                    "BOOLEAN",
+                    {
+                        "default": True,
+                        "tooltip": (
+                            "Keep the crop inside the picture. On: the "
+                            "context stops at the picture's edges, so the "
+                            "model sees only real picture. Off: the crop can "
+                            "run past the edges, filled with stretched copies "
+                            "of the edge pixels (the old behavior)."
+                        ),
+                    },
+                ),
             },
         }
 
@@ -292,6 +306,7 @@ class AusBossCropForInpaint:
         extend_right=0,
         extend_up=0,
         extend_down=0,
+        keep_inside=True,
     ):
         return build_crop(
             image,
@@ -311,6 +326,7 @@ class AusBossCropForInpaint:
             int(extend_right),
             int(extend_up),
             int(extend_down),
+            bool(keep_inside),
         )
 
 

@@ -2,6 +2,20 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Crop For Inpaint keeps its crop inside the picture.** When the painted
+  area was big, or the picture small, the crop could reach past the
+  picture's edges, and the extra space was filled with stretched copies of
+  the edge pixels. On a portrait with the coat painted over, only 42% of
+  what the model saw was the picture, and the new jacket was drawn at about
+  half size, then scaled back up. A new **Stay in picture** switch, on by
+  default, stops the crop at the edges instead. In 8 test renders with wide
+  masks the new area came out sharper every time (28-80% more fine detail),
+  and a "tall window" request that the padded crop turned into more
+  bookshelves came out as asked. Saved workflows whose crop ran past the
+  picture now render a little differently; switch it off for the old crop.
+
 ## 2.3.0 - 2026-09-27
 
 - **Run Timer no longer slows the whole canvas (#77).** Once the readout held
