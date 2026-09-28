@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.3.0 - 2026-09-27
 
 - **Run Timer no longer slows the whole canvas (#77).** Once the readout held
   a time, its glow ran a blur filter on the graph canvas three times a frame,
