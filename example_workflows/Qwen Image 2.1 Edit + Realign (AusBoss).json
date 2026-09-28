@@ -1,8 +1,8 @@
 {
   "id": "7baa75d2-bd64-40d6-9eaa-49bb18bab31a",
   "revision": 0,
-  "last_node_id": 68,
-  "last_link_id": 22,
+  "last_node_id": 69,
+  "last_link_id": 24,
   "nodes": [
     {
       "id": 51,
@@ -27,11 +27,11 @@
         "ver": "2.0.2"
       },
       "widgets_values": [
-        "{\"v\":1,\"title\":\"Qwen Image 2.1 Edit + Realign\",\"subtitle\":\"Style edits come back a few percent taller. Measure the drift and warp the edit back onto its source.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"#8fa8c8\",\"body\":\"## Start here\\nCopy `ausboss_pier_sunrise.png` from the pack's `example_workflows/inputs/` folder into `ComfyUI/input/`, or choose your own image. Select the three downloaded models and queue.\\n\\n## Why realign\\nQwen Image 2.1 redraws a broad edit, such as a watercolor or anime style, a few percent taller than its source: about 4% on average and up to 12%. The amount changes with the seed and the prompt, and snapping sizes to 32, 64 or 112 does not change it. With this seed the watercolor comes back 6.6% taller, stretched from the middle, so its top and bottom edges land about 40 px further out.\\n\\n## The graph\\n1. **Image Resize** makes a 1 MP working image on a 32-pixel grid. **Qwen Encode** reads it and returns a matching latent. Keep that latent on the sampler: a canvas of another size adds a zoom of its own.\\n2. **Text** holds the change. Refer to the source as `<image1>`.\\n3. **Realign to Source** measures where the edit's content sits against the working image and warps the edit back onto that frame. **Report** shows the zoom and shift it measured.\\n4. **Before** slides the raw edit against the working image, and **After** slides the realigned one. **Save Image** writes the realigned PNG with this workflow inside.\\n\\n## Realign to Source is experimental\\nIt undoes the whole-frame zoom and shift, not shapes the restyle redrew in a new place, so the result lines up closely rather than pixel for pixel. The model pushed a thin strip out of view, here about 40 px at the top and at the bottom. **Empty fill** `edge` stretches the nearest pixels into it, and the `empty_mask` output marks it, to crop or inpaint. A picture it cannot measure is only scaled to the working image's size, and the report says why.\\n\\n## Sampling\\n25 steps, CFG 1, Euler / simple, denoise 1, with a fixed seed. Other seeds drift by other amounts; the node measures each one.\\n\\n## Models\\nEach Download button below names its destination under `ComfyUI/models/`. Refresh the model list after copying files. The model repository also provides optional BF16 alternatives.\",\"models\":[{\"name\":\"qwen_image_2.1_int8_convrot.safetensors\",\"dir\":\"diffusion_models\",\"size\":\"7.26 GB\",\"note\":\"Selected INT8 diffusion model.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors\"},{\"name\":\"qwen3vl_8b_int8_convrot.safetensors\",\"dir\":\"text_encoders\",\"size\":\"9.35 GB\",\"note\":\"Selected Qwen3-VL 8B encoder; CLIP type: qwen_image.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\"},{\"name\":\"qwen_image_2.1_vae_bf16.safetensors\",\"dir\":\"vae\",\"size\":\"676 MB\",\"note\":\"Use the Qwen Image 2.1 VAE.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors\"}],\"packs\":[],\"links\":[{\"label\":\"Qwen 2.1 model files + BF16 alternatives\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1\"},{\"label\":\"Qwen model guide\",\"url\":\"https://huggingface.co/Qwen/Qwen-Image-2.1\"}]}",
+        "{\"v\":1,\"title\":\"Qwen Image 2.1 Edit + Realign\",\"subtitle\":\"Style edits come back a few percent taller. Give the model a margin to drift into, then warp the edit back onto its source.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"#8fa8c8\",\"body\":\"## Start here\\nCopy `ausboss_pier_sunrise.png` from the pack's `example_workflows/inputs/` folder into `ComfyUI/input/`, or choose your own image. Select the three downloaded models and queue.\\n\\n## Why realign\\nQwen Image 2.1 redraws a broad edit, such as a watercolor or anime style, a few percent taller than its source: about 4% on average and up to 12%. The amount changes with the seed and the prompt, and snapping sizes to 32, 64 or 112 does not change it. With this seed the watercolor comes back 2.7% taller and 8 px lower, so the picture's bottom edge lands about 25 px further out and its top edge about 8 px.\\n\\n## Why a margin\\nAn edit made at the picture's own size pushes that drift past the canvas edge, and realigning it leaves a strip with nothing in it. **Margin** gives the model room to drift: 64 px of the picture, mirrored, on every side, so it reads as more of the scene. Realign to Source reads its stitcher, measures inside the picture's area only and returns just the picture, with real picture right up to the edges. Here both edges land inside the margin, so nothing is empty.\\n\\n## The graph\\n1. **Image Resize** makes a 1 MP working image on a 32-pixel grid. **Margin**, a Load Image + Pad, mirrors 64 px onto each side; the wire into its `source_image` wins over its file row. **Qwen Encode** reads the padded canvas and returns a matching latent. Keep that latent on the sampler: a canvas of another size adds a zoom of its own.\\n2. **Text** holds the change. Refer to the source as `<image1>`.\\n3. **Realign to Source** measures where the edit's content sits against the working image and warps the edit back onto that frame, at the working image's size. **Report** shows the zoom and shift it measured.\\n4. **Before** slides the raw edit against the padded canvas, and **After** slides the realigned one against the working image. **Save Image** writes the realigned PNG with this workflow inside.\\n\\n## With the consistency LoRA\\nThe [Qwen Image 2.1 Consistency LoRA](https://huggingface.co/ausboss/Qwen-Image-2.1-Consistency-LoRA) keeps the edit on the source's frame by itself. Load it with a LoRA Loader between the diffusion model and the reference cache, as the Qwen Image 2.1 Edit example does, and set the Margin's four pads to 0 (Reset padding on its canvas): a margin can tempt even the LoRA to reframe the picture. Realign to Source then trims what is left.\\n\\n## Realign to Source is experimental\\nIt undoes the whole-frame zoom and shift, not shapes the restyle redrew in a new place, so the result lines up closely rather than pixel for pixel. An edit that drifts past the margin still leaves an empty strip: **Empty fill** `edge` stretches the nearest pixels into it, the `empty_mask` output marks it, to crop or inpaint, and the report names how much more margin that side needed. A picture it cannot measure is only scaled to the working image's size, and the report says why.\\n\\n## Sampling\\n25 steps, CFG 1, Euler / simple, denoise 1, with a fixed seed. Other seeds drift by other amounts; the node measures each one. The margin adds about 27% more pixels to sample.\\n\\n## Models\\nEach Download button below names its destination under `ComfyUI/models/`. Refresh the model list after copying files. The model repository also provides optional BF16 alternatives.\",\"models\":[{\"name\":\"qwen_image_2.1_int8_convrot.safetensors\",\"dir\":\"diffusion_models\",\"size\":\"7.26 GB\",\"note\":\"Selected INT8 diffusion model.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors\"},{\"name\":\"qwen3vl_8b_int8_convrot.safetensors\",\"dir\":\"text_encoders\",\"size\":\"9.35 GB\",\"note\":\"Selected Qwen3-VL 8B encoder; CLIP type: qwen_image.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\"},{\"name\":\"qwen_image_2.1_vae_bf16.safetensors\",\"dir\":\"vae\",\"size\":\"676 MB\",\"note\":\"Use the Qwen Image 2.1 VAE.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors\"}],\"packs\":[],\"links\":[{\"label\":\"Qwen 2.1 model files + BF16 alternatives\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1\"},{\"label\":\"Qwen model guide\",\"url\":\"https://huggingface.co/Qwen/Qwen-Image-2.1\"}]}",
         ""
       ],
       "widgets_values_named": {
-        "note": "{\"v\":1,\"title\":\"Qwen Image 2.1 Edit + Realign\",\"subtitle\":\"Style edits come back a few percent taller. Measure the drift and warp the edit back onto its source.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"#8fa8c8\",\"body\":\"## Start here\\nCopy `ausboss_pier_sunrise.png` from the pack's `example_workflows/inputs/` folder into `ComfyUI/input/`, or choose your own image. Select the three downloaded models and queue.\\n\\n## Why realign\\nQwen Image 2.1 redraws a broad edit, such as a watercolor or anime style, a few percent taller than its source: about 4% on average and up to 12%. The amount changes with the seed and the prompt, and snapping sizes to 32, 64 or 112 does not change it. With this seed the watercolor comes back 6.6% taller, stretched from the middle, so its top and bottom edges land about 40 px further out.\\n\\n## The graph\\n1. **Image Resize** makes a 1 MP working image on a 32-pixel grid. **Qwen Encode** reads it and returns a matching latent. Keep that latent on the sampler: a canvas of another size adds a zoom of its own.\\n2. **Text** holds the change. Refer to the source as `<image1>`.\\n3. **Realign to Source** measures where the edit's content sits against the working image and warps the edit back onto that frame. **Report** shows the zoom and shift it measured.\\n4. **Before** slides the raw edit against the working image, and **After** slides the realigned one. **Save Image** writes the realigned PNG with this workflow inside.\\n\\n## Realign to Source is experimental\\nIt undoes the whole-frame zoom and shift, not shapes the restyle redrew in a new place, so the result lines up closely rather than pixel for pixel. The model pushed a thin strip out of view, here about 40 px at the top and at the bottom. **Empty fill** `edge` stretches the nearest pixels into it, and the `empty_mask` output marks it, to crop or inpaint. A picture it cannot measure is only scaled to the working image's size, and the report says why.\\n\\n## Sampling\\n25 steps, CFG 1, Euler / simple, denoise 1, with a fixed seed. Other seeds drift by other amounts; the node measures each one.\\n\\n## Models\\nEach Download button below names its destination under `ComfyUI/models/`. Refresh the model list after copying files. The model repository also provides optional BF16 alternatives.\",\"models\":[{\"name\":\"qwen_image_2.1_int8_convrot.safetensors\",\"dir\":\"diffusion_models\",\"size\":\"7.26 GB\",\"note\":\"Selected INT8 diffusion model.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors\"},{\"name\":\"qwen3vl_8b_int8_convrot.safetensors\",\"dir\":\"text_encoders\",\"size\":\"9.35 GB\",\"note\":\"Selected Qwen3-VL 8B encoder; CLIP type: qwen_image.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\"},{\"name\":\"qwen_image_2.1_vae_bf16.safetensors\",\"dir\":\"vae\",\"size\":\"676 MB\",\"note\":\"Use the Qwen Image 2.1 VAE.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors\"}],\"packs\":[],\"links\":[{\"label\":\"Qwen 2.1 model files + BF16 alternatives\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1\"},{\"label\":\"Qwen model guide\",\"url\":\"https://huggingface.co/Qwen/Qwen-Image-2.1\"}]}",
+        "note": "{\"v\":1,\"title\":\"Qwen Image 2.1 Edit + Realign\",\"subtitle\":\"Style edits come back a few percent taller. Give the model a margin to drift into, then warp the edit back onto its source.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"#8fa8c8\",\"body\":\"## Start here\\nCopy `ausboss_pier_sunrise.png` from the pack's `example_workflows/inputs/` folder into `ComfyUI/input/`, or choose your own image. Select the three downloaded models and queue.\\n\\n## Why realign\\nQwen Image 2.1 redraws a broad edit, such as a watercolor or anime style, a few percent taller than its source: about 4% on average and up to 12%. The amount changes with the seed and the prompt, and snapping sizes to 32, 64 or 112 does not change it. With this seed the watercolor comes back 2.7% taller and 8 px lower, so the picture's bottom edge lands about 25 px further out and its top edge about 8 px.\\n\\n## Why a margin\\nAn edit made at the picture's own size pushes that drift past the canvas edge, and realigning it leaves a strip with nothing in it. **Margin** gives the model room to drift: 64 px of the picture, mirrored, on every side, so it reads as more of the scene. Realign to Source reads its stitcher, measures inside the picture's area only and returns just the picture, with real picture right up to the edges. Here both edges land inside the margin, so nothing is empty.\\n\\n## The graph\\n1. **Image Resize** makes a 1 MP working image on a 32-pixel grid. **Margin**, a Load Image + Pad, mirrors 64 px onto each side; the wire into its `source_image` wins over its file row. **Qwen Encode** reads the padded canvas and returns a matching latent. Keep that latent on the sampler: a canvas of another size adds a zoom of its own.\\n2. **Text** holds the change. Refer to the source as `<image1>`.\\n3. **Realign to Source** measures where the edit's content sits against the working image and warps the edit back onto that frame, at the working image's size. **Report** shows the zoom and shift it measured.\\n4. **Before** slides the raw edit against the padded canvas, and **After** slides the realigned one against the working image. **Save Image** writes the realigned PNG with this workflow inside.\\n\\n## With the consistency LoRA\\nThe [Qwen Image 2.1 Consistency LoRA](https://huggingface.co/ausboss/Qwen-Image-2.1-Consistency-LoRA) keeps the edit on the source's frame by itself. Load it with a LoRA Loader between the diffusion model and the reference cache, as the Qwen Image 2.1 Edit example does, and set the Margin's four pads to 0 (Reset padding on its canvas): a margin can tempt even the LoRA to reframe the picture. Realign to Source then trims what is left.\\n\\n## Realign to Source is experimental\\nIt undoes the whole-frame zoom and shift, not shapes the restyle redrew in a new place, so the result lines up closely rather than pixel for pixel. An edit that drifts past the margin still leaves an empty strip: **Empty fill** `edge` stretches the nearest pixels into it, the `empty_mask` output marks it, to crop or inpaint, and the report names how much more margin that side needed. A picture it cannot measure is only scaled to the working image's size, and the report says why.\\n\\n## Sampling\\n25 steps, CFG 1, Euler / simple, denoise 1, with a fixed seed. Other seeds drift by other amounts; the node measures each one. The margin adds about 27% more pixels to sample.\\n\\n## Models\\nEach Download button below names its destination under `ComfyUI/models/`. Refresh the model list after copying files. The model repository also provides optional BF16 alternatives.\",\"models\":[{\"name\":\"qwen_image_2.1_int8_convrot.safetensors\",\"dir\":\"diffusion_models\",\"size\":\"7.26 GB\",\"note\":\"Selected INT8 diffusion model.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors\"},{\"name\":\"qwen3vl_8b_int8_convrot.safetensors\",\"dir\":\"text_encoders\",\"size\":\"9.35 GB\",\"note\":\"Selected Qwen3-VL 8B encoder; CLIP type: qwen_image.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\"},{\"name\":\"qwen_image_2.1_vae_bf16.safetensors\",\"dir\":\"vae\",\"size\":\"676 MB\",\"note\":\"Use the Qwen Image 2.1 VAE.\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors\"}],\"packs\":[],\"links\":[{\"label\":\"Qwen 2.1 model files + BF16 alternatives\",\"url\":\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1\"},{\"label\":\"Qwen model guide\",\"url\":\"https://huggingface.co/Qwen/Qwen-Image-2.1\"}]}",
         "ausboss_workflow_note_panel": ""
       },
       "color": "#14424d",
@@ -307,10 +307,9 @@
           "name": "image",
           "type": "IMAGE",
           "links": [
-            4,
             15,
             18,
-            22
+            23
           ]
         },
         {
@@ -365,11 +364,110 @@
       "bgcolor": "#161f21"
     },
     {
+      "id": 69,
+      "type": "AUSBOSS_NODES_LoadImagePad",
+      "pos": [
+        500,
+        490
+      ],
+      "size": [
+        460,
+        539
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "source_image",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 23
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            4,
+            22
+          ]
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "links": null
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "stitcher",
+          "type": "AUSBOSS_STITCHER",
+          "links": [
+            24
+          ]
+        },
+        {
+          "name": "reference",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "title": "Margin · 64 px mirror, room to drift",
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_LoadImagePad",
+        "cnr_id": "ausboss-nodes"
+      },
+      "widgets_values": [
+        "ausboss_pier_sunrise.png",
+        64,
+        64,
+        64,
+        64,
+        "mirror",
+        "#808080",
+        0.5,
+        0,
+        32,
+        0,
+        "image",
+        "",
+        ""
+      ],
+      "widgets_values_named": {
+        "image": "ausboss_pier_sunrise.png",
+        "pad_left": 64,
+        "pad_top": 64,
+        "pad_right": 64,
+        "pad_bottom": 64,
+        "mode": "mirror",
+        "fill_color": "#808080",
+        "backdrop_blur": 0.5,
+        "feather": 0,
+        "canvas_multiple": 32,
+        "target_megapixels": 0,
+        "upload": "image",
+        "ausboss_widget_card": "",
+        "ausboss_load_image_pad": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
       "id": 58,
       "type": "AUSBOSS_NODES_Text",
       "pos": [
         500,
-        490
+        1089
       ],
       "size": [
         460,
@@ -409,15 +507,15 @@
       "id": 59,
       "type": "TextEncodeQwenImage21",
       "pos": [
-        500,
-        770
+        1020,
+        376
       ],
       "size": [
-        460,
+        400,
         360
       ],
       "flags": {},
-      "order": 10,
+      "order": 11,
       "mode": 0,
       "inputs": [
         {
@@ -540,14 +638,14 @@
       "type": "KSampler",
       "pos": [
         1020,
-        376
+        796
       ],
       "size": [
         400,
         270
       ],
       "flags": {},
-      "order": 11,
+      "order": 12,
       "mode": 0,
       "inputs": [
         {
@@ -618,14 +716,14 @@
       "type": "VAEDecode",
       "pos": [
         1020,
-        706
+        1126
       ],
       "size": [
         400,
         50
       ],
       "flags": {},
-      "order": 12,
+      "order": 13,
       "mode": 0,
       "inputs": [
         {
@@ -661,7 +759,7 @@
       "type": "AUSBOSS_NODES_RunTimer",
       "pos": [
         1020,
-        816
+        1236
       ],
       "size": [
         400,
@@ -695,7 +793,7 @@
         560
       ],
       "flags": {},
-      "order": 15,
+      "order": 16,
       "mode": 0,
       "inputs": [
         {
@@ -746,7 +844,7 @@
         620
       ],
       "flags": {},
-      "order": 17,
+      "order": 18,
       "mode": 0,
       "inputs": [
         {
@@ -832,7 +930,7 @@
         200
       ],
       "flags": {},
-      "order": 13,
+      "order": 14,
       "mode": 0,
       "inputs": [
         {
@@ -844,6 +942,12 @@
           "name": "source",
           "type": "IMAGE",
           "link": 18
+        },
+        {
+          "name": "stitcher",
+          "shape": 7,
+          "type": "AUSBOSS_STITCHER",
+          "link": 24
         }
       ],
       "outputs": [
@@ -899,7 +1003,7 @@
         160
       ],
       "flags": {},
-      "order": 16,
+      "order": 17,
       "mode": 0,
       "inputs": [
         {
@@ -942,7 +1046,7 @@
         560
       ],
       "flags": {},
-      "order": 14,
+      "order": 15,
       "mode": 0,
       "inputs": [
         {
@@ -963,7 +1067,7 @@
           "links": null
         }
       ],
-      "title": "Before · raw edit / working image",
+      "title": "Before · raw edit / padded canvas",
       "properties": {
         "cnr_id": "ausboss-nodes",
         "ver": "2.2.0",
@@ -1079,7 +1183,7 @@
     ],
     [
       4,
-      57,
+      69,
       0,
       59,
       1,
@@ -1143,11 +1247,27 @@
     ],
     [
       22,
-      57,
+      69,
       0,
       68,
       1,
       "IMAGE"
+    ],
+    [
+      23,
+      57,
+      0,
+      69,
+      0,
+      "IMAGE"
+    ],
+    [
+      24,
+      69,
+      4,
+      66,
+      2,
+      "AUSBOSS_STITCHER"
     ]
   ],
   "groups": [
@@ -1177,24 +1297,24 @@
     },
     {
       "id": 3,
-      "title": "3 · Working image + instruction",
+      "title": "3 · Working image + margin + instruction",
       "bounding": [
         480,
         40,
         500,
-        1120
+        1330
       ],
       "color": "#5d527c",
       "flags": {}
     },
     {
       "id": 4,
-      "title": "4 · Sample",
+      "title": "4 · Encode + sample",
       "bounding": [
         1000,
         40,
         440,
-        990
+        1330
       ],
       "color": "#795b38",
       "flags": {}

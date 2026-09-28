@@ -15,8 +15,11 @@ sys.path.insert(0, str(ROOT))
 if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
     del sys.modules["nodes"]
 
+from nodes._inpaint_crop_helpers import build_canvas_stitcher  # noqa: E402
 from nodes._realign_helpers import (  # noqa: E402
+    crop_if_shift,
     describe,
+    frame_matrix,
     measure,
     phase_correlate,
     warp_to_source,
@@ -143,6 +146,15 @@ class MeasureTests(unittest.TestCase):
         self.assertAlmostEqual(result.zoom_y, 0.041, delta=0.0003)
         self.assertAlmostEqual(result.zoom_x, 0.004, delta=0.0003)
 
+    def test_a_reframe_sized_zoom_is_found(self):
+        # Past what blocks can match as they are (the old coarse pass lost it
+        # here, 137 px off): the coarse pass now tries the edit at a few zooms.
+        source = scene(640, 512, seed=71)
+        truth = drift(zoom_x=0.30, zoom_y=0.315, shift_x=-9.0, size=(512, 640))
+        result = measure(source, restyle(make_edit(source, truth)), max_zoom=0.5)
+        self.assertTrue(result.reliable, result.reason)
+        self.assertLess(corner_error(result.matrix, truth, 512, 640), 1.0)
+
     def test_a_twelve_percent_zoom_is_still_in_range(self):
         truth = drift(zoom_y=0.12, zoom_x=0.02, anchor=(0.5, 0.2), size=(self.width, self.height))
         self.check(truth, make_edit(self.source, truth), tolerance=0.2)
@@ -250,8 +262,10 @@ class NodeTests(unittest.TestCase):
         self.assertIn("ausboss", cls.SEARCH_ALIASES)
         inputs = cls.INPUT_TYPES()
         self.assertEqual(list(inputs["required"]), ["edited", "source", "fit", "empty_fill", "max_zoom"])
-        self.assertNotIn("optional", inputs)
-        for spec in inputs["required"].values():
+        # Appended after release as optional, so saved graphs keep loading.
+        self.assertEqual(list(inputs["optional"]), ["stitcher"])
+        self.assertEqual(inputs["optional"]["stitcher"][0], "AUSBOSS_STITCHER")
+        for spec in [*inputs["required"].values(), *inputs["optional"].values()]:
             self.assertTrue(spec[1].get("tooltip"))
         self.assertEqual(cls.RETURN_TYPES, ("IMAGE", "MASK", "STRING"))
         self.assertEqual(cls.RETURN_NAMES, ("image", "empty_mask", "report"))
@@ -301,6 +315,168 @@ class NodeTests(unittest.TestCase):
         source = scene(64 * 3, 64 * 3, seed=1)
         with self.assertRaises(ValueError):
             node.realign(torch.stack([source] * 3), torch.stack([source] * 2), "zoom + shift", "edge", 20.0)
+
+
+def padded(source: torch.Tensor, margin: int, mode: str = "replicate") -> torch.Tensor:
+    """The source on a canvas with `margin` px a side, like Load Image + Pad."""
+    chw = source.permute(2, 0, 1)[None]
+    if mode == "gray":
+        out = F.pad(chw, (margin,) * 4, value=0.5)
+    else:
+        out = F.pad(chw, (margin,) * 4, mode=mode)
+    return out[0].permute(1, 2, 0).contiguous()
+
+
+def stitcher_for(canvas: torch.Tensor, margin: int, width: int, height: int) -> dict:
+    mask = torch.ones(canvas.shape[:2])
+    mask[margin:margin + height, margin:margin + width] = 0.0
+    return build_canvas_stitcher(canvas[None], mask[None], bbox=(margin, margin, margin + width, margin + height),
+                                 source="test")
+
+
+class MarginTests(unittest.TestCase):
+    """An edit made on a padded canvas: measured inside the picture, returned as the picture."""
+
+    def make_node(self):
+        return NODE_CLASS_MAPPINGS[KEY]()
+
+    def test_a_whole_pixel_shift_comes_back_bit_identical(self):
+        width, height, margin = 320, 384, 32
+        source = scene(height, width, seed=61)
+        canvas = padded(source, margin)
+        # Content moved 7 px right and 5 px up, by exact whole pixels.
+        edit = torch.roll(canvas, shifts=(-5, 7), dims=(0, 1))
+        image, mask, report = self.make_node().realign(
+            edit[None], source[None], "zoom + shift", "edge", 20.0, stitcher_for(canvas, margin, width, height))
+        self.assertEqual(tuple(image.shape), (1, height, width, 3))
+        self.assertTrue(torch.equal(image[0], source), report)
+        self.assertEqual(float(mask.sum()), 0.0)
+        self.assertIn("cut out whole, no resampling", report)
+
+    def test_a_sub_pixel_drift_passes_the_edit_through_untouched(self):
+        width, height = 320, 256
+        source = scene(height, width, seed=62)
+        edit = make_edit(source, drift(shift_x=0.2, shift_y=-0.15, size=(width, height)))
+        image, _, report = self.make_node().realign(edit[None], source[None], "zoom + shift", "edge", 20.0)
+        self.assertTrue(torch.equal(image[0], edit), report)
+        self.assertIn("cut out whole", report)
+
+    def test_a_restyle_zoom_inside_a_margin_leaves_no_empty_strip(self):
+        width, height, margin = 320, 400, 40
+        source = scene(height, width, seed=63)
+        canvas = padded(source, margin)
+        cw, ch = width + 2 * margin, height + 2 * margin
+        # Qwen style: about 5% taller, anchored near the top, nudged sideways.
+        truth = drift(zoom_y=0.05, zoom_x=0.004, shift_x=3.0, anchor=(0.5, 0.2), size=(cw, ch))
+        edit = restyle(make_edit(canvas, truth))
+        image, mask, report = self.make_node().realign(
+            edit[None], source[None], "zoom + shift", "gray", 20.0, stitcher_for(canvas, margin, width, height))
+        self.assertEqual(tuple(image.shape), (1, height, width, 3))
+        self.assertEqual(float(mask.sum()), 0.0, report)
+        self.assertIn("warped once", report)
+        self.assertIn("empty strip 0.0%", report)
+        # Right up to the edges it is the picture, not a filled strip: the
+        # realigned restyle matches the restyled source everywhere.
+        expected = restyle(source)
+        diff = (image[0] - expected).abs().mean(dim=-1)
+        self.assertLess(float(diff[:10].mean()), 0.08)
+        self.assertLess(float(diff[-10:].mean()), 0.08)
+        self.assertLess(float(diff.mean()), 0.06)
+
+    def test_a_margin_that_was_too_small_is_named(self):
+        width, height, margin = 256, 320, 6
+        source = scene(height, width, seed=64)
+        canvas = padded(source, margin)
+        cw, ch = width + 2 * margin, height + 2 * margin
+        truth = drift(zoom_y=0.08, anchor=(0.5, 0.0), size=(cw, ch))
+        edit = make_edit(canvas, truth)
+        _, mask, report = self.make_node().realign(
+            edit[None], source[None], "zoom + shift", "edge", 20.0, stitcher_for(canvas, margin, width, height))
+        self.assertGreater(float(mask.mean()), 0.0)
+        self.assertIn("the margin was too small: add bottom ", report)
+        need = int(report.split("add bottom ")[1].split(" px")[0])
+        self.assertGreaterEqual(need, int(0.08 * (ch - 1)) - margin)
+
+    def test_an_unpadded_edit_with_a_strip_says_how_much_to_pad(self):
+        width, height = 256, 320
+        source = scene(height, width, seed=65)
+        edit = make_edit(source, drift(zoom_y=0.06, size=(width, height)))
+        _, _, report = self.make_node().realign(edit[None], source[None], "zoom + shift", "edge", 20.0)
+        self.assertIn("pad the source before editing: ", report)
+        self.assertIn("top", report)
+        self.assertIn("bottom", report)
+
+    def test_the_made_up_padding_does_not_sway_the_measurement(self):
+        # The model repaints the margin as it likes; here it is noise.
+        width, height, margin = 320, 320, 48
+        source = scene(height, width, seed=66)
+        canvas = padded(source, margin, "gray")
+        cw, ch = width + 2 * margin, height + 2 * margin
+        truth = drift(zoom_y=0.04, zoom_x=0.01, shift_y=-6.0, size=(cw, ch))
+        edit = make_edit(canvas, truth)
+        gen = torch.Generator().manual_seed(5)
+        noise = torch.rand(edit.shape, generator=gen)
+        keep = torch.zeros(ch, cw, dtype=torch.bool)
+        keep[margin + 30:margin + height - 30, margin + 30:margin + width - 30] = True
+        edit = torch.where(keep[..., None], edit, noise)
+        box = (margin, margin, margin + width, margin + height)
+        result = measure(canvas, edit, region=box)
+        self.assertTrue(result.reliable, result.reason)
+        truth_box = frame_matrix(width, height, box)
+        found = result.matrix @ truth_box
+        self.assertLess(corner_error(found, truth @ truth_box, width, height), 1.5)
+
+    def test_the_padded_canvas_as_source_returns_the_pictures_area(self):
+        width, height, margin = 288, 320, 32
+        source = scene(height, width, seed=67)
+        canvas = padded(source, margin, "reflect")
+        cw, ch = width + 2 * margin, height + 2 * margin
+        edit = make_edit(canvas, drift(zoom_y=0.03, size=(cw, ch)))
+        image, mask, _ = self.make_node().realign(
+            edit[None], canvas[None], "zoom + shift", "edge", 20.0, stitcher_for(canvas, margin, width, height))
+        self.assertEqual(tuple(image.shape), (1, height, width, 3))
+        self.assertEqual(tuple(mask.shape), (1, height, width))
+
+    def test_a_stitcher_without_a_box_is_refused(self):
+        source = scene(128, 128, seed=68)
+        stitcher = build_canvas_stitcher(source[None], torch.zeros(1, 128, 128), source="test")
+        with self.assertRaises(ValueError):
+            self.make_node().realign(source[None], source[None], "zoom + shift", "edge", 20.0, stitcher)
+
+    def test_a_reframe_that_fills_the_padded_canvas_is_undone(self):
+        # Edit models often read a margin as a border and zoom in until the
+        # picture fills the canvas, then stretch it the usual few percent.
+        width, height, margin = 288, 352, 48
+        source = scene(height, width, seed=70)
+        canvas = padded(source, margin, "reflect")
+        cw, ch = width + 2 * margin, height + 2 * margin
+        # Zoomed until the picture nearly fills the canvas on each axis: 1.33x
+        # across and 1.27x down here, well past the 20% limit on its own.
+        truth = drift(zoom_x=cw / width - 1.01, zoom_y=ch / height - 1.01, size=(cw, ch))
+        edit = restyle(make_edit(canvas, truth))
+        box = (margin, margin, margin + width, margin + height)
+        result = measure(canvas, edit, region=box)
+        self.assertTrue(result.reliable, result.reason)  # past 20%, but it is the reframe
+        frame = frame_matrix(width, height, box)
+        self.assertLess(corner_error(result.matrix @ frame, truth @ frame, width, height), 1.0)
+        image, mask, report = self.make_node().realign(
+            edit[None], source[None], "zoom + shift", "gray", 20.0, stitcher_for(canvas, margin, width, height))
+        self.assertEqual(float(mask.sum()), 0.0, report)
+
+    def test_crop_needs_a_whole_pixel_shift_the_right_size(self):
+        width, height = 200, 160
+        source = scene(height + 20, width + 20, seed=69)
+        box = (10, 10, 10 + width, 10 + height)
+        frame = frame_matrix(width, height, box)
+        canvas = (width + 20, height + 20)
+        shift = drift(shift_x=3.0, shift_y=2.0, size=canvas)
+        self.assertIsNotNone(crop_if_shift(source, shift, width, height, frame, canvas))
+        zoomed = drift(zoom_y=0.02, size=canvas)  # 1.6 px off at the ends of the box
+        self.assertIsNone(crop_if_shift(source, zoomed, width, height, frame, canvas))
+        too_far = drift(shift_x=12.0, size=canvas)  # the cut would leave the edit
+        self.assertIsNone(crop_if_shift(source, too_far, width, height, frame, canvas))
+        scaled = source[::2, ::2]  # an edit of another size always needs a warp
+        self.assertIsNone(crop_if_shift(scaled, shift, width, height, frame, canvas))
 
 
 if __name__ == "__main__":

@@ -25,16 +25,34 @@ All notable changes to ComfyUI-AusBoss are documented here.
   Image 2.1 draws broad edits (watercolor, anime, oil) a few percent taller
   than the source, up to about 12%, differently for every seed, and
   snapping sizes to 32, 64 or 112 does not change it. The node measures that
-  zoom and shift against the source picture and warps the edit back onto
-  the source's frame, at the source's size. It fixes the whole-frame zoom
-  and shift, not shapes a restyle redrew in a new place. `empty_mask` marks
-  the thin strip the model pushed out of view, to crop or inpaint, and
-  `report` gives the measured zoom, shift and worst-corner error. A frame
-  it cannot measure passes through at the source's size, and the report
-  says why. Measured on 166 Qwen 2.1 edits: the worst corner of the style
-  edits went from 35.5 px to 4.6 px (median). It is marked experimental
-  while it is tried on more edit models. New example: **Qwen Image 2.1
-  Edit + Realign**.
+  zoom and shift against the source picture and puts the edit back on the
+  source's frame, at the source's size: cut straight out of the edit when
+  the drift is within half a pixel of a whole-pixel shift (so an edit that
+  already lines up comes back untouched), else warped once. It fixes the
+  whole-frame zoom and shift, not shapes a restyle redrew in a new place.
+  Give it a margin: pad the picture with Load Image + Pad's new `mirror`
+  fill before the edit and wire its `stitcher` into the node's optional
+  `stitcher` input, and it measures inside the picture's area and returns
+  just that area, with real picture where the model drifted instead of an
+  empty strip (over 16 held-out edits with a 64 px mirror margin, an empty
+  strip on 1 of 16 against 13 of 16 without). `empty_mask` marks any strip
+  left, and `report` gives the measured zoom, shift and worst-corner error,
+  whether the frame was cut out or warped, and the margin a side needed
+  when the edit ran out of picture. A zoom too large for blocks to match as
+  they are, such as a model zooming in to fill a padded canvas, is found by
+  trying the edit at a few zooms first. A frame it cannot measure passes
+  through at the source's size, and the report says why. Measured on 166
+  Qwen 2.1 edits: the worst corner of the style edits went from 35.5 px to
+  4.6 px (median). It is marked experimental while it is tried on more edit
+  models. New example: **Qwen Image 2.1 Edit + Realign**, on a 64 px mirror
+  margin.
+- **Load Image + Pad: a `mirror` fill.** The picture reflected outward at
+  every edge, so the padding reads as more of the scene. It is the margin
+  to give an edit model room to drift before Realign to Source: on Qwen
+  Image 2.1 restyles a mirror margin tempted the model to zoom in and fill
+  the canvas on 2 of 16 edits, against 7 with edge-pixel padding and 5 with
+  flat gray. The fill is appended to the list, so saved workflows keep
+  theirs.
 - **Load Image + Pad takes a wired image.** A new optional `source_image`
   socket pads an image from another node instead of the chosen file, so a
   step before it (putting a transparent picture on white, say) no longer
