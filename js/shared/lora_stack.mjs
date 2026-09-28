@@ -373,6 +373,74 @@ export function shortLoraName(name, { hideFolders = true, hideExtension = true }
   return text;
 }
 
+// A long name is cut in the middle, not at the end: the end of a LoRA file
+// name is usually what tells its checkpoints apart (_v1_000004000,
+// -000012, _epoch_10), so it gets the larger share of the room. `measure`
+// returns a string's width in the same units as maxWidth (canvas
+// measureText in the browser), which keeps this testable.
+const ELLIPSIS = "\u2026";
+const TAIL_SHARE = 0.6;
+
+export function middleEllipsis(text, maxWidth, measure) {
+  const value = String(text ?? "");
+  if (measure(value) <= maxWidth) return value;
+  const build = (keep) => {
+    const tail = Math.ceil(keep * TAIL_SHARE);
+    return value.slice(0, keep - tail) + ELLIPSIS + value.slice(value.length - tail);
+  };
+  // Widest cut that fits: kept characters only ever add width.
+  let low = 0;
+  let high = value.length - 1;
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2);
+    if (measure(build(mid)) <= maxWidth) low = mid;
+    else high = mid - 1;
+  }
+  return build(low);
+}
+
+// A path gives up its folder first: the folder is shortened from its end
+// ("krea2/sty\u2026/"), and only when the file name alone does not fit is the
+// file name itself cut in the middle, with the folder dropped. Returns the
+// two parts to show, so the folder can be dimmed.
+export function fitLoraLabel(label, maxWidth, measure) {
+  const text = String(label ?? "");
+  const slash = Math.max(text.lastIndexOf("/"), text.lastIndexOf("\\"));
+  const folder = text.slice(0, slash + 1);
+  const name = text.slice(slash + 1);
+  if (measure(text) <= maxWidth) return { folder, name };
+  if (folder.length > 2) {
+    const room = maxWidth - measure(name);
+    const marker = ELLIPSIS + folder.slice(-1);
+    const shortened = (keep) => folder.slice(0, keep) + marker;
+    if (measure(shortened(1)) <= room) {
+      // Longest start of the folder that still fits, found by halving.
+      let low = 1;
+      let high = folder.length - 2;
+      while (low < high) {
+        const mid = Math.ceil((low + high) / 2);
+        if (measure(shortened(mid)) <= room) low = mid;
+        else high = mid - 1;
+      }
+      return { folder: shortened(low), name };
+    }
+  }
+  return { folder: "", name: middleEllipsis(name, maxWidth, measure) };
+}
+
+// The picker grows to fit its longest name, so long names read whole in a
+// narrow workspace; past the cap the middle ellipsis takes over. Never
+// narrower than it used to open (260, or the name field plus 80 up to 380),
+// never wider than the window.
+export const PICKER_MIN_WIDTH = 260;
+export const PICKER_MAX_WIDTH = 560;
+export function pickerWidth(widestLabel, anchorWidth, viewportWidth, chrome = 48) {
+  const floor = Math.max(PICKER_MIN_WIDTH, Math.min(380, (Number(anchorWidth) || 0) + 80));
+  const wanted = Math.max(floor, Math.ceil((Number(widestLabel) || 0) + chrome));
+  const cap = Math.min(PICKER_MAX_WIDTH, (Number(viewportWidth) || PICKER_MAX_WIDTH) - 16);
+  return Math.min(wanted, cap);
+}
+
 // ---------- duplicate rows ----------
 
 // Full names (case-insensitive) that appear on more than one row. Every copy

@@ -217,11 +217,11 @@ The patch depends on ComfyUI's attention internals. Its [help page](js/docs/AUSB
 
 ## Workflow utilities
 
-![Resolution Master with a 1344 by 768 landscape canvas and ratio controls, alongside a Seed card set to a fixed seed.](assets/readme/controls-showcase.webp)
+![Latent Size with a 1344 by 768 landscape canvas, its ratio chips, and the size and megapixel controls.](assets/readme/controls-showcase.webp)
 
-**Small controls you can build a graph around.** Set the canvas once and share a seed across samplers. [Explore Resolution Master →](example_workflows/Resolution%20Master%20%28AusBoss%29.json)
+**Small controls you can build a graph around.** Set the canvas size once, then wire its width, height and empty latent wherever the graph needs them. [Explore Latent Size →](example_workflows/Latent%20Size%20%28AusBoss%29.json)
 
-### Resolution Master 🆎
+### Latent Size 🆎
 
 Choose landscape or portrait, pick a ratio, adjust the megapixel budget, or drag the canvas handles. The orientation toggle remains independent of the ratio, including while square is selected. Typed width and height remain exact; gesture snapping is adjustable.
 
@@ -285,7 +285,7 @@ Copy the files in [`example_workflows/inputs/`](example_workflows/inputs) into `
 
 | Workflow | Purpose | Requirements |
 |---|---|---|
-| [Resolution Master](example_workflows/Resolution%20Master%20%28AusBoss%29.json) | Orientation, ratios, MP budgeting, and a solid-color preview | Core + this pack; no models |
+| [Latent Size](example_workflows/Latent%20Size%20%28AusBoss%29.json) | Orientation, ratios, MP budgeting, and a solid-color preview | Core + this pack; no models |
 | [Image and Video Transform](example_workflows/Image%20and%20Video%20Transform%20%28AusBoss%29.json) | Crop/Pad controls, masks, alignment, and comparison against the original source | Core + this pack; included picture and clip |
 | [Video Node Tour](example_workflows/Video%20Node%20Tour%20%28AusBoss%29.json) | Trim, split, merge, resize, mask, retime, compare, and save a clip | Core + this pack; included clip |
 | [Video Reframe and Slow Motion](example_workflows/Video%20Reframe%20and%20Slow%20Motion%20%28AusBoss%29.json) | Crop a vertical clip to a square, double its frames, and save it at half speed | Core + this pack; included clip |
@@ -338,7 +338,7 @@ Readers get the nodes through ComfyUI-Manager's missing-node install, like any o
 - Video editors offer frame stepping, playback, and exact timeline seeking, on the node face as well as in the editor. The Clip node's IN/OUT handles are frames on the source's own grid, so the frame shown for IN is the first frame decoded and the frame shown for OUT is the last.
 - Optional aspect presets live in `ausboss_presets.json` beside the pack. Copy [`ausboss_presets_example.json`](ausboss_presets_example.json) to start; the user file survives updates.
 
-LoRA Loader and Resolution Master have their own gear menus for per-node preferences.
+LoRA Loader and Latent Size have their own gear menus for per-node preferences.
 
 The video transform nodes' local path mode reads only videos inside ComfyUI's input, output and temp folders, and Save Image writes only inside the output folder: no widget can point the pack anywhere else on the disk; see [the video transform help](js/docs/AUSBOSS_NODES_VideoCropRotatePad.md).
 

@@ -285,7 +285,10 @@ test("the lora panel carries all three guards by name", () => {
     /minHeight:\s*\(\)\s*=>\s*panelHeight\(state\)\s*\+\s*WIDGET_FRAME/,
     "the height floor dropped the DOM-widget frame allowance",
   );
-  assert.match(source, /minWidth:\s*PANEL_MIN_WIDTH/);
+  // The floor follows the strength mode (a second box per row when model
+  // and CLIP are separate), and it is built on PANEL_MIN_WIDTH.
+  assert.match(source, /minWidth:\s*\(\)\s*=>\s*panelMinWidth\(state\)/);
+  assert.match(source, /return PANEL_MIN_WIDTH \+ \(linked\(state\) \? 0 : SEPARATE_EXTRA_WIDTH\)/);
   assert.match(source, /minNodeSize:\s*\[PANEL_MIN_WIDTH/);
 });
 

@@ -13,6 +13,7 @@ import {
   cycleMasterToggle,
   duplicateLoraKeys,
   filterLoras,
+  fitLoraLabel,
   formatFileSize,
   groupByFolder,
   highlightedName,
@@ -22,11 +23,13 @@ import {
   isScrubbing,
   loaderLoraEntries,
   mergeImportedRows,
+  middleEllipsis,
   moveHighlight,
   moveRow,
   newRow,
   normalizeRows,
   parseRows,
+  pickerWidth,
   reorderRows,
   resolveLoraName,
   roundStrength,
@@ -540,6 +543,55 @@ test("shortLoraName strips folders and extension independently", () => {
   assert.equal(shortLoraName("krea2/x.safetensors", { hideExtension: false }), "x.safetensors");
   assert.equal(shortLoraName("plain_name"), "plain_name");
 });
+
+// One unit per character: widths below read as character counts.
+const chars = (text) => text.length;
+
+test("a long name is cut in the middle and keeps the larger share of its end", () => {
+  const name = "ausboss_aesthetic_krea2_raw_r12_v1_000004000";
+  assert.equal(middleEllipsis(name, 100, chars), name, "fits: untouched");
+  assert.equal(middleEllipsis(name, 15, chars), "ausbo\u2026000004000");
+  assert.equal(middleEllipsis(name, 30, chars), "ausboss_aes\u2026w_r12_v1_000004000");
+  // Checkpoints of one run stay tellable apart at a narrow width.
+  assert.equal(middleEllipsis("minimax_h3_fl2v_turbo_4step_v1.0_7600", 15, chars), "minim\u2026v1.0_7600");
+  assert.equal(middleEllipsis("minimax_h3_fl2v_turbo_4step_v1.2_7600", 15, chars), "minim\u2026v1.2_7600");
+  for (const width of [1, 5, 12, 20, 43]) {
+    assert.ok(middleEllipsis(name, width, chars).length <= width, `fits in ${width}`);
+  }
+  assert.equal(middleEllipsis(name, 0, chars), "\u2026", "no room: just the mark");
+  assert.equal(middleEllipsis("", 10, chars), "");
+});
+
+test("a path shortens its folder before it touches the file name", () => {
+  const label = "minimaxh3/MiniMax-H3-Turbo-Lora-ComfyUI/minimax_h3_fl2v_turbo_4step_v1.2_7600";
+  assert.deepEqual(fitLoraLabel(label, 200, chars), {
+    folder: "minimaxh3/MiniMax-H3-Turbo-Lora-ComfyUI/",
+    name: "minimax_h3_fl2v_turbo_4step_v1.2_7600",
+  });
+  assert.deepEqual(fitLoraLabel(label, 50, chars), {
+    folder: "minimaxh3/M\u2026/",
+    name: "minimax_h3_fl2v_turbo_4step_v1.2_7600",
+  });
+  // No room left for any of the folder: it goes, and the name is cut.
+  assert.deepEqual(fitLoraLabel(label, 20, chars), { folder: "", name: "minimax\u2026ep_v1.2_7600" });
+  assert.deepEqual(fitLoraLabel("styles\\ink_wash_v3", 30, chars), { folder: "styles\\", name: "ink_wash_v3" });
+  assert.deepEqual(fitLoraLabel("AltGirlKrea", 30, chars), { folder: "", name: "AltGirlKrea" });
+  assert.deepEqual(fitLoraLabel(undefined, 30, chars), { folder: "", name: "" });
+});
+
+test("the picker widens for long names, within the cap and the window", () => {
+  // Short names: the old width (name field + 80, 260..380).
+  assert.equal(pickerWidth(100, 150, 1920), 260);
+  assert.equal(pickerWidth(100, 280, 1920), 360);
+  assert.equal(pickerWidth(100, 900, 1920), 380);
+  // A long name widens it to fit (label + 48 px of padding and scrollbar)...
+  assert.equal(pickerWidth(400, 150, 1920), 448);
+  // ...up to the cap, and never past the window's edge.
+  assert.equal(pickerWidth(900, 150, 1920), 560);
+  assert.equal(pickerWidth(900, 150, 400), 384);
+  assert.equal(pickerWidth(900, 150, 200), 184);
+});
+
 
 // ---------- duplicates ----------
 

@@ -1,7 +1,7 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "../shared/index.mjs";
-import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
+import { WIDGET_FRAME, fillNodeHeight, holdVueNodeMinWidth } from "../shared/panel_layout.mjs";
 import { hideInputsInDef, hideWidget as collapseWidget } from "../shared/widget_visibility.mjs";
 import {
   closeSettingsMenu,
@@ -21,6 +21,7 @@ import {
   clampHighlight,
   commonFolderPrefix,
   filterLoras,
+  fitLoraLabel,
   formatFileSize,
   groupByFolder,
   highlightedName,
@@ -41,6 +42,7 @@ import {
   newRow,
   parseRows,
   parseTemplates,
+  pickerWidth,
   removeTemplate,
   reorderRows,
   roundStrength,
@@ -131,6 +133,12 @@ const SETTINGS_SCHEMA = [
       + "tooltip and the picker keeps its folders.",
   },
   {
+    key: "name_cut", label: "Long names", type: "choice",
+    options: ["end", "middle"], default: "end",
+    hint: "How a row shortens a name that does not fit. middle keeps the "
+      + "end in view, where checkpoint numbers like _000004000 usually are.",
+  },
+  {
     key: "name_scrub", label: "Scrub strength on the name", type: "toggle",
     default: true,
     hint: "Drag left/right on a row's name to change its model strength - "
@@ -145,8 +153,16 @@ const SETTINGS_SCHEMA = [
 // Narrowest node at which a row still works: toggle + picker + strength +
 // info + gaps + padding. Enforced through the DOM widget's layout minimum,
 // so the node cannot be resized to where the fixed-width row controls would
-// hang past the right edge.
+// hang past the right edge. Separate model / CLIP strengths put a second
+// strength box and its gap on every row, so that mode's floor is wider by
+// as much, and the name keeps the same room.
 const PANEL_MIN_WIDTH = 320;
+const SEPARATE_EXTRA_WIDTH = 72;
+// The popups' font, shared with the picker's width measurement, and the
+// picker's side paddings, from which an option's text width is worked out.
+const POP_FONT = "12px system-ui";
+const LIST_PAD_X = 4;
+const OPTION_PAD_X = 8;
 
 function installStyles() {
   if (document.getElementById("ausboss-lora-styles")) return;
@@ -238,6 +254,11 @@ function installStyles() {
   .ausboss-lora-name.dup { border-color: #f0a11e;
     box-shadow: inset 0 0 0 1px rgba(240,161,30,.4); }
   .ausboss-lora-name.empty { color: #9ba2aa; font-style: italic; }
+  /* A name's text is fitted to this box by fitLabels (middle ellipsis);
+     the end ellipsis here only covers a box that has not been fitted. */
+  .ausboss-lora-label { display: block; overflow: hidden; text-overflow: ellipsis;
+    white-space: pre; }
+  .ausboss-lora-dir { opacity: .6; }
   .ausboss-lora-strengthbox { display: flex; width: 66px; height: 24px; border: 1px solid #3a4047;
     border-radius: 5px; background: #23272c; overflow: hidden; flex: none; }
   .ausboss-lora-strengthbox:focus-within { border-color: ${BRAND}; }
@@ -266,13 +287,14 @@ function installStyles() {
     text-overflow: ellipsis; white-space: nowrap; text-align: center; }
   .ausboss-lora-pop { position: fixed; z-index: 10000; background: #1c1f23;
     border: 1px solid #3a4047; border-radius: 7px; box-shadow: 0 8px 28px rgba(0,0,0,.5);
-    font: 12px system-ui; color: #d7dde2; display: flex; flex-direction: column; }
+    font: ${POP_FONT}; color: #d7dde2; display: flex; flex-direction: column; }
   .ausboss-lora-search { margin: 8px; height: 26px; border: 1px solid #3a4047; border-radius: 5px;
     background: #23272c; color: inherit; padding: 0 8px; outline: none; }
   .ausboss-lora-search:focus { border-color: ${BRAND}; }
-  .ausboss-lora-list { overflow-y: auto; max-height: 48vh; padding: 0 4px 6px; }
-  .ausboss-lora-option { padding: 5px 8px; border-radius: 4px; cursor: pointer; white-space: nowrap;
-    overflow: hidden; text-overflow: ellipsis; }
+  .ausboss-lora-list { overflow-y: auto; max-height: 48vh; padding: 0 ${LIST_PAD_X}px 6px;
+    scrollbar-gutter: stable; }
+  .ausboss-lora-option { padding: 5px ${OPTION_PAD_X}px; border-radius: 4px; cursor: pointer;
+    overflow: hidden; }
   .ausboss-lora-option.highlight { background: #2c3238; }
   .ausboss-lora-option.current { color: ${BRAND}; }
   .ausboss-lora-empty { padding: 10px; color: #9ba2aa; font-style: italic; }
@@ -323,6 +345,69 @@ function el(tag, className, text) {
   if (className) element.className = className;
   if (text !== undefined) element.textContent = text;
   return element;
+}
+
+// ---------- long names ----------
+
+// Names are cut in the middle, not at the end (fitLoraLabel in
+// lora_stack.mjs): the end of a LoRA file name is what tells its
+// checkpoints apart. A label keeps its whole text in data, so it can be
+// refitted whenever its box changes width.
+let measureContext = null;
+
+function measureCanvas() {
+  measureContext ??= document.createElement("canvas").getContext("2d");
+  return measureContext;
+}
+
+// Widths are cached for the batch: labels in one folder share every
+// shortened-folder candidate, so a long picker measures each only once.
+function textMeasure(element) {
+  const context = measureCanvas();
+  if (!context) return null;
+  const style = getComputedStyle(element);
+  context.font = style.font
+    || `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+  const widths = new Map();
+  return (text) => {
+    let width = widths.get(text);
+    if (width === undefined) {
+      width = context.measureText(text).width;
+      widths.set(text, width);
+    }
+    return width;
+  };
+}
+
+function showLabel(label, { folder, name }) {
+  label.textContent = "";
+  if (folder) label.append(el("span", "ausboss-lora-dir", folder));
+  label.append(name);
+}
+
+// Plain text until fitLabels lays it out (it runs before the next paint).
+function nameLabel(text) {
+  const label = el("span", "ausboss-lora-label", text);
+  label.dataset.ausbossFull = text;
+  return label;
+}
+
+// Every label in the list shares one font, so one measure serves them all.
+// Widths are all read before any text is written: interleaving the two
+// would lay the list out again for every label. A caller that already
+// knows the labels' width passes it and no layout is read at all. A box
+// that is not laid out yet (width 0) is left for its resize observer.
+function fitLabels(labels, knownWidth) {
+  const list = [...labels];
+  if (!list.length) return;
+  const measure = textMeasure(list[0]);
+  if (!measure) return;
+  const widths = list.map((label) => knownWidth ?? label.clientWidth);
+  list.forEach((label, index) => {
+    if (widths[index] > 0) {
+      showLabel(label, fitLoraLabel(label.dataset.ausbossFull ?? "", widths[index] - 1, measure));
+    }
+  });
 }
 
 
@@ -531,8 +616,12 @@ function panelHeight(state) {
   return PANEL_PADDING * 2 + GROUP_HEIGHT + ROW_GAP + stack;
 }
 
+function panelMinWidth(state) {
+  return PANEL_MIN_WIDTH + (linked(state) ? 0 : SEPARATE_EXTRA_WIDTH);
+}
+
 function fitNode(state) {
-  const width = Math.max(320, state.node.size?.[0] || 320);
+  const width = Math.max(panelMinWidth(state), state.node.size?.[0] || PANEL_MIN_WIDTH);
   const height = state.node.computeSize
     ? state.node.computeSize()[1]
     : panelHeight(state) + WIDGET_FRAME + 80;
@@ -669,6 +758,20 @@ function strengthBox(state, index, key) {
 
 // ---------- picker ----------
 
+// Width of the longest label in the picker's font. Remembered across opens,
+// so the next picker opens at the width its list will want instead of
+// jumping when the list arrives.
+let widestPickerLabel = 0;
+
+function widestLabel(labels) {
+  const context = measureCanvas();
+  if (!context) return 0;
+  context.font = POP_FONT;
+  let widest = 0;
+  for (const label of labels) widest = Math.max(widest, context.measureText(label).width);
+  return widest;
+}
+
 function openPicker(state, index, anchor) {
   const pop = el("div");
   const search = el("input", "ausboss-lora-search");
@@ -677,7 +780,8 @@ function openPicker(state, index, anchor) {
   list.append(el("div", "ausboss-lora-empty", "Loading..."));
   pop.append(search, list);
   const anchorRect = anchor.getBoundingClientRect();
-  const { place } = openPopup(pop, anchorRect, { width: Math.max(260, Math.min(380, anchorRect.width + 80)) });
+  const fitWidth = () => pickerWidth(widestPickerLabel, anchorRect.width, window.innerWidth);
+  const { place } = openPopup(pop, anchorRect, { width: fitWidth() });
   search.focus();
 
   let names = [];
@@ -695,7 +799,8 @@ function openPicker(state, index, anchor) {
   };
 
   const appendOption = (name, flatIndex, label) => {
-    const option = el("div", "ausboss-lora-option", displayName(state, label));
+    const option = el("div", "ausboss-lora-option");
+    option.append(nameLabel(displayName(state, label)));
     option.title = name;
     if (flatIndex === highlight) option.classList.add("highlight");
     if (name === state.rows[index].name) option.classList.add("current");
@@ -721,6 +826,10 @@ function openPicker(state, index, anchor) {
   };
 
   const renderList = () => {
+    // Read while the list is still laid out from the last frame: the
+    // gutter is reserved (scrollbar-gutter), so this width holds whatever
+    // the new results are, and fitting the labels forces no layout.
+    const labelWidth = list.clientWidth - 2 * (LIST_PAD_X + OPTION_PAD_X);
     filtered = filterLoras(names, search.value);
     highlight = clampHighlight(highlight, filtered.length);
     list.textContent = "";
@@ -753,6 +862,7 @@ function openPicker(state, index, anchor) {
         }
       }
     }
+    fitLabels(list.querySelectorAll(".ausboss-lora-label"), labelWidth > 0 ? labelWidth : undefined);
     list.querySelector(`[data-ausboss-flat="${highlight}"]`)?.scrollIntoView({ block: "nearest" });
     place();
   };
@@ -782,6 +892,10 @@ function openPicker(state, index, anchor) {
       // The picker's fresh list is also the row decorator's fresh list.
       state.available = fetched;
       state.nameStatus = new Map();
+      // Full paths bound every label the list shows (browse and search both
+      // strip a folder prefix), so this width never changes while typing.
+      widestPickerLabel = widestLabel(names.map((name) => displayName(state, name)));
+      pop.style.width = `${fitWidth()}px`;
       const currentIndex = filterLoras(names, "").indexOf(state.rows[index].name);
       highlight = currentIndex >= 0 ? currentIndex : -1;
       renderList();
@@ -1480,7 +1594,12 @@ function renderRows(state) {
       commitRows(state, rows, { structural: true });
     });
 
-    const name = el("button", "ausboss-lora-name", row.name ? rowLabel(state, row.name) : "choose a LoRA...");
+    const name = el("button", "ausboss-lora-name");
+    name.append(row.name
+      ? nameLabel(rowLabel(state, row.name))
+      : el("span", "ausboss-lora-label", "choose a LoRA..."));
+    // The visible text may be shortened; a screen reader gets the whole name.
+    if (row.name) name.setAttribute("aria-label", rowLabel(state, row.name));
     name.type = "button";
     name.title = row.name || "Pick a LoRA from models/loras";
     if (!row.name) name.classList.add("empty");
@@ -1566,6 +1685,29 @@ function renderRows(state) {
   stack.append(actions);
   body.append(stack);
   decorateRows(state);
+  // Names refit whenever the stack's box changes - the node was resized,
+  // or the panel was laid out for the first time. The first observation
+  // arrives before the next paint, so an unfitted name never shows.
+  state.nameObserver ??= new ResizeObserver(() => {
+    holdVueNodeMinWidth(state.panel, panelMinWidth(state));
+    fitRowNames(state);
+  });
+  state.nameObserver.disconnect();
+  state.nameObserver.observe(stack);
+}
+
+// Rows cut a long name at the end (the label's CSS ellipsis) unless the
+// gear's "Long names" asks for the middle. The picker always keeps the end
+// in view: that is where a search tells checkpoints apart.
+function fitRowNames(state) {
+  const labels = state.panel.querySelectorAll(".ausboss-lora-name > [data-ausboss-full]");
+  if (state.settings?.name_cut === "middle") {
+    fitLabels(labels);
+    return;
+  }
+  for (const label of labels) {
+    if (label.textContent !== label.dataset.ausbossFull) label.textContent = label.dataset.ausbossFull;
+  }
 }
 
 // ---------- node install ----------
@@ -1619,11 +1761,14 @@ function installLoraNode(node) {
   // minimum rides the same call so the node cannot shrink to where the row's
   // fixed-width controls would hang past its right edge. The floor sheds
   // BAND_RECLAIM because that many pixels come out of the slot band, not
-  // out of the space below it.
+  // out of the space below it. exactMinWidth: the floor is the node's own
+  // width, without the frontend's padding on top (panel_layout.mjs), so a
+  // compact stack really goes down to it.
   fillNodeHeight(domWidget, {
-    minWidth: PANEL_MIN_WIDTH,
+    minWidth: () => panelMinWidth(state),
     minHeight: () => panelHeight(state) + WIDGET_FRAME - BAND_RECLAIM,
     minNodeSize: [PANEL_MIN_WIDTH, 160],
+    exactMinWidth: true,
   });
   // Climb the panel up into the slot band. The layout
   // assigns this widget a y below the last output slot and a height from
@@ -1671,7 +1816,10 @@ function installLoraNode(node) {
   chainCallback(node, "onDrawForeground", function () {
     syncRestoredRows();
   });
-  chainCallback(node, "onRemoved", () => closePopup());
+  chainCallback(node, "onRemoved", () => {
+    closePopup();
+    state.nameObserver?.disconnect();
+  });
   // ComfyUI's R refresh re-reads node definitions; ride it so files that
   // moved or came back reconnect without touching the node by hand.
   chainCallback(node, "refreshComboInNode", function () {

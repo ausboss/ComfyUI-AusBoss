@@ -1,4 +1,4 @@
-// Resolution Master 🆎 — SHAPE × BUDGET picker, styled to the designer's pass.
+// Latent Size 🆎 — SHAPE × BUDGET picker, styled to the designer's pass.
 //
 // The ratio grid picks the shape, the stage shows the actual rectangle
 // (stretchable by its edges and corner), and the per-ratio quick list
@@ -10,9 +10,10 @@
 // Layout: SHAPE (a flip container beside a 3-column ratio-chip container),
 // the stage, SIZE & BUDGET (grip-scrub W/H fields, swap, typeable snap
 // with ladder arrows, gear), and SIZES — quick picks for the CURRENT
-// ratio, regenerated whenever the ratio or snap changes. The node has a
-// fixed footprint (Pixaroma-style) so everything spaces evenly; it cannot
-// be resized.
+// ratio, regenerated whenever the ratio or snap changes. A new node opens
+// at the designed footprint and can be resized from its corner: wider, the
+// chips, fields and size picks stretch with it; taller, the stage takes
+// the extra height; narrower, down to MIN_WIDTH, the size row tightens.
 //
 // Interaction grammar: EDGES change shape (one axis, snapped), the CORNER
 // changes size at the exact locked ratio (Shift frees it), Alt drops the
@@ -26,7 +27,7 @@ import {
   keepDomWidgetWidthAuto,
   notifyAusbossChange,
 } from "../shared/index.mjs";
-import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
+import { WIDGET_FRAME, fillNodeHeight, holdVueNodeMinWidth } from "../shared/panel_layout.mjs";
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
 import { makeScrubInput } from "../shared/scrub_input.mjs";
 import {
@@ -59,7 +60,15 @@ import {
 } from "../shared/resolution_math.mjs";
 
 const NODE_CLASS = "AUSBOSS_NODES_Resolution";
-const FIXED_WIDTH = 340; // one fixed width that spaces evenly; W, H, and MP fields share the size row
+// The node was called "Resolution Master" until that name, which belongs to
+// another node pack, was retired. Workflows only store a title that differs
+// from the default, so most pick up the new name by themselves. A saved
+// title that still starts with the old default - on its own, or with a note
+// after it ("Resolution Master 🆎 · 1 MP portrait") - gets the new name in
+// its place on load. Any other title somebody typed stays as it is.
+const RETIRED_TITLE = "Resolution Master 🆎";
+const DEFAULT_WIDTH = 340; // a new node's width: W, H, and MP share the size row comfortably
+const MIN_WIDTH = 320; // narrowest width where the size row's numbers still fit whole
 const SECTION_HEAD = 19; // header line + its 6px bottom margin
 const SECTION_PAD_Y = 14; // 6 top + 8 bottom
 const CHIP_H = 24;
@@ -136,9 +145,9 @@ function installStyles() {
     border-radius: 6px; padding: 4px; }
   .ausboss-res-flipbox { flex: none; display: grid; place-items: center; }
   .ausboss-res-chipbox { flex: 1 1 auto; min-width: 0; display: grid;
-    place-content: start center; max-height: 65px; overflow-y: auto; }
-  .ausboss-res-chipgrid { display: grid; justify-content: center;
-    grid-template-columns: repeat(3, minmax(60px, max-content)); gap: 5px; }
+    align-content: start; max-height: 65px; overflow-y: auto; }
+  .ausboss-res-chipgrid { display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
   .ausboss-res-chip { display: flex; align-items: center; justify-content: center;
     gap: 5px; height: ${CHIP_H}px; padding: 0 3px; border-radius: 5px; cursor: pointer;
     font: 500 10.5px ${MONO}; background: #1e2020; border: 1px solid #313434;
@@ -212,6 +221,16 @@ function installStyles() {
     padding: 0 1px; }
   .ausboss-res-noquick { font: 400 10px ${MONO}; color: #4a5050; padding: 4px 0;
     grid-column: 1 / -1; }
+  /* Below the default width the size row tightens, so W, H and MP stay
+     whole down to MIN_WIDTH. 289px is this section's content width at
+     DEFAULT_WIDTH (node - 20 frame - 12 panel padding - 18 section). */
+  .ausboss-res-sizesec { container-type: inline-size; }
+  @container (max-width: 289px) {
+    .ausboss-res-controls { gap: 4px; }
+    .ausboss-res-field { gap: 2px; }
+    .ausboss-res-field .ausboss-scrub > .ausboss-scrub-input { padding-left: 4px; }
+    .ausboss-res-btn { width: 26px; }
+  }
   `;
   document.head.append(style);
 }
@@ -737,7 +756,7 @@ function buildPanel(state) {
   panel.append(stage);
 
   // (3) SIZE & BUDGET
-  const sizeSec = el("div", "ausboss-res-sec");
+  const sizeSec = el("div", "ausboss-res-sec ausboss-res-sizesec");
   sizeSec.append(sectionHead("Size & budget", "").head);
   const controls = el("div", "ausboss-res-controls");
   const widthField = sizeField(state, "width");
@@ -849,6 +868,7 @@ function buildPanel(state) {
 
   state.resizeObserver?.disconnect();
   state.resizeObserver = new ResizeObserver(() => {
+    holdVueNodeMinWidth(state.panel, MIN_WIDTH);
     if (!state.frozenScale) repaint(state);
   });
   state.resizeObserver.observe(stage);
@@ -869,7 +889,8 @@ function fitNode(state) {
   const height = state.node.computeSize
     ? state.node.computeSize()[1]
     : panelHeight(state) + WIDGET_FRAME + 60;
-  state.node.setSize?.([FIXED_WIDTH, Math.max(height, state.node.size?.[1] || 0)]);
+  const width = Math.max(MIN_WIDTH, state.node.size?.[0] || DEFAULT_WIDTH);
+  state.node.setSize?.([width, Math.max(height, state.node.size?.[1] || 0)]);
   state.node.graph?.setDirtyCanvas(true, true);
 }
 
@@ -920,10 +941,13 @@ function installResolutionNode(node) {
     getMinHeight: () => panelHeight(state) + WIDGET_FRAME,
   });
   keepDomWidgetWidthAuto(domWidget);
+  // exactMinWidth: MIN_WIDTH is the node's real floor, without the
+  // frontend's padding on top (panel_layout.mjs).
   fillNodeHeight(domWidget, {
-    minWidth: FIXED_WIDTH,
+    minWidth: MIN_WIDTH,
     minHeight: () => panelHeight(state) + WIDGET_FRAME,
-    minNodeSize: [FIXED_WIDTH, 400],
+    minNodeSize: [MIN_WIDTH, 400],
+    exactMinWidth: true,
   });
 
   buildPanel(state);
@@ -932,26 +956,21 @@ function installResolutionNode(node) {
       requestAnimationFrame(() => { if (!state.disposed) { syncPrimitiveLinks(state); repaint(state); } });
     });
   }
-  // Fully fixed footprint, the Pixaroma lesson: resizable=false removes
-  // the corner affordance (no resize cursor at all), and the onResize
-  // clamp catches programmatic setSize. Every section is spaced for
-  // exactly this box; the SIZES grid reserves its two rows so the height
-  // never shifts.
-  node.resizable = false;
-  const fixedHeight = Math.max(
-    panelHeight(state) + WIDGET_FRAME + 86,
-    node.computeSize?.()[1] || 0,
-  );
-  state.fixedHeight = fixedHeight;
-  node.setSize?.([FIXED_WIDTH, fixedHeight]);
-  chainCallback(node, "onResize", function () {
-    if (this.size?.[0] !== FIXED_WIDTH) this.size[0] = FIXED_WIDTH;
-    if (state.fixedHeight && this.size?.[1] !== state.fixedHeight) {
-      this.size[1] = state.fixedHeight;
-    }
-  });
+  // A new node opens at the designed footprint: every section is spaced
+  // for it, and the SIZES grid reserves its two rows so content never
+  // changes the height. From there the size is the user's to pick, so the
+  // node can line up with its neighbours; the layout minimums above stop a
+  // corner drag at MIN_WIDTH and the panel's height. A saved node keeps
+  // its saved size.
+  node.setSize?.([
+    DEFAULT_WIDTH,
+    Math.max(panelHeight(state) + WIDGET_FRAME + 86, node.computeSize?.()[1] || 0),
+  ]);
 
   chainCallback(node, "onConfigure", function () {
+    if (this.title?.startsWith(RETIRED_TITLE) && this.constructor?.title) {
+      this.title = this.constructor.title + this.title.slice(RETIRED_TITLE.length);
+    }
     liftSockets();
     // Restore lands widget values after creation: re-read and repaint. A
     // workflow saved before the latent widgets existed lands its panel's

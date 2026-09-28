@@ -16,7 +16,12 @@ come out of one socket, ready to wire into a prompt.
   is refreshed from `models/loras` every time it opens. Dragging left/right
   on the name instead **scrubs the model strength**, and the bar behind the
   text rides along. Rows show just the file name by default; the full path
-  lives in the tooltip and the picker keeps its folder groups.
+  lives in the tooltip and the picker keeps its folder groups. A name too
+  long for its row is cut at the end; gear menu → **Long names** →
+  `middle` cuts the middle instead, so the checkpoint number at the end
+  (`…_000004000`, `…_epoch_10`) stays visible in a narrow node. The picker
+  opens wide enough for long names; when one still does not fit, it
+  shortens the folder first and keeps the end of the file name.
 - **strength**: Drag left/right on the number to scrub it, click to type an
   exact value, use the chevron arrows, or the arrow keys. Hold **Shift**
   while scrubbing or stepping for fine 0.01 moves. Range is -10 to 10.
