@@ -21,38 +21,33 @@ All notable changes to ComfyUI-AusBoss are documented here.
   quietly rendering plain Qwen 2.1; switch its row off to run without it.
   The Workflow Note lists both files, and the picture beside the example is
   a new render with the LoRA.
-- **New node (experimental): Realign to Source (EXPERIMENTAL 🧪) 🆎.** Qwen
-  Image 2.1 draws broad edits (watercolor, anime, oil) a few percent taller
-  than the source, up to about 12%, differently for every seed, and
-  snapping sizes to 32, 64 or 112 does not change it. The node measures that
-  zoom and shift against the source picture and puts the edit back on the
-  source's frame, at the source's size: cut straight out of the edit when
-  the drift is within half a pixel of a whole-pixel shift (so an edit that
-  already lines up comes back untouched), else warped once. It fixes the
-  whole-frame zoom and shift, not shapes a restyle redrew in a new place.
-  Give it a margin: pad the picture with Load Image + Pad's new `mirror`
-  fill before the edit and wire its `stitcher` into the node's optional
-  `stitcher` input, and it measures inside the picture's area and returns
-  just that area, with real picture where the model drifted instead of an
-  empty strip (over 16 held-out edits with a 64 px mirror margin, an empty
-  strip on 1 of 16 against 13 of 16 without). `empty_mask` marks any strip
-  left, and `report` gives the measured zoom, shift and worst-corner error,
-  whether the frame was cut out or warped, and the margin a side needed
-  when the edit ran out of picture. A zoom too large for blocks to match as
-  they are, such as a model zooming in to fill a padded canvas, is found by
-  trying the edit at a few zooms first. A frame it cannot measure passes
-  through at the source's size, and the report says why. Measured on 166
-  Qwen 2.1 edits: the worst corner of the style edits went from 35.5 px to
-  4.6 px (median). It is marked experimental while it is tried on more edit
-  models. New example: **Qwen Image 2.1 Edit + Realign**, on a 64 px mirror
-  margin.
-- **Load Image + Pad: a `mirror` fill.** The picture reflected outward at
-  every edge, so the padding reads as more of the scene. It is the margin
-  to give an edit model room to drift before Realign to Source: on Qwen
-  Image 2.1 restyles a mirror margin tempted the model to zoom in and fill
-  the canvas on 2 of 16 edits, against 7 with edge-pixel padding and 5 with
-  flat gray. The fill is appended to the list, so saved workflows keep
-  theirs.
+- **New node (experimental): Realign to Source 🆎.** Lines an edited
+  picture back up with the original. Qwen Image 2.1 often draws edits,
+  especially style changes, slightly zoomed in or shifted, by a different
+  amount every seed. The node measures how far the edit moved and moves it
+  back. For the best result, pad the picture with Load Image + Pad's new
+  `mirror` fill before editing and plug its `stitcher` into the node: the
+  edit gets room to move, and you get your picture back with real picture
+  all the way to the edges. `report` says how far the edit had moved, and
+  `empty_mask` marks any strip that slid off the edge. Tested on 166 Qwen
+  2.1 edits: style edits went from 35.5 px off at the worst corner to 4.6 px
+  (median). With a 64 px mirror margin, 1 of 16 edits kept an empty strip,
+  against 13 of 16 without one. New example: **Qwen Image 2.1 Edit +
+  Realign**. Type a short edit like "make it a soft watercolor painting",
+  and Qwen3-VL 8B, the text encoder the edit already loads, writes the full
+  instruction before Qwen edits a padded copy and Realign lines it back up.
+- **Load Image + Pad: a `mirror` fill.** Flips the picture outward at every
+  edge, so the padding looks like more of the scene. It is the best margin
+  before an edit you realign: Qwen Image 2.1 zoomed in to fill a mirror
+  margin on 2 of 16 edits, against 7 with edge-pixel padding and 5 with
+  flat gray. Saved workflows keep their fill.
+- **Settings menus no longer overlap in short windows.** When a node's gear
+  menu was taller than the window allowed, its rows were squeezed and the
+  descriptions ran into each other. The menu now scrolls instead. This
+  affects every node's gear menu.
+- **LTX 2.3 Video Outpaint example: LoRA Loader 🆎.** The distilled LoRA
+  and the outpaint IC-LoRA now load in one LoRA Loader 🆎 instead of two
+  core loaders, with the same files and strengths.
 - **Load Image + Pad takes a wired image.** A new optional `source_image`
   socket pads an image from another node instead of the chosen file, so a
   step before it (putting a transparent picture on white, say) no longer

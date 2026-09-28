@@ -14,6 +14,11 @@ MIN_ZOOM = 0.6
 PREFIX_SLOT = {"AUSBOSS_NODES_SaveImage": 0, "AUSBOSS_NODES_SaveVideo": 1}
 
 
+# The pack ships its own LoRA Loader; examples show it off rather than the core
+# loaders (its CLIP toggle covers the model-only case).
+CORE_LORA_LOADERS = {"LoraLoader", "LoraLoaderModelOnly"}
+
+
 def widget_value_list(node: dict) -> list:
     values = node.get("widgets_values")
     if isinstance(values, dict):
@@ -107,6 +112,8 @@ def workflow_problems(data: dict) -> list[str]:
         problems.append(f"saved zoom {scale} is below {MIN_ZOOM}; widget text would not draw")
     for n in nodes:
         problems.extend(named_copy_problems(n))
+        if n["type"] in CORE_LORA_LOADERS:
+            problems.append(f"node {n['id']} loads a LoRA with core {n['type']}; examples use LoRA Loader 🆎")
         selected = selected_files(n)
         for model in (n.get("properties") or {}).get("models") or []:
             name = model.get("name") if isinstance(model, dict) else None

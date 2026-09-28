@@ -81,6 +81,13 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("missing node", problems)
         self.assertIn("last_link_id", problems)
 
+    def test_core_lora_loaders_are_refused(self):
+        graph = good_graph()
+        graph["nodes"][0]["type"] = "LoraLoaderModelOnly"
+        self.assertIn("examples use LoRA Loader", " ".join(workflow_problems(graph)))
+        graph["nodes"][0]["type"] = "AUSBOSS_NODES_LoraLoader"
+        self.assertEqual(workflow_problems(graph), [])
+
     def test_title_bars_count_as_overlap(self):
         graph = good_graph()
         graph["nodes"][1]["pos"] = [0, 195]  # Body clears; title collides.

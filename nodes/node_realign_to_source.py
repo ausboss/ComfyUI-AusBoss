@@ -46,21 +46,14 @@ def _stitcher_canvas(stitcher) -> tuple[torch.Tensor, tuple[int, int, int, int]]
 class AusBossRealignToSource:
     CATEGORY = "🆎 AusBoss/Image"
     DESCRIPTION = (
-        "EXPERIMENTAL. Undoes the zoom and shift an edit model adds to a broad "
-        "edit: Qwen Image 2.1 draws style changes a few percent taller (up to "
-        "about 12%), differently for every seed. Measures where the edit's "
-        "content sits against the source it was made from and warps the edit "
-        "back onto the source's frame, at the source's size. It fixes the "
-        "whole-frame zoom and shift only: shapes a restyle redrew in a new "
-        "place stay where the model drew them, so the result lines up closely "
-        "but not pixel for pixel. A drift that is a whole-pixel shift is cut "
-        "out with no resampling. Best with a margin: pad the picture with Load "
-        "Image + Pad before the edit and wire its stitcher here, and the node "
-        "returns just the picture's area, with real picture where the model "
-        "drifted. Without one, empty_mask marks the strip the model pushed out "
-        "of view, to crop or inpaint. A frame it cannot measure is passed "
-        "through at the source's size with an empty mask, and the report says "
-        "why."
+        "EXPERIMENTAL. Lines an edited picture back up with the original. "
+        "Qwen Image 2.1 often draws an edit slightly zoomed in or shifted, "
+        "especially style changes like watercolor or anime, so the edit no "
+        "longer sits on top of the original. This node measures how far it "
+        "moved and moves it back. Best result: pad the picture with Load "
+        "Image + Pad before editing and plug its stitcher in here, so the "
+        "edit has room to move and you get real picture all the way to the "
+        "edges."
     )
     SEARCH_ALIASES = [
         "realign",
@@ -84,9 +77,7 @@ class AusBossRealignToSource:
                     "IMAGE",
                     {
                         "tooltip": (
-                            "The edit to realign, at any size: it is compared as "
-                            "if scaled to the source's exact size. An alpha "
-                            "channel is ignored."
+                            "The edited picture."
                         ),
                     },
                 ),
@@ -94,12 +85,8 @@ class AusBossRealignToSource:
                     "IMAGE",
                     {
                         "tooltip": (
-                            "The picture the edit was made from, at the size the "
-                            "edit model saw it: one frame, or one per edited "
-                            "frame. The result comes out at this size. With a "
-                            "stitcher, the picture before padding (or the padded "
-                            "canvas itself, and then the result is the picture's "
-                            "area of it)."
+                            "The original picture you edited, at the size the edit "
+                            "model saw it. The result comes out at this size."
                         ),
                     },
                 ),
@@ -108,9 +95,8 @@ class AusBossRealignToSource:
                     {
                         "default": FIT_MODES[0],
                         "tooltip": (
-                            "zoom + shift: a separate horizontal and vertical "
-                            "zoom plus a shift, which is how Qwen edits drift. "
-                            "affine also allows a slight rotation or shear."
+                            "zoom + shift fixes the usual Qwen drift. affine also "
+                            "fixes a slight tilt."
                         ),
                     },
                 ),
@@ -119,10 +105,10 @@ class AusBossRealignToSource:
                     {
                         "default": EMPTY_FILLS[0],
                         "tooltip": (
-                            "What the strip with no content shows: edge "
-                            "stretches the nearest edge pixels, source uses the "
-                            "original's pixels, gray is flat #808080 for an "
-                            "inpaint pass. empty_mask marks the strip either way."
+                            "If the edit slid past the edge, a thin strip ends up "
+                            "with nothing in it. edge stretches the nearest "
+                            "pixels into it, source fills it from the original, "
+                            "gray fills it flat gray for inpainting."
                         ),
                     },
                 ),
@@ -134,9 +120,9 @@ class AusBossRealignToSource:
                         "max": 50.0,
                         "step": 0.5,
                         "tooltip": (
-                            "Largest zoom, in percent, it will undo. Past it the "
-                            "edit most likely changed the framing on purpose, so "
-                            "the frame is left as it is."
+                            "The biggest zoom it will undo, in percent. Anything "
+                            "bigger is treated as a change you meant and left "
+                            "alone."
                         ),
                     },
                 ),
@@ -148,13 +134,10 @@ class AusBossRealignToSource:
                     "AUSBOSS_STITCHER",
                     {
                         "tooltip": (
-                            "Optional. The stitcher of the padded canvas the edit "
-                            "was made on (Load Image + Pad 🆎). The drift is "
-                            "measured inside the picture's area only and just "
-                            "that area comes back, so the margin the model drew "
-                            "into fills the edges instead of an empty strip. "
-                            "32-64 px a side covers most restyles at 1 MP; the "
-                            "report says when a side needed more."
+                            "Optional. Plug in the stitcher from Load Image + Pad "
+                            "🆎 if you padded the picture before editing. You "
+                            "get your picture back without the padding, with "
+                            "no empty edges."
                         ),
                     },
                 ),
@@ -164,17 +147,11 @@ class AusBossRealignToSource:
     RETURN_TYPES = ("IMAGE", "MASK", "STRING")
     RETURN_NAMES = ("image", "empty_mask", "report")
     OUTPUT_TOOLTIPS = (
-        "The edit on the source's frame, at the source's size (with a "
-        "stitcher and the padded canvas as source, the picture's area). A "
-        "whole-pixel drift is cut out with no resampling; a frame that could "
-        "not be measured is only scaled to that size.",
-        "White where the realigned edit has no content (the strip the model "
-        "pushed out of view): crop it off or inpaint it. All black for a frame "
-        "that was left as it is.",
-        "What was measured and done, one line per frame: the zoom per axis, "
-        "the shift at the centre, the worst corner and how many areas agreed, "
-        "whether it was cut out or warped, the margin a side needed when the "
-        "edit ran out of picture, or why a frame was left as it is.",
+        "The edit, lined up with the original and at its size.",
+        "White where the lined-up edit has nothing (a strip that slid off "
+        "the edge). All black when there is none.",
+        "How far the edit had moved and what was done. Plug it into Show "
+        "Text 🆎 to read it.",
     )
     FUNCTION = "realign"
 

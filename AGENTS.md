@@ -7,6 +7,25 @@ A suite of polished ComfyUI custom nodes by ausboss. Public nodes must solve a
 repeated workflow need, keep a compact graph footprint, and pass backend plus
 browser acceptance before release.
 
+## READ FIRST: write for the people who use the nodes
+
+Everything a user reads starts with the plainest version. That covers node
+descriptions, tooltips, the `?` help pages (`js/docs/*.md`), the README,
+example workflow notes, report and error text, the CHANGELOG, and model or
+workflow pages. Get more technical later in the text, or in its own section.
+
+- Open with what it does and when to use it, in everyday words and short
+  sentences. Someone new to ComfyUI should get it on the first read.
+- A tooltip is one or two short sentences: what this is, and what to pick.
+- Measurements, test results, edge cases and how it works go further down,
+  under a heading such as "Technical details".
+- Keep jargon out of the opening (resample, warp, frame, affine,
+  estimator, canvas space). If a term is needed, say what it means the
+  first time.
+- Put a number up top only when it helps someone decide what to do.
+
+If a sentence needs a second read, rewrite it.
+
 ## This repo is the showroom, not the workshop
 
 Experiments live in the private **ComfyUI-AusBoss-Lab** repo, not here. Default

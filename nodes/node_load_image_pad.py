@@ -188,9 +188,9 @@ class AusBossLoadImagePad:
                             "smear outward; pillarbox blur = the image itself, "
                             "stretched to cover the canvas, blurred and dimmed "
                             "behind the sharp original; mirror = the picture "
-                            "reflected outward at every edge, so the padding "
-                            "reads as more of the scene (the margin that gives "
-                            "an edit model room to drift, for Realign to "
+                            "flipped outward at every edge, so the padding "
+                            "looks like more of the scene (the best margin "
+                            "before an edit you realign with Realign to "
                             "Source)."
                         ),
                     },
@@ -304,7 +304,7 @@ class AusBossLoadImagePad:
         "new padding and restore the original pixels bit-identically. Also "
         "carries where the source sits on the canvas, which Krea 2 Outpaint "
         "Model Patch 🆎 reads to place the reference and Realign to Source 🆎 "
-        "reads to return the picture's area of an edit made on this canvas.",
+        "reads to cut your picture back out of an edit made on this canvas.",
         "The source alone, no padding, fitted to a small multiple of 16 — "
         "the reference image for Krea 2 Encode 🆎 and other reference "
         "conditioning. It is a quick resize, made on every run whether "
