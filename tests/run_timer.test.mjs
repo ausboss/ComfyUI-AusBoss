@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import {
   HISTORY_LIMIT,
+  cachedLayer,
   createTimer,
   formatElapsed,
   historyLine,
+  layerScale,
   startTimer,
   stopTimer,
   tickTimer,
@@ -56,4 +59,57 @@ test("formatElapsed picks seconds, m:ss.t, or h:mm:ss", () => {
 test("historyLine joins the previous runs", () => {
   assert.equal(historyLine([]), "");
   assert.equal(historyLine([4, 65.4]), "4.0 s · 1:05.4");
+});
+
+function fakeCanvasFactory() {
+  const made = [];
+  const create = () => {
+    const canvas = { width: 0, height: 0, getContext: () => ({ canvas }) };
+    made.push(canvas);
+    return canvas;
+  };
+  return { made, create };
+}
+
+test("cachedLayer paints once while the key holds and repaints when it changes", () => {
+  const { made, create } = fakeCanvasFactory();
+  const cache = {};
+  let paints = 0;
+  const paint = () => paints++;
+  let layer;
+  for (let frame = 0; frame < 60; frame++) layer = cachedLayer(cache, "12|.3", 200.4, 60, paint, create);
+  assert.equal(paints, 1);
+  assert.equal(made.length, 1);
+  assert.equal(layer.width, 201);
+  assert.equal(layer.height, 60);
+  const next = cachedLayer(cache, "12|.4", 90, 0, paint, create);
+  assert.equal(paints, 2);
+  assert.equal(next, layer, "the same canvas is reused, not reallocated");
+  assert.deepEqual([next.width, next.height], [90, 1]);
+});
+
+test("layerScale rounds up to a quarter octave and caps the bitmap", () => {
+  assert.equal(layerScale(1, 176), 1);
+  assert.equal(layerScale(0.5, 176), 0.5);
+  assert.equal(layerScale(1.1, 176), 2 ** 0.25);
+  assert.ok(layerScale(1.25, 176) >= 1.25);
+  assert.equal(layerScale(NaN, 176), 1);
+  assert.equal(layerScale(0, 176), 1);
+  assert.equal(layerScale(40, 400), 2048 / 400);
+});
+
+// Issue #77: a canvas filter on the graph canvas costs a full-canvas
+// offscreen pass per draw in Chrome, every frame, for the whole graph.
+test("the per-frame paint never blurs on the graph canvas itself", () => {
+  const source = readFileSync(new URL("../js/run_timer/index.js", import.meta.url), "utf-8");
+  const body = (name) => {
+    const start = source.indexOf(`function ${name}(`);
+    assert.ok(start >= 0, `js/run_timer/index.js has no ${name}()`);
+    return source.slice(start, source.indexOf("\n}\n", start));
+  };
+  for (const name of ["drawReadout", "drawGlow"]) {
+    assert.doesNotMatch(body(name), /\.filter\b/, `${name}() sets a canvas filter on the graph canvas`);
+    assert.doesNotMatch(body(name), /glowText\(/, `${name}() blurs text on the graph canvas`);
+  }
+  assert.match(body("drawGlow"), /cachedLayer\([\s\S]*paintGlow\(/, "the blurred passes must go through cachedLayer");
 });

@@ -4,6 +4,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Run Timer no longer slows the whole canvas (#77).** Once the readout held
+  a time, its glow ran a blur filter on the graph canvas three times a frame,
+  and Chrome pays for each as a pass over the entire canvas: a test graph
+  dropped from 60 fps to about 17 while panning. The glow is now painted into
+  a small layer only when the digits change and copied every frame, so the
+  readout looks the same and the canvas stays at 60 fps.
 - **LoRA Loader accepts a LoRA file that is a link.** A LoRA kept on another
   drive and linked into `models/loras` was refused as "escapes the loras
   folders" and then reported missing, which stops the run in a workflow

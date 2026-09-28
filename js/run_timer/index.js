@@ -16,8 +16,10 @@ import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto } from "../shared/index.mjs";
 import {
+  cachedLayer,
   createTimer,
   formatElapsed,
+  layerScale,
   startTimer,
   stopTimer,
   tickTimer,
@@ -162,6 +164,46 @@ function glowText(ctx, text, x, y, color, radius) {
   ctx.restore();
 }
 
+// Every blurred pass - the LED halo and the digit glow - painted into the
+// small cached layer (cachedLayer), never onto the graph canvas itself.
+// A filter blur works in device pixels, so the radii are not scaled.
+function paintGlow(ctx, view, layout, led, pulse) {
+  const { s, ledX, ledY, x0, baseline, mainW, fontBig, fontSmall, glow } = layout;
+  ctx.textBaseline = "alphabetic";
+  ctx.textAlign = "left";
+  if (view.led !== "idle") {
+    ctx.save();
+    ctx.filter = `blur(${4 * s}px)`;
+    ctx.globalAlpha = 0.9 * pulse;
+    ctx.fillStyle = led;
+    ctx.beginPath();
+    ctx.arc(ledX, ledY, 4.5 * s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.font = fontBig;
+  glowText(ctx, view.main, x0, baseline, view.color, glow);
+  if (view.tenths) {
+    ctx.font = fontSmall;
+    glowText(ctx, view.tenths, x0 + mainW, baseline, view.color, glow * 0.8);
+  }
+}
+
+function drawGlow(ctx, state, view, layout, led, pulse) {
+  if (view.led === "idle" && !layout.glow) return;
+  const [w, h] = layout.size;
+  const m = ctx.getTransform?.();
+  const scale = layerScale(m ? Math.hypot(m.a, m.b) : 1, w);
+  const pad = Math.ceil(15 * layout.s); // three blur radii of spill room
+  const key = [view.main, view.tenths, view.unit, view.color, view.led, pulse, w, h, scale].join("|");
+  const layer = cachedLayer(state.glow, key, w * scale + 2 * pad, h * scale + 2 * pad, (g) => {
+    g.setTransform(scale, 0, 0, scale, pad, pad);
+    paintGlow(g, view, layout, led, pulse);
+  }, () => document.createElement("canvas"));
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(layer, -pad / scale, -pad / scale, layer.width / scale, layer.height / scale);
+}
+
 function drawReadout(node, ctx, state) {
   const [w, h] = node.size;
   const s = h / BASE_HEIGHT;
@@ -176,28 +218,6 @@ function drawReadout(node, ctx, state) {
   ctx.shadowOffsetY = 0;
   ctx.textBaseline = "alphabetic";
   ctx.textAlign = "left";
-
-  // LED with its own halo
-  const led = ledColor(view.led);
-  const pulse = view.led === "running" ? 0.55 + 0.45 * Math.sin(performance.now() / 160) : 1;
-  const ledX = 12 * s;
-  const ledY = h / 2;
-  if (view.led !== "idle") {
-    ctx.save();
-    ctx.filter = `blur(${4 * s}px)`;
-    ctx.globalAlpha = 0.9 * pulse;
-    ctx.fillStyle = led;
-    ctx.beginPath();
-    ctx.arc(ledX, ledY, 4.5 * s, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
-  ctx.globalAlpha = pulse;
-  ctx.fillStyle = led;
-  ctx.beginPath();
-  ctx.arc(ledX, ledY, 3.2 * s, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.globalAlpha = 1;
 
   // digits, measured then centred in the space right of the LED
   const fontBig = `700 ${big}px ${MONO}`;
@@ -215,14 +235,29 @@ function drawReadout(node, ctx, state) {
   const baseline = h / 2 + big * 0.36;
   const glow = view.hasRun ? 5 * s : 0;
 
+  // LED and digit glow from the cached layer, then the crisp LED dot. The
+  // pulse is quantised so a held LED reuses the layer frame after frame.
+  const led = ledColor(view.led);
+  const pulse = view.led === "running"
+    ? Math.round((0.55 + 0.45 * Math.sin(performance.now() / 160)) * 20) / 20
+    : 1;
+  const ledX = 12 * s;
+  const ledY = h / 2;
+  const layout = { size: [w, h], s, ledX, ledY, x0, baseline, mainW, fontBig, fontSmall, glow };
+  drawGlow(ctx, state, view, layout, led, pulse);
+  ctx.globalAlpha = pulse;
+  ctx.fillStyle = led;
+  ctx.beginPath();
+  ctx.arc(ledX, ledY, 3.2 * s, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
   ctx.font = fontBig;
-  glowText(ctx, view.main, x0, baseline, view.color, glow);
   ctx.fillStyle = view.color;
   ctx.fillText(view.main, x0, baseline);
   let x = x0 + mainW;
   if (view.tenths) {
     ctx.font = fontSmall;
-    glowText(ctx, view.tenths, x, baseline, view.color, glow * 0.8);
     ctx.globalAlpha = 0.85;
     ctx.fillStyle = view.color;
     ctx.fillText(view.tenths, x, baseline);
@@ -262,7 +297,7 @@ function installCanvasReadout(node) {
   paintBlack(node);
   const state = (node.__ausbossRunTimer = {
     node, abort: new AbortController(), interval: null, mode: "canvas",
-    timer: createTimer(savedHistory(node)),
+    timer: createTimer(savedHistory(node)), glow: {},
     render: () => node.setDirtyCanvas?.(true, false),
   });
   // Width is the handle: drag the corner and the readout scales with it.
