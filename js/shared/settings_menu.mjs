@@ -95,6 +95,9 @@ function ensureSettingsCss() {
   .ausboss-set-close:hover { background: #2c3238; color: #fff; }
   .ausboss-set-body { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px 10px;
     max-height: 60vh; overflow-y: auto; }
+  /* Rows keep their full height and the body scrolls: a shrinking row in a
+     short window lets its wrapped hint spill over the next row. */
+  .ausboss-set-body > * { flex-shrink: 0; }
   .ausboss-set-section { padding: 10px 0 3px; color: #9ba2aa; font-size: 10px;
     font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
   .ausboss-set-row { display: flex; align-items: center; gap: 10px; min-height: 32px;

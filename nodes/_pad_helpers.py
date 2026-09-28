@@ -25,7 +25,9 @@ import torch.nn.functional as functional
 from ._color_helpers import parse_fill_color
 from ._mask_helpers import blur_mask
 
-PAD_MODES = ("color", "edge", "edge pixel", "pillarbox blur")
+# "mirror" is appended, never inserted: a saved workflow stores the mode by
+# name, and the order is the order the Fill list shows.
+PAD_MODES = ("color", "edge", "edge pixel", "pillarbox blur", "mirror")
 
 # sigma = backdrop_blur * min(canvas_h, canvas_w) / _SIGMA_DIVISOR keeps the
 # pillarbox look identical across resolutions; the same knob dims the
@@ -70,6 +72,24 @@ def _replicate_pad(image: torch.Tensor, left: int, top: int, right: int, bottom:
     moved = image.movedim(-1, 1).contiguous()
     padded = functional.pad(moved, (left, right, top, bottom), mode="replicate")
     return padded.movedim(1, -1).contiguous()
+
+
+def _mirror_index(length: int, before: int, after: int) -> torch.Tensor:
+    """Source index for every position of an axis padded by mirroring.
+
+    The picture repeats as picture, flipped, flipped back (edge pixel
+    included, like a mirror laid against the edge), so a pad wider than
+    the picture keeps reflecting instead of failing."""
+    positions = torch.arange(-before, length + after)
+    period = 2 * length
+    index = torch.remainder(positions, period)
+    return torch.where(index >= length, period - 1 - index, index)
+
+
+def _mirror_pad(image: torch.Tensor, left: int, top: int, right: int, bottom: int) -> torch.Tensor:
+    rows = _mirror_index(int(image.shape[1]), top, bottom).to(image.device)
+    cols = _mirror_index(int(image.shape[2]), left, right).to(image.device)
+    return image.index_select(1, rows).index_select(2, cols).contiguous()
 
 
 def _resize_image(image: torch.Tensor, width: int, height: int) -> torch.Tensor:
@@ -406,6 +426,8 @@ def pad_image(
     if mode == "edge pixel":
         canvas = _replicate_pad(image, left, top, right, bottom)
         return canvas, mask
+    if mode == "mirror":
+        return _mirror_pad(image, left, top, right, bottom), mask
     if mode == "edge":
         canvas = _edge_color_canvas(image, left, top, right, bottom)
     elif mode == "pillarbox blur":

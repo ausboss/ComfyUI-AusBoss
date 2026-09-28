@@ -62,7 +62,7 @@ class MaskContractTests(unittest.TestCase):
 
     def test_unknown_mode_is_rejected(self):
         with self.assertRaises(ValueError):
-            pad_image(rand_image(1, 8, 8), 1, 1, 1, 1, "mirror")
+            pad_image(rand_image(1, 8, 8), 1, 1, 1, 1, "wrap")
 
 
 class ColorModeTests(unittest.TestCase):
@@ -110,6 +110,36 @@ class EdgePixelModeTests(unittest.TestCase):
         self.assertTrue(torch.equal(out[0, 0, -1], image[0, 0, -1]))
         self.assertTrue(torch.equal(out[0, -1, 0], image[0, -1, 0]))
         self.assertTrue(torch.equal(out[0, -1, -1], image[0, -1, -1]))
+
+
+class MirrorModeTests(unittest.TestCase):
+    def test_the_padding_mirrors_the_picture_at_every_edge(self):
+        image = rand_image(1, 10, 12, seed=6)
+        left, top, right, bottom = PADS
+        out, _ = pad_image(image, left, top, right, bottom, "mirror")
+        # Laid against the edge: the first padded row is the edge row itself,
+        # the next is the row after it, and so on outward.
+        for k in range(top):
+            self.assertTrue(torch.equal(out[0, top - 1 - k, left:left + 12], image[0, k]))
+        for k in range(bottom):
+            self.assertTrue(torch.equal(out[0, top + 10 + k, left:left + 12], image[0, 9 - k]))
+        for k in range(left):
+            self.assertTrue(torch.equal(out[0, top:top + 10, left - 1 - k], image[0, :, k]))
+        for k in range(right):
+            self.assertTrue(torch.equal(out[0, top:top + 10, left + 12 + k], image[0, :, 11 - k]))
+        # Corners mirror both ways.
+        self.assertTrue(torch.equal(out[0, 0, 0], image[0, top - 1, left - 1]))
+
+    def test_a_pad_wider_than_the_picture_keeps_reflecting(self):
+        image = rand_image(1, 3, 4, seed=7)
+        out, mask = pad_image(image, 9, 7, 10, 8, "mirror")
+        self.assertEqual(out.shape, (1, 3 + 7 + 8, 4 + 9 + 10, 3))
+        # Every padded pixel is some pixel of the picture.
+        colours = {tuple(c.tolist()) for c in image.reshape(-1, 3)}
+        for c in out.reshape(-1, 3):
+            self.assertIn(tuple(c.tolist()), colours)
+        # One period (flip + flip back) away along a row is the same pixel.
+        self.assertTrue(torch.equal(out[0, 7, 9 - 8], out[0, 7, 9]))
 
 
 class PillarboxBlurModeTests(unittest.TestCase):
