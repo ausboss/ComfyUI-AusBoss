@@ -2,6 +2,19 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Krea 2 Outpaint no longer promises inpainting.** Its Workflow Note and
+  the Krea 2 Outpaint Model Patch help page said you could paint over part
+  of the picture with the mask editor and pad at the same time. That does
+  not work: Load Image + Pad does not take a painted mask. Both now say the
+  workflow only extends the picture outward.
+- **Krea 2 Outpaint Model Patch help: Crop For Inpaint wants `whole
+  canvas`.** The page said a Crop For Inpaint stitcher spreads the reference
+  over the full frame. On `source rectangle` the reference is pinned to
+  where the crop sat in the full picture instead, so the page now says to
+  pick `whole canvas` with one.
+
 ## 2.3.0 - 2026-09-27
 
 - **Run Timer no longer slows the whole canvas (#77).** Once the readout held
