@@ -18,10 +18,10 @@ their saved values when the workflow is reloaded.
 
 - **model**: A Krea 2 model. Patch last, so a LoRA loaded afterwards does not
   replace the patched forward pass.
-- **stitcher**: From Load Image + Pad 🆎. Supplies the source rectangle. A
-  stitcher that carries no rectangle — one from Crop For Inpaint, or an older
-  saved graph — places the reference over the full frame, which is what an
-  unpatched model already assumes.
+- **stitcher**: From Load Image + Pad 🆎. Supplies the source rectangle. With
+  a stitcher from Crop For Inpaint 🆎, set **placement** to `whole canvas`:
+  on `source rectangle` the reference is pinned to where the crop sat in the
+  full picture, not spread over the crop.
 - **kv_cache**: Compute the reference's keys and values once per run instead
   of once per step. The reference does not change while sampling, so this is
   free speed. Turn it off only to rule the cache out when debugging.
@@ -56,8 +56,9 @@ held in place by the sampler. Wire it like the *Krea 2 Outpaint* example:
   sample from that latent at full denoise. The mask is what keeps the source
   pixels; the reference is what tells the model what they are.
 
-Any white mask pixel is *generate*, so the same wiring inpaints: paint over
-something in the mask editor and pad at the same time.
+This wiring only extends the picture outward. Load Image + Pad 🆎 does not
+take a painted mask, so painting over part of the picture to change it
+(inpainting) is not supported.
 
 **One axis per pass — `source rectangle` + Registered Outpaint.** The same
 author's [Registered Outpaint](https://huggingface.co/yijunwang2/krea2-outpaint)
