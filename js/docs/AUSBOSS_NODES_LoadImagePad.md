@@ -49,9 +49,14 @@ padding value unchanged.
   its true size. The padding applies to every image that arrives, so a
   loader that feeds one image per run pads a whole folder the same way.
 - **Fill** / **Color** / **Backdrop** (`mode` / `fill_color` /
-  `backdrop_blur`): Four fills — `color`, `edge`, `edge pixel`,
-  `pillarbox blur`. **Color** shows for `color`, **Backdrop** for
-  `pillarbox blur`.
+  `backdrop_blur`): Five fills — `color`, `edge`, `edge pixel`,
+  `pillarbox blur`, `mirror`. **Color** shows for `color`, **Backdrop** for
+  `pillarbox blur`. `mirror` reflects the picture outward at every edge (the
+  edge pixel included, and on past the picture's own size), so the padding
+  reads as more of the scene: the margin to give an edit model room to
+  drift, with the stitcher wired into **Realign to Source 🆎**. On Qwen
+  Image 2.1 restyles, a mirror margin tempted the model to zoom in and fill
+  the canvas far less often than edge-pixel or flat gray padding.
 - **feather**: Ramps the mask *inward* across the image edge on each padded
   side (ramp width capped by the image size), so the sampler blends the
   seam. `0` keeps the seam hard. The padding itself always stays solid.
@@ -79,7 +84,9 @@ padding value unchanged.
   keep only the new padding and restore the original pixels bit-identically
   — whatever the sampler did inside the source area is discarded. It also
   records where the source sits on the canvas, which **Krea 2 Outpaint
-  Model Patch 🆎** reads to place the reference.
+  Model Patch 🆎** reads to place the reference and **Realign to Source 🆎**
+  reads to return just the picture's area of an edit made on the padded
+  canvas.
 - **reference**: The source alone, no padding, fitted to a small multiple
   of 16 — the reference image for **Krea 2 Encode 🆎** and other
   reference conditioning. It is built on every run; leave it unconnected

@@ -482,7 +482,9 @@
       "empty_fill",
       "max_zoom"
     ],
-    "optional": [],
+    "optional": [
+      "stitcher"
+    ],
     "outputs": [
       [
         "IMAGE",
