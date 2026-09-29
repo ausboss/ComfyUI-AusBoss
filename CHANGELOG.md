@@ -4,6 +4,8 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Nodes 2.0: undo no longer leaves a node showing its old settings.**
+  After Ctrl+Z or Ctrl+Y, what you change on an AusBoss node reaches the run.
 - **The red "missing file" warning clears when you pick a file.** Open a
   workflow that was saved with a picture you don't have and ComfyUI marks
   Load Image + Pad red and lists it under Setup required. Picking your own
