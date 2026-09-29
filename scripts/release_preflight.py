@@ -169,7 +169,7 @@ DEV_ONLY = [
     "tests/test_math_helpers.py", "tests/panel_guards.test.mjs",
     "scripts/validate_nodes.py", "scripts/release_preflight.py",
     ".github/workflows/publish_action.yml", "AGENTS.md", "CLAUDE.md",
-    ".claude/skills/ausboss-node-brand/SKILL.md", "docs/adding_a_node.md",
+    ".claude/settings.json", "docs/adding_a_node.md",
     "assets/readme/lora-chain-demo.gif",
 ]
 RUNTIME = [

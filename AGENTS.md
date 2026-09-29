@@ -1,7 +1,7 @@
-# ComfyUI-AusBoss — Agent Working Rules
+# ComfyUI-AusBoss contributor guide
 
-Instructions for any coding agent working in this repo. `CLAUDE.md` imports
-this file, so keep everything here and leave that one as a pointer.
+Rules for contributors: how the repo is laid out, the conventions every node
+follows, and the checks to run.
 
 A suite of polished ComfyUI custom nodes by ausboss. Public nodes must solve a
 repeated workflow need, keep a compact graph footprint, and pass backend plus
@@ -11,8 +11,8 @@ browser acceptance before release.
 
 Everything a user reads starts with the plainest version. That covers node
 descriptions, tooltips, the `?` help pages (`js/docs/*.md`), the README,
-example workflow notes, report and error text, the CHANGELOG, and model or
-workflow pages. Get more technical later in the text, or in its own section.
+example workflow notes, report and error text, and the CHANGELOG. Get more
+technical later in the text, or in its own section.
 
 - Open with what it does and when to use it, in everyday words and short
   sentences. Someone new to ComfyUI should get it on the first read.
@@ -26,59 +26,18 @@ workflow pages. Get more technical later in the text, or in its own section.
 
 If a sentence needs a second read, rewrite it.
 
-## This repo is the showroom, not the workshop
+## Which nodes ship
 
-Experiments live in the private **ComfyUI-AusBoss-Lab** repo, not here. Default
-a new node to the lab and promote it later; adding it here is the deliberate
-act of publishing it, and after a release its mapping key can never change.
-
-A node belongs in the lab, not this repo, when any of these is true:
-
-- it depends on a third-party pack or model most people will not have
-- it encodes constants owned by someone else — a model card, an upstream
-  default — that go stale when they change them, leaving this pack shipping
-  wrong advice under ausboss's name
-- it solved a need once rather than a repeated workflow need
-- its inputs are still moving
-
-The lab mirrors this repo's layout, so a promotion is a port, not a rewrite.
-Its namespaces are held apart (`AUSBOSS_LAB_` ids, `🧪 AusBoss Lab/`
-categories, `🧪` display suffix) so both packs install at once. The port steps
-and the release gate are in the lab's `docs/promoting.md`.
-
-`scripts/validate_nodes.py` enforces the boundary from this side: a mapping key
-that is registered but absent from `PUBLIC_NODE_IDS` fails the build, so an
-experiment cannot ride along into a release unnoticed.
-
-The lab **vendors** this repo's shared modules (`js/shared/*.mjs`,
-`nodes/_*_helpers.py`, their tests) and this repo is the source of truth for
-those copies. The lab is private, so this step is the maintainer's: after
-changing any of them here, refresh the lab's copies
-
-```bash
-python ../ComfyUI-AusBoss-Lab/scripts/sync_shared.py pull
-```
-
-(run the bare command first to see the status, and pull only when the lab
-has no uncommitted work in those files). The lab's `docs/shared_sync.md`
-holds the full design; its validator also
-notices stale copies on its own, so this is a courtesy, not the only line of
-defense.
+A node ships only when its mapping key is listed in `PUBLIC_NODE_IDS` in
+`scripts/validate_nodes.py`; the validator fails on any registered key that
+is not listed there.
 
 ## Hard rules
 
 - Never modify `LICENSE`.
-- Never bump `version` in `pyproject.toml` unless explicitly asked — a
-  version bump that lands on main **publishes to the Comfy Registry
-  automatically** (see Releasing).
-- Never add agent attribution to commits or PRs — no `Co-Authored-By`
-  trailers, no "generated with" footers. Commits are authored by ausboss alone.
-- Do not read or analyze `__pycache__`, `.git`, or editor config directories.
-- Local notes and handoffs stay out of git: keep them in `_scratch/` or a
-  root-level `ausboss_*.md` file (both ignored), never in a new name.
-- Ask before whole-repo sweeps or large refactors; propose a short plan first.
+- Never bump `version` in `pyproject.toml` — a version bump that lands on
+  main **publishes to the Comfy Registry automatically** (see Releasing).
 - Keep diffs minimal: touch only the lines the task needs.
-- Be concise; skip pleasantries.
 
 ## Third-party independence
 
@@ -178,8 +137,7 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   multiline → `kind: "textarea"` (`grow: true` takes the node's spare
   height), hex colors → swatch. Rows can depend on other values (`when`)
   and fold behind a disclosure (`group`). The widgets underneath stay the
-  single source of truth (save/load, undo, API, links). Design detail and
-  the reasons behind it: `.claude/skills/ausboss-node-brand/SKILL.md`.
+  single source of truth (save/load, undo, API, links).
 - **One linkable widget per row.** The frontend (≥ 1.10.4, "Widget Input
   Socket" RFC #9) gives every widget an input socket drawn at the widget's
   own row, only while a link is dragged, hovered or connected; "convert to
@@ -214,20 +172,11 @@ Follow `docs/adding_a_node.md`. Short version: create `nodes/node_<name>.py`
 modelled on a small existing node such as `nodes/node_image_size.py`, add
 `"node_<name>"` to `NODE_MODULES` in `__init__.py` and the key to
 `PUBLIC_NODE_IDS` in `scripts/validate_nodes.py`, give it a help page at
-`js/docs/<KEY>.md`, optionally add `js/<name>/index.js`, then validate. Brand and design-language
-guidance (visual grammar, settings conventions, interaction etiquette) lives
-in `.claude/skills/ausboss-node-brand/SKILL.md`.
+`js/docs/<KEY>.md`, optionally add `js/<name>/index.js`, then validate.
 
 ## Validation
 
-Before asking for a merge or a publish, every fix PR and every model release
-ships a proof package: a failing-then-passing test, before/after evidence, and
-a dev server with ready-to-run workflows. See `docs/proof_packages.md`.
-
-Publishing workflows to Civitai, cover videos, replies to users and the test
-servers are covered by ausboss's creator playbook, the `comfy-community` shared
-skill (`~/Documents/openclaw-shared-skills/comfy-community`; start at its "Get up
-to speed" section).
+Run the offline checks before a pull request:
 
 ```bash
 python scripts/validate_nodes.py
@@ -245,76 +194,15 @@ tab (Ctrl+Shift+R) — the frontend caches `.mjs` modules aggressively.
 Frontend work is proven on a real canvas, not by reading code: the
 headless-Chrome harness in `scripts/dev/` (recipe, gotchas and the
 screenshot convention in `docs/live_testing.md`) creates nodes, drives real
-mouse drags, and clips screenshots into `_scratch/node_screenshots/` for
-review. A link-drop test that only checks which input got the link is not
-enough — look at the picture and ask whether a person could have aimed
-there.
-
-After changing any `js/shared/*.mjs`, `nodes/_*_helpers.py` or their tests,
-refresh the lab's vendored copies (see the top of this file).
+mouse drags, and screenshots the result. A link-drop test that only checks
+which input got the link is not enough — look at the picture and ask whether
+a person could have aimed there.
 
 ## Releasing
 
-There is no separate "upload" step: landing a new `version` in
-`pyproject.toml` on main IS publishing. `.github/workflows/publish_action.yml`
-(Comfy-Org/publish-node-action, repo secret `REGISTRY_ACCESS_TOKEN`)
-compares the version with the previous commit, runs the offline checks, and
-pushes it to the Comfy Registry (`ausboss-nodes`, publisher `ausboss`).
-Editing other pyproject fields without a new version publishes nothing, but
-treat the version line as the trigger it is.
-
-A release, when explicitly asked for:
-
-1. Bump `version` in `pyproject.toml` **and** sync `AUSBOSS_JS_VERSION`
-   in `js/shared/index.mjs` — the pair must match or the stale-frontend
-   warning fires on fresh installs. The README release badge is dynamic
-   (shields.io reads pyproject off main at view time) and must stay that
-   way — never swap a hardcoded version badge back in.
-   `python scripts/release_preflight.py` checks the version pair, the
-   badge, what the Registry archive would hold, the example workflows and
-   the no-network rule. It does not read the CHANGELOG or the pyproject
-   description, so steps 2 and 3 are yours.
-2. Retitle the CHANGELOG `## Unreleased` section to `## X.Y.Z - date`.
-3. If the node roster changed, update the pyproject `description` and
-   `keywords`: the registry shows the description verbatim and
-   ComfyUI-Manager search matches against it, so it must name the actual
-   nodes — never a generic blurb.
-4. Merge to main only when the release is ready, then watch the publish
-   run in Actions. If it fails, inspect both the job and the Registry
-   before retrying: an upload may have succeeded before a later step
-   failed, and published version contents cannot be overwritten. Re-run
-   "Publish to Comfy registry" only after confirming that the upload did
-   not create the version.
-5. Verify the version AND ITS STATUS on the registry:
-
-   ```bash
-   python scripts/registry_status.py
-   ```
-
-   Require `NodeVersionStatusActive` for the exact new version before
-   calling the release available in Manager. The script reads
-   `include_status_reason=true`; exit 0 means Active, 2 means not approved,
-   and 1 means the status could not be established. The separate "Check
-   Registry approval" Action runs after successful publication and can
-   be dispatched manually to recheck without publishing again.
-   It uses `--report`: Pending/Flagged are successful status reports with
-   `approved=false`, not approval. Banned/Deleted, a missing version after
-   retries, and lookup errors still fail. The default CLI above remains
-   strict: only Active exits 0. The report retries transient service errors
-   and brief publication visibility delays; it never retries publication.
-
-   History worth knowing: 1.1.0-1.3.0 are Banned (1.1.x for LM Studio's
-   workflow-controlled endpoint; 1.2.0/1.3.0 for code execution through
-   `/prompt`, most likely Save Image's then-unrestricted output folder),
-   2.0.0 and 2.0.1 stayed Flagged, and 2.0.2 was approved after a code
-   review. Flags have come from informational scanner rules (network and
-   socket patterns), which is why the no-network rule above is enforced.
-   Review threads live in
-   https://github.com/Comfy-Org/registry-backend/issues/216. A fresh version
-   number alone does not lift a ban: resolve the recorded finding and ask
-   for review of the corrected version. Read the current issue history
-   before posting, and obtain explicit authorization to post anything
-   there unless it was already given in the session.
+A new `version` in `pyproject.toml` that lands on main publishes to the Comfy
+Registry through the publish workflow (`.github/workflows/publish_action.yml`).
+Contributors never change `version`.
 
 ## Example workflows
 
@@ -339,15 +227,3 @@ stranger with only the files its Workflow Note lists.
   scene is not an edit. MiniMax H3 and Klein caption their sources with
   Qwen3-VL 8B because their own text encoders returned only punctuation
   when asked to describe an image.
-
-## Phase 2: porting an existing node
-
-1. Drop the old file in `_scratch/` (gitignored) and read it fully first.
-2. Rebuild the core compute in a clean `nodes/node_<name>.py`, modelled on
-   an existing node — port logic deliberately, don't paste wholesale.
-3. Shared logic goes to `nodes/_<topic>_helpers.py`, not duplicated.
-4. Frontend goes to `js/<name>/index.js`; reusable bits to `js/shared/`.
-5. Keep the old class-name string as the mapping key only if existing saved
-   workflows must keep loading; otherwise use the `AUSBOSS_NODES_<Purpose>`
-   convention.
-6. Run the validation steps above before calling it done.

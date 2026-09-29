@@ -287,7 +287,7 @@ test("removeTemplate and parseTemplates round-trip storage", async () => {
   assert.deepEqual(parseTemplates('{"name":"x"}'), []);
 });
 
-// ---------- promoted lab experiments: bars, absorb, resolution, memory ----------
+// ---------- bars, absorb, resolution, memory ----------
 
 const row = (name, strength, extra = {}) => ({
   id: `t-${name}`, name, strength,

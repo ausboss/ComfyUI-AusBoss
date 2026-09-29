@@ -367,7 +367,7 @@ python scripts/run_python_tests.py
 node --test tests/*.test.mjs
 ```
 
-Backend tests run in separate processes because their offline ComfyUI stubs must not leak between files. [CONTRIBUTING.md](CONTRIBUTING.md) covers bug reports and pull requests; [`docs/live_testing.md`](docs/live_testing.md) covers canvas, mouse-drag, save/reload, and workflow execution checks; [`docs/adding_a_node.md`](docs/adding_a_node.md) and [`AGENTS.md`](AGENTS.md) define the public-node and release gates.
+Backend tests run in separate processes because their offline ComfyUI stubs must not leak between files. [CONTRIBUTING.md](CONTRIBUTING.md) covers bug reports and pull requests; [`docs/live_testing.md`](docs/live_testing.md) covers canvas, mouse-drag, save/reload, and workflow execution checks; [`docs/adding_a_node.md`](docs/adding_a_node.md) lists what a new public node needs.
 
 ## Feedback
 

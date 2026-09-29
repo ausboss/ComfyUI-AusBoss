@@ -53,10 +53,8 @@ recipe.
 An eval creates the node at `pos [0, 0]`, sets `app.canvas.ds.scale = 1` and
 `ds.offset = [160, 230]`, and returns
 `__clip: { x: r.left + 152, y: r.top + 192, width: node.size[0] + 16, height: node.size[1] + 46 }`
-(`r` is the canvas element's bounding rect). Shots go to
-`_scratch/node_screenshots/` (gitignored) named `<round>_<Node>[_state].png`,
-`_mid` for a screenshot taken during a drag and `_after` for the result.
-Side-by-side pairs live in `_scratch/node_screenshots/pairs/`.
+(`r` is the canvas element's bounding rect). A drag gives two shots: `_mid`,
+taken during the drag, and `_after`, the result.
 
 ## Gotchas learned the hard way
 
@@ -79,8 +77,8 @@ Side-by-side pairs live in `_scratch/node_screenshots/pairs/`.
 - `cdp.mjs` and `cdp_drag.mjs` requests time out after 25 s; the workflow
   audit allows 45 s.
   Inspect the browser's dialogs and logs when a request stops responding.
-- Keep review renders and logs in the ignored `_scratch/` directory. Only
-  deliberately shipped sample media belongs in `example_workflows/inputs/`.
+- Keep test renders and logs out of the repository; only deliberately
+  shipped sample media belongs in `example_workflows/inputs/`.
 
 ## What to verify for a node face
 

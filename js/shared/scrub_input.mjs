@@ -3,7 +3,7 @@
 // right step it, ArrowUp/Down step from the keyboard, and Shift always
 // means the fine step. First shipped as the LoRA loader's strength box;
 // this is that interaction made reusable, so every numeric field in the
-// pack can behave the same way (AGENTS.md: scrubbing is the house norm).
+// pack can behave the same way (scrubbing is the house norm).
 //
 // Pure gesture math up top (tested in tests/scrub_input.test.mjs); the DOM
 // factory below wires it to a widget-backed value via callbacks:

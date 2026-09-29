@@ -11,7 +11,7 @@ venv/
 .DS_Store
 Thumbs.db
 
-# Local scratch — untracked experiments and node ports in progress
+# Local scratch files
 _scratch/
 *.log
 
@@ -21,12 +21,11 @@ uv.lock
 # User aspect-ratio presets - personal copy of ausboss_presets_example.json
 ausboss_presets.json
 
-# Local working notes: keep them in _scratch/ or a root ausboss_*.md file,
-# never in a new name that needs its own line here
+# Local notes at the repository root
 /ausboss_*.md
 
-# Local duplicate of the versioned .claude brand skill
-/.agents/skills/ausboss-node-brand/
+# Local tool settings
+/.agents/
 
 # Local tool output: the archive `comfy node pack` writes, and per-machine
 # worktrees and settings
