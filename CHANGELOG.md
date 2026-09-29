@@ -11,6 +11,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   even though the workflow ran. They now clear as soon as you pick a file.
   Every control on the node cards now tells ComfyUI when you change it, so
   its own checks stay in step with what you set.
+- **Crop For Inpaint: workflows saved before 2.4.0 now open with Stay in
+  picture on.** In 2.4.0 most of them opened with the switch off and kept
+  the old crop, the one that runs past the picture's edges, while the same
+  workflow sent through the API ran with it on. Both now get the new crop,
+  as the 2.4.0 notes said they would. Turn the switch off on the node for
+  the old crop. A switch you set yourself keeps its setting.
 
 ## 2.4.0 - 2026-09-29
 

@@ -118,6 +118,31 @@ export function comboValues(widget) {
   return Array.isArray(values) ? values : [];
 }
 
+// A value the widget cannot hold: a switch holds only true or false, a
+// choice only one of its options. Other widgets are never judged (an empty
+// text field is a real value).
+export function holdsUnknownValue(widget) {
+  if (widget?.type === "toggle") return widget.value !== true && widget.value !== false;
+  if (widget?.type === "combo") return !comboValues(widget).includes(widget.value);
+  return false;
+}
+
+// Saved values come back by position, and a card is a widget that saves an
+// empty value of its own, so an input appended after a release can receive
+// the card's "" from an older save. Put `fallbacks[name]` back on each named
+// widget holding a value it cannot hold; returns the names it reset.
+export function resetUnknownValues(widgets, fallbacks = {}) {
+  const reset = [];
+  for (const [name, fallback] of Object.entries(fallbacks)) {
+    const widget = widgets?.find((item) => item?.name === name);
+    if (widget && holdsUnknownValue(widget)) {
+      widget.value = fallback;
+      reset.push(name);
+    }
+  }
+  return reset;
+}
+
 function comboLabels(row, widget) {
   return comboValues(widget).map((value) => row.labels?.[value] ?? String(value));
 }
