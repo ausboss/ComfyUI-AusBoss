@@ -628,7 +628,7 @@ class EdgeHaloTests(unittest.TestCase):
         stitch_cls = NODE_CLASS_MAPPINGS["AUSBOSS_NODES_StitchInpaint"]
         types = stitch_cls.INPUT_TYPES()
         self.assertEqual(list(types["required"]), ["stitcher", "inpainted"])
-        self.assertEqual(list(types["optional"]), ["fix_edge_halo", "color_match"])
+        self.assertEqual(list(types["optional"]), ["fix_edge_halo", "color_match", "seam"])
         kind, options = types["optional"]["fix_edge_halo"]
         self.assertEqual(kind, "BOOLEAN")
         self.assertIs(options["default"], False)
@@ -1243,6 +1243,452 @@ class StitchBlendFromMaskTests(unittest.TestCase):
         mask[:, :, :10] = 1.0
         self.assertTrue(torch.all(stitch_blend_from_mask(mask, 0, 4)[:, :, :14] == 1.0))
         self.assertTrue(torch.all(stitch_blend_from_mask(mask, 0, -4)[:, :, 6:] == 0.0))
+
+
+def smooth_picture(batch: int, height: int, width: int, seed: int = 0) -> torch.Tensor:
+    """A photo stand-in: a colour gradient with soft grain."""
+    rows = torch.linspace(0.0, 1.0, height).view(1, height, 1, 1)
+    cols = torch.linspace(0.0, 1.0, width).view(1, 1, width, 1)
+    base = 0.2 + 0.3 * rows + 0.25 * cols + torch.tensor((0.08, 0.12, 0.0)).view(1, 1, 1, 3)
+    grain = rand_image(batch, height, width, seed) - 0.5
+    grain = torch.nn.functional.avg_pool2d(grain.movedim(-1, 1), 3, stride=1, padding=1, count_include_pad=False)
+    return (base + 0.12 * grain.movedim(1, -1)).clamp(0.0, 1.0)
+
+
+def grain_picture(batch: int, height: int, width: int, seed: int = 0) -> torch.Tensor:
+    """Soft grain on one flat tint: detail with no slope across any seam."""
+    grain = rand_image(batch, height, width, seed) - 0.5
+    grain = torch.nn.functional.avg_pool2d(grain.movedim(-1, 1), 3, stride=1, padding=1, count_include_pad=False)
+    tint = torch.tensor((0.53, 0.57, 0.45)).view(1, 1, 1, 3)
+    return (tint + 0.12 * grain.movedim(1, -1)).clamp(0.0, 1.0)
+
+
+def shrink(image: torch.Tensor, mask: torch.Tensor, scale: float):
+    """The megapixel resize a transform node can apply to its canvas and mask."""
+    size = (round(image.shape[1] * scale), round(image.shape[2] * scale))
+    image = torch.nn.functional.interpolate(
+        image.movedim(-1, 1), size=size, mode="bicubic", antialias=True, align_corners=False
+    ).movedim(1, -1).clamp(0.0, 1.0)
+    mask = torch.nn.functional.interpolate(
+        mask.unsqueeze(1), size=size, mode="bilinear", antialias=True, align_corners=False
+    ).squeeze(1).clamp(0.0, 1.0)
+    return image, mask
+
+
+def turned_stitcher(picture: torch.Tensor, feather: int = 12, scale: float = 0.65, degrees: float = -14.3) -> dict:
+    """A Crop + Rotate + Pad stitcher for a turned picture, resized like a
+    megapixel budget does, pasted with no extra ramp (stitch_blend 0)."""
+    from nodes._transform_engine import TransformSpec, transform_tensor_batch
+
+    output, mask, geometry = transform_tensor_batch(picture, TransformSpec(rotation_degrees=degrees, feather=feather))
+    if scale != 1.0:
+        output, mask = shrink(output, mask, scale)
+    return inpaint_helpers.build_transform_stitcher(output, mask, geometry, 0)
+
+
+def padded_stitcher(picture: torch.Tensor, pads=(24, 16, 20, 0), feather: int = 12, fill: float = 0.5) -> dict:
+    """A Load Image + Pad stitcher: the picture on a flat fill, the feathered
+    padding mask as its blend, and the source rectangle."""
+    from nodes._pad_helpers import feather_pad_mask
+
+    left, top, right, bottom = pads
+    batch, height, width, channels = picture.shape
+    canvas = torch.full((batch, height + top + bottom, width + left + right, channels), fill)
+    canvas[:, top : top + height, left : left + width] = picture
+    mask = torch.ones(canvas.shape[:3])
+    mask[:, top : top + height, left : left + width] = 0.0
+    blend = feather_pad_mask(mask, left, top, right, bottom, feather)
+    return build_canvas_stitcher(canvas, blend, bbox=(left, top, left + width, top + height))
+
+
+def new_area(stitcher: dict) -> torch.Tensor:
+    """[1, H, W] True where the canvas holds no picture."""
+    generated = stitcher.get("generated")
+    if generated is not None:
+        return (generated >= 0.98).any(dim=0, keepdim=True)
+    x0, y0, x1, y1 = stitcher["source_bbox"]
+    area = torch.ones((1, *stitcher["canvas"].shape[1:3]), dtype=torch.bool)
+    area[:, y0:y1, x0:x1] = False
+    return area
+
+
+def model_result(stitcher: dict, seed: int = 1, cast: float = 0.0, frames: int | None = None) -> torch.Tensor:
+    """A stand-in for the model: the picture redrawn with a little grain, its
+    own texture where the picture was missing, and an optional colour cast."""
+    canvas = stitcher["canvas"]
+    if frames is not None:
+        canvas = canvas[:1].expand(frames, -1, -1, -1)
+    generator = torch.Generator().manual_seed(seed)
+    grain = (torch.rand(canvas.shape, generator=generator) - 0.5) * 0.04
+    painted = 0.3 + 0.4 * torch.rand(canvas.shape, generator=generator)
+    painted = torch.nn.functional.avg_pool2d(painted.movedim(-1, 1), 5, stride=1, padding=2, count_include_pad=False).movedim(1, -1)
+    result = torch.where(new_area(stitcher).unsqueeze(-1), painted, canvas + grain)
+    return (result + cast).clamp(0.0, 1.0)
+
+
+class SeamBlendInTests(unittest.TestCase):
+    """seam="blend in": the model's picture hands over to the source by depth."""
+
+    def setUp(self):
+        self.stitcher = turned_stitcher(smooth_picture(1, 216, 288, seed=60))
+        self.canvas = self.stitcher["canvas"]
+        self.patch = model_result(self.stitcher, seed=61)
+        self.plan = inpaint_helpers.seam_plan(self.stitcher)
+        self.depth = self.plan["depth"]
+
+    def blend_in(self, stitcher=None, patch=None, **options):
+        return apply_stitch(stitcher or self.stitcher, self.patch if patch is None else patch, seam="blend in", **options)
+
+    def zones(self, plan=None):
+        plan = plan or self.plan
+        tone, detail = plan["tone"], plan["detail"]
+        deep = plan["depth"] >= max(tone[1], detail[1])
+        new = plan["depth"] <= min(tone[0], detail[0])
+        return deep, new
+
+    def test_the_deep_picture_is_bit_identical(self):
+        out = self.blend_in()
+        deep, _ = self.zones()
+        self.assertGreater(int(deep.sum()), 0.2 * deep.numel())
+        self.assertTrue(torch.equal(out[deep], self.canvas[deep]))
+        # The ramps end well inside the depth map's reach.
+        self.assertLess(max(self.plan["tone"][1], self.plan["detail"][1]), inpaint_helpers.SEAM_DEPTH_CAP)
+
+    def test_outside_the_picture_is_the_model_untouched(self):
+        out = self.blend_in()
+        _, new = self.zones()
+        self.assertTrue(bool((new & new_area(self.stitcher)).any()))
+        self.assertTrue(torch.equal(out[new], self.patch[new]))
+        self.assertTrue(bool((new_area(self.stitcher) <= new).all()))
+
+    def test_a_constant_cast_on_the_model_survives_unchanged(self):
+        cast = model_result(self.stitcher, seed=61, cast=0.05)
+        out = self.blend_in(patch=cast)
+        area = new_area(self.stitcher)
+        # No global shift: the new area is exactly what the model painted...
+        self.assertTrue(torch.equal(out[area], cast[area]))
+        # ...and the cast stays out of the deep picture.
+        deep, _ = self.zones()
+        self.assertTrue(torch.equal(out[deep], self.canvas[deep]))
+        # The classic tone match does move it, which is what blend in avoids.
+        classic = apply_stitch(self.stitcher, cast, color_match=1.0)
+        self.assertGreater(float((classic[area] - cast[area]).abs().mean()), 0.01)
+
+    def test_an_untouched_picture_comes_back_within_two_levels(self):
+        # The model leaves the picture alone and continues its edge colours.
+        # That is only a perfect answer for a picture with no slope across
+        # the seam, so the picture is grain on one tint.
+        picture = grain_picture(1, 120, 160, seed=62)
+        left, top, right, bottom = 24, 16, 20, 12
+        stitcher = padded_stitcher(picture, (left, top, right, bottom))
+        continued = torch.nn.functional.pad(
+            picture.movedim(-1, 1), (left, right, top, bottom), mode="replicate"
+        ).movedim(1, -1)
+        out = self.blend_in(stitcher=stitcher, patch=continued)
+        depth = inpaint_helpers.seam_plan(stitcher)["depth"]
+        inside = (depth >= 4.0).unsqueeze(-1).expand_as(out)
+        self.assertLess(float((out - stitcher["canvas"])[inside].abs().max()), 2.0 / 255.0)
+
+    def test_a_turned_edge_mixed_with_fill_gives_no_shift(self):
+        # A flat green picture, turned and resized: its outermost pixels are
+        # part fill. The model continues the green perfectly. Classic tone
+        # match reads those pixels as drift and moves the whole new area;
+        # blend in leaves it where the model put it.
+        green = torch.tensor((46, 150, 72), dtype=torch.float32) / 255.0
+        flat = green.view(1, 1, 1, 3).expand(1, 216, 288, 3).clone()
+        stitcher = turned_stitcher(flat)
+        continuation = green.view(1, 1, 1, 3).expand_as(stitcher["canvas"]).clone()
+        from nodes._color_helpers import rgb_to_lab
+
+        def error(image):
+            return (rgb_to_lab(image) - rgb_to_lab(continuation)).norm(dim=-1)
+
+        area = new_area(stitcher)
+        self.assertGreater(float(error(apply_stitch(stitcher, continuation, color_match=1.0))[area].mean()), 3.0)
+        blended = self.blend_in(stitcher=stitcher, patch=continuation)
+        self.assertTrue(torch.equal(blended[area], continuation[area]))
+        self.assertLess(float(error(blended).max()), 0.5)
+
+    def test_a_side_flush_with_the_frame_is_not_a_seam(self):
+        picture = smooth_picture(1, 96, 128, seed=63)
+        stitcher = padded_stitcher(picture, (24, 16, 20, 0))  # the bottom is not padded
+        plan = inpaint_helpers.seam_plan(stitcher)
+        depth = plan["depth"][0]
+        bottom = depth[-6:, 24 + 44 : 24 + 128 - 44]
+        self.assertGreater(float(bottom.min()), 40.0)
+        out = self.blend_in(stitcher=stitcher, patch=model_result(stitcher, seed=64))
+        canvas = stitcher["canvas"]
+        self.assertTrue(torch.equal(out[:, -6:, 24 + 44 : 24 + 128 - 44], canvas[:, -6:, 24 + 44 : 24 + 128 - 44]))
+        # A padded side right next to it still is one.
+        self.assertLess(float(depth[-1, 24]), 1.0)
+
+    def test_one_canvas_broadcasts_over_a_frame_batch(self):
+        frames = torch.cat([model_result(self.stitcher, seed=seed) for seed in (70, 71, 72)], dim=0)
+        together = self.blend_in(patch=frames)
+        self.assertEqual(tuple(together.shape), tuple(frames.shape))
+        for index in range(3):
+            alone = self.blend_in(patch=frames[index : index + 1])
+            self.assertTrue(torch.allclose(together[index : index + 1], alone, atol=1e-6))
+
+    def test_a_longer_stitcher_is_trimmed_to_the_frames_that_came_back(self):
+        from nodes._transform_engine import TransformSpec, transform_tensor_batch
+
+        pictures = smooth_picture(3, 144, 192, seed=73)
+        output, mask, geometry = transform_tensor_batch(pictures, TransformSpec(rotation_degrees=9.0, pad_left=24, feather=8))
+        stitcher = inpaint_helpers.build_transform_stitcher(output, mask, geometry, 32)
+        generated = model_result(stitcher, seed=74)[:2]
+        with contextlib.redirect_stdout(io.StringIO()) as note:
+            out = self.blend_in(stitcher=stitcher, patch=generated)
+        self.assertIn("stitching the first 2", note.getvalue())
+        self.assertEqual(out.shape[0], 2)
+        for index in range(2):
+            single = inpaint_helpers.build_transform_stitcher(
+                output[index : index + 1], mask[index : index + 1], geometry, 32
+            )
+            alone = self.blend_in(stitcher=single, patch=generated[index : index + 1])
+            self.assertTrue(torch.allclose(out[index : index + 1], alone, atol=1e-6))
+
+    def test_the_video_clip_stitcher_blends_every_frame_alike(self):
+        from nodes._transform_engine import TransformSpec, transform_tensor_batch_chunked
+
+        wide = smooth_picture(1, 112, 176, seed=75)[0]
+        clip = torch.stack([wide[:, 3 * index : 3 * index + 160] for index in range(5)])
+        spec = TransformSpec(rotation_degrees=6.0, pad_left=32, pad_right=16, fill_color="#000000")
+        output, mask, geometry = transform_tensor_batch_chunked(clip, spec, chunk_size=2)
+        stitcher = inpaint_helpers.build_transform_stitcher(output, mask, geometry, 32)
+        generated = model_result(stitcher, seed=76)
+        out = self.blend_in(stitcher=stitcher, patch=generated)
+        deep, new = self.zones(inpaint_helpers.seam_plan(stitcher))
+        for index in range(5):
+            frame, canvas, patch = out[index], output[index], generated[index]
+            self.assertTrue(torch.equal(frame[deep[0]], canvas[deep[0]]))
+            self.assertTrue(torch.equal(frame[new[0]], patch[new[0]]))
+        # Chunks of one frame give the same clip, and so does a second run.
+        chunk = inpaint_helpers.SEAM_CHUNK_PIXELS
+        inpaint_helpers.SEAM_CHUNK_PIXELS = 1
+        try:
+            one_by_one = self.blend_in(stitcher=stitcher, patch=generated)
+        finally:
+            inpaint_helpers.SEAM_CHUNK_PIXELS = chunk
+        self.assertTrue(torch.allclose(one_by_one, out, atol=1e-6))
+        self.assertTrue(torch.equal(self.blend_in(stitcher=stitcher, patch=generated), out))
+
+    def test_the_detail_hand_over_keeps_its_strength(self):
+        # The model redrew everything with its own grain of the same
+        # strength. A plain cross-fade of two unrelated grains is about a
+        # quarter weaker halfway across; most of that is put back.
+        picture = grain_picture(1, 160, 200, seed=85)
+        stitcher = padded_stitcher(picture, (40, 40, 40, 40))
+        redrawn = grain_picture(1, *stitcher["canvas"].shape[1:3], seed=86)
+        out = self.blend_in(stitcher=stitcher, patch=redrawn)
+        plan = inpaint_helpers.seam_plan(stitcher)
+        luma = (out * torch.tensor((0.299, 0.587, 0.114))).sum(-1).unsqueeze(1)
+        fine = (luma - torch.nn.functional.avg_pool2d(luma, 5, stride=1, padding=2, count_include_pad=False))[:, 0]
+        depth = plan["depth"]
+        middle = (depth - sum(plan["detail"]) / 2.0).abs() < 1.0
+        deep = depth >= plan["tone"][1] + 4.0
+        self.assertGreater(float(fine[middle].std() / fine[deep].std()), 0.85)
+
+    def test_a_long_clip_reports_progress_and_stops_between_chunks(self):
+        frames = torch.cat([self.patch] * 3, dim=0)
+        checks, bars = [], []
+
+        class Recorder:
+            def __init__(self, total):
+                self.total, self.updates = total, []
+
+            def update_absolute(self, value, total=None, preview=None):
+                self.updates.append((value, total))
+
+        def make_bar(total):
+            bars.append(Recorder(total))
+            return bars[-1]
+
+        originals = (inpaint_helpers.SEAM_CHUNK_PIXELS, inpaint_helpers.raise_if_interrupted, inpaint_helpers.progress_bar)
+        inpaint_helpers.SEAM_CHUNK_PIXELS = 1
+        inpaint_helpers.raise_if_interrupted = lambda: checks.append(1)
+        inpaint_helpers.progress_bar = make_bar
+        try:
+            self.blend_in(patch=frames)
+        finally:
+            inpaint_helpers.SEAM_CHUNK_PIXELS, inpaint_helpers.raise_if_interrupted, inpaint_helpers.progress_bar = originals
+        self.assertEqual(len(checks), 3)
+        self.assertEqual(len(bars), 1)
+        self.assertEqual(bars[0].updates, [(1, 3), (2, 3), (3, 3)])
+
+    def test_tone_match_and_the_halo_fix_do_not_apply(self):
+        def refuse(*_args):
+            raise AssertionError("the halo estimate ran")
+
+        original = inpaint_helpers._foreground_estimator
+        inpaint_helpers._foreground_estimator = lambda: refuse
+        try:
+            both = self.blend_in(color_match=1.0, fix_edge_halo=True)
+        finally:
+            inpaint_helpers._foreground_estimator = original
+        self.assertTrue(torch.equal(both, self.blend_in()))
+
+    def test_crop_for_inpaint_is_stitched_the_classic_way(self):
+        image = rand_image(1, 64, 96, seed=77)
+        cropped, _, stitcher = build_crop(image, box_mask(64, 96, 24, 40, 40, 56), 1.5, 8, 8)
+        patch = shuffle_pixels(cropped)
+        inpaint_helpers._warned.discard(inpaint_helpers._BLEND_IN_FALLBACK_NOTE)
+        with contextlib.redirect_stdout(io.StringIO()) as note:
+            first = apply_stitch(stitcher, patch, color_match=0.5, seam="blend in")
+            second = apply_stitch(stitcher, patch, color_match=0.5, seam="blend in")
+        classic = apply_stitch(stitcher, patch, color_match=0.5)
+        self.assertTrue(torch.equal(first, classic))
+        self.assertTrue(torch.equal(second, classic))
+        self.assertEqual(note.getvalue().count("[AusBoss]"), 1)
+        note.getvalue().encode("ascii")  # console output must stay ASCII
+        self.assertIsNone(inpaint_helpers.seam_plan(stitcher))
+        self.assertTrue(torch.equal(stitch_blend_mask(stitcher, 1, "blend in"), stitch_blend_mask(stitcher)))
+
+    def test_the_blend_mask_shows_the_hand_over(self):
+        out = self.blend_in()
+        mask = stitch_blend_mask(self.stitcher, 2, "blend in")
+        self.assertEqual(tuple(mask.shape), (2, *self.canvas.shape[1:3]))
+        deep, new = self.zones()
+        self.assertTrue(bool((mask[0][new[0]] == 1.0).all()))
+        self.assertTrue(bool((mask[0][deep[0]] == 0.0).all()))
+        self.assertGreaterEqual(float(mask.min()), 0.0)
+        self.assertLessEqual(float(mask.max()), 1.0)
+        # Zero exactly where the stitch left the picture alone.
+        untouched = mask[:1] == 0.0
+        self.assertTrue(torch.equal(out[untouched], self.canvas[untouched]))
+        # Classic keeps the stitcher's feathered paste mask.
+        self.assertTrue(torch.equal(stitch_blend_mask(self.stitcher, 2, "classic"), stitch_blend_mask(self.stitcher, 2)))
+
+    def test_one_plan_per_stitcher(self):
+        stitcher = turned_stitcher(smooth_picture(1, 144, 192, seed=78))
+        calls = []
+        original = inpaint_helpers._signed_depth
+
+        def counted(picture):
+            calls.append(1)
+            return original(picture)
+
+        inpaint_helpers._signed_depth = counted
+        try:
+            patch = model_result(stitcher, seed=79)
+            first = self.blend_in(stitcher=stitcher, patch=patch)
+            second = self.blend_in(stitcher=stitcher, patch=patch)
+            stitch_blend_mask(stitcher, 1, "blend in")
+            self.assertEqual(len(calls), 1)
+            self.assertTrue(torch.equal(first, second))
+            # A copy that lost the generated-area mask reads the rectangle.
+            older = {key: value for key, value in stitcher.items() if key not in ("generated", "seam_plan")}
+            older["seam_plan"] = stitcher["seam_plan"]
+            self.blend_in(stitcher=older, patch=patch)
+            self.assertEqual(len(calls), 2)
+        finally:
+            inpaint_helpers._signed_depth = original
+
+    def test_the_ramps_follow_the_mask_the_model_was_given(self):
+        # Load Image + Pad feathers 40 px inward: the model could redraw
+        # about 36 px deep, so the detail ramp starts about 27 px in.
+        stitcher = padded_stitcher(smooth_picture(1, 160, 200, seed=80), (48, 40, 48, 40), feather=40)
+        plan = inpaint_helpers.seam_plan(stitcher)
+        self.assertAlmostEqual(plan["detail"][0], 0.75 * 36.5, delta=1.0)
+        self.assertAlmostEqual(plan["detail"][1] - plan["detail"][0], 10.0)
+        self.assertAlmostEqual(plan["tone"][1], plan["detail"][1] + 14.0)
+        # No feather to read: the default reach.
+        hard = padded_stitcher(smooth_picture(1, 160, 200, seed=80), (48, 40, 48, 40), feather=0)
+        self.assertEqual(inpaint_helpers.seam_plan(hard)["detail"], (9.75, 19.75))
+
+    def test_scipy_and_the_torch_fallback_measure_the_same_depth(self):
+        pictures = [
+            ~(self.stitcher["generated"] >= 0.98).any(dim=0),
+            inpaint_helpers._seam_picture(padded_stitcher(smooth_picture(1, 60, 80), (20, 10, 0, 30))),
+        ]
+        generator = torch.Generator().manual_seed(81)
+        blobs = torch.nn.functional.avg_pool2d(torch.rand((1, 1, 90, 130), generator=generator), 9, stride=1, padding=4)
+        pictures.append(blobs[0, 0] > 0.5)
+        original = inpaint_helpers._scipy_distance
+        try:
+            inpaint_helpers._scipy_distance = None
+            fallback = [inpaint_helpers._signed_depth(picture) for picture in pictures]
+        finally:
+            inpaint_helpers._scipy_distance = original
+        if original is None:
+            self.skipTest("scipy is not installed")
+        for picture, estimate in zip(pictures, fallback):
+            exact = inpaint_helpers._signed_depth(picture)
+            self.assertLess(float((exact - estimate).abs().max()), 1e-3)
+
+    def test_the_torch_fallback_stitches_like_scipy(self):
+        original = inpaint_helpers._scipy_distance
+        if original is None:
+            self.skipTest("scipy is not installed")
+        stitcher = turned_stitcher(smooth_picture(1, 144, 192, seed=82))
+        patch = model_result(stitcher, seed=83)
+        with_scipy = self.blend_in(stitcher=stitcher, patch=patch)
+        stitcher.pop("seam_plan")
+        try:
+            inpaint_helpers._scipy_distance = None
+            without = self.blend_in(stitcher=stitcher, patch=patch)
+        finally:
+            inpaint_helpers._scipy_distance = original
+        self.assertTrue(torch.allclose(with_scipy, without, atol=1e-5))
+
+    def test_no_picture_edge_and_no_picture_at_all(self):
+        # Nothing padded or turned: every pixel is picture and stays as it is.
+        picture = smooth_picture(1, 48, 64, seed=84)
+        whole = build_canvas_stitcher(picture, torch.zeros((1, 48, 64)), bbox=(0, 0, 64, 48))
+        self.assertTrue(torch.equal(self.blend_in(stitcher=whole, patch=shuffle_pixels(picture)), picture))
+        # An empty rectangle: every pixel is new and comes from the model.
+        empty = build_canvas_stitcher(picture, torch.ones((1, 48, 64)), bbox=(0, 0, 0, 0))
+        patch = shuffle_pixels(picture)
+        self.assertTrue(torch.equal(self.blend_in(stitcher=empty, patch=patch), patch))
+
+
+class SeamChoiceNodeTests(unittest.TestCase):
+    """The Seam choice on Stitch Inpaint: appended, classic by default."""
+
+    def setUp(self):
+        from nodes.node_inpaint_crop_stitch import NODE_CLASS_MAPPINGS
+
+        self.node_cls = NODE_CLASS_MAPPINGS["AUSBOSS_NODES_StitchInpaint"]
+        self.stitcher = turned_stitcher(smooth_picture(1, 144, 192, seed=90))
+        self.patch = model_result(self.stitcher, seed=91)
+
+    def run_node(self, **inputs):
+        return getattr(self.node_cls(), self.node_cls.FUNCTION)(stitcher=self.stitcher, inpainted=self.patch, **inputs)
+
+    def test_the_choice_is_appended_last_and_defaults_to_classic(self):
+        optional = self.node_cls.INPUT_TYPES()["optional"]
+        self.assertEqual(list(optional)[-1], "seam")
+        choices, options = optional["seam"]
+        self.assertEqual(choices, ["classic", "blend in"])
+        self.assertEqual(options["default"], "classic")
+        for word in ("blend in", "classic", "Crop For Inpaint"):
+            self.assertIn(word, options["tooltip"])
+
+    def test_leaving_it_out_is_classic(self):
+        plain = self.run_node(color_match=1.0)
+        named = self.run_node(color_match=1.0, seam="classic")
+        self.assertTrue(torch.equal(plain[0], named[0]))
+        self.assertTrue(torch.equal(plain[1], named[1]))
+        self.assertTrue(torch.equal(plain[0], apply_stitch(self.stitcher, self.patch, color_match=1.0)))
+
+    def test_blend_in_reaches_the_helpers(self):
+        image, mask = self.run_node(color_match=1.0, seam="blend in")
+        self.assertTrue(torch.equal(image, apply_stitch(self.stitcher, self.patch, seam="blend in")))
+        self.assertTrue(torch.equal(mask, stitch_blend_mask(self.stitcher, 1, "blend in")))
+
+    def test_an_older_workflow_s_empty_slot_is_classic(self):
+        # A workflow saved before Seam existed keeps the card's empty value
+        # in the slot Seam now takes; it must still queue and stitch classic.
+        self.assertIs(self.node_cls.VALIDATE_INPUTS(seam=""), True)
+        self.assertIs(self.node_cls.VALIDATE_INPUTS(seam=None), True)
+        self.assertIs(self.node_cls.VALIDATE_INPUTS(), True)
+        for value in ("classic", "blend in"):
+            self.assertIs(self.node_cls.VALIDATE_INPUTS(seam=value), True)
+        self.assertIsInstance(self.node_cls.VALIDATE_INPUTS(seam="blend"), str)
+        legacy = self.run_node(color_match=1.0, seam="")
+        self.assertTrue(torch.equal(legacy[0], self.run_node(color_match=1.0)[0]))
+        with self.assertRaisesRegex(ValueError, "seam"):
+            self.run_node(seam="blend")
 
 
 class ErrorSourceTests(unittest.TestCase):

@@ -37,7 +37,7 @@ import { makeScrubInput } from "./scrub_input.mjs";
 import { hideWidget } from "./widget_visibility.mjs";
 import {
   CARD_PADDING, GROUP_HEIGHT, ROW_GAP, ROW_HEIGHT, SECTION_HEIGHT, SLOT_OFFSET, UNIT_SLOT_WIDTH,
-  cardHeight, comboValues, rowHeight, rowKind, rowTops, scrubSteps, socketWidgetY, visibleRows,
+  cardHeight, comboValues, rowHeight, rowKind, rowMuted, rowTops, scrubSteps, socketWidgetY, visibleRows,
 } from "./widget_card_math.mjs";
 
 export * from "./widget_card_math.mjs";
@@ -62,11 +62,20 @@ export function ensureCardCss() {
   const style = document.createElement("style");
   style.id = CSS_ID;
   style.textContent = `
-.ausboss-card{box-sizing:border-box;width:100%;height:100%;display:flex;flex-direction:column;gap:${ROW_GAP}px;padding:${CARD_PADDING}px 8px;overflow:hidden;border:1px solid rgba(0,180,170,.22);border-radius:8px;background:rgba(0,0,0,.28);font:12px/1.3 ${FONT};color:#c8dddd;pointer-events:none}
+.ausboss-card{position:relative;box-sizing:border-box;width:100%;height:100%;display:flex;flex-direction:column;gap:${ROW_GAP}px;padding:${CARD_PADDING}px 8px;overflow:hidden;border:1px solid rgba(0,180,170,.22);border-radius:8px;background:rgba(0,0,0,.28);font:12px/1.3 ${FONT};color:#c8dddd;pointer-events:none}
 .ausboss-card-row{display:grid;grid-template-columns:minmax(56px,30%) 1fr;align-items:center;gap:8px;height:${ROW_HEIGHT}px;flex:none;pointer-events:auto}
 .ausboss-card-row.hidden{display:none}
 .ausboss-card-row.linked{opacity:.5}
 .ausboss-card-row.linked .ausboss-card-control{pointer-events:none}
+.ausboss-card-row.muted .ausboss-card-control{opacity:.35;pointer-events:none}
+.ausboss-card-row.muted .ausboss-card-label{color:#566b69}
+.ausboss-card.has-corner .ausboss-card-control{margin-right:var(--ausboss-card-corner,0px)}
+.ausboss-card-corner{position:absolute;top:${CARD_PADDING}px;right:8px;height:${ROW_HEIGHT}px;display:flex;align-items:center;justify-content:flex-end;gap:5px;pointer-events:auto}
+.ausboss-card-gear{width:24px;height:24px;flex:none;display:grid;place-items:center;padding:0;border:1px solid #2a3437;border-radius:6px;background:#0f1516;color:#8ba3a1;cursor:pointer}
+.ausboss-card-gear:hover{border-color:${BRAND};color:${BRAND}}
+.ausboss-card-chip{height:20px;flex:none;padding:0 8px;border:1px solid rgba(0,180,170,.5);border-radius:10px;background:rgba(0,180,170,.14);color:${BRAND};font:600 10px/1 ${FONT};letter-spacing:.02em;white-space:nowrap;cursor:pointer}
+.ausboss-card-chip:hover{background:rgba(0,180,170,.24);color:#fff}
+.ausboss-card-chip[hidden]{display:none}
 .ausboss-card-row.area{display:block}
 .ausboss-card-row.area.grow{flex:1 1 auto;height:auto}
 .ausboss-card-label{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:#8ba3a1;font-size:11px;user-select:none}
@@ -160,9 +169,13 @@ function isFloatWidget(widget) {
 //   { section: "Caption" }
 //   { group: "advanced", label: "More" }   - a disclosure; later rows with
 //                                             group: "advanced" sit under it
+// Rows may also carry `mute: (values) => boolean` and `muteTitle`: a muted
+// row stays in place but dims and stops taking input, with the title as its
+// hover hint (a setting the current mode does not use).
 // Options: minWidth (node floor), first (place the card ahead of the node's
-// other DOM widgets), hide (extra widgets to hide).
-export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hide = [] } = {}) {
+// other DOM widgets), hide (extra widgets to hide), corner (small tools in
+// the card's top-right corner, see below).
+export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hide = [], corner = null } = {}) {
   ensureCardCss();
   const root = el("div", "ausboss-card");
   const managed = [];
@@ -415,6 +428,20 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     root.append(line);
   }
 
+  // ---------- corner tools ----------
+  // `corner(node, { values, setWidget })` returns { element, sync(values) }:
+  // tools that sit in the card's top-right corner, level with the first row
+  // (a gear, a mode chip). sync returns how many pixels they need, and every
+  // row's control keeps that much clear, so the controls down the card still
+  // share one right edge.
+  const tools = typeof corner === "function" ? corner(node, { values, setWidget }) : null;
+  if (tools?.element) {
+    const holder = el("div", "ausboss-card-corner");
+    holder.append(tools.element);
+    root.classList.add("has-corner");
+    root.append(holder);
+  }
+
   // Clicks on controls stay out of the graph's drag; empty card space falls through.
   root.addEventListener("pointerdown", (event) => {
     if (event.target.closest("button,input,select,textarea,.ausboss-scrub")) event.stopPropagation();
@@ -577,8 +604,18 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
         || (entry.row.linkedBy ?? []).some((name) => widgetLinked(node, name));
       entry.element.classList.toggle("linked", linked);
       for (const [name, field] of entry.fields ?? []) field.classList.toggle("linked", linkedNames.includes(name));
+      if (entry.row.mute) {
+        const muted = rowMuted(entry.row, vals);
+        entry.element.classList.toggle("muted", muted);
+        const label = entry.element.querySelector(".ausboss-card-label");
+        entry.baseTitle ??= label?.title ?? "";
+        const hint = muted ? (entry.row.muteTitle ?? "") : "";
+        entry.element.title = hint;
+        if (label) label.title = hint || entry.baseTitle;
+      }
       for (const sync of entry.syncs) sync(vals, linked);
     }
+    if (tools?.sync) root.style.setProperty("--ausboss-card-corner", `${Math.max(0, Number(tools.sync(vals)) || 0)}px`);
     const height = cardHeight(visible);
     if (height !== state.height) {
       state.height = height;

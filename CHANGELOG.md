@@ -8,6 +8,20 @@ All notable changes to ComfyUI-AusBoss are documented here.
   node (such as Math Expression) to Load Video's start or end time made the
   whole graph fail to queue with an error. It now queues and runs. A wired
   time that turns out to be bad still stops the run with a clear message.
+- **Stitch Inpaint: a Seam choice for outpaints.** On a turned or padded
+  outpaint, the join between your picture and the new area could show a
+  lighter band and a smeared strip. Set the new **Seam** to **blend in** to
+  fade the model's picture into yours instead: it hands over a little way
+  inside your picture, where the two already line up, and leaves the new
+  area exactly as the model painted it. On seven Krea 2 outpaints the colour
+  step at the join shrank by 85 to 95%. It is the pick for turned pictures
+  and for outpaints with Tone match off; with straight padding and Tone
+  match on, classic usually looks as good. Seam sits in the gear menu in the
+  card's corner, so the node keeps its size. With blend in on, Tone match and
+  Fix edge halo dim, since blend in does not use them, and a **blend in**
+  chip shows beside the gear. **classic** stays the default, so saved
+  workflows render exactly as before, and Crop For Inpaint stitchers still
+  paste the classic way.
 - **Krea 2 Outpaint no longer promises inpainting.** Its Workflow Note and
   the Krea 2 Outpaint Model Patch help page said you could paint over part
   of the picture with the mask editor and pad at the same time. That does

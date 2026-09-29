@@ -692,7 +692,8 @@
     ],
     "optional": [
       "fix_edge_halo",
-      "color_match"
+      "color_match",
+      "seam"
     ],
     "outputs": [
       [

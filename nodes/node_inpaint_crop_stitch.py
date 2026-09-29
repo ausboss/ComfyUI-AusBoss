@@ -4,10 +4,16 @@ from __future__ import annotations
 
 from ._inpaint_crop_helpers import (
     RESIZE_ALGORITHMS,
+    SEAM_CLASSIC,
+    SEAM_MODES,
     apply_stitch,
     build_crop,
     stitch_blend_mask,
 )
+
+# A workflow saved before Seam existed can hold the card's empty value in
+# the slot Seam now takes; it loads, and stitches, as classic.
+_UNSET_SEAM = ("", None)
 
 
 class AusBossCropForInpaint:
@@ -335,16 +341,20 @@ class AusBossStitchInpaint:
     DESCRIPTION = (
         "Pastes an inpainted crop from Crop For Inpaint 🆎, or an "
         "outpainted canvas from Load Image + Pad 🆎 or a Crop + Rotate + "
-        "Pad 🆎 node, back into the original image, blending with the "
-        "feathered mask recorded in the stitcher. Pixels outside the blend "
-        "region are bit-identical to "
-        "the original — they never pass through a resize. A stitcher built "
-        "from one image broadcasts across an inpainted frame batch. Turn on "
-        "fix_edge_halo when the seam shows a dark or light rim; raise "
-        "color_match when the new region reads lighter or warmer than the "
-        "picture — it measures the drift in the feathered overlap and "
-        "shifts the paste onto the original's tone. The "
-        "blend_mask output is the feathered paste mask in the stitched "
+        "Pad 🆎 node, back into the original image. Seam picks how the new "
+        "area joins your picture: classic, the default, blends with the "
+        "feathered mask recorded in the stitcher, as every earlier "
+        "workflow did; blend in fades the model's picture into yours with "
+        "no tone shift, which suits turned pictures and outpaints run "
+        "without Tone match. "
+        "Pixels the stitch does not reach are bit-identical to the "
+        "original — they never pass through a resize. A stitcher built "
+        "from one image broadcasts across an inpainted frame batch. With "
+        "classic, turn on fix_edge_halo when the seam shows a dark or light "
+        "rim, and raise color_match when the new region reads lighter or "
+        "warmer than the picture — it measures the drift in the feathered "
+        "overlap and shifts the paste onto the original's tone. The "
+        "blend_mask output marks what the stitch changed, in the stitched "
         "image's own coordinates, ready for a downstream color match."
     )
     SEARCH_ALIASES = [
@@ -413,6 +423,19 @@ class AusBossStitchInpaint:
                         ),
                     },
                 ),
+                "seam": (
+                    list(SEAM_MODES),
+                    {
+                        "default": SEAM_CLASSIC,
+                        "tooltip": (
+                            "How the new area joins your picture. Pick blend "
+                            "in for turned pictures and outpaints with Tone "
+                            "match off; classic keeps older workflows exactly "
+                            "as they were (Crop For Inpaint always stitches "
+                            "classic for now)."
+                        ),
+                    },
+                ),
             },
         }
 
@@ -424,13 +447,27 @@ class AusBossStitchInpaint:
         "The feathered paste mask in the stitched image's coordinates - "
         "white where the inpaint blended in, zero where the original "
         "survived. Wire it to a color-match or compositing node to treat "
-        "exactly the pasted region without rebuilding the mask.",
+        "exactly the pasted region without rebuilding the mask. With Seam "
+        "on blend in it shows the blend instead: white on the new area, "
+        "fading to zero where your picture is untouched.",
     )
     FUNCTION = "stitch"
 
-    def stitch(self, stitcher, inpainted, fix_edge_halo=False, color_match=0.0):
-        image = apply_stitch(stitcher, inpainted, bool(fix_edge_halo), float(color_match))
-        return (image, stitch_blend_mask(stitcher, image.shape[0]))
+    def stitch(self, stitcher, inpainted, fix_edge_halo=False, color_match=0.0, seam=SEAM_CLASSIC):
+        if seam in _UNSET_SEAM:
+            seam = SEAM_CLASSIC
+        if seam not in SEAM_MODES:
+            raise ValueError(f"Stitch Inpaint: seam must be 'classic' or 'blend in', not {seam!r}.")
+        image = apply_stitch(stitcher, inpainted, bool(fix_edge_halo), float(color_match), seam)
+        return (image, stitch_blend_mask(stitcher, image.shape[0], seam))
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, seam=SEAM_CLASSIC):
+        # Naming seam here takes it out of ComfyUI's own list check, so the
+        # empty value an older workflow carries in its place still queues.
+        if seam in _UNSET_SEAM or seam in SEAM_MODES:
+            return True
+        return f"Stitch Inpaint: seam must be 'classic' or 'blend in', not {seam!r}."
 
 
 NODE_CLASS_MAPPINGS = {

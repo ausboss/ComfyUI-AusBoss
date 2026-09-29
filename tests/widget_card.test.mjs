@@ -3,7 +3,7 @@ import test from "node:test";
 
 import {
   CARD_PADDING, GROUP_HEIGHT, ROW_GAP, ROW_HEIGHT, SECTION_HEIGHT, SLOT_OFFSET,
-  cardHeight, rowHeight, rowKind, rowTops, scrubSteps, segmentFits, socketWidgetY, visibleRows,
+  cardHeight, rowHeight, rowKind, rowMuted, rowTops, scrubSteps, segmentFits, socketWidgetY, visibleRows,
 } from "../js/shared/widget_card_math.mjs";
 
 test("visibleRows honors when() and closed groups but keeps the header", () => {
@@ -83,4 +83,23 @@ test("socketWidgetY puts a row's socket on its centre line and a tall row's near
 test("rowKind: an explicit textarea kind wins over the customtext skip", () => {
   assert.equal(rowKind({ widget: "prompt", kind: "textarea" }, { type: "customtext" }), "textarea");
   assert.equal(rowKind({ widget: "caption" }, { type: "customtext" }), "skip");
+});
+
+test("a muted row keeps its place and the card its height", () => {
+  const rows = [
+    { widget: "tone", mute: (v) => v.seam === "blend in" },
+    { widget: "halo", mute: (v) => v.seam === "blend in" },
+  ];
+  assert.equal(rowMuted(rows[0], { seam: "blend in" }), true);
+  assert.equal(rowMuted(rows[0], { seam: "classic" }), false);
+  // No predicate, or one that says anything but true, never mutes.
+  assert.equal(rowMuted({ widget: "plain" }, { seam: "blend in" }), false);
+  assert.equal(rowMuted({ widget: "odd", mute: () => "yes" }, {}), false);
+  // Muting is not hiding: the same rows show and the card is as tall.
+  for (const seam of ["classic", "blend in"]) {
+    const visible = visibleRows(rows, { seam });
+    assert.deepEqual(visible.map((row) => row.widget), ["tone", "halo"]);
+    assert.equal(cardHeight(visible), CARD_PADDING * 2 + ROW_HEIGHT * 2 + ROW_GAP);
+    assert.deepEqual(rowTops(visible), [CARD_PADDING, CARD_PADDING + ROW_HEIGHT + ROW_GAP]);
+  }
 });

@@ -8,6 +8,7 @@
 //   { key, label, type: "number", default: 1, min, max, step, hint }
 //   { key, label, type: "text",   default: ",", hint, placeholder }
 //   { key, label, type: "choice", default: "standard", options: [...], hint }
+//     (optionHints: { option: "one plain line" } lists what each option does)
 //
 // A number entry may additionally declare itself an *override*:
 //
