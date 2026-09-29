@@ -78,7 +78,8 @@
       "extend_left",
       "extend_right",
       "extend_up",
-      "extend_down"
+      "extend_down",
+      "keep_inside"
     ],
     "outputs": [
       [

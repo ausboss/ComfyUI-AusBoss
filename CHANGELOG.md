@@ -4,6 +4,27 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Krea 2 Outpaint no longer promises inpainting.** Its Workflow Note and
+  the Krea 2 Outpaint Model Patch help page said you could paint over part
+  of the picture with the mask editor and pad at the same time. That does
+  not work: Load Image + Pad does not take a painted mask. Both now say the
+  workflow only extends the picture outward.
+- **Krea 2 Outpaint Model Patch help: Crop For Inpaint wants `whole
+  canvas`.** The page said a Crop For Inpaint stitcher spreads the reference
+  over the full frame. On `source rectangle` the reference is pinned to
+  where the crop sat in the full picture instead, so the page now says to
+  pick `whole canvas` with one.
+- **Crop For Inpaint keeps its crop inside the picture.** When the painted
+  area was big, or the picture small, the crop could reach past the
+  picture's edges, and the extra space was filled with stretched copies of
+  the edge pixels. On a portrait with the coat painted over, only 42% of
+  what the model saw was the picture, and the new jacket was drawn at about
+  half size, then scaled back up. A new **Stay in picture** switch, on by
+  default, stops the crop at the edges instead. In 8 test renders with wide
+  masks the new area came out sharper every time (28-80% more fine detail),
+  and a "tall window" request that the padded crop turned into more
+  bookshelves came out as asked. Saved workflows whose crop ran past the
+  picture now render a little differently; switch it off for the old crop.
 - **Resolution Master is now called Latent Size.** That name already belongs
   to another node pack, so this node gives it back. Only the name changed:
   saved workflows and API graphs load and run as before, because the node's
