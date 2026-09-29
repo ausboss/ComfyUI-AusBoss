@@ -25,6 +25,27 @@ All notable changes to ComfyUI-AusBoss are documented here.
   and a "tall window" request that the padded crop turned into more
   bookshelves came out as asked. Saved workflows whose crop ran past the
   picture now render a little differently; switch it off for the old crop.
+- **Resolution Master is now called Latent Size.** That name already belongs
+  to another node pack, so this node gives it back. Only the name changed:
+  saved workflows and API graphs load and run as before, because the node's
+  id (`AUSBOSS_NODES_Resolution`) is the same. A node you gave your own title
+  keeps it; a title that starts with "Resolution Master 🆎" gets the new name
+  in its place. The example is now `Latent Size (AusBoss).json`.
+- **Latent Size can be resized.** Drag its corner to make it wider or
+  taller, so it lines up with the nodes around it. The controls stretch with
+  it, and the canvas preview takes any extra height. It still opens at its
+  usual size, and it can be as narrow as 320 pixels.
+- **LoRA Loader: a choice for long names.** Gear menu → **Long names**:
+  `end` (the default, as before) cuts a name that does not fit at the end;
+  `middle` cuts the middle instead, so the checkpoint number at the end
+  (`…_000004000`, `…_epoch_10`) stays readable in a narrow node. The picker
+  now opens wide enough for long names, and when one still does not fit it
+  shortens the folder first and keeps the end of the file name.
+- **LoRA Loader goes narrower.** Touching its corner used to make it jump to
+  424 pixels wide, and it could not be made narrower than that. It now goes
+  down to 320 pixels (392 with separate model and CLIP strengths). The
+  frontend adds 104 pixels to a panel's minimum width when it works out how
+  narrow a node may go; these two nodes now take that back off.
 
 ## 2.3.0 - 2026-09-27
 

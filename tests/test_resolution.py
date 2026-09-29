@@ -1,4 +1,4 @@
-"""Resolution Master 🆎 backend: clamping and the latent output."""
+"""Latent Size 🆎 backend: clamping and the latent output."""
 
 import sys
 import unittest

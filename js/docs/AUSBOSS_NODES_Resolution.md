@@ -1,4 +1,4 @@
-# Resolution Master 🆎
+# Latent Size 🆎
 
 Choose the width and height of a canvas visually, then wire those integers or the empty latent into your workflow.
 
@@ -6,6 +6,7 @@ Choose the width and height of a canvas visually, then wire those integers or th
 - **Canvas:** drag a side to change one dimension; drag the corner to scale both. Shift frees the corner ratio, Alt removes snapping, and Escape cancels the drag. The bright readout shows dimensions and megapixels. Arrows nudge the focused canvas.
 - **Size & budget:** scrub or type W, H, or MP. Typed dimensions are preserved exactly. The swap button exchanges dimensions. Size chips offer larger and smaller versions of the current ratio.
 - **Gear:** set the **Snap step**, edit the **Ratio rail**, choose the **Latent family** (`latent`) and **Batch size** (`batch_size`), and hide the **Dot grid** or **MP cost curves**.
+- **Node size:** drag the node's corner to make it wider or taller, so it lines up with the nodes around it. The controls stretch with it, and the canvas preview takes any extra height. It can be as narrow as 320 pixels.
 
 ## Outputs and links
 
@@ -17,6 +18,6 @@ Typed sizes need not be divisible by the latent downsample factor. The integer o
 
 ## Limits
 
-Dimensions range from 64 to 8192 pixels. Extreme custom ratios may not have an exact solution inside that range at the chosen snap; they use a bounded approximation. Fine custom ratios can likewise only approximate the ratio during a snapped drag. The panel stays compact at a fixed width and height; longer custom ratio lists scroll within the shape area.
+Dimensions range from 64 to 8192 pixels. Extreme custom ratios may not have an exact solution inside that range at the chosen snap; they use a bounded approximation. Fine custom ratios can likewise only approximate the ratio during a snapped drag. Longer custom ratio lists scroll within the shape area.
 
 All execution inputs are ordinary widgets, so API runs do not depend on this panel. Orientation and snap preferences are saved with the node. This node has no model downloads, network requests, or additional pip dependencies.

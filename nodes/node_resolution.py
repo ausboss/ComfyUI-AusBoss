@@ -1,4 +1,4 @@
-"""Resolution Master 🆎 — pick a canvas size by ratio chips or by stretching it.
+"""Latent Size 🆎 — pick a canvas size by ratio chips or by stretching it.
 
 The node face is a DOM panel (js/resolution/index.js): a ratio rail picks
 the SHAPE, a live stage lets you stretch the actual rectangle, and the
@@ -155,4 +155,4 @@ class AusBossResolution:
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_Resolution": AusBossResolution}
-NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_Resolution": "Resolution Master 🆎"}
+NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_Resolution": "Latent Size 🆎"}

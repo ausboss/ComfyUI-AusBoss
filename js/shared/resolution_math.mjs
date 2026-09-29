@@ -1,4 +1,4 @@
-// Pure geometry for the Resolution Master 🆎 node: snapping, ratio math, drag
+// Pure geometry for the Latent Size 🆎 node: snapping, ratio math, drag
 // mapping, and readouts. DOM-free so node:test covers it
 // (tests/resolution_math.test.mjs); js/resolution/index.js wires it to the
 // panel.
