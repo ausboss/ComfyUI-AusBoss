@@ -463,6 +463,13 @@ function fitAround(crop, ratio) {
   return { left, top, right: width - crop.width - left, bottom: height - crop.height - top };
 }
 
+// Padding that sets the crop, centred, in the smallest canvas of `ratio`
+// that holds it: what the orientation button pads a turned shape to.
+export function padAround(crop, ratio) {
+  const pads = fitAround(crop, ratio);
+  return { pad_left: pads.left, pad_top: pads.top, pad_right: pads.right, pad_bottom: pads.bottom };
+}
+
 export function paddingAxis(name) {
   return name === "pad_left" || name === "pad_right" ? "x" : "y";
 }
@@ -493,6 +500,88 @@ export function lockedPadMinimum(values, crop, ratio, name) {
   }
   const other = name === "pad_left" ? pads.right : pads.left;
   return Math.max(0, Math.ceil(crop.height * ratio) - crop.width - other);
+}
+
+// --- Ratio chips ---------------------------------------------------------------
+// A chip is lit while the output canvas has its shape. The canvas here is
+// the crop plus the padding, before Align's rounding (a strip Align adds
+// does not make a 16:9 canvas "custom").
+export function canvasSize(values, source) {
+  const crop = resolveCrop(values, source);
+  const pads = paddingOf(values);
+  return { width: crop.width + pads.left + pads.right, height: crop.height + pads.top + pads.bottom };
+}
+
+// Does width x height have the shape of `aspect` ("16:9")? A pixel of
+// rounding either way still counts, so a fitted canvas is never "custom",
+// and so does anything within a quarter of a percent.
+export function aspectMatches(width, height, aspect, source = { width, height }) {
+  const ratio = parseAspectRatio(aspect, source);
+  if (!ratio || !(width > 0) || !(height > 0)) return false;
+  return onRatio(width, height, ratio) || Math.abs(width / height / ratio - 1) < 0.0025;
+}
+
+// The same ratio on its side: "16:9" -> "9:16". Square and anything that is
+// not a W:H pair comes back unchanged.
+export function turnAspect(aspect) {
+  const parts = String(aspect ?? "").split(":");
+  if (parts.length !== 2 || parts[0] === parts[1]) return String(aspect ?? "");
+  return `${parts[1]}:${parts[0]}`;
+}
+
+// A shape no chip names, for the face: "1.49:1" wide, "1:1.49" tall.
+export function ratioLabel(width, height) {
+  if (!(width > 0) || !(height > 0)) return "";
+  if (width === height) return "1:1";
+  return width > height ? `${(width / height).toFixed(2)}:1` : `1:${(height / width).toFixed(2)}`;
+}
+
+// Nothing done to the picture yet: no rotation, the whole source, no
+// padding. The chip row then says so instead of calling it custom.
+export function isUntouched(values, source) {
+  const crop = resolveCrop(values, source);
+  const pads = paddingOf(values);
+  return !(Number(values.rotation_degrees) || 0)
+    && crop.x === 0 && crop.y === 0 && crop.width === source.width && crop.height === source.height
+    && !pads.left && !pads.top && !pads.right && !pads.bottom;
+}
+
+// Crop mode's orientation turn: the crop box on its side around its own
+// centre, scaled down evenly when it would leave the picture, then kept
+// inside it. The pixels never rotate; only the box does.
+export function turnedCrop(crop, source) {
+  const fit = Math.min(1, source.width / crop.height, source.height / crop.width);
+  const width = Math.max(1, Math.floor(crop.height * fit));
+  const height = Math.max(1, Math.floor(crop.width * fit));
+  const centerX = crop.x + crop.width / 2;
+  const centerY = crop.y + crop.height / 2;
+  return {
+    x: Math.round(clamp(centerX - width / 2, 0, source.width - width)),
+    y: Math.round(clamp(centerY - height / 2, 0, source.height - height)),
+    width,
+    height,
+  };
+}
+
+// Dragging the picture itself where the crop has nowhere to go: along an
+// axis where the crop spans the whole source, the padding moves from one
+// side to the other instead, so the picture slides inside a canvas that
+// keeps its size (and a lit chip stays lit). `start` is the padding when
+// the drag began, dx/dy the drag in source pixels.
+export function slidePadding(start, dx, dy, { x = false, y = false } = {}) {
+  const pads = paddingOf(start);
+  const out = { pad_left: pads.left, pad_top: pads.top, pad_right: pads.right, pad_bottom: pads.bottom };
+  if (x) {
+    const total = pads.left + pads.right;
+    out.pad_left = Math.round(clamp(pads.left + dx, 0, total));
+    out.pad_right = total - out.pad_left;
+  }
+  if (y) {
+    const total = pads.top + pads.bottom;
+    out.pad_top = Math.round(clamp(pads.top + dy, 0, total));
+    out.pad_bottom = total - out.pad_top;
+  }
+  return out;
 }
 
 // --- Source changes -----------------------------------------------------------

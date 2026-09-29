@@ -63,10 +63,13 @@ model that paints black regions.
   workflow.
 
 Crop squares, padding diamonds and the rotation handle also work directly on the
-node preview. The graph still owns wheel zoom and middle-button pan. The format chips
-work with the **Crop / Pad** choice beneath them. Crop trims to a locked ratio
-without adding padding. Pad preserves the source with centered fill bands; tap
-its active ratio again to lock the outer canvas, then again to clear it.
+node preview. The graph still owns wheel zoom and middle-button pan. Tap a ratio
+to pad the clip to it (or crop it, with **Fit** on crop); tap the lit ratio again to
+go back to the whole frame. A lit ratio is the shape the canvas has now: drag a
+handle to another shape and it goes dark and the row says **Custom**, and a new
+clip is then no longer padded to it. The padlock keeps the shape while you drag,
+the orientation button turns it on its side (16:9 to 9:16), and dragging the
+picture itself moves it inside its padding.
 **Reset crop** restores the full crop without changing rotation, padding or trim.
 **Reset** on the node clears rotation, crop and padding; fill, feather, Align and
 the timeline stay.
@@ -77,11 +80,10 @@ Align; it keeps the source, current frame, trim, Length, resize and stitch setti
 Video Upload and file drop use a streaming route into ComfyUI's input folder,
 so the buffered image-upload size limit does not prevent long-video uploads.
 
-Choose **Target aspect**, then **Crop to aspect** to center the largest crop inside
-the rotated source, or **Pad to aspect** to keep the entire source and add centered
-fill-color bands. Both replace the old crop and padding, keeping rotation and resize
-settings. Changing the target alone does nothing. Padding unlocks the inner crop
-(`crop_aspect_ratio = free`); the target choice is retained separately in the editor.
+In the editor, **Ratio** is the same pick as the node's ratio buttons and applies
+at once; **Crop to ratio** and **Pad to ratio** set Fit and apply it, and **Hold
+shape** is the padlock. Both fits replace the old crop and padding, keeping rotation
+and resize settings.
 Pixel rounding can differ by one pixel between opposite bands. Canvas multiple and
 resize steps can slightly change the final aspect ratio.
 

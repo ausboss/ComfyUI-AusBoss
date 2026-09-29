@@ -16,6 +16,20 @@ All notable changes to ComfyUI-AusBoss are documented here.
   panels show that run. Core nodes behave as ComfyUI has them.
 - **Nodes 2.0: Save Video shows the clip once.** It also drew ComfyUI's own
   copy of the clip under its player.
+- **Crop + Rotate + Pad: the ratio buttons say what the canvas is.** A lit
+  ratio is the shape the canvas has now. Drag a handle to another shape and
+  it goes dark, the row says Custom, and the size line gives the real ratio
+  (`1.49:1`); before, 16:9 stayed lit on a 1889×1280 canvas. Tap a ratio to
+  pad to it, tap the lit one to go back to the whole picture. Keeping the
+  shape while you drag is its own padlock button at the end of the row,
+  instead of a second tap on the ratio. The button at the start turns the
+  shape between portrait and landscape (16:9 to 9:16) and never throws away
+  your crop; with nothing picked it only turns the ratio labels. Crop or
+  pad is now a small **Fit** switch, so it no longer looks like a ratio.
+  Rotating keeps a lit ratio, a ratio you tap before loading a picture is
+  used when you load one, and dragging the picture itself moves it inside
+  its padding. The full-screen editor's Ratio list applies at once, like
+  the buttons.
 - **Crop + Rotate + Pad: the picture on the node stays big enough to see.**
   You can no longer drag the node so short that the preview becomes a
   thumbnail: the picture keeps at least three fifths of its width in

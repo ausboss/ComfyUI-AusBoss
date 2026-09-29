@@ -409,3 +409,74 @@ test("the size chain shows Align and names its strip ahead of a resize", () => {
   const lost = sizeChainTokens(sizeChain({ canvas_multiple: 64 }, { width: 1280, height: 768 }, { megapixels: 0.5, steps: 1 }));
   assert.deepEqual(lost.warnings, ["resize undoes align 64"]);
 });
+
+// --- Ratio chips ------------------------------------------------------------
+import {
+  IDENTITY_TRANSFORM,
+  aspectMatches,
+  canvasSize,
+  isUntouched,
+  padAround,
+  ratioLabel,
+  slidePadding,
+  turnAspect,
+  turnedCrop,
+} from "../js/shared/transform_geometry.mjs";
+
+const portraitClip = { width: 720, height: 1280 };
+
+test("a chip is lit only while the canvas has its shape", () => {
+  // Pad to 16:9 is lit; drag the right padding in and it is custom.
+  const padded = { ...fitSourceToAspect(portraitClip, "16:9", "pad"), canvas_multiple: 1 };
+  const canvas = canvasSize(padded, portraitClip);
+  assert.deepEqual(canvas, { width: 2276, height: 1280 });
+  assert.equal(aspectMatches(canvas.width, canvas.height, "16:9"), true);
+  const dragged = canvasSize({ ...padded, pad_right: 405 }, portraitClip);
+  assert.equal(aspectMatches(dragged.width, dragged.height, "16:9"), false);
+  assert.equal(ratioLabel(dragged.width, dragged.height), "1.49:1");
+  // A pixel of rounding either way still counts as the chip's shape.
+  assert.equal(aspectMatches(2275, 1280, "16:9"), true);
+  assert.equal(aspectMatches(2277, 1280, "16:9"), true);
+  // Align's strip is not part of the shape.
+  assert.deepEqual(canvasSize({ ...padded, canvas_multiple: 64 }, portraitClip), canvas);
+});
+
+test("the untouched picture is neither a pick nor custom", () => {
+  assert.equal(isUntouched({ ...IDENTITY_TRANSFORM }, portraitClip), true);
+  assert.equal(isUntouched({ ...IDENTITY_TRANSFORM, pad_left: 4 }, portraitClip), false);
+  assert.equal(isUntouched({ ...IDENTITY_TRANSFORM, rotation_degrees: 3 }, portraitClip), false);
+  assert.equal(isUntouched({ ...IDENTITY_TRANSFORM, crop_width: 700 }, portraitClip), false);
+});
+
+test("the orientation turn swaps the shape, never the pixels", () => {
+  assert.equal(turnAspect("16:9"), "9:16");
+  assert.equal(turnAspect("9:21"), "21:9");
+  assert.equal(turnAspect("1:1"), "1:1");
+  assert.equal(turnAspect("free"), "free");
+  assert.equal(ratioLabel(861, 1280), "1:1.49");
+  assert.equal(ratioLabel(500, 500), "1:1");
+  // Pad mode: the crop padded, centred, into the turned ratio's canvas.
+  const crop = { x: 0, y: 0, width: 720, height: 1280 };
+  const pads = padAround(crop, 16 / 9);
+  assert.deepEqual(pads, { pad_left: 778, pad_top: 0, pad_right: 778, pad_bottom: 0 });
+  // Crop mode: the box turns about its own centre and stays in the picture.
+  const box = turnedCrop({ x: 0, y: 370, width: 720, height: 540 }, portraitClip);
+  assert.deepEqual(box, { x: 90, y: 280, width: 540, height: 720 });
+  // A turn the picture cannot hold shrinks evenly: the turned ratio holds.
+  const landscape = { width: 1280, height: 720 };
+  const shrunk = turnedCrop({ x: 0, y: 0, width: 1280, height: 720 }, landscape);
+  assert.equal(shrunk.height, 720);
+  assert.ok(Math.abs(shrunk.width / shrunk.height - 9 / 16) < 0.01);
+  assert.ok(shrunk.x >= 0 && shrunk.x + shrunk.width <= landscape.width);
+});
+
+test("dragging the picture slides it inside its padding", () => {
+  const start = { pad_left: 778, pad_top: 0, pad_right: 778, pad_bottom: 0 };
+  // Left 300 px: the left band shrinks, the right grows, the canvas keeps its size.
+  const moved = slidePadding(start, -300, 25, { x: true });
+  assert.deepEqual(moved, { pad_left: 478, pad_top: 0, pad_right: 1078, pad_bottom: 0 });
+  // It stops at the canvas edge.
+  assert.deepEqual(slidePadding(start, -5000, 0, { x: true }), { pad_left: 0, pad_top: 0, pad_right: 1556, pad_bottom: 0 });
+  // An axis where the crop can still move keeps its padding.
+  assert.deepEqual(slidePadding(start, 120, 40, { y: true }), start);
+});

@@ -32,10 +32,10 @@ The editor has the same rail full width, plus first/last, ±1, ±25, ±50, ±100
 
 Rotation, crop, padding, feathering, fill, canvas multiple, the megapixel resize, gestures, `image`, and `mask` match the image node. The output batch contains one frame.
 
-The handles work on both the node and the editor. **Crop / Pad** below the
-format chips chooses between trimming to a locked ratio without padding and
-preserving the whole source with fill bands. In Pad mode, tap the active ratio
-again to lock the outer canvas; the next tap clears it. **Reset crop** restores the
+The handles work on both the node and the editor. The ratio buttons, **Fit**,
+the padlock and the orientation button work as on the image node: a tap pads (or,
+with Fit on crop, crops) the frame to a ratio, a lit ratio is the shape the canvas
+has now, and the padlock keeps that shape while you drag. **Reset crop** restores the
 full crop while keeping rotation and padding. **Reset** clears rotation, crop and
 padding; fill, feather, **Align** and the playhead stay. **Align** sets the canvas
 pixel multiple, with 1 disabling alignment padding.

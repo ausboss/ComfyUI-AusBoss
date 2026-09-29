@@ -18,11 +18,25 @@ Loads an image and applies one reusable **rotate → crop → pad** transform. C
 
 ## On the node
 
-Choose **Crop** or **Pad** below the format chips. Crop trims to the selected
-ratio and keeps that shape while dragging, without adding padding. Pad preserves
-the whole source and adds centered bands; tap its active ratio again to lock the
-outer canvas, and again to clear. **Align** exposes the canvas pixel multiple
-(1 disables it; 8/16/32 can add pixels on the right and bottom).
+Tap a ratio under the preview to pad the picture to it: every pixel stays and
+fill bands are added around it, centred. Set **Fit** to crop and the ratio trims
+the picture instead. Tap the lit ratio again to go back to the whole picture.
+
+- **A lit ratio is the shape the canvas has now.** Drag a handle to another
+  shape and the ratio goes dark; the row says **Custom** and the size line under
+  the picture gives the real ratio (`1.49:1`).
+- **The padlock** at the end of the row keeps the shape while you drag: pull one
+  side out and the other side's padding follows. Off, the handles drag freely.
+- **The orientation button** at the start of the row turns the shape on its side:
+  16:9 becomes 9:16, padded around the picture (crop mode turns the crop box
+  about its centre). The picture itself never rotates. With nothing picked it
+  only turns the ratios, so the next tap goes that way.
+- **Drag the picture itself** to move it inside its padding; the canvas keeps its
+  size.
+- Rotating keeps a lit ratio: the padding follows the turned picture.
+
+**Align** exposes the canvas pixel multiple (1 disables it; 8/16/32 can add
+pixels on the right and bottom).
 
 The canvas row below holds **Fill**, the **Feather** amount in px, and **Resize**.
 Ticking Resize opens a row with the **Megapixels** budget and the **Step** each
