@@ -10,7 +10,7 @@ import { chainCallback } from "../shared/index.mjs";
 import { formatWidgetVisibility } from "../shared/save_video_formats.mjs";
 import { hideInputsInDef } from "../shared/widget_visibility.mjs";
 import { mountWidgetCard } from "../shared/widget_card.mjs";
-import { comboValues } from "../shared/widget_card_math.mjs";
+import { resetUnknownValues } from "../shared/widget_card_math.mjs";
 import { mediaViewQuery } from "../shared/media_list.mjs";
 import { gearIconSvg, openSettingsMenu } from "../shared/settings_menu.mjs";
 import { SEAM_MENU, SEAM_MUTE_TITLES, isBlendIn, seamCornerReserve } from "../shared/stitch_seam.mjs";
@@ -110,6 +110,10 @@ const CARDS = {
   },
   AUSBOSS_NODES_CropForInpaint: {
     minWidth: 320,
+    // A workflow saved before Stay in picture existed holds the card's own
+    // empty value in the slot keep_inside now takes; it loads on, the node's
+    // default and what an API prompt without keep_inside runs with.
+    resetUnknown: { keep_inside: true },
     rows: [
       { widget: "context_factor", label: "Context", suffix: "×" },
       { widget: "keep_inside", label: "Stay in picture" },
@@ -297,13 +301,11 @@ app.registerExtension({
     }
     if (config.resetUnknown) {
       // Positional widget values from an older save can land a value that is
-      // not one of a choice's options; put the default back before the card
-      // draws it, so the graph queues what the user sees.
+      // not one of a choice's options, or not on/off for a switch; put the
+      // default back before the card draws it, so the graph queues what the
+      // user sees.
       chainCallback(nodeType.prototype, "onConfigure", function () {
-        for (const [name, fallback] of Object.entries(config.resetUnknown)) {
-          const widget = this.widgets?.find((item) => item.name === name);
-          if (widget && !comboValues(widget).includes(widget.value)) widget.value = fallback;
-        }
+        resetUnknownValues(this.widgets, config.resetUnknown);
       });
     }
     chainCallback(nodeType.prototype, "onNodeCreated", function () {

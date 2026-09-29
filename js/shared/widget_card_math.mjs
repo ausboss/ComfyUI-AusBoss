@@ -102,10 +102,45 @@ export function rowKind(row, widget) {
   return "text";
 }
 
+// Write a value the way LiteGraph's own widgets do: set it, run the widget's
+// callback, then tell the node. The frontend re-scans a node for missing
+// media, and clears the errors it flagged, from node.onWidgetChanged.
+export function commitWidgetValue(node, widget, value, canvas) {
+  const previous = widget.value;
+  widget.value = value;
+  widget.callback?.(value, canvas, node);
+  node.onWidgetChanged?.(widget.name, value, previous, widget);
+}
+
 export function comboValues(widget) {
   let values = widget?.options?.values;
   if (typeof values === "function") values = values(widget);
   return Array.isArray(values) ? values : [];
+}
+
+// A value the widget cannot hold: a switch holds only true or false, a
+// choice only one of its options. Other widgets are never judged (an empty
+// text field is a real value).
+export function holdsUnknownValue(widget) {
+  if (widget?.type === "toggle") return widget.value !== true && widget.value !== false;
+  if (widget?.type === "combo") return !comboValues(widget).includes(widget.value);
+  return false;
+}
+
+// Saved values come back by position, and a card is a widget that saves an
+// empty value of its own, so an input appended after a release can receive
+// the card's "" from an older save. Put `fallbacks[name]` back on each named
+// widget holding a value it cannot hold; returns the names it reset.
+export function resetUnknownValues(widgets, fallbacks = {}) {
+  const reset = [];
+  for (const [name, fallback] of Object.entries(fallbacks)) {
+    const widget = widgets?.find((item) => item?.name === name);
+    if (widget && holdsUnknownValue(widget)) {
+      widget.value = fallback;
+      reset.push(name);
+    }
+  }
+  return reset;
 }
 
 function comboLabels(row, widget) {

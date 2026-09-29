@@ -4,6 +4,19 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **The red "missing file" warning clears when you pick a file.** Open a
+  workflow that was saved with a picture you don't have and ComfyUI marks
+  Load Image + Pad red and lists it under Setup required. Picking your own
+  picture in the node used it, but the red box and the warning stayed on,
+  even though the workflow ran. They now clear as soon as you pick a file.
+  Every control on the node cards now tells ComfyUI when you change it, so
+  its own checks stay in step with what you set.
+- **Crop For Inpaint: workflows saved before 2.4.0 now open with Stay in
+  picture on.** In 2.4.0 most of them opened with the switch off and kept
+  the old crop, the one that runs past the picture's edges, while the same
+  workflow sent through the API ran with it on. Both now get the new crop,
+  as the 2.4.0 notes said they would. Turn the switch off on the node for
+  the old crop. A switch you set yourself keeps its setting.
 - **Fewer example workflows.** The examples are down to the seven that
   show what these nodes do that core ComfyUI doesn't: outpainting and
   inpainting that put your original picture back, lining an edit back up

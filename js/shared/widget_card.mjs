@@ -37,7 +37,7 @@ import { makeScrubInput } from "./scrub_input.mjs";
 import { hideWidget } from "./widget_visibility.mjs";
 import {
   CARD_PADDING, GROUP_HEIGHT, ROW_GAP, ROW_HEIGHT, SECTION_HEIGHT, SLOT_OFFSET, UNIT_SLOT_WIDTH,
-  cardHeight, comboValues, rowHeight, rowKind, rowMuted, rowTops, scrubSteps, socketWidgetY, visibleRows,
+  cardHeight, commitWidgetValue, comboValues, rowHeight, rowKind, rowMuted, rowTops, scrubSteps, socketWidgetY, visibleRows,
 } from "./widget_card_math.mjs";
 
 export * from "./widget_card_math.mjs";
@@ -194,8 +194,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
   const setWidget = (name, value, { settle = true } = {}) => {
     const widget = findWidget(node, name);
     if (!widget || widget.value === value) return;
-    widget.value = value;
-    widget.callback?.(value, globalThis.app?.canvas, node);
+    commitWidgetValue(node, widget, value, globalThis.app?.canvas);
     node.graph?.setDirtyCanvas?.(true, true);
     if (settle) notifyAusbossChange();
   };
