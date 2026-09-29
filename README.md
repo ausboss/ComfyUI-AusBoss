@@ -182,7 +182,7 @@ The sampling mask and stitch blend are separate: mask growth/blur determines wha
 
 Paste a generated crop or outpaint back using a stitcher from **Crop For Inpaint**, **Load Image + Pad**, or any **Crop + Rotate + Pad** node. Pixels outside the blend region remain bit-identical to the stitcher's source. Video stitchers carry the per-frame originals.
 
-**Tone match** reduces color discontinuities at the seam. **Fix edge halo** corrects a twice-blended rim and uses the optional matting extra; without it, the node warns and performs the normal stitch. See the [stitcher and batch contract](js/docs/AUSBOSS_NODES_StitchInpaint.md).
+For a turned or padded outpaint, set **Seam** to **blend in**: it fades the model's picture into yours with no tone shift. **Tone match** reduces color discontinuities at the seam. **Fix edge halo** corrects a twice-blended rim and uses the optional matting extra; without it, the node warns and performs the normal stitch. See the [stitcher and batch contract](js/docs/AUSBOSS_NODES_StitchInpaint.md).
 
 ## Models and conditioning
 

@@ -10,12 +10,15 @@ import { chainCallback } from "../shared/index.mjs";
 import { formatWidgetVisibility } from "../shared/save_video_formats.mjs";
 import { hideInputsInDef } from "../shared/widget_visibility.mjs";
 import { mountWidgetCard } from "../shared/widget_card.mjs";
+import { comboValues } from "../shared/widget_card_math.mjs";
 import { mediaViewQuery } from "../shared/media_list.mjs";
 
 // The Source lists preview the hovered file straight from ComfyUI's /view.
 const viewUrl = (value) => api.apiURL(`/view?${mediaViewQuery(value)}`);
 
 const isMode = (name, ...modes) => (values) => modes.includes(values[name]);
+// Stitch Inpaint rows only the classic seam reads.
+const classicSeam = (values) => values.seam !== "blend in";
 // Save Video rows that only some formats read (crf, save_metadata).
 const formatReads = (name) => (values) => formatWidgetVisibility(String(values.format))[name];
 
@@ -48,9 +51,14 @@ const CARDS = {
   },
   AUSBOSS_NODES_StitchInpaint: {
     minWidth: 300,
+    // A workflow saved before Seam existed holds the card's own empty value
+    // in the slot Seam now takes; it loads as classic.
+    resetUnknown: { seam: "classic" },
     rows: [
-      { widget: "color_match", label: "Tone match" },
-      { widget: "fix_edge_halo", label: "Fix edge halo" },
+      { widget: "seam", label: "Seam",
+        titles: { classic: "The feathered paste every earlier workflow uses", "blend in": "Fade the model's picture into yours with no tone shift: for turned or padded outpaint canvases" } },
+      { widget: "color_match", label: "Tone match", when: classicSeam },
+      { widget: "fix_edge_halo", label: "Fix edge halo", when: classicSeam },
     ],
   },
   AUSBOSS_NODES_CropForInpaint: {
@@ -201,6 +209,17 @@ app.registerExtension({
     const config = CARDS[nodeData?.name];
     if (!config) return;
     hideInputsInDef(nodeData, cardWidgetNames(config));
+    if (config.resetUnknown) {
+      // Positional widget values from an older save can land a value that is
+      // not one of a choice's options; put the default back before the card
+      // draws it, so the graph queues what the user sees.
+      chainCallback(nodeType.prototype, "onConfigure", function () {
+        for (const [name, fallback] of Object.entries(config.resetUnknown)) {
+          const widget = this.widgets?.find((item) => item.name === name);
+          if (widget && !comboValues(widget).includes(widget.value)) widget.value = fallback;
+        }
+      });
+    }
     chainCallback(nodeType.prototype, "onNodeCreated", function () {
       if (this.__ausbossCard) return;
       mountWidgetCard(this, config);

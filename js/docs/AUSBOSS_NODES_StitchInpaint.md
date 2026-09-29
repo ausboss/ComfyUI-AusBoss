@@ -3,15 +3,45 @@
 Pastes a generated crop or outpaint back into its original image, using
 the stitcher from **Crop For Inpaint 🆎**, **Load Image + Pad 🆎** or any
 **Crop + Rotate + Pad 🆎** node. The result is resized to its source window
-if the sampler changed its size, blended in with the feathered mask recorded
-in the stitcher, and the original frame is sliced back out.
+if the sampler changed its size, joined to your picture the way **Seam**
+says, and the original frame is sliced back out.
+
+## Seam: classic or blend in
+
+**Seam** picks how the new area joins your picture.
+
+- **classic** (the default) is the paste every earlier workflow uses: the
+  new area fades in over the feathered mask, and **Tone match** can shift
+  its colour toward your picture. Saved workflows keep it, so they render
+  exactly as before.
+- **blend in** is for outpaints, and best for turned or padded pictures.
+  The model redraws a thin strip along the edge of your picture, and its
+  version never matches yours exactly. Blend in fades from the model's
+  picture to yours a little way inside your picture, where the two
+  already line up, and leaves the new area exactly as the model painted
+  it. Nothing gets a tone shift, so **Tone match** and **Fix edge halo**
+  are hidden.
+
+Blend in needs to know where your picture's edge is. Load Image + Pad and
+the Crop + Rotate + Pad nodes record it; Crop For Inpaint does not, so a
+Crop For Inpaint stitcher always pastes classic for now (the console says
+so once).
+
+What blend in fixes: the lighter or darker band a tone match can lay over
+a turned outpaint, and the smeared strip where the two pictures were
+cross-faded. What it can't fix: a pattern the model drew out of step at the
+edge, such as plaid or stripes running along it. That break is in the
+model's own picture.
 
 ## Guarantees
 
-- Pixels outside the blend region are **bit-identical** to the original
-  image — they never pass through a resize or blend. This holds with
-  `fix_edge_halo` on as well: the toggle changes the color that is pasted,
-  never how far the paste reaches.
+- With the classic seam, pixels outside the blend region are
+  **bit-identical** to the original image — they never pass through a
+  resize or blend. This holds with `fix_edge_halo` on as well: the toggle
+  changes the color that is pasted, never how far the paste reaches.
+- With blend in, your picture is bit-identical from where the blend ends,
+  a few dozen pixels inside its edge (about 35 px at common settings), and
+  the new area is bit-identical to what the model painted.
 - Feeding the crop back unchanged reproduces the original image exactly
   (with `fix_edge_halo` off; the fix rewrites the feathered band on purpose).
 - A stitcher built from one image broadcasts over any number of inpainted
@@ -27,17 +57,23 @@ in the stitcher, and the original frame is sliced back out.
 - **inpainted**: The inpainted crop. A stitcher built from a single image
   broadcasts across an N-frame inpainted batch, so one still-image crop
   can stitch a whole video; matched N-to-N batches also work.
-- **fix_edge_halo**: Off by default. Recovers the true color under the
-  feathered seam before pasting, so half-transparent edge pixels stop
-  blending their background in a second time. It costs real time per frame
-  — read "What it costs" below before turning it on for a whole batch.
-- **Tone match** (`color_match`): `0` (off) to `1`. Shifts the pasted
-  region's tone onto the original's before blending. For an outpaint the
-  shift is read across each seam — the model's new pixels just outside the
-  source against the true pixels just inside it — so it measures the
-  model's own drift, not the mixed band. Read "Matching the tone" below.
+- **Seam** (`seam`): `classic` (the default) or `blend in`. Read "Seam:
+  classic or blend in" above.
+- **fix_edge_halo** (classic seam only): Off by default. Recovers the true
+  color under the feathered seam before pasting, so half-transparent edge
+  pixels stop blending their background in a second time. It costs real
+  time per frame — read "What it costs" below before turning it on for a
+  whole batch.
+- **Tone match** (`color_match`, classic seam only): `0` (off) to `1`.
+  Shifts the pasted region's tone onto the original's before blending. For
+  an outpaint the shift is read across each seam — the model's new pixels
+  just outside the source against the true pixels just inside it — so it
+  measures the model's own drift, not the mixed band. Read "Matching the
+  tone" below.
 
 ## Matching the tone
+
+This is the classic seam's Tone match; blend in does not shift the tone.
 
 An outpaint comes back a few percent off the picture it extends — Krea 2
 a touch darker, Klein a touch lighter — and the padding colour makes no
@@ -77,9 +113,14 @@ on each frame, so moving subjects or camera motion can turn those content
 differences into flickering dark or light bands across the generated area.
 Compare the decoded frames before stitching with the stitched result; if
 the bands appear only after stitching, disable color matching. The source
-paste and feathered blend still work with it off.
+paste and feathered blend still work with it off. Blend in measures
+nothing per frame: every frame is blended with the same map, so it adds no
+flicker of its own.
 
 ## Fixing an edge halo
+
+This is for the classic seam. Blend in does not fade the new area in over
+the blend mask, so no background gets counted twice and the fix is hidden.
 
 A feathered paste mixes each seam pixel with the original image. When the
 inpainted pixel is *itself* already a mix of new content and the old
@@ -127,7 +168,69 @@ boundary rather than playing out to the end.
   survived untouched. Wire it into a color-match or compositing node to
   treat exactly the pasted region without rebuilding the mask by hand. It
   is batched like **image**, so a single-image stitcher broadcasting across
-  a frame batch hands every frame its mask.
+  a frame batch hands every frame its mask. With Seam on blend in it shows
+  the blend instead: white on the new area, fading to black where your
+  picture keeps its own pixels. It is still zero exactly where the stitch
+  left the original alone.
+
+## Technical details
+
+The rest of this page is for people who want to know how blend in works
+and how it was tested.
+
+### How blend in works
+
+- **Where the edge is.** A Crop + Rotate + Pad stitcher carries its
+  generated-area mask; pixels at 0.98 or more are new area, so a turned
+  picture's empty corners count too. A Load Image + Pad stitcher carries
+  the rectangle the source sits in. From that, every pixel gets its
+  distance to the picture's edge, positive inside and negative outside. A
+  side of the picture that meets the frame is not an edge. The map is
+  worked out once per stitcher and shared by every frame, with scipy's
+  distance transform when it imports (ComfyUI requires scipy) and an exact
+  torch fallback, good to 128 px, when it does not.
+- **Two layers.** Both pictures are split into colour and tone (a Gaussian
+  blur, sigma 8 px) and fine detail (what the blur takes away). Your
+  picture's colour layer only reads pixels at least 4 px inside the edge,
+  so fill that a turn or a resize mixed into the outermost pixels never
+  leaks in.
+- **Two hand-overs.** Detail changes over from the model's picture to yours
+  across 10 px, starting at three quarters of the depth where the model's
+  mask fell to 0.1: about how deep the model was free to redraw, and a
+  little before its version lines up with yours (at least 8 px in; 13 px is
+  assumed when the mask has no feather to read). For a Crop + Rotate + Pad
+  stitcher that mask is its generated-area mask; for Load Image + Pad it is
+  the feathered padding mask. Colour and tone change over slowly, on a
+  smooth curve from 4 px to 14 px past the end of the detail hand-over.
+- **Texture.** A straight cross-fade of two unrelated textures is weaker
+  halfway across. Blend in puts 60% of the lost strength back.
+- **Exactness.** Deeper than both hand-overs the result is your picture, bit
+  for bit. Within 4 px of the edge and beyond it, it is the model's
+  picture, bit for bit. The Crop + Rotate + Pad nodes' `stitch_blend` and
+  `stitch_grow` shape only the classic paste.
+- **Cost.** Frames go through in chunks of about 2 MP, with a cancel check
+  and progress between chunks: about 0.2 to 0.5 s per 1.5 MP frame on a
+  desktop CPU.
+
+### Measured
+
+Krea 2 with AnyPaint on seven outpaints at two seeds each, 1.5 MP, feather
+12: six pictures turned 5 to 15 degrees (one of them also padded on two
+sides) and one padded on three sides. "Colour step" is how much the stitch
+changes the model's picture just inside the edge compared with just
+outside it, so the scene itself does not enter it. Ranges are over the
+seven pictures, each the mean of its two seeds.
+
+| | classic, Tone match 1 | blend in |
+|---|---|---|
+| colour step across the seam (median dE) | 0.8 to 4.6 | 0.11 to 0.21 |
+| new area moved off what the model painted (dE) | 0.9 to 3.0 | 0.00 |
+| fine detail lost in the strip at the seam | 0 to 34% | 0 to 22% |
+| your picture exact from (px inside the edge) | 20 to 56 | 23 to 38 |
+
+The outer 20 to 35 px of your picture is the model's redraw either way,
+about the same share as classic. Blend in changes where that strip meets
+your picture, not how wide it is.
 
 ## Wiring
 

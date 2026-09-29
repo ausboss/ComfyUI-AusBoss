@@ -16,9 +16,15 @@ guard, every pixel outside the blend region is bit-identical to the
 input image — nothing outside the crop ever round-trips a resize. The
 optional edge-halo spread only swaps the color that gets blended in, so
 that guarantee holds with the toggle on as well.
+
+The "blend in" seam (the section near the end) hands an outpaint over by
+depth into the picture instead of by the blend mask; its promise is the
+same for every pixel deeper than its ramps.
 """
 
 from __future__ import annotations
+
+import math
 
 import torch
 import torch.nn.functional as functional
@@ -26,8 +32,19 @@ import torch.nn.functional as functional
 from ._execution_helpers import progress_bar, raise_if_interrupted, warn_once
 from ._mask_helpers import blur_mask, grow_shrink_mask
 
+try:
+    from scipy.ndimage import distance_transform_edt as _scipy_distance
+except Exception:  # scipy is optional; the torch fallback below covers it.
+    _scipy_distance = None
+
 STITCHER_KIND = "ausboss_inpaint_stitcher"
 STITCHER_VERSION = 1
+
+# How the new area meets the picture (Stitch Inpaint's Seam choice). The
+# first is the feathered paste every earlier workflow uses.
+SEAM_CLASSIC = "classic"
+SEAM_BLEND_IN = "blend in"
+SEAM_MODES = (SEAM_CLASSIC, SEAM_BLEND_IN)
 
 Rect = tuple[int, int, int, int]  # (x, y, w, h)
 
@@ -526,6 +543,7 @@ def apply_stitch(
     inpainted: torch.Tensor,
     fix_edge_halo: bool = False,
     color_match: float = 0.0,
+    seam: str = SEAM_CLASSIC,
 ) -> torch.Tensor:
     """Blend the inpainted crop back and return the original-size image.
 
@@ -546,6 +564,14 @@ def apply_stitch(
     in the feathered band (:func:`estimate_tone_offset`) before blending,
     so an outpaint whose new bands came out a touch lighter or warmer than
     the picture lands on the picture's own tone. 0 leaves the patch alone.
+
+    ``seam`` "classic" is everything above. "blend in" replaces it on a
+    stitcher that knows where the picture's edge is (Load Image + Pad and
+    the Crop + Rotate + Pad nodes): :func:`blend_in_seam` hands the
+    model's picture over to the source across that edge, with no tone
+    shift, so ``color_match`` and ``fix_edge_halo`` do not apply. A Crop
+    For Inpaint stitcher has no such edge and is stitched the classic way,
+    with a one-time console note.
     """
     if not isinstance(stitcher, dict) or stitcher.get("kind") != STITCHER_KIND:
         raise ValueError(
@@ -598,6 +624,23 @@ def apply_stitch(
     patch = inpainted.to(dtype=out.dtype, device=out.device)
     if (patch.shape[1], patch.shape[2]) != (ch, cw):
         patch = _resize_image(patch, cw, ch, stitcher.get("algorithm", "bilinear"))
+
+    if seam == SEAM_BLEND_IN:
+        plan = seam_plan(stitcher)
+        if plan is not None:
+            # The canvas itself, not its per-frame copy in `out`: a single
+            # canvas under a frame batch has its own layers split once.
+            base = canvas[:1] if batch == 1 else canvas[:frames]
+            blend_in_seam(
+                base[:, cy : cy + ch, cx : cx + cw, :].to(out.device),
+                patch,
+                plan["depth"][:, cy : cy + ch, cx : cx + cw],
+                plan["tone"],
+                plan["detail"],
+                out=out[:, cy : cy + ch, cx : cx + cw, :],
+            )
+            return out[:, oy : oy + oh, ox : ox + ow, :].contiguous()
+        warn_once(_BLEND_IN_FALLBACK_NOTE, _warned)
 
     alpha = blend[:, cy : cy + ch, cx : cx + cw].to(out.device)
     if color_match > 0:
@@ -857,7 +900,7 @@ def shift_tone(image: torch.Tensor, offset: torch.Tensor, strength: float) -> to
     return rgb
 
 
-def stitch_blend_mask(stitcher: dict, frames: int = 1) -> torch.Tensor:
+def stitch_blend_mask(stitcher: dict, frames: int = 1, seam: str = SEAM_CLASSIC) -> torch.Tensor:
     """The feathered blend mask in original-image coordinates (BHW).
 
     This is the very mask :func:`apply_stitch` blends with — the sampling
@@ -867,6 +910,11 @@ def stitch_blend_mask(stitcher: dict, frames: int = 1) -> torch.Tensor:
     stitcher broadcasts across ``frames``, and a longer one is trimmed to
     the leading ``frames`` just as the stitch was, so a downstream color
     match or composite can weight exactly the pixels the paste touched.
+
+    With ``seam`` "blend in" on a stitcher that stitches that way, it is
+    the model's share of colour and tone instead (:func:`blend_in_weight`):
+    1 over the new area, fading to 0 where the source is back to its own
+    pixels, and 0 beyond - again exactly the pixels the stitch changed.
     """
     if not isinstance(stitcher, dict) or stitcher.get("kind") != STITCHER_KIND:
         raise ValueError(
@@ -885,15 +933,336 @@ def stitch_blend_mask(stitcher: dict, frames: int = 1) -> torch.Tensor:
             f"Blend mask batch {blend.shape[0]} cannot broadcast across "
             f"{frames} inpainted frame(s)."
         )
+    if seam == SEAM_BLEND_IN:
+        plan = seam_plan(stitcher)
+        if plan is not None:
+            # One depth map serves every frame, so the weight broadcasts.
+            weight = blend_in_weight(plan["depth"], plan["tone"])[:, oy : oy + oh, ox : ox + ow]
+            return weight.expand(frames, -1, -1).contiguous()
     mask = blend[:, oy : oy + oh, ox : ox + ow]
     if mask.shape[0] == 1 and frames > 1:
         mask = mask.expand(frames, -1, -1)
     return mask.contiguous()
 
 
+# --- seam: blend in ------------------------------------------------------------
+#
+# On a turned or padded outpaint the model redraws the outer pixels of the
+# picture, and there its version and the picture differ in tone and texture.
+# The classic paste cross-fades the two right in that strip, and its tone
+# match reads the fill mixed into the picture's outermost pixels as drift.
+# Blend in does neither. It splits both pictures into colour and tone (a
+# blur) and fine detail (what the blur takes away), hands colour and tone
+# over from the model to the picture slowly, deep inside the picture, and
+# hands the detail over in a short ramp placed where the two already line
+# up. Deeper than both ramps the picture keeps its own pixels bit for bit,
+# outside it the model's picture is untouched, and nothing is shifted
+# globally.
+
+# A pixel the generated-area mask holds at or above this is new area, not
+# picture. The mask is 1 right up to the picture's edge and feathers inward
+# from there, so the cut lands on the edge itself.
+SEAM_NEW_AREA = 0.98
+# Colour and tone are a picture blurred at this sigma, in pixels.
+SEAM_TONE_SIGMA = 8.0
+# Picture pixels closer than this to the edge stay out of the picture's
+# colour layer: turning or resizing a canvas mixes the fill into them.
+SEAM_CLEAN_DEPTH = 4.0
+# The detail ramp starts at 3/4 of the depth where the model's mask fell to
+# 0.1 - about how deep the model was free to redraw - never shallower than
+# SEAM_DETAIL_FLOOR, and runs SEAM_DETAIL_SPAN pixels. The colour ramp runs
+# from SEAM_CLEAN_DEPTH to SEAM_TONE_EXTRA pixels past the detail ramp.
+# That depth is the median over the picture pixels whose mask value falls
+# inside SEAM_REACH_BAND.
+SEAM_DETAIL_FLOOR = 8.0
+SEAM_DETAIL_SPAN = 10.0
+SEAM_TONE_EXTRA = 14.0
+SEAM_REACH_BAND = (0.08, 0.12)
+# The depth used when the mask has too few pixels in that band to read
+# (no feather, or a tiny canvas).
+SEAM_DEFAULT_REACH = 13.0
+SEAM_REACH_MIN_PIXELS = 200
+# A straight cross-fade of two unrelated textures loses strength halfway
+# across. This much of the lost strength is put back, read over this blur,
+# and never more than SEAM_TEXTURE_MAX_GAIN times the faded detail.
+SEAM_TEXTURE_SIGMA = 6.0
+SEAM_TEXTURE_KEEP = 0.6
+SEAM_TEXTURE_MAX_GAIN = 1.7
+# Depth is measured this far, in pixels, and clamped past it. Every ramp
+# ends inside it: the deepest colour ramp ends at 3/4 of it plus 24.
+SEAM_DEPTH_CAP = 128.0
+# Frames are blended in chunks of about this many pixels, at least one frame.
+SEAM_CHUNK_PIXELS = 2 * 1024 * 1024
+
+_BLEND_IN_FALLBACK_NOTE = (
+    "Stitch Inpaint: Seam 'blend in' needs a Load Image + Pad or Crop + Rotate "
+    "+ Pad stitcher; a Crop For Inpaint stitcher is stitched the classic way."
+)
+
+
+def _smoothstep(x: torch.Tensor) -> torch.Tensor:
+    x = x.clamp(0.0, 1.0)
+    return x * x * (3.0 - 2.0 * x)
+
+
+def _seam_blur(image: torch.Tensor, sigma: float) -> torch.Tensor:
+    """Separable Gaussian blur of a [B, C, H, W] batch with mirrored edges;
+    a side too short to mirror repeats its last pixel instead."""
+    radius = max(1, int(math.ceil(3.0 * float(sigma))))
+    taps = torch.arange(-radius, radius + 1, dtype=image.dtype, device=image.device)
+    kernel = torch.exp(-(taps * taps) / (2.0 * float(sigma) ** 2))
+    kernel = kernel / kernel.sum()
+    channels = image.shape[1]
+    mode = "reflect" if radius < image.shape[3] else "replicate"
+    image = functional.pad(image, (radius, radius, 0, 0), mode=mode)
+    image = functional.conv2d(image, kernel.view(1, 1, 1, -1).expand(channels, 1, 1, -1), groups=channels)
+    mode = "reflect" if radius < image.shape[2] else "replicate"
+    image = functional.pad(image, (0, 0, radius, radius), mode=mode)
+    return functional.conv2d(image, kernel.view(1, 1, -1, 1).expand(channels, 1, -1, 1), groups=channels)
+
+
+def _torch_distance(inside: torch.Tensor, reach: float = SEAM_DEPTH_CAP) -> torch.Tensor:
+    """Distance from every True pixel of an [H, W] mask to the nearest False
+    pixel, centre to centre, exact up to ``reach`` pixels and at least
+    ``reach`` past it. The frame's border does not count as False.
+
+    Stands in for scipy's distance transform when scipy is missing: the
+    nearest False pixel along each row first, then the best row within
+    ``reach`` above or below.
+    """
+    height, width = inside.shape
+    outside = ~inside
+    columns = torch.arange(width, dtype=torch.float32, device=inside.device).expand(height, width)
+    far = torch.full((height, width), math.inf, device=inside.device)
+    before = torch.where(outside, columns, -far).cummax(dim=1).values
+    after = -torch.where(outside, -columns, -far).flip(1).cummax(dim=1).values.flip(1)
+    along = torch.minimum(columns - before, after - columns)
+    along = along * along
+    best = along.clone()
+    for step in range(1, min(int(math.ceil(reach)), height - 1) + 1):
+        lift = float(step * step)
+        best[step:] = torch.minimum(best[step:], along[:-step] + lift)
+        best[:-step] = torch.minimum(best[:-step], along[step:] + lift)
+    return best.sqrt()
+
+
+def _distance(inside: torch.Tensor) -> torch.Tensor:
+    if _scipy_distance is not None:
+        return torch.from_numpy(_scipy_distance(inside.cpu().numpy()).astype("float32"))
+    return _torch_distance(inside.cpu())
+
+
+def _signed_depth(picture: torch.Tensor) -> torch.Tensor:
+    """[H, W] signed distance, in pixels, from each pixel's centre to the
+    picture's edge: positive inside ``picture`` (a bool map), negative
+    outside, clamped to SEAM_DEPTH_CAP either way. A side of the picture
+    that meets the frame is no edge, so the picture stays deep up to it."""
+    if bool(picture.all()):
+        return torch.full(tuple(picture.shape), SEAM_DEPTH_CAP)
+    if not bool(picture.any()):
+        return torch.full(tuple(picture.shape), -SEAM_DEPTH_CAP)
+    inward = _distance(picture) - 0.5
+    outward = 0.5 - _distance(~picture)
+    return torch.where(picture.cpu(), inward, outward).clamp(-SEAM_DEPTH_CAP, SEAM_DEPTH_CAP)
+
+
+def _seam_map(stitcher: dict, key: str) -> torch.Tensor | None:
+    """A canvas-sized BHW mask the stitcher carries under ``key``, or None."""
+    canvas = stitcher["canvas"]
+    mask = stitcher.get(key)
+    if isinstance(mask, torch.Tensor) and mask.ndim == 3 and tuple(mask.shape[1:]) == tuple(canvas.shape[1:3]):
+        return mask
+    return None
+
+
+def _seam_picture(stitcher: dict) -> torch.Tensor | None:
+    """[H, W] True where the canvas holds the source picture; None when the
+    stitcher does not say (a Crop For Inpaint crop)."""
+    generated = _seam_map(stitcher, "generated")
+    if generated is not None:
+        # A turned or transparent source leaves fill inside its rectangle,
+        # which only this mask knows about. One map serves every frame: a
+        # pixel is picture only where no frame marks it new.
+        return ~(generated >= SEAM_NEW_AREA).any(dim=0).cpu()
+    bbox = stitcher.get("source_bbox")
+    if bbox is None:
+        return None
+    height, width = int(stitcher["canvas"].shape[1]), int(stitcher["canvas"].shape[2])
+    x0, y0, x1, y1 = (int(value) for value in bbox)
+    x0, y0, x1, y1 = max(0, x0), max(0, y0), min(width, x1), min(height, y1)
+    picture = torch.zeros((height, width), dtype=torch.bool)
+    if x1 > x0 and y1 > y0:
+        picture[y0:y1, x0:x1] = True
+    return picture
+
+
+def seam_ramps(
+    mask: torch.Tensor | None, depth: torch.Tensor
+) -> tuple[tuple[float, float], tuple[float, float]]:
+    """(tone, detail) ramps for blend in, each (start, end) in pixels inside
+    the picture's edge, read off ``mask`` [H, W] - the mask the model was
+    handed - against ``depth`` [H, W].
+
+    The model was free to redraw the picture down to about where its mask
+    fell to 0.1, and its version lines up with the picture a little before
+    that; the detail ramp starts there. Without a readable mask the ramps
+    fall back to SEAM_DEFAULT_REACH.
+    """
+    reach = SEAM_DEFAULT_REACH
+    if mask is not None:
+        low, high = SEAM_REACH_BAND
+        ring = (mask >= low) & (mask <= high) & (depth > 0)
+        count = int(ring.sum())
+        if count > SEAM_REACH_MIN_PIXELS:
+            values = depth[ring].sort().values
+            reach = (float(values[(count - 1) // 2]) + float(values[count // 2])) / 2.0
+    start = max(SEAM_DETAIL_FLOOR, 0.75 * reach)
+    detail = (start, start + SEAM_DETAIL_SPAN)
+    return (SEAM_CLEAN_DEPTH, detail[1] + SEAM_TONE_EXTRA), detail
+
+
+def seam_plan(stitcher: dict) -> dict | None:
+    """What blend in needs for this stitcher: ``depth`` [1, H, W] (see
+    :func:`_signed_depth`) and the ``tone`` and ``detail`` ramps
+    (:func:`seam_ramps`).
+
+    The picture is read from the stitcher's generated-area mask when it has
+    one (Crop + Rotate + Pad) and from its source rectangle otherwise (Load
+    Image + Pad); the ramps follow the mask the model was handed - the
+    generated-area mask, or Load Image + Pad's blend, which is that node's
+    sampler mask as it stands. Worked out once, kept on the stitcher under
+    ``seam_plan`` next to what it was read from, and shared by every frame,
+    so a clip is blended with one map and no per-frame estimate. None when
+    the stitcher has no picture edge to blend across (Crop For Inpaint).
+    """
+    canvas = stitcher["canvas"]
+    size = (int(canvas.shape[1]), int(canvas.shape[2]))
+    generated = stitcher.get("generated")
+    blend = stitcher.get("blend")
+    bbox = stitcher.get("source_bbox")
+    cached = stitcher.get("seam_plan")
+    if (
+        isinstance(cached, dict)
+        and cached.get("generated") is generated
+        and cached.get("blend") is blend
+        and cached.get("source_bbox") == bbox
+        and cached.get("size") == size
+    ):
+        return cached
+    picture = _seam_picture(stitcher)
+    if picture is None:
+        return None
+    depth = _signed_depth(picture)
+    sampler = _seam_map(stitcher, "generated")
+    if sampler is None:
+        sampler = _seam_map(stitcher, "blend")
+    tone, detail = seam_ramps(None if sampler is None else sampler.amax(dim=0).cpu(), depth)
+    plan = {
+        "depth": depth.unsqueeze(0).to(canvas.device),
+        "tone": tone,
+        "detail": detail,
+        "generated": generated,
+        "blend": blend,
+        "source_bbox": bbox,
+        "size": size,
+    }
+    stitcher["seam_plan"] = plan
+    return plan
+
+
+def blend_in_weight(depth: torch.Tensor, tone: tuple[float, float]) -> torch.Tensor:
+    """The model's share of colour and tone in a blend-in stitch: 1 over the
+    new area and the picture's outermost pixels, easing to exactly 0 where
+    the tone ramp ends and the source keeps its own pixels."""
+    return 1.0 - _smoothstep((depth - tone[0]) / (tone[1] - tone[0]))
+
+
+def blend_in_seam(
+    canvas: torch.Tensor,
+    patch: torch.Tensor,
+    depth: torch.Tensor,
+    tone: tuple[float, float],
+    detail: tuple[float, float],
+    out: torch.Tensor | None = None,
+) -> torch.Tensor:
+    """Blend the model's full-canvas result into the canvas across the
+    picture's edge and return [B, H, W, C], written into ``out`` when one
+    is given (a long clip then holds no second copy of itself).
+
+    ``canvas`` [1 or B, H, W, C] is the source and fill the model was given,
+    ``patch`` [B, H, W, C] what came back, ``depth`` [1, H, W] and the ramps
+    come from :func:`seam_plan`. Both pictures split into colour and tone (a
+    blur at SEAM_TONE_SIGMA, the canvas's taken only over picture pixels
+    SEAM_CLEAN_DEPTH or more inside, so the fill never leaks in) and detail
+    (the rest). Colour and tone hand over from the patch to the canvas along
+    ``tone``, detail along ``detail``, and part of the texture a cross-fade
+    loses halfway is put back. Deeper than both ramps the result is the
+    canvas bit for bit; at or outside the first ramp's start it is the patch
+    bit for bit. Frames never read each other: they go through in chunks,
+    with a cancel check and progress between chunks.
+    """
+    frames, height, width, channels = patch.shape
+    dtype, device = patch.dtype, patch.device
+    sd = depth.to(device=device, dtype=dtype).view(1, 1, height, width)
+    tone_w = _smoothstep((sd - tone[0]) / (tone[1] - tone[0]))
+    detail_w = _smoothstep((sd - detail[0]) / (detail[1] - detail[0]))
+    model_w = 1.0 - detail_w
+    clean = (sd >= SEAM_CLEAN_DEPTH).to(dtype)
+    clean_share = _seam_blur(clean, SEAM_TONE_SIGMA).clamp_min(1e-4)
+    source = sd >= max(tone[1], detail[1])
+    new = sd <= min(tone[0], detail[0])
+    ramp = (detail_w > 0) & (detail_w < 1)
+    luma = torch.full((1, channels, 1, 1), 1.0 / channels, dtype=dtype, device=device)
+    if channels >= 3:
+        luma.zero_()
+        luma[0, :3, 0, 0] = torch.tensor((0.299, 0.587, 0.114), dtype=dtype, device=device)
+
+    def canvas_layers(image: torch.Tensor):
+        tone_layer = _seam_blur(image * clean, SEAM_TONE_SIGMA) / clean_share
+        grain = image - tone_layer
+        grain_luma = (grain * luma).sum(dim=1, keepdim=True)
+        return tone_layer, grain, grain_luma, _seam_blur(grain_luma * grain_luma, SEAM_TEXTURE_SIGMA)
+
+    shared = canvas_layers(canvas[:1].movedim(-1, 1)) if canvas.shape[0] == 1 else None
+    if out is None:
+        out = torch.empty_like(patch)
+    step = max(1, SEAM_CHUNK_PIXELS // max(1, height * width))
+    starts = range(0, frames, step)
+    progress = progress_bar(len(starts)) if len(starts) > 1 else None
+    for done, start in enumerate(starts, 1):
+        raise_if_interrupted()
+        stop = min(frames, start + step)
+        model = patch[start:stop].movedim(-1, 1)
+        base = (canvas[:1] if shared is not None else canvas[start:stop]).movedim(-1, 1)
+        base_tone, base_grain, base_luma, base_power = shared if shared is not None else canvas_layers(base)
+        model_tone = _seam_blur(model, SEAM_TONE_SIGMA)
+        model_grain = model - model_tone
+        grain = model_w * model_grain + detail_w * base_grain
+        model_luma = (model_grain * luma).sum(dim=1, keepdim=True)
+        model_power = _seam_blur(model_luma * model_luma, SEAM_TEXTURE_SIGMA)
+        cross_power = _seam_blur(model_luma * base_luma, SEAM_TEXTURE_SIGMA)
+        faded = model_w**2 * model_power + detail_w**2 * base_power + 2.0 * model_w * detail_w * cross_power
+        wanted = model_w * model_power + detail_w * base_power
+        gain = (wanted.clamp_min(1e-9) / faded.clamp_min(1e-9)).sqrt().clamp(1.0, SEAM_TEXTURE_MAX_GAIN)
+        gain = torch.where(ramp, 1.0 + SEAM_TEXTURE_KEEP * (gain - 1.0), torch.ones_like(gain))
+        blended = model + tone_w * (base_tone - model_tone) + (grain * gain - model_grain)
+        blended = torch.where(source, base, torch.where(new, model, blended.clamp(0.0, 1.0)))
+        out[start:stop] = blended.movedim(1, -1)
+        if progress is not None:
+            progress.update_absolute(done, len(starts))
+    return out
+
+
 __all__ = [
     "RESIZE_ALGORITHMS",
+    "SEAM_BLEND_IN",
+    "SEAM_CLASSIC",
+    "SEAM_MODES",
     "STITCHER_KIND",
+    "blend_in_seam",
+    "blend_in_weight",
+    "seam_plan",
+    "seam_ramps",
     "build_canvas_stitcher",
     "build_transform_stitcher",
     "stitch_blend_from_mask",
