@@ -57,6 +57,7 @@ const CARDS = {
     minWidth: 320,
     rows: [
       { widget: "context_factor", label: "Context", suffix: "×" },
+      { widget: "keep_inside", label: "Stay in picture" },
       { widget: "blend_pixels", label: "Blend", suffix: "px" },
       { widget: "output_multiple", label: "Multiple" },
       { widget: "mask_grow", label: "Grow", suffix: "px" },

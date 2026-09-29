@@ -94,6 +94,22 @@ def fit_rect(rect: Rect, bounds_w: int, bounds_h: int) -> Rect:
     return (x, y, w, h)
 
 
+def clamp_rect_to_bounds(rect: Rect, bounds_w: int, bounds_h: int) -> Rect:
+    """Shrink a rect to the bounds on each axis it is too big for.
+
+    An axis that fits is left alone (``fit_rect`` shifts it inside later).
+    An axis that is wider or taller than the bounds becomes exactly the
+    bounds, so no replicate padding is needed there. A mask box always lies
+    inside the bounds, so the clamped rect still contains it.
+    """
+    x, y, w, h = rect
+    if w > bounds_w:
+        x, w = 0, bounds_w
+    if h > bounds_h:
+        y, h = 0, bounds_h
+    return (x, y, w, h)
+
+
 def rect_margins(rect: Rect, bounds_w: int, bounds_h: int) -> tuple[int, int, int, int]:
     """(left, top, right, bottom) overflow of a rect past the bounds."""
     x, y, w, h = rect
@@ -286,6 +302,7 @@ def build_crop(
     extend_right: int = 0,
     extend_up: int = 0,
     extend_down: int = 0,
+    keep_inside: bool = False,
 ) -> tuple[torch.Tensor, torch.Tensor, dict]:
     """Crop the masked region plus context; return (image, mask, stitcher).
 
@@ -305,6 +322,14 @@ def build_crop(
     counts grow the frame itself before anything else — the new bands are
     replicate-filled, added to the mask, and become part of the stitched
     output, which is how the pair outpaints.
+
+    ``keep_inside`` stops the context at the frame's edges: on an axis where
+    the grown box is bigger than the frame, the crop becomes the whole frame
+    on that axis instead of running past it into replicate-padded edge
+    copies. The sampler then sees only real pixels, at a larger working size
+    after a megapixel rescale. The helper keeps the old padding by default;
+    the node turns this on by default. Native sizing (no target) can still
+    pad a few pixels to reach ``output_multiple``.
     """
     image = _as_image(image)
     mask = _as_mask(mask, image)
@@ -355,6 +380,8 @@ def build_crop(
                 rect[2] + 2 * context_px,
                 rect[3] + 2 * context_px,
             )
+        if keep_inside:
+            rect = clamp_rect_to_bounds(rect, width, height)
         rect = fit_rect(rect, width, height)
     if not use_target and megapixels > 0.0:
         # Megapixel sizing: scale the crop so its area lands on the target;
@@ -876,6 +903,7 @@ __all__ = [
     "estimate_tone_offset",
     "shift_tone",
     "stitch_blend_mask",
+    "clamp_rect_to_bounds",
     "expand_rect_to_multiple",
     "fit_rect",
     "grow_rect",

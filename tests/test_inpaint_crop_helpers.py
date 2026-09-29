@@ -727,6 +727,65 @@ class OutpaintExtendTests(unittest.TestCase):
         self.assertGreaterEqual(cw, 8 + 16)
 
 
+class KeepInsideTests(unittest.TestCase):
+    """A mask as wide as a narrow picture: the grown box is wider than the frame."""
+
+    def setUp(self):
+        self.image = rand_image(1, 64, 48, seed=40)  # 48 wide, 64 tall
+        self.mask = box_mask(64, 48, 40, 56, 0, 48)  # the full width, 16 tall
+
+    def crop_node(self, **overrides):
+        from nodes.node_inpaint_crop_stitch import NODE_CLASS_MAPPINGS
+
+        crop_cls = NODE_CLASS_MAPPINGS["AUSBOSS_NODES_CropForInpaint"]
+        inputs = dict(image=self.image, mask=self.mask, context_factor=2.0, blend_pixels=4, output_multiple=8)
+        return getattr(crop_cls(), crop_cls.FUNCTION)(**{**inputs, **overrides})
+
+    def test_node_keeps_the_crop_inside_the_picture_by_default(self):
+        cropped, _sampling, stitcher = self.crop_node()
+        # No padded margin: the canvas is the picture itself.
+        self.assertEqual(tuple(stitcher["canvas"].shape), tuple(self.image.shape))
+        self.assertEqual(stitcher["canvas_to_original"], (0, 0, 48, 64))
+        cx, _cy, cw, _ch = stitcher["crop_to_canvas"]
+        self.assertEqual((cx, cw), (0, 48))
+        self.assertTrue(torch.equal(apply_stitch(stitcher, cropped), self.image))
+
+    def test_turning_it_off_restores_the_padded_crop(self):
+        _cropped, _sampling, stitcher = self.crop_node(keep_inside=False)
+        self.assertEqual(stitcher["canvas"].shape[2], 96)
+        self.assertEqual(stitcher["canvas_to_original"][0], 24)
+
+    def test_the_helper_default_still_pads_for_existing_callers(self):
+        _cropped, _sampling, stitcher = build_crop(self.image, self.mask, 2.0, 4, 8)
+        self.assertEqual(stitcher["canvas"].shape[2], 96)
+
+    def test_a_megapixel_target_draws_only_real_picture_and_larger(self):
+        inside = build_crop(self.image, self.mask, 2.0, 4, 8, target_megapixels=0.01, keep_inside=True)[2]
+        padded = build_crop(self.image, self.mask, 2.0, 4, 8, target_megapixels=0.01)[2]
+        self.assertEqual(tuple(inside["canvas"].shape), tuple(self.image.shape))
+        # The same pixel budget spent on real picture only: every source pixel is drawn larger.
+        self.assertGreater(inside["scale"][0], padded["scale"][0])
+        cx, cy, cw, ch = inside["crop_to_canvas"]
+        untouched = inside["canvas"][:, cy : cy + ch, cx : cx + cw, :]
+        self.assertTrue(torch.equal(apply_stitch(inside, untouched), self.image))
+
+    def test_an_axis_that_fits_is_only_shifted(self):
+        mask = box_mask(64, 48, 4, 12, 20, 28)  # a small box near the top edge
+        inside = build_crop(self.image, mask, 2.0, 4, 8, keep_inside=True)[2]
+        padded = build_crop(self.image, mask, 2.0, 4, 8)[2]
+        self.assertEqual(inside["crop_to_canvas"], padded["crop_to_canvas"])
+        self.assertEqual(inside["canvas_to_original"], padded["canvas_to_original"])
+
+    def test_outpaint_extension_still_grows_the_output(self):
+        empty = torch.zeros((1, 64, 48), dtype=torch.float32)
+        cropped, _sampling, stitcher = build_crop(
+            self.image, empty, 2.0, 0, 1, extend_right=16, keep_inside=True
+        )
+        out = apply_stitch(stitcher, cropped)
+        self.assertEqual(tuple(out.shape[1:3]), (64, 64))
+        self.assertTrue(torch.equal(out[:, :, :48, :], self.image))
+
+
 class BlendMaskOutputTests(unittest.TestCase):
     """blend_mask maps the paste feather back onto the stitched image."""
 

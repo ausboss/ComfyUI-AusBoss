@@ -14,8 +14,16 @@ pastes the result back exactly where it came from. The **Extend** rows
   selects the full image (and stitches back unchanged).
 - **Context** (`context_factor`): Grows the mask bounding box
   symmetrically by this factor. The grown window is shifted back inside the
-  frame first; only when it truly cannot fit is the image extended with
-  edge-replicated padding.
+  frame first. When it's bigger than the picture, **Stay in picture**
+  decides what happens.
+- **Stay in picture** (`keep_inside`, on by default): Keeps the crop inside
+  the picture. When the context would reach past an edge (a big mask, or a
+  small picture), the crop stops at that edge, so the model sees only real
+  picture and, after a **Target** rescale, paints the new part larger and
+  sharper. Off is the old behavior: the crop runs past the edge and the
+  extra space is filled with stretched copies of the edge pixels. One catch
+  with it on: the model sees more of what's around your mask and carries it
+  on, so paint over leftovers at the mask's edge that you don't want kept.
 - **Blend** (`blend_pixels`): Feather width used *only when pasting back*:
   the paste mask is widened by this many pixels and blurred. The sampling
   mask sent to the inpainter stays hard-edged, so feathering never weakens
