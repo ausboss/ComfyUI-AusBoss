@@ -19,6 +19,8 @@ import { autoMaskValues } from "../shared/mask_auto.mjs";
 import { hideInputsInDef, hideWidget, setWidgetVisible } from "../shared/widget_visibility.mjs";
 import {
   describeNodePreview,
+  outputLocatorId,
+  outputRecordQuery,
   placeholderText,
   sourceFileWidget,
   upstreamNode,
@@ -37,6 +39,8 @@ const BAR_HEIGHT = 20;
 const PANEL_HEIGHT = STAGE_HEIGHT + BAR_HEIGHT + 4 + 16;
 const OFF_HEIGHT = BAR_HEIGHT + 16;
 const INPUT_SIDE = 1; // LiteGraph.INPUT
+// Every panel alive on a canvas, so a restore of all outputs reaches each one.
+const livePanels = new Set();
 
 // Mask Refine opens on expand and blur alone. The other five are real
 // controls, not clutter, but they answer questions most masks never ask, and
@@ -68,6 +72,10 @@ const NODE_CONFIG = {
   AUSBOSS_NODES_SaveImage: { inputName: "images", noun: "an image" },
 };
 
+// The picture sits out of flow, centred in the stage, so it can never set
+// the panel's height. Nodes 2.0 lets a node's content decide its height (the
+// saved size is only a minimum), and an in-flow portrait drawn at full width
+// grew the node past whatever sat under it.
 function ensureCss() {
   if (document.getElementById(CSS_ID)) return;
   const style = document.createElement("style");
@@ -77,7 +85,7 @@ function ensureCss() {
 .ausboss-input-preview-bar{box-sizing:border-box;flex:none;display:flex;align-items:center;gap:6px;height:${BAR_HEIGHT}px;padding:0 2px;pointer-events:none;}
 .ausboss-input-preview-stage{position:relative;flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;width:100%;overflow:hidden;border:1px solid rgba(0,180,170,.27);border-radius:6px;background:rgba(0,0,0,.28);}
 .ausboss-input-preview.preview-off .ausboss-input-preview-stage{display:none;}
-.ausboss-input-preview-stage img,.ausboss-input-preview-stage video{display:none;max-width:100%;max-height:100%;object-fit:contain;}
+.ausboss-input-preview-stage img,.ausboss-input-preview-stage video{display:none;position:absolute;inset:0;margin:auto;max-width:100%;max-height:100%;object-fit:contain;}
 .ausboss-input-preview-stage.show-image img{display:block;}
 .ausboss-input-preview-stage.show-video video{display:block;}
 .ausboss-input-preview-hint{display:none;max-width:86%;color:#78908e;font:11px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-align:center;}
@@ -329,11 +337,25 @@ function rewatchSource(state, source) {
   state.watched = { widget, prior, hook };
 }
 
+// The node's stored output as a /view URL, for Nodes 2.0, where node.imgs
+// stays empty (see suppressCoreImagePreview). The frontend keeps this record
+// on every run and restores it with the workflow. One cache-buster per
+// record: an overwritten file reloads after the next run, and a plain refresh
+// never reloads the picture.
+const storedRand = new WeakMap();
+function storedResultUrl(node) {
+  const record = app.nodeOutputs?.[outputLocatorId(node)];
+  const query = outputRecordQuery(record);
+  if (!query) return null;
+  if (!storedRand.has(record)) storedRand.set(record, app.getRandParam?.() ?? "");
+  return api.apiURL(`/view?${query}${app.getPreviewFormatParam?.() ?? ""}${storedRand.get(record)}`);
+}
+
 function refresh(state) {
   if (!state.alive) return;
   const source = upstreamNode(state.node, state.inputName);
   rewatchSource(state, source);
-  const described = describeNodePreview(state.node, state.inputName);
+  const described = describeNodePreview(state.node, state.inputName, storedResultUrl(state.node));
   if (!described) {
     clearMedia(state);
     showHint(state, placeholderText(!!source, state.noun));
@@ -453,6 +475,7 @@ function buildPanel(node, config) {
     alive: true,
     previewWidget,
   };
+  livePanels.add(state);
   if (config.tools?.length) bar.append(buildTools(state, config.tools, abort.signal));
   syncAdvanced(state);
   installPreviewSwitch(state, abort.signal);
@@ -474,6 +497,11 @@ function buildPanel(node, config) {
 
 app.registerExtension({
   name: "ausboss.input_preview",
+  // Reopening a workflow tab restores every node's stored output at once,
+  // with no per-node event; each panel re-reads its own.
+  onNodeOutputsUpdated() {
+    for (const state of livePanels) scheduleRefresh(state);
+  },
   beforeRegisterNodeDef(nodeType, nodeData) {
     const config = NODE_CONFIG[nodeData?.name];
     if (!config) return;
@@ -505,6 +533,7 @@ app.registerExtension({
       const state = this.__ausbossInputPreview;
       if (!state) return;
       state.alive = false;
+      livePanels.delete(state);
       if (state.timer) clearTimeout(state.timer);
       clearTimeout(state.toastTimer);
       state.timer = 0;

@@ -77,10 +77,36 @@ export function describeOwnResult(node) {
   return typeof src === "string" && src ? { kind: "url", url: src } : null;
 }
 
-// What the panel shows, best first: this node's result, then whatever feeds
-// it, then nothing.
-export function describeNodePreview(node, inputName) {
-  return describeOwnResult(node) ?? describeSourcePreview(upstreamNode(node, inputName));
+// The key the frontend files a node's outputs under (app.nodeOutputs): the
+// node's id in the root graph, "<subgraph id>:<id>" inside a subgraph.
+export function outputLocatorId(node) {
+  const graph = node?.graph;
+  if (!graph || node.id == null) return null;
+  const root = graph.rootGraph ?? graph;
+  return graph !== root && graph.id ? `${graph.id}:${node.id}` : String(node.id);
+}
+
+// The /view query for the newest image in a node's output record
+// ({ images: [{ filename, subfolder, type }] }), or null when it has none.
+// Nodes 2.0 fills node.imgs only from its own output preview, which the panel
+// stands down, so there this record is the node's result.
+export function outputRecordQuery(record) {
+  const images = record?.images;
+  const last = Array.isArray(images) ? images[images.length - 1] : null;
+  if (!last || typeof last.filename !== "string" || !last.filename) return null;
+  return new URLSearchParams({
+    filename: last.filename,
+    subfolder: last.subfolder ?? "",
+    type: last.type ?? "output",
+  }).toString();
+}
+
+// What the panel shows, best first: this node's result (node.imgs, then the
+// URL of its stored output), then whatever feeds it, then nothing.
+export function describeNodePreview(node, inputName, storedUrl = null) {
+  return describeOwnResult(node)
+    ?? (storedUrl ? { kind: "url", url: storedUrl } : null)
+    ?? describeSourcePreview(upstreamNode(node, inputName));
 }
 
 // Quiet ASCII placeholder copy; never an error.
