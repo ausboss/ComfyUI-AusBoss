@@ -12,9 +12,9 @@ Loads an image and applies one reusable **rotate → crop → pad** transform. C
 - **crop_x / crop_y / crop_width / crop_height**: Crop in rotated-image pixels. Width and height `0` mean the full available dimension.
 - **pad_left / pad_top / pad_right / pad_bottom**: New pixels around the crop.
 - **feather**: Feathers the mask into kept pixels, so a masked sampler and the stitch blend the seam. The image itself keeps a hard edge against the fill - the solid, hard-edged band that outpaint models and LoRAs recognise as the area to paint.
-- **Align** (`canvas_multiple`; **Multiple** in the editor): Rounds the final canvas up by adding the minimum extra pixels to the right and bottom.
+- **Align** (`canvas_multiple`): Rounds the final canvas up by adding the minimum extra pixels to the right and bottom.
 - **Fill** (`fill_color`): `#RRGGBB` or three RGB values used for generated pixels.
-- **Resize output → Resize / Megapixels / Method / Steps** (`resize_to_megapixels` / `megapixels` / `resize_method` / `resolution_steps`): Optional resize of the finished output to a pixel budget, with core *Scale Image to Total Pixels* semantics — the budget is `megapixels × 1024 × 1024`, aspect is preserved, and each dimension rounds to a multiple of **Steps** (8 or 64 keeps VAE-friendly sizes). The image uses the chosen **Method**; the mask always resizes bilinear so feathered edges cannot ring.
+- **Resize output → Resize / Megapixels / Method / Step** (`resize_to_megapixels` / `megapixels` / `resize_method` / `resolution_steps`): Optional resize of the finished output to a pixel budget, with core *Scale Image to Total Pixels* semantics — the budget is `megapixels × 1024 × 1024`, aspect is preserved, and each dimension rounds to a multiple of **Step** (8 or 64 keeps VAE-friendly sizes). The image uses the chosen **Method**; the mask always resizes bilinear so feathered edges cannot ring.
 
 ## On the node
 

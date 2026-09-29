@@ -34,6 +34,8 @@ All notable changes to ComfyUI-AusBoss are documented here.
   used when you load one, and dragging the picture itself moves it inside
   its padding. The full-screen editor's Ratio list applies at once, like
   the buttons.
+- **Crop + Rotate + Pad: the editor uses the node's words.** Its Multiple
+  and Steps are Align and Step, as on the node.
 - **Crop + Rotate + Pad: the picture on the node stays big enough to see.**
   You can no longer drag the node so short that the preview becomes a
   thumbnail: the picture keeps at least three fifths of its width in

@@ -1487,7 +1487,7 @@ function buildControls(state, sidebar) {
   const multiple = makeScrubInput({ value: value(node, "canvas_multiple", 1), min: 1, max: 4096, step: 1, decimals: 0,
     title: "Round the outer canvas up to a pixel multiple. This can slightly change the fitted aspect.",
     onChange: (amount) => { setValue(node, "canvas_multiple", amount); draw(state); }, onSettle: notifyAusbossChange });
-  addLabeledControl(padSection, "Multiple", multiple.root, "px");
+  addLabeledControl(padSection, "Align", multiple.root, "px");
   const resetPad = createElement("button", "", "Reset padding"); resetPad.title = "Remove all padding.";
   resetPad.addEventListener("click", () => { for (const name of ["pad_left", "pad_top", "pad_right", "pad_bottom"]) setValue(node, name, 0); settleRequest(state); draw(state); updateModalInfo(state); notifyAusbossChange(); }); padSection.append(resetPad);
 
@@ -1536,7 +1536,7 @@ function buildControls(state, sidebar) {
         updateModalInfo(state);
       },
     });
-    addLabeledControl(resizeSection, "Steps", steps.root, "px");
+    addLabeledControl(resizeSection, "Step", steps.root, "px");
   }
 
   const actions = createElement("section", "ausboss-transform-section"); actions.append(sectionHeading("View & reset"));
