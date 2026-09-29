@@ -16,10 +16,9 @@ issue.
 
 ## Pull requests
 
-- The working rules are in [AGENTS.md](AGENTS.md), and a new public node
-  follows [docs/adding_a_node.md](docs/adding_a_node.md). Experiments usually
-  start in a separate lab pack, so a new node is a conversation before it is
-  a pull request.
+- The contributor guide is [AGENTS.md](AGENTS.md), and a new public node
+  follows [docs/adding_a_node.md](docs/adding_a_node.md). A new node is a
+  conversation before it is a pull request.
 - Mapping keys, input names and order, and output order are a permanent API:
   saved workflows depend on them. Append optional inputs and outputs instead
   of renaming or reordering. `tests/test_node_api.py` checks this against a
@@ -40,3 +39,5 @@ issue.
 - Frontend changes are checked on a real canvas as well as in tests.
   [docs/live_testing.md](docs/live_testing.md) describes the headless browser
   harness and what to screenshot.
+- A fix PR says what was wrong, adds a test that fails before the fix and
+  passes after it, and shows before/after results.

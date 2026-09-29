@@ -2,8 +2,7 @@
 # packer zips git-tracked files minus these, so untracked local files need
 # no entry). Runtime code, node help, example workflows, README, LICENSE and
 # pyproject stay in. Everything below is development-only or README media:
-# it added nothing for a user, and the development files gave the
-# Registry's security scan test fixtures and tooling to flag.
+# it adds nothing for a user.
 #
 # scripts/release_preflight.py lists the archive the same way and fails when
 # a path outside its runtime allowlist ships, when a runtime file is dropped
@@ -17,7 +16,7 @@ scripts/
 # CI and repository automation
 .github/
 
-# agent instructions and developer docs (docs/ at the root only)
+# developer docs and tool settings (docs/ at the root only)
 AGENTS.md
 CLAUDE.md
 CONTRIBUTING.md

@@ -706,8 +706,8 @@ All notable changes to ComfyUI-AusBoss are documented here.
   width and its footer badge, so the readout stays the whole node.
 
 - **The Registry archive stops shipping the workshop.** A documented
-  `.comfyignore` keeps tests, offline scripts, CI, agent instructions and
-  the root docs out of the published zip (comfy-cli's packer honours it),
+  `.comfyignore` keeps tests, offline scripts, CI and the developer docs
+  out of the published zip (comfy-cli's packer honours it),
   which also removes the test fixtures the Registry scanner kept flagging.
   `release_preflight.py` now checks the file covers those paths and never
   swallows a runtime one, parses every example workflow, and pairs each
@@ -793,12 +793,7 @@ All notable changes to ComfyUI-AusBoss are documented here.
   that reads the version out of `pyproject.toml` on main at view time, so
   it can never go stale, and `release_preflight.py` gained a third check
   that keeps it the dynamic kind (a hardcoded badge fails preflight). The
-  README also names the real ComfyUI-floor key (`requires-comfyui`), and
-  AGENTS.md's release steps now cover the two failure modes that were
-  silently eating releases: a failed push-triggered publish run (re-run
-  via workflow_dispatch) and registry versions parked in
-  `NodeVersionStatusFlagged` — invisible in Manager's version picker
-  until the Comfy team reviews them.
+  README also names the real ComfyUI-floor key (`requires-comfyui`).
 
 - **Image Crop + Rotate + Pad: resize the output to a megapixel budget.**
   A new resize block (off by default) scales the transformed result to a
@@ -1114,14 +1109,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   preview already on screen, and after a page reload there was no saved file
   in memory for it to fetch at all.
 
-- **Frame Chooser 🆎 moved to the lab** (`AUSBOSS_NODES_FrameChooser` is gone;
-  it is `AUSBOSS_LAB_FrameChooser` there now). Pausing the graph for an
+- **Frame Chooser 🆎 was removed from the public pack**
+  (`AUSBOSS_NODES_FrameChooser` is gone). Pausing the graph for an
   interactive pick is a bigger surface than the rest of the pack - a server
   route, a resumable pause, a panel that has to survive a reload - and it has
-  open issues that are not worth holding a release for. It keeps working from
-  ComfyUI-AusBoss-Lab; a saved workflow using the public id will report it as
-  missing. Its `/ausboss/frame_chooser` routes moved to `/ausboss_lab/` so both
-  packs can be installed at once.
+  open issues that are not worth holding a release for. A saved workflow
+  using its id will report it as missing.
 
 - Renamed **Video Crop + Rotate + Pad 🆎** to **Video Crop + Rotate + Pad →
   Frame 🆎**. The old name reads like it transforms a clip; it takes one frame
@@ -1142,8 +1135,8 @@ All notable changes to ComfyUI-AusBoss are documented here.
   width change forcing a relayout. A test now fails if the observer is gated on
   node kind again, or if a canvas-painting panel ships without one.
 
-- Added **Krea 2 Encode 🆎** and **Krea 2 Outpaint Model Patch 🆎**, promoted
-  from the lab. Together they make Krea 2 outpaint the source instead of
+- Added **Krea 2 Encode 🆎** and **Krea 2 Outpaint Model Patch 🆎**.
+  Together they make Krea 2 outpaint the source instead of
   painting something next to it: the encode attaches reference latents to the
   positive conditioning (and emits the negative from the same node, so a turbo
   graph at CFG 1.0 stops carrying a second text encode that does nothing), and

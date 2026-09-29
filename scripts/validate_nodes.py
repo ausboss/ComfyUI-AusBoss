@@ -226,16 +226,15 @@ for missing_id in sorted(RELEASED_NODE_IDS - mapping_keys):
     errors.append(f"missing permanent mapping key: {missing_id}")
 
 # The same set is a gate in the OTHER direction too. A key nobody listed is a
-# node that reached the public pack without anyone deciding it should ship -
-# which is what the private lab repo exists to prevent, and what this catches
-# on the day the lab leaks. Adding the id above is the deliberate act of
+# node that reached the public pack without anyone deciding it should ship,
+# and this catches it. Adding the id above is the deliberate act of
 # publishing it, and after a release it can never be renamed: the key is the
 # workflow-compatibility contract.
 for unlisted_id in sorted(mapping_keys - RELEASED_NODE_IDS):
     errors.append(
         f"unlisted mapping key: {unlisted_id} is registered but not in "
-        "PUBLIC_NODE_IDS. Add it there to publish it deliberately, or move the "
-        "node to the lab repo"
+        "PUBLIC_NODE_IDS. Add it there to publish it, or keep it out of the "
+        "public pack"
     )
 
 # --- 5. nothing outside nodes/ may declare mapping keys ----------------------

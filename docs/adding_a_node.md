@@ -25,7 +25,7 @@ Every visible field and output must earn its place. Published IDs, input order, 
 5. Namespace every route, extension, event, DOM marker, CSS class, cache, and browser state with `ausboss`.
 6. Chain lifecycle hooks through `chainCallback`; never replace core or third-party prototypes directly.
 7. Keep normal workflow and API execution independent from the custom frontend.
-8. Ship user-facing toggles as ComfyUI settings under the `AusBoss.*` namespace (see `.claude/skills/ausboss-node-brand/SKILL.md`). Node coloring is automatic for `AUSBOSS_NODES_*` classes via `js/appearance/` — no per-node work.
+8. Ship user-facing toggles as ComfyUI settings under the `AusBoss.*` namespace. Node coloring is automatic for `AUSBOSS_NODES_*` classes via `js/appearance/` — no per-node work.
 
 ## Document and prove
 
@@ -38,7 +38,7 @@ Every visible field and output must earn its place. Published IDs, input order, 
 - Add pure Python and dependency-free JavaScript tests.
 - Compile with ComfyUI's embedded Python.
 - Verify `/object_info/<mapping-key>`, ownership, served assets, routes, API execution, and queued dimensions/masks.
-- Test the actual canvas in Classic and Nodes 2.0, including save/reload, duplication, graph zoom, source replacement, and teardown. Drag a real link onto every card row and socket and look at where it lands (`docs/live_testing.md`); save before/after screenshots under `_scratch/node_screenshots/` for review.
-- Scan the diff for paths, hosts, secrets, obsolete branding, placeholders, agent attribution, and non-ASCII import output.
+- Test the actual canvas in Classic and Nodes 2.0, including save/reload, duplication, graph zoom, source replacement, and teardown. Drag a real link onto every card row and socket and look at where it lands (`docs/live_testing.md`).
+- Scan the diff for paths, hosts, secrets, placeholders and non-ASCII import output.
 
 Do not release a node that only works in the editor, only works for one source, or returns debugging outputs users do not need.
