@@ -4,6 +4,18 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Krea 2 outpaints now paint dark and colourful pictures too.** With the
+  AnyPaint LoRA, a dark or very colourful picture could come back with its
+  new area still gray: a gray frame around the picture, or a gray corner on
+  a turned one. The model was copying the gray padding instead of painting
+  it, whichever Krea 2 model file was loaded. Krea 2 Encode has a new
+  `mask` input. Connect the pad node's mask to it, and the model sees the
+  new area in your picture's own colour, the way AnyPaint was trained, and
+  paints it. The Krea 2 Outpaint and Krea 2 Rotate + Outpaint examples are
+  wired this way. They also feather the join 32 px instead of 12, which
+  gives the model room to carry your picture over the edge: a thin strip of
+  new area no longer comes back as a flat band with a hard line. Workflows
+  without the link run exactly as before.
 - **The red "missing file" warning clears when you pick a file.** Open a
   workflow that was saved with a picture you don't have and ComfyUI marks
   Load Image + Pad red and lists it under Setup required. Picking your own
