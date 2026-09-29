@@ -29,6 +29,13 @@ export function visibleRows(rows, values, groups = {}) {
   });
 }
 
+// Does the current value set mute this row? A muted row keeps its place,
+// height and socket, but dims and stops taking input (a setting the current
+// mode does not read).
+export function rowMuted(row, values) {
+  return typeof row?.mute === "function" && row.mute(values) === true;
+}
+
 // One row's height: a caption, a group header, a control row, or the
 // height a textarea row asks for.
 export function rowHeight(row) {

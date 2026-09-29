@@ -388,6 +388,18 @@ export function openSettingsMenu({ scope, schema, anchor, title, onChange, initi
         if (entry.hint) label.append(el("span", "hint", entry.hint));
         row.append(label, buildControl(entry, values, commit));
         body.append(row);
+        // A choice can say what each option does, one plain line apiece:
+        // { ..., type: "choice", optionHints: { option: "what it does" } }.
+        if (entry.optionHints) {
+          const list = el("div", "ausboss-set-dl");
+          for (const option of entry.options ?? []) {
+            if (!entry.optionHints[option]) continue;
+            const line = el("div");
+            line.append(el("span", "term", option), el("span", "detail", ` — ${entry.optionHints[option]}`));
+            list.append(line);
+          }
+          body.append(list);
+        }
         continue;
       }
 

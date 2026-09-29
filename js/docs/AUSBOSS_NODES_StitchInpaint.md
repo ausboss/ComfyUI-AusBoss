@@ -8,7 +8,8 @@ says, and the original frame is sliced back out.
 
 ## Seam: classic or blend in
 
-**Seam** picks how the new area joins your picture.
+**Seam** picks how the new area joins your picture. It lives in the gear
+menu: click the small gear in the card's top-right corner.
 
 - **classic** (the default) is the paste every earlier workflow uses: the
   new area fades in over the feathered mask, and **Tone match** can shift
@@ -24,7 +25,8 @@ says, and the original frame is sliced back out.
   picture to yours a little way inside your picture, where the two
   already line up, and leaves the new area exactly as the model painted
   it. Nothing gets a tone shift, so **Tone match** and **Fix edge halo**
-  are hidden.
+  stay in place but dim, and a **blend in** chip shows next to the gear.
+  Switch Seam back to classic in the same menu to use them again.
 
 Blend in needs to know where your picture's edge is. Load Image + Pad and
 the Crop + Rotate + Pad nodes record it; Crop For Inpaint does not, so a
@@ -63,8 +65,9 @@ model's own picture.
 - **inpainted**: The inpainted crop. A stitcher built from a single image
   broadcasts across an N-frame inpainted batch, so one still-image crop
   can stitch a whole video; matched N-to-N batches also work.
-- **Seam** (`seam`): `classic` (the default) or `blend in`. Read "Seam:
-  classic or blend in" above.
+- **Seam** (`seam`, in the gear menu): `classic` (the default) or
+  `blend in`. Read "Seam: classic or blend in" above. It has no socket,
+  so a link cannot drive it.
 - **fix_edge_halo** (classic seam only): Off by default. Recovers the true
   color under the feathered seam before pasting, so half-transparent edge
   pixels stop blending their background in a second time. It costs real
@@ -126,7 +129,8 @@ flicker of its own.
 ## Fixing an edge halo
 
 This is for the classic seam. Blend in does not fade the new area in over
-the blend mask, so no background gets counted twice and the fix is hidden.
+the blend mask, so no background gets counted twice, and the toggle dims
+while blend in is on.
 
 A feathered paste mixes each seam pixel with the original image. When the
 inpainted pixel is *itself* already a mix of new content and the old

@@ -16,10 +16,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   area exactly as the model painted it. On seven Krea 2 outpaints the colour
   step at the join shrank by 85 to 95%. It is the pick for turned pictures
   and for outpaints with Tone match off; with straight padding and Tone
-  match on, classic usually looks as good. Blend in needs no tone match, so the
-  Tone match and Fix edge halo rows hide while it is on. **classic** stays
-  the default, so saved workflows render exactly as before, and Crop For
-  Inpaint stitchers still paste the classic way.
+  match on, classic usually looks as good. Seam sits in the gear menu in the
+  card's corner, so the node keeps its size. With blend in on, Tone match and
+  Fix edge halo dim, since blend in does not use them, and a **blend in**
+  chip shows beside the gear. **classic** stays the default, so saved
+  workflows render exactly as before, and Crop For Inpaint stitchers still
+  paste the classic way.
 - **Krea 2 Outpaint no longer promises inpainting.** Its Workflow Note and
   the Krea 2 Outpaint Model Patch help page said you could paint over part
   of the picture with the mask editor and pad at the same time. That does

@@ -12,13 +12,58 @@ import { hideInputsInDef } from "../shared/widget_visibility.mjs";
 import { mountWidgetCard } from "../shared/widget_card.mjs";
 import { comboValues } from "../shared/widget_card_math.mjs";
 import { mediaViewQuery } from "../shared/media_list.mjs";
+import { gearIconSvg, openSettingsMenu } from "../shared/settings_menu.mjs";
+import { SEAM_MENU, SEAM_MUTE_TITLES, isBlendIn, seamCornerReserve } from "../shared/stitch_seam.mjs";
 
 // The Source lists preview the hovered file straight from ComfyUI's /view.
 const viewUrl = (value) => api.apiURL(`/view?${mediaViewQuery(value)}`);
 
 const isMode = (name, ...modes) => (values) => modes.includes(values[name]);
-// Stitch Inpaint rows only the classic seam reads.
-const classicSeam = (values) => values.seam !== "blend in";
+// Stitch Inpaint: Seam lives in the card's gear menu (shared/stitch_seam.mjs
+// holds the menu and the rules). The gear in the card's corner opens the
+// menu; a "blend in" chip beside it shows the mode at a glance and opens the
+// same menu.
+function seamCorner(node, card) {
+  const tools = document.createElement("div");
+  tools.style.cssText = "position:relative;display:flex;align-items:center;gap:5px";
+  const chip = document.createElement("button");
+  chip.type = "button";
+  chip.className = "ausboss-card-chip";
+  chip.textContent = "blend in";
+  chip.title = "Seam is blend in, so Tone match and Fix edge halo are not used. Change it in the gear menu.";
+  const gear = document.createElement("button");
+  gear.type = "button";
+  gear.className = "ausboss-card-gear";
+  gear.title = "Stitch Inpaint settings";
+  gear.innerHTML = gearIconSvg();
+  const open = () => openSettingsMenu({
+    scope: "stitch_inpaint",
+    schema: SEAM_MENU,
+    anchor: gear.getBoundingClientRect(),
+    title: "Stitch Inpaint settings",
+    initial: { seam: card.values().seam },
+    onChange: (values, key) => {
+      if (key === "seam") card.setWidget("seam", values.seam);
+    },
+  });
+  gear.addEventListener("click", open);
+  chip.addEventListener("click", open);
+  // Under the chip, beside the muted rows: why they are dim.
+  const note = document.createElement("div");
+  note.append("not used", document.createElement("br"), "by blend in");
+  note.style.cssText = "position:absolute;top:33px;right:2px;text-align:right;white-space:nowrap;"
+    + "color:#6f8886;font:9px/11px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"
+    + "pointer-events:none";
+  tools.append(chip, gear, note);
+  return {
+    element: tools,
+    sync: (values) => {
+      chip.hidden = !isBlendIn(values);
+      note.hidden = chip.hidden;
+      return seamCornerReserve(values);
+    },
+  };
+}
 // Save Video rows that only some formats read (crf, save_metadata).
 const formatReads = (name) => (values) => formatWidgetVisibility(String(values.format))[name];
 
@@ -54,11 +99,13 @@ const CARDS = {
     // A workflow saved before Seam existed holds the card's own empty value
     // in the slot Seam now takes; it loads as classic.
     resetUnknown: { seam: "classic" },
+    // Seam has no row and no socket: the gear menu sets it.
+    hide: ["seam"],
+    socketless: ["seam"],
+    corner: seamCorner,
     rows: [
-      { widget: "seam", label: "Seam",
-        titles: { classic: "The feathered paste every earlier workflow uses", "blend in": "Fade the model's picture into yours with no tone shift: for turned or padded outpaint canvases" } },
-      { widget: "color_match", label: "Tone match", when: classicSeam },
-      { widget: "fix_edge_halo", label: "Fix edge halo", when: classicSeam },
+      { widget: "color_match", label: "Tone match", mute: isBlendIn, muteTitle: SEAM_MUTE_TITLES.color_match },
+      { widget: "fix_edge_halo", label: "Fix edge halo", mute: isBlendIn, muteTitle: SEAM_MUTE_TITLES.fix_edge_halo },
     ],
   },
   AUSBOSS_NODES_CropForInpaint: {
@@ -200,15 +247,54 @@ const CARDS = {
 };
 
 function cardWidgetNames(config) {
-  return config.rows.flatMap((row) => row.pair ?? (row.widget ? [row.widget] : []));
+  return [...config.rows.flatMap((row) => row.pair ?? (row.widget ? [row.widget] : [])), ...(config.hide ?? [])];
+}
+
+// A choice a card sets from its own controls (a gear menu), never from a
+// link: the stock combo, marked socketless so the frontend gives it no input
+// slot - no dot to draw or aim at in either renderer, no row to reserve.
+const SOCKETLESS_CHOICE = "AUSBOSS_SOCKETLESS_COMBO";
+
+function markSocketless(nodeData, names) {
+  for (const name of names) {
+    for (const spec of [nodeData?.input?.optional?.[name]?.[1], nodeData?.input?.required?.[name]?.[1], nodeData?.inputs?.[name]]) {
+      if (spec && typeof spec === "object") Object.assign(spec, { widgetType: SOCKETLESS_CHOICE, socketless: true });
+    }
+  }
 }
 
 app.registerExtension({
   name: "ausboss.widget_cards",
+  getCustomWidgets() {
+    return {
+      // inputData is the input's spec: its options hold the choices.
+      [SOCKETLESS_CHOICE](node, inputName, inputData) {
+        const spec = inputData?.[1] ?? {};
+        const values = Array.isArray(spec.options) ? spec.options : Array.isArray(inputData?.[0]) ? inputData[0] : [];
+        const widget = node.addWidget("combo", inputName, spec.default ?? values[0], () => {}, { values });
+        widget.options.socketless = true;
+        return { widget };
+      },
+    };
+  },
   beforeRegisterNodeDef(nodeType, nodeData) {
     const config = CARDS[nodeData?.name];
     if (!config) return;
     hideInputsInDef(nodeData, cardWidgetNames(config));
+    if (config.socketless?.length) {
+      markSocketless(nodeData, config.socketless);
+      // A workflow saved while the widget still had a socket brings the
+      // empty slot back with it; an unlinked one goes again.
+      chainCallback(nodeType.prototype, "onConfigure", function () {
+        for (let index = (this.inputs?.length ?? 0) - 1; index >= 0; index -= 1) {
+          const input = this.inputs[index];
+          const linked = typeof this.isInputConnected === "function" ? this.isInputConnected(index) : input?.link != null;
+          if (config.socketless.includes(input?.widget?.name) && !linked) {
+            this.removeInput(index);
+          }
+        }
+      });
+    }
     if (config.resetUnknown) {
       // Positional widget values from an older save can land a value that is
       // not one of a choice's options; put the default back before the card
