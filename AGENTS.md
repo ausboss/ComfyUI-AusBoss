@@ -209,10 +209,16 @@ Contributors never change `version`.
 Examples are what most people run first, so each one must work for a
 stranger with only the files its Workflow Note lists.
 
-- Every loader selects the official file name, the basename of its
+- Every model loader selects the official file name, the basename of its
   download URL, carries that file in `properties.models`
   (`name`, `url`, `directory`), and the Note's model row names the same
   file. People who keep models in subfolders pick their copy.
+- Media loaders (Load Image, Load Image + Pad, Load Video, Image Crop +
+  Rotate + Pad and the video nodes) are saved blank. A file name is one the
+  stranger doesn't have, and ComfyUI flags that node red when the workflow
+  loads. The Workflow Note tells people to load their own picture; the
+  sample files stay in `example_workflows/inputs/` for anyone who wants to
+  try one.
 - Save nodes use a filename prefix without a folder. Seeds are fixed.
 - Numbered groups hold every node, nothing overlaps (title bars included),
   the saved zoom is at least 0.6 so widget text draws, the workflow `id` is
