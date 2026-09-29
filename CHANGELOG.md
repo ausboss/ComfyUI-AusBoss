@@ -4,6 +4,16 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Krea 2 Outpaint no longer promises inpainting.** Its Workflow Note and
+  the Krea 2 Outpaint Model Patch help page said you could paint over part
+  of the picture with the mask editor and pad at the same time. That does
+  not work: Load Image + Pad does not take a painted mask. Both now say the
+  workflow only extends the picture outward.
+- **Krea 2 Outpaint Model Patch help: Crop For Inpaint wants `whole
+  canvas`.** The page said a Crop For Inpaint stitcher spreads the reference
+  over the full frame. On `source rectangle` the reference is pinned to
+  where the crop sat in the full picture instead, so the page now says to
+  pick `whole canvas` with one.
 - **Crop For Inpaint keeps its crop inside the picture.** When the painted
   area was big, or the picture small, the crop could reach past the
   picture's edges, and the extra space was filled with stretched copies of
