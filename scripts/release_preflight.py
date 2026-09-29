@@ -112,9 +112,9 @@ ARCHIVE_ALLOWLIST = (
 # the sample media the example workflows load.
 ARCHIVE_MUST_SHIP = ("js/docs/", "example_workflows/inputs/")
 # Bytes before compression. Without the README media the archive is about
-# 12 MB, nearly all of it the example inputs (three sample pictures of about
-# 1 to 4 MB each and a 1.6 MB clip) and thumbnails.
-ARCHIVE_BUDGET = 13_000_000
+# 17.5 MB: 14.9 MB of example inputs (four sample pictures of 0.9 to 5.3 MB
+# and a 1.6 MB clip), 0.6 MB of thumbnails and 2 MB of code and docs.
+ARCHIVE_BUDGET = 18_000_000
 
 
 def within(path, entry):

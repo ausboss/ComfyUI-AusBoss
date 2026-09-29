@@ -68,7 +68,7 @@ It returns the padded `image`, a `mask` of the padding, `width`, `height`, a `st
 
 ![A narrow lakeside pier photo expanded into a wider mountain-and-lake scene with Krea 2 outpainting.](assets/readme/outpaint-showcase.webp)
 
-Load Image + Pad makes the canvas, Krea 2 with the AnyPaint LoRA paints the new area, and Stitch Inpaint puts the original back. [Open the Krea 2 Outpaint workflow →](example_workflows/Krea%202%20Outpaint%20%28AusBoss%29.json)
+A narrow pier photo widened with Krea 2 and the AnyPaint LoRA, with the original stitched back in. The Klein 9B Outpaint example pads its picture with Load Image + Pad. [Open the Klein 9B Outpaint workflow →](example_workflows/Klein%209B%20Outpaint%20%28AusBoss%29.json)
 
 ### Image Resize
 
@@ -289,7 +289,7 @@ Copy the files in [`example_workflows/inputs/`](example_workflows/inputs) into `
 
 | Workflow | What it does | What you need |
 |---|---|---|
-| [Krea 2 Outpaint](example_workflows/Krea%202%20Outpaint%20%28AusBoss%29.json) | Extend a picture on any side at once, then stitch the original back | Krea 2 Turbo and the AnyPaint LoRA; its text encoder also writes the caption |
+| [Krea 2 Outpaint](example_workflows/Krea%202%20Outpaint%20%28AusBoss%29.json) | Pick a ratio or drag the orange handles out, and Krea 2 paints the new area | Krea 2 Turbo and the AnyPaint LoRA; its text encoder also writes the caption; included picture |
 | [Krea 2 Inpaint Masked](example_workflows/Krea%202%20Inpaint%20Masked%20%28AusBoss%29.json) | Paint over part of a picture, say what goes there, and Krea 2 repaints only that | Krea 2 Turbo and the AnyPaint LoRA; the included picture has its mask painted |
 | [Krea 2 Rotate + Outpaint](example_workflows/Krea%202%20Rotate%20%2B%20Outpaint%20%28AusBoss%29.json) | Turn, crop and pad a picture, and Krea 2 paints the new area | Krea 2 Turbo and the AnyPaint LoRA; included picture |
 | [Klein 9B Outpaint](example_workflows/Klein%209B%20Outpaint%20%28AusBoss%29.json) | Extend a picture with the PixaOutpaint LoRA, then stitch the original back | Distilled Klein 9B, its Qwen encoder and the Flux 2 VAE, the PixaOutpaint LoRA, and Qwen3-VL 8B INT8 for the caption |
