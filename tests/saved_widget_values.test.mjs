@@ -13,8 +13,8 @@
 //   1. every DOM widget in the pack is left out of saved workflows;
 //   2. the shipped examples, saved with the old layout, still hand every real
 //      widget its own value when the cards and panels are skipped;
-//   3. an input appended to a node whose older saves end in such a value is
-//      declared below, and a widget input gets a card fallback that fires.
+//   3. an input added to a node whose older saves end in such a value is
+//      declared below, and a widget input gets a fallback that fires.
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -107,22 +107,24 @@ test("the examples hand every widget its own value with the cards and panels ski
   assert.ok(checked >= 10, `expected examples saved with cards and panels, found ${checked}`);
 });
 
-// ---------- 3. inputs appended since a node's saves ended in a placeholder ----------
+// ---------- 3. inputs added since a node's saves began ending in a placeholder ----------
 
-// Workflows saved from 2.0.0 until the cards and panels stopped saving end
-// each of these nodes' widget values with an empty value per card or panel.
-// The listed input was the node's last one when that began (2.0.0, or 2.3.0
-// for Realign to Source), so every input after it was appended since.
-// Frozen history: a node added later never saved one. The widget_kv nodes
-// (Load Video, Save Video, Save Image and the three Crop + Rotate + Pad
-// nodes) save by name and are not listed. Saves made by the 1.x releases are
-// not covered (LaMa Inpaint's, Mask Refine's and Select Frame's preview, and
-// LoRA Loader's on_missing, arrived after their panels).
-const LAST_INPUT_BEFORE_PLACEHOLDER = {
+// Workflows saved before the cards and panels stopped saving end each of
+// these nodes' widget values with an empty value per card or panel: since
+// 1.1.0 for the preview, LoRA, pad and Compare panels (1.2.0 for Select
+// Frame and Show Text), since 2.0.0 for the cards and the other panels, and
+// since 2.3.0 for Realign to Source. Replaying every release from 1.0.0
+// against today's inputs found the inputs added since; APPENDED_SINCE
+// declares them. The input listed here is the node's last one when this
+// guard began, so any input after it is new and must be declared as well.
+// Frozen history: a node added later never saved such a value. The
+// widget_kv nodes (Load Video, Save Video, Save Image and the three Crop +
+// Rotate + Pad nodes) save by name and are not listed.
+const LAST_GUARDED_INPUT = {
   AUSBOSS_NODES_AlignImage: "pad_color",
   AUSBOSS_NODES_ColorMatch: "reference_mode",
   AUSBOSS_NODES_Compare: "image_b",
-  AUSBOSS_NODES_CropForInpaint: "extend_down",
+  AUSBOSS_NODES_CropForInpaint: "keep_inside",
   AUSBOSS_NODES_Float: "value",
   AUSBOSS_NODES_FrameInterpolate: "batch_size",
   AUSBOSS_NODES_ImageResize: "mask",
@@ -130,7 +132,7 @@ const LAST_INPUT_BEFORE_PLACEHOLDER = {
   AUSBOSS_NODES_Krea2Encode: "vlm_reference",
   AUSBOSS_NODES_Krea2OutpaintModelPatch: "placement",
   AUSBOSS_NODES_LaMaInpaint: "preview",
-  AUSBOSS_NODES_LoadImagePad: "target_megapixels",
+  AUSBOSS_NODES_LoadImagePad: "source_image",
   AUSBOSS_NODES_LoraLoader: "on_missing",
   AUSBOSS_NODES_MathExpression: "c",
   AUSBOSS_NODES_MergeBatches: "on_mismatch",
@@ -139,25 +141,35 @@ const LAST_INPUT_BEFORE_PLACEHOLDER = {
   AUSBOSS_NODES_Resolution: "batch_size",
   AUSBOSS_NODES_RunTimer: null,
   AUSBOSS_NODES_Seed: "seed",
-  AUSBOSS_NODES_SelectEveryNth: "offset",
+  AUSBOSS_NODES_SelectEveryNth: "fps",
   AUSBOSS_NODES_SelectFrame: "preview",
   AUSBOSS_NODES_ShowText: "text",
   AUSBOSS_NODES_SplitBatch: "index",
-  AUSBOSS_NODES_StitchInpaint: "color_match",
+  AUSBOSS_NODES_StitchInpaint: "seam",
   AUSBOSS_NODES_Text: "text",
   AUSBOSS_NODES_WorkflowNote: "note",
 };
 
-// Every input appended to those nodes since, and what it is: a socket (a
-// link only, never a saved value) or its widget type. Appending an input to
-// one of these nodes means adding it here, and a widget input also needs a
-// resetUnknown fallback in its card (js/widget_cards/index.js) equal to the
-// node's default - what an API prompt without the input runs with.
+// Every input added to those nodes since their saves began ending in an
+// empty value, and what it is: a socket (a link only, never a saved value)
+// or its widget type. Adding an input to one of these nodes means listing it
+// here, and a widget input also needs a fallback equal to the node's default
+// - what an API prompt without the input runs with: resetUnknown in its card
+// (js/widget_cards/index.js), or RESET_UNKNOWN beside NODE_CLASS in its own
+// js/<name>/index.js for a node without a card.
 const APPENDED_SINCE = {
+  // Added in 2.4.0; 2.0.0 - 2.3.0 saves hold the card's value there.
   AUSBOSS_NODES_CropForInpaint: { keep_inside: "toggle" },
+  AUSBOSS_NODES_StitchInpaint: { seam: "combo" },
+  // Added in 2.0.0; 1.x saves hold the preview panel's value there (Select
+  // Frame's from 1.2.0), or the LoRA panel's.
+  AUSBOSS_NODES_LaMaInpaint: { preview: "toggle" },
+  AUSBOSS_NODES_RefineMask: { preview: "toggle" },
+  AUSBOSS_NODES_SelectFrame: { preview: "toggle" },
+  AUSBOSS_NODES_LoraLoader: { on_missing: "combo" },
+  // Sockets, which hold no saved value.
   AUSBOSS_NODES_LoadImagePad: { source_image: "socket" },
   AUSBOSS_NODES_SelectEveryNth: { fps: "socket" },
-  AUSBOSS_NODES_StitchInpaint: { seam: "combo" },
 };
 
 // What such an input receives from an older save: the card's or panel's "",
@@ -165,6 +177,9 @@ const APPENDED_SINCE = {
 const OLD_SLOT_VALUES = ["", "image"];
 
 const NODE_API = JSON.parse(readFileSync(join(ROOT, "tests", "fixtures", "node_api.json"), "utf-8"));
+
+// A resetUnknown or RESET_UNKNOWN object literal, keys unquoted.
+const parseFallbacks = (literal) => JSON.parse(literal.replace(/(\w+):/g, '"$1":'));
 
 function cardEntry(nodeId) {
   const source = readFileSync(join(JS_ROOT, "widget_cards", "index.js"), "utf-8");
@@ -174,50 +189,60 @@ function cardEntry(nodeId) {
   return next < 0 ? source.slice(start) : source.slice(start, start + 1 + next);
 }
 
-// The card's resetUnknown fallbacks, read from js/widget_cards/index.js.
-function cardFallbacks(nodeId) {
-  const literal = cardEntry(nodeId)?.match(/resetUnknown: (\{[^}]*\})/)?.[1];
-  return literal ? JSON.parse(literal.replace(/(\w+):/g, '"$1":')) : {};
+// A node's fallbacks: its card's resetUnknown, or RESET_UNKNOWN in the
+// js/<name>/index.js whose NODE_CLASS is the node.
+function nodeFallbacks(nodeId) {
+  const card = cardEntry(nodeId)?.match(/resetUnknown: (\{[^}]*\})/)?.[1];
+  if (card) return parseFallbacks(card);
+  for (const name of readdirSync(JS_ROOT)) {
+    let source;
+    try {
+      source = readFileSync(join(JS_ROOT, name, "index.js"), "utf-8");
+    } catch {
+      continue;
+    }
+    if (!source.includes(`const NODE_CLASS = "${nodeId}";`)) continue;
+    const own = source.match(/^const RESET_UNKNOWN = (\{[^}]*\});$/m)?.[1];
+    if (own) return parseFallbacks(own);
+  }
+  return {};
 }
 
-function appendedInputs(nodeId) {
-  const api = NODE_API[nodeId];
-  assert.ok(api, `${nodeId} is missing from tests/fixtures/node_api.json`);
-  const inputs = [...api.required, ...api.optional];
-  const last = LAST_INPUT_BEFORE_PLACEHOLDER[nodeId];
-  const at = last === null ? -1 : inputs.indexOf(last);
-  assert.ok(last === null || at >= 0, `${nodeId} no longer has ${last}; inputs only grow`);
-  return inputs.slice(at + 1);
-}
-
-test("every input appended since a node's saves ended in a placeholder is declared", () => {
-  for (const nodeId of Object.keys(LAST_INPUT_BEFORE_PLACEHOLDER)) {
-    const appended = appendedInputs(nodeId);
+test("every input added since a node's saves began ending in a placeholder is declared", () => {
+  for (const [nodeId, last] of Object.entries(LAST_GUARDED_INPUT)) {
+    const api = NODE_API[nodeId];
+    assert.ok(api, `${nodeId} is missing from tests/fixtures/node_api.json`);
+    const inputs = [...api.required, ...api.optional];
+    const at = last === null ? -1 : inputs.indexOf(last);
+    assert.ok(last === null || at >= 0, `${nodeId} no longer has ${last}; inputs only grow`);
     const declared = APPENDED_SINCE[nodeId] ?? {};
-    for (const name of appended) {
+    for (const name of inputs.slice(at + 1)) {
       assert.ok(
         name in declared,
-        `${nodeId}: ${name} was appended after older saves ended in a card's or panel's empty value. `
-          + "Add it to APPENDED_SINCE in this test as a socket or its widget type; a widget input also "
-          + "needs a resetUnknown fallback in its card equal to the node's default",
+        `${nodeId}: ${name} is new, and older saves hand it a card's or panel's empty value. `
+          + "List it in APPENDED_SINCE in this test as a socket or its widget type; a widget input also "
+          + "needs a fallback equal to the node's default (see APPENDED_SINCE)",
       );
     }
     for (const name of Object.keys(declared)) {
-      assert.ok(appended.includes(name), `${nodeId}: APPENDED_SINCE lists ${name}, which is not an appended input`);
+      assert.ok(inputs.includes(name), `${nodeId}: APPENDED_SINCE lists ${name}, which is not one of its inputs`);
     }
   }
   for (const nodeId of Object.keys(APPENDED_SINCE)) {
-    assert.ok(nodeId in LAST_INPUT_BEFORE_PLACEHOLDER, `${nodeId} is in APPENDED_SINCE but not in the history above`);
+    assert.ok(nodeId in LAST_GUARDED_INPUT, `${nodeId} is in APPENDED_SINCE but not in LAST_GUARDED_INPUT`);
   }
 });
 
-test("an appended widget input opens an older save with its fallback, not the old slot's value", () => {
+test("an added widget input opens an older save with its fallback, not the old slot's value", () => {
   for (const [nodeId, inputs] of Object.entries(APPENDED_SINCE)) {
     for (const [name, type] of Object.entries(inputs)) {
       if (type === "socket") continue;
-      assert.ok(cardEntry(nodeId), `${nodeId}: ${name} is a widget input, and the node has no card to reset it`);
-      const fallbacks = cardFallbacks(nodeId);
-      assert.ok(name in fallbacks, `${nodeId}: the card has no resetUnknown fallback for ${name}`);
+      const fallbacks = nodeFallbacks(nodeId);
+      assert.ok(
+        name in fallbacks,
+        `${nodeId}: no fallback for ${name} - add it to the card's resetUnknown, or to RESET_UNKNOWN `
+          + "beside NODE_CLASS in the node's own js/<name>/index.js",
+      );
       const fallback = fallbacks[name];
       for (const old of OLD_SLOT_VALUES) {
         const widget = { name, type, value: old, options: { values: [fallback] } };
@@ -233,4 +258,14 @@ test("an appended widget input opens an older save with its fallback, not the ol
       assert.deepEqual(resetUnknownValues([saved], { [name]: fallback }), []);
     }
   }
+});
+
+test("a node without a card applies its own RESET_UNKNOWN when a workflow opens", () => {
+  // The LoRA Loader has no card; its fallback only helps if the node runs it.
+  const source = readFileSync(join(JS_ROOT, "lora_loader", "index.js"), "utf-8");
+  assert.deepEqual(nodeFallbacks("AUSBOSS_NODES_LoraLoader"), { on_missing: "error" });
+  assert.match(
+    source,
+    /chainCallback\(nodeType\.prototype, "onConfigure", function \(\) \{\s*resetUnknownValues\(this\.widgets, RESET_UNKNOWN\);/,
+  );
 });

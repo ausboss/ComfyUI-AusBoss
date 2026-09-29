@@ -10,6 +10,7 @@ import {
   openSettingsMenu,
 } from "../shared/settings_menu.mjs";
 import { makeScrubInput } from "../shared/scrub_input.mjs";
+import { resetUnknownValues } from "../shared/widget_card_math.mjs";
 import {
   BYPASS_MODE,
   DEFAULT_STEP,
@@ -64,6 +65,10 @@ import {
 } from "../shared/lora_stack.mjs";
 
 const NODE_CLASS = "AUSBOSS_NODES_LoraLoader";
+// A workflow saved by a 1.x release holds the panel's own empty value where
+// on_missing now sits (saved values come back by position); it loads as
+// "error", the node's default and what an API prompt without it runs with.
+const RESET_UNKNOWN = { on_missing: "error" };
 const ROW_HEIGHT = 30;
 const ROW_GAP = 6;
 const ACTIONS_HEIGHT = 26;
@@ -1837,6 +1842,9 @@ app.registerExtension({
     hideInputsInDef(nodeData, ["loras", "trigger_separator", "on_missing"]);
     chainCallback(nodeType.prototype, "onNodeCreated", function () {
       installLoraNode(this);
+    });
+    chainCallback(nodeType.prototype, "onConfigure", function () {
+      resetUnknownValues(this.widgets, RESET_UNKNOWN);
     });
   },
 });

@@ -40,6 +40,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
   Inpaint's Seam and Crop For Inpaint's Stay in picture went wrong in older
   workflows. Workflows you save now leave the cards and panels out, and
   workflows saved before still open exactly as they did.
+- **Workflows from the 1.x versions open with the right switches.** In LaMa
+  Inpaint, Mask Refine and Select Frame the preview switch showed on, but no
+  preview was made. It now opens on and works. LoRA Loader's settings showed
+  Stop on missing LoRA off, even though the node still stopped the run. It
+  now shows on, matching what the node does.
 
 ## 2.4.0 - 2026-09-29
 

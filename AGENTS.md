@@ -83,9 +83,11 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   Workflows saved by earlier releases end that node's values with an empty
   value for each card and panel, and values come back by position, so the
   new input opens holding that empty value. Give a widget input a
-  `resetUnknown` fallback in its card (`js/widget_cards/index.js`) equal to
-  the node's default, which is what an API prompt without the input runs
-  with, and list the input in `tests/saved_widget_values.test.mjs`. Cards and
+  `resetUnknown` fallback in its card (`js/widget_cards/index.js`), or a
+  `RESET_UNKNOWN` beside `NODE_CLASS` in the node's own `js/<name>/index.js`
+  if it has no card (as LoRA Loader does). The fallback equals the node's
+  default, which is what an API prompt without the input runs with. Then
+  list the input in `tests/saved_widget_values.test.mjs`. Cards and
   panels themselves are never saved: set `widget.serialize = false` right
   after `addDOMWidget` (`options.serialize` only keeps a widget out of the
   prompt).
