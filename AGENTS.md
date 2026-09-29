@@ -23,6 +23,11 @@ workflow pages. Get more technical later in the text, or in its own section.
   estimator, canvas space). If a term is needed, say what it means the
   first time.
 - Put a number up top only when it helps someone decide what to do.
+- Sound like a person explaining it, not an ad: no hype words, no filler,
+  no em-dash asides. Tell people how to use it on their own picture, not
+  how to recreate our sample.
+- These texts look professional: full sentences, proper capitals and clean
+  punctuation.
 
 If a sentence needs a second read, rewrite it.
 
@@ -224,8 +229,8 @@ Before asking for a merge or a publish, every fix PR and every model release
 ships a proof package: a failing-then-passing test, before/after evidence, and
 a dev server with ready-to-run workflows. See `docs/proof_packages.md`.
 
-Publishing workflows to Civitai, cover videos, replies to users and the test
-servers are covered by ausboss's creator playbook, the `comfy-community` shared
+Publishing workflows to Civitai, cover videos and the test servers are
+covered by ausboss's creator playbook, the `comfy-community` shared
 skill (`~/Documents/openclaw-shared-skills/comfy-community`; start at its "Get up
 to speed" section).
 
