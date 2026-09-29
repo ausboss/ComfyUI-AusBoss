@@ -24,8 +24,9 @@ Nothing executes. The node has no outputs and is never part of the prompt.
 
 ## Models
 
-Each row is a file, the model folder it belongs in, an optional size, and a
-download URL. Rows group under a `📂 ComfyUI/models/<folder>` heading so the
+Each row is a file, the model folder it belongs in, an optional size, a
+download URL, and an optional note that shows in grey under the file name.
+Rows group under a `📂 ComfyUI/models/<folder>` heading so the
 card reads like the install tree — the "where do I put this" question is
 answered on the same line as the button.
 
