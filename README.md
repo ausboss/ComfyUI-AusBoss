@@ -1,6 +1,6 @@
 <div align="center">
   <h1>ComfyUI-AusBoss</h1>
-  <p><strong>Polished nodes for the workflows I use most.</strong></p>
+  <p>ComfyUI nodes for image and video work.</p>
   <p>
     <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT License">
     <!-- Dynamic: shields.io reads the version out of pyproject.toml on main
@@ -10,327 +10,332 @@
   </p>
 </div>
 
-ComfyUI-AusBoss provides compact image, video, inpaint, and workflow utility nodes. Numeric controls scrub by dragging, click to type, and use Shift for fine steps. Visual tools share the same crop, pad, and rotation controls. The **?** in each node's title bar opens a card with its inputs and outputs, and a longer help page for every node opens in ComfyUI's node help panel.
+I made these nodes for my own ComfyUI workflows, mostly because I wanted features I couldn't find in other packs. I use them myself, and I keep adding new ones.
 
-![LoRA Loader absorbs a connected LoRA chain, shows strength changes while scrubbing, and restores the previous toggle selection.](assets/readme/lora-chain-demo.gif)
+Most of them are for image and video work. You can rotate, crop and pad a picture by dragging handles on the node, trim a clip on a timeline, and outpaint or inpaint with your original pixels put back. ComfyUI's core nodes already cover the basics, like seeds, sizes and prompts, so use these where they add something.
 
-**One stack, less clutter.** Absorb connected LoRA loaders, scrub strengths with visible feedback, and toggle the stack off and back to your previous selection.
-
-![A narrow lakeside pier photo expanded into a wider mountain-and-lake scene with Krea 2 outpainting.](assets/readme/outpaint-showcase.webp)
-
-**Make room for more.** Load Image + Pad prepares the canvas; Krea 2 + AnyPaint generates the extension; Stitch Inpaint brings the original back. [Open the outpaint workflow →](example_workflows/Krea%202%20Outpaint%20%28AusBoss%29.json)
-
-Ready-to-run workflows built on these nodes are on [Civitai](https://civitai.com/user/AusBoss), and I post new ones on [X @Zanzibased](https://x.com/Zanzibased). If a node saves you time, a ⭐ helps other people find it.
+The **?** in a node's title bar opens a short card with its inputs and outputs, and every node has a longer help page in ComfyUI's node help panel. I post the workflows I make with them on [Civitai](https://civitai.com/user/AusBoss) and [X @Zanzibased](https://x.com/Zanzibased).
 
 ## Install
 
-In **ComfyUI-Manager**, open the Custom Nodes Manager, search for **AusBoss** and install it; `comfy node install ausboss-nodes` does the same from the command line. To follow the newest changes, clone the repository instead:
+In **ComfyUI-Manager**, open the Custom Nodes Manager, search for **AusBoss** and install it. From the command line, `comfy node install ausboss-nodes` does the same. To get the newest changes first, clone the repository instead:
 
 ```bash
 cd ComfyUI/custom_nodes
 git clone https://github.com/ausboss/ComfyUI-AusBoss.git
 ```
 
-Restart ComfyUI and search the node library for **AusBoss**. After an update, through Manager or `git pull`, restart again and hard-refresh the browser with **Ctrl+Shift+R**: the browser otherwise keeps the old JavaScript, and the pack shows a warning when it does. A new version reaches Manager once the Comfy Registry has reviewed it, so GitHub can be a little ahead.
+Restart ComfyUI and search the node library for **AusBoss**.
 
-### If Manager can't find AusBoss
+After an update, through Manager or `git pull`, restart ComfyUI and hard-refresh the browser with **Ctrl+Shift+R**. Otherwise the browser keeps the old JavaScript, and the pack warns you about it. A new version reaches Manager once the Comfy Registry has reviewed it, so GitHub can be a little ahead.
 
-The classic ComfyUI-Manager window can answer **Install Missing Custom Nodes** with *Failed to find the following ComfyRegistry list: ausboss-nodes*. That comes from a Manager setting, not from the pack: open **Manager**, and if the **Channel** box is empty, pick **default**, then click **Install Missing Custom Nodes** again. The newer Manager panel (**Extensions → Missing Nodes**) finds the pack without this step.
+The pack uses the Pillow, NumPy, Torch and PyAV that come with ComfyUI. Each example lists the models it needs on its Workflow Note. LaMa Inpaint also needs [`big-lama.pt`](https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt) in `ComfyUI/models/lama/`. The pack never downloads weights by itself.
 
-![The classic Manager window: pick default in the empty Channel box, then click Install Missing Custom Nodes](assets/readme/manager-channel-fix.webp)
+### Upgrading from 1.x
 
-**Upgrading from 1.x:** 2.0 removed **LM Studio Chat** (use **Text** for a fixed prompt), Align Image's `offset_x`/`offset_y` outputs, and Math Expression's typed `a`/`b`/`c` boxes, which are sockets now: put constants in the expression. 1.2 removed **Drop Shadow**, **Pad Image** (use **Load Image + Pad**) and **Frame Chooser**. Save Image writes only inside ComfyUI's output folder. The [changelog](CHANGELOG.md) has the details.
+2.0 removed **LM Studio Chat** (use **Text** for a fixed prompt) and Align Image's `offset_x` and `offset_y` outputs. Math Expression's `a`, `b` and `c` are sockets now instead of typed boxes, so put constants in the expression itself. 1.2 removed **Drop Shadow**, **Pad Image** (use **Load Image + Pad**) and **Frame Chooser**. Save Image writes only inside ComfyUI's output folder. The [changelog](CHANGELOG.md) has the details.
 
-The pack uses Pillow, NumPy, Torch, and PyAV supplied by ComfyUI. Model workflows need the weights listed on their Workflow Note cards. LaMa additionally needs [`big-lama.pt`](https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt) in `ComfyUI/models/lama/`; it never downloads weights automatically.
-
-| Find a node | What is included |
+| Section | What's in it |
 |---|---|
-| [Image](#image-nodes) | Load and transform, resize, align, realign edits, measure, compare, save |
-| [Video](#video-nodes) | Load and trim, pick a frame, transform a clip, interpolate, save |
-| [Mask and inpaint](#mask-and-inpaint-nodes) | Refine masks, LaMa removal, crop and stitch |
-| [Models and conditioning](#models-and-conditioning) | LoRA stack, Krea 2 prompt and reference conditioning |
-| [Workflow utilities](#workflow-utilities) | Resolution, seed, batch operations, math, text, memory, notes, timer |
-| [Examples](#example-workflows) | Seven grouped graphs with setup cards and thumbnails |
+| [Image nodes](#image-nodes) | Rotate, crop and pad; resize, align and measure; match colors; realign edits; compare; save |
+| [Video nodes](#video-nodes) | Load and trim, pick a frame, transform a clip, change the frame rate, save |
+| [Mask and inpaint nodes](#mask-and-inpaint-nodes) | Refine masks, remove objects with LaMa, crop around a mask and stitch the result back |
+| [Models and conditioning](#models-and-conditioning) | LoRA stack, Krea 2 prompts and references |
+| [Workflow utilities](#workflow-utilities) | Canvas size, seed, batches, math, text, memory, notes, timer |
+| [Example workflows](#example-workflows) | Seven workflows, each with a setup card |
 | [For workflow creators](#for-workflow-creators) | Setup cards, before and after, repeatable seeds, measured run times |
 | [Pack-wide tools](#pack-wide-tools) | Help cards, node colors, recreate and replace, run status, completion sound |
 
 ## Image nodes
 
-### Image Crop + Rotate + Pad 🆎
+### Image Crop + Rotate + Pad
 
-Load an image and **rotate → crop → pad** it. Drag cyan crop handles, orange padding diamonds, and the green rotation handle directly on the compact preview, or open the full-screen editor for precise dimensions, zoom, and pan. Choose **Crop** or **Pad** below the aspect chips: Crop locks a crop ratio; Pad grows the canvas to the chosen shape. **Reset crop** restores the full crop, and **Align** sets the canvas pixel multiple. Feather and output resizing are available on the node and in the editor.
+Rotate, crop and pad a picture by dragging handles on the node. Cyan squares crop, orange diamonds pad, and the green handle rotates. It rotates first, then crops, then pads. The full-screen editor adds exact sizes, zoom and pan.
 
-Returns the transformed `image`, a generated-area `mask`, a `stitcher`, the untransformed `original`, and the output `width` and `height`. The mask covers padding, source transparency, and rotation corners. Connect the stitcher to **Stitch Inpaint** after generation; **Load Image + Pad** offers additional fill choices and a separate conditioning reference.
+Under the aspect chips, pick **Crop** or **Pad**. Crop locks the crop to that shape, and Pad grows the canvas to it. **Reset crop** brings back the whole picture, and **Align** rounds the canvas to a multiple of pixels. Feather and output resizing are on the node and in the editor.
+
+It returns the `image`, a `mask` of everything it added (padding, see-through parts of the source and the corners a rotation opens up), a `stitcher`, the untouched `original`, and the output `width` and `height`. Wire the stitcher into **Stitch Inpaint** after the sampler to put your original back. **Load Image + Pad** has more fill choices and a separate reference output.
 
 ![The full-screen image editor with a rotated lake photo, cyan crop handles, orange padding handles, aspect ratios, and dimension controls.](assets/readme/image-editor.webp)
 
-**Shape it by eye, finish with exact values.** The same handles work on the node and in the full-screen editor. [Try the Krea 2 Rotate + Outpaint example →](example_workflows/Krea%202%20Rotate%20%2B%20Outpaint%20%28AusBoss%29.json)
+[Try the Krea 2 Rotate + Outpaint example →](example_workflows/Krea%202%20Rotate%20%2B%20Outpaint%20%28AusBoss%29.json)
 
-### Load Image + Pad 🆎
+### Load Image + Pad
 
-Build an outpaint canvas by dragging its edges. The Source list previews the image under the pointer. The card offers solid color, edge-average, edge-pixel, or blurred-image fill, a seam feather, canvas multiple, and megapixel budget. **Exact padding** opens one scrub control per side. A zero budget keeps the source size; a positive budget resizes the source before padding.
+Makes a canvas for outpainting: drag the edges out to add room around a picture. The Source list shows the picture under the pointer. The new area can be a solid color, the average color of the nearest edge, the edge pixels smeared outward, a blurred copy of the picture, or a mirror of it. The card also has a seam feather, a canvas multiple and a megapixel budget, and **Exact padding** opens one control per side. A budget of 0 keeps the picture's size, and anything higher resizes the picture before padding. A picture wired into `source_image` is padded instead of the chosen file.
 
-Returns the padded `image`, padding `mask`, `width`, `height`, a `stitcher`, and a smaller unpadded `reference` for conditioning. Connect the stitcher to **Stitch Inpaint** after generation to preserve the source outside the seam.
+It returns the padded `image`, a `mask` of the padding, `width`, `height`, a `stitcher`, and a smaller unpadded `reference` for the model. Wire the stitcher into **Stitch Inpaint** after the sampler, and everything outside the seam stays your original picture.
 
-### Image Resize 🆎
+![A narrow lakeside pier photo expanded into a wider mountain-and-lake scene with Krea 2 outpainting.](assets/readme/outpaint-showcase.webp)
 
-Resize to **width × height**, longest edge, shortest edge, megapixels, or a scale factor. Fit inside a box, stretch to it, cover and crop, or pad with a chosen color. New nodes start in megapixels mode; saved workflows retain their chosen mode. The card shows the controls relevant to that mode; width and height accept separate links.
+Load Image + Pad makes the canvas, Krea 2 with the AnyPaint LoRA paints the new area, and Stitch Inpaint puts the original back. [Open the Krea 2 Outpaint workflow →](example_workflows/Krea%202%20Outpaint%20%28AusBoss%29.json)
 
-An optional mask follows the same geometry. Outputs are `image`, `mask`, `width`, and `height`. Pad bars become white in the mask; otherwise a missing input mask stays black. `divisible_by` rounds the dimensions to a chosen multiple, and the interpolation control selects the image filter.
+### Image Resize
 
-### Align Image 🆎
+Resizes to a width and height, a longest or shortest edge, a megapixel count, or a scale factor. It can fit inside the size, stretch to it, fill it and crop the rest, or pad with a color you pick. New nodes start in megapixels mode, and saved workflows keep their mode. The card shows only the controls for the chosen mode, and width and height each take their own link.
 
-Snap dimensions to a chosen multiple through **resize**, **crop**, or **pad**. Crop and pad have position anchors; padding can use edge pixels or a solid color. Returns the aligned image and its width and height. Use it when a downstream model requires divisible dimensions without retyping a target size.
+An optional mask is resized the same way. It returns `image`, `mask`, `width` and `height`. Padding shows up white in the mask, and with no mask wired in, the rest of the mask is black. `divisible_by` rounds the size to a multiple, and `interpolation` picks the resize filter.
 
-### Image Size 🆎
+### Align Image
 
-Read `width`, `height`, `longest_edge`, `shortest_edge`, and batch `count` as integers. Wire these into resizing, latent creation, frame-count calculations, or math so the workflow follows its source dimensions.
+Rounds a picture's size to a multiple you choose, by resizing, cropping or padding. Use it when the next model needs sizes that divide evenly and you don't want to type a target size. Crop and pad have anchors for where to cut or add, and padding can repeat the edge pixels or use a solid color. It returns the picture with its width and height.
 
-### Color Match 🆎
+### Image Size
 
-Match an image to a reference with **LAB**, **RGB**, **MKL**, or **histogram** transfer. Strength controls the blend; an optional mask and invert control limit the correction. With `reference_mode` set to **first frame**, every frame uses the batch's first frame as its reference. This can reduce color drift between frames, but does not stabilize motion.
+Reads a picture's `width`, `height`, `longest_edge`, `shortest_edge` and batch `count` as whole numbers. Wire them into a resize, a latent, a frame count or Math Expression, so the rest of the graph follows the source's size.
 
-### Realign to Source (EXPERIMENTAL 🧪) 🆎
+### Color Match
 
-Undo the zoom and shift an edit model adds to a broad edit. Qwen Image 2.1 draws style changes a few percent taller, up to about 12%, differently for every seed. Wire the edit and the picture it was made from: the node measures the drift and warps the edit back onto the source's frame, at the source's size. It fixes the whole-frame zoom and shift, not shapes a restyle redrew in a new place, so the result lines up closely rather than pixel for pixel.
+Matches a picture's colors to a reference, with LAB, RGB, MKL or histogram transfer. Strength sets how much, and an optional mask (with invert) limits where. With `reference_mode` set to first frame, every frame of a batch matches the batch's first frame. That can cut down color drift in a clip, but it does not steady motion.
 
-**Fit** is zoom + shift (how Qwen edits drift) or affine. A drift that is a whole-pixel shift is cut out with no resampling. Made at the picture's own size, an edit loses a thin strip the model pushed out of view: `empty_mask` marks it to crop or inpaint, and **Empty fill** chooses what it shows meanwhile. Give it a margin instead: pad the picture with **Load Image + Pad**'s `mirror` fill before the edit and wire its `stitcher` in, and the node returns just the picture's area with real picture at the edges. `report` gives the measured zoom and shift, and the margin a side needed when an edit ran out of picture. A frame it cannot measure passes through at the source's size, and the report says why. [Try the Qwen Image 2.1 Edit + Realign example →](example_workflows/Qwen%20Image%202.1%20Edit%20%2B%20Realign%20%28AusBoss%29.json)
+### Realign to Source (EXPERIMENTAL 🧪)
 
-### Image Compare A/B 🆎
+Lines an edited picture back up with the original. Qwen Image 2.1 often draws an edit, especially a style change, a little bigger or shifted: up to about 12% taller, by a different amount every seed. Wire in the edit and the picture it was made from. The node measures how far the edit moved and moves it back, at the original's size. It fixes the zoom and shift of the whole picture, not shapes the edit redrew in a new place, so the result lines up closely rather than pixel for pixel.
 
-Compare two images with a sliding reveal or a full-image A/B toggle. The picture remains unobstructed, with its resolution below it. The panel grows with the node and passes image A through, so it can sit anywhere along an image wire.
+For the best result, pad the picture with Load Image + Pad's `mirror` fill before the edit and wire its `stitcher` in. The edit gets room to move, and you get back just your picture's area with real picture at the edges. Without that margin, an edit made at the picture's own size loses a thin strip the model pushed out of view. `empty_mask` marks that strip so you can crop or inpaint it, and **Empty fill** picks what it shows in the meantime.
 
-### Save Image 🆎
+**Fit** is `zoom + shift` (how Qwen edits drift) or `affine`, which also fixes a slight tilt. When the drift is a whole number of pixels, the node cuts the picture out as it is, with no resizing. `report` gives the measured zoom and shift, and the margin a side needed when an edit ran out of picture. A picture it can't measure passes through at the source's size, and the report says why. [Try the Qwen Image 2.1 Edit + Realign example →](example_workflows/Qwen%20Image%202.1%20Edit%20%2B%20Realign%20%28AusBoss%29.json)
 
-Choose an output folder, browse its subfolders, edit the filename, and check the live path preview. Counter, date, time, size, and batch-number chips build reusable names. Save **PNG**, **lossless WebP**, or **lossless JPEG XL**, with optional embedded workflow metadata.
+### Image Compare A/B
 
-Link `filename` to retain an upstream name, or `caption_text` to write a matching `.txt` sidecar for each image. The counter selects a free path; turning it off deliberately reuses the chosen path. JPEG XL needs the optional `pillow-jxl-plugin` extra. See the [full naming and compatibility notes](js/docs/AUSBOSS_NODES_SaveImage.md).
+Compares two pictures with a slider, or flips between them whole. Nothing covers the picture, and its size shows underneath. The panel grows with the node, and image A passes through, so you can put it anywhere on an image wire.
+
+### Save Image
+
+Saves PNG, lossless WebP or lossless JPEG XL, with the workflow embedded if you want it. Pick a folder inside ComfyUI's output folder or browse its subfolders, edit the file name, and the path preview shows where the file will go. Chips add a counter, the date, the time, the size or a batch number to the name.
+
+Link `filename` to keep a name from upstream, or `caption_text` to write a matching `.txt` next to each picture. The counter picks a name that isn't taken yet. Turn it off to reuse the same path on purpose. JPEG XL needs the optional `pillow-jxl-plugin` extra. The [help page](js/docs/AUSBOSS_NODES_SaveImage.md) has the full naming and compatibility notes.
 
 ![The Save Image card with date and size naming chips beside a detailed fisherman portrait.](assets/readme/save-showcase.webp)
 
-**From final render to organized output.** A portrait saved with its date, dimensions, and workflow.
+A portrait saved with the date and size in its name and the workflow embedded.
 
 ## Video nodes
 
 ![Animated comparison of a vertical pier clip and its wider LTX 2.3 outpainted result, showing the added lake and shoreline.](assets/readme/video-outpaint.gif)
 
-**Give a vertical clip a wider world.** This LTX 2.3 example extends the sides and stitches the source frames back in, keeping the clip's audio when it has any (this preview loop is silent). The outpaint LoRA needs a pure black fill; grey or white bands come back flat. With that canvas it works at any aspect ratio and on any side. [Open the video outpaint workflow →](example_workflows/LTX%202.3%20Video%20Outpaint%20%28AusBoss%29.json)
+The LTX 2.3 Video Outpaint example widens a vertical clip and stitches the original frames back in. It keeps the clip's audio when there is any (this preview is silent). The outpaint LoRA needs a pure black fill, since gray or white bands come back flat. With a black canvas it works at any aspect ratio and on any side. [Open the LTX 2.3 Video Outpaint workflow →](example_workflows/LTX%202.3%20Video%20Outpaint%20%28AusBoss%29.json)
 
-### Load Video 🆎
+### Load Video
 
-Upload a video, or pick one from a Source list that plays the clip under the pointer, and trim it with IN/OUT handles or typed timecodes. The player previews the selected window and can loop it. Width and height can resize during decode; setting only one preserves aspect. `every_nth` thins frames and adjusts the reported fps to preserve timing; `max_frames` limits the decode.
+Upload a video, or pick one from the Source list, which plays the clip under the pointer. Trim it with IN and OUT handles or typed timecodes. The player plays the part you kept and can loop it. Width and height resize while decoding, and setting only one keeps the shape. `every_nth` skips frames and lowers the reported fps so the timing stays right, and `max_frames` caps how many frames load.
 
-Returns frames, lazy audio, frame count, fps, width, height, duration, and a core `VIDEO` handle. Only the selected window is decoded, with a memory check before a large allocation. Connect its fps downstream when saving the frames.
+It returns the frames, audio, frame count, fps, width, height, duration and a core `VIDEO`. Only the part you kept is decoded, and it checks memory before a large load. When you save the frames, wire its fps into the save node.
 
-### Video Crop + Rotate + Pad → Frame 🆎
+### Video Crop + Rotate + Pad → Frame
 
-Find **one frame** in an uploaded or local video, then apply the image transform controls and an optional megapixel resize. A playhead rail on the node scrubs to the frame; the editor adds exact frame stepping and playback. Returns one transformed `image`, its generated-area `mask`, a `stitcher`, the selected `original` frame, and the output `width` and `height`. Use the Clip variant for an entire sequence.
+Picks one frame from a video, then gives you the same rotate, crop and pad controls as the image node, plus an optional megapixel resize. Scrub to the frame with the playhead on the node; the editor adds frame-by-frame stepping and playback. It returns the transformed `image`, a `mask` of the added area, a `stitcher`, the chosen `original` frame, and the output `width` and `height`. For a whole clip, use the Clip version below.
 
-### Video Crop + Rotate + Pad → Clip 🆎
+### Video Crop + Rotate + Pad → Clip
 
-Apply one transform to every frame of a trimmed clip. The node combines source selection, a timeline with a playhead and frame-accurate IN/OUT handles, frame thinning, a frame limit, crop/rotate/pad handles, and output resizing. Dragging a trim handle shows the exact first or last frame the run keeps, and the selection's bright part is what reaches the output. Fill, feather and the resize budget sit on the node face, and a new clip keeps them, so the black hard-edged canvas a video outpaint model needs survives a source swap; a fresh Clip node starts with that canvas and the editor’s Reset transform returns to it. **Snap** trims the tail to an 8n+1 or 4n+1 frame count when the next video model needs it. Choose Crop or Pad beneath the format chips. In Pad mode, tap a format to pad to it and tap again to lock it; Crop mode locks the crop ratio.
+Applies one rotate, crop and pad to every frame of a trimmed clip. It has the source picker, a timeline with a playhead and frame-accurate IN and OUT handles, frame skipping, a frame limit, the transform handles and output resizing. While you drag a trim handle, the node shows the exact first or last frame the run keeps. The bright part of the selection is what gets output.
 
-Returns frames, mask, audio, frame count, fps, size, duration, a `stitcher`, and the selected `original` frames before the spatial transform. **Inpaint & Stitch** in the editor controls the protected source region and blend preview. Wire that stitcher directly to **Stitch Inpaint** after a video outpaint; no intermediate Crop For Inpaint is needed. Processing is chunked to limit temporary memory.
+Fill, feather and the resize budget sit on the node face, and a new clip keeps them. That matters for video outpainting, because the black, hard-edged canvas the model needs survives a source swap. A fresh Clip node starts with that canvas, and the editor's **Reset transform** goes back to it. **Snap** trims the end to an 8n+1 or 4n+1 frame count when the next video model needs one. Pick Crop or Pad under the format chips. In Pad mode, tap a format to pad to it and tap it again to lock it. Crop mode locks the crop shape.
+
+It returns the frames, mask, audio, frame count, fps, size, duration, a `stitcher`, and the chosen `original` frames before the transform. **Inpaint & Stitch** in the editor sets the protected source area and previews the blend. After a video outpaint, wire the stitcher straight into **Stitch Inpaint**, with no Crop For Inpaint in between. It works in chunks to keep memory down.
+
+**Fixed frames** sets an exact output length: 120 frames at 24 fps is five seconds. Drag either handle, or drag the highlighted band to move the whole window. Type the count, or link a frame count into `fixed_frames`. 0 turns the fixed length off. The frame limit still caps the length.
 
 ![The full-screen video editor with a portrait clip padded to landscape, an Inpaint and Stitch panel, and a timeline with IN and OUT handles.](assets/readme/video-editor.webp)
 
-**Fixed frames** selects an exact output length: 120 frames at 24 fps is five seconds. Drag either handle or the highlighted band to move the whole window. Type the count or link a frame-count node to `fixed_frames`; use 0 for free trim. The existing frame cap remains a maximum limit.
+The Clip node's editor, from the video outpaint example.
 
-**Frame, trim, and prepare the blend in one editor.** The timeline and protected-region preview belong to the same Clip node used in the video outpaint above.
+### Select Frame
 
-### Select Frame 🆎
+Picks one frame from a batch, unchanged: `1` is the first, `-1` the last and `-2` the one before it. 0, or a number past the end, stops with an error that gives the valid range. The preview switch shows the frame, or hides it and skips writing the preview file.
 
-Select one unchanged frame from an image batch: **1** is the first, **-1** the last, and **-2** the next-to-last. Zero and out-of-range values report the valid range. The preview switch shows the selected frame or hides the picture and skips writing its preview file.
+### Frame Interpolate
 
-### Frame Interpolate 🆎
+Changes a clip's frame rate by making in-between frames. You set the source and target fps, so 24 to 30 works as well as doubling. The blend method crossfades frames, and optical flow uses RAFT weights you put in place yourself. At a hard cut it holds the frame instead of blending two unrelated shots. It works in chunks to keep memory down.
 
-Retiming uses source and target **fps**, so 24 → 30 works alongside whole-number multiples. **Blend** crossfades frames; **optical flow** uses locally cached RAFT weights. Scene-cut detection holds frames across hard cuts instead of interpolating between unrelated shots. Chunked processing bounds working memory.
+It returns the new frames and their fps. It doesn't touch audio, so carry the source audio to Save Video separately. The [help page](js/docs/AUSBOSS_NODES_FrameInterpolate.md) covers the weights and timing.
 
-Returns the retimed frames and output fps. It does not process audio; carry the source audio separately to Save Video. See [weight setup and timing details](js/docs/AUSBOSS_NODES_FrameInterpolate.md).
+### Save Video
 
-### Save Video 🆎
+Saves a frame batch or a core `VIDEO` as MP4 (H.264 or H.265), WebM (VP9 or AV1), ProRes MOV, lossless FFV1 MKV, GIF or WebP. Which encoders you get depends on your FFmpeg and PyAV build, and H.264 and H.265 come in CPU and NVENC versions. The videos carry color tags, and optionally audio and the workflow.
 
-Save an image batch or a core `VIDEO` as MP4 H.264/H.265, WebM VP9/AV1, ProRes MOV, lossless FFV1 MKV, GIF, or WebP. Available encoders depend on the local FFmpeg/PyAV build; the H.264/H.265 choices include CPU and NVENC options. Video outputs carry color tags, optional audio, and optional embedded workflow metadata.
-
-**Ping-pong** runs forward and back without repeating the turnaround frames. A connected `VIDEO` supplies its own rate; otherwise wire fps from the loader or interpolator. The result player shows the encoded file. Dropping a supported saved video back onto the canvas restores its embedded graph. See [format and audio details](js/docs/AUSBOSS_NODES_SaveVideo.md).
+**Ping-pong** plays forward and then back without repeating the turnaround frames. A wired `VIDEO` brings its own frame rate; otherwise wire fps from Load Video or Frame Interpolate. The player on the node shows the saved file. Drop a saved video back on the canvas to load the workflow inside it, for the formats that can hold one. The [help page](js/docs/AUSBOSS_NODES_SaveVideo.md) has the format and audio details.
 
 ## Mask and inpaint nodes
 
 ![Close-up comparison of a rowboat beside a pier before inpainting and a white swan in its place afterward.](assets/readme/inpaint-showcase.webp)
 
-**Edit the part that matters.** Mask Refine, Crop For Inpaint, and Stitch Inpaint carry a painted region through this Klein 9B edit. Both pictures show the same detail crop. [Open the Krea 2 inpaint workflow →](example_workflows/Krea%202%20Inpaint%20Masked%20%28AusBoss%29.json)
+A rowboat swapped for a swan in a Klein 9B edit, shown as the same close-up before and after. Mask Refine, Crop For Inpaint and Stitch Inpaint carry the painted area through the edit. The Krea 2 Inpaint Masked example uses the same three nodes. [Open the Krea 2 Inpaint Masked workflow →](example_workflows/Krea%202%20Inpaint%20Masked%20%28AusBoss%29.json)
 
-### Mask Refine 🆎
+### Mask Refine
 
-Expand or shrink a mask, blur it, fill holes, smooth jagged edges, and adjust black and white points. The compact card starts with Expand and Blur; **More** opens the remaining controls. **AUTO** chooses expand and blur values from mask size. The optional preview shows the refined mask.
+Grows or shrinks a mask, blurs it, fills holes, smooths jagged edges, and sets black and white points. The card shows Expand and Blur, and **More** opens the rest. **AUTO** picks expand and blur values from the mask's size. The optional preview shows the result.
 
-Returns the refined mask and its inverse. **Guided filter** and **matting** use a guide image and require their optional extras; the default **off** mode has no extra dependency.
+It returns the refined mask and its inverse. The `guided filter` and `matting` edge modes use a guide picture and each need an optional extra (see [Optional extras](#optional-extras)). The default, `off`, needs nothing extra.
 
-### LaMa Inpaint 🆎
+### LaMa Inpaint
 
-Replace white mask regions using a local TorchScript LaMa checkpoint. Black-mask pixels are preserved. One mask can serve an entire image batch, and video frames are processed one at a time to bound VRAM. The preview can stream completed frames during execution or be switched off.
+Removes what is under the white part of a mask and fills the hole from the surroundings, using a local LaMa model. Pixels under black stay as they are. One mask can cover a whole batch, and video frames go through one at a time to keep VRAM use down. The preview can show frames as they finish, or be switched off.
 
-Put `big-lama.pt` in `ComfyUI/models/lama/`. This is a frame-by-frame remover: difficult video textures may need additional temporal cleanup. The older `SimpleWatermarkRemover` mapping remains available as a compatibility alias. [Try the video watermark remover example →](example_workflows/Simple%20Video%20Watermark%20Remover%20%28AusBoss%29.json)
+Put `big-lama.pt` in `ComfyUI/models/lama/`. It works one frame at a time, so a hard texture in a video may need more cleanup across frames. The old `SimpleWatermarkRemover` node id still loads, so older workflows keep working. [Try the Simple Video Watermark Remover example →](example_workflows/Simple%20Video%20Watermark%20Remover%20%28AusBoss%29.json)
 
-### Crop For Inpaint 🆎
+### Crop For Inpaint
 
-Crop the mask's bounding region with surrounding context, optionally resize it to a target size or megapixel budget, and return the cropped image, sampling mask, and stitcher. The card exposes the common mask and blend settings, with target sizing and canvas extension behind a disclosure.
+Crops the masked area plus some of what's around it, and can resize the crop to a target size or megapixel budget. It returns the cropped `image`, the `mask` the model paints in, and a `stitcher`. The card shows the usual mask and blend settings, and target size and canvas extension fold behind a disclosure.
 
-The sampling mask and stitch blend are separate: mask growth/blur determines what the model can edit, while the blend margin determines how the result joins the original. Increase Context or Extra context when the model needs to see more of the surroundings. The `extend_*` controls can grow the canvas for outpainting.
+The mask and the blend are separate. Growing or blurring the mask changes what the model can repaint, and the blend margin changes how the result joins the original. Raise **Context** or **Extra context** when the model needs to see more around the area. **Stay in picture**, on by default, stops the crop at the picture's edges. The `extend_*` controls grow the canvas for outpainting.
 
-### Stitch Inpaint 🆎
+### Stitch Inpaint
 
-Paste a generated crop or outpaint back using a stitcher from **Crop For Inpaint**, **Load Image + Pad**, or any **Crop + Rotate + Pad** node. Pixels outside the blend region remain bit-identical to the stitcher's source. Video stitchers carry the per-frame originals.
+Puts a generated crop or outpaint back into the original, using the stitcher from Crop For Inpaint, Load Image + Pad or any Crop + Rotate + Pad node. Everything outside the blend area keeps the stitcher's original pixels exactly. A video stitcher carries every original frame.
 
-For a turned picture, or an outpaint with Tone match off, set **Seam** to **blend in** in the card's gear menu: it fades the model's picture into yours with no tone shift. **Tone match** reduces color discontinuities at the seam. **Fix edge halo** corrects a twice-blended rim and uses the optional matting extra; without it, the node warns and performs the normal stitch. See the [stitcher and batch contract](js/docs/AUSBOSS_NODES_StitchInpaint.md).
+For a turned picture, or an outpaint with Tone match off, set **Seam** to **blend in** in the card's gear menu. It fades the model's picture into yours with no tone shift. **Tone match** evens out color steps at the seam. **Fix edge halo** cleans up a rim that got blended twice. It needs the optional matting extra, and without it the node warns and stitches normally. The [help page](js/docs/AUSBOSS_NODES_StitchInpaint.md) explains the stitcher and batches.
 
 ## Models and conditioning
 
-### LoRA Loader 🆎
+### LoRA Loader
 
-Keep a complete stack in one node: enable each row, choose a model from the searchable folder picker, and scrub its strength. The centered strength bars compare enabled rows on one scale; disabling the strongest row rescales the remaining bars. Model and CLIP strengths can be separated, and CLIP input is optional.
+A whole LoRA stack in one node. Each row has an on switch, a searchable picker for the file and a strength you scrub. The strength bars share one scale, so the rows are easy to compare, and switching off the strongest row rescales the rest. Model and CLIP strengths can be split, and the CLIP input is optional.
 
 ![A compact three-row LoRA Loader with Vintage Tarot enabled beside its illustrated Hermit tarot-card result.](assets/readme/lora-showcase.webp)
 
-**One stack, a distinct look.** Krea 2 with the Vintage Tarot LoRA enabled; the other rows are parked for later.
+Krea 2 with the Vintage Tarot LoRA on. The other rows are parked for later.
 
-The toolbar holds the stack toggle, saved templates, reconnect, and settings. **Absorb chain LoRAs** in the settings menu moves recognized loaders into this stack in application order, retaining repeated LoRAs. It bypasses the originals only when MODEL, CLIP, and auxiliary connections can be preserved. Shared branches and linked stack settings leave the chain untouched. File metadata, a `.civitai.info` sidecar beside the file, and your saved words populate each LoRA's information card; selected trigger words flow through the `triggers` output.
+The toolbar has the stack toggle, saved templates, reconnect and settings. The toggle turns the whole stack off, and back on to the rows you had on. **Absorb chain LoRAs** in the settings menu moves a chain of other LoRA loaders into this stack, in the order they applied, repeats included. It bypasses the old loaders only when every MODEL, CLIP and other connection can be kept. A shared branch or linked stack settings leave the chain alone.
 
-Moved files resolve by basename when the match is unambiguous. A missing enabled LoRA stops validation by default. **Stop on missing LoRA** can be turned off to warn and skip instead. A LoRA that patches nothing on the model reports a warning naming the file.
+![LoRA Loader absorbs a connected LoRA chain, shows strength changes while scrubbing, and restores the previous toggle selection.](assets/readme/lora-chain-demo.gif)
 
-### Krea 2 Encode 🆎
+Each LoRA gets an info card from the file's metadata, a `.civitai.info` file next to it, and words you save yourself. The trigger words you pick come out of the `triggers` output.
 
-Encode positive and negative prompts in one card. With a VAE and reference images connected, it also attaches reference latents. Reference images are resized for conditioning; **VLM reference** controls whether the text encoder's vision tower also sees them. Leave the reference inputs empty for text-to-image.
+When a file has moved, the node finds it by name if only one file matches. A missing LoRA that is switched on stops the run by default. Turn off **Stop on missing LoRA** to warn and skip it instead. A LoRA that changes nothing in the model gets a warning with its file name.
 
-The prompt supports multiline editing and incoming text links. See [reference preparation](js/docs/AUSBOSS_NODES_Krea2Encode.md) and use the matching example when combining it with an outpaint LoRA.
+### Krea 2 Encode
 
-### Krea 2 Outpaint Model Patch 🆎
+Krea 2's positive and negative prompts in one card. Connect a VAE and reference pictures, and it adds them as references too, resized for the model first. **VLM reference** sets whether the text encoder also looks at them. Leave the references empty for plain text to image.
 
-Register reference tokens at a defined place on the target canvas. Put the patch after LoRAs and before sampling; connect a stitcher and the reference conditioning from Krea 2 Encode.
+The prompt box takes several lines and a linked text. The [help page](js/docs/AUSBOSS_NODES_Krea2Encode.md) covers preparing references. With an outpaint LoRA, copy the wiring from the matching example.
 
-The card exposes **Reference** placement and **KV cache**. Placement must match the adapter:
+### Krea 2 Outpaint Model Patch
 
-- **Whole canvas + AnyPaint:** the padded image is the reference, VLM reference is on, and a masked starting latent protects known pixels. Several sides can extend in one pass. This is the supplied Krea outpaint example.
-- **Source rectangle + Registered Outpaint:** use the unpadded reference with VLM reference off. The source must span one complete canvas axis; extend left/right or top/bottom per pass, including any rounding padding.
+Tells Krea 2 where a reference picture sits on the canvas. It's made for Krea 2 outpaint LoRAs, and the two that exist want different placements. Put it after the LoRAs and before the sampler, and connect a stitcher and the reference conditioning from Krea 2 Encode.
 
-The patch depends on ComfyUI's attention internals. Its [help page](js/docs/AUSBOSS_NODES_Krea2OutpaintModelPatch.md) explains both wiring contracts and the behavior without reference conditioning.
+The card has **Reference** placement and **KV cache**. The placement has to match the LoRA:
+
+- **Whole canvas + AnyPaint:** the padded picture is the reference, VLM reference is on, and a masked starting latent keeps the known pixels. Several sides can extend in one pass. The Krea 2 Outpaint example works this way.
+- **Source rectangle + Registered Outpaint:** use the unpadded reference with VLM reference off. The source has to span the whole canvas in one direction, so extend left and right, or top and bottom, in each pass, including any padding added for rounding.
+
+The patch relies on ComfyUI's internal attention code. Its [help page](js/docs/AUSBOSS_NODES_Krea2OutpaintModelPatch.md) explains both setups and what happens without reference conditioning.
 
 ## Workflow utilities
 
+Core ComfyUI has its own nodes for most of these jobs, and they work fine. These versions add the extras described under each one.
+
+### Latent Size
+
+Sets a canvas size. Pick landscape or portrait, a ratio and a megapixel budget, or drag the canvas handles. Orientation stays separate from the ratio, even on square. Typed sizes stay exact, and how drags snap is adjustable. It was called Resolution Master before 2.4.0.
+
+It returns `width`, `height` and an empty image latent. The gear picks the latent layout (4, 16 or 128 channels) and the batch size. The latent's size rounds down to whole latent cells, so pick sizes that suit the layout when you wire the latent to a sampler. For video, use `width` and `height` with the model's own video latent node.
+
 ![Latent Size with a 1344 by 768 landscape canvas, its ratio chips, and the size and megapixel controls.](assets/readme/controls-showcase.webp)
 
-**Small controls you can build a graph around.** Set the canvas size once, then wire its width, height and empty latent wherever the graph needs them.
+### Seed
 
-### Latent Size 🆎
+One seed for several samplers. **Random**, **Fixed** and **Step** set what happens after each run. Switching to Random, or from Fixed to Step, changes the seed right away, so the next run is a new one. **New seed** rolls a value and keeps it. **Use last run** brings back the seed the last run actually used. The history menu keeps the last eight seeds and saves them with the workflow.
 
-Choose landscape or portrait, pick a ratio, adjust the megapixel budget, or drag the canvas handles. The orientation toggle remains independent of the ratio, including while square is selected. Typed width and height remain exact; gesture snapping is adjustable.
+### Select Every Nth
 
-Returns width, height, and an empty **image latent**. The gear chooses 4-, 16-, or 128-channel layout and batch size. Latent dimensions use complete downsample cells; choose dimensions compatible with the selected layout when connecting the latent to a sampler. For video, use the width and height outputs with the model's own video latent node.
+Keeps every nth picture of a batch, after an offset that counts from 0. With nth 2, offset 0 keeps frames 1, 3 and 5, and offset 1 keeps 2, 4 and 6. The order stays the same. Wire the batch's fps in, and the `fps` output is divided by nth, so the thinned clip still lasts as long.
 
-### Seed 🆎
+### Split Batch
 
-Share one seed across samplers. **Random**, **Fixed**, and **Step** control what happens after generation; switching to Random, or from Fixed to Step, moves the seed right away so the next queue is a new run. **New seed** rolls and pins a value; **Use last run** restores the value the backend actually used. The recent-history menu retains eight seeds and saves with the workflow.
+Splits a batch after a frame number, counting from 1. Output `a` ends with that frame, and `b` gets the rest. Each side needs at least one frame, so a split point that breaks that stops with an error that gives the valid range.
 
-### Select Every Nth 🆎
+### Merge Batches
 
-Keep every nth image, starting after a zero-based offset. For example, nth 2 with offset 0 keeps frames 1, 3, 5; offset 1 keeps 2, 4, 6. The output retains source order. Wire the batch's fps in, and the `fps` output divides it by nth so the thinned clip keeps its duration.
+Puts batch `b` after `a`. When the sizes match, nothing is resized. When they differ, it resizes to a's size or b's size, or stops with an error, whichever you pick. Both need the same number of channels.
 
-### Split Batch 🆎
+### Text
 
-Split after a one-based frame index. Output **a** includes that frame; **b** contains the remainder. Both outputs must retain at least one frame, so invalid split points report the valid range.
+A text box that grows with the node and sends its text, unchanged, down a `STRING` wire. Use it for a prompt, caption, path or other text that several nodes share. Spaces and line breaks are kept.
 
-### Merge Batches 🆎
+### Integer
 
-Append batch **b** after **a**. Matching sizes remain unchanged. For different resolutions, resize to a's size, resize to b's size, or stop with an error. Channel counts must already agree.
+One whole number (`INT`) on a scrub control, for sharing a size, count or other whole number across nodes.
 
-### Text 🆎
+### Float
 
-A growing multiline card that passes its contents unchanged to a `STRING` wire. Use it for a prompt, caption, path, or other text shared by several nodes. Spaces and line breaks are retained.
+One decimal number (`FLOAT`) on a scrub control, for sharing a strength, scale, frame rate or duration across nodes.
 
-### Integer 🆎
+### Math Expression
 
-A scrub control that emits one `INT`. Share dimensions, counts, or other whole numbers through links.
+Works out a number from linked `a`, `b` and `c` inputs, each an integer or a decimal. An input left unwired counts as 0. It handles arithmetic plus `min`, `max`, `abs`, `round`, `floor`, `ceil` and `sqrt`, for example `a * 2` or `ceil(a / 32) * 32`. It returns a float and a rounded integer, and halves round away from zero. The expression is parsed, never run as Python code.
 
-### Float 🆎
+### Show Text
 
-A scrub control that emits one `FLOAT`. Share strengths, scales, frame rates, or durations through links.
+Shows incoming text in a panel you can select from and resize, and passes it on unchanged. The last text shown saves with the workflow. Very long text may be cut short on screen, but the output keeps all of it. It runs as an output node, so nothing has to be connected after it.
 
-### Math Expression 🆎
+### Free Memory
 
-Calculate from linked `a`, `b`, and `c` inputs, each accepting integers or floats. Unwired variables read as zero. Supports arithmetic and `min`, `max`, `abs`, `round`, `floor`, `ceil`, and `sqrt` through a restricted expression parser.
+Passes any value through and, on the way, unloads ComfyUI's cached models, runs Python's garbage collection and clears the CUDA cache where there is one. Put it between two heavy stages when the second one needs the room. It runs only when its input changes, like any cached node, and later stages may take longer while models load again.
 
-Returns a float and a rounded integer; integer halves round away from zero. Use expressions such as `a * 2` or `ceil(a / 32) * 32` to derive values from upstream data.
+### Workflow Note
 
-### Show Text 🆎
+A setup card for a shared workflow: a title, instructions in Markdown, each model's download link and folder, the node packs it needs, and your links. It checks the models and packs against the install it's opened in. **Edit** changes the card, and **Banner** turns it into a small section title. The note never runs, and its text is never shown as raw HTML.
 
-Display incoming text in a selectable, resizable panel and pass it through unchanged. The last displayed text saves with the workflow. Long displays may be truncated, but the output retains the complete value. Runs as an output node, so no downstream consumer is needed.
+### Run Timer
 
-### Free Memory 🆎
-
-Pass any value through while unloading cached ComfyUI models, collecting Python garbage, and clearing the CUDA allocator cache where available. Put it between heavy stages when the next stage needs memory. It runs when its inputs change, respects graph caching, and may add model reload time downstream.
-
-### Workflow Note 🆎
-
-Add a title, Markdown instructions, model download links and destination folders, required node packs, and useful links. Installed models and packs are checked against the current instance. **Edit** changes the card; **Banner** makes a compact section title. The note never executes, and its text is not rendered as arbitrary HTML.
-
-### Run Timer 🆎
-
-A resizable stopwatch for the whole executing queue, with no wires. It starts when execution begins, holds the elapsed total when the run ends, and saves the last time with the graph. Recent times are available from its context menu. It is a display aid and does not change execution order.
+A stopwatch for the whole run, with no wires. It starts when the queue starts running, holds the total when the run ends, and saves the last time with the workflow. Recent times are in its right-click menu. You can resize it. It only shows time and doesn't change how the graph runs.
 
 ## Example workflows
 
-Open the JSON files from [`example_workflows/`](example_workflows), or use the pack's entries in ComfyUI's template browser. Each has a matching thumbnail, numbered groups, and a Workflow Note explaining setup and operation.
+These are the workflows where the nodes do something core ComfyUI doesn't do by itself: outpainting and inpainting that put your original picture back, lining an edit back up with its source, and removing a watermark from a clip. Open a JSON file from [`example_workflows/`](example_workflows), or find them under this pack in ComfyUI's template browser. Each one has a thumbnail, numbered groups and a Workflow Note with the setup steps and model downloads.
 
-Copy the files in [`example_workflows/inputs/`](example_workflows/inputs) into `ComfyUI/input/` first. The fur coat picture has its mask painted. Model paths can include local subfolders: select the corresponding installed file in each loader before running. A green model indicator means the file exists; it does not guarantee the loader has selected that path. Model licenses and any download access requirements remain with their authors.
+Copy the files in [`example_workflows/inputs/`](example_workflows/inputs) into `ComfyUI/input/` first. The fur coat picture already has its mask painted. If you keep models in subfolders, pick your copy in each loader before you run. A green model check on the note only means the file exists; it doesn't mean the loader has that file selected. The models' licenses and any download terms are their authors'.
 
-| Workflow | Purpose | Requirements |
+| Workflow | What it does | What you need |
 |---|---|---|
-| [Krea 2 Outpaint](example_workflows/Krea%202%20Outpaint%20%28AusBoss%29.json) | Describe the unpadded source, extend several sides, then stitch it back | Krea 2 Turbo + AnyPaint LoRA; reuses its text encoder for captions |
-| [Krea 2 Inpaint Masked](example_workflows/Krea%202%20Inpaint%20Masked%20%28AusBoss%29.json) | Paint over part of a picture, say what goes there, and Krea 2 repaints only that | Krea 2 Turbo + AnyPaint LoRA; included picture with its mask painted |
-| [Krea 2 Rotate + Outpaint](example_workflows/Krea%202%20Rotate%20%2B%20Outpaint%20%28AusBoss%29.json) | Turn, crop and pad a picture, and Krea 2 paints the new area | Krea 2 Turbo + AnyPaint LoRA; included picture |
-| [Qwen Image 2.1 Edit + Realign](example_workflows/Qwen%20Image%202.1%20Edit%20%2B%20Realign%20%28AusBoss%29.json) | A style edit that came back taller, realigned onto its source and compared before and after | Qwen Image 2.1 INT8, Qwen3-VL 8B INT8 and the 2.1 VAE; included pier image |
-| [Klein 9B Outpaint](example_workflows/Klein%209B%20Outpaint%20%28AusBoss%29.json) | Source description, padded reference, masked latent, source-preserving stitch | Distilled Klein 9B, Qwen encoder, Flux 2 VAE + PixaOutpaint LoRA + Qwen3-VL 8B INT8 caption model |
-| [LTX 2.3 Video Outpaint](example_workflows/LTX%202.3%20Video%20Outpaint%20%28AusBoss%29.json) | Extend a clip's canvas while retaining source audio and pixels | LTX 2.3 components, distilled LoRA, outpaint IC-LoRA |
-| [Simple Video Watermark Remover](example_workflows/Simple%20Video%20Watermark%20Remover%20%28AusBoss%29.json) | Detect and remove an overlay, with a single-frame comparison branch | **ComfyUI-RMBG / SAM3** plus `big-lama.pt` and this pack |
+| [Krea 2 Outpaint](example_workflows/Krea%202%20Outpaint%20%28AusBoss%29.json) | Extend a picture on any side at once, then stitch the original back | Krea 2 Turbo and the AnyPaint LoRA; its text encoder also writes the caption |
+| [Krea 2 Inpaint Masked](example_workflows/Krea%202%20Inpaint%20Masked%20%28AusBoss%29.json) | Paint over part of a picture, say what goes there, and Krea 2 repaints only that | Krea 2 Turbo and the AnyPaint LoRA; the included picture has its mask painted |
+| [Krea 2 Rotate + Outpaint](example_workflows/Krea%202%20Rotate%20%2B%20Outpaint%20%28AusBoss%29.json) | Turn, crop and pad a picture, and Krea 2 paints the new area | Krea 2 Turbo and the AnyPaint LoRA; included picture |
+| [Klein 9B Outpaint](example_workflows/Klein%209B%20Outpaint%20%28AusBoss%29.json) | Extend a picture with the PixaOutpaint LoRA, then stitch the original back | Distilled Klein 9B, its Qwen encoder and the Flux 2 VAE, the PixaOutpaint LoRA, and Qwen3-VL 8B INT8 for the caption |
+| [LTX 2.3 Video Outpaint](example_workflows/LTX%202.3%20Video%20Outpaint%20%28AusBoss%29.json) | Widen a vertical clip, keeping its audio and original pixels | LTX 2.3, the distilled LoRA and the outpaint IC-LoRA; included clip |
+| [Qwen Image 2.1 Edit + Realign](example_workflows/Qwen%20Image%202.1%20Edit%20%2B%20Realign%20%28AusBoss%29.json) | Type a short edit, and Realign to Source lines Qwen's result back up with your picture | Qwen Image 2.1 INT8, Qwen3-VL 8B INT8 and the 2.1 VAE; included pier picture |
+| [Simple Video Watermark Remover](example_workflows/Simple%20Video%20Watermark%20Remover%20%28AusBoss%29.json) | Find an overlay in a clip and remove it, with a one-frame comparison branch | **ComfyUI-RMBG** for SAM3, plus `big-lama.pt`; included clip |
 
-The other six examples use core nodes plus this pack. Generation speed and memory depend on the selected weights, dimensions, frame count, and other GPU workloads; the graph settings are reproducible, hardware timing is not.
+The watermark remover is the one example that needs another node pack. The others use only core nodes and this pack. Speed and memory use depend on the models, the sizes, the frame count and whatever else is using the GPU.
 
 ## For workflow creators
 
-Sharing a workflow? A few nodes make it easier for the people who download it:
+If you share workflows, a few of these nodes help the people who download them:
 
-- **Workflow Note** puts a setup card on the canvas with each model's download link, folder and size, the node packs it needs, and your links, and checks them against the reader's install.
-- **Image Compare A/B** shows the result against its source with a sliding reveal.
-- **Seed** keeps runs repeatable, and **Use last run** brings back the seed the backend actually used.
-- **Run Timer** shows how long the whole run took, so speed notes are measured.
-- **Save Image** embeds the workflow in PNG, lossless WebP or JPEG XL files with names you control.
+- **Workflow Note** puts a setup card on the canvas with each model's download link, folder and size, the node packs it needs and your links, and checks them against the reader's install.
+- **Image Compare A/B** shows the result against its source with a slider.
+- **Seed** keeps runs repeatable, and **Use last run** brings back the seed the last run used.
+- **Run Timer** shows how long the whole run took, so a speed note is measured.
+- **Save Image** embeds the workflow in PNG, lossless WebP or JPEG XL files, with names you control.
 
-Readers get the nodes through ComfyUI-Manager's missing-node install, like any other pack.
+People who download your workflow get the nodes through ComfyUI-Manager's missing-node install, like any other pack.
 
 ## Pack-wide tools
 
-- **Help cards:** the **?** in a node's title bar opens its description, inputs and outputs. Run Timer, which has no title bar, has **About this node** in its right-click menu.
-- **Recreate node 🆎** (right-click an AusBoss node) rebuilds a node saved by an older version from the current definition, keeping its values, links, position and colors.
-- **Replace with AusBoss nodes 🆎** (canvas right-click or the command palette) finds third-party nodes this pack can stand in for, such as VideoHelperSuite's Load Video and Video Combine or KJNodes' Color Match, previews each swap, and replaces the ones you leave ticked.
-- **Node colors:** Settings → 🆎 AusBoss → Appearance sets the scheme for every AusBoss node (AusBoss, Graphite, Slate, Teal, Moss, Plum, Rust, Navy, Custom, or Theme default), and a node's right-click **AusBoss color** menu recolors one. Hand-colored nodes keep their colors.
-- **Run status:** under Settings → 🆎 AusBoss → Chrome, queue status can appear in the browser tab's title and icon, running nodes get live progress badges, and per-node run times can be shown.
+- **Help cards:** the **?** in a node's title bar opens its description, inputs and outputs. Run Timer has no title bar, so it has **About this node** in its right-click menu.
+- **Recreate node 🆎** (right-click an AusBoss node) rebuilds a node saved by an older version from the current definition. It keeps the values, links, position and colors.
+- **Replace with AusBoss nodes 🆎** (canvas right-click or the command palette) finds third-party nodes this pack can stand in for, such as VideoHelperSuite's Load Video and Video Combine or KJNodes' Color Match. It previews each swap and replaces the ones you leave ticked.
+- **Node colors:** Settings → 🆎 AusBoss → Appearance sets the scheme for every AusBoss node (AusBoss, Graphite, Slate, Teal, Moss, Plum, Rust, Navy, Custom or Theme default). A node's right-click **AusBoss color** menu recolors just that node, and nodes you colored by hand keep their colors.
+- **Run status:** under Settings → 🆎 AusBoss → Chrome, the queue status can show in the browser tab's title and icon, running nodes get live progress badges, and each node's run time can be shown.
 - **Completion sound:** Settings → 🆎 AusBoss → Notifications plays a short chime when the queue finishes.
 
 ## Editor controls and settings
 
-- Cyan squares crop, orange diamonds pad, and the green handle rotates. Shift snaps rotation to 15°.
-- In the full-screen editor, use the mouse wheel to zoom and middle mouse or Alt-drag to pan. On the compact node stage, wheel and middle mouse continue to control the graph.
-- **Alt+E** opens the selected transform editor; change it in Settings → Keybindings.
-- Video editors offer frame stepping, playback, and exact timeline seeking, on the node face as well as in the editor. The Clip node's IN/OUT handles are frames on the source's own grid, so the frame shown for IN is the first frame decoded and the frame shown for OUT is the last.
-- Optional aspect presets live in `ausboss_presets.json` beside the pack. Copy [`ausboss_presets_example.json`](ausboss_presets_example.json) to start; the user file survives updates.
+- Drag a number box to scrub it, or click it to type. Hold Shift for fine steps.
+- Hold Shift while you turn the green rotation handle to snap to 15° steps.
+- In the full-screen editor, the mouse wheel zooms, and the middle mouse button or Alt-drag pans. On the node itself, the wheel and middle mouse button still move the graph.
+- **Alt+E** opens the selected node's transform editor. Change the key in Settings → Keybindings.
+- The video editors have frame stepping, playback and exact timeline seeking, on the node face as well as in the editor. The Clip node's IN and OUT handles sit on the source's own frames, so the frame shown for IN is the first one decoded and the frame shown for OUT is the last.
+- Your own aspect presets go in `ausboss_presets.json` beside the pack. Copy [`ausboss_presets_example.json`](ausboss_presets_example.json) to start. Your file survives updates.
 
 LoRA Loader and Latent Size have their own gear menus for per-node preferences.
 
-The video transform nodes' local path mode reads only videos inside ComfyUI's input, output and temp folders, and Save Image writes only inside the output folder: no widget can point the pack anywhere else on the disk; see [the video transform help](js/docs/AUSBOSS_NODES_VideoCropRotatePad.md).
+The video transform nodes' local path mode reads only videos inside ComfyUI's input, output and temp folders, and Save Image writes only inside the output folder. No widget can point the pack anywhere else on the disk. See [the video transform help](js/docs/AUSBOSS_NODES_VideoCropRotatePad.md).
 
 ## Optional extras
 
-Three features need an extra Python package. Install it with the Python that runs ComfyUI; for the Windows portable build that is `python_embeded\python.exe -m pip install ...` from the portable folder.
+Three features need an extra Python package. Install it with the Python that runs ComfyUI. For the Windows portable build, that is `python_embeded\python.exe -m pip install ...` from the portable folder.
 
 ```bash
 python -m pip install opencv-contrib-python   # Mask Refine: guided filter
@@ -338,13 +343,13 @@ python -m pip install "pymatting>=1.1"        # Mask Refine: matting; Stitch Inp
 python -m pip install pillow-jxl-plugin       # Save Image: lossless JPEG XL
 ```
 
-Default mask operations, ordinary stitching, PNG, and lossless WebP do not need these extras. Optical flow needs cached RAFT weights; model setup is described in the corresponding node help. Codec support depends on the ComfyUI environment.
+The default mask settings, ordinary stitching, PNG and lossless WebP don't need them. Optical flow needs RAFT weights on disk, and the node's help page explains the setup. Which video codecs you have depends on your ComfyUI environment.
 
 ## Compatibility and development
 
-The declared minimum is ComfyUI **0.27.1**. Newer model examples require a core that includes their model family; updating only this pack cannot add missing core model support. It is tested with ComfyUI **0.37.0** and frontend **1.53.6**. The pack supports classic canvas and Nodes 2.0, and backend execution does not require an editor to be open.
+The pack needs ComfyUI **0.27.1** or newer. An example for a newer model needs a ComfyUI core that supports that model, and updating only this pack can't add it. It is tested with ComfyUI **0.37.0** and frontend **1.53.6**. It works on the classic canvas and in Nodes 2.0, and running a workflow doesn't need an editor open.
 
-Backend changes need a full ComfyUI restart. Frontend changes need a hard refresh. Use ComfyUI's Python for backend tests:
+Backend changes need a full ComfyUI restart, and frontend changes need a hard refresh. Run the backend tests with ComfyUI's Python:
 
 ```bash
 python scripts/validate_nodes.py
@@ -353,11 +358,11 @@ python scripts/run_python_tests.py
 node --test tests/*.test.mjs
 ```
 
-Backend tests run in separate processes because their offline ComfyUI stubs must not leak between files. [CONTRIBUTING.md](CONTRIBUTING.md) covers bug reports and pull requests; [`docs/live_testing.md`](docs/live_testing.md) covers canvas, mouse-drag, save/reload, and workflow execution checks; [`docs/adding_a_node.md`](docs/adding_a_node.md) lists what a new public node needs.
+The backend tests run in separate processes, because their offline ComfyUI stubs must not leak between files. [CONTRIBUTING.md](CONTRIBUTING.md) covers bug reports and pull requests. [`docs/live_testing.md`](docs/live_testing.md) covers canvas, mouse-drag, save and reload, and workflow checks, and [`docs/adding_a_node.md`](docs/adding_a_node.md) lists what a new public node needs.
 
 ## Feedback
 
-Bug reports and workflow ideas are welcome in [issues](https://github.com/ausboss/ComfyUI-AusBoss/issues). Security problems go through [SECURITY.md](SECURITY.md). Every release is described in the [changelog](CHANGELOG.md).
+Bug reports and workflow ideas are welcome in [issues](https://github.com/ausboss/ComfyUI-AusBoss/issues). Security problems go through [SECURITY.md](SECURITY.md). Every release is in the [changelog](CHANGELOG.md). If a node saves you time, a star on GitHub helps other people find it.
 
 ## License
 
