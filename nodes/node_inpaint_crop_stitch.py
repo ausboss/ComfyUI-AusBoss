@@ -345,7 +345,8 @@ class AusBossStitchInpaint:
         "area joins your picture: classic, the default, blends with the "
         "feathered mask recorded in the stitcher, as every earlier "
         "workflow did; blend in fades the model's picture into yours with "
-        "no tone shift, which suits turned or padded outpaint canvases. "
+        "no tone shift, which suits turned pictures and outpaints run "
+        "without Tone match. "
         "Pixels the stitch does not reach are bit-identical to the "
         "original — they never pass through a resize. A stitcher built "
         "from one image broadcasts across an inpainted frame batch. With "
@@ -428,10 +429,10 @@ class AusBossStitchInpaint:
                         "default": SEAM_CLASSIC,
                         "tooltip": (
                             "How the new area joins your picture. Pick blend "
-                            "in for turned or padded outpaint canvases; "
-                            "classic keeps older workflows exactly as they "
-                            "were (Crop For Inpaint always stitches classic "
-                            "for now)."
+                            "in for turned pictures and outpaints with Tone "
+                            "match off; classic keeps older workflows exactly "
+                            "as they were (Crop For Inpaint always stitches "
+                            "classic for now)."
                         ),
                     },
                 ),

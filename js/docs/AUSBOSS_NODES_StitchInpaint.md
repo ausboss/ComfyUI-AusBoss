@@ -14,7 +14,11 @@ says, and the original frame is sliced back out.
   new area fades in over the feathered mask, and **Tone match** can shift
   its colour toward your picture. Saved workflows keep it, so they render
   exactly as before.
-- **blend in** is for outpaints, and best for turned or padded pictures.
+- **blend in** is for outpaints, and best for turned pictures. It also
+  suits straight padding when Tone match is off, because it changes less
+  of your picture. With straight padding and Tone match on, classic
+  usually looks as good or better: Krea 2 and Klein paint the new area a
+  touch off-tone, and blend in keeps the model's colour as painted.
   The model redraws a thin strip along the edge of your picture, and its
   version never matches yours exactly. Blend in fades from the model's
   picture to yours a little way inside your picture, where the two
@@ -42,8 +46,10 @@ model's own picture.
 - With blend in, your picture is bit-identical from where the blend ends,
   a few dozen pixels inside its edge (about 35 px at common settings), and
   the new area is bit-identical to what the model painted.
-- Feeding the crop back unchanged reproduces the original image exactly
-  (with `fix_edge_halo` off; the fix rewrites the feathered band on purpose).
+- With the classic seam, feeding the crop back unchanged reproduces the
+  original image exactly (with `fix_edge_halo` off; the fix rewrites the
+  feathered band on purpose). Blend in does not promise this: it keeps the
+  model's version of the thin strip at your picture's edge.
 - A stitcher built from one image broadcasts over any number of inpainted
   frames. A stitcher built from **more** frames than came back is trimmed to
   the leading ones with a console note - video models keep 8n+1 (LTX) or
