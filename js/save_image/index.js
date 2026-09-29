@@ -330,6 +330,9 @@ function buildCard(node) {
     getMinHeight: () => CARD_HEIGHT + WRAPPER_INSET,
   });
   keepDomWidgetWidthAuto(domWidget);
+  // Not saved with the workflow either: options.serialize only keeps it out
+  // of the prompt, and saved values come back by position.
+  domWidget.serialize = false;
   // A constant-height card, pinned on purpose (tests/panel_guards.test.mjs,
   // fixedByDesign): fields and pills, not a stage that follows the node.
   domWidget.computeSize = (width) => [Math.max(NODE_MIN_WIDTH, Number(width || node.size?.[0] || NODE_MIN_WIDTH)), CARD_HEIGHT + WRAPPER_INSET];

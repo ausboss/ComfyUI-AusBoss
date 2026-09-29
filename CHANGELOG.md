@@ -34,6 +34,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   Pad. Pick a ratio or drag the orange handles, and the padding fits
   whatever image you load; before, it was saved in pixels for the sample
   picture. The prompt is written from the padded picture.
+- **Saved workflows keep only the nodes' own settings.** Each node card and
+  panel used to save an empty value of its own, and a setting added to a
+  node in a later version could open holding it. That is how Stitch
+  Inpaint's Seam and Crop For Inpaint's Stay in picture went wrong in older
+  workflows. Workflows you save now leave the cards and panels out, and
+  workflows saved before still open exactly as they did.
 
 ## 2.4.0 - 2026-09-29
 

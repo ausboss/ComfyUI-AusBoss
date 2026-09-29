@@ -941,6 +941,9 @@ function installResolutionNode(node) {
     getMinHeight: () => panelHeight(state) + WIDGET_FRAME,
   });
   keepDomWidgetWidthAuto(domWidget);
+  // Not saved with the workflow either: options.serialize only keeps it out
+  // of the prompt, and saved values come back by position.
+  domWidget.serialize = false;
   // exactMinWidth: MIN_WIDTH is the node's real floor, without the
   // frontend's padding on top (panel_layout.mjs).
   fillNodeHeight(domWidget, {

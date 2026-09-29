@@ -30,6 +30,9 @@ function mountTransformPanel(node, panel) {
     getMinHeight: () => PANEL_MIN_HEIGHT,
   });
   keepDomWidgetWidthAuto(widget);
+  // Not saved with the workflow either: options.serialize only keeps it out
+  // of the prompt, and saved values come back by position.
+  widget.serialize = false;
   fillNodeHeight(widget, {
     minWidth: PANEL_MIN_WIDTH,
     minHeight: PANEL_MIN_HEIGHT,

@@ -79,6 +79,16 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   `tests/test_node_api.py` holds the pack to `tests/fixtures/node_api.json`;
   refresh that snapshot with the test's `--update` after a compatible change
   or a new node.
+- Appending an input to a node with a card or panel takes one more step.
+  Workflows saved by earlier releases end that node's values with an empty
+  value for each card and panel, and values come back by position, so the
+  new input opens holding that empty value. Give a widget input a
+  `resetUnknown` fallback in its card (`js/widget_cards/index.js`) equal to
+  the node's default, which is what an API prompt without the input runs
+  with, and list the input in `tests/saved_widget_values.test.mjs`. Cards and
+  panels themselves are never saved: set `widget.serialize = false` right
+  after `addDOMWidget` (`options.serialize` only keeps a widget out of the
+  prompt).
 - Write those keys as **string literals** inside `NODE_CLASS_MAPPINGS` and
   `NODE_DISPLAY_NAME_MAPPINGS` — never a `NODE_ID` variable. Registry scanners
   (ComfyUI-Manager) AST-parse the source without importing it, so a variable

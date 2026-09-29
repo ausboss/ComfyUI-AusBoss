@@ -157,6 +157,9 @@ function buildPanel(node) {
     getMinHeight: () => PANEL_MIN_HEIGHT + WIDGET_FRAME,
   });
   keepDomWidgetWidthAuto(widget);
+  // Not saved with the workflow either: options.serialize only keeps it out
+  // of the prompt, and saved values come back by position.
+  widget.serialize = false;
   // + WIDGET_FRAME: the frontend insets the element, so a bare floor hands
   // the panel fewer CSS pixels than the stage + caption minimums and shaves
   // the caption's glyphs at the node's minimum height.

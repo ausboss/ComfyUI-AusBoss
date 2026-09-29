@@ -807,6 +807,9 @@ function buildPanel(node) {
     getMinHeight: () => CARD_MIN_HEIGHT + WIDGET_FRAME,
   });
   keepDomWidgetWidthAuto(domWidget);
+  // Not saved with the workflow either: options.serialize only keeps it out
+  // of the prompt, and saved values come back by position.
+  domWidget.serialize = false;
   fillNodeHeight(domWidget, {
     minWidth: PANEL_MIN_WIDTH,
     minHeight: () => (domWidget.options.getMinHeight?.() ?? CARD_MIN_HEIGHT + WIDGET_FRAME),

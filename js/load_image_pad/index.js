@@ -132,6 +132,9 @@ function buildPanel(node) {
     getMinHeight: () => 190,
   });
   keepDomWidgetWidthAuto(widget);
+  // Not saved with the workflow either: options.serialize only keeps it out
+  // of the prompt, and saved values come back by position.
+  widget.serialize = false;
   fillNodeHeight(widget, {
     minWidth: PAD_MIN_WIDTH,
     minHeight: 190,

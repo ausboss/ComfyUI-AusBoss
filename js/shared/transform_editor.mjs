@@ -452,6 +452,9 @@ export function installTransformNode(node, kind, mountPanel = null) {
       hideOnZoom: false,
     });
     keepDomWidgetWidthAuto(domWidget);
+    // Not saved with the workflow either: options.serialize only keeps it out
+    // of the prompt, and saved values come back by position.
+    domWidget.serialize = false;
     fillNodeHeight(domWidget, { minWidth: 330, minHeight: state.isClip ? 602 : kind === "video" ? 510 : 296, minNodeSize: [330, state.isClip ? 802 : kind === "video" ? 570 : 456] });
   } else {
     node.addWidget?.("button", "Open editor", null, () => openEditor(state), { serialize: false });

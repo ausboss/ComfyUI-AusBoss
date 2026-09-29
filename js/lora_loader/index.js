@@ -1754,6 +1754,9 @@ function installLoraNode(node) {
     getMinHeight: () => panelHeight(state) + WIDGET_FRAME - BAND_RECLAIM,
   });
   keepDomWidgetWidthAuto(domWidget);
+  // Not saved with the workflow either: options.serialize only keeps it out
+  // of the prompt, and saved values come back by position.
+  domWidget.serialize = false;
   // fillNodeHeight, not a pinned computeSize: the panel joins the layout's
   // free-space split, follows the node when it is dragged taller (the add
   // button stays on the bottom edge), and a floor that carries WIDGET_FRAME
