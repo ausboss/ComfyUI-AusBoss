@@ -180,7 +180,7 @@
         "ver": "2.0.0"
       },
       "widgets_values": [
-        "[{\"name\":\"Flux.2 Klein 9B/pixaoutpaint.safetensors\",\"strength\":1,\"enabled\":true,\"triggers\":\"pixaoutpaint\"}]",
+        "[{\"name\":\"pixaoutpaint.safetensors\",\"strength\":1,\"enabled\":true,\"triggers\":\"pixaoutpaint\"}]",
         ", ",
         "error",
         ""
