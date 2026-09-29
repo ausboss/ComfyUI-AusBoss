@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.4.0 - 2026-09-29
 
 - **Load Video accepts a wired start or end time.** Connecting another
   node (such as Math Expression) to Load Video's start or end time made the
