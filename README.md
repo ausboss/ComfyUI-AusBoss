@@ -293,7 +293,7 @@ These are the workflows where the nodes do something core ComfyUI doesn't do by 
 
 ![The Krea 2 Rotate + Outpaint workflow: a setup note on the left, then groups for your input, the two boxes and the model loaders, and the result with a before-and-after slider and Save Image.](assets/readme/workflow-layout.webp)
 
-The Krea 2 examples use this layout: named groups for your input, the models and the result, with the plumbing inside two boxes you can double-click to open.
+The examples use this layout: named groups for your input, the models and the result, with the plumbing inside two boxes you can double-click to open.
 
 The workflows open with their image and video loaders empty, so you load your own picture or clip. To try one with a sample first, copy the pier photo or the short pier clip from [`example_workflows/inputs/`](example_workflows/inputs) into `ComfyUI/input/`. If you keep models in subfolders, pick your copy in each loader before you run. A green model check on the note only means the file exists; it doesn't mean the loader has that file selected. The models' licenses and any download terms are their authors'.
 
@@ -305,9 +305,9 @@ The workflows open with their image and video loaders empty, so you load your ow
 | [Klein 9B Outpaint](example_workflows/Klein%209B%20Outpaint%20%28AusBoss%29.json) | Extend a picture with the PixaOutpaint LoRA, then stitch the original back | Distilled Klein 9B, its Qwen encoder and the Flux 2 VAE, the PixaOutpaint LoRA, and Qwen3-VL 8B INT8 for the caption |
 | [LTX 2.3 Video Outpaint](example_workflows/LTX%202.3%20Video%20Outpaint%20%28AusBoss%29.json) | Widen a vertical clip, keeping its audio and original pixels | LTX 2.3, the distilled LoRA and the outpaint IC-LoRA |
 | [Qwen Image 2.1 Edit + Realign](example_workflows/Qwen%20Image%202.1%20Edit%20%2B%20Realign%20%28AusBoss%29.json) | Type a short edit, and Realign to Source lines Qwen's result back up with your picture | Qwen Image 2.1 INT8, Qwen3-VL 8B INT8 and the 2.1 VAE |
-| [Simple Video Watermark Remover](example_workflows/Simple%20Video%20Watermark%20Remover%20%28AusBoss%29.json) | Find an overlay in a clip and remove it, with a one-frame comparison branch | **ComfyUI-RMBG** for SAM3, plus `big-lama.pt` |
+| [Simple Video Watermark Remover](example_workflows/Simple%20Video%20Watermark%20Remover%20%28AusBoss%29.json) | Find an overlay in a clip and remove it, with a one-frame comparison branch | ComfyUI's own SAM 3.1 (ComfyUI 0.20 or newer), plus `big-lama.pt` |
 
-The watermark remover is the one example that needs another node pack. The others use only core nodes and this pack. Speed and memory use depend on the models, the sizes, the frame count and whatever else is using the GPU.
+Every example uses only core nodes and this pack. Speed and memory use depend on the models, the sizes, the frame count and whatever else is using the GPU.
 
 ## For workflow creators
 
