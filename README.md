@@ -58,7 +58,9 @@ It returns the `image`, a `mask` of everything it added (padding, see-through pa
 
 ![The full-screen image editor with a rotated lake photo, cyan crop handles, orange padding handles, aspect ratios, and dimension controls.](assets/readme/image-editor.webp)
 
-[Try the Krea 2 Rotate + Outpaint example →](example_workflows/Krea%202%20Rotate%20%2B%20Outpaint%20%28AusBoss%29.json)
+![A night photo of a woman leaning out of a car window is turned and padded, and Krea 2 fills the new space with more of the street.](assets/readme/rotate-outpaint.gif)
+
+Krea 2 Rotate + Outpaint turns a photo, pads it and paints the new area in one pass. [Try the Krea 2 Rotate + Outpaint example →](example_workflows/Krea%202%20Rotate%20%2B%20Outpaint%20%28AusBoss%29.json)
 
 ### Load Image + Pad
 
@@ -66,9 +68,7 @@ Makes a canvas for outpainting: drag the edges out to add room around a picture.
 
 It returns the padded `image`, a `mask` of the padding, `width`, `height`, a `stitcher`, and a smaller unpadded `reference` for the model. Wire the stitcher into **Stitch Inpaint** after the sampler, and everything outside the seam stays your original picture.
 
-![A narrow lakeside pier photo expanded into a wider mountain-and-lake scene with Krea 2 outpainting.](assets/readme/outpaint-showcase.webp)
-
-A narrow pier photo widened with Krea 2 and the AnyPaint LoRA, with the original stitched back in. The Klein 9B Outpaint example pads its picture with Load Image + Pad. [Open the Klein 9B Outpaint workflow →](example_workflows/Klein%209B%20Outpaint%20%28AusBoss%29.json)
+The Klein 9B Outpaint example pads its picture with Load Image + Pad. [Open the Klein 9B Outpaint workflow →](example_workflows/Klein%209B%20Outpaint%20%28AusBoss%29.json)
 
 ### Image Resize
 
@@ -96,6 +96,14 @@ For the best result, pad the picture with Load Image + Pad's `mirror` fill befor
 
 **Fit** is `zoom + shift` (how Qwen edits drift) or `affine`, which also fixes a slight tilt. When the drift is a whole number of pixels, the node cuts the picture out as it is, with no resizing. `report` gives the measured zoom and shift, and the margin a side needed when an edit ran out of picture. A picture it can't measure passes through at the source's size, and the report says why. [Try the Qwen Image 2.1 Edit + Realign example →](example_workflows/Qwen%20Image%202.1%20Edit%20%2B%20Realign%20%28AusBoss%29.json)
 
+![A Qwen Image 2.1 watercolor edit of a woman in front of a wall of old TVs, flipped against the original: without Realign the waistband and a shelf edge sit lower (61 px off), with Realign to Source they line up (0.6 px off).](assets/readme/realign.gif)
+
+The same watercolor edit without and with Realign to Source: 61 px off before, 0.6 px after.
+
+![Chart titled CRT wall, watercolor: Qwen draws it 5.6% taller, showing the original, the edit as Qwen drew it (61 px off) and the realigned edit (0.6 px off), with close-ups of the waistband.](assets/readme/realign-chart.webp)
+
+Qwen drew this watercolor 5.6% taller, and Realign to Source lined it back up with the original.
+
 ### Image Compare A/B
 
 Compares two pictures with a slider, or flips between them whole. Nothing covers the picture, and its size shows underneath. The panel grows with the node, and image A passes through, so you can put it anywhere on an image wire.
@@ -106,15 +114,13 @@ Saves PNG, lossless WebP or lossless JPEG XL, with the workflow embedded if you 
 
 Link `filename` to keep a name from upstream, or `caption_text` to write a matching `.txt` next to each picture. The counter picks a name that isn't taken yet. Turn it off to reuse the same path on purpose. JPEG XL needs the optional `pillow-jxl-plugin` extra. The [help page](js/docs/AUSBOSS_NODES_SaveImage.md) has the full naming and compatibility notes.
 
-![The Save Image card with date and size naming chips beside a detailed fisherman portrait.](assets/readme/save-showcase.webp)
-
-A portrait saved with the date and size in its name and the workflow embedded.
-
 ## Video nodes
 
-![Animated comparison of a vertical pier clip and its wider LTX 2.3 outpainted result, showing the added lake and shoreline.](assets/readme/video-outpaint.gif)
+![A square clip of a woman under a blue sky grows into a tall 9:16 frame as LTX 2.3 fills in more sky above her and the wall below.](assets/readme/video-outpaint.gif)
 
-The LTX 2.3 Video Outpaint example widens a vertical clip and stitches the original frames back in. It keeps the clip's audio when there is any (this preview is silent). The outpaint LoRA needs a pure black fill, since gray or white bands come back flat. With a black canvas it works at any aspect ratio and on any side. [Open the LTX 2.3 Video Outpaint workflow →](example_workflows/LTX%202.3%20Video%20Outpaint%20%28AusBoss%29.json)
+Here LTX 2.3 Video Outpaint takes a square clip to 9:16 and stitches the original frames back in.
+
+The example keeps the clip's audio when there is any. The outpaint LoRA needs a pure black fill, since gray or white bands come back flat. With a black canvas it works at any aspect ratio and on any side. [Open the LTX 2.3 Video Outpaint workflow →](example_workflows/LTX%202.3%20Video%20Outpaint%20%28AusBoss%29.json)
 
 ### Load Video
 
@@ -158,9 +164,9 @@ Saves a frame batch or a core `VIDEO` as MP4 (H.264 or H.265), WebM (VP9 or AV1)
 
 ## Mask and inpaint nodes
 
-![Close-up comparison of a rowboat beside a pier before inpainting and a white swan in its place afterward.](assets/readme/inpaint-showcase.webp)
+![A woman in a pink fur coat under neon signs; a wipe turns the coat into a black leather jacket and leaves the rest of the picture as it was.](assets/readme/inpaint-masked.gif)
 
-A rowboat swapped for a swan in a Klein 9B edit, shown as the same close-up before and after. Mask Refine, Crop For Inpaint and Stitch Inpaint carry the painted area through the edit. The Krea 2 Inpaint Masked example uses the same three nodes. [Open the Krea 2 Inpaint Masked workflow →](example_workflows/Krea%202%20Inpaint%20Masked%20%28AusBoss%29.json)
+Krea 2 Inpaint Masked turns the painted fur coat into a leather jacket, using Mask Refine, Crop For Inpaint and Stitch Inpaint. [Open the Krea 2 Inpaint Masked workflow →](example_workflows/Krea%202%20Inpaint%20Masked%20%28AusBoss%29.json)
 
 ### Mask Refine
 
@@ -192,10 +198,6 @@ For a turned picture, or an outpaint with Tone match off, set **Seam** to **blen
 
 A whole LoRA stack in one node. Each row has an on switch, a searchable picker for the file and a strength you scrub. The strength bars share one scale, so the rows are easy to compare, and switching off the strongest row rescales the rest. Model and CLIP strengths can be split, and the CLIP input is optional.
 
-![A compact three-row LoRA Loader with Vintage Tarot enabled beside its illustrated Hermit tarot-card result.](assets/readme/lora-showcase.webp)
-
-Krea 2 with the Vintage Tarot LoRA on. The other rows are parked for later.
-
 The toolbar has the stack toggle, saved templates, reconnect and settings. The toggle turns the whole stack off, and back on to the rows you had on. **Absorb chain LoRAs** in the settings menu moves a chain of other LoRA loaders into this stack, in the order they applied, repeats included. It bypasses the old loaders only when every MODEL, CLIP and other connection can be kept. A shared branch or linked stack settings leave the chain alone.
 
 ![LoRA Loader absorbs a connected LoRA chain, shows strength changes while scrubbing, and restores the previous toggle selection.](assets/readme/lora-chain-demo.gif)
@@ -218,6 +220,10 @@ The card has **Reference** placement and **KV cache**. The placement has to matc
 
 - **Whole canvas + AnyPaint:** the padded picture is the reference, VLM reference is on, and a masked starting latent keeps the known pixels. Several sides can extend in one pass. The Krea 2 Outpaint example works this way.
 - **Source rectangle + Registered Outpaint:** use the unpadded reference with VLM reference off. The source has to span the whole canvas in one direction, so extend left and right, or top and bottom, in each pass, including any padding added for rounding.
+
+![A 16:9 photo of a woman at a waterfront railing is padded to 4:5, and Krea 2 fills in more sky above and the railing below.](assets/readme/krea2-outpaint.gif)
+
+Here Krea 2 Outpaint takes a 16:9 photo to 4:5 in one pass. [Open the Krea 2 Outpaint workflow →](example_workflows/Krea%202%20Outpaint%20%28AusBoss%29.json)
 
 The patch relies on ComfyUI's internal attention code. Its [help page](js/docs/AUSBOSS_NODES_Krea2OutpaintModelPatch.md) explains both setups and what happens without reference conditioning.
 
@@ -284,6 +290,10 @@ A stopwatch for the whole run, with no wires. It starts when the queue starts ru
 ## Example workflows
 
 These are the workflows where the nodes do something core ComfyUI doesn't do by itself: outpainting and inpainting that put your original picture back, lining an edit back up with its source, and removing a watermark from a clip. Open a JSON file from [`example_workflows/`](example_workflows), or find them under this pack in ComfyUI's template browser. Each one has a thumbnail, numbered groups and a Workflow Note with the setup steps and model downloads.
+
+![The Krea 2 Rotate + Outpaint workflow: a setup note on the left, then groups for your input, the two boxes and the model loaders, and the result with a before-and-after slider and Save Image.](assets/readme/workflow-layout.webp)
+
+The Krea 2 examples use this layout: named groups for your input, the models and the result, with the plumbing inside two boxes you can double-click to open.
 
 Copy the files in [`example_workflows/inputs/`](example_workflows/inputs) into `ComfyUI/input/` first. The fur coat picture already has its mask painted. If you keep models in subfolders, pick your copy in each loader before you run. A green model check on the note only means the file exists; it doesn't mean the loader has that file selected. The models' licenses and any download terms are their authors'.
 
