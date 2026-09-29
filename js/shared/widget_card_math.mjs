@@ -102,6 +102,16 @@ export function rowKind(row, widget) {
   return "text";
 }
 
+// Write a value the way LiteGraph's own widgets do: set it, run the widget's
+// callback, then tell the node. The frontend re-scans a node for missing
+// media, and clears the errors it flagged, from node.onWidgetChanged.
+export function commitWidgetValue(node, widget, value, canvas) {
+  const previous = widget.value;
+  widget.value = value;
+  widget.callback?.(value, canvas, node);
+  node.onWidgetChanged?.(widget.name, value, previous, widget);
+}
+
 export function comboValues(widget) {
   let values = widget?.options?.values;
   if (typeof values === "function") values = values(widget);
