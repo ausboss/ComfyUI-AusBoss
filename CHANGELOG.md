@@ -4,6 +4,18 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **A run from another workflow tab stays on its own tab.** ComfyUI files
+  each node's result under the node's number, so when a run from one tab
+  finished while you had another tab open, its video or picture turned up
+  on the open tab's node with the same number. On a Video Crop + Rotate +
+  Pad node it showed as a second video under the buttons and covered the
+  node below. Now the Crop + Rotate + Pad nodes never show a second
+  preview, AusBoss nodes ignore results from other tabs (Show Text and Seed
+  no longer save another workflow's text or seed), and when you go back to
+  the tab that ran, its Save Video, Show Text, Compare and other AusBoss
+  panels show that run. Core nodes behave as ComfyUI has them.
+- **Nodes 2.0: Save Video shows the clip once.** It also drew ComfyUI's own
+  copy of the clip under its player.
 - **The red "missing file" warning clears when you pick a file.** Open a
   workflow that was saved with a picture you don't have and ComfyUI marks
   Load Image + Pad red and lists it under Setup required. Picking your own

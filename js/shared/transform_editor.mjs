@@ -11,6 +11,7 @@ import { normalizeFillColor } from "./fill_color.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
 import { confirmDiscard } from "./discard_prompt.mjs";
 import { featherGeneratedMask, overlayPlan, stitchBlendFromMask } from "./stitch_preview.mjs";
+import { suppressCoreVideoPreview } from "./core_preview.mjs";
 import {
   INPUT_FOLDER_MODE,
   LOCAL_PATH_MODE,
@@ -406,7 +407,13 @@ export function installTransformNode(node, kind, mountPanel = null) {
       widget(node, name).serializeValue = () => constant;
     }
   }
-  if (kind === "image") suppressCoreImagePreview(node);
+  // No transform node sends a picture of its own, so a ComfyUI preview on
+  // one is always somebody else's: outputs are filed by node id, and a run
+  // queued in another workflow tab lands on the node with the same id here.
+  // The stage is the node's only picture, in both renderers (the video
+  // suppression also sets Nodes 2.0's hideOutputImages).
+  suppressCoreImagePreview(node);
+  suppressCoreVideoPreview(node);
   if (kind === "video") installVideoDrop(state);
   for (const name of HIDDEN_WIDGETS) hideWidget(widget(node, name));
   liftSocket(node, "fixed_frames");

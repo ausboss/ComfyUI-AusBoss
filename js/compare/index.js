@@ -1,5 +1,6 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
+import { isForeignRun } from "../shared/prompt_scope.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
 import { mediaViewQuery, responsivePreviewHeight } from "../shared/video_preview.mjs";
@@ -263,6 +264,7 @@ app.registerExtension({
       });
     });
     chainCallback(nodeType.prototype, "onExecuted", function (message) {
+      if (isForeignRun()) return;
       const state = buildPanel(this);
       const refs = findCompareImages(message);
       if (refs) loadPreviews(state, refs);
