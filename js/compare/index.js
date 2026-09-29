@@ -1,6 +1,6 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
-import { isForeignRun } from "../shared/prompt_scope.mjs";
+import { isForeignRun, outputKey } from "../shared/prompt_scope.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
 import { mediaViewQuery, responsivePreviewHeight } from "../shared/video_preview.mjs";
@@ -242,8 +242,22 @@ function buildPanel(node) {
   return state;
 }
 
+// Going back to a workflow tab puts its results back in ComfyUI's store,
+// but the panel only ever filled from onExecuted. Show the stored pair.
+function showStoredResult(node) {
+  const state = node.__ausbossCompare;
+  if (!state || state.refs) return;
+  const refs = findCompareImages(app.nodeOutputs?.[outputKey(node, app.rootGraph ?? app.graph)]);
+  if (refs) loadPreviews(state, refs);
+}
+
 app.registerExtension({
   name: "ausboss.compare.panel",
+  onNodeOutputsUpdated() {
+    setTimeout(() => {
+      for (const node of app.graph?._nodes ?? []) if (node?.comfyClass === NODE_NAME) showStoredResult(node);
+    }, 0);
+  },
   beforeRegisterNodeDef(nodeType, nodeData) {
     if (nodeData?.name !== NODE_NAME) return;
     chainCallback(nodeType.prototype, "onNodeCreated", function () {

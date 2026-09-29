@@ -75,6 +75,14 @@ export function createRunScope({ limit = DEFAULT_LIMIT } = {}) {
   };
 }
 
+// Where the frontend files a node's results (app.nodeOutputs): its id on
+// the root graph, "<subgraph id>:<id>" inside a subgraph.
+export function outputKey(node, root = null) {
+  if (!node || node.id === null || node.id === undefined) return null;
+  const graph = node.graph;
+  return graph && root && graph !== root && graph.id ? `${graph.id}:${node.id}` : String(node.id);
+}
+
 // The page-wide scope the nodes share.
 export const runScope = createRunScope();
 

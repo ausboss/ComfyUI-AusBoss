@@ -4,7 +4,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createRunScope } from "../js/shared/prompt_scope.mjs";
+import { createRunScope, outputKey } from "../js/shared/prompt_scope.mjs";
 
 const JS_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "js");
 
@@ -103,8 +103,16 @@ test("every onExecuted handler skips runs from another workflow tab", () => {
     for (const match of source.matchAll(handler)) {
       seen += 1;
       assert.match(match[1], /^if \(isForeignRun\(\)\) return;/, `${name}: onExecuted must start with "if (isForeignRun()) return;"`);
-      assert.match(source, /import \{ isForeignRun \} from "\.\.\/shared\/prompt_scope\.mjs";/, `${name}: import isForeignRun`);
+      assert.match(source, /import \{[^}]*\bisForeignRun\b[^}]*\} from "\.\.\/shared\/prompt_scope\.mjs";/, `${name}: import isForeignRun`);
     }
   }
   assert.ok(seen >= 7, `expected the pack's onExecuted handlers, found ${seen}`);
+});
+
+test("results are filed by root id, or subgraph id and id inside a subgraph", () => {
+  const root = { id: "root-graph" };
+  assert.equal(outputKey({ id: 8, graph: root }, root), "8");
+  assert.equal(outputKey({ id: 25, graph: { id: "sub-1" } }, root), "sub-1:25");
+  assert.equal(outputKey({ id: 3 }, root), "3");
+  assert.equal(outputKey(null, root), null);
 });

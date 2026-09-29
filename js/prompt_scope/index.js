@@ -18,7 +18,7 @@ import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { isAusbossNode } from "../shared/index.mjs";
 import { nodeByExecutionId } from "../shared/graph_ids.mjs";
-import { runScope } from "../shared/prompt_scope.mjs";
+import { outputKey, runScope } from "../shared/prompt_scope.mjs";
 
 const rootGraph = () => app.rootGraph ?? app.graph ?? null;
 const graphOwner = (graph) => graph?.rootGraph?.id ?? graph?.id ?? null;
@@ -50,20 +50,13 @@ function recordQueuedRuns() {
   api.queuePrompt = scoped;
 }
 
-// Where the frontend files a node's results: its id on the root graph,
-// "<subgraph id>:<id>" inside a subgraph.
-function outputKey(node) {
-  const root = rootGraph();
-  return node.graph && node.graph !== root && node.graph.id ? `${node.graph.id}:${node.id}` : String(node.id);
-}
-
 function keepOwnResult(detail) {
   try {
     const executionId = String(detail.display_node ?? detail.node ?? "");
     const node = nodeByExecutionId(rootGraph(), executionId);
     if (!node || !isAusbossNode(node)) return;
     const own = app.extensionManager?.workflow?.activeWorkflow?.changeTracker?.nodeOutputs?.[String(detail.node ?? executionId)];
-    const key = outputKey(node);
+    const key = outputKey(node, rootGraph());
     if (own) app.nodeOutputs[key] = own;
     else if (app.nodeOutputs && key in app.nodeOutputs) delete app.nodeOutputs[key];
   } catch {

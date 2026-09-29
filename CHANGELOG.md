@@ -14,6 +14,10 @@ All notable changes to ComfyUI-AusBoss are documented here.
   no longer save another workflow's text or seed), and when you go back to
   the tab that ran, its Save Video, Show Text, Compare and other AusBoss
   panels show that run. Core nodes behave as ComfyUI has them.
+- **Save Video and Compare keep their result when you switch tabs.** Go to
+  another workflow tab and back, and the player said "Run to preview the
+  saved video" (Compare: "Run to load the A/B previews") over a result it
+  had just made. They show it again.
 - **Nodes 2.0: Save Video shows the clip once.** It also drew ComfyUI's own
   copy of the clip under its player.
 - **Crop + Rotate + Pad: the ratio buttons say what the canvas is.** A lit
