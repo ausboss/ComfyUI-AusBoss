@@ -34,6 +34,17 @@ All notable changes to ComfyUI-AusBoss are documented here.
   Pad. Pick a ratio or drag the orange handles, and the padding fits
   whatever image you load; before, it was saved in pixels for the sample
   picture. The prompt is written from the padded picture.
+- **Saved workflows keep only the nodes' own settings.** Each node card and
+  panel used to save an empty value of its own, and a setting added to a
+  node in a later version could open holding it. That is how Stitch
+  Inpaint's Seam and Crop For Inpaint's Stay in picture went wrong in older
+  workflows. Workflows you save now leave the cards and panels out, and
+  workflows saved before still open exactly as they did.
+- **Workflows from the 1.x versions open with the right switches.** In LaMa
+  Inpaint, Mask Refine and Select Frame the preview switch showed on, but no
+  preview was made. It now opens on and works. LoRA Loader's settings showed
+  Stop on missing LoRA off, even though the node still stopped the run. It
+  now shows on, matching what the node does.
 
 ## 2.4.0 - 2026-09-29
 

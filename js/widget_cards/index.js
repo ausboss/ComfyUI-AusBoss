@@ -136,6 +136,9 @@ const CARDS = {
   },
   AUSBOSS_NODES_RefineMask: {
     minWidth: 300, first: true,
+    // A workflow saved by a 1.x release holds the preview panel's own empty
+    // value where preview now sits; it loads on, the node's default.
+    resetUnknown: { preview: true },
     rows: [
       { widget: "expand", label: "Expand", suffix: "px" },
       { widget: "blur", label: "Blur" },
@@ -189,8 +192,10 @@ const CARDS = {
   AUSBOSS_NODES_Integer: { minWidth: 260, rows: [{ widget: "value", label: "Value" }] },
   AUSBOSS_NODES_Float: { minWidth: 260, rows: [{ widget: "value", label: "Value", decimals: 3 }] },
   AUSBOSS_NODES_Text: { minWidth: 300, rows: [{ widget: "text", kind: "textarea", placeholder: "Prompt, caption, or shared text", height: 100, grow: true }] },
-  AUSBOSS_NODES_SelectFrame: { minWidth: 280, first: true, rows: [{ widget: "frame_number", label: "Frame" }] },
-  AUSBOSS_NODES_LaMaInpaint: { minWidth: 280, first: true, rows: [{ widget: "model", label: "Model", kind: "select" }] },
+  // Saved by a 1.x release, these two hold that empty value too and open
+  // with preview on, like Mask Refine.
+  AUSBOSS_NODES_SelectFrame: { minWidth: 280, first: true, resetUnknown: { preview: true }, rows: [{ widget: "frame_number", label: "Frame" }] },
+  AUSBOSS_NODES_LaMaInpaint: { minWidth: 280, first: true, resetUnknown: { preview: true }, rows: [{ widget: "model", label: "Model", kind: "select" }] },
   AUSBOSS_NODES_Krea2OutpaintModelPatch: {
     minWidth: 320,
     rows: [

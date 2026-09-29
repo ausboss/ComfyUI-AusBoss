@@ -427,6 +427,9 @@ function buildPanel(node, config) {
     getMinHeight: () => (enabled() ? PANEL_HEIGHT : OFF_HEIGHT),
   });
   keepDomWidgetWidthAuto(widget);
+  // Not saved with the workflow either: options.serialize only keeps it out
+  // of the prompt, and saved values come back by position.
+  widget.serialize = false;
   // A floor, not a fixed height. This was a constant-height strip back when it
   // showed a thumbnail of the node's input; now that it shows the result, it is
   // a viewport onto a picture, and pinning it left dead space under every node

@@ -127,9 +127,9 @@ export function holdsUnknownValue(widget) {
   return false;
 }
 
-// Saved values come back by position, and a card is a widget that saves an
-// empty value of its own, so an input appended after a release can receive
-// the card's "" from an older save. Put `fallbacks[name]` back on each named
+// Saved values come back by position, and a card used to save an empty value
+// of its own, so an input appended after a release can receive the card's ""
+// from an older save. Put `fallbacks[name]` back on each named
 // widget holding a value it cannot hold; returns the names it reset.
 export function resetUnknownValues(widgets, fallbacks = {}) {
   const reset = [];

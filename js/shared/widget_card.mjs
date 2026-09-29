@@ -453,6 +453,12 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     getMinHeight: () => state.height + WRAPPER_INSET,
   });
   keepDomWidgetWidthAuto(widget);
+  // The card is not a value, so it is not saved with the workflow either.
+  // options.serialize only keeps it out of the prompt; saves skip a widget
+  // whose own serialize is false. Saved values come back by position, and
+  // the "" a card saved before this lands on any input appended after it,
+  // which is why cards still carry resetUnknown for older workflows.
+  widget.serialize = false;
   state.widget = widget;
   if (grows) {
     // A card with a growing textarea is a viewport: it declares a floor and

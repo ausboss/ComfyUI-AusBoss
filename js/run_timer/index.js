@@ -380,6 +380,9 @@ function installDomReadout(node) {
     getMinHeight: () => BASE_HEIGHT,
   });
   keepDomWidgetWidthAuto(widget);
+  // Not saved with the workflow either: options.serialize only keeps it out
+  // of the prompt, and saved values come back by position.
+  widget.serialize = false;
   // A constant-height readout, not a viewport: pinned on purpose (see
   // tests/panel_guards.test.mjs, fixedByDesign).
   widget.computeSize = (width) => [Math.max(MIN_WIDTH, Number(width || node.size?.[0] || BASE_WIDTH)), BASE_HEIGHT];
