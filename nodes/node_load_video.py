@@ -229,8 +229,10 @@ class AusBossLoadVideo:
         except Exception as exc:
             return f"Load Video: {exc}"
         # A single-frame load ignores end_seconds, so a stale trim window left
-        # over from trim mode must not block the graph.
-        if not _values.get("single_frame"):
+        # over from trim mode must not block the graph. A wired bound reaches
+        # validation as None (its value only exists at execution), so the
+        # window cannot be checked yet; the loader checks it again when it runs.
+        if not _values.get("single_frame") and None not in (start_seconds, end_seconds):
             if float(end_seconds) > 0.0 and float(start_seconds) >= float(end_seconds):
                 return "Load Video: start_seconds must be smaller than end_seconds."
         return True
