@@ -1,10 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   CARD_PADDING, GROUP_HEIGHT, ROW_GAP, ROW_HEIGHT, SECTION_HEIGHT, SLOT_OFFSET,
-  cardHeight, commitWidgetValue, rowHeight, rowKind, rowMuted, rowTops, scrubSteps, segmentFits, socketWidgetY, visibleRows,
+  cardHeight, commitWidgetValue, holdsUnknownValue, resetUnknownValues, rowHeight, rowKind, rowMuted, rowTops,
+  scrubSteps, segmentFits, socketWidgetY, visibleRows,
 } from "../js/shared/widget_card_math.mjs";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 test("visibleRows honors when() and closed groups but keeps the header", () => {
   const rows = [
@@ -120,4 +126,100 @@ test("commitWidgetValue copes with a widget that has no callback and a node that
   const widget = { name: "seed", value: 1 };
   commitWidgetValue({}, widget, 2, null);
   assert.equal(widget.value, 2);
+});
+
+test("a switch holds only on or off, a choice only one of its options", () => {
+  for (const value of [true, false]) assert.equal(holdsUnknownValue({ type: "toggle", value }), false);
+  for (const value of ["", null, undefined, 0, "true"]) assert.equal(holdsUnknownValue({ type: "toggle", value }), true);
+  const seam = (value) => ({ type: "combo", value, options: { values: ["classic", "blend in"] } });
+  assert.equal(holdsUnknownValue(seam("blend in")), false);
+  for (const value of ["", null, "blend"]) assert.equal(holdsUnknownValue(seam(value)), true);
+  // Other widgets are never judged: an empty text field is a real value.
+  assert.equal(holdsUnknownValue({ type: "text", value: "" }), false);
+  assert.equal(holdsUnknownValue({ type: "number", value: "" }), false);
+});
+
+// ---------- saves from before an input was appended ----------
+// The frontend hands saved values out by position, and the card is a widget
+// that saves an empty value of its own, so an input appended since a save
+// receives the card's "" when that save loads.
+
+function restoreByPosition(names, saved, types = {}) {
+  return names.map((name, index) => ({ name, type: types[name] ?? "number", value: saved[index] }));
+}
+
+// Today's widgets, in order: every input but the sockets, then the card.
+function widgetNames(nodeId, sockets) {
+  const api = JSON.parse(readFileSync(join(ROOT, "tests", "fixtures", "node_api.json"), "utf-8"))[nodeId];
+  return [...api.required, ...api.optional].filter((name) => !sockets.includes(name)).concat("ausboss_widget_card");
+}
+
+// The card's resetUnknown fallbacks, read from js/widget_cards/index.js.
+function cardFallbacks(nodeId) {
+  const source = readFileSync(join(ROOT, "js", "widget_cards", "index.js"), "utf-8");
+  const start = source.indexOf(`\n  ${nodeId}: {`);
+  assert.ok(start >= 0, `js/widget_cards/index.js has no card for ${nodeId}`);
+  const next = source.slice(start + 1).search(/\n {2}AUSBOSS_NODES_\w+: \{/);
+  const entry = next < 0 ? source.slice(start) : source.slice(start, start + 1 + next);
+  const literal = entry.match(/resetUnknown: (\{[^}]*\})/)?.[1];
+  return literal ? JSON.parse(literal.replace(/(\w+):/g, '"$1":')) : {};
+}
+
+// Crop For Inpaint's keep_inside default, read from the Python source: the
+// widget default a new node gets, and the argument default an API prompt
+// without keep_inside runs with.
+function keepInsideDefaults() {
+  const source = readFileSync(join(ROOT, "nodes", "node_inpaint_crop_stitch.py"), "utf-8");
+  const asBool = (text) => (text === "True" ? true : text === "False" ? false : undefined);
+  const widget = source.slice(source.indexOf('"keep_inside": (')).match(/"default": (True|False)/)?.[1];
+  const argument = source.match(/^\s+keep_inside=(True|False),$/m)?.[1];
+  return { widget: asBool(widget), argument: asBool(argument) };
+}
+
+// Crop For Inpaint as the LaMa Object Removal example saved it before 2.4.0:
+// its fifteen settings, then the card's own empty value.
+const CROP_BEFORE_KEEP_INSIDE = [2, 16, 8, 0, 0, 0, 0, false, 0, 0, "bilinear", 0, 0, 0, 0, ""];
+const CROP_TYPES = { invert_mask: "toggle", keep_inside: "toggle", rescale_algorithm: "combo" };
+
+test("Crop For Inpaint saved before Stay in picture opens with it on, as an API prompt without it runs", () => {
+  const names = widgetNames("AUSBOSS_NODES_CropForInpaint", ["image", "mask"]);
+  const widgets = restoreByPosition(names, CROP_BEFORE_KEEP_INSIDE, CROP_TYPES);
+  const keepInside = widgets.find((widget) => widget.name === "keep_inside");
+  assert.equal(keepInside.value, "", "the old save hands keep_inside the card's empty value");
+
+  assert.deepEqual(resetUnknownValues(widgets, cardFallbacks("AUSBOSS_NODES_CropForInpaint")), ["keep_inside"]);
+  const defaults = keepInsideDefaults();
+  assert.equal(keepInside.value, true);
+  assert.equal(keepInside.value, defaults.widget, "a new node's default");
+  assert.equal(keepInside.value, defaults.argument, "what an API prompt without keep_inside runs with");
+  // Every other setting keeps what was saved.
+  const others = widgets.filter((widget) => widget.name !== "keep_inside" && widget.name !== "ausboss_widget_card");
+  assert.deepEqual(others.map((widget) => widget.value), CROP_BEFORE_KEEP_INSIDE.slice(0, 15));
+});
+
+test("Crop For Inpaint saved since keeps its Stay in picture", () => {
+  const names = widgetNames("AUSBOSS_NODES_CropForInpaint", ["image", "mask"]);
+  const fallbacks = cardFallbacks("AUSBOSS_NODES_CropForInpaint");
+  for (const choice of [true, false]) {
+    const widgets = restoreByPosition(names, [...CROP_BEFORE_KEEP_INSIDE.slice(0, 15), choice, ""], CROP_TYPES);
+    assert.deepEqual(resetUnknownValues(widgets, fallbacks), []);
+    assert.equal(widgets.find((widget) => widget.name === "keep_inside").value, choice);
+  }
+  // Saved again on 2.4.0 while it still showed the stale value: on as well.
+  const resaved = restoreByPosition(names, [...CROP_BEFORE_KEEP_INSIDE.slice(0, 15), "", ""], CROP_TYPES);
+  resetUnknownValues(resaved, fallbacks);
+  assert.equal(resaved.find((widget) => widget.name === "keep_inside").value, true);
+});
+
+test("Stitch Inpaint saved before Seam still opens classic", () => {
+  const names = widgetNames("AUSBOSS_NODES_StitchInpaint", ["stitcher", "inpainted"]);
+  const types = { fix_edge_halo: "toggle", seam: "combo" };
+  const widgets = restoreByPosition(names, [false, 0.5, ""], types);
+  widgets.find((widget) => widget.name === "seam").options = { values: ["classic", "blend in"] };
+  assert.deepEqual(resetUnknownValues(widgets, cardFallbacks("AUSBOSS_NODES_StitchInpaint")), ["seam"]);
+  assert.deepEqual(widgets.map((widget) => widget.value), [false, 0.5, "classic", undefined]);
+  // A real choice is left alone.
+  const chosen = restoreByPosition(names, [false, 0.5, "blend in", ""], types);
+  chosen.find((widget) => widget.name === "seam").options = { values: ["classic", "blend in"] };
+  assert.deepEqual(resetUnknownValues(chosen, cardFallbacks("AUSBOSS_NODES_StitchInpaint")), []);
 });
