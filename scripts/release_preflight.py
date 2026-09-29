@@ -112,7 +112,8 @@ ARCHIVE_ALLOWLIST = (
 # the sample media the example workflows load.
 ARCHIVE_MUST_SHIP = ("js/docs/", "example_workflows/inputs/")
 # Bytes before compression. Without the README media the archive is about
-# 7 MB, nearly all of it example thumbnails and inputs.
+# 5 MB: 2.5 MB of sample inputs, 0.6 MB of example thumbnails, and code,
+# docs and the example workflows.
 ARCHIVE_BUDGET = 12_000_000
 
 

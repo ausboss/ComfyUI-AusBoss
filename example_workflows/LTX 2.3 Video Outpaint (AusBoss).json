@@ -829,7 +829,7 @@
     "ausboss_fit_aspect": "16:9"
    },
    "widgets_values": {
-    "video": "ausboss_pier_9x16.mp4",
+    "video": "",
     "source_mode": "input folder",
     "local_path": "",
     "start_seconds": 0,
@@ -861,7 +861,7 @@
     "stitch_grow": 0
    },
    "widgets_values_named": {
-    "video": "ausboss_pier_9x16.mp4",
+    "video": "",
     "source_mode": "input folder",
     "local_path": "",
     "start_seconds": 0,

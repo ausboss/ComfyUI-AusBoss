@@ -46,11 +46,12 @@ different placements.
 itself as the reference, spread over the whole frame, and the known pixels
 held in place by the sampler. Wire it like the *Krea 2 Outpaint* example:
 
-- Load Image + Pad 🆎 with any padding you like — left, right, top and
-  bottom together are fine. Flat colour fill.
+- A pad node with any padding you like: Image Crop + Rotate + Pad 🆎, as in
+  the example, or Load Image + Pad 🆎. Left, right, top and bottom together
+  are fine. Flat colour fill.
 - Krea 2 Encode 🆎 with the pad node's **image** output (the padded canvas,
-  not the unpadded *reference* output) as the reference, and `vlm_reference`
-  **on**.
+  not Load Image + Pad's unpadded *reference* output) as the reference, and
+  `vlm_reference` **on**.
 - This patch on `whole canvas`.
 - VAE Encode the padded canvas, Set Latent Noise Mask with the pad mask, and
   sample from that latent at full denoise. The mask is what keeps the source

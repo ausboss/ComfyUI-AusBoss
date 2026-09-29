@@ -125,12 +125,12 @@ dependencies, and no model.
   a reframe of 27-33% that nearly fills the canvas): recovered within about
   0.1 px at the corners, 0.2 px on the reframe. Without the coarse pass's
   zoom tries, a 30% zoom was lost (137 px off); with them it is found.
-- **166 real Qwen Image 2.1 edits** of four pictures at the Qwen 2.1 Edit
-  example's settings: 164 measured. The two it left alone were sampled on a
-  1024x1024 canvas for an 832x1216 picture (the wrong-canvas squeeze), and
-  the report names that. Re-measured by a separate estimator after
-  realigning, the worst corner of the 94 style edits went from 35.5 px to
-  4.6 px (median); light edits from 2.1 px to 0.1 px.
+- **166 real Qwen Image 2.1 edits** of four pictures: 164 measured. The
+  two it left alone were sampled on a 1024x1024 canvas for an 832x1216
+  picture (the wrong-canvas squeeze), and the report names that. Re-measured
+  by a separate estimator after realigning, the worst corner of the 94 style
+  edits went from 35.5 px to 4.6 px (median); light edits from 2.1 px to
+  0.1 px.
 - **Margins, 16 held-out edits** (12 restyles, 4 light edits; each at one
   seed with a 64 px margin, realigned, then re-measured against the
   source):

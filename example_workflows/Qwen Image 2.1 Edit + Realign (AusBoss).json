@@ -258,11 +258,11 @@
     "ver": "0.37.0"
    },
    "widgets_values": [
-    "ausboss_pier_sunrise.png",
+    "",
     "image"
    ],
    "widgets_values_named": {
-    "image": "ausboss_pier_sunrise.png",
+    "image": "",
     "upload": "image"
    }
   },
@@ -430,7 +430,7 @@
     "cnr_id": "ausboss-nodes"
    },
    "widgets_values": [
-    "ausboss_pier_sunrise.png",
+    "",
     64,
     64,
     64,
@@ -446,7 +446,7 @@
     ""
    ],
    "widgets_values_named": {
-    "image": "ausboss_pier_sunrise.png",
+    "image": "",
     "pad_left": 64,
     "pad_top": 64,
     "pad_right": 64,
