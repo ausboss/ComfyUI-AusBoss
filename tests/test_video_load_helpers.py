@@ -441,6 +441,21 @@ class LoadVideoNodeTests(unittest.TestCase):
                 node.VALIDATE_INPUTS("clip.mp4", 5.0, 1.0, single_frame=True), True
             )
 
+    def test_validation_skips_the_window_check_for_a_wired_bound(self):
+        # ComfyUI hands a wired input to VALIDATE_INPUTS as None: its value
+        # only exists at execution, so the window cannot be judged yet.
+        node = node_load_video.AusBossLoadVideo
+        with patch.object(node_load_video, "resolve_input_path", lambda _name: self.video):
+            self.assertIs(node.VALIDATE_INPUTS("clip.mp4", 0.5, None), True)
+            self.assertIs(node.VALIDATE_INPUTS("clip.mp4", None, 1.5), True)
+            self.assertIs(node.VALIDATE_INPUTS("clip.mp4", None, None), True)
+            # A wired bound must not switch off the checks that still apply.
+            self.assertIn("start_seconds", node.VALIDATE_INPUTS("clip.mp4", 5.0, 1.0))
+        gone = ValueError("The selected source file no longer exists.")
+        with patch.object(node_load_video, "resolve_input_path", side_effect=gone):
+            self.assertIn("Load Video", node.VALIDATE_INPUTS("gone.mp4", None, 1.5))
+            self.assertIn("Load Video", node.VALIDATE_INPUTS("gone.mp4", 0.5, None))
+
     def test_the_node_function_is_a_coroutine(self):
         node = node_load_video.AusBossLoadVideo
         self.assertTrue(inspect.iscoroutinefunction(getattr(node, node.FUNCTION)))

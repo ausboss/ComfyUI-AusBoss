@@ -4,6 +4,10 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Load Video accepts a wired start or end time.** Connecting another
+  node (such as Math Expression) to Load Video's start or end time made the
+  whole graph fail to queue with an error. It now queues and runs. A wired
+  time that turns out to be bad still stops the run with a clear message.
 - **Krea 2 Outpaint no longer promises inpainting.** Its Workflow Note and
   the Krea 2 Outpaint Model Patch help page said you could paint over part
   of the picture with the mask editor and pad at the same time. That does
