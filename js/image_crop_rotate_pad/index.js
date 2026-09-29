@@ -1,13 +1,8 @@
-import { registerTransformExtension } from "../shared/transform_editor.mjs";
+import { TRANSFORM_MIN_WIDTH, registerTransformExtension, transformPanelFloor } from "../shared/transform_editor.mjs";
 import { keepDomWidgetWidthAuto } from "../shared/index.mjs";
 import { fillNodeHeight } from "../shared/panel_layout.mjs";
-import { stageHeightForWidth } from "../shared/transform_geometry.mjs";
 
-const PANEL_MIN_WIDTH = 330;
-// Source card, the format chips under the stage, two action rows (open
-// editor and reset/feather/resize), column gaps, and panel padding.
-const PANEL_CHROME = 210;
-const PANEL_MIN_HEIGHT = stageHeightForWidth(0) + PANEL_CHROME;
+const PANEL_MIN_WIDTH = TRANSFORM_MIN_WIDTH;
 
 // Guard rule the DOM-panel audit (tests/panel_guards.test.mjs) checks next
 // to the addDOMWidget call: padding stays inside the widget's box and
@@ -27,16 +22,19 @@ function mountTransformPanel(node, panel) {
   const widget = node.addDOMWidget("ausboss_transform_preview", "ausboss_transform_preview", panel, {
     serialize: false,
     hideOnZoom: false,
-    getMinHeight: () => PANEL_MIN_HEIGHT,
+    getMinHeight: () => transformPanelFloor(node),
   });
   keepDomWidgetWidthAuto(widget);
   // Not saved with the workflow either: options.serialize only keeps it out
   // of the prompt, and saved values come back by position.
   widget.serialize = false;
+  // The stage's floor follows its width (transformPanelFloor), as on the
+  // video nodes: the picture never shrinks to a thumbnail.
   fillNodeHeight(widget, {
     minWidth: PANEL_MIN_WIDTH,
-    minHeight: PANEL_MIN_HEIGHT,
+    minHeight: () => transformPanelFloor(node),
     minNodeSize: [PANEL_MIN_WIDTH, 470],
+    exactMinWidth: true,
   });
   return widget;
 }

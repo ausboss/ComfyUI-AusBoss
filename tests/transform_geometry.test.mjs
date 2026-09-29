@@ -109,11 +109,12 @@ test("zoom remains anchored under the pointer", () => {
   assert.deepEqual(zoomAround({ zoom: 1, panX: 0, panY: 0 }, 2, { x: 100, y: 50 }), { zoom: 2, panX: -100, panY: -50 });
 });
 
-test("panel stage height tracks node width within its clamps", () => {
+test("the stage floor tracks the stage width within its clamps", () => {
   assert.equal(stageHeightForWidth(100), 200); // floor
-  assert.equal(stageHeightForWidth(330), 218);
-  assert.equal(stageHeightForWidth(500), 330);
-  assert.equal(stageHeightForWidth(2000), 520); // ceiling
+  assert.equal(stageHeightForWidth(307), 200); // a fresh clip node
+  assert.equal(stageHeightForWidth(442), 265); // the LTX example's node
+  assert.equal(stageHeightForWidth(500), 300);
+  assert.equal(stageHeightForWidth(2000), 340); // ceiling
   assert.equal(stageHeightForWidth(undefined), 200);
 });
 

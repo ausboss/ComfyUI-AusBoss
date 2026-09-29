@@ -257,10 +257,12 @@ export function zoomAround(view, nextZoom, anchor) {
   };
 }
 
-// Compact-panel stage height for a node width: a wider node earns a taller
-// stage, clamped so the panel neither collapses nor swallows the graph.
+// The least height the node-face stage gets for its width: about the shape
+// of a 16:9 canvas with the handles around it, so a padded clip is never a
+// thumbnail. A wider stage earns a taller floor, clamped so a very wide node
+// is not forced to be very tall.
 export function stageHeightForWidth(width) {
-  return Math.round(clamp((Number(width) || 0) * 0.66, 200, 520));
+  return Math.round(clamp((Number(width) || 0) * 0.6, 200, 340));
 }
 
 // Stage-size-aware handle geometry shared by the editor stage and the

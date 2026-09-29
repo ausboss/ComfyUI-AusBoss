@@ -4,7 +4,7 @@ import { hideInputsInDef, hideWidget } from "./widget_visibility.mjs";
 import { mountTransformTrim } from "./transform_trim.mjs";
 import { clipOutputRate, inputNumber } from "./clip_rate.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "./index.mjs";
-import { fillNodeHeight } from "./panel_layout.mjs";
+import { WIDGET_FRAME, fillNodeHeight, holdVueNodeMinWidth } from "./panel_layout.mjs";
 import { mediaViewQuery } from "./media_list.mjs";
 import { createMediaPicker } from "./media_picker.mjs";
 import { normalizeFillColor } from "./fill_color.mjs";
@@ -43,6 +43,7 @@ import {
   sourceChanged,
   sourceResetValues,
   stageHandleLayout,
+  stageHeightForWidth,
   zoomAround,
 } from "./transform_geometry.mjs";
 import { clampFrame, clipInfo, frameTime } from "./timeline_math.mjs";
@@ -338,6 +339,9 @@ function buildMediaSourceCard(state) {
     hint.title = source.mode === LOCAL_PATH_MODE
       ? `${source.hint} Only videos inside ComfyUI's input, output or temp folder can be read.`
       : source.hint;
+    // "Choose an uploaded video" has done its job once one is chosen; its
+    // line goes to the picture. The Local path note stays while you type.
+    hint.style.display = source.mode !== LOCAL_PATH_MODE && source.selection ? "none" : "";
   };
   const chooseMode = (mode) => {
     if (value(node, "source_mode", INPUT_FOLDER_MODE) === mode) return;
@@ -462,14 +466,16 @@ export function installTransformNode(node, kind, mountPanel = null) {
     // Not saved with the workflow either: options.serialize only keeps it out
     // of the prompt, and saved values come back by position.
     domWidget.serialize = false;
-    fillNodeHeight(domWidget, { minWidth: 330, minHeight: state.isClip ? 602 : kind === "video" ? 510 : 296, minNodeSize: [330, state.isClip ? 802 : kind === "video" ? 570 : 456] });
+    // exactMinWidth: 330 is the node's real floor, without the frontend's
+    // number-widget padding that made the first corner drag jump to 434.
+    fillNodeHeight(domWidget, { minWidth: TRANSFORM_MIN_WIDTH, minHeight: () => transformPanelFloor(node), minNodeSize: [TRANSFORM_MIN_WIDTH, state.isClip ? 802 : kind === "video" ? 570 : 456], exactMinWidth: true });
   } else {
     node.addWidget?.("button", "Open editor", null, () => openEditor(state), { serialize: false });
   }
-  const baseHeight = state.isClip ? 842 : kind === "video" ? 635 : 511;
+  // A fresh node opens at its floor: the stage as tall as its width asks.
   node.setSize?.([
-    Math.max(330, Math.min(520, node.size?.[0] || 330)),
-    Math.max(baseHeight, node.computeSize?.()[1] || 0),
+    Math.max(TRANSFORM_MIN_WIDTH, Math.min(520, node.size?.[0] || TRANSFORM_MIN_WIDTH)),
+    node.computeSize?.()[1] || (state.isClip ? 842 : kind === "video" ? 635 : 511),
   ]);
   if (typeof node.addDOMWidget === "function") {
     // Redraw on wrapper size changes (node resize, zoom relayout);
@@ -1742,21 +1748,74 @@ function draw(state) {
   keepStageRoom(state);
 }
 
-// The face's size readout and its resize row must not squeeze the stage:
-// when the picture's box drops under this floor, the node grows by the
-// difference, so a toggled Resize or a readout that wraps costs node
-// height, not picture. Never shrinks a node.
-const STAGE_FLOOR = 130;
+// The picture is what the node face is for, so the stage never gets shorter
+// than stageHeightForWidth for its width: the panel's floor is the rows
+// around the stage plus that, and a corner drag stops there. The rows are
+// measured on every draw; before the panel is on screen, these stand in:
+// the rows of a node with no file picked yet, as the examples open (the
+// canvas row's Resize adds the budget row under it).
+const PANEL_CHROME_ESTIMATE = { image: 262, video: 365, clip: 451 };
+const RESIZE_ROW = 30;
+// Node width minus stage width: the DOM widget frame, panel padding, borders.
+const PANEL_SIDE_INSET = 38;
+// The narrowest face the chip row and the button rows fit on.
+export const TRANSFORM_MIN_WIDTH = 330;
+
+function stageWidth(state) {
+  return state.previewCanvas?.clientWidth || Math.max(0, (Number(state.node.size?.[0]) || TRANSFORM_MIN_WIDTH) - PANEL_SIDE_INSET);
+}
+
+// Everything in the panel but the stage: rows, the gaps between the shown
+// ones, and the panel's own padding. Null while the panel is not laid out.
+function measureChrome(state) {
+  const stage = state.previewCanvas;
+  const panel = stage?.parentElement;
+  if (!panel?.isConnected || !panel.offsetHeight) return state.chromeHeight ?? null;
+  const style = getComputedStyle(panel);
+  const gap = parseFloat(style.rowGap) || 0;
+  let height = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0);
+  let shown = 0;
+  for (const child of panel.children) {
+    if (getComputedStyle(child).display === "none") continue;
+    shown += 1;
+    if (child !== stage) height += child.offsetHeight;
+  }
+  state.chromeHeight = Math.round(height + Math.max(0, shown - 1) * gap);
+  return state.chromeHeight;
+}
+
+// The panel's minimum height: its rows, the stage floor with the stage's
+// border, and the frame the frontend insets a DOM widget by.
+export function transformPanelFloor(node) {
+  const state = node?.__ausbossTransformState;
+  if (!state) return 0;
+  const estimate = PANEL_CHROME_ESTIMATE[state.isClip ? "clip" : state.kind] + (value(node, "resize_to_megapixels", false) ? RESIZE_ROW : 0);
+  return (state.chromeHeight ?? estimate) + stageHeightForWidth(stageWidth(state)) + 2 + WIDGET_FRAME;
+}
+
+// A row that appears later (Resize on, a readout that wraps) would squeeze
+// the stage under its floor: the node grows by the difference instead, so
+// it costs node height, not picture. Never shrinks a node.
 function keepStageRoom(state) {
   const height = state.previewCanvas?.clientHeight ?? 0;
   const node = state.node;
   if (state.disposed || !height || !node.size) return;
-  if (height >= STAGE_FLOOR) { state.stageGrowth = null; return; }
+  // Nodes 2.0 has no layout floor for width: lend it the face's own, or a
+  // corner drag squeezes the chips and buttons down to 225px.
+  holdVueNodeMinWidth(state.previewCanvas.parentElement, TRANSFORM_MIN_WIDTH);
+  measureChrome(state);
+  const floor = stageHeightForWidth(stageWidth(state));
+  // Nodes 2.0 sizes a node from its content, so the floor also has to be
+  // the stage's own minimum there; in the classic view the layout floor
+  // already keeps the panel this tall.
+  const minimum = `${floor}px`;
+  if (state.previewCanvas.style.minHeight !== minimum) state.previewCanvas.style.minHeight = minimum;
+  if (height >= floor - 1) { state.stageGrowth = null; return; }
   // The DOM follows a new node size a frame later, so a second draw before
   // then reads the same short stage: wait for it instead of growing twice.
   const pending = state.stageGrowth;
   if (pending && pending.height === height && node.size[1] >= pending.target) return;
-  const target = node.size[1] + (STAGE_FLOOR - height);
+  const target = node.size[1] + (floor - height);
   state.stageGrowth = { height, target };
   node.setSize?.([node.size[0], target]);
   node.setDirtyCanvas?.(true, true);

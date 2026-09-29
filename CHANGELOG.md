@@ -16,6 +16,15 @@ All notable changes to ComfyUI-AusBoss are documented here.
   panels show that run. Core nodes behave as ComfyUI has them.
 - **Nodes 2.0: Save Video shows the clip once.** It also drew ComfyUI's own
   copy of the clip under its player.
+- **Crop + Rotate + Pad: the picture on the node stays big enough to see.**
+  You can no longer drag the node so short that the preview becomes a
+  thumbnail: the picture keeps at least three fifths of its width in
+  height (200 to 340 px), and a new node opens that way. The "Choose an
+  uploaded video" line under the picker goes away once you pick one, so the
+  picture gets that room too. A workflow saved with a shorter node opens
+  with it a little taller, and the LTX 2.3 Video Outpaint example is laid
+  out for the new size. In Nodes 2.0 the node also stops at the width its
+  buttons need instead of squeezing them.
 - **The red "missing file" warning clears when you pick a file.** Open a
   workflow that was saved with a picture you don't have and ComfyUI marks
   Load Image + Pad red and lists it under Setup required. Picking your own
