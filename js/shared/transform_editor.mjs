@@ -31,6 +31,7 @@ import {
   paddingAxis,
   paddingHandleCenters,
   parseAspectRatio,
+  rememberedSource,
   resetTransformValues,
   resizeCrop,
   resolveCrop,
@@ -828,7 +829,7 @@ async function onSourceChanged(state, reset) {
     if (state.isClip) { setValue(state.node, "start_seconds", 0); setValue(state.node, "end_seconds", 0); }
     resetView(state);
   }
-  if (key) state.source = key;
+  state.source = rememberedSource(state.source, key, reset);
   await loadSource(state);
   if (changed && state.image) refitAspect(state);
 }
