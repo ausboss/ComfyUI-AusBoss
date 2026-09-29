@@ -290,7 +290,7 @@
         "ausboss_pad_portrait": true
       },
       "widgets_values": {
-        "image": "ausboss_day_bridge_169.png",
+        "image": "",
         "rotation_degrees": 0,
         "crop_aspect_ratio": "free",
         "crop_x": 0,
@@ -312,7 +312,7 @@
         "stitch_grow": 0
       },
       "widgets_values_named": {
-        "image": "ausboss_day_bridge_169.png",
+        "image": "",
         "rotation_degrees": 0,
         "crop_aspect_ratio": "free",
         "crop_x": 0,

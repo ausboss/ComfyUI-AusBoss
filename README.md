@@ -295,17 +295,17 @@ These are the workflows where the nodes do something core ComfyUI doesn't do by 
 
 The Krea 2 examples use this layout: named groups for your input, the models and the result, with the plumbing inside two boxes you can double-click to open.
 
-Copy the files in [`example_workflows/inputs/`](example_workflows/inputs) into `ComfyUI/input/` first. The fur coat picture already has its mask painted. If you keep models in subfolders, pick your copy in each loader before you run. A green model check on the note only means the file exists; it doesn't mean the loader has that file selected. The models' licenses and any download terms are their authors'.
+The workflows open with their image and video loaders empty, so you load your own picture or clip. To try one with a sample first, copy the pier photo or the short pier clip from [`example_workflows/inputs/`](example_workflows/inputs) into `ComfyUI/input/`. If you keep models in subfolders, pick your copy in each loader before you run. A green model check on the note only means the file exists; it doesn't mean the loader has that file selected. The models' licenses and any download terms are their authors'.
 
 | Workflow | What it does | What you need |
 |---|---|---|
-| [Krea 2 Outpaint](example_workflows/Krea%202%20Outpaint%20%28AusBoss%29.json) | Pick a ratio or drag the orange handles out, and Krea 2 paints the new area | Krea 2 Turbo and the AnyPaint LoRA; its text encoder also writes the caption; included picture |
-| [Krea 2 Inpaint Masked](example_workflows/Krea%202%20Inpaint%20Masked%20%28AusBoss%29.json) | Paint over part of a picture, say what goes there, and Krea 2 repaints only that | Krea 2 Turbo and the AnyPaint LoRA; the included picture has its mask painted |
-| [Krea 2 Rotate + Outpaint](example_workflows/Krea%202%20Rotate%20%2B%20Outpaint%20%28AusBoss%29.json) | Turn, crop and pad a picture, and Krea 2 paints the new area | Krea 2 Turbo and the AnyPaint LoRA; included picture |
+| [Krea 2 Outpaint](example_workflows/Krea%202%20Outpaint%20%28AusBoss%29.json) | Pick a ratio or drag the orange handles out, and Krea 2 paints the new area | Krea 2 Turbo and the AnyPaint LoRA; its text encoder also writes the caption |
+| [Krea 2 Inpaint Masked](example_workflows/Krea%202%20Inpaint%20Masked%20%28AusBoss%29.json) | Paint over part of a picture, say what goes there, and Krea 2 repaints only that | Krea 2 Turbo and the AnyPaint LoRA |
+| [Krea 2 Rotate + Outpaint](example_workflows/Krea%202%20Rotate%20%2B%20Outpaint%20%28AusBoss%29.json) | Turn, crop and pad a picture, and Krea 2 paints the new area | Krea 2 Turbo and the AnyPaint LoRA |
 | [Klein 9B Outpaint](example_workflows/Klein%209B%20Outpaint%20%28AusBoss%29.json) | Extend a picture with the PixaOutpaint LoRA, then stitch the original back | Distilled Klein 9B, its Qwen encoder and the Flux 2 VAE, the PixaOutpaint LoRA, and Qwen3-VL 8B INT8 for the caption |
-| [LTX 2.3 Video Outpaint](example_workflows/LTX%202.3%20Video%20Outpaint%20%28AusBoss%29.json) | Widen a vertical clip, keeping its audio and original pixels | LTX 2.3, the distilled LoRA and the outpaint IC-LoRA; included clip |
-| [Qwen Image 2.1 Edit + Realign](example_workflows/Qwen%20Image%202.1%20Edit%20%2B%20Realign%20%28AusBoss%29.json) | Type a short edit, and Realign to Source lines Qwen's result back up with your picture | Qwen Image 2.1 INT8, Qwen3-VL 8B INT8 and the 2.1 VAE; included pier picture |
-| [Simple Video Watermark Remover](example_workflows/Simple%20Video%20Watermark%20Remover%20%28AusBoss%29.json) | Find an overlay in a clip and remove it, with a one-frame comparison branch | **ComfyUI-RMBG** for SAM3, plus `big-lama.pt`; included clip |
+| [LTX 2.3 Video Outpaint](example_workflows/LTX%202.3%20Video%20Outpaint%20%28AusBoss%29.json) | Widen a vertical clip, keeping its audio and original pixels | LTX 2.3, the distilled LoRA and the outpaint IC-LoRA |
+| [Qwen Image 2.1 Edit + Realign](example_workflows/Qwen%20Image%202.1%20Edit%20%2B%20Realign%20%28AusBoss%29.json) | Type a short edit, and Realign to Source lines Qwen's result back up with your picture | Qwen Image 2.1 INT8, Qwen3-VL 8B INT8 and the 2.1 VAE |
+| [Simple Video Watermark Remover](example_workflows/Simple%20Video%20Watermark%20Remover%20%28AusBoss%29.json) | Find an overlay in a clip and remove it, with a one-frame comparison branch | **ComfyUI-RMBG** for SAM3, plus `big-lama.pt` |
 
 The watermark remover is the one example that needs another node pack. The others use only core nodes and this pack. Speed and memory use depend on the models, the sizes, the frame count and whatever else is using the GPU.
 

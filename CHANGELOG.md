@@ -11,13 +11,16 @@ All notable changes to ComfyUI-AusBoss are documented here.
   Outpaint, Krea 2 Inpaint Masked, Krea 2 Rotate + Outpaint, Klein 9B
   Outpaint, LTX 2.3 Video Outpaint, Qwen Image 2.1 Edit + Realign and Simple
   Video Watermark Remover. Krea 2 Inpaint Masked and Krea 2 Rotate + Outpaint
-  are new, and their sample pictures are in `example_workflows/inputs/`.
+  are new.
+- **The example workflows open with their loaders empty.** Every image and
+  video loader in them is saved with no file picked, so you load your own
+  picture or clip. The pier photo and the pier clip are still in
+  `example_workflows/inputs/` if you want to try one first.
 - **Krea 2 Outpaint example: the padding follows your picture.** The
   example now pads with Image Crop + Rotate + Pad instead of Load Image +
   Pad. Pick a ratio or drag the orange handles, and the padding fits
   whatever image you load; before, it was saved in pixels for the sample
-  picture. The prompt is written from the padded picture, and the sample
-  is now `ausboss_day_bridge_169.png`.
+  picture. The prompt is written from the padded picture.
 
 ## 2.4.0 - 2026-09-29
 

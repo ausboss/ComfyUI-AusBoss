@@ -262,11 +262,11 @@
         "Node name for S&R": "LoadImage"
       },
       "widgets_values": [
-        "ausboss_neon_fur_coat.png",
+        "",
         "image"
       ],
       "widgets_values_named": {
-        "image": "ausboss_neon_fur_coat.png",
+        "image": "",
         "upload": "image"
       },
       "color": "#14424d",

@@ -598,7 +598,7 @@
         "ausboss_load_video_loop": true
       },
       "widgets_values": {
-        "video": "ausboss_pier_9x16.mp4",
+        "video": "",
         "start_seconds": 0,
         "end_seconds": 1,
         "custom_width": 0,
@@ -607,7 +607,7 @@
         "max_frames": 24
       },
       "widgets_values_named": {
-        "video": "ausboss_pier_9x16.mp4",
+        "video": "",
         "start_seconds": 0,
         "end_seconds": 1,
         "custom_width": 0,
