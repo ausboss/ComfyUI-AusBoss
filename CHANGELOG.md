@@ -2,6 +2,17 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Fewer example workflows.** The examples are down to the seven that
+  show what these nodes do that core ComfyUI doesn't: outpainting and
+  inpainting that put your original picture back, lining an edit back up
+  with its source, and removing a watermark from a clip. They are Krea 2
+  Outpaint, Krea 2 Inpaint Masked, Krea 2 Rotate + Outpaint, Klein 9B
+  Outpaint, LTX 2.3 Video Outpaint, Qwen Image 2.1 Edit + Realign and Simple
+  Video Watermark Remover. Krea 2 Inpaint Masked and Krea 2 Rotate + Outpaint
+  are new, and their sample pictures are in `example_workflows/inputs/`.
+
 ## 2.4.0 - 2026-09-29
 
 - **Load Video accepts a wired start or end time.** Connecting another

@@ -1,0 +1,2301 @@
+{
+  "id": "16318f0d-7efa-473f-babb-24a1d9992d1f",
+  "revision": 0,
+  "last_node_id": 33,
+  "last_link_id": 52,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "UNETLoader",
+      "pos": [
+        1020,
+        704
+      ],
+      "size": [
+        520,
+        82
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "Node name for S&R": "UNETLoader",
+        "models": [
+          {
+            "name": "krea2_turbo_fp8_scaled.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors",
+            "directory": "diffusion_models"
+          }
+        ]
+      },
+      "widgets_values": [
+        "krea2_turbo_fp8_scaled.safetensors",
+        "default"
+      ],
+      "widgets_values_named": {
+        "unet_name": "krea2_turbo_fp8_scaled.safetensors",
+        "weight_dtype": "default"
+      },
+      "color": "#323",
+      "bgcolor": "#535",
+      "title": "Diffusion model"
+    },
+    {
+      "id": 2,
+      "type": "CLIPLoader",
+      "pos": [
+        1020,
+        400
+      ],
+      "size": [
+        520,
+        106
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            43,
+            49
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "Node name for S&R": "CLIPLoader",
+        "models": [
+          {
+            "name": "qwen3vl_4b_fp8_scaled.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors",
+            "directory": "text_encoders"
+          }
+        ]
+      },
+      "widgets_values": [
+        "qwen3vl_4b_fp8_scaled.safetensors",
+        "krea2",
+        "default"
+      ],
+      "widgets_values_named": {
+        "clip_name": "qwen3vl_4b_fp8_scaled.safetensors",
+        "type": "krea2",
+        "device": "default"
+      },
+      "color": "#432",
+      "bgcolor": "#653",
+      "title": "Text encoder"
+    },
+    {
+      "id": 3,
+      "type": "VAELoader",
+      "pos": [
+        1020,
+        576
+      ],
+      "size": [
+        520,
+        58
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            50
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "Node name for S&R": "VAELoader",
+        "models": [
+          {
+            "name": "qwen_image_vae.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors",
+            "directory": "vae"
+          }
+        ]
+      },
+      "widgets_values": [
+        "qwen_image_vae.safetensors"
+      ],
+      "widgets_values_named": {
+        "vae_name": "qwen_image_vae.safetensors"
+      },
+      "color": "#322",
+      "bgcolor": "#533",
+      "title": "VAE"
+    },
+    {
+      "id": 4,
+      "type": "AUSBOSS_NODES_LoraLoader",
+      "pos": [
+        1020,
+        856
+      ],
+      "size": [
+        520,
+        188
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 1
+        },
+        {
+          "name": "clip",
+          "shape": 7,
+          "type": "CLIP",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "links": [
+            51
+          ]
+        },
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "links": []
+        },
+        {
+          "name": "triggers",
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "title": "LoRA Loader - AnyPaint LoRA",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.3.0",
+        "Node name for S&R": "AUSBOSS_NODES_LoraLoader",
+        "ausbossLoraLinked": true,
+        "models": [
+          {
+            "name": "krea2_anypaint_rank32.safetensors",
+            "url": "https://huggingface.co/yijunwang2/krea2-anypaint/resolve/main/krea2_anypaint_rank32.safetensors",
+            "directory": "loras"
+          }
+        ]
+      },
+      "widgets_values": [
+        "[{\"name\": \"krea2_anypaint_rank32.safetensors\", \"strength\": 1.0, \"enabled\": true, \"triggers\": \"\"}]",
+        ", ",
+        "error",
+        ""
+      ],
+      "widgets_values_named": {
+        "loras": "[{\"name\": \"krea2_anypaint_rank32.safetensors\", \"strength\": 1.0, \"enabled\": true, \"triggers\": \"\"}]",
+        "trigger_separator": ", ",
+        "on_missing": "error",
+        "ausboss_lora_rows": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 23,
+      "type": "AUSBOSS_NODES_ImageCropRotatePad",
+      "pos": [
+        500,
+        80
+      ],
+      "size": [
+        440,
+        764
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            31,
+            41,
+            44
+          ]
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "links": [
+            45
+          ]
+        },
+        {
+          "name": "stitcher",
+          "type": "AUSBOSS_STITCHER",
+          "links": [
+            46
+          ]
+        },
+        {
+          "name": "original",
+          "type": "IMAGE",
+          "links": []
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "links": []
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": []
+        }
+      ],
+      "title": "Image Crop + Rotate + Pad - Your image",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.3.0",
+        "Node name for S&R": "AUSBOSS_NODES_ImageCropRotatePad"
+      },
+      "widgets_values": {
+        "image": "ausboss_car_window.png",
+        "rotation_degrees": 12,
+        "crop_aspect_ratio": "free",
+        "crop_x": 0,
+        "crop_y": 0,
+        "crop_width": 0,
+        "crop_height": 0,
+        "pad_left": 192,
+        "pad_top": 96,
+        "pad_right": 0,
+        "pad_bottom": 0,
+        "feather": 12,
+        "canvas_multiple": 1,
+        "fill_color": "#808080",
+        "resize_to_megapixels": true,
+        "megapixels": 1.5,
+        "resize_method": "lanczos",
+        "resolution_steps": 16,
+        "stitch_blend": 0,
+        "stitch_grow": 0
+      },
+      "widgets_values_named": {
+        "image": "ausboss_car_window.png",
+        "rotation_degrees": 12,
+        "crop_aspect_ratio": "free",
+        "crop_x": 0,
+        "crop_y": 0,
+        "crop_width": 0,
+        "crop_height": 0,
+        "pad_left": 192,
+        "pad_top": 96,
+        "pad_right": 0,
+        "pad_bottom": 0,
+        "feather": 12,
+        "canvas_multiple": 1,
+        "fill_color": "#808080",
+        "resize_to_megapixels": true,
+        "megapixels": 1.5,
+        "resize_method": "lanczos",
+        "resolution_steps": 16,
+        "stitch_blend": 0,
+        "stitch_grow": 0,
+        "upload": "image",
+        "ausboss_transform_preview": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 21,
+      "type": "AUSBOSS_NODES_Text",
+      "pos": [
+        500,
+        914
+      ],
+      "size": [
+        440,
+        168
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "slot_index": 0,
+          "links": [
+            42
+          ]
+        }
+      ],
+      "title": "Text - What goes there",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.3.0",
+        "Node name for S&R": "AUSBOSS_NODES_Text"
+      },
+      "widgets_values": [
+        "Extend this scene naturally into the added canvas. Preserve the existing viewpoint, materials and lighting.",
+        ""
+      ],
+      "widgets_values_named": {
+        "text": "Extend this scene naturally into the added canvas. Preserve the existing viewpoint, materials and lighting.",
+        "ausboss_widget_card": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 10,
+      "type": "AUSBOSS_NODES_Seed",
+      "pos": [
+        500,
+        1152
+      ],
+      "size": [
+        440,
+        216
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "seed",
+          "type": "INT",
+          "links": [
+            48
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.3.0",
+        "Node name for S&R": "AUSBOSS_NODES_Seed"
+      },
+      "widgets_values": [
+        7,
+        "fixed",
+        ""
+      ],
+      "widgets_values_named": {
+        "seed": 7,
+        "control_after_generate": "fixed",
+        "ausboss_seed_panel": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21",
+      "title": "Seed"
+    },
+    {
+      "id": 15,
+      "type": "AUSBOSS_NODES_Compare",
+      "pos": [
+        1620,
+        80
+      ],
+      "size": [
+        480,
+        495
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image_a",
+          "type": "IMAGE",
+          "link": 52
+        },
+        {
+          "name": "image_b",
+          "type": "IMAGE",
+          "link": 31
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image_a",
+          "type": "IMAGE",
+          "links": [
+            22
+          ]
+        }
+      ],
+      "title": "Image Compare A/B - Before and after",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.3.0",
+        "Node name for S&R": "AUSBOSS_NODES_Compare",
+        "ausboss_compare_mode": "slide"
+      },
+      "widgets_values": [
+        ""
+      ],
+      "widgets_values_named": {
+        "ausboss_compare_panel": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 16,
+      "type": "AUSBOSS_NODES_SaveImage",
+      "pos": [
+        1620,
+        645
+      ],
+      "size": [
+        480,
+        616
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 22
+        },
+        {
+          "name": "filename",
+          "shape": 7,
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "name": "caption_text",
+          "shape": 7,
+          "type": "STRING",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "file_path",
+          "type": "STRING",
+          "links": []
+        },
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": []
+        }
+      ],
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.3.0",
+        "Node name for S&R": "AUSBOSS_NODES_SaveImage"
+      },
+      "widgets_values": {
+        "filename_prefix": "krea2_rotate_outpaint",
+        "format": "png",
+        "save_metadata": true,
+        "exact_name": "",
+        "on_existing": "overwrite",
+        "output_dir": "",
+        "caption": "",
+        "name_counter": true,
+        "name_date": false,
+        "name_time": false,
+        "name_size": false,
+        "name_batch": false,
+        "preview": true
+      },
+      "widgets_values_named": {
+        "filename_prefix": "krea2_rotate_outpaint",
+        "format": "png",
+        "save_metadata": true,
+        "exact_name": "",
+        "on_existing": "overwrite",
+        "output_dir": "",
+        "ausboss_save_image_card": "",
+        "caption": "",
+        "name_counter": true,
+        "name_date": false,
+        "name_time": false,
+        "name_size": false,
+        "name_batch": false,
+        "preview": true,
+        "ausboss_input_preview": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21",
+      "title": "Save Image"
+    },
+    {
+      "id": 14,
+      "type": "AUSBOSS_NODES_RunTimer",
+      "pos": [
+        1755.0,
+        1301
+      ],
+      "size": [
+        210,
+        67
+      ],
+      "flags": {
+        "no_title": true
+      },
+      "order": 9,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.3.0",
+        "Node name for S&R": "AUSBOSS_NODES_RunTimer"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21",
+      "title": "Run Timer"
+    },
+    {
+      "id": 17,
+      "type": "AUSBOSS_NODES_WorkflowNote",
+      "pos": [
+        0,
+        30
+      ],
+      "size": [
+        440,
+        708
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.3.0",
+        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote"
+      },
+      "widgets_values": [
+        "{\"v\": 1, \"title\": \"Krea 2 Rotate + Outpaint\", \"subtitle\": \"Turn, crop and pad a picture, and Krea 2 paints the new area.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image. A new image resets the turn, crop and padding.\\n2. Turn it with the round handle, drag the crop edges in, and drag the orange handles out to pad.\\n3. Press **Run**.\\n4. To steer the new area, say what belongs there in **What goes there**.\\n\\nThe two boxes in the middle do the work. Double-click one to see inside.\\n\\nNeeds AusBoss nodes 2.4.0 or newer.\", \"models\": [{\"name\": \"krea2_turbo_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}, {\"name\": \"krea2_anypaint_rank32.safetensors\", \"dir\": \"loras\", \"size\": \"229 MB\", \"url\": \"https://huggingface.co/yijunwang2/krea2-anypaint/resolve/main/krea2_anypaint_rank32.safetensors\", \"note\": \"by yijunwang2\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_ImageCropRotatePad\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+      ],
+      "widgets_values_named": {
+        "note": "{\"v\": 1, \"title\": \"Krea 2 Rotate + Outpaint\", \"subtitle\": \"Turn, crop and pad a picture, and Krea 2 paints the new area.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image. A new image resets the turn, crop and padding.\\n2. Turn it with the round handle, drag the crop edges in, and drag the orange handles out to pad.\\n3. Press **Run**.\\n4. To steer the new area, say what belongs there in **What goes there**.\\n\\nThe two boxes in the middle do the work. Double-click one to see inside.\\n\\nNeeds AusBoss nodes 2.4.0 or newer.\", \"models\": [{\"name\": \"krea2_turbo_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}, {\"name\": \"krea2_anypaint_rank32.safetensors\", \"dir\": \"loras\", \"size\": \"229 MB\", \"url\": \"https://huggingface.co/yijunwang2/krea2-anypaint/resolve/main/krea2_anypaint_rank32.safetensors\", \"note\": \"by yijunwang2\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_ImageCropRotatePad\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21",
+      "title": "🆎 AusBoss"
+    },
+    {
+      "id": 24,
+      "type": "2f8cb72f-ebab-4ed9-bb0c-328a4e6493d9",
+      "pos": [
+        1020,
+        80
+      ],
+      "size": [
+        240,
+        66
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "canvas",
+          "type": "IMAGE",
+          "link": 41
+        },
+        {
+          "name": "direction",
+          "type": "STRING",
+          "link": 42
+        },
+        {
+          "name": "text encoder",
+          "type": "CLIP",
+          "link": 43
+        }
+      ],
+      "outputs": [
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "links": [
+            47
+          ]
+        }
+      ],
+      "title": "Write the prompt",
+      "properties": {},
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 25,
+      "type": "1377fd22-d276-47fd-9b27-847186abdcb2",
+      "pos": [
+        1300,
+        80
+      ],
+      "size": [
+        240,
+        180
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "canvas",
+          "type": "IMAGE",
+          "link": 44
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 45
+        },
+        {
+          "name": "stitcher",
+          "type": "AUSBOSS_STITCHER",
+          "link": 46
+        },
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "link": 47
+        },
+        {
+          "name": "seed",
+          "type": "INT",
+          "link": 48
+        },
+        {
+          "name": "text encoder",
+          "type": "CLIP",
+          "link": 49
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 50
+        },
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 51
+        }
+      ],
+      "outputs": [
+        {
+          "name": "result",
+          "type": "IMAGE",
+          "links": [
+            52
+          ]
+        }
+      ],
+      "title": "Paint with Krea 2",
+      "properties": {},
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      4,
+      0,
+      "MODEL"
+    ],
+    [
+      22,
+      15,
+      0,
+      16,
+      0,
+      "IMAGE"
+    ],
+    [
+      31,
+      23,
+      0,
+      15,
+      1,
+      "IMAGE"
+    ],
+    [
+      41,
+      23,
+      0,
+      24,
+      0,
+      "IMAGE"
+    ],
+    [
+      42,
+      21,
+      0,
+      24,
+      1,
+      "STRING"
+    ],
+    [
+      43,
+      2,
+      0,
+      24,
+      2,
+      "CLIP"
+    ],
+    [
+      44,
+      23,
+      0,
+      25,
+      0,
+      "IMAGE"
+    ],
+    [
+      45,
+      23,
+      1,
+      25,
+      1,
+      "MASK"
+    ],
+    [
+      46,
+      23,
+      2,
+      25,
+      2,
+      "AUSBOSS_STITCHER"
+    ],
+    [
+      47,
+      24,
+      0,
+      25,
+      3,
+      "STRING"
+    ],
+    [
+      48,
+      10,
+      0,
+      25,
+      4,
+      "INT"
+    ],
+    [
+      49,
+      2,
+      0,
+      25,
+      5,
+      "CLIP"
+    ],
+    [
+      50,
+      3,
+      0,
+      25,
+      6,
+      "VAE"
+    ],
+    [
+      51,
+      4,
+      0,
+      25,
+      7,
+      "MODEL"
+    ],
+    [
+      52,
+      25,
+      0,
+      15,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [
+    {
+      "title": "1 · Your input",
+      "bounding": [
+        480,
+        0,
+        480,
+        1388
+      ],
+      "color": "#1d5560",
+      "flags": {},
+      "id": 84
+    },
+    {
+      "title": "2 · Behind the scenes",
+      "bounding": [
+        1000,
+        0,
+        560,
+        280
+      ],
+      "color": "#1d5560",
+      "flags": {},
+      "id": 85
+    },
+    {
+      "title": "3 · Models",
+      "bounding": [
+        1000,
+        320,
+        560,
+        744
+      ],
+      "color": "#1d5560",
+      "flags": {},
+      "id": 86
+    },
+    {
+      "title": "4 · Result",
+      "bounding": [
+        1600,
+        0,
+        520,
+        1388
+      ],
+      "color": "#1d5560",
+      "flags": {},
+      "id": 87
+    }
+  ],
+  "definitions": {
+    "subgraphs": [
+      {
+        "id": "2f8cb72f-ebab-4ed9-bb0c-328a4e6493d9",
+        "version": 1,
+        "state": {
+          "lastGroupId": 94,
+          "lastNodeId": 33,
+          "lastLinkId": 52,
+          "lastRerouteId": 0
+        },
+        "revision": 0,
+        "config": {},
+        "name": "Write the prompt",
+        "inputNode": {
+          "id": -10,
+          "bounding": [
+            -260,
+            120,
+            128,
+            120
+          ]
+        },
+        "outputNode": {
+          "id": -20,
+          "bounding": [
+            1160,
+            120,
+            128,
+            80
+          ]
+        },
+        "inputs": [
+          {
+            "id": "dfbd656b-2013-4b7e-b046-8d7466971ebe",
+            "name": "canvas",
+            "type": "IMAGE",
+            "linkIds": [
+              35
+            ],
+            "localized_name": "canvas",
+            "pos": [
+              51,
+              24
+            ]
+          },
+          {
+            "id": "0472c1e6-1746-4662-92f4-886339927792",
+            "name": "direction",
+            "type": "STRING",
+            "linkIds": [
+              27
+            ],
+            "localized_name": "direction",
+            "pos": [
+              51,
+              44
+            ]
+          },
+          {
+            "id": "32883717-0c15-49c3-b872-918daf4d476e",
+            "name": "text encoder",
+            "type": "CLIP",
+            "linkIds": [
+              23
+            ],
+            "localized_name": "text encoder",
+            "pos": [
+              51,
+              64
+            ]
+          }
+        ],
+        "outputs": [
+          {
+            "id": "b33d5c81-a776-4acf-9d6a-61cebe200ca0",
+            "name": "prompt",
+            "type": "STRING",
+            "linkIds": [
+              37
+            ],
+            "localized_name": "prompt",
+            "pos": [
+              24,
+              24
+            ]
+          }
+        ],
+        "widgets": [],
+        "nodes": [
+          {
+            "id": 19,
+            "type": "TextGenerate",
+            "pos": [
+              20,
+              238
+            ],
+            "size": [
+              460,
+              440
+            ],
+            "flags": {},
+            "order": 10,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "clip",
+                "type": "CLIP",
+                "link": 23
+              },
+              {
+                "name": "image",
+                "shape": 7,
+                "type": "IMAGE",
+                "link": 35
+              },
+              {
+                "name": "video",
+                "shape": 7,
+                "type": "IMAGE",
+                "link": null
+              },
+              {
+                "name": "audio",
+                "shape": 7,
+                "type": "AUDIO",
+                "link": null
+              }
+            ],
+            "outputs": [
+              {
+                "name": "generated_text",
+                "type": "STRING",
+                "links": [
+                  25
+                ]
+              }
+            ],
+            "title": "Describe the canvas",
+            "properties": {
+              "cnr_id": "comfy-core",
+              "ver": "0.37.0",
+              "Node name for S&R": "TextGenerate"
+            },
+            "widgets_values": [
+              "Describe this picture as it will look when finished, in 60 to 90 words. The flat mid-gray areas are blank space that will be painted to continue the scene: describe what naturally fills them, never call them gray, blank, empty or padding, and don't mention any tilt. Describe the subject, setting, materials, composition and lighting in plain factual language. Do not invent actions, camera motion or sound. Output only the description.",
+              180,
+              "on",
+              0.7,
+              64,
+              0.95,
+              0.05,
+              1.05,
+              20260922,
+              0,
+              true,
+              true,
+              "auto"
+            ],
+            "widgets_values_named": {
+              "prompt": "Describe this picture as it will look when finished, in 60 to 90 words. The flat mid-gray areas are blank space that will be painted to continue the scene: describe what naturally fills them, never call them gray, blank, empty or padding, and don't mention any tilt. Describe the subject, setting, materials, composition and lighting in plain factual language. Do not invent actions, camera motion or sound. Output only the description.",
+              "max_length": 180,
+              "sampling_mode": "on",
+              "sampling_mode.temperature": 0.7,
+              "sampling_mode.top_k": 64,
+              "sampling_mode.top_p": 0.95,
+              "sampling_mode.min_p": 0.05,
+              "sampling_mode.repetition_penalty": 1.05,
+              "sampling_mode.seed": 20260922,
+              "sampling_mode.presence_penalty": 0,
+              "thinking": true,
+              "use_default_template": true,
+              "mtp": "auto"
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 20,
+            "type": "AUSBOSS_NODES_ShowText",
+            "pos": [
+              560,
+              238
+            ],
+            "size": [
+              460,
+              140
+            ],
+            "flags": {},
+            "order": 13,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "text",
+                "type": "STRING",
+                "link": 25
+              }
+            ],
+            "outputs": [
+              {
+                "name": "text",
+                "type": "STRING",
+                "slot_index": 0,
+                "links": [
+                  26
+                ]
+              }
+            ],
+            "title": "Show Text - Description Krea 2 wrote",
+            "properties": {
+              "cnr_id": "ausboss-nodes",
+              "ver": "2.3.0",
+              "Node name for S&R": "AUSBOSS_NODES_ShowText"
+            },
+            "widgets_values": [
+              ""
+            ],
+            "widgets_values_named": {
+              "ausboss_show_text_panel": ""
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 22,
+            "type": "StringConcatenate",
+            "pos": [
+              560,
+              514
+            ],
+            "size": [
+              460,
+              166
+            ],
+            "flags": {},
+            "order": 14,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "string_a",
+                "type": "STRING",
+                "widget": {
+                  "name": "string_a"
+                },
+                "link": 26
+              },
+              {
+                "name": "string_b",
+                "type": "STRING",
+                "widget": {
+                  "name": "string_b"
+                },
+                "link": 36
+              }
+            ],
+            "outputs": [
+              {
+                "name": "STRING",
+                "type": "STRING",
+                "slot_index": 0,
+                "links": [
+                  37
+                ]
+              }
+            ],
+            "title": "Description plus your direction",
+            "properties": {
+              "cnr_id": "comfy-core",
+              "ver": "0.37.0",
+              "Node name for S&R": "StringConcatenate"
+            },
+            "widgets_values": [
+              "",
+              "",
+              "\n\n"
+            ],
+            "widgets_values_named": {
+              "string_a": "",
+              "string_b": "",
+              "delimiter": "\n\n"
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 29,
+            "type": "MarkdownNote",
+            "pos": [
+              20,
+              80
+            ],
+            "size": [
+              460,
+              88
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [],
+            "outputs": [],
+            "title": "Note",
+            "properties": {},
+            "widgets_values": [
+              "Krea 2's text encoder reads the canvas, gray areas included, and describes the finished picture. Keep thinking on, or it can return nothing."
+            ],
+            "color": "#1f2c38",
+            "bgcolor": "#2a3b4a"
+          },
+          {
+            "id": 30,
+            "type": "MarkdownNote",
+            "pos": [
+              560,
+              80
+            ],
+            "size": [
+              460,
+              88
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [],
+            "outputs": [],
+            "title": "Note",
+            "properties": {},
+            "widgets_values": [
+              "The description comes first, then your line from What goes there. Together they are the prompt for the painting."
+            ],
+            "color": "#1f2c38",
+            "bgcolor": "#2a3b4a"
+          },
+          {
+            "id": 26,
+            "type": "Reroute",
+            "size": [
+              75,
+              26
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "",
+                "type": "*",
+                "link": 27
+              }
+            ],
+            "outputs": [
+              {
+                "name": "",
+                "type": "STRING",
+                "links": [
+                  36
+                ]
+              }
+            ],
+            "properties": {
+              "showOutputText": false,
+              "horizontal": false
+            },
+            "pos": [
+              560,
+              418
+            ]
+          }
+        ],
+        "groups": [
+          {
+            "title": "1 · Describe the canvas",
+            "bounding": [
+              0,
+              0,
+              500,
+              698
+            ],
+            "color": "#1d5560",
+            "flags": {},
+            "id": 90
+          },
+          {
+            "title": "2 · Build the prompt",
+            "bounding": [
+              540,
+              0,
+              500,
+              700
+            ],
+            "color": "#1d5560",
+            "flags": {},
+            "id": 91
+          }
+        ],
+        "links": [
+          {
+            "id": 25,
+            "origin_id": 19,
+            "origin_slot": 0,
+            "target_id": 20,
+            "target_slot": 0,
+            "type": "STRING"
+          },
+          {
+            "id": 26,
+            "origin_id": 20,
+            "origin_slot": 0,
+            "target_id": 22,
+            "target_slot": 0,
+            "type": "STRING"
+          },
+          {
+            "id": 35,
+            "origin_id": -10,
+            "origin_slot": 0,
+            "target_id": 19,
+            "target_slot": 1,
+            "type": "IMAGE"
+          },
+          {
+            "id": 27,
+            "origin_id": -10,
+            "origin_slot": 1,
+            "target_id": 26,
+            "target_slot": 0,
+            "type": "STRING"
+          },
+          {
+            "id": 36,
+            "origin_id": 26,
+            "origin_slot": 0,
+            "target_id": 22,
+            "target_slot": 1,
+            "type": "STRING"
+          },
+          {
+            "id": 23,
+            "origin_id": -10,
+            "origin_slot": 2,
+            "target_id": 19,
+            "target_slot": 0,
+            "type": "CLIP"
+          },
+          {
+            "id": 37,
+            "origin_id": 22,
+            "origin_slot": 0,
+            "target_id": -20,
+            "target_slot": 0,
+            "type": "STRING"
+          }
+        ],
+        "extra": {}
+      },
+      {
+        "id": "1377fd22-d276-47fd-9b27-847186abdcb2",
+        "version": 1,
+        "state": {
+          "lastGroupId": 94,
+          "lastNodeId": 33,
+          "lastLinkId": 52,
+          "lastRerouteId": 0
+        },
+        "revision": 0,
+        "config": {},
+        "name": "Paint with Krea 2",
+        "inputNode": {
+          "id": -10,
+          "bounding": [
+            -260,
+            120,
+            128,
+            220
+          ]
+        },
+        "outputNode": {
+          "id": -20,
+          "bounding": [
+            1700,
+            120,
+            128,
+            80
+          ]
+        },
+        "inputs": [
+          {
+            "id": "e7498479-6b9c-4c11-b51a-4363342b1b4f",
+            "name": "canvas",
+            "type": "IMAGE",
+            "linkIds": [
+              29,
+              30
+            ],
+            "localized_name": "canvas",
+            "pos": [
+              51,
+              24
+            ]
+          },
+          {
+            "id": "d0fa4fcf-20b8-44f6-a364-9996e8f0cc3d",
+            "name": "mask",
+            "type": "MASK",
+            "linkIds": [
+              32
+            ],
+            "localized_name": "mask",
+            "pos": [
+              51,
+              44
+            ]
+          },
+          {
+            "id": "fd74917a-3aa6-4a5e-b7d7-39887e4a0fc8",
+            "name": "stitcher",
+            "type": "AUSBOSS_STITCHER",
+            "linkIds": [
+              33,
+              34
+            ],
+            "localized_name": "stitcher",
+            "pos": [
+              51,
+              64
+            ]
+          },
+          {
+            "id": "d886045f-776c-44e5-9bae-513d98e33f60",
+            "name": "prompt",
+            "type": "STRING",
+            "linkIds": [
+              28
+            ],
+            "localized_name": "prompt",
+            "pos": [
+              51,
+              84
+            ]
+          },
+          {
+            "id": "8bc78a78-a8f2-4551-ac35-a76b9611ebab",
+            "name": "seed",
+            "type": "INT",
+            "linkIds": [
+              15
+            ],
+            "localized_name": "seed",
+            "pos": [
+              51,
+              104
+            ]
+          },
+          {
+            "id": "35540ed3-c31c-43b9-9d7b-92675bd1a4d6",
+            "name": "text encoder",
+            "type": "CLIP",
+            "linkIds": [
+              4
+            ],
+            "localized_name": "text encoder",
+            "pos": [
+              51,
+              124
+            ]
+          },
+          {
+            "id": "5e2610ac-714e-43ec-8f2c-18db8d214795",
+            "name": "vae",
+            "type": "VAE",
+            "linkIds": [
+              5,
+              8,
+              17
+            ],
+            "localized_name": "vae",
+            "pos": [
+              51,
+              144
+            ]
+          },
+          {
+            "id": "1cbb4901-f0f4-4cad-bcbd-cc8ec853b3a6",
+            "name": "model",
+            "type": "MODEL",
+            "linkIds": [
+              2
+            ],
+            "localized_name": "model",
+            "pos": [
+              51,
+              164
+            ]
+          }
+        ],
+        "outputs": [
+          {
+            "id": "cbb02e0d-982b-4cb6-860a-7f629f7bebf8",
+            "name": "result",
+            "type": "IMAGE",
+            "linkIds": [
+              40
+            ],
+            "localized_name": "result",
+            "pos": [
+              24,
+              24
+            ]
+          }
+        ],
+        "widgets": [],
+        "nodes": [
+          {
+            "id": 6,
+            "type": "AUSBOSS_NODES_Krea2Encode",
+            "pos": [
+              20,
+              304
+            ],
+            "size": [
+              460,
+              304
+            ],
+            "flags": {},
+            "order": 15,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "clip",
+                "type": "CLIP",
+                "link": 4
+              },
+              {
+                "name": "vae",
+                "shape": 7,
+                "type": "VAE",
+                "link": 5
+              },
+              {
+                "name": "reference",
+                "shape": 7,
+                "type": "IMAGE",
+                "link": 29
+              },
+              {
+                "name": "extra_image",
+                "shape": 7,
+                "type": "IMAGE",
+                "link": null
+              },
+              {
+                "name": "prompt",
+                "type": "STRING",
+                "widget": {
+                  "name": "prompt"
+                },
+                "link": 38
+              }
+            ],
+            "outputs": [
+              {
+                "name": "positive",
+                "type": "CONDITIONING",
+                "links": [
+                  12
+                ]
+              },
+              {
+                "name": "negative",
+                "type": "CONDITIONING",
+                "links": [
+                  13
+                ]
+              }
+            ],
+            "title": "Krea 2 Encode - Prompt and reference",
+            "properties": {
+              "cnr_id": "ausboss-nodes",
+              "ver": "2.3.0",
+              "Node name for S&R": "AUSBOSS_NODES_Krea2Encode"
+            },
+            "widgets_values": [
+              "",
+              "",
+              true,
+              ""
+            ],
+            "widgets_values_named": {
+              "prompt": "",
+              "negative_prompt": "",
+              "vlm_reference": true,
+              "ausboss_widget_card": ""
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 7,
+            "type": "AUSBOSS_NODES_Krea2OutpaintModelPatch",
+            "pos": [
+              560,
+              238
+            ],
+            "size": [
+              460,
+              172
+            ],
+            "flags": {},
+            "order": 11,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "model",
+                "type": "MODEL",
+                "link": 2
+              },
+              {
+                "name": "stitcher",
+                "type": "AUSBOSS_STITCHER",
+                "link": 33
+              }
+            ],
+            "outputs": [
+              {
+                "name": "model",
+                "type": "MODEL",
+                "links": [
+                  11
+                ]
+              }
+            ],
+            "title": "Krea 2 Outpaint Model Patch - Reference and placement",
+            "properties": {
+              "cnr_id": "ausboss-nodes",
+              "ver": "2.3.0",
+              "Node name for S&R": "AUSBOSS_NODES_Krea2OutpaintModelPatch"
+            },
+            "widgets_values": [
+              true,
+              "whole canvas",
+              ""
+            ],
+            "widgets_values_named": {
+              "kv_cache": true,
+              "placement": "whole canvas",
+              "ausboss_widget_card": ""
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 8,
+            "type": "VAEEncode",
+            "pos": [
+              20,
+              678
+            ],
+            "size": [
+              460,
+              46
+            ],
+            "flags": {},
+            "order": 9,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "pixels",
+                "type": "IMAGE",
+                "link": 30
+              },
+              {
+                "name": "vae",
+                "type": "VAE",
+                "link": 8
+              }
+            ],
+            "outputs": [
+              {
+                "name": "LATENT",
+                "type": "LATENT",
+                "links": [
+                  9
+                ]
+              }
+            ],
+            "title": "Canvas to latent",
+            "properties": {
+              "cnr_id": "comfy-core",
+              "ver": "0.37.0",
+              "Node name for S&R": "VAEEncode"
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 9,
+            "type": "SetLatentNoiseMask",
+            "pos": [
+              20,
+              794
+            ],
+            "size": [
+              460,
+              46
+            ],
+            "flags": {},
+            "order": 12,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "samples",
+                "type": "LATENT",
+                "link": 9
+              },
+              {
+                "name": "mask",
+                "type": "MASK",
+                "link": 32
+              }
+            ],
+            "outputs": [
+              {
+                "name": "LATENT",
+                "type": "LATENT",
+                "links": [
+                  14
+                ]
+              }
+            ],
+            "title": "Paint only the gray",
+            "properties": {
+              "cnr_id": "comfy-core",
+              "ver": "0.37.0",
+              "Node name for S&R": "SetLatentNoiseMask"
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 11,
+            "type": "KSampler",
+            "pos": [
+              560,
+              546
+            ],
+            "size": [
+              460,
+              262
+            ],
+            "flags": {},
+            "order": 16,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "model",
+                "type": "MODEL",
+                "link": 11
+              },
+              {
+                "name": "positive",
+                "type": "CONDITIONING",
+                "link": 12
+              },
+              {
+                "name": "negative",
+                "type": "CONDITIONING",
+                "link": 13
+              },
+              {
+                "name": "latent_image",
+                "type": "LATENT",
+                "link": 14
+              },
+              {
+                "name": "seed",
+                "type": "INT",
+                "widget": {
+                  "name": "seed"
+                },
+                "link": 39
+              }
+            ],
+            "outputs": [
+              {
+                "name": "LATENT",
+                "type": "LATENT",
+                "links": [
+                  16
+                ]
+              }
+            ],
+            "title": "Krea 2 Turbo sampler",
+            "properties": {
+              "cnr_id": "comfy-core",
+              "ver": "0.37.0",
+              "Node name for S&R": "KSampler"
+            },
+            "widgets_values": [
+              20260903,
+              "fixed",
+              8,
+              1,
+              "er_sde",
+              "simple",
+              1
+            ],
+            "widgets_values_named": {
+              "seed": 20260903,
+              "control_after_generate": "fixed",
+              "steps": 8,
+              "cfg": 1,
+              "sampler_name": "er_sde",
+              "scheduler": "simple",
+              "denoise": 1
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 12,
+            "type": "VAEDecode",
+            "pos": [
+              1100,
+              238
+            ],
+            "size": [
+              460,
+              46
+            ],
+            "flags": {},
+            "order": 17,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "samples",
+                "type": "LATENT",
+                "link": 16
+              },
+              {
+                "name": "vae",
+                "type": "VAE",
+                "link": 17
+              }
+            ],
+            "outputs": [
+              {
+                "name": "IMAGE",
+                "type": "IMAGE",
+                "links": [
+                  19
+                ]
+              }
+            ],
+            "properties": {
+              "cnr_id": "comfy-core",
+              "ver": "0.37.0",
+              "Node name for S&R": "VAEDecode"
+            },
+            "title": "Decode",
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 13,
+            "type": "AUSBOSS_NODES_StitchInpaint",
+            "pos": [
+              1100,
+              354
+            ],
+            "size": [
+              460,
+              145
+            ],
+            "flags": {},
+            "order": 18,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "stitcher",
+                "type": "AUSBOSS_STITCHER",
+                "link": 34
+              },
+              {
+                "name": "inpainted",
+                "type": "IMAGE",
+                "link": 19
+              }
+            ],
+            "outputs": [
+              {
+                "name": "image",
+                "type": "IMAGE",
+                "links": [
+                  40
+                ]
+              },
+              {
+                "name": "blend_mask",
+                "type": "MASK",
+                "links": []
+              }
+            ],
+            "title": "Stitch Inpaint - Put your image back",
+            "properties": {
+              "cnr_id": "ausboss-nodes",
+              "ver": "2.3.0",
+              "Node name for S&R": "AUSBOSS_NODES_StitchInpaint"
+            },
+            "widgets_values": [
+              false,
+              1,
+              "blend in",
+              ""
+            ],
+            "widgets_values_named": {
+              "fix_edge_halo": false,
+              "color_match": 1,
+              "seam": "blend in",
+              "ausboss_widget_card": ""
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 31,
+            "type": "MarkdownNote",
+            "pos": [
+              20,
+              80
+            ],
+            "size": [
+              460,
+              88
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [],
+            "outputs": [],
+            "title": "Note",
+            "properties": {},
+            "widgets_values": [
+              "The canvas is the reference. Its mask marks the gray areas, so the sampler paints only there."
+            ],
+            "color": "#1f2c38",
+            "bgcolor": "#2a3b4a"
+          },
+          {
+            "id": 27,
+            "type": "Reroute",
+            "size": [
+              75,
+              26
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "",
+                "type": "*",
+                "link": 28
+              }
+            ],
+            "outputs": [
+              {
+                "name": "",
+                "type": "STRING",
+                "links": [
+                  38
+                ]
+              }
+            ],
+            "properties": {
+              "showOutputText": false,
+              "horizontal": false
+            },
+            "pos": [
+              20,
+              208
+            ]
+          },
+          {
+            "id": 32,
+            "type": "MarkdownNote",
+            "pos": [
+              560,
+              80
+            ],
+            "size": [
+              460,
+              88
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [],
+            "outputs": [],
+            "title": "Note",
+            "properties": {},
+            "widgets_values": [
+              "8 steps, CFG 1, er_sde and simple: the Krea 2 Turbo settings. The patch spreads the canvas reference over the whole frame."
+            ],
+            "color": "#1f2c38",
+            "bgcolor": "#2a3b4a"
+          },
+          {
+            "id": 28,
+            "type": "Reroute",
+            "size": [
+              75,
+              26
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "",
+                "type": "*",
+                "link": 15
+              }
+            ],
+            "outputs": [
+              {
+                "name": "",
+                "type": "INT",
+                "links": [
+                  39
+                ]
+              }
+            ],
+            "properties": {
+              "showOutputText": false,
+              "horizontal": false
+            },
+            "pos": [
+              560,
+              450
+            ]
+          },
+          {
+            "id": 33,
+            "type": "MarkdownNote",
+            "pos": [
+              1100,
+              80
+            ],
+            "size": [
+              460,
+              88
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [],
+            "outputs": [],
+            "title": "Note",
+            "properties": {},
+            "widgets_values": [
+              "Blend in fades the model's picture into yours just inside its edge, with no tone shift. The new area stays as painted."
+            ],
+            "color": "#1f2c38",
+            "bgcolor": "#2a3b4a"
+          }
+        ],
+        "groups": [
+          {
+            "title": "1 · Set up the painting",
+            "bounding": [
+              0,
+              0,
+              500,
+              860
+            ],
+            "color": "#1d5560",
+            "flags": {},
+            "id": 92
+          },
+          {
+            "title": "2 · Paint",
+            "bounding": [
+              540,
+              0,
+              500,
+              828
+            ],
+            "color": "#1d5560",
+            "flags": {},
+            "id": 93
+          },
+          {
+            "title": "3 · Put it back",
+            "bounding": [
+              1080,
+              0,
+              500,
+              519
+            ],
+            "color": "#1d5560",
+            "flags": {},
+            "id": 94
+          }
+        ],
+        "links": [
+          {
+            "id": 9,
+            "origin_id": 8,
+            "origin_slot": 0,
+            "target_id": 9,
+            "target_slot": 0,
+            "type": "LATENT"
+          },
+          {
+            "id": 11,
+            "origin_id": 7,
+            "origin_slot": 0,
+            "target_id": 11,
+            "target_slot": 0,
+            "type": "MODEL"
+          },
+          {
+            "id": 12,
+            "origin_id": 6,
+            "origin_slot": 0,
+            "target_id": 11,
+            "target_slot": 1,
+            "type": "CONDITIONING"
+          },
+          {
+            "id": 13,
+            "origin_id": 6,
+            "origin_slot": 1,
+            "target_id": 11,
+            "target_slot": 2,
+            "type": "CONDITIONING"
+          },
+          {
+            "id": 14,
+            "origin_id": 9,
+            "origin_slot": 0,
+            "target_id": 11,
+            "target_slot": 3,
+            "type": "LATENT"
+          },
+          {
+            "id": 16,
+            "origin_id": 11,
+            "origin_slot": 0,
+            "target_id": 12,
+            "target_slot": 0,
+            "type": "LATENT"
+          },
+          {
+            "id": 19,
+            "origin_id": 12,
+            "origin_slot": 0,
+            "target_id": 13,
+            "target_slot": 1,
+            "type": "IMAGE"
+          },
+          {
+            "id": 29,
+            "origin_id": -10,
+            "origin_slot": 0,
+            "target_id": 6,
+            "target_slot": 2,
+            "type": "IMAGE"
+          },
+          {
+            "id": 30,
+            "origin_id": -10,
+            "origin_slot": 0,
+            "target_id": 8,
+            "target_slot": 0,
+            "type": "IMAGE"
+          },
+          {
+            "id": 32,
+            "origin_id": -10,
+            "origin_slot": 1,
+            "target_id": 9,
+            "target_slot": 1,
+            "type": "MASK"
+          },
+          {
+            "id": 33,
+            "origin_id": -10,
+            "origin_slot": 2,
+            "target_id": 7,
+            "target_slot": 1,
+            "type": "AUSBOSS_STITCHER"
+          },
+          {
+            "id": 34,
+            "origin_id": -10,
+            "origin_slot": 2,
+            "target_id": 13,
+            "target_slot": 0,
+            "type": "AUSBOSS_STITCHER"
+          },
+          {
+            "id": 28,
+            "origin_id": -10,
+            "origin_slot": 3,
+            "target_id": 27,
+            "target_slot": 0,
+            "type": "STRING"
+          },
+          {
+            "id": 38,
+            "origin_id": 27,
+            "origin_slot": 0,
+            "target_id": 6,
+            "target_slot": 4,
+            "type": "STRING"
+          },
+          {
+            "id": 15,
+            "origin_id": -10,
+            "origin_slot": 4,
+            "target_id": 28,
+            "target_slot": 0,
+            "type": "INT"
+          },
+          {
+            "id": 39,
+            "origin_id": 28,
+            "origin_slot": 0,
+            "target_id": 11,
+            "target_slot": 4,
+            "type": "INT"
+          },
+          {
+            "id": 4,
+            "origin_id": -10,
+            "origin_slot": 5,
+            "target_id": 6,
+            "target_slot": 0,
+            "type": "CLIP"
+          },
+          {
+            "id": 5,
+            "origin_id": -10,
+            "origin_slot": 6,
+            "target_id": 6,
+            "target_slot": 1,
+            "type": "VAE"
+          },
+          {
+            "id": 8,
+            "origin_id": -10,
+            "origin_slot": 6,
+            "target_id": 8,
+            "target_slot": 1,
+            "type": "VAE"
+          },
+          {
+            "id": 17,
+            "origin_id": -10,
+            "origin_slot": 6,
+            "target_id": 12,
+            "target_slot": 1,
+            "type": "VAE"
+          },
+          {
+            "id": 2,
+            "origin_id": -10,
+            "origin_slot": 7,
+            "target_id": 7,
+            "target_slot": 0,
+            "type": "MODEL"
+          },
+          {
+            "id": 40,
+            "origin_id": 13,
+            "origin_slot": 0,
+            "target_id": -20,
+            "target_slot": 0,
+            "type": "IMAGE"
+          }
+        ],
+        "extra": {}
+      }
+    ]
+  },
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.7,
+      "offset": [
+        271,
+        20
+      ]
+    }
+  },
+  "version": 0.4
+}

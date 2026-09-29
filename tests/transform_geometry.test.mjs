@@ -337,7 +337,7 @@ const CROP_KEYS = ["crop_x", "crop_y", "crop_width", "crop_height"];
 const pickCrop = (values) => Object.fromEntries(CROP_KEYS.map((name) => [name, values[name]]));
 
 test("rotating keeps a centred crop centred and its size", () => {
-  // The Reframe example: a centred 1:1 crop of a 576x1024 clip.
+  // A centred 1:1 crop of a 576x1024 clip.
   const values = { crop_aspect_ratio: "1:1", crop_x: 0, crop_y: 224, crop_width: 576, crop_height: 0 };
   const next = cropForRotation(values, 576, 1024, 0, 10);
   const canvas = rotatedSize(576, 1024, 10);

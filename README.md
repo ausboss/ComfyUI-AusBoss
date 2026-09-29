@@ -50,7 +50,7 @@ The pack uses Pillow, NumPy, Torch, and PyAV supplied by ComfyUI. Model workflow
 | [Mask and inpaint](#mask-and-inpaint-nodes) | Refine masks, LaMa removal, crop and stitch |
 | [Models and conditioning](#models-and-conditioning) | LoRA stack, Krea 2 prompt and reference conditioning |
 | [Workflow utilities](#workflow-utilities) | Resolution, seed, batch operations, math, text, memory, notes, timer |
-| [Examples](#example-workflows) | Twenty-one grouped graphs with setup cards and thumbnails |
+| [Examples](#example-workflows) | Seven grouped graphs with setup cards and thumbnails |
 | [For workflow creators](#for-workflow-creators) | Setup cards, before and after, repeatable seeds, measured run times |
 | [Pack-wide tools](#pack-wide-tools) | Help cards, node colors, recreate and replace, run status, completion sound |
 
@@ -64,7 +64,7 @@ Returns the transformed `image`, a generated-area `mask`, a `stitcher`, the untr
 
 ![The full-screen image editor with a rotated lake photo, cyan crop handles, orange padding handles, aspect ratios, and dimension controls.](assets/readme/image-editor.webp)
 
-**Shape it by eye, finish with exact values.** The same handles work on the node and in the full-screen editor. [Try the image and video transform example →](example_workflows/Image%20and%20Video%20Transform%20%28AusBoss%29.json)
+**Shape it by eye, finish with exact values.** The same handles work on the node and in the full-screen editor. [Try the Krea 2 Rotate + Outpaint example →](example_workflows/Krea%202%20Rotate%20%2B%20Outpaint%20%28AusBoss%29.json)
 
 ### Load Image + Pad 🆎
 
@@ -106,9 +106,9 @@ Choose an output folder, browse its subfolders, edit the filename, and check the
 
 Link `filename` to retain an upstream name, or `caption_text` to write a matching `.txt` sidecar for each image. The counter selects a free path; turning it off deliberately reuses the chosen path. JPEG XL needs the optional `pillow-jxl-plugin` extra. See the [full naming and compatibility notes](js/docs/AUSBOSS_NODES_SaveImage.md).
 
-![The Save Image card with date and size naming chips beside a detailed fisherman portrait from the Krea 2 Studio workflow.](assets/readme/save-showcase.webp)
+![The Save Image card with date and size naming chips beside a detailed fisherman portrait.](assets/readme/save-showcase.webp)
 
-**From final render to organized output.** A portrait from the [Krea 2 Studio example](example_workflows/Krea%202%20Studio%20%28AusBoss%29.json), saved with its date, dimensions, and workflow.
+**From final render to organized output.** A portrait saved with its date, dimensions, and workflow.
 
 ## Video nodes
 
@@ -146,7 +146,7 @@ Select one unchanged frame from an image batch: **1** is the first, **-1** the l
 
 Retiming uses source and target **fps**, so 24 → 30 works alongside whole-number multiples. **Blend** crossfades frames; **optical flow** uses locally cached RAFT weights. Scene-cut detection holds frames across hard cuts instead of interpolating between unrelated shots. Chunked processing bounds working memory.
 
-Returns the retimed frames and output fps. It does not process audio; carry the source audio separately to Save Video. See [weight setup and timing details](js/docs/AUSBOSS_NODES_FrameInterpolate.md), or [try the slow-motion example →](example_workflows/Video%20Reframe%20and%20Slow%20Motion%20%28AusBoss%29.json)
+Returns the retimed frames and output fps. It does not process audio; carry the source audio separately to Save Video. See [weight setup and timing details](js/docs/AUSBOSS_NODES_FrameInterpolate.md).
 
 ### Save Video 🆎
 
@@ -158,7 +158,7 @@ Save an image batch or a core `VIDEO` as MP4 H.264/H.265, WebM VP9/AV1, ProRes M
 
 ![Close-up comparison of a rowboat beside a pier before inpainting and a white swan in its place afterward.](assets/readme/inpaint-showcase.webp)
 
-**Edit the part that matters.** Mask Refine, Crop For Inpaint, and Stitch Inpaint carry a painted region through this Klein 9B edit. Both pictures show the same detail crop. [Open the inpaint workflow →](example_workflows/Klein%209B%20Inpaint%20%28AusBoss%29.json)
+**Edit the part that matters.** Mask Refine, Crop For Inpaint, and Stitch Inpaint carry a painted region through this Klein 9B edit. Both pictures show the same detail crop. [Open the Krea 2 inpaint workflow →](example_workflows/Krea%202%20Inpaint%20Masked%20%28AusBoss%29.json)
 
 ### Mask Refine 🆎
 
@@ -170,7 +170,7 @@ Returns the refined mask and its inverse. **Guided filter** and **matting** use 
 
 Replace white mask regions using a local TorchScript LaMa checkpoint. Black-mask pixels are preserved. One mask can serve an entire image batch, and video frames are processed one at a time to bound VRAM. The preview can stream completed frames during execution or be switched off.
 
-Put `big-lama.pt` in `ComfyUI/models/lama/`. This is a frame-by-frame remover: difficult video textures may need additional temporal cleanup. The older `SimpleWatermarkRemover` mapping remains available as a compatibility alias. [Try the object removal example →](example_workflows/LaMa%20Object%20Removal%20%28AusBoss%29.json)
+Put `big-lama.pt` in `ComfyUI/models/lama/`. This is a frame-by-frame remover: difficult video textures may need additional temporal cleanup. The older `SimpleWatermarkRemover` mapping remains available as a compatibility alias. [Try the video watermark remover example →](example_workflows/Simple%20Video%20Watermark%20Remover%20%28AusBoss%29.json)
 
 ### Crop For Inpaint 🆎
 
@@ -192,7 +192,7 @@ Keep a complete stack in one node: enable each row, choose a model from the sear
 
 ![A compact three-row LoRA Loader with Vintage Tarot enabled beside its illustrated Hermit tarot-card result.](assets/readme/lora-showcase.webp)
 
-**One stack, a distinct look.** Krea 2 with the Vintage Tarot LoRA enabled; the other rows are parked for later. [Try the LoRA stack example →](example_workflows/Krea%202%20Text%20to%20Image%20%2B%20LoRA%20Stack%20%28AusBoss%29.json)
+**One stack, a distinct look.** Krea 2 with the Vintage Tarot LoRA enabled; the other rows are parked for later.
 
 The toolbar holds the stack toggle, saved templates, reconnect, and settings. **Absorb chain LoRAs** in the settings menu moves recognized loaders into this stack in application order, retaining repeated LoRAs. It bypasses the originals only when MODEL, CLIP, and auxiliary connections can be preserved. Shared branches and linked stack settings leave the chain untouched. File metadata, a `.civitai.info` sidecar beside the file, and your saved words populate each LoRA's information card; selected trigger words flow through the `triggers` output.
 
@@ -219,7 +219,7 @@ The patch depends on ComfyUI's attention internals. Its [help page](js/docs/AUSB
 
 ![Latent Size with a 1344 by 768 landscape canvas, its ratio chips, and the size and megapixel controls.](assets/readme/controls-showcase.webp)
 
-**Small controls you can build a graph around.** Set the canvas size once, then wire its width, height and empty latent wherever the graph needs them. [Explore Latent Size →](example_workflows/Latent%20Size%20%28AusBoss%29.json)
+**Small controls you can build a graph around.** Set the canvas size once, then wire its width, height and empty latent wherever the graph needs them.
 
 ### Latent Size 🆎
 
@@ -281,33 +281,19 @@ A resizable stopwatch for the whole executing queue, with no wires. It starts wh
 
 Open the JSON files from [`example_workflows/`](example_workflows), or use the pack's entries in ComfyUI's template browser. Each has a matching thumbnail, numbered groups, and a Workflow Note explaining setup and operation.
 
-Copy the files in [`example_workflows/inputs/`](example_workflows/inputs) into `ComfyUI/input/` first. The rowboat PNG includes a painted mask. Model paths can include local subfolders: select the corresponding installed file in each loader before running. A green model indicator means the file exists; it does not guarantee the loader has selected that path. Model licenses and any download access requirements remain with their authors.
+Copy the files in [`example_workflows/inputs/`](example_workflows/inputs) into `ComfyUI/input/` first. The fur coat picture has its mask painted. Model paths can include local subfolders: select the corresponding installed file in each loader before running. A green model indicator means the file exists; it does not guarantee the loader has selected that path. Model licenses and any download access requirements remain with their authors.
 
 | Workflow | Purpose | Requirements |
 |---|---|---|
-| [Latent Size](example_workflows/Latent%20Size%20%28AusBoss%29.json) | Orientation, ratios, MP budgeting, and a solid-color preview | Core + this pack; no models |
-| [Image and Video Transform](example_workflows/Image%20and%20Video%20Transform%20%28AusBoss%29.json) | Crop/Pad controls, masks, alignment, and comparison against the original source | Core + this pack; included picture and clip |
-| [Video Node Tour](example_workflows/Video%20Node%20Tour%20%28AusBoss%29.json) | Trim, split, merge, resize, mask, retime, compare, and save a clip | Core + this pack; included clip |
-| [Video Reframe and Slow Motion](example_workflows/Video%20Reframe%20and%20Slow%20Motion%20%28AusBoss%29.json) | Crop a vertical clip to a square, double its frames, and save it at half speed | Core + this pack; included clip |
-| [Dataset Frames from a Clip](example_workflows/Dataset%20Frames%20from%20a%20Clip%20%28AusBoss%29.json) | Every nth frame at one size, saved as PNGs with caption sidecars | Core + this pack; included clip |
-| [LaMa Object Removal](example_workflows/LaMa%20Object%20Removal%20%28AusBoss%29.json) | Refine a painted mask, remove the object with LaMa, and stitch it back | `big-lama.pt`; included masked image |
-| [Krea 2 Studio](example_workflows/Krea%202%20Studio%20%28AusBoss%29.json) | LoRA triggers, draft, learned upscale, low-denoise refinement, tone match, compare | Krea 2 Turbo components + a 4× upscaler |
-| [Krea 2 Text to Image + LoRA Stack](example_workflows/Krea%202%20Text%20to%20Image%20%2B%20LoRA%20Stack%20%28AusBoss%29.json) | A stacked LoRA prompt with trigger words | Krea 2 Turbo + enabled style LoRAs; anime row is optional |
-| [Krea 2 Prompt from Image](example_workflows/Krea%202%20Prompt%20from%20Image%20%28AusBoss%29.json) | The Krea text encoder describes a picture, then renders its prompt | Krea 2 components with core Text Generate support |
 | [Krea 2 Outpaint](example_workflows/Krea%202%20Outpaint%20%28AusBoss%29.json) | Describe the unpadded source, extend several sides, then stitch it back | Krea 2 Turbo + AnyPaint LoRA; reuses its text encoder for captions |
-| [Qwen Image 2.1 Text to Image](example_workflows/Qwen%20Image%202.1%20Text%20to%20Image%20%28AusBoss%29.json) | Prompt, optional LoRA stack, visual canvas sizing, and PNG output | Qwen Image 2.1 INT8, Qwen3-VL 8B INT8, and the 2.1 VAE; downloads on the note card |
-| [Qwen Image 2.1 Edit](example_workflows/Qwen%20Image%202.1%20Edit%20%28AusBoss%29.json) | Instruction-based editing at a source-derived size, with before/after comparison | Same Qwen 2.1 components + the consistency LoRA; included pier image; supports additional references |
-| [Qwen Image 2.1 Edit + Realign](example_workflows/Qwen%20Image%202.1%20Edit%20%2B%20Realign%20%28AusBoss%29.json) | A style edit that came back taller, realigned onto its source and compared before and after | Same Qwen 2.1 components; included pier image |
-| [Klein 9B Edit](example_workflows/Klein%209B%20Edit%20%28AusBoss%29.json) | Edit a picture at a source-derived working size | Distilled Klein 9B, Qwen encoder, Flux 2 VAE |
-| [Klein 9B Inpaint](example_workflows/Klein%209B%20Inpaint%20%28AusBoss%29.json) | Refine the painted mask, crop, edit, and stitch | Same Klein components; included masked image |
-| [Klein 9B Outpaint](example_workflows/Klein%209B%20Outpaint%20%28AusBoss%29.json) | Source description, padded reference, masked latent, source-preserving stitch | Klein components + PixaOutpaint LoRA + Qwen3-VL 8B INT8 caption model |
+| [Krea 2 Inpaint Masked](example_workflows/Krea%202%20Inpaint%20Masked%20%28AusBoss%29.json) | Paint over part of a picture, say what goes there, and Krea 2 repaints only that | Krea 2 Turbo + AnyPaint LoRA; included picture with its mask painted |
+| [Krea 2 Rotate + Outpaint](example_workflows/Krea%202%20Rotate%20%2B%20Outpaint%20%28AusBoss%29.json) | Turn, crop and pad a picture, and Krea 2 paints the new area | Krea 2 Turbo + AnyPaint LoRA; included picture |
+| [Qwen Image 2.1 Edit + Realign](example_workflows/Qwen%20Image%202.1%20Edit%20%2B%20Realign%20%28AusBoss%29.json) | A style edit that came back taller, realigned onto its source and compared before and after | Qwen Image 2.1 INT8, Qwen3-VL 8B INT8 and the 2.1 VAE; included pier image |
+| [Klein 9B Outpaint](example_workflows/Klein%209B%20Outpaint%20%28AusBoss%29.json) | Source description, padded reference, masked latent, source-preserving stitch | Distilled Klein 9B, Qwen encoder, Flux 2 VAE + PixaOutpaint LoRA + Qwen3-VL 8B INT8 caption model |
 | [LTX 2.3 Video Outpaint](example_workflows/LTX%202.3%20Video%20Outpaint%20%28AusBoss%29.json) | Extend a clip's canvas while retaining source audio and pixels | LTX 2.3 components, distilled LoRA, outpaint IC-LoRA |
-| [MiniMax H3 Text to Video](example_workflows/MiniMax%20H3%20Text%20to%20Video%20%28AusBoss%29.json) | Five-second request rounded to 124 frames, with generated audio | H3 FL2VA components + 4-step turbo LoRA |
-| [MiniMax H3 Image to Video](example_workflows/MiniMax%20H3%20Image%20to%20Video%20%28AusBoss%29.json) | Source description plus your motion/audio direction | H3 components + turbo LoRA + Qwen3-VL 8B INT8 caption model; included image |
-| [MiniMax H3 First + Last Frame](example_workflows/MiniMax%20H3%20First%20%2B%20Last%20Frame%20%28AusBoss%29.json) | Describe both endpoints, then guide a 20-step base-model transition | H3 FL2VA components + Qwen3-VL 8B INT8 caption model; two included images |
 | [Simple Video Watermark Remover](example_workflows/Simple%20Video%20Watermark%20Remover%20%28AusBoss%29.json) | Detect and remove an overlay, with a single-frame comparison branch | **ComfyUI-RMBG / SAM3** plus `big-lama.pt` and this pack |
 
-The other twenty examples use core nodes plus this pack. Model-free examples are the quickest installation check. Generation speed and memory depend on the selected weights, dimensions, frame count, and other GPU workloads; the graph settings are reproducible, hardware timing is not.
+The other six examples use core nodes plus this pack. Generation speed and memory depend on the selected weights, dimensions, frame count, and other GPU workloads; the graph settings are reproducible, hardware timing is not.
 
 ## For workflow creators
 
