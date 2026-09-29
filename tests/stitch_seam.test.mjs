@@ -47,7 +47,7 @@ test("each choice gets one short plain line in the menu", () => {
     assert.doesNotMatch(line, /\n/);
   }
   assert.match(entry.optionHints["blend in"], /turned pictures/);
-  assert.match(entry.optionHints["blend in"], /Tone match off/);
+  assert.match(entry.optionHints["blend in"], /Tone match still works/);
 });
 
 test("a stored or restored value outside the choices reads as classic", () => {
@@ -64,8 +64,9 @@ test("blend in mutes the rows and widens the corner; classic does neither", () =
   }
   assert.equal(seamCornerReserve({ seam: "classic" }), 30);
   assert.equal(seamCornerReserve({ seam: "blend in" }), 84);
-  for (const [widget, title] of Object.entries(SEAM_MUTE_TITLES)) {
-    assert.ok(["color_match", "fix_edge_halo"].includes(widget));
+  // Tone match works in both seams; only the halo fix is classic's alone.
+  assert.deepEqual(Object.keys(SEAM_MUTE_TITLES), ["fix_edge_halo"]);
+  for (const title of Object.values(SEAM_MUTE_TITLES)) {
     assert.match(title, /^Blend in doesn't use/);
     assert.match(title, /gear menu/);
   }

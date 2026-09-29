@@ -15,29 +15,29 @@ menu: click the small gear in the card's top-right corner.
   new area fades in over the feathered mask, and **Tone match** can shift
   its colour toward your picture. Saved workflows keep it, so they render
   exactly as before.
-- **blend in** is for outpaints, and best for turned pictures. It also
-  suits straight padding when Tone match is off, because it changes less
-  of your picture. With straight padding and Tone match on, classic
-  usually looks as good or better: Krea 2 and Klein paint the new area a
-  touch off-tone, and blend in keeps the model's colour as painted.
-  The model redraws a thin strip along the edge of your picture, and its
-  version never matches yours exactly. Blend in fades from the model's
-  picture to yours a little way inside your picture, where the two
-  already line up, and leaves the new area exactly as the model painted
-  it. Nothing gets a tone shift, so **Tone match** and **Fix edge halo**
-  stay in place but dim, and a **blend in** chip shows next to the gear.
-  Switch Seam back to classic in the same menu to use them again.
+- **blend in** is for outpaints, turned or straight. The model redraws a
+  thin strip along the edge of your picture, and its version never
+  matches yours exactly. Blend in fades from the model's picture to yours
+  a little way inside your picture, where the two already line up.
+  With **Tone match** on, it first checks how the model changed the
+  colours of that strip and takes the same change back off the new area,
+  so a model that paints a little lighter, darker or warmer still meets
+  your picture in tone. With Tone match at 0 the new area stays exactly as
+  the model painted it. **Fix edge halo** is for classic only: under blend
+  in it stays in place but dims, and a **blend in** chip shows next to the
+  gear.
 
 Blend in needs to know where your picture's edge is. Load Image + Pad and
 the Crop + Rotate + Pad nodes record it; Crop For Inpaint does not, so a
 Crop For Inpaint stitcher always pastes classic for now (the console says
 so once).
 
-What blend in fixes: the lighter or darker band a tone match can lay over
-a turned outpaint, and the smeared strip where the two pictures were
-cross-faded. What it can't fix: a pattern the model drew out of step at the
-edge, such as plaid or stripes running along it. That break is in the
-model's own picture.
+What blend in fixes: the lighter or darker band classic's tone match can
+lay over a turned outpaint, the grey haze a flat tone lift lays over a dark
+new area, and the smeared strip where the two pictures were cross-faded.
+What it can't fix: a pattern the model drew out of step at the edge, such as
+plaid or stripes running along it, or fill the model left unpainted. Those
+are in the model's own picture.
 
 ## Guarantees
 
@@ -46,8 +46,9 @@ model's own picture.
   resize or blend. This holds with `fix_edge_halo` on as well: the toggle
   changes the color that is pasted, never how far the paste reaches.
 - With blend in, your picture is bit-identical from where the blend ends,
-  a few dozen pixels inside its edge (about 35 px at common settings), and
-  the new area is bit-identical to what the model painted.
+  a few dozen pixels inside its edge (about 35 px at common settings). At
+  Tone match 0 the new area is bit-identical to what the model painted, and
+  the whole stitch is the 2.4.0 blend in, pixel for pixel.
 - With the classic seam, feeding the crop back unchanged reproduces the
   original image exactly (with `fix_edge_halo` off; the fix rewrites the
   feathered band on purpose). Blend in does not promise this: it keeps the
@@ -73,16 +74,34 @@ model's own picture.
   pixels stop blending their background in a second time. It costs real
   time per frame — read "What it costs" below before turning it on for a
   whole batch.
-- **Tone match** (`color_match`, classic seam only): `0` (off) to `1`.
-  Shifts the pasted region's tone onto the original's before blending. For
-  an outpaint the shift is read across each seam — the model's new pixels
-  just outside the source against the true pixels just inside it — so it
-  measures the model's own drift, not the mixed band. Read "Matching the
-  tone" below.
+- **Tone match** (`color_match`): `0` (off) to `1`. Matches the new area's
+  tone to your picture. Classic reads the drift across each seam; blend in
+  reads it where the model repainted the edge of your picture. Read
+  "Matching the tone" below.
 
 ## Matching the tone
 
-This is the classic seam's Tone match; blend in does not shift the tone.
+An outpaint often comes back a little off the picture it extends. Klein can
+darken the mid-tones of a night scene and brighten a daylight one, Krea 2
+paints a touch darker, and Qwen Image 2.1 usually keeps your colours.
+Tone match takes that off, in either seam.
+
+### With blend in
+
+Blend in compares the model's version of the strip along your picture's
+edge with your picture, pixel for pixel, and works out how the model
+changed each brightness level. It takes the same change back off the new
+area, so dark stays dark and a mid-tone the model darkened comes back up.
+It checks that the change holds up along the edge first (it tests the fit
+on part of the strip it did not use), and changes nothing when it does not,
+when the model kept your colours, or when there is no feather to read.
+
+A wider feather gives it more to read. At feather 24 or more it removes
+most of a model's drift; at 10 to 12 it removes part of a strong one, and
+never more than the drift. A video clip is measured once for all its
+frames, so the correction cannot flicker.
+
+### With classic
 
 An outpaint comes back a few percent off the picture it extends — Krea 2
 a touch darker, Klein a touch lighter — and the padding colour makes no
@@ -122,9 +141,9 @@ on each frame, so moving subjects or camera motion can turn those content
 differences into flickering dark or light bands across the generated area.
 Compare the decoded frames before stitching with the stitched result; if
 the bands appear only after stitching, disable color matching. The source
-paste and feathered blend still work with it off. Blend in measures
-nothing per frame: every frame is blended with the same map, so it adds no
-flicker of its own.
+paste and feathered blend still work with it off. Blend in's Tone match is
+measured once for the whole clip and every frame is blended with the same
+map, so blend in adds no flicker of its own.
 
 ## Fixing an edge halo
 
@@ -222,6 +241,35 @@ and how it was tested.
   and progress between chunks: about 0.2 to 0.5 s per 1.5 MP frame on a
   desktop CPU.
 
+### Tone match under blend in
+
+- **What is compared.** Tone layers (a Gaussian blur, sigma 5 px) of your
+  picture and of the model's, both read over the same picture pixels at
+  least 4 px inside the edge, so the grey rim a turn or a resize leaves
+  there, and the new area's own content, never enter the reading. The band
+  is the picture pixels where the sampler mask is above 0.02; highlights at
+  0.98 or more are left out. A clip is read through the mean of its frames.
+- **The drift model.** Per RGB channel the difference is fitted as a curve
+  over your picture's brightness, split into what a pinned pixel still
+  drifts and what a free one does, weighted by the (equally blurred)
+  sampler mask: d = A(v) + m (E(v) - A(v)). Both are piecewise linear on
+  ten brightness points, denser in the shadows, with smoothness penalties,
+  and fitted robustly (three reweighting passes). E is the drift in the new
+  area. Klein re-renders a pinned picture, so its A is large; Krea keeps a
+  pinned picture exact; Qwen redraws everything alike.
+- **The check.** The band is cut into 96 px tiles in a checkerboard. The
+  curves fitted on one colour must predict the other at least 15% better
+  than no correction, both ways, or nothing changes. A local gain along the
+  edge (sigma 48 px, at most 5%) is added only when it predicts another 5%
+  better. A gain leaves black black, where an offset would lift it.
+- **Taking it off.** Each value of the model's picture is taken back
+  through its curve (v + drift(v) = value, three fixed-point steps), with
+  the pixel's own mask mixing pinned and free, then divided by the local
+  gain. The corrected picture goes through the blend in unchanged, so
+  everything under "How blend in works" still holds.
+- **Cost.** About 0.4 to 2 s per 1.5 MP stitch on a desktop CPU, once per
+  stitch whatever the number of frames.
+
 ### Measured
 
 Krea 2 with AnyPaint on seven outpaints at two seeds each, 1.5 MP, feather
@@ -241,6 +289,25 @@ seven pictures, each the mean of its two seeds.
 The outer 20 to 35 px of your picture is the model's redraw either way,
 about the same share as classic. Blend in changes where that strip meets
 your picture, not how wide it is.
+
+Tone match under blend in, on nine outpaints whose real continuation is
+known (Klein 9B and Krea 2, straight pads, feather 16 to 64): how far the
+new area's tone next to the edge is from the real photo, median dE.
+
+| | classic, Tone match 1 | blend in, Tone match 0 | blend in, Tone match 1 |
+|---|---|---|---|
+| mean over the nine | 1.98 | 2.57 | 1.80 |
+| Klein, feather 64 (three) | 1.78 to 2.06 | 1.42 to 2.40 | 0.73 to 1.84 |
+| Krea 2, feather 32 to 64 (four) | 1.76 to 2.14 | 2.84 to 3.19 | 1.41 to 2.33 |
+
+On 18 real runs (Qwen Image 2.1, Klein 9B and Krea 2; night, daylight and
+flat backdrops; turned 5 to 15 degrees, straight pads on one, two or four
+sides, 4:5 and 16:9 ratio chips) no correction showed a seam line. Qwen
+drifted little: 4 of 7 runs got no correction and 3 got 0.4 to 0.6 dE.
+Klein got 1.8 to 6.3 dE, taking back a darkening or brightening of its own,
+and Krea 2 got 0.6 to 1.4 dE. Classic Tone match moved every one of those
+new areas by 1.5 to 6.9 dE; on a turned night scene it lifted the new area
+2.8 L off the grey rim, where Qwen's real drift was 0.2.
 
 ## Wiring
 

@@ -4,6 +4,14 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Stitch Inpaint: Tone match now works with Seam set to blend in.** An
+  outpaint can come back a little lighter, darker or warmer than your
+  picture, and blend in used to keep that colour. With Tone match on, blend
+  in now checks how the model repainted the strip of your picture next to
+  the new area and takes that change back off the new area. It follows any
+  edge, turned or straight, keeps blacks black, and leaves the colours alone
+  when the change doesn't hold up along the edge. Blend in with Tone match
+  at 0 stitches exactly as before, and the classic seam is unchanged.
 - **The red "missing file" warning clears when you pick a file.** Open a
   workflow that was saved with a picture you don't have and ComfyUI marks
   Load Image + Pad red and lists it under Setup required. Picking your own

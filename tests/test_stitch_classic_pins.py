@@ -7,10 +7,13 @@ picture. Each case below builds its stitcher the way its node does, stitches a
 fixed patch at color_match 0, 0.5 and 1 through the node, and compares a
 SHA-256 of the image and blend_mask bytes with the value the 2.3.0 code gave.
 
+Blend in with Tone match at 0 is pinned the same way, to the 2.4.0 code:
+the published Qwen Image 2.1 Rotate + Outpaint workflow stitches that way.
+
 The hashes cover float32 bytes, so they hold for one CPU and torch build. If
 every pin fails at once after moving machines, regenerate them with
-``python tests/test_stitch_classic_pins.py --print`` on the last release's
-code, never on a change under review.
+``python tests/test_stitch_classic_pins.py --print`` (and ``--print-blend-in``)
+on the last release's code, never on a change under review.
 """
 
 from __future__ import annotations
@@ -184,9 +187,51 @@ class ClassicSeamPinTests(unittest.TestCase):
                 self.assertTrue(torch.equal(plain[1], named[1]))
 
 
+# Blend in reads the picture's edge, so only the canvas stitchers stitch it;
+# (case) -> (image, blend_mask), first 20 hex digits, from the 2.4.0 code.
+BLEND_IN_CASES = (
+    "load image + pad",
+    "crop + rotate + pad, turned",
+    "crop + rotate + pad, straight",
+    "video clip",
+    "video clip, fewer frames back",
+)
+BLEND_IN_PINS = {
+    "load image + pad": ("dcf639cca3ebb067b509", "a6268360da1bf1dfbdc9"),
+    "crop + rotate + pad, turned": ("d7719cc807e1473fef42", "d46c2fca7a9cb070e97d"),
+    "crop + rotate + pad, straight": ("74682782bb43db4ea1aa", "092bcd5316bb2401f4b9"),
+    "video clip": ("ad354f9c5c2c4a826498", "dfe6547464fa28df00a1"),
+    "video clip, fewer frames back": ("4ed09429e45d5cc3395a", "84417340317c98964773"),
+}
+
+
+def measure_blend_in():
+    results = {}
+    for name in BLEND_IN_CASES:
+        stitcher, patch_image = CASES[name]()
+        image, blend_mask = stitch(stitcher, patch_image, 0.0, seam="blend in")
+        results[name] = (digest(image), digest(blend_mask))
+    return results
+
+
+class BlendInToneMatchOffPinTests(unittest.TestCase):
+    def test_tone_match_off_is_the_released_blend_in(self):
+        optional = AusBossStitchInpaint.INPUT_TYPES()["optional"]
+        if "seam" not in optional:
+            self.skipTest("this Stitch Inpaint has no Seam choice")
+        self.assertEqual(set(BLEND_IN_PINS), set(BLEND_IN_CASES))
+        for name, found in measure_blend_in().items():
+            with self.subTest(case=name):
+                self.assertEqual(found, BLEND_IN_PINS[name])
+
+
 if __name__ == "__main__":
     if "--print" in sys.argv:
         for key, value in measure().items():
+            print(f"    {key!r}: {value!r},")
+        sys.exit(0)
+    if "--print-blend-in" in sys.argv:
+        for key, value in measure_blend_in().items():
             print(f"    {key!r}: {value!r},")
         sys.exit(0)
     unittest.main()

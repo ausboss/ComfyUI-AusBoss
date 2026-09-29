@@ -344,18 +344,19 @@ class AusBossStitchInpaint:
         "Pad 🆎 node, back into the original image. Seam picks how the new "
         "area joins your picture: classic, the default, blends with the "
         "feathered mask recorded in the stitcher, as every earlier "
-        "workflow did; blend in fades the model's picture into yours with "
-        "no tone shift, which suits turned pictures and outpaints run "
-        "without Tone match. "
+        "workflow did; blend in fades the model's picture into yours a "
+        "little way inside your picture, which suits outpaints, turned or "
+        "straight. Raise color_match (Tone match) when the new area reads "
+        "lighter, darker or warmer than your picture. Classic measures that "
+        "drift across the seam; blend in measures it where the model "
+        "repainted the edge of your picture, and leaves the colours alone "
+        "when the drift does not hold up along the edge. "
         "Pixels the stitch does not reach are bit-identical to the "
         "original — they never pass through a resize. A stitcher built "
         "from one image broadcasts across an inpainted frame batch. With "
         "classic, turn on fix_edge_halo when the seam shows a dark or light "
-        "rim, and raise color_match when the new region reads lighter or "
-        "warmer than the picture — it measures the drift in the feathered "
-        "overlap and shifts the paste onto the original's tone. The "
-        "blend_mask output marks what the stitch changed, in the stitched "
-        "image's own coordinates, ready for a downstream color match."
+        "rim. The blend_mask output marks what the stitch changed, in the "
+        "stitched image's own coordinates, ready for a downstream color match."
     )
     SEARCH_ALIASES = [
         "stitch inpaint",
@@ -411,15 +412,11 @@ class AusBossStitchInpaint:
                         "max": 1.0,
                         "step": 0.05,
                         "tooltip": (
-                            "Pull the inpainted region's tone onto the "
-                            "original's before pasting. The shift is measured "
-                            "in the feathered band, where the sampler's "
-                            "version and the true pixels overlap, so it "
-                            "reads the model's own drift - the lighter or "
-                            "warmer bands an outpaint often comes back "
-                            "with. 1 applies the full measured shift, 0 is "
-                            "off. Needs a feather (an overlap) to measure; "
-                            "with none it does nothing."
+                            "Match the new area's tone to your picture when "
+                            "it comes back lighter, darker or warmer. 1 is "
+                            "the full match, 0 is off; it needs a feather, "
+                            "since it reads the strip of your picture the "
+                            "model repainted."
                         ),
                     },
                 ),
@@ -429,10 +426,9 @@ class AusBossStitchInpaint:
                         "default": SEAM_CLASSIC,
                         "tooltip": (
                             "How the new area joins your picture. Pick blend "
-                            "in for turned pictures and outpaints with Tone "
-                            "match off; classic keeps older workflows exactly "
-                            "as they were (Crop For Inpaint always stitches "
-                            "classic for now)."
+                            "in for outpaints, turned or straight; classic "
+                            "keeps older workflows exactly as they were (Crop "
+                            "For Inpaint always stitches classic for now)."
                         ),
                     },
                 ),
