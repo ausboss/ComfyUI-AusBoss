@@ -72,6 +72,54 @@ def build_reference_image(
     return resized.movedim(1, -1).contiguous()
 
 
+def fill_reference_holes(image: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    """Paint the area ``mask`` marks with the median colour of the rest.
+
+    AnyPaint was trained on references whose new area is a flat patch of the
+    picture's own median colour, and it paints such a patch. A fixed fill
+    that looks nothing like the picture - the #808080 gray pad next to a dark
+    or saturated photo - reads to it as real content instead, and it paints
+    it back as a gray frame or a gray corner. Refilling the reference here
+    gives it the patch it knows, whatever colour the canvas was padded with.
+
+    ``image`` is a BHWC batch, ``mask`` a MASK (HW or BHW, 1 = new area),
+    resized to the image when the sizes differ. The new area is where the
+    mask is above 0.5. Returns a copy; pixels outside the new area are left
+    exactly as they were, and an item with nothing marked is left alone.
+    """
+    if image.ndim != 4:
+        raise ValueError("Krea 2 reference expected a BHWC IMAGE batch.")
+    if not isinstance(mask, torch.Tensor):
+        raise ValueError("Krea 2 reference mask expected a MASK tensor.")
+    batch, height, width, _channels = image.shape
+    holes = mask.detach().to(device=image.device, dtype=torch.float32)
+    if holes.ndim == 2:
+        holes = holes.unsqueeze(0)
+    elif holes.ndim == 4 and holes.shape[1] == 1:
+        holes = holes[:, 0]
+    if holes.ndim != 3:
+        raise ValueError("Krea 2 reference mask expected an HW or BHW MASK.")
+    if tuple(holes.shape[1:]) != (height, width):
+        holes = functional.interpolate(
+            holes.unsqueeze(1), size=(height, width), mode="bilinear", align_corners=False
+        ).squeeze(1)
+
+    out = image.clone()
+    for index in range(batch):
+        hole = holes[index % holes.shape[0]] > 0.5
+        if not bool(hole.any()):
+            continue
+        known = out[index][~hole]
+        if known.shape[0] == 0:
+            # Nothing of the picture is left to take a colour from; mid-gray
+            # is AnyPaint's own answer for an empty source.
+            colour = torch.full((out.shape[3],), 0.5, dtype=out.dtype, device=out.device)
+        else:
+            colour = known.float().median(dim=0).values.to(out.dtype)
+        out[index][hole] = colour
+    return out
+
+
 def extract_bbox_norm(stitcher: dict | None) -> list[float]:
     """Where the source sits in the canvas, as ``[x0, y0, x1, y1]`` in 0..1.
 
@@ -165,6 +213,7 @@ __all__ = [
     "REFERENCE_MAX_EDGE",
     "build_reference_image",
     "extract_bbox_norm",
+    "fill_reference_holes",
     "placement_warning",
     "reference_size",
     "snap16",
