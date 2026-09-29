@@ -2,6 +2,16 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **The red "missing file" warning clears when you pick a file.** Open a
+  workflow that was saved with a picture you don't have and ComfyUI marks
+  Load Image + Pad red and lists it under Setup required. Picking your own
+  picture in the node used it, but the red box and the warning stayed on,
+  even though the workflow ran. They now clear as soon as you pick a file.
+  Every control on the node cards now tells ComfyUI when you change it, so
+  its own checks stay in step with what you set.
+
 ## 2.4.0 - 2026-09-29
 
 - **Load Video accepts a wired start or end time.** Connecting another

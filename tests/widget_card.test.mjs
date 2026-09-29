@@ -3,7 +3,7 @@ import test from "node:test";
 
 import {
   CARD_PADDING, GROUP_HEIGHT, ROW_GAP, ROW_HEIGHT, SECTION_HEIGHT, SLOT_OFFSET,
-  cardHeight, rowHeight, rowKind, rowMuted, rowTops, scrubSteps, segmentFits, socketWidgetY, visibleRows,
+  cardHeight, commitWidgetValue, rowHeight, rowKind, rowMuted, rowTops, scrubSteps, segmentFits, socketWidgetY, visibleRows,
 } from "../js/shared/widget_card_math.mjs";
 
 test("visibleRows honors when() and closed groups but keeps the header", () => {
@@ -102,4 +102,22 @@ test("a muted row keeps its place and the card its height", () => {
     assert.equal(cardHeight(visible), CARD_PADDING * 2 + ROW_HEIGHT * 2 + ROW_GAP);
     assert.deepEqual(rowTops(visible), [CARD_PADDING, CARD_PADDING + ROW_HEIGHT + ROW_GAP]);
   }
+});
+
+test("commitWidgetValue sets the value, runs the callback, then tells the node", () => {
+  const calls = [];
+  const widget = { name: "image", value: "old.png", callback: (value, canvas, node) => calls.push(["callback", value, canvas, node.id]) };
+  const node = { id: 5, onWidgetChanged: (name, value, previous, changed) => calls.push(["changed", name, value, previous, changed === widget]) };
+  commitWidgetValue(node, widget, "new.png", "canvas");
+  assert.equal(widget.value, "new.png");
+  assert.deepEqual(calls, [
+    ["callback", "new.png", "canvas", 5],
+    ["changed", "image", "new.png", "old.png", true],
+  ]);
+});
+
+test("commitWidgetValue copes with a widget that has no callback and a node that has no hook", () => {
+  const widget = { name: "seed", value: 1 };
+  commitWidgetValue({}, widget, 2, null);
+  assert.equal(widget.value, 2);
 });
