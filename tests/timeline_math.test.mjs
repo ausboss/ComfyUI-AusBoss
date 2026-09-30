@@ -253,3 +253,35 @@ test("an old fixed count, a wired input and a connected rate", () => {
   assert.deepEqual([resampled.last, resampled.frames], [119, null]);
   assert.equal(clipLengthPlan(info, { start: 0, end: 0, maxFrames: 50, resampled: true }).last, null);
 });
+
+// --- The rail always scrubs ------------------------------------------------------
+import { lengthFillsClip, railZone, slideRange } from "../js/shared/timeline_math.mjs";
+
+test("a press on the rail scrubs unless it lands on a handle or the grip", () => {
+  // Length on (the LTX example): pressing between IN and OUT used to be a
+  // hidden grip that could not move. It is the playhead now.
+  assert.equal(railZone({ x: 200, inX: 0, outX: 400 }), "playhead");
+  assert.equal(railZone({ x: 5, inX: 0, outX: 400 }), "start");
+  assert.equal(railZone({ x: 395, inX: 0, outX: 400 }), "end");
+  assert.equal(railZone({ x: 200, inX: 0, outX: 400, onGrip: true }), "grip");
+  // Stacked handles split by side; no OUT handle leaves only IN.
+  assert.equal(railZone({ x: 99, inX: 100, outX: 100 }), "start");
+  assert.equal(railZone({ x: 101, inX: 100, outX: 100 }), "end");
+  assert.equal(railZone({ x: 395, inX: 0, outX: 400, hasOut: false }), "playhead");
+});
+
+test("the grip slides the kept part as far as the clip allows", () => {
+  const pier = clipInfo({ fps: 24, frame_count: 97, duration: 97 / 24 });
+  const whole = clipLengthPlan(pier, { start: 0, end: 0, maxFrames: 97, frameSnap: "8n+1" });
+  assert.deepEqual(slideRange(pier, whole), { min: 0, max: 0 });
+  assert.equal(lengthFillsClip(pier, whole), true);
+  const long = clipInfo({ fps: 24, frame_count: 288, duration: 12 });
+  const length = clipLengthPlan(long, { start: 0, end: 0, maxFrames: 97, frameSnap: "8n+1" });
+  assert.deepEqual(slideRange(long, length), { min: 0, max: 191 });
+  assert.equal(lengthFillsClip(long, length), false);
+  // A free window keeps its span.
+  const window = windowSeconds(long, 24, 72);
+  const free = clipLengthPlan(long, { start: window.start_seconds, end: window.end_seconds });
+  assert.deepEqual(slideRange(long, free), { min: 0, max: 287 - 48 });
+  assert.equal(lengthFillsClip(long, free), false);
+});
