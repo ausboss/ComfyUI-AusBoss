@@ -43,4 +43,6 @@ ComfyUI's temp folder, alongside what `PreviewImage` writes.
 
 The small **preview** switch at the right of the bar above the picture turns
 it off: the picture's box disappears, the node is that much shorter, and no
-preview file is written. The switch is the node's optional `preview` input.
+preview file is written. Turn it back on and the node returns to its height
+with the last result in it; if the node ran while the switch was off, it asks
+you to run the workflow again. The switch is the node's optional `preview` input.

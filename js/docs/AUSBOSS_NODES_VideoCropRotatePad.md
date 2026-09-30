@@ -14,10 +14,10 @@ generated-area `mask`, a `stitcher` for Stitch Inpaint, the selected
   drop a video file onto the node. Another video keeps the fill, feather and resize
   settings and the lit format chip (the new frame uses its Crop / Pad mode); rotation, crop and
   the playhead start over.
-- **Canvas row** under the format chips: fill swatch, feather amount and Resize on the node face; ticking Resize opens the megapixel budget and its Step. The line under the picture names each step that sets the output size, as on the image node.
+- **Canvas row** under the format chips: fill swatch, feather amount and the Resize off | on switch on the node face; turning Resize on opens the megapixel budget and its Step. The line under the picture names each step that sets the output size, as on the image node.
 - **Upload** streams to the input folder, so videos larger than the buffered image-upload limit can be selected here or dropped onto the node.
-- **Uploads** / **Local path** (`source_mode`: `input folder` / `local path`): the source card's switch. Local path mode avoids copying large files.
-- **local_path**: Absolute path used only in local path mode, read in place without an
+- **Uploads** / **Server file** (`source_mode`: `input folder` / `local path`): the source card's switch. Server file mode avoids copying large files.
+- **local_path**: Absolute path used only in Server file mode, read in place without an
   upload copy. It must point inside ComfyUI's input, output or temp folder, for queued
   runs and the editor's live preview alike; paths anywhere else are refused.
 - **Playhead**: The rail under the node's preview is the timeline: press or drag it to
@@ -35,10 +35,11 @@ Rotation, crop, padding, feathering, fill, canvas multiple, the megapixel resize
 The handles work on both the node and the editor. The ratio buttons, **Fit**,
 the padlock and the orientation button work as on the image node: a tap pads (or,
 with Fit on crop, crops) the frame to a ratio, a lit ratio is the shape the canvas
-has now, and the padlock keeps that shape while you drag. **Reset crop** restores the
-full crop while keeping rotation and padding. **Reset** clears rotation, crop and
-padding; fill, feather, **Align** and the playhead stay. **Align** sets the canvas
-pixel multiple, with 1 disabling alignment padding.
+has now, and the padlock keeps that shape while you drag (the row says **Held**).
+**Reset crop** restores the full crop while keeping rotation and padding. **Reset**
+clears rotation, crop and padding and turns the padlock off; fill, feather, **Round
+canvas to** and the playhead stay. **Round canvas to** sets the canvas pixel
+multiple, with 1 turning it off.
 
 The appended **stitcher** output restores kept pixels after generation with a
 32-pixel blend. **original** returns the chosen RGB frame before the transform,

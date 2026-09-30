@@ -52,7 +52,7 @@ The pack uses the Pillow, NumPy, Torch and PyAV that come with ComfyUI. Each exa
 
 Rotate, crop and pad a picture by dragging handles on the node. Cyan squares crop, orange diamonds pad, and the green handle rotates. It rotates first, then crops, then pads. The full-screen editor adds exact sizes, zoom and pan.
 
-Tap a ratio under the preview to pad the picture to it, or to crop it with **Fit** set to crop. A lit ratio is the shape the canvas has right now: drag a handle to another shape and it goes dark, and the row says Custom. The padlock at the end of the row keeps the shape while you drag, and the button at the start turns the shape between portrait and landscape. **Reset crop** brings back the whole picture, and **Align** rounds the canvas to a multiple of pixels. Feather and output resizing are on the node and in the editor.
+Tap a ratio under the preview to pad the picture to it, or to crop it with **Fit** set to crop. A lit ratio is the shape the canvas has right now: drag a handle to another shape and it goes dark, and the row says Custom. The padlock at the end of the row keeps the shape while you drag, and the button at the start turns the shape between portrait and landscape. **Reset crop** brings back the whole picture, and **Round canvas to** rounds the canvas to a multiple of pixels. Feather and output resizing are on the node and in the editor.
 
 It returns the `image`, a `mask` of everything it added (padding, see-through parts of the source and the corners a rotation opens up), a `stitcher`, the untouched `original`, and the output `width` and `height`. Wire the stitcher into **Stitch Inpaint** after the sampler to put your original back. **Load Image + Pad** has more fill choices and a separate reference output.
 
@@ -136,7 +136,7 @@ Picks one frame from a video, then gives you the same rotate, crop and pad contr
 
 Applies one rotate, crop and pad to every frame of a trimmed clip. It has the source picker, a timeline with a playhead and frame-accurate IN and OUT handles, frame skipping, a frame limit, the transform handles and output resizing. While you drag a trim handle, the node shows the exact first or last frame the run keeps. The bright part of the selection is what gets output.
 
-Fill, feather and the resize budget sit on the node face, and a new clip keeps them. That matters for video outpainting, because the black, hard-edged canvas the model needs survives a source swap. A fresh Clip node starts with that canvas, and the editor's **Reset transform** goes back to it. **Snap** trims the end to an 8n+1 or 4n+1 frame count when the next video model needs one. Tap a ratio to pad the clip to it; a new clip is padded to the lit ratio too. The padlock keeps the shape while you drag a handle.
+Fill, feather and the resize budget sit on the node face, and a new clip keeps them. That matters for video outpainting, because the black, hard-edged canvas the model needs survives a source swap. A fresh Clip node starts with that canvas, and the editor's **Reset transform** goes back to it. **Frames for** trims the end to the frame count the next video model takes: LTX (8n+1) or Wan (4n+1). Tap a ratio to pad the clip to it; a new clip is padded to the lit ratio too. The padlock keeps the shape while you drag a handle.
 
 It returns the frames, mask, audio, frame count, fps, size, duration, a `stitcher`, and the chosen `original` frames before the transform. **Inpaint & Stitch** in the editor sets the protected source area and previews the blend. After a video outpaint, wire the stitcher straight into **Stitch Inpaint**, with no Crop For Inpaint in between. It works in chunks to keep memory down.
 
@@ -341,7 +341,7 @@ People who download your workflow get the nodes through ComfyUI-Manager's missin
 
 LoRA Loader and Latent Size have their own gear menus for per-node preferences.
 
-The video transform nodes' local path mode reads only videos inside ComfyUI's input, output and temp folders, and Save Image writes only inside the output folder. No widget can point the pack anywhere else on the disk. See [the video transform help](js/docs/AUSBOSS_NODES_VideoCropRotatePad.md).
+The video transform nodes' Server file mode reads only videos inside ComfyUI's input, output and temp folders, and Save Image writes only inside the output folder. No widget can point the pack anywhere else on the disk. See [the video transform help](js/docs/AUSBOSS_NODES_VideoCropRotatePad.md).
 
 ## Optional extras
 
