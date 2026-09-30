@@ -515,7 +515,8 @@
     ],
     "optional": [
       "preview",
-      "guide_image"
+      "guide_image",
+      "max_hole_size"
     ],
     "outputs": [
       [

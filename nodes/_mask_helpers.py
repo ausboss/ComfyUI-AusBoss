@@ -11,8 +11,10 @@ from ._execution_helpers import raise_if_interrupted
 
 try:
     from scipy.ndimage import binary_fill_holes as _scipy_fill_holes
+    from scipy.ndimage import label as _scipy_label
 except Exception:  # scipy is optional; the torch fallback below covers it.
     _scipy_fill_holes = None
+    _scipy_label = None
 
 
 # Core Load Image returns a 64x64 mask of zeros when the picture has no
@@ -104,9 +106,76 @@ def _torch_fill_holes(solid: torch.Tensor) -> torch.Tensor:
     return solid | (background & ~reachable)
 
 
-def fill_mask_holes(mask: torch.Tensor) -> torch.Tensor:
+def _hole_limit(max_hole_size: float, height: int, width: int) -> float | None:
+    """The largest hole to fill, in pixels; None fills every hole.
+
+    max_hole_size is a percent of the frame's area. 0 means no limit, and so
+    does anything from 100 up, since no hole is bigger than the frame; a
+    value that is not a number leaves the fill unlimited too.
+    """
+    percent = float(max_hole_size)
+    if not math.isfinite(percent) or percent <= 0.0 or percent >= 100.0:
+        return None
+    return percent / 100.0 * height * width
+
+
+def _torch_hole_areas(holes: torch.Tensor) -> torch.Tensor:
+    """Each hole pixel's hole size in pixels, 0 elsewhere, for one HW frame.
+
+    Holes are 8-connected, the way _torch_fill_holes floods them. Every hole
+    pixel starts with its own index; each pass takes the largest index in
+    its 3x3 neighbourhood, then the index held by the pixel that index names
+    (both stay inside the same hole), until every hole holds one index.
+    """
+    height, width = holes.shape
+    inside = holes.reshape(-1)
+    zero = torch.zeros((), dtype=torch.float64, device=holes.device)
+    index = torch.arange(1, height * width + 1, dtype=torch.float64, device=holes.device)
+    labels = torch.where(inside, index, zero)
+    while True:
+        spread = functional.max_pool2d(
+            labels.view(1, 1, height, width), kernel_size=3, stride=1, padding=1
+        ).reshape(-1)
+        spread = torch.where(inside, spread, zero)
+        spread = torch.where(inside, spread[(spread.long() - 1).clamp(min=0)], zero)
+        if torch.equal(spread, labels):
+            break
+        labels = spread
+    _, hole_of, sizes = torch.unique(labels, return_inverse=True, return_counts=True)
+    return torch.where(inside, sizes[hole_of], 0).view(height, width)
+
+
+def _fill_small_holes(solid: torch.Tensor, limit: float) -> torch.Tensor:
+    """Fill only the enclosed holes of at most `limit` pixels, frame by frame."""
+    frames = []
+    for layer in solid:
+        raise_if_interrupted()
+        if _scipy_fill_holes is not None:
+            array = layer.cpu().numpy()
+            labels, _count = _scipy_label(_scipy_fill_holes(array) & ~array)
+            labels = torch.from_numpy(labels).long()
+            small = torch.bincount(labels.reshape(-1)) <= limit
+            small[0] = False  # label 0 is everything that is not a hole
+            frames.append(torch.from_numpy(array) | small[labels])
+        else:
+            layer = layer.cpu()  # the sizes count in float64, which not every device has
+            holes = _torch_fill_holes(layer.unsqueeze(0))[0] & ~layer
+            frames.append(layer | (holes & (_torch_hole_areas(holes) <= limit)))
+    return torch.stack(frames).to(solid.device)
+
+
+def fill_mask_holes(mask: torch.Tensor, max_hole_size: float = 0.0) -> torch.Tensor:
+    """Fill the unselected areas the mask closes all the way round.
+
+    An area touching the frame's edge is never a hole. With max_hole_size
+    (a percent of the frame's area) above 0, only holes up to that size are
+    filled, so a subject someone left unselected stays out of the mask.
+    """
     solid = mask >= 0.5
-    if _scipy_fill_holes is not None:
+    limit = _hole_limit(max_hole_size, mask.shape[-2], mask.shape[-1])
+    if limit is not None:
+        filled = _fill_small_holes(solid, limit)
+    elif _scipy_fill_holes is not None:
         filled = torch.stack(
             [torch.from_numpy(_scipy_fill_holes(layer.cpu().numpy())) for layer in solid]
         ).to(mask.device)
@@ -322,8 +391,13 @@ def refine_mask(
     white_point: float = 1.0,
     edge_refine: str = "off",
     guide_image: torch.Tensor | None = None,
+    max_hole_size: float = 0.0,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Expand, fill holes, smooth, feather, edge-refine, then remap levels."""
+    """Expand, fill holes, smooth, feather, edge-refine, then remap levels.
+
+    max_hole_size limits fill holes to holes up to that percent of the
+    frame's area; 0 (the default) fills every hole, as before it existed.
+    """
     if edge_refine not in EDGE_REFINE_MODES:
         raise ValueError(
             f"Mask Refine edge_refine must be one of {EDGE_REFINE_MODES}, "
@@ -345,7 +419,7 @@ def refine_mask(
         raise ValueError(NO_MASK_PAINTED)
     refined = grow_shrink_mask(refined, expand)
     if fill_holes:
-        refined = fill_mask_holes(refined)
+        refined = fill_mask_holes(refined, max_hole_size)
     refined = smooth_mask(refined, int(smooth))
     refined = blur_mask(refined, blur).clamp(0.0, 1.0)
     if edge_refine == "guided filter":

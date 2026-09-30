@@ -128,15 +128,17 @@ test("commitWidgetValue copes with a widget that has no callback and a node that
   assert.equal(widget.value, 2);
 });
 
-test("a switch holds only on or off, a choice only one of its options", () => {
+test("a switch holds only on or off, a choice only one of its options, a number only a number", () => {
   for (const value of [true, false]) assert.equal(holdsUnknownValue({ type: "toggle", value }), false);
   for (const value of ["", null, undefined, 0, "true"]) assert.equal(holdsUnknownValue({ type: "toggle", value }), true);
   const seam = (value) => ({ type: "combo", value, options: { values: ["classic", "blend in"] } });
   assert.equal(holdsUnknownValue(seam("blend in")), false);
   for (const value of ["", null, "blend"]) assert.equal(holdsUnknownValue(seam(value)), true);
+  // A number holds only a finite number: an old save's "" is not one.
+  for (const value of [0, 2.5, -3]) assert.equal(holdsUnknownValue({ type: "number", value }), false);
+  for (const value of ["", "image", null, undefined, Number.NaN, "2"]) assert.equal(holdsUnknownValue({ type: "number", value }), true);
   // Other widgets are never judged: an empty text field is a real value.
   assert.equal(holdsUnknownValue({ type: "text", value: "" }), false);
-  assert.equal(holdsUnknownValue({ type: "number", value: "" }), false);
 });
 
 // ---------- saves from before an input was appended ----------
@@ -209,6 +211,48 @@ test("Crop For Inpaint saved since keeps its Stay in picture", () => {
   const resaved = restoreByPosition(names, [...CROP_BEFORE_KEEP_INSIDE.slice(0, 15), "", ""], CROP_TYPES);
   resetUnknownValues(resaved, fallbacks);
   assert.equal(resaved.find((widget) => widget.name === "keep_inside").value, true);
+});
+
+// Mask Refine's max_hole_size default, read from the Python source: the
+// widget default a new node gets, and the argument default an API prompt
+// without max_hole_size runs with.
+function maxHoleSizeDefaults() {
+  const source = readFileSync(join(ROOT, "nodes", "node_refine_mask.py"), "utf-8");
+  const widget = source.slice(source.indexOf('"max_hole_size": (')).match(/"default": ([\d.]+)/)?.[1];
+  const argument = source.match(/^\s+max_hole_size=([\d.]+),$/m)?.[1];
+  return { widget: Number(widget), argument: Number(argument) };
+}
+
+// Mask Refine as the Krea 2 Inpaint Masked example saved it on 2.4.0: its
+// eight settings, then the card's and the preview panel's empty values.
+const REFINE_BEFORE_MAX_HOLE = [12, 4, true, 0, 0, 1, "off", true, "", ""];
+const REFINE_TYPES = { fill_holes: "toggle", edge_refine: "combo", preview: "toggle" };
+
+test("Mask Refine saved before Max hole size opens with no limit, as an API prompt without it runs", () => {
+  const names = widgetNames("AUSBOSS_NODES_RefineMask", ["mask", "guide_image"]);
+  const widgets = restoreByPosition(names, REFINE_BEFORE_MAX_HOLE, REFINE_TYPES);
+  widgets.find((widget) => widget.name === "edge_refine").options = { values: ["off", "guided filter", "matting"] };
+  const maxHole = widgets.find((widget) => widget.name === "max_hole_size");
+  assert.equal(maxHole.value, "", "the old save hands max_hole_size the card's empty value");
+
+  assert.deepEqual(resetUnknownValues(widgets, cardFallbacks("AUSBOSS_NODES_RefineMask")), ["max_hole_size"]);
+  const defaults = maxHoleSizeDefaults();
+  assert.equal(maxHole.value, 0);
+  assert.equal(maxHole.value, defaults.widget, "a new node's default");
+  assert.equal(maxHole.value, defaults.argument, "what an API prompt without max_hole_size runs with");
+  const others = widgets.filter((widget) => widget.name !== "max_hole_size" && widget.name !== "ausboss_widget_card");
+  assert.deepEqual(others.map((widget) => widget.value), REFINE_BEFORE_MAX_HOLE.slice(0, 8));
+});
+
+test("Mask Refine saved since keeps its Max hole size", () => {
+  const names = widgetNames("AUSBOSS_NODES_RefineMask", ["mask", "guide_image"]);
+  const fallbacks = cardFallbacks("AUSBOSS_NODES_RefineMask");
+  for (const size of [0, 2, 0.5]) {
+    const widgets = restoreByPosition(names, [...REFINE_BEFORE_MAX_HOLE.slice(0, 8), size], REFINE_TYPES);
+    widgets.find((widget) => widget.name === "edge_refine").options = { values: ["off", "guided filter", "matting"] };
+    assert.deepEqual(resetUnknownValues(widgets, fallbacks), []);
+    assert.equal(widgets.find((widget) => widget.name === "max_hole_size").value, size);
+  }
 });
 
 test("Stitch Inpaint saved before Seam still opens classic", () => {

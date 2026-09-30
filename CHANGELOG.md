@@ -177,6 +177,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
   already started over. Now the first file does too, and it is padded to
   the ratio that is lit on the node. This goes for the image node and both
   video nodes.
+- **Mask Refine: Fill holes can leave the part you kept alone.** Paint
+  everything except a person or a pet, turn on **Fill holes**, and it
+  filled them in too, so the part you meant to keep was painted over. The
+  new **Max hole size** sets the biggest hole Fill holes fills, as a percent
+  of the picture. At 2, the small gaps a quick brush leaves still fill, and
+  a person, pet or object you left unpainted stays. It starts at 0, which
+  fills every hole as before, so saved workflows run the same.
 - **The red "missing file" warning clears when you pick a file.** Open a
   workflow that was saved with a picture you don't have and ComfyUI marks
   Load Image + Pad red and lists it under Setup required. Picking your own
