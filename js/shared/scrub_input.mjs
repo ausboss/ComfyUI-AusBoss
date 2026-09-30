@@ -28,6 +28,9 @@ const BRAND = "#00b4aa";
 // plain click a click (it opens type-in mode instead).
 export const SCRUB_DEAD_ZONE = 3;
 export const SCRUB_PIXELS_PER_STEP = 4;
+// Shift on a box with no finer step (whole pixels, frame counts) slows the
+// drag instead: the same step, over this many times the travel.
+export const SCRUB_SLOW_FACTOR = 4;
 
 export function isScrubGesture(deltaX, deltaY) {
   return Math.abs(deltaX) > SCRUB_DEAD_ZONE && Math.abs(deltaX) >= Math.abs(deltaY);
@@ -44,13 +47,17 @@ export function quantizeScrubValue(value, { min = -Infinity, max = Infinity, dec
 }
 
 // Value under the pointer during a scrub: steps of `step` (or `fineStep`
-// with Shift) per SCRUB_PIXELS_PER_STEP of travel past the dead zone.
+// with Shift) per SCRUB_PIXELS_PER_STEP of travel past the dead zone. A box
+// whose fine step is no finer than its step still honours Shift: the drag
+// goes SCRUB_SLOW_FACTOR times slower, so Shift always means fine.
 export function scrubbedValue(start, deltaX, fine, options = {}) {
   const { step = 1, fineStep = null } = options;
   if (Math.abs(deltaX) <= SCRUB_DEAD_ZONE) return quantizeScrubValue(start, options);
-  const size = fine ? (fineStep ?? step) : step;
+  const finer = fineStep != null && fineStep < step;
+  const size = fine && finer ? fineStep : step;
+  const pixels = fine && !finer ? SCRUB_PIXELS_PER_STEP * SCRUB_SLOW_FACTOR : SCRUB_PIXELS_PER_STEP;
   const travel = deltaX - Math.sign(deltaX) * SCRUB_DEAD_ZONE;
-  const steps = Math.round(travel / SCRUB_PIXELS_PER_STEP);
+  const steps = Math.round(travel / pixels);
   return quantizeScrubValue(Number(start) + steps * size, options);
 }
 
@@ -138,8 +145,14 @@ export function makeScrubInput(options = {}) {
     if (!drag) return;
     const dx = event.clientX - drag.x;
     const dy = event.clientY - drag.y;
-    if (!drag.scrubbed && isScrubGesture(dx, dy)) drag.scrubbed = true;
-    if (drag.scrubbed) commit(scrubbedValue(drag.start, dx, event.shiftKey, opts));
+    if (!drag.scrubbed && isScrubGesture(dx, dy)) { drag.scrubbed = true; drag.fine = event.shiftKey; }
+    if (!drag.scrubbed) return;
+    // Pressing or letting go of Shift mid-drag carries on from here instead
+    // of re-reading the whole drag at the other speed.
+    if (event.shiftKey !== drag.fine) {
+      drag.start = base(); drag.x = event.clientX - Math.sign(dx || 1) * (SCRUB_DEAD_ZONE + 1); drag.fine = event.shiftKey;
+    }
+    commit(scrubbedValue(drag.start, event.clientX - drag.x, event.shiftKey, opts));
   });
   const endDrag = (event) => {
     if (!drag) return;

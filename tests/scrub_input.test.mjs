@@ -10,6 +10,7 @@ import {
   isScrubGesture,
   quantizeScrubValue,
   scrubbedValue,
+  SCRUB_SLOW_FACTOR,
 } from "../js/shared/scrub_input.mjs";
 
 const MP = { min: 0.01, max: 16, step: 0.05, fineStep: 0.01, decimals: 2 };
@@ -53,4 +54,15 @@ test("integer controls step whole numbers", () => {
   const STEPS = { min: 1, max: 256, step: 1, decimals: 0 };
   assert.equal(scrubbedValue(64, 3 + SCRUB_PIXELS_PER_STEP * 4, false, STEPS), 68);
   assert.equal(scrubbedValue(1, -400, false, STEPS), 1);
+});
+
+test("Shift slows a whole-number box that has no finer step", () => {
+  // Feather: 1 px steps, no fine step. Shift used to change nothing.
+  const FEATHER = { step: 1, decimals: 0, min: 0, max: 4096 };
+  assert.equal(scrubbedValue(24, 40, false, FEATHER), 33);
+  const slow = scrubbedValue(24, 40, true, FEATHER);
+  assert.ok(slow > 24 && slow < 33, String(slow));
+  assert.equal(scrubbedValue(24, 3 + SCRUB_PIXELS_PER_STEP * SCRUB_SLOW_FACTOR * 2, true, FEATHER), 26);
+  // A box with a finer step still uses it at the normal speed.
+  assert.equal(scrubbedValue(1, 43, true, { step: 0.05, fineStep: 0.01, decimals: 2 }), 1.1);
 });
