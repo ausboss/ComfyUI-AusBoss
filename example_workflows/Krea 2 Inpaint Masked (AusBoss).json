@@ -28,10 +28,11 @@
           ]
         }
       ],
+      "title": "Diffusion model",
       "properties": {
+        "Node name for S&R": "UNETLoader",
         "cnr_id": "comfy-core",
         "ver": "0.37.0",
-        "Node name for S&R": "UNETLoader",
         "models": [
           {
             "name": "krea2_turbo_fp8_scaled.safetensors",
@@ -49,8 +50,7 @@
         "weight_dtype": "default"
       },
       "color": "#323",
-      "bgcolor": "#535",
-      "title": "Diffusion model"
+      "bgcolor": "#535"
     },
     {
       "id": 2,
@@ -76,10 +76,11 @@
           ]
         }
       ],
+      "title": "Text encoder",
       "properties": {
+        "Node name for S&R": "CLIPLoader",
         "cnr_id": "comfy-core",
         "ver": "0.37.0",
-        "Node name for S&R": "CLIPLoader",
         "models": [
           {
             "name": "qwen3vl_4b_fp8_scaled.safetensors",
@@ -99,8 +100,7 @@
         "device": "default"
       },
       "color": "#432",
-      "bgcolor": "#653",
-      "title": "Text encoder"
+      "bgcolor": "#653"
     },
     {
       "id": 3,
@@ -126,10 +126,11 @@
           ]
         }
       ],
+      "title": "VAE",
       "properties": {
+        "Node name for S&R": "VAELoader",
         "cnr_id": "comfy-core",
         "ver": "0.37.0",
-        "Node name for S&R": "VAELoader",
         "models": [
           {
             "name": "qwen_image_vae.safetensors",
@@ -145,8 +146,7 @@
         "vae_name": "qwen_image_vae.safetensors"
       },
       "color": "#322",
-      "bgcolor": "#533",
-      "title": "VAE"
+      "bgcolor": "#533"
     },
     {
       "id": 4,
@@ -160,7 +160,7 @@
         188
       ],
       "flags": {},
-      "order": 3,
+      "order": 8,
       "mode": 0,
       "inputs": [
         {
@@ -196,10 +196,10 @@
       ],
       "title": "LoRA Loader - AnyPaint LoRA",
       "properties": {
-        "cnr_id": "ausboss-nodes",
-        "ver": "2.3.0",
         "Node name for S&R": "AUSBOSS_NODES_LoraLoader",
         "ausbossLoraLinked": true,
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.3.0",
         "models": [
           {
             "name": "krea2_anypaint_rank32.safetensors",
@@ -211,14 +211,12 @@
       "widgets_values": [
         "[{\"name\": \"krea2_anypaint_rank32.safetensors\", \"strength\": 1.0, \"enabled\": true, \"triggers\": \"\"}]",
         ", ",
-        "error",
-        ""
+        "error"
       ],
       "widgets_values_named": {
         "loras": "[{\"name\": \"krea2_anypaint_rank32.safetensors\", \"strength\": 1.0, \"enabled\": true, \"triggers\": \"\"}]",
         "trigger_separator": ", ",
-        "on_missing": "error",
-        "ausboss_lora_rows": ""
+        "on_missing": "error"
       },
       "color": "#14424d",
       "bgcolor": "#161f21"
@@ -235,7 +233,7 @@
         440
       ],
       "flags": {},
-      "order": 4,
+      "order": 3,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -257,9 +255,9 @@
       ],
       "title": "Your image",
       "properties": {
+        "Node name for S&R": "LoadImage",
         "cnr_id": "comfy-core",
-        "ver": "0.37.0",
-        "Node name for S&R": "LoadImage"
+        "ver": "0.37.0"
       },
       "widgets_values": [
         "",
@@ -284,7 +282,7 @@
         168
       ],
       "flags": {},
-      "order": 5,
+      "order": 4,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -299,17 +297,15 @@
       ],
       "title": "Text - What goes there",
       "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_Text",
         "cnr_id": "ausboss-nodes",
-        "ver": "2.3.0",
-        "Node name for S&R": "AUSBOSS_NODES_Text"
+        "ver": "2.3.0"
       },
       "widgets_values": [
-        "a black leather biker jacket with silver zips, worn open",
-        ""
+        "a black leather biker jacket with silver zips, worn open"
       ],
       "widgets_values_named": {
-        "text": "a black leather biker jacket with silver zips, worn open",
-        "ausboss_widget_card": ""
+        "text": "a black leather biker jacket with silver zips, worn open"
       },
       "color": "#14424d",
       "bgcolor": "#161f21"
@@ -326,7 +322,7 @@
         216
       ],
       "flags": {},
-      "order": 6,
+      "order": 5,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -338,24 +334,22 @@
           ]
         }
       ],
+      "title": "Seed",
       "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_Seed",
         "cnr_id": "ausboss-nodes",
-        "ver": "2.3.0",
-        "Node name for S&R": "AUSBOSS_NODES_Seed"
+        "ver": "2.3.0"
       },
       "widgets_values": [
         7,
-        "fixed",
-        ""
+        "fixed"
       ],
       "widgets_values_named": {
         "seed": 7,
-        "control_after_generate": "fixed",
-        "ausboss_seed_panel": ""
+        "control_after_generate": "fixed"
       },
       "color": "#14424d",
-      "bgcolor": "#161f21",
-      "title": "Seed"
+      "bgcolor": "#161f21"
     },
     {
       "id": 15,
@@ -369,7 +363,7 @@
         754
       ],
       "flags": {},
-      "order": 7,
+      "order": 11,
       "mode": 0,
       "inputs": [
         {
@@ -394,17 +388,13 @@
       ],
       "title": "Image Compare A/B - Before and after",
       "properties": {
-        "cnr_id": "ausboss-nodes",
-        "ver": "2.3.0",
         "Node name for S&R": "AUSBOSS_NODES_Compare",
-        "ausboss_compare_mode": "slide"
+        "ausboss_compare_mode": "slide",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.3.0"
       },
-      "widgets_values": [
-        ""
-      ],
-      "widgets_values_named": {
-        "ausboss_compare_panel": ""
-      },
+      "widgets_values": [],
+      "widgets_values_named": {},
       "color": "#14424d",
       "bgcolor": "#161f21"
     },
@@ -420,7 +410,7 @@
         857
       ],
       "flags": {},
-      "order": 8,
+      "order": 13,
       "mode": 0,
       "inputs": [
         {
@@ -453,10 +443,11 @@
           "links": []
         }
       ],
+      "title": "Save Image",
       "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_SaveImage",
         "cnr_id": "ausboss-nodes",
-        "ver": "2.3.0",
-        "Node name for S&R": "AUSBOSS_NODES_SaveImage"
+        "ver": "2.3.0"
       },
       "widgets_values": {
         "filename_prefix": "krea2_inpaint_masked",
@@ -480,19 +471,16 @@
         "exact_name": "",
         "on_existing": "overwrite",
         "output_dir": "",
-        "ausboss_save_image_card": "",
         "caption": "",
         "name_counter": true,
         "name_date": false,
         "name_time": false,
         "name_size": false,
         "name_batch": false,
-        "preview": true,
-        "ausboss_input_preview": ""
+        "preview": true
       },
       "color": "#14424d",
-      "bgcolor": "#161f21",
-      "title": "Save Image"
+      "bgcolor": "#161f21"
     },
     {
       "id": 20,
@@ -506,7 +494,7 @@
         140
       ],
       "flags": {},
-      "order": 9,
+      "order": 12,
       "mode": 0,
       "inputs": [
         {
@@ -525,16 +513,12 @@
       ],
       "title": "Show Text - Prompt Krea 2 wrote",
       "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_ShowText",
         "cnr_id": "ausboss-nodes",
-        "ver": "2.3.0",
-        "Node name for S&R": "AUSBOSS_NODES_ShowText"
+        "ver": "2.3.0"
       },
-      "widgets_values": [
-        ""
-      ],
-      "widgets_values_named": {
-        "ausboss_show_text_panel": ""
-      },
+      "widgets_values": [],
+      "widgets_values_named": {},
       "color": "#14424d",
       "bgcolor": "#161f21"
     },
@@ -542,7 +526,7 @@
       "id": 14,
       "type": "AUSBOSS_NODES_RunTimer",
       "pos": [
-        2259.0,
+        2259,
         977
       ],
       "size": [
@@ -552,18 +536,18 @@
       "flags": {
         "no_title": true
       },
-      "order": 10,
+      "order": 6,
       "mode": 0,
       "inputs": [],
       "outputs": [],
+      "title": "Run Timer",
       "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_RunTimer",
         "cnr_id": "ausboss-nodes",
-        "ver": "2.3.0",
-        "Node name for S&R": "AUSBOSS_NODES_RunTimer"
+        "ver": "2.3.0"
       },
-      "color": "#14424d",
-      "bgcolor": "#161f21",
-      "title": "Run Timer"
+      "color": "#07090a",
+      "bgcolor": "#07090a"
     },
     {
       "id": 17,
@@ -574,27 +558,27 @@
       ],
       "size": [
         440,
-        761
+        832.953
       ],
       "flags": {},
-      "order": 11,
+      "order": 7,
       "mode": 0,
       "inputs": [],
       "outputs": [],
+      "title": "🆎 AusBoss",
       "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote",
         "cnr_id": "ausboss-nodes",
-        "ver": "2.3.0",
-        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote"
+        "ver": "2.3.0"
       },
       "widgets_values": [
-        "{\"v\": 1, \"title\": \"Krea 2 Inpaint Masked\", \"subtitle\": \"Paint over part of a picture, say what goes there, and Krea 2 repaints only that.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image.\\n2. Right-click it, choose **Open in MaskEditor**, and paint over all of what you want changed. Save.\\n3. In **What goes there**, say what should be in the painted area.\\n4. Press **Run**.\\n\\nSay what replaces the area. If you only say what to remove, you can get a flat gray shape.\\n\\nThe two boxes in the middle do the work. Double-click one to see inside.\\n\\nNeeds AusBoss nodes 2.4.0 or newer.\", \"models\": [{\"name\": \"krea2_turbo_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}, {\"name\": \"krea2_anypaint_rank32.safetensors\", \"dir\": \"loras\", \"size\": \"229 MB\", \"url\": \"https://huggingface.co/yijunwang2/krea2-anypaint/resolve/main/krea2_anypaint_rank32.safetensors\", \"note\": \"by yijunwang2\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_CropForInpaint\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+        "{\"v\": 1, \"title\": \"Krea 2 Inpaint Masked\", \"subtitle\": \"Paint over part of a picture, say what goes there, and Krea 2 repaints only that.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image.\\n2. Right-click it, choose **Open in MaskEditor**, and paint over all of what you want changed. Save.\\n3. In **What goes there**, say what should be in the painted area.\\n4. Press **Run**.\\n\\nSay what replaces the area. If you only say what to remove, you can get a flat gray shape.\\n\\nChanging the background? Paint right up to the person or pet you keep, so no strip of the old place is left around them.\\n\\nChange one thing per run. With two separate areas, only one may come out.\\n\\nThe two boxes in the middle do the work. Double-click one to see inside.\\n\\nNeeds AusBoss nodes newer than 2.4.0 (update first).\", \"models\": [{\"name\": \"krea2_turbo_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}, {\"name\": \"krea2_anypaint_rank32.safetensors\", \"dir\": \"loras\", \"size\": \"229 MB\", \"url\": \"https://huggingface.co/yijunwang2/krea2-anypaint/resolve/main/krea2_anypaint_rank32.safetensors\", \"note\": \"by yijunwang2\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_CropForInpaint\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
       ],
       "widgets_values_named": {
-        "note": "{\"v\": 1, \"title\": \"Krea 2 Inpaint Masked\", \"subtitle\": \"Paint over part of a picture, say what goes there, and Krea 2 repaints only that.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image.\\n2. Right-click it, choose **Open in MaskEditor**, and paint over all of what you want changed. Save.\\n3. In **What goes there**, say what should be in the painted area.\\n4. Press **Run**.\\n\\nSay what replaces the area. If you only say what to remove, you can get a flat gray shape.\\n\\nThe two boxes in the middle do the work. Double-click one to see inside.\\n\\nNeeds AusBoss nodes 2.4.0 or newer.\", \"models\": [{\"name\": \"krea2_turbo_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}, {\"name\": \"krea2_anypaint_rank32.safetensors\", \"dir\": \"loras\", \"size\": \"229 MB\", \"url\": \"https://huggingface.co/yijunwang2/krea2-anypaint/resolve/main/krea2_anypaint_rank32.safetensors\", \"note\": \"by yijunwang2\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_CropForInpaint\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+        "note": "{\"v\": 1, \"title\": \"Krea 2 Inpaint Masked\", \"subtitle\": \"Paint over part of a picture, say what goes there, and Krea 2 repaints only that.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image.\\n2. Right-click it, choose **Open in MaskEditor**, and paint over all of what you want changed. Save.\\n3. In **What goes there**, say what should be in the painted area.\\n4. Press **Run**.\\n\\nSay what replaces the area. If you only say what to remove, you can get a flat gray shape.\\n\\nChanging the background? Paint right up to the person or pet you keep, so no strip of the old place is left around them.\\n\\nChange one thing per run. With two separate areas, only one may come out.\\n\\nThe two boxes in the middle do the work. Double-click one to see inside.\\n\\nNeeds AusBoss nodes newer than 2.4.0 (update first).\", \"models\": [{\"name\": \"krea2_turbo_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}, {\"name\": \"krea2_anypaint_rank32.safetensors\", \"dir\": \"loras\", \"size\": \"229 MB\", \"url\": \"https://huggingface.co/yijunwang2/krea2-anypaint/resolve/main/krea2_anypaint_rank32.safetensors\", \"note\": \"by yijunwang2\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_CropForInpaint\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
       },
       "color": "#14424d",
-      "bgcolor": "#161f21",
-      "title": "🆎 AusBoss"
+      "bgcolor": "#161f21"
     },
     {
       "id": 34,
@@ -608,7 +592,7 @@
         66
       ],
       "flags": {},
-      "order": 12,
+      "order": 9,
       "mode": 0,
       "inputs": [
         {
@@ -645,8 +629,9 @@
           ]
         }
       ],
-      "title": "Cut out the area",
-      "properties": {},
+      "properties": {
+        "previewExposures": []
+      },
       "color": "#14424d",
       "bgcolor": "#161f21"
     },
@@ -662,7 +647,7 @@
         180
       ],
       "flags": {},
-      "order": 13,
+      "order": 10,
       "mode": 0,
       "inputs": [
         {
@@ -722,8 +707,15 @@
           ]
         }
       ],
-      "title": "Paint with Krea 2",
-      "properties": {},
+      "properties": {
+        "previewExposures": [
+          {
+            "name": "$$canvas-image-preview",
+            "sourceNodeId": "11",
+            "sourcePreviewName": "$$canvas-image-preview"
+          }
+        ]
+      },
       "color": "#14424d",
       "bgcolor": "#161f21"
     }
@@ -852,6 +844,7 @@
   ],
   "groups": [
     {
+      "id": 84,
       "title": "1 · Your input",
       "bounding": [
         480,
@@ -860,10 +853,10 @@
         1138
       ],
       "color": "#1d5560",
-      "flags": {},
-      "id": 84
+      "flags": {}
     },
     {
+      "id": 85,
       "title": "2 · Behind the scenes",
       "bounding": [
         984,
@@ -872,10 +865,10 @@
         298
       ],
       "color": "#1d5560",
-      "flags": {},
-      "id": 85
+      "flags": {}
     },
     {
+      "id": 86,
       "title": "3 · Models",
       "bounding": [
         984,
@@ -884,10 +877,10 @@
         800
       ],
       "color": "#1d5560",
-      "flags": {},
-      "id": 86
+      "flags": {}
     },
     {
+      "id": 87,
       "title": "4 · Result",
       "bounding": [
         1584,
@@ -896,8 +889,7 @@
         1138
       ],
       "color": "#1d5560",
-      "flags": {},
-      "id": 87
+      "flags": {}
     }
   ],
   "definitions": {
@@ -1016,10 +1008,11 @@
               106
             ],
             "flags": {},
-            "order": 11,
+            "order": 8,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "image",
                 "name": "image",
                 "type": "IMAGE",
                 "link": 45
@@ -1027,6 +1020,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "width",
                 "name": "width",
                 "type": "INT",
                 "links": [
@@ -1037,6 +1031,7 @@
                 ]
               },
               {
+                "localized_name": "height",
                 "name": "height",
                 "type": "INT",
                 "links": [
@@ -1047,16 +1042,19 @@
                 ]
               },
               {
+                "localized_name": "longest_edge",
                 "name": "longest_edge",
                 "type": "INT",
                 "links": []
               },
               {
+                "localized_name": "shortest_edge",
                 "name": "shortest_edge",
                 "type": "INT",
                 "links": []
               },
               {
+                "localized_name": "count",
                 "name": "count",
                 "type": "INT",
                 "links": []
@@ -1064,9 +1062,9 @@
             ],
             "title": "Image Size",
             "properties": {
+              "Node name for S&R": "AUSBOSS_NODES_ImageSize",
               "cnr_id": "ausboss-nodes",
-              "ver": "2.3.0",
-              "Node name for S&R": "AUSBOSS_NODES_ImageSize"
+              "ver": "2.3.0"
             },
             "color": "#14424d",
             "bgcolor": "#161f21"
@@ -1083,22 +1081,25 @@
               134
             ],
             "flags": {},
-            "order": 12,
+            "order": 9,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "a",
                 "name": "a",
                 "shape": 7,
                 "type": "FLOAT,INT",
                 "link": 46
               },
               {
+                "localized_name": "b",
                 "name": "b",
                 "shape": 7,
                 "type": "FLOAT,INT",
                 "link": 47
               },
               {
+                "localized_name": "c",
                 "name": "c",
                 "shape": 7,
                 "type": "FLOAT,INT",
@@ -1107,11 +1108,13 @@
             ],
             "outputs": [
               {
+                "localized_name": "float",
                 "name": "float",
                 "type": "FLOAT",
                 "links": []
               },
               {
+                "localized_name": "int",
                 "name": "int",
                 "type": "INT",
                 "links": [
@@ -1121,17 +1124,15 @@
             ],
             "title": "Math Expression - Grow (px)",
             "properties": {
+              "Node name for S&R": "AUSBOSS_NODES_MathExpression",
               "cnr_id": "ausboss-nodes",
-              "ver": "2.3.0",
-              "Node name for S&R": "AUSBOSS_NODES_MathExpression"
+              "ver": "2.3.0"
             },
             "widgets_values": [
-              "max(1, round(12 * min(1, sqrt(a*b) / 1500)))",
-              ""
+              "max(1, round(12 * min(1, sqrt(a*b) / 1500)))"
             ],
             "widgets_values_named": {
-              "expression": "max(1, round(12 * min(1, sqrt(a*b) / 1500)))",
-              "ausboss_widget_card": ""
+              "expression": "max(1, round(12 * min(1, sqrt(a*b) / 1500)))"
             },
             "color": "#14424d",
             "bgcolor": "#161f21"
@@ -1148,22 +1149,25 @@
               134
             ],
             "flags": {},
-            "order": 13,
+            "order": 10,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "a",
                 "name": "a",
                 "shape": 7,
                 "type": "FLOAT,INT",
                 "link": 48
               },
               {
+                "localized_name": "b",
                 "name": "b",
                 "shape": 7,
                 "type": "FLOAT,INT",
                 "link": 49
               },
               {
+                "localized_name": "c",
                 "name": "c",
                 "shape": 7,
                 "type": "FLOAT,INT",
@@ -1172,6 +1176,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "float",
                 "name": "float",
                 "type": "FLOAT",
                 "links": [
@@ -1179,6 +1184,7 @@
                 ]
               },
               {
+                "localized_name": "int",
                 "name": "int",
                 "type": "INT",
                 "links": []
@@ -1186,17 +1192,15 @@
             ],
             "title": "Math Expression - Soften (px)",
             "properties": {
+              "Node name for S&R": "AUSBOSS_NODES_MathExpression",
               "cnr_id": "ausboss-nodes",
-              "ver": "2.3.0",
-              "Node name for S&R": "AUSBOSS_NODES_MathExpression"
+              "ver": "2.3.0"
             },
             "widgets_values": [
-              "max(0.5, 4 * min(1, sqrt(a*b) / 1500))",
-              ""
+              "max(0.5, 4 * min(1, sqrt(a*b) / 1500))"
             ],
             "widgets_values_named": {
-              "expression": "max(0.5, 4 * min(1, sqrt(a*b) / 1500))",
-              "ausboss_widget_card": ""
+              "expression": "max(0.5, 4 * min(1, sqrt(a*b) / 1500))"
             },
             "color": "#14424d",
             "bgcolor": "#161f21"
@@ -1213,22 +1217,25 @@
               134
             ],
             "flags": {},
-            "order": 14,
+            "order": 11,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "a",
                 "name": "a",
                 "shape": 7,
                 "type": "FLOAT,INT",
                 "link": 50
               },
               {
+                "localized_name": "b",
                 "name": "b",
                 "shape": 7,
                 "type": "FLOAT,INT",
                 "link": 51
               },
               {
+                "localized_name": "c",
                 "name": "c",
                 "shape": 7,
                 "type": "FLOAT,INT",
@@ -1237,11 +1244,13 @@
             ],
             "outputs": [
               {
+                "localized_name": "float",
                 "name": "float",
                 "type": "FLOAT",
                 "links": []
               },
               {
+                "localized_name": "int",
                 "name": "int",
                 "type": "INT",
                 "links": [
@@ -1251,17 +1260,15 @@
             ],
             "title": "Math Expression - Blend (px)",
             "properties": {
+              "Node name for S&R": "AUSBOSS_NODES_MathExpression",
               "cnr_id": "ausboss-nodes",
-              "ver": "2.3.0",
-              "Node name for S&R": "AUSBOSS_NODES_MathExpression"
+              "ver": "2.3.0"
             },
             "widgets_values": [
-              "max(4, round(24 * min(1, sqrt(a*b) / 1500)))",
-              ""
+              "max(4, round(24 * min(1, sqrt(a*b) / 1500)))"
             ],
             "widgets_values_named": {
-              "expression": "max(4, round(24 * min(1, sqrt(a*b) / 1500)))",
-              "ausboss_widget_card": ""
+              "expression": "max(4, round(24 * min(1, sqrt(a*b) / 1500)))"
             },
             "color": "#14424d",
             "bgcolor": "#161f21"
@@ -1278,22 +1285,25 @@
               134
             ],
             "flags": {},
-            "order": 15,
+            "order": 12,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "a",
                 "name": "a",
                 "shape": 7,
                 "type": "FLOAT,INT",
                 "link": 52
               },
               {
+                "localized_name": "b",
                 "name": "b",
                 "shape": 7,
                 "type": "FLOAT,INT",
                 "link": 53
               },
               {
+                "localized_name": "c",
                 "name": "c",
                 "shape": 7,
                 "type": "FLOAT,INT",
@@ -1302,11 +1312,13 @@
             ],
             "outputs": [
               {
+                "localized_name": "float",
                 "name": "float",
                 "type": "FLOAT",
                 "links": []
               },
               {
+                "localized_name": "int",
                 "name": "int",
                 "type": "INT",
                 "links": [
@@ -1316,17 +1328,15 @@
             ],
             "title": "Math Expression - Context (px)",
             "properties": {
+              "Node name for S&R": "AUSBOSS_NODES_MathExpression",
               "cnr_id": "ausboss-nodes",
-              "ver": "2.3.0",
-              "Node name for S&R": "AUSBOSS_NODES_MathExpression"
+              "ver": "2.3.0"
             },
             "widgets_values": [
-              "max(32, round(192 * min(1, sqrt(a*b) / 1500)))",
-              ""
+              "max(32, round(192 * min(1, sqrt(a*b) / 1500)))"
             ],
             "widgets_values_named": {
-              "expression": "max(32, round(192 * min(1, sqrt(a*b) / 1500)))",
-              "ausboss_widget_card": ""
+              "expression": "max(32, round(192 * min(1, sqrt(a*b) / 1500)))"
             },
             "color": "#14424d",
             "bgcolor": "#161f21"
@@ -1343,21 +1353,24 @@
               356
             ],
             "flags": {},
-            "order": 16,
+            "order": 4,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "mask",
                 "name": "mask",
                 "type": "MASK",
                 "link": 29
               },
               {
+                "localized_name": "guide_image",
                 "name": "guide_image",
                 "shape": 7,
                 "type": "IMAGE",
                 "link": null
               },
               {
+                "localized_name": "expand",
                 "name": "expand",
                 "type": "INT",
                 "widget": {
@@ -1366,6 +1379,7 @@
                 "link": 54
               },
               {
+                "localized_name": "blur",
                 "name": "blur",
                 "type": "FLOAT",
                 "widget": {
@@ -1376,6 +1390,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "mask",
                 "name": "mask",
                 "type": "MASK",
                 "links": [
@@ -1383,6 +1398,7 @@
                 ]
               },
               {
+                "localized_name": "mask_inverted",
                 "name": "mask_inverted",
                 "type": "MASK",
                 "links": []
@@ -1390,9 +1406,9 @@
             ],
             "title": "Mask Refine - Grow and soften the mask",
             "properties": {
+              "Node name for S&R": "AUSBOSS_NODES_RefineMask",
               "cnr_id": "ausboss-nodes",
-              "ver": "2.3.0",
-              "Node name for S&R": "AUSBOSS_NODES_RefineMask"
+              "ver": "2.3.0"
             },
             "widgets_values": [
               12,
@@ -1403,8 +1419,7 @@
               1,
               "off",
               true,
-              "",
-              ""
+              2
             ],
             "widgets_values_named": {
               "expand": 12,
@@ -1415,8 +1430,7 @@
               "white_point": 1,
               "edge_refine": "off",
               "preview": true,
-              "ausboss_widget_card": "",
-              "ausboss_input_preview": ""
+              "max_hole_size": 2
             },
             "color": "#14424d",
             "bgcolor": "#161f21"
@@ -1433,20 +1447,23 @@
               347
             ],
             "flags": {},
-            "order": 17,
+            "order": 5,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "image",
                 "name": "image",
                 "type": "IMAGE",
                 "link": 30
               },
               {
+                "localized_name": "mask",
                 "name": "mask",
                 "type": "MASK",
                 "link": 31
               },
               {
+                "localized_name": "blend_pixels",
                 "name": "blend_pixels",
                 "type": "INT",
                 "widget": {
@@ -1455,6 +1472,7 @@
                 "link": 56
               },
               {
+                "localized_name": "context_pixels",
                 "name": "context_pixels",
                 "shape": 7,
                 "type": "INT",
@@ -1466,6 +1484,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "image",
                 "name": "image",
                 "type": "IMAGE",
                 "links": [
@@ -1473,6 +1492,7 @@
                 ]
               },
               {
+                "localized_name": "mask",
                 "name": "mask",
                 "type": "MASK",
                 "links": [
@@ -1481,6 +1501,7 @@
                 ]
               },
               {
+                "localized_name": "stitcher",
                 "name": "stitcher",
                 "type": "AUSBOSS_STITCHER",
                 "links": [
@@ -1490,9 +1511,9 @@
             ],
             "title": "Crop For Inpaint - Crop around the mask",
             "properties": {
+              "Node name for S&R": "AUSBOSS_NODES_CropForInpaint",
               "cnr_id": "ausboss-nodes",
-              "ver": "2.3.0",
-              "Node name for S&R": "AUSBOSS_NODES_CropForInpaint"
+              "ver": "2.3.0"
             },
             "widgets_values": [
               2,
@@ -1510,8 +1531,7 @@
               0,
               0,
               0,
-              true,
-              ""
+              true
             ],
             "widgets_values_named": {
               "context_factor": 2,
@@ -1529,8 +1549,7 @@
               "extend_right": 0,
               "extend_up": 0,
               "extend_down": 0,
-              "keep_inside": true,
-              "ausboss_widget_card": ""
+              "keep_inside": true
             },
             "color": "#14424d",
             "bgcolor": "#161f21"
@@ -1547,11 +1566,12 @@
               130
             ],
             "flags": {},
-            "order": 8,
+            "order": 0,
             "mode": 0,
             "inputs": [],
             "outputs": [
               {
+                "localized_name": "IMAGE",
                 "name": "IMAGE",
                 "type": "IMAGE",
                 "links": [
@@ -1561,9 +1581,9 @@
             ],
             "title": "Flat gray",
             "properties": {
+              "Node name for S&R": "EmptyImage",
               "cnr_id": "comfy-core",
-              "ver": "0.37.0",
-              "Node name for S&R": "EmptyImage"
+              "ver": "0.37.0"
             },
             "widgets_values": [
               64,
@@ -1592,20 +1612,23 @@
               146
             ],
             "flags": {},
-            "order": 18,
+            "order": 6,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "destination",
                 "name": "destination",
                 "type": "IMAGE",
                 "link": 32
               },
               {
+                "localized_name": "source",
                 "name": "source",
                 "type": "IMAGE",
                 "link": 33
               },
               {
+                "localized_name": "mask",
                 "name": "mask",
                 "shape": 7,
                 "type": "MASK",
@@ -1614,6 +1637,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "IMAGE",
                 "name": "IMAGE",
                 "type": "IMAGE",
                 "links": [
@@ -1623,9 +1647,9 @@
             ],
             "title": "Gray out the painted area",
             "properties": {
+              "Node name for S&R": "ImageCompositeMasked",
               "cnr_id": "comfy-core",
-              "ver": "0.37.0",
-              "Node name for S&R": "ImageCompositeMasked"
+              "ver": "0.37.0"
             },
             "widgets_values": [
               0,
@@ -1652,10 +1676,11 @@
               82
             ],
             "flags": {},
-            "order": 19,
+            "order": 7,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "mask",
                 "name": "mask",
                 "type": "MASK",
                 "link": 38
@@ -1663,6 +1688,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "MASK",
                 "name": "MASK",
                 "type": "MASK",
                 "links": [
@@ -1672,9 +1698,9 @@
             ],
             "title": "Grow the noise mask",
             "properties": {
+              "Node name for S&R": "GrowMask",
               "cnr_id": "comfy-core",
-              "ver": "0.37.0",
-              "Node name for S&R": "GrowMask"
+              "ver": "0.37.0"
             },
             "widgets_values": [
               24,
@@ -1699,7 +1725,7 @@
               88
             ],
             "flags": {},
-            "order": 0,
+            "order": 1,
             "mode": 0,
             "inputs": [],
             "outputs": [],
@@ -1708,6 +1734,9 @@
             "widgets_values": [
               "Grow, soften, blend and context scale with the picture: 12, 4, 24 and 192 px at 2.25 MP and up, less on smaller pictures."
             ],
+            "widgets_values_named": {
+              "text": "Grow, soften, blend and context scale with the picture: 12, 4, 24 and 192 px at 2.25 MP and up, less on smaller pictures."
+            },
             "color": "#1f2c38",
             "bgcolor": "#2a3b4a"
           },
@@ -1723,7 +1752,7 @@
               88
             ],
             "flags": {},
-            "order": 0,
+            "order": 2,
             "mode": 0,
             "inputs": [],
             "outputs": [],
@@ -1732,6 +1761,9 @@
             "widgets_values": [
               "The crop is the painted area plus room around it: twice its size and up to 192 px more, scaled to about 1.6 MP."
             ],
+            "widgets_values_named": {
+              "text": "The crop is the painted area plus room around it: twice its size and up to 192 px more, scaled to about 1.6 MP."
+            },
             "color": "#1f2c38",
             "bgcolor": "#2a3b4a"
           },
@@ -1747,7 +1779,7 @@
               88
             ],
             "flags": {},
-            "order": 0,
+            "order": 3,
             "mode": 0,
             "inputs": [],
             "outputs": [],
@@ -1756,12 +1788,16 @@
             "widgets_values": [
               "The painted area, grown a little, is filled with flat gray. Krea 2 never sees what you are replacing."
             ],
+            "widgets_values_named": {
+              "text": "The painted area, grown a little, is filled with flat gray. Krea 2 never sees what you are replacing."
+            },
             "color": "#1f2c38",
             "bgcolor": "#2a3b4a"
           }
         ],
         "groups": [
           {
+            "id": 90,
             "title": "1 · Picture size",
             "bounding": [
               0,
@@ -1770,10 +1806,10 @@
               238
             ],
             "color": "#1d5560",
-            "flags": {},
-            "id": 90
+            "flags": {}
           },
           {
+            "id": 91,
             "title": "2 · Size math",
             "bounding": [
               380,
@@ -1782,10 +1818,10 @@
               1014
             ],
             "color": "#1d5560",
-            "flags": {},
-            "id": 91
+            "flags": {}
           },
           {
+            "id": 92,
             "title": "3 · Mask and crop",
             "bounding": [
               840,
@@ -1794,10 +1830,10 @@
               1041
             ],
             "color": "#1d5560",
-            "flags": {},
-            "id": 92
+            "flags": {}
           },
           {
+            "id": 93,
             "title": "4 · Gray out",
             "bounding": [
               1300,
@@ -1806,8 +1842,7 @@
               760
             ],
             "color": "#1d5560",
-            "flags": {},
-            "id": 93
+            "flags": {}
           }
         ],
         "links": [
@@ -1932,22 +1967,6 @@
             "type": "FLOAT"
           },
           {
-            "id": 56,
-            "origin_id": 32,
-            "origin_slot": 1,
-            "target_id": 25,
-            "target_slot": 2,
-            "type": "INT"
-          },
-          {
-            "id": 57,
-            "origin_id": 33,
-            "origin_slot": 1,
-            "target_id": 25,
-            "target_slot": 3,
-            "type": "INT"
-          },
-          {
             "id": 30,
             "origin_id": -10,
             "origin_slot": 0,
@@ -1994,6 +2013,22 @@
             "target_id": -20,
             "target_slot": 2,
             "type": "AUSBOSS_STITCHER"
+          },
+          {
+            "id": 56,
+            "origin_id": 32,
+            "origin_slot": 1,
+            "target_id": 25,
+            "target_slot": 2,
+            "type": "INT"
+          },
+          {
+            "id": 57,
+            "origin_id": 33,
+            "origin_slot": 1,
+            "target_id": 25,
+            "target_slot": 3,
+            "type": "INT"
           }
         ],
         "extra": {}
@@ -2182,10 +2217,11 @@
               200
             ],
             "flags": {},
-            "order": 10,
+            "order": 12,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "string_b",
                 "name": "string_b",
                 "type": "STRING",
                 "widget": {
@@ -2196,6 +2232,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "STRING",
                 "name": "STRING",
                 "type": "STRING",
                 "slot_index": 0,
@@ -2206,9 +2243,9 @@
             ],
             "title": "Instruction plus your request",
             "properties": {
+              "Node name for S&R": "StringConcatenate",
               "cnr_id": "comfy-core",
-              "ver": "0.37.0",
-              "Node name for S&R": "StringConcatenate"
+              "ver": "0.37.0"
             },
             "widgets_values": [
               "Write one text-to-image prompt describing this picture as it will look when finished: one paragraph of 40 to 80 words covering the subject, setting, materials, lighting and camera style. The flat mid-gray area will be painted: never call it gray, blank, masked or painted, and describe it as part of the finished scene. Output only the prompt. What the gray area shows:",
@@ -2235,33 +2272,38 @@
               440
             ],
             "flags": {},
-            "order": 22,
+            "order": 11,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "clip",
                 "name": "clip",
                 "type": "CLIP",
                 "link": 23
               },
               {
+                "localized_name": "image",
                 "name": "image",
                 "shape": 7,
                 "type": "IMAGE",
                 "link": 37
               },
               {
+                "localized_name": "video",
                 "name": "video",
                 "shape": 7,
                 "type": "IMAGE",
                 "link": null
               },
               {
+                "localized_name": "audio",
                 "name": "audio",
                 "shape": 7,
                 "type": "AUDIO",
                 "link": null
               },
               {
+                "localized_name": "prompt",
                 "name": "prompt",
                 "type": "STRING",
                 "widget": {
@@ -2272,6 +2314,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "generated_text",
                 "name": "generated_text",
                 "type": "STRING",
                 "links": [
@@ -2282,9 +2325,9 @@
             ],
             "title": "Describe the finished picture",
             "properties": {
+              "Node name for S&R": "TextGenerate",
               "cnr_id": "comfy-core",
-              "ver": "0.37.0",
-              "Node name for S&R": "TextGenerate"
+              "ver": "0.37.0"
             },
             "widgets_values": [
               "Describe only the visible subject, setting, materials, composition and lighting in 60 to 90 words. Use plain factual language. Do not invent actions, camera motion, sound or objects. Output only the description.",
@@ -2328,36 +2371,48 @@
             ],
             "size": [
               460,
-              304
+              324
             ],
             "flags": {},
-            "order": 25,
+            "order": 4,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "clip",
                 "name": "clip",
                 "type": "CLIP",
                 "link": 4
               },
               {
+                "localized_name": "vae",
                 "name": "vae",
                 "shape": 7,
                 "type": "VAE",
                 "link": 5
               },
               {
+                "localized_name": "reference",
                 "name": "reference",
                 "shape": 7,
                 "type": "IMAGE",
                 "link": 35
               },
               {
+                "localized_name": "extra_image",
                 "name": "extra_image",
                 "shape": 7,
                 "type": "IMAGE",
                 "link": null
               },
               {
+                "localized_name": "mask",
+                "name": "mask",
+                "shape": 7,
+                "type": "MASK",
+                "link": null
+              },
+              {
+                "localized_name": "prompt",
                 "name": "prompt",
                 "type": "STRING",
                 "widget": {
@@ -2368,6 +2423,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "positive",
                 "name": "positive",
                 "type": "CONDITIONING",
                 "links": [
@@ -2375,6 +2431,7 @@
                 ]
               },
               {
+                "localized_name": "negative",
                 "name": "negative",
                 "type": "CONDITIONING",
                 "links": [
@@ -2384,21 +2441,19 @@
             ],
             "title": "Krea 2 Encode - Prompt and reference",
             "properties": {
+              "Node name for S&R": "AUSBOSS_NODES_Krea2Encode",
               "cnr_id": "ausboss-nodes",
-              "ver": "2.3.0",
-              "Node name for S&R": "AUSBOSS_NODES_Krea2Encode"
+              "ver": "2.3.0"
             },
             "widgets_values": [
               "",
               "",
-              true,
-              ""
+              true
             ],
             "widgets_values_named": {
               "prompt": "",
               "negative_prompt": "",
-              "vlm_reference": true,
-              "ausboss_widget_card": ""
+              "vlm_reference": true
             },
             "color": "#14424d",
             "bgcolor": "#161f21"
@@ -2415,15 +2470,17 @@
               172
             ],
             "flags": {},
-            "order": 20,
+            "order": 5,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "model",
                 "name": "model",
                 "type": "MODEL",
                 "link": 2
               },
               {
+                "localized_name": "stitcher",
                 "name": "stitcher",
                 "type": "AUSBOSS_STITCHER",
                 "link": 40
@@ -2431,6 +2488,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "model",
                 "name": "model",
                 "type": "MODEL",
                 "links": [
@@ -2440,19 +2498,17 @@
             ],
             "title": "Krea 2 Outpaint Model Patch - Reference and placement",
             "properties": {
+              "Node name for S&R": "AUSBOSS_NODES_Krea2OutpaintModelPatch",
               "cnr_id": "ausboss-nodes",
-              "ver": "2.3.0",
-              "Node name for S&R": "AUSBOSS_NODES_Krea2OutpaintModelPatch"
+              "ver": "2.3.0"
             },
             "widgets_values": [
               true,
-              "whole canvas",
-              ""
+              "whole canvas"
             ],
             "widgets_values_named": {
               "kv_cache": true,
-              "placement": "whole canvas",
-              "ausboss_widget_card": ""
+              "placement": "whole canvas"
             },
             "color": "#14424d",
             "bgcolor": "#161f21"
@@ -2469,15 +2525,17 @@
               46
             ],
             "flags": {},
-            "order": 21,
+            "order": 6,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "pixels",
                 "name": "pixels",
                 "type": "IMAGE",
                 "link": 36
               },
               {
+                "localized_name": "vae",
                 "name": "vae",
                 "type": "VAE",
                 "link": 8
@@ -2485,6 +2543,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "LATENT",
                 "name": "LATENT",
                 "type": "LATENT",
                 "links": [
@@ -2494,9 +2553,9 @@
             ],
             "title": "Crop to latent",
             "properties": {
+              "Node name for S&R": "VAEEncode",
               "cnr_id": "comfy-core",
-              "ver": "0.37.0",
-              "Node name for S&R": "VAEEncode"
+              "ver": "0.37.0"
             },
             "color": "#14424d",
             "bgcolor": "#161f21"
@@ -2513,15 +2572,17 @@
               46
             ],
             "flags": {},
-            "order": 23,
+            "order": 7,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "samples",
                 "name": "samples",
                 "type": "LATENT",
                 "link": 9
               },
               {
+                "localized_name": "mask",
                 "name": "mask",
                 "type": "MASK",
                 "link": 39
@@ -2529,6 +2590,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "LATENT",
                 "name": "LATENT",
                 "type": "LATENT",
                 "links": [
@@ -2538,9 +2600,9 @@
             ],
             "title": "Paint only the noise mask",
             "properties": {
+              "Node name for S&R": "SetLatentNoiseMask",
               "cnr_id": "comfy-core",
-              "ver": "0.37.0",
-              "Node name for S&R": "SetLatentNoiseMask"
+              "ver": "0.37.0"
             },
             "color": "#14424d",
             "bgcolor": "#161f21"
@@ -2557,30 +2619,35 @@
               262
             ],
             "flags": {},
-            "order": 26,
+            "order": 8,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "model",
                 "name": "model",
                 "type": "MODEL",
                 "link": 11
               },
               {
+                "localized_name": "positive",
                 "name": "positive",
                 "type": "CONDITIONING",
                 "link": 12
               },
               {
+                "localized_name": "negative",
                 "name": "negative",
                 "type": "CONDITIONING",
                 "link": 13
               },
               {
+                "localized_name": "latent_image",
                 "name": "latent_image",
                 "type": "LATENT",
                 "link": 14
               },
               {
+                "localized_name": "seed",
                 "name": "seed",
                 "type": "INT",
                 "widget": {
@@ -2591,6 +2658,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "LATENT",
                 "name": "LATENT",
                 "type": "LATENT",
                 "links": [
@@ -2600,9 +2668,9 @@
             ],
             "title": "Krea 2 Turbo sampler",
             "properties": {
+              "Node name for S&R": "KSampler",
               "cnr_id": "comfy-core",
-              "ver": "0.37.0",
-              "Node name for S&R": "KSampler"
+              "ver": "0.37.0"
             },
             "widgets_values": [
               20260903,
@@ -2637,15 +2705,17 @@
               46
             ],
             "flags": {},
-            "order": 27,
+            "order": 9,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "samples",
                 "name": "samples",
                 "type": "LATENT",
                 "link": 16
               },
               {
+                "localized_name": "vae",
                 "name": "vae",
                 "type": "VAE",
                 "link": 17
@@ -2653,6 +2723,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "IMAGE",
                 "name": "IMAGE",
                 "type": "IMAGE",
                 "links": [
@@ -2660,12 +2731,12 @@
                 ]
               }
             ],
-            "properties": {
-              "cnr_id": "comfy-core",
-              "ver": "0.37.0",
-              "Node name for S&R": "VAEDecode"
-            },
             "title": "Decode",
+            "properties": {
+              "Node name for S&R": "VAEDecode",
+              "cnr_id": "comfy-core",
+              "ver": "0.37.0"
+            },
             "color": "#14424d",
             "bgcolor": "#161f21"
           },
@@ -2681,15 +2752,17 @@
               145
             ],
             "flags": {},
-            "order": 28,
+            "order": 10,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "stitcher",
                 "name": "stitcher",
                 "type": "AUSBOSS_STITCHER",
                 "link": 41
               },
               {
+                "localized_name": "inpainted",
                 "name": "inpainted",
                 "type": "IMAGE",
                 "link": 19
@@ -2697,6 +2770,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "image",
                 "name": "image",
                 "type": "IMAGE",
                 "links": [
@@ -2704,6 +2778,7 @@
                 ]
               },
               {
+                "localized_name": "blend_mask",
                 "name": "blend_mask",
                 "type": "MASK",
                 "links": []
@@ -2711,21 +2786,19 @@
             ],
             "title": "Stitch Inpaint - Put the new part back",
             "properties": {
+              "Node name for S&R": "AUSBOSS_NODES_StitchInpaint",
               "cnr_id": "ausboss-nodes",
-              "ver": "2.3.0",
-              "Node name for S&R": "AUSBOSS_NODES_StitchInpaint"
+              "ver": "2.3.0"
             },
             "widgets_values": [
               false,
               0.5,
-              "classic",
-              ""
+              "classic"
             ],
             "widgets_values_named": {
               "fix_edge_halo": false,
               "color_match": 0.5,
-              "seam": "classic",
-              "ausboss_widget_card": ""
+              "seam": "classic"
             },
             "color": "#14424d",
             "bgcolor": "#161f21"
@@ -2751,18 +2824,25 @@
             "widgets_values": [
               "The text encoder reads the gray-filled crop and writes a prompt for the finished picture, request included. Keep thinking on, or it can return nothing."
             ],
+            "widgets_values_named": {
+              "text": "The text encoder reads the gray-filled crop and writes a prompt for the finished picture, request included. Keep thinking on, or it can return nothing."
+            },
             "color": "#1f2c38",
             "bgcolor": "#2a3b4a"
           },
           {
             "id": 36,
             "type": "Reroute",
+            "pos": [
+              20,
+              208
+            ],
             "size": [
               75,
               26
             ],
             "flags": {},
-            "order": 0,
+            "order": 13,
             "mode": 0,
             "inputs": [
               {
@@ -2783,11 +2863,7 @@
             "properties": {
               "showOutputText": false,
               "horizontal": false
-            },
-            "pos": [
-              20,
-              208
-            ]
+            }
           },
           {
             "id": 42,
@@ -2801,7 +2877,7 @@
               88
             ],
             "flags": {},
-            "order": 0,
+            "order": 1,
             "mode": 0,
             "inputs": [],
             "outputs": [],
@@ -2810,6 +2886,9 @@
             "widgets_values": [
               "The gray-filled crop is the reference. The noise mask is the grown painted area, widened by 24 px. Krea 2 paints only inside it."
             ],
+            "widgets_values_named": {
+              "text": "The gray-filled crop is the reference. The noise mask is the grown painted area, widened by 24 px. Krea 2 paints only inside it."
+            },
             "color": "#1f2c38",
             "bgcolor": "#2a3b4a"
           },
@@ -2825,7 +2904,7 @@
               88
             ],
             "flags": {},
-            "order": 0,
+            "order": 2,
             "mode": 0,
             "inputs": [],
             "outputs": [],
@@ -2834,18 +2913,25 @@
             "widgets_values": [
               "8 steps, CFG 1, er_sde and simple: the Krea 2 Turbo settings. The AnyPaint LoRA reads the gray-filled crop as its reference."
             ],
+            "widgets_values_named": {
+              "text": "8 steps, CFG 1, er_sde and simple: the Krea 2 Turbo settings. The AnyPaint LoRA reads the gray-filled crop as its reference."
+            },
             "color": "#1f2c38",
             "bgcolor": "#2a3b4a"
           },
           {
             "id": 37,
             "type": "Reroute",
+            "pos": [
+              1100,
+              450
+            ],
             "size": [
               75,
               26
             ],
             "flags": {},
-            "order": 0,
+            "order": 14,
             "mode": 0,
             "inputs": [
               {
@@ -2866,11 +2952,7 @@
             "properties": {
               "showOutputText": false,
               "horizontal": false
-            },
-            "pos": [
-              1100,
-              450
-            ]
+            }
           },
           {
             "id": 44,
@@ -2884,7 +2966,7 @@
               88
             ],
             "flags": {},
-            "order": 0,
+            "order": 3,
             "mode": 0,
             "inputs": [],
             "outputs": [],
@@ -2893,12 +2975,16 @@
             "widgets_values": [
               "Only the painted area changes, plus a soft edge around it. The new part goes back into your picture with a light tone match."
             ],
+            "widgets_values_named": {
+              "text": "Only the painted area changes, plus a soft edge around it. The new part goes back into your picture with a light tone match."
+            },
             "color": "#1f2c38",
             "bgcolor": "#2a3b4a"
           }
         ],
         "groups": [
           {
+            "id": 94,
             "title": "1 · Write the prompt",
             "bounding": [
               0,
@@ -2907,10 +2993,10 @@
               1088
             ],
             "color": "#1d5560",
-            "flags": {},
-            "id": 94
+            "flags": {}
           },
           {
+            "id": 95,
             "title": "2 · Set up the painting",
             "bounding": [
               540,
@@ -2919,10 +3005,10 @@
               802
             ],
             "color": "#1d5560",
-            "flags": {},
-            "id": 95
+            "flags": {}
           },
           {
+            "id": 96,
             "title": "3 · Paint",
             "bounding": [
               1080,
@@ -2931,10 +3017,10 @@
               828
             ],
             "color": "#1d5560",
-            "flags": {},
-            "id": 96
+            "flags": {}
           },
           {
+            "id": 97,
             "title": "4 · Put it back",
             "bounding": [
               1620,
@@ -2943,8 +3029,7 @@
               529
             ],
             "color": "#1d5560",
-            "flags": {},
-            "id": 97
+            "flags": {}
           }
         ],
         "links": [
@@ -3005,22 +3090,6 @@
             "type": "IMAGE"
           },
           {
-            "id": 44,
-            "origin_id": 19,
-            "origin_slot": 0,
-            "target_id": 6,
-            "target_slot": 4,
-            "type": "STRING"
-          },
-          {
-            "id": 43,
-            "origin_id": 22,
-            "origin_slot": 0,
-            "target_id": 19,
-            "target_slot": 4,
-            "type": "STRING"
-          },
-          {
             "id": 35,
             "origin_id": -10,
             "origin_slot": 0,
@@ -3034,14 +3103,6 @@
             "origin_slot": 0,
             "target_id": 8,
             "target_slot": 0,
-            "type": "IMAGE"
-          },
-          {
-            "id": 37,
-            "origin_id": -10,
-            "origin_slot": 0,
-            "target_id": 19,
-            "target_slot": 1,
             "type": "IMAGE"
           },
           {
@@ -3077,14 +3138,6 @@
             "type": "STRING"
           },
           {
-            "id": 61,
-            "origin_id": 36,
-            "origin_slot": 0,
-            "target_id": 22,
-            "target_slot": 0,
-            "type": "STRING"
-          },
-          {
             "id": 15,
             "origin_id": -10,
             "origin_slot": 4,
@@ -3105,14 +3158,6 @@
             "origin_id": -10,
             "origin_slot": 5,
             "target_id": 6,
-            "target_slot": 0,
-            "type": "CLIP"
-          },
-          {
-            "id": 23,
-            "origin_id": -10,
-            "origin_slot": 5,
-            "target_id": 19,
             "target_slot": 0,
             "type": "CLIP"
           },
@@ -3163,6 +3208,46 @@
             "target_id": -20,
             "target_slot": 1,
             "type": "STRING"
+          },
+          {
+            "id": 23,
+            "origin_id": -10,
+            "origin_slot": 5,
+            "target_id": 19,
+            "target_slot": 0,
+            "type": "CLIP"
+          },
+          {
+            "id": 37,
+            "origin_id": -10,
+            "origin_slot": 0,
+            "target_id": 19,
+            "target_slot": 1,
+            "type": "IMAGE"
+          },
+          {
+            "id": 43,
+            "origin_id": 22,
+            "origin_slot": 0,
+            "target_id": 19,
+            "target_slot": 4,
+            "type": "STRING"
+          },
+          {
+            "id": 61,
+            "origin_id": 36,
+            "origin_slot": 0,
+            "target_id": 22,
+            "target_slot": 0,
+            "type": "STRING"
+          },
+          {
+            "id": 44,
+            "origin_id": 19,
+            "origin_slot": 0,
+            "target_id": 6,
+            "target_slot": 5,
+            "type": "STRING"
           }
         ],
         "extra": {}
@@ -3177,7 +3262,8 @@
         20,
         175
       ]
-    }
+    },
+    "frontendVersion": "1.53.6"
   },
   "version": 0.4
 }

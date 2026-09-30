@@ -242,11 +242,27 @@ All notable changes to ComfyUI-AusBoss are documented here.
 - **Examples no longer carry the sample's turn and padding.** Krea 2
   Outpaint and Krea 2 Rotate + Outpaint open with an empty loader but still
   saved the sample's padding and turn, and the first file in your input
-  folder could pick them up. They now save none. Krea 2 Outpaint keeps its
-  3:4 ratio lit, so a new picture is padded to 3:4.
+  folder could pick them up. They now save none. Krea 2 Outpaint opens with
+  no ratio picked, so your picture isn't padded until you choose one.
 - **Krea 2 Inpaint Masked example: Stay in picture is on.** The example had
   it saved off, so a big painted area was cropped past the picture's edge
   and painted smaller and softer.
+- **Krea 2 Inpaint Masked example: the person you keep stays.** Paint
+  everything around a person or a pet to give them a new background, and
+  the example used to paint over them too. Its Mask Refine now has Max hole
+  size at 2, so brush gaps still fill and what you left unpainted stays. The
+  note also says to paint right up to what you keep, and to change one
+  thing per run.
+- **Klein 9B Outpaint example: the seam blends in.** With the classic seam,
+  the new area's blacks could come back a hazy gray-green, and a turned
+  picture could show a line along its edge. The example now uses blend in
+  with Tone match. Its note says a big pad can grow a second hand or face,
+  and that the result is about 1.6 MP.
+- **Qwen Image 2.1 Edit + Realign example: the edit changes only what you
+  ask for.** Its prompt writer could widen a request: "remove the photos
+  from the wall" also took the fridge handle and the magnets. It now keeps
+  everything the request doesn't name. A transparent PNG's see-through
+  parts are filled with gray before the edit, instead of coming back black.
 
 ## 2.4.0 - 2026-09-29
 
