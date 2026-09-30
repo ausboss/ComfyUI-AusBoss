@@ -28,10 +28,11 @@
           ]
         }
       ],
+      "title": "Diffusion model",
       "properties": {
+        "Node name for S&R": "UNETLoader",
         "cnr_id": "comfy-core",
         "ver": "0.37.0",
-        "Node name for S&R": "UNETLoader",
         "models": [
           {
             "name": "krea2_turbo_fp8_scaled.safetensors",
@@ -49,8 +50,7 @@
         "weight_dtype": "default"
       },
       "color": "#323",
-      "bgcolor": "#535",
-      "title": "Diffusion model"
+      "bgcolor": "#535"
     },
     {
       "id": 2,
@@ -77,10 +77,11 @@
           ]
         }
       ],
+      "title": "Text encoder",
       "properties": {
+        "Node name for S&R": "CLIPLoader",
         "cnr_id": "comfy-core",
         "ver": "0.37.0",
-        "Node name for S&R": "CLIPLoader",
         "models": [
           {
             "name": "qwen3vl_4b_fp8_scaled.safetensors",
@@ -100,8 +101,7 @@
         "device": "default"
       },
       "color": "#432",
-      "bgcolor": "#653",
-      "title": "Text encoder"
+      "bgcolor": "#653"
     },
     {
       "id": 3,
@@ -127,10 +127,11 @@
           ]
         }
       ],
+      "title": "VAE",
       "properties": {
+        "Node name for S&R": "VAELoader",
         "cnr_id": "comfy-core",
         "ver": "0.37.0",
-        "Node name for S&R": "VAELoader",
         "models": [
           {
             "name": "qwen_image_vae.safetensors",
@@ -146,8 +147,7 @@
         "vae_name": "qwen_image_vae.safetensors"
       },
       "color": "#322",
-      "bgcolor": "#533",
-      "title": "VAE"
+      "bgcolor": "#533"
     },
     {
       "id": 4,
@@ -161,7 +161,7 @@
         188
       ],
       "flags": {},
-      "order": 3,
+      "order": 8,
       "mode": 0,
       "inputs": [
         {
@@ -197,10 +197,10 @@
       ],
       "title": "LoRA Loader - AnyPaint LoRA",
       "properties": {
-        "cnr_id": "ausboss-nodes",
-        "ver": "2.3.0",
         "Node name for S&R": "AUSBOSS_NODES_LoraLoader",
         "ausbossLoraLinked": true,
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.3.0",
         "models": [
           {
             "name": "krea2_anypaint_rank32.safetensors",
@@ -212,14 +212,12 @@
       "widgets_values": [
         "[{\"name\": \"krea2_anypaint_rank32.safetensors\", \"strength\": 1.0, \"enabled\": true, \"triggers\": \"\"}]",
         ", ",
-        "error",
-        ""
+        "error"
       ],
       "widgets_values_named": {
         "loras": "[{\"name\": \"krea2_anypaint_rank32.safetensors\", \"strength\": 1.0, \"enabled\": true, \"triggers\": \"\"}]",
         "trigger_separator": ", ",
-        "on_missing": "error",
-        "ausboss_lora_rows": ""
+        "on_missing": "error"
       },
       "color": "#14424d",
       "bgcolor": "#161f21"
@@ -236,7 +234,7 @@
         764
       ],
       "flags": {},
-      "order": 4,
+      "order": 3,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -287,9 +285,9 @@
       ],
       "title": "Image Crop + Rotate + Pad - Your image",
       "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_ImageCropRotatePad",
         "cnr_id": "ausboss-nodes",
-        "ver": "2.3.0",
-        "Node name for S&R": "AUSBOSS_NODES_ImageCropRotatePad"
+        "ver": "2.3.0"
       },
       "widgets_values": {
         "image": "",
@@ -334,8 +332,7 @@
         "resolution_steps": 16,
         "stitch_blend": 0,
         "stitch_grow": 0,
-        "upload": "image",
-        "ausboss_transform_preview": ""
+        "upload": "image"
       },
       "color": "#14424d",
       "bgcolor": "#161f21"
@@ -352,7 +349,7 @@
         168
       ],
       "flags": {},
-      "order": 5,
+      "order": 4,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -367,17 +364,15 @@
       ],
       "title": "Text - What goes there",
       "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_Text",
         "cnr_id": "ausboss-nodes",
-        "ver": "2.3.0",
-        "Node name for S&R": "AUSBOSS_NODES_Text"
+        "ver": "2.3.0"
       },
       "widgets_values": [
-        "Extend this scene naturally into the added canvas. Preserve the existing viewpoint, materials and lighting.",
-        ""
+        "Extend this scene naturally into the added canvas. Preserve the existing viewpoint, materials and lighting."
       ],
       "widgets_values_named": {
-        "text": "Extend this scene naturally into the added canvas. Preserve the existing viewpoint, materials and lighting.",
-        "ausboss_widget_card": ""
+        "text": "Extend this scene naturally into the added canvas. Preserve the existing viewpoint, materials and lighting."
       },
       "color": "#14424d",
       "bgcolor": "#161f21"
@@ -394,7 +389,7 @@
         216
       ],
       "flags": {},
-      "order": 6,
+      "order": 5,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -406,24 +401,22 @@
           ]
         }
       ],
+      "title": "Seed",
       "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_Seed",
         "cnr_id": "ausboss-nodes",
-        "ver": "2.3.0",
-        "Node name for S&R": "AUSBOSS_NODES_Seed"
+        "ver": "2.3.0"
       },
       "widgets_values": [
         7,
-        "fixed",
-        ""
+        "fixed"
       ],
       "widgets_values_named": {
         "seed": 7,
-        "control_after_generate": "fixed",
-        "ausboss_seed_panel": ""
+        "control_after_generate": "fixed"
       },
       "color": "#14424d",
-      "bgcolor": "#161f21",
-      "title": "Seed"
+      "bgcolor": "#161f21"
     },
     {
       "id": 15,
@@ -437,7 +430,7 @@
         495
       ],
       "flags": {},
-      "order": 7,
+      "order": 11,
       "mode": 0,
       "inputs": [
         {
@@ -462,17 +455,13 @@
       ],
       "title": "Image Compare A/B - Before and after",
       "properties": {
-        "cnr_id": "ausboss-nodes",
-        "ver": "2.3.0",
         "Node name for S&R": "AUSBOSS_NODES_Compare",
-        "ausboss_compare_mode": "slide"
+        "ausboss_compare_mode": "slide",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.3.0"
       },
-      "widgets_values": [
-        ""
-      ],
-      "widgets_values_named": {
-        "ausboss_compare_panel": ""
-      },
+      "widgets_values": [],
+      "widgets_values_named": {},
       "color": "#14424d",
       "bgcolor": "#161f21"
     },
@@ -488,7 +477,7 @@
         616
       ],
       "flags": {},
-      "order": 8,
+      "order": 12,
       "mode": 0,
       "inputs": [
         {
@@ -521,10 +510,11 @@
           "links": []
         }
       ],
+      "title": "Save Image",
       "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_SaveImage",
         "cnr_id": "ausboss-nodes",
-        "ver": "2.3.0",
-        "Node name for S&R": "AUSBOSS_NODES_SaveImage"
+        "ver": "2.3.0"
       },
       "widgets_values": {
         "filename_prefix": "krea2_rotate_outpaint",
@@ -548,25 +538,22 @@
         "exact_name": "",
         "on_existing": "overwrite",
         "output_dir": "",
-        "ausboss_save_image_card": "",
         "caption": "",
         "name_counter": true,
         "name_date": false,
         "name_time": false,
         "name_size": false,
         "name_batch": false,
-        "preview": true,
-        "ausboss_input_preview": ""
+        "preview": true
       },
       "color": "#14424d",
-      "bgcolor": "#161f21",
-      "title": "Save Image"
+      "bgcolor": "#161f21"
     },
     {
       "id": 14,
       "type": "AUSBOSS_NODES_RunTimer",
       "pos": [
-        1755.0,
+        1755,
         1301
       ],
       "size": [
@@ -576,18 +563,18 @@
       "flags": {
         "no_title": true
       },
-      "order": 9,
+      "order": 6,
       "mode": 0,
       "inputs": [],
       "outputs": [],
+      "title": "Run Timer",
       "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_RunTimer",
         "cnr_id": "ausboss-nodes",
-        "ver": "2.3.0",
-        "Node name for S&R": "AUSBOSS_NODES_RunTimer"
+        "ver": "2.3.0"
       },
-      "color": "#14424d",
-      "bgcolor": "#161f21",
-      "title": "Run Timer"
+      "color": "#07090a",
+      "bgcolor": "#07090a"
     },
     {
       "id": 17,
@@ -598,27 +585,27 @@
       ],
       "size": [
         440,
-        720
+        749.906
       ],
       "flags": {},
-      "order": 10,
+      "order": 7,
       "mode": 0,
       "inputs": [],
       "outputs": [],
+      "title": "🆎 AusBoss",
       "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote",
         "cnr_id": "ausboss-nodes",
-        "ver": "2.3.0",
-        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote"
+        "ver": "2.3.0"
       },
       "widgets_values": [
-        "{\"v\": 1, \"title\": \"Krea 2 Rotate + Outpaint\", \"subtitle\": \"Turn, crop and pad a picture, and Krea 2 paints the new area.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image. A new image resets the turn, crop and padding.\\n2. Turn it with the round handle, drag the crop edges in, and drag the orange handles out to pad.\\n3. Press **Run**.\\n4. To steer the new area, say what belongs there in **What goes there**.\\n\\nThe two boxes in the middle do the work. Double-click one to see inside.\\n\\nNeeds AusBoss nodes 2.4.0 or newer.\", \"models\": [{\"name\": \"krea2_turbo_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}, {\"name\": \"krea2_anypaint_rank32.safetensors\", \"dir\": \"loras\", \"size\": \"229 MB\", \"url\": \"https://huggingface.co/yijunwang2/krea2-anypaint/resolve/main/krea2_anypaint_rank32.safetensors\", \"note\": \"by yijunwang2\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_ImageCropRotatePad\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+        "{\"v\": 1, \"title\": \"Krea 2 Rotate + Outpaint\", \"subtitle\": \"Turn, crop and pad a picture, and Krea 2 paints the new area.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image. A new image resets the turn, crop and padding.\\n2. Turn it with the round handle, drag the crop edges in, and drag the orange handles out to pad.\\n3. Press **Run**.\\n4. To steer the new area, say what belongs there in **What goes there**.\\n\\nOn one side, add at most about half your picture's size per run, or add to both sides. More on one side can paint a second scene.\\n\\nThe two boxes in the middle do the work. Double-click one to see inside.\\n\\nNeeds AusBoss nodes newer than 2.4.0 (update first).\", \"models\": [{\"name\": \"krea2_turbo_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}, {\"name\": \"krea2_anypaint_rank32.safetensors\", \"dir\": \"loras\", \"size\": \"229 MB\", \"url\": \"https://huggingface.co/yijunwang2/krea2-anypaint/resolve/main/krea2_anypaint_rank32.safetensors\", \"note\": \"by yijunwang2\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_ImageCropRotatePad\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
       ],
       "widgets_values_named": {
-        "note": "{\"v\": 1, \"title\": \"Krea 2 Rotate + Outpaint\", \"subtitle\": \"Turn, crop and pad a picture, and Krea 2 paints the new area.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image. A new image resets the turn, crop and padding.\\n2. Turn it with the round handle, drag the crop edges in, and drag the orange handles out to pad.\\n3. Press **Run**.\\n4. To steer the new area, say what belongs there in **What goes there**.\\n\\nThe two boxes in the middle do the work. Double-click one to see inside.\\n\\nNeeds AusBoss nodes 2.4.0 or newer.\", \"models\": [{\"name\": \"krea2_turbo_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}, {\"name\": \"krea2_anypaint_rank32.safetensors\", \"dir\": \"loras\", \"size\": \"229 MB\", \"url\": \"https://huggingface.co/yijunwang2/krea2-anypaint/resolve/main/krea2_anypaint_rank32.safetensors\", \"note\": \"by yijunwang2\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_ImageCropRotatePad\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+        "note": "{\"v\": 1, \"title\": \"Krea 2 Rotate + Outpaint\", \"subtitle\": \"Turn, crop and pad a picture, and Krea 2 paints the new area.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image. A new image resets the turn, crop and padding.\\n2. Turn it with the round handle, drag the crop edges in, and drag the orange handles out to pad.\\n3. Press **Run**.\\n4. To steer the new area, say what belongs there in **What goes there**.\\n\\nOn one side, add at most about half your picture's size per run, or add to both sides. More on one side can paint a second scene.\\n\\nThe two boxes in the middle do the work. Double-click one to see inside.\\n\\nNeeds AusBoss nodes newer than 2.4.0 (update first).\", \"models\": [{\"name\": \"krea2_turbo_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}, {\"name\": \"krea2_anypaint_rank32.safetensors\", \"dir\": \"loras\", \"size\": \"229 MB\", \"url\": \"https://huggingface.co/yijunwang2/krea2-anypaint/resolve/main/krea2_anypaint_rank32.safetensors\", \"note\": \"by yijunwang2\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_ImageCropRotatePad\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
       },
       "color": "#14424d",
-      "bgcolor": "#161f21",
-      "title": "🆎 AusBoss"
+      "bgcolor": "#161f21"
     },
     {
       "id": 24,
@@ -632,11 +619,12 @@
         66
       ],
       "flags": {},
-      "order": 11,
+      "order": 9,
       "mode": 0,
       "inputs": [
         {
           "name": "canvas",
+          "shape": 7,
           "type": "IMAGE",
           "link": 41
         },
@@ -660,8 +648,9 @@
           ]
         }
       ],
-      "title": "Write the prompt",
-      "properties": {},
+      "properties": {
+        "previewExposures": []
+      },
       "color": "#14424d",
       "bgcolor": "#161f21"
     },
@@ -677,7 +666,7 @@
         180
       ],
       "flags": {},
-      "order": 12,
+      "order": 10,
       "mode": 0,
       "inputs": [
         {
@@ -730,8 +719,15 @@
           ]
         }
       ],
-      "title": "Paint with Krea 2",
-      "properties": {},
+      "properties": {
+        "previewExposures": [
+          {
+            "name": "$$canvas-image-preview",
+            "sourceNodeId": "11",
+            "sourcePreviewName": "$$canvas-image-preview"
+          }
+        ]
+      },
       "color": "#14424d",
       "bgcolor": "#161f21"
     }
@@ -860,6 +856,7 @@
   ],
   "groups": [
     {
+      "id": 84,
       "title": "1 · Your input",
       "bounding": [
         480,
@@ -868,10 +865,10 @@
         1415
       ],
       "color": "#1d5560",
-      "flags": {},
-      "id": 84
+      "flags": {}
     },
     {
+      "id": 85,
       "title": "2 · Behind the scenes",
       "bounding": [
         1000,
@@ -880,10 +877,10 @@
         298
       ],
       "color": "#1d5560",
-      "flags": {},
-      "id": 85
+      "flags": {}
     },
     {
+      "id": 86,
       "title": "3 · Models",
       "bounding": [
         1000,
@@ -892,10 +889,10 @@
         800
       ],
       "color": "#1d5560",
-      "flags": {},
-      "id": 86
+      "flags": {}
     },
     {
+      "id": 87,
       "title": "4 · Result",
       "bounding": [
         1600,
@@ -904,8 +901,7 @@
         1415
       ],
       "color": "#1d5560",
-      "flags": {},
-      "id": 87
+      "flags": {}
     }
   ],
   "definitions": {
@@ -1010,27 +1006,31 @@
               440
             ],
             "flags": {},
-            "order": 10,
+            "order": 2,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "clip",
                 "name": "clip",
                 "type": "CLIP",
                 "link": 23
               },
               {
+                "localized_name": "image",
                 "name": "image",
                 "shape": 7,
                 "type": "IMAGE",
                 "link": 35
               },
               {
+                "localized_name": "video",
                 "name": "video",
                 "shape": 7,
                 "type": "IMAGE",
                 "link": null
               },
               {
+                "localized_name": "audio",
                 "name": "audio",
                 "shape": 7,
                 "type": "AUDIO",
@@ -1039,6 +1039,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "generated_text",
                 "name": "generated_text",
                 "type": "STRING",
                 "links": [
@@ -1048,9 +1049,9 @@
             ],
             "title": "Describe the canvas",
             "properties": {
+              "Node name for S&R": "TextGenerate",
               "cnr_id": "comfy-core",
-              "ver": "0.37.0",
-              "Node name for S&R": "TextGenerate"
+              "ver": "0.37.0"
             },
             "widgets_values": [
               "Describe this picture as it will look when finished, in 60 to 90 words. The flat mid-gray areas are blank space that will be painted to continue the scene: describe what naturally fills them, never call them gray, blank, empty or padding, and don't mention any tilt. Describe the subject, setting, materials, composition and lighting in plain factual language. Do not invent actions, camera motion or sound. Output only the description.",
@@ -1097,10 +1098,11 @@
               140
             ],
             "flags": {},
-            "order": 13,
+            "order": 3,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "text",
                 "name": "text",
                 "type": "STRING",
                 "link": 25
@@ -1108,6 +1110,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "text",
                 "name": "text",
                 "type": "STRING",
                 "slot_index": 0,
@@ -1118,16 +1121,12 @@
             ],
             "title": "Show Text - Description Krea 2 wrote",
             "properties": {
+              "Node name for S&R": "AUSBOSS_NODES_ShowText",
               "cnr_id": "ausboss-nodes",
-              "ver": "2.3.0",
-              "Node name for S&R": "AUSBOSS_NODES_ShowText"
+              "ver": "2.3.0"
             },
-            "widgets_values": [
-              ""
-            ],
-            "widgets_values_named": {
-              "ausboss_show_text_panel": ""
-            },
+            "widgets_values": [],
+            "widgets_values_named": {},
             "color": "#14424d",
             "bgcolor": "#161f21"
           },
@@ -1143,10 +1142,11 @@
               166
             ],
             "flags": {},
-            "order": 14,
+            "order": 4,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "string_a",
                 "name": "string_a",
                 "type": "STRING",
                 "widget": {
@@ -1155,6 +1155,7 @@
                 "link": 26
               },
               {
+                "localized_name": "string_b",
                 "name": "string_b",
                 "type": "STRING",
                 "widget": {
@@ -1165,6 +1166,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "STRING",
                 "name": "STRING",
                 "type": "STRING",
                 "slot_index": 0,
@@ -1175,9 +1177,9 @@
             ],
             "title": "Description plus your direction",
             "properties": {
+              "Node name for S&R": "StringConcatenate",
               "cnr_id": "comfy-core",
-              "ver": "0.37.0",
-              "Node name for S&R": "StringConcatenate"
+              "ver": "0.37.0"
             },
             "widgets_values": [
               "",
@@ -1213,6 +1215,9 @@
             "widgets_values": [
               "Krea 2's text encoder reads the canvas, gray areas included, and describes the finished picture. Keep thinking on, or it can return nothing."
             ],
+            "widgets_values_named": {
+              "text": "Krea 2's text encoder reads the canvas, gray areas included, and describes the finished picture. Keep thinking on, or it can return nothing."
+            },
             "color": "#1f2c38",
             "bgcolor": "#2a3b4a"
           },
@@ -1228,7 +1233,7 @@
               88
             ],
             "flags": {},
-            "order": 0,
+            "order": 1,
             "mode": 0,
             "inputs": [],
             "outputs": [],
@@ -1237,18 +1242,25 @@
             "widgets_values": [
               "The description comes first, then your line from What goes there. Together they are the prompt for the painting."
             ],
+            "widgets_values_named": {
+              "text": "The description comes first, then your line from What goes there. Together they are the prompt for the painting."
+            },
             "color": "#1f2c38",
             "bgcolor": "#2a3b4a"
           },
           {
             "id": 26,
             "type": "Reroute",
+            "pos": [
+              560,
+              418
+            ],
             "size": [
               75,
               26
             ],
             "flags": {},
-            "order": 0,
+            "order": 5,
             "mode": 0,
             "inputs": [
               {
@@ -1269,15 +1281,12 @@
             "properties": {
               "showOutputText": false,
               "horizontal": false
-            },
-            "pos": [
-              560,
-              418
-            ]
+            }
           }
         ],
         "groups": [
           {
+            "id": 90,
             "title": "1 · Describe the canvas",
             "bounding": [
               0,
@@ -1286,10 +1295,10 @@
               752
             ],
             "color": "#1d5560",
-            "flags": {},
-            "id": 90
+            "flags": {}
           },
           {
+            "id": 91,
             "title": "2 · Build the prompt",
             "bounding": [
               540,
@@ -1298,8 +1307,7 @@
               752
             ],
             "color": "#1d5560",
-            "flags": {},
-            "id": 91
+            "flags": {}
           }
         ],
         "links": [
@@ -1320,14 +1328,6 @@
             "type": "STRING"
           },
           {
-            "id": 35,
-            "origin_id": -10,
-            "origin_slot": 0,
-            "target_id": 19,
-            "target_slot": 1,
-            "type": "IMAGE"
-          },
-          {
             "id": 27,
             "origin_id": -10,
             "origin_slot": 1,
@@ -1344,6 +1344,14 @@
             "type": "STRING"
           },
           {
+            "id": 37,
+            "origin_id": 22,
+            "origin_slot": 0,
+            "target_id": -20,
+            "target_slot": 0,
+            "type": "STRING"
+          },
+          {
             "id": 23,
             "origin_id": -10,
             "origin_slot": 2,
@@ -1352,12 +1360,12 @@
             "type": "CLIP"
           },
           {
-            "id": 37,
-            "origin_id": 22,
+            "id": 35,
+            "origin_id": -10,
             "origin_slot": 0,
-            "target_id": -20,
-            "target_slot": 0,
-            "type": "STRING"
+            "target_id": 19,
+            "target_slot": 1,
+            "type": "IMAGE"
           }
         ],
         "extra": {}
@@ -1529,52 +1537,59 @@
             ],
             "size": [
               460,
-              304
+              324
             ],
             "flags": {},
-            "order": 15,
+            "order": 3,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "clip",
                 "name": "clip",
                 "type": "CLIP",
                 "link": 4
               },
               {
+                "localized_name": "vae",
                 "name": "vae",
                 "shape": 7,
                 "type": "VAE",
                 "link": 5
               },
               {
+                "localized_name": "reference",
                 "name": "reference",
                 "shape": 7,
                 "type": "IMAGE",
                 "link": 29
               },
               {
+                "localized_name": "extra_image",
                 "name": "extra_image",
                 "shape": 7,
                 "type": "IMAGE",
                 "link": null
               },
               {
+                "localized_name": "mask",
+                "name": "mask",
+                "shape": 7,
+                "type": "MASK",
+                "link": 53
+              },
+              {
+                "localized_name": "prompt",
                 "name": "prompt",
                 "type": "STRING",
                 "widget": {
                   "name": "prompt"
                 },
                 "link": 38
-              },
-              {
-                "name": "mask",
-                "shape": 7,
-                "type": "MASK",
-                "link": 53
               }
             ],
             "outputs": [
               {
+                "localized_name": "positive",
                 "name": "positive",
                 "type": "CONDITIONING",
                 "links": [
@@ -1582,6 +1597,7 @@
                 ]
               },
               {
+                "localized_name": "negative",
                 "name": "negative",
                 "type": "CONDITIONING",
                 "links": [
@@ -1591,21 +1607,19 @@
             ],
             "title": "Krea 2 Encode - Prompt and reference",
             "properties": {
+              "Node name for S&R": "AUSBOSS_NODES_Krea2Encode",
               "cnr_id": "ausboss-nodes",
-              "ver": "2.3.0",
-              "Node name for S&R": "AUSBOSS_NODES_Krea2Encode"
+              "ver": "2.3.0"
             },
             "widgets_values": [
               "",
               "",
-              true,
-              ""
+              true
             ],
             "widgets_values_named": {
               "prompt": "",
               "negative_prompt": "",
-              "vlm_reference": true,
-              "ausboss_widget_card": ""
+              "vlm_reference": true
             },
             "color": "#14424d",
             "bgcolor": "#161f21"
@@ -1622,15 +1636,17 @@
               172
             ],
             "flags": {},
-            "order": 11,
+            "order": 4,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "model",
                 "name": "model",
                 "type": "MODEL",
                 "link": 2
               },
               {
+                "localized_name": "stitcher",
                 "name": "stitcher",
                 "type": "AUSBOSS_STITCHER",
                 "link": 33
@@ -1638,6 +1654,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "model",
                 "name": "model",
                 "type": "MODEL",
                 "links": [
@@ -1647,19 +1664,17 @@
             ],
             "title": "Krea 2 Outpaint Model Patch - Reference and placement",
             "properties": {
+              "Node name for S&R": "AUSBOSS_NODES_Krea2OutpaintModelPatch",
               "cnr_id": "ausboss-nodes",
-              "ver": "2.3.0",
-              "Node name for S&R": "AUSBOSS_NODES_Krea2OutpaintModelPatch"
+              "ver": "2.3.0"
             },
             "widgets_values": [
               true,
-              "whole canvas",
-              ""
+              "whole canvas"
             ],
             "widgets_values_named": {
               "kv_cache": true,
-              "placement": "whole canvas",
-              "ausboss_widget_card": ""
+              "placement": "whole canvas"
             },
             "color": "#14424d",
             "bgcolor": "#161f21"
@@ -1676,15 +1691,17 @@
               46
             ],
             "flags": {},
-            "order": 9,
+            "order": 5,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "pixels",
                 "name": "pixels",
                 "type": "IMAGE",
                 "link": 30
               },
               {
+                "localized_name": "vae",
                 "name": "vae",
                 "type": "VAE",
                 "link": 8
@@ -1692,6 +1709,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "LATENT",
                 "name": "LATENT",
                 "type": "LATENT",
                 "links": [
@@ -1701,9 +1719,9 @@
             ],
             "title": "Canvas to latent",
             "properties": {
+              "Node name for S&R": "VAEEncode",
               "cnr_id": "comfy-core",
-              "ver": "0.37.0",
-              "Node name for S&R": "VAEEncode"
+              "ver": "0.37.0"
             },
             "color": "#14424d",
             "bgcolor": "#161f21"
@@ -1720,15 +1738,17 @@
               46
             ],
             "flags": {},
-            "order": 12,
+            "order": 6,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "samples",
                 "name": "samples",
                 "type": "LATENT",
                 "link": 9
               },
               {
+                "localized_name": "mask",
                 "name": "mask",
                 "type": "MASK",
                 "link": 32
@@ -1736,6 +1756,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "LATENT",
                 "name": "LATENT",
                 "type": "LATENT",
                 "links": [
@@ -1745,9 +1766,9 @@
             ],
             "title": "Paint only the gray",
             "properties": {
+              "Node name for S&R": "SetLatentNoiseMask",
               "cnr_id": "comfy-core",
-              "ver": "0.37.0",
-              "Node name for S&R": "SetLatentNoiseMask"
+              "ver": "0.37.0"
             },
             "color": "#14424d",
             "bgcolor": "#161f21"
@@ -1764,30 +1785,35 @@
               262
             ],
             "flags": {},
-            "order": 16,
+            "order": 7,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "model",
                 "name": "model",
                 "type": "MODEL",
                 "link": 11
               },
               {
+                "localized_name": "positive",
                 "name": "positive",
                 "type": "CONDITIONING",
                 "link": 12
               },
               {
+                "localized_name": "negative",
                 "name": "negative",
                 "type": "CONDITIONING",
                 "link": 13
               },
               {
+                "localized_name": "latent_image",
                 "name": "latent_image",
                 "type": "LATENT",
                 "link": 14
               },
               {
+                "localized_name": "seed",
                 "name": "seed",
                 "type": "INT",
                 "widget": {
@@ -1798,6 +1824,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "LATENT",
                 "name": "LATENT",
                 "type": "LATENT",
                 "links": [
@@ -1807,9 +1834,9 @@
             ],
             "title": "Krea 2 Turbo sampler",
             "properties": {
+              "Node name for S&R": "KSampler",
               "cnr_id": "comfy-core",
-              "ver": "0.37.0",
-              "Node name for S&R": "KSampler"
+              "ver": "0.37.0"
             },
             "widgets_values": [
               20260903,
@@ -1844,15 +1871,17 @@
               46
             ],
             "flags": {},
-            "order": 17,
+            "order": 8,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "samples",
                 "name": "samples",
                 "type": "LATENT",
                 "link": 16
               },
               {
+                "localized_name": "vae",
                 "name": "vae",
                 "type": "VAE",
                 "link": 17
@@ -1860,6 +1889,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "IMAGE",
                 "name": "IMAGE",
                 "type": "IMAGE",
                 "links": [
@@ -1867,12 +1897,12 @@
                 ]
               }
             ],
-            "properties": {
-              "cnr_id": "comfy-core",
-              "ver": "0.37.0",
-              "Node name for S&R": "VAEDecode"
-            },
             "title": "Decode",
+            "properties": {
+              "Node name for S&R": "VAEDecode",
+              "cnr_id": "comfy-core",
+              "ver": "0.37.0"
+            },
             "color": "#14424d",
             "bgcolor": "#161f21"
           },
@@ -1888,15 +1918,17 @@
               145
             ],
             "flags": {},
-            "order": 18,
+            "order": 9,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "stitcher",
                 "name": "stitcher",
                 "type": "AUSBOSS_STITCHER",
                 "link": 34
               },
               {
+                "localized_name": "inpainted",
                 "name": "inpainted",
                 "type": "IMAGE",
                 "link": 19
@@ -1904,6 +1936,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "image",
                 "name": "image",
                 "type": "IMAGE",
                 "links": [
@@ -1911,6 +1944,7 @@
                 ]
               },
               {
+                "localized_name": "blend_mask",
                 "name": "blend_mask",
                 "type": "MASK",
                 "links": []
@@ -1918,21 +1952,19 @@
             ],
             "title": "Stitch Inpaint - Put your image back",
             "properties": {
+              "Node name for S&R": "AUSBOSS_NODES_StitchInpaint",
               "cnr_id": "ausboss-nodes",
-              "ver": "2.3.0",
-              "Node name for S&R": "AUSBOSS_NODES_StitchInpaint"
+              "ver": "2.3.0"
             },
             "widgets_values": [
               false,
               1,
-              "blend in",
-              ""
+              "blend in"
             ],
             "widgets_values_named": {
               "fix_edge_halo": false,
               "color_match": 1,
-              "seam": "blend in",
-              "ausboss_widget_card": ""
+              "seam": "blend in"
             },
             "color": "#14424d",
             "bgcolor": "#161f21"
@@ -1958,18 +1990,25 @@
             "widgets_values": [
               "The canvas is the reference. Its mask marks the gray areas, so the sampler paints only there."
             ],
+            "widgets_values_named": {
+              "text": "The canvas is the reference. Its mask marks the gray areas, so the sampler paints only there."
+            },
             "color": "#1f2c38",
             "bgcolor": "#2a3b4a"
           },
           {
             "id": 27,
             "type": "Reroute",
+            "pos": [
+              20,
+              208
+            ],
             "size": [
               75,
               26
             ],
             "flags": {},
-            "order": 0,
+            "order": 10,
             "mode": 0,
             "inputs": [
               {
@@ -1990,11 +2029,7 @@
             "properties": {
               "showOutputText": false,
               "horizontal": false
-            },
-            "pos": [
-              20,
-              208
-            ]
+            }
           },
           {
             "id": 32,
@@ -2008,7 +2043,7 @@
               88
             ],
             "flags": {},
-            "order": 0,
+            "order": 1,
             "mode": 0,
             "inputs": [],
             "outputs": [],
@@ -2017,18 +2052,25 @@
             "widgets_values": [
               "8 steps, CFG 1, er_sde and simple: the Krea 2 Turbo settings. The patch spreads the canvas reference over the whole frame."
             ],
+            "widgets_values_named": {
+              "text": "8 steps, CFG 1, er_sde and simple: the Krea 2 Turbo settings. The patch spreads the canvas reference over the whole frame."
+            },
             "color": "#1f2c38",
             "bgcolor": "#2a3b4a"
           },
           {
             "id": 28,
             "type": "Reroute",
+            "pos": [
+              560,
+              450
+            ],
             "size": [
               75,
               26
             ],
             "flags": {},
-            "order": 0,
+            "order": 11,
             "mode": 0,
             "inputs": [
               {
@@ -2049,11 +2091,7 @@
             "properties": {
               "showOutputText": false,
               "horizontal": false
-            },
-            "pos": [
-              560,
-              450
-            ]
+            }
           },
           {
             "id": 33,
@@ -2067,7 +2105,7 @@
               88
             ],
             "flags": {},
-            "order": 0,
+            "order": 2,
             "mode": 0,
             "inputs": [],
             "outputs": [],
@@ -2076,12 +2114,16 @@
             "widgets_values": [
               "Blend in fades the model's picture into yours just inside its edge, with no tone shift. The new area stays as painted."
             ],
+            "widgets_values_named": {
+              "text": "Blend in fades the model's picture into yours just inside its edge, with no tone shift. The new area stays as painted."
+            },
             "color": "#1f2c38",
             "bgcolor": "#2a3b4a"
           }
         ],
         "groups": [
           {
+            "id": 92,
             "title": "1 · Set up the painting",
             "bounding": [
               0,
@@ -2090,10 +2132,10 @@
               868
             ],
             "color": "#1d5560",
-            "flags": {},
-            "id": 92
+            "flags": {}
           },
           {
+            "id": 93,
             "title": "2 · Paint",
             "bounding": [
               540,
@@ -2102,10 +2144,10 @@
               828
             ],
             "color": "#1d5560",
-            "flags": {},
-            "id": 93
+            "flags": {}
           },
           {
+            "id": 94,
             "title": "3 · Put it back",
             "bounding": [
               1080,
@@ -2114,8 +2156,7 @@
               529
             ],
             "color": "#1d5560",
-            "flags": {},
-            "id": 94
+            "flags": {}
           }
         ],
         "links": [
@@ -2224,14 +2265,6 @@
             "type": "STRING"
           },
           {
-            "id": 38,
-            "origin_id": 27,
-            "origin_slot": 0,
-            "target_id": 6,
-            "target_slot": 4,
-            "type": "STRING"
-          },
-          {
             "id": 15,
             "origin_id": -10,
             "origin_slot": 4,
@@ -2296,11 +2329,19 @@
             "type": "IMAGE"
           },
           {
+            "id": 38,
+            "origin_id": 27,
+            "origin_slot": 0,
+            "target_id": 6,
+            "target_slot": 5,
+            "type": "STRING"
+          },
+          {
             "id": 53,
             "origin_id": -10,
             "origin_slot": 1,
             "target_id": 6,
-            "target_slot": 5,
+            "target_slot": 4,
             "type": "MASK"
           }
         ],
@@ -2316,7 +2357,8 @@
         271,
         20
       ]
-    }
+    },
+    "frontendVersion": "1.53.6"
   },
   "version": 0.4
 }

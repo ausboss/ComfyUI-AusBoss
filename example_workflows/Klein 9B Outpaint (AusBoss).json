@@ -30,9 +30,9 @@
       ],
       "title": "Diffusion model",
       "properties": {
+        "Node name for S&R": "UNETLoader",
         "cnr_id": "comfy-core",
         "ver": "0.37.0",
-        "Node name for S&R": "UNETLoader",
         "models": [
           {
             "name": "flux-2-klein-9b-int8-convrot.safetensors",
@@ -78,9 +78,9 @@
       ],
       "title": "Text encoder",
       "properties": {
+        "Node name for S&R": "CLIPLoader",
         "cnr_id": "comfy-core",
         "ver": "0.37.0",
-        "Node name for S&R": "CLIPLoader",
         "models": [
           {
             "name": "qwen_3_8b_fp8mixed.safetensors",
@@ -128,9 +128,9 @@
       ],
       "title": "VAE",
       "properties": {
+        "Node name for S&R": "VAELoader",
         "cnr_id": "comfy-core",
         "ver": "0.37.0",
-        "Node name for S&R": "VAELoader",
         "models": [
           {
             "name": "flux2-vae.safetensors",
@@ -160,7 +160,7 @@
         188
       ],
       "flags": {},
-      "order": 3,
+      "order": 9,
       "mode": 0,
       "inputs": [
         {
@@ -170,9 +170,9 @@
         },
         {
           "name": "clip",
+          "shape": 7,
           "type": "CLIP",
-          "link": null,
-          "shape": 7
+          "link": null
         }
       ],
       "outputs": [
@@ -196,10 +196,10 @@
       ],
       "title": "LoRA Loader - PixaOutpaint LoRA",
       "properties": {
-        "cnr_id": "ausboss-nodes",
-        "ver": "2.4.0",
         "Node name for S&R": "AUSBOSS_NODES_LoraLoader",
         "ausbossLoraLinked": true,
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.4.0",
         "models": [
           {
             "name": "pixaoutpaint.safetensors",
@@ -211,14 +211,12 @@
       "widgets_values": [
         "[{\"name\":\"pixaoutpaint.safetensors\",\"strength\":1,\"enabled\":true,\"triggers\":\"pixaoutpaint\"}]",
         ", ",
-        "error",
-        ""
+        "error"
       ],
       "widgets_values_named": {
         "loras": "[{\"name\":\"pixaoutpaint.safetensors\",\"strength\":1,\"enabled\":true,\"triggers\":\"pixaoutpaint\"}]",
         "trigger_separator": ", ",
-        "on_missing": "error",
-        "ausboss_lora_rows": ""
+        "on_missing": "error"
       },
       "color": "#14424d",
       "bgcolor": "#161f21"
@@ -235,7 +233,7 @@
         168
       ],
       "flags": {},
-      "order": 4,
+      "order": 3,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -249,17 +247,15 @@
       ],
       "title": "Text - What goes there",
       "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_Text",
         "cnr_id": "ausboss-nodes",
-        "ver": "2.4.0",
-        "Node name for S&R": "AUSBOSS_NODES_Text"
+        "ver": "2.4.0"
       },
       "widgets_values": [
-        "pixaoutpaint, replace all solid gray areas with a seamless continuation of the surrounding scene.",
-        ""
+        "pixaoutpaint, replace all solid gray areas with a seamless continuation of the surrounding scene."
       ],
       "widgets_values_named": {
-        "text": "pixaoutpaint, replace all solid gray areas with a seamless continuation of the surrounding scene.",
-        "ausboss_widget_card": ""
+        "text": "pixaoutpaint, replace all solid gray areas with a seamless continuation of the surrounding scene."
       },
       "color": "#14424d",
       "bgcolor": "#161f21"
@@ -276,7 +272,7 @@
         216
       ],
       "flags": {},
-      "order": 5,
+      "order": 4,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -290,19 +286,17 @@
       ],
       "title": "Seed",
       "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_Seed",
         "cnr_id": "ausboss-nodes",
-        "ver": "2.4.0",
-        "Node name for S&R": "AUSBOSS_NODES_Seed"
+        "ver": "2.4.0"
       },
       "widgets_values": [
         8311,
-        "fixed",
-        ""
+        "fixed"
       ],
       "widgets_values_named": {
         "seed": 8311,
-        "control_after_generate": "fixed",
-        "ausboss_seed_panel": ""
+        "control_after_generate": "fixed"
       },
       "color": "#14424d",
       "bgcolor": "#161f21"
@@ -321,18 +315,18 @@
       "flags": {
         "no_title": true
       },
-      "order": 6,
+      "order": 5,
       "mode": 0,
       "inputs": [],
       "outputs": [],
       "title": "Run Timer",
       "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_RunTimer",
         "cnr_id": "ausboss-nodes",
-        "ver": "2.4.0",
-        "Node name for S&R": "AUSBOSS_NODES_RunTimer"
+        "ver": "2.4.0"
       },
-      "color": "#14424d",
-      "bgcolor": "#161f21"
+      "color": "#07090a",
+      "bgcolor": "#07090a"
     },
     {
       "id": 26,
@@ -346,7 +340,7 @@
         959
       ],
       "flags": {},
-      "order": 7,
+      "order": 6,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -392,9 +386,9 @@
       ],
       "title": "Image Crop + Rotate + Pad - Your image",
       "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_ImageCropRotatePad",
         "cnr_id": "ausboss-nodes",
         "ver": "2.4.0",
-        "Node name for S&R": "AUSBOSS_NODES_ImageCropRotatePad",
         "ausboss_fit_aspect": "3:4",
         "ausboss_aspect_mode": "pad",
         "ausboss_aspect_lock": false,
@@ -443,8 +437,7 @@
         "resolution_steps": 16,
         "stitch_blend": 0,
         "stitch_grow": 0,
-        "upload": "image",
-        "ausboss_transform_preview": ""
+        "upload": "image"
       },
       "color": "#14424d",
       "bgcolor": "#161f21"
@@ -461,7 +454,7 @@
         106
       ],
       "flags": {},
-      "order": 8,
+      "order": 7,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -475,9 +468,9 @@
       ],
       "title": "Caption model",
       "properties": {
+        "Node name for S&R": "CLIPLoader",
         "cnr_id": "comfy-core",
         "ver": "0.37.0",
-        "Node name for S&R": "CLIPLoader",
         "models": [
           {
             "name": "qwen3vl_8b_int8_convrot.safetensors",
@@ -511,7 +504,7 @@
         66
       ],
       "flags": {},
-      "order": 9,
+      "order": 10,
       "mode": 0,
       "inputs": [
         {
@@ -539,8 +532,9 @@
           ]
         }
       ],
-      "title": "Write the prompt",
-      "properties": {},
+      "properties": {
+        "previewExposures": []
+      },
       "color": "#14424d",
       "bgcolor": "#161f21"
     },
@@ -556,7 +550,7 @@
         180
       ],
       "flags": {},
-      "order": 10,
+      "order": 11,
       "mode": 0,
       "inputs": [
         {
@@ -609,8 +603,15 @@
           ]
         }
       ],
-      "title": "Paint with Klein",
-      "properties": {},
+      "properties": {
+        "previewExposures": [
+          {
+            "name": "$$canvas-image-preview",
+            "sourceNodeId": "14",
+            "sourcePreviewName": "$$canvas-image-preview"
+          }
+        ]
+      },
       "color": "#14424d",
       "bgcolor": "#161f21"
     },
@@ -626,7 +627,7 @@
         606
       ],
       "flags": {},
-      "order": 11,
+      "order": 12,
       "mode": 0,
       "inputs": [
         {
@@ -651,17 +652,13 @@
       ],
       "title": "Image Compare A/B - Before and after",
       "properties": {
-        "cnr_id": "ausboss-nodes",
-        "ver": "2.4.0",
         "Node name for S&R": "AUSBOSS_NODES_Compare",
-        "ausboss_compare_mode": "slide"
+        "ausboss_compare_mode": "slide",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.4.0"
       },
-      "widgets_values": [
-        ""
-      ],
-      "widgets_values_named": {
-        "ausboss_compare_panel": ""
-      },
+      "widgets_values": [],
+      "widgets_values_named": {},
       "color": "#14424d",
       "bgcolor": "#161f21"
     },
@@ -677,7 +674,7 @@
         700
       ],
       "flags": {},
-      "order": 12,
+      "order": 13,
       "mode": 0,
       "inputs": [
         {
@@ -687,15 +684,15 @@
         },
         {
           "name": "filename",
+          "shape": 7,
           "type": "STRING",
-          "link": null,
-          "shape": 7
+          "link": null
         },
         {
           "name": "caption_text",
+          "shape": 7,
           "type": "STRING",
-          "link": null,
-          "shape": 7
+          "link": null
         }
       ],
       "outputs": [
@@ -712,9 +709,9 @@
       ],
       "title": "Save Image",
       "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_SaveImage",
         "cnr_id": "ausboss-nodes",
-        "ver": "2.4.0",
-        "Node name for S&R": "AUSBOSS_NODES_SaveImage"
+        "ver": "2.4.0"
       },
       "widgets_values": {
         "filename_prefix": "klein_outpaint",
@@ -738,15 +735,13 @@
         "exact_name": "",
         "on_existing": "overwrite",
         "output_dir": "",
-        "ausboss_save_image_card": "",
         "caption": "",
         "name_counter": true,
         "name_date": false,
         "name_time": false,
         "name_size": false,
         "name_batch": false,
-        "preview": true,
-        "ausboss_input_preview": ""
+        "preview": true
       },
       "color": "#14424d",
       "bgcolor": "#161f21"
@@ -760,24 +755,24 @@
       ],
       "size": [
         480,
-        752
+        806.344
       ],
       "flags": {},
-      "order": 13,
+      "order": 8,
       "mode": 0,
       "inputs": [],
       "outputs": [],
       "title": "🆎 AusBoss",
       "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote",
         "cnr_id": "ausboss-nodes",
-        "ver": "2.4.0",
-        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote"
+        "ver": "2.4.0"
       },
       "widgets_values": [
-        "{\"v\": 1, \"title\": \"Klein 9B Outpaint\", \"subtitle\": \"Extend a picture, and Klein 9B paints the new area.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image.\\n2. Pick a ratio, or drag the orange handles out.\\n3. Optional: describe the new area in **What goes there**, after the first sentence.\\n4. Press **Run**.\\n\\nKeep that first sentence. Without it the new area can come out blank.\\n\\nThe two boxes in the middle do the work. Double-click one to see inside.\\n\\nNeeds AusBoss nodes 2.4.0 or newer.\", \"models\": [{\"name\": \"flux-2-klein-9b-int8-convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"9.43 GB\", \"url\": \"https://huggingface.co/Winnougan/Klein9b-Distilled-Base-INT8-Convrot/resolve/main/flux-2-klein-9b-int8-convrot.safetensors\", \"note\": \"INT8 build by Winnougan\"}, {\"name\": \"qwen_3_8b_fp8mixed.safetensors\", \"dir\": \"text_encoders\", \"size\": \"8.66 GB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors\", \"note\": \"\"}, {\"name\": \"flux2-vae.safetensors\", \"dir\": \"vae\", \"size\": \"336 MB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/vae/flux2-vae.safetensors\", \"note\": \"\"}, {\"name\": \"pixaoutpaint.safetensors\", \"dir\": \"loras\", \"size\": \"127 MB\", \"url\": \"https://huggingface.co/Pixaroma/experimental_loras/resolve/main/pixaoutpaint.safetensors\", \"note\": \"by Pixaroma\"}, {\"name\": \"qwen3vl_8b_int8_convrot.safetensors\", \"dir\": \"text_encoders\", \"size\": \"9.35 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\", \"note\": \"for the description\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_ImageCropRotatePad\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+        "{\"v\": 1, \"title\": \"Klein 9B Outpaint\", \"subtitle\": \"Extend a picture, and Klein 9B paints the new area.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image.\\n2. Pick a ratio, or drag the orange handles out.\\n3. Optional: describe the new area in **What goes there**, after the first sentence.\\n4. Press **Run**.\\n\\nKeep that first sentence. Without it the new area can come out blank.\\n\\nA big pad can grow a second hand or face near your picture's edge. If it does, extend in two runs.\\n\\nThe result is about 1.6 MP, whatever size your picture is.\\n\\nThe two boxes in the middle do the work. Double-click one to see inside.\\n\\nNeeds AusBoss nodes newer than 2.4.0 (update first).\", \"models\": [{\"name\": \"flux-2-klein-9b-int8-convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"9.43 GB\", \"url\": \"https://huggingface.co/Winnougan/Klein9b-Distilled-Base-INT8-Convrot/resolve/main/flux-2-klein-9b-int8-convrot.safetensors\", \"note\": \"INT8 build by Winnougan\"}, {\"name\": \"qwen_3_8b_fp8mixed.safetensors\", \"dir\": \"text_encoders\", \"size\": \"8.66 GB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors\", \"note\": \"\"}, {\"name\": \"flux2-vae.safetensors\", \"dir\": \"vae\", \"size\": \"336 MB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/vae/flux2-vae.safetensors\", \"note\": \"\"}, {\"name\": \"pixaoutpaint.safetensors\", \"dir\": \"loras\", \"size\": \"127 MB\", \"url\": \"https://huggingface.co/Pixaroma/experimental_loras/resolve/main/pixaoutpaint.safetensors\", \"note\": \"by Pixaroma\"}, {\"name\": \"qwen3vl_8b_int8_convrot.safetensors\", \"dir\": \"text_encoders\", \"size\": \"9.35 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\", \"note\": \"for the description\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_ImageCropRotatePad\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
       ],
       "widgets_values_named": {
-        "note": "{\"v\": 1, \"title\": \"Klein 9B Outpaint\", \"subtitle\": \"Extend a picture, and Klein 9B paints the new area.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image.\\n2. Pick a ratio, or drag the orange handles out.\\n3. Optional: describe the new area in **What goes there**, after the first sentence.\\n4. Press **Run**.\\n\\nKeep that first sentence. Without it the new area can come out blank.\\n\\nThe two boxes in the middle do the work. Double-click one to see inside.\\n\\nNeeds AusBoss nodes 2.4.0 or newer.\", \"models\": [{\"name\": \"flux-2-klein-9b-int8-convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"9.43 GB\", \"url\": \"https://huggingface.co/Winnougan/Klein9b-Distilled-Base-INT8-Convrot/resolve/main/flux-2-klein-9b-int8-convrot.safetensors\", \"note\": \"INT8 build by Winnougan\"}, {\"name\": \"qwen_3_8b_fp8mixed.safetensors\", \"dir\": \"text_encoders\", \"size\": \"8.66 GB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors\", \"note\": \"\"}, {\"name\": \"flux2-vae.safetensors\", \"dir\": \"vae\", \"size\": \"336 MB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/vae/flux2-vae.safetensors\", \"note\": \"\"}, {\"name\": \"pixaoutpaint.safetensors\", \"dir\": \"loras\", \"size\": \"127 MB\", \"url\": \"https://huggingface.co/Pixaroma/experimental_loras/resolve/main/pixaoutpaint.safetensors\", \"note\": \"by Pixaroma\"}, {\"name\": \"qwen3vl_8b_int8_convrot.safetensors\", \"dir\": \"text_encoders\", \"size\": \"9.35 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\", \"note\": \"for the description\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_ImageCropRotatePad\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+        "note": "{\"v\": 1, \"title\": \"Klein 9B Outpaint\", \"subtitle\": \"Extend a picture, and Klein 9B paints the new area.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image.\\n2. Pick a ratio, or drag the orange handles out.\\n3. Optional: describe the new area in **What goes there**, after the first sentence.\\n4. Press **Run**.\\n\\nKeep that first sentence. Without it the new area can come out blank.\\n\\nA big pad can grow a second hand or face near your picture's edge. If it does, extend in two runs.\\n\\nThe result is about 1.6 MP, whatever size your picture is.\\n\\nThe two boxes in the middle do the work. Double-click one to see inside.\\n\\nNeeds AusBoss nodes newer than 2.4.0 (update first).\", \"models\": [{\"name\": \"flux-2-klein-9b-int8-convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"9.43 GB\", \"url\": \"https://huggingface.co/Winnougan/Klein9b-Distilled-Base-INT8-Convrot/resolve/main/flux-2-klein-9b-int8-convrot.safetensors\", \"note\": \"INT8 build by Winnougan\"}, {\"name\": \"qwen_3_8b_fp8mixed.safetensors\", \"dir\": \"text_encoders\", \"size\": \"8.66 GB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors\", \"note\": \"\"}, {\"name\": \"flux2-vae.safetensors\", \"dir\": \"vae\", \"size\": \"336 MB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/vae/flux2-vae.safetensors\", \"note\": \"\"}, {\"name\": \"pixaoutpaint.safetensors\", \"dir\": \"loras\", \"size\": \"127 MB\", \"url\": \"https://huggingface.co/Pixaroma/experimental_loras/resolve/main/pixaoutpaint.safetensors\", \"note\": \"by Pixaroma\"}, {\"name\": \"qwen3vl_8b_int8_convrot.safetensors\", \"dir\": \"text_encoders\", \"size\": \"9.35 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\", \"note\": \"for the description\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_ImageCropRotatePad\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
       },
       "color": "#14424d",
       "bgcolor": "#161f21"
@@ -907,6 +902,7 @@
   ],
   "groups": [
     {
+      "id": 1,
       "title": "1 · Your input",
       "bounding": [
         520,
@@ -915,10 +911,10 @@
         1610
       ],
       "color": "#1d5560",
-      "flags": {},
-      "id": 1
+      "flags": {}
     },
     {
+      "id": 2,
       "title": "2 · Behind the scenes",
       "bounding": [
         1080,
@@ -927,10 +923,10 @@
         434
       ],
       "color": "#1d5560",
-      "flags": {},
-      "id": 2
+      "flags": {}
     },
     {
+      "id": 3,
       "title": "3 · Models",
       "bounding": [
         1080,
@@ -939,10 +935,10 @@
         976
       ],
       "color": "#1d5560",
-      "flags": {},
-      "id": 3
+      "flags": {}
     },
     {
+      "id": 4,
       "title": "4 · Result",
       "bounding": [
         1600,
@@ -951,8 +947,7 @@
         1610
       ],
       "color": "#1d5560",
-      "flags": {},
-      "id": 4
+      "flags": {}
     }
   ],
   "definitions": {
@@ -1057,10 +1052,11 @@
               82
             ],
             "flags": {},
-            "order": 0,
+            "order": 5,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "image",
                 "name": "image",
                 "type": "IMAGE",
                 "link": 16
@@ -1068,6 +1064,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "IMAGE",
                 "name": "IMAGE",
                 "type": "IMAGE",
                 "links": [
@@ -1077,9 +1074,9 @@
             ],
             "title": "Small copy for the caption",
             "properties": {
+              "Node name for S&R": "ImageScaleToMaxDimension",
               "cnr_id": "comfy-core",
-              "ver": "0.37.0",
-              "Node name for S&R": "ImageScaleToMaxDimension"
+              "ver": "0.37.0"
             },
             "widgets_values": [
               "area",
@@ -1104,35 +1101,40 @@
               440
             ],
             "flags": {},
-            "order": 1,
+            "order": 2,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "clip",
                 "name": "clip",
                 "type": "CLIP",
                 "link": 18
               },
               {
+                "localized_name": "image",
                 "name": "image",
+                "shape": 7,
                 "type": "IMAGE",
-                "link": 17,
-                "shape": 7
+                "link": 17
               },
               {
+                "localized_name": "video",
                 "name": "video",
+                "shape": 7,
                 "type": "IMAGE",
-                "link": null,
-                "shape": 7
+                "link": null
               },
               {
+                "localized_name": "audio",
                 "name": "audio",
+                "shape": 7,
                 "type": "AUDIO",
-                "link": null,
-                "shape": 7
+                "link": null
               }
             ],
             "outputs": [
               {
+                "localized_name": "generated_text",
                 "name": "generated_text",
                 "type": "STRING",
                 "links": [
@@ -1142,9 +1144,9 @@
             ],
             "title": "Describe the setting",
             "properties": {
+              "Node name for S&R": "TextGenerate",
               "cnr_id": "comfy-core",
-              "ver": "0.37.0",
-              "Node name for S&R": "TextGenerate"
+              "ver": "0.37.0"
             },
             "widgets_values": [
               "Describe only the background and setting behind the subject, its materials and the lighting, in 30 to 60 words. Do not describe any person, face, hair, clothing or pose, and do not describe the framing, cropping or shot type (no close-up, portrait or headshot): the picture is only part of a larger scene that continues past its edges. Use plain factual language. Do not invent actions, camera motion, sound or objects. Output only the description.",
@@ -1195,24 +1197,27 @@
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "string_a",
                 "name": "string_a",
                 "type": "STRING",
-                "link": 20,
                 "widget": {
                   "name": "string_a"
-                }
+                },
+                "link": 20
               },
               {
+                "localized_name": "string_b",
                 "name": "string_b",
                 "type": "STRING",
-                "link": 21,
                 "widget": {
                   "name": "string_b"
-                }
+                },
+                "link": 21
               }
             ],
             "outputs": [
               {
+                "localized_name": "STRING",
                 "name": "STRING",
                 "type": "STRING",
                 "links": [
@@ -1222,9 +1227,9 @@
             ],
             "title": "Your line, then the description",
             "properties": {
+              "Node name for S&R": "StringConcatenate",
               "cnr_id": "comfy-core",
-              "ver": "0.37.0",
-              "Node name for S&R": "StringConcatenate"
+              "ver": "0.37.0"
             },
             "widgets_values": [
               "",
@@ -1255,6 +1260,7 @@
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "text",
                 "name": "text",
                 "type": "STRING",
                 "link": 22
@@ -1262,6 +1268,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "text",
                 "name": "text",
                 "type": "STRING",
                 "links": [
@@ -1271,16 +1278,12 @@
             ],
             "title": "Show Text - Prompt sent to Klein",
             "properties": {
+              "Node name for S&R": "AUSBOSS_NODES_ShowText",
               "cnr_id": "ausboss-nodes",
-              "ver": "2.4.0",
-              "Node name for S&R": "AUSBOSS_NODES_ShowText"
+              "ver": "2.4.0"
             },
-            "widgets_values": [
-              ""
-            ],
-            "widgets_values_named": {
-              "ausboss_show_text_panel": ""
-            },
+            "widgets_values": [],
+            "widgets_values_named": {},
             "color": "#14424d",
             "bgcolor": "#161f21"
           },
@@ -1296,7 +1299,7 @@
               26
             ],
             "flags": {},
-            "order": 2,
+            "order": 6,
             "mode": 0,
             "inputs": [
               {
@@ -1340,6 +1343,9 @@
             "widgets_values": [
               "Qwen3-VL 8B describes the setting behind your subject, not the person. Describing the person made Klein paint a second face under tight crops."
             ],
+            "widgets_values_named": {
+              "text": "Qwen3-VL 8B describes the setting behind your subject, not the person. Describing the person made Klein paint a second face under tight crops."
+            },
             "color": "#1f2c38",
             "bgcolor": "#2a3b4a"
           },
@@ -1355,7 +1361,7 @@
               88
             ],
             "flags": {},
-            "order": 0,
+            "order": 1,
             "mode": 0,
             "inputs": [],
             "outputs": [],
@@ -1364,12 +1370,16 @@
             "widgets_values": [
               "Your line from What goes there comes first, then the description. Show Text shows the prompt Klein gets."
             ],
+            "widgets_values_named": {
+              "text": "Your line from What goes there comes first, then the description. Show Text shows the prompt Klein gets."
+            },
             "color": "#1f2c38",
             "bgcolor": "#2a3b4a"
           }
         ],
         "groups": [
           {
+            "id": 5,
             "title": "1 · Describe the setting",
             "bounding": [
               0,
@@ -1378,10 +1388,10 @@
               904
             ],
             "color": "#1d5560",
-            "flags": {},
-            "id": 5
+            "flags": {}
           },
           {
+            "id": 6,
             "title": "2 · Build the prompt",
             "bounding": [
               540,
@@ -1390,8 +1400,7 @@
               780
             ],
             "color": "#1d5560",
-            "flags": {},
-            "id": 6
+            "flags": {}
           }
         ],
         "links": [
@@ -1402,22 +1411,6 @@
             "target_id": 27,
             "target_slot": 0,
             "type": "IMAGE"
-          },
-          {
-            "id": 17,
-            "origin_id": 27,
-            "origin_slot": 0,
-            "target_id": 23,
-            "target_slot": 1,
-            "type": "IMAGE"
-          },
-          {
-            "id": 18,
-            "origin_id": -10,
-            "origin_slot": 2,
-            "target_id": 23,
-            "target_slot": 0,
-            "type": "CLIP"
           },
           {
             "id": 19,
@@ -1458,6 +1451,22 @@
             "target_id": -20,
             "target_slot": 0,
             "type": "STRING"
+          },
+          {
+            "id": 18,
+            "origin_id": -10,
+            "origin_slot": 2,
+            "target_id": 23,
+            "target_slot": 0,
+            "type": "CLIP"
+          },
+          {
+            "id": 17,
+            "origin_id": 27,
+            "origin_slot": 0,
+            "target_id": 23,
+            "target_slot": 1,
+            "type": "IMAGE"
           }
         ],
         "extra": {}
@@ -1628,15 +1637,17 @@
               46
             ],
             "flags": {},
-            "order": 0,
+            "order": 4,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "pixels",
                 "name": "pixels",
                 "type": "IMAGE",
                 "link": 24
               },
               {
+                "localized_name": "vae",
                 "name": "vae",
                 "type": "VAE",
                 "link": 25
@@ -1644,6 +1655,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "LATENT",
                 "name": "LATENT",
                 "type": "LATENT",
                 "links": [
@@ -1655,9 +1667,9 @@
             ],
             "title": "Canvas to latent",
             "properties": {
+              "Node name for S&R": "VAEEncode",
               "cnr_id": "comfy-core",
-              "ver": "0.37.0",
-              "Node name for S&R": "VAEEncode"
+              "ver": "0.37.0"
             },
             "color": "#14424d",
             "bgcolor": "#161f21"
@@ -1674,15 +1686,17 @@
               46
             ],
             "flags": {},
-            "order": 6,
+            "order": 12,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "samples",
                 "name": "samples",
                 "type": "LATENT",
                 "link": 26
               },
               {
+                "localized_name": "mask",
                 "name": "mask",
                 "type": "MASK",
                 "link": 27
@@ -1690,6 +1704,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "LATENT",
                 "name": "LATENT",
                 "type": "LATENT",
                 "links": [
@@ -1699,9 +1714,9 @@
             ],
             "title": "Paint only the gray",
             "properties": {
+              "Node name for S&R": "SetLatentNoiseMask",
               "cnr_id": "comfy-core",
-              "ver": "0.37.0",
-              "Node name for S&R": "SetLatentNoiseMask"
+              "ver": "0.37.0"
             },
             "color": "#14424d",
             "bgcolor": "#161f21"
@@ -1718,25 +1733,28 @@
               88
             ],
             "flags": {},
-            "order": 2,
+            "order": 5,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "clip",
                 "name": "clip",
                 "type": "CLIP",
                 "link": 30
               },
               {
+                "localized_name": "text",
                 "name": "text",
                 "type": "STRING",
-                "link": 29,
                 "widget": {
                   "name": "text"
-                }
+                },
+                "link": 29
               }
             ],
             "outputs": [
               {
+                "localized_name": "CONDITIONING",
                 "name": "CONDITIONING",
                 "type": "CONDITIONING",
                 "links": [
@@ -1747,9 +1765,9 @@
             ],
             "title": "Encode the prompt",
             "properties": {
+              "Node name for S&R": "CLIPTextEncode",
               "cnr_id": "comfy-core",
-              "ver": "0.37.0",
-              "Node name for S&R": "CLIPTextEncode"
+              "ver": "0.37.0"
             },
             "widgets_values": [
               ""
@@ -1772,23 +1790,26 @@
               46
             ],
             "flags": {},
-            "order": 3,
+            "order": 6,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "conditioning",
                 "name": "conditioning",
                 "type": "CONDITIONING",
                 "link": 31
               },
               {
+                "localized_name": "latent",
                 "name": "latent",
+                "shape": 7,
                 "type": "LATENT",
-                "link": 32,
-                "shape": 7
+                "link": 32
               }
             ],
             "outputs": [
               {
+                "localized_name": "CONDITIONING",
                 "name": "CONDITIONING",
                 "type": "CONDITIONING",
                 "links": [
@@ -1798,9 +1819,9 @@
             ],
             "title": "Canvas as reference",
             "properties": {
+              "Node name for S&R": "ReferenceLatent",
               "cnr_id": "comfy-core",
-              "ver": "0.37.0",
-              "Node name for S&R": "ReferenceLatent"
+              "ver": "0.37.0"
             },
             "color": "#14424d",
             "bgcolor": "#161f21"
@@ -1817,10 +1838,11 @@
               26
             ],
             "flags": {},
-            "order": 4,
+            "order": 7,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "conditioning",
                 "name": "conditioning",
                 "type": "CONDITIONING",
                 "link": 33
@@ -1828,6 +1850,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "CONDITIONING",
                 "name": "CONDITIONING",
                 "type": "CONDITIONING",
                 "links": [
@@ -1837,9 +1860,9 @@
             ],
             "title": "Empty negative",
             "properties": {
+              "Node name for S&R": "ConditioningZeroOut",
               "cnr_id": "comfy-core",
-              "ver": "0.37.0",
-              "Node name for S&R": "ConditioningZeroOut"
+              "ver": "0.37.0"
             },
             "color": "#14424d",
             "bgcolor": "#161f21"
@@ -1856,23 +1879,26 @@
               46
             ],
             "flags": {},
-            "order": 5,
+            "order": 8,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "conditioning",
                 "name": "conditioning",
                 "type": "CONDITIONING",
                 "link": 34
               },
               {
+                "localized_name": "latent",
                 "name": "latent",
+                "shape": 7,
                 "type": "LATENT",
-                "link": 35,
-                "shape": 7
+                "link": 35
               }
             ],
             "outputs": [
               {
+                "localized_name": "CONDITIONING",
                 "name": "CONDITIONING",
                 "type": "CONDITIONING",
                 "links": [
@@ -1882,9 +1908,9 @@
             ],
             "title": "Canvas as reference, negative",
             "properties": {
+              "Node name for S&R": "ReferenceLatent",
               "cnr_id": "comfy-core",
-              "ver": "0.37.0",
-              "Node name for S&R": "ReferenceLatent"
+              "ver": "0.37.0"
             },
             "color": "#14424d",
             "bgcolor": "#161f21"
@@ -1901,40 +1927,46 @@
               262
             ],
             "flags": {},
-            "order": 8,
+            "order": 9,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "model",
                 "name": "model",
                 "type": "MODEL",
                 "link": 36
               },
               {
+                "localized_name": "positive",
                 "name": "positive",
                 "type": "CONDITIONING",
                 "link": 37
               },
               {
+                "localized_name": "negative",
                 "name": "negative",
                 "type": "CONDITIONING",
                 "link": 38
               },
               {
+                "localized_name": "latent_image",
                 "name": "latent_image",
                 "type": "LATENT",
                 "link": 39
               },
               {
+                "localized_name": "seed",
                 "name": "seed",
                 "type": "INT",
-                "link": 41,
                 "widget": {
                   "name": "seed"
-                }
+                },
+                "link": 41
               }
             ],
             "outputs": [
               {
+                "localized_name": "LATENT",
                 "name": "LATENT",
                 "type": "LATENT",
                 "links": [
@@ -1944,9 +1976,9 @@
             ],
             "title": "Klein 9B sampler",
             "properties": {
+              "Node name for S&R": "KSampler",
               "cnr_id": "comfy-core",
-              "ver": "0.37.0",
-              "Node name for S&R": "KSampler"
+              "ver": "0.37.0"
             },
             "widgets_values": [
               20260903,
@@ -1981,15 +2013,17 @@
               46
             ],
             "flags": {},
-            "order": 9,
+            "order": 10,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "samples",
                 "name": "samples",
                 "type": "LATENT",
                 "link": 42
               },
               {
+                "localized_name": "vae",
                 "name": "vae",
                 "type": "VAE",
                 "link": 43
@@ -1997,6 +2031,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "IMAGE",
                 "name": "IMAGE",
                 "type": "IMAGE",
                 "links": [
@@ -2006,9 +2041,9 @@
             ],
             "title": "Decode",
             "properties": {
+              "Node name for S&R": "VAEDecode",
               "cnr_id": "comfy-core",
-              "ver": "0.37.0",
-              "Node name for S&R": "VAEDecode"
+              "ver": "0.37.0"
             },
             "color": "#14424d",
             "bgcolor": "#161f21"
@@ -2025,15 +2060,17 @@
               145
             ],
             "flags": {},
-            "order": 10,
+            "order": 11,
             "mode": 0,
             "inputs": [
               {
+                "localized_name": "stitcher",
                 "name": "stitcher",
                 "type": "AUSBOSS_STITCHER",
                 "link": 44
               },
               {
+                "localized_name": "inpainted",
                 "name": "inpainted",
                 "type": "IMAGE",
                 "link": 45
@@ -2041,6 +2078,7 @@
             ],
             "outputs": [
               {
+                "localized_name": "image",
                 "name": "image",
                 "type": "IMAGE",
                 "links": [
@@ -2048,6 +2086,7 @@
                 ]
               },
               {
+                "localized_name": "blend_mask",
                 "name": "blend_mask",
                 "type": "MASK",
                 "links": []
@@ -2055,21 +2094,19 @@
             ],
             "title": "Stitch Inpaint - Put the new part back",
             "properties": {
+              "Node name for S&R": "AUSBOSS_NODES_StitchInpaint",
               "cnr_id": "ausboss-nodes",
-              "ver": "2.4.0",
-              "Node name for S&R": "AUSBOSS_NODES_StitchInpaint"
+              "ver": "2.4.0"
             },
             "widgets_values": [
               false,
               1,
-              "classic",
-              ""
+              "blend in"
             ],
             "widgets_values_named": {
               "fix_edge_halo": false,
               "color_match": 1,
-              "seam": "classic",
-              "ausboss_widget_card": ""
+              "seam": "blend in"
             },
             "color": "#14424d",
             "bgcolor": "#161f21"
@@ -2086,7 +2123,7 @@
               26
             ],
             "flags": {},
-            "order": 1,
+            "order": 13,
             "mode": 0,
             "inputs": [
               {
@@ -2121,7 +2158,7 @@
               26
             ],
             "flags": {},
-            "order": 7,
+            "order": 14,
             "mode": 0,
             "inputs": [
               {
@@ -2165,6 +2202,9 @@
             "widgets_values": [
               "The canvas becomes the starting latent. Its mask marks the gray areas, so the sampler paints only there."
             ],
+            "widgets_values_named": {
+              "text": "The canvas becomes the starting latent. Its mask marks the gray areas, so the sampler paints only there."
+            },
             "color": "#1f2c38",
             "bgcolor": "#2a3b4a"
           },
@@ -2180,7 +2220,7 @@
               88
             ],
             "flags": {},
-            "order": 0,
+            "order": 1,
             "mode": 0,
             "inputs": [],
             "outputs": [],
@@ -2189,6 +2229,9 @@
             "widgets_values": [
               "Klein reads the prompt with the canvas as a reference. At CFG 1 the negative side is not used."
             ],
+            "widgets_values_named": {
+              "text": "Klein reads the prompt with the canvas as a reference. At CFG 1 the negative side is not used."
+            },
             "color": "#1f2c38",
             "bgcolor": "#2a3b4a"
           },
@@ -2204,7 +2247,7 @@
               88
             ],
             "flags": {},
-            "order": 0,
+            "order": 2,
             "mode": 0,
             "inputs": [],
             "outputs": [],
@@ -2213,6 +2256,9 @@
             "widgets_values": [
               "4 steps, CFG 1, euler and simple: the settings for the distilled Klein 9B."
             ],
+            "widgets_values_named": {
+              "text": "4 steps, CFG 1, euler and simple: the settings for the distilled Klein 9B."
+            },
             "color": "#1f2c38",
             "bgcolor": "#2a3b4a"
           },
@@ -2228,21 +2274,25 @@
               88
             ],
             "flags": {},
-            "order": 0,
+            "order": 3,
             "mode": 0,
             "inputs": [],
             "outputs": [],
             "title": "Note",
             "properties": {},
             "widgets_values": [
-              "Your image goes back on top. Tone match shifts the new area's brightness and color to sit with your image along the seam."
+              "Your image goes back on top. Blend in fades the new area into your image just inside the edge, and Tone match evens out its colour."
             ],
+            "widgets_values_named": {
+              "text": "Your image goes back on top. Blend in fades the new area into your image just inside the edge, and Tone match evens out its colour."
+            },
             "color": "#1f2c38",
             "bgcolor": "#2a3b4a"
           }
         ],
         "groups": [
           {
+            "id": 7,
             "title": "1 · Set up the painting",
             "bounding": [
               0,
@@ -2251,10 +2301,10 @@
               428
             ],
             "color": "#1d5560",
-            "flags": {},
-            "id": 7
+            "flags": {}
           },
           {
+            "id": 8,
             "title": "2 · Prompt and reference",
             "bounding": [
               540,
@@ -2263,10 +2313,10 @@
               748
             ],
             "color": "#1d5560",
-            "flags": {},
-            "id": 8
+            "flags": {}
           },
           {
+            "id": 9,
             "title": "3 · Paint",
             "bounding": [
               1080,
@@ -2275,10 +2325,10 @@
               586
             ],
             "color": "#1d5560",
-            "flags": {},
-            "id": 9
+            "flags": {}
           },
           {
+            "id": 10,
             "title": "4 · Put it back",
             "bounding": [
               1620,
@@ -2287,8 +2337,7 @@
               529
             ],
             "color": "#1d5560",
-            "flags": {},
-            "id": 10
+            "flags": {}
           }
         ],
         "links": [
@@ -2489,7 +2538,8 @@
         463,
         20
       ]
-    }
+    },
+    "frontendVersion": "1.53.6"
   },
   "version": 0.4
 }
