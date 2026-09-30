@@ -8,9 +8,9 @@
 // Length says. Drag an IN or OUT handle to trim; the playhead rides along on
 // the handle, so the frame on the stage is the first (IN) or last (OUT)
 // frame the run keeps, and stays there on release. The small grip on the
-// kept part slides the whole clip (so does IN, while Length is on). IN, OUT and the playhead are frames, snapped
-// to the source's own frame grid; the seconds the widgets store are derived
-// from them and round-trip exactly.
+// kept part slides the whole clip (so does IN, while Length is on). IN, OUT
+// and the playhead are frames, snapped to the source's own frame grid; the
+// seconds the widgets store are derived from them and round-trip exactly.
 //
 // The clip's length is set one way at a time (clipLengthPlan): by OUT; by a
 // Length that keeps OUT a set number of frames after IN; or by a connected
@@ -274,7 +274,6 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
   const setLength = (on) => {
     const current = plan();
     if (!current || current.mode === "wired" || (on === (current.mode !== "free"))) return;
-    const clip = info();
     if (on) {
       const frames = current.frames ?? framesThrough(current.first, current.windowLast, everyNth(), snapRule());
       set("max_frames", Math.max(1, frames));
