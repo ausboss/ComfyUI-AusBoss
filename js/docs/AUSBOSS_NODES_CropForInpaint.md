@@ -11,7 +11,9 @@ pastes the result back exactly where it came from. The **Extend** rows
 - **image**: BHWC image or video frames to crop around the mask.
 - **mask**: White marks the area to inpaint. A multi-frame mask is unioned
   into one crop window so a whole video shares one stitcher; an empty mask
-  selects the full image (and stitches back unchanged).
+  selects the full image (and stitches back unchanged). A picture with no
+  mask painted on it stops the run with "No mask painted" and how to paint
+  one (core Load Image sends a small blank stand-in in that case).
 - **Context** (`context_factor`): Grows the mask bounding box
   symmetrically by this factor. The grown window is shifted back inside the
   frame first. When it's bigger than the picture, **Stay in picture**

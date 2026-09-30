@@ -52,6 +52,16 @@ test("only the core preview widget is touched", () => {
   assert.equal(typeof mine.computeSize, "undefined");
 });
 
+test("the image suppressor also stands down Nodes 2.0's own copy", () => {
+  // Nodes 2.0 draws a node's output images under its widgets unless the node
+  // sets hideOutputImages (classic never reads it). Left on, Save Image showed
+  // the result twice there and grew past the node under it.
+  const node = fakeNode();
+  assert.equal(node.hideOutputImages, undefined);
+  suppressCoreImagePreview(node);
+  assert.equal(node.hideOutputImages, true);
+});
+
 test("the image and video suppressors do not stand in for each other", () => {
   // They wrap different methods and are flagged separately, so a node that
   // draws both kinds can ask for both.
@@ -93,4 +103,23 @@ test("the DOM widget's element is hidden along with it", () => {
   const element = { style: {} };
   node.addDOMWidget(CORE_VIDEO_PREVIEW_WIDGET, "video", element);
   assert.equal(element.style.display, "none");
+});
+
+// The Crop + Rotate + Pad nodes send no picture of their own, so a core
+// preview on one can only be another node's result: in practice a run from
+// another workflow tab, filed under the same node id. All three kinds stand
+// both core previews down, not just the image node.
+test("every transform node stands down both core previews", async () => {
+  const { readFileSync } = await import("node:fs");
+  const source = readFileSync(new URL("../js/shared/transform_editor.mjs", import.meta.url), "utf-8");
+  const install = source.slice(source.indexOf("export function installTransformNode"), source.indexOf("function installVideoDrop"));
+  assert.match(install, /\n\s*suppressCoreImagePreview\(node\);/);
+  assert.match(install, /\n\s*suppressCoreVideoPreview\(node\);/);
+  assert.doesNotMatch(install, /if \(kind === "image"\) suppressCoreImagePreview/);
+});
+
+test("the video suppression also stands down Nodes 2.0's own output copy", () => {
+  const node = fakeNode();
+  suppressCoreVideoPreview(node);
+  assert.equal(node.hideOutputImages, true);
 });

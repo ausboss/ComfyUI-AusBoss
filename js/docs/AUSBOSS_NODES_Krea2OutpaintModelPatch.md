@@ -42,16 +42,21 @@ different placements.
 
 **Every side at once — `whole canvas` + AnyPaint.** yijunwang2's
 [Krea 2 AnyPaint](https://huggingface.co/yijunwang2/krea2-anypaint)
-(`krea2_anypaint_rank32.safetensors`) was trained with the grey-padded canvas
+(`krea2_anypaint_rank32.safetensors`) was trained with the padded canvas
 itself as the reference, spread over the whole frame, and the known pixels
-held in place by the sampler. Wire it like the *Krea 2 Outpaint* example:
+held in place by the sampler. In its training the new area of that reference
+was always a flat patch of the picture's own median colour. Wire it like the
+*Krea 2 Outpaint* example:
 
 - A pad node with any padding you like: Image Crop + Rotate + Pad 🆎, as in
   the example, or Load Image + Pad 🆎. Left, right, top and bottom together
   are fine. Flat colour fill.
 - Krea 2 Encode 🆎 with the pad node's **image** output (the padded canvas,
-  not Load Image + Pad's unpadded *reference* output) as the reference, and
-  `vlm_reference` **on**.
+  not Load Image + Pad's unpadded *reference* output) as the reference,
+  `vlm_reference` **on**, and the pad node's **mask** wired into its `mask`
+  input. The mask makes the encode refill the new area with the picture's
+  median colour, as in training. Without it a dark or very colourful picture
+  can come back with the gray padding painted in as a gray frame.
 - This patch on `whole canvas`.
 - VAE Encode the padded canvas, Set Latent Noise Mask with the pad mask, and
   sample from that latent at full denoise. The mask is what keeps the source

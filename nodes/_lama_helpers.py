@@ -9,6 +9,7 @@ import torch
 import torch.nn.functional as functional
 
 from ._execution_helpers import comfy_torch_device, progress_bar, raise_if_interrupted
+from ._mask_helpers import NO_MASK_PAINTED, is_unpainted_mask
 from ._status_helpers import push_node_status
 
 try:
@@ -111,6 +112,10 @@ def _normalized_masks(
     if not torch.isfinite(masks).all():
         raise ValueError("LaMa Inpaint received non-finite mask values.")
     normalized = masks.float().clamp(0.0, 1.0)
+    if tuple(normalized.shape[-2:]) != (height, width) and is_unpainted_mask(normalized):
+        # Resized, core Load Image's 64x64 "nothing painted" stand-in would
+        # inpaint nothing and hand the picture back as if it had worked.
+        raise ValueError(NO_MASK_PAINTED)
     if tuple(normalized.shape[-2:]) != (height, width):
         normalized = functional.interpolate(
             normalized.unsqueeze(1),

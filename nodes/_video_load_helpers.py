@@ -325,7 +325,7 @@ def core_trim_args(start_seconds: float, end_seconds: float) -> tuple[float, flo
 
     Core's VIDEO trim treats duration 0 as "until the end", which matches
     end_seconds 0. Degenerate windows (end at or before start) also collapse
-    to 0 here, but VALIDATE_INPUTS rejects those graphs before execution.
+    to 0 here, but the decode's trim_window has already refused them.
     """
     start = max(0.0, float(start_seconds))
     end = float(end_seconds)

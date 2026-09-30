@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ._krea2_helpers import REFERENCE_MAX_EDGE, build_reference_image
+from ._krea2_helpers import REFERENCE_MAX_EDGE, build_reference_image, fill_reference_holes
 
 try:  # Offline tests import this module without ComfyUI.
     import node_helpers
@@ -23,7 +23,9 @@ class AusBossKrea2Encode:
         "and appended to the positive conditioning; leave them unwired and "
         "this is a plain two-prompt encoder. The negative comes out of the "
         "same node so a turbo graph at CFG 1.0 still has something to plug in "
-        "without a second text encode sitting there doing nothing."
+        "without a second text encode sitting there doing nothing. For an "
+        "outpaint, wire the mask too, so the new area reaches the model in "
+        "the picture's own colour instead of gray."
     )
     SEARCH_ALIASES = [
         "krea2 encode",
@@ -106,6 +108,20 @@ class AusBossKrea2Encode:
                         ),
                     },
                 ),
+                # Appended last: saved workflows keep links by slot and widget
+                # values by position, so a new input only ever goes at the end.
+                "mask": (
+                    "MASK",
+                    {
+                        "tooltip": (
+                            "The area to paint, from the node that padded the "
+                            "picture. Wire it for AnyPaint: the model then sees "
+                            "that area in your picture's own colour instead of "
+                            "gray, so a dark picture no longer comes back with "
+                            "a gray frame."
+                        )
+                    },
+                ),
             },
         }
 
@@ -126,7 +142,14 @@ class AusBossKrea2Encode:
         reference=None,
         extra_image=None,
         vlm_reference=False,
+        mask=None,
     ):
+        if reference is not None and mask is not None:
+            # The model and the vision tower both see the refilled picture:
+            # AnyPaint was trained with the new area in the picture's median
+            # colour, and a gray pad next to a dark photo gets painted back
+            # as a gray frame.
+            reference = fill_reference_holes(reference, mask)
         references = [image for image in (reference, extra_image) if image is not None]
 
         images_vl = []

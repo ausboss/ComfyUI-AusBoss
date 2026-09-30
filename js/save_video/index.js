@@ -1,5 +1,6 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
+import { isForeignRun, outputKey } from "../shared/prompt_scope.mjs";
 import { chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { fillNodeHeight } from "../shared/panel_layout.mjs";
 import {
@@ -176,8 +177,23 @@ function buildPreview(node) {
   return state;
 }
 
+// Going back to a workflow tab puts its results back in ComfyUI's store,
+// but the player only ever filled from onExecuted, so it said "Run to
+// preview" over a clip it had just saved. Show the stored one.
+function showStoredResult(node) {
+  const state = node.__ausbossSaveVideo;
+  if (!state || state.meta) return;
+  const meta = findVideoMetadata(app.nodeOutputs?.[outputKey(node, app.rootGraph ?? app.graph)]);
+  if (meta) loadMetadata(state, meta);
+}
+
 app.registerExtension({
   name: "ausboss.save_video.polished",
+  onNodeOutputsUpdated() {
+    setTimeout(() => {
+      for (const node of app.graph?._nodes ?? []) if (node?.comfyClass === NODE_NAME) showStoredResult(node);
+    }, 0);
+  },
   beforeRegisterNodeDef(nodeType, nodeData) {
     if (nodeData?.name !== NODE_NAME) return;
     chainCallback(nodeType.prototype, "onNodeCreated", function () {
@@ -197,6 +213,7 @@ app.registerExtension({
       });
     });
     chainCallback(nodeType.prototype, "onExecuted", function (message) {
+      if (isForeignRun()) return;
       const state = buildPreview(this);
       const meta = findVideoMetadata(message);
       if (state && meta) loadMetadata(state, meta);

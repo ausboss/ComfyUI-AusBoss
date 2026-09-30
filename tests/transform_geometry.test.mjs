@@ -109,11 +109,12 @@ test("zoom remains anchored under the pointer", () => {
   assert.deepEqual(zoomAround({ zoom: 1, panX: 0, panY: 0 }, 2, { x: 100, y: 50 }), { zoom: 2, panX: -100, panY: -50 });
 });
 
-test("panel stage height tracks node width within its clamps", () => {
+test("the stage floor tracks the stage width within its clamps", () => {
   assert.equal(stageHeightForWidth(100), 200); // floor
-  assert.equal(stageHeightForWidth(330), 218);
-  assert.equal(stageHeightForWidth(500), 330);
-  assert.equal(stageHeightForWidth(2000), 520); // ceiling
+  assert.equal(stageHeightForWidth(307), 200); // a fresh clip node
+  assert.equal(stageHeightForWidth(442), 265); // the LTX example's node
+  assert.equal(stageHeightForWidth(500), 300);
+  assert.equal(stageHeightForWidth(2000), 340); // ceiling
   assert.equal(stageHeightForWidth(undefined), 200);
 });
 
@@ -265,7 +266,7 @@ test("lock: the result already satisfies a second pass", () => {
 });
 
 // --- Source changes ---------------------------------------------------------
-import { SOURCE_GEOMETRY_KEYS, declaredTransformDefaults, sourceResetValues } from "../js/shared/transform_geometry.mjs";
+import { SOURCE_GEOMETRY_KEYS, declaredTransformDefaults, rememberedSource, sourceResetValues } from "../js/shared/transform_geometry.mjs";
 
 test("a source change resets geometry but never the canvas style", () => {
   const reset = sourceResetValues(true);
@@ -276,6 +277,23 @@ test("a source change resets geometry but never the canvas style", () => {
   assert.equal(reset.crop_aspect_ratio, "free");
   assert.equal(reset.frame_index, 0);
   assert.ok(!("frame_index" in sourceResetValues(false)));
+});
+
+test("a node saved blank takes a pick of the first file as a new picture", () => {
+  // Created on the combo's default, the first file in the input folder,
+  // then loaded from a workflow that saved the loader blank.
+  let remembered = rememberedSource("a_first.png", "");
+  assert.equal(sourceChanged(remembered, "a_first.png"), true);
+  assert.equal(sourceChanged(remembered, "b_other.png"), true);
+  // Saved with a file: that file is no change, any other is new.
+  remembered = rememberedSource("a_first.png", "b_saved.png");
+  assert.equal(sourceChanged(remembered, "b_saved.png"), false);
+  assert.equal(sourceChanged(remembered, "a_first.png"), true);
+  // A blank the user makes (Local path, nothing typed yet) keeps the last
+  // source, so going back to it is no change; a real pick is remembered.
+  remembered = rememberedSource("input:clip.mp4", "", true);
+  assert.equal(sourceChanged(remembered, "input:clip.mp4"), false);
+  assert.equal(rememberedSource(remembered, "local:clip.mp4", true), "local:clip.mp4");
 });
 
 test("reset returns to the node's declared defaults over the shared identity", () => {
@@ -387,7 +405,7 @@ test("the size chain names every step and the stretch the steps cause", () => {
   assert.deepEqual(chain.resized, { width: 1280, height: 704 });
   const { tokens, warnings } = sizeChainTokens(chain);
   assert.deepEqual(tokens.map((token) => `${token.label} ${token.text}`.trim()), ["576×1024", "pad 1821×1024", "resize 1280×704"]);
-  assert.deepEqual(warnings, ["2.2% wider from steps"]);
+  assert.deepEqual(warnings, ["2.2% wider: each side rounds to 32 px"]);
 });
 
 test("the size chain shows Align and names its strip ahead of a resize", () => {
@@ -395,16 +413,192 @@ test("the size chain shows Align and names its strip ahead of a resize", () => {
   const source = rotatedSize(1920, 1080, 10);
   const values = { crop_aspect_ratio: "16:9", pad_left: 64, pad_top: 64, pad_right: 64, pad_bottom: 64, canvas_multiple: 64 };
   const { tokens, warnings } = sizeChainTokens(sizeChain(values, source, { megapixels: 1, steps: 1 }));
-  assert.deepEqual(tokens.map((token) => `${token.label} ${token.text}`.trim()), ["crop 2080×1170", "pad 2208×1298", "align 64 2240×1344", "resize 1322×793"]);
-  assert.deepEqual(warnings, ["align 64 adds 32 px right + 46 px bottom of fill"]);
+  assert.deepEqual(tokens.map((token) => `${token.label} ${token.text}`.trim()), ["crop 2080×1170", "pad 2208×1298", "round to 64 2240×1344", "resize 1322×793"]);
+  assert.deepEqual(warnings, ["rounding to 64 adds 32 px on the right and 46 px at the bottom of fill"]);
   // Without a resize the strip is what Align is for: no warning.
   assert.deepEqual(sizeChainTokens(sizeChain(values, source, null)).warnings, []);
   // The report's case: a 1824-wide picture, Align 64, Resize at Step 64.
   // The resized size is a multiple of 64, but the strip is still there.
   const arcade = sizeChainTokens(sizeChain({ canvas_multiple: 64 }, { width: 1824, height: 2304 }, { megapixels: 1, steps: 64 }));
-  assert.deepEqual(arcade.tokens.map((token) => `${token.label} ${token.text}`.trim()), ["1824×2304", "align 64 1856×2304", "resize 896×1152"]);
-  assert.deepEqual(arcade.warnings, ["3.4% taller from steps", "align 64 adds 32 px right of fill"]);
+  assert.deepEqual(arcade.tokens.map((token) => `${token.label} ${token.text}`.trim()), ["1824×2304", "round to 64 1856×2304", "resize 896×1152"]);
+  assert.deepEqual(arcade.warnings, ["3.4% taller: each side rounds to 64 px", "rounding to 64 adds 32 px on the right of fill"]);
   // Align that adds nothing but a resize that breaks the multiple.
   const lost = sizeChainTokens(sizeChain({ canvas_multiple: 64 }, { width: 1280, height: 768 }, { megapixels: 0.5, steps: 1 }));
-  assert.deepEqual(lost.warnings, ["resize undoes align 64"]);
+  assert.deepEqual(lost.warnings, ["the resize undoes rounding to 64"]);
+});
+
+// --- Ratio chips ------------------------------------------------------------
+import {
+  IDENTITY_TRANSFORM,
+  aspectMatches,
+  canvasSize,
+  isUntouched,
+  padAround,
+  ratioLabel,
+  slidePadding,
+  turnAspect,
+  turnedCrop,
+} from "../js/shared/transform_geometry.mjs";
+
+const portraitClip = { width: 720, height: 1280 };
+
+test("a chip is lit only while the canvas has its shape", () => {
+  // Pad to 16:9 is lit; drag the right padding in and it is custom.
+  const padded = { ...fitSourceToAspect(portraitClip, "16:9", "pad"), canvas_multiple: 1 };
+  const canvas = canvasSize(padded, portraitClip);
+  assert.deepEqual(canvas, { width: 2276, height: 1280 });
+  assert.equal(aspectMatches(canvas.width, canvas.height, "16:9"), true);
+  const dragged = canvasSize({ ...padded, pad_right: 405 }, portraitClip);
+  assert.equal(aspectMatches(dragged.width, dragged.height, "16:9"), false);
+  assert.equal(ratioLabel(dragged.width, dragged.height), "1.49:1");
+  // A pixel of rounding either way still counts as the chip's shape.
+  assert.equal(aspectMatches(2275, 1280, "16:9"), true);
+  assert.equal(aspectMatches(2277, 1280, "16:9"), true);
+  // Align's strip is not part of the shape.
+  assert.deepEqual(canvasSize({ ...padded, canvas_multiple: 64 }, portraitClip), canvas);
+});
+
+test("the untouched picture is neither a pick nor custom", () => {
+  assert.equal(isUntouched({ ...IDENTITY_TRANSFORM }, portraitClip), true);
+  assert.equal(isUntouched({ ...IDENTITY_TRANSFORM, pad_left: 4 }, portraitClip), false);
+  assert.equal(isUntouched({ ...IDENTITY_TRANSFORM, rotation_degrees: 3 }, portraitClip), false);
+  assert.equal(isUntouched({ ...IDENTITY_TRANSFORM, crop_width: 700 }, portraitClip), false);
+});
+
+test("the orientation turn swaps the shape, never the pixels", () => {
+  assert.equal(turnAspect("16:9"), "9:16");
+  assert.equal(turnAspect("9:21"), "21:9");
+  assert.equal(turnAspect("1:1"), "1:1");
+  assert.equal(turnAspect("free"), "free");
+  assert.equal(ratioLabel(861, 1280), "1:1.49");
+  assert.equal(ratioLabel(500, 500), "1:1");
+  // Pad mode: the crop padded, centred, into the turned ratio's canvas.
+  const crop = { x: 0, y: 0, width: 720, height: 1280 };
+  const pads = padAround(crop, 16 / 9);
+  assert.deepEqual(pads, { pad_left: 778, pad_top: 0, pad_right: 778, pad_bottom: 0 });
+  // Crop mode: the box turns about its own centre and stays in the picture.
+  const box = turnedCrop({ x: 0, y: 370, width: 720, height: 540 }, portraitClip);
+  assert.deepEqual(box, { x: 90, y: 280, width: 540, height: 720 });
+  // A turn the picture cannot hold shrinks evenly: the turned ratio holds.
+  const landscape = { width: 1280, height: 720 };
+  const shrunk = turnedCrop({ x: 0, y: 0, width: 1280, height: 720 }, landscape);
+  assert.equal(shrunk.height, 720);
+  assert.ok(Math.abs(shrunk.width / shrunk.height - 9 / 16) < 0.01);
+  assert.ok(shrunk.x >= 0 && shrunk.x + shrunk.width <= landscape.width);
+});
+
+test("dragging the picture slides it inside its padding", () => {
+  const start = { pad_left: 778, pad_top: 0, pad_right: 778, pad_bottom: 0 };
+  // Left 300 px: the left band shrinks, the right grows, the canvas keeps its size.
+  const moved = slidePadding(start, -300, 25, { x: true });
+  assert.deepEqual(moved, { pad_left: 478, pad_top: 0, pad_right: 1078, pad_bottom: 0 });
+  // It stops at the canvas edge.
+  assert.deepEqual(slidePadding(start, -5000, 0, { x: true }), { pad_left: 0, pad_top: 0, pad_right: 1556, pad_bottom: 0 });
+  // An axis where the crop can still move keeps its padding.
+  assert.deepEqual(slidePadding(start, 120, 40, { y: true }), start);
+});
+
+// --- Fixes from the recorded first-use sessions ---------------------------------
+import {
+  KNOB_CLEARANCE,
+  NEAR_RATIO,
+  evenOutPadding,
+  moveCursor,
+  moveRoom,
+  nearRatio,
+  placeKnob,
+  stepWithoutStretch,
+  tightLockPadding,
+} from "../js/shared/transform_geometry.mjs";
+
+test("a picture within about 1% of a ratio is already that ratio", () => {
+  // The recorded 800x1424 photo is 0.12% off 9:16: tapping 9:16 used to add
+  // a 1 px band on one side. Now nothing is added or trimmed, and it is lit.
+  const photo = { width: 800, height: 1424 };
+  for (const mode of ["pad", "crop"]) {
+    const patch = fitSourceToAspect(photo, "9:16", mode);
+    assert.equal(patch.pad_left + patch.pad_right + patch.pad_top + patch.pad_bottom, 0);
+    assert.deepEqual(resolveCrop(patch, photo), { x: 0, y: 0, ...photo });
+  }
+  assert.equal(aspectMatches(800, 1424, "9:16"), true);
+  assert.equal(nearRatio(800, 1424, 9 / 16), true);
+  // Past the tolerance a band is added as before.
+  assert.equal(nearRatio(1000, 1000 * (1 + NEAR_RATIO * 3), 1), false);
+  assert.ok(fitSourceToAspect({ width: 780, height: 1424 }, "9:16", "pad").pad_right > 0);
+  // The orientation button follows the same rule.
+  assert.deepEqual(padAround({ x: 0, y: 0, width: 1280, height: 721 }, 16 / 9), { pad_left: 0, pad_top: 0, pad_right: 0, pad_bottom: 0 });
+});
+
+test("a locked drag solved from its start pads splits the new bands evenly", () => {
+  // Every pointer move re-solves from the pads the drag began with, so an
+  // odd delta can no longer pile its extra pixel on one side move by move.
+  const crop = { width: 800, height: 1424 };
+  const start = { pad_left: 866, pad_right: 866, pad_top: 0, pad_bottom: 0 };
+  let pads = null;
+  for (let right = 867; right <= 1246; right += 3) {
+    pads = lockPadding({ ...start, pad_right: right }, crop, 16 / 9, "x");
+  }
+  assert.ok(Math.abs(pads.pad_top - pads.pad_bottom) <= 1, JSON.stringify(pads));
+  assert.ok(pads.pad_top > 90);
+});
+
+test("Reset crop under the lock drops the bands the lock added", () => {
+  // 16:9 held on a 16:9 picture: trimming the right edge made the lock add
+  // side bands. With the whole picture back, the smallest 16:9 canvas that
+  // holds it has none.
+  const whole = { width: 1280, height: 720 };
+  const pads = tightLockPadding({ pad_left: 109, pad_right: 110, pad_top: 0, pad_bottom: 0 }, whole, 16 / 9);
+  assert.deepEqual(pads, { pad_left: 0, pad_top: 0, pad_right: 0, pad_bottom: 0 });
+  // A tall picture padded to 16:9 whose crop was trimmed and put back gets
+  // its side bands back to the plain fit, not top and bottom bands.
+  const tall = tightLockPadding({ pad_left: 688, pad_right: 688, pad_top: 0, pad_bottom: 0 }, { width: 800, height: 1424 }, 16 / 9);
+  assert.deepEqual([tall.pad_top, tall.pad_bottom], [0, 0]);
+  assert.ok(Math.abs(800 + tall.pad_left + tall.pad_right - Math.round(1424 * 16 / 9)) <= 1);
+});
+
+test("the move cursor only offers the ways the picture can go", () => {
+  const source = { width: 1280, height: 720 };
+  const whole = { x: 0, y: 0, width: 1280, height: 720 };
+  // Untouched: nowhere to go.
+  assert.deepEqual(moveRoom(whole, source, {}), { left: false, right: false, up: false, down: false });
+  assert.equal(moveCursor(moveRoom(whole, source, {})), "default");
+  // Padding on the left only: the picture can slide left, along one axis.
+  const left = moveRoom(whole, source, { pad_left: 157 });
+  assert.deepEqual(left, { left: true, right: false, up: false, down: false });
+  assert.equal(moveCursor(left), "ew-resize");
+  // A crop trimmed at the top can move up; with side padding, both axes.
+  const both = moveRoom({ x: 0, y: 40, width: 1280, height: 680 }, source, { pad_left: 157 });
+  assert.deepEqual(both, { left: true, right: false, up: true, down: false });
+  assert.equal(moveCursor(both), "move");
+  assert.equal(moveCursor({ up: true }), "ns-resize");
+});
+
+test("the rotate knob keeps clear of the other handles", () => {
+  // A narrow picture centred in a wide canvas: the corner is right under
+  // the top diamond, so the knob's usual spot sits on it.
+  const corner = { x: 110, y: 60 };
+  const center = { x: 100, y: 110 };
+  const diamond = { x: 100, y: 42, clearance: KNOB_CLEARANCE.padding };
+  const plain = placeKnob(corner, center, 18);
+  assert.ok(Math.hypot(plain.x - diamond.x, plain.y - diamond.y) < KNOB_CLEARANCE.padding);
+  const placed = placeKnob(corner, center, 18, [diamond], { x: 0, y: 0, width: 300, height: 220 });
+  assert.ok(Math.hypot(placed.x - diamond.x, placed.y - diamond.y) >= KNOB_CLEARANCE.padding);
+  // Nothing in the way: the knob stays where it always was.
+  assert.deepEqual(placeKnob(corner, center, 18, [], null), plain);
+});
+
+test("the rounding stretch names a step that avoids it and pad mode can even it out", () => {
+  // The LTX example: 576x1024 padded to 16:9 at 0.86 MP, Step 32.
+  const values = { crop_aspect_ratio: "free", pad_left: 622, pad_right: 623, pad_top: 0, pad_bottom: 0, canvas_multiple: 1 };
+  const source = { width: 576, height: 1024 };
+  const resize = { megapixels: 0.86, steps: 32 };
+  assert.equal(stepWithoutStretch(values, source, resize), 8);
+  const pads = evenOutPadding(values, source, resize);
+  const even = sizeChain({ ...values, ...pads }, source, resize);
+  assert.ok(Math.abs(even.stretch) <= 0.01, String(even.stretch));
+  assert.deepEqual(even.resized, { width: 1280, height: 704 });
+  // Every pixel stays: only padding grew, split evenly.
+  assert.ok(pads.pad_left >= 622 && pads.pad_right >= 623 && Math.abs(pads.pad_left - pads.pad_right) <= 2);
+  // Nothing to even out without a stretch.
+  assert.equal(evenOutPadding({ ...values, pad_left: 0, pad_right: 0 }, { width: 1024, height: 1024 }, { megapixels: 1, steps: 32 }), null);
 });

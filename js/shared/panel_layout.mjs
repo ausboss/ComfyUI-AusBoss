@@ -111,3 +111,21 @@ export function ensureNodeMinHeight(node) {
   node.setSize?.([node.size[0], min]);
   return true;
 }
+
+// Lift a node's computeSize() height to a floor the panel measures, such as
+// the height a card's text needs. A corner drag stops at computeSize(), so
+// the node cannot be dragged shorter than that. The floor is read on every
+// call; anything but a finite number leaves the frontend's own height.
+// This wraps the node's own method, not the prototype and not the widget,
+// so the panel still takes all the height above its floor.
+export function holdNodeMinHeight(node, floor) {
+  const own = node?.computeSize;
+  if (typeof own !== "function" || typeof floor !== "function") return node;
+  node.computeSize = function (...args) {
+    const size = own.apply(this, args);
+    const min = Number(floor());
+    if (size && Number.isFinite(min) && min > size[1]) size[1] = min;
+    return size;
+  };
+  return node;
+}

@@ -162,12 +162,14 @@ const APPENDED_SINCE = {
   AUSBOSS_NODES_CropForInpaint: { keep_inside: "toggle" },
   AUSBOSS_NODES_StitchInpaint: { seam: "combo" },
   // Added in 2.0.0; 1.x saves hold the preview panel's value there (Select
-  // Frame's from 1.2.0), or the LoRA panel's.
+  // Frame's from 1.2.0), or the LoRA panel's. Mask Refine's max_hole_size
+  // came after 2.4.0; 2.x saves hold the card's value there.
   AUSBOSS_NODES_LaMaInpaint: { preview: "toggle" },
-  AUSBOSS_NODES_RefineMask: { preview: "toggle" },
+  AUSBOSS_NODES_RefineMask: { preview: "toggle", max_hole_size: "number" },
   AUSBOSS_NODES_SelectFrame: { preview: "toggle" },
   AUSBOSS_NODES_LoraLoader: { on_missing: "combo" },
   // Sockets, which hold no saved value.
+  AUSBOSS_NODES_Krea2Encode: { mask: "socket" },
   AUSBOSS_NODES_LoadImagePad: { source_image: "socket" },
   AUSBOSS_NODES_SelectEveryNth: { fps: "socket" },
 };

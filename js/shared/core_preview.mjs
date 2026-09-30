@@ -48,6 +48,11 @@ function suppressWidget(node, flag, method, targetName, elementOf) {
 }
 
 export function suppressCoreVideoPreview(node) {
+  // Nodes 2.0 has no video-preview widget to hide: it draws the node's
+  // output under the widgets itself unless the node sets this flag (the
+  // classic renderer never reads it). Without it Save Video showed its clip
+  // twice there, once in the panel and once underneath.
+  if (node) node.hideOutputImages = true;
   suppressWidget(
     node,
     "__ausbossCorePreviewSuppressed",
@@ -58,6 +63,12 @@ export function suppressCoreVideoPreview(node) {
 }
 
 export function suppressCoreImagePreview(node) {
+  // Nodes 2.0 draws its own copy of the node's output images under the
+  // widgets unless the node sets this flag (classic never reads it). That
+  // copy is also the only thing that fills node.imgs there, so a node that
+  // stands it down reads its result from app.nodeOutputs instead
+  // (js/input_preview).
+  if (node) node.hideOutputImages = true;
   // The image preview arrives through addCustomWidget, not addDOMWidget: it
   // is painted straight onto the graph canvas and owns no element.
   suppressWidget(

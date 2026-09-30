@@ -30,7 +30,7 @@ function seamCorner(node, card) {
   chip.type = "button";
   chip.className = "ausboss-card-chip";
   chip.textContent = "blend in";
-  chip.title = "Seam is blend in, so Tone match and Fix edge halo are not used. Change it in the gear menu.";
+  chip.title = "Seam is blend in, so Fix edge halo is not used. Change it in the gear menu.";
   const gear = document.createElement("button");
   gear.type = "button";
   gear.className = "ausboss-card-gear";
@@ -48,7 +48,7 @@ function seamCorner(node, card) {
   });
   gear.addEventListener("click", open);
   chip.addEventListener("click", open);
-  // Under the chip, beside the muted rows: why they are dim.
+  // Under the chip, beside the muted Fix edge halo row: why it is dim.
   const note = document.createElement("div");
   note.append("not used", document.createElement("br"), "by blend in");
   note.style.cssText = "position:absolute;top:33px;right:2px;text-align:right;white-space:nowrap;"
@@ -104,7 +104,7 @@ const CARDS = {
     socketless: ["seam"],
     corner: seamCorner,
     rows: [
-      { widget: "color_match", label: "Tone match", mute: isBlendIn, muteTitle: SEAM_MUTE_TITLES.color_match },
+      { widget: "color_match", label: "Tone match" },
       { widget: "fix_edge_halo", label: "Fix edge halo", mute: isBlendIn, muteTitle: SEAM_MUTE_TITLES.fix_edge_halo },
     ],
   },
@@ -137,13 +137,17 @@ const CARDS = {
   AUSBOSS_NODES_RefineMask: {
     minWidth: 300, first: true,
     // A workflow saved by a 1.x release holds the preview panel's own empty
-    // value where preview now sits; it loads on, the node's default.
-    resetUnknown: { preview: true },
+    // value where preview now sits; it loads on, the node's default. One
+    // saved by 2.x before Max hole size existed holds the card's there; it
+    // loads 0, no limit, as the node ran then.
+    resetUnknown: { preview: true, max_hole_size: 0 },
     rows: [
       { widget: "expand", label: "Expand", suffix: "px" },
       { widget: "blur", label: "Blur" },
       { group: "advanced", label: "More" },
       { widget: "fill_holes", label: "Fill holes", group: "advanced" },
+      { widget: "max_hole_size", label: "Max hole size", suffix: "%", group: "advanced",
+        mute: (values) => values.fill_holes !== true, muteTitle: "Used only while Fill holes is on." },
       { widget: "smooth", label: "Smooth", suffix: "px", group: "advanced" },
       { widget: "black_point", label: "Black point", group: "advanced" },
       { widget: "white_point", label: "White point", group: "advanced" },

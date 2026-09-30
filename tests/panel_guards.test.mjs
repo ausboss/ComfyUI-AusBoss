@@ -161,6 +161,20 @@ test("a panel that should follow the node's height never declares computeSize", 
   }
 });
 
+test("the preview picture never sets the panel's height", () => {
+  // Nodes 2.0 lets a node's content decide its height (the saved size is only
+  // a minimum). With the picture in normal flow, a portrait result drawn at
+  // full width grew Save Image from 730 to about 1270 px, over the Run Timer
+  // under it. Out of flow, the stage takes its size from the node alone and
+  // the picture scales to fit, in both renderers.
+  const source = readFileSync(join(JS_ROOT, "input_preview", "index.js"), "utf-8");
+  const rule = source.match(/\.ausboss-input-preview-stage img,\s*\.ausboss-input-preview-stage video\s*\{([^}]*)\}/);
+  assert.ok(rule, "the rule for the stage's picture is gone");
+  assert.match(rule[1], /position:\s*absolute/, "the stage's picture is back in normal flow - it will size the node in Nodes 2.0");
+  assert.match(rule[1], /max-width:\s*100%/, "the stage's picture can overflow the stage's width");
+  assert.match(rule[1], /max-height:\s*100%/, "the stage's picture can overflow the stage's height");
+});
+
 test("the shared transform panel mounted on the video node also follows height", () => {
   // Video Crop + Rotate + Pad has no js/<name>/index.js of its own - it
   // registers through shared/transform_editor.mjs, so the audit above cannot

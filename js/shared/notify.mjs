@@ -19,3 +19,21 @@ export function queueRemaining(detail) {
 export function shouldChime(enabled, previousRemaining, nextRemaining) {
   return !!enabled && Number(previousRemaining) > 0 && nextRemaining === 0;
 }
+
+// A node can hand the browser a plain-words notice with its result, as
+// {"ui": {"ausboss_notice": [{source, text}]}} - Stitch Inpaint does when an
+// outpaint came back with its new area still unpainted. This reads them out
+// of an "executed" event; strings are accepted too, and anything else is
+// ignored so a malformed payload never breaks the status stream.
+export function noticesFromExecuted(detail) {
+  const list = detail?.output?.ausboss_notice;
+  if (!Array.isArray(list)) return [];
+  const notices = [];
+  for (const item of list) {
+    if (typeof item === "string" && item.trim()) notices.push({ source: "", text: item.trim() });
+    else if (item && typeof item.text === "string" && item.text.trim()) {
+      notices.push({ source: typeof item.source === "string" ? item.source.trim() : "", text: item.text.trim() });
+    }
+  }
+  return notices;
+}

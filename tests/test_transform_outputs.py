@@ -138,7 +138,7 @@ class TransformOutputTests(unittest.TestCase):
         self.source = Image.fromarray(np.arange(96 * 128 * 3, dtype=np.uint8).reshape(96, 128, 3))
 
     def assert_outputs(self, outputs):
-        image, mask, stitcher, original, width, height = outputs
+        image, mask, stitcher, original, width, height = outputs[:6]
         self.assertEqual((width, height), (160, 96))
         expected = torch.from_numpy(np.asarray(self.source).astype(np.float32) / 255)
         self.assertTrue(torch.equal(original[0], expected))
@@ -155,6 +155,10 @@ class TransformOutputTests(unittest.TestCase):
         with patch('nodes.node_image_crop_rotate_pad.resolve_input_path', return_value=Path('source.png')), patch('nodes.node_image_crop_rotate_pad.load_image_frames', return_value=[self.source]):
             outputs = AusBossImageCropRotatePad().load_transform('source.png', pad_left=32, feather=0)
         self.assert_outputs(outputs)
+        # prompt_image, appended last: the image itself for an opaque picture.
+        self.assertEqual(len(outputs), 7)
+        self.assertTrue(torch.equal(outputs[6], outputs[0]))
+        self.assertIsNot(outputs[6], outputs[0])
 
     def test_video_frame_has_the_same_outputs(self):
         with patch('nodes.node_video_crop_rotate_pad.resolve_video_path', return_value=Path('source.mp4')), patch('nodes.node_video_crop_rotate_pad.decode_video_frame', return_value=(self.source, 0, 0)):
@@ -171,7 +175,7 @@ class TransformOutputTests(unittest.TestCase):
     @unittest.skipUnless(COMFY_ROOT, "Set AUSBOSS_COMFY_ROOT for core resize integration")
     def test_stitcher_uses_resized_canvas_dimensions(self):
         with patch('nodes.node_image_crop_rotate_pad.resolve_input_path', return_value=Path('source.png')), patch('nodes.node_image_crop_rotate_pad.load_image_frames', return_value=[self.source]):
-            image, mask, stitcher, original, width, height = AusBossImageCropRotatePad().load_transform('source.png', pad_left=32, feather=0, resize_to_megapixels=True, megapixels=.05, resolution_steps=16)
+            image, mask, stitcher, original, width, height, _ = AusBossImageCropRotatePad().load_transform('source.png', pad_left=32, feather=0, resize_to_megapixels=True, megapixels=.05, resolution_steps=16)
         self.assertEqual((width, height), (int(image.shape[2]), int(image.shape[1])))
         self.assertEqual(tuple(stitcher['canvas'].shape), tuple(image.shape))
         self.assertEqual(tuple(original.shape), (1, 96, 128, 3))

@@ -394,17 +394,17 @@ class AusBossSaveImage:
         return float("nan")
 
     @classmethod
-    def VALIDATE_INPUTS(cls, exact_name="", filename_prefix="", **_values):
-        # Surface a bad name before the run instead of mid-save.
+    def VALIDATE_INPUTS(cls, exact_name="", filename_prefix="", output_dir=""):
+        # Surface a bad name before the run instead of mid-save. Only the
+        # three inputs read here are named, so ComfyUI still checks the
+        # others (format, on_existing, ...) itself.
         for label, value in (("exact_name", exact_name), ("filename_prefix", filename_prefix)):
             if isinstance(value, str) and value.strip():
                 try:
                     sanitize_exact_name(value)
                 except ValueError as exc:
                     return str(exc).replace("exact_name", label)
-        # **_values carries every input, so core skips its own checks here:
-        # a folder outside the output folder is refused before the run.
-        output_dir = _values.get("output_dir")
+        # A folder outside the output folder is refused before the run.
         if isinstance(output_dir, str) and output_dir.strip() and folder_paths is not None:
             try:
                 resolve_output_root(output_dir, folder_paths.get_output_directory())

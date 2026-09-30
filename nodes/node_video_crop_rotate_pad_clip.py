@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import math
 
 from ._inpaint_crop_helpers import build_transform_stitcher as clip_stitcher
 from ._media_helpers import list_input_videos, register_video_routes, resolve_video_path, video_metadata
@@ -344,39 +343,22 @@ class AusBossVideoCropRotatePadClip:
         )
 
     @classmethod
-    def VALIDATE_INPUTS(
-        cls, video, source_mode, local_path, start_seconds, end_seconds,
-        start_frame=None, end_frame=None, force_rate=0.0, fixed_frames=0, every_nth=1, input_types=None, **_values,
-    ):
+    def VALIDATE_INPUTS(cls, video, source_mode, local_path):
+        # Only the source is read here. ComfyUI files a failed check once per
+        # input named here and skips its own range and list checks for them;
+        # naming input_types, as this signature once did, also switched off
+        # its link-type checks for the whole node. video and source_mode
+        # skip the list check on purpose: in local path mode the
+        # video choice is unused and may be stale. resolve_video_path reads
+        # only the input folder, or a local path inside ComfyUI's input,
+        # output or temp folder. The trim window, force_rate and Fixed frames
+        # are checked when the node runs (clip_load_window, fixed_clip_window,
+        # decode_video_range), where wired values are known; ComfyUI starts
+        # async nodes such as this one ahead of the others.
         try:
-            path = resolve_video_path(source_mode, video, local_path)
-            if force_rate is not None and (
-                not math.isfinite(float(force_rate)) or not 0 <= float(force_rate) <= 1000
-            ):
-                return "Video Crop + Rotate + Pad: force_rate must be between 0 and 1000 fps."
-            # Linked values are evaluated at execution; stale widget values must
-            # not reject a valid override before those values are available.
-            schema = cls.INPUT_TYPES()
-            definitions = schema["required"] | schema["optional"]
-            for name, actual in (input_types or {}).items():
-                expected = definitions.get(name, (None,))[0]
-                received = {part.strip() for part in str(actual).split(",")}
-                if isinstance(expected, str) and "*" not in received and not received.intersection(expected.split(",")):
-                    return f"Video Crop + Rotate + Pad: incompatible input type for {name}."
-            if any(name in (input_types or {}) for name in ("start_frame", "end_frame", "start_seconds", "end_seconds", "fixed_frames", "force_rate", "every_nth")):
-                return True
-            start_seconds, end_seconds, _ = clip_load_window(
-                path, start_seconds, end_seconds, start_frame=start_frame, end_frame=end_frame
-            )
-            if not 0 <= int(fixed_frames or 0) <= 100000:
-                return "Fixed frames must be between 0 and 100000."
-            if fixed_frames:
-                fixed_clip_window(video_metadata(path), start_seconds, fixed_frames, force_rate, every_nth)
-                return True
+            resolve_video_path(source_mode, video, local_path)
         except Exception as exc:
             return f"Video Crop + Rotate + Pad: {exc}"
-        if float(end_seconds) > 0.0 and float(start_seconds) >= float(end_seconds):
-            return "Video Crop + Rotate + Pad: start_seconds must be smaller than end_seconds."
         return True
 
     @classmethod

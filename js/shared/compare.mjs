@@ -67,3 +67,21 @@ export function findCompareImages(message) {
   const b = message?.b_images?.[0] ?? null;
   return a?.filename && b?.filename ? { a, b } : null;
 }
+
+// Where the A and B labels sit: each on its own side of the split line, so
+// they move with it; one label, centred, while only one picture shows. A
+// side too narrow for its label drops the label rather than covering the
+// line. Pixel offsets from the stage's left edge, or null for no label.
+export function compareBadges(fraction, stageWidth, badgeWidth = 22, gap = 5) {
+  const width = Number(stageWidth);
+  const value = Number(fraction);
+  if (!Number.isFinite(width) || width <= 0) return { a: null, b: null };
+  const clamped = Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0;
+  const centred = Math.round((width - badgeWidth) / 2);
+  if (clamped <= 0) return { a: null, b: centred };
+  if (clamped >= 1) return { a: centred, b: null };
+  const seam = clamped * width;
+  const a = Math.round(seam - gap - badgeWidth);
+  const b = Math.round(seam + gap);
+  return { a: a >= 4 ? a : null, b: b + badgeWidth <= width - 4 ? b : null };
+}

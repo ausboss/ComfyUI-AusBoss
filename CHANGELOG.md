@@ -4,6 +4,204 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **See-through pictures now outpaint properly.** A product cutout with no
+  background, a photo with see-through round corners, or a picture with a
+  hole in it could come back on flat gray, or with a dark ring round the
+  picture. Image Crop + Rotate + Pad now treats the see-through parts like
+  the padding: they are filled, the mask marks them, the model paints them,
+  and Stitch Inpaint never puts them back. A new last output,
+  `prompt_image`, shows those parts as white. Wire it to whatever writes
+  your prompt, so the prompt describes a real backdrop instead of the gray
+  fill. The Krea 2 Outpaint and Krea 2 Rotate + Outpaint examples are wired
+  this way. The `original` output also shows see-through parts as white
+  instead of black, which fixes the Klein 9B Outpaint prompt as well. A part
+  counts as see-through when it is less than 90% solid. Pictures without
+  such parts come out exactly as before.
+- **Save Image, Select Frame, Mask Refine and LaMa Inpaint keep their size in
+  Nodes 2.0.** They grew to fit the picture they showed and covered the node
+  below them, and after a run the picture showed twice. Now it fits inside
+  the node, as in the classic view.
+- **Nodes 2.0: undo no longer leaves a node showing its old settings.**
+  After Ctrl+Z or Ctrl+Y, what you change on an AusBoss node reaches the run.
+- **Workflow Note grows to fit its text.** A note saved a few pixels too
+  short no longer hides its last row behind a scrollbar, and it can't be
+  dragged shorter than its text. It never shrinks by itself.
+- **Stitch Inpaint: Tone match now works with Seam set to blend in.** An
+  outpaint can come back a little lighter, darker or warmer than your
+  picture, and blend in used to keep that colour. With Tone match on, blend
+  in now checks how the model repainted the strip of your picture next to
+  the new area and takes that change back off the new area. It follows any
+  edge, turned or straight, keeps blacks black, and leaves the colours alone
+  when the change doesn't hold up along the edge. Blend in with Tone match
+  at 0 stitches exactly as before, and the classic seam is unchanged.
+- **Stitch Inpaint says when the new area comes back unpainted.** When an
+  outpaint returns with plain bars or corners in the fill colour, a message
+  and a console line say how much of the new area was left and what to
+  try. It also catches a gray fill handed back a few shades darker, as
+  Krea 2 can do. Painted pictures stay quiet, dark ones too.
+- **Krea 2 outpaints now paint dark and colourful pictures too.** With the
+  AnyPaint LoRA, a dark or very colourful picture could come back with its
+  new area still gray: a gray frame around the picture, or a gray corner on
+  a turned one. The model was copying the gray padding instead of painting
+  it, whichever Krea 2 model file was loaded. Krea 2 Encode has a new
+  `mask` input. Connect the pad node's mask to it, and the model sees the
+  new area in your picture's own colour, the way AnyPaint was trained, and
+  paints it. The Krea 2 Outpaint and Krea 2 Rotate + Outpaint examples are
+  wired this way. They also feather the join 32 px instead of 12, which
+  gives the model room to carry your picture over the edge: a thin strip of
+  new area no longer comes back as a flat band with a hard line. Workflows
+  without the link run exactly as before.
+- **Pressing Run before loading a picture now says so.** When a picture or
+  video loader has nothing picked (core Load Image and Load Video, Load
+  Image + Pad, Image Crop + Rotate + Pad, Load Video and the Video Crop +
+  Rotate + Pad nodes), the run stops before it starts, one message reads
+  "Load a picture first:" with the node's name, and that node gets a red
+  outline. Before, core Load Image started the run and failed with
+  "[Errno 21] Is a directory". Loaders that are bypassed, muted, fed by a
+  link or not needed by any output never stop a run, and runs sent
+  straight to ComfyUI's API are not checked.
+- **One problem, one error.** A missing picture on Image Crop + Rotate +
+  Pad used to show "20 errors", the same message once per setting. Each
+  AusBoss node now reports a problem once, on the setting it is about.
+  The same fix lets ComfyUI check these nodes' values again: a number out
+  of range or a choice that isn't offered is caught before the run instead
+  of partway through it. A crop ratio from someone else's presets still
+  runs, and uploads, subfolders and MaskEditor saves still load.
+- **"No mask painted" instead of a size error.** Krea 2 Inpaint Masked,
+  and any workflow that sends Load Image's mask to Crop For Inpaint, Mask
+  Refine, Color Match or LaMa Inpaint, stopped with "Mask size (64, 64)
+  does not match image size" when no mask was painted or a new picture was
+  picked after painting one. It now says: "No mask painted: right-click
+  your picture, choose Open in MaskEditor, paint the area, then click
+  Save." LaMa used to hand the picture back unchanged in that case.
+- **Save Video: the NVIDIA formats explain themselves.** Picking "mp4 h264
+  nvenc" or "mp4 h265 nvenc" without an NVIDIA GPU now says those formats
+  need one and to pick "mp4 h264" instead, rather than a bare encoder
+  error.
+- **Load Video and Video Crop + Rotate + Pad → Clip check the trim window
+  when they run.** A start after the end, or Fixed frames longer than the
+  video, is reported by the node as it loads the video, where a trim bound
+  fed by another node has its real value.
+- **Clip timeline: the bar always scrubs.** With Length on, as the LTX 2.3
+  Video Outpaint example opens, dragging along the bar did nothing and IN
+  would not move, with no word why. Now pressing or dragging anywhere on the
+  bar moves the playhead, Length on or off. To move the whole clip, drag IN
+  or the small grip in the middle of the kept part. When the Length already
+  takes the whole clip, the Length row says "= the whole clip. Shorten it to
+  move IN."
+- **Preview switch: on again brings the picture back.** On Mask Refine,
+  LaMa Inpaint, Select Frame and Save Image, turning the preview off and on
+  again left an empty box and a shorter node until the next run. Now the
+  node goes back to its height with the last result in it. If the node ran
+  while the preview was off, the box says to run the workflow again instead
+  of showing an older picture. Mask Refine's AUTO button now says what it
+  does when you hover it.
+- **Crop + Rotate + Pad: the padlock you can see and trust.** Reset and
+  tapping the lit ratio turn it off. On the untouched picture it does
+  nothing, so trimming there only trims. While it is on, the row says
+  **Held**, new bands split evenly on both sides, and **Reset crop** also
+  removes the bands it added. The lit ratio and the lock now look like every
+  other "on" in the pack (solid teal), and hovering a button only outlines it.
+- **Crop + Rotate + Pad: nothing added when there is nothing to add.** A
+  picture or clip within about 1% of a ratio counts as that ratio, so a
+  nearly 9:16 photo no longer gets a 1 px band. When the lit ratio is
+  already the picture's shape, the size line under the picture says so
+  ("already 9:16: pick another ratio or turn it"), instead of letting you pay
+  for a render that paints nothing. A lit ratio saved in a workflow still
+  applies to every new picture, and the size line names it where it acted
+  ("pad to 16:9 1821×1024").
+- **Crop + Rotate + Pad: the resize warning in plain words, with a fix.** It
+  read "2.2% wider from steps". Now it says "2.2% wider: each side rounds to
+  32 px", its tooltip names a Step that avoids it, and with Fit on pad an
+  **Even out** button adds a few pixels of padding so the picture is not
+  stretched at all.
+- **Crop + Rotate + Pad: added space is easy to see.** Padding and the
+  corners a turn opens are drawn in the real fill colour with a faint hatch,
+  so black bands show on the black stage, and only the picture the crop cuts
+  away is darkened. The round rotate knob keeps clear of the padding
+  diamonds on wide canvases.
+- **Crop + Rotate + Pad: controls that say what they need.** **Fit** is dimmed
+  and says "pick a ratio first" until a ratio is lit. Over the picture, the
+  cursor and small arrows show only the ways it can move.
+- **Crop + Rotate + Pad: the full editor uses the node's controls.** Its
+  sidebar has the node's ratio row, padlock and Fit switch instead of a list,
+  a checkbox and two buttons. The rotation is a number box you can drag
+  (Shift for 0.1°) instead of a slider that turned 57° for a 9 px nudge. The
+  size box stays clear of the handles, and the number boxes look like the
+  node's.
+- **Crop + Rotate + Pad: big nodes stay tidy.** On a wide node the controls
+  stop at 460 px, centred, and only the picture grows. A wide picture picked
+  into a node sized for a tall one shrinks the picture area to fit it; the
+  node never grows for a new picture, so it never covers the node below.
+- **Clearer names on the Crop + Rotate + Pad nodes.** Align is **Round
+  canvas to**, Snap is **Frames for** with LTX (8n+1), Wan (4n+1) and any,
+  and Local path is **Server file**. Resize is an off | on switch like the
+  pack's other switches, and **To start** and **Full clip** look like the
+  buttons they are. Saved workflows are unchanged: only the words moved.
+- **Compare: A and B follow the split line.** The A | B badge stayed in the
+  middle while the line moved. Now A sits just left of the line and B just
+  right of it.
+- **Number boxes: Shift slows whole-number boxes.** On boxes like Feather,
+  whose smallest step is already 1, Shift changed nothing. It now slows the
+  drag, so Shift always means fine.
+- **Workflow Note: models kept in a subfolder.** The note said "installed"
+  while a loader asked for the bare file name, which ComfyUI could not find
+  and marked red. Such a row now says where the file is ("in LTXV 2.3/")
+  and a **Use it** button points those loaders at it.
+- **A run from another workflow tab stays on its own tab.** ComfyUI files
+  each node's result under the node's number, so when a run from one tab
+  finished while you had another tab open, its video or picture turned up
+  on the open tab's node with the same number. On a Video Crop + Rotate +
+  Pad node it showed as a second video under the buttons and covered the
+  node below. Now the Crop + Rotate + Pad nodes never show a second
+  preview, AusBoss nodes ignore results from other tabs (Show Text and Seed
+  no longer save another workflow's text or seed), and when you go back to
+  the tab that ran, its Save Video, Show Text, Compare and other AusBoss
+  panels show that run. Core nodes behave as ComfyUI has them.
+- **Save Video and Compare keep their result when you switch tabs.** Go to
+  another workflow tab and back, and the player said "Run to preview the
+  saved video" (Compare: "Run to load the A/B previews") over a result it
+  had just made. They show it again.
+- **Nodes 2.0: Save Video shows the clip once.** It also drew ComfyUI's own
+  copy of the clip under its player.
+- **Crop + Rotate + Pad: the ratio buttons say what the canvas is.** A lit
+  ratio is the shape the canvas has now. Drag a handle to another shape and
+  it goes dark, the row says Custom, and the size line gives the real ratio
+  (`1.49:1`); before, 16:9 stayed lit on a 1889×1280 canvas. Tap a ratio to
+  pad to it, tap the lit one to go back to the whole picture. Keeping the
+  shape while you drag is its own padlock button at the end of the row,
+  instead of a second tap on the ratio. The button at the start turns the
+  shape between portrait and landscape (16:9 to 9:16) and never throws away
+  your crop; with nothing picked it only turns the ratio labels. Crop or
+  pad is now a small **Fit** switch, so it no longer looks like a ratio.
+  Rotating keeps a lit ratio, a ratio you tap before loading a picture is
+  used when you load one, and dragging the picture itself moves it inside
+  its padding.
+- **Crop + Rotate + Pad: the editor uses the node's words.** Its Multiple
+  and Steps are Round canvas to and Step, as on the node.
+- **Crop + Rotate + Pad: the picture on the node stays big enough to see.**
+  You can no longer drag the node so short that the preview becomes a
+  thumbnail: the picture keeps at least three fifths of its width in
+  height (200 to 340 px), and a new node opens that way. The "Choose an
+  uploaded video" line under the picker goes away once you pick one, so the
+  picture gets that room too. A workflow saved with a shorter node opens
+  with it a little taller, and the LTX 2.3 Video Outpaint example is laid
+  out for the new size. In Nodes 2.0 the node also stops at the width its
+  buttons need instead of squeezing them.
+- **Crop + Rotate + Pad: picking the first file in the list starts fresh.**
+  In a workflow saved with no file picked, like the examples, picking the
+  first file in the list kept the rotation, crop and padding the workflow
+  was saved with, which were made for a different picture. Any other file
+  already started over. Now the first file does too, and it is padded to
+  the ratio that is lit on the node. This goes for the image node and both
+  video nodes.
+- **Mask Refine: Fill holes can leave the part you kept alone.** Paint
+  everything except a person or a pet, turn on **Fill holes**, and it
+  filled them in too, so the part you meant to keep was painted over. The
+  new **Max hole size** sets the biggest hole Fill holes fills, as a percent
+  of the picture. At 2, the small gaps a quick brush leaves still fill, and
+  a person, pet or object you left unpainted stays. It starts at 0, which
+  fills every hole as before, so saved workflows run the same.
 - **The red "missing file" warning clears when you pick a file.** Open a
   workflow that was saved with a picture you don't have and ComfyUI marks
   Load Image + Pad red and lists it under Setup required. Picking your own
@@ -45,6 +243,44 @@ All notable changes to ComfyUI-AusBoss are documented here.
   preview was made. It now opens on and works. LoRA Loader's settings showed
   Stop on missing LoRA off, even though the node still stopped the run. It
   now shows on, matching what the node does.
+- **The other examples got the same smaller layout.** Klein 9B Outpaint,
+  LTX 2.3 Video Outpaint, Qwen Image 2.1 Edit + Realign and Simple Video
+  Watermark Remover now have named groups for your input, the models and
+  the result, with the plumbing in two boxes. Node titles use the real node
+  names, so you can find them in the node search.
+- **Simple Video Watermark Remover needs no other node pack.** It finds the
+  mark with ComfyUI's own SAM 3.1 (ComfyUI 0.20 or newer) instead of
+  ComfyUI-RMBG, so there is nothing extra to install and no 3.45 GB
+  download on the first run. On the sample it also stopped painting out a
+  tram's number plate next to the mark.
+- **Klein 9B Outpaint example: no second face on tight portraits.** Its
+  automatic description used to describe the person, and Klein then painted
+  them a second time under the join. It now describes only the setting. The
+  padding follows your picture, as in Krea 2 Outpaint.
+- **Examples no longer carry the sample's turn and padding.** Krea 2
+  Outpaint and Krea 2 Rotate + Outpaint open with an empty loader but still
+  saved the sample's padding and turn, and the first file in your input
+  folder could pick them up. They now save none. Krea 2 Outpaint opens with
+  no ratio picked, so your picture isn't padded until you choose one.
+- **Krea 2 Inpaint Masked example: Stay in picture is on.** The example had
+  it saved off, so a big painted area was cropped past the picture's edge
+  and painted smaller and softer.
+- **Krea 2 Inpaint Masked example: the person you keep stays.** Paint
+  everything around a person or a pet to give them a new background, and
+  the example used to paint over them too. Its Mask Refine now has Max hole
+  size at 2, so brush gaps still fill and what you left unpainted stays. The
+  note also says to paint right up to what you keep, and to change one
+  thing per run.
+- **Klein 9B Outpaint example: the seam blends in.** With the classic seam,
+  the new area's blacks could come back a hazy gray-green, and a turned
+  picture could show a line along its edge. The example now uses blend in
+  with Tone match. Its note says a big pad can grow a second hand or face,
+  and that the result is about 1.6 MP.
+- **Qwen Image 2.1 Edit + Realign example: the edit changes only what you
+  ask for.** Its prompt writer could widen a request: "remove the photos
+  from the wall" also took the fridge handle and the magnets. It now keeps
+  everything the request doesn't name. A transparent PNG's see-through
+  parts are filled with gray before the edit, instead of coming back black.
 
 ## 2.4.0 - 2026-09-29
 

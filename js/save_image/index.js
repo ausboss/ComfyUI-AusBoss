@@ -10,6 +10,7 @@
 // never decorated.
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
+import { isForeignRun } from "../shared/prompt_scope.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
 import { ensureCardCss } from "../shared/widget_card.mjs";
@@ -355,6 +356,7 @@ function buildCard(node) {
   }));
   chainCallback(node, "onConnectionsChange", () => queueMicrotask(() => state.refresh()));
   chainCallback(node, "onExecuted", (output) => {
+    if (isForeignRun()) return;
     const saved = output?.ausboss_saved_path?.[0];
     if (typeof saved === "string" && saved) { state.savedPath = saved; state.refresh(); }
   });

@@ -190,6 +190,10 @@
       [
         "INT",
         "height"
+      ],
+      [
+        "IMAGE",
+        "prompt_image"
       ]
     ]
   },
@@ -279,7 +283,8 @@
       "vae",
       "reference",
       "extra_image",
-      "vlm_reference"
+      "vlm_reference",
+      "mask"
     ],
     "outputs": [
       [
@@ -514,7 +519,8 @@
     ],
     "optional": [
       "preview",
-      "guide_image"
+      "guide_image",
+      "max_hole_size"
     ],
     "outputs": [
       [

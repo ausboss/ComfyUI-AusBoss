@@ -52,9 +52,9 @@ The pack uses the Pillow, NumPy, Torch and PyAV that come with ComfyUI. Each exa
 
 Rotate, crop and pad a picture by dragging handles on the node. Cyan squares crop, orange diamonds pad, and the green handle rotates. It rotates first, then crops, then pads. The full-screen editor adds exact sizes, zoom and pan.
 
-Under the aspect chips, pick **Crop** or **Pad**. Crop locks the crop to that shape, and Pad grows the canvas to it. **Reset crop** brings back the whole picture, and **Align** rounds the canvas to a multiple of pixels. Feather and output resizing are on the node and in the editor.
+Tap a ratio under the preview to pad the picture to it, or to crop it with **Fit** set to crop. A lit ratio is the shape the canvas has right now: drag a handle to another shape and it goes dark, and the row says Custom. The padlock at the end of the row keeps the shape while you drag, and the button at the start turns the shape between portrait and landscape. **Reset crop** brings back the whole picture, and **Round canvas to** rounds the canvas to a multiple of pixels. Feather and output resizing are on the node and in the editor.
 
-It returns the `image`, a `mask` of everything it added (padding, see-through parts of the source and the corners a rotation opens up), a `stitcher`, the untouched `original`, and the output `width` and `height`. Wire the stitcher into **Stitch Inpaint** after the sampler to put your original back. **Load Image + Pad** has more fill choices and a separate reference output.
+It returns the `image`, a `mask` of everything the model paints (padding, see-through parts of the source and the corners a rotation opens up), a `stitcher`, the untouched `original`, the output `width` and `height`, and a `prompt_image`. Wire the stitcher into **Stitch Inpaint** after the sampler to put your original back. See-through parts of a PNG, such as a cutout's missing background, are filled like the padding and painted; `prompt_image` and `original` show them as white. Give `prompt_image` to whatever writes your prompt, so it describes a real backdrop instead of the gray fill. **Load Image + Pad** has more fill choices and a separate reference output.
 
 ![The full-screen image editor with a rotated lake photo, cyan crop handles, orange padding handles, aspect ratios, and dimension controls.](assets/readme/image-editor.webp)
 
@@ -136,7 +136,7 @@ Picks one frame from a video, then gives you the same rotate, crop and pad contr
 
 Applies one rotate, crop and pad to every frame of a trimmed clip. It has the source picker, a timeline with a playhead and frame-accurate IN and OUT handles, frame skipping, a frame limit, the transform handles and output resizing. While you drag a trim handle, the node shows the exact first or last frame the run keeps. The bright part of the selection is what gets output.
 
-Fill, feather and the resize budget sit on the node face, and a new clip keeps them. That matters for video outpainting, because the black, hard-edged canvas the model needs survives a source swap. A fresh Clip node starts with that canvas, and the editor's **Reset transform** goes back to it. **Snap** trims the end to an 8n+1 or 4n+1 frame count when the next video model needs one. Pick Crop or Pad under the format chips. In Pad mode, tap a format to pad to it and tap it again to lock it. Crop mode locks the crop shape.
+Fill, feather and the resize budget sit on the node face, and a new clip keeps them. That matters for video outpainting, because the black, hard-edged canvas the model needs survives a source swap. A fresh Clip node starts with that canvas, and the editor's **Reset transform** goes back to it. **Frames for** trims the end to the frame count the next video model takes: LTX (8n+1) or Wan (4n+1). Tap a ratio to pad the clip to it; a new clip is padded to the lit ratio too. The padlock keeps the shape while you drag a handle.
 
 It returns the frames, mask, audio, frame count, fps, size, duration, a `stitcher`, and the chosen `original` frames before the transform. **Inpaint & Stitch** in the editor sets the protected source area and previews the blend. After a video outpaint, wire the stitcher straight into **Stitch Inpaint**, with no Crop For Inpaint in between. It works in chunks to keep memory down.
 
@@ -208,7 +208,7 @@ When a file has moved, the node finds it by name if only one file matches. A mis
 
 ### Krea 2 Encode
 
-Krea 2's positive and negative prompts in one card. Connect a VAE and reference pictures, and it adds them as references too, resized for the model first. **VLM reference** sets whether the text encoder also looks at them. Leave the references empty for plain text to image.
+Krea 2's positive and negative prompts in one card. Connect a VAE and reference pictures, and it adds them as references too, resized for the model first. **VLM reference** sets whether the text encoder also looks at them. Leave the references empty for plain text to image. For an outpaint, connect the pad node's mask too: the model then sees the new area in your picture's own colour instead of gray, so it paints it rather than keeping a gray frame.
 
 The prompt box takes several lines and a linked text. The [help page](js/docs/AUSBOSS_NODES_Krea2Encode.md) covers preparing references. With an outpaint LoRA, copy the wiring from the matching example.
 
@@ -218,7 +218,7 @@ Tells Krea 2 where a reference picture sits on the canvas. It's made for Krea 2 
 
 The card has **Reference** placement and **KV cache**. The placement has to match the LoRA:
 
-- **Whole canvas + AnyPaint:** the padded picture is the reference, VLM reference is on, and a masked starting latent keeps the known pixels. Several sides can extend in one pass. The Krea 2 Outpaint example works this way.
+- **Whole canvas + AnyPaint:** the padded picture is the reference, VLM reference is on, the pad mask goes into Krea 2 Encode's `mask`, and a masked starting latent keeps the known pixels. Several sides can extend in one pass. The Krea 2 Outpaint example works this way.
 - **Source rectangle + Registered Outpaint:** use the unpadded reference with VLM reference off. The source has to span the whole canvas in one direction, so extend left and right, or top and bottom, in each pass, including any padding added for rounding.
 
 ![A 16:9 photo of a woman at a waterfront railing is padded to 4:5, and Krea 2 fills in more sky above and the railing below.](assets/readme/krea2-outpaint.gif)
@@ -293,7 +293,7 @@ These are the workflows where the nodes do something core ComfyUI doesn't do by 
 
 ![The Krea 2 Rotate + Outpaint workflow: a setup note on the left, then groups for your input, the two boxes and the model loaders, and the result with a before-and-after slider and Save Image.](assets/readme/workflow-layout.webp)
 
-The Krea 2 examples use this layout: named groups for your input, the models and the result, with the plumbing inside two boxes you can double-click to open.
+The examples use this layout: named groups for your input, the models and the result, with the plumbing inside two boxes you can double-click to open.
 
 The workflows open with their image and video loaders empty, so you load your own picture or clip. To try one with a sample first, copy the pier photo or the short pier clip from [`example_workflows/inputs/`](example_workflows/inputs) into `ComfyUI/input/`. If you keep models in subfolders, pick your copy in each loader before you run. A green model check on the note only means the file exists; it doesn't mean the loader has that file selected. The models' licenses and any download terms are their authors'.
 
@@ -305,9 +305,9 @@ The workflows open with their image and video loaders empty, so you load your ow
 | [Klein 9B Outpaint](example_workflows/Klein%209B%20Outpaint%20%28AusBoss%29.json) | Extend a picture with the PixaOutpaint LoRA, then stitch the original back | Distilled Klein 9B, its Qwen encoder and the Flux 2 VAE, the PixaOutpaint LoRA, and Qwen3-VL 8B INT8 for the caption |
 | [LTX 2.3 Video Outpaint](example_workflows/LTX%202.3%20Video%20Outpaint%20%28AusBoss%29.json) | Widen a vertical clip, keeping its audio and original pixels | LTX 2.3, the distilled LoRA and the outpaint IC-LoRA |
 | [Qwen Image 2.1 Edit + Realign](example_workflows/Qwen%20Image%202.1%20Edit%20%2B%20Realign%20%28AusBoss%29.json) | Type a short edit, and Realign to Source lines Qwen's result back up with your picture | Qwen Image 2.1 INT8, Qwen3-VL 8B INT8 and the 2.1 VAE |
-| [Simple Video Watermark Remover](example_workflows/Simple%20Video%20Watermark%20Remover%20%28AusBoss%29.json) | Find an overlay in a clip and remove it, with a one-frame comparison branch | **ComfyUI-RMBG** for SAM3, plus `big-lama.pt` |
+| [Simple Video Watermark Remover](example_workflows/Simple%20Video%20Watermark%20Remover%20%28AusBoss%29.json) | Find an overlay in a clip and remove it, with a one-frame comparison branch | ComfyUI's own SAM 3.1 (ComfyUI 0.20 or newer), plus `big-lama.pt` |
 
-The watermark remover is the one example that needs another node pack. The others use only core nodes and this pack. Speed and memory use depend on the models, the sizes, the frame count and whatever else is using the GPU.
+Every example uses only core nodes and this pack. Speed and memory use depend on the models, the sizes, the frame count and whatever else is using the GPU.
 
 ## For workflow creators
 
@@ -341,7 +341,7 @@ People who download your workflow get the nodes through ComfyUI-Manager's missin
 
 LoRA Loader and Latent Size have their own gear menus for per-node preferences.
 
-The video transform nodes' local path mode reads only videos inside ComfyUI's input, output and temp folders, and Save Image writes only inside the output folder. No widget can point the pack anywhere else on the disk. See [the video transform help](js/docs/AUSBOSS_NODES_VideoCropRotatePad.md).
+The video transform nodes' Server file mode reads only videos inside ComfyUI's input, output and temp folders, and Save Image writes only inside the output folder. No widget can point the pack anywhere else on the disk. See [the video transform help](js/docs/AUSBOSS_NODES_VideoCropRotatePad.md).
 
 ## Optional extras
 
