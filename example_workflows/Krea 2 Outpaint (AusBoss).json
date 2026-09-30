@@ -9,7 +9,7 @@
       "type": "UNETLoader",
       "pos": [
         1060,
-        840
+        858
       ],
       "size": [
         360,
@@ -57,7 +57,7 @@
       "type": "CLIPLoader",
       "pos": [
         1060,
-        536
+        554
       ],
       "size": [
         360,
@@ -108,7 +108,7 @@
       "type": "VAELoader",
       "pos": [
         1060,
-        712
+        730
       ],
       "size": [
         360,
@@ -154,7 +154,7 @@
       "type": "AUSBOSS_NODES_LoraLoader",
       "pos": [
         1060,
-        992
+        1010
       ],
       "size": [
         360,
@@ -284,7 +284,6 @@
         "cnr_id": "ausboss-nodes",
         "ver": "2.4.0",
         "Node name for S&R": "AUSBOSS_NODES_ImageCropRotatePad",
-        "ausboss_fit_aspect": "3:4",
         "ausboss_aspect_mode": "pad",
         "ausboss_aspect_lock": false,
         "ausboss_pad_portrait": true
@@ -298,9 +297,9 @@
         "crop_width": 0,
         "crop_height": 0,
         "pad_left": 0,
-        "pad_top": 1045,
+        "pad_top": 0,
         "pad_right": 0,
-        "pad_bottom": 1046,
+        "pad_bottom": 0,
         "feather": 32,
         "canvas_multiple": 1,
         "fill_color": "#808080",
@@ -320,9 +319,9 @@
         "crop_width": 0,
         "crop_height": 0,
         "pad_left": 0,
-        "pad_top": 1045,
+        "pad_top": 0,
         "pad_right": 0,
-        "pad_bottom": 1046,
+        "pad_bottom": 0,
         "feather": 32,
         "canvas_multiple": 1,
         "fill_color": "#808080",
@@ -596,7 +595,7 @@
       ],
       "size": [
         440,
-        683
+        685
       ],
       "flags": {},
       "order": 10,
@@ -863,7 +862,7 @@
         480,
         0,
         480,
-        1583
+        1610
       ],
       "color": "#1d5560",
       "flags": {},
@@ -875,7 +874,7 @@
         1040,
         0,
         400,
-        416
+        434
       ],
       "color": "#1d5560",
       "flags": {},
@@ -885,9 +884,9 @@
       "title": "3 · Models",
       "bounding": [
         1040,
-        456,
+        474,
         400,
-        744
+        800
       ],
       "color": "#1d5560",
       "flags": {},
@@ -899,7 +898,7 @@
         1480,
         0,
         480,
-        1583
+        1610
       ],
       "color": "#1d5560",
       "flags": {},
@@ -1281,7 +1280,7 @@
               0,
               0,
               500,
-              698
+              752
             ],
             "color": "#1d5560",
             "flags": {},
@@ -1293,7 +1292,7 @@
               540,
               0,
               500,
-              700
+              752
             ],
             "color": "#1d5560",
             "flags": {},
@@ -2085,7 +2084,7 @@
               0,
               0,
               500,
-              860
+              868
             ],
             "color": "#1d5560",
             "flags": {},
@@ -2109,7 +2108,7 @@
               1080,
               0,
               500,
-              519
+              529
             ],
             "color": "#1d5560",
             "flags": {},

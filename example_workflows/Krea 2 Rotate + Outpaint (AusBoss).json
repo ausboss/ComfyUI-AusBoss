@@ -9,7 +9,7 @@
       "type": "UNETLoader",
       "pos": [
         1020,
-        704
+        722
       ],
       "size": [
         520,
@@ -57,7 +57,7 @@
       "type": "CLIPLoader",
       "pos": [
         1020,
-        400
+        418
       ],
       "size": [
         520,
@@ -108,7 +108,7 @@
       "type": "VAELoader",
       "pos": [
         1020,
-        576
+        594
       ],
       "size": [
         520,
@@ -154,7 +154,7 @@
       "type": "AUSBOSS_NODES_LoraLoader",
       "pos": [
         1020,
-        856
+        874
       ],
       "size": [
         520,
@@ -287,14 +287,14 @@
       },
       "widgets_values": {
         "image": "",
-        "rotation_degrees": 12,
+        "rotation_degrees": 0,
         "crop_aspect_ratio": "free",
         "crop_x": 0,
         "crop_y": 0,
         "crop_width": 0,
         "crop_height": 0,
-        "pad_left": 192,
-        "pad_top": 96,
+        "pad_left": 0,
+        "pad_top": 0,
         "pad_right": 0,
         "pad_bottom": 0,
         "feather": 32,
@@ -309,14 +309,14 @@
       },
       "widgets_values_named": {
         "image": "",
-        "rotation_degrees": 12,
+        "rotation_degrees": 0,
         "crop_aspect_ratio": "free",
         "crop_x": 0,
         "crop_y": 0,
         "crop_width": 0,
         "crop_height": 0,
-        "pad_left": 192,
-        "pad_top": 96,
+        "pad_left": 0,
+        "pad_top": 0,
         "pad_right": 0,
         "pad_bottom": 0,
         "feather": 32,
@@ -592,7 +592,7 @@
       ],
       "size": [
         440,
-        708
+        720
       ],
       "flags": {},
       "order": 10,
@@ -859,7 +859,7 @@
         480,
         0,
         480,
-        1388
+        1415
       ],
       "color": "#1d5560",
       "flags": {},
@@ -871,7 +871,7 @@
         1000,
         0,
         560,
-        280
+        298
       ],
       "color": "#1d5560",
       "flags": {},
@@ -881,9 +881,9 @@
       "title": "3 · Models",
       "bounding": [
         1000,
-        320,
+        338,
         560,
-        744
+        800
       ],
       "color": "#1d5560",
       "flags": {},
@@ -895,7 +895,7 @@
         1600,
         0,
         520,
-        1388
+        1415
       ],
       "color": "#1d5560",
       "flags": {},
@@ -1277,7 +1277,7 @@
               0,
               0,
               500,
-              698
+              752
             ],
             "color": "#1d5560",
             "flags": {},
@@ -1289,7 +1289,7 @@
               540,
               0,
               500,
-              700
+              752
             ],
             "color": "#1d5560",
             "flags": {},
@@ -2081,7 +2081,7 @@
               0,
               0,
               500,
-              860
+              868
             ],
             "color": "#1d5560",
             "flags": {},
@@ -2105,7 +2105,7 @@
               1080,
               0,
               500,
-              519
+              529
             ],
             "color": "#1d5560",
             "flags": {},

@@ -1,22 +1,22 @@
 {
-  "id": "1a7287f6-9bfc-4037-8914-c1be147cd0f3",
+  "id": "aaa3bc5b-c65c-4d3c-b01d-2f2b0f33a1ab",
   "revision": 0,
-  "last_node_id": 25,
-  "last_link_id": 35,
+  "last_node_id": 38,
+  "last_link_id": 46,
   "nodes": [
     {
       "id": 1,
       "type": "UNETLoader",
       "pos": [
-        -1060,
-        100
+        1100,
+        1034
       ],
       "size": [
-        430,
+        440,
         82
       ],
       "flags": {},
-      "order": 1,
+      "order": 0,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -28,7 +28,10 @@
           ]
         }
       ],
+      "title": "Diffusion model",
       "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
         "Node name for S&R": "UNETLoader",
         "models": [
           {
@@ -42,22 +45,26 @@
         "flux-2-klein-9b-int8-convrot.safetensors",
         "default"
       ],
-      "color": "#223",
-      "bgcolor": "#335"
+      "widgets_values_named": {
+        "unet_name": "flux-2-klein-9b-int8-convrot.safetensors",
+        "weight_dtype": "default"
+      },
+      "color": "#323",
+      "bgcolor": "#535"
     },
     {
       "id": 2,
       "type": "CLIPLoader",
       "pos": [
-        -1060,
-        232
+        1100,
+        730
       ],
       "size": [
-        430,
+        440,
         106
       ],
       "flags": {},
-      "order": 2,
+      "order": 1,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -65,11 +72,14 @@
           "name": "CLIP",
           "type": "CLIP",
           "links": [
-            6
+            10
           ]
         }
       ],
+      "title": "Text encoder",
       "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
         "Node name for S&R": "CLIPLoader",
         "models": [
           {
@@ -84,6 +94,11 @@
         "flux2",
         "default"
       ],
+      "widgets_values_named": {
+        "clip_name": "qwen_3_8b_fp8mixed.safetensors",
+        "type": "flux2",
+        "device": "default"
+      },
       "color": "#432",
       "bgcolor": "#653"
     },
@@ -91,15 +106,15 @@
       "id": 3,
       "type": "VAELoader",
       "pos": [
-        -1060,
-        388
+        1100,
+        906
       ],
       "size": [
-        430,
+        440,
         58
       ],
       "flags": {},
-      "order": 3,
+      "order": 2,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -107,12 +122,14 @@
           "name": "VAE",
           "type": "VAE",
           "links": [
-            3,
-            19
+            11
           ]
         }
       ],
+      "title": "VAE",
       "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
         "Node name for S&R": "VAELoader",
         "models": [
           {
@@ -125,6 +142,9 @@
       "widgets_values": [
         "flux2-vae.safetensors"
       ],
+      "widgets_values_named": {
+        "vae_name": "flux2-vae.safetensors"
+      },
       "color": "#322",
       "bgcolor": "#533"
     },
@@ -132,15 +152,15 @@
       "id": 4,
       "type": "AUSBOSS_NODES_LoraLoader",
       "pos": [
-        -1060,
-        496
+        1100,
+        1186
       ],
       "size": [
-        430,
+        440,
         188
       ],
       "flags": {},
-      "order": 4,
+      "order": 3,
       "mode": 0,
       "inputs": [
         {
@@ -160,7 +180,7 @@
           "name": "model",
           "type": "MODEL",
           "links": [
-            13
+            12
           ]
         },
         {
@@ -174,10 +194,19 @@
           "links": []
         }
       ],
+      "title": "LoRA Loader - PixaOutpaint LoRA",
       "properties": {
-        "Node name for S&R": "AUSBOSS_NODES_LoraLoader",
         "cnr_id": "ausboss-nodes",
-        "ver": "2.0.0"
+        "ver": "2.4.0",
+        "Node name for S&R": "AUSBOSS_NODES_LoraLoader",
+        "ausbossLoraLinked": true,
+        "models": [
+          {
+            "name": "pixaoutpaint.safetensors",
+            "url": "https://huggingface.co/Pixaroma/experimental_loras/resolve/main/pixaoutpaint.safetensors",
+            "directory": "loras"
+          }
+        ]
       },
       "widgets_values": [
         "[{\"name\":\"pixaoutpaint.safetensors\",\"strength\":1,\"enabled\":true,\"triggers\":\"pixaoutpaint\"}]",
@@ -185,18 +214,66 @@
         "error",
         ""
       ],
-      "title": "LoRA Loader 🆎  ·  the outpaint LoRA"
+      "widgets_values_named": {
+        "loras": "[{\"name\":\"pixaoutpaint.safetensors\",\"strength\":1,\"enabled\":true,\"triggers\":\"pixaoutpaint\"}]",
+        "trigger_separator": ", ",
+        "on_missing": "error",
+        "ausboss_lora_rows": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
     },
     {
-      "id": 5,
-      "type": "AUSBOSS_NODES_LoadImagePad",
+      "id": 8,
+      "type": "AUSBOSS_NODES_Text",
       "pos": [
-        -580,
-        100
+        540,
+        1109
       ],
       "size": [
-        460,
-        760
+        440,
+        168
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "links": [
+            3
+          ]
+        }
+      ],
+      "title": "Text - What goes there",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.4.0",
+        "Node name for S&R": "AUSBOSS_NODES_Text"
+      },
+      "widgets_values": [
+        "pixaoutpaint, replace all solid gray areas with a seamless continuation of the surrounding scene.",
+        ""
+      ],
+      "widgets_values_named": {
+        "text": "pixaoutpaint, replace all solid gray areas with a seamless continuation of the surrounding scene.",
+        "ausboss_widget_card": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 13,
+      "type": "AUSBOSS_NODES_Seed",
+      "pos": [
+        540,
+        1347
+      ],
+      "size": [
+        440,
+        216
       ],
       "flags": {},
       "order": 5,
@@ -204,18 +281,102 @@
       "inputs": [],
       "outputs": [
         {
+          "name": "seed",
+          "type": "INT",
+          "links": [
+            9
+          ]
+        }
+      ],
+      "title": "Seed",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.4.0",
+        "Node name for S&R": "AUSBOSS_NODES_Seed"
+      },
+      "widgets_values": [
+        8311,
+        "fixed",
+        ""
+      ],
+      "widgets_values_named": {
+        "seed": 8311,
+        "control_after_generate": "fixed",
+        "ausboss_seed_panel": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 17,
+      "type": "AUSBOSS_NODES_RunTimer",
+      "pos": [
+        1735,
+        1496
+      ],
+      "size": [
+        210,
+        67
+      ],
+      "flags": {
+        "no_title": true
+      },
+      "order": 6,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "Run Timer",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.4.0",
+        "Node name for S&R": "AUSBOSS_NODES_RunTimer"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 26,
+      "type": "AUSBOSS_NODES_ImageCropRotatePad",
+      "pos": [
+        540,
+        80
+      ],
+      "size": [
+        440,
+        959
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
           "name": "image",
           "type": "IMAGE",
           "links": [
-            2,
-            23
+            5,
+            14
           ]
         },
         {
           "name": "mask",
           "type": "MASK",
           "links": [
-            29
+            6
+          ]
+        },
+        {
+          "name": "stitcher",
+          "type": "AUSBOSS_STITCHER",
+          "links": [
+            7
+          ]
+        },
+        {
+          "name": "original",
+          "type": "IMAGE",
+          "links": [
+            2
           ]
         },
         {
@@ -227,694 +388,80 @@
           "name": "height",
           "type": "INT",
           "links": []
-        },
-        {
-          "name": "stitcher",
-          "type": "AUSBOSS_STITCHER",
-          "links": [
-            20
-          ]
-        },
-        {
-          "name": "reference",
-          "type": "IMAGE",
-          "links": [
-            31
-          ]
         }
       ],
+      "title": "Image Crop + Rotate + Pad - Your image",
       "properties": {
-        "Node name for S&R": "AUSBOSS_NODES_LoadImagePad",
         "cnr_id": "ausboss-nodes",
-        "ver": "2.0.0"
+        "ver": "2.4.0",
+        "Node name for S&R": "AUSBOSS_NODES_ImageCropRotatePad",
+        "ausboss_fit_aspect": "3:4",
+        "ausboss_aspect_mode": "pad",
+        "ausboss_aspect_lock": false,
+        "ausboss_pad_portrait": true
       },
-      "widgets_values": [
-        "",
-        320,
-        192,
-        128,
-        256,
-        "color",
-        "#808080",
-        0.5,
-        64,
-        16,
-        1.6,
-        "",
-        ""
-      ],
-      "title": "Load Image + Pad 🆎  ·  drag any edge outward"
-    },
-    {
-      "id": 6,
-      "type": "VAEEncode",
-      "pos": [
-        -580,
-        910
-      ],
-      "size": [
-        460,
-        46
-      ],
-      "flags": {},
-      "order": 6,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "pixels",
-          "type": "IMAGE",
-          "link": 2
-        },
-        {
-          "name": "vae",
-          "type": "VAE",
-          "link": 3
-        }
-      ],
-      "outputs": [
-        {
-          "name": "LATENT",
-          "type": "LATENT",
-          "links": [
-            9,
-            12,
-            28
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "VAEEncode"
+      "widgets_values": {
+        "image": "",
+        "rotation_degrees": 0,
+        "crop_aspect_ratio": "free",
+        "crop_x": 0,
+        "crop_y": 0,
+        "crop_width": 0,
+        "crop_height": 0,
+        "pad_left": 0,
+        "pad_top": 0,
+        "pad_right": 0,
+        "pad_bottom": 0,
+        "feather": 64,
+        "canvas_multiple": 1,
+        "fill_color": "#808080",
+        "resize_to_megapixels": true,
+        "megapixels": 1.6,
+        "resize_method": "lanczos",
+        "resolution_steps": 16,
+        "stitch_blend": 0,
+        "stitch_grow": 0
       },
-      "widgets_values": [],
-      "title": "VAE Encode  ·  the grey-padded canvas"
-    },
-    {
-      "id": 8,
-      "type": "AUSBOSS_NODES_Text",
-      "pos": [
-        460,
-        100
-      ],
-      "size": [
-        420,
-        190
-      ],
-      "flags": {},
-      "order": 8,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "text",
-          "type": "STRING",
-          "links": [
-            32
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "AUSBOSS_NODES_Text",
-        "cnr_id": "ausboss-nodes",
-        "ver": "2.0.0"
+      "widgets_values_named": {
+        "image": "",
+        "rotation_degrees": 0,
+        "crop_aspect_ratio": "free",
+        "crop_x": 0,
+        "crop_y": 0,
+        "crop_width": 0,
+        "crop_height": 0,
+        "pad_left": 0,
+        "pad_top": 0,
+        "pad_right": 0,
+        "pad_bottom": 0,
+        "feather": 64,
+        "canvas_multiple": 1,
+        "fill_color": "#808080",
+        "resize_to_megapixels": true,
+        "megapixels": 1.6,
+        "resize_method": "lanczos",
+        "resolution_steps": 16,
+        "stitch_blend": 0,
+        "stitch_grow": 0,
+        "upload": "image",
+        "ausboss_transform_preview": ""
       },
-      "widgets_values": [
-        "pixaoutpaint, replace all solid gray areas with a seamless continuation of the surrounding scene."
-      ],
-      "title": "Text 🆎  ·  trigger word + instruction"
-    },
-    {
-      "id": 9,
-      "type": "CLIPTextEncode",
-      "pos": [
-        460,
-        340
-      ],
-      "size": [
-        420,
-        88
-      ],
-      "flags": {},
-      "order": 9,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "clip",
-          "type": "CLIP",
-          "link": 6
-        },
-        {
-          "name": "text",
-          "type": "STRING",
-          "widget": {
-            "name": "text"
-          },
-          "link": 35
-        }
-      ],
-      "outputs": [
-        {
-          "name": "CONDITIONING",
-          "type": "CONDITIONING",
-          "links": [
-            8,
-            10
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "CLIPTextEncode"
-      },
-      "widgets_values": [
-        ""
-      ],
-      "title": "CLIP Text Encode  ·  positive"
-    },
-    {
-      "id": 10,
-      "type": "ReferenceLatent",
-      "pos": [
-        460,
-        478
-      ],
-      "size": [
-        420,
-        46
-      ],
-      "flags": {},
-      "order": 10,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "conditioning",
-          "type": "CONDITIONING",
-          "link": 8
-        },
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "link": 9,
-          "shape": 7
-        }
-      ],
-      "outputs": [
-        {
-          "name": "CONDITIONING",
-          "type": "CONDITIONING",
-          "links": [
-            14
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "ReferenceLatent"
-      },
-      "widgets_values": [],
-      "title": "Reference Latent  ·  positive"
-    },
-    {
-      "id": 11,
-      "type": "ConditioningZeroOut",
-      "pos": [
-        460,
-        574
-      ],
-      "size": [
-        420,
-        46
-      ],
-      "flags": {},
-      "order": 11,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "conditioning",
-          "type": "CONDITIONING",
-          "link": 10
-        }
-      ],
-      "outputs": [
-        {
-          "name": "CONDITIONING",
-          "type": "CONDITIONING",
-          "links": [
-            11
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "ConditioningZeroOut"
-      },
-      "widgets_values": []
-    },
-    {
-      "id": 12,
-      "type": "ReferenceLatent",
-      "pos": [
-        460,
-        670
-      ],
-      "size": [
-        420,
-        46
-      ],
-      "flags": {},
-      "order": 12,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "conditioning",
-          "type": "CONDITIONING",
-          "link": 11
-        },
-        {
-          "name": "latent",
-          "type": "LATENT",
-          "link": 12,
-          "shape": 7
-        }
-      ],
-      "outputs": [
-        {
-          "name": "CONDITIONING",
-          "type": "CONDITIONING",
-          "links": [
-            15
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "ReferenceLatent"
-      },
-      "widgets_values": [],
-      "title": "Reference Latent  ·  negative"
-    },
-    {
-      "id": 13,
-      "type": "AUSBOSS_NODES_Seed",
-      "pos": [
-        460,
-        766
-      ],
-      "size": [
-        420,
-        216
-      ],
-      "flags": {},
-      "order": 13,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "seed",
-          "type": "INT",
-          "links": [
-            17
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "AUSBOSS_NODES_Seed",
-        "cnr_id": "ausboss-nodes",
-        "ver": "2.0.0"
-      },
-      "widgets_values": [
-        20260903,
-        "fixed"
-      ]
-    },
-    {
-      "id": 14,
-      "type": "KSampler",
-      "pos": [
-        980,
-        100
-      ],
-      "size": [
-        440,
-        262
-      ],
-      "flags": {},
-      "order": 14,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 13
-        },
-        {
-          "name": "positive",
-          "type": "CONDITIONING",
-          "link": 14
-        },
-        {
-          "name": "negative",
-          "type": "CONDITIONING",
-          "link": 15
-        },
-        {
-          "name": "latent_image",
-          "type": "LATENT",
-          "link": 27
-        },
-        {
-          "name": "seed",
-          "type": "INT",
-          "widget": {
-            "name": "seed"
-          },
-          "link": 17
-        }
-      ],
-      "outputs": [
-        {
-          "name": "LATENT",
-          "type": "LATENT",
-          "links": [
-            18
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "KSampler"
-      },
-      "widgets_values": [
-        20260903,
-        "fixed",
-        4,
-        1.0,
-        "euler",
-        "simple",
-        1.0
-      ],
-      "title": "KSampler  ·  Klein: 4 steps, CFG 1"
-    },
-    {
-      "id": 15,
-      "type": "VAEDecode",
-      "pos": [
-        980,
-        412
-      ],
-      "size": [
-        440,
-        46
-      ],
-      "flags": {},
-      "order": 15,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "samples",
-          "type": "LATENT",
-          "link": 18
-        },
-        {
-          "name": "vae",
-          "type": "VAE",
-          "link": 19
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            21
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "VAEDecode"
-      },
-      "widgets_values": []
-    },
-    {
-      "id": 16,
-      "type": "AUSBOSS_NODES_StitchInpaint",
-      "pos": [
-        980,
-        508
-      ],
-      "size": [
-        440,
-        145
-      ],
-      "flags": {},
-      "order": 16,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "stitcher",
-          "type": "AUSBOSS_STITCHER",
-          "link": 20
-        },
-        {
-          "name": "inpainted",
-          "type": "IMAGE",
-          "link": 21
-        }
-      ],
-      "outputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "links": [
-            22
-          ]
-        },
-        {
-          "name": "blend_mask",
-          "type": "MASK",
-          "links": []
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "AUSBOSS_NODES_StitchInpaint",
-        "cnr_id": "ausboss-nodes",
-        "ver": "2.0.0"
-      },
-      "widgets_values": [
-        false,
-        1.0
-      ],
-      "title": "Stitch Inpaint 🆎  ·  original pixels back, seams matched"
-    },
-    {
-      "id": 17,
-      "type": "AUSBOSS_NODES_RunTimer",
-      "pos": [
-        980,
-        703
-      ],
-      "size": [
-        196,
-        62
-      ],
-      "flags": {},
-      "order": 17,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [],
-      "properties": {
-        "Node name for S&R": "AUSBOSS_NODES_RunTimer",
-        "cnr_id": "ausboss-nodes",
-        "ver": "2.0.0"
-      },
-      "widgets_values": []
-    },
-    {
-      "id": 18,
-      "type": "AUSBOSS_NODES_Compare",
-      "pos": [
-        1480,
-        100
-      ],
-      "size": [
-        560,
-        560
-      ],
-      "flags": {},
-      "order": 18,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "image_a",
-          "type": "IMAGE",
-          "link": 22
-        },
-        {
-          "name": "image_b",
-          "type": "IMAGE",
-          "link": 23
-        }
-      ],
-      "outputs": [
-        {
-          "name": "image_a",
-          "type": "IMAGE",
-          "links": [
-            24
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "AUSBOSS_NODES_Compare",
-        "cnr_id": "ausboss-nodes",
-        "ver": "2.0.0"
-      },
-      "widgets_values": [
-        ""
-      ],
-      "title": "Image Compare A/B 🆎  ·  result vs padded canvas"
-    },
-    {
-      "id": 19,
-      "type": "AUSBOSS_NODES_SaveImage",
-      "pos": [
-        1480,
-        710
-      ],
-      "size": [
-        560,
-        390
-      ],
-      "flags": {},
-      "order": 19,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": 24
-        },
-        {
-          "name": "filename",
-          "type": "STRING",
-          "link": null,
-          "shape": 7,
-          "widget": {
-            "name": "filename"
-          }
-        },
-        {
-          "name": "caption_text",
-          "type": "STRING",
-          "link": null,
-          "shape": 7,
-          "widget": {
-            "name": "caption_text"
-          }
-        }
-      ],
-      "outputs": [
-        {
-          "name": "file_path",
-          "type": "STRING",
-          "links": []
-        },
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "links": []
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "AUSBOSS_NODES_SaveImage",
-        "cnr_id": "ausboss-nodes",
-        "ver": "2.0.0"
-      },
-      "widgets_values": [
-        "klein_outpaint",
-        "png",
-        true,
-        "",
-        "overwrite",
-        "",
-        ""
-      ]
-    },
-    {
-      "id": 20,
-      "type": "AUSBOSS_NODES_WorkflowNote",
-      "pos": [
-        -1680,
-        100
-      ],
-      "size": [
-        560,
-        1390
-      ],
-      "flags": {},
-      "order": 20,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [],
-      "properties": {
-        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote",
-        "cnr_id": "ausboss-nodes",
-        "ver": "2.0.0"
-      },
-      "widgets_values": [
-        "{\"v\": 1, \"title\": \"Klein 9B Outpaint\", \"subtitle\": \"Extend a picture with PixaOutpaint for Klein 9B. Condition on the padded source, sample its masked latent, then restore protected pixels with Stitch Inpaint.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"## Setup\\nCopy the supplied media from `example_workflows/inputs/` into `ComfyUI/input/`. Choose the installed Klein 9B diffusion model, Qwen encoder and Flux 2 VAE in their loaders; if you keep models in subfolders, select those paths. Add PixaOutpaint at strength 1. Download links below name the standard destination folders.\\n\\n## How it works\\n1. **Load Image + Pad** — drag the borders outward. Keep the fill flat gray (#808080). The example uses a 1.6 MP canvas and a 64 px seam feather.\\n2. **Reference and starting latent** — VAE Encode supplies the padded reference to both conditioning branches. Set Latent Noise Mask also sends that encoded canvas to the sampler with the padding mask. The model generates the new borders and blends across the seam while the known image anchors the result.\\n3. **Prompt** — keep the pixaoutpaint trigger and the instruction to replace solid gray areas. In testing, alternative wording left borders unfilled even with the same seed. Add scene details after this instruction.\\n4. **Sample** — this distilled Klein 9B example uses 4 steps, CFG 1, euler/simple and full denoise. The Seed node controls repeatability.\\n5. **Stitch** — restore the source outside the 64 px feathered seam. Tone match starts at 1; reduce it if it shifts a new region too far. Compare the result against the padded input, then save.\\n\\n## If a border stays gray\\nCheck that the PixaOutpaint LoRA is enabled and the trigger matches. Restore the supplied prompt, try another seed, or extend fewer sides per pass. Tone match blends a finished outpaint; it cannot fill a region the model left gray.\\n\\n## Tested\\nFour-sided 1120 × 1456 outpaint with the supplied pier image, PixaOutpaint and the INT8 Klein 9B model. Compared raw and stitched images at the same seed: the masked starting latent and 64 px feather reduced the seam left by the empty-latent/24 px setup. The protected source interior remained pixel-exact. Image content, seed and padding amount still affect the result.\\n\\n## Source-aware outpaint prompt\\nQwen3-VL describes the unpadded reference. The prompt keeps the **pixaoutpaint** trigger and gray-area replacement instruction first, then adds the source description. Review the combined prompt on Show Text. For a manual prompt, connect the instruction Text directly to CLIP Text Encode and mute the caption stage. The extra 8B encoder below is only for captioning; Klein retains its own text encoder.\", \"models\": [{\"name\": \"flux-2-klein-9b-int8-convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"\", \"url\": \"https://huggingface.co/Winnougan/Klein9b-Distilled-Base-INT8-Convrot/resolve/main/flux-2-klein-9b-int8-convrot.safetensors\", \"note\": \"Tested build; use a distilled Klein 9B model.\"}, {\"name\": \"qwen_3_8b_fp8mixed.safetensors\", \"dir\": \"text_encoders\", \"size\": \"8.7 GB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors\", \"note\": \"\"}, {\"name\": \"flux2-vae.safetensors\", \"dir\": \"vae\", \"size\": \"336 MB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/vae/flux2-vae.safetensors\", \"note\": \"\"}, {\"name\": \"pixaoutpaint.safetensors\", \"dir\": \"loras\", \"size\": \"\", \"url\": \"https://huggingface.co/Pixaroma/experimental_loras/resolve/main/pixaoutpaint.safetensors\", \"note\": \"Pixaroma’s experimental Klein 9B outpaint LoRA. Trigger: pixaoutpaint. Strength: 1.\"}, {\"name\": \"qwen3vl_8b_int8_convrot.safetensors\", \"dir\": \"text_encoders\", \"size\": \"9.35 GB\", \"note\": \"Source captioning only. Use CLIP type qwen_image; the renderer still uses its own encoder. Requires current ComfyUI with Qwen Image 2.1 support.\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_LoadImagePad\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
-      ]
-    },
-    {
-      "id": 21,
-      "type": "SetLatentNoiseMask",
-      "pos": [
-        -580,
-        1006
-      ],
-      "size": [
-        460,
-        46
-      ],
-      "flags": {},
-      "order": 8,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "samples",
-          "type": "LATENT",
-          "link": 28
-        },
-        {
-          "name": "mask",
-          "type": "MASK",
-          "link": 29
-        }
-      ],
-      "outputs": [
-        {
-          "name": "LATENT",
-          "type": "LATENT",
-          "links": [
-            27
-          ]
-        }
-      ],
-      "title": "Set Latent Noise Mask · protect the source",
-      "properties": {
-        "Node name for S&R": "SetLatentNoiseMask",
-        "cnr_id": "comfy-core",
-        "ver": "0.34.5"
-      },
-      "widgets_values": []
+      "color": "#14424d",
+      "bgcolor": "#161f21"
     },
     {
       "id": 22,
       "type": "CLIPLoader",
       "pos": [
-        -60,
-        100
+        1100,
+        554
       ],
       "size": [
-        460,
+        440,
         106
       ],
       "flags": {},
-      "order": 20,
+      "order": 8,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -922,12 +469,14 @@
           "name": "CLIP",
           "type": "CLIP",
           "links": [
-            30
-          ],
-          "slot_index": 0
+            4
+          ]
         }
       ],
+      "title": "Caption model",
       "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
         "Node name for S&R": "CLIPLoader",
         "models": [
           {
@@ -942,176 +491,296 @@
         "qwen_image",
         "default"
       ],
+      "widgets_values_named": {
+        "clip_name": "qwen3vl_8b_int8_convrot.safetensors",
+        "type": "qwen_image",
+        "device": "default"
+      },
       "color": "#432",
-      "bgcolor": "#653",
-      "title": "Caption model · Qwen3-VL 8B"
+      "bgcolor": "#653"
     },
     {
-      "id": 23,
-      "type": "TextGenerate",
+      "id": 28,
+      "type": "6a1d2b64-3f0e-4c53-9d1e-5b8f7c2a4e01",
       "pos": [
-        -60,
-        260
+        1100,
+        80
       ],
       "size": [
-        460,
-        440
+        440,
+        66
       ],
       "flags": {},
-      "order": 21,
+      "order": 9,
       "mode": 0,
       "inputs": [
         {
-          "name": "clip",
+          "name": "picture",
+          "type": "IMAGE",
+          "link": 2
+        },
+        {
+          "name": "what goes there",
+          "type": "STRING",
+          "link": 3
+        },
+        {
+          "name": "caption model",
           "type": "CLIP",
-          "link": 30
-        },
-        {
-          "name": "sampling_mode",
-          "type": "COMFY_DYNAMICCOMBO_V3",
-          "link": null
-        },
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "link": 31,
-          "shape": 7
-        },
-        {
-          "name": "video",
-          "type": "IMAGE",
-          "link": null,
-          "shape": 7
-        },
-        {
-          "name": "audio",
-          "type": "AUDIO",
-          "link": null,
-          "shape": 7
+          "link": 4
         }
       ],
       "outputs": [
         {
-          "name": "generated_text",
+          "name": "prompt",
           "type": "STRING",
           "links": [
-            33
+            8
           ]
         }
       ],
-      "properties": {
-        "Node name for S&R": "TextGenerate"
-      },
-      "widgets_values": [
-        "Describe only the visible subject, setting, materials, composition and lighting in 60 to 90 words. Use plain factual language. Do not invent actions, camera motion, sound or objects. Output only the description.",
-        180,
-        "on",
-        0.3,
-        64,
-        0.95,
-        0.05,
-        1.05,
-        20260922,
-        0.0,
-        true,
-        true,
-        "auto"
-      ],
-      "title": "Source description"
+      "title": "Write the prompt",
+      "properties": {},
+      "color": "#14424d",
+      "bgcolor": "#161f21"
     },
     {
-      "id": 24,
-      "type": "StringConcatenate",
+      "id": 29,
+      "type": "b93e7c15-8d42-4a6f-a0c7-2e5d9f13b6a8",
       "pos": [
-        -60,
-        750
+        1100,
+        216
       ],
       "size": [
-        460,
-        166
+        440,
+        180
       ],
       "flags": {},
-      "order": 22,
+      "order": 10,
       "mode": 0,
       "inputs": [
         {
-          "name": "string_a",
-          "type": "STRING",
-          "link": 32,
-          "widget": {
-            "name": "string_a"
-          }
+          "name": "canvas",
+          "type": "IMAGE",
+          "link": 5
         },
         {
-          "name": "string_b",
+          "name": "mask",
+          "type": "MASK",
+          "link": 6
+        },
+        {
+          "name": "stitcher",
+          "type": "AUSBOSS_STITCHER",
+          "link": 7
+        },
+        {
+          "name": "prompt",
           "type": "STRING",
-          "link": 33,
-          "widget": {
-            "name": "string_b"
-          }
+          "link": 8
+        },
+        {
+          "name": "seed",
+          "type": "INT",
+          "link": 9
+        },
+        {
+          "name": "text encoder",
+          "type": "CLIP",
+          "link": 10
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 11
+        },
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 12
         }
       ],
       "outputs": [
         {
-          "name": "STRING",
-          "type": "STRING",
+          "name": "result",
+          "type": "IMAGE",
           "links": [
-            34
-          ],
-          "slot_index": 0
+            13
+          ]
         }
       ],
-      "properties": {
-        "Node name for S&R": "StringConcatenate"
-      },
-      "widgets_values": [
-        "",
-        "",
-        "\n\nScene to continue: "
-      ],
-      "title": "Prompt · PixaOutpaint instruction + scene"
+      "title": "Paint with Klein",
+      "properties": {},
+      "color": "#14424d",
+      "bgcolor": "#161f21"
     },
     {
-      "id": 25,
-      "type": "AUSBOSS_NODES_ShowText",
+      "id": 18,
+      "type": "AUSBOSS_NODES_Compare",
       "pos": [
-        -60,
-        966
+        1620,
+        80
       ],
       "size": [
-        460,
-        300
+        440,
+        606
       ],
       "flags": {},
-      "order": 23,
+      "order": 11,
       "mode": 0,
       "inputs": [
         {
-          "name": "text",
-          "type": "STRING",
-          "link": 34,
-          "widget": {
-            "name": "text"
-          }
+          "name": "image_a",
+          "type": "IMAGE",
+          "link": 13
+        },
+        {
+          "name": "image_b",
+          "type": "IMAGE",
+          "link": 14
         }
       ],
       "outputs": [
         {
-          "name": "text",
-          "type": "STRING",
+          "name": "image_a",
+          "type": "IMAGE",
           "links": [
-            35
-          ],
-          "slot_index": 0
+            15
+          ]
         }
       ],
+      "title": "Image Compare A/B - Before and after",
       "properties": {
-        "Node name for S&R": "AUSBOSS_NODES_ShowText",
         "cnr_id": "ausboss-nodes",
-        "ver": "2.0.0"
+        "ver": "2.4.0",
+        "Node name for S&R": "AUSBOSS_NODES_Compare",
+        "ausboss_compare_mode": "slide"
       },
-      "widgets_values": [],
-      "title": "Prompt sent to Klein"
+      "widgets_values": [
+        ""
+      ],
+      "widgets_values_named": {
+        "ausboss_compare_panel": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 19,
+      "type": "AUSBOSS_NODES_SaveImage",
+      "pos": [
+        1620,
+        756
+      ],
+      "size": [
+        440,
+        700
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 15
+        },
+        {
+          "name": "filename",
+          "type": "STRING",
+          "link": null,
+          "shape": 7
+        },
+        {
+          "name": "caption_text",
+          "type": "STRING",
+          "link": null,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "file_path",
+          "type": "STRING",
+          "links": []
+        },
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": []
+        }
+      ],
+      "title": "Save Image",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.4.0",
+        "Node name for S&R": "AUSBOSS_NODES_SaveImage"
+      },
+      "widgets_values": {
+        "filename_prefix": "klein_outpaint",
+        "format": "png",
+        "save_metadata": true,
+        "exact_name": "",
+        "on_existing": "overwrite",
+        "output_dir": "",
+        "caption": "",
+        "name_counter": true,
+        "name_date": false,
+        "name_time": false,
+        "name_size": false,
+        "name_batch": false,
+        "preview": true
+      },
+      "widgets_values_named": {
+        "filename_prefix": "klein_outpaint",
+        "format": "png",
+        "save_metadata": true,
+        "exact_name": "",
+        "on_existing": "overwrite",
+        "output_dir": "",
+        "ausboss_save_image_card": "",
+        "caption": "",
+        "name_counter": true,
+        "name_date": false,
+        "name_time": false,
+        "name_size": false,
+        "name_batch": false,
+        "preview": true,
+        "ausboss_input_preview": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 20,
+      "type": "AUSBOSS_NODES_WorkflowNote",
+      "pos": [
+        0,
+        30
+      ],
+      "size": [
+        480,
+        752
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "🆎 AusBoss",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.4.0",
+        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote"
+      },
+      "widgets_values": [
+        "{\"v\": 1, \"title\": \"Klein 9B Outpaint\", \"subtitle\": \"Extend a picture, and Klein 9B paints the new area.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image.\\n2. Pick a ratio, or drag the orange handles out.\\n3. Optional: describe the new area in **What goes there**, after the first sentence.\\n4. Press **Run**.\\n\\nKeep that first sentence. Without it the new area can come out blank.\\n\\nThe two boxes in the middle do the work. Double-click one to see inside.\\n\\nNeeds AusBoss nodes 2.4.0 or newer.\", \"models\": [{\"name\": \"flux-2-klein-9b-int8-convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"9.43 GB\", \"url\": \"https://huggingface.co/Winnougan/Klein9b-Distilled-Base-INT8-Convrot/resolve/main/flux-2-klein-9b-int8-convrot.safetensors\", \"note\": \"INT8 build by Winnougan\"}, {\"name\": \"qwen_3_8b_fp8mixed.safetensors\", \"dir\": \"text_encoders\", \"size\": \"8.66 GB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors\", \"note\": \"\"}, {\"name\": \"flux2-vae.safetensors\", \"dir\": \"vae\", \"size\": \"336 MB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/vae/flux2-vae.safetensors\", \"note\": \"\"}, {\"name\": \"pixaoutpaint.safetensors\", \"dir\": \"loras\", \"size\": \"127 MB\", \"url\": \"https://huggingface.co/Pixaroma/experimental_loras/resolve/main/pixaoutpaint.safetensors\", \"note\": \"by Pixaroma\"}, {\"name\": \"qwen3vl_8b_int8_convrot.safetensors\", \"dir\": \"text_encoders\", \"size\": \"9.35 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\", \"note\": \"for the description\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_ImageCropRotatePad\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+      ],
+      "widgets_values_named": {
+        "note": "{\"v\": 1, \"title\": \"Klein 9B Outpaint\", \"subtitle\": \"Extend a picture, and Klein 9B paints the new area.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image.\\n2. Pick a ratio, or drag the orange handles out.\\n3. Optional: describe the new area in **What goes there**, after the first sentence.\\n4. Press **Run**.\\n\\nKeep that first sentence. Without it the new area can come out blank.\\n\\nThe two boxes in the middle do the work. Double-click one to see inside.\\n\\nNeeds AusBoss nodes 2.4.0 or newer.\", \"models\": [{\"name\": \"flux-2-klein-9b-int8-convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"9.43 GB\", \"url\": \"https://huggingface.co/Winnougan/Klein9b-Distilled-Base-INT8-Convrot/resolve/main/flux-2-klein-9b-int8-convrot.safetensors\", \"note\": \"INT8 build by Winnougan\"}, {\"name\": \"qwen_3_8b_fp8mixed.safetensors\", \"dir\": \"text_encoders\", \"size\": \"8.66 GB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors\", \"note\": \"\"}, {\"name\": \"flux2-vae.safetensors\", \"dir\": \"vae\", \"size\": \"336 MB\", \"url\": \"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/vae/flux2-vae.safetensors\", \"note\": \"\"}, {\"name\": \"pixaoutpaint.safetensors\", \"dir\": \"loras\", \"size\": \"127 MB\", \"url\": \"https://huggingface.co/Pixaroma/experimental_loras/resolve/main/pixaoutpaint.safetensors\", \"note\": \"by Pixaroma\"}, {\"name\": \"qwen3vl_8b_int8_convrot.safetensors\", \"dir\": \"text_encoders\", \"size\": \"9.35 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\", \"note\": \"for the description\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_ImageCropRotatePad\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
     }
   ],
   "links": [
@@ -1125,315 +794,1700 @@
     ],
     [
       2,
-      5,
-      0,
-      6,
+      26,
+      3,
+      28,
       0,
       "IMAGE"
     ],
     [
       3,
-      3,
+      8,
       0,
-      6,
+      28,
       1,
-      "VAE"
+      "STRING"
     ],
     [
-      6,
+      4,
+      22,
+      0,
+      28,
       2,
-      0,
-      9,
-      0,
       "CLIP"
     ],
     [
-      8,
-      9,
-      0,
-      10,
-      0,
-      "CONDITIONING"
-    ],
-    [
-      9,
-      6,
-      0,
-      10,
-      1,
-      "LATENT"
-    ],
-    [
-      10,
-      9,
-      0,
-      11,
-      0,
-      "CONDITIONING"
-    ],
-    [
-      11,
-      11,
-      0,
-      12,
-      0,
-      "CONDITIONING"
-    ],
-    [
-      12,
-      6,
-      0,
-      12,
-      1,
-      "LATENT"
-    ],
-    [
-      13,
-      4,
-      0,
-      14,
-      0,
-      "MODEL"
-    ],
-    [
-      14,
-      10,
-      0,
-      14,
-      1,
-      "CONDITIONING"
-    ],
-    [
-      15,
-      12,
-      0,
-      14,
-      2,
-      "CONDITIONING"
-    ],
-    [
-      17,
-      13,
-      0,
-      14,
-      4,
-      "INT"
-    ],
-    [
-      18,
-      14,
-      0,
-      15,
-      0,
-      "LATENT"
-    ],
-    [
-      19,
-      3,
-      0,
-      15,
-      1,
-      "VAE"
-    ],
-    [
-      20,
       5,
-      4,
-      16,
+      26,
       0,
-      "AUSBOSS_STITCHER"
-    ],
-    [
-      21,
-      15,
-      0,
-      16,
-      1,
-      "IMAGE"
-    ],
-    [
-      22,
-      16,
-      0,
-      18,
-      0,
-      "IMAGE"
-    ],
-    [
-      23,
-      5,
-      0,
-      18,
-      1,
-      "IMAGE"
-    ],
-    [
-      24,
-      18,
-      0,
-      19,
-      0,
-      "IMAGE"
-    ],
-    [
-      27,
-      21,
-      0,
-      14,
-      3,
-      "LATENT"
-    ],
-    [
-      28,
-      6,
-      0,
-      21,
-      0,
-      "LATENT"
-    ],
-    [
       29,
-      5,
+      0,
+      "IMAGE"
+    ],
+    [
+      6,
+      26,
       1,
-      21,
+      29,
       1,
       "MASK"
     ],
     [
-      30,
-      22,
+      7,
+      26,
+      2,
+      29,
+      2,
+      "AUSBOSS_STITCHER"
+    ],
+    [
+      8,
+      28,
       0,
-      23,
+      29,
+      3,
+      "STRING"
+    ],
+    [
+      9,
+      13,
       0,
+      29,
+      4,
+      "INT"
+    ],
+    [
+      10,
+      2,
+      0,
+      29,
+      5,
       "CLIP"
     ],
     [
-      31,
-      5,
-      5,
-      23,
-      2,
+      11,
+      3,
+      0,
+      29,
+      6,
+      "VAE"
+    ],
+    [
+      12,
+      4,
+      0,
+      29,
+      7,
+      "MODEL"
+    ],
+    [
+      13,
+      29,
+      0,
+      18,
+      0,
       "IMAGE"
     ],
     [
-      32,
-      8,
+      14,
+      26,
       0,
-      24,
-      0,
-      "STRING"
-    ],
-    [
-      33,
-      23,
-      0,
-      24,
+      18,
       1,
-      "STRING"
+      "IMAGE"
     ],
     [
-      34,
-      24,
+      15,
+      18,
       0,
-      25,
+      19,
       0,
-      "STRING"
-    ],
-    [
-      35,
-      25,
-      0,
-      9,
-      1,
-      "STRING"
+      "IMAGE"
     ]
   ],
   "groups": [
     {
-      "id": 1,
-      "title": "1 · Models + outpaint LoRA",
+      "title": "1 · Your input",
       "bounding": [
-        -1080,
-        40,
-        470,
-        664
-      ],
-      "flags": {},
-      "font_size": 24,
-      "color": "#235d64"
-    },
-    {
-      "id": 2,
-      "title": "2 · Source + padding  (any sides)",
-      "bounding": [
-        -600,
-        40,
-        500,
-        1032
-      ],
-      "flags": {},
-      "font_size": 24,
-      "color": "#366451"
-    },
-    {
-      "title": "3 · Describe the source",
-      "bounding": [
-        -80,
-        40,
-        500,
-        1250
-      ],
-      "color": "#42686c",
-      "font_size": 24,
-      "flags": {}
-    },
-    {
-      "id": 3,
-      "title": "4 · Prompt, reference, seed",
-      "bounding": [
-        440,
-        40,
-        460,
-        962
-      ],
-      "flags": {},
-      "font_size": 24,
-      "color": "#5d527c"
-    },
-    {
-      "id": 4,
-      "title": "5 · Sample + stitch",
-      "bounding": [
-        960,
-        40,
+        520,
+        0,
         480,
-        745
+        1610
       ],
+      "color": "#1d5560",
       "flags": {},
-      "font_size": 24,
-      "color": "#795b38"
+      "id": 1
     },
     {
-      "id": 5,
-      "title": "6 · Compare, save",
+      "title": "2 · Behind the scenes",
       "bounding": [
-        1460,
-        40,
-        600,
-        1080
+        1080,
+        0,
+        480,
+        434
       ],
+      "color": "#1d5560",
       "flags": {},
-      "font_size": 24,
-      "color": "#345d7c"
+      "id": 2
+    },
+    {
+      "title": "3 · Models",
+      "bounding": [
+        1080,
+        474,
+        480,
+        976
+      ],
+      "color": "#1d5560",
+      "flags": {},
+      "id": 3
+    },
+    {
+      "title": "4 · Result",
+      "bounding": [
+        1600,
+        0,
+        480,
+        1610
+      ],
+      "color": "#1d5560",
+      "flags": {},
+      "id": 4
     }
   ],
+  "definitions": {
+    "subgraphs": [
+      {
+        "id": "6a1d2b64-3f0e-4c53-9d1e-5b8f7c2a4e01",
+        "version": 1,
+        "state": {
+          "lastGroupId": 10,
+          "lastNodeId": 38,
+          "lastLinkId": 46,
+          "lastRerouteId": 0
+        },
+        "revision": 0,
+        "config": {},
+        "name": "Write the prompt",
+        "inputNode": {
+          "id": -10,
+          "bounding": [
+            -260,
+            120,
+            128,
+            100
+          ]
+        },
+        "outputNode": {
+          "id": -20,
+          "bounding": [
+            1160,
+            120,
+            128,
+            80
+          ]
+        },
+        "inputs": [
+          {
+            "id": "db371c91-5ec2-521a-9442-c6d66ae53ab3",
+            "name": "picture",
+            "type": "IMAGE",
+            "linkIds": [
+              16
+            ],
+            "localized_name": "picture",
+            "pos": [
+              51,
+              24
+            ]
+          },
+          {
+            "id": "a6c85f15-34e3-5cbc-a33c-6545a2be09b8",
+            "name": "what goes there",
+            "type": "STRING",
+            "linkIds": [
+              19
+            ],
+            "localized_name": "what goes there",
+            "pos": [
+              51,
+              44
+            ]
+          },
+          {
+            "id": "79abcea2-92fe-5f71-a659-a91c466db733",
+            "name": "caption model",
+            "type": "CLIP",
+            "linkIds": [
+              18
+            ],
+            "localized_name": "caption model",
+            "pos": [
+              51,
+              64
+            ]
+          }
+        ],
+        "outputs": [
+          {
+            "id": "25c4f9a1-6d22-5747-85b2-07c0caa5041a",
+            "name": "prompt",
+            "type": "STRING",
+            "linkIds": [
+              23
+            ],
+            "localized_name": "prompt",
+            "pos": [
+              24,
+              24
+            ]
+          }
+        ],
+        "widgets": [],
+        "nodes": [
+          {
+            "id": 27,
+            "type": "ImageScaleToMaxDimension",
+            "pos": [
+              20,
+              238
+            ],
+            "size": [
+              460,
+              82
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "image",
+                "type": "IMAGE",
+                "link": 16
+              }
+            ],
+            "outputs": [
+              {
+                "name": "IMAGE",
+                "type": "IMAGE",
+                "links": [
+                  17
+                ]
+              }
+            ],
+            "title": "Small copy for the caption",
+            "properties": {
+              "cnr_id": "comfy-core",
+              "ver": "0.37.0",
+              "Node name for S&R": "ImageScaleToMaxDimension"
+            },
+            "widgets_values": [
+              "area",
+              384
+            ],
+            "widgets_values_named": {
+              "upscale_method": "area",
+              "largest_size": 384
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 23,
+            "type": "TextGenerate",
+            "pos": [
+              20,
+              390
+            ],
+            "size": [
+              460,
+              440
+            ],
+            "flags": {},
+            "order": 1,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "clip",
+                "type": "CLIP",
+                "link": 18
+              },
+              {
+                "name": "image",
+                "type": "IMAGE",
+                "link": 17,
+                "shape": 7
+              },
+              {
+                "name": "video",
+                "type": "IMAGE",
+                "link": null,
+                "shape": 7
+              },
+              {
+                "name": "audio",
+                "type": "AUDIO",
+                "link": null,
+                "shape": 7
+              }
+            ],
+            "outputs": [
+              {
+                "name": "generated_text",
+                "type": "STRING",
+                "links": [
+                  21
+                ]
+              }
+            ],
+            "title": "Describe the setting",
+            "properties": {
+              "cnr_id": "comfy-core",
+              "ver": "0.37.0",
+              "Node name for S&R": "TextGenerate"
+            },
+            "widgets_values": [
+              "Describe only the background and setting behind the subject, its materials and the lighting, in 30 to 60 words. Do not describe any person, face, hair, clothing or pose, and do not describe the framing, cropping or shot type (no close-up, portrait or headshot): the picture is only part of a larger scene that continues past its edges. Use plain factual language. Do not invent actions, camera motion, sound or objects. Output only the description.",
+              180,
+              "on",
+              0.3,
+              64,
+              0.95,
+              0.05,
+              1.05,
+              20260922,
+              0,
+              true,
+              true,
+              "auto"
+            ],
+            "widgets_values_named": {
+              "prompt": "Describe only the background and setting behind the subject, its materials and the lighting, in 30 to 60 words. Do not describe any person, face, hair, clothing or pose, and do not describe the framing, cropping or shot type (no close-up, portrait or headshot): the picture is only part of a larger scene that continues past its edges. Use plain factual language. Do not invent actions, camera motion, sound or objects. Output only the description.",
+              "max_length": 180,
+              "sampling_mode": "on",
+              "sampling_mode.temperature": 0.3,
+              "sampling_mode.top_k": 64,
+              "sampling_mode.top_p": 0.95,
+              "sampling_mode.min_p": 0.05,
+              "sampling_mode.repetition_penalty": 1.05,
+              "sampling_mode.seed": 20260922,
+              "sampling_mode.presence_penalty": 0,
+              "thinking": true,
+              "use_default_template": true,
+              "mtp": "auto"
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 24,
+            "type": "StringConcatenate",
+            "pos": [
+              560,
+              304
+            ],
+            "size": [
+              460,
+              166
+            ],
+            "flags": {},
+            "order": 3,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "string_a",
+                "type": "STRING",
+                "link": 20,
+                "widget": {
+                  "name": "string_a"
+                }
+              },
+              {
+                "name": "string_b",
+                "type": "STRING",
+                "link": 21,
+                "widget": {
+                  "name": "string_b"
+                }
+              }
+            ],
+            "outputs": [
+              {
+                "name": "STRING",
+                "type": "STRING",
+                "links": [
+                  22
+                ]
+              }
+            ],
+            "title": "Your line, then the description",
+            "properties": {
+              "cnr_id": "comfy-core",
+              "ver": "0.37.0",
+              "Node name for S&R": "StringConcatenate"
+            },
+            "widgets_values": [
+              "",
+              "",
+              "\n\nScene to continue: "
+            ],
+            "widgets_values_named": {
+              "string_a": "",
+              "string_b": "",
+              "delimiter": "\n\nScene to continue: "
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 25,
+            "type": "AUSBOSS_NODES_ShowText",
+            "pos": [
+              560,
+              540
+            ],
+            "size": [
+              460,
+              220
+            ],
+            "flags": {},
+            "order": 4,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "text",
+                "type": "STRING",
+                "link": 22
+              }
+            ],
+            "outputs": [
+              {
+                "name": "text",
+                "type": "STRING",
+                "links": [
+                  23
+                ]
+              }
+            ],
+            "title": "Show Text - Prompt sent to Klein",
+            "properties": {
+              "cnr_id": "ausboss-nodes",
+              "ver": "2.4.0",
+              "Node name for S&R": "AUSBOSS_NODES_ShowText"
+            },
+            "widgets_values": [
+              ""
+            ],
+            "widgets_values_named": {
+              "ausboss_show_text_panel": ""
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 30,
+            "type": "Reroute",
+            "pos": [
+              560,
+              208
+            ],
+            "size": [
+              75,
+              26
+            ],
+            "flags": {},
+            "order": 2,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "",
+                "type": "*",
+                "link": 19
+              }
+            ],
+            "outputs": [
+              {
+                "name": "",
+                "type": "STRING",
+                "links": [
+                  20
+                ]
+              }
+            ],
+            "properties": {
+              "showOutputText": false,
+              "horizontal": false
+            }
+          },
+          {
+            "id": 31,
+            "type": "MarkdownNote",
+            "pos": [
+              20,
+              80
+            ],
+            "size": [
+              460,
+              88
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [],
+            "outputs": [],
+            "title": "Note",
+            "properties": {},
+            "widgets_values": [
+              "Qwen3-VL 8B describes the setting behind your subject, not the person. Describing the person made Klein paint a second face under tight crops."
+            ],
+            "color": "#1f2c38",
+            "bgcolor": "#2a3b4a"
+          },
+          {
+            "id": 32,
+            "type": "MarkdownNote",
+            "pos": [
+              560,
+              80
+            ],
+            "size": [
+              460,
+              88
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [],
+            "outputs": [],
+            "title": "Note",
+            "properties": {},
+            "widgets_values": [
+              "Your line from What goes there comes first, then the description. Show Text shows the prompt Klein gets."
+            ],
+            "color": "#1f2c38",
+            "bgcolor": "#2a3b4a"
+          }
+        ],
+        "groups": [
+          {
+            "title": "1 · Describe the setting",
+            "bounding": [
+              0,
+              0,
+              500,
+              904
+            ],
+            "color": "#1d5560",
+            "flags": {},
+            "id": 5
+          },
+          {
+            "title": "2 · Build the prompt",
+            "bounding": [
+              540,
+              0,
+              500,
+              780
+            ],
+            "color": "#1d5560",
+            "flags": {},
+            "id": 6
+          }
+        ],
+        "links": [
+          {
+            "id": 16,
+            "origin_id": -10,
+            "origin_slot": 0,
+            "target_id": 27,
+            "target_slot": 0,
+            "type": "IMAGE"
+          },
+          {
+            "id": 17,
+            "origin_id": 27,
+            "origin_slot": 0,
+            "target_id": 23,
+            "target_slot": 1,
+            "type": "IMAGE"
+          },
+          {
+            "id": 18,
+            "origin_id": -10,
+            "origin_slot": 2,
+            "target_id": 23,
+            "target_slot": 0,
+            "type": "CLIP"
+          },
+          {
+            "id": 19,
+            "origin_id": -10,
+            "origin_slot": 1,
+            "target_id": 30,
+            "target_slot": 0,
+            "type": "STRING"
+          },
+          {
+            "id": 20,
+            "origin_id": 30,
+            "origin_slot": 0,
+            "target_id": 24,
+            "target_slot": 0,
+            "type": "STRING"
+          },
+          {
+            "id": 21,
+            "origin_id": 23,
+            "origin_slot": 0,
+            "target_id": 24,
+            "target_slot": 1,
+            "type": "STRING"
+          },
+          {
+            "id": 22,
+            "origin_id": 24,
+            "origin_slot": 0,
+            "target_id": 25,
+            "target_slot": 0,
+            "type": "STRING"
+          },
+          {
+            "id": 23,
+            "origin_id": 25,
+            "origin_slot": 0,
+            "target_id": -20,
+            "target_slot": 0,
+            "type": "STRING"
+          }
+        ],
+        "extra": {}
+      },
+      {
+        "id": "b93e7c15-8d42-4a6f-a0c7-2e5d9f13b6a8",
+        "version": 1,
+        "state": {
+          "lastGroupId": 10,
+          "lastNodeId": 38,
+          "lastLinkId": 46,
+          "lastRerouteId": 0
+        },
+        "revision": 0,
+        "config": {},
+        "name": "Paint with Klein",
+        "inputNode": {
+          "id": -10,
+          "bounding": [
+            -260,
+            120,
+            128,
+            200
+          ]
+        },
+        "outputNode": {
+          "id": -20,
+          "bounding": [
+            2240,
+            120,
+            128,
+            80
+          ]
+        },
+        "inputs": [
+          {
+            "id": "67b87fc3-289f-5d73-96c8-77b00d30d39f",
+            "name": "canvas",
+            "type": "IMAGE",
+            "linkIds": [
+              24
+            ],
+            "localized_name": "canvas",
+            "pos": [
+              51,
+              24
+            ]
+          },
+          {
+            "id": "c65fab52-875d-59f5-aba9-e6de8745bfac",
+            "name": "mask",
+            "type": "MASK",
+            "linkIds": [
+              27
+            ],
+            "localized_name": "mask",
+            "pos": [
+              51,
+              44
+            ]
+          },
+          {
+            "id": "f4cac9fb-57e2-52b4-8f9e-aac217b3730c",
+            "name": "stitcher",
+            "type": "AUSBOSS_STITCHER",
+            "linkIds": [
+              44
+            ],
+            "localized_name": "stitcher",
+            "pos": [
+              51,
+              64
+            ]
+          },
+          {
+            "id": "272a7ccd-40b7-5233-9458-62ea41df9fe5",
+            "name": "prompt",
+            "type": "STRING",
+            "linkIds": [
+              28
+            ],
+            "localized_name": "prompt",
+            "pos": [
+              51,
+              84
+            ]
+          },
+          {
+            "id": "7fb35722-27a8-5133-81ab-374d7fc3b517",
+            "name": "seed",
+            "type": "INT",
+            "linkIds": [
+              40
+            ],
+            "localized_name": "seed",
+            "pos": [
+              51,
+              104
+            ]
+          },
+          {
+            "id": "cdb70a6a-2c00-5b50-9b1b-02e7fe2bc827",
+            "name": "text encoder",
+            "type": "CLIP",
+            "linkIds": [
+              30
+            ],
+            "localized_name": "text encoder",
+            "pos": [
+              51,
+              124
+            ]
+          },
+          {
+            "id": "0b491d74-0416-5cca-a0a3-71326670513e",
+            "name": "vae",
+            "type": "VAE",
+            "linkIds": [
+              25,
+              43
+            ],
+            "localized_name": "vae",
+            "pos": [
+              51,
+              144
+            ]
+          },
+          {
+            "id": "3d87d3f3-9060-5460-ae7c-46cf3411d409",
+            "name": "model",
+            "type": "MODEL",
+            "linkIds": [
+              36
+            ],
+            "localized_name": "model",
+            "pos": [
+              51,
+              164
+            ]
+          }
+        ],
+        "outputs": [
+          {
+            "id": "41468b0e-8760-5ddb-b425-8efb36b6e441",
+            "name": "result",
+            "type": "IMAGE",
+            "linkIds": [
+              46
+            ],
+            "localized_name": "result",
+            "pos": [
+              24,
+              24
+            ]
+          }
+        ],
+        "widgets": [],
+        "nodes": [
+          {
+            "id": 6,
+            "type": "VAEEncode",
+            "pos": [
+              20,
+              238
+            ],
+            "size": [
+              460,
+              46
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "pixels",
+                "type": "IMAGE",
+                "link": 24
+              },
+              {
+                "name": "vae",
+                "type": "VAE",
+                "link": 25
+              }
+            ],
+            "outputs": [
+              {
+                "name": "LATENT",
+                "type": "LATENT",
+                "links": [
+                  26,
+                  32,
+                  35
+                ]
+              }
+            ],
+            "title": "Canvas to latent",
+            "properties": {
+              "cnr_id": "comfy-core",
+              "ver": "0.37.0",
+              "Node name for S&R": "VAEEncode"
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 21,
+            "type": "SetLatentNoiseMask",
+            "pos": [
+              20,
+              354
+            ],
+            "size": [
+              460,
+              46
+            ],
+            "flags": {},
+            "order": 6,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "samples",
+                "type": "LATENT",
+                "link": 26
+              },
+              {
+                "name": "mask",
+                "type": "MASK",
+                "link": 27
+              }
+            ],
+            "outputs": [
+              {
+                "name": "LATENT",
+                "type": "LATENT",
+                "links": [
+                  39
+                ]
+              }
+            ],
+            "title": "Paint only the gray",
+            "properties": {
+              "cnr_id": "comfy-core",
+              "ver": "0.37.0",
+              "Node name for S&R": "SetLatentNoiseMask"
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 9,
+            "type": "CLIPTextEncode",
+            "pos": [
+              560,
+              304
+            ],
+            "size": [
+              460,
+              88
+            ],
+            "flags": {},
+            "order": 2,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "clip",
+                "type": "CLIP",
+                "link": 30
+              },
+              {
+                "name": "text",
+                "type": "STRING",
+                "link": 29,
+                "widget": {
+                  "name": "text"
+                }
+              }
+            ],
+            "outputs": [
+              {
+                "name": "CONDITIONING",
+                "type": "CONDITIONING",
+                "links": [
+                  31,
+                  33
+                ]
+              }
+            ],
+            "title": "Encode the prompt",
+            "properties": {
+              "cnr_id": "comfy-core",
+              "ver": "0.37.0",
+              "Node name for S&R": "CLIPTextEncode"
+            },
+            "widgets_values": [
+              ""
+            ],
+            "widgets_values_named": {
+              "text": ""
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 10,
+            "type": "ReferenceLatent",
+            "pos": [
+              560,
+              462
+            ],
+            "size": [
+              460,
+              46
+            ],
+            "flags": {},
+            "order": 3,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "conditioning",
+                "type": "CONDITIONING",
+                "link": 31
+              },
+              {
+                "name": "latent",
+                "type": "LATENT",
+                "link": 32,
+                "shape": 7
+              }
+            ],
+            "outputs": [
+              {
+                "name": "CONDITIONING",
+                "type": "CONDITIONING",
+                "links": [
+                  37
+                ]
+              }
+            ],
+            "title": "Canvas as reference",
+            "properties": {
+              "cnr_id": "comfy-core",
+              "ver": "0.37.0",
+              "Node name for S&R": "ReferenceLatent"
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 11,
+            "type": "ConditioningZeroOut",
+            "pos": [
+              560,
+              578
+            ],
+            "size": [
+              460,
+              26
+            ],
+            "flags": {},
+            "order": 4,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "conditioning",
+                "type": "CONDITIONING",
+                "link": 33
+              }
+            ],
+            "outputs": [
+              {
+                "name": "CONDITIONING",
+                "type": "CONDITIONING",
+                "links": [
+                  34
+                ]
+              }
+            ],
+            "title": "Empty negative",
+            "properties": {
+              "cnr_id": "comfy-core",
+              "ver": "0.37.0",
+              "Node name for S&R": "ConditioningZeroOut"
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 12,
+            "type": "ReferenceLatent",
+            "pos": [
+              560,
+              674
+            ],
+            "size": [
+              460,
+              46
+            ],
+            "flags": {},
+            "order": 5,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "conditioning",
+                "type": "CONDITIONING",
+                "link": 34
+              },
+              {
+                "name": "latent",
+                "type": "LATENT",
+                "link": 35,
+                "shape": 7
+              }
+            ],
+            "outputs": [
+              {
+                "name": "CONDITIONING",
+                "type": "CONDITIONING",
+                "links": [
+                  38
+                ]
+              }
+            ],
+            "title": "Canvas as reference, negative",
+            "properties": {
+              "cnr_id": "comfy-core",
+              "ver": "0.37.0",
+              "Node name for S&R": "ReferenceLatent"
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 14,
+            "type": "KSampler",
+            "pos": [
+              1100,
+              304
+            ],
+            "size": [
+              460,
+              262
+            ],
+            "flags": {},
+            "order": 8,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "model",
+                "type": "MODEL",
+                "link": 36
+              },
+              {
+                "name": "positive",
+                "type": "CONDITIONING",
+                "link": 37
+              },
+              {
+                "name": "negative",
+                "type": "CONDITIONING",
+                "link": 38
+              },
+              {
+                "name": "latent_image",
+                "type": "LATENT",
+                "link": 39
+              },
+              {
+                "name": "seed",
+                "type": "INT",
+                "link": 41,
+                "widget": {
+                  "name": "seed"
+                }
+              }
+            ],
+            "outputs": [
+              {
+                "name": "LATENT",
+                "type": "LATENT",
+                "links": [
+                  42
+                ]
+              }
+            ],
+            "title": "Klein 9B sampler",
+            "properties": {
+              "cnr_id": "comfy-core",
+              "ver": "0.37.0",
+              "Node name for S&R": "KSampler"
+            },
+            "widgets_values": [
+              20260903,
+              "fixed",
+              4,
+              1,
+              "euler",
+              "simple",
+              1
+            ],
+            "widgets_values_named": {
+              "seed": 20260903,
+              "control_after_generate": "fixed",
+              "steps": 4,
+              "cfg": 1,
+              "sampler_name": "euler",
+              "scheduler": "simple",
+              "denoise": 1
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 15,
+            "type": "VAEDecode",
+            "pos": [
+              1640,
+              238
+            ],
+            "size": [
+              460,
+              46
+            ],
+            "flags": {},
+            "order": 9,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "samples",
+                "type": "LATENT",
+                "link": 42
+              },
+              {
+                "name": "vae",
+                "type": "VAE",
+                "link": 43
+              }
+            ],
+            "outputs": [
+              {
+                "name": "IMAGE",
+                "type": "IMAGE",
+                "links": [
+                  45
+                ]
+              }
+            ],
+            "title": "Decode",
+            "properties": {
+              "cnr_id": "comfy-core",
+              "ver": "0.37.0",
+              "Node name for S&R": "VAEDecode"
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 16,
+            "type": "AUSBOSS_NODES_StitchInpaint",
+            "pos": [
+              1640,
+              354
+            ],
+            "size": [
+              460,
+              145
+            ],
+            "flags": {},
+            "order": 10,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "stitcher",
+                "type": "AUSBOSS_STITCHER",
+                "link": 44
+              },
+              {
+                "name": "inpainted",
+                "type": "IMAGE",
+                "link": 45
+              }
+            ],
+            "outputs": [
+              {
+                "name": "image",
+                "type": "IMAGE",
+                "links": [
+                  46
+                ]
+              },
+              {
+                "name": "blend_mask",
+                "type": "MASK",
+                "links": []
+              }
+            ],
+            "title": "Stitch Inpaint - Put the new part back",
+            "properties": {
+              "cnr_id": "ausboss-nodes",
+              "ver": "2.4.0",
+              "Node name for S&R": "AUSBOSS_NODES_StitchInpaint"
+            },
+            "widgets_values": [
+              false,
+              1,
+              "classic",
+              ""
+            ],
+            "widgets_values_named": {
+              "fix_edge_halo": false,
+              "color_match": 1,
+              "seam": "classic",
+              "ausboss_widget_card": ""
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 33,
+            "type": "Reroute",
+            "pos": [
+              560,
+              208
+            ],
+            "size": [
+              75,
+              26
+            ],
+            "flags": {},
+            "order": 1,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "",
+                "type": "*",
+                "link": 28
+              }
+            ],
+            "outputs": [
+              {
+                "name": "",
+                "type": "STRING",
+                "links": [
+                  29
+                ]
+              }
+            ],
+            "properties": {
+              "showOutputText": false,
+              "horizontal": false
+            }
+          },
+          {
+            "id": 34,
+            "type": "Reroute",
+            "pos": [
+              1100,
+              208
+            ],
+            "size": [
+              75,
+              26
+            ],
+            "flags": {},
+            "order": 7,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "",
+                "type": "*",
+                "link": 40
+              }
+            ],
+            "outputs": [
+              {
+                "name": "",
+                "type": "INT",
+                "links": [
+                  41
+                ]
+              }
+            ],
+            "properties": {
+              "showOutputText": false,
+              "horizontal": false
+            }
+          },
+          {
+            "id": 35,
+            "type": "MarkdownNote",
+            "pos": [
+              20,
+              80
+            ],
+            "size": [
+              460,
+              88
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [],
+            "outputs": [],
+            "title": "Note",
+            "properties": {},
+            "widgets_values": [
+              "The canvas becomes the starting latent. Its mask marks the gray areas, so the sampler paints only there."
+            ],
+            "color": "#1f2c38",
+            "bgcolor": "#2a3b4a"
+          },
+          {
+            "id": 36,
+            "type": "MarkdownNote",
+            "pos": [
+              560,
+              80
+            ],
+            "size": [
+              460,
+              88
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [],
+            "outputs": [],
+            "title": "Note",
+            "properties": {},
+            "widgets_values": [
+              "Klein reads the prompt with the canvas as a reference. At CFG 1 the negative side is not used."
+            ],
+            "color": "#1f2c38",
+            "bgcolor": "#2a3b4a"
+          },
+          {
+            "id": 37,
+            "type": "MarkdownNote",
+            "pos": [
+              1100,
+              80
+            ],
+            "size": [
+              460,
+              88
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [],
+            "outputs": [],
+            "title": "Note",
+            "properties": {},
+            "widgets_values": [
+              "4 steps, CFG 1, euler and simple: the settings for the distilled Klein 9B."
+            ],
+            "color": "#1f2c38",
+            "bgcolor": "#2a3b4a"
+          },
+          {
+            "id": 38,
+            "type": "MarkdownNote",
+            "pos": [
+              1640,
+              80
+            ],
+            "size": [
+              460,
+              88
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [],
+            "outputs": [],
+            "title": "Note",
+            "properties": {},
+            "widgets_values": [
+              "Your image goes back on top. Tone match shifts the new area's brightness and color to sit with your image along the seam."
+            ],
+            "color": "#1f2c38",
+            "bgcolor": "#2a3b4a"
+          }
+        ],
+        "groups": [
+          {
+            "title": "1 · Set up the painting",
+            "bounding": [
+              0,
+              0,
+              500,
+              428
+            ],
+            "color": "#1d5560",
+            "flags": {},
+            "id": 7
+          },
+          {
+            "title": "2 · Prompt and reference",
+            "bounding": [
+              540,
+              0,
+              500,
+              748
+            ],
+            "color": "#1d5560",
+            "flags": {},
+            "id": 8
+          },
+          {
+            "title": "3 · Paint",
+            "bounding": [
+              1080,
+              0,
+              500,
+              586
+            ],
+            "color": "#1d5560",
+            "flags": {},
+            "id": 9
+          },
+          {
+            "title": "4 · Put it back",
+            "bounding": [
+              1620,
+              0,
+              500,
+              529
+            ],
+            "color": "#1d5560",
+            "flags": {},
+            "id": 10
+          }
+        ],
+        "links": [
+          {
+            "id": 24,
+            "origin_id": -10,
+            "origin_slot": 0,
+            "target_id": 6,
+            "target_slot": 0,
+            "type": "IMAGE"
+          },
+          {
+            "id": 25,
+            "origin_id": -10,
+            "origin_slot": 6,
+            "target_id": 6,
+            "target_slot": 1,
+            "type": "VAE"
+          },
+          {
+            "id": 26,
+            "origin_id": 6,
+            "origin_slot": 0,
+            "target_id": 21,
+            "target_slot": 0,
+            "type": "LATENT"
+          },
+          {
+            "id": 27,
+            "origin_id": -10,
+            "origin_slot": 1,
+            "target_id": 21,
+            "target_slot": 1,
+            "type": "MASK"
+          },
+          {
+            "id": 28,
+            "origin_id": -10,
+            "origin_slot": 3,
+            "target_id": 33,
+            "target_slot": 0,
+            "type": "STRING"
+          },
+          {
+            "id": 29,
+            "origin_id": 33,
+            "origin_slot": 0,
+            "target_id": 9,
+            "target_slot": 1,
+            "type": "STRING"
+          },
+          {
+            "id": 30,
+            "origin_id": -10,
+            "origin_slot": 5,
+            "target_id": 9,
+            "target_slot": 0,
+            "type": "CLIP"
+          },
+          {
+            "id": 31,
+            "origin_id": 9,
+            "origin_slot": 0,
+            "target_id": 10,
+            "target_slot": 0,
+            "type": "CONDITIONING"
+          },
+          {
+            "id": 32,
+            "origin_id": 6,
+            "origin_slot": 0,
+            "target_id": 10,
+            "target_slot": 1,
+            "type": "LATENT"
+          },
+          {
+            "id": 33,
+            "origin_id": 9,
+            "origin_slot": 0,
+            "target_id": 11,
+            "target_slot": 0,
+            "type": "CONDITIONING"
+          },
+          {
+            "id": 34,
+            "origin_id": 11,
+            "origin_slot": 0,
+            "target_id": 12,
+            "target_slot": 0,
+            "type": "CONDITIONING"
+          },
+          {
+            "id": 35,
+            "origin_id": 6,
+            "origin_slot": 0,
+            "target_id": 12,
+            "target_slot": 1,
+            "type": "LATENT"
+          },
+          {
+            "id": 36,
+            "origin_id": -10,
+            "origin_slot": 7,
+            "target_id": 14,
+            "target_slot": 0,
+            "type": "MODEL"
+          },
+          {
+            "id": 37,
+            "origin_id": 10,
+            "origin_slot": 0,
+            "target_id": 14,
+            "target_slot": 1,
+            "type": "CONDITIONING"
+          },
+          {
+            "id": 38,
+            "origin_id": 12,
+            "origin_slot": 0,
+            "target_id": 14,
+            "target_slot": 2,
+            "type": "CONDITIONING"
+          },
+          {
+            "id": 39,
+            "origin_id": 21,
+            "origin_slot": 0,
+            "target_id": 14,
+            "target_slot": 3,
+            "type": "LATENT"
+          },
+          {
+            "id": 40,
+            "origin_id": -10,
+            "origin_slot": 4,
+            "target_id": 34,
+            "target_slot": 0,
+            "type": "INT"
+          },
+          {
+            "id": 41,
+            "origin_id": 34,
+            "origin_slot": 0,
+            "target_id": 14,
+            "target_slot": 4,
+            "type": "INT"
+          },
+          {
+            "id": 42,
+            "origin_id": 14,
+            "origin_slot": 0,
+            "target_id": 15,
+            "target_slot": 0,
+            "type": "LATENT"
+          },
+          {
+            "id": 43,
+            "origin_id": -10,
+            "origin_slot": 6,
+            "target_id": 15,
+            "target_slot": 1,
+            "type": "VAE"
+          },
+          {
+            "id": 44,
+            "origin_id": -10,
+            "origin_slot": 2,
+            "target_id": 16,
+            "target_slot": 0,
+            "type": "AUSBOSS_STITCHER"
+          },
+          {
+            "id": 45,
+            "origin_id": 15,
+            "origin_slot": 0,
+            "target_id": 16,
+            "target_slot": 1,
+            "type": "IMAGE"
+          },
+          {
+            "id": 46,
+            "origin_id": 16,
+            "origin_slot": 0,
+            "target_id": -20,
+            "target_slot": 0,
+            "type": "IMAGE"
+          }
+        ],
+        "extra": {}
+      }
+    ]
+  },
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.6,
+      "scale": 0.62,
       "offset": [
-        1881.98,
-        314.2
+        463,
+        20
       ]
     }
   },

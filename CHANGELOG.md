@@ -74,6 +74,28 @@ All notable changes to ComfyUI-AusBoss are documented here.
   preview was made. It now opens on and works. LoRA Loader's settings showed
   Stop on missing LoRA off, even though the node still stopped the run. It
   now shows on, matching what the node does.
+- **The other examples got the same smaller layout.** Klein 9B Outpaint,
+  LTX 2.3 Video Outpaint, Qwen Image 2.1 Edit + Realign and Simple Video
+  Watermark Remover now have named groups for your input, the models and
+  the result, with the plumbing in two boxes. Node titles use the real node
+  names, so you can find them in the node search.
+- **Simple Video Watermark Remover needs no other node pack.** It finds the
+  mark with ComfyUI's own SAM 3.1 (ComfyUI 0.20 or newer) instead of
+  ComfyUI-RMBG, so there is nothing extra to install and no 3.45 GB
+  download on the first run. On the sample it also stopped painting out a
+  tram's number plate next to the mark.
+- **Klein 9B Outpaint example: no second face on tight portraits.** Its
+  automatic description used to describe the person, and Klein then painted
+  them a second time under the join. It now describes only the setting. The
+  padding follows your picture, as in Krea 2 Outpaint.
+- **Examples no longer carry the sample's turn and padding.** Krea 2
+  Outpaint and Krea 2 Rotate + Outpaint open with an empty loader but still
+  saved the sample's padding and turn, and the first file in your input
+  folder could pick them up. They now save none. Krea 2 Outpaint keeps its
+  3:4 ratio lit, so a new picture is padded to 3:4.
+- **Krea 2 Inpaint Masked example: Stay in picture is on.** The example had
+  it saved off, so a big painted area was cropped past the picture's edge
+  and painted smaller and softer.
 
 ## 2.4.0 - 2026-09-29
 
