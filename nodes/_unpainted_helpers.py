@@ -8,8 +8,9 @@ matches the untouched fill, so Stitch Inpaint can say so in plain words.
 
 Technical details: the new area is split into 16 px blocks, and only blocks
 that lie fully inside it are judged. A block counts as unpainted when it is
-still within a VAE round trip of the canvas fill (10/255) and flat (standard
-deviation at most 1.5/255). Painted scenery has texture, even when it is
+flat (standard deviation at most 1.5/255) and still close to the canvas fill:
+within 20/255, which covers a VAE round trip and a model that hands a gray
+fill back a few levels darker (Krea 2 returns 128 as a flat 114 to 118). Painted scenery has texture, even when it is
 dark, so a night street does not count; the untouched fill does. The same
 test runs on the source picture, and only the excess counts: a scene that
 really is flat black (a night sky, a black stage) may be continued as flat
@@ -23,7 +24,7 @@ import torch
 
 BLOCK = 16
 MAX_FRAMES = 9
-CLOSE_TO_FILL = 10.0 / 255.0
+CLOSE_TO_FILL = 20.0 / 255.0
 FLAT = 1.5 / 255.0
 # Report when a quarter of the new area stayed empty on average, or when any
 # checked frame lost half of it - a clip that paints early and fades back to
@@ -68,8 +69,8 @@ def _blocks(tensor: torch.Tensor, rows: int, cols: int) -> torch.Tensor:
 def unpainted_share(stitcher: dict, inpainted: torch.Tensor) -> dict | None:
     """How much of the new area came back as the untouched fill.
 
-    Returns ``{"mean": 0..1, "worst": 0..1, "source": 0..1, "frames": n}``
-    over the checked frames, or None when there is nothing to judge: no fill
+    Returns ``{"mean": 0..1, "worst": 0..1, "source": 0..1, "frames": n,
+    "video": bool}`` over the checked frames, or None when there is nothing to judge: no fill
     area, or a canvas smaller than one block. ``source`` is the share of the
     source picture that is itself flat at the fill value. A result at another
     size is resized first, the way Stitch Inpaint pastes it.
@@ -123,7 +124,13 @@ def unpainted_share(stitcher: dict, inpainted: torch.Tensor) -> dict | None:
     if not shares:
         return None
     source_share = sum(source_shares) / len(source_shares) if source_shares else 0.0
-    return {"mean": sum(shares) / len(shares), "worst": max(shares), "source": source_share, "frames": len(shares)}
+    return {
+        "mean": sum(shares) / len(shares),
+        "worst": max(shares),
+        "source": source_share,
+        "frames": len(shares),
+        "video": frames > 1,
+    }
 
 
 def unpainted_notice(share: dict | None) -> str | None:
@@ -141,12 +148,10 @@ def unpainted_notice(share: dict | None) -> str | None:
         amount = f"{percent}% of the new area (up to {worst}% in some frames)"
     else:
         amount = f"{max(percent, worst)}% of the new area"
-    return (
-        f"The model left {amount} unpainted: it still shows the plain fill color. "
-        "Try another seed, or describe the whole wider scene in the prompt. "
-        "Adding less space at a time also helps, and dark footage paints better "
-        "when it is brightened first."
-    )
+    advice = "Try another seed, or describe the whole wider scene in the prompt. Adding less space at a time also helps"
+    if share.get("video"):
+        advice += ", and a dark video paints better if you brighten it first"
+    return f"The model left {amount} unpainted: it still shows the plain fill color. {advice}."
 
 
 __all__ = ["new_area_map", "unpainted_notice", "unpainted_share"]

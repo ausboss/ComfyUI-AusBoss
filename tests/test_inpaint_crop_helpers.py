@@ -1826,6 +1826,104 @@ class SeamBlendInToneMatchTests(unittest.TestCase):
         self.assertLess(max(errors) - min(errors), 0.2)
 
 
+def drift_along_the_edge(values: torch.Tensor) -> torch.Tensor:
+    """midtone_drift, a third as strong on the left as it is on the right."""
+    ramp = torch.linspace(0.3, 1.7, values.shape[2]).view(1, 1, -1, 1)
+    return midtone_drift(values) * ramp
+
+
+class ToneMatchMatchesTheOldCodeTests(unittest.TestCase):
+    """Tone match was rewritten to run as a few large operations; the old
+    code (tests/_tone_match_reference.py, verbatim) ran thousands of small
+    ones. Both must take the same decision and stitch the same picture: the
+    rewrite only adds the fit's sums in another order, so the two stay far
+    inside a hundredth of one 8-bit level."""
+
+    TOLERANCE = 1e-5
+
+    @classmethod
+    def setUpClass(cls):
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import _tone_match_reference
+
+        cls.reference = _tone_match_reference
+
+    def stitch(self, module, stitcher, patch, strength):
+        saved = (inpaint_helpers.blend_in_tone_match, inpaint_helpers._apply_tone_match)
+        if module is not inpaint_helpers:
+            inpaint_helpers.blend_in_tone_match = module.blend_in_tone_match
+            inpaint_helpers._apply_tone_match = lambda model, match, strength, undone=None: module._apply_tone_match(
+                model, match, strength
+            )
+        try:
+            return apply_stitch(stitcher, patch, color_match=strength, seam="blend in")
+        finally:
+            inpaint_helpers.blend_in_tone_match, inpaint_helpers._apply_tone_match = saved
+
+    def decision(self, module, stitcher, patch):
+        plan = inpaint_helpers.seam_plan(stitcher)
+        match = module.blend_in_tone_match(stitcher["canvas"], patch, {"depth": plan["depth"], "sampler": plan["sampler"]})
+        if match is None:
+            return "nothing"
+        return "curves" if match["gain"] is None else "curves and gain"
+
+    def assert_same(self, stitcher, patch, expected):
+        self.assertEqual(self.decision(self.reference, stitcher, patch), expected)
+        self.assertEqual(self.decision(inpaint_helpers, stitcher, patch), expected)
+        for strength in (1.0, 0.4):
+            old = self.stitch(self.reference, stitcher, patch, strength)
+            new = self.stitch(inpaint_helpers, stitcher, patch, strength)
+            self.assertEqual(new.shape, old.shape)
+            self.assertLess(float((old - new).abs().max()), self.TOLERANCE, f"strength {strength}")
+
+    def test_turned_straight_dark_and_thin_edges(self):
+        for name, truth, build in (
+            ("turned", known_truth(288, 352, seed=3), lambda truth: tilted_stitcher(truth, feather=32.0)),
+            ("straight", known_truth(288, 352, seed=3), lambda truth: truth_stitcher(truth, feather=32)),
+            ("dark", known_truth(288, 352, seed=4, dark=True), lambda truth: tilted_stitcher(truth, feather=32.0)),
+            ("thin feather", known_truth(288, 352, seed=3), lambda truth: tilted_stitcher(truth, feather=10.0)),
+        ):
+            with self.subTest(case=name):
+                stitcher = build(truth)
+                self.assert_same(stitcher, drifted_model(stitcher, truth), "curves and gain")
+
+    def test_a_drift_that_changes_along_the_edge(self):
+        for build in (lambda truth: tilted_stitcher(truth, feather=32.0), lambda truth: truth_stitcher(truth, feather=32)):
+            truth = known_truth(288, 352, seed=8)
+            stitcher = build(truth)
+            self.assert_same(stitcher, drifted_model(stitcher, truth, drift=drift_along_the_edge), "curves and gain")
+
+    def test_the_curves_alone(self):
+        # The local gain is used only when it holds out well enough; with the
+        # bar out of reach both codes take the curves alone.
+        truth = known_truth(288, 352, seed=3)
+        stitcher = tilted_stitcher(truth, feather=32.0)
+        saved = inpaint_helpers.SEAM_MATCH_LOCAL_GAIN, self.reference.SEAM_MATCH_LOCAL_GAIN
+        inpaint_helpers.SEAM_MATCH_LOCAL_GAIN = self.reference.SEAM_MATCH_LOCAL_GAIN = 2.0
+        try:
+            self.assert_same(stitcher, drifted_model(stitcher, truth), "curves")
+        finally:
+            inpaint_helpers.SEAM_MATCH_LOCAL_GAIN, self.reference.SEAM_MATCH_LOCAL_GAIN = saved
+
+    def test_nothing_to_read(self):
+        truth = known_truth(288, 352, seed=7)
+        stitcher = tilted_stitcher(truth, feather=0.0)
+        self.assert_same(stitcher, drifted_model(stitcher, truth), "nothing")
+        # Grain and no drift: nothing that holds out.
+        stitcher = turned_stitcher(smooth_picture(1, 216, 288, seed=60))
+        self.assert_same(stitcher, model_result(stitcher, seed=61), "nothing")
+
+    def test_a_clip_and_a_picture_with_alpha(self):
+        truth = known_truth(288, 352, seed=9)
+        stitcher = truth_stitcher(truth, feather=32)
+        frames = torch.cat([drifted_model(stitcher, truth, seed=20 + index) for index in range(3)])
+        self.assert_same(stitcher, frames, "curves and gain")
+        # A fourth channel rides along untouched.
+        alpha = 0.25 + 0.5 * rand_image(1, 288, 352, seed=12)[..., :1]
+        with_alpha = truth_stitcher(torch.cat([truth, alpha], dim=-1), feather=32)
+        patch = torch.cat([drifted_model(stitcher, truth), torch.rand((1, *with_alpha["canvas"].shape[1:3], 1))], dim=-1)
+        self.assert_same(with_alpha, patch, "curves and gain")
+
 
 class SeamChoiceNodeTests(unittest.TestCase):
     """The Seam choice on Stitch Inpaint: appended, classic by default."""

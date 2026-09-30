@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import math
 
+import numpy as np
 import torch
 import torch.nn.functional as functional
 
@@ -1251,86 +1252,200 @@ SEAM_MATCH_GAIN_MAX = 0.05
 SEAM_MATCH_INVERT_STEPS = 3
 
 
-def _knot_values(values: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
-    """The piecewise-linear curve with ``values`` at SEAM_MATCH_KNOTS, read at
-    ``v`` (any shape, clamped to 0..1)."""
-    knots = torch.tensor(SEAM_MATCH_KNOTS, dtype=v.dtype, device=v.device)
-    values = values.to(dtype=v.dtype, device=v.device)
-    v = v.clamp(0.0, 1.0)
-    index = torch.bucketize(v, knots[1:-1])
-    low, high = knots[index], knots[index + 1]
-    t = (v - low) / (high - low)
-    return values[index] * (1.0 - t) + values[index + 1] * t
+# How it runs. PyTorch splits a large operation across all the CPUs it sees,
+# and a cloud container can show it far more CPUs than it may use: there every
+# such operation waits its turn, however little work it does. So Tone match
+# keeps those operations to a few large ones - the blurs, each over every layer
+# it needs at once - and does the rest with NumPy, which uses one thread: the
+# band's samples are summed per knot segment (sorted once, then one reduction
+# per pass for all three fits), every curve is solved in one batched call, and
+# the curves are read and inverted over whole pictures at once.
+
+_KNOTS = np.asarray(SEAM_MATCH_KNOTS, dtype=np.float32)
+_KNOT_WIDTHS = _KNOTS[1:] - _KNOTS[:-1]
+_INNER_KNOTS = torch.from_numpy(_KNOTS[1:-1].copy())
+_POINTS = len(SEAM_MATCH_KNOTS)
+_SEGMENTS = _POINTS - 1
+# The fit's sums per sample, channel and knot segment: products of the four
+# non-zero entries of the sample's row in the design (1 - t and t for the
+# pinned curve, the same times the mask for the free one) with each other and
+# with the drift.
+_UU, _UT, _TT, _UUM, _UTM, _TTM, _UUMM, _UTMM, _TTMM, _UD, _TD, _UMD, _TMD = range(13)
 
 
-def _knot_basis(v: torch.Tensor) -> torch.Tensor:
-    """[N, K] hat-function weights of values ``v`` [N] on SEAM_MATCH_KNOTS."""
-    knots = torch.tensor(SEAM_MATCH_KNOTS, dtype=v.dtype, device=v.device)
-    v = v.clamp(0.0, 1.0)
-    index = torch.bucketize(v, knots[1:-1])
-    t = (v - knots[index]) / (knots[index + 1] - knots[index])
-    basis = torch.zeros((v.shape[0], knots.numel()), dtype=v.dtype, device=v.device)
-    basis.scatter_(1, index.unsqueeze(1), (1.0 - t).unsqueeze(1))
-    basis.scatter_add_(1, (index + 1).unsqueeze(1), t.unsqueeze(1))
-    return basis
+def _numpy32(tensor: torch.Tensor) -> np.ndarray:
+    """A float32 NumPy array of ``tensor`` on the CPU (shared, not copied,
+    when it already is one)."""
+    return tensor.detach().to(device="cpu", dtype=torch.float32).numpy()
 
 
-def _fit_drift_curves(v, m, d, w):
-    """Knot values of the pinned curve A and the free curve E, per channel.
+def _knot_positions(values: np.ndarray):
+    """(segment, t, 1 - t) for ``values`` clamped to 0..1: the knot segment
+    each falls in, counted as ``torch.bucketize`` counts it, and how far
+    across it."""
+    values = np.clip(values, 0.0, 1.0)
+    segment = torch.bucketize(torch.from_numpy(values), _INNER_KNOTS, out_int32=True).numpy()
+    t = (values - np.take(_KNOTS, segment)) / np.take(_KNOT_WIDTHS, segment)
+    return segment, t, np.float32(1.0) - t
 
-    ``v`` [N, 3] your picture's tone, ``m`` [N] the sampler mask, ``d`` [N, 3]
-    the model's tone minus yours, ``w`` [N] weights. The drift is modelled as
+
+def _curves_at(points: np.ndarray, flat: np.ndarray, t: np.ndarray, u: np.ndarray) -> np.ndarray:
+    """Piecewise-linear curves read off ``points`` (knot values, flattened so
+    that ``flat`` is each value's segment start) with ``t`` and ``u = 1 - t``."""
+    return np.take(points, flat) * u + np.take(points, flat + 1) * t
+
+
+def _penalty() -> np.ndarray:
+    """[20, 20] smoothing and shrinking penalty of the pinned and free curves,
+    per unit of sample weight."""
+    steps = np.zeros((_SEGMENTS, _POINTS))
+    steps[np.arange(_SEGMENTS), np.arange(_SEGMENTS)] = -1.0
+    steps[np.arange(_SEGMENTS), np.arange(1, _POINTS)] = 1.0
+    rough, eye = steps.T @ steps, np.eye(_POINTS)
+    penalty = np.zeros((2 * _POINTS, 2 * _POINTS))
+    penalty[:_POINTS, :_POINTS] = SEAM_MATCH_SMOOTH * rough + SEAM_MATCH_ANCHOR * eye
+    penalty[_POINTS:, _POINTS:] = SEAM_MATCH_SMOOTH_FREE * rough + SEAM_MATCH_SHRINK_FREE * eye
+    return penalty
+
+
+def _solve_curves(sums: np.ndarray, weights: np.ndarray):
+    """Knot values of the pinned curve A and the free curve E for every fit
+    and channel, from ``sums`` [fits, 3, segments, 13] (see _UU...) and each
+    fit's total sample weight ``weights`` [fits]. The drift is modelled as
     d = A(v) + m * (E(v) - A(v)); least squares with SEAM_MATCH_* penalties.
+    Returns float32 (pinned, free), each [fits, 3, knots]."""
+    fits = sums.shape[0]
+    gram = np.zeros((fits, 3, 2 * _POINTS, 2 * _POINTS))
+    target = np.zeros((fits, 3, 2 * _POINTS))
+    low = np.arange(_SEGMENTS)
+    high = low + 1
+    for rows, cols, same, cross, other in (
+        (0, 0, _UU, _UT, _TT),
+        (0, _POINTS, _UUM, _UTM, _TTM),
+        (_POINTS, 0, _UUM, _UTM, _TTM),
+        (_POINTS, _POINTS, _UUMM, _UTMM, _TTMM),
+    ):
+        gram[..., rows + low, cols + low] += sums[..., same]
+        gram[..., rows + low, cols + high] += sums[..., cross]
+        gram[..., rows + high, cols + low] += sums[..., cross]
+        gram[..., rows + high, cols + high] += sums[..., other]
+    target[..., low] += sums[..., _UD]
+    target[..., high] += sums[..., _TD]
+    target[..., _POINTS + low] += sums[..., _UMD]
+    target[..., _POINTS + high] += sums[..., _TMD]
+    gram += _penalty() * weights.reshape(fits, 1, 1, 1)
+    solved = np.linalg.solve(gram, target[..., None])[..., 0].astype(np.float32)
+    pinned, free = solved[..., :_POINTS], solved[..., :_POINTS] + solved[..., _POINTS:]
+    return np.clip(pinned, -SEAM_MATCH_MAX, SEAM_MATCH_MAX), np.clip(free, -SEAM_MATCH_MAX, SEAM_MATCH_MAX)
+
+
+class _DriftSamples:
+    """The band's samples, set up once for every fit that reads them: your
+    picture's tone ``v`` [N, 3], the mask ``m`` [N] and the drift ``d`` [N, 3]."""
+
+    def __init__(self, v: np.ndarray, m: np.ndarray, d: np.ndarray):
+        self.m, self.d = m, d
+        self.segment, self.t, self.u = _knot_positions(v)
+        um, tm = self.u * m[:, None], self.t * m[:, None]
+        u, t = self.u, self.t
+        # [N, 3, 13] products, float32 like the design they come from.
+        self.products = np.stack(
+            (u * u, u * t, t * t, u * um, u * tm, t * tm, um * um, um * tm, tm * tm, u * d, t * d, um * d, tm * d),
+            axis=-1,
+        )
+
+    def layer(self, fit: np.ndarray):
+        """Sort the samples of one layer - each sample fitted by ``fit`` [N]
+        (a fit index) - by fit, channel and segment once, so every pass sums
+        them with one reduction. Returns what :meth:`sums` needs."""
+        count = self.segment.shape[0]
+        bins = ((fit[:, None].astype(np.int64) * 3 + np.arange(3)) * _SEGMENTS + self.segment).reshape(-1)
+        order = np.argsort(bins.astype(np.int16), kind="stable")
+        ordered = bins[order]
+        starts = np.flatnonzero(np.concatenate(([True], ordered[1:] != ordered[:-1])))
+        return {
+            "bins": ordered[starts],
+            "starts": starts,
+            "sample": order // 3,
+            "products": self.products.reshape(count * 3, 13)[order],
+            "flat": ((fit[:, None].astype(np.int64) * 3 + np.arange(3)) * _POINTS + self.segment),
+        }
+
+    def sums(self, layer: dict, weight: np.ndarray, fits: int) -> np.ndarray:
+        """[fits, 3, segments, 13] weighted sums of one layer's samples."""
+        out = np.zeros((fits * 3 * _SEGMENTS, 13))
+        weighted = layer["products"] * weight[layer["sample"], None]
+        out[layer["bins"]] = np.add.reduceat(weighted, layer["starts"], axis=0, dtype=np.float64)
+        return out.reshape(fits, 3, _SEGMENTS, 13)
+
+    def drift(self, pinned: np.ndarray, free: np.ndarray, flat: np.ndarray) -> np.ndarray:
+        """[N, 3] fitted drift of every sample, read off the curves (flattened
+        [fits * 3 * knots]) of the fit ``flat`` points each sample to."""
+        a = _curves_at(pinned.reshape(-1), flat, self.t, self.u)
+        return a + self.m[:, None] * (_curves_at(free.reshape(-1), flat, self.t, self.u) - a)
+
+
+def _robust_fits(samples: _DriftSamples, halves: np.ndarray):
+    """Three robust drift fits at once: every sample (fit 0), and each half
+    of the check - fit 1 on the samples ``halves`` marks, fit 2 on the rest.
+    Each runs SEAM_MATCH_PASSES reweighting passes, pixels further than
+    SEAM_MATCH_HUBER off its fit counting less.
+
+    Returns ``(pinned, free)`` [3, 3, knots] and the whole-band fit's final
+    weights [N].
     """
-    count = len(SEAM_MATCH_KNOTS)
-    dtype, device = v.dtype, v.device
-    steps = torch.zeros((count - 1, count), dtype=dtype, device=device)
-    steps[torch.arange(count - 1), torch.arange(count - 1)] = -1.0
-    steps[torch.arange(count - 1), torch.arange(1, count)] = 1.0
-    rough = steps.t() @ steps
-    eye = torch.eye(count, dtype=dtype, device=device)
-    zero = torch.zeros_like(eye)
-    penalty = torch.cat(
-        [
-            torch.cat([SEAM_MATCH_SMOOTH * rough + SEAM_MATCH_ANCHOR * eye, zero], 1),
-            torch.cat([zero, SEAM_MATCH_SMOOTH_FREE * rough + SEAM_MATCH_SHRINK_FREE * eye], 1),
-        ],
-        0,
-    ) * float(w.sum())
-    curves = []
-    for channel in range(3):
-        basis = _knot_basis(v[:, channel])
-        design = torch.cat([basis, basis * m.unsqueeze(1)], dim=1)
-        weighted = design.t() * w
-        solved = torch.linalg.solve(weighted @ design + penalty, weighted @ d[:, channel])
-        pinned, free = solved[:count], solved[:count] + solved[count:]
-        curves.append((pinned.clamp(-SEAM_MATCH_MAX, SEAM_MATCH_MAX), free.clamp(-SEAM_MATCH_MAX, SEAM_MATCH_MAX)))
-    return curves
-
-
-def _drift_at(curves, v, m):
-    """The fitted drift [N, 3] at picture tone ``v`` [N, 3] and mask ``m`` [N]."""
-    columns = []
-    for channel, (pinned, free) in enumerate(curves):
-        a = _knot_values(pinned, v[:, channel])
-        columns.append(a + m * (_knot_values(free, v[:, channel]) - a))
-    return torch.stack(columns, dim=1)
-
-
-def _robust_drift_curves(v, m, d, w):
-    """:func:`_fit_drift_curves` with SEAM_MATCH_PASSES reweighting passes:
-    pixels further than SEAM_MATCH_HUBER off the fit count less. Returns the
-    curves and the final weights."""
-    weight = w
-    curves = None
+    count = samples.d.shape[0]
+    fit = halves.astype(np.int64) * -1 + 2  # 1 on the marked half, 2 elsewhere
+    layers = (samples.layer(np.zeros(count, dtype=np.int64)), samples.layer(fit))
+    weights = [np.ones(count, dtype=np.float32), np.ones(count, dtype=np.float32)]
+    pinned = free = None
     for _ in range(SEAM_MATCH_PASSES):
-        curves = _fit_drift_curves(v, m, d, weight)
-        miss = (d - _drift_at(curves, v, m)).abs().amax(dim=1)
-        weight = w * torch.where(miss <= SEAM_MATCH_HUBER, torch.ones_like(miss), SEAM_MATCH_HUBER / miss.clamp_min(1e-9))
-    return curves, weight
+        sums = samples.sums(layers[0], weights[0], 3) + samples.sums(layers[1], weights[1], 3)
+        totals = np.array(
+            (weights[0].sum(dtype=np.float64), weights[1][halves].sum(dtype=np.float64), weights[1][~halves].sum(dtype=np.float64))
+        )
+        pinned, free = _solve_curves(sums, totals)
+        for index, layer in enumerate(layers):
+            miss = np.abs(samples.d - samples.drift(pinned, free, layer["flat"])).max(axis=1)
+            weights[index] = np.where(miss <= SEAM_MATCH_HUBER, np.float32(1.0), np.float32(SEAM_MATCH_HUBER) / np.maximum(miss, np.float32(1e-9)))
+    return pinned, free, weights[0]
 
 
-def _checkerboard(rows: torch.Tensor, cols: torch.Tensor) -> torch.Tensor:
+def _curve_lines(points: np.ndarray):
+    """Each segment of the curves with knot values ``points`` [..., knots] as
+    a line: (offset, slope) [..., segments], the value at v being
+    offset + slope * v."""
+    slope = (points[..., 1:] - points[..., :-1]) / _KNOT_WIDTHS
+    return points[..., :-1] - slope * _KNOTS[:-1], slope
+
+
+def _undo_drift(values: np.ndarray, pinned: np.ndarray, free: np.ndarray, m: np.ndarray) -> np.ndarray:
+    """Take each RGB value of ``values`` [..., H, W, 3] back through its drift
+    curve: the picture value v with v + drift(v) = value, found by
+    SEAM_MATCH_INVERT_STEPS fixed-point steps, so a value the model kept
+    (black stays black) is kept. ``pinned`` and ``free`` are [3, knots], ``m``
+    [H, W, 1] mixes them. Returns the found values, not yet mixed by strength."""
+    offset, slope = _curve_lines(pinned)
+    free_offset, free_slope = _curve_lines(free)
+    # drift = offset + slope * v + m * (extra offset + extra slope * v)
+    tables = [part.reshape(-1) for part in (offset, slope, free_offset - offset, free_slope - slope)]
+    channels = np.arange(3, dtype=np.int32) * _SEGMENTS
+    guess = values
+    for _ in range(SEAM_MATCH_INVERT_STEPS):
+        clamped = np.clip(guess, 0.0, 1.0)
+        flat = torch.bucketize(torch.from_numpy(clamped), _INNER_KNOTS, out_int32=True).numpy()
+        flat += channels
+        drift = np.take(tables[1], flat) * clamped
+        drift += np.take(tables[0], flat)
+        extra = np.take(tables[3], flat) * clamped
+        extra += np.take(tables[2], flat)
+        extra *= m
+        drift += extra
+        guess = np.clip(np.subtract(values, drift, out=drift), 0.0, 1.0, out=drift)
+    return guess
+
+
+def _checkerboard(rows: np.ndarray, cols: np.ndarray) -> np.ndarray:
     return ((rows // SEAM_MATCH_TILE + cols // SEAM_MATCH_TILE) % 2) == 0
 
 
@@ -1340,38 +1455,39 @@ def _held_out_gain(errors) -> float:
     return 1.0 - fitted / max(none, 1e-12)
 
 
-def _undo_drift(model: torch.Tensor, curves, m: torch.Tensor, strength: float) -> torch.Tensor:
-    """Take each RGB value of ``model`` [B, C, H, W] back through its drift
-    curve: the picture value v with v + drift(v) = model, found by
-    SEAM_MATCH_INVERT_STEPS fixed-point steps, so a value the model kept
-    (black stays black) is kept. ``m`` [1, 1, H, W] mixes pinned and free."""
-    fixed = model.clone()
-    for channel, (pinned, free) in enumerate(curves):
-        value = model[:, channel]
-        guess = value
-        for _ in range(SEAM_MATCH_INVERT_STEPS):
-            a = _knot_values(pinned, guess)
-            drift = a + m[:, 0] * (_knot_values(free, guess) - a)
-            guess = (value - drift).clamp(0.0, 1.0)
-        fixed[:, channel] = value + strength * (guess - value)
-    return fixed
+def _smooth_fields(fields: np.ndarray, sigma: float) -> np.ndarray:
+    """Every layer of ``fields`` [L, H, W] smoothed along the edge: averaged
+    over 4 px cells, blurred at a quarter of ``sigma`` there and scaled back
+    up, all layers in one go."""
+    height, width = fields.shape[-2:]
+    small = functional.avg_pool2d(torch.from_numpy(fields).unsqueeze(0), 4, stride=4, ceil_mode=True)
+    small = _seam_blur(small, max(0.5, sigma / 4.0))
+    return functional.interpolate(small, size=(height, width), mode="bilinear", align_corners=False)[0].numpy()
 
 
-def _gain_field(weight, tone, miss, sigma):
-    """Local gain g [1, 3, H, W] with miss ~ g * tone, smoothed along the edge
-    (normalised Gaussian at a quarter of the resolution), capped at
-    SEAM_MATCH_GAIN_MAX and easing to 1 away from any measurement."""
-    height, width = tone.shape[-2:]
+def _gain_fields(pixels, shape, weights: np.ndarray, tone: np.ndarray, miss: np.ndarray):
+    """The [L, 3, H, W] numerators and denominators of local gains g with
+    miss ~ g * tone, one per weight layer in ``weights`` [L, n] over the band
+    ``pixels`` (rows, cols), whose ``tone`` and ``miss`` are [3, n]: both
+    smoothed along the edge (see :func:`_smooth_fields`)."""
+    layers = weights.shape[0]
+    fields = np.zeros((2 * layers, 3) + tuple(shape), dtype=np.float32)
+    weighted = weights[:, None, :] * tone[None]
+    fields[:layers, :, pixels[0], pixels[1]] = weighted * miss[None]
+    fields[layers:, :, pixels[0], pixels[1]] = weighted * tone[None]
+    smoothed = _smooth_fields(fields.reshape((-1,) + tuple(shape)), SEAM_MATCH_ALONG)
+    smoothed = smoothed.reshape((2 * layers, 3) + tuple(shape))
+    return smoothed[:layers], smoothed[layers:]
 
-    def smooth(x):
-        small = functional.avg_pool2d(x, 4, stride=4, ceil_mode=True)
-        small = _seam_blur(small, max(0.5, sigma / 4.0))
-        return functional.interpolate(small, size=(height, width), mode="bilinear", align_corners=False)
 
-    numerator = smooth(weight * tone * miss)
-    denominator = smooth(weight * tone * tone)
-    floor = SEAM_MATCH_FALLBACK * float(denominator.max()) + 1e-12
-    return (numerator / (denominator + floor)).clamp(-SEAM_MATCH_GAIN_MAX, SEAM_MATCH_GAIN_MAX)
+def _gain_floor(denominator: np.ndarray) -> float:
+    return SEAM_MATCH_FALLBACK * float(denominator.max()) + 1e-12
+
+
+def _gain(numerator: np.ndarray, denominator: np.ndarray, floor: float) -> np.ndarray:
+    """The local gain, capped at SEAM_MATCH_GAIN_MAX and easing to 0 away
+    from any measurement (``floor``, from :func:`_gain_floor`)."""
+    return np.clip(numerator / (denominator + np.float32(floor)), -SEAM_MATCH_GAIN_MAX, SEAM_MATCH_GAIN_MAX)
 
 
 def blend_in_tone_match(canvas: torch.Tensor, patch: torch.Tensor, plan: dict) -> dict | None:
@@ -1385,7 +1501,7 @@ def blend_in_tone_match(canvas: torch.Tensor, patch: torch.Tensor, plan: dict) -
     least SEAM_CLEAN_DEPTH inside the edge where the sampler mask is above
     SEAM_MATCH_MIN_MASK, clipped highlights left out. Every frame is measured
     at once through the frames' mean, so a clip gets one correction and no
-    flicker. The drift curves (:func:`_fit_drift_curves`) must predict a
+    flicker. The drift curves (:func:`_solve_curves`) must predict a
     held-out half of the band - alternate SEAM_MATCH_TILE px tiles - at least
     SEAM_MATCH_MIN_GAIN better than no correction, and the local gain along
     the edge another SEAM_MATCH_LOCAL_GAIN better than the curves alone.
@@ -1393,81 +1509,102 @@ def blend_in_tone_match(canvas: torch.Tensor, patch: torch.Tensor, plan: dict) -
     sampler = plan.get("sampler")
     if sampler is None or canvas.shape[-1] < 3:
         return None
-    dtype, device = patch.dtype, patch.device
-    height, width = patch.shape[1:3]
-    sd = plan["depth"].to(device=device, dtype=dtype).view(1, 1, height, width)
-    mask = sampler.to(device=device, dtype=dtype).view(1, 1, height, width)
-    clean = (sd >= SEAM_CLEAN_DEPTH).to(dtype)
-    share = _seam_blur(clean, SEAM_MATCH_SIGMA).clamp_min(1e-4)
-    base = canvas[..., :3].to(dtype).mean(dim=0, keepdim=True).movedim(-1, 1)
-    base_tone = _seam_blur(base * clean, SEAM_MATCH_SIGMA) / share
-    model = patch[..., :3].mean(dim=0, keepdim=True).movedim(-1, 1)
-    # Both tone layers are read over the same clean picture pixels: blurred
-    # across the edge, the model's would carry the new area's content into
-    # the band and read it as drift.
-    model_tone = _seam_blur(model * clean, SEAM_MATCH_SIGMA) / share
-    unclipped = (base_tone.amax(dim=1, keepdim=True) < SEAM_MATCH_CLIP) & (
-        model_tone.amax(dim=1, keepdim=True) < SEAM_MATCH_CLIP
-    )
-    band = (sd >= SEAM_CLEAN_DEPTH) & (mask > SEAM_MATCH_MIN_MASK) & unclipped
-    rows, cols = torch.nonzero(band[0, 0], as_tuple=True)
-    if rows.numel() < SEAM_MATCH_MIN_PIXELS:
+    frames, height, width = patch.shape[:3]
+    depth = _numpy32(plan["depth"]).reshape(height, width)
+    mask = _numpy32(sampler).reshape(height, width)
+    inside = depth >= SEAM_CLEAN_DEPTH
+    clean = inside.astype(np.float32)
+    base = canvas[..., :3] if canvas.shape[0] == 1 else canvas[..., :3].float().mean(dim=0, keepdim=True)
+    model = patch[..., :3] if frames == 1 else patch[..., :3].float().mean(dim=0, keepdim=True)
+    base, model = _numpy32(base[0]), _numpy32(model[0])  # [H, W, 3]
+    # Every tone layer in one blur: the clean share itself, your picture and
+    # the model's over the same clean pixels (blurred across the edge, the
+    # model's would carry the new area's content into the band and read it as
+    # drift), and the mask, which the tone layers average the same way.
+    layers = np.empty((8, height, width), dtype=np.float32)
+    layers[0] = clean
+    np.multiply(base.transpose(2, 0, 1), clean, out=layers[1:4])
+    np.multiply(model.transpose(2, 0, 1), clean, out=layers[4:7])
+    np.multiply(mask, clean, out=layers[7])
+    blurred = _seam_blur(torch.from_numpy(layers).unsqueeze(0), SEAM_MATCH_SIGMA)[0].numpy()
+    rows, cols = np.nonzero(inside & (mask > np.float32(SEAM_MATCH_MIN_MASK)))
+    share = np.maximum(blurred[0, rows, cols], np.float32(1e-4))
+    tones = blurred[1:, rows, cols] / share
+    del blurred
+    band = (tones[0:3].max(axis=0) < np.float32(SEAM_MATCH_CLIP)) & (tones[3:6].max(axis=0) < np.float32(SEAM_MATCH_CLIP))
+    rows, cols, share, tones = rows[band], cols[band], share[band], tones[:, band]
+    if rows.size < SEAM_MATCH_MIN_PIXELS:
         return None
-    stride = max(1, rows.numel() // SEAM_MATCH_SAMPLES)
-    rows, cols = rows[::stride], cols[::stride]
-    v = base_tone[0, :, rows, cols].t()
-    d = model_tone[0, :, rows, cols].t() - v
-    # The tone layers average each pixel with deeper, more pinned ones, so
-    # the mask they are fitted against is averaged the same way.
-    mask_tone = _seam_blur(mask * clean, SEAM_MATCH_SIGMA) / share
-    m = mask_tone[0, 0, rows, cols]
-    ones = torch.ones_like(m)
-    curves, weight = _robust_drift_curves(v, m, d, ones)
+    stride = max(1, rows.size // SEAM_MATCH_SAMPLES)
+    v = np.ascontiguousarray(tones[0:3, ::stride].T)
+    d = np.ascontiguousarray(tones[3:6, ::stride].T) - v
+    halves = _checkerboard(rows[::stride], cols[::stride])
+    if min(int(halves.sum()), int((~halves).sum())) < 50:
+        return None
+    samples = _DriftSamples(v, np.ascontiguousarray(tones[6, ::stride]), d)
+    pinned, free, weight = _robust_fits(samples, halves)
 
-    # The check: fit on one half of the tiles, predict the other, both ways.
-    black = _checkerboard(rows, cols)
-    errors = [0.0, 0.0]
-    for part in (black, ~black):
-        test = ~part
-        if int(part.sum()) < 50 or int(test.sum()) < 50:
-            return None
-        half, _ = _robust_drift_curves(v[part], m[part], d[part], ones[part])
-        miss = d[test] - _drift_at(half, v[test], m[test])
-        errors[0] += float((weight[test].unsqueeze(1) * d[test].abs()).sum())
-        errors[1] += float((weight[test].unsqueeze(1) * miss.abs()).sum())
+    # The check: each half's fit predicts the other half.
+    other = np.where(halves, 2, 1)[:, None].astype(np.int64)
+    held_out = samples.d - samples.drift(pinned, free, (other * 3 + np.arange(3)) * _POINTS + samples.segment)
+    errors = (
+        float((weight.astype(np.float64)[:, None] * np.abs(samples.d)).sum()),
+        float((weight.astype(np.float64)[:, None] * np.abs(held_out)).sum()),
+    )
     if _held_out_gain(errors) < SEAM_MATCH_MIN_GAIN:
         return None
-    match = {"curves": curves, "mask": mask, "gain": None}
+    curves = (pinned[0], free[0])
 
     # Drift that changes along the edge (sky and water on one side) is left
     # in the model's curve-corrected tone; a local gain, which leaves black
     # black, takes it off when it holds out as well.
-    fixed_tone = _seam_blur(_undo_drift(model, curves, mask, 1.0) * clean, SEAM_MATCH_SIGMA) / share
-    miss = (fixed_tone - base_tone) * band
-    band_w = band.to(dtype) * mask * mask
-    tile_black = _checkerboard(
-        torch.arange(height, device=device).view(height, 1), torch.arange(width, device=device).view(1, width)
-    ).to(dtype).view(1, 1, height, width)
+    undone = _undo_drift(model, curves[0], curves[1], mask[..., None])
+    fixed = model + np.float32(1.0) * (undone - model)
+    np.multiply(fixed.transpose(2, 0, 1), clean, out=layers[1:4])
+    fixed_tone = _seam_blur(torch.from_numpy(layers[1:4]).unsqueeze(0), SEAM_MATCH_SIGMA)[0].numpy()[:, rows, cols] / share
+    del layers
+    tone = tones[0:3]
+    miss = fixed_tone - tone
+    band_w = mask[rows, cols] * mask[rows, cols]
+    black = _checkerboard(rows, cols).astype(np.float32)
+    parts = np.stack((black, np.float32(1.0) - black))
+    numerator, denominator = _gain_fields((rows, cols), (height, width), band_w * parts, tone, miss)
+    band_mask = mask[rows, cols]
     errors = [0.0, 0.0]
-    for part in (tile_black, 1.0 - tile_black):
-        gain = _gain_field(band_w * part, base_tone, miss, SEAM_MATCH_ALONG)
-        test = band.to(dtype) * (1.0 - part)
-        errors[0] += float((test * miss.abs()).sum())
-        errors[1] += float((test * (miss - mask * gain * base_tone).abs()).sum())
+    for index in range(2):
+        test = parts[1 - index] > 0
+        gain = _gain(numerator[index][:, rows, cols], denominator[index][:, rows, cols], _gain_floor(denominator[index]))
+        errors[0] += float(np.abs(miss[:, test]).sum(dtype=np.float64))
+        errors[1] += float(np.abs(miss - band_mask * gain * tone)[:, test].sum(dtype=np.float64))
+    match = {"curves": curves, "mask": torch.from_numpy(mask).view(1, 1, height, width).to(patch.device), "gain": None}
+    if frames == 1:
+        # One picture: blend in applies the correction to this same picture,
+        # so the values found here are kept for it.
+        match["undone"] = (patch, undone)
     if _held_out_gain(errors) >= SEAM_MATCH_LOCAL_GAIN:
-        match["gain"] = _gain_field(band_w, base_tone, miss, SEAM_MATCH_ALONG)
+        # Smoothing is linear, so the whole band's field is its two halves'.
+        numerator, denominator = numerator[0] + numerator[1], denominator[0] + denominator[1]
+        gain = _gain(numerator, denominator, _gain_floor(denominator))
+        match["gain"] = torch.from_numpy(np.ascontiguousarray(gain)).unsqueeze(0).to(patch.device)
     return match
 
 
-def _apply_tone_match(model: torch.Tensor, match: dict, strength: float) -> torch.Tensor:
+def _apply_tone_match(model: torch.Tensor, match: dict, strength: float, undone: np.ndarray | None = None) -> torch.Tensor:
     """The model's frames [B, C, H, W] with Tone match's correction taken off,
-    at ``strength`` (0..1). Channels past RGB pass through."""
-    mask = match["mask"].to(device=model.device, dtype=model.dtype)
-    rgb = _undo_drift(model[:, :3], match["curves"], mask, strength)
+    at ``strength`` (0..1). Channels past RGB pass through. ``undone`` is the
+    frames' values already taken back through the curves, when known."""
+    frames, height, width = model.shape[0], model.shape[2], model.shape[3]
+    rgb = _numpy32(model[:, :3].movedim(1, -1))  # [B, H, W, 3]
+    mask = _numpy32(match["mask"]).reshape(height, width, 1)
+    if undone is None:
+        undone = _undo_drift(rgb, match["curves"][0], match["curves"][1], mask)
+    rgb = rgb + np.float32(strength) * (undone - rgb)
     gain = match["gain"]
     if gain is not None:
-        rgb = rgb / (1.0 + strength * mask * gain.to(device=model.device, dtype=model.dtype))
-    rgb = rgb.clamp(0.0, 1.0)
+        gain = _numpy32(gain).reshape(3, height, width).transpose(1, 2, 0)
+        rgb = rgb / (1.0 + np.float32(strength) * mask * gain)
+    rgb = torch.from_numpy(np.clip(rgb, 0.0, 1.0).reshape(frames, height, width, 3))
+    rgb = rgb.to(device=model.device, dtype=model.dtype).movedim(-1, 1)
     if model.shape[1] > 3:
         return torch.cat([rgb, model[:, 3:]], dim=1)
     return rgb
@@ -1534,7 +1671,10 @@ def blend_in_seam(
         stop = min(frames, start + step)
         model = patch[start:stop].movedim(-1, 1)
         if match is not None and strength > 0:
-            model = _apply_tone_match(model, match, strength)
+            undone = match.get("undone")
+            # A single picture was already taken back through the curves.
+            undone = undone[1] if undone is not None and undone[0] is patch and frames == 1 else None
+            model = _apply_tone_match(model, match, strength, undone)
         base = (canvas[:1] if shared is not None else canvas[start:stop]).movedim(-1, 1)
         base_tone, base_grain, base_luma, base_power = shared if shared is not None else canvas_layers(base)
         model_tone = _seam_blur(model, SEAM_TONE_SIGMA)
