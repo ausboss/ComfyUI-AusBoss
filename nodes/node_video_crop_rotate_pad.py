@@ -123,7 +123,12 @@ class AusBossVideoCropRotatePad:
         )
 
     @classmethod
-    def VALIDATE_INPUTS(cls, video, source_mode, local_path, **_values):
+    def VALIDATE_INPUTS(cls, video, source_mode, local_path):
+        # Only the source is read here, so ComfyUI still checks every other
+        # value's range and list. video and source_mode skip its list check:
+        # in local path mode the video choice is unused and may be stale.
+        # resolve_video_path reads only the input folder, or a local path
+        # inside ComfyUI's input, output or temp folder.
         try:
             resolve_video_path(source_mode, video, local_path)
         except Exception as exc:

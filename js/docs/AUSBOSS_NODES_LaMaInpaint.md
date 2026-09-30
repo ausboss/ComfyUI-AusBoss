@@ -19,7 +19,9 @@ refresh the browser or restart ComfyUI so the model list is updated.
 
 - **image**: BHWC images or video frames.
 - **mask**: BHW mask where white identifies content to replace. One mask is
-  broadcast across the batch; otherwise supply one mask per image.
+  broadcast across the batch; otherwise supply one mask per image. A picture
+  with no mask painted on it stops the run with "No mask painted" instead of
+  coming back unchanged.
 - **model**: A `.pt` or `.pth` TorchScript checkpoint from `models/lama`.
 
 ## Output

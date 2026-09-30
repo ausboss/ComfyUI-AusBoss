@@ -33,6 +33,37 @@ All notable changes to ComfyUI-AusBoss are documented here.
   gives the model room to carry your picture over the edge: a thin strip of
   new area no longer comes back as a flat band with a hard line. Workflows
   without the link run exactly as before.
+- **Pressing Run before loading a picture now says so.** When a picture or
+  video loader has nothing picked (core Load Image and Load Video, Load
+  Image + Pad, Image Crop + Rotate + Pad, Load Video and the Video Crop +
+  Rotate + Pad nodes), the run stops before it starts, one message reads
+  "Load a picture first:" with the node's name, and that node gets a red
+  outline. Before, core Load Image started the run and failed with
+  "[Errno 21] Is a directory". Loaders that are bypassed, muted, fed by a
+  link or not needed by any output never stop a run, and runs sent
+  straight to ComfyUI's API are not checked.
+- **One problem, one error.** A missing picture on Image Crop + Rotate +
+  Pad used to show "20 errors", the same message once per setting. Each
+  AusBoss node now reports a problem once, on the setting it is about.
+  The same fix lets ComfyUI check these nodes' values again: a number out
+  of range or a choice that isn't offered is caught before the run instead
+  of partway through it. A crop ratio from someone else's presets still
+  runs, and uploads, subfolders and MaskEditor saves still load.
+- **"No mask painted" instead of a size error.** Krea 2 Inpaint Masked,
+  and any workflow that sends Load Image's mask to Crop For Inpaint, Mask
+  Refine, Color Match or LaMa Inpaint, stopped with "Mask size (64, 64)
+  does not match image size" when no mask was painted or a new picture was
+  picked after painting one. It now says: "No mask painted: right-click
+  your picture, choose Open in MaskEditor, paint the area, then click
+  Save." LaMa used to hand the picture back unchanged in that case.
+- **Save Video: the NVIDIA formats explain themselves.** Picking "mp4 h264
+  nvenc" or "mp4 h265 nvenc" without an NVIDIA GPU now says those formats
+  need one and to pick "mp4 h264" instead, rather than a bare encoder
+  error.
+- **Load Video and Video Crop + Rotate + Pad → Clip check the trim window
+  when they run.** A start after the end, or Fixed frames longer than the
+  video, is reported by the node as it loads the video, where a trim bound
+  fed by another node has its real value.
 - **The red "missing file" warning clears when you pick a file.** Open a
   workflow that was saved with a picture you don't have and ComfyUI marks
   Load Image + Pad red and lists it under Setup required. Picking your own
