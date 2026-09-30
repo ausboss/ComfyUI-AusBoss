@@ -325,14 +325,21 @@ def _see_through_view(
         area = area.rotate(
             -spec.rotation_degrees, resample=Image.Resampling.BICUBIC, expand=True, fillcolor=0
         )
-    area = np.asarray(area.crop(crop_box), dtype=np.float32)
-    share = np.clip(area - np.asarray(picture_alpha, dtype=np.float32), 0.0, 255.0) / 255.0
-    lift = np.asarray(SEE_THROUGH_BACKDROP, dtype=np.float32) - np.asarray(fill_rgb(spec.fill_color), dtype=np.float32)
+    area = np.asarray(area.crop(crop_box), dtype=np.int16)
+    share = np.clip(area - np.asarray(picture_alpha, dtype=np.int16), 0, 255)
     canvas = np.array(output, dtype=np.uint8)
-    top, left = geometry.pad_top, geometry.pad_left
-    height, width = share.shape
-    region = canvas[top : top + height, left : left + width].astype(np.float32) + share[..., None] * lift
-    canvas[top : top + height, left : left + width] = np.clip(np.round(region), 0, 255).astype(np.uint8)
+    rows = np.flatnonzero(share.any(axis=1))
+    cols = np.flatnonzero(share.any(axis=0))
+    if rows.size == 0:
+        return Image.fromarray(canvas, "RGB")
+    # Only the see-through part's bounding box changes; whole-number maths:
+    # (2 * share * lift + 255) // 510 is share * lift / 255 rounded.
+    y0, y1, x0, x1 = int(rows[0]), int(rows[-1]) + 1, int(cols[0]), int(cols[-1]) + 1
+    lift = np.asarray(SEE_THROUGH_BACKDROP, dtype=np.int32) - np.asarray(fill_rgb(spec.fill_color), dtype=np.int32)
+    top, left = geometry.pad_top + y0, geometry.pad_left + x0
+    window = canvas[top : top + (y1 - y0), left : left + (x1 - x0)]
+    rise = (2 * share[y0:y1, x0:x1, None].astype(np.int32) * lift + 255) // 510
+    window[...] = np.clip(window.astype(np.int32) + rise, 0, 255).astype(np.uint8)
     return Image.fromarray(canvas, "RGB")
 
 
@@ -516,7 +523,7 @@ def original_image_batch(images: Iterable[Image.Image]) -> torch.Tensor:
     frames = []
     for image in images:
         array = np.asarray(image.convert("RGB"), dtype=np.float32).copy()
-        kept = see_through_kept(image.convert("RGBA"))
+        kept = see_through_kept(image if image.mode == "RGBA" else image.convert("RGBA"))
         if kept is not None:
             array[~kept] = SEE_THROUGH_BACKDROP
         frames.append(torch.from_numpy(array / 255.0))
