@@ -21,6 +21,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
   edge, turned or straight, keeps blacks black, and leaves the colours alone
   when the change doesn't hold up along the edge. Blend in with Tone match
   at 0 stitches exactly as before, and the classic seam is unchanged.
+- **Stitch Inpaint says when the new area comes back unpainted.** When an
+  outpaint returns with plain bars or corners in the fill colour, a message
+  and a console line say how much of the new area was left and what to
+  try. It also catches a gray fill handed back a few shades darker, as
+  Krea 2 can do. Painted pictures stay quiet, dark ones too.
 - **Krea 2 outpaints now paint dark and colourful pictures too.** With the
   AnyPaint LoRA, a dark or very colourful picture could come back with its
   new area still gray: a gray frame around the picture, or a gray corner on

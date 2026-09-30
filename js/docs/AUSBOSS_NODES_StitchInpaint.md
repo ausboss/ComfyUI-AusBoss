@@ -198,8 +198,8 @@ plain fill (or half of it in any checked frame of a video), a message says
 so, and so does the console. The picture is stitched as usual either way.
 
 Try another seed, or describe the whole wider scene in the prompt. Adding
-less space at a time also helps, and dark footage paints better when it is
-brightened first.
+less space at a time also helps. For a video, a dark clip paints better if
+you brighten it first.
 
 ## Outputs
 

@@ -102,6 +102,31 @@ class UnpaintedShareTests(unittest.TestCase):
         result[:, :, :LEFT] = 0.0  # black is not the gray fill: it was changed
         self.assertAlmostEqual(unpainted_share(stitcher, result)["mean"], 0.5)
 
+    def test_a_gray_fill_handed_back_a_few_levels_darker_is_unpainted(self):
+        # Krea 2 hands a 128 gray fill back as a flat 114 to 118: that is the
+        # fill left alone, not a painted wall.
+        frames, mask = padded_clip(fill=128.0 / 255.0)
+        stitcher = build_transform_stitcher(frames, mask, Geometry(), 8)
+        result = frames.clone()
+        result[:, :, :LEFT] = 114.0 / 255.0
+        result[:, :, RIGHT:] = 118.0 / 255.0
+        self.assertEqual(unpainted_share(stitcher, result)["mean"], 1.0)
+        # A flat side well away from the fill was painted.
+        result[:, :, RIGHT:] = 90.0 / 255.0
+        self.assertAlmostEqual(unpainted_share(stitcher, result)["mean"], 0.5)
+
+    def test_the_advice_fits_a_picture_or_a_video(self):
+        video = unpainted_notice(unpainted_share(self.stitcher, self.frames.clone()))
+        self.assertIn("a dark video paints better if you brighten it first", video)
+        frames, mask = padded_clip()
+        picture = build_transform_stitcher(frames[:1], mask[:1], Geometry(), 8)
+        still = unpainted_notice(unpainted_share(picture, frames[:1].clone()))
+        self.assertIn("100% of the new area", still)
+        self.assertIn("Adding less space at a time also helps.", still)
+        self.assertNotIn("video", still)
+        self.assertNotIn("footage", still)
+        self.assertTrue(still.isascii())
+
     def test_a_result_at_another_size_is_resized_first(self):
         small = torch.nn.functional.interpolate(
             self.frames.movedim(-1, 1), size=(HEIGHT // 2, WIDTH // 2), mode="nearest"
