@@ -21,6 +21,21 @@ from ._color_helpers import parse_fill_color
 MAX_DIMENSION = 65536
 MAX_PADDING = 32768
 
+# A source pixel stays picture when its alpha is at least this share, in
+# percent, of the most solid pixel's; anything more see-through is area to
+# paint, like the padding. Measured on stranger-test cutouts: an oval photo
+# whose edge ramp stores colours darkened by their alpha keeps a rim at most
+# 10% dark at 90 (half dark at 50, the ring the model painted back), while
+# matting noise inside solid subjects sits above 90, so no holes open there.
+# Relative to the most solid pixel, a picture saved at 50% opacity throughout
+# is kept whole instead of painted over. A picture at least this solid
+# everywhere has no see-through part and goes through exactly as before
+# (generated pictures often carry alpha 249-254 in places).
+SEE_THROUGH_KEEP_PERCENT = 90
+# How see-through parts are shown to a prompt writer (prompt_image) and in
+# the untransformed `original`: on white, as a picture viewer shows them.
+SEE_THROUGH_BACKDROP = (255, 255, 255)
+
 
 @dataclass(frozen=True)
 class TransformSpec:
@@ -122,6 +137,38 @@ def _validate_source(image: Image.Image) -> None:
         )
 
 
+def see_through_kept(image: Image.Image) -> np.ndarray | None:
+    """[H, W] bool map of the pixels that stay picture; the rest are see-through.
+
+    None when every pixel is at least SEE_THROUGH_KEEP_PERCENT solid, so an
+    opaque source takes exactly the path it always took. Otherwise a pixel
+    stays when its alpha is at least SEE_THROUGH_KEEP_PERCENT of the most
+    solid pixel's; a source with no solid pixel at all is see-through
+    everywhere.
+    """
+    if "A" not in image.getbands():
+        return None
+    alpha = np.asarray(image.getchannel("A"))
+    if int(alpha.min()) * 100 >= 255 * SEE_THROUGH_KEEP_PERCENT:
+        return None
+    top = int(alpha.max())
+    return alpha.astype(np.int32) * 100 >= top * SEE_THROUGH_KEEP_PERCENT if top else np.zeros(alpha.shape, bool)
+
+
+def _empty_see_through(rgba: Image.Image, kept: np.ndarray) -> Image.Image:
+    """The source with its see-through pixels made empty, alpha 0 like a
+    rotation corner, and every kept pixel fully solid in its own colour.
+
+    The stored colour of a see-through pixel is often black or the old
+    background, and blending it over the fill left a dark ring that the model
+    painted back; with alpha 0 it never reaches the canvas (Pillow's turn
+    resamples with the alpha applied), and the mask marks it as area to paint.
+    """
+    array = np.array(rgba, dtype=np.uint8)
+    array[..., 3] = np.where(kept, 255, 0).astype(np.uint8)
+    return Image.fromarray(array, "RGBA")
+
+
 def _rotate_rgba(image: Image.Image, spec: TransformSpec) -> Image.Image:
     rgba = image.convert("RGBA")
     if spec.rotation_degrees == 0.0:
@@ -197,9 +244,22 @@ def _geometry(rotated: Image.Image, spec: TransformSpec) -> TransformGeometry:
 
 def transform_pil(image: Image.Image, spec: TransformSpec) -> tuple[Image.Image, Image.Image, TransformGeometry]:
     """Apply rotate -> crop -> pad and return opaque RGB, BHW-style mask image, and geometry."""
+    output, mask, geometry, _ = _transform_frame(image, spec, False)
+    return output, mask, geometry
+
+
+def _transform_frame(
+    image: Image.Image, spec: TransformSpec, view: bool
+) -> tuple[Image.Image, Image.Image, TransformGeometry, Image.Image | None]:
+    """transform_pil, plus the prompt view (:func:`_see_through_view`) when
+    ``view`` is set and the source has see-through parts; None otherwise."""
     _validate_source(image)
     spec = spec.normalized()
-    rotated = _rotate_rgba(image, spec)
+    rgba = image if image.mode == "RGBA" else image.convert("RGBA")
+    kept = see_through_kept(rgba)
+    if kept is not None:
+        rgba = _empty_see_through(rgba, kept)
+    rotated = _rotate_rgba(rgba, spec)
     geometry = _geometry(rotated, spec)
     crop_box = (
         geometry.crop_x,
@@ -238,17 +298,57 @@ def transform_pil(image: Image.Image, spec: TransformSpec) -> tuple[Image.Image,
         # LTX's IC-LoRA leaving the bars unpainted), and the stitcher built
         # from this canvas must hold real pixels for its color match.
 
-    return output, mask, geometry
+    prompt_view = None
+    if view and kept is not None:
+        prompt_view = _see_through_view(output, alpha, rgba.size, crop_box, spec, geometry)
+    return output, mask, geometry, prompt_view
 
 
-def transform_pil_batch(
-    images: Iterable[Image.Image], spec: TransformSpec
-) -> tuple[torch.Tensor, torch.Tensor, TransformGeometry]:
+def _see_through_view(
+    output: Image.Image,
+    picture_alpha: Image.Image,
+    source_size: tuple[int, int],
+    crop_box: tuple[int, int, int, int],
+    spec: TransformSpec,
+    geometry: TransformGeometry,
+) -> Image.Image:
+    """The canvas with its see-through parts on SEE_THROUGH_BACKDROP.
+
+    ``picture_alpha`` is the kept picture's alpha, turned and cropped. The
+    source's whole rectangle, turned and cropped the same way, covers the
+    picture plus its see-through parts, so what it covers beyond the picture
+    is see-through; padding and the corners a turn leaves keep the fill.
+    A partly covered edge pixel keeps each share: picture, backdrop, fill.
+    """
+    area = Image.new("L", source_size, 255)
+    if spec.rotation_degrees != 0.0:
+        area = area.rotate(
+            -spec.rotation_degrees, resample=Image.Resampling.BICUBIC, expand=True, fillcolor=0
+        )
+    area = np.asarray(area.crop(crop_box), dtype=np.float32)
+    share = np.clip(area - np.asarray(picture_alpha, dtype=np.float32), 0.0, 255.0) / 255.0
+    lift = np.asarray(SEE_THROUGH_BACKDROP, dtype=np.float32) - np.asarray(fill_rgb(spec.fill_color), dtype=np.float32)
+    canvas = np.array(output, dtype=np.uint8)
+    top, left = geometry.pad_top, geometry.pad_left
+    height, width = share.shape
+    region = canvas[top : top + height, left : left + width].astype(np.float32) + share[..., None] * lift
+    canvas[top : top + height, left : left + width] = np.clip(np.round(region), 0, 255).astype(np.uint8)
+    return Image.fromarray(canvas, "RGB")
+
+
+def transform_pil_batch(images: Iterable[Image.Image], spec: TransformSpec, *, view: bool = False) -> tuple:
+    """transform_pil over every frame, as BHWC image and BHW mask batches.
+
+    With ``view`` a fourth item follows: the prompt view batch, each frame's
+    canvas with its see-through parts on SEE_THROUGH_BACKDROP, or None when
+    no frame has any (the view is then the image itself).
+    """
     frames: list[torch.Tensor] = []
     masks: list[torch.Tensor] = []
+    views: list[Image.Image] = []
     first_geometry: TransformGeometry | None = None
     for index, image in enumerate(images):
-        output, mask, geometry = transform_pil(image, spec)
+        output, mask, geometry, prompt_view = _transform_frame(image, spec, view)
         if first_geometry is None:
             first_geometry = geometry
         elif output.size != (first_geometry.output_width, first_geometry.output_height):
@@ -259,10 +359,20 @@ def transform_pil_batch(
         mask_array = np.asarray(mask, dtype=np.float32) / 255.0
         frames.append(torch.from_numpy(image_array.copy()))
         masks.append(torch.from_numpy(mask_array.copy()))
+        views.append(prompt_view)
 
     if not frames or first_geometry is None:
         raise ValueError("Transform: source contained no decodable frames.")
-    return torch.stack(frames, dim=0), torch.stack(masks, dim=0), first_geometry
+    result = (torch.stack(frames, dim=0), torch.stack(masks, dim=0), first_geometry)
+    if not view:
+        return result
+    if all(item is None for item in views):
+        return (*result, None)
+    shown = [
+        frames[index] if item is None else torch.from_numpy(np.asarray(item, dtype=np.float32) / 255.0)
+        for index, item in enumerate(views)
+    ]
+    return (*result, torch.stack(shown, dim=0))
 
 
 def transform_tensor_batch(
@@ -396,8 +506,32 @@ def resize_batch_to_megapixels(output, mask, megapixels, method, steps):
 
 
 def original_image_batch(images: Iterable[Image.Image]) -> torch.Tensor:
-    """Untransformed, EXIF-oriented RGB source frames for reference outputs."""
-    return torch.stack([
-        torch.from_numpy(np.asarray(image.convert("RGB"), dtype=np.float32).copy() / 255.0)
-        for image in images
-    ])
+    """Untransformed, EXIF-oriented RGB source frames for reference outputs.
+
+    See-through parts (:func:`see_through_kept`) show on
+    SEE_THROUGH_BACKDROP, as a picture viewer shows them. Dropping the alpha
+    showed their stored colour instead, black for most cutouts, and a prompt
+    writer reading this output described a black backdrop.
+    """
+    frames = []
+    for image in images:
+        array = np.asarray(image.convert("RGB"), dtype=np.float32).copy()
+        kept = see_through_kept(image.convert("RGBA"))
+        if kept is not None:
+            array[~kept] = SEE_THROUGH_BACKDROP
+        frames.append(torch.from_numpy(array / 255.0))
+    return torch.stack(frames)
+
+
+def resize_image_batch(image: torch.Tensor, width: int, height: int, method: str) -> torch.Tensor:
+    """A BHWC batch resized to ``width`` x ``height`` the way
+    :func:`resize_batch_to_megapixels` resizes the image, so a companion of
+    the image (the prompt view) stays pixel-aligned with it."""
+    import comfy.utils
+
+    if (int(image.shape[2]), int(image.shape[1])) == (int(width), int(height)):
+        return image
+    samples = comfy.utils.common_upscale(
+        image.movedim(-1, 1), int(width), int(height), str(method), "disabled"
+    )
+    return samples.movedim(1, -1).clamp(0.0, 1.0)
