@@ -15,6 +15,39 @@ except Exception:  # scipy is optional; the torch fallback below covers it.
     _scipy_fill_holes = None
 
 
+# Core Load Image returns a 64x64 mask of zeros when the picture has no
+# painted mask (no alpha channel), whatever the picture's own size. Picking
+# a new picture after painting one gives the same stand-in, because the new
+# file carries no mask.
+UNPAINTED_MASK_SIZE = (64, 64)
+NO_MASK_PAINTED = (
+    "No mask painted: right-click your picture, choose Open in MaskEditor, "
+    "paint the area, then click Save."
+)
+
+
+def is_unpainted_mask(mask) -> bool:
+    """True for core Load Image's stand-in: a 64x64 mask of zeros."""
+    return (
+        isinstance(mask, torch.Tensor)
+        and mask.ndim in (2, 3)
+        and tuple(int(side) for side in mask.shape[-2:]) == UNPAINTED_MASK_SIZE
+        and not bool(mask.any())
+    )
+
+
+def mask_size_mismatch(mask: torch.Tensor, height: int, width: int) -> str:
+    """Why this mask cannot go with a width x height picture, in plain words."""
+    if is_unpainted_mask(mask):
+        return NO_MASK_PAINTED
+    mask_height, mask_width = (int(side) for side in mask.shape[-2:])
+    return (
+        f"The mask is {mask_width}x{mask_height} but the picture is {width}x{height}. "
+        "Use the mask made for this picture: right-click the picture, choose "
+        "Open in MaskEditor, paint the area, then click Save."
+    )
+
+
 def _as_bhw(mask: torch.Tensor) -> torch.Tensor:
     if isinstance(mask, torch.Tensor) and mask.ndim == 2:
         mask = mask.unsqueeze(0)
@@ -303,6 +336,13 @@ def refine_mask(
             "edge_refine back to 'off'."
         )
     refined = _as_bhw(mask)
+    if (
+        isinstance(guide_image, torch.Tensor)
+        and guide_image.ndim == 4
+        and tuple(guide_image.shape[1:3]) != tuple(refined.shape[1:])
+        and is_unpainted_mask(refined)
+    ):
+        raise ValueError(NO_MASK_PAINTED)
     refined = grow_shrink_mask(refined, expand)
     if fill_holes:
         refined = fill_mask_holes(refined)

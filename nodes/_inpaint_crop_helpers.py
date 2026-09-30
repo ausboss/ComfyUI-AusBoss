@@ -30,7 +30,7 @@ import torch
 import torch.nn.functional as functional
 
 from ._execution_helpers import progress_bar, raise_if_interrupted, warn_once
-from ._mask_helpers import blur_mask, grow_shrink_mask
+from ._mask_helpers import blur_mask, grow_shrink_mask, mask_size_mismatch
 
 try:
     from scipy.ndimage import distance_transform_edt as _scipy_distance
@@ -152,10 +152,8 @@ def _as_mask(
     if not isinstance(mask, torch.Tensor) or mask.ndim != 3:
         raise ValueError(f"{source} expected a BHW MASK.")
     if mask.shape[1:] != image.shape[1:3]:
-        raise ValueError(
-            f"Mask size {tuple(mask.shape[1:])} does not match "
-            f"image size {tuple(image.shape[1:3])}."
-        )
+        # Most often core Load Image's 64x64 stand-in for "nothing painted".
+        raise ValueError(mask_size_mismatch(mask, int(image.shape[1]), int(image.shape[2])))
     if mask.shape[0] not in (1, image.shape[0]):
         raise ValueError(
             f"Mask batch {mask.shape[0]} cannot broadcast across "
