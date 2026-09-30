@@ -152,6 +152,7 @@ function installStyles() {
     .ausboss-transform-aspect-modes .ausboss-transform-fit{min-width:96px}
     .ausboss-transform-aspect-modes>.ausboss-transform-alignment{margin-left:auto}
     .ausboss-transform-switch{flex:0 0 76px;height:24px}
+    .ausboss-transform-canvas-row .ausboss-transform-switch{width:76px}
     .ausboss-transform-button,.ausboss-transform-modal button:not(.ausboss-scrub-step>button):not(.ausboss-transform-aspect):not(.ausboss-transform-fit>button):not(.ausboss-transform-trim-reset):not(.ausboss-transform-trim-pill>button):not(.ausboss-transform-trim-handle){background:#30343a;color:#eee;border:1px solid #555b63;border-radius:5px;padding:7px 10px;cursor:pointer}
     .ausboss-transform-button:hover,.ausboss-transform-modal button:not(.ausboss-scrub-step>button):not(.ausboss-transform-aspect):not(.ausboss-transform-fit>button):not(.ausboss-transform-trim-reset):not(.ausboss-transform-trim-pill>button):not(.ausboss-transform-trim-handle):hover{border-color:${BRAND};background:#383e44}
     .ausboss-transform-file{position:relative;text-align:center;overflow:hidden}.ausboss-transform-file input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
