@@ -137,6 +137,16 @@ export function resolvePadding(values, crop) {
   };
 }
 
+// A shape within about 1% of a ratio counts as that ratio. A picture that
+// is almost 9:16 already is 9:16 for a ratio button: padding it would add a
+// band a pixel or two wide that nobody can use, and cropping it would trim
+// a sliver.
+export const NEAR_RATIO = 0.01;
+
+export function nearRatio(width, height, ratio) {
+  return ratio > 0 && width > 0 && height > 0 && Math.abs(width / height / ratio - 1) <= NEAR_RATIO;
+}
+
 // Fit actions replace previous crop/padding, but retain rotation, fill and
 // resize settings. Padding must unlock the INNER crop or the backend would
 // trim the source before adding the new outer canvas.
@@ -148,6 +158,8 @@ export function fitSourceToAspect(source, aspect, mode = "crop") {
     pad_left: 0, pad_top: 0, pad_right: 0, pad_bottom: 0,
   };
   if (!ratio || aspect === "source") return patch;
+  // Already the shape: nothing to add, nothing to trim.
+  if (nearRatio(source.width, source.height, ratio)) return { ...patch, crop_aspect_ratio: "free" };
   if (mode === "pad") {
     const width = Math.max(source.width, Math.ceil(source.height * ratio));
     const height = Math.max(source.height, Math.ceil(source.width / ratio));
@@ -368,11 +380,15 @@ export function sizeChain(values, source, resize = null) {
   if (resize) {
     const resized = scaleToMegapixels(chain.canvas.width, chain.canvas.height, resize.megapixels, resize.steps);
     chain.resized = resized;
+    chain.steps = Math.max(1, Math.round(Number(resize.steps) || 1));
     chain.stretch = (resized.width / chain.canvas.width) / (resized.height / chain.canvas.height) - 1;
     chain.alignLost = multiple > 1 && (resized.width % multiple !== 0 || resized.height % multiple !== 0);
   }
   return chain;
 }
+
+// How far the resize may stretch the picture before the face says so.
+export const STRETCH_WARNING = 0.01;
 
 // The chain as short readout tokens, the last one the size the run emits,
 // plus warnings. A step that changes nothing is left out.
@@ -383,21 +399,21 @@ export function sizeChainTokens(chain) {
     tokens.push({ label: "pad", text: size(chain.padded) });
   }
   if (chain.canvas.width !== chain.padded.width || chain.canvas.height !== chain.padded.height) {
-    tokens.push({ label: `align ${chain.multiple}`, text: size(chain.canvas) });
+    tokens.push({ label: `round to ${chain.multiple}`, text: size(chain.canvas) });
   }
   if (chain.resized) tokens.push({ label: "resize", text: size(chain.resized) });
   const warnings = [];
-  if (Math.abs(chain.stretch) > 0.01) {
-    warnings.push(`${(Math.abs(chain.stretch) * 100).toFixed(1)}% ${chain.stretch > 0 ? "wider" : "taller"} from steps`);
+  if (Math.abs(chain.stretch) > STRETCH_WARNING) {
+    warnings.push(`${(Math.abs(chain.stretch) * 100).toFixed(1)}% ${chain.stretch > 0 ? "wider" : "taller"}: each side rounds to ${chain.steps ?? 1} px`);
   }
-  // Ahead of a resize, Align's strip is only fill for the model to paint:
-  // the Step already rounds the size. Name where it went.
+  // Ahead of a resize, Round canvas to's strip is only fill for the model to
+  // paint: the Step already rounds the size. Name where it went.
   const { right, bottom } = chain.alignAdded ?? { right: 0, bottom: 0 };
   if (chain.resized && (right || bottom)) {
-    const sides = [right ? `${right} px right` : "", bottom ? `${bottom} px bottom` : ""].filter(Boolean).join(" + ");
-    warnings.push(`align ${chain.multiple} adds ${sides} of fill`);
+    const sides = [right ? `${right} px on the right` : "", bottom ? `${bottom} px at the bottom` : ""].filter(Boolean).join(" and ");
+    warnings.push(`rounding to ${chain.multiple} adds ${sides} of fill`);
   } else if (chain.alignLost) {
-    warnings.push(`resize undoes align ${chain.multiple}`);
+    warnings.push(`the resize undoes rounding to ${chain.multiple}`);
   }
   return { tokens, warnings };
 }
@@ -466,6 +482,7 @@ function fitAround(crop, ratio) {
 // Padding that sets the crop, centred, in the smallest canvas of `ratio`
 // that holds it: what the orientation button pads a turned shape to.
 export function padAround(crop, ratio) {
+  if (nearRatio(crop.width, crop.height, ratio)) return { pad_left: 0, pad_top: 0, pad_right: 0, pad_bottom: 0 };
   const pads = fitAround(crop, ratio);
   return { pad_left: pads.left, pad_top: pads.top, pad_right: pads.right, pad_bottom: pads.bottom };
 }
@@ -514,11 +531,12 @@ export function canvasSize(values, source) {
 
 // Does width x height have the shape of `aspect` ("16:9")? A pixel of
 // rounding either way still counts, so a fitted canvas is never "custom",
-// and so does anything within a quarter of a percent.
+// and so does anything within about 1% (NEAR_RATIO): the shape a ratio
+// button leaves alone because it is already there.
 export function aspectMatches(width, height, aspect, source = { width, height }) {
   const ratio = parseAspectRatio(aspect, source);
   if (!ratio || !(width > 0) || !(height > 0)) return false;
-  return onRatio(width, height, ratio) || Math.abs(width / height / ratio - 1) < 0.0025;
+  return onRatio(width, height, ratio) || nearRatio(width, height, ratio);
 }
 
 // The same ratio on its side: "16:9" -> "9:16". Square and anything that is
@@ -598,4 +616,117 @@ export function sourceResetValues(includeTimeline = false) {
   const defaults = resetTransformValues(includeTimeline);
   const keys = includeTimeline ? [...SOURCE_GEOMETRY_KEYS, "seek_mode", "frame_index", "frame_time"] : [...SOURCE_GEOMETRY_KEYS];
   return Object.fromEntries(keys.map((name) => [name, defaults[name]]));
+}
+
+// --- Reset crop under the padlock ---------------------------------------------
+// The padding that holds `ratio` around `crop` in the smallest canvas: what
+// Reset crop leaves when the lock is on, so the bands the lock added while
+// the crop was trimmed go again instead of making the canvas taller.
+export function tightLockPadding(values, crop, ratio) {
+  const options = [lockPadding(values, crop, ratio, "x"), lockPadding(values, crop, ratio, "y")].filter(Boolean);
+  if (!options.length) return null;
+  const area = (pads) => (crop.width + pads.pad_left + pads.pad_right) * (crop.height + pads.pad_top + pads.pad_bottom);
+  return options.reduce((best, next) => (area(next) < area(best) ? next : best));
+}
+
+// --- Dragging the picture ----------------------------------------------------
+// Which ways a drag inside the picture can go. Where the crop is smaller
+// than the picture, the crop box moves over it; where the crop spans the
+// whole picture, the picture slides inside its padding and needs padding on
+// the side it moves toward.
+export function moveRoom(crop, source, values) {
+  const pads = paddingOf(values);
+  const spanX = crop.width >= source.width;
+  const spanY = crop.height >= source.height;
+  return {
+    left: spanX ? pads.left > 0 : crop.x > 0,
+    right: spanX ? pads.right > 0 : crop.x + crop.width < source.width,
+    up: spanY ? pads.top > 0 : crop.y > 0,
+    down: spanY ? pads.bottom > 0 : crop.y + crop.height < source.height,
+  };
+}
+
+// The cursor for a press inside the picture: the move cross only when it
+// can go both ways, an axis arrow when it can only go along one, and the
+// plain pointer when it cannot move at all.
+export function moveCursor(room) {
+  const across = Boolean(room?.left || room?.right);
+  const upDown = Boolean(room?.up || room?.down);
+  if (across && upDown) return "move";
+  if (across) return "ew-resize";
+  if (upDown) return "ns-resize";
+  return "default";
+}
+
+// --- The rotate knob ----------------------------------------------------------
+// The knob sits past the picture's top-right corner, along the line from
+// the picture's centre through that corner. On a wide canvas that spot can
+// land on the top padding diamond (a narrow picture centred in a wide
+// canvas has that corner right under it), and the nearer handle then wins
+// every press. So the knob tries a longer arm, then swings around the
+// corner, until it clears every other handle and stays on the stage.
+export const KNOB_CLEARANCE = { padding: 36, crop: 26 };
+
+export function placeKnob(corner, center, arm, obstacles = [], bounds = null) {
+  const base = Math.atan2(corner.y - center.y, corner.x - center.x) || -Math.PI / 4;
+  const at = (length, turn) => {
+    const angle = base + (turn * Math.PI) / 180;
+    return { x: corner.x + Math.cos(angle) * length, y: corner.y + Math.sin(angle) * length };
+  };
+  const clear = (point) => {
+    if (bounds && (point.x < bounds.x + 14 || point.y < bounds.y + 14 || point.x > bounds.x + bounds.width - 14 || point.y > bounds.y + bounds.height - 14)) return false;
+    return obstacles.every((item) => Math.hypot(point.x - item.x, point.y - item.y) >= (item.clearance ?? KNOB_CLEARANCE.padding));
+  };
+  for (const extra of [0, 16, 32]) {
+    for (const turn of [0, -25, 25, -50, 50, -75, 75]) {
+      const point = at(arm + extra, turn);
+      if (clear(point)) return point;
+    }
+  }
+  return at(arm, 0);
+}
+
+// --- Rounding to the resize step ----------------------------------------------
+// The resize rounds each side to the step on its own, which can stretch the
+// picture a little. The largest smaller step that keeps the stretch under
+// the warning, for the tooltip to name, or null.
+export function stepWithoutStretch(values, source, resize) {
+  if (!resize) return null;
+  const current = Math.max(1, Math.round(Number(resize.steps) || 1));
+  for (const step of [64, 32, 16, 8, 4, 2, 1]) {
+    if (step >= current) continue;
+    const chain = sizeChain(values, source, { ...resize, steps: step });
+    if (Math.abs(chain.stretch) <= STRETCH_WARNING) return step;
+  }
+  return null;
+}
+
+// Pad mode's way out of that stretch: widen the padding on the axis that
+// comes up short, split evenly, until the canvas has the shape the rounded
+// size has. Every pixel stays; the model paints a few more of fill. Null
+// when there is no stretch to take out or it cannot be reached.
+export function evenOutPadding(values, source, resize) {
+  if (!resize) return null;
+  const start = sizeChain(values, source, resize);
+  if (Math.abs(start.stretch) <= STRETCH_WARNING) return null;
+  let pads = { ...paddingOf(values) };
+  for (let pass = 0; pass < 6; pass += 1) {
+    const now = sizeChain({ ...values, pad_left: pads.left, pad_top: pads.top, pad_right: pads.right, pad_bottom: pads.bottom }, source, resize);
+    if (Math.abs(now.stretch) <= 0.002) break;
+    const target = now.resized.width / now.resized.height;
+    const width = now.padded.width;
+    const height = now.padded.height;
+    if (width / height < target) {
+      const pair = splitDelta(Math.max(1, Math.round(height * target) - width), pads.left, pads.right);
+      if (!pair) return null;
+      [pads.left, pads.right] = pair;
+    } else {
+      const pair = splitDelta(Math.max(1, Math.round(width / target) - height), pads.top, pads.bottom);
+      if (!pair) return null;
+      [pads.top, pads.bottom] = pair;
+    }
+  }
+  const out = { pad_left: pads.left, pad_top: pads.top, pad_right: pads.right, pad_bottom: pads.bottom };
+  const done = sizeChain({ ...values, ...out }, source, resize);
+  return Math.abs(done.stretch) < Math.abs(start.stretch) && Math.abs(done.stretch) <= STRETCH_WARNING ? out : null;
 }

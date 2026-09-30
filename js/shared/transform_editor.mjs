@@ -29,13 +29,18 @@ import {
   fitSourceToAspect,
   cropHandleCenters,
   isUntouched,
+  evenOutPadding,
   lockPadding,
   lockedPadMinimum,
+  moveCursor,
+  moveRoom,
   nearestHandle,
   padAround,
   paddingAxis,
+  KNOB_CLEARANCE,
   paddingHandleCenters,
   parseAspectRatio,
+  placeKnob,
   ratioLabel,
   resetTransformValues,
   resizeCrop,
@@ -50,6 +55,8 @@ import {
   sourceResetValues,
   stageHandleLayout,
   stageHeightForWidth,
+  stepWithoutStretch,
+  tightLockPadding,
   turnAspect,
   turnedCrop,
   zoomAround,
@@ -75,6 +82,8 @@ const trimInputDriven = (node, name) => node.inputs?.some(
 ) ?? false;
 
 const RESIZE_METHODS = ["lanczos", "area", "bicubic", "bilinear", "nearest-exact"];
+// The widest the control rows get on a big node; the picture takes the rest.
+const CONTROL_MAX_WIDTH = 460;
 const TRANSFORM_DEFAULTS = resetTransformValues(false);
 const CORE_IMAGE_PREVIEW_WIDGET = "$$canvas-image-preview";
 
@@ -84,6 +93,7 @@ function installStyles() {
   style.id = "ausboss-transform-styles";
   style.textContent = `
     .ausboss-transform-panel{display:flex;flex-direction:column;gap:8px;padding:8px;color:#ddd;font:12px system-ui;box-sizing:border-box;width:100%;height:100%;overflow:hidden}
+    .ausboss-transform-panel>:not(.ausboss-transform-preview){width:100%;max-width:${CONTROL_MAX_WIDTH}px;align-self:center;box-sizing:border-box}
     .ausboss-transform-preview{width:100%;flex:1 1 180px;min-height:0;border:1px solid #50555b;border-radius:8px;background:#111;display:block;touch-action:none}
     .ausboss-transform-source{display:flex;flex-direction:column;gap:7px;flex:0 0 auto;padding:8px;border:1px solid rgba(0,184,174,.28);border-radius:8px;background:rgba(0,0,0,.24)}
     .ausboss-transform-source-heading{color:${BRAND};font:600 10px system-ui;letter-spacing:.08em;text-transform:uppercase}
@@ -102,33 +112,47 @@ function installStyles() {
     .ausboss-transform-row{display:flex;gap:7px;align-items:center;flex:0 0 auto}.ausboss-transform-row>*{min-width:0;flex:1}
     .ausboss-transform-canvas-row{justify-content:space-between}
     .ausboss-transform-canvas-row>label{flex:0 0 auto;display:flex;align-items:center;gap:6px;color:#aeb4ba;font-size:11px;white-space:nowrap;cursor:default;user-select:none}
-    .ausboss-transform-canvas-row>label>span{color:#8ca8a5;font-weight:600;font-size:10px;letter-spacing:.06em;text-transform:uppercase}
+    .ausboss-transform-canvas-row>label>span{color:#8ca8a5;font-size:11px}
     .ausboss-transform-swatch{width:30px;height:22px;padding:1px;border:1px solid #555b63;border-radius:5px;background:#23272c;cursor:pointer}
     .ausboss-transform-swatch::-webkit-color-swatch-wrapper{padding:1px}.ausboss-transform-swatch::-webkit-color-swatch{border:0;border-radius:3px}
     .ausboss-transform-canvas-row input[type=checkbox]{accent-color:${BRAND};margin:0;cursor:pointer}
     .ausboss-transform-resize-row{justify-content:flex-start;gap:14px}
-    .ausboss-transform-readout{flex:0 0 auto;margin-top:-3px;color:#c9d0d6;font:11px/14px system-ui;font-variant-numeric:tabular-nums;text-align:center;overflow:hidden;max-height:42px;cursor:default;user-select:none}
+    .ausboss-transform-readout{flex:0 0 auto;margin-top:-3px;color:#c9d0d6;font:11px/15px system-ui;font-variant-numeric:tabular-nums;text-align:center;overflow:hidden;max-height:62px;cursor:default;user-select:none}
     .ausboss-transform-readout:empty{display:none}
     .ausboss-transform-readout span{color:#8ca8a5}.ausboss-transform-readout b{color:#fff;font-weight:600}
     .ausboss-transform-readout i{display:block;color:#ffc46b;font-style:normal}
+    .ausboss-transform-readout em{display:block;color:#8ca8a5;font-style:normal}
+    .ausboss-transform-readout em.note{color:#ffc46b}
+    .ausboss-transform-readout button{margin-left:6px;height:18px;padding:0 7px;border:1px solid #6b5a33;border-radius:4px;background:#2a2417;color:#ffd79a;font:600 10px system-ui;cursor:pointer;vertical-align:1px}
+    .ausboss-transform-readout button:hover{border-color:#ffc46b;color:#fff}
     .ausboss-transform-aspects{display:flex;gap:5px;align-items:center;flex:0 0 auto}
     .ausboss-transform-aspects>span{flex:0 0 auto;color:#8ca8a5;font-size:10px;padding:0 3px;user-select:none}
     .ausboss-transform-aspect{flex:1 1 0;min-width:0;background:#262a30;color:#cfd6dc;border:1px solid #4a5058;border-radius:4px;height:28px;padding:3px 2px;font:600 10px system-ui;font-variant-numeric:tabular-nums;white-space:nowrap;cursor:pointer;text-align:center}
     .ausboss-transform-aspect-flip{flex:0 0 30px;display:flex;align-items:center;justify-content:center;margin-right:3px}
     .ausboss-transform-aspect-glyph{display:block;border:1px solid currentColor;border-radius:1px;box-sizing:border-box}
-    .ausboss-transform-aspect:hover{border-color:${BRAND};color:#fff}
-    .ausboss-transform-aspect.active{background:rgba(0,184,174,.18);border-color:${BRAND};color:#e5fffc}
+    .ausboss-transform-aspect:hover{border-color:#9aa5ad;color:#fff}
+    .ausboss-transform-aspect.active,.ausboss-transform-aspect-hold.on{background:${BRAND};border-color:${BRAND};color:#04201d}
+    .ausboss-transform-aspect.active:hover,.ausboss-transform-aspect-hold.on:hover{border-color:#e5fffc;color:#04201d}
     .ausboss-transform-aspects>.ausboss-transform-aspect-caption{min-width:34px;text-align:center}
     .ausboss-transform-aspects>.ausboss-transform-aspect-caption.custom{color:#e3e8ec}
-    .ausboss-transform-aspect-hold{flex:0 0 28px;display:flex;align-items:center;justify-content:center;color:#6f7d85}
-    .ausboss-transform-aspect-hold.on{background:rgba(0,184,174,.34);border-color:#e5fffc;color:#fff}
+    .ausboss-transform-aspects>.ausboss-transform-aspect-caption.held{color:${BRAND};font-weight:600}
+    .ausboss-transform-aspect-hold{flex:0 0 28px;display:flex;align-items:center;justify-content:center;color:#8d9aa2}
+    .ausboss-transform-aspect-hold.idle{opacity:.4;cursor:default}
+    .ausboss-transform-aspect-hold.idle:hover{border-color:#4a5058;color:#8d9aa2}
     .ausboss-transform-aspect-lock{display:inline-block;line-height:0}
     .ausboss-transform-fit-label{display:flex;align-items:center;gap:6px;color:#aeb4ba;font-size:11px;cursor:default;user-select:none}
     .ausboss-transform-fit{display:grid;grid-template-columns:1fr 1fr;flex:1 1 auto;height:26px;padding:2px;border:1px solid #2a3437;border-radius:6px;background:#0f1516;box-sizing:border-box}
     .ausboss-transform-fit button{border:0;border-radius:4px;background:transparent;color:#8ba3a1;font:600 11px system-ui;cursor:pointer}
     .ausboss-transform-fit button:hover{color:#fff}.ausboss-transform-fit button.on{background:${BRAND};color:#04201d}
-    .ausboss-transform-button,.ausboss-transform-modal button{background:#30343a;color:#eee;border:1px solid #555b63;border-radius:5px;padding:7px 10px;cursor:pointer}
-    .ausboss-transform-button:hover,.ausboss-transform-modal button:hover{border-color:${BRAND};background:#383e44}
+    .ausboss-transform-fit.idle{opacity:.45}
+    .ausboss-transform-fit-hint{flex:0 1 auto;min-width:0;color:#6f8886;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ausboss-transform-aspect-modes{flex-wrap:wrap;row-gap:6px}
+    .ausboss-transform-aspect-modes>.ausboss-transform-fit-label{flex:1 0 auto}
+    .ausboss-transform-aspect-modes .ausboss-transform-fit{min-width:96px}
+    .ausboss-transform-aspect-modes>.ausboss-transform-alignment{margin-left:auto}
+    .ausboss-transform-switch{flex:0 0 76px;height:24px}
+    .ausboss-transform-button,.ausboss-transform-modal button:not(.ausboss-scrub-step>button):not(.ausboss-transform-aspect):not(.ausboss-transform-fit>button):not(.ausboss-transform-trim-reset):not(.ausboss-transform-trim-pill>button):not(.ausboss-transform-trim-handle){background:#30343a;color:#eee;border:1px solid #555b63;border-radius:5px;padding:7px 10px;cursor:pointer}
+    .ausboss-transform-button:hover,.ausboss-transform-modal button:not(.ausboss-scrub-step>button):not(.ausboss-transform-aspect):not(.ausboss-transform-fit>button):not(.ausboss-transform-trim-reset):not(.ausboss-transform-trim-pill>button):not(.ausboss-transform-trim-handle):hover{border-color:${BRAND};background:#383e44}
     .ausboss-transform-file{position:relative;text-align:center;overflow:hidden}.ausboss-transform-file input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
     .ausboss-transform-modal{position:fixed;inset:0;z-index:100000;background:#101214;color:#e6e8ea;font:13px system-ui;display:grid;grid-template-rows:42px minmax(0,1fr) auto}
     .ausboss-transform-header{display:flex;align-items:center;gap:12px;padding:0 12px;border-bottom:1px solid #30343a;background:#17191c}
@@ -137,7 +161,7 @@ function installStyles() {
     .ausboss-transform-close:hover{filter:brightness(1.15)}
     .ausboss-transform-danger{background:#4a1717!important;border-color:#a13a3a!important;color:#ffd9d9!important}
     .ausboss-transform-danger:hover{background:#6b1f1f!important;border-color:#c74e4e!important}
-    .ausboss-transform-body{display:grid;grid-template-columns:270px minmax(320px,1fr) 250px;min-height:0}
+    .ausboss-transform-body{display:grid;grid-template-columns:304px minmax(320px,1fr) 250px;min-height:0}
     .ausboss-transform-sidebar{padding:12px;border-right:1px solid #30343a;overflow:auto;background:#181b1e}
     .ausboss-transform-sidebar.right{border-right:0;border-left:1px solid #30343a}
     .ausboss-transform-section{border-bottom:1px solid #34383d;padding:0 0 13px;margin:0 0 13px}
@@ -149,8 +173,14 @@ function installStyles() {
     .ausboss-final-preview{display:block;max-width:100%;margin:2px auto 0;border:1px solid #34383d;border-radius:6px;background:#0c0e10}
     .ausboss-transform-section label{display:grid;grid-template-columns:88px 1fr 58px;gap:7px;align-items:center;margin:7px 0}
     .ausboss-transform-section label>.ausboss-scrub:last-child{width:58px}
+    .ausboss-transform-section label.ausboss-transform-field{grid-template-columns:108px minmax(0,1fr)}
+    .ausboss-transform-section label.ausboss-transform-field>.ausboss-scrub{width:100%}
+    .ausboss-transform-section .ausboss-transform-aspects{margin:4px 0 8px}
+    .ausboss-transform-section .ausboss-transform-aspect-modes{margin:0 0 8px}
+    .ausboss-transform-section .ausboss-transform-aspects{gap:4px}
+    .ausboss-transform-section .ausboss-transform-aspect{padding:3px 0}
     .ausboss-transform-section label>*{min-width:0}
-    .ausboss-transform-section input,.ausboss-transform-section select{box-sizing:border-box;width:100%;background:#0e1012;color:#eee;border:1px solid #454b52;border-radius:4px;padding:5px}
+    .ausboss-transform-section input:not(.ausboss-scrub-input):not(.ausboss-transform-swatch),.ausboss-transform-section select{box-sizing:border-box;width:100%;background:#0e1012;color:#eee;border:1px solid #454b52;border-radius:4px;padding:5px}
     .ausboss-transform-stage{position:relative;min-width:0;min-height:0;background-color:#0c0e10;background-image:radial-gradient(#292d31 1px,transparent 1px);background-size:18px 18px;overflow:hidden}
     .ausboss-transform-canvas{width:100%;height:100%;display:block;touch-action:none}
     .ausboss-transform-status{line-height:1.55;color:#b8bec5;white-space:pre-wrap}.ausboss-transform-help{line-height:1.55;color:#aeb4ba}
@@ -163,7 +193,7 @@ function installStyles() {
     .ausboss-transform-transport{display:flex;flex-wrap:wrap;align-items:center;gap:8px;flex-basis:100%}
     .ausboss-transform-steps{display:flex;gap:4px;flex-wrap:wrap}.ausboss-transform-steps button{padding:5px 7px}
     .ausboss-transform-badge{padding:3px 7px;border-radius:99px;background:#263034;color:#8de0da;font-size:11px}
-    @media(max-width:900px){.ausboss-transform-body{grid-template-columns:220px minmax(260px,1fr)}.ausboss-transform-sidebar.right{display:none}}
+    @media(max-width:900px){.ausboss-transform-body{grid-template-columns:290px minmax(260px,1fr)}.ausboss-transform-sidebar.right{display:none}}
   `;
   document.head.appendChild(style);
 }
@@ -260,7 +290,7 @@ async function uploadMedia(node, kind, file) {
 }
 
 function resetTransform(node, includeTimeline = false) {
-  if (node.properties) delete node.properties.ausboss_fit_aspect;
+  if (node.properties) { delete node.properties.ausboss_fit_aspect; node.properties.ausboss_aspect_lock = false; }
   for (const [name, next] of Object.entries(declaredTransformDefaults(node.constructor?.nodeData, includeTimeline))) setValue(node, name, next);
   node.setDirtyCanvas?.(true, true);
 }
@@ -268,7 +298,7 @@ function resetTransform(node, includeTimeline = false) {
 // The node face's Reset: only the shape - rotation, crop, padding. Fill,
 // feather and Align stay, as they do when the source changes.
 function resetGeometry(node) {
-  if (node.properties) delete node.properties.ausboss_fit_aspect;
+  if (node.properties) { delete node.properties.ausboss_fit_aspect; node.properties.ausboss_aspect_lock = false; }
   for (const [name, next] of Object.entries(sourceResetValues(false))) setValue(node, name, next);
   node.setDirtyCanvas?.(true, true);
 }
@@ -292,10 +322,10 @@ function buildMediaSourceCard(state) {
   const root = createElement("div", "ausboss-transform-source");
   const modes = createElement("div", "ausboss-transform-source-mode");
   const uploadsMode = createElement("button", "", "Uploads");
-  const localMode = createElement("button", "", "Local path");
+  const localMode = createElement("button", "", "Server file");
   uploadsMode.type = localMode.type = "button";
   uploadsMode.title = "Choose a video already in ComfyUI's input folder or upload another.";
-  localMode.title = "Read a video inside ComfyUI's input, output or temp folder in place, without copying it.";
+  localMode.title = "A video already on the ComfyUI server, inside its input, output or temp folder, read in place without copying it.";
   modes.append(uploadsMode, localMode);
 
   const field = createElement("div", "ausboss-transform-source-field");
@@ -317,7 +347,7 @@ function buildMediaSourceCard(state) {
   localPath.type = "text";
   localPath.spellcheck = false;
   localPath.placeholder = "/absolute/path/to/video.mp4";
-  localPath.setAttribute("aria-label", "Local video path");
+  localPath.setAttribute("aria-label", "Server file path");
   const upload = createElement("label", "ausboss-transform-button ausboss-transform-file ausboss-transform-source-action");
   const uploadText = createElement("span", "", "Upload");
   upload.append(uploadText);
@@ -355,7 +385,7 @@ function buildMediaSourceCard(state) {
       ? `${source.hint} Only videos inside ComfyUI's input, output or temp folder can be read.`
       : source.hint;
     // "Choose an uploaded video" has done its job once one is chosen; its
-    // line goes to the picture. The Local path note stays while you type.
+    // line goes to the picture. The Server file note stays while you type.
     hint.style.display = source.mode !== LOCAL_PATH_MODE && source.selection ? "none" : "";
   };
   const chooseMode = (mode) => {
@@ -442,23 +472,27 @@ export function installTransformNode(node, kind, mountPanel = null) {
   const row = createElement("div", "ausboss-transform-row");
   const open = createElement("button", "ausboss-transform-button", "Open editor");
   const resetCrop = createElement("button", "ausboss-transform-button", "Reset crop");
-  resetCrop.title = "Restore the full source crop; keep rotation, padding and timeline.";
-  resetCrop.addEventListener("click", () => {
-    setValue(node, "crop_aspect_ratio", "free");
-    fitCrop(state); settleRequest(state); draw(state); updateModalInfo(state); notifyAusbossChange();
-  });
+  resetCrop.title = "Show the whole picture again; rotation, padding and the timeline stay. With the padlock on, the bands it added to keep the shape go too.";
+  resetCrop.addEventListener("click", () => resetCropKeepingShape(state));
   const reset = createElement("button", "ausboss-transform-button", "Reset");
-  reset.title = "Reset rotation, crop and padding. Fill, feather, Align and the timeline stay.";
+  reset.title = "Reset rotation, crop and padding, and turn the padlock off. Fill, feather, Round canvas to and the timeline stay.";
   reset.addEventListener("click", () => {
     resetGeometry(node);
     fitCrop(state); updateModalInfo(state); notifyAusbossChange();
   });
   row.append(open, resetCrop, reset);
+  state.editorSyncs = [];
   panel.append(buildMediaSourceCard(state));
   const readout = createElement("div", "ausboss-transform-readout");
   state.readout = readout;
+  // Its Even out button is a click, not a node drag.
+  readout.addEventListener("pointerdown", (event) => { if (event.target.closest("button")) event.stopPropagation(); });
   panel.append(preview, readout);
-  panel.append(buildAspectChipRow(state), buildAspectModeRow(state));
+  const chipRow = buildAspectChipRow(state);
+  const modeRow = buildAspectModeRow(state);
+  state.syncAspectChips = chipRow.sync;
+  state.syncAspectMode = modeRow.sync;
+  panel.append(chipRow.row, modeRow.row);
   // Every transform node shows its canvas on the face - fill, feather and,
   // where the node has it, the resize budget and step - so a wrong value is
   // seen on the node, not discovered in the render. Both video nodes also
@@ -501,7 +535,7 @@ export function installTransformNode(node, kind, mountPanel = null) {
     // frame at the wrong aspect. Both kinds need it: the video panel is a
     // passive preview and has no other reason to redraw, which is exactly why
     // it was the one that came out stretched.
-    state.panelResizeObserver = new ResizeObserver(() => draw(state));
+    state.panelResizeObserver = new ResizeObserver(() => { noteStageHeight(state); draw(state); });
     state.panelResizeObserver.observe(preview);
     // The graph scales the DOM widget with its zoom, so the backing store
     // sized at one zoom turns to mush at another: redraw when it changes.
@@ -592,7 +626,8 @@ function installVideoDrop(state) {
 // The padlock at the end of the row holds the shape while you drag a
 // handle, and the orientation button at the start turns the shape on its
 // side. A drag that leaves the lit shape turns the chip off, and the row
-// says Custom with the real ratio on the size line.
+// says Custom with the real ratio on the size line. The same row is built
+// again in the full editor, so both places work the same way.
 const ASPECT_CHIP_ORDER = ["1:1", "4:3", "3:2", "16:9", "21:9"];
 
 function sourceSize(state) {
@@ -618,15 +653,30 @@ function liveRequest(state) {
   return aspectMatches(canvas.width, canvas.height, request) ? request : null;
 }
 
+// The row says Source: a picture nothing has been done to, with no ratio
+// lit. There is no shape to hold then, so the padlock has nothing to do.
+function sourceState(state) {
+  return hasPicture(state) && !liveRequest(state) && isUntouched(values(state.node), sourceSize(state));
+}
+
 // After a gesture, a pick the canvas no longer has is dropped, so the next
-// clip is not fitted to a shape you dragged away from.
+// clip is not fitted to a shape you dragged away from. A lock left on a
+// picture that is back to its own shape goes off with it: it would hold
+// nothing, and a hidden mode waiting for the next drag is what surprised
+// people.
 function settleRequest(state) {
   const properties = state.node.properties;
   if (properties?.ausboss_fit_aspect && hasPicture(state) && !liveRequest(state)) delete properties.ausboss_fit_aspect;
+  if (properties?.ausboss_aspect_lock && sourceState(state)) properties.ausboss_aspect_lock = false;
 }
 
 function lockOn(state) {
   return Boolean(state.node.properties?.ausboss_aspect_lock);
+}
+
+// The lock does something only while there is a shape to hold.
+function lockActive(state) {
+  return lockOn(state) && hasPicture(state) && !sourceState(state);
 }
 
 // Which way the chips read: the lit shape's own way, then the canvas's
@@ -644,6 +694,21 @@ function chipsPortrait(state) {
   return Boolean(state.node.properties?.ausboss_pad_portrait);
 }
 
+// Tap a ratio: pad (or crop) to it, or back to the whole picture when it is
+// the lit one. The chip row, the editor's copy of it and its extra-ratio
+// list all come through here.
+function tapRatio(state, ratio) {
+  const node = state.node;
+  node.properties ??= {};
+  if (!hasPicture(state)) {
+    // No picture yet: the pick waits, and the first one is fitted to it.
+    if (liveRequest(state) === ratio) delete node.properties.ausboss_fit_aspect;
+    else node.properties.ausboss_fit_aspect = ratio;
+    draw(state); notifyAusbossChange();
+  } else if (liveRequest(state) === ratio) clearAspect(state);
+  else fitAspect(state, ratio, aspectMode(state));
+}
+
 function buildAspectChipRow(state) {
   const node = state.node;
   const row = createElement("div", "ausboss-transform-aspects");
@@ -655,7 +720,7 @@ function buildAspectChipRow(state) {
   const caption = createElement("span", "ausboss-transform-aspect-caption", "Ratio");
   row.append(caption);
   const oriented = (aspect) => chipsPortrait(state) ? turnAspect(aspect) : aspect;
-  flip.addEventListener("click", () => { turnCanvas(state); sync(); });
+  flip.addEventListener("click", () => { turnCanvas(state); draw(state); });
   const chips = [];
   for (const aspect of ASPECT_CHIP_ORDER) {
     const chip = createElement("button", "ausboss-transform-aspect", aspect);
@@ -664,21 +729,19 @@ function buildAspectChipRow(state) {
       node.properties ??= {};
       const ratio = oriented(aspect);
       node.properties.ausboss_pad_portrait = chipsPortrait(state);
-      if (!hasPicture(state)) {
-        // No picture yet: the pick waits, and the first one is fitted to it.
-        if (liveRequest(state) === ratio) delete node.properties.ausboss_fit_aspect;
-        else node.properties.ausboss_fit_aspect = ratio;
-        draw(state); notifyAusbossChange();
-      } else if (liveRequest(state) === ratio) clearAspect(state);
-      else fitAspect(state, ratio, aspectMode(state));
-      sync();
+      tapRatio(state, ratio);
+      draw(state);
     });
     chips.push({ chip, aspect }); row.append(chip);
   }
   const hold = createElement("button", "ausboss-transform-aspect ausboss-transform-aspect-hold");
   hold.type = "button";
   hold.append(lockGlyph());
-  hold.addEventListener("click", () => { setAspectLock(state, !lockOn(state)); sync(); });
+  hold.addEventListener("click", () => {
+    // Nothing to hold on the untouched picture: the lock stays off.
+    if (!lockOn(state) && hasPicture(state) && sourceState(state)) return;
+    setAspectLock(state, !lockOn(state)); draw(state);
+  });
   row.append(hold);
   const sync = () => {
     const request = liveRequest(state);
@@ -688,6 +751,7 @@ function buildAspectChipRow(state) {
     const untouched = picture && isUntouched(values(node), sourceSize(state));
     const square = request ? turnAspect(request) === request : canvas ? canvas.width === canvas.height : false;
     const pad = aspectMode(state) === "pad";
+    const held = lockActive(state);
     flip.title = request && !square
       ? `Turn ${request} into ${turnAspect(request)}`
       : picture && !untouched && !square
@@ -697,14 +761,18 @@ function buildAspectChipRow(state) {
     flip.setAttribute("aria-pressed", String(portrait));
     glyph.style.width = portrait ? "10px" : "16px";
     glyph.style.height = portrait ? "16px" : "10px";
-    if (request || !picture) {
+    if (held) {
+      caption.textContent = "Held";
+      caption.title = `The padlock holds this shape (${request ?? ratioLabel(canvas.width, canvas.height)}) while you drag a handle.`;
+    } else if (request || !picture) {
       caption.textContent = "Ratio";
       caption.title = "Tap a ratio to pad the picture to it (or crop it, with Fit on crop). Tap the lit one to go back to the whole picture.";
     } else {
       caption.textContent = untouched ? "Source" : "Custom";
       caption.title = `${untouched ? "The picture's own shape" : "No ratio button has this shape"}: ${canvas.width}×${canvas.height} (${ratioLabel(canvas.width, canvas.height)}). Tap a ratio to use one.`;
     }
-    caption.classList.toggle("custom", Boolean(picture && !request && !untouched));
+    caption.classList.toggle("custom", Boolean(picture && !request && !untouched && !held));
+    caption.classList.toggle("held", held);
     for (const { chip, aspect } of chips) {
       const ratio = oriented(aspect);
       const lit = ratio === request;
@@ -717,67 +785,93 @@ function buildAspectChipRow(state) {
       chip.classList.toggle("active", lit);
       chip.setAttribute("aria-pressed", String(lit));
     }
-    const held = lockOn(state);
+    const idle = picture && sourceState(state);
     hold.classList.toggle("on", held);
+    hold.classList.toggle("idle", idle);
     hold.setAttribute("aria-pressed", String(held));
+    hold.setAttribute("aria-disabled", String(idle));
     hold.title = held
-      ? `Shape held${request ? ` at ${request}` : ""}: dragging a handle keeps this ratio, and the padding on the other side follows. Tap to drag freely.`
-      : "Drag freely. Tap to hold the shape while you drag a handle.";
+      ? `Shape held${request ? ` at ${request}` : ""}: dragging a handle keeps this shape, and the padding on the other side follows, split evenly. Tap to drag freely.`
+      : idle
+        ? "Nothing to hold yet: pick a ratio, or change the shape, then lock it here."
+        : "Drag freely. Tap to hold this shape while you drag a handle.";
     hold.setAttribute("aria-label", held ? "Shape held" : "Hold the shape");
   };
   sync();
-  state.syncAspectChips = sync;
-  return row;
+  return { row, sync };
 }
 
 function aspectMode(state) {
   return state.node.properties?.ausboss_aspect_mode === "crop" ? "crop" : "pad";
 }
 
-// Fit: how a ratio chip gets its shape. A mode, so it looks like the
-// source card's Uploads | Local path pill rather than like another chip.
-function buildAspectModeRow(state) {
-  const row = createElement("div", "ausboss-transform-row ausboss-transform-aspect-modes");
-  const fit = createElement("div", "ausboss-transform-fit-label");
-  const pill = createElement("div", "ausboss-transform-fit");
-  pill.title = "How a ratio button gets its shape: crop trims the picture, pad adds fill around it and keeps every pixel.";
-  const buttons = [];
-  for (const mode of ["crop", "pad"]) {
-    const button = createElement("button", "", mode);
+// A two-part pill (off | on, crop | pad): the pack's one "on" look.
+function segmentedPill(options, onPick, { className = "" } = {}) {
+  const pill = createElement("div", `ausboss-transform-fit ${className}`.trim());
+  const buttons = new Map();
+  for (const [key, text, title] of options) {
+    const button = createElement("button", "", text);
     button.type = "button";
-    button.title = mode === "crop" ? "Ratio buttons crop the picture to their shape." : "Ratio buttons pad the picture to their shape and keep every pixel.";
-    button.addEventListener("click", () => {
-      if (aspectMode(state) === mode) return;
-      state.node.properties ??= {};
-      // A lit ratio is reached again the new way; otherwise only the next
-      // tap changes.
-      const request = liveRequest(state);
-      state.node.properties.ausboss_aspect_mode = mode;
-      if (request && hasPicture(state)) fitAspect(state, request, mode);
-      draw(state); notifyAusbossChange();
-    });
-    buttons.push([mode, button]); pill.append(button);
+    if (title) button.title = title;
+    button.addEventListener("click", () => onPick(key));
+    buttons.set(key, button); pill.append(button);
   }
-  fit.append(createElement("span", "", "Fit"), pill);
-  row.append(fit);
-  const alignment = createElement("label", "ausboss-transform-alignment");
-  alignment.style.cssText = "display:flex;align-items:center;gap:5px;flex:0 0 118px";
-  const multiple = makeScrubInput({ value: value(state.node, "canvas_multiple", 1),
-    min: 1, max: 4096, step: 8, fineStep: 1, decimals: 0, width: 82, unit: "px",
-    title: "Align the output canvas to a pixel multiple (1 disables). Adds pixels on the right/bottom when needed.",
-    onChange: (amount) => { setValue(state.node, "canvas_multiple", amount); draw(state); updateModalInfo(state); },
-    onSettle: notifyAusbossChange });
-  alignment.append(createElement("span", "", "Align"), multiple.root);
-  row.append(alignment);
-  state.syncAspectMode = () => {
-    multiple.set(value(state.node, "canvas_multiple", 1));
-    for (const [mode, button] of buttons) {
-      button.classList.toggle("on", aspectMode(state) === mode);
-      button.setAttribute("aria-pressed", String(aspectMode(state) === mode));
+  const set = (key) => {
+    for (const [name, button] of buttons) {
+      button.classList.toggle("on", name === key);
+      button.setAttribute("aria-pressed", String(name === key));
     }
   };
-  state.syncAspectMode();
-  return row;
+  return { pill, set };
+}
+
+// Fit: how a ratio chip gets its shape. It only acts on a lit ratio, so it
+// dims (and says so) until one is lit; picking a side still sets how the
+// next ratio is reached. Round canvas to sits at the end of the row on the
+// node face.
+function buildAspectModeRow(state, { alignment: withAlignment = true } = {}) {
+  const row = createElement("div", "ausboss-transform-row ausboss-transform-aspect-modes");
+  const fit = createElement("div", "ausboss-transform-fit-label");
+  const { pill, set } = segmentedPill([
+    ["crop", "crop", "Ratio buttons crop the picture to their shape."],
+    ["pad", "pad", "Ratio buttons pad the picture to their shape and keep every pixel."],
+  ], (mode) => {
+    if (aspectMode(state) === mode) return;
+    state.node.properties ??= {};
+    // A lit ratio is reached again the new way; otherwise only the next
+    // tap changes.
+    const request = liveRequest(state);
+    state.node.properties.ausboss_aspect_mode = mode;
+    if (request && hasPicture(state)) fitAspect(state, request, mode);
+    draw(state); notifyAusbossChange();
+  });
+  const hint = createElement("span", "ausboss-transform-fit-hint", "pick a ratio first");
+  fit.append(createElement("span", "", "Fit"), pill, hint);
+  row.append(fit);
+  let multiple = null;
+  if (withAlignment) {
+    const alignment = createElement("label", "ausboss-transform-alignment");
+    alignment.style.cssText = "display:flex;align-items:center;gap:5px;flex:0 0 auto";
+    multiple = makeScrubInput({ value: value(state.node, "canvas_multiple", 1),
+      min: 1, max: 4096, step: 8, fineStep: 1, decimals: 0, width: 72, unit: "px",
+      title: "Round the canvas up to a multiple of this many pixels (1 = off). The extra goes on the right and bottom as fill.",
+      onChange: (amount) => { setValue(state.node, "canvas_multiple", amount); draw(state); updateModalInfo(state); },
+      onSettle: notifyAusbossChange });
+    alignment.append(createElement("span", "", "Round canvas to"), multiple.root);
+    row.append(alignment);
+  }
+  const sync = () => {
+    multiple?.set(value(state.node, "canvas_multiple", 1));
+    set(aspectMode(state));
+    const idle = !liveRequest(state);
+    pill.classList.toggle("idle", idle);
+    hint.style.display = idle ? "" : "none";
+    pill.title = idle
+      ? "Pick a ratio first: Fit decides how a ratio button gets its shape (crop trims the picture, pad adds fill around it)."
+      : "How the lit ratio gets its shape: crop trims the picture, pad adds fill around it and keeps every pixel.";
+  };
+  sync();
+  return { row, sync };
 }
 
 // A padlock drawn by hand: shackle arc over a filled body.
@@ -791,10 +885,12 @@ function lockGlyph() {
 // With the padlock on (properties.ausboss_aspect_lock), a handle drag keeps
 // the canvas at the ratio it had when you grabbed it: the lit chip's, or the
 // canvas's own when no chip is lit. Padding drags and crop drags in pad
-// mode re-solve the padding (lockPadding, transform_geometry.mjs); crop
-// drags in crop mode keep the crop box's own ratio.
+// mode re-solve the padding (lockPadding, transform_geometry.mjs) from the
+// padding the drag started with, so new bands split evenly; crop drags in
+// crop mode keep the crop box's own ratio. On the untouched picture there
+// is no shape to hold and the lock does nothing.
 function heldRatio(state) {
-  if (!lockOn(state) || !hasPicture(state)) return null;
+  if (!lockActive(state)) return null;
   const request = liveRequest(state);
   if (request) return parseAspectRatio(request, sourceSize(state));
   const canvas = currentCanvas(state);
@@ -802,14 +898,16 @@ function heldRatio(state) {
 }
 
 function heldCropRatio(state) {
-  if (!lockOn(state) || !hasPicture(state) || aspectMode(state) !== "crop") return null;
+  if (!lockActive(state) || aspectMode(state) !== "crop") return null;
   const crop = resolveCrop(values(state.node), sourceSize(state));
   return crop.width / crop.height;
 }
 
-function applyLock(state, ratio, driver = "x") {
+// `base` is the padding a gesture started with: solving from it every move,
+// instead of from the last move's result, keeps the split even.
+function applyLock(state, ratio, driver = "x", base = null) {
   if (!ratio || !hasPicture(state)) return false;
-  const current = values(state.node);
+  const current = { ...values(state.node), ...(base ?? {}) };
   const pads = lockPadding(current, resolveCrop(current, sourceSize(state)), ratio, driver);
   if (!pads) return false;
   for (const [name, next] of Object.entries(pads)) setValue(state.node, name, next);
@@ -836,10 +934,36 @@ function setAspectLock(state, on) {
   draw(state); updateModalInfo(state); notifyAusbossChange();
 }
 
+// Tapping the lit ratio: back to the whole picture, and the lock goes off
+// with the shape it was holding.
 function clearAspect(state) {
+  state.node.properties ??= {};
+  state.node.properties.ausboss_aspect_lock = false;
   fitAspect(state, "free", aspectMode(state));
-  if (state.node.properties) delete state.node.properties.ausboss_fit_aspect;
+  delete state.node.properties.ausboss_fit_aspect;
   draw(state); updateModalInfo(state); notifyAusbossChange();
+}
+
+// Reset crop: the whole picture again. Rotation and padding stay, except
+// that with the padlock on, the bands it added while the crop was trimmed
+// go too - the canvas holds its shape around the whole picture in the
+// smallest size that does, instead of growing taller than the picture.
+function resetCropKeepingShape(state) {
+  const node = state.node;
+  const ratio = hasPicture(state) ? heldRatio(state) : null;
+  const request = liveRequest(state);
+  setValue(node, "crop_aspect_ratio", "free");
+  fitCrop(state);
+  if (ratio && hasPicture(state)) {
+    if (request && aspectMode(state) === "crop") {
+      fitAspect(state, request, "crop");
+    } else {
+      const current = values(node);
+      const pads = tightLockPadding(current, resolveCrop(current, sourceSize(state)), ratio);
+      if (pads) for (const [name, next] of Object.entries(pads)) setValue(node, name, next);
+    }
+  }
+  settleRequest(state); draw(state); updateModalInfo(state); notifyAusbossChange();
 }
 
 // The orientation button: the lit or custom shape turned on its side. Pad
@@ -870,7 +994,7 @@ function turnCanvas(state) {
   if (aspectMode(state) === "crop") {
     const box = turnedCrop(crop, source);
     const turned = request ? turnAspect(request) : null;
-    const keep = lockOn(state) && turned ? turned : "free";
+    const keep = lockActive(state) && turned ? turned : "free";
     setValue(node, "crop_aspect_ratio", keep);
     setCrop(node, box);
     if (turned) node.properties.ausboss_fit_aspect = turned;
@@ -916,13 +1040,9 @@ function buildCanvasRow(state) {
     onChange: (amount) => { setValue(node, "feather", amount); draw(state); updateModalInfo(state); }, onSettle: notifyAusbossChange });
   featherLabel.append(createElement("span", "", "Feather"), feather.root);
   const resizeLabel = createElement("label");
-  const resize = createElement("input"); resize.type = "checkbox";
-  resize.title = "Resize the output to a megapixel budget, each side rounded to the step (32 for LTX and Wan). The budget and step open in a row below.";
-  resize.addEventListener("change", () => {
-    setValue(node, "resize_to_megapixels", resize.checked);
-    draw(state); updateModalInfo(state); notifyAusbossChange();
-  });
-  resizeLabel.append(createElement("span", "", "Resize"), resize);
+  const resize = resizeSwitch(state);
+  resizeLabel.title = "Resize the output to a megapixel budget, each side rounded to the step (32 for LTX and Wan). The budget and step open in a row below.";
+  resizeLabel.append(createElement("span", "", "Resize"), resize.pill);
   row.append(fillLabel, featherLabel);
   // The resize budget and its step share a row that only shows while
   // Resize is on: the step decides the final size as much as the budget
@@ -945,18 +1065,35 @@ function buildCanvasRow(state) {
     fill.value = normalizeColor(value(node, "fill_color", "#808080"));
     fill.title = `${fill.title.split(" Now ")[0]} Now ${fill.value}.`;
     feather.set(value(node, "feather", 0));
-    resize.checked = Boolean(value(node, "resize_to_megapixels", false));
+    resize.sync();
     budget.set(value(node, "megapixels", 1));
     steps.set(value(node, "resolution_steps", 1));
-    resizeRow.style.display = hasResize && resize.checked ? "" : "none";
+    resizeRow.style.display = hasResize && value(node, "resize_to_megapixels", false) ? "" : "none";
   };
   sync();
   state.syncCanvasRow = sync;
   chainCallback(node, "onConfigure", () => queueMicrotask(sync));
   for (const element of [row, resizeRow]) {
-    element.addEventListener("pointerdown", (event) => { if (event.target.closest("input,label")) event.stopPropagation(); });
+    element.addEventListener("pointerdown", (event) => { if (event.target.closest("input,label,button")) event.stopPropagation(); });
   }
   return [row, resizeRow];
+}
+
+// Resize as an off | on pill, on the node face and in the editor.
+function resizeSwitch(state) {
+  const node = state.node;
+  const { pill, set } = segmentedPill([
+    ["off", "off", "Keep the canvas size."],
+    ["on", "on", "Resize the output to the megapixel budget, each side rounded to the step."],
+  ], (key) => {
+    const on = key === "on";
+    if (Boolean(value(node, "resize_to_megapixels", false)) === on) return;
+    setValue(node, "resize_to_megapixels", on);
+    draw(state); updateModalInfo(state); notifyAusbossChange();
+  }, { className: "ausboss-transform-switch" });
+  const sync = () => set(value(node, "resize_to_megapixels", false) ? "on" : "off");
+  sync();
+  return { pill, sync };
 }
 
 // The size chain in words under the stage: every step that sets the output
@@ -967,7 +1104,7 @@ function buildCanvasRow(state) {
 function syncReadout(state) {
   const readout = state.readout;
   if (!readout) return;
-  if (!state.image || !state.sourceWidth || !state.sourceHeight) { readout.replaceChildren(); readout.title = ""; return; }
+  if (!state.image || !state.sourceWidth || !state.sourceHeight) { readout.replaceChildren(); state.readoutKey = ""; readout.title = ""; return; }
   const current = values(state.node);
   const source = rotatedSize(state.sourceWidth, state.sourceHeight, current.rotation_degrees);
   const { tokens, warnings } = sizeChainTokens(sizeChain(current, source, resizeRequest(state.node)));
@@ -982,9 +1119,63 @@ function syncReadout(state) {
     const canvas = canvasSize(current, source);
     parts.push(createElement("span", "", ` · ${ratioLabel(canvas.width, canvas.height)}`));
   }
-  if (warnings.length) parts.push(createElement("i", "", `⚠ ${warnings.join(" · ")}`));
-  readout.replaceChildren(...parts);
+  // What the lit ratio did - it re-applies to every new picture, so say it,
+  // and say plainly when there was nothing for it to do.
+  const note = ratioNote(state);
+  if (note) parts.push(createElement("em", note.warn ? "note" : "", note.text));
+  if (warnings.length) {
+    const line = createElement("i", "", `⚠ ${warnings.join(" · ")}`);
+    const fix = stretchFix(state);
+    line.title = fix.tip;
+    if (fix.pads) {
+      const even = createElement("button", "", "Even out");
+      even.type = "button";
+      even.title = "Add a few pixels of padding so the rounding stretches nothing.";
+      even.addEventListener("click", () => {
+        for (const [name, next] of Object.entries(fix.pads)) setValue(state.node, name, next);
+        settleRequest(state); draw(state); updateModalInfo(state); notifyAusbossChange();
+      });
+      line.append(even);
+    }
+    parts.push(line);
+  }
+  // Rebuilt only when it says something new, so a redraw between the press
+  // and the click on Even out never swaps the button out from under it.
+  const key = parts.map((part) => (typeof part === "string" ? part : part.outerHTML)).join("");
+  if (key !== state.readoutKey) {
+    state.readoutKey = key;
+    readout.replaceChildren(...parts);
+  }
   readout.title = sizeLines(state).join("\n");
+}
+
+// The line under the size chain while a ratio is lit.
+function ratioNote(state) {
+  const request = liveRequest(state);
+  if (!request || !hasPicture(state)) return null;
+  const pad = aspectMode(state) === "pad";
+  if (isUntouched(values(state.node), sourceSize(state))) {
+    return { warn: true, text: `Already ${request}: nothing to ${pad ? "add" : "trim"}. Pick another ratio or turn it.` };
+  }
+  return { warn: false, text: `${pad ? "Padded" : "Cropped"} to ${request}, the lit ratio.` };
+}
+
+// What to do about the resize stretching the picture: the step that would
+// not, and in pad mode the padding that takes the rounding instead.
+function stretchFix(state) {
+  const current = values(state.node);
+  const source = sourceSize(state);
+  const resize = resizeRequest(state.node);
+  const chain = sizeChain(current, source, resize);
+  const amount = `${(Math.abs(chain.stretch) * 100).toFixed(1)}%`;
+  const step = stepWithoutStretch(current, source, resize);
+  const pads = aspectMode(state) === "pad" ? evenOutPadding(current, source, resize) : null;
+  const tip = [
+    `The resize rounds the width and the height to a multiple of the Step (${resize?.steps ?? 1} px) separately, so the picture comes out ${amount} ${chain.stretch > 0 ? "wider" : "taller"} than it is.`,
+    step ? `Step ${step} keeps it under 1%.` : "",
+    pads ? "Or press Even out: it adds a few pixels of padding so the rounding stretches nothing." : "",
+  ].filter(Boolean).join(" ");
+  return { tip, pads };
 }
 
 async function onSourceChanged(state, reset) {
@@ -1004,7 +1195,44 @@ async function onSourceChanged(state, reset) {
   }
   if (key) state.source = key;
   await loadSource(state);
-  if (changed && state.image) refitAspect(state);
+  if (changed && state.image) { refitAspect(state); fitStageToPicture(state); }
+}
+
+// A new picture gets a picture area of its own shape: a wide photo swapped
+// into a node sized for a tall one no longer sits small in a tall empty
+// box. The stage never grows past the height you gave it and never drops
+// under its floor, so nodes below are never covered.
+function fitStageToPicture(state) {
+  const stage = state.previewCanvas;
+  const node = state.node;
+  if (state.disposed || !stage?.isConnected || !node.size || !hasPicture(state)) return;
+  const width = stage.clientWidth;
+  const height = stage.clientHeight;
+  if (!(width > 0) || !(height > 0)) return;
+  const current = values(node);
+  const source = sourceSize(state);
+  const crop = resolveCrop(current, source);
+  const padding = resolvePadding(current, crop);
+  const unionWidth = Math.max(source.width, crop.x - padding.left + padding.outputWidth) - Math.min(0, crop.x - padding.left);
+  const unionHeight = Math.max(source.height, crop.y - padding.top + padding.outputHeight) - Math.min(0, crop.y - padding.top);
+  const margin = stageHandleLayout(width, height).margin;
+  const ideal = Math.round((width - margin * 2) * unionHeight / Math.max(1, unionWidth) + margin * 2);
+  const ceiling = Math.max(state.stagePreference ?? height, stageHeightForWidth(width));
+  const target = clamp(ideal, stageHeightForWidth(width), ceiling);
+  if (Math.abs(target - height) < 6) return;
+  state.stageFit = target;
+  node.setSize?.([node.size[0], node.size[1] + (target - height)]);
+  node.setDirtyCanvas?.(true, true);
+}
+
+// The stage height you chose (by the corner, or the workflow's size), which
+// a new picture may fill but never exceed.
+function noteStageHeight(state) {
+  const height = state.previewCanvas?.clientHeight ?? 0;
+  if (!(height > 0)) return;
+  if (state.stageFit != null && Math.abs(height - state.stageFit) <= 3) return;
+  state.stageFit = null;
+  state.stagePreference = height;
 }
 
 // A lit chip is a standing request: the new source gets padded (or
@@ -1236,7 +1464,7 @@ function closeEditor(state) {
   state.modalAbort?.abort(); state.resizeObserver?.disconnect(); state.modal?.remove();
   if (state.modalTrim) state.trimViews.delete(state.modalTrim);
   state.modalTrim = null; state.timelineLabel = null;
-  state.modal = null; state.openSnapshot = null; state.canvas = null; state.finalPreviewCanvas = null; state.drag = null; state.grid = false; state.syncEditorControls = null; state.syncStitchControls = null; state.blendOverlay = null;
+  state.modal = null; state.openSnapshot = null; state.canvas = null; state.finalPreviewCanvas = null; state.drag = null; state.grid = false; state.syncEditorControls = null; state.syncStitchControls = null; state.blendOverlay = null; state.editorSyncs = [];
   draw(state); state.node.setDirtyCanvas?.(true, true);
   // Sidebar and timeline controls write widgets without a canvas drag, so a
   // closing editor is their commit point. The disposal path (node removed,
@@ -1319,10 +1547,10 @@ function buildStitchSection(state) {
     title: "Ramp where generated pixels fade over the source, in pixels of the output. Separate from the padding feather.",
     onChange: (amount) => { setValue(node, "stitch_blend", amount); draw(state); updateModalInfo(state); }, onSettle: notifyAusbossChange });
   addLabeledControl(section, "Blend", blend.root, "px");
-  const show = createElement("input"); show.type = "checkbox"; show.checked = Boolean(state.showBlend);
-  show.title = "Tint the paste mask the stitcher will use - the same mask math as the backend, at preview resolution.";
-  show.addEventListener("change", () => { state.showBlend = show.checked; draw(state); });
-  addLabeledControl(section, "Show blend", show);
+  const show = segmentedPill([["off", "off"], ["on", "on"]], (key) => { state.showBlend = key === "on"; show.set(key); draw(state); }, { className: "ausboss-transform-switch" });
+  show.set(state.showBlend ? "on" : "off");
+  show.pill.title = "Tint the paste mask the stitcher will use - the same mask math as the backend, at preview resolution.";
+  addLabeledControl(section, "Show blend", show.pill);
   const advanced = createElement("details"); advanced.append(createElement("summary", "", "Advanced"));
   const grow = makeScrubInput({ value: value(node, "stitch_grow", 0), min: -256, max: 256, step: 1, decimals: 0,
     title: "Moves the paste boundary before the ramp. Positive lets the generation replace a strip of the source next to the seam; negative keeps more source.",
@@ -1411,83 +1639,67 @@ function sectionHeading(title, markerKind = null) {
   return heading;
 }
 
+// A sidebar row with one of the pack's number boxes, the unit inside it as
+// on the node face.
+function addScrubField(section, title, control) {
+  const label = createElement("label", "ausboss-transform-field");
+  label.append(createElement("span", "", title), control);
+  section.append(label);
+  return label;
+}
+
+// The editor's sidebar is built from the node's own controls: the same
+// ratio row with its turn button and padlock, the same Fit pill, the same
+// number boxes (Shift is the fine step everywhere, 0.1 of a degree for the
+// rotation) and the same off | on switches.
 function buildControls(state, sidebar) {
   const node = state.node;
-  const cropSection = createElement("section", "ausboss-transform-section"); cropSection.append(sectionHeading("Crop", "crop"));
-  const ratio = createElement("select");
-  // Options come from the widget the backend registered, so custom presets
-  // from ausboss_presets.json appear here automatically.
+  const cropSection = createElement("section", "ausboss-transform-section"); cropSection.append(sectionHeading("Crop & shape", "crop"));
+  const chipRow = buildAspectChipRow(state);
+  const modeRow = buildAspectModeRow(state, { alignment: false });
+  state.editorSyncs.push(chipRow.sync, modeRow.sync);
+  cropSection.append(chipRow.row, modeRow.row);
+  // Ratios from ausboss_presets.json that no button shows, in either
+  // orientation, stay one pick away.
   const ratioWidget = widget(node, "crop_aspect_ratio");
   let ratioValues = ratioWidget?.options?.values;
   if (typeof ratioValues === "function") ratioValues = ratioValues(ratioWidget, node);
-  if (!Array.isArray(ratioValues) || !ratioValues.length) ratioValues = ["free", "source", "1:1", "9:16", "16:9", "2:3", "3:2", "3:4", "4:3", "9:21", "21:9"];
-  // The same pick as the node's ratio chips: choosing a ratio applies it the
-  // way Fit says (pad or crop), "free" goes back to the whole picture, and
-  // the list shows "custom" while the canvas has a shape no ratio names.
-  const custom = createElement("option", "", "custom"); custom.value = "custom"; custom.disabled = true;
-  for (const optionValue of ratioValues) {
-    const option = createElement("option", "", optionValue); option.value = optionValue; ratio.append(option);
+  const shown = new Set(ASPECT_CHIP_ORDER.flatMap((aspect) => [aspect, turnAspect(aspect)]));
+  const extra = (Array.isArray(ratioValues) ? ratioValues : []).filter((item) => /^\d+:\d+$/.test(item) && !shown.has(item));
+  let more = null;
+  if (extra.length) {
+    more = createElement("select");
+    more.setAttribute("aria-label", "More ratios");
+    const first = createElement("option", "", "More ratios…"); first.value = ""; more.append(first);
+    for (const item of extra) { const option = createElement("option", "", item); option.value = item; more.append(option); }
+    more.title = "Your own ratios from ausboss_presets.json. Picking one works like a ratio button.";
+    more.addEventListener("change", () => { if (more.value) tapRatio(state, more.value); draw(state); updateModalInfo(state); });
+    addLabeledControl(cropSection, "More", more);
   }
-  ratio.append(custom);
-  ratio.setAttribute("aria-label", "Ratio");
-  ratio.title = "Pick a ratio: the picture is padded (or cropped, with Fit on crop) to it right away. Free goes back to the whole picture.";
-  ratio.addEventListener("change", () => {
-    if (ratio.value === "free" || ratio.value === "source") clearAspect(state);
-    else fitAspect(state, ratio.value, aspectMode(state));
-    draw(state); updateModalInfo(state);
-  });
-  addLabeledControl(cropSection, "Ratio", ratio);
-  const lock = createElement("input"); lock.type = "checkbox";
-  lock.title = "Hold the shape while you drag a handle: the canvas keeps its ratio and the padding on the other side follows. Same as the padlock on the node.";
-  lock.addEventListener("change", () => setAspectLock(state, lock.checked));
-  addLabeledControl(cropSection, "Hold shape", lock);
-  const fitRow = createElement("div", "ausboss-transform-row");
-  for (const [mode, title, tip] of [
-    ["crop", "Crop to ratio", "Fit on crop: centre the largest crop of this ratio inside the picture. Removes pixels and padding."],
-    ["pad", "Pad to ratio", "Fit on pad: keep the whole picture and add centred fill around it to reach this ratio; no stretching or cropping."],
-  ]) {
-    const button = createElement("button", "", title); button.title = tip;
-    button.addEventListener("click", () => {
-      state.node.properties ??= {};
-      state.node.properties.ausboss_aspect_mode = mode;
-      const target = ratio.value === "custom" ? "free" : ratio.value;
-      if (target === "free" || target === "source") clearAspect(state); else fitAspect(state, target, mode);
-      draw(state);
-    });
-    fitRow.append(button);
-  }
-  cropSection.append(fitRow, createElement("div", "ausboss-transform-help", "A ratio pads the whole picture to its shape, or crops it with Crop to ratio. Rotation stays. Hold shape keeps the ratio while you drag; drag the picture itself to move it inside its padding."));
+  cropSection.append(createElement("div", "ausboss-transform-help", "Tap a ratio to pad the picture to it (or crop it, with Fit on crop); tap the lit one to go back to the whole picture. The padlock holds the shape while you drag. Drag the picture itself to move it inside its padding."));
 
   const rotateSection = createElement("section", "ausboss-transform-section"); rotateSection.append(sectionHeading("Rotate", "rotate"));
-  const rotation = createElement("input"); rotation.type = "range"; rotation.min = "-180"; rotation.max = "180"; rotation.step = "0.1"; rotation.value = value(node, "rotation_degrees", 0);
-  const rotationNumber = makeScrubInput({ value: Number(rotation.value), min: -180, max: 180, step: 1, fineStep: 0.1, decimals: 1,
-    title: "Rotation in degrees. Shift scrubs in tenths. The crop stays over the same part of the picture.",
+  const rotationNumber = makeScrubInput({ value: Number(value(node, "rotation_degrees", 0)) || 0, min: -180, max: 180, step: 1, fineStep: 0.1, decimals: 1, unit: "°", unitWidth: 22,
+    title: "Rotation in degrees: 1° per step, Shift for 0.1°. The crop stays over the same part of the picture.",
     onChange: (degrees) => setRotation(state, degrees), onSettle: () => { settleRotation(state); notifyAusbossChange(); } });
-  rotation.addEventListener("input", () => setRotation(state, Number(rotation.value)));
-  rotation.addEventListener("change", () => { settleRotation(state); notifyAusbossChange(); });
-  addLabeledControl(rotateSection, "Degrees", rotation, ""); rotateSection.append(rotationNumber.root);
+  addScrubField(rotateSection, "Degrees", rotationNumber.root);
   const zeroRotation = createElement("button", "", "Reset rotation");
   zeroRotation.addEventListener("click", () => { setRotation(state, 0); settleRotation(state); notifyAusbossChange(); });
   rotateSection.append(zeroRotation);
 
   const padSection = createElement("section", "ausboss-transform-section"); padSection.append(sectionHeading("Padding & mask", "pad"));
-  const color = createElement("input"); color.type = "color"; color.value = normalizeColor(value(node, "fill_color", "#808080")); color.addEventListener("input", () => { setValue(node, "fill_color", color.value); draw(state); });
+  const color = createElement("input"); color.type = "color"; color.className = "ausboss-transform-swatch";
+  color.value = normalizeColor(value(node, "fill_color", "#808080"));
+  color.addEventListener("input", () => { setValue(node, "fill_color", color.value); draw(state); });
+  color.addEventListener("change", () => notifyAusbossChange());
   addLabeledControl(padSection, "Fill", color);
-  // Feather: slider for coarse sweeps plus a number box (with up/down
-  // arrows) for granular single-pixel control.
-  const feather = createElement("input"); feather.type = "range"; feather.min = "0"; feather.max = "512"; feather.step = "1"; feather.value = value(node, "feather", 24);
-  const applyFeather = (raw) => {
-    const amount = Math.max(0, Math.min(4096, Math.round(Number(raw) || 0)));
-    setValue(node, "feather", amount); draw(state);
-  };
-  const featherNumber = makeScrubInput({ value: Number(feather.value), min: 0, max: 4096, step: 1, decimals: 0,
-    title: "Mask feather in pixels.", onChange: applyFeather, onSettle: notifyAusbossChange });
-  feather.addEventListener("input", () => applyFeather(feather.value));
-  const featherLabel = addLabeledControl(padSection, "Feather", feather); featherLabel.lastElementChild.replaceWith(featherNumber.root);
-  const multiple = makeScrubInput({ value: value(node, "canvas_multiple", 1), min: 1, max: 4096, step: 1, decimals: 0,
-    title: "Round the outer canvas up to a pixel multiple. This can slightly change the fitted aspect.",
+  const featherNumber = makeScrubInput({ value: value(node, "feather", 24), min: 0, max: 4096, step: 1, decimals: 0, unit: "px", unitWidth: 22,
+    title: "Mask feather in pixels.", onChange: (amount) => { setValue(node, "feather", amount); draw(state); }, onSettle: notifyAusbossChange });
+  addScrubField(padSection, "Feather", featherNumber.root);
+  const multiple = makeScrubInput({ value: value(node, "canvas_multiple", 1), min: 1, max: 4096, step: 8, fineStep: 1, decimals: 0, unit: "px", unitWidth: 22,
+    title: "Round the canvas up to a multiple of this many pixels (1 = off). The extra goes on the right and bottom as fill.",
     onChange: (amount) => { setValue(node, "canvas_multiple", amount); draw(state); }, onSettle: notifyAusbossChange });
-  addLabeledControl(padSection, "Align", multiple.root, "px");
+  addScrubField(padSection, "Round canvas to", multiple.root);
   const resetPad = createElement("button", "", "Reset padding"); resetPad.title = "Remove all padding.";
   resetPad.addEventListener("click", () => { for (const name of ["pad_left", "pad_top", "pad_right", "pad_bottom"]) setValue(node, name, 0); settleRequest(state); draw(state); updateModalInfo(state); notifyAusbossChange(); }); padSection.append(resetPad);
 
@@ -1495,54 +1707,45 @@ function buildControls(state, sidebar) {
   // Image to Total Pixels trio - megapixels, method, resolution steps -
   // so the output lands render-ready without another node.
   let resizeSection = null;
+  let resize = null;
+  let budget = null;
+  let steps = null;
+  let method = null;
   if (widget(node, "resize_to_megapixels")) {
     resizeSection = createElement("section", "ausboss-transform-section");
     resizeSection.append(sectionHeading("Resize output"));
-    const enable = createElement("input"); enable.type = "checkbox";
-    enable.checked = Boolean(value(node, "resize_to_megapixels", false));
-    const applyResize = () => {
-      setValue(node, "resize_to_megapixels", enable.checked);
-      draw(state);
-      updateModalInfo(state);
-    };
-    enable.addEventListener("change", applyResize);
-    addLabeledControl(resizeSection, "Resize", enable);
-    const budget = makeScrubInput({
+    resize = resizeSwitch(state);
+    addLabeledControl(resizeSection, "Resize", resize.pill);
+    budget = makeScrubInput({
       value: value(node, "megapixels", 1),
-      min: 0.01, max: 16, step: 0.05, fineStep: 0.01, decimals: 2,
+      min: 0.01, max: 16, step: 0.05, fineStep: 0.01, decimals: 2, unit: "MP", unitWidth: 22,
       title: "Output budget in megapixels (x 1024x1024).",
-      onChange: (amount) => {
-        setValue(node, "megapixels", amount);
-        draw(state);
-        updateModalInfo(state);
-      },
+      onChange: (amount) => { setValue(node, "megapixels", amount); draw(state); updateModalInfo(state); },
+      onSettle: notifyAusbossChange,
     });
-    addLabeledControl(resizeSection, "Megapixels", budget.root, "MP");
-    const method = createElement("select");
+    addScrubField(resizeSection, "Megapixels", budget.root);
+    method = createElement("select");
     for (const name of RESIZE_METHODS) {
       const option = createElement("option", "", name); option.value = name; method.append(option);
     }
     method.value = String(value(node, "resize_method", "lanczos"));
     if (!RESIZE_METHODS.includes(method.value)) method.value = "lanczos";
-    method.addEventListener("change", () => { setValue(node, "resize_method", method.value); });
+    method.addEventListener("change", () => { setValue(node, "resize_method", method.value); notifyAusbossChange(); });
     addLabeledControl(resizeSection, "Method", method);
-    const steps = makeScrubInput({
+    steps = makeScrubInput({
       value: value(node, "resolution_steps", 1),
-      min: 1, max: 256, step: 1, decimals: 0,
-      title: "Rounds each resized dimension to a multiple of this.",
-      onChange: (step) => {
-        setValue(node, "resolution_steps", step);
-        draw(state);
-        updateModalInfo(state);
-      },
+      min: 1, max: 256, step: 8, fineStep: 1, decimals: 0, unit: "px", unitWidth: 22,
+      title: "Rounds each resized side to a multiple of this (32 for LTX and Wan).",
+      onChange: (step) => { setValue(node, "resolution_steps", step); draw(state); updateModalInfo(state); },
+      onSettle: notifyAusbossChange,
     });
-    addLabeledControl(resizeSection, "Step", steps.root, "px");
+    addScrubField(resizeSection, "Step", steps.root);
   }
 
   const actions = createElement("section", "ausboss-transform-section"); actions.append(sectionHeading("View & reset"));
   const resetViewButton = createElement("button", "", "Reset view"); resetViewButton.addEventListener("click", () => { resetView(state); draw(state); });
   const resetAll = createElement("button", "ausboss-transform-danger", "Reset transform");
-  resetAll.title = "Reset rotation, crop, padding, fill, feather and Align. Keep the source, current frame, trim window, fixed length, resize and stitch settings.";
+  resetAll.title = "Reset rotation, crop, padding, fill, feather and Round canvas to. Keep the source, current frame, trim window, fixed length, resize and stitch settings.";
   resetAll.addEventListener("click", () => { resetTransform(node); resetView(state); draw(state); updateModalInfo(state); });
   actions.append(resetViewButton, resetAll);
 
@@ -1557,15 +1760,13 @@ function buildControls(state, sidebar) {
   sidebar.append(cropSection, rotateSection, padSection);
   if (resizeSection) sidebar.append(resizeSection);
   sidebar.append(actions, previewSection);
+  sidebar.addEventListener("pointerdown", (event) => event.stopPropagation());
   state.syncEditorControls = () => {
-    rotation.value = value(node, "rotation_degrees", 0); rotationNumber.set(Number(rotation.value));
-    feather.value = Math.min(512, value(node, "feather", 24)); featherNumber.set(value(node, "feather", 24));
+    rotationNumber.set(Number(value(node, "rotation_degrees", 0)) || 0);
+    featherNumber.set(value(node, "feather", 24));
     multiple.set(value(node, "canvas_multiple", 1)); color.value = normalizeColor(value(node, "fill_color", "#808080"));
-    const request = liveRequest(state);
-    const changed = hasPicture(state) && !isUntouched(values(node), sourceSize(state));
-    ratio.value = request ?? (changed ? "custom" : "free");
-    if (ratio.value !== (request ?? (changed ? "custom" : "free"))) ratio.value = changed ? "custom" : "free";
-    lock.checked = lockOn(state);
+    resize?.sync(); budget?.set(value(node, "megapixels", 1)); steps?.set(value(node, "resolution_steps", 1));
+    if (more) more.value = extra.includes(liveRequest(state) ?? "") ? liveRequest(state) : "";
   };
 }
 
@@ -1870,7 +2071,7 @@ function renderGeometry(state, width, height, view, map = null) {
   const sourceRect = rect(0, 0, source.width, source.height);
   const cropRect = rect(crop.x, crop.y, crop.width, crop.height);
   const outputRect = rect(crop.x - padding.left, crop.y - padding.top, padding.outputWidth, padding.outputHeight);
-  return { source, crop, padding, scale, originX, originY, layout, sourceRect, cropRect, outputRect };
+  return { source, crop, padding, scale, originX, originY, layout, sourceRect, cropRect, outputRect, view: { x: 0, y: 0, width, height } };
 }
 
 // The node preview sits in a DOM widget the graph scales with its zoom, so
@@ -1894,6 +2095,7 @@ function draw(state) {
   state.syncCanvasRow?.();
   state.syncAspectChips?.();
   state.syncAspectMode?.();
+  for (const sync of state.editorSyncs ?? []) sync();
   state.syncEditorControls?.();
   state.syncStitchControls?.();
   for (const canvas of [state.canvas, state.previewCanvas]) {
@@ -1987,18 +2189,31 @@ function keepStageRoom(state) {
   node.setDirtyCanvas?.(true, true);
 }
 
+// The stage shows the output as it will be: the kept picture inside the
+// crop, and all added space - padding and the corners a turn opens - in the
+// real fill colour under a faint hatch, so black bands on a black stage
+// still read as bands. Only the picture the crop cuts away is darkened.
 function drawScene(context, state, render, compact, interactive) {
   const { sourceRect, cropRect, outputRect } = render; context.save();
-  context.fillStyle = normalizeColor(value(state.node, "fill_color", "#808080")); context.fillRect(outputRect.x, outputRect.y, outputRect.width, outputRect.height);
-  context.save(); context.translate(sourceRect.x + sourceRect.width / 2, sourceRect.y + sourceRect.height / 2); context.rotate((Number(value(state.node, "rotation_degrees", 0)) || 0) * Math.PI / 180);
-  drawSourceImage(context, state, render.scale); context.restore();
-  context.save(); context.globalCompositeOperation = "source-over"; context.fillStyle = "rgba(8,10,12,.62)";
-  const full = { x: 0, y: 0, width: context.canvas.width, height: context.canvas.height }; context.beginPath(); context.rect(full.x, full.y, full.width, full.height); context.rect(cropRect.x, cropRect.y, cropRect.width, cropRect.height); context.fill("evenodd"); context.restore();
+  const fill = normalizeColor(value(state.node, "fill_color", "#808080"));
+  const picture = () => {
+    context.save(); context.translate(sourceRect.x + sourceRect.width / 2, sourceRect.y + sourceRect.height / 2); context.rotate((Number(value(state.node, "rotation_degrees", 0)) || 0) * Math.PI / 180);
+    drawSourceImage(context, state, render.scale); context.restore();
+  };
+  picture();
+  context.save(); context.fillStyle = "rgba(8,10,12,.66)";
+  context.beginPath(); context.rect(0, 0, context.canvas.width, context.canvas.height); context.rect(outputRect.x, outputRect.y, outputRect.width, outputRect.height); context.fill("evenodd"); context.restore();
+  context.fillStyle = fill; context.fillRect(outputRect.x, outputRect.y, outputRect.width, outputRect.height);
+  drawHatch(context, outputRect, fill);
+  context.save(); context.beginPath(); context.rect(cropRect.x, cropRect.y, cropRect.width, cropRect.height); context.clip(); picture(); context.restore();
   if (!compact && state.showBlend && widget(state.node, "stitch_blend")) drawBlendOverlay(context, state, render);
   context.strokeStyle = "#4bd8ef"; context.lineWidth = compact ? 1 : 2; context.setLineDash([7, 5]); context.strokeRect(cropRect.x, cropRect.y, cropRect.width, cropRect.height);
   context.strokeStyle = "#ff9d42"; context.setLineDash([5, 5]); context.strokeRect(outputRect.x, outputRect.y, outputRect.width, outputRect.height); context.setLineDash([]);
   if (interactive) {
     if (state.grid) drawGrid(context, cropRect);
+    const moving = state.drag?.kind === "move" && state.drag.canvas === context.canvas;
+    const hover = state.hoverMove?.canvas === context.canvas ? state.hoverMove.room : null;
+    if (moving || (hover && !state.drag)) drawMoveArrows(context, cropRect, moving ? moveRoomFor(state, render) : hover);
     drawCropHandles(context, cropRect, state.drag?.kind === "crop" ? state.drag.name : null);
     drawPaddingHandles(context, outputRect, render.layout.padOffset, state.drag?.kind === "padding" ? state.drag.name : null);
     drawRotationHandle(context, state, render, state.drag?.kind === "rotation");
@@ -2049,14 +2264,14 @@ function drawOutputSize(context, state, render) {
     lineWidth += piece.width;
   }
   const warningText = warnings.length ? `⚠ ${warnings.join(" · ")}` : "";
+  const note = ratioNote(state);
+  const noteText = note?.text ?? "";
   const widths = lines.map((line) => line.reduce((sum, piece) => sum + piece.width, 0));
   if (warningText) widths.push(measure(muted, warningText));
+  if (noteText) widths.push(measure(muted, noteText));
   const boxWidth = Math.min(viewWidth - 8, Math.max(...widths) + 12);
-  const boxHeight = (lines.length + (warningText ? 1 : 0)) * READOUT_LINE + 5;
-  const x = clamp(outputRect.x + outputRect.width / 2 - boxWidth / 2, 4, Math.max(4, viewWidth - boxWidth - 4));
-  let top = outputRect.y + outputRect.height + 6;
-  if (top + boxHeight > viewHeight - 4) top = outputRect.y - 6 - boxHeight;
-  if (top < 4) top = Math.max(4, viewHeight - boxHeight - 4);
+  const boxHeight = (lines.length + (warningText ? 1 : 0) + (noteText ? 1 : 0)) * READOUT_LINE + 5;
+  const { x, top } = sizeBoxPlace(state, render, boxWidth, boxHeight, viewWidth, viewHeight);
   context.fillStyle = "rgba(8,10,12,0.82)";
   context.beginPath(); context.roundRect(x, top, boxWidth, boxHeight, 6); context.fill();
   const write = (font, color, text, cursor, baseline) => {
@@ -2073,8 +2288,36 @@ function drawOutputSize(context, state, render) {
       cursor += piece.last ? 0 : measure(muted, "  ");
     }
   });
-  if (warningText) write(muted, "#ffc46b", warningText, x + 6, top + 1 + (lines.length + 1) * READOUT_LINE);
+  let extra = lines.length;
+  if (noteText) { extra += 1; write(muted, note.warn ? "#ffc46b" : "#8ca8a5", noteText, x + 6, top + 1 + extra * READOUT_LINE); }
+  if (warningText) { extra += 1; write(muted, "#ffc46b", warningText, x + 6, top + 1 + extra * READOUT_LINE); }
   context.restore();
+}
+
+// Where the editor's size box goes: under the bottom diamond, else over the
+// top one, else a corner of the stage - the first spot that covers no
+// handle and stays on the stage.
+function sizeBoxPlace(state, render, width, height, viewWidth, viewHeight) {
+  const { outputRect } = render;
+  const offset = render.layout?.padOffset ?? 38;
+  const centred = clamp(outputRect.x + outputRect.width / 2 - width / 2, 4, Math.max(4, viewWidth - width - 4));
+  const handles = [
+    ...paddingHandleCenters(outputRect, offset).map((point) => ({ ...point, r: 13 })),
+    ...cropHandleCenters(render.cropRect).map((point) => ({ ...point, r: 8 })),
+    { ...rotationHandle(state, render), r: 15 },
+  ];
+  const candidates = [
+    { x: centred, top: outputRect.y + outputRect.height + offset + 14 },
+    { x: centred, top: outputRect.y - offset - 14 - height },
+    { x: 6, top: viewHeight - height - 6 },
+    { x: viewWidth - width - 6, top: viewHeight - height - 6 },
+    { x: 6, top: 6 },
+    { x: centred, top: outputRect.y + outputRect.height + 6 },
+  ];
+  const fits = ({ x, top }) => x >= 2 && top >= 2 && x + width <= viewWidth - 2 && top + height <= viewHeight - 2
+    && handles.every((handle) => handle.x + handle.r < x || handle.x - handle.r > x + width || handle.y + handle.r < top || handle.y - handle.r > top + height);
+  const spot = candidates.find(fits) ?? candidates[0];
+  return { x: spot.x, top: clamp(spot.top, 4, Math.max(4, viewHeight - height - 4)) };
 }
 
 // Draws the current source frame centered on the (already translated and
@@ -2093,6 +2336,55 @@ function drawSourceImage(context, state, scale) {
     return;
   }
   context.drawImage(state.image, -width / 2, -height / 2, width, height);
+}
+
+// Faint diagonal lines over added space: light on a dark fill, dark on a
+// light one.
+function drawHatch(context, rect, fill) {
+  if (!(rect.width > 0) || !(rect.height > 0)) return;
+  const hex = /^#([0-9a-f]{6})$/i.exec(fill)?.[1] ?? "808080";
+  const [r, g, b] = [0, 2, 4].map((at) => parseInt(hex.slice(at, at + 2), 16));
+  const light = (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.45;
+  context.save();
+  context.beginPath(); context.rect(rect.x, rect.y, rect.width, rect.height); context.clip();
+  context.strokeStyle = light ? "rgba(0,0,0,.17)" : "rgba(255,255,255,.14)";
+  context.lineWidth = 1;
+  context.beginPath();
+  const step = 9;
+  for (let d = -rect.height; d < rect.width; d += step) {
+    context.moveTo(rect.x + d, rect.y + rect.height);
+    context.lineTo(rect.x + d + rect.height, rect.y);
+  }
+  context.stroke();
+  context.restore();
+}
+
+// Small arrows inside the picture's edges, toward each side it can move.
+function drawMoveArrows(context, rect, room) {
+  if (!room) return;
+  const inset = Math.min(24, rect.width / 4, rect.height / 4);
+  const size = 6;
+  const cx = rect.x + rect.width / 2;
+  const cy = rect.y + rect.height / 2;
+  const arrows = [
+    [room.left, rect.x + inset, cy, -1, 0],
+    [room.right, rect.x + rect.width - inset, cy, 1, 0],
+    [room.up, cx, rect.y + inset, 0, -1],
+    [room.down, cx, rect.y + rect.height - inset, 0, 1],
+  ];
+  context.save();
+  context.lineWidth = 2.5; context.lineCap = "round"; context.lineJoin = "round";
+  for (const [on, x, y, dx, dy] of arrows) {
+    if (!on) continue;
+    const tip = { x: x + dx * size, y: y + dy * size };
+    const a = { x: x - dx * size + dy * size, y: y - dy * size + dx * size };
+    const b = { x: x - dx * size - dy * size, y: y - dy * size - dx * size };
+    for (const [color, width] of [["rgba(0,0,0,.65)", 4.5], ["#ffffff", 2.2]]) {
+      context.strokeStyle = color; context.lineWidth = width;
+      context.beginPath(); context.moveTo(a.x, a.y); context.lineTo(tip.x, tip.y); context.lineTo(b.x, b.y); context.stroke();
+    }
+  }
+  context.restore();
 }
 
 function drawGrid(context, rect) {
@@ -2126,16 +2418,23 @@ function rotationAnchor(state, render) {
     x: centerX + halfWidth * cos + halfHeight * sin,
     y: centerY + halfWidth * sin - halfHeight * cos,
   };
-  const length = Math.hypot(corner.x - centerX, corner.y - centerY) || 1;
-  const direction = { x: (corner.x - centerX) / length, y: (corner.y - centerY) / length };
   const arm = render.layout?.rotateArm ?? 34;
-  return { corner, handle: { x: corner.x + direction.x * arm, y: corner.y + direction.y * arm } };
+  // While you turn it, the knob stays on its arm; at rest it keeps clear of
+  // the padding diamonds and crop squares, or the nearer one would take
+  // every press.
+  if (state.drag?.kind === "rotation") return { corner, handle: placeKnob(corner, { x: centerX, y: centerY }, arm) };
+  const obstacles = [
+    ...paddingHandleCenters(render.outputRect, render.layout?.padOffset).map((point) => ({ ...point, clearance: KNOB_CLEARANCE.padding })),
+    ...cropHandleCenters(render.cropRect).map((point) => ({ ...point, clearance: KNOB_CLEARANCE.crop })),
+  ];
+  return { corner, handle: placeKnob(corner, { x: centerX, y: centerY }, arm, obstacles, render.view) };
 }
 function rotationHandle(state, render) {
   return rotationAnchor(state, render).handle;
 }
 function drawRotationHandle(context, state, render, active) {
   const { corner, handle } = rotationAnchor(state, render);
+  render.knob = handle;
   context.strokeStyle = "#73e36a";
   context.beginPath(); context.moveTo(corner.x, corner.y); context.lineTo(handle.x, handle.y); context.stroke();
   context.fillStyle = active ? "#fff" : "#73e36a";
@@ -2198,6 +2497,7 @@ function attachStageHandlers(state, canvas, signal) {
   canvas.addEventListener("mouseleave", (event) => {
     if (state.drag?.canvas === canvas) pointerUp(state, canvas, event);
     else canvas.style.cursor = "default";
+    if (state.hoverMove?.canvas === canvas) { state.hoverMove = null; draw(state); }
   }, { signal });
 }
 
@@ -2239,7 +2539,7 @@ function pointerDown(state, canvas, event) {
       cropHold: heldCropRatio(state),
     };
     if (selected) state.drag = { ...selected, ...base };
-    else if (inside(point, render.cropRect)) state.drag = { kind: "move", ...base };
+    else if (inside(point, render.cropRect) && anyRoom(moveRoomFor(state, render))) state.drag = { kind: "move", ...base };
   }
   // No hit: no capture and no preventDefault, so an empty press on the
   // panel falls through and the node drags as usual.
@@ -2268,7 +2568,7 @@ function pointerMove(state, canvas, event) {
     const ratio = drag.cropHold ?? parseAspectRatio(value(state.node, "crop_aspect_ratio", "free"), drag.source);
     const next = resizeCrop(drag.crop, drag.name, dxScreen / drag.map.scale, dyScreen / drag.map.scale, drag.source, ratio);
     setCrop(state.node, next);
-    if (aspectMode(state) === "pad") applyLock(state, drag.hold, cropDriver(drag.crop, next, drag.name));
+    if (aspectMode(state) === "pad") applyLock(state, drag.hold, cropDriver(drag.crop, next, drag.name), drag.pads);
   } else if (drag.kind === "move") {
     const crop = drag.crop;
     const dx = dxScreen / drag.map.scale; const dy = dyScreen / drag.map.scale;
@@ -2285,9 +2585,12 @@ function pointerMove(state, canvas, event) {
     // Holding the shape, the handle stops where the other axis would need
     // negative padding; the other axis then follows.
     const ratio = drag.hold;
-    if (ratio) next = Math.max(next, lockedPadMinimum(values(state.node), resolveCrop(values(state.node), drag.source), ratio, drag.name));
+    // Solved from the padding the drag started with, so the other axis's
+    // new bands split evenly however many moves the drag takes.
+    const start = { ...values(state.node), ...drag.pads };
+    if (ratio) next = Math.max(next, lockedPadMinimum(start, resolveCrop(start, drag.source), ratio, drag.name));
     setValue(state.node, drag.name, next);
-    if (ratio) applyLock(state, ratio, paddingAxis(drag.name));
+    if (ratio) applyLock(state, ratio, paddingAxis(drag.name), { ...drag.pads, [drag.name]: next });
   }
   draw(state); updateModalInfo(state);
 }
@@ -2312,8 +2615,19 @@ function updateCursor(state, canvas, point) {
   const render = surfaceRender(state, canvas);
   if (!render) return;
   const selected = nearestHandle(point, handleGroups(state, render));
-  canvas.style.cursor = selected?.kind === "rotation" ? "crosshair" : selected ? "grab" : inside(point, render.cropRect) ? "move" : "default";
+  const room = !selected && inside(point, render.cropRect) ? moveRoomFor(state, render) : null;
+  canvas.style.cursor = selected?.kind === "rotation" ? "crosshair" : selected ? "grab" : room ? moveCursor(room) : "default";
+  // Over the picture, small arrows point to the sides it can move toward.
+  const hover = room && anyRoom(room) ? { canvas, room } : null;
+  if (JSON.stringify(hover?.room ?? null) !== JSON.stringify(state.hoverMove?.room ?? null) || hover?.canvas !== state.hoverMove?.canvas) {
+    state.hoverMove = hover;
+    draw(state);
+  }
 }
+function moveRoomFor(state, render) {
+  return moveRoom(render.crop, render.source, values(state.node));
+}
+function anyRoom(room) { return Boolean(room && (room.left || room.right || room.up || room.down)); }
 function wheelZoom(state, event) { event.preventDefault(); const point = canvasLocalPoint(state.canvas, event); state.view = zoomAround(state.view, state.view.zoom * Math.exp(-event.deltaY * 0.0015), point); draw(state); }
 
 function updateModalInfo(state) {
@@ -2340,7 +2654,7 @@ function sizeLines(state) {
   const extraRight = pad.right - Math.max(0, Math.round(Number(current.pad_right) || 0));
   const extraBottom = pad.bottom - Math.max(0, Math.round(Number(current.pad_bottom) || 0));
   lines.push(extraRight || extraBottom
-    ? `Align ${chain.multiple} → ${chain.canvas.width} x ${chain.canvas.height} (+${extraRight} right, +${extraBottom} bottom)`
+    ? `Round canvas to ${chain.multiple} → ${chain.canvas.width} x ${chain.canvas.height} (+${extraRight} right, +${extraBottom} bottom)`
     : `Canvas ${chain.canvas.width} x ${chain.canvas.height}`);
   if (chain.resized) {
     const megapixels = (chain.resized.width * chain.resized.height / 1048576).toFixed(2);
@@ -2348,7 +2662,7 @@ function sizeLines(state) {
   }
   for (const warning of sizeChainTokens(chain).warnings) lines.push(`⚠ ${warning}`);
   if (chain.resized && (extraRight || extraBottom)) {
-    lines.push("Align's strip is fill the model paints. With Resize on, Step already rounds the size, so Align 1 leaves no strip.");
+    lines.push("Round canvas to adds a strip of fill the model paints. With Resize on, Step already rounds the size, so 1 leaves no strip.");
   }
   return lines;
 }
