@@ -64,7 +64,7 @@ Krea 2 Rotate + Outpaint turns a photo, pads it and paints the new area in one p
 
 ### Load Image + Pad
 
-Makes a canvas for outpainting: drag the edges out to add room around a picture. The Source list shows the picture under the pointer. The new area can be a solid color, the average color of the nearest edge, the edge pixels smeared outward, a blurred copy of the picture, or a mirror of it. The card also has a seam feather, a canvas multiple and a megapixel budget, and **Exact padding** opens one control per side. A budget of 0 keeps the picture's size, and anything higher resizes the picture before padding. A picture wired into `source_image` is padded instead of the chosen file.
+Makes a canvas for outpainting: drag the edges out to add room around a picture. The Source list shows the picture under the pointer. The new area can be a solid color, the average color of the nearest edge, the edge pixels smeared outward, a blurred copy of the picture, or a mirror of it. The card also has a seam feather, a canvas multiple and a megapixel budget, and **Exact padding** opens one control per side. A budget of 0 keeps the picture's size, and anything higher resizes the picture before padding. A picture wired into `source_image` is padded instead of the chosen file. A picture that already has room for the new part, like a canvas made in Photoshop, can come in with its mask on `source_mask`, and the stitcher then knows where the picture sits.
 
 It returns the padded `image`, a `mask` of the padding, `width`, `height`, a `stitcher`, and a smaller unpadded `reference` for the model. Wire the stitcher into **Stitch Inpaint** after the sampler, and everything outside the seam stays your original picture.
 

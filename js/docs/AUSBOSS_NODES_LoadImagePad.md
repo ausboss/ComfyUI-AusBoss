@@ -48,6 +48,17 @@ padding value unchanged.
   draws an outline until then, and afterwards the last image it padded at
   its true size. The padding applies to every image that arrives, so a
   loader that feeds one image per run pads a whole folder the same way.
+- **source_mask** (optional socket): For a picture that already has room
+  for the new part, such as a canvas you extended and masked in Photoshop.
+  White is the area to fill in. Wire the picture into **source_image** and
+  its mask here, and leave the padding at 0. The node's mask output then
+  covers your white area as well as any padding it adds, and the stitcher
+  records the box around the rest of the picture, so **Krea 2 Outpaint
+  Model Patch 🆎**, **Stitch Inpaint 🆎** and **Realign to Source 🆎** know
+  where your picture sits. The node's Fill only paints padding it adds
+  itself; the pixels under your mask are passed on as they are, so fill
+  them the way you want before they arrive. A mask of another size is
+  stretched to fit the picture, and one mask serves a batch of pictures.
 - **Fill** / **Color** / **Backdrop** (`mode` / `fill_color` /
   `backdrop_blur`): Five fills — `color`, `edge`, `edge pixel`,
   `pillarbox blur`, `mirror`. **Color** shows for `color`, **Backdrop** for
@@ -77,7 +88,8 @@ padding value unchanged.
 ## Outputs
 
 - **image**: The padded canvas.
-- **mask**: The outpaint mask (white = padding, feathered per `feather`).
+- **mask**: The outpaint mask (white = padding, feathered per `feather`,
+  plus the white of a wired `source_mask`).
 - **width / height**: The final canvas size — the badge's numbers as INTs,
   for wiring into latent nodes.
 - **stitcher**: Hand to **Stitch Inpaint 🆎** with the sampled result to
@@ -87,7 +99,8 @@ padding value unchanged.
   Model Patch 🆎** reads to place the reference and **Realign to Source 🆎**
   reads to return just the picture's area of an edit made on the padded
   canvas.
-- **reference**: The source alone, no padding, fitted to a small multiple
+- **reference**: The source alone (with a `source_mask`, the part the mask
+  keeps), no padding, fitted to a small multiple
   of 16 — the reference image for **Krea 2 Encode 🆎** and other
   reference conditioning. It is built on every run; leave it unconnected
   when nothing needs it.

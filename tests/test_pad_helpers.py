@@ -805,6 +805,83 @@ class LoadImagePadNodeTests(unittest.TestCase):
         self.assertIs(cls.VALIDATE_INPUTS(image="gone.png", source_image=None), True)
         self.assertIn("Load Image + Pad", cls.VALIDATE_INPUTS(image="gone.png"))
 
+    def run_masked(self, cls, source, mask, **overrides):
+        values = {"pad_left": 0, "pad_top": 0, "pad_right": 0, "pad_bottom": 0, "canvas_multiple": 1}
+        values.update(overrides)
+        (result, _) = self.run_node(cls, "unused.png", source_image=source, source_mask=mask, **values)
+        return result
+
+    def test_source_mask_is_an_appended_optional_input(self):
+        types = self.make_node().INPUT_TYPES()
+        self.assertEqual(list(types["optional"]), ["source_image", "source_mask"])
+        self.assertEqual(types["optional"]["source_mask"][0], "MASK")
+
+    def test_a_wired_mask_marks_the_new_area_and_the_box_around_the_rest(self):
+        from nodes._inpaint_crop_helpers import apply_stitch
+        from nodes._krea2_helpers import build_reference_image
+
+        # A canvas made elsewhere: picture in columns 16..48, room either side.
+        cls = self.make_node()
+        source = rand_image(1, 40, 64, seed=11)
+        mask = torch.ones(1, 40, 64)
+        mask[:, :, 16:48] = 0.0
+        image, out_mask, width, height, stitcher, reference = self.run_masked(cls, source, mask)
+        self.assertEqual((width, height), (64, 40))
+        self.assertTrue(torch.equal(image, source))
+        self.assertTrue(torch.equal(out_mask, mask))
+        self.assertEqual(stitcher["source_bbox"], (16, 0, 48, 40))
+        self.assertEqual(stitcher["bbox_normalized"], [0.25, 0.0, 0.75, 1.0])
+        # The reference is the kept part, not the whole canvas.
+        self.assertTrue(torch.equal(reference, build_reference_image(source[:, :, 16:48])))
+        stitched = apply_stitch(stitcher, torch.rand(image.shape, generator=torch.Generator().manual_seed(2)))
+        self.assertTrue(torch.equal(stitched[:, :, 16:48], source[:, :, 16:48]))
+        self.assertFalse(torch.equal(stitched[:, :, :16], source[:, :, :16]))
+
+    def test_a_wired_mask_joins_the_padding_the_node_adds(self):
+        cls = self.make_node()
+        source = rand_image(1, 32, 48, seed=12)
+        mask = torch.zeros(1, 32, 48)
+        mask[:, :, :8] = 1.0  # a strip to fill on the left
+        mask[:, 10:14, 20:24] = 1.0  # and a hole inside, which leaves the box alone
+        image, out_mask, width, height, stitcher, _ = self.run_masked(cls, source, mask, pad_bottom=16)
+        self.assertEqual((width, height), (48, 48))
+        self.assertTrue(torch.equal(out_mask[:, :32], mask))
+        self.assertTrue(torch.equal(out_mask[:, 32:], torch.ones(1, 16, 48)))
+        self.assertEqual(stitcher["source_bbox"], (8, 0, 48, 32))
+        self.assertTrue(torch.equal(image[:, :32], source))
+
+    def test_an_off_white_or_smaller_mask_keeps_its_box(self):
+        # Core's mask loader reads white as 254/255 and a JPEG adds noise; a
+        # mask drawn at half size is stretched onto the picture.
+        cls = self.make_node()
+        source = rand_image(1, 64, 96, seed=13)
+        generator = torch.Generator().manual_seed(4)
+        mask = torch.full((1, 32, 48), 254 / 255) - torch.rand((1, 32, 48), generator=generator) * 0.03
+        mask[:, :, 16:] = torch.rand((1, 32, 32), generator=generator) * 0.03
+        _, out_mask, _, _, stitcher, _ = self.run_masked(cls, source, mask)
+        self.assertEqual(tuple(out_mask.shape), (1, 64, 96))
+        x0, y0, x1, y1 = stitcher["source_bbox"]
+        self.assertEqual((y0, x1, y1), (0, 96, 64))
+        self.assertLessEqual(abs(x0 - 32), 1)
+
+    def test_one_mask_serves_a_batch_and_a_wrong_count_says_so(self):
+        cls = self.make_node()
+        batch = rand_image(3, 20, 30, seed=14)
+        mask = torch.zeros(1, 20, 30)
+        mask[:, :, :10] = 1.0
+        _, out_mask, _, _, stitcher, _ = self.run_masked(cls, batch, mask)
+        self.assertEqual(tuple(out_mask.shape), (3, 20, 30))
+        self.assertEqual(stitcher["source_bbox"], (10, 0, 30, 20))
+        with self.assertRaisesRegex(ValueError, "source_mask has 2 masks for 3 images"):
+            self.run_masked(cls, batch, torch.zeros(2, 20, 30))
+
+    def test_a_mask_that_keeps_nothing_falls_back_to_the_source_rectangle(self):
+        cls = self.make_node()
+        source = rand_image(1, 24, 32, seed=15)
+        _, out_mask, _, _, stitcher, _ = self.run_masked(cls, source, torch.ones(24, 32), pad_left=8)
+        self.assertEqual(stitcher["source_bbox"], (8, 0, 40, 24))
+        self.assertTrue(torch.equal(out_mask, torch.ones(1, 24, 40)))
+
 
 if __name__ == "__main__":
     unittest.main()

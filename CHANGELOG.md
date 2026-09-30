@@ -4,6 +4,15 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Load Image + Pad takes a mask.** Made your outpaint canvas and mask
+  somewhere else, like Photoshop? Wire the picture into `source_image` and
+  the mask into the new optional `source_mask` socket, with white where the
+  new part goes. The stitcher then knows where your picture sits, so Krea 2
+  Outpaint Model Patch, Stitch Inpaint and Realign to Source work with that
+  canvas the same way they do with padding made on the node. Saved
+  workflows load unchanged: the socket is appended and has no widget.
+  Asked for in #98.
+
 - **The red "missing file" warning clears when you pick a file.** Open a
   workflow that was saved with a picture you don't have and ComfyUI marks
   Load Image + Pad red and lists it under Setup required. Picking your own

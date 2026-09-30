@@ -339,7 +339,8 @@
       "target_megapixels"
     ],
     "optional": [
-      "source_image"
+      "source_image",
+      "source_mask"
     ],
     "outputs": [
       [

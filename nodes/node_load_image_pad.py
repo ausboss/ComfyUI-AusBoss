@@ -66,6 +66,52 @@ def _wired_frames(image) -> torch.Tensor:
     return frames.contiguous()
 
 
+def _wired_mask(mask, frames: torch.Tensor) -> torch.Tensor:
+    """A wired MASK as a BHW batch at the source's size and batch.
+
+    A mask drawn at another size is stretched onto the source, and one mask
+    serves a whole batch of images.
+    """
+    if not isinstance(mask, torch.Tensor) or mask.ndim not in (2, 3):
+        raise ValueError("Load Image + Pad: source_mask must be a MASK.")
+    mask = mask.detach().to("cpu", torch.float32)
+    if mask.ndim == 2:
+        mask = mask.unsqueeze(0)
+    batch, height, width = int(frames.shape[0]), int(frames.shape[1]), int(frames.shape[2])
+    if mask.shape[0] not in (1, batch):
+        raise ValueError(
+            f"Load Image + Pad: source_mask has {mask.shape[0]} masks for {batch} images; "
+            "wire one mask, or one per image."
+        )
+    mask = resize_source(mask.unsqueeze(-1), width, height)[..., 0]
+    return mask.clamp(0.0, 1.0).expand(batch, -1, -1).contiguous()
+
+
+def _kept_bbox(mask: torch.Tensor, fallback: tuple[int, int, int, int]):
+    """The rectangle around every pixel the wired mask keeps, on the canvas.
+
+    ``mask`` is the wired mask at the source's size and ``fallback`` the
+    source rectangle it sits in. A feathered edge still shows the picture,
+    so it counts as kept. The cut sits at 0.95 rather than just under 1
+    because a mask rarely arrives pure white: core's Load Image (as Mask)
+    reads white as 254/255, and a JPEG or resized mask carries a few levels
+    of noise that must not stretch the box over the whole canvas. A mask
+    that keeps nothing falls back to the source rectangle.
+    """
+    kept = (mask < 0.95).any(dim=0)
+    rows = torch.nonzero(kept.any(dim=1)).flatten()
+    cols = torch.nonzero(kept.any(dim=0)).flatten()
+    if rows.numel() == 0 or cols.numel() == 0:
+        return fallback
+    x0, y0 = fallback[0], fallback[1]
+    return (
+        x0 + int(cols[0]),
+        y0 + int(rows[0]),
+        x0 + int(cols[-1]) + 1,
+        y0 + int(rows[-1]) + 1,
+    )
+
+
 def _with_stage_preview(frames: torch.Tensor, unique_id, result: tuple):
     """Attach a small preview of the wired source for the on-node canvas.
 
@@ -283,6 +329,17 @@ class AusBossLoadImagePad:
                         ),
                     },
                 ),
+                "source_mask": (
+                    "MASK",
+                    {
+                        "tooltip": (
+                            "Optional. For a picture that already has room for "
+                            "the new part, like a canvas made in Photoshop: "
+                            "white is the area to fill in. The stitcher then "
+                            "knows where the rest of the picture sits."
+                        ),
+                    },
+                ),
             },
             "hidden": {"unique_id": "UNIQUE_ID"},
         }
@@ -305,7 +362,8 @@ class AusBossLoadImagePad:
         "carries where the source sits on the canvas, which Krea 2 Outpaint "
         "Model Patch 🆎 reads to place the reference and Realign to Source 🆎 "
         "reads to cut your picture back out of an edit made on this canvas.",
-        "The source alone, no padding, fitted to a small multiple of 16 — "
+        "The source alone (with a source_mask, the part the mask keeps), no "
+        "padding, fitted to a small multiple of 16 — "
         "the reference image for Krea 2 Encode 🆎 and other reference "
         "conditioning. It is a quick resize, made on every run whether "
         "wired or not.",
@@ -327,12 +385,14 @@ class AusBossLoadImagePad:
         target_megapixels,
         source_image=None,
         unique_id=None,
+        source_mask=None,
     ):
         if source_image is not None:
             frames = _wired_frames(source_image)
         else:
             frames = _frames_to_tensor(load_image_frames(resolve_input_path(image)))
         source = frames
+        wired_mask = None if source_mask is None else _wired_mask(source_mask, frames)
         plan = plan_pad_canvas(
             frames.shape[2],
             frames.shape[1],
@@ -347,6 +407,14 @@ class AusBossLoadImagePad:
         frames = trim_source(
             frames, plan["trim_left"], plan["trim_top"], plan["trim_right"], plan["trim_bottom"]
         )
+        if wired_mask is not None:
+            # The mask follows the picture through the same resize and trim.
+            wired_mask = resize_source(
+                wired_mask.unsqueeze(-1), plan["source_width"], plan["source_height"]
+            )
+            wired_mask = trim_source(
+                wired_mask, plan["trim_left"], plan["trim_top"], plan["trim_right"], plan["trim_bottom"]
+            )[..., 0]
         output, mask = pad_image(
             frames,
             plan["left"],
@@ -368,10 +436,21 @@ class AusBossLoadImagePad:
             plan["left"] + frames.shape[2],
             plan["top"] + frames.shape[1],
         )
+        reference_source = frames
+        if wired_mask is not None:
+            # A wired mask marks more area to fill inside the picture, so the
+            # part left to keep, and the bbox around it, can be smaller than
+            # the source rectangle.
+            x0, y0, x1, y1 = bbox
+            mask = mask.clone()
+            mask[:, y0:y1, x0:x1] = torch.maximum(mask[:, y0:y1, x0:x1], wired_mask)
+            bbox = _kept_bbox(wired_mask, bbox)
+            x0, y0, x1, y1 = bbox
+            reference_source = output[:, y0:y1, x0:x1, :]
         # The padded canvas is the stitch base, so whatever the sampler does
         # outside the feathered band is discarded and the source survives.
         stitcher = build_canvas_stitcher(output, mask, bbox=bbox, source="Load Image + Pad")
-        reference = build_reference_image(frames)
+        reference = build_reference_image(reference_source)
         result = (
             output,
             mask,
