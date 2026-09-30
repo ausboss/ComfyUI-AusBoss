@@ -85,5 +85,11 @@ export function describeNodePreview(node, inputName) {
 
 // Quiet ASCII placeholder copy; never an error.
 export function placeholderText(connected, noun = "an image") {
-  return connected ? "run to preview" : `connect ${noun} to preview`;
+  return connected ? "Run the workflow to see it here" : `Connect ${noun} to see it here`;
+}
+
+// The node ran while its preview was off, so its last picture is older
+// than its result.
+export function staleText() {
+  return "Run the workflow again to see it here";
 }
