@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  MODEL_COLUMNS,
   baseName,
   emptyNote,
   folderPath,
@@ -12,6 +13,7 @@ import {
   packsFromGraph,
   parseInline,
   parseMarkdown,
+  rowFromCells,
   safeUrl,
   serializeNote,
 } from "../js/shared/workflow_note.mjs";
@@ -53,6 +55,41 @@ test("rows drop empties, coerce types, and keep only http(s) urls", () => {
 test("serializeNote round-trips through normalizeNote", () => {
   const note = normalizeNote({ title: "T", body: "b", models: [{ name: "m", dir: "vae" }] });
   assert.deepEqual(normalizeNote(serializeNote(note)), note);
+});
+
+test("the editor's model table has a column for every field a model row keeps", () => {
+  // A field with no column is lost the first time someone saves the form.
+  const kept = Object.keys(normalizeNote({ models: [{ name: "m" }] }).models[0]);
+  assert.deepEqual(MODEL_COLUMNS.map((column) => column.key).sort(), kept.sort());
+});
+
+test("saving the editor's model table unchanged keeps every note", () => {
+  // Model rows from the LTX 2.3 Video Outpaint example, one without a note.
+  const note = normalizeNote({
+    title: "LTX 2.3 Video Outpaint",
+    models: [
+      { name: "ltx-2.3_text_projection_bf16.safetensors", dir: "text_encoders", size: "2.2 GB",
+        url: "https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/text_encoders/ltx-2.3_text_projection_bf16.safetensors",
+        note: "second slot of the text encoder loader" },
+      { name: "LTX23_video_vae_bf16.safetensors", dir: "vae", size: "1.4 GB" },
+      { name: "ltx-2.3-22b-ic-lora-outpaint.safetensors", dir: "loras",
+        note: "outpaint IC-LoRA by oumoumad, fills pure-black bars" },
+    ],
+  });
+  // What the form does: one cell per column, read back on Save.
+  const cells = note.models.map((row) => MODEL_COLUMNS.map((column) => row[column.key]));
+  const saved = normalizeNote({ ...note, models: cells.map((values) => rowFromCells(MODEL_COLUMNS, values)) });
+  assert.deepEqual(saved, note);
+  assert.deepEqual(saved.models.map((row) => row.note), [
+    "second slot of the text encoder loader", "", "outpaint IC-LoRA by oumoumad, fills pure-black bars",
+  ]);
+});
+
+test("rowFromCells names each cell by its column and fills missing cells", () => {
+  const columns = [{ key: "label" }, { key: "url" }];
+  assert.deepEqual(rowFromCells(columns, ["GitHub", "https://github.com/ausboss"]), { label: "GitHub", url: "https://github.com/ausboss" });
+  assert.deepEqual(rowFromCells(columns, ["GitHub"]), { label: "GitHub", url: "" });
+  assert.deepEqual(rowFromCells(columns, undefined), { label: "", url: "" });
 });
 
 test("noteIsEmpty is true only for a card with nothing on it", () => {
