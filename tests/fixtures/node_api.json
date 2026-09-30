@@ -190,6 +190,10 @@
       [
         "INT",
         "height"
+      ],
+      [
+        "IMAGE",
+        "prompt_image"
       ]
     ]
   },

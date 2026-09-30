@@ -4,6 +4,19 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **See-through pictures now outpaint properly.** A product cutout with no
+  background, a photo with see-through round corners, or a picture with a
+  hole in it could come back on flat gray, or with a dark ring round the
+  picture. Image Crop + Rotate + Pad now treats the see-through parts like
+  the padding: they are filled, the mask marks them, the model paints them,
+  and Stitch Inpaint never puts them back. A new last output,
+  `prompt_image`, shows those parts as white. Wire it to whatever writes
+  your prompt, so the prompt describes a real backdrop instead of the gray
+  fill. The Krea 2 Outpaint and Krea 2 Rotate + Outpaint examples are wired
+  this way. The `original` output also shows see-through parts as white
+  instead of black, which fixes the Klein 9B Outpaint prompt as well. A part
+  counts as see-through when it is less than 90% solid. Pictures without
+  such parts come out exactly as before.
 - **Save Image, Select Frame, Mask Refine and LaMa Inpaint keep their size in
   Nodes 2.0.** They grew to fit the picture they showed and covered the node
   below them, and after a run the picture showed twice. Now it fits inside

@@ -74,10 +74,47 @@ refreshes the source card and preview without resetting the saved framing.
 ## Outputs
 
 - **image**: BHWC float image batch. Animated image frames receive the identical transform.
-- **mask**: BHW generated-area mask combining source transparency, empty rotation corners, and padding.
+- **mask**: White where the model paints: the padding, the empty corners a turn leaves, and the see-through parts of your picture.
 - **stitcher**: Wire to Stitch Inpaint to restore the kept canvas around an outpaint result, blended into the source by **Blend** (32 px unless changed). It follows the final resized canvas.
-- **original**: The loaded RGB image batch before rotation, crop, padding, or resize. Existing image and mask sockets keep their positions.
+- **original**: The loaded RGB image batch before rotation, crop, padding, or resize, with see-through parts shown as white. Existing image and mask sockets keep their positions.
 - **width** / **height**: The output size after the transform and any resize.
+- **prompt_image**: The image again, with see-through parts shown as white instead of the fill colour. Wire it to whatever writes your prompt. It is the same as **image** for a picture with no see-through parts.
+
+## See-through pictures
+
+A PNG can have see-through parts: a product cutout with no background, a
+photo with round corners, a picture with a hole in it. The node treats those
+parts like the padding. They are filled with the fill colour, marked in the
+mask, and the model paints them. Stitch Inpaint never puts them back over
+the painted result.
+
+Use **prompt_image** for the node that writes your prompt. There the
+see-through parts show as white, the way a picture viewer shows them, so the
+prompt describes a real backdrop. Shown the gray fill instead, a prompt
+writer calls it a "gray backdrop" and the model keeps the flat gray. The
+model itself still gets **image**, with the fill colour it was trained on.
+
+A picture with no see-through parts comes out exactly as before.
+
+### Technical details
+
+- A pixel counts as see-through when it is less than 90% as solid (alpha)
+  as the most solid pixel in the picture. Measuring against the most solid
+  pixel keeps a picture saved at, say, 50% opacity throughout whole instead
+  of painting it over.
+- A picture that is at least 90% solid everywhere is left exactly as it was
+  loaded. Generated pictures often carry alpha values of 249-254 in places,
+  and those pictures do not change.
+- Kept pixels are used fully solid, in their own stored colour. See-through
+  pixels never reach the canvas: their stored colour (often black, or the
+  old background) is what used to leave a dark or light ring round a cutout.
+- Why 90%: on an oval photo whose edge stores colours darkened by their
+  alpha, a 50% cut kept a rim up to half dark, the ring the model painted
+  back. At 90% the kept rim is at most 10% darker, and matting noise inside
+  solid subjects stays above it, so no holes open there.
+- A turned picture's see-through parts turn with it, like its corners. In
+  **prompt_image** they show white while the padding and the corners keep
+  the fill colour.
 
 ## Inpaint & Stitch
 
