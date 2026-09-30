@@ -4,6 +4,10 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Save Image, Select Frame, Mask Refine and LaMa Inpaint keep their size in
+  Nodes 2.0.** They grew to fit the picture they showed and covered the node
+  below them, and after a run the picture showed twice. Now it fits inside
+  the node, as in the classic view.
 - **The red "missing file" warning clears when you pick a file.** Open a
   workflow that was saved with a picture you don't have and ComfyUI marks
   Load Image + Pad red and lists it under Setup required. Picking your own

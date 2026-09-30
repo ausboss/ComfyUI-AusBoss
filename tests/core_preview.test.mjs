@@ -52,6 +52,16 @@ test("only the core preview widget is touched", () => {
   assert.equal(typeof mine.computeSize, "undefined");
 });
 
+test("the image suppressor also stands down Nodes 2.0's own copy", () => {
+  // Nodes 2.0 draws a node's output images under its widgets unless the node
+  // sets hideOutputImages (classic never reads it). Left on, Save Image showed
+  // the result twice there and grew past the node under it.
+  const node = fakeNode();
+  assert.equal(node.hideOutputImages, undefined);
+  suppressCoreImagePreview(node);
+  assert.equal(node.hideOutputImages, true);
+});
+
 test("the image and video suppressors do not stand in for each other", () => {
   // They wrap different methods and are flagged separately, so a node that
   // draws both kinds can ask for both.
