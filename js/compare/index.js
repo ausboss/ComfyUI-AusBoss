@@ -7,6 +7,7 @@ import { mediaViewQuery, responsivePreviewHeight } from "../shared/video_preview
 import { VIDEO_MIN_WIDTH, ensureVideoCss, makeToolButton } from "../shared/video_ui.mjs";
 import {
   slideFraction,
+  compareBadges,
   compareClip,
   compareSizeLabel,
   findCompareImages,
@@ -26,7 +27,8 @@ const DEFAULT_NODE_SIZE = [
   420,
   responsivePreviewHeight(420, 132, 520) + PANEL_CHROME + CAPTION_HEIGHT + 60,
 ];
-const CSS_ID = "ausboss-compare-ui-v2";
+const CSS_ID = "ausboss-compare-ui-v3";
+const BADGE_WIDTH = 22;
 
 function ensureCompareCss() {
   ensureVideoCss(); // tool button styles are shared with the video panels
@@ -46,9 +48,9 @@ function ensureCompareCss() {
 .ausboss-compare-stage.is-empty .ausboss-compare-status{left:50%;top:50%;max-width:82%;transform:translate(-50%,-50%);color:#78908e;text-align:center;white-space:normal;}
 .ausboss-compare-footer{display:flex;align-items:center;gap:8px;flex:none;height:24px;}
 .ausboss-compare-tools{display:flex;gap:4px;flex:none;opacity:.9;}
-.ausboss-compare-identity{position:absolute;left:50%;top:7px;transform:translateX(-50%);z-index:3;display:flex;padding:3px 4px;border-radius:4px;background:rgba(0,0,0,.7);color:#d8eeee;font-weight:600;pointer-events:none;}
-.ausboss-compare-identity span{width:22px;text-align:center;line-height:16px;}
-.ausboss-compare-identity.is-split::after{content:"";position:absolute;left:50%;top:5px;bottom:5px;width:1px;transform:translateX(-50%);background:rgba(216,238,238,.5);}
+.ausboss-compare-identity{position:absolute;left:0;right:0;top:7px;height:22px;z-index:3;pointer-events:none;}
+.ausboss-compare-identity span{position:absolute;top:0;width:${BADGE_WIDTH}px;height:22px;border-radius:4px;background:rgba(0,0,0,.7);color:#d8eeee;font-weight:600;text-align:center;line-height:22px;}
+.ausboss-compare-identity span[hidden]{display:none;}
 .ausboss-compare-stage.is-empty .ausboss-compare-identity{display:none;}
 .ausboss-compare-tools:hover{opacity:1;}
 .ausboss-compare-caption{flex:1;min-width:0;height:${CAPTION_HEIGHT}px;overflow:hidden;color:#8ba3a1;font-size:10px;line-height:${CAPTION_HEIGHT}px;text-align:center;white-space:nowrap;text-overflow:ellipsis;}
@@ -64,16 +66,19 @@ function getMode(node) {
   return node.properties.ausboss_compare_mode;
 }
 
+// A and B ride on either side of the split line (compareBadges), so each
+// label sits on the picture it names wherever the line is.
 function applyClip(state) {
   const { clipPath, seamLeft, seamVisible } = compareClip(state.fraction);
   state.imageA.style.clipPath = clipPath;
   state.seam.style.left = seamLeft;
   state.seam.style.opacity = seamVisible ? "1" : "0";
-  state.identity.classList.toggle("is-split", seamVisible);
-  state.identityLeft.textContent = state.fraction === 0 ? "B" : "A";
-  state.identityRight.hidden = !seamVisible;
-  state.identityRight.textContent = seamVisible ? "B" : "";
-  state.identity.title = seamVisible ? "A on the left · B on the right" : `Showing ${state.identityLeft.textContent}`;
+  const places = compareBadges(state.fraction, state.stage.clientWidth || 0, BADGE_WIDTH);
+  for (const [badge, left] of [[state.identityLeft, places.a], [state.identityRight, places.b]]) {
+    badge.hidden = left == null;
+    if (left != null) badge.style.left = `${left}px`;
+  }
+  state.identity.title = seamVisible ? "A on the left of the line · B on the right" : `Showing ${state.fraction === 0 ? "B" : "A"}`;
   state.identity.setAttribute("aria-label", state.identity.title);
 }
 
@@ -135,6 +140,8 @@ function buildPanel(node) {
   identity.className = "ausboss-compare-identity";
   const identityLeft = document.createElement("span");
   const identityRight = document.createElement("span");
+  identityLeft.textContent = "A";
+  identityRight.textContent = "B";
   identity.append(identityLeft, identityRight);
   const tools = document.createElement("div");
   tools.className = "ausboss-compare-tools";
@@ -180,6 +187,10 @@ function buildPanel(node) {
   updateModeButtons(state);
 
   const signal = abort.signal;
+  // The labels are placed in pixels, so they follow the stage's width.
+  const resized = new ResizeObserver(() => applyClip(state));
+  resized.observe(stage);
+  signal.addEventListener("abort", () => resized.disconnect());
   slideButton.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
