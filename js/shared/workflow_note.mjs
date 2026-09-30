@@ -321,3 +321,27 @@ export function parseMarkdown(text) {
   flushList();
   return blocks;
 }
+
+// "LTXV 2.3" for "LTXV 2.3/ltx.safetensors": the subfolder a found file
+// sits in, or "" at the folder's top.
+export function subfolderOf(path) {
+  const text = str(path, 1000).replace(/\\/g, "/").trim();
+  const cut = text.lastIndexOf("/");
+  return cut > 0 ? text.slice(0, cut) : "";
+}
+
+// Loaders in the graph that ask for `name` but cannot load it: a list
+// widget holding the bare file name (or another copy's path) that is not
+// one of its choices, while `foundPath` - the copy the note found - is.
+// That is the loader ComfyUI marks red when the file sits in a subfolder.
+// `widgets` is [{ node, widget, value, options }]; returns the matches.
+export function loadersNeeding(name, foundPath, widgets) {
+  const wanted = baseName(name).toLowerCase();
+  const found = str(foundPath, 1000).replace(/\\/g, "/");
+  if (!wanted || !found || !Array.isArray(widgets)) return [];
+  return widgets.filter((entry) => {
+    const options = Array.isArray(entry?.options) ? entry.options.map((item) => str(item, 1000).replace(/\\/g, "/")) : [];
+    const current = str(entry?.value, 1000).replace(/\\/g, "/");
+    return baseName(current).toLowerCase() === wanted && current !== found && !options.includes(current) && options.includes(found);
+  });
+}

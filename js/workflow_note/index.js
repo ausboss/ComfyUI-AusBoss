@@ -23,13 +23,16 @@ import {
   LAYOUTS,
   groupModels,
   hostLabel,
+  loadersNeeding,
   matchInstalled,
   noteIsEmpty,
   normalizeNote,
   packsFromGraph,
   parseMarkdown,
   serializeNote,
+  subfolderOf,
 } from "../shared/workflow_note.mjs";
+import { comboValues, commitWidgetValue } from "../shared/widget_card_math.mjs";
 
 const NODE_CLASS = "AUSBOSS_NODES_WorkflowNote";
 const CSS_ID = "ausboss-workflow-note-css";
@@ -142,6 +145,10 @@ function ensureCss() {
 .ausboss-note-dl .size{font-weight:400;opacity:.8;}
 .ausboss-note-pill{flex:none;display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:11px;background:rgba(0,180,170,.16);color:#9fe3dc;font-size:10.5px;white-space:nowrap;}
 .ausboss-note-pill.missing{background:rgba(224,86,75,.16);color:#f0a59e;}
+.ausboss-note-pill.elsewhere{background:rgba(255,196,107,.14);color:#ffd79a;}
+.ausboss-note-action{flex:none;display:inline-flex;align-items:center;gap:6px;}
+.ausboss-note-use{flex:none;height:22px;padding:0 9px;border:1px solid #ffc46b;border-radius:5px;background:rgba(255,196,107,.12);color:#ffe3b0;font:600 11px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer;pointer-events:auto;}
+.ausboss-note-use:hover{background:#ffc46b;color:#2a1d05;}
 .ausboss-note-pill a{color:inherit;text-decoration:none;pointer-events:auto;}
 .ausboss-note-pill a:hover{text-decoration:underline;}
 .ausboss-note-chips{display:flex;flex-wrap:wrap;gap:6px;}
@@ -272,7 +279,7 @@ function modelRow(state, row) {
   if (row.note) metaBits.push(row.note);
   const meta = el("div", "ausboss-note-meta", metaBits.join(" · "));
   if (metaBits.length) file.append(meta);
-  const action = el("span");
+  const action = el("span", "ausboss-note-action");
   line.append(dot, file, action);
 
   const showDownload = () => {
@@ -299,8 +306,32 @@ function modelRow(state, row) {
     pill.title = path ? `Found: ${path}` : "Found";
     action.append(pill);
   };
+  // The file is here, but in a subfolder, and a loader still asks for the
+  // bare name: ComfyUI marks that loader red. Use it points the loaders at
+  // the copy that was found.
+  const showElsewhere = (path, loaders) => {
+    action.textContent = "";
+    const folder = subfolderOf(path);
+    const pill = el("span", "ausboss-note-pill elsewhere", `in ${folder}/`);
+    const names = [...new Set(loaders.map((entry) => entry.node.title || entry.node.type))].join(", ");
+    pill.title = `Found as ${path}, but ${names} ${loaders.length === 1 ? "asks" : "ask"} for ${row.name}, which ComfyUI cannot find.`;
+    const use = el("button", "ausboss-note-use", "Use it");
+    use.type = "button";
+    use.title = `Point ${names} at ${path}.`;
+    use.addEventListener("pointerdown", (event) => event.stopPropagation());
+    use.addEventListener("click", () => {
+      for (const entry of loaders) {
+        commitWidgetValue(entry.node, entry.widget, path, app.canvas);
+        entry.node.setDirtyCanvas?.(true, true);
+      }
+      app.graph?.setDirtyCanvas?.(true, true);
+      notifyAusbossChange();
+      checkModels(state, false);
+    });
+    action.append(pill, use);
+  };
   showDownload();
-  state.rows.push({ row, dot, showDownload, showInstalled });
+  state.rows.push({ row, dot, showDownload, showInstalled, showElsewhere });
   return line;
 }
 
@@ -482,7 +513,11 @@ async function checkModels(state, fresh) {
         continue;
       }
       const match = matchInstalled(entry.row.name, files);
-      if (match.found) {
+      const loaders = match.found && subfolderOf(match.path) ? loadersNeeding(entry.row.name, match.path, graphListWidgets()) : [];
+      if (match.found && loaders.length) {
+        setDot(entry.dot, "ok", `Found in ${subfolderOf(match.path)}/: ${match.path}`);
+        entry.showElsewhere(match.path, loaders);
+      } else if (match.found) {
         setDot(entry.dot, "ok", `Found: ${match.path}`);
         entry.showInstalled(match.path);
       } else {
@@ -491,6 +526,27 @@ async function checkModels(state, fresh) {
       }
     }
   }));
+}
+
+// Every list widget in the graph, subgraphs included: the loaders a found
+// file could be handed to. Local only - the graph already holds each
+// loader's choices, as ComfyUI's own server listed them.
+function graphListWidgets() {
+  const out = [];
+  const seen = new Set();
+  const walk = (graph) => {
+    if (!graph || seen.has(graph)) return;
+    seen.add(graph);
+    for (const node of graph._nodes ?? graph.nodes ?? []) {
+      for (const widget of node.widgets ?? []) {
+        if (widget?.type !== "combo" || typeof widget.value !== "string") continue;
+        out.push({ node, widget, value: widget.value, options: comboValues(widget) });
+      }
+      if (node.subgraph) walk(node.subgraph);
+    }
+  };
+  walk(app.rootGraph ?? app.graph);
+  return out;
 }
 
 // ---------------------------------------------------------------------------
