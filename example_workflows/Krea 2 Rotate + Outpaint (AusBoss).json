@@ -245,7 +245,6 @@
           "type": "IMAGE",
           "links": [
             31,
-            41,
             44
           ]
         },
@@ -277,6 +276,13 @@
           "name": "height",
           "type": "INT",
           "links": []
+        },
+        {
+          "name": "prompt_image",
+          "type": "IMAGE",
+          "links": [
+            41
+          ]
         }
       ],
       "title": "Image Crop + Rotate + Pad - Your image",
@@ -758,7 +764,7 @@
     [
       41,
       23,
-      0,
+      6,
       24,
       0,
       "IMAGE"
