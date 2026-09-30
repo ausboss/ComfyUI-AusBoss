@@ -14,6 +14,7 @@ if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
     del sys.modules["nodes"]
 
 from nodes import _mask_helpers as mask_helpers
+from nodes import node_refine_mask
 from nodes._mask_helpers import (
     _guide_frames,
     _torch_fill_holes,
@@ -78,6 +79,111 @@ class FillHolesTests(unittest.TestCase):
         filled = fill_mask_holes(opened)
         self.assertEqual(float(filled[:, 7, 8]), 0.0)  # inside the (now open) gap
         self.assertEqual(float(filled[:, 1, 8]), 0.0)  # the channel itself
+
+
+def kept_subject_mask(size: int = 100) -> torch.Tensor:
+    """Everything painted except a kept subject, with two brush gaps.
+
+    On a 100x100 picture: the subject is 40x40 (16% of the picture), the
+    gaps 3x3 (0.09%) and 10x10 (exactly 1%). All three are enclosed.
+    """
+    mask = torch.ones((1, size, size), dtype=torch.float32)
+    mask[:, 30:70, 30:70] = 0.0  # the subject someone left unpainted
+    mask[:, 5:8, 5:8] = 0.0  # a speck the brush missed
+    mask[:, 80:90, 10:20] = 0.0  # a gap between two strokes
+    return mask
+
+
+SUBJECT = (slice(None), slice(30, 70), slice(30, 70))
+SPECK = (slice(None), slice(5, 8), slice(5, 8))
+GAP = (slice(None), slice(80, 90), slice(10, 20))
+
+
+class FillHolesLimitTests(unittest.TestCase):
+    def test_a_hole_bigger_than_the_limit_stays(self):
+        filled = fill_mask_holes(kept_subject_mask(), 2.0)
+        self.assertTrue(torch.all(filled[SUBJECT] == 0.0))
+
+    def test_holes_up_to_the_limit_fill(self):
+        filled = fill_mask_holes(kept_subject_mask(), 2.0)
+        self.assertTrue(torch.all(filled[SPECK] == 1.0))
+        self.assertTrue(torch.all(filled[GAP] == 1.0))
+
+    def test_zero_fills_every_hole_as_before(self):
+        mask = kept_subject_mask()
+        unlimited = fill_mask_holes(mask)
+        self.assertTrue(torch.all(unlimited == 1.0))  # the subject is filled too
+        # 0 is the default; 100 and up cannot leave a hole out either, and a
+        # value that is not a number keeps the old fill rather than failing.
+        for value in (0.0, 100.0, 250.0, float("nan")):
+            self.assertTrue(torch.equal(fill_mask_holes(mask, value), unlimited), value)
+        self.assertTrue(torch.equal(
+            refine_mask(mask, 1, 1.5, True, max_hole_size=0.0)[0],
+            refine_mask(mask, 1, 1.5, True)[0],
+        ))
+
+    def test_a_hole_exactly_at_the_limit_fills(self):
+        mask = kept_subject_mask()
+        self.assertTrue(torch.all(fill_mask_holes(mask, 1.0)[GAP] == 1.0))  # 100 px of 10000
+        self.assertTrue(torch.all(fill_mask_holes(mask, 0.99)[GAP] == 0.0))
+
+    def test_the_limit_is_a_share_of_the_whole_picture(self):
+        # The same 10x10 gap is 1% of a 100x100 picture, 0.25% of 200x200.
+        small = kept_subject_mask(100)
+        large = kept_subject_mask(200)
+        self.assertTrue(torch.all(fill_mask_holes(small, 0.5)[GAP] == 0.0))
+        self.assertTrue(torch.all(fill_mask_holes(large, 0.5)[GAP] == 1.0))
+
+    def test_an_area_touching_the_edge_is_never_filled(self):
+        mask = kept_subject_mask()
+        mask[:, 0:31, 48:52] = 0.0  # a channel from the top edge into the subject
+        for value in (0.0, 2.0, 50.0):
+            filled = fill_mask_holes(mask, value)
+            self.assertTrue(torch.all(filled[SUBJECT] == 0.0), value)
+            self.assertTrue(torch.all(filled[:, 0:31, 48:52] == 0.0), value)
+            self.assertTrue(torch.all(filled[SPECK] == 1.0), value)
+
+    def test_torch_fallback_gives_the_same_result(self):
+        mask = torch.cat([kept_subject_mask(), kept_subject_mask().flip(-1)])
+        with_scipy = fill_mask_holes(mask, 2.0)
+        original = mask_helpers._scipy_fill_holes
+        mask_helpers._scipy_fill_holes = None
+        self.addCleanup(setattr, mask_helpers, "_scipy_fill_holes", original)
+        self.assertTrue(torch.equal(fill_mask_holes(mask, 2.0), with_scipy))
+
+    def test_each_picture_in_a_batch_is_judged_on_its_own(self):
+        mask = kept_subject_mask().repeat(2, 1, 1)
+        mask[1, 30:70, 30:70] = 1.0  # the second picture has no subject left out
+        filled = fill_mask_holes(mask, 2.0)
+        self.assertTrue(torch.all(filled[0, 30:70, 30:70] == 0.0))
+        self.assertTrue(torch.all(filled[:, 80:90, 10:20] == 1.0))
+
+    def test_only_the_big_hole_differs_from_the_old_fill(self):
+        mask = kept_subject_mask()
+        mask[:, 0:4, :] = 0.3  # a soft fringe along the top edge: not a hole
+        mask[:, 29, 30:70] = 0.8  # a soft rim on the subject's outline: selected
+        limited = fill_mask_holes(mask, 2.0)
+        unlimited = fill_mask_holes(mask)
+        self.assertTrue(torch.all(limited[:, 0:4, :] == 0.3))
+        outside = torch.ones_like(mask, dtype=torch.bool)
+        outside[SUBJECT] = False
+        self.assertTrue(torch.equal(limited[outside], unlimited[outside]))
+        self.assertTrue(torch.all(limited[SUBJECT] == 0.0))
+
+    def test_mask_refine_node_takes_the_limit(self):
+        node = node_refine_mask.AusBossRefineMask()
+        spec = node.INPUT_TYPES()["optional"]["max_hole_size"]
+        self.assertEqual(spec[0], "FLOAT")
+        self.assertEqual((spec[1]["default"], spec[1]["min"], spec[1]["max"]), (0.0, 0.0, 100.0))
+        settings = dict(expand=0, blur=0.0, fill_holes=True, smooth=0, black_point=0.0,
+                        white_point=1.0, edge_refine="off", preview=False)
+        kept, inverted = node.refine(kept_subject_mask(), max_hole_size=2.0, **settings)
+        self.assertTrue(torch.all(kept[SUBJECT] == 0.0))
+        self.assertTrue(torch.all(kept[GAP] == 1.0))
+        torch.testing.assert_close(inverted, 1.0 - kept)
+        # Without the input, as an API prompt from before it existed.
+        everything, _ = node.refine(kept_subject_mask(), **settings)
+        self.assertTrue(torch.all(everything == 1.0))
 
 
 class SmoothTests(unittest.TestCase):

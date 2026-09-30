@@ -45,6 +45,7 @@ const INPUT_SIDE = 1; // LiteGraph.INPUT
 // hidden, so a workflow that set them keeps them.
 const MASK_ADVANCED_WIDGETS = [
   "fill_holes",
+  "max_hole_size",
   "smooth",
   "black_point",
   "white_point",

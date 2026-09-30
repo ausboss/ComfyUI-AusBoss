@@ -10,7 +10,8 @@ class AusBossRefineMask:
     CATEGORY = "🆎 AusBoss/Mask"
     DESCRIPTION = (
         "Cleans up a mask in one fixed-order pass: expand (grow/shrink by "
-        "whole pixels), fill enclosed holes, smooth (melts staircase jaggies "
+        "whole pixels), fill enclosed holes (all, or only those up to "
+        "max_hole_size), smooth (melts staircase jaggies "
         "without feathering), feather with a gaussian blur, edge-refine "
         "against the optional guide_image (guided filter or alpha matting), "
         "then remap levels with black_point/white_point to clear gray haze. "
@@ -124,6 +125,20 @@ class AusBossRefineMask:
                         "edge_refine is 'guided filter' or 'matting'.",
                     },
                 ),
+                "max_hole_size": (
+                    "FLOAT",
+                    {
+                        "default": 0.0,
+                        "min": 0.0,
+                        "max": 100.0,
+                        "step": 0.1,
+                        "tooltip": (
+                            "The biggest hole fill holes fills, in percent of the "
+                            "picture. 2 fills the gaps a quick brush leaves but keeps "
+                            "a person or pet you left unpainted; 0 fills every hole."
+                        ),
+                    },
+                ),
             },
         }
 
@@ -152,6 +167,7 @@ class AusBossRefineMask:
         edge_refine,
         guide_image=None,
         preview=True,
+        max_hole_size=0.0,
     ):
         refined, inverted = refine_mask(
             mask,
@@ -163,6 +179,7 @@ class AusBossRefineMask:
             white_point=float(white_point),
             edge_refine=str(edge_refine),
             guide_image=guide_image,
+            max_hole_size=float(max_hole_size),
         )
         # The refined mask itself is the preview. Before this the panel showed
         # whatever fed the mask input, and a segmentation node upstream has no

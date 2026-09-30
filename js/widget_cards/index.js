@@ -137,13 +137,17 @@ const CARDS = {
   AUSBOSS_NODES_RefineMask: {
     minWidth: 300, first: true,
     // A workflow saved by a 1.x release holds the preview panel's own empty
-    // value where preview now sits; it loads on, the node's default.
-    resetUnknown: { preview: true },
+    // value where preview now sits; it loads on, the node's default. One
+    // saved by 2.x before Max hole size existed holds the card's there; it
+    // loads 0, no limit, as the node ran then.
+    resetUnknown: { preview: true, max_hole_size: 0 },
     rows: [
       { widget: "expand", label: "Expand", suffix: "px" },
       { widget: "blur", label: "Blur" },
       { group: "advanced", label: "More" },
       { widget: "fill_holes", label: "Fill holes", group: "advanced" },
+      { widget: "max_hole_size", label: "Max hole size", suffix: "%", group: "advanced",
+        mute: (values) => values.fill_holes !== true, muteTitle: "Used only while Fill holes is on." },
       { widget: "smooth", label: "Smooth", suffix: "px", group: "advanced" },
       { widget: "black_point", label: "Black point", group: "advanced" },
       { widget: "white_point", label: "White point", group: "advanced" },

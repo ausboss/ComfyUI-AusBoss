@@ -37,6 +37,12 @@ file is written. The switch is the node's optional `preview` input.
 
 - **fill_holes**: Fills fully enclosed gaps inside the mask before feathering.
   Gaps that touch the image border are left alone.
+- **Max hole size** (`max_hole_size`): The biggest hole **fill_holes** fills,
+  as a percent of the picture. Use it when you paint around something you
+  want to keep: at `2`, the small gaps a quick brush leaves still fill, but a
+  person, pet or object you left unpainted stays as it is. `0`, the default,
+  fills every hole whatever its size. It only matters while **fill_holes** is
+  on.
 - **smooth**: Melts staircase jaggies by this many pixels while keeping a
   hard edge — the mask is binarized, blurred, and re-binarized, so nothing
   is feathered. `0` is off. Use this on blocky segmentation output; use
@@ -83,3 +89,20 @@ the missing package; the rest of the node is unaffected.
 Operations run in a fixed order — expand, fill holes, smooth, blur, edge
 refine, black/white point — so feathered edges are never re-hardened by a
 later step and the levels remap always cleans the final result.
+
+## Technical details
+
+**Max hole size** measures each hole after **expand** has moved the mask,
+as a share of that picture's whole area, so the same setting works at any
+resolution; in a batch every picture is judged on its own. A hole exactly
+at the limit is filled. `100` and above fill every hole, the same as `0`.
+An unpainted area that touches the picture's edge is never a hole, at any
+setting, because the mask does not close around it.
+
+On the test masks, at 0.25 to 16 megapixels, the gaps a quick brush left
+between strokes and the spots it missed were at most 1.3% of the picture,
+and the subjects left unpainted (a person, a dog, a shoe, a cat) at least
+18%. A face kept on its own was 2.1% to 5.3%: `2` keeps a face from a
+three-quarter shot or closer, while a face in a full-length shot is smaller
+and would still fill. A very loose hand with a big brush can leave long
+bands between strokes that pass 2%: raise the setting, or paint over them.
