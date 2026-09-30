@@ -48,6 +48,11 @@ function suppressWidget(node, flag, method, targetName, elementOf) {
 }
 
 export function suppressCoreVideoPreview(node) {
+  // Nodes 2.0 has no video-preview widget to hide: it draws the node's
+  // output under the widgets itself unless the node sets this flag (the
+  // classic renderer never reads it). Without it Save Video showed its clip
+  // twice there, once in the panel and once underneath.
+  if (node) node.hideOutputImages = true;
   suppressWidget(
     node,
     "__ausbossCorePreviewSuppressed",

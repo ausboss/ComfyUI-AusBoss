@@ -1,5 +1,6 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
+import { isForeignRun } from "../shared/prompt_scope.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { fillNodeHeight } from "../shared/panel_layout.mjs";
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
@@ -309,6 +310,7 @@ app.registerExtension({
       });
     });
     chainCallback(nodeType.prototype, "onExecuted", function (message) {
+      if (isForeignRun()) return;
       const preview = findStagePreview(message);
       const state = preview ? buildPanel(this) : null;
       if (!state) return;

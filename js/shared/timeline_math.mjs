@@ -275,3 +275,41 @@ export function keyboardStep(info, fine) {
   if (fine || !(info?.fps > 0)) return 1;
   return Math.max(1, Math.round(info.fps));
 }
+
+// --- What a press on the rail does -----------------------------------------
+// The rail always scrubs: a press anywhere moves the playhead, whatever the
+// Length says, as in every video editor. Only three things take a press
+// instead: the IN and OUT handles within `hitPx` screen pixels (the nearer
+// one; handles stacked on one spot split by side, left of them is IN) and
+// the grip on the kept part, which slides the clip.
+export function railZone({ x, inX, outX, hasOut = true, hitPx = 9, onGrip = false } = {}) {
+  if (onGrip) return "grip";
+  const toIn = Math.abs(finite(x) - finite(inX));
+  const toOut = hasOut ? Math.abs(finite(x) - finite(outX)) : Infinity;
+  if (Math.min(toIn, toOut) > hitPx) return "playhead";
+  return toIn < toOut || (toIn === toOut && finite(x) <= finite(inX)) ? "start" : "end";
+}
+
+// The first frame a slide can move the kept part to, and the last one:
+// a Length keeps its count and stops where OUT meets the source's end; a
+// free window keeps its span.
+export function slideRange(info, plan, everyNth = 1) {
+  if (!info?.count || !plan) return { min: 0, max: 0 };
+  if (plan.mode === "free") {
+    const span = Math.max(0, finite(plan.windowLast) - finite(plan.first));
+    return { min: 0, max: Math.max(0, info.count - 1 - span) };
+  }
+  if (plan.mode === "length" || plan.mode === "fixed") {
+    const frames = plan.requested ?? plan.frames ?? 1;
+    const latest = plan.mode === "fixed" ? Math.max(0, info.count - 1 - (finite(plan.last) - finite(plan.first))) : latestFirstFor(info, frames, everyNth);
+    return { min: 0, max: Math.max(0, latest) };
+  }
+  return { min: finite(plan.first), max: finite(plan.first) };
+}
+
+// True when a Length already takes the whole clip: IN sits on the first
+// frame and has nowhere to go. The face then says so instead of freezing.
+export function lengthFillsClip(info, plan, everyNth = 1) {
+  if (!info?.count || !plan || (plan.mode !== "length" && plan.mode !== "fixed")) return false;
+  return plan.first === 0 && slideRange(info, plan, everyNth).max === 0;
+}

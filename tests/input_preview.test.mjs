@@ -9,6 +9,7 @@ import {
   outputLocatorId,
   outputRecordQuery,
   placeholderText,
+  staleText,
   sourceFileWidget,
   upstreamNode,
   viewQueryForFile,
@@ -80,11 +81,13 @@ test("unpreviewable sources fall back to the quiet placeholder", () => {
   assert.equal(describeSourcePreview(null), null);
   assert.equal(describeSourcePreview({ widgets: [{ name: "seed", value: 3 }] }), null);
   assert.equal(describeSourcePreview({ widgets: [{ name: "image", value: "" }] }), null);
-  assert.equal(placeholderText(false, "an image"), "connect an image to preview");
-  assert.equal(placeholderText(false, "a mask"), "connect a mask to preview");
+  assert.equal(placeholderText(false, "an image"), "Connect an image to see it here");
+  assert.equal(placeholderText(false, "a mask"), "Connect a mask to see it here");
   // Connected but nothing to show yet: the node has to run to make a picture,
   // which is the whole instruction the panel can usefully give.
-  assert.equal(placeholderText(true, "a mask"), "run to preview");
+  assert.equal(placeholderText(true, "a mask"), "Run the workflow to see it here");
+  // It ran with the preview off: the picture it kept is an older run's.
+  assert.equal(staleText(), "Run the workflow again to see it here");
 });
 
 test("the node's own result is the newest image it has", () => {

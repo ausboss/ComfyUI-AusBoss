@@ -12,32 +12,60 @@ Loads an image and applies one reusable **rotate → crop → pad** transform. C
 - **crop_x / crop_y / crop_width / crop_height**: Crop in rotated-image pixels. Width and height `0` mean the full available dimension.
 - **pad_left / pad_top / pad_right / pad_bottom**: New pixels around the crop.
 - **feather**: Feathers the mask into kept pixels, so a masked sampler and the stitch blend the seam. The image itself keeps a hard edge against the fill - the solid, hard-edged band that outpaint models and LoRAs recognise as the area to paint.
-- **Align** (`canvas_multiple`; **Multiple** in the editor): Rounds the final canvas up by adding the minimum extra pixels to the right and bottom.
+- **Round canvas to** (`canvas_multiple`): Rounds the final canvas up by adding the minimum extra pixels to the right and bottom.
 - **Fill** (`fill_color`): `#RRGGBB` or three RGB values used for generated pixels.
-- **Resize output → Resize / Megapixels / Method / Steps** (`resize_to_megapixels` / `megapixels` / `resize_method` / `resolution_steps`): Optional resize of the finished output to a pixel budget, with core *Scale Image to Total Pixels* semantics — the budget is `megapixels × 1024 × 1024`, aspect is preserved, and each dimension rounds to a multiple of **Steps** (8 or 64 keeps VAE-friendly sizes). The image uses the chosen **Method**; the mask always resizes bilinear so feathered edges cannot ring.
+- **Resize output → Resize / Megapixels / Method / Step** (`resize_to_megapixels` / `megapixels` / `resize_method` / `resolution_steps`): Optional resize of the finished output to a pixel budget, with core *Scale Image to Total Pixels* semantics — the budget is `megapixels × 1024 × 1024`, aspect is preserved, and each dimension rounds to a multiple of **Step** (8 or 64 keeps VAE-friendly sizes). The image uses the chosen **Method**; the mask always resizes bilinear so feathered edges cannot ring.
 
 ## On the node
 
-Choose **Crop** or **Pad** below the format chips. Crop trims to the selected
-ratio and keeps that shape while dragging, without adding padding. Pad preserves
-the whole source and adds centered bands; tap its active ratio again to lock the
-outer canvas, and again to clear. **Align** exposes the canvas pixel multiple
-(1 disables it; 8/16/32 can add pixels on the right and bottom).
+Tap a ratio under the preview to pad the picture to it: every pixel stays and
+fill bands are added around it, centred. Set **Fit** to crop and the ratio trims
+the picture instead. Tap the lit ratio again to go back to the whole picture.
+**Fit** only acts on a lit ratio, so it is dimmed and says "pick a ratio first"
+until you tap one.
 
-The canvas row below holds **Fill**, the **Feather** amount in px, and **Resize**.
-Ticking Resize opens a row with the **Megapixels** budget and the **Step** each
-resized side rounds to; **Method** stays in the editor, under **Resize output**.
-**Reset crop** restores the full source crop without changing rotation or
-padding. **Reset** clears rotation, crop and padding; fill, feather and **Align**
-stay.
+- **A lit ratio is the shape the canvas has now.** Drag a handle to another
+  shape and the ratio goes dark; the row says **Custom** and the size line under
+  the picture gives the real ratio (`1.49:1`).
+- **A picture that already has the shape gets nothing added.** Within about 1%
+  counts, so a nearly 9:16 photo gets no 1 px band. The size line under the
+  picture says so ("already 9:16: pick another ratio or turn it"), and while a
+  ratio is lit it names it where it acted (`pad to 16:9 2532×1424`). A lit ratio
+  saved in a workflow is used again on every new picture you load.
+- **The padlock** at the end of the row keeps the shape while you drag: pull one
+  side out and the other side's padding follows, split evenly. The row says
+  **Held** while it is on. On the untouched picture (the row says **Source**)
+  there is no shape to hold, so it stays off. **Reset** and tapping the lit ratio
+  turn it off, and **Reset crop** also takes away the bands it added.
+- **The orientation button** at the start of the row turns the shape on its side:
+  16:9 becomes 9:16, padded around the picture (crop mode turns the crop box
+  about its centre). The picture itself never rotates. With nothing picked it
+  only turns the ratios, so the next tap goes that way.
+- **Drag the picture itself** to move it inside its padding; the canvas keeps its
+  size. Over the picture, the cursor and small arrows show which ways it can go.
+- Rotating keeps a lit ratio: the padding follows the turned picture.
+
+**Round canvas to** exposes the canvas pixel multiple (1 disables it; 8/16/32 can
+add pixels on the right and bottom).
+
+The canvas row below holds **Fill**, the **Feather** amount in px, and the
+**Resize** off | on switch. Turning Resize on opens a row with the **Megapixels**
+budget and the **Step** each resized side rounds to; **Method** stays in the
+editor, under **Resize output**. Added space on the picture is drawn in the real
+fill colour with a faint hatch, and only the picture the crop cuts away is
+darkened. **Reset crop** restores the full source crop without changing rotation
+or padding. **Reset** clears rotation, crop and padding and turns the padlock
+off; fill, feather and **Round canvas to** stay.
 
 The line under the picture names every step that sets the output size, in the
 order the run applies them, with the size the run emits last and brightest:
-`crop 2080×1170 → pad 2208×1298 → align 64 2240×1344 → resize 1344×768`. A step
+`crop 2080×1170 → pad 2208×1298 → round to 64 2240×1344 → resize 1344×768`. A step
 that changes nothing is left out. An amber line warns when rounding each side to
-the Step stretches the picture by more than 1% (`5.0% wider from steps`) or when
-the resize undoes **Align**. Hover it for the same breakdown line by line; the
-editor's right panel shows it too.
+the Step stretches the picture by more than 1% (`1.5% taller: each side rounds to
+32 px`); its tooltip names a Step that avoids it, and with Fit on pad, **Even
+out** adds a few pixels of padding so nothing stretches. It also warns when the
+resize undoes **Round canvas to**. Hover the line for the same breakdown line by
+line; the editor's right panel shows it too.
 
 Fill, Feather and Resize stay synchronized with the editor. Changing the resize budget
 updates the size readout immediately. Restoring a workflow or undoing a change
@@ -64,12 +92,14 @@ The editor's right sidebar holds the stitcher's settings, the same as on the cli
 
 ## Editor gestures
 
-Choose **Target aspect**, then **Crop to aspect** to trim the largest centered crop,
-or **Pad to aspect** to keep the full rotated source and add centered fill-color bands.
-Both replace existing crop and padding. The target selection alone does not change
-the transform. Padding unlocks the inner crop; its target choice stays in the editor.
-Canvas multiple and resize steps can slightly change the fitted aspect.
+The editor's sidebar uses the node's own controls: the same ratio row with its
+orientation button and padlock, the same **Fit** switch, and the same number boxes
+(drag to scrub, click to type, Shift for fine steps: 0.1° on **Degrees**). Ratios you
+added in `ausboss_presets.json` that no button shows are in a **More** list. A ratio
+replaces the existing crop and padding and keeps rotation, fill and resize settings.
+Round canvas to and the resize Step can slightly change the fitted aspect. The size
+box on the stage sits clear of the handles.
 
-Drag cyan squares to resize the crop, drag inside to move it, orange diamonds to add padding, and the green handle to rotate. Hold `Shift` while rotating to snap to 15 degrees. Rotating keeps the crop's size and keeps it over the same part of the picture, whichever control turns it (knob, slider, number box, Reset rotation); with no crop the canvas grows to hold the tilted picture. Use the wheel to zoom and middle mouse or `Alt`-drag to pan. The same handles work directly on the node's compact preview (fit-only there — the wheel keeps zooming the graph); zoom and pan are editor-only.
+Drag cyan squares to resize the crop, drag inside to move it, orange diamonds to add padding, and the green handle to rotate. Hold `Shift` while rotating to snap to 15 degrees. Rotating keeps the crop's size and keeps it over the same part of the picture, whichever control turns it (knob, number box, Reset rotation); with no crop the canvas grows to hold the tilted picture. The knob keeps clear of the padding diamonds and crop squares. Use the wheel to zoom and middle mouse or `Alt`-drag to pan. The same handles work directly on the node's compact preview (fit-only there — the wheel keeps zooming the graph); zoom and pan are editor-only.
 
 The node performs no network requests and writes no files beyond a normal user-initiated ComfyUI upload.

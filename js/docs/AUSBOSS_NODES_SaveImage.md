@@ -40,7 +40,8 @@ file's name. A caption on the `caption_text` input writes the paired `.txt`.
   `--disable-metadata` on the server wins.
 - **Preview** (`preview`): the small switch under the card shows the saved
   image on the node. Off, the picture's box goes away and the node is
-  shorter. It is display only: the file is saved either way and the queue
+  shorter; on again, the node returns to its height with the last saved
+  image. It is display only: the file is saved either way and the queue
   still lists it.
 
 ## Inputs

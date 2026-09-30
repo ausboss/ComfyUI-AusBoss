@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   baseName,
+  loadersNeeding,
+  subfolderOf,
   emptyNote,
   folderPath,
   groupModels,
@@ -171,4 +173,21 @@ test("parseMarkdown yields headings, paragraphs with soft breaks, lists, rules a
 test("parseMarkdown on empty or plain text is a single paragraph or nothing", () => {
   assert.deepEqual(parseMarkdown(""), []);
   assert.deepEqual(parseMarkdown("just words"), [{ type: "paragraph", spans: [{ type: "text", text: "just words" }] }]);
+});
+
+test("a loader asking for a bare name is pointed at the copy in a subfolder", () => {
+  assert.equal(subfolderOf("LTXV 2.3/ltx-2.3.safetensors"), "LTXV 2.3");
+  assert.equal(subfolderOf("a\\b\\c.safetensors"), "a/b");
+  assert.equal(subfolderOf("top.safetensors"), "");
+  const unet = { name: "unet_name", value: "ltx-2.3.safetensors", options: ["LTXV 2.3/ltx-2.3.safetensors", "other.safetensors"] };
+  const fine = { name: "vae_name", value: "LTX/vae.safetensors", options: ["LTX/vae.safetensors"] };
+  const bothCopies = { name: "clip", value: "gemma.safetensors", options: ["gemma.safetensors", "sub/gemma.safetensors"] };
+  const unrelated = { name: "sampler", value: "euler", options: ["euler", "dpmpp"] };
+  assert.deepEqual(loadersNeeding("ltx-2.3.safetensors", "LTXV 2.3/ltx-2.3.safetensors", [unet, fine, bothCopies, unrelated]), [unet]);
+  // A loader that already holds a copy it can load is left alone.
+  assert.deepEqual(loadersNeeding("vae.safetensors", "LTX/vae.safetensors", [fine]), []);
+  assert.deepEqual(loadersNeeding("gemma.safetensors", "sub/gemma.safetensors", [bothCopies]), []);
+  // Case and separators do not matter for the name.
+  const windows = { value: "LTX-2.3.SAFETENSORS", options: ["LTXV 2.3/ltx-2.3.safetensors"] };
+  assert.deepEqual(loadersNeeding("ltx-2.3.safetensors", "LTXV 2.3\\ltx-2.3.safetensors", [windows]), [windows]);
 });
