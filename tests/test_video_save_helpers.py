@@ -566,6 +566,46 @@ class SaveMetadataToggleTests(unittest.TestCase):
                 self.assertNotIn("workflow", container.metadata)
 
 
+class EncoderStartTests(unittest.TestCase):
+    """An encoder that cannot start says so in plain words, before any frame.
+
+    NVENC is in the libav build with or without an NVIDIA card, and only
+    fails when the encoder opens. That used to happen on the first frame,
+    outside the handler, so a user without the card saw a bare libav error.
+    """
+
+    @staticmethod
+    def container_that_fails_to_open(error):
+        context = types.SimpleNamespace(open=lambda: (_ for _ in ()).throw(error))
+        stream = types.SimpleNamespace(codec_context=context)
+        return types.SimpleNamespace(add_stream=lambda _codec, rate=None: stream)
+
+    def test_nvenc_without_a_card_gets_the_plain_message(self):
+        container = self.container_that_fails_to_open(OSError("Operation not permitted"))
+        spec = _video_save_helpers.VIDEO_FORMATS["mp4 h264 nvenc"]
+        with self.assertRaises(RuntimeError) as caught:
+            _video_save_helpers._add_video_stream(container, spec, Fraction(12), 64, 64, 23)
+        message = str(caught.exception)
+        self.assertTrue(message.startswith("Save Video: the nvenc formats need an NVIDIA GPU"), message)
+        self.assertIn("'mp4 h264'", message)
+        self.assertIn("Operation not permitted", message, "the encoder's own words stay, last")
+
+    def test_other_encoders_name_themselves_without_nvenc_advice(self):
+        container = self.container_that_fails_to_open(OSError("no such encoder"))
+        spec = _video_save_helpers.VIDEO_FORMATS["mp4 h265"]
+        with self.assertRaises(RuntimeError) as caught:
+            _video_save_helpers._add_video_stream(container, spec, Fraction(12), 64, 64, 23)
+        self.assertIn("'libx265'", str(caught.exception))
+        self.assertNotIn("NVIDIA", str(caught.exception))
+
+    def test_the_encoder_is_open_before_the_first_frame(self):
+        spec = _video_save_helpers.VIDEO_FORMATS["mp4 h264"]
+        with tempfile.TemporaryDirectory() as tmp:
+            with av.open(str(Path(tmp) / "open.mp4"), "w") as container:
+                stream = _video_save_helpers._add_video_stream(container, spec, Fraction(12), 64, 64, 23)
+                self.assertTrue(stream.codec_context.is_open)
+
+
 class FpsWidgetTests(unittest.TestCase):
     def test_fps_stays_float_so_ntsc_rates_and_the_load_video_link_survive(self):
         spec = node_save_video.AusBossSaveVideo.INPUT_TYPES()["required"]["fps"]
