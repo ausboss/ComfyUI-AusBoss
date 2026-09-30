@@ -34,6 +34,7 @@ jobs:
           tests/test_execution_helpers.py
           tests/test_lora_helpers.py
           tests/test_math_helpers.py
+          tests/test_media_paths.py
           tests/test_memory_helpers.py
           tests/test_node_api.py
           tests/test_registry_contract.py
