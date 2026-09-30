@@ -170,6 +170,18 @@ Batches of more than one frame report per-frame progress and check for a
 cancel between frames, so a run started by mistake stops at the next frame
 boundary rather than playing out to the end.
 
+## When the new area comes back empty
+
+An outpaint model sometimes leaves part of the new area alone, and the
+result shows plain bars in the fill color. Stitch Inpaint checks every
+outpaint for that. When a quarter or more of the new area still shows the
+plain fill (or half of it in any checked frame of a video), a message says
+so, and so does the console. The picture is stitched as usual either way.
+
+Try another seed, or describe the whole wider scene in the prompt. Adding
+less space at a time also helps, and dark footage paints better when it is
+brightened first.
+
 ## Outputs
 
 - **image**: The original-size image with the inpainted region blended in.
@@ -187,6 +199,16 @@ boundary rather than playing out to the end.
 
 The rest of this page is for people who want to know how blend in works
 and how it was tested.
+
+### How the empty check works
+
+The new area is cut into 16 px blocks, and only blocks fully inside it are
+judged. A block counts as unpainted when it is within 10/255 of the canvas
+fill and flat. Painted scenery has texture even when it is dark, so a
+night street is not flagged. The same test runs on your picture, and only
+what the new area has beyond that counts: a black night sky may be
+continued as black. Up to nine frames spread across a clip are checked. Crop For Inpaint crops are not checked: their masked pixels are
+the old picture, not a fill.
 
 ### How blend in works
 

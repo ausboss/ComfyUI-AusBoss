@@ -10,6 +10,7 @@ from ._inpaint_crop_helpers import (
     build_crop,
     stitch_blend_mask,
 )
+from ._unpainted_helpers import unpainted_notice, unpainted_share
 
 # A workflow saved before Seam existed can hold the card's empty value in
 # the slot Seam now takes; it loads, and stitches, as classic.
@@ -459,7 +460,14 @@ class AusBossStitchInpaint:
         if seam not in SEAM_MODES:
             raise ValueError(f"Stitch Inpaint: seam must be 'classic' or 'blend in', not {seam!r}.")
         image = apply_stitch(stitcher, inpainted, bool(fix_edge_halo), float(color_match), seam)
-        return (image, stitch_blend_mask(stitcher, image.shape[0], seam))
+        result = (image, stitch_blend_mask(stitcher, image.shape[0], seam))
+        # An outpaint whose new area came back as the plain fill looks like a
+        # finished picture with bars; say so instead of handing it back quietly.
+        notice = unpainted_notice(unpainted_share(stitcher, inpainted))
+        if notice is None:
+            return result
+        print(f"[AusBoss] Stitch Inpaint: {notice}")
+        return {"ui": {"ausboss_notice": [{"source": "Stitch Inpaint", "text": notice}]}, "result": result}
 
     @classmethod
     def VALIDATE_INPUTS(cls, seam=SEAM_CLASSIC):
