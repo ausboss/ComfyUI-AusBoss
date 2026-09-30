@@ -208,7 +208,7 @@ When a file has moved, the node finds it by name if only one file matches. A mis
 
 ### Krea 2 Encode
 
-Krea 2's positive and negative prompts in one card. Connect a VAE and reference pictures, and it adds them as references too, resized for the model first. **VLM reference** sets whether the text encoder also looks at them. Leave the references empty for plain text to image.
+Krea 2's positive and negative prompts in one card. Connect a VAE and reference pictures, and it adds them as references too, resized for the model first. **VLM reference** sets whether the text encoder also looks at them. Leave the references empty for plain text to image. For an outpaint, connect the pad node's mask too: the model then sees the new area in your picture's own colour instead of gray, so it paints it rather than keeping a gray frame.
 
 The prompt box takes several lines and a linked text. The [help page](js/docs/AUSBOSS_NODES_Krea2Encode.md) covers preparing references. With an outpaint LoRA, copy the wiring from the matching example.
 
@@ -218,7 +218,7 @@ Tells Krea 2 where a reference picture sits on the canvas. It's made for Krea 2 
 
 The card has **Reference** placement and **KV cache**. The placement has to match the LoRA:
 
-- **Whole canvas + AnyPaint:** the padded picture is the reference, VLM reference is on, and a masked starting latent keeps the known pixels. Several sides can extend in one pass. The Krea 2 Outpaint example works this way.
+- **Whole canvas + AnyPaint:** the padded picture is the reference, VLM reference is on, the pad mask goes into Krea 2 Encode's `mask`, and a masked starting latent keeps the known pixels. Several sides can extend in one pass. The Krea 2 Outpaint example works this way.
 - **Source rectangle + Registered Outpaint:** use the unpadded reference with VLM reference off. The source has to span the whole canvas in one direction, so extend left and right, or top and bottom, in each pass, including any padding added for rounding.
 
 ![A 16:9 photo of a woman at a waterfront railing is padded to 4:5, and Krea 2 fills in more sky above and the railing below.](assets/readme/krea2-outpaint.gif)

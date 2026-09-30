@@ -279,7 +279,8 @@
       "vae",
       "reference",
       "extra_image",
-      "vlm_reference"
+      "vlm_reference",
+      "mask"
     ],
     "outputs": [
       [

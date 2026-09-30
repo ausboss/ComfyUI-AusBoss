@@ -2,7 +2,7 @@
   "id": "16318f0d-7efa-473f-babb-24a1d9992d1f",
   "revision": 0,
   "last_node_id": 33,
-  "last_link_id": 52,
+  "last_link_id": 53,
   "nodes": [
     {
       "id": 1,
@@ -297,7 +297,7 @@
         "pad_top": 96,
         "pad_right": 0,
         "pad_bottom": 0,
-        "feather": 12,
+        "feather": 32,
         "canvas_multiple": 1,
         "fill_color": "#808080",
         "resize_to_megapixels": true,
@@ -319,7 +319,7 @@
         "pad_top": 96,
         "pad_right": 0,
         "pad_bottom": 0,
-        "feather": 12,
+        "feather": 32,
         "canvas_multiple": 1,
         "fill_color": "#808080",
         "resize_to_megapixels": true,
@@ -910,7 +910,7 @@
         "state": {
           "lastGroupId": 94,
           "lastNodeId": 33,
-          "lastLinkId": 52,
+          "lastLinkId": 53,
           "lastRerouteId": 0
         },
         "revision": 0,
@@ -1362,7 +1362,7 @@
         "state": {
           "lastGroupId": 94,
           "lastNodeId": 33,
-          "lastLinkId": 52,
+          "lastLinkId": 53,
           "lastRerouteId": 0
         },
         "revision": 0,
@@ -1406,7 +1406,8 @@
             "name": "mask",
             "type": "MASK",
             "linkIds": [
-              32
+              32,
+              53
             ],
             "localized_name": "mask",
             "pos": [
@@ -1558,6 +1559,12 @@
                   "name": "prompt"
                 },
                 "link": 38
+              },
+              {
+                "name": "mask",
+                "shape": 7,
+                "type": "MASK",
+                "link": 53
               }
             ],
             "outputs": [
@@ -2281,6 +2288,14 @@
             "target_id": -20,
             "target_slot": 0,
             "type": "IMAGE"
+          },
+          {
+            "id": 53,
+            "origin_id": -10,
+            "origin_slot": 1,
+            "target_id": 6,
+            "target_slot": 5,
+            "type": "MASK"
           }
         ],
         "extra": {}

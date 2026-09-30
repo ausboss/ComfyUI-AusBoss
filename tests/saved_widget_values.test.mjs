@@ -168,6 +168,7 @@ const APPENDED_SINCE = {
   AUSBOSS_NODES_SelectFrame: { preview: "toggle" },
   AUSBOSS_NODES_LoraLoader: { on_missing: "combo" },
   // Sockets, which hold no saved value.
+  AUSBOSS_NODES_Krea2Encode: { mask: "socket" },
   AUSBOSS_NODES_LoadImagePad: { source_image: "socket" },
   AUSBOSS_NODES_SelectEveryNth: { fps: "socket" },
 };
