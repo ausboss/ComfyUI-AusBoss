@@ -27,10 +27,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
 - **Crop + Rotate + Pad: nothing added when there is nothing to add.** A
   picture or clip within about 1% of a ratio counts as that ratio, so a
   nearly 9:16 photo no longer gets a 1 px band. When the lit ratio is
-  already the picture's shape, the node says so under the picture ("Already
-  9:16: nothing to add. Pick another ratio or turn it."), instead of letting
-  you pay for a render that paints nothing. A lit ratio saved in a workflow
-  still applies to every new picture, and the same line says what it did.
+  already the picture's shape, the size line under the picture says so
+  ("already 9:16: pick another ratio or turn it"), instead of letting you pay
+  for a render that paints nothing. A lit ratio saved in a workflow still
+  applies to every new picture, and the size line names it where it acted
+  ("pad to 16:9 1821×1024").
 - **Crop + Rotate + Pad: the resize warning in plain words, with a fix.** It
   read "2.2% wider from steps". Now it says "2.2% wider: each side rounds to
   32 px", its tooltip names a Step that avoids it, and with Fit on pad an
@@ -51,8 +52,9 @@ All notable changes to ComfyUI-AusBoss are documented here.
   size box stays clear of the handles, and the number boxes look like the
   node's.
 - **Crop + Rotate + Pad: big nodes stay tidy.** On a wide node the controls
-  stop at 460 px, centred, and only the picture grows. Picking a new picture
-  fits the picture area to its shape, never taller than you made it.
+  stop at 460 px, centred, and only the picture grows. A wide picture picked
+  into a node sized for a tall one shrinks the picture area to fit it; the
+  node never grows for a new picture, so it never covers the node below.
 - **Clearer names on the Crop + Rotate + Pad nodes.** Align is **Round
   canvas to**, Snap is **Frames for** with LTX (8n+1), Wan (4n+1) and any,
   and Local path is **Server file**. Resize is an off | on switch like the

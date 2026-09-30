@@ -90,7 +90,7 @@ function installCss() {
     .ausboss-transform-trim-hint{flex:1 1 0;min-width:0;color:#6f8886;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .ausboss-transform-trim-hint.note{flex:0 1 auto;max-width:100%;color:#ffc46b}
     .ausboss-transform-trim-summary{flex:1 1 0;min-width:0;color:#8ca8a5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
-    .ausboss-transform-trim-reset{flex:none;height:22px;box-sizing:border-box;border:1px solid #2c4d4b;border-radius:5px;background:#1b2627;color:#cadddb;font:600 10.5px system-ui;cursor:pointer;padding:0 9px;white-space:nowrap}
+    .ausboss-transform-trim-reset{flex:none;height:18px;box-sizing:border-box;border:1px solid #2c4d4b;border-radius:4px;background:#1b2627;color:#cadddb;font:600 10px/16px system-ui;cursor:pointer;padding:0 8px;white-space:nowrap}
     .ausboss-transform-trim-reset:hover{border-color:#8fa3a1;color:#fff}
     .ausboss-transform-trim-reset:disabled{opacity:.45;cursor:not-allowed}
   `;
@@ -554,7 +554,7 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
     on.addEventListener("click", () => setLength(true));
     pill.append(off, on);
     const hint = el("span", "ausboss-transform-trim-hint");
-    const count = makeScrubInput({ value: 1, min: 1, max: 100000, step: 1, decimals: 0, unit: "fr", width: 78,
+    const count = makeScrubInput({ value: 1, min: 1, max: 100000, step: 1, decimals: 0, unit: "fr", width: 72,
       title: "Output frames from IN. Under a snap rule it steps to the counts the model keeps (97, 105, ... for 8n+1).",
       onChange: (next) => {
         const current = adoptLength(plan());
@@ -585,7 +585,7 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
       count.set(blocked ? (current.frames ?? current.requested ?? 0) : (current.requested ?? get("max_frames", 1)));
       disableControl(count, blocked, lockTip("end"));
       const fills = lengthFillsClip(info(), current, everyNth());
-      hint.textContent = blocked ? `from ${wired}` : current.mode === "fixed" ? "exact (older setting)" : fills ? "= the whole clip. Shorten it to move IN." : active ? "" : "OUT ends the clip";
+      hint.textContent = blocked ? `from ${wired}` : current.mode === "fixed" ? "exact (older setting)" : fills ? "= the whole clip. Shorten it to move IN" : active ? "" : "OUT ends the clip";
       hint.classList.toggle("note", fills && !blocked);
       hint.title = fills && !blocked ? `The Length (${current.requested ?? current.frames} frames) covers the whole clip, so IN and the clip cannot move. The bar still scrubs.` : "";
     };

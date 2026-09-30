@@ -74,8 +74,9 @@ to pad the clip to it (or crop it, with **Fit** on crop); tap the lit ratio agai
 go back to the whole frame. A lit ratio is the shape the canvas has now: drag a
 handle to another shape and it goes dark and the row says **Custom**, and a new
 clip is then no longer padded to it. A clip that already has the lit shape (within
-about 1%) gets nothing added, and the line under the picture says so ("Already 9:16:
-nothing to add. Pick another ratio or turn it."). The padlock keeps the shape while
+about 1%) gets nothing added, and the size line says so ("already 9:16: pick another
+ratio or turn it"); otherwise it names the lit ratio where it acted (`pad to 16:9
+1821×1024`). The padlock keeps the shape while
 you drag, with new bands split evenly, and the row says **Held**; Reset and tapping
 the lit ratio turn it off, and it does nothing on the untouched clip. **Fit** is
 dimmed until a ratio is lit. The orientation button turns the shape on its side

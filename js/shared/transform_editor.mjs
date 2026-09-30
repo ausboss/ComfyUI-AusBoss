@@ -118,13 +118,13 @@ function installStyles() {
     .ausboss-transform-swatch::-webkit-color-swatch-wrapper{padding:1px}.ausboss-transform-swatch::-webkit-color-swatch{border:0;border-radius:3px}
     .ausboss-transform-canvas-row input[type=checkbox]{accent-color:${BRAND};margin:0;cursor:pointer}
     .ausboss-transform-resize-row{justify-content:flex-start;gap:14px}
-    .ausboss-transform-readout{flex:0 0 auto;margin-top:-3px;color:#c9d0d6;font:11px/15px system-ui;font-variant-numeric:tabular-nums;text-align:center;overflow:hidden;max-height:62px;cursor:default;user-select:none}
+    .ausboss-transform-readout{flex:0 0 auto;margin-top:-3px;color:#c9d0d6;font:11px/14px system-ui;font-variant-numeric:tabular-nums;text-align:center;overflow:hidden;max-height:56px;cursor:default;user-select:none}
     .ausboss-transform-readout:empty{display:none}
     .ausboss-transform-readout span{color:#8ca8a5}.ausboss-transform-readout b{color:#fff;font-weight:600}
     .ausboss-transform-readout i{display:block;color:#ffc46b;font-style:normal}
-    .ausboss-transform-readout em{display:block;color:#8ca8a5;font-style:normal}
+    .ausboss-transform-readout em{color:#8ca8a5;font-style:normal}
     .ausboss-transform-readout em.note{color:#ffc46b}
-    .ausboss-transform-readout button{margin-left:6px;height:18px;padding:0 7px;border:1px solid #6b5a33;border-radius:4px;background:#2a2417;color:#ffd79a;font:600 10px system-ui;cursor:pointer;vertical-align:1px}
+    .ausboss-transform-readout button{margin:0 0 0 6px;height:14px;padding:0 6px;border:1px solid #6b5a33;border-radius:3px;background:#2a2417;color:#ffd79a;font:600 9.5px/12px system-ui;cursor:pointer;vertical-align:0}
     .ausboss-transform-readout button:hover{border-color:#ffc46b;color:#fff}
     .ausboss-transform-aspects{display:flex;gap:5px;align-items:center;flex:0 0 auto}
     .ausboss-transform-aspects>span{flex:0 0 auto;color:#8ca8a5;font-size:10px;padding:0 3px;user-select:none}
@@ -536,7 +536,7 @@ export function installTransformNode(node, kind, mountPanel = null) {
     // frame at the wrong aspect. Both kinds need it: the video panel is a
     // passive preview and has no other reason to redraw, which is exactly why
     // it was the one that came out stretched.
-    state.panelResizeObserver = new ResizeObserver(() => { noteStageHeight(state); draw(state); });
+    state.panelResizeObserver = new ResizeObserver(() => draw(state));
     state.panelResizeObserver.observe(preview);
     // The graph scales the DOM widget with its zoom, so the backing store
     // sized at one zoom turns to mush at another: redraw when it changes.
@@ -1108,7 +1108,7 @@ function syncReadout(state) {
   if (!state.image || !state.sourceWidth || !state.sourceHeight) { readout.replaceChildren(); state.readoutKey = ""; readout.title = ""; return; }
   const current = values(state.node);
   const source = rotatedSize(state.sourceWidth, state.sourceHeight, current.rotation_degrees);
-  const { tokens, warnings } = sizeChainTokens(sizeChain(current, source, resizeRequest(state.node)));
+  const { tokens, warnings } = litTokens(state, sizeChainTokens(sizeChain(current, source, resizeRequest(state.node))));
   const parts = [];
   tokens.forEach((token, index) => {
     if (index) parts.push(" → ");
@@ -1120,10 +1120,13 @@ function syncReadout(state) {
     const canvas = canvasSize(current, source);
     parts.push(createElement("span", "", ` · ${ratioLabel(canvas.width, canvas.height)}`));
   }
-  // What the lit ratio did - it re-applies to every new picture, so say it,
-  // and say plainly when there was nothing for it to do.
+  // A lit ratio that had nothing to do says so, on the same line when it
+  // fits, so the node does not grow for it.
   const note = ratioNote(state);
-  if (note) parts.push(createElement("em", note.warn ? "note" : "", note.text));
+  if (note) {
+    parts.push(createElement("span", "", " · "));
+    parts.push(createElement("em", "note", note.text));
+  }
   if (warnings.length) {
     const line = createElement("i", "", `⚠ ${warnings.join(" · ")}`);
     const fix = stretchFix(state);
@@ -1147,18 +1150,28 @@ function syncReadout(state) {
     state.readoutKey = key;
     readout.replaceChildren(...parts);
   }
-  readout.title = sizeLines(state).join("\n");
+  readout.title = [note?.tip, ...sizeLines(state)].filter(Boolean).join("\n");
 }
 
-// The line under the size chain while a ratio is lit.
+// A lit ratio re-applies to every new picture, so the size chain names it
+// where it acted: "pad to 16:9 1821×1024" (or "crop to 16:9" with Fit on
+// crop).
+function litTokens(state, chain) {
+  const request = liveRequest(state);
+  if (!request || !hasPicture(state)) return chain;
+  const step = aspectMode(state) === "pad" ? "pad" : "crop";
+  const tokens = chain.tokens.map((token) => (token.label === step ? { ...token, label: `${step} to ${request}` } : token));
+  return { ...chain, tokens };
+}
+
+// The line under the size chain when the lit ratio had nothing to do: the
+// picture already has that shape, and a render would paint nothing new.
 function ratioNote(state) {
   const request = liveRequest(state);
   if (!request || !hasPicture(state)) return null;
   const pad = aspectMode(state) === "pad";
-  if (isUntouched(values(state.node), sourceSize(state))) {
-    return { warn: true, text: `Already ${request}: nothing to ${pad ? "add" : "trim"}. Pick another ratio or turn it.` };
-  }
-  return { warn: false, text: `${pad ? "Padded" : "Cropped"} to ${request}, the lit ratio.` };
+  if (!isUntouched(values(state.node), sourceSize(state))) return null;
+  return { warn: true, text: `already ${request}: pick another ratio or turn it`, tip: `The picture is already ${request}, so there is nothing to ${pad ? "add" : "trim"} and a render would paint nothing new. Pick another ratio, or turn this one with the button at the start of the row.` };
 }
 
 // What to do about the resize stretching the picture: the step that would
@@ -1201,8 +1214,9 @@ async function onSourceChanged(state, reset) {
 
 // A new picture gets a picture area of its own shape: a wide photo swapped
 // into a node sized for a tall one no longer sits small in a tall empty
-// box. The stage never grows past the height you gave it and never drops
-// under its floor, so nodes below are never covered.
+// box. It only ever shrinks the node, and never under the stage's floor,
+// so nodes below are never covered; a taller picture keeps the height you
+// gave the node.
 function fitStageToPicture(state) {
   const stage = state.previewCanvas;
   const node = state.node;
@@ -1218,22 +1232,10 @@ function fitStageToPicture(state) {
   const unionHeight = Math.max(source.height, crop.y - padding.top + padding.outputHeight) - Math.min(0, crop.y - padding.top);
   const margin = stageHandleLayout(width, height).margin;
   const ideal = Math.round((width - margin * 2) * unionHeight / Math.max(1, unionWidth) + margin * 2);
-  const ceiling = Math.max(state.stagePreference ?? height, stageHeightForWidth(width));
-  const target = clamp(ideal, stageHeightForWidth(width), ceiling);
-  if (Math.abs(target - height) < 6) return;
-  state.stageFit = target;
+  const target = Math.max(ideal, stageHeightForWidth(width));
+  if (target > height - 6) return;
   node.setSize?.([node.size[0], node.size[1] + (target - height)]);
   node.setDirtyCanvas?.(true, true);
-}
-
-// The stage height you chose (by the corner, or the workflow's size), which
-// a new picture may fill but never exceed.
-function noteStageHeight(state) {
-  const height = state.previewCanvas?.clientHeight ?? 0;
-  if (!(height > 0)) return;
-  if (state.stageFit != null && Math.abs(height - state.stageFit) <= 3) return;
-  state.stageFit = null;
-  state.stagePreference = height;
 }
 
 // A lit chip is a standing request: the new source gets padded (or
@@ -2241,7 +2243,7 @@ function resizeRequest(node) {
 // amber line when the steps stretch the picture or the resize undoes Align.
 const READOUT_LINE = 15;
 function drawOutputSize(context, state, render) {
-  const { tokens, warnings } = sizeChainTokens(sizeChain(values(state.node), render.source, resizeRequest(state.node)));
+  const { tokens, warnings } = litTokens(state, sizeChainTokens(sizeChain(values(state.node), render.source, resizeRequest(state.node))));
   const { outputRect } = render;
   context.save();
   const viewWidth = context.canvas.clientWidth || context.canvas.width;
@@ -2269,7 +2271,7 @@ function drawOutputSize(context, state, render) {
   }
   const warningText = warnings.length ? `⚠ ${warnings.join(" · ")}` : "";
   const note = ratioNote(state);
-  const noteText = note?.text ?? "";
+  const noteText = note ? `Already ${liveRequest(state)}: nothing to ${aspectMode(state) === "pad" ? "add" : "trim"}. Pick another ratio or turn it.` : "";
   const widths = lines.map((line) => line.reduce((sum, piece) => sum + piece.width, 0));
   if (warningText) widths.push(measure(muted, warningText));
   if (noteText) widths.push(measure(muted, noteText));

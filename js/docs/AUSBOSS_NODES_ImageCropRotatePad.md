@@ -28,10 +28,10 @@ until you tap one.
   shape and the ratio goes dark; the row says **Custom** and the size line under
   the picture gives the real ratio (`1.49:1`).
 - **A picture that already has the shape gets nothing added.** Within about 1%
-  counts, so a nearly 9:16 photo gets no 1 px band. The line under the picture
-  says so ("Already 9:16: nothing to add. Pick another ratio or turn it."), and
-  while a ratio is lit it says what the ratio did. A lit ratio saved in a
-  workflow is used again on every new picture you load.
+  counts, so a nearly 9:16 photo gets no 1 px band. The size line under the
+  picture says so ("already 9:16: pick another ratio or turn it"), and while a
+  ratio is lit it names it where it acted (`pad to 16:9 2532×1424`). A lit ratio
+  saved in a workflow is used again on every new picture you load.
 - **The padlock** at the end of the row keeps the shape while you drag: pull one
   side out and the other side's padding follows, split evenly. The row says
   **Held** while it is on. On the untouched picture (the row says **Source**)
