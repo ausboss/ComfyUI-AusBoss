@@ -266,7 +266,7 @@ test("lock: the result already satisfies a second pass", () => {
 });
 
 // --- Source changes ---------------------------------------------------------
-import { SOURCE_GEOMETRY_KEYS, declaredTransformDefaults, sourceResetValues } from "../js/shared/transform_geometry.mjs";
+import { SOURCE_GEOMETRY_KEYS, declaredTransformDefaults, rememberedSource, sourceResetValues } from "../js/shared/transform_geometry.mjs";
 
 test("a source change resets geometry but never the canvas style", () => {
   const reset = sourceResetValues(true);
@@ -277,6 +277,23 @@ test("a source change resets geometry but never the canvas style", () => {
   assert.equal(reset.crop_aspect_ratio, "free");
   assert.equal(reset.frame_index, 0);
   assert.ok(!("frame_index" in sourceResetValues(false)));
+});
+
+test("a node saved blank takes a pick of the first file as a new picture", () => {
+  // Created on the combo's default, the first file in the input folder,
+  // then loaded from a workflow that saved the loader blank.
+  let remembered = rememberedSource("a_first.png", "");
+  assert.equal(sourceChanged(remembered, "a_first.png"), true);
+  assert.equal(sourceChanged(remembered, "b_other.png"), true);
+  // Saved with a file: that file is no change, any other is new.
+  remembered = rememberedSource("a_first.png", "b_saved.png");
+  assert.equal(sourceChanged(remembered, "b_saved.png"), false);
+  assert.equal(sourceChanged(remembered, "a_first.png"), true);
+  // A blank the user makes (Local path, nothing typed yet) keeps the last
+  // source, so going back to it is no change; a real pick is remembered.
+  remembered = rememberedSource("input:clip.mp4", "", true);
+  assert.equal(sourceChanged(remembered, "input:clip.mp4"), false);
+  assert.equal(rememberedSource(remembered, "local:clip.mp4", true), "local:clip.mp4");
 });
 
 test("reset returns to the node's declared defaults over the shared identity", () => {

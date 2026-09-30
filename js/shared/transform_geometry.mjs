@@ -43,6 +43,16 @@ export function sourceChanged(previousKey, nextKey, ready = true) {
   return Boolean(ready && nextKey && previousKey !== nextKey);
 }
 
+// The source a node tells the next pick apart from. Its first sync and a
+// workflow load remember what the node holds, blank included: a node saved
+// blank was created on the first file in the input folder, and picking that
+// file must still count as a new picture. Only a blank the user makes (Server
+// file before a path is typed) keeps the last source, so going back to the
+// same file is no change.
+export function rememberedSource(previousKey, nextKey, userChange = false) {
+  return userChange && !nextKey ? previousKey : nextKey;
+}
+
 export function clamp(value, minimum, maximum) {
   return Math.max(minimum, Math.min(maximum, Number(value) || 0));
 }

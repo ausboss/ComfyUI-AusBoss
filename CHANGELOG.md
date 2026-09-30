@@ -108,6 +108,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
   with it a little taller, and the LTX 2.3 Video Outpaint example is laid
   out for the new size. In Nodes 2.0 the node also stops at the width its
   buttons need instead of squeezing them.
+- **Crop + Rotate + Pad: picking the first file in the list starts fresh.**
+  In a workflow saved with no file picked, like the examples, picking the
+  first file in the list kept the rotation, crop and padding the workflow
+  was saved with, which were made for a different picture. Any other file
+  already started over. Now the first file does too, and it is padded to
+  the ratio that is lit on the node. This goes for the image node and both
+  video nodes.
 - **The red "missing file" warning clears when you pick a file.** Open a
   workflow that was saved with a picture you don't have and ComfyUI marks
   Load Image + Pad red and lists it under Setup required. Picking your own
