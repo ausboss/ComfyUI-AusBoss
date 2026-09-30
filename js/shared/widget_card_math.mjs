@@ -119,11 +119,12 @@ export function comboValues(widget) {
 }
 
 // A value the widget cannot hold: a switch holds only true or false, a
-// choice only one of its options. Other widgets are never judged (an empty
-// text field is a real value).
+// choice only one of its options, a number only a finite number. Other
+// widgets are never judged (an empty text field is a real value).
 export function holdsUnknownValue(widget) {
   if (widget?.type === "toggle") return widget.value !== true && widget.value !== false;
   if (widget?.type === "combo") return !comboValues(widget).includes(widget.value);
+  if (widget?.type === "number" || widget?.type === "slider") return !Number.isFinite(widget.value);
   return false;
 }
 

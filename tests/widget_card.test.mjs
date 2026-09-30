@@ -128,15 +128,17 @@ test("commitWidgetValue copes with a widget that has no callback and a node that
   assert.equal(widget.value, 2);
 });
 
-test("a switch holds only on or off, a choice only one of its options", () => {
+test("a switch holds only on or off, a choice only one of its options, a number only a number", () => {
   for (const value of [true, false]) assert.equal(holdsUnknownValue({ type: "toggle", value }), false);
   for (const value of ["", null, undefined, 0, "true"]) assert.equal(holdsUnknownValue({ type: "toggle", value }), true);
   const seam = (value) => ({ type: "combo", value, options: { values: ["classic", "blend in"] } });
   assert.equal(holdsUnknownValue(seam("blend in")), false);
   for (const value of ["", null, "blend"]) assert.equal(holdsUnknownValue(seam(value)), true);
+  // A number holds only a finite number: an old save's "" is not one.
+  for (const value of [0, 2.5, -3]) assert.equal(holdsUnknownValue({ type: "number", value }), false);
+  for (const value of ["", "image", null, undefined, Number.NaN, "2"]) assert.equal(holdsUnknownValue({ type: "number", value }), true);
   // Other widgets are never judged: an empty text field is a real value.
   assert.equal(holdsUnknownValue({ type: "text", value: "" }), false);
-  assert.equal(holdsUnknownValue({ type: "number", value: "" }), false);
 });
 
 // ---------- saves from before an input was appended ----------
