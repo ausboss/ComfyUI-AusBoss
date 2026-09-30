@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.5.0 - 2026-09-30
 
 - **See-through pictures now outpaint properly.** A product cutout with no
   background, a photo with see-through round corners, or a picture with a
