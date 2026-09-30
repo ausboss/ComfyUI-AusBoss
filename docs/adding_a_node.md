@@ -26,6 +26,7 @@ Every visible field and output must earn its place. Published IDs, input order, 
 6. Chain lifecycle hooks through `chainCallback`; never replace core or third-party prototypes directly.
 7. Keep normal workflow and API execution independent from the custom frontend.
 8. Ship user-facing toggles as ComfyUI settings under the `AusBoss.*` namespace. Node coloring is automatic for `AUSBOSS_NODES_*` classes via `js/appearance/` — no per-node work.
+9. A `VALIDATE_INPUTS` names only the inputs it reads, never `**kwargs`. ComfyUI skips its own range and list checks for every input a validator names (naming `input_types` also switches off its link checks), and repeats a failed check once per named input. Checks that need several values can run in the node itself. `tests/test_validate_inputs.py` pins what each validator names.
 
 ## Document and prove
 

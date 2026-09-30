@@ -107,12 +107,15 @@ class AusBossLoraLoader:
         return model, clip, collect_trigger_words(worded, str(trigger_separator))
 
     @classmethod
-    def VALIDATE_INPUTS(cls, loras, on_missing="error", **_values):
+    def VALIDATE_INPUTS(cls, loras, on_missing="error"):
         # Structural validation always. A row whose FILE is gone blocks the
         # queue unless the node was switched to 'skip': apply_lora_stack
         # resolves moved files by basename either way, so only a genuinely
         # missing file gets this far. Old graphs saved without the input get
-        # the default, which is strict.
+        # the default, which is strict. Only the two inputs read here are
+        # named: ComfyUI keeps checking the rest, and files a failure once
+        # per named input. The LoRA names live inside the loras text, so no
+        # list check ever applied to them.
         try:
             rows = parse_lora_stack(loras)
         except ValueError as exc:

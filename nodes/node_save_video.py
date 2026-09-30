@@ -261,13 +261,9 @@ class AusBossSaveVideo:
             "result": (str(output_path),),
         }
 
-    @classmethod
-    def VALIDATE_INPUTS(cls, fps=None, **_values):
-        # fps arrives as None when wired from another node; the encoder
-        # re-checks the resolved value at execution time.
-        if fps is not None and float(fps) <= 0:
-            return "Save Video: fps must be greater than zero."
-        return True
+    # No VALIDATE_INPUTS: ComfyUI's own check holds a typed fps to the
+    # widget's 0.01-240 and every other value to its range or list. A wired
+    # fps is only known at execution, where the encoder checks it again.
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_SaveVideo": AusBossSaveVideo}

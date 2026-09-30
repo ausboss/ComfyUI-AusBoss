@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import inspect
 import io
 import sys
 import tempfile
@@ -122,11 +123,18 @@ class VideoClipNodeTests(unittest.TestCase):
         self.assertAlmostEqual(out[7], 0.75)
         self.assertAlmostEqual(out[2]["waveform"].shape[-1] / out[2]["sample_rate"], 0.75, delta=0.01)
 
-    def test_linked_bounds_do_not_validate_stale_widget_window(self):
-        self.assertIs(AusBossVideoCropRotatePadClip.VALIDATE_INPUTS(
-            "", "local path", str(self.video), 9, 2, force_rate=None, input_types={"start_frame": "INT", "force_rate": "INT"}), True)
-        self.assertIsNot(AusBossVideoCropRotatePadClip.VALIDATE_INPUTS(
-            "", "local path", str(self.video), 0, 0, input_types={"start_frame": "STRING"}), True)
+    def test_validation_reads_only_the_source(self):
+        # ComfyUI files a failed check once per input VALIDATE_INPUTS names
+        # and skips its own range, list and link checks for them, so only the
+        # source is named. A stale widget window beside a linked bound can
+        # no longer block the run; the window is checked when the node runs.
+        validate = AusBossVideoCropRotatePadClip.VALIDATE_INPUTS
+        self.assertEqual(list(inspect.signature(validate).parameters), ["video", "source_mode", "local_path"])
+        self.assertIs(validate("", "local path", str(self.video)), True)
+        self.assertEqual(
+            validate("", "local path", ""),
+            "Video Crop + Rotate + Pad: Local path mode requires a video path.",
+        )
 
     def test_decode_errors_name_this_node_and_only_its_inputs(self):
         # The shared decode used to report "Load Video" and advise
@@ -175,10 +183,8 @@ class VideoClipNodeTests(unittest.TestCase):
             self.run_node(fixed_frames=FRAMES + 1)
         free = self.run_node(start_seconds=0.5, end_seconds=1, fixed_frames=0)
         self.assertEqual(free[3], 6)
-        self.assertIs(AusBossVideoCropRotatePadClip.VALIDATE_INPUTS(
-            "", "local path", str(self.video), 9, 2, fixed_frames=12), True)
-        self.assertIn("source is only", AusBossVideoCropRotatePadClip.VALIDATE_INPUTS(
-            "", "local path", str(self.video), 0, 0, fixed_frames=FRAMES + 1))
+        # A backwards free window is ignored once Fixed frames places its own.
+        self.assertEqual(self.run_node(start_seconds=9, end_seconds=2, fixed_frames=12)[3], 12)
 
     def test_padding_applies_to_every_frame_and_lands_in_the_mask(self):
         frames, mask, audio, count, fps, width, height, duration = self.run_node(pad_left=16, feather=0)[:8]
@@ -215,12 +221,9 @@ class VideoClipNodeTests(unittest.TestCase):
         padded = AusBossVideoCropRotatePadClip.IS_CHANGED(**common, **transform_defaults(pad_right=9))
         self.assertNotEqual(one, padded)
 
-    def test_validate_rejects_a_backwards_window(self):
-        message = AusBossVideoCropRotatePadClip.VALIDATE_INPUTS(
-            "", "local path", str(self.video), start_seconds=2.0, end_seconds=1.0
-        )
-        self.assertIn("start_seconds", str(message))
-        self.assertIs(AusBossVideoCropRotatePadClip.VALIDATE_INPUTS("", "local path", str(self.video), 0.0, 0.0), True)
+    def test_a_backwards_window_stops_the_node_when_it_runs(self):
+        with self.assertRaisesRegex(ValueError, "needs start_seconds smaller than end_seconds"):
+            self.run_node(start_seconds=2.0, end_seconds=1.0)
 
     def test_pad_fit_preserves_source_pixels_and_mask(self):
         original = self.run_node(feather=0)[0]
