@@ -275,7 +275,7 @@ function syncPreviewMode(state, resize) {
       // On: back to the height it had, with the last result in it.
       const before = Number(node.properties[HEIGHT_PROPERTY]);
       delete node.properties[HEIGHT_PROPERTY];
-      const height = Math.max(floor, Number.isFinite(before) ? before : 0);
+      const height = Math.max(floor, Number.isFinite(before) ? before : 0, Number(node.size?.[1]) || 0);
       node.setSize?.([node.size?.[0] ?? PANEL_MIN_WIDTH, height]);
     }
     node.setDirtyCanvas?.(true, true);

@@ -1242,6 +1242,9 @@ function refitAspect(state) {
   state.refitTo = null;
   if (aspect) fitAspect(state, aspect, aspectMode(state));
   else if (state.node.properties) delete state.node.properties.ausboss_fit_aspect;
+  // A new picture with no ratio lit is back to Source: a lock left from the
+  // old one would hold nothing.
+  settleRequest(state);
 }
 
 async function loadSource(state) {
