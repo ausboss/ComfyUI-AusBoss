@@ -15,7 +15,7 @@ import { app } from "/scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { copyToClipboard } from "../shared/clipboard.mjs";
 import { confirmDiscard } from "../shared/discard_prompt.mjs";
-import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
+import { WIDGET_FRAME, fillNodeHeight, holdNodeMinHeight } from "../shared/panel_layout.mjs";
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
 import {
   COMMON_FOLDERS,
@@ -24,6 +24,7 @@ import {
   groupModels,
   hostLabel,
   matchInstalled,
+  noteFit,
   noteIsEmpty,
   normalizeNote,
   packsFromGraph,
@@ -39,6 +40,10 @@ const CARD_MIN_HEIGHT = 160;
 const BANNER_MIN_HEIGHT = 64;
 const DEFAULT_SIZE = [520, 620];
 const FOLDER_CACHE_MS = 30000;
+// The classic canvas lays a node's first widget 2 px below its title. Only
+// used before the node has been laid out once; after that the widget's own
+// position is read.
+const PANEL_TOP = 2;
 
 // ---------------------------------------------------------------------------
 // Server lookups, cached across every note on the canvas
@@ -491,6 +496,65 @@ async function checkModels(state, fresh) {
       }
     }
   }));
+  if (generation === state.checkGeneration) fitNote(state);
+}
+
+// ---------------------------------------------------------------------------
+// Fitting the node to the card (classic canvas)
+// ---------------------------------------------------------------------------
+
+// Nodes 2.0 sizes the node to the card by itself; the classic canvas keeps
+// whatever height the workflow saved.
+function classicCanvas() {
+  return globalThis.LiteGraph?.vueNodesMode !== true;
+}
+
+// The card's natural height at a given width. For one read the card takes
+// that width and drops its 100% heights, so the content lays out at full
+// size with no scrollbar narrowing it; everything goes back before anything
+// is painted. The width is the node's, not the frame's: the frame can still
+// be a few pixels wide in the moment after it first appears.
+function naturalHeight(state, width) {
+  const { root, card } = state;
+  root.style.width = `${width}px`;
+  root.style.height = "auto";
+  card.style.height = "auto";
+  const height = parseFloat(getComputedStyle(root).height);
+  root.style.width = "";
+  root.style.height = "";
+  card.style.height = "";
+  return Number.isFinite(height) && height > 0 ? height : null;
+}
+
+// Grow the node until the card shows everything, and remember that height
+// as the node's floor. It never shrinks the node: a taller note keeps its
+// empty space until someone drags it shorter.
+function fitNote(state) {
+  if (!classicCanvas()) return;
+  const { node, root, domWidget } = state;
+  const width = node.size[0] - WIDGET_FRAME;
+  if (!(width > 0)) return;
+  let natural;
+  if (root.isConnected) natural = naturalHeight(state, width);
+  else {
+    // Not on the canvas yet - a workflow is loading. Lay the card out off
+    // screen instead.
+    const host = el("div");
+    host.style.cssText = "position:fixed;left:-100000px;top:0;visibility:hidden;pointer-events:none;";
+    host.append(root);
+    document.body.append(host);
+    natural = naturalHeight(state, width);
+    root.remove();
+    host.remove();
+  }
+  const top = Number.isFinite(domWidget.computedHeight) && Number.isFinite(domWidget.y) ? domWidget.y : PANEL_TOP;
+  const { fit, grow } = noteFit({ natural, nodeHeight: node.size[1], chrome: top + WIDGET_FRAME });
+  if (fit === null) return;
+  state.fitHeight = fit;
+  if (grow) {
+    node.setSize([node.size[0], fit]);
+    node.setDirtyCanvas?.(true, true);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -737,6 +801,7 @@ async function openEditor(state) {
     state.valueWidget.value = serializeNote(next);
     closeEditor();
     render(state);
+    fitNote(state);
     state.node.setDirtyCanvas?.(true, true);
     notifyAusbossChange();
   };
@@ -822,6 +887,12 @@ function buildPanel(node) {
     node, domWidget, valueWidget: widget, root, card, scroll, rows: [],
     note: normalizeNote(widget.value),
   });
+  // Classic canvas: a corner drag stops where the card shows everything, and
+  // the card refits whenever its box changes (first shown, or the node made
+  // wider or narrower, which rewraps the text).
+  holdNodeMinHeight(node, () => (classicCanvas() ? state.fitHeight : undefined));
+  state.resizeObserver = new ResizeObserver(() => fitNote(state));
+  state.resizeObserver.observe(root);
   render(state);
   node.setSize?.([
     Math.max(node.size?.[0] ?? 0, DEFAULT_SIZE[0]),
@@ -841,11 +912,14 @@ app.registerExtension({
     chainCallback(nodeType.prototype, "onConfigure", function () {
       // Saved widget values land after onNodeCreated: re-read them, and
       // keep the saved size rather than the default the panel asked for.
+      // The fit runs before ComfyUI snapshots the opened workflow, so
+      // growing a note that was saved short does not mark it modified.
       queueMicrotask(() => {
         const state = buildPanel(this);
         if (!state) return;
         state.note = normalizeNote(state.valueWidget.value);
         render(state);
+        fitNote(state);
       });
     });
     chainCallback(nodeType.prototype, "getExtraMenuOptions", function (_canvas, options) {
@@ -859,6 +933,7 @@ app.registerExtension({
     });
     chainCallback(nodeType.prototype, "onRemoved", function () {
       closeEditor();
+      this.__ausbossNote?.resizeObserver?.disconnect();
       this.__ausbossNote = null;
     });
   },

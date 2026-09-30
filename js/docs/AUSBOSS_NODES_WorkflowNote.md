@@ -60,6 +60,9 @@ the person who downloaded the workflow to find.
 
 ## Notes and limitations
 
+- The card grows to show all of its text, and the node can't be dragged
+  shorter than that. It never shrinks by itself, so a note you made taller
+  keeps its space.
 - The card is stored as JSON in the node's one `note` widget, so save/load,
   undo, copy/paste and the API format all carry it. A card pasted from
   another workflow arrives intact.

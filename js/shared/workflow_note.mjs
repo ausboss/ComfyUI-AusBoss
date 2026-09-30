@@ -207,6 +207,20 @@ export function packsFromGraph(nodeTypes, moduleOf) {
   return packs;
 }
 
+// How tall the node must be for the card to show all of its content, from
+// three numbers the page measures: the card's natural height at its current
+// width, the node's height, and the part of the node height the card never
+// gets (the gap above the first widget plus the widget frame). `fit` is that
+// node height. `grow` says whether the node has to get there now: Chrome
+// rounds both heights before it draws a scrollbar, so a card less than half
+// a pixel short already shows everything and keeps its size.
+export function noteFit({ natural, nodeHeight, chrome }) {
+  const values = [natural, nodeHeight, chrome].map(Number);
+  if (!values.every(Number.isFinite) || values[0] <= 0) return { fit: null, grow: false };
+  const [content, node, frame] = values;
+  return { fit: content + frame, grow: Math.round(content) > Math.round(node - frame) };
+}
+
 // ---------------------------------------------------------------------------
 // Markdown-lite. Headings, paragraphs, bullet and numbered lists, rules,
 // fenced code, and inline bold / italic / code / links. Output is data; the

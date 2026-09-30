@@ -7,6 +7,7 @@ import {
   groupModels,
   hostLabel,
   matchInstalled,
+  noteFit,
   noteIsEmpty,
   normalizeNote,
   packsFromGraph,
@@ -106,6 +107,34 @@ test("packsFromGraph lists each custom pack once and skips core modules", () => 
       { name: "rgthree-comfy", url: "", node: "Power Lora Loader (rgthree)" },
     ],
   );
+});
+
+// The numbers are the LTX 2.3 Video Outpaint note saved at 440 x 810 (card
+// natural height 794.125) and Krea 2 Inpaint Masked at 440 x 749 (727.391),
+// measured in the classic canvas, where the node is 22 px taller than its
+// card (2 px above the first widget plus the 20 px widget frame).
+test("noteFit grows a note that is short of its content to the exact fit", () => {
+  assert.deepEqual(noteFit({ natural: 794.125, nodeHeight: 810, chrome: 22 }), { fit: 816.125, grow: true });
+  // Half a pixel short is where Chrome starts drawing the scrollbar.
+  assert.equal(noteFit({ natural: 100.5, nodeHeight: 122, chrome: 22 }).grow, true);
+  // A fractional box rounds too: 100.3 draws as 100, content 100.5 as 101.
+  assert.equal(noteFit({ natural: 100.5, nodeHeight: 122.3, chrome: 22 }).grow, true);
+});
+
+test("noteFit leaves a note that already shows everything alone", () => {
+  // Saved exactly at its fit.
+  assert.deepEqual(noteFit({ natural: 794.125, nodeHeight: 816.125, chrome: 22 }), { fit: 816.125, grow: false });
+  // Less than half a pixel short: no scrollbar, so the saved size stays.
+  assert.deepEqual(noteFit({ natural: 727.391, nodeHeight: 749, chrome: 22 }), { fit: 749.391, grow: false });
+  // Taller than its content: the band stays, the node never shrinks by itself.
+  assert.deepEqual(noteFit({ natural: 794.125, nodeHeight: 1000, chrome: 22 }), { fit: 816.125, grow: false });
+});
+
+test("noteFit ignores a card it could not measure", () => {
+  for (const natural of [null, undefined, NaN, 0, -5, "tall"]) {
+    assert.deepEqual(noteFit({ natural, nodeHeight: 810, chrome: 22 }), { fit: null, grow: false });
+  }
+  assert.deepEqual(noteFit({ natural: 794.125, nodeHeight: undefined, chrome: 22 }), { fit: null, grow: false });
 });
 
 test("parseInline handles bold, italic, code and safe links", () => {
