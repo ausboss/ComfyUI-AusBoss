@@ -2,8 +2,11 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.5.1 - 2026-10-01
 
+- **Manager search finds AusBoss by its repo name.** Searching for
+  `ComfyUI-AusBoss` or `AusBoss nodes` found nothing; only `ausboss` worked.
+  The listing now uses those names too.
 - **After an update, AusBoss no longer half-loads.** After updating the pack
   in Manager, some nodes could lose their card, editor or settings until the
   page was force-reloaded, because the browser kept using old copies of some
