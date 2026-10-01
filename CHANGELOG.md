@@ -2,6 +2,15 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **After an update, AusBoss no longer half-loads.** After updating the pack
+  in Manager, some nodes could lose their card, editor or settings until the
+  page was force-reloaded, because the browser kept using old copies of some
+  files. The pack now asks the browser to check those files every time. A page
+  that is already running old files shows "AusBoss was updated" with the
+  one thing to do: press F5.
+
 ## 2.5.0 - 2026-09-30
 
 - **See-through pictures now outpaint properly.** A product cutout with no

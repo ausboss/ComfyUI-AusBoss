@@ -1,4 +1,3 @@
-import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import {
   CUSTOM_SCHEME,
@@ -12,7 +11,7 @@ import {
   titleInk,
   wearsLegacyScheme,
 } from "../shared/appearance.mjs";
-import { AUSBOSS_JS_VERSION, chainCallback, chainHandler, isAusbossNode, showToast } from "../shared/index.mjs";
+import { chainCallback, chainHandler, isAusbossNode } from "../shared/index.mjs";
 import {
   BADGE_RADIUS,
   badgeCenter,
@@ -43,21 +42,6 @@ let activeCustomTitle = normalizeHexColor(DEFAULT_CUSTOM_COLOR);
 function setActiveCustomColor(value) {
   activeCustomColor = value;
   activeCustomTitle = normalizeHexColor(value);
-}
-
-// Surface the stale-cache warning where the user actually looks. On current
-// frontends app.extensionManager is the workspace store, whose `toast` is the
-// toast (the console on frontends without one) - advice, not a feature.
-function warnStaleJs(serverVersion) {
-  showToast({
-    severity: "warn",
-    summary: "AusBoss frontend is stale",
-    detail:
-      `Installed pack is v${serverVersion} but this tab is running ` +
-      `v${AUSBOSS_JS_VERSION} JavaScript from the browser cache. Hard-refresh ` +
-      "the tab (Ctrl+Shift+R) to load the updated frontend.",
-    life: 15000,
-  });
 }
 
 function applyScheme(node, colors) {
@@ -162,19 +146,6 @@ app.registerExtension({
     const storedCustom = app.ui?.settings?.getSettingValue?.(CUSTOM_SETTING_ID);
     if (normalizeHexColor(storedCustom)) setActiveCustomColor(storedCustom);
     installTitleInk();
-    // Stale-cache probe: an updated pack served to a browser still running
-    // old cached JavaScript fails in confusing ways, so say so once. Any
-    // network or route failure stays silent — this is advice, not a feature.
-    try {
-      const response = await api.fetchApi("/ausboss/pack_version");
-      const payload = await response.json();
-      const server = payload?.version;
-      if (response.ok && server && server !== "unknown" && server !== AUSBOSS_JS_VERSION) {
-        warnStaleJs(server);
-      }
-    } catch (_error) {
-      // Old backend without the route, offline, or a non-JSON reply: silent.
-    }
   },
   getNodeMenuItems(node) {
     if (!isAusbossNode(node)) return [];
