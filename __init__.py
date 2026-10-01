@@ -102,4 +102,11 @@ def _print_banner():
     print(bar)
 
 
+try:
+    from .nodes._frontend_cache import register_frontend_cache_guard
+
+    register_frontend_cache_guard()
+except Exception:
+    traceback.print_exc()
+
 _print_banner()
