@@ -202,7 +202,7 @@ The toolbar has the stack toggle, saved templates, reconnect and settings. The t
 
 ![LoRA Loader absorbs a connected LoRA chain, shows strength changes while scrubbing, and restores the previous toggle selection.](assets/readme/lora-chain-demo.gif)
 
-Each LoRA gets an info card from the file's metadata, a `.civitai.info` file next to it, and words you save yourself. The trigger words you pick come out of the `triggers` output.
+Each LoRA gets an info card from the file's metadata, a `.civitai.info` file next to it, and words you save yourself. The card's **Fetch Civitai info** button looks the file up on Civitai (your browser asks civitai.com, only when you click) and saves the answer as that `.civitai.info` file. Files Civitai doesn't know, such as unpublished or hidden models, come back as not found. The trigger words you pick come out of the `triggers` output.
 
 When a file has moved, the node finds it by name if only one file matches. A missing LoRA that is switched on stops the run by default. Turn off **Stop on missing LoRA** to warn and skip it instead. A LoRA that changes nothing in the model gets a warning with its file name.
 

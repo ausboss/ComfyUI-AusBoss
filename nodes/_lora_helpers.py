@@ -576,6 +576,83 @@ def load_civitai_cache(name: str) -> dict[str, Any]:
         return {}
 
 
+def _hash_cache_path() -> Path | None:
+    base = _user_store_dir()
+    return None if base is None else base / "lora_hashes.json"
+
+
+def file_sha256(path: Path) -> str:
+    """SHA256 of the file, cached by (mtime, size) - LoRAs are hundreds of MB."""
+    import hashlib
+
+    stat = path.stat()
+    identity = f"{stat.st_mtime_ns}:{stat.st_size}"
+    cache_file = _hash_cache_path()
+    cache: dict[str, Any] = {}
+    if cache_file is not None and cache_file.is_file():
+        try:
+            cache = json.loads(cache_file.read_text(encoding="utf-8"))
+        except Exception:
+            cache = {}
+    entry = cache.get(str(path))
+    if isinstance(entry, dict) and entry.get("identity") == identity:
+        return str(entry.get("sha256", ""))
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    sha = digest.hexdigest()
+    if cache_file is not None:
+        cache[str(path)] = {"identity": identity, "sha256": sha}
+        try:
+            _atomic_write_json(cache_file, cache)
+        except OSError:
+            pass
+    return sha
+
+
+def lora_sha256(name: str) -> str:
+    """SHA256 of a LoRA file, for the browser's Civitai lookup."""
+    return file_sha256(resolve_lora_path(name))
+
+
+# A real answer is ~150 KB of JSON; this only stops absurd bodies.
+MAX_CIVITAI_BYTES = 1024 * 1024
+
+
+def _hashes_in(payload: dict[str, Any]) -> set[str]:
+    found: set[str] = set()
+    files = payload.get("files")
+    for entry in files if isinstance(files, list) else []:
+        hashes = entry.get("hashes") if isinstance(entry, dict) else None
+        value = hashes.get("SHA256") if isinstance(hashes, dict) else None
+        if isinstance(value, str):
+            found.add(value.strip().lower())
+    return found
+
+
+def save_civitai_sidecar(name: str, payload: Any) -> dict[str, Any]:
+    """Save Civitai's answer beside the LoRA as the standard sidecar.
+
+    The browser fetched the answer, so it is untrusted: it must be a JSON
+    object of sane size, in the standard shape, and describe a file whose
+    SHA256 is this LoRA's own. Only then is it written, to the fixed
+    <model>.civitai.info name next to the resolved LoRA file.
+    """
+    if not isinstance(payload, dict):
+        raise ValueError("Civitai response must be a JSON object.")
+    if len(json.dumps(payload)) > MAX_CIVITAI_BYTES:
+        raise ValueError("Civitai response is too large.")
+    path = resolve_lora_path(name)
+    if file_sha256(path).lower() not in _hashes_in(payload):
+        raise ValueError("That Civitai answer is for a different file.")
+    info = _normalize_civitai_info(payload)
+    if not info:
+        raise ValueError("That Civitai answer has no model information.")
+    _atomic_write_json(_civitai_sidecar_path(name), payload)
+    return info
+
+
 def lora_info(name: str) -> dict[str, Any]:
     path = resolve_lora_path(name)
     metadata = read_safetensors_metadata(path)
@@ -624,6 +701,27 @@ def register_lora_routes() -> None:
     async def ausboss_lora_info(request):
         try:
             info = await asyncio_run_in_executor(lora_info, request.query.get("name", ""))
+            return web.json_response({"ok": True, "info": info})
+        except Exception as exc:
+            return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+    @prompt_server.routes.get("/ausboss/lora/hash")
+    async def ausboss_lora_hash(request):
+        try:
+            sha = await asyncio_run_in_executor(lora_sha256, request.query.get("name", ""))
+            return web.json_response({"ok": True, "sha256": sha})
+        except Exception as exc:
+            return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+    @prompt_server.routes.post("/ausboss/lora/civitai")
+    async def ausboss_lora_civitai(request):
+        try:
+            body = await request.json()
+            if not isinstance(body, dict):
+                raise ValueError("Request body must be a JSON object.")
+            info = await asyncio_run_in_executor(
+                save_civitai_sidecar, str(body.get("name", "")), body.get("info")
+            )
             return web.json_response({"ok": True, "info": info})
         except Exception as exc:
             return web.json_response({"ok": False, "error": str(exc)}, status=400)

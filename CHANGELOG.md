@@ -2,6 +2,16 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **LoRA Loader: Fetch Civitai info is back.** Open a LoRA's info card and
+  click the button. Your browser asks civitai.com about that one file and the
+  answer is saved next to the LoRA, so its title, base model, trigger words and
+  Civitai link show up. Nothing is sent until you click, and the pack's server
+  still never contacts anyone. A file Civitai doesn't know, such as an
+  unpublished or hidden model, shows "Not found on Civitai". The gear menu has
+  a switch to hide the button.
+
 ## 2.6.0 - 2026-10-03
 
 - **The graph zooms and pans again while the pointer is over our nodes.**
