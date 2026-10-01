@@ -289,6 +289,23 @@ for path in shipped_source:
                 "makes no network requests (use linkSlots for graph links)"
             )
 
+# The browser may call fetch() in two places only: the cache guard (it asks
+# the pack's own server) and LoRA Loader's click-only Civitai lookup (a fixed
+# civitai.com address with a plain SHA256). Anything else is a new outbound
+# call and needs the same review SECURITY.md describes.
+FETCH_ALLOWED = {"js/cache_guard/index.js", "js/lora_loader/index.js"}
+for path in shipped_source:
+    if path.suffix not in (".js", ".mjs") or not path.is_file():
+        continue
+    relative = path.relative_to(ROOT).as_posix()
+    if relative in FETCH_ALLOWED:
+        continue
+    if re.search(r"(?<![\w.])fetch\(", path.read_text(encoding="utf-8")):
+        errors.append(
+            f"{relative} calls fetch(); only {sorted(FETCH_ALLOWED)} may. "
+            "Use api.fetchApi for the pack's own routes."
+        )
+
 # --- report ------------------------------------------------------------------
 print(archive_summary)
 for error in errors:

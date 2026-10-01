@@ -15,9 +15,13 @@ follows a few fixed rules.
   folder. Absolute paths, `..`, `~`, Windows drive and alternate-stream
   syntax, UNC paths and symlinks that lead outside those folders are
   refused.
-- **No network requests.** Nothing in the pack contacts a host. LoRA
-  Loader reads a `.civitai.info` sidecar that another tool left beside a
-  LoRA, but never fetches one.
+- **The server makes no network requests.** The pack's Python code never
+  contacts a host. The one exception is a button you click: LoRA Loader's
+  **Fetch Civitai info** has your browser ask civitai.com about that one
+  LoRA, by its SHA256 hash, and the answer is saved beside the LoRA as
+  `<model>.civitai.info` (inside ComfyUI's LoRA folders). The pack checks
+  that the answer describes the same file before saving it. Nothing is sent
+  until you click, and the button can be turned off in the node's settings.
 - **No code execution.** Math Expression parses its text into an
   allowlisted syntax tree of arithmetic and a few math functions; it never
   runs Python source. The pack starts no subprocesses and installs nothing
