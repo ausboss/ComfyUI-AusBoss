@@ -151,7 +151,11 @@ def unpainted_notice(share: dict | None) -> str | None:
     advice = "Try another seed, or describe the whole wider scene in the prompt. Adding less space at a time also helps"
     if share.get("video"):
         advice += ", and a dark video paints better if you brighten it first"
-    return f"The model left {amount} unpainted: it still shows the plain fill color. {advice}."
+    return (
+        f"The model left {amount} unpainted: it still shows the plain fill color. {advice}. "
+        "This check can flag intentional results. If the image looks right, "
+        "you can ignore this warning."
+    )
 
 
 __all__ = ["new_area_map", "unpainted_notice", "unpainted_share"]

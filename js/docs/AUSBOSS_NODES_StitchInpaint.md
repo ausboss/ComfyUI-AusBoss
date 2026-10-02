@@ -194,8 +194,10 @@ boundary rather than playing out to the end.
 An outpaint model sometimes leaves part of the new area alone, and the
 result shows plain bars in the fill color. Stitch Inpaint checks every
 outpaint for that. When a quarter or more of the new area still shows the
-plain fill (or half of it in any checked frame of a video), a message says
-so, and so does the console. The picture is stitched as usual either way.
+plain fill (or half of it in any checked frame of a video), a message is
+written to the console, without a popup. The picture is stitched as usual
+either way. This check can flag intentional results. If the image looks
+right, you can ignore this warning.
 
 Try another seed, or describe the whole wider scene in the prompt. Adding
 less space at a time also helps. For a video, a dark clip paints better if
