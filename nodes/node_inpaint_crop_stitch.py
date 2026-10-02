@@ -457,13 +457,12 @@ class AusBossStitchInpaint:
             raise ValueError(f"Stitch Inpaint: seam must be 'classic' or 'blend in', not {seam!r}.")
         image = apply_stitch(stitcher, inpainted, bool(fix_edge_halo), float(color_match), seam)
         result = (image, stitch_blend_mask(stitcher, image.shape[0], seam))
-        # An outpaint whose new area came back as the plain fill looks like a
-        # finished picture with bars; say so instead of handing it back quietly.
+        # Flat fill can be intentional. Keep this advisory in the console;
+        # it must not interrupt a successful render with a warning popup.
         notice = unpainted_notice(unpainted_share(stitcher, inpainted))
-        if notice is None:
-            return result
-        print(f"[AusBoss] Stitch Inpaint: {notice}")
-        return {"ui": {"ausboss_notice": [{"source": "Stitch Inpaint", "text": notice}]}, "result": result}
+        if notice is not None:
+            print(f"[AusBoss] Stitch Inpaint: {notice}")
+        return result
 
     @classmethod
     def VALIDATE_INPUTS(cls, seam=SEAM_CLASSIC):

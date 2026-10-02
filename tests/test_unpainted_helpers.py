@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+from contextlib import redirect_stdout
+from io import StringIO
 import sys
 import unittest
 
@@ -13,6 +15,7 @@ if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
 
 from nodes._inpaint_crop_helpers import build_canvas_stitcher, build_transform_stitcher
 from nodes._unpainted_helpers import unpainted_notice, unpainted_share
+from nodes.node_inpaint_crop_stitch import AusBossStitchInpaint
 
 
 FRAMES, HEIGHT, WIDTH = 5, 64, 160
@@ -54,6 +57,16 @@ class UnpaintedShareTests(unittest.TestCase):
         notice = unpainted_notice(share)
         self.assertIn("100% of the new area", notice)
         self.assertTrue(notice.isascii(), "console text must stay ASCII")
+
+    def test_node_reports_unpainted_area_only_in_console(self):
+        console = StringIO()
+        with redirect_stdout(console):
+            result = AusBossStitchInpaint().stitch(self.stitcher, self.frames.clone())
+        self.assertIsInstance(result, tuple, "advisories must not send a popup UI payload")
+        self.assertEqual(len(result), 2)
+        self.assertTrue(torch.equal(result[0], self.frames))
+        self.assertIn("100% of the new area", console.getvalue())
+        self.assertIn("If the image looks right, you can ignore this warning.", console.getvalue())
 
     def test_a_vae_round_trip_of_black_is_still_unpainted(self):
         result = self.frames.clone()
