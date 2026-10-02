@@ -2,6 +2,17 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **After an update, old files in your browser can no longer break AusBoss.**
+  In Firefox, a page could keep running files from before an update even
+  after Ctrl+Shift+R, so nodes lost their preview bar, card or editor until
+  the browser's cache was cleared. Every update now gives the pack's files
+  new addresses, so the browser always fetches the new ones. Restart ComfyUI
+  and reload the page once; there is nothing to clear. (The server adds a
+  version tag to the pack's own script imports as it serves them; the files
+  on disk are unchanged.)
+
 ## 2.5.1 - 2026-10-01
 
 - **Manager search finds AusBoss by its repo name.** Searching for
