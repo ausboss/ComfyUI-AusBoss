@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.5.2 - 2026-10-02
 
 - **After an update, old files in your browser can no longer break AusBoss.**
   In Firefox, a page could keep running files from before an update even
@@ -12,6 +12,9 @@ All notable changes to ComfyUI-AusBoss are documented here.
   and reload the page once; there is nothing to clear. (The server adds a
   version tag to the pack's own script imports as it serves them; the files
   on disk are unchanged.)
+- **Stitch Inpaint's fill-color advice stays in the console.** A flat area
+  can be intentional, so this check no longer opens a warning popup. If
+  the image looks right, you can ignore the console message.
 
 ## 2.5.1 - 2026-10-01
 
