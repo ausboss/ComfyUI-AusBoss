@@ -15,6 +15,14 @@ All notable changes to ComfyUI-AusBoss are documented here.
   17, 25 when you clicked the arrows or dragged from 1. They now go 1, 8, 16,
   24 and back down to 1. Shift still steps by 1, and a number you type stays
   as typed.
+- **The rotate knob no longer gets stuck upside down.** On the Crop + Rotate +
+  Pad nodes, a picture turned to 180° could not be turned back with the knob:
+  one way it would not move, and the other way it snapped back as soon as the
+  pointer passed straight left of the picture. Turning clockwise through 180°
+  also made the picture jump. The knob now turns all the way round, either
+  way, and past 180° carries on from -180°. (The pointer's angle flips sign
+  left of the centre; it is now followed step by step, and the rotation wraps
+  instead of stopping at the ends of the -180 to 180 range.)
 
 ## 2.5.2 - 2026-10-02
 

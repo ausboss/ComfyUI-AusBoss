@@ -602,3 +602,58 @@ test("the rounding stretch names a step that avoids it and pad mode can even it 
   // Nothing to even out without a stretch.
   assert.equal(evenOutPadding({ ...values, pad_left: 0, pad_right: 0 }, { width: 1024, height: 1024 }, { megapixels: 1, steps: 32 }), null);
 });
+
+// --- Turning the knob past upside down --------------------------------------------
+import { knobStep, wrapDegrees } from "../js/shared/transform_geometry.mjs";
+
+// The editor's knob gesture: pointer angles (degrees, as atan2 gives them)
+// followed move by move from the rotation the drag began with.
+function sweepKnob(rotation, angles) {
+  const radians = angles.map((angle) => angle * Math.PI / 180);
+  let turned = 0;
+  const seen = [];
+  for (let index = 1; index < radians.length; index += 1) {
+    turned += knobStep(radians[index - 1], radians[index]);
+    seen.push(Math.round(wrapDegrees(rotation + turned * 180 / Math.PI) * 10) / 10);
+  }
+  return seen;
+}
+// Pointer angles from `start` in 6 degree steps, wrapped the way atan2 wraps.
+const arc = (start, sweep) => Array.from({ length: Math.abs(sweep) / 6 + 1 }, (_, index) => {
+  const angle = start + Math.sign(sweep) * index * 6;
+  return ((((angle + 180) % 360) + 360) % 360) - 180;
+});
+
+test("the knob turns on past upside down, either way", () => {
+  // The recorded report: at -180 the picture could not be turned back up.
+  // Counter-clockwise it stayed at -180; clockwise it snapped back to -180
+  // once the pointer passed straight left of the centre.
+  const back = sweepKnob(-180, arc(140, -120));
+  assert.equal(back.at(-1), 60);
+  const on = sweepKnob(-180, arc(140, 120));
+  assert.equal(on.at(-1), -60);
+  // Clockwise from upright through 180 it carries on from -180, with no jump.
+  const through = sweepKnob(0, arc(-40, 240));
+  assert.equal(through.at(-1), -120);
+  for (const seen of [back, on, through]) {
+    for (let index = 1; index < seen.length; index += 1) {
+      const step = Math.abs(wrapDegrees(seen[index] - seen[index - 1]));
+      assert.ok(step <= 6.05, `a ${step} degree jump in ${seen.join(" ")}`);
+    }
+  }
+});
+
+test("a knob step is the short way round and the rotation wraps", () => {
+  const degrees = (value) => value * 180 / Math.PI;
+  const radians = (value) => value * Math.PI / 180;
+  assert.ok(Math.abs(degrees(knobStep(radians(176), radians(-178))) - 6) < 1e-9);
+  assert.ok(Math.abs(degrees(knobStep(radians(-178), radians(176))) + 6) < 1e-9);
+  assert.ok(Math.abs(degrees(knobStep(radians(10), radians(40))) - 30) < 1e-9);
+  assert.equal(wrapDegrees(181), -179);
+  assert.equal(wrapDegrees(-181), 179);
+  assert.equal(wrapDegrees(540), -180);
+  // Both ends of the range, and everything inside it, stay as typed.
+  assert.equal(wrapDegrees(180), 180);
+  assert.equal(wrapDegrees(-180), -180);
+  assert.equal(wrapDegrees(-37.5), -37.5);
+});
