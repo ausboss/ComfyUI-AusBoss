@@ -45,6 +45,11 @@ def clamp_dimension(value, fallback: int = 1024) -> int:
     return max(DIM_MIN, min(DIM_MAX, number))
 
 
+def latent_downscale(family: str) -> int:
+    """How many pixels one latent cell covers per side in this family."""
+    return LATENT_FAMILIES.get(family, LATENT_FAMILIES[DEFAULT_FAMILY])[1]
+
+
 def latent_shape(width: int, height: int, family: str, batch_size: int) -> tuple[int, int, int, int]:
     """The zeros tensor shape an Empty*Latent node would build for this size."""
     channels, down = LATENT_FAMILIES.get(family, LATENT_FAMILIES[DEFAULT_FAMILY])
@@ -62,7 +67,11 @@ def empty_latent(width: int, height: int, family: str, batch_size: int):
         dtype = getattr(model_management, "intermediate_dtype", None)
         if callable(dtype):
             kwargs["dtype"] = dtype()
-    return {"samples": torch.zeros(list(shape), **kwargs)}
+    # Core's empty-latent nodes say how far their latent is downsampled, and the
+    # sampler resizes an empty latent for a model that packs pixels differently
+    # (Qwen Image 2.1: 16x, 64 channels). Without it that picture came out twice
+    # the size set on the node.
+    return {"samples": torch.zeros(list(shape), **kwargs), "downscale_ratio_spacial": latent_downscale(family)}
 
 
 class AusBossResolution:

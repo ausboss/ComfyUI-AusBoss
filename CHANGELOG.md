@@ -41,6 +41,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   See-through parts of a PNG show the same way. A new gear on the image
   source box turns the teal off. In the editor, Show blend now includes the
   painted parts.
+- **Latent Size gives Qwen Image 2.1 the size you set.** With its latent
+  wired straight into the sampler, a Qwen Image 2.1 picture came out twice as
+  wide and twice as tall as the size on the node. It now comes out at the
+  size shown, and other models are unchanged. (The latent now says how far it
+  is downsampled, like ComfyUI's own empty-latent nodes, so ComfyUI can fit
+  it to a model that packs pixels differently.)
 
 ## 2.5.2 - 2026-10-02
 

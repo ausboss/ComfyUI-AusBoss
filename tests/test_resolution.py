@@ -13,6 +13,7 @@ from nodes.node_resolution import (
     DIM_MIN,
     LATENT_FAMILIES,
     clamp_dimension,
+    latent_downscale,
     latent_shape,
 )
 
@@ -59,6 +60,15 @@ class TestResolve(unittest.TestCase):
         samples = latent["samples"]
         shape = tuple(samples.shape) if samples is not None else latent["shape"]
         self.assertEqual(shape, (1, 16, 135, 240))
+
+    def test_the_latent_says_how_far_it_is_downsampled(self):
+        # Core's empty-latent nodes carry this, and the sampler uses it to resize an
+        # empty latent for a model with another ratio (Qwen Image 2.1 is 16x).
+        fake_torch = SimpleNamespace(zeros=lambda shape, **kwargs: SimpleNamespace(shape=tuple(shape)))
+        with patch("nodes.node_resolution.torch", fake_torch), patch("nodes.node_resolution.model_management", None):
+            ratios = [ResolutionNode().resolve(1024, 1024, family)[2]["downscale_ratio_spacial"] for family in LATENT_FAMILIES]
+        self.assertEqual(ratios, [8, 8, 16])
+        self.assertEqual(latent_downscale("nope"), 8)
 
     def test_outputs_are_width_height_latent(self):
         self.assertEqual(ResolutionNode.RETURN_NAMES, ("width", "height", "latent"))
