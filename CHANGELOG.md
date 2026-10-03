@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.6.0 - 2026-10-03
 
 - **Round canvas to is now Divisible by, and says what it is for.** On Image
   Crop + Rotate + Pad and both Video Crop + Rotate + Pad nodes, it adds a few
