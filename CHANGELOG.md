@@ -4,6 +4,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## 2.6.0 - 2026-10-03
 
+- **The graph zooms and pans again while the pointer is over our nodes.**
+  The mouse wheel did nothing over Compare, the Crop + Rotate + Pad previews,
+  the video viewers, or any button or number box on a card, and the Ctrl +
+  Shift drag-zoom and the middle-button pan did not start there either. They
+  now work everywhere on a node, as they do on the empty canvas. A list or
+  text box that can still scroll keeps the wheel until it reaches its end.
 - **Round canvas to is now Divisible by, and says what it is for.** On Image
   Crop + Rotate + Pad and both Video Crop + Rotate + Pad nodes, it adds a few
   pixels of fill on the right and bottom so the width and height divide
