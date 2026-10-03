@@ -37,13 +37,18 @@ export function graphDragStarts(event, { dragZoomEnabled }) {
   return Boolean(dragZoomEnabled && event.ctrlKey && event.shiftKey && !event.altKey && event.buttons);
 }
 
-// The frontend wraps every DOM widget in a .dom-widget, and the pack's
-// panels all carry an "ausboss-" class on their root. Returns that root, or
-// null for anything that is not one of ours (core's own text boxes forward
-// the wheel themselves).
+// Where one of the pack's panels sits: the frontend wraps every classic DOM
+// widget in a .dom-widget, and in Nodes 2.0 (Vue nodes) a panel sits inside the
+// node's .lg-node-widgets. The pack's panels all carry an "ausboss-" class on
+// their root. Returns that root (the outermost "ausboss-" element under the
+// wrapper), or null for anything that is not one of ours (core's own text
+// boxes forward the wheel themselves).
 export function panelRoot(target) {
-  const widget = target?.closest?.(".dom-widget");
-  const root = widget?.firstElementChild;
-  if (!root || !String(root.className).includes("ausboss-") || !root.contains(target)) return null;
+  const host = target?.closest?.(".dom-widget, .lg-node-widgets");
+  if (!host) return null;
+  let root = null;
+  for (let element = target; element && element !== host; element = element.parentElement) {
+    if (String(element.className).includes("ausboss-")) root = element;
+  }
   return root;
 }

@@ -38,12 +38,20 @@ test("middle button and Ctrl+Shift drag go to the graph; ordinary clicks do not"
   assert.equal(graphDragStarts({ button: 0, buttons: 1, ctrlKey: true }, on), false);
 });
 
-test("only the pack's own panels count", () => {
-  const root = { className: "ausboss-compare-root h-full", contains: (el) => el === inner || el === root };
-  const inner = { closest: (sel) => (sel === ".dom-widget" ? { firstElementChild: root } : null) };
-  assert.equal(panelRoot(inner), root);
-  const foreign = { className: "comfy-multiline-input", contains: () => true };
-  assert.equal(panelRoot({ closest: () => ({ firstElementChild: foreign }) }), null, "core widget");
-  assert.equal(panelRoot({ closest: () => null }), null, "not in a DOM widget");
+test("only the pack's own panels count, in both node renderers", () => {
+  const chain = (host, ...classes) => {
+    let parent = host;
+    return classes.map((className) => (parent = { className, parentElement: parent, closest: (sel) => (sel === ".dom-widget, .lg-node-widgets" ? host : null) }));
+  };
+  const widgetHost = { className: "dom-widget", parentElement: null };
+  const [root, inner] = chain(widgetHost, "ausboss-compare-root h-full", "ausboss-compare-stage");
+  assert.equal(panelRoot(inner), root, "classic node: the outermost ausboss- element");
+  const vueHost = { className: "lg-node-widgets grid", parentElement: null };
+  const [wrap, vueRoot, vueInner] = chain(vueHost, "flex flex-col", "ausboss-card", "ausboss-card-row");
+  assert.equal(panelRoot(vueInner), vueRoot, "Nodes 2.0: past the frontend's own wrapper");
+  assert.equal(wrap.className, "flex flex-col");
+  const [foreign] = chain(widgetHost, "comfy-multiline-input");
+  assert.equal(panelRoot(foreign), null, "core widget");
+  assert.equal(panelRoot({ closest: () => null }), null, "not in a widget area");
   assert.equal(panelRoot(null), null);
 });
