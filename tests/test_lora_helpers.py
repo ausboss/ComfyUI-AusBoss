@@ -167,6 +167,62 @@ class LoraCivitaiSidecarTests(unittest.TestCase):
         )
         self.assertFalse(_lora_helpers.lora_info("Krea 2/candid.safetensors")["has_civitai"])
 
+    def _civitai_answer(self, sha=None, **extra):
+        import hashlib
+
+        sha = sha or hashlib.sha256(self.lora.read_bytes()).hexdigest().upper()
+        return {
+            "id": 456,
+            "modelId": 123,
+            "baseModel": "Krea 2",
+            "trainedWords": ["candid style"],
+            "model": {"name": "Candid Slider"},
+            "files": [{"name": "candid.safetensors", "hashes": {"SHA256": sha}}],
+            **extra,
+        }
+
+    def test_hash_route_gives_the_files_sha256(self):
+        import hashlib
+
+        expected = hashlib.sha256(self.lora.read_bytes()).hexdigest()
+        self.assertEqual(_lora_helpers.lora_sha256("Krea 2/candid.safetensors"), expected)
+        # Second call is served from the (mtime, size) cache in the user folder.
+        self.assertEqual(_lora_helpers.lora_sha256("Krea 2/candid.safetensors"), expected)
+        self.assertTrue((self.user_root / "ausboss" / "lora_hashes.json").is_file())
+
+    def test_saves_an_answer_that_describes_this_file(self):
+        info = _lora_helpers.save_civitai_sidecar("Krea 2/candid.safetensors", self._civitai_answer())
+
+        self.assertEqual(info["title"], "Candid Slider")
+        sidecar = self.lora.with_suffix(".civitai.info")
+        self.assertEqual(json.loads(sidecar.read_text(encoding="utf-8"))["modelId"], 123)
+        self.assertTrue(_lora_helpers.lora_info("Krea 2/candid.safetensors")["has_civitai"])
+        self.assertEqual(list(self.lora.parent.glob("*.tmp*")), [])
+
+    def test_refuses_an_answer_for_a_different_file(self):
+        with self.assertRaises(ValueError):
+            _lora_helpers.save_civitai_sidecar(
+                "Krea 2/candid.safetensors", self._civitai_answer(sha="0" * 64)
+            )
+        self.assertFalse(self.lora.with_suffix(".civitai.info").exists())
+
+    def test_refuses_answers_in_the_wrong_shape_or_size(self):
+        for bad in ([1], "text", None, {}, {"files": "x"}):
+            with self.assertRaises(ValueError):
+                _lora_helpers.save_civitai_sidecar("Krea 2/candid.safetensors", bad)
+        huge = self._civitai_answer(padding="x" * (_lora_helpers.MAX_CIVITAI_BYTES + 1))
+        with self.assertRaises(ValueError):
+            _lora_helpers.save_civitai_sidecar("Krea 2/candid.safetensors", huge)
+        self.assertFalse(self.lora.with_suffix(".civitai.info").exists())
+
+    def test_cannot_write_outside_the_lora_folders(self):
+        outside = Path(self._tmp.name) / "secret.safetensors"
+        outside.write_bytes(b"x")
+        for name in ("../../secret.safetensors", str(outside), "Krea 2/missing.safetensors"):
+            with self.assertRaises(Exception):
+                _lora_helpers.save_civitai_sidecar(name, self._civitai_answer())
+        self.assertFalse(outside.with_suffix(".civitai.info").exists())
+
 
 
 
