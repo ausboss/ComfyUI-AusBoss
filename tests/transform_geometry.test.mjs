@@ -657,3 +657,166 @@ test("a knob step is the short way round and the rotation wraps", () => {
   assert.equal(wrapDegrees(-180), -180);
   assert.equal(wrapDegrees(-37.5), -37.5);
 });
+
+// --- Corner handles and centring --------------------------------------------------
+import {
+  MAX_PADDING,
+  axisBands,
+  canvasCornerCenters,
+  centredPadding,
+  cornerScale,
+  knobAt,
+  knobOffset,
+  paddingRingGaps,
+  scaleCanvasPadding,
+} from "../js/shared/transform_geometry.mjs";
+
+test("corner handles ring the canvas as far out as the side diamonds", () => {
+  const rect = { x: 100, y: 50, width: 300, height: 200 };
+  const corners = canvasCornerCenters(rect, 20);
+  assert.deepEqual(corners.map(({ corner, x, y }) => [corner, x, y]), [
+    ["nw", 80, 30], ["ne", 420, 30], ["se", 420, 270], ["sw", 80, 270],
+  ]);
+  // On the line of the top and right diamonds, and clear of the crop squares
+  // on the picture's own corners when the canvas has no padding.
+  const [top, right] = paddingHandleCenters(rect, 20);
+  assert.equal(corners[1].y, top.y);
+  assert.equal(corners[1].x, right.x);
+  for (const [corner, square] of corners.map((handle, index) => [handle, cropHandleCenters(rect)[index * 2]])) {
+    assert.ok(Math.abs(Math.hypot(corner.x - square.x, corner.y - square.y) - 20 * Math.SQRT2) < 1e-9);
+  }
+  // The gaps sit halfway between each corner handle and its neighbouring diamond.
+  assert.deepEqual(paddingRingGaps(rect, 20)[1], { x: 335, y: 30 });
+});
+
+test("a corner drag follows the pointer along the canvas diagonal", () => {
+  // Straight out along the diagonal by its own length doubles the canvas.
+  assert.equal(cornerScale("se", 1600, 900, 1600, 900), 2);
+  assert.equal(cornerScale("nw", -1600, -900, 1600, 900), 2);
+  // Across the diagonal does nothing.
+  assert.ok(Math.abs(cornerScale("se", 900, -1600, 1600, 900) - 1) < 1e-12);
+  // About the centre the grabbed corner is half as far from what holds
+  // still, so the same move scales twice as much.
+  assert.equal(cornerScale("ne", 160, -90, 1600, 900, true), 1.2);
+  assert.equal(cornerScale("ne", 160, -90, 1600, 900), 1.1);
+});
+
+test("a corner keeps the canvas shape and holds the opposite corner", () => {
+  const crop = { width: 832, height: 468 };
+  const start = { pad_left: 0, pad_top: 0, pad_right: 0, pad_bottom: 0 };
+  const pads = scaleCanvasPadding(start, crop, "se", 1.25);
+  assert.deepEqual(pads, { pad_left: 0, pad_top: 0, pad_right: 208, pad_bottom: 117 });
+  const canvas = canvasOf(pads, crop);
+  assert.equal(aspectMatches(canvas.width, canvas.height, "832:468"), true);
+  // The top-left corner only moves its own two sides.
+  const nw = scaleCanvasPadding({ pad_left: 10, pad_top: 20, pad_right: 30, pad_bottom: 40 }, crop, "nw", 1.5);
+  assert.equal(nw.pad_right, 30);
+  assert.equal(nw.pad_bottom, 40);
+  assert.ok(nw.pad_left > 10 && nw.pad_top > 20);
+  // Not moving changes nothing, whatever the rounding.
+  const odd = { pad_left: 3, pad_top: 7, pad_right: 11, pad_bottom: 2 };
+  for (const corner of ["nw", "ne", "se", "sw"]) {
+    assert.deepEqual(scaleCanvasPadding(odd, { width: 1001, height: 563 }, corner, 1), odd);
+    assert.deepEqual(scaleCanvasPadding(odd, { width: 1001, height: 563 }, corner, 1, { centre: true }), odd);
+  }
+});
+
+test("a corner stops where its sides run out of padding", () => {
+  const crop = { width: 1280, height: 720 };
+  // The untouched picture has nothing to shrink.
+  assert.deepEqual(scaleCanvasPadding({}, crop, "ne", 0.5), { pad_left: 0, pad_top: 0, pad_right: 0, pad_bottom: 0 });
+  // Pulled far inward, the grabbed corner's sides stop at zero; the side
+  // with the least room sets the stop, so the shape still holds.
+  const start = { pad_left: 50, pad_top: 100, pad_right: 400, pad_bottom: 180 };
+  const pads = scaleCanvasPadding(start, crop, "se", 0.1);
+  assert.equal(pads.pad_left, 50);
+  assert.equal(pads.pad_top, 100);
+  assert.equal(Math.min(pads.pad_right, pads.pad_bottom), 0);
+  // Every side stays inside the backend's limit.
+  const huge = scaleCanvasPadding({}, crop, "se", 1000);
+  assert.ok(huge.pad_right <= MAX_PADDING && huge.pad_bottom <= MAX_PADDING);
+});
+
+test("Alt scales about the centre: all four sides, the middle holds", () => {
+  const crop = { width: 832, height: 1216 };
+  const start = { pad_left: 100, pad_top: 0, pad_right: 100, pad_bottom: 0 };
+  const pads = scaleCanvasPadding(start, crop, "sw", 1.2, { centre: true });
+  const before = canvasOf(start, crop);
+  const after = canvasOf(pads, crop);
+  assert.ok(Math.abs(after.width / after.height - before.width / before.height) < 0.002);
+  // The picture keeps its place in the middle.
+  assert.ok(Math.abs(pads.pad_left - pads.pad_right) <= 1);
+  assert.ok(Math.abs(pads.pad_top - pads.pad_bottom) <= 1);
+  // Shrinking an off-centre picture: the side that runs out first passes
+  // the rest of the shrink to the side across from it.
+  const off = { pad_left: 0, pad_top: 50, pad_right: 300, pad_bottom: 50 };
+  const shrunk = scaleCanvasPadding(off, { width: 1000, height: 1000 }, "ne", 0.9, { centre: true });
+  assert.equal(shrunk.pad_left, 0);
+  assert.ok(shrunk.pad_right < 300 && shrunk.pad_right > 0);
+});
+
+test("centre evens out the padding and keeps the canvas size", () => {
+  const crop = { x: 0, y: 0, width: 832, height: 468 };
+  const values = { pad_left: 0, pad_top: 10, pad_right: 147, pad_bottom: 73, canvas_multiple: 1 };
+  assert.deepEqual(centredPadding(values, crop, "x"), { pad_left: 73, pad_right: 74 });
+  assert.deepEqual(centredPadding(values, crop, "y"), { pad_top: 41, pad_bottom: 42 });
+  // Already in the middle, or nothing to move: nothing to do.
+  assert.equal(centredPadding({ pad_left: 73, pad_right: 74 }, crop, "x"), null);
+  assert.equal(centredPadding({}, crop, "y"), null);
+  // Round canvas to adds its strip on the right: the bands you see come out
+  // even, and the canvas the ratio buttons measure keeps its size.
+  const rounded = { pad_left: 807, pad_right: 982, pad_top: 0, pad_bottom: 0, canvas_multiple: 64 };
+  const centred = { ...rounded, ...centredPadding(rounded, { x: 0, y: 0, width: 832, height: 1216 }, "x") };
+  assert.equal(centred.pad_left + centred.pad_right, 807 + 982);
+  const bands = axisBands(centred, { x: 0, y: 0, width: 832, height: 1216 }, "x");
+  assert.ok(Math.abs(bands.near - bands.far) <= 1, JSON.stringify(bands));
+});
+
+// The corner handles and the knob on the smallest node face, laid out the
+// way the stage draws an untouched picture, each have room to be aimed at:
+// the nearest other handle is at least 24 px away. (The side diamonds keep
+// their own long-standing distance from the crop squares.)
+function faceHandles(source, stage = { width: 292, height: 205 }) {
+  const layout = stageHandleLayout(stage.width, stage.height);
+  const fit = Math.min((stage.width - layout.margin * 2) / source.width, (stage.height - layout.margin * 2) / source.height);
+  const rect = {
+    x: (stage.width - source.width * fit) / 2, y: (stage.height - source.height * fit) / 2,
+    width: source.width * fit, height: source.height * fit,
+  };
+  const corner = { x: rect.x + rect.width, y: rect.y };
+  const center = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+  const handles = [
+    ...cropHandleCenters(rect).map((point) => ({ ...point, kind: "crop" })),
+    ...paddingHandleCenters(rect, layout.padOffset).map((point) => ({ ...point, kind: "padding" })),
+    ...canvasCornerCenters(rect, layout.padOffset).map((point) => ({ ...point, kind: "corner" })),
+  ];
+  const obstacles = handles.map((point) => ({ ...point, clearance: point.kind === "crop" ? KNOB_CLEARANCE.crop : KNOB_CLEARANCE.padding }));
+  const knob = placeKnob(corner, center, layout.rotateArm, obstacles, { x: 0, y: 0, ...stage }, paddingRingGaps(rect, layout.padOffset));
+  return [...handles, { name: "rotation", kind: "rotation", ...knob }];
+}
+
+test("on the smallest face the corner handles and the knob have room to be aimed at", () => {
+  for (const source of [{ width: 1280, height: 720 }, { width: 832, height: 1216 }, { width: 1000, height: 1000 }, { width: 2100, height: 900 }]) {
+    const handles = faceHandles(source);
+    for (const handle of handles.filter((item) => item.kind === "corner" || item.kind === "rotation")) {
+      const nearest = Math.min(...handles.filter((other) => other !== handle).map((other) => Math.hypot(other.x - handle.x, other.y - handle.y)));
+      assert.ok(nearest >= 24, `${source.width}x${source.height} ${handle.kind} ${handle.name}: ${nearest.toFixed(1)} px`);
+    }
+    // The knob kept clear of the corner handle that took its usual spot.
+    const knob = handles.at(-1);
+    const ne = handles.find((handle) => handle.name === "corner_ne");
+    assert.ok(Math.hypot(knob.x - ne.x, knob.y - ne.y) >= KNOB_CLEARANCE.padding);
+  }
+});
+
+test("the knob keeps its spot on its arm while it turns", () => {
+  const corner = { x: 200, y: 40 };
+  const center = { x: 100, y: 100 };
+  const knob = { x: 214, y: 80 };
+  const offset = knobOffset(corner, center, knob);
+  const back = knobAt(corner, center, offset);
+  assert.ok(Math.abs(back.x - knob.x) < 1e-9 && Math.abs(back.y - knob.y) < 1e-9);
+  // Turned a quarter about the centre, the knob turns with the corner.
+  const turned = knobAt({ x: 160, y: 200 }, center, offset);
+  assert.ok(Math.abs(turned.x - 120) < 1e-9 && Math.abs(turned.y - 214) < 1e-9, JSON.stringify(turned));
+});

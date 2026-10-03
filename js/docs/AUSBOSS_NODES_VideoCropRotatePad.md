@@ -32,7 +32,11 @@ The editor has the same rail full width, plus first/last, ±1, ±25, ±50, ±100
 
 Rotation, crop, padding, feathering, fill, canvas multiple, the megapixel resize, gestures, `image`, and `mask` match the image node. The output batch contains one frame.
 
-The handles work on both the node and the editor. The ratio buttons, **Fit**,
+The handles work on both the node and the editor. Drag an orange corner to make
+the canvas bigger or smaller in its own shape (hold **Alt**, Option on a Mac, to
+change all four sides at once), and press **Centre** next to Fill and Feather to
+put the frame in the middle, side to side or top to bottom. Both work as on the
+image node. The ratio buttons, **Fit**,
 the padlock and the orientation button work as on the image node: a tap pads (or,
 with Fit on crop, crops) the frame to a ratio, a lit ratio is the shape the canvas
 has now, and the padlock keeps that shape while you drag (the row says **Held**).

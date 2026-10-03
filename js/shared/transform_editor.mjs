@@ -21,15 +21,21 @@ import {
 } from "./video_source_card.mjs";
 import {
   aspectMatches,
+  axisBands,
+  canvasCornerCenters,
   canvasLocalPoint,
   canvasSize,
+  centredPadding,
   clamp,
+  cornerScale,
   cropForRotation,
   declaredTransformDefaults,
   fitSourceToAspect,
   cropHandleCenters,
   isUntouched,
   evenOutPadding,
+  knobAt,
+  knobOffset,
   knobStep,
   lockPadding,
   lockedPadMinimum,
@@ -40,6 +46,7 @@ import {
   paddingAxis,
   KNOB_CLEARANCE,
   paddingHandleCenters,
+  paddingRingGaps,
   parseAspectRatio,
   placeKnob,
   ratioLabel,
@@ -49,6 +56,7 @@ import {
   resolveCrop,
   resolvePadding,
   rotatedSize,
+  scaleCanvasPadding,
   scaleToMegapixels,
   sizeChain,
   sizeChainTokens,
@@ -113,9 +121,10 @@ function installStyles() {
     .ausboss-transform-source-hint{overflow:hidden;color:#6f8886;font-size:10.5px;line-height:1.25;white-space:nowrap;text-overflow:ellipsis}
     .lg-node:has(.ausboss-transform-panel) .image-preview{display:none!important}
     .ausboss-transform-row{display:flex;gap:7px;align-items:center;flex:0 0 auto}.ausboss-transform-row>*{min-width:0;flex:1}
-    .ausboss-transform-canvas-row{justify-content:space-between}
+    .ausboss-transform-canvas-row{justify-content:space-between;flex-wrap:wrap;row-gap:6px}
     .ausboss-transform-canvas-row>label{flex:0 0 auto;display:flex;align-items:center;gap:6px;color:#aeb4ba;font-size:11px;white-space:nowrap;cursor:default;user-select:none}
     .ausboss-transform-canvas-row>label>span{color:#8ca8a5;font-size:11px}
+    .ausboss-transform-canvas-row>.ausboss-transform-centre-label{flex:0 0 auto;display:flex;align-items:center;gap:6px;color:#8ca8a5;font-size:11px;white-space:nowrap;cursor:default;user-select:none}
     .ausboss-transform-swatch{width:30px;height:22px;padding:1px;border:1px solid #555b63;border-radius:5px;background:#23272c;cursor:pointer}
     .ausboss-transform-swatch::-webkit-color-swatch-wrapper{padding:1px}.ausboss-transform-swatch::-webkit-color-swatch{border:0;border-radius:3px}
     .ausboss-transform-canvas-row input[type=checkbox]{accent-color:${BRAND};margin:0;cursor:pointer}
@@ -143,6 +152,12 @@ function installStyles() {
     .ausboss-transform-aspect-hold.idle{opacity:.4;cursor:default}
     .ausboss-transform-aspect-hold.idle:hover{border-color:#4a5058;color:#8d9aa2}
     .ausboss-transform-aspect-lock{display:inline-block;line-height:0}
+    .ausboss-transform-centre{display:inline-flex;gap:4px;flex:0 0 auto;align-items:center}
+    .ausboss-transform-centre>.ausboss-transform-centre-button{flex:0 0 28px;width:28px;height:24px;padding:0;display:flex;align-items:center;justify-content:center;color:#cfd6dc}
+    .ausboss-transform-centre>.ausboss-transform-centre-button.idle{opacity:.4;cursor:default}
+    .ausboss-transform-centre>.ausboss-transform-centre-button.idle:hover{border-color:#4a5058;color:#cfd6dc}
+    .ausboss-transform-centre-glyph{display:inline-block;line-height:0}
+    .ausboss-transform-section .ausboss-transform-centre-row{display:grid;grid-template-columns:108px minmax(0,1fr);gap:7px;align-items:center;margin:7px 0}
     .ausboss-transform-fit-label{display:flex;align-items:center;gap:6px;color:#aeb4ba;font-size:11px;cursor:default;user-select:none}
     .ausboss-transform-fit{display:grid;grid-template-columns:1fr 1fr;flex:1 1 auto;height:26px;padding:2px;border:1px solid #2a3437;border-radius:6px;background:#0f1516;box-sizing:border-box}
     .ausboss-transform-fit button{border:0;border-radius:4px;background:transparent;color:#8ba3a1;font:600 11px system-ui;cursor:pointer}
@@ -798,7 +813,7 @@ function buildAspectChipRow(state) {
       ? `Shape held${request ? ` at ${request}` : ""}: dragging a handle keeps this shape, and the padding on the other side follows, split evenly. Tap to drag freely.`
       : idle
         ? "Nothing to hold yet: pick a ratio, or change the shape, then lock it here."
-        : "Drag freely. Tap to hold this shape while you drag a handle.";
+        : "The diamonds and crop squares drag freely; the orange corners always keep the shape. Tap to hold this shape whatever you drag.";
     hold.setAttribute("aria-label", held ? "Shape held" : "Hold the shape");
   };
   sync();
@@ -876,6 +891,71 @@ function buildAspectModeRow(state, { alignment: withAlignment = true } = {}) {
   };
   sync();
   return { row, sync };
+}
+
+// --- Centring the picture ----------------------------------------------------
+// Two small buttons put the picture in the middle of the canvas, side to side
+// and top to bottom. They only move padding from one side to the other
+// (centredPadding), so the canvas keeps its size and a lit ratio stays lit.
+// The node face and the editor's Padding section each get a pair.
+const CENTRE_AXES = [
+  ["x", "Centre side to side", "left and right", "right"],
+  ["y", "Centre top to bottom", "top and bottom", "bottom"],
+];
+
+function centrePicture(state, axis) {
+  if (!hasPicture(state)) return;
+  const current = values(state.node);
+  const pads = centredPadding(current, resolveCrop(current, sourceSize(state)), axis);
+  if (!pads) return;
+  for (const [name, next] of Object.entries(pads)) setValue(state.node, name, next);
+  settleRequest(state); draw(state); updateModalInfo(state); notifyAusbossChange();
+}
+
+// What a centre button would do now, for its look and its tooltip.
+function centreStatus(state, axis) {
+  const [, action, sides, stripSide] = CENTRE_AXES.find(([name]) => name === axis);
+  const plain = `${action}: moves padding so the ${sides} bands are even. The canvas keeps its size.`;
+  if (!hasPicture(state)) return { ready: false, title: plain };
+  const current = values(state.node);
+  const crop = resolveCrop(current, sourceSize(state));
+  if (centredPadding(current, crop, axis)) return { ready: true, title: plain };
+  const bands = axisBands(current, crop, axis);
+  if (!bands.near && !bands.far) return { ready: false, title: `No padding on the ${sides} to move. ${plain}` };
+  if (Math.abs(bands.near - bands.far) <= 1) return { ready: false, title: `The picture is already in the middle. ${plain}` };
+  return { ready: false, title: `As close to the middle as this padding allows: Divisible by adds its fill on the ${stripSide}. ${plain}` };
+}
+
+function buildCentreButtons(state) {
+  const root = createElement("span", "ausboss-transform-centre");
+  const buttons = CENTRE_AXES.map(([axis, action]) => {
+    const button = createElement("button", "ausboss-transform-aspect ausboss-transform-centre-button");
+    button.type = "button";
+    button.setAttribute("aria-label", action);
+    button.append(centreGlyph(axis));
+    button.addEventListener("click", () => centrePicture(state, axis));
+    root.append(button);
+    return { axis, button };
+  });
+  const sync = () => {
+    for (const { axis, button } of buttons) {
+      const { ready, title } = centreStatus(state, axis);
+      button.title = title;
+      button.classList.toggle("idle", !ready);
+      button.setAttribute("aria-disabled", String(!ready));
+    }
+  };
+  sync();
+  return { root, sync };
+}
+
+// Two arrows pushing a block into the middle: across for side to side, up
+// and down for top to bottom.
+function centreGlyph(axis) {
+  const glyph = createElement("span", "ausboss-transform-centre-glyph");
+  const turn = axis === "y" ? ' transform="rotate(90 8 8)"' : "";
+  glyph.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><g${turn} fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8h3.6M2.8 5.8 4.9 8l-2.1 2.2M15 8h-3.6M13.2 5.8 11.1 8l2.1 2.2"/><rect x="6.4" y="4.6" width="3.2" height="6.8" rx=".6" fill="currentColor" stroke="none"/></g></svg>`;
+  return glyph;
 }
 
 // A padlock drawn by hand: shackle arc over a filled body.
@@ -1065,10 +1145,17 @@ function buildCanvasRow(state) {
   resizeRow.append(budgetLabel, stepLabel);
   const hasResize = Boolean(widget(node, "resize_to_megapixels"));
   if (hasResize) row.append(resizeLabel);
+  // The centre pair ends the row, and drops under it on a narrow node. A
+  // span, not a label: a label passes a click on its text to the first button.
+  const centre = buildCentreButtons(state);
+  const centreLabel = createElement("span", "ausboss-transform-centre-label");
+  centreLabel.append(createElement("span", "", "Centre"), centre.root);
+  row.append(centreLabel);
   const sync = () => {
     fill.value = normalizeColor(value(node, "fill_color", "#808080"));
     fill.title = `${fill.title.split(" Now ")[0]} Now ${fill.value}.`;
     feather.set(value(node, "feather", 0));
+    centre.sync();
     resize.sync();
     budget.set(value(node, "megapixels", 1));
     steps.set(value(node, "resolution_steps", 1));
@@ -1450,7 +1537,7 @@ function openEditor(state) {
   state.modal = modal; state.canvas = canvas; state.openSnapshot = editorSnapshot(state.node);
   buildControls(state, left);
   const status = createElement("div", "ausboss-transform-status"); status.dataset.ausbossStatus = ""; right.append(status);
-  right.append(createElement("div", "ausboss-transform-help", "Drag cyan squares to crop. Drag inside the crop to move it. Orange diamonds add padding. The rotate knob at the top-right corner rotates; hold Shift to snap to 15 degrees. Wheel zooms. Middle mouse or Alt-drag pans."));
+  right.append(createElement("div", "ausboss-transform-help", "Drag cyan squares to crop. Drag inside the crop to move it. Orange diamonds add padding on one side. Orange corners make the canvas bigger or smaller and keep its shape; hold Alt (Option on a Mac) to change all four sides at once. The green knob near the top-right corner rotates; hold Shift to snap to 15 degrees. Wheel zooms. Middle mouse or Alt-drag on an empty spot pans."));
   if (widget(state.node, "stitch_blend")) right.append(buildStitchSection(state));
   if (state.kind === "video") modal.append(buildTimeline(state));
   document.body.append(modal);
@@ -1469,6 +1556,7 @@ function openEditor(state) {
 function closeEditor(state) {
   const hadModal = Boolean(state.modal);
   stopPlayback(state);
+  state.drag?.keys?.abort();
   state.scrubPending = false;
   state.modalAbort?.abort(); state.resizeObserver?.disconnect(); state.modal?.remove();
   if (state.modalTrim) state.trimViews.delete(state.modalTrim);
@@ -1709,6 +1797,12 @@ function buildControls(state, sidebar) {
     title: "Adds a few pixels of fill on the right and bottom so the width and height divide evenly by this number. Some models need sizes divisible by 8, 16 or 32; 1 = off.",
     onChange: (amount) => { setValue(node, "canvas_multiple", amount); draw(state); updateModalInfo(state); }, onSettle: notifyAusbossChange });
   addScrubField(padSection, "Divisible by", multiple.root);
+  // A div, not a label: a label would pass a click on its text to the first button.
+  const centre = buildCentreButtons(state);
+  const centreRow = createElement("div", "ausboss-transform-centre-row");
+  centreRow.append(createElement("span", "", "Centre"), centre.root);
+  padSection.append(centreRow);
+  state.editorSyncs.push(centre.sync);
   const resetPad = createElement("button", "", "Reset padding"); resetPad.title = "Remove all padding.";
   resetPad.addEventListener("click", () => { for (const name of ["pad_left", "pad_top", "pad_right", "pad_bottom"]) setValue(node, name, 0); settleRequest(state); draw(state); updateModalInfo(state); notifyAusbossChange(); }); padSection.append(resetPad);
 
@@ -2119,6 +2213,7 @@ function draw(state) {
     }
     const frozen = state.drag?.canvas === canvas ? state.drag.map : null;
     const render = renderGeometry(state, width, height, compact ? PANEL_VIEW : state.view, frozen);
+    render.canvas = canvas;
     if (compact) state.panelRender = render; else state.render = render;
     drawScene(context, state, render, compact, !compact || Boolean(state.panelInteractive));
   }
@@ -2226,6 +2321,7 @@ function drawScene(context, state, render, compact, interactive) {
     if (moving || (hover && !state.drag)) drawMoveArrows(context, cropRect, moving ? moveRoomFor(state, render) : hover);
     drawCropHandles(context, cropRect, state.drag?.kind === "crop" ? state.drag.name : null);
     drawPaddingHandles(context, outputRect, render.layout.padOffset, state.drag?.kind === "padding" ? state.drag.name : null);
+    drawCornerHandles(context, outputRect, render.layout.padOffset, state.drag?.kind === "corner" ? state.drag.name : null);
     drawRotationHandle(context, state, render, state.drag?.kind === "rotation");
     // The face has its readout line under the stage (syncReadout).
     if (!compact) drawOutputSize(context, state, render);
@@ -2313,6 +2409,7 @@ function sizeBoxPlace(state, render, width, height, viewWidth, viewHeight) {
   const centred = clamp(outputRect.x + outputRect.width / 2 - width / 2, 4, Math.max(4, viewWidth - width - 4));
   const handles = [
     ...paddingHandleCenters(outputRect, offset).map((point) => ({ ...point, r: 13 })),
+    ...canvasCornerCenters(outputRect, offset).map((point) => ({ ...point, r: 13 })),
     ...cropHandleCenters(render.cropRect).map((point) => ({ ...point, r: 8 })),
     { ...rotationHandle(state, render), r: 15 },
   ];
@@ -2411,6 +2508,35 @@ function drawCropHandles(context, rect, active) {
 function drawPaddingHandles(context, rect, offset, active) {
   for (const handle of paddingHandleCenters(rect, offset)) { context.save(); context.translate(handle.x, handle.y); context.rotate(Math.PI / 4); context.fillStyle = handle.name === active ? "#fff" : "#ff9d42"; context.fillRect(-8, -8, 16, 16); context.strokeStyle = "#3b2108"; context.strokeRect(-8, -8, 16, 16); context.restore(); }
 }
+// The corner handles are orange like the side diamonds (padding), drawn as a
+// corner bracket that points away from the canvas: the shape of the corner
+// they scale.
+function drawCornerHandles(context, rect, offset, active) {
+  const arm = 15;
+  const thick = 5;
+  for (const handle of canvasCornerCenters(rect, offset)) {
+    const sx = handle.corner.includes("e") ? 1 : -1;
+    const sy = handle.corner.includes("s") ? 1 : -1;
+    const vx = handle.x + sx * 5;
+    const vy = handle.y + sy * 5;
+    context.save();
+    context.beginPath();
+    context.moveTo(vx, vy);
+    context.lineTo(vx - sx * arm, vy);
+    context.lineTo(vx - sx * arm, vy - sy * thick);
+    context.lineTo(vx - sx * thick, vy - sy * thick);
+    context.lineTo(vx - sx * thick, vy - sy * arm);
+    context.lineTo(vx, vy - sy * arm);
+    context.closePath();
+    context.fillStyle = handle.name === active ? "#fff" : "#ff9d42";
+    context.fill();
+    context.strokeStyle = "#3b2108";
+    context.lineWidth = 1;
+    context.lineJoin = "miter";
+    context.stroke();
+    context.restore();
+  }
+}
 // The knob rides the actual top-right corner of the image being rotated
 // (the rotated quad's corner, not any bounding box), so it stays physically
 // attached and orbits with the image as the angle changes - the same mental
@@ -2429,15 +2555,22 @@ function rotationAnchor(state, render) {
     y: centerY + halfWidth * sin - halfHeight * cos,
   };
   const arm = render.layout?.rotateArm ?? 34;
-  // While you turn it, the knob stays on its arm; at rest it keeps clear of
-  // the padding diamonds and crop squares, or the nearer one would take
-  // every press.
-  if (state.drag?.kind === "rotation") return { corner, handle: placeKnob(corner, { x: centerX, y: centerY }, arm) };
+  const center = { x: centerX, y: centerY };
+  // While you turn it, the knob keeps the spot on its arm it had when you
+  // grabbed it, so it turns with the picture; at rest it keeps clear of the
+  // padding handles and crop squares, or the nearer one would take every
+  // press.
+  if (state.drag?.kind === "rotation") {
+    const held = state.drag.canvas === render.canvas ? state.drag.knob : null;
+    return { corner, handle: held ? knobAt(corner, center, held) : placeKnob(corner, center, arm) };
+  }
+  const offset = render.layout?.padOffset;
   const obstacles = [
-    ...paddingHandleCenters(render.outputRect, render.layout?.padOffset).map((point) => ({ ...point, clearance: KNOB_CLEARANCE.padding })),
+    ...paddingHandleCenters(render.outputRect, offset).map((point) => ({ ...point, clearance: KNOB_CLEARANCE.padding })),
+    ...canvasCornerCenters(render.outputRect, offset).map((point) => ({ ...point, clearance: KNOB_CLEARANCE.padding })),
     ...cropHandleCenters(render.cropRect).map((point) => ({ ...point, clearance: KNOB_CLEARANCE.crop })),
   ];
-  return { corner, handle: placeKnob(corner, { x: centerX, y: centerY }, arm, obstacles, render.view) };
+  return { corner, handle: placeKnob(corner, center, arm, obstacles, render.view, paddingRingGaps(render.outputRect, offset)) };
 }
 function rotationHandle(state, render) {
   return rotationAnchor(state, render).handle;
@@ -2516,19 +2649,29 @@ function surfaceRender(state, canvas) {
 }
 
 // The single hit-test order both surfaces share; hit radii are ~2-3x the
-// drawn handle so handles stay grabbable on the compact panel.
+// drawn handle so handles stay grabbable on the compact panel. The nearest
+// handle wins; the order only settles an exact tie, corners before edges.
 function handleGroups(state, render) {
   return [
     { kind: "rotation", priority: 0, radius: 24, handles: [{ name: "rotation", ...rotationHandle(state, render) }] },
-    { kind: "padding", priority: 1, radius: 24, handles: paddingHandleCenters(render.outputRect, render.layout.padOffset) },
-    { kind: "crop", priority: 2, radius: 22, handles: cropHandleCenters(render.cropRect) },
+    { kind: "corner", priority: 1, radius: 24, handles: canvasCornerCenters(render.outputRect, render.layout.padOffset) },
+    { kind: "padding", priority: 2, radius: 24, handles: paddingHandleCenters(render.outputRect, render.layout.padOffset) },
+    { kind: "crop", priority: 3, radius: 22, handles: cropHandleCenters(render.cropRect) },
   ];
+}
+
+// Alt-drag pans the editor, except on a corner handle: there Alt means
+// "about the centre", as in drawing apps.
+function pressOnCorner(state, canvas, event) {
+  const render = surfaceRender(state, canvas);
+  if (!render || event.button !== 0) return false;
+  return nearestHandle(canvasLocalPoint(canvas, event), handleGroups(state, render))?.kind === "corner";
 }
 
 function pointerDown(state, canvas, event) {
   if (state.drag) return;
   const render = surfaceRender(state, canvas);
-  if (canvas === state.canvas && (event.button === 1 || event.altKey)) {
+  if (canvas === state.canvas && (event.button === 1 || (event.altKey && !pressOnCorner(state, canvas, event)))) {
     state.drag = { kind: "pan", canvas, start: canvasLocalPoint(canvas, event), view: { ...state.view } };
   } else if (event.button === 0 && render) {
     const point = canvasLocalPoint(canvas, event);
@@ -2548,6 +2691,8 @@ function pointerDown(state, canvas, event) {
       hold: heldRatio(state),
       cropHold: heldCropRatio(state),
     };
+    // The knob's spot on its arm, kept while it turns.
+    if (selected?.kind === "rotation") base.knob = knobOffset(rotationAnchor(state, render).corner, base.center, selected);
     if (selected) state.drag = { ...selected, ...base };
     else if (inside(point, render.cropRect) && anyRoom(moveRoomFor(state, render))) state.drag = { kind: "move", ...base };
   }
@@ -2555,6 +2700,7 @@ function pointerDown(state, canvas, event) {
   // panel falls through and the node drags as usual.
   if (!state.drag) return;
   if (state.drag.kind === "rotation") settleRotation(state);
+  if (state.drag.kind === "corner") watchCornerKeys(state, state.drag);
   event.preventDefault(); event.stopPropagation();
   try { canvas.setPointerCapture(event.pointerId); } catch { /* mouse fallback */ }
   state.grid = state.drag.kind === "rotation";
@@ -2605,14 +2751,48 @@ function pointerMove(state, canvas, event) {
     if (ratio) next = Math.max(next, lockedPadMinimum(start, resolveCrop(start, drag.source), ratio, drag.name));
     setValue(state.node, drag.name, next);
     if (ratio) applyLock(state, ratio, paddingAxis(drag.name), { ...drag.pads, [drag.name]: next });
+  } else if (drag.kind === "corner") {
+    drag.moved = { x: dxScreen, y: dyScreen };
+    applyCornerDrag(state, drag, event.altKey);
   }
   draw(state); updateModalInfo(state);
+}
+
+// A corner handle scales the canvas and keeps its shape, solved every move
+// from the padding the drag began with (scaleCanvasPadding). The grabbed
+// corner's two sides change; with Alt, all four do, about the centre.
+function applyCornerDrag(state, drag, centre) {
+  const moved = drag.moved ?? { x: 0, y: 0 };
+  const width = drag.crop.width + nonNegative(drag.pads.pad_left) + nonNegative(drag.pads.pad_right);
+  const height = drag.crop.height + nonNegative(drag.pads.pad_top) + nonNegative(drag.pads.pad_bottom);
+  const scale = cornerScale(drag.corner, moved.x / drag.map.scale, moved.y / drag.map.scale, width, height, centre);
+  drag.centre = Boolean(centre);
+  for (const [name, next] of Object.entries(scaleCanvasPadding(drag.pads, drag.crop, drag.corner, scale, { centre }))) setValue(state.node, name, next);
+}
+function nonNegative(amount) { return Math.max(0, Math.round(Number(amount) || 0)); }
+
+// Alt can be pressed or let go mid-drag, as in drawing apps: the corner
+// switches between its two sides and all four without waiting for the
+// pointer to move.
+function watchCornerKeys(state, drag) {
+  drag.keys = new AbortController();
+  const toggle = (event) => {
+    if (event.key !== "Alt" || state.drag !== drag) return;
+    event.preventDefault();
+    const centre = event.type === "keydown";
+    if (drag.centre === centre) return;
+    applyCornerDrag(state, drag, centre);
+    draw(state); updateModalInfo(state);
+  };
+  window.addEventListener("keydown", toggle, { signal: drag.keys.signal, capture: true });
+  window.addEventListener("keyup", toggle, { signal: drag.keys.signal, capture: true });
 }
 
 function pointerUp(state, canvas, event) {
   const drag = state.drag;
   if (!drag || drag.canvas !== canvas) return;
   const kind = drag.kind;
+  drag.keys?.abort();
   state.drag = null; state.grid = false;
   if (kind === "rotation") settleRotation(state);
   // A shape the drag left is no longer the pick (the chip went dark).
@@ -2630,7 +2810,9 @@ function updateCursor(state, canvas, point) {
   if (!render) return;
   const selected = nearestHandle(point, handleGroups(state, render));
   const room = !selected && inside(point, render.cropRect) ? moveRoomFor(state, render) : null;
-  canvas.style.cursor = selected?.kind === "rotation" ? "crosshair" : selected ? "grab" : room ? moveCursor(room) : "default";
+  // A corner shows the diagonal it scales along.
+  const diagonal = selected?.kind === "corner" ? (selected.corner === "nw" || selected.corner === "se" ? "nwse-resize" : "nesw-resize") : null;
+  canvas.style.cursor = selected?.kind === "rotation" ? "crosshair" : diagonal ?? (selected ? "grab" : room ? moveCursor(room) : "default");
   // Over the picture, small arrows point to the sides it can move toward.
   const hover = room && anyRoom(room) ? { canvas, room } : null;
   if (JSON.stringify(hover?.room ?? null) !== JSON.stringify(state.hoverMove?.room ?? null) || hover?.canvas !== state.hoverMove?.canvas) {

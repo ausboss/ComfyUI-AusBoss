@@ -68,8 +68,13 @@ model that paints black regions.
   point: scrubbing it never invalidates the queued clip, and it is still saved with the
   workflow.
 
-Crop squares, padding diamonds and the rotation handle also work directly on the
-node preview. The graph still owns wheel zoom and middle-button pan. Tap a ratio
+Crop squares, padding diamonds, the orange corners and the rotation handle also
+work directly on the node preview. A corner makes the canvas bigger or smaller in
+its own shape, for example to zoom out evenly before a video outpaint; hold **Alt**
+(Option on a Mac) to change all four sides at once. **Centre**, next to Fill and
+Feather, puts the clip in the middle of the canvas side to side or top to bottom
+without changing the canvas size. The graph still owns wheel zoom and middle-button
+pan. Tap a ratio
 to pad the clip to it (or crop it, with **Fit** on crop); tap the lit ratio again to
 go back to the whole frame. A lit ratio is the shape the canvas has now: drag a
 handle to another shape and it goes dark and the row says **Custom**, and a new
