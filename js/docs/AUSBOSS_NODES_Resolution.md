@@ -12,7 +12,7 @@ Choose the width and height of a canvas visually, then wire those integers or th
 
 Outputs are **width**, **height**, and **latent**, in that order. The width and height inputs have separate sockets above the panel. Linking either locks the controls that would change both dimensions; the other dimension remains editable. Linked values are resolved during execution; the preview shows the locally stored dimensions.
 
-The **Latent family** is **16ch** (8× downsample), **4ch** (8×), or **128ch** (16×). Select the family required by your model. This is an empty *image* latent; video models should take the width and height outputs and construct their own audio/video latent.
+The **Latent family** is **16ch** (8× downsample), **4ch** (8×), or **128ch** (16×). Select the family required by your model. A model that packs pixels differently, such as Qwen Image 2.1, still gets the size you set: ComfyUI resizes the empty latent to fit it. This is an empty *image* latent; video models should take the width and height outputs and construct their own audio/video latent.
 
 Typed sizes need not be divisible by the latent downsample factor. The integer outputs retain the typed size, while the latent spatial dimensions round down to complete cells, matching the core empty-latent nodes. Use aligned dimensions when wiring the latent directly. Large dimensions and batches allocate correspondingly large tensors.
 
