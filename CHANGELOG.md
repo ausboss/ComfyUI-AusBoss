@@ -23,6 +23,16 @@ All notable changes to ComfyUI-AusBoss are documented here.
   way, and past 180° carries on from -180°. (The pointer's angle flips sign
   left of the centre; it is now followed step by step, and the rotation wraps
   instead of stopping at the ends of the -180 to 180 range.)
+- **Crop + Rotate + Pad nodes get corner handles and Centre buttons.** Drag
+  one of the four new orange corners to make the canvas bigger or smaller and
+  keep its shape, for example to zoom out before an outpaint. Before, that took
+  four separate drags. Hold Alt (Option on a Mac) to grow or shrink all four
+  sides at once. Two **Centre** buttons, next to Fill and Feather and in the
+  editor's Padding section, put the picture in the middle side to side or top
+  to bottom without changing the canvas size. Works on Image Crop + Rotate + Pad
+  and both video nodes, on the node and in the editor. The rotate knob moves
+  aside where a corner handle now sits. Saved workflows and the node inputs
+  are unchanged.
 
 ## 2.5.2 - 2026-10-02
 

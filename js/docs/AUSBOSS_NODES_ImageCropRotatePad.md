@@ -45,6 +45,32 @@ until you tap one.
   size. Over the picture, the cursor and small arrows show which ways it can go.
 - Rotating keeps a lit ratio: the padding follows the turned picture.
 
+### Corner handles and Centre
+
+The four orange corners outside the picture make the whole canvas bigger or
+smaller and keep its shape: drag one out to add room on two sides at once, for
+example to zoom out before an outpaint. The corner across from the one you drag
+stays where it is. Hold **Alt** (Option on a Mac) while you drag to change all four
+sides at once, so the picture keeps its place in the middle. You can press or let
+go of Alt during the drag. A corner stops when one of its two sides has no padding
+left to take away.
+
+The two **Centre** buttons next to Fill, Feather and Resize put the picture in
+the middle of the canvas: one side to side, one top to bottom. They move padding from
+one side to the other, so the canvas keeps its size and a lit ratio stays lit. A
+button is dimmed when the picture is already in the middle or that way has no
+padding to move. On a narrow node they sit on a line of their own.
+
+The orange diamonds move one side at a time, and the padlock works on them as
+described above. The corners keep the shape with or without the padlock. The
+green rotate knob moves aside when a corner handle sits where it usually goes.
+The editor has the same handles and a **Centre** row under **Padding & mask**.
+
+Technical details: a corner follows the pointer along the canvas diagonal, and
+the shape it keeps is the canvas before **Divisible by** adds its fill. With
+Divisible by on, **Centre** counts that strip on the right and bottom, so the
+bands you see come out even.
+
 **Divisible by** adds a few pixels of fill on the right and bottom so the width and
 height divide evenly by the number you pick. Some models need sizes divisible by
 8, 16 or 32; at 1 it is off.
@@ -138,6 +164,6 @@ replaces the existing crop and padding and keeps rotation, fill and resize setti
 **Divisible by** and the resize **Step** can slightly change the fitted aspect. The size
 box on the stage sits clear of the handles.
 
-Drag cyan squares to resize the crop, drag inside to move it, orange diamonds to add padding, and the green handle to rotate. Hold `Shift` while rotating to snap to 15 degrees. The knob turns all the way round either way: past 180° it carries on from -180°, so an upside-down picture turns back up whichever way you drag. Rotating keeps the crop's size and keeps it over the same part of the picture, whichever control turns it (knob, number box, Reset rotation); with no crop the canvas grows to hold the tilted picture. The knob keeps clear of the padding diamonds and crop squares. Use the wheel to zoom and middle mouse or `Alt`-drag to pan. The same handles work directly on the node's compact preview (fit-only there — the wheel keeps zooming the graph); zoom and pan are editor-only.
+Drag cyan squares to resize the crop, drag inside to move it, orange diamonds to add padding on one side, orange corners to make the canvas bigger or smaller in its own shape (hold `Alt`, Option on a Mac, for all four sides), and the green handle to rotate. Hold `Shift` while rotating to snap to 15 degrees. The knob turns all the way round either way: past 180° it carries on from -180°, so an upside-down picture turns back up whichever way you drag. Rotating keeps the crop's size and keeps it over the same part of the picture, whichever control turns it (knob, number box, Reset rotation); with no crop the canvas grows to hold the tilted picture. The knob keeps clear of the padding handles and crop squares. Use the wheel to zoom and middle mouse or `Alt`-drag on an empty spot to pan. The same handles work directly on the node's compact preview (fit-only there — the wheel keeps zooming the graph); zoom and pan are editor-only.
 
 The node performs no network requests and writes no files beyond a normal user-initiated ComfyUI upload.

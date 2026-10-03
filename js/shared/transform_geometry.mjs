@@ -226,6 +226,30 @@ export function paddingHandleCenters(rect, offset = 38) {
   ];
 }
 
+// The corner handles sit outside the canvas corners, as far out as the side
+// diamonds, so the eight padding handles ring the canvas and stay clear of
+// the crop squares on the picture's own corners.
+export function canvasCornerCenters(rect, offset = 38) {
+  return [
+    { name: "corner_nw", corner: "nw", x: rect.x - offset, y: rect.y - offset },
+    { name: "corner_ne", corner: "ne", x: rect.x + rect.width + offset, y: rect.y - offset },
+    { name: "corner_se", corner: "se", x: rect.x + rect.width + offset, y: rect.y + rect.height + offset },
+    { name: "corner_sw", corner: "sw", x: rect.x - offset, y: rect.y + rect.height + offset },
+  ];
+}
+
+// The free spots on that ring: halfway between each corner handle and the
+// side diamond next to it.
+export function paddingRingGaps(rect, offset = 38) {
+  const [nw, ne, se, sw] = canvasCornerCenters(rect, offset);
+  const [top, right, bottom, left] = paddingHandleCenters(rect, offset);
+  const ring = [nw, top, ne, right, se, bottom, sw, left];
+  return ring.map((point, index) => {
+    const next = ring[(index + 1) % ring.length];
+    return { x: (point.x + next.x) / 2, y: (point.y + next.y) / 2 };
+  });
+}
+
 export function nearestHandle(point, groups) {
   let selected = null;
   for (const group of groups) {
@@ -591,6 +615,110 @@ export function turnedCrop(crop, source) {
   };
 }
 
+// --- Corner handles -----------------------------------------------------------
+// A corner handle scales the canvas and keeps its shape. The picture stays
+// as it is; only the padding changes. By default the padding on the grabbed
+// corner's two sides changes and the opposite corner holds still. About the
+// centre (Alt held), every side changes, half of the change on each side of
+// an axis, so the canvas keeps its middle.
+
+// The backend's limit for one side's padding.
+export const MAX_PADDING = 32768;
+
+// How far a corner drag scales the canvas: the pointer's move projected on
+// the canvas diagonal, so the grabbed corner follows the pointer along it.
+// dx and dy are canvas pixels. About the centre the grabbed corner is half as
+// far from the point that holds still, so the same move scales twice as much.
+export function cornerScale(corner, dx, dy, width, height, centre = false) {
+  const sx = corner.includes("e") ? 1 : -1;
+  const sy = corner.includes("s") ? 1 : -1;
+  const diagonal = width * width + height * height;
+  if (!(diagonal > 0)) return 1;
+  return 1 + (centre ? 2 : 1) * ((Number(dx) || 0) * sx * width + (Number(dy) || 0) * sy * height) / diagonal;
+}
+
+// The padding for a canvas `scale` times its size when the drag began
+// (`start` holds that padding, `crop` the resolved crop). The canvas never
+// gets smaller than the picture needs: the grabbed corner stops where one of
+// its sides runs out of padding, and about the centre once both sides of an
+// axis have. A side that runs out first gives the rest of a shrink to the
+// side across from it.
+export function scaleCanvasPadding(start, crop, corner, scale, { centre = false } = {}) {
+  const pads = paddingOf(start);
+  const width = crop.width + pads.left + pads.right;
+  const height = crop.height + pads.top + pads.bottom;
+  const east = corner.includes("e");
+  const south = corner.includes("s");
+  let minWidth = crop.width;
+  let minHeight = crop.height;
+  let maxWidth = width + 2 * (MAX_PADDING - Math.max(pads.left, pads.right));
+  let maxHeight = height + 2 * (MAX_PADDING - Math.max(pads.top, pads.bottom));
+  if (!centre) {
+    const heldX = east ? pads.left : pads.right;
+    const heldY = south ? pads.top : pads.bottom;
+    minWidth = crop.width + heldX;
+    minHeight = crop.height + heldY;
+    maxWidth = minWidth + MAX_PADDING;
+    maxHeight = minHeight + MAX_PADDING;
+  }
+  const lowest = Math.max(minWidth / width, minHeight / height);
+  const highest = Math.max(lowest, Math.min(maxWidth / width, maxHeight / height));
+  const factor = clamp(scale, lowest, highest);
+  // The longer side is rounded and the other follows it, so the shape holds
+  // to the pixel.
+  let nextWidth;
+  let nextHeight;
+  if (width >= height) {
+    nextWidth = Math.round(width * factor);
+    nextHeight = Math.round((nextWidth * height) / width);
+  } else {
+    nextHeight = Math.round(height * factor);
+    nextWidth = Math.round((nextHeight * width) / height);
+  }
+  nextWidth = clamp(nextWidth, minWidth, Math.max(minWidth, maxWidth));
+  nextHeight = clamp(nextHeight, minHeight, Math.max(minHeight, maxHeight));
+  let { left, top, right, bottom } = pads;
+  if (centre) {
+    [left, right] = splitDelta(nextWidth - width, pads.left, pads.right) ?? [left, right];
+    [top, bottom] = splitDelta(nextHeight - height, pads.top, pads.bottom) ?? [top, bottom];
+  } else {
+    if (east) right = nextWidth - crop.width - left; else left = nextWidth - crop.width - right;
+    if (south) bottom = nextHeight - crop.height - top; else top = nextHeight - crop.height - bottom;
+  }
+  const side = (amount) => clamp(Math.round(amount), 0, MAX_PADDING);
+  return { pad_left: side(left), pad_top: side(top), pad_right: side(right), pad_bottom: side(bottom) };
+}
+
+// --- Centring -------------------------------------------------------------------
+// The padding that puts the picture in the middle of the canvas along one
+// axis ("x": left and right, "y": top and bottom). It only moves padding from
+// one side to the other, so the canvas keeps its size and shape and a lit
+// ratio stays lit. The strip Divisible by adds on the right and bottom
+// counts as padding on that side, so the bands you see come out even; with
+// less padding than that strip, it gets as close as it can. Null when there
+// is nothing to move.
+export function centredPadding(values, crop, axis) {
+  const pads = paddingOf(values);
+  const resolved = resolvePadding(values, crop);
+  const [near, far, strip] = axis === "y"
+    ? [pads.top, pads.bottom, resolved.bottom - pads.bottom]
+    : [pads.left, pads.right, resolved.right - pads.right];
+  const total = near + far;
+  const next = clamp(Math.floor((total + strip) / 2), 0, total);
+  if (next === near) return null;
+  return axis === "y"
+    ? { pad_top: next, pad_bottom: total - next }
+    : { pad_left: next, pad_right: total - next };
+}
+
+// The bands on either side of the picture along an axis as the output has
+// them (Divisible by's strip included), for the centre buttons to say
+// where the picture sits.
+export function axisBands(values, crop, axis) {
+  const resolved = resolvePadding(values, crop);
+  return axis === "y" ? { near: resolved.top, far: resolved.bottom } : { near: resolved.left, far: resolved.right };
+}
+
 // Dragging the picture itself where the crop has nowhere to go: along an
 // axis where the crop spans the whole source, the padding moves from one
 // side to the other instead, so the picture slides inside a canvas that
@@ -674,10 +802,13 @@ export function moveCursor(room) {
 // land on the top padding diamond (a narrow picture centred in a wide
 // canvas has that corner right under it), and the nearer handle then wins
 // every press. So the knob tries a longer arm, then swings around the
-// corner, until it clears every other handle and stays on the stage.
+// corner, until it clears every other handle and stays on the stage. Where
+// the canvas corner is the picture's own, its corner handle sits right on
+// that spot; the knob then takes the free gap on the handle ring nearest it
+// (`gaps`, from paddingRingGaps).
 export const KNOB_CLEARANCE = { padding: 36, crop: 26 };
 
-export function placeKnob(corner, center, arm, obstacles = [], bounds = null) {
+export function placeKnob(corner, center, arm, obstacles = [], bounds = null, gaps = []) {
   const base = Math.atan2(corner.y - center.y, corner.x - center.x) || -Math.PI / 4;
   const at = (length, turn) => {
     const angle = base + (turn * Math.PI) / 180;
@@ -693,7 +824,24 @@ export function placeKnob(corner, center, arm, obstacles = [], bounds = null) {
       if (clear(point)) return point;
     }
   }
-  return at(arm, 0);
+  const usual = at(arm, 0);
+  const away = (point) => Math.hypot(point.x - usual.x, point.y - usual.y);
+  const gap = [...gaps].sort((a, b) => away(a) - away(b)).find(clear);
+  return gap ? { x: gap.x, y: gap.y } : usual;
+}
+
+// Where the knob sits on its arm, as a length and a turn from the line
+// through the picture's centre and corner, and back. While you turn the
+// picture the knob keeps this offset, so it turns with the picture instead
+// of jumping to another spot under the pointer.
+export function knobOffset(corner, center, knob) {
+  const base = Math.atan2(corner.y - center.y, corner.x - center.x) || -Math.PI / 4;
+  return { length: Math.hypot(knob.x - corner.x, knob.y - corner.y), turn: Math.atan2(knob.y - corner.y, knob.x - corner.x) - base };
+}
+
+export function knobAt(corner, center, offset) {
+  const base = Math.atan2(corner.y - center.y, corner.x - center.x) || -Math.PI / 4;
+  return { x: corner.x + Math.cos(base + offset.turn) * offset.length, y: corner.y + Math.sin(base + offset.turn) * offset.length };
 }
 
 // --- Turning the knob -----------------------------------------------------------
