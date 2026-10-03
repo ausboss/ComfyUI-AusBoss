@@ -2,6 +2,20 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Round canvas to is now Divisible by, and says what it is for.** On Image
+  Crop + Rotate + Pad and both Video Crop + Rotate + Pad nodes, it adds a few
+  pixels of fill on the right and bottom so the width and height divide
+  evenly by the number you pick. Some models need sizes divisible by 8, 16
+  or 32; 1 = off. Saved workflows keep their value: the input is still
+  `canvas_multiple`.
+- **"Divisible by" boxes step to sizes you can use.** Divisible by, the
+  resize Step on the same nodes, and Multiple on Load Image + Pad went 1, 9,
+  17, 25 when you clicked the arrows or dragged from 1. They now go 1, 8, 16,
+  24 and back down to 1. Shift still steps by 1, and a number you type stays
+  as typed.
+
 ## 2.5.2 - 2026-10-02
 
 - **After an update, old files in your browser can no longer break AusBoss.**

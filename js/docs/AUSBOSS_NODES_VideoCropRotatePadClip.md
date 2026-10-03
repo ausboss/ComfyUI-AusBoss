@@ -85,10 +85,12 @@ cursor and small arrows show which ways it can go.
 **Reset crop** restores the full crop without changing rotation, padding or trim;
 with the padlock on it also takes away the bands the lock added.
 **Reset** on the node clears rotation, crop and padding and turns the padlock off;
-fill, feather, Round canvas to and the timeline stay.
+fill, feather, **Divisible by** and the timeline stay.
 **Reset transform** in the editor resets rotation, crop, padding, fill, feather and
-Round canvas to; it keeps the source, current frame, trim, Length, resize and stitch
-settings. **Round canvas to** sets the canvas pixel multiple (1 disables it).
+**Divisible by**; it keeps the source, current frame, trim, Length, resize and stitch
+settings. **Divisible by** adds a few pixels of fill on the right and bottom so the
+width and height divide evenly by the number you pick. Some models need sizes
+divisible by 8, 16 or 32; 1 turns it off.
 
 Video Upload and file drop use a streaming route into ComfyUI's input folder,
 so the buffered image-upload size limit does not prevent long-video uploads.
@@ -96,8 +98,8 @@ so the buffered image-upload size limit does not prevent long-video uploads.
 The editor's sidebar uses the node's own ratio row, padlock and **Fit** switch, and
 the rotation is a number box (Shift for 0.1°). A ratio replaces the old crop and
 padding, keeping rotation and resize settings.
-Pixel rounding can differ by one pixel between opposite bands. Canvas multiple and
-resize steps can slightly change the final aspect ratio.
+Pixel rounding can differ by one pixel between opposite bands. **Divisible by** and
+the resize **Step** can slightly change the final aspect ratio.
 
 ## Transform and outputs
 

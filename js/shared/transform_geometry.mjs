@@ -416,7 +416,7 @@ export function sizeChainTokens(chain) {
   if (Math.abs(chain.stretch) > STRETCH_WARNING) {
     warnings.push(`${(Math.abs(chain.stretch) * 100).toFixed(1)}% ${chain.stretch > 0 ? "wider" : "taller"}: each side rounds to ${chain.steps ?? 1} px`);
   }
-  // Ahead of a resize, Round canvas to's strip is only fill for the model to
+  // Ahead of a resize, Divisible by's strip is only fill for the model to
   // paint: the Step already rounds the size. Name where it went.
   const { right, bottom } = chain.alignAdded ?? { right: 0, bottom: 0 };
   if (chain.resized && (right || bottom)) {

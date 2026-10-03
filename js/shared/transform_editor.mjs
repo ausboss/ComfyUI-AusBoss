@@ -477,7 +477,7 @@ export function installTransformNode(node, kind, mountPanel = null) {
   resetCrop.title = "Show the whole picture again; rotation, padding and the timeline stay. With the padlock on, the bands it added to keep the shape go too.";
   resetCrop.addEventListener("click", () => resetCropKeepingShape(state));
   const reset = createElement("button", "ausboss-transform-button", "Reset");
-  reset.title = "Reset rotation, crop and padding, and turn the padlock off. Fill, feather, Round canvas to and the timeline stay.";
+  reset.title = "Reset rotation, crop and padding, and turn the padlock off. Fill, feather, Divisible by and the timeline stay.";
   reset.addEventListener("click", () => {
     resetGeometry(node);
     fitCrop(state); updateModalInfo(state); notifyAusbossChange();
@@ -829,7 +829,7 @@ function segmentedPill(options, onPick, { className = "" } = {}) {
 
 // Fit: how a ratio chip gets its shape. It only acts on a lit ratio, so it
 // dims (and says so) until one is lit; picking a side still sets how the
-// next ratio is reached. Round canvas to sits at the end of the row on the
+// next ratio is reached. Divisible by sits at the end of the row on the
 // node face.
 function buildAspectModeRow(state, { alignment: withAlignment = true } = {}) {
   const row = createElement("div", "ausboss-transform-row ausboss-transform-aspect-modes");
@@ -855,11 +855,11 @@ function buildAspectModeRow(state, { alignment: withAlignment = true } = {}) {
     const alignment = createElement("label", "ausboss-transform-alignment");
     alignment.style.cssText = "display:flex;align-items:center;gap:5px;flex:0 0 auto";
     multiple = makeScrubInput({ value: value(state.node, "canvas_multiple", 1),
-      min: 1, max: 4096, step: 8, fineStep: 1, decimals: 0, width: 72, unit: "px",
-      title: "Round the canvas up to a multiple of this many pixels (1 = off). The extra goes on the right and bottom as fill.",
+      min: 1, max: 4096, step: 8, fineStep: 1, decimals: 0, width: 72, unit: "px", snap: true,
+      title: "Adds a few pixels of fill on the right and bottom so the width and height divide evenly by this number. Some models need sizes divisible by 8, 16 or 32; 1 = off.",
       onChange: (amount) => { setValue(state.node, "canvas_multiple", amount); draw(state); updateModalInfo(state); },
       onSettle: notifyAusbossChange });
-    alignment.append(createElement("span", "", "Round canvas to"), multiple.root);
+    alignment.append(createElement("span", "", "Divisible by"), multiple.root);
     row.append(alignment);
   }
   const sync = () => {
@@ -1056,7 +1056,7 @@ function buildCanvasRow(state) {
     onChange: (amount) => { setValue(node, "megapixels", amount); draw(state); updateModalInfo(state); }, onSettle: notifyAusbossChange });
   budgetLabel.append(createElement("span", "", "Megapixels"), budget.root);
   const stepLabel = createElement("label");
-  const steps = makeScrubInput({ value: value(node, "resolution_steps", 1), min: 1, max: 256, step: 8, fineStep: 1, decimals: 0, width: 66, unit: "px",
+  const steps = makeScrubInput({ value: value(node, "resolution_steps", 1), min: 1, max: 256, step: 8, fineStep: 1, decimals: 0, width: 66, unit: "px", snap: true,
     title: "Rounds each resized side to a multiple of this (32 for LTX and Wan, 8 or 64 for image models). Each side rounds on its own, so a large step can stretch the picture slightly; the readout warns above 1%.",
     onChange: (amount) => { setValue(node, "resolution_steps", amount); draw(state); updateModalInfo(state); }, onSettle: notifyAusbossChange });
   stepLabel.append(createElement("span", "", "Step"), steps.root);
@@ -1703,10 +1703,10 @@ function buildControls(state, sidebar) {
   const featherNumber = makeScrubInput({ value: value(node, "feather", 24), min: 0, max: 4096, step: 1, decimals: 0, unit: "px", unitWidth: 22,
     title: "Mask feather in pixels.", onChange: (amount) => { setValue(node, "feather", amount); draw(state); }, onSettle: notifyAusbossChange });
   addScrubField(padSection, "Feather", featherNumber.root);
-  const multiple = makeScrubInput({ value: value(node, "canvas_multiple", 1), min: 1, max: 4096, step: 8, fineStep: 1, decimals: 0, unit: "px", unitWidth: 22,
-    title: "Round the canvas up to a multiple of this many pixels (1 = off). The extra goes on the right and bottom as fill.",
-    onChange: (amount) => { setValue(node, "canvas_multiple", amount); draw(state); }, onSettle: notifyAusbossChange });
-  addScrubField(padSection, "Round canvas to", multiple.root);
+  const multiple = makeScrubInput({ value: value(node, "canvas_multiple", 1), min: 1, max: 4096, step: 8, fineStep: 1, decimals: 0, unit: "px", unitWidth: 22, snap: true,
+    title: "Adds a few pixels of fill on the right and bottom so the width and height divide evenly by this number. Some models need sizes divisible by 8, 16 or 32; 1 = off.",
+    onChange: (amount) => { setValue(node, "canvas_multiple", amount); draw(state); updateModalInfo(state); }, onSettle: notifyAusbossChange });
+  addScrubField(padSection, "Divisible by", multiple.root);
   const resetPad = createElement("button", "", "Reset padding"); resetPad.title = "Remove all padding.";
   resetPad.addEventListener("click", () => { for (const name of ["pad_left", "pad_top", "pad_right", "pad_bottom"]) setValue(node, name, 0); settleRequest(state); draw(state); updateModalInfo(state); notifyAusbossChange(); }); padSection.append(resetPad);
 
@@ -1741,7 +1741,7 @@ function buildControls(state, sidebar) {
     addLabeledControl(resizeSection, "Method", method);
     steps = makeScrubInput({
       value: value(node, "resolution_steps", 1),
-      min: 1, max: 256, step: 8, fineStep: 1, decimals: 0, unit: "px", unitWidth: 22,
+      min: 1, max: 256, step: 8, fineStep: 1, decimals: 0, unit: "px", unitWidth: 22, snap: true,
       title: "Rounds each resized side to a multiple of this (32 for LTX and Wan).",
       onChange: (step) => { setValue(node, "resolution_steps", step); draw(state); updateModalInfo(state); },
       onSettle: notifyAusbossChange,
@@ -1752,7 +1752,7 @@ function buildControls(state, sidebar) {
   const actions = createElement("section", "ausboss-transform-section"); actions.append(sectionHeading("View & reset"));
   const resetViewButton = createElement("button", "", "Reset view"); resetViewButton.addEventListener("click", () => { resetView(state); draw(state); });
   const resetAll = createElement("button", "ausboss-transform-danger", "Reset transform");
-  resetAll.title = "Reset rotation, crop, padding, fill, feather and Round canvas to. Keep the source, current frame, trim window, fixed length, resize and stitch settings.";
+  resetAll.title = "Reset rotation, crop, padding, fill, feather and Divisible by. Keep the source, current frame, trim window, fixed length, resize and stitch settings.";
   resetAll.addEventListener("click", () => { resetTransform(node); resetView(state); draw(state); updateModalInfo(state); });
   actions.append(resetViewButton, resetAll);
 
@@ -2661,7 +2661,7 @@ function sizeLines(state) {
   const extraRight = pad.right - Math.max(0, Math.round(Number(current.pad_right) || 0));
   const extraBottom = pad.bottom - Math.max(0, Math.round(Number(current.pad_bottom) || 0));
   lines.push(extraRight || extraBottom
-    ? `Round canvas to ${chain.multiple} → ${chain.canvas.width} x ${chain.canvas.height} (+${extraRight} right, +${extraBottom} bottom)`
+    ? `Divisible by ${chain.multiple} → ${chain.canvas.width} x ${chain.canvas.height} (+${extraRight} right, +${extraBottom} bottom)`
     : `Canvas ${chain.canvas.width} x ${chain.canvas.height}`);
   if (chain.resized) {
     const megapixels = (chain.resized.width * chain.resized.height / 1048576).toFixed(2);
@@ -2669,7 +2669,7 @@ function sizeLines(state) {
   }
   for (const warning of sizeChainTokens(chain).warnings) lines.push(`⚠ ${warning}`);
   if (chain.resized && (extraRight || extraBottom)) {
-    lines.push("Round canvas to adds a strip of fill the model paints. With Resize on, Step already rounds the size, so 1 leaves no strip.");
+    lines.push("Divisible by adds a strip of fill the model paints. With Resize on, Step already rounds the size, so 1 leaves no strip.");
   }
   return lines;
 }

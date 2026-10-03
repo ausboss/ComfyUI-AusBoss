@@ -235,7 +235,7 @@ const CARDS = {
       { widget: "fill_color", label: "Color", kind: "color", when: isMode("mode", "color") },
       { widget: "backdrop_blur", label: "Backdrop", when: isMode("mode", "pillarbox blur") },
       { widget: "feather", label: "Feather", suffix: "px" },
-      { widget: "canvas_multiple", label: "Multiple" },
+      { widget: "canvas_multiple", label: "Multiple", snap: true },
       { widget: "target_megapixels", label: "Budget", suffix: "MP" },
       { group: "padding", label: "Exact padding" },
       { widget: "pad_left", label: "Left", suffix: "px", group: "padding" },

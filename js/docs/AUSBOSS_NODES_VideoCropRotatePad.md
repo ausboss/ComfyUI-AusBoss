@@ -37,9 +37,10 @@ the padlock and the orientation button work as on the image node: a tap pads (or
 with Fit on crop, crops) the frame to a ratio, a lit ratio is the shape the canvas
 has now, and the padlock keeps that shape while you drag (the row says **Held**).
 **Reset crop** restores the full crop while keeping rotation and padding. **Reset**
-clears rotation, crop and padding and turns the padlock off; fill, feather, **Round
-canvas to** and the playhead stay. **Round canvas to** sets the canvas pixel
-multiple, with 1 turning it off.
+clears rotation, crop and padding and turns the padlock off; fill, feather,
+**Divisible by** and the playhead stay. **Divisible by** adds a few pixels of fill
+on the right and bottom so the width and height divide evenly by the number you
+pick. Some models need sizes divisible by 8, 16 or 32; 1 turns it off.
 
 The appended **stitcher** output restores kept pixels after generation with a
 32-pixel blend. **original** returns the chosen RGB frame before the transform,
