@@ -30,6 +30,7 @@ import {
   cropHandleCenters,
   isUntouched,
   evenOutPadding,
+  knobStep,
   lockPadding,
   lockedPadMinimum,
   moveCursor,
@@ -60,6 +61,7 @@ import {
   tightLockPadding,
   turnAspect,
   turnedCrop,
+  wrapDegrees,
   zoomAround,
 } from "./transform_geometry.mjs";
 import { clampFrame, clipInfo, frameTime } from "./timeline_math.mjs";
@@ -2019,7 +2021,8 @@ function rotationBase(state) {
 function settleRotation(state) { state.rotationBase = null; settleRequest(state); }
 function rotateTo(state, degrees) {
   const base = rotationBase(state);
-  const next = Math.round(clamp(degrees, -180, 180) * 10) / 10;
+  // Past 180 the rotation carries on from -180, and the other way round.
+  const next = Math.round(wrapDegrees(degrees) * 10) / 10;
   setValue(state.node, "rotation_degrees", next);
   if (state.sourceWidth && state.sourceHeight) {
     const crop = cropForRotation(base.values, state.sourceWidth, state.sourceHeight, base.rotation, next);
@@ -2566,9 +2569,13 @@ function pointerMove(state, canvas, event) {
   const dxScreen = point.x - drag.start.x; const dyScreen = point.y - drag.start.y;
   if (drag.kind === "pan") { state.view.panX = drag.view.panX + dxScreen; state.view.panY = drag.view.panY + dyScreen; }
   else if (drag.kind === "rotation") {
-    const startAngle = Math.atan2(drag.start.y - drag.center.y, drag.start.x - drag.center.x);
-    const nextAngle = Math.atan2(point.y - drag.center.y, point.x - drag.center.x);
-    let degrees = drag.rotation + (nextAngle - startAngle) * 180 / Math.PI;
+    // Followed move by move the short way round (knobStep), so the pointer
+    // crossing the line left of the centre turns a step, not a whole turn.
+    const angle = Math.atan2(point.y - drag.center.y, point.x - drag.center.x);
+    const previous = drag.angle ?? Math.atan2(drag.start.y - drag.center.y, drag.start.x - drag.center.x);
+    drag.turned = (drag.turned ?? 0) + knobStep(previous, angle);
+    drag.angle = angle;
+    let degrees = drag.rotation + drag.turned * 180 / Math.PI;
     if (event.shiftKey) degrees = Math.round(degrees / 15) * 15;
     rotateTo(state, degrees);
   } else if (drag.kind === "crop") {

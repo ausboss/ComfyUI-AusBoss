@@ -696,6 +696,28 @@ export function placeKnob(corner, center, arm, obstacles = [], bounds = null) {
   return at(arm, 0);
 }
 
+// --- Turning the knob -----------------------------------------------------------
+// The knob is followed move by move, each step taken the short way round.
+// Straight left of the picture's centre the pointer's angle flips from +180
+// to -180 degrees; measured from where the drag began, crossing that line
+// read as a whole turn back, and the clamp at +-180 then held the picture
+// upside down. Step by step it is a step of a few degrees, and the rotation
+// wraps instead of stopping: past 180 it carries on from -180, so the
+// picture always turns on, either way.
+export function knobStep(fromAngle, toAngle) {
+  const step = (Number(toAngle) || 0) - (Number(fromAngle) || 0);
+  const turn = 2 * Math.PI;
+  return ((((step + Math.PI) % turn) + turn) % turn) - Math.PI;
+}
+
+// A rotation in -180..180: anything past either end comes round from the
+// other. Values inside the range, both ends included, stay as they are.
+export function wrapDegrees(degrees) {
+  const value = Number(degrees) || 0;
+  if (value <= 180 && value >= -180) return value;
+  return ((((value + 180) % 360) + 360) % 360) - 180;
+}
+
 // --- Rounding to the resize step ----------------------------------------------
 // The resize rounds each side to the step on its own, which can stretch the
 // picture a little. The largest smaller step that keeps the stretch under
