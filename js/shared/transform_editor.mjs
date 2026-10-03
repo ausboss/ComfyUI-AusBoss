@@ -10,8 +10,9 @@ import { createMediaPicker } from "./media_picker.mjs";
 import { normalizeFillColor } from "./fill_color.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
 import { confirmDiscard } from "./discard_prompt.mjs";
-import { featherGeneratedMask, overlayPlan, stitchBlendFromMask } from "./stitch_preview.mjs";
+import { featherGeneratedMask, overlayPlan, seeThroughMap, stitchBlendFromMask } from "./stitch_preview.mjs";
 import { suppressCoreVideoPreview } from "./core_preview.mjs";
+import { gearIconSvg, loadSettings, openSettingsMenu } from "./settings_menu.mjs";
 import {
   INPUT_FOLDER_MODE,
   LOCAL_PATH_MODE,
@@ -98,6 +99,23 @@ const CONTROL_MAX_WIDTH = 460;
 const TRANSFORM_DEFAULTS = resetTransformValues(false);
 const CORE_IMAGE_PREVIEW_WIDGET = "$$canvas-image-preview";
 
+// The gear on the image node's source card. Display choices only, kept for
+// every image node on this browser (settings_menu.mjs stores them).
+const SETTINGS_SCOPE = "image_crop_rotate_pad";
+const SETTINGS_SCHEMA = [
+  {
+    key: "show_mask", label: "Show the mask on the picture", type: "toggle", default: true,
+    hint: "Teal over the parts of your picture the model paints: a mask drawn in the MaskEditor, or see-through parts of a PNG.",
+  },
+];
+let transformSettings = null;
+function settings() {
+  transformSettings ??= loadSettings(SETTINGS_SCOPE, SETTINGS_SCHEMA);
+  return transformSettings;
+}
+// Every installed node, so a changed setting redraws them all at once.
+const liveStates = new Set();
+
 function installStyles() {
   if (document.getElementById("ausboss-transform-styles")) return;
   const style = document.createElement("style");
@@ -108,6 +126,9 @@ function installStyles() {
     .ausboss-transform-preview{width:100%;flex:1 1 180px;min-height:0;border:1px solid #50555b;border-radius:8px;background:#111;display:block;touch-action:none}
     .ausboss-transform-source{display:flex;flex-direction:column;gap:7px;flex:0 0 auto;padding:8px;border:1px solid rgba(0,184,174,.28);border-radius:8px;background:rgba(0,0,0,.24)}
     .ausboss-transform-source-heading{color:${BRAND};font:600 10px system-ui;letter-spacing:.08em;text-transform:uppercase}
+    .ausboss-transform-source-head{display:flex;align-items:center;justify-content:space-between;gap:6px}
+    .ausboss-transform-gear{flex:none;width:20px;height:20px;margin:-4px 0;display:grid;place-items:center;padding:0;border:1px solid #2a3437;border-radius:5px;background:#0f1516;color:#8ba3a1;cursor:pointer}
+    .ausboss-transform-gear:hover{border-color:${BRAND};color:${BRAND}}
     .ausboss-transform-source-mode{display:grid;grid-template-columns:1fr 1fr;height:30px;padding:3px;border:1px solid #2a3437;border-radius:7px;background:#0f1516}
     .ausboss-transform-source-mode button{border:0;border-radius:5px;background:transparent;color:#8ba3a1;font:600 12px system-ui;cursor:pointer}
     .ausboss-transform-source-mode button:hover{color:#fff}.ausboss-transform-source-mode button.on{background:${BRAND};color:#04201d}
@@ -249,8 +270,25 @@ function suppressCoreImagePreview(node) {
     configurable: true,
     enumerable: true,
     get() { return undefined; },
-    set() {},
+    // The MaskEditor sets this right after it writes the picture it saved.
+    set() {
+      const state = node.__ausbossTransformState;
+      if (state) queueMicrotask(() => followSource(state));
+    },
   });
+}
+
+// The MaskEditor saves its picture (the mask is the picture's alpha) into
+// the image widget's stored value without calling the widget back, so the
+// stage never heard of it and kept the old picture. A source changed that
+// way is followed here, keeping the framing, as a workflow load does: the
+// mask was drawn on the same picture.
+function followSource(state) {
+  if (state.disposed || !state.ready || state.kind !== "image") return;
+  const key = sourceKey(state.node, "image");
+  if (!key || key === state.source) return;
+  state.syncSourceCard?.();
+  void onSourceChanged(state, false);
 }
 
 function sourceKey(node, kind) {
@@ -377,7 +415,7 @@ function buildMediaSourceCard(state) {
   upload.append(fileInput);
   const hint = createElement("div", "ausboss-transform-source-hint");
   field.append(picker.element, upload);
-  root.append(kind === "image" ? createElement("div", "ausboss-transform-source-heading", "Image source") : modes, field, hint);
+  root.append(kind === "image" ? sourceHeading() : modes, field, hint);
 
   const currentOptions = () => {
     const target = widget(node, kind);
@@ -455,6 +493,27 @@ function buildMediaSourceCard(state) {
   return root;
 }
 
+// "Image source" with the node's gear at the other end of the line.
+function sourceHeading() {
+  const head = createElement("div", "ausboss-transform-source-head");
+  const gear = createElement("button", "ausboss-transform-gear");
+  gear.type = "button";
+  gear.title = "Image Crop + Rotate + Pad settings";
+  gear.innerHTML = gearIconSvg(11);
+  gear.addEventListener("click", () => openSettingsMenu({
+    scope: SETTINGS_SCOPE,
+    schema: SETTINGS_SCHEMA,
+    anchor: gear.getBoundingClientRect(),
+    title: "Image Crop + Rotate + Pad settings",
+    onChange: (values) => {
+      transformSettings = values;
+      for (const live of liveStates) draw(live);
+    },
+  }));
+  head.append(createElement("div", "ausboss-transform-source-heading", "Image source"), gear);
+  return head;
+}
+
 export function installTransformNode(node, kind, mountPanel = null) {
   installStyles();
   const state = {
@@ -466,6 +525,7 @@ export function installTransformNode(node, kind, mountPanel = null) {
     imageIndex: null, imageTime: null,
   };
   node.__ausbossTransformState = state;
+  liveStates.add(state);
   state.isClip = Boolean(widget(node, "start_seconds") && widget(node, "end_seconds"));
   state.trimViews = new Set();
   if (state.isClip) {
@@ -559,6 +619,8 @@ export function installTransformNode(node, kind, mountPanel = null) {
     // The graph scales the DOM widget with its zoom, so the backing store
     // sized at one zoom turns to mush at another: redraw when it changes.
     chainCallback(node, "onDrawForeground", function () {
+      // Also where a picture saved by the MaskEditor is noticed.
+      followSource(state);
       if (state.isClip && !state.disposed) {
         const rate = clipOutputRate(node, state.metadata?.fps, value(node, "every_nth", 1));
         const linked = ["fixed_frames", "frame_load_cap", "max_frames", "start_frame", "end_frame", "start_seconds", "end_seconds", "every_nth"];
@@ -1678,7 +1740,8 @@ function blendOverlayCanvas(state, render) {
   const resize = value(node, "resize_to_megapixels", false)
     ? scaleToMegapixels(padding.outputWidth, padding.outputHeight, value(node, "megapixels", 1), value(node, "resolution_steps", 1))
     : null;
-  const key = JSON.stringify([state.sourceWidth, state.sourceHeight, rotation, crop, padding, feather, blend, grow, resize]);
+  const layer = maskLayer(state);
+  const key = JSON.stringify([state.sourceWidth, state.sourceHeight, rotation, crop, padding, feather, blend, grow, resize, layer ? state.image.src : null]);
   if (state.blendOverlay?.key === key) return state.blendOverlay.canvas;
   const plan = overlayPlan(padding.outputWidth, padding.outputHeight, resize);
   const { width, height, k } = plan;
@@ -1690,6 +1753,9 @@ function blendOverlayCanvas(state, render) {
   rc.translate((padding.left - crop.x) * k + source.width * k / 2, (padding.top - crop.y) * k + source.height * k / 2);
   rc.rotate(rotation * Math.PI / 180);
   rc.fillStyle = "#000"; rc.fillRect(-state.sourceWidth * k / 2, -state.sourceHeight * k / 2, state.sourceWidth * k, state.sourceHeight * k);
+  // The see-through parts of the picture, a painted mask among them, are
+  // generated area as well.
+  if (layer) rc.drawImage(maskStencil(layer), -state.sourceWidth * k / 2, -state.sourceHeight * k / 2, state.sourceWidth * k, state.sourceHeight * k);
   rc.restore();
   const pixels = rc.getImageData(0, 0, width, height).data;
   let mask = new Float32Array(width * height);
@@ -2301,9 +2367,19 @@ function keepStageRoom(state) {
 function drawScene(context, state, render, compact, interactive) {
   const { sourceRect, cropRect, outputRect } = render; context.save();
   const fill = normalizeColor(value(state.node, "fill_color", "#808080"));
+  // Show blend's tint already holds the painted parts: one teal at a time.
+  const blend = !compact && state.showBlend && widget(state.node, "stitch_blend");
+  const tint = !blend && settings().show_mask ? maskLayer(state)?.tint : null;
   const picture = () => {
     context.save(); context.translate(sourceRect.x + sourceRect.width / 2, sourceRect.y + sourceRect.height / 2); context.rotate((Number(value(state.node, "rotation_degrees", 0)) || 0) * Math.PI / 180);
-    drawSourceImage(context, state, render.scale); context.restore();
+    drawSourceImage(context, state, render.scale);
+    // The mask rides on the picture it was drawn on: turned, cropped and
+    // padded with it, and dimmed with it where the crop cuts it away.
+    if (tint) {
+      const width = state.sourceWidth * render.scale; const height = state.sourceHeight * render.scale;
+      context.globalAlpha = MASK_TINT_ALPHA; context.drawImage(tint, -width / 2, -height / 2, width, height);
+    }
+    context.restore();
   };
   picture();
   context.save(); context.fillStyle = "rgba(8,10,12,.66)";
@@ -2311,7 +2387,7 @@ function drawScene(context, state, render, compact, interactive) {
   context.fillStyle = fill; context.fillRect(outputRect.x, outputRect.y, outputRect.width, outputRect.height);
   drawHatch(context, outputRect, fill);
   context.save(); context.beginPath(); context.rect(cropRect.x, cropRect.y, cropRect.width, cropRect.height); context.clip(); picture(); context.restore();
-  if (!compact && state.showBlend && widget(state.node, "stitch_blend")) drawBlendOverlay(context, state, render);
+  if (blend) drawBlendOverlay(context, state, render);
   context.strokeStyle = "#4bd8ef"; context.lineWidth = compact ? 1 : 2; context.setLineDash([7, 5]); context.strokeRect(cropRect.x, cropRect.y, cropRect.width, cropRect.height);
   context.strokeStyle = "#ff9d42"; context.setLineDash([5, 5]); context.strokeRect(outputRect.x, outputRect.y, outputRect.width, outputRect.height); context.setLineDash([]);
   if (interactive) {
@@ -2427,6 +2503,61 @@ function sizeBoxPlace(state, render, width, height, viewWidth, viewHeight) {
   return { x: spot.x, top: clamp(spot.top, 4, Math.max(4, viewHeight - height - 4)) };
 }
 
+// The picture's see-through parts, read once per picture from its alpha by
+// the run's rule (seeThroughMap). A mask drawn in the MaskEditor is saved
+// as exactly that. `picture` is the picture as the run uses it: kept pixels
+// fully solid, the rest empty so the fill shows through, where the browser
+// would let a half-strength stroke show half the picture. `tint` is solid
+// teal over the rest, drawn at Show blend's strength. Null for video frames
+// and for a picture the run leaves as it is. Pictures over 2048 px are read
+// at that size.
+const MASK_LAYER_SIDE = 2048;
+const MASK_TEAL = [0, 184, 174, 255];
+const MASK_TINT_ALPHA = 150 / 255;
+function maskLayer(state) {
+  if (state.kind !== "image" || !state.image || !state.sourceWidth || !state.sourceHeight) return null;
+  if (state.seeThrough?.image === state.image) return state.seeThrough.layer;
+  let layer = null;
+  try {
+    const k = Math.min(1, MASK_LAYER_SIDE / Math.max(state.sourceWidth, state.sourceHeight));
+    const width = Math.max(1, Math.round(state.sourceWidth * k));
+    const height = Math.max(1, Math.round(state.sourceHeight * k));
+    const picture = document.createElement("canvas"); picture.width = width; picture.height = height;
+    const context = picture.getContext("2d");
+    context.drawImage(state.image, 0, 0, width, height);
+    const pixels = context.getImageData(0, 0, width, height);
+    const map = seeThroughMap(pixels.data);
+    if (map) {
+      const tint = document.createElement("canvas"); tint.width = width; tint.height = height;
+      const tintContext = tint.getContext("2d");
+      const teal = tintContext.createImageData(width, height);
+      for (let i = 0; i < map.length; i++) {
+        pixels.data[i * 4 + 3] = map[i] ? 0 : 255;
+        if (map[i]) teal.data.set(MASK_TEAL, i * 4);
+      }
+      context.putImageData(pixels, 0, 0);
+      tintContext.putImageData(teal, 0, 0);
+      layer = { picture, tint, stencil: null };
+    }
+  } catch {
+    // A picture the browser will not let us read is drawn as it is.
+  }
+  state.seeThrough = { image: state.image, layer };
+  return layer;
+}
+
+// White where the tint is, for Show blend's raster.
+function maskStencil(layer) {
+  if (!layer.stencil) {
+    const stencil = document.createElement("canvas"); stencil.width = layer.tint.width; stencil.height = layer.tint.height;
+    const context = stencil.getContext("2d");
+    context.drawImage(layer.tint, 0, 0);
+    context.globalCompositeOperation = "source-in"; context.fillStyle = "#fff"; context.fillRect(0, 0, stencil.width, stencil.height);
+    layer.stencil = stencil;
+  }
+  return layer.stencil;
+}
+
 // Draws the current source frame centered on the (already translated and
 // rotated) origin. During a scrub, the nearest storyboard tile stands in for
 // the real frame until its decode lands.
@@ -2442,7 +2573,7 @@ function drawSourceImage(context, state, scale) {
     );
     return;
   }
-  context.drawImage(state.image, -width / 2, -height / 2, width, height);
+  context.drawImage(maskLayer(state)?.picture ?? state.image, -width / 2, -height / 2, width, height);
 }
 
 // Faint diagonal lines over added space: light on a dark fill, dark on a
@@ -2875,7 +3006,7 @@ export function openTransformEditorForNode(node) {
 }
 
 export function disposeTransformNode(node) {
-  const state = node.__ausbossTransformState; if (!state) return; state.disposed = true; closeEditor(state); state.panelAbort?.abort(); state.panelResizeObserver?.disconnect(); state.frameController?.abort(); if (state.frameObjectUrl) URL.revokeObjectURL(state.frameObjectUrl);
+  const state = node.__ausbossTransformState; if (!state) return; state.disposed = true; liveStates.delete(state); closeEditor(state); state.panelAbort?.abort(); state.panelResizeObserver?.disconnect(); state.frameController?.abort(); if (state.frameObjectUrl) URL.revokeObjectURL(state.frameObjectUrl);
   if (node.__ausbossImgsSuppressed) {
     const descriptor = node.__ausbossImgsDescriptor;
     if (descriptor) Object.defineProperty(node, "imgs", descriptor); else delete node.imgs;

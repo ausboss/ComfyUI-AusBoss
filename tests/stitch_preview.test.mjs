@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { blurMask, featherGeneratedMask, growShrinkMask, overlayPlan, stitchBlendFromMask } from "../js/shared/stitch_preview.mjs";
+import {
+  SEE_THROUGH_KEEP_PERCENT, blurMask, featherGeneratedMask, growShrinkMask, overlayPlan, seeThroughMap, stitchBlendFromMask,
+} from "../js/shared/stitch_preview.mjs";
 
 const fixture = JSON.parse(readFileSync(new URL("./fixtures/stitch_blend_parity.json", import.meta.url), "utf8"));
 const { width, height } = fixture;
@@ -49,4 +51,28 @@ test("overlayPlan converts output pixels into work pixels through the resize", (
   const plain = overlayPlan(200, 100, null, 384);
   assert.equal(plain.k, 1);
   assert.equal(plain.unit, 1);
+});
+
+// The node's picture shows what the run paints from the picture itself (a
+// MaskEditor mask, a cutout's see-through parts), so the rule must be the
+// backend's: the cases of tests/test_transform_see_through.py.
+const pixels = (...alphas) => Uint8ClampedArray.from(alphas.flatMap((alpha) => [10, 20, 30, alpha]));
+
+test("seeThroughMap keeps 90% of the most solid pixel, as the run does", () => {
+  assert.deepEqual(Array.from(seeThroughMap(pixels(0, 25, 128, 229, 230, 254, 255))), [1, 1, 1, 1, 0, 0, 0]);
+  // Measured against the most solid pixel: here 200, so 180 stays.
+  assert.deepEqual(Array.from(seeThroughMap(pixels(0, 100, 179, 180, 200))), [1, 1, 1, 0, 0]);
+});
+
+test("seeThroughMap leaves a solid picture alone and paints an empty one", () => {
+  assert.equal(seeThroughMap(pixels(255, 255, 255, 255)), null);
+  assert.equal(seeThroughMap(pixels(230, 230, 249, 254)), null);
+  // 229 everywhere is kept whole, but no longer left exactly as loaded.
+  assert.deepEqual(Array.from(seeThroughMap(pixels(229, 229))), [0, 0]);
+  assert.deepEqual(Array.from(seeThroughMap(pixels(0, 0, 0))), [1, 1, 1]);
+});
+
+test("the see-through threshold is the backend's", () => {
+  const engine = readFileSync(new URL("../nodes/_transform_engine.py", import.meta.url), "utf8");
+  assert.equal(Number(/^SEE_THROUGH_KEEP_PERCENT = (\d+)$/m.exec(engine)?.[1]), SEE_THROUGH_KEEP_PERCENT);
 });
