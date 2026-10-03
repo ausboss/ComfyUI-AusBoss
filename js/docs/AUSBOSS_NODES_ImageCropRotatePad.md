@@ -98,6 +98,20 @@ Fill, Feather and Resize stay synchronized with the editor. Changing the resize 
 updates the size readout immediately. Restoring a workflow or undoing a change
 refreshes the source card and preview without resetting the saved framing.
 
+## Drawing a mask
+
+Right-click the node and choose **Open in MaskEditor** to paint over the parts
+you want the model to repaint. After **Save**, the picture on the node shows
+them in teal, and the teal moves with the picture when you crop, turn or pad
+it. The full editor shows it too. The run treats painted parts like the
+padding: it fills them with the fill colour and marks them in the **mask**,
+so under the teal you see the fill colour, not your picture.
+
+See-through parts of a PNG show in teal the same way, because the node paints
+them too. To hide the teal, click the gear at the top right of the image
+source box and turn off **Show the mask on the picture**. The choice applies
+to every Image Crop + Rotate + Pad in this browser.
+
 ## Outputs
 
 - **image**: BHWC float image batch. Animated image frames receive the identical transform.
@@ -142,6 +156,9 @@ A picture with no see-through parts comes out exactly as before.
 - A turned picture's see-through parts turn with it, like its corners. In
   **prompt_image** they show white while the padding and the corners keep
   the fill colour.
+- The MaskEditor saves its mask as see-through parts of the picture, so the
+  same rule applies: a stroke more than 10% strong is painted in full,
+  including one at the MaskEditor's default 70% opacity.
 
 ## Inpaint & Stitch
 
@@ -149,8 +166,8 @@ The editor's right sidebar holds the stitcher's settings, the same as on the cli
 
 - **Blend** (`stitch_blend`, default 32): the ramp, in output pixels, where generated
   pixels fade over the source. It is separate from **Feather**, which shapes the mask.
-- **Show blend** tints the stage with the paste mask: the generated area, the feather,
-  then grow and blend applied through any resize.
+- **Show blend** tints the stage with the paste mask: the generated area (painted and
+  see-through parts included), the feather, then grow and blend applied through any resize.
 - **Advanced → Grow paste** (`stitch_grow`, default 0) moves the paste boundary first:
   a few positive pixels let the generation repaint the source edge when a seam still shows.
 

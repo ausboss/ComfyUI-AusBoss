@@ -33,6 +33,14 @@ All notable changes to ComfyUI-AusBoss are documented here.
   and both video nodes, on the node and in the editor. The rotate knob moves
   aside where a corner handle now sits. Saved workflows and the node inputs
   are unchanged.
+- **Image Crop + Rotate + Pad shows the mask you draw.** After you paint a
+  mask with Open in MaskEditor and press Save, the picture on the node now
+  updates and shows the painted parts in teal. Before, it kept showing the
+  old picture, so you could not tell a mask was there. The teal moves with
+  the crop, the turn and the padding, and the full editor shows it too.
+  See-through parts of a PNG show the same way. A new gear on the image
+  source box turns the teal off. In the editor, Show blend now includes the
+  painted parts.
 
 ## 2.5.2 - 2026-10-02
 
