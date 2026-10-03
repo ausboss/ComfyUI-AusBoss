@@ -164,7 +164,11 @@ def transform_inputs(*, feather: int = 24, fill_color: str = "#808080") -> dict[
                 "min": 1,
                 "max": 4096,
                 "step": 1,
-                "tooltip": "Rounds output up by adding the minimum extra pixels to right and bottom.",
+                "tooltip": (
+                    "Adds a few pixels of fill on the right and bottom so the width "
+                    "and height divide evenly by this number. Some models need "
+                    "sizes divisible by 8, 16 or 32; 1 = off."
+                ),
             },
         ),
         "fill_color": (
