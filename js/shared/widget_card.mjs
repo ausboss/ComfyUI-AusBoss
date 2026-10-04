@@ -155,11 +155,13 @@ function isFloatWidget(widget) {
 }
 
 // Mount a card on `node`. Rows:
-//   { widget, label?, kind?, labels?, suffix?, title?, when?, group?, linkedBy? }
+//   { widget, label?, kind?, labels?, suffix?, title?, when?, group?, linkedBy?, snap? }
 //                                          - `linkedBy` names other inputs
 //                                            whose link also dims the row
 //                                            (a wired source replacing a
-//                                            file picker)
+//                                            file picker); `snap` steps a
+//                                            number on multiples of its
+//                                            step (1, 8, 16, not 1, 9, 17)
 //   { widget, kind: "textarea", placeholder?, height, grow? }  - a multiline
 //                                             string; `grow` takes the node's
 //                                             spare height
@@ -217,6 +219,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       // Single fields share one unit slot so their numbers line up down
       // the card; the fields of a pair sit side by side and keep the room.
       unitWidth: row.pair ? 0 : UNIT_SLOT_WIDTH,
+      snap: Boolean(row.snap),
       onChange: (next) => setWidget(name, isFloat ? next : Math.round(next), { settle: false }),
       onSettle: () => notifyAusbossChange(),
     });

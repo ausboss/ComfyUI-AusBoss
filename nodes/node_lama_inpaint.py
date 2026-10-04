@@ -81,7 +81,10 @@ class AusBossLaMaInpaint:
         return preview_payload(inpainted, self._prefix, "LaMa Inpaint", (inpainted,))
 
     @classmethod
-    def VALIDATE_INPUTS(cls, model, **_values):
+    def VALIDATE_INPUTS(cls, model):
+        # Only the model is named: a failure is filed once per named input,
+        # and ComfyUI keeps checking the rest. The model skips its list check
+        # so a file dropped in after the list was read still resolves.
         from ._lama_helpers import resolve_lama_model
 
         try:

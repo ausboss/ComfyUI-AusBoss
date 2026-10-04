@@ -326,10 +326,9 @@ def match_colors(
         if not isinstance(mask, torch.Tensor) or mask.ndim != 3:
             raise ValueError("Color Match expected a BHW MASK.")
         if mask.shape[1:] != image.shape[1:3]:
-            raise ValueError(
-                f"Mask size {tuple(mask.shape[1:])} does not match "
-                f"image size {tuple(image.shape[1:3])}."
-            )
+            from ._mask_helpers import mask_size_mismatch
+
+            raise ValueError(mask_size_mismatch(mask, int(image.shape[1]), int(image.shape[2])))
         if mask.shape[0] not in (1, image.shape[0]):
             raise ValueError(
                 f"Mask batch {mask.shape[0]} cannot broadcast across "

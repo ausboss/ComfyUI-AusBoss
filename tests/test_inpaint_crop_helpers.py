@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import io
+import math
 from pathlib import Path
 import sys
 import types
@@ -1516,7 +1517,10 @@ class SeamBlendInTests(unittest.TestCase):
         self.assertEqual(len(bars), 1)
         self.assertEqual(bars[0].updates, [(1, 3), (2, 3), (3, 3)])
 
-    def test_tone_match_and_the_halo_fix_do_not_apply(self):
+    def test_the_halo_fix_does_not_apply_and_grain_is_no_drift(self):
+        # Blend in never runs the halo estimate. The stand-in model redraws
+        # the picture with grain and no drift, so Tone match finds nothing it
+        # can check and the stitch is plain blend in, bit for bit.
         def refuse(*_args):
             raise AssertionError("the halo estimate ran")
 
@@ -1640,6 +1644,285 @@ class SeamBlendInTests(unittest.TestCase):
         empty = build_canvas_stitcher(picture, torch.ones((1, 48, 64)), bbox=(0, 0, 0, 0))
         patch = shuffle_pixels(picture)
         self.assertTrue(torch.equal(self.blend_in(stitcher=empty, patch=patch), patch))
+
+
+def known_truth(height: int, width: int, seed: int = 0, dark: bool = False) -> torch.Tensor:
+    """[1, H, W, 3] a scene whose every pixel is known: soft colour structure
+    across brightness, or, ``dark``, a black backdrop with a lit subject."""
+    rows = torch.linspace(0.0, 1.0, height).view(1, height, 1, 1)
+    cols = torch.linspace(0.0, 1.0, width).view(1, 1, width, 1)
+    tint = torch.tensor((0.9, 1.0, 0.8)).view(1, 1, 1, 3)
+    scene = (0.08 + 0.8 * (0.5 + 0.5 * torch.sin(5.0 * cols + 3.0 * rows + seed))) * tint
+    grain = torch.nn.functional.avg_pool2d(
+        (rand_image(1, height, width, seed) - 0.5).movedim(-1, 1), 5, stride=1, padding=2, count_include_pad=False
+    ).movedim(1, -1)
+    scene = scene + 0.04 * grain
+    if dark:
+        lit = (0.5 + 0.5 * torch.sin(7.0 * cols - 2.0 * rows)) > 0.55
+        scene = torch.where(lit, scene, torch.zeros_like(scene))
+    return scene.clamp(0.0, 1.0)
+
+
+def tilted_stitcher(truth: torch.Tensor, degrees: float = -11.0, feather: float = 10.0, fill: float = 0.5) -> dict:
+    """A turned outpaint whose true continuation is ``truth`` everywhere: the
+    picture is a turned rectangle in the middle, its rim part fill as a turn
+    leaves it, and the generated-area mask feathers into the picture the way
+    Crop + Rotate + Pad feathers it (stitch_blend 0)."""
+    from PIL import Image, ImageDraw, ImageFilter
+    import numpy as np
+
+    height, width = truth.shape[1:3]
+    scale = 4
+    board = Image.new("L", (width * scale, height * scale), 0)
+    cx, cy = width * scale / 2.0, height * scale / 2.0
+    half_w, half_h = width * scale * 0.33, height * scale * 0.33
+    turn = math.radians(degrees)
+    corners = [
+        (cx + x * math.cos(turn) - y * math.sin(turn), cy + x * math.sin(turn) + y * math.cos(turn))
+        for x, y in ((-half_w, -half_h), (half_w, -half_h), (half_w, half_h), (-half_w, half_h))
+    ]
+    ImageDraw.Draw(board).polygon(corners, fill=255)
+    alpha = board.resize((width, height), Image.Resampling.BOX)
+    empty = Image.fromarray(255 - np.asarray(alpha))
+    blurred = np.asarray(empty.filter(ImageFilter.GaussianBlur(feather)), dtype=np.float32) * 2.0
+    mask = np.maximum(np.asarray(empty, dtype=np.float32), np.minimum(blurred, 255.0)) / 255.0
+    kept = torch.from_numpy(np.asarray(alpha, dtype=np.float32) / 255.0).view(1, height, width, 1)
+    canvas = truth * kept + fill * (1.0 - kept)
+    mask = torch.from_numpy(mask).unsqueeze(0)
+    stitcher = build_canvas_stitcher(canvas, mask.clone(), bbox=(0, 0, width, height))
+    stitcher["generated"] = mask
+    return stitcher
+
+
+def truth_stitcher(truth: torch.Tensor, pads=(40, 32, 48, 24), feather: int = 24) -> dict:
+    """A Load Image + Pad outpaint of the middle of ``truth``."""
+    left, top, right, bottom = pads
+    picture = truth[:, top : truth.shape[1] - bottom, left : truth.shape[2] - right]
+    return padded_stitcher(picture, pads, feather=feather)
+
+
+def midtone_drift(values: torch.Tensor) -> torch.Tensor:
+    """How a model might repaint tones: black and white kept, mid-tones up to
+    12 levels darker, a little more in blue than in red."""
+    per_channel = torch.tensor((0.8, 1.0, 1.25)).view(1, 1, 1, 3)
+    return -(12.0 / 255.0) * torch.sin(math.pi * values.clamp(0.0, 1.0)) * per_channel
+
+
+def drifted_model(stitcher: dict, truth: torch.Tensor, drift=midtone_drift, seed: int = 5) -> torch.Tensor:
+    """The model as a masked sampler paints it: the true scene with its drift
+    at full strength in the new area and scaled by the sampler mask inside
+    the picture, plus a little grain."""
+    sampler = stitcher.get("generated")
+    if sampler is None:
+        sampler = stitcher["blend"]
+    grain = (rand_image(1, *truth.shape[1:3], seed) - 0.5) * 0.01
+    return (truth + sampler.unsqueeze(-1) * drift(truth) + grain).clamp(0.0, 1.0)
+
+
+class SeamBlendInToneMatchTests(unittest.TestCase):
+    """Tone match under blend in: the model's drift read where it redrew the
+    picture, checked on held-out tiles, and taken off before the blend."""
+
+    def stitch(self, stitcher, patch, color_match):
+        return apply_stitch(stitcher, patch, color_match=color_match, seam="blend in")
+
+    def new_area_error(self, stitcher, image, truth):
+        area = new_area(stitcher).squeeze(0)
+        return float((image[0][area] - truth[0][area]).abs().mean()) * 255.0
+
+    def test_the_models_drift_comes_off_turned_and_straight(self):
+        for name, build in (
+            ("turned", lambda truth: tilted_stitcher(truth, feather=32.0)),
+            ("straight", lambda truth: truth_stitcher(truth, feather=32)),
+        ):
+            with self.subTest(edge=name):
+                truth = known_truth(288, 352, seed=3)
+                stitcher = build(truth)
+                model = drifted_model(stitcher, truth)
+                plain = self.new_area_error(stitcher, self.stitch(stitcher, model, 0.0), truth)
+                matched = self.stitch(stitcher, model, 1.0)
+                # Plain blend in keeps the model's darker mid-tones; Tone
+                # match takes most of the drift back off the new area.
+                self.assertGreater(plain, 6.0)
+                self.assertLess(self.new_area_error(stitcher, matched, truth), 0.35 * plain)
+                # Your picture is still exact past the hand-over.
+                plan = inpaint_helpers.seam_plan(stitcher)
+                deep = plan["depth"][0] >= max(plan["tone"][1], plan["detail"][1])
+                self.assertTrue(torch.equal(matched[0][deep], stitcher["canvas"][0][deep]))
+
+    def test_a_thin_feather_corrects_less_never_more(self):
+        # A thin feather lets the model redraw a thin strip, so there is less
+        # to read. Tone match then takes off part of the drift, never more.
+        truth = known_truth(288, 352, seed=3)
+        stitcher = tilted_stitcher(truth, feather=10.0)
+        model = drifted_model(stitcher, truth)
+        plain = self.new_area_error(stitcher, self.stitch(stitcher, model, 0.0), truth)
+        matched = self.stitch(stitcher, model, 1.0)
+        self.assertLess(self.new_area_error(stitcher, matched, truth), 0.8 * plain)
+        area = new_area(stitcher).squeeze(0)
+        lifted = matched[0][area] - model[0][area]
+        # The model painted darker; the correction only ever lightens.
+        self.assertGreaterEqual(float(lifted.min()), -1.0 / 255.0)
+
+    def test_black_the_model_kept_black_stays_black(self):
+        truth = known_truth(288, 352, seed=4, dark=True)
+        stitcher = tilted_stitcher(truth, feather=32.0)
+        model = drifted_model(stitcher, truth)
+        plain = self.new_area_error(stitcher, self.stitch(stitcher, model, 0.0), truth)
+        matched = self.stitch(stitcher, model, 1.0)
+        area = new_area(stitcher).squeeze(0) & (truth[0].amax(dim=-1) == 0.0)
+        self.assertGreater(int(area.sum()), 2000)
+        # A flat lift would raise this black; the drift curves keep it.
+        self.assertLess(float(matched[0][area].mean()) * 255.0, 1.5)
+        self.assertLess(self.new_area_error(stitcher, matched, truth), 0.55 * plain)
+
+    def test_a_turned_rim_mixed_with_fill_is_not_read_as_drift(self):
+        # A night scene, turned on grey fill; the model continues it exactly
+        # and only the turned rim holds fill. Classic Tone match reads that
+        # rim as drift and lifts the whole new area (the seam a turned night
+        # outpaint showed); blend in's Tone match never reads the rim.
+        truth = known_truth(288, 352, seed=6, dark=True)
+        stitcher = tilted_stitcher(truth)
+        self.assertTrue(torch.equal(self.stitch(stitcher, truth, 1.0), self.stitch(stitcher, truth, 0.0)))
+        classic = apply_stitch(stitcher, truth, color_match=1.0)
+        self.assertGreater(self.new_area_error(stitcher, classic, truth), 1.5)
+
+    def test_no_feather_leaves_nothing_to_read(self):
+        truth = known_truth(288, 352, seed=7)
+        stitcher = tilted_stitcher(truth, feather=0.0)
+        model = drifted_model(stitcher, truth)
+        self.assertTrue(torch.equal(self.stitch(stitcher, model, 1.0), self.stitch(stitcher, model, 0.0)))
+
+    def test_strength_scales_the_correction(self):
+        truth = known_truth(288, 352, seed=8)
+        stitcher = truth_stitcher(truth, feather=32)
+        model = drifted_model(stitcher, truth)
+        area = new_area(stitcher).squeeze(0)
+        full = float((self.stitch(stitcher, model, 1.0)[0][area] - model[0][area]).mean())
+        half = float((self.stitch(stitcher, model, 0.5)[0][area] - model[0][area]).mean())
+        self.assertGreater(full, 3.0 / 255.0)
+        self.assertAlmostEqual(half / full, 0.5, delta=0.1)
+
+    def test_a_clip_is_measured_once_and_matched_alike(self):
+        truth = known_truth(288, 352, seed=9)
+        stitcher = truth_stitcher(truth, feather=32)
+        frames = torch.cat([drifted_model(stitcher, truth, seed=20 + index) for index in range(3)])
+        calls = []
+        original = inpaint_helpers.blend_in_tone_match
+
+        def counted(*args, **kwargs):
+            calls.append(1)
+            return original(*args, **kwargs)
+
+        inpaint_helpers.blend_in_tone_match = counted
+        try:
+            out = self.stitch(stitcher, frames, 1.0)
+        finally:
+            inpaint_helpers.blend_in_tone_match = original
+        self.assertEqual(len(calls), 1)
+        area = new_area(stitcher).squeeze(0)
+        errors = [float((out[index][area] - truth[0][area]).abs().mean()) * 255.0 for index in range(3)]
+        self.assertLess(max(errors), 3.0)
+        self.assertLess(max(errors) - min(errors), 0.2)
+
+
+def drift_along_the_edge(values: torch.Tensor) -> torch.Tensor:
+    """midtone_drift, a third as strong on the left as it is on the right."""
+    ramp = torch.linspace(0.3, 1.7, values.shape[2]).view(1, 1, -1, 1)
+    return midtone_drift(values) * ramp
+
+
+class ToneMatchMatchesTheOldCodeTests(unittest.TestCase):
+    """Tone match was rewritten to run as a few large operations; the old
+    code (tests/_tone_match_reference.py, verbatim) ran thousands of small
+    ones. Both must take the same decision and stitch the same picture: the
+    rewrite only adds the fit's sums in another order, so the two stay far
+    inside a hundredth of one 8-bit level."""
+
+    TOLERANCE = 1e-5
+
+    @classmethod
+    def setUpClass(cls):
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import _tone_match_reference
+
+        cls.reference = _tone_match_reference
+
+    def stitch(self, module, stitcher, patch, strength):
+        saved = (inpaint_helpers.blend_in_tone_match, inpaint_helpers._apply_tone_match)
+        if module is not inpaint_helpers:
+            inpaint_helpers.blend_in_tone_match = module.blend_in_tone_match
+            inpaint_helpers._apply_tone_match = lambda model, match, strength, undone=None: module._apply_tone_match(
+                model, match, strength
+            )
+        try:
+            return apply_stitch(stitcher, patch, color_match=strength, seam="blend in")
+        finally:
+            inpaint_helpers.blend_in_tone_match, inpaint_helpers._apply_tone_match = saved
+
+    def decision(self, module, stitcher, patch):
+        plan = inpaint_helpers.seam_plan(stitcher)
+        match = module.blend_in_tone_match(stitcher["canvas"], patch, {"depth": plan["depth"], "sampler": plan["sampler"]})
+        if match is None:
+            return "nothing"
+        return "curves" if match["gain"] is None else "curves and gain"
+
+    def assert_same(self, stitcher, patch, expected):
+        self.assertEqual(self.decision(self.reference, stitcher, patch), expected)
+        self.assertEqual(self.decision(inpaint_helpers, stitcher, patch), expected)
+        for strength in (1.0, 0.4):
+            old = self.stitch(self.reference, stitcher, patch, strength)
+            new = self.stitch(inpaint_helpers, stitcher, patch, strength)
+            self.assertEqual(new.shape, old.shape)
+            self.assertLess(float((old - new).abs().max()), self.TOLERANCE, f"strength {strength}")
+
+    def test_turned_straight_dark_and_thin_edges(self):
+        for name, truth, build in (
+            ("turned", known_truth(288, 352, seed=3), lambda truth: tilted_stitcher(truth, feather=32.0)),
+            ("straight", known_truth(288, 352, seed=3), lambda truth: truth_stitcher(truth, feather=32)),
+            ("dark", known_truth(288, 352, seed=4, dark=True), lambda truth: tilted_stitcher(truth, feather=32.0)),
+            ("thin feather", known_truth(288, 352, seed=3), lambda truth: tilted_stitcher(truth, feather=10.0)),
+        ):
+            with self.subTest(case=name):
+                stitcher = build(truth)
+                self.assert_same(stitcher, drifted_model(stitcher, truth), "curves and gain")
+
+    def test_a_drift_that_changes_along_the_edge(self):
+        for build in (lambda truth: tilted_stitcher(truth, feather=32.0), lambda truth: truth_stitcher(truth, feather=32)):
+            truth = known_truth(288, 352, seed=8)
+            stitcher = build(truth)
+            self.assert_same(stitcher, drifted_model(stitcher, truth, drift=drift_along_the_edge), "curves and gain")
+
+    def test_the_curves_alone(self):
+        # The local gain is used only when it holds out well enough; with the
+        # bar out of reach both codes take the curves alone.
+        truth = known_truth(288, 352, seed=3)
+        stitcher = tilted_stitcher(truth, feather=32.0)
+        saved = inpaint_helpers.SEAM_MATCH_LOCAL_GAIN, self.reference.SEAM_MATCH_LOCAL_GAIN
+        inpaint_helpers.SEAM_MATCH_LOCAL_GAIN = self.reference.SEAM_MATCH_LOCAL_GAIN = 2.0
+        try:
+            self.assert_same(stitcher, drifted_model(stitcher, truth), "curves")
+        finally:
+            inpaint_helpers.SEAM_MATCH_LOCAL_GAIN, self.reference.SEAM_MATCH_LOCAL_GAIN = saved
+
+    def test_nothing_to_read(self):
+        truth = known_truth(288, 352, seed=7)
+        stitcher = tilted_stitcher(truth, feather=0.0)
+        self.assert_same(stitcher, drifted_model(stitcher, truth), "nothing")
+        # Grain and no drift: nothing that holds out.
+        stitcher = turned_stitcher(smooth_picture(1, 216, 288, seed=60))
+        self.assert_same(stitcher, model_result(stitcher, seed=61), "nothing")
+
+    def test_a_clip_and_a_picture_with_alpha(self):
+        truth = known_truth(288, 352, seed=9)
+        stitcher = truth_stitcher(truth, feather=32)
+        frames = torch.cat([drifted_model(stitcher, truth, seed=20 + index) for index in range(3)])
+        self.assert_same(stitcher, frames, "curves and gain")
+        # A fourth channel rides along untouched.
+        alpha = 0.25 + 0.5 * rand_image(1, 288, 352, seed=12)[..., :1]
+        with_alpha = truth_stitcher(torch.cat([truth, alpha], dim=-1), feather=32)
+        patch = torch.cat([drifted_model(stitcher, truth), torch.rand((1, *with_alpha["canvas"].shape[1:3], 1))], dim=-1)
+        self.assert_same(with_alpha, patch, "curves and gain")
 
 
 class SeamChoiceNodeTests(unittest.TestCase):

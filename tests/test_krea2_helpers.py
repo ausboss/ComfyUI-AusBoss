@@ -16,6 +16,7 @@ from nodes._krea2_helpers import (
     REFERENCE_MAX_EDGE,
     build_reference_image,
     extract_bbox_norm,
+    fill_reference_holes,
     placement_warning,
     reference_size,
     snap16,
@@ -90,6 +91,78 @@ class BuildReferenceImageTests(unittest.TestCase):
         with self.assertRaises(ValueError) as caught:
             build_reference_image(torch.rand(48, 64, 3))
         self.assertIn("BHWC", str(caught.exception))
+
+
+class FillReferenceHolesTests(unittest.TestCase):
+    """AnyPaint was trained with the new area of its reference in the
+    picture's own median colour. A gray pad next to a dark picture is not
+    that, and the model paints it back as a gray frame."""
+
+    def dark_canvas(self):
+        # A dark teal picture on the left, the gray pad on the right.
+        image = torch.full((1, 48, 96, 3), 0.5)
+        image[:, :, :64] = torch.tensor([0.1, 0.2, 0.25])
+        image[:, :4, :8] = torch.tensor([0.9, 0.9, 0.9])  # a highlight
+        mask = torch.zeros(1, 48, 96)
+        mask[:, :, 64:] = 1.0
+        return image, mask
+
+    def test_the_new_area_takes_the_median_of_the_picture(self):
+        image, mask = self.dark_canvas()
+        out = fill_reference_holes(image, mask)
+        expected = torch.tensor([0.1, 0.2, 0.25])
+        self.assertTrue(torch.allclose(out[0, :, 64:], expected.expand(48, 32, 3)))
+
+    def test_the_picture_itself_is_untouched(self):
+        image, mask = self.dark_canvas()
+        out = fill_reference_holes(image, mask)
+        self.assertTrue(torch.equal(out[:, :, :64], image[:, :, :64]))
+
+    def test_it_returns_a_copy(self):
+        image, mask = self.dark_canvas()
+        out = fill_reference_holes(image, mask)
+        self.assertEqual(float(image[0, 0, 80, 0]), 0.5)
+        self.assertIsNot(out, image)
+
+    def test_a_feathered_edge_below_half_stays_picture(self):
+        # The pad mask ramps a few pixels into the picture; only the part
+        # above 0.5 is new area.
+        image, mask = self.dark_canvas()
+        mask[:, :, 60:64] = 0.4
+        out = fill_reference_holes(image, mask)
+        self.assertTrue(torch.equal(out[:, :, 60:64], image[:, :, 60:64]))
+
+    def test_nothing_marked_changes_nothing(self):
+        image, _mask = self.dark_canvas()
+        out = fill_reference_holes(image, torch.zeros(1, 48, 96))
+        self.assertTrue(torch.equal(out, image))
+
+    def test_everything_marked_falls_back_to_mid_gray(self):
+        image, _mask = self.dark_canvas()
+        out = fill_reference_holes(image, torch.ones(1, 48, 96))
+        self.assertTrue(torch.allclose(out, torch.full_like(image, 0.5)))
+
+    def test_a_mask_of_another_size_is_fitted(self):
+        image, _mask = self.dark_canvas()
+        small = torch.zeros(1, 24, 48)
+        small[:, :, 32:] = 1.0
+        out = fill_reference_holes(image, small)
+        expected = torch.tensor([0.1, 0.2, 0.25])
+        self.assertTrue(torch.allclose(out[0, :, 66:], expected.expand(48, 30, 3)))
+
+    def test_a_plain_hw_mask_serves_the_whole_batch(self):
+        image, mask = self.dark_canvas()
+        batch = torch.cat([image, image * 0.5])
+        out = fill_reference_holes(batch, mask[0])
+        self.assertTrue(torch.allclose(out[0, 0, 90], torch.tensor([0.1, 0.2, 0.25])))
+        self.assertTrue(torch.allclose(out[1, 0, 90], torch.tensor([0.05, 0.1, 0.125])))
+
+    def test_junk_is_rejected_by_name(self):
+        image, mask = self.dark_canvas()
+        with self.assertRaises(ValueError):
+            fill_reference_holes(image[0], mask)
+        with self.assertRaises(ValueError):
+            fill_reference_holes(image, "mask")
 
 
 class ExtractBboxNormTests(unittest.TestCase):
@@ -250,6 +323,71 @@ class Krea2NodeContractTests(unittest.TestCase):
         self.assertEqual(positive[0][0], "a house")
         self.assertEqual(negative[0][0], "blurry")
         self.assertNotIn("reference_latents", positive[0][1])
+
+    def encode_with_stubs(self, **kwargs):
+        """Run the encode with a stub CLIP, VAE and node_helpers; return what
+        the vision tower and the VAE were handed."""
+        from nodes import node_krea2_encode as module
+
+        seen = {"vision": [], "vae": []}
+
+        class StubClip:
+            def tokenize(self, text, images=None, **_kwargs):
+                if images:
+                    seen["vision"].extend(images)
+                return {"text": text}
+
+            def encode_from_tokens_scheduled(self, tokens):
+                return [[tokens["text"], {}]]
+
+        class StubVae:
+            def encode(self, pixels):
+                seen["vae"].append(pixels)
+                return torch.zeros(1, 16, pixels.shape[1] // 8, pixels.shape[2] // 8)
+
+        class StubHelpers:
+            @staticmethod
+            def conditioning_set_values(conditioning, values, append=False):
+                return [[text, {**extra, **values}] for text, extra in conditioning]
+
+        saved = module.node_helpers
+        module.node_helpers = StubHelpers
+        try:
+            module.NODE_CLASS_MAPPINGS["AUSBOSS_NODES_Krea2Encode"]().encode(
+                StubClip(), "a room", vae=StubVae(), vlm_reference=True, **kwargs
+            )
+        finally:
+            module.node_helpers = saved
+        return seen
+
+    def test_a_wired_mask_refills_the_reference_for_the_vae_and_the_vision_tower(self):
+        canvas = torch.full((1, 48, 96, 3), 0.5)
+        canvas[:, :, :64] = torch.tensor([0.1, 0.2, 0.25])
+        mask = torch.zeros(1, 48, 96)
+        mask[:, :, 64:] = 1.0
+        seen = self.encode_with_stubs(reference=canvas, mask=mask)
+        dark = torch.tensor([0.1, 0.2, 0.25])
+        self.assertTrue(torch.allclose(seen["vision"][0][0, 10, 90], dark))
+        self.assertTrue(torch.allclose(seen["vae"][0][0, 10, 90], dark))
+        # The canvas the rest of the graph uses keeps its gray.
+        self.assertEqual(float(canvas[0, 10, 90, 0]), 0.5)
+
+    def test_without_a_mask_the_reference_is_used_as_given(self):
+        canvas = torch.full((1, 48, 96, 3), 0.5)
+        canvas[:, :, :64] = 0.1
+        seen = self.encode_with_stubs(reference=canvas)
+        self.assertTrue(torch.allclose(seen["vae"][0][0, 10, 90], torch.full((3,), 0.5)))
+        self.assertTrue(torch.allclose(seen["vision"][0][0, 10, 90], torch.full((3,), 0.5)))
+
+    def test_the_mask_is_the_last_optional_input(self):
+        # Saved workflows keep links by slot: a new input only goes at the end.
+        from nodes.node_krea2_encode import NODE_CLASS_MAPPINGS
+
+        optional = list(NODE_CLASS_MAPPINGS["AUSBOSS_NODES_Krea2Encode"].INPUT_TYPES()["optional"])
+        self.assertEqual(optional[-1], "mask")
+        self.assertEqual(
+            optional[:-1], ["negative_prompt", "vae", "reference", "extra_image", "vlm_reference"]
+        )
 
 
 if __name__ == "__main__":

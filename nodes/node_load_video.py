@@ -223,18 +223,18 @@ class AusBossLoadVideo:
         return f"{video}:{stat.st_mtime_ns}:{stat.st_size}"
 
     @classmethod
-    def VALIDATE_INPUTS(cls, video, start_seconds, end_seconds, **_values):
+    def VALIDATE_INPUTS(cls, video):
+        # ComfyUI files a failed check once per input named here and skips
+        # its own range and list checks for those inputs, so only the source
+        # is named. video skips the list check on purpose: resolve_input_path
+        # takes any file inside the input folder and nothing outside it. The
+        # trim window is checked when the loader runs (trim_window), where
+        # wired bounds are known and single_frame applies; ComfyUI starts
+        # async nodes such as this one ahead of the others.
         try:
             resolve_input_path(video)
         except Exception as exc:
             return f"Load Video: {exc}"
-        # A single-frame load ignores end_seconds, so a stale trim window left
-        # over from trim mode must not block the graph. A wired bound reaches
-        # validation as None (its value only exists at execution), so the
-        # window cannot be checked yet; the loader checks it again when it runs.
-        if not _values.get("single_frame") and None not in (start_seconds, end_seconds):
-            if float(end_seconds) > 0.0 and float(start_seconds) >= float(end_seconds):
-                return "Load Video: start_seconds must be smaller than end_seconds."
         return True
 
 

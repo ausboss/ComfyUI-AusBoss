@@ -34,7 +34,11 @@ answered on the same line as the button.
   not checked (no folder set, or this install has no such folder).
 - A found file swaps its Download button for an **✓ installed** pill; hovering
   the pill shows where it was found. A file that lives in a subfolder still
-  counts, because the loaders find it there too.
+  counts. When a loader in the workflow still asks for the bare file name,
+  which ComfyUI cannot find there (it marks that loader red), the row says
+  where the file is instead (**in LTXV 2.3/**) and **Use it** points those
+  loaders at the copy it found. The check only asks the ComfyUI server for its
+  own model lists.
 - **↻ check files** re-runs the check after you move files in. ComfyUI's own
   **R** refresh triggers it as well.
 - Folder `input` is for a sample image or clip shipped with the workflow: it
@@ -61,6 +65,9 @@ the person who downloaded the workflow to find.
 
 ## Notes and limitations
 
+- The card grows to show all of its text, and the node can't be dragged
+  shorter than that. It never shrinks by itself, so a note you made taller
+  keeps its space.
 - The card is stored as JSON in the node's one `note` widget, so save/load,
   undo, copy/paste and the API format all carry it. A card pasted from
   another workflow arrives intact.

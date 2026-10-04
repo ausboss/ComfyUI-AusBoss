@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   clipFraction,
+  compareBadges,
   slideFraction,
   compareClip,
   compareSizeLabel,
@@ -95,4 +96,18 @@ test("leaving above or below settles to the nearest full image", () => {
   assert.equal(slideFraction(200, 100, 200, true), 1);
   assert.equal(slideFraction(50, 100, 200, true), 0);
   assert.equal(slideFraction(350, 100, 200, true), 1);
+});
+
+test("A and B sit on either side of the split line and move with it", () => {
+  // At 30% of a 400 px stage the line is at 120: A just left of it, B just right.
+  const split = compareBadges(0.3, 400, 22, 5);
+  assert.deepEqual(split, { a: 93, b: 125 });
+  assert.deepEqual(compareBadges(0.8, 400, 22, 5), { a: 293, b: 325 });
+  // One picture showing: its label alone, centred.
+  assert.deepEqual(compareBadges(1, 400, 22), { a: 189, b: null });
+  assert.deepEqual(compareBadges(0, 400, 22), { a: null, b: 189 });
+  // A side too narrow for its label drops the label rather than cover the line.
+  assert.equal(compareBadges(0.05, 400, 22, 5).a, null);
+  assert.equal(compareBadges(0.97, 400, 22, 5).b, null);
+  assert.deepEqual(compareBadges(0.5, 0), { a: null, b: null });
 });

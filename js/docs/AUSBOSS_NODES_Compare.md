@@ -23,8 +23,9 @@ Run the workflow once to load the previews, then compare:
   the same choice again keeps it locked; choose SLIDE to follow the pointer
   again. The three choices sit below the image.
 
-The top-centre label reads **A** or **B** for a full image and **A | B** while
-both are visible, matching their left/right positions. The chosen mode and locked side are
+The labels ride with the split line: **A** just left of it and **B** just right of
+it, on the picture each one names. With one picture showing, its label sits alone
+at the top centre. The chosen mode and locked side are
 stored with the node, including support for modes from older workflows. The resolution
 sits beneath the panel; differing sizes are labeled individually.
 

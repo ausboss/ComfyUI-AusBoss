@@ -34,6 +34,7 @@ jobs:
           tests/test_execution_helpers.py
           tests/test_lora_helpers.py
           tests/test_math_helpers.py
+          tests/test_media_paths.py
           tests/test_memory_helpers.py
           tests/test_node_api.py
           tests/test_registry_contract.py
@@ -41,6 +42,7 @@ jobs:
           tests/test_resolution.py
           tests/test_status_helpers.py
           tests/test_utility_nodes.py
+          tests/test_validate_inputs.py
           tests/test_workflow_contract.py
       # `node --check file.js` passes a broken file that uses import or
       # export when no package.json marks it as a module, so each file goes

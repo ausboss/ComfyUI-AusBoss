@@ -63,6 +63,7 @@ import {
   toggleTrigger,
   upsertTemplate,
 } from "../shared/lora_stack.mjs";
+import { civitaiButtonLabel, civitaiByHashUrl, parseCivitaiBody } from "../shared/civitai_lookup.mjs";
 
 const NODE_CLASS = "AUSBOSS_NODES_LoraLoader";
 // A workflow saved by a 1.x release holds the panel's own empty value where
@@ -136,6 +137,13 @@ const SETTINGS_SCHEMA = [
     default: true,
     hint: "Rows show just the file name; the full path stays in the "
       + "tooltip and the picker keeps its folders.",
+  },
+  {
+    key: "civitai_lookup", label: "Civitai lookup button", type: "toggle",
+    default: true,
+    hint: "Offer a Fetch Civitai info button in the info card. Clicking it "
+      + "asks civitai.com about that one file, from this browser, and saves "
+      + "the answer next to the LoRA. Nothing is sent until you click.",
   },
   {
     key: "name_cut", label: "Long names", type: "choice",
@@ -336,6 +344,7 @@ function installStyles() {
   .ausboss-lora-chip { border: 1px solid #3a4047; border-radius: 10px; background: #23272c;
     color: inherit; cursor: pointer; padding: 2px 8px; font-size: 11px; }
   .ausboss-lora-chip.active { border-color: ${BRAND}; color: ${BRAND}; }
+  .ausboss-lora-fetch { align-self: flex-start; }
   .ausboss-lora-custom { display: flex; gap: 6px; align-items: center; }
   .ausboss-lora-custom input { flex: 1 1 auto; min-width: 0; height: ${ACTIONS_HEIGHT}px;
     border: 1px solid #3a4047; box-sizing: border-box;
@@ -911,6 +920,32 @@ function openPicker(state, index, anchor) {
     });
 }
 
+// ---------- Civitai lookup ----------
+
+// One click, one file: the server hashes the LoRA, this browser asks Civitai
+// about that hash, and the server saves the answer beside the LoRA after
+// checking it describes the same file. Returns false when Civitai does not
+// know the file (unpublished or hidden models answer 404).
+async function lookUpOnCivitai(serverName) {
+  const hashed = await (await api.fetchApi(
+    `/ausboss/lora/hash?name=${encodeURIComponent(serverName)}`
+  )).json();
+  if (!hashed.ok) throw new Error(hashed.error || "Could not hash this LoRA file.");
+  const response = await fetch(civitaiByHashUrl(hashed.sha256), {
+    credentials: "omit", redirect: "error", referrerPolicy: "no-referrer", cache: "no-store",
+  });
+  if (response.status === 404) return false;
+  if (!response.ok) throw new Error(`Civitai answered ${response.status}.`);
+  const info = parseCivitaiBody(await response.text());
+  const saved = await (await api.fetchApi("/ausboss/lora/civitai", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: serverName, info }),
+  })).json();
+  if (!saved.ok) throw new Error(saved.error || "Could not save the Civitai info.");
+  return true;
+}
+
 // ---------- info card ----------
 
 function openInfo(state, index, anchor) {
@@ -976,6 +1011,29 @@ function openInfo(state, index, anchor) {
     chipSection("From the file", info.file_triggers);
     chipSection("From Civitai", info.civitai_triggers);
     chipSection("Your words", info.custom_triggers);
+
+    if (state.settings?.civitai_lookup !== false) {
+      const fetchButton = el(
+        "button", "ausboss-lora-add ausboss-lora-fetch", civitaiButtonLabel(info.has_civitai)
+      );
+      fetchButton.type = "button";
+      fetchButton.title = "Asks civitai.com about this one file, from this browser.";
+      fetchButton.addEventListener("click", async () => {
+        fetchButton.disabled = true;
+        fetchButton.textContent = "Fetching...";
+        try {
+          if (!(await lookUpOnCivitai(serverName))) {
+            fetchButton.textContent = "Not found on Civitai";
+            return;
+          }
+          load();
+        } catch (error) {
+          fetchButton.textContent = "Civitai lookup failed";
+          fetchButton.title = String(error?.message || error);
+        }
+      });
+      card.append(fetchButton);
+    }
 
     const range = el("div", "ausboss-lora-range");
     range.append(el("span", "ausboss-lora-meta", "Suggested strength"));

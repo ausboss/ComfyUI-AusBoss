@@ -12,6 +12,7 @@
 // already moved the box on to the next number.
 
 import { app } from "/scripts/app.js";
+import { isForeignRun } from "../shared/prompt_scope.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { copyToClipboard } from "../shared/clipboard.mjs";
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
@@ -369,6 +370,7 @@ app.registerExtension({
       if (state) requestAnimationFrame(() => render(state));
     });
     chainCallback(nodeType.prototype, "onExecuted", function (message) {
+      if (isForeignRun()) return;
       const state = buildPanel(this);
       const seed = seedFromExecuted(message);
       if (!state || seed === null) return;

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { queueRemaining, shouldChime } from "../js/shared/notify.mjs";
+import { noticesFromExecuted, queueRemaining, shouldChime } from "../js/shared/notify.mjs";
 
 test("queue remaining reads both status event shapes", () => {
   assert.equal(queueRemaining({ exec_info: { queue_remaining: 3 } }), 3);
@@ -30,4 +30,24 @@ test("the chime marks the busy-to-idle transition only", () => {
 test("the setting gates the chime entirely", () => {
   assert.equal(shouldChime(false, 1, 0), false);
   assert.equal(shouldChime(undefined, 1, 0), false);
+});
+
+test("notices sent with a node's result are read from the executed event", () => {
+  const detail = {
+    node: "28:21",
+    output: { ausboss_notice: [{ source: "Stitch Inpaint", text: "The model left 100% of the new area unpainted." }] },
+  };
+  assert.deepEqual(noticesFromExecuted(detail), [
+    { source: "Stitch Inpaint", text: "The model left 100% of the new area unpainted." },
+  ]);
+  assert.deepEqual(noticesFromExecuted({ output: { ausboss_notice: ["  plain text  "] } }), [
+    { source: "", text: "plain text" },
+  ]);
+});
+
+test("results without notices, and malformed ones, show nothing", () => {
+  assert.deepEqual(noticesFromExecuted(null), []);
+  assert.deepEqual(noticesFromExecuted({ output: { images: [] } }), []);
+  assert.deepEqual(noticesFromExecuted({ output: { ausboss_notice: "not a list" } }), []);
+  assert.deepEqual(noticesFromExecuted({ output: { ausboss_notice: [null, 3, { text: "" }, { source: "x" }] } }), []);
 });

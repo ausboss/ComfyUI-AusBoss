@@ -12,6 +12,8 @@
 
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
+import { isForeignRun } from "../shared/prompt_scope.mjs";
+import { nodeByExecutionId } from "../shared/graph_ids.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { ensureNodeMinHeight, fillNodeHeight } from "../shared/panel_layout.mjs";
 import { suppressCoreImagePreview } from "../shared/core_preview.mjs";
@@ -19,7 +21,10 @@ import { autoMaskValues } from "../shared/mask_auto.mjs";
 import { hideInputsInDef, hideWidget, setWidgetVisible } from "../shared/widget_visibility.mjs";
 import {
   describeNodePreview,
+  outputLocatorId,
+  outputRecordQuery,
   placeholderText,
+  staleText,
   sourceFileWidget,
   upstreamNode,
 } from "../shared/input_preview.mjs";
@@ -37,6 +42,12 @@ const BAR_HEIGHT = 20;
 const PANEL_HEIGHT = STAGE_HEIGHT + BAR_HEIGHT + 4 + 16;
 const OFF_HEIGHT = BAR_HEIGHT + 16;
 const INPUT_SIDE = 1; // LiteGraph.INPUT
+// The node's height from before its preview was switched off, so switching
+// it back on returns the node to it (saved with the workflow).
+const HEIGHT_PROPERTY = "ausboss_preview_height";
+// Every panel alive on a canvas, so a restore of all outputs reaches each one,
+// and for the run events below.
+const livePanels = new Set();
 
 // Mask Refine opens on expand and blur alone. The other five are real
 // controls, not clutter, but they answer questions most masks never ask, and
@@ -45,6 +56,7 @@ const INPUT_SIDE = 1; // LiteGraph.INPUT
 // hidden, so a workflow that set them keeps them.
 const MASK_ADVANCED_WIDGETS = [
   "fill_holes",
+  "max_hole_size",
   "smooth",
   "black_point",
   "white_point",
@@ -59,7 +71,7 @@ const NODE_CONFIG = {
     noun: "a mask",
     advanced: MASK_ADVANCED_WIDGETS,
     tools: [
-      { label: "AUTO", title: "Set expand and blur from the mask's size", action: applyAutoValues },
+      { label: "AUTO", title: "Auto: sets Expand and Blur to suit the size of the mask. It reads the mask this node made, so run the workflow once first.", action: applyAutoValues },
       { label: "MORE", title: "Show the advanced mask controls", action: toggleAdvanced },
     ],
   },
@@ -68,6 +80,10 @@ const NODE_CONFIG = {
   AUSBOSS_NODES_SaveImage: { inputName: "images", noun: "an image" },
 };
 
+// The picture sits out of flow, centred in the stage, so it can never set
+// the panel's height. Nodes 2.0 lets a node's content decide its height (the
+// saved size is only a minimum), and an in-flow portrait drawn at full width
+// grew the node past whatever sat under it.
 function ensureCss() {
   if (document.getElementById(CSS_ID)) return;
   const style = document.createElement("style");
@@ -77,7 +93,7 @@ function ensureCss() {
 .ausboss-input-preview-bar{box-sizing:border-box;flex:none;display:flex;align-items:center;gap:6px;height:${BAR_HEIGHT}px;padding:0 2px;pointer-events:none;}
 .ausboss-input-preview-stage{position:relative;flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;width:100%;overflow:hidden;border:1px solid rgba(0,180,170,.27);border-radius:6px;background:rgba(0,0,0,.28);}
 .ausboss-input-preview.preview-off .ausboss-input-preview-stage{display:none;}
-.ausboss-input-preview-stage img,.ausboss-input-preview-stage video{display:none;max-width:100%;max-height:100%;object-fit:contain;}
+.ausboss-input-preview-stage img,.ausboss-input-preview-stage video{display:none;position:absolute;inset:0;margin:auto;max-width:100%;max-height:100%;object-fit:contain;}
 .ausboss-input-preview-stage.show-image img{display:block;}
 .ausboss-input-preview-stage.show-video video{display:block;}
 .ausboss-input-preview-hint{display:none;max-width:86%;color:#78908e;font:11px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-align:center;}
@@ -251,17 +267,28 @@ function syncPreviewMode(state, resize) {
     state.switchButton.setAttribute("aria-checked", String(enabled));
   }
   if (!enabled) {
-    // Nothing to show and nothing to fetch: drop the picture so a stale
-    // frame cannot flash back when the panel returns.
+    // Nothing to show and nothing to fetch while it is off.
     state.img.removeAttribute("src");
   }
   if (resize) {
-    // Off: the node shrinks to what is left. On: it grows back to the
-    // stage's floor; anything taller it had is the user's to drag again.
     const node = state.node;
-    node.setSize?.([node.size?.[0] ?? PANEL_MIN_WIDTH, node.computeSize?.()[1] ?? PANEL_HEIGHT]);
+    node.properties ??= {};
+    const floor = node.computeSize?.()[1] ?? (enabled ? PANEL_HEIGHT : OFF_HEIGHT);
+    if (!enabled) {
+      // Off: remember the height, then shrink to what is left.
+      const height = Number(node.size?.[1]);
+      if (Number.isFinite(height) && height > floor) node.properties[HEIGHT_PROPERTY] = Math.round(height);
+      node.setSize?.([node.size?.[0] ?? PANEL_MIN_WIDTH, floor]);
+    } else {
+      // On: back to the height it had, with the last result in it.
+      const before = Number(node.properties[HEIGHT_PROPERTY]);
+      delete node.properties[HEIGHT_PROPERTY];
+      const height = Math.max(floor, Number.isFinite(before) ? before : 0, Number(node.size?.[1]) || 0);
+      node.setSize?.([node.size?.[0] ?? PANEL_MIN_WIDTH, height]);
+    }
     node.setDirtyCanvas?.(true, true);
   }
+  if (enabled && state.alive) scheduleRefresh(state);
 }
 
 function buildTools(state, tools, signal) {
@@ -329,11 +356,32 @@ function rewatchSource(state, source) {
   state.watched = { widget, prior, hook };
 }
 
+// The node's stored output as a /view URL, for Nodes 2.0, where node.imgs
+// stays empty (see suppressCoreImagePreview). The frontend keeps this record
+// on every run and restores it with the workflow. One cache-buster per
+// record: an overwritten file reloads after the next run, and a plain refresh
+// never reloads the picture.
+const storedRand = new WeakMap();
+function storedResultUrl(node) {
+  const record = app.nodeOutputs?.[outputLocatorId(node)];
+  const query = outputRecordQuery(record);
+  if (!query) return null;
+  if (!storedRand.has(record)) storedRand.set(record, app.getRandParam?.() ?? "");
+  return api.apiURL(`/view?${query}${app.getPreviewFormatParam?.() ?? ""}${storedRand.get(record)}`);
+}
+
 function refresh(state) {
   if (!state.alive) return;
   const source = upstreamNode(state.node, state.inputName);
   rewatchSource(state, source);
-  const described = describeNodePreview(state.node, state.inputName);
+  if (state.stale) {
+    // The node ran while its preview was off, so the picture it still has
+    // is from an older run: say so rather than show it.
+    clearMedia(state);
+    showHint(state, staleText());
+    return;
+  }
+  const described = describeNodePreview(state.node, state.inputName, storedResultUrl(state.node));
   if (!described) {
     clearMedia(state);
     showHint(state, placeholderText(!!source, state.noun));
@@ -456,6 +504,7 @@ function buildPanel(node, config) {
     alive: true,
     previewWidget,
   };
+  livePanels.add(state);
   if (config.tools?.length) bar.append(buildTools(state, config.tools, abort.signal));
   syncAdvanced(state);
   installPreviewSwitch(state, abort.signal);
@@ -475,8 +524,29 @@ function buildPanel(node, config) {
   return state;
 }
 
+// A node whose preview is off still runs, but sends no picture, so the one
+// it keeps is an older run's. Note that when it starts, from this tab's own
+// runs only; its next result (or a run with the preview on) clears it.
+api.addEventListener("executing", ({ detail }) => {
+  try {
+    const id = typeof detail === "object" && detail !== null ? detail.display_node ?? detail.node : detail;
+    if (id === null || id === undefined || !livePanels.size) return;
+    if (isForeignRun(typeof detail === "object" ? detail?.prompt_id : undefined)) return;
+    const node = nodeByExecutionId(app.rootGraph ?? app.graph, String(id));
+    const state = node?.__ausbossInputPreview;
+    if (state?.alive && !previewEnabled(state)) state.stale = true;
+  } catch {
+    // Never in the way of a run.
+  }
+});
+
 app.registerExtension({
   name: "ausboss.input_preview",
+  // Reopening a workflow tab restores every node's stored output at once,
+  // with no per-node event; each panel re-reads its own.
+  onNodeOutputsUpdated() {
+    for (const state of livePanels) scheduleRefresh(state);
+  },
   beforeRegisterNodeDef(nodeType, nodeData) {
     const config = NODE_CONFIG[nodeData?.name];
     if (!config) return;
@@ -501,13 +571,16 @@ app.registerExtension({
       });
     });
     chainCallback(nodeType.prototype, "onExecuted", function () {
+      if (isForeignRun()) return;
       const state = buildPanel(this, config);
-      if (state) scheduleRefresh(state);
+      // A result arrived (Save Image sends one even with its preview off).
+      if (state) { state.stale = false; scheduleRefresh(state); }
     });
     chainCallback(nodeType.prototype, "onRemoved", function () {
       const state = this.__ausbossInputPreview;
       if (!state) return;
       state.alive = false;
+      livePanels.delete(state);
       if (state.timer) clearTimeout(state.timer);
       clearTimeout(state.toastTimer);
       state.timer = 0;

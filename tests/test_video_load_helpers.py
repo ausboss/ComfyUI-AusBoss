@@ -433,28 +433,22 @@ class LoadVideoNodeTests(unittest.TestCase):
         self.assertAlmostEqual(fps, FPS, places=3)
         self.assertAlmostEqual(duration, 1 / FPS, delta=0.02)
 
-    def test_validation_ignores_the_trim_window_in_single_frame_mode(self):
+    def test_validation_reads_only_the_source(self):
+        # ComfyUI files a failed check once per input VALIDATE_INPUTS names,
+        # so naming the trim bounds too turned one missing file into four
+        # errors. The window is checked when the loader runs, where a wired
+        # bound has its value and single_frame applies.
         node = node_load_video.AusBossLoadVideo
+        self.assertEqual(list(inspect.signature(node.VALIDATE_INPUTS).parameters), ["video"])
         with patch.object(node_load_video, "resolve_input_path", lambda _name: self.video):
-            self.assertIn("start_seconds", node.VALIDATE_INPUTS("clip.mp4", 5.0, 1.0))
-            self.assertIs(
-                node.VALIDATE_INPUTS("clip.mp4", 5.0, 1.0, single_frame=True), True
-            )
-
-    def test_validation_skips_the_window_check_for_a_wired_bound(self):
-        # ComfyUI hands a wired input to VALIDATE_INPUTS as None: its value
-        # only exists at execution, so the window cannot be judged yet.
-        node = node_load_video.AusBossLoadVideo
-        with patch.object(node_load_video, "resolve_input_path", lambda _name: self.video):
-            self.assertIs(node.VALIDATE_INPUTS("clip.mp4", 0.5, None), True)
-            self.assertIs(node.VALIDATE_INPUTS("clip.mp4", None, 1.5), True)
-            self.assertIs(node.VALIDATE_INPUTS("clip.mp4", None, None), True)
-            # A wired bound must not switch off the checks that still apply.
-            self.assertIn("start_seconds", node.VALIDATE_INPUTS("clip.mp4", 5.0, 1.0))
+            self.assertIs(node.VALIDATE_INPUTS("clip.mp4"), True)
         gone = ValueError("The selected source file no longer exists.")
         with patch.object(node_load_video, "resolve_input_path", side_effect=gone):
-            self.assertIn("Load Video", node.VALIDATE_INPUTS("gone.mp4", None, 1.5))
-            self.assertIn("Load Video", node.VALIDATE_INPUTS("gone.mp4", 0.5, None))
+            self.assertEqual(node.VALIDATE_INPUTS("gone.mp4"), "Load Video: The selected source file no longer exists.")
+
+    def test_a_backwards_trim_window_stops_the_loader_when_it_runs(self):
+        with self.assertRaisesRegex(ValueError, "Load Video needs start_seconds smaller than end_seconds"):
+            run_node(node_load_video.AusBossLoadVideo().load_video(str(self.video), 1.5, 0.5, 0, 0))
 
     def test_the_node_function_is_a_coroutine(self):
         node = node_load_video.AusBossLoadVideo

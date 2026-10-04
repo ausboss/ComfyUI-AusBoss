@@ -4,13 +4,18 @@ Published workflows stitch Load Image + Pad and Crop + Rotate + Pad canvases
 with Tone match at 1, Crop For Inpaint crops with it at 0.5, and a video
 outpaint stitches a clip. People who update the pack must get the same
 picture. Each case below builds its stitcher the way its node does, stitches a
-fixed patch at color_match 0, 0.5 and 1 through the node, and compares a
-SHA-256 of the image and blend_mask bytes with the value the 2.3.0 code gave.
+fixed patch at color_match 0, 0.5 and 1 through the node, and compares the
+image and blend_mask with the output the 2.3.0 code gave.
 
-The hashes cover float32 bytes, so they hold for one CPU and torch build. If
-every pin fails at once after moving machines, regenerate them with
-``python tests/test_stitch_classic_pins.py --print`` on the last release's
-code, never on a change under review.
+Blend in with Tone match at 0 is pinned the same way, to the 2.4.0 code:
+the published Qwen Image 2.1 Rotate + Outpaint workflow stitches that way.
+
+Tone-matched float32 output varies slightly with CPU kernels and thread
+counts, including on unchanged releases. Images are compared with frozen
+release tensors at an absolute tolerance of 1e-5 (0.00255 of an 8-bit step),
+with no relative tolerance. Masks still use exact hashes. The fixtures come
+from released code, never the implementation under review; see
+fixtures/stitch_released_images.md for provenance and regeneration.
 """
 
 from __future__ import annotations
@@ -38,10 +43,11 @@ from nodes.node_load_image_pad import AusBossLoadImagePad
 
 STRENGTHS = (0.0, 0.5, 1.0)
 
-# A single thread sums a clip's per-frame tone estimate in a different order
-# and lands a last bit apart; any two or more threads agree with each other.
-torch.set_num_threads(max(2, torch.get_num_threads()))
+IMAGE_ATOL = 1e-5
+REFERENCE_IMAGES = ROOT / "tests" / "fixtures" / "stitch_released_images.npz"
 
+# Historical image hashes are retained for --print diagnostics. Only masks
+# are byte-exact across CPU backends; images use the release fixtures below.
 # (case, color_match) -> (image, blend_mask), first 20 hex digits of SHA-256.
 PINS = {
     ("load image + pad", 0.0): ("bceaded74f00fa7af3df", "da3307917bed14a6f6ac"),
@@ -162,12 +168,49 @@ def measure():
     return results
 
 
+def reference_image(name, strength, seam="classic"):
+    index = tuple(CASES).index(name)
+    key = f"{seam}_{index}_{strength:g}_image"
+    with np.load(REFERENCE_IMAGES, allow_pickle=False) as references:
+        return torch.from_numpy(references[key])
+
+
+def assert_released_image(image, expected):
+    # No relative tolerance: bright pixels get no extra allowance. Shapes,
+    # dtypes and non-finite values must also match (equal_nan defaults false).
+    torch.testing.assert_close(image, expected, rtol=0, atol=IMAGE_ATOL)
+
+
 class ClassicSeamPinTests(unittest.TestCase):
     def test_every_case_matches_its_pin(self):
         self.assertEqual(len(PINS), len(CASES) * len(STRENGTHS))
-        for key, found in measure().items():
-            with self.subTest(case=key[0], color_match=key[1]):
-                self.assertEqual(found, PINS[key])
+        for name, build in CASES.items():
+            for strength in STRENGTHS:
+                with self.subTest(case=name, color_match=strength):
+                    stitcher, patch_image = build()
+                    image, blend_mask = stitch(stitcher, patch_image, strength)
+                    assert_released_image(image, reference_image(name, strength))
+                    self.assertEqual(digest(blend_mask), PINS[(name, strength)][1])
+
+    def test_release_pixels_with_one_thread_and_native_convolution(self):
+        # Exercise the reduction/kernel choices that break raw image hashes.
+        # Restore the caller's thread/backend settings, including on failure.
+        threads = torch.get_num_threads()
+        try:
+            torch.set_num_threads(1)
+            with torch.backends.mkldnn.flags(enabled=False):
+                self.test_every_case_matches_its_pin()
+        finally:
+            torch.set_num_threads(threads)
+
+    def test_reference_rejects_one_changed_pixel_and_nonfinite_output(self):
+        expected = reference_image("crop + rotate + pad, turned", 1.0)
+        for value in (float(expected[0, 0, 0, 0]) + 1 / 255, float("nan"), float("inf")):
+            with self.subTest(value=value):
+                changed = expected.clone()
+                changed[0, 0, 0, 0] = value
+                with self.assertRaises(AssertionError):
+                    assert_released_image(changed, expected)
 
     def test_classic_named_explicitly_is_the_default(self):
         # The Seam choice arrived after these pins; picking classic by name
@@ -184,9 +227,58 @@ class ClassicSeamPinTests(unittest.TestCase):
                 self.assertTrue(torch.equal(plain[1], named[1]))
 
 
+# Blend in reads the picture's edge, so only the canvas stitchers stitch it;
+# (case) -> (image, blend_mask), first 20 hex digits, from the 2.4.0 code.
+BLEND_IN_CASES = (
+    "load image + pad",
+    "crop + rotate + pad, turned",
+    "crop + rotate + pad, straight",
+    "video clip",
+    "video clip, fewer frames back",
+)
+BLEND_IN_PINS = {
+    "load image + pad": ("dcf639cca3ebb067b509", "a6268360da1bf1dfbdc9"),
+    "crop + rotate + pad, turned": ("d7719cc807e1473fef42", "d46c2fca7a9cb070e97d"),
+    "crop + rotate + pad, straight": ("74682782bb43db4ea1aa", "092bcd5316bb2401f4b9"),
+    "video clip": ("ad354f9c5c2c4a826498", "dfe6547464fa28df00a1"),
+    "video clip, fewer frames back": ("4ed09429e45d5cc3395a", "84417340317c98964773"),
+}
+
+
+def measure_blend_in():
+    results = {}
+    for name in BLEND_IN_CASES:
+        stitcher, patch_image = CASES[name]()
+        image, blend_mask = stitch(stitcher, patch_image, 0.0, seam="blend in")
+        results[name] = (digest(image), digest(blend_mask))
+    return results
+
+
+class BlendInToneMatchOffPinTests(unittest.TestCase):
+    def test_tone_match_off_is_the_released_blend_in(self):
+        optional = AusBossStitchInpaint.INPUT_TYPES()["optional"]
+        if "seam" not in optional:
+            self.skipTest("this Stitch Inpaint has no Seam choice")
+        self.assertEqual(set(BLEND_IN_PINS), set(BLEND_IN_CASES))
+        for name in BLEND_IN_CASES:
+            with self.subTest(case=name):
+                stitcher, patch_image = CASES[name]()
+                image, blend_mask = stitch(stitcher, patch_image, 0.0, seam="blend in")
+                assert_released_image(image, reference_image(name, 0.0, "blend_in"))
+                self.assertEqual(digest(blend_mask), BLEND_IN_PINS[name][1])
+
+    def test_release_pixels_without_mkldnn(self):
+        with torch.backends.mkldnn.flags(enabled=False):
+            self.test_tone_match_off_is_the_released_blend_in()
+
+
 if __name__ == "__main__":
     if "--print" in sys.argv:
         for key, value in measure().items():
+            print(f"    {key!r}: {value!r},")
+        sys.exit(0)
+    if "--print-blend-in" in sys.argv:
+        for key, value in measure_blend_in().items():
             print(f"    {key!r}: {value!r},")
         sys.exit(0)
     unittest.main()

@@ -148,8 +148,9 @@ switch turns the behavior off.
 
 The info card gathers words from three places: the LoRA file's own metadata,
 a standard `<model>.civitai.info` sidecar when one sits beside the file
-(other Civitai tools write these; the pack reads them and never goes online
-itself), and words you add yourself (remembered per LoRA across workflows). Click a word to toggle it into the row; enabled rows'
+(the **Fetch Civitai info** button in the card saves one; other Civitai
+tools write the same file), and words you add yourself (remembered per LoRA
+across workflows). Click a word to toggle it into the row; enabled rows'
 selected words are joined into the `triggers` output, deduplicated, in
 row order.
 

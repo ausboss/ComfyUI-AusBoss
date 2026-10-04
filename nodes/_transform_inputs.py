@@ -71,13 +71,28 @@ def load_custom_aspect_ratios(path: Path | None = None) -> list[str]:
     return valid
 
 
+class AspectRatioChoices(list):
+    """The crop_aspect_ratio choices: built-in ratios plus this machine's presets.
+
+    ComfyUI checks a list input with ``in`` before a run. A workflow made on
+    a machine with other presets can carry a ratio missing here, and the
+    transform draws any whole-number W:H, so any such ratio counts as a
+    member. Everything else is still refused before the run.
+    """
+
+    def __contains__(self, value) -> bool:
+        if list.__contains__(self, value):
+            return True
+        return isinstance(value, str) and _RATIO_PATTERN.match(value.strip()) is not None
+
+
 def aspect_ratio_options(path: Path | None = None) -> list[str]:
     """Built-in ratios extended with any user presets, order preserved."""
     options = list(ASPECT_RATIOS)
     for entry in load_custom_aspect_ratios(path):
         if entry not in options:
             options.append(entry)
-    return options
+    return AspectRatioChoices(options)
 
 
 def transform_inputs(*, feather: int = 24, fill_color: str = "#808080") -> dict[str, tuple]:
@@ -149,7 +164,11 @@ def transform_inputs(*, feather: int = 24, fill_color: str = "#808080") -> dict[
                 "min": 1,
                 "max": 4096,
                 "step": 1,
-                "tooltip": "Rounds output up by adding the minimum extra pixels to right and bottom.",
+                "tooltip": (
+                    "Adds a few pixels of fill on the right and bottom so the width "
+                    "and height divide evenly by this number. Some models need "
+                    "sizes divisible by 8, 16 or 32; 1 = off."
+                ),
             },
         ),
         "fill_color": (

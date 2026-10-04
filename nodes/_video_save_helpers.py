@@ -358,22 +358,29 @@ def encode_video(
     return width, height, frame_count
 
 
+def _encoder_start_error(codec: str, exc: Exception) -> RuntimeError:
+    if "nvenc" in codec:
+        return RuntimeError(
+            "Save Video: the nvenc formats need an NVIDIA GPU with a working "
+            "driver. Pick a software format such as 'mp4 h264' instead. "
+            f"(The '{codec}' encoder said: {exc})"
+        )
+    return RuntimeError(f"Save Video could not start the '{codec}' encoder: {exc}.")
+
+
 def _add_video_stream(container, spec: VideoFormat, rate, width: int, height: int, crf: int):
     """The configured video stream, or a clear error naming what is missing.
 
     The NVENC encoders exist in the libav build whether or not there is an
-    NVIDIA card behind it, so they only fail here, at open time, with a message
-    from deep inside the driver. Catching it is the difference between "pick a
-    different format" and a stack trace.
+    NVIDIA card behind it, so they only fail when the encoder opens, with a
+    message from deep inside the driver. The encoder is opened here, not on
+    the first frame, so that failure lands in this handler: the difference
+    between "pick a different format" and a stack trace.
     """
     try:
         stream = container.add_stream(spec.video_codec, rate=rate)
     except Exception as exc:
-        raise RuntimeError(
-            f"Save Video could not start the '{spec.video_codec}' encoder: {exc}. "
-            "The nvenc formats need an NVIDIA GPU with a working driver; "
-            "pick a software format such as 'mp4 h264' instead."
-        ) from exc
+        raise _encoder_start_error(spec.video_codec, exc) from exc
     stream.width = width
     stream.height = height
     stream.pix_fmt = spec.pix_fmt
@@ -386,6 +393,12 @@ def _add_video_stream(container, spec: VideoFormat, rate, width: int, height: in
         stream.codec_context.color_trc = _BT709
         stream.codec_context.colorspace = _BT709
         stream.codec_context.color_range = _RANGE_MPEG
+    try:
+        # Everything the encoder reads is set; the first frame would
+        # otherwise open it inside the frame loop, past this handler.
+        stream.codec_context.open()
+    except Exception as exc:
+        raise _encoder_start_error(spec.video_codec, exc) from exc
     return stream
 
 

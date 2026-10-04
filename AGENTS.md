@@ -116,16 +116,28 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   `/prompt` and the pack's routes need no login. Media reads and writes stay
   inside ComfyUI's input, output and temp folders - no opt-in switches, no
   "any folder" settings, no folder pickers. Besides those the pack only reads
-  its registered model folders and keeps its own settings files in
-  ComfyUI's user folder (`user/ausboss/`). Nothing is handed to a
+  its registered model folders (the one write there is the `.civitai.info`
+  file LoRA Loader's Civitai button saves beside a LoRA) and keeps its own
+  settings files in ComfyUI's user folder (`user/ausboss/`). Nothing is handed to a
   subprocess. The Registry bans versions for exactly this.
-- The pack makes no network requests: no HTTP or socket client in shipped
-  code (`release_preflight.py` fails on one). Graph links are made with
+- The pack's server code makes no network requests: no HTTP or socket client
+  in shipped Python (`release_preflight.py` fails on one). The one outbound
+  call is LoRA Loader's click-only Civitai lookup, made by the browser to a
+  fixed civitai.com address with a plain SHA256 (`js/lora_loader/index.js`,
+  `js/shared/civitai_lookup.mjs`). `release_preflight.py` allows a raw
+  `fetch(` only there and in `js/cache_guard`, which only talks to the pack's
+  own server. Graph links are made with
   `linkSlots` from `js/shared/graph_links.mjs`, never the index-based
   `node.connect(...)`, which registry scans read as a network socket.
   SECURITY.md states the model for users.
 - No new pip dependencies without an explicit decision; if truly optional,
   use `[project.optional-dependencies]` and fail soft at runtime.
+- Frontend files import each other only with plain string literals
+  (`from "../shared/x.mjs"`, `import("../shared/x.mjs")`). The server adds a
+  version tag to those paths (`nodes/_frontend_cache.py`) so an update never
+  meets old copies from the browser's cache. A path built in code
+  (`new URL(...)`, `"../shared/" + name`) escapes the tag and loads a second,
+  stale copy; `tests/test_frontend_cache.py` fails on one.
 - Frontend JS never assigns prototype callbacks directly — use
   `chainCallback` from `js/shared/index.mjs`, or `chainHandler` where the
   return value matters (a truthy `onMouseDown` result is what stops a node

@@ -18,6 +18,11 @@
 // An optional number (a bound that may be absent) passes allowEmpty: true.
 // It then holds null, shows its placeholder, clears when the typed text is
 // erased, and starts a scrub or step from `emptyStart`.
+//
+// A value that only means something as a multiple ("divisible by 8")
+// passes snap: true. Its steps then land on multiples of `step`, so a box
+// at 1 goes 8, 16, 24 instead of 9, 17, 25, and back down to its minimum.
+// Shift's fine step and typed values are never snapped.
 
 // Keep in sync with BRAND in shared/index.mjs - importing it would pull
 // /scripts/app.js into node:test, and this module's math must stay testable.
@@ -28,6 +33,9 @@ const BRAND = "#00b4aa";
 // plain click a click (it opens type-in mode instead).
 export const SCRUB_DEAD_ZONE = 3;
 export const SCRUB_PIXELS_PER_STEP = 4;
+// Shift on a box with no finer step (whole pixels, frame counts) slows the
+// drag instead: the same step, over this many times the travel.
+export const SCRUB_SLOW_FACTOR = 4;
 
 export function isScrubGesture(deltaX, deltaY) {
   return Math.abs(deltaX) > SCRUB_DEAD_ZONE && Math.abs(deltaX) >= Math.abs(deltaY);
@@ -43,15 +51,33 @@ export function quantizeScrubValue(value, { min = -Infinity, max = Infinity, dec
   return Math.round(clamped * factor) / factor;
 }
 
+// `count` steps of `size` from `start` (negative goes down). With `snap` the
+// first step goes to the next multiple of `size` that way and the rest stay
+// on those multiples: from 1, +1 is 8 and +2 is 16; from 9, -1 is 8.
+export function steppedValue(start, count, size, snap = false) {
+  const number = Number(start);
+  if (!snap || !count) return number + count * size;
+  // The tolerance keeps a value already on the grid there (0.3 / 0.1 is
+  // 2.9999999999999996, which must not floor to 2).
+  const units = number / size;
+  const from = count > 0 ? Math.floor(units + 1e-9) : Math.ceil(units - 1e-9);
+  return (from + count) * size;
+}
+
 // Value under the pointer during a scrub: steps of `step` (or `fineStep`
-// with Shift) per SCRUB_PIXELS_PER_STEP of travel past the dead zone.
+// with Shift) per SCRUB_PIXELS_PER_STEP of travel past the dead zone. A box
+// whose fine step is no finer than its step still honours Shift: the drag
+// goes SCRUB_SLOW_FACTOR times slower, so Shift always means fine. A `snap`
+// box keeps whole steps on multiples of `step`; fine steps move freely.
 export function scrubbedValue(start, deltaX, fine, options = {}) {
-  const { step = 1, fineStep = null } = options;
+  const { step = 1, fineStep = null, snap = false } = options;
   if (Math.abs(deltaX) <= SCRUB_DEAD_ZONE) return quantizeScrubValue(start, options);
-  const size = fine ? (fineStep ?? step) : step;
+  const finer = fineStep != null && fineStep < step;
+  const size = fine && finer ? fineStep : step;
+  const pixels = fine && !finer ? SCRUB_PIXELS_PER_STEP * SCRUB_SLOW_FACTOR : SCRUB_PIXELS_PER_STEP;
   const travel = deltaX - Math.sign(deltaX) * SCRUB_DEAD_ZONE;
-  const steps = Math.round(travel / SCRUB_PIXELS_PER_STEP);
-  return quantizeScrubValue(Number(start) + steps * size, options);
+  const steps = Math.round(travel / pixels);
+  return quantizeScrubValue(steppedValue(start, steps, size, snap && size === step), options);
 }
 
 const CSS_ID = "ausboss-scrub-css";
@@ -95,12 +121,18 @@ export function makeScrubInput(options = {}) {
     width: null, title: "", onChange: null, onSettle: null,
     unit: "", unitWidth: 0,
     allowEmpty: false, emptyStart: 0, placeholder: "",
+    snap: false,
     ...options,
   };
   const isEmpty = (value) => opts.allowEmpty && (value === null || value === undefined || value === "");
   let current = isEmpty(opts.value) ? null : quantizeScrubValue(opts.value, opts);
   // Where a scrub or a step starts: the value, or emptyStart while empty.
   const base = () => (current === null ? quantizeScrubValue(opts.emptyStart, opts) : current);
+  // One arrow-key or chevron step; Shift takes the fine step, which never snaps.
+  const stepped = (direction, fine) => {
+    const size = fine ? (opts.fineStep ?? opts.step) : opts.step;
+    return steppedValue(base(), direction, size, opts.snap && size === opts.step);
+  };
 
   const box = document.createElement("div");
   box.className = "ausboss-scrub";
@@ -138,8 +170,14 @@ export function makeScrubInput(options = {}) {
     if (!drag) return;
     const dx = event.clientX - drag.x;
     const dy = event.clientY - drag.y;
-    if (!drag.scrubbed && isScrubGesture(dx, dy)) drag.scrubbed = true;
-    if (drag.scrubbed) commit(scrubbedValue(drag.start, dx, event.shiftKey, opts));
+    if (!drag.scrubbed && isScrubGesture(dx, dy)) { drag.scrubbed = true; drag.fine = event.shiftKey; }
+    if (!drag.scrubbed) return;
+    // Pressing or letting go of Shift mid-drag carries on from here instead
+    // of re-reading the whole drag at the other speed.
+    if (event.shiftKey !== drag.fine) {
+      drag.start = base(); drag.x = event.clientX - Math.sign(dx || 1) * (SCRUB_DEAD_ZONE + 1); drag.fine = event.shiftKey;
+    }
+    commit(scrubbedValue(drag.start, event.clientX - drag.x, event.shiftKey, opts));
   });
   const endDrag = (event) => {
     if (!drag) return;
@@ -174,8 +212,7 @@ export function makeScrubInput(options = {}) {
     if (event.key === "Enter") input.blur();
     else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
       event.preventDefault();
-      const size = event.shiftKey ? (opts.fineStep ?? opts.step) : opts.step;
-      commit(base() + size * (event.key === "ArrowUp" ? 1 : -1));
+      commit(stepped(event.key === "ArrowUp" ? 1 : -1, event.shiftKey));
       input.select();
       settle();
     }
@@ -204,8 +241,7 @@ export function makeScrubInput(options = {}) {
     button.title = `Step ${direction > 0 ? "up" : "down"}; Shift = fine.`;
     button.innerHTML = chevronSvg(direction > 0);
     button.addEventListener("click", (event) => {
-      const size = event.shiftKey ? (opts.fineStep ?? opts.step) : opts.step;
-      commit(base() + size * direction);
+      commit(stepped(direction, event.shiftKey));
       settle();
     });
     steppers.append(button);

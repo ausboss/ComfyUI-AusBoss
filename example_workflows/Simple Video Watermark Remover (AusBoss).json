@@ -1,561 +1,153 @@
 {
-  "id": "8ff23428-65fa-4d32-a991-e3ca923d33ae",
+  "id": "a890a993-7412-470d-a0f8-80ec442912c9",
   "revision": 0,
-  "last_node_id": 102,
-  "last_link_id": 139,
+  "last_node_id": 38,
+  "last_link_id": 128,
   "nodes": [
     {
-      "id": 93,
-      "type": "AUSBOSS_NODES_LaMaInpaint",
-      "pos": [
-        1000,
-        100
-      ],
-      "size": [
-        560,
-        400
-      ],
-      "flags": {},
-      "order": 13,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "link": 117
-        },
-        {
-          "name": "mask",
-          "type": "MASK",
-          "link": 127
-        }
-      ],
-      "outputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "links": [
-            128
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "ausboss-nodes",
-        "ver": "2.0.0",
-        "Node name for S&R": "AUSBOSS_NODES_LaMaInpaint"
-      },
-      "widgets_values": [
-        "big-lama.pt"
-      ],
-      "widgets_values_named": {
-        "model": "big-lama.pt"
-      },
-      "color": "#007f78",
-      "bgcolor": "#081413",
-      "title": "Remove Watermark"
-    },
-    {
-      "id": 100,
-      "type": "AUSBOSS_NODES_SaveVideo",
-      "pos": [
-        1000,
-        550
-      ],
-      "size": [
-        560,
-        560
-      ],
-      "flags": {},
-      "order": 15,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "frames",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": 128
-        },
-        {
-          "name": "audio",
-          "shape": 7,
-          "type": "AUDIO",
-          "link": 129
-        },
-        {
-          "name": "video",
-          "shape": 7,
-          "type": "VIDEO",
-          "link": null
-        },
-        {
-          "name": "fps",
-          "type": "FLOAT",
-          "widget": {
-            "name": "fps"
-          },
-          "link": 130
-        }
-      ],
-      "outputs": [],
-      "properties": {
-        "cnr_id": "ausboss-nodes",
-        "ver": "2.0.0",
-        "Node name for S&R": "AUSBOSS_NODES_SaveVideo",
-        "ausboss_save_video_loop": false
-      },
-      "widgets_values": {
-        "fps": 16,
-        "filename_prefix": "video",
-        "crf": 19,
-        "format": "mp4 h264",
-        "pingpong": false,
-        "save_metadata": true
-      },
-      "widgets_values_named": {
-        "fps": 16,
-        "filename_prefix": "video",
-        "crf": 19,
-        "format": "mp4 h264",
-        "pingpong": false,
-        "save_metadata": true,
-        "ausboss_save_video_viewer": ""
-      },
-      "color": "#007f78",
-      "bgcolor": "#081413",
-      "title": "Output Video"
-    },
-    {
-      "id": 101,
-      "type": "AUSBOSS_NODES_SelectFrame",
-      "pos": [
-        1640,
-        100
-      ],
-      "size": [
-        400,
-        340
-      ],
-      "flags": {},
-      "order": 9,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "frames",
-          "type": "IMAGE",
-          "link": 131
-        }
-      ],
-      "outputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "links": [
-            132,
-            133,
-            134
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "ausboss-nodes",
-        "ver": "2.0.0",
-        "Node name for S&R": "AUSBOSS_NODES_SelectFrame"
-      },
-      "widgets_values": [
-        1,
-        true
-      ],
-      "widgets_values_named": {
-        "frame_number": 1,
-        "preview": true
-      },
-      "color": "#007f78",
-      "bgcolor": "#081413",
-      "title": "Select Frame"
-    },
-    {
-      "id": 96,
-      "type": "AUSBOSS_NODES_Compare",
-      "pos": [
-        2120,
-        550
-      ],
-      "size": [
-        520,
-        600
-      ],
-      "flags": {},
-      "order": 17,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "image_a",
-          "type": "IMAGE",
-          "link": 122
-        },
-        {
-          "name": "image_b",
-          "type": "IMAGE",
-          "link": 133
-        }
-      ],
-      "outputs": [
-        {
-          "name": "image_a",
-          "type": "IMAGE",
-          "links": []
-        }
-      ],
-      "properties": {
-        "cnr_id": "ausboss-nodes",
-        "ver": "2.0.0",
-        "Node name for S&R": "AUSBOSS_NODES_Compare",
-        "ausboss_compare_mode": "slide"
-      },
-      "widgets_values": [
-        ""
-      ],
-      "widgets_values_named": {
-        "ausboss_compare_panel": ""
-      },
-      "color": "#007f78",
-      "bgcolor": "#081413",
-      "title": "Before / After"
-    },
-    {
-      "id": 94,
-      "type": "AUSBOSS_NODES_LaMaInpaint",
-      "pos": [
-        2120,
-        100
-      ],
-      "size": [
-        520,
-        400
-      ],
-      "flags": {},
-      "order": 16,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "link": 134
-        },
-        {
-          "name": "mask",
-          "type": "MASK",
-          "link": 138
-        }
-      ],
-      "outputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "links": [
-            122
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "ausboss-nodes",
-        "ver": "2.0.0",
-        "Node name for S&R": "AUSBOSS_NODES_LaMaInpaint"
-      },
-      "widgets_values": [
-        "big-lama.pt"
-      ],
-      "widgets_values_named": {
-        "model": "big-lama.pt"
-      },
-      "color": "#007f78",
-      "bgcolor": "#081413",
-      "title": "Remove Watermark"
-    },
-    {
-      "id": 50,
-      "type": "SAM3Segment",
-      "pos": [
-        520,
-        100
-      ],
-      "size": [
-        400,
-        410
-      ],
-      "flags": {},
-      "order": 8,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "link": 116
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            135
-          ]
-        },
-        {
-          "name": "MASK",
-          "type": "MASK",
-          "links": [
-            126
-          ]
-        },
-        {
-          "name": "MASK_IMAGE",
-          "type": "IMAGE",
-          "links": []
-        }
-      ],
-      "title": "Detect Watermark (SAM3)",
-      "properties": {
-        "cnr_id": "comfyui-rmbg",
-        "ver": "3.1.0",
-        "Node name for S&R": "SAM3Segment"
-      },
-      "widgets_values": [
-        "watermark",
-        "Merged",
-        0.29,
-        0,
-        0,
-        0,
-        0,
-        "Auto",
-        false,
-        true,
-        "Alpha",
-        "#222222"
-      ],
-      "widgets_values_named": {
-        "prompt": "watermark",
-        "output_mode": "Merged",
-        "confidence_threshold": 0.29,
-        "max_segments": 0,
-        "segment_pick": 0,
-        "mask_blur": 0,
-        "mask_offset": 0,
-        "device": "Auto",
-        "invert_output": false,
-        "unload_model": true,
-        "background": "Alpha",
-        "background_color": "#222222"
-      },
-      "color": "#222e40",
-      "bgcolor": "#364254"
-    },
-    {
-      "id": 102,
-      "type": "AUSBOSS_NODES_RefineMask",
-      "pos": [
-        1640,
-        950
-      ],
-      "size": [
-        400,
-        470
-      ],
-      "flags": {},
-      "order": 14,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "mask",
-          "type": "MASK",
-          "link": 139
-        },
-        {
-          "name": "guide_image",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "name": "mask",
-          "type": "MASK",
-          "links": [
-            138
-          ]
-        },
-        {
-          "name": "mask_inverted",
-          "type": "MASK",
-          "links": []
-        }
-      ],
-      "properties": {
-        "cnr_id": "ausboss-nodes",
-        "ver": "2.0.0",
-        "Node name for S&R": "AUSBOSS_NODES_RefineMask"
-      },
-      "widgets_values": [
-        8,
-        4,
-        false,
-        3,
-        0,
-        1,
-        "off"
-      ],
-      "widgets_values_named": {
-        "expand": 8,
-        "blur": 4,
-        "fill_holes": false,
-        "smooth": 3,
-        "black_point": 0,
-        "white_point": 1,
-        "edge_refine": "off"
-      },
-      "color": "#007f78",
-      "bgcolor": "#081413",
-      "title": "Mask Refine"
-    },
-    {
-      "id": 66,
-      "type": "SAM3Segment",
-      "pos": [
-        1640,
-        490
-      ],
-      "size": [
-        400,
-        410
-      ],
-      "flags": {},
-      "order": 12,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "link": 132
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": []
-        },
-        {
-          "name": "MASK",
-          "type": "MASK",
-          "links": [
-            139
-          ]
-        },
-        {
-          "name": "MASK_IMAGE",
-          "type": "IMAGE",
-          "links": []
-        }
-      ],
-      "title": "Detect Watermark (SAM3)",
-      "properties": {
-        "cnr_id": "comfyui-rmbg",
-        "ver": "3.1.0",
-        "Node name for S&R": "SAM3Segment"
-      },
-      "widgets_values": [
-        "watermark",
-        "Merged",
-        0.29,
-        0,
-        0,
-        0,
-        0,
-        "Auto",
-        false,
-        true,
-        "Alpha",
-        "#222222"
-      ],
-      "widgets_values_named": {
-        "prompt": "watermark",
-        "output_mode": "Merged",
-        "confidence_threshold": 0.29,
-        "max_segments": 0,
-        "segment_pick": 0,
-        "mask_blur": 0,
-        "mask_offset": 0,
-        "device": "Auto",
-        "invert_output": false,
-        "unload_model": true,
-        "background": "Alpha",
-        "background_color": "#222222"
-      },
-      "color": "#222e40",
-      "bgcolor": "#364254"
-    },
-    {
-      "id": 62,
+      "id": 1,
       "type": "AUSBOSS_NODES_WorkflowNote",
       "pos": [
-        -620,
-        100
-      ],
-      "size": [
-        560,
-        1100
-      ],
-      "flags": {},
-      "order": 6,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [],
-      "properties": {
-        "cnr_id": "ausboss-nodes",
-        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote",
-        "ver": "2.0.0"
-      },
-      "widgets_values": [
-        "{\"v\": 1, \"title\": \"Simple Video Watermark Remover\", \"subtitle\": \"\", \"author\": \"AusBoss\", \"layout\": \"card\", \"body\": \"## Setup\\nInstall ComfyUI-RMBG for its SAM3 Segment node and configure its SAM3 model. Put big-lama.pt in models/lama. This is the one example that requires another custom node pack.\\n\\nCopy the included ausboss_pier_9x16.mp4 to ComfyUI/input or upload your own clip. The supplied clip has no watermark: it is a safe setup check, and an empty detection mask should leave it unchanged.\\n\\n## First check\\nQueue the short one-second window. The single-frame branch shows the mask and an A/B comparison. Change the detection prompt when the overlay has a more specific description.\\n\\n## Full clip\\nBoth branches are enabled; the upper branch writes the cleaned video and keeps its original audio when the clip has a track (the supplied clip is silent). Once the mask is right, increase the trim window and frame limit. To work only on the still, select the full-video group and use ComfyUI’s Mute command.\\n\\nSAM3 detects each frame separately and unloads its model after each branch to leave room for LaMa. LaMa processes frames independently; challenging backgrounds can flicker. Review the output before extending the run.\", \"models\": [{\"name\": \"big-lama.pt\", \"dir\": \"lama\", \"url\": \"https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt\"}], \"packs\": [{\"name\": \"ComfyUI-RMBG\", \"node\": \"SAM3Segment\", \"url\": \"https://github.com/1038lab/ComfyUI-RMBG\"}]}"
-      ],
-      "widgets_values_named": {
-        "note": "{\"v\": 1, \"title\": \"Simple Video Watermark Remover\", \"subtitle\": \"\", \"author\": \"AusBoss\", \"layout\": \"card\", \"body\": \"## Setup\\nInstall ComfyUI-RMBG for its SAM3 Segment node and configure its SAM3 model. Put big-lama.pt in models/lama. This is the one example that requires another custom node pack.\\n\\nCopy the included ausboss_pier_9x16.mp4 to ComfyUI/input or upload your own clip. The supplied clip has no watermark: it is a safe setup check, and an empty detection mask should leave it unchanged.\\n\\n## First check\\nQueue the short one-second window. The single-frame branch shows the mask and an A/B comparison. Change the detection prompt when the overlay has a more specific description.\\n\\n## Full clip\\nBoth branches are enabled; the upper branch writes the cleaned video and keeps its original audio when the clip has a track (the supplied clip is silent). Once the mask is right, increase the trim window and frame limit. To work only on the still, select the full-video group and use ComfyUI’s Mute command.\\n\\nSAM3 detects each frame separately and unloads its model after each branch to leave room for LaMa. LaMa processes frames independently; challenging backgrounds can flicker. Review the output before extending the run.\", \"models\": [{\"name\": \"big-lama.pt\", \"dir\": \"lama\", \"url\": \"https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt\"}], \"packs\": [{\"name\": \"ComfyUI-RMBG\", \"node\": \"SAM3Segment\", \"url\": \"https://github.com/1038lab/ComfyUI-RMBG\"}]}"
-      },
-      "color": "#222",
-      "bgcolor": "#000"
-    },
-    {
-      "id": 95,
-      "type": "AUSBOSS_NODES_LoadVideo",
-      "pos": [
         0,
-        100
+        30
       ],
       "size": [
         440,
-        700
+        702
       ],
       "flags": {},
-      "order": 7,
+      "order": 0,
       "mode": 0,
-      "inputs": [],
+      "inputs": [
+        {
+          "name": "note",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "note"
+          }
+        }
+      ],
+      "outputs": [],
+      "title": "🆎 AusBoss",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.2.0",
+        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote"
+      },
+      "widgets_values": [
+        "{\"v\": 1, \"title\": \"Simple Video Watermark Remover\", \"subtitle\": \"Find a watermark in every frame of a video and paint it out.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your video.\\n2. Say what the mark is in **What to remove**, like watermark or text.\\n3. Press **Run**.\\n4. Check **Before and after**, then play the clean video in **Save Video**.\\n\\nTo try one frame first, select **Save Video** and press Ctrl+M, then Run. Press Ctrl+M again to clean the whole video.\\n\\nIf the mark stays, SAM3 did not find it. Describe it another way, or lower **How sure SAM3 must be**.\\n\\nThe two boxes in the middle do the work. Double-click one to see inside.\\n\\nNeeds AusBoss nodes 2.2.0 or newer and ComfyUI 0.20 or newer, which has SAM3 built in.\", \"models\": [{\"name\": \"sam3.1_multiplex_fp16.safetensors\", \"dir\": \"checkpoints\", \"size\": \"1.75 GB\", \"url\": \"https://huggingface.co/Comfy-Org/sam3.1/resolve/main/checkpoints/sam3.1_multiplex_fp16.safetensors\", \"note\": \"by Meta, packaged by Comfy-Org\"}, {\"name\": \"big-lama.pt\", \"dir\": \"lama\", \"size\": \"206 MB\", \"url\": \"https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt\", \"note\": \"\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_LoadVideo\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}",
+        ""
+      ],
+      "widgets_values_named": {
+        "note": "{\"v\": 1, \"title\": \"Simple Video Watermark Remover\", \"subtitle\": \"Find a watermark in every frame of a video and paint it out.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your video.\\n2. Say what the mark is in **What to remove**, like watermark or text.\\n3. Press **Run**.\\n4. Check **Before and after**, then play the clean video in **Save Video**.\\n\\nTo try one frame first, select **Save Video** and press Ctrl+M, then Run. Press Ctrl+M again to clean the whole video.\\n\\nIf the mark stays, SAM3 did not find it. Describe it another way, or lower **How sure SAM3 must be**.\\n\\nThe two boxes in the middle do the work. Double-click one to see inside.\\n\\nNeeds AusBoss nodes 2.2.0 or newer and ComfyUI 0.20 or newer, which has SAM3 built in.\", \"models\": [{\"name\": \"sam3.1_multiplex_fp16.safetensors\", \"dir\": \"checkpoints\", \"size\": \"1.75 GB\", \"url\": \"https://huggingface.co/Comfy-Org/sam3.1/resolve/main/checkpoints/sam3.1_multiplex_fp16.safetensors\", \"note\": \"by Meta, packaged by Comfy-Org\"}, {\"name\": \"big-lama.pt\", \"dir\": \"lama\", \"size\": \"206 MB\", \"url\": \"https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt\", \"note\": \"\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_LoadVideo\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}",
+        "ausboss_workflow_note_panel": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 2,
+      "type": "AUSBOSS_NODES_LoadVideo",
+      "pos": [
+        500,
+        80
+      ],
+      "size": [
+        420,
+        1254
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "video"
+          }
+        },
+        {
+          "name": "start_seconds",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "start_seconds"
+          }
+        },
+        {
+          "name": "end_seconds",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "end_seconds"
+          }
+        },
+        {
+          "name": "custom_width",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "custom_width"
+          }
+        },
+        {
+          "name": "custom_height",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "custom_height"
+          }
+        },
+        {
+          "name": "every_nth",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "every_nth"
+          }
+        },
+        {
+          "name": "max_frames",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "max_frames"
+          }
+        },
+        {
+          "name": "single_frame",
+          "type": "BOOLEAN",
+          "link": null,
+          "widget": {
+            "name": "single_frame"
+          }
+        },
+        {
+          "name": "upload",
+          "type": "IMAGEUPLOAD",
+          "link": null,
+          "widget": {
+            "name": "upload"
+          }
+        }
+      ],
       "outputs": [
         {
           "name": "frames",
           "type": "IMAGE",
           "links": [
-            116,
-            117,
-            131
+            1,
+            15
           ]
         },
         {
           "name": "audio",
           "type": "AUDIO",
           "links": [
-            129
+            13
           ]
         },
         {
@@ -567,7 +159,7 @@
           "name": "fps",
           "type": "FLOAT",
           "links": [
-            130
+            14
           ]
         },
         {
@@ -591,299 +183,2421 @@
           "links": []
         }
       ],
+      "title": "Load Video - Your video",
       "properties": {
         "cnr_id": "ausboss-nodes",
-        "ver": "2.0.0",
+        "ver": "2.2.0",
         "Node name for S&R": "AUSBOSS_NODES_LoadVideo",
         "ausboss_load_video_loop": true
       },
       "widgets_values": {
         "video": "",
         "start_seconds": 0,
-        "end_seconds": 1,
+        "end_seconds": 0,
         "custom_width": 0,
         "custom_height": 0,
         "every_nth": 1,
-        "max_frames": 24
+        "max_frames": 0,
+        "single_frame": false
       },
       "widgets_values_named": {
         "video": "",
         "start_seconds": 0,
-        "end_seconds": 1,
+        "end_seconds": 0,
         "custom_width": 0,
         "custom_height": 0,
         "every_nth": 1,
-        "max_frames": 24,
+        "max_frames": 0,
+        "single_frame": false,
         "upload": "image",
+        "ausboss_widget_card": "",
         "ausboss_load_video_viewer": ""
       },
-      "color": "#007f78",
-      "bgcolor": "#081413",
-      "title": "Input Video"
+      "color": "#14424d",
+      "bgcolor": "#161f21"
     },
     {
-      "id": 99,
-      "type": "AUSBOSS_NODES_RefineMask",
+      "id": 3,
+      "type": "AUSBOSS_NODES_Text",
       "pos": [
-        520,
-        560
+        960,
+        80
       ],
       "size": [
-        400,
-        470
+        420,
+        168
       ],
       "flags": {},
-      "order": 11,
+      "order": 0,
       "mode": 0,
       "inputs": [
         {
-          "name": "mask",
-          "type": "MASK",
-          "link": 126
-        },
-        {
-          "name": "guide_image",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": 135
+          "name": "text",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "text"
+          }
         }
       ],
       "outputs": [
         {
-          "name": "mask",
-          "type": "MASK",
+          "name": "text",
+          "type": "STRING",
           "links": [
-            127
+            2,
+            7
           ]
-        },
-        {
-          "name": "mask_inverted",
-          "type": "MASK",
-          "links": []
         }
       ],
+      "title": "Text - What to remove",
       "properties": {
         "cnr_id": "ausboss-nodes",
-        "ver": "2.0.0",
-        "Node name for S&R": "AUSBOSS_NODES_RefineMask"
+        "ver": "2.2.0",
+        "Node name for S&R": "AUSBOSS_NODES_Text"
+      },
+      "widgets_values": [
+        "watermark",
+        ""
+      ],
+      "widgets_values_named": {
+        "text": "watermark",
+        "ausboss_widget_card": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 4,
+      "type": "AUSBOSS_NODES_Float",
+      "pos": [
+        960,
+        318
+      ],
+      "size": [
+        420,
+        94
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "value",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "value"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "float",
+          "type": "FLOAT",
+          "links": [
+            3,
+            8
+          ]
+        }
+      ],
+      "title": "Float - How sure SAM3 must be",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.2.0",
+        "Node name for S&R": "AUSBOSS_NODES_Float"
+      },
+      "widgets_values": [
+        0.5,
+        ""
+      ],
+      "widgets_values_named": {
+        "value": 0.5,
+        "ausboss_widget_card": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 5,
+      "type": "AUSBOSS_NODES_Integer",
+      "pos": [
+        960,
+        482
+      ],
+      "size": [
+        420,
+        94
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "value",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "value"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "int",
+          "type": "INT",
+          "links": [
+            4,
+            9
+          ]
+        }
+      ],
+      "title": "Integer - Grow the mask",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.2.0",
+        "Node name for S&R": "AUSBOSS_NODES_Integer"
       },
       "widgets_values": [
         8,
-        4,
-        false,
-        3,
-        0,
-        1,
-        "off"
+        ""
       ],
       "widgets_values_named": {
-        "expand": 8,
-        "blur": 4,
-        "fill_holes": false,
-        "smooth": 3,
-        "black_point": 0,
-        "white_point": 1,
-        "edge_refine": "off"
+        "value": 8,
+        "ausboss_widget_card": ""
       },
-      "color": "#007f78",
-      "bgcolor": "#081413",
-      "title": "Mask Refine"
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 6,
+      "type": "AUSBOSS_NODES_SelectFrame",
+      "pos": [
+        960,
+        814
+      ],
+      "size": [
+        420,
+        520
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "frames",
+          "type": "IMAGE",
+          "link": 15
+        },
+        {
+          "name": "frame_number",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "frame_number"
+          }
+        },
+        {
+          "name": "preview",
+          "type": "BOOLEAN",
+          "link": null,
+          "widget": {
+            "name": "preview"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            16,
+            18
+          ]
+        }
+      ],
+      "title": "Select Frame - Frame to check",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.2.0",
+        "Node name for S&R": "AUSBOSS_NODES_SelectFrame"
+      },
+      "widgets_values": [
+        1,
+        true,
+        "",
+        ""
+      ],
+      "widgets_values_named": {
+        "frame_number": 1,
+        "preview": true,
+        "ausboss_widget_card": "",
+        "ausboss_input_preview": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 7,
+      "type": "CheckpointLoaderSimple",
+      "pos": [
+        960,
+        646
+      ],
+      "size": [
+        420,
+        98
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "ckpt_name",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "ckpt_name"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            5,
+            10
+          ]
+        },
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            6,
+            11
+          ]
+        },
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": []
+        }
+      ],
+      "title": "SAM3 model",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "Node name for S&R": "CheckpointLoaderSimple",
+        "models": [
+          {
+            "name": "sam3.1_multiplex_fp16.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/sam3.1/resolve/main/checkpoints/sam3.1_multiplex_fp16.safetensors",
+            "directory": "checkpoints"
+          }
+        ]
+      },
+      "widgets_values": [
+        "sam3.1_multiplex_fp16.safetensors"
+      ],
+      "widgets_values_named": {
+        "ckpt_name": "sam3.1_multiplex_fp16.safetensors"
+      },
+      "color": "#323",
+      "bgcolor": "#535"
+    },
+    {
+      "id": 8,
+      "type": "35ce0938-8546-496c-9e68-c456d0b5313c",
+      "pos": [
+        1460,
+        280
+      ],
+      "size": [
+        280,
+        126
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "frames",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "name": "what to remove",
+          "type": "STRING",
+          "link": 2
+        },
+        {
+          "name": "how sure",
+          "type": "FLOAT",
+          "link": 3
+        },
+        {
+          "name": "grow by",
+          "type": "INT",
+          "link": 4
+        },
+        {
+          "name": "sam3 model",
+          "type": "MODEL",
+          "link": 5
+        },
+        {
+          "name": "text encoder",
+          "type": "CLIP",
+          "link": 6
+        }
+      ],
+      "outputs": [
+        {
+          "name": "clean frames",
+          "type": "IMAGE",
+          "links": [
+            12
+          ]
+        }
+      ],
+      "title": "Clean every frame",
+      "properties": {},
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 9,
+      "type": "a988ba93-208b-4af3-b721-61365d1292ac",
+      "pos": [
+        1460,
+        476
+      ],
+      "size": [
+        280,
+        126
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "what to remove",
+          "type": "STRING",
+          "link": 7
+        },
+        {
+          "name": "how sure",
+          "type": "FLOAT",
+          "link": 8
+        },
+        {
+          "name": "grow by",
+          "type": "INT",
+          "link": 9
+        },
+        {
+          "name": "sam3 model",
+          "type": "MODEL",
+          "link": 10
+        },
+        {
+          "name": "text encoder",
+          "type": "CLIP",
+          "link": 11
+        },
+        {
+          "name": "check frame",
+          "type": "IMAGE",
+          "link": 16
+        }
+      ],
+      "outputs": [
+        {
+          "name": "clean frame",
+          "type": "IMAGE",
+          "links": [
+            17
+          ]
+        }
+      ],
+      "title": "Clean the check frame",
+      "properties": {},
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 10,
+      "type": "AUSBOSS_NODES_SaveVideo",
+      "pos": [
+        1820,
+        80
+      ],
+      "size": [
+        440,
+        580
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "frames",
+          "type": "IMAGE",
+          "link": 12
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": 13
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": null
+        },
+        {
+          "name": "fps",
+          "type": "FLOAT",
+          "link": 14
+        },
+        {
+          "name": "filename_prefix",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "filename_prefix"
+          }
+        },
+        {
+          "name": "crf",
+          "type": "INT",
+          "link": null
+        },
+        {
+          "name": "format",
+          "type": "COMBO",
+          "link": null,
+          "widget": {
+            "name": "format"
+          }
+        },
+        {
+          "name": "pingpong",
+          "type": "BOOLEAN",
+          "link": null,
+          "widget": {
+            "name": "pingpong"
+          }
+        },
+        {
+          "name": "save_metadata",
+          "type": "BOOLEAN",
+          "link": null,
+          "widget": {
+            "name": "save_metadata"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "file_path",
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "title": "Save Video",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.2.0",
+        "Node name for S&R": "AUSBOSS_NODES_SaveVideo",
+        "ausboss_save_video_loop": true
+      },
+      "widgets_values": {
+        "fps": 24,
+        "filename_prefix": "watermark_removed",
+        "crf": 19,
+        "format": "mp4 h264",
+        "pingpong": false,
+        "save_metadata": true
+      },
+      "widgets_values_named": {
+        "fps": 24,
+        "filename_prefix": "watermark_removed",
+        "crf": 19,
+        "format": "mp4 h264",
+        "pingpong": false,
+        "save_metadata": true,
+        "ausboss_widget_card": "",
+        "ausboss_save_video_viewer": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 11,
+      "type": "AUSBOSS_NODES_Compare",
+      "pos": [
+        1820,
+        730
+      ],
+      "size": [
+        440,
+        497
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image_a",
+          "type": "IMAGE",
+          "link": 17
+        },
+        {
+          "name": "image_b",
+          "type": "IMAGE",
+          "link": 18
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image_a",
+          "type": "IMAGE",
+          "links": []
+        }
+      ],
+      "title": "Image Compare A/B - Before and after",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.2.0",
+        "Node name for S&R": "AUSBOSS_NODES_Compare",
+        "ausboss_compare_mode": "slide"
+      },
+      "widgets_values": [
+        ""
+      ],
+      "widgets_values_named": {
+        "ausboss_compare_panel": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 12,
+      "type": "AUSBOSS_NODES_RunTimer",
+      "pos": [
+        1935,
+        1267
+      ],
+      "size": [
+        210,
+        67
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "Run Timer",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.2.0",
+        "Node name for S&R": "AUSBOSS_NODES_RunTimer"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
     }
   ],
   "links": [
     [
-      116,
-      95,
-      0,
-      50,
-      0,
-      "IMAGE"
-    ],
-    [
-      117,
-      95,
-      0,
-      93,
-      0,
-      "IMAGE"
-    ],
-    [
-      122,
-      94,
-      0,
-      96,
-      0,
-      "IMAGE"
-    ],
-    [
-      126,
-      50,
       1,
-      99,
+      2,
       0,
-      "MASK"
-    ],
-    [
-      127,
-      99,
-      0,
-      93,
-      1,
-      "MASK"
-    ],
-    [
-      128,
-      93,
-      0,
-      100,
+      8,
       0,
       "IMAGE"
     ],
     [
-      129,
-      95,
+      2,
+      3,
+      0,
+      8,
       1,
-      100,
+      "STRING"
+    ],
+    [
+      3,
+      4,
+      0,
+      8,
+      2,
+      "FLOAT"
+    ],
+    [
+      4,
+      5,
+      0,
+      8,
+      3,
+      "INT"
+    ],
+    [
+      5,
+      7,
+      0,
+      8,
+      4,
+      "MODEL"
+    ],
+    [
+      6,
+      7,
+      1,
+      8,
+      5,
+      "CLIP"
+    ],
+    [
+      7,
+      3,
+      0,
+      9,
+      0,
+      "STRING"
+    ],
+    [
+      8,
+      4,
+      0,
+      9,
+      1,
+      "FLOAT"
+    ],
+    [
+      9,
+      5,
+      0,
+      9,
+      2,
+      "INT"
+    ],
+    [
+      10,
+      7,
+      0,
+      9,
+      3,
+      "MODEL"
+    ],
+    [
+      11,
+      7,
+      1,
+      9,
+      4,
+      "CLIP"
+    ],
+    [
+      12,
+      8,
+      0,
+      10,
+      0,
+      "IMAGE"
+    ],
+    [
+      13,
+      2,
+      1,
+      10,
       1,
       "AUDIO"
     ],
     [
-      130,
-      95,
+      14,
+      2,
       3,
-      100,
+      10,
       3,
       "FLOAT"
     ],
     [
-      131,
-      95,
+      15,
+      2,
       0,
-      101,
-      0,
-      "IMAGE"
-    ],
-    [
-      132,
-      101,
-      0,
-      66,
+      6,
       0,
       "IMAGE"
     ],
     [
-      133,
-      101,
+      16,
+      6,
       0,
-      96,
+      9,
+      5,
+      "IMAGE"
+    ],
+    [
+      17,
+      9,
+      0,
+      11,
+      0,
+      "IMAGE"
+    ],
+    [
+      18,
+      6,
+      0,
+      11,
       1,
       "IMAGE"
-    ],
-    [
-      134,
-      101,
-      0,
-      94,
-      0,
-      "IMAGE"
-    ],
-    [
-      135,
-      50,
-      0,
-      99,
-      1,
-      "IMAGE"
-    ],
-    [
-      138,
-      102,
-      0,
-      94,
-      1,
-      "MASK"
-    ],
-    [
-      139,
-      66,
-      1,
-      102,
-      0,
-      "MASK"
     ]
   ],
   "groups": [
     {
-      "title": "1 · Source + trim",
+      "id": 1,
+      "title": "1 · Your input",
       "bounding": [
-        -20,
-        40,
         480,
-        980
+        0,
+        920,
+        1381
       ],
-      "color": "#235d64",
-      "font_size": 24,
+      "color": "#1d5560",
       "flags": {}
     },
     {
-      "title": "2 · Detect + refine · full video",
+      "id": 2,
+      "title": "2 · Behind the scenes",
       "bounding": [
-        500,
-        40,
-        440,
-        1010
+        1440,
+        200,
+        320,
+        454
       ],
-      "color": "#366451",
-      "font_size": 24,
+      "color": "#1d5560",
       "flags": {}
     },
     {
-      "title": "3 · Inpaint + save · full video",
+      "id": 3,
+      "title": "3 · Result",
       "bounding": [
-        980,
-        40,
-        600,
-        1090
+        1800,
+        0,
+        480,
+        1381
       ],
-      "color": "#5d527c",
-      "font_size": 24,
-      "flags": {}
-    },
-    {
-      "title": "4 · Single-frame check",
-      "bounding": [
-        1620,
-        40,
-        440,
-        1400
-      ],
-      "color": "#795b38",
-      "font_size": 24,
-      "flags": {}
-    },
-    {
-      "title": "5 · Inpaint + compare · single frame",
-      "bounding": [
-        2100,
-        40,
-        560,
-        1130
-      ],
-      "color": "#345d7c",
-      "font_size": 24,
+      "color": "#1d5560",
       "flags": {}
     }
   ],
+  "definitions": {
+    "subgraphs": [
+      {
+        "id": "35ce0938-8546-496c-9e68-c456d0b5313c",
+        "version": 1,
+        "state": {
+          "lastGroupId": 7,
+          "lastNodeId": 38,
+          "lastLinkId": 128,
+          "lastRerouteId": 0
+        },
+        "revision": 0,
+        "config": {},
+        "name": "Clean every frame",
+        "inputNode": {
+          "id": -10,
+          "bounding": [
+            -330,
+            60,
+            128,
+            140
+          ]
+        },
+        "outputNode": {
+          "id": -20,
+          "bounding": [
+            1120,
+            60,
+            128,
+            40
+          ]
+        },
+        "inputs": [
+          {
+            "id": "eb393b9a-1b4b-409e-9453-0f9c7e1d0703",
+            "name": "frames",
+            "type": "IMAGE",
+            "linkIds": [
+              101,
+              102
+            ],
+            "localized_name": "frames",
+            "pos": [
+              -219,
+              80
+            ]
+          },
+          {
+            "id": "9cd600b4-56e8-4324-bdfa-555a399965a3",
+            "name": "what to remove",
+            "type": "STRING",
+            "linkIds": [
+              103
+            ],
+            "localized_name": "what to remove",
+            "pos": [
+              -219,
+              100
+            ]
+          },
+          {
+            "id": "34050008-2a1d-42fd-88ee-255e3bb8dad9",
+            "name": "how sure",
+            "type": "FLOAT",
+            "linkIds": [
+              108
+            ],
+            "localized_name": "how sure",
+            "pos": [
+              -219,
+              120
+            ]
+          },
+          {
+            "id": "b2738bb0-47a0-4159-af56-03bf175602b6",
+            "name": "grow by",
+            "type": "INT",
+            "linkIds": [
+              111
+            ],
+            "localized_name": "grow by",
+            "pos": [
+              -219,
+              140
+            ]
+          },
+          {
+            "id": "41e5712e-1ca6-4cf5-bab2-b83aca02fb54",
+            "name": "sam3 model",
+            "type": "MODEL",
+            "linkIds": [
+              106
+            ],
+            "localized_name": "sam3 model",
+            "pos": [
+              -219,
+              160
+            ]
+          },
+          {
+            "id": "a10b91f8-51e6-40d1-9e44-4d152d6b0ebc",
+            "name": "text encoder",
+            "type": "CLIP",
+            "linkIds": [
+              105
+            ],
+            "localized_name": "text encoder",
+            "pos": [
+              -219,
+              180
+            ]
+          }
+        ],
+        "outputs": [
+          {
+            "id": "69fd4481-8c0b-4981-89ff-05d2a82703c1",
+            "name": "clean frames",
+            "type": "IMAGE",
+            "linkIds": [
+              114
+            ],
+            "localized_name": "clean frames",
+            "pos": [
+              1137,
+              80
+            ]
+          }
+        ],
+        "widgets": [],
+        "nodes": [
+          {
+            "id": 21,
+            "type": "MarkdownNote",
+            "pos": [
+              20,
+              80
+            ],
+            "size": [
+              460,
+              88
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [],
+            "outputs": [],
+            "title": "Note",
+            "properties": {},
+            "widgets_values": [
+              "SAM3 looks for your words in every frame and masks what it finds. How sure sets how certain it has to be."
+            ],
+            "color": "#1f2c38",
+            "bgcolor": "#2a3b4a"
+          },
+          {
+            "id": 24,
+            "type": "MarkdownNote",
+            "pos": [
+              560,
+              80
+            ],
+            "size": [
+              460,
+              88
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [],
+            "outputs": [],
+            "title": "Note",
+            "properties": {},
+            "widgets_values": [
+              "Mask Refine grows the mask so the edges of the mark go too. LaMa then paints over the mask in each frame."
+            ],
+            "color": "#1f2c38",
+            "bgcolor": "#2a3b4a"
+          },
+          {
+            "id": 27,
+            "type": "Reroute",
+            "pos": [
+              20,
+              205
+            ],
+            "size": [
+              75,
+              26
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "",
+                "type": "*",
+                "link": 103
+              }
+            ],
+            "outputs": [
+              {
+                "name": "",
+                "type": "STRING",
+                "links": [
+                  104
+                ]
+              }
+            ],
+            "properties": {
+              "showOutputText": false,
+              "horizontal": false
+            }
+          },
+          {
+            "id": 28,
+            "type": "Reroute",
+            "pos": [
+              20,
+              407
+            ],
+            "size": [
+              75,
+              26
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "",
+                "type": "*",
+                "link": 108
+              }
+            ],
+            "outputs": [
+              {
+                "name": "",
+                "type": "FLOAT",
+                "links": [
+                  109
+                ]
+              }
+            ],
+            "properties": {
+              "showOutputText": false,
+              "horizontal": false
+            }
+          },
+          {
+            "id": 29,
+            "type": "Reroute",
+            "pos": [
+              560,
+              205
+            ],
+            "size": [
+              75,
+              26
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "",
+                "type": "*",
+                "link": 111
+              }
+            ],
+            "outputs": [
+              {
+                "name": "",
+                "type": "INT",
+                "links": [
+                  112
+                ]
+              }
+            ],
+            "properties": {
+              "showOutputText": false,
+              "horizontal": false
+            }
+          },
+          {
+            "id": 22,
+            "type": "CLIPTextEncode",
+            "pos": [
+              20,
+              268
+            ],
+            "size": [
+              460,
+              88
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "clip",
+                "type": "CLIP",
+                "link": 105
+              },
+              {
+                "name": "text",
+                "type": "STRING",
+                "link": 104,
+                "widget": {
+                  "name": "text"
+                }
+              }
+            ],
+            "outputs": [
+              {
+                "name": "CONDITIONING",
+                "type": "CONDITIONING",
+                "links": [
+                  107
+                ]
+              }
+            ],
+            "title": "Encode what to remove",
+            "properties": {
+              "cnr_id": "comfy-core",
+              "ver": "0.37.0",
+              "Node name for S&R": "CLIPTextEncode"
+            },
+            "widgets_values": [
+              "watermark"
+            ],
+            "widgets_values_named": {
+              "text": "watermark"
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 23,
+            "type": "SAM3_Detect",
+            "pos": [
+              20,
+              470
+            ],
+            "size": [
+              460,
+              206
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "model",
+                "type": "MODEL",
+                "link": 106
+              },
+              {
+                "name": "image",
+                "type": "IMAGE",
+                "link": 101
+              },
+              {
+                "name": "conditioning",
+                "type": "CONDITIONING",
+                "link": 107
+              },
+              {
+                "name": "bboxes",
+                "type": "BOUNDING_BOX",
+                "link": null
+              },
+              {
+                "name": "positive_coords",
+                "type": "STRING",
+                "link": null
+              },
+              {
+                "name": "negative_coords",
+                "type": "STRING",
+                "link": null
+              },
+              {
+                "name": "threshold",
+                "type": "FLOAT",
+                "link": 109,
+                "widget": {
+                  "name": "threshold"
+                }
+              },
+              {
+                "name": "refine_iterations",
+                "type": "INT",
+                "link": null,
+                "widget": {
+                  "name": "refine_iterations"
+                }
+              },
+              {
+                "name": "individual_masks",
+                "type": "BOOLEAN",
+                "link": null,
+                "widget": {
+                  "name": "individual_masks"
+                }
+              }
+            ],
+            "outputs": [
+              {
+                "name": "masks",
+                "type": "MASK",
+                "links": [
+                  110
+                ]
+              },
+              {
+                "name": "bboxes",
+                "type": "BOUNDING_BOX",
+                "links": []
+              }
+            ],
+            "title": "SAM3 Detect - Find the mark",
+            "properties": {
+              "cnr_id": "comfy-core",
+              "ver": "0.37.0",
+              "Node name for S&R": "SAM3_Detect"
+            },
+            "widgets_values": [
+              0.5,
+              2,
+              false
+            ],
+            "widgets_values_named": {
+              "threshold": 0.5,
+              "refine_iterations": 2,
+              "individual_masks": false
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 25,
+            "type": "AUSBOSS_NODES_RefineMask",
+            "pos": [
+              560,
+              268
+            ],
+            "size": [
+              460,
+              460
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "mask",
+                "type": "MASK",
+                "link": 110
+              },
+              {
+                "name": "guide_image",
+                "type": "IMAGE",
+                "link": null
+              },
+              {
+                "name": "expand",
+                "type": "INT",
+                "link": 112,
+                "widget": {
+                  "name": "expand"
+                }
+              },
+              {
+                "name": "blur",
+                "type": "FLOAT",
+                "link": null,
+                "widget": {
+                  "name": "blur"
+                }
+              },
+              {
+                "name": "fill_holes",
+                "type": "BOOLEAN",
+                "link": null,
+                "widget": {
+                  "name": "fill_holes"
+                }
+              },
+              {
+                "name": "smooth",
+                "type": "INT",
+                "link": null,
+                "widget": {
+                  "name": "smooth"
+                }
+              },
+              {
+                "name": "black_point",
+                "type": "FLOAT",
+                "link": null,
+                "widget": {
+                  "name": "black_point"
+                }
+              },
+              {
+                "name": "white_point",
+                "type": "FLOAT",
+                "link": null,
+                "widget": {
+                  "name": "white_point"
+                }
+              },
+              {
+                "name": "edge_refine",
+                "type": "COMBO",
+                "link": null,
+                "widget": {
+                  "name": "edge_refine"
+                }
+              },
+              {
+                "name": "preview",
+                "type": "BOOLEAN",
+                "link": null,
+                "widget": {
+                  "name": "preview"
+                }
+              }
+            ],
+            "outputs": [
+              {
+                "name": "mask",
+                "type": "MASK",
+                "links": [
+                  113
+                ]
+              },
+              {
+                "name": "mask_inverted",
+                "type": "MASK",
+                "links": []
+              }
+            ],
+            "title": "Mask Refine - Grow the mask",
+            "properties": {
+              "cnr_id": "ausboss-nodes",
+              "ver": "2.2.0",
+              "Node name for S&R": "AUSBOSS_NODES_RefineMask"
+            },
+            "widgets_values": [
+              8,
+              4,
+              false,
+              3,
+              0,
+              1,
+              "off",
+              true,
+              "",
+              ""
+            ],
+            "widgets_values_named": {
+              "expand": 8,
+              "blur": 4,
+              "fill_holes": false,
+              "smooth": 3,
+              "black_point": 0,
+              "white_point": 1,
+              "edge_refine": "off",
+              "preview": true,
+              "ausboss_widget_card": "",
+              "ausboss_input_preview": ""
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 26,
+            "type": "AUSBOSS_NODES_LaMaInpaint",
+            "pos": [
+              560,
+              798
+            ],
+            "size": [
+              460,
+              440
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "image",
+                "type": "IMAGE",
+                "link": 102
+              },
+              {
+                "name": "mask",
+                "type": "MASK",
+                "link": 113
+              },
+              {
+                "name": "model",
+                "type": "COMBO",
+                "link": null,
+                "widget": {
+                  "name": "model"
+                }
+              },
+              {
+                "name": "preview",
+                "type": "BOOLEAN",
+                "link": null,
+                "widget": {
+                  "name": "preview"
+                }
+              }
+            ],
+            "outputs": [
+              {
+                "name": "image",
+                "type": "IMAGE",
+                "links": [
+                  114
+                ]
+              }
+            ],
+            "title": "LaMa Inpaint - Paint over the mark",
+            "properties": {
+              "cnr_id": "ausboss-nodes",
+              "ver": "2.2.0",
+              "Node name for S&R": "AUSBOSS_NODES_LaMaInpaint",
+              "models": [
+                {
+                  "name": "big-lama.pt",
+                  "url": "https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt",
+                  "directory": "lama"
+                }
+              ]
+            },
+            "widgets_values": [
+              "big-lama.pt",
+              true,
+              "",
+              ""
+            ],
+            "widgets_values_named": {
+              "model": "big-lama.pt",
+              "preview": true,
+              "ausboss_widget_card": "",
+              "ausboss_input_preview": ""
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          }
+        ],
+        "groups": [
+          {
+            "title": "1 · Find the mark",
+            "bounding": [
+              0,
+              0,
+              500,
+              708
+            ],
+            "color": "#1d5560",
+            "flags": {},
+            "id": 4
+          },
+          {
+            "title": "2 · Paint it out",
+            "bounding": [
+              540,
+              0,
+              500,
+              1258
+            ],
+            "color": "#1d5560",
+            "flags": {},
+            "id": 5
+          }
+        ],
+        "links": [
+          {
+            "id": 101,
+            "origin_id": -10,
+            "origin_slot": 0,
+            "target_id": 23,
+            "target_slot": 1,
+            "type": "IMAGE"
+          },
+          {
+            "id": 102,
+            "origin_id": -10,
+            "origin_slot": 0,
+            "target_id": 26,
+            "target_slot": 0,
+            "type": "IMAGE"
+          },
+          {
+            "id": 103,
+            "origin_id": -10,
+            "origin_slot": 1,
+            "target_id": 27,
+            "target_slot": 0,
+            "type": "STRING"
+          },
+          {
+            "id": 104,
+            "origin_id": 27,
+            "origin_slot": 0,
+            "target_id": 22,
+            "target_slot": 1,
+            "type": "STRING"
+          },
+          {
+            "id": 105,
+            "origin_id": -10,
+            "origin_slot": 5,
+            "target_id": 22,
+            "target_slot": 0,
+            "type": "CLIP"
+          },
+          {
+            "id": 106,
+            "origin_id": -10,
+            "origin_slot": 4,
+            "target_id": 23,
+            "target_slot": 0,
+            "type": "MODEL"
+          },
+          {
+            "id": 107,
+            "origin_id": 22,
+            "origin_slot": 0,
+            "target_id": 23,
+            "target_slot": 2,
+            "type": "CONDITIONING"
+          },
+          {
+            "id": 108,
+            "origin_id": -10,
+            "origin_slot": 2,
+            "target_id": 28,
+            "target_slot": 0,
+            "type": "FLOAT"
+          },
+          {
+            "id": 109,
+            "origin_id": 28,
+            "origin_slot": 0,
+            "target_id": 23,
+            "target_slot": 6,
+            "type": "FLOAT"
+          },
+          {
+            "id": 110,
+            "origin_id": 23,
+            "origin_slot": 0,
+            "target_id": 25,
+            "target_slot": 0,
+            "type": "MASK"
+          },
+          {
+            "id": 111,
+            "origin_id": -10,
+            "origin_slot": 3,
+            "target_id": 29,
+            "target_slot": 0,
+            "type": "INT"
+          },
+          {
+            "id": 112,
+            "origin_id": 29,
+            "origin_slot": 0,
+            "target_id": 25,
+            "target_slot": 2,
+            "type": "INT"
+          },
+          {
+            "id": 113,
+            "origin_id": 25,
+            "origin_slot": 0,
+            "target_id": 26,
+            "target_slot": 1,
+            "type": "MASK"
+          },
+          {
+            "id": 114,
+            "origin_id": 26,
+            "origin_slot": 0,
+            "target_id": -20,
+            "target_slot": 0,
+            "type": "IMAGE"
+          }
+        ],
+        "extra": {}
+      },
+      {
+        "id": "a988ba93-208b-4af3-b721-61365d1292ac",
+        "version": 1,
+        "state": {
+          "lastGroupId": 7,
+          "lastNodeId": 38,
+          "lastLinkId": 128,
+          "lastRerouteId": 0
+        },
+        "revision": 0,
+        "config": {},
+        "name": "Clean the check frame",
+        "inputNode": {
+          "id": -10,
+          "bounding": [
+            -330,
+            60,
+            128,
+            140
+          ]
+        },
+        "outputNode": {
+          "id": -20,
+          "bounding": [
+            1120,
+            60,
+            128,
+            40
+          ]
+        },
+        "inputs": [
+          {
+            "id": "40f2eb92-6eab-4960-aac5-7956339f4408",
+            "name": "what to remove",
+            "type": "STRING",
+            "linkIds": [
+              117
+            ],
+            "localized_name": "what to remove",
+            "pos": [
+              -219,
+              80
+            ]
+          },
+          {
+            "id": "c31b086a-b4c7-43d8-a481-5febfc32b74b",
+            "name": "how sure",
+            "type": "FLOAT",
+            "linkIds": [
+              122
+            ],
+            "localized_name": "how sure",
+            "pos": [
+              -219,
+              100
+            ]
+          },
+          {
+            "id": "f6977f80-0404-4f0b-89c2-4e27c24f5ded",
+            "name": "grow by",
+            "type": "INT",
+            "linkIds": [
+              125
+            ],
+            "localized_name": "grow by",
+            "pos": [
+              -219,
+              120
+            ]
+          },
+          {
+            "id": "3af73629-9ffd-479a-9d7b-bb32f6248456",
+            "name": "sam3 model",
+            "type": "MODEL",
+            "linkIds": [
+              120
+            ],
+            "localized_name": "sam3 model",
+            "pos": [
+              -219,
+              140
+            ]
+          },
+          {
+            "id": "40ee1260-5c49-4353-9bbf-307aa7d825bd",
+            "name": "text encoder",
+            "type": "CLIP",
+            "linkIds": [
+              119
+            ],
+            "localized_name": "text encoder",
+            "pos": [
+              -219,
+              160
+            ]
+          },
+          {
+            "id": "8c39a30e-5431-4dcd-83d2-984b99043783",
+            "name": "check frame",
+            "type": "IMAGE",
+            "linkIds": [
+              115,
+              116
+            ],
+            "localized_name": "check frame",
+            "pos": [
+              -219,
+              180
+            ]
+          }
+        ],
+        "outputs": [
+          {
+            "id": "f39d4258-4f64-4a5f-beef-ffa5e1340293",
+            "name": "clean frame",
+            "type": "IMAGE",
+            "linkIds": [
+              128
+            ],
+            "localized_name": "clean frame",
+            "pos": [
+              1137,
+              80
+            ]
+          }
+        ],
+        "widgets": [],
+        "nodes": [
+          {
+            "id": 30,
+            "type": "MarkdownNote",
+            "pos": [
+              20,
+              80
+            ],
+            "size": [
+              460,
+              88
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [],
+            "outputs": [],
+            "title": "Note",
+            "properties": {},
+            "widgets_values": [
+              "SAM3 looks for your words in the check frame and masks what it finds. How sure sets how certain it has to be."
+            ],
+            "color": "#1f2c38",
+            "bgcolor": "#2a3b4a"
+          },
+          {
+            "id": 33,
+            "type": "MarkdownNote",
+            "pos": [
+              560,
+              80
+            ],
+            "size": [
+              460,
+              88
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [],
+            "outputs": [],
+            "title": "Note",
+            "properties": {},
+            "widgets_values": [
+              "Mask Refine grows the mask so the edges of the mark go too. LaMa then paints over it, as it does for the whole video."
+            ],
+            "color": "#1f2c38",
+            "bgcolor": "#2a3b4a"
+          },
+          {
+            "id": 36,
+            "type": "Reroute",
+            "pos": [
+              20,
+              205
+            ],
+            "size": [
+              75,
+              26
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "",
+                "type": "*",
+                "link": 117
+              }
+            ],
+            "outputs": [
+              {
+                "name": "",
+                "type": "STRING",
+                "links": [
+                  118
+                ]
+              }
+            ],
+            "properties": {
+              "showOutputText": false,
+              "horizontal": false
+            }
+          },
+          {
+            "id": 37,
+            "type": "Reroute",
+            "pos": [
+              20,
+              407
+            ],
+            "size": [
+              75,
+              26
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "",
+                "type": "*",
+                "link": 122
+              }
+            ],
+            "outputs": [
+              {
+                "name": "",
+                "type": "FLOAT",
+                "links": [
+                  123
+                ]
+              }
+            ],
+            "properties": {
+              "showOutputText": false,
+              "horizontal": false
+            }
+          },
+          {
+            "id": 38,
+            "type": "Reroute",
+            "pos": [
+              560,
+              205
+            ],
+            "size": [
+              75,
+              26
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "",
+                "type": "*",
+                "link": 125
+              }
+            ],
+            "outputs": [
+              {
+                "name": "",
+                "type": "INT",
+                "links": [
+                  126
+                ]
+              }
+            ],
+            "properties": {
+              "showOutputText": false,
+              "horizontal": false
+            }
+          },
+          {
+            "id": 31,
+            "type": "CLIPTextEncode",
+            "pos": [
+              20,
+              268
+            ],
+            "size": [
+              460,
+              88
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "clip",
+                "type": "CLIP",
+                "link": 119
+              },
+              {
+                "name": "text",
+                "type": "STRING",
+                "link": 118,
+                "widget": {
+                  "name": "text"
+                }
+              }
+            ],
+            "outputs": [
+              {
+                "name": "CONDITIONING",
+                "type": "CONDITIONING",
+                "links": [
+                  121
+                ]
+              }
+            ],
+            "title": "Encode what to remove",
+            "properties": {
+              "cnr_id": "comfy-core",
+              "ver": "0.37.0",
+              "Node name for S&R": "CLIPTextEncode"
+            },
+            "widgets_values": [
+              "watermark"
+            ],
+            "widgets_values_named": {
+              "text": "watermark"
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 32,
+            "type": "SAM3_Detect",
+            "pos": [
+              20,
+              470
+            ],
+            "size": [
+              460,
+              206
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "model",
+                "type": "MODEL",
+                "link": 120
+              },
+              {
+                "name": "image",
+                "type": "IMAGE",
+                "link": 115
+              },
+              {
+                "name": "conditioning",
+                "type": "CONDITIONING",
+                "link": 121
+              },
+              {
+                "name": "bboxes",
+                "type": "BOUNDING_BOX",
+                "link": null
+              },
+              {
+                "name": "positive_coords",
+                "type": "STRING",
+                "link": null
+              },
+              {
+                "name": "negative_coords",
+                "type": "STRING",
+                "link": null
+              },
+              {
+                "name": "threshold",
+                "type": "FLOAT",
+                "link": 123,
+                "widget": {
+                  "name": "threshold"
+                }
+              },
+              {
+                "name": "refine_iterations",
+                "type": "INT",
+                "link": null,
+                "widget": {
+                  "name": "refine_iterations"
+                }
+              },
+              {
+                "name": "individual_masks",
+                "type": "BOOLEAN",
+                "link": null,
+                "widget": {
+                  "name": "individual_masks"
+                }
+              }
+            ],
+            "outputs": [
+              {
+                "name": "masks",
+                "type": "MASK",
+                "links": [
+                  124
+                ]
+              },
+              {
+                "name": "bboxes",
+                "type": "BOUNDING_BOX",
+                "links": []
+              }
+            ],
+            "title": "SAM3 Detect - Find the mark",
+            "properties": {
+              "cnr_id": "comfy-core",
+              "ver": "0.37.0",
+              "Node name for S&R": "SAM3_Detect"
+            },
+            "widgets_values": [
+              0.5,
+              2,
+              false
+            ],
+            "widgets_values_named": {
+              "threshold": 0.5,
+              "refine_iterations": 2,
+              "individual_masks": false
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 34,
+            "type": "AUSBOSS_NODES_RefineMask",
+            "pos": [
+              560,
+              268
+            ],
+            "size": [
+              460,
+              460
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "mask",
+                "type": "MASK",
+                "link": 124
+              },
+              {
+                "name": "guide_image",
+                "type": "IMAGE",
+                "link": null
+              },
+              {
+                "name": "expand",
+                "type": "INT",
+                "link": 126,
+                "widget": {
+                  "name": "expand"
+                }
+              },
+              {
+                "name": "blur",
+                "type": "FLOAT",
+                "link": null,
+                "widget": {
+                  "name": "blur"
+                }
+              },
+              {
+                "name": "fill_holes",
+                "type": "BOOLEAN",
+                "link": null,
+                "widget": {
+                  "name": "fill_holes"
+                }
+              },
+              {
+                "name": "smooth",
+                "type": "INT",
+                "link": null,
+                "widget": {
+                  "name": "smooth"
+                }
+              },
+              {
+                "name": "black_point",
+                "type": "FLOAT",
+                "link": null,
+                "widget": {
+                  "name": "black_point"
+                }
+              },
+              {
+                "name": "white_point",
+                "type": "FLOAT",
+                "link": null,
+                "widget": {
+                  "name": "white_point"
+                }
+              },
+              {
+                "name": "edge_refine",
+                "type": "COMBO",
+                "link": null,
+                "widget": {
+                  "name": "edge_refine"
+                }
+              },
+              {
+                "name": "preview",
+                "type": "BOOLEAN",
+                "link": null,
+                "widget": {
+                  "name": "preview"
+                }
+              }
+            ],
+            "outputs": [
+              {
+                "name": "mask",
+                "type": "MASK",
+                "links": [
+                  127
+                ]
+              },
+              {
+                "name": "mask_inverted",
+                "type": "MASK",
+                "links": []
+              }
+            ],
+            "title": "Mask Refine - Grow the mask",
+            "properties": {
+              "cnr_id": "ausboss-nodes",
+              "ver": "2.2.0",
+              "Node name for S&R": "AUSBOSS_NODES_RefineMask"
+            },
+            "widgets_values": [
+              8,
+              4,
+              false,
+              3,
+              0,
+              1,
+              "off",
+              true,
+              "",
+              ""
+            ],
+            "widgets_values_named": {
+              "expand": 8,
+              "blur": 4,
+              "fill_holes": false,
+              "smooth": 3,
+              "black_point": 0,
+              "white_point": 1,
+              "edge_refine": "off",
+              "preview": true,
+              "ausboss_widget_card": "",
+              "ausboss_input_preview": ""
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          },
+          {
+            "id": 35,
+            "type": "AUSBOSS_NODES_LaMaInpaint",
+            "pos": [
+              560,
+              798
+            ],
+            "size": [
+              460,
+              440
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "image",
+                "type": "IMAGE",
+                "link": 116
+              },
+              {
+                "name": "mask",
+                "type": "MASK",
+                "link": 127
+              },
+              {
+                "name": "model",
+                "type": "COMBO",
+                "link": null,
+                "widget": {
+                  "name": "model"
+                }
+              },
+              {
+                "name": "preview",
+                "type": "BOOLEAN",
+                "link": null,
+                "widget": {
+                  "name": "preview"
+                }
+              }
+            ],
+            "outputs": [
+              {
+                "name": "image",
+                "type": "IMAGE",
+                "links": [
+                  128
+                ]
+              }
+            ],
+            "title": "LaMa Inpaint - Paint over the mark",
+            "properties": {
+              "cnr_id": "ausboss-nodes",
+              "ver": "2.2.0",
+              "Node name for S&R": "AUSBOSS_NODES_LaMaInpaint",
+              "models": [
+                {
+                  "name": "big-lama.pt",
+                  "url": "https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt",
+                  "directory": "lama"
+                }
+              ]
+            },
+            "widgets_values": [
+              "big-lama.pt",
+              true,
+              "",
+              ""
+            ],
+            "widgets_values_named": {
+              "model": "big-lama.pt",
+              "preview": true,
+              "ausboss_widget_card": "",
+              "ausboss_input_preview": ""
+            },
+            "color": "#14424d",
+            "bgcolor": "#161f21"
+          }
+        ],
+        "groups": [
+          {
+            "title": "1 · Find the mark",
+            "bounding": [
+              0,
+              0,
+              500,
+              708
+            ],
+            "color": "#1d5560",
+            "flags": {},
+            "id": 6
+          },
+          {
+            "title": "2 · Paint it out",
+            "bounding": [
+              540,
+              0,
+              500,
+              1258
+            ],
+            "color": "#1d5560",
+            "flags": {},
+            "id": 7
+          }
+        ],
+        "links": [
+          {
+            "id": 115,
+            "origin_id": -10,
+            "origin_slot": 5,
+            "target_id": 32,
+            "target_slot": 1,
+            "type": "IMAGE"
+          },
+          {
+            "id": 116,
+            "origin_id": -10,
+            "origin_slot": 5,
+            "target_id": 35,
+            "target_slot": 0,
+            "type": "IMAGE"
+          },
+          {
+            "id": 117,
+            "origin_id": -10,
+            "origin_slot": 0,
+            "target_id": 36,
+            "target_slot": 0,
+            "type": "STRING"
+          },
+          {
+            "id": 118,
+            "origin_id": 36,
+            "origin_slot": 0,
+            "target_id": 31,
+            "target_slot": 1,
+            "type": "STRING"
+          },
+          {
+            "id": 119,
+            "origin_id": -10,
+            "origin_slot": 4,
+            "target_id": 31,
+            "target_slot": 0,
+            "type": "CLIP"
+          },
+          {
+            "id": 120,
+            "origin_id": -10,
+            "origin_slot": 3,
+            "target_id": 32,
+            "target_slot": 0,
+            "type": "MODEL"
+          },
+          {
+            "id": 121,
+            "origin_id": 31,
+            "origin_slot": 0,
+            "target_id": 32,
+            "target_slot": 2,
+            "type": "CONDITIONING"
+          },
+          {
+            "id": 122,
+            "origin_id": -10,
+            "origin_slot": 1,
+            "target_id": 37,
+            "target_slot": 0,
+            "type": "FLOAT"
+          },
+          {
+            "id": 123,
+            "origin_id": 37,
+            "origin_slot": 0,
+            "target_id": 32,
+            "target_slot": 6,
+            "type": "FLOAT"
+          },
+          {
+            "id": 124,
+            "origin_id": 32,
+            "origin_slot": 0,
+            "target_id": 34,
+            "target_slot": 0,
+            "type": "MASK"
+          },
+          {
+            "id": 125,
+            "origin_id": -10,
+            "origin_slot": 2,
+            "target_id": 38,
+            "target_slot": 0,
+            "type": "INT"
+          },
+          {
+            "id": 126,
+            "origin_id": 38,
+            "origin_slot": 0,
+            "target_id": 34,
+            "target_slot": 2,
+            "type": "INT"
+          },
+          {
+            "id": 127,
+            "origin_id": 34,
+            "origin_slot": 0,
+            "target_id": 35,
+            "target_slot": 1,
+            "type": "MASK"
+          },
+          {
+            "id": 128,
+            "origin_id": 35,
+            "origin_slot": 0,
+            "target_id": -20,
+            "target_slot": 0,
+            "type": "IMAGE"
+          }
+        ],
+        "extra": {}
+      }
+    ]
+  },
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.6,
+      "scale": 0.73,
       "offset": [
-        824.95,
-        320.52
+        137,
+        20
       ]
-    },
-    "frontendVersion": "1.49.6"
+    }
   },
   "version": 0.4
 }

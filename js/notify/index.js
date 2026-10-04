@@ -1,12 +1,14 @@
-// Completion sound 🆎 — a soft two-note chime when the queue finishes.
+// Notifications 🆎 — a soft two-note chime when the queue finishes, and a
+// toast for the notices nodes send with their results.
 //
-// Off by default (a sound nobody asked for is a surprise); one boolean
+// The chime is off by default (a sound nobody asked for is a surprise); one boolean
 // setting turns it on. The chime is built once as a small WAV in memory
 // and played through an ordinary audio element, so the pack ships no sound
 // file and nothing is built until the first chime plays.
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
-import { queueRemaining, shouldChime } from "../shared/notify.mjs";
+import { showToast } from "../shared/index.mjs";
+import { noticesFromExecuted, queueRemaining, shouldChime } from "../shared/notify.mjs";
 import { chimeSamples, wavBytes } from "./chime.mjs";
 
 const SETTING_ID = "AusBoss.Notifications.CompletionSound";
@@ -50,6 +52,13 @@ app.registerExtension({
   setup() {
     // onChange only fires on later edits, so seed from the stored value here.
     enabled = !!app.ui?.settings?.getSettingValue?.(SETTING_ID);
+    // Notices a node sends with its result (an outpaint that came back
+    // unpainted) show as a toast, so they are not lost in the console.
+    api.addEventListener("executed", (event) => {
+      for (const { source, text } of noticesFromExecuted(event?.detail)) {
+        showToast({ severity: "warn", summary: source ? `${source} \u{1F18E}` : "AusBoss", detail: text, life: 20000 });
+      }
+    });
     api.addEventListener("status", (event) => {
       const next = queueRemaining(event?.detail);
       if (next === null) return; // disconnects and unknown shapes stay silent

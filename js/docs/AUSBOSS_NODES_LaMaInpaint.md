@@ -19,7 +19,9 @@ refresh the browser or restart ComfyUI so the model list is updated.
 
 - **image**: BHWC images or video frames.
 - **mask**: BHW mask where white identifies content to replace. One mask is
-  broadcast across the batch; otherwise supply one mask per image.
+  broadcast across the batch; otherwise supply one mask per image. A picture
+  with no mask painted on it stops the run with "No mask painted" instead of
+  coming back unchanged.
 - **model**: A `.pt` or `.pth` TorchScript checkpoint from `models/lama`.
 
 ## Output
@@ -43,4 +45,6 @@ ComfyUI's temp folder, alongside what `PreviewImage` writes.
 
 The small **preview** switch at the right of the bar above the picture turns
 it off: the picture's box disappears, the node is that much shorter, and no
-preview file is written. The switch is the node's optional `preview` input.
+preview file is written. Turn it back on and the node returns to its height
+with the last result in it; if the node ran while the switch was off, it asks
+you to run the workflow again. The switch is the node's optional `preview` input.

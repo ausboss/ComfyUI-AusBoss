@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   ensureNodeMinHeight,
   fillNodeHeight,
+  holdNodeMinHeight,
   holdVueNodeMinWidth,
   measureLayoutWidthPadding,
 } from "../js/shared/panel_layout.mjs";
@@ -25,6 +26,51 @@ test("ensureNodeMinHeight grows a node that loaded shorter than its widgets need
   assert.equal(ensureNodeMinHeight(node), false, "taller than the floor: never shrunk");
   assert.deepEqual(node.size, [300, 400]);
   assert.equal(ensureNodeMinHeight(null), false);
+});
+
+test("holdNodeMinHeight lifts computeSize to the measured floor, never lowers it", () => {
+  let floor;
+  const node = {
+    size: [440, 810],
+    computeSize() { return [404, 218]; },
+    setSize(size) { this.size = size; },
+  };
+  holdNodeMinHeight(node, () => floor);
+  assert.deepEqual(node.computeSize(), [404, 218], "no floor yet: the frontend's own size");
+  floor = 816.125;
+  assert.deepEqual(node.computeSize(), [404, 816.125], "the floor is read on every call");
+  floor = 120;
+  assert.deepEqual(node.computeSize(), [404, 218], "a floor under the frontend's height changes nothing");
+  floor = NaN;
+  assert.deepEqual(node.computeSize(), [404, 218]);
+  // ensureNodeMinHeight and a corner drag both go through computeSize.
+  floor = 816.125;
+  assert.equal(ensureNodeMinHeight(node), true);
+  assert.deepEqual(node.size, [440, 816.125]);
+  node.size = [440, 1000];
+  assert.equal(ensureNodeMinHeight(node), false, "a taller node is never shrunk");
+});
+
+test("holdNodeMinHeight chains the node's own computeSize and tolerates bad input", () => {
+  const node = {
+    extra: 30,
+    computeSize(out) {
+      const size = out ?? [0, 0];
+      size[0] = 300;
+      size[1] = 100 + this.extra;
+      return size;
+    },
+  };
+  holdNodeMinHeight(node, () => 200);
+  const out = [0, 0];
+  assert.equal(node.computeSize(out), out, "an out array is filled in place");
+  assert.deepEqual(out, [300, 200]);
+  node.extra = 300;
+  assert.deepEqual(node.computeSize(), [300, 400], "`this` still reaches the node");
+  assert.equal(holdNodeMinHeight(null, () => 1), null);
+  const bare = {};
+  assert.equal(holdNodeMinHeight(bare, () => 1), bare);
+  assert.equal(bare.computeSize, undefined);
 });
 
 // LGraphNode.computeSize as the frontend (1.53) runs it for DOM widgets:

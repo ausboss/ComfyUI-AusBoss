@@ -2,7 +2,8 @@
 // blend overlay is the paste mask the stitcher will actually use - not a
 // sketch of it. Pure Float32Array functions on a row-major mask (1 =
 // generated), testable under node:test against a fixture the Python
-// helpers produced (tests/fixtures/stitch_blend_parity.json).
+// helpers produced (tests/fixtures/stitch_blend_parity.json). The
+// see-through rule (seeThroughMap) is mirrored too.
 //
 // Mirrors nodes/_mask_helpers.py grow_shrink_mask (square max filter,
 // separable, -inf padding) and blur_mask (gaussian, radius ceil(3 sigma),
@@ -114,6 +115,25 @@ export function featherGeneratedMask(values, width, height, featherPixels) {
   const out = new Float32Array(values.length);
   for (let i = 0; i < out.length; i++) out[i] = Math.max(values[i], Math.min(1, blurred[i] * 2));
   return out;
+}
+
+// The parts of a picture the run paints like its padding: a pixel less than
+// SEE_THROUGH_KEEP_PERCENT as solid as the picture's most solid one (see
+// see_through_kept in nodes/_transform_engine.py). A mask drawn in the
+// MaskEditor is saved exactly that way, as the picture with its alpha
+// cleared where you painted. Takes RGBA bytes and returns a map, 1 where
+// see-through, or null for a picture at least that solid everywhere, which
+// the run leaves exactly as it is.
+export const SEE_THROUGH_KEEP_PERCENT = 90;
+
+export function seeThroughMap(rgba) {
+  let low = 255, top = 0;
+  for (let i = 3; i < rgba.length; i += 4) { if (rgba[i] < low) low = rgba[i]; if (rgba[i] > top) top = rgba[i]; }
+  if (low * 100 >= 255 * SEE_THROUGH_KEEP_PERCENT) return null;
+  const map = new Uint8Array(rgba.length >> 2);
+  // A picture with no solid pixel at all is see-through everywhere.
+  for (let i = 0; i < map.length; i++) map[i] = !top || rgba[i * 4 + 3] * 100 < top * SEE_THROUGH_KEEP_PERCENT ? 1 : 0;
+  return map;
 }
 
 // Work-resolution planning for the overlay. Blend and grow are output

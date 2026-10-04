@@ -109,11 +109,12 @@ test("zoom remains anchored under the pointer", () => {
   assert.deepEqual(zoomAround({ zoom: 1, panX: 0, panY: 0 }, 2, { x: 100, y: 50 }), { zoom: 2, panX: -100, panY: -50 });
 });
 
-test("panel stage height tracks node width within its clamps", () => {
+test("the stage floor tracks the stage width within its clamps", () => {
   assert.equal(stageHeightForWidth(100), 200); // floor
-  assert.equal(stageHeightForWidth(330), 218);
-  assert.equal(stageHeightForWidth(500), 330);
-  assert.equal(stageHeightForWidth(2000), 520); // ceiling
+  assert.equal(stageHeightForWidth(307), 200); // a fresh clip node
+  assert.equal(stageHeightForWidth(442), 265); // the LTX example's node
+  assert.equal(stageHeightForWidth(500), 300);
+  assert.equal(stageHeightForWidth(2000), 340); // ceiling
   assert.equal(stageHeightForWidth(undefined), 200);
 });
 
@@ -265,7 +266,7 @@ test("lock: the result already satisfies a second pass", () => {
 });
 
 // --- Source changes ---------------------------------------------------------
-import { SOURCE_GEOMETRY_KEYS, declaredTransformDefaults, sourceResetValues } from "../js/shared/transform_geometry.mjs";
+import { SOURCE_GEOMETRY_KEYS, declaredTransformDefaults, rememberedSource, sourceResetValues } from "../js/shared/transform_geometry.mjs";
 
 test("a source change resets geometry but never the canvas style", () => {
   const reset = sourceResetValues(true);
@@ -276,6 +277,23 @@ test("a source change resets geometry but never the canvas style", () => {
   assert.equal(reset.crop_aspect_ratio, "free");
   assert.equal(reset.frame_index, 0);
   assert.ok(!("frame_index" in sourceResetValues(false)));
+});
+
+test("a node saved blank takes a pick of the first file as a new picture", () => {
+  // Created on the combo's default, the first file in the input folder,
+  // then loaded from a workflow that saved the loader blank.
+  let remembered = rememberedSource("a_first.png", "");
+  assert.equal(sourceChanged(remembered, "a_first.png"), true);
+  assert.equal(sourceChanged(remembered, "b_other.png"), true);
+  // Saved with a file: that file is no change, any other is new.
+  remembered = rememberedSource("a_first.png", "b_saved.png");
+  assert.equal(sourceChanged(remembered, "b_saved.png"), false);
+  assert.equal(sourceChanged(remembered, "a_first.png"), true);
+  // A blank the user makes (Local path, nothing typed yet) keeps the last
+  // source, so going back to it is no change; a real pick is remembered.
+  remembered = rememberedSource("input:clip.mp4", "", true);
+  assert.equal(sourceChanged(remembered, "input:clip.mp4"), false);
+  assert.equal(rememberedSource(remembered, "local:clip.mp4", true), "local:clip.mp4");
 });
 
 test("reset returns to the node's declared defaults over the shared identity", () => {
@@ -387,7 +405,7 @@ test("the size chain names every step and the stretch the steps cause", () => {
   assert.deepEqual(chain.resized, { width: 1280, height: 704 });
   const { tokens, warnings } = sizeChainTokens(chain);
   assert.deepEqual(tokens.map((token) => `${token.label} ${token.text}`.trim()), ["576×1024", "pad 1821×1024", "resize 1280×704"]);
-  assert.deepEqual(warnings, ["2.2% wider from steps"]);
+  assert.deepEqual(warnings, ["2.2% wider: each side rounds to 32 px"]);
 });
 
 test("the size chain shows Align and names its strip ahead of a resize", () => {
@@ -395,16 +413,410 @@ test("the size chain shows Align and names its strip ahead of a resize", () => {
   const source = rotatedSize(1920, 1080, 10);
   const values = { crop_aspect_ratio: "16:9", pad_left: 64, pad_top: 64, pad_right: 64, pad_bottom: 64, canvas_multiple: 64 };
   const { tokens, warnings } = sizeChainTokens(sizeChain(values, source, { megapixels: 1, steps: 1 }));
-  assert.deepEqual(tokens.map((token) => `${token.label} ${token.text}`.trim()), ["crop 2080×1170", "pad 2208×1298", "align 64 2240×1344", "resize 1322×793"]);
-  assert.deepEqual(warnings, ["align 64 adds 32 px right + 46 px bottom of fill"]);
+  assert.deepEqual(tokens.map((token) => `${token.label} ${token.text}`.trim()), ["crop 2080×1170", "pad 2208×1298", "round to 64 2240×1344", "resize 1322×793"]);
+  assert.deepEqual(warnings, ["rounding to 64 adds 32 px on the right and 46 px at the bottom of fill"]);
   // Without a resize the strip is what Align is for: no warning.
   assert.deepEqual(sizeChainTokens(sizeChain(values, source, null)).warnings, []);
   // The report's case: a 1824-wide picture, Align 64, Resize at Step 64.
   // The resized size is a multiple of 64, but the strip is still there.
   const arcade = sizeChainTokens(sizeChain({ canvas_multiple: 64 }, { width: 1824, height: 2304 }, { megapixels: 1, steps: 64 }));
-  assert.deepEqual(arcade.tokens.map((token) => `${token.label} ${token.text}`.trim()), ["1824×2304", "align 64 1856×2304", "resize 896×1152"]);
-  assert.deepEqual(arcade.warnings, ["3.4% taller from steps", "align 64 adds 32 px right of fill"]);
+  assert.deepEqual(arcade.tokens.map((token) => `${token.label} ${token.text}`.trim()), ["1824×2304", "round to 64 1856×2304", "resize 896×1152"]);
+  assert.deepEqual(arcade.warnings, ["3.4% taller: each side rounds to 64 px", "rounding to 64 adds 32 px on the right of fill"]);
   // Align that adds nothing but a resize that breaks the multiple.
   const lost = sizeChainTokens(sizeChain({ canvas_multiple: 64 }, { width: 1280, height: 768 }, { megapixels: 0.5, steps: 1 }));
-  assert.deepEqual(lost.warnings, ["resize undoes align 64"]);
+  assert.deepEqual(lost.warnings, ["the resize undoes rounding to 64"]);
+});
+
+// --- Ratio chips ------------------------------------------------------------
+import {
+  IDENTITY_TRANSFORM,
+  aspectMatches,
+  canvasSize,
+  isUntouched,
+  padAround,
+  ratioLabel,
+  slidePadding,
+  turnAspect,
+  turnedCrop,
+} from "../js/shared/transform_geometry.mjs";
+
+const portraitClip = { width: 720, height: 1280 };
+
+test("a chip is lit only while the canvas has its shape", () => {
+  // Pad to 16:9 is lit; drag the right padding in and it is custom.
+  const padded = { ...fitSourceToAspect(portraitClip, "16:9", "pad"), canvas_multiple: 1 };
+  const canvas = canvasSize(padded, portraitClip);
+  assert.deepEqual(canvas, { width: 2276, height: 1280 });
+  assert.equal(aspectMatches(canvas.width, canvas.height, "16:9"), true);
+  const dragged = canvasSize({ ...padded, pad_right: 405 }, portraitClip);
+  assert.equal(aspectMatches(dragged.width, dragged.height, "16:9"), false);
+  assert.equal(ratioLabel(dragged.width, dragged.height), "1.49:1");
+  // A pixel of rounding either way still counts as the chip's shape.
+  assert.equal(aspectMatches(2275, 1280, "16:9"), true);
+  assert.equal(aspectMatches(2277, 1280, "16:9"), true);
+  // Align's strip is not part of the shape.
+  assert.deepEqual(canvasSize({ ...padded, canvas_multiple: 64 }, portraitClip), canvas);
+});
+
+test("the untouched picture is neither a pick nor custom", () => {
+  assert.equal(isUntouched({ ...IDENTITY_TRANSFORM }, portraitClip), true);
+  assert.equal(isUntouched({ ...IDENTITY_TRANSFORM, pad_left: 4 }, portraitClip), false);
+  assert.equal(isUntouched({ ...IDENTITY_TRANSFORM, rotation_degrees: 3 }, portraitClip), false);
+  assert.equal(isUntouched({ ...IDENTITY_TRANSFORM, crop_width: 700 }, portraitClip), false);
+});
+
+test("the orientation turn swaps the shape, never the pixels", () => {
+  assert.equal(turnAspect("16:9"), "9:16");
+  assert.equal(turnAspect("9:21"), "21:9");
+  assert.equal(turnAspect("1:1"), "1:1");
+  assert.equal(turnAspect("free"), "free");
+  assert.equal(ratioLabel(861, 1280), "1:1.49");
+  assert.equal(ratioLabel(500, 500), "1:1");
+  // Pad mode: the crop padded, centred, into the turned ratio's canvas.
+  const crop = { x: 0, y: 0, width: 720, height: 1280 };
+  const pads = padAround(crop, 16 / 9);
+  assert.deepEqual(pads, { pad_left: 778, pad_top: 0, pad_right: 778, pad_bottom: 0 });
+  // Crop mode: the box turns about its own centre and stays in the picture.
+  const box = turnedCrop({ x: 0, y: 370, width: 720, height: 540 }, portraitClip);
+  assert.deepEqual(box, { x: 90, y: 280, width: 540, height: 720 });
+  // A turn the picture cannot hold shrinks evenly: the turned ratio holds.
+  const landscape = { width: 1280, height: 720 };
+  const shrunk = turnedCrop({ x: 0, y: 0, width: 1280, height: 720 }, landscape);
+  assert.equal(shrunk.height, 720);
+  assert.ok(Math.abs(shrunk.width / shrunk.height - 9 / 16) < 0.01);
+  assert.ok(shrunk.x >= 0 && shrunk.x + shrunk.width <= landscape.width);
+});
+
+test("dragging the picture slides it inside its padding", () => {
+  const start = { pad_left: 778, pad_top: 0, pad_right: 778, pad_bottom: 0 };
+  // Left 300 px: the left band shrinks, the right grows, the canvas keeps its size.
+  const moved = slidePadding(start, -300, 25, { x: true });
+  assert.deepEqual(moved, { pad_left: 478, pad_top: 0, pad_right: 1078, pad_bottom: 0 });
+  // It stops at the canvas edge.
+  assert.deepEqual(slidePadding(start, -5000, 0, { x: true }), { pad_left: 0, pad_top: 0, pad_right: 1556, pad_bottom: 0 });
+  // An axis where the crop can still move keeps its padding.
+  assert.deepEqual(slidePadding(start, 120, 40, { y: true }), start);
+});
+
+// --- Fixes from the recorded first-use sessions ---------------------------------
+import {
+  KNOB_CLEARANCE,
+  NEAR_RATIO,
+  evenOutPadding,
+  moveCursor,
+  moveRoom,
+  nearRatio,
+  placeKnob,
+  stepWithoutStretch,
+  tightLockPadding,
+} from "../js/shared/transform_geometry.mjs";
+
+test("a picture within about 1% of a ratio is already that ratio", () => {
+  // The recorded 800x1424 photo is 0.12% off 9:16: tapping 9:16 used to add
+  // a 1 px band on one side. Now nothing is added or trimmed, and it is lit.
+  const photo = { width: 800, height: 1424 };
+  for (const mode of ["pad", "crop"]) {
+    const patch = fitSourceToAspect(photo, "9:16", mode);
+    assert.equal(patch.pad_left + patch.pad_right + patch.pad_top + patch.pad_bottom, 0);
+    assert.deepEqual(resolveCrop(patch, photo), { x: 0, y: 0, ...photo });
+  }
+  assert.equal(aspectMatches(800, 1424, "9:16"), true);
+  assert.equal(nearRatio(800, 1424, 9 / 16), true);
+  // Past the tolerance a band is added as before.
+  assert.equal(nearRatio(1000, 1000 * (1 + NEAR_RATIO * 3), 1), false);
+  assert.ok(fitSourceToAspect({ width: 780, height: 1424 }, "9:16", "pad").pad_right > 0);
+  // The orientation button follows the same rule.
+  assert.deepEqual(padAround({ x: 0, y: 0, width: 1280, height: 721 }, 16 / 9), { pad_left: 0, pad_top: 0, pad_right: 0, pad_bottom: 0 });
+});
+
+test("a locked drag solved from its start pads splits the new bands evenly", () => {
+  // Every pointer move re-solves from the pads the drag began with, so an
+  // odd delta can no longer pile its extra pixel on one side move by move.
+  const crop = { width: 800, height: 1424 };
+  const start = { pad_left: 866, pad_right: 866, pad_top: 0, pad_bottom: 0 };
+  let pads = null;
+  for (let right = 867; right <= 1246; right += 3) {
+    pads = lockPadding({ ...start, pad_right: right }, crop, 16 / 9, "x");
+  }
+  assert.ok(Math.abs(pads.pad_top - pads.pad_bottom) <= 1, JSON.stringify(pads));
+  assert.ok(pads.pad_top > 90);
+});
+
+test("Reset crop under the lock drops the bands the lock added", () => {
+  // 16:9 held on a 16:9 picture: trimming the right edge made the lock add
+  // side bands. With the whole picture back, the smallest 16:9 canvas that
+  // holds it has none.
+  const whole = { width: 1280, height: 720 };
+  const pads = tightLockPadding({ pad_left: 109, pad_right: 110, pad_top: 0, pad_bottom: 0 }, whole, 16 / 9);
+  assert.deepEqual(pads, { pad_left: 0, pad_top: 0, pad_right: 0, pad_bottom: 0 });
+  // A tall picture padded to 16:9 whose crop was trimmed and put back gets
+  // its side bands back to the plain fit, not top and bottom bands.
+  const tall = tightLockPadding({ pad_left: 688, pad_right: 688, pad_top: 0, pad_bottom: 0 }, { width: 800, height: 1424 }, 16 / 9);
+  assert.deepEqual([tall.pad_top, tall.pad_bottom], [0, 0]);
+  assert.ok(Math.abs(800 + tall.pad_left + tall.pad_right - Math.round(1424 * 16 / 9)) <= 1);
+});
+
+test("the move cursor only offers the ways the picture can go", () => {
+  const source = { width: 1280, height: 720 };
+  const whole = { x: 0, y: 0, width: 1280, height: 720 };
+  // Untouched: nowhere to go.
+  assert.deepEqual(moveRoom(whole, source, {}), { left: false, right: false, up: false, down: false });
+  assert.equal(moveCursor(moveRoom(whole, source, {})), "default");
+  // Padding on the left only: the picture can slide left, along one axis.
+  const left = moveRoom(whole, source, { pad_left: 157 });
+  assert.deepEqual(left, { left: true, right: false, up: false, down: false });
+  assert.equal(moveCursor(left), "ew-resize");
+  // A crop trimmed at the top can move up; with side padding, both axes.
+  const both = moveRoom({ x: 0, y: 40, width: 1280, height: 680 }, source, { pad_left: 157 });
+  assert.deepEqual(both, { left: true, right: false, up: true, down: false });
+  assert.equal(moveCursor(both), "move");
+  assert.equal(moveCursor({ up: true }), "ns-resize");
+});
+
+test("the rotate knob keeps clear of the other handles", () => {
+  // A narrow picture centred in a wide canvas: the corner is right under
+  // the top diamond, so the knob's usual spot sits on it.
+  const corner = { x: 110, y: 60 };
+  const center = { x: 100, y: 110 };
+  const diamond = { x: 100, y: 42, clearance: KNOB_CLEARANCE.padding };
+  const plain = placeKnob(corner, center, 18);
+  assert.ok(Math.hypot(plain.x - diamond.x, plain.y - diamond.y) < KNOB_CLEARANCE.padding);
+  const placed = placeKnob(corner, center, 18, [diamond], { x: 0, y: 0, width: 300, height: 220 });
+  assert.ok(Math.hypot(placed.x - diamond.x, placed.y - diamond.y) >= KNOB_CLEARANCE.padding);
+  // Nothing in the way: the knob stays where it always was.
+  assert.deepEqual(placeKnob(corner, center, 18, [], null), plain);
+});
+
+test("the rounding stretch names a step that avoids it and pad mode can even it out", () => {
+  // The LTX example: 576x1024 padded to 16:9 at 0.86 MP, Step 32.
+  const values = { crop_aspect_ratio: "free", pad_left: 622, pad_right: 623, pad_top: 0, pad_bottom: 0, canvas_multiple: 1 };
+  const source = { width: 576, height: 1024 };
+  const resize = { megapixels: 0.86, steps: 32 };
+  assert.equal(stepWithoutStretch(values, source, resize), 8);
+  const pads = evenOutPadding(values, source, resize);
+  const even = sizeChain({ ...values, ...pads }, source, resize);
+  assert.ok(Math.abs(even.stretch) <= 0.01, String(even.stretch));
+  assert.deepEqual(even.resized, { width: 1280, height: 704 });
+  // Every pixel stays: only padding grew, split evenly.
+  assert.ok(pads.pad_left >= 622 && pads.pad_right >= 623 && Math.abs(pads.pad_left - pads.pad_right) <= 2);
+  // Nothing to even out without a stretch.
+  assert.equal(evenOutPadding({ ...values, pad_left: 0, pad_right: 0 }, { width: 1024, height: 1024 }, { megapixels: 1, steps: 32 }), null);
+});
+
+// --- Turning the knob past upside down --------------------------------------------
+import { knobStep, wrapDegrees } from "../js/shared/transform_geometry.mjs";
+
+// The editor's knob gesture: pointer angles (degrees, as atan2 gives them)
+// followed move by move from the rotation the drag began with.
+function sweepKnob(rotation, angles) {
+  const radians = angles.map((angle) => angle * Math.PI / 180);
+  let turned = 0;
+  const seen = [];
+  for (let index = 1; index < radians.length; index += 1) {
+    turned += knobStep(radians[index - 1], radians[index]);
+    seen.push(Math.round(wrapDegrees(rotation + turned * 180 / Math.PI) * 10) / 10);
+  }
+  return seen;
+}
+// Pointer angles from `start` in 6 degree steps, wrapped the way atan2 wraps.
+const arc = (start, sweep) => Array.from({ length: Math.abs(sweep) / 6 + 1 }, (_, index) => {
+  const angle = start + Math.sign(sweep) * index * 6;
+  return ((((angle + 180) % 360) + 360) % 360) - 180;
+});
+
+test("the knob turns on past upside down, either way", () => {
+  // The recorded report: at -180 the picture could not be turned back up.
+  // Counter-clockwise it stayed at -180; clockwise it snapped back to -180
+  // once the pointer passed straight left of the centre.
+  const back = sweepKnob(-180, arc(140, -120));
+  assert.equal(back.at(-1), 60);
+  const on = sweepKnob(-180, arc(140, 120));
+  assert.equal(on.at(-1), -60);
+  // Clockwise from upright through 180 it carries on from -180, with no jump.
+  const through = sweepKnob(0, arc(-40, 240));
+  assert.equal(through.at(-1), -120);
+  for (const seen of [back, on, through]) {
+    for (let index = 1; index < seen.length; index += 1) {
+      const step = Math.abs(wrapDegrees(seen[index] - seen[index - 1]));
+      assert.ok(step <= 6.05, `a ${step} degree jump in ${seen.join(" ")}`);
+    }
+  }
+});
+
+test("a knob step is the short way round and the rotation wraps", () => {
+  const degrees = (value) => value * 180 / Math.PI;
+  const radians = (value) => value * Math.PI / 180;
+  assert.ok(Math.abs(degrees(knobStep(radians(176), radians(-178))) - 6) < 1e-9);
+  assert.ok(Math.abs(degrees(knobStep(radians(-178), radians(176))) + 6) < 1e-9);
+  assert.ok(Math.abs(degrees(knobStep(radians(10), radians(40))) - 30) < 1e-9);
+  assert.equal(wrapDegrees(181), -179);
+  assert.equal(wrapDegrees(-181), 179);
+  assert.equal(wrapDegrees(540), -180);
+  // Both ends of the range, and everything inside it, stay as typed.
+  assert.equal(wrapDegrees(180), 180);
+  assert.equal(wrapDegrees(-180), -180);
+  assert.equal(wrapDegrees(-37.5), -37.5);
+});
+
+// --- Corner handles and centring --------------------------------------------------
+import {
+  MAX_PADDING,
+  axisBands,
+  canvasCornerCenters,
+  centredPadding,
+  cornerScale,
+  knobAt,
+  knobOffset,
+  paddingRingGaps,
+  scaleCanvasPadding,
+} from "../js/shared/transform_geometry.mjs";
+
+test("corner handles ring the canvas as far out as the side diamonds", () => {
+  const rect = { x: 100, y: 50, width: 300, height: 200 };
+  const corners = canvasCornerCenters(rect, 20);
+  assert.deepEqual(corners.map(({ corner, x, y }) => [corner, x, y]), [
+    ["nw", 80, 30], ["ne", 420, 30], ["se", 420, 270], ["sw", 80, 270],
+  ]);
+  // On the line of the top and right diamonds, and clear of the crop squares
+  // on the picture's own corners when the canvas has no padding.
+  const [top, right] = paddingHandleCenters(rect, 20);
+  assert.equal(corners[1].y, top.y);
+  assert.equal(corners[1].x, right.x);
+  for (const [corner, square] of corners.map((handle, index) => [handle, cropHandleCenters(rect)[index * 2]])) {
+    assert.ok(Math.abs(Math.hypot(corner.x - square.x, corner.y - square.y) - 20 * Math.SQRT2) < 1e-9);
+  }
+  // The gaps sit halfway between each corner handle and its neighbouring diamond.
+  assert.deepEqual(paddingRingGaps(rect, 20)[1], { x: 335, y: 30 });
+});
+
+test("a corner drag follows the pointer along the canvas diagonal", () => {
+  // Straight out along the diagonal by its own length doubles the canvas.
+  assert.equal(cornerScale("se", 1600, 900, 1600, 900), 2);
+  assert.equal(cornerScale("nw", -1600, -900, 1600, 900), 2);
+  // Across the diagonal does nothing.
+  assert.ok(Math.abs(cornerScale("se", 900, -1600, 1600, 900) - 1) < 1e-12);
+  // About the centre the grabbed corner is half as far from what holds
+  // still, so the same move scales twice as much.
+  assert.equal(cornerScale("ne", 160, -90, 1600, 900, true), 1.2);
+  assert.equal(cornerScale("ne", 160, -90, 1600, 900), 1.1);
+});
+
+test("a corner keeps the canvas shape and holds the opposite corner", () => {
+  const crop = { width: 832, height: 468 };
+  const start = { pad_left: 0, pad_top: 0, pad_right: 0, pad_bottom: 0 };
+  const pads = scaleCanvasPadding(start, crop, "se", 1.25);
+  assert.deepEqual(pads, { pad_left: 0, pad_top: 0, pad_right: 208, pad_bottom: 117 });
+  const canvas = canvasOf(pads, crop);
+  assert.equal(aspectMatches(canvas.width, canvas.height, "832:468"), true);
+  // The top-left corner only moves its own two sides.
+  const nw = scaleCanvasPadding({ pad_left: 10, pad_top: 20, pad_right: 30, pad_bottom: 40 }, crop, "nw", 1.5);
+  assert.equal(nw.pad_right, 30);
+  assert.equal(nw.pad_bottom, 40);
+  assert.ok(nw.pad_left > 10 && nw.pad_top > 20);
+  // Not moving changes nothing, whatever the rounding.
+  const odd = { pad_left: 3, pad_top: 7, pad_right: 11, pad_bottom: 2 };
+  for (const corner of ["nw", "ne", "se", "sw"]) {
+    assert.deepEqual(scaleCanvasPadding(odd, { width: 1001, height: 563 }, corner, 1), odd);
+    assert.deepEqual(scaleCanvasPadding(odd, { width: 1001, height: 563 }, corner, 1, { centre: true }), odd);
+  }
+});
+
+test("a corner stops where its sides run out of padding", () => {
+  const crop = { width: 1280, height: 720 };
+  // The untouched picture has nothing to shrink.
+  assert.deepEqual(scaleCanvasPadding({}, crop, "ne", 0.5), { pad_left: 0, pad_top: 0, pad_right: 0, pad_bottom: 0 });
+  // Pulled far inward, the grabbed corner's sides stop at zero; the side
+  // with the least room sets the stop, so the shape still holds.
+  const start = { pad_left: 50, pad_top: 100, pad_right: 400, pad_bottom: 180 };
+  const pads = scaleCanvasPadding(start, crop, "se", 0.1);
+  assert.equal(pads.pad_left, 50);
+  assert.equal(pads.pad_top, 100);
+  assert.equal(Math.min(pads.pad_right, pads.pad_bottom), 0);
+  // Every side stays inside the backend's limit.
+  const huge = scaleCanvasPadding({}, crop, "se", 1000);
+  assert.ok(huge.pad_right <= MAX_PADDING && huge.pad_bottom <= MAX_PADDING);
+});
+
+test("Alt scales about the centre: all four sides, the middle holds", () => {
+  const crop = { width: 832, height: 1216 };
+  const start = { pad_left: 100, pad_top: 0, pad_right: 100, pad_bottom: 0 };
+  const pads = scaleCanvasPadding(start, crop, "sw", 1.2, { centre: true });
+  const before = canvasOf(start, crop);
+  const after = canvasOf(pads, crop);
+  assert.ok(Math.abs(after.width / after.height - before.width / before.height) < 0.002);
+  // The picture keeps its place in the middle.
+  assert.ok(Math.abs(pads.pad_left - pads.pad_right) <= 1);
+  assert.ok(Math.abs(pads.pad_top - pads.pad_bottom) <= 1);
+  // Shrinking an off-centre picture: the side that runs out first passes
+  // the rest of the shrink to the side across from it.
+  const off = { pad_left: 0, pad_top: 50, pad_right: 300, pad_bottom: 50 };
+  const shrunk = scaleCanvasPadding(off, { width: 1000, height: 1000 }, "ne", 0.9, { centre: true });
+  assert.equal(shrunk.pad_left, 0);
+  assert.ok(shrunk.pad_right < 300 && shrunk.pad_right > 0);
+});
+
+test("centre evens out the padding and keeps the canvas size", () => {
+  const crop = { x: 0, y: 0, width: 832, height: 468 };
+  const values = { pad_left: 0, pad_top: 10, pad_right: 147, pad_bottom: 73, canvas_multiple: 1 };
+  assert.deepEqual(centredPadding(values, crop, "x"), { pad_left: 73, pad_right: 74 });
+  assert.deepEqual(centredPadding(values, crop, "y"), { pad_top: 41, pad_bottom: 42 });
+  // Already in the middle, or nothing to move: nothing to do.
+  assert.equal(centredPadding({ pad_left: 73, pad_right: 74 }, crop, "x"), null);
+  assert.equal(centredPadding({}, crop, "y"), null);
+  // Round canvas to adds its strip on the right: the bands you see come out
+  // even, and the canvas the ratio buttons measure keeps its size.
+  const rounded = { pad_left: 807, pad_right: 982, pad_top: 0, pad_bottom: 0, canvas_multiple: 64 };
+  const centred = { ...rounded, ...centredPadding(rounded, { x: 0, y: 0, width: 832, height: 1216 }, "x") };
+  assert.equal(centred.pad_left + centred.pad_right, 807 + 982);
+  const bands = axisBands(centred, { x: 0, y: 0, width: 832, height: 1216 }, "x");
+  assert.ok(Math.abs(bands.near - bands.far) <= 1, JSON.stringify(bands));
+});
+
+// The corner handles and the knob on the smallest node face, laid out the
+// way the stage draws an untouched picture, each have room to be aimed at:
+// the nearest other handle is at least 24 px away. (The side diamonds keep
+// their own long-standing distance from the crop squares.)
+function faceHandles(source, stage = { width: 292, height: 205 }) {
+  const layout = stageHandleLayout(stage.width, stage.height);
+  const fit = Math.min((stage.width - layout.margin * 2) / source.width, (stage.height - layout.margin * 2) / source.height);
+  const rect = {
+    x: (stage.width - source.width * fit) / 2, y: (stage.height - source.height * fit) / 2,
+    width: source.width * fit, height: source.height * fit,
+  };
+  const corner = { x: rect.x + rect.width, y: rect.y };
+  const center = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+  const handles = [
+    ...cropHandleCenters(rect).map((point) => ({ ...point, kind: "crop" })),
+    ...paddingHandleCenters(rect, layout.padOffset).map((point) => ({ ...point, kind: "padding" })),
+    ...canvasCornerCenters(rect, layout.padOffset).map((point) => ({ ...point, kind: "corner" })),
+  ];
+  const obstacles = handles.map((point) => ({ ...point, clearance: point.kind === "crop" ? KNOB_CLEARANCE.crop : KNOB_CLEARANCE.padding }));
+  const knob = placeKnob(corner, center, layout.rotateArm, obstacles, { x: 0, y: 0, ...stage }, paddingRingGaps(rect, layout.padOffset));
+  return [...handles, { name: "rotation", kind: "rotation", ...knob }];
+}
+
+test("on the smallest face the corner handles and the knob have room to be aimed at", () => {
+  for (const source of [{ width: 1280, height: 720 }, { width: 832, height: 1216 }, { width: 1000, height: 1000 }, { width: 2100, height: 900 }]) {
+    const handles = faceHandles(source);
+    for (const handle of handles.filter((item) => item.kind === "corner" || item.kind === "rotation")) {
+      const nearest = Math.min(...handles.filter((other) => other !== handle).map((other) => Math.hypot(other.x - handle.x, other.y - handle.y)));
+      assert.ok(nearest >= 24, `${source.width}x${source.height} ${handle.kind} ${handle.name}: ${nearest.toFixed(1)} px`);
+    }
+    // The knob kept clear of the corner handle that took its usual spot.
+    const knob = handles.at(-1);
+    const ne = handles.find((handle) => handle.name === "corner_ne");
+    assert.ok(Math.hypot(knob.x - ne.x, knob.y - ne.y) >= KNOB_CLEARANCE.padding);
+  }
+});
+
+test("the knob keeps its spot on its arm while it turns", () => {
+  const corner = { x: 200, y: 40 };
+  const center = { x: 100, y: 100 };
+  const knob = { x: 214, y: 80 };
+  const offset = knobOffset(corner, center, knob);
+  const back = knobAt(corner, center, offset);
+  assert.ok(Math.abs(back.x - knob.x) < 1e-9 && Math.abs(back.y - knob.y) < 1e-9);
+  // Turned a quarter about the centre, the knob turns with the corner.
+  const turned = knobAt({ x: 160, y: 200 }, center, offset);
+  assert.ok(Math.abs(turned.x - 120) < 1e-9 && Math.abs(turned.y - 214) < 1e-9, JSON.stringify(turned));
 });

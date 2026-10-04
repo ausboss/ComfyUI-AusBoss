@@ -15,7 +15,7 @@ import { app } from "/scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { copyToClipboard } from "../shared/clipboard.mjs";
 import { confirmDiscard } from "../shared/discard_prompt.mjs";
-import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
+import { WIDGET_FRAME, fillNodeHeight, holdNodeMinHeight } from "../shared/panel_layout.mjs";
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
 import {
   COMMON_FOLDERS,
@@ -24,14 +24,18 @@ import {
   MODEL_COLUMNS,
   groupModels,
   hostLabel,
+  loadersNeeding,
   matchInstalled,
+  noteFit,
   noteIsEmpty,
   normalizeNote,
   packsFromGraph,
   parseMarkdown,
   rowFromCells,
   serializeNote,
+  subfolderOf,
 } from "../shared/workflow_note.mjs";
+import { comboValues, commitWidgetValue } from "../shared/widget_card_math.mjs";
 
 const NODE_CLASS = "AUSBOSS_NODES_WorkflowNote";
 const CSS_ID = "ausboss-workflow-note-css";
@@ -41,6 +45,10 @@ const CARD_MIN_HEIGHT = 160;
 const BANNER_MIN_HEIGHT = 64;
 const DEFAULT_SIZE = [520, 620];
 const FOLDER_CACHE_MS = 30000;
+// The classic canvas lays a node's first widget 2 px below its title. Only
+// used before the node has been laid out once; after that the widget's own
+// position is read.
+const PANEL_TOP = 2;
 
 // ---------------------------------------------------------------------------
 // Server lookups, cached across every note on the canvas
@@ -144,6 +152,10 @@ function ensureCss() {
 .ausboss-note-dl .size{font-weight:400;opacity:.8;}
 .ausboss-note-pill{flex:none;display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:11px;background:rgba(0,180,170,.16);color:#9fe3dc;font-size:10.5px;white-space:nowrap;}
 .ausboss-note-pill.missing{background:rgba(224,86,75,.16);color:#f0a59e;}
+.ausboss-note-pill.elsewhere{background:rgba(255,196,107,.14);color:#ffd79a;}
+.ausboss-note-action{flex:none;display:inline-flex;align-items:center;gap:6px;}
+.ausboss-note-use{flex:none;height:22px;padding:0 9px;border:1px solid #ffc46b;border-radius:5px;background:rgba(255,196,107,.12);color:#ffe3b0;font:600 11px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer;pointer-events:auto;}
+.ausboss-note-use:hover{background:#ffc46b;color:#2a1d05;}
 .ausboss-note-pill a{color:inherit;text-decoration:none;pointer-events:auto;}
 .ausboss-note-pill a:hover{text-decoration:underline;}
 .ausboss-note-chips{display:flex;flex-wrap:wrap;gap:6px;}
@@ -274,7 +286,7 @@ function modelRow(state, row) {
   if (row.note) metaBits.push(row.note);
   const meta = el("div", "ausboss-note-meta", metaBits.join(" · "));
   if (metaBits.length) file.append(meta);
-  const action = el("span");
+  const action = el("span", "ausboss-note-action");
   line.append(dot, file, action);
 
   const showDownload = () => {
@@ -301,8 +313,32 @@ function modelRow(state, row) {
     pill.title = path ? `Found: ${path}` : "Found";
     action.append(pill);
   };
+  // The file is here, but in a subfolder, and a loader still asks for the
+  // bare name: ComfyUI marks that loader red. Use it points the loaders at
+  // the copy that was found.
+  const showElsewhere = (path, loaders) => {
+    action.textContent = "";
+    const folder = subfolderOf(path);
+    const pill = el("span", "ausboss-note-pill elsewhere", `in ${folder}/`);
+    const names = [...new Set(loaders.map((entry) => entry.node.title || entry.node.type))].join(", ");
+    pill.title = `Found as ${path}, but ${names} ${loaders.length === 1 ? "asks" : "ask"} for ${row.name}, which ComfyUI cannot find.`;
+    const use = el("button", "ausboss-note-use", "Use it");
+    use.type = "button";
+    use.title = `Point ${names} at ${path}.`;
+    use.addEventListener("pointerdown", (event) => event.stopPropagation());
+    use.addEventListener("click", () => {
+      for (const entry of loaders) {
+        commitWidgetValue(entry.node, entry.widget, path, app.canvas);
+        entry.node.setDirtyCanvas?.(true, true);
+      }
+      app.graph?.setDirtyCanvas?.(true, true);
+      notifyAusbossChange();
+      checkModels(state, false);
+    });
+    action.append(pill, use);
+  };
   showDownload();
-  state.rows.push({ row, dot, showDownload, showInstalled });
+  state.rows.push({ row, dot, showDownload, showInstalled, showElsewhere });
   return line;
 }
 
@@ -484,7 +520,11 @@ async function checkModels(state, fresh) {
         continue;
       }
       const match = matchInstalled(entry.row.name, files);
-      if (match.found) {
+      const loaders = match.found && subfolderOf(match.path) ? loadersNeeding(entry.row.name, match.path, graphListWidgets()) : [];
+      if (match.found && loaders.length) {
+        setDot(entry.dot, "ok", `Found in ${subfolderOf(match.path)}/: ${match.path}`);
+        entry.showElsewhere(match.path, loaders);
+      } else if (match.found) {
         setDot(entry.dot, "ok", `Found: ${match.path}`);
         entry.showInstalled(match.path);
       } else {
@@ -493,6 +533,86 @@ async function checkModels(state, fresh) {
       }
     }
   }));
+  if (generation === state.checkGeneration) fitNote(state);
+}
+
+// ---------------------------------------------------------------------------
+// Fitting the node to the card (classic canvas)
+// ---------------------------------------------------------------------------
+
+// Nodes 2.0 sizes the node to the card by itself; the classic canvas keeps
+// whatever height the workflow saved.
+function classicCanvas() {
+  return globalThis.LiteGraph?.vueNodesMode !== true;
+}
+
+// The card's natural height at a given width. For one read the card takes
+// that width and drops its 100% heights, so the content lays out at full
+// size with no scrollbar narrowing it; everything goes back before anything
+// is painted. The width is the node's, not the frame's: the frame can still
+// be a few pixels wide in the moment after it first appears.
+function naturalHeight(state, width) {
+  const { root, card } = state;
+  root.style.width = `${width}px`;
+  root.style.height = "auto";
+  card.style.height = "auto";
+  const height = parseFloat(getComputedStyle(root).height);
+  root.style.width = "";
+  root.style.height = "";
+  card.style.height = "";
+  return Number.isFinite(height) && height > 0 ? height : null;
+}
+
+// Grow the node until the card shows everything, and remember that height
+// as the node's floor. It never shrinks the node: a taller note keeps its
+// empty space until someone drags it shorter.
+function fitNote(state) {
+  if (!classicCanvas()) return;
+  const { node, root, domWidget } = state;
+  const width = node.size[0] - WIDGET_FRAME;
+  if (!(width > 0)) return;
+  let natural;
+  if (root.isConnected) natural = naturalHeight(state, width);
+  else {
+    // Not on the canvas yet - a workflow is loading. Lay the card out off
+    // screen instead.
+    const host = el("div");
+    host.style.cssText = "position:fixed;left:-100000px;top:0;visibility:hidden;pointer-events:none;";
+    host.append(root);
+    document.body.append(host);
+    natural = naturalHeight(state, width);
+    root.remove();
+    host.remove();
+  }
+  const top = Number.isFinite(domWidget.computedHeight) && Number.isFinite(domWidget.y) ? domWidget.y : PANEL_TOP;
+  const { fit, grow } = noteFit({ natural, nodeHeight: node.size[1], chrome: top + WIDGET_FRAME });
+  if (fit === null) return;
+  state.fitHeight = fit;
+  if (grow) {
+    node.setSize([node.size[0], fit]);
+    node.setDirtyCanvas?.(true, true);
+  }
+}
+
+// Every list widget in the graph, subgraphs included: the loaders a found
+// file could be handed to. Local only - the graph already holds each
+// loader's choices, as ComfyUI's own server listed them.
+function graphListWidgets() {
+  const out = [];
+  const seen = new Set();
+  const walk = (graph) => {
+    if (!graph || seen.has(graph)) return;
+    seen.add(graph);
+    for (const node of graph._nodes ?? graph.nodes ?? []) {
+      for (const widget of node.widgets ?? []) {
+        if (widget?.type !== "combo" || typeof widget.value !== "string") continue;
+        out.push({ node, widget, value: widget.value, options: comboValues(widget) });
+      }
+      if (node.subgraph) walk(node.subgraph);
+    }
+  };
+  walk(app.rootGraph ?? app.graph);
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -733,6 +853,7 @@ async function openEditor(state) {
     state.valueWidget.value = serializeNote(next);
     closeEditor();
     render(state);
+    fitNote(state);
     state.node.setDirtyCanvas?.(true, true);
     notifyAusbossChange();
   };
@@ -818,6 +939,12 @@ function buildPanel(node) {
     node, domWidget, valueWidget: widget, root, card, scroll, rows: [],
     note: normalizeNote(widget.value),
   });
+  // Classic canvas: a corner drag stops where the card shows everything, and
+  // the card refits whenever its box changes (first shown, or the node made
+  // wider or narrower, which rewraps the text).
+  holdNodeMinHeight(node, () => (classicCanvas() ? state.fitHeight : undefined));
+  state.resizeObserver = new ResizeObserver(() => fitNote(state));
+  state.resizeObserver.observe(root);
   render(state);
   node.setSize?.([
     Math.max(node.size?.[0] ?? 0, DEFAULT_SIZE[0]),
@@ -837,11 +964,14 @@ app.registerExtension({
     chainCallback(nodeType.prototype, "onConfigure", function () {
       // Saved widget values land after onNodeCreated: re-read them, and
       // keep the saved size rather than the default the panel asked for.
+      // The fit runs before ComfyUI snapshots the opened workflow, so
+      // growing a note that was saved short does not mark it modified.
       queueMicrotask(() => {
         const state = buildPanel(this);
         if (!state) return;
         state.note = normalizeNote(state.valueWidget.value);
         render(state);
+        fitNote(state);
       });
     });
     chainCallback(nodeType.prototype, "getExtraMenuOptions", function (_canvas, options) {
@@ -855,6 +985,7 @@ app.registerExtension({
     });
     chainCallback(nodeType.prototype, "onRemoved", function () {
       closeEditor();
+      this.__ausbossNote?.resizeObserver?.disconnect();
       this.__ausbossNote = null;
     });
   },
