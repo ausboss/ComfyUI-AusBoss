@@ -2,6 +2,15 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Workflow Note keeps the grey line under each model.** Saving any edit
+  in the note's editor erased the short note under every model's file
+  name, such as "second slot of the text encoder loader". The editor's
+  model table now has a Note column, so those lines stay and you can edit
+  them. On those notes, Cancel also no longer asks to discard changes when
+  you changed nothing.
+
 ## 2.6.1 - 2026-10-03
 
 - **LoRA Loader: Fetch Civitai info is back.** Open a LoRA's info card and

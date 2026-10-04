@@ -86,6 +86,23 @@ function normalizeModel(row) {
   };
 }
 
+// The editor's model table: one column for every field normalizeModel
+// keeps, in the order they show. The form builds its cells from this list
+// and reads them back with rowFromCells, so saving the form can't drop a
+// field the card shows, such as the note under the file name.
+export const MODEL_COLUMNS = [
+  { key: "name", label: "File", placeholder: "krea2_turbo_fp8_scaled.safetensors" },
+  { key: "dir", label: "Folder" },
+  { key: "size", label: "Size", placeholder: "13.1 GB" },
+  { key: "url", label: "Download URL", placeholder: "https://huggingface.co/.../resolve/main/file.safetensors" },
+  { key: "note", label: "Note", placeholder: "tip, credit, trigger word" },
+];
+
+// A table row from its cell values, given in the columns' order.
+export function rowFromCells(columns, values) {
+  return Object.fromEntries(columns.map(({ key }, index) => [key, values?.[index] ?? ""]));
+}
+
 function normalizePack(row) {
   if (!row || typeof row !== "object") return null;
   const name = str(row.name).trim();

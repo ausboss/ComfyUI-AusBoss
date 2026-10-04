@@ -21,6 +21,7 @@ import {
   COMMON_FOLDERS,
   INPUT_FOLDER,
   LAYOUTS,
+  MODEL_COLUMNS,
   groupModels,
   hostLabel,
   loadersNeeding,
@@ -30,6 +31,7 @@ import {
   normalizeNote,
   packsFromGraph,
   parseMarkdown,
+  rowFromCells,
   serializeNote,
   subfolderOf,
 } from "../shared/workflow_note.mjs";
@@ -178,7 +180,7 @@ function ensureCss() {
 .ausboss-note-dialog input:focus,.ausboss-note-dialog textarea:focus,.ausboss-note-dialog select:focus{border-color:${BRAND};}
 .ausboss-note-table{display:flex;flex-direction:column;gap:4px;}
 .ausboss-note-trow{display:grid;gap:6px;align-items:center;}
-.ausboss-note-trow.models{grid-template-columns:minmax(120px,1.4fr) 130px 70px minmax(120px,1.6fr) 24px;}
+.ausboss-note-trow.models{grid-template-columns:minmax(120px,1.5fr) 130px 70px minmax(100px,1fr) minmax(100px,1fr) 24px;}
 .ausboss-note-trow.packs{grid-template-columns:minmax(120px,1fr) minmax(120px,1.4fr) minmax(120px,1fr) 24px;}
 .ausboss-note-trow.links{grid-template-columns:minmax(120px,1fr) minmax(120px,2fr) 24px;}
 .ausboss-note-trow.head{color:#78908e;font-size:10px;letter-spacing:.06em;text-transform:uppercase;}
@@ -748,18 +750,14 @@ async function openEditor(state) {
   bodyBox.placeholder = "## How it works\n\n1. Load your image\n2. Drag the padding edges\n3. Queue\n\nMarkdown: # headings, **bold**, `code`, [links](https://...), - lists";
   form.append(field("How-to (Markdown)", bodyBox));
 
-  const models = table("models", ["File", "Folder", "Size", "Download URL"], draft.models, (row) => [
-    input(row.name, "krea2_turbo_fp8_scaled.safetensors"),
-    folderSelect(row.dir, folderOptions),
-    input(row.size, "13.1 GB"),
-    input(row.url, "https://huggingface.co/.../resolve/main/file.safetensors"),
-  ]);
+  const models = table("models", MODEL_COLUMNS.map((column) => column.label), draft.models, (row) =>
+    MODEL_COLUMNS.map(({ key, placeholder }) => (key === "dir" ? folderSelect(row.dir, folderOptions) : input(row[key], placeholder))));
   const modelTools = el("div");
   const addModel = el("button", "ausboss-note-btn", "+ model");
   addModel.type = "button";
   addModel.addEventListener("click", () => models.add({ dir: "diffusion_models" }));
   modelTools.append(addModel);
-  form.append(field("Models", models.box, "Each row shows a Download button until the file is found in its folder (subfolders count)."), modelTools);
+  form.append(field("Models", models.box, "Each row shows a Download button until the file is found in its folder (subfolders count). The note shows in grey under the file name."), modelTools);
 
   const packs = table("packs", ["Pack", "URL", "Probe node class"], draft.packs, (row) => [
     input(row.name, "ComfyUI-AusBoss"),
@@ -810,9 +808,7 @@ async function openEditor(state) {
     body: bodyBox.value,
     layout,
     accent: accent.value,
-    models: models.entries.map(({ controls }) => ({
-      name: controls[0].value, dir: controls[1].value, size: controls[2].value, url: controls[3].value,
-    })),
+    models: models.entries.map(({ controls }) => rowFromCells(MODEL_COLUMNS, controls.map((control) => control.value))),
     packs: packs.entries.map(({ controls }) => ({
       name: controls[0].value, url: controls[1].value, node: controls[2].value,
     })),
