@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.6.1 - 2026-10-03
 
 - **LoRA Loader: Fetch Civitai info is back.** Open a LoRA's info card and
   click the button. Your browser asks civitai.com about that one file and the
@@ -11,6 +11,9 @@ All notable changes to ComfyUI-AusBoss are documented here.
   still never contacts anyone. A file Civitai doesn't know, such as an
   unpublished or hidden model, shows "Not found on Civitai". The gear menu has
   a switch to hide the button.
+- **Ctrl + Shift drag-zoom works over our nodes with Nodes 2.0 turned on.**
+  The mouse wheel already zoomed there, but dragging with Ctrl + Shift held
+  did not start over Compare, the crop previews or a card's controls.
 
 ## 2.6.0 - 2026-10-03
 
