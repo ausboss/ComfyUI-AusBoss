@@ -41,25 +41,40 @@ function askForReload(installed) {
     "Press F5 to reload the page.";
   const toast = app.extensionManager?.toast;
   if (typeof toast?.add === "function") {
-    toast.add({ severity: "warn", summary: "AusBoss was updated", detail, life: 30000 });
+    // No `life`: the message stays until it is closed. The page keeps running
+    // the old files until it is reloaded, however long that takes.
+    toast.add({ severity: "warn", summary: "AusBoss was updated", detail });
   } else {
     console.warn(`[AusBoss] ${detail}`);
+  }
+}
+
+// The installed version this page already asked a reload for. A server that
+// drops and comes back several times must not stack the same message.
+let asked = null;
+
+async function check() {
+  // Advice, not a feature: any network or route failure stays silent.
+  try {
+    const installed = (await (await api.fetchApi("/ausboss/pack_version")).json())?.version;
+    const running = await runningVersion();
+    if (!installed || installed === "unknown" || !running || installed === running || installed === asked) return;
+    asked = installed;
+    const listing = await (await api.fetchApi("/ausboss/pack_modules")).json();
+    await refreshModules(Array.isArray(listing?.modules) ? listing.modules : []);
+    askForReload(installed);
+  } catch (_error) {
+    // Old backend without the routes, offline, or a non-JSON reply.
   }
 }
 
 app.registerExtension({
   name: "ausboss.cache_guard",
   async setup() {
-    // Advice, not a feature: any network or route failure stays silent.
-    try {
-      const installed = (await (await api.fetchApi("/ausboss/pack_version")).json())?.version;
-      const running = await runningVersion();
-      if (!installed || installed === "unknown" || !running || installed === running) return;
-      const listing = await (await api.fetchApi("/ausboss/pack_modules")).json();
-      await refreshModules(Array.isArray(listing?.modules) ? listing.modules : []);
-      askForReload(installed);
-    } catch (_error) {
-      // Old backend without the routes, offline, or a non-JSON reply.
-    }
+    await check();
+    // An update from the Manager restarts the server and reloads the workflow,
+    // not the page, so an open tab keeps the scripts it started with. Look
+    // again every time the server comes back.
+    api.addEventListener("reconnected", check);
   },
 });
