@@ -2,6 +2,15 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **A tab left open through an update now tells you to reload.** Updating the
+  pack in Manager restarts ComfyUI but does not reload the page, so the page
+  kept running the old AusBoss files and nothing said so. The page now checks
+  when ComfyUI comes back and shows "AusBoss was updated" with the one thing
+  to do: press F5. The message stays until you close it; it used to go away
+  after 30 seconds.
+
 ## 2.6.1 - 2026-10-03
 
 - **LoRA Loader: Fetch Civitai info is back.** Open a LoRA's info card and
