@@ -4,6 +4,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Workflow Note keeps the grey line under each model.** Saving any edit
+  in the note's editor erased the short note under every model's file
+  name, such as "second slot of the text encoder loader". The editor's
+  model table now has a Note column, so those lines stay and you can edit
+  them. On those notes, Cancel also no longer asks to discard changes when
+  you changed nothing.
 - **A tab left open through an update now tells you to reload.** Updating the
   pack in Manager restarts ComfyUI but does not reload the page, so the page
   kept running the old AusBoss files and nothing said so. The page now checks
