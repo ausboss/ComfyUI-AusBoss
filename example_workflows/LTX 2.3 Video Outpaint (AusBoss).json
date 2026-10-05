@@ -1,7 +1,7 @@
 {
  "id": "9faf7b1c-be76-4560-9e13-805b9f21fa4e",
  "revision": 0,
- "last_node_id": 42,
+ "last_node_id": 43,
  "last_link_id": 155,
  "nodes": [
   {
@@ -13,7 +13,7 @@
    ],
    "size": [
     440,
-    828
+    787
    ],
    "flags": {},
    "order": 0,
@@ -27,10 +27,10 @@
     "ver": "2.4.0"
    },
    "widgets_values": [
-    "{\"v\": 1, \"title\": \"LTX 2.3 Video Outpaint\", \"subtitle\": \"Extend a video on any side, and LTX 2.3 paints the new area.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your video.\\n2. Pick a ratio. The small button next to the ratios flips portrait and landscape.\\n3. Press **Run**.\\n\\nKeep the fill color black. Any other color comes back as a flat bar.\\n\\nIf part of the new area still comes back black, run it again with another seed.\\n\\nThe two boxes in the middle do the work. Double-click one to see inside.\\n\\nNeeds AusBoss nodes 2.3.0 or newer.\", \"models\": [{\"name\": \"ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"23.5 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/diffusion_models/ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"gemma_3_12B_it_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"13.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/ltx-2/resolve/main/split_files/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"ltx-2.3_text_projection_bf16.safetensors\", \"dir\": \"text_encoders\", \"size\": \"2.31 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/text_encoders/ltx-2.3_text_projection_bf16.safetensors\", \"note\": \"second slot of the text encoder\"}, {\"name\": \"LTX23_video_vae_bf16.safetensors\", \"dir\": \"vae\", \"size\": \"1.45 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/vae/LTX23_video_vae_bf16.safetensors\", \"note\": \"\"}, {\"name\": \"ltx-2.3-22b-distilled-1.1_lora-dynamic_fro09_avg_rank_111_bf16.safetensors\", \"dir\": \"loras\", \"size\": \"2.74 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/loras/ltx-2.3-22b-distilled-1.1_lora-dynamic_fro09_avg_rank_111_bf16.safetensors\", \"note\": \"\"}, {\"name\": \"ltx-2.3-22b-ic-lora-outpaint.safetensors\", \"dir\": \"loras\", \"size\": \"1.31 GB\", \"url\": \"https://huggingface.co/oumoumad/LTX-2.3-22b-IC-LoRA-Outpaint/resolve/main/ltx-2.3-22b-ic-lora-outpaint.safetensors\", \"note\": \"outpaint IC-LoRA by oumoumad\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_VideoCropRotatePadClip\"}], \"links\": [{\"label\": \"GitHub \\u00b7 ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai \\u00b7 AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X \\u00b7 Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+    "{\"v\": 1, \"title\": \"LTX 2.3 Video Outpaint\", \"subtitle\": \"Extend a video on any side, and LTX 2.3 paints the new area.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your video.\\n2. Pick a ratio. The small button next to the ratios flips portrait and landscape.\\n3. Press **Run**.\\n\\nKeep the fill color black. Any other color comes back as a flat bar.\\n\\nIf part of the new area still comes back black, run it again with another seed.\\n\\nNeeds AusBoss nodes 2.3.0 or newer.\", \"models\": [{\"name\": \"ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"23.5 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/diffusion_models/ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"gemma_3_12B_it_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"13.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/ltx-2/resolve/main/split_files/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"ltx-2.3_text_projection_bf16.safetensors\", \"dir\": \"text_encoders\", \"size\": \"2.31 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/text_encoders/ltx-2.3_text_projection_bf16.safetensors\", \"note\": \"second slot of the text encoder\"}, {\"name\": \"LTX23_video_vae_bf16.safetensors\", \"dir\": \"vae\", \"size\": \"1.45 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/vae/LTX23_video_vae_bf16.safetensors\", \"note\": \"\"}, {\"name\": \"ltx-2.3-22b-distilled-1.1_lora-dynamic_fro09_avg_rank_111_bf16.safetensors\", \"dir\": \"loras\", \"size\": \"2.74 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/loras/ltx-2.3-22b-distilled-1.1_lora-dynamic_fro09_avg_rank_111_bf16.safetensors\", \"note\": \"\"}, {\"name\": \"ltx-2.3-22b-ic-lora-outpaint.safetensors\", \"dir\": \"loras\", \"size\": \"1.31 GB\", \"url\": \"https://huggingface.co/oumoumad/LTX-2.3-22b-IC-LoRA-Outpaint/resolve/main/ltx-2.3-22b-ic-lora-outpaint.safetensors\", \"note\": \"outpaint IC-LoRA by oumoumad\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_VideoCropRotatePadClip\"}], \"links\": [{\"label\": \"GitHub \\u00b7 ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai \\u00b7 AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X \\u00b7 Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
    ],
    "widgets_values_named": {
-    "note": "{\"v\": 1, \"title\": \"LTX 2.3 Video Outpaint\", \"subtitle\": \"Extend a video on any side, and LTX 2.3 paints the new area.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your video.\\n2. Pick a ratio. The small button next to the ratios flips portrait and landscape.\\n3. Press **Run**.\\n\\nKeep the fill color black. Any other color comes back as a flat bar.\\n\\nIf part of the new area still comes back black, run it again with another seed.\\n\\nThe two boxes in the middle do the work. Double-click one to see inside.\\n\\nNeeds AusBoss nodes 2.3.0 or newer.\", \"models\": [{\"name\": \"ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"23.5 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/diffusion_models/ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"gemma_3_12B_it_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"13.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/ltx-2/resolve/main/split_files/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"ltx-2.3_text_projection_bf16.safetensors\", \"dir\": \"text_encoders\", \"size\": \"2.31 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/text_encoders/ltx-2.3_text_projection_bf16.safetensors\", \"note\": \"second slot of the text encoder\"}, {\"name\": \"LTX23_video_vae_bf16.safetensors\", \"dir\": \"vae\", \"size\": \"1.45 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/vae/LTX23_video_vae_bf16.safetensors\", \"note\": \"\"}, {\"name\": \"ltx-2.3-22b-distilled-1.1_lora-dynamic_fro09_avg_rank_111_bf16.safetensors\", \"dir\": \"loras\", \"size\": \"2.74 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/loras/ltx-2.3-22b-distilled-1.1_lora-dynamic_fro09_avg_rank_111_bf16.safetensors\", \"note\": \"\"}, {\"name\": \"ltx-2.3-22b-ic-lora-outpaint.safetensors\", \"dir\": \"loras\", \"size\": \"1.31 GB\", \"url\": \"https://huggingface.co/oumoumad/LTX-2.3-22b-IC-LoRA-Outpaint/resolve/main/ltx-2.3-22b-ic-lora-outpaint.safetensors\", \"note\": \"outpaint IC-LoRA by oumoumad\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_VideoCropRotatePadClip\"}], \"links\": [{\"label\": \"GitHub \\u00b7 ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai \\u00b7 AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X \\u00b7 Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+    "note": "{\"v\": 1, \"title\": \"LTX 2.3 Video Outpaint\", \"subtitle\": \"Extend a video on any side, and LTX 2.3 paints the new area.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your video.\\n2. Pick a ratio. The small button next to the ratios flips portrait and landscape.\\n3. Press **Run**.\\n\\nKeep the fill color black. Any other color comes back as a flat bar.\\n\\nIf part of the new area still comes back black, run it again with another seed.\\n\\nNeeds AusBoss nodes 2.3.0 or newer.\", \"models\": [{\"name\": \"ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"23.5 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/diffusion_models/ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"gemma_3_12B_it_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"13.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/ltx-2/resolve/main/split_files/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"ltx-2.3_text_projection_bf16.safetensors\", \"dir\": \"text_encoders\", \"size\": \"2.31 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/text_encoders/ltx-2.3_text_projection_bf16.safetensors\", \"note\": \"second slot of the text encoder\"}, {\"name\": \"LTX23_video_vae_bf16.safetensors\", \"dir\": \"vae\", \"size\": \"1.45 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/vae/LTX23_video_vae_bf16.safetensors\", \"note\": \"\"}, {\"name\": \"ltx-2.3-22b-distilled-1.1_lora-dynamic_fro09_avg_rank_111_bf16.safetensors\", \"dir\": \"loras\", \"size\": \"2.74 GB\", \"url\": \"https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/loras/ltx-2.3-22b-distilled-1.1_lora-dynamic_fro09_avg_rank_111_bf16.safetensors\", \"note\": \"\"}, {\"name\": \"ltx-2.3-22b-ic-lora-outpaint.safetensors\", \"dir\": \"loras\", \"size\": \"1.31 GB\", \"url\": \"https://huggingface.co/oumoumad/LTX-2.3-22b-IC-LoRA-Outpaint/resolve/main/ltx-2.3-22b-ic-lora-outpaint.safetensors\", \"note\": \"outpaint IC-LoRA by oumoumad\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_VideoCropRotatePadClip\"}], \"links\": [{\"label\": \"GitHub \\u00b7 ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai \\u00b7 AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X \\u00b7 Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
    },
    "color": "#14424d",
    "bgcolor": "#161f21"
@@ -316,7 +316,7 @@
    "type": "7b3c2f0e-6a41-4c55-9d2e-3f8a51c0b7d1",
    "pos": [
     1100,
-    80
+    238
    ],
    "size": [
     360,
@@ -376,7 +376,7 @@
    "type": "c91e4d6a-2b7f-4f0e-8a3d-5e6b7c8d9a02",
    "pos": [
     1100,
-    216
+    374
    ],
    "size": [
     360,
@@ -472,7 +472,7 @@
    "type": "DualCLIPLoader",
    "pos": [
     1100,
-    574
+    732
    ],
    "size": [
     360,
@@ -530,7 +530,7 @@
    "type": "VAELoader",
    "pos": [
     1100,
-    774
+    932
    ],
    "size": [
     360,
@@ -577,7 +577,7 @@
    "type": "UNETLoader",
    "pos": [
     1100,
-    902
+    1060
    ],
    "size": [
     360,
@@ -626,7 +626,7 @@
    "type": "AUSBOSS_NODES_LoraLoader",
    "pos": [
     1100,
-    1054
+    1212
    ],
    "size": [
     360,
@@ -842,6 +842,33 @@
    },
    "color": "#07090a",
    "bgcolor": "#07090a"
+  },
+  {
+   "id": 43,
+   "type": "MarkdownNote",
+   "pos": [
+    1100,
+    80
+   ],
+   "size": [
+    360,
+    88
+   ],
+   "flags": {},
+   "order": 13,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [],
+   "title": "Note",
+   "properties": {},
+   "widgets_values": [
+    "## These two boxes write the prompt from your first frame, then paint and put your video back. Double-click one to see inside."
+   ],
+   "widgets_values_named": {
+    "text": "## These two boxes write the prompt from your first frame, then paint and put your video back. Double-click one to see inside."
+   },
+   "color": "#1f2c38",
+   "bgcolor": "#2a3b4a"
   }
  ],
  "links": [
@@ -1002,7 +1029,7 @@
     1080,
     0,
     400,
-    454
+    612
    ],
    "color": "#1d5560",
    "flags": {}
@@ -1012,7 +1039,7 @@
    "title": "3 · Models",
    "bounding": [
     1080,
-    494,
+    652,
     400,
     860
    ],
@@ -1039,7 +1066,7 @@
     "version": 1,
     "state": {
      "lastGroupId": 98,
-     "lastNodeId": 42,
+     "lastNodeId": 43,
      "lastLinkId": 155,
      "lastRerouteId": 0
     },
@@ -1631,7 +1658,7 @@
     "version": 1,
     "state": {
      "lastGroupId": 98,
-     "lastNodeId": 42,
+     "lastNodeId": 43,
      "lastLinkId": 155,
      "lastRerouteId": 0
     },

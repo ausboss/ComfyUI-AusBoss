@@ -1,7 +1,7 @@
 {
   "id": "a890a993-7412-470d-a0f8-80ec442912c9",
   "revision": 0,
-  "last_node_id": 38,
+  "last_node_id": 39,
   "last_link_id": 128,
   "nodes": [
     {
@@ -13,7 +13,7 @@
       ],
       "size": [
         440,
-        702
+        661
       ],
       "flags": {},
       "order": 0,
@@ -36,11 +36,11 @@
         "Node name for S&R": "AUSBOSS_NODES_WorkflowNote"
       },
       "widgets_values": [
-        "{\"v\": 1, \"title\": \"Simple Video Watermark Remover\", \"subtitle\": \"Find a watermark in every frame of a video and paint it out.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your video.\\n2. Say what the mark is in **What to remove**, like watermark or text.\\n3. Press **Run**.\\n4. Check **Before and after**, then play the clean video in **Save Video**.\\n\\nTo try one frame first, select **Save Video** and press Ctrl+M, then Run. Press Ctrl+M again to clean the whole video.\\n\\nIf the mark stays, SAM3 did not find it. Describe it another way, or lower **How sure SAM3 must be**.\\n\\nThe two boxes in the middle do the work. Double-click one to see inside.\\n\\nNeeds AusBoss nodes 2.2.0 or newer and ComfyUI 0.20 or newer, which has SAM3 built in.\", \"models\": [{\"name\": \"sam3.1_multiplex_fp16.safetensors\", \"dir\": \"checkpoints\", \"size\": \"1.75 GB\", \"url\": \"https://huggingface.co/Comfy-Org/sam3.1/resolve/main/checkpoints/sam3.1_multiplex_fp16.safetensors\", \"note\": \"by Meta, packaged by Comfy-Org\"}, {\"name\": \"big-lama.pt\", \"dir\": \"lama\", \"size\": \"206 MB\", \"url\": \"https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt\", \"note\": \"\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_LoadVideo\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}",
+        "{\"v\": 1, \"title\": \"Simple Video Watermark Remover\", \"subtitle\": \"Find a watermark in every frame of a video and paint it out.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your video.\\n2. Say what the mark is in **What to remove**, like watermark or text.\\n3. Press **Run**.\\n4. Check **Before and after**, then play the clean video in **Save Video**.\\n\\nTo try one frame first, select **Save Video** and press Ctrl+M, then Run. Press Ctrl+M again to clean the whole video.\\n\\nIf the mark stays, SAM3 did not find it. Describe it another way, or lower **How sure SAM3 must be**.\\n\\nNeeds AusBoss nodes 2.2.0 or newer and ComfyUI 0.20 or newer, which has SAM3 built in.\", \"models\": [{\"name\": \"sam3.1_multiplex_fp16.safetensors\", \"dir\": \"checkpoints\", \"size\": \"1.75 GB\", \"url\": \"https://huggingface.co/Comfy-Org/sam3.1/resolve/main/checkpoints/sam3.1_multiplex_fp16.safetensors\", \"note\": \"by Meta, packaged by Comfy-Org\"}, {\"name\": \"big-lama.pt\", \"dir\": \"lama\", \"size\": \"206 MB\", \"url\": \"https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt\", \"note\": \"\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_LoadVideo\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}",
         ""
       ],
       "widgets_values_named": {
-        "note": "{\"v\": 1, \"title\": \"Simple Video Watermark Remover\", \"subtitle\": \"Find a watermark in every frame of a video and paint it out.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your video.\\n2. Say what the mark is in **What to remove**, like watermark or text.\\n3. Press **Run**.\\n4. Check **Before and after**, then play the clean video in **Save Video**.\\n\\nTo try one frame first, select **Save Video** and press Ctrl+M, then Run. Press Ctrl+M again to clean the whole video.\\n\\nIf the mark stays, SAM3 did not find it. Describe it another way, or lower **How sure SAM3 must be**.\\n\\nThe two boxes in the middle do the work. Double-click one to see inside.\\n\\nNeeds AusBoss nodes 2.2.0 or newer and ComfyUI 0.20 or newer, which has SAM3 built in.\", \"models\": [{\"name\": \"sam3.1_multiplex_fp16.safetensors\", \"dir\": \"checkpoints\", \"size\": \"1.75 GB\", \"url\": \"https://huggingface.co/Comfy-Org/sam3.1/resolve/main/checkpoints/sam3.1_multiplex_fp16.safetensors\", \"note\": \"by Meta, packaged by Comfy-Org\"}, {\"name\": \"big-lama.pt\", \"dir\": \"lama\", \"size\": \"206 MB\", \"url\": \"https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt\", \"note\": \"\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_LoadVideo\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}",
+        "note": "{\"v\": 1, \"title\": \"Simple Video Watermark Remover\", \"subtitle\": \"Find a watermark in every frame of a video and paint it out.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your video.\\n2. Say what the mark is in **What to remove**, like watermark or text.\\n3. Press **Run**.\\n4. Check **Before and after**, then play the clean video in **Save Video**.\\n\\nTo try one frame first, select **Save Video** and press Ctrl+M, then Run. Press Ctrl+M again to clean the whole video.\\n\\nIf the mark stays, SAM3 did not find it. Describe it another way, or lower **How sure SAM3 must be**.\\n\\nNeeds AusBoss nodes 2.2.0 or newer and ComfyUI 0.20 or newer, which has SAM3 built in.\", \"models\": [{\"name\": \"sam3.1_multiplex_fp16.safetensors\", \"dir\": \"checkpoints\", \"size\": \"1.75 GB\", \"url\": \"https://huggingface.co/Comfy-Org/sam3.1/resolve/main/checkpoints/sam3.1_multiplex_fp16.safetensors\", \"note\": \"by Meta, packaged by Comfy-Org\"}, {\"name\": \"big-lama.pt\", \"dir\": \"lama\", \"size\": \"206 MB\", \"url\": \"https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt\", \"note\": \"\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_LoadVideo\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}",
         "ausboss_workflow_note_panel": ""
       },
       "color": "#14424d",
@@ -807,6 +807,33 @@
       },
       "color": "#14424d",
       "bgcolor": "#161f21"
+    },
+    {
+      "id": 39,
+      "type": "MarkdownNote",
+      "pos": [
+        1460,
+        122
+      ],
+      "size": [
+        280,
+        88
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "Note",
+      "properties": {},
+      "widgets_values": [
+        "## Both boxes find the mark and paint it out. Double-click one to see inside."
+      ],
+      "widgets_values_named": {
+        "text": "## Both boxes find the mark and paint it out. Double-click one to see inside."
+      },
+      "color": "#1f2c38",
+      "bgcolor": "#2a3b4a"
     }
   ],
   "links": [
@@ -973,9 +1000,9 @@
       "title": "2 · Behind the scenes",
       "bounding": [
         1440,
-        200,
+        42,
         320,
-        454
+        612
       ],
       "color": "#1d5560",
       "flags": {}
@@ -1000,7 +1027,7 @@
         "version": 1,
         "state": {
           "lastGroupId": 7,
-          "lastNodeId": 38,
+          "lastNodeId": 39,
           "lastLinkId": 128,
           "lastRerouteId": 0
         },
@@ -1796,7 +1823,7 @@
         "version": 1,
         "state": {
           "lastGroupId": 7,
-          "lastNodeId": 38,
+          "lastNodeId": 39,
           "lastLinkId": 128,
           "lastRerouteId": 0
         },

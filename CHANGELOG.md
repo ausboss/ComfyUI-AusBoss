@@ -2,6 +2,16 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Examples: a note above the boxes says what they hold.** Every example
+  workflow tucks its inner steps into two boxes (subgraphs), and nothing on
+  the canvas said what was in them. A note now sits right above the boxes,
+  such as "These two boxes write the prompt from your image, then paint and
+  put your image back. Double-click one to see inside." The Workflow Note
+  card drops its own line about the boxes. The group around the boxes grew
+  to make room, and the workflows run the same as before.
+
 ## 2.6.3 - 2026-10-05
 
 - **Ctrl + Enter also runs the workflow from the boxes in our popups.**
