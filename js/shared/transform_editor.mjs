@@ -10,6 +10,7 @@ import { createMediaPicker } from "./media_picker.mjs";
 import { normalizeFillColor } from "./fill_color.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
 import { confirmDiscard } from "./discard_prompt.mjs";
+import { keepKeyInField } from "./canvas_passthrough.mjs";
 import { featherGeneratedMask, overlayPlan, seeThroughMap, stitchBlendFromMask } from "./stitch_preview.mjs";
 import { suppressCoreVideoPreview } from "./core_preview.mjs";
 import { gearIconSvg, loadSettings, openSettingsMenu } from "./settings_menu.mjs";
@@ -462,7 +463,7 @@ function buildMediaSourceCard(state) {
     sync();
   };
   localPath.addEventListener("keydown", (event) => {
-    event.stopPropagation();
+    keepKeyInField(event);
     if (event.key === "Enter") localPath.blur();
     if (event.key === "Escape") { localPath.value = String(value(node, "local_path", "")); localPath.blur(); }
   });

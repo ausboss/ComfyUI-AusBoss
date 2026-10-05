@@ -2,6 +2,17 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Ctrl + Enter also runs the workflow from the boxes in our popups.**
+  2.6.2 fixed the boxes on the node itself. Six more still kept the shortcut
+  to themselves: the search box in the LoRA picker, the trigger word and
+  template name boxes, the boxes in a gear menu, the filter in the picture
+  and video picker, and the server file path box on the video nodes. They
+  now pass app shortcuts on to ComfyUI too. In a search box, Ctrl + Enter
+  only runs the workflow and plain Enter still picks. The Workflow Note
+  editor keeps its own Ctrl + Enter, which saves the note.
+
 ## 2.6.2 - 2026-10-04
 
 - **Workflow Note keeps the grey line under each model.** Saving any edit

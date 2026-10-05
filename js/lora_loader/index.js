@@ -10,7 +10,7 @@ import {
   openSettingsMenu,
 } from "../shared/settings_menu.mjs";
 import { makeScrubInput } from "../shared/scrub_input.mjs";
-import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
+import { isAppShortcut, keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { resetUnknownValues } from "../shared/widget_card_math.mjs";
 import {
   BYPASS_MODE,
@@ -884,7 +884,8 @@ function openPicker(state, index, anchor) {
 
   search.addEventListener("input", () => { highlight = -1; renderList(); });
   search.addEventListener("keydown", (event) => {
-    event.stopPropagation();
+    keepKeyInField(event);
+    if (isAppShortcut(event)) return; // Ctrl + Enter runs the workflow, it does not pick
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       highlight = moveHighlight(highlight, event.key === "ArrowDown" ? 1 : -1, filtered.length);
@@ -1074,8 +1075,8 @@ function openInfo(state, index, anchor) {
     const wordInput = el("input");
     wordInput.placeholder = "Add your own trigger word...";
     wordInput.addEventListener("keydown", (event) => {
-      event.stopPropagation();
-      if (event.key === "Enter") addButton.click();
+      keepKeyInField(event);
+      if (event.key === "Enter" && !isAppShortcut(event)) addButton.click();
     });
     const addButton = el("button", "ausboss-lora-add", "Add");
     addButton.type = "button";
@@ -1153,8 +1154,8 @@ function openTemplates(state, anchor) {
     };
     saveButton.addEventListener("click", save);
     nameInput.addEventListener("keydown", (event) => {
-      event.stopPropagation();
-      if (event.key === "Enter") save();
+      keepKeyInField(event);
+      if (event.key === "Enter" && !isAppShortcut(event)) save();
     });
     saveRow.append(nameInput, saveButton);
     menu.append(saveRow);
