@@ -12,6 +12,17 @@ All notable changes to ComfyUI-AusBoss are documented here.
   now pass app shortcuts on to ComfyUI too. In a search box, Ctrl + Enter
   only runs the workflow and plain Enter still picks. The Workflow Note
   editor keeps its own Ctrl + Enter, which saves the note.
+- **Workflow Note: Use it now covers a LoRA too.** When a file from the
+  note's list sits in a subfolder, the note shows where it is and offers Use
+  it, which points the loader at it. A LoRA in LoRA Loader never got that
+  button: its line only said "installed". The LoRA's line now shows the
+  folder and offers Use it as well, and that writes the real path into the
+  LoRA Loader row. Nothing was broken before: LoRA Loader finds a file by
+  its name when it runs.
+- **Workflow Note: Use it picks the file on Windows.** Use it wrote the path
+  with forward slashes. Windows lists files in a subfolder with backslashes,
+  and a loader only takes a file exactly as it is listed, so the loader
+  stayed red. Use it now writes the path the way the folder lists it.
 
 ## 2.6.2 - 2026-10-04
 

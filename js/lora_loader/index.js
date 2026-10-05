@@ -1884,6 +1884,11 @@ function installLoraNode(node) {
   chainCallback(node, "onDrawForeground", function () {
     syncRestoredRows();
   });
+  // Another node may rewrite the rows (the Workflow Note's Use it). Nodes
+  // 2.0 does not draw this node on the canvas, so follow the change itself.
+  chainCallback(node, "onWidgetChanged", function (name) {
+    if (name === "loras") syncRestoredRows();
+  });
   chainCallback(node, "onRemoved", () => {
     closePopup();
     state.nameObserver?.disconnect();

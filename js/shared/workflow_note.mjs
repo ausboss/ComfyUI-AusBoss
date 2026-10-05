@@ -376,3 +376,36 @@ export function loadersNeeding(name, foundPath, widgets) {
     return baseName(current).toLowerCase() === wanted && current !== found && !options.includes(current) && options.includes(found);
   });
 }
+
+// LoRA Loader rows that ask for `name` but hold another spelling than the
+// copy the note found: a bare file name, or a path from someone else's
+// install, that is no file here. The loader finds such a file by its name
+// when it runs; Use it writes the real path into the row. `loaders` is
+// [{ node, widget, rows }] with rows as the loader keeps them ({ name });
+// `files` is the loras folder as the server lists it. Returns
+// [{ node, widget, index }], one per row.
+export function loraRowsNeeding(name, foundPath, loaders, files) {
+  const wanted = baseName(name).toLowerCase();
+  const found = str(foundPath, 1000).replace(/\\/g, "/");
+  const have = new Set((Array.isArray(files) ? files : []).map((item) => str(item, 1000).replace(/\\/g, "/")));
+  if (!wanted || !found || !have.has(found) || !Array.isArray(loaders)) return [];
+  const out = [];
+  for (const loader of loaders) {
+    (Array.isArray(loader?.rows) ? loader.rows : []).forEach((row, index) => {
+      const current = str(row?.name, 1000).replace(/\\/g, "/");
+      if (baseName(current).toLowerCase() === wanted && current !== found && !have.has(current)) {
+        out.push({ node: loader.node, widget: loader.widget, index });
+      }
+    });
+  }
+  return out;
+}
+
+// A found file the way its folder spells it. Windows lists
+// "Krea 2\\model.safetensors", and a loader only takes an entry exactly as
+// it is listed, so the path with "/" the note works with is no choice there.
+export function listedSpelling(foundPath, listed) {
+  const found = str(foundPath, 1000).replace(/\\/g, "/");
+  const hit = (Array.isArray(listed) ? listed : []).find((item) => str(item, 1000).replace(/\\/g, "/") === found);
+  return hit === undefined ? found : str(hit, 1000);
+}

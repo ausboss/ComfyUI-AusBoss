@@ -24,7 +24,9 @@ import {
   MODEL_COLUMNS,
   groupModels,
   hostLabel,
+  listedSpelling,
   loadersNeeding,
+  loraRowsNeeding,
   matchInstalled,
   noteFit,
   noteIsEmpty,
@@ -36,6 +38,7 @@ import {
   subfolderOf,
 } from "../shared/workflow_note.mjs";
 import { comboValues, commitWidgetValue } from "../shared/widget_card_math.mjs";
+import { parseRows, serializeRows } from "../shared/lora_stack.mjs";
 
 const NODE_CLASS = "AUSBOSS_NODES_WorkflowNote";
 const CSS_ID = "ausboss-workflow-note-css";
@@ -315,21 +318,36 @@ function modelRow(state, row) {
   };
   // The file is here, but in a subfolder, and a loader still asks for the
   // bare name: ComfyUI marks that loader red. Use it points the loaders at
-  // the copy that was found.
-  const showElsewhere = (path, loaders) => {
+  // the copy that was found. LoRA Loader rows get the same button: that
+  // loader finds the file by its name when it runs, and the row then holds
+  // the real path.
+  const showElsewhere = (path, loaders, loraRows = [], files = []) => {
     action.textContent = "";
     const folder = subfolderOf(path);
     const pill = el("span", "ausboss-note-pill elsewhere", `in ${folder}/`);
-    const names = [...new Set(loaders.map((entry) => entry.node.title || entry.node.type))].join(", ");
-    pill.title = `Found as ${path}, but ${names} ${loaders.length === 1 ? "asks" : "ask"} for ${row.name}, which ComfyUI cannot find.`;
+    const asking = [...loaders, ...loraRows];
+    const names = [...new Set(asking.map((entry) => entry.node.title || entry.node.type))].join(", ");
+    pill.title = loaders.length
+      ? `Found as ${path}, but ${names} ${asking.length === 1 ? "asks" : "ask"} for ${row.name}, which ComfyUI cannot find.`
+      : `Found as ${path}. ${names} still ${asking.length === 1 ? "has" : "have"} it as ${row.name} and will find it by name.`;
     const use = el("button", "ausboss-note-use", "Use it");
     use.type = "button";
     use.title = `Point ${names} at ${path}.`;
     use.addEventListener("pointerdown", (event) => event.stopPropagation());
     use.addEventListener("click", () => {
       for (const entry of loaders) {
-        commitWidgetValue(entry.node, entry.widget, path, app.canvas);
+        commitWidgetValue(entry.node, entry.widget, listedSpelling(path, entry.options), app.canvas);
         entry.node.setDirtyCanvas?.(true, true);
+      }
+      const stacks = new Map();
+      for (const entry of loraRows) stacks.set(entry.widget, [...(stacks.get(entry.widget) ?? []), entry]);
+      for (const [widget, entries] of stacks) {
+        const rows = parseRows(widget.value);
+        for (const entry of entries) {
+          if (rows[entry.index]) rows[entry.index] = { ...rows[entry.index], name: listedSpelling(path, files) };
+        }
+        commitWidgetValue(entries[0].node, widget, serializeRows(rows), app.canvas);
+        entries[0].node.setDirtyCanvas?.(true, true);
       }
       app.graph?.setDirtyCanvas?.(true, true);
       notifyAusbossChange();
@@ -520,10 +538,12 @@ async function checkModels(state, fresh) {
         continue;
       }
       const match = matchInstalled(entry.row.name, files);
-      const loaders = match.found && subfolderOf(match.path) ? loadersNeeding(entry.row.name, match.path, graphListWidgets()) : [];
-      if (match.found && loaders.length) {
+      const elsewhere = match.found && subfolderOf(match.path);
+      const loaders = elsewhere ? loadersNeeding(entry.row.name, match.path, graphListWidgets()) : [];
+      const loraRows = elsewhere ? loraRowsNeeding(entry.row.name, match.path, graphLoraLoaders(), files) : [];
+      if (match.found && (loaders.length || loraRows.length)) {
         setDot(entry.dot, "ok", `Found in ${subfolderOf(match.path)}/: ${match.path}`);
-        entry.showElsewhere(match.path, loaders);
+        entry.showElsewhere(match.path, loaders, loraRows, files);
       } else if (match.found) {
         setDot(entry.dot, "ok", `Found: ${match.path}`);
         entry.showInstalled(match.path);
@@ -607,6 +627,26 @@ function graphListWidgets() {
       for (const widget of node.widgets ?? []) {
         if (widget?.type !== "combo" || typeof widget.value !== "string") continue;
         out.push({ node, widget, value: widget.value, options: comboValues(widget) });
+      }
+      if (node.subgraph) walk(node.subgraph);
+    }
+  };
+  walk(app.rootGraph ?? app.graph);
+  return out;
+}
+
+// Every LoRA Loader in the graph, subgraphs included, with its rows. Its
+// file names sit in the rows' text, not in a list widget.
+function graphLoraLoaders() {
+  const out = [];
+  const seen = new Set();
+  const walk = (graph) => {
+    if (!graph || seen.has(graph)) return;
+    seen.add(graph);
+    for (const node of graph._nodes ?? graph.nodes ?? []) {
+      if (node.type === "AUSBOSS_NODES_LoraLoader") {
+        const widget = node.widgets?.find((item) => item.name === "loras");
+        if (widget && typeof widget.value === "string") out.push({ node, widget, rows: parseRows(widget.value) });
       }
       if (node.subgraph) walk(node.subgraph);
     }
