@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.6.2 - 2026-10-04
 
 - **Workflow Note keeps the grey line under each model.** Saving any edit
   in the note's editor erased the short note under every model's file
