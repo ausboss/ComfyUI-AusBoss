@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.6.3 - 2026-10-05
 
 - **Ctrl + Enter also runs the workflow from the boxes in our popups.**
   2.6.2 fixed the boxes on the node itself. Six more still kept the shortcut
