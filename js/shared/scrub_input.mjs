@@ -24,6 +24,8 @@
 // at 1 goes 8, 16, 24 instead of 9, 17, 25, and back down to its minimum.
 // Shift's fine step and typed values are never snapped.
 
+import { keepKeyInField } from "./canvas_passthrough.mjs";
+
 // Keep in sync with BRAND in shared/index.mjs - importing it would pull
 // /scripts/app.js into node:test, and this module's math must stay testable.
 const BRAND = "#00b4aa";
@@ -208,7 +210,7 @@ export function makeScrubInput(options = {}) {
   input.addEventListener("pointercancel", endDrag);
 
   input.addEventListener("keydown", (event) => {
-    event.stopPropagation();
+    keepKeyInField(event);
     if (event.key === "Enter") input.blur();
     else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
       event.preventDefault();

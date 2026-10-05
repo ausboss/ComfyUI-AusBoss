@@ -31,6 +31,7 @@
 // scrubs, where a socket sits) live in widget_card_math.mjs for node:test;
 // this file is the DOM.
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "./index.mjs";
+import { keepKeyInField } from "./canvas_passthrough.mjs";
 import { createMediaPicker } from "./media_picker.mjs";
 import { ensureNodeMinHeight, fillNodeHeight } from "./panel_layout.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
@@ -313,7 +314,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     input.addEventListener("change", commit);
     input.addEventListener("blur", commit);
     input.addEventListener("keydown", (event) => {
-      event.stopPropagation();
+      keepKeyInField(event);
       if (event.key === "Enter") input.blur();
       if (event.key === "Escape") { input.value = String(findWidget(node, name)?.value ?? ""); input.blur(); }
     });
@@ -336,7 +337,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     area.addEventListener("input", () => { typing = true; setWidget(name, area.value, { settle: false }); typing = false; });
     area.addEventListener("change", () => notifyAusbossChange());
     area.addEventListener("keydown", (event) => {
-      event.stopPropagation();
+      keepKeyInField(event);
       if (event.key === "Escape") area.blur();
     });
     // The box scrolls its own overflow; the canvas only zooms once it is
@@ -360,7 +361,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     swatch.addEventListener("input", () => { input.value = swatch.value; setWidget(name, swatch.value, { settle: false }); });
     swatch.addEventListener("change", () => notifyAusbossChange());
     input.addEventListener("change", commit); input.addEventListener("blur", commit);
-    input.addEventListener("keydown", (event) => { event.stopPropagation(); if (event.key === "Enter") input.blur(); });
+    input.addEventListener("keydown", (event) => { keepKeyInField(event); if (event.key === "Enter") input.blur(); });
     into.append(swatch, input);
     return (vals) => {
       const text = String(vals[name] ?? "");
