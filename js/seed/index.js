@@ -13,6 +13,7 @@
 
 import { app } from "/scripts/app.js";
 import { isForeignRun } from "../shared/prompt_scope.mjs";
+import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { copyToClipboard } from "../shared/clipboard.mjs";
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
@@ -271,7 +272,7 @@ function buildPanel(node) {
     render(state);
   };
   input.addEventListener("keydown", (event) => {
-    event.stopPropagation();
+    keepKeyInField(event);
     if (event.key === "Enter") input.blur();
     if (event.key === "Escape") { input.value = formatSeed(Number(seed.value)); input.blur(); }
   });

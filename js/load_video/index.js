@@ -1,6 +1,7 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
+import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
 import { formatTimecode, parseTimecode } from "../shared/timecode.mjs";
 import {
@@ -503,7 +504,7 @@ function buildPreview(node) {
     input.placeholder = "m:ss.s";
     input.title = `${labelText} point - type seconds (95.5) or a timecode (1:35.5, 1:02:03.5)`;
     input.addEventListener("keydown", (event) => {
-      event.stopPropagation();
+      keepKeyInField(event);
       if (event.key === "Enter") input.dispatchEvent(new Event("change"));
     });
     wrap.append(label, input);

@@ -10,6 +10,7 @@ import {
   openSettingsMenu,
 } from "../shared/settings_menu.mjs";
 import { makeScrubInput } from "../shared/scrub_input.mjs";
+import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { resetUnknownValues } from "../shared/widget_card_math.mjs";
 import {
   BYPASS_MODE,
@@ -728,7 +729,7 @@ function strengthBox(state, index, key) {
   input.addEventListener("pointercancel", endDrag);
 
   input.addEventListener("keydown", (event) => {
-    event.stopPropagation();
+    keepKeyInField(event);
     if (event.key === "Enter") input.blur();
     else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
       event.preventDefault();

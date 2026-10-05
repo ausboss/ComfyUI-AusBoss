@@ -16,6 +16,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
   when ComfyUI comes back and shows "AusBoss was updated" with the one thing
   to do: press F5. The message stays until you close it; it used to go away
   after 30 seconds.
+- **Ctrl + Enter runs the workflow while you are typing in one of our boxes.**
+  With the cursor in a Text node, a number box, the Seed box or a file name
+  box, ComfyUI's shortcuts did nothing: Ctrl + Enter did not queue a run until
+  you clicked outside the node. Our boxes now pass app shortcuts on to
+  ComfyUI (Ctrl + Enter, Ctrl + Shift + Enter, Ctrl + S and the rest) and keep
+  the keys you type and edit with to themselves, as ComfyUI's own text boxes
+  do.
 
 ## 2.6.1 - 2026-10-03
 

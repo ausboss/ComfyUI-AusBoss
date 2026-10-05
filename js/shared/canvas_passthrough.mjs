@@ -1,5 +1,6 @@
 // Lets the graph keep its mouse gestures while the pointer is over one of the
-// pack's panels.
+// pack's panels, and lets ComfyUI keep its keyboard shortcuts while the cursor
+// is in one of the pack's fields.
 //
 // A panel or card that takes the mouse (a picture stage, a number box, a
 // button) also takes the mouse wheel, so the graph stopped zooming the moment
@@ -51,4 +52,24 @@ export function panelRoot(target) {
     if (String(element.className).includes("ausboss-")) root = element;
   }
   return root;
+}
+
+// Keys pressed in one of the pack's fields. A field keeps the keys it types
+// and edits with, so the canvas never acts on them (Delete, Ctrl + A). The
+// app's own shortcuts go on to ComfyUI, as they do from its text boxes:
+// Ctrl + Enter queues a run, Ctrl + S saves the workflow.
+const FIELD_EDIT_KEYS = new Set([
+  "a", "c", "v", "x", "z", "y", "backspace", "delete",
+  "arrowleft", "arrowright", "arrowup", "arrowdown", "home", "end",
+]);
+
+export function isAppShortcut(event) {
+  if (!event || !(event.ctrlKey || event.metaKey)) return false;
+  return !FIELD_EDIT_KEYS.has(String(event.key ?? "").toLowerCase());
+}
+
+// For a field's keydown handler: the key stops at the field unless it is an
+// app shortcut.
+export function keepKeyInField(event) {
+  if (!isAppShortcut(event)) event.stopPropagation();
 }

@@ -11,6 +11,7 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { isForeignRun } from "../shared/prompt_scope.mjs";
+import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
 import { ensureCardCss } from "../shared/widget_card.mjs";
@@ -183,7 +184,7 @@ function textField(state, name, placeholder, title) {
   input.addEventListener("change", commit);
   input.addEventListener("blur", commit);
   input.addEventListener("keydown", (event) => {
-    event.stopPropagation();
+    keepKeyInField(event);
     if (event.key === "Enter") input.blur();
     if (event.key === "Escape") { input.value = String(value(state.node, target(), "")); input.blur(); }
   });
