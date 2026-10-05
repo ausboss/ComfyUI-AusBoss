@@ -23,6 +23,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   with forward slashes. Windows lists files in a subfolder with backslashes,
   and a loader only takes a file exactly as it is listed, so the loader
   stayed red. Use it now writes the path the way the folder lists it.
+- **Stitch Inpaint takes a picture straight from Qwen Image 2.1's VAE
+  Decode.** That VAE gives every picture a fourth, see-through channel
+  (RGBA), and Stitch Inpaint stopped with "Inpainted channels (4) do not
+  match the cropped image (3)" unless Split Image with Alpha sat in between.
+  It now drops that channel when the source picture has none. Other channel
+  mismatches still stop with that error.
 
 ## 2.6.2 - 2026-10-04
 

@@ -612,6 +612,10 @@ def apply_stitch(
             "broadcasts, and a longer stitcher is trimmed to the frames "
             "that came back, but it cannot invent frames it never had."
         )
+    if inpainted.shape[3] == 4 and canvas.shape[3] == 3:
+        # Qwen Image 2.1's VAE decodes RGBA; an RGB source has nowhere to
+        # put the alpha, so it goes rather than failing the run.
+        inpainted = inpainted[..., :3]
     if inpainted.shape[3] != canvas.shape[3]:
         raise ValueError(
             f"Inpainted channels ({inpainted.shape[3]}) do not match the "
