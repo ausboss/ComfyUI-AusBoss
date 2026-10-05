@@ -29,6 +29,31 @@ All notable changes to ComfyUI-AusBoss are documented here.
   match the cropped image (3)" unless Split Image with Alpha sat in between.
   It now drops that channel when the source picture has none. Other channel
   mismatches still stop with that error.
+- **Nodes stop at the width they were built for.** Dragging a node's corner
+  to make it narrower used to stop in the wrong place, in one of two ways.
+  Several nodes stopped up to 100 pixels too wide: Image Compare A/B would
+  not go under 324 pixels although it is built for 220, and Show Text,
+  Workflow Note, Crop + Rotate + Pad (image, video and clip), Load Image +
+  Pad, Text and Krea 2 Encode did the same. The card nodes went the other
+  way: Seed, Save Image, Image Resize and the rest could be squeezed to 210
+  pixels, where their buttons and labels were cut off. Every node now stops
+  at the width it was designed for (Seed 300, Save Image 340, Crop + Rotate
+  + Pad 330, Compare 220, and so on), in the classic canvas and in Nodes
+  2.0. Nodes 2.0 itself never goes under 225 pixels, so Compare, Show Text
+  and Run Timer stop there. ComfyUI widens a node to its minimum when it
+  opens a workflow, so a card you had squeezed below its minimum opens at
+  the minimum; the example workflows keep every size they had. Technical
+  details: the frontend adds 104 pixels to a growing panel's minimum width,
+  and leaves the minimum of a fixed-height card out of its width sum, so the
+  node fell to a 210 pixel default. Panels now pass `exactMinWidth` to
+  `fillNodeHeight`, or call `holdNodeMinWidth` (both in
+  `js/shared/panel_layout.mjs`), and `tests/panel_guards.test.mjs` fails a
+  new panel that does neither.
+- **Load Video: the IN and OUT times stay whole.** In a narrow Load Video
+  the trim row squeezed the IN and OUT boxes until their numbers were cut
+  off (even at the default width, OUT lost the edge of its last digit). The
+  summary between them, such as "0:04.04 of 0:04.04 · 98 frames", now
+  shortens with "…" instead, and the two boxes keep their room.
 
 ## 2.6.2 - 2026-10-04
 

@@ -55,18 +55,75 @@ export function measureLayoutWidthPadding(node, widget) {
 // The padding is the frontend's, the same for every node: measured once.
 let layoutWidthPadding = null;
 
+const resolveWidth = (value) => {
+  const resolved = Number(typeof value === "function" ? value() : value);
+  return Number.isFinite(resolved) ? Math.max(0, resolved) : 0;
+};
+
+// A node can carry several panels (a card and a video viewer), each with its
+// own minimum, and its floor is the widest of them. Every panel registers
+// its number here, keyed by the widget, and the same tally feeds both
+// renderers, so the two never fight over one node.
+const FLOORS = Symbol("ausboss.widthFloors");
+const WATCHED = Symbol("ausboss.floorWatched");
+
+function nodeWidthFloor(node) {
+  let floor = 0;
+  for (const value of node?.[FLOORS]?.values() ?? []) floor = Math.max(floor, resolveWidth(value));
+  return floor;
+}
+
+// The classic renderer's corner drag never goes below node.computeSize(),
+// and computeSize skips a widget's computeLayoutSize whenever the widget also
+// pins its own computeSize (the fixed-height cards do): their declared
+// minimum was never a floor at all, and such a node dragged down to the
+// frontend's 210px default with the card's buttons cut off. Wrapping the
+// node's own computeSize makes the tally the floor for every panel alike.
+function holdClassicFloor(node) {
+  const inherited = node.computeSize;
+  if (typeof inherited !== "function") return;
+  node.computeSize = function (out) {
+    const size = inherited.call(this, out);
+    const floor = nodeWidthFloor(this);
+    if (size && size[0] < floor) size[0] = floor;
+    return size;
+  };
+}
+
+// Make this panel's minimum part of its node's floor, in both renderers.
+// minWidth is a number or a function, for a floor that follows state. The
+// node's width is then never below it: not by a corner drag, and, for a
+// pinned card, not by the frontend's own default either. exactMinWidth on
+// fillNodeHeight calls this too; a panel that pins its height (Seed, Save
+// Image, the fixed widget cards) calls it directly.
+export function holdNodeMinWidth(widget, minWidth) {
+  const node = widget?.node;
+  if (!node) return widget;
+  if (!node[FLOORS]) {
+    node[FLOORS] = new Map();
+    holdClassicFloor(node);
+  }
+  node[FLOORS].set(widget, minWidth);
+  const panel = widget.element;
+  if (panel && !panel[WATCHED] && typeof ResizeObserver === "function") {
+    panel[WATCHED] = true;
+    // The first size arrives once the panel is laid out inside the node,
+    // which is when a Nodes 2.0 node element exists to carry the minimum.
+    new ResizeObserver(() => holdVueNodeMinWidth(panel, nodeWidthFloor(node))).observe(panel);
+  }
+  return widget;
+}
+
 // distributeSpace reads a missing maxSize as Infinity, so declaring a floor
 // with no ceiling means "take whatever is left" - which is exactly "fill the
 // node". minWidth/minHeight accept a number or a function, for panels whose
 // floor depends on state (the frame chooser is shorter until it has frames).
-// exactMinWidth: true makes minWidth the node's real floor (see above);
-// without it the frontend's padding comes on top, as it always has.
+// exactMinWidth: true makes minWidth the node's real floor (see above), in
+// Nodes 2.0 as well; without it the frontend's padding comes on top, as it
+// always has. Every panel in the pack passes it (tests/panel_guards.test.mjs).
 export function fillNodeHeight(widget, { minWidth = 0, minHeight = 0, minNodeSize, exactMinWidth = false } = {}) {
   if (!widget) return widget;
-  const floor = (value) => {
-    const resolved = Number(typeof value === "function" ? value() : value);
-    return Number.isFinite(resolved) ? Math.max(0, resolved) : 0;
-  };
+  const floor = resolveWidth;
   const padding = (node) => {
     if (!exactMinWidth) return 0;
     if (layoutWidthPadding === null) {
@@ -82,6 +139,7 @@ export function fillNodeHeight(widget, { minWidth = 0, minHeight = 0, minNodeSiz
   });
   widget.options ??= {};
   if (minNodeSize) widget.options.minNodeSize = minNodeSize;
+  if (exactMinWidth) holdNodeMinWidth(widget, minWidth);
   return widget;
 }
 

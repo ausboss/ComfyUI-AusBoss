@@ -486,6 +486,7 @@ function buildPanel(node, config) {
     minWidth: PANEL_MIN_WIDTH,
     minHeight: () => (enabled() ? PANEL_HEIGHT : OFF_HEIGHT),
     minNodeSize: [PANEL_MIN_WIDTH, 90],
+    exactMinWidth: true,
   });
 
   const abort = new AbortController();

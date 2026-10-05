@@ -971,6 +971,7 @@ function buildPanel(node) {
     minWidth: PANEL_MIN_WIDTH,
     minHeight: () => (domWidget.options.getMinHeight?.() ?? CARD_MIN_HEIGHT + WIDGET_FRAME),
     minNodeSize: [PANEL_MIN_WIDTH, 120],
+    exactMinWidth: true,
   });
 
   // valueWidget is the hidden STRING (the storage the editor writes

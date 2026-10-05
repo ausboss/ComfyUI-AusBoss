@@ -33,7 +33,7 @@
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "./index.mjs";
 import { keepKeyInField } from "./canvas_passthrough.mjs";
 import { createMediaPicker } from "./media_picker.mjs";
-import { ensureNodeMinHeight, fillNodeHeight } from "./panel_layout.mjs";
+import { ensureNodeMinHeight, fillNodeHeight, holdNodeMinWidth } from "./panel_layout.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
 import { hideWidget } from "./widget_visibility.mjs";
 import {
@@ -471,6 +471,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       minWidth,
       minHeight: () => state.height + WRAPPER_INSET,
       minNodeSize: [minWidth, 60],
+      exactMinWidth: true,
     });
   } else {
     // A constant-height card, pinned on purpose (tests/panel_guards.test.mjs,
@@ -478,6 +479,9 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     widget.computeSize = (width) => [Math.max(minWidth, Number(width || node.size?.[0] || minWidth)), state.height + WRAPPER_INSET];
     widget.computeLayoutSize = () => ({ minWidth, minHeight: state.height + WRAPPER_INSET });
     widget.options.minNodeSize = [minWidth, 60];
+    // The frontend never reads that width for a pinned widget: the card's
+    // number has to be made the node's floor by hand.
+    holdNodeMinWidth(widget, minWidth);
   }
   if (first && Array.isArray(node.widgets)) {
     const index = node.widgets.indexOf(widget);

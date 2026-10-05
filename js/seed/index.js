@@ -17,6 +17,7 @@ import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { copyToClipboard } from "../shared/clipboard.mjs";
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
+import { holdNodeMinWidth } from "../shared/panel_layout.mjs";
 import { formatSeed, pushSeed, seedFromExecuted } from "../shared/seed_history.mjs";
 
 const NODE_CLASS = "AUSBOSS_NODES_Seed";
@@ -331,6 +332,8 @@ function buildPanel(node) {
   ];
   widget.computeLayoutSize = () => ({ minWidth: NODE_WIDTH, minHeight: PANEL_DECLARED_HEIGHT });
   widget.options.minNodeSize = [NODE_WIDTH, 120];
+  // The frontend skips a pinned card's width, so its floor is held here.
+  holdNodeMinWidth(widget, NODE_WIDTH);
 
   render(state);
   node.setSize?.([

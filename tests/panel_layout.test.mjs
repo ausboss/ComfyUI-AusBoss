@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   ensureNodeMinHeight,
   fillNodeHeight,
+  holdNodeMinWidth,
   holdNodeMinHeight,
   holdVueNodeMinWidth,
   measureLayoutWidthPadding,
@@ -78,17 +79,22 @@ test("holdNodeMinHeight chains the node's own computeSize and tolerates bad inpu
 // meant for a number widget's value box, can raise the node's width, and a
 // corner drag stops at that width.
 function frontendNode(widgets, { padding = 104, base = 210 } = {}) {
-  return {
+  const node = {
     widgets,
     computeSize() {
       let width = base;
       for (const widget of this.widgets) {
         if (widget.hidden || !widget.computeLayoutSize) continue;
+        // A widget that pins its own computeSize is sized by that alone:
+        // its computeLayoutSize width is never read.
+        if (widget.computeSize) continue;
         width = Math.max(width, widget.computeLayoutSize(this).minWidth + padding);
       }
       return [width, 300];
     },
   };
+  for (const widget of widgets) widget.node ??= node;
+  return node;
 }
 
 test("the frontend's width padding is measured, not assumed", () => {
@@ -134,4 +140,84 @@ test("a panel inside a Nodes 2.0 node lends that node its floor", () => {
   assert.equal(holdVueNodeMinWidth({ closest: () => null }, 320), false);
   assert.equal(holdVueNodeMinWidth(null, 320), false);
   assert.equal(holdVueNodeMinWidth(panel, NaN), false);
+});
+
+test("a widget that pins its own computeSize never had a width floor", () => {
+  // The fixed-height cards (Seed, Save Image, the widget cards) declare a
+  // minWidth in computeLayoutSize, but the frontend skips it once
+  // computeSize exists: the node falls to the frontend's default width.
+  const card = { computeSize: () => [300, 120], computeLayoutSize: () => ({ minWidth: 300, minHeight: 120 }), options: {} };
+  const node = frontendNode([card]);
+  assert.equal(node.computeSize()[0], 210);
+  holdNodeMinWidth(card, 300);
+  assert.equal(node.computeSize()[0], 300, "the card's number is now the floor");
+  assert.equal(node.computeSize()[1], 300, "the height is left to the frontend");
+});
+
+test("holdNodeMinWidth only ever raises a node's width", () => {
+  const card = { computeSize: () => [300, 120], options: {} };
+  const wide = frontendNode([card], { base: 500 });
+  holdNodeMinWidth(card, 300);
+  assert.equal(wide.computeSize()[0], 500, "a node already wider for other reasons keeps that width");
+});
+
+test("a node with several panels floors at the widest, and a floor can follow state", () => {
+  // The frontend gives a widget its node at construction, before any of the
+  // panel code runs: the node comes first here too.
+  const node = frontendNode([]);
+  const card = { node, computeSize: () => [320, 120], options: {} };
+  const viewer = fillNodeHeight({ node, options: {} }, { minWidth: 220, minHeight: 100, exactMinWidth: true });
+  let strength = 0;
+  const stack = fillNodeHeight({ node, options: {} }, { minWidth: () => 260 + strength, minHeight: 100, exactMinWidth: true });
+  node.widgets.push(card, viewer, stack);
+  holdNodeMinWidth(card, 320);
+  assert.equal(node.computeSize()[0], 320);
+  strength = 100;
+  assert.equal(node.computeSize()[0], 360, "the stack's floor moved, the node's floor moves with it");
+  // Registering the same widget again replaces its number instead of adding one.
+  holdNodeMinWidth(card, 280);
+  assert.equal(node.computeSize()[0], 360);
+  strength = 0;
+  assert.equal(node.computeSize()[0], 280);
+});
+
+test("holdNodeMinWidth leaves a widget with no node alone", () => {
+  const widget = { options: {} };
+  assert.equal(holdNodeMinWidth(widget, 300), widget);
+  assert.equal(holdNodeMinWidth(null, 300), null);
+});
+
+test("every panel on a node feeds one Nodes 2.0 minimum: the widest", () => {
+  const observers = [];
+  const saved = globalThis.ResizeObserver;
+  globalThis.ResizeObserver = class {
+    constructor(callback) { this.callback = callback; observers.push(this); }
+    observe() {}
+  };
+  try {
+    const host = { style: { minWidth: "" } };
+    const inside = { closest: (selector) => (selector === "[data-node-id]" ? host : null) };
+    const node = frontendNode([]);
+    const card = { node, computeSize: () => [320, 120], options: {}, element: { ...inside } };
+    const viewer = fillNodeHeight({ node, options: {}, element: { ...inside } }, { minWidth: 220, minHeight: 100, exactMinWidth: true });
+    node.widgets.push(card, viewer);
+    holdNodeMinWidth(card, 320);
+    assert.equal(observers.length, 2, "one observer per panel: the viewer's from fillNodeHeight, the card's from the hold");
+    // Each panel reports its first size in turn; the node keeps the widest,
+    // whichever speaks last, so the two never fight over the value.
+    for (const observer of observers) observer.callback();
+    assert.equal(host.style.minWidth, "320px");
+    for (const observer of [...observers].reverse()) observer.callback();
+    assert.equal(host.style.minWidth, "320px");
+    // The classic renderer: no node element around the panels, nothing written.
+    const outside = { closest: () => null };
+    const otherNode = frontendNode([]);
+    const other = { node: otherNode, computeSize: () => [300, 120], options: {}, element: outside };
+    otherNode.widgets.push(other);
+    holdNodeMinWidth(other, 300);
+    observers.at(-1).callback();
+    assert.equal(host.style.minWidth, "320px");
+  } finally {
+    globalThis.ResizeObserver = saved;
+  }
 });

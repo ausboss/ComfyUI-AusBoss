@@ -119,6 +119,7 @@ function buildPanel(node) {
     minWidth: PANEL_MIN_WIDTH,
     minHeight: PANEL_HEIGHT,
     minNodeSize: [PANEL_MIN_WIDTH, 150],
+    exactMinWidth: true,
   });
 
   const state = (node.__ausbossShowText = { node, root, stage, body, hint, note, copy, widget, abort });

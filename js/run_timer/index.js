@@ -15,6 +15,7 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto } from "../shared/index.mjs";
+import { holdNodeMinWidth } from "../shared/panel_layout.mjs";
 import {
   cachedLayer,
   createTimer,
@@ -388,6 +389,7 @@ function installDomReadout(node) {
   widget.computeSize = (width) => [Math.max(MIN_WIDTH, Number(width || node.size?.[0] || BASE_WIDTH)), BASE_HEIGHT];
   widget.computeLayoutSize = () => ({ minWidth: MIN_WIDTH, minHeight: BASE_HEIGHT });
   widget.options.minNodeSize = [MIN_WIDTH, BASE_HEIGHT];
+  holdNodeMinWidth(widget, MIN_WIDTH);
 
   const state = (node.__ausbossRunTimer = {
     node, abort: new AbortController(), interval: null, mode: "dom",

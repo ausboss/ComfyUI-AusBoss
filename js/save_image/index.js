@@ -15,6 +15,7 @@ import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
 import { ensureCardCss } from "../shared/widget_card.mjs";
+import { holdNodeMinWidth } from "../shared/panel_layout.mjs";
 import {
   FORMAT_LABELS, TAGS, namingMode, previewFolder, previewName, tagsEnabled,
 } from "../shared/save_image_naming.mjs";
@@ -340,6 +341,9 @@ function buildCard(node) {
   domWidget.computeSize = (width) => [Math.max(NODE_MIN_WIDTH, Number(width || node.size?.[0] || NODE_MIN_WIDTH)), CARD_HEIGHT + WRAPPER_INSET];
   domWidget.computeLayoutSize = () => ({ minWidth: NODE_MIN_WIDTH, minHeight: CARD_HEIGHT + WRAPPER_INSET });
   domWidget.options.minNodeSize = [NODE_MIN_WIDTH, 120];
+  // A pinned card is skipped by the frontend's width rule, so the card's
+  // number becomes the node's floor here (panel_layout.mjs).
+  holdNodeMinWidth(domWidget, NODE_MIN_WIDTH);
   // Ahead of the legacy caption textarea, which stays hidden underneath.
   const index = node.widgets.indexOf(domWidget);
   const firstDom = node.widgets.findIndex((item) => item !== domWidget && item.element);
