@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import {
   MODEL_COLUMNS,
   baseName,
+  listedSpelling,
   loadersNeeding,
+  loraRowsNeeding,
   subfolderOf,
   emptyNote,
   folderPath,
@@ -227,4 +230,40 @@ test("a loader asking for a bare name is pointed at the copy in a subfolder", ()
   // Case and separators do not matter for the name.
   const windows = { value: "LTX-2.3.SAFETENSORS", options: ["LTXV 2.3/ltx-2.3.safetensors"] };
   assert.deepEqual(loadersNeeding("ltx-2.3.safetensors", "LTXV 2.3\\ltx-2.3.safetensors", [windows]), [windows]);
+});
+
+test("a LoRA Loader row with a bare name is pointed at the copy in a subfolder", () => {
+  const files = ["Krea 2/anypaint.safetensors", "top.safetensors", "Styles/ink.safetensors"];
+  const node = { title: "LoRA Loader" };
+  const widget = {};
+  const rows = [
+    { name: "anypaint.safetensors" }, // bare name: the note's own spelling
+    { name: "top.safetensors" }, // another file
+    { name: "" }, // an empty row
+    { name: "D:\\models\\ANYPAINT.safetensors" }, // a path from someone else's install
+    { name: "Krea 2/anypaint.safetensors" }, // already the copy that was found
+  ];
+  const needing = loraRowsNeeding("anypaint.safetensors", "Krea 2/anypaint.safetensors", [{ node, widget, rows }], files);
+  assert.deepEqual(needing.map((entry) => entry.index), [0, 3]);
+  assert.equal(needing[0].node, node);
+  assert.equal(needing[0].widget, widget);
+  // A row that holds another real copy of the file is the user's choice.
+  const twoCopies = ["Krea 2/anypaint.safetensors", "anypaint.safetensors"];
+  assert.deepEqual(loraRowsNeeding("anypaint.safetensors", "Krea 2/anypaint.safetensors", [{ node, widget, rows }], twoCopies).map((entry) => entry.index), [3]);
+  // Windows lists the folder with backslashes.
+  const windows = ["Krea 2\\anypaint.safetensors"];
+  assert.deepEqual(loraRowsNeeding("anypaint.safetensors", "Krea 2/anypaint.safetensors", [{ node, widget, rows }], windows).map((entry) => entry.index), [0, 3]);
+  // Nothing to point at when the found copy is not in the folder.
+  assert.deepEqual(loraRowsNeeding("anypaint.safetensors", "Gone/anypaint.safetensors", [{ node, widget, rows }], files), []);
+  assert.deepEqual(loraRowsNeeding("anypaint.safetensors", "Krea 2/anypaint.safetensors", null, files), []);
+});
+
+test("Use it writes a found file the way its folder lists it", () => {
+  // The note works with "/" paths; a Windows loader only takes "Krea 2\\model.safetensors".
+  assert.equal(listedSpelling("Krea 2/model.safetensors", ["other.safetensors", "Krea 2\\model.safetensors"]), "Krea 2\\model.safetensors");
+  assert.equal(listedSpelling("Krea 2/model.safetensors", ["Krea 2/model.safetensors"]), "Krea 2/model.safetensors");
+  assert.equal(listedSpelling("Krea 2\\model.safetensors", []), "Krea 2/model.safetensors");
+  const source = readFileSync(new URL("../js/workflow_note/index.js", import.meta.url), "utf-8");
+  assert.match(source, /commitWidgetValue\(entry\.node, entry\.widget, listedSpelling\(path, entry\.options\)/, "Use it hands a loader the path with the note's own slashes again");
+  assert.match(source, /name: listedSpelling\(path, files\)/, "Use it hands a LoRA row the path with the note's own slashes again");
 });

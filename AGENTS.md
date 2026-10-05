@@ -186,6 +186,15 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   dragged taller. `tests/panel_guards.test.mjs` enforces this pack-wide: a
   new panel entry must be added to its `mustGrow` set (or `fixedByDesign`
   for genuinely constant-height rows), so the choice is always explicit.
+- **A panel's declared minimum width is its node's real floor.** Pass
+  `exactMinWidth: true` to `fillNodeHeight`; a constant-height card that
+  keeps its own `computeSize` calls `holdNodeMinWidth` instead. Left alone,
+  the frontend adds 104 px to a growing panel's number and ignores a pinned
+  card's number altogether (the node falls to its 210 px default), so a
+  declared 320 meant 424 for one and 210 for the other. Prove each face on
+  a real canvas at that width in both renderers; a panel that clips there
+  gets a larger minimum, not a broken face. Nodes 2.0 never goes under
+  225 px whatever a panel declares.
 - Frontend settings use `AusBoss.<Area>.<Name>` ids with
   `category: ["🆎 AusBoss", "<Area>", "<Leaf>"]` and a distinct leaf per
   setting. Node color schemes live in `js/shared/appearance.mjs`.

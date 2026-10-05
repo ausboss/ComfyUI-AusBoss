@@ -406,6 +406,40 @@ class BatchTests(unittest.TestCase):
             apply_stitch("not a dict", rand_image(1, 8, 8))
 
 
+class ChannelTests(unittest.TestCase):
+    def test_an_rgba_inpainted_batch_drops_its_alpha_over_an_rgb_source(self):
+        # Qwen Image 2.1's VAE decodes RGBA straight into the stitch.
+        from nodes.node_inpaint_crop_stitch import NODE_CLASS_MAPPINGS
+
+        stitch_cls = NODE_CLASS_MAPPINGS["AUSBOSS_NODES_StitchInpaint"]
+        image = rand_image(1, 48, 64, seed=24)
+        mask = box_mask(48, 64, 16, 32, 24, 40)
+        cropped, _, stitcher = build_crop(image, mask, 1.5, 4, 8)
+        frames = torch.cat([cropped, shuffle_pixels(cropped)], dim=0)
+        alpha = torch.rand(frames.shape[:3] + (1,), generator=torch.Generator().manual_seed(25))
+        rgba = torch.cat([frames, alpha], dim=-1)
+        stitched, blend_mask = getattr(stitch_cls(), stitch_cls.FUNCTION)(
+            stitcher=stitcher, inpainted=rgba
+        )
+        self.assertEqual(stitched.shape, (2, 48, 64, 3))
+        self.assertTrue(torch.equal(stitched, apply_stitch(stitcher, frames)))
+        self.assertTrue(torch.equal(stitched[0:1], image))
+        self.assertEqual(tuple(blend_mask.shape), (2, 48, 64))
+
+    def test_other_channel_mismatches_are_still_rejected(self):
+        image = rand_image(1, 32, 32, seed=26)
+        mask = box_mask(32, 32, 8, 24, 8, 24)
+        cropped, _, stitcher = build_crop(image, mask, 1.5, 4, 8)
+        for channels in (1, 2, 5):
+            patch = cropped[..., :1].expand(-1, -1, -1, channels)
+            with self.subTest(channels=channels), self.assertRaises(ValueError):
+                apply_stitch(stitcher, patch)
+        rgba_source = torch.cat([image, torch.ones_like(image[..., :1])], dim=-1)
+        _c, _s, rgba_stitcher = build_crop(rgba_source, mask, 1.5, 4, 8)
+        with self.assertRaises(ValueError):
+            apply_stitch(rgba_stitcher, cropped)
+
+
 class EdgeHaloTests(unittest.TestCase):
     """fix_edge_halo may only change what is pasted, never how far."""
 

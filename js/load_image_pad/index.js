@@ -140,6 +140,7 @@ function buildPanel(node) {
     minWidth: PAD_MIN_WIDTH,
     minHeight: 190,
     minNodeSize: [PAD_MIN_WIDTH, 320],
+    exactMinWidth: true,
   });
 
   const state = {

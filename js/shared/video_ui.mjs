@@ -40,7 +40,7 @@ export function ensureVideoCss() {
 .ausboss-video-selection{position:absolute;top:11px;height:6px;border-radius:4px;background:${BRAND};box-shadow:0 0 7px rgba(0,180,170,.36);pointer-events:none;}
 .ausboss-video-handle{position:absolute;top:3px;width:12px;height:22px;margin-left:-6px;border:1px solid ${BRAND};border-radius:4px;background:#f4ffff;box-shadow:0 1px 5px rgba(0,0,0,.75);pointer-events:none;}
 .ausboss-video-handle::after{content:"";position:absolute;left:4px;top:5px;width:2px;height:10px;border-radius:2px;background:${BRAND_DARK};}
-.ausboss-video-values{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:7px;color:#708b89;font-size:10px;}
+.ausboss-video-values{display:grid;grid-template-columns:minmax(max-content,1fr) minmax(0,auto) minmax(max-content,1fr);align-items:center;gap:7px;color:#708b89;font-size:10px;}
 .ausboss-video-value{display:flex;align-items:center;gap:5px;min-width:0;}
 .ausboss-video-value:last-child{justify-content:flex-end;}
 .ausboss-video-value label{color:${BRAND};font-size:9px;font-weight:700;letter-spacing:.08em;}

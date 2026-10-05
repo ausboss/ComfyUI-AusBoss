@@ -136,6 +136,7 @@ function buildPreview(node) {
     minWidth: VIDEO_MIN_WIDTH,
     minHeight: 144,
     minNodeSize: [VIDEO_MIN_WIDTH, 270],
+    exactMinWidth: true,
   });
 
   const abort = new AbortController();

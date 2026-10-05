@@ -161,6 +161,80 @@ test("a panel that should follow the node's height never declares computeSize", 
   }
 });
 
+// Every .js / .mjs the frontend serves from js/, with its path relative to js/.
+function allScripts(dir = JS_ROOT, prefix = "") {
+  const found = [];
+  for (const name of readdirSync(dir)) {
+    const path = join(dir, name);
+    if (statSync(path).isDirectory()) found.push(...allScripts(path, `${prefix}${name}/`));
+    else if (/\.m?js$/.test(name)) found.push({ file: `${prefix}${name}`, source: readFileSync(path, "utf-8") });
+  }
+  return found;
+}
+
+// The text of each call to `name(` in a source: from the name to its matching
+// close parenthesis.
+function callsTo(name, source) {
+  const calls = [];
+  let from = 0;
+  while (true) {
+    const at = source.indexOf(`${name}(`, from);
+    if (at < 0) return calls;
+    let depth = 0;
+    let end = at + name.length;
+    for (; end < source.length; end += 1) {
+      if (source[end] === "(") depth += 1;
+      else if (source[end] === ")" && --depth === 0) break;
+    }
+    calls.push(source.slice(at, end + 1));
+    from = end;
+  }
+}
+
+test("a growing panel's declared width is the node's real floor", () => {
+  // The frontend adds 104px (room for a number widget's value box) to every
+  // laid-out panel's minWidth, so a panel declaring 320 floored its node at
+  // 424 and a node created at 340 jumped to 424 on the first touch of its
+  // corner. exactMinWidth takes the padding back off (panel_layout.mjs).
+  let calls = 0;
+  for (const { file, source } of allScripts()) {
+    if (file === "shared/panel_layout.mjs") continue;
+    for (const call of callsTo("fillNodeHeight", source)) {
+      calls += 1;
+      assert.match(
+        call,
+        /exactMinWidth:\s*true/,
+        `${file}: fillNodeHeight without exactMinWidth - the node's floor ends up 104px wider than the number declared`,
+      );
+    }
+  }
+  assert.ok(calls >= 12, `expected the pack's twelve fillNodeHeight panels, the audit saw ${calls}`);
+});
+
+test("a panel that pins its own height still makes its declared width the floor", () => {
+  // The frontend sizes a node's width from a widget's computeLayoutSize only
+  // while the widget has no computeSize of its own. A pinned card (Seed, Save
+  // Image, the widget cards, Run Timer's Nodes 2.0 readout) declares both, so
+  // its width was never read and the node fell to the 210px default, where
+  // buttons and pills were cut off. holdNodeMinWidth makes the number real.
+  const pinned = [];
+  for (const { file, source } of allScripts()) {
+    if (file === "shared/panel_layout.mjs") continue;
+    // Only real panels: core_preview.mjs pins the widgets it hides.
+    if (!/\.addDOMWidget\(/.test(source)) continue;
+    if (!/\b(widget|domWidget)\.computeSize\s*=/.test(source)) continue;
+    pinned.push(file);
+    assert.match(
+      source,
+      /holdNodeMinWidth\(/,
+      `${file}: pins a widget's computeSize but never calls holdNodeMinWidth - its declared width is not the node's floor`,
+    );
+  }
+  for (const expected of ["seed/index.js", "save_image/index.js", "shared/widget_card.mjs", "run_timer/index.js"]) {
+    assert.ok(pinned.includes(expected), `${expected} should be one of the pinned panels the audit checks`);
+  }
+});
+
 test("the preview picture never sets the panel's height", () => {
   // Nodes 2.0 lets a node's content decide its height (the saved size is only
   // a minimum). With the picture in normal flow, a portrait result drawn at

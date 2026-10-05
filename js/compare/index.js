@@ -175,6 +175,7 @@ function buildPanel(node) {
     minWidth: VIDEO_MIN_WIDTH,
     minHeight: PANEL_MIN_HEIGHT + WIDGET_FRAME,
     minNodeSize: [VIDEO_MIN_WIDTH, 220],
+    exactMinWidth: true,
   });
 
   const abort = new AbortController();

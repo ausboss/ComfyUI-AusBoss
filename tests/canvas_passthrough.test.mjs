@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -110,4 +110,71 @@ test("the fields on a node face pass app shortcuts on", () => {
     const source = readFileSync(join(js, file), "utf-8");
     assert.doesNotMatch(source, /addEventListener\("keydown", \(event\) => \{\s*event\.stopPropagation\(\)/, `${file}: a keydown handler stops every key`);
   }
+});
+
+// Every inline keydown handler under js/, as { target, event, body }.
+function keydownHandlers(source) {
+  const found = [];
+  const pattern = /([\w.$]+)\.addEventListener\(\s*"keydown",\s*\(?\s*(\w+)\s*\)?\s*=>\s*/g;
+  for (const match of source.matchAll(pattern)) {
+    const start = match.index + match[0].length;
+    let end = start;
+    if (source[start] === "{") {
+      for (let depth = 0; end < source.length; end++) {
+        if (source[end] === "{") depth++;
+        else if (source[end] === "}" && --depth === 0) break;
+      }
+      found.push({ target: match[1], event: match[2], body: source.slice(start + 1, end) });
+    } else {
+      while (end < source.length && !"\n,;".includes(source[end])) end++;
+      found.push({ target: match[1], event: match[2], body: source.slice(start, end) });
+    }
+  }
+  return found;
+}
+
+// True when the handler stops a key before it has looked at which key it is:
+// a stopPropagation() at the top of the handler with no early return ahead.
+function stopsEveryKey({ event, body }) {
+  let top = "";
+  let depth = 0;
+  for (const char of body.replace(/\/\/[^\n]*/g, "")) {
+    if (char === "{") { if (depth++ === 0) top += "{}"; }
+    else if (char === "}") depth--;
+    else if (depth === 0) top += char;
+  }
+  const stop = top.search(new RegExp(`(^|[;{}])\\s*${event}\\.stopPropagation\\(\\)`));
+  return stop >= 0 && !/\breturn\b/.test(top.slice(0, stop));
+}
+
+test("no keydown handler stops every key, outside the two dialogs that own the keyboard", () => {
+  // A handler that stops a key before looking at it also stops Ctrl + Enter,
+  // so the workflow does not run from that box. A box uses keepKeyInField.
+  const js = join(dirname(fileURLToPath(import.meta.url)), "..", "js");
+  const ownTheKeyboard = [
+    "shared/discard_prompt.mjs backdrop", // the keep or discard question
+    "workflow_note/index.js overlay", // the note editor: Ctrl + Enter saves the note
+  ];
+  const files = readdirSync(js, { recursive: true }).map(String).filter((file) => /\.m?js$/.test(file)).map((file) => file.replaceAll("\\", "/"));
+  assert.ok(files.length > 40, "the scan found the pack's scripts");
+  const found = [];
+  let handlers = 0;
+  for (const file of files) {
+    for (const handler of keydownHandlers(readFileSync(join(js, file), "utf-8"))) {
+      handlers++;
+      if (stopsEveryKey(handler)) found.push(`${file} ${handler.target}`);
+    }
+  }
+  assert.ok(handlers >= 20, "the scan read the keydown handlers");
+  assert.deepEqual(found.sort(), ownTheKeyboard);
+});
+
+test("the scan tells a handler that stops every key from one that picks its keys", () => {
+  const stops = (code) => keydownHandlers(code).map(stopsEveryKey);
+  assert.deepEqual(stops(`box.addEventListener("keydown", (event) => { event.stopPropagation(); if (event.key === "Enter") box.blur(); });`), [true]);
+  assert.deepEqual(stops(`box.addEventListener("keydown", (event) => event.stopPropagation());`), [true]);
+  assert.deepEqual(stops(`box.addEventListener("keydown", (event) => {\n  if (event.key === "Enter") { event.preventDefault(); save(); }\n  event.stopPropagation();\n});`), [true]);
+  assert.deepEqual(stops(`box.addEventListener("keydown", (event) => { keepKeyInField(event); if (event.key === "Enter") box.blur(); });`), [false]);
+  assert.deepEqual(stops(`window.addEventListener(\n  "keydown",\n  (event) => { if (event.key === "Escape") { event.stopPropagation(); close(); } },\n  { capture: true });`), [false]);
+  assert.deepEqual(stops(`stage.addEventListener("keydown", (event) => {\n  if (!move(event.key)) return;\n  event.preventDefault();\n  event.stopPropagation();\n});`), [false]);
 });

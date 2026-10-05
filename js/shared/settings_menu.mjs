@@ -10,6 +10,7 @@
 
 import { makeScrubInput } from "./scrub_input.mjs";
 import { BRAND } from "./index.mjs";
+import { isAppShortcut, keepKeyInField } from "./canvas_passthrough.mjs";
 import {
   isOverrideActive,
   isOverrideEntry,
@@ -234,8 +235,11 @@ function buildControl(entry, values, commit) {
   };
   input.addEventListener("change", commitInput);
   input.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") { event.preventDefault(); commitInput(); }
-    event.stopPropagation();
+    keepKeyInField(event);
+    if (event.key !== "Enter") return;
+    // Ctrl + Enter keeps the typed value and goes on to ComfyUI to run.
+    if (!isAppShortcut(event)) event.preventDefault();
+    commitInput();
   });
   if (!entry.slider) return input;
 

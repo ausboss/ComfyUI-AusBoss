@@ -11,6 +11,7 @@
 // Pure decisions live in media_list.mjs for node:test; this file is the DOM.
 
 import { BRAND } from "./index.mjs";
+import { isAppShortcut, keepKeyInField } from "./canvas_passthrough.mjs";
 import { filterMedia, mediaLabel, moveHighlight } from "./media_list.mjs";
 
 const CSS_ID = "ausboss-media-picker-css";
@@ -214,7 +215,8 @@ export function createMediaPicker({ kind = "image", className = "", placeholder,
 
     filter.addEventListener("input", render);
     filter.addEventListener("keydown", (event) => {
-      event.stopPropagation(); // keep canvas shortcuts (Delete, Ctrl+A…) out of the filter
+      keepKeyInField(event); // typing and editing keys stay in the filter (Delete, Ctrl+A…)
+      if (isAppShortcut(event)) return; // Ctrl + Enter runs the workflow, it does not pick
       const step = { ArrowDown: 1, ArrowUp: -1, PageDown: 8, PageUp: -8 }[event.key];
       if (step) {
         event.preventDefault();
