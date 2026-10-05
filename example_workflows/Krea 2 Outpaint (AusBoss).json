@@ -1,7 +1,7 @@
 {
   "id": "dae862a1-7827-4a50-97e2-ad2507bc97ae",
   "revision": 0,
-  "last_node_id": 33,
+  "last_node_id": 34,
   "last_link_id": 53,
   "nodes": [
     {
@@ -9,7 +9,7 @@
       "type": "UNETLoader",
       "pos": [
         1060,
-        858
+        1016
       ],
       "size": [
         360,
@@ -57,7 +57,7 @@
       "type": "CLIPLoader",
       "pos": [
         1060,
-        554
+        712
       ],
       "size": [
         360,
@@ -108,7 +108,7 @@
       "type": "VAELoader",
       "pos": [
         1060,
-        730
+        888
       ],
       "size": [
         360,
@@ -154,7 +154,7 @@
       "type": "AUSBOSS_NODES_LoraLoader",
       "pos": [
         1060,
-        1010
+        1168
       ],
       "size": [
         360,
@@ -588,7 +588,7 @@
       ],
       "size": [
         440,
-        715.125
+        673.344
       ],
       "flags": {},
       "order": 7,
@@ -602,10 +602,10 @@
         "ver": "2.4.0"
       },
       "widgets_values": [
-        "{\"v\": 1, \"title\": \"Krea 2 Outpaint\", \"subtitle\": \"Extend a picture, and Krea 2 paints the new area.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image.\\n2. Pick a ratio, or drag the orange handles out.\\n3. Optional: describe the new area in **What goes there**.\\n4. Press **Run**.\\n\\nOn one side, add at most about half your picture's size per run, or add to both sides. More on one side can paint a second scene.\\n\\nThe two boxes in the middle do the work. Double-click one to see inside.\\n\\nNeeds AusBoss nodes newer than 2.4.0 (update first).\", \"models\": [{\"name\": \"krea2_turbo_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}, {\"name\": \"krea2_anypaint_rank32.safetensors\", \"dir\": \"loras\", \"size\": \"229 MB\", \"url\": \"https://huggingface.co/yijunwang2/krea2-anypaint/resolve/main/krea2_anypaint_rank32.safetensors\", \"note\": \"by yijunwang2\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_ImageCropRotatePad\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+        "{\"v\": 1, \"title\": \"Krea 2 Outpaint\", \"subtitle\": \"Extend a picture, and Krea 2 paints the new area.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image.\\n2. Pick a ratio, or drag the orange handles out.\\n3. Optional: describe the new area in **What goes there**.\\n4. Press **Run**.\\n\\nOn one side, add at most about half your picture's size per run, or add to both sides. More on one side can paint a second scene.\\n\\nNeeds AusBoss nodes newer than 2.4.0 (update first).\", \"models\": [{\"name\": \"krea2_turbo_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}, {\"name\": \"krea2_anypaint_rank32.safetensors\", \"dir\": \"loras\", \"size\": \"229 MB\", \"url\": \"https://huggingface.co/yijunwang2/krea2-anypaint/resolve/main/krea2_anypaint_rank32.safetensors\", \"note\": \"by yijunwang2\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_ImageCropRotatePad\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
       ],
       "widgets_values_named": {
-        "note": "{\"v\": 1, \"title\": \"Krea 2 Outpaint\", \"subtitle\": \"Extend a picture, and Krea 2 paints the new area.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image.\\n2. Pick a ratio, or drag the orange handles out.\\n3. Optional: describe the new area in **What goes there**.\\n4. Press **Run**.\\n\\nOn one side, add at most about half your picture's size per run, or add to both sides. More on one side can paint a second scene.\\n\\nThe two boxes in the middle do the work. Double-click one to see inside.\\n\\nNeeds AusBoss nodes newer than 2.4.0 (update first).\", \"models\": [{\"name\": \"krea2_turbo_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}, {\"name\": \"krea2_anypaint_rank32.safetensors\", \"dir\": \"loras\", \"size\": \"229 MB\", \"url\": \"https://huggingface.co/yijunwang2/krea2-anypaint/resolve/main/krea2_anypaint_rank32.safetensors\", \"note\": \"by yijunwang2\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_ImageCropRotatePad\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+        "note": "{\"v\": 1, \"title\": \"Krea 2 Outpaint\", \"subtitle\": \"Extend a picture, and Krea 2 paints the new area.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image.\\n2. Pick a ratio, or drag the orange handles out.\\n3. Optional: describe the new area in **What goes there**.\\n4. Press **Run**.\\n\\nOn one side, add at most about half your picture's size per run, or add to both sides. More on one side can paint a second scene.\\n\\nNeeds AusBoss nodes newer than 2.4.0 (update first).\", \"models\": [{\"name\": \"krea2_turbo_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}, {\"name\": \"krea2_anypaint_rank32.safetensors\", \"dir\": \"loras\", \"size\": \"229 MB\", \"url\": \"https://huggingface.co/yijunwang2/krea2-anypaint/resolve/main/krea2_anypaint_rank32.safetensors\", \"note\": \"by yijunwang2\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_ImageCropRotatePad\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
       },
       "color": "#14424d",
       "bgcolor": "#161f21"
@@ -615,7 +615,7 @@
       "type": "c3cced35-7c2b-4990-847f-495b48c2f1f3",
       "pos": [
         1060,
-        80
+        238
       ],
       "size": [
         360,
@@ -662,7 +662,7 @@
       "type": "55e2d929-0950-45b1-8901-f3efaa69aa41",
       "pos": [
         1060,
-        216
+        374
       ],
       "size": [
         360,
@@ -733,6 +733,33 @@
       },
       "color": "#14424d",
       "bgcolor": "#161f21"
+    },
+    {
+      "id": 34,
+      "type": "MarkdownNote",
+      "pos": [
+        1060,
+        80
+      ],
+      "size": [
+        360,
+        88
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "Note",
+      "properties": {},
+      "widgets_values": [
+        "## These two boxes write the prompt from your image, then paint and put your image back. Double-click one to see inside."
+      ],
+      "widgets_values_named": {
+        "text": "## These two boxes write the prompt from your image, then paint and put your image back. Double-click one to see inside."
+      },
+      "color": "#1f2c38",
+      "bgcolor": "#2a3b4a"
     }
   ],
   "links": [
@@ -877,7 +904,7 @@
         1040,
         0,
         400,
-        434
+        592
       ],
       "color": "#1d5560",
       "flags": {}
@@ -887,7 +914,7 @@
       "title": "3 · Models",
       "bounding": [
         1040,
-        474,
+        632,
         400,
         800
       ],
@@ -914,7 +941,7 @@
         "version": 1,
         "state": {
           "lastGroupId": 94,
-          "lastNodeId": 33,
+          "lastNodeId": 34,
           "lastLinkId": 53,
           "lastRerouteId": 0
         },
@@ -1378,7 +1405,7 @@
         "version": 1,
         "state": {
           "lastGroupId": 94,
-          "lastNodeId": 33,
+          "lastNodeId": 34,
           "lastLinkId": 53,
           "lastRerouteId": 0
         },

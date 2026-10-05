@@ -1,7 +1,7 @@
 {
  "id": "561304ce-2c47-42e0-ad02-6df17d2624dd",
  "revision": 0,
- "last_node_id": 87,
+ "last_node_id": 88,
  "last_link_id": 50,
  "nodes": [
   {
@@ -9,7 +9,7 @@
    "type": "UNETLoader",
    "pos": [
     1020,
-    870
+    1028
    ],
    "size": [
     400,
@@ -57,7 +57,7 @@
    "type": "CLIPLoader",
    "pos": [
     1020,
-    566
+    724
    ],
    "size": [
     400,
@@ -108,7 +108,7 @@
    "type": "VAELoader",
    "pos": [
     1020,
-    742
+    900
    ],
    "size": [
     400,
@@ -154,7 +154,7 @@
    "type": "AUSBOSS_NODES_LoraLoader",
    "pos": [
     1020,
-    1022
+    1180
    ],
    "size": [
     400,
@@ -231,7 +231,7 @@
    ],
    "size": [
     440,
-    594
+    752
    ],
    "flags": {},
    "order": 3,
@@ -275,7 +275,7 @@
    "type": "AUSBOSS_NODES_Text",
    "pos": [
     500,
-    744
+    902
    ],
    "size": [
     440,
@@ -314,7 +314,7 @@
    "type": "AUSBOSS_NODES_Seed",
    "pos": [
     500,
-    982
+    1140
    ],
    "size": [
     440,
@@ -355,7 +355,7 @@
    "type": "0266ef1d-a94d-4a5c-957c-70df02f68585",
    "pos": [
     1020,
-    80
+    238
    ],
    "size": [
     400,
@@ -416,7 +416,7 @@
    "type": "fe7eddff-ee33-40d2-98aa-e25b894fc34e",
    "pos": [
     1020,
-    268
+    426
    ],
    "size": [
     400,
@@ -533,7 +533,7 @@
    ],
    "size": [
     520,
-    878
+    1036
    ],
    "flags": {},
    "order": 11,
@@ -580,7 +580,7 @@
    ],
    "size": [
     400,
-    1011
+    1169
    ],
    "flags": {},
    "order": 13,
@@ -660,7 +660,7 @@
    "type": "AUSBOSS_NODES_RunTimer",
    "pos": [
     2155,
-    1131
+    1289
    ],
    "size": [
     210,
@@ -691,7 +691,7 @@
    ],
    "size": [
     440,
-    725
+    684
    ],
    "flags": {},
    "order": 7,
@@ -705,13 +705,40 @@
     "ver": "2.3.0"
    },
    "widgets_values": [
-    "{\"v\": 1, \"title\": \"Qwen Image 2.1 Edit + Realign\", \"subtitle\": \"Change a picture in plain words, and the edit lines up with the original.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image.\\n2. Say the change in plain words.\\n3. Run.\\n\\nWhen you move an arm or a hand, say where it ends up. Otherwise Qwen can keep the old pose and add a new hand.\\n\\nThe two boxes in the middle do the work. Double-click one to see inside.\\n\\nNeeds AusBoss nodes 2.3.0 or newer.\", \"models\": [{\"name\": \"qwen_image_2.1_int8_convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"7.26 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_8b_int8_convrot.safetensors\", \"dir\": \"text_encoders\", \"size\": \"9.35 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_2.1_vae_bf16.safetensors\", \"dir\": \"vae\", \"size\": \"676 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors\", \"note\": \"\"}, {\"name\": \"qwen-image-2.1-consistency.safetensors\", \"dir\": \"loras\", \"size\": \"159 MB\", \"url\": \"https://huggingface.co/ausboss/Qwen-Image-2.1-Consistency-LoRA/resolve/main/qwen-image-2.1-consistency.safetensors\", \"note\": \"optional, its row is off\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_RealignToSource\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+    "{\"v\": 1, \"title\": \"Qwen Image 2.1 Edit + Realign\", \"subtitle\": \"Change a picture in plain words, and the edit lines up with the original.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image.\\n2. Say the change in plain words.\\n3. Run.\\n\\nWhen you move an arm or a hand, say where it ends up. Otherwise Qwen can keep the old pose and add a new hand.\\n\\nNeeds AusBoss nodes 2.3.0 or newer.\", \"models\": [{\"name\": \"qwen_image_2.1_int8_convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"7.26 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_8b_int8_convrot.safetensors\", \"dir\": \"text_encoders\", \"size\": \"9.35 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_2.1_vae_bf16.safetensors\", \"dir\": \"vae\", \"size\": \"676 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors\", \"note\": \"\"}, {\"name\": \"qwen-image-2.1-consistency.safetensors\", \"dir\": \"loras\", \"size\": \"159 MB\", \"url\": \"https://huggingface.co/ausboss/Qwen-Image-2.1-Consistency-LoRA/resolve/main/qwen-image-2.1-consistency.safetensors\", \"note\": \"optional, its row is off\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_RealignToSource\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
    ],
    "widgets_values_named": {
-    "note": "{\"v\": 1, \"title\": \"Qwen Image 2.1 Edit + Realign\", \"subtitle\": \"Change a picture in plain words, and the edit lines up with the original.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image.\\n2. Say the change in plain words.\\n3. Run.\\n\\nWhen you move an arm or a hand, say where it ends up. Otherwise Qwen can keep the old pose and add a new hand.\\n\\nThe two boxes in the middle do the work. Double-click one to see inside.\\n\\nNeeds AusBoss nodes 2.3.0 or newer.\", \"models\": [{\"name\": \"qwen_image_2.1_int8_convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"7.26 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_8b_int8_convrot.safetensors\", \"dir\": \"text_encoders\", \"size\": \"9.35 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_2.1_vae_bf16.safetensors\", \"dir\": \"vae\", \"size\": \"676 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors\", \"note\": \"\"}, {\"name\": \"qwen-image-2.1-consistency.safetensors\", \"dir\": \"loras\", \"size\": \"159 MB\", \"url\": \"https://huggingface.co/ausboss/Qwen-Image-2.1-Consistency-LoRA/resolve/main/qwen-image-2.1-consistency.safetensors\", \"note\": \"optional, its row is off\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_RealignToSource\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+    "note": "{\"v\": 1, \"title\": \"Qwen Image 2.1 Edit + Realign\", \"subtitle\": \"Change a picture in plain words, and the edit lines up with the original.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image.\\n2. Say the change in plain words.\\n3. Run.\\n\\nWhen you move an arm or a hand, say where it ends up. Otherwise Qwen can keep the old pose and add a new hand.\\n\\nNeeds AusBoss nodes 2.3.0 or newer.\", \"models\": [{\"name\": \"qwen_image_2.1_int8_convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"7.26 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_8b_int8_convrot.safetensors\", \"dir\": \"text_encoders\", \"size\": \"9.35 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_2.1_vae_bf16.safetensors\", \"dir\": \"vae\", \"size\": \"676 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors\", \"note\": \"\"}, {\"name\": \"qwen-image-2.1-consistency.safetensors\", \"dir\": \"loras\", \"size\": \"159 MB\", \"url\": \"https://huggingface.co/ausboss/Qwen-Image-2.1-Consistency-LoRA/resolve/main/qwen-image-2.1-consistency.safetensors\", \"note\": \"optional, its row is off\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_RealignToSource\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
    },
    "color": "#14424d",
    "bgcolor": "#161f21"
+  },
+  {
+   "id": 88,
+   "type": "MarkdownNote",
+   "pos": [
+    1020,
+    80
+   ],
+   "size": [
+    400,
+    88
+   ],
+   "flags": {},
+   "order": 14,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [],
+   "title": "Note",
+   "properties": {},
+   "widgets_values": [
+    "## These two boxes write the full instruction, then make the edit and line it up with your image. Double-click one to see inside."
+   ],
+   "widgets_values_named": {
+    "text": "## These two boxes write the full instruction, then make the edit and line it up with your image. Double-click one to see inside."
+   },
+   "color": "#1f2c38",
+   "bgcolor": "#2a3b4a"
   }
  ],
  "links": [
@@ -844,7 +871,7 @@
     480,
     0,
     480,
-    1286
+    1444
    ],
    "color": "#1d5560",
    "flags": {}
@@ -856,7 +883,7 @@
     1000,
     0,
     440,
-    446
+    604
    ],
    "color": "#1d5560",
    "flags": {}
@@ -866,7 +893,7 @@
    "title": "3 · Models",
    "bounding": [
     1000,
-    486,
+    644,
     440,
     800
    ],
@@ -880,7 +907,7 @@
     1480,
     0,
     1000,
-    1286
+    1444
    ],
    "color": "#1d5560",
    "flags": {}
@@ -893,7 +920,7 @@
     "version": 1,
     "state": {
      "lastGroupId": 11,
-     "lastNodeId": 87,
+     "lastNodeId": 88,
      "lastLinkId": 50,
      "lastRerouteId": 0
     },
@@ -1686,7 +1713,7 @@
     "version": 1,
     "state": {
      "lastGroupId": 11,
-     "lastNodeId": 87,
+     "lastNodeId": 88,
      "lastLinkId": 50,
      "lastRerouteId": 0
     },
@@ -2760,10 +2787,10 @@
  "config": {},
  "extra": {
   "ds": {
-   "scale": 0.72,
+   "scale": 0.7,
    "offset": [
-    20,
-    85
+    56,
+    27
    ]
   },
   "frontendVersion": "1.53.6"
