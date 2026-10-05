@@ -4,6 +4,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Integer steps by 1.** The arrows and a drag on the Integer node moved
+  its value by 8. A Steps box at 25 went to 17, 9 and 1, and could not land
+  on 8 without typing it. Select Every Nth, Split Batch, Select Frame and
+  Load Video's frame limit did the same. Whole numbers now move by 1. Pixel
+  sizes such as width, height and padding still move by 8, with Shift for 1.
+  The card had taken any whole number with a wide range for a pixel size.
 - **Examples: a note above the boxes says what they hold.** Every example
   workflow tucks its inner steps into two boxes (subgraphs), and nothing on
   the canvas said what was in them. A note now sits right above the boxes,

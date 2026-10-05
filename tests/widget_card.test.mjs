@@ -40,11 +40,32 @@ test("segmentFits takes a few short labels and rejects long lists", () => {
   assert.equal(segmentFits(["only"]), false);
 });
 
-test("scrubSteps: 0..1 floats move by 0.05, wide floats by ten increments, big ints by 8", () => {
+test("scrubSteps: 0..1 floats move by 0.05, wide floats by ten increments, wide pixel sizes by 8", () => {
   assert.deepEqual(scrubSteps({ min: 0, max: 1, step: 0.1, step2: 0.01, precision: 2 }, true), { step: 0.05, fineStep: 0.01, decimals: 2 });
   assert.deepEqual(scrubSteps({ min: 0, max: 64, step: 0.1, step2: 0.01, precision: 2 }, true), { step: 0.1, fineStep: 0.01, decimals: 2 });
-  assert.deepEqual(scrubSteps({ min: 0, max: 16384, step: 10, step2: 1, precision: 0 }, false), { step: 8, fineStep: 1, decimals: 0 });
+  assert.deepEqual(scrubSteps({ min: 0, max: 16384, step: 10, step2: 1, precision: 0 }, false, true), { step: 8, fineStep: 1, decimals: 0 });
   assert.deepEqual(scrubSteps({ min: 1, max: 128, step: 10, step2: 1, precision: 0 }, false), { step: 1, fineStep: 1, decimals: 0 });
+  assert.deepEqual(scrubSteps({ min: 0, max: 256, step: 10, step2: 1, precision: 0 }, false, true), { step: 1, fineStep: 1, decimals: 0 });
+});
+
+// The Integer node takes any whole number, so its range is as wide as a
+// pixel size's. Steps, counts and frame numbers still move by 1: a Steps box
+// at 25 has to reach 8.
+test("scrubSteps: a whole number that is not a pixel size moves by 1, however wide its range", () => {
+  const integerNode = { min: -2147483648, max: 2147483647, step: 10, step2: 1, precision: 0 };
+  assert.deepEqual(scrubSteps(integerNode, false), { step: 1, fineStep: 1, decimals: 0 });
+  assert.deepEqual(scrubSteps({ min: 0, max: 100000, step: 10, step2: 1, precision: 0 }, false), { step: 1, fineStep: 1, decimals: 0 });
+});
+
+// Which rows are pixel sizes is said in js/widget_cards/index.js: a px unit,
+// or `pixels` where the row shows no unit. A row can also name its own step.
+test("the cards: Image Resize's size and Load Image + Pad's Multiple keep their step of 8, Integer has none", () => {
+  const source = readFileSync(join(ROOT, "js", "widget_cards", "index.js"), "utf-8");
+  const line = (text) => source.split("\n").find((candidate) => candidate.includes(text)) ?? "";
+  assert.match(line('pair: ["width", "height"]'), /pixels: true/);
+  assert.match(line('widget: "canvas_multiple"'), /step: 8/);
+  assert.ok(line("AUSBOSS_NODES_Integer:"), "js/widget_cards/index.js has no card for the Integer node");
+  assert.doesNotMatch(line("AUSBOSS_NODES_Integer:"), /suffix: "px"|pixels: true|step:/);
 });
 
 test("rowKind follows the widget type unless the row names a kind", () => {

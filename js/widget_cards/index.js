@@ -75,7 +75,7 @@ const CARDS = {
         labels: { "width+height": "Width × height", longest_edge: "Longest edge", shortest_edge: "Shortest edge", megapixels: "Megapixels", scale_factor: "Scale factor" } },
       // Sockets for the pair sit among the node's inputs (one socket per
       // row is the rule, and a size is what people wire).
-      { pair: ["width", "height"], label: "Size", prefixes: ["W", "H"], sep: "×", top: true, when: isMode("target_mode", "width+height") },
+      { pair: ["width", "height"], label: "Size", prefixes: ["W", "H"], sep: "×", top: true, pixels: true, when: isMode("target_mode", "width+height") },
       { widget: "edge_length", label: "Edge", suffix: "px", when: isMode("target_mode", "longest_edge", "shortest_edge") },
       { widget: "megapixels", label: "Budget", suffix: "MP", when: isMode("target_mode", "megapixels") },
       { widget: "scale_factor", label: "Scale", suffix: "×", when: isMode("target_mode", "scale_factor") },
@@ -235,7 +235,7 @@ const CARDS = {
       { widget: "fill_color", label: "Color", kind: "color", when: isMode("mode", "color") },
       { widget: "backdrop_blur", label: "Backdrop", when: isMode("mode", "pillarbox blur") },
       { widget: "feather", label: "Feather", suffix: "px" },
-      { widget: "canvas_multiple", label: "Multiple", snap: true },
+      { widget: "canvas_multiple", label: "Multiple", snap: true, step: 8 },
       { widget: "target_megapixels", label: "Budget", suffix: "MP" },
       { group: "padding", label: "Exact padding" },
       { widget: "pad_left", label: "Left", suffix: "px", group: "padding" },

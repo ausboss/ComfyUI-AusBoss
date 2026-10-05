@@ -78,12 +78,14 @@ export function segmentFits(labels) {
 
 // Scrub steps from a widget's options: the fine step is the widget's own
 // increment; the coarse step covers ground - a 0..1 float moves by 0.05, a
-// wide float by ten increments, a wide integer by 8.
-export function scrubSteps(options = {}, isFloat = true) {
+// wide float by ten increments. A whole number moves by its own increment:
+// steps, counts and frame numbers go 25, 24, 23. Only a wide pixel size
+// (`pixels`) moves by 8.
+export function scrubSteps(options = {}, isFloat = true, pixels = false) {
   const fine = Number(options.step2 ?? (options.step ? options.step / 10 : null) ?? (isFloat ? 0.01 : 1)) || (isFloat ? 0.01 : 1);
   const range = Number(options.max ?? Infinity) - Number(options.min ?? -Infinity);
   let step;
-  if (!isFloat) step = Number.isFinite(range) && range > 2048 ? 8 : Math.max(1, fine);
+  if (!isFloat) step = pixels && Number.isFinite(range) && range > 2048 ? 8 : Math.max(1, fine);
   else if (Number.isFinite(range) && range <= 2) step = Math.max(fine, 0.05);
   else step = fine * 10;
   const decimals = isFloat ? Number(options.precision ?? Math.max(0, -Math.floor(Math.log10(fine)))) : 0;

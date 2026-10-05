@@ -156,13 +156,18 @@ function isFloatWidget(widget) {
 }
 
 // Mount a card on `node`. Rows:
-//   { widget, label?, kind?, labels?, suffix?, title?, when?, group?, linkedBy?, snap? }
+//   { widget, label?, kind?, labels?, suffix?, title?, when?, group?, linkedBy?, snap?, pixels?, step? }
 //                                          - `linkedBy` names other inputs
 //                                            whose link also dims the row
 //                                            (a wired source replacing a
 //                                            file picker); `snap` steps a
 //                                            number on multiples of its
-//                                            step (1, 8, 16, not 1, 9, 17)
+//                                            step (1, 8, 16, not 1, 9, 17);
+//                                            a whole number steps by 1
+//                                            unless the row is a pixel size
+//                                            (`suffix: "px"` or `pixels`),
+//                                            which steps by 8, or names
+//                                            its own `step`
 //   { widget, kind: "textarea", placeholder?, height, grow? }  - a multiline
 //                                             string; `grow` takes the node's
 //                                             spare height
@@ -207,12 +212,12 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
   const buildScrub = (name, row, into) => {
     const widget = findWidget(node, name);
     const isFloat = isFloatWidget(widget);
-    const steps = scrubSteps(widget?.options, isFloat);
+    const steps = scrubSteps(widget?.options, isFloat, row.pixels ?? row.suffix === "px");
     const control = makeScrubInput({
       value: Number(widget?.value) || 0,
       min: Number(widget?.options?.min ?? -Infinity),
       max: Number(widget?.options?.max ?? Infinity),
-      step: steps.step,
+      step: row.step ?? steps.step,
       fineStep: steps.fineStep,
       decimals: row.decimals ?? steps.decimals,
       title: row.title ?? widget?.options?.tooltip ?? "",
