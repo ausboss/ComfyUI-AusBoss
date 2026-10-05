@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.6.4 - 2026-10-05
 
 - **Integer steps by 1.** The arrows and a drag on the Integer node moved
   its value by 8. A Steps box at 25 went to 17, 9 and 1, and could not land
