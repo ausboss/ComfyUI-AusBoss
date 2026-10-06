@@ -547,6 +547,16 @@ export function listedRows(switchRows, groupRows, settings) {
 
 // ---------- switching ----------
 
+// What a click on a row's pill asks for. The pill is one switch: a click
+// anywhere on it flips it, on the "off" half as much as on the "on" half.
+// Only while the row reads mixed (neither half lit) does the half that was
+// clicked decide: `side` is true for the on half.
+export function flipTo(state, side) {
+  if (state === "on") return false;
+  if (state === "off") return true;
+  return Boolean(side);
+}
+
 // The mode changes one click makes: every node of the row turns on (always)
 // or off (bypass or mute), exactly what the frontend's own "Bypass Group
 // Nodes" / "Set Group Nodes to Always" do. One at a time first turns every

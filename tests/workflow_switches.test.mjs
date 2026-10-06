@@ -3,7 +3,7 @@ import test from "node:test";
 
 import {
   DEFAULT_SETTINGS, MEMBERS_MAX, MODE_ALWAYS, MODE_BYPASS, MODE_NEVER, SWITCHES_MAX, TITLE_MAX, VALUE_TEXT_MAX,
-  addMembers, addSwitch, canvasOrder, centreInside, cleanIds, cleanSnapshots, frameBounds, groupBounds, groupListed,
+  addMembers, addSwitch, canvasOrder, centreInside, cleanIds, cleanSnapshots, flipTo, frameBounds, groupBounds, groupListed,
   heldCount, isRunning, listedRows, matchTerms, modeMatters, moveSwitch, nodeBounds, normalizeSettings,
   normalizeSwitches, offMode, pairNow, pairValue, partState, placeNodes, readGroups, readSwitches, removeMembers,
   removeSwitch, renameSwitch, rowsSignature, saveValues, snapshotNode, stackRows, suggestTitle, switchAllPlan,
@@ -246,6 +246,13 @@ test("the card lists the made switches first, as made, then the listed groups in
   );
   assert.deepEqual(titles(listedRows(made, groups, { ...DEFAULT_SETTINGS, groups: "none" })), ["Zebra", "Apple"]);
   assert.deepEqual(listedRows(undefined, undefined, DEFAULT_SETTINGS), []);
+});
+
+test("a click anywhere on the pill flips it; a mixed row goes to the half that was clicked", () => {
+  assert.deepEqual([flipTo("on", true), flipTo("on", false)], [false, false]);
+  assert.deepEqual([flipTo("off", true), flipTo("off", false)], [true, true]);
+  assert.deepEqual([flipTo("mixed", true), flipTo("mixed", false)], [true, false]);
+  assert.deepEqual([flipTo("empty", true), flipTo(undefined, false)], [true, false]);
 });
 
 test("a switch sets every node it holds, and reports only the nodes that change", () => {

@@ -14,7 +14,8 @@ an upscale at the end.
 2. Press **+ Switch from 2 selected** on the card.
 3. Type a name and press Enter.
 
-One click on **off** now turns off every node you picked.
+One click on its pill now turns every node you picked off, and the next click
+turns them on again.
 
 Groups work too. Every group on the canvas gets a switch of its own, unless
 you change that under **Settings**. A group can also be part of a switch you
@@ -63,11 +64,11 @@ the models only that part needs.
 
 ## The edit view
 
-- **off | on**: off turns off every node of the row, on sets them all to
-  run. It is one undo step.
+- **off | on**: click anywhere on the pill to flip the switch. Off turns off
+  every node of the row, on sets them all to run. It is one undo step.
 - **Mixed**: when only some of a row's nodes run (one bypassed by hand, say)
   the pill is striped and a count shows how many run, such as **1/2**. Click
-  off or on to set them all. A settings switch reads **changed** when one of
+  the half you want, off or on, to set them all. A settings switch reads **changed** when one of
   its values was set by hand to something else, and **half set** while only
   one side is saved.
 - **Frame button** (four corners): brings the part into view.

@@ -30,7 +30,7 @@ import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { holdNodeMinWidth } from "../shared/panel_layout.mjs";
 import { cardHeight, commitWidgetValue, ensureCardCss } from "../shared/widget_card.mjs";
 import {
-  DEFAULT_SETTINGS, SETTINGS_PROPERTY, SWITCHES_MAX, TITLE_MAX, addMembers, addSwitch, frameBounds, groupBounds, heldCount,
+  DEFAULT_SETTINGS, SETTINGS_PROPERTY, SWITCHES_MAX, TITLE_MAX, addMembers, addSwitch, flipTo, frameBounds, groupBounds, heldCount,
   listedRows, modeMatters, moveSwitch, normalizeSettings, pairValue, placeNodes, readGroups, readSwitches,
   removeMembers, removeSwitch, renameSwitch, rowsSignature, saveValues, snapshotNode, suggestTitle, switchAllPlan,
   switchPlan, valueAllPlan, valuePlan,
@@ -282,10 +282,13 @@ function applyPlan(state, plan, values = []) {
   notifyAusbossChange();
 }
 
-function switchRow(state, key, on) {
+// A click on a row's pill. The pill is one switch, so either half flips it;
+// `side` (true for the on half) only decides while the row reads mixed.
+function switchRow(state, key, side) {
   const { settings, rows } = read(state);
   const target = rows.find((row) => rowKey(row) === key);
   if (!target) return;
+  const on = flipTo(target.state, side);
   applyPlan(state, switchPlan(rows, target, on, settings), valuePlan(rows, target, on, settings));
   refresh(state);
 }
@@ -348,14 +351,16 @@ function settingsRow(label, title) {
   return { row, control };
 }
 
-// A segmented pill over one setting; `labels` maps values to what the pill says.
-function segmentRow(state, key, label, title, values, labels = {}) {
+// A segmented pill over one setting; `labels` maps values to what the pill
+// says. An off | on pill (`flips`) is one switch like the rows above it: a
+// click on either half flips it.
+function segmentRow(state, key, label, title, values, labels = {}, { flips = false } = {}) {
   const { row, control } = settingsRow(label, title);
   const seg = el("div", "ausboss-card-seg");
   const buttons = new Map();
   for (const value of values) {
     const choice = button("", labels[value] ?? String(value), title);
-    choice.addEventListener("click", () => patchSettings(state, { [key]: value }));
+    choice.addEventListener("click", () => patchSettings(state, { [key]: flips ? !settingsOf(state.node)[key] : value }));
     seg.append(choice);
     buttons.set(value, choice);
   }
@@ -429,6 +434,7 @@ function buildSettings(state) {
     "Switching a row on switches the other rows off - for alternatives such as two upscalers.",
     [false, true],
     { false: "off", true: "on" },
+    { flips: true },
   );
   exclusive.row.querySelector(".ausboss-card-seg")?.classList.add("ausboss-card-bool");
 
@@ -635,12 +641,11 @@ function buildRow(state, key, made) {
   const chip = el("span", "ausboss-ws-chip");
   const title = el("span", "ausboss-ws-title");
   const count = el("span", "ausboss-ws-count");
+  // One switch drawn as two halves: a click on either half flips it.
   const pill = el("div", "ausboss-card-seg ausboss-card-bool ausboss-ws-pill");
-  pill.setAttribute("role", "radiogroup");
+  pill.setAttribute("role", "group");
   const offButton = button("", "off");
   const onButton = button("", "on");
-  offButton.setAttribute("role", "radio");
-  onButton.setAttribute("role", "radio");
   offButton.addEventListener("click", () => switchRow(state, key, false));
   onButton.addEventListener("click", () => switchRow(state, key, true));
   pill.append(offButton, onButton);
@@ -708,11 +713,15 @@ function buildRow(state, key, made) {
     pill.classList.toggle("mixed", data.state === "mixed");
     offButton.classList.toggle("on", data.state === "off");
     onButton.classList.toggle("on", data.state === "on");
-    offButton.setAttribute("aria-checked", String(data.state === "off"));
-    onButton.setAttribute("aria-checked", String(data.state === "on"));
+    offButton.setAttribute("aria-pressed", String(data.state === "off"));
+    onButton.setAttribute("aria-pressed", String(data.state === "on"));
     const valuesOnly = pairs.length > 0 && !data.members.length;
-    offButton.title = valuesOnly ? `Switch "${label}" off` : `${settings.off === "mute" ? "Mute" : "Bypass"} "${label}"`;
-    onButton.title = `${valuesOnly ? "Switch" : "Run"} "${label}"${valuesOnly ? " on" : ""}${settings.exclusive ? " and switch the other rows off" : ""}`;
+    const turnOff = valuesOnly ? `Switch "${label}" off` : `${settings.off === "mute" ? "Mute" : "Bypass"} "${label}"`;
+    const turnOn = `${valuesOnly ? "Switch" : "Run"} "${label}"${valuesOnly ? " on" : ""}${settings.exclusive ? " and switch the other rows off" : ""}`;
+    // Either half flips the switch, so both say what the next click does;
+    // a mixed row goes to the half that is clicked.
+    offButton.title = data.state === "off" ? `Click: ${turnOn}` : data.state === "on" ? `Click: ${turnOff}` : turnOff;
+    onButton.title = data.state === "off" ? `Click: ${turnOn}` : data.state === "on" ? `Click: ${turnOff}` : turnOn;
   };
   return { row, title, name, sync };
 }
