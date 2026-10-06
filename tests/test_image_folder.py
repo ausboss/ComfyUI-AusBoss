@@ -204,7 +204,8 @@ class LoadingTests(FolderCase):
     def test_a_turned_photo_comes_out_upright(self):
         path = self.root / "turned.jpg"
         photo = Image.new("RGB", (40, 20), (5, 5, 5))
-        exif = photo.getexif(); exif[0x0112] = 6
+        exif = photo.getexif()
+        exif[0x0112] = 6
         photo.save(path, exif=exif)
         image, _mask = load_picture(path)
         self.assertEqual(tuple(image.shape), (1, 40, 20, 3))
