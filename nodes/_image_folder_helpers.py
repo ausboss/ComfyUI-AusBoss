@@ -35,7 +35,10 @@ MAX_PICTURES = 5000
 # see-through part. The pack's mask nodes know that stand-in ("no mask").
 NO_MASK_SIZE = (64, 64)
 
-OUTSIDE = "Image Folder reads only folders inside ComfyUI's input or output folder."
+OUTSIDE = (
+    "Image Folder reads only folders inside ComfyUI's input or output folder. "
+    "Drop your folder on the node, or press Add, and its pictures are copied in."
+)
 NO_FOLDER = 'Image Folder: there is no folder "{folder}" in ComfyUI\'s {source} folder.'
 NO_PICTURES = 'Image Folder: no pictures in "{folder}". Add some, or choose another folder.'
 NONE_LEFT = "Image Folder: none of the picked pictures are in the folder anymore. Pick again on the node."
@@ -63,6 +66,31 @@ def clean_folder(folder) -> str:
     if any(part == ".." for part in parts):
         raise ValueError(OUTSIDE)
     return "/".join(parts)
+
+
+def looks_full(folder) -> bool:
+    """A whole path, typed or pasted, and not a folder name below the root."""
+    text = str(folder or "").strip().strip('"').replace("\\", "/")
+    return text.startswith("/") or text.startswith("~") or bool(re.match(r"^[A-Za-z]:", text))
+
+
+def place_inside(folder, roots: dict) -> tuple[str, str] | None:
+    """A whole path as (source, folder below it), when it lies inside one of
+    ComfyUI's own folders. People paste the path their file manager shows.
+
+    This compares text only. A path that is outside those folders is never
+    looked up on disk, and one on another machine is refused from its text."""
+    text = str(folder or "").strip().strip('"').replace("\\", "/")
+    if not looks_full(text) or text.startswith("//"):
+        return None
+    full = os.path.normpath(os.path.expanduser(text))
+    for source, root in roots.items():
+        for base in {os.path.normpath(str(root)), os.path.realpath(str(root))}:
+            if full == base:
+                return source, ""
+            if full.startswith(base.rstrip(os.sep) + os.sep):
+                return source, full[len(base):].strip(os.sep).replace(os.sep, "/")
+    return None
 
 
 def safe_folder(root, folder, source: str = "input") -> Path:
@@ -286,6 +314,8 @@ __all__ = [
     "list_folders",
     "list_pictures",
     "load_picture",
+    "looks_full",
+    "place_inside",
     "natural_key",
     "output_name",
     "parse_picked",

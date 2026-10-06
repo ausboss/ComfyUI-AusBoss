@@ -37,6 +37,7 @@ from nodes._image_folder_helpers import (  # noqa: E402
     natural_key,
     output_name,
     parse_picked,
+    place_inside,
     safe_folder,
     thumbnail,
     which,
@@ -114,6 +115,21 @@ class ListingTests(FolderCase):
         self.assertNotIn("way_out", list_folders(self.root, ""))
         self.assertNotIn("linked.png", self.names("people"))
         self.assertFalse(any("secret" in name for name in self.names("", True)))
+
+    def test_a_pasted_whole_path_inside_comfyui_is_read_as_its_folder(self):
+        roots = {"input": self.root, "output": Path(self.temp.name) / "output"}
+        self.assertEqual(place_inside(str(self.root / "people" / "trips"), roots), ("input", "people/trips"))
+        self.assertEqual(place_inside(str(self.root) + "/", roots), ("input", ""))
+        self.assertEqual(place_inside(str(roots["output"] / "set"), roots), ("output", "set"))
+        self.assertEqual(place_inside(f'"{self.root / "people"}"', roots), ("input", "people"), "quotes from a copied path")
+
+    def test_a_whole_path_anywhere_else_is_not_a_place(self):
+        roots = {"input": self.root, "output": Path(self.temp.name) / "output"}
+        self.assertIsNone(place_inside(str(self.outside), roots))
+        self.assertIsNone(place_inside(str(self.root) + "_other/x", roots), "a neighbour whose name only starts the same")
+        self.assertIsNone(place_inside("//server/share/x", roots), "another machine is refused from its text")
+        self.assertIsNone(place_inside("people/trips", roots), "a folder name is not a whole path")
+        self.assertIsNone(place_inside(str(self.root / "people" / ".." / ".." / "private"), roots))
 
     def test_a_folder_that_is_not_there_says_so(self):
         with self.assertRaises(ValueError) as missing:
@@ -236,6 +252,14 @@ class NodeTests(FolderCase):
             self.run_node(run=RUNS[1], position=4)
         self.assertEqual(str(stopped.exception), THE_END.format(count=3))
         self.assertEqual(self.run_node(run=RUNS[1], position=4, at_the_end=AT_THE_END[1])["result"][2], ["Anna"])
+
+    def test_a_pasted_path_inside_the_input_folder_loads(self):
+        out = self.run_node(folder=str(self.root / "people"))
+        self.assertEqual(out["result"][2], ["Anna", "photo_2", "photo_10"])
+        with self.assertRaises(ValueError) as refused:
+            self.run_node(folder=str(self.outside))
+        self.assertEqual(str(refused.exception), OUTSIDE)
+        self.assertIn("Drop your folder on the node", OUTSIDE)
 
     def test_subfolders_carry_their_folder_in_the_name(self):
         out = self.run_node(subfolders=True)
