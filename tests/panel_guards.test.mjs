@@ -432,6 +432,63 @@ test("the shared video root really carries the guards it is trusted for", () => 
   assert.match(shared, /ausboss-video-root\{[^}]*overflow:hidden/);
 });
 
+test("the clip never sets the video panel's height", () => {
+  // The preview picture's fault, in the stage Load Video and Save Video
+  // share. With the clip in normal flow, a 9:16 clip drawn at full width set
+  // the panel's height in Nodes 2.0: Load Video at 320 px wide could not be
+  // made shorter than 965 px (584 px in the classic renderer), and a node
+  // saved at its classic size was drawn over the node under it. Out of flow,
+  // the stage takes its size from the node alone and the clip scales to fit.
+  const shared = readFileSync(join(JS_ROOT, "shared", "video_ui.mjs"), "utf-8");
+  // A rule by its exact selector. None of these has a ${...} inside.
+  const rule = (selector) => {
+    const at = shared.indexOf(`\n${selector}{`);
+    return at < 0 ? null : shared.slice(at + selector.length + 2, shared.indexOf("}", at));
+  };
+  // Everything the two nodes put in the stage, with its rule. Listed, so a
+  // new element is a deliberate call: in flow, it sets the stage's height.
+  const inStage = {
+    video: ".ausboss-video-stage video",
+    image: ".ausboss-video-still",
+    status: ".ausboss-video-status",
+    tools: ".ausboss-video-tools",
+  };
+  for (const name of ["load_video", "save_video"]) {
+    const entry = readFileSync(join(JS_ROOT, name, "index.js"), "utf-8");
+    const appended = entry.match(/\bstage\.append\(([^)]*)\)/);
+    assert.ok(appended, `${name}: the stage is no longer filled by one stage.append(...)`);
+    for (const child of appended[1].split(",").map((part) => part.trim())) {
+      assert.ok(
+        inStage[child],
+        `${name}: ${child} is new in the video stage - keep it out of flow and list its rule in this test`,
+      );
+    }
+  }
+  for (const selector of Object.values(inStage)) {
+    assert.ok(rule(selector), `the rule for ${selector} is gone`);
+    assert.match(
+      rule(selector),
+      /position:\s*absolute/,
+      `${selector} is back in normal flow - it will size the node in Nodes 2.0`,
+    );
+  }
+  // The player fills the stage, so its controls sit along the stage's bottom
+  // edge at full width. Centred at its own size, like the preview picture, a
+  // portrait clip's controls would be squeezed into a narrow strip.
+  for (const selector of [inStage.video, inStage.image]) {
+    assert.match(rule(selector), /inset:\s*0/, `${selector} no longer fills the stage`);
+    assert.match(rule(selector), /width:\s*100%/, `${selector} no longer fills the stage's width`);
+    assert.match(rule(selector), /height:\s*100%/, `${selector} no longer fills the stage's height`);
+    assert.match(rule(selector), /object-fit:\s*contain/, `${selector} no longer scales the clip to fit`);
+  }
+  // What they are placed in, and the floor left once nothing is in flow.
+  const stage = rule(".ausboss-video-stage");
+  assert.ok(stage, "the stage's own rule is gone");
+  assert.match(stage, /position:\s*relative/, "the stage no longer holds its out-of-flow clip");
+  assert.match(stage, /overflow:\s*hidden/, "the stage no longer clips its clip");
+  assert.match(stage, /min-height:\s*112px/, "the stage has no floor of its own - Nodes 2.0 can flatten it");
+});
+
 test("the lora panel carries all three guards by name", () => {
   const source = readFileSync(join(JS_ROOT, "lora_loader", "index.js"), "utf-8");
   // Regexes cannot use [^}] here: the CSS lives in a template literal whose

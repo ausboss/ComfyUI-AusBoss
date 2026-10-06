@@ -13,6 +13,14 @@ export const VIDEO_MIN_WIDTH = 220;
 
 const CSS_ID = "ausboss-video-ui-v4";
 
+// The clip, and Save Video's still picture, sit out of flow and fill the
+// stage, so they can never set the panel's height. Nodes 2.0 lets a node's
+// content decide its height (the saved size is only a minimum), and an
+// in-flow portrait clip drawn at full width could not be made any shorter:
+// Load Video stopped at 965px where the classic renderer goes to 584px. The
+// player fills the stage, where the preview picture is centred at its own
+// size, so its controls stay along the stage's bottom edge at full width.
+// With nothing in flow, the stage's own min-height is its floor.
 export function ensureVideoCss() {
   if (document.getElementById(CSS_ID)) return;
   const style = document.createElement("style");
@@ -20,9 +28,9 @@ export function ensureVideoCss() {
   style.textContent = `
 .ausboss-video-root{box-sizing:border-box;width:100%;height:100%;display:flex;flex-direction:column;gap:6px;padding:2px 6px 6px;color:#d8eeee;font:11px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow:hidden;}
 .ausboss-video-stage{position:relative;flex:1 1 auto;min-height:112px;overflow:hidden;border:1px solid rgba(0,180,170,.34);border-radius:6px;background:#000;box-shadow:inset 0 0 0 1px rgba(255,255,255,.025);}
-.ausboss-video-stage video{display:block;width:100%;height:100%;min-height:112px;object-fit:contain;background:#000;}
+.ausboss-video-stage video{display:block;position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;}
 .ausboss-video-stage.is-empty video{visibility:hidden;}
-.ausboss-video-still{display:none;width:100%;height:100%;object-fit:contain;background:#000;}
+.ausboss-video-still{display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;}
 .ausboss-video-stage.is-still video{display:none;}
 .ausboss-video-stage.is-still .ausboss-video-still{display:block;}
 .ausboss-video-stage.is-still .ausboss-video-tools{display:none;}

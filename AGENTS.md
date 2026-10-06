@@ -190,6 +190,13 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   `computeSize` only pins it in the classic renderer, and Nodes 2.0 would
   stretch it with the node and squeeze a picture under it. Run Timer does
   not: its readout fills the node on purpose.
+- **A picture or clip in a stage sits out of flow.** Nodes 2.0 sizes a node
+  by its content, so an in-flow portrait clip drawn at full width held Load
+  Video at 965 px where classic goes to 584 px. Position the media
+  `absolute` in its stage, and the stage takes its size from the node
+  alone. A picture is centred at its own size (`js/input_preview/`); a
+  player fills the stage so its controls stay along the bottom edge
+  (`js/shared/video_ui.mjs`). `tests/panel_guards.test.mjs` holds both.
 - **A panel's declared minimum width is its node's real floor.** Pass
   `exactMinWidth: true` to `fillNodeHeight`; a constant-height card that
   keeps its own `computeSize` calls `holdNodeMinWidth` instead. Left alone,
