@@ -84,6 +84,7 @@ PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_VideoCropRotatePad",
     "AUSBOSS_NODES_VideoCropRotatePadClip",
     "AUSBOSS_NODES_WorkflowNote",
+    "AUSBOSS_NODES_WorkflowSwitches",
 }
 
 # Ids from before the AUSBOSS_NODES_ convention. They stay registered forever
