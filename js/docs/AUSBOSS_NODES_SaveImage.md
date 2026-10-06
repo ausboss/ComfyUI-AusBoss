@@ -12,10 +12,11 @@ file's name. A caption on the `caption_text` input writes the paired `.txt`.
   such as `sets/portraits` saves to that subfolder, created if missing. Save
   Image never writes outside the output folder: absolute paths, drive
   letters, `~` and `..` are refused before the run, and the path preview says
-  so as you type. **Browse** walks the subfolders of the output folder.
+  so once you press Enter or click away. **Browse** walks the subfolders of the output folder.
 - **Filename** (`filename_prefix`): the local name, subfolders allowed
   (`sets/shot`). While the `filename` input is linked the field reads
-  `{{filename}}` and the tags fold away - an exact name is never decorated.
+  `{{filename}}` with a small *linked* tag, and the tags below go gray and
+  cannot be clicked - an exact name is never decorated.
   A workflow saved with the old `exact_name` shows that name tagged *exact*;
   clear it to compose locally.
 - **Path preview**: the name this save will produce, in the order the tags
@@ -56,7 +57,9 @@ file's name. A caption on the `caption_text` input writes the paired `.txt`.
   no sidecar. The old `caption` box still works underneath; a linked caption
   wins.
 
-Rooted paths and `..` in names are rejected before the run. `on_existing`
+Rooted paths and `..` in names typed on the node are rejected before the
+run. A bad name arriving through the `filename` link stops the run at this
+node, before any file is written. `on_existing`
 from older workflows is still honored wherever a save can land on an
 existing file (counter off, exact or linked names).
 

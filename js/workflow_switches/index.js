@@ -27,7 +27,7 @@
 import { app } from "/scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "../shared/index.mjs";
 import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
-import { holdNodeMinWidth } from "../shared/panel_layout.mjs";
+import { holdNodeMinWidth, pinVuePanelHeight } from "../shared/panel_layout.mjs";
 import { cardHeight, commitWidgetValue, ensureCardCss } from "../shared/widget_card.mjs";
 import {
   DEFAULT_SETTINGS, SETTINGS_PROPERTY, SWITCHES_MAX, TITLE_MAX, addMembers, addSwitch, flipTo, frameBounds, groupBounds, heldCount,
@@ -894,7 +894,8 @@ function buildPanel(node) {
   // A list sized to its rows, pinned on purpose (tests/panel_guards.test.mjs,
   // fixedByDesign): the rows are the content, there is no viewport to grow.
   widget.computeSize = (width) => [Math.max(minWidth(node), Number(width || node.size?.[0] || NODE_WIDTH)), declaredHeight(state)];
-  widget.computeLayoutSize = () => ({ minWidth: minWidth(node), minHeight: declaredHeight(state) });
+  // Pinned in Nodes 2.0 as well, where a node can be made taller than its list.
+  pinVuePanelHeight(widget);
   widget.options.minNodeSize = [SMALL_MIN_WIDTH, 60];
   // The frontend skips a pinned card's width, so its floor is held here.
   holdNodeMinWidth(widget, () => minWidth(node));

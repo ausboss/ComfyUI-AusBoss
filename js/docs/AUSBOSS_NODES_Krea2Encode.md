@@ -1,12 +1,13 @@
 # Krea 2 Encode
 
-Encodes a Krea 2 prompt pair and attaches reference latents, in one node.
+The prompt node for Krea 2. Type your prompt and negative prompt here, and
+optionally give it a picture for the result to follow, all in one node.
 
-Wire a VAE and a reference image and the reference is encoded and appended to
-the positive conditioning. Leave them unwired and this is a plain two-prompt
-encoder. The negative comes out of the same node, so a turbo graph running at
-CFG 1.0 still has something to plug in without a second text encode sitting
-there doing nothing.
+Wire a VAE and a reference image and the reference is attached to the
+positive output. Leave them unwired and this is a plain two-prompt encoder.
+The negative comes out of the same node, so a turbo graph running at CFG 1.0
+still has something to plug in without a second text encode sitting there
+doing nothing.
 
 For an outpaint with the AnyPaint LoRA, also wire the **mask** from the node
 that padded your picture. Without it, a dark or very colourful picture can
@@ -15,18 +16,22 @@ come back with the new area still gray, like a gray frame or a gray corner.
 ## Controls
 
 - **clip**: The Krea 2 text encoder.
-- **prompt**: Describe the whole finished canvas, not just the new area — the
-  model generates all of it and matches the reference where it must.
-- **negative_prompt**: Ignored at CFG 1.0, which is where turbo runs. Empty is
-  the normal case there.
-- **vae**: Needed to turn the reference images into latents. Without it the
-  references are skipped and only the prompts are encoded.
-- **reference**: The image the result follows. For AnyPaint that is Load
-  Image + Pad 🆎's padded `image`; for Registered Outpaint, its unpadded
-  `reference` output. Any image works; it is fitted to a multiple of 16 first.
+- The big text box (`prompt`): Describe the whole finished canvas, not just
+  the new area — the model generates all of it and matches the reference
+  where it must. The two boxes have no labels, only gray hint text.
+- The small text box (`negative_prompt`): Ignored at CFG 1.0, which is where
+  turbo runs. Empty is the normal case there.
+- **vae**: Needed to turn the reference images into latents. Without it no
+  reference is attached to the result. If **VLM reference** is on, the text
+  encoder still looks at the pictures.
+- **reference**: The image the result follows. For AnyPaint that is the
+  padded `image` from Image Crop + Rotate + Pad 🆎 or Load Image + Pad 🆎;
+  for Registered Outpaint, Load Image + Pad 🆎's unpadded `reference`
+  output. Any image works; it is fitted to a multiple of 16 first.
 - **extra_image**: A second reference, e.g. a style or character plate.
-- **VLM reference** (`vlm_reference`): Also show the references to the vision
-  tower, so the text encoder describes them. On for AnyPaint with the padded
+- **VLM reference** (`vlm_reference`, off by default): Also show the
+  references to the vision tower, so the text encoder describes them. On for
+  AnyPaint with the padded
   canvas as the reference; off for Registered Outpaint with the unpadded
   source, where the description tends to pull the result toward a paraphrase
   of the source. The Krea 2 Outpaint Model Patch page covers both setups.

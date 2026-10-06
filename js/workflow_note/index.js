@@ -767,7 +767,7 @@ async function openEditor(state) {
   let layout = draft.layout;
   const seg = el("div", "ausboss-note-seg");
   const segButtons = LAYOUTS.map((option) => {
-    const button = el("button", option === layout ? "on" : "", option === "card" ? "Card" : "Banner (title only)");
+    const button = el("button", option === layout ? "on" : "", option === "card" ? "Card" : "Banner");
     button.type = "button";
     button.addEventListener("click", () => {
       layout = option;
@@ -781,7 +781,7 @@ async function openEditor(state) {
     field("Title", title),
     field("Author", author),
     field("Subtitle", subtitle),
-    field("Layout", seg, "Banner shows just the title - a label for a column or stage."),
+    field("Layout", seg, "Banner shows only the title, subtitle and author - a label for a column or stage."),
     field("Accent color", accent, "Hex like #00b4aa; empty keeps the pack teal."),
   );
   form.append(grid);

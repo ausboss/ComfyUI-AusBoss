@@ -3,14 +3,17 @@
 Loads a video from ComfyUI's input folder as an `IMAGE` frame batch plus its
 audio. One responsive player shows the source and previews the selected trim.
 Drag the high-contrast **IN** and **OUT** handles below it, drag the selected
-range to move the whole window, or type exact seconds into the two fields.
+range to move the whole window, or type a time into the two fields, in seconds
+(`95.5`) or as a timecode (`1:35.5`). Click the strip outside the selection to
+move the window to that spot.
 The playhead follows each edit, so the frame at either boundary is visible
 while trimming. In **Source**, the list plays the clip under the pointer, muted, and filters as you type.
 
 Playback is constrained to the selected window. **LOOP** repeats it; turn loop
 off and playback pauses at OUT. The reload button refreshes the source without
-creating a second preview. Tall videos use `object-fit: contain`, and the player
-height follows the node width with a compact lower bound.
+creating a second preview. The player takes the height you give the node:
+drag the node taller for a bigger picture. A tall video is shown whole, never
+cropped.
 
 **FRAME** switches the loader into a frame picker: the trim strip becomes a
 single scrub rail, and only the frame at the marker loads — a one-image batch,
@@ -35,7 +38,7 @@ drops out rather than guessing.
 Dropping a video file onto this node makes it the node's source: the file is
 copied into ComfyUI's input folder (re-dropping identical content reuses the
 existing copy) and selected, while the rest of your canvas stays put. If the
-file is an AusBoss save, the workflow embedded in it is read too, and the
+file is an mp4 or mov saved by Save Video 🆎, the workflow embedded in it is read too, and the
 trim, `every_nth`, `max_frames`, sizing and FRAME values its Load Video node
 stored are restored onto this one — the clip reopens the way it was loaded
 before. The same file dropped on empty canvas keeps its old meaning: the
@@ -47,13 +50,14 @@ embedded workflow replaces the whole graph.
 - **IN** (`start_seconds`): Skip everything before this time.
 - **OUT** (`end_seconds`): Stop at this time; `0` means the source end until a
   handle is moved.
-- **every_nth**: Keep one frame in this many — `2` halves the frame count.
+- **Every nth** (`every_nth`): Keep one frame in this many — `2` halves the frame count.
   The `fps` output divides to match, so the clip still plays at real speed
   downstream.
 - **Limit** (`max_frames`): Stop after this many kept frames; `0` loads the
   whole trim window. Caps memory on long clips — the decode ends early
   instead of loading and discarding.
-- **LOOP**: Repeat the selected window during preview.
+- **LOOP**: Repeat the selected window during preview. It starts on and is
+  saved with the workflow.
 - **FRAME** (`single_frame`): Load only the frame at the IN time (the field
   reads **AT** while FRAME is on) as a one-image batch; `end_seconds`,
   `every_nth`, and `max_frames` are ignored while it is on.

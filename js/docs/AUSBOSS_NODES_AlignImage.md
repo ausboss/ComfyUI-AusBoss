@@ -8,26 +8,32 @@ cleanly; this node makes any input legal without hand-typing resolutions.
 ## Controls
 
 - **image**: BHWC batch to align; every frame is treated the same.
-- **multiple**: Both output sides come out divisible by this. `16` or `32`
-  suits most diffusion models; latent nodes generally want at least `8`.
-- **mode**: How the multiple is reached. Each mode implies its own rounding
-  direction, so there is no separate rounding widget:
+- **Multiple** (`multiple`, starts at `16`): Both output sides come out
+  divisible by this. `16` or `32` suits most diffusion models; latent nodes
+  generally want at least `8`.
+- **Mode** (`mode`): How the multiple is reached. Each mode implies its own
+  rounding direction, so there is no separate rounding widget:
   - **resize** — rescale to the *nearest* multiple. A slight stretch, but
     every pixel's content survives. The default.
   - **crop** — crop *down* to the next multiple. No distortion; a few edge
     pixels are trimmed where **Anchor** says.
   - **pad** — pad the edges *up* to the next multiple. No distortion; the
-    new pixels land where **Anchor** says and are filled per **pad_fill**.
+    new pixels land where **Anchor** says and are filled per **Pad fill**.
 - **Anchor** (`crop_position`): Crop mode only — which part of the frame
   survives. `center` trims both edges evenly; `top`, `bottom`, `left`, or
   `right` pin that edge and trim the opposite one. Ignored by resize and pad.
 - **Anchor** (`pad_position`): Pad mode only — where the image sits on the
   grown canvas; the new pixels land on the opposite side. `center` splits
   them evenly. Same vocabulary as `crop_position`.
-- **pad_fill**: Pad mode only — what fills the new area. `replicate`
-  stretches the edge pixels out; `color` uses **pad_color** as a solid.
-- **pad_color**: The solid fill for `pad_fill: color`. Hex, `R,G,B`
-  numbers, or a CSS color name.
+- **Pad fill** (`pad_fill`): Pad mode only — what fills the new area.
+  `replicate` stretches the edge pixels out; `color` uses **Pad color** as a
+  solid.
+- **Pad color** (`pad_color`, starts black): The solid fill, shown only
+  while **Pad fill** is `color`. Hex, `R,G,B` numbers, or a CSS color name;
+  a color the node cannot read becomes mid-gray.
+
+The two **Anchor** rows, **Pad fill** and **Pad color** only show in the
+mode that uses them.
 
 A side already smaller than one multiple can never be cropped legal, so it
 snaps up to exactly one multiple in every mode (in crop mode the deficit is

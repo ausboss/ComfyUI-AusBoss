@@ -14,9 +14,10 @@ model that paints black regions.
 - **Uploads**: Pick an existing input video (the list plays the clip under the pointer, muted, and filters as you type), click **Upload**, or drop a video file
   onto the node. The old source widgets remain compatible with saved workflows, but
   are now driven by this compact card. Choosing another video keeps the canvas
-  settings - fill, feather, resize budget, Frames for, Length - and pads the new clip to
-  the lit format chip; only rotation, crop and the trim window start over.
-- **Canvas row** (under the format chips): the fill swatch, the feather amount and
+  settings - Fill, Feather, **Divisible by**, Resize, Every nth, Frames for, Length - and
+  fits the new clip to the lit ratio button, the way **Fit** is set. Rotation, crop,
+  padding, IN/OUT and the playhead start over.
+- **Canvas row** (under the Fit row): the fill swatch, the feather amount and
   the Resize off | on switch, right on the node; turning Resize on opens the megapixel
   budget and its **Step**. These are what a video outpaint model keys on - the LTX IC-LoRA paints
   **pure black** at sizes rounded to 32 - so a wrong value shows here before a
@@ -44,7 +45,11 @@ model that paints black regions.
   the handle and the bright bar end together; with Every nth or Frames for it steps to the
   frames the run keeps, and a dim tail marks frames the window holds but the run
   drops. In the editor, **Set IN** / **Set OUT** (or the **I** / **O** keys) put a
-  trim point at the playhead, and **Full clip** resets the window.
+  trim point at the playhead, and **Full clip** resets the window. The editor also
+  has buttons for the first and last frame, steps of 1, 25, 50 and 100 frames, and
+  **Play**. Arrow keys step one frame (10 with Shift), Home and End jump to the
+  ends, and Space plays or pauses. **Save & close** keeps your edits; **Cancel** or
+  Escape puts everything back, and asks first if anything changed.
 - **Length** (`max_frames`): the one other way to set how long the clip is. **Off**
   (the default): OUT ends the clip. **On**: a number of output frames from IN; OUT
   sits that many frames after IN and follows it when you drag IN, and dragging OUT or
@@ -59,7 +64,7 @@ model that paints black regions.
 - **Every nth** (`every_nth`): Thin the batch. The `fps` output divides to match
   every_nth, so the clip keeps real-time downstream; a Length counts the frames kept.
 - **Frames for** (`frame_snap`): Keep a frame count a video model takes:
-  **LTX (8n+1)** (49, 97, 121) or **Wan (4n+1)**. **Any** keeps every frame in the window.
+  **LTX (8n+1)** (49, 97, 121) or **Wan (4n+1)**. **any** keeps every frame in the window.
   OUT drags and the Length step through those counts.
   With it on, `frame_count`, `duration`, the audio window and the stitcher all match the
   clip the sampler hands back, so wiring `frame_count` into the empty latent's length
@@ -108,7 +113,7 @@ the resize **Step** can slightly change the final aspect ratio.
 
 ## Transform and outputs
 
-Rotation, crop, padding, feathering, fill, canvas multiple, and the editor's handles
+Rotation, crop, padding, feathering, fill, **Divisible by**, and the editor's handles
 match the image node. **Resize output** in the editor scales the finished frames to a
 megapixel budget with a resolution step (32 keeps LTX and Wan sizes), the same trio as
 the core Scale Image to Total Pixels node.
@@ -150,7 +155,7 @@ Five optional sockets sit on the left, above the editor:
 | `force_rate` | Sample at this fps before Every nth. 0 keeps the source rate. Drops or repeats frames to keep playback speed. Accepts FLOAT or INT. |
 | `start_frame` | Zero-based source start frame. Overrides timeline IN. |
 | `end_frame` | Exclusive source end frame. 0 means the end of the source. Overrides timeline OUT. |
-| `fixed_frames` | Exact output frames from IN; the source must be long enough. Connected, it sets the length: OUT and Length step aside. |
+| `fixed_frames` | Exact output frames from IN; the source must be long enough. Connected, it sets the length: OUT, Length and Frames for step aside. |
 | `frame_load_cap` | Maximum frames after rate conversion and Every nth, before Frames for. 0 means unlimited. Connected, it sets the length in place of Length. |
 
 Frame bounds use the source's frame-rate grid, independent of `force_rate`.

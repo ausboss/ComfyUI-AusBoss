@@ -1,12 +1,12 @@
 # Text
 
-A growing multiline widget card on its own `STRING` wire. Type a prompt, a caption, or
-any other text once and feed it to every node that needs it — changing it in
-one place updates them all.
+A text box. Type a prompt, a caption, or any other text once and feed it to
+every node that needs it — changing it in one place updates them all.
 
 ## Controls
 
-- **text**: The text to output. Multiline; newlines and spacing are kept.
+- The text box (`text`): The text to output. Newlines and spacing are kept.
+  Drag the node taller for a bigger box.
 
 ## Output
 

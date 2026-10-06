@@ -143,6 +143,23 @@ export function fillNodeHeight(widget, { minWidth = 0, minHeight = 0, minNodeSiz
   return widget;
 }
 
+// The other way round: a panel that keeps its own height, such as a card
+// whose height is the sum of its rows. Its own computeSize keeps it out of
+// the classic renderer's split (the else-if at the top of this file), but
+// Nodes 2.0 reads a different sign. Its widget grid gives a row a share of
+// the node's spare height whenever the row's widget has a computeLayoutSize,
+// and every DOM widget inherits one from the frontend. So a pinned card was
+// stretched there all the same: above a picture, half the spare height went
+// to the card as empty space under its last row and the picture was squeezed
+// into the rest. Shadowing the inherited method makes the row fixed in Nodes
+// 2.0. The classic renderer never calls it on a widget with a computeSize.
+// The frontend reads the sign when the node joins a graph, so call this as
+// the panel is built.
+export function pinVuePanelHeight(widget) {
+  if (widget) widget.computeLayoutSize = undefined;
+  return widget;
+}
+
 // Nodes 2.0 (the Vue renderer) has no layout API for a node's minimum
 // width: its corner drag stops at the node element's inline min-width, and
 // at 225px when there is none. Lend it the panel's floor whenever the panel

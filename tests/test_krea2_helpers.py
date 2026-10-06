@@ -244,7 +244,7 @@ class PlacementWarningTests(unittest.TestCase):
         s = self.stitcher(832, 1792, (0, 0, 821, 1459))
         message = placement_warning(s)
         self.assertIsNotNone(message)
-        self.assertIn("canvas multiple", message)
+        self.assertIn("Divisible by", message)
 
     def test_a_sliver_inside_the_tolerance_is_ignored(self):
         s = self.stitcher(728, 1568, (0, 0, 720, 1280))  # 8px spare width

@@ -1,11 +1,12 @@
 # Float
 
-A single `FLOAT` value on its own wire. Share one strength, scale, or CFG
-across several nodes and change it in one place.
+A number with decimals. Set one strength, scale, or CFG here, wire it to
+every node that needs it, and change it in one place.
 
 ## Controls
 
-- **value**: The float to output.
+- **Value** (`value`): The number to send out. It starts at `0`, and the
+  box keeps three decimal places.
 
 ## Output
 

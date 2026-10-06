@@ -24,6 +24,7 @@ NODE_MODULES = [
     "node_frame_interpolate",
     "node_free_memory",
     "node_image_crop_rotate_pad",
+    "node_image_folder",
     "node_image_resize",
     "node_image_size",
     "node_inpaint_crop_stitch",

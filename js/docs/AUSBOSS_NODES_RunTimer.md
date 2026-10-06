@@ -7,14 +7,16 @@ and no wires: it listens to the queue.
   runs — amber dot.
 - When the run finishes the total holds — teal dot. A failed or interrupted
   run shows its time in red and is not kept as a reference.
-- The last completed run is saved with the workflow, so a shared graph
-  reopens showing its author's time; hover the box for the few before it.
-  Right-click → *Reset Run Timer history* clears them.
+- The last five finished runs are saved with the workflow, so a shared graph
+  reopens showing its author's time. The box shows the newest; right-click
+  the node to see the others. Right-click → *Reset Run Timer history* clears
+  them.
 
 The node is exactly the box, painted by the node itself on the classic
 canvas: drag it from anywhere, resize it by the corner (the digits scale
 with it), and it wears no title bar and no pack badge. Right-click lists the
-last runs.
+last runs. With Nodes 2.0 turned on the box keeps one height and the digits
+stay the same size.
 
 ## Notes and limitations
 

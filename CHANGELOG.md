@@ -2,6 +2,37 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **New: Image Folder 🆎** (Image). Pick a folder, tick the pictures you
+  want in a thumbnail gallery, and run the workflow on each one. All in one
+  run does every picked picture with one press of Run. One per run loads one
+  picture each run and steps to the next by itself, so a picture that fails
+  only skips itself. It gives each picture's mask, its file name (wire it to
+  Save Image's filename and the result keeps the name), its number and the
+  count. Browse lists the folders inside ComfyUI's input or output folder.
+  A folder from anywhere else is brought in: drop it on the node, or choose
+  it in your file explorer, and its pictures are copied into the input
+  folder. A really big folder asks first. The node reads nothing outside
+  those two folders.
+- **Nodes 2.0: the picture takes the spare height, not the card.** In the
+  Nodes 2.0 look, a node with a card on top and a picture below gave half of
+  its spare height to the card. The card got empty space under its last row
+  and the picture was drawn small. Mask Refine, Mask by Name, Save Image,
+  Select Frame and LaMa Inpaint showed it even at their smallest size, and
+  Load Video and Save Video once they were made taller. The card now keeps
+  its own height and the picture takes the rest, as in the classic look. A
+  card that is alone on its node, such as Image Resize, Seed or Workflow
+  Switches, keeps its own height there as well. It used to stretch with a
+  node made taller.
+- **Nodes 2.0: Load Image + Pad shows its picture once.** In the Nodes 2.0
+  look the node showed your picture twice: on its canvas, where you drag
+  the edges, and again underneath as a plain copy. The copy took the room
+  the canvas needs, so the canvas stayed small however tall you made the
+  node. With a picture wired in, the copy showed the file the node was not
+  using. The copy is gone and the canvas takes the spare height, as in the
+  classic look.
+
 ## 2.7.0 - 2026-10-06
 
 - **New: Mask by Name 🆎** (Mask). Type what to find in a picture, like "the

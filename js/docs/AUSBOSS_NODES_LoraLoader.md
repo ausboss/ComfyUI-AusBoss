@@ -39,7 +39,8 @@ model and CLIP by default; the gear menu's **Separate model / CLIP
 strength** switch shows a second box per row. The switch is per-node — new
 nodes always start unified — and an absorb that imports a row with unequal
 model/CLIP strengths flips it on automatically so the difference stays
-visible.
+visible. Turning it back off sets every row's CLIP strength to its model
+strength.
 
 ## Strength bars
 
@@ -129,7 +130,8 @@ script or an agent that would happily judge it. The error also says where
 the switch is.
 
 Gear menu → **Stop on missing LoRA** (on by default) turns that off for this
-node: a missing row then warns once in the console and is skipped while the
+node, and for LoRA Loaders you add later in this browser; nodes already saved
+in a workflow keep their own setting. With it off, a missing row then warns once in the console and is skipped while the
 rest of the stack applies, which suits a person at the canvas who wants to
 see the rest of the picture. In API graphs the same switch is the
 `on_missing` input (`"error"`, the default, or `"skip"`); graphs saved before
@@ -152,12 +154,37 @@ a standard `<model>.civitai.info` sidecar when one sits beside the file
 tools write the same file), and words you add yourself (remembered per LoRA
 across workflows). Click a word to toggle it into the row; enabled rows'
 selected words are joined into the `triggers` output, deduplicated, in
-row order.
+row order. Picking a different file for a row clears the words you had
+switched on for the old one.
+
+## Civitai info and suggested strength
+
+- **Fetch Civitai info** looks this one LoRA up on civitai.com. Nothing is
+  sent until you click. Your browser then sends only the file's SHA256
+  fingerprint, and the answer is saved next to the LoRA as
+  `<model>.civitai.info`. After that the button reads **Refresh Civitai
+  info** and the card gets a **View on Civitai** link. A LoRA Civitai does
+  not know (unpublished or hidden) reads **Not found on Civitai**. Gear
+  menu → **Civitai lookup button** removes the button.
+- **Suggested strength**: a lowest and a highest value at the bottom of the
+  card (leave one empty for "any"). It is only a reminder: a row set outside
+  it shows its number in orange, and the tooltip gives the range. Saved per
+  LoRA, for every workflow.
+
+## Other gear options
+
+- **Default strength** (starts at 1): the strength a newly added LoRA gets.
+- **Strength step** (starts at 0.05): how far one drag step or arrow click
+  moves a strength. Shift always steps by 0.01.
+- **Trigger word separator** (a comma and a space to start): what joins the
+  `triggers` output.
+- **Hide file extension** and **Hide folder names** (both on): how names
+  show on rows. The full path stays in the tooltip.
 
 ## Outputs
 
 - **model**: The model with every enabled LoRA applied in row order.
-- **clip**: The CLIP with every enabled LoRA applied (unchanged when no CLIP
+- **clip**: The CLIP with every enabled LoRA applied (empty when no CLIP
   is connected).
 - **triggers**: The selected trigger words from enabled rows, deduplicated,
   joined with the gear menu's separator (a comma by default).

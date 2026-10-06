@@ -77,10 +77,11 @@ test("every resizable DOM panel declares its minimum width to BOTH layout paths"
     // minNodeSize option. Missing either leaves one frontend family able to
     // resize the node under the panel, which then holds its own minimum and
     // pokes past the border - the overflow clip cuts at the panel's edge,
-    // not the node's.
+    // not the node's. A card that pins its height has no computeLayoutSize
+    // (see the Nodes 2.0 test below): holdNodeMinWidth is its floor.
     assert.match(
       source,
-      /(computeLayoutSize\s*=\s*\(\)\s*=>\s*\(\{\s*\n?\s*minWidth|fillNodeHeight\([\s\S]{0,120}?minWidth)/,
+      /(computeLayoutSize\s*=\s*\(\)\s*=>\s*\(\{\s*\n?\s*minWidth|fillNodeHeight\([\s\S]{0,120}?minWidth|holdNodeMinWidth\()/,
       `${name}: DOM widget has no computeLayoutSize minWidth - the node can shrink out from under the panel`,
     );
     assert.match(
@@ -107,6 +108,7 @@ test("a panel that should follow the node's height never declares computeSize", 
     "resolution",
     "compare",
     "image_crop_rotate_pad",
+    "image_folder",
     "input_preview",
     "load_image_pad",
     "load_video",
@@ -238,6 +240,53 @@ test("a panel that pins its own height still makes its declared width the floor"
   }
 });
 
+test("a pinned card keeps its own height in Nodes 2.0 too", () => {
+  // Each renderer has its own sign for a panel that keeps its height. The
+  // classic one skips a widget that has a computeSize. Nodes 2.0 gives a
+  // widget's row a share of the node's spare height whenever the widget has a
+  // computeLayoutSize, and every DOM widget inherits one. So a card that only
+  // pinned its computeSize was stretched there: on a node with a picture under
+  // the card (Mask Refine, Save Image, Mask by Name, Load Video) the card took
+  // half the spare height as empty space under its last row, and the picture
+  // was squeezed into the rest. pinVuePanelHeight clears the inherited method;
+  // assigning a computeLayoutSize afterwards would put the stretch back.
+  //
+  // Listed, not derived, so leaving a panel out is a deliberate call. Run
+  // Timer's readout is its node's whole face and fills the node on purpose;
+  // it is also the only panel there, with nothing under it to squeeze.
+  const fillsItsNode = new Set(["run_timer/index.js"]);
+  const preview = readFileSync(join(JS_ROOT, "input_preview", "index.js"), "utf-8");
+  const pinnedInBoth = [];
+  for (const { file, source } of allScripts()) {
+    if (file === "shared/panel_layout.mjs") continue;
+    if (!/\.addDOMWidget\(/.test(source)) continue;
+    if (!/\b(widget|domWidget)\.computeSize\s*=/.test(source)) continue;
+    if (fillsItsNode.has(file)) {
+      const nodeClass = source.match(/NODE_CLASS = "(AUSBOSS_NODES_\w+)"/)?.[1];
+      assert.ok(nodeClass, `${file}: no NODE_CLASS to check against the preview panel's nodes`);
+      assert.ok(
+        !preview.includes(`${nodeClass}:`) && !/fillNodeHeight\(/.test(source),
+        `${file}: listed as filling its node, but the node has a growing panel too - call pinVuePanelHeight`,
+      );
+      continue;
+    }
+    pinnedInBoth.push(file);
+    assert.match(
+      source,
+      /pinVuePanelHeight\(/,
+      `${file}: pins a widget's computeSize but never calls pinVuePanelHeight - Nodes 2.0 stretches the card and squeezes the panel under it`,
+    );
+    assert.doesNotMatch(
+      source,
+      /\.computeLayoutSize\s*=/,
+      `${file}: assigns a computeLayoutSize to a pinned panel - Nodes 2.0 reads that as a row that takes spare height`,
+    );
+  }
+  for (const expected of ["save_image/index.js", "seed/index.js", "shared/widget_card.mjs", "workflow_switches/index.js"]) {
+    assert.ok(pinnedInBoth.includes(expected), `${expected} should be one of the pinned cards the audit checks`);
+  }
+});
+
 test("the preview picture never sets the panel's height", () => {
   // Nodes 2.0 lets a node's content decide its height (the saved size is only
   // a minimum). With the picture in normal flow, a portrait result drawn at
@@ -299,6 +348,7 @@ test("every panel root class carries border-box and an overflow clip", () => {
     resolution: ".ausboss-res-panel {",
     load_image_pad: ".ausboss-loadpad-root{",
     image_crop_rotate_pad: ".ausboss-transform-panel{",
+    image_folder: ".ausboss-if{",
     save_image: ".ausboss-save{",
     show_text: ".ausboss-show-text{",
     workflow_note: ".ausboss-note{",

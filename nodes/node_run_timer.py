@@ -8,7 +8,7 @@ class AusBossRunTimer:
     DESCRIPTION = (
         "A stopwatch for the whole run. It starts when a queued prompt "
         "begins executing, ticks on the node while it runs, and holds the "
-        "total when it finishes — with the previous few runs kept underneath "
+        "total when it finishes. Right-click it for the few runs before, "
         "so a settings change can be judged against the last one. The times "
         "are saved with the workflow, so a shared graph carries its author's "
         "run time as a reference. No inputs, no outputs; it listens to the "
