@@ -23,6 +23,7 @@ import {
   safeUrl,
   serializeNote,
 } from "../js/shared/workflow_note.mjs";
+import { collectGraphNodes } from "../js/shared/appearance.mjs";
 
 test("normalizeNote accepts the widget string, an object, or garbage", () => {
   assert.deepEqual(normalizeNote(""), emptyNote());
@@ -149,6 +150,24 @@ test("packsFromGraph lists each custom pack once and skips core modules", () => 
       { name: "rgthree-comfy", url: "", node: "Power Lora Loader (rgthree)" },
     ],
   );
+});
+
+test("Detect finds a pack used only inside a subgraph", () => {
+  // A subgraph node's own type is an id; the nodes it holds sit in `subgraph`.
+  const inner = { _nodes: [{ type: "Power Lora Loader (rgthree)" }] };
+  const outer = { nodes: [{ type: "KSampler" }, { type: "inner-id", subgraph: inner }] };
+  const graph = { _nodes: [{ type: "AUSBOSS_NODES_WorkflowNote" }, { type: "outer-id", subgraph: outer }] };
+  const moduleOf = (type) => ({
+    AUSBOSS_NODES_WorkflowNote: "custom_nodes.ComfyUI-AusBoss",
+    "Power Lora Loader (rgthree)": "custom_nodes.rgthree-comfy",
+    KSampler: "nodes",
+  })[type];
+  const names = (types) => packsFromGraph(types, moduleOf).map((pack) => pack.name);
+  // The main canvas alone misses it.
+  assert.deepEqual(names(graph._nodes.map((node) => node.type)), ["ComfyUI-AusBoss"]);
+  assert.deepEqual(names(collectGraphNodes(graph).map((node) => node.type)), ["ComfyUI-AusBoss", "rgthree-comfy"]);
+  const source = readFileSync(new URL("../js/workflow_note/index.js", import.meta.url), "utf-8");
+  assert.match(source, /const types = collectGraphNodes\(app\.rootGraph \?\? app\.graph\)\.map\(\(node\) => node\.type\);/, "Detect reads the whole workflow");
 });
 
 // The numbers are the LTX 2.3 Video Outpaint note saved at 440 x 810 (card

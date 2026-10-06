@@ -55,8 +55,8 @@ A row names a pack, links to it, and names one **probe node class** from that
 pack (any node it registers, e.g. `AUSBOSS_NODES_LoraLoader`). If that class
 is registered on this install the pack shows **✓ installed**; otherwise it is
 marked missing with the link to get it. **Detect from this workflow** in the
-editor lists every custom pack the open graph uses, so the list is never out
-of date with the graph.
+editor lists every custom pack the open graph uses, subgraphs included, so
+the list is never out of date with the graph.
 
 ## Links
 

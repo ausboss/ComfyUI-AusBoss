@@ -13,6 +13,7 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
+import { collectGraphNodes } from "../shared/appearance.mjs";
 import { copyToClipboard } from "../shared/clipboard.mjs";
 import { confirmDiscard } from "../shared/discard_prompt.mjs";
 import { WIDGET_FRAME, fillNodeHeight, holdNodeMinHeight } from "../shared/panel_layout.mjs";
@@ -814,7 +815,7 @@ async function openEditor(state) {
   detect.type = "button";
   detect.title = "List every custom node pack the open graph uses";
   detect.addEventListener("click", () => {
-    const types = (app.graph?._nodes ?? app.graph?.nodes ?? []).map((node) => node.type);
+    const types = collectGraphNodes(app.rootGraph ?? app.graph).map((node) => node.type);
     const have = new Set(packs.entries.map((entry) => entry.controls[0].value.trim()));
     for (const pack of packsFromGraph(types, moduleOfType)) {
       if (have.has(pack.name)) continue;
