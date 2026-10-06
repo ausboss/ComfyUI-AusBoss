@@ -54,6 +54,25 @@ export function panelRoot(target) {
   return root;
 }
 
+// A drag that carries files, from the file manager or the desktop. A row
+// being dragged inside a panel carries none and stays the panel's own.
+export function dragCarriesFiles(event) {
+  const types = event?.dataTransfer?.types;
+  if (!types) return false;
+  return Array.from(types).includes("Files");
+}
+
+// Does a file dropped here have to be handed to its node by the pack? The
+// classic renderer lays a panel over the canvas (inside a .dom-widget). The
+// canvas asks the node under the pointer whether it takes a dragged file, but
+// it never sees a drag that is over a panel, so a picture dropped on a
+// loader's preview missed the node and ComfyUI added a Load Image node for it
+// instead. Nodes 2.0 draws the whole node as one element, which hands the
+// drop to its node already.
+export function panelNeedsDropHelp(target) {
+  return Boolean(target?.closest?.(".dom-widget") && panelRoot(target));
+}
+
 // Keys pressed in one of the pack's fields. A field keeps the keys it types
 // and edits with, so the canvas never acts on them (Delete, Ctrl + A). The
 // app's own shortcuts go on to ComfyUI, as they do from its text boxes:
