@@ -17,7 +17,9 @@ single scrub rail, and only the frame at the marker loads — a one-image batch,
 ready for image workflows without a separate frame-select node. Click or drag
 anywhere on the rail to choose the frame, or type an exact time into the AT
 field. Playback runs the whole source freely in this mode so you can hunt for
-the right moment; the trim window returns untouched when you toggle back.
+the right moment. Picking a frame moves IN to that time. When you toggle back,
+OUT stays where it was, unless the frame is at or after OUT: then OUT moves to
+the end of the video.
 
 The label between IN and OUT reports what one Run will actually load — e.g.
 `0:04.0 of 0:10.0 · 48 frames @ 12 fps`, or `1 frame at 0:05.2` while FRAME

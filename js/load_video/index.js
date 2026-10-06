@@ -27,6 +27,7 @@ import {
   singleFrameFraction,
   singleFrameTime,
   slideTrimWindow,
+  trimAfterFramePick,
   trimBounds,
   trimFractions,
 } from "./trim_preview.mjs";
@@ -412,6 +413,10 @@ function watchFrameWidget(state, widget) {
   const prior = widget.callback;
   widget.callback = function (...args) {
     const result = prior?.apply(this, args);
+    if (!isSingleFrame(state)) {
+      const reopened = trimAfterFramePick(state.startWidget.value, state.endWidget.value);
+      if (reopened) writeTrim(state, reopened);
+    }
     applyMode(state);
     if (state.video.readyState >= 1) state.video.currentTime = homeTime(state);
     return result;
