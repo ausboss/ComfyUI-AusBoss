@@ -149,3 +149,16 @@ export function resetUnknownValues(widgets, fallbacks = {}) {
 function comboLabels(row, widget) {
   return comboValues(widget).map((value) => row.labels?.[value] ?? String(value));
 }
+
+// A widget's hover text. The frontend keeps a node's tooltips in its
+// definition and not on the widget, so a card that mirrors a hidden widget
+// looks there too. Without this no row of a card says anything on hover.
+// A tooltip the widget carries itself still wins.
+export function widgetTooltip(node, name, widget = null) {
+  const own = widget?.options?.tooltip ?? widget?.tooltip;
+  if (typeof own === "string" && own) return own;
+  const inputs = node?.constructor?.nodeData?.input;
+  const spec = inputs?.required?.[name] ?? inputs?.optional?.[name];
+  const text = Array.isArray(spec) ? spec[1]?.tooltip : undefined;
+  return typeof text === "string" ? text : "";
+}

@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import {
   CARD_PADDING, GROUP_HEIGHT, ROW_GAP, ROW_HEIGHT, SECTION_HEIGHT, SLOT_OFFSET,
   cardHeight, commitWidgetValue, holdsUnknownValue, resetUnknownValues, rowHeight, rowKind, rowMuted, rowTops,
-  scrubSteps, segmentFits, socketWidgetY, visibleRows,
+  scrubSteps, segmentFits, socketWidgetY, visibleRows, widgetTooltip,
 } from "../js/shared/widget_card_math.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -287,4 +287,24 @@ test("Stitch Inpaint saved before Seam still opens classic", () => {
   const chosen = restoreByPosition(names, [false, 0.5, "blend in", ""], types);
   chosen.find((widget) => widget.name === "seam").options = { values: ["classic", "blend in"] };
   assert.deepEqual(resetUnknownValues(chosen, cardFallbacks("AUSBOSS_NODES_StitchInpaint")), []);
+});
+
+test("a card row's hover text comes from the node's definition", () => {
+  // The frontend keeps tooltips in the definition, not on the widget.
+  class Node {}
+  Node.nodeData = { input: {
+    required: { name: ["STRING", { tooltip: "What to find." }], image: ["IMAGE"] },
+    optional: { free_vram: ["BOOLEAN", { default: false, tooltip: "Takes SAM 3 out of memory." }] },
+  } };
+  const node = new Node();
+  assert.equal(widgetTooltip(node, "name", { options: {} }), "What to find.");
+  assert.equal(widgetTooltip(node, "free_vram"), "Takes SAM 3 out of memory.");
+  // A tooltip the widget carries itself wins.
+  assert.equal(widgetTooltip(node, "name", { options: { tooltip: "Its own." } }), "Its own.");
+  assert.equal(widgetTooltip(node, "name", { tooltip: "On the widget." }), "On the widget.");
+  // Nothing to show is an empty string, never undefined in a title.
+  assert.equal(widgetTooltip(node, "image"), "");
+  assert.equal(widgetTooltip(node, "missing"), "");
+  assert.equal(widgetTooltip({}, "name"), "");
+  assert.equal(widgetTooltip(null, "name"), "");
 });

@@ -22,6 +22,10 @@ All notable changes to ComfyUI-AusBoss are documented here.
   keeps its size. Before, the node snapped back to its smallest size (Mask
   Refine, Load Image + Pad). A tall node saved with More open also reopens
   at its saved height.
+- **Cards show their tooltips again.** Hovering a row on a node's card said
+  nothing: the cards looked for the tooltip on the widget, and ComfyUI keeps
+  it in the node's definition. Every row of every card now shows its
+  tooltip on hover.
 - **New: Workflow Switches 🆎** (Utility). One small card that turns parts
   of a workflow off and on. Select the nodes of one part, such as a box and
   its Save Image, press **+ Switch**, and they get one off | on switch with a

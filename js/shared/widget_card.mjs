@@ -39,6 +39,7 @@ import { hideWidget } from "./widget_visibility.mjs";
 import {
   CARD_PADDING, GROUP_HEIGHT, ROW_GAP, ROW_HEIGHT, SECTION_HEIGHT, SLOT_OFFSET, UNIT_SLOT_WIDTH,
   cardHeight, commitWidgetValue, comboValues, rowHeight, rowKind, rowMuted, rowTops, scrubSteps, socketWidgetY, visibleRows,
+  widgetTooltip,
 } from "./widget_card_math.mjs";
 
 export * from "./widget_card_math.mjs";
@@ -226,7 +227,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       step: row.step ?? steps.step,
       fineStep: steps.fineStep,
       decimals: row.decimals ?? steps.decimals,
-      title: row.title ?? widget?.options?.tooltip ?? "",
+      title: row.title ?? widgetTooltip(node, name, widget),
       unit: row.suffix ?? "",
       // Single fields share one unit slot so their numbers line up down
       // the card; the fields of a pair sit side by side and keep the room.
@@ -274,7 +275,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       return (vals) => picker.refresh(vals[name]);
     }
     const select = el("select", "ausboss-card-select");
-    select.title = row.title ?? widget?.options?.tooltip ?? "";
+    select.title = row.title ?? widgetTooltip(node, name, widget);
     const fill = (current) => {
       select.textContent = "";
       const options = comboValues(widget);
@@ -302,7 +303,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     for (const [value, text] of [[false, label(row.offText, "off")], [true, label(row.onText, "on")]]) {
       const button = el("button", "", text);
       button.type = "button";
-      button.title = row.title ?? widget?.options?.tooltip ?? (value ? row.onText ?? "" : row.offText ?? "");
+      button.title = row.title ?? (widgetTooltip(node, name, widget) || (value ? row.onText ?? "" : row.offText ?? ""));
       button.addEventListener("click", () => setWidget(name, value));
       seg.append(button); buttons.set(value, button);
     }
@@ -319,7 +320,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
   const buildText = (name, row, into) => {
     const widget = findWidget(node, name);
     const input = el("input", "ausboss-card-text");
-    input.type = "text"; input.placeholder = row.placeholder ?? ""; input.title = row.title ?? widget?.options?.tooltip ?? "";
+    input.type = "text"; input.placeholder = row.placeholder ?? ""; input.title = row.title ?? widgetTooltip(node, name, widget);
     input.spellcheck = false;
     const commit = () => { if (input.value !== String(findWidget(node, name)?.value ?? "")) setWidget(name, input.value); };
     input.addEventListener("change", commit);
@@ -342,7 +343,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     if (widget?.element) widget.element.style.display = "none";
     const area = el("textarea", "ausboss-card-area");
     area.placeholder = row.placeholder ?? row.label ?? name;
-    area.title = row.title ?? widget?.options?.tooltip ?? "";
+    area.title = row.title ?? widgetTooltip(node, name, widget);
     area.spellcheck = false;
     let typing = false;
     area.addEventListener("input", () => { typing = true; setWidget(name, area.value, { settle: false }); typing = false; });
@@ -367,7 +368,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     const swatch = el("input", "ausboss-card-swatch"); swatch.type = "color";
     swatch.title = "Pick a color";
     const input = el("input", "ausboss-card-text"); input.type = "text"; input.spellcheck = false;
-    input.title = row.title ?? widget?.options?.tooltip ?? "";
+    input.title = row.title ?? widgetTooltip(node, name, widget);
     const commit = () => { if (input.value !== String(findWidget(node, name)?.value ?? "")) setWidget(name, input.value.trim()); };
     swatch.addEventListener("input", () => { input.value = swatch.value; setWidget(name, swatch.value, { settle: false }); });
     swatch.addEventListener("change", () => notifyAusbossChange());
@@ -421,7 +422,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       else line.style.height = `${rowHeight(row)}px`;
     } else {
       const label = el("span", "ausboss-card-label", row.label ?? names[0]);
-      label.title = row.title ?? findWidget(node, names[0])?.options?.tooltip ?? "";
+      label.title = row.title ?? widgetTooltip(node, names[0], findWidget(node, names[0]));
       line.append(label);
     }
     const fields = new Map();
