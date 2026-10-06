@@ -250,22 +250,22 @@ test("a pinned card keeps its own height in Nodes 2.0 too", () => {
   // was squeezed into the rest. pinVuePanelHeight clears the inherited method;
   // assigning a computeLayoutSize afterwards would put the stretch back.
   //
-  // Listed, not derived, so leaving a panel out is a deliberate call: these
-  // are the only panel on their node, with nothing under them to squeeze. Run
-  // Timer's readout is its node's whole face and fills it on purpose.
-  const aloneOnItsNode = new Set(["run_timer/index.js", "seed/index.js", "workflow_switches/index.js"]);
+  // Listed, not derived, so leaving a panel out is a deliberate call. Run
+  // Timer's readout is its node's whole face and fills the node on purpose;
+  // it is also the only panel there, with nothing under it to squeeze.
+  const fillsItsNode = new Set(["run_timer/index.js"]);
   const preview = readFileSync(join(JS_ROOT, "input_preview", "index.js"), "utf-8");
   const pinnedInBoth = [];
   for (const { file, source } of allScripts()) {
     if (file === "shared/panel_layout.mjs") continue;
     if (!/\.addDOMWidget\(/.test(source)) continue;
     if (!/\b(widget|domWidget)\.computeSize\s*=/.test(source)) continue;
-    if (aloneOnItsNode.has(file)) {
+    if (fillsItsNode.has(file)) {
       const nodeClass = source.match(/NODE_CLASS = "(AUSBOSS_NODES_\w+)"/)?.[1];
       assert.ok(nodeClass, `${file}: no NODE_CLASS to check against the preview panel's nodes`);
       assert.ok(
         !preview.includes(`${nodeClass}:`) && !/fillNodeHeight\(/.test(source),
-        `${file}: listed as the only panel on its node, but the node has a growing panel too - call pinVuePanelHeight`,
+        `${file}: listed as filling its node, but the node has a growing panel too - call pinVuePanelHeight`,
       );
       continue;
     }
@@ -281,7 +281,7 @@ test("a pinned card keeps its own height in Nodes 2.0 too", () => {
       `${file}: assigns a computeLayoutSize to a pinned panel - Nodes 2.0 reads that as a row that takes spare height`,
     );
   }
-  for (const expected of ["save_image/index.js", "shared/widget_card.mjs"]) {
+  for (const expected of ["save_image/index.js", "seed/index.js", "shared/widget_card.mjs", "workflow_switches/index.js"]) {
     assert.ok(pinnedInBoth.includes(expected), `${expected} should be one of the pinned cards the audit checks`);
   }
 });

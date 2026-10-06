@@ -11,8 +11,9 @@ All notable changes to ComfyUI-AusBoss are documented here.
   Select Frame and LaMa Inpaint showed it even at their smallest size, and
   Load Video and Save Video once they were made taller. The card now keeps
   its own height and the picture takes the rest, as in the classic look. A
-  card that is alone on its node, such as Image Resize, keeps its own height
-  there as well.
+  card that is alone on its node, such as Image Resize, Seed or Workflow
+  Switches, keeps its own height there as well. It used to stretch with a
+  node made taller.
 
 ## 2.7.0 - 2026-10-06
 
