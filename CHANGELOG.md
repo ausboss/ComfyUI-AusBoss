@@ -42,6 +42,22 @@ All notable changes to ComfyUI-AusBoss are documented here.
   stop at their smallest size too; they could be made a little shorter than
   that. With a node's preview switched off, the node still shrinks to the
   small bar. The classic look is unchanged.
+- **Load Video: leaving FRAME no longer leaves a clip that cannot run.**
+  Picking a frame sets IN to it. If that frame was at or after OUT, the node
+  was left with IN after OUT, and the next run stopped with "Load Video
+  needs start_seconds smaller than end_seconds" until you moved a handle.
+  OUT now moves to the end of the video when you switch FRAME off.
+- **Image Resize: pad adds no thin bar when width or height is 0.** In
+  Width × height mode with a `0` in W or H, the size follows your picture,
+  so only rounding and **Multiple** change it. Pad answered that with a bar
+  1 or 2 px wide: a 1000×700 picture with Multiple 16 came out 1008×704 with
+  a 2 px bar. The picture now fills that size. The output size is the same
+  as before, and with both W and H set, pad fills what is left as before.
+- **Workflow Note: Detect from this workflow also reads subgraphs.** It read
+  the main canvas only, so a pack used only inside a subgraph was not
+  listed.
+- **Help pages and tooltips are up to date.** The `?` pages of 32 nodes and
+  a few tooltips were brought in line with what the nodes do today.
 
 ## 2.7.0 - 2026-10-06
 
