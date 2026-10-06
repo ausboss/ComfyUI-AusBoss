@@ -76,7 +76,7 @@ model that paints black regions.
 Crop squares, padding diamonds, the orange corners and the rotation handle also
 work directly on the node preview. A corner makes the canvas bigger or smaller in
 its own shape, for example to zoom out evenly before a video outpaint; hold **Alt**
-(Option on a Mac) to change all four sides at once. **Centre**, next to Fill and
+(Option on a Mac) to change all four sides at once. **Center**, next to Fill and
 Feather, puts the clip in the middle of the canvas side to side or top to bottom
 without changing the canvas size. The graph still owns wheel zoom and middle-button
 pan. Tap a ratio

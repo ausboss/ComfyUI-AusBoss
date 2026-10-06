@@ -962,8 +962,8 @@ function buildAspectModeRow(state, { alignment: withAlignment = true } = {}) {
 // (centredPadding), so the canvas keeps its size and a lit ratio stays lit.
 // The node face and the editor's Padding section each get a pair.
 const CENTRE_AXES = [
-  ["x", "Centre side to side", "left and right", "right"],
-  ["y", "Centre top to bottom", "top and bottom", "bottom"],
+  ["x", "Center side to side", "left and right", "right"],
+  ["y", "Center top to bottom", "top and bottom", "bottom"],
 ];
 
 function centrePicture(state, axis) {
@@ -1212,7 +1212,7 @@ function buildCanvasRow(state) {
   // span, not a label: a label passes a click on its text to the first button.
   const centre = buildCentreButtons(state);
   const centreLabel = createElement("span", "ausboss-transform-centre-label");
-  centreLabel.append(createElement("span", "", "Centre"), centre.root);
+  centreLabel.append(createElement("span", "", "Center"), centre.root);
   row.append(centreLabel);
   const sync = () => {
     fill.value = normalizeColor(value(node, "fill_color", "#808080"));
@@ -1867,7 +1867,7 @@ function buildControls(state, sidebar) {
   // A div, not a label: a label would pass a click on its text to the first button.
   const centre = buildCentreButtons(state);
   const centreRow = createElement("div", "ausboss-transform-centre-row");
-  centreRow.append(createElement("span", "", "Centre"), centre.root);
+  centreRow.append(createElement("span", "", "Center"), centre.root);
   padSection.append(centreRow);
   state.editorSyncs.push(centre.sync);
   const resetPad = createElement("button", "", "Reset padding"); resetPad.title = "Remove all padding.";

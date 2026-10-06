@@ -37,7 +37,7 @@ From top to bottom:
 - **The ratio row**: the orientation button, the ratios (1:1, 4:3, 3:2, 16:9,
   21:9) and the padlock.
 - **Fit** (crop | pad) and **Divisible by**.
-- **Fill**, **Feather**, **Resize** and the two **Centre** buttons.
+- **Fill**, **Feather**, **Resize** and the two **Center** buttons.
 - **Open editor**, **Reset crop** and **Reset**.
 
 Crop and padding have no number boxes. You set them by dragging, and the size
@@ -74,7 +74,7 @@ until you tap one.
   size. Over the picture, the cursor and small arrows show which ways it can go.
 - Rotating keeps a lit ratio: the padding follows the turned picture.
 
-### Corner handles and Centre
+### Corner handles and Center
 
 The four orange corners outside the picture make the whole canvas bigger or
 smaller and keep its shape: drag one out to add room on two sides at once, for
@@ -84,7 +84,7 @@ sides at once, so the picture keeps its place in the middle. You can press or le
 go of Alt during the drag. A corner stops when one of its two sides has no padding
 left to take away.
 
-The two **Centre** buttons next to Fill, Feather and Resize put the picture in
+The two **Center** buttons next to Fill, Feather and Resize put the picture in
 the middle of the canvas: one side to side, one top to bottom. They move padding from
 one side to the other, so the canvas keeps its size and a lit ratio stays lit. A
 button is dimmed when the picture is already in the middle or that way has no
@@ -210,7 +210,7 @@ for fine steps). The editor adds a few things the node does not show:
 - **Rotate → Degrees** (`rotation_degrees`): type an exact turn, clockwise.
   Each step is 1°, or 0.1° with Shift. **Reset rotation** sets it back to 0.
 - **Padding & mask → Reset padding** removes all padding. The same section has
-  Fill, Feather, Divisible by and a **Centre** row.
+  Fill, Feather, Divisible by and a **Center** row.
 - **Resize output → Method** (`resize_method`): how the resize samples the
   picture. `lanczos`, the default, is the sharp one.
 - **More**: ratios you added in `ausboss_presets.json` that no button shows.
@@ -254,7 +254,7 @@ The editor's right side holds the stitcher's settings, the same as on the clip n
     number, or a colour name. Anything it cannot read becomes mid-gray.
 - **Corners.** A corner follows the pointer along the canvas diagonal, and the
   shape it keeps is the canvas before **Divisible by** adds its fill. With
-  Divisible by on, **Centre** counts that strip on the right and bottom, so the
+  Divisible by on, **Center** counts that strip on the right and bottom, so the
   bands you see come out even.
 - **Resize.** It works like core's *Scale Image to Total Pixels*: the budget is
   `megapixels × 1024 × 1024`, the shape is kept, and each side rounds to a

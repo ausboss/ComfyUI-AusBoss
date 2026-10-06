@@ -36,7 +36,7 @@ Rotation, crop, padding, feathering, fill, **Divisible by**, the megapixel resiz
 
 The handles work on both the node and the editor. Drag an orange corner to make
 the canvas bigger or smaller in its own shape (hold **Alt**, Option on a Mac, to
-change all four sides at once), and press **Centre** next to Fill and Feather to
+change all four sides at once), and press **Center** next to Fill and Feather to
 put the frame in the middle, side to side or top to bottom. Both work as on the
 image node. The ratio buttons, **Fit**,
 the padlock and the orientation button work as on the image node: a tap pads (or,
