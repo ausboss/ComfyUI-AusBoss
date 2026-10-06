@@ -869,6 +869,11 @@
     "optional": [],
     "outputs": []
   },
+  "AUSBOSS_NODES_WorkflowSwitches": {
+    "required": [],
+    "optional": [],
+    "outputs": []
+  },
   "SimpleWatermarkRemover": {
     "required": [
       "image",

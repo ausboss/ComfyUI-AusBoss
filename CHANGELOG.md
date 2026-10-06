@@ -2,6 +2,18 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **New: Workflow Switches 🆎** (Utility). One small card that turns parts
+  of a workflow off and on. Select the nodes of one part, such as a box and
+  its Save Image, press **+ Switch**, and they get one off | on switch with a
+  name you choose. Every group can have a switch of its own too. Off
+  bypasses the nodes, so a step in the middle of a chain can be skipped and
+  the picture still reaches the steps after it. A setting mutes them
+  instead. **Done** shrinks the card to the labels and their switches, which
+  is the view to share a workflow with. A row whose nodes are only partly on
+  reads mixed. The node never runs and has no wires.
+
 ## 2.6.4 - 2026-10-05
 
 - **Integer steps by 1.** The arrows and a drag on the Integer node moved

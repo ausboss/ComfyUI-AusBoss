@@ -135,7 +135,10 @@ test("a panel that should follow the node's height never declares computeSize", 
   //
   // seed and run_timer are single rows of readouts and buttons under plain
   // widgets - a constant height by nature, nothing bigger behind them.
-  const fixedByDesign = new Set(["run_timer", "save_image", "seed", "widget_cards"]);
+  //
+  // workflow_switches is a list sized to its rows, like the widget cards: one
+  // row per switch, and extra height would only be dead space under the last.
+  const fixedByDesign = new Set(["run_timer", "save_image", "seed", "widget_cards", "workflow_switches"]);
   const seen = new Set();
   for (const { name, source } of domWidgetEntries()) {
     seen.add(name);
@@ -301,6 +304,7 @@ test("every panel root class carries border-box and an overflow clip", () => {
     workflow_note: ".ausboss-note{",
     seed: ".ausboss-seed{",
     run_timer: ".ausboss-timer{",
+    workflow_switches: ".ausboss-ws{",
   };
   for (const { name, source } of domWidgetEntries()) {
     const marker = roots[name];

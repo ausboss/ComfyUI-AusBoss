@@ -287,6 +287,10 @@ A setup card for a shared workflow: a title, instructions in Markdown, each mode
 
 A stopwatch for the whole run, with no wires. It starts when the queue starts running, holds the total when the run ends, and saves the last time with the workflow. Recent times are in its right-click menu. You can resize it. It only shows time and doesn't change how the graph runs.
 
+### Workflow Switches
+
+Turns parts of a workflow off and on from one small card. Select the nodes of one part, such as a box and its Save Image, press **+ Switch**, and they get one **off | on** switch with a name you choose. Every group can have a switch of its own too. Off bypasses the nodes, so a step in the middle of a chain can be skipped and the picture still reaches the steps after it; a setting mutes them instead. **Done** shrinks the card to the labels and their switches. A row whose nodes are only partly on reads **mixed**. The node never runs and has no wires.
+
 ## Example workflows
 
 These are the workflows where the nodes do something core ComfyUI doesn't do by itself: outpainting and inpainting that put your original picture back, lining an edit back up with its source, and removing a watermark from a clip. Open a JSON file from [`example_workflows/`](example_workflows), or find them under this pack in ComfyUI's template browser. Each one has a thumbnail, numbered groups and a Workflow Note with the setup steps and model downloads.
