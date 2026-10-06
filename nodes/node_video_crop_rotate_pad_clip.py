@@ -48,8 +48,8 @@ class AusBossVideoCropRotatePadClip:
         "mask of the generated area (rotation corners and padding), the audio "
         "for the same window, the frame count, fps, size, and duration, and a "
         "stitcher so Stitch Inpaint can paste the source frames back over the "
-        "generated clip. Fixed frames makes a movable window with an exact "
-        "output count; 0 restores free IN/OUT trimming."
+        "generated clip. Drag IN and OUT to trim, or turn Length on to set "
+        "the clip by a number of output frames from IN."
     )
     SEARCH_ALIASES = [
         "video crop",
@@ -228,13 +228,13 @@ class AusBossVideoCropRotatePadClip:
             "frame_load_cap": ("INT", {
                 "forceInput": True, "min": 0,
                 "tooltip": "Maximum returned frames after rate conversion and Every nth, "
-                           "before Snap. Overrides and locks Limit; 0 means unlimited.",
+                           "before Frames for. Overrides and locks Length; 0 means unlimited.",
             }),
             "fixed_frames": ("INT", {
                 "default": 0, "min": 0, "max": 100000,
-                "tooltip": "Exact output frames after rate conversion and Every nth; 0 = free trim. "
-                           "Drag either handle to move the whole window. Overrides OUT/end_frame, Limit, "
-                           "frame_load_cap and Snap. Duration = frames / output fps; 120 frames at 24 fps = 5 seconds. "
+                "tooltip": "Exact output frames after rate conversion and Every nth; 0 = off. "
+                           "Connected, it sets the length from IN. Overrides OUT/end_frame, Length, "
+                           "frame_load_cap and Frames for. Duration = frames / output fps; 120 frames at 24 fps = 5 seconds. "
                            "The source must be long enough. A linked IN anchors the window.",
             }),
         })

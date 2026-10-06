@@ -57,11 +57,11 @@ padding value unchanged.
   drift, with the stitcher wired into **Realign to Source 🆎**. On Qwen
   Image 2.1 restyles, a mirror margin tempted the model to zoom in and fill
   the canvas far less often than edge-pixel or flat gray padding.
-- **feather**: Ramps the mask *inward* across the image edge on each padded
+- **Feather** (`feather`): Ramps the mask *inward* across the image edge on each padded
   side (ramp width capped by the image size), so the sampler blends the
   seam. `0` keeps the seam hard. The padding itself always stays solid.
-- **Multiple** (`canvas_multiple`): The final canvas rounds to this
-  multiple. The extra pixels join a side you padded (the right or bottom one
+- **Multiple** (`canvas_multiple`, starts at `8`; `1` keeps every pixel):
+  The final canvas rounds to this multiple. The extra pixels join a side you padded (the right or bottom one
   when you padded both). If you padded neither left nor right, or neither
   top nor bottom, nothing is added there: a strip along an edge you left
   alone would be one more edge for the model to paint, and a thin one comes

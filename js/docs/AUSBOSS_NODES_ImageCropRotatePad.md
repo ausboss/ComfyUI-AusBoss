@@ -1,24 +1,53 @@
 # Image Crop + Rotate + Pad
 
-Loads an image and applies one reusable **rotate → crop → pad** transform. Click **Open editor** for the full-screen canvas (**Save & close** keeps your edits; **Cancel** or Escape puts everything back, asking first if anything changed); normal queued and API execution use the saved widget values without needing the editor.
+Loads a picture and lets you turn it, crop it and add empty space around it, by
+dragging handles on the node. Use it to frame a picture for a model, or to add
+space around a picture that the model then fills in (outpainting).
 
-## Controls
+The picture is turned first, then cropped, then padded. The node also makes the
+**mask** that tells the model where to paint, and a **stitcher** that puts your
+original back over the result.
 
-- **Image source**: Pick an existing input image (the list previews the image under the pointer and filters as you type) or click **Upload** in the compact
-  source card. Dropping an image onto the node still works. The original `image`
-  widget remains the saved/API value; the old picker and upload rows are hidden.
-- **Rotate → Degrees** (`rotation_degrees`): Clockwise rotation before crop and padding.
-- **crop_aspect_ratio**: Free crop, source ratio, or a fixed ratio.
-- **crop_x / crop_y / crop_width / crop_height**: Crop in rotated-image pixels. Width and height `0` mean the full available dimension.
-- **pad_left / pad_top / pad_right / pad_bottom**: New pixels around the crop.
-- **feather**: Feathers the mask into kept pixels, so a masked sampler and the stitch blend the seam. The image itself keeps a hard edge against the fill - the solid, hard-edged band that outpaint models and LoRAs recognise as the area to paint.
-- **Divisible by** (`canvas_multiple`): Adds a few pixels of fill on the right and bottom so the width and height divide evenly by this number. Some models need sizes divisible by 8, 16 or 32; `1` turns it off. Its arrows go 1, 8, 16, 24 and so on; Shift steps by 1.
-- **Fill** (`fill_color`): `#RRGGBB` or three RGB values used for generated pixels.
-- **Resize output → Resize / Megapixels / Method / Step** (`resize_to_megapixels` / `megapixels` / `resize_method` / `resolution_steps`): Optional resize of the finished output to a pixel budget, with core *Scale Image to Total Pixels* semantics — the budget is `megapixels × 1024 × 1024`, aspect is preserved, and each dimension rounds to a multiple of **Step** (8 or 64 keeps VAE-friendly sizes). The image uses the chosen **Method**; the mask always resizes bilinear so feathered edges cannot ring.
+## Quick start
+
+1. Pick a picture under **Image source**, or click **Upload**. Dropping a
+   picture onto the node works too.
+2. Drag the handles on the picture. Cyan squares crop. Orange diamonds add space
+   on one side. Orange corners make the whole canvas bigger or smaller. The
+   green knob turns the picture.
+3. Or tap a ratio such as **16:9** to pad the picture to that shape.
+4. Wire **image** and **mask** to your model, and **stitcher** to Stitch Inpaint
+   after the sampler.
+
+**Open editor** shows the same handles on a full-screen canvas, with zoom and
+pan. **Save & close** keeps your edits. **Cancel** or Escape puts everything
+back, and asks first if anything changed. You do not need the editor: a run
+uses what the node shows.
 
 ## On the node
 
-Tap a ratio under the preview to pad the picture to it: every pixel stays and
+From top to bottom:
+
+- **Image source**: the pictures in ComfyUI's input folder. The list shows the
+  picture under the pointer and filters as you type. **Upload** adds one. The
+  gear holds the node's display options.
+- **The picture**, with its handles.
+- **The size line**: each step that sets the output size, ending with the size
+  the run gives you.
+- **The ratio row**: the orientation button, the ratios (1:1, 4:3, 3:2, 16:9,
+  21:9) and the padlock.
+- **Fit** (crop | pad) and **Divisible by**.
+- **Fill**, **Feather**, **Resize** and the two **Centre** buttons.
+- **Open editor**, **Reset crop** and **Reset**.
+
+Crop and padding have no number boxes. You set them by dragging, and the size
+line shows the result. Picking another picture starts the framing over
+(rotation, crop and padding); Fill, Feather, Divisible by, Resize and a lit
+ratio stay.
+
+### Ratios, Fit and the padlock
+
+Tap a ratio under the picture to pad the picture to it: every pixel stays and
 fill bands are added around it, centred. Set **Fit** to crop and the ratio trims
 the picture instead. Tap the lit ratio again to go back to the whole picture.
 **Fit** only acts on a lit ratio, so it is dimmed and says "pick a ratio first"
@@ -64,39 +93,48 @@ padding to move. On a narrow node they sit on a line of their own.
 The orange diamonds move one side at a time, and the padlock works on them as
 described above. The corners keep the shape with or without the padlock. The
 green rotate knob moves aside when a corner handle sits where it usually goes.
-The editor has the same handles and a **Centre** row under **Padding & mask**.
 
-Technical details: a corner follows the pointer along the canvas diagonal, and
-the shape it keeps is the canvas before **Divisible by** adds its fill. With
-Divisible by on, **Centre** counts that strip on the right and bottom, so the
-bands you see come out even.
+### Fill, Feather and Resize
 
-**Divisible by** adds a few pixels of fill on the right and bottom so the width and
-height divide evenly by the number you pick. Some models need sizes divisible by
-8, 16 or 32; at 1 it is off.
+- **Fill** (`fill_color`): the colour of the added space and of the empty
+  corners a turn leaves. It starts gray. Added space on the picture is drawn in
+  the real fill colour with a faint hatch, and only the part the crop cuts away
+  is darkened.
+- **Feather** (`feather`, 24 px to start): softens the edge of the **mask** into
+  the kept picture, so the model and the stitch blend the seam. The image itself
+  keeps a hard edge against the fill. That solid band is what outpaint models
+  and LoRAs recognise as the area to paint.
+- **Resize** (`resize_to_megapixels`, off to start): resizes the finished output
+  to a size budget and keeps its shape. Turning it on opens a row with
+  **Megapixels** (`megapixels`, the budget) and **Step** (`resolution_steps`,
+  the number each resized side rounds to; 8 or 64 suits most image models).
+  **Method** (`resize_method`) is in the editor, under **Resize output**.
 
-The canvas row below holds **Fill**, the **Feather** amount in px, and the
-**Resize** off | on switch. Turning Resize on opens a row with the **Megapixels**
-budget and the **Step** each resized side rounds to; **Method** stays in the
-editor, under **Resize output**. Added space on the picture is drawn in the real
-fill colour with a faint hatch, and only the picture the crop cuts away is
-darkened. **Reset crop** restores the full source crop without changing rotation
-or padding. **Reset** clears rotation, crop and padding and turns the padlock
-off; fill, feather and **Divisible by** stay.
+### Divisible by
+
+**Divisible by** (`canvas_multiple`) adds a few pixels of fill on the right and
+bottom so the width and height divide evenly by the number you pick. Some models
+need sizes divisible by 8, 16 or 32. At 1 it is off. Its arrows go 1, 8, 16, 24
+and so on; hold Shift to step by 1.
+
+### The size line
 
 The line under the picture names every step that sets the output size, in the
 order the run applies them, with the size the run emits last and brightest:
 `crop 2080×1170 → pad 2208×1298 → round to 64 2240×1344 → resize 1344×768`. A step
-that changes nothing is left out. An amber line warns when rounding each side to
-the Step stretches the picture by more than 1% (`1.5% taller: each side rounds to
-32 px`); its tooltip names a Step that avoids it, and with Fit on pad, **Even
-out** adds a few pixels of padding so nothing stretches. It also warns when the
-resize undoes **Divisible by**. Hover the line for the same breakdown line by
-line; the editor's right panel shows it too.
+that changes nothing is left out, and "round to" is **Divisible by** at work. An
+amber line warns when rounding each side to the Step stretches the picture by
+more than 1% (`1.5% taller: each side rounds to 32 px`); its tooltip names a
+Step that avoids it, and with Fit on pad, **Even out** adds a few pixels of
+padding so nothing stretches. It also warns when the resize undoes **Divisible
+by**. Hover the line for the same breakdown line by line; the editor's right
+panel shows it too.
 
-Fill, Feather and Resize stay synchronized with the editor. Changing the resize budget
-updates the size readout immediately. Restoring a workflow or undoing a change
-refreshes the source card and preview without resetting the saved framing.
+### Reset crop and Reset
+
+**Reset crop** shows the whole picture again without changing rotation or
+padding. **Reset** clears rotation, crop and padding and turns the padlock off;
+Fill, Feather and **Divisible by** stay.
 
 ## Drawing a mask
 
@@ -114,10 +152,12 @@ to every Image Crop + Rotate + Pad in this browser.
 
 ## Outputs
 
-- **image**: BHWC float image batch. Animated image frames receive the identical transform.
+- **image**: the turned, cropped and padded picture. Every frame of an animated
+  image gets the same framing.
 - **mask**: White where the model paints: the padding, the empty corners a turn leaves, and the see-through parts of your picture.
 - **stitcher**: Wire to Stitch Inpaint to restore the kept canvas around an outpaint result, blended into the source by **Blend** (32 px unless changed). It follows the final resized canvas.
-- **original**: The loaded RGB image batch before rotation, crop, padding, or resize, with see-through parts shown as white. Existing image and mask sockets keep their positions.
+- **original**: your picture before rotation, crop, padding or resize, with
+  see-through parts shown as white.
 - **width** / **height**: The output size after the transform and any resize.
 - **prompt_image**: The image again, with see-through parts shown as white instead of the fill colour. Wire it to whatever writes your prompt. It is the same as **image** for a picture with no see-through parts.
 
@@ -160,9 +200,37 @@ A picture with no see-through parts comes out exactly as before.
   same rule applies: a stroke more than 10% strong is painted in full,
   including one at the MaskEditor's default 70% opacity.
 
-## Inpaint & Stitch
+## The editor
 
-The editor's right sidebar holds the stitcher's settings, the same as on the clip node:
+**Open editor** opens the full-screen canvas. Its left side holds the node's own
+controls: the same ratio row with its orientation button and padlock, the same
+**Fit** switch, and the same number boxes (drag to scrub, click to type, Shift
+for fine steps). The editor adds a few things the node does not show:
+
+- **Rotate → Degrees** (`rotation_degrees`): type an exact turn, clockwise.
+  Each step is 1°, or 0.1° with Shift. **Reset rotation** sets it back to 0.
+- **Padding & mask → Reset padding** removes all padding. The same section has
+  Fill, Feather, Divisible by and a **Centre** row.
+- **Resize output → Method** (`resize_method`): how the resize samples the
+  picture. `lanczos`, the default, is the sharp one.
+- **More**: ratios you added in `ausboss_presets.json` that no button shows.
+  The list only appears when you have some.
+- **Reset view** undoes zoom and pan. **Reset transform**
+  clears rotation, crop, padding, fill, feather and Divisible by; the picture,
+  resize and stitch settings stay.
+- **Preview**: a small picture of the finished output while you work.
+
+A ratio replaces the existing crop and padding and keeps rotation, fill and
+resize settings. **Divisible by** and the resize **Step** can slightly change
+the fitted shape. The size box on the stage sits clear of the handles.
+
+### Handles and gestures
+
+Drag cyan squares to resize the crop, drag inside to move it, orange diamonds to add padding on one side, orange corners to make the canvas bigger or smaller in its own shape (hold `Alt`, Option on a Mac, for all four sides), and the green handle to rotate. Hold `Shift` while rotating to snap to 15 degrees. The knob turns all the way round either way: past 180° it carries on from -180°, so an upside-down picture turns back up whichever way you drag. Rotating keeps the crop's size and keeps it over the same part of the picture, whichever control turns it (knob, number box, Reset rotation); with no crop the canvas grows to hold the tilted picture. The knob keeps clear of the padding handles and crop squares. Use the wheel to zoom and middle mouse or `Alt`-drag on an empty spot to pan. The same handles work directly on the node's compact preview (fit-only there — the wheel keeps zooming the graph); zoom and pan are editor-only.
+
+### Inpaint & Stitch
+
+The editor's right side holds the stitcher's settings, the same as on the clip node:
 
 - **Blend** (`stitch_blend`, default 32): the ramp, in output pixels, where generated
   pixels fade over the source. It is separate from **Feather**, which shapes the mask.
@@ -171,16 +239,30 @@ The editor's right sidebar holds the stitcher's settings, the same as on the cli
 - **Advanced → Grow paste** (`stitch_grow`, default 0) moves the paste boundary first:
   a few positive pixels let the generation repaint the source edge when a seam still shows.
 
-## Editor gestures
+## Technical details
 
-The editor's sidebar uses the node's own controls: the same ratio row with its
-orientation button and padlock, the same **Fit** switch, and the same number boxes
-(drag to scrub, click to type, Shift for fine steps: 0.1° on **Degrees**). Ratios you
-added in `ausboss_presets.json` that no button shows are in a **More** list. A ratio
-replaces the existing crop and padding and keeps rotation, fill and resize settings.
-**Divisible by** and the resize **Step** can slightly change the fitted aspect. The size
-box on the stage sits clear of the handles.
-
-Drag cyan squares to resize the crop, drag inside to move it, orange diamonds to add padding on one side, orange corners to make the canvas bigger or smaller in its own shape (hold `Alt`, Option on a Mac, for all four sides), and the green handle to rotate. Hold `Shift` while rotating to snap to 15 degrees. The knob turns all the way round either way: past 180° it carries on from -180°, so an upside-down picture turns back up whichever way you drag. Rotating keeps the crop's size and keeps it over the same part of the picture, whichever control turns it (knob, number box, Reset rotation); with no crop the canvas grows to hold the tilted picture. The knob keeps clear of the padding handles and crop squares. Use the wheel to zoom and middle mouse or `Alt`-drag on an empty spot to pan. The same handles work directly on the node's compact preview (fit-only there — the wheel keeps zooming the graph); zoom and pan are editor-only.
-
-The node performs no network requests and writes no files beyond a normal user-initiated ComfyUI upload.
+- **Saved values.** The handles write plain number values that save with the
+  workflow and that an API workflow can set directly. None of them shows as a
+  row on the node:
+  - `crop_x` / `crop_y` / `crop_width` / `crop_height`: the crop, in pixels of
+    the turned picture. Width and height `0` mean the full size.
+  - `pad_left` / `pad_top` / `pad_right` / `pad_bottom`: the added space on
+    each side, in pixels.
+  - `crop_aspect_ratio`: `free`, `source` or a fixed ratio that the crop box
+    keeps. It stays `free` unless Fit is on crop and the padlock is on.
+  - `fill_color`: `#RGB` or `#RRGGBB`, three numbers (`R, G, B`), one gray
+    number, or a colour name. Anything it cannot read becomes mid-gray.
+- **Corners.** A corner follows the pointer along the canvas diagonal, and the
+  shape it keeps is the canvas before **Divisible by** adds its fill. With
+  Divisible by on, **Centre** counts that strip on the right and bottom, so the
+  bands you see come out even.
+- **Resize.** It works like core's *Scale Image to Total Pixels*: the budget is
+  `megapixels × 1024 × 1024`, the shape is kept, and each side rounds to a
+  multiple of **Step**. The image uses the chosen **Method**; the mask always
+  resizes bilinear so feathered edges cannot ring.
+- **Your own ratios.** Copy `ausboss_presets_example.json` in the pack's folder
+  to `ausboss_presets.json` and edit the list, then reload the browser tab.
+- Restoring a workflow or undoing a change refreshes the picture without
+  resetting the saved framing.
+- The node performs no network requests and writes no files beyond a normal
+  user-initiated ComfyUI upload.

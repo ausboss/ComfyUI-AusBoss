@@ -25,6 +25,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
   card that is alone on its node, such as Image Resize, Seed or Workflow
   Switches, keeps its own height there as well. It used to stretch with a
   node made taller.
+- **Nodes 2.0: Load Image + Pad shows its picture once.** In the Nodes 2.0
+  look the node showed your picture twice: on its canvas, where you drag
+  the edges, and again underneath as a plain copy. The copy took the room
+  the canvas needs, so the canvas stayed small however tall you made the
+  node. With a picture wired in, the copy showed the file the node was not
+  using. The copy is gone and the canvas takes the spare height, as in the
+  classic look.
 - **Nodes 2.0: a node no longer shrinks until its picture is gone.** In the
   Nodes 2.0 look, dragging a node's corner up could squash its picture flat.
   Mask Refine ended with a thin line where the picture should be, Save Image

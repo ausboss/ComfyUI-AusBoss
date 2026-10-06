@@ -1,14 +1,15 @@
 # Krea 2 Outpaint Model Patch
 
-Tells Krea 2 **where** a reference image sits on the canvas.
-
-Reference latents normally arrive as extra tokens with no position, so the
-model treats them as a loose style hint — it borrows the look and reinvents
-the content. This patch registers those tokens into the target grid at the
-rectangle the stitcher reports, which is what makes an outpaint continue the
-source rather than paint something adjacent to it.
+Tells Krea 2 **where** a reference image sits on the canvas. Use it when you
+extend a picture with Krea 2 (outpainting), so the model carries your picture
+on instead of painting something that only looks similar.
 
 Place it **after** any LoRA loader and **before** the sampler.
+
+How it works: a reference normally reaches the model with no position, so
+the model treats it as a loose style hint. It borrows the look and reinvents
+the content. This patch pins the reference to the rectangle the stitcher
+reports.
 
 ## Controls
 
@@ -18,17 +19,19 @@ their saved values when the workflow is reloaded.
 
 - **model**: A Krea 2 model. Patch last, so a LoRA loaded afterwards does not
   replace the patched forward pass.
-- **stitcher**: From Load Image + Pad 🆎. Supplies the source rectangle. With
-  a stitcher from Crop For Inpaint 🆎, set **placement** to `whole canvas`:
-  on `source rectangle` the reference is pinned to where the crop sat in the
+- **stitcher**: From Load Image + Pad 🆎 or a Crop + Rotate + Pad 🆎 node.
+  It tells the patch where your picture sits on the canvas. With
+  a stitcher from Crop For Inpaint 🆎, set **Reference** to `whole canvas`:
+  on `source rect` the reference is pinned to where the crop sat in the
   full picture, not spread over the crop.
-- **kv_cache**: Compute the reference's keys and values once per run instead
-  of once per step. The reference does not change while sampling, so this is
-  free speed. Turn it off only to rule the cache out when debugging.
-- **placement**: Where the reference tokens go. `source rectangle` (default)
-  pins them to the rectangle the stitcher reports. `whole canvas` spreads
-  them over the full frame. Which one is right depends on the LoRA — see
-  below.
+- **KV cache** (`kv_cache`, `once per run` by default): Compute the
+  reference's keys and values once per run instead of once per step. The
+  reference does not change while sampling, so this is free speed. Set it to
+  `every step` only to rule the cache out when debugging.
+- **Reference** (`placement`): Where the reference tokens go. `source rect`
+  (`source rectangle`, the default) pins them to the rectangle the stitcher
+  reports. `whole canvas` spreads them over the full frame. Which one is
+  right depends on the LoRA — see below.
 
 ## Output
 
@@ -62,23 +65,26 @@ was always a flat patch of the picture's own median colour. Wire it like the
   sample from that latent at full denoise. The mask is what keeps the source
   pixels; the reference is what tells the model what they are.
 
-This wiring only extends the picture outward. Load Image + Pad 🆎 does not
-take a painted mask, so painting over part of the picture to change it
-(inpainting) is not supported.
+To repaint part of a picture instead of extending it, use the *Krea 2
+Inpaint Masked* example: Crop For Inpaint 🆎 cuts out the area you painted,
+and this patch runs on `whole canvas` with the same LoRA. Load Image + Pad 🆎
+itself does not take a painted mask.
 
 **One axis per pass — `source rectangle` + Registered Outpaint.** The same
 author's [Registered Outpaint](https://huggingface.co/yijunwang2/krea2-outpaint)
 (`krea2_outpaint_rank32.safetensors`) is the LoRA this placement was built
-for: the *unpadded* source goes in as the reference (the pad node's
-`reference` output, `vlm_reference` off) and is pinned to its rectangle. It
+for: the *unpadded* source goes in as the reference (Load Image + Pad 🆎's
+`reference` output, **VLM reference** off) and is pinned to its rectangle. It
 was trained on a source spanning one whole canvas axis — pad left/right and
 the source must span the full height, pad top/bottom and it must span the
 full width. Padding both axes in one pass is outside its training and the
 new region can break up; the node says so in the console when it sees it,
 and the cure is two passes: pad one axis, run, load the result, pad the
-other. **A rounding sliver counts**: if `canvas_multiple` rounds the other
-axis up by 11 px the source no longer spans it. The warning reports the
-spare pixels on each axis.
+other. **A thin strip counts.** On the Crop + Rotate + Pad nodes,
+**Divisible by** adds a few pixels of fill on the right and bottom; more
+than 8 px on the side you did not pad means the source no longer spans it.
+Load Image + Pad's **Multiple** never adds a strip there. The warning
+reports the spare pixels on each axis.
 
 Without either LoRA the patch still places the reference, but the bare
 Turbo model treats it loosely and results are hit and miss.
@@ -93,5 +99,5 @@ Turbo model treats it loosely and results are hit and miss.
   specifically. It imports those internals when you run it rather than at
   startup, so a break surfaces as an error on this node instead of the node
   disappearing from the menu.
-- Reference tokens cost attention. The reference is fitted to a short edge
-  before encoding for that reason — see Krea 2 Encode 🆎.
+- Reference tokens cost attention. The reference is shrunk so its longest
+  side is 384 px before encoding for that reason — see Krea 2 Encode 🆎.

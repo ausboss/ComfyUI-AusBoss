@@ -123,3 +123,38 @@ test("the video suppression also stands down Nodes 2.0's own output copy", () =>
   suppressCoreVideoPreview(node);
   assert.equal(node.hideOutputImages, true);
 });
+
+// Either way of standing Nodes 2.0's copy down: setting the flag, or calling
+// one of the shared suppressors above, which set it.
+function standsVueCopyDown(source) {
+  if (/\bhideOutputImages\s*=\s*true\b/.test(source)) return true;
+  const shared = source.match(/import\s*\{([^}]*)\}\s*from\s*"[^"]*core_preview\.mjs"/)?.[1] ?? "";
+  return ["suppressCoreImagePreview", "suppressCoreVideoPreview"]
+    .some((name) => new RegExp(`\\b${name}\\b`).test(shared) && source.includes(`${name}(`));
+}
+
+// A file that stands the classic preview down by hand names its widget.
+// Nodes 2.0 has no such widget to remove, only the flag. Load Image + Pad
+// removed the widget and never set the flag, so in Nodes 2.0 its picture
+// showed twice and the second copy took the pad stage's height.
+test("every file that stands the classic image preview down also stands Nodes 2.0's copy down", async () => {
+  const { readdirSync, readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const { join } = await import("node:path");
+  const js = fileURLToPath(new URL("../js", import.meta.url));
+  const files = readdirSync(js, { recursive: true }).map(String).filter((file) => /\.m?js$/.test(file)).map((file) => file.replaceAll("\\", "/"));
+  const byHand = files.filter((file) => readFileSync(join(js, file), "utf-8").includes(`"${CORE_IMAGE_PREVIEW_WIDGET}"`));
+  assert.ok(byHand.includes("shared/core_preview.mjs"), "the scan found the pack's scripts");
+  const twice = byHand.filter((file) => !standsVueCopyDown(readFileSync(join(js, file), "utf-8")));
+  assert.deepEqual(twice, [], "these show the node's picture twice in Nodes 2.0");
+  // Load Image + Pad by name, however it comes to do it.
+  assert.ok(standsVueCopyDown(readFileSync(join(js, "load_image_pad/index.js"), "utf-8")));
+});
+
+test("the scan tells a file that sets the flag from one that only removes the widget", () => {
+  assert.equal(standsVueCopyDown("node.hideOutputImages = true;"), true);
+  assert.equal(standsVueCopyDown('import { suppressCoreVideoPreview } from "./core_preview.mjs";\nsuppressCoreVideoPreview(node);'), true);
+  // Imported but never called, and a local function of the same name.
+  assert.equal(standsVueCopyDown('import { suppressCoreVideoPreview } from "./core_preview.mjs";'), false);
+  assert.equal(standsVueCopyDown("function suppressCoreImagePreview(node) { node.widgets.splice(0, 1); }\nsuppressCoreImagePreview(node);"), false);
+});

@@ -1,11 +1,12 @@
 # Integer
 
-A single `INT` value on its own wire. Set a step count, a size, or any other
-whole number once and share it across every node that needs it.
+A whole number. Set a step count, a size, or any other whole number once and
+wire it to every node that needs it.
 
 ## Controls
 
-- **value**: The integer to output.
+- **Value** (`value`): The whole number to send out. It starts at `0`. The
+  arrows and a drag move it by 1, or click and type.
 
 ## Output
 

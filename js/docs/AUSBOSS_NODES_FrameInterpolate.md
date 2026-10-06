@@ -1,9 +1,10 @@
 # Frame Interpolate
 
-Resamples a frame batch from one frame rate to another, so `24 -> 30` works
-as naturally as doubling. Every output frame maps to a position on the source
-timeline: positions that land exactly on a source frame are copied untouched,
-and only the true in-betweens are synthesized.
+Changes a clip's frame rate, for example 24 to 30, by making the in-between
+pictures. Use it to smooth a generated clip or to match another clip's rate;
+`24 -> 30` works as naturally as doubling. Every output frame maps to a
+position on the source timeline: positions that land exactly on a source
+frame are copied untouched, and only the true in-betweens are synthesized.
 
 ## Methods
 
@@ -35,12 +36,13 @@ disable detection and interpolate everything.
 - **frames**: Video frames as a BHWC `IMAGE` batch.
 - **FPS**, left box (`source_fps`): Frame rate of the incoming batch; wire
   Load Video's fps output to match the source.
-- **FPS**, right box (`target_fps`): Frame rate to resample to. Matching the
-  source rate passes the batch through unchanged.
-- **method**: `blend` or **optical flow (RAFT)**, as described above.
+- **FPS**, right box (`target_fps`): Frame rate to change to. Matching the
+  source rate passes the batch through unchanged. A new node starts at
+  24 → 30.
+- **Method** (`method`): `blend` or **optical flow (RAFT)**, as described above.
 - **Scene cut** (`scene_cut_threshold`): Cut sensitivity from 0 to 1; `0.35`
   suits most footage, `0` disables.
-- **Batch** (`batch_size`): In-between frames computed per batch. Higher is
+- **Batch** (`batch_size`, starts at `8`): In-between frames computed per batch. Higher is
   faster but uses more VRAM; results land in system memory as each batch
   finishes.
 

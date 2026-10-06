@@ -522,7 +522,9 @@ def save_custom_triggers(name: str, words: list[str]) -> list[str]:
 
 def _civitai_sidecar_path(name: str) -> Path:
     """The standard Civitai metadata sidecar beside the LoRA file. Other
-    tools write it; this pack only reads it and never contacts Civitai."""
+    tools write it, and so does this pack when the user clicks Fetch
+    Civitai info (the browser does the lookup; this server never
+    contacts Civitai)."""
     return resolve_lora_path(name).with_suffix(".civitai.info")
 
 

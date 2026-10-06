@@ -20,7 +20,8 @@ both directions.
 ## Preview
 
 The panel shows the frame that was selected, so a picked frame can be checked
-without a separate preview node. It updates when the graph runs — changing
+without a separate preview node. Before the first run it shows the picture or
+video feeding the node, not your chosen frame yet. It updates when the graph runs — changing
 **Frame** does not re-render it on its own, because the frame's pixels only
 exist on the server.
 

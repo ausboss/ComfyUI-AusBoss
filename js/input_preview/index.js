@@ -102,7 +102,7 @@ const NODE_CONFIG = {
   },
   AUSBOSS_NODES_SelectFrame: { inputName: "frames", noun: "frames" },
   // Its result is the file it just saved; the card sits above the panel.
-  AUSBOSS_NODES_SaveImage: { inputName: "images", noun: "an image" },
+  AUSBOSS_NODES_SaveImage: { inputName: "images", noun: "an image", switchTitle: "Show the saved image here. The file is saved either way." },
 };
 
 // The picture sits out of flow, centred in the stage, so it can never set
@@ -284,7 +284,7 @@ function previewEnabled(state) {
 function makePreviewToggle(state, signal) {
   const toggle = document.createElement("div");
   toggle.className = "ausboss-input-preview-toggle";
-  toggle.title = "Show this node's result here. Off also skips writing the preview file to the temp folder.";
+  toggle.title = state.switchTitle ?? "Show this node's result here. Off also skips writing the preview file to the temp folder.";
   const caption = document.createElement("span");
   caption.textContent = "preview";
   const button = document.createElement("button");
@@ -559,6 +559,7 @@ function buildPanel(node, config) {
     node,
     inputName: config.inputName,
     noun: config.noun,
+    switchTitle: config.switchTitle,
     advanced: config.advanced,
     root, bar, stage, img, video, hint, widget, abort,
     toast: toastEl,
