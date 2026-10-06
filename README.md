@@ -74,7 +74,7 @@ The Klein 9B Outpaint example pads its picture with Load Image + Pad. [Open the 
 
 Pick a folder, tick the pictures you want in a thumbnail gallery, and run the workflow on each one. **All in one run** does every picked picture with one press of Run. **One per run** loads one picture each run and steps to the next by itself, so a picture that fails only skips itself. It gives each picture's mask, its file name for saving the result under the same name, its number and how many there are.
 
-**Browse** lists the folders inside ComfyUI's input or output folder, and **Add** (or a drop on the node) copies pictures from your computer into the input folder. The node reads nothing outside those two folders.
+**Browse** lists the folders inside ComfyUI's input or output folder. A folder from anywhere else on your computer is brought in: drop it on the node, or choose it in your file explorer, and its pictures are copied into the input folder. A really big folder asks first. The node reads nothing outside those two folders.
 
 ### Image Resize
 

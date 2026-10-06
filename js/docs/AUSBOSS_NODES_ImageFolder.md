@@ -7,15 +7,36 @@ all of them, caption them, resize them, make pairs for training.
 
 ## How to use it
 
-1. Put your pictures in a folder inside ComfyUI's `input` folder. Or pick an
-   empty folder and press **Add**, or drop pictures on the node.
-2. Press **Browse** and choose the folder. Its pictures show as tiles.
+1. Bring your folder in. Drop it on the node from your file explorer. Or
+   press **Browse**, then **A folder on your computer**, and choose it. Its
+   pictures are copied into ComfyUI's `input` folder and show as tiles.
+2. A folder that is already inside ComfyUI's `input` or `output` folder is
+   chosen with **Browse**.
 3. Click a tile to take a picture out or put it back. **Shift + click** does
    every tile from the last one you clicked to this one. **All** and **None**
    do the whole folder.
 4. Wire **image** into your workflow, and **filename** into Save Image's
    `filename` so each result keeps its picture's name.
 5. Press **Run**.
+
+## A folder from anywhere on your computer
+
+The node only reads folders inside ComfyUI's own `input` and `output`
+folders. A folder from anywhere else is copied in:
+
+- **Drop it on the node**, or choose it with **Browse → A folder on your
+  computer** or **Add → A whole folder**. Your file explorer opens for the
+  last two.
+- Its pictures go into `input/<the folder's name>`, folders inside it too,
+  and the node moves to that copy.
+- **A really big folder asks first.** With more than 300 pictures or more
+  than 1 GB, the node says how many and how much, and waits for your yes.
+  Copying takes that much disk space again.
+- Bringing the same folder in again writes over its copies. It does not
+  pile up doubles.
+- A path typed or pasted into **Folder** works when it lies inside ComfyUI's
+  input or output folder. For any other path the node says so, with a
+  button that opens the file explorer.
 
 ## One run, or one picture per run
 
@@ -55,8 +76,8 @@ or starts over at the first.
 - A picked tile is bright with a tick and its number. The others are dim.
 - A number on teal means that picture went through since you opened the
   workflow.
-- **Add** copies pictures from your computer into the folder. It works for
-  the input folder only.
+- **Add** copies pictures, or a whole folder, from your computer into
+  ComfyUI's input folder.
 - **↻** looks in the folder again.
 
 ## Outputs
@@ -90,6 +111,9 @@ or starts over at the first.
 - Moving Picture on is done by the editor when a run is queued. A workflow
   sent through the API loads exactly the picture `position` names.
 - The node runs again when a picked file is added, removed or rewritten.
-- A folder lists up to 5,000 pictures.
+- A folder lists up to 5,000 pictures, and a folder that is brought in is
+  copied up to 3,000.
+- Bringing a folder in is done by your browser through ComfyUI's own upload.
+  The server never opens a path outside ComfyUI's input and output folders.
 - A mask painted in the MaskEditor is not part of a folder picture. Use Mask
   by Name, or load that one picture with a single-picture loader.

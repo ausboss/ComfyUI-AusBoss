@@ -19,6 +19,8 @@ from ._image_folder_helpers import (
     list_folders,
     list_pictures,
     load_picture,
+    looks_full,
+    place_inside,
     output_name,
     parse_picked,
     shown_folder,
@@ -45,7 +47,20 @@ def _root(source: str) -> Path:
     return Path(getter()).resolve()
 
 
+def _settle(source, folder) -> tuple[str, str]:
+    """(source, folder below it). A whole path that lies inside ComfyUI's input
+    or output folder is read as the folder it names; any other whole path is
+    refused by clean_folder when the folder is opened."""
+    source, folder = str(source), str(folder or "")
+    if looks_full(folder):
+        inside = place_inside(folder, {name: _root(name) for name in SOURCES})
+        if inside:
+            return inside
+    return source, folder
+
+
 def _picked(source, folder, subfolders, sort, pictures) -> list[dict]:
+    source, folder = _settle(source, folder)
     listed = list_pictures(_root(str(source)), folder, bool(subfolders), str(sort), str(source))
     if not listed:
         raise ValueError(NO_PICTURES.format(folder=shown_folder(folder, str(source))))
@@ -76,7 +91,8 @@ def _register_routes() -> None:
     async def folders(request):
         source = query(request, "source") or "input"
         try:
-            shown = clean_folder(query(request, "folder"))
+            source, folder = _settle(source, query(request, "folder"))
+            shown = clean_folder(folder)
             names = list_folders(_root(source), shown, source)
         except (ValueError, RuntimeError) as error:
             return refused(error)
@@ -86,7 +102,10 @@ def _register_routes() -> None:
     async def pictures(request):
         source = query(request, "source") or "input"
         try:
-            shown = clean_folder(query(request, "folder"))
+            # A pasted whole path inside ComfyUI's folders comes back as the
+            # folder it names, so the node can show it that way.
+            source, folder = _settle(source, query(request, "folder"))
+            shown = clean_folder(folder)
             listed = list_pictures(
                 _root(source), shown, query(request, "subfolders") == "1", query(request, "sort") or "name", source
             )
@@ -243,6 +262,7 @@ class AusBossImageFolder:
         if source is None or folder is None:      # wired in: only known when the run gets there
             return True
         try:
+            source, folder = _settle(source, folder)
             if not list_pictures(_root(str(source)), folder, True, "name", str(source), limit=1):
                 return NO_PICTURES.format(folder=shown_folder(folder, str(source)))
         except (ValueError, RuntimeError) as error:

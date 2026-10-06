@@ -10,9 +10,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
   picture each run and steps to the next by itself, so a picture that fails
   only skips itself. It gives each picture's mask, its file name (wire it to
   Save Image's filename and the result keeps the name), its number and the
-  count. Browse lists the folders inside ComfyUI's input or output folder,
-  and Add or a drop on the node copies pictures into the input folder. The
-  node reads nothing outside those two folders.
+  count. Browse lists the folders inside ComfyUI's input or output folder.
+  A folder from anywhere else is brought in: drop it on the node, or choose
+  it in your file explorer, and its pictures are copied into the input
+  folder. A really big folder asks first. The node reads nothing outside
+  those two folders.
 - **Nodes 2.0: the picture takes the spare height, not the card.** In the
   Nodes 2.0 look, a node with a card on top and a picture below gave half of
   its spare height to the card. The card got empty space under its last row
