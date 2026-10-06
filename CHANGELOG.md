@@ -2,6 +2,18 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Nodes 2.0: the picture takes the spare height, not the card.** In the
+  Nodes 2.0 look, a node with a card on top and a picture below gave half of
+  its spare height to the card. The card got empty space under its last row
+  and the picture was drawn small. Mask Refine, Mask by Name, Save Image,
+  Select Frame and LaMa Inpaint showed it even at their smallest size, and
+  Load Video and Save Video once they were made taller. The card now keeps
+  its own height and the picture takes the rest, as in the classic look. A
+  card that is alone on its node, such as Image Resize, keeps its own height
+  there as well.
+
 ## 2.7.0 - 2026-10-06
 
 - **New: Mask by Name 🆎** (Mask). Type what to find in a picture, like "the

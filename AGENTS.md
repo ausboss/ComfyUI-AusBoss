@@ -186,6 +186,10 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   dragged taller. `tests/panel_guards.test.mjs` enforces this pack-wide: a
   new panel entry must be added to its `mustGrow` set (or `fixedByDesign`
   for genuinely constant-height rows), so the choice is always explicit.
+  A `fixedByDesign` card that can sit above such a panel also calls
+  `pinVuePanelHeight`: its own `computeSize` only pins it in the classic
+  renderer, and Nodes 2.0 would stretch it with the node and squeeze the
+  picture under it.
 - **A panel's declared minimum width is its node's real floor.** Pass
   `exactMinWidth: true` to `fillNodeHeight`; a constant-height card that
   keeps its own `computeSize` calls `holdNodeMinWidth` instead. Left alone,

@@ -9,6 +9,7 @@ import {
   holdVueNodeMinWidth,
   measureLayoutWidthPadding,
   nodeHeightAfterCardChange,
+  pinVuePanelHeight,
 } from "../js/shared/panel_layout.mjs";
 
 test("fillNodeHeight drops computeSize and declares a floor with no ceiling", () => {
@@ -153,6 +154,29 @@ test("a widget that pins its own computeSize never had a width floor", () => {
   holdNodeMinWidth(card, 300);
   assert.equal(node.computeSize()[0], 300, "the card's number is now the floor");
   assert.equal(node.computeSize()[1], 300, "the height is left to the frontend");
+});
+
+test("pinVuePanelHeight keeps a pinned card out of the Nodes 2.0 height split", () => {
+  // Nodes 2.0's rule for a widget's row (frontend 1.53: the widget grid makes
+  // the row `auto`, which shares the node's spare height, and `min-content`
+  // otherwise). A DOM widget inherits a computeLayoutSize from the frontend's
+  // class, so a card that pins only its computeSize still shares that height
+  // with the picture panel under it.
+  const sharesSpareHeight = (widget) => typeof widget.computeLayoutSize === "function";
+  class DomWidget {
+    computeLayoutSize() { return { minHeight: 50, minWidth: 0 }; }
+  }
+  const card = new DomWidget();
+  const viewer = new DomWidget();
+  card.computeSize = () => [300, 120];
+  assert.equal(sharesSpareHeight(card), true, "pinned for the classic renderer alone");
+  assert.equal(pinVuePanelHeight(card), card);
+  assert.equal(sharesSpareHeight(card), false);
+  assert.deepEqual(card.computeSize(), [300, 120], "the classic pin is left as it was");
+  assert.equal(sharesSpareHeight(viewer), true, "only this widget is pinned, not every DOM widget");
+  fillNodeHeight(viewer, { minWidth: 200, minHeight: 140 });
+  assert.equal(sharesSpareHeight(viewer), true, "a growing panel keeps taking the spare height");
+  assert.equal(pinVuePanelHeight(null), null);
 });
 
 test("holdNodeMinWidth only ever raises a node's width", () => {

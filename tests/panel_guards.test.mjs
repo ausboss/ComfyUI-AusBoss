@@ -77,10 +77,11 @@ test("every resizable DOM panel declares its minimum width to BOTH layout paths"
     // minNodeSize option. Missing either leaves one frontend family able to
     // resize the node under the panel, which then holds its own minimum and
     // pokes past the border - the overflow clip cuts at the panel's edge,
-    // not the node's.
+    // not the node's. A card that pins its height has no computeLayoutSize
+    // (see the Nodes 2.0 test below): holdNodeMinWidth is its floor.
     assert.match(
       source,
-      /(computeLayoutSize\s*=\s*\(\)\s*=>\s*\(\{\s*\n?\s*minWidth|fillNodeHeight\([\s\S]{0,120}?minWidth)/,
+      /(computeLayoutSize\s*=\s*\(\)\s*=>\s*\(\{\s*\n?\s*minWidth|fillNodeHeight\([\s\S]{0,120}?minWidth|holdNodeMinWidth\()/,
       `${name}: DOM widget has no computeLayoutSize minWidth - the node can shrink out from under the panel`,
     );
     assert.match(
@@ -235,6 +236,53 @@ test("a panel that pins its own height still makes its declared width the floor"
   }
   for (const expected of ["seed/index.js", "save_image/index.js", "shared/widget_card.mjs", "run_timer/index.js"]) {
     assert.ok(pinned.includes(expected), `${expected} should be one of the pinned panels the audit checks`);
+  }
+});
+
+test("a pinned card keeps its own height in Nodes 2.0 too", () => {
+  // Each renderer has its own sign for a panel that keeps its height. The
+  // classic one skips a widget that has a computeSize. Nodes 2.0 gives a
+  // widget's row a share of the node's spare height whenever the widget has a
+  // computeLayoutSize, and every DOM widget inherits one. So a card that only
+  // pinned its computeSize was stretched there: on a node with a picture under
+  // the card (Mask Refine, Save Image, Mask by Name, Load Video) the card took
+  // half the spare height as empty space under its last row, and the picture
+  // was squeezed into the rest. pinVuePanelHeight clears the inherited method;
+  // assigning a computeLayoutSize afterwards would put the stretch back.
+  //
+  // Listed, not derived, so leaving a panel out is a deliberate call: these
+  // are the only panel on their node, with nothing under them to squeeze. Run
+  // Timer's readout is its node's whole face and fills it on purpose.
+  const aloneOnItsNode = new Set(["run_timer/index.js", "seed/index.js", "workflow_switches/index.js"]);
+  const preview = readFileSync(join(JS_ROOT, "input_preview", "index.js"), "utf-8");
+  const pinnedInBoth = [];
+  for (const { file, source } of allScripts()) {
+    if (file === "shared/panel_layout.mjs") continue;
+    if (!/\.addDOMWidget\(/.test(source)) continue;
+    if (!/\b(widget|domWidget)\.computeSize\s*=/.test(source)) continue;
+    if (aloneOnItsNode.has(file)) {
+      const nodeClass = source.match(/NODE_CLASS = "(AUSBOSS_NODES_\w+)"/)?.[1];
+      assert.ok(nodeClass, `${file}: no NODE_CLASS to check against the preview panel's nodes`);
+      assert.ok(
+        !preview.includes(`${nodeClass}:`) && !/fillNodeHeight\(/.test(source),
+        `${file}: listed as the only panel on its node, but the node has a growing panel too - call pinVuePanelHeight`,
+      );
+      continue;
+    }
+    pinnedInBoth.push(file);
+    assert.match(
+      source,
+      /pinVuePanelHeight\(/,
+      `${file}: pins a widget's computeSize but never calls pinVuePanelHeight - Nodes 2.0 stretches the card and squeezes the panel under it`,
+    );
+    assert.doesNotMatch(
+      source,
+      /\.computeLayoutSize\s*=/,
+      `${file}: assigns a computeLayoutSize to a pinned panel - Nodes 2.0 reads that as a row that takes spare height`,
+    );
+  }
+  for (const expected of ["save_image/index.js", "shared/widget_card.mjs"]) {
+    assert.ok(pinnedInBoth.includes(expected), `${expected} should be one of the pinned cards the audit checks`);
   }
 });
 
