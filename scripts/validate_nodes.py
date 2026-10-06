@@ -57,6 +57,7 @@ PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_FrameInterpolate",
     "AUSBOSS_NODES_FreeMemory",
     "AUSBOSS_NODES_ImageCropRotatePad",
+    "AUSBOSS_NODES_ImageFolder",
     "AUSBOSS_NODES_ImageResize",
     "AUSBOSS_NODES_ImageSize",
     "AUSBOSS_NODES_Integer",

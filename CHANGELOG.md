@@ -2,6 +2,18 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **New: Image Folder 🆎** (Image). Pick a folder, tick the pictures you
+  want in a thumbnail gallery, and run the workflow on each one. All in one
+  run does every picked picture with one press of Run. One per run loads one
+  picture each run and steps to the next by itself, so a picture that fails
+  only skips itself. It gives each picture's mask, its file name (wire it to
+  Save Image's filename and the result keeps the name), its number and the
+  count. Browse lists the folders inside ComfyUI's input or output folder,
+  and Add or a drop on the node copies pictures into the input folder. The
+  node reads nothing outside those two folders.
+
 ## 2.7.0 - 2026-10-06
 
 - **New: Mask by Name 🆎** (Mask). Type what to find in a picture, like "the
