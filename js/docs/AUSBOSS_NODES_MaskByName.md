@@ -42,6 +42,11 @@ nothing instead.
 - **More → Sureness** (`threshold`): how sure SAM 3 must be that something
   matches. Lower it when a small thing is missed. Raise it when it picks up
   something that is not the thing.
+- **More → Fill holes** (`fill_holes`): fills gaps that lie fully inside the
+  mask, like the spots SAM 3 leaves in hair or cloth. On gives a solid shape.
+- **More → Free VRAM** (`free_vram`): takes SAM 3 out of the graphics card's
+  memory right after the search, so the next model has the room. Off keeps
+  it loaded, which makes the next search faster.
 - **FIND**: runs only this node and what feeds it.
 - **1 found · 96% sure**: how many things matched, and how sure SAM 3 was of
   the best one. A low number means: look at the picture, it may have picked
@@ -70,7 +75,15 @@ nothing instead.
   older one.
 - The mask is the size of the picture. For more control over the edge (close
   holes, smooth, snap to the picture) follow it with Mask Refine.
-- **Grow** and **Soften** are the same expand and blur Mask Refine uses.
+- **Grow**, **Soften** and **Fill holes** are the same expand, blur and fill
+  Mask Refine uses, in that node's order: grow, fill, soften. Fill holes
+  fills every enclosed gap, also a wanted one such as the middle of a ring.
+  Mask Refine can limit it by size.
+- **Free VRAM** unloads only SAM 3 and its text reader, with ComfyUI's own
+  unload of one model. Every other model stays loaded, and SAM 3 stays in
+  system memory, so it comes back quickly. ComfyUI also moves a model out by
+  itself when the next one needs the room; the switch is for when you want
+  SAM 3 out at once, also after a search that found nothing.
 - With several pictures in a batch, each one is searched on its own. A
   picture without the thing gets an empty mask, and the run stops only when
   no picture has it.

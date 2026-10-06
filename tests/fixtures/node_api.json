@@ -459,7 +459,9 @@
     ],
     "optional": [
       "preview",
-      "threshold"
+      "threshold",
+      "fill_holes",
+      "free_vram"
     ],
     "outputs": [
       [

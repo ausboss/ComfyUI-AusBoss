@@ -164,6 +164,8 @@ const CARDS = {
       { widget: "if_nothing", label: "If nothing", kind: "segment" },
       { group: "advanced", label: "More" },
       { widget: "threshold", label: "Sureness", group: "advanced" },
+      { widget: "fill_holes", label: "Fill holes", group: "advanced" },
+      { widget: "free_vram", label: "Free VRAM", group: "advanced" },
     ],
   },
   AUSBOSS_NODES_FrameInterpolate: {

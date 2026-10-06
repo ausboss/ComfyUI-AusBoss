@@ -74,12 +74,22 @@ def use_fake_core(testcase, found):
     testcase.addCleanup(setattr, node_mask_by_name, "_core_nodes", real)
 
 
-def run(image=None, **overrides):
+def run(image=None, model="sam3 model", clip="sam3 clip", **overrides):
     values = {"name": "the dog", "several": SEVERAL[0], "grow": 0, "soften": 0.0, "if_nothing": IF_NOTHING[0], "preview": False, "threshold": 0.5}
     values.update(overrides)
     node = node_mask_by_name.AusBossMaskByName()
     picture = torch.rand(1, H, W, 3) if image is None else image
-    return node.find(picture, "sam3 model", "sam3 clip", **values)
+    return node.find(picture, model, clip, **values)
+
+
+def use_fake_memory(testcase, management):
+    """Stand in for comfy.model_management, which is not there in tests."""
+    real = node_mask_by_name._model_management
+    node_mask_by_name._model_management = lambda: management
+    testcase.addCleanup(setattr, node_mask_by_name, "_model_management", real)
+
+
+SAM3_CLIP = types.SimpleNamespace(patcher="sam3 text reader")
 
 
 class HelperTests(unittest.TestCase):
@@ -214,6 +224,50 @@ class NodeTests(unittest.TestCase):
         self.assertTrue(0.05 < float(soft[10, 35]) < 0.95, "the edge is no longer hard")
         exact = run()["result"][0][0]
         self.assertTrue(torch.equal(exact, BIG), "0 and 0 keep the outline SAM 3 found")
+
+    def test_fill_holes_closes_gaps_inside_the_thing_and_adds_nothing_outside(self):
+        holed = BIG.clone()
+        holed[17:23, 30:40] = 0.0
+        use_fake_core(self, [[holed]])
+        plain = run()["result"][0][0]
+        self.assertEqual(float(plain[20, 35]), 0.0, "off keeps the gap SAM 3 left")
+        filled = run(fill_holes=True)["result"][0][0]
+        self.assertTrue(torch.equal(filled, BIG), "on gives the solid shape")
+        spec = node_mask_by_name.AusBossMaskByName.INPUT_TYPES()["optional"]["fill_holes"][1]
+        self.assertIs(spec["default"], False)
+
+    def test_free_vram_unloads_sam3_and_its_text_reader_and_only_when_asked(self):
+        unloaded = []
+        use_fake_memory(self, types.SimpleNamespace(unload_model_and_clones=unloaded.append))
+        use_fake_core(self, [[BIG]])
+        run(clip=SAM3_CLIP)
+        self.assertEqual(unloaded, [], "off by default: SAM 3 stays loaded for the next search")
+        mask = run(clip=SAM3_CLIP, free_vram=True)["result"][0]
+        self.assertEqual(unloaded, ["sam3 model", "sam3 text reader"], "only the two it was given")
+        self.assertTrue(torch.equal(mask[0], BIG), "the mask is what it was")
+        spec = node_mask_by_name.AusBossMaskByName.INPUT_TYPES()["optional"]["free_vram"][1]
+        self.assertIs(spec["default"], False)
+
+    def test_free_vram_also_unloads_when_the_run_stops(self):
+        unloaded = []
+        use_fake_memory(self, types.SimpleNamespace(unload_model_and_clones=unloaded.append))
+        use_fake_core(self, [[]])
+        with self.assertRaises(RuntimeError):
+            run(clip=SAM3_CLIP, free_vram=True)
+        self.assertEqual(unloaded, ["sam3 model", "sam3 text reader"])
+
+    def test_free_vram_never_fails_a_run(self):
+        use_fake_core(self, [[BIG]])
+        # A ComfyUI without that function, and no ComfyUI at all.
+        for management in (types.SimpleNamespace(), None):
+            use_fake_memory(self, management)
+            self.assertTrue(torch.equal(run(clip=SAM3_CLIP, free_vram=True)["result"][0][0], BIG))
+
+        def refuses(_patcher):
+            raise RuntimeError("cannot unload")
+
+        use_fake_memory(self, types.SimpleNamespace(unload_model_and_clones=refuses))
+        self.assertTrue(torch.equal(run(clip=SAM3_CLIP, free_vram=True)["result"][0][0], BIG))
 
     def test_without_comfyuis_sam3_it_says_what_it_needs(self):
         real = node_mask_by_name._core_nodes

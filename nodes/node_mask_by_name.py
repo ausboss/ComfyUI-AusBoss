@@ -36,6 +36,31 @@ def _core_nodes() -> dict:
     return mappings if isinstance(mappings, dict) else {}
 
 
+def _model_management():
+    """ComfyUI's model management module. None outside ComfyUI."""
+    return sys.modules.get("comfy.model_management")
+
+
+def _free_sam3(model, clip) -> bool:
+    """Take SAM 3 and its text reader out of VRAM. Every other model stays.
+
+    ComfyUI's own unload of one model does the work. Best effort: where that
+    function is missing or fails, nothing is freed and the run goes on."""
+    unload = getattr(_model_management(), "unload_model_and_clones", None)
+    if unload is None:
+        return False
+    freed = False
+    for patcher in (model, getattr(clip, "patcher", None)):
+        if patcher is None:
+            continue
+        try:
+            unload(patcher)
+            freed = True
+        except Exception:  # noqa: BLE001 - freeing memory never fails a run
+            pass
+    return freed
+
+
 def _stopped_by_user(error: BaseException) -> bool:
     return type(error).__name__ == "InterruptProcessingException"
 
@@ -149,6 +174,27 @@ class AusBossMaskByName:
                         ),
                     },
                 ),
+                "fill_holes": (
+                    "BOOLEAN",
+                    {
+                        "default": False,
+                        "tooltip": (
+                            "Fill gaps that lie fully inside the mask, like the spots "
+                            "SAM 3 leaves in hair or cloth. On gives a solid shape."
+                        ),
+                    },
+                ),
+                "free_vram": (
+                    "BOOLEAN",
+                    {
+                        "default": False,
+                        "tooltip": (
+                            "After the search, take SAM 3 out of the graphics card's "
+                            "memory so the next model has the room. Off keeps it "
+                            "loaded, which makes the next search faster."
+                        ),
+                    },
+                ),
             },
         }
 
@@ -199,17 +245,26 @@ class AusBossMaskByName:
         scores = sorted((float(box.get("score", 0.0)) for box in (boxes[0] if boxes else [])), reverse=True)
         return masks, counts, scores
 
-    def find(self, image, model, clip, name, several, grow, soften, if_nothing, preview=True, threshold=SURENESS):
+    def find(
+        self, image, model, clip, name, several, grow, soften, if_nothing,
+        preview=True, threshold=SURENESS, fill_holes=False, free_vram=False,
+    ):
         text = clean_name(name)
         if not text:
             raise ValueError(NO_NAME)
-        masks, counts, scores = self._detect(model, clip, image, text, threshold)
+        try:
+            masks, counts, scores = self._detect(model, clip, image, text, threshold)
+        finally:
+            # Also when the search failed or is about to stop the run: SAM 3
+            # was loaded for it either way.
+            if free_vram and _free_sam3(model, clip):
+                print("[AusBoss] Mask by Name: SAM 3 unloaded from VRAM.")
         if not sum(counts) and str(if_nothing) != "empty mask":
             raise RuntimeError(nothing_message(text))
         per_picture = [pick(found, str(several)) for found in split_by_frame(masks, counts)]
         mask = torch.stack(per_picture).to(dtype=torch.float32)
-        if int(grow) > 0 or float(soften) > 0:
-            mask = refine_mask(mask, int(grow), float(soften), False)[0]
+        if int(grow) > 0 or float(soften) > 0 or fill_holes:
+            mask = refine_mask(mask, int(grow), float(soften), bool(fill_holes))[0]
         found = int(counts[0]) if counts else 0
         result = (mask, cut_out(image, mask), found)
         note = [{"found": found, "name": text, "sure": [round(score, 2) for score in scores[:8]]}]

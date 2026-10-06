@@ -172,7 +172,7 @@ Krea 2 Inpaint Masked turns the painted fur coat into a leather jacket, using Ma
 
 Type what to find in a picture, like "the dog" or "the red jacket", and get its mask. Nothing to paint. The node shows what it found, tinted on the picture, with how sure it is, and **FIND** runs only this node so you can check the mask before the rest of the workflow runs. When it finds nothing it stops the run with a plain message, so nothing after it runs on an empty mask; a setting passes an empty mask on instead.
 
-It also returns the thing cut out on a see-through background, and how many things matched. The search is ComfyUI's own SAM 3: wire `model` and `clip` from a Load Checkpoint that loads the SAM 3 file. Needs ComfyUI 0.38 or newer.
+It also returns the thing cut out on a see-through background, and how many things matched. Under **More**: how sure SAM 3 must be, fill the holes in the mask, and free SAM 3 from VRAM after the search. The search is ComfyUI's own SAM 3: wire `model` and `clip` from a Load Checkpoint that loads the SAM 3 file. Needs ComfyUI 0.38 or newer.
 
 ### Mask Refine
 
