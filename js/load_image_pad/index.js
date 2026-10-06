@@ -68,6 +68,9 @@ function numberValue(node, name, fallback = 0) {
 // Core's image_upload helper installs its own source preview under the
 // widgets; this node draws the source itself, so keep only the useful one.
 function suppressCoreImagePreview(node) {
+  // Nodes 2.0 has no preview widget to remove: it draws the node's images
+  // under the widgets itself unless this flag is set. Classic never reads it.
+  node.hideOutputImages = true;
   const previewIndex = node.widgets?.findIndex(
     (widget) => widget.name === CORE_IMAGE_PREVIEW_WIDGET,
   ) ?? -1;
