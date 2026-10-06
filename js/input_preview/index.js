@@ -1,5 +1,5 @@
-// The in-node preview panel for LaMa Inpaint, Mask Refine, Select Frame and
-// Save Image.
+// The in-node preview panel for LaMa Inpaint, Mask Refine, Mask by Name,
+// Select Frame and Save Image.
 //
 // It shows this node's own result once it has one, and falls back to a
 // thumbnail of whatever feeds its IMAGE/MASK input before the graph has run.
@@ -13,7 +13,7 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { isForeignRun } from "../shared/prompt_scope.mjs";
-import { nodeByExecutionId } from "../shared/graph_ids.mjs";
+import { executionIdOf, nodeByExecutionId } from "../shared/graph_ids.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { ensureNodeMinHeight, fillNodeHeight } from "../shared/panel_layout.mjs";
 import { suppressCoreImagePreview } from "../shared/core_preview.mjs";
@@ -21,6 +21,7 @@ import { autoMaskValues } from "../shared/mask_auto.mjs";
 import { hideInputsInDef, hideWidget, setWidgetVisible } from "../shared/widget_visibility.mjs";
 import {
   describeNodePreview,
+  describeSourcePreview,
   outputLocatorId,
   outputRecordQuery,
   placeholderText,
@@ -75,6 +76,30 @@ const NODE_CONFIG = {
       { label: "MORE", title: "Show the advanced mask controls", action: toggleAdvanced },
     ],
   },
+  // Shows the picture with what it found tinted. FIND runs this node alone,
+  // so the mask can be checked before anything after it runs; the readout
+  // says how many things matched.
+  AUSBOSS_NODES_MaskByName: {
+    inputName: "image",
+    noun: "an image",
+    tools: [
+      { label: "FIND", title: "Find it now. Runs only this node, so you see the mask before anything else runs.", action: findOnly },
+    ],
+    readout: (output) => {
+      const note = output?.ausboss_mask_by_name?.[0];
+      const found = Number(note?.found);
+      if (!Number.isFinite(found)) return null;
+      // How sure SAM 3 was of its best match: a low number is a hint that it
+      // may have picked up something else.
+      const best = Number(note?.sure?.[0]);
+      const sure = found > 0 && Number.isFinite(best) ? ` \u00b7 ${Math.round(best * 100)}% sure` : "";
+      return { text: `${found} found${sure}`, warn: found === 0 };
+    },
+    // A run this node stopped: its own message goes on its face.
+    stopped: (message) => (/^Mask by Name: nothing called/.test(String(message ?? ""))
+      ? { readout: { text: "0 found", warn: true }, note: String(message).replace(/^Mask by Name: n/, "N") }
+      : null),
+  },
   AUSBOSS_NODES_SelectFrame: { inputName: "frames", noun: "frames" },
   // Its result is the file it just saved; the card sits above the panel.
   AUSBOSS_NODES_SaveImage: { inputName: "images", noun: "an image" },
@@ -108,6 +133,10 @@ function ensureCss() {
 .ausboss-input-preview-switch::after{content:"";position:absolute;top:2px;left:2px;width:9px;height:9px;border-radius:50%;background:#9ba2aa;transition:left .12s}
 .ausboss-input-preview-switch.on{background:${BRAND}}
 .ausboss-input-preview-switch.on::after{left:13px;background:#fff}
+.ausboss-input-preview-readout{box-sizing:border-box;height:${BAR_HEIGHT}px;padding:0 7px;border:1px solid rgba(0,180,170,.5);border-radius:10px;background:rgba(0,180,170,.14);color:${BRAND};font:700 9.5px/18px "Segoe UI",sans-serif;white-space:nowrap;pointer-events:none;}
+.ausboss-input-preview-readout:empty{display:none;}
+.ausboss-input-preview-readout.warn{border-color:#c98a2b;background:rgba(201,138,43,.16);color:#ffd9a0;}
+.ausboss-input-preview-note{display:none;position:absolute;left:6px;right:6px;bottom:6px;z-index:6;padding:6px 8px;border:1px solid #c98a2b;border-radius:6px;background:rgba(20,10,0,.86);color:#ffd9a0;font:600 11px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-align:center;pointer-events:none;}
 .ausboss-input-preview-toast{position:absolute;left:50%;bottom:6px;z-index:5;max-width:88%;padding:3px 7px;border-radius:4px;background:rgba(0,0,0,.78);color:#b8d3d1;font:10px/1.3 "Segoe UI",sans-serif;text-align:center;transform:translateX(-50%);pointer-events:none;}
 `;
   document.head.appendChild(style);
@@ -124,6 +153,33 @@ function toast(state, text) {
 
 function widgetByName(node, name) {
   return node.widgets?.find((widget) => widget?.name === name) ?? null;
+}
+
+// Queue this node alone: ComfyUI runs it and what feeds it, nothing after it.
+// The node has to be an output node for that, which Mask by Name is.
+function findOnly(state) {
+  const id = executionIdOf(app.rootGraph ?? app.graph, state.node);
+  if (!id || typeof app.queuePrompt !== "function") {
+    toast(state, "Press Run to find it.");
+    return;
+  }
+  setNote(state, "");
+  toast(state, "Looking...");
+  Promise.resolve(app.queuePrompt(0, 1, [id])).catch(() => toast(state, "Could not start the run."));
+}
+
+// The small readout beside the tools ("1 found"), and the note laid over the
+// picture when the node stopped the run.
+function setReadout(state, readout) {
+  if (!state.readout) return;
+  state.readout.textContent = readout?.text ?? "";
+  state.readout.classList.toggle("warn", Boolean(readout?.warn));
+}
+
+function setNote(state, text) {
+  if (!state.note) return;
+  state.note.textContent = text ?? "";
+  state.note.style.display = text ? "block" : "none";
 }
 
 function setWidgetValue(node, name, value) {
@@ -381,7 +437,12 @@ function refresh(state) {
     showHint(state, staleText());
     return;
   }
-  const described = describeNodePreview(state.node, state.inputName, storedResultUrl(state.node));
+  // A node that just stopped the run has no result for this picture: the
+  // one it still holds is from an earlier run (Mask by Name's last find,
+  // tinted), so show what feeds it instead.
+  const described = state.resultGone
+    ? describeSourcePreview(source)
+    : describeNodePreview(state.node, state.inputName, storedResultUrl(state.node));
   if (!described) {
     clearMedia(state);
     showHint(state, placeholderText(!!source, state.noun));
@@ -507,6 +568,14 @@ function buildPanel(node, config) {
   };
   livePanels.add(state);
   if (config.tools?.length) bar.append(buildTools(state, config.tools, abort.signal));
+  if (config.readout) {
+    state.readout = document.createElement("span");
+    state.readout.className = "ausboss-input-preview-readout";
+    bar.append(state.readout);
+    state.note = document.createElement("div");
+    state.note.className = "ausboss-input-preview-note";
+    stage.append(state.note);
+  }
   syncAdvanced(state);
   installPreviewSwitch(state, abort.signal);
 
@@ -541,6 +610,26 @@ api.addEventListener("executing", ({ detail }) => {
   }
 });
 
+// A node that stopped the run on purpose (Mask by Name found nothing) says so
+// on its own face too, where the person is looking, not only in ComfyUI's
+// error box.
+api.addEventListener("execution_error", ({ detail }) => {
+  try {
+    if (!livePanels.size || isForeignRun(detail?.prompt_id)) return;
+    const stopped = NODE_CONFIG[detail?.node_type]?.stopped?.(detail?.exception_message);
+    if (!stopped) return;
+    const node = nodeByExecutionId(app.rootGraph ?? app.graph, String(detail.node_id));
+    const state = node?.__ausbossInputPreview;
+    if (!state?.alive) return;
+    setReadout(state, stopped.readout);
+    setNote(state, stopped.note);
+    state.resultGone = true;
+    scheduleRefresh(state);
+  } catch {
+    // Never in the way of ComfyUI's own error handling.
+  }
+});
+
 app.registerExtension({
   name: "ausboss.input_preview",
   // Reopening a workflow tab restores every node's stored output at once,
@@ -571,11 +660,16 @@ app.registerExtension({
         scheduleRefresh(state);
       });
     });
-    chainCallback(nodeType.prototype, "onExecuted", function () {
+    chainCallback(nodeType.prototype, "onExecuted", function (output) {
       if (isForeignRun()) return;
       const state = buildPanel(this, config);
       // A result arrived (Save Image sends one even with its preview off).
-      if (state) { state.stale = false; scheduleRefresh(state); }
+      if (state) { state.stale = false; state.resultGone = false; scheduleRefresh(state); }
+      if (state && config.readout) {
+        setNote(state, "");
+        const readout = config.readout(output);
+        if (readout) setReadout(state, readout);
+      }
     });
     chainCallback(nodeType.prototype, "onRemoved", function () {
       const state = this.__ausbossInputPreview;

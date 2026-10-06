@@ -4,6 +4,28 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **New: Mask by Name 🆎** (Mask). Type what to find in a picture, like "the
+  dog" or "the red jacket", and get its mask, with nothing to paint. The node
+  shows what it found, tinted on the picture, and **FIND** runs only this
+  node, so you can check the mask before the rest of the workflow runs. When
+  it finds nothing it stops the run with a plain message, so nothing after it
+  runs on an empty mask. A setting passes an empty mask on instead. It also
+  returns the thing cut out on a see-through background. **More** holds how
+  sure SAM 3 must be, **Fill holes**, and **Free VRAM**, which takes SAM 3
+  out of the graphics card's memory right after the search. Turn it on in a
+  workflow that loads a big model after this node. The search is
+  ComfyUI's own SAM 3 (ComfyUI 0.20 or newer): wire model and clip from a
+  Load Checkpoint that loads the SAM 3 file.
+- **Opening More no longer shrinks the picture.** A node you made taller
+  keeps that height when a group such as **More** opens or closes on its
+  card: the node grows or shrinks by what the card did, so the picture below
+  keeps its size. Before, the node snapped back to its smallest size (Mask
+  Refine, Load Image + Pad). A tall node saved with More open also reopens
+  at its saved height.
+- **Cards show their tooltips again.** Hovering a row on a node's card said
+  nothing: the cards looked for the tooltip on the widget, and ComfyUI keeps
+  it in the node's definition. Every row of every card now shows its
+  tooltip on hover.
 - **New: Workflow Switches 🆎** (Utility). One small card that turns parts
   of a workflow off and on. Select the nodes of one part, such as a box and
   its Save Image, press **+ Switch**, and they get one off | on switch with a

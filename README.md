@@ -168,6 +168,12 @@ Saves a frame batch or a core `VIDEO` as MP4 (H.264 or H.265), WebM (VP9 or AV1)
 
 Krea 2 Inpaint Masked turns the painted fur coat into a leather jacket, using Mask Refine, Crop For Inpaint and Stitch Inpaint. [Open the Krea 2 Inpaint Masked workflow →](example_workflows/Krea%202%20Inpaint%20Masked%20%28AusBoss%29.json)
 
+### Mask by Name
+
+Type what to find in a picture, like "the dog" or "the red jacket", and get its mask. Nothing to paint. The node shows what it found, tinted on the picture, with how sure it is, and **FIND** runs only this node so you can check the mask before the rest of the workflow runs. When it finds nothing it stops the run with a plain message, so nothing after it runs on an empty mask; a setting passes an empty mask on instead.
+
+It also returns the thing cut out on a see-through background, and how many things matched. Under **More**: how sure SAM 3 must be, fill the holes in the mask, and free SAM 3 from VRAM after the search. If you build a workflow that loads a big model after this node, turn **Free VRAM** on. The search is ComfyUI's own SAM 3: wire `model` and `clip` from a Load Checkpoint that loads the SAM 3 file. Needs ComfyUI 0.20 or newer, which has SAM 3 built in.
+
 ### Mask Refine
 
 Grows or shrinks a mask, blurs it, fills holes, smooths jagged edges, and sets black and white points. The card shows Expand and Blur, and **More** opens the rest. **AUTO** picks expand and blur values from the mask's size. The optional preview shows the result.

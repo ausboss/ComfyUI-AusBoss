@@ -33,12 +33,13 @@
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "./index.mjs";
 import { keepKeyInField } from "./canvas_passthrough.mjs";
 import { createMediaPicker } from "./media_picker.mjs";
-import { ensureNodeMinHeight, fillNodeHeight, holdNodeMinWidth } from "./panel_layout.mjs";
+import { ensureNodeMinHeight, fillNodeHeight, holdNodeMinWidth, nodeHeightAfterCardChange } from "./panel_layout.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
 import { hideWidget } from "./widget_visibility.mjs";
 import {
   CARD_PADDING, GROUP_HEIGHT, ROW_GAP, ROW_HEIGHT, SECTION_HEIGHT, SLOT_OFFSET, UNIT_SLOT_WIDTH,
   cardHeight, commitWidgetValue, comboValues, rowHeight, rowKind, rowMuted, rowTops, scrubSteps, socketWidgetY, visibleRows,
+  widgetTooltip,
 } from "./widget_card_math.mjs";
 
 export * from "./widget_card_math.mjs";
@@ -193,16 +194,22 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
   const values = () => Object.fromEntries((node.widgets ?? []).map((widget) => [widget.name, widget.value]));
   const groupProperty = (name) => `ausboss_show_${name}`;
   const groupOpen = (name) => Boolean(node.properties?.[groupProperty(name)]);
+  // What the person changes on the card itself. A row it brings in or takes
+  // out moves the node's height with it (nodeHeightAfterCardChange).
+  const byHand = (run) => {
+    state.byHand = true;
+    try { return run(); } finally { state.byHand = false; }
+  };
   const setGroupOpen = (name, open) => {
     node.properties ??= {};
     node.properties[groupProperty(name)] = Boolean(open);
-    refresh();
+    byHand(refresh);
   };
 
   const setWidget = (name, value, { settle = true } = {}) => {
     const widget = findWidget(node, name);
     if (!widget || widget.value === value) return;
-    commitWidgetValue(node, widget, value, globalThis.app?.canvas);
+    byHand(() => commitWidgetValue(node, widget, value, globalThis.app?.canvas));
     node.graph?.setDirtyCanvas?.(true, true);
     if (settle) notifyAusbossChange();
   };
@@ -220,7 +227,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       step: row.step ?? steps.step,
       fineStep: steps.fineStep,
       decimals: row.decimals ?? steps.decimals,
-      title: row.title ?? widget?.options?.tooltip ?? "",
+      title: row.title ?? widgetTooltip(node, name, widget),
       unit: row.suffix ?? "",
       // Single fields share one unit slot so their numbers line up down
       // the card; the fields of a pair sit side by side and keep the room.
@@ -268,7 +275,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       return (vals) => picker.refresh(vals[name]);
     }
     const select = el("select", "ausboss-card-select");
-    select.title = row.title ?? widget?.options?.tooltip ?? "";
+    select.title = row.title ?? widgetTooltip(node, name, widget);
     const fill = (current) => {
       select.textContent = "";
       const options = comboValues(widget);
@@ -296,7 +303,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     for (const [value, text] of [[false, label(row.offText, "off")], [true, label(row.onText, "on")]]) {
       const button = el("button", "", text);
       button.type = "button";
-      button.title = row.title ?? widget?.options?.tooltip ?? (value ? row.onText ?? "" : row.offText ?? "");
+      button.title = row.title ?? (widgetTooltip(node, name, widget) || (value ? row.onText ?? "" : row.offText ?? ""));
       button.addEventListener("click", () => setWidget(name, value));
       seg.append(button); buttons.set(value, button);
     }
@@ -313,7 +320,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
   const buildText = (name, row, into) => {
     const widget = findWidget(node, name);
     const input = el("input", "ausboss-card-text");
-    input.type = "text"; input.placeholder = row.placeholder ?? ""; input.title = row.title ?? widget?.options?.tooltip ?? "";
+    input.type = "text"; input.placeholder = row.placeholder ?? ""; input.title = row.title ?? widgetTooltip(node, name, widget);
     input.spellcheck = false;
     const commit = () => { if (input.value !== String(findWidget(node, name)?.value ?? "")) setWidget(name, input.value); };
     input.addEventListener("change", commit);
@@ -336,7 +343,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     if (widget?.element) widget.element.style.display = "none";
     const area = el("textarea", "ausboss-card-area");
     area.placeholder = row.placeholder ?? row.label ?? name;
-    area.title = row.title ?? widget?.options?.tooltip ?? "";
+    area.title = row.title ?? widgetTooltip(node, name, widget);
     area.spellcheck = false;
     let typing = false;
     area.addEventListener("input", () => { typing = true; setWidget(name, area.value, { settle: false }); typing = false; });
@@ -361,7 +368,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     const swatch = el("input", "ausboss-card-swatch"); swatch.type = "color";
     swatch.title = "Pick a color";
     const input = el("input", "ausboss-card-text"); input.type = "text"; input.spellcheck = false;
-    input.title = row.title ?? widget?.options?.tooltip ?? "";
+    input.title = row.title ?? widgetTooltip(node, name, widget);
     const commit = () => { if (input.value !== String(findWidget(node, name)?.value ?? "")) setWidget(name, input.value.trim()); };
     swatch.addEventListener("input", () => { input.value = swatch.value; setWidget(name, swatch.value, { settle: false }); });
     swatch.addEventListener("change", () => notifyAusbossChange());
@@ -415,7 +422,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       else line.style.height = `${rowHeight(row)}px`;
     } else {
       const label = el("span", "ausboss-card-label", row.label ?? names[0]);
-      label.title = row.title ?? findWidget(node, names[0])?.options?.tooltip ?? "";
+      label.title = row.title ?? widgetTooltip(node, names[0], findWidget(node, names[0]));
       line.append(label);
     }
     const fields = new Map();
@@ -636,9 +643,14 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     if (tools?.sync) root.style.setProperty("--ausboss-card-corner", `${Math.max(0, Number(tools.sync(vals)) || 0)}px`);
     const height = cardHeight(visible);
     if (height !== state.height) {
+      const first = !state.height;
+      const change = first ? 0 : height - state.height;
       state.height = height;
       const width = Math.max(minWidth, node.size?.[0] || minWidth);
-      node.setSize?.([width, node.computeSize?.()[1] || height]);
+      const floor = node.computeSize?.()[1] || height;
+      node.setSize?.([width, nodeHeightAfterCardChange({
+        floor, current: node.size?.[1], saved: state.savedHeight, change, first, restoring: state.restoring, byHand: state.byHand,
+      })]);
       node.graph?.setDirtyCanvas?.(true, true);
     }
     node._widgetSlotsDirty = true;
@@ -648,18 +660,32 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     const target = findWidget(node, name);
     if (target) chainCallback(target, "callback", () => refresh());
   }
-  chainCallback(node, "onConfigure", () => queueMicrotask(() => {
-    for (const name of managed) {
-      const target = findWidget(node, name);
-      hideWidget(target);
-      if (target?.element && state.rows.some((entry) => entry.row.kind === "textarea" && entry.names?.includes(name))) target.element.style.display = "none";
-    }
-    for (const name of topNames) liftSocket(node, name);
-    refresh();
-    // A workflow saved before this card existed sized the node for the
-    // classic widgets; give the card and any panel below it their floors.
-    ensureNodeMinHeight(node);
-  }));
+  chainCallback(node, "onConfigure", (info) => {
+    // The node now has its saved size, and that size already holds every row
+    // the saved values show. Marked here, not in the microtask below: a
+    // refresh queued earlier in the load (a restored link) runs before it.
+    // The height is kept too: before that microtask the frontend grows the
+    // node to fit the card as it still is, with the rows of a new node.
+    state.restoring = true;
+    state.savedHeight = Number(info?.size?.[1]);
+    queueMicrotask(() => {
+      try {
+        for (const name of managed) {
+          const target = findWidget(node, name);
+          hideWidget(target);
+          if (target?.element && state.rows.some((entry) => entry.row.kind === "textarea" && entry.names?.includes(name))) target.element.style.display = "none";
+        }
+        for (const name of topNames) liftSocket(node, name);
+        refresh();
+      } finally {
+        state.restoring = false;
+        state.savedHeight = undefined;
+      }
+      // A workflow saved before this card existed sized the node for the
+      // classic widgets; give the card and any panel below it their floors.
+      ensureNodeMinHeight(node);
+    });
+  });
   chainCallback(node, "onConnectionsChange", () => queueMicrotask(refresh));
   chainCallback(node, "onRemoved", () => {
     state.disposed = true;

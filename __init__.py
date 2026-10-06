@@ -34,6 +34,7 @@ NODE_MODULES = [
     "node_load_image_pad",
     "node_load_video",
     "node_lora_loader",
+    "node_mask_by_name",
     "node_math",
     "node_realign_to_source",
     "node_refine_mask",

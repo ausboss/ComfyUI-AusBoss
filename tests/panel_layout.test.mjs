@@ -8,6 +8,7 @@ import {
   holdNodeMinHeight,
   holdVueNodeMinWidth,
   measureLayoutWidthPadding,
+  nodeHeightAfterCardChange,
 } from "../js/shared/panel_layout.mjs";
 
 test("fillNodeHeight drops computeSize and declares a floor with no ceiling", () => {
@@ -220,4 +221,51 @@ test("every panel on a node feeds one Nodes 2.0 minimum: the widest", () => {
   } finally {
     globalThis.ResizeObserver = saved;
   }
+});
+
+test("a node keeps its extra height when the person opens or closes a group", () => {
+  // A tall node with a picture under the card: More opens (the card gains 93)
+  // and the node gains the same, so the picture keeps its size.
+  assert.equal(nodeHeightAfterCardChange({ floor: 562, current: 800, change: 93, byHand: true }), 893);
+  // More closes again: back to what the person gave it.
+  assert.equal(nodeHeightAfterCardChange({ floor: 469, current: 893, change: -93, byHand: true }), 800);
+  // Never shorter than the floor, also when the card shrank by more than the spare.
+  assert.equal(nodeHeightAfterCardChange({ floor: 500, current: 603, change: -193, byHand: true }), 500);
+});
+
+test("a node that sat at its floor hugs the new floor, however the card changed", () => {
+  for (const byHand of [true, false]) {
+    assert.equal(nodeHeightAfterCardChange({ floor: 562, current: 469, change: 93, byHand }), 562);
+    assert.equal(nodeHeightAfterCardChange({ floor: 469, current: 562, change: -93, byHand }), 469);
+  }
+});
+
+test("a card that changes by itself leaves a tall node's height alone", () => {
+  // A row that settles after a load: the saved height already holds it.
+  assert.equal(nodeHeightAfterCardChange({ floor: 539, current: 539, change: 31 }), 539);
+  // A value written from outside brings a row in or takes one out.
+  assert.equal(nodeHeightAfterCardChange({ floor: 500, current: 800, change: 31 }), 800);
+  assert.equal(nodeHeightAfterCardChange({ floor: 469, current: 800, change: -31 }), 800);
+  // Still lifted to the floor when the row no longer fits.
+  assert.equal(nodeHeightAfterCardChange({ floor: 560, current: 540, change: 31 }), 560);
+});
+
+test("a new node hugs its floor and a loading workflow keeps its saved height", () => {
+  // New: whatever height the classic widgets gave the node is dropped.
+  assert.equal(nodeHeightAfterCardChange({ floor: 469, current: 610, first: true }), 469);
+  // Loading: the saved height already holds the rows the saved values show.
+  assert.equal(nodeHeightAfterCardChange({ floor: 562, current: 893, change: 93, restoring: true }), 893);
+  assert.equal(nodeHeightAfterCardChange({ floor: 508, current: 539, change: -31, restoring: true }), 539);
+  // Loading a node saved shorter than it now needs: lifted to the floor.
+  assert.equal(nodeHeightAfterCardChange({ floor: 562, current: 300, change: 93, restoring: true }), 562);
+  // The frontend grew the node to fit the card of a new node (570) before
+  // the saved values took a row out: the saved height wins, not that one.
+  assert.equal(nodeHeightAfterCardChange({ floor: 539, current: 570, saved: 539, change: -31, restoring: true }), 539);
+  assert.equal(nodeHeightAfterCardChange({ floor: 539, current: 800, saved: 800, change: -31, restoring: true }), 800);
+  assert.equal(nodeHeightAfterCardChange({ floor: 539, current: 570, saved: NaN, change: -31, restoring: true }), 570);
+  // Bad input never produces NaN.
+  assert.equal(nodeHeightAfterCardChange({ floor: 469, current: undefined, change: 93 }), 469);
+  assert.equal(nodeHeightAfterCardChange({ floor: undefined, current: 700, change: 93 }), 700);
+  assert.equal(nodeHeightAfterCardChange({ floor: 469, current: 700, change: "x" }), 700);
+  assert.equal(nodeHeightAfterCardChange(), 0);
 });
