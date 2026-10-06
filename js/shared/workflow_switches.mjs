@@ -40,14 +40,18 @@ export function cleanTitle(title) {
   return String(title ?? "").replace(/\s+/g, " ").trim().slice(0, TITLE_MAX);
 }
 
-// Node and group ids as a workflow stores them: numbers, or text for a
-// frontend that names them. Anything else is dropped, and so is a repeat.
+// Node and group ids as a workflow file stores them: numbers, or text for a
+// frontend that names them. A whole number held as text ("12", which is how
+// some frontends keep a node's id while the graph is open) is stored as the
+// number, so a switch reads the same whichever one saved it. Anything else
+// is dropped, and so is a repeat.
 export function cleanIds(list, limit = MEMBERS_MAX) {
   const seen = new Set();
   const ids = [];
   for (const raw of Array.isArray(list) ? list : []) {
     let id = null;
     if (typeof raw === "number" && Number.isFinite(raw)) id = raw;
+    else if (typeof raw === "string" && /^(0|[1-9]\d{0,14})$/.test(raw.trim())) id = Number(raw.trim());
     else if (typeof raw === "string" && raw.trim()) id = raw.trim();
     if (id === null || seen.has(String(id))) continue;
     seen.add(String(id));
@@ -167,6 +171,19 @@ export function unionRect(rects) {
     else box = [Math.min(box[0], x), Math.min(box[1], y), Math.max(box[2], x + w), Math.max(box[3], y + h)];
   }
   return box ? [box[0], box[1], box[2] - box[0], box[3] - box[1]] : null;
+}
+
+// What the frame button brings into view. The canvas fits a box to `fill` of
+// the view, which would zoom far in on a part of two small nodes. A box that
+// would be shown larger than life is grown around its centre until it shows
+// at natural size; a big part still fits whole.
+export function frameBounds(rect, view, fill = 0.8) {
+  const [x, y, w, h] = toRect(rect);
+  const minW = Number(view?.[0]) * fill;
+  const minH = Number(view?.[1]) * fill;
+  if (!(w > 0) || !(h > 0) || !(minW > 0) || !(minH > 0) || w >= minW || h >= minH) return [x, y, w, h];
+  const grow = Math.min(minW / w, minH / h);
+  return [x - (w * grow - w) / 2, y - (h * grow - h) / 2, w * grow, h * grow];
 }
 
 // ---------- reading a graph ----------

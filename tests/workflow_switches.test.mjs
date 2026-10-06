@@ -3,7 +3,7 @@ import test from "node:test";
 
 import {
   DEFAULT_SETTINGS, MEMBERS_MAX, MODE_ALWAYS, MODE_BYPASS, MODE_NEVER, SWITCHES_MAX, TITLE_MAX,
-  addMembers, addSwitch, canvasOrder, centreInside, cleanIds, groupBounds, groupListed, heldCount, isRunning,
+  addMembers, addSwitch, canvasOrder, centreInside, cleanIds, frameBounds, groupBounds, groupListed, heldCount, isRunning,
   listedRows, matchTerms, modeMatters, moveSwitch, nodeBounds, normalizeSettings, normalizeSwitches, offMode,
   partState, placeNodes, readGroups, readSwitches, removeMembers, removeSwitch, renameSwitch, rowsSignature,
   suggestTitle, switchAllPlan, switchPlan, titleOrder, unionRect,
@@ -34,6 +34,8 @@ test("settings fall back to the defaults for anything a workflow left behind", (
 
 test("made switches are cleaned, and every one keeps an id of its own", () => {
   assert.deepEqual(cleanIds([3, "3", 4, null, NaN, " a ", "", {}, 4]), [3, 4, "a"]);
+  // A whole number kept as text is stored as the number; other text stays text.
+  assert.deepEqual(cleanIds(["12", " 7 ", "007", "1e3", "-2", "0"]), [12, 7, "007", "1e3", "-2", 0]);
   assert.equal(cleanIds(Array.from({ length: MEMBERS_MAX + 50 }, (_, index) => index)).length, MEMBERS_MAX);
   const switches = normalizeSwitches([
     { id: 2, title: "  The   whole thing ", nodes: [5, 5, 6], groups: [1] },
@@ -86,6 +88,18 @@ test("the frame around a switch's nodes is the smallest box that holds them all"
   assert.equal(unionRect([[0, 0, 0, 0]]), null);
   assert.deepEqual(unionRect([[10, 20, 100, 50]]), [10, 20, 100, 50]);
   assert.deepEqual(unionRect([[10, 20, 100, 50], [-40, 60, 30, 200], null]), [-40, 20, 150, 240]);
+});
+
+test("the frame button never zooms in past natural size", () => {
+  const view = [1000, 500];
+  // A big part is left alone: the canvas fits it whole.
+  assert.deepEqual(frameBounds([0, 0, 2000, 300], view), [0, 0, 2000, 300]);
+  assert.deepEqual(frameBounds([0, 0, 300, 400], view), [0, 0, 300, 400]);
+  // A small one grows around its centre until one side fills 80% of the view: zoom 1.
+  const grown = frameBounds([100, 100, 200, 100], view);
+  assert.deepEqual(grown, [-200, -50, 800, 400]);
+  assert.equal(0.8 * Math.min(view[0] / grown[2], view[1] / grown[3]), 1);
+  assert.deepEqual(frameBounds([5, 5, 10, 10], [0, 0]), [5, 5, 10, 10]);
 });
 
 test("a part reads on, off, mixed or empty from the nodes whose mode matters", () => {
@@ -162,6 +176,8 @@ test("a made switch holds its picked nodes and whatever sits in its picked group
   assert.deepEqual([gone.state, gone.gone, gone.rect], ["empty", 1, null]);
   // A node id is matched as a workflow stores it, number or text.
   assert.deepEqual(ids(readSwitches(normalizeSwitches([{ nodes: ["13"] }]), placed, groups)[0].members), [13]);
+  const textIds = placeNodes([node("13", 0, 0)]);
+  assert.deepEqual(ids(readSwitches(normalizeSwitches([{ nodes: [13] }]), textIds, [])[0].members), ["13"]);
 });
 
 test("numbered lists titles that start with a digit; matching takes comma-separated terms; none lists nothing", () => {
