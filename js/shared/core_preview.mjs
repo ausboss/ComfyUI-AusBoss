@@ -14,6 +14,9 @@
 
 export const CORE_VIDEO_PREVIEW_WIDGET = "video-preview";
 export const CORE_IMAGE_PREVIEW_WIDGET = "$$canvas-image-preview";
+// An animated webp is a picture to the frontend, not a video, and it gets a
+// third widget: a DOM one like the video preview, under a name of its own.
+export const CORE_ANIMATED_PREVIEW_WIDGET = "$$comfy_animation_preview";
 
 export function hideCanvasWidget(widget, element = null) {
   if (!widget || widget.__ausbossHidden) return;
@@ -59,6 +62,16 @@ export function suppressCoreVideoPreview(node) {
     "addDOMWidget",
     CORE_VIDEO_PREVIEW_WIDGET,
     (widget, args) => args[2] || widget?.element || node.videoContainer,
+  );
+  // A clip saved as an animated webp arrives in the animated widget instead.
+  // Left alone, Save Video drew it a second time under its stage in the
+  // classic renderer, and the node's smallest height grew to hold it.
+  suppressWidget(
+    node,
+    "__ausbossCoreAnimatedPreviewSuppressed",
+    "addDOMWidget",
+    CORE_ANIMATED_PREVIEW_WIDGET,
+    (widget, args) => args[2] || widget?.element,
   );
 }
 

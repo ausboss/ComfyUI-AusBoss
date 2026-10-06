@@ -5,6 +5,7 @@ import { chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../s
 import { fillNodeHeight } from "../shared/panel_layout.mjs";
 import {
   findVideoMetadata,
+  isStillImage,
   mediaInfo,
   mediaViewQuery,
   responsivePreviewHeight,
@@ -64,14 +65,6 @@ function setEmpty(state, text) {
 function setReady(state, text) {
   state.stage.classList.remove("is-empty");
   state.status.textContent = text;
-}
-
-// gif and webp are animated images, not video: a <video> element cannot play
-// either, so the same saved file needs a different tag to preview at all.
-const STILL_IMAGE_EXTENSIONS = new Set(["gif", "webp"]);
-
-function isStillImage(filename) {
-  return STILL_IMAGE_EXTENSIONS.has(String(filename).split(".").pop().toLowerCase());
 }
 
 function loadMetadata(state, meta) {
