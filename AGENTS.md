@@ -199,6 +199,15 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   a real canvas at that width in both renderers; a panel that clips there
   gets a larger minimum, not a broken face. Nodes 2.0 never goes under
   225 px whatever a panel declares.
+- **A growing panel's declared minimum height holds in Nodes 2.0 too.**
+  Nodes 2.0 lays a node out by its content, not by the floor a widget
+  declares, so a panel whose content has no height of its own was dragged
+  flat there. `fillNodeHeight` also writes the floor to the panel's
+  element as a CSS `min-height`, less `WIDGET_FRAME`, while the panel sits
+  inside a Nodes 2.0 node. So declare `minHeight` as what the element needs
+  plus `WIDGET_FRAME`, and never assign a growing panel's
+  `computeLayoutSize` by hand. Prove the floor with a real corner drag up
+  in both renderers.
 - Frontend settings use `AusBoss.<Area>.<Name>` ids with
   `category: ["🆎 AusBoss", "<Area>", "<Leaf>"]` and a distinct leaf per
   setting. Node color schemes live in `js/shared/appearance.mjs`.

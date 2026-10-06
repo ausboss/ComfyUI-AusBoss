@@ -32,6 +32,16 @@ All notable changes to ComfyUI-AusBoss are documented here.
   node. With a picture wired in, the copy showed the file the node was not
   using. The copy is gone and the canvas takes the spare height, as in the
   classic look.
+- **Nodes 2.0: a node no longer shrinks until its picture is gone.** In the
+  Nodes 2.0 look, dragging a node's corner up could squash its picture flat.
+  Mask Refine ended with a thin line where the picture should be, Save Image
+  lost its saved picture, and Latent Size lost the whole picture you drag to
+  set a size. Mask by Name, Select Frame and LaMa Inpaint did the same. The
+  drag now stops while the picture still has the room it needs, as in the
+  classic look. Image Folder, Image Compare, Show Text and Workflow Note
+  stop at their smallest size too; they could be made a little shorter than
+  that. With a node's preview switched off, the node still shrinks to the
+  small bar. The classic look is unchanged.
 
 ## 2.7.0 - 2026-10-06
 

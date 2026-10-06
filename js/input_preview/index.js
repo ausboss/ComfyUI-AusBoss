@@ -108,7 +108,10 @@ const NODE_CONFIG = {
 // The picture sits out of flow, centred in the stage, so it can never set
 // the panel's height. Nodes 2.0 lets a node's content decide its height (the
 // saved size is only a minimum), and an in-flow portrait drawn at full width
-// grew the node past whatever sat under it.
+// grew the node past whatever sat under it. That leaves the stage with no
+// height of its own, and a Nodes 2.0 node shrinks as far as its content
+// lets it, so inside one ([data-node-id]) the stage carries its floor
+// itself. The classic layout already keeps the panel that tall.
 function ensureCss() {
   if (document.getElementById(CSS_ID)) return;
   const style = document.createElement("style");
@@ -117,6 +120,7 @@ function ensureCss() {
 .ausboss-input-preview{box-sizing:border-box;display:flex;flex-direction:column;gap:4px;width:100%;height:100%;padding:0 6px 6px;pointer-events:none;overflow:hidden;}
 .ausboss-input-preview-bar{box-sizing:border-box;flex:none;display:flex;align-items:center;gap:6px;height:${BAR_HEIGHT}px;padding:0 2px;pointer-events:none;}
 .ausboss-input-preview-stage{position:relative;flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;width:100%;overflow:hidden;border:1px solid rgba(0,180,170,.27);border-radius:6px;background:rgba(0,0,0,.28);}
+[data-node-id] .ausboss-input-preview-stage{box-sizing:border-box;min-height:${STAGE_HEIGHT}px;}
 .ausboss-input-preview.preview-off .ausboss-input-preview-stage{display:none;}
 .ausboss-input-preview-stage img,.ausboss-input-preview-stage video{display:none;position:absolute;inset:0;margin:auto;max-width:100%;max-height:100%;object-fit:contain;}
 .ausboss-input-preview-stage.show-image img{display:block;}
