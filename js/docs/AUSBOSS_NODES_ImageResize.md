@@ -49,9 +49,10 @@ differs from the source:
   mode except `width+height` the box is derived from the source's own
   aspect, so there is nothing to letterbox against: the proportion modes
   all resolve a `divisible_by` snap with an invisible sub-half-step
-  resize, and the mask output stays black. Bars — and white in the mask —
-  can only appear when you set a `width+height` box that disagrees with
-  the source and choose `pad`.
+  resize, and the mask output stays black. A `width+height` box with a
+  `0` in it follows the source the same way, so `pad` adds no bar to it.
+  Bars — and white in the mask — can only appear when you set both W and
+  H to a box that disagrees with the source and choose `pad`.
 - **Filter** (`interpolation`): `lanczos` (PIL, in float — the sharpest
   all-rounder), `bicubic`, `bilinear`, `nearest` (pixel art, hard masks),
   `area` (best for strong downscales). A resize that changes nothing passes

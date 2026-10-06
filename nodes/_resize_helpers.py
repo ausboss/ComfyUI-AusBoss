@@ -283,10 +283,17 @@ def apply_resize(
     # the proportion modes would only be acting on divisible_by's snap, and
     # pad would answer it by inventing pixels nobody asked for. Fit resolves
     # the snap with a sub-half-step resize instead, so those modes collapse
-    # to fit: pixels are only ever invented when the user explicitly sets a
-    # width+height box that disagrees with the source.
+    # to fit: pixels are only ever invented when the user explicitly sets
+    # both sides of a width+height box that disagrees with the source.
     if target_mode != "width+height":
         keep_proportion = "fit"
+    # A width+height box with a 0 in it takes its shape from the source as
+    # well, so only rounding and the snap separate the two. Pad would answer
+    # that with a bar a pixel or two wide; the picture goes straight to the
+    # box instead, which keeps the size pad always gave. (Fit would shave a
+    # pixel off the side that was typed whenever the other one rounds down.)
+    elif keep_proportion == "pad" and (int(width) <= 0 or int(height) <= 0):
+        keep_proportion = "stretch"
     plan = plan_resize(source_w, source_h, target_w, target_h, keep_proportion, divisible_by)
     resize_w, resize_h = plan["resize_width"], plan["resize_height"]
     canvas_w, canvas_h = plan["canvas_width"], plan["canvas_height"]
