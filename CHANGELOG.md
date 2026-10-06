@@ -4,6 +4,15 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **New: Image Folder 🆎** (Image). Pick a folder, tick the pictures you
+  want in a thumbnail gallery, and run the workflow on each one. All in one
+  run does every picked picture with one press of Run. One per run loads one
+  picture each run and steps to the next by itself, so a picture that fails
+  only skips itself. It gives each picture's mask, its file name (wire it to
+  Save Image's filename and the result keeps the name), its number and the
+  count. Browse lists the folders inside ComfyUI's input or output folder,
+  and Add or a drop on the node copies pictures into the input folder. The
+  node reads nothing outside those two folders.
 - **Nodes 2.0: the picture takes the spare height, not the card.** In the
   Nodes 2.0 look, a node with a card on top and a picture below gave half of
   its spare height to the card. The card got empty space under its last row

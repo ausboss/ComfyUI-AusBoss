@@ -34,8 +34,10 @@ VALIDATORS = ("VALIDATE_INPUTS", "validate_inputs")
 # off for it and repeats a failure on it, so every name here is on purpose:
 # a source that must take files ComfyUI has not listed (uploads, subfolders,
 # MaskEditor saves), a LoRA stack in JSON, or a value the check needs.
+# Image Folder looks its folder up inside the chosen source, so it reads both.
 NAMED = {
     "AusBossImageCropRotatePad": ["image"],
+    "AusBossImageFolder": ["source", "folder"],
     "AusBossLaMaInpaint": ["model"],
     "AusBossLoadImagePad": ["image", "source_image"],
     "AusBossLoadVideo": ["video"],

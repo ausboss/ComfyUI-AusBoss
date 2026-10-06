@@ -197,6 +197,42 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_ImageFolder": {
+    "required": [
+      "source",
+      "folder",
+      "subfolders",
+      "sort",
+      "pictures",
+      "run",
+      "position",
+      "after_run",
+      "at_the_end"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "IMAGE",
+        "image"
+      ],
+      [
+        "MASK",
+        "mask"
+      ],
+      [
+        "STRING",
+        "filename"
+      ],
+      [
+        "INT",
+        "index"
+      ],
+      [
+        "INT",
+        "count"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_ImageResize": {
     "required": [
       "image",

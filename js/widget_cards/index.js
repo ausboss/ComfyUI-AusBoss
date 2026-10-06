@@ -154,6 +154,23 @@ const CARDS = {
       { widget: "edge_refine", label: "Edge", kind: "segment", labels: { "guided filter": "guided" }, group: "advanced" },
     ],
   },
+  // The settings of Image Folder. Its gallery (js/image_folder) sits under
+  // the card and owns the hidden `pictures` widget.
+  AUSBOSS_NODES_ImageFolder: {
+    minWidth: 320, first: true, hide: ["pictures"],
+    rows: [
+      { widget: "source", label: "From", kind: "segment" },
+      { widget: "folder", label: "Folder", placeholder: "the folder itself",
+        button: { text: "Browse", title: "Choose a folder inside ComfyUI's input or output folder.",
+          onClick: (node, state) => node.__ausbossImageFolder?.browse(state?.root?.querySelector(".ausboss-card-btn")) } },
+      { widget: "subfolders", label: "Subfolders" },
+      { widget: "sort", label: "Order", kind: "select" },
+      { widget: "run", label: "Run", kind: "segment" },
+      { widget: "position", label: "Picture", when: (values) => values.run === "one per run" },
+      { widget: "after_run", label: "After a run", kind: "segment", when: (values) => values.run === "one per run" },
+      { widget: "at_the_end", label: "At the end", kind: "segment", when: (values) => values.run === "one per run" },
+    ],
+  },
   AUSBOSS_NODES_MaskByName: {
     minWidth: 300, first: true,
     rows: [
