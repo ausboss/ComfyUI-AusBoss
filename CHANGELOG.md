@@ -15,6 +15,14 @@ All notable changes to ComfyUI-AusBoss are documented here.
   it in your file explorer, and its pictures are copied into the input
   folder. A really big folder asks first. The node reads nothing outside
   those two folders.
+- **Nodes 2.0: Load Video and Save Video can be made small.** In the Nodes
+  2.0 look, these two nodes could not be dragged shorter than their clip
+  drawn at the node's full width. With an upright 9:16 clip, Load Video
+  stopped at about 965 px tall where the classic look goes down to 584 px,
+  and a workflow saved in the classic look opened with the node drawn over
+  whatever sat under it. The node now keeps the size you give it and the
+  clip is scaled to fit inside, as in the classic look. Drag the node
+  taller to see the clip bigger. The classic look is unchanged.
 - **Nodes 2.0: the picture takes the spare height, not the card.** In the
   Nodes 2.0 look, a node with a card on top and a picture below gave half of
   its spare height to the card. The card got empty space under its last row
