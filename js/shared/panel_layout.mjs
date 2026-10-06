@@ -67,6 +67,20 @@ const resolveWidth = (value) => {
 const FLOORS = Symbol("ausboss.widthFloors");
 const WATCHED = Symbol("ausboss.floorWatched");
 
+// A Nodes 2.0 node element only exists around a panel once the panel is
+// laid out inside it, and the panel's first size arrives at that moment. So
+// what a panel lends that node is written from one ResizeObserver per
+// panel, each floor under its own name.
+function whenLaidOut(panel, name, task) {
+  if (!panel || typeof ResizeObserver !== "function") return;
+  if (!panel[WATCHED]) {
+    const tasks = new Map();
+    panel[WATCHED] = tasks;
+    new ResizeObserver(() => { for (const run of tasks.values()) run(); }).observe(panel);
+  }
+  panel[WATCHED].set(name, task);
+}
+
 function nodeWidthFloor(node) {
   let floor = 0;
   for (const value of node?.[FLOORS]?.values() ?? []) floor = Math.max(floor, resolveWidth(value));
@@ -105,12 +119,7 @@ export function holdNodeMinWidth(widget, minWidth) {
   }
   node[FLOORS].set(widget, minWidth);
   const panel = widget.element;
-  if (panel && !panel[WATCHED] && typeof ResizeObserver === "function") {
-    panel[WATCHED] = true;
-    // The first size arrives once the panel is laid out inside the node,
-    // which is when a Nodes 2.0 node element exists to carry the minimum.
-    new ResizeObserver(() => holdVueNodeMinWidth(panel, nodeWidthFloor(node))).observe(panel);
-  }
+  whenLaidOut(panel, "width", () => holdVueNodeMinWidth(panel, nodeWidthFloor(node)));
   return widget;
 }
 
@@ -131,15 +140,27 @@ export function fillNodeHeight(widget, { minWidth = 0, minHeight = 0, minNodeSiz
     }
     return layoutWidthPadding ?? 0;
   };
+  // Nodes 2.0 sizes a node by its content, not by this floor, so the
+  // panel's element carries it there as CSS (holdVuePanelMinHeight below).
+  // It is written again every time the floor is read, so a floor that
+  // follows state is followed at once, and when the panel is first laid out
+  // inside a node.
+  const panel = widget.element;
+  const holdHeight = (height) => holdVuePanelMinHeight(panel, height - WIDGET_FRAME);
   // Deleted, not overwritten: any own computeSize would win the else-if above.
   delete widget.computeSize;
-  widget.computeLayoutSize = (node) => ({
-    minWidth: Math.max(0, floor(minWidth) - padding(node)),
-    minHeight: floor(minHeight),
-  });
+  widget.computeLayoutSize = (node) => {
+    const height = floor(minHeight);
+    holdHeight(height);
+    return {
+      minWidth: Math.max(0, floor(minWidth) - padding(node)),
+      minHeight: height,
+    };
+  };
   widget.options ??= {};
   if (minNodeSize) widget.options.minNodeSize = minNodeSize;
   if (exactMinWidth) holdNodeMinWidth(widget, minWidth);
+  whenLaidOut(panel, "height", () => holdHeight(floor(minHeight)));
   return widget;
 }
 
@@ -172,6 +193,26 @@ export function holdVueNodeMinWidth(panel, width) {
   const css = `${Math.round(value)}px`;
   if (host.style.minWidth === css) return false;
   host.style.minWidth = css;
+  return true;
+}
+
+// Nodes 2.0 has no layout API for a panel's minimum height either. It lays
+// a node out by its content, and its corner drag stops where that content
+// cannot get any shorter. A panel whose content has no height of its own (a
+// picture kept out of flow, a stage that flexes) has nothing to stop at: a
+// node could be dragged until the stage was a 2px line. So while a growing
+// panel sits inside a Nodes 2.0 node, its element carries its floor as a CSS
+// min-height: the declared floor less WIDGET_FRAME, which is the height the
+// classic renderer promises the element. Outside a [data-node-id] element
+// (the classic renderer, which keeps the floor in its own layout) the
+// element carries none, so a panel moved between the two is always right.
+export function holdVuePanelMinHeight(panel, height) {
+  if (!panel?.style) return false;
+  const value = Number(height);
+  const inside = Boolean(panel.closest?.("[data-node-id]"));
+  const css = inside && Number.isFinite(value) && value > 0 ? `${Math.round(value)}px` : "";
+  if ((panel.style.minHeight || "") === css) return false;
+  panel.style.minHeight = css;
   return true;
 }
 

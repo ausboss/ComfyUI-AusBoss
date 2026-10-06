@@ -7,6 +7,7 @@ import {
   holdNodeMinWidth,
   holdNodeMinHeight,
   holdVueNodeMinWidth,
+  holdVuePanelMinHeight,
   measureLayoutWidthPadding,
   nodeHeightAfterCardChange,
   pinVuePanelHeight,
@@ -142,6 +143,31 @@ test("a panel inside a Nodes 2.0 node lends that node its floor", () => {
   assert.equal(holdVueNodeMinWidth({ closest: () => null }, 320), false);
   assert.equal(holdVueNodeMinWidth(null, 320), false);
   assert.equal(holdVueNodeMinWidth(panel, NaN), false);
+});
+
+test("a panel inside a Nodes 2.0 node carries its own height floor", () => {
+  const host = { style: {} };
+  const panel = { style: { minHeight: "" }, closest: (selector) => (selector === "[data-node-id]" ? host : null) };
+  assert.equal(holdVuePanelMinHeight(panel, 160), true);
+  assert.equal(panel.style.minHeight, "160px");
+  assert.equal(host.style.minHeight, undefined, "the node element is the frontend's: only the panel is touched");
+  assert.equal(holdVuePanelMinHeight(panel, 160), false, "unchanged: no write");
+  assert.equal(holdVuePanelMinHeight(panel, 16.4), true, "the floor can move");
+  assert.equal(panel.style.minHeight, "16px");
+  // Nothing to hold: the content keeps the panel as tall as it needs.
+  for (const none of [0, -4, NaN, undefined]) {
+    panel.style.minHeight = "160px";
+    assert.equal(holdVuePanelMinHeight(panel, none), true);
+    assert.equal(panel.style.minHeight, "");
+  }
+  // The classic renderer: no node element around the panel. A floor left
+  // over from Nodes 2.0 is taken off again.
+  const classic = { style: { minHeight: "160px" }, closest: () => null };
+  assert.equal(holdVuePanelMinHeight(classic, 160), true);
+  assert.equal(classic.style.minHeight, "");
+  assert.equal(holdVuePanelMinHeight(classic, 160), false);
+  assert.equal(holdVuePanelMinHeight(null, 160), false);
+  assert.equal(holdVuePanelMinHeight({}, 160), false);
 });
 
 test("a widget that pins its own computeSize never had a width floor", () => {

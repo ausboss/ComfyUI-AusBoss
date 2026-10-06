@@ -160,6 +160,15 @@ test("a panel that should follow the node's height never declares computeSize", 
       /\.computeSize\s*=/,
       `${name}: panel assigns computeSize - that pins its height and undoes fillNodeHeight`,
     );
+    // fillNodeHeight is also what carries the floor into Nodes 2.0, as a CSS
+    // min-height on the panel's element (panel_layout.mjs). A floor assigned
+    // by hand reaches the classic layout alone, and in Nodes 2.0 the node
+    // can then be dragged shorter than the panel.
+    assert.doesNotMatch(
+      source,
+      /\.computeLayoutSize\s*=/,
+      `${name}: panel assigns computeLayoutSize - its floor no longer reaches Nodes 2.0, where fillNodeHeight keeps it as CSS`,
+    );
   }
   for (const name of mustGrow) {
     assert.ok(seen.has(name), `${name} is listed as a growing panel but the audit never saw it`);
@@ -299,6 +308,30 @@ test("the preview picture never sets the panel's height", () => {
   assert.match(rule[1], /position:\s*absolute/, "the stage's picture is back in normal flow - it will size the node in Nodes 2.0");
   assert.match(rule[1], /max-width:\s*100%/, "the stage's picture can overflow the stage's width");
   assert.match(rule[1], /max-height:\s*100%/, "the stage's picture can overflow the stage's height");
+});
+
+test("the preview stage keeps its floor inside a Nodes 2.0 node", () => {
+  // The picture is out of flow (the test above), so the stage has no height
+  // of its own, and a Nodes 2.0 node shrinks as far as its content lets it:
+  // Mask Refine went from 356 to 218 px on a corner drag, its stage a 2 px
+  // line. Inside a Nodes 2.0 node the stage carries its floor itself, so the
+  // drag stops where it does in the classic renderer. The classic layout
+  // keeps the panel that tall by itself: the plain rule stays at 0 there.
+  const source = readFileSync(join(JS_ROOT, "input_preview", "index.js"), "utf-8");
+  // No [^}] here: the CSS is a template literal, and ${...} closes a brace
+  // in the middle of a rule.
+  assert.match(
+    source,
+    /\n\.ausboss-input-preview-stage\{[^\n]*?min-height:\s*0;/,
+    "the stage's own rule no longer starts from min-height:0 - the classic renderer's stage has changed",
+  );
+  assert.match(
+    source,
+    /\n\[data-node-id\] \.ausboss-input-preview-stage\{[^\n]*?min-height:\s*\$\{STAGE_HEIGHT\}px/,
+    "the stage has no floor inside a Nodes 2.0 node - a corner drag can flatten it again",
+  );
+  // Off, the stage is gone and its floor with it: the node shrinks to the bar.
+  assert.match(source, /\.ausboss-input-preview\.preview-off \.ausboss-input-preview-stage\{display:\s*none;?\}/);
 });
 
 test("the shared transform panel mounted on the video node also follows height", () => {

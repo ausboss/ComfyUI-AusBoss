@@ -12,7 +12,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { fillNodeHeight } from "../js/shared/panel_layout.mjs";
+import { WIDGET_FRAME, fillNodeHeight } from "../js/shared/panel_layout.mjs";
 import { hideWidget, showWidget } from "../js/shared/widget_visibility.mjs";
 
 const pinned = () => ({
@@ -71,4 +71,93 @@ test("hiding a filled panel folds it away, and showing it fills again", () => {
   showWidget(panel);
   assert.equal(panel.computeSize, undefined, "shown: no fixed size comes back with it");
   assert.deepEqual(panel.computeLayoutSize({}), { minWidth: 320, minHeight: 144 });
+});
+
+// Nodes 2.0 does not size a node by computeLayoutSize: it lays a node out
+// by its content, and a corner drag stops where the content cannot get any
+// shorter. So the same floor also has to reach the panel's element as CSS,
+// or a panel whose content has no height of its own is dragged flat.
+
+// A panel's element, as the helper sees it: inside a Nodes 2.0 node when
+// `host` is an element, in the classic renderer's own layer when it is null.
+function panelElement(host) {
+  return { style: { minHeight: "" }, closest: (selector) => (selector === "[data-node-id]" ? host : null) };
+}
+
+test("inside a Nodes 2.0 node the element carries the floor, less the frame", () => {
+  const element = panelElement({});
+  const panel = fillNodeHeight({ element }, { minWidth: 200, minHeight: 180 });
+  assert.equal(panel.computeLayoutSize({}).minHeight, 180, "what the classic layout is told has not moved");
+  assert.equal(element.style.minHeight, `${180 - WIDGET_FRAME}px`);
+});
+
+test("the CSS floor follows a floor that changes with state", () => {
+  // The preview panel: its stage is gone while the preview is off, so the
+  // floor drops to the bar and the node can shrink to it.
+  const state = { preview: true };
+  const element = panelElement({});
+  const panel = fillNodeHeight({ element }, { minHeight: () => (state.preview ? 180 : 36) });
+  panel.computeLayoutSize({});
+  assert.equal(element.style.minHeight, "160px");
+  state.preview = false;
+  panel.computeLayoutSize({});
+  assert.equal(element.style.minHeight, "16px");
+  state.preview = true;
+  panel.computeLayoutSize({});
+  assert.equal(element.style.minHeight, "160px");
+});
+
+test("a floor no taller than the frame leaves the element without one", () => {
+  const element = panelElement({});
+  const panel = fillNodeHeight({ element }, { minHeight: WIDGET_FRAME });
+  panel.computeLayoutSize({});
+  assert.equal(element.style.minHeight, "");
+});
+
+test("in the classic renderer the element carries no CSS floor", () => {
+  const element = panelElement(null);
+  const panel = fillNodeHeight({ element }, { minHeight: 180 });
+  assert.equal(panel.computeLayoutSize({}).minHeight, 180);
+  assert.equal(element.style.minHeight, "");
+  // Switched from Nodes 2.0 to classic with the page open: the same element
+  // moves out of the node, and the next layout pass takes the floor off.
+  element.style.minHeight = "160px";
+  panel.computeLayoutSize({});
+  assert.equal(element.style.minHeight, "");
+});
+
+test("the floor is set when the panel is first laid out, before anything asks", () => {
+  const observers = [];
+  const saved = globalThis.ResizeObserver;
+  globalThis.ResizeObserver = class {
+    constructor(callback) { this.callback = callback; observers.push(this); }
+    observe(target) { this.target = target; }
+  };
+  try {
+    // Built before the node is on screen: no node element around it yet.
+    let host = null;
+    const element = { style: { minHeight: "" }, closest: () => host };
+    fillNodeHeight({ element }, { minHeight: () => 180 });
+    assert.equal(element.style.minHeight, "");
+    assert.equal(observers.length, 1);
+    assert.equal(observers[0].target, element);
+    // Nodes 2.0 mounts the element into its node: its first size arrives.
+    host = {};
+    observers[0].callback();
+    assert.equal(element.style.minHeight, "160px");
+  } finally {
+    globalThis.ResizeObserver = saved;
+  }
+});
+
+test("a hidden panel asks for nothing and gets its floor back when shown", () => {
+  const element = panelElement({});
+  const panel = fillNodeHeight({ element }, { minHeight: 180 });
+  panel.computeLayoutSize({});
+  hideWidget(panel);
+  assert.deepEqual(panel.computeLayoutSize({}), { minWidth: 0, minHeight: 0 });
+  showWidget(panel);
+  element.style.minHeight = "";
+  assert.equal(panel.computeLayoutSize({}).minHeight, 180);
+  assert.equal(element.style.minHeight, "160px");
 });
