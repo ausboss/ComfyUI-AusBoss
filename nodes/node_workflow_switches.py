@@ -3,9 +3,11 @@
 The whole node is a frontend panel: one row per switch, each with an
 off | on pill. A switch holds the nodes that were picked for it (a box and
 its Save, say), and every group can have a row of its own. Off bypasses those
-nodes (or mutes them), on runs them again. The truth lives in the nodes' own
-modes; this node stores only which nodes each switch holds and its settings,
-in its properties.
+nodes (or mutes them), on runs them again. A switch can also change settings
+instead: it remembers what chosen nodes hold for on and for off. The truth
+lives in the nodes' own modes and values; this node stores only which nodes
+each switch holds, the values it remembers and its settings, in its
+properties.
 
 It is registered here, with a literal mapping key, so registry scanners and
 "install missing custom nodes" can find the pack from a workflow that uses
@@ -26,9 +28,11 @@ class AusBossWorkflowSwitches:
         "press + Switch: they get one off | on switch with a name you "
         "choose. Every group can have a switch of its own too. Off bypasses "
         "the nodes, so the picture still passes through to the next step (or "
-        "mutes them - a setting). On runs them again. Press Done and the "
-        "node shrinks to the labels and their switches. It never runs and "
-        "has no wires."
+        "mutes them - a setting). On runs them again. A switch can also "
+        "change settings instead of turning nodes off: save what the nodes "
+        "hold for on and for off, and one click sets Steps to 8 and turns a "
+        "LoRA row on. Press Done and the node shrinks to the labels and "
+        "their switches. It never runs and has no wires."
     )
     SEARCH_ALIASES = [
         "switch",
@@ -43,6 +47,8 @@ class AusBossWorkflowSwitches:
         "stages",
         "parts",
         "sections",
+        "preset",
+        "fast mode",
         "ausboss",
     ]
 

@@ -10,9 +10,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   name you choose. Every group can have a switch of its own too. Off
   bypasses the nodes, so a step in the middle of a chain can be skipped and
   the picture still reaches the steps after it. A setting mutes them
-  instead. **Done** shrinks the card to the labels and their switches, which
-  is the view to share a workflow with. A row whose nodes are only partly on
-  reads mixed. The node never runs and has no wires.
+  instead. A switch can also change settings instead of turning nodes off:
+  save what chosen nodes hold for on and for off, and one click sets Steps
+  to 8 and turns a LoRA Loader row on. **Done** shrinks the card to the
+  labels and their switches, which is the view to share a workflow with. A
+  row whose nodes are only partly on reads mixed. The node never runs and has
+  no wires.
 
 ## 2.6.4 - 2026-10-05
 

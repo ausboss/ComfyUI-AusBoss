@@ -20,6 +20,25 @@ Groups work too. Every group on the canvas gets a switch of its own, unless
 you change that under **Settings**. A group can also be part of a switch you
 make: select it together with the nodes.
 
+## A switch that changes settings
+
+A switch can also change values instead of turning nodes off. One click can
+set **Steps** to 8 and turn a speed LoRA's row on, and the next click puts
+both back.
+
+1. Make a switch from the nodes whose settings should change.
+2. Set those nodes the way they should be when the switch is **on**. Select
+   them, open the switch's three dots and pick **Save the 2 selected as
+   on**.
+3. Set them the way they should be when it is **off**, select them again and
+   pick **Save the 2 selected as off**.
+
+The switch now changes only the values that differ between the two. Those
+nodes are no longer turned off by it.
+
+In a LoRA Loader it changes single rows, found by file name. A row you did
+not change keeps whatever strength you give it later.
+
 ## The small view
 
 Press **Done** and the card shrinks to the labels and their switches. That is
@@ -48,13 +67,17 @@ the models only that part needs.
   run. It is one undo step.
 - **Mixed**: when only some of a row's nodes run (one bypassed by hand, say)
   the pill is striped and a count shows how many run, such as **1/2**. Click
-  off or on to set them all.
+  off or on to set them all. A settings switch reads **changed** when one of
+  its values was set by hand to something else, and **half set** while only
+  one side is saved.
 - **Frame button** (four corners): brings the part into view.
 - **Three dots** (on a switch you made):
   - **Rename**. Double-clicking the label does the same.
   - **Select its nodes** shows on the canvas what the switch holds.
   - **Add the selected** and **Take out the selected** change what it holds.
     Select nodes or groups first.
+  - **Save the selected as on** and **Save the selected as off** make it a
+    switch that changes settings, see above.
   - **Move up** and **Move down** change the order.
   - **Delete this switch** removes the row. The nodes stay as they are.
 - Right-click the node for **Switch everything on** and **Switch everything
@@ -99,9 +122,14 @@ Open **Settings** at the bottom of the edit view.
 - The card lists the parts of the graph it sits on. Inside a box it lists
   that box's nodes and groups. It never switches itself or another Workflow
   Switches node.
-- It stores which nodes each switch holds and its settings. Whether a row is
-  on is read from the nodes themselves, so a saved workflow reopens showing
-  what is really on, however it was switched.
+- **What a settings switch remembers.** Saving a side stores every text,
+  number and on/off value of the selected nodes, by control name. Only the
+  ones that differ between on and off are ever written. A value longer than
+  20,000 characters is not stored. One switch remembers up to 40 nodes.
+- **Switch everything on** and **off** also move every settings switch.
+- It stores which nodes each switch holds, the values it remembers and its
+  settings. Whether a row is on is read from the nodes themselves, so a saved
+  workflow reopens showing what is really on, however it was switched.
 - It never runs and has no wires. It is left out of the prompt, so it cannot
   change a result or slow a run.
 - One card holds up to 40 switches.
