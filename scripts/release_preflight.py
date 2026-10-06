@@ -59,6 +59,17 @@ if match:
 else:
     errors.append('pyproject.toml has no version = "..." line')
 
+# The Registry refuses an upload whose description is over 1000 bytes
+# ("description is too long"), and it says so only after the version is
+# on main.
+DESCRIPTION_LIMIT = 1000
+match = re.search(rb'^description\s*=\s*"([^"]*)"', raw, re.MULTILINE)
+if match and len(match.group(1)) > DESCRIPTION_LIMIT:
+    errors.append(
+        f"the pyproject description is {len(match.group(1))} bytes; "
+        f"the Registry takes {DESCRIPTION_LIMIT} at most"
+    )
+
 # --- 2. the frontend version constant matches --------------------------------
 js_version = None
 try:
