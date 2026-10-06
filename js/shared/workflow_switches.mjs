@@ -5,10 +5,13 @@
 // node:test.
 //
 // A switch is either one the user made from picked nodes and groups (stored
-// in the node's properties, by id) or a group listed on its own. The truth
-// lives in the nodes' own modes. Nothing here remembers what a switch was;
-// every answer is read fresh from the graph, which is why a saved workflow,
-// an undo or a mode changed by hand elsewhere always shows right.
+// in the node's properties, by id) or a group listed on its own. A made
+// switch can also change settings instead of turning nodes off: it keeps
+// what chosen nodes' controls held when "on" was saved and when "off" was
+// saved, and switches the values that differ. The truth lives in the nodes'
+// own modes and values. Nothing here remembers what a switch was; every
+// answer is read fresh from the graph, which is why a saved workflow, an
+// undo or a change made by hand elsewhere always shows right.
 
 // LiteGraph's node modes. Mute is the frontend's "never".
 export const MODE_ALWAYS = 0;
@@ -20,6 +23,11 @@ export const SETTINGS_PROPERTY = "ausboss_workflow_switches";
 export const TITLE_MAX = 60;
 export const SWITCHES_MAX = 40;
 export const MEMBERS_MAX = 400;
+// A switch that changes settings: how many nodes it may remember, how many
+// controls of each, and how long a remembered text may be.
+export const VALUE_NODES_MAX = 40;
+export const VALUE_WIDGETS_MAX = 80;
+export const VALUE_TEXT_MAX = 20000;
 
 export const DEFAULT_SETTINGS = Object.freeze({
   off: "bypass", // what a switched-off part does: "bypass" | "mute"
@@ -27,7 +35,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   match: "", // comma-separated title text, read when groups is "matching"
   order: "canvas", // group rows: "canvas" (the way the workflow reads) | "title"
   exclusive: false, // one at a time: switching a row on switches the other rows off
-  switches: Object.freeze([]), // the switches made from picked nodes: { id, title, nodes, groups }
+  switches: Object.freeze([]), // the made switches: { id, title, nodes, groups, on, off }
 });
 
 const CHOICES = {
@@ -61,9 +69,44 @@ export function cleanIds(list, limit = MEMBERS_MAX) {
   return ids;
 }
 
+// A value a control can hold and a workflow file can store: text, a number,
+// or on/off. Anything else (and text past the limit) is not remembered.
+function cleanValue(value) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.length <= VALUE_TEXT_MAX) return value;
+  return undefined;
+}
+
+// One side of a switch that changes settings: for each of its nodes (by id)
+// what the node's controls held when that side was saved, by widget name.
+export function cleanSnapshots(raw) {
+  const sides = {};
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return sides;
+  let nodes = 0;
+  for (const [id, widgets] of Object.entries(raw)) {
+    if (!widgets || typeof widgets !== "object" || Array.isArray(widgets)) continue;
+    const kept = {};
+    let count = 0;
+    for (const [name, value] of Object.entries(widgets)) {
+      const clean = cleanValue(value);
+      if (clean === undefined || !name) continue;
+      kept[name] = clean;
+      count += 1;
+      if (count >= VALUE_WIDGETS_MAX) break;
+    }
+    if (!count) continue;
+    sides[String(id)] = kept;
+    nodes += 1;
+    if (nodes >= VALUE_NODES_MAX) break;
+  }
+  return sides;
+}
+
 // The made switches, whatever a saved workflow or a hand edit left there.
 // Every switch keeps a small whole-number id of its own; a missing or
-// repeated one is replaced, so two rows are never told apart by title.
+// repeated one is replaced, so two rows are never told apart by title. A
+// node whose values a switch changes is not also turned off by it.
 export function normalizeSwitches(raw) {
   const switches = [];
   const used = new Set();
@@ -75,11 +118,15 @@ export function normalizeSwitches(raw) {
       while (used.has(id)) id += 1;
     }
     used.add(id);
+    const on = cleanSnapshots(item.on);
+    const off = cleanSnapshots(item.off);
     switches.push({
       id,
       title: cleanTitle(item.title) || `Switch ${id}`,
-      nodes: cleanIds(item.nodes),
+      nodes: cleanIds(item.nodes).filter((member) => !(String(member) in on) && !(String(member) in off)),
       groups: cleanIds(item.groups),
+      on,
+      off,
     });
     if (switches.length >= SWITCHES_MAX) break;
   }
@@ -206,13 +253,130 @@ export function modeMatters(node) {
 // note inside a group never makes it read "mixed"); a part of nothing but
 // such nodes is read from all of them, and one holding no node at all is
 // "empty".
-export function partState(members, counts = () => true) {
+//
+// A switch that changes settings adds one unit per setting (`pairs`, see
+// readPairs): a setting at its "on" value counts as on, at its "off" value
+// as off, and at anything else as neither, which reads mixed.
+export function partState(members, counts = () => true, pairs = []) {
   const counted = members.filter(counts);
-  const pool = counted.length ? counted : members;
-  if (!pool.length) return { state: "empty", on: 0, total: 0 };
-  const on = pool.filter((node) => isRunning(node.mode)).length;
-  const state = on === 0 ? "off" : on === pool.length ? "on" : "mixed";
-  return { state, on, total: pool.length };
+  const pool = counted.length || pairs.length ? counted : members;
+  const total = pool.length + pairs.length;
+  if (!total) return { state: "empty", on: 0, total: 0 };
+  const running = pool.filter((node) => isRunning(node.mode)).length;
+  const on = running + pairs.filter((pair) => pair.now === "on").length;
+  const off = pool.length - running + pairs.filter((pair) => pair.now === "off").length;
+  const state = on === total ? "on" : off === total ? "off" : "mixed";
+  return { state, on, total };
+}
+
+// ---------- switches that change settings ----------
+
+// What a node's own controls hold right now, by widget name: what "save as
+// on" remembers. A card or panel that is not saved with the workflow has no
+// value of its own and is left out.
+export function snapshotNode(node) {
+  const values = {};
+  let count = 0;
+  for (const widget of node?.widgets ?? []) {
+    if (!widget || widget.serialize === false || typeof widget.name !== "string" || !widget.name) continue;
+    const clean = cleanValue(widget.value);
+    if (clean === undefined) continue;
+    values[widget.name] = clean;
+    count += 1;
+    if (count >= VALUE_WIDGETS_MAX) break;
+  }
+  return values;
+}
+
+// A LoRA stack keeps every row in one text value: a list of rows, each with
+// a file name and whether it is on. Returns the rows, or null for any other
+// text.
+export function stackRows(value) {
+  if (typeof value !== "string" || !value.startsWith("[")) return null;
+  let rows;
+  try {
+    rows = JSON.parse(value);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(rows) || !rows.length) return null;
+  const isRow = (row) => row && typeof row === "object" && typeof row.name === "string" && typeof row.enabled === "boolean";
+  return rows.every(isRow) ? rows : null;
+}
+
+function rowSetting(row) {
+  const strength = Number(row.strength);
+  return { enabled: Boolean(row.enabled), strength: Number.isFinite(strength) ? strength : null };
+}
+
+function sameSetting(a, b) {
+  return a.enabled === b.enabled && a.strength === b.strength;
+}
+
+// The settings a switch changes: every control that held one value when "on"
+// was saved and another when "off" was saved. A LoRA stack is compared row
+// by row, by file name, so the switch moves only the rows that differ and
+// leaves whatever else was changed in the stack since. Returns
+// { node, widget, on, off } and, for a stack row, { ..., row }.
+export function valuePairs(entry) {
+  const pairs = [];
+  for (const [id, on] of Object.entries(entry?.on ?? {})) {
+    const off = entry?.off?.[id];
+    if (!off) continue;
+    for (const [widget, onValue] of Object.entries(on)) {
+      if (!(widget in off) || off[widget] === onValue) continue;
+      const offValue = off[widget];
+      const onRows = stackRows(onValue);
+      const offRows = stackRows(offValue);
+      if (!onRows || !offRows) {
+        pairs.push({ node: id, widget, on: onValue, off: offValue });
+        continue;
+      }
+      for (const row of onRows) {
+        const other = offRows.find((candidate) => candidate.name === row.name);
+        if (!other) continue;
+        const [a, b] = [rowSetting(row), rowSetting(other)];
+        if (!sameSetting(a, b)) pairs.push({ node: id, widget, row: row.name, on: a, off: b });
+      }
+    }
+  }
+  return pairs;
+}
+
+// Where a setting stands now: at its on value, its off value, or neither.
+export function pairNow(pair, current) {
+  if (pair.row === undefined) return current === pair.on ? "on" : current === pair.off ? "off" : "other";
+  const row = stackRows(current)?.find((candidate) => candidate.name === pair.row);
+  if (!row) return "other";
+  const now = rowSetting(row);
+  return sameSetting(now, pair.on) ? "on" : sameSetting(now, pair.off) ? "off" : "other";
+}
+
+// The value a control should hold for one side of a switch. For a stack row
+// it is the stack as it is now with that one row changed.
+export function pairValue(pair, side, current) {
+  const want = side === "on" ? pair.on : pair.off;
+  if (pair.row === undefined) return want;
+  const rows = stackRows(current);
+  if (!rows) return current;
+  return JSON.stringify(rows.map((row) => {
+    if (row.name !== pair.row) return row;
+    return want.strength === null ? { ...row, enabled: want.enabled } : { ...row, enabled: want.enabled, strength: want.strength };
+  }));
+}
+
+// A switch's settings as they stand on the graph: each pair with its node,
+// its control and where it is now. A pair whose node or control is gone is
+// left out.
+export function readPairs(entry, nodeById) {
+  const pairs = [];
+  for (const pair of valuePairs(entry)) {
+    const live = nodeById.get(String(pair.node))?.node;
+    const control = live?.widgets?.find((widget) => widget?.name === pair.widget);
+    if (!control) continue;
+    pairs.push({ ...pair, live, control, now: pairNow(pair, control.value) });
+  }
+  return pairs;
 }
 
 // Every node a switch may touch, with its box. `skip` leaves nodes out
@@ -284,6 +448,20 @@ export function readSwitches(switches, placed, groupRows, { counts = () => true 
         members.push(node);
       }
     }
+    // The nodes whose settings it changes: listed, framed and selected with
+    // the rest, but never turned off by it.
+    const valueNodes = [];
+    const sides = new Set([...Object.keys(entry.on ?? {}), ...Object.keys(entry.off ?? {})]);
+    for (const id of sides) {
+      const hit = nodeById.get(id);
+      if (!hit) {
+        gone += 1;
+        continue;
+      }
+      valueNodes.push(hit.node);
+      rects.push(hit.rect);
+    }
+    const pairs = readPairs(entry, nodeById);
     return {
       kind: "switch",
       entry,
@@ -291,8 +469,12 @@ export function readSwitches(switches, placed, groupRows, { counts = () => true 
       title: entry.title,
       color: null,
       members,
+      valueNodes,
+      pairs,
+      // Saved for one side only so far: nothing to switch between yet.
+      half: [...sides].some((id) => !(entry.on?.[id] && entry.off?.[id])),
       gone,
-      ...partState(members, counts),
+      ...partState(members, counts, pairs),
     };
   });
 }
@@ -391,6 +573,28 @@ export function switchAllPlan(rows, on, settings) {
   return [...modes].filter(([node, value]) => node.mode !== value);
 }
 
+// The settings one click changes, as [pair, side]: every setting of the row
+// goes to its on or its off value, and one at a time first sends the other
+// rows' settings to off. Only the settings not already there are returned.
+export function valuePlan(rows, target, on, settings) {
+  const sides = new Map();
+  const key = (pair) => `${pair.node}|${pair.widget}|${pair.row ?? ""}`;
+  if (on && settings?.exclusive) {
+    for (const row of rows) {
+      if (row === target) continue;
+      for (const pair of row.pairs ?? []) sides.set(key(pair), [pair, "off"]);
+    }
+  }
+  for (const pair of target?.pairs ?? []) sides.set(key(pair), [pair, on ? "on" : "off"]);
+  return [...sides.values()].filter(([pair, side]) => pair.now !== side);
+}
+
+export function valueAllPlan(rows, on) {
+  const sides = new Map();
+  for (const row of rows) for (const pair of row.pairs ?? []) sides.set(`${pair.node}|${pair.widget}|${pair.row ?? ""}`, [pair, on ? "on" : "off"]);
+  return [...sides.values()].filter(([pair, side]) => pair.now !== side);
+}
+
 // ---------- making and changing switches ----------
 
 function withSwitches(settings, switches) {
@@ -430,7 +634,7 @@ export function addSwitch(settings, { title, nodes, groups } = {}) {
   const current = normalizeSettings(settings);
   if (current.switches.length >= SWITCHES_MAX) return { settings: current, id: null };
   const id = current.switches.reduce((highest, entry) => Math.max(highest, entry.id), 0) + 1;
-  const entry = { id, title: cleanTitle(title) || `Switch ${id}`, ...pickedIds({ nodes, groups }) };
+  const entry = { id, title: cleanTitle(title) || `Switch ${id}`, ...pickedIds({ nodes, groups }), on: {}, off: {} };
   return { settings: withSwitches(current, [...current.switches, entry]), id };
 }
 
@@ -461,14 +665,21 @@ export function moveSwitch(settings, id, step) {
   return withSwitches(current, switches);
 }
 
+// A node whose settings the switch already changes stays that way: it is
+// not also turned off.
 export function addMembers(settings, id, picked) {
   const extra = pickedIds(picked);
   return changeSwitch(settings, id, (entry) => ({
-    nodes: cleanIds([...entry.nodes, ...extra.nodes]),
+    nodes: cleanIds([...entry.nodes, ...extra.nodes]).filter((member) => !(String(member) in entry.on) && !(String(member) in entry.off)),
     groups: cleanIds([...entry.groups, ...extra.groups]),
   }));
 }
 
+function withoutKeys(sides, drop) {
+  return Object.fromEntries(Object.entries(sides ?? {}).filter(([id]) => !drop.has(id)));
+}
+
+// Taking a node out also forgets the values the switch saved for it.
 export function removeMembers(settings, id, picked) {
   const drop = pickedIds(picked);
   const nodes = new Set(drop.nodes.map(String));
@@ -476,15 +687,37 @@ export function removeMembers(settings, id, picked) {
   return changeSwitch(settings, id, (entry) => ({
     nodes: entry.nodes.filter((member) => !nodes.has(String(member))),
     groups: entry.groups.filter((member) => !groups.has(String(member))),
+    on: withoutKeys(entry.on, nodes),
+    off: withoutKeys(entry.off, nodes),
   }));
 }
 
-// How many of the picked nodes and groups a switch already holds.
+// How many of the picked nodes and groups a switch already holds, to turn
+// off or to change the settings of.
 export function heldCount(entry, picked) {
   const want = pickedIds(picked);
-  const nodes = new Set((entry?.nodes ?? []).map(String));
+  const nodes = new Set([...(entry?.nodes ?? []).map(String), ...Object.keys(entry?.on ?? {}), ...Object.keys(entry?.off ?? {})]);
   const groups = new Set((entry?.groups ?? []).map(String));
   return want.nodes.filter((id) => nodes.has(String(id))).length + want.groups.filter((id) => groups.has(String(id))).length;
+}
+
+// Save what the picked nodes hold right now as one side of a switch ("on"
+// or "off"). `snapshots` is [{ id, values }], values from snapshotNode. From
+// then on the switch changes those nodes' settings and no longer turns them
+// off.
+export function saveValues(settings, id, side, snapshots) {
+  if (side !== "on" && side !== "off") return normalizeSettings(settings);
+  const saved = {};
+  for (const item of snapshots ?? []) {
+    const [nodeId] = cleanIds([item?.id]);
+    if (nodeId === undefined) continue;
+    saved[String(nodeId)] = item.values;
+  }
+  const ids = new Set(Object.keys(saved));
+  return changeSwitch(settings, id, (entry) => ({
+    nodes: entry.nodes.filter((member) => !ids.has(String(member))),
+    [side]: cleanSnapshots({ ...entry[side], ...saved }),
+  }));
 }
 
 // ---------- change detection ----------
@@ -494,6 +727,9 @@ export function heldCount(entry, picked) {
 export function rowsSignature(rows, settings, keyOf = (row) => row.title) {
   return JSON.stringify([
     settings,
-    rows.map((row) => [row.kind, keyOf(row), row.title, row.color, row.state, row.on, row.total, row.members?.length ?? 0, row.gone ?? 0]),
+    rows.map((row) => [
+      row.kind, keyOf(row), row.title, row.color, row.state, row.on, row.total, row.members?.length ?? 0, row.gone ?? 0,
+      row.pairs?.length ?? 0, row.half ?? false,
+    ]),
   ]);
 }

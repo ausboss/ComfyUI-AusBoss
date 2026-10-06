@@ -5,15 +5,18 @@
 // it its whole face: one row per switch, a label and an off | on pill.
 //
 // A switch is either made from picked nodes and groups (select them, press
-// + Switch) or a group listed on its own. The card has two views. The edit
+// + Switch) or a group listed on its own. A made switch can also change
+// settings instead of turning nodes off: it remembers what chosen nodes hold
+// for on and for off, and a click writes the values that differ (a faster
+// LoRA row and fewer steps, say). The card has two views. The edit
 // view shows everything: a frame button and a menu on each row, the bar that
 // makes a switch from the selection, and the settings. Done folds all of
 // that away and leaves the labels and their switches: the small view a
 // shared workflow ships with.
 //
 // Only what the user made is stored (which nodes each switch holds, by id,
-// and the settings, in node.properties). Every row's state is read from the
-// nodes' own modes, so a reloaded workflow, an undo or a node bypassed by
+// the values it remembers and the settings, in node.properties). Every row's
+// state is read from the nodes' own modes and values, so a reloaded workflow, an undo or a node bypassed by
 // hand elsewhere always shows right, and a switch whose nodes are only
 // partly on reads mixed. The list follows the graph on the canvas's own
 // redraws, which the frontend makes whenever the graph or the selection
@@ -25,11 +28,12 @@ import { app } from "/scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "../shared/index.mjs";
 import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { holdNodeMinWidth } from "../shared/panel_layout.mjs";
-import { cardHeight, ensureCardCss } from "../shared/widget_card.mjs";
+import { cardHeight, commitWidgetValue, ensureCardCss } from "../shared/widget_card.mjs";
 import {
   DEFAULT_SETTINGS, SETTINGS_PROPERTY, SWITCHES_MAX, TITLE_MAX, addMembers, addSwitch, frameBounds, groupBounds, heldCount,
-  listedRows, modeMatters, moveSwitch, normalizeSettings, placeNodes, readGroups, readSwitches, removeMembers,
-  removeSwitch, renameSwitch, rowsSignature, suggestTitle, switchAllPlan, switchPlan,
+  listedRows, modeMatters, moveSwitch, normalizeSettings, pairValue, placeNodes, readGroups, readSwitches,
+  removeMembers, removeSwitch, renameSwitch, rowsSignature, saveValues, snapshotNode, suggestTitle, switchAllPlan,
+  switchPlan, valueAllPlan, valuePlan,
 } from "../shared/workflow_switches.mjs";
 
 const NODE_CLASS = "AUSBOSS_NODES_WorkflowSwitches";
@@ -103,6 +107,7 @@ function ensureCss() {
 .ausboss-ws-done:hover{background:#19c9bf;border-color:#19c9bf}
 .ausboss-ws-menu{position:fixed;z-index:10000;min-width:200px;padding:4px;border:1px solid #2a3437;border-radius:8px;background:#11181a;box-shadow:0 8px 28px rgba(0,0,0,.5);font:12px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#d8ecea}
 .ausboss-ws-menu-head{padding:5px 8px 6px;border-bottom:1px solid #223033;margin-bottom:3px;color:#78908e;font-size:10px;line-height:1;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
+.ausboss-ws-menu-head.sub{border-bottom:none;margin-bottom:0;padding-bottom:3px}
 .ausboss-ws-menu-item{display:block;width:100%;padding:6px 8px;border:none;border-radius:5px;background:transparent;color:inherit;font:inherit;text-align:left;white-space:nowrap;cursor:pointer}
 .ausboss-ws-menu-item:hover{background:#1d2a2c;color:#fff}
 .ausboss-ws-menu-item:disabled{color:#566b69;cursor:default;background:transparent}
@@ -251,10 +256,26 @@ function pickedIds(pick) {
 // ---------- switching ----------
 
 // Mode changes go straight onto the nodes, the way the frontend's own group
-// menu and Ctrl+B make them, then one graph change and one undo step.
-function applyPlan(state, plan) {
-  if (!plan.length) return;
+// menu and Ctrl+B make them. A setting is written to its control the way a
+// hand edit writes it (value, the control's callback, then the node is
+// told), so the node's own card or panel follows in both renderers. Then one
+// graph change and one undo step.
+function applyPlan(state, plan, values = []) {
+  if (!plan.length && !values.length) return;
   for (const [node, mode] of plan) node.mode = mode;
+  for (const [pair, side] of values) {
+    const control = pair.control;
+    const next = pairValue(pair, side, control.value);
+    if (next === control.value) continue;
+    try {
+      commitWidgetValue(pair.live, control, next, app.canvas);
+    } catch (_error) {
+      // A callback that expects a mouse event must not stop the others: the
+      // value itself is what the run reads.
+      control.value = next;
+    }
+    pair.live.setDirtyCanvas?.(true, true);
+  }
   const graph = state.node.graph;
   if (typeof graph?.change === "function") graph.change();
   else graph?.setDirtyCanvas?.(true, true);
@@ -265,13 +286,13 @@ function switchRow(state, key, on) {
   const { settings, rows } = read(state);
   const target = rows.find((row) => rowKey(row) === key);
   if (!target) return;
-  applyPlan(state, switchPlan(rows, target, on, settings));
+  applyPlan(state, switchPlan(rows, target, on, settings), valuePlan(rows, target, on, settings));
   refresh(state);
 }
 
 function switchAll(state, on) {
   const { settings, rows } = read(state);
-  applyPlan(state, switchAllPlan(rows, on, settings));
+  applyPlan(state, switchAllPlan(rows, on, settings), valueAllPlan(rows, on));
   refresh(state);
 }
 
@@ -496,10 +517,30 @@ function selectMembers(state, key) {
   const row = read(state).rows.find((candidate) => rowKey(candidate) === key);
   const canvas = app.canvas;
   if (!row || !canvas) return;
+  const nodes = [...row.members, ...(row.valueNodes ?? [])];
   canvas.deselectAll?.();
-  if (typeof canvas.select === "function") for (const node of row.members) canvas.select(node);
-  else canvas.selectNodes?.(row.members);
+  if (typeof canvas.select === "function") for (const node of nodes) canvas.select(node);
+  else canvas.selectNodes?.(nodes);
   canvas.setDirty?.(true, true);
+}
+
+// Remember what the selected nodes hold right now as this switch's on or
+// off, and say what that leaves to do.
+function saveSide(state, key, side, pick) {
+  const id = Number(key.slice(1));
+  const snapshots = pick.nodes.map((node) => ({ id: node.id, values: snapshotNode(node) })).filter((item) => Object.keys(item.values).length);
+  if (!snapshots.length) {
+    showToast({ summary: "Workflow Switches", severity: "warn", detail: "The selected nodes have no settings to remember." });
+    return;
+  }
+  writeSettings(state, saveValues(settingsOf(state.node), id, side, snapshots));
+  const row = read(state).rows.find((candidate) => rowKey(candidate) === key);
+  if (!row) return;
+  const other = side === "on" ? "off" : "on";
+  let detail = `"${row.title}" now changes ${row.pairs.length} setting${row.pairs.length === 1 ? "" : "s"}.`;
+  if (row.half) detail = `Saved as ${side}. Now set those nodes the way they should be for ${other}, select them, and save that side too.`;
+  else if (!row.pairs.length) detail = `Those nodes hold the same values for on and off. Change them, then save ${other} again.`;
+  showToast({ summary: "Workflow Switches", detail });
 }
 
 function closeMenu() {
@@ -549,6 +590,13 @@ function showMenu(state, key, anchor) {
     () => writeSettings(state, removeMembers(settings, id, ids)),
     { disabled: held < 1, title: "Select nodes this switch holds first, then take them out of it" },
   );
+  rule();
+  // A switch that changes settings instead of turning nodes off.
+  menu.append(el("div", "ausboss-ws-menu-head sub", "Change settings instead"));
+  const count = pick.nodes.length;
+  const how = "Makes this a switch that changes settings instead of turning nodes off. Set the selected nodes the way they should be for this side, then save it. Do both sides: the switch changes the values that differ.";
+  item(count ? `Save the ${count} selected as on` : "Save the selected as on", () => saveSide(state, key, "on", pick), { disabled: !count, title: how });
+  item(count ? `Save the ${count} selected as off` : "Save the selected as off", () => saveSide(state, key, "off", pick), { disabled: !count, title: how });
   rule();
   item("Move up", () => writeSettings(state, moveSwitch(settings, id, -1)), { disabled: index < 1 });
   item("Move down", () => writeSettings(state, moveSwitch(settings, id, 1)), { disabled: index >= settings.switches.length - 1 });
@@ -637,23 +685,34 @@ function buildRow(state, key, made) {
     row.classList.toggle("empty", data.state === "empty");
     chip.style.setProperty("--chip", data.color ?? (made ? BRAND : NO_COLOR));
     title.textContent = label;
+    const pairs = data.pairs ?? [];
     const names = data.members.slice(0, 6).map(nodeTitle).join(", ");
     const tail = data.members.length > 6 ? ` and ${data.members.length - 6} more` : "";
+    const sets = pairs.slice(0, 6).map((pair) => `${nodeTitle(pair.live)} (${pair.row ?? pair.widget})`).join(", ");
+    const parts = [];
+    if (data.members.length) parts.push(`turns off and on ${names}${tail}`);
+    if (pairs.length) parts.push(`changes ${sets}${pairs.length > 6 ? ` and ${pairs.length - 6} more` : ""}`);
     title.title = made
-      ? data.members.length ? `${label}: ${names}${tail}` : `${label}: its nodes are gone`
+      ? parts.length ? `${label}: ${parts.join("; ")}` : data.half ? `${label}: saved for one side only` : `${label}: its nodes are gone`
       : `${label}: every node inside this group`;
-    count.textContent = data.state === "mixed" ? `${data.on}/${data.total}` : data.state === "empty" ? "empty" : "";
-    count.title = data.state === "mixed"
-      ? `${data.on} of its ${data.total} nodes run`
-      : data.state !== "empty" ? ""
-        : made ? "Its nodes are gone. Add some from its menu in the edit view, or delete the switch." : "No nodes inside this group yet";
+    const waiting = data.half && !pairs.length && !data.members.length;
+    // A setting changed by hand to a third value is neither on nor off.
+    const changed = data.state === "mixed" && pairs.some((pair) => pair.now === "other");
+    count.textContent = changed ? "changed" : data.state === "mixed" ? `${data.on}/${data.total}` : waiting ? "half set" : data.state === "empty" ? "empty" : "";
+    count.title = changed
+      ? "A setting this switch changes was set by hand to something else. Click off or on to set it again."
+      : data.state === "mixed" ? `${data.on} of its ${data.total} ${pairs.length ? "nodes and settings are on" : "nodes run"}`
+      : waiting ? "Saved for one side only. Set its nodes the other way, select them, and save that side from its menu."
+        : data.state !== "empty" ? ""
+          : made ? "Its nodes are gone. Add some from its menu in the edit view, or delete the switch." : "No nodes inside this group yet";
     pill.classList.toggle("mixed", data.state === "mixed");
     offButton.classList.toggle("on", data.state === "off");
     onButton.classList.toggle("on", data.state === "on");
     offButton.setAttribute("aria-checked", String(data.state === "off"));
     onButton.setAttribute("aria-checked", String(data.state === "on"));
-    offButton.title = `${settings.off === "mute" ? "Mute" : "Bypass"} "${label}"`;
-    onButton.title = `Run "${label}"${settings.exclusive ? " and switch the other rows off" : ""}`;
+    const valuesOnly = pairs.length > 0 && !data.members.length;
+    offButton.title = valuesOnly ? `Switch "${label}" off` : `${settings.off === "mute" ? "Mute" : "Bypass"} "${label}"`;
+    onButton.title = `${valuesOnly ? "Switch" : "Run"} "${label}"${valuesOnly ? " on" : ""}${settings.exclusive ? " and switch the other rows off" : ""}`;
   };
   return { row, title, name, sync };
 }

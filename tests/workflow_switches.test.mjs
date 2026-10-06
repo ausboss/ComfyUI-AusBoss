@@ -2,11 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  DEFAULT_SETTINGS, MEMBERS_MAX, MODE_ALWAYS, MODE_BYPASS, MODE_NEVER, SWITCHES_MAX, TITLE_MAX,
-  addMembers, addSwitch, canvasOrder, centreInside, cleanIds, frameBounds, groupBounds, groupListed, heldCount, isRunning,
-  listedRows, matchTerms, modeMatters, moveSwitch, nodeBounds, normalizeSettings, normalizeSwitches, offMode,
-  partState, placeNodes, readGroups, readSwitches, removeMembers, removeSwitch, renameSwitch, rowsSignature,
-  suggestTitle, switchAllPlan, switchPlan, titleOrder, unionRect,
+  DEFAULT_SETTINGS, MEMBERS_MAX, MODE_ALWAYS, MODE_BYPASS, MODE_NEVER, SWITCHES_MAX, TITLE_MAX, VALUE_TEXT_MAX,
+  addMembers, addSwitch, canvasOrder, centreInside, cleanIds, cleanSnapshots, frameBounds, groupBounds, groupListed,
+  heldCount, isRunning, listedRows, matchTerms, modeMatters, moveSwitch, nodeBounds, normalizeSettings,
+  normalizeSwitches, offMode, pairNow, pairValue, partState, placeNodes, readGroups, readSwitches, removeMembers,
+  removeSwitch, renameSwitch, rowsSignature, saveValues, snapshotNode, stackRows, suggestTitle, switchAllPlan,
+  switchPlan, titleOrder, unionRect, valueAllPlan, valuePairs, valuePlan,
 } from "../js/shared/workflow_switches.mjs";
 
 const node = (id, x, y, { w = 200, h = 100, mode = MODE_ALWAYS, ...rest } = {}) => ({ id, pos: [x, y], size: [w, h], mode, ...rest });
@@ -43,8 +44,8 @@ test("made switches are cleaned, and every one keeps an id of its own", () => {
     null,
     { id: -4, title: "y".repeat(200) },
   ]);
-  assert.deepEqual(switches[0], { id: 2, title: "The whole thing", nodes: [5, 6], groups: [1] });
-  assert.deepEqual(switches[1], { id: 1, title: "Switch 1", nodes: [], groups: [] });
+  assert.deepEqual(switches[0], { id: 2, title: "The whole thing", nodes: [5, 6], groups: [1], on: {}, off: {} });
+  assert.deepEqual(switches[1], { id: 1, title: "Switch 1", nodes: [], groups: [], on: {}, off: {} });
   assert.equal(switches[2].id, 3);
   assert.equal(switches[2].title.length, TITLE_MAX);
   assert.equal(normalizeSwitches(Array.from({ length: SWITCHES_MAX + 5 }, () => ({}))).length, SWITCHES_MAX);
@@ -304,8 +305,8 @@ test("switches are added, renamed, moved, changed and removed without touching t
   assert.equal(second.id, 2);
   let settings = second.settings;
   assert.deepEqual(settings.switches, [
-    { id: 1, title: "The cut-out", nodes: [5], groups: [] },
-    { id: 2, title: "Switch 2", nodes: [6, 7], groups: [2] },
+    { id: 1, title: "The cut-out", nodes: [5], groups: [], on: {}, off: {} },
+    { id: 2, title: "Switch 2", nodes: [6, 7], groups: [2], on: {}, off: {} },
   ]);
   assert.deepEqual([settings.off, settings.groups], ["mute", "none"]);
   assert.deepEqual(start.switches, []); // the settings handed in are left alone
@@ -315,10 +316,10 @@ test("switches are added, renamed, moved, changed and removed without touching t
   assert.equal(renameSwitch(settings, 2, "   ").switches[1].title, "The whole thing");
 
   settings = addMembers(settings, 1, { nodes: [5, 8], groups: [3] });
-  assert.deepEqual(settings.switches[0], { id: 1, title: "The cut-out", nodes: [5, 8], groups: [3] });
+  assert.deepEqual(settings.switches[0], { id: 1, title: "The cut-out", nodes: [5, 8], groups: [3], on: {}, off: {} });
   assert.equal(heldCount(settings.switches[0], { nodes: [8, 9, "5"], groups: [3, 4] }), 3);
   settings = removeMembers(settings, 1, { nodes: ["5"], groups: [3] });
-  assert.deepEqual(settings.switches[0], { id: 1, title: "The cut-out", nodes: [8], groups: [] });
+  assert.deepEqual(settings.switches[0], { id: 1, title: "The cut-out", nodes: [8], groups: [], on: {}, off: {} });
 
   assert.deepEqual(moveSwitch(settings, 1, 1).switches.map((entry) => entry.id), [2, 1]);
   assert.deepEqual(moveSwitch(settings, 1, -1).switches.map((entry) => entry.id), [1, 2]);
@@ -331,6 +332,119 @@ test("switches are added, renamed, moved, changed and removed without touching t
   let full = start;
   for (let index = 0; index < SWITCHES_MAX; index += 1) full = addSwitch(full, {}).settings;
   assert.equal(addSwitch(full, {}).id, null);
+});
+
+// ---------- switches that change settings ----------
+
+const STACK = (turbo, strength = 1) => JSON.stringify([
+  { name: "consistency.safetensors", strength, enabled: true, triggers: "" },
+  { name: "turbo.safetensors", strength: 1, enabled: turbo, triggers: "" },
+]);
+const stepsNode = (value) => ({ id: 21, pos: [0, 0], size: [200, 100], mode: MODE_ALWAYS, widgets: [{ name: "value", value }, { name: "card", value: "", serialize: false }] });
+const loraNode = (value) => ({ id: 22, pos: [300, 0], size: [200, 100], mode: MODE_ALWAYS, widgets: [{ name: "loras", value }, { name: "on_missing", value: "error" }] });
+
+test("saving a side remembers what a node's own controls hold, and nothing else", () => {
+  assert.deepEqual(snapshotNode(stepsNode(8)), { value: 8 });
+  assert.deepEqual(snapshotNode(loraNode(STACK(true))), { loras: STACK(true), on_missing: "error" });
+  assert.deepEqual(snapshotNode({ widgets: [{ name: "a", value: { x: 1 } }, { name: "b", value: NaN }, { name: "", value: 1 }, { name: "ok", value: false }, null] }), { ok: false });
+  assert.deepEqual(snapshotNode({ widgets: [{ name: "long", value: "x".repeat(VALUE_TEXT_MAX + 1) }, { name: "fits", value: "x".repeat(VALUE_TEXT_MAX) }] }), { fits: "x".repeat(VALUE_TEXT_MAX) });
+  assert.deepEqual(snapshotNode({}), {});
+  assert.deepEqual(cleanSnapshots({ 21: { value: 8, bad: [1] }, 22: "x", 23: {} }), { 21: { value: 8 } });
+  assert.deepEqual(cleanSnapshots([1, 2]), {});
+});
+
+test("a switch changes only the settings that differ between its on and its off", () => {
+  const entry = {
+    on: { 21: { value: 8, same: "x" }, 22: { loras: STACK(true), on_missing: "error" }, 30: { only: 1 } },
+    off: { 21: { value: 25, same: "x" }, 22: { loras: STACK(false), on_missing: "error" } },
+  };
+  assert.deepEqual(valuePairs(entry), [
+    { node: "21", widget: "value", on: 8, off: 25 },
+    { node: "22", widget: "loras", row: "turbo.safetensors", on: { enabled: true, strength: 1 }, off: { enabled: false, strength: 1 } },
+  ]);
+  assert.deepEqual(valuePairs({ on: { 21: { value: 8 } }, off: {} }), []);
+  assert.deepEqual(valuePairs({}), []);
+  // Text that only looks like a stack on one side is switched whole.
+  assert.deepEqual(valuePairs({ on: { 5: { text: "[1, 2]" } }, off: { 5: { text: "plain" } } }), [{ node: "5", widget: "text", on: "[1, 2]", off: "plain" }]);
+  assert.equal(stackRows("[]"), null);
+  assert.equal(stackRows('[{"name":"a"}]'), null);
+  assert.equal(stackRows("not json ["), null);
+});
+
+test("a setting reads on, off or neither, and a stack row is changed in place", () => {
+  const plain = { node: "21", widget: "value", on: 8, off: 25 };
+  assert.deepEqual([8, 25, 30].map((now) => pairNow(plain, now)), ["on", "off", "other"]);
+  assert.equal(pairValue(plain, "on", 30), 8);
+  assert.equal(pairValue(plain, "off", 8), 25);
+  const row = { node: "22", widget: "loras", row: "turbo.safetensors", on: { enabled: true, strength: 1 }, off: { enabled: false, strength: 1 } };
+  assert.deepEqual([STACK(true), STACK(false), "[]", STACK(true).replace('"strength":1,"enabled":true,"triggers":""}]', '"strength":0.5,"enabled":true,"triggers":""}]')].map((now) => pairNow(row, now)), ["on", "off", "other", "other"]);
+  // The other row keeps the strength it was given since the switch was made.
+  const changed = STACK(false, 0.8);
+  assert.equal(pairValue(row, "on", changed), STACK(true, 0.8));
+  assert.equal(pairValue(row, "off", STACK(true, 0.8)), STACK(false, 0.8));
+  assert.equal(pairValue(row, "on", "gone"), "gone");
+});
+
+test("a made switch that changes settings reads them from the graph and never turns those nodes off", () => {
+  let settings = addSwitch(normalizeSettings({}), { title: "Fast", nodes: [21, 22] }).settings;
+  // Saving a side moves the node from "turn off" to "change its settings".
+  settings = saveValues(settings, 1, "on", [{ id: 21, values: { value: 8 } }, { id: 22, values: { loras: STACK(true) } }]);
+  assert.deepEqual(settings.switches[0].nodes, []);
+  const steps = stepsNode(8);
+  const lora = loraNode(STACK(true));
+  const placed = placeNodes([steps, lora]);
+  let [row] = readSwitches(settings.switches, placed, []);
+  assert.deepEqual([row.half, row.pairs.length, row.state, row.valueNodes.length], [true, 0, "empty", 2]);
+  settings = saveValues(settings, 1, "off", [{ id: "21", values: { value: 25 } }, { id: 22, values: { loras: STACK(false) } }]);
+  [row] = readSwitches(settings.switches, placed, []);
+  assert.deepEqual([row.half, row.pairs.length, row.state, row.on, row.total], [false, 2, "on", 2, 2]);
+  assert.deepEqual(row.members, []);
+  assert.deepEqual(row.rect, [0, -30, 500, 130]);
+  steps.widgets[0].value = 25;
+  [row] = readSwitches(settings.switches, placed, []);
+  assert.deepEqual([row.state, row.on, row.total], ["mixed", 1, 2]);
+  lora.widgets[0].value = STACK(false);
+  assert.equal(readSwitches(settings.switches, placed, [])[0].state, "off");
+  steps.widgets[0].value = 30; // set by hand to something else: neither on nor off
+  assert.equal(readSwitches(settings.switches, placed, [])[0].state, "mixed");
+  // The click: every setting not already there.
+  [row] = readSwitches(settings.switches, placed, []);
+  assert.deepEqual(valuePlan([row], row, true, settings).map(([pair, side]) => [pair.widget, side]), [["value", "on"], ["loras", "on"]]);
+  assert.deepEqual(valuePlan([row], row, false, settings).map(([pair, side]) => [pair.widget, side]), [["value", "off"]]);
+  assert.deepEqual(switchPlan([row], row, false, settings), []); // no node is turned off
+  assert.deepEqual(valueAllPlan([row], false).map(([pair]) => pair.widget), ["value"]);
+  // Held, added and taken out like any other node of the switch.
+  assert.equal(heldCount(settings.switches[0], { nodes: [21, 99] }), 1);
+  assert.deepEqual(addMembers(settings, 1, { nodes: [21, 40] }).switches[0].nodes, [40]);
+  const without = removeMembers(settings, 1, { nodes: [21] }).switches[0];
+  assert.deepEqual([Object.keys(without.on), Object.keys(without.off)], [["22"], ["22"]]);
+  assert.deepEqual(saveValues(settings, 1, "sideways", []).switches[0].on, settings.switches[0].on);
+  // A node whose control is gone drops out of the settings it changes.
+  assert.equal(readSwitches(settings.switches, placeNodes([lora]), [])[0].pairs.length, 1);
+  // A saved file that lists a node both ways keeps it as a settings node.
+  assert.deepEqual(normalizeSwitches([{ id: 1, nodes: [21, 5], on: { 21: { value: 8 } } }])[0].nodes, [5]);
+});
+
+test("one at a time sends the other rows' settings to off", () => {
+  const fast = { pairs: [{ node: "21", widget: "value", on: 8, off: 25, now: "on" }] };
+  const slow = { pairs: [{ node: "23", widget: "value", on: 50, off: 25, now: "off" }] };
+  const settings = { ...DEFAULT_SETTINGS, exclusive: true };
+  assert.deepEqual(valuePlan([fast, slow], slow, true, settings).map(([pair, side]) => [pair.node, side]), [["21", "off"], ["23", "on"]]);
+  assert.deepEqual(valuePlan([fast, slow], slow, true, DEFAULT_SETTINGS).map(([pair, side]) => [pair.node, side]), [["23", "on"]]);
+  assert.deepEqual(valuePlan([fast, { members: [] }], { members: [] }, true, DEFAULT_SETTINGS), []);
+});
+
+test("a row that turns nodes off and changes settings is on only when both are", () => {
+  const running = { mode: MODE_ALWAYS };
+  const bypassed = { mode: MODE_BYPASS };
+  const on = { now: "on" };
+  const off = { now: "off" };
+  assert.deepEqual(partState([running], () => true, [on]), { state: "on", on: 2, total: 2 });
+  assert.deepEqual(partState([bypassed], () => true, [off]), { state: "off", on: 0, total: 2 });
+  assert.deepEqual(partState([running], () => true, [off]), { state: "mixed", on: 1, total: 2 });
+  assert.deepEqual(partState([], () => true, [{ now: "other" }]), { state: "mixed", on: 0, total: 1 });
+  // A note beside a setting does not count: the setting decides.
+  assert.deepEqual(partState([{ mode: MODE_ALWAYS, note: true }], (member) => !member.note, [off]), { state: "off", on: 0, total: 1 });
 });
 
 test("the signature changes with anything the card shows, and only then", () => {
