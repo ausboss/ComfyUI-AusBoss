@@ -105,6 +105,7 @@ test("a panel that should follow the node's height never declares computeSize", 
   // Listed here rather than derived, so adding a panel is a deliberate call:
   // is this a stage that should grow, or a fixed row?
   const mustGrow = new Set([
+    "callout",
     "resolution",
     "compare",
     "image_crop_rotate_pad",
@@ -384,6 +385,7 @@ test("every panel root class carries border-box and an overflow clip", () => {
     image_folder: ".ausboss-if{",
     save_image: ".ausboss-save{",
     show_text: ".ausboss-show-text{",
+    callout: ".ausboss-callout{",
     workflow_note: ".ausboss-note{",
     seed: ".ausboss-seed{",
     run_timer: ".ausboss-timer{",

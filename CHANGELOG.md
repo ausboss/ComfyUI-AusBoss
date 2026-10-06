@@ -4,6 +4,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **New: Callout 🆎** (Utility). A note for the canvas. The text grows to fill
+  the note, so it reads without zooming in, and each point gets a thin teal
+  line beside it. Type an arrow emoji such as ⬆️ and it turns into a teal arrow
+  in the line. Click a node while you edit, then press an arrow, and the arrow
+  is linked to that node: click it later and the canvas brings the node into
+  view. Double-click to edit. It never runs and has no wires.
 - **New: Image Folder 🆎** (Image). Pick a folder, tick the pictures you
   want in a thumbnail gallery, and run the workflow on each one. All in one
   run does every picked picture with one press of Run. One per run loads one
