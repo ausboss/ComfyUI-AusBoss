@@ -12,7 +12,8 @@ All notable changes to ComfyUI-AusBoss are documented here.
   runs on an empty mask. A setting passes an empty mask on instead. It also
   returns the thing cut out on a see-through background. **More** holds how
   sure SAM 3 must be, **Fill holes**, and **Free VRAM**, which takes SAM 3
-  out of the graphics card's memory right after the search. The search is
+  out of the graphics card's memory right after the search. Turn it on in a
+  workflow that loads a big model after this node. The search is
   ComfyUI's own SAM 3 (ComfyUI 0.38 or newer): wire model and clip from a
   Load Checkpoint that loads the SAM 3 file.
 - **Opening More no longer shrinks the picture.** A node you made taller

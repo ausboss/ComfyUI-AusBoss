@@ -189,9 +189,9 @@ class AusBossMaskByName:
                     {
                         "default": False,
                         "tooltip": (
-                            "After the search, take SAM 3 out of the graphics card's "
-                            "memory so the next model has the room. Off keeps it "
-                            "loaded, which makes the next search faster."
+                            "Takes SAM 3 out of the graphics card's memory right after "
+                            "the search. Turn it on in a workflow that loads a big model "
+                            "after this node; off keeps the next search a little faster."
                         ),
                     },
                 ),

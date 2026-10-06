@@ -46,7 +46,8 @@ nothing instead.
   mask, like the spots SAM 3 leaves in hair or cloth. On gives a solid shape.
 - **More → Free VRAM** (`free_vram`): takes SAM 3 out of the graphics card's
   memory right after the search, so the next model has the room. Off keeps
-  it loaded, which makes the next search faster.
+  it loaded, which makes the next search a little faster. If you build
+  workflows, see the note below.
 - **FIND**: runs only this node and what feeds it.
 - **1 found · 96% sure**: how many things matched, and how sure SAM 3 was of
   the best one. A low number means: look at the picture, it may have picked
@@ -59,6 +60,14 @@ nothing instead.
 - **cut_out**: the picture with everything but the thing see-through. Save it
   as a PNG to keep the see-through part.
 - **found**: how many things matched in the first picture.
+
+## Building a workflow with it
+
+- When a big model loads after this node, such as an edit or a video model,
+  turn **More → Free VRAM** on before you save the workflow. SAM 3 then
+  leaves the graphics card's memory before that model needs the room.
+- When the node is used on its own, or FIND is pressed many times in a row,
+  leave it off. Each search is a little faster with SAM 3 still loaded.
 
 ## Technical details
 
@@ -83,7 +92,9 @@ nothing instead.
   unload of one model. Every other model stays loaded, and SAM 3 stays in
   system memory, so it comes back quickly. ComfyUI also moves a model out by
   itself when the next one needs the room; the switch is for when you want
-  SAM 3 out at once, also after a search that found nothing.
+  SAM 3 out at once, also after a search that found nothing. Measured on
+  one machine: about 1.7 GB of VRAM back, and a search took 0.8 seconds
+  instead of 0.5.
 - With several pictures in a batch, each one is searched on its own. A
   picture without the thing gets an empty mask, and the run stops only when
   no picture has it.
