@@ -31,7 +31,7 @@ TINT_STRENGTH = 0.5
 
 NO_NAME = 'Mask by Name: type what to find, like "the dog" or "the jacket".'
 NEEDS_SAM3 = (
-    "Mask by Name needs ComfyUI 0.38 or newer. It uses ComfyUI's own SAM 3 "
+    "Mask by Name needs ComfyUI 0.20 or newer. It uses ComfyUI's own SAM 3 "
     "Detect node, and this ComfyUI does not have it."
 )
 NOT_SAM3 = (

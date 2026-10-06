@@ -80,7 +80,7 @@ nothing instead.
 - Each name can match up to 16 things. Without that, SAM 3 returns one match
   per name, and only one of two scarves is found.
 - The search is ComfyUI's own SAM 3 (CLIP Text Encode, then SAM3 Detect, with
-  its two edge passes). The node needs ComfyUI 0.38 or newer and says so on an
+  its two edge passes). The node needs ComfyUI 0.20 or newer and says so on an
   older one.
 - The mask is the size of the picture. For more control over the edge (close
   holes, smooth, snap to the picture) follow it with Mask Refine.
@@ -95,6 +95,8 @@ nothing instead.
   SAM 3 out at once, also after a search that found nothing. Measured on
   one machine: about 1.7 GB of VRAM back, and a search took 0.8 seconds
   instead of 0.5.
+  It needs ComfyUI 0.23 or newer. On an older one the switch does nothing
+  and the run goes on.
 - With several pictures in a batch, each one is searched on its own. A
   picture without the thing gets an empty mask, and the run stops only when
   no picture has it.
