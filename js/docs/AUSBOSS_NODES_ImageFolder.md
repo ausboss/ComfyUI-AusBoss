@@ -8,8 +8,9 @@ all of them, caption them, resize them, make pairs for training.
 ## How to use it
 
 1. Bring your folder in. Drop it on the node from your file explorer. Or
-   press **Browse**, then **A folder on your computer**, and choose it. Its
-   pictures are copied into ComfyUI's `input` folder and show as tiles.
+   press **Browse**, then **Copy a folder from your computer**, and choose
+   it. Its pictures are copied into ComfyUI's `input` folder and show as
+   tiles.
 2. A folder that is already inside ComfyUI's `input` or `output` folder is
    chosen with **Browse**.
 3. Click a tile to take a picture out or put it back. **Shift + click** does
@@ -24,9 +25,14 @@ all of them, caption them, resize them, make pairs for training.
 The node only reads folders inside ComfyUI's own `input` and `output`
 folders. A folder from anywhere else is copied in:
 
-- **Drop it on the node**, or choose it with **Browse → A folder on your
-  computer** or **Add → A whole folder**. Your file explorer opens for the
-  last two.
+- **Drop it on the node**, or choose it with **Browse → Copy a folder from
+  your computer** or **Add → A whole folder**. Your file explorer opens for
+  the last two.
+- **Your browser asks first** when you choose a folder in the file explorer.
+  It shows its own question, such as "Upload 74 files to this site?". The
+  site is your ComfyUI, and the upload is the copy into its input folder.
+  The node cannot change those words. A folder dropped on the node is
+  copied without that question.
 - Its pictures go into `input/<the folder's name>`, folders inside it too,
   and the node moves to that copy.
 - **A really big folder asks first.** With more than 300 pictures or more
