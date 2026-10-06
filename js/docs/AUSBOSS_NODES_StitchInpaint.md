@@ -1,10 +1,11 @@
 # Stitch Inpaint
 
-Pastes a generated crop or outpaint back into its original image, using
-the stitcher from **Crop For Inpaint 🆎**, **Load Image + Pad 🆎** or any
-**Crop + Rotate + Pad 🆎** node. The result is resized to its source window
-if the sampler changed its size, joined to your picture the way **Seam**
-says, and the original frame is sliced back out.
+Puts what the model painted back into your original picture, so everything
+you did not ask it to change stays exactly as it was. Wire in the stitcher
+from **Crop For Inpaint 🆎**, **Load Image + Pad 🆎** or any
+**Crop + Rotate + Pad 🆎** node. If the sampler changed the size of the
+result, it is resized to fit first, then joined to your picture the way
+**Seam** says.
 
 ## Seam: classic or blend in
 
@@ -69,7 +70,7 @@ are in the model's own picture.
 - **Seam** (`seam`, in the gear menu): `classic` (the default) or
   `blend in`. Read "Seam: classic or blend in" above. It has no socket,
   so a link cannot drive it.
-- **fix_edge_halo** (classic seam only): Off by default. Recovers the true
+- **Fix edge halo** (`fix_edge_halo`, classic seam only): Off by default. Recovers the true
   color under the feathered seam before pasting, so half-transparent edge
   pixels stop blending their background in a second time. It costs real
   time per frame — read "What it costs" below before turning it on for a
@@ -224,8 +225,9 @@ and how it was tested.
 ### How the empty check works
 
 The new area is cut into 16 px blocks, and only blocks fully inside it are
-judged. A block counts as unpainted when it is within 10/255 of the canvas
-fill and flat. Painted scenery has texture even when it is dark, so a
+judged. A block counts as unpainted when it is within 20/255 of the canvas
+fill and flat. That is wide enough to catch a gray fill the model hands back
+a little darker. Painted scenery has texture even when it is dark, so a
 night street is not flagged. The same test runs on your picture, and only
 what the new area has beyond that counts: a black night sky may be
 continued as black. Up to nine frames spread across a clip are checked. Crop For Inpaint crops are not checked: their masked pixels are
@@ -259,8 +261,8 @@ the old picture, not a fill.
   halfway across. Blend in puts 60% of the lost strength back.
 - **Exactness.** Deeper than both hand-overs the result is your picture, bit
   for bit. Within 4 px of the edge and beyond it, it is the model's
-  picture, bit for bit. The Crop + Rotate + Pad nodes' `stitch_blend` and
-  `stitch_grow` shape only the classic paste.
+  picture, bit for bit. The Crop + Rotate + Pad nodes' **Blend** and
+  **Grow paste** (`stitch_blend`, `stitch_grow`) shape only the classic paste.
 - **Cost.** Frames go through in chunks of about 2 MP, with a cancel check
   and progress between chunks: about 0.2 to 0.5 s per 1.5 MP frame on a
   desktop CPU.

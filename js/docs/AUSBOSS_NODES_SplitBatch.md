@@ -1,6 +1,6 @@
 # Split Batch
 
-Splits an `IMAGE` batch in two after a one-based frame index — send a clip's
+Cuts a batch of frames in two after the frame you pick — send a clip's
 halves to different treatments, or peel leading frames off a batch.
 
 ## Controls

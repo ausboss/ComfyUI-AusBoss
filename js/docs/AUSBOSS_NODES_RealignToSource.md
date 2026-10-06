@@ -39,9 +39,11 @@ names from here on; how it measures may still improve.
 - **edited**: the edited picture.
 - **source**: the original picture you edited, at the size the edit model
   saw it (in the Qwen Image 2.1 Edit + Realign example, the Image Resize
-  output). The result comes out at this size.
+  output). The result comes out at this size. For a batch or a video, give
+  one source picture, or one per edited frame.
 - **stitcher** (optional): from Load Image + Pad 🆎 when you padded the
-  picture before editing. Image Crop + Rotate + Pad 🆎 works too.
+  picture before editing. Image Crop + Rotate + Pad 🆎 works too. A Crop
+  For Inpaint 🆎 stitcher does not work here.
 - **Fit**: `zoom + shift` (the default) fixes the usual Qwen drift.
   `affine` also fixes a slight tilt.
 - **Empty fill**: when the edit slid past the edge, a thin strip ends up
@@ -68,6 +70,10 @@ names from here on; how it measures may still improve.
     in one step.
   - **empty strip**: how much of the picture ended up with nothing in it.
     When it names a side and pixels, pad that side by that much next time.
+    With a stitcher wired in, it says "the margin was too small" and how
+    much to add.
+  - A picture it left alone reads `left as is:` and the reason.
+  - A batch or a video gets one line per frame, each starting `frame N:`.
 
 ## Why it happens
 

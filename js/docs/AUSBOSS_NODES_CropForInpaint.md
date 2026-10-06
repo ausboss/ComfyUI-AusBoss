@@ -1,10 +1,10 @@
 # Crop For Inpaint
 
-Cuts the masked region — plus enough surrounding context — out of an image
-so an inpainting model works at the region's native resolution instead of
-shrinking the whole frame. Pairs with **Stitch Inpaint 🆎**, which
-pastes the result back exactly where it came from. The **Extend** rows
-(`extend_*`) grow the frame itself, which is how the pair outpaints.
+Cuts out the part of a picture you masked, with some of what is around it, so
+the model repaints just that part at full detail instead of the whole picture
+shrunk down. Use it with **Stitch Inpaint 🆎**, which pastes the result back
+exactly where it came from. The **Extend** rows (`extend_*`) add new space on a
+side of the picture, which is how the pair outpaints.
 
 ## Controls
 
@@ -13,7 +13,9 @@ pastes the result back exactly where it came from. The **Extend** rows
   into one crop window so a whole video shares one stitcher; an empty mask
   selects the full image (and stitches back unchanged). A picture with no
   mask painted on it stops the run with "No mask painted" and how to paint
-  one (core Load Image sends a small blank stand-in in that case).
+  one (core Load Image sends a small blank stand-in in that case). A mask
+  of another size than the picture also stops the run, and the message
+  gives both sizes.
 - **Context** (`context_factor`): Grows the mask bounding box
   symmetrically by this factor. The grown window is shifted back inside the
   frame first. When it's bigger than the picture, **Stay in picture**
@@ -32,7 +34,8 @@ pastes the result back exactly where it came from. The **Extend** rows
   what the model sees. `0` pastes with the raw mask.
 - **Multiple** (`output_multiple`): Crop and target dimensions are rounded
   up to a multiple of this so samplers accept them.
-- **target_width / target_height**: Rescale the crop to a fixed size for
+- **Target width / Target height** (`target_width` / `target_height`, in
+  the **Target size, extend** fold): Rescale the crop to a fixed size for
   the sampler. `0` keeps the native crop size; setting only one dimension
   derives the other from the crop's aspect ratio. Explicit values here
   override `target_megapixels`.
@@ -45,13 +48,14 @@ pastes the result back exactly where it came from. The **Extend** rows
   paste-back.
 - **Blur** (`mask_blur`): Gaussian sigma softening the sampling mask's
   edge, for models that honor soft masks. `0` keeps the hard edge.
-- **invert_mask**: Inpaint the black area instead of the white area —
-  everything outside the drawn region. Applied before growing or blurring.
+- **Invert mask** (`invert_mask`): Inpaint the black area instead of the
+  white area — everything outside the drawn region. Applied before growing
+  or blurring.
 
 ### Sizing the crop
 
 On the card, the **Target size, extend** fold holds these rows,
-**target_width / target_height** and the **Extend** rows.
+**Target width / Target height** and the **Extend** rows.
 
 - **Extra context** (`context_pixels`): Flat extra context in pixels added
   around the mask box after `context_factor`'s growth.
@@ -65,11 +69,12 @@ On the card, the **Target size, extend** fold holds these rows,
 
 ### Outpainting
 
-- **extend_left / extend_right / extend_up / extend_down**: Grow the frame
-  itself by this many pixels on that side, before anything else. The new
-  bands are replicate-filled, added to the mask, and become part of the
-  stitched output — draw nothing and the extended bands alone are
-  inpainted.
+- **Extend left / Extend right / Extend up / Extend down** (`extend_left` /
+  `extend_right` / `extend_up` / `extend_down`): Grow the picture itself by
+  this many pixels on that side. The new bands are filled with stretched
+  copies of the edge pixels, are always painted (even with **Invert mask**
+  on), and become part of the stitched output — draw nothing and the
+  extended bands alone are inpainted.
 
 ## Outputs
 
@@ -89,3 +94,11 @@ Load Image ── Crop For Inpaint ── image ──> LaMa Inpaint ── imag
 Any inpainting sampler fits between the two nodes the same way — connect
 the crop's `image` and `mask` to it, then its output to Stitch Inpaint's
 `inpainted` input.
+
+## Technical details
+
+- Starting values: Context `1.2`, Blend `16` px, Multiple `8`; Grow, Blur,
+  Extra context, the Target rows and the Extend rows start at `0`.
+- With no Target size set, the crop is still rounded up to **Multiple**, so
+  with **Stay in picture** on it can still reach a few pixels (at most
+  Multiple - 1) past an edge.
