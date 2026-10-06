@@ -372,7 +372,7 @@ The backend tests run in separate processes, because their offline ComfyUI stubs
 
 ## Feedback
 
-Bug reports and workflow ideas are welcome in [issues](https://github.com/ausboss/ComfyUI-AusBoss/issues). Security problems go through [SECURITY.md](SECURITY.md). Every release is in the [changelog](CHANGELOG.md). If a node saves you time, a star on GitHub helps other people find it.
+Bug reports and workflow ideas are welcome in [issues](https://github.com/ausboss/ComfyUI-AusBoss/issues). Security problems go through [SECURITY.md](SECURITY.md). Every release is in the [changelog](CHANGELOG.md). If a node saves you time, a star on GitHub helps other people find it. There is also a [Ko-fi page](https://ko-fi.com/ausboss) if you want to leave a tip.
 
 ## License
 
