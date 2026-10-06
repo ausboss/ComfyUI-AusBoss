@@ -174,6 +174,8 @@ Type what to find in a picture, like "the dog" or "the red jacket", and get its 
 
 It also returns the thing cut out on a see-through background, and how many things matched. Under **More**: how sure SAM 3 must be, fill the holes in the mask, and free SAM 3 from VRAM after the search. If you build a workflow that loads a big model after this node, turn **Free VRAM** on. The search is ComfyUI's own SAM 3: wire `model` and `clip` from a Load Checkpoint that loads the SAM 3 file. Needs ComfyUI 0.20 or newer, which has SAM 3 built in.
 
+The Mask by Name example finds a thing by its name and saves its cut-out and its mask, with a Workflow Switches card to skip either one. [Open the Mask by Name workflow →](example_workflows/Mask%20by%20Name%20%28AusBoss%29.json)
+
 ### Mask Refine
 
 Grows or shrinks a mask, blurs it, fills holes, smooths jagged edges, and sets black and white points. The card shows Expand and Blur, and **More** opens the rest. **AUTO** picks expand and blur values from the mask's size. The optional preview shows the result.
@@ -299,7 +301,7 @@ Turns parts of a workflow off and on from one small card. Select the nodes of on
 
 ## Example workflows
 
-These are the workflows where the nodes do something core ComfyUI doesn't do by itself: outpainting and inpainting that put your original picture back, lining an edit back up with its source, and removing a watermark from a clip. Open a JSON file from [`example_workflows/`](example_workflows), or find them under this pack in ComfyUI's template browser. Each one has a thumbnail, numbered groups and a Workflow Note with the setup steps and model downloads.
+These are the workflows where the nodes do something core ComfyUI doesn't do by itself: outpainting and inpainting that put your original picture back, lining an edit back up with its source, masking a thing by its name, and removing a watermark from a clip. Open a JSON file from [`example_workflows/`](example_workflows), or find them under this pack in ComfyUI's template browser. Each one has a thumbnail, numbered groups and a Workflow Note with the setup steps and model downloads.
 
 ![The Krea 2 Rotate + Outpaint workflow: a setup note on the left, then groups for your input, the two boxes and the model loaders, and the result with a before-and-after slider and Save Image.](assets/readme/workflow-layout.webp)
 
@@ -315,6 +317,7 @@ The workflows open with their image and video loaders empty, so you load your ow
 | [Klein 9B Outpaint](example_workflows/Klein%209B%20Outpaint%20%28AusBoss%29.json) | Extend a picture with the PixaOutpaint LoRA, then stitch the original back | Distilled Klein 9B, its Qwen encoder and the Flux 2 VAE, the PixaOutpaint LoRA, and Qwen3-VL 8B INT8 for the caption |
 | [LTX 2.3 Video Outpaint](example_workflows/LTX%202.3%20Video%20Outpaint%20%28AusBoss%29.json) | Widen a vertical clip, keeping its audio and original pixels | LTX 2.3, the distilled LoRA and the outpaint IC-LoRA |
 | [Qwen Image 2.1 Edit + Realign](example_workflows/Qwen%20Image%202.1%20Edit%20%2B%20Realign%20%28AusBoss%29.json) | Type a short edit, and Realign to Source lines Qwen's result back up with your picture | Qwen Image 2.1 INT8, Qwen3-VL 8B INT8 and the 2.1 VAE |
+| [Mask by Name](example_workflows/Mask%20by%20Name%20%28AusBoss%29.json) | Type what to find in a picture, and get its mask and a cut-out with a see-through background | ComfyUI's own SAM 3.1 (ComfyUI 0.20 or newer) |
 | [Simple Video Watermark Remover](example_workflows/Simple%20Video%20Watermark%20Remover%20%28AusBoss%29.json) | Find an overlay in a clip and remove it, with a one-frame comparison branch | ComfyUI's own SAM 3.1 (ComfyUI 0.20 or newer), plus `big-lama.pt` |
 
 Every example uses only core nodes and this pack. Speed and memory use depend on the models, the sizes, the frame count and whatever else is using the GPU.
@@ -328,6 +331,8 @@ If you share workflows, a few of these nodes help the people who download them:
 - **Seed** keeps runs repeatable, and **Use last run** brings back the seed the last run used.
 - **Run Timer** shows how long the whole run took, so a speed note is measured.
 - **Save Image** embeds the workflow in PNG, lossless WebP or JPEG XL files, with names you control.
+- **Workflow Switches** gives each optional part of your workflow one off | on switch, so people skip what they don't need without breaking the chain.
+- **Free Memory** between two heavy stages, and **Free VRAM** on Mask by Name, give the next model its room on a smaller graphics card.
 
 People who download your workflow get the nodes through ComfyUI-Manager's missing-node install, like any other pack.
 

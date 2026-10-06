@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.7.0 - 2026-10-06
 
 - **New: Mask by Name 🆎** (Mask). Type what to find in a picture, like "the
   dog" or "the red jacket", and get its mask, with nothing to paint. The node
@@ -16,16 +16,6 @@ All notable changes to ComfyUI-AusBoss are documented here.
   workflow that loads a big model after this node. The search is
   ComfyUI's own SAM 3 (ComfyUI 0.20 or newer): wire model and clip from a
   Load Checkpoint that loads the SAM 3 file.
-- **Opening More no longer shrinks the picture.** A node you made taller
-  keeps that height when a group such as **More** opens or closes on its
-  card: the node grows or shrinks by what the card did, so the picture below
-  keeps its size. Before, the node snapped back to its smallest size (Mask
-  Refine, Load Image + Pad). A tall node saved with More open also reopens
-  at its saved height.
-- **Cards show their tooltips again.** Hovering a row on a node's card said
-  nothing: the cards looked for the tooltip on the widget, and ComfyUI keeps
-  it in the node's definition. Every row of every card now shows its
-  tooltip on hover.
 - **New: Workflow Switches 🆎** (Utility). One small card that turns parts
   of a workflow off and on. Select the nodes of one part, such as a box and
   its Save Image, press **+ Switch**, and they get one off | on switch with a
@@ -38,6 +28,9 @@ All notable changes to ComfyUI-AusBoss are documented here.
   labels and their switches, which is the view to share a workflow with. A
   row whose nodes are only partly on reads mixed. The node never runs and has
   no wires.
+- **New example: Mask by Name.** Finds a thing by its name and saves its
+  cut-out and its mask, with a Workflow Switches card to skip either one.
+  It needs only ComfyUI's own SAM 3 file.
 - **A file dropped anywhere on a loader node loads into it.** In the classic
   node style, a picture dragged in from your desktop only loaded when you let
   go over the node's title or its sockets. Dropped on the picture or the
@@ -45,6 +38,16 @@ All notable changes to ComfyUI-AusBoss are documented here.
   for it. Now it loads wherever you drop it on the node. The same goes for
   videos, and for Load Image + Pad, Load Video and both Video Crop + Rotate +
   Pad nodes. Nodes 2.0 already worked.
+- **Opening More no longer shrinks the picture.** A node you made taller
+  keeps that height when a group such as **More** opens or closes on its
+  card: the node grows or shrinks by what the card did, so the picture below
+  keeps its size. Before, the node snapped back to its smallest size (Mask
+  Refine, Load Image + Pad). A tall node saved with More open also reopens
+  at its saved height.
+- **Cards show their tooltips again.** Hovering a row on a node's card said
+  nothing: the cards looked for the tooltip on the widget, and ComfyUI keeps
+  it in the node's definition. Every row of every card now shows its
+  tooltip on hover.
 
 ## 2.6.4 - 2026-10-05
 

@@ -1,0 +1,1286 @@
+{
+  "id": "e47de5b6-8c06-4068-9684-8608658ad8cb",
+  "revision": 0,
+  "last_node_id": 10,
+  "last_link_id": 6,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "AUSBOSS_NODES_WorkflowNote",
+      "pos": [
+        0,
+        30
+      ],
+      "size": [
+        440,
+        710
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "note",
+          "name": "note",
+          "type": "STRING",
+          "widget": {
+            "name": "note"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [],
+      "title": "🆎 AusBoss",
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.7.0"
+      },
+      "widgets_values": [
+        "{\"v\":1,\"title\":\"Mask by Name\",\"subtitle\":\"Type what to find in a picture. Get its mask and a cut-out, with nothing to paint.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"\",\"body\":\"1. Load your picture.\\n2. In **Find**, type the thing in a few plain words, like \\\"the dog\\\" or \\\"the red jacket\\\".\\n3. Press **FIND** on Mask by Name. Only that node runs, and what it found turns teal.\\n4. Press **Run** to save the cut-out and the mask.\\n\\n### Good to know\\n\\n- When nothing is found, the run stops with a message, so nothing is saved by mistake.\\n- Several things at once: put a comma between them, \\\"the hat, the bag\\\".\\n- A small thing is missed? Open **More** and lower **Sureness** to 0.6.\\n- Switch a result off under **What to save** to skip it.\\n- The cut-out is a PNG with a see-through background.\\n\\nNeeds AusBoss nodes 2.7.0 or newer and ComfyUI 0.20 or newer, which has SAM 3 built in.\",\"models\":[{\"name\":\"sam3.1_multiplex_fp16.safetensors\",\"dir\":\"checkpoints\",\"size\":\"1.75 GB\",\"url\":\"https://huggingface.co/Comfy-Org/sam3.1/resolve/main/checkpoints/sam3.1_multiplex_fp16.safetensors\",\"note\":\"by Meta, packaged by Comfy-Org\"}],\"packs\":[{\"name\":\"ComfyUI-AusBoss\",\"url\":\"https://github.com/ausboss/ComfyUI-AusBoss\",\"node\":\"AUSBOSS_NODES_MaskByName\"}],\"links\":[{\"label\":\"GitHub · ausboss\",\"url\":\"https://github.com/ausboss\"},{\"label\":\"Civitai · AusBoss\",\"url\":\"https://civitai.com/user/AusBoss\"},{\"label\":\"X · Zanzibased\",\"url\":\"https://x.com/Zanzibased\"}]}"
+      ],
+      "widgets_values_named": {
+        "note": "{\"v\":1,\"title\":\"Mask by Name\",\"subtitle\":\"Type what to find in a picture. Get its mask and a cut-out, with nothing to paint.\",\"author\":\"AusBoss\",\"layout\":\"card\",\"accent\":\"\",\"body\":\"1. Load your picture.\\n2. In **Find**, type the thing in a few plain words, like \\\"the dog\\\" or \\\"the red jacket\\\".\\n3. Press **FIND** on Mask by Name. Only that node runs, and what it found turns teal.\\n4. Press **Run** to save the cut-out and the mask.\\n\\n### Good to know\\n\\n- When nothing is found, the run stops with a message, so nothing is saved by mistake.\\n- Several things at once: put a comma between them, \\\"the hat, the bag\\\".\\n- A small thing is missed? Open **More** and lower **Sureness** to 0.6.\\n- Switch a result off under **What to save** to skip it.\\n- The cut-out is a PNG with a see-through background.\\n\\nNeeds AusBoss nodes 2.7.0 or newer and ComfyUI 0.20 or newer, which has SAM 3 built in.\",\"models\":[{\"name\":\"sam3.1_multiplex_fp16.safetensors\",\"dir\":\"checkpoints\",\"size\":\"1.75 GB\",\"url\":\"https://huggingface.co/Comfy-Org/sam3.1/resolve/main/checkpoints/sam3.1_multiplex_fp16.safetensors\",\"note\":\"by Meta, packaged by Comfy-Org\"}],\"packs\":[{\"name\":\"ComfyUI-AusBoss\",\"url\":\"https://github.com/ausboss/ComfyUI-AusBoss\",\"node\":\"AUSBOSS_NODES_MaskByName\"}],\"links\":[{\"label\":\"GitHub · ausboss\",\"url\":\"https://github.com/ausboss\"},{\"label\":\"Civitai · AusBoss\",\"url\":\"https://civitai.com/user/AusBoss\"},{\"label\":\"X · Zanzibased\",\"url\":\"https://x.com/Zanzibased\"}]}"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 2,
+      "type": "MarkdownNote",
+      "pos": [
+        500,
+        80
+      ],
+      "size": [
+        424,
+        88
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "Note",
+      "properties": {},
+      "widgets_values": [
+        "## Optional: drag the blue handles to crop your picture first."
+      ],
+      "widgets_values_named": {
+        "text": "## Optional: drag the blue handles to crop your picture first."
+      },
+      "color": "#1f2c38",
+      "bgcolor": "#2a3b4a"
+    },
+    {
+      "id": 3,
+      "type": "AUSBOSS_NODES_ImageCropRotatePad",
+      "pos": [
+        500,
+        238
+      ],
+      "size": [
+        424,
+        900
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "COMBO",
+          "widget": {
+            "name": "image"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "rotation_degrees",
+          "name": "rotation_degrees",
+          "type": "FLOAT",
+          "widget": {
+            "name": "rotation_degrees"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "crop_aspect_ratio",
+          "name": "crop_aspect_ratio",
+          "type": "COMBO",
+          "widget": {
+            "name": "crop_aspect_ratio"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "crop_x",
+          "name": "crop_x",
+          "type": "INT",
+          "widget": {
+            "name": "crop_x"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "crop_y",
+          "name": "crop_y",
+          "type": "INT",
+          "widget": {
+            "name": "crop_y"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "crop_width",
+          "name": "crop_width",
+          "type": "INT",
+          "widget": {
+            "name": "crop_width"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "crop_height",
+          "name": "crop_height",
+          "type": "INT",
+          "widget": {
+            "name": "crop_height"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "pad_left",
+          "name": "pad_left",
+          "type": "INT",
+          "widget": {
+            "name": "pad_left"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "pad_top",
+          "name": "pad_top",
+          "type": "INT",
+          "widget": {
+            "name": "pad_top"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "pad_right",
+          "name": "pad_right",
+          "type": "INT",
+          "widget": {
+            "name": "pad_right"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "pad_bottom",
+          "name": "pad_bottom",
+          "type": "INT",
+          "widget": {
+            "name": "pad_bottom"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "feather",
+          "name": "feather",
+          "type": "INT",
+          "widget": {
+            "name": "feather"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "canvas_multiple",
+          "name": "canvas_multiple",
+          "type": "INT",
+          "widget": {
+            "name": "canvas_multiple"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "fill_color",
+          "name": "fill_color",
+          "type": "STRING",
+          "widget": {
+            "name": "fill_color"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "resize_to_megapixels",
+          "name": "resize_to_megapixels",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "resize_to_megapixels"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "megapixels",
+          "name": "megapixels",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "megapixels"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "resize_method",
+          "name": "resize_method",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "resize_method"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "resolution_steps",
+          "name": "resolution_steps",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "resolution_steps"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "stitch_blend",
+          "name": "stitch_blend",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "stitch_blend"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "stitch_grow",
+          "name": "stitch_grow",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "stitch_grow"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "upload",
+          "name": "upload",
+          "type": "IMAGEUPLOAD",
+          "widget": {
+            "name": "upload"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            1
+          ]
+        },
+        {
+          "localized_name": "mask",
+          "name": "mask",
+          "type": "MASK",
+          "links": null
+        },
+        {
+          "localized_name": "stitcher",
+          "name": "stitcher",
+          "type": "AUSBOSS_STITCHER",
+          "links": null
+        },
+        {
+          "localized_name": "original",
+          "name": "original",
+          "type": "IMAGE",
+          "links": null
+        },
+        {
+          "localized_name": "width",
+          "name": "width",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "localized_name": "height",
+          "name": "height",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "localized_name": "prompt_image",
+          "name": "prompt_image",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "title": "Image Crop + Rotate + Pad - Your picture",
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_ImageCropRotatePad",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.7.0"
+      },
+      "widgets_values": {
+        "image": "",
+        "rotation_degrees": 0,
+        "crop_aspect_ratio": "free",
+        "crop_x": 0,
+        "crop_y": 0,
+        "crop_width": 0,
+        "crop_height": 0,
+        "pad_left": 0,
+        "pad_top": 0,
+        "pad_right": 0,
+        "pad_bottom": 0,
+        "feather": 24,
+        "canvas_multiple": 1,
+        "fill_color": "#808080",
+        "resize_to_megapixels": false,
+        "megapixels": 1,
+        "resize_method": "lanczos",
+        "resolution_steps": 1,
+        "stitch_blend": 32,
+        "stitch_grow": 0
+      },
+      "widgets_values_named": {
+        "image": "",
+        "rotation_degrees": 0,
+        "crop_aspect_ratio": "free",
+        "crop_x": 0,
+        "crop_y": 0,
+        "crop_width": 0,
+        "crop_height": 0,
+        "pad_left": 0,
+        "pad_top": 0,
+        "pad_right": 0,
+        "pad_bottom": 0,
+        "feather": 24,
+        "canvas_multiple": 1,
+        "fill_color": "#808080",
+        "resize_to_megapixels": false,
+        "megapixels": 1,
+        "resize_method": "lanczos",
+        "resolution_steps": 1,
+        "stitch_blend": 32,
+        "stitch_grow": 0,
+        "upload": "image"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 4,
+      "type": "CheckpointLoaderSimple",
+      "pos": [
+        1004,
+        80
+      ],
+      "size": [
+        420,
+        98
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "ckpt_name",
+          "name": "ckpt_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "ckpt_name"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "MODEL",
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            2
+          ]
+        },
+        {
+          "localized_name": "CLIP",
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            3
+          ]
+        },
+        {
+          "localized_name": "VAE",
+          "name": "VAE",
+          "type": "VAE",
+          "links": null
+        }
+      ],
+      "title": "SAM3 model",
+      "properties": {
+        "Node name for S&R": "CheckpointLoaderSimple",
+        "models": [
+          {
+            "name": "sam3.1_multiplex_fp16.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/sam3.1/resolve/main/checkpoints/sam3.1_multiplex_fp16.safetensors",
+            "directory": "checkpoints"
+          }
+        ],
+        "cnr_id": "comfy-core",
+        "ver": "0.38.0"
+      },
+      "widgets_values": [
+        "sam3.1_multiplex_fp16.safetensors"
+      ],
+      "widgets_values_named": {
+        "ckpt_name": "sam3.1_multiplex_fp16.safetensors"
+      },
+      "color": "#323",
+      "bgcolor": "#535"
+    },
+    {
+      "id": 5,
+      "type": "AUSBOSS_NODES_MaskByName",
+      "pos": [
+        1004,
+        248
+      ],
+      "size": [
+        420,
+        890
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "localized_name": "model",
+          "name": "model",
+          "type": "MODEL",
+          "link": 2
+        },
+        {
+          "localized_name": "clip",
+          "name": "clip",
+          "type": "CLIP",
+          "link": 3
+        },
+        {
+          "localized_name": "name",
+          "name": "name",
+          "type": "STRING",
+          "widget": {
+            "name": "name"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "several",
+          "name": "several",
+          "type": "COMBO",
+          "widget": {
+            "name": "several"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "grow",
+          "name": "grow",
+          "type": "INT",
+          "widget": {
+            "name": "grow"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "soften",
+          "name": "soften",
+          "type": "FLOAT",
+          "widget": {
+            "name": "soften"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "if_nothing",
+          "name": "if_nothing",
+          "type": "COMBO",
+          "widget": {
+            "name": "if_nothing"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "preview",
+          "name": "preview",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "preview"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "threshold",
+          "name": "threshold",
+          "shape": 7,
+          "type": "FLOAT",
+          "widget": {
+            "name": "threshold"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "fill_holes",
+          "name": "fill_holes",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "fill_holes"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "free_vram",
+          "name": "free_vram",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "free_vram"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "mask",
+          "name": "mask",
+          "type": "MASK",
+          "links": [
+            5
+          ]
+        },
+        {
+          "localized_name": "cut_out",
+          "name": "cut_out",
+          "type": "IMAGE",
+          "links": [
+            4
+          ]
+        },
+        {
+          "localized_name": "found",
+          "name": "found",
+          "type": "INT",
+          "links": null
+        }
+      ],
+      "title": "Mask by Name",
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_MaskByName",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.7.0"
+      },
+      "widgets_values": [
+        "the person",
+        "all of them",
+        0,
+        0,
+        "stop the run",
+        true,
+        0.7,
+        false,
+        false
+      ],
+      "widgets_values_named": {
+        "name": "the person",
+        "several": "all of them",
+        "grow": 0,
+        "soften": 0,
+        "if_nothing": "stop the run",
+        "preview": true,
+        "threshold": 0.7,
+        "fill_holes": false,
+        "free_vram": false
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 6,
+      "type": "AUSBOSS_NODES_WorkflowSwitches",
+      "pos": [
+        1504,
+        80
+      ],
+      "size": [
+        400,
+        97
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "Workflow Switches - What to save",
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_WorkflowSwitches",
+        "ausboss_workflow_switches": {
+          "off": "bypass",
+          "groups": "none",
+          "match": "",
+          "order": "canvas",
+          "exclusive": false,
+          "switches": [
+            {
+              "id": 1,
+              "title": "The cut-out",
+              "nodes": [
+                7
+              ],
+              "groups": []
+            },
+            {
+              "id": 2,
+              "title": "The mask",
+              "nodes": [
+                9,
+                10
+              ],
+              "groups": []
+            }
+          ]
+        },
+        "ausboss_show_edit": false,
+        "ausboss_show_settings": false,
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.7.0"
+      },
+      "widgets_values": [],
+      "widgets_values_named": {},
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 7,
+      "type": "AUSBOSS_NODES_SaveImage",
+      "pos": [
+        1504,
+        263
+      ],
+      "size": [
+        400,
+        875
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "link": 4
+        },
+        {
+          "localized_name": "filename",
+          "name": "filename",
+          "shape": 7,
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "localized_name": "caption_text",
+          "name": "caption_text",
+          "shape": 7,
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "localized_name": "filename_prefix",
+          "name": "filename_prefix",
+          "type": "STRING",
+          "widget": {
+            "name": "filename_prefix"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "format",
+          "name": "format",
+          "type": "COMBO",
+          "widget": {
+            "name": "format"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "save_metadata",
+          "name": "save_metadata",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "save_metadata"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "exact_name",
+          "name": "exact_name",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "exact_name"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "on_existing",
+          "name": "on_existing",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "on_existing"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "output_dir",
+          "name": "output_dir",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "output_dir"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "caption",
+          "name": "caption",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "caption"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "name_counter",
+          "name": "name_counter",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "name_counter"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "name_date",
+          "name": "name_date",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "name_date"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "name_time",
+          "name": "name_time",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "name_time"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "name_size",
+          "name": "name_size",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "name_size"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "name_batch",
+          "name": "name_batch",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "name_batch"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "preview",
+          "name": "preview",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "preview"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "file_path",
+          "name": "file_path",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "title": "Save Image - The cut-out",
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_SaveImage",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.7.0"
+      },
+      "widgets_values": {
+        "filename_prefix": "mask_by_name_cut_out",
+        "format": "png",
+        "save_metadata": true,
+        "exact_name": "",
+        "on_existing": "overwrite",
+        "output_dir": "",
+        "caption": "",
+        "name_counter": true,
+        "name_date": false,
+        "name_time": false,
+        "name_size": false,
+        "name_batch": false,
+        "preview": true
+      },
+      "widgets_values_named": {
+        "filename_prefix": "mask_by_name_cut_out",
+        "format": "png",
+        "save_metadata": true,
+        "exact_name": "",
+        "on_existing": "overwrite",
+        "output_dir": "",
+        "caption": "",
+        "name_counter": true,
+        "name_date": false,
+        "name_time": false,
+        "name_size": false,
+        "name_batch": false,
+        "preview": true
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 8,
+      "type": "MarkdownNote",
+      "pos": [
+        1944,
+        80
+      ],
+      "size": [
+        400,
+        88
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "Note",
+      "properties": {},
+      "widgets_values": [
+        "## Switch a result off to skip it."
+      ],
+      "widgets_values_named": {
+        "text": "## Switch a result off to skip it."
+      },
+      "color": "#1f2c38",
+      "bgcolor": "#2a3b4a"
+    },
+    {
+      "id": 9,
+      "type": "MaskToImage",
+      "pos": [
+        1944,
+        238
+      ],
+      "size": [
+        400,
+        26
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "mask",
+          "name": "mask",
+          "type": "MASK",
+          "link": 5
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "IMAGE",
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            6
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MaskToImage",
+        "cnr_id": "comfy-core",
+        "ver": "0.38.0"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    },
+    {
+      "id": 10,
+      "type": "AUSBOSS_NODES_SaveImage",
+      "pos": [
+        1944,
+        334
+      ],
+      "size": [
+        400,
+        804
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "link": 6
+        },
+        {
+          "localized_name": "filename",
+          "name": "filename",
+          "shape": 7,
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "localized_name": "caption_text",
+          "name": "caption_text",
+          "shape": 7,
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "localized_name": "filename_prefix",
+          "name": "filename_prefix",
+          "type": "STRING",
+          "widget": {
+            "name": "filename_prefix"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "format",
+          "name": "format",
+          "type": "COMBO",
+          "widget": {
+            "name": "format"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "save_metadata",
+          "name": "save_metadata",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "save_metadata"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "exact_name",
+          "name": "exact_name",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "exact_name"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "on_existing",
+          "name": "on_existing",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "on_existing"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "output_dir",
+          "name": "output_dir",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "output_dir"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "caption",
+          "name": "caption",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "caption"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "name_counter",
+          "name": "name_counter",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "name_counter"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "name_date",
+          "name": "name_date",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "name_date"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "name_time",
+          "name": "name_time",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "name_time"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "name_size",
+          "name": "name_size",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "name_size"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "name_batch",
+          "name": "name_batch",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "name_batch"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "preview",
+          "name": "preview",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "preview"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "file_path",
+          "name": "file_path",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "title": "Save Image - The mask",
+      "properties": {
+        "Node name for S&R": "AUSBOSS_NODES_SaveImage",
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.7.0"
+      },
+      "widgets_values": {
+        "filename_prefix": "mask_by_name_mask",
+        "format": "png",
+        "save_metadata": true,
+        "exact_name": "",
+        "on_existing": "overwrite",
+        "output_dir": "",
+        "caption": "",
+        "name_counter": true,
+        "name_date": false,
+        "name_time": false,
+        "name_size": false,
+        "name_batch": false,
+        "preview": true
+      },
+      "widgets_values_named": {
+        "filename_prefix": "mask_by_name_mask",
+        "format": "png",
+        "save_metadata": true,
+        "exact_name": "",
+        "on_existing": "overwrite",
+        "output_dir": "",
+        "caption": "",
+        "name_counter": true,
+        "name_date": false,
+        "name_time": false,
+        "name_size": false,
+        "name_batch": false,
+        "preview": true
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+    }
+  ],
+  "links": [
+    [
+      1,
+      3,
+      0,
+      5,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      4,
+      0,
+      5,
+      1,
+      "MODEL"
+    ],
+    [
+      3,
+      4,
+      1,
+      5,
+      2,
+      "CLIP"
+    ],
+    [
+      4,
+      5,
+      1,
+      7,
+      0,
+      "IMAGE"
+    ],
+    [
+      5,
+      5,
+      0,
+      9,
+      0,
+      "MASK"
+    ],
+    [
+      6,
+      9,
+      0,
+      10,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "1 · Your picture",
+      "bounding": [
+        480,
+        0,
+        464,
+        1158
+      ],
+      "color": "#1d5560",
+      "flags": {}
+    },
+    {
+      "id": 2,
+      "title": "2 · Find it",
+      "bounding": [
+        984,
+        0,
+        460,
+        1158
+      ],
+      "color": "#1d5560",
+      "flags": {}
+    },
+    {
+      "id": 3,
+      "title": "3 · Result",
+      "bounding": [
+        1484,
+        0,
+        880,
+        1158
+      ],
+      "color": "#1d5560",
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.75,
+      "offset": [
+        20,
+        60
+      ]
+    },
+    "frontendVersion": "1.53.6"
+  },
+  "version": 0.4
+}
