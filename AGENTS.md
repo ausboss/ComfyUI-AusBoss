@@ -196,7 +196,10 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   `absolute` in its stage, and the stage takes its size from the node
   alone. A picture is centred at its own size (`js/input_preview/`); a
   player fills the stage so its controls stay along the bottom edge
-  (`js/shared/video_ui.mjs`). `tests/panel_guards.test.mjs` holds both.
+  (`js/shared/video_ui.mjs`). Text that is fitted to its box follows the
+  same rule: the Callout's text is `absolute` in its card
+  (`js/callout/index.js`), or the text sizes the card it is fitted to.
+  `tests/panel_guards.test.mjs` holds all three.
 - **A panel's declared minimum width is its node's real floor.** Pass
   `exactMinWidth: true` to `fillNodeHeight`; a constant-height card that
   keeps its own `computeSize` calls `holdNodeMinWidth` instead. Left alone,

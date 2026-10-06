@@ -33,14 +33,19 @@ const ARROW_COLOR = "#1fd3c6";
 const FRAME_FILL = 0.8; // the share of the view a node brought into view takes, as in Workflow Switches
 const FONT = '"IBM Plex Sans", "Inter", "Segoe UI", system-ui, -apple-system, sans-serif';
 
+// The text sits out of flow, centred in the card by its auto margins. Nodes
+// 2.0 sizes a node by its content, so text in normal flow set the note's
+// height: a note could not be made shorter than its own text, and the text
+// was then fitted to a card it had sized itself. Out of flow, the card takes
+// its size from the node alone, in both renderers.
 function ensureCss() {
   if (document.getElementById(CSS_ID)) return;
   const style = document.createElement("style");
   style.id = CSS_ID;
   style.textContent = `
 .ausboss-callout{box-sizing:border-box;width:100%;height:100%;padding:2px 4px 6px;overflow:hidden;pointer-events:none;}
-.ausboss-callout-card{position:relative;box-sizing:border-box;display:flex;align-items:center;width:100%;height:100%;overflow:hidden;border-radius:8px;background:linear-gradient(135deg,rgba(0,180,170,.07),rgba(0,0,0,.2));}
-.ausboss-callout-inner{box-sizing:border-box;width:100%;padding:.6em 1em .6em .85em;color:#d6e6e4;font-family:${FONT};font-weight:500;line-height:1.4;letter-spacing:.003em;overflow-wrap:anywhere;}
+.ausboss-callout-card{position:relative;box-sizing:border-box;width:100%;height:100%;overflow:hidden;border-radius:8px;background:linear-gradient(135deg,rgba(0,180,170,.07),rgba(0,0,0,.2));}
+.ausboss-callout-inner{position:absolute;top:0;bottom:0;left:0;box-sizing:border-box;width:100%;height:fit-content;margin:auto 0;padding:.6em 1em .6em .85em;color:#d6e6e4;font-family:${FONT};font-weight:500;line-height:1.4;letter-spacing:.003em;overflow-wrap:anywhere;}
 .ausboss-callout-point{margin:0 0 .6em;padding-left:.7em;border-left:2px solid rgba(0,180,170,.7);}
 .ausboss-callout-point:last-child{margin-bottom:0;}
 .ausboss-callout-point b{color:#6fe0d6;font-weight:650;}

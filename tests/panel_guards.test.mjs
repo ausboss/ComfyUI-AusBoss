@@ -491,6 +491,59 @@ test("the clip never sets the video panel's height", () => {
   assert.match(stage, /min-height:\s*112px/, "the stage has no floor of its own - Nodes 2.0 can flatten it");
 });
 
+test("the note's text never sets the Callout's height", () => {
+  // The picture's fault once more, with text. Nodes 2.0 lets a node's content
+  // decide its height, and the note's text was in normal flow: a note could
+  // not be made shorter than its own text. One saved 888x122 was drawn 20 px
+  // taller once its text had been fitted in the classic renderer, a note
+  // dragged taller would not come back down, and one dragged narrow grew to
+  // 692 px. The text was also fitted to a card it had sized itself. Out of
+  // flow, the card takes its size from the node alone, in both renderers.
+  const source = readFileSync(join(JS_ROOT, "callout", "index.js"), "utf-8");
+  // Each rule is one line of the CSS; ${...} closes a brace in the middle of
+  // some of them, so a rule is read to the end of its line.
+  const rule = (selector) => source.match(new RegExp(`\\n${selector.replace(/\./g, "\\.")}\\{([^\\n]*)`))?.[1] ?? null;
+  // Everything the note puts in its card, with its rule. Listed, so a new
+  // element is a deliberate call: in flow, it sets the card's height.
+  const inCard = {
+    inner: ".ausboss-callout-inner",
+    tools: ".ausboss-callout-tools",
+    wrap: ".ausboss-callout-editor",
+  };
+  const appended = [...source.matchAll(/\bcard\.append\(([^)]*)\)/g)]
+    .flatMap((match) => match[1].split(",").map((part) => part.trim()));
+  assert.ok(appended.includes("inner"), "the note's text is no longer appended to the card by name");
+  for (const child of appended) {
+    assert.ok(
+      inCard[child],
+      `${child} is new in the note's card - keep it out of flow and list its rule in this test`,
+    );
+  }
+  for (const selector of Object.values(inCard)) {
+    assert.ok(rule(selector), `the rule for ${selector} is gone`);
+    assert.match(
+      rule(selector),
+      /position:\s*absolute/,
+      `${selector} is back in normal flow - it will size the node in Nodes 2.0`,
+    );
+  }
+  // The text keeps its own height and is centred by its auto margins, which
+  // also holds when it is taller than the card: it is cut the same at the
+  // top and at the bottom.
+  const text = rule(inCard.inner);
+  assert.match(text, /top:\s*0/, "the text is no longer pinned to the card's top edge");
+  assert.match(text, /bottom:\s*0/, "the text is no longer pinned to the card's bottom edge");
+  assert.match(text, /height:\s*fit-content/, "the text no longer keeps its own height - the fit measures it");
+  assert.match(text, /margin:\s*auto 0/, "the text is no longer centred in the card");
+  assert.match(text, /width:\s*100%/, "the text no longer wraps at the card's width");
+  // What it is placed in.
+  const card = rule(".ausboss-callout-card");
+  assert.ok(card, "the card's own rule is gone");
+  assert.match(card, /position:\s*relative/, "the card no longer holds its out-of-flow text");
+  assert.match(card, /overflow:\s*hidden/, "the card no longer clips text that does not fit");
+  assert.match(card, /height:\s*100%/, "the card no longer takes the panel's height");
+});
+
 test("the lora panel carries all three guards by name", () => {
   const source = readFileSync(join(JS_ROOT, "lora_loader", "index.js"), "utf-8");
   // Regexes cannot use [^}] here: the CSS lives in a template literal whose
