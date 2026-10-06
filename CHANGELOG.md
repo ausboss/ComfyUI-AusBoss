@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.8.0 - 2026-10-06
 
 - **New: Callout 🆎** (Utility). A note for the canvas. The text grows to fill
   the note, so it reads without zooming in, and each point gets a thin teal
