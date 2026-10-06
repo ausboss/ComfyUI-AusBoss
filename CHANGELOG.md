@@ -25,6 +25,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
   card that is alone on its node, such as Image Resize, Seed or Workflow
   Switches, keeps its own height there as well. It used to stretch with a
   node made taller.
+- **Nodes 2.0: Load Image + Pad shows its picture once.** In the Nodes 2.0
+  look the node showed your picture twice: on its canvas, where you drag
+  the edges, and again underneath as a plain copy. The copy took the room
+  the canvas needs, so the canvas stayed small however tall you made the
+  node. With a picture wired in, the copy showed the file the node was not
+  using. The copy is gone and the canvas takes the spare height, as in the
+  classic look.
 
 ## 2.7.0 - 2026-10-06
 
