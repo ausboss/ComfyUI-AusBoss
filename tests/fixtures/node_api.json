@@ -26,6 +26,13 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_Callout": {
+    "required": [
+      "text"
+    ],
+    "optional": [],
+    "outputs": []
+  },
   "AUSBOSS_NODES_ColorMatch": {
     "required": [
       "image",

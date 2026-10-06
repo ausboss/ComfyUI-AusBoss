@@ -297,6 +297,10 @@ Passes any value through and, on the way, unloads ComfyUI's cached models, runs 
 
 A setup card for a shared workflow: a title, instructions in Markdown, each model's download link and folder, the node packs it needs, and your links. It checks the models and packs against the install it's opened in. **Edit** changes the card, and **Banner** turns it into a small section title. The note never runs, and its text is never shown as raw HTML.
 
+### Callout
+
+A note for the canvas whose text grows to fill it, so it reads without zooming in. Double-click to type; a blank line starts a new point and `**two stars**` stress a word. Type an arrow emoji such as ⬆️ and it turns into a teal arrow in the middle of the line. Click a node while you edit, then press an arrow, and the arrow is linked to that node: click it later and the canvas brings the node into view. It never runs and has no wires.
+
 ### Run Timer
 
 A stopwatch for the whole run, with no wires. It starts when the queue starts running, holds the total when the run ends, and saves the last time with the workflow. Recent times are in its right-click menu. You can resize it. It only shows time and doesn't change how the graph runs.
@@ -333,6 +337,7 @@ Every example uses only core nodes and this pack. Speed and memory use depend on
 If you share workflows, a few of these nodes help the people who download them:
 
 - **Workflow Note** puts a setup card on the canvas with each model's download link, folder and size, the node packs it needs and your links, and checks them against the reader's install.
+- **Callout** is a note with big readable text and teal arrows you type with an emoji.
 - **Image Compare A/B** shows the result against its source with a slider.
 - **Seed** keeps runs repeatable, and **Use last run** brings back the seed the last run used.
 - **Run Timer** shows how long the whole run took, so a speed note is measured.
