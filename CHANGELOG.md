@@ -13,6 +13,16 @@ All notable changes to ComfyUI-AusBoss are documented here.
   count. Browse lists the folders inside ComfyUI's input or output folder,
   and Add or a drop on the node copies pictures into the input folder. The
   node reads nothing outside those two folders.
+- **Nodes 2.0: the picture takes the spare height, not the card.** In the
+  Nodes 2.0 look, a node with a card on top and a picture below gave half of
+  its spare height to the card. The card got empty space under its last row
+  and the picture was drawn small. Mask Refine, Mask by Name, Save Image,
+  Select Frame and LaMa Inpaint showed it even at their smallest size, and
+  Load Video and Save Video once they were made taller. The card now keeps
+  its own height and the picture takes the rest, as in the classic look. A
+  card that is alone on its node, such as Image Resize, Seed or Workflow
+  Switches, keeps its own height there as well. It used to stretch with a
+  node made taller.
 
 ## 2.7.0 - 2026-10-06
 

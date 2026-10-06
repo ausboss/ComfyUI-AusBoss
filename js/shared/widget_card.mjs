@@ -33,7 +33,7 @@
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "./index.mjs";
 import { keepKeyInField } from "./canvas_passthrough.mjs";
 import { createMediaPicker } from "./media_picker.mjs";
-import { ensureNodeMinHeight, fillNodeHeight, holdNodeMinWidth, nodeHeightAfterCardChange } from "./panel_layout.mjs";
+import { ensureNodeMinHeight, fillNodeHeight, holdNodeMinWidth, nodeHeightAfterCardChange, pinVuePanelHeight } from "./panel_layout.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
 import { hideWidget } from "./widget_visibility.mjs";
 import {
@@ -489,7 +489,9 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     // A constant-height card, pinned on purpose (tests/panel_guards.test.mjs,
     // fixedByDesign): its height is the sum of its rows, not a viewport.
     widget.computeSize = (width) => [Math.max(minWidth, Number(width || node.size?.[0] || minWidth)), state.height + WRAPPER_INSET];
-    widget.computeLayoutSize = () => ({ minWidth, minHeight: state.height + WRAPPER_INSET });
+    // Pinned in Nodes 2.0 as well, so a picture panel under the card takes
+    // the node's spare height there too.
+    pinVuePanelHeight(widget);
     widget.options.minNodeSize = [minWidth, 60];
     // The frontend never reads that width for a pinned widget: the card's
     // number has to be made the node's floor by hand.
