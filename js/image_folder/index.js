@@ -12,7 +12,9 @@
 // nothing outside ComfyUI's input and output folders, so a folder from
 // anywhere else comes in through the browser: dropped on the node, or chosen
 // with Add, its pictures are copied into the input folder by ComfyUI's own
-// upload.
+// upload. A browser asks its own question about a chosen folder ("Upload 74
+// files to this site?"). A page can neither word that question nor skip it,
+// so the node says what it means here while the file explorer is open.
 
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
@@ -52,13 +54,19 @@ const COPY_LIMIT = 3000;
 // From here on a folder is "really big": the node asks before it copies.
 const BIG_COUNT = 300;
 const BIG_BYTES = 1024 ** 3;
+// On the node while the file explorer is open for a folder.
+const CHOOSING = [
+  "Choose your folder in the file explorer",
+  "All its pictures are copied into your ComfyUI input folder.",
+  'Your browser may first ask "Upload files to this site?". That is this copy, and the site is your ComfyUI.',
+];
 
 function ensureCss() {
   if (document.getElementById(CSS_ID)) return;
   const style = document.createElement("style");
   style.id = CSS_ID;
   style.textContent = `
-.ausboss-if{box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;gap:6px;width:100%;height:100%;padding:2px 6px 6px;color:#cfe3e1;font:11px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
+.ausboss-if{box-sizing:border-box;overflow:hidden;position:relative;display:flex;flex-direction:column;gap:6px;width:100%;height:100%;padding:2px 6px 6px;color:#cfe3e1;font:11px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
 .ausboss-if-bar{flex:none;display:flex;align-items:center;gap:5px;height:20px;}
 .ausboss-if-chip{box-sizing:border-box;height:20px;padding:0 8px;border:1px solid rgba(0,180,170,.5);border-radius:10px;background:rgba(0,180,170,.14);color:${BRAND};font:700 9.5px/18px "Segoe UI",sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
 .ausboss-if-chip.warn{border-color:#c98a2b;background:rgba(201,138,43,.16);color:#ffd9a0;}
@@ -86,6 +94,9 @@ function ensureCss() {
 .ausboss-if-ask .ausboss-if-browse-foot{padding:10px 0 0;border-top:0;}
 .ausboss-if-pick{display:block;margin:12px auto 0;height:26px;padding:0 12px;border:1px solid ${BRAND};border-radius:6px;background:rgba(0,180,170,.16);color:#eafffd;font:700 10.5px/24px "Segoe UI",sans-serif;letter-spacing:.03em;cursor:pointer;}
 .ausboss-if-pick:hover{background:${BRAND};color:#04201e;}
+.ausboss-if-cover{position:absolute;left:6px;right:6px;top:28px;bottom:6px;z-index:2;box-sizing:border-box;display:flex;flex-direction:column;justify-content:safe center;gap:6px;padding:12px 14px;overflow:auto;border:1px solid ${BRAND};border-radius:6px;background:#0b1214;color:#cfe3e1;font-size:11.5px;line-height:1.45;text-align:center;}
+.ausboss-if-cover[hidden]{display:none;}
+.ausboss-if-cover b{color:#eafffd;font-size:12.5px;}
 .ausboss-if-note{grid-column:1/-1;align-self:center;padding:22px 12px;color:#8fa7a5;font-size:11.5px;line-height:1.45;text-align:center;}
 .ausboss-if-more{grid-column:1/-1;height:24px;border:1px dashed #2a3437;border-radius:5px;background:transparent;color:#8fa7a5;font:600 10.5px/22px "Segoe UI",sans-serif;cursor:pointer;}
 .ausboss-if-more:hover{color:#fff;border-color:${BRAND};}
@@ -165,10 +176,10 @@ function rebuild(state) {
   const hint = (text, offer) => {
     const note = el("div", "ausboss-if-note", text);
     if (offer) {
-      const pick = el("button", "ausboss-if-pick", "Choose a folder on your computer");
+      const pick = el("button", "ausboss-if-pick", "Copy a folder from your computer");
       pick.type = "button";
       pick.title = "Opens your file explorer. The folder's pictures are copied into ComfyUI's input folder.";
-      pick.addEventListener("click", () => state.pickFolder.click());
+      pick.addEventListener("click", () => chooseFolder(state));
       note.append(pick);
     }
     state.grid.append(note);
@@ -272,6 +283,44 @@ function setPicked(state, picked) {
   paint(state);
 }
 
+// --- what the node says while a folder comes in -----------------------------------
+// The note over the tiles: what happens with a folder that is being chosen,
+// and how far a copy is.
+function cover(state) {
+  const copying = state.copying;
+  const lines = copying
+    ? [`Copying ${copying.done} of ${copying.total} pictures`, `from "${copying.name}" into your ComfyUI input folder (input/${copying.target}).`]
+    : state.choosing ? CHOOSING : null;
+  state.cover.hidden = !lines;
+  if (!lines) return;
+  [...state.cover.children].forEach((line, index) => { line.textContent = lines[index] ?? ""; line.hidden = !lines[index]; });
+}
+
+function endChoosing(state) {
+  state.choosing?.abort();
+  state.choosing = null;
+  cover(state);
+}
+
+// Open the file explorer for a folder, and say on the node what happens with
+// it. The note goes when a folder is chosen or the choice is called off.
+function chooseFolder(state) {
+  endChoosing(state);
+  const abort = new AbortController();
+  state.choosing = abort;
+  const opened = performance.now();
+  const stop = () => { if (state.choosing === abort) endChoosing(state); };
+  state.pickFolder.addEventListener("cancel", stop, { signal: abort.signal });
+  // A browser that does not report a called-off choice: no click or key
+  // reaches the page while the file explorer or the browser's question is
+  // open, so the next one means both are closed.
+  const later = () => { if (performance.now() - opened > 700) stop(); };
+  window.addEventListener("pointerdown", later, { capture: true, signal: abort.signal });
+  window.addEventListener("keydown", later, { capture: true, signal: abort.signal });
+  cover(state);
+  state.pickFolder.click();
+}
+
 // --- adding pictures -------------------------------------------------------------
 const isPicture = (file) => String(file?.type ?? "").startsWith("image/") || PICTURE.test(String(file?.name ?? ""));
 
@@ -345,8 +394,8 @@ function askBig(state, name, pictures) {
   return new Promise((done) => {
     const root = el("div", "ausboss-if-ask");
     const many = pictures.length.toLocaleString("en-US");
-    root.append(el("b", "", `Copy ${many} pictures?`));
-    root.append(el("div", "", `"${name}" holds ${many} pictures, ${sizeText(bytes)}. They are copied into ComfyUI's input folder, so they take that much disk space again, and it can take a while.`));
+    root.append(el("b", "", `Copy ${many} pictures into your ComfyUI input folder?`));
+    root.append(el("div", "", `"${name}" holds ${many} pictures, ${sizeText(bytes)}. The copies take that much disk space again, and it can take a while.`));
     if (pictures.length > COPY_LIMIT) root.append(el("div", "", `Only the first ${COPY_LIMIT.toLocaleString("en-US")} are copied.`));
     const foot = el("div", "ausboss-if-browse-foot");
     const cancel = el("button", "ausboss-if-btn", "Cancel");
@@ -374,8 +423,9 @@ async function copyFolder(state, name, pictures) {
   if (!(await askBig(state, name, pictures)) || !state.alive) return;
   const target = folderName(name);
   const queue = pictures.slice(0, COPY_LIMIT);
-  state.copying = { done: 0, total: queue.length };
+  state.copying = { done: 0, total: queue.length, name, target };
   paint(state);
+  cover(state);
   let copied = 0;
   const worker = async () => {
     for (;;) {
@@ -384,16 +434,18 @@ async function copyFolder(state, name, pictures) {
       if (await upload(next.file, next.folder ? `${target}/${next.folder}` : target, true)) copied += 1;
       state.copying.done += 1;
       paint(state);
+      cover(state);
     }
   };
   await Promise.all([worker(), worker(), worker()]);
   const total = state.copying.total;
   state.copying = null;
+  cover(state);
   if (!state.alive) return;
   const moved = write(state.node, "source", "input") | write(state.node, "folder", target);
   if (moved) notifyAusbossChange(); else await refresh(state);
   paint(state);
-  showToast({ detail: `Copied ${copied} picture${copied === 1 ? "" : "s"} into input/${target}.` });
+  showToast({ detail: `Copied ${copied} picture${copied === 1 ? "" : "s"} from "${name}" into your ComfyUI input folder (input/${target}).` });
   if (copied < total) showToast({ severity: "warn", detail: `${total - copied} could not be copied.` });
   if (pictures.length > COPY_LIMIT) showToast({ severity: "warn", detail: `Only the first ${COPY_LIMIT} pictures were copied.` });
 }
@@ -462,7 +514,7 @@ function addMenu(state, anchor) {
     root.append(button);
   };
   row("Pictures...", "Choose pictures. They are copied into the folder the node shows.", () => state.pickFiles.click());
-  row("A whole folder...", "Choose a folder. Its pictures are copied into ComfyUI's input folder under the folder's name.", () => state.pickFolder.click());
+  row("A whole folder...", "Choose a folder. Its pictures are copied into ComfyUI's input folder under the folder's name.", () => chooseFolder(state));
   document.body.append(root);
   const box = anchor.getBoundingClientRect();
   root.style.left = `${Math.max(8, Math.min(window.innerWidth - 180, box.left))}px`;
@@ -522,10 +574,10 @@ async function browse(state, anchor) {
     }
     if (!folders.length) list.append(el("div", "ausboss-if-browse-none", "No folders inside this one."));
     // A folder that is not in ComfyUI yet: the file explorer brings it in.
-    const bring = el("button", "ausboss-if-browse-row bring", "+ A folder on your computer...");
+    const bring = el("button", "ausboss-if-browse-row bring", "+ Copy a folder from your computer...");
     bring.type = "button";
     bring.title = "Opens your file explorer. The folder's pictures are copied into ComfyUI's input folder.";
-    bring.addEventListener("click", () => { closeBrowse(); state.pickFolder.click(); });
+    bring.addEventListener("click", () => { closeBrowse(); chooseFolder(state); });
     list.append(bring);
   };
 
@@ -565,7 +617,10 @@ function buildPanel(node) {
   folderPicker.type = "file"; folderPicker.webkitdirectory = true; folderPicker.multiple = true; folderPicker.style.display = "none";
   bar.append(chip, el("span", "ausboss-if-gap"), all, none, add, reload);
   const grid = el("div", "ausboss-if-grid");
-  root.append(bar, grid, picker, folderPicker);
+  const note = el("div", "ausboss-if-cover");
+  note.hidden = true;
+  note.append(el("b"), el("div"), el("div"));
+  root.append(bar, grid, note, picker, folderPicker);
 
   const widget = node.addDOMWidget(PANEL, PANEL, root, { serialize: false, hideOnZoom: false });
   keepDomWidgetWidthAuto(widget);
@@ -576,7 +631,7 @@ function buildPanel(node) {
 
   const abort = new AbortController();
   const state = node.__ausbossImageFolder = {
-    node, root, widget, chip, grid, add, abort,
+    node, root, widget, chip, grid, add, abort, cover: note, choosing: null,
     alive: true, list: [], names: [], cells: new Map(), done: new Set(), limit: SHOWN_STEP,
     shown: { source: "input", folder: "", subfolders: false, sort: "name" },
     token: 0, timer: null, busy: true, error: "", outside: false, full: false, last: null, loadedLine: "", key: "",
@@ -625,6 +680,7 @@ function buildPanel(node) {
   // A folder chosen in the browser's own folder picker: every file comes with
   // its path below that folder.
   folderPicker.addEventListener("change", async () => {
+    endChoosing(state);
     const groups = new Map();
     for (const file of [...folderPicker.files]) {
       if (!PICTURE.test(file.name) || file.name.startsWith(".")) continue;
@@ -743,6 +799,7 @@ app.registerExtension({
       clearTimeout(state.timer);
       state.watcher?.disconnect();
       state.abort.abort();
+      state.choosing?.abort();
       clearTimeout(state.dropTimer);
       if (openBrowse) closeBrowse();
       if (openMenu) closeMenu();
