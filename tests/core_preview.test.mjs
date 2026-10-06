@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  CORE_ANIMATED_PREVIEW_WIDGET,
   CORE_IMAGE_PREVIEW_WIDGET,
   CORE_VIDEO_PREVIEW_WIDGET,
   hideCanvasWidget,
@@ -122,6 +123,24 @@ test("the video suppression also stands down Nodes 2.0's own output copy", () =>
   const node = fakeNode();
   suppressCoreVideoPreview(node);
   assert.equal(node.hideOutputImages, true);
+});
+
+test("the video suppression also hides the animated picture preview", () => {
+  // A clip saved as an animated webp is a picture to the frontend. It comes
+  // in a third widget, neither the video one nor the canvas picture, so
+  // Save Video drew it twice in the classic renderer: in its stage and again
+  // underneath, where it also made the node's smallest height 54 px taller.
+  const node = fakeNode();
+  const early = node.addDOMWidget(CORE_ANIMATED_PREVIEW_WIDGET, "img", { style: {} });
+  suppressCoreVideoPreview(node);
+  assert.ok(isHidden(early), "one already on the node is swept up");
+  const element = { style: {} };
+  const late = node.addDOMWidget(CORE_ANIMATED_PREVIEW_WIDGET, "img", element);
+  assert.ok(isHidden(late), "one the frontend adds after a run is hidden on arrival");
+  assert.equal(element.style.display, "none");
+  // The video widget is still caught, and the node's own panel is left alone.
+  assert.ok(isHidden(node.addDOMWidget(CORE_VIDEO_PREVIEW_WIDGET, "video", { style: {} })));
+  assert.equal(node.addDOMWidget("ausboss_save_video_viewer", "ausboss_video", { style: {} }).hidden, undefined);
 });
 
 // Either way of standing Nodes 2.0's copy down: setting the flag, or calling

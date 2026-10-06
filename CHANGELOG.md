@@ -50,6 +50,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
   stop at their smallest size too; they could be made a little shorter than
   that. With a node's preview switched off, the node still shrinks to the
   small bar. The classic look is unchanged.
+- **Save Video: a saved gif or webp shows on the node.** With **Format** set
+  to `gif` or `webp`, the file was saved but the node stayed empty and said
+  "Execution finished without video metadata". The node now shows the saved
+  gif or webp, moving, in the place where it plays an mp4. These two have no
+  **LOOP** button, because a gif or webp always loops. In the classic look,
+  a saved webp was also drawn a second time as a small picture under the
+  node, which made the node taller. That second picture is gone.
 - **Load Video: leaving FRAME no longer leaves a clip that cannot run.**
   Picking a frame sets IN to it. If that frame was at or after OUT, the node
   was left with IN after OUT, and the next run stopped with "Load Video

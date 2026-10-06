@@ -49,10 +49,23 @@ export function mediaViewQuery(metaValue, fallbackType = "output") {
   }).toString();
 }
 
+// Every file Save Video can save, by the tag that shows it. gif and webp are
+// animated images, not video: a <video> element cannot play either, so the
+// same saved file needs an <img> to preview at all. The two lists once sat
+// in two files and only the first was asked whether a run had saved
+// anything, so a saved gif or webp was never shown.
+// tests/video_preview.test.mjs holds both to the formats the backend writes.
+const VIDEO_FILE = /\.(mp4|webm|mov|mkv|avi|m4v)$/i;
+const STILL_IMAGE_FILE = /\.(gif|webp)$/i;
+
+export function isStillImage(filename) {
+  return typeof filename === "string" && STILL_IMAGE_FILE.test(filename);
+}
+
 export function findVideoMetadata(value, seen = new Set()) {
   if (!value || typeof value !== "object" || seen.has(value)) return null;
   seen.add(value);
-  if (typeof value.filename === "string" && /\.(mp4|webm|mov|mkv|avi|m4v)$/i.test(value.filename)) {
+  if (typeof value.filename === "string" && (VIDEO_FILE.test(value.filename) || isStillImage(value.filename))) {
     return value;
   }
   if (Array.isArray(value)) {
