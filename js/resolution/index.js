@@ -798,7 +798,7 @@ function buildPanel(state) {
   state.budgetControl = budget;
   const gear = el("button", "ausboss-res-btn");
   gear.type = "button";
-  gear.title = "Resolution settings";
+  gear.title = "Latent Size settings";
   gear.innerHTML = gearIconSvg();
   gear.addEventListener("click", () => {
     openSettingsMenu({
@@ -808,7 +808,7 @@ function buildPanel(state) {
         return input && axisLinked(state, input) ? { section: `${entry.label} is linked` } : entry;
       }),
       anchor: gear.getBoundingClientRect(),
-      title: "Resolution settings",
+      title: "Latent Size settings",
       initial: {
         ...state.settings,
         latent: state.latentWidget?.value ?? "16ch",
