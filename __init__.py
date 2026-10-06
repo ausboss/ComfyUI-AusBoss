@@ -47,6 +47,7 @@ NODE_MODULES = [
     "node_video_crop_rotate_pad",
     "node_video_crop_rotate_pad_clip",
     "node_workflow_note",
+    "node_workflow_switches",
 ]
 
 NODE_CLASS_MAPPINGS = {}
