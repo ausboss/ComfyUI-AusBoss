@@ -355,7 +355,7 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
     if (controls.reset) {
       const free = current.mode === "free";
       controls.reset.textContent = free ? "Full clip" : "To start";
-      controls.reset.title = free ? "Reset IN/OUT to the full source. Keeps Every nth and Snap." : "Move IN to the start of the source; the length stays.";
+      controls.reset.title = free ? "Reset IN/OUT to the full source. Keeps Every nth and Frames for." : "Move IN to the start of the source; the length stays.";
       controls.reset.disabled = !free && locked("start");
     }
     controls.every_nth?.set(get("every_nth", 1));

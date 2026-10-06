@@ -60,7 +60,7 @@ def latent_shape(width: int, height: int, family: str, batch_size: int) -> tuple
 def empty_latent(width: int, height: int, family: str, batch_size: int):
     shape = latent_shape(width, height, family, batch_size)
     if torch is None:
-        raise RuntimeError("Resolution latent output requires ComfyUI and PyTorch.")
+        raise RuntimeError("Latent Size needs ComfyUI and PyTorch to make a latent.")
     kwargs = {}
     if model_management is not None:
         kwargs["device"] = model_management.intermediate_device()

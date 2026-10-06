@@ -204,8 +204,9 @@ def placement_warning(stitcher: dict | None, tolerance_px: int = _SPAN_TOLERANCE
         "neither side of the canvas. This model extends one axis at a time; a "
         "two-axis canvas in a single pass usually breaks up in the new area. "
         "Pad one axis, run it, then pad the other and run again. If you only "
-        "padded one side, the canvas multiple is rounding the other axis up - "
-        "lower it, or pick a multiple that already divides that dimension."
+        "padded one side on a Crop + Rotate + Pad node, its Divisible by is "
+        "rounding the other axis up - set it to 1, or pick a number that "
+        "already divides that dimension. Load Image + Pad never adds that strip."
     )
 
 
