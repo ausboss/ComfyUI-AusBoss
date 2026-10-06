@@ -6,7 +6,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  canScrollFurther, graphDragStarts, isAppShortcut, keepKeyInField, panelKeepsWheel, panelRoot,
+  canScrollFurther, dragCarriesFiles, graphDragStarts, isAppShortcut, keepKeyInField, panelKeepsWheel,
+  panelNeedsDropHelp, panelRoot,
 } from "../js/shared/canvas_passthrough.mjs";
 
 const box = (over = {}) => ({ scrollHeight: 300, clientHeight: 100, scrollTop: 0, ...over });
@@ -60,6 +61,47 @@ test("only the pack's own panels count, in both node renderers", () => {
   assert.equal(panelRoot(foreign), null, "core widget");
   assert.equal(panelRoot({ closest: () => null }), null, "not in a widget area");
   assert.equal(panelRoot(null), null);
+});
+
+test("a drag from the desktop carries files; a row dragged inside a panel does not", () => {
+  assert.equal(dragCarriesFiles({ dataTransfer: { types: ["Files"] } }), true);
+  assert.equal(dragCarriesFiles({ dataTransfer: { types: ["text/plain", "Files"] } }), true);
+  assert.equal(dragCarriesFiles({ dataTransfer: { types: ["text/plain"] } }), false);
+  assert.equal(dragCarriesFiles({ dataTransfer: { types: [] } }), false);
+  assert.equal(dragCarriesFiles({ dataTransfer: {} }), false);
+  assert.equal(dragCarriesFiles({}), false);
+  assert.equal(dragCarriesFiles(null), false);
+});
+
+test("a dropped file needs handing to its node only on a classic panel of the pack", () => {
+  // The frontend wraps a classic panel in a .dom-widget; in Nodes 2.0 the
+  // panel sits in the node's own element, which hands a drop to the node.
+  const inside = (hostClass, ...classes) => {
+    const host = { className: hostClass, parentElement: null };
+    const closest = (sel) => {
+      if (sel === ".dom-widget, .lg-node-widgets") return host;
+      if (sel === ".dom-widget") return hostClass.split(" ").includes("dom-widget") ? host : null;
+      return null;
+    };
+    let parent = host;
+    for (const className of classes) parent = { className, parentElement: parent, closest };
+    return parent;
+  };
+  assert.equal(panelNeedsDropHelp(inside("dom-widget", "ausboss-transform-panel", "ausboss-transform-preview")), true, "classic: the picture");
+  assert.equal(panelNeedsDropHelp(inside("dom-widget", "ausboss-card", "ausboss-card-row")), true, "classic: a card row");
+  assert.equal(panelNeedsDropHelp(inside("lg-node-widgets grid", "flex", "ausboss-transform-panel", "ausboss-transform-preview")), false, "Nodes 2.0 hands it over itself");
+  assert.equal(panelNeedsDropHelp(inside("dom-widget", "comfy-multiline-input")), false, "a core widget");
+  assert.equal(panelNeedsDropHelp({ closest: () => null }), false, "the bare canvas");
+  assert.equal(panelNeedsDropHelp(null), false);
+});
+
+test("the pack listens for drops before ComfyUI's own handler and only stops a drop a node took", () => {
+  const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "js", "canvas_passthrough", "index.js"), "utf-8");
+  assert.match(source, /addEventListener\("dragover", onDragOver, true\)/, "dragover must be allowed in the capture phase");
+  assert.match(source, /addEventListener\("drop", onDrop, true\)/, "drop must be taken in the capture phase");
+  const drop = source.slice(source.indexOf("async function onDrop"), source.indexOf("function onDragEnd"));
+  assert.ok(drop.indexOf("if (!node) return;") < drop.indexOf("stopPropagation"), "a drop no node takes is left to ComfyUI");
+  assert.match(drop, /app\.handleFile/, "a file the node refuses still goes to ComfyUI");
 });
 
 const key = (k, mods = {}) => {

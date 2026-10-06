@@ -16,6 +16,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
   labels and their switches, which is the view to share a workflow with. A
   row whose nodes are only partly on reads mixed. The node never runs and has
   no wires.
+- **A file dropped anywhere on a loader node loads into it.** In the classic
+  node style, a picture dragged in from your desktop only loaded when you let
+  go over the node's title or its sockets. Dropped on the picture or the
+  controls, it missed the node and ComfyUI added a separate Load Image node
+  for it. Now it loads wherever you drop it on the node. The same goes for
+  videos, and for Load Image + Pad, Load Video and both Video Crop + Rotate +
+  Pad nodes. Nodes 2.0 already worked.
 
 ## 2.6.4 - 2026-10-05
 
