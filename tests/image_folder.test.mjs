@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -127,4 +128,27 @@ test("addresses carry every value encoded", () => {
   assert.equal(foldersAddress({ source: "input", folder: "" }), "/ausboss/image_folder/folders?source=input");
   assert.equal(thumbAddress({ source: "input", folder: "p", name: "a b#1.png", v: 12 }),
     "/ausboss/image_folder/thumb?source=input&folder=p&name=a%20b%231.png&size=160&v=12");
+});
+
+// A new node opens at its smallest size plus one more row of tiles. That
+// size used to be set a moment after the node was made. A workflow that
+// loads has put the saved size on the node by then, so a node saved at its
+// smallest size looked new and came back 96 px taller and at least 340 px
+// wide. A copy, a paste, an undo and Recreate node did the same.
+test("only a node without a size of its own takes the opening size", () => {
+  const source = readFileSync(new URL("../js/image_folder/index.js", import.meta.url), "utf-8");
+  const block = (from, to) => {
+    const start = source.indexOf(from);
+    assert.ok(start >= 0, `js/image_folder/index.js has no ${from}`);
+    return source.slice(start, source.indexOf(to, start));
+  };
+  // Set as the node joins the graph, the opening size comes before a loaded
+  // workflow's size and before the one Recreate node puts back.
+  const opening = block('chainCallback(node, "onAdded"', "\n  });");
+  assert.match(opening, /if \(state\.sized\) return;/, "a node that already has its size is left alone");
+  assert.match(opening, /setSize\?\.\(\[.*floor \+ 96\]\)/, "the opening size is set as the node joins the graph");
+  assert.equal(source.split("floor + 96").length - 1, 1, "the opening size is set in one place, never from a microtask or a timer");
+  // A copy is given its size before it joins the graph.
+  const configure = block('"onConfigure", function (info)', '"onExecuted"');
+  assert.match(configure, /if \(info\?\.size\) state\.sized = true;/, "a node that comes with a size keeps it");
 });

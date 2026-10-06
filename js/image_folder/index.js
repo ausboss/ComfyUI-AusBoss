@@ -751,10 +751,12 @@ function buildPanel(node) {
   state.key = `${now.source}|${now.folder}|${now.subfolders}|${now.sort}`;
   rebuild(state);
   scheduleRefresh(state, 60);
-  // A new node opens with room for three rows of tiles. A loaded workflow
-  // sets its own size right after this.
-  queueMicrotask(() => {
-    if (!state.alive || state.sized) return;
+  // A new node opens with room for three rows of tiles. It takes that size as
+  // it joins the graph: the card is in place by then, and a size put on the
+  // node afterwards wins (a loaded workflow, an undo). A copy gets its size
+  // before it joins, which onConfigure notes below.
+  chainCallback(node, "onAdded", () => {
+    if (state.sized) return;
     state.sized = true;
     const floor = Number(node.computeSize?.()?.[1]);
     if (Number.isFinite(floor) && node.size?.[1] <= floor + 1) node.setSize?.([Math.max(node.size[0], 340), floor + 96]);
@@ -769,8 +771,10 @@ app.registerExtension({
     chainCallback(nodeType.prototype, "onNodeCreated", function () {
       buildPanel(this);
     });
-    chainCallback(nodeType.prototype, "onConfigure", function () {
+    chainCallback(nodeType.prototype, "onConfigure", function (info) {
       const state = buildPanel(this);
+      // A node that comes with a size keeps it, the smallest one too.
+      if (info?.size) state.sized = true;
       // A loaded workflow brings its own folder and its own pick.
       state.restoring = true;
       queueMicrotask(() => {
