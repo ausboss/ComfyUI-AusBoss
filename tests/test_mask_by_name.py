@@ -22,10 +22,12 @@ from nodes._mask_by_name_helpers import (  # noqa: E402
     NEEDS_SAM3,
     NO_NAME,
     SEVERAL,
+    SURENESS,
     clean_name,
     cut_out,
     nothing_message,
     pick,
+    search_text,
     split_by_frame,
     tint_preview,
 )
@@ -55,7 +57,7 @@ class FakeDetect:
         cls.calls.append({"conditioning": conditioning, "threshold": threshold, "passes": refine_iterations, "individual": individual_masks})
         frames = cls.found
         stacks = [torch.stack(masks) if masks else torch.zeros(0, H, W) for masks in frames]
-        boxes = [[{"x": 0, "y": 0, "width": 1, "height": 1, "score": 0.9} for _ in masks] for masks in frames]
+        boxes = [[{"x": 0, "y": 0, "width": 1, "height": 1, "score": 0.9 - 0.25 * k} for k, _ in enumerate(masks)] for masks in frames]
         return types.SimpleNamespace(result=(torch.cat(stacks, dim=0), boxes))
 
 
@@ -85,6 +87,22 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(clean_name("  the   red\n jacket "), "the red jacket")
         self.assertEqual(clean_name(None), "")
         self.assertEqual(len(clean_name("x" * 900)), 200)
+
+    def test_every_name_asks_sam3_for_several_matches(self):
+        # ComfyUI's SAM 3 text reader returns one match per name unless the
+        # name ends in ":N"; without it only one of two scarves comes back.
+        self.assertEqual(search_text("the scarves"), "the scarves:16")
+        self.assertEqual(search_text(" the hat ,  the bag "), "the hat:16, the bag:16")
+        self.assertEqual(search_text("the dog:2, the cat"), "the dog:2, the cat:16")
+        self.assertEqual(search_text("(the dog)"), "the dog:16")
+        self.assertEqual(search_text("the dog:"), "the dog:16")
+        self.assertEqual(search_text("the dog", 4), "the dog:4")
+        self.assertEqual(search_text(" , "), "")
+
+    def test_the_default_sureness_is_above_comfyuis(self):
+        self.assertEqual(SURENESS, 0.7)
+        spec = node_mask_by_name.AusBossMaskByName.INPUT_TYPES()["optional"]["threshold"][1]
+        self.assertEqual(spec["default"], SURENESS)
 
     def test_the_messages_are_plain_and_ascii(self):
         text = nothing_message("the hat")
@@ -145,9 +163,9 @@ class NodeTests(unittest.TestCase):
         self.assertEqual(found, 2)
         self.assertTrue(torch.equal(mask[0], torch.maximum(SMALL, BIG)))
         self.assertEqual(tuple(cut.shape), (1, H, W, 4))
-        self.assertEqual(out["ui"], {"ausboss_mask_by_name": [{"found": 2, "name": "the dog"}]})
+        self.assertEqual(out["ui"], {"ausboss_mask_by_name": [{"found": 2, "name": "the dog", "sure": [0.9, 0.65]}]})
         call = FakeDetect.calls[0]
-        self.assertEqual(call["conditioning"], [["conditioning for", "sam3 clip", "the dog"]])
+        self.assertEqual(call["conditioning"], [["conditioning for", "sam3 clip", "the dog:16"]])
         self.assertEqual((call["threshold"], call["passes"], call["individual"]), (0.3, 2, True))
 
     def test_the_biggest_keeps_one_thing(self):
@@ -168,7 +186,7 @@ class NodeTests(unittest.TestCase):
         mask, cut, found = out["result"]
         self.assertEqual((found, float(mask.sum()), tuple(mask.shape)), (0, 0.0, (1, H, W)))
         self.assertEqual(float(cut[..., 3].sum()), 0.0)
-        self.assertEqual(out["ui"]["ausboss_mask_by_name"], [{"found": 0, "name": "the dog"}])
+        self.assertEqual(out["ui"]["ausboss_mask_by_name"], [{"found": 0, "name": "the dog", "sure": []}])
 
     def test_a_batch_stops_only_when_no_picture_has_it(self):
         use_fake_core(self, [[], [BIG]])

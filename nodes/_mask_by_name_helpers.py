@@ -15,6 +15,14 @@ import torch.nn.functional as F
 SEVERAL = ("all of them", "the biggest")
 IF_NOTHING = ("stop the run", "empty mask")
 NAME_MAX = 200
+# SAM 3 returns one match per name unless it is asked for more.
+MATCHES_MAX = 16
+# How sure SAM 3 must be by default. Measured on 16 pictures: the right name
+# scored 0.89 to 0.99 and small real things (lips, shoes, a strap) 0.67 to
+# 0.79, while a name that was not in the picture scored above 0.5 half the
+# time and above 0.7 in 2 of 80 tries. ComfyUI's own default of 0.5 would
+# "find" something for every second wrong name.
+SURENESS = 0.7
 
 # The preview tint: the pack teal, a little lighter so it reads on dark pictures.
 TINT = (0.0, 0.78, 0.74)
@@ -35,6 +43,25 @@ NOT_SAM3 = (
 def clean_name(name) -> str:
     """The typed name with stray spaces and line breaks gone."""
     return " ".join(str(name or "").split())[:NAME_MAX]
+
+
+def search_text(name: str, limit: int = MATCHES_MAX) -> str:
+    """The name as ComfyUI's SAM 3 text reader wants it.
+
+    It takes names separated by commas and returns one match per name unless
+    a name ends in ":N". Every name here asks for up to `limit`, so two
+    scarves are both found; a count the person typed is left alone."""
+    parts = []
+    for part in clean_name(name).replace("(", "").replace(")", "").split(","):
+        part = part.strip()
+        if not part:
+            continue
+        head, colon, tail = part.rpartition(":")
+        if colon and head.strip() and tail.strip().replace(".", "", 1).isdigit():
+            parts.append(f"{head.strip()}:{tail.strip()}")
+        else:
+            parts.append(f"{part.rstrip(':').strip()}:{int(limit)}")
+    return ", ".join(parts)
 
 
 def nothing_message(name: str) -> str:
@@ -113,14 +140,17 @@ def tint_preview(image: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
 
 __all__ = [
     "IF_NOTHING",
+    "MATCHES_MAX",
     "NEEDS_SAM3",
     "NOT_SAM3",
     "NO_NAME",
     "SEVERAL",
+    "SURENESS",
     "clean_name",
     "cut_out",
     "nothing_message",
     "pick",
+    "search_text",
     "split_by_frame",
     "tint_preview",
 ]

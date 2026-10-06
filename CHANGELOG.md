@@ -4,6 +4,15 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **New: Mask by Name 🆎** (Mask). Type what to find in a picture, like "the
+  dog" or "the red jacket", and get its mask, with nothing to paint. The node
+  shows what it found, tinted on the picture, and **FIND** runs only this
+  node, so you can check the mask before the rest of the workflow runs. When
+  it finds nothing it stops the run with a plain message, so nothing after it
+  runs on an empty mask. A setting passes an empty mask on instead. It also
+  returns the thing cut out on a see-through background. The search is
+  ComfyUI's own SAM 3 (ComfyUI 0.38 or newer): wire model and clip from a
+  Load Checkpoint that loads the SAM 3 file.
 - **New: Workflow Switches 🆎** (Utility). One small card that turns parts
   of a workflow off and on. Select the nodes of one part, such as a box and
   its Save Image, press **+ Switch**, and they get one off | on switch with a

@@ -154,6 +154,18 @@ const CARDS = {
       { widget: "edge_refine", label: "Edge", kind: "segment", labels: { "guided filter": "guided" }, group: "advanced" },
     ],
   },
+  AUSBOSS_NODES_MaskByName: {
+    minWidth: 300, first: true,
+    rows: [
+      { widget: "name", label: "Find" },
+      { widget: "several", label: "If several", kind: "segment" },
+      { widget: "grow", label: "Grow", suffix: "px" },
+      { widget: "soften", label: "Soften", suffix: "px" },
+      { widget: "if_nothing", label: "If nothing", kind: "segment" },
+      { group: "advanced", label: "More" },
+      { widget: "threshold", label: "Sureness", group: "advanced" },
+    ],
+  },
   AUSBOSS_NODES_FrameInterpolate: {
     minWidth: 300,
     rows: [

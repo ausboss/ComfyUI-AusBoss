@@ -12,10 +12,12 @@ from ._mask_by_name_helpers import (
     NOT_SAM3,
     NO_NAME,
     SEVERAL,
+    SURENESS,
     clean_name,
     cut_out,
     nothing_message,
     pick,
+    search_text,
     split_by_frame,
     tint_preview,
 )
@@ -80,7 +82,7 @@ class AusBossMaskByName:
                     {
                         "default": "the person",
                         "multiline": False,
-                        "tooltip": 'What to find. A few plain words: "the dog", "the red jacket", "the woman on the left".',
+                        "tooltip": 'What to find, in a few plain words: "the dog", "the red jacket". Several things: put a comma between them.',
                     },
                 ),
                 "several": (
@@ -136,13 +138,14 @@ class AusBossMaskByName:
                 "threshold": (
                     "FLOAT",
                     {
-                        "default": 0.5,
+                        "default": SURENESS,
                         "min": 0.05,
                         "max": 0.95,
                         "step": 0.05,
                         "tooltip": (
                             "How sure SAM 3 must be that something matches the name. "
-                            "Lower finds more, higher finds less."
+                            "Lower it when a small thing is missed. Raise it when it "
+                            "picks up something that is not the thing."
                         ),
                     },
                 ),
@@ -164,7 +167,8 @@ class AusBossMaskByName:
         self._prefix = temp_prefix("mask_by_name")
 
     def _detect(self, model, clip, image, name, threshold):
-        """Every match in every picture: (N x H x W masks, matches per picture).
+        """Every match in every picture: (N x H x W masks, matches per picture,
+        how sure it was of each match in the first picture).
 
         ComfyUI's own nodes do the work: CLIP Text Encode reads the name and
         SAM 3 Detect searches. Nothing of theirs is copied here."""
@@ -174,7 +178,7 @@ class AusBossMaskByName:
         if detector is None or encoder is None or not hasattr(detector, "execute"):
             raise RuntimeError(NEEDS_SAM3)
         try:
-            conditioning = encoder().encode(clip, name)[0]
+            conditioning = encoder().encode(clip, search_text(name))[0]
             output = detector.execute(
                 model=model,
                 image=image,
@@ -190,13 +194,16 @@ class AusBossMaskByName:
             # inside; say what to wire instead of showing that.
             raise RuntimeError(f"{NOT_SAM3} ({type(error).__name__}: {error})") from error
         masks, boxes = output.result
-        return masks, [len(frame) for frame in boxes]
+        counts = [len(frame) for frame in boxes]
+        # How sure SAM 3 was of each match in the first picture, best first.
+        scores = sorted((float(box.get("score", 0.0)) for box in (boxes[0] if boxes else [])), reverse=True)
+        return masks, counts, scores
 
-    def find(self, image, model, clip, name, several, grow, soften, if_nothing, preview=True, threshold=0.5):
+    def find(self, image, model, clip, name, several, grow, soften, if_nothing, preview=True, threshold=SURENESS):
         text = clean_name(name)
         if not text:
             raise ValueError(NO_NAME)
-        masks, counts = self._detect(model, clip, image, text, threshold)
+        masks, counts, scores = self._detect(model, clip, image, text, threshold)
         if not sum(counts) and str(if_nothing) != "empty mask":
             raise RuntimeError(nothing_message(text))
         per_picture = [pick(found, str(several)) for found in split_by_frame(masks, counts)]
@@ -205,7 +212,7 @@ class AusBossMaskByName:
             mask = refine_mask(mask, int(grow), float(soften), False)[0]
         found = int(counts[0]) if counts else 0
         result = (mask, cut_out(image, mask), found)
-        note = [{"found": found, "name": text}]
+        note = [{"found": found, "name": text, "sure": [round(score, 2) for score in scores[:8]]}]
         if not preview:
             return {"ui": {UI_KEY: note}, "result": result}
         payload = preview_payload(tint_preview(image, mask), self._prefix, "Mask by Name", result)

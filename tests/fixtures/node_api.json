@@ -446,6 +446,36 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_MaskByName": {
+    "required": [
+      "image",
+      "model",
+      "clip",
+      "name",
+      "several",
+      "grow",
+      "soften",
+      "if_nothing"
+    ],
+    "optional": [
+      "preview",
+      "threshold"
+    ],
+    "outputs": [
+      [
+        "MASK",
+        "mask"
+      ],
+      [
+        "IMAGE",
+        "cut_out"
+      ],
+      [
+        "INT",
+        "found"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_MathExpression": {
     "required": [
       "expression"

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { nodeByExecutionId } from "../js/shared/graph_ids.mjs";
+import { executionIdOf, nodeByExecutionId } from "../js/shared/graph_ids.mjs";
 
 // A graph whose ids repeat inside a subgraph, which is the normal case: node
 // ids are small integers numbered independently per graph.
@@ -64,4 +64,33 @@ test("string-keyed graphs still resolve", () => {
   // Some frontends key nodes by string; both spellings are tried.
   const rootGraph = { getNodeById: (id) => (id === "7" ? { id: "7" } : null) };
   assert.equal(nodeByExecutionId(rootGraph, "7").id, "7");
+});
+
+test("a node's execution id is the chain of boxes that holds it", () => {
+  const deepNode = { id: 3 };
+  const innerNode = { id: 3 };
+  const innerLoader = { id: 1 };
+  const nested = { id: 5, subgraph: { nodes: [deepNode] } };
+  const holder = { id: 12, subgraph: { nodes: [innerLoader, innerNode, nested] } };
+  const rootNode = { id: 3 };
+  const root = { nodes: [rootNode, holder] };
+  assert.equal(executionIdOf(root, rootNode), "3");
+  assert.equal(executionIdOf(root, innerNode), "12:3");
+  assert.equal(executionIdOf(root, deepNode), "12:5:3");
+  // Same number, different node: the walk goes by the node itself.
+  assert.notEqual(executionIdOf(root, innerNode), executionIdOf(root, rootNode));
+  // And back again.
+  const byId = (nodes) => ({ nodes, getNodeById: (id) => nodes.find((node) => node.id === id) ?? null });
+  const live = byId([rootNode, { id: 12, subgraph: byId([innerLoader, innerNode]) }]);
+  assert.equal(nodeByExecutionId(live, executionIdOf(live, innerNode)), innerNode);
+});
+
+test("a node that is on no graph has no execution id", () => {
+  const root = { nodes: [{ id: 1 }], _nodes: [] };
+  assert.equal(executionIdOf(root, { id: 9 }), null);
+  assert.equal(executionIdOf(null, { id: 1 }), null);
+  assert.equal(executionIdOf(root, null), null);
+  // An older frontend keeps its nodes in _nodes.
+  const old = { id: 4 };
+  assert.equal(executionIdOf({ _nodes: [old] }, old), "4");
 });
