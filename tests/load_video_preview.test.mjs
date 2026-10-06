@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 
 import {
   clampTrimSeek,
@@ -14,6 +15,7 @@ import {
   singleFrameTime,
   slideTrimWindow,
   shouldLoopTrim,
+  trimAfterFramePick,
   trimBounds,
   trimFractions,
 } from "../js/load_video/trim_preview.mjs";
@@ -125,6 +127,20 @@ test("single-frame fraction maps the chosen instant onto the rail", () => {
   // Past-the-end picks land just inside 1 (19.9/20), never at or beyond it.
   assert.ok(Math.abs(singleFrameFraction(20, 40) - 0.995) < 1e-9);
   assert.equal(singleFrameFraction(0, 5), 0);
+});
+
+test("leaving single-frame mode opens an OUT the picked frame has passed", () => {
+  // OUT at 2, then a frame picked at 3.2: the loader refuses start >= end.
+  assert.deepEqual(trimAfterFramePick(3.2, 2), { start: 3.2, end: 0 });
+  assert.deepEqual(trimAfterFramePick(2, 2), { start: 2, end: 0 });
+  // 0 is "to the end of the source", so the face shows a real window again.
+  assert.deepEqual(trimBounds(4.04, 3.2, trimAfterFramePick(3.2, 2).end), { start: 3.2, end: 4.04 });
+  // A window that still holds is left alone: nothing to write.
+  assert.equal(trimAfterFramePick(1, 2), null);
+  assert.equal(trimAfterFramePick(3.2, 0), null);
+  assert.equal(trimAfterFramePick(undefined, "x"), null);
+  const source = readFileSync(new URL("../js/load_video/index.js", import.meta.url), "utf-8");
+  assert.match(source, /if \(!isSingleFrame\(state\)\) \{\s+const reopened = trimAfterFramePick\(state\.startWidget\.value, state\.endWidget\.value\);/, "FRAME off repairs the window");
 });
 
 test("a zero-length clip yields a zero-length selection without infinite loops", () => {

@@ -85,6 +85,16 @@ export function singleFrameFraction(durationValue, timeValue) {
   return clamp(singleFrameTime(duration, timeValue) / duration, 0, 1);
 }
 
+// Leaving single-frame mode, the picked frame is IN. An OUT at or before it
+// leaves no window, and the loader refuses a start that is not before the
+// end, so OUT goes back to 0: the widget's own "to the end of the source".
+// Returns the pair to write, or null when it already is a window.
+export function trimAfterFramePick(startValue, endValue) {
+  const start = Math.max(0, finiteNumber(startValue, 0));
+  const end = finiteNumber(endValue, 0);
+  return end > 0 && end <= start ? { start, end: 0 } : null;
+}
+
 // Playback rate for the label, trimmed of float noise: 24 -> "24",
 // 12.5 -> "12.5", 23.976023... -> "23.976".
 export function formatFps(value) {

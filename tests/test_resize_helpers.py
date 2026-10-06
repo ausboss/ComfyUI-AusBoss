@@ -308,6 +308,33 @@ class ApplyResizeTests(unittest.TestCase):
             self.assertEqual(tuple(out.shape), (1, 288, 512, 3), proportion)
             self.assertEqual(float(mask.max()), 0.0, proportion)
 
+    def test_pad_adds_no_bar_to_a_box_with_a_zero_side(self):
+        # A 1000x700 source: Multiple 16 on a 0/0 box used to give 1008x704
+        # with a 2 px bar, and width 512 alone 512x358 with a 1 px bar. A box
+        # with a 0 in it takes its shape from the source, so only rounding
+        # and the snap move it: same size as before, no bar, a black mask.
+        image = rand_image(1, 700, 1000, seed=14)
+        cases = (
+            ({"divisible_by": 16}, (1008, 704)),
+            ({"width": 512}, (512, 358)),
+            ({"height": 358}, (511, 358)),
+            ({"width": 520, "divisible_by": 16}, (528, 368)),
+        )
+        for overrides, size in cases:
+            with self.subTest(**overrides):
+                out, mask, width, height = run_resize(
+                    image, keep_proportion="pad", fill_color="#ff0000", **overrides
+                )
+                self.assertEqual((width, height), size)
+                self.assertEqual(tuple(out.shape), (1, size[1], size[0], 3))
+                self.assertEqual(float(mask.max()), 0.0)
+        # Both sides set is a box of its own: pad still fills what is left.
+        _, mask, width, height = run_resize(
+            image, width=512, height=512, keep_proportion="pad"
+        )
+        self.assertEqual((width, height), (512, 512))
+        self.assertEqual(float(mask.max()), 1.0)
+
     def test_pad_fills_the_bars_and_marks_them_in_the_mask(self):
         image = rand_image(1, 24, 32, seed=7)
         out, mask, width, height = run_resize(

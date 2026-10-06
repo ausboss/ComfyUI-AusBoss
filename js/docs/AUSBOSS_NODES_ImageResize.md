@@ -50,14 +50,16 @@ other modes the picture always keeps its shape, whatever Fit says.
   multiple (never below one step) — `16` for WAN, `8` for most latent
   spaces. It wins over exact proportion, so a dimension can shift by up to
   half a step. It applies even when everything else says "keep the source".
-- **Bars only appear in Width × height mode with Fit on pad.** In every
-  other target mode the box is derived from the source's own aspect, so
-  there is nothing to letterbox against: the proportion modes all resolve a
-  `divisible_by` snap with an invisible sub-half-step resize, and the mask
-  output stays black. With Fit on pad, bars (white in the mask) fill
-  whatever the picture does not cover. That includes a bar a pixel or two
-  wide when the size is rounded, for example a 1000×700 picture with
-  **Multiple** 16 becomes 1008×704 with a 2 px bar.
+- **Bars only appear in Width × height mode with Fit on pad and both W and
+  H set.** In every other target mode the box is derived from the source's
+  own aspect, so there is nothing to letterbox against: the proportion modes
+  all resolve a `divisible_by` snap with an invisible sub-half-step resize,
+  and the mask output stays black. A Width × height box with a `0` in it
+  follows the source the same way, so pad adds no bar to it. With both set,
+  bars (white in the mask) fill whatever the picture does not cover. That
+  includes a bar a pixel or two wide when the size is rounded, for example
+  a 1000×700 picture with W 1000, H 700 and **Multiple** 16 becomes
+  1008×704 with a 2 px bar.
 - **Filter** (`interpolation`): `lanczos` (PIL, in float — the sharpest
   all-rounder), `bicubic`, `bilinear`, `nearest` (pixel art, hard masks),
   `area` (best for strong downscales). A resize that changes nothing passes

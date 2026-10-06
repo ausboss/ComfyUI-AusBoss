@@ -57,9 +57,8 @@ A row names a pack, links to it, and names one **probe node class** from that
 pack (any node it registers, e.g. `AUSBOSS_NODES_LoraLoader`). If that class
 is registered on this install the pack shows **✓ installed**; otherwise it is
 marked missing with the link to get it. **Detect from this workflow** in the
-editor adds a row for each custom pack used by the nodes on the main canvas.
-It does not look inside subgraphs and never removes a row, so check the list
-after big changes.
+editor adds a row for each custom pack the workflow uses, subgraphs included.
+It never removes a row, so check the list after big changes.
 
 ## Links
 
