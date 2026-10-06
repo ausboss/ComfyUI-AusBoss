@@ -70,6 +70,12 @@ It returns the padded `image`, a `mask` of the padding, `width`, `height`, a `st
 
 The Klein 9B Outpaint example pads its picture with Load Image + Pad. [Open the Klein 9B Outpaint workflow →](example_workflows/Klein%209B%20Outpaint%20%28AusBoss%29.json)
 
+### Image Folder
+
+Pick a folder, tick the pictures you want in a thumbnail gallery, and run the workflow on each one. **All in one run** does every picked picture with one press of Run. **One per run** loads one picture each run and steps to the next by itself, so a picture that fails only skips itself. It gives each picture's mask, its file name for saving the result under the same name, its number and how many there are.
+
+**Browse** lists the folders inside ComfyUI's input or output folder, and **Add** (or a drop on the node) copies pictures from your computer into the input folder. The node reads nothing outside those two folders.
+
 ### Image Resize
 
 Resizes to a width and height, a longest or shortest edge, a megapixel count, or a scale factor. It can fit inside the size, stretch to it, fill it and crop the rest, or pad with a color you pick. New nodes start in megapixels mode, and saved workflows keep their mode. The card shows only the controls for the chosen mode, and width and height each take their own link.
