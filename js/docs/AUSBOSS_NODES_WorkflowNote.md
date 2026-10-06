@@ -7,17 +7,19 @@ model file and node pack on the card is checked against **this** install and
 marked installed or missing, so whoever opens the workflow sees exactly what
 is left to set up before the first run.
 
-Nothing executes. The node has no outputs and is never part of the prompt.
+Nothing runs: the node has no outputs, so ComfyUI never executes it.
 
 ## Editing
 
 - Click the **✎** in the card's corner (or right-click the node → *Edit
   Workflow Note*). The dialog has a form; **JSON** switches to the raw card
-  text for copy/paste between workflows. `Ctrl+Enter` saves, `Esc` cancels.
+  text for copy/paste between workflows. `Ctrl+Enter` saves, `Esc` cancels
+  (it asks first if you changed anything).
 - **Title / Subtitle / Author** make the banner. **Layout → Banner** shows
-  just the title, so the same node doubles as a label for a stage or column.
+  only that top block (the title, plus the subtitle and author if you filled
+  them in), so the same node doubles as a label for a stage or column.
 - **Accent color** tints the banner bar, dots and buttons; empty keeps the
-  pack teal.
+  pack teal. It takes a six-digit hex such as `#00b4aa`.
 - **How-to** is Markdown-lite: `#`/`##`/`###` headings, `**bold**`,
   `*italic*`, `` `code` ``, `[links](https://…)`, `-` and `1.` lists, `---`
   rules, fenced code. Only `http(s)` links become clickable.
@@ -55,8 +57,9 @@ A row names a pack, links to it, and names one **probe node class** from that
 pack (any node it registers, e.g. `AUSBOSS_NODES_LoraLoader`). If that class
 is registered on this install the pack shows **✓ installed**; otherwise it is
 marked missing with the link to get it. **Detect from this workflow** in the
-editor lists every custom pack the open graph uses, so the list is never out
-of date with the graph.
+editor adds a row for each custom pack used by the nodes on the main canvas.
+It does not look inside subgraphs and never removes a row, so check the list
+after big changes.
 
 ## Links
 

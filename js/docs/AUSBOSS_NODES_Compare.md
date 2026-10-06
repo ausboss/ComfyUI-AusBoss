@@ -27,7 +27,8 @@ The labels ride with the split line: **A** just left of it and **B** just right 
 it, on the picture each one names. With one picture showing, its label sits alone
 at the top centre. The chosen mode and locked side are
 stored with the node, including support for modes from older workflows. The resolution
-sits beneath the panel; differing sizes are labeled individually.
+sits under the picture, beside the three mode buttons; differing sizes are
+labeled individually.
 
 ## Output
 

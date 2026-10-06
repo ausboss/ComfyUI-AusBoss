@@ -1,13 +1,14 @@
 # Mask Refine
 
-Cleans up a segmentation mask in one pass: grow or shrink the coverage,
-optionally fill enclosed holes, melt staircase jaggies, feather the edge,
-optionally snap the edge to a guide image, then remap the levels. Both the
-refined mask and its inverse are returned, so no separate invert node is
-needed.
+Cleans up a mask in one node: grow or shrink it, fill holes, smooth blocky
+edges and soften the edge. Use it on a mask from a segmentation node or a
+quick brush before the mask goes to an inpainter. It can also snap the edge
+to a guide image and adjust the mask's levels. Both the refined mask and its
+inverse are returned, so no separate invert node is needed.
 
 The panel shows the refined mask itself once the node has run, so the effect
-of a setting is visible without wiring a preview node beside it. The small
+of a setting is visible without wiring a preview node beside it. With a batch
+or a video it shows the first mask. The small
 **preview** switch at the right of the bar above the picture turns it off:
 the picture's box disappears, the node is that much shorter, and no preview
 file is written. Turn it back on and the node returns to its height with the
@@ -16,40 +17,40 @@ run the workflow again. The switch is the node's optional `preview` input.
 
 ## The buttons
 
-- **AUTO** — reads the size of the mask on the panel and sets **expand** and
-  **blur** to a sensible starting point for it. A feather is a fraction of the
+- **AUTO** — reads the size of the mask on the panel and sets **Expand** and
+  **Blur** to a sensible starting point for it. A feather is a fraction of the
   picture, not a fixed pixel count: the 8 px grow that covers a watermark's
   rim on a 576-tall clip is a smear on a thumbnail and invisible on a 4K
   plate, so the values scale with the mask's short edge. They are a starting
   point to nudge, not a correct answer — how far a mask has to grow depends on
   how tight the segmentation was, which nothing can read off the picture.
   Needs one run first, since that is when the panel learns the mask's size.
-- **MORE** — the fold on the card under **blur** shows or hides the advanced
-  rows. The node opens on **expand** and **blur** alone; the rest are one
+- **MORE** — the fold on the card under **Blur** shows or hides the advanced
+  rows. The node opens on **Expand** and **Blur** alone; the rest are one
   click away. Hidden rows keep their values, so a workflow that set them is
   unaffected, and the choice is remembered per node.
 
 ## Controls
 
 - **mask**: BHW mask; white is the selected area.
-- **expand**: Pixels to grow (`+`) or shrink (`-`). Soft input values survive.
-- **blur**: Gaussian feather strength in pixels; `0` keeps hard edges.
+- **Expand** (`expand`): Pixels to grow (`+`) or shrink (`-`). Soft input values survive.
+- **Blur** (`blur`): Gaussian feather strength in pixels; `0` keeps hard edges.
 
 ### Advanced (behind **MORE**)
 
-- **fill_holes**: Fills fully enclosed gaps inside the mask before feathering.
+- **Fill holes** (`fill_holes`): Fills fully enclosed gaps inside the mask before feathering.
   Gaps that touch the image border are left alone.
-- **Max hole size** (`max_hole_size`): The biggest hole **fill_holes** fills,
+- **Max hole size** (`max_hole_size`): The biggest hole **Fill holes** fills,
   as a percent of the picture. Use it when you paint around something you
   want to keep: at `2`, the small gaps a quick brush leaves still fill, but a
   person, pet or object you left unpainted stays as it is. `0`, the default,
-  fills every hole whatever its size. It only matters while **fill_holes** is
+  fills every hole whatever its size. It only matters while **Fill holes** is
   on.
-- **smooth**: Melts staircase jaggies by this many pixels while keeping a
+- **Smooth** (`smooth`): Melts staircase jaggies by this many pixels while keeping a
   hard edge — the mask is binarized, blurred, and re-binarized, so nothing
   is feathered. `0` is off. Use this on blocky segmentation output; use
-  **blur** when you actually want a soft edge.
-- **black_point** / **white_point**: Levels remap applied last. Values at or
+  **Blur** when you actually want a soft edge.
+- **Black point** / **White point** (`black_point` / `white_point`): Levels remap applied last. Values at or
   below `black_point` become fully black and values at or above `white_point`
   become fully white; the range between rescales linearly. Raise
   `black_point` a little to clear gray haze, lower `white_point` to solidify
@@ -58,7 +59,7 @@ run the workflow again. The switch is the node's optional `preview` input.
   `matting`. Both refinements snap the mask edge to the connected
   **guide_image** and run per frame, so video batches stay interruptible:
   - `guided filter` — fast edge-aware filtering of the soft mask against the
-    guide image. The filter radius scales with **expand**.
+    guide image. The filter radius scales with **Expand**.
   - `matting` — closed-form alpha matting: the binarized mask eroded by the
     edge radius counts as definite foreground, the dilation marks where
     definite background begins, and the band between is solved against the
@@ -94,7 +95,7 @@ later step and the levels remap always cleans the final result.
 
 ## Technical details
 
-**Max hole size** measures each hole after **expand** has moved the mask,
+**Max hole size** measures each hole after **Expand** has moved the mask,
 as a share of that picture's whole area, so the same setting works at any
 resolution; in a batch every picture is judged on its own. A hole exactly
 at the limit is filled. `100` and above fill every hole, the same as `0`.
