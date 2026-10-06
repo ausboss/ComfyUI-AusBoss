@@ -170,6 +170,32 @@ export function ensureNodeMinHeight(node) {
   return true;
 }
 
+// The height a node takes when its card's own height changes: a group such
+// as More opens, or a row appears.
+// - A new node, and a node that sat at its floor, hug the new floor.
+// - A node the person made taller keeps that: when they changed the card by
+//   hand it grows or shrinks by what the card did, so a picture under the
+//   card keeps its size when More opens.
+// - When the card changed by itself (a row that settles after a load, a
+//   value written from outside) the node keeps the height it has, lifted to
+//   the floor.
+// - A workflow that is loading takes its saved height, lifted to the floor:
+//   that height already holds the rows the saved values show. `saved` is
+//   passed because the frontend has by then grown the node to fit the card
+//   as it was before the saved values reached it.
+export function nodeHeightAfterCardChange({ floor, current, saved, change = 0, first = false, restoring = false, byHand = false } = {}) {
+  const min = Number(floor);
+  const now = Number(current);
+  if (!Number.isFinite(min)) return Number.isFinite(now) ? now : 0;
+  if (first || !Number.isFinite(now)) return min;
+  if (restoring) return Math.max(min, Number.isFinite(Number(saved ?? NaN)) ? Number(saved) : now);
+  const delta = Number(change) || 0;
+  // What the node had beyond its floor before the card changed.
+  const spare = now - (min - delta);
+  if (spare < 1) return min;
+  return Math.max(min, byHand ? now + delta : now);
+}
+
 // Lift a node's computeSize() height to a floor the panel measures, such as
 // the height a card's text needs. A corner drag stops at computeSize(), so
 // the node cannot be dragged shorter than that. The floor is read on every

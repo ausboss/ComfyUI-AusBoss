@@ -15,6 +15,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   out of the graphics card's memory right after the search. The search is
   ComfyUI's own SAM 3 (ComfyUI 0.38 or newer): wire model and clip from a
   Load Checkpoint that loads the SAM 3 file.
+- **Opening More no longer shrinks the picture.** A node you made taller
+  keeps that height when a group such as **More** opens or closes on its
+  card: the node grows or shrinks by what the card did, so the picture below
+  keeps its size. Before, the node snapped back to its smallest size (Mask
+  Refine, Load Image + Pad). A tall node saved with More open also reopens
+  at its saved height.
 - **New: Workflow Switches 🆎** (Utility). One small card that turns parts
   of a workflow off and on. Select the nodes of one part, such as a box and
   its Save Image, press **+ Switch**, and they get one off | on switch with a

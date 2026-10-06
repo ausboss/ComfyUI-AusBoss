@@ -33,7 +33,7 @@
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "./index.mjs";
 import { keepKeyInField } from "./canvas_passthrough.mjs";
 import { createMediaPicker } from "./media_picker.mjs";
-import { ensureNodeMinHeight, fillNodeHeight, holdNodeMinWidth } from "./panel_layout.mjs";
+import { ensureNodeMinHeight, fillNodeHeight, holdNodeMinWidth, nodeHeightAfterCardChange } from "./panel_layout.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
 import { hideWidget } from "./widget_visibility.mjs";
 import {
@@ -193,16 +193,22 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
   const values = () => Object.fromEntries((node.widgets ?? []).map((widget) => [widget.name, widget.value]));
   const groupProperty = (name) => `ausboss_show_${name}`;
   const groupOpen = (name) => Boolean(node.properties?.[groupProperty(name)]);
+  // What the person changes on the card itself. A row it brings in or takes
+  // out moves the node's height with it (nodeHeightAfterCardChange).
+  const byHand = (run) => {
+    state.byHand = true;
+    try { return run(); } finally { state.byHand = false; }
+  };
   const setGroupOpen = (name, open) => {
     node.properties ??= {};
     node.properties[groupProperty(name)] = Boolean(open);
-    refresh();
+    byHand(refresh);
   };
 
   const setWidget = (name, value, { settle = true } = {}) => {
     const widget = findWidget(node, name);
     if (!widget || widget.value === value) return;
-    commitWidgetValue(node, widget, value, globalThis.app?.canvas);
+    byHand(() => commitWidgetValue(node, widget, value, globalThis.app?.canvas));
     node.graph?.setDirtyCanvas?.(true, true);
     if (settle) notifyAusbossChange();
   };
@@ -636,9 +642,14 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     if (tools?.sync) root.style.setProperty("--ausboss-card-corner", `${Math.max(0, Number(tools.sync(vals)) || 0)}px`);
     const height = cardHeight(visible);
     if (height !== state.height) {
+      const first = !state.height;
+      const change = first ? 0 : height - state.height;
       state.height = height;
       const width = Math.max(minWidth, node.size?.[0] || minWidth);
-      node.setSize?.([width, node.computeSize?.()[1] || height]);
+      const floor = node.computeSize?.()[1] || height;
+      node.setSize?.([width, nodeHeightAfterCardChange({
+        floor, current: node.size?.[1], saved: state.savedHeight, change, first, restoring: state.restoring, byHand: state.byHand,
+      })]);
       node.graph?.setDirtyCanvas?.(true, true);
     }
     node._widgetSlotsDirty = true;
@@ -648,18 +659,32 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     const target = findWidget(node, name);
     if (target) chainCallback(target, "callback", () => refresh());
   }
-  chainCallback(node, "onConfigure", () => queueMicrotask(() => {
-    for (const name of managed) {
-      const target = findWidget(node, name);
-      hideWidget(target);
-      if (target?.element && state.rows.some((entry) => entry.row.kind === "textarea" && entry.names?.includes(name))) target.element.style.display = "none";
-    }
-    for (const name of topNames) liftSocket(node, name);
-    refresh();
-    // A workflow saved before this card existed sized the node for the
-    // classic widgets; give the card and any panel below it their floors.
-    ensureNodeMinHeight(node);
-  }));
+  chainCallback(node, "onConfigure", (info) => {
+    // The node now has its saved size, and that size already holds every row
+    // the saved values show. Marked here, not in the microtask below: a
+    // refresh queued earlier in the load (a restored link) runs before it.
+    // The height is kept too: before that microtask the frontend grows the
+    // node to fit the card as it still is, with the rows of a new node.
+    state.restoring = true;
+    state.savedHeight = Number(info?.size?.[1]);
+    queueMicrotask(() => {
+      try {
+        for (const name of managed) {
+          const target = findWidget(node, name);
+          hideWidget(target);
+          if (target?.element && state.rows.some((entry) => entry.row.kind === "textarea" && entry.names?.includes(name))) target.element.style.display = "none";
+        }
+        for (const name of topNames) liftSocket(node, name);
+        refresh();
+      } finally {
+        state.restoring = false;
+        state.savedHeight = undefined;
+      }
+      // A workflow saved before this card existed sized the node for the
+      // classic widgets; give the card and any panel below it their floors.
+      ensureNodeMinHeight(node);
+    });
+  });
   chainCallback(node, "onConnectionsChange", () => queueMicrotask(refresh));
   chainCallback(node, "onRemoved", () => {
     state.disposed = true;
