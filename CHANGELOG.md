@@ -2,6 +2,16 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Tiled Upscale: the report says when your picture is made smaller.**
+  Asking for fewer megapixels than the picture has printed "close to the
+  picture's own size, ask for more", which is wrong when the picture is
+  being shrunk. It now says the picture is made smaller first. The help
+  page says when that is the right thing to do: a big photo that is noisy
+  or soft does better set to 2 megapixels first, then taken up from that
+  result.
+
 ## 2.9.0 - 2026-10-06
 
 - **New: Tiled Upscale 🆎 and Tiled Upscale Stitch 🆎** (Image). Take a

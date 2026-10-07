@@ -25,7 +25,12 @@ The `report` output says what was done with your picture, for example
 `736 x 1308 px (0.96 MP) to 2112 x 3776 px (7.97 MP): redrawn at 7.97 MP in
 4 tiles of 1120 x 1952 px.` Wire it to **Show Text 🆎** to read it. It also
 says when the size you asked for is too close to your picture's own size
-to show a difference.
+to show a difference, and when your picture is made smaller.
+
+A size under your picture's own makes the picture smaller first. That is
+the way to restore a big photo that is noisy or soft: set 2, run, then load
+the result and set the size you want. Cut at its own size, such a photo's
+tiles can come back grainy.
 
 ## More
 
@@ -78,5 +83,9 @@ that keeps what it is given, such as a low denoise.
   runs as often as it takes to cover the redraw size, then the picture is
   brought to the exact size. The `before` picture never uses the model.
 - The plan stops at 144 tiles and says so.
+- A big worn photo, seen on one 8 megapixel test picture with noise and
+  JPEG damage: kept at its size in four tiles the skin came back grainy;
+  set to 2 megapixels first and then taken to 8 in tiles it came back
+  clean. A sharp 13.5 megapixel picture kept at its size hardly changed.
 - Measured on an RTX 5090 with Qwen Image 2.1 at 8 steps: a 1 megapixel
   phone photo to 8 megapixels in four tiles took about 37 seconds.

@@ -106,6 +106,18 @@ class PlanTests(unittest.TestCase):
         # a small picture always changes: no warning
         self.assertFalse(tiles.plan_tiles(376, 500, 0.3)["too_close"])
 
+    def test_a_smaller_size_than_the_picture_is_a_shrink_not_a_warning(self):
+        plan = tiles.plan_tiles(2304, 3456, 2.0)
+        self.assertTrue(plan["shrunk"])
+        self.assertFalse(plan["too_close"])
+        self.assertEqual(len(plan["boxes"]), 1)
+        text = tiles.describe_plan(plan)
+        self.assertIn("made smaller first", text)
+        self.assertNotIn("ask for", text)
+        # the same size, or a little more, still gets the warning
+        self.assertFalse(tiles.plan_tiles(1080, 1440, 2.0)["shrunk"])
+        self.assertFalse(tiles.plan_tiles(2304, 3456, 0)["shrunk"])
+
     def test_limits_are_clear_errors(self):
         with self.assertRaisesRegex(ValueError, "larger than 0x0"):
             tiles.plan_tiles(0, 100, 2.0)
