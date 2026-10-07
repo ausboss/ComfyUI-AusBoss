@@ -50,11 +50,11 @@
    "type": "AUSBOSS_NODES_ImageCropRotatePad",
    "pos": [
     500,
-    238
+    260
    ],
    "size": [
     424,
-    1102
+    1100
    ],
    "flags": {},
    "order": 2,
@@ -506,14 +506,14 @@
    "type": "AUSBOSS_NODES_Text",
    "pos": [
     964,
-    381
+    889
    ],
    "size": [
     424,
-    175
+    173
    ],
    "flags": {},
-   "order": 4,
+   "order": 7,
    "mode": 0,
    "inputs": [
     {
@@ -556,14 +556,14 @@
    "type": "AUSBOSS_NODES_Seed",
    "pos": [
     964,
-    632
+    1138
    ],
    "size": [
     424,
     216
    ],
    "flags": {},
-   "order": 5,
+   "order": 8,
    "mode": 0,
    "inputs": [
     {
@@ -608,14 +608,14 @@
    "type": "AUSBOSS_NODES_WorkflowSwitches",
    "pos": [
     964,
-    1082
+    561
    ],
    "size": [
     424,
     66
    ],
    "flags": {},
-   "order": 7,
+   "order": 5,
    "mode": 0,
    "inputs": [],
    "outputs": [],
@@ -667,14 +667,14 @@
    "type": "AUSBOSS_NODES_Integer",
    "pos": [
     964,
-    1236
+    715
    ],
    "size": [
     424,
     94
    ],
    "flags": {},
-   "order": 8,
+   "order": 6,
    "mode": 0,
    "inputs": [
     {
@@ -1038,7 +1038,7 @@
    ],
    "size": [
     460,
-    460
+    480
    ],
    "flags": {},
    "order": 15,
@@ -1082,7 +1082,7 @@
    "type": "AUSBOSS_NODES_SaveImage",
    "pos": [
     2288,
-    610
+    630
    ],
    "size": [
     460,
@@ -1298,7 +1298,7 @@
    "type": "AUSBOSS_NODES_RunTimer",
    "pos": [
     2413,
-    1246
+    1266
    ],
    "size": [
     210,
@@ -1347,6 +1347,11 @@
      "link": 31
     },
     {
+     "name": "steps",
+     "type": "*",
+     "link": 30
+    },
+    {
      "name": "request",
      "type": "*",
      "link": 24
@@ -1355,11 +1360,6 @@
      "name": "seed",
      "type": "*",
      "link": 29
-    },
-    {
-     "name": "steps",
-     "type": "*",
-     "link": 30
     },
     {
      "name": "text encoder",
@@ -1405,7 +1405,7 @@
    "type": "MarkdownNote",
    "size": [
     424,
-    88
+    110
    ],
    "flags": {},
    "order": 1,
@@ -1415,10 +1415,10 @@
    "title": "Note",
    "properties": {},
    "widgets_values": [
-    "## Optional: drag the blue handles to crop your picture first."
+    "## Load your picture here.\n\n## Optional: drag the blue handles to crop it first."
    ],
    "widgets_values_named": {
-    "text": "## Optional: drag the blue handles to crop your picture first."
+    "text": "## Load your picture here.\n\n## Optional: drag the blue handles to crop it first."
    },
    "pos": [
     500,
@@ -1432,24 +1432,24 @@
    "type": "MarkdownNote",
    "size": [
     424,
-    88
+    110
    ],
    "flags": {},
-   "order": 6,
+   "order": 4,
    "mode": 0,
    "inputs": [],
    "outputs": [],
    "title": "Note",
    "properties": {},
    "widgets_values": [
-    "## Click **Fast** to toggle fast mode."
+    "## Set **Megapixels**: the size of the result.\n\n## Click **Fast** to toggle fast mode."
    ],
    "widgets_values_named": {
-    "text": "## Click **Fast** to toggle fast mode."
+    "text": "## Set **Megapixels**: the size of the result.\n\n## Click **Fast** to toggle fast mode."
    },
    "pos": [
     964,
-    924
+    381
    ],
    "color": "#1f2c38",
    "bgcolor": "#2a3b4a"
@@ -1512,7 +1512,7 @@
    4,
    0,
    23,
-   2,
+   3,
    "STRING"
   ],
   [
@@ -1552,7 +1552,7 @@
    5,
    0,
    23,
-   3,
+   4,
    "INT"
   ],
   [
@@ -1560,7 +1560,7 @@
    7,
    0,
    23,
-   4,
+   2,
    "INT"
   ],
   [
@@ -1596,7 +1596,7 @@
     480,
     0,
     928,
-    1360
+    1380
    ],
    "color": "#1d5560",
    "flags": {}
@@ -1620,7 +1620,7 @@
     1448,
     528,
     780,
-    832
+    852
    ],
    "color": "#1d5560",
    "flags": {}
@@ -1632,7 +1632,7 @@
     2268,
     0,
     500,
-    1360
+    1380
    ],
    "color": "#1d5560",
    "flags": {}
@@ -1699,6 +1699,19 @@
       ]
      },
      {
+      "id": "721935ed-5963-46a9-b169-a7bf9d4f9209",
+      "name": "steps",
+      "type": "*",
+      "linkIds": [
+       12
+      ],
+      "pos": [
+       51,
+       64
+      ],
+      "localized_name": "steps"
+     },
+     {
       "id": "b31d7e01-9ce6-485c-ae59-ba432ee3ab2a",
       "name": "request",
       "type": "*",
@@ -1707,7 +1720,7 @@
       ],
       "pos": [
        51,
-       64
+       84
       ],
       "localized_name": "request"
      },
@@ -1720,22 +1733,9 @@
       ],
       "pos": [
        51,
-       84
-      ],
-      "localized_name": "seed"
-     },
-     {
-      "id": "721935ed-5963-46a9-b169-a7bf9d4f9209",
-      "name": "steps",
-      "type": "*",
-      "linkIds": [
-       12
-      ],
-      "pos": [
-       51,
        104
       ],
-      "localized_name": "steps"
+      "localized_name": "seed"
      },
      {
       "id": "3d5a5073-4353-40b0-896c-62dfc9c85026",
@@ -2529,7 +2529,7 @@
      {
       "id": 3,
       "origin_id": -10,
-      "origin_slot": 2,
+      "origin_slot": 3,
       "target_id": 15,
       "target_slot": 0,
       "type": "STRING"
@@ -2577,7 +2577,7 @@
      {
       "id": 10,
       "origin_id": -10,
-      "origin_slot": 3,
+      "origin_slot": 4,
       "target_id": 18,
       "target_slot": 0,
       "type": "INT"
@@ -2585,7 +2585,7 @@
      {
       "id": 12,
       "origin_id": -10,
-      "origin_slot": 4,
+      "origin_slot": 2,
       "target_id": 19,
       "target_slot": 0,
       "type": "INT"
