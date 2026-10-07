@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.9.0 - 2026-10-06
 
 - **New: Tiled Upscale 🆎 and Tiled Upscale Stitch 🆎** (Image). Take a
   picture past the size a model can redraw in one go. Tiled Upscale has one
