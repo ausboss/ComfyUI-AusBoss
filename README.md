@@ -42,7 +42,7 @@ The pack uses the Pillow, NumPy, Torch and PyAV that come with ComfyUI. Each exa
 | [Mask and inpaint nodes](#mask-and-inpaint-nodes) | Refine masks, remove objects with LaMa, crop around a mask and stitch the result back |
 | [Models and conditioning](#models-and-conditioning) | LoRA stack, Krea 2 prompts and references |
 | [Workflow utilities](#workflow-utilities) | Canvas size, seed, batches, math, text, memory, notes, timer |
-| [Example workflows](#example-workflows) | Seven workflows, each with a setup card |
+| [Example workflows](#example-workflows) | Nine workflows, each with a setup card |
 | [For workflow creators](#for-workflow-creators) | Setup cards, before and after, repeatable seeds, measured run times |
 | [Pack-wide tools](#pack-wide-tools) | Help cards, node colors, recreate and replace, run status, completion sound |
 
@@ -81,6 +81,18 @@ Pick a folder, tick the pictures you want in a thumbnail gallery, and run the wo
 Resizes to a width and height, a longest or shortest edge, a megapixel count, or a scale factor. It can fit inside the size, stretch to it, fill it and crop the rest, or pad with a color you pick. New nodes start in megapixels mode, and saved workflows keep their mode. The card shows only the controls for the chosen mode, and width and height each take their own link.
 
 An optional mask is resized the same way. It returns `image`, `mask`, `width` and `height`. Padding shows up white in the mask, and with no mask wired in, the rest of the mask is black. `divisible_by` rounds the size to a multiple, and `interpolation` picks the resize filter.
+
+### Tiled Upscale
+
+Sets the size of the finished picture in megapixels and cuts your picture into tiles a model can redraw one at a time. A picture that fits in one tile stays whole, and a small picture is not redrawn far past the detail it has. Send the tiles through your sampler, then into Tiled Upscale Stitch with the stitcher.
+
+Megapixels is the one control to set. Under More are the tile size, the overlap, the grid multiple and the redraw limit, and an upscale model can be plugged in. It returns `tiles`, `stitcher`, `before` (your picture enlarged the plain way to the finished size), `width`, `height` and a `report` that says what was done.
+
+### Tiled Upscale Stitch
+
+Puts the redrawn tiles from Tiled Upscale back together, blends the joins and brings the picture to the size you asked for. Keep colors matches each tile to the same tile of your picture first, so the tiles agree with each other and grain in an old photo does not push the colors.
+
+The Qwen Image 2.1 Upscale + Restore example redraws a small or worn photo sharp at the megapixels you set, in tiles above about 2. [Try the Qwen Image 2.1 Upscale + Restore example →](example_workflows/Qwen%20Image%202.1%20Upscale%20%2B%20Restore%20%28AusBoss%29.json)
 
 ### Align Image
 
@@ -311,7 +323,7 @@ Turns parts of a workflow off and on from one small card. Select the nodes of on
 
 ## Example workflows
 
-These are the workflows where the nodes do something core ComfyUI doesn't do by itself: outpainting and inpainting that put your original picture back, lining an edit back up with its source, masking a thing by its name, and removing a watermark from a clip. Open a JSON file from [`example_workflows/`](example_workflows), or find them under this pack in ComfyUI's template browser. Each one has a thumbnail, numbered groups and a Workflow Note with the setup steps and model downloads.
+These are the workflows where the nodes do something core ComfyUI doesn't do by itself: outpainting and inpainting that put your original picture back, lining an edit back up with its source, upscaling a picture in tiles, masking a thing by its name, and removing a watermark from a clip. Open a JSON file from [`example_workflows/`](example_workflows), or find them under this pack in ComfyUI's template browser. Each one has a thumbnail, numbered groups and a Workflow Note with the setup steps and model downloads.
 
 ![The Krea 2 Rotate + Outpaint workflow: a setup note on the left, then groups for your input, the two boxes and the model loaders, and the result with a before-and-after slider and Save Image.](assets/readme/workflow-layout.webp)
 
@@ -327,6 +339,7 @@ The workflows open with their image and video loaders empty, so you load your ow
 | [Klein 9B Outpaint](example_workflows/Klein%209B%20Outpaint%20%28AusBoss%29.json) | Extend a picture with the PixaOutpaint LoRA, then stitch the original back | Distilled Klein 9B, its Qwen encoder and the Flux 2 VAE, the PixaOutpaint LoRA, and Qwen3-VL 8B INT8 for the caption |
 | [LTX 2.3 Video Outpaint](example_workflows/LTX%202.3%20Video%20Outpaint%20%28AusBoss%29.json) | Widen a vertical clip, keeping its audio and original pixels | LTX 2.3, the distilled LoRA and the outpaint IC-LoRA |
 | [Qwen Image 2.1 Edit + Realign](example_workflows/Qwen%20Image%202.1%20Edit%20%2B%20Realign%20%28AusBoss%29.json) | Type a short edit, and Realign to Source lines Qwen's result back up with your picture | Qwen Image 2.1 INT8, Qwen3-VL 8B INT8 and the 2.1 VAE |
+| [Qwen Image 2.1 Upscale + Restore](example_workflows/Qwen%20Image%202.1%20Upscale%20%2B%20Restore%20%28AusBoss%29.json) | Load a small or worn photo, set the megapixels, and Qwen redraws it sharp, in tiles above about 2 | Qwen Image 2.1 INT8, Qwen3-VL 8B INT8, the 2.1 VAE, the Restore LoRA and, for Fast, the Viggle Turbo LoRA |
 | [Mask by Name](example_workflows/Mask%20by%20Name%20%28AusBoss%29.json) | Type what to find in a picture, and get its mask and a cut-out with a see-through background | ComfyUI's own SAM 3.1 (ComfyUI 0.20 or newer) |
 | [Simple Video Watermark Remover](example_workflows/Simple%20Video%20Watermark%20Remover%20%28AusBoss%29.json) | Find an overlay in a clip and remove it, with a one-frame comparison branch | ComfyUI's own SAM 3.1 (ComfyUI 0.20 or newer), plus `big-lama.pt` |
 

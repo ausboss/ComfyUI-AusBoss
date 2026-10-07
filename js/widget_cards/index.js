@@ -94,6 +94,21 @@ const CARDS = {
       { widget: "invert_mask", label: "Invert mask" },
     ],
   },
+  // One number to set: the megapixels of the finished picture, in half
+  // steps. The rest has defaults that hold for the models tried and sits
+  // behind More.
+  AUSBOSS_NODES_TiledUpscale: {
+    minWidth: 300,
+    rows: [
+      { widget: "megapixels", label: "Megapixels", suffix: "MP", step: 0.5, snap: true, decimals: 1, title: "Size of the finished picture. 0 keeps the picture's own size." },
+      { group: "advanced", label: "More" },
+      { widget: "tile_megapixels", label: "Tile size", suffix: "MP", step: 0.5, snap: true, decimals: 1, group: "advanced" },
+      { widget: "overlap", label: "Overlap", suffix: "px", group: "advanced" },
+      { widget: "multiple", label: "Multiple", snap: true, step: 8, group: "advanced" },
+      { widget: "max_growth", label: "Redraw limit", suffix: "×", decimals: 1, group: "advanced" },
+    ],
+  },
+  AUSBOSS_NODES_TiledUpscaleStitch: { minWidth: 260, rows: [{ widget: "keep_colors", label: "Keep colors" }] },
   AUSBOSS_NODES_StitchInpaint: {
     minWidth: 300,
     // A workflow saved before Seam existed holds the card's own empty value

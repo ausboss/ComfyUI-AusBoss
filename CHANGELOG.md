@@ -4,6 +4,18 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **New: Tiled Upscale 🆎 and Tiled Upscale Stitch 🆎** (Image). Take a
+  picture past the size a model can redraw in one go. Tiled Upscale has one
+  control to set, Megapixels, in half steps: the size of the finished
+  picture. A picture that fits in one tile stays whole, a bigger one is cut
+  into the fewest tiles that fit, and a small picture is not redrawn far
+  past the detail it has. Send the tiles through your sampler and into
+  Tiled Upscale Stitch, which blends the joins, keeps each tile's colors on
+  your picture's and brings the result to the size you asked for. Grain and
+  color noise in an old photo do not push the colors. Any model can sit
+  between the two. Tile size, overlap, the grid multiple and the redraw
+  limit are under More, an upscale model can be plugged in, and a report
+  output says what was done with your picture.
 - **Nodes 2.0: a Callout keeps the size you give it.** In the Nodes 2.0
   look, a Callout could not be made shorter than its own text. A note made
   in the classic look was drawn taller after a switch to Nodes 2.0 (one

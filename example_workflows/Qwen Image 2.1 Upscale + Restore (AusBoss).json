@@ -1,0 +1,2626 @@
+{
+ "id": "43cee03f-5766-4b4b-ba70-66e8edc22f28",
+ "revision": 0,
+ "last_node_id": 29,
+ "last_link_id": 33,
+ "nodes": [
+  {
+   "id": 1,
+   "type": "AUSBOSS_NODES_WorkflowNote",
+   "pos": [
+    0,
+    30
+   ],
+   "size": [
+    440,
+    1200
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "note",
+     "name": "note",
+     "type": "STRING",
+     "widget": {
+      "name": "note"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [],
+   "title": "🆎 AusBoss",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_WorkflowNote",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.9.0"
+   },
+   "widgets_values": [
+    "{\"v\": 1, \"title\": \"Qwen Image 2.1 Upscale + Restore\", \"subtitle\": \"Load a small, soft or worn picture. Qwen Image 2.1 redraws it sharp at the megapixels you set, in its own colors.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image. You can crop it right there with the blue handles.\\n2. Set **Megapixels**: the size of the result.\\n3. Press **Run**.\\n4. Slide **Before and after** to compare. The result is saved as a PNG.\\n\\n### What you get\\n\\n- Your picture redrawn sharp, at the size you asked for.\\n- Its own colors, also on a noisy or faded photo.\\n\\n### Megapixels\\n\\n- Up to about 2: one pass.\\n- Over that: redrawn in tiles of about 2 megapixels and joined. 4 takes two tiles, 8 takes four.\\n- A small picture is redrawn at up to 8 times its own megapixels, then enlarged the plain way.\\n- A picture of 1 megapixel or more only looks better when it grows about 1.6 times per side.\\n\\n### Switches\\n\\n- **Fast** on: 8 steps with the Viggle Turbo LoRA. Off: 25 steps without it, about three times as long.\\n\\n### Tips\\n\\n- It is a redraw. Fine detail is made up to fit, so a face stays the same person, not the same pixels.\\n- Small lettering on signs and labels can come back misspelled.\\n- Each tile is matched to your picture's colors. To let Qwen's own colors through, lower **Keep colors** inside the box.\\n- If the run stops at a red **LoRA Loader**, a LoRA that is switched on is missing. Download it from the list below.\\n- Not tested on blur from a moving camera or missed focus.\\n\\nNeeds ComfyUI 0.38 or newer and AusBoss nodes 2.9.0 or newer (update first).\", \"models\": [{\"name\": \"qwen_image_2.1_int8_convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"7.26 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_8b_int8_convrot.safetensors\", \"dir\": \"text_encoders\", \"size\": \"9.35 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_2.1_vae_bf16.safetensors\", \"dir\": \"vae\", \"size\": \"676 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors\", \"note\": \"\"}, {\"name\": \"qwen-image-2.1-restore.safetensors\", \"dir\": \"loras\", \"size\": \"159 MB\", \"url\": \"https://huggingface.co/ausboss/Qwen-Image-2.1-Restore-LoRA/resolve/main/qwen-image-2.1-restore.safetensors\", \"note\": \"keeps the result close to your picture\"}, {\"name\": \"Qwen-Image-2.1-viggle-turbo-v0.3-6step-lora-r128.safetensors\", \"dir\": \"loras\", \"size\": \"680 MB\", \"url\": \"https://huggingface.co/Viggle/Qwen-Image-2.1-viggle-turbo/resolve/main/Qwen-Image-2.1-viggle-turbo-v0.3-6step-lora-r128.safetensors\", \"note\": \"for Fast on · Qwen Research License, research use\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_TiledUpscale\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+   ],
+   "widgets_values_named": {
+    "note": "{\"v\": 1, \"title\": \"Qwen Image 2.1 Upscale + Restore\", \"subtitle\": \"Load a small, soft or worn picture. Qwen Image 2.1 redraws it sharp at the megapixels you set, in its own colors.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image. You can crop it right there with the blue handles.\\n2. Set **Megapixels**: the size of the result.\\n3. Press **Run**.\\n4. Slide **Before and after** to compare. The result is saved as a PNG.\\n\\n### What you get\\n\\n- Your picture redrawn sharp, at the size you asked for.\\n- Its own colors, also on a noisy or faded photo.\\n\\n### Megapixels\\n\\n- Up to about 2: one pass.\\n- Over that: redrawn in tiles of about 2 megapixels and joined. 4 takes two tiles, 8 takes four.\\n- A small picture is redrawn at up to 8 times its own megapixels, then enlarged the plain way.\\n- A picture of 1 megapixel or more only looks better when it grows about 1.6 times per side.\\n\\n### Switches\\n\\n- **Fast** on: 8 steps with the Viggle Turbo LoRA. Off: 25 steps without it, about three times as long.\\n\\n### Tips\\n\\n- It is a redraw. Fine detail is made up to fit, so a face stays the same person, not the same pixels.\\n- Small lettering on signs and labels can come back misspelled.\\n- Each tile is matched to your picture's colors. To let Qwen's own colors through, lower **Keep colors** inside the box.\\n- If the run stops at a red **LoRA Loader**, a LoRA that is switched on is missing. Download it from the list below.\\n- Not tested on blur from a moving camera or missed focus.\\n\\nNeeds ComfyUI 0.38 or newer and AusBoss nodes 2.9.0 or newer (update first).\", \"models\": [{\"name\": \"qwen_image_2.1_int8_convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"7.26 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_8b_int8_convrot.safetensors\", \"dir\": \"text_encoders\", \"size\": \"9.35 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_2.1_vae_bf16.safetensors\", \"dir\": \"vae\", \"size\": \"676 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors\", \"note\": \"\"}, {\"name\": \"qwen-image-2.1-restore.safetensors\", \"dir\": \"loras\", \"size\": \"159 MB\", \"url\": \"https://huggingface.co/ausboss/Qwen-Image-2.1-Restore-LoRA/resolve/main/qwen-image-2.1-restore.safetensors\", \"note\": \"keeps the result close to your picture\"}, {\"name\": \"Qwen-Image-2.1-viggle-turbo-v0.3-6step-lora-r128.safetensors\", \"dir\": \"loras\", \"size\": \"680 MB\", \"url\": \"https://huggingface.co/Viggle/Qwen-Image-2.1-viggle-turbo/resolve/main/Qwen-Image-2.1-viggle-turbo-v0.3-6step-lora-r128.safetensors\", \"note\": \"for Fast on · Qwen Research License, research use\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_TiledUpscale\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 2,
+   "type": "AUSBOSS_NODES_ImageCropRotatePad",
+   "pos": [
+    500,
+    238
+   ],
+   "size": [
+    424,
+    1102
+   ],
+   "flags": {},
+   "order": 2,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "image",
+     "name": "image",
+     "type": "COMBO",
+     "widget": {
+      "name": "image"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "rotation_degrees",
+     "name": "rotation_degrees",
+     "type": "FLOAT",
+     "widget": {
+      "name": "rotation_degrees"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_aspect_ratio",
+     "name": "crop_aspect_ratio",
+     "type": "COMBO",
+     "widget": {
+      "name": "crop_aspect_ratio"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_x",
+     "name": "crop_x",
+     "type": "INT",
+     "widget": {
+      "name": "crop_x"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_y",
+     "name": "crop_y",
+     "type": "INT",
+     "widget": {
+      "name": "crop_y"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_width",
+     "name": "crop_width",
+     "type": "INT",
+     "widget": {
+      "name": "crop_width"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_height",
+     "name": "crop_height",
+     "type": "INT",
+     "widget": {
+      "name": "crop_height"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "pad_left",
+     "name": "pad_left",
+     "type": "INT",
+     "widget": {
+      "name": "pad_left"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "pad_top",
+     "name": "pad_top",
+     "type": "INT",
+     "widget": {
+      "name": "pad_top"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "pad_right",
+     "name": "pad_right",
+     "type": "INT",
+     "widget": {
+      "name": "pad_right"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "pad_bottom",
+     "name": "pad_bottom",
+     "type": "INT",
+     "widget": {
+      "name": "pad_bottom"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "feather",
+     "name": "feather",
+     "type": "INT",
+     "widget": {
+      "name": "feather"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "canvas_multiple",
+     "name": "canvas_multiple",
+     "type": "INT",
+     "widget": {
+      "name": "canvas_multiple"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "fill_color",
+     "name": "fill_color",
+     "type": "STRING",
+     "widget": {
+      "name": "fill_color"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "resize_to_megapixels",
+     "name": "resize_to_megapixels",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "resize_to_megapixels"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "megapixels",
+     "name": "megapixels",
+     "shape": 7,
+     "type": "FLOAT",
+     "widget": {
+      "name": "megapixels"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "resize_method",
+     "name": "resize_method",
+     "shape": 7,
+     "type": "COMBO",
+     "widget": {
+      "name": "resize_method"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "resolution_steps",
+     "name": "resolution_steps",
+     "shape": 7,
+     "type": "INT",
+     "widget": {
+      "name": "resolution_steps"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "stitch_blend",
+     "name": "stitch_blend",
+     "shape": 7,
+     "type": "INT",
+     "widget": {
+      "name": "stitch_blend"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "stitch_grow",
+     "name": "stitch_grow",
+     "shape": 7,
+     "type": "INT",
+     "widget": {
+      "name": "stitch_grow"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "upload",
+     "name": "upload",
+     "type": "IMAGEUPLOAD",
+     "widget": {
+      "name": "upload"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "image",
+     "name": "image",
+     "type": "IMAGE",
+     "links": [
+      1
+     ]
+    },
+    {
+     "localized_name": "mask",
+     "name": "mask",
+     "type": "MASK",
+     "links": null
+    },
+    {
+     "localized_name": "stitcher",
+     "name": "stitcher",
+     "type": "AUSBOSS_STITCHER",
+     "links": null
+    },
+    {
+     "localized_name": "original",
+     "name": "original",
+     "type": "IMAGE",
+     "links": null
+    },
+    {
+     "localized_name": "width",
+     "name": "width",
+     "type": "INT",
+     "links": null
+    },
+    {
+     "localized_name": "height",
+     "name": "height",
+     "type": "INT",
+     "links": null
+    },
+    {
+     "localized_name": "prompt_image",
+     "name": "prompt_image",
+     "type": "IMAGE",
+     "links": null
+    }
+   ],
+   "title": "Image Crop + Rotate + Pad - Your picture",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_ImageCropRotatePad",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.9.0"
+   },
+   "widgets_values": {
+    "image": "",
+    "rotation_degrees": 0,
+    "crop_aspect_ratio": "free",
+    "crop_x": 0,
+    "crop_y": 0,
+    "crop_width": 0,
+    "crop_height": 0,
+    "pad_left": 0,
+    "pad_top": 0,
+    "pad_right": 0,
+    "pad_bottom": 0,
+    "feather": 24,
+    "canvas_multiple": 1,
+    "fill_color": "#808080",
+    "resize_to_megapixels": false,
+    "megapixels": 2,
+    "resize_method": "lanczos",
+    "resolution_steps": 32,
+    "stitch_blend": 32,
+    "stitch_grow": 0
+   },
+   "widgets_values_named": {
+    "image": "",
+    "rotation_degrees": 0,
+    "crop_aspect_ratio": "free",
+    "crop_x": 0,
+    "crop_y": 0,
+    "crop_width": 0,
+    "crop_height": 0,
+    "pad_left": 0,
+    "pad_top": 0,
+    "pad_right": 0,
+    "pad_bottom": 0,
+    "feather": 24,
+    "canvas_multiple": 1,
+    "fill_color": "#808080",
+    "resize_to_megapixels": false,
+    "megapixels": 2,
+    "resize_method": "lanczos",
+    "resolution_steps": 32,
+    "stitch_blend": 32,
+    "stitch_grow": 0
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 3,
+   "type": "AUSBOSS_NODES_TiledUpscale",
+   "pos": [
+    964,
+    80
+   ],
+   "size": [
+    424,
+    221
+   ],
+   "flags": {},
+   "order": 3,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "image",
+     "name": "image",
+     "type": "IMAGE",
+     "link": 1
+    },
+    {
+     "localized_name": "upscale_model",
+     "name": "upscale_model",
+     "shape": 7,
+     "type": "UPSCALE_MODEL",
+     "link": null
+    },
+    {
+     "localized_name": "megapixels",
+     "name": "megapixels",
+     "type": "FLOAT",
+     "widget": {
+      "name": "megapixels"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "tile_megapixels",
+     "name": "tile_megapixels",
+     "shape": 7,
+     "type": "FLOAT",
+     "widget": {
+      "name": "tile_megapixels"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "overlap",
+     "name": "overlap",
+     "shape": 7,
+     "type": "INT",
+     "widget": {
+      "name": "overlap"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "multiple",
+     "name": "multiple",
+     "shape": 7,
+     "type": "INT",
+     "widget": {
+      "name": "multiple"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "max_growth",
+     "name": "max_growth",
+     "shape": 7,
+     "type": "FLOAT",
+     "widget": {
+      "name": "max_growth"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "tiles",
+     "name": "tiles",
+     "shape": 6,
+     "type": "IMAGE",
+     "links": [
+      26
+     ]
+    },
+    {
+     "localized_name": "stitcher",
+     "name": "stitcher",
+     "type": "AUSBOSS_TILE_STITCHER",
+     "links": [
+      31
+     ]
+    },
+    {
+     "localized_name": "before",
+     "name": "before",
+     "type": "IMAGE",
+     "links": [
+      21
+     ]
+    },
+    {
+     "localized_name": "width",
+     "name": "width",
+     "type": "INT",
+     "links": null
+    },
+    {
+     "localized_name": "height",
+     "name": "height",
+     "type": "INT",
+     "links": null
+    },
+    {
+     "localized_name": "report",
+     "name": "report",
+     "type": "STRING",
+     "links": null
+    }
+   ],
+   "title": "Tiled Upscale - Megapixels of the result",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_TiledUpscale",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.9.0"
+   },
+   "widgets_values": [
+    4,
+    2,
+    128,
+    32,
+    8
+   ],
+   "widgets_values_named": {
+    "megapixels": 4,
+    "tile_megapixels": 2,
+    "overlap": 128,
+    "multiple": 32,
+    "max_growth": 8
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 4,
+   "type": "AUSBOSS_NODES_Text",
+   "pos": [
+    964,
+    381
+   ],
+   "size": [
+    424,
+    175
+   ],
+   "flags": {},
+   "order": 4,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "text",
+     "name": "text",
+     "type": "STRING",
+     "widget": {
+      "name": "text"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "text",
+     "name": "text",
+     "type": "STRING",
+     "links": [
+      24
+     ]
+    }
+   ],
+   "title": "Text - The request",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_Text",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.9.0"
+   },
+   "widgets_values": [
+    "Restore the photo: remove blur, noise and compression artifacts and recover sharp, natural detail, keeping the same composition, people and colors."
+   ],
+   "widgets_values_named": {
+    "text": "Restore the photo: remove blur, noise and compression artifacts and recover sharp, natural detail, keeping the same composition, people and colors."
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 5,
+   "type": "AUSBOSS_NODES_Seed",
+   "pos": [
+    964,
+    632
+   ],
+   "size": [
+    424,
+    216
+   ],
+   "flags": {},
+   "order": 5,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "seed",
+     "name": "seed",
+     "type": "INT",
+     "widget": {
+      "name": "seed"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "seed",
+     "name": "seed",
+     "type": "INT",
+     "links": [
+      29
+     ]
+    }
+   ],
+   "title": "Seed",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_Seed",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.9.0"
+   },
+   "widgets_values": [
+    20261006,
+    "fixed"
+   ],
+   "widgets_values_named": {
+    "seed": 20261006,
+    "control_after_generate": "fixed"
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 6,
+   "type": "AUSBOSS_NODES_WorkflowSwitches",
+   "pos": [
+    964,
+    1082
+   ],
+   "size": [
+    424,
+    66
+   ],
+   "flags": {},
+   "order": 7,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [],
+   "title": "Workflow Switches - Speed",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_WorkflowSwitches",
+    "ausboss_workflow_switches": {
+     "off": "bypass",
+     "groups": "none",
+     "match": "",
+     "order": "canvas",
+     "exclusive": false,
+     "switches": [
+      {
+       "id": 1,
+       "title": "Fast: Viggle Turbo, 8 steps",
+       "nodes": [],
+       "groups": [],
+       "on": {
+        "7": {
+         "value": 8
+        },
+        "11": {
+         "loras": "[{\"name\": \"Qwen-Image-2.1-viggle-turbo-v0.3-6step-lora-r128.safetensors\", \"strength\": 1.0, \"enabled\": true, \"triggers\": \"\"}]"
+        }
+       },
+       "off": {
+        "7": {
+         "value": 25
+        },
+        "11": {
+         "loras": "[{\"name\": \"Qwen-Image-2.1-viggle-turbo-v0.3-6step-lora-r128.safetensors\", \"strength\": 1.0, \"enabled\": false, \"triggers\": \"\"}]"
+        }
+       }
+      }
+     ]
+    },
+    "ausboss_show_edit": false,
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.9.0"
+   },
+   "widgets_values": [],
+   "widgets_values_named": {},
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 7,
+   "type": "AUSBOSS_NODES_Integer",
+   "pos": [
+    964,
+    1236
+   ],
+   "size": [
+    424,
+    94
+   ],
+   "flags": {},
+   "order": 8,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "value",
+     "name": "value",
+     "type": "INT",
+     "widget": {
+      "name": "value"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "int",
+     "name": "int",
+     "type": "INT",
+     "links": [
+      30
+     ]
+    }
+   ],
+   "title": "Integer - Steps",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_Integer",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.9.0"
+   },
+   "widgets_values": [
+    8
+   ],
+   "widgets_values_named": {
+    "value": 8
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 8,
+   "type": "CLIPLoader",
+   "pos": [
+    1468,
+    608
+   ],
+   "size": [
+    300,
+    106
+   ],
+   "flags": {},
+   "order": 11,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "clip_name",
+     "name": "clip_name",
+     "type": "COMBO",
+     "widget": {
+      "name": "clip_name"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "type",
+     "name": "type",
+     "type": "COMBO",
+     "widget": {
+      "name": "type"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "device",
+     "name": "device",
+     "shape": 7,
+     "type": "COMBO",
+     "widget": {
+      "name": "device"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "CLIP",
+     "name": "CLIP",
+     "type": "CLIP",
+     "links": [
+      25
+     ]
+    }
+   ],
+   "title": "Text encoder",
+   "properties": {
+    "Node name for S&R": "CLIPLoader",
+    "models": [
+     {
+      "name": "qwen3vl_8b_int8_convrot.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors",
+      "directory": "text_encoders"
+     }
+    ],
+    "cnr_id": "comfy-core",
+    "ver": "0.38.0"
+   },
+   "widgets_values": [
+    "qwen3vl_8b_int8_convrot.safetensors",
+    "qwen_image",
+    "default"
+   ],
+   "widgets_values_named": {
+    "clip_name": "qwen3vl_8b_int8_convrot.safetensors",
+    "type": "qwen_image",
+    "device": "default"
+   },
+   "color": "#432",
+   "bgcolor": "#653"
+  },
+  {
+   "id": 9,
+   "type": "VAELoader",
+   "pos": [
+    1468,
+    788
+   ],
+   "size": [
+    300,
+    58
+   ],
+   "flags": {},
+   "order": 12,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "vae_name",
+     "name": "vae_name",
+     "type": "COMBO",
+     "widget": {
+      "name": "vae_name"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "VAE",
+     "name": "VAE",
+     "type": "VAE",
+     "links": [
+      27
+     ]
+    }
+   ],
+   "title": "VAE",
+   "properties": {
+    "Node name for S&R": "VAELoader",
+    "models": [
+     {
+      "name": "qwen_image_2.1_vae_bf16.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors",
+      "directory": "vae"
+     }
+    ],
+    "cnr_id": "comfy-core",
+    "ver": "0.38.0"
+   },
+   "widgets_values": [
+    "qwen_image_2.1_vae_bf16.safetensors"
+   ],
+   "widgets_values_named": {
+    "vae_name": "qwen_image_2.1_vae_bf16.safetensors"
+   },
+   "color": "#322",
+   "bgcolor": "#533"
+  },
+  {
+   "id": 10,
+   "type": "UNETLoader",
+   "pos": [
+    1468,
+    920
+   ],
+   "size": [
+    300,
+    82
+   ],
+   "flags": {},
+   "order": 13,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "unet_name",
+     "name": "unet_name",
+     "type": "COMBO",
+     "widget": {
+      "name": "unet_name"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "weight_dtype",
+     "name": "weight_dtype",
+     "type": "COMBO",
+     "widget": {
+      "name": "weight_dtype"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "MODEL",
+     "name": "MODEL",
+     "type": "MODEL",
+     "links": [
+      7
+     ]
+    }
+   ],
+   "title": "Diffusion model",
+   "properties": {
+    "Node name for S&R": "UNETLoader",
+    "models": [
+     {
+      "name": "qwen_image_2.1_int8_convrot.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors",
+      "directory": "diffusion_models"
+     }
+    ],
+    "cnr_id": "comfy-core",
+    "ver": "0.38.0"
+   },
+   "widgets_values": [
+    "qwen_image_2.1_int8_convrot.safetensors",
+    "default"
+   ],
+   "widgets_values_named": {
+    "unet_name": "qwen_image_2.1_int8_convrot.safetensors",
+    "weight_dtype": "default"
+   },
+   "color": "#323",
+   "bgcolor": "#535"
+  },
+  {
+   "id": 11,
+   "type": "AUSBOSS_NODES_LoraLoader",
+   "pos": [
+    1808,
+    608
+   ],
+   "size": [
+    400,
+    224
+   ],
+   "flags": {},
+   "order": 14,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "model",
+     "name": "model",
+     "type": "MODEL",
+     "link": 7
+    },
+    {
+     "localized_name": "clip",
+     "name": "clip",
+     "shape": 7,
+     "type": "CLIP",
+     "link": null
+    },
+    {
+     "localized_name": "loras",
+     "name": "loras",
+     "type": "STRING",
+     "widget": {
+      "name": "loras"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "trigger_separator",
+     "name": "trigger_separator",
+     "shape": 7,
+     "type": "STRING",
+     "widget": {
+      "name": "trigger_separator"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "on_missing",
+     "name": "on_missing",
+     "shape": 7,
+     "type": "COMBO",
+     "widget": {
+      "name": "on_missing"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "model",
+     "name": "model",
+     "type": "MODEL",
+     "links": [
+      28
+     ]
+    },
+    {
+     "localized_name": "clip",
+     "name": "clip",
+     "type": "CLIP",
+     "links": null
+    },
+    {
+     "localized_name": "triggers",
+     "name": "triggers",
+     "type": "STRING",
+     "links": null
+    }
+   ],
+   "title": "LoRA Loader - Restore LoRA",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_LoraLoader",
+    "ausbossLoraLinked": true,
+    "models": [
+     {
+      "name": "qwen-image-2.1-restore.safetensors",
+      "url": "https://huggingface.co/ausboss/Qwen-Image-2.1-Restore-LoRA/resolve/main/qwen-image-2.1-restore.safetensors",
+      "directory": "loras"
+     },
+     {
+      "name": "Qwen-Image-2.1-viggle-turbo-v0.3-6step-lora-r128.safetensors",
+      "url": "https://huggingface.co/Viggle/Qwen-Image-2.1-viggle-turbo/resolve/main/Qwen-Image-2.1-viggle-turbo-v0.3-6step-lora-r128.safetensors",
+      "directory": "loras"
+     }
+    ],
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.9.0"
+   },
+   "widgets_values": [
+    "[{\"name\": \"qwen-image-2.1-restore.safetensors\", \"strength\": 1.0, \"enabled\": true, \"triggers\": \"\"}, {\"name\": \"Qwen-Image-2.1-viggle-turbo-v0.3-6step-lora-r128.safetensors\", \"strength\": 1.0, \"enabled\": true, \"triggers\": \"\"}]",
+    ", ",
+    "error"
+   ],
+   "widgets_values_named": {
+    "loras": "[{\"name\": \"qwen-image-2.1-restore.safetensors\", \"strength\": 1.0, \"enabled\": true, \"triggers\": \"\"}, {\"name\": \"Qwen-Image-2.1-viggle-turbo-v0.3-6step-lora-r128.safetensors\", \"strength\": 1.0, \"enabled\": true, \"triggers\": \"\"}]",
+    "trigger_separator": ", ",
+    "on_missing": "error"
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 12,
+   "type": "AUSBOSS_NODES_Compare",
+   "pos": [
+    2288,
+    80
+   ],
+   "size": [
+    460,
+    460
+   ],
+   "flags": {},
+   "order": 15,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "image_a",
+     "name": "image_a",
+     "type": "IMAGE",
+     "link": 21
+    },
+    {
+     "localized_name": "image_b",
+     "name": "image_b",
+     "type": "IMAGE",
+     "link": 32
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "image_a",
+     "name": "image_a",
+     "type": "IMAGE",
+     "links": null
+    }
+   ],
+   "title": "Image Compare A/B - Before and after",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_Compare",
+    "ausboss_compare_mode": "slide",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.9.0"
+   },
+   "widgets_values": [],
+   "widgets_values_named": {},
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 13,
+   "type": "AUSBOSS_NODES_SaveImage",
+   "pos": [
+    2288,
+    610
+   ],
+   "size": [
+    460,
+    566
+   ],
+   "flags": {},
+   "order": 16,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "images",
+     "name": "images",
+     "type": "IMAGE",
+     "link": 33
+    },
+    {
+     "localized_name": "filename",
+     "name": "filename",
+     "shape": 7,
+     "type": "STRING",
+     "link": null
+    },
+    {
+     "localized_name": "caption_text",
+     "name": "caption_text",
+     "shape": 7,
+     "type": "STRING",
+     "link": null
+    },
+    {
+     "localized_name": "filename_prefix",
+     "name": "filename_prefix",
+     "type": "STRING",
+     "widget": {
+      "name": "filename_prefix"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "format",
+     "name": "format",
+     "type": "COMBO",
+     "widget": {
+      "name": "format"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "save_metadata",
+     "name": "save_metadata",
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "save_metadata"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "exact_name",
+     "name": "exact_name",
+     "shape": 7,
+     "type": "STRING",
+     "widget": {
+      "name": "exact_name"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "on_existing",
+     "name": "on_existing",
+     "shape": 7,
+     "type": "COMBO",
+     "widget": {
+      "name": "on_existing"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "output_dir",
+     "name": "output_dir",
+     "shape": 7,
+     "type": "STRING",
+     "widget": {
+      "name": "output_dir"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "caption",
+     "name": "caption",
+     "shape": 7,
+     "type": "STRING",
+     "widget": {
+      "name": "caption"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "name_counter",
+     "name": "name_counter",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "name_counter"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "name_date",
+     "name": "name_date",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "name_date"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "name_time",
+     "name": "name_time",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "name_time"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "name_size",
+     "name": "name_size",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "name_size"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "name_batch",
+     "name": "name_batch",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "name_batch"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "preview",
+     "name": "preview",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "preview"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "file_path",
+     "name": "file_path",
+     "type": "STRING",
+     "links": null
+    },
+    {
+     "localized_name": "images",
+     "name": "images",
+     "type": "IMAGE",
+     "links": null
+    }
+   ],
+   "title": "Save Image",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_SaveImage",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.9.0"
+   },
+   "widgets_values": {
+    "filename_prefix": "qwen21_upscale_restore",
+    "format": "png",
+    "save_metadata": true,
+    "exact_name": "",
+    "on_existing": "overwrite",
+    "output_dir": "",
+    "caption": "",
+    "name_counter": true,
+    "name_date": false,
+    "name_time": false,
+    "name_size": false,
+    "name_batch": false,
+    "preview": true
+   },
+   "widgets_values_named": {
+    "filename_prefix": "qwen21_upscale_restore",
+    "format": "png",
+    "save_metadata": true,
+    "exact_name": "",
+    "on_existing": "overwrite",
+    "output_dir": "",
+    "caption": "",
+    "name_counter": true,
+    "name_date": false,
+    "name_time": false,
+    "name_size": false,
+    "name_batch": false,
+    "preview": true
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 14,
+   "type": "AUSBOSS_NODES_RunTimer",
+   "pos": [
+    2413,
+    1246
+   ],
+   "size": [
+    210,
+    67
+   ],
+   "flags": {
+    "no_title": true
+   },
+   "order": 17,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [],
+   "title": "Run Timer",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_RunTimer",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.9.0"
+   },
+   "color": "#07090a",
+   "bgcolor": "#07090a"
+  },
+  {
+   "id": 23,
+   "type": "b9a2a2f6-3c88-4df8-9d4b-ec3e58479aea",
+   "pos": [
+    1468,
+    260
+   ],
+   "size": [
+    740,
+    208
+   ],
+   "flags": {},
+   "order": 10,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "tiles",
+     "shape": 7,
+     "type": "IMAGE",
+     "link": 26
+    },
+    {
+     "name": "stitcher",
+     "type": "AUSBOSS_TILE_STITCHER",
+     "link": 31
+    },
+    {
+     "name": "request",
+     "type": "*",
+     "link": 24
+    },
+    {
+     "name": "seed",
+     "type": "*",
+     "link": 29
+    },
+    {
+     "name": "steps",
+     "type": "*",
+     "link": 30
+    },
+    {
+     "name": "text encoder",
+     "type": "CLIP",
+     "link": 25
+    },
+    {
+     "name": "vae",
+     "shape": 7,
+     "type": "VAE",
+     "link": 27
+    },
+    {
+     "name": "diffusion model",
+     "type": "MODEL",
+     "link": 28
+    }
+   ],
+   "outputs": [
+    {
+     "name": "your picture, redrawn",
+     "type": "IMAGE",
+     "links": [
+      32,
+      33
+     ]
+    }
+   ],
+   "properties": {
+    "previewExposures": [
+     {
+      "name": "$$canvas-image-preview",
+      "sourceNodeId": "20",
+      "sourcePreviewName": "$$canvas-image-preview"
+     }
+    ]
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 24,
+   "type": "MarkdownNote",
+   "size": [
+    424,
+    88
+   ],
+   "flags": {},
+   "order": 1,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [],
+   "title": "Note",
+   "properties": {},
+   "widgets_values": [
+    "## Optional: drag the blue handles to crop your picture first."
+   ],
+   "widgets_values_named": {
+    "text": "## Optional: drag the blue handles to crop your picture first."
+   },
+   "pos": [
+    500,
+    80
+   ],
+   "color": "#1f2c38",
+   "bgcolor": "#2a3b4a"
+  },
+  {
+   "id": 25,
+   "type": "MarkdownNote",
+   "size": [
+    424,
+    88
+   ],
+   "flags": {},
+   "order": 6,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [],
+   "title": "Note",
+   "properties": {},
+   "widgets_values": [
+    "## Click **Fast** to toggle fast mode."
+   ],
+   "widgets_values_named": {
+    "text": "## Click **Fast** to toggle fast mode."
+   },
+   "pos": [
+    964,
+    924
+   ],
+   "color": "#1f2c38",
+   "bgcolor": "#2a3b4a"
+  },
+  {
+   "id": 26,
+   "type": "MarkdownNote",
+   "size": [
+    740,
+    110
+   ],
+   "flags": {},
+   "order": 9,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [],
+   "title": "Note",
+   "properties": {},
+   "widgets_values": [
+    "## One box does the work: Qwen redraws your picture one tile at a time, then the tiles are joined.\n\n## Double-click it to see inside."
+   ],
+   "widgets_values_named": {
+    "text": "## One box does the work: Qwen redraws your picture one tile at a time, then the tiles are joined.\n\n## Double-click it to see inside."
+   },
+   "pos": [
+    1468,
+    80
+   ],
+   "color": "#1f2c38",
+   "bgcolor": "#2a3b4a"
+  }
+ ],
+ "links": [
+  [
+   1,
+   2,
+   0,
+   3,
+   0,
+   "IMAGE"
+  ],
+  [
+   7,
+   10,
+   0,
+   11,
+   0,
+   "MODEL"
+  ],
+  [
+   21,
+   3,
+   2,
+   12,
+   0,
+   "IMAGE"
+  ],
+  [
+   24,
+   4,
+   0,
+   23,
+   2,
+   "STRING"
+  ],
+  [
+   25,
+   8,
+   0,
+   23,
+   5,
+   "CLIP"
+  ],
+  [
+   26,
+   3,
+   0,
+   23,
+   0,
+   "IMAGE"
+  ],
+  [
+   27,
+   9,
+   0,
+   23,
+   6,
+   "VAE"
+  ],
+  [
+   28,
+   11,
+   0,
+   23,
+   7,
+   "MODEL"
+  ],
+  [
+   29,
+   5,
+   0,
+   23,
+   3,
+   "INT"
+  ],
+  [
+   30,
+   7,
+   0,
+   23,
+   4,
+   "INT"
+  ],
+  [
+   31,
+   3,
+   1,
+   23,
+   1,
+   "AUSBOSS_TILE_STITCHER"
+  ],
+  [
+   32,
+   23,
+   0,
+   12,
+   1,
+   "IMAGE"
+  ],
+  [
+   33,
+   23,
+   0,
+   13,
+   0,
+   "IMAGE"
+  ]
+ ],
+ "groups": [
+  {
+   "id": 1,
+   "title": "1 · Your picture",
+   "bounding": [
+    480,
+    0,
+    928,
+    1360
+   ],
+   "color": "#1d5560",
+   "flags": {}
+  },
+  {
+   "id": 2,
+   "title": "2 · Behind the scenes",
+   "bounding": [
+    1448,
+    0,
+    780,
+    488
+   ],
+   "color": "#1d5560",
+   "flags": {}
+  },
+  {
+   "id": 3,
+   "title": "3 · Models",
+   "bounding": [
+    1448,
+    528,
+    780,
+    832
+   ],
+   "color": "#1d5560",
+   "flags": {}
+  },
+  {
+   "id": 4,
+   "title": "4 · Result",
+   "bounding": [
+    2268,
+    0,
+    500,
+    1360
+   ],
+   "color": "#1d5560",
+   "flags": {}
+  }
+ ],
+ "definitions": {
+  "subgraphs": [
+   {
+    "id": "b9a2a2f6-3c88-4df8-9d4b-ec3e58479aea",
+    "version": 1,
+    "state": {
+     "lastGroupId": 7,
+     "lastNodeId": 29,
+     "lastLinkId": 33,
+     "lastRerouteId": 0
+    },
+    "revision": 0,
+    "config": {},
+    "name": "Redraw it in tiles with Qwen",
+    "inputNode": {
+     "id": -10,
+     "bounding": [
+      -260,
+      120,
+      150,
+      200
+     ]
+    },
+    "outputNode": {
+     "id": -20,
+     "bounding": [
+      1690,
+      120,
+      150,
+      60
+     ]
+    },
+    "inputs": [
+     {
+      "id": "08f424de-b02e-485d-bb52-6056b4a6ecd2",
+      "name": "tiles",
+      "type": "IMAGE",
+      "linkIds": [
+       2
+      ],
+      "localized_name": "tiles",
+      "shape": 7,
+      "pos": [
+       51,
+       24
+      ]
+     },
+     {
+      "id": "17951584-7e73-4b97-9de2-4b0ce157c4f4",
+      "name": "stitcher",
+      "type": "AUSBOSS_TILE_STITCHER",
+      "linkIds": [
+       20
+      ],
+      "localized_name": "stitcher",
+      "pos": [
+       51,
+       44
+      ]
+     },
+     {
+      "id": "b31d7e01-9ce6-485c-ae59-ba432ee3ab2a",
+      "name": "request",
+      "type": "*",
+      "linkIds": [
+       3
+      ],
+      "pos": [
+       51,
+       64
+      ],
+      "localized_name": "request"
+     },
+     {
+      "id": "7705d60b-95b9-4c38-b3bf-a47fd8ae896b",
+      "name": "seed",
+      "type": "*",
+      "linkIds": [
+       10
+      ],
+      "pos": [
+       51,
+       84
+      ],
+      "localized_name": "seed"
+     },
+     {
+      "id": "721935ed-5963-46a9-b169-a7bf9d4f9209",
+      "name": "steps",
+      "type": "*",
+      "linkIds": [
+       12
+      ],
+      "pos": [
+       51,
+       104
+      ],
+      "localized_name": "steps"
+     },
+     {
+      "id": "3d5a5073-4353-40b0-896c-62dfc9c85026",
+      "name": "text encoder",
+      "type": "CLIP",
+      "linkIds": [
+       5
+      ],
+      "localized_name": "text encoder",
+      "pos": [
+       51,
+       124
+      ]
+     },
+     {
+      "id": "08877f5c-68f5-462e-9906-c4dcd0187344",
+      "name": "vae",
+      "type": "VAE",
+      "linkIds": [
+       6,
+       18
+      ],
+      "localized_name": "vae",
+      "shape": 7,
+      "pos": [
+       51,
+       144
+      ]
+     },
+     {
+      "id": "f7e4a31b-1a71-4b36-9f93-5f5b60df92d5",
+      "name": "diffusion model",
+      "type": "MODEL",
+      "linkIds": [
+       8
+      ],
+      "localized_name": "diffusion model",
+      "pos": [
+       51,
+       164
+      ]
+     }
+    ],
+    "outputs": [
+     {
+      "id": "a4fc4a5a-a287-4e20-8b1e-d0dba26d59ad",
+      "name": "your picture, redrawn",
+      "type": "IMAGE",
+      "linkIds": [
+       22
+      ],
+      "localized_name": "your picture, redrawn",
+      "pos": [
+       24,
+       24
+      ]
+     }
+    ],
+    "widgets": [],
+    "nodes": [
+     {
+      "id": 15,
+      "type": "Reroute",
+      "pos": [
+       20,
+       218
+      ],
+      "size": [
+       75,
+       26
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+       {
+        "name": "",
+        "type": "*",
+        "widget": {
+         "name": "value"
+        },
+        "link": 3
+       }
+      ],
+      "outputs": [
+       {
+        "name": "",
+        "type": "STRING",
+        "links": [
+         4
+        ]
+       }
+      ],
+      "properties": {
+       "showOutputText": false,
+       "horizontal": false
+      }
+     },
+     {
+      "id": 16,
+      "type": "TextEncodeQwenImage21",
+      "pos": [
+       20,
+       304
+      ],
+      "size": [
+       460,
+       266
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "clip",
+        "name": "clip",
+        "type": "CLIP",
+        "link": 5
+       },
+       {
+        "localized_name": "image_1",
+        "name": "images.image_1",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": 2
+       },
+       {
+        "localized_name": "vae",
+        "name": "vae",
+        "shape": 7,
+        "type": "VAE",
+        "link": 6
+       },
+       {
+        "localized_name": "prompt",
+        "name": "prompt",
+        "type": "STRING",
+        "widget": {
+         "name": "prompt"
+        },
+        "link": 4
+       },
+       {
+        "localized_name": "negative_prompt",
+        "name": "negative_prompt",
+        "type": "STRING",
+        "widget": {
+         "name": "negative_prompt"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "resolution",
+        "name": "resolution",
+        "type": "INT",
+        "widget": {
+         "name": "resolution"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "image_2",
+        "name": "images.image_2",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "positive",
+        "name": "positive",
+        "type": "CONDITIONING",
+        "links": [
+         14
+        ]
+       },
+       {
+        "localized_name": "negative",
+        "name": "negative",
+        "type": "CONDITIONING",
+        "links": [
+         15
+        ]
+       },
+       {
+        "localized_name": "latent",
+        "name": "latent",
+        "type": "LATENT",
+        "links": [
+         16
+        ]
+       }
+      ],
+      "title": "Text Encode Qwen Image 2.1 - One tile and the request",
+      "properties": {
+       "Node name for S&R": "TextEncodeQwenImage21",
+       "cnr_id": "comfy-core",
+       "ver": "0.38.0"
+      },
+      "widgets_values": [
+       "",
+       "",
+       0
+      ],
+      "widgets_values_named": {
+       "prompt": "",
+       "negative_prompt": "",
+       "resolution": 0
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     },
+     {
+      "id": 17,
+      "type": "QwenImage21Cache",
+      "pos": [
+       560,
+       238
+      ],
+      "size": [
+       460,
+       82
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "model",
+        "name": "model",
+        "type": "MODEL",
+        "link": 8
+       },
+       {
+        "localized_name": "device",
+        "name": "device",
+        "type": "COMBO",
+        "widget": {
+         "name": "device"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "dtype",
+        "name": "dtype",
+        "type": "COMBO",
+        "widget": {
+         "name": "dtype"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "MODEL",
+        "name": "MODEL",
+        "type": "MODEL",
+        "links": [
+         9
+        ]
+       }
+      ],
+      "title": "Reference cache",
+      "properties": {
+       "Node name for S&R": "QwenImage21Cache",
+       "cnr_id": "comfy-core",
+       "ver": "0.38.0"
+      },
+      "widgets_values": [
+       "auto",
+       "default"
+      ],
+      "widgets_values_named": {
+       "device": "auto",
+       "dtype": "default"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     },
+     {
+      "id": 18,
+      "type": "Reroute",
+      "pos": [
+       560,
+       394
+      ],
+      "size": [
+       75,
+       26
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+       {
+        "name": "",
+        "type": "*",
+        "widget": {
+         "name": "value"
+        },
+        "link": 10
+       }
+      ],
+      "outputs": [
+       {
+        "name": "",
+        "type": "INT",
+        "links": [
+         11
+        ]
+       }
+      ],
+      "properties": {
+       "showOutputText": false,
+       "horizontal": false
+      }
+     },
+     {
+      "id": 19,
+      "type": "Reroute",
+      "pos": [
+       560,
+       460
+      ],
+      "size": [
+       75,
+       26
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+       {
+        "name": "",
+        "type": "*",
+        "widget": {
+         "name": "value"
+        },
+        "link": 12
+       }
+      ],
+      "outputs": [
+       {
+        "name": "",
+        "type": "INT",
+        "links": [
+         13
+        ]
+       }
+      ],
+      "properties": {
+       "showOutputText": false,
+       "horizontal": false
+      }
+     },
+     {
+      "id": 20,
+      "type": "KSampler",
+      "pos": [
+       560,
+       546
+      ],
+      "size": [
+       460,
+       262
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "model",
+        "name": "model",
+        "type": "MODEL",
+        "link": 9
+       },
+       {
+        "localized_name": "positive",
+        "name": "positive",
+        "type": "CONDITIONING",
+        "link": 14
+       },
+       {
+        "localized_name": "negative",
+        "name": "negative",
+        "type": "CONDITIONING",
+        "link": 15
+       },
+       {
+        "localized_name": "latent_image",
+        "name": "latent_image",
+        "type": "LATENT",
+        "link": 16
+       },
+       {
+        "localized_name": "seed",
+        "name": "seed",
+        "type": "INT",
+        "widget": {
+         "name": "seed"
+        },
+        "link": 11
+       },
+       {
+        "localized_name": "steps",
+        "name": "steps",
+        "type": "INT",
+        "widget": {
+         "name": "steps"
+        },
+        "link": 13
+       },
+       {
+        "localized_name": "cfg",
+        "name": "cfg",
+        "type": "FLOAT",
+        "widget": {
+         "name": "cfg"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "sampler_name",
+        "name": "sampler_name",
+        "type": "COMBO",
+        "widget": {
+         "name": "sampler_name"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "scheduler",
+        "name": "scheduler",
+        "type": "COMBO",
+        "widget": {
+         "name": "scheduler"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "denoise",
+        "name": "denoise",
+        "type": "FLOAT",
+        "widget": {
+         "name": "denoise"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "LATENT",
+        "name": "LATENT",
+        "type": "LATENT",
+        "links": [
+         17
+        ]
+       }
+      ],
+      "title": "Sampler - CFG 1, euler",
+      "properties": {
+       "Node name for S&R": "KSampler",
+       "cnr_id": "comfy-core",
+       "ver": "0.38.0"
+      },
+      "widgets_values": [
+       0,
+       "fixed",
+       8,
+       1,
+       "euler",
+       "simple",
+       1
+      ],
+      "widgets_values_named": {
+       "seed": 0,
+       "control_after_generate": "fixed",
+       "steps": 8,
+       "cfg": 1,
+       "sampler_name": "euler",
+       "scheduler": "simple",
+       "denoise": 1
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     },
+     {
+      "id": 21,
+      "type": "VAEDecode",
+      "pos": [
+       1100,
+       238
+      ],
+      "size": [
+       460,
+       46
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "samples",
+        "name": "samples",
+        "type": "LATENT",
+        "link": 17
+       },
+       {
+        "localized_name": "vae",
+        "name": "vae",
+        "type": "VAE",
+        "link": 18
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "IMAGE",
+        "name": "IMAGE",
+        "type": "IMAGE",
+        "links": [
+         19
+        ]
+       }
+      ],
+      "title": "Decode",
+      "properties": {
+       "Node name for S&R": "VAEDecode",
+       "cnr_id": "comfy-core",
+       "ver": "0.38.0"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     },
+     {
+      "id": 22,
+      "type": "AUSBOSS_NODES_TiledUpscaleStitch",
+      "pos": [
+       1100,
+       354
+      ],
+      "size": [
+       460,
+       114
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "tiles",
+        "name": "tiles",
+        "type": "IMAGE",
+        "link": 19
+       },
+       {
+        "localized_name": "stitcher",
+        "name": "stitcher",
+        "type": "AUSBOSS_TILE_STITCHER",
+        "link": 20
+       },
+       {
+        "localized_name": "keep_colors",
+        "name": "keep_colors",
+        "shape": 7,
+        "type": "FLOAT",
+        "widget": {
+         "name": "keep_colors"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "image",
+        "name": "image",
+        "type": "IMAGE",
+        "links": [
+         22
+        ]
+       }
+      ],
+      "title": "Tiled Upscale Stitch - Join the tiles",
+      "properties": {
+       "Node name for S&R": "AUSBOSS_NODES_TiledUpscaleStitch",
+       "cnr_id": "ausboss-nodes",
+       "ver": "2.9.0"
+      },
+      "widgets_values": [
+       1
+      ],
+      "widgets_values_named": {
+       "keep_colors": 1
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     },
+     {
+      "id": 27,
+      "type": "MarkdownNote",
+      "size": [
+       460,
+       88
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "Note",
+      "properties": {},
+      "widgets_values": [
+       "Qwen reads one tile at its own size, together with the request. The same node sets the size of the redraw."
+      ],
+      "widgets_values_named": {
+       "text": "Qwen reads one tile at its own size, together with the request. The same node sets the size of the redraw."
+      },
+      "pos": [
+       20,
+       80
+      ],
+      "color": "#1f2c38",
+      "bgcolor": "#2a3b4a"
+     },
+     {
+      "id": 28,
+      "type": "MarkdownNote",
+      "size": [
+       460,
+       88
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "Note",
+      "properties": {},
+      "widgets_values": [
+       "Steps and seed come from the top level, CFG 1. The Restore LoRA is on the model, so the result stays close to your picture."
+      ],
+      "widgets_values_named": {
+       "text": "Steps and seed come from the top level, CFG 1. The Restore LoRA is on the model, so the result stays close to your picture."
+      },
+      "pos": [
+       560,
+       80
+      ],
+      "color": "#1f2c38",
+      "bgcolor": "#2a3b4a"
+     },
+     {
+      "id": 29,
+      "type": "MarkdownNote",
+      "size": [
+       460,
+       88
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "Note",
+      "properties": {},
+      "widgets_values": [
+       "Each tile is decoded and matched to its own tile's colors. Then all are joined and fitted to the size you asked for."
+      ],
+      "widgets_values_named": {
+       "text": "Each tile is decoded and matched to its own tile's colors. Then all are joined and fitted to the size you asked for."
+      },
+      "pos": [
+       1100,
+       80
+      ],
+      "color": "#1f2c38",
+      "bgcolor": "#2a3b4a"
+     }
+    ],
+    "groups": [
+     {
+      "id": 5,
+      "title": "1 · Read",
+      "bounding": [
+       0,
+       0,
+       500,
+       622
+      ],
+      "color": "#1d5560",
+      "flags": {}
+     },
+     {
+      "id": 6,
+      "title": "2 · Redraw",
+      "bounding": [
+       540,
+       0,
+       500,
+       828
+      ],
+      "color": "#1d5560",
+      "flags": {}
+     },
+     {
+      "id": 7,
+      "title": "3 · Join",
+      "bounding": [
+       1080,
+       0,
+       500,
+       500
+      ],
+      "color": "#1d5560",
+      "flags": {}
+     }
+    ],
+    "links": [
+     {
+      "id": 4,
+      "origin_id": 15,
+      "origin_slot": 0,
+      "target_id": 16,
+      "target_slot": 3,
+      "type": "STRING"
+     },
+     {
+      "id": 9,
+      "origin_id": 17,
+      "origin_slot": 0,
+      "target_id": 20,
+      "target_slot": 0,
+      "type": "MODEL"
+     },
+     {
+      "id": 14,
+      "origin_id": 16,
+      "origin_slot": 0,
+      "target_id": 20,
+      "target_slot": 1,
+      "type": "CONDITIONING"
+     },
+     {
+      "id": 15,
+      "origin_id": 16,
+      "origin_slot": 1,
+      "target_id": 20,
+      "target_slot": 2,
+      "type": "CONDITIONING"
+     },
+     {
+      "id": 16,
+      "origin_id": 16,
+      "origin_slot": 2,
+      "target_id": 20,
+      "target_slot": 3,
+      "type": "LATENT"
+     },
+     {
+      "id": 11,
+      "origin_id": 18,
+      "origin_slot": 0,
+      "target_id": 20,
+      "target_slot": 4,
+      "type": "INT"
+     },
+     {
+      "id": 13,
+      "origin_id": 19,
+      "origin_slot": 0,
+      "target_id": 20,
+      "target_slot": 5,
+      "type": "INT"
+     },
+     {
+      "id": 17,
+      "origin_id": 20,
+      "origin_slot": 0,
+      "target_id": 21,
+      "target_slot": 0,
+      "type": "LATENT"
+     },
+     {
+      "id": 19,
+      "origin_id": 21,
+      "origin_slot": 0,
+      "target_id": 22,
+      "target_slot": 0,
+      "type": "IMAGE"
+     },
+     {
+      "id": 3,
+      "origin_id": -10,
+      "origin_slot": 2,
+      "target_id": 15,
+      "target_slot": 0,
+      "type": "STRING"
+     },
+     {
+      "id": 5,
+      "origin_id": -10,
+      "origin_slot": 5,
+      "target_id": 16,
+      "target_slot": 0,
+      "type": "CLIP"
+     },
+     {
+      "id": 2,
+      "origin_id": -10,
+      "origin_slot": 0,
+      "target_id": 16,
+      "target_slot": 1,
+      "type": "IMAGE"
+     },
+     {
+      "id": 6,
+      "origin_id": -10,
+      "origin_slot": 6,
+      "target_id": 16,
+      "target_slot": 2,
+      "type": "VAE"
+     },
+     {
+      "id": 18,
+      "origin_id": -10,
+      "origin_slot": 6,
+      "target_id": 21,
+      "target_slot": 1,
+      "type": "VAE"
+     },
+     {
+      "id": 8,
+      "origin_id": -10,
+      "origin_slot": 7,
+      "target_id": 17,
+      "target_slot": 0,
+      "type": "MODEL"
+     },
+     {
+      "id": 10,
+      "origin_id": -10,
+      "origin_slot": 3,
+      "target_id": 18,
+      "target_slot": 0,
+      "type": "INT"
+     },
+     {
+      "id": 12,
+      "origin_id": -10,
+      "origin_slot": 4,
+      "target_id": 19,
+      "target_slot": 0,
+      "type": "INT"
+     },
+     {
+      "id": 20,
+      "origin_id": -10,
+      "origin_slot": 1,
+      "target_id": 22,
+      "target_slot": 1,
+      "type": "AUSBOSS_TILE_STITCHER"
+     },
+     {
+      "id": 22,
+      "origin_id": 22,
+      "origin_slot": 0,
+      "target_id": -20,
+      "target_slot": 0,
+      "type": "IMAGE"
+     }
+    ],
+    "extra": {}
+   }
+  ]
+ },
+ "config": {},
+ "extra": {
+  "ds": {
+   "scale": 0.6,
+   "offset": [
+    6,
+    60
+   ]
+  },
+  "frontendVersion": "1.53.6"
+ },
+ "version": 0.4
+}
