@@ -4,6 +4,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Image Crop + Rotate + Pad: keep your picture under a painted mask.**
+  A part you paint in the MaskEditor was always handed on as flat fill. A
+  new **Painted area** switch, in the editor's Inpaint & Stitch section,
+  can keep your picture there instead: the mask still marks the painted
+  part, and the picture under it stays. Use it when a later step needs what
+  was there, like an inpaint with denoise under 1. It starts on fill, so
+  saved workflows run as before.
 - **Krea 2 Inpaint Masked example: Denoise works.** Lowering denoise used
   to leave a flat gray patch where you painted. The example now starts from
   your picture, and a new **Denoise** box sits under your request: 1

@@ -20,7 +20,8 @@ class AusBossImageCropRotatePad:
         "Loads an image and applies one visual rotate, crop, and pad transform. "
         "The mask marks what to paint: new padding, the corners a turn leaves "
         "empty, and see-through parts of the picture (less than 90% solid), "
-        "which are filled like the padding. Optionally resizes the result to a "
+        "which are filled like the padding unless painted_area keeps the "
+        "picture there. Optionally resizes the result to a "
         "megapixel budget (core Scale Image to Total Pixels semantics: aspect "
         "preserved, dimensions rounded to resolution_steps)."
     )
@@ -71,6 +72,22 @@ class AusBossImageCropRotatePad:
                     ),
                 },
             ),
+            # Last of all: the newest input, and older saves and API prompts
+            # keep the fill they always had.
+            "painted_area": (
+                ["fill", "keep picture"],
+                {
+                    "default": "fill",
+                    "tooltip": (
+                        "What the parts you painted in the MaskEditor are handed on as "
+                        "(see-through parts of a PNG count too). Fill: flat fill, so "
+                        "the model never sees what was there. Keep picture: your "
+                        "picture stays under the paint and only the mask marks it. "
+                        "Pick keep picture when a later step needs what was there, "
+                        "like a denoise under 1."
+                    ),
+                },
+            ),
         })
         return {"required": required, "optional": optional}
 
@@ -82,12 +99,13 @@ class AusBossImageCropRotatePad:
         "White where the model paints: padding, the corners a turn leaves empty, "
         "and see-through parts of your picture.",
         "Full-canvas stitcher: restores kept source pixels over an outpaint result; wire to Stitch Inpaint.",
-        "Your picture before rotation, crop, padding or resize. See-through parts show as white.",
+        "Your picture before rotation, crop, padding or resize. See-through parts show as white, "
+        "or as your picture when painted_area keeps it.",
         "Output width after the transform and any resize.",
         "Output height after the transform and any resize.",
         "The image with see-through parts shown on white instead of the fill. Wire it to "
         "the node that writes your prompt, so a cutout gets a real backdrop. The same "
-        "as image when your picture has no see-through parts.",
+        "as image when your picture has no see-through parts, or painted_area keeps the picture.",
     )
     FUNCTION = "load_transform"
 
@@ -100,12 +118,14 @@ class AusBossImageCropRotatePad:
         resolution_steps=1,
         stitch_blend=32,
         stitch_grow=0,
+        painted_area="fill",
         **values,
     ):
         path = resolve_input_path(image)
         frames = load_image_frames(path)
+        keep_picture = str(painted_area) == "keep picture"
         output, mask, geometry, prompt_image = transform_pil_batch(
-            frames, spec_from_values(**values), view=True
+            frames, spec_from_values(**values), view=True, keep_see_through=keep_picture
         )
         if resize_to_megapixels:
             output, mask = resize_batch_to_megapixels(
@@ -124,7 +144,7 @@ class AusBossImageCropRotatePad:
         if prompt_image is None:
             prompt_image = output.clone()
         return (
-            output, mask, stitcher, original_image_batch(frames),
+            output, mask, stitcher, original_image_batch(frames, keep_picture),
             int(output.shape[2]), int(output.shape[1]), prompt_image,
         )
 

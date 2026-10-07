@@ -86,6 +86,8 @@ const HIDDEN_WIDGETS = [
   "start_seconds", "end_seconds", "every_nth", "max_frames", "frame_snap", "fixed_frames",
   // Stitch settings (clip and image nodes), driven by the editor's Inpaint & Stitch section.
   "stitch_blend", "stitch_grow",
+  // Image node: what a painted part is handed on as, set in the same section.
+  "painted_area",
   // Image-node resize block; hideWidget on a missing widget is a no-op, so
   // the video node sharing this list is unaffected.
   "resize_to_megapixels", "megapixels", "resize_method", "resolution_steps",
@@ -1711,6 +1713,21 @@ function buildStitchSection(state) {
   show.set(state.showBlend ? "on" : "off");
   show.pill.title = "Tint the paste mask the stitcher will use - the same mask math as the backend, at preview resolution.";
   addLabeledControl(section, "Show blend", show.pill);
+  // Image node only: a part painted in the MaskEditor is filled like the
+  // padding, or the picture stays under it and only the mask marks it.
+  let painted = null;
+  if (widget(node, "painted_area")) {
+    painted = segmentedPill([
+      ["fill", "fill", "The painted part is handed on as flat fill. The model never sees what was there."],
+      ["keep picture", "keep", "Your picture stays under the paint and only the mask marks it. For a step that needs what was there, like a denoise under 1."],
+    ], (key) => {
+      if (value(node, "painted_area", "fill") === key) return;
+      setValue(node, "painted_area", key); painted.set(key);
+      draw(state); updateModalInfo(state); notifyAusbossChange();
+    }, { className: "ausboss-transform-switch" });
+    painted.set(value(node, "painted_area", "fill"));
+    addLabeledControl(section, "Painted area", painted.pill);
+  }
   const advanced = createElement("details"); advanced.append(createElement("summary", "", "Advanced"));
   const grow = makeScrubInput({ value: value(node, "stitch_grow", 0), min: -256, max: 256, step: 1, decimals: 0,
     title: "Moves the paste boundary before the ramp. Positive lets the generation replace a strip of the source next to the seam; negative keeps more source.",
@@ -1718,7 +1735,7 @@ function buildStitchSection(state) {
   addLabeledControl(advanced, "Grow paste", grow.root, "px");
   advanced.append(createElement("div", "ausboss-transform-help", "Use a few pixels of grow when a seam still shows: the generation then repaints the source edge too."));
   section.append(advanced);
-  state.syncStitchControls = () => { blend.set(value(node, "stitch_blend", 32)); grow.set(value(node, "stitch_grow", 0)); };
+  state.syncStitchControls = () => { blend.set(value(node, "stitch_blend", 32)); grow.set(value(node, "stitch_grow", 0)); painted?.set(value(node, "painted_area", "fill")); };
   return section;
 }
 

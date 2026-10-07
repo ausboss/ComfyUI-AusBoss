@@ -169,6 +169,11 @@ def _empty_see_through(rgba: Image.Image, kept: np.ndarray) -> Image.Image:
     return Image.fromarray(array, "RGBA")
 
 
+def _solid(image: Image.Image) -> Image.Image:
+    """The source fully solid: every pixel in its stored colour."""
+    return image.convert("RGB").convert("RGBA")
+
+
 def _rotate_rgba(image: Image.Image, spec: TransformSpec) -> Image.Image:
     rgba = image.convert("RGBA")
     if spec.rotation_degrees == 0.0:
@@ -249,10 +254,16 @@ def transform_pil(image: Image.Image, spec: TransformSpec) -> tuple[Image.Image,
 
 
 def _transform_frame(
-    image: Image.Image, spec: TransformSpec, view: bool
+    image: Image.Image, spec: TransformSpec, view: bool, keep_see_through: bool = False
 ) -> tuple[Image.Image, Image.Image, TransformGeometry, Image.Image | None]:
     """transform_pil, plus the prompt view (:func:`_see_through_view`) when
-    ``view`` is set and the source has see-through parts; None otherwise."""
+    ``view`` is set and the source has see-through parts; None otherwise.
+
+    With ``keep_see_through`` the stored colour under a see-through part
+    stays in the picture and only the mask marks it, so there is no prompt
+    view either: the picture is whole. That is what a mask painted in the
+    MaskEditor needs when a later step reads what is under the paint.
+    """
     _validate_source(image)
     spec = spec.normalized()
     rgba = image if image.mode == "RGBA" else image.convert("RGBA")
@@ -269,10 +280,15 @@ def _transform_frame(
     )
     cropped = rotated.crop(crop_box)
 
+    # What the mask is cut from: the kept picture, see-through parts empty.
     alpha = cropped.getchannel("A")
+    if kept is not None and keep_see_through:
+        # The picture itself goes through whole, turned and cropped the same
+        # way; its own alpha is only the corners a turn leaves empty.
+        cropped = _rotate_rgba(_solid(image), spec).crop(crop_box)
     fill = fill_rgb(spec.fill_color)
     filled_crop = Image.new("RGB", cropped.size, fill)
-    filled_crop.paste(cropped.convert("RGB"), mask=alpha)
+    filled_crop.paste(cropped.convert("RGB"), mask=cropped.getchannel("A"))
 
     output = Image.new("RGB", (geometry.output_width, geometry.output_height), fill)
     output.paste(filled_crop, (geometry.pad_left, geometry.pad_top))
@@ -299,7 +315,7 @@ def _transform_frame(
         # from this canvas must hold real pixels for its color match.
 
     prompt_view = None
-    if view and kept is not None:
+    if view and kept is not None and not keep_see_through:
         prompt_view = _see_through_view(output, alpha, rgba.size, crop_box, spec, geometry)
     return output, mask, geometry, prompt_view
 
@@ -343,19 +359,23 @@ def _see_through_view(
     return Image.fromarray(canvas, "RGB")
 
 
-def transform_pil_batch(images: Iterable[Image.Image], spec: TransformSpec, *, view: bool = False) -> tuple:
+def transform_pil_batch(
+    images: Iterable[Image.Image], spec: TransformSpec, *, view: bool = False, keep_see_through: bool = False
+) -> tuple:
     """transform_pil over every frame, as BHWC image and BHW mask batches.
 
     With ``view`` a fourth item follows: the prompt view batch, each frame's
     canvas with its see-through parts on SEE_THROUGH_BACKDROP, or None when
-    no frame has any (the view is then the image itself).
+    no frame has any (the view is then the image itself). With
+    ``keep_see_through`` the picture keeps what is stored under its
+    see-through parts and only the mask marks them.
     """
     frames: list[torch.Tensor] = []
     masks: list[torch.Tensor] = []
     views: list[Image.Image] = []
     first_geometry: TransformGeometry | None = None
     for index, image in enumerate(images):
-        output, mask, geometry, prompt_view = _transform_frame(image, spec, view)
+        output, mask, geometry, prompt_view = _transform_frame(image, spec, view, keep_see_through)
         if first_geometry is None:
             first_geometry = geometry
         elif output.size != (first_geometry.output_width, first_geometry.output_height):
@@ -512,18 +532,19 @@ def resize_batch_to_megapixels(output, mask, megapixels, method, steps):
     return output, mask
 
 
-def original_image_batch(images: Iterable[Image.Image]) -> torch.Tensor:
+def original_image_batch(images: Iterable[Image.Image], keep_see_through: bool = False) -> torch.Tensor:
     """Untransformed, EXIF-oriented RGB source frames for reference outputs.
 
     See-through parts (:func:`see_through_kept`) show on
     SEE_THROUGH_BACKDROP, as a picture viewer shows them. Dropping the alpha
     showed their stored colour instead, black for most cutouts, and a prompt
-    writer reading this output described a black backdrop.
+    writer reading this output described a black backdrop. With
+    ``keep_see_through`` the stored colour is what the caller asked for.
     """
     frames = []
     for image in images:
         array = np.asarray(image.convert("RGB"), dtype=np.float32).copy()
-        kept = see_through_kept(image if image.mode == "RGBA" else image.convert("RGBA"))
+        kept = None if keep_see_through else see_through_kept(image if image.mode == "RGBA" else image.convert("RGBA"))
         if kept is not None:
             array[~kept] = SEE_THROUGH_BACKDROP
         frames.append(torch.from_numpy(array / 255.0))

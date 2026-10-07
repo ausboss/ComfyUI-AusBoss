@@ -410,5 +410,61 @@ class SeeThroughRuleTests(unittest.TestCase):
         self.assertGreater(float(prompt_image[0, :, : int(width * 0.2)].min()), 0.98)
 
 
+class KeepPictureTests(unittest.TestCase):
+    """painted_area "keep picture": the mask still marks the painted part,
+    and the picture under it stays. A mask painted in the MaskEditor is the
+    picture's alpha, with the whole picture still stored under it."""
+
+    def painted(self, width=96, height=72):
+        alpha = np.full((height, width), 255, np.uint8)
+        alpha[20:50, 30:70] = 0
+        return cutout(width, height, alpha), alpha
+
+    def test_the_mask_is_the_same_and_the_picture_is_whole(self):
+        source, alpha = self.painted()
+        for layout_name, layout in LAYOUTS.items():
+            with self.subTest(layout=layout_name):
+                filled = run_node(source, **layout)
+                kept = run_node(source, painted_area="keep picture", **layout)
+                solid = run_node(source.convert("RGB"), **layout)
+                # The mask and the size are what "fill" gives.
+                self.assertTrue(torch.equal(kept[1], filled[1]))
+                self.assertEqual(kept[4:6], filled[4:6])
+                # The picture is the one an opaque copy of the file gives.
+                self.assertTrue(torch.equal(kept[0], solid[0]))
+                # original and prompt_image carry the picture too, not white.
+                self.assertTrue(torch.equal(kept[3], solid[3]))
+                self.assertTrue(torch.equal(kept[6], kept[0]))
+
+    def test_fill_is_still_what_a_run_without_the_input_gives(self):
+        source, _ = self.painted()
+        default = run_node(source, pad_left=16)
+        named = run_node(source, pad_left=16, painted_area="fill")
+        for a, b in zip(default, named):
+            if isinstance(a, torch.Tensor):
+                self.assertTrue(torch.equal(a, b))
+        # Under the paint: the fill, not the picture.
+        fill = torch.tensor(fill_rgb("#808080"), dtype=torch.float32) / 255.0
+        self.assertTrue(torch.allclose(default[0][0, 30, 16 + 40], fill, atol=1e-6))
+
+    def test_stitch_inpaint_still_takes_the_painted_part_from_the_result(self):
+        source, alpha = self.painted()
+        image, mask, stitcher, *_ = run_node(source, painted_area="keep picture", stitch_blend=0)
+        result = torch.zeros_like(image)
+        stitched = apply_stitch(stitcher, result, color_match=0.0)
+        # Painted part: the result. Well outside it: the picture.
+        self.assertEqual(float(stitched[0, 35, 50].abs().max()), 0.0)
+        self.assertTrue(torch.equal(stitched[0, 5, 5], image[0, 5, 5]))
+
+    def test_a_picture_without_see_through_parts_is_unchanged(self):
+        for source_name, source in opaque_sources():
+            with self.subTest(source=source_name):
+                plain = run_node(source, pad_top=8, rotation_degrees=7.0)
+                kept = run_node(source, pad_top=8, rotation_degrees=7.0, painted_area="keep picture")
+                for a, b in zip(plain, kept):
+                    if isinstance(a, torch.Tensor):
+                        self.assertTrue(torch.equal(a, b))
+
+
 if __name__ == "__main__":
     unittest.main()
