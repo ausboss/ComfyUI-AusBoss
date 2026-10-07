@@ -2,6 +2,19 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Nodes 2.0: a Callout keeps the size you give it.** In the Nodes 2.0
+  look, a Callout could not be made shorter than its own text. A note made
+  in the classic look was drawn taller after a switch to Nodes 2.0 (one
+  saved 888 x 122 came out 20 px taller), a note you dragged taller would
+  not come back down, and one dragged narrow grew to about 690 px tall. The
+  note now keeps its size and the text is fitted to it, as in the classic
+  look. The classic look is unchanged. Good to know: Nodes 2.0 shows the
+  AusBoss badge in its own row under the note, so a note of the same size
+  has about 20 px less room for text there, and the text can come out
+  smaller than in the classic look.
+
 ## 2.8.0 - 2026-10-06
 
 - **New: Callout 🆎** (Utility). A note for the canvas. The text grows to fill
