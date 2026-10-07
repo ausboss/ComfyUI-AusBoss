@@ -30,6 +30,9 @@ MAX_TILE_ASPECT = 2.2
 # A picture of a megapixel or more shows little change unless it grows about
 # this much per side (measured 2026-10-06 on phone photos).
 MIN_VISIBLE_GROWTH = 1.6
+# Under this growth per side the picture is being made smaller: the report says
+# so, and does not call the size too close.
+SHRINK_BELOW = 0.97
 MAX_TILES = 144
 
 
@@ -149,6 +152,8 @@ def plan_tiles(
 
     result_mp = result_width * result_height / 1e6
     growth_per_side = math.sqrt(result_mp / source_mp)
+    # asked for clearly fewer megapixels than the picture has: it is made smaller, which is a choice, not a size too close
+    shrunk = (not keep_size) and growth_per_side < SHRINK_BELOW
     return {
         "source": (width, height),
         "source_megapixels": source_mp,
@@ -162,7 +167,9 @@ def plan_tiles(
         "boxes": boxes,
         "overlap": (max(0, overlap_x), max(0, overlap_y)),
         "enlarged": limited,
+        "shrunk": shrunk,
         "too_close": (not keep_size)
+        and (not shrunk)
         and source_mp >= 1.0
         and growth_per_side < MIN_VISIBLE_GROWTH,
         "suggested_megapixels": math.ceil(source_mp * MIN_VISIBLE_GROWTH**2 * 2) / 2,
@@ -197,6 +204,8 @@ def describe_plan(plan: dict) -> str:
         text += ", then enlarged the plain way. A picture this small has no more detail to redraw from."
     else:
         text += "."
+    if plan.get("shrunk"):
+        text += " The picture is larger than the size asked for, so it is made smaller first."
     if plan["too_close"]:
         text += (
             " That is close to the picture's own size, so expect little change: "
