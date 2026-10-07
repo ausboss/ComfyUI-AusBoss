@@ -799,6 +799,60 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_TiledUpscale": {
+    "required": [
+      "image",
+      "megapixels"
+    ],
+    "optional": [
+      "upscale_model",
+      "tile_megapixels",
+      "overlap",
+      "multiple",
+      "max_growth"
+    ],
+    "outputs": [
+      [
+        "IMAGE",
+        "tiles"
+      ],
+      [
+        "AUSBOSS_TILE_STITCHER",
+        "stitcher"
+      ],
+      [
+        "IMAGE",
+        "before"
+      ],
+      [
+        "INT",
+        "width"
+      ],
+      [
+        "INT",
+        "height"
+      ],
+      [
+        "STRING",
+        "report"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_TiledUpscaleStitch": {
+    "required": [
+      "tiles",
+      "stitcher"
+    ],
+    "optional": [
+      "keep_colors"
+    ],
+    "outputs": [
+      [
+        "IMAGE",
+        "image"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_VideoCropRotatePad": {
     "required": [
       "video",

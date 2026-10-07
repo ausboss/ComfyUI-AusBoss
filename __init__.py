@@ -47,6 +47,7 @@ NODE_MODULES = [
     "node_seed",
     "node_select_frame",
     "node_show_text",
+    "node_tiled_upscale",
     "node_video_crop_rotate_pad",
     "node_video_crop_rotate_pad_clip",
     "node_workflow_note",
