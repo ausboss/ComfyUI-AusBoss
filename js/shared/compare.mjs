@@ -85,3 +85,39 @@ export function compareBadges(fraction, stageWidth, badgeWidth = 22, gap = 5) {
   const b = Math.round(seam + gap);
   return { a: a >= 4 ? a : null, b: b + badgeWidth <= width - 4 ? b : null };
 }
+
+// Is `target` somewhere upstream of `start`? `feeds(id)` lists the ids of
+// the nodes wired into node `id`.
+function isUpstream(target, start, feeds) {
+  const seen = new Set([start]);
+  const queue = [start];
+  while (queue.length) {
+    for (const id of feeds(queue.pop()) ?? []) {
+      if (id == null || seen.has(id)) continue;
+      if (id === target) return true;
+      seen.add(id);
+      queue.push(id);
+    }
+  }
+  return false;
+}
+
+// Which input holds the result, the picture the panel rests on. B is the
+// "after" picture by convention. When B's picture feeds the node that makes
+// A, they are wired the other way round and the result is A.
+//
+// `a` and `b` say where the two pictures come from: { id, slot } of the node
+// and output wired to each input. `graph` reads the links: feeds(id) lists
+// the ids of the nodes wired into node `id`, and inside(id) opens a
+// subgraph: the same two calls for the graph in it, plus output(slot),
+// where that output comes from in there.
+export function compareResultSide(a, b, graph) {
+  // Both pictures out of one subgraph: the answer is inside it.
+  for (let depth = 0; a && b && a.id === b.id && depth < 16; depth += 1) {
+    const inner = graph.inside?.(a.id);
+    if (!inner) return "B";
+    [a, b, graph] = [inner.output(a.slot), inner.output(b.slot), inner];
+  }
+  if (!a || !b || a.id === b.id) return "B";
+  return isUpstream(b.id, a.id, graph.feeds) ? "A" : "B";
+}

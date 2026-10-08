@@ -2,6 +2,7 @@ import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { isForeignRun, outputKey } from "../shared/prompt_scope.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
+import { lookupLink } from "../shared/graph_links.mjs";
 import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
 import { mediaViewQuery, responsivePreviewHeight } from "../shared/video_preview.mjs";
 import { VIDEO_MIN_WIDTH, ensureVideoCss, makeToolButton } from "../shared/video_ui.mjs";
@@ -9,6 +10,7 @@ import {
   slideFraction,
   compareBadges,
   compareClip,
+  compareResultSide,
   compareSizeLabel,
   findCompareImages,
   normalizeCompareMode,
@@ -29,6 +31,8 @@ const DEFAULT_NODE_SIZE = [
 ];
 const CSS_ID = "ausboss-compare-ui-v3";
 const BADGE_WIDTH = 22;
+const REST_SETTING = "AusBoss.Compare.RestOnResult";
+let restOnResult = true;
 
 function ensureCompareCss() {
   ensureVideoCss(); // tool button styles are shared with the video panels
@@ -113,10 +117,43 @@ function applyToggle(state) {
   state.node.setDirtyCanvas?.(true, true);
 }
 
+// One graph's links, in the shape compareResultSide reads them.
+function linkView(graph) {
+  const origin = (linkId) => {
+    const link = lookupLink(graph, linkId);
+    return link ? { id: String(link.origin_id), slot: link.origin_slot } : null;
+  };
+  return {
+    origin,
+    feeds: (id) => (graph?.getNodeById?.(id)?.inputs ?? []).map((input) => origin(input?.link)?.id),
+    inside(id) {
+      const subgraph = graph?.getNodeById?.(id)?.subgraph;
+      if (!subgraph) return null;
+      const view = linkView(subgraph);
+      return { ...view, output: (slot) => view.origin(subgraph.outputs?.[slot]?.linkIds?.[0]) };
+    },
+  };
+}
+
+// Which input holds the result, read from the graph the panel sits in.
+function resultSide(node) {
+  const view = linkView(node.graph);
+  const source = (name) => view.origin(node.inputs?.find((input) => input?.name === name)?.link);
+  return compareResultSide(source("image_a"), source("image_b"), view);
+}
+
+// Slide mode rests on the result while the pointer is away.
+function showResult(state) {
+  state.fraction = resultSide(state.node) === "B" ? 0 : 1;
+  applyClip(state);
+}
+
 function loadPreviews(state, refs) {
   state.refs = refs;
   state.loaded = 0;
   setEmpty(state, "Loading previews…");
+  // A new pair opens on the result, unless a lock or the pointer holds the view.
+  if (restOnResult && getMode(state.node) === "slide" && !state.stage.matches(":hover")) showResult(state);
   state.imageA.src = api.apiURL(`/view?${mediaViewQuery(refs.a, "temp")}`);
   state.imageB.src = api.apiURL(`/view?${mediaViewQuery(refs.b, "temp")}`);
 }
@@ -199,7 +236,8 @@ function buildPanel(node) {
     node.properties.ausboss_compare_mode = normalizeCompareMode("slide");
     state.showingB = false;
     state.fraction = 1;
-    applyClip(state);
+    if (restOnResult) showResult(state);
+    else applyClip(state);
     updateModeButtons(state);
     node.setDirtyCanvas?.(true, true);
     // The mode saves with the workflow; flipping A/B within it does not.
@@ -230,9 +268,11 @@ function buildPanel(node) {
     applyClip(state);
   }, { signal });
 
-  // Settle to the nearest full image on every exit, including top/bottom.
+  // Back to the result on every exit, including top/bottom. With the
+  // setting off, settle to the nearest full image instead.
   stage.addEventListener("pointerleave", (event) => {
     if (!state.refs || getMode(node) !== "slide") return;
+    if (restOnResult) return showResult(state);
     const rect = stage.getBoundingClientRect();
     state.fraction = slideFraction(event.clientX, rect.left, rect.width, true);
     applyClip(state);
@@ -265,6 +305,27 @@ function showStoredResult(node) {
 
 app.registerExtension({
   name: "ausboss.compare.panel",
+  settings: [
+    {
+      id: REST_SETTING,
+      name: "Rest on the result",
+      type: "boolean",
+      defaultValue: true,
+      category: ["🆎 AusBoss", "Image Compare", "Rest on the result"],
+      tooltip:
+        "While the pointer is away, Image Compare A/B shows the result: "
+        + "after every run, and again each time the pointer leaves the "
+        + "picture. Off: it stays on the picture nearest to where the "
+        + "pointer left, and a new run does not change it.",
+      onChange(value) {
+        restOnResult = value !== false;
+      },
+    },
+  ],
+  setup() {
+    // onChange only fires on later edits, so seed from the stored value here.
+    restOnResult = app.ui?.settings?.getSettingValue?.(REST_SETTING) !== false;
+  },
   onNodeOutputsUpdated() {
     setTimeout(() => {
       for (const node of app.graph?._nodes ?? []) if (node?.comfyClass === NODE_NAME) showStoredResult(node);
