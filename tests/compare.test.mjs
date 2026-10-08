@@ -6,6 +6,7 @@ import {
   compareBadges,
   slideFraction,
   compareClip,
+  compareResultSide,
   compareSizeLabel,
   findCompareImages,
   normalizeCompareMode,
@@ -110,4 +111,62 @@ test("A and B sit on either side of the split line and move with it", () => {
   assert.equal(compareBadges(0.05, 400, 22, 5).a, null);
   assert.equal(compareBadges(0.97, 400, 22, 5).b, null);
   assert.deepEqual(compareBadges(0.5, 0), { a: null, b: null });
+});
+
+// A graph as { node id: ids of the nodes wired into it }. A subgraph node
+// also lists, under `subgraphs`, the graph inside it and where each of its
+// outputs comes from in there.
+function view(feeds, subgraphs = {}) {
+  return {
+    feeds: (id) => feeds[id] ?? [],
+    inside(id) {
+      const inner = subgraphs[id];
+      if (!inner) return null;
+      return { ...view(inner.feeds, inner.subgraphs), output: (slot) => inner.outputs[slot] ?? null };
+    },
+  };
+}
+const from = (id, slot = 0) => ({ id, slot });
+
+test("the panel rests on B, the after picture, when nothing says otherwise", () => {
+  // Two loaders, or two samplers side by side: neither is made from the other.
+  assert.equal(compareResultSide(from(1), from(2), view({})), "B");
+  assert.equal(compareResultSide(from(4), from(5), view({ 4: [1, 2], 5: [1, 3] })), "B");
+  // B made from A is the convention itself.
+  assert.equal(compareResultSide(from(1), from(3), view({ 2: [1], 3: [2] })), "B");
+});
+
+test("a result wired to A is found through the links", () => {
+  // loader 1 -> edit 2 -> decode 3: A is the edit, B the picture it started from.
+  const graph = view({ 2: [1, 9], 3: [2] });
+  assert.equal(compareResultSide(from(3), from(1), graph), "A");
+  assert.equal(compareResultSide(from(2), from(1), graph), "A");
+  // An input with no link reads as undefined and is skipped.
+  assert.equal(compareResultSide(from(3), from(1), view({ 2: [undefined, 1], 3: [null, 2] })), "A");
+});
+
+test("both pictures out of one subgraph are told apart inside it", () => {
+  // Subgraph 12 resizes the picture (30), edits it (31 -> 38) and hands out
+  // the edit on output 0 and the resized picture on output 1.
+  const inner = { feeds: { 30: [-10], 31: [30], 38: [31] }, outputs: [from(38), from(30)] };
+  const graph = view({ 12: [1] }, { 12: inner });
+  assert.equal(compareResultSide(from(12, 0), from(12, 1), graph), "A");
+  assert.equal(compareResultSide(from(12, 1), from(12, 0), graph), "B");
+  // The same, one subgraph deeper.
+  const outer = view({}, { 5: { feeds: { 12: [-10] }, subgraphs: { 12: inner }, outputs: [from(12, 0), from(12, 1)] } });
+  assert.equal(compareResultSide(from(5, 0), from(5, 1), outer), "A");
+  // An output that is not wired inside gives nothing to go on.
+  const open = view({}, { 12: { feeds: {}, outputs: [from(38)] } });
+  assert.equal(compareResultSide(from(12, 0), from(12, 1), open), "B");
+});
+
+test("an input with nothing to compare against rests on B", () => {
+  assert.equal(compareResultSide(null, from(1), view({})), "B");
+  assert.equal(compareResultSide(from(1), null, view({})), "B");
+  // Both pictures out of one plain node: no telling which came first.
+  assert.equal(compareResultSide(from(7, 0), from(7, 3), view({ 7: [1] })), "B");
+});
+
+test("a loop in the links does not hang the search", () => {
+  assert.equal(compareResultSide(from(1), from(9), view({ 1: [2], 2: [1] })), "B");
 });

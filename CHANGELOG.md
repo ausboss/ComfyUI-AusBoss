@@ -4,6 +4,14 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Image Compare A/B shows the result when a run finishes.** With the
+  slider on, the node stayed on whichever picture the pointer last left
+  over, so a new result could finish behind the picture you started from.
+  It now shows the result after every run and each time the pointer moves
+  away. The result is B, the "after" picture, or A when your graph makes A
+  out of B's picture, which is how the example workflows are wired. The A
+  and B buttons still hold one picture. Settings → AusBoss → Image Compare
+  → Rest on the result brings the earlier behaviour back.
 - **Tiled Upscale: the report says when your picture is made smaller.**
   Asking for fewer megapixels than the picture has printed "close to the
   picture's own size, ask for more", which is wrong when the picture is
