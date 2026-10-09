@@ -145,6 +145,14 @@ it. The full editor shows it too. The run treats painted parts like the
 padding: it fills them with the fill colour and marks them in the **mask**,
 so under the teal you see the fill colour, not your picture.
 
+**Keeping your picture under the paint.** Some workflows need what was under
+the paint: an inpaint with denoise under 1, or an edit model that has to see
+what it changes. Open the editor and set **Painted area** to **keep**, in the
+**Inpaint & Stitch** section. The **mask** still marks the painted parts, and
+your picture stays under them in **image**, **original** and
+**prompt_image**. The picture on the node still shows the fill colour under
+the teal.
+
 See-through parts of a PNG show in teal the same way, because the node paints
 them too. To hide the teal, click the gear at the top right of the image
 source box and turn off **Show the mask on the picture**. The choice applies
@@ -157,9 +165,10 @@ to every Image Crop + Rotate + Pad in this browser.
 - **mask**: White where the model paints: the padding, the empty corners a turn leaves, and the see-through parts of your picture.
 - **stitcher**: Wire to Stitch Inpaint to restore the kept canvas around an outpaint result, blended into the source by **Blend** (32 px unless changed). It follows the final resized canvas.
 - **original**: your picture before rotation, crop, padding or resize, with
-  see-through parts shown as white.
+  see-through parts shown as white (your picture there when **Painted area**
+  is on keep).
 - **width** / **height**: The output size after the transform and any resize.
-- **prompt_image**: The image again, with see-through parts shown as white instead of the fill colour. Wire it to whatever writes your prompt. It is the same as **image** for a picture with no see-through parts.
+- **prompt_image**: The image again, with see-through parts shown as white instead of the fill colour. Wire it to whatever writes your prompt. It is the same as **image** for a picture with no see-through parts, and when **Painted area** is on keep.
 
 ## See-through pictures
 
@@ -238,6 +247,11 @@ The editor's right side holds the stitcher's settings, the same as on the clip n
   see-through parts included), the feather, then grow and blend applied through any resize.
 - **Advanced → Grow paste** (`stitch_grow`, default 0) moves the paste boundary first:
   a few positive pixels let the generation repaint the source edge when a seam still shows.
+- **Painted area** (`painted_area`, default `fill`): what a part you painted in the
+  MaskEditor is handed on as. **fill**: the fill colour, so the model never sees what was
+  there. **keep** (`keep picture`): your picture stays under the paint and only the mask
+  marks it. See-through parts of a PNG follow the same switch; a cutout usually stores
+  black or its old background there, so leave a cutout on fill.
 
 ## Technical details
 

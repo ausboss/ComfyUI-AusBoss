@@ -171,7 +171,8 @@
       "resize_method",
       "resolution_steps",
       "stitch_blend",
-      "stitch_grow"
+      "stitch_grow",
+      "painted_area"
     ],
     "outputs": [
       [
