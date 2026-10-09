@@ -1,15 +1,15 @@
 {
   "id": "64ab11de-f30b-4148-ba89-aa17264b601e",
   "revision": 0,
-  "last_node_id": 45,
-  "last_link_id": 76,
+  "last_node_id": 47,
+  "last_link_id": 81,
   "nodes": [
     {
       "id": 1,
       "type": "UNETLoader",
       "pos": [
         1004,
-        880
+        920
       ],
       "size": [
         520,
@@ -57,7 +57,7 @@
       "type": "CLIPLoader",
       "pos": [
         1004,
-        576
+        616
       ],
       "size": [
         520,
@@ -107,7 +107,7 @@
       "type": "VAELoader",
       "pos": [
         1004,
-        752
+        792
       ],
       "size": [
         520,
@@ -153,7 +153,7 @@
       "type": "AUSBOSS_NODES_LoraLoader",
       "pos": [
         1004,
-        1032
+        1072
       ],
       "size": [
         520,
@@ -230,7 +230,7 @@
       ],
       "size": [
         424,
-        598
+        526
       ],
       "flags": {},
       "order": 3,
@@ -275,7 +275,7 @@
       "type": "AUSBOSS_NODES_Text",
       "pos": [
         500,
-        748
+        676
       ],
       "size": [
         424,
@@ -315,7 +315,7 @@
       "type": "AUSBOSS_NODES_Seed",
       "pos": [
         500,
-        986
+        1094
       ],
       "size": [
         424,
@@ -360,7 +360,7 @@
       ],
       "size": [
         480,
-        912
+        952
       ],
       "flags": {},
       "order": 11,
@@ -407,7 +407,7 @@
       ],
       "size": [
         480,
-        1015
+        1055
       ],
       "flags": {},
       "order": 13,
@@ -527,7 +527,7 @@
       "type": "AUSBOSS_NODES_RunTimer",
       "pos": [
         2259,
-        1135
+        1175
       ],
       "size": [
         210,
@@ -558,7 +558,7 @@
       ],
       "size": [
         440,
-        791.172
+        871.172
       ],
       "flags": {},
       "order": 7,
@@ -572,10 +572,10 @@
         "ver": "2.3.0"
       },
       "widgets_values": [
-        "{\"v\": 1, \"title\": \"Krea 2 Inpaint Masked\", \"subtitle\": \"Paint over part of a picture, say what goes there, and Krea 2 repaints only that.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image.\\n2. Right-click it, choose **Open in MaskEditor**, and paint over all of what you want changed. Save.\\n3. In **What goes there**, say what should be in the painted area.\\n4. Press **Run**.\\n\\nSay what replaces the area. If you only say what to remove, you can get a flat gray shape.\\n\\nChanging the background? Paint right up to the person or pet you keep, so no strip of the old place is left around them.\\n\\nChange one thing per run. With two separate areas, only one may come out.\\n\\nNeeds AusBoss nodes newer than 2.4.0 (update first).\", \"models\": [{\"name\": \"krea2_turbo_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}, {\"name\": \"krea2_anypaint_rank32.safetensors\", \"dir\": \"loras\", \"size\": \"229 MB\", \"url\": \"https://huggingface.co/yijunwang2/krea2-anypaint/resolve/main/krea2_anypaint_rank32.safetensors\", \"note\": \"by yijunwang2\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_CropForInpaint\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+        "{\"v\": 1, \"title\": \"Krea 2 Inpaint Masked\", \"subtitle\": \"Paint over part of a picture, say what goes there, and Krea 2 repaints only that.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image.\\n2. Right-click it, choose **Open in MaskEditor**, and paint over all of what you want changed. Save.\\n3. In **What goes there**, say what should be in the painted area.\\n4. Press **Run**.\\n\\nSay what replaces the area. If you only say what to remove, you can get a flat gray shape.\\n\\nChanging the background? Paint right up to the person or pet you keep, so no strip of the old place is left around them.\\n\\nChange one thing per run. With two separate areas, only one may come out.\\n\\n**Denoise** is how much of the painted area is replaced. 1 replaces all of it. Around 0.7 the new thing keeps the old shape. At 0.5 and under it stays close to what was there.\\n\\nNeeds AusBoss nodes newer than 2.4.0 (update first).\", \"models\": [{\"name\": \"krea2_turbo_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}, {\"name\": \"krea2_anypaint_rank32.safetensors\", \"dir\": \"loras\", \"size\": \"229 MB\", \"url\": \"https://huggingface.co/yijunwang2/krea2-anypaint/resolve/main/krea2_anypaint_rank32.safetensors\", \"note\": \"by yijunwang2\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_CropForInpaint\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
       ],
       "widgets_values_named": {
-        "note": "{\"v\": 1, \"title\": \"Krea 2 Inpaint Masked\", \"subtitle\": \"Paint over part of a picture, say what goes there, and Krea 2 repaints only that.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image.\\n2. Right-click it, choose **Open in MaskEditor**, and paint over all of what you want changed. Save.\\n3. In **What goes there**, say what should be in the painted area.\\n4. Press **Run**.\\n\\nSay what replaces the area. If you only say what to remove, you can get a flat gray shape.\\n\\nChanging the background? Paint right up to the person or pet you keep, so no strip of the old place is left around them.\\n\\nChange one thing per run. With two separate areas, only one may come out.\\n\\nNeeds AusBoss nodes newer than 2.4.0 (update first).\", \"models\": [{\"name\": \"krea2_turbo_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}, {\"name\": \"krea2_anypaint_rank32.safetensors\", \"dir\": \"loras\", \"size\": \"229 MB\", \"url\": \"https://huggingface.co/yijunwang2/krea2-anypaint/resolve/main/krea2_anypaint_rank32.safetensors\", \"note\": \"by yijunwang2\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_CropForInpaint\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+        "note": "{\"v\": 1, \"title\": \"Krea 2 Inpaint Masked\", \"subtitle\": \"Paint over part of a picture, say what goes there, and Krea 2 repaints only that.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image.\\n2. Right-click it, choose **Open in MaskEditor**, and paint over all of what you want changed. Save.\\n3. In **What goes there**, say what should be in the painted area.\\n4. Press **Run**.\\n\\nSay what replaces the area. If you only say what to remove, you can get a flat gray shape.\\n\\nChanging the background? Paint right up to the person or pet you keep, so no strip of the old place is left around them.\\n\\nChange one thing per run. With two separate areas, only one may come out.\\n\\n**Denoise** is how much of the painted area is replaced. 1 replaces all of it. Around 0.7 the new thing keeps the old shape. At 0.5 and under it stays close to what was there.\\n\\nNeeds AusBoss nodes newer than 2.4.0 (update first).\", \"models\": [{\"name\": \"krea2_turbo_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}, {\"name\": \"krea2_anypaint_rank32.safetensors\", \"dir\": \"loras\", \"size\": \"229 MB\", \"url\": \"https://huggingface.co/yijunwang2/krea2-anypaint/resolve/main/krea2_anypaint_rank32.safetensors\", \"note\": \"by yijunwang2\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_CropForInpaint\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
       },
       "color": "#14424d",
       "bgcolor": "#161f21"
@@ -589,7 +589,7 @@
       ],
       "size": [
         240,
-        66
+        86
       ],
       "flags": {},
       "order": 9,
@@ -612,6 +612,13 @@
           "type": "IMAGE",
           "links": [
             67
+          ]
+        },
+        {
+          "name": "crop",
+          "type": "IMAGE",
+          "links": [
+            78
           ]
         },
         {
@@ -644,7 +651,7 @@
       ],
       "size": [
         240,
-        180
+        220
       ],
       "flags": {},
       "order": 10,
@@ -654,6 +661,11 @@
           "name": "gray-filled crop",
           "type": "IMAGE",
           "link": 67
+        },
+        {
+          "name": "crop",
+          "type": "IMAGE",
+          "link": 78
         },
         {
           "name": "noise mask",
@@ -674,6 +686,11 @@
           "name": "seed",
           "type": "INT",
           "link": 71
+        },
+        {
+          "name": "denoise",
+          "type": "FLOAT",
+          "link": 79
         },
         {
           "name": "text encoder",
@@ -745,6 +762,56 @@
       },
       "color": "#1f2c38",
       "bgcolor": "#2a3b4a"
+    },
+    {
+      "id": 46,
+      "type": "AUSBOSS_NODES_Float",
+      "pos": [
+        500,
+        920
+      ],
+      "size": [
+        424,
+        94
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "value",
+          "type": "FLOAT",
+          "link": null,
+          "widget": {
+            "name": "value"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "float",
+          "type": "FLOAT",
+          "links": [
+            79
+          ]
+        }
+      ],
+      "title": "Float - Denoise",
+      "properties": {
+        "cnr_id": "ausboss-nodes",
+        "ver": "2.4.0",
+        "Node name for S&R": "AUSBOSS_NODES_Float"
+      },
+      "widgets_values": [
+        1.0,
+        ""
+      ],
+      "widgets_values_named": {
+        "value": 1.0,
+        "ausboss_widget_card": ""
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
     }
   ],
   "links": [
@@ -799,17 +866,17 @@
     [
       68,
       34,
-      1,
+      2,
       35,
-      1,
+      2,
       "MASK"
     ],
     [
       69,
       34,
-      2,
+      3,
       35,
-      2,
+      3,
       "AUSBOSS_STITCHER"
     ],
     [
@@ -817,7 +884,7 @@
       21,
       0,
       35,
-      3,
+      4,
       "STRING"
     ],
     [
@@ -825,7 +892,7 @@
       10,
       0,
       35,
-      4,
+      5,
       "INT"
     ],
     [
@@ -833,7 +900,7 @@
       2,
       0,
       35,
-      5,
+      7,
       "CLIP"
     ],
     [
@@ -841,7 +908,7 @@
       3,
       0,
       35,
-      6,
+      8,
       "VAE"
     ],
     [
@@ -849,7 +916,7 @@
       4,
       0,
       35,
-      7,
+      9,
       "MODEL"
     ],
     [
@@ -867,6 +934,22 @@
       20,
       0,
       "STRING"
+    ],
+    [
+      78,
+      34,
+      1,
+      35,
+      1,
+      "IMAGE"
+    ],
+    [
+      79,
+      46,
+      0,
+      35,
+      6,
+      "FLOAT"
     ]
   ],
   "groups": [
@@ -877,7 +960,7 @@
         480,
         0,
         464,
-        1296
+        1336
       ],
       "color": "#1d5560",
       "flags": {}
@@ -889,7 +972,7 @@
         984,
         0,
         560,
-        456
+        496
       ],
       "color": "#1d5560",
       "flags": {}
@@ -899,7 +982,7 @@
       "title": "3 · Models",
       "bounding": [
         984,
-        496,
+        536,
         560,
         800
       ],
@@ -913,7 +996,7 @@
         1584,
         0,
         1040,
-        1296
+        1336
       ],
       "color": "#1d5560",
       "flags": {}
@@ -926,8 +1009,8 @@
         "version": 1,
         "state": {
           "lastGroupId": 97,
-          "lastNodeId": 45,
-          "lastLinkId": 76,
+          "lastNodeId": 47,
+          "lastLinkId": 81,
           "lastRerouteId": 0
         },
         "revision": 0,
@@ -948,7 +1031,7 @@
             1880,
             120,
             128,
-            120
+            140
           ]
         },
         "inputs": [
@@ -995,6 +1078,19 @@
             ]
           },
           {
+            "id": "34b9ce35-534f-4afd-b976-31c4879c1178",
+            "name": "crop",
+            "type": "IMAGE",
+            "linkIds": [
+              77
+            ],
+            "localized_name": "crop",
+            "pos": [
+              24,
+              44
+            ]
+          },
+          {
             "id": "2df23caa-85f7-4642-9dd7-49fdc5c2a044",
             "name": "noise mask",
             "type": "MASK",
@@ -1004,7 +1100,7 @@
             "localized_name": "noise mask",
             "pos": [
               24,
-              44
+              64
             ]
           },
           {
@@ -1017,7 +1113,7 @@
             "localized_name": "stitcher",
             "pos": [
               24,
-              64
+              84
             ]
           }
         ],
@@ -1515,7 +1611,8 @@
                 "name": "image",
                 "type": "IMAGE",
                 "links": [
-                  32
+                  32,
+                  77
                 ]
               },
               {
@@ -1813,7 +1910,7 @@
             "title": "Note",
             "properties": {},
             "widgets_values": [
-              "The painted area, grown a little, is filled with flat gray. Krea 2 never sees what you are replacing."
+              "The painted area, grown a little, is filled with flat gray, so Krea 2 knows where to paint. The plain crop goes along too."
             ],
             "widgets_values_named": {
               "text": "The painted area, grown a little, is filled with flat gray. Krea 2 never sees what you are replacing."
@@ -2030,7 +2127,7 @@
             "origin_id": 28,
             "origin_slot": 0,
             "target_id": -20,
-            "target_slot": 1,
+            "target_slot": 2,
             "type": "MASK"
           },
           {
@@ -2038,7 +2135,7 @@
             "origin_id": 25,
             "origin_slot": 2,
             "target_id": -20,
-            "target_slot": 2,
+            "target_slot": 3,
             "type": "AUSBOSS_STITCHER"
           },
           {
@@ -2056,6 +2153,14 @@
             "target_id": 25,
             "target_slot": 3,
             "type": "INT"
+          },
+          {
+            "id": 77,
+            "origin_id": 25,
+            "origin_slot": 0,
+            "target_id": -20,
+            "target_slot": 1,
+            "type": "IMAGE"
           }
         ],
         "extra": {}
@@ -2065,8 +2170,8 @@
         "version": 1,
         "state": {
           "lastGroupId": 97,
-          "lastNodeId": 45,
-          "lastLinkId": 76,
+          "lastNodeId": 47,
+          "lastLinkId": 81,
           "lastRerouteId": 0
         },
         "revision": 0,
@@ -2078,7 +2183,7 @@
             -260,
             120,
             128,
-            220
+            260
           ]
         },
         "outputNode": {
@@ -2097,13 +2202,25 @@
             "type": "IMAGE",
             "linkIds": [
               35,
-              36,
               37
             ],
             "localized_name": "gray-filled crop",
             "pos": [
               51,
               24
+            ]
+          },
+          {
+            "id": "712ee866-d879-4052-81b7-1d64e636cbd7",
+            "name": "crop",
+            "type": "IMAGE",
+            "linkIds": [
+              36
+            ],
+            "localized_name": "crop",
+            "pos": [
+              51,
+              44
             ]
           },
           {
@@ -2116,7 +2233,7 @@
             "localized_name": "noise mask",
             "pos": [
               51,
-              44
+              64
             ]
           },
           {
@@ -2130,7 +2247,7 @@
             "localized_name": "stitcher",
             "pos": [
               51,
-              64
+              84
             ]
           },
           {
@@ -2143,7 +2260,7 @@
             "localized_name": "request",
             "pos": [
               51,
-              84
+              104
             ]
           },
           {
@@ -2156,7 +2273,20 @@
             "localized_name": "seed",
             "pos": [
               51,
-              104
+              124
+            ]
+          },
+          {
+            "id": "d870b345-3334-41fa-8ac6-e562411bc92c",
+            "name": "denoise",
+            "type": "FLOAT",
+            "linkIds": [
+              80
+            ],
+            "localized_name": "denoise",
+            "pos": [
+              51,
+              144
             ]
           },
           {
@@ -2170,7 +2300,7 @@
             "localized_name": "text encoder",
             "pos": [
               51,
-              124
+              164
             ]
           },
           {
@@ -2185,7 +2315,7 @@
             "localized_name": "vae",
             "pos": [
               51,
-              144
+              184
             ]
           },
           {
@@ -2198,7 +2328,7 @@
             "localized_name": "model",
             "pos": [
               51,
-              164
+              204
             ]
           }
         ],
@@ -2681,6 +2811,14 @@
                   "name": "seed"
                 },
                 "link": 62
+              },
+              {
+                "name": "denoise",
+                "type": "FLOAT",
+                "widget": {
+                  "name": "denoise"
+                },
+                "link": 81
               }
             ],
             "outputs": [
@@ -2911,7 +3049,7 @@
             "title": "Note",
             "properties": {},
             "widgets_values": [
-              "The gray-filled crop is the reference. The noise mask is the grown painted area, widened by 24 px. Krea 2 paints only inside it."
+              "The gray-filled crop is the reference. Painting starts from the plain crop, inside the noise mask: the painted area, widened by 24 px."
             ],
             "widgets_values_named": {
               "text": "The gray-filled crop is the reference. The noise mask is the grown painted area, widened by 24 px. Krea 2 paints only inside it."
@@ -3007,6 +3145,41 @@
             },
             "color": "#1f2c38",
             "bgcolor": "#2a3b4a"
+          },
+          {
+            "id": 47,
+            "type": "Reroute",
+            "pos": [
+              1200,
+              450
+            ],
+            "size": [
+              75,
+              26
+            ],
+            "flags": {},
+            "order": 14,
+            "mode": 0,
+            "inputs": [
+              {
+                "name": "",
+                "type": "*",
+                "link": 80
+              }
+            ],
+            "outputs": [
+              {
+                "name": "",
+                "type": "FLOAT",
+                "links": [
+                  81
+                ]
+              }
+            ],
+            "properties": {
+              "showOutputText": false,
+              "horizontal": false
+            }
           }
         ],
         "groups": [
@@ -3127,7 +3300,7 @@
           {
             "id": 36,
             "origin_id": -10,
-            "origin_slot": 0,
+            "origin_slot": 1,
             "target_id": 8,
             "target_slot": 0,
             "type": "IMAGE"
@@ -3135,7 +3308,7 @@
           {
             "id": 39,
             "origin_id": -10,
-            "origin_slot": 1,
+            "origin_slot": 2,
             "target_id": 9,
             "target_slot": 1,
             "type": "MASK"
@@ -3143,7 +3316,7 @@
           {
             "id": 40,
             "origin_id": -10,
-            "origin_slot": 2,
+            "origin_slot": 3,
             "target_id": 7,
             "target_slot": 1,
             "type": "AUSBOSS_STITCHER"
@@ -3151,7 +3324,7 @@
           {
             "id": 41,
             "origin_id": -10,
-            "origin_slot": 2,
+            "origin_slot": 3,
             "target_id": 13,
             "target_slot": 0,
             "type": "AUSBOSS_STITCHER"
@@ -3159,7 +3332,7 @@
           {
             "id": 27,
             "origin_id": -10,
-            "origin_slot": 3,
+            "origin_slot": 4,
             "target_id": 36,
             "target_slot": 0,
             "type": "STRING"
@@ -3167,7 +3340,7 @@
           {
             "id": 15,
             "origin_id": -10,
-            "origin_slot": 4,
+            "origin_slot": 5,
             "target_id": 37,
             "target_slot": 0,
             "type": "INT"
@@ -3183,7 +3356,7 @@
           {
             "id": 4,
             "origin_id": -10,
-            "origin_slot": 5,
+            "origin_slot": 7,
             "target_id": 6,
             "target_slot": 0,
             "type": "CLIP"
@@ -3191,7 +3364,7 @@
           {
             "id": 5,
             "origin_id": -10,
-            "origin_slot": 6,
+            "origin_slot": 8,
             "target_id": 6,
             "target_slot": 1,
             "type": "VAE"
@@ -3199,7 +3372,7 @@
           {
             "id": 8,
             "origin_id": -10,
-            "origin_slot": 6,
+            "origin_slot": 8,
             "target_id": 8,
             "target_slot": 1,
             "type": "VAE"
@@ -3207,7 +3380,7 @@
           {
             "id": 17,
             "origin_id": -10,
-            "origin_slot": 6,
+            "origin_slot": 8,
             "target_id": 12,
             "target_slot": 1,
             "type": "VAE"
@@ -3215,7 +3388,7 @@
           {
             "id": 2,
             "origin_id": -10,
-            "origin_slot": 7,
+            "origin_slot": 9,
             "target_id": 7,
             "target_slot": 0,
             "type": "MODEL"
@@ -3239,7 +3412,7 @@
           {
             "id": 23,
             "origin_id": -10,
-            "origin_slot": 5,
+            "origin_slot": 7,
             "target_id": 19,
             "target_slot": 0,
             "type": "CLIP"
@@ -3275,6 +3448,22 @@
             "target_id": 6,
             "target_slot": 5,
             "type": "STRING"
+          },
+          {
+            "id": 80,
+            "origin_id": -10,
+            "origin_slot": 6,
+            "target_id": 47,
+            "target_slot": 0,
+            "type": "FLOAT"
+          },
+          {
+            "id": 81,
+            "origin_id": 47,
+            "origin_slot": 0,
+            "target_id": 11,
+            "target_slot": 5,
+            "type": "FLOAT"
           }
         ],
         "extra": {}

@@ -4,6 +4,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Krea 2 Inpaint Masked example: Denoise works.** Lowering denoise used
+  to leave a flat gray patch where you painted. The example now starts from
+  your picture, and a new **Denoise** box sits under your request: 1
+  replaces the painted area, around 0.7 the new thing keeps the old shape,
+  and at 0.5 and under it stays close to what was there. At 1 the result is
+  the same as before.
 - **Image Compare A/B shows the result when a run finishes.** With the
   slider on, the node stayed on whichever picture the pointer last left
   over, so a new result could finish behind the picture you started from.
