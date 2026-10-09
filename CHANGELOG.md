@@ -4,6 +4,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Workflow Switches keeps hold of a LoRA row whose file is in a subfolder.**
+  A switch that turns a LoRA Loader row on and off lost that row once
+  Refresh, or the loader's re-check button, had given the row the folder its
+  file is in. From then on the switch left the row as it was and its card
+  read "changed". It now knows a row by its file name, whatever folder is in
+  front of it.
 - **Image Crop + Rotate + Pad: keep your picture under a painted mask.**
   A part you paint in the MaskEditor was always handed on as flat fill. A
   new **Painted area** switch, in the editor's Inpaint & Stitch section,
