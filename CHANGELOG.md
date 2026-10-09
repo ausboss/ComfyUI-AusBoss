@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.10.0 - 2026-10-09
 
 - **Workflow Switches keeps hold of a LoRA row whose file is in a subfolder.**
   A switch that turns a LoRA Loader row on and off lost that row once
