@@ -37,8 +37,17 @@ from nodes import _video_load_helpers, node_load_video
 
 
 def core_video_api_available() -> bool:
-    """True when ComfyUI's comfy_api video types import in this interpreter."""
+    """True when ComfyUI's comfy_api video types import in this interpreter.
+
+    ComfyUI goes into CPU mode first. The decode loop checks for a cancel
+    through comfy.model_management, which claims the GPU as it is imported;
+    these tests need no card, so CPU mode keeps them off it and lets them run
+    with the GPU hidden (CUDA_VISIBLE_DEVICES="").
+    """
     try:
+        import comfy.cli_args
+
+        comfy.cli_args.args.cpu = True
         import comfy_api.input_impl  # noqa: F401
     except Exception:
         return False
