@@ -13,7 +13,7 @@
 // listeners here hand it to the node under the pointer.
 import { app } from "/scripts/app.js";
 import {
-  dragCarriesFiles, graphDragStarts, panelKeepsWheel, panelNeedsDropHelp, panelRoot,
+  dragCarriesFiles, graphDragStarts, panelHost, panelKeepsWheel, panelNeedsDropHelp, panelRoot,
 } from "../shared/canvas_passthrough.mjs";
 import { showToast } from "../shared/index.mjs";
 
@@ -30,7 +30,7 @@ function onWheel(event) {
   const root = panelRoot(target);
   const lgCanvas = canvas();
   if (!root || !lgCanvas || event.defaultPrevented) return;
-  if (panelKeepsWheel(target, event, { root, styleOf: (el) => getComputedStyle(el), activeElement: document.activeElement })) return;
+  if (panelKeepsWheel(target, event, { root, host: panelHost(target), styleOf: (el) => getComputedStyle(el), activeElement: document.activeElement })) return;
   event.preventDefault();
   lgCanvas.processMouseWheel(event);
 }
