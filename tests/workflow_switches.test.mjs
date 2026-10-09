@@ -392,6 +392,30 @@ test("a setting reads on, off or neither, and a stack row is changed in place", 
   assert.equal(pairValue(row, "on", "gone"), "gone");
 });
 
+test("a stack row is still the same row after the LoRA Loader gives it the folder its file is in", () => {
+  const row = { node: "22", widget: "loras", row: "turbo.safetensors", on: { enabled: true, strength: 1 }, off: { enabled: false, strength: 1 } };
+  // What a refresh writes when the file sits in models/loras/qwen: the row's name gains the folder.
+  const named = (name, turbo) => STACK(turbo).replace('"turbo.safetensors"', JSON.stringify(name));
+  const moved = (turbo) => named("qwen/turbo.safetensors", turbo);
+  assert.deepEqual([moved(true), moved(false)].map((now) => pairNow(row, now)), ["on", "off"]);
+  assert.equal(pairValue(row, "off", moved(true)), moved(false));
+  assert.equal(pairValue(row, "on", moved(false)), moved(true));
+  // Another separator, letter case or model extension is the same file, as it is to the loader.
+  assert.deepEqual(["Qwen\\Turbo.safetensors", "qwen/turbo.sft"].map((name) => pairNow(row, named(name, true))), ["on", "on"]);
+  // A switch made while the row had its folder finds the plain name again.
+  assert.equal(pairNow({ ...row, row: "qwen/turbo.safetensors" }, STACK(false)), "off");
+  // Its two sides saved before and after the move still pair up.
+  assert.deepEqual(valuePairs({ on: { 22: { loras: STACK(true) } }, off: { 22: { loras: moved(false) } } }), [row]);
+  // Two rows with that file name: only the exact name counts, nothing is guessed.
+  const twice = JSON.stringify([
+    { name: "a/turbo.safetensors", strength: 1, enabled: true, triggers: "" },
+    { name: "b/turbo.safetensors", strength: 1, enabled: false, triggers: "" },
+  ]);
+  assert.equal(pairNow(row, twice), "other");
+  assert.equal(pairValue(row, "off", twice), twice);
+  assert.equal(pairNow({ ...row, row: "b/turbo.safetensors" }, twice), "off");
+});
+
 test("a made switch that changes settings reads them from the graph and never turns those nodes off", () => {
   let settings = addSwitch(normalizeSettings({}), { title: "Fast", nodes: [21, 22] }).settings;
   // Saving a side moves the node from "turn off" to "change its settings".

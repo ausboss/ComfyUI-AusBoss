@@ -304,6 +304,22 @@ export function stackRows(value) {
   return rows.every(isRow) ? rows : null;
 }
 
+// A stack row is known by its file name, not by the folder in front of it:
+// the LoRA Loader rewrites a row to the path it found the file at
+// ("qwen/turbo.safetensors") on a refresh, and reads names the same way
+// (resolveLoraName in lora_stack.mjs). The exact name wins; otherwise the one
+// row with that file name. Two rows with one file name are never guessed at.
+const fileKey = (name) =>
+  String(name).split("/").pop().split("\\").pop().toLowerCase().replace(/\.(safetensors|sft|ckpt|pt)$/, "");
+
+function findRow(rows, name) {
+  const exact = rows.find((row) => row.name === name);
+  if (exact) return exact;
+  const wanted = fileKey(name);
+  const same = rows.filter((row) => fileKey(row.name) === wanted);
+  return same.length === 1 ? same[0] : undefined;
+}
+
 function rowSetting(row) {
   const strength = Number(row.strength);
   return { enabled: Boolean(row.enabled), strength: Number.isFinite(strength) ? strength : null };
@@ -333,7 +349,7 @@ export function valuePairs(entry) {
         continue;
       }
       for (const row of onRows) {
-        const other = offRows.find((candidate) => candidate.name === row.name);
+        const other = findRow(offRows, row.name);
         if (!other) continue;
         const [a, b] = [rowSetting(row), rowSetting(other)];
         if (!sameSetting(a, b)) pairs.push({ node: id, widget, row: row.name, on: a, off: b });
@@ -346,7 +362,8 @@ export function valuePairs(entry) {
 // Where a setting stands now: at its on value, its off value, or neither.
 export function pairNow(pair, current) {
   if (pair.row === undefined) return current === pair.on ? "on" : current === pair.off ? "off" : "other";
-  const row = stackRows(current)?.find((candidate) => candidate.name === pair.row);
+  const rows = stackRows(current);
+  const row = rows && findRow(rows, pair.row);
   if (!row) return "other";
   const now = rowSetting(row);
   return sameSetting(now, pair.on) ? "on" : sameSetting(now, pair.off) ? "off" : "other";
@@ -359,8 +376,9 @@ export function pairValue(pair, side, current) {
   if (pair.row === undefined) return want;
   const rows = stackRows(current);
   if (!rows) return current;
+  const target = findRow(rows, pair.row);
   return JSON.stringify(rows.map((row) => {
-    if (row.name !== pair.row) return row;
+    if (row !== target) return row;
     return want.strength === null ? { ...row, enabled: want.enabled } : { ...row, enabled: want.enabled, strength: want.strength };
   }));
 }
