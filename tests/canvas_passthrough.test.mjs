@@ -63,6 +63,63 @@ test("only the pack's own panels count, in both node renderers", () => {
   assert.equal(panelRoot(null), null);
 });
 
+test("a pointer on the classic wrapper is over the panel inside it", () => {
+  // A panel lets the mouse through where it has nothing to click: a preview
+  // picture, the text of a note, the padding of a card. The frontend's
+  // .dom-widget wrapper takes the mouse there, so the wheel arrives on the
+  // wrapper with no panel between it and the pointer, and the graph stopped
+  // zooming over the Save Image picture, the Callout's text and the strip
+  // under the last Workflow Switches row.
+  const wrapper = (className, ...children) => {
+    const host = { tagName: "DIV", className, children: children.map((child) => ({ className: child })), parentElement: null };
+    const classic = className.split(" ").includes("dom-widget");
+    host.closest = (sel) => (sel === ".dom-widget, .lg-node-widgets" || (sel === ".dom-widget" && classic) ? host : null);
+    host.matches = (sel) => sel === ".dom-widget" && classic;
+    return host;
+  };
+  const classic = wrapper("dom-widget size-full", "ausboss-callout");
+  assert.equal(panelRoot(classic), classic.children[0], "the wrapper of one of the pack's panels");
+  assert.equal(panelNeedsDropHelp(classic), true, "a file dropped there goes to the node too");
+  assert.equal(panelRoot(wrapper("dom-widget size-full", "comfy-multiline-input")), null, "the wrapper of a core widget");
+  assert.equal(panelRoot(wrapper("dom-widget size-full")), null, "an empty wrapper");
+  assert.equal(panelRoot(wrapper("lg-node-widgets grid", "ausboss-card")), null, "Nodes 2.0 hands the wheel on by itself");
+  // Nothing inside the panel is under the pointer, so nothing keeps the
+  // wheel, whatever the page around the wrapper can scroll.
+  classic.parentElement = { tagName: "DIV", scrollHeight: 300, clientHeight: 100, scrollTop: 0, parentElement: null };
+  const ctx = { root: classic.children[0], host: classic, styleOf: () => ({ overflowY: "auto" }), activeElement: null };
+  assert.equal(panelKeepsWheel(classic, { deltaY: 100 }, ctx), false);
+});
+
+// Each place under js/ that listens for the wheel, as "file target".
+function wheelListeners(js) {
+  const files = readdirSync(js, { recursive: true }).map(String).filter((file) => /\.m?js$/.test(file)).map((file) => file.replaceAll("\\", "/"));
+  const found = [];
+  for (const file of files) {
+    for (const match of readFileSync(join(js, file), "utf-8").matchAll(/([\w.$]+)\.addEventListener\(\s*"wheel"/g)) found.push(`${file} ${match[1]}`);
+  }
+  return found.sort();
+}
+
+test("only the listed parts of the pack listen for the wheel", () => {
+  // Every wheel turn over a node zooms the graph unless one of these has a
+  // use for it. A new listener goes on this list with its reason, once
+  // scripts/dev/wheel_sweep.mjs shows the graph still zooms over the whole
+  // face of the node.
+  const js = join(dirname(fileURLToPath(import.meta.url)), "..", "js");
+  const listed = [
+    "callout/index.js wrap", // the text box while a note is being edited
+    "canvas_passthrough/index.js window", // hands the wheel to the graph
+    "image_folder/index.js root", // the copy question, a window over the page
+    "image_folder/index.js root", // the folder list, a window over the page
+    "shared/discard_prompt.mjs backdrop", // the keep or discard question
+    "shared/media_picker.mjs window", // closes its list when the graph moves
+    "shared/transform_editor.mjs canvas", // the full-screen editor zooms its picture
+    "shared/widget_card.mjs area", // a text box scrolls its own text first
+    "workflow_note/index.js overlay", // the note editor, a window over the page
+  ];
+  assert.deepEqual(wheelListeners(js), listed);
+});
+
 test("a drag from the desktop carries files; a row dragged inside a panel does not", () => {
   assert.equal(dragCarriesFiles({ dataTransfer: { types: ["Files"] } }), true);
   assert.equal(dragCarriesFiles({ dataTransfer: { types: ["text/plain", "Files"] } }), true);

@@ -41,6 +41,7 @@ recipe.
   | `cdp.mjs <port> <workflow.json\|-> <out.png\|-> [eval.js] [waitMs]` | opens/reuses the Comfy tab, optionally loads a workflow, evaluates a JS file, screenshots (a returned `__clip` rect clips the shot), prints the eval result as JSON |
   | `cdp_drag.mjs <port> <setup.js> <mid.png\|-> <after.png\|-> [check.js]` | `setup.js` returns `{from, to, __clip}` in client pixels; presses at `from`, moves to `to`, screenshots mid-drag, releases, evaluates `check.js`, screenshots again |
   | `audit_workflows.mjs <port> <output-dir> [workflow.json ...]` | loads every example (or selected files), exports API and loaded graphs, captures screenshots, and fails on overlaps, missing nodes, browser exceptions, or exposed AusBoss number widgets |
+  | `wheel_sweep.mjs <port> [--vue] [--only=Type,Type] [--workflow=file.json] [--shots=dir]` | turns the mouse wheel at every point of every node of the pack (or of the nodes in one workflow) and fails on any spot where the graph does not zoom, naming the element that took the wheel; `--real` sends real wheel turns, slower and on a coarser grid |
   | `cdp_nav_debug.mjs <port>` | navigates the tab in place and logs every CDP event, for when a tab stops answering |
   | `cdp_hang.mjs <port>` | pre-arms the debugger on a fresh tab, loads ComfyUI, and pauses to print the stack if the page stops answering |
 
@@ -89,3 +90,5 @@ taken during the drag, and `_after`, the result.
    value otherwise.
 5. Save, reload (fresh tab), and confirm links, values and hidden state.
 6. The preview switch on and off where the node has one.
+7. The wheel zooms the graph over every part of the face:
+   `wheel_sweep.mjs`, once plain and once with `--vue`.

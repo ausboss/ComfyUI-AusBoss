@@ -2,6 +2,15 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **The mouse wheel zooms the graph everywhere on a node again.** Over a
+  preview picture, the text of a Callout or the edge of a card, the wheel
+  did nothing: you had to move the pointer off the node to zoom. Dragging
+  with the middle button to move the graph was blocked in the same spots.
+  It happened in the classic node view only, on 33 of the pack's 41 nodes.
+  Both now work over the whole node.
+
 ## 2.10.0 - 2026-10-09
 
 - **Workflow Switches keeps hold of a LoRA row whose file is in a subfolder.**

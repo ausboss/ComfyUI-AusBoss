@@ -19,9 +19,10 @@ export function canScrollFurther(element, deltaY) {
 
 // Does the wheel belong to something inside the panel, between the target
 // and the panel's own root? `styleOf` is getComputedStyle, passed in so this
-// stays testable without a page.
-export function panelKeepsWheel(target, event, { root, styleOf, activeElement }) {
-  for (let element = target; element && element !== root; element = element.parentElement) {
+// stays testable without a page. `host` is the frontend's wrapper around the
+// panel: a pointer on the wrapper itself is on nothing inside the panel.
+export function panelKeepsWheel(target, event, { root, host, styleOf, activeElement }) {
+  for (let element = target; element && element !== root && element !== host; element = element.parentElement) {
     const tag = String(element.tagName ?? "").toUpperCase();
     if ((tag === "TEXTAREA" || tag === "INPUT") && element === activeElement) return true;
     const overflow = styleOf(element)?.overflowY;
@@ -38,18 +39,35 @@ export function graphDragStarts(event, { dragZoomEnabled }) {
   return Boolean(dragZoomEnabled && event.ctrlKey && event.shiftKey && !event.altKey && event.buttons);
 }
 
-// Where one of the pack's panels sits: the frontend wraps every classic DOM
-// widget in a .dom-widget, and in Nodes 2.0 (Vue nodes) a panel sits inside the
-// node's .lg-node-widgets. The pack's panels all carry an "ausboss-" class on
-// their root. Returns that root (the outermost "ausboss-" element under the
-// wrapper), or null for anything that is not one of ours (core's own text
-// boxes forward the wheel themselves).
+const WRAPPERS = ".dom-widget, .lg-node-widgets";
+const isOurs = (element) => String(element?.className ?? "").includes("ausboss-");
+
+// The frontend's wrapper around the widget a pointer is on: every classic DOM
+// widget sits in a .dom-widget, and in Nodes 2.0 (Vue nodes) a panel sits
+// inside the node's .lg-node-widgets.
+export function panelHost(target) {
+  return target?.closest?.(WRAPPERS) ?? null;
+}
+
+// Where one of the pack's panels sits. The pack's panels all carry an
+// "ausboss-" class on their root. Returns that root (the outermost "ausboss-"
+// element under the wrapper), or null for anything that is not one of ours
+// (core's own text boxes forward the wheel themselves).
+//
+// Most panels let the mouse through wherever they have nothing to click: a
+// preview picture, the text of a note, the padding of a card. In the classic
+// renderer the pointer then lands on the .dom-widget wrapper itself, which
+// takes the mouse and hands nothing on. That wrapper holds one widget, so a
+// pointer on it is over that widget's panel.
 export function panelRoot(target) {
-  const host = target?.closest?.(".dom-widget, .lg-node-widgets");
+  const host = panelHost(target);
   if (!host) return null;
   let root = null;
   for (let element = target; element && element !== host; element = element.parentElement) {
-    if (String(element.className).includes("ausboss-")) root = element;
+    if (isOurs(element)) root = element;
+  }
+  if (!root && target === host && target.matches?.(".dom-widget")) {
+    root = Array.from(host.children ?? []).find(isOurs) ?? null;
   }
   return root;
 }

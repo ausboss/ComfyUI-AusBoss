@@ -142,6 +142,13 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   `chainCallback` from `js/shared/index.mjs`, or `chainHandler` where the
   return value matters (a truthy `onMouseDown` result is what stops a node
   drag). Messages to the user go through `showToast`, never `alert()`.
+- The mouse wheel over a node zooms the graph, on every part of its face.
+  `js/canvas_passthrough/` hands the wheel on from the pack's panels, and
+  keeps it only for a box that can still scroll or a field being typed in,
+  so a panel adds no wheel listener of its own
+  (`tests/canvas_passthrough.test.mjs` lists the few that exist). After a
+  change to a node face, `scripts/dev/wheel_sweep.mjs` turns the wheel at
+  every point of every node and must find no dead spot, in both renderers.
 - Every INT and FLOAT a public node exposes reaches the user as a scrub
   control, Adobe-style: drag the value to scrub, click to type, chevron
   arrows step, Shift is always the fine step. Use `makeScrubInput` from
