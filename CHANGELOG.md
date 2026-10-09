@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.10.1 - 2026-10-09
 
 - **The mouse wheel zooms the graph everywhere on a node again.** Over a
   preview picture, the text of a Callout or the edge of a card, the wheel
