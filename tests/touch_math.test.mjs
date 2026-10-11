@@ -4,10 +4,14 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   BRUSH_RADIUS,
   OUTLINE,
+  OWN_LOADERS,
   PIECES_PER_PLANE,
   STROKE_MAX_POINTS,
   TINT,
@@ -27,6 +31,7 @@ import {
   fineMade,
   fineMask,
   growMask,
+  loaderSignature,
   maskShare,
   nameShown,
   packPlanes,
@@ -763,4 +768,47 @@ test("a name is shown only when SAM 3 is sure of it, and surer still for a big t
   assert.equal(nameShown(0.9, 0.3), true);
   assert.equal(nameShown(0.85, 0.29), true);
   assert.equal(nameShown(undefined, undefined), false);
+});
+
+test("the pack's own picture loaders are the ones the node runs by itself", () => {
+  assert.deepEqual([...OWN_LOADERS].sort(), ["AUSBOSS_NODES_ImageCropRotatePad", "AUSBOSS_NODES_LoadImagePad"]);
+  // A core Load Image is not in the list: its file is the picture, and the node shows it without a run.
+  assert.equal(OWN_LOADERS.has("LoadImage"), false);
+});
+
+test("a loader's file and settings make one text, and another text means another picture", () => {
+  const widgets = (over = {}) => [
+    { name: "image", value: "photo.png" },
+    { name: "rotation_degrees", value: 0 },
+    { name: "crop_width", value: 0 },
+    { name: "resize_to_megapixels", value: false },
+    // What is only drawn carries no setting: a panel, a card, a button.
+    { name: "ausboss_panel", value: "", serialize: false },
+    { name: "upload", value: {} },
+    { value: 3 },
+    null,
+  ].map((widget) => (widget && over[widget.name] !== undefined ? { ...widget, value: over[widget.name] } : widget));
+  const base = loaderSignature(widgets());
+  assert.equal(base, '[["image","photo.png"],["rotation_degrees",0],["crop_width",0],["resize_to_megapixels",false]]');
+  assert.equal(loaderSignature(widgets()), base);
+  assert.notEqual(loaderSignature(widgets({ image: "other.png" })), base);
+  assert.notEqual(loaderSignature(widgets({ crop_width: 512 })), base);
+  assert.notEqual(loaderSignature(widgets({ rotation_degrees: 90 })), base);
+  assert.equal(loaderSignature(undefined), "[]");
+});
+
+test("the node asks for its own loader's picture only in answer to the person, never while a workflow opens", () => {
+  const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+  const stage = readFileSync(join(root, "js", "shared", "touch_stage.mjs"), "utf-8");
+  const show = stage.slice(stage.indexOf("function showOwnPicture"), stage.indexOf("function followOwnLoader"));
+  // the same run the Show picture button asks for
+  assert.match(show, /requestRun\(face, "scope"\)/);
+  // never with the look-on-button setting, never over picks that wait for their own press
+  assert.match(show, /face\.host\.lookOnButton\?\.\(\)/);
+  assert.match(show, /face\.pic && face\.held > 0/);
+  const follow = stage.slice(stage.indexOf("function followOwnLoader"), stage.indexOf("const OTHER_PICTURE"));
+  assert.match(follow, /!face\.host\.loading\?\.\(\)/);
+  assert.match(stage, /if \(!face\.host\.loading\?\.\(\)\) followOwnLoader\(face, true\)/);
+  const host = readFileSync(join(root, "js", "mask_by_touch", "index.js"), "utf-8");
+  assert.match(host, /loading: \(\) => Boolean\(app\.configuringGraph\)/);
 });

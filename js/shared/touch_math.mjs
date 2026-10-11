@@ -35,6 +35,25 @@ const TYPES = new Set(["tap", "name", "find", "paint", "all", "subject", "backgr
 // A word for SAM 3 is cut to this length.
 export const NAME_MAX = 60;
 
+// The pack's own picture loaders. One of them wired straight into Mask by
+// Touch is run by the node itself, the way a press on Show picture runs it:
+// it may crop, turn or pad its file, so the file alone is not the picture,
+// but running it costs next to nothing.
+export const OWN_LOADERS = new Set(["AUSBOSS_NODES_ImageCropRotatePad", "AUSBOSS_NODES_LoadImagePad"]);
+
+// What a loader will hand on, as far as the page can tell: its file and its
+// settings, as one text. Another text means another picture. Widgets that
+// are only drawn (a panel, a card) carry no setting and are left out.
+export function loaderSignature(widgets) {
+  const settings = [];
+  for (const widget of widgets ?? []) {
+    if (!widget || widget.serialize === false || typeof widget.name !== "string") continue;
+    const value = widget.value;
+    if (value === null || ["string", "number", "boolean"].includes(typeof value)) settings.push([widget.name, value]);
+  }
+  return JSON.stringify(settings);
+}
+
 // A word as the node sends it to SAM 3: commas, colons and brackets are the
 // text reader's own syntax and go; spaces are collapsed.
 export function cleanWord(word) {

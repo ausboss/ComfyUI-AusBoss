@@ -39,6 +39,10 @@ All notable changes to ComfyUI-AusBoss are documented here.
   that loads the SAM 3 file. Subject, Background and Fine edges use
   ComfyUI's own background-removal model (`birefnet.safetensors`, ComfyUI
   0.21 or newer); the help page says where to get it.
+  With a Load Image, or the pack's own Image Crop + Rotate + Pad or Load
+  Image + Pad, wired straight in, the picture shows on the node by itself
+  once you choose a file; with anything else before it, one press on Show
+  picture brings it up.
 - **LoRA Loader: add a whole folder from + LoRA.** Files are grouped by
   folder in the picker. Click a file to add one, or a folder name to add
   all its LoRAs, including nested folders. Separate arrows collapse and
