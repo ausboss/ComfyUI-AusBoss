@@ -20,13 +20,10 @@ import {
   MUTE_MODE,
   STRENGTH_MAX,
   STRENGTH_MIN,
+  appendFolderRows,
   clampHighlight,
-  commonFolderPrefix,
-  filterLoras,
   fitLoraLabel,
   formatFileSize,
-  groupByFolder,
-  highlightedName,
   hoverRowIndex,
   applyTemplate,
   cycleMasterToggle,
@@ -35,6 +32,9 @@ import {
   importSummary,
   isScrubbing,
   loaderLoraEntries,
+  loraFolders,
+  loraPickerEntries,
+  loraStackKeyAction,
   collectUpstreamLoaders,
   collectDownstreamLoaders,
   absorbChainIssue,
@@ -206,8 +206,12 @@ function installStyles() {
   .ausboss-lora-bargroup, .ausboss-lora-stack,
   .ausboss-lora-actions { pointer-events: auto; }
   .ausboss-lora-row { flex: none; display: flex; align-items: center; gap: 6px; height: ${ROW_HEIGHT}px; }
-  .ausboss-lora-row.off { opacity: 0.45; }
+  .ausboss-lora-row:focus-visible { outline: 2px solid ${BRAND}; outline-offset: 1px; border-radius: 4px; }
+  /* An off row dims its controls, not itself: the row's own opacity would
+     dim the focus outline with them. A dragged row is dimmed as one piece. */
+  .ausboss-lora-row.off > * { opacity: 0.45; }
   .ausboss-lora-row.dragging { opacity: 0.55; }
+  .ausboss-lora-row.dragging > * { opacity: 1; }
   .ausboss-lora-grip { width: 14px; height: 24px; border: none; background: transparent;
     color: #5c646c; cursor: grab; flex: none; padding: 0; display: grid; place-items: center;
     touch-action: none; }
@@ -309,7 +313,20 @@ function installStyles() {
     scrollbar-gutter: stable; }
   .ausboss-lora-option { padding: 5px ${OPTION_PAD_X}px; border-radius: 4px; cursor: pointer;
     overflow: hidden; }
-  .ausboss-lora-option.highlight { background: #2c3238; }
+  .ausboss-lora-folder-option, .ausboss-lora-folder { display: flex; align-items: center;
+    gap: 6px; font-weight: 600; padding-top: 2px; padding-bottom: 2px; }
+  .ausboss-lora-folder { padding-right: ${OPTION_PAD_X}px; color: #9ba2aa; }
+  .ausboss-lora-folder-option .ausboss-lora-label, .ausboss-lora-folder .ausboss-lora-label {
+    flex: 1 1 auto; min-width: 0; }
+  .ausboss-lora-folder-toggle { flex: none; width: 24px; height: 24px; display: grid;
+    place-items: center; padding: 0; border: none; border-radius: 4px; background: transparent;
+    color: #9ba2aa; cursor: pointer; }
+  .ausboss-lora-folder-toggle:hover { background: #3a4047; color: ${BRAND}; }
+  .ausboss-lora-folder-toggle:focus-visible { outline: 2px solid #9becf5; outline-offset: -2px; }
+  .ausboss-lora-folder-toggle[aria-expanded="false"] svg { transform: rotate(-90deg); }
+  .ausboss-lora-folder-count { flex: none; color: #9ba2aa; font-size: 11px; }
+  .ausboss-lora-picker-note { padding: 0 10px 8px; color: #9ba2aa; font-size: 11px; }
+  .ausboss-lora-option.highlight, .ausboss-lora-folder-option:hover { background: #2c3238; }
   .ausboss-lora-option.current { color: ${BRAND}; }
   .ausboss-lora-empty { padding: 10px; color: #9ba2aa; font-style: italic; }
   .ausboss-lora-menu { min-width: 140px; padding: 4px; }
@@ -321,8 +338,8 @@ function installStyles() {
     background: transparent; color: inherit; padding: 6px 8px; border-radius: 4px; cursor: pointer; }
   .ausboss-lora-menu > button:hover:not(:disabled) { background: #2c3238; }
   .ausboss-lora-menu button:disabled { opacity: 0.35; cursor: default; }
-  .ausboss-lora-menu > button.ausboss-lora-danger { color: #ff8585;
-    border-top: 1px solid #574047; margin-top: 6px; padding-top: 8px; }
+  .ausboss-lora-menu > button.ausboss-lora-danger { color: #ff8585; }
+  .ausboss-lora-menu > button.ausboss-lora-delete-all { border-top: 1px solid #574047; margin-top: 6px; padding-top: 8px; }
   .ausboss-lora-templates { min-width: 240px; padding: 8px; gap: 6px; display: flex;
     flex-direction: column; }
   .ausboss-lora-template-row { display: flex; align-items: center; gap: 4px; }
@@ -450,8 +467,12 @@ function hideWidget(widget) {
 
 async function fetchLoraList() {
   const response = await api.fetchApi("/ausboss/lora/list");
+  if (!response.ok) throw new Error("Could not list LoRAs.");
   const data = await response.json();
-  return Array.isArray(data.loras) ? data.loras : [];
+  if (!Array.isArray(data.loras) || data.loras.some((name) => typeof name !== "string")) {
+    throw new Error("Could not list LoRAs.");
+  }
+  return data.loras;
 }
 
 // One shared popup slot: opening any popup closes the previous one, and every
@@ -515,7 +536,7 @@ function hideHoverThumb() {
   hoverThumb.style.display = "none";
 }
 
-function openPopup(element, anchorRect, { width } = {}) {
+function openPopup(element, anchorRect, { width, onEscape } = {}) {
   closePopup();
   const abort = new AbortController();
   element.classList.add("ausboss-lora-pop");
@@ -540,7 +561,7 @@ function openPopup(element, anchorRect, { width } = {}) {
   );
   window.addEventListener(
     "keydown",
-    (event) => { if (event.key === "Escape") { event.stopPropagation(); closePopup(); } },
+    (event) => { if (event.key === "Escape") { event.stopPropagation(); closePopup(); onEscape?.(); } },
     { capture: true, signal: abort.signal }
   );
   activePopup = { element, abort };
@@ -686,6 +707,9 @@ function strengthBox(state, index, key) {
     ? "Model strength. Drag left/right to scrub, click to type, arrows to step. Shift = fine."
     : "CLIP strength. Drag left/right to scrub, click to type, arrows to step. Shift = fine.";
   input.readOnly = true;
+  input.dataset.ausbossStrength = key;
+  // A short name; the tooltip above stays as the longer description.
+  input.setAttribute("aria-label", key === "strength" ? "Model strength" : "CLIP strength");
   input.__ausbossRead = () => state.rows[index]?.[key].toFixed(2) ?? "1.00";
   input.__ausbossTint = () => state.rows[index] && applyRangeTint(input, state.rows[index], key);
   ensureRange(state, state.rows[index].name);
@@ -778,6 +802,25 @@ function strengthBox(state, index, key) {
 // jumping when the list arrives.
 let widestPickerLabel = 0;
 
+// Folder browsing is a local preference, shared by the node's add/replace
+// pickers. It never changes the workflow or enters its undo history.
+const COLLAPSED_FOLDERS_KEY = "AusBoss.lora_loader.collapsedFolders";
+let rememberedCollapsedFolders = new Set();
+
+function loadCollapsedFolders() {
+  try {
+    const raw = window.localStorage?.getItem(COLLAPSED_FOLDERS_KEY);
+    const stored = raw == null ? null : JSON.parse(raw);
+    if (Array.isArray(stored)) rememberedCollapsedFolders = new Set(stored.filter((name) => typeof name === "string"));
+  } catch {}
+  return rememberedCollapsedFolders;
+}
+
+function saveCollapsedFolders(folders) {
+  rememberedCollapsedFolders = folders;
+  try { window.localStorage?.setItem(COLLAPSED_FOLDERS_KEY, JSON.stringify([...folders])); } catch {}
+}
+
 function widestLabel(labels) {
   const context = measureCanvas();
   if (!context) return 0;
@@ -787,44 +830,148 @@ function widestLabel(labels) {
   return widest;
 }
 
-function openPicker(state, index, anchor) {
+function openPicker(state, index, anchor, { keyboard = false } = {}) {
+  // + LoRA adds only after a choice, so cancelling leaves no empty row and
+  // a whole folder is one undo step. A row's own picker replaces one file.
+  const adding = index == null;
+  // Focus goes back to the stack only when the picker was opened from the
+  // keyboard. Opened or answered with the mouse, it leaves the keys alone.
+  const backToStack = (target) => { if (keyboard) focusStackRow(state, target); };
   const pop = el("div");
   const search = el("input", "ausboss-lora-search");
   search.placeholder = "Search LoRAs...";
+  search.setAttribute("aria-label", "Search LoRAs");
   const list = el("div", "ausboss-lora-list");
   list.append(el("div", "ausboss-lora-empty", "Loading..."));
   pop.append(search, list);
+  if (adding) pop.append(el("div", "ausboss-lora-picker-note",
+    "Use the arrows to fold folders. Click a file to add one, or a folder name to add all, including nested folders. Skips files already in this stack."));
   const anchorRect = anchor.getBoundingClientRect();
   const fitWidth = () => pickerWidth(widestPickerLabel, anchorRect.width, window.innerWidth);
-  const { place } = openPopup(pop, anchorRect, { width: fitWidth() });
+  const originalRowId = state.rows[index]?.id;
+  const { place } = openPopup(pop, anchorRect, {
+    width: fitWidth(),
+    onEscape: () => backToStack(adding ? state.rows.length
+      : state.rows.findIndex((row) => row.id === originalRowId)),
+  });
   search.focus();
 
   let names = [];
-  let filtered = [];
+  let folders = new Map();
+  let options = [];
+  let loadError = false;
   let highlight = -1;
+  const collapsedFolders = loadCollapsedFolders();
+  // Search reveals matches without losing the user's usual folded view.
+  let searchCollapsed = new Set();
+  const currentFolds = () => search.value.trim() ? searchCollapsed : collapsedFolders;
 
-  const pick = (name) => {
-    if (!name) return;
-    closePopup();
-    const rows = state.rows.map((row, i) =>
-      // A different file means different trigger words: clear the old ones.
-      i === index ? { ...row, name, triggers: name === row.name ? row.triggers : "" } : row
-    );
-    commitRows(state, rows, { structural: true });
+  // after: "highlight" keeps the folder highlighted for the search box's
+  // arrow keys, "arrow" keeps focus on the fold arrow that was pressed with
+  // the keyboard, "search" hands the keys back to the search box.
+  const toggleFolder = (name, collapsed = !currentFolds().has(name), after = "highlight") => {
+    const folds = currentFolds();
+    if (collapsed) folds.add(name);
+    else folds.delete(name);
+    if (folds === collapsedFolders) saveCollapsedFolders(folds);
+    const scrollTop = list.scrollTop;
+    highlight = -1;
+    renderList();
+    if (after === "highlight" && adding) {
+      highlight = options.findIndex((entry) => entry.kind === "folder" && entry.name === name);
+      list.querySelector(`[data-ausboss-flat="${highlight}"]`)?.classList.add("highlight");
+    }
+    list.scrollTop = scrollTop;
+    if (after === "arrow") [...list.querySelectorAll(".ausboss-lora-folder-toggle")]
+      .find((button) => button.dataset.folder === name)?.focus({ preventScroll: true });
+    else if (after === "search") search.focus({ preventScroll: true });
   };
 
-  const appendOption = (name, flatIndex, label) => {
+  const appendFolderToggle = (row, name) => {
+    const button = el("button", "ausboss-lora-folder-toggle");
+    const expanded = !currentFolds().has(name);
+    button.type = "button";
+    button.dataset.folder = name;
+    button.innerHTML = chevronIconSvg(false);
+    button.setAttribute("aria-expanded", String(expanded));
+    button.title = `${expanded ? "Collapse" : "Expand"} ${name}`;
+    button.setAttribute("aria-label", button.title);
+    button.addEventListener("keydown", keepKeyInField);
+    button.addEventListener("click", (event) => {
+      // Only the folder name adds files; its arrow is browse-only.
+      event.stopPropagation();
+      // A click made with a key (detail 0) stays on the arrow. A mouse click
+      // goes back to the search box, so typing keeps searching.
+      toggleFolder(name, !currentFolds().has(name), event.detail === 0 ? "arrow" : "search");
+    });
+    row.append(button);
+  };
+
+  const pick = (entry, { pointer = false } = {}) => {
+    if (!entry) return;
+    const { name, kind } = entry;
+    if (kind === "folder") {
+      const result = appendFolderRows(state.rows, folders.get(name) ?? [], state.settings?.default_strength ?? 1);
+      if (result.needed > result.room) {
+        loraToast(`This folder has ${result.needed} new LoRAs, but only ${result.room} of ${MAX_ROWS} rows are free. Nothing was added. Remove rows or choose a smaller folder.`);
+        return;
+      }
+      if (!result.added) {
+        loraToast("Every LoRA in this folder is already in this stack. Nothing was added.");
+        return;
+      }
+      const firstAdded = state.rows.length;
+      closePopup();
+      commitRows(state, result.rows, { structural: true });
+      fitNode(state);
+      loraToast(`Added ${result.added} LoRA${result.added === 1 ? "" : "s"} from ${name}.`
+        + (result.skipped ? ` Skipped ${result.skipped} already in this stack.` : ""));
+      if (!pointer) backToStack(firstAdded);
+      return;
+    }
+    if (adding && state.rows.length >= MAX_ROWS) {
+      loraToast(`This stack already has ${MAX_ROWS} rows. Remove a row before adding another LoRA.`);
+      return;
+    }
+    closePopup();
+    const strength = roundStrength(state.settings?.default_strength ?? 1);
+    const rows = adding
+      ? [...state.rows, { ...newRow(), name, strength, strength_clip: strength }]
+      : state.rows.map((row, i) =>
+        // A different file means different trigger words: clear the old ones.
+        i === index ? { ...row, name, triggers: name === row.name ? row.triggers : "" } : row
+      );
+    commitRows(state, rows, { structural: true });
+    if (adding) fitNode(state);
+    if (!pointer) backToStack(adding ? rows.length - 1 : index);
+  };
+
+  const appendOption = (entry, flatIndex) => {
+    const { name, kind, label, depth, count } = entry;
+    const folder = kind === "folder";
     const option = el("div", "ausboss-lora-option");
-    option.append(nameLabel(displayName(state, label)));
+    option.style.paddingLeft = `${OPTION_PAD_X + Math.min(4, depth) * 12 + (folder ? 0 : 30)}px`;
+    if (folder) appendFolderToggle(option, name);
+    option.append(nameLabel(folder ? label : displayName(state, label)));
     option.title = name;
+    if (folder) {
+      option.classList.add("ausboss-lora-folder-option");
+      option.append(el("span", "ausboss-lora-folder-count", `Add all ${count}`));
+      option.title += ` — add all ${count} LoRAs in this folder, including nested folders. Files already in this stack are skipped.`;
+    }
     if (flatIndex === highlight) option.classList.add("highlight");
-    if (name === state.rows[index].name) option.classList.add("current");
+    if (!folder && name === state.rows[index]?.name) option.classList.add("current");
     option.addEventListener("pointerenter", (event) => {
+      // Pointing at a folder never chooses it for Enter or for the Left and
+      // Right keys: a pointer that only rests on the list would otherwise
+      // add a whole folder. It lights up on hover (CSS); a click or the
+      // arrow keys choose it.
+      if (folder) {
+        hideHoverThumb();
+        return;
+      }
       if (highlight !== flatIndex) {
-        // Class swap, never renderList(): a hover-time rebuild repositioned
-        // the popup and blinked the thumbnail on every row crossed, and a
-        // rebuild landing between mousedown and click detaches the option
-        // mid-gesture, killing that click.
+        // Keep the option under the pointer intact through the click.
         list.querySelector(".ausboss-lora-option.highlight")?.classList.remove("highlight");
         highlight = flatIndex;
         option.classList.add("highlight");
@@ -832,93 +979,84 @@ function openPicker(state, index, anchor) {
       showHoverThumb(state, name, event.clientX, event.clientY);
     });
     option.addEventListener("pointermove", (event) => {
-      showHoverThumb(state, name, event.clientX, event.clientY);
+      if (!folder) showHoverThumb(state, name, event.clientX, event.clientY);
     });
     option.addEventListener("pointerleave", hideHoverThumb);
-    option.addEventListener("click", () => pick(name));
+    option.addEventListener("click", () => pick(entry, { pointer: true }));
     option.dataset.ausbossFlat = String(flatIndex);
     list.append(option);
   };
 
   const renderList = () => {
-    // Read while the list is still laid out from the last frame: the
-    // gutter is reserved (scrollbar-gutter), so this width holds whatever
-    // the new results are, and fitting the labels forces no layout.
-    const labelWidth = list.clientWidth - 2 * (LIST_PAD_X + OPTION_PAD_X);
-    filtered = filterLoras(names, search.value);
-    highlight = clampHighlight(highlight, filtered.length);
+    const entries = loraPickerEntries(names, search.value, currentFolds());
+    options = entries.filter((entry) => adding || entry.kind === "file");
+    if (highlight >= 0) highlight = clampHighlight(highlight, options.length);
     list.textContent = "";
     hideHoverThumb();
-    if (!filtered.length) {
+    if (!entries.length) {
       list.append(el("div", "ausboss-lora-empty",
-        names.length ? "No matches." : "Put LoRA files in models/loras."));
+        loadError ? "Could not list LoRAs. Close this picker and try again."
+          : names.length ? "No matches." : "Put LoRA files in models/loras."));
+      place();
       return;
     }
-    const searching = search.value.trim() !== "";
-    if (searching) {
-      // Flat results: strip whatever folder prefix every match shares.
-      const prefix = commonFolderPrefix(filtered);
-      filtered.forEach((name, i) => appendOption(name, i, name.slice(prefix.length)));
-    } else {
-      // Browse view: bucket by top folder with quiet headers. The grouped
-      // display order becomes the keyboard order, so `filtered` is rebuilt
-      // to match and arrow/Enter navigation stays consistent with what's
-      // on screen (root files can interleave folders in sorted order).
-      const groups = groupByFolder(filtered);
-      filtered = groups.flatMap((group) => group.names);
-      highlight = clampHighlight(highlight, filtered.length);
-      let flatIndex = 0;
-      for (const group of groups) {
-        if (group.folder) list.append(el("div", "ausboss-lora-folder", group.folder));
-        for (const name of group.names) {
-          const label = group.folder ? name.slice(group.folder.length + 1) : name;
-          appendOption(name, flatIndex, label);
-          flatIndex += 1;
-        }
-      }
+    let flatIndex = 0;
+    for (const entry of entries) {
+      if (!adding && entry.kind === "folder") {
+        const heading = el("div", "ausboss-lora-folder");
+        appendFolderToggle(heading, entry.name);
+        heading.append(nameLabel(entry.label));
+        heading.style.paddingLeft = `${OPTION_PAD_X + Math.min(4, entry.depth) * 12}px`;
+        heading.title = entry.name;
+        list.append(heading);
+      } else appendOption(entry, flatIndex++);
     }
-    fitLabels(list.querySelectorAll(".ausboss-lora-label"), labelWidth > 0 ? labelWidth : undefined);
+    fitLabels(list.querySelectorAll(".ausboss-lora-label"));
     list.querySelector(`[data-ausboss-flat="${highlight}"]`)?.scrollIntoView({ block: "nearest" });
     place();
   };
 
-  search.addEventListener("input", () => { highlight = -1; renderList(); });
+  search.addEventListener("input", () => { highlight = -1; searchCollapsed = new Set(); renderList(); });
   search.addEventListener("keydown", (event) => {
     keepKeyInField(event);
-    if (isAppShortcut(event)) return; // Ctrl + Enter runs the workflow, it does not pick
+    if (isAppShortcut(event)) return;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
-      highlight = moveHighlight(highlight, event.key === "ArrowDown" ? 1 : -1, filtered.length);
+      highlight = moveHighlight(highlight, event.key === "ArrowDown" ? 1 : -1, options.length);
       renderList();
+    } else if ((event.key === "ArrowLeft" || event.key === "ArrowRight")
+        && options[highlight]?.kind === "folder") {
+      event.preventDefault();
+      toggleFolder(options[highlight].name, event.key === "ArrowLeft");
     } else if (event.key === "Home" || event.key === "End") {
       event.preventDefault();
-      highlight = event.key === "Home" ? 0 : filtered.length - 1;
+      highlight = event.key === "Home" ? 0 : options.length - 1;
       renderList();
     } else if (event.key === "Enter") {
       event.preventDefault();
-      pick(highlightedName(filtered, highlight) ?? filtered[0]);
+      // Typing a filename then Enter keeps picking one file. A folder is
+      // selected deliberately by a click or by moving the highlight to it.
+      pick(options[highlight] ?? options.find((entry) => entry.kind === "file"));
     }
   });
 
-  // Always refetch on open: a stale session cache is how renamed files keep
-  // haunting pickers.
   fetchLoraList()
     .then((fetched) => {
+      if (!pop.isConnected) return;
       names = fetched;
-      // The picker's fresh list is also the row decorator's fresh list.
+      folders = new Map(loraFolders(fetched).map(({ folder, names }) => [folder, names]));
       state.available = fetched;
       state.nameStatus = new Map();
-      // Full paths bound every label the list shows (browse and search both
-      // strip a folder prefix), so this width never changes while typing.
-      widestPickerLabel = widestLabel(names.map((name) => displayName(state, name)));
+      widestPickerLabel = widestLabel(names.map((name) => displayName(state, name))) + (adding ? 110 : 30);
       pop.style.width = `${fitWidth()}px`;
-      const currentIndex = filterLoras(names, "").indexOf(state.rows[index].name);
-      highlight = currentIndex >= 0 ? currentIndex : -1;
+      if (!adding) highlight = loraPickerEntries(names, "", currentFolds()).filter((entry) => entry.kind === "file")
+        .findIndex((entry) => entry.name === state.rows[index]?.name);
       renderList();
     })
     .catch(() => {
-      list.textContent = "";
-      list.append(el("div", "ausboss-lora-empty", "Could not list LoRAs."));
+      if (!pop.isConnected) return;
+      loadError = true;
+      renderList();
     });
 }
 
@@ -1229,7 +1367,7 @@ function openRowMenu(state, index, event) {
     rows.splice(index, 1);
     commitRows(state, rows, { structural: true });
     fitNode(state);
-  });
+  }).classList.add("ausboss-lora-danger");
   item("🗑 Delete all LoRAs…", () => {
     const confirmation = el("div", "ausboss-lora-menu");
     const message = el("div", "ausboss-lora-empty",
@@ -1249,7 +1387,7 @@ function openRowMenu(state, index, event) {
       { left: event.clientX, top: event.clientY, bottom: event.clientY, width: 0 },
       { width: 270 });
     cancel.focus();
-  }).classList.add("ausboss-lora-danger");
+  }).classList.add("ausboss-lora-danger", "ausboss-lora-delete-all");
   openPopup(menu, { left: event.clientX, top: event.clientY, bottom: event.clientY, width: 0 });
 }
 
@@ -1538,20 +1676,104 @@ function openSettings(state, anchor) {
   });
 }
 
+// Only keys dispatched inside this panel participate. No window/document
+// listener and no canvas selection heuristic: Tab, application shortcuts,
+// typing, and focus in every other node keep their existing behavior.
+function focusStackRow(state, index) {
+  const rows = [...state.panel.querySelectorAll(".ausboss-lora-row")];
+  const target = index >= 0 && index < rows.length ? rows[index]
+    : state.panel.querySelector(".ausboss-lora-add:not(:disabled)") ?? rows.at(-1);
+  hideHoverThumb();
+  target?.focus({ preventScroll: true });
+}
+
+// Is the browser showing keyboard focus on this element? A control that was
+// clicked with the mouse has focus too, without the outline. Focus is only
+// ever handed to a row from an element that shows it: otherwise a mouse click
+// would leave a row holding the keys with nothing on screen to say so.
+function showsKeyboardFocus(element) {
+  try {
+    return Boolean(element?.matches?.(":focus-visible"));
+  } catch {
+    return false;
+  }
+}
+
+function installStackKeyboard(state) {
+  state.panel.addEventListener("keydown", (event) => {
+    const target = event.target;
+    if (!state.panel.contains(document.activeElement) || event.defaultPrevented
+        || event.isComposing || event.keyCode === 229) return;
+    const rowElement = target.closest?.(".ausboss-lora-row");
+    const atAdd = Boolean(target.closest?.(".ausboss-lora-add, .ausboss-lora-blank"));
+    if (!rowElement && !atAdd) return;
+    const field = target.closest?.("input, textarea, select, [contenteditable]");
+    const editing = Boolean(field && (field.isContentEditable
+      || field.tagName !== "INPUT" || !field.readOnly));
+    if (event.key === "Escape" && !editing && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      document.activeElement?.blur();
+      return;
+    }
+    // A row's own buttons and boxes keep Enter and Space (the switch turns
+    // the row off, the name opens its picker). A strength field keeps its
+    // editing keys; arrows only browse it while idle.
+    const onControl = Boolean(rowElement && target !== rowElement);
+    const index = rowElement ? [...state.panel.querySelectorAll(".ausboss-lora-row")].indexOf(rowElement)
+      : state.rows.length;
+    const action = loraStackKeyAction(event, { index, rowCount: state.rows.length, atAdd, editing, onControl });
+    const heldToggle = rowElement && !onControl && event.key === " " && event.repeat && !editing
+      && !event.ctrlKey && !event.metaKey && !event.altKey;
+    if (!action && !heldToggle) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (!action) return; // Holding Space never toggles twice or starts canvas panning.
+    // "block" (Delete, Backspace) ends here: the key is kept from ComfyUI.
+    if (action.kind === "focus") {
+      focusStackRow(state, action.index);
+    } else if (action.kind === "pick") {
+      if (atAdd && state.rows.length >= MAX_ROWS) return;
+      openPicker(state, atAdd ? null : index,
+        atAdd ? state.panel.querySelector(".ausboss-lora-add") : rowElement.querySelector(".ausboss-lora-name"),
+        { keyboard: true });
+    } else if (action.kind === "toggle") {
+      const rows = state.rows.map((row, i) => i === index ? { ...row, enabled: !row.enabled } : row);
+      state.toggleSnapshot = snapshotEnabled(rows);
+      commitRows(state, rows, { structural: true });
+      focusStackRow(state, index);
+    } else if (action.kind === "strength") {
+      const strengthField = field ?? target.closest?.(".ausboss-lora-strengthbox")?.querySelector("input");
+      const key = strengthField?.dataset.ausbossStrength === "strength_clip" ? "strength_clip" : "strength";
+      const step = action.fine ? FINE_STEP : state.settings?.step ?? DEFAULT_STEP;
+      const value = roundStrength(state.rows[index][key] + action.direction * step);
+      if (value === state.rows[index][key]) return;
+      const rows = key === "strength"
+        ? setStrength(state.rows, index, value, linked(state))
+        : state.rows.map((row, i) => i === index ? { ...row, strength_clip: value } : row);
+      commitRows(state, rows);
+    }
+  }, { capture: true });
+}
+
 function renderRows(state) {
   const panel = state.panel;
+  // The rebuild below drops focus. It is put back only for keyboard focus:
+  // after a mouse click on a switch the keys stay with ComfyUI, as before.
+  const focused = panel.contains(document.activeElement) && showsKeyboardFocus(document.activeElement)
+    ? document.activeElement : null;
+  const focusedRow = focused?.closest?.(".ausboss-lora-row") ?? null;
+  const focusedRowId = focusedRow?.dataset.rowId;
+  const focusedIndex = focusedRow ? [...panel.querySelectorAll(".ausboss-lora-row")].indexOf(focusedRow) : -1;
+  const wasAddFocused = Boolean(focused?.matches?.(".ausboss-lora-add, .ausboss-lora-blank"));
   panel.textContent = "";
   const body = el("div", "ausboss-lora-body");
   panel.append(body);
 
-  const addRowAndPick = () => {
+  const addRowAndPick = (event) => {
     if (state.rows.length >= MAX_ROWS) return;
-    const strength = roundStrength(state.settings?.default_strength ?? 1);
-    const row = { ...newRow(), strength, strength_clip: strength };
-    commitRows(state, [...state.rows, row], { structural: true });
-    fitNode(state);
-    const pickers = state.panel.querySelectorAll(".ausboss-lora-name");
-    pickers[pickers.length - 1]?.click();
+    // detail is 0 for a click made with Enter or Space.
+    openPicker(state, null, event.currentTarget, { keyboard: event.detail === 0 });
   };
 
   const bar = el("div", "ausboss-lora-bar");
@@ -1601,6 +1823,13 @@ function renderRows(state) {
 
   state.rows.forEach((row, index) => {
     const rowElement = el("div", "ausboss-lora-row");
+    rowElement.tabIndex = 0;
+    rowElement.dataset.rowId = row.id;
+    rowElement.setAttribute("role", "group");
+    rowElement.setAttribute("aria-label", row.name || "Empty LoRA row");
+    rowElement.setAttribute("aria-keyshortcuts", "ArrowUp ArrowDown ArrowLeft ArrowRight Shift+ArrowLeft Shift+ArrowRight Space Enter Escape");
+    rowElement.title = "Up/Down chooses a row, Space toggles it, and Left/Right changes strength. "
+      + "Hold Shift for smaller steps; Enter picks a file.";
     if (!row.enabled) rowElement.classList.add("off");
 
     const grip = el("button", "ausboss-lora-grip");
@@ -1650,6 +1879,9 @@ function renderRows(state) {
     const toggle = el("button", `ausboss-lora-toggle${row.enabled ? " on" : ""}`);
     toggle.type = "button";
     toggle.title = "Enable or disable this LoRA";
+    // The pill only shows its state by colour and position.
+    toggle.setAttribute("role", "switch");
+    toggle.setAttribute("aria-checked", String(row.enabled));
     toggle.addEventListener("click", () => {
       const rows = state.rows.map((entry, i) =>
         i === index ? { ...entry, enabled: !entry.enabled } : entry
@@ -1711,12 +1943,12 @@ function renderRows(state) {
     };
     name.addEventListener("pointerup", endNameDrag);
     name.addEventListener("pointercancel", endNameDrag);
-    name.addEventListener("click", () => {
+    name.addEventListener("click", (event) => {
       if (name.dataset.ausbossScrubbed) {
         delete name.dataset.ausbossScrubbed;
         return;
       }
-      openPicker(state, index, name);
+      openPicker(state, index, name, { keyboard: event.detail === 0 });
     });
     name.addEventListener("pointerenter", (event) =>
       showHoverThumb(state, row.name, event.clientX, event.clientY));
@@ -1746,6 +1978,7 @@ function renderRows(state) {
   add.type = "button";
   add.disabled = state.rows.length >= MAX_ROWS;
   add.addEventListener("click", addRowAndPick);
+  add.title = "Pick one LoRA, or click a folder name to add all its LoRAs.";
   actions.append(add);
   stack.append(actions);
   body.append(stack);
@@ -1759,6 +1992,10 @@ function renderRows(state) {
   });
   state.nameObserver.disconnect();
   state.nameObserver.observe(stack);
+  if (focusedRowId) {
+    const index = state.rows.findIndex((row) => row.id === focusedRowId);
+    focusStackRow(state, index >= 0 ? index : Math.min(focusedIndex, state.rows.length));
+  } else if (wasAddFocused) focusStackRow(state, state.rows.length);
 }
 
 // Rows cut a long name at the end (the label's CSS ellipsis) unless the
@@ -1792,6 +2029,7 @@ function installLoraNode(node) {
   const state = { node, widget, panel, rows: parseRows(widget.value), settings, renderedValue: widget.value };
   state.toggleSnapshot = snapshotEnabled(state.rows);
   node.__ausbossLoraState = state;
+  installStackKeyboard(state);
   if (node.properties && node.properties.ausbossLoraLinked === undefined) {
     node.properties.ausbossLoraLinked = true;
   }
