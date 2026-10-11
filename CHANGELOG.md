@@ -52,6 +52,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   then use Up/Down to reach other rows or + LoRA, Enter to pick a file,
   Space to switch a row off/on, and Left/Right to adjust strength. Shift
   uses a smaller step. Typing and ComfyUI shortcuts keep their usual keys.
+- **Crop + Rotate + Pad editor: Show blend no longer tints an edge you did
+  not pad.** With **Show blend** on, a teal band could run along the bottom
+  or the right edge of the picture where there was no padding, as if the
+  generation took over there. It never did: the run kept that edge as it
+  was, and only the preview was wrong. The preview now shows a blend only
+  where the run has one. The same for both Video Crop + Rotate + Pad nodes.
 
 ## 2.10.1 - 2026-10-09
 

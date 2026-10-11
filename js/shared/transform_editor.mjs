@@ -11,7 +11,7 @@ import { normalizeFillColor } from "./fill_color.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
 import { confirmDiscard } from "./discard_prompt.mjs";
 import { keepKeyInField } from "./canvas_passthrough.mjs";
-import { featherGeneratedMask, overlayPlan, seeThroughMap, stitchBlendFromMask } from "./stitch_preview.mjs";
+import { featherGeneratedMask, generatedAreaMask, overlayPlan, seeThroughMap, stitchBlendFromMask } from "./stitch_preview.mjs";
 import { suppressCoreVideoPreview } from "./core_preview.mjs";
 import { gearIconSvg, loadSettings, openSettingsMenu } from "./settings_menu.mjs";
 import {
@@ -1763,21 +1763,21 @@ function blendOverlayCanvas(state, render) {
   if (state.blendOverlay?.key === key) return state.blendOverlay.canvas;
   const plan = overlayPlan(padding.outputWidth, padding.outputHeight, resize);
   const { width, height, k } = plan;
-  const raster = document.createElement("canvas"); raster.width = width; raster.height = height;
-  const rc = raster.getContext("2d", { willReadFrequently: true });
-  rc.fillStyle = "#fff"; rc.fillRect(0, 0, width, height);
-  rc.save();
-  rc.beginPath(); rc.rect(padding.left * k, padding.top * k, crop.width * k, crop.height * k); rc.clip();
-  rc.translate((padding.left - crop.x) * k + source.width * k / 2, (padding.top - crop.y) * k + source.height * k / 2);
-  rc.rotate(rotation * Math.PI / 180);
-  rc.fillStyle = "#000"; rc.fillRect(-state.sourceWidth * k / 2, -state.sourceHeight * k / 2, state.sourceWidth * k, state.sourceHeight * k);
+  let mask = generatedAreaMask(width, height, { source, crop, padding, sourceWidth: state.sourceWidth, sourceHeight: state.sourceHeight, rotation });
   // The see-through parts of the picture, a painted mask among them, are
-  // generated area as well.
-  if (layer) rc.drawImage(maskStencil(layer), -state.sourceWidth * k / 2, -state.sourceHeight * k / 2, state.sourceWidth * k, state.sourceHeight * k);
-  rc.restore();
-  const pixels = rc.getImageData(0, 0, width, height).data;
-  let mask = new Float32Array(width * height);
-  for (let i = 0; i < mask.length; i++) mask[i] = pixels[i * 4] / 255;
+  // generated area as well. They are drawn from the picture, on a raster
+  // that is the whole canvas as the mask's is: each axis by its own scale.
+  if (layer) {
+    const raster = document.createElement("canvas"); raster.width = width; raster.height = height;
+    const rc = raster.getContext("2d", { willReadFrequently: true });
+    rc.scale(width / padding.outputWidth, height / padding.outputHeight);
+    rc.beginPath(); rc.rect(padding.left, padding.top, crop.width, crop.height); rc.clip();
+    rc.translate(padding.left - crop.x + source.width / 2, padding.top - crop.y + source.height / 2);
+    rc.rotate(rotation * Math.PI / 180);
+    rc.drawImage(maskStencil(layer), -state.sourceWidth / 2, -state.sourceHeight / 2, state.sourceWidth, state.sourceHeight);
+    const pixels = rc.getImageData(0, 0, width, height).data;
+    for (let i = 0; i < mask.length; i++) mask[i] += (1 - mask[i]) * pixels[i * 4 + 3] / 255;
+  }
   mask = featherGeneratedMask(mask, width, height, feather * k);
   mask = stitchBlendFromMask(mask, width, height, blend * plan.unit, grow * plan.unit);
   const overlay = document.createElement("canvas"); overlay.width = width; overlay.height = height;
