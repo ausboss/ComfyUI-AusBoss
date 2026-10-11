@@ -69,6 +69,7 @@ PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_LoadVideo",
     "AUSBOSS_NODES_LoraLoader",
     "AUSBOSS_NODES_MaskByName",
+    "AUSBOSS_NODES_MaskByTouch",
     "AUSBOSS_NODES_MathExpression",
     "AUSBOSS_NODES_MergeBatches",
     "AUSBOSS_NODES_RealignToSource",

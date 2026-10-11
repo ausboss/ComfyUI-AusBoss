@@ -1,0 +1,1141 @@
+{
+ "id": "5d07a052-1815-4ea1-a951-2729bd4c93ff",
+ "revision": 0,
+ "last_node_id": 11,
+ "last_link_id": 6,
+ "nodes": [
+  {
+   "id": 1,
+   "type": "AUSBOSS_NODES_WorkflowNote",
+   "pos": [
+    0,
+    30
+   ],
+   "size": [
+    440,
+    760
+   ],
+   "flags": {
+    "pinned": true
+   },
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "note",
+     "name": "note",
+     "type": "STRING",
+     "widget": {
+      "name": "note"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_WorkflowNote",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.11.0"
+   },
+   "widgets_values": [
+    "{\"v\": 1, \"title\": \"Mask by Touch\", \"subtitle\": \"Click a thing in your picture. Get its mask and a cut-out, with nothing to type or paint.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your picture.\\n2. Move the pointer over it on **Mask by Touch**. Things light up and say their name.\\n3. **Click** a thing to pick it. Click more things to add them.\\n4. Press **Run** to save the cut-out and the mask.\\n\\n### Good to know\\n\\n- **Subject** takes the picture's main subject in one click. **Background** takes everything else.\\n- Wrong thing? The **‹ ›** arrows under the picture swap the pick for the next thing at that spot.\\n- **Draw** paints an area by hand. **−** takes away, and **Undo** takes a pick back.\\n- A thing that does not light up: type its name in the field under the picture.\\n- **Fine edges** is on: hair and fur come out strand by strand, and the cut-out carries no colour of the old background.\\n- The eye beside **Undo** and **Clear** hides everything else, so you see the result before you run.\\n- When nothing is picked, the run stops with a message, so nothing is saved by mistake.\\n- Switch a result off under **What to save** to skip it.\\n\\nNeeds AusBoss nodes 2.11.0 or newer and ComfyUI 0.21 or newer, which has SAM 3 and the background-removal model built in.\", \"models\": [{\"name\": \"sam3.1_multiplex_fp16.safetensors\", \"dir\": \"checkpoints\", \"size\": \"1.75 GB\", \"url\": \"https://huggingface.co/Comfy-Org/sam3.1/resolve/main/checkpoints/sam3.1_multiplex_fp16.safetensors\", \"note\": \"by Meta, packaged by Comfy-Org\"}, {\"name\": \"birefnet.safetensors\", \"dir\": \"background_removal\", \"size\": \"445 MB\", \"url\": \"https://huggingface.co/Comfy-Org/BiRefNet/resolve/main/background_removal/birefnet.safetensors\", \"note\": \"BiRefNet, packaged by Comfy-Org · for Subject, Background and Fine edges · MIT\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_MaskByTouch\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+   ],
+   "widgets_values_named": {
+    "note": "{\"v\": 1, \"title\": \"Mask by Touch\", \"subtitle\": \"Click a thing in your picture. Get its mask and a cut-out, with nothing to type or paint.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your picture.\\n2. Move the pointer over it on **Mask by Touch**. Things light up and say their name.\\n3. **Click** a thing to pick it. Click more things to add them.\\n4. Press **Run** to save the cut-out and the mask.\\n\\n### Good to know\\n\\n- **Subject** takes the picture's main subject in one click. **Background** takes everything else.\\n- Wrong thing? The **‹ ›** arrows under the picture swap the pick for the next thing at that spot.\\n- **Draw** paints an area by hand. **−** takes away, and **Undo** takes a pick back.\\n- A thing that does not light up: type its name in the field under the picture.\\n- **Fine edges** is on: hair and fur come out strand by strand, and the cut-out carries no colour of the old background.\\n- The eye beside **Undo** and **Clear** hides everything else, so you see the result before you run.\\n- When nothing is picked, the run stops with a message, so nothing is saved by mistake.\\n- Switch a result off under **What to save** to skip it.\\n\\nNeeds AusBoss nodes 2.11.0 or newer and ComfyUI 0.21 or newer, which has SAM 3 and the background-removal model built in.\", \"models\": [{\"name\": \"sam3.1_multiplex_fp16.safetensors\", \"dir\": \"checkpoints\", \"size\": \"1.75 GB\", \"url\": \"https://huggingface.co/Comfy-Org/sam3.1/resolve/main/checkpoints/sam3.1_multiplex_fp16.safetensors\", \"note\": \"by Meta, packaged by Comfy-Org\"}, {\"name\": \"birefnet.safetensors\", \"dir\": \"background_removal\", \"size\": \"445 MB\", \"url\": \"https://huggingface.co/Comfy-Org/BiRefNet/resolve/main/background_removal/birefnet.safetensors\", \"note\": \"BiRefNet, packaged by Comfy-Org · for Subject, Background and Fine edges · MIT\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_MaskByTouch\"}], \"links\": [{\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 2,
+   "type": "AUSBOSS_NODES_Callout",
+   "pos": [
+    500,
+    80
+   ],
+   "size": [
+    424,
+    122
+   ],
+   "flags": {
+    "pinned": true
+   },
+   "order": 1,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "text",
+     "name": "text",
+     "type": "STRING",
+     "widget": {
+      "name": "text"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_Callout",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.11.0"
+   },
+   "widgets_values": [
+    "⬇️#3 Load your picture here."
+   ],
+   "widgets_values_named": {
+    "text": "⬇️#3 Load your picture here."
+   },
+   "color": "#07090a",
+   "bgcolor": "#07090a",
+   "title": "Callout"
+  },
+  {
+   "id": 3,
+   "type": "LoadImage",
+   "pos": [
+    500,
+    272
+   ],
+   "size": [
+    424,
+    956
+   ],
+   "flags": {},
+   "order": 2,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "image",
+     "name": "image",
+     "type": "COMBO",
+     "widget": {
+      "name": "image"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "choose file to upload",
+     "name": "upload",
+     "type": "IMAGEUPLOAD",
+     "widget": {
+      "name": "upload"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "IMAGE",
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      1
+     ]
+    },
+    {
+     "localized_name": "MASK",
+     "name": "MASK",
+     "type": "MASK",
+     "links": null
+    }
+   ],
+   "title": "Load Image - Your picture",
+   "properties": {
+    "Node name for S&R": "LoadImage",
+    "cnr_id": "comfy-core",
+    "ver": "0.38.0"
+   },
+   "widgets_values": [
+    "",
+    "image"
+   ],
+   "widgets_values_named": {
+    "image": "",
+    "upload": "image"
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 4,
+   "type": "CheckpointLoaderSimple",
+   "pos": [
+    1004,
+    80
+   ],
+   "size": [
+    460,
+    98
+   ],
+   "flags": {},
+   "order": 3,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "ckpt_name",
+     "name": "ckpt_name",
+     "type": "COMBO",
+     "widget": {
+      "name": "ckpt_name"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "MODEL",
+     "name": "MODEL",
+     "type": "MODEL",
+     "links": [
+      2
+     ]
+    },
+    {
+     "localized_name": "CLIP",
+     "name": "CLIP",
+     "type": "CLIP",
+     "links": [
+      3
+     ]
+    },
+    {
+     "localized_name": "VAE",
+     "name": "VAE",
+     "type": "VAE",
+     "links": null
+    }
+   ],
+   "title": "Load Checkpoint - SAM 3",
+   "properties": {
+    "Node name for S&R": "CheckpointLoaderSimple",
+    "cnr_id": "comfy-core",
+    "ver": "0.38.0",
+    "models": [
+     {
+      "name": "sam3.1_multiplex_fp16.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/sam3.1/resolve/main/checkpoints/sam3.1_multiplex_fp16.safetensors",
+      "directory": "checkpoints"
+     }
+    ]
+   },
+   "widgets_values": [
+    "sam3.1_multiplex_fp16.safetensors"
+   ],
+   "widgets_values_named": {
+    "ckpt_name": "sam3.1_multiplex_fp16.safetensors"
+   },
+   "color": "#323",
+   "bgcolor": "#535"
+  },
+  {
+   "id": 5,
+   "type": "AUSBOSS_NODES_Callout",
+   "pos": [
+    1004,
+    248
+   ],
+   "size": [
+    460,
+    178
+   ],
+   "flags": {
+    "pinned": true
+   },
+   "order": 4,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "text",
+     "name": "text",
+     "type": "STRING",
+     "widget": {
+      "name": "text"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_Callout",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.11.0"
+   },
+   "widgets_values": [
+    "⬇️#6 Move over the picture: things light up and say their name. **Click** one to pick it.\n\nWrong thing? The **‹ ›** arrows under the picture swap it."
+   ],
+   "widgets_values_named": {
+    "text": "⬇️#6 Move over the picture: things light up and say their name. **Click** one to pick it.\n\nWrong thing? The **‹ ›** arrows under the picture swap it."
+   },
+   "color": "#07090a",
+   "bgcolor": "#07090a",
+   "title": "Callout"
+  },
+  {
+   "id": 6,
+   "type": "AUSBOSS_NODES_MaskByTouch",
+   "pos": [
+    1004,
+    496
+   ],
+   "size": [
+    460,
+    732
+   ],
+   "flags": {},
+   "order": 5,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "image",
+     "name": "image",
+     "type": "IMAGE",
+     "link": 1
+    },
+    {
+     "localized_name": "model",
+     "name": "model",
+     "type": "MODEL",
+     "link": 2
+    },
+    {
+     "localized_name": "clip",
+     "name": "clip",
+     "type": "CLIP",
+     "link": 3
+    },
+    {
+     "localized_name": "touches",
+     "name": "touches",
+     "type": "STRING",
+     "widget": {
+      "name": "touches"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "grow",
+     "name": "grow",
+     "type": "INT",
+     "widget": {
+      "name": "grow"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "soften",
+     "name": "soften",
+     "type": "FLOAT",
+     "widget": {
+      "name": "soften"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "smooth",
+     "name": "smooth",
+     "type": "INT",
+     "widget": {
+      "name": "smooth"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "fill_holes",
+     "name": "fill_holes",
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "fill_holes"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "if_nothing",
+     "name": "if_nothing",
+     "type": "COMBO",
+     "widget": {
+      "name": "if_nothing"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "free_vram",
+     "name": "free_vram",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "free_vram"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "invert",
+     "name": "invert",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "invert"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "ask",
+     "name": "ask",
+     "shape": 7,
+     "type": "STRING",
+     "widget": {
+      "name": "ask"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "fine_edges",
+     "name": "fine_edges",
+     "shape": 7,
+     "type": "COMBO",
+     "widget": {
+      "name": "fine_edges"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "mask",
+     "name": "mask",
+     "type": "MASK",
+     "links": [
+      5
+     ]
+    },
+    {
+     "localized_name": "cut_out",
+     "name": "cut_out",
+     "type": "IMAGE",
+     "links": [
+      4
+     ]
+    },
+    {
+     "localized_name": "names",
+     "name": "names",
+     "type": "STRING",
+     "links": null
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_MaskByTouch",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.11.0",
+    "models": [
+     {
+      "name": "birefnet.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/BiRefNet/resolve/main/background_removal/birefnet.safetensors",
+      "directory": "background_removal"
+     }
+    ]
+   },
+   "widgets_values": [
+    "",
+    0,
+    0,
+    0,
+    true,
+    "stop the run",
+    false,
+    false,
+    "",
+    "birefnet.safetensors"
+   ],
+   "widgets_values_named": {
+    "touches": "",
+    "grow": 0,
+    "soften": 0,
+    "smooth": 0,
+    "fill_holes": true,
+    "if_nothing": "stop the run",
+    "free_vram": false,
+    "invert": false,
+    "ask": "",
+    "fine_edges": "birefnet.safetensors"
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 7,
+   "type": "AUSBOSS_NODES_WorkflowSwitches",
+   "pos": [
+    1544,
+    80
+   ],
+   "size": [
+    400,
+    97
+   ],
+   "flags": {},
+   "order": 6,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [],
+   "title": "Workflow Switches - What to save",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_WorkflowSwitches",
+    "ausboss_workflow_switches": {
+     "off": "bypass",
+     "groups": "none",
+     "match": "",
+     "order": "canvas",
+     "exclusive": false,
+     "switches": [
+      {
+       "id": 1,
+       "title": "The cut-out",
+       "nodes": [
+        "8"
+       ],
+       "groups": []
+      },
+      {
+       "id": 2,
+       "title": "The mask",
+       "nodes": [
+        "10",
+        "11"
+       ],
+       "groups": []
+      }
+     ]
+    },
+    "ausboss_show_edit": false,
+    "ausboss_show_settings": false,
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.11.0"
+   },
+   "widgets_values": [],
+   "widgets_values_named": {},
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 8,
+   "type": "AUSBOSS_NODES_SaveImage",
+   "pos": [
+    1544,
+    263
+   ],
+   "size": [
+    400,
+    965
+   ],
+   "flags": {},
+   "order": 7,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "images",
+     "name": "images",
+     "type": "IMAGE",
+     "link": 4
+    },
+    {
+     "localized_name": "filename",
+     "name": "filename",
+     "shape": 7,
+     "type": "STRING",
+     "link": null
+    },
+    {
+     "localized_name": "caption_text",
+     "name": "caption_text",
+     "shape": 7,
+     "type": "STRING",
+     "link": null
+    },
+    {
+     "localized_name": "filename_prefix",
+     "name": "filename_prefix",
+     "type": "STRING",
+     "widget": {
+      "name": "filename_prefix"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "format",
+     "name": "format",
+     "type": "COMBO",
+     "widget": {
+      "name": "format"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "save_metadata",
+     "name": "save_metadata",
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "save_metadata"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "exact_name",
+     "name": "exact_name",
+     "shape": 7,
+     "type": "STRING",
+     "widget": {
+      "name": "exact_name"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "on_existing",
+     "name": "on_existing",
+     "shape": 7,
+     "type": "COMBO",
+     "widget": {
+      "name": "on_existing"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "output_dir",
+     "name": "output_dir",
+     "shape": 7,
+     "type": "STRING",
+     "widget": {
+      "name": "output_dir"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "caption",
+     "name": "caption",
+     "shape": 7,
+     "type": "STRING",
+     "widget": {
+      "name": "caption"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "name_counter",
+     "name": "name_counter",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "name_counter"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "name_date",
+     "name": "name_date",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "name_date"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "name_time",
+     "name": "name_time",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "name_time"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "name_size",
+     "name": "name_size",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "name_size"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "name_batch",
+     "name": "name_batch",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "name_batch"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "preview",
+     "name": "preview",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "preview"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "file_path",
+     "name": "file_path",
+     "type": "STRING",
+     "links": null
+    },
+    {
+     "localized_name": "images",
+     "name": "images",
+     "type": "IMAGE",
+     "links": null
+    }
+   ],
+   "title": "Save Image - The cut-out",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_SaveImage",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.11.0"
+   },
+   "widgets_values": {
+    "filename_prefix": "mask_by_touch_cut_out",
+    "format": "png",
+    "save_metadata": true,
+    "exact_name": "",
+    "on_existing": "overwrite",
+    "output_dir": "",
+    "caption": "",
+    "name_counter": true,
+    "name_date": false,
+    "name_time": false,
+    "name_size": false,
+    "name_batch": false,
+    "preview": true
+   },
+   "widgets_values_named": {
+    "filename_prefix": "mask_by_touch_cut_out",
+    "format": "png",
+    "save_metadata": true,
+    "exact_name": "",
+    "on_existing": "overwrite",
+    "output_dir": "",
+    "caption": "",
+    "name_counter": true,
+    "name_date": false,
+    "name_time": false,
+    "name_size": false,
+    "name_batch": false,
+    "preview": true
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 9,
+   "type": "AUSBOSS_NODES_Callout",
+   "pos": [
+    1984,
+    80
+   ],
+   "size": [
+    400,
+    122
+   ],
+   "flags": {
+    "pinned": true
+   },
+   "order": 8,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "text",
+     "name": "text",
+     "type": "STRING",
+     "widget": {
+      "name": "text"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_Callout",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.11.0"
+   },
+   "widgets_values": [
+    "⬅️#7 Switch a result off to skip it."
+   ],
+   "widgets_values_named": {
+    "text": "⬅️#7 Switch a result off to skip it."
+   },
+   "color": "#07090a",
+   "bgcolor": "#07090a",
+   "title": "Callout"
+  },
+  {
+   "id": 10,
+   "type": "MaskToImage",
+   "pos": [
+    1984,
+    272
+   ],
+   "size": [
+    400,
+    26
+   ],
+   "flags": {},
+   "order": 9,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "mask",
+     "name": "mask",
+     "type": "MASK",
+     "link": 5
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "IMAGE",
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      6
+     ]
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "MaskToImage",
+    "cnr_id": "comfy-core",
+    "ver": "0.38.0"
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 11,
+   "type": "AUSBOSS_NODES_SaveImage",
+   "pos": [
+    1984,
+    368
+   ],
+   "size": [
+    400,
+    860
+   ],
+   "flags": {},
+   "order": 10,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "images",
+     "name": "images",
+     "type": "IMAGE",
+     "link": 6
+    },
+    {
+     "localized_name": "filename",
+     "name": "filename",
+     "shape": 7,
+     "type": "STRING",
+     "link": null
+    },
+    {
+     "localized_name": "caption_text",
+     "name": "caption_text",
+     "shape": 7,
+     "type": "STRING",
+     "link": null
+    },
+    {
+     "localized_name": "filename_prefix",
+     "name": "filename_prefix",
+     "type": "STRING",
+     "widget": {
+      "name": "filename_prefix"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "format",
+     "name": "format",
+     "type": "COMBO",
+     "widget": {
+      "name": "format"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "save_metadata",
+     "name": "save_metadata",
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "save_metadata"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "exact_name",
+     "name": "exact_name",
+     "shape": 7,
+     "type": "STRING",
+     "widget": {
+      "name": "exact_name"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "on_existing",
+     "name": "on_existing",
+     "shape": 7,
+     "type": "COMBO",
+     "widget": {
+      "name": "on_existing"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "output_dir",
+     "name": "output_dir",
+     "shape": 7,
+     "type": "STRING",
+     "widget": {
+      "name": "output_dir"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "caption",
+     "name": "caption",
+     "shape": 7,
+     "type": "STRING",
+     "widget": {
+      "name": "caption"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "name_counter",
+     "name": "name_counter",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "name_counter"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "name_date",
+     "name": "name_date",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "name_date"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "name_time",
+     "name": "name_time",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "name_time"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "name_size",
+     "name": "name_size",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "name_size"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "name_batch",
+     "name": "name_batch",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "name_batch"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "preview",
+     "name": "preview",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "preview"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "file_path",
+     "name": "file_path",
+     "type": "STRING",
+     "links": null
+    },
+    {
+     "localized_name": "images",
+     "name": "images",
+     "type": "IMAGE",
+     "links": null
+    }
+   ],
+   "title": "Save Image - The mask",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_SaveImage",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.11.0"
+   },
+   "widgets_values": {
+    "filename_prefix": "mask_by_touch_mask",
+    "format": "png",
+    "save_metadata": true,
+    "exact_name": "",
+    "on_existing": "overwrite",
+    "output_dir": "",
+    "caption": "",
+    "name_counter": true,
+    "name_date": false,
+    "name_time": false,
+    "name_size": false,
+    "name_batch": false,
+    "preview": true
+   },
+   "widgets_values_named": {
+    "filename_prefix": "mask_by_touch_mask",
+    "format": "png",
+    "save_metadata": true,
+    "exact_name": "",
+    "on_existing": "overwrite",
+    "output_dir": "",
+    "caption": "",
+    "name_counter": true,
+    "name_date": false,
+    "name_time": false,
+    "name_size": false,
+    "name_batch": false,
+    "preview": true
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  }
+ ],
+ "links": [
+  [
+   1,
+   3,
+   0,
+   6,
+   0,
+   "IMAGE"
+  ],
+  [
+   2,
+   4,
+   0,
+   6,
+   1,
+   "MODEL"
+  ],
+  [
+   3,
+   4,
+   1,
+   6,
+   2,
+   "CLIP"
+  ],
+  [
+   4,
+   6,
+   1,
+   8,
+   0,
+   "IMAGE"
+  ],
+  [
+   5,
+   6,
+   0,
+   10,
+   0,
+   "MASK"
+  ],
+  [
+   6,
+   10,
+   0,
+   11,
+   0,
+   "IMAGE"
+  ]
+ ],
+ "groups": [
+  {
+   "id": 1,
+   "title": "1 · Your picture",
+   "bounding": [
+    480,
+    0,
+    464,
+    1248.0
+   ],
+   "color": "#1d5560",
+   "flags": {
+    "pinned": true
+   }
+  },
+  {
+   "id": 2,
+   "title": "2 · Pick it",
+   "bounding": [
+    984,
+    0,
+    500,
+    1248.0
+   ],
+   "color": "#1d5560",
+   "flags": {
+    "pinned": true
+   }
+  },
+  {
+   "id": 3,
+   "title": "3 · Result",
+   "bounding": [
+    1524,
+    0,
+    880,
+    1248.0
+   ],
+   "color": "#1d5560",
+   "flags": {
+    "pinned": true
+   }
+  }
+ ],
+ "config": {},
+ "extra": {
+  "ds": {
+   "scale": 0.75,
+   "offset": [
+    20,
+    60
+   ]
+  },
+  "frontendVersion": "1.53.6"
+ },
+ "version": 0.4
+}

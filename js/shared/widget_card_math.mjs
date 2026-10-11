@@ -146,8 +146,18 @@ export function resetUnknownValues(widgets, fallbacks = {}) {
   return reset;
 }
 
+// A choice's words on the card: the row's own, else the value itself.
+// `labels` is a map from value to words, or a function of the value and of
+// all the values, for a list that is only known on the user's machine (the
+// model files they have).
+export function choiceLabel(row, value, values = []) {
+  const own = typeof row?.labels === "function" ? row.labels(value, values) : row?.labels?.[value];
+  return own ?? String(value);
+}
+
 function comboLabels(row, widget) {
-  return comboValues(widget).map((value) => row.labels?.[value] ?? String(value));
+  const values = comboValues(widget);
+  return values.map((value) => choiceLabel(row, value, values));
 }
 
 // A widget's hover text. The frontend keeps a node's tooltips in its

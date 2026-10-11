@@ -38,7 +38,7 @@ import { makeScrubInput } from "./scrub_input.mjs";
 import { hideWidget } from "./widget_visibility.mjs";
 import {
   CARD_PADDING, GROUP_HEIGHT, ROW_GAP, ROW_HEIGHT, SECTION_HEIGHT, SLOT_OFFSET, UNIT_SLOT_WIDTH,
-  cardHeight, commitWidgetValue, comboValues, rowHeight, rowKind, rowMuted, rowTops, scrubSteps, socketWidgetY, visibleRows,
+  cardHeight, choiceLabel, commitWidgetValue, comboValues, rowHeight, rowKind, rowMuted, rowTops, scrubSteps, socketWidgetY, visibleRows,
   widgetTooltip,
 } from "./widget_card_math.mjs";
 
@@ -244,14 +244,22 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     const widget = findWidget(node, name);
     const seg = el("div", "ausboss-card-seg");
     const buttons = new Map();
-    for (const value of comboValues(widget)) {
-      const button = el("button", "", row.labels?.[value] ?? String(value));
+    const add = (value, values) => {
+      const button = el("button", "", choiceLabel(row, value, values));
       button.type = "button"; button.title = row.titles?.[value] ?? String(value);
       button.addEventListener("click", () => setWidget(name, value));
       seg.append(button); buttons.set(value, button);
-    }
+    };
+    const values = comboValues(widget);
+    for (const value of values) add(value, values);
     into.append(seg);
-    return (vals) => { for (const [value, button] of buttons) button.classList.toggle("on", vals[name] === value); };
+    return (vals) => {
+      // A value the list does not offer (a model file this machine does not
+      // have) still shows as what is chosen, as it does in a list.
+      const current = vals[name];
+      if (typeof current === "string" && current !== "" && !buttons.has(current)) add(current, comboValues(widget));
+      for (const [value, button] of buttons) button.classList.toggle("on", current === value);
+    };
   };
 
   const buildSelect = (name, row, into) => {
@@ -281,7 +289,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       const options = comboValues(widget);
       const list = options.includes(current) || current === undefined || current === "" ? options : [...options, current];
       for (const value of list) {
-        const option = el("option", "", row.labels?.[value] ?? String(value)); option.value = String(value); select.append(option);
+        const option = el("option", "", choiceLabel(row, value, options)); option.value = String(value); select.append(option);
       }
       select.value = String(current ?? "");
     };

@@ -194,6 +194,22 @@ It also returns the thing cut out on a see-through background, and how many thin
 
 The Mask by Name example finds a thing by its name and saves its cut-out and its mask, with a Workflow Switches card to skip either one. [Open the Mask by Name workflow →](example_workflows/Mask%20by%20Name%20%28AusBoss%29.json)
 
+### Mask by Touch
+
+Click a thing on the picture and get its mask. No name to type and no MaskEditor: the picture is on the node. Move the pointer over it and the thing a click would take lights up, with its name beside the pointer: the jacket, not the whole person. Click to pick it, and click more things to add them. What is lit in teal is what the mask will be.
+
+When a click could mean more than one thing, the node shows the pick with two arrows, like **‹ jacket · 1 of 3 ›**: an arrow swaps it for the next thing at that spot. A stroke across two things, like both shoes, takes both. **Pick | Draw** switches to a plain brush for an area you want to paint yourself. **+** and **−** add or take away, and **Undo** takes back a pick.
+
+Every pick has a chip under the picture: its cross takes that pick away, a click on its name opens it so the arrows can swap it, and **all 3** on a named pick takes every thing of that name. What you paint with Draw in one go shares one chip. The field at the end of the row takes a name you type, for things that did not light up.
+
+**Subject** picks the picture's main subject in one click, and **Background** everything else. **Fine edges** is for hair and fur: switched on, the outline of the subject is followed strand by strand, on light and dark backgrounds, and the cut-out loses the colour of the old background. All three use ComfyUI's own background-removal model (`birefnet.safetensors`, ComfyUI 0.21 or newer); the help page says where to get it.
+
+**Grow** and **Soften** show on the picture while you drag them. Under **More**: Smooth, Fill small holes, Invert, what to do when nothing is picked, and Free VRAM. The eye beside Undo and Clear hides everything else to show the result, as a cut-out or as the mask.
+
+It also returns the picked area cut out on a see-through background, and the names of what was picked as text. The search is ComfyUI's own SAM 3: wire `model` and `clip` from a Load Checkpoint that loads the SAM 3 file. Needs ComfyUI 0.20 or newer, which has SAM 3 built in. The [help page](js/docs/AUSBOSS_NODES_MaskByTouch.md) has the keys and the details.
+
+The Mask by Touch example loads a picture, lets you click what you want, and saves its cut-out and its mask, with Fine edges on. [Open the Mask by Touch workflow →](example_workflows/Mask%20by%20Touch%20%28AusBoss%29.json)
+
 ### Mask Refine
 
 Grows or shrinks a mask, blurs it, fills holes, smooths jagged edges, and sets black and white points. The card shows Expand and Blur, and **More** opens the rest. **AUTO** picks expand and blur values from the mask's size. The optional preview shows the result.
@@ -341,6 +357,7 @@ The workflows open with their image and video loaders empty, so you load your ow
 | [Qwen Image 2.1 Edit + Realign](example_workflows/Qwen%20Image%202.1%20Edit%20%2B%20Realign%20%28AusBoss%29.json) | Type a short edit, and Realign to Source lines Qwen's result back up with your picture | Qwen Image 2.1 INT8, Qwen3-VL 8B INT8 and the 2.1 VAE |
 | [Qwen Image 2.1 Upscale + Restore](example_workflows/Qwen%20Image%202.1%20Upscale%20%2B%20Restore%20%28AusBoss%29.json) | Load a small or worn photo, set the megapixels, and Qwen redraws it sharp, in tiles above about 2 | Qwen Image 2.1 INT8, Qwen3-VL 8B INT8, the 2.1 VAE, the Restore LoRA and, for Fast, the Viggle Turbo LoRA |
 | [Mask by Name](example_workflows/Mask%20by%20Name%20%28AusBoss%29.json) | Type what to find in a picture, and get its mask and a cut-out with a see-through background | ComfyUI's own SAM 3.1 (ComfyUI 0.20 or newer) |
+| [Mask by Touch](example_workflows/Mask%20by%20Touch%20%28AusBoss%29.json) | Click a thing in a picture, or its whole subject, and get its mask and a cut-out with hair-fine edges | ComfyUI's own SAM 3.1 and its background-removal model (ComfyUI 0.21 or newer) |
 | [Simple Video Watermark Remover](example_workflows/Simple%20Video%20Watermark%20Remover%20%28AusBoss%29.json) | Find an overlay in a clip and remove it, with a one-frame comparison branch | ComfyUI's own SAM 3.1 (ComfyUI 0.20 or newer), plus `big-lama.pt` |
 
 Every example uses only core nodes and this pack. Speed and memory use depend on the models, the sizes, the frame count and whatever else is using the GPU.
@@ -356,7 +373,7 @@ If you share workflows, a few of these nodes help the people who download them:
 - **Run Timer** shows how long the whole run took, so a speed note is measured.
 - **Save Image** embeds the workflow in PNG, lossless WebP or JPEG XL files, with names you control.
 - **Workflow Switches** gives each optional part of your workflow one off | on switch, so people skip what they don't need without breaking the chain.
-- **Free Memory** between two heavy stages, and **Free VRAM** on Mask by Name, give the next model its room on a smaller graphics card.
+- **Free Memory** between two heavy stages, and **Free VRAM** on Mask by Name and Mask by Touch, give the next model its room on a smaller graphics card.
 
 People who download your workflow get the nodes through ComfyUI-Manager's missing-node install, like any other pack.
 

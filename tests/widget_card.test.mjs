@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   CARD_PADDING, GROUP_HEIGHT, ROW_GAP, ROW_HEIGHT, SECTION_HEIGHT, SLOT_OFFSET,
-  cardHeight, commitWidgetValue, holdsUnknownValue, resetUnknownValues, rowHeight, rowKind, rowMuted, rowTops,
+  cardHeight, choiceLabel, commitWidgetValue, holdsUnknownValue, resetUnknownValues, rowHeight, rowKind, rowMuted, rowTops,
   scrubSteps, segmentFits, socketWidgetY, visibleRows, widgetTooltip,
 } from "../js/shared/widget_card_math.mjs";
 
@@ -307,4 +307,16 @@ test("a card row's hover text comes from the node's definition", () => {
   assert.equal(widgetTooltip(node, "missing"), "");
   assert.equal(widgetTooltip({}, "name"), "");
   assert.equal(widgetTooltip(null, "name"), "");
+});
+
+test("a choice's words come from the row: a map, or a function for lists only the user's machine knows", () => {
+  assert.equal(choiceLabel({}, "lanczos"), "lanczos");
+  assert.equal(choiceLabel({ labels: { rgb: "RGB" } }, "rgb"), "RGB");
+  assert.equal(choiceLabel({ labels: { rgb: "RGB" } }, "lab"), "lab");
+  const row = { labels: (value, values) => (value === "off" ? "off" : values.length > 2 ? value.replace(/\.safetensors$/, "") : "on") };
+  assert.equal(choiceLabel(row, "off", ["off", "model.safetensors"]), "off");
+  assert.equal(choiceLabel(row, "model.safetensors", ["off", "model.safetensors"]), "on");
+  assert.equal(choiceLabel(row, "b.safetensors", ["off", "a.safetensors", "b.safetensors"]), "b");
+  // The pill or the list is chosen from the words a person reads, so two long file names still make a short pill.
+  assert.equal(rowKind({ widget: "fine_edges", labels: row.labels }, { type: "combo", options: { values: ["off", "vitmatte-small-composition-1k/model.safetensors"] } }), "segment");
 });
