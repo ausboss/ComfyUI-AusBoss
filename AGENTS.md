@@ -261,6 +261,32 @@ mouse drags, and screenshots the result. A link-drop test that only checks
 which input got the link is not enough — look at the picture and ask whether
 a person could have aimed there.
 
+A ComfyUI update can break a node without a line of the pack changing. So
+the pack is run against the newest ComfyUI every night
+(`.github/workflows/comfyui_compat.yml`): its newest release and its
+development head, on the CPU, with no model files. Three checks, which also
+run by hand against any ComfyUI:
+
+```bash
+AUSBOSS_COMFY_ROOT=<ComfyUI> python tests/test_comfy_core_contract.py
+python scripts/compat_boot.py --url http://127.0.0.1:8188
+node scripts/dev/face_smoke.mjs <chrome port>            # and again with --vue
+```
+
+- `test_comfy_core_contract.py` reads the pack's own source for everything
+  it takes from ComfyUI and looks each thing up in the real one. It finds
+  imports by itself. A call to one of ComfyUI's own nodes by name
+  (`SAM3_Detect`), or an internal read with a fallback, goes in the tables at
+  the top of that file; the test fails on a node call that is not listed.
+- `compat_boot.py` asks a running ComfyUI which nodes it offers: every public
+  node of the pack, and every node and required input the examples use.
+- `face_smoke.mjs` puts every node on a graph and fails when a face does not
+  come up or something throws.
+
+A failure on the release opens an issue labelled `comfyui-update`. What these
+cannot see is anything that needs a model: run the real thing on a GPU
+before a release that follows a ComfyUI update.
+
 ## Releasing
 
 A new `version` in `pyproject.toml` that lands on main publishes to the Comfy

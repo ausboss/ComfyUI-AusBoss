@@ -1,0 +1,158 @@
+name: ComfyUI updates
+
+# Every night the pack is run against the newest ComfyUI: its newest release
+# and its development head. Nothing here needs a GPU or a model file.
+#
+# What runs, on a clean machine with ComfyUI installed for the CPU:
+#   1. tests/test_comfy_core_contract.py: everything the pack takes from
+#      ComfyUI is still there (modules, functions, ComfyUI's own nodes the
+#      pack calls and the inputs it passes them).
+#   2. All Python tests, with this ComfyUI on the path.
+#   3. ComfyUI is started with the pack in it. scripts/compat_boot.py asks it
+#      which nodes it offers: every public node of the pack, and every node
+#      and required input the example workflows use.
+#   4. scripts/dev/face_smoke.mjs puts every node on a graph in headless
+#      Chrome, in the classic node view and in Nodes 2.0: its face comes up
+#      and nothing throws.
+#
+# A failure on the release opens an issue (or adds to the open one) and fails
+# the run. The development head breaks and mends itself often, so that job
+# never fails the run, and it only opens an issue after two nights in a row.
+#
+# It also runs on a pull request that changes one of these checks.
+on:
+  schedule:
+    - cron: "17 9 * * *"
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/comfyui_compat.yml"
+      - "tests/test_comfy_core_contract.py"
+      - "scripts/compat_boot.py"
+      - "scripts/dev/face_smoke.mjs"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: comfyui-updates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compat:
+    name: ComfyUI ${{ matrix.comfyui }}
+    if: ${{ github.repository == 'ausboss/ComfyUI-AusBoss' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    continue-on-error: ${{ matrix.comfyui == 'master' }}
+    permissions:
+      contents: read
+      issues: write
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        comfyui: [release, master]
+    env:
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    steps:
+      - name: Check out the pack
+        uses: actions/checkout@v7
+        with:
+          path: ComfyUI-AusBoss
+          persist-credentials: false
+      - name: Which ComfyUI
+        id: which
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WANTED: ${{ matrix.comfyui }}
+        run: |
+          if [ "$WANTED" = "release" ]; then
+            ref=$(gh api repos/Comfy-Org/ComfyUI/releases/latest --jq .tag_name)
+          else
+            ref=master
+          fi
+          test -n "$ref"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "ComfyUI at $ref"
+      - name: Check out ComfyUI
+        uses: actions/checkout@v7
+        with:
+          repository: Comfy-Org/ComfyUI
+          ref: ${{ steps.which.outputs.ref }}
+          path: ComfyUI
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: ComfyUI/requirements.txt
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Install ComfyUI for the CPU
+        run: |
+          python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r ComfyUI/requirements.txt
+          git -C ComfyUI log -1 --format='ComfyUI %h %cd %s' --date=short
+          python -m pip list 2>/dev/null | grep -i -E "^(comfyui|torch) " || true
+      - name: Everything the pack takes from ComfyUI is there
+        working-directory: ComfyUI-AusBoss
+        run: AUSBOSS_COMFY_ROOT="$GITHUB_WORKSPACE/ComfyUI" python tests/test_comfy_core_contract.py
+      - name: Python tests on this ComfyUI
+        working-directory: ComfyUI-AusBoss
+        run: AUSBOSS_COMFY_ROOT="$GITHUB_WORKSPACE/ComfyUI" python scripts/run_python_tests.py
+      - name: Start ComfyUI with the pack in it
+        run: |
+          ln -s "$GITHUB_WORKSPACE/ComfyUI-AusBoss" ComfyUI/custom_nodes/ComfyUI-AusBoss
+          cd ComfyUI
+          nohup python main.py --cpu --port 8188 --disable-auto-launch > "$GITHUB_WORKSPACE/comfyui.log" 2>&1 &
+          for i in $(seq 1 90); do
+            if curl -s -m 2 http://127.0.0.1:8188/system_stats > /dev/null; then echo "up after $((i * 2)) s"; exit 0; fi
+            sleep 2
+          done
+          echo "ComfyUI did not come up"; tail -60 "$GITHUB_WORKSPACE/comfyui.log"; exit 1
+      - name: Every node is offered and every example still fits
+        run: python ComfyUI-AusBoss/scripts/compat_boot.py --url http://127.0.0.1:8188 --log comfyui.log
+      - name: Every node's face comes up, classic and Nodes 2.0
+        run: |
+          google-chrome --headless=new --remote-debugging-port=9333 --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --user-data-dir="$RUNNER_TEMP/chrome" about:blank > "$GITHUB_WORKSPACE/chrome.log" 2>&1 &
+          for i in $(seq 1 30); do curl -s -m 2 http://127.0.0.1:9333/json/version > /dev/null && break; sleep 1; done
+          status=0
+          node ComfyUI-AusBoss/scripts/dev/face_smoke.mjs 9333 || status=1
+          node ComfyUI-AusBoss/scripts/dev/face_smoke.mjs 9333 --vue || status=1
+          exit "$status"
+      - name: ComfyUI's log
+        if: ${{ always() }}
+        run: tail -80 comfyui.log || true
+      # Only a nightly run tells anyone: a pull request shows its own result.
+      - name: Open or add to an issue
+        if: ${{ failure() && github.event_name == 'schedule' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WANTED: ${{ matrix.comfyui }}
+          REF: ${{ steps.which.outputs.ref }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          cd ComfyUI-AusBoss
+          if [ "$WANTED" = "master" ]; then
+            # The development head: only when last night's run failed on it too.
+            before=$(gh run list --workflow comfyui_compat.yml --event schedule --limit 2 --json databaseId --jq '.[1].databaseId // empty')
+            last=""
+            if [ -n "$before" ]; then
+              last=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$before/jobs" --jq '.jobs[] | select(.name == "ComfyUI master") | .steps[] | select(.conclusion == "failure") | .name' | head -1)
+            fi
+            if [ -z "$last" ]; then echo "First night it fails on the development head: no issue yet."; exit 0; fi
+          fi
+          title="ComfyUI $WANTED: the pack's nightly check fails"
+          commit=$(git -C ../ComfyUI log -1 --format='%h (%cd) %s' --date=short)
+          body=$(printf 'The nightly check of the pack against ComfyUI `%s` failed.\n\n- ComfyUI: %s\n- Run: %s\n\nThe failed step in that run names what broke: a module or function ComfyUI no longer has, a node or input an example uses, or a node whose face did not come up.' "$REF" "$commit" "$RUN_URL")
+          gh label create comfyui-update --description "A ComfyUI update broke something" --color 14424D 2>/dev/null || true
+          open=$(gh issue list --state open --label comfyui-update --search "in:title \"$title\"" --json number --jq '.[0].number // empty')
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body "$body"
+          else
+            gh issue create --title "$title" --label comfyui-update --body "$body"
+          fi

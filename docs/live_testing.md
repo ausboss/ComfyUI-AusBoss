@@ -42,6 +42,7 @@ recipe.
   | `cdp_drag.mjs <port> <setup.js> <mid.png\|-> <after.png\|-> [check.js]` | `setup.js` returns `{from, to, __clip}` in client pixels; presses at `from`, moves to `to`, screenshots mid-drag, releases, evaluates `check.js`, screenshots again |
   | `audit_workflows.mjs <port> <output-dir> [workflow.json ...]` | loads every example (or selected files), exports API and loaded graphs, captures screenshots, and fails on overlaps, missing nodes, browser exceptions, or exposed AusBoss number widgets |
   | `wheel_sweep.mjs <port> [--vue] [--only=Type,Type] [--workflow=file.json] [--shots=dir]` | turns the mouse wheel at every point of every node of the pack (or of the nodes in one workflow) and fails on any spot where the graph does not zoom, naming the element that took the wheel; `--real` sends real wheel turns, slower and on a coarser grid |
+  | `face_smoke.mjs <port> [--vue] [--only=Type,Type]` | puts one of each node of the pack on an empty graph and fails when a face does not come up: no node, a panel that is not on the page or has no size, an error thrown, a file of the pack that did not load. Needs no model, so it also runs in the nightly ComfyUI check |
   | `cdp_nav_debug.mjs <port>` | navigates the tab in place and logs every CDP event, for when a tab stops answering |
   | `cdp_hang.mjs <port>` | pre-arms the debugger on a fresh tab, loads ComfyUI, and pauses to print the stack if the page stops answering |
 
