@@ -293,6 +293,11 @@ A new `version` in `pyproject.toml` that lands on main publishes to the Comfy
 Registry through the publish workflow (`.github/workflows/publish_action.yml`).
 Contributors never change `version`.
 
+The Registry shows notes with each version. They are that version's section
+of `CHANGELOG.md`, one line per entry: its bold opening, and for a new node
+the sentence that says what it does (`scripts/changelog_notes.py`). So open
+every entry with a bold line that makes sense on its own.
+
 ## Example workflows
 
 Examples are what most people run first, so each one must work for a
