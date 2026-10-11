@@ -1712,6 +1712,7 @@ __all__ = [
     "seam_ramps",
     "build_canvas_stitcher",
     "build_transform_stitcher",
+    "transform_picture_box",
     "stitch_blend_from_mask",
     "STITCHER_VERSION",
     "apply_stitch",
@@ -1729,6 +1730,25 @@ __all__ = [
     "spread_edge_colors",
     "tone_offset_field",
 ]
+
+
+def transform_picture_box(geometry, width: int, height: int) -> tuple[int, int, int, int]:
+    """Where a transform's kept picture sits on its canvas at ``width`` x
+    ``height``, as ``(x0, y0, x1, y1)`` pixels: the crop rectangle, scaled
+    with the canvas when a resize changed its size. Never empty, so a
+    picture far smaller than its padding still has a pixel to sit on.
+
+    The megapixel resize pastes the picture into this box and the stitcher
+    carries it as the source bbox, so the two cannot disagree.
+    """
+    width, height = int(width), int(height)
+    scale_x = width / float(geometry.output_width)
+    scale_y = height / float(geometry.output_height)
+    x0 = min(int(round(geometry.pad_left * scale_x)), width - 1)
+    y0 = min(int(round(geometry.pad_top * scale_y)), height - 1)
+    x1 = min(width, max(x0 + 1, int(round((geometry.pad_left + geometry.crop_width) * scale_x))))
+    y1 = min(height, max(y0 + 1, int(round((geometry.pad_top + geometry.crop_height) * scale_y))))
+    return x0, y0, x1, y1
 
 
 def build_transform_stitcher(
@@ -1750,14 +1770,7 @@ def build_transform_stitcher(
     still stitches, reading every bbox pixel as picture.
     """
     blend = stitch_blend_from_mask(mask, blend_pixels, grow_pixels)
-    scale_x = frames.shape[2] / float(geometry.output_width)
-    scale_y = frames.shape[1] / float(geometry.output_height)
-    bbox = (
-        int(round(geometry.pad_left * scale_x)),
-        int(round(geometry.pad_top * scale_y)),
-        int(round((geometry.pad_left + geometry.crop_width) * scale_x)),
-        int(round((geometry.pad_top + geometry.crop_height) * scale_y)),
-    )
+    bbox = transform_picture_box(geometry, frames.shape[2], frames.shape[1])
     stitcher = build_canvas_stitcher(frames, blend, bbox=bbox, source=source)
     stitcher["generated"] = mask
     return stitcher

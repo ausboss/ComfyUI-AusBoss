@@ -16,6 +16,7 @@ from PIL import Image, ImageFilter
 import torch
 
 from ._color_helpers import parse_fill_color
+from ._inpaint_crop_helpers import transform_picture_box
 from ._pad_helpers import _axis_layout
 
 
@@ -514,30 +515,56 @@ def scale_to_megapixels(
     return int(scaled_width), int(scaled_height)
 
 
-def resize_batch_to_megapixels(output, mask, megapixels, method, steps):
-    """Resize the transform's BHWC image (and BHW mask) to a pixel budget.
+def resize_then_pad(output, mask, geometry, fill_color, megapixels, method, steps, view=None):
+    """A transform's canvas at a pixel budget: the picture resized, then padded.
 
-    The image uses the chosen method; the mask always resizes bilinear -
-    it is a soft coverage map, and ringing methods (lanczos/bicubic) would
-    push it outside 0..1 at the feather edge."""
+    ``output`` and ``mask`` are a transform's BHWC canvas and BHW mask,
+    ``view`` its prompt view or None. Returns the three at the size
+    :func:`scale_to_megapixels` gives the canvas.
+
+    Resizing the padded canvas as one picture mixed fill into the picture
+    along every seam: a column part fill with a part mask, which a hard
+    paste kept as a line, and a band under a pixel wide came out as nothing
+    else. So only the picture is resized, with the chosen method, into the
+    box it has on the resized canvas (transform_picture_box, the stitcher's
+    own source bbox), and the fill goes around it. Bands are whole pixels,
+    the picture's edge is picture, and a band that comes to under half a
+    pixel is gone.
+
+    The mask is 1 on the fill. Inside the box it is the transform's own
+    mask there, resized with the picture: the feather's ramp from each
+    seam, the corners of a turn and see-through parts. It resizes bilinear:
+    it is a soft coverage map, and a ringing method would push it outside
+    0..1. Without padding the box is the whole canvas, and this is a plain
+    resize of image and mask.
+    """
     import comfy.utils
 
-    height = int(output.shape[1])
-    width = int(output.shape[2])
+    height, width = int(output.shape[1]), int(output.shape[2])
     target_width, target_height = scale_to_megapixels(width, height, megapixels, steps)
     if (target_width, target_height) == (width, height):
-        return output, mask
-    samples = output.movedim(-1, 1)
-    samples = comfy.utils.common_upscale(
-        samples, target_width, target_height, str(method), "disabled"
-    )
-    output = samples.movedim(1, -1).clamp(0.0, 1.0)
-    mask_samples = mask.unsqueeze(1)
-    mask_samples = comfy.utils.common_upscale(
-        mask_samples, target_width, target_height, "bilinear", "disabled"
-    )
-    mask = mask_samples.squeeze(1).clamp(0.0, 1.0)
-    return output, mask
+        return output, mask, view
+    x0, y0, x1, y1 = transform_picture_box(geometry, target_width, target_height)
+    rows = slice(geometry.pad_top, geometry.pad_top + geometry.crop_height)
+    cols = slice(geometry.pad_left, geometry.pad_left + geometry.crop_width)
+    fill = torch.tensor([channel / 255.0 for channel in fill_rgb(fill_color)])
+
+    def place(canvas):
+        picture = comfy.utils.common_upscale(
+            canvas[:, rows, cols].movedim(-1, 1), x1 - x0, y1 - y0, str(method), "disabled"
+        )
+        placed = fill.to(canvas).expand(canvas.shape[0], target_height, target_width, -1).clone()
+        placed[:, y0:y1, x0:x1] = picture.movedim(1, -1).clamp(0.0, 1.0)
+        return placed
+
+    resized = mask.new_ones((mask.shape[0], target_height, target_width))
+    inside = mask[:, rows, cols]
+    if bool(inside.any()):
+        inside = comfy.utils.common_upscale(inside.unsqueeze(1), x1 - x0, y1 - y0, "bilinear", "disabled")
+        resized[:, y0:y1, x0:x1] = inside.squeeze(1).clamp(0.0, 1.0)
+    else:
+        resized[:, y0:y1, x0:x1] = 0.0
+    return place(output), resized, None if view is None else place(view)
 
 
 def original_image_batch(images: Iterable[Image.Image], keep_see_through: bool = False) -> torch.Tensor:
@@ -557,17 +584,3 @@ def original_image_batch(images: Iterable[Image.Image], keep_see_through: bool =
             array[~kept] = SEE_THROUGH_BACKDROP
         frames.append(torch.from_numpy(array / 255.0))
     return torch.stack(frames)
-
-
-def resize_image_batch(image: torch.Tensor, width: int, height: int, method: str) -> torch.Tensor:
-    """A BHWC batch resized to ``width`` x ``height`` the way
-    :func:`resize_batch_to_megapixels` resizes the image, so a companion of
-    the image (the prompt view) stays pixel-aligned with it."""
-    import comfy.utils
-
-    if (int(image.shape[2]), int(image.shape[1])) == (int(width), int(height)):
-        return image
-    samples = comfy.utils.common_upscale(
-        image.movedim(-1, 1), int(width), int(height), str(method), "disabled"
-    )
-    return samples.movedim(1, -1).clamp(0.0, 1.0)

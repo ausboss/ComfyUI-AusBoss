@@ -109,6 +109,7 @@ green rotate knob moves aside when a corner handle sits where it usually goes.
   **Megapixels** (`megapixels`, the budget) and **Step** (`resolution_steps`,
   the number each resized side rounds to; 8 or 64 suits most image models).
   **Method** (`resize_method`) is in the editor, under **Resize output**.
+  The edge between your picture and the fill stays one clean line at any size.
 
 ### Divisible by
 
@@ -278,8 +279,12 @@ The editor's right side holds the stitcher's settings, the same as on the clip n
   come out even.
 - **Resize.** It works like core's *Scale Image to Total Pixels*: the budget is
   `megapixels × 1024 × 1024`, the shape is kept, and each side rounds to a
-  multiple of **Step**. The image uses the chosen **Method**; the mask always
-  resizes bilinear so feathered edges cannot ring.
+  multiple of **Step**. Your picture is resized by itself, with the chosen
+  **Method**, and the fill is put around it afterwards, so no fill is mixed
+  into the picture's edge and each band is a whole number of pixels wide. A
+  band that would come to under half a pixel is left out. The mask inside the
+  picture (the feather, the corners of a turn, see-through parts) is resized
+  with it, bilinear so its edges cannot ring.
 - **Your own ratios.** Copy `ausboss_presets_example.json` in the pack's folder
   to `ausboss_presets.json` and edit the list, then reload the browser tab.
 - Restoring a workflow or undoing a change refreshes the picture without
