@@ -11,6 +11,11 @@ sys.path.insert(0, str(ROOT))
 if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
     del sys.modules["nodes"]
 
+try:
+    import torch
+except ImportError:  # the standard-library run has no torch
+    torch = None
+
 from nodes.node_free_memory import AusBossFreeMemory
 from nodes.node_literals import AusBossFloat, AusBossInteger, AusBossText
 from nodes.node_math import AusBossMathExpression
@@ -67,12 +72,24 @@ class ShowTextNodeTests(unittest.TestCase):
         self.assertEqual(as_text((1, 2)), "[\n  1,\n  2\n]")
 
     def test_a_picture_or_a_latent_is_named_by_its_size(self):
-        import torch
+        class Tensor:
+            """What the node reads from a tensor: its size, its kind and, for one number, its value."""
 
+            def __init__(self, shape, value=None):
+                self.shape, self.dtype, self.value = shape, "torch.float32", value
+
+            def item(self):
+                return self.value
+
+        self.assertEqual(as_text(Tensor((2, 64, 48, 3))), "tensor 2 x 64 x 48 x 3, float32")
+        self.assertEqual(as_text(Tensor((), 7)), "7")
+        latent = as_text({"samples": Tensor((1, 16, 8, 8))})
+        self.assertEqual(latent, '{\n  "samples": "tensor 1 x 16 x 8 x 8, float32"\n}')
+
+    @unittest.skipIf(torch is None, "needs torch")
+    def test_a_real_tensor_reads_the_same(self):
         self.assertEqual(as_text(torch.zeros((2, 64, 48, 3))), "tensor 2 x 64 x 48 x 3, float32")
         self.assertEqual(as_text(torch.tensor(7)), "7")
-        latent = as_text({"samples": torch.zeros((1, 16, 8, 8))})
-        self.assertEqual(latent, '{\n  "samples": "tensor 1 x 16 x 8 x 8, float32"\n}')
 
     def test_a_value_json_cannot_write_still_has_a_text(self):
         class Odd:
