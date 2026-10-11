@@ -25,10 +25,14 @@ import { fileURLToPath } from "node:url";
 
 const JS_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "js");
 
+// A panel whose DOM is built by a shared module, so a second view can reuse
+// it, is audited where it is built.
+const SHARED_PANELS = { mask_by_touch: join("shared", "touch_stage.mjs") };
+
 function domWidgetEntries() {
   const entries = [];
   for (const name of readdirSync(JS_ROOT)) {
-    const path = join(JS_ROOT, name, "index.js");
+    const path = join(JS_ROOT, SHARED_PANELS[name] ?? join(name, "index.js"));
     try {
       statSync(path);
     } catch {
@@ -114,6 +118,7 @@ test("a panel that should follow the node's height never declares computeSize", 
     "load_image_pad",
     "load_video",
     "lora_loader",
+    "mask_by_touch",
     "save_video",
     "show_text",
     "workflow_note",
@@ -383,6 +388,7 @@ test("every panel root class carries border-box and an overflow clip", () => {
     load_image_pad: ".ausboss-loadpad-root{",
     image_crop_rotate_pad: ".ausboss-transform-panel{",
     image_folder: ".ausboss-if{",
+    mask_by_touch: ".ausboss-touch{",
     save_image: ".ausboss-save{",
     show_text: ".ausboss-show-text{",
     callout: ".ausboss-callout{",
@@ -426,6 +432,49 @@ test("every panel root class carries border-box and an overflow clip", () => {
       `${name}: no overflow clip reaches the root class`,
     );
   }
+});
+
+test("the picture never sets Mask by Touch's height", () => {
+  // The preview picture's fault once more. The picture and the layers drawn
+  // over it (the picked area, the piece under the pointer, the brush) sit
+  // out of flow in a frame that is out of flow itself, so the stage takes
+  // its size from the node alone, in both renderers.
+  const source = readFileSync(join(JS_ROOT, "shared", "touch_stage.mjs"), "utf-8");
+  // Each rule is one line of the CSS; ${...} closes a brace in the middle of
+  // some of them, so a rule is read to the end of its line.
+  const rule = (selector) => source.match(new RegExp(`\\n${selector.replace(/[.[\]>,]/g, "\\$&")}\\{([^\\n]*)`))?.[1] ?? null;
+  // Everything the face puts in its stage, with its rule. Listed, so a new
+  // element is a deliberate call: in flow, it sets the stage's height.
+  const inStage = {
+    frame: ".ausboss-touch-frame",
+    wake: ".ausboss-touch-wake",
+    'el("div", "ausboss-touch-busy")': ".ausboss-touch-busy",
+    noteEl: ".ausboss-touch-note",
+  };
+  const appended = source.match(/\bstage\.append\((.*)\);/);
+  assert.ok(appended, "the stage is no longer filled by one stage.append(...)");
+  for (const child of appended[1].split(/,\s*(?![^()]*\))/).map((part) => part.trim())) {
+    assert.ok(inStage[child], `${child} is new in the stage - keep it out of flow and list its rule in this test`);
+  }
+  for (const selector of Object.values(inStage)) {
+    assert.ok(rule(selector), `the rule for ${selector} is gone`);
+    assert.match(rule(selector), /position:\s*absolute/, `${selector} is back in normal flow - it will size the node in Nodes 2.0`);
+  }
+  const layers = rule(".ausboss-touch-frame>img,.ausboss-touch-frame>canvas,.ausboss-touch-frame>svg");
+  assert.ok(layers, "the rule for the picture and its layers is gone");
+  assert.match(layers, /position:\s*absolute/, "the picture is back in normal flow inside its frame");
+  assert.match(layers, /inset:\s*0/, "the layers no longer share the picture's rectangle");
+  // What they are placed in, and the floor left once nothing is in flow.
+  const stage = rule(".ausboss-touch-stage");
+  assert.ok(stage, "the stage's own rule is gone");
+  assert.match(stage, /position:\s*relative/, "the stage no longer holds its out-of-flow picture");
+  assert.match(stage, /overflow:\s*hidden/, "the stage no longer clips its picture");
+  assert.match(stage, /min-height:\s*0;/, "the stage's own rule no longer starts from min-height:0");
+  assert.match(
+    source,
+    /\n\[data-node-id\] \.ausboss-touch-stage\{[^\n]*?min-height:\s*\$\{STAGE_MIN\}px/,
+    "the stage has no floor inside a Nodes 2.0 node - a corner drag can flatten it",
+  );
 });
 
 test("the shared video root really carries the guards it is trusted for", () => {

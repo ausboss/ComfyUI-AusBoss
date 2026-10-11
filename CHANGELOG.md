@@ -2,6 +2,31 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **New: Mask by Touch 🆎** (Mask). Click a thing on the picture and get
+  its mask. The picture is on the node: moving over it lights up what a
+  click would take and names it, the jacket and not the whole person, and
+  a click picks it. When a click could mean more than one thing, two
+  arrows beside the name swap the pick for the next thing at that spot.
+  Subject picks the picture's main subject in one click, and Background
+  everything else. Pick | Draw switches to a plain brush for an area you
+  paint yourself. + and - add or take away, and Undo takes a pick back.
+  Every pick has a chip under the picture: its cross takes the pick away,
+  a click on its name opens it so the arrows can swap it, "all" on a named
+  pick takes every thing of that name, and a field takes a name you type.
+  Fine edges is for hair and fur: the outline of the subject is followed
+  strand by strand, background seen between the strands goes, and the
+  cut-out loses the colour of the old background. Grow, Soften, Smooth and Fill small holes show on the picture
+  as you change them, and the eye beside Undo and Clear hides everything
+  else to show the result, as a cut-out or as the mask. Invert keeps
+  everything but the picks. It returns the mask, the picked area cut out on
+  a see-through background, and the names of what was picked. The search
+  is ComfyUI's own SAM 3: wire `model` and `clip` from a Load Checkpoint
+  that loads the SAM 3 file. Subject, Background and Fine edges use
+  ComfyUI's own background-removal model (`birefnet.safetensors`, ComfyUI
+  0.21 or newer); the help page says where to get it.
+
 ## 2.10.1 - 2026-10-09
 
 - **The mouse wheel zooms the graph everywhere on a node again.** Over a

@@ -522,6 +522,39 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_MaskByTouch": {
+    "required": [
+      "image",
+      "model",
+      "clip",
+      "touches",
+      "grow",
+      "soften",
+      "smooth",
+      "fill_holes",
+      "if_nothing"
+    ],
+    "optional": [
+      "free_vram",
+      "invert",
+      "ask",
+      "fine_edges"
+    ],
+    "outputs": [
+      [
+        "MASK",
+        "mask"
+      ],
+      [
+        "IMAGE",
+        "cut_out"
+      ],
+      [
+        "STRING",
+        "names"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_MathExpression": {
     "required": [
       "expression"

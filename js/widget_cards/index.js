@@ -14,6 +14,7 @@ import { resetUnknownValues } from "../shared/widget_card_math.mjs";
 import { mediaViewQuery } from "../shared/media_list.mjs";
 import { gearIconSvg, openSettingsMenu } from "../shared/settings_menu.mjs";
 import { SEAM_MENU, SEAM_MUTE_TITLES, isBlendIn, seamCornerReserve } from "../shared/stitch_seam.mjs";
+import { fineEdgeLabel } from "../shared/touch_math.mjs";
 
 // The Source lists preview the hovered file straight from ComfyUI's /view.
 const viewUrl = (value) => api.apiURL(`/view?${mediaViewQuery(value)}`);
@@ -184,6 +185,25 @@ const CARDS = {
       { widget: "position", label: "Picture", when: (values) => values.run === "one per run" },
       { widget: "after_run", label: "After a run", kind: "segment", when: (values) => values.run === "one per run" },
       { widget: "at_the_end", label: "At the end", kind: "segment", when: (values) => values.run === "one per run" },
+    ],
+  },
+  // The settings of Mask by Touch. Its picture (js/mask_by_touch) sits above
+  // the card and owns the hidden `touches` and `ask` widgets.
+  AUSBOSS_NODES_MaskByTouch: {
+    minWidth: 400, hide: ["touches", "ask"],
+    rows: [
+      { widget: "grow", label: "Grow", suffix: "px" },
+      // Half a pixel a step, a tenth with Shift.
+      { widget: "soften", label: "Soften", suffix: "px", step: 0.5, decimals: 1 },
+      // Off, or the model file that does it. With one file it reads off | on;
+      // with more, each by its own name.
+      { widget: "fine_edges", label: "Fine edges", labels: fineEdgeLabel },
+      { group: "advanced", label: "More" },
+      { widget: "smooth", label: "Smooth", suffix: "px", group: "advanced" },
+      { widget: "fill_holes", label: "Fill small holes", group: "advanced" },
+      { widget: "invert", label: "Invert", group: "advanced" },
+      { widget: "if_nothing", label: "If nothing", kind: "segment", group: "advanced" },
+      { widget: "free_vram", label: "Free VRAM", group: "advanced" },
     ],
   },
   AUSBOSS_NODES_MaskByName: {
