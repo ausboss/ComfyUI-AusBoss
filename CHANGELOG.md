@@ -4,6 +4,17 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **A Workflow Switches row can run one part and switch another off.** Until
+  now a row only turned its own nodes off and on. Give it an off side, nodes
+  that run only while the row is off, and one click does both. For example,
+  an edit takes its size from the picture, so with "Edit a picture" on,
+  "Your picture" runs and "Latent Size" is switched off; with it off, it is
+  the other way round. Select the nodes, open the row's three dots and pick
+  "The 1 selected runs only while this is off". "Take the 1 selected off that
+  side" undoes it. One at a time and Switch everything on and off follow each
+  row's off side. A small sign of two arrows beside the label shows which
+  rows have one, and the frame button brings both sides into view. A workflow
+  saved before this works as it did.
 - **Float 🆎 and Integer 🆎 take the limits of what they are wired to.** A
   Float wired to a sampler's denoise now stops at 1, the way ComfyUI's own
   Primitive node does: type 1.5 and you get 1. The card shows the limits
