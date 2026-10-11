@@ -16,7 +16,7 @@ from nodes.node_literals import AusBossFloat, AusBossInteger, AusBossText
 from nodes.node_math import AusBossMathExpression
 from nodes.node_run_timer import AusBossRunTimer
 from nodes.node_seed import MAX_SEED, AusBossSeed
-from nodes.node_show_text import AusBossShowText
+from nodes.node_show_text import AusBossShowText, as_text
 from nodes.node_workflow_note import AusBossWorkflowNote
 
 
@@ -40,10 +40,50 @@ class ShowTextNodeTests(unittest.TestCase):
         # OUTPUT_NODE is what lets the node run with nothing downstream.
         self.assertTrue(AusBossShowText.OUTPUT_NODE)
 
-    def test_non_string_input_is_displayed_but_passed_through_unchanged(self):
+    def test_a_number_is_shown_and_comes_out_as_that_text(self):
+        # The output is STRING: a number that went out as a number would
+        # break the text node it is wired to.
         result = AusBossShowText().show(7)
         self.assertEqual(result["ui"], {"text": ["7"]})
-        self.assertEqual(result["result"], (7,))
+        self.assertEqual(result["result"], ("7",))
+
+    def test_the_input_takes_any_wire(self):
+        kind = AusBossShowText.INPUT_TYPES()["required"]["text"][0]
+        self.assertEqual(kind, "*")
+        # ComfyUI checks a link with != on the two type names.
+        for other in ("STRING", "INT", "FLOAT", "BOOLEAN", "IMAGE", "LATENT"):
+            self.assertFalse(other != kind)
+            self.assertFalse(kind != other)
+        self.assertEqual(AusBossShowText.RETURN_TYPES, ("STRING",))
+
+    def test_every_kind_of_value_has_a_text(self):
+        self.assertEqual(as_text("as typed\n  "), "as typed\n  ")
+        self.assertEqual(as_text(1024), "1024")
+        self.assertEqual(as_text(0.85), "0.85")
+        self.assertEqual(as_text(True), "True")
+        self.assertEqual(as_text(None), "None")
+        self.assertEqual(as_text([1, "two", 3.5]), '[\n  1,\n  "two",\n  3.5\n]')
+        self.assertEqual(as_text({"name": "caf\u00e9"}), '{\n  "name": "caf\u00e9"\n}')
+        self.assertEqual(as_text((1, 2)), "[\n  1,\n  2\n]")
+
+    def test_a_picture_or_a_latent_is_named_by_its_size(self):
+        import torch
+
+        self.assertEqual(as_text(torch.zeros((2, 64, 48, 3))), "tensor 2 x 64 x 48 x 3, float32")
+        self.assertEqual(as_text(torch.tensor(7)), "7")
+        latent = as_text({"samples": torch.zeros((1, 16, 8, 8))})
+        self.assertEqual(latent, '{\n  "samples": "tensor 1 x 16 x 8 x 8, float32"\n}')
+
+    def test_a_value_json_cannot_write_still_has_a_text(self):
+        class Odd:
+            def __str__(self):
+                return "an odd thing"
+
+        self.assertEqual(as_text(Odd()), "an odd thing")
+        self.assertEqual(as_text([Odd()]), '[\n  "an odd thing"\n]')
+        loop = []
+        loop.append(loop)
+        self.assertIsInstance(as_text(loop), str)
 
 
 class MathExpressionNodeTests(unittest.TestCase):

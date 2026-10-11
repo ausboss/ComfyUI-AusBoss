@@ -143,12 +143,18 @@ class AlignImageNodeTests(unittest.TestCase):
 class ImageSizeNodeTests(unittest.TestCase):
     def test_reports_width_height_and_both_edges(self):
         node = AusBossImageSize()
-        self.assertEqual(node.measure(torch.zeros((2, 480, 832, 3))), (832, 480, 832, 480, 2))
-        self.assertEqual(node.measure(torch.zeros((1, 1080, 608, 3))), (608, 1080, 1080, 608, 1))
+        self.assertEqual(node.measure(torch.zeros((2, 480, 832, 3)))["result"], (832, 480, 832, 480, 2))
+        self.assertEqual(node.measure(torch.zeros((1, 1080, 608, 3)))["result"], (608, 1080, 1080, 608, 1))
 
     def test_square_images_agree_on_both_edges(self):
         node = AusBossImageSize()
-        self.assertEqual(node.measure(torch.zeros((1, 512, 512, 3))), (512, 512, 512, 512, 1))
+        self.assertEqual(node.measure(torch.zeros((1, 512, 512, 3)))["result"], (512, 512, 512, 512, 1))
+
+    def test_the_node_face_gets_the_same_numbers_as_the_outputs(self):
+        measured = AusBossImageSize().measure(torch.zeros((2, 480, 832, 3)))
+        self.assertEqual(measured["ui"], {"ausboss_size": [832, 480, 832, 480, 2]})
+        self.assertEqual(list(measured["result"]), measured["ui"]["ausboss_size"])
+        self.assertEqual(len(measured["result"]), len(AusBossImageSize.RETURN_TYPES))
 
     def test_rejects_non_bhwc_input(self):
         with self.assertRaises(ValueError):

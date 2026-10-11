@@ -11,7 +11,8 @@ class AusBossImageSize:
         "Reads an image's dimensions as INTs: width, height, the longest "
         "and shortest edges, and the batch's image count. Wire them into "
         "resize, latent, or conditioning nodes instead of retyping numbers "
-        "that drift out of date."
+        "that drift out of date. After a run the node shows each number "
+        "beside its output."
     )
     SEARCH_ALIASES = [
         "image size",
@@ -49,7 +50,10 @@ class AusBossImageSize:
         if not isinstance(image, torch.Tensor) or image.ndim != 4:
             raise ValueError("Image Size expected a BHWC IMAGE batch.")
         height, width = int(image.shape[1]), int(image.shape[2])
-        return (width, height, max(width, height), min(width, height), int(image.shape[0]))
+        sizes = (width, height, max(width, height), min(width, height), int(image.shape[0]))
+        # The ui copy is what the node shows beside its outputs after a run
+        # (js/image_size); the outputs themselves are unchanged.
+        return {"ui": {"ausboss_size": list(sizes)}, "result": sizes}
 
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_ImageSize": AusBossImageSize}

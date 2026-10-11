@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  canScrollFurther, dragCarriesFiles, graphDragStarts, isAppShortcut, keepKeyInField, panelKeepsWheel,
+  canScrollFurther, dragCarriesFiles, graphDragStarts, isAppShortcut, isWeightShortcut, keepKeyInField, panelKeepsWheel,
   panelNeedsDropHelp, panelRoot,
 } from "../js/shared/canvas_passthrough.mjs";
 
@@ -193,6 +193,35 @@ test("a field keeps its own keys and lets app shortcuts through", () => {
   const run = key("Enter", { ctrlKey: true });
   keepKeyInField(run);
   assert.equal(run.stopped, false, "Ctrl + Enter reaches ComfyUI and queues a run");
+});
+
+test("a prompt box lets Ctrl + Up and Ctrl + Down go on to ComfyUI, which changes a word's weight", () => {
+  for (const mods of [{ ctrlKey: true }, { metaKey: true }]) {
+    for (const k of ["ArrowUp", "ArrowDown"]) {
+      assert.equal(isWeightShortcut(key(k, mods)), true);
+      const inPrompt = key(k, mods);
+      keepKeyInField(inPrompt, { weights: true });
+      assert.equal(inPrompt.stopped, false, `${k} reaches ComfyUI from a prompt box`);
+      // Any other field keeps the key, as before: a number box steps with it.
+      const elsewhere = key(k, mods);
+      keepKeyInField(elsewhere);
+      assert.equal(elsewhere.stopped, true, `${k} stays in a field that holds no prompt`);
+    }
+  }
+  // Only those two keys: the caret keys and the editing keys still stop at the box.
+  for (const [k, mods] of [["ArrowUp", {}], ["ArrowDown", { shiftKey: true }], ["ArrowLeft", { ctrlKey: true }], ["a", { ctrlKey: true }], ["Delete", {}]]) {
+    assert.equal(isWeightShortcut(key(k, mods)), false);
+    const event = key(k, mods);
+    keepKeyInField(event, { weights: true });
+    assert.equal(event.stopped, true, `${JSON.stringify(k)} stays in the prompt box`);
+  }
+});
+
+test("only the card's multiline box passes the weight keys on", () => {
+  const card = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "js", "shared", "widget_card.mjs"), "utf-8");
+  assert.equal(card.split("keepKeyInField(event, { weights: true })").length - 1, 1);
+  const area = card.slice(card.indexOf("const buildTextarea"), card.indexOf("into.append(area)"));
+  assert.match(area, /keepKeyInField\(event, \{ weights: true \}\)/);
 });
 
 test("the fields on a node face pass app shortcuts on", () => {

@@ -16,6 +16,7 @@ import {
   scrubbedValue,
   stepDecimals,
   steppedValue,
+  sumValue,
   SCRUB_SLOW_FACTOR,
 } from "../js/shared/scrub_input.mjs";
 
@@ -179,4 +180,37 @@ test("zeroes the steps never reach are dropped, a value that uses them is shown 
 test("Float 🆎 drops the zeroes its steps never reach", () => {
   const cards = readFileSync(join(ROOT, "js", "widget_cards", "index.js"), "utf-8");
   assert.match(cards, /AUSBOSS_NODES_Float: \{[^\n]*\btrimZeros: true\b/);
+});
+
+test("a sum typed into a number box comes to its answer", () => {
+  assert.equal(sumValue("1024*1.5"), 1536);
+  assert.equal(sumValue("512+64"), 576);
+  assert.equal(sumValue("(1920 - 64) / 2"), 928);
+  assert.equal(sumValue("10/4"), 2.5);
+  assert.equal(sumValue("7 % 4"), 3);
+  assert.equal(sumValue("2+3*4"), 14);
+  assert.equal(sumValue("(2+3)*4"), 20);
+  assert.equal(sumValue("-(2+3)"), -5);
+  assert.equal(sumValue("2*-3"), -6);
+  assert.equal(sumValue("--4"), 4);
+  assert.equal(sumValue(".5+.25"), 0.75);
+  assert.equal(sumValue("3."), 3);
+  assert.equal(sumValue("  64  "), 64);
+  assert.equal(sumValue("((((1))))"), 1);
+  assert.equal(Object.is(sumValue("0*-1"), 0), true);
+});
+
+test("text that is not a sum is no answer", () => {
+  for (const text of ["", "   ", "abc", "2+", "*2", "(2+3", "2+3)", "2 3", "1,5", "1e3*2", "2**3", "2^3", "1/0", "0/0", "5%0", "()", ".", "1..2"]) {
+    assert.equal(sumValue(text), null, JSON.stringify(text));
+  }
+  // A very long text is refused before it is read, so it cannot run deep.
+  assert.equal(sumValue("(".repeat(5000) + "1" + ")".repeat(5000)), null);
+  assert.equal(sumValue("-".repeat(199) + "1"), -1);
+  assert.equal(sumValue(null), null);
+});
+
+test("a number box reads a typed sum only where a plain number fails", () => {
+  const source = readFileSync(join(ROOT, "js", "shared", "scrub_input.mjs"), "utf-8");
+  assert.match(source, /Number\.isFinite\(number\) \? number : sumValue\(input\.value\)/);
 });

@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -18,6 +19,7 @@ from PIL import Image
 from nodes._image_save_helpers import (
     encode_image,
     existing_action,
+    fill_name_tokens,
     jxl_available,
     plan_exact_names,
     resolve_output_root,
@@ -153,7 +155,44 @@ class EncodeTests(unittest.TestCase):
             encode_image(Path("/nonexistent/x.png"), gradient_batch(1, 4, 4)[0], "bmp", None)
 
 
+class NameTokenTests(unittest.TestCase):
+    NOW = datetime(2026, 3, 7, 9, 5, 2)
+
+    def test_the_size_and_time_tokens_are_filled(self):
+        self.assertEqual(fill_name_tokens("shot_%width%x%height%", self.NOW, 1024, 768), "shot_1024x768")
+        self.assertEqual(
+            fill_name_tokens("%year%-%month%-%day%/%hour%%minute%%second%", self.NOW, 8, 8),
+            "2026-03-07/090502",
+        )
+        self.assertEqual(fill_name_tokens("%width%_%width%", self.NOW, 64, 32), "64_64")
+
+    def test_other_text_between_percent_signs_stays_as_typed(self):
+        for text in ("plain", "100%_wool", "%date:yyyy-MM-dd%", "%KSampler.seed%", "%Width%", "50% off %", ""):
+            self.assertEqual(fill_name_tokens(text, self.NOW, 8, 8), text)
+        self.assertEqual(fill_name_tokens(None, self.NOW, 8, 8), "")
+
+
 class SaveImageNodeTests(unittest.TestCase):
+    def test_name_tokens_in_the_prefix_and_in_an_exact_name(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_node(tmp, filename_prefix="sets/%width%x%height%/img_%year%", name_counter=False)
+            saved = Path(result["result"][0])
+            self.assertEqual(saved, Path(tmp) / "sets" / "16x8" / f"img_{datetime.now().year}.png")
+            self.assertTrue(saved.exists())
+            exact = self.run_node(tmp, exact_name="exact_%width%")
+            self.assertEqual(Path(exact["result"][0]), Path(tmp) / "exact_16.png")
+
+    def test_a_linked_filename_is_never_read_for_tokens(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_node(tmp, filename="from_upstream_%width%")
+            self.assertEqual(Path(result["result"][0]).name, "from_upstream_%width%.png")
+
+    def test_a_token_cannot_carry_a_save_out_of_the_output_folder(self):
+        # The filled text goes through the same checks as typed text.
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(ValueError):
+                self.run_node(tmp, filename_prefix="../%width%/x")
+
     def run_node(self, output_root, **overrides):
         class FakeFolderPaths:
             @staticmethod

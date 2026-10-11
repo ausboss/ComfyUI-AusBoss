@@ -397,7 +397,9 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     area.addEventListener("input", () => { typing = true; setWidget(name, area.value, { settle: false }); typing = false; });
     area.addEventListener("change", () => notifyAusbossChange());
     area.addEventListener("keydown", (event) => {
-      keepKeyInField(event);
+      // Ctrl + Up / Down goes on to ComfyUI, which changes the weight of the
+      // selected words; what it writes comes back through "input" above.
+      keepKeyInField(event, { weights: true });
       if (event.key === "Escape") area.blur();
     });
     // The box scrolls its own overflow; the canvas only zooms once it is

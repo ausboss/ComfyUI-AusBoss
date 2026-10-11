@@ -11,6 +11,7 @@ from ._image_save_helpers import (
     IMAGE_FORMATS,
     encode_image,
     existing_action,
+    fill_name_tokens,
     metadata_disabled,
     name_stem,
     next_free_counter,
@@ -307,6 +308,11 @@ class AusBossSaveImage:
         root = resolve_output_root(output_dir, output_root)
         count = int(images.shape[0])
         height, width = int(images.shape[1]), int(images.shape[2])
+        # Name tokens typed on the node (%width%, %year%...). A linked
+        # filename is another node's exact name and is left as it is.
+        now = datetime.now()
+        filename_prefix = fill_name_tokens(filename_prefix, now, width, height)
+        exact_name = fill_name_tokens(exact_name, now, width, height)
 
         # Exact naming: the linked filename first, then the legacy widget.
         if filename is not None:
@@ -332,7 +338,7 @@ class AusBossSaveImage:
             stem = name_stem(
                 base,
                 {"date": bool(name_date), "time": bool(name_time), "size": bool(name_size)},
-                datetime.now(),
+                now,
                 width,
                 height,
             )
