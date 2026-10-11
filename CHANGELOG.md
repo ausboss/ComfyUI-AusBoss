@@ -4,6 +4,19 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Float 🆎 and Integer 🆎 take the limits of what they are wired to.** A
+  Float wired to a sampler's denoise now stops at 1, the way ComfyUI's own
+  Primitive node does: type 1.5 and you get 1. The card shows the limits
+  beside the value (0–1). It works through a Reroute and into a box, and an
+  unwired box takes any number as before. A new box also takes the value
+  of the first setting it is wired to, so wiring it up changes nothing
+  until you move it.
+- **Float 🆎 shows only the decimals it needs.** The box read 1.000 whatever
+  it was used for. It now shows the decimals its steps reach (1.00 wired to
+  denoise, 8.0 wired to CFG) and one more only for a value that uses it,
+  such as a typed 0.855.
+- **Integer 🆎 holds numbers as big as a seed.** It stopped at
+  2,147,483,647, which most seeds are above.
 - **New: Mask by Touch 🆎** (Mask). Click a thing on the picture and get
   its mask. The picture is on the node: moving over it lights up what a
   click would take and names it, the jacket and not the whole person, and

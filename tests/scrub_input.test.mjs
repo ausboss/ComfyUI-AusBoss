@@ -10,9 +10,11 @@ import { fileURLToPath } from "node:url";
 import {
   SCRUB_DEAD_ZONE,
   SCRUB_PIXELS_PER_STEP,
+  formatScrubValue,
   isScrubGesture,
   quantizeScrubValue,
   scrubbedValue,
+  stepDecimals,
   steppedValue,
   SCRUB_SLOW_FACTOR,
 } from "../js/shared/scrub_input.mjs";
@@ -136,4 +138,45 @@ test("every divisible-by box on the transform nodes and Load Image + Pad snaps",
   for (const options of boxes) assert.match(options, /\bsnap: true\b/);
   const cards = readFileSync(join(ROOT, "js", "widget_cards", "index.js"), "utf-8");
   assert.match(cards, /\{ widget: "canvas_multiple", [^}]*\bsnap: true\b/);
+});
+
+test("a step reaches as many decimals as it is written with", () => {
+  assert.equal(stepDecimals(0.05), 2);
+  assert.equal(stepDecimals(0.01), 2);
+  assert.equal(stepDecimals(0.25), 2);
+  assert.equal(stepDecimals(0.5), 1);
+  assert.equal(stepDecimals(0.1), 1);
+  assert.equal(stepDecimals(0.001), 3);
+  assert.equal(stepDecimals(1), 0);
+  assert.equal(stepDecimals(8), 0);
+});
+
+test("a box shows every decimal it holds unless told how few are enough", () => {
+  assert.equal(formatScrubValue(1, { decimals: 3 }), "1.000");
+  assert.equal(formatScrubValue(0.5, { decimals: 2 }), "0.50");
+  assert.equal(formatScrubValue(512, { decimals: 0 }), "512");
+  assert.equal(formatScrubValue(null, { decimals: 3 }), "");
+});
+
+test("zeroes the steps never reach are dropped, a value that uses them is shown in full", () => {
+  // Float wired to denoise: three decimals held, steps of 0.05 and 0.01.
+  const denoise = { decimals: 3, minDecimals: 2 };
+  assert.equal(formatScrubValue(1, denoise), "1.00");
+  assert.equal(formatScrubValue(0.85, denoise), "0.85");
+  assert.equal(formatScrubValue(0.855, denoise), "0.855");
+  assert.equal(formatScrubValue(0, denoise), "0.00");
+  // A step of 1 (CFG) still reads as a number with decimals.
+  assert.equal(formatScrubValue(8, { decimals: 3, minDecimals: 1 }), "8.0");
+  assert.equal(formatScrubValue(7.25, { decimals: 3, minDecimals: 1 }), "7.25");
+  // Nothing to keep: the dot goes with the last zero.
+  assert.equal(formatScrubValue(8, { decimals: 3, minDecimals: 0 }), "8");
+  assert.equal(formatScrubValue(100, { decimals: 2, minDecimals: 0 }), "100");
+  assert.equal(formatScrubValue(-0.5, { decimals: 3, minDecimals: 2 }), "-0.50");
+  // Asking for more than the box holds changes nothing.
+  assert.equal(formatScrubValue(1, { decimals: 2, minDecimals: 4 }), "1.00");
+});
+
+test("Float 🆎 drops the zeroes its steps never reach", () => {
+  const cards = readFileSync(join(ROOT, "js", "widget_cards", "index.js"), "utf-8");
+  assert.match(cards, /AUSBOSS_NODES_Float: \{[^\n]*\btrimZeros: true\b/);
 });

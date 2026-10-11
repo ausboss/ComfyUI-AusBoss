@@ -53,6 +53,27 @@ export function quantizeScrubValue(value, { min = -Infinity, max = Infinity, dec
   return Math.round(clamped * factor) / factor;
 }
 
+// How many decimals a step reaches: 0.05 and 0.01 reach two, 0.5 one, 8 none.
+export function stepDecimals(step) {
+  const text = String(Number(Math.abs(Number(step) || 0).toFixed(6)));
+  const dot = text.indexOf(".");
+  return dot < 0 ? 0 : text.length - dot - 1;
+}
+
+// The text a value is shown as. `decimals` is how many the control holds.
+// With `minDecimals`, zeroes past that many are dropped, so a box that steps
+// by 0.01 reads 1.00 and still shows a typed 0.855 in full.
+export function formatScrubValue(value, { decimals = 2, minDecimals = null } = {}) {
+  if (value === null || value === undefined) return "";
+  const held = Math.max(0, decimals);
+  const text = Number(value).toFixed(held);
+  if (minDecimals === null || minDecimals === undefined || minDecimals >= held) return text;
+  const keep = text.length - (held - Math.max(0, minDecimals));
+  let end = text.length;
+  while (end > keep && text[end - 1] === "0") end -= 1;
+  return text[end - 1] === "." ? text.slice(0, end - 1) : text.slice(0, end);
+}
+
 // `count` steps of `size` from `start` (negative goes down). With `snap` the
 // first step goes to the next multiple of `size` that way and the rest stay
 // on those multiples: from 1, +1 is 8 and +2 is 16; from 9, -1 is 8.
@@ -119,7 +140,7 @@ export function makeScrubInput(options = {}) {
   ensureScrubCss();
   const opts = {
     value: 0, min: -Infinity, max: Infinity,
-    step: 1, fineStep: null, decimals: 2,
+    step: 1, fineStep: null, decimals: 2, minDecimals: null,
     width: null, title: "", onChange: null, onSettle: null,
     unit: "", unitWidth: 0,
     allowEmpty: false, emptyStart: 0, placeholder: "",
@@ -147,7 +168,7 @@ export function makeScrubInput(options = {}) {
   if (opts.placeholder) input.placeholder = opts.placeholder;
   if (opts.title) input.title = `${opts.title} Drag to scrub, click to type, arrows to step; Shift = fine.`;
 
-  const format = (value) => (value === null ? "" : value.toFixed(Math.max(0, opts.decimals)));
+  const format = (value) => formatScrubValue(value, opts);
   input.value = format(current);
 
   const commit = (value) => {
@@ -276,5 +297,14 @@ export function makeScrubInput(options = {}) {
     // For a value whose valid steps change with another setting (a frame
     // count under a snap rule steps by 8, not 1).
     setStep: (step, fineStep = null) => { opts.step = step; opts.fineStep = fineStep; },
+    // For a value whose limits come from somewhere else (a number box takes
+    // over the range of the input it is wired to). Only the keys given
+    // change. What is shown is held inside the new range; the caller decides
+    // whether the stored value follows.
+    setRange: (range = {}) => {
+      for (const key of ["min", "max", "step", "fineStep", "decimals", "minDecimals"]) if (range[key] !== undefined) opts[key] = range[key];
+      if (current !== null) current = quantizeScrubValue(current, opts);
+      if (input.readOnly) input.value = format(current);
+    },
   };
 }
