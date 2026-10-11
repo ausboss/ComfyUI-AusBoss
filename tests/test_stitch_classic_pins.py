@@ -13,9 +13,12 @@ the published Qwen Image 2.1 Rotate + Outpaint workflow stitches that way.
 Tone-matched float32 output varies slightly with CPU kernels and thread
 counts, including on unchanged releases. Images are compared with frozen
 release tensors at an absolute tolerance of 1e-5 (0.00255 of an 8-bit step),
-with no relative tolerance. Masks still use exact hashes. The fixtures come
-from released code, never the implementation under review; see
-fixtures/stitch_released_images.md for provenance and regeneration.
+with no relative tolerance. A feathered blend mask moves the same way, by a
+float32 step or two: its blur takes an exp, and CPUs round that differently.
+Masks are compared with frozen release masks at the same tolerance, and each
+of those is held to its pinned hash. The fixtures come from released code,
+never the implementation under review; see fixtures/stitch_released_images.md
+for provenance and regeneration.
 """
 
 from __future__ import annotations
@@ -45,9 +48,11 @@ STRENGTHS = (0.0, 0.5, 1.0)
 
 IMAGE_ATOL = 1e-5
 REFERENCE_IMAGES = ROOT / "tests" / "fixtures" / "stitch_released_images.npz"
+REFERENCE_MASKS = ROOT / "tests" / "fixtures" / "stitch_released_masks.npz"
 
-# Historical image hashes are retained for --print diagnostics. Only masks
-# are byte-exact across CPU backends; images use the release fixtures below.
+# Historical image hashes are retained for --print diagnostics; images use
+# the release fixtures below. A mask hash says which mask the release gave:
+# the mask fixture must have that hash, and a run is compared with the fixture.
 # (case, color_match) -> (image, blend_mask), first 20 hex digits of SHA-256.
 PINS = {
     ("load image + pad", 0.0): ("bceaded74f00fa7af3df", "da3307917bed14a6f6ac"),
@@ -175,6 +180,12 @@ def reference_image(name, strength, seam="classic"):
         return torch.from_numpy(references[key])
 
 
+def reference_mask(name, seam="classic"):
+    key = f"{seam}_{tuple(CASES).index(name)}_mask"
+    with np.load(REFERENCE_MASKS, allow_pickle=False) as references:
+        return torch.from_numpy(references[key])
+
+
 def assert_released_image(image, expected):
     # No relative tolerance: bright pixels get no extra allowance. Shapes,
     # dtypes and non-finite values must also match (equal_nan defaults false).
@@ -190,7 +201,14 @@ class ClassicSeamPinTests(unittest.TestCase):
                     stitcher, patch_image = build()
                     image, blend_mask = stitch(stitcher, patch_image, strength)
                     assert_released_image(image, reference_image(name, strength))
-                    self.assertEqual(digest(blend_mask), PINS[(name, strength)][1])
+                    assert_released_image(blend_mask, reference_mask(name))
+
+    def test_the_mask_references_are_the_pinned_masks(self):
+        # Reads the files only, so every machine gives the same answer.
+        for (name, _strength), (_image, mask) in PINS.items():
+            self.assertEqual(digest(reference_mask(name)), mask)
+        for name, (_image, mask) in BLEND_IN_PINS.items():
+            self.assertEqual(digest(reference_mask(name, "blend_in")), mask)
 
     def test_release_pixels_with_one_thread_and_native_convolution(self):
         # Exercise the reduction/kernel choices that break raw image hashes.
@@ -265,7 +283,7 @@ class BlendInToneMatchOffPinTests(unittest.TestCase):
                 stitcher, patch_image = CASES[name]()
                 image, blend_mask = stitch(stitcher, patch_image, 0.0, seam="blend in")
                 assert_released_image(image, reference_image(name, 0.0, "blend_in"))
-                self.assertEqual(digest(blend_mask), BLEND_IN_PINS[name][1])
+                assert_released_image(blend_mask, reference_mask(name, "blend_in"))
 
     def test_release_pixels_without_mkldnn(self):
         with torch.backends.mkldnn.flags(enabled=False):

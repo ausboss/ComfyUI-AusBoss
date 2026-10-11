@@ -97,6 +97,8 @@ jobs:
           python -m pip install -r ComfyUI/requirements.txt
           git -C ComfyUI log -1 --format='ComfyUI %h %cd %s' --date=short
           python -m pip list 2>/dev/null | grep -i -E "^(comfyui|torch) " || true
+          # Which CPU ran it: float results can differ by a last bit between CPUs.
+          lscpu | grep -E "^Model name" || true
       - name: Everything the pack takes from ComfyUI is there
         working-directory: ComfyUI-AusBoss
         run: AUSBOSS_COMFY_ROOT="$GITHUB_WORKSPACE/ComfyUI" python tests/test_comfy_core_contract.py
