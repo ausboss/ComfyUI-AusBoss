@@ -65,6 +65,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
   starts with six `#`. Notes written before look the same, and an older
   version of the pack shows a note with small print with every line at one
   size.
+- **Callout 🆎: links.** Words in a note can be a link. Select them, press
+  the new **Link** button and paste an address, or paste the address
+  straight over them: a click later opens that page in a new tab. Click a
+  node or a group on the canvas first and the words bring it into view
+  instead, and an arrow can now point at a group as well as a node. A note
+  that is nothing but one link is a big button for it. Only `http` and
+  `https` addresses become links.
 
 ## 2.10.1 - 2026-10-09
 
