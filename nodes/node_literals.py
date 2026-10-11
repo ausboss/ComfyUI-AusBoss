@@ -7,6 +7,11 @@ that used to mean installing a whole grab-bag pack for a text box.
 from __future__ import annotations
 
 
+# The largest whole number a browser holds exactly (2**53 - 1). A random seed
+# fits; a bigger limit would only let the page send numbers it has rounded.
+INT_LIMIT = 9_007_199_254_740_991
+
+
 class AusBossText:
     CATEGORY = "🆎 AusBoss/Utility"
     DESCRIPTION = (
@@ -57,8 +62,8 @@ class AusBossInteger:
                     "INT",
                     {
                         "default": 0,
-                        "min": -2_147_483_648,
-                        "max": 2_147_483_647,
+                        "min": -INT_LIMIT,
+                        "max": INT_LIMIT,
                         "step": 1,
                         "tooltip": "The integer to output.",
                     },

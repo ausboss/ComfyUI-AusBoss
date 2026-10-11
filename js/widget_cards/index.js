@@ -10,11 +10,12 @@ import { chainCallback } from "../shared/index.mjs";
 import { formatWidgetVisibility } from "../shared/save_video_formats.mjs";
 import { hideInputsInDef } from "../shared/widget_visibility.mjs";
 import { mountWidgetCard } from "../shared/widget_card.mjs";
-import { resetUnknownValues } from "../shared/widget_card_math.mjs";
+import { commitWidgetValue, resetUnknownValues } from "../shared/widget_card_math.mjs";
 import { mediaViewQuery } from "../shared/media_list.mjs";
 import { gearIconSvg, openSettingsMenu } from "../shared/settings_menu.mjs";
 import { SEAM_MENU, SEAM_MUTE_TITLES, isBlendIn, seamCornerReserve } from "../shared/stitch_seam.mjs";
 import { fineEdgeLabel } from "../shared/touch_math.mjs";
+import { valueToTake, wiredLimits } from "../shared/wired_limits.mjs";
 
 // The Source lists preview the hovered file straight from ComfyUI's /view.
 const viewUrl = (value) => api.apiURL(`/view?${mediaViewQuery(value)}`);
@@ -259,8 +260,12 @@ const CARDS = {
   AUSBOSS_NODES_SelectEveryNth: { minWidth: 280, rows: [{ widget: "nth", label: "Every nth" }, { widget: "offset", label: "Offset" }] },
   AUSBOSS_NODES_SplitBatch: { minWidth: 280, rows: [{ widget: "index", label: "Split after" }] },
   AUSBOSS_NODES_MergeBatches: { minWidth: 300, rows: [{ widget: "on_mismatch", label: "Mismatch", kind: "segment", labels: { "resize to a": "match a", "resize to b": "match b" }, titles: { "resize to a": "resize b to a's size", "resize to b": "resize a to b's size", error: "stop the run" } }] },
-  AUSBOSS_NODES_Integer: { minWidth: 260, rows: [{ widget: "value", label: "Value" }] },
-  AUSBOSS_NODES_Float: { minWidth: 260, rows: [{ widget: "value", label: "Value", decimals: 3 }] },
+  // Like ComfyUI's own Primitive node, both take over the limits of the
+  // input they are wired to: wired to a sampler's denoise, Float stops at 1.
+  // A new box also takes the value of the first input it is wired to
+  // (`takesWired`), so wiring it up does not change that setting.
+  AUSBOSS_NODES_Integer: { minWidth: 260, takesWired: "value", rows: [{ widget: "value", label: "Value", limits: wiredLimits }] },
+  AUSBOSS_NODES_Float: { minWidth: 260, takesWired: "value", rows: [{ widget: "value", label: "Value", decimals: 3, trimZeros: true, limits: wiredLimits }] },
   AUSBOSS_NODES_Text: { minWidth: 300, rows: [{ widget: "text", kind: "textarea", placeholder: "Prompt, caption, or shared text", height: 100, grow: true }] },
   // Saved by a 1.x release, these two hold that empty value too and open
   // with preview on, like Mask Refine.
@@ -381,6 +386,23 @@ app.registerExtension({
       // user sees.
       chainCallback(nodeType.prototype, "onConfigure", function () {
         resetUnknownValues(this.widgets, config.resetUnknown);
+      });
+    }
+    if (config.takesWired) {
+      // Only a box made by hand is "new": one that came with a workflow or a
+      // paste was configured, and keeps the value it was saved with.
+      const initial = nodeData?.input?.required?.[config.takesWired]?.[1]?.default ?? 0;
+      chainCallback(nodeType.prototype, "onNodeCreated", function () { this.__ausbossNew = true; });
+      chainCallback(nodeType.prototype, "onConfigure", function () { this.__ausbossNew = false; });
+      chainCallback(nodeType.prototype, "onConnectionsChange", function (type, _slot, connected) {
+        if (type !== (globalThis.LiteGraph?.OUTPUT ?? 2) || !connected) return;
+        const widget = this.widgets?.find((entry) => entry.name === config.takesWired);
+        const take = valueToTake({
+          fresh: this.__ausbossNew, value: widget?.value, initial,
+          wires: this.outputs?.[0]?.links?.length ?? 0, wired: wiredLimits(this),
+        });
+        this.__ausbossNew = false;
+        if (take !== null && widget) commitWidgetValue(this, widget, take, app.canvas);
       });
     }
     chainCallback(nodeType.prototype, "onNodeCreated", function () {

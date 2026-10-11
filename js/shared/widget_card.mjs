@@ -34,7 +34,8 @@ import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } fro
 import { keepKeyInField } from "./canvas_passthrough.mjs";
 import { createMediaPicker } from "./media_picker.mjs";
 import { ensureNodeMinHeight, fillNodeHeight, holdNodeMinWidth, nodeHeightAfterCardChange, pinVuePanelHeight } from "./panel_layout.mjs";
-import { makeScrubInput } from "./scrub_input.mjs";
+import { makeScrubInput, quantizeScrubValue, stepDecimals } from "./scrub_input.mjs";
+import { limitsLabel, narrowedRange } from "./wired_limits.mjs";
 import { hideWidget } from "./widget_visibility.mjs";
 import {
   CARD_PADDING, GROUP_HEIGHT, ROW_GAP, ROW_HEIGHT, SECTION_HEIGHT, SLOT_OFFSET, UNIT_SLOT_WIDTH,
@@ -71,6 +72,7 @@ export function ensureCardCss() {
 .ausboss-card-row.linked .ausboss-card-control{pointer-events:none}
 .ausboss-card-row.muted .ausboss-card-control{opacity:.35;pointer-events:none}
 .ausboss-card-row.muted .ausboss-card-label{color:#566b69}
+.ausboss-card-range{margin-left:6px;color:#5f7674;font-size:10px;font-weight:600;letter-spacing:.02em;white-space:nowrap}
 .ausboss-card.has-corner .ausboss-card-control{margin-right:var(--ausboss-card-corner,0px)}
 .ausboss-card-corner{position:absolute;top:${CARD_PADDING}px;right:8px;height:${ROW_HEIGHT}px;display:flex;align-items:center;justify-content:flex-end;gap:5px;pointer-events:auto}
 .ausboss-card-gear{width:24px;height:24px;flex:none;display:grid;place-items:center;padding:0;border:1px solid #2a3437;border-radius:6px;background:#0f1516;color:#8ba3a1;cursor:pointer}
@@ -157,7 +159,7 @@ function isFloatWidget(widget) {
 }
 
 // Mount a card on `node`. Rows:
-//   { widget, label?, kind?, labels?, suffix?, title?, when?, group?, linkedBy?, snap?, pixels?, step? }
+//   { widget, label?, kind?, labels?, suffix?, title?, when?, group?, linkedBy?, snap?, pixels?, step?, limits?, trimZeros? }
 //                                          - `linkedBy` names other inputs
 //                                            whose link also dims the row
 //                                            (a wired source replacing a
@@ -168,7 +170,14 @@ function isFloatWidget(widget) {
 //                                            unless the row is a pixel size
 //                                            (`suffix: "px"` or `pixels`),
 //                                            which steps by 8, or names
-//                                            its own `step`
+//                                            its own `step`; `limits` is a
+//                                            function of the node that
+//                                            gives { min, max, step } from
+//                                            somewhere else (what a number
+//                                            box is wired to), or null;
+//                                            `trimZeros` drops the zeroes
+//                                            the steps never reach (1.00,
+//                                            not 1.000)
 //   { widget, kind: "textarea", placeholder?, height, grow? }  - a multiline
 //                                             string; `grow` takes the node's
 //                                             spare height
@@ -220,6 +229,9 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     const widget = findWidget(node, name);
     const isFloat = isFloatWidget(widget);
     const steps = scrubSteps(widget?.options, isFloat, row.pixels ?? row.suffix === "px");
+    // `trimZeros`: the box shows the decimals its arrow step reaches (at
+    // least one) and only goes past them for a value that uses more.
+    const shownDecimals = (step, held) => (row.trimZeros ? Math.min(held, Math.max(1, stepDecimals(step))) : null);
     const control = makeScrubInput({
       value: Number(widget?.value) || 0,
       min: Number(widget?.options?.min ?? -Infinity),
@@ -227,6 +239,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       step: row.step ?? steps.step,
       fineStep: steps.fineStep,
       decimals: row.decimals ?? steps.decimals,
+      minDecimals: shownDecimals(row.step ?? steps.step, row.decimals ?? steps.decimals),
       title: row.title ?? widgetTooltip(node, name, widget),
       unit: row.suffix ?? "",
       // Single fields share one unit slot so their numbers line up down
@@ -237,7 +250,34 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       onSettle: () => notifyAusbossChange(),
     });
     into.append(control.root);
-    return (vals) => control.set(Number(vals[name]) || 0);
+    if (typeof row.limits !== "function") return (vals) => control.set(Number(vals[name]) || 0);
+    // Limits that come from somewhere else are read at every refresh: a wire
+    // made or cut changes them. The stored value follows the range, the way
+    // ComfyUI's own Primitive node follows the input it is wired to.
+    let shown = null;
+    const hint = el("span", "ausboss-card-range");
+    return (vals) => {
+      const outside = row.limits(node) ?? null;
+      const range = narrowedRange(widget?.options, outside);
+      const key = outside ? `${range.min}|${range.max}|${outside.step}` : "";
+      if (key !== shown) {
+        shown = key;
+        const next = scrubSteps({ ...widget?.options, ...range, ...(outside?.step ? { step2: outside.step, precision: undefined } : {}) }, isFloat, row.pixels ?? row.suffix === "px");
+        // A step finer than the box shows (0.0005 in a box of three decimals) gets the decimals it needs.
+        const decimals = row.decimals ?? steps.decimals;
+        const held = outside?.step ? Math.max(decimals, next.decimals) : decimals;
+        const step = row.step ?? next.step;
+        control.setRange({ ...range, step, fineStep: next.fineStep, decimals: held, minDecimals: shownDecimals(step, held) });
+        const label = into.closest(".ausboss-card-row")?.querySelector(".ausboss-card-label");
+        hint.textContent = limitsLabel(outside ? range : null);
+        hint.title = outside ? `The limits of what this is wired to: ${outside.names.join(", ")}.` : "";
+        if (label && hint.parentNode !== label) label.append(hint);
+      }
+      const value = Number(vals[name]) || 0;
+      const held = quantizeScrubValue(value, { ...range, decimals: isFloat ? 6 : 0 });
+      if (outside && held !== value) queueMicrotask(() => setWidget(name, held, { settle: false }));
+      control.set(held);
+    };
   };
 
   const buildSegment = (name, row, into) => {
