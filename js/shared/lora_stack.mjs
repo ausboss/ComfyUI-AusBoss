@@ -165,6 +165,35 @@ export function highlightedName(names, index) {
   return index >= 0 && index < names.length ? names[index] : null;
 }
 
+// Row keyboard intent only; DOM focus and commits stay in the node panel.
+// The add button is the last destination, at index rowCount. Edited fields,
+// composition and application shortcuts keep ownership of their keys.
+// onControl: the key was pressed on one of a row's own buttons or boxes, not
+// on the row. Enter and Space then belong to that control, as on any button.
+export function loraStackKeyAction(event, { index, rowCount, atAdd = false, editing = false, onControl = false }) {
+  if (editing || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey
+      || event.isComposing || event.keyCode === 229) return null;
+  const current = atAdd ? rowCount : index;
+  if (!Number.isInteger(rowCount) || rowCount < 0
+      || !Number.isInteger(current) || current < 0 || current > rowCount) return null;
+  if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+    const direction = event.key === "ArrowUp" ? -1 : 1;
+    return { kind: "focus", index: Math.max(0, Math.min(rowCount, current + direction)) };
+  }
+  // ComfyUI deletes the selected nodes on these keys from anywhere inside
+  // the graph. The stack keeps them while it holds the keyboard, so reaching
+  // for "remove this row" can never remove the node.
+  if (event.key === "Delete" || event.key === "Backspace") return { kind: "block" };
+  if (onControl && (event.key === "Enter" || event.key === " ")) return null;
+  if (event.key === "Enter") return { kind: "pick" };
+  if (current === rowCount) return null;
+  if (event.key === " " && !event.repeat) return { kind: "toggle" };
+  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+    return { kind: "strength", direction: event.key === "ArrowLeft" ? -1 : 1, fine: !!event.shiftKey };
+  }
+  return null;
+}
+
 export function toggleTrigger(triggers, word) {
   const parts = String(triggers || "")
     .split(",")
@@ -230,6 +259,107 @@ export function groupByFolder(names) {
     index.get(folder).names.push(name);
   }
   return groups;
+}
+
+// Every registered subfolder is selectable, including parents with files
+// only in nested folders. Folder order follows the first appearance of each
+// branch; each folder's files keep the server's original names and order.
+// Only separators are normalized: case can distinguish files on Linux.
+function loraPath(name) {
+  return name.replaceAll("\\", "/");
+}
+
+export function loraFolders(names) {
+  const tree = new Map();
+  for (const name of names) {
+    const parts = loraPath(name).split("/");
+    let branch = tree;
+    for (let depth = 0; depth < parts.length - 1; depth += 1) {
+      const part = parts[depth];
+      if (!branch.has(part)) {
+        branch.set(part, { folder: parts.slice(0, depth + 1).join("/"), names: [], children: new Map() });
+      }
+      const entry = branch.get(part);
+      entry.names.push(name);
+      branch = entry.children;
+    }
+  }
+  const folders = [];
+  const visit = (branch) => {
+    for (const { folder, names, children } of branch.values()) {
+      folders.push({ folder, names });
+      visit(children);
+    }
+  };
+  visit(tree);
+  return folders;
+}
+
+// A single browse/keyboard order for selectable folder headers and files.
+// Search hides unmatched files, but headers still count their whole folder:
+// picking a header always adds that whole folder, not just search results.
+// Folding hides descendants, retaining their preferences in the caller's Set.
+// Callers can pass an empty Set while searching to reveal every match.
+export function loraPickerEntries(names, query = "", collapsedFolders = new Set()) {
+  const tree = { entries: [], folders: new Map() };
+  for (const name of names) {
+    const parts = loraPath(name).split("/");
+    let branch = tree;
+    for (let depth = 0; depth < parts.length - 1; depth += 1) {
+      const label = parts[depth];
+      if (!branch.folders.has(label)) {
+        const folder = {
+          entry: { kind: "folder", name: parts.slice(0, depth + 1).join("/"), label, depth, count: 0 },
+          children: { entries: [], folders: new Map() },
+        };
+        branch.folders.set(label, folder);
+        branch.entries.push(folder);
+      }
+      const folder = branch.folders.get(label);
+      folder.entry.count += 1;
+      branch = folder.children;
+    }
+    branch.entries.push({ entry: { kind: "file", name, label: parts.at(-1), depth: parts.length - 1 } });
+  }
+  const needle = loraPath(String(query || "")).trim().toLowerCase();
+  const collapsed = new Set([...collapsedFolders].map(loraPath));
+  const visit = (branch) => {
+    const entries = [];
+    for (const { entry, children } of branch.entries) {
+      if (children) {
+        const descendants = visit(children);
+        if (descendants.length) {
+          entries.push(entry);
+          if (!collapsed.has(entry.name)) entries.push(...descendants);
+        }
+      } else if (loraPath(entry.name).toLowerCase().includes(needle)) {
+        entries.push(entry);
+      }
+    }
+    return entries;
+  };
+  return visit(tree);
+}
+
+// Folder add is one append, or no change when the whole selection cannot
+// fit. Existing rows (even duplicates, disabled rows and empty slots) stay
+// untouched. Deduplicate by full path, never basename or moved-file guess.
+export function appendFolderRows(rows, names, defaultStrength = 1) {
+  const seen = new Set(rows.map((row) => loraPath(row.name)));
+  const pending = [];
+  let skipped = 0;
+  for (const name of names) {
+    const key = loraPath(name);
+    if (seen.has(key)) { skipped += 1; continue; }
+    seen.add(key);
+    pending.push(name);
+  }
+  const room = Math.max(0, MAX_ROWS - rows.length);
+  const needed = pending.length;
+  if (needed > room || !needed) return { rows, added: 0, skipped, needed, room };
+  const strength = roundStrength(defaultStrength);
+  const addedRows = pending.map((name) => ({ ...newRow(), name, strength, strength_clip: strength }));
+  return { rows: [...rows, ...addedRows], added: needed, skipped, needed, room };
 }
 
 // A suggested range is advisory: null/absent bounds never flag.

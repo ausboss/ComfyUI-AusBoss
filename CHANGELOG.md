@@ -26,6 +26,19 @@ All notable changes to ComfyUI-AusBoss are documented here.
   that loads the SAM 3 file. Subject, Background and Fine edges use
   ComfyUI's own background-removal model (`birefnet.safetensors`, ComfyUI
   0.21 or newer); the help page says where to get it.
+- **LoRA Loader: add a whole folder from + LoRA.** Files are grouped by
+  folder in the picker. Click a file to add one, or a folder name to add
+  all its LoRAs, including nested folders. Separate arrows collapse and
+  expand folders, and the picker remembers your folded view. Search reveals
+  matching files without changing that view. Existing files are skipped and
+  existing rows keep their settings. The selection is one undo step; if
+  it would exceed 64 rows, nothing is added and a message explains why.
+- **LoRA Loader: Remove this LoRA is red too.** The single-row action is
+  easier to spot beside the separate, confirmed Delete all action.
+- **LoRA Loader: browse and edit rows with the keyboard.** Tab to a row,
+  then use Up/Down to reach other rows or + LoRA, Enter to pick a file,
+  Space to switch a row off/on, and Left/Right to adjust strength. Shift
+  uses a smaller step. Typing and ComfyUI shortcuts keep their usual keys.
 
 ## 2.10.1 - 2026-10-09
 

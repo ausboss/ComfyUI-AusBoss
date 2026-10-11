@@ -5,8 +5,10 @@ import {
   BYPASS_MODE,
   DEFAULT_STEP,
   FINE_STEP,
+  MAX_ROWS,
   SCRUB_DEAD_ZONE,
   SCRUB_PIXELS_PER_STEP,
+  appendFolderRows,
   clampHighlight,
   clampStrength,
   commonFolderPrefix,
@@ -22,6 +24,9 @@ import {
   importSummary,
   isScrubbing,
   loaderLoraEntries,
+  loraFolders,
+  loraPickerEntries,
+  loraStackKeyAction,
   mergeImportedRows,
   middleEllipsis,
   moveHighlight,
@@ -176,6 +181,81 @@ test("highlight wraps with arrows, clamps when the list shrinks, resolves names"
   assert.equal(highlightedName(["a", "b"], -1), null);
 });
 
+test("stack arrows move through rows to the add button without wrapping", () => {
+  const action = (key, index) => loraStackKeyAction({ key }, { index, rowCount: 3 });
+  assert.deepEqual(action("ArrowUp", 0), { kind: "focus", index: 0 });
+  assert.deepEqual(action("ArrowDown", 0), { kind: "focus", index: 1 });
+  assert.deepEqual(action("ArrowUp", 2), { kind: "focus", index: 1 });
+  assert.deepEqual(action("ArrowDown", 2), { kind: "focus", index: 3 });
+  assert.deepEqual(action("ArrowUp", 3), { kind: "focus", index: 2 });
+  assert.deepEqual(action("ArrowDown", 3), { kind: "focus", index: 3 });
+  assert.deepEqual(loraStackKeyAction({ key: "ArrowUp" }, { rowCount: 3, atAdd: true }),
+    { kind: "focus", index: 2 });
+});
+
+test("an empty stack has only its add destination and leaves Space to the button", () => {
+  for (const key of ["ArrowUp", "ArrowDown"]) {
+    assert.deepEqual(loraStackKeyAction({ key }, { index: 0, rowCount: 0 }), { kind: "focus", index: 0 });
+  }
+  assert.deepEqual(loraStackKeyAction({ key: "Enter" }, { rowCount: 0, atAdd: true }), { kind: "pick" });
+  for (const key of [" ", "ArrowLeft", "ArrowRight"]) {
+    assert.equal(loraStackKeyAction({ key }, { index: 0, rowCount: 0 }), null);
+    assert.equal(loraStackKeyAction({ key }, { rowCount: 3, atAdd: true }), null);
+  }
+});
+
+test("row keyboard picking and toggling do not repeat a held Space", () => {
+  const row = { index: 1, rowCount: 3 };
+  assert.deepEqual(loraStackKeyAction({ key: "Enter" }, row), { kind: "pick" });
+  assert.deepEqual(loraStackKeyAction({ key: "Enter" }, { index: 3, rowCount: 3 }), { kind: "pick" });
+  assert.deepEqual(loraStackKeyAction({ key: " " }, row), { kind: "toggle" });
+  assert.equal(loraStackKeyAction({ key: " ", repeat: true }, row), null);
+});
+
+test("row strength arrows use Shift for fine changes and can repeat", () => {
+  const row = { index: 0, rowCount: 1 };
+  assert.deepEqual(loraStackKeyAction({ key: "ArrowLeft" }, row), { kind: "strength", direction: -1, fine: false });
+  assert.deepEqual(loraStackKeyAction({ key: "ArrowRight", repeat: true }, row),
+    { kind: "strength", direction: 1, fine: false });
+  assert.deepEqual(loraStackKeyAction({ key: "ArrowLeft", shiftKey: true }, row),
+    { kind: "strength", direction: -1, fine: true });
+  assert.deepEqual(loraStackKeyAction({ key: "ArrowRight", shiftKey: true }, row),
+    { kind: "strength", direction: 1, fine: true });
+});
+
+test("stack keyboard leaves shortcuts, edited fields, composition and handled events alone", () => {
+  const row = { index: 0, rowCount: 2 };
+  for (const key of ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", " ", "Delete", "Backspace"]) {
+    for (const flag of ["ctrlKey", "metaKey", "altKey", "isComposing", "defaultPrevented"]) {
+      assert.equal(loraStackKeyAction({ key, [flag]: true }, row), null, `${flag} ${key}`);
+    }
+    assert.equal(loraStackKeyAction({ key, keyCode: 229 }, row), null, "IME composition fallback");
+    assert.equal(loraStackKeyAction({ key }, { ...row, editing: true }), null, "field editing");
+  }
+  for (const key of ["Escape", "Tab", "Home", "End", "a"]) {
+    assert.equal(loraStackKeyAction({ key }, row), null);
+  }
+});
+
+test("the stack keeps Delete and Backspace from ComfyUI on a row, its controls and + LoRA", () => {
+  for (const key of ["Delete", "Backspace"]) {
+    assert.deepEqual(loraStackKeyAction({ key }, { index: 1, rowCount: 3 }), { kind: "block" });
+    assert.deepEqual(loraStackKeyAction({ key }, { index: 1, rowCount: 3, onControl: true }), { kind: "block" });
+    assert.deepEqual(loraStackKeyAction({ key }, { rowCount: 3, atAdd: true }), { kind: "block" });
+    assert.deepEqual(loraStackKeyAction({ key, repeat: true }, { index: 0, rowCount: 1 }), { kind: "block" });
+  }
+});
+
+test("a row's own buttons keep Enter and Space; arrows still act from them", () => {
+  const control = { index: 1, rowCount: 3, onControl: true };
+  for (const key of ["Enter", " "]) {
+    assert.equal(loraStackKeyAction({ key }, control), null, key);
+  }
+  assert.deepEqual(loraStackKeyAction({ key: "ArrowDown" }, control), { kind: "focus", index: 2 });
+  assert.deepEqual(loraStackKeyAction({ key: "ArrowLeft", shiftKey: true }, control),
+    { kind: "strength", direction: -1, fine: true });
+});
+
 test("trigger chips toggle in and out preserving order", () => {
   let triggers = toggleTrigger("", "ink wash");
   triggers = toggleTrigger(triggers, "brush");
@@ -224,6 +304,197 @@ test("folder grouping buckets by top folder in first-appearance order", () => {
     groups.map((group) => [group.folder, group.names.length]),
     [["", 1], ["styles", 2], ["faces", 1]]
   );
+});
+
+test("folder choices include every ancestor and keep each branch together", () => {
+  const names = [
+    "root.safetensors", "styles/ink/a.safetensors", "faces/head.safetensors",
+    "styles/paint/deep/b.safetensors", "styles/c.safetensors", "styles-old/d.safetensors",
+  ];
+  const folders = loraFolders(names);
+  assert.deepEqual(folders.map(({ folder }) => folder), [
+    "styles", "styles/ink", "styles/paint", "styles/paint/deep", "faces", "styles-old",
+  ]);
+  assert.deepEqual(folders[0].names, [names[1], names[3], names[4]],
+    "parent includes all descendants in server order without a similarly prefixed sibling");
+  assert.deepEqual(folders[1].names, [names[1]]);
+  assert.deepEqual(folders[3].names, [names[3]]);
+  assert.deepEqual(loraFolders([]), []);
+  assert.deepEqual(loraFolders(["root.safetensors"]), [], "root files are still available in the file picker");
+});
+
+test("folder choices normalize Windows separators while preserving server filenames", () => {
+  const names = ["styles\\ink\\a.safetensors", "styles/ink/b.safetensors", "styles\\c.safetensors"];
+  assert.deepEqual(loraFolders(names), [
+    { folder: "styles", names },
+    { folder: "styles/ink", names: names.slice(0, 2) },
+  ]);
+  assert.deepEqual(filterLoras(loraFolders(names).map(({ folder }) => folder), "INK"), ["styles/ink"]);
+});
+
+test("mixed picker keeps first-appearance order within each folder and root", () => {
+  const names = [
+    "root.safetensors", "styles/first.safetensors", "faces/head.safetensors",
+    "styles/ink/a.safetensors", "styles/last.safetensors", "styles/ink/b.safetensors",
+    "tail.safetensors",
+  ];
+  assert.deepEqual(loraPickerEntries(names), [
+    { kind: "file", name: names[0], label: "root.safetensors", depth: 0 },
+    { kind: "folder", name: "styles", label: "styles", depth: 0, count: 4 },
+    { kind: "file", name: names[1], label: "first.safetensors", depth: 1 },
+    { kind: "folder", name: "styles/ink", label: "ink", depth: 1, count: 2 },
+    { kind: "file", name: names[3], label: "a.safetensors", depth: 2 },
+    { kind: "file", name: names[5], label: "b.safetensors", depth: 2 },
+    { kind: "file", name: names[4], label: "last.safetensors", depth: 1 },
+    { kind: "folder", name: "faces", label: "faces", depth: 0, count: 1 },
+    { kind: "file", name: names[2], label: "head.safetensors", depth: 1 },
+    { kind: "file", name: names[6], label: "tail.safetensors", depth: 0 },
+  ], "folder headers precede their own descendants and the array is keyboard order");
+  assert.deepEqual(loraPickerEntries(names, "  "), loraPickerEntries(names));
+});
+
+test("mixed picker search keeps ancestor headers with full unfiltered folder counts", () => {
+  const names = ["styles/ink/hit.safetensors", "styles/ink/other.safetensors", "styles/paint/a.safetensors", "faces/hit.safetensors"];
+  assert.deepEqual(loraPickerEntries(names, "STYLES/INK/HIT"), [
+    { kind: "folder", name: "styles", label: "styles", depth: 0, count: 3 },
+    { kind: "folder", name: "styles/ink", label: "ink", depth: 1, count: 2 },
+    { kind: "file", name: names[0], label: "hit.safetensors", depth: 2 },
+  ]);
+  const entries = loraPickerEntries(names, "hit");
+  assert.deepEqual(entries.map(({ name }) => name), ["styles", "styles/ink", names[0], "faces", names[3]]);
+  const folder = loraFolders(names).find(({ folder }) => folder === entries[0].name);
+  assert.equal(appendFolderRows([], folder.names).added, entries[0].count,
+    "clicking a searched header adds its whole folder, including hidden matches");
+  assert.deepEqual(loraPickerEntries(names, "no match"), []);
+});
+
+test("mixed picker normalizes Windows paths for hierarchy and search, keeping exact file names", () => {
+  const names = ["styles\\ink\\Hit.safetensors", "styles/ink/other.safetensors"];
+  const expected = [
+    { kind: "folder", name: "styles", label: "styles", depth: 0, count: 2 },
+    { kind: "folder", name: "styles/ink", label: "ink", depth: 1, count: 2 },
+    { kind: "file", name: names[0], label: "Hit.safetensors", depth: 2 },
+  ];
+  assert.deepEqual(loraPickerEntries(names, "  STYLES\\INK\\HIT  "), expected);
+  assert.deepEqual(loraPickerEntries(names, "styles/ink/hit"), expected);
+  assert.deepEqual(loraPickerEntries(names).filter(({ kind }) => kind === "file").map(({ name }) => name), names);
+});
+
+test("mixed picker handles empty lists and root files without inventing a folder", () => {
+  assert.deepEqual(loraPickerEntries([]), []);
+  assert.deepEqual(loraPickerEntries([], "anything"), []);
+  assert.deepEqual(loraPickerEntries(["Root.safetensors"], "root"), [
+    { kind: "file", name: "Root.safetensors", label: "Root.safetensors", depth: 0 },
+  ]);
+});
+
+test("folded folders retain headers and full counts without hiding similarly prefixed siblings", () => {
+  const names = ["styles/ink/a.safetensors", "styles/ink/deep/b.safetensors",
+    "styles/ink-old/c.safetensors", "styles/paint/d.safetensors", "root.safetensors"];
+  const collapsed = new Set(["styles/ink", "styles/paint"]);
+  assert.deepEqual(loraPickerEntries(names, "", collapsed), [
+    { kind: "folder", name: "styles", label: "styles", depth: 0, count: 4 },
+    { kind: "folder", name: "styles/ink", label: "ink", depth: 1, count: 2 },
+    { kind: "folder", name: "styles/ink-old", label: "ink-old", depth: 1, count: 1 },
+    { kind: "file", name: names[2], label: "c.safetensors", depth: 2 },
+    { kind: "folder", name: "styles/paint", label: "paint", depth: 1, count: 1 },
+    { kind: "file", name: names[4], label: "root.safetensors", depth: 0 },
+  ]);
+  assert.deepEqual([...collapsed], ["styles/ink", "styles/paint"], "rendering never mutates caller preferences");
+});
+
+test("reopening a parent keeps its independently folded descendants closed", () => {
+  const names = ["styles/ink/a.safetensors", "styles/ink/deep/b.safetensors", "styles/paint/c.safetensors", "faces/d.safetensors"];
+  const collapsed = new Set(["styles", "styles/ink"]);
+  assert.deepEqual(loraPickerEntries(names, "", collapsed).map(({ name }) => name), ["styles", "faces", names[3]]);
+  assert.deepEqual([...collapsed], ["styles", "styles/ink"]);
+  collapsed.delete("styles");
+  assert.deepEqual(loraPickerEntries(names, "", collapsed).map(({ name }) => name),
+    ["styles", "styles/ink", "styles/paint", names[2], "faces", names[3]]);
+  collapsed.delete("styles/ink");
+  assert.deepEqual(loraPickerEntries(names, "", collapsed), loraPickerEntries(names));
+});
+
+test("search honors supplied folds while an empty set reveals matches with unchanged counts", () => {
+  const names = ["styles/ink/hit.safetensors", "styles/ink/other.safetensors", "styles/paint/a.safetensors", "faces/hit.safetensors"];
+  const collapsed = new Set(["styles/ink"]);
+  assert.deepEqual(loraPickerEntries(names, "hit", collapsed), [
+    { kind: "folder", name: "styles", label: "styles", depth: 0, count: 3 },
+    { kind: "folder", name: "styles/ink", label: "ink", depth: 1, count: 2 },
+    { kind: "folder", name: "faces", label: "faces", depth: 0, count: 1 },
+    { kind: "file", name: names[3], label: "hit.safetensors", depth: 1 },
+  ]);
+  assert.deepEqual(loraPickerEntries(names, "hit", new Set()), loraPickerEntries(names, "hit"));
+  assert.deepEqual(loraPickerEntries(names, "missing", collapsed), [], "folding does not reveal unrelated headers");
+  assert.deepEqual([...collapsed], ["styles/ink"], "temporary search expansion leaves browse state untouched");
+});
+
+test("folded Windows folders match normalized paths and preserve visible server filenames", () => {
+  const names = ["Styles\\ink\\hidden.safetensors", "Styles\\ink-old\\keep.safetensors", "styles\\other.safetensors"];
+  const normalized = new Set(["Styles/ink"]);
+  const entries = loraPickerEntries(names, "", normalized);
+  assert.deepEqual(entries.filter(({ kind }) => kind === "file").map(({ name }) => name), names.slice(1));
+  assert.deepEqual(loraPickerEntries(names, "", new Set(["Styles\\ink"])), entries);
+  assert.deepEqual(entries.filter(({ kind }) => kind === "folder").map(({ name, count }) => [name, count]),
+    [["Styles", 2], ["Styles/ink", 1], ["Styles/ink-old", 1], ["styles", 1]]);
+  assert.deepEqual(loraPickerEntries([], "", normalized), []);
+});
+
+test("folder add appends once, skips full-path duplicates and preserves existing row state", () => {
+  const rows = normalizeRows([
+    { id: "old", name: "styles\\ink\\a.safetensors", strength: 0.3, strength_clip: 0.6, enabled: false, triggers: "ink" },
+    { id: "repeat", name: "styles/ink/a.safetensors", strength: -0.2, triggers: "wash" },
+    { id: "blank", name: "", strength: 2 },
+  ]);
+  const before = serializeRows(rows);
+  const result = appendFolderRows(rows, [
+    "styles/ink/a.safetensors", "styles/ink/b.safetensors", "styles\\ink\\b.safetensors",
+    "styles/paint/a.safetensors", "styles/ink/A.safetensors",
+  ], 0.754);
+  assert.equal(result.added, 3);
+  assert.equal(result.skipped, 2);
+  assert.equal(serializeRows(rows), before, "input rows are never mutated");
+  rows.forEach((row, index) => assert.equal(result.rows[index], row, "original objects and ids survive"));
+  assert.deepEqual(result.rows.slice(rows.length).map(({ name, strength, strength_clip, enabled, triggers }) =>
+    ({ name, strength, strength_clip, enabled, triggers })), [
+    { name: "styles/ink/b.safetensors", strength: 0.75, strength_clip: 0.75, enabled: true, triggers: "" },
+    { name: "styles/paint/a.safetensors", strength: 0.75, strength_clip: 0.75, enabled: true, triggers: "" },
+    { name: "styles/ink/A.safetensors", strength: 0.75, strength_clip: 0.75, enabled: true, triggers: "" },
+  ], "same basename in another folder and differently cased Linux names stay distinct");
+  assert.equal(new Set(result.rows.map(({ id }) => id)).size, result.rows.length);
+});
+
+test("folder add preserves Windows filenames and uses the ordinary default strength", () => {
+  const names = ["styles\\ink\\b.safetensors", "styles\\a.safetensors"];
+  const result = appendFolderRows([], loraFolders(names)[0].names);
+  assert.deepEqual(result.rows.map(({ name }) => name), names);
+  assert.ok(result.rows.every(({ strength, strength_clip }) => strength === 1 && strength_clip === 1));
+  assert.equal(appendFolderRows([], [names[0]], 100).rows[0].strength, 10);
+});
+
+test("folder add is all-or-nothing at the row limit, counting empty rows and skipping duplicates first", () => {
+  const rows = normalizeRows(Array.from({ length: MAX_ROWS - 1 }, (_, i) => ({ name: i ? "" : "styles/a" })));
+  const blocked = appendFolderRows(rows, ["styles/a", "styles/b", "styles/c"]);
+  assert.equal(blocked.rows, rows);
+  assert.deepEqual({ added: blocked.added, skipped: blocked.skipped, needed: blocked.needed, room: blocked.room },
+    { added: 0, skipped: 1, needed: 2, room: 1 });
+  const fits = appendFolderRows(rows, ["styles/a", "styles/b"]);
+  assert.equal(fits.added, 1);
+  assert.equal(fits.rows.length, MAX_ROWS);
+  const full = appendFolderRows(fits.rows, ["styles/c"]);
+  assert.equal(full.rows, fits.rows);
+  assert.equal(full.added, 0);
+  assert.equal(full.room, 0);
+});
+
+test("an empty or already-added folder is a no-op with no new row identities", () => {
+  const rows = normalizeRows([{ name: "styles/a" }]);
+  assert.deepEqual(appendFolderRows(rows, []), { rows, added: 0, skipped: 0, needed: 0, room: 63 });
+  const result = appendFolderRows(rows, ["styles/a"]);
+  assert.equal(result.rows, rows);
+  assert.equal(result.added, 0);
+  assert.equal(result.skipped, 1);
+  assert.equal(result.needed, 0);
 });
 
 test("strength range flags only real finite bounds", () => {

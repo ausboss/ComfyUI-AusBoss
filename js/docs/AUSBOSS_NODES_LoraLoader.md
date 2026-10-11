@@ -29,7 +29,7 @@ come out of one socket, ready to wire into a prompt.
   modified date, and trigger words for that LoRA.
 
 Right-click a row to insert an empty LoRA above or below it, move, duplicate,
-or remove it. **Delete all LoRAs…** is a separate red, trash-marked action
+or remove it. **Remove this LoRA** is red. **Delete all LoRAs…** is a separate red, trash-marked action
 with confirmation; it clears this node's rows and keeps all files on disk.
 Cancel or Escape keeps the stack. Inserting keeps the existing rows and their settings in order;
 the new slot uses the gear menu's default strength (initially 1).
@@ -75,7 +75,55 @@ its height on rows, not chrome. Left to right:
   **R** refresh runs the same pass quietly.
 - **⚙ gear** — settings, and the **Absorb chain LoRAs** action below.
 
-**+ LoRA** sits inside the stack container, pinned to its bottom edge.
+**+ LoRA** opens one list of files grouped by folder. Click a file to add
+one LoRA, or click a folder name to add all its LoRAs, including nested
+folders. Use the arrow beside a folder to collapse or expand it without
+adding anything. Folded folders are remembered in this browser. Search
+reveals matching files; clearing it brings back your folded view. You can
+also fold folders while searching.
+
+Each folder shows **Add all** and its full file count, even when
+search hides some of its files. New rows use the gear menu's default
+strength. A folder skips files already in the stack; existing rows keep
+their order, strengths and switches. The same filename in different folders
+counts as separate LoRAs.
+
+The choice is one undo step. Closing the picker without choosing changes
+nothing. If a folder would take the stack past 64 rows, nothing is added
+and a message says how much room is needed. Remove rows or pick a smaller
+folder. Typing a filename and pressing Enter picks one file; use the arrow
+keys to highlight a folder before Enter if you want the whole folder.
+Pointing at a folder with the mouse does not choose it for Enter.
+Left and Right collapse and expand a highlighted folder.
+Clicking an existing row's name still replaces only that row's file.
+
+## Keyboard controls
+
+Press Tab until a row is outlined. The outlined row is the one you are
+changing. A click on the thin gap between two of a row's controls outlines
+it too.
+
+- **Up / Down** moves between rows and **+ LoRA**.
+- **Enter** opens that row's file picker, or adds a new LoRA from **+ LoRA**.
+  In the picker, use Up / Down and Enter as usual. Picking a file returns
+  focus to its row; Escape returns without changing it.
+- **Space** turns the outlined row off or on.
+- **Left / Right** decreases or increases model strength by the gear menu's
+  strength step (0.05 by default). **Shift** uses a smaller 0.01 step.
+  Linked mode changes CLIP strength too. With separate strengths, focus
+  the CLIP box to change CLIP alone.
+- **Tab** keeps moving through controls normally. On one of a row's own
+  buttons, Enter and Space press that button. **Escape** leaves row
+  keyboard control. Clicking outside the loader does the same.
+- **Delete** and **Backspace** do nothing on a row, its controls or
+  **+ LoRA**, so they cannot delete the node by mistake. Click the node or
+  the graph first to delete the node.
+
+Working with the mouse does not start keyboard control: after you click a
+switch or pick a file from the list, the keys stay with ComfyUI.
+
+Typing in a field keeps its ordinary editing keys. These shortcuts only
+apply inside this loader; ComfyUI's Ctrl/Cmd shortcuts still pass through.
 
 ## Absorb the loader chain
 
