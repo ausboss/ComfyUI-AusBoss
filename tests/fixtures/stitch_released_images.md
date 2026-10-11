@@ -27,9 +27,28 @@ difference was 5.0068e-6; all masks were exact, and no rounded 8-bit channels
 changed. Thus images allow `atol=1e-5, rtol=0` (0.00255 of an 8-bit step).
 This is a CPU regression test, not a promise of bitwise GPU reproducibility.
 Shape, dtype and non-finite output errors still fail. A mutation check confirms
-a single channel changed by 1/255 fails. Mask hashes remain byte-exact.
+a single channel changed by 1/255 fails. The masks were byte-exact in all of
+these runs, which shared one CPU; see Blend masks below.
 See [PyTorch numerical accuracy](https://docs.pytorch.org/docs/2.11/notes/numerical_accuracy.html)
 for why floating-point kernels need not agree bit for bit.
+
+## Blend masks
+
+`stitch_released_masks.npz` holds the 11 float32 blend masks of the same runs:
+`classic_<case>_mask` (one per case; the mask is the same at every strength)
+and `blend_in_<case>_mask`. Each is the mask whose hash the test pins, and
+`test_the_mask_references_are_the_pinned_masks` holds the file to those
+hashes, so it carries the released code's masks byte for byte.
+
+A run is compared with these masks at `atol=1e-5, rtol=0`, like the images,
+and no longer by hash. On a GitHub-hosted runner two masks came out with
+another hash on unchanged code: the straight transform and Crop For Inpaint,
+the two whose feather is a blur. The blur's bell curve is `torch.exp`, which
+is accurate to under one float32 step but is not rounded the same way on every
+CPU. Moving each value of that curve by one float32 step on the reference
+machine changes the hash of exactly those two masks, moves them by at most
+2.4e-7, and leaves the other four untouched. A blur made 2% wider still fails
+both of those cases at every strength.
 
 ## Reproducing the references
 
@@ -83,4 +102,29 @@ for mode, ref in (
         with np.load(Path(tmp) / "reference.npz", allow_pickle=False) as data:
             arrays.update({key: data[key] for key in data.files})
 np.savez_compressed("stitch_released_images.candidate.npz", **arrays)
+```
+
+The masks file needs no old checkout: the pins already say what the releases
+gave. Run the test's own builders and keep a mask only when its hash is the
+pinned one. On a CPU that rounds the blur differently the assert fails and
+nothing is written.
+
+```python
+import runpy
+import numpy as np
+
+m = runpy.run_path("tests/test_stitch_classic_pins.py")
+arrays = {}
+for index, (name, build) in enumerate(m["CASES"].items()):
+    for strength in m["STRENGTHS"]:
+        stitcher, patch = build()
+        _image, mask = m["stitch"](stitcher, patch, strength)
+        assert m["digest"](mask) == m["PINS"][(name, strength)][1], name
+        arrays[f"classic_{index}_mask"] = mask.numpy().copy()
+    if name in m["BLEND_IN_CASES"]:
+        stitcher, patch = build()
+        _image, mask = m["stitch"](stitcher, patch, 0.0, seam="blend in")
+        assert m["digest"](mask) == m["BLEND_IN_PINS"][name][1], name
+        arrays[f"blend_in_{index}_mask"] = mask.numpy().copy()
+np.savez_compressed("stitch_released_masks.candidate.npz", **arrays)
 ```

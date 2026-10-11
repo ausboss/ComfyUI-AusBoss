@@ -13,6 +13,14 @@ if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
 
 from nodes._memory_helpers import WILDCARD, free_gpu_memory
 
+try:
+    # Loaded before any test swaps sys.modules: patch.dict forgets whatever
+    # was first imported inside it, and torch cannot be imported twice in
+    # one process (the second import can end the process without a word).
+    import torch  # noqa: F401
+except Exception:  # these tests also run where torch is not installed
+    pass
+
 
 class WildcardTypeTests(unittest.TestCase):
     def test_it_is_the_star_string(self):
