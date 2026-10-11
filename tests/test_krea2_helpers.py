@@ -237,14 +237,15 @@ class PlacementWarningTests(unittest.TestCase):
         self.assertIn("60px spare width", message)    # 864 - (833 - 29)
         self.assertIn("331px spare height", message)  # 1760 - 1429
 
-    def test_a_rounding_sliver_still_warns(self):
-        # Padded only at the bottom, but canvas_multiple rounded the width up
-        # by 11px. A sliver breaks the span exactly like a deliberate pad does,
-        # which is the trap the message has to name.
+    def test_a_sliver_still_warns(self):
+        # Padded at the bottom, with 11px of padding left on the width. A
+        # sliver breaks the span exactly like a deliberate pad does, which is
+        # the trap the message has to name.
         s = self.stitcher(832, 1792, (0, 0, 821, 1459))
         message = placement_warning(s)
         self.assertIsNotNone(message)
-        self.assertIn("Divisible by", message)
+        self.assertIn("11px spare width", message)
+        self.assertIn("left over from a drag", message)
 
     def test_a_sliver_inside_the_tolerance_is_ignored(self):
         s = self.stitcher(728, 1568, (0, 0, 720, 1280))  # 8px spare width

@@ -127,23 +127,55 @@ export function resolveCrop(values, source) {
   return { x, y, width, height };
 }
 
+// One axis of a canvas rounded to a multiple. The leftover joins a side
+// that was padded, the far one (right, bottom) when both are. An axis
+// nobody padded grows no strip: a strip there is an edge to paint that
+// nobody asked for, so the picture is trimmed evenly to the multiple below
+// instead. A picture smaller than one multiple has nothing to trim to and
+// grows on the far side. Mirror of _axis_layout in nodes/_pad_helpers.py.
+export function axisLayout(size, before, after, multiple) {
+  const requested = size + before + after;
+  const length = Math.ceil(requested / multiple) * multiple;
+  const leftover = length - requested;
+  if (leftover === 0 || after > 0) return { before, after: after + leftover, trimBefore: 0, trimAfter: 0, length };
+  if (before > 0) return { before: before + leftover, after, trimBefore: 0, trimAfter: 0, length };
+  const kept = Math.floor(size / multiple) * multiple;
+  if (kept <= 0) return { before, after: after + leftover, trimBefore: 0, trimAfter: 0, length };
+  const trimBefore = Math.floor((size - kept) / 2);
+  return { before: 0, after: 0, trimBefore, trimAfter: size - kept - trimBefore, length: kept };
+}
+
+// The padding the output has on each side, what Divisible by trims off the
+// crop (`trim*`), and the output size, exactly as _transform_engine._geometry
+// resolves them. Keep the two in sync.
 export function resolvePadding(values, crop) {
-  const left = Math.max(0, Math.round(Number(values.pad_left) || 0));
-  const top = Math.max(0, Math.round(Number(values.pad_top) || 0));
-  const right = Math.max(0, Math.round(Number(values.pad_right) || 0));
-  const bottom = Math.max(0, Math.round(Number(values.pad_bottom) || 0));
+  const pads = paddingOf(values);
   const multiple = Math.max(1, Math.round(Number(values.canvas_multiple) || 1));
-  const requestedWidth = crop.width + left + right;
-  const requestedHeight = crop.height + top + bottom;
-  const outputWidth = Math.ceil(requestedWidth / multiple) * multiple;
-  const outputHeight = Math.ceil(requestedHeight / multiple) * multiple;
+  const x = axisLayout(crop.width, pads.left, pads.right, multiple);
+  const y = axisLayout(crop.height, pads.top, pads.bottom, multiple);
   return {
-    left,
-    top,
-    right: right + outputWidth - requestedWidth,
-    bottom: bottom + outputHeight - requestedHeight,
-    outputWidth,
-    outputHeight,
+    left: x.before,
+    top: y.before,
+    right: x.after,
+    bottom: y.after,
+    trimLeft: x.trimBefore,
+    trimTop: y.trimBefore,
+    trimRight: x.trimAfter,
+    trimBottom: y.trimAfter,
+    outputWidth: x.length,
+    outputHeight: y.length,
+  };
+}
+
+// The part of the crop that reaches the output: the crop less what
+// Divisible by trims (resolvePadding). The same box as the crop on an axis
+// that is padded or already a multiple.
+export function keptCrop(crop, padding) {
+  return {
+    x: crop.x + padding.trimLeft,
+    y: crop.y + padding.trimTop,
+    width: crop.width - padding.trimLeft - padding.trimRight,
+    height: crop.height - padding.trimTop - padding.trimBottom,
   };
 }
 
@@ -385,13 +417,14 @@ export function cropForRotation(values, sourceWidth, sourceHeight, fromDegrees, 
 // --- Size chain ---------------------------------------------------------------
 // Every step that sets the output size, in the order the backend runs them,
 // so the face can say why the canvas is the size it is: the crop, the crop
-// plus padding, that rounded up to canvas_multiple, then the resize. Also
+// plus padding, that rounded to canvas_multiple, then the resize. Also
 // the surprises worth naming. Each resized side rounds to the steps on its
 // own, which stretches the picture a little (`stretch`, the fraction by
 // which the width scaled more than the height; negative is taller). Align
-// pads the right and bottom with fill (`alignAdded`), which ahead of a
-// resize is only a strip for the model to paint, and a resize whose sides
-// are not multiples of canvas_multiple undoes it anyway (`alignLost`).
+// adds fill to a padded side (`alignAdded`) or trims an axis nobody padded
+// (`alignTrimmed`), which ahead of a resize is fill to paint or picture
+// lost for nothing, and a resize whose sides are not multiples of
+// canvas_multiple undoes it anyway (`alignLost`).
 // `resize` is { megapixels, steps } or null.
 export function sizeChain(values, source, resize = null) {
   const crop = resolveCrop(values, source);
@@ -409,8 +442,10 @@ export function sizeChain(values, source, resize = null) {
     stretch: 0,
     alignLost: false,
   };
-  // The fill strip Align adds on the right and bottom.
-  chain.alignAdded = { right: chain.canvas.width - chain.padded.width, bottom: chain.canvas.height - chain.padded.height };
+  // What Align does to reach the multiple: fill added to a padded side, or
+  // pixels trimmed off an axis nobody padded.
+  chain.alignAdded = { left: padding.left - pads.left, top: padding.top - pads.top, right: padding.right - pads.right, bottom: padding.bottom - pads.bottom };
+  chain.alignTrimmed = { width: padding.trimLeft + padding.trimRight, height: padding.trimTop + padding.trimBottom };
   if (resize) {
     const resized = scaleToMegapixels(chain.canvas.width, chain.canvas.height, resize.megapixels, resize.steps);
     chain.resized = resized;
@@ -423,6 +458,18 @@ export function sizeChain(values, source, resize = null) {
 
 // How far the resize may stretch the picture before the face says so.
 export const STRETCH_WARNING = 0.01;
+
+// What Divisible by did to a chain, in words: the fill it added per side
+// and the pixels it trimmed per axis. Empty lists when it changed nothing.
+export function alignChanges(chain) {
+  const fill = chain.alignAdded ?? {};
+  const cut = chain.alignTrimmed ?? {};
+  const added = [["left", "on the left"], ["right", "on the right"], ["top", "at the top"], ["bottom", "at the bottom"]]
+    .filter(([side]) => fill[side] > 0).map(([side, where]) => `${fill[side]} px ${where}`);
+  const trimmed = [["width", "the width"], ["height", "the height"]]
+    .filter(([axis]) => cut[axis] > 0).map(([axis, what]) => `${cut[axis]} px off ${what}`);
+  return { added, trimmed };
+}
 
 // The chain as short readout tokens, the last one the size the run emits,
 // plus warnings. A step that changes nothing is left out.
@@ -440,12 +487,13 @@ export function sizeChainTokens(chain) {
   if (Math.abs(chain.stretch) > STRETCH_WARNING) {
     warnings.push(`${(Math.abs(chain.stretch) * 100).toFixed(1)}% ${chain.stretch > 0 ? "wider" : "taller"}: each side rounds to ${chain.steps ?? 1} px`);
   }
-  // Ahead of a resize, Divisible by's strip is only fill for the model to
-  // paint: the Step already rounds the size. Name where it went.
-  const { right, bottom } = chain.alignAdded ?? { right: 0, bottom: 0 };
-  if (chain.resized && (right || bottom)) {
-    const sides = [right ? `${right} px on the right` : "", bottom ? `${bottom} px at the bottom` : ""].filter(Boolean).join(" and ");
-    warnings.push(`rounding to ${chain.multiple} adds ${sides} of fill`);
+  // Ahead of a resize, what Divisible by adds is only fill for the model to
+  // paint, and what it trims is picture lost: the Step already rounds the
+  // size. Name where it went.
+  const { added, trimmed } = alignChanges(chain);
+  if (chain.resized && (added.length || trimmed.length)) {
+    if (added.length) warnings.push(`rounding to ${chain.multiple} adds ${added.join(" and ")} of fill`);
+    if (trimmed.length) warnings.push(`rounding to ${chain.multiple} trims ${trimmed.join(" and ")}`);
   } else if (chain.alignLost) {
     warnings.push(`the resize undoes rounding to ${chain.multiple}`);
   }
@@ -555,8 +603,8 @@ export function lockedPadMinimum(values, crop, ratio, name) {
 
 // --- Ratio chips ---------------------------------------------------------------
 // A chip is lit while the output canvas has its shape. The canvas here is
-// the crop plus the padding, before Align's rounding (a strip Align adds
-// does not make a 16:9 canvas "custom").
+// the crop plus the padding, before Align's rounding (the fill Align adds
+// or the pixels it trims do not make a 16:9 canvas "custom").
 export function canvasSize(values, source) {
   const crop = resolveCrop(values, source);
   const pads = paddingOf(values);
@@ -693,26 +741,29 @@ export function scaleCanvasPadding(start, crop, corner, scale, { centre = false 
 // The padding that puts the picture in the middle of the canvas along one
 // axis ("x": left and right, "y": top and bottom). It only moves padding from
 // one side to the other, so the canvas keeps its size and shape and a lit
-// ratio stays lit. The strip Divisible by adds on the right and bottom
-// counts as padding on that side, so the bands you see come out even; with
-// less padding than that strip, it gets as close as it can. Null when there
-// is nothing to move.
+// ratio stays lit. The fill Divisible by adds counts as padding on the side
+// it joins, so the bands you see come out even; with less padding than
+// that fill, it gets as close as it can. That fill joins the right or
+// bottom band while there is one, so a pixel of padding stays there for it:
+// with none, all of it would land on the other side. Null when there is
+// nothing to move, or moving it would bring the picture no nearer the middle.
 export function centredPadding(values, crop, axis) {
   const pads = paddingOf(values);
-  const resolved = resolvePadding(values, crop);
-  const [near, far, strip] = axis === "y"
-    ? [pads.top, pads.bottom, resolved.bottom - pads.bottom]
-    : [pads.left, pads.right, resolved.right - pads.right];
+  const [near, far] = axis === "y" ? [pads.top, pads.bottom] : [pads.left, pads.right];
   const total = near + far;
-  const next = clamp(Math.floor((total + strip) / 2), 0, total);
+  const now = axisBands(values, crop, axis);
+  const strip = now.near + now.far - total;
+  const next = clamp(Math.floor((total + strip) / 2), 0, strip > 0 ? Math.max(0, total - 1) : total);
   if (next === near) return null;
-  return axis === "y"
+  const moved = axis === "y"
     ? { pad_top: next, pad_bottom: total - next }
     : { pad_left: next, pad_right: total - next };
+  const then = axisBands({ ...values, ...moved }, crop, axis);
+  return Math.abs(then.near - then.far) < Math.abs(now.near - now.far) ? moved : null;
 }
 
 // The bands on either side of the picture along an axis as the output has
-// them (Divisible by's strip included), for the centre buttons to say
+// them (Divisible by's fill included), for the centre buttons to say
 // where the picture sits.
 export function axisBands(values, crop, axis) {
   const resolved = resolvePadding(values, crop);

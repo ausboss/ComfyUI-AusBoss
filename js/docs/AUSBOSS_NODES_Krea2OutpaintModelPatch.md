@@ -80,11 +80,11 @@ the source must span the full height, pad top/bottom and it must span the
 full width. Padding both axes in one pass is outside its training and the
 new region can break up; the node says so in the console when it sees it,
 and the cure is two passes: pad one axis, run, load the result, pad the
-other. **A thin strip counts.** On the Crop + Rotate + Pad nodes,
-**Divisible by** adds a few pixels of fill on the right and bottom; more
-than 8 px on the side you did not pad means the source no longer spans it.
-Load Image + Pad's **Multiple** never adds a strip there. The warning
-reports the spare pixels on each axis.
+other. **A thin strip counts.** More than 8 px of padding on the other
+axis, such as a few pixels left over from a drag, means the source no
+longer spans it. **Divisible by** on the Crop + Rotate + Pad nodes and
+Load Image + Pad's **Multiple** never add a strip on a side you did not
+pad. The warning reports the spare pixels on each axis.
 
 Without either LoRA the patch still places the reference, but the bare
 Turbo model treats it loosely and results are hit and miss.

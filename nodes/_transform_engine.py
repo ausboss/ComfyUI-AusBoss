@@ -16,6 +16,7 @@ from PIL import Image, ImageFilter
 import torch
 
 from ._color_helpers import parse_fill_color
+from ._pad_helpers import _axis_layout
 
 
 MAX_DIMENSION = 65536
@@ -123,10 +124,6 @@ def normalize_aspect_ratio(value: str) -> str:
     return f"{width // common}:{height // common}"
 
 
-def _ceil_to_multiple(value: int, multiple: int) -> int:
-    return int(math.ceil(value / multiple) * multiple)
-
-
 def _validate_source(image: Image.Image) -> None:
     width, height = image.size
     if width < 1 or height < 1:
@@ -222,10 +219,21 @@ def _geometry(rotated: Image.Image, spec: TransformSpec) -> TransformGeometry:
             ratio_width, ratio_height = (int(part) for part in spec.crop_aspect_ratio.split(":"))
         crop_width, crop_height = _ratio_box(crop_width, crop_height, ratio_width, ratio_height)
 
-    requested_width = crop_width + spec.pad_left + spec.pad_right
-    requested_height = crop_height + spec.pad_top + spec.pad_bottom
-    output_width = _ceil_to_multiple(requested_width, spec.canvas_multiple)
-    output_height = _ceil_to_multiple(requested_height, spec.canvas_multiple)
+    # The canvas rounds to canvas_multiple one axis at a time, by Load Image +
+    # Pad's rule (_pad_helpers._axis_layout): the leftover joins a side the
+    # user padded, and an axis nobody padded has its crop trimmed evenly to
+    # the multiple below instead. The leftover used to go to the right and
+    # bottom whatever was padded, so an unpadded edge got a strip of fill a
+    # pixel or more wide; a resize then smeared it into the picture's last
+    # column, and the stitch kept that as a light line.
+    # transform_geometry.mjs resolvePadding is the same rule, which keeps
+    # the editor's picture and size readout equal to the run.
+    pad_left, pad_right, trim_left, _, output_width = _axis_layout(
+        crop_width, spec.pad_left, spec.pad_right, spec.canvas_multiple
+    )
+    pad_top, pad_bottom, trim_top, _, output_height = _axis_layout(
+        crop_height, spec.pad_top, spec.pad_bottom, spec.canvas_multiple
+    )
     if output_width > MAX_DIMENSION or output_height > MAX_DIMENSION:
         raise ValueError(
             "Transform: requested crop and padding exceed the 65536-pixel output limit."
@@ -234,14 +242,14 @@ def _geometry(rotated: Image.Image, spec: TransformSpec) -> TransformGeometry:
     return TransformGeometry(
         rotated_width=rotated_width,
         rotated_height=rotated_height,
-        crop_x=crop_x,
-        crop_y=crop_y,
-        crop_width=crop_width,
-        crop_height=crop_height,
-        pad_left=spec.pad_left,
-        pad_top=spec.pad_top,
-        pad_right=spec.pad_right + output_width - requested_width,
-        pad_bottom=spec.pad_bottom + output_height - requested_height,
+        crop_x=crop_x + trim_left,
+        crop_y=crop_y + trim_top,
+        crop_width=output_width - pad_left - pad_right,
+        crop_height=output_height - pad_top - pad_bottom,
+        pad_left=pad_left,
+        pad_top=pad_top,
+        pad_right=pad_right,
+        pad_bottom=pad_bottom,
         output_width=output_width,
         output_height=output_height,
     )

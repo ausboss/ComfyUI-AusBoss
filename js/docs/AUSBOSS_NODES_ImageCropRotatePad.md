@@ -112,10 +112,16 @@ green rotate knob moves aside when a corner handle sits where it usually goes.
 
 ### Divisible by
 
-**Divisible by** (`canvas_multiple`) adds a few pixels of fill on the right and
-bottom so the width and height divide evenly by the number you pick. Some models
-need sizes divisible by 8, 16 or 32. At 1 it is off. Its arrows go 1, 8, 16, 24
-and so on; hold Shift to step by 1.
+**Divisible by** (`canvas_multiple`) makes the width and height divide evenly by
+the number you pick. Some models need sizes divisible by 8, 16 or 32. At 1 it is
+off. Its arrows go 1, 8, 16, 24 and so on; hold Shift to step by 1.
+
+Where you padded, the padding grows by the few pixels needed: on the right or
+bottom band if there is one, otherwise on the left or top. Where you did not
+pad, no fill is added. The picture is trimmed by a few pixels instead, evenly
+from both edges, so an edge you did not pad never gets a thin strip for the
+model to paint. A picture smaller than the number itself is padded on the right
+or bottom.
 
 ### The size line
 
@@ -267,9 +273,9 @@ The editor's right side holds the stitcher's settings, the same as on the clip n
   - `fill_color`: `#RGB` or `#RRGGBB`, three numbers (`R, G, B`), one gray
     number, or a colour name. Anything it cannot read becomes mid-gray.
 - **Corners.** A corner follows the pointer along the canvas diagonal, and the
-  shape it keeps is the canvas before **Divisible by** adds its fill. With
-  Divisible by on, **Center** counts that strip on the right and bottom, so the
-  bands you see come out even.
+  shape it keeps is the canvas before **Divisible by** rounds it. With
+  Divisible by on, **Center** counts the fill it adds, so the bands you see
+  come out even.
 - **Resize.** It works like core's *Scale Image to Total Pixels*: the budget is
   `megapixels × 1024 × 1024`, the shape is kept, and each side rounds to a
   multiple of **Step**. The image uses the chosen **Method**; the mask always

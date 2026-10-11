@@ -3,7 +3,7 @@
 // wiring live in js/shared/pad_panel.mjs and the per-node entries, so this
 // module stays testable under node:test.
 
-import { clamp } from "./transform_geometry.mjs";
+import { axisLayout, clamp } from "./transform_geometry.mjs";
 
 // The whole final-rect edge is the handle; this is the grab tolerance on
 // either side of it, in CSS pixels (hit zones stay larger than the drawn
@@ -46,24 +46,10 @@ function padValues(values) {
   };
 }
 
-// One axis: the leftover joins a padded side (the far one when both are);
-// an axis nobody padded is trimmed evenly to the multiple below instead of
-// growing a strip. Mirror of _axis_layout in nodes/_pad_helpers.py.
-function axisLayout(size, before, after, multiple) {
-  const requested = size + before + after;
-  const length = Math.ceil(requested / multiple) * multiple;
-  const leftover = length - requested;
-  if (leftover === 0 || after > 0) return { before, after: after + leftover, trimBefore: 0, trimAfter: 0, length };
-  if (before > 0) return { before: before + leftover, after, trimBefore: 0, trimAfter: 0, length };
-  const kept = Math.floor(size / multiple) * multiple;
-  if (kept <= 0) return { before, after: after + leftover, trimBefore: 0, trimAfter: 0, length };
-  const trimBefore = Math.floor((size - kept) / 2);
-  return { before: 0, after: 0, trimBefore, trimAfter: size - kept - trimBefore, length: kept };
-}
-
-// Effective per-side padding, source trim and canvas size at source scale.
-// Mirror of resolve_pad_geometry in nodes/_pad_helpers.py — keep the two in
-// sync. (Crop + Rotate + Pad keeps its own rule in resolvePadding.)
+// Effective per-side padding, source trim and canvas size at source scale,
+// one axis at a time by axisLayout, the rule Crop + Rotate + Pad shares
+// (resolvePadding). Mirror of resolve_pad_geometry in nodes/_pad_helpers.py
+// — keep the two in sync.
 export function padGeometry(sourceW, sourceH, values) {
   const { left, top, right, bottom, multiple } = padValues(values);
   const x = axisLayout(Math.max(1, sourceW), left, right, multiple);

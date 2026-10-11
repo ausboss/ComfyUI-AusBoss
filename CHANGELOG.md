@@ -107,6 +107,16 @@ All notable changes to ComfyUI-AusBoss are documented here.
   instead, and an arrow can now point at a group as well as a node. A note
   that is nothing but one link is a big button for it. Only `http` and
   `https` addresses become links.
+- **Image Crop + Rotate + Pad and the two Video Crop + Rotate + Pad nodes: no
+  more thin line on an edge you did not pad.** With **Divisible by** above 1,
+  the few pixels needed to reach the number were always added as fill on the
+  right and bottom, even where you had not padded. With Resize on, that strip
+  blurred into the picture's last column or row and the stitched result kept
+  it as a light or dark line. Now those pixels join a side you padded, and a
+  side with no padding is trimmed by a few pixels instead, as Load Image +
+  Pad does. With no padding at all the size now rounds down instead of up:
+  1000×750 at 64 gives 960×704, not 1024×768. The picture on the node, the
+  size line and the editor show the same. Saved workflows load as before.
 
 ## 2.10.1 - 2026-10-09
 

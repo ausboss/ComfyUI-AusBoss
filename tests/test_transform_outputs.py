@@ -199,6 +199,63 @@ class TransformOutputTests(unittest.TestCase):
         self.assertEqual(tuple(original.shape), (1, 96, 128, 3))
 
 
+class UnpaddedEdgeTests(unittest.TestCase):
+    """An edge nobody padded stays picture through Divisible by and the resize.
+
+    The run that showed it: a 1916 x 821 picture, 3 px of padding on the
+    left, bands top and bottom, Divisible by 24, resized to 1 MP. 1916 + 3
+    rounded up to 1920 and the 1 px left over went to the right edge, which
+    had no padding. The resize smeared that strip of fill into the picture's
+    last column, and the stitched result kept it as a light line.
+    """
+
+    DARK = 6
+    RUN = dict(
+        pad_left=3, pad_top=246, pad_right=0, pad_bottom=336, feather=0, canvas_multiple=24,
+        fill_color="#808080", resize_to_megapixels=True, megapixels=1.0, resize_method="lanczos",
+        resolution_steps=32,
+    )
+
+    def source(self):
+        return Image.new('RGB', (1916, 821), (self.DARK,) * 3)
+
+    def assert_right_edge_is_picture(self, image, mask, stitcher):
+        self.assertEqual(tuple(image.shape[1:3]), (864, 1184))
+        _, y0, x1, y1 = stitcher['source_bbox']
+        self.assertEqual(x1, 1184)
+        rows = slice(y0 + 4, y1 - 4)
+        levels = image[0, rows, -4:, :].mean(dim=(0, 2)) * 255
+        # The last column of the kept rows is the picture, like the three before it.
+        self.assertLess(abs(float(levels[-1] - levels[:3].mean())), 1.0, levels)
+        self.assertEqual(float(mask[0, rows, -1].max()), 0.0)
+        # A model that hands the canvas back as it got it leaves no line either.
+        stitched = apply_stitch(stitcher, image)
+        self.assertLess(float((stitched[0, rows, -4:] - self.DARK / 255).abs().max()) * 255, 1.0)
+
+    @unittest.skipUnless(COMFY_ROOT, "Set AUSBOSS_COMFY_ROOT for core resize integration")
+    def test_the_image_node_leaves_no_line_on_the_unpadded_edge(self):
+        with patch('nodes.node_image_crop_rotate_pad.resolve_input_path', return_value=Path('source.png')), patch('nodes.node_image_crop_rotate_pad.load_image_frames', return_value=[self.source()]):
+            image, mask, stitcher, *_ = AusBossImageCropRotatePad().load_transform('source.png', **self.RUN)
+        self.assert_right_edge_is_picture(image, mask, stitcher)
+
+    @unittest.skipUnless(COMFY_ROOT, "Set AUSBOSS_COMFY_ROOT for core resize integration")
+    def test_the_video_frame_node_leaves_no_line_on_the_unpadded_edge(self):
+        with patch('nodes.node_video_crop_rotate_pad.resolve_video_path', return_value=Path('source.mp4')), patch('nodes.node_video_crop_rotate_pad.decode_video_frame', return_value=(self.source(), 0, 0)):
+            image, mask, stitcher, *_ = AusBossVideoCropRotatePad().load_transform(
+                'source.mp4', 'input folder', '', 'frame index', 0, 0, **self.RUN
+            )
+        self.assert_right_edge_is_picture(image, mask, stitcher)
+
+    def test_without_a_resize_the_unpadded_edge_has_no_fill(self):
+        run = {**self.RUN, "resize_to_megapixels": False}
+        with patch('nodes.node_image_crop_rotate_pad.resolve_input_path', return_value=Path('source.png')), patch('nodes.node_image_crop_rotate_pad.load_image_frames', return_value=[self.source()]):
+            image, mask, stitcher, *_ = AusBossImageCropRotatePad().load_transform('source.png', **run)
+        self.assertEqual(tuple(image.shape[1:3]), (1416, 1920))
+        self.assertEqual(stitcher['source_bbox'], (4, 246, 1920, 1067))
+        self.assertTrue(torch.all(image[0, 246:1067, 4:] == self.DARK / 255))
+        self.assertEqual(float(mask[0, 246:1067, 4:].max()), 0.0)
+
+
 class FeatheredStitchTests(unittest.TestCase):
     """Feather shapes the mask; the canvas and the stitcher keep real pixels.
 

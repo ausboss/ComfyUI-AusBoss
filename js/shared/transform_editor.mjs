@@ -22,6 +22,7 @@ import {
   videoSourceState,
 } from "./video_source_card.mjs";
 import {
+  alignChanges,
   aspectMatches,
   axisBands,
   canvasCornerCenters,
@@ -36,6 +37,7 @@ import {
   cropHandleCenters,
   isUntouched,
   evenOutPadding,
+  keptCrop,
   knobAt,
   knobOffset,
   knobStep,
@@ -938,7 +940,7 @@ function buildAspectModeRow(state, { alignment: withAlignment = true } = {}) {
     alignment.style.cssText = "display:flex;align-items:center;gap:5px;flex:0 0 auto";
     multiple = makeScrubInput({ value: value(state.node, "canvas_multiple", 1),
       min: 1, max: 4096, step: 8, fineStep: 1, decimals: 0, width: 72, unit: "px", snap: true,
-      title: "Adds a few pixels of fill on the right and bottom so the width and height divide evenly by this number. Some models need sizes divisible by 8, 16 or 32; 1 = off.",
+      title: "Makes the width and height divide evenly by this number: padding grows by a few pixels, and a side with no padding is trimmed by a few instead. Some models need sizes divisible by 8, 16 or 32; 1 = off.",
       onChange: (amount) => { setValue(state.node, "canvas_multiple", amount); draw(state); updateModalInfo(state); },
       onSettle: notifyAusbossChange });
     alignment.append(createElement("span", "", "Divisible by"), multiple.root);
@@ -964,8 +966,8 @@ function buildAspectModeRow(state, { alignment: withAlignment = true } = {}) {
 // (centredPadding), so the canvas keeps its size and a lit ratio stays lit.
 // The node face and the editor's Padding section each get a pair.
 const CENTRE_AXES = [
-  ["x", "Center side to side", "left and right", "right"],
-  ["y", "Center top to bottom", "top and bottom", "bottom"],
+  ["x", "Center side to side", "left and right"],
+  ["y", "Center top to bottom", "top and bottom"],
 ];
 
 function centrePicture(state, axis) {
@@ -979,7 +981,7 @@ function centrePicture(state, axis) {
 
 // What a centre button would do now, for its look and its tooltip.
 function centreStatus(state, axis) {
-  const [, action, sides, stripSide] = CENTRE_AXES.find(([name]) => name === axis);
+  const [, action, sides] = CENTRE_AXES.find(([name]) => name === axis);
   const plain = `${action}: moves padding so the ${sides} bands are even. The canvas keeps its size.`;
   if (!hasPicture(state)) return { ready: false, title: plain };
   const current = values(state.node);
@@ -988,7 +990,7 @@ function centreStatus(state, axis) {
   const bands = axisBands(current, crop, axis);
   if (!bands.near && !bands.far) return { ready: false, title: `No padding on the ${sides} to move. ${plain}` };
   if (Math.abs(bands.near - bands.far) <= 1) return { ready: false, title: `The picture is already in the middle. ${plain}` };
-  return { ready: false, title: `As close to the middle as this padding allows: Divisible by adds its fill on the ${stripSide}. ${plain}` };
+  return { ready: false, title: `As close to the middle as this padding allows: Divisible by adds its fill on one side. ${plain}` };
 }
 
 function buildCentreButtons(state) {
@@ -1383,8 +1385,9 @@ function fitStageToPicture(state) {
   const source = sourceSize(state);
   const crop = resolveCrop(current, source);
   const padding = resolvePadding(current, crop);
-  const unionWidth = Math.max(source.width, crop.x - padding.left + padding.outputWidth) - Math.min(0, crop.x - padding.left);
-  const unionHeight = Math.max(source.height, crop.y - padding.top + padding.outputHeight) - Math.min(0, crop.y - padding.top);
+  const kept = keptCrop(crop, padding);
+  const unionWidth = Math.max(source.width, kept.x - padding.left + padding.outputWidth) - Math.min(0, kept.x - padding.left);
+  const unionHeight = Math.max(source.height, kept.y - padding.top + padding.outputHeight) - Math.min(0, kept.y - padding.top);
   const margin = stageHandleLayout(width, height).margin;
   const ideal = Math.round((width - margin * 2) * unionHeight / Math.max(1, unionWidth) + margin * 2);
   const target = Math.max(ideal, stageHeightForWidth(width));
@@ -1750,7 +1753,7 @@ function buildStitchSection(state) {
 // rebuilds it, a pan or zoom does not.
 function blendOverlayCanvas(state, render) {
   const node = state.node;
-  const { source, crop, padding } = render;
+  const { source, kept: crop, padding } = render;
   const rotation = Number(value(node, "rotation_degrees", 0)) || 0;
   const feather = Math.max(0, Number(value(node, "feather", 0)) || 0);
   const blend = Math.max(0, Number(value(node, "stitch_blend", 32)) || 0);
@@ -1878,7 +1881,7 @@ function buildControls(state, sidebar) {
     title: "Mask feather in pixels.", onChange: (amount) => { setValue(node, "feather", amount); draw(state); }, onSettle: notifyAusbossChange });
   addScrubField(padSection, "Feather", featherNumber.root);
   const multiple = makeScrubInput({ value: value(node, "canvas_multiple", 1), min: 1, max: 4096, step: 8, fineStep: 1, decimals: 0, unit: "px", unitWidth: 22, snap: true,
-    title: "Adds a few pixels of fill on the right and bottom so the width and height divide evenly by this number. Some models need sizes divisible by 8, 16 or 32; 1 = off.",
+    title: "Makes the width and height divide evenly by this number: padding grows by a few pixels, and a side with no padding is trimmed by a few instead. Some models need sizes divisible by 8, 16 or 32; 1 = off.",
     onChange: (amount) => { setValue(node, "canvas_multiple", amount); draw(state); updateModalInfo(state); }, onSettle: notifyAusbossChange });
   addScrubField(padSection, "Divisible by", multiple.root);
   // A div, not a label: a label would pass a click on its text to the first button.
@@ -1965,8 +1968,9 @@ function drawFinalPreview(state) {
   if (!canvas || !state.image || !state.sourceWidth || !state.sourceHeight) return;
   const current = values(state.node);
   const source = rotatedSize(state.sourceWidth, state.sourceHeight, current.rotation_degrees);
-  const crop = resolveCrop(current, source);
-  const padding = resolvePadding(current, crop);
+  const whole = resolveCrop(current, source);
+  const padding = resolvePadding(current, whole);
+  const crop = keptCrop(whole, padding);
   const scale = Math.min(226 / padding.outputWidth, 260 / padding.outputHeight);
   const width = Math.max(1, Math.round(padding.outputWidth * scale));
   const height = Math.max(1, Math.round(padding.outputHeight * scale));
@@ -2242,14 +2246,16 @@ const PANEL_VIEW = Object.freeze({ zoom: 1, panX: 0, panY: 0 });
 function renderGeometry(state, width, height, view, map = null) {
   const source = rotatedSize(state.sourceWidth, state.sourceHeight, value(state.node, "rotation_degrees", 0));
   const crop = resolveCrop(values(state.node), source); const padding = resolvePadding(values(state.node), crop);
+  // What reaches the output: the crop, less what Divisible by trims off it.
+  const kept = keptCrop(crop, padding);
   const layout = map?.layout ?? stageHandleLayout(width, height);
   let scale, originX, originY;
   if (map) {
     ({ scale, originX, originY } = map);
   } else {
-    const margin = layout.margin; const union = { x: Math.min(0, crop.x - padding.left), y: Math.min(0, crop.y - padding.top) };
-    union.width = Math.max(source.width, crop.x - padding.left + padding.outputWidth) - union.x;
-    union.height = Math.max(source.height, crop.y - padding.top + padding.outputHeight) - union.y;
+    const margin = layout.margin; const union = { x: Math.min(0, kept.x - padding.left), y: Math.min(0, kept.y - padding.top) };
+    union.width = Math.max(source.width, kept.x - padding.left + padding.outputWidth) - union.x;
+    union.height = Math.max(source.height, kept.y - padding.top + padding.outputHeight) - union.y;
     const fit = Math.max(0.01, Math.min((width - margin * 2) / union.width, (height - margin * 2) / union.height));
     scale = fit * view.zoom;
     originX = (width - union.width * fit) / 2 - union.x * fit + view.panX;
@@ -2258,8 +2264,9 @@ function renderGeometry(state, width, height, view, map = null) {
   const rect = (x, y, w, h) => ({ x: originX + x * scale, y: originY + y * scale, width: w * scale, height: h * scale });
   const sourceRect = rect(0, 0, source.width, source.height);
   const cropRect = rect(crop.x, crop.y, crop.width, crop.height);
-  const outputRect = rect(crop.x - padding.left, crop.y - padding.top, padding.outputWidth, padding.outputHeight);
-  return { source, crop, padding, scale, originX, originY, layout, sourceRect, cropRect, outputRect, view: { x: 0, y: 0, width, height } };
+  const keptRect = rect(kept.x, kept.y, kept.width, kept.height);
+  const outputRect = rect(kept.x - padding.left, kept.y - padding.top, padding.outputWidth, padding.outputHeight);
+  return { source, crop, kept, padding, scale, originX, originY, layout, sourceRect, cropRect, keptRect, outputRect, view: { x: 0, y: 0, width, height } };
 }
 
 // The node preview sits in a DOM widget the graph scales with its zoom, so
@@ -2383,7 +2390,7 @@ function keepStageRoom(state) {
 // real fill colour under a faint hatch, so black bands on a black stage
 // still read as bands. Only the picture the crop cuts away is darkened.
 function drawScene(context, state, render, compact, interactive) {
-  const { sourceRect, cropRect, outputRect } = render; context.save();
+  const { sourceRect, cropRect, keptRect, outputRect } = render; context.save();
   const fill = normalizeColor(value(state.node, "fill_color", "#808080"));
   // Show blend's tint already holds the painted parts: one teal at a time.
   const blend = !compact && state.showBlend && widget(state.node, "stitch_blend");
@@ -2404,7 +2411,7 @@ function drawScene(context, state, render, compact, interactive) {
   context.beginPath(); context.rect(0, 0, context.canvas.width, context.canvas.height); context.rect(outputRect.x, outputRect.y, outputRect.width, outputRect.height); context.fill("evenodd"); context.restore();
   context.fillStyle = fill; context.fillRect(outputRect.x, outputRect.y, outputRect.width, outputRect.height);
   drawHatch(context, outputRect, fill);
-  context.save(); context.beginPath(); context.rect(cropRect.x, cropRect.y, cropRect.width, cropRect.height); context.clip(); picture(); context.restore();
+  context.save(); context.beginPath(); context.rect(keptRect.x, keptRect.y, keptRect.width, keptRect.height); context.clip(); picture(); context.restore();
   if (blend) drawBlendOverlay(context, state, render);
   context.strokeStyle = "#4bd8ef"; context.lineWidth = compact ? 1 : 2; context.setLineDash([7, 5]); context.strokeRect(cropRect.x, cropRect.y, cropRect.width, cropRect.height);
   context.strokeStyle = "#ff9d42"; context.setLineDash([5, 5]); context.strokeRect(outputRect.x, outputRect.y, outputRect.width, outputRect.height); context.setLineDash([]);
@@ -2989,25 +2996,24 @@ function sizeLines(state) {
   const source = rotatedSize(state.sourceWidth, state.sourceHeight, current.rotation_degrees);
   const resize = resizeRequest(state.node);
   const chain = sizeChain(current, source, resize);
-  const pad = resolvePadding(current, chain.crop);
+  const { added, trimmed } = alignChanges(chain);
   const lines = [
     `Source ${state.sourceWidth} x ${state.sourceHeight}`,
     `Rotated ${source.width} x ${source.height}`,
     `Crop ${chain.crop.x}, ${chain.crop.y}, ${chain.crop.width} x ${chain.crop.height}`,
     `Padding ${current.pad_left} / ${current.pad_top} / ${current.pad_right} / ${current.pad_bottom} → ${chain.padded.width} x ${chain.padded.height}`,
   ];
-  const extraRight = pad.right - Math.max(0, Math.round(Number(current.pad_right) || 0));
-  const extraBottom = pad.bottom - Math.max(0, Math.round(Number(current.pad_bottom) || 0));
-  lines.push(extraRight || extraBottom
-    ? `Divisible by ${chain.multiple} → ${chain.canvas.width} x ${chain.canvas.height} (+${extraRight} right, +${extraBottom} bottom)`
+  const changes = [...added.map((text) => `+${text}`), ...trimmed.map((text) => `-${text}`)];
+  lines.push(changes.length
+    ? `Divisible by ${chain.multiple} → ${chain.canvas.width} x ${chain.canvas.height} (${changes.join(", ")})`
     : `Canvas ${chain.canvas.width} x ${chain.canvas.height}`);
   if (chain.resized) {
     const megapixels = (chain.resized.width * chain.resized.height / 1048576).toFixed(2);
     lines.push(`Resize ${Number(resize.megapixels).toFixed(2)} MP, steps ${resize.steps} → ${chain.resized.width} x ${chain.resized.height} (${megapixels} MP)`);
   }
   for (const warning of sizeChainTokens(chain).warnings) lines.push(`⚠ ${warning}`);
-  if (chain.resized && (extraRight || extraBottom)) {
-    lines.push("Divisible by adds a strip of fill the model paints. With Resize on, Step already rounds the size, so 1 leaves no strip.");
+  if (chain.resized && changes.length) {
+    lines.push("With Resize on, Step already rounds the size: Divisible by 1 adds no fill and trims nothing.");
   }
   return lines;
 }
