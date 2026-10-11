@@ -1,0 +1,356 @@
+[
+ {
+  "text": "Steps:\n- load the picture\n- press run",
+  "blocks": [
+   [
+    [
+     {
+      "text": "Steps:",
+      "bold": false
+     }
+    ],
+    [
+     {
+      "text": "- load the picture",
+      "bold": false
+     }
+    ],
+    [
+     {
+      "text": "- press run",
+      "bold": false
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "text": "– a line with a long dash\nand the next line",
+  "blocks": [
+   [
+    [
+     {
+      "text": "– a line with a long dash",
+      "bold": false
+     }
+    ],
+    [
+     {
+      "text": "and the next line",
+      "bold": false
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "text": "# One\n## Two\n### Three\n#### Four\n##### Five",
+  "blocks": [
+   [
+    [
+     {
+      "text": "One",
+      "bold": false
+     }
+    ],
+    [
+     {
+      "text": "Two",
+      "bold": false
+     }
+    ],
+    [
+     {
+      "text": "Three",
+      "bold": false
+     }
+    ],
+    [
+     {
+      "text": "Four",
+      "bold": false
+     }
+    ],
+    [
+     {
+      "text": "Five",
+      "bold": false
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "text": "####### seven hashes stay as typed",
+  "blocks": [
+   [
+    [
+     {
+      "text": "####### seven hashes stay as typed",
+      "bold": false
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "text": "######no space after the hashes",
+  "blocks": [
+   [
+    [
+     {
+      "text": "######no space after the hashes",
+      "bold": false
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "text": "-# a line some chat apps draw small",
+  "blocks": [
+   [
+    [
+     {
+      "text": "-# a line some chat apps draw small",
+      "bold": false
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "text": "  an indented line\n\tand one after a tab",
+  "blocks": [
+   [
+    [
+     {
+      "text": "an indented line",
+      "bold": false
+     }
+    ],
+    [
+     {
+      "text": "and one after a tab",
+      "bold": false
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "text": "a **big** idea ⬆️#12 -> there\r\nsecond line\r\n\r\nthird <- back",
+  "blocks": [
+   [
+    [
+     {
+      "text": "a ",
+      "bold": false
+     },
+     {
+      "text": "big",
+      "bold": true
+     },
+     {
+      "text": " idea ",
+      "bold": false
+     },
+     {
+      "arrow": "up",
+      "bold": false,
+      "link": "12"
+     },
+     {
+      "text": " ",
+      "bold": false
+     },
+     {
+      "arrow": "right",
+      "bold": false
+     },
+     {
+      "text": " there",
+      "bold": false
+     }
+    ],
+    [
+     {
+      "text": "second line",
+      "bold": false
+     }
+    ]
+   ],
+   [
+    [
+     {
+      "text": "third ",
+      "bold": false
+     },
+     {
+      "arrow": "left",
+      "bold": false
+     },
+     {
+      "text": " back",
+      "bold": false
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "text": "###### \nonly the mark above, then text",
+  "blocks": [
+   [
+    [
+     {
+      "text": "only the mark above, then text",
+      "bold": false
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "text": "**Resize is on.** The picture is made smaller first.\n\nTurn it off to keep the size.",
+  "blocks": [
+   [
+    [
+     {
+      "text": "Resize is on.",
+      "bold": true
+     },
+     {
+      "text": " The picture is made smaller first.",
+      "bold": false
+     }
+    ]
+   ],
+   [
+    [
+     {
+      "text": "Turn it off to keep the size.",
+      "bold": false
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "text": "1. first\n2. second\n\n* a star\n+ a plus\n> a quote",
+  "blocks": [
+   [
+    [
+     {
+      "text": "1. first",
+      "bold": false
+     }
+    ],
+    [
+     {
+      "text": "2. second",
+      "bold": false
+     }
+    ]
+   ],
+   [
+    [
+     {
+      "text": "* a star",
+      "bold": false
+     }
+    ],
+    [
+     {
+      "text": "+ a plus",
+      "bold": false
+     }
+    ],
+    [
+     {
+      "text": "> a quote",
+      "bold": false
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "text": "⬅️#7 Switch a result off to skip it.",
+  "blocks": [
+   [
+    [
+     {
+      "arrow": "left",
+      "bold": false,
+      "link": "7"
+     },
+     {
+      "text": " Switch a result off to skip it.",
+      "bold": false
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "text": "⬇️#3 Load your picture here.",
+  "blocks": [
+   [
+    [
+     {
+      "arrow": "down",
+      "bold": false,
+      "link": "3"
+     },
+     {
+      "text": " Load your picture here.",
+      "bold": false
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "text": "⬇️#6 Move over the picture: things light up and say their name. **Click** one to pick it.\n\nWrong thing? The **‹ ›** arrows under the picture swap it.",
+  "blocks": [
+   [
+    [
+     {
+      "arrow": "down",
+      "bold": false,
+      "link": "6"
+     },
+     {
+      "text": " Move over the picture: things light up and say their name. ",
+      "bold": false
+     },
+     {
+      "text": "Click",
+      "bold": true
+     },
+     {
+      "text": " one to pick it.",
+      "bold": false
+     }
+    ]
+   ],
+   [
+    [
+     {
+      "text": "Wrong thing? The ",
+      "bold": false
+     },
+     {
+      "text": "‹ ›",
+      "bold": true
+     },
+     {
+      "text": " arrows under the picture swap it.",
+      "bold": false
+     }
+    ]
+   ]
+  ]
+ }
+]

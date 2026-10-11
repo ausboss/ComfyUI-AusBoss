@@ -7,6 +7,12 @@
 // hand, or -> and <-) turns into one of the pack's teal arrows. An arrow
 // followed at once by #12 is linked to node 12: the text keeps the link, so
 // editing the words around it never moves it.
+//
+// A line that starts with six hashes ("###### ") is small print: the details
+// under the line above it. Six, because every release before this one already
+// drops one to six leading hashes, so a note with small print still reads
+// right there, all at one size, and no note written before changes its look
+// unless it used that one mark.
 
 export const FONT_MIN = 12;
 export const FONT_MAX = 30;
@@ -41,8 +47,14 @@ export const ARROW_CHOICES = [
   ["upleft", "↖️"], ["upright", "↗️"], ["downleft", "↙️"], ["downright", "↘️"],
 ];
 
+// A heading mark at the start of a line, and the one that means small print.
+const HEADING_RE = /^\s*#{1,6}\s+/;
+const SMALL_RE = /^\s*#{6}\s+(?=\S)/;
+export const SMALL_MARK = "###### ";
+
 // Text -> points -> lines -> pieces. A piece is { text, bold } or
-// { arrow, bold }.
+// { arrow, bold }. A line of small print is the same list of pieces with
+// `small: true` set on it.
 export function parseBlocks(text) {
   const blocks = [];
   let lines = [];
@@ -51,12 +63,42 @@ export function parseBlocks(text) {
     lines = [];
   };
   for (const raw of String(text ?? "").replace(/\r\n?/g, "\n").split("\n")) {
-    const line = raw.replace(/^\s*#{1,6}\s+/, "").trim();
-    if (!line) flush();
-    else lines.push(pieces(line));
+    const line = raw.replace(HEADING_RE, "").trim();
+    if (!line) { flush(); continue; }
+    const parts = pieces(line);
+    if (SMALL_RE.test(raw)) parts.small = true;
+    lines.push(parts);
   }
   flush();
   return blocks;
+}
+
+// The editor's Small button. Every written line the selection touches becomes
+// small print; if they all are already, they go back to normal. Returns the
+// text that replaces `from`..`to`, and where the selection sits afterwards.
+export function toggleSmall(text, start = 0, end = start) {
+  const value = String(text ?? "");
+  const low = Math.max(0, Math.min(start, end));
+  const high = Math.min(value.length, Math.max(start, end));
+  const from = low === 0 ? 0 : value.lastIndexOf("\n", low - 1) + 1;
+  const stop = value.indexOf("\n", high);
+  const to = stop < 0 ? value.length : stop;
+  const lines = value.slice(from, to).split("\n");
+  const written = lines.filter((line) => line.trim());
+  const allSmall = written.length > 0 && written.every((line) => SMALL_RE.test(line));
+  const insert = lines
+    .map((line) => {
+      if (!line.trim()) return line;
+      const bare = line.replace(HEADING_RE, "");
+      return allSmall ? bare : SMALL_MARK + bare;
+    })
+    .join("\n");
+  const grown = insert.length - (to - from);
+  // A caret stays on its letter; a selection covers the lines it changed.
+  const caret = Math.max(from, Math.min(from + insert.length, low + grown));
+  return low === high
+    ? { from, to, insert, selectionStart: caret, selectionEnd: caret }
+    : { from, to, insert, selectionStart: from, selectionEnd: from + insert.length };
 }
 
 function pieces(line) {

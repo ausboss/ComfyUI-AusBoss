@@ -15,6 +15,7 @@ import {
   arrowText,
   fitFontSize,
   parseBlocks,
+  toggleSmall,
 } from "../shared/callout.mjs";
 import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
@@ -38,6 +39,11 @@ const FONT = '"IBM Plex Sans", "Inter", "Segoe UI", system-ui, -apple-system, sa
 // height: a note could not be made shorter than its own text, and the text
 // was then fitted to a card it had sized itself. Out of flow, the card takes
 // its size from the node alone, in both renderers.
+//
+// The editor's bar is laid out for a note of ordinary width. On a narrow one
+// it drops its "Arrow" label and its hint, and when the note is tall enough
+// it goes onto two rows, so the buttons keep their size instead of being
+// squeezed to slivers (the two @container rules).
 function ensureCss() {
   if (document.getElementById(CSS_ID)) return;
   const style = document.createElement("style");
@@ -49,6 +55,8 @@ function ensureCss() {
 .ausboss-callout-point{margin:0 0 .6em;padding-left:.7em;border-left:2px solid rgba(0,180,170,.7);}
 .ausboss-callout-point:last-child{margin-bottom:0;}
 .ausboss-callout-point b{color:#6fe0d6;font-weight:650;}
+.ausboss-callout-small{margin-top:.3em;color:#9fb5b2;font-size:max(11px,.62em);font-weight:400;line-height:1.4;}
+.ausboss-callout-small b{color:#8fd6cf;font-weight:600;}
 .ausboss-callout-empty{color:#6f8987;font-size:14px;font-weight:400;}
 .ausboss-callout-arrow{display:inline-block;width:1.2em;height:1.2em;margin:0 .1em;vertical-align:-.26em;filter:drop-shadow(0 0 .3em rgba(0,180,170,.55));}
 .ausboss-callout-arrow svg{display:block;width:100%;height:100%;overflow:visible;}
@@ -59,7 +67,7 @@ function ensureCss() {
 .ausboss-callout-card:hover .ausboss-callout-tools,.ausboss-callout.is-selected .ausboss-callout-tools{opacity:.95;}
 .ausboss-callout-tool{height:22px;padding:0 8px;border:1px solid rgba(0,180,170,.45);border-radius:5px;background:rgba(8,14,16,.86);color:#9fd8d3;font:600 11px ${FONT};letter-spacing:.02em;cursor:pointer;}
 .ausboss-callout-tool:hover{color:#fff;border-color:${BRAND};}
-.ausboss-callout-editor{position:absolute;inset:0;box-sizing:border-box;display:flex;flex-direction:column;gap:6px;padding:6px;border:1px solid ${BRAND};border-radius:8px;background:rgba(5,10,11,.95);pointer-events:auto;}
+.ausboss-callout-editor{position:absolute;inset:0;box-sizing:border-box;display:flex;flex-direction:column;gap:6px;padding:6px;border:1px solid ${BRAND};border-radius:8px;background:rgba(5,10,11,.95);pointer-events:auto;container-type:size;}
 .ausboss-callout-edit{flex:1;min-height:0;box-sizing:border-box;width:100%;padding:6px 8px;resize:none;border:none;background:transparent;color:#e6f4f3;font:15px/1.45 ${FONT};outline:none;}
 .ausboss-callout-arrowbar{flex:none;display:flex;align-items:center;gap:4px;}
 .ausboss-callout-arrowbar span{margin-right:4px;color:#6f8987;font:11px ${FONT};}
@@ -69,6 +77,10 @@ function ensureCss() {
 .ausboss-callout-pick{width:26px;height:24px;padding:3px;border:1px solid rgba(0,180,170,.35);border-radius:5px;background:rgba(8,14,16,.9);cursor:pointer;}
 .ausboss-callout-pick:hover{border-color:${BRAND};background:rgba(0,180,170,.14);}
 .ausboss-callout-pick svg{display:block;width:100%;height:100%;}
+.ausboss-callout-size{flex:none;height:24px;margin-left:4px;padding:0 7px;border:1px solid rgba(0,180,170,.35);border-radius:5px;background:rgba(8,14,16,.9);color:#9fd8d3;font:600 11px ${FONT};cursor:pointer;}
+.ausboss-callout-size:hover{border-color:${BRAND};background:rgba(0,180,170,.14);}
+@container (max-width:345px){.ausboss-callout-arrowbar>span:first-child,.ausboss-callout-link:not(.has-node){display:none;}}
+@container (max-width:345px) and (min-height:112px){.ausboss-callout-arrowbar{flex-wrap:wrap;}.ausboss-callout-pick{flex:none;}}
 `;
   document.head.appendChild(style);
 }
@@ -154,11 +166,15 @@ function renderText(state) {
   for (const lines of blocks) {
     const point = el("div", "ausboss-callout-point");
     lines.forEach((line, index) => {
-      if (index) point.append(document.createElement("br"));
+      // Small print is a block of its own under the line above it. Normal
+      // lines are told apart by a break, as before; a block needs none.
+      const into = line.small ? el("div", "ausboss-callout-small") : point;
+      if (index && !line.small && !lines[index - 1].small) point.append(document.createElement("br"));
       for (const piece of line) {
-        if (piece.arrow) point.append(arrowSpan(state, piece.arrow, piece.link));
-        else point.append(piece.bold ? el("b", "", piece.text) : document.createTextNode(piece.text));
+        if (piece.arrow) into.append(arrowSpan(state, piece.arrow, piece.link));
+        else into.append(piece.bold ? el("b", "", piece.text) : document.createTextNode(piece.text));
       }
+      if (line.small) point.append(into);
     });
     state.inner.append(point);
   }
@@ -244,7 +260,7 @@ function startEdit(state) {
   const wrap = el("div", "ausboss-callout-editor");
   const area = el("textarea", "ausboss-callout-edit");
   area.value = state.valueWidget.value ?? "";
-  area.placeholder = "One idea per paragraph. **Bold** a word to stress it. Add an arrow with the buttons below.";
+  area.placeholder = "One idea per paragraph. **Bold** a word to stress it. The buttons below add an arrow or make a line small.";
   area.spellcheck = true;
   const bar = el("div", "ausboss-callout-arrowbar");
   bar.append(el("span", "", "Arrow"));
@@ -285,6 +301,18 @@ function startEdit(state) {
     });
     bar.append(pick);
   }
+  // Small print for the line the caret is on, or every line of a selection.
+  const small = el("button", "ausboss-callout-size", "Small");
+  small.type = "button";
+  small.title = "Make this line small print, for the details under the line above. Press again to make it normal.";
+  small.addEventListener("mousedown", (event) => event.preventDefault());
+  small.addEventListener("click", () => {
+    const next = toggleSmall(area.value, area.selectionStart, area.selectionEnd);
+    area.setRangeText(next.insert, next.from, next.to, "preserve");
+    area.setSelectionRange(next.selectionStart, next.selectionEnd);
+    area.focus();
+  });
+  bar.append(small);
   bar.append(linkBox);
   showLink();
   wrap.append(area, bar);
