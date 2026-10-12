@@ -172,6 +172,8 @@ node shows it with nothing picked, and says the old picks are not used.
   shows **Show picture** instead: opening one starts nothing.
 - With anything else before it, the node shows **Show picture**: it has to
   run what comes before it to know the picture.
+- Choose another picture while the node is still looking at the last one,
+  and it lets that look go and starts on the new picture.
 - A workflow you reopen shows **Show the picks** once: press it, or run the
   workflow, and your saved picks are back.
 - If the picture comes from a sampler, set its seed to **fixed**. With a

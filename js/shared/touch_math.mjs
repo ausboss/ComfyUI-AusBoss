@@ -35,6 +35,20 @@ const TYPES = new Set(["tap", "name", "find", "paint", "all", "subject", "backgr
 // A word for SAM 3 is cut to this length.
 export const NAME_MAX = 60;
 
+// Whether a run the node wants can be sent now, behind the runs it already
+// has on their way (`flying`: what each was asked, whether ComfyUI has it,
+// and the picture it was asked about, as `epoch`). A look gives way to the
+// next job in the queue, so behind looks goes anything that is not a look
+// (a click), and a look at another picture: the looks on their way are at a
+// picture the node no longer has. A second look at the same picture waits,
+// and so does everything behind a run that is no look or is still being sent.
+export function goesBehind(flying, ask, epoch) {
+  if (!flying?.length) return true;
+  const looks = flying.every((run) => run.ask === "scope" && run.queued);
+  const old = flying.every((run) => run.epoch !== epoch);
+  return looks && (ask !== "scope" || old);
+}
+
 // The pack's own picture loaders. One of them wired straight into Mask by
 // Touch is run by the node itself, the way a press on Show picture runs it:
 // it may crop, turn or pad its file, so the file alone is not the picture,
