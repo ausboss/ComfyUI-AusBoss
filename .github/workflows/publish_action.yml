@@ -75,6 +75,11 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v7
+      # The Registry shows a version's notes under "More". comfy-cli takes
+      # them from COMFY_NODE_CHANGELOG, so this version's CHANGELOG entries
+      # are put there, one short line each, before the publish step runs.
+      - name: Notes for this version
+        run: python3 scripts/changelog_notes.py --github-env
       - name: Publish Custom Node
         uses: Comfy-Org/publish-node-action@main
         with:

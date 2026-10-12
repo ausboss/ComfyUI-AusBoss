@@ -28,6 +28,9 @@ Checks:
   6. Shipped source makes no network requests: no HTTP or socket client in
      the backend, and no index-based LiteGraph connect call in the frontend,
      which the Registry scan reads as a socket and flags the release for.
+  7. CHANGELOG.md has entries under the pyproject version. The publish
+     workflow sends them to the Registry as the version's notes
+     (scripts/changelog_notes.py); a release without them goes out blank.
 
 Exit code 0 = ready to release, 1 = problems printed below.
 """
@@ -36,6 +39,7 @@ import pathlib
 import re
 import sys
 
+from changelog_notes import notes_for
 from registry_contract import git_paths
 from workflow_contract import example_problems
 
@@ -87,6 +91,13 @@ if pyproject_version and js_version and pyproject_version != js_version:
         f"version mismatch: pyproject.toml says {pyproject_version} but "
         f"AUSBOSS_JS_VERSION is {js_version}"
     )
+
+# --- 7. the changelog has this version's entries -----------------------------
+if pyproject_version:
+    try:
+        notes_for(pyproject_version, (ROOT / "CHANGELOG.md").read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        errors.append(f"no release notes for {pyproject_version}: {exc}")
 
 # --- 3. the README release badge stays dynamic -------------------------------
 DYNAMIC_BADGE = (

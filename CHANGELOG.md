@@ -2,8 +2,34 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.11.0 - 2026-10-12
 
+- **New: Mask by Touch 🆎** (Mask). Click a thing on the picture and get
+  its mask. The picture is on the node: moving over it lights up what a
+  click would take and names it, the jacket and not the whole person, and
+  a click picks it. When a click could mean more than one thing, two
+  arrows beside the name swap the pick for the next thing at that spot.
+  Subject picks the picture's main subject in one click, and Background
+  everything else. Pick | Draw switches to a plain brush for an area you
+  paint yourself. + and - add or take away, and Undo takes a pick back.
+  Every pick has a chip under the picture: its cross takes the pick away,
+  a click on its name opens it so the arrows can swap it, "all" on a named
+  pick takes every thing of that name, and a field takes a name you type.
+  Fine edges is for hair and fur: the outline of the subject is followed
+  strand by strand, background seen between the strands goes, and the
+  cut-out loses the colour of the old background. Grow, Soften, Smooth and Fill small holes show on the picture
+  as you change them, and the eye beside Undo and Clear hides everything
+  else to show the result, as a cut-out or as the mask. Invert keeps
+  everything but the picks. It returns the mask, the picked area cut out on
+  a see-through background, and the names of what was picked. The search
+  is ComfyUI's own SAM 3: wire `model` and `clip` from a Load Checkpoint
+  that loads the SAM 3 file. Subject, Background and Fine edges use
+  ComfyUI's own background-removal model (`birefnet.safetensors`, ComfyUI
+  0.21 or newer); the help page says where to get it.
+  With a Load Image, or the pack's own Image Crop + Rotate + Pad or Load
+  Image + Pad, wired straight in, the picture shows on the node by itself
+  once you choose a file; with anything else before it, one press on Show
+  picture brings it up.
 - **A Workflow Switches row can run one part and switch another off.** Until
   now a row only turned its own nodes off and on. Give it an off side, nodes
   that run only while the row is off, and one click does both. For example,
@@ -15,6 +41,20 @@ All notable changes to ComfyUI-AusBoss are documented here.
   row's off side. A small sign of two arrows beside the label shows which
   rows have one, and the frame button brings both sides into view. A workflow
   saved before this works as it did.
+- **Callout 🆎: links.** Words in a note can be a link. Select them, press
+  the new **Link** button and paste an address, or paste the address
+  straight over them: a click later opens that page in a new tab. Click a
+  node or a group on the canvas first and the words bring it into view
+  instead, and an arrow can now point at a group as well as a node. A note
+  that is nothing but one link is a big button for it. Only `http` and
+  `https` addresses become links.
+- **Callout 🆎: small print under a line.** Put the caret on a line and press
+  the new **Small** button while you edit, and that line is drawn small
+  under the line above it. A note can carry a first line big enough to read
+  from far out and the details beside it. In the text it is a line that
+  starts with six `#`. Notes written before look the same, and an older
+  version of the pack shows a note with small print with every line at one
+  size.
 - **Float 🆎 and Integer 🆎 take the limits of what they are wired to.** A
   Float wired to a sampler's denoise now stops at 1, the way ComfyUI's own
   Primitive node does: type 1.5 and you get 1. The card shows the limits
@@ -48,32 +88,6 @@ All notable changes to ComfyUI-AusBoss are documented here.
 - **Image Size 🆎 shows what it measured.** After a run each output shows
   its number, such as `width: 1024`, so you can read a picture's size
   without wiring anything to it. The node stays the size it was.
-- **New: Mask by Touch 🆎** (Mask). Click a thing on the picture and get
-  its mask. The picture is on the node: moving over it lights up what a
-  click would take and names it, the jacket and not the whole person, and
-  a click picks it. When a click could mean more than one thing, two
-  arrows beside the name swap the pick for the next thing at that spot.
-  Subject picks the picture's main subject in one click, and Background
-  everything else. Pick | Draw switches to a plain brush for an area you
-  paint yourself. + and - add or take away, and Undo takes a pick back.
-  Every pick has a chip under the picture: its cross takes the pick away,
-  a click on its name opens it so the arrows can swap it, "all" on a named
-  pick takes every thing of that name, and a field takes a name you type.
-  Fine edges is for hair and fur: the outline of the subject is followed
-  strand by strand, background seen between the strands goes, and the
-  cut-out loses the colour of the old background. Grow, Soften, Smooth and Fill small holes show on the picture
-  as you change them, and the eye beside Undo and Clear hides everything
-  else to show the result, as a cut-out or as the mask. Invert keeps
-  everything but the picks. It returns the mask, the picked area cut out on
-  a see-through background, and the names of what was picked. The search
-  is ComfyUI's own SAM 3: wire `model` and `clip` from a Load Checkpoint
-  that loads the SAM 3 file. Subject, Background and Fine edges use
-  ComfyUI's own background-removal model (`birefnet.safetensors`, ComfyUI
-  0.21 or newer); the help page says where to get it.
-  With a Load Image, or the pack's own Image Crop + Rotate + Pad or Load
-  Image + Pad, wired straight in, the picture shows on the node by itself
-  once you choose a file; with anything else before it, one press on Show
-  picture brings it up.
 - **LoRA Loader: add a whole folder from + LoRA.** Files are grouped by
   folder in the picker. Click a file to add one, or a folder name to add
   all its LoRAs, including nested folders. Separate arrows collapse and
@@ -81,42 +95,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   matching files without changing that view. Existing files are skipped and
   existing rows keep their settings. The selection is one undo step; if
   it would exceed 64 rows, nothing is added and a message explains why.
-- **LoRA Loader: Remove this LoRA is red too.** The single-row action is
-  easier to spot beside the separate, confirmed Delete all action.
 - **LoRA Loader: browse and edit rows with the keyboard.** Tab to a row,
   then use Up/Down to reach other rows or + LoRA, Enter to pick a file,
   Space to switch a row off/on, and Left/Right to adjust strength. Shift
   uses a smaller step. Typing and ComfyUI shortcuts keep their usual keys.
-- **Crop + Rotate + Pad editor: Show blend no longer tints an edge you did
-  not pad.** With **Show blend** on, a teal band could run along the bottom
-  or the right edge of the picture where there was no padding, as if the
-  generation took over there. It never did: the run kept that edge as it
-  was, and only the preview was wrong. The preview now shows a blend only
-  where the run has one. The same for both Video Crop + Rotate + Pad nodes.
-- **Callout 🆎: small print under a line.** Put the caret on a line and press
-  the new **Small** button while you edit, and that line is drawn small
-  under the line above it. A note can carry a first line big enough to read
-  from far out and the details beside it. In the text it is a line that
-  starts with six `#`. Notes written before look the same, and an older
-  version of the pack shows a note with small print with every line at one
-  size.
-- **Callout 🆎: links.** Words in a note can be a link. Select them, press
-  the new **Link** button and paste an address, or paste the address
-  straight over them: a click later opens that page in a new tab. Click a
-  node or a group on the canvas first and the words bring it into view
-  instead, and an arrow can now point at a group as well as a node. A note
-  that is nothing but one link is a big button for it. Only `http` and
-  `https` addresses become links.
-- **Image Crop + Rotate + Pad and the two Video Crop + Rotate + Pad nodes: no
-  more thin line on an edge you did not pad.** With **Divisible by** above 1,
-  the few pixels needed to reach the number were always added as fill on the
-  right and bottom, even where you had not padded. With Resize on, that strip
-  blurred into the picture's last column or row and the stitched result kept
-  it as a light or dark line. Now those pixels join a side you padded, and a
-  side with no padding is trimmed by a few pixels instead, as Load Image +
-  Pad does. With no padding at all the size now rounds down instead of up:
-  1000×750 at 64 gives 960×704, not 1024×768. The picture on the node, the
-  size line and the editor show the same. Saved workflows load as before.
+- **LoRA Loader: Remove this LoRA is red too.** The single-row action is
+  easier to spot beside the separate, confirmed Delete all action.
 - **Crop + Rotate + Pad nodes: Resize keeps the edge of your picture
   clean.** With Resize on, the padded canvas was resized as one picture,
   which mixed a little fill into the picture along every padded edge and
@@ -127,6 +111,22 @@ All notable changes to ComfyUI-AusBoss are documented here.
   step, each band is a whole number of pixels wide, and the output size
   is the same as before. The picture itself can sit up to half a pixel
   from where it did. Nothing changes with Resize off or with no padding.
+- **Image Crop + Rotate + Pad and the two Video Crop + Rotate + Pad nodes: no
+  more thin line on an edge you did not pad.** With **Divisible by** above 1,
+  the few pixels needed to reach the number were always added as fill on the
+  right and bottom, even where you had not padded. With Resize on, that strip
+  blurred into the picture's last column or row and the stitched result kept
+  it as a light or dark line. Now those pixels join a side you padded, and a
+  side with no padding is trimmed by a few pixels instead, as Load Image +
+  Pad does. With no padding at all the size now rounds down instead of up:
+  1000×750 at 64 gives 960×704, not 1024×768. The picture on the node, the
+  size line and the editor show the same. Saved workflows load as before.
+- **Crop + Rotate + Pad editor: Show blend no longer tints an edge you did
+  not pad.** With **Show blend** on, a teal band could run along the bottom
+  or the right edge of the picture where there was no padding, as if the
+  generation took over there. It never did: the run kept that edge as it
+  was, and only the preview was wrong. The preview now shows a blend only
+  where the run has one. The same for both Video Crop + Rotate + Pad nodes.
 
 ## 2.10.1 - 2026-10-09
 
