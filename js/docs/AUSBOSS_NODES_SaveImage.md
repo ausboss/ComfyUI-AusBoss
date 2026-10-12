@@ -19,6 +19,12 @@ file's name. A caption on the `caption_text` input writes the paired `.txt`.
   cannot be clicked - an exact name is never decorated.
   A workflow saved with the old `exact_name` shows that name tagged *exact*;
   clear it to compose locally.
+  **Name tokens** work here as in ComfyUI's own Save Image:
+  `%date:yyyy-MM-dd%` is today's date, `%KSampler.seed%` is a setting of
+  another node (its title or type, a dot, the setting's name), and
+  `%width%` and `%height%` are the picture's size. A token can name a
+  folder too: `%date:yyyy-MM-dd%/shot`. The list is under "Name tokens"
+  below.
 - **Path preview**: the name this save will produce, in the order the tags
   are appended: `prefix[_YYYY-MM-DD][_HH-mm-ss][_WIDTHxHEIGHT][_#####][_b###]`.
   After a run it shows the first file actually written.
@@ -62,6 +68,26 @@ run. A bad name arriving through the `filename` link stops the run at this
 node, before any file is written. `on_existing`
 from older workflows is still honored wherever a save can land on an
 existing file (counter off, exact or linked names).
+
+## Name tokens
+
+Type these in the **Filename** field. The path preview shows what they will
+be, apart from the size, which only a run knows.
+
+| Token | Becomes |
+|---|---|
+| `%date:yyyy-MM-dd%` | The date and time in the form you give: `yyyy` year, `MM` month, `dd` day, `hh` hour, `mm` minute, `ss` second. |
+| `%KSampler.seed%` | A setting of another node: the node's title or type, a dot, then the setting's name. |
+| `%width%`, `%height%` | The picture's size in pixels. |
+| `%year%`, `%month%`, `%day%` | The date of the save. |
+| `%hour%`, `%minute%`, `%second%` | The time of the save. |
+
+- The date and the other node's setting are filled in by the browser when
+  you press Run. A run sent straight through the API gets only the size and
+  time tokens, as with ComfyUI's own Save Image.
+- A name that arrives on the `filename` input is another node's exact name
+  and is not read for tokens.
+- Other text between percent signs stays as typed.
 
 ## Outputs
 

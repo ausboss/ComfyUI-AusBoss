@@ -7,6 +7,10 @@ every node that needs it — changing it in one place updates them all.
 
 - The text box (`text`): The text to output. Newlines and spacing are kept.
   Drag the node taller for a bigger box.
+- **Ctrl + Up** and **Ctrl + Down** change the weight of the word the caret
+  is in, or of the words you selected, as in ComfyUI's own prompt boxes:
+  `(red hair:1.1)`. How far one press goes is ComfyUI's setting "Ctrl+up/down
+  precision".
 
 ## Output
 

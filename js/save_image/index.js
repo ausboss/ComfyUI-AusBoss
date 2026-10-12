@@ -13,6 +13,7 @@ import { app } from "/scripts/app.js";
 import { isForeignRun } from "../shared/prompt_scope.mjs";
 import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
+import { installNameTokens, previewName as previewTokens } from "../shared/name_tokens.mjs";
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
 import { ensureCardCss } from "../shared/widget_card.mjs";
 import { holdNodeMinWidth, pinVuePanelHeight } from "../shared/panel_layout.mjs";
@@ -24,6 +25,7 @@ const NODE_CLASS = "AUSBOSS_NODES_SaveImage";
 const WIDGET_NAME = "ausboss_save_image_card";
 const CSS_ID = "ausboss-save-image-css";
 const NODE_MIN_WIDTH = 340;
+const NAME_TITLE = "The local filename; subfolders are allowed. The tags below are appended to it. Tokens work: %date:yyyy-MM-dd%, %width%, %KSampler.seed%.";
 // Captions, fields, the two-line preview, chips, pills, the embed row and
 // the gaps between them; the frontend's wrapper insets ride on top.
 const CARD_HEIGHT = 288;
@@ -222,7 +224,7 @@ function buildCard(node) {
   // Filename
   root.append(el("div", "ausboss-save-cap", "Filename"));
   const nameRow = el("div", "ausboss-save-row");
-  const nameField = textField(state, "filename_prefix", "image", "The local filename; subfolders are allowed. The tags below are appended to it.");
+  const nameField = textField(state, "filename_prefix", "image", NAME_TITLE);
   const nameTag = el("span", "ausboss-save-tag", "");
   nameRow.append(nameField, nameTag);
   root.append(nameRow);
@@ -303,7 +305,7 @@ function buildCard(node) {
     } else {
       if (document.activeElement !== nameField) nameField.value = String(values.filename_prefix ?? "");
       nameTag.textContent = "";
-      nameField.title = "The local filename; subfolders are allowed. The tags below are appended to it.";
+      nameField.title = NAME_TITLE;
     }
     // An exact-mode edit writes the exact name; a local-mode edit the prefix.
     nameField.dataset.target = mode === "exact" ? "exact_name" : "filename_prefix";
@@ -313,8 +315,10 @@ function buildCard(node) {
       previewNameLine.textContent = state.savedPath.slice(slash + 1);
       preview.classList.add("saved");
     } else {
-      previewFolderLine.textContent = previewFolder(values);
-      previewNameLine.textContent = previewName(values);
+      // Name tokens show as what they will be: %date:yyyy-MM-dd% as today's date.
+      const shown = { ...values, filename_prefix: previewTokens(values.filename_prefix, app), exact_name: previewTokens(values.exact_name, app) };
+      previewFolderLine.textContent = previewFolder(shown);
+      previewNameLine.textContent = previewName(shown);
       preview.classList.remove("saved");
     }
     chips.classList.toggle("off", !tagsEnabled(values));
@@ -381,6 +385,8 @@ app.registerExtension({
     chainCallback(nodeType.prototype, "onNodeCreated", function () {
       if (this.__ausbossSaveImage) return;
       buildCard(this);
+      // %date:yyyy-MM-dd% and %Node.setting% in the name (js/shared/name_tokens.mjs).
+      installNameTokens(this, ["filename_prefix", "exact_name"], app);
     });
   },
 });

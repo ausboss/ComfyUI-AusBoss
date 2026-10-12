@@ -105,8 +105,19 @@ export function isAppShortcut(event) {
   return !FIELD_EDIT_KEYS.has(String(event.key ?? "").toLowerCase());
 }
 
+// Ctrl + Up and Ctrl + Down in a prompt box are ComfyUI's own shortcut for the
+// weight of the selected words: (word:1.1). ComfyUI listens for them on the
+// window, so a box that holds a prompt has to let those two keys go on.
+export function isWeightShortcut(event) {
+  if (!event || !(event.ctrlKey || event.metaKey)) return false;
+  const key = String(event.key ?? "").toLowerCase();
+  return key === "arrowup" || key === "arrowdown";
+}
+
 // For a field's keydown handler: the key stops at the field unless it is an
-// app shortcut.
-export function keepKeyInField(event) {
+// app shortcut. A box that holds a prompt passes `weights: true`, and the
+// two weight keys go on to ComfyUI as well.
+export function keepKeyInField(event, { weights = false } = {}) {
+  if (weights && isWeightShortcut(event)) return;
   if (!isAppShortcut(event)) event.stopPropagation();
 }

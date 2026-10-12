@@ -155,6 +155,33 @@ def split_prefix(prefix: str) -> tuple[str, str]:
     return "", clean
 
 
+def fill_name_tokens(text: str, now: datetime, width: int, height: int) -> str:
+    """Fill the name tokens ComfyUI's own Save Image fills on the server.
+
+    %width% and %height% are the picture's size. %year% %month% %day%
+    %hour% %minute% %second% are the time of the save, two digits each but
+    the year. %date:...% and %Node.setting% are filled by the browser before
+    a run is sent, so they do not come through here. Any other text between
+    percent signs stays as typed.
+    """
+    text = str(text or "")
+    if "%" not in text:
+        return text
+    values = {
+        "width": str(int(width)),
+        "height": str(int(height)),
+        "year": f"{now.year:04d}",
+        "month": f"{now.month:02d}",
+        "day": f"{now.day:02d}",
+        "hour": f"{now.hour:02d}",
+        "minute": f"{now.minute:02d}",
+        "second": f"{now.second:02d}",
+    }
+    for name, value in values.items():
+        text = text.replace(f"%{name}%", value)
+    return text
+
+
 def name_stem(base: str, flags: dict, now: datetime, width: int, height: int) -> str:
     """The local filename before its counter and batch tags.
 
@@ -310,6 +337,7 @@ __all__ = [
     "counter_pattern",
     "encode_image",
     "existing_action",
+    "fill_name_tokens",
     "frame_to_pil",
     "jxl_available",
     "metadata_disabled",

@@ -17,6 +17,26 @@ All notable changes to ComfyUI-AusBoss are documented here.
   such as a typed 0.855.
 - **Integer 🆎 holds numbers as big as a seed.** It stopped at
   2,147,483,647, which most seeds are above.
+- **Every number box takes a sum.** Click a number, type `1024*1.5` or
+  `(1920-64)/2` and press Enter, as in ComfyUI's own number boxes. It takes
+  + - * / %, brackets and a sign in front of a number.
+- **Show Text 🆎 takes any wire.** It showed text only. Wire a whole number,
+  a number with decimals, an on/off value or a list into it and it shows
+  that too. Text still passes through unchanged; a number comes out as
+  text, so the node also turns a number into text. A picture or a latent
+  is shown by its size.
+- **Save Image 🆎 takes name tokens.** `%date:yyyy-MM-dd%`, `%width%`,
+  `%height%`, `%KSampler.seed%` and the time tokens (`%year%`, `%month%`,
+  `%day%`, `%hour%`, `%minute%`, `%second%`) work in the file name, as in
+  ComfyUI's own Save Image, and a token can name a folder. The path preview
+  shows what they will be. Save Video 🆎 already took them.
+- **Ctrl + Up and Ctrl + Down change a word's weight in the pack's prompt
+  boxes.** In Text 🆎 and Krea 2 Encode 🆎 the keys did nothing. They now
+  write `(red hair:1.1)` around the word the caret is in, or the words you
+  selected, as in ComfyUI's own prompt boxes.
+- **Image Size 🆎 shows what it measured.** After a run each output shows
+  its number, such as `width: 1024`, so you can read a picture's size
+  without wiring anything to it. The node stays the size it was.
 - **New: Mask by Touch 🆎** (Mask). Click a thing on the picture and get
   its mask. The picture is on the node: moving over it lights up what a
   click would take and names it, the jacket and not the whole person, and

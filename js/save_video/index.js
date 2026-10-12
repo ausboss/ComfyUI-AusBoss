@@ -2,6 +2,7 @@ import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { isForeignRun, outputKey } from "../shared/prompt_scope.mjs";
 import { chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
+import { installNameTokens } from "../shared/name_tokens.mjs";
 import { fillNodeHeight } from "../shared/panel_layout.mjs";
 import {
   findVideoMetadata,
@@ -27,27 +28,6 @@ const DEFAULT_NODE_SIZE = [
   380,
   responsivePreviewHeight(380, 132, 520) + PREVIEW_CHROME + 150,
 ];
-
-// ComfyUI resolves %date:yyyy-MM-dd%-style tokens in filename_prefix only for
-// its own save nodes. Serializing the widget through the core replacement
-// utility opts this node in: tokens resolve at queue time while the stored
-// workflow keeps the raw template. Without the utility the value passes
-// through untouched.
-function installFilenameTokens(node) {
-  const prefix = node.widgets?.find((item) => item.name === "filename_prefix");
-  if (!prefix || prefix.__ausbossTokenSerialize) return;
-  prefix.__ausbossTokenSerialize = true;
-  prefix.serializeValue = () => {
-    const raw = String(prefix.value ?? "");
-    const replace = window.comfyAPI?.utils?.applyTextReplacements;
-    if (typeof replace !== "function") return raw;
-    try {
-      return replace(app, raw);
-    } catch {
-      return raw;
-    }
-  };
-}
 
 function getLoopEnabled(node) {
   node.properties ??= {};
@@ -192,7 +172,8 @@ app.registerExtension({
     if (nodeData?.name !== NODE_NAME) return;
     chainCallback(nodeType.prototype, "onNodeCreated", function () {
       buildPreview(this);
-      installFilenameTokens(this);
+      // %date:yyyy-MM-dd% and %Node.setting% in the prefix (js/shared/name_tokens.mjs).
+      installNameTokens(this, ["filename_prefix"], app);
       // Only for a genuinely new node: onConfigure restores a saved size after
       // this runs, so a workflow's own dimensions still win.
       this.setSize?.([

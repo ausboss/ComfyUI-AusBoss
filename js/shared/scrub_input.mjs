@@ -53,6 +53,74 @@ export function quantizeScrubValue(value, { min = -Infinity, max = Infinity, dec
   return Math.round(clamped * factor) / factor;
 }
 
+// A sum typed into a number box: 1024*1.5, 512+64, (1920-64)/2. It takes the
+// marks ComfyUI's own number boxes take: + - * / %, brackets, and a sign in
+// front of a number. Returns the answer, or null when the text is not a sum
+// that comes to a finite number.
+const SUM_LIMIT = 200;
+const SUM_NUMBER = /(?:\d+\.?\d*|\.\d+)/y;
+
+export function sumValue(text) {
+  const source = String(text ?? "");
+  // Every bracket and sign is one call deep, so the length caps the depth.
+  if (source.length > SUM_LIMIT) return null;
+  let at = 0;
+  const skip = () => { while (source[at] === " " || source[at] === "\t") at += 1; };
+  // A number, a sum in brackets, or either with a sign in front.
+  const atom = () => {
+    skip();
+    const mark = source[at];
+    if (mark === "+" || mark === "-") {
+      at += 1;
+      const value = atom();
+      return value === null ? null : mark === "-" ? -value : value;
+    }
+    if (mark === "(") {
+      at += 1;
+      const value = sum();
+      skip();
+      if (value === null || source[at] !== ")") return null;
+      at += 1;
+      return value;
+    }
+    SUM_NUMBER.lastIndex = at;
+    const match = SUM_NUMBER.exec(source);
+    if (!match) return null;
+    at += match[0].length;
+    return Number(match[0]);
+  };
+  const product = () => {
+    let value = atom();
+    while (value !== null) {
+      skip();
+      const mark = source[at];
+      if (mark !== "*" && mark !== "/" && mark !== "%") break;
+      at += 1;
+      const next = atom();
+      if (next === null) return null;
+      value = mark === "*" ? value * next : mark === "/" ? value / next : value % next;
+    }
+    return value;
+  };
+  function sum() {
+    let value = product();
+    while (value !== null) {
+      skip();
+      const mark = source[at];
+      if (mark !== "+" && mark !== "-") break;
+      at += 1;
+      const next = product();
+      if (next === null) return null;
+      value = mark === "+" ? value + next : value - next;
+    }
+    return value;
+  }
+  const value = sum();
+  skip();
+  if (value === null || at !== source.length || !Number.isFinite(value)) return null;
+  return value === 0 ? 0 : value;
+}
+
 // How many decimals a step reaches: 0.05 and 0.01 reach two, 0.5 one, 8 none.
 export function stepDecimals(step) {
   const text = String(Number(Math.abs(Number(step) || 0).toFixed(6)));
@@ -166,7 +234,7 @@ export function makeScrubInput(options = {}) {
   input.inputMode = "decimal";
   input.readOnly = true;
   if (opts.placeholder) input.placeholder = opts.placeholder;
-  if (opts.title) input.title = `${opts.title} Drag to scrub, click to type, arrows to step; Shift = fine.`;
+  if (opts.title) input.title = `${opts.title} Drag to scrub, click to type a number or a sum (1024*1.5), arrows to step; Shift = fine.`;
 
   const format = (value) => formatScrubValue(value, opts);
   input.value = format(current);
@@ -240,15 +308,16 @@ export function makeScrubInput(options = {}) {
       settle();
     }
   });
-  // Typed values commit on blur/Enter; unparseable text falls back to the
-  // last good value rather than guessing.
+  // Typed values commit on blur/Enter: a number, or a sum such as 1024*1.5.
+  // Unparseable text falls back to the last good value rather than guessing.
   input.addEventListener("blur", () => {
     if (!input.readOnly) {
       if (opts.allowEmpty && input.value.trim() === "") {
         if (current !== null) { commit(null); settle(); }
       } else {
         const number = Number(input.value);
-        if (Number.isFinite(number) && commit(number) !== undefined) settle();
+        const typed = Number.isFinite(number) ? number : sumValue(input.value);
+        if (typed !== null && commit(typed) !== undefined) settle();
       }
       input.readOnly = true;
     }

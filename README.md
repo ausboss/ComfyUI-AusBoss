@@ -100,7 +100,7 @@ Rounds a picture's size to a multiple you choose, by resizing, cropping or paddi
 
 ### Image Size
 
-Reads a picture's `width`, `height`, `longest_edge`, `shortest_edge` and batch `count` as whole numbers. Wire them into a resize, a latent, a frame count or Math Expression, so the rest of the graph follows the source's size.
+Reads a picture's `width`, `height`, `longest_edge`, `shortest_edge` and batch `count` as whole numbers. Wire them into a resize, a latent, a frame count or Math Expression, so the rest of the graph follows the source's size. After a run the node shows each number beside its output.
 
 ### Color Match
 
@@ -128,7 +128,7 @@ Compares two pictures with a slider, or flips between them whole. Nothing covers
 
 ### Save Image
 
-Saves PNG, lossless WebP or lossless JPEG XL, with the workflow embedded if you want it. Pick a folder inside ComfyUI's output folder or browse its subfolders, edit the file name, and the path preview shows where the file will go. Chips add a counter, the date, the time, the size or a batch number to the name.
+Saves PNG, lossless WebP or lossless JPEG XL, with the workflow embedded if you want it. Pick a folder inside ComfyUI's output folder or browse its subfolders, edit the file name, and the path preview shows where the file will go. Chips add a counter, the date, the time, the size or a batch number to the name. Name tokens work as in ComfyUI's own Save Image: `%date:yyyy-MM-dd%`, `%width%`, `%KSampler.seed%`.
 
 Link `filename` to keep a name from upstream, or `caption_text` to write a matching `.txt` next to each picture. The counter picks a name that isn't taken yet. Turn it off to reuse the same path on purpose. JPEG XL needs the optional `pillow-jxl-plugin` extra. The [help page](js/docs/AUSBOSS_NODES_SaveImage.md) has the full naming and compatibility notes.
 
@@ -299,11 +299,11 @@ Puts batch `b` after `a`. When the sizes match, nothing is resized. When they di
 
 ### Text
 
-A text box that grows with the node and sends its text, unchanged, down a `STRING` wire. Use it for a prompt, caption, path or other text that several nodes share. Spaces and line breaks are kept.
+A text box that grows with the node and sends its text, unchanged, down a `STRING` wire. Use it for a prompt, caption, path or other text that several nodes share. Spaces and line breaks are kept. Ctrl + Up and Ctrl + Down change the weight of the selected words, as in ComfyUI's own prompt boxes.
 
 ### Integer
 
-One whole number (`INT`) on a scrub control, for sharing a size, count or other whole number across nodes.
+One whole number (`INT`) on a scrub control, for sharing a size, count or other whole number across nodes. Like every number box in the pack, it takes a typed sum: `1024*1.5`.
 
 ### Float
 
@@ -315,7 +315,7 @@ Works out a number from linked `a`, `b` and `c` inputs, each an integer or a dec
 
 ### Show Text
 
-Shows incoming text in a panel you can select from and resize, and passes it on unchanged. The last text shown saves with the workflow. Very long text may be cut short on screen, but the output keeps all of it. It runs as an output node, so nothing has to be connected after it.
+Shows what arrives on a wire, in a panel you can select from and resize: text, a number, or any other value. Text is passed on unchanged, and a number comes out as text. The last text shown saves with the workflow. Very long text may be cut short on screen, but the output keeps all of it. It runs as an output node, so nothing has to be connected after it.
 
 ### Free Memory
 
