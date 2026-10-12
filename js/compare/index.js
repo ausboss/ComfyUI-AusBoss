@@ -73,8 +73,12 @@ function getMode(node) {
 // A and B ride on either side of the split line (compareBadges), so each
 // label sits on the picture it names wherever the line is.
 function applyClip(state) {
-  const { clipPath, seamLeft, seamVisible } = compareClip(state.fraction);
+  const { clipPath, seamLeft, seamVisible, showA, showB } = compareClip(state.fraction);
   state.imageA.style.clipPath = clipPath;
+  // "" hands a picture back to the stylesheet, which hides both while the
+  // stage is empty.
+  state.imageA.style.visibility = showA ? "" : "hidden";
+  state.imageB.style.visibility = showB ? "" : "hidden";
   state.seam.style.left = seamLeft;
   state.seam.style.opacity = seamVisible ? "1" : "0";
   const places = compareBadges(state.fraction, state.stage.clientWidth || 0, BADGE_WIDTH);

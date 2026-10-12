@@ -50,13 +50,21 @@ export function slideFraction(pointerX, rectLeft, rectWidth, leaving = false) {
 // CSS for a given reveal fraction: the overlay keeps its left portion up to the
 // seam, the rest is clipped away. The seam only shows while both images are
 // partially visible.
+//
+// A picture that is wholly covered is not drawn (showA, showB), and a
+// picture shown whole has no clip. The browser draws a picture on whole
+// pixels but cuts a clip where it falls, so on a stage whose width is not a
+// whole number the clipped A ended up to a pixel short of B, and B showed as
+// a line down the right edge of A.
 export function compareClip(fraction) {
   const value = Number(fraction);
   const clamped = Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0;
   return {
-    clipPath: `inset(0 ${((1 - clamped) * 100).toFixed(2)}% 0 0)`,
+    clipPath: clamped >= 1 ? "none" : `inset(0 ${((1 - clamped) * 100).toFixed(2)}% 0 0)`,
     seamLeft: `${(clamped * 100).toFixed(2)}%`,
     seamVisible: clamped > 0 && clamped < 1,
+    showA: clamped > 0,
+    showB: clamped < 1,
   };
 }
 
