@@ -63,6 +63,13 @@ class NotesTests(unittest.TestCase):
                 self.assertNotIn(mark, notes)
             self.assertNotIn("  ", notes)
 
+    def test_the_packs_mark_leaves_no_space_behind(self):
+        self.assertEqual(entry_line("**Callout \U0001f18e: links.** Words in a note can be a link."), "Callout: links.")
+        self.assertEqual(
+            entry_line("**Float \U0001f18e and Integer \U0001f18e take the limits.** A Float stops at 1."),
+            "Float and Integer take the limits.",
+        )
+
     def test_an_entry_without_a_bold_opening_gives_its_first_sentence(self):
         self.assertEqual(notes_for("2.6.3", CHANGELOG), "- A plain entry with no bold opening.")
         self.assertEqual(entry_line("Just words\n  over two lines. More."), "Just words over two lines.")

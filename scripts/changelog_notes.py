@@ -48,7 +48,9 @@ def section(text: str, version: str) -> str | None:
 def _plain(words: str) -> str:
     """Markdown marks off, the pack's signature off, one space between words."""
     words = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", words)
-    words = words.replace("**", "").replace("`", "").replace(SIGNATURE, "")
+    words = words.replace("**", "").replace("`", "")
+    # The mark goes with the space before it: "Callout <mark>: links" reads "Callout: links".
+    words = re.sub(rf"\s*{SIGNATURE}", "", words)
     return " ".join(words.split()).replace(" (", " (").replace(" .", ".").replace(" ,", ",")
 
 
