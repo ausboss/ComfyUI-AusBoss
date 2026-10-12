@@ -13,6 +13,10 @@ wires.
   keep the text. **Esc** drops what you typed.
 - A blank line starts a new point. Each point gets a thin teal line beside it.
 - Put two stars around a word to stress it: `**Resize is on.**`
+- For the details, make a line **small print**: put the caret on it and press
+  **Small** under the text box. It is drawn small under the line above, so
+  the first line stays big enough to read from far out. Press **Small** again
+  to make it normal.
 - A line that starts with `##` is read the same as one that doesn't, so notes
   written for the core Markdown Note paste in as they are.
 - Drag the corner to change the size. The text grows or shrinks to fit.
@@ -41,6 +45,12 @@ deleted the arrow stays, faded, and does nothing.
 
 - The text is stored in the node's one hidden `text` input, so saving,
   undo and copy work like any other node. Nothing else is saved with it.
+- In the text, small print is a line that starts with six `#` and a space:
+  `###### Off, your words go in as typed.` Small print is 62% of the note's
+  text size and never under 11 px.
+- Notes written before small print look the same. An older version of the
+  pack drops those six `#` like any other heading mark, so a note with small
+  print still reads right there, with every line at one size.
 - The text size is the largest whole pixel size, from 12 to 30, that fits the
   note. A very long text at the smallest size is cut off at the bottom: make
   the note taller.

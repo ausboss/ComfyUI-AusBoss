@@ -58,6 +58,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
   generation took over there. It never did: the run kept that edge as it
   was, and only the preview was wrong. The preview now shows a blend only
   where the run has one. The same for both Video Crop + Rotate + Pad nodes.
+- **Callout 🆎: small print under a line.** Put the caret on a line and press
+  the new **Small** button while you edit, and that line is drawn small
+  under the line above it. A note can carry a first line big enough to read
+  from far out and the details beside it. In the text it is a line that
+  starts with six `#`. Notes written before look the same, and an older
+  version of the pack shows a note with small print with every line at one
+  size.
 
 ## 2.10.1 - 2026-10-09
 
