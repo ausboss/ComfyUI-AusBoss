@@ -142,6 +142,12 @@ def workflow_problems(data: dict) -> list[str]:
         except (ValueError, KeyError, IndexError, TypeError, AttributeError):
             problems.append(f"note {n['id']} is not valid note JSON")
 
+    note_columns = []
+    for note in notes:
+        size = note.get("size", [0, 0])
+        note_width = size.get("0", 0) if isinstance(size, dict) else size[0]
+        note_columns.append((note.get("pos", [0, 0])[0], note.get("pos", [0, 0])[0] + note_width))
+
     rectangles = []
     for n in nodes:
         size = n.get("size", [0, 0])
@@ -152,7 +158,12 @@ def workflow_problems(data: dict) -> list[str]:
         if width <= 0 or height <= 0:
             problems.append(f"node {n['id']} has no usable saved size")
         rectangles.append((n["id"], x, y - 30, x + width, y + height))
-        if n not in notes and not any(
+        # A Callout in the Workflow Note's own column belongs to the note, not
+        # to a stage: a link to a video above it, say.
+        beside_note = n["type"] == "AUSBOSS_NODES_Callout" and any(
+            left <= x and x + width <= right + 1 for left, right in note_columns
+        )
+        if n not in notes and not beside_note and not any(
             gx <= x and gy <= y - 30 and x + width <= gx + gw + 1 and y + height <= gy + gh + 1
             for gx, gy, gw, gh in (g["bounding"] for g in groups)
         ):

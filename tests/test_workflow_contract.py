@@ -101,6 +101,20 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("escaped line breaks", problems)
         self.assertIn("outside its stage", problems)
 
+    def test_a_callout_in_the_notes_own_column_needs_no_group(self):
+        graph = good_graph()
+        graph["last_node_id"] = 4
+        # above the Workflow Note, as wide as it: a link to a video
+        graph["nodes"].append({"id": 4, "type": "AUSBOSS_NODES_Callout", "pos": [-200, -60], "size": [100, 60],
+                               "widgets_values": ["[Watch the video](https://example.invalid/)"]})
+        self.assertEqual(workflow_problems(graph), [])
+        # anywhere else outside the stage groups it is still a stray node
+        graph["nodes"][3]["pos"] = [600, -60]
+        self.assertIn("node 4 is outside its stage", " ".join(workflow_problems(graph)))
+        # and any other node in the note's column is one too
+        graph["nodes"][3].update({"pos": [-200, -60], "type": "Source"})
+        self.assertIn("node 4 is outside its stage", " ".join(workflow_problems(graph)))
+
     def test_all_shipped_examples(self):
         self.assertEqual(example_problems(ROOT / "example_workflows"), [])
 
