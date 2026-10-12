@@ -18,6 +18,7 @@ import {
   fitLoraLabel,
   formatFileSize,
   groupByFolder,
+  hasTrigger,
   highlightedName,
   hoverRowIndex,
   importNeedsSeparateStrengths,
@@ -262,6 +263,39 @@ test("trigger chips toggle in and out preserving order", () => {
   assert.equal(triggers, "ink wash, brush");
   triggers = toggleTrigger(triggers, "Ink Wash");
   assert.equal(triggers, "brush", "toggle-off matches case-insensitively");
+});
+
+test("a trigger that holds commas is still one chip: it lights, and a second click removes it", () => {
+  const sentence = "Outpaint the image: replace the gray areas, keeping the picture unchanged.";
+  assert.equal(hasTrigger("ink wash", sentence), false);
+  let triggers = toggleTrigger("ink wash", sentence);
+  assert.equal(triggers, `ink wash, ${sentence}`, "the row holds the same text as before");
+  assert.equal(hasTrigger(triggers, sentence), true);
+  assert.equal(hasTrigger(triggers, sentence.toUpperCase()), true);
+  assert.equal(hasTrigger(triggers, "ink wash"), true);
+  assert.equal(toggleTrigger(triggers, sentence), "ink wash");
+
+  // Any number of commas, however they are spaced.
+  const tags = "1girl,solo ,  long hair";
+  triggers = toggleTrigger("", tags);
+  assert.equal(triggers, "1girl, solo, long hair");
+  assert.equal(hasTrigger(triggers, tags), true);
+  assert.equal(toggleTrigger(triggers, tags), "");
+
+  // Two chips that share words stay independent.
+  const other = "1girl, solo, short hair";
+  triggers = toggleTrigger(toggleTrigger("", tags), other);
+  assert.equal(hasTrigger(triggers, tags) && hasTrigger(triggers, other), true);
+  triggers = toggleTrigger(triggers, tags);
+  assert.equal(triggers, other);
+  assert.equal(hasTrigger(triggers, tags), false);
+
+  // The same words apart or out of order are not the phrase.
+  assert.equal(hasTrigger("solo, ink wash, 1girl", "1girl, solo"), false);
+
+  // A row saved while a second click added the sentence again clears in one click.
+  assert.equal(toggleTrigger(`${sentence}, ink wash, ${sentence}`, sentence), "ink wash");
+  assert.equal(toggleTrigger("brush, ink wash, brush", "brush"), "ink wash");
 });
 
 test("row summary counts only named rows", () => {
