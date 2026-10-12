@@ -4,6 +4,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **New example: Qwen Image 2.1 Inpaint.** Click a thing in your picture
+  on Mask by Touch, say what to change, and Qwen repaints only that part.
+  Everything outside it stays your own picture. A Fast switch runs it in
+  8 steps with the Viggle Turbo LoRA. It is the same workflow as on its
+  page, for people who get their workflows from the pack.
 - **LoRA Loader: a trigger with a comma in it switches on and off.** Some
   LoRAs list a whole sentence as their trigger. Clicking it in a row's info
   card added it to the row, but it did not light up, and a second click
