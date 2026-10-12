@@ -69,11 +69,23 @@ test("clip CSS keeps the overlay left of the seam and hides the seam at the edge
     clipPath: "inset(0 75.00% 0 0)",
     seamLeft: "25.00%",
     seamVisible: true,
+    showA: true,
+    showB: true,
   });
   assert.equal(compareClip(0).seamVisible, false);
   assert.equal(compareClip(1).seamVisible, false);
-  assert.equal(compareClip(2).clipPath, "inset(0 0.00% 0 0)");
+  assert.equal(compareClip(2).clipPath, "none");
   assert.equal(compareClip("junk").clipPath, "inset(0 100.00% 0 0)");
+});
+
+test("only the picture on show is drawn when the other is wholly covered", () => {
+  // The browser draws a picture on whole pixels but cuts a clip where it
+  // falls. On a stage of fractional width the clipped A stopped up to a
+  // pixel short of B, and B's grey padding showed as a line down A's right
+  // edge.
+  assert.deepEqual([compareClip(1).showA, compareClip(1).showB], [true, false]);
+  assert.deepEqual([compareClip(0).showA, compareClip(0).showB], [false, true]);
+  assert.equal(compareClip(1).clipPath, "none");
 });
 
 test("compare previews are pulled from the execution payload as a pair", () => {

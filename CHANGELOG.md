@@ -10,6 +10,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   added it again instead of taking it out. It now lights up, and a second
   click removes it. A row that already holds the sentence twice is cleared
   with one click.
+- **Image Compare A/B: no thin line of the other picture down the edge.**
+  At some node widths and zoom levels a line of the picture that was not
+  on show ran down the right edge of the one that was. It stood out when
+  one side was a padded canvas: its grey showed beside the result. Only
+  the node's view had it, never the saved picture. The picture that is
+  not on show is no longer drawn.
 
 ## 2.11.0 - 2026-10-12
 
