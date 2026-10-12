@@ -2,6 +2,14 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **New example: Qwen Image 2.1 Inpaint.** Click a thing in your picture
+  on Mask by Touch, say what to change, and Qwen repaints only that part.
+  Everything outside it stays your own picture. A Fast switch runs it in
+  8 steps with the Viggle Turbo LoRA. It is the same workflow as on its
+  page, for people who get their workflows from the pack.
+
 ## 2.11.0 - 2026-10-12
 
 - **New: Mask by Touch 🆎** (Mask). Click a thing on the picture and get

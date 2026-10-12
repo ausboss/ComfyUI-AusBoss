@@ -210,6 +210,8 @@ It also returns the picked area cut out on a see-through background, and the nam
 
 The Mask by Touch example loads a picture, lets you click what you want, and saves its cut-out and its mask, with Fine edges on. [Open the Mask by Touch workflow →](example_workflows/Mask%20by%20Touch%20%28AusBoss%29.json)
 
+The Qwen Image 2.1 Inpaint example uses the same click to change one thing: click it, say what it should become, and only that part is repainted. [Open the Qwen Image 2.1 Inpaint workflow →](example_workflows/Qwen%20Image%202.1%20Inpaint%20%28AusBoss%29.json)
+
 ### Mask Refine
 
 Grows or shrinks a mask, blurs it, fills holes, smooths jagged edges, and sets black and white points. The card shows Expand and Blur, and **More** opens the rest. **AUTO** picks expand and blur values from the mask's size. The optional preview shows the result.
@@ -356,6 +358,7 @@ The workflows open with their image and video loaders empty, so you load your ow
 | [LTX 2.3 Video Outpaint](example_workflows/LTX%202.3%20Video%20Outpaint%20%28AusBoss%29.json) | Widen a vertical clip, keeping its audio and original pixels | LTX 2.3, the distilled LoRA and the outpaint IC-LoRA |
 | [Qwen Image 2.1 Edit + Realign](example_workflows/Qwen%20Image%202.1%20Edit%20%2B%20Realign%20%28AusBoss%29.json) | Type a short edit, and Realign to Source lines Qwen's result back up with your picture | Qwen Image 2.1 INT8, Qwen3-VL 8B INT8 and the 2.1 VAE |
 | [Qwen Image 2.1 Upscale + Restore](example_workflows/Qwen%20Image%202.1%20Upscale%20%2B%20Restore%20%28AusBoss%29.json) | Load a small or worn photo, set the megapixels, and Qwen redraws it sharp, in tiles above about 2 | Qwen Image 2.1 INT8, Qwen3-VL 8B INT8, the 2.1 VAE, the Restore LoRA and, for Fast, the Viggle Turbo LoRA |
+| [Qwen Image 2.1 Inpaint](example_workflows/Qwen%20Image%202.1%20Inpaint%20%28AusBoss%29.json) | Click a thing in your picture, say what to change, and Qwen repaints only that part | Qwen Image 2.1 INT8, Qwen3-VL 8B INT8, the 2.1 VAE, ComfyUI's own SAM 3.1 and, for Fast, the Viggle Turbo LoRA |
 | [Mask by Name](example_workflows/Mask%20by%20Name%20%28AusBoss%29.json) | Type what to find in a picture, and get its mask and a cut-out with a see-through background | ComfyUI's own SAM 3.1 (ComfyUI 0.20 or newer) |
 | [Mask by Touch](example_workflows/Mask%20by%20Touch%20%28AusBoss%29.json) | Click a thing in a picture, or its whole subject, and get its mask and a cut-out with hair-fine edges | ComfyUI's own SAM 3.1 and its background-removal model (ComfyUI 0.21 or newer) |
 | [Simple Video Watermark Remover](example_workflows/Simple%20Video%20Watermark%20Remover%20%28AusBoss%29.json) | Find an overlay in a clip and remove it, with a one-frame comparison branch | ComfyUI's own SAM 3.1 (ComfyUI 0.20 or newer), plus `big-lama.pt` |
