@@ -116,7 +116,9 @@ the resize **Step** can slightly change the final aspect ratio.
 Rotation, crop, padding, feathering, fill, **Divisible by**, and the editor's handles
 match the image node. **Resize output** in the editor scales the finished frames to a
 megapixel budget with a resolution step (32 keeps LTX and Wan sizes), the same trio as
-the core Scale Image to Total Pixels node.
+the core Scale Image to Total Pixels node. The frames are resized by themselves and the
+fill is put around them afterwards, so the edge between the clip and its bands stays
+one clean line.
 
 Outputs: `frames` (BHWC), `mask` (BHW, one per frame), `audio` for the same window
 (silent when the source has none), `frame_count`, `fps`, `width`, `height`, `duration`,

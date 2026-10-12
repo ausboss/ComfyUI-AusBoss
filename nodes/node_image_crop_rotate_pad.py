@@ -6,8 +6,7 @@ from ._media_helpers import list_input_images, load_image_frames, resolve_input_
 from ._inpaint_crop_helpers import build_transform_stitcher
 from ._transform_engine import (
     original_image_batch,
-    resize_batch_to_megapixels,
-    resize_image_batch,
+    resize_then_pad,
     stable_file_fingerprint,
     transform_pil_batch,
 )
@@ -124,17 +123,15 @@ class AusBossImageCropRotatePad:
         path = resolve_input_path(image)
         frames = load_image_frames(path)
         keep_picture = str(painted_area) == "keep picture"
+        spec = spec_from_values(**values)
         output, mask, geometry, prompt_image = transform_pil_batch(
-            frames, spec_from_values(**values), view=True, keep_see_through=keep_picture
+            frames, spec, view=True, keep_see_through=keep_picture
         )
         if resize_to_megapixels:
-            output, mask = resize_batch_to_megapixels(
-                output, mask, float(megapixels), str(resize_method), int(resolution_steps)
+            output, mask, prompt_image = resize_then_pad(
+                output, mask, geometry, spec.fill_color, float(megapixels), str(resize_method),
+                int(resolution_steps), view=prompt_image,
             )
-            if prompt_image is not None:
-                prompt_image = resize_image_batch(
-                    prompt_image, int(output.shape[2]), int(output.shape[1]), str(resize_method)
-                )
         stitcher = build_transform_stitcher(
             output, mask, geometry, int(stitch_blend), int(stitch_grow),
             source="Image Crop + Rotate + Pad",

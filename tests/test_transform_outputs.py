@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from nodes.node_image_crop_rotate_pad import AusBossImageCropRotatePad
 from nodes.node_video_crop_rotate_pad import AusBossVideoCropRotatePad
 from nodes._color_helpers import rgb_to_lab
-from nodes._inpaint_crop_helpers import apply_stitch, stitch_blend_from_mask
+from nodes._inpaint_crop_helpers import apply_stitch, stitch_blend_from_mask, transform_picture_box
 
 COMFY_ROOT = os.environ.get('AUSBOSS_COMFY_ROOT')
 if COMFY_ROOT:
@@ -254,6 +254,142 @@ class UnpaddedEdgeTests(unittest.TestCase):
         self.assertEqual(stitcher['source_bbox'], (4, 246, 1920, 1067))
         self.assertTrue(torch.all(image[0, 246:1067, 4:] == self.DARK / 255))
         self.assertEqual(float(mask[0, 246:1067, 4:].max()), 0.0)
+
+
+class PictureBoxTests(unittest.TestCase):
+    """Where the kept picture sits on a resized canvas: the box the resize
+    pastes into and the stitcher carries."""
+
+    class Geometry:
+        def __init__(self, left, top, width, height, right, bottom):
+            self.pad_left, self.pad_top, self.crop_width, self.crop_height = left, top, width, height
+            self.output_width, self.output_height = left + width + right, top + height + bottom
+
+    def test_the_box_is_the_crop_scaled_with_the_canvas(self):
+        geometry = self.Geometry(4, 246, 1916, 821, 0, 349)
+        self.assertEqual(transform_picture_box(geometry, 1920, 1416), (4, 246, 1920, 1067))
+        self.assertEqual(transform_picture_box(geometry, 1184, 864), (2, 150, 1184, 651))
+
+    def test_the_box_is_never_empty_and_never_leaves_the_canvas(self):
+        rng = np.random.default_rng(4)
+        for _ in range(4000):
+            left, top, right, bottom = (int(v) for v in rng.integers(0, 3000, 4))
+            width, height = (int(v) for v in rng.integers(1, 2000, 2))
+            canvas = tuple(int(v) for v in rng.integers(1, 1500, 2))
+            x0, y0, x1, y1 = transform_picture_box(self.Geometry(left, top, width, height, right, bottom), *canvas)
+            self.assertTrue(0 <= x0 < x1 <= canvas[0], (x0, x1, canvas))
+            self.assertTrue(0 <= y0 < y1 <= canvas[1], (y0, y1, canvas))
+
+
+@unittest.skipUnless(COMFY_ROOT, "Set AUSBOSS_COMFY_ROOT for core resize integration")
+class ResizeThenPadTests(unittest.TestCase):
+    """With Resize on, the picture is resized by itself and padded after.
+
+    The padded canvas used to be resized as one picture. Along every seam
+    that left a column part fill, with a part mask: at stitch blend 0 the
+    paste kept it as a line, and a band under a pixel wide came out as
+    nothing but that column.
+    """
+
+    DARK = 6
+    METHODS = ("lanczos", "bilinear", "area", "bicubic", "nearest-exact")
+
+    def load(self, source, **values):
+        run = dict(feather=0, fill_color="#808080", resize_to_megapixels=True, megapixels=1.0, resolution_steps=32)
+        run.update(values)
+        with patch('nodes.node_image_crop_rotate_pad.resolve_input_path', return_value=Path('source.png')), patch('nodes.node_image_crop_rotate_pad.load_image_frames', return_value=[source]):
+            return AusBossImageCropRotatePad().load_transform('source.png', **run)
+
+    def flat(self, width=1916, height=821):
+        return Image.new('RGB', (width, height), (self.DARK,) * 3)
+
+    def assert_clean_seams(self, image, mask, stitcher):
+        x0, y0, x1, y1 = stitcher['source_bbox']
+        dark, grey = self.DARK / 255, 128 / 255
+        inside = torch.zeros(mask.shape[1:], dtype=torch.bool)
+        inside[y0:y1, x0:x1] = True
+        # The box is the picture and nothing else; around it is fill to paint.
+        self.assertLess(float((image[0][inside] - dark).abs().max()) * 255, 0.5)
+        self.assertLess(float((image[0][~inside] - grey).abs().max()) * 255, 0.5)
+        self.assertTrue(torch.equal(mask[0], (~inside).float()))
+
+    def test_every_seam_is_a_clean_step(self):
+        for method in self.METHODS:
+            for left in (1, 2, 3, 8, 64):
+                with self.subTest(method=method, pad_left=left):
+                    image, mask, stitcher, *_ = self.load(
+                        self.flat(), pad_left=left, pad_top=246, pad_bottom=336, resize_method=method, stitch_blend=0
+                    )
+                    self.assert_clean_seams(image, mask, stitcher)
+                    # A hard paste of a perfect continuation leaves no line.
+                    stitched = apply_stitch(stitcher, torch.full_like(image, self.DARK / 255))
+                    self.assertLess(float((stitched - self.DARK / 255).abs().max()) * 255, 0.5)
+
+    def test_a_band_under_half_a_pixel_is_left_out(self):
+        # 1 px at a 0.31 scale: no band, and the picture reaches the edge.
+        image, mask, stitcher, *_ = self.load(self.flat(), pad_left=1, megapixels=0.15, resolution_steps=8)
+        self.assertEqual(stitcher['source_bbox'][0], 0)
+        self.assertEqual(float(mask.max()), 0.0)
+        self.assertLess(float((image - self.DARK / 255).abs().max()) * 255, 0.5)
+
+    def test_the_picture_is_resized_alone_into_the_stitchers_box(self):
+        import comfy.utils
+
+        pixels = np.random.default_rng(8).integers(0, 256, (300, 420, 3), dtype=np.uint8)
+        for method in self.METHODS:
+            with self.subTest(method=method):
+                image, _, stitcher, *_ = self.load(
+                    Image.fromarray(pixels), pad_left=37, pad_bottom=90, megapixels=0.2, resolution_steps=16,
+                    resize_method=method,
+                )
+                x0, y0, x1, y1 = stitcher['source_bbox']
+                source = torch.from_numpy(pixels.astype(np.float32) / 255)[None].movedim(-1, 1)
+                alone = comfy.utils.common_upscale(source, x1 - x0, y1 - y0, method, "disabled").movedim(1, -1).clamp(0, 1)
+                self.assertTrue(torch.equal(image[:, y0:y1, x0:x1], alone))
+
+    def test_without_padding_the_whole_canvas_resizes_as_it_always_did(self):
+        import comfy.utils
+
+        pixels = np.random.default_rng(9).integers(0, 256, (300, 420, 3), dtype=np.uint8)
+        image, mask, *_ = self.load(Image.fromarray(pixels), megapixels=0.2, resolution_steps=16)
+        source = torch.from_numpy(pixels.astype(np.float32) / 255)[None].movedim(-1, 1)
+        whole = comfy.utils.common_upscale(source, image.shape[2], image.shape[1], "lanczos", "disabled").movedim(1, -1).clamp(0, 1)
+        self.assertTrue(torch.equal(image, whole))
+        self.assertEqual(float(mask.max()), 0.0)
+
+    def test_the_feather_is_resized_with_the_picture(self):
+        # 48 px of feather at a 0.62 scale: the ramp reaches about 30 px in,
+        # and still starts on the first row of the picture.
+        image, mask, stitcher, *_ = self.load(self.flat(), pad_top=246, feather=48)
+        _, y0, _, y1 = stitcher['source_bbox']
+        column = mask[0, :, mask.shape[2] // 2]
+        self.assertTrue(torch.all(column[:y0] == 1.0))
+        self.assertTrue(torch.all(column[y0:-1] >= column[y0 + 1:]))
+        self.assertGreater(float(column[y0 + 8]), 0.2)
+        self.assertEqual(float(column[y0 + 120]), 0.0)
+        # The feather shapes only the mask: the picture's edge is still picture.
+        self.assertLess(float((image[0, y0:y1] - self.DARK / 255).abs().max()) * 255, 0.5)
+
+    def test_a_turned_picture_keeps_its_own_corners_in_the_mask(self):
+        image, mask, stitcher, *_ = self.load(self.flat(640, 360), rotation_degrees=17, pad_left=50, megapixels=0.3)
+        x0, y0, x1, y1 = stitcher['source_bbox']
+        self.assertGreater(x0, 0)
+        self.assertTrue(torch.all(mask[0, :, :x0] == 1.0))
+        self.assertTrue(torch.all(image[0, :, :x0] == 128 / 255))
+        box = mask[0, y0:y1, x0:x1]
+        self.assertTrue(0.0 <= float(box.min()) and float(box.max()) <= 1.0)
+        # Corners to paint, the picture kept, and soft edges between them.
+        self.assertEqual(float(box[0, 0]), 1.0)
+        self.assertEqual(float(box[box.shape[0] // 2, box.shape[1] // 2]), 0.0)
+
+    def test_the_video_frame_node_resizes_the_same_way(self):
+        with patch('nodes.node_video_crop_rotate_pad.resolve_video_path', return_value=Path('source.mp4')), patch('nodes.node_video_crop_rotate_pad.decode_video_frame', return_value=(self.flat(), 0, 0)):
+            image, mask, stitcher, *_ = AusBossVideoCropRotatePad().load_transform(
+                'source.mp4', 'input folder', '', 'frame index', 0, 0,
+                pad_left=2, pad_top=246, feather=0, fill_color="#808080",
+                resize_to_megapixels=True, megapixels=1.0, resolution_steps=32,
+            )
+        self.assert_clean_seams(image, mask, stitcher)
 
 
 class FeatheredStitchTests(unittest.TestCase):

@@ -359,6 +359,22 @@ class VideoClipNodeTests(unittest.TestCase):
         x0, _, x1, _ = stitcher["source_bbox"]
         self.assertTrue(0 < x0 < x1 <= width)
 
+    def test_resize_leaves_a_clean_step_between_the_clip_and_its_band(self):
+        if not ensure_core_video_api(self):
+            self.skipTest("Set AUSBOSS_COMFY_ROOT to test ComfyUI's resize implementation.")
+        # The frames are resized by themselves and padded after. Resizing the
+        # padded canvas as one picture left a column part fill, part mask.
+        out = self.run_node(
+            max_frames=2, pad_left=8, feather=0, resize_to_megapixels=True,
+            megapixels=0.01, resolution_steps=8,
+        )
+        frames, mask, stitcher = out[0], out[1], out[8]
+        x0 = stitcher["source_bbox"][0]
+        self.assertGreater(x0, 0)
+        self.assertTrue(torch.all(frames[:, :, :x0] == 128 / 255))
+        self.assertTrue(torch.all(mask[:, :, :x0] == 1.0))
+        self.assertTrue(torch.all(mask[:, :, x0:] == 0.0))
+
 
 if __name__ == "__main__":
     unittest.main()

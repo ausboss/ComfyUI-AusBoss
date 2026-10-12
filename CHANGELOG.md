@@ -117,6 +117,16 @@ All notable changes to ComfyUI-AusBoss are documented here.
   Pad does. With no padding at all the size now rounds down instead of up:
   1000×750 at 64 gives 960×704, not 1024×768. The picture on the node, the
   size line and the editor show the same. Saved workflows load as before.
+- **Crop + Rotate + Pad nodes: Resize keeps the edge of your picture
+  clean.** With Resize on, the padded canvas was resized as one picture,
+  which mixed a little fill into the picture along every padded edge and
+  left the mask there part on, part off. With stitch blend 0 that showed
+  as a faint line along the seam, and a band only a pixel or two wide
+  could come out as a line of its own. Now your picture is resized by
+  itself and the fill is put around it afterwards. The edge is one clean
+  step, each band is a whole number of pixels wide, and the output size
+  is the same as before. The picture itself can sit up to half a pixel
+  from where it did. Nothing changes with Resize off or with no padding.
 
 ## 2.10.1 - 2026-10-09
 
