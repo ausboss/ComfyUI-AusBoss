@@ -24,6 +24,7 @@ import {
   clampHighlight,
   fitLoraLabel,
   formatFileSize,
+  hasTrigger,
   hoverRowIndex,
   applyTemplate,
   cycleMasterToggle,
@@ -1124,6 +1125,9 @@ function openInfo(state, index, anchor) {
       card.append(link);
     }
 
+    // One click can change other chips too: the same word can sit in two
+    // lists, and a phrase with commas shares its words with shorter chips.
+    const chipRefreshers = [];
     const chipSection = (label, words) => {
       if (!words?.length) return;
       card.append(el("div", "ausboss-lora-meta", label));
@@ -1133,16 +1137,16 @@ function openInfo(state, index, anchor) {
         chip.type = "button";
         chip.title = "Toggle this trigger word into the row's output";
         const refresh = () => chip.classList.toggle(
-          "active",
-          state.rows[index].triggers.toLowerCase().split(",").map((part) => part.trim()).includes(word.toLowerCase())
+          "active", hasTrigger(state.rows[index].triggers, word)
         );
         refresh();
+        chipRefreshers.push(refresh);
         chip.addEventListener("click", () => {
           const rows = state.rows.map((entry, i) =>
             i === index ? { ...entry, triggers: toggleTrigger(entry.triggers, word) } : entry
           );
           commitRows(state, rows);
-          refresh();
+          for (const refreshChip of chipRefreshers) refreshChip();
         });
         chips.append(chip);
       }

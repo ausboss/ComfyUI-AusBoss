@@ -2,6 +2,15 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **LoRA Loader: a trigger with a comma in it switches on and off.** Some
+  LoRAs list a whole sentence as their trigger. Clicking it in a row's info
+  card added it to the row, but it did not light up, and a second click
+  added it again instead of taking it out. It now lights up, and a second
+  click removes it. A row that already holds the sentence twice is cleared
+  with one click.
+
 ## 2.11.0 - 2026-10-12
 
 - **New: Mask by Touch 🆎** (Mask). Click a thing on the picture and get
