@@ -72,6 +72,8 @@ function build(node) {
   }
   const face = mountTouchStage(node, {
     lookOnButton: () => lookOnButton,
+    // A workflow is being opened: nothing is run on the person's behalf.
+    loading: () => Boolean(app.configuringGraph),
     run(what) {
       const id = executionIdOf(app.rootGraph ?? app.graph, node);
       if (!id || typeof app.queuePrompt !== "function") return false;

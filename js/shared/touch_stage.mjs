@@ -21,6 +21,7 @@ import {
   LIT,
   LIT_AWAY,
   LIT_STRENGTH,
+  OWN_LOADERS,
   TINT,
   candidatesAt,
   chipGroups,
@@ -33,6 +34,7 @@ import {
   fineChoice,
   fineMade,
   fineMask,
+  loaderSignature,
   maskShare,
   nameShown,
   packPlanes,
@@ -1094,6 +1096,70 @@ function loaderSource(node) {
   return { widget, name: value, url: api.apiURL(`/view?${viewQueryForFile(value)}`) };
 }
 
+// One of the pack's own loaders wired straight in. It may crop, turn or pad
+// its file, so its picture is only known from a run.
+function ownLoaderNode(node) {
+  const upstream = upstreamNode(node, "image");
+  return upstream && OWN_LOADERS.has(upstream.comfyClass ?? upstream.type) ? upstream : null;
+}
+
+// The same, once a file is chosen on it.
+function ownLoader(node) {
+  const upstream = ownLoaderNode(node);
+  const file = sourceFileWidget(upstream)?.value;
+  return typeof file === "string" && file ? upstream : null;
+}
+
+// How long the loader's settings have to rest before its picture is asked
+// for: a crop that is being dragged changes them many times a second.
+const OWN_SETTLE_MS = 700;
+
+// Show the loader's picture without a press on Show picture: the same run
+// that button asks for. Only ever in answer to something the person did (a
+// file chosen, a setting changed, a wire made), never while a workflow is
+// being opened, so opening one queues nothing. Picks saved with a workflow
+// still wait for their own press.
+function showOwnPicture(face) {
+  if (!face.alive || face.holdRuns || face.host.lookOnButton?.()) return;
+  const upstream = ownLoader(face.node);
+  if (!upstream) return;
+  if (!upstreamNode(face.node, "model") || !upstreamNode(face.node, "clip")) return;
+  if (face.pic && face.held > 0) return;
+  if (face.inFlight) {
+    followOwnLoader(face, true);
+    return;
+  }
+  const seen = `${upstream.id}|${loaderSignature(upstream.widgets)}`;
+  if (seen === face.ownSeen && face.pic) return;
+  if (seen !== face.ownSeen) {
+    // Another picture is on its way: a look asked for the old one is not it.
+    face.sourceEpoch += 1;
+    dropPending(face);
+  }
+  face.ownSeen = seen;
+  face.retries = 0;
+  requestRun(face, "scope");
+}
+
+// Watch the loader's settings, and ask for its picture once they rest.
+// `now` is for something the person just did (a wire made, a look that was
+// in the way): the picture is asked for after the same rest.
+function followOwnLoader(face, now = false) {
+  const upstream = ownLoaderNode(face.node);
+  if (!upstream) return;
+  const later = () => {
+    clearTimeout(face.ownTimer);
+    face.ownTimer = setTimeout(() => showOwnPicture(face), OWN_SETTLE_MS);
+  };
+  for (const widget of upstream.widgets ?? []) {
+    if (!widget || face.watchedSources.has(widget)) continue;
+    face.watchedSources.add(widget);
+    // A workflow being opened sets its values too: that is not the person.
+    chainCallback(widget, "callback", () => { if (face.alive && !face.host.loading?.()) later(); });
+  }
+  if (now) later();
+}
+
 const OTHER_PICTURE = "This is another picture. The picks made on the last one are not used.";
 
 function dropPicture(face) {
@@ -1179,6 +1245,7 @@ function syncState(face) {
   }
   face.origin = origin;
   syncSource(face);
+  followOwnLoader(face);
   const pic = face.pic;
   // Picks saved with the workflow, on a picture the node has not confirmed
   // yet: one press shows them, and until then the picture takes no touches.
@@ -2090,6 +2157,9 @@ export function mountTouchStage(node, host) {
     sourceEpoch: 0,
     sentEpoch: 0,
     watchedSources: new WeakSet(),
+    // One of the pack's loaders wired straight in: what it was last asked for.
+    ownSeen: "",
+    ownTimer: 0,
   };
   readProperties(face);
 
@@ -2264,10 +2334,16 @@ export function mountTouchStage(node, host) {
     draw(face);
     drawInk(face);
   };
-  face.linksChanged = () => syncState(face);
+  face.linksChanged = () => {
+    syncState(face);
+    // A wire the person just made (not one a workflow came with): one of
+    // the pack's loaders shows its picture.
+    if (!face.host.loading?.()) followOwnLoader(face, true);
+  };
   face.destroy = () => {
     face.alive = false;
     clearTimeout(face.noteTimer);
+    clearTimeout(face.ownTimer);
     clearTimeout(face.dwell);
     clearTimeout(face.fineTimer);
     if (face.frameRequest) cancelAnimationFrame(face.frameRequest);

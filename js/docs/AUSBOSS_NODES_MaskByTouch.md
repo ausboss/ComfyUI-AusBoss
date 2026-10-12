@@ -165,6 +165,11 @@ node shows it with nothing picked, and says the old picks are not used.
 
 - With a Load Image wired straight in, the picture shows as soon as you
   choose a file.
+- With **Image Crop + Rotate + Pad 🆎** or **Load Image + Pad 🆎** wired
+  straight in, it shows by itself too, a moment after you choose a file or
+  change the crop. The node runs the loader for that, so you see the picture
+  as the loader hands it on, cropped and all. A workflow you just opened
+  shows **Show picture** instead: opening one starts nothing.
 - With anything else before it, the node shows **Show picture**: it has to
   run what comes before it to know the picture.
 - A workflow you reopen shows **Show the picks** once: press it, or run the
@@ -189,7 +194,8 @@ The node looks at each new picture once, for a few seconds, so things can
 light up. It starts when the pointer rests on the picture, or with your
 first click. To have nothing start by itself, open ComfyUI's Settings,
 **AusBoss → Mask by Touch → Look**, and choose **only on a click or the
-Look button**.
+Look button**. The picture from one of the pack's loaders then waits for a
+press on **Show picture** as well.
 
 ## Technical details
 
