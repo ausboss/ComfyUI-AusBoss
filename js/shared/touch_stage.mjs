@@ -17,11 +17,13 @@ import { linkById, placeholderText, sourceFileWidget, upstreamNode, viewQueryFor
 import { WIDGET_FRAME, fillNodeHeight } from "./panel_layout.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
 import {
+  BACKDROP,
   BRUSH_RADIUS,
   LIT,
   LIT_AWAY,
   LIT_STRENGTH,
   OWN_LOADERS,
+  SURE,
   TINT,
   candidatesAt,
   chipGroups,
@@ -56,8 +58,6 @@ import {
   shrinkMask,
   stampOf,
   strokePieces,
-  BACKDROP,
-  SURE,
   thinStroke,
   touchFits,
 } from "./touch_math.mjs";
@@ -170,6 +170,12 @@ function ensureCss() {
 .ausboss-touch.fining .ausboss-touch-fining{display:flex;}
 .ausboss-touch-fining::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:${BRAND};animation:ausboss-touch-pulse 1s ease-in-out infinite;}
 @keyframes ausboss-touch-pulse{0%,100%{opacity:.25;}50%{opacity:1;}}
+.ausboss-touch-looking{position:absolute;top:6px;left:6px;display:none;align-items:center;gap:6px;box-sizing:border-box;height:22px;max-width:calc(100% - 12px);padding:0 10px 0 8px;border:1px solid rgba(0,180,170,.6);border-radius:11px;background:rgba(4,14,15,.84);color:#dffcf9;font:600 10.5px/20px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;}
+.ausboss-touch.looking .ausboss-touch-looking{display:flex;}
+.ausboss-touch-looking::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:${BRAND};animation:ausboss-touch-pulse 1s ease-in-out infinite;}
+.ausboss-touch-looking.nudge{animation:ausboss-touch-nudge .45s ease-out;}
+@keyframes ausboss-touch-nudge{0%{border-color:#fff;background:rgba(0,79,75,.96);transform:scale(1.06);}100%{transform:scale(1);}}
+.ausboss-touch.looking.fining .ausboss-touch-fining{top:32px;}
 .ausboss-touch-btn{box-sizing:border-box;flex:none;height:20px;min-width:22px;padding:0 6px;border:1px solid rgba(0,180,170,.52);border-radius:4px;background:rgba(0,0,0,.7);color:#c8dddd;font:700 9px/18px "Segoe UI",sans-serif;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;pointer-events:auto;white-space:nowrap;}
 .ausboss-touch-btn:hover{border-color:${BRAND};color:#fff;background:rgba(0,79,75,.78);}
 .ausboss-touch-btn:disabled{opacity:.38;cursor:default;border-color:rgba(0,180,170,.3);color:#8fa3a2;background:rgba(0,0,0,.5);}
@@ -966,6 +972,7 @@ function syncLine(face) {
 function syncReadout(face) {
   syncLine(face);
   if (face.chipList) syncChips(face);
+  syncLooking(face);
 }
 
 // ---- the picks, one chip each ----------------------------------------------
@@ -1276,6 +1283,7 @@ function syncState(face) {
   face.hint.style.display = !pic && !ready ? "" : "none";
   face.hint.textContent = !linked ? placeholderText(false, "an image") : "Connect SAM 3 to pick from the picture: MODEL and CLIP from its Load Checkpoint";
   syncTools(face);
+  syncLooking(face);
 }
 
 function setNote(face, text, { life = 0 } = {}) {
@@ -1779,18 +1787,20 @@ function pickAt(face, x, y, op) {
 //
 // A click on a picture that has not been looked at yet would only get what
 // SAM 3 finds at that one point: the whole person for a click on a jacket.
-// So an early click waits. The picture is looked at, starting at the click,
-// and the pick is made from what the looks find: as soon as a thing with a
-// name lies under the click, and after PENDING_LOOKS looks at the latest
-// (three looks ask every word of the list on most pictures).
-// A few clicks can wait at once; they are taken in the order they were made.
+// So a click on a spot where NOTHING is lit yet waits. The picture is looked
+// at, starting at the click, and the pick is made from what the looks find:
+// as soon as a thing with a name lies under the click, and after
+// PENDING_LOOKS looks at the latest (three looks ask every word of the list
+// on most pictures).
+// A click on a thing that IS lit never waits: what lights up is what a click
+// takes (pickAt takes the lit piece), also while the looking goes on.
+// One click waits at a time; the picture says that it does (syncLooking).
 const PENDING_LOOKS = 3;
-// A node that says how far it is through its words is waited for until the
-// words are done, but never longer than this.
-const PENDING_MS = 12000;
-const PENDING_MOST = 6;
-// Two clicks this close on the screen copy are one click.
-const PENDING_SAME = 10;
+// A click is never kept waiting longer than this: a first look that also
+// loads SAM 3 takes about 25 seconds.
+const PENDING_MS = 45000;
+// A click taken this close to one that waits (on the screen copy) answers it.
+const PENDING_SAME = 24;
 
 // Whether the thing a click at this spot would take is one SAM 3 is sure of
 // by name. The person as a whole and a backdrop do not count: they lie under
@@ -1812,16 +1822,59 @@ function lookedEnough(pic) {
   return !pic.words && (pic.looks ?? 0) >= PENDING_LOOKS;
 }
 
+// Whether a click on the picture would have to wait: the node has not
+// looked at it enough to say what is where.
+function notReady(face) {
+  const pic = face.pic;
+  if (!pic || face.held || lookedEnough(pic)) return false;
+  return Boolean(upstreamNode(face.node, "model")) && Boolean(upstreamNode(face.node, "clip"));
+}
+
+// The picture says that it is still being looked at, and how far along that
+// is, so nobody wonders why nothing lights up or where a click went.
+function syncLooking(face) {
+  const waits = face.pending.length > 0;
+  const on = notReady(face) && (face.inFlight || waits);
+  face.root.classList.toggle("looking", on);
+  if (!on) return;
+  const words = face.pic.words;
+  const far = words && words[1] > 0 ? ` ${Math.min(words[0], words[1])} of ${words[1]}` : "";
+  face.looking.textContent = waits ? `Your click is in. Looking…${far}` : `Looking at the picture…${far}`;
+  face.looking.title = waits
+    ? "Nothing was lit where you clicked yet. Your click is taken as soon as the node has found the thing there."
+    : "What is lit can be picked already. More lights up as the node looks on.";
+}
+
+// A click that was not taken: the message on the picture answers it.
+function nudge(face) {
+  const chip = face.looking;
+  chip.classList.remove("nudge");
+  void chip.offsetWidth;
+  chip.classList.add("nudge");
+}
+
 function waitForLook(face, x, y) {
   const pic = face.pic;
   if (!pic || lookedEnough(pic)) return false;
-  // A thing with a name is there already: take it now, unless earlier
-  // clicks still wait (the touches keep the order they were made in).
-  if (!face.pending.length && namedAt(pic, x, y)) return false;
   if (!upstreamNode(face.node, "model") || !upstreamNode(face.node, "clip")) return false;
-  const near = (click) => Math.hypot(click.x - x, click.y - y) * pic.scale < PENDING_SAME;
-  if (face.pending.some(near)) return true;
-  if (face.pending.length >= PENDING_MOST) return false;
+  // A thing is lit under the pointer: it is taken now, whatever else is
+  // still on its way. A click that waited at this spot is answered by it.
+  if (pieceUnder(face, [x, y], true) >= 0) {
+    const far = (click) => Math.hypot(click.x - x, click.y - y) * pic.scale >= PENDING_SAME;
+    if (!face.pending.every(far)) {
+      face.pending = face.pending.filter(far);
+      if (!face.pending.length) clearTimeout(face.pendingTimer);
+    }
+    return false;
+  }
+  // Nothing is known at this spot yet. One click waits at a time. More of
+  // them would be taken one after the other when the look is done, as picks
+  // nobody saw being made: three clicks on a shirt came out as the shirt,
+  // the person and a third thing.
+  if (face.pending.length) {
+    nudge(face);
+    return true;
+  }
   face.pending.push({ x, y, epoch: face.sourceEpoch, width: pic.width, height: pic.height });
   clearTimeout(face.pendingTimer);
   face.pendingTimer = setTimeout(() => { if (face.alive) flushPending(face); }, PENDING_MS);
@@ -1903,8 +1956,9 @@ function finishStroke(face, event, cancelled) {
         return;
       }
       // What waited before this click comes first, so the touches keep the
-      // order they were made in.
-      flushPending(face);
+      // order they were made in. A click that still waits for the look is
+      // left waiting: it is taken when the look has found its thing.
+      if (!notReady(face)) flushPending(face);
       pickAt(face, x, y, op);
     } else {
       flushPending(face);
@@ -2113,7 +2167,8 @@ export function mountTouchStage(node, host) {
   ink.append(path, dots, ringBack, ring);
   const tag = el("div", "ausboss-touch-tag");
   const fining = el("div", "ausboss-touch-fining", "Working on the fine details…");
-  frame.append(img, tint, lit, ink, tag, fining);
+  const looking = el("div", "ausboss-touch-looking");
+  frame.append(img, tint, lit, ink, tag, fining, looking);
 
   const wake = el("div", "ausboss-touch-wake");
   const hint = el("div", "ausboss-touch-hint");
@@ -2121,7 +2176,7 @@ export function mountTouchStage(node, host) {
   stage.append(frame, wake, el("div", "ausboss-touch-busy"), noteEl);
 
   const face = node.__ausbossTouch = {
-    node, host, root, stage, frame, img, tint, lit, ink, path, dots, ringBack, ring, tag, hint, noteEl, abort,
+    node, host, root, stage, frame, img, tint, lit, ink, path, dots, ringBack, ring, tag, hint, noteEl, looking, abort,
     chips, chipList, nameField, chipsShown: null,
     flying: [],
     pendingTimer: 0,
