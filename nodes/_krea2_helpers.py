@@ -186,9 +186,9 @@ _SPAN_TOLERANCE_PX = 8
 def placement_warning(stitcher: dict | None, tolerance_px: int = _SPAN_TOLERANCE_PX) -> str | None:
     """Warn when the source spans neither canvas axis. None when it is fine.
 
-    Padding one side is not enough on its own: rounding the canvas up to a
-    multiple leaves a sliver on the other axis, and a sliver still breaks the
-    span. That is why the message reports the slack in pixels.
+    A sliver on the other axis, a few pixels of padding left over from a
+    drag, still breaks the span. That is why the message reports the slack
+    in pixels.
     """
     box = source_pixel_bbox(stitcher)
     if box is None:
@@ -204,9 +204,8 @@ def placement_warning(stitcher: dict | None, tolerance_px: int = _SPAN_TOLERANCE
         "neither side of the canvas. This model extends one axis at a time; a "
         "two-axis canvas in a single pass usually breaks up in the new area. "
         "Pad one axis, run it, then pad the other and run again. If you only "
-        "padded one side on a Crop + Rotate + Pad node, its Divisible by is "
-        "rounding the other axis up - set it to 1, or pick a number that "
-        "already divides that dimension. Load Image + Pad never adds that strip."
+        "meant to pad one axis, the other still has a few pixels of padding, "
+        "often left over from a drag - set them to 0."
     )
 
 

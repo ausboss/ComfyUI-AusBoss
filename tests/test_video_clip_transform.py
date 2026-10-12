@@ -199,6 +199,17 @@ class VideoClipNodeTests(unittest.TestCase):
         self.assertAlmostEqual(duration, FRAMES / FPS)
         self.assertGreater(audio["waveform"].shape[-1], 0)
 
+    def test_divisible_by_grows_no_strip_on_an_unpadded_edge(self):
+        # Padded on the left only: the leftover joins that band, and the
+        # height, which nobody padded, is trimmed to the multiple instead.
+        multiple = 24
+        frames, mask, _, count, _, width, height, _ = self.run_node(pad_left=3, feather=0, canvas_multiple=multiple)[:8]
+        band = -(-(WIDTH + 3) // multiple) * multiple - WIDTH
+        self.assertEqual((width, height), (WIDTH + band, HEIGHT // multiple * multiple))
+        self.assertEqual(tuple(frames.shape), (count, height, width, 3))
+        self.assertTrue(torch.all(mask[:, :, :band] == 1.0))
+        self.assertTrue(torch.all(mask[:, :, band:] == 0.0))
+
     def test_trim_thinning_and_crop_compose(self):
         frames, mask, _, count, fps, width, height, duration = self.run_node(
             start_seconds=0.5, end_seconds=1.5, every_nth=2, crop_x=8, crop_width=32, feather=0

@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 import tempfile
 import time
+import types
 import unittest
 import unittest.mock
 
@@ -19,7 +20,9 @@ if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
     del sys.modules["nodes"]
 
 from nodes._media_helpers import decode_video_frame, video_metadata
+from nodes._pad_helpers import resolve_pad_geometry
 from nodes._transform_engine import (
+    _geometry,
     _ratio_box,
     scale_to_megapixels,
     TransformSpec,
@@ -39,6 +42,29 @@ RATIO_BOX_FIXTURES = [
     ((1920, 1080, 16, 9), (1920, 1080)),
     ((832, 1216, 1, 1), (832, 832)),
     ((239, 1284, 936, 1284), (239, 327)),
+]
+
+
+# (crop_width, crop_height, pad_left, pad_top, pad_right, pad_bottom, multiple)
+# -> (pad_left, pad_top, pad_right, pad_bottom, trim_left, trim_top, width, height).
+# The same table sits in tests/transform_geometry.test.mjs: the editor draws
+# and reports the canvas the run builds.
+CANVAS_FIXTURES = [
+    # The report: 1 px left over, and the right edge has no padding.
+    ((1916, 821, 3, 246, 0, 336, 24), (4, 246, 0, 349, 0, 0, 1920, 1416)),
+    # Nothing padded: each axis is trimmed evenly to the multiple below.
+    ((101, 99, 0, 0, 0, 0, 8), (0, 0, 0, 0, 2, 1, 96, 96)),
+    ((1824, 2304, 0, 0, 0, 0, 64), (0, 0, 0, 0, 16, 0, 1792, 2304)),
+    # Both sides padded: the far one takes the leftover.
+    ((2080, 1170, 64, 64, 64, 64, 64), (64, 64, 96, 110, 0, 0, 2240, 1344)),
+    # One side padded: it takes the leftover, whichever side it is.
+    ((1000, 750, 0, 0, 37, 0, 16), (0, 0, 40, 0, 0, 7, 1040, 736)),
+    ((1000, 750, 0, 20, 0, 0, 16), (0, 34, 0, 0, 4, 0, 992, 784)),
+    # A picture smaller than one multiple has nothing to trim to.
+    ((5, 5, 0, 0, 0, 0, 8), (0, 0, 3, 3, 0, 0, 8, 8)),
+    # Already a multiple, or the multiple off: nothing moves.
+    ((1024, 768, 0, 0, 0, 0, 64), (0, 0, 0, 0, 0, 0, 1024, 768)),
+    ((1001, 333, 7, 0, 0, 5, 1), (7, 0, 0, 5, 0, 0, 1008, 338)),
 ]
 
 
@@ -149,14 +175,91 @@ class TransformEngineTests(unittest.TestCase):
             self.assertLessEqual(box[1], height)
             self.assertEqual(_ratio_box(*box, *ratio), box)
 
-    def test_canvas_multiple_rounds_only_right_and_bottom(self):
-        output, mask, geometry = transform_pil(
-            solid(101, 99), TransformSpec(canvas_multiple=8)
+    def canvas(self, width, height, left, top, right, bottom, multiple):
+        return transform_pil(
+            solid(width, height),
+            TransformSpec(pad_left=left, pad_top=top, pad_right=right, pad_bottom=bottom, canvas_multiple=multiple),
         )
-        self.assertEqual(output.size, (104, 104))
-        self.assertEqual((geometry.pad_left, geometry.pad_top), (0, 0))
-        self.assertEqual((geometry.pad_right, geometry.pad_bottom), (3, 5))
-        self.assertEqual(mask.getpixel((103, 103)), 255)
+
+    def test_canvas_multiple_follows_the_shared_fixtures(self):
+        for args, expected in CANVAS_FIXTURES:
+            with self.subTest(args):
+                output, _, geometry = self.canvas(*args)
+                self.assertEqual(
+                    (
+                        geometry.pad_left, geometry.pad_top, geometry.pad_right, geometry.pad_bottom,
+                        geometry.crop_x, geometry.crop_y, geometry.output_width, geometry.output_height,
+                    ),
+                    expected,
+                )
+                self.assertEqual(output.size, expected[6:])
+
+    def test_canvas_multiple_never_grows_a_strip_on_an_unpadded_edge(self):
+        # The leftover from rounding went to the right and bottom whatever was
+        # padded: 1916 + 3 rounded to 1920 put 1 px of fill on a right edge
+        # nobody padded, and a resize smeared it into the picture's last column.
+        pads = [
+            (0, 0, 0, 0), (3, 0, 0, 0), (0, 0, 5, 0), (0, 7, 0, 0), (0, 0, 0, 9),
+            (3, 246, 0, 336), (10, 0, 20, 0), (0, 30, 0, 40), (4, 0, 0, 6), (1, 2, 3, 4),
+        ]
+        picture = np.array([30, 80, 140])
+        for width, height in [(1916, 821), (101, 99), (333, 517)]:
+            for multiple in (2, 8, 16, 24, 32, 64):
+                for left, top, right, bottom in pads:
+                    with self.subTest(size=(width, height), multiple=multiple, pads=(left, top, right, bottom)):
+                        output, mask, geometry = self.canvas(width, height, left, top, right, bottom, multiple)
+                        image = np.asarray(output)
+                        painted = np.asarray(mask)
+                        self.assertEqual((output.width % multiple, output.height % multiple), (0, 0))
+                        rows = slice(geometry.pad_top, geometry.pad_top + geometry.crop_height)
+                        cols = slice(geometry.pad_left, geometry.pad_left + geometry.crop_width)
+                        edges = {
+                            "left": (left, geometry.pad_left, image[rows, 0], painted[rows, 0]),
+                            "right": (right, geometry.pad_right, image[rows, -1], painted[rows, -1]),
+                            "top": (top, geometry.pad_top, image[0, cols], painted[0, cols]),
+                            "bottom": (bottom, geometry.pad_bottom, image[-1, cols], painted[-1, cols]),
+                        }
+                        for side, (asked, resolved, pixels, mask_line) in edges.items():
+                            if asked:
+                                self.assertGreaterEqual(resolved, asked, side)
+                                continue
+                            self.assertEqual(resolved, 0, side)
+                            self.assertTrue(np.all(pixels == picture), side)
+                            self.assertEqual(int(mask_line.max()), 0, side)
+
+    def test_canvas_multiple_is_load_image_pads_rule(self):
+        rng = np.random.default_rng(11)
+        for _ in range(3000):
+            width, height = (int(v) for v in rng.integers(1, 3000, 2))
+            left, top, right, bottom = (int(v) * int(rng.integers(0, 2)) for v in rng.integers(0, 400, 4))
+            multiple = int(rng.choice([1, 2, 8, 16, 24, 32, 64, 100]))
+            spec = TransformSpec(pad_left=left, pad_top=top, pad_right=right, pad_bottom=bottom, canvas_multiple=multiple)
+            geometry = _geometry(types.SimpleNamespace(size=(width, height)), spec)
+            plan = resolve_pad_geometry(width, height, left, top, right, bottom, multiple)
+            self.assertEqual(
+                (
+                    geometry.pad_left, geometry.pad_top, geometry.pad_right, geometry.pad_bottom,
+                    geometry.crop_x, geometry.crop_y, geometry.crop_width, geometry.crop_height,
+                    geometry.output_width, geometry.output_height,
+                ),
+                (
+                    plan["left"], plan["top"], plan["right"], plan["bottom"],
+                    plan["trim_left"], plan["trim_top"],
+                    width - plan["trim_left"] - plan["trim_right"], height - plan["trim_top"] - plan["trim_bottom"],
+                    plan["width"], plan["height"],
+                ),
+            )
+
+    def test_canvas_multiple_trims_the_crop_it_was_given(self):
+        # A crop inside the picture is trimmed around its own centre, and the
+        # kept pixels are the source's own.
+        source = Image.fromarray(np.random.default_rng(5).integers(0, 255, (60, 90, 3), dtype=np.uint8))
+        output, mask, geometry = transform_pil(
+            source, TransformSpec(crop_x=10, crop_y=4, crop_width=53, crop_height=41, canvas_multiple=16)
+        )
+        self.assertEqual((geometry.crop_x, geometry.crop_y, geometry.crop_width, geometry.crop_height), (12, 8, 48, 32))
+        self.assertTrue(np.array_equal(np.asarray(output), np.asarray(source)[8:40, 12:60]))
+        self.assertEqual(int(np.asarray(mask).max()), 0)
 
     def test_tensor_batch_preserves_bhwc_and_bhw(self):
         source = torch.zeros((3, 9, 7, 3), dtype=torch.float32)

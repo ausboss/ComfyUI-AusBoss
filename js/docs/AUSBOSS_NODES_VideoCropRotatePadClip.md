@@ -98,9 +98,9 @@ with the padlock on it also takes away the bands the lock added.
 fill, feather, **Divisible by** and the timeline stay.
 **Reset transform** in the editor resets rotation, crop, padding, fill, feather and
 **Divisible by**; it keeps the source, current frame, trim, Length, resize and stitch
-settings. **Divisible by** adds a few pixels of fill on the right and bottom so the
-width and height divide evenly by the number you pick. Some models need sizes
-divisible by 8, 16 or 32; 1 turns it off.
+settings. **Divisible by** makes the width and height divide evenly by the number
+you pick: padding grows by a few pixels, and a side with no padding is trimmed by
+a few instead. Some models need sizes divisible by 8, 16 or 32; 1 turns it off.
 
 Video Upload and file drop use a streaming route into ComfyUI's input folder,
 so the buffered image-upload size limit does not prevent long-video uploads.

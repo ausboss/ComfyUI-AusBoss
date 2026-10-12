@@ -5,6 +5,7 @@ import {
   canvasLocalPoint,
   fitSourceToAspect,
   cropHandleCenters,
+  keptCrop,
   nearestHandle,
   paddingHandleCenters,
   resetTransformValues,
@@ -42,8 +43,73 @@ test("crop clamps and honors ratios", () => {
   assert.deepEqual(resolveCrop({ crop_x: 0, crop_y: 0, crop_width: 0, crop_height: 0, crop_aspect_ratio: "16:9" }, { width: 100, height: 100 }), { x: 0, y: 0, width: 100, height: 56 });
 });
 
-test("canvas multiple adds only right and bottom", () => {
-  assert.deepEqual(resolvePadding({ pad_left: 0, pad_top: 0, pad_right: 0, pad_bottom: 0, canvas_multiple: 8 }, { width: 101, height: 99 }), { left: 0, top: 0, right: 3, bottom: 5, outputWidth: 104, outputHeight: 104 });
+// [crop width, crop height, pad left, top, right, bottom, multiple] ->
+// [pad left, top, right, bottom, trim left, trim top, width, height]. The
+// same table sits in tests/test_transform_engine.py (CANVAS_FIXTURES): the
+// editor draws and reports the canvas the run builds.
+const CANVAS_FIXTURES = [
+  // The report: 1 px left over, and the right edge has no padding.
+  [[1916, 821, 3, 246, 0, 336, 24], [4, 246, 0, 349, 0, 0, 1920, 1416]],
+  // Nothing padded: each axis is trimmed evenly to the multiple below.
+  [[101, 99, 0, 0, 0, 0, 8], [0, 0, 0, 0, 2, 1, 96, 96]],
+  [[1824, 2304, 0, 0, 0, 0, 64], [0, 0, 0, 0, 16, 0, 1792, 2304]],
+  // Both sides padded: the far one takes the leftover.
+  [[2080, 1170, 64, 64, 64, 64, 64], [64, 64, 96, 110, 0, 0, 2240, 1344]],
+  // One side padded: it takes the leftover, whichever side it is.
+  [[1000, 750, 0, 0, 37, 0, 16], [0, 0, 40, 0, 0, 7, 1040, 736]],
+  [[1000, 750, 0, 20, 0, 0, 16], [0, 34, 0, 0, 4, 0, 992, 784]],
+  // A picture smaller than one multiple has nothing to trim to.
+  [[5, 5, 0, 0, 0, 0, 8], [0, 0, 3, 3, 0, 0, 8, 8]],
+  // Already a multiple, or the multiple off: nothing moves.
+  [[1024, 768, 0, 0, 0, 0, 64], [0, 0, 0, 0, 0, 0, 1024, 768]],
+  [[1001, 333, 7, 0, 0, 5, 1], [7, 0, 0, 5, 0, 0, 1008, 338]],
+];
+
+test("canvas multiple resolves exactly as the backend does", () => {
+  for (const [[width, height, left, top, right, bottom, multiple], expected] of CANVAS_FIXTURES) {
+    const values = { pad_left: left, pad_top: top, pad_right: right, pad_bottom: bottom, canvas_multiple: multiple };
+    const pad = resolvePadding(values, { x: 0, y: 0, width, height });
+    assert.deepEqual(
+      [pad.left, pad.top, pad.right, pad.bottom, pad.trimLeft, pad.trimTop, pad.outputWidth, pad.outputHeight],
+      expected,
+      JSON.stringify(values),
+    );
+    // What is kept, the padding and the canvas always add up.
+    const kept = keptCrop({ x: 0, y: 0, width, height }, pad);
+    assert.equal(pad.left + kept.width + pad.right, pad.outputWidth);
+    assert.equal(pad.top + kept.height + pad.bottom, pad.outputHeight);
+  }
+});
+
+test("canvas multiple never adds fill on a side nobody padded", () => {
+  // The leftover used to go to the right and bottom whatever was padded: a
+  // strip of fill on an edge with no padding, for the model to paint.
+  let seed = 7;
+  const random = (limit) => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed % limit; };
+  for (let run = 0; run < 4000; run += 1) {
+    const multiple = [2, 8, 16, 24, 32, 64][random(6)];
+    const crop = { x: 0, y: 0, width: multiple + random(3000), height: multiple + random(3000) };
+    const asked = [0, 1, 2, 3].map(() => (random(2) ? random(400) : 0));
+    const values = { pad_left: asked[0], pad_top: asked[1], pad_right: asked[2], pad_bottom: asked[3], canvas_multiple: multiple };
+    const pad = resolvePadding(values, crop);
+    const label = JSON.stringify({ crop, values });
+    assert.equal(pad.outputWidth % multiple, 0, label);
+    assert.equal(pad.outputHeight % multiple, 0, label);
+    for (const [index, side] of ["left", "top", "right", "bottom"].entries()) {
+      if (asked[index]) assert.ok(pad[side] >= asked[index], label);
+      else assert.equal(pad[side], 0, label);
+    }
+    // A trim only ever happens on an axis with no padding at all.
+    if (asked[0] || asked[2]) assert.equal(pad.trimLeft + pad.trimRight, 0, label);
+    if (asked[1] || asked[3]) assert.equal(pad.trimTop + pad.trimBottom, 0, label);
+    assert.ok(pad.trimLeft + pad.trimRight < multiple && pad.trimTop + pad.trimBottom < multiple, label);
+  }
+});
+
+test("a trimmed crop keeps its own centre", () => {
+  const crop = { x: 10, y: 4, width: 53, height: 41 };
+  const pad = resolvePadding({ canvas_multiple: 16 }, crop);
+  assert.deepEqual(keptCrop(crop, pad), { x: 12, y: 8, width: 48, height: 32 });
 });
 
 test("pad to aspect preserves portrait and centers new landscape canvas", () => {
@@ -54,6 +120,7 @@ test("pad to aspect preserves portrait and centers new landscape canvas", () => 
   assert.equal(patch.crop_aspect_ratio, "free");
   assert.deepEqual(resolvePadding(patch, crop), {
     left: 622, right: 623, top: 0, bottom: 0, outputWidth: 1821, outputHeight: 1024,
+    trimLeft: 0, trimTop: 0, trimRight: 0, trimBottom: 0,
   });
 });
 
@@ -408,7 +475,7 @@ test("the size chain names every step and the stretch the steps cause", () => {
   assert.deepEqual(warnings, ["2.2% wider: each side rounds to 32 px"]);
 });
 
-test("the size chain shows Align and names its strip ahead of a resize", () => {
+test("the size chain shows Align and names what it does ahead of a resize", () => {
   // The review's example A: 10 degrees, 16:9 crop, 64 px pads, Align 64, 1 MP.
   const source = rotatedSize(1920, 1080, 10);
   const values = { crop_aspect_ratio: "16:9", pad_left: 64, pad_top: 64, pad_right: 64, pad_bottom: 64, canvas_multiple: 64 };
@@ -417,11 +484,24 @@ test("the size chain shows Align and names its strip ahead of a resize", () => {
   assert.deepEqual(warnings, ["rounding to 64 adds 32 px on the right and 46 px at the bottom of fill"]);
   // Without a resize the strip is what Align is for: no warning.
   assert.deepEqual(sizeChainTokens(sizeChain(values, source, null)).warnings, []);
-  // The report's case: a 1824-wide picture, Align 64, Resize at Step 64.
-  // The resized size is a multiple of 64, but the strip is still there.
+  // A report's case: a 1824-wide picture, Align 64, Resize at Step 64. It
+  // has no padding, so Align adds no strip of fill for the model to paint:
+  // the width is trimmed to 1792 instead, and the line says so.
   const arcade = sizeChainTokens(sizeChain({ canvas_multiple: 64 }, { width: 1824, height: 2304 }, { megapixels: 1, steps: 64 }));
-  assert.deepEqual(arcade.tokens.map((token) => `${token.label} ${token.text}`.trim()), ["1824×2304", "round to 64 1856×2304", "resize 896×1152"]);
-  assert.deepEqual(arcade.warnings, ["3.4% taller: each side rounds to 64 px", "rounding to 64 adds 32 px on the right of fill"]);
+  assert.deepEqual(arcade.tokens.map((token) => `${token.label} ${token.text}`.trim()), ["1824×2304", "round to 64 1792×2304", "resize 896×1152"]);
+  assert.deepEqual(arcade.warnings, ["rounding to 64 trims 32 px off the width"]);
+  assert.deepEqual(sizeChainTokens(sizeChain({ canvas_multiple: 64 }, { width: 1824, height: 2304 }, null)).warnings, []);
+  // Another report's run: 3 px on the left, bands top and bottom, Align 24.
+  // The pixel left over joins the left band, not the unpadded right edge.
+  const thin = sizeChainTokens(sizeChain(
+    { pad_left: 3, pad_top: 246, pad_right: 0, pad_bottom: 336, canvas_multiple: 24 },
+    { width: 1916, height: 821 }, { megapixels: 1, steps: 32 },
+  ));
+  assert.deepEqual(thin.tokens.map((token) => `${token.label} ${token.text}`.trim()), ["1916×821", "pad 1919×1403", "round to 24 1920×1416", "resize 1184×864"]);
+  assert.deepEqual(thin.warnings, ["1.1% wider: each side rounds to 32 px", "rounding to 24 adds 1 px on the left and 13 px at the bottom of fill"]);
+  // Fill on one axis and a trim on the other, each named.
+  const mixed = sizeChainTokens(sizeChain({ pad_top: 20, canvas_multiple: 16 }, { width: 1000, height: 750 }, { megapixels: 1, steps: 8 }));
+  assert.deepEqual(mixed.warnings, ["rounding to 16 adds 14 px at the top of fill", "rounding to 16 trims 8 px off the width"]);
   // Align that adds nothing but a resize that breaks the multiple.
   const lost = sizeChainTokens(sizeChain({ canvas_multiple: 64 }, { width: 1280, height: 768 }, { megapixels: 0.5, steps: 1 }));
   assert.deepEqual(lost.warnings, ["the resize undoes rounding to 64"]);
@@ -765,11 +845,26 @@ test("centre evens out the padding and keeps the canvas size", () => {
   assert.equal(centredPadding({}, crop, "y"), null);
   // Round canvas to adds its strip on the right: the bands you see come out
   // even, and the canvas the ratio buttons measure keeps its size.
+  const tall = { x: 0, y: 0, width: 832, height: 1216 };
   const rounded = { pad_left: 807, pad_right: 982, pad_top: 0, pad_bottom: 0, canvas_multiple: 64 };
-  const centred = { ...rounded, ...centredPadding(rounded, { x: 0, y: 0, width: 832, height: 1216 }, "x") };
+  const centred = { ...rounded, ...centredPadding(rounded, tall, "x") };
   assert.equal(centred.pad_left + centred.pad_right, 807 + 982);
-  const bands = axisBands(centred, { x: 0, y: 0, width: 832, height: 1216 }, "x");
+  const bands = axisBands(centred, tall, "x");
   assert.ok(Math.abs(bands.near - bands.far) <= 1, JSON.stringify(bands));
+  // Padding on the left only: the strip sits there too, so the bands are
+  // 320 and 0. Centring still evens them out.
+  const left = { pad_left: 300, pad_right: 0, canvas_multiple: 64 };
+  assert.deepEqual(axisBands(left, tall, "x"), { near: 320, far: 0 });
+  assert.deepEqual(axisBands({ ...left, ...centredPadding(left, tall, "x") }, tall, "x"), { near: 160, far: 160 });
+  // Less padding than the strip: a pixel stays on the right for the strip
+  // to join, which is as close as it gets, and a second press does nothing.
+  const little = { pad_left: 10, pad_right: 0, canvas_multiple: 64 };
+  assert.deepEqual(centredPadding(little, tall, "x"), { pad_left: 9, pad_right: 1 });
+  assert.equal(centredPadding({ ...little, pad_left: 9, pad_right: 1 }, tall, "x"), null);
+  // A move that would only swap the sides is not made.
+  assert.equal(centredPadding({ pad_left: 1, pad_right: 0, canvas_multiple: 64 }, tall, "x"), null);
+  // No padding on the axis: Divisible by trims it, and there is nothing to move.
+  assert.equal(centredPadding({ canvas_multiple: 64 }, tall, "y"), null);
 });
 
 // The corner handles and the knob on the smallest node face, laid out the
