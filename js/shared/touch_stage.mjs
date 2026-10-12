@@ -34,6 +34,7 @@ import {
   fineChoice,
   fineMade,
   fineMask,
+  goesBehind,
   loaderSignature,
   maskShare,
   nameShown,
@@ -537,23 +538,24 @@ function scopeAsk(face) {
 }
 
 // Run this node alone. `ask` is "look" (the picture and what is picked) or
-// "scope" (the pieces of the picture as well).
+// "scope" (the pieces of the picture as well). Says whether a run was sent.
 function requestRun(face, ask) {
   // The workflow is being sent right now and will answer for these touches.
-  if (face.holdRuns) return;
+  if (face.holdRuns) return false;
   if (face.flying.length) {
     // A look at the picture gives way to the next job in the queue. So a
     // run that is not a look is sent at once, behind the look, and the look
-    // ends early for it. Anything else waits for what is on its way.
-    const behindLooks = ask !== "scope" && face.flying.every((run) => run.ask === "scope" && run.queued);
-    if (!behindLooks) {
+    // ends early for it. So is a look at another picture: the one on its
+    // way is at a picture this node no longer has. Anything else waits for
+    // what is on its way.
+    if (!goesBehind(face.flying, ask, face.sourceEpoch)) {
       face.wanted = face.wanted === "scope" || ask === "scope" ? "scope" : ask;
-      return;
+      return false;
     }
   }
   if (!upstreamNode(face.node, "model") || !upstreamNode(face.node, "clip")) {
     setNote(face, "Connect SAM 3 first: MODEL and CLIP from its Load Checkpoint.", { life: 6000 });
-    return;
+    return false;
   }
   const run = { ask, stamp: face.stamp, epoch: face.sourceEpoch, queued: false };
   face.flying.push(run);
@@ -579,6 +581,7 @@ function requestRun(face, ask) {
       requestRun(face, wanted);
     }
   }, failed);
+  return true;
 }
 
 // The run this face asked for is over without a result of its own (it could
@@ -1088,12 +1091,19 @@ function syncTools(face) {
 // between the file and this node may change the picture, and a wrong picture
 // is worse than none, so then the face waits for a run.
 function loaderSource(node) {
-  const upstream = upstreamNode(node, "image");
-  if (!upstream || (upstream.comfyClass ?? upstream.type) !== "LoadImage") return null;
-  const widget = sourceFileWidget(upstream);
+  const widget = loaderWidget(node);
   const value = widget?.value;
   if (typeof value !== "string" || !value) return null;
   return { widget, name: value, url: api.apiURL(`/view?${viewQueryForFile(value)}`) };
+}
+
+// The file box of a plain Load Image wired straight in, with or without a
+// file in it: a workflow is shared with none, and the first one chosen has
+// to show as well.
+function loaderWidget(node) {
+  const upstream = upstreamNode(node, "image");
+  if (!upstream || (upstream.comfyClass ?? upstream.type) !== "LoadImage") return null;
+  return sourceFileWidget(upstream);
 }
 
 // One of the pack's own loaders wired straight in. It may crop, turn or pad
@@ -1125,20 +1135,21 @@ function showOwnPicture(face) {
   if (!upstream) return;
   if (!upstreamNode(face.node, "model") || !upstreamNode(face.node, "clip")) return;
   if (face.pic && face.held > 0) return;
-  if (face.inFlight) {
-    followOwnLoader(face, true);
-    return;
-  }
   const seen = `${upstream.id}|${loaderSignature(upstream.widgets)}`;
-  if (seen === face.ownSeen && face.pic) return;
-  if (seen !== face.ownSeen) {
-    // Another picture is on its way: a look asked for the old one is not it.
+  if (seen === face.ownSeen) {
+    // Asked for already: it is on show, or on its way.
+    if (face.pic || face.inFlight) return;
+  } else {
+    // Another picture: a look that is on its way is at the old one, and so
+    // is a click that waits. The new look goes behind it, which ends it.
     face.sourceEpoch += 1;
     dropPending(face);
   }
-  face.ownSeen = seen;
   face.retries = 0;
-  requestRun(face, "scope");
+  if (requestRun(face, "scope")) face.ownSeen = seen;
+  // A run of this node that is no look is in the way (or one that is still
+  // being sent): once more when it is over.
+  else if (face.inFlight) followOwnLoader(face, true);
 }
 
 // Watch the loader's settings, and ask for its picture once they rest.
@@ -1179,9 +1190,10 @@ function dropPicture(face) {
 function syncSource(face) {
   const source = loaderSource(face.node);
   const url = source?.url ?? "";
-  if (source?.widget && !face.watchedSources.has(source.widget)) {
-    face.watchedSources.add(source.widget);
-    chainCallback(source.widget, "callback", () => queueMicrotask(() => { if (face.alive) syncState(face); }));
+  const watched = loaderWidget(face.node);
+  if (watched && !face.watchedSources.has(watched)) {
+    face.watchedSources.add(watched);
+    chainCallback(watched, "callback", () => queueMicrotask(() => { if (face.alive) syncState(face); }));
   }
   if (url === face.sourceUrl) return;
   face.sourceUrl = url;
@@ -1192,6 +1204,10 @@ function syncSource(face) {
     if (face.pic?.provisional) dropPicture(face);
     return;
   }
+  // A look at the last file is still on its way: this file's goes behind
+  // it, which ends that one. It would be asked for anyway once that look
+  // was over; this only stops the wait for a picture nobody looks at now.
+  if (face.flying.length) requestRun(face, "look");
   const turn = ++face.turn;
   loadImage(url).then((image) => {
     if (!face.alive || turn !== face.turn || url !== face.sourceUrl) return;

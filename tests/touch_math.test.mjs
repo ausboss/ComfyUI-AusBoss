@@ -30,6 +30,7 @@ import {
   fineEdgeLabel,
   fineMade,
   fineMask,
+  goesBehind,
   growMask,
   loaderSignature,
   maskShare,
@@ -811,4 +812,41 @@ test("the node asks for its own loader's picture only in answer to the person, n
   assert.match(stage, /if \(!face\.host\.loading\?\.\(\)\) followOwnLoader\(face, true\)/);
   const host = readFileSync(join(root, "js", "mask_by_touch", "index.js"), "utf-8");
   assert.match(host, /loading: \(\) => Boolean\(app\.configuringGraph\)/);
+});
+
+test("a look at another picture goes behind the look at the old one, which ends it", () => {
+  const look = (epoch, queued = true) => ({ ask: "scope", epoch, queued });
+  // nothing on its way: anything is sent
+  assert.equal(goesBehind([], "scope", 1), true);
+  assert.equal(goesBehind(undefined, "look", 1), true);
+  // a click never waits for a look
+  assert.equal(goesBehind([look(1)], "look", 1), true);
+  // a second look at the same picture waits for the first
+  assert.equal(goesBehind([look(1)], "scope", 1), false);
+  // another picture was chosen while the first was looked at: its look is sent at once
+  assert.equal(goesBehind([look(1)], "scope", 2), true);
+  // and again for a third picture, behind the two that are now old
+  assert.equal(goesBehind([look(1), look(2)], "scope", 3), true);
+  // but not behind a look at the picture that is on the node now
+  assert.equal(goesBehind([look(1), look(2)], "scope", 2), false);
+  // a look ComfyUI does not have yet cannot be ended by a job behind it
+  assert.equal(goesBehind([look(1, false)], "scope", 2), false);
+  assert.equal(goesBehind([look(1, false)], "look", 1), false);
+  // a run that is no look does not give way
+  assert.equal(goesBehind([{ ask: "look", epoch: 1, queued: true }], "scope", 2), false);
+  assert.equal(goesBehind([{ ask: "look", epoch: 1, queued: true }], "look", 2), false);
+});
+
+test("both kinds of loader send the new picture's look without waiting for the old one", () => {
+  const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+  const stage = readFileSync(join(root, "js", "shared", "touch_stage.mjs"), "utf-8");
+  const run = stage.slice(stage.indexOf("function requestRun"), stage.indexOf("function settle"));
+  assert.match(run, /goesBehind\(face\.flying, ask, face\.sourceEpoch\)/);
+  // the pack's own loaders: the picture counts as asked for only once its run was really sent
+  const show = stage.slice(stage.indexOf("function showOwnPicture"), stage.indexOf("function followOwnLoader"));
+  assert.match(show, /if \(requestRun\(face, "scope"\)\) face\.ownSeen = seen/);
+  assert.doesNotMatch(show, /if \(face\.inFlight\) \{\s*followOwnLoader/);
+  // a plain Load Image: another file while a look is on its way sends this file's look behind it
+  const source = stage.slice(stage.indexOf("function syncSource"), stage.indexOf("function imageOrigin"));
+  assert.match(source, /if \(face\.flying\.length\) requestRun\(face, "look"\)/);
 });
