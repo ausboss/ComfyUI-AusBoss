@@ -18,10 +18,18 @@ change it, remove it, cut it out, or keep everything else.
 What is lit in teal is what the mask will be. When it is right, press Run
 for the whole workflow.
 
-The first time the pointer rests on a picture, the node looks at it. The
-first things light up after a few seconds, and it has seen the whole
-picture after about 20. A click made before that is not lost: a dot marks
-it, and it is taken as soon as the node has looked.
+The first time the pointer rests on a picture, the node looks at it, and the
+picture says so in its corner, with how far along it is: **Looking at the
+picture… 40 of 104**. The first things light up after a few seconds, and it
+has seen the whole picture after about 20.
+
+You do not have to wait for that. Whatever is lit under the pointer can be
+picked: a click takes it at once, also while the node is still looking.
+
+A click on a spot where nothing is lit yet is not lost: a dot marks it, the
+picture says **Your click is in**, and it is taken as soon as the node has
+found the thing there. One click waits at a time; more clicks on spots with
+nothing lit are not taken until then.
 
 A thing lights up with its name when the node is sure of the name. When it
 is not sure, the thing still lights up and can be picked, without a name.
@@ -358,12 +366,17 @@ no browser:
 - A click on a lit piece returns exactly that piece. A named piece has its
   own point for this: the place deepest inside it that lies in no smaller
   thing of the same name.
-- A click on a picture that has not been looked at yet waits for the look,
-  which then starts at the click. It is taken as soon as a named thing lies
-  under it (the person as a whole and a backdrop do not count), when every
-  word of the list has been asked, or after 12 seconds at the latest.
-  Without the wait it would get only what SAM 3 finds at that one point: the
-  whole person for a click on a jacket.
+- A click on a spot where nothing is lit yet waits for the look, which then
+  starts at the click. It is taken as soon as a named thing lies under it
+  (the person as a whole and a backdrop do not count), when every word of
+  the list has been asked, or after 45 seconds at the latest. Without the
+  wait it would get only what SAM 3 finds at that one point: the whole
+  person for a click on a jacket. One click waits at a time: several would
+  be taken one after the other when the look is done, each as the next
+  thing at its spot.
+- A click on a thing that is lit never waits, whatever the node knows about
+  its name: what lights up is what a click takes. A click that waited at
+  that spot is answered by it.
 - Measured on one machine (RTX 5090, pictures of about 1.5 megapixels, the
   card otherwise idle): the first 40 words were done after 5 to 9 seconds
   and the whole picture after 16 to 25 seconds, in one look, with 72 to

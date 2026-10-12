@@ -194,15 +194,37 @@ export function loraStackKeyAction(event, { index, rowCount, atAdd = false, edit
   return null;
 }
 
-export function toggleTrigger(triggers, word) {
-  const parts = String(triggers || "")
+// A row keeps its triggers as one comma-joined text, and a trigger can hold
+// commas of its own (a whole sentence from Civitai). So a trigger is looked
+// for as the run of parts it becomes in that text, never as a single part.
+function triggerParts(text) {
+  return String(text || "")
     .split(",")
     .map((part) => part.trim())
     .filter(Boolean);
-  const key = word.trim().toLowerCase();
-  const existing = parts.findIndex((part) => part.toLowerCase() === key);
-  if (existing >= 0) parts.splice(existing, 1);
-  else if (word.trim()) parts.push(word.trim());
+}
+
+function findTrigger(parts, wanted) {
+  if (!wanted.length) return -1;
+  for (let start = 0; start + wanted.length <= parts.length; start += 1) {
+    if (wanted.every((part, offset) => parts[start + offset].toLowerCase() === part.toLowerCase())) {
+      return start;
+    }
+  }
+  return -1;
+}
+
+export function hasTrigger(triggers, word) {
+  return findTrigger(triggerParts(triggers), triggerParts(word)) >= 0;
+}
+
+export function toggleTrigger(triggers, word) {
+  const parts = triggerParts(triggers);
+  const wanted = triggerParts(word);
+  let existing = findTrigger(parts, wanted);
+  if (existing < 0) parts.push(...wanted);
+  // Off takes out every copy, so a row that holds the trigger twice clears.
+  for (; existing >= 0; existing = findTrigger(parts, wanted)) parts.splice(existing, wanted.length);
   return parts.join(", ");
 }
 

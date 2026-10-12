@@ -850,3 +850,27 @@ test("both kinds of loader send the new picture's look without waiting for the o
   const source = stage.slice(stage.indexOf("function syncSource"), stage.indexOf("function imageOrigin"));
   assert.match(source, /if \(face\.flying\.length\) requestRun\(face, "look"\)/);
 });
+
+test("while the node still looks at a picture it says so, a lit thing is taken at once, and one click can wait", () => {
+  const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+  const stage = readFileSync(join(root, "js", "shared", "touch_stage.mjs"), "utf-8");
+  const wait = stage.slice(stage.indexOf("function waitForLook"), stage.indexOf("function dropPending"));
+  // what lights up is what a click takes: a click on a lit thing never waits, whatever its name is worth
+  assert.match(wait, /if \(pieceUnder\(face, \[x, y\], true\) >= 0\) \{[\s\S]*?return false;\s*\}/);
+  assert.ok(wait.indexOf("pieceUnder(face, [x, y], true)") < wait.indexOf("face.pending.push("));
+  // where nothing is lit, one click waits at a time: a second one is answered by the message, never added
+  assert.match(wait, /if \(face\.pending\.length\) \{\s*nudge\(face\);\s*return true;\s*\}/);
+  assert.equal((wait.match(/face\.pending\.push\(/g) ?? []).length, 1);
+  // hovering is not held back while it looks
+  const hover = stage.slice(stage.indexOf("function refreshHover"), stage.indexOf("const PAST_KEPT"));
+  assert.doesNotMatch(hover, /notReady/);
+  // a click on a lit thing does not rush the click that still waits
+  assert.match(stage, /if \(!notReady\(face\)\) flushPending\(face\);\s*pickAt\(face, x, y, op\);/);
+  // the message follows every change of state and of the line under the picture
+  const looking = stage.slice(stage.indexOf("function syncLooking"), stage.indexOf("function nudge"));
+  assert.match(looking, /notReady\(face\) && \(face\.inFlight \|\| waits\)/);
+  assert.match(looking, /Looking at the picture…/);
+  assert.match(looking, /Your click is in\./);
+  assert.match(stage.slice(stage.indexOf("function syncReadout"), stage.indexOf("function removeItems")), /syncLooking\(face\)/);
+  assert.match(stage.slice(stage.indexOf("function syncState"), stage.indexOf("function setNote")), /syncLooking\(face\)/);
+});

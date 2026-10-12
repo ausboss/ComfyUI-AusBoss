@@ -9,6 +9,27 @@ All notable changes to ComfyUI-AusBoss are documented here.
   Everything outside it stays your own picture. A Fast switch runs it in
   8 steps with the Viggle Turbo LoRA. It is the same workflow as on its
   page, for people who get their workflows from the pack.
+- **LoRA Loader: a trigger with a comma in it switches on and off.** Some
+  LoRAs list a whole sentence as their trigger. Clicking it in a row's info
+  card added it to the row, but it did not light up, and a second click
+  added it again instead of taking it out. It now lights up, and a second
+  click removes it. A row that already holds the sentence twice is cleared
+  with one click.
+- **Image Compare A/B: no thin line of the other picture down the edge.**
+  At some node widths and zoom levels a line of the picture that was not
+  on show ran down the right edge of the one that was. It stood out when
+  one side was a padded canvas: its grey showed beside the result. Only
+  the node's view had it, never the saved picture. The picture that is
+  not on show is no longer drawn.
+- **Mask by Touch 🆎: a click on a lit thing always takes it.** While the
+  node was still looking at a picture, a thing could light up under the
+  pointer and a click on it only left a dot: the click was held back unless
+  the node was already sure of the thing's name. Three clicks left three
+  dots, which became three picks at once when the look was done. Now what
+  is lit is taken by a click, at once, also while the node is still
+  looking. The picture says **Looking at the picture…** in its corner, with
+  how far along it is. A click where nothing is lit yet still waits for
+  the look, one click at a time, and the picture says **Your click is in**.
 
 ## 2.11.0 - 2026-10-12
 
