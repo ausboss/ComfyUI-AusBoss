@@ -185,6 +185,15 @@ see the rest of the picture. In API graphs the same switch is the
 `on_missing` input (`"error"`, the default, or `"skip"`); graphs saved before
 the input existed get the default.
 
+A file that is there but is not a LoRA also stops the run before anything
+loads, and the error names the file and says what it is: a Draw Things
+file (Draw Things turns a LoRA into its own kind of file when you import
+it, and ComfyUI cannot open that kind), a web page saved by a download
+that needed a login, or a download that never finished. Pick the original
+`.safetensors` file in that row. A file that fails later, while it is
+being opened, gets the same plain message with the loader's own error at
+the end.
+
 ## Preview thumbnails
 
 Hovering a row's name — or any entry in the picker — floats a small preview

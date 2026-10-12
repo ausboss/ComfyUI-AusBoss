@@ -2,6 +2,15 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **LoRA Loader 🆎: a file that is not a LoRA is named in plain words.**
+  A row that held a Draw Things copy of a LoRA, a web page saved by a
+  failed download or an empty file stopped the run with a long PyTorch
+  message that never said which file was wrong. The error now names the
+  file, says what it is and what to pick instead, and it comes before any
+  model loads.
+
 ## 2.11.1 - 2026-10-12
 
 - **New example: Qwen Image 2.1 Inpaint.** Click a thing in your picture

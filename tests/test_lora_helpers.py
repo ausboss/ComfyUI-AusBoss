@@ -399,6 +399,100 @@ class MissingRowPolicyTests(unittest.TestCase):
         self.assertEqual(on_missing[1]["default"], "error")
 
 
+class UnreadableLoraFileTests(unittest.TestCase):
+    """A file in a row that is not a LoRA: named, explained, and caught before a model loads."""
+
+    ROW = {"name": "import_lora_f16.ckpt", "strength": 1.0, "strength_clip": 1.0,
+           "enabled": True, "triggers": ""}
+    SQLITE = b"SQLite format 3\x00" + bytes(84)
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root = Path(tmp.name)
+        self.resolved = patch.object(
+            _lora_helpers, "resolve_lora_path", side_effect=lambda name: self.root / name
+        )
+        self.resolved.start()
+        self.addCleanup(self.resolved.stop)
+
+    def write(self, name: str, data: bytes) -> Path:
+        path = self.root / name
+        path.write_bytes(data)
+        return path
+
+    def test_each_wrong_file_gets_its_own_plain_reason(self):
+        cases = {
+            "Draw Things": self.SQLITE,
+            "web page": b"\n<!DOCTYPE html><html><head><title>Sign in</title>",
+            "text pointer": b"version https://git-lfs.github.com/spec/v1\noid sha256:0\n",
+            "is empty": b"",
+        }
+        for expected, data in cases.items():
+            reason = _lora_helpers.unreadable_lora_reason(self.write("case.ckpt", data))
+            self.assertIn(expected, reason)
+            reason.encode("ascii")  # Windows cp1252 consoles
+
+    def test_a_real_safetensors_start_is_left_alone(self):
+        # The file opens with its header length, so its first byte can be any
+        # byte at all, '<' and 'S' included.
+        for first in (0x20, 0x3C, 0x53, 0x7B):
+            head = bytes([first, 0x22]) + bytes(6) + b'{"__metadata__":{"format":"pt"}}'
+            path = self.write("real.safetensors", head)
+            self.assertEqual(_lora_helpers.unreadable_lora_reason(path), "")
+
+    def test_only_rows_that_would_load_are_checked(self):
+        self.write("import_lora_f16.ckpt", self.SQLITE)
+        self.write("off.ckpt", self.SQLITE)
+        self.write("parked.ckpt", self.SQLITE)
+        rows = [
+            dict(self.ROW),
+            {**self.ROW, "name": "off.ckpt", "enabled": False},
+            {**self.ROW, "name": "parked.ckpt", "strength": 0, "strength_clip": 0},
+            {**self.ROW, "name": "not_on_disk.safetensors"},
+        ]
+        self.assertEqual(
+            [name for name, _ in _lora_helpers.unreadable_lora_rows(rows)],
+            ["import_lora_f16.ckpt"],
+        )
+
+    def test_validation_names_the_file_before_anything_loads(self):
+        try:
+            from nodes.node_lora_loader import AusBossLoraLoader
+        except Exception as exc:  # pragma: no cover - needs the package importable
+            self.skipTest(f"node module not importable offline: {exc}")
+        self.write("import_lora_f16.ckpt", self.SQLITE)
+        stack = json.dumps([dict(self.ROW)])
+        for mode in ("error", "skip"):
+            verdict = AusBossLoraLoader.VALIDATE_INPUTS(stack, on_missing=mode)
+            self.assertIsInstance(verdict, str)
+            self.assertIn("'import_lora_f16.ckpt'", verdict)
+            self.assertIn("Draw Things", verdict)
+            self.assertIn(".safetensors", verdict)
+            verdict.encode("ascii")
+
+    def test_a_file_that_fails_to_load_is_named_with_the_loader_error_last(self):
+        import types
+
+        fake_comfy = types.ModuleType("comfy")
+        fake_sd = types.ModuleType("comfy.sd")
+        fake_comfy.sd = fake_sd
+        modules = patch.dict(sys.modules, {"comfy": fake_comfy, "comfy.sd": fake_sd})
+        modules.start()
+        self.addCleanup(modules.stop)
+        self.write("broken.safetensors", bytes(64))
+        row = {**self.ROW, "name": "broken.safetensors"}
+        failure = RuntimeError("Weights only load failed.\n\nUnsupported operand 83")
+        with patch.object(_lora_helpers, "_load_lora_file", side_effect=failure):
+            with self.assertRaises(ValueError) as caught:
+                _lora_helpers.apply_lora_stack("model", None, [row])
+        message = str(caught.exception)
+        self.assertTrue(message.startswith("LoRA Loader: 'broken.safetensors' is not a LoRA file"))
+        self.assertIn("Download the file again", message)
+        self.assertTrue(message.endswith("RuntimeError: Weights only load failed. Unsupported operand 83"))
+        self.assertIs(caught.exception.__cause__, failure)
+
+
 class ResolveLoraPathTests(unittest.TestCase):
     """The file a name resolves to, and the check that keeps it in models/loras."""
 

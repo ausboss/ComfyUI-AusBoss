@@ -281,6 +281,68 @@ def missing_lora_rows(rows: list[dict[str, Any]]) -> list[tuple[str, str]]:
     return missing
 
 
+_REDOWNLOAD = "Download the file again and use the .safetensors file."
+
+
+def unreadable_lora_reason(path: Path) -> str:
+    """Why this file cannot be a LoRA, in plain words; "" when its start looks fine.
+
+    Reads 64 bytes, so validation can run it on every row before a model
+    loads. Each check wants a whole signature: one byte proves nothing, a
+    .safetensors file opens with its header length, which can be any byte.
+    """
+    try:
+        with path.open("rb") as handle:
+            head = handle.read(64)
+    except OSError:
+        return ""
+    if not head:
+        return f"The file is empty, so its download never finished. {_REDOWNLOAD}"
+    if head.startswith(b"SQLite format 3"):
+        return (
+            "It looks like a Draw Things file. Draw Things turns a LoRA into its own "
+            "kind of file when you import it, and ComfyUI cannot open that kind. "
+            "Pick the original .safetensors file in this row."
+        )
+    if head.startswith(b"version https://git-lfs"):
+        return f"It is a small text pointer to the LoRA, not the LoRA itself. {_REDOWNLOAD}"
+    if head.lstrip().lower().startswith((b"<!doctype", b"<html", b"<?xml")):
+        return (
+            "It is a web page saved under the LoRA's name, which happens when a "
+            f"download needs a login or fails. {_REDOWNLOAD}"
+        )
+    return ""
+
+
+def unreadable_lora_rows(rows: list[dict[str, Any]]) -> list[tuple[str, str]]:
+    """(name, reason) for every enabled, non-zero row whose file is plainly not a LoRA.
+
+    A row whose file is missing is left to missing_lora_rows.
+    """
+    unreadable: list[tuple[str, str]] = []
+    for row in rows:
+        if not row.get("enabled", True):
+            continue
+        if row.get("strength", 0) == 0 and row.get("strength_clip", 0) == 0:
+            continue
+        try:
+            reason = unreadable_lora_reason(resolve_lora_path(row["name"]))
+        except ValueError:
+            continue
+        if reason:
+            unreadable.append((row["name"], reason))
+    return unreadable
+
+
+def unreadable_lora_message(name: str, reason: str, detail: str = "") -> str:
+    message = f"LoRA Loader: '{name}' is not a LoRA file ComfyUI can open. " + (
+        reason
+        or "It may be broken, only partly downloaded, or another kind of file "
+        f"under a LoRA's name. {_REDOWNLOAD}"
+    )
+    return f"{message} Technical details: {detail}" if detail else message
+
+
 def apply_lora_stack(
     model, clip, rows: list[dict[str, Any]], on_missing: str = "error", missing: list | None = None
 ):
@@ -316,7 +378,16 @@ def apply_lora_stack(
             if missing is not None:
                 missing.append(row)
             continue
-        lora_sd = _load_lora_file(path)
+        try:
+            lora_sd = _load_lora_file(path)
+        except MemoryError:
+            raise
+        except Exception as exc:
+            # ComfyUI's own message here is PyTorch's and never names the file.
+            detail = f"{type(exc).__name__}: {' '.join(str(exc).split())}"
+            raise ValueError(
+                unreadable_lora_message(row["name"], unreadable_lora_reason(path), detail)
+            ) from exc
         before = patch_total(model, clip)
         model, clip = comfy.sd.load_lora_for_models(
             model, clip, lora_sd, row["strength"], strength_clip
