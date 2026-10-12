@@ -8,11 +8,13 @@
 // + Switch) or a group listed on its own. A made switch can also change
 // settings instead of turning nodes off: it remembers what chosen nodes hold
 // for on and for off, and a click writes the values that differ (a faster
-// LoRA row and fewer steps, say). The card has two views. The edit
-// view shows everything: a frame button and a menu on each row, the bar that
-// makes a switch from the selection, and the settings. Done folds all of
-// that away and leaves the labels and their switches: the small view a
-// shared workflow ships with.
+// LoRA row and fewer steps, say). Or it can have an off side: nodes that run
+// only while the row is off, so one click runs one part and switches another
+// off (an edit that takes its size from its picture, say). The card has two
+// views. The edit view shows everything: a frame button and a menu on each
+// row, the bar that makes a switch from the selection, and the settings. Done
+// folds all of that away and leaves the labels and their switches: the small
+// view a shared workflow ships with.
 //
 // Only what the user made is stored (which nodes each switch holds, by id,
 // the values it remembers and the settings, in node.properties). Every row's
@@ -30,10 +32,10 @@ import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { holdNodeMinWidth, pinVuePanelHeight } from "../shared/panel_layout.mjs";
 import { cardHeight, commitWidgetValue, ensureCardCss } from "../shared/widget_card.mjs";
 import {
-  DEFAULT_SETTINGS, SETTINGS_PROPERTY, SWITCHES_MAX, TITLE_MAX, addMembers, addSwitch, flipTo, frameBounds, groupBounds, heldCount,
-  listedRows, modeMatters, moveSwitch, normalizeSettings, pairValue, placeNodes, readGroups, readSwitches,
-  removeMembers, removeSwitch, renameSwitch, rowsSignature, saveValues, snapshotNode, suggestTitle, switchAllPlan,
-  switchPlan, valueAllPlan, valuePlan,
+  DEFAULT_SETTINGS, SETTINGS_PROPERTY, SWITCHES_MAX, TITLE_MAX, addMembers, addOffMembers, addSwitch, flipTo, frameBounds,
+  groupBounds, hasOffSide, heldCount, listedRows, modeMatters, moveSwitch, normalizeSettings, offFreshCount, offHeldCount,
+  pairValue, placeNodes, readGroups, readSwitches, removeMembers, removeOffMembers, removeSwitch, renameSwitch,
+  rowsSignature, saveValues, snapshotNode, suggestTitle, switchAllPlan, switchPlan, valueAllPlan, valuePlan,
 } from "../shared/workflow_switches.mjs";
 
 const NODE_CLASS = "AUSBOSS_NODES_WorkflowSwitches";
@@ -95,6 +97,11 @@ function ensureCss() {
 .ausboss-ws.edit .ausboss-ws-tool.none{visibility:hidden}
 .ausboss-ws-tool:hover,.ausboss-ws-tool.open{border-color:${BRAND};color:#fff}
 .ausboss-ws-tool svg{display:block}
+.ausboss-ws-sides{display:none;place-items:center;width:14px;height:14px;color:#78908e;cursor:help}
+.ausboss-ws-sides:hover{color:#d8ecea}
+.ausboss-ws-sides svg{display:block;width:12px;height:12px}
+.ausboss-ws.edit .ausboss-ws-row.sided{grid-template-columns:10px minmax(0,1fr) auto auto 84px 26px 26px}
+.ausboss-ws.edit .ausboss-ws-row.sided .ausboss-ws-sides{display:grid}
 .ausboss-ws-hint{height:${HINT_HEIGHT}px;flex:none;display:flex;align-items:center;padding:0;border:none;background:transparent;color:#78908e;font:inherit;font-size:11px;line-height:1.35;text-align:left;user-select:none;pointer-events:auto}
 .ausboss-ws-hint.link{cursor:pointer}
 .ausboss-ws-hint.link:hover{color:#d8ecea}
@@ -164,6 +171,22 @@ function moreIcon() {
   return svgIcon((add) => {
     for (const cx of ["3", "8", "13"]) add("circle", { cx, cy: "8", r: "1.5", fill: "currentColor" });
   });
+}
+
+// Two arrows, one each way: this switch has an off side.
+function sidesIcon() {
+  return svgIcon((add) => {
+    add("path", {
+      d: "M2 5h11M10 2l3 3-3 3M14 11H3M6 8l-3 3 3 3", fill: "none", stroke: "currentColor",
+      "stroke-width": "1.6", "stroke-linecap": "round", "stroke-linejoin": "round",
+    });
+  });
+}
+
+// "a", "a and b", "a, b and c": a click's effects as one short sentence.
+function andList(parts) {
+  const list = parts.filter(Boolean);
+  return list.length < 2 ? list.join("") : `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`;
 }
 
 // ---------- reading ----------
@@ -523,7 +546,7 @@ function selectMembers(state, key) {
   const row = read(state).rows.find((candidate) => rowKey(candidate) === key);
   const canvas = app.canvas;
   if (!row || !canvas) return;
-  const nodes = [...row.members, ...(row.valueNodes ?? [])];
+  const nodes = [...row.members, ...(row.offMembers ?? []), ...(row.valueNodes ?? [])];
   canvas.deselectAll?.();
   if (typeof canvas.select === "function") for (const node of nodes) canvas.select(node);
   else canvas.selectNodes?.(nodes);
@@ -571,6 +594,9 @@ function showMenu(state, key, anchor) {
   const ids = pickedIds(pick);
   const held = heldCount(entry, ids);
   const fresh = pick.count - held;
+  const offHeld = offHeldCount(entry, ids);
+  const offFresh = offFreshCount(entry, ids);
+  const inSwitch = held + offHeld;
   const menu = el("div", "ausboss-ws-menu");
   menu.append(el("div", "ausboss-ws-menu-head", entry.title));
   const item = (label, run, { disabled = false, danger = false, title = "" } = {}) => {
@@ -592,9 +618,24 @@ function showMenu(state, key, anchor) {
     { disabled: fresh < 1, title: "Select nodes or groups on the canvas first, then add them to this switch" },
   );
   item(
-    held > 0 ? `Take out the ${held} selected` : "Take out the selected",
+    inSwitch > 0 ? `Take out the ${inSwitch} selected` : "Take out the selected",
     () => writeSettings(state, removeMembers(settings, id, ids)),
-    { disabled: held < 1, title: "Select nodes this switch holds first, then take them out of it" },
+    { disabled: inSwitch < 1, title: "Select nodes this switch holds first, then take them out of it" },
+  );
+  rule();
+  // The off side: nodes that run only while this switch is off.
+  item(
+    offFresh > 0 ? `The ${offFresh} selected ${offFresh === 1 ? "runs" : "run"} only while this is off` : "The selected run only while this is off",
+    () => writeSettings(state, addOffMembers(settings, id, ids)),
+    {
+      disabled: offFresh < 1,
+      title: `Select nodes or groups first. They run only while this switch is off, and are ${settings.off === "mute" ? "muted" : "bypassed"} while it is on.`,
+    },
+  );
+  item(
+    offHeld > 0 ? `Take the ${offHeld} selected off that side` : "Take the selected off that side",
+    () => writeSettings(state, removeOffMembers(settings, id, ids)),
+    { disabled: offHeld < 1, title: "Select nodes that run only while this is off, then take them off that side. They stay as they are." },
   );
   rule();
   // A switch that changes settings instead of turning nodes off.
@@ -658,6 +699,7 @@ function buildRow(state, key, made) {
   else more.tabIndex = -1;
 
   let name = null;
+  let sides = null;
   if (made) {
     name = el("input", "ausboss-card-text ausboss-ws-name");
     name.type = "text";
@@ -673,7 +715,10 @@ function buildRow(state, key, made) {
     name.addEventListener("blur", () => {
       if (state.renaming === key) stopRename(state, { keep: true });
     });
-    row.append(chip, title, name, count, pill, go, more);
+    // A quiet sign, in the edit view only, that this switch has an off side.
+    sides = el("span", "ausboss-ws-sides");
+    sides.append(sidesIcon());
+    row.append(chip, title, name, sides, count, pill, go, more);
   } else {
     row.append(chip, title, count, pill, go, more);
   }
@@ -691,22 +736,36 @@ function buildRow(state, key, made) {
     chip.style.setProperty("--chip", data.color ?? (made ? BRAND : NO_COLOR));
     title.textContent = label;
     const pairs = data.pairs ?? [];
+    const offNodes = data.offMembers ?? [];
     const names = data.members.slice(0, 6).map(nodeTitle).join(", ");
     const tail = data.members.length > 6 ? ` and ${data.members.length - 6} more` : "";
+    const offNames = offNodes.slice(0, 6).map(nodeTitle).join(", ");
+    const offTail = offNodes.length > 6 ? ` and ${offNodes.length - 6} more` : "";
     const sets = pairs.slice(0, 6).map((pair) => `${nodeTitle(pair.live)} (${pair.row ?? pair.widget})`).join(", ");
     const parts = [];
     if (data.members.length) parts.push(`turns off and on ${names}${tail}`);
+    if (offNodes.length) parts.push(`runs only while it is off: ${offNames}${offTail}`);
     if (pairs.length) parts.push(`changes ${sets}${pairs.length > 6 ? ` and ${pairs.length - 6} more` : ""}`);
+    if (sides) {
+      row.classList.toggle("sided", hasOffSide(data.entry));
+      sides.title = offNodes.length
+        ? `Runs only while this is off: ${offNames}${offTail} (${settings.off === "mute" ? "muted" : "bypassed"} while it is on)`
+        : "Nothing is on its off side right now: the nodes or groups put there are gone or empty.";
+    }
     title.title = made
       ? parts.length ? `${label}: ${parts.join("; ")}` : data.half ? `${label}: saved for one side only` : `${label}: its nodes are gone`
       : `${label}: every node inside this group`;
     const waiting = data.half && !pairs.length && !data.members.length;
     // A setting changed by hand to a third value is neither on nor off.
     const changed = data.state === "mixed" && pairs.some((pair) => pair.now === "other");
+    // With an off side, a node on it counts when it is switched off.
+    const unit = offNodes.length
+      ? pairs.length ? "nodes and settings are set for on" : "nodes are set for on"
+      : pairs.length ? "nodes and settings are on" : "nodes run";
     count.textContent = changed ? "changed" : data.state === "mixed" ? `${data.on}/${data.total}` : waiting ? "half set" : data.state === "empty" ? "empty" : "";
     count.title = changed
       ? "A setting this switch changes was set by hand to something else. Click off or on to set it again."
-      : data.state === "mixed" ? `${data.on} of its ${data.total} ${pairs.length ? "nodes and settings are on" : "nodes run"}`
+      : data.state === "mixed" ? `${data.on} of its ${data.total} ${unit}`
       : waiting ? "Saved for one side only. Set its nodes the other way, select them, and save that side from its menu."
         : data.state !== "empty" ? ""
           : made ? "Its nodes are gone. Add some from its menu in the edit view, or delete the switch." : "No nodes inside this group yet";
@@ -715,9 +774,17 @@ function buildRow(state, key, made) {
     onButton.classList.toggle("on", data.state === "on");
     offButton.setAttribute("aria-pressed", String(data.state === "off"));
     onButton.setAttribute("aria-pressed", String(data.state === "on"));
-    const valuesOnly = pairs.length > 0 && !data.members.length;
-    const turnOff = valuesOnly ? `Switch "${label}" off` : `${settings.off === "mute" ? "Mute" : "Bypass"} "${label}"`;
-    const turnOn = `${valuesOnly ? "Switch" : "Run"} "${label}"${valuesOnly ? " on" : ""}${settings.exclusive ? " and switch the other rows off" : ""}`;
+    // Nothing of its own to turn off: it only changes settings, or only has an off side.
+    const noOwnNodes = !data.members.length && (pairs.length > 0 || offNodes.length > 0);
+    const turnOff = andList([
+      noOwnNodes ? `Switch "${label}" off` : `${settings.off === "mute" ? "Mute" : "Bypass"} "${label}"`,
+      offNodes.length > 0 && "run what runs only while it is off",
+    ]);
+    const turnOn = andList([
+      `${noOwnNodes ? "Switch" : "Run"} "${label}"${noOwnNodes ? " on" : ""}`,
+      offNodes.length > 0 && `${settings.off === "mute" ? "mute" : "bypass"} what runs only while it is off`,
+      settings.exclusive && "switch the other rows off",
+    ]);
     // Either half flips the switch, so both say what the next click does;
     // a mixed row goes to the half that is clicked.
     offButton.title = data.state === "off" ? `Click: ${turnOn}` : data.state === "on" ? `Click: ${turnOff}` : turnOff;

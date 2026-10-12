@@ -40,6 +40,33 @@ nodes are no longer turned off by it.
 In a LoRA Loader it changes single rows, found by file name. A row you did
 not change keeps whatever strength you give it later.
 
+## A switch with two sides
+
+Sometimes one choice means "use this" and "leave that out" at the same time.
+When you edit a picture, the picture decides the size, so the node that sets
+the size should sit out. When you make a new picture, it is the other way
+round.
+
+One switch can do both. Give it an **off side**: nodes that run **only while
+the switch is off**. Say the switch is **Edit a picture**, it holds the node
+*Your picture*, and *Latent Size* is on its off side:
+
+- **on**: *Your picture* runs. *Latent Size* is switched off, so it looks
+  bypassed.
+- **off**: *Your picture* is switched off. *Latent Size* runs.
+
+To set it up:
+
+1. Make the switch from the nodes that should run while it is on, here
+   *Your picture*.
+2. Select the nodes that should run only while it is off, here *Latent Size*.
+3. Open the switch's three dots and pick **The 1 selected runs only while this
+   is off**.
+
+A small sign of two arrows beside the label shows that a switch has an off
+side. Point at it to see which nodes. To take a node off that side again,
+select it and pick **Take the 1 selected off that side**.
+
 ## The small view
 
 Press **Done** and the card shrinks to the labels and their switches. That is
@@ -71,12 +98,15 @@ the models only that part needs.
   the half you want, off or on, to set them all. A settings switch reads **changed** when one of
   its values was set by hand to something else, and **half set** while only
   one side is saved.
-- **Frame button** (four corners): brings the part into view.
+- **Frame button** (four corners): brings the part into view. For a switch
+  with an off side, it brings both sides into view.
 - **Three dots** (on a switch you made):
   - **Rename**. Double-clicking the label does the same.
   - **Select its nodes** shows on the canvas what the switch holds.
   - **Add the selected** and **Take out the selected** change what it holds.
     Select nodes or groups first.
+  - **The selected run only while this is off** and **Take the selected off
+    that side** give the switch an off side, see above.
   - **Save the selected as on** and **Save the selected as off** make it a
     switch that changes settings, see above.
   - **Move up** and **Move down** change the order.
@@ -127,7 +157,24 @@ Open **Settings** at the bottom of the edit view.
   number and on/off value of the selected nodes, by control name. Only the
   ones that differ between on and off are ever written. A value longer than
   20,000 characters is not stored. One switch remembers up to 40 nodes.
-- **Switch everything on** and **off** also move every settings switch.
+- **Switch everything on** and **off** also move every settings switch and
+  every off side.
+- **How a switch with an off side reads.** It is on when its own nodes run
+  and its off side does not, off when it is the other way round, and mixed
+  otherwise. The count on a mixed row, such as **2/3**, counts the nodes of
+  both sides.
+- **A node is on one side only.** Putting it on one side takes it off the
+  other, and a node that a saved workflow lists on both stays on the on side.
+  A node you picked by hand stays on the side you picked it for, even when a
+  group on the other side holds it too. When groups of both sides hold it, it
+  stays on the on side.
+- **One at a time** switches the other rows off, which runs their off sides.
+  A node that one row runs and another switches off ends up running, and the
+  row you switch on has the last word.
+- **The off side is stored next to the nodes it belongs to**, as `nodes_off`
+  and `groups_off` beside `nodes` and `groups`. They are left out while
+  nothing is on the off side, so a workflow that does not use it is saved as
+  before. An older version of this pack ignores the off side.
 - It stores which nodes each switch holds, the values it remembers and its
   settings. Whether a row is on is read from the nodes themselves, so a saved
   workflow reopens showing what is really on, however it was switched.

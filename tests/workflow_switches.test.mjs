@@ -3,11 +3,12 @@ import test from "node:test";
 
 import {
   DEFAULT_SETTINGS, MEMBERS_MAX, MODE_ALWAYS, MODE_BYPASS, MODE_NEVER, SWITCHES_MAX, TITLE_MAX, VALUE_TEXT_MAX,
-  addMembers, addSwitch, canvasOrder, centreInside, cleanIds, cleanSnapshots, flipTo, frameBounds, groupBounds, groupListed,
-  heldCount, isRunning, listedRows, matchTerms, modeMatters, moveSwitch, nodeBounds, normalizeSettings,
-  normalizeSwitches, offMode, pairNow, pairValue, partState, placeNodes, readGroups, readSwitches, removeMembers,
-  removeSwitch, renameSwitch, rowsSignature, saveValues, snapshotNode, stackRows, suggestTitle, switchAllPlan,
-  switchPlan, titleOrder, unionRect, valueAllPlan, valuePairs, valuePlan,
+  addMembers, addOffMembers, addSwitch, canvasOrder, centreInside, cleanIds, cleanSnapshots, flipTo, frameBounds, groupBounds,
+  groupListed, hasOffSide, heldCount, isRunning, listedRows, matchTerms, modeMatters, moveSwitch, nodeBounds,
+  normalizeSettings, normalizeSwitches, offFreshCount, offHeldCount, offMode, pairNow, pairValue, partState, placeNodes,
+  readGroups, readSwitches, removeMembers, removeOffMembers, removeSwitch, renameSwitch, rowsSignature, saveValues,
+  snapshotNode, stackRows, suggestTitle, switchAllPlan, switchPlan, titleOrder, unionRect, valueAllPlan, valuePairs,
+  valuePlan,
 } from "../js/shared/workflow_switches.mjs";
 
 const node = (id, x, y, { w = 200, h = 100, mode = MODE_ALWAYS, ...rest } = {}) => ({ id, pos: [x, y], size: [w, h], mode, ...rest });
@@ -478,11 +479,275 @@ test("a row that turns nodes off and changes settings is on only when both are",
   assert.deepEqual(partState([{ mode: MODE_ALWAYS, note: true }], (member) => !member.note, [off]), { state: "off", on: 0, total: 1 });
 });
 
+// ---------- a switch with two sides ----------
+
+// The case behind it: an edit takes its size from the picture, so "Latent
+// Size" has to look switched off while "Edit a picture" is on, and run while
+// it is off. "Your picture" is the other way round.
+const picture = (mode = MODE_ALWAYS) => node(1, 0, 0, { mode });
+const latentSize = (mode = MODE_ALWAYS) => node(2, 400, 0, { mode });
+const twoSided = (extra = {}) => normalizeSettings({ switches: [{ id: 1, title: "Edit a picture", nodes: [1], nodes_off: [2], ...extra }] });
+const readOne = (settings, nodes, groups = [], options) => {
+  const placed = placeNodes(nodes);
+  return readSwitches(settings.switches, placed, readGroups(groups, placed), options)[0];
+};
+const planned = (plan) => Object.fromEntries(plan.map(([member, mode]) => [member.id, mode]));
+
+test("the off side is cleaned like the nodes beside it, and left out while it is empty", () => {
+  const [entry] = normalizeSwitches([
+    { id: 1, title: "Edit", nodes: [1], groups: [2], nodes_off: [3, "3", 4, null, NaN, {}], groups_off: [5, "5"] },
+  ]);
+  assert.deepEqual(entry, { id: 1, title: "Edit", nodes: [1], groups: [2], nodes_off: [3, 4], groups_off: [5], on: {}, off: {} });
+  assert.deepEqual([hasOffSide(entry), hasOffSide({ groups_off: [5] }), hasOffSide({ nodes: [1] }), hasOffSide(undefined)], [true, true, false, false]);
+  // Nothing on the off side: the keys are not stored, so the switch saves as it always did.
+  assert.deepEqual(Object.keys(normalizeSwitches([{ id: 1, nodes: [1], nodes_off: [], groups_off: "x" }])[0]), ["id", "title", "nodes", "groups", "on", "off"]);
+  assert.deepEqual(Object.keys(normalizeSwitches([{ nodes_off: [7] }])[0]), ["id", "title", "nodes", "groups", "nodes_off", "on", "off"]);
+  // An id on both sides stays on the normal side only, as a number or as text.
+  const both = normalizeSwitches([{ nodes: [1, 2], nodes_off: [2, "1", 3], groups: [7], groups_off: ["7", 8] }])[0];
+  assert.deepEqual([both.nodes, both.nodes_off, both.groups, both.groups_off], [[1, 2], [3], [7], [8]]);
+  const same = normalizeSwitches([{ nodes: [1], nodes_off: [1], groups: [2], groups_off: [2] }])[0];
+  assert.equal("nodes_off" in same || "groups_off" in same, false);
+  // A node whose values the switch changes is not turned off, on either side.
+  assert.deepEqual(normalizeSwitches([{ nodes_off: [21, 22], on: { 21: { value: 8 } } }])[0].nodes_off, [22]);
+  // Each list holds as many as the nodes and groups beside it do.
+  const many = Array.from({ length: MEMBERS_MAX + 50 }, (_, index) => index);
+  const limited = normalizeSwitches([{ nodes_off: many, groups_off: many }])[0];
+  assert.deepEqual([limited.nodes_off.length, limited.groups_off.length], [MEMBERS_MAX, MEMBERS_MAX]);
+  // What is stored reads back the same.
+  const stored = normalizeSettings({ switches: [entry] });
+  assert.deepEqual(normalizeSettings(JSON.parse(JSON.stringify(stored))), stored);
+});
+
+test("a switch saved before the off side existed is stored, read and switched exactly as it was", () => {
+  const before = '{"off":"bypass","groups":"none","match":"","order":"canvas","exclusive":false,"switches":['
+    + '{"id":1,"title":"The cut-out","nodes":[8],"groups":[],"on":{},"off":{}},'
+    + '{"id":2,"title":"Fast","nodes":[],"groups":[3],"on":{"7":{"value":8}},"off":{"7":{"value":25}}}]}';
+  const settings = normalizeSettings(JSON.parse(before));
+  assert.equal(JSON.stringify(settings), before);
+  // Nothing that changes such a switch brings the off side in.
+  const changed = [
+    addMembers(settings, 1, { nodes: [9], groups: [4] }), removeMembers(settings, 1, { nodes: [8] }), renameSwitch(settings, 1, "Renamed"),
+    saveValues(settings, 1, "on", [{ id: 8, values: { value: 1 } }]), removeOffMembers(settings, 1, { nodes: [8] }), moveSwitch(settings, 1, 1),
+  ];
+  for (const next of changed) {
+    for (const entry of next.switches) assert.deepEqual(Object.keys(entry), ["id", "title", "nodes", "groups", "on", "off"]);
+  }
+  assert.equal(JSON.stringify(removeOffMembers(settings, 1, { nodes: [8] })), before);
+  // Read from a graph: no off side, and the state is the one the nodes alone give.
+  const placed = placeNodes([node(8, 0, 0, { mode: MODE_BYPASS })]);
+  const [cutOut] = readSwitches(settings.switches, placed, []);
+  assert.deepEqual([cutOut.offMembers, cutOut.state, cutOut.on, cutOut.total], [[], "off", 0, 1]);
+  assert.deepEqual(partState([{ mode: MODE_ALWAYS }, { mode: MODE_BYPASS }]), partState([{ mode: MODE_ALWAYS }, { mode: MODE_BYPASS }], () => true, [], []));
+  // The same plans, whether a row carries an empty off side or none at all.
+  const a = { id: "a", mode: MODE_ALWAYS };
+  const b = { id: "b", mode: MODE_BYPASS };
+  const plain = { members: [a, b] };
+  const empty = { members: [a, b], offMembers: [] };
+  for (const on of [true, false]) {
+    for (const mute of [DEFAULT_SETTINGS, { ...DEFAULT_SETTINGS, off: "mute" }]) {
+      assert.deepEqual(switchPlan([empty], empty, on, mute), switchPlan([plain], plain, on, mute));
+      assert.deepEqual(switchAllPlan([empty], on, mute), switchAllPlan([plain], on, mute));
+    }
+  }
+});
+
+test("a row with an off side is on when its own nodes run and its off side does not", () => {
+  const settings = twoSided();
+  const state = (pictureMode, sizeMode) => {
+    const row = readOne(settings, [picture(pictureMode), latentSize(sizeMode)]);
+    return [row.state, row.on, row.total];
+  };
+  assert.deepEqual(state(MODE_ALWAYS, MODE_BYPASS), ["on", 2, 2]);
+  assert.deepEqual(state(MODE_ALWAYS, MODE_NEVER), ["on", 2, 2]); // muted is off as well
+  assert.deepEqual(state(MODE_BYPASS, MODE_ALWAYS), ["off", 0, 2]);
+  assert.deepEqual(state(MODE_NEVER, MODE_ALWAYS), ["off", 0, 2]);
+  // Anything else is in between: both run, or both are off.
+  assert.deepEqual(state(MODE_ALWAYS, MODE_ALWAYS), ["mixed", 1, 2]);
+  assert.deepEqual(state(MODE_BYPASS, MODE_BYPASS), ["mixed", 1, 2]);
+  const row = readOne(settings, [picture(), latentSize(MODE_BYPASS)]);
+  assert.deepEqual([ids(row.members), ids(row.offMembers)], [[1], [2]]);
+  // Its frame takes in both sides: the picture at the left, the size node at the right.
+  assert.deepEqual(row.rect, [0, -30, 600, 130]);
+  // A row of nothing but an off side reads from it alone.
+  const alone = normalizeSettings({ switches: [{ id: 1, nodes_off: [2] }] });
+  assert.deepEqual(readOne(alone, [latentSize(MODE_BYPASS)]).state, "on");
+  assert.deepEqual(readOne(alone, [latentSize()]).state, "off");
+  // An id that is gone is counted like any other.
+  assert.equal(readOne(normalizeSettings({ switches: [{ nodes: [1], nodes_off: [2, 99], groups_off: [9] }] }), [picture(), latentSize()]).gone, 2);
+  // Nodes that never run are no part of the reading, on the off side too.
+  const note = node(3, 800, 0, { isVirtualNode: true });
+  const withNote = normalizeSettings({ switches: [{ nodes: [1], nodes_off: [2, 3] }] });
+  assert.deepEqual(readOne(withNote, [picture(), latentSize(MODE_BYPASS), note], [], { counts: modeMatters }).total, 2);
+});
+
+test("a group can sit on the off side, and a node is on one side only", () => {
+  const nodes = () => [picture(), latentSize(MODE_BYPASS)];
+  const sizeBox = group("Size", 380, -50, 300, 300, { id: 7 }); // holds Latent Size
+  const everything = group("Everything", -50, -50, 900, 300, { id: 8 }); // holds both
+  const sides = (extra) => {
+    const row = readOne(normalizeSettings({ switches: [{ id: 1, ...extra }] }), nodes(), [sizeBox, everything]);
+    return [ids(row.members), ids(row.offMembers)];
+  };
+  assert.deepEqual(sides({ nodes: [1], groups_off: [7] }), [[1], [2]]);
+  // A node picked by hand stays on the side it was picked for, even inside a group of the other side.
+  assert.deepEqual(sides({ groups: [8], nodes_off: [2] }), [[1], [2]]);
+  assert.deepEqual(sides({ nodes: [2], groups_off: [8] }), [[2], [1]]);
+  // Two groups that both hold a node: it stays on the normal side.
+  assert.deepEqual(sides({ groups: [8], groups_off: [7] }), [[1, 2], []]);
+});
+
+test("the state of a part counts the nodes on its off side the other way round", () => {
+  const run = { mode: MODE_ALWAYS };
+  const bypassed = { mode: MODE_BYPASS };
+  const muted = { mode: MODE_NEVER };
+  const all = () => true;
+  assert.deepEqual(partState([run], all, [], [bypassed]), { state: "on", on: 2, total: 2 });
+  assert.deepEqual(partState([bypassed], all, [], [run]), { state: "off", on: 0, total: 2 });
+  assert.deepEqual(partState([run], all, [], [run]), { state: "mixed", on: 1, total: 2 });
+  assert.deepEqual(partState([bypassed, run], all, [], [muted]), { state: "mixed", on: 2, total: 3 });
+  assert.deepEqual(partState([], all, [], [muted]), { state: "on", on: 1, total: 1 });
+  assert.deepEqual(partState([], all, [], [run]), { state: "off", on: 0, total: 1 });
+  assert.deepEqual(partState([], all, [], []), { state: "empty", on: 0, total: 0 });
+  // Together with settings, every part has to agree.
+  assert.deepEqual(partState([run], all, [{ now: "on" }], [bypassed]), { state: "on", on: 3, total: 3 });
+  assert.deepEqual(partState([run], all, [{ now: "off" }], [bypassed]), { state: "mixed", on: 2, total: 3 });
+  // Notes decide nothing, and a part of nothing but notes is read from them.
+  const note = { mode: MODE_ALWAYS, note: true };
+  const counts = (member) => !member.note;
+  assert.deepEqual(partState([run], counts, [], [note]), { state: "on", on: 1, total: 1 });
+  assert.deepEqual(partState([note], counts, [], [{ ...note, mode: MODE_BYPASS }]), { state: "on", on: 2, total: 2 });
+});
+
+test("switching a row with an off side runs one side and switches the other off", () => {
+  const row = (own, off) => ({ members: [own], offMembers: [off] });
+  const settings = DEFAULT_SETTINGS;
+  const mute = { ...DEFAULT_SETTINGS, off: "mute" };
+  // Off to on: the picture runs, and Latent Size goes off.
+  let own = { id: "picture", mode: MODE_BYPASS };
+  let off = { id: "size", mode: MODE_ALWAYS };
+  assert.deepEqual(planned(switchPlan([row(own, off)], row(own, off), true, settings)), { picture: MODE_ALWAYS, size: MODE_BYPASS });
+  assert.deepEqual(planned(switchPlan([row(own, off)], row(own, off), true, mute)), { picture: MODE_ALWAYS, size: MODE_NEVER });
+  // On to off: the reverse.
+  own = { id: "picture", mode: MODE_ALWAYS };
+  off = { id: "size", mode: MODE_BYPASS };
+  assert.deepEqual(planned(switchPlan([row(own, off)], row(own, off), false, settings)), { picture: MODE_BYPASS, size: MODE_ALWAYS });
+  assert.deepEqual(planned(switchPlan([row(own, off)], row(own, off), false, mute)), { picture: MODE_NEVER, size: MODE_ALWAYS });
+  // Only what changes is returned.
+  assert.deepEqual(switchPlan([row(own, off)], row(own, off), true, settings), []);
+  assert.deepEqual(planned(switchPlan([row(own, { id: "size", mode: MODE_ALWAYS })], row(own, { id: "size", mode: MODE_ALWAYS }), true, settings)), { size: MODE_BYPASS });
+  // A row with only an off side.
+  const onlyOff = { members: [], offMembers: [off] };
+  assert.deepEqual(planned(switchPlan([onlyOff], onlyOff, false, settings)), { size: MODE_ALWAYS });
+  assert.deepEqual(switchPlan([onlyOff], onlyOff, true, settings), []);
+});
+
+test("one at a time turns the other rows' off sides on, and the row switched on has the last word", () => {
+  const node4 = (id, mode) => ({ id, mode });
+  const a1 = node4("a1", MODE_ALWAYS);
+  const a2 = node4("a2", MODE_BYPASS);
+  const b1 = node4("b1", MODE_BYPASS);
+  const b2 = node4("b2", MODE_ALWAYS);
+  const first = { members: [a1], offMembers: [a2] }; // on
+  const second = { members: [b1], offMembers: [b2] }; // off
+  const exclusive = { ...DEFAULT_SETTINGS, exclusive: true };
+  assert.deepEqual(planned(switchPlan([first, second], second, true, exclusive)), { a1: MODE_BYPASS, a2: MODE_ALWAYS, b1: MODE_ALWAYS, b2: MODE_BYPASS });
+  assert.deepEqual(planned(switchPlan([first, second], second, true, { ...exclusive, off: "mute" })), { a1: MODE_NEVER, a2: MODE_ALWAYS, b1: MODE_ALWAYS, b2: MODE_NEVER });
+  // Switching a row off leaves the other rows alone, and so does a card that is not one at a time.
+  assert.deepEqual(planned(switchPlan([first, second], first, false, exclusive)), { a1: MODE_BYPASS, a2: MODE_ALWAYS });
+  assert.deepEqual(planned(switchPlan([first, second], second, true, DEFAULT_SETTINGS)), { b1: MODE_ALWAYS, b2: MODE_BYPASS });
+  // A node that one other row stops and another runs ends up running.
+  const shared = node4("shared", MODE_BYPASS);
+  const stops = { members: [shared] };
+  const runs = { members: [], offMembers: [shared] };
+  const target = { members: [node4("t", MODE_ALWAYS)] };
+  assert.deepEqual(planned(switchPlan([stops, runs, target], target, true, exclusive)), { shared: MODE_ALWAYS });
+  assert.deepEqual(planned(switchPlan([runs, stops, target], target, true, exclusive)), { shared: MODE_ALWAYS });
+  // The row being switched on has the last word on a node it shares with another row's off side.
+  const contested = node4("contested", MODE_ALWAYS);
+  const other = { members: [], offMembers: [contested] }; // runs it while that row is off
+  const wants = { members: [], offMembers: [contested] }; // stops it once this row is on
+  assert.deepEqual(planned(switchPlan([other, wants], wants, true, exclusive)), { contested: MODE_BYPASS });
+});
+
+test("switching everything on or off puts each row in its own state, off sides included", () => {
+  const node4 = (id, mode) => ({ id, mode });
+  const a1 = node4("a1", MODE_ALWAYS);
+  const a2 = node4("a2", MODE_BYPASS);
+  const b1 = node4("b1", MODE_BYPASS);
+  const b2 = node4("b2", MODE_ALWAYS);
+  const rows = [{ members: [a1], offMembers: [a2] }, { members: [b1], offMembers: [b2] }];
+  assert.deepEqual(planned(switchAllPlan(rows, true, DEFAULT_SETTINGS)), { b1: MODE_ALWAYS, b2: MODE_BYPASS });
+  assert.deepEqual(planned(switchAllPlan(rows, false, DEFAULT_SETTINGS)), { a1: MODE_BYPASS, a2: MODE_ALWAYS });
+  // Muting sets every stopped node to muted, one that was bypassed included.
+  assert.deepEqual(planned(switchAllPlan(rows, true, { off: "mute" })), { a2: MODE_NEVER, b1: MODE_ALWAYS, b2: MODE_NEVER });
+  assert.deepEqual(planned(switchAllPlan(rows, false, { off: "mute" })), { a1: MODE_NEVER, a2: MODE_ALWAYS, b1: MODE_NEVER });
+  // A node that one row stops and another runs ends up running, whichever way.
+  const shared = node4("shared", MODE_BYPASS);
+  const pair = [{ members: [shared] }, { members: [], offMembers: [shared] }];
+  assert.deepEqual(planned(switchAllPlan(pair, true, DEFAULT_SETTINGS)), { shared: MODE_ALWAYS });
+  assert.deepEqual(planned(switchAllPlan(pair, false, DEFAULT_SETTINGS)), { shared: MODE_ALWAYS });
+});
+
+test("Edit a picture: one click runs the picture and switches Latent Size off, the next does the reverse", () => {
+  const nodes = [picture(), latentSize()]; // just put on the off side: both still run
+  const settings = twoSided();
+  const click = (side) => {
+    const row = readOne(settings, nodes);
+    for (const [member, mode] of switchPlan([row], row, flipTo(row.state, side), settings)) member.mode = mode;
+    return [readOne(settings, nodes).state, nodes.map((member) => member.mode)];
+  };
+  assert.equal(readOne(settings, nodes).state, "mixed");
+  assert.deepEqual(click(true), ["on", [MODE_ALWAYS, MODE_BYPASS]]);
+  assert.deepEqual(click(true), ["off", [MODE_BYPASS, MODE_ALWAYS]]);
+  assert.deepEqual(click(false), ["on", [MODE_ALWAYS, MODE_BYPASS]]);
+  // Switching everything does the same through the card's right-click menu.
+  for (const [on, expected] of [[false, [MODE_BYPASS, MODE_ALWAYS]], [true, [MODE_ALWAYS, MODE_BYPASS]]]) {
+    for (const [member, mode] of switchAllPlan([readOne(settings, nodes)], on, settings)) member.mode = mode;
+    assert.deepEqual(nodes.map((member) => member.mode), expected);
+    assert.equal(readOne(settings, nodes).state, on ? "on" : "off");
+  }
+});
+
+test("nodes are put on the off side, moved between the sides, taken off it and taken out", () => {
+  let settings = addSwitch(normalizeSettings({}), { title: "Edit a picture", nodes: [1, 2], groups: [4] }).settings;
+  const start = JSON.stringify(settings);
+  const picks = { nodes: [1, 2, 3, 9], groups: [4, 5] };
+  // 2 and group 4 move over from the normal side; 3 is new to the switch.
+  settings = addOffMembers(settings, 1, { nodes: [2, 3], groups: [4] });
+  assert.deepEqual(settings.switches[0], { id: 1, title: "Edit a picture", nodes: [1], groups: [], nodes_off: [2, 3], groups_off: [4], on: {}, off: {} });
+  assert.deepEqual([heldCount(settings.switches[0], picks), offHeldCount(settings.switches[0], picks), offFreshCount(settings.switches[0], picks)], [1, 3, 3]);
+  // Adding to the normal side moves a node back.
+  settings = addMembers(settings, 1, { nodes: [3], groups: [4] });
+  assert.deepEqual(settings.switches[0], { id: 1, title: "Edit a picture", nodes: [1, 3], groups: [4], nodes_off: [2], on: {}, off: {} });
+  // Taking it off the side takes it out of the switch altogether; nothing is left over.
+  settings = removeOffMembers(settings, 1, { nodes: [2, 1], groups: [4] });
+  assert.deepEqual(settings.switches[0], { id: 1, title: "Edit a picture", nodes: [1, 3], groups: [4], on: {}, off: {} });
+  // Take out the selected works on both sides.
+  settings = addOffMembers(settings, 1, { nodes: [5], groups: [6] });
+  settings = removeMembers(settings, 1, { nodes: [3, 5], groups: [6] });
+  assert.deepEqual(settings.switches[0], { id: 1, title: "Edit a picture", nodes: [1], groups: [4], on: {}, off: {} });
+  // Putting a node on and taking it off again leaves the switch as it was.
+  const before = JSON.stringify(settings);
+  assert.equal(JSON.stringify(removeOffMembers(addOffMembers(settings, 1, { nodes: [7] }), 1, { nodes: [7] })), before);
+  assert.equal(JSON.stringify(settings), before); // the settings handed in are left alone
+  // A node whose settings the switch changes is not turned off, so it cannot go on the off side.
+  let changes = addSwitch(normalizeSettings({}), { nodes: [1] }).settings;
+  changes = saveValues(changes, 1, "on", [{ id: 21, values: { value: 8 } }]);
+  assert.deepEqual(offFreshCount(changes.switches[0], { nodes: [21, 22] }), 1);
+  assert.deepEqual(addOffMembers(changes, 1, { nodes: [21, 22] }).switches[0].nodes_off, [22]);
+  // Saving a side for a node on the off side takes it off.
+  const saved = saveValues(addOffMembers(changes, 1, { nodes: [22] }), 1, "off", [{ id: 22, values: { value: 5 } }]);
+  assert.equal("nodes_off" in saved.switches[0], false);
+  assert.equal(start, JSON.stringify(addSwitch(normalizeSettings({}), { title: "Edit a picture", nodes: [1, 2], groups: [4] }).settings));
+});
+
 test("the signature changes with anything the card shows, and only then", () => {
   const rows = [{ kind: "group", title: "1 · Load", color: "#335", state: "on", on: 3, total: 3, members: [1, 2, 3] }];
   const settings = normalizeSettings({});
   const base = rowsSignature(rows, settings);
   assert.equal(rowsSignature([{ ...rows[0] }], normalizeSettings({})), base);
+  assert.equal(rowsSignature([{ ...rows[0], offMembers: [] }], settings), base);
+  assert.notEqual(rowsSignature([{ ...rows[0], offMembers: [4] }], settings), base);
   assert.notEqual(rowsSignature([{ ...rows[0], state: "mixed", on: 2 }], settings), base);
   assert.notEqual(rowsSignature([{ ...rows[0], title: "1 · Models" }], settings), base);
   assert.notEqual(rowsSignature([{ ...rows[0], kind: "switch" }], settings), base);
