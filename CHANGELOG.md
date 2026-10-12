@@ -16,6 +16,15 @@ All notable changes to ComfyUI-AusBoss are documented here.
   one side was a padded canvas: its grey showed beside the result. Only
   the node's view had it, never the saved picture. The picture that is
   not on show is no longer drawn.
+- **Mask by Touch 🆎: a click on a lit thing always takes it.** While the
+  node was still looking at a picture, a thing could light up under the
+  pointer and a click on it only left a dot: the click was held back unless
+  the node was already sure of the thing's name. Three clicks left three
+  dots, which became three picks at once when the look was done. Now what
+  is lit is taken by a click, at once, also while the node is still
+  looking. The picture says **Looking at the picture…** in its corner, with
+  how far along it is. A click where nothing is lit yet still waits for
+  the look, one click at a time, and the picture says **Your click is in**.
 
 ## 2.11.0 - 2026-10-12
 
