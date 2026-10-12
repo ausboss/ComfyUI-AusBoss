@@ -5,7 +5,8 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
-  ARROW_ANGLE, ARROW_CHOICES, SMALL_MARK, arrowText, fitFontSize, parseBlocks, toggleSmall,
+  ARROW_ANGLE, ARROW_CHOICES, SMALL_MARK, arrowText, fitFontSize, linkTarget, parseBlocks, pastedLink, targetId,
+  toggleSmall, urlLabel, wrapLink,
 } from "../js/shared/callout.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -164,4 +165,114 @@ test("the Small button marks the caret's line and takes the mark off again", () 
   assert.deepEqual(apply("", 0), { text: "", start: 0, end: 0 });
   // A caret before the mark never lands in front of the line.
   assert.equal(apply("###### x", 2).start, 0);
+});
+
+test("words in square brackets with an address after them are a link to that page", () => {
+  const [[line]] = parseBlocks("See [the video](https://youtu.be/abc) first");
+  assert.deepEqual(line, [
+    { text: "See ", bold: false },
+    { text: "the video", bold: false, url: "https://youtu.be/abc", run: 1 },
+    { text: " first", bold: false },
+  ]);
+  // The whole note can be one link, with bold and an arrow inside its words.
+  const [[whole]] = parseBlocks("[➡️ **Watch** the video](https://www.youtube.com/@name)");
+  assert.equal(whole.length, 4);
+  assert.ok(whole.every((piece) => piece.url === "https://www.youtube.com/@name" && piece.run === 1));
+  assert.deepEqual(whole.map((piece) => piece.arrow ?? piece.text), ["right", " ", "Watch", " the video"]);
+  assert.equal(whole[2].bold, true);
+  // Stars around a link are the same as stars inside it, and an address may hold round brackets.
+  const [[bold]] = parseBlocks("**[more](https://en.wikipedia.org/wiki/Mask_(computing))**");
+  assert.deepEqual(bold, [{ text: "more", bold: true, url: "https://en.wikipedia.org/wiki/Mask_(computing)", run: 1 }]);
+  // Two links on a line are two runs.
+  const [[two]] = parseBlocks("[a](https://a.example) and [b](http://b.example)");
+  assert.deepEqual(two.filter((piece) => piece.run).map((piece) => [piece.text, piece.run]), [["a", 1], ["b", 2]]);
+});
+
+test("a link can also bring a node or a group into view, and an arrow can point at a group", () => {
+  const [[line]] = parseBlocks("Set [the seed](#5) or open [the models](#g3) ⬇️#g3 ⬇️#12");
+  assert.deepEqual(line.filter((piece) => piece.run || piece.arrow), [
+    { text: "the seed", bold: false, link: "5", run: 1 },
+    { text: "the models", bold: false, group: "3", run: 2 },
+    { arrow: "down", bold: false, group: "3" },
+    { arrow: "down", bold: false, link: "12" },
+  ]);
+  // An arrow inside linked words belongs to that link; one with its own link keeps it.
+  const [[mixed]] = parseBlocks("[go ➡️ there ⬇️#7](#g2)");
+  assert.deepEqual(mixed.map((piece) => [piece.arrow ?? piece.text, piece.group ?? null, piece.link ?? null]),
+    [["go ", "2", null], ["right", "2", null], [" there ", "2", null], ["down", null, "7"]]);
+});
+
+test("only http and https addresses, nodes and groups are links: anything else stays as typed", () => {
+  assert.deepEqual(linkTarget("https://example.com/a?b=1#c"), { url: "https://example.com/a?b=1#c" });
+  assert.deepEqual(linkTarget("HTTP://EXAMPLE.COM"), { url: "HTTP://EXAMPLE.COM" });
+  assert.deepEqual(linkTarget("#12"), { link: "12" });
+  assert.deepEqual(linkTarget("#12:34"), { link: "12:34" });
+  assert.deepEqual(linkTarget("#g3"), { group: "3" });
+  for (const bad of ["javascript:alert(1)", "data:text/html,x", "file:///etc/passwd", "ftp://a.b", "//a.b", "example.com", "#", "#a b", "", "https://", `https://a.b/${"x".repeat(2100)}`, 'https://a.b/"x', "https://a.b/<x>"]) {
+    assert.equal(linkTarget(bad), null, bad.slice(0, 40));
+  }
+  for (const text of ["[x](javascript:alert(1))", "[x](notalink)", "[x] (https://a.b)", "[](https://a.b)", "[x]()", "a [b] c (d)"]) {
+    const [[line]] = parseBlocks(text);
+    assert.deepEqual(line, [{ text, bold: false }], text);
+  }
+});
+
+test("a note without a link reads as it did, and small print can hold a link", () => {
+  const [[plain]] = parseBlocks("Drag ⬆️ the **handles** (both of them) [sic]");
+  assert.ok(plain.every((piece) => piece.run === undefined && piece.url === undefined && piece.group === undefined));
+  const [[, small]] = parseBlocks("Top\n###### see [the docs](https://a.example)");
+  assert.equal(small.small, true);
+  assert.equal(small[1].url, "https://a.example");
+});
+
+test("the tooltip names where a link goes", () => {
+  assert.equal(urlLabel("https://www.youtube.com/@ausbossdev"), "youtube.com/@ausbossdev");
+  assert.equal(urlLabel("https://example.com/"), "example.com");
+  assert.equal(urlLabel("https://example.com/a/b/?q=1"), "example.com/a/b");
+  assert.ok(urlLabel(`https://example.com/${"long/".repeat(30)}`).length <= 60);
+});
+
+test("the Link button wraps the selected words, or the word under the caret", () => {
+  const apply = (text, start, end, target) => {
+    const next = wrapLink(text, start, end, target);
+    const out = text.slice(0, next.from) + next.insert + text.slice(next.to);
+    return { text: out, selected: out.slice(next.selectionStart, next.selectionEnd) };
+  };
+  // No node picked: the address comes back selected, ready to be pasted over.
+  assert.deepEqual(apply("watch the video now", 6, 15), { text: "watch [the video](https://) now", selected: "https://" });
+  // A caret inside a word takes that word.
+  assert.deepEqual(apply("watch the video", 8, 8), { text: "watch [the](https://) video", selected: "https://" });
+  // A picked node or group is the target, and the caret lands after the link.
+  assert.deepEqual(apply("see the seed", 8, 12, "#5"), { text: "see the [seed](#5)", selected: "" });
+  assert.deepEqual(apply("the models", 4, 10, `#${targetId({ id: 3 }, true)}`), { text: "the [models](#g3)", selected: "" });
+  // Nothing to wrap: the word "link" stands in.
+  assert.deepEqual(apply("", 0, 0), { text: "[link](https://)", selected: "https://" });
+  assert.deepEqual(apply("a  b", 2, 2), { text: "a [link](https://) b", selected: "https://" });
+  // A selection over two lines or over brackets is not wrapped: a new link is put at its start.
+  assert.equal(apply("one\ntwo", 0, 7).text, "[link](https://)one\ntwo");
+  assert.equal(targetId({ id: 12 }), "12");
+  assert.equal(targetId(null), "");
+  assert.equal(arrowText("⬇️", targetId({ id: 3 }, true)), "⬇️#g3");
+});
+
+test("an address pasted over selected words makes them a link", () => {
+  assert.equal(pastedLink("the video", "https://youtu.be/abc"), "[the video](https://youtu.be/abc)");
+  assert.equal(pastedLink("the video", "  https://youtu.be/abc\n"), "[the video](https://youtu.be/abc)");
+  // Not a link: nothing selected, two lines, brackets, something that is no address, an address over an address.
+  assert.equal(pastedLink("", "https://a.example"), null);
+  assert.equal(pastedLink("a\nb", "https://a.example"), null);
+  assert.equal(pastedLink("[a]", "https://a.example"), null);
+  assert.equal(pastedLink("the video", "just words"), null);
+  assert.equal(pastedLink("https://old.example", "https://new.example"), null);
+});
+
+test("a link is a real link: a new tab, no way back to this page, and a press on it never drags the note", () => {
+  const source = readFileSync(join(ROOT, "js", "callout", "index.js"), "utf-8");
+  const run = source.slice(source.indexOf("function linkRun"), source.indexOf("// Bring a node or a group into view"));
+  assert.match(run, /link\.target = "_blank"/);
+  assert.match(run, /link\.rel = "noopener noreferrer"/);
+  assert.match(run, /pointerdown[^\n]*stopPropagation/);
+  // The address is only ever one the parser called http or https.
+  assert.match(run, /link\.href = first\.url/);
+  assert.equal(source.includes("window.open"), false);
 });

@@ -41,6 +41,25 @@ In the text a linked arrow is written like `➡️#12`, where 12 is the node's
 number. You can leave the `#12` out to get a plain arrow. If the node is
 deleted the arrow stays, faded, and does nothing.
 
+## Links
+
+A note can link to a page on the web, or to a part of the workflow.
+
+- **To a page:** select the words, press **Link** under the text box, and
+  paste the address. Or select the words and paste the address straight over
+  them. Click the words later and the page opens in a new tab. A small ↗
+  after the words shows that they leave ComfyUI, and hovering shows where
+  they go.
+- **To a node or a group:** while you edit, click the node or the group on
+  the canvas, select the words and press **Link**. Click the words later and
+  the canvas brings it into view. An arrow can point at a group too: click
+  the group, then press an arrow.
+- A note that is nothing but one link is a big button for it: its words fill
+  the note.
+
+In the text a link is written `[the words](https://example.com)`, or
+`[the words](#12)` for node 12 and `[the words](#g3)` for group 3.
+
 ## Technical details
 
 - The text is stored in the node's one hidden `text` input, so saving,
@@ -54,5 +73,12 @@ deleted the arrow stays, faded, and does nothing.
 - The text size is the largest whole pixel size, from 12 to 30, that fits the
   note. A very long text at the smallest size is cut off at the bottom: make
   the note taller.
+- Only `http` and `https` addresses become links. Anything else in the round
+  brackets leaves the text as typed. A link opens in a new tab and is never
+  opened by the note itself: only your click does.
+- A link from someone else's workflow goes where its author pointed it. Hover
+  it to read the address before you click.
+- An older version of the pack shows a link as typed, brackets and address
+  included, so the address can still be read and copied there.
 - The font is IBM Plex Sans when the computer has it, otherwise the system
   font. The node loads no fonts and makes no network requests.

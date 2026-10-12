@@ -15,7 +15,11 @@ import {
   arrowText,
   fitFontSize,
   parseBlocks,
+  pastedLink,
+  targetId,
   toggleSmall,
+  urlLabel,
+  wrapLink,
 } from "../shared/callout.mjs";
 import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
@@ -63,6 +67,11 @@ function ensureCss() {
 .ausboss-callout-arrow.is-link{pointer-events:auto;cursor:pointer;border-radius:6px;filter:drop-shadow(0 0 .4em rgba(0,180,170,.8));}
 .ausboss-callout-arrow.is-link:hover{background:rgba(0,180,170,.2);}
 .ausboss-callout-arrow.is-gone{opacity:.4;}
+.ausboss-callout-url,.ausboss-callout-jump{pointer-events:auto;cursor:pointer;border-radius:.2em;color:#6fe0d6;text-decoration:underline;text-decoration-thickness:.06em;text-underline-offset:.17em;}
+.ausboss-callout-url:hover,.ausboss-callout-jump:hover{background:rgba(0,180,170,.2);color:#a5f1ea;}
+.ausboss-callout-url b,.ausboss-callout-jump b{color:inherit;}
+.ausboss-callout-out{display:inline-block;margin-left:.2em;font-size:.7em;font-weight:600;vertical-align:.14em;text-decoration:none;opacity:.85;}
+.ausboss-callout-jump.is-gone{opacity:.45;cursor:default;text-decoration-style:dotted;}
 .ausboss-callout-tools{position:absolute;top:5px;right:5px;display:flex;gap:4px;opacity:0;transition:opacity .15s;pointer-events:auto;}
 .ausboss-callout-card:hover .ausboss-callout-tools,.ausboss-callout.is-selected .ausboss-callout-tools{opacity:.95;}
 .ausboss-callout-tool{height:22px;padding:0 8px;border:1px solid rgba(0,180,170,.45);border-radius:5px;background:rgba(8,14,16,.86);color:#9fd8d3;font:600 11px ${FONT};letter-spacing:.02em;cursor:pointer;}
@@ -79,8 +88,8 @@ function ensureCss() {
 .ausboss-callout-pick svg{display:block;width:100%;height:100%;}
 .ausboss-callout-size{flex:none;height:24px;margin-left:4px;padding:0 7px;border:1px solid rgba(0,180,170,.35);border-radius:5px;background:rgba(8,14,16,.9);color:#9fd8d3;font:600 11px ${FONT};cursor:pointer;}
 .ausboss-callout-size:hover{border-color:${BRAND};background:rgba(0,180,170,.14);}
-@container (max-width:345px){.ausboss-callout-arrowbar>span:first-child,.ausboss-callout-link:not(.has-node){display:none;}}
-@container (max-width:345px) and (min-height:112px){.ausboss-callout-arrowbar{flex-wrap:wrap;}.ausboss-callout-pick{flex:none;}}
+@container (max-width:395px){.ausboss-callout-arrowbar>span:first-child,.ausboss-callout-link:not(.has-node){display:none;}}
+@container (max-width:395px) and (min-height:112px){.ausboss-callout-arrowbar{flex-wrap:wrap;}.ausboss-callout-pick{flex:none;}}
 `;
   document.head.appendChild(style);
 }
@@ -124,27 +133,81 @@ function nodeName(node) {
   return node?.getTitle?.() ?? node?.title ?? node?.type ?? "node";
 }
 
-function arrowSpan(state, kind, link) {
+// The group a link names (#g3), looked up in the graph the note sits in.
+function linkedGroup(state, id) {
+  const graph = state.node.graph ?? app.graph;
+  return (graph?.groups ?? graph?._groups ?? []).find((group) => String(group?.id) === String(id)) ?? null;
+}
+
+const isGroup = (item) => Boolean(item) && (item instanceof (globalThis.LGraphGroup ?? globalThis.LiteGraph?.LGraphGroup ?? class {}) || (item.constructor?.name === "LGraphGroup"));
+
+// What a piece of the text points at inside the workflow: a node or a group,
+// with the words that say so. null for a piece that points at nothing here.
+function placeOf(state, piece) {
+  if (piece.group !== undefined) {
+    const group = linkedGroup(state, piece.group);
+    return { item: group, title: group ? `Bring the group "${group.title ?? ""}" into view` : "The group this points at is not in the workflow" };
+  }
+  if (piece.link !== undefined) {
+    const node = linkedNode(state, piece.link);
+    return { item: node, title: node ? `Bring "${nodeName(node)}" into view` : "The node this points at is not in the workflow" };
+  }
+  return null;
+}
+
+function arrowSpan(state, kind, piece = {}) {
   const span = el("span", "ausboss-callout-arrow");
   span.append(arrowIcon(kind));
-  if (link === undefined) return span;
-  const target = linkedNode(state, link);
-  span.classList.add("is-link", target ? "is-live" : "is-gone");
-  span.title = target ? `Bring "${nodeName(target)}" into view` : "The node this arrow points at is not in the workflow";
+  // Inside linked words (a run) the arrow is part of that link.
+  const place = piece.run === undefined ? placeOf(state, piece) : null;
+  if (!place) return span;
+  span.classList.add("is-link", place.item ? "is-live" : "is-gone");
+  span.title = place.title;
   span.addEventListener("click", (event) => {
     event.stopPropagation();
-    bringIntoView(state, link);
+    bringIntoView(place.item);
   });
   return span;
 }
 
-// Bring a node into view the way Workflow Switches does: a small node is
-// shown at natural size, a big one fitted to most of the view.
-function bringIntoView(state, id) {
-  const target = linkedNode(state, id);
+// The words of one link, as one element: an address opens in a new tab, a
+// node or a group comes into view.
+function linkRun(state, first) {
+  if (first.url !== undefined) {
+    const link = el("a", "ausboss-callout-url");
+    link.href = first.url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.title = `Opens ${urlLabel(first.url)} in a new tab`;
+    // A press on a link must not become a node drag, and a double-click is one visit.
+    link.addEventListener("pointerdown", (event) => event.stopPropagation());
+    let last = 0;
+    link.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (event.timeStamp - last < 600) event.preventDefault();
+      last = event.timeStamp;
+    });
+    return link;
+  }
+  const place = placeOf(state, first);
+  const jump = el("span", "ausboss-callout-jump");
+  jump.setAttribute("role", "link");
+  jump.title = place.title;
+  if (!place.item) jump.classList.add("is-gone");
+  jump.addEventListener("pointerdown", (event) => event.stopPropagation());
+  jump.addEventListener("click", (event) => {
+    event.stopPropagation();
+    bringIntoView(place.item);
+  });
+  return jump;
+}
+
+// Bring a node or a group into view the way Workflow Switches does: a small
+// one is shown at natural size, a big one fitted to most of the view.
+function bringIntoView(target) {
   const canvas = app.canvas;
   if (!target || !canvas) return;
-  const title = globalThis.LiteGraph?.NODE_TITLE_HEIGHT ?? 30;
+  const title = isGroup(target) ? 0 : (globalThis.LiteGraph?.NODE_TITLE_HEIGHT ?? 30);
   const found = [target.pos[0], target.pos[1] - title, target.size[0], target.size[1] + title];
   const view = canvas.canvas?.getBoundingClientRect?.();
   const rect = frameBounds(found, [view?.width, view?.height], FRAME_FILL);
@@ -170,10 +233,21 @@ function renderText(state) {
       // lines are told apart by a break, as before; a block needs none.
       const into = line.small ? el("div", "ausboss-callout-small") : point;
       if (index && !line.small && !lines[index - 1].small) point.append(document.createElement("br"));
+      let run = null;
+      let wrap = null;
       for (const piece of line) {
-        if (piece.arrow) into.append(arrowSpan(state, piece.arrow, piece.link));
-        else into.append(piece.bold ? el("b", "", piece.text) : document.createTextNode(piece.text));
+        // The pieces of one link sit in one element.
+        if (piece.run !== run) {
+          if (wrap?.classList.contains("ausboss-callout-url")) wrap.append(el("span", "ausboss-callout-out", "↗"));
+          run = piece.run;
+          wrap = run === undefined ? null : linkRun(state, piece);
+          if (wrap) into.append(wrap);
+        }
+        const target = wrap ?? into;
+        if (piece.arrow) target.append(arrowSpan(state, piece.arrow, piece));
+        else target.append(piece.bold ? el("b", "", piece.text) : document.createTextNode(piece.text));
       }
+      if (wrap?.classList.contains("ausboss-callout-url")) wrap.append(el("span", "ausboss-callout-out", "↗"));
       if (line.small) point.append(into);
     });
     state.inner.append(point);
@@ -260,7 +334,7 @@ function startEdit(state) {
   const wrap = el("div", "ausboss-callout-editor");
   const area = el("textarea", "ausboss-callout-edit");
   area.value = state.valueWidget.value ?? "";
-  area.placeholder = "One idea per paragraph. **Bold** a word to stress it. The buttons below add an arrow or make a line small.";
+  area.placeholder = "One idea per paragraph. **Bold** a word to stress it. The buttons below add an arrow, make a line small or make words a link.";
   area.spellcheck = true;
   const bar = el("div", "ausboss-callout-arrowbar");
   bar.append(el("span", "", "Arrow"));
@@ -272,20 +346,22 @@ function startEdit(state) {
     linkBox.replaceChildren();
     linkBox.classList.toggle("has-node", Boolean(linkTarget));
     if (!linkTarget) {
-      linkBox.append(el("span", "", "Click a node to link the arrow"));
+      linkBox.append(el("span", "", "Click a node or a group to link to it"));
       return;
     }
     const clear = el("button", "", "\u00D7");
     clear.type = "button";
-    clear.title = "Do not link the next arrow";
+    clear.title = "Do not link the next arrow or link";
     clear.addEventListener("mousedown", (event) => event.preventDefault());
     clear.addEventListener("click", () => {
       linkTarget = null;
       showLink();
       area.focus();
     });
-    linkBox.append(el("span", "", `Links to ${nodeName(linkTarget)}`), clear);
+    linkBox.append(el("span", "", `Links to ${isGroup(linkTarget) ? `the group ${linkTarget.title ?? ""}` : nodeName(linkTarget)}`), clear);
   };
+  // What stands after # for the picked node or group: "12", "g3", or nothing.
+  const pickedId = () => (linkTarget ? targetId(linkTarget, isGroup(linkTarget)) : undefined);
   for (const [kind, emoji] of ARROW_CHOICES) {
     const pick = el("button", "ausboss-callout-pick");
     pick.type = "button";
@@ -294,7 +370,7 @@ function startEdit(state) {
     // The text box keeps focus, so clicking an arrow does not end the edit.
     pick.addEventListener("mousedown", (event) => event.preventDefault());
     pick.addEventListener("click", () => {
-      area.setRangeText(arrowText(emoji, linkTarget?.id), area.selectionStart, area.selectionEnd, "end");
+      area.setRangeText(arrowText(emoji, pickedId()), area.selectionStart, area.selectionEnd, "end");
       linkTarget = null;
       showLink();
       area.focus();
@@ -313,6 +389,22 @@ function startEdit(state) {
     area.focus();
   });
   bar.append(small);
+  // The selected words become a link: to the picked node or group, or to an
+  // address, which comes back selected so it can be pasted over.
+  const link = el("button", "ausboss-callout-size", "Link");
+  link.type = "button";
+  link.title = "Make the selected words a link. Click a node or a group first to link to it; otherwise paste the address of a page.";
+  link.addEventListener("mousedown", (event) => event.preventDefault());
+  link.addEventListener("click", () => {
+    const id = pickedId();
+    const next = wrapLink(area.value, area.selectionStart, area.selectionEnd, id ? `#${id}` : "");
+    area.setRangeText(next.insert, next.from, next.to, "preserve");
+    area.setSelectionRange(next.selectionStart, next.selectionEnd);
+    linkTarget = null;
+    showLink();
+    area.focus();
+  });
+  bar.append(link);
   bar.append(linkBox);
   showLink();
   wrap.append(area, bar);
@@ -336,6 +428,14 @@ function startEdit(state) {
     if (event.key === "Escape") finish(false);
   });
   area.addEventListener("keyup", (event) => event.stopPropagation());
+  // An address pasted over selected words makes them a link to it.
+  area.addEventListener("paste", (event) => {
+    const selected = area.value.slice(area.selectionStart, area.selectionEnd);
+    const made = pastedLink(selected, event.clipboardData?.getData("text/plain"));
+    if (!made) return;
+    event.preventDefault();
+    area.setRangeText(made, area.selectionStart, area.selectionEnd, "end");
+  });
   // A press on the editor's own bar keeps the keyboard in the text box.
   wrap.addEventListener("mousedown", (event) => {
     if (event.target !== area) event.preventDefault();
