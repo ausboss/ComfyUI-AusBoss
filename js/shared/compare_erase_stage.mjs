@@ -7,7 +7,9 @@
 // sends the strokes to the server, which builds the mix at full size.
 import { api } from "/scripts/api.js";
 import { BRAND, notifyAusbossChange, showToast } from "./index.mjs";
+import { keepKeyInField } from "./canvas_passthrough.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
+import { makeSlideSwitch } from "./slide_switch.mjs";
 import { extendStroke } from "./touch_math.mjs";
 import { makeToolButton } from "./video_ui.mjs";
 import {
@@ -22,6 +24,7 @@ import {
   fitRect,
   makeStroke,
   moveAdjust,
+  nameHint,
   normalizeTop,
   previewScale,
   readPaint,
@@ -31,11 +34,14 @@ import {
   steppedSize,
   steppedSoft,
   strokeFits,
+  typedName,
 } from "./compare_erase.mjs";
 
-// The tool row's height, and the width its buttons need side by side.
+// The heights of the tool row above the picture and the save row under it,
+// and the width the tools need side by side.
 export const ERASE_BAR_HEIGHT = 24;
-export const ERASE_MIN_WIDTH = 480;
+export const SAVE_ROW_HEIGHT = 28;
+export const ERASE_MIN_WIDTH = 540;
 
 // Saved with the workflow: the paint, the brush once it was set by hand,
 // which picture is on top, and whether Save writes the layers too.
@@ -44,6 +50,10 @@ const SIZE_PROPERTY = "ausboss_compare_brush";
 const SOFT_PROPERTY = "ausboss_compare_soft";
 const TOP_PROPERTY = "ausboss_compare_top";
 const LAYERS_PROPERTY = "ausboss_compare_layers";
+const NAME_PROPERTY = "ausboss_compare_name";
+// A floppy disk, drawn here: the corner cut off, the label, the shutter.
+const SAVE_ICON = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">'
+  + '<path d="M2.5 2.5h8.4l2.6 2.6v8.4h-11z"/><path d="M5.2 2.7v3.3h4.6V2.7"/><path d="M4.9 13.3V9.6h6.2v3.7"/></svg>';
 const SAVE_ROUTE = "/ausboss/compare/save";
 const UNDO_KEPT = 60;
 // The view is drawn at the size it has on screen, up to this many pixels.
@@ -64,15 +74,22 @@ const TINT_SETTING = 0.62;
 const CAN_FILTER = typeof CanvasRenderingContext2D !== "undefined" && "filter" in CanvasRenderingContext2D.prototype;
 
 export const ERASE_CSS = `
-.ausboss-compare-erasebar{display:none;box-sizing:border-box;align-items:center;gap:4px;flex:none;height:${ERASE_BAR_HEIGHT}px;}
+.ausboss-compare-erasebar{display:none;box-sizing:border-box;align-items:center;gap:6px;flex:none;height:${ERASE_BAR_HEIGHT}px;}
 .ausboss-compare-root.is-erasing .ausboss-compare-erasebar{display:flex;}
 .ausboss-compare-erasebar .ausboss-scrub{flex:none;}
-.ausboss-compare-seg{display:flex;gap:2px;flex:none;}
 .ausboss-compare-field{display:flex;align-items:center;gap:4px;flex:none;}
-.ausboss-compare-label{flex:none;color:#9fb6b4;font-size:10px;line-height:1;white-space:nowrap;cursor:default;}
+.ausboss-compare-label{flex:none;color:#9fb6b4;font-size:10px;line-height:22px;white-space:nowrap;user-select:none;}
 .ausboss-compare-gap{flex:1 1 auto;min-width:0;}
-.ausboss-compare-save{display:none;gap:4px;flex:none;}
-.ausboss-compare-root.is-erasing .ausboss-compare-save{display:flex;}
+.ausboss-compare-saverow{display:none;box-sizing:border-box;align-items:center;gap:8px;flex:none;height:${SAVE_ROW_HEIGHT}px;}
+.ausboss-compare-root.is-erasing .ausboss-compare-saverow{display:flex;}
+.ausboss-compare-name{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:4px;}
+.ausboss-compare-name input{box-sizing:border-box;flex:1 1 auto;min-width:40px;width:40px;height:24px;padding:0 7px;border:1px solid #3a4047;border-radius:5px;background:#0f1516;color:#d8eeee;font:11px/22px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;outline:none;}
+.ausboss-compare-name input:focus{border-color:${BRAND};}
+.ausboss-compare-name input:disabled{color:#7f9896;border-style:dashed;}
+.ausboss-compare-name input::placeholder{color:#5f7674;}
+.ausboss-compare-savebtn{box-sizing:border-box;flex:none;display:inline-flex;align-items:center;gap:6px;height:${SAVE_ROW_HEIGHT}px;padding:0 14px 0 11px;border:1px solid ${BRAND};border-radius:6px;background:${BRAND};color:#04201d;font:700 11px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.04em;cursor:pointer;box-shadow:0 0 9px rgba(0,180,170,.32);}
+.ausboss-compare-savebtn:hover{background:#19cdc2;border-color:#19cdc2;}
+.ausboss-compare-savebtn:disabled{background:#16302e;border-color:#23504c;color:#5f8a86;box-shadow:none;cursor:default;}
 .ausboss-compare-root .ausboss-video-tool:disabled{opacity:.42;cursor:default;pointer-events:none;}
 .ausboss-compare-erase{position:absolute;inset:0;width:100%;height:100%;display:none;cursor:crosshair;touch-action:none;}
 .ausboss-compare-stage.is-erasing:not(.is-empty) .ausboss-compare-erase{display:block;}
@@ -310,26 +327,40 @@ function pointOf(er, event) {
   return [(x - fit.left) / fit.scale, (y - fit.top) / fit.scale];
 }
 
+// Is a name wired into the node's filename input? Then the run names the
+// files, and the field on the node only shows that name.
+function nameIsWired(er) {
+  return er.node.inputs?.some((input) => input?.name === "filename" && input.link != null) ?? false;
+}
+
 function syncTools(er) {
   const ready = Boolean(er.refs);
   const top = topOf(er);
-  const back = er.back !== Boolean(er.altKey);
-  er.rubButton.classList.toggle("active", !back);
-  er.backButton.classList.toggle("active", back);
-  er.rubButton.setAttribute("aria-pressed", String(!back));
-  er.backButton.setAttribute("aria-pressed", String(back));
   const other = top === "A" ? "B" : "A";
-  er.rubButton.title = `The brush rubs ${top} away, so ${other} shows through.`;
-  er.backButton.title = `The brush paints ${top} back. Holding Alt, or the right mouse button, does the same.`;
-  er.topButton.textContent = `${top} ON TOP`;
-  er.topButton.title = `${top} is on top and the brush shows ${other} through it. Click to put ${other} on top. The paint stays.`;
+  er.kindSwitch.set(er.back !== Boolean(er.altKey) ? "restore" : "erase");
+  er.kindSwitch.describe("erase", { title: `The brush rubs ${top} away, so ${other} shows through.` });
+  er.kindSwitch.describe("restore", { title: `The brush paints ${top} back. Holding Alt, or the right mouse button, does the same.` });
+  er.topSwitch.set(top);
   const layers = er.node.properties?.[LAYERS_PROPERTY] === true;
-  er.layersButton.classList.toggle("active", layers);
-  er.layersButton.setAttribute("aria-pressed", String(layers));
+  er.layersSwitch.set(layers ? "on" : "off");
   er.undoButton.disabled = !er.history.length && !er.strokes.length;
   er.clearButton.disabled = !er.strokes.length;
   er.saveButton.disabled = !ready || er.saving;
-  er.saveButton.textContent = er.saving ? "SAVING" : "SAVE";
+  er.saveLabel.textContent = er.saving ? "Saving" : "Save";
+  // The name: typed here, or shown as the run got it from the input.
+  const wired = nameIsWired(er);
+  const typed = String(er.node.properties?.[NAME_PROPERTY] ?? "");
+  er.nameInput.disabled = wired;
+  if (wired) er.nameInput.value = er.refs?.name || "";
+  else if (document.activeElement !== er.nameInput) er.nameInput.value = typed;
+  er.nameInput.placeholder = wired ? "from the filename input" : "compare";
+  const hint = nameHint(wired ? er.refs?.name : typed, layers);
+  er.nameInput.title = wired
+    ? `The filename input names the files: ${hint}. They go to ComfyUI's output folder.`
+    : `What the saved files are called. Save writes ${hint} to ComfyUI's output folder, and the number counts up. Letters, digits, spaces, dots, dashes and underscores.`;
+  er.saveButton.title = ready
+    ? `Save this mix to ComfyUI's output folder as ${hint}. Nothing is run again.`
+    : "Run the workflow first: Save needs the two pictures.";
 }
 
 // Keep the strokes with the node, so a tab switch or ComfyUI's own undo
@@ -523,6 +554,7 @@ async function save(er) {
         top: topOf(er),
         strokes: er.strokes,
         layers: er.node.properties?.[LAYERS_PROPERTY] === true,
+        name: er.node.properties?.[NAME_PROPERTY],
       })),
     });
     const answer = await response.json().catch(() => null);
@@ -543,7 +575,7 @@ async function save(er) {
 
 // Build the Erase tools for one Compare panel. `onSaved` is told which
 // files a save wrote. The caller places `bar` above the stage and
-// `saveTools` in its footer, and tells the eraser when the mode or the
+// `saveRow` under its footer, and tells the eraser when the mode or the
 // pictures change.
 export function makeEraser({ node, root, stage, imageA, imageB, signal, onSaved }) {
   const er = {
@@ -573,17 +605,30 @@ export function makeEraser({ node, root, stage, imageA, imageB, signal, onSaved 
     return button;
   };
 
+  const labelled = (name, help, ...controls) => {
+    const wrap = document.createElement("div");
+    wrap.className = "ausboss-compare-field";
+    const label = document.createElement("span");
+    label.className = "ausboss-compare-label";
+    label.textContent = name;
+    label.title = help;
+    wrap.append(label, ...controls);
+    return { wrap, label };
+  };
+
+  // The tool row above the picture: what the brush does, its size and
+  // edge, which picture is on top, and taking strokes back.
   er.bar = document.createElement("div");
   er.bar.className = "ausboss-compare-erasebar";
-  const kinds = document.createElement("div");
-  kinds.className = "ausboss-compare-seg";
-  kinds.setAttribute("role", "group");
-  kinds.setAttribute("aria-label", "What the brush does");
-  er.rubButton = click(makeToolButton("ERASE", ""), () => { er.back = false; syncTools(er); schedule(er); });
-  er.backButton = click(makeToolButton("RESTORE", ""), () => { er.back = true; syncTools(er); schedule(er); });
-  kinds.append(er.rubButton, er.backButton);
-  const SIZE_HELP = "How wide the brush is, in pixels of the picture. Also: the [ and ] keys, or hold Alt and the right mouse button on the picture and drag left or right.";
-  const SOFT_HELP = "How soft the brush's edge is: 0 is a hard edge, 100 fades all the way from the middle. Also: Shift with [ and ], or hold Alt and the right mouse button on the picture and drag up (softer) or down (harder).";
+  er.kindSwitch = makeSlideSwitch({
+    label: "What the brush does",
+    options: [{ value: "erase", label: "Erase" }, { value: "restore", label: "Restore" }],
+    value: "erase",
+    signal,
+    onChange: (value) => { er.back = value === "restore"; syncTools(er); schedule(er); },
+  });
+  const SIZE_HELP = "How wide the brush is, in pixels of the picture. Drag here or on the number to change it. Also: the [ and ] keys, or hold Alt and the right mouse button on the picture and drag left or right.";
+  const SOFT_HELP = "How soft the brush's edge is: 0 is a hard edge, 100 fades all the way from the middle. Drag here or on the number to change it. Also: Shift with [ and ], or hold Alt and the right mouse button on the picture and drag up (softer) or down (harder).";
   er.sizeBox = makeScrubInput({
     value: brushSize(er),
     min: ERASE_SIZE[0],
@@ -610,27 +655,33 @@ export function makeEraser({ node, root, stage, imageA, imageB, signal, onSaved 
     onChange: (value) => { setProperty(er, SOFT_PROPERTY, clampSoft(value)); schedule(er); },
     onSettle: () => notifyAusbossChange(),
   });
-  // Each number with its name in front of it.
-  const field = (name, box, help) => {
-    const wrap = document.createElement("div");
-    wrap.className = "ausboss-compare-field";
-    const label = document.createElement("span");
-    label.className = "ausboss-compare-label";
-    label.textContent = name;
-    label.title = help;
+  // Each number with its name in front of it. The name scrubs the number
+  // too, and so does the unit inside the box: the whole field is one handle.
+  const scrubField = (name, box, help) => {
+    const { wrap, label } = labelled(name, help, box.root);
     box.input.setAttribute("aria-label", name);
-    box.root.addEventListener("pointerdown", (event) => event.stopPropagation(), { signal });
-    wrap.append(label, box.root);
+    box.handle(label);
+    box.handle(box.root);
+    wrap.addEventListener("pointerdown", (event) => event.stopPropagation(), { signal });
     return wrap;
   };
-  const sizeField = field("Size", er.sizeBox, SIZE_HELP);
-  const softField = field("Soft", er.softBox, SOFT_HELP);
-  er.topButton = click(makeToolButton("A ON TOP", ""), () => {
-    setProperty(er, TOP_PROPERTY, topOf(er) === "A" ? "B" : "A");
-    notifyAusbossChange();
-    syncTools(er);
-    schedule(er);
+  const sizeField = scrubField("Size", er.sizeBox, SIZE_HELP);
+  const softField = scrubField("Soft", er.softBox, SOFT_HELP);
+  const TOP_HELP = "Which picture you start from. The brush shows the other one through it. Swapping keeps your paint.";
+  er.topSwitch = makeSlideSwitch({
+    label: "The picture on top",
+    options: [{ value: "A", label: "A", title: "A is on top; the brush shows B." }, { value: "B", label: "B", title: "B is on top; the brush shows A." }],
+    value: topOf(er),
+    signal,
+    onChange: (value) => {
+      if (value === topOf(er)) return;
+      setProperty(er, TOP_PROPERTY, value);
+      notifyAusbossChange();
+      syncTools(er);
+      schedule(er);
+    },
   });
+  const topField = labelled("On top", TOP_HELP, er.topSwitch.root).wrap;
   const gap = document.createElement("div");
   gap.className = "ausboss-compare-gap";
   er.undoButton = click(makeToolButton("UNDO", "Take back the last stroke, or a Clear."), () => {
@@ -649,17 +700,55 @@ export function makeEraser({ node, root, stage, imageA, imageB, signal, onSaved 
     rebuildMask(er);
     schedule(er);
   });
-  er.bar.append(kinds, sizeField, softField, er.topButton, gap, er.undoButton, er.clearButton);
+  er.bar.append(er.kindSwitch.root, sizeField, softField, topField, gap, er.undoButton, er.clearButton);
 
-  er.saveTools = document.createElement("div");
-  er.saveTools.className = "ausboss-compare-save";
-  er.layersButton = click(makeToolButton("PSD", "Also save the layers: one PSD with both pictures and your paint as a layer mask, for Photoshop or GIMP, and the mask as its own PNG."), () => {
-    setProperty(er, LAYERS_PROPERTY, er.node.properties?.[LAYERS_PROPERTY] !== true);
-    notifyAusbossChange();
-    syncTools(er);
+  // The save row under the picture: the name, the layers choice, and Save
+  // at the right end, where the eye ends up.
+  er.saveRow = document.createElement("div");
+  er.saveRow.className = "ausboss-compare-saverow";
+  const nameField = labelled("Name", "What the saved files are called.");
+  nameField.wrap.classList.add("ausboss-compare-name");
+  er.nameInput = document.createElement("input");
+  er.nameInput.type = "text";
+  er.nameInput.spellcheck = false;
+  er.nameInput.maxLength = 80;
+  er.nameInput.setAttribute("aria-label", "File name");
+  er.nameInput.addEventListener("pointerdown", (event) => event.stopPropagation(), { signal });
+  er.nameInput.addEventListener("keydown", (event) => {
+    keepKeyInField(event);
+    if (event.key === "Enter" || event.key === "Escape") er.nameInput.blur();
+  }, { signal });
+  er.nameInput.addEventListener("input", () => {
+    // Only what a file name can hold stays in the field, as it is typed.
+    const clean = typedName(er.nameInput.value);
+    if (clean !== er.nameInput.value) er.nameInput.value = clean;
+    setProperty(er, NAME_PROPERTY, clean);
+  }, { signal });
+  er.nameInput.addEventListener("change", () => { notifyAusbossChange(); syncTools(er); }, { signal });
+  nameField.wrap.append(er.nameInput);
+  const LAYERS_HELP = "On: Save also writes one PSD with both pictures as layers and your paint as a layer mask on the top one, for Photoshop or GIMP, and the mask as its own PNG. Off: the PNG only.";
+  er.layersSwitch = makeSlideSwitch({
+    label: "Save a PSD with the layers too",
+    offLeft: true,
+    options: [{ value: "off", label: "off", title: LAYERS_HELP }, { value: "on", label: "on", title: LAYERS_HELP }],
+    value: "off",
+    signal,
+    onChange: (value) => {
+      setProperty(er, LAYERS_PROPERTY, value === "on");
+      notifyAusbossChange();
+      syncTools(er);
+    },
   });
-  er.saveButton = click(makeToolButton("SAVE", "Save this mix to ComfyUI's output folder as a PNG."), () => save(er));
-  er.saveTools.append(er.layersButton, er.saveButton);
+  const layersField = labelled("PSD", LAYERS_HELP, er.layersSwitch.root).wrap;
+  er.saveButton = document.createElement("button");
+  er.saveButton.type = "button";
+  er.saveButton.className = "ausboss-compare-savebtn";
+  er.saveButton.innerHTML = SAVE_ICON;
+  er.saveLabel = document.createElement("span");
+  er.saveLabel.textContent = "Save";
+  er.saveButton.append(er.saveLabel);
+  click(er.saveButton, () => save(er));
+  er.saveRow.append(nameField.wrap, layersField, er.saveButton);
 
   installPointer(er, signal);
   const resized = new ResizeObserver(() => schedule(er));
@@ -674,7 +763,7 @@ export function makeEraser({ node, root, stage, imageA, imageB, signal, onSaved 
 
   return {
     bar: er.bar,
-    saveTools: er.saveTools,
+    saveRow: er.saveRow,
     get active() { return er.active; },
     // Erase mode on or off.
     setActive(on) {
@@ -717,5 +806,8 @@ export function makeEraser({ node, root, stage, imageA, imageB, signal, onSaved 
       schedule(er);
     },
     redraw: () => schedule(er),
+    // Something outside changed what the tools show (a link on the
+    // filename input).
+    refresh: () => syncTools(er),
   };
 }

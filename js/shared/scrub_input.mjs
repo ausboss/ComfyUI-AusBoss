@@ -355,9 +355,48 @@ export function makeScrubInput(options = {}) {
   } else {
     box.append(input, steppers);
   }
+  // Let another element scrub this value: the label beside the box, or the
+  // box itself where its unit is. A drag across it changes the value as a
+  // drag on the number does. A click there does nothing, so a click on the
+  // number is still the one way to type.
+  const handle = (element) => {
+    let grip = null;
+    element.style.cursor = "ew-resize";
+    element.style.touchAction = "none";
+    element.addEventListener("pointerdown", (event) => {
+      // Only a press on the element's own face: the number and the arrows
+      // inside a box keep their own gestures.
+      if (event.button !== 0 || event.target !== element || !input.readOnly) return;
+      grip = { x: event.clientX, y: event.clientY, start: base(), scrubbed: false, fine: event.shiftKey };
+      element.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    });
+    element.addEventListener("pointermove", (event) => {
+      if (!grip) return;
+      const dx = event.clientX - grip.x;
+      if (!grip.scrubbed && isScrubGesture(dx, event.clientY - grip.y)) { grip.scrubbed = true; grip.fine = event.shiftKey; }
+      if (!grip.scrubbed) return;
+      if (event.shiftKey !== grip.fine) {
+        grip.start = base(); grip.x = event.clientX - Math.sign(dx || 1) * (SCRUB_DEAD_ZONE + 1); grip.fine = event.shiftKey;
+      }
+      commit(scrubbedValue(grip.start, event.clientX - grip.x, event.shiftKey, opts));
+    });
+    const release = (event) => {
+      if (!grip) return;
+      try { element.releasePointerCapture(event.pointerId); } catch { /* mouse fallback */ }
+      const scrubbed = grip.scrubbed;
+      grip = null;
+      if (scrubbed) settle();
+    };
+    element.addEventListener("pointerup", release);
+    element.addEventListener("pointercancel", release);
+    return element;
+  };
+
   return {
     root: box,
     input,
+    handle,
     get: () => current,
     set: (value) => {
       current = isEmpty(value) ? null : quantizeScrubValue(value, opts);

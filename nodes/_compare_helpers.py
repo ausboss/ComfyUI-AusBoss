@@ -13,14 +13,17 @@ The brush is a round core with a soft edge: the core is drawn first, then
 blurred. js/shared/compare_erase.mjs holds the same numbers, and the panel
 draws its preview from them (tests/test_compare_erase.py keeps the two equal).
 
-No file name crosses from the browser. A run remembers where its two
+The browser never names a file to read. A run remembers where its two
 previews are and gives the panel a key for them (``remember_pair``); Save
-sends that key back, and the mix is written under a fixed name.
+sends that key back. What Save may send is a name for the new files: plain
+text with no folder in it, checked by ``clean_save_name``. The files always
+go straight into the output folder.
 """
 
 from __future__ import annotations
 
 import math
+import re
 import secrets
 import threading
 from collections import OrderedDict
@@ -29,7 +32,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageFilter
 
-from ._image_save_helpers import next_free_counter, require_output_path
+from ._image_save_helpers import next_free_counter, require_output_path, strip_image_extension
 from ._psd_helpers import PSD_MAX_SIDE, write_psd
 
 ERASE_SIZE = (2, 2000)
@@ -38,15 +41,24 @@ ERASE_MAX_STROKE_POINTS = 600
 ERASE_MAX_POINTS = 40000
 # A path may leave the picture while the button is held, but not by miles.
 ERASE_OUTSIDE = 4096
-# What a saved mix is called: compare_00001.png, in the output folder.
+# What a saved mix is called when no name is given: compare_00001.png.
 SAVE_NAME = "compare"
+SAVE_NAME_MAX = 80
+# A name is letters, digits, spaces, dots, dashes and underscores: nothing a
+# folder or a drive is written with.
+_NAME_RULE = re.compile(r"[\w][\w .\-]*")
+_NOT_IN_A_NAME = re.compile(r"[^\w .\-]+")
+SAVE_NAME_HELP = (
+    "Image Compare: a file name takes letters, digits, spaces, dots, dashes and underscores, "
+    f"up to {SAVE_NAME_MAX} of them. It goes into the output folder; a folder cannot be part of it."
+)
 COUNTER_WIDTH = 5
 # How many runs' pictures can still be saved from: the newest ones.
 PAIRS_KEPT = 64
 PICTURES_GONE = "The two pictures are no longer on the server. Run the workflow again, then save."
 
 _save_lock = threading.Lock()
-_pairs: OrderedDict[str, tuple[Path, Path]] = OrderedDict()
+_pairs: OrderedDict[str, tuple[Path, Path, str]] = OrderedDict()
 _pairs_lock = threading.Lock()
 
 
@@ -195,25 +207,60 @@ def mix_pictures(top: np.ndarray, under: np.ndarray, gone: np.ndarray) -> np.nda
     return np.clip(np.round(mixed), 0, 255).astype(np.uint8)
 
 
-def remember_pair(picture_a, picture_b) -> str:
+def clean_save_name(name) -> str:
+    """The name typed on the node for the saved files, checked. Empty is the default name.
+
+    It comes with the Save request, so it is somebody else's text: anything
+    that is not a plain name is refused, never repaired into one.
+    """
+    if name is None:
+        return SAVE_NAME
+    if not isinstance(name, str):
+        raise CompareSaveError(SAVE_NAME_HELP)
+    typed = name.strip()
+    if not typed:
+        return SAVE_NAME
+    text = strip_image_extension(typed).strip(" .")
+    if not text or len(text) > SAVE_NAME_MAX or not _NAME_RULE.fullmatch(text) or ".." in text:
+        raise CompareSaveError(SAVE_NAME_HELP)
+    return text
+
+
+def tidy_save_name(name) -> str:
+    """A name wired into the node, made into a plain file name. Empty when there is none.
+
+    A wire often carries a source picture's file name, folder and extension
+    included (``sets/a/photo 12.jpg``): the last part is kept, the extension
+    goes, and anything a file name cannot hold becomes an underscore. A run
+    is never stopped over a name.
+    """
+    if not isinstance(name, str):
+        return ""
+    last = name.replace("\\", "/").rsplit("/", 1)[-1]
+    text = _NOT_IN_A_NAME.sub("_", strip_image_extension(last.strip())).replace("..", "_").strip(" ._")
+    return text[:SAVE_NAME_MAX].strip(" ._")
+
+
+def remember_pair(picture_a, picture_b, name: str = "") -> str:
     """Keep where one run's two previews are; returns the key the panel sends back.
 
-    The key is all the browser ever names. It is random, it says nothing
-    about the files, and only the newest runs are kept.
+    The key is all the browser ever names of them. It is random, it says
+    nothing about the files, and only the newest runs are kept. ``name`` is
+    the save name the run was wired with, already tidied, or empty.
     """
     key = secrets.token_urlsafe(16)
     with _pairs_lock:
-        _pairs[key] = (Path(picture_a), Path(picture_b))
+        _pairs[key] = (Path(picture_a), Path(picture_b), str(name or ""))
         while len(_pairs) > PAIRS_KEPT:
             _pairs.popitem(last=False)
     return key
 
 
-def pair_pictures(key) -> tuple[Path, Path]:
-    """The two previews a key stands for, or the error that says to run again."""
+def pair_pictures(key) -> tuple[Path, Path, str]:
+    """The two previews a key stands for and the run's wired name, or the error that says to run again."""
     with _pairs_lock:
         pair = _pairs.get(key) if isinstance(key, str) else None
-    if pair is None or not all(path.is_file() for path in pair):
+    if pair is None or not all(path.is_file() for path in pair[:2]):
         raise CompareSaveError(PICTURES_GONE, status=404)
     return pair
 
@@ -223,16 +270,18 @@ def _load_rgb(path: Path) -> np.ndarray:
         return np.asarray(image.convert("RGB"))
 
 
-def save_mix(*, picture_a, picture_b, output_dir, top="A", strokes=None, layers=False) -> dict:
+def save_mix(*, picture_a, picture_b, output_dir, top="A", strokes=None, layers=False, name=SAVE_NAME) -> dict:
     """Build the mix of two previews and write it to the output folder.
 
-    Writes ``compare_00001.png``. With ``layers`` it also writes
-    ``compare_00001.psd`` (the picture underneath, then the top picture with
-    the rubbed-out area as its layer mask) and ``compare_00001_mask.png``
-    (white where the picture underneath shows). Returns what was written.
+    Writes ``<name>_00001.png``. With ``layers`` it also writes
+    ``<name>_00001.psd`` (the picture underneath, then the top picture with
+    the rubbed-out area as its layer mask) and ``<name>_00001_mask.png``
+    (white where the picture underneath shows). ``name`` is a plain name
+    from ``clean_save_name`` or ``tidy_save_name``. Returns what was written.
     """
     if top not in ("A", "B"):
         raise CompareSaveError("Image Compare: the top picture is A or B.")
+    name = clean_save_name(name)
     try:
         first = _load_rgb(Path(picture_a))
         with Image.open(Path(picture_b)) as image:
@@ -254,9 +303,9 @@ def save_mix(*, picture_a, picture_b, output_dir, top="A", strokes=None, layers=
     folder = Path(output_dir)
     with _save_lock:
         folder.mkdir(parents=True, exist_ok=True)
-        counter = next_free_counter((entry.name for entry in folder.iterdir()), SAVE_NAME)
+        counter = next_free_counter((entry.name for entry in folder.iterdir()), name)
         while True:
-            stem = f"{SAVE_NAME}_{counter:0{COUNTER_WIDTH}}"
+            stem = f"{name}_{counter:0{COUNTER_WIDTH}}"
             wanted = [f"{stem}.png"] + ([f"{stem}.psd", f"{stem}_mask.png"] if layers else [])
             if not any((folder / file).exists() for file in wanted):
                 break
@@ -291,12 +340,15 @@ __all__ = [
     "ERASE_SIZE",
     "PAIRS_KEPT",
     "SAVE_NAME",
+    "SAVE_NAME_MAX",
     "brush_core",
     "brush_sigma",
+    "clean_save_name",
     "clean_strokes",
     "erase_mask",
     "mix_pictures",
     "pair_pictures",
     "remember_pair",
     "save_mix",
+    "tidy_save_name",
 ]

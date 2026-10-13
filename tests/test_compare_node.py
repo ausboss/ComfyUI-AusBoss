@@ -69,9 +69,25 @@ class CompareNodeTests(unittest.TestCase):
             # sends the key back and never a file name.
             (key,) = result["ui"]["pair"]
             self.assertEqual(
-                pair_pictures(key),
+                pair_pictures(key)[:2],
                 tuple(Path(tmp) / "ausboss" / result["ui"][name][0]["filename"] for name in ("a_images", "b_images")),
             )
+            # No name wired in: the one typed on the node will be used.
+            self.assertEqual((result["ui"]["save_name"], pair_pictures(key)[2]), ([""], ""))
+
+    def test_a_wired_filename_names_the_saved_files(self):
+        image = torch.rand(1, 8, 12, 3)
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(_preview_helpers, "folder_paths", fake_folder_paths(tmp)), \
+                    patch.object(node_compare, "folder_paths", fake_folder_paths(tmp)):
+                result = AusBossCompare().compare(image, image, filename="sets/a/photo 12.jpg")
+                self.assertEqual(result["ui"]["save_name"], ["photo 12"])
+                self.assertEqual(pair_pictures(result["ui"]["pair"][0])[2], "photo 12")
+                self.assertIs(result["result"][0], image)
+        optional = AusBossCompare.INPUT_TYPES()["optional"]["filename"]
+        self.assertEqual(optional[0], "STRING")
+        self.assertTrue(optional[1]["forceInput"])
+        self.assertEqual(list(AusBossCompare.INPUT_TYPES()["required"]), ["image_a", "image_b"])
 
     def test_two_nodes_use_distinct_temp_prefixes(self):
         # Prefixes are randomized per instance so parallel Compare nodes

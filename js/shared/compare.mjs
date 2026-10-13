@@ -71,12 +71,21 @@ export function compareClip(fraction) {
 
 // Pull the two preview references out of an onExecuted payload. Both must
 // be present for the panel to have anything meaningful to show. `pair` is
-// the run's key for Erase's Save, which sends it back in place of file names.
+// the run's key for Erase's Save, which sends it back in place of file
+// names, and `name` is the save name the run was wired with, if any.
 export function findCompareImages(message) {
   const a = message?.a_images?.[0] ?? null;
   const b = message?.b_images?.[0] ?? null;
   const pair = typeof message?.pair?.[0] === "string" ? message.pair[0] : null;
-  return a?.filename && b?.filename ? { a, b, pair } : null;
+  const name = typeof message?.save_name?.[0] === "string" ? message.save_name[0] : "";
+  return a?.filename && b?.filename ? { a, b, pair, name } : null;
+}
+
+// Where the mode switch stands for a mode and a locked side.
+export function compareSwitchValue(mode, showingB) {
+  if (mode === "erase") return "erase";
+  if (mode === "toggle") return showingB ? "b" : "a";
+  return "slide";
 }
 
 // Where the A and B labels sit: each on its own side of the split line, so

@@ -196,13 +196,33 @@ export function moveAdjust(state, x, y, perPixel = 1) {
   return { axis, origin, base, trail, brush: adjustedBrush(base, axis, x - origin[0], y - origin[1], perPixel) };
 }
 
-// What the Save button sends: the run's key, never a file name.
-export function saveRequest({ pair, top, strokes, layers }) {
+// What a saved mix is called when no name is given, and how long a name
+// may be (nodes/_compare_helpers.py holds the same two).
+export const SAVE_NAME = "compare";
+export const SAVE_NAME_MAX = 80;
+
+// The name field as it is typed in: letters, digits, spaces, dots, dashes
+// and underscores stay, everything else is left out, so a folder can never
+// be part of it. The server checks the same rule and refuses the rest.
+export function typedName(text) {
+  return String(text ?? "").replace(/[^\p{L}\p{N}_ .\-]/gu, "").replace(/\.{2,}/g, ".").replace(/^[ .]+/, "").slice(0, SAVE_NAME_MAX);
+}
+
+// What the files will be called, for the hint under the pointer.
+export function nameHint(name, layers) {
+  const base = typedName(name).trim().replace(/[ .]+$/, "") || SAVE_NAME;
+  return layers ? `${base}_00001.png, with ${base}_00001.psd and ${base}_00001_mask.png` : `${base}_00001.png`;
+}
+
+// What the Save button sends: the run's key for its two pictures, never a
+// file to read, and the name typed for the new files.
+export function saveRequest({ pair, top, strokes, layers, name }) {
   return {
     pair: typeof pair === "string" ? pair : "",
     top: normalizeTop(top),
     strokes: strokes ?? [],
     layers: layers === true,
+    name: typedName(name).trim(),
   };
 }
 

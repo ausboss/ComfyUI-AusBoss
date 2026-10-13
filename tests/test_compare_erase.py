@@ -22,12 +22,14 @@ from nodes._compare_helpers import (
     CompareSaveError,
     brush_core,
     brush_sigma,
+    clean_save_name,
     clean_strokes,
     erase_mask,
     mix_pictures,
     pair_pictures,
     remember_pair,
     save_mix,
+    tidy_save_name,
 )
 from nodes._psd_helpers import write_psd
 
@@ -100,6 +102,8 @@ class BrushTests(unittest.TestCase):
         self.assertEqual(number("ERASE_OUTSIDE"), helpers.ERASE_OUTSIDE)
         self.assertIn("return (size / 2) * (1 - soft / 2);", source)
         self.assertIn("return (soft * size) / 8;", source)
+        self.assertIn(f'export const SAVE_NAME = "{helpers.SAVE_NAME}";', source)
+        self.assertIn(f"export const SAVE_NAME_MAX = {helpers.SAVE_NAME_MAX};", source)
         self.assertEqual(brush_core(100, 0), 50)
         self.assertEqual(brush_core(100, 1), 25)
         self.assertEqual(brush_sigma(100, 0), 0)
@@ -212,7 +216,9 @@ class SaveTests(unittest.TestCase):
 
     def test_a_run_is_named_by_a_key_and_never_by_a_file(self):
         key = remember_pair(self.temp / A_NAME, self.temp / B_NAME)
-        self.assertEqual(pair_pictures(key), (self.temp / A_NAME, self.temp / B_NAME))
+        self.assertEqual(pair_pictures(key), (self.temp / A_NAME, self.temp / B_NAME, ""))
+        named = remember_pair(self.temp / A_NAME, self.temp / B_NAME, "photo 12")
+        self.assertEqual(pair_pictures(named)[2], "photo 12")
         self.assertNotIn("ausboss_compare", key)
         self.assertNotEqual(key, remember_pair(self.temp / A_NAME, self.temp / B_NAME))
         # Anything that is not a key the server gave out is "run again": a
@@ -234,15 +240,18 @@ class SaveTests(unittest.TestCase):
             last = remember_pair(self.temp / A_NAME, self.temp / B_NAME)
         with self.assertRaises(CompareSaveError):
             pair_pictures(first)
-        self.assertEqual(pair_pictures(last), (self.temp / A_NAME, self.temp / B_NAME))
+        self.assertEqual(pair_pictures(last), (self.temp / A_NAME, self.temp / B_NAME, ""))
 
     def test_the_route_takes_no_file_name_from_the_request(self):
-        """The body is a key, the strokes and two choices. Nothing in it is
-        joined to a folder, and what the route answers names no place on the
-        server's disk."""
+        """The body is a key, the strokes, two choices and a name for the new
+        files. No file to read is named, the name goes through
+        clean_save_name before anything is built from it, and what the route
+        answers names no place on the server's disk."""
         node = SOURCES[0].read_text(encoding="utf-8")
         route = node[node.index("async def save(request):"):node.index("class AusBossCompare:")]
-        self.assertEqual(sorted(set(re.findall(r'body\.get\("(\w+)"', route))), ["layers", "pair", "strokes", "top"])
+        self.assertEqual(sorted(set(re.findall(r'body\.get\("(\w+)"', route))), ["layers", "name", "pair", "strokes", "top"])
+        self.assertIn('clean_save_name(body.get("name"))', route)
+        self.assertEqual(route.count('body.get("name")'), 1)
         self.assertIn("safe_route_error(error)", route)
         for source in SOURCES:
             text = source.read_text(encoding="utf-8")
@@ -251,8 +260,51 @@ class SaveTests(unittest.TestCase):
         save = SOURCES[1].read_text(encoding="utf-8")
         save = save[save.index("def save_mix("):save.index("__all__")]
         self.assertNotIn("subfolder\": subfolder", save)
-        for message in (helpers.PICTURES_GONE, "Image Compare: the top picture is A or B."):
+        for message in (helpers.PICTURES_GONE, helpers.SAVE_NAME_HELP, "Image Compare: the top picture is A or B."):
             self.assertNotRegex(message, r"[\\/]")
+
+    def test_a_typed_name_is_a_plain_name_or_it_is_refused(self):
+        for typed, name in (
+            (None, "compare"), ("", "compare"), ("   ", "compare"),
+            ("mix", "mix"), (" my mix-2_final.v3 ", "my mix-2_final.v3"),
+            ("photo.PNG", "photo"), ("Überblick 12", "Überblick 12"), ("写真", "写真"),
+            ("x" * 80, "x" * 80),
+        ):
+            self.assertEqual(clean_save_name(typed), name, typed)
+        for bad in (
+            "a/b", "..", ".", "../x", "/etc/x", "C:\\x", "a\\b", "a:b", "a\nb", "~x", "a..b", "*.png", "-x",
+            "x" * 81, "con<", 'q"', "a|b", "name?", 7, ["mix"], {"name": "mix"},
+        ):
+            with self.assertRaises(CompareSaveError, msg=repr(bad)):
+                clean_save_name(bad)
+        # save_mix checks the name itself, whoever calls it.
+        with self.assertRaises(CompareSaveError):
+            self.save(name="../out")
+        with self.assertRaises(CompareSaveError):
+            self.save(name="sub/mix")
+        self.assertEqual(list(self.output.iterdir()), [])
+
+    def test_a_wired_name_is_tidied_and_never_stops_a_run(self):
+        for wired, name in (
+            ("sets/a/photo 12.jpg", "photo 12"), ("C:\\pics\\shot.png", "shot"),
+            ("../../etc/passwd", "passwd"), ("a:b*c?.webp", "a_b_c"), ("  .hidden  ", "hidden"),
+            ("..", ""), ("", ""), (None, ""), (5, ""), ("///", ""),
+            ("x" * 200 + ".png", "x" * 80),
+        ):
+            tidy = tidy_save_name(wired)
+            self.assertEqual(tidy, name, wired)
+            # Whatever comes out is a name the save takes, or nothing.
+            self.assertEqual(clean_save_name(tidy), name or "compare")
+
+    def test_the_name_goes_into_the_file_names(self):
+        result = self.save(name="my mix", layers=True)
+        self.assertEqual([file["filename"] for file in result["files"]],
+                         ["my mix_00001.png", "my mix_00001.psd", "my mix_00001_mask.png"])
+        self.assertEqual({file["subfolder"] for file in result["files"]}, {""})
+        self.assertEqual(self.save(name="my mix")["files"][0]["filename"], "my mix_00002.png")
+        # Each name counts by itself.
+        self.assertEqual(self.save()["files"][0]["filename"], "compare_00001.png")
+        self.assertEqual({path.parent for path in self.output.iterdir()}, {self.output})
 
     def test_the_mix_is_saved_as_a_png(self):
         result = self.save()

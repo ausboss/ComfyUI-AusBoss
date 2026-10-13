@@ -18,6 +18,7 @@ import {
   fitRect,
   makeStroke,
   moveAdjust,
+  nameHint,
   normalizeTop,
   pointCount,
   previewScale,
@@ -30,8 +31,9 @@ import {
   steppedSoft,
   strokeFits,
   toPicture,
+  typedName,
 } from "../js/shared/compare_erase.mjs";
-import { normalizeCompareMode } from "../js/shared/compare.mjs";
+import { compareSwitchValue, normalizeCompareMode } from "../js/shared/compare.mjs";
 
 test("erase is a mode the panel keeps", () => {
   assert.equal(normalizeCompareMode("erase"), "erase");
@@ -122,13 +124,37 @@ test("the picture is shown whole and centred, and a click maps back to it", () =
   assert.equal(previewScale(4096, 2048), 0.5);
 });
 
-test("save sends the run's key, the strokes and the choices, and no file name", () => {
+test("save sends the run's key, the strokes, the choices and a plain name", () => {
   const strokes = [{ o: 1, d: 10, s: 0, p: [1, 1] }];
-  assert.deepEqual(saveRequest({ pair: "k3y", top: "B", strokes, layers: true }), { pair: "k3y", top: "B", strokes, layers: true });
-  assert.deepEqual(saveRequest({}), { pair: "", top: "A", strokes: [], layers: false });
+  assert.deepEqual(saveRequest({ pair: "k3y", top: "B", strokes, layers: true, name: " my mix " }), { pair: "k3y", top: "B", strokes, layers: true, name: "my mix" });
+  assert.deepEqual(saveRequest({}), { pair: "", top: "A", strokes: [], layers: false, name: "" });
   assert.equal(saveRequest({ pair: { filename: "a.png" } }).pair, "");
   assert.equal(saveRequest({ pair: "k", layers: "yes" }).layers, false);
-  assert.deepEqual(Object.keys(saveRequest({ pair: "k", name: "x/y", refs: {} })), ["pair", "top", "strokes", "layers"]);
+  // No file to read is ever named, and a name never carries a folder.
+  assert.deepEqual(Object.keys(saveRequest({ pair: "k", refs: {}, a: "x.png" })), ["pair", "top", "strokes", "layers", "name"]);
+  assert.equal(saveRequest({ pair: "k", name: "../../etc/passwd" }).name, "etcpasswd");
+  assert.equal(saveRequest({ pair: "k", name: "C:\\out\\x" }).name, "Coutx");
+});
+
+test("the name field keeps only what a file name can hold", () => {
+  assert.equal(typedName("my mix-2_final.v3"), "my mix-2_final.v3");
+  assert.equal(typedName("sets/a\\b:c*?\"<>|"), "setsabc");
+  assert.equal(typedName("..hidden"), "hidden");
+  assert.equal(typedName("a..b...c"), "a.b.c");
+  assert.equal(typedName("Überblick 写真 12"), "Überblick 写真 12");
+  assert.equal(typedName("x".repeat(200)).length, 80);
+  assert.equal(typedName(null), "");
+  assert.equal(nameHint("", false), "compare_00001.png");
+  assert.equal(nameHint("mix ", false), "mix_00001.png");
+  assert.equal(nameHint("mix", true), "mix_00001.png, with mix_00001.psd and mix_00001_mask.png");
+});
+
+test("the mode switch stands where the mode says", () => {
+  assert.equal(compareSwitchValue("slide", false), "slide");
+  assert.equal(compareSwitchValue("slide", true), "slide");
+  assert.equal(compareSwitchValue("toggle", false), "a");
+  assert.equal(compareSwitchValue("toggle", true), "b");
+  assert.equal(compareSwitchValue("erase", true), "erase");
 });
 
 test("the saved line names the file", () => {
