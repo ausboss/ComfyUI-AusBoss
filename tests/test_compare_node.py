@@ -14,7 +14,8 @@ sys.path.insert(0, str(ROOT))
 if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
     del sys.modules["nodes"]
 
-from nodes import _preview_helpers
+from nodes import _preview_helpers, node_compare
+from nodes._compare_helpers import pair_pictures
 from nodes.node_compare import AusBossCompare, first_frame_to_pil
 
 
@@ -51,7 +52,8 @@ class CompareNodeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             # folder_paths is imported by the shared preview helper now, which
             # is where every node's temp preview is written.
-            with patch.object(_preview_helpers, "folder_paths", fake_folder_paths(tmp)):
+            with patch.object(_preview_helpers, "folder_paths", fake_folder_paths(tmp)), \
+                    patch.object(node_compare, "folder_paths", fake_folder_paths(tmp)):
                 result = AusBossCompare().compare(image_a, image_b)
 
             self.assertIs(result["result"][0], image_a)
@@ -63,6 +65,13 @@ class CompareNodeTests(unittest.TestCase):
                 saved = Path(tmp) / "ausboss" / ref["filename"]
                 with Image.open(saved) as png:
                     self.assertEqual(png.size, (12, 8))
+            # The run's key stands for exactly these two files; Erase's Save
+            # sends the key back and never a file name.
+            (key,) = result["ui"]["pair"]
+            self.assertEqual(
+                pair_pictures(key),
+                tuple(Path(tmp) / "ausboss" / result["ui"][name][0]["filename"] for name in ("a_images", "b_images")),
+            )
 
     def test_two_nodes_use_distinct_temp_prefixes(self):
         # Prefixes are randomized per instance so parallel Compare nodes

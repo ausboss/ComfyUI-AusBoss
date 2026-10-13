@@ -2,7 +2,8 @@
 // wiring lives in js/compare/index.js so this module stays testable
 // under node:test.
 
-export const COMPARE_MODES = ["slide", "toggle"];
+// "erase" is the brush mode: its canvas and tools are in compare_erase_stage.mjs.
+export const COMPARE_MODES = ["slide", "toggle", "erase"];
 
 // "hold" was the press-and-hold mode that toggle replaced. Mapping it keeps a
 // workflow saved with it on the button it became, instead of quietly dropping
@@ -69,11 +70,13 @@ export function compareClip(fraction) {
 }
 
 // Pull the two preview references out of an onExecuted payload. Both must
-// be present for the panel to have anything meaningful to show.
+// be present for the panel to have anything meaningful to show. `pair` is
+// the run's key for Erase's Save, which sends it back in place of file names.
 export function findCompareImages(message) {
   const a = message?.a_images?.[0] ?? null;
   const b = message?.b_images?.[0] ?? null;
-  return a?.filename && b?.filename ? { a, b } : null;
+  const pair = typeof message?.pair?.[0] === "string" ? message.pair[0] : null;
+  return a?.filename && b?.filename ? { a, b, pair } : null;
 }
 
 // Where the A and B labels sit: each on its own side of the split line, so

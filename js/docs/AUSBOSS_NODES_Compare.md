@@ -23,12 +23,73 @@ Run the workflow once to load the previews, then compare:
   the same choice again keeps it locked; choose SLIDE to follow the pointer
   again. The three choices sit below the image.
 
+- **ERASE**: mix the two pictures by hand. One picture is on top; paint on
+  it and it rubs away, so the other one shows through. Then save the mix.
+  See **Erase** below.
+
 The labels ride with the split line: **A** just left of it and **B** just right of
 it, on the picture each one names. With one picture showing, its label sits alone
 at the top centre. The chosen mode and locked side are
 stored with the node, including support for modes from older workflows. The resolution
 sits under the picture, beside the three mode buttons; differing sizes are
 labeled individually.
+
+## Erase
+
+Use it when you want part of one picture and part of the other: the edit
+is good but it changed the hands, so you paint the old hands back. Or you
+only want the new sky.
+
+Press **ERASE**. A row of tools opens above the picture:
+
+- **ERASE** makes the brush rub the top picture away. **RESTORE** makes it
+  paint the top picture back. Holding **Alt**, or the right mouse button,
+  paints back too.
+- **Size** is the brush's width, in pixels of the picture.
+- **Soft** is the brush's edge: 0 is a hard edge, 100 fades all the way
+  from the middle.
+- **A ON TOP** says which picture you start from. Click it to put B on top
+  instead. Your paint stays where it is.
+- **UNDO** takes back the last stroke, or a Clear. **CLEAR** takes all the
+  paint off.
+
+The brush shows around the pointer in teal: a ring at its full size, and
+its shape inside, solid in the middle and fading where the edge is soft.
+It turns coral while it paints back.
+
+Set the brush without leaving the picture, with the same keys as in
+Photoshop:
+
+- **[** and **]** make it smaller and larger.
+- **Shift + [** and **Shift + ]** make the edge softer and harder.
+- Hold **Alt** and the **right mouse button**, then drag: left and right
+  for the size, up and down for the edge (up is softer). The brush stays
+  where you pressed and changes as you drag, with its size and softness
+  written under it; the dashed ring is where its solid middle ends. One
+  drag can do both: go across for the size, then turn up or down for the
+  edge. On a Mac, hold Control and Option and drag.
+
+These keys only work while the pointer is on the picture. ComfyUI's own
+shortcuts are left alone.
+
+Under the picture:
+
+- **SAVE** writes the mix to ComfyUI's output folder as a PNG, such as
+  `compare_00001.png`. Nothing is run again.
+- **PSD**, when lit, makes Save write two more files:
+  - `compare_00001.psd`: both pictures as layers, with your paint as a
+    layer mask on the top one. Open it in Photoshop, GIMP or another
+    editor that reads PSD files, and keep working on the mask there.
+  - `compare_00001_mask.png`: the mask alone. White is where the picture
+    underneath shows.
+
+After a save, the row under the picture says **Saved** with a link for
+each file. Click one to download it, which helps when ComfyUI runs on
+another computer.
+
+Your paint is kept with the workflow. A new run keeps it while the picture
+keeps its size, so you can change a seed and look again; press **CLEAR**
+to start over. Pictures of another size start clean.
 
 ## Which picture is the result
 
@@ -40,8 +101,9 @@ picture up whatever happens, use the **A** or **B** button.
 
 - **image_a**: The `image_a` batch, untouched.
 
-Previews are written to ComfyUI's temp folder and vanish with it; nothing is
-saved to the output folder and no network requests are made.
+Previews are written to ComfyUI's temp folder and vanish with it. Nothing
+is saved to the output folder until you press **SAVE** in Erase, and no
+network requests are made.
 
 ## Technical details
 
@@ -55,3 +117,21 @@ saved to the output folder and no network requests are made.
 - Settings → AusBoss → Image Compare → **Rest on the result** switches this
   off. The panel then stays on the picture nearest to where the pointer
   left, and a new run does not change it.
+- **Erase works on the first picture of each batch**, at its full size.
+  The mix is always A's size: a B of another size is resized to fit A.
+- **What is kept is the strokes**, not a painted picture. The panel draws
+  them for you, and Save draws them again on the server at full size, so
+  the saved edge is as sharp as the picture however small the node is.
+- **The brush** is a solid middle with a blurred edge. At Soft 100 the
+  middle is half the brush wide and the blur is an eighth of the size.
+- **Save mixes the two pictures of the node's last run**, which ComfyUI
+  keeps in its temp folder. After a restart of ComfyUI they are gone: run
+  the workflow once more, then save. The browser sends only the strokes
+  and a key for that run, never a file name, and the files are always
+  called `compare_` and a number.
+- **The saved files carry no workflow.** A mix is made by hand, so there
+  is nothing a workflow could make again.
+- **The PSD** is 8-bit RGB and not compressed: about 12 bytes for each
+  pixel, so 50 MB for a 2048 x 2048 picture. It carries no colour profile,
+  like the PNG.
+- **Limits**: 400 strokes in one mix. The node says so when it is full.

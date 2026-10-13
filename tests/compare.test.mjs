@@ -91,7 +91,10 @@ test("only the picture on show is drawn when the other is wholly covered", () =>
 test("compare previews are pulled from the execution payload as a pair", () => {
   const a = { filename: "a.png", subfolder: "", type: "temp" };
   const b = { filename: "b.png", subfolder: "", type: "temp" };
-  assert.deepEqual(findCompareImages({ a_images: [a], b_images: [b] }), { a, b });
+  assert.deepEqual(findCompareImages({ a_images: [a], b_images: [b] }), { a, b, pair: null });
+  // The run's key for Erase's Save rides along; anything but text is no key.
+  assert.equal(findCompareImages({ a_images: [a], b_images: [b], pair: ["k3y"] }).pair, "k3y");
+  assert.equal(findCompareImages({ a_images: [a], b_images: [b], pair: [{ filename: "x" }] }).pair, null);
   assert.equal(findCompareImages({ a_images: [a] }), null);
   assert.equal(findCompareImages({ a_images: [{}], b_images: [b] }), null);
   assert.equal(findCompareImages(null), null);

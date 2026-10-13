@@ -3,7 +3,7 @@ import { app } from "/scripts/app.js";
 import { isForeignRun, outputKey } from "../shared/prompt_scope.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { lookupLink } from "../shared/graph_links.mjs";
-import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
+import { WIDGET_FRAME, fillNodeHeight, holdVueNodeMinWidth } from "../shared/panel_layout.mjs";
 import { mediaViewQuery, responsivePreviewHeight } from "../shared/video_preview.mjs";
 import { VIDEO_MIN_WIDTH, ensureVideoCss, makeToolButton } from "../shared/video_ui.mjs";
 import {
@@ -15,6 +15,8 @@ import {
   findCompareImages,
   normalizeCompareMode,
 } from "../shared/compare.mjs";
+import { savedLinks } from "../shared/compare_erase.mjs";
+import { ERASE_BAR_HEIGHT, ERASE_CSS, ERASE_MIN_WIDTH, makeEraser } from "../shared/compare_erase_stage.mjs";
 
 const NODE_NAME = "AUSBOSS_NODES_Compare";
 const PANEL_WIDGET = "ausboss_compare_panel";
@@ -29,7 +31,8 @@ const DEFAULT_NODE_SIZE = [
   420,
   responsivePreviewHeight(420, 132, 520) + PANEL_CHROME + CAPTION_HEIGHT + 60,
 ];
-const CSS_ID = "ausboss-compare-ui-v3";
+const CSS_ID = "ausboss-compare-ui-v4";
+const ROOT_GAP = 6;
 const BADGE_WIDTH = 22;
 const REST_SETTING = "AusBoss.Compare.RestOnResult";
 let restOnResult = true;
@@ -40,7 +43,7 @@ function ensureCompareCss() {
   const style = document.createElement("style");
   style.id = CSS_ID;
   style.textContent = `
-.ausboss-compare-root{box-sizing:border-box;width:100%;height:100%;display:flex;flex-direction:column;gap:6px;padding:2px 6px 6px;color:#d8eeee;font:11px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow:hidden;}
+.ausboss-compare-root{box-sizing:border-box;width:100%;height:100%;display:flex;flex-direction:column;gap:${ROOT_GAP}px;padding:2px 6px 6px;color:#d8eeee;font:11px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow:hidden;}
 .ausboss-compare-stage{position:relative;flex:1 1 auto;min-height:112px;overflow:hidden;border:1px solid rgba(0,180,170,.34);border-radius:6px;background:#000;box-shadow:inset 0 0 0 1px rgba(255,255,255,.025);touch-action:none;}
 .ausboss-compare-stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none;}
 .ausboss-compare-stage.is-empty img{visibility:hidden;}
@@ -58,7 +61,9 @@ function ensureCompareCss() {
 .ausboss-compare-stage.is-empty .ausboss-compare-identity{display:none;}
 .ausboss-compare-tools:hover{opacity:1;}
 .ausboss-compare-caption{flex:1;min-width:0;height:${CAPTION_HEIGHT}px;overflow:hidden;color:#8ba3a1;font-size:10px;line-height:${CAPTION_HEIGHT}px;text-align:center;white-space:nowrap;text-overflow:ellipsis;}
-`;
+.ausboss-compare-caption a{color:${BRAND};font-weight:700;text-decoration:none;cursor:pointer;}
+.ausboss-compare-caption a:hover{text-decoration:underline;}
+${ERASE_CSS}`;
   document.head.appendChild(style);
 }
 
@@ -68,6 +73,16 @@ function getMode(node) {
     node.properties.ausboss_compare_mode,
   );
   return node.properties.ausboss_compare_mode;
+}
+
+// Erase mode has a tool row of its own and needs room for it, so the
+// panel's floor follows the mode.
+function panelFloor(node) {
+  return PANEL_MIN_HEIGHT + (getMode(node) === "erase" ? ERASE_BAR_HEIGHT + ROOT_GAP : 0) + WIDGET_FRAME;
+}
+
+function widthFloor(node) {
+  return getMode(node) === "erase" ? ERASE_MIN_WIDTH : VIDEO_MIN_WIDTH;
 }
 
 // A and B ride on either side of the split line (compareBadges), so each
@@ -103,6 +118,24 @@ function setReady(state) {
   state.caption.textContent = compareSizeLabel(state.refs);
 }
 
+// After a save the caption names the files as links: ComfyUI often runs on
+// another computer, and this is how the mix gets from there to an editor.
+// The next pair of pictures puts the size back.
+function showSaved(state, files) {
+  const links = savedLinks(files);
+  if (!links.length) return;
+  state.caption.textContent = "Saved ";
+  links.forEach(({ label, file }, index) => {
+    const link = document.createElement("a");
+    link.textContent = label;
+    link.href = api.apiURL(`/view?${mediaViewQuery(file, "output")}`);
+    link.download = file.filename;
+    link.title = `Download ${file.filename}`;
+    link.addEventListener("pointerdown", (event) => event.stopPropagation());
+    state.caption.append(index ? " · " : "", link);
+  });
+}
+
 function updateModeButtons(state) {
   const mode = getMode(state.node);
   state.slideButton.classList.toggle("active", mode === "slide");
@@ -111,6 +144,22 @@ function updateModeButtons(state) {
   state.slideButton.setAttribute("aria-pressed", String(mode === "slide"));
   state.aButton.setAttribute("aria-pressed", String(mode === "toggle" && !state.showingB));
   state.bButton.setAttribute("aria-pressed", String(mode === "toggle" && state.showingB));
+  state.eraseButton.classList.toggle("active", mode === "erase");
+  state.eraseButton.setAttribute("aria-pressed", String(mode === "erase"));
+}
+
+// Hand the stage to the brush, or take it back, when the mode says so. A
+// node too small for the tool row grows to fit it.
+function syncErase(state) {
+  const node = state.node;
+  const on = getMode(node) === "erase";
+  if (state.eraser.active === on) return;
+  state.eraser.setActive(on);
+  holdVueNodeMinWidth(state.root, widthFloor(node));
+  const min = on ? node.computeSize?.() : null;
+  if (min && node.size && (node.size[0] < min[0] || node.size[1] < min[1])) {
+    node.setSize?.([Math.max(node.size[0], min[0]), Math.max(node.size[1], min[1])]);
+  }
 }
 
 // In toggle mode the reveal is all or nothing.
@@ -155,6 +204,7 @@ function showResult(state) {
 function loadPreviews(state, refs) {
   state.refs = refs;
   state.loaded = 0;
+  state.eraser.setPictures(null);
   setEmpty(state, "Loading previews…");
   // A new pair opens on the result, unless a lock or the pointer holds the view.
   if (restOnResult && getMode(state.node) === "slide" && !state.stage.matches(":hover")) showResult(state);
@@ -189,21 +239,28 @@ function buildPanel(node) {
   const slideButton = makeToolButton("SLIDE", "Slide: the seam follows the pointer across the image");
   const aButton = makeToolButton("A", "Lock preview A (turn sliding off)");
   const bButton = makeToolButton("B", "Lock preview B (turn sliding off)");
+  const eraseButton = makeToolButton("ERASE", "Erase: rub one picture away with a brush so the other shows through, then save the mix");
   tools.setAttribute("role", "group");
   tools.setAttribute("aria-label", "Compare preview mode");
-  tools.append(slideButton, aButton, bButton);
+  tools.append(slideButton, aButton, bButton, eraseButton);
   stage.append(imageB, imageA, seam, status, identity);
   const caption = document.createElement("div");
   caption.className = "ausboss-compare-caption";
+  const abort = new AbortController();
+  const signal = abort.signal;
+  const eraser = makeEraser({
+    node, root, stage, imageA, imageB, signal,
+    onSaved: (files) => showSaved(node.__ausbossCompare, files),
+  });
   const footer = document.createElement("div");
   footer.className = "ausboss-compare-footer";
-  footer.append(caption, tools);
-  root.append(stage, footer);
+  footer.append(caption, eraser.saveTools, tools);
+  root.append(eraser.bar, stage, footer);
 
   const widget = node.addDOMWidget(PANEL_WIDGET, "ausboss_compare", root, {
     serialize: false,
     hideOnZoom: false,
-    getMinHeight: () => PANEL_MIN_HEIGHT + WIDGET_FRAME,
+    getMinHeight: () => panelFloor(node),
   });
   keepDomWidgetWidthAuto(widget);
   // Not saved with the workflow either: options.serialize only keeps it out
@@ -213,22 +270,20 @@ function buildPanel(node) {
   // the panel fewer CSS pixels than the stage + caption minimums and shaves
   // the caption's glyphs at the node's minimum height.
   fillNodeHeight(widget, {
-    minWidth: VIDEO_MIN_WIDTH,
-    minHeight: PANEL_MIN_HEIGHT + WIDGET_FRAME,
+    minWidth: () => widthFloor(node),
+    minHeight: () => panelFloor(node),
     minNodeSize: [VIDEO_MIN_WIDTH, 220],
     exactMinWidth: true,
   });
 
-  const abort = new AbortController();
   const state = node.__ausbossCompare = {
     node, root, stage, imageA, imageB, seam, status, caption, identity, identityLeft, identityRight,
-    slideButton, aButton, bButton,
+    slideButton, aButton, bButton, eraseButton, eraser,
     widget, abort, refs: null, fraction: 1, loaded: 0, showingB: false,
   };
   applyClip(state);
   updateModeButtons(state);
 
-  const signal = abort.signal;
   // The labels are placed in pixels, so they follow the stage's width.
   const resized = new ResizeObserver(() => applyClip(state));
   resized.observe(stage);
@@ -242,6 +297,7 @@ function buildPanel(node) {
     state.fraction = 1;
     if (restOnResult) showResult(state);
     else applyClip(state);
+    syncErase(state);
     updateModeButtons(state);
     node.setDirtyCanvas?.(true, true);
     // The mode saves with the workflow; flipping A/B within it does not.
@@ -257,10 +313,22 @@ function buildPanel(node) {
       node.properties.ausboss_compare_mode = "toggle";
       node.properties.ausboss_compare_side = showingB ? "B" : "A";
       state.showingB = showingB;
+      syncErase(state);
       applyToggle(state);
       if (changed) notifyAusbossChange();
     }, { signal });
   }
+
+  eraseButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (getMode(node) === "erase") return;
+    node.properties.ausboss_compare_mode = "erase";
+    syncErase(state);
+    updateModeButtons(state);
+    node.setDirtyCanvas?.(true, true);
+    notifyAusbossChange();
+  }, { signal });
 
   // Movement belongs to the preview only; graph dragging and panning remain
   // untouched. A/B locks ignore pointer movement and exits.
@@ -286,12 +354,16 @@ function buildPanel(node) {
     state.loaded += 1;
     if (state.loaded >= 2) {
       setReady(state);
+      eraser.setPictures(state.refs);
       node.setDirtyCanvas?.(true, true);
     }
   };
   imageA.addEventListener("load", onImageLoad, { signal });
   imageB.addEventListener("load", onImageLoad, { signal });
-  const onImageError = () => setEmpty(state, "A compare preview could not load");
+  const onImageError = () => {
+    eraser.setPictures(null);
+    setEmpty(state, "A compare preview could not load");
+  };
   imageA.addEventListener("error", onImageError, { signal });
   imageB.addEventListener("error", onImageError, { signal });
 
@@ -350,6 +422,9 @@ app.registerExtension({
       queueMicrotask(() => {
         const state = buildPanel(this);
         state.showingB = this.properties?.ausboss_compare_side === "B";
+        syncErase(state);
+        // The saved paint, if the pictures are already up.
+        if (state.refs && state.loaded >= 2) state.eraser.setPictures(state.refs);
         if (getMode(this) === "toggle") applyToggle(state);
         else updateModeButtons(state);
       });
