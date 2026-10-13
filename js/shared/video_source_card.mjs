@@ -16,6 +16,12 @@ export function normalizeVideoOptions(values, selected = "") {
   return result;
 }
 
+// A whole path: typed, or left in a workflow saved before Server file took a
+// folder and a name. The server refuses it; the hint says what to type.
+const WHOLE_PATH = /^(?:[\\/~]|[A-Za-z]:)/;
+const SERVER_FILE_HINT = "Folder and name, such as output/clip.mp4. Read in place.";
+const WHOLE_PATH_HINT = "Not a whole path. Type folder and name: output/clip.mp4";
+
 export function videoSourceState(mode, video, localPath) {
   const normalizedMode = normalizeVideoSourceMode(mode);
   const selection = String(
@@ -26,7 +32,7 @@ export function videoSourceState(mode, video, localPath) {
     selection,
     key: selection ? `${normalizedMode === LOCAL_PATH_MODE ? "local" : "input"}:${selection}` : "",
     hint: normalizedMode === LOCAL_PATH_MODE
-      ? "Reads directly from this server without copying the file."
+      ? (WHOLE_PATH.test(selection.replace(/^"/, "")) ? WHOLE_PATH_HINT : SERVER_FILE_HINT)
       : "Choose an uploaded video or add one to ComfyUI's input folder.",
   };
 }

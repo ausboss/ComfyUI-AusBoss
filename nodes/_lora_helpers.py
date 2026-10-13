@@ -21,6 +21,8 @@ except ImportError:  # pragma: no cover - only outside ComfyUI
 STRENGTH_LIMIT = 10.0
 _THUMB_SUFFIXES = (".preview.png", ".preview.jpg", ".preview.jpeg", ".preview.webp",
                    ".png", ".jpg", ".jpeg", ".webp")
+# The node shows a preview at 180 px at most; twice that keeps it sharp.
+THUMB_EDGE = 360
 
 
 def clamp_strength(value: Any, fallback: float = 1.0) -> float:
@@ -758,6 +760,7 @@ def register_lora_routes() -> None:
     if prompt_server is None or getattr(prompt_server, "_ausboss_lora_routes", False):
         return
     prompt_server._ausboss_lora_routes = True
+    from ._route_errors import safe_route_error
 
     @prompt_server.routes.get("/ausboss/lora/list")
     async def ausboss_lora_list(request):
@@ -765,10 +768,20 @@ def register_lora_routes() -> None:
 
     @prompt_server.routes.get("/ausboss/lora/thumb")
     async def ausboss_lora_thumb(request):
+        # A small copy of the picture, never the file itself: whatever a
+        # preview's name leads to, only a picture decoded here is sent.
         thumb = find_thumbnail(request.query.get("name", ""))
         if thumb is None:
             return web.json_response({"error": "no preview image"}, status=404)
-        return web.FileResponse(thumb, headers={"Cache-Control": "max-age=3600"})
+        try:
+            from ._image_folder_helpers import thumbnail
+
+            body = await asyncio_run_in_executor(thumbnail, thumb, THUMB_EDGE)
+        except Exception:
+            return web.json_response({"error": "no preview image"}, status=404)
+        return web.Response(
+            body=body, content_type="image/jpeg", headers={"Cache-Control": "max-age=3600"}
+        )
 
     @prompt_server.routes.get("/ausboss/lora/info")
     async def ausboss_lora_info(request):
@@ -776,7 +789,7 @@ def register_lora_routes() -> None:
             info = await asyncio_run_in_executor(lora_info, request.query.get("name", ""))
             return web.json_response({"ok": True, "info": info})
         except Exception as exc:
-            return web.json_response({"ok": False, "error": str(exc)}, status=400)
+            return web.json_response({"ok": False, "error": safe_route_error(exc)}, status=400)
 
     @prompt_server.routes.get("/ausboss/lora/hash")
     async def ausboss_lora_hash(request):
@@ -784,7 +797,7 @@ def register_lora_routes() -> None:
             sha = await asyncio_run_in_executor(lora_sha256, request.query.get("name", ""))
             return web.json_response({"ok": True, "sha256": sha})
         except Exception as exc:
-            return web.json_response({"ok": False, "error": str(exc)}, status=400)
+            return web.json_response({"ok": False, "error": safe_route_error(exc)}, status=400)
 
     @prompt_server.routes.post("/ausboss/lora/civitai")
     async def ausboss_lora_civitai(request):
@@ -797,7 +810,7 @@ def register_lora_routes() -> None:
             )
             return web.json_response({"ok": True, "info": info})
         except Exception as exc:
-            return web.json_response({"ok": False, "error": str(exc)}, status=400)
+            return web.json_response({"ok": False, "error": safe_route_error(exc)}, status=400)
 
     @prompt_server.routes.post("/ausboss/lora/triggers")
     async def ausboss_lora_triggers(request):
@@ -814,7 +827,7 @@ def register_lora_routes() -> None:
             saved = await asyncio_run_in_executor(save_custom_lora_data, name, words, bounds)
             return web.json_response({"ok": True, **saved})
         except Exception as exc:
-            return web.json_response({"ok": False, "error": str(exc)}, status=400)
+            return web.json_response({"ok": False, "error": safe_route_error(exc)}, status=400)
 
 
 async def asyncio_run_in_executor(func, *args):

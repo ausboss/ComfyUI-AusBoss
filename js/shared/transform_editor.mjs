@@ -408,8 +408,8 @@ function buildMediaSourceCard(state) {
   const localPath = createElement("input");
   localPath.type = "text";
   localPath.spellcheck = false;
-  localPath.placeholder = "/absolute/path/to/video.mp4";
-  localPath.setAttribute("aria-label", "Server file path");
+  localPath.placeholder = "output/clip.mp4";
+  localPath.setAttribute("aria-label", "Server file: folder and name");
   const upload = createElement("label", "ausboss-transform-button ausboss-transform-file ausboss-transform-source-action");
   const uploadText = createElement("span", "", "Upload");
   upload.append(uploadText);
@@ -444,7 +444,7 @@ function buildMediaSourceCard(state) {
     else field.append(picker.element, upload);
     hint.textContent = source.hint;
     hint.title = source.mode === LOCAL_PATH_MODE
-      ? `${source.hint} Only videos inside ComfyUI's input, output or temp folder can be read.`
+      ? `${source.hint} The folder is ComfyUI's input, output or temp folder. A whole path is not read.`
       : source.hint;
     // "Choose an uploaded video" has done its job once one is chosen; its
     // line goes to the picture. The Server file note stays while you type.

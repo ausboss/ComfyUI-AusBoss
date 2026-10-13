@@ -394,9 +394,23 @@ class LoadVideoNodeTests(unittest.TestCase):
         cls._tmp = tempfile.TemporaryDirectory()
         cls.video = Path(cls._tmp.name) / "clip.mp4"
         write_test_video(cls.video, with_audio=True)
+        # The loader reads only ComfyUI's input folder; the fixture's folder
+        # stands in for it.
+        from types import SimpleNamespace
+
+        from nodes import _media_helpers
+
+        root = cls._tmp.name
+        stand_in = SimpleNamespace(
+            get_input_directory=lambda: root,
+            get_annotated_filepath=lambda name: os.path.join(root, name),
+        )
+        cls._folders = patch.object(_media_helpers, "folder_paths", stand_in)
+        cls._folders.start()
 
     @classmethod
     def tearDownClass(cls):
+        cls._folders.stop()
         cls._tmp.cleanup()
 
     def test_video_output_is_appended_after_the_original_seven(self):

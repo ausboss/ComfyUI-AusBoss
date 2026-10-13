@@ -115,7 +115,11 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
 - Widget values and route parameters are attacker-controlled: ComfyUI's
   `/prompt` and the pack's routes need no login. Media reads and writes stay
   inside ComfyUI's input, output and temp folders - no opt-in switches, no
-  "any folder" settings, no folder pickers. Besides those the pack only reads
+  "any folder" settings, no folder pickers. A file is named below one of
+  those folders (`output/clip.mp4`); no input opens a whole path as given.
+  A route answers with data it made (JSON, a small picture), never a file by
+  its path (`web.FileResponse`), and its error text goes through
+  `safe_route_error` (`nodes/_route_errors.py`). Besides those the pack only reads
   its registered model folders (the one write there is the `.civitai.info`
   file LoRA Loader's Civitai button saves beside a LoRA) and keeps its own
   settings files in ComfyUI's user folder (`user/ausboss/`). Nothing is handed to a

@@ -514,6 +514,25 @@ class FeatherCornerTests(unittest.TestCase):
 
 
 class LoadImagePadNodeTests(unittest.TestCase):
+    def setUp(self):
+        # The loader reads only ComfyUI's input folder. The temp folder these
+        # tests write their pictures to stands in for it.
+        import os
+        import tempfile
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        from nodes import _media_helpers
+
+        root = tempfile.gettempdir()
+        stand_in = SimpleNamespace(
+            get_input_directory=lambda: root,
+            get_annotated_filepath=lambda name: os.path.join(root, name),
+        )
+        patcher = patch.object(_media_helpers, "folder_paths", stand_in)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def make_node(self):
         from nodes.node_load_image_pad import (
             NODE_CLASS_MAPPINGS,

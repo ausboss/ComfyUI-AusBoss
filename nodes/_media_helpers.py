@@ -17,20 +17,29 @@ import time
 import av
 from PIL import Image, ImageOps, ImageSequence
 
+from ._route_errors import safe_route_error
+
 try:
     import folder_paths
 except ImportError:  # Offline tests import this module without ComfyUI.
     folder_paths = None
 
 
-# Local path mode reads only from ComfyUI's input, output and temp folders,
-# for queued runs and the preview routes alike: a widget value arrives
-# through the unauthenticated /prompt route, and the previews answer any
-# HTTP client that can reach the server.
-LOCAL_PATH_RULE = (
-    "Local path mode reads only videos inside ComfyUI's input, output or temp "
-    "folder. Move the video there, or use Upload."
+# Server file mode ("local path" in saved workflows) names a video by folder
+# and name, such as output/clip.mp4: one of ComfyUI's input, output and temp
+# folders, then a path below it. It never takes a whole path, for queued runs
+# and the preview routes alike: a widget value arrives through the
+# unauthenticated /prompt route, and the previews answer any HTTP client that
+# can reach the server.
+SERVER_FILE_RULE = (
+    "Server file reads a video by folder and name, such as output/clip.mp4. "
+    "The folder is ComfyUI's input, output or temp folder. A whole path is not read."
 )
+_SERVER_FOLDERS = {
+    "input": "get_input_directory",
+    "output": "get_output_directory",
+    "temp": "get_temp_directory",
+}
 
 VIDEO_EXTENSIONS = {
     ".avi",
@@ -81,14 +90,13 @@ def resolve_input_path(selection: str) -> Path:
     if str(selection).replace("\\", "/").startswith("//"):
         raise ValueError("Network source paths are not allowed.")
     if folder_paths is None:
-        path = Path(selection).expanduser().resolve()
-    else:
-        path = Path(folder_paths.get_annotated_filepath(selection)).resolve()
-        input_root = Path(folder_paths.get_input_directory()).resolve()
-        try:
-            path.relative_to(input_root)
-        except ValueError as exc:
-            raise ValueError("The selected source is outside ComfyUI's input folder.") from exc
+        raise ValueError("Source files are read only inside ComfyUI's input folder.")
+    path = Path(folder_paths.get_annotated_filepath(selection)).resolve()
+    input_root = Path(folder_paths.get_input_directory()).resolve()
+    try:
+        path.relative_to(input_root)
+    except ValueError as exc:
+        raise ValueError("The selected source is outside ComfyUI's input folder.") from exc
     if not path.is_file():
         raise ValueError("The selected source file no longer exists.")
     return path
@@ -96,14 +104,7 @@ def resolve_input_path(selection: str) -> Path:
 
 def resolve_video_path(source_mode: str, video: str, local_path: str) -> Path:
     if source_mode == "local path":
-        text = str(local_path or "").strip().strip('"')
-        if not text:
-            raise ValueError("Local path mode requires a video path.")
-        if not local_preview_allowed(text):
-            raise ValueError(LOCAL_PATH_RULE)
-        path = Path(text).expanduser().resolve()
-        if not path.is_file():
-            raise ValueError("The local video file does not exist.")
+        path = resolve_server_file(local_path)
     elif source_mode == "input folder":
         path = resolve_input_path(video)
     else:
@@ -113,30 +114,45 @@ def resolve_video_path(source_mode: str, video: str, local_path: str) -> Path:
     return path
 
 
-def _comfy_managed_roots() -> list[Path]:
+def _server_folders() -> dict[str, Path]:
     if folder_paths is None:
-        return []
-    roots: list[Path] = []
-    for getter in ("get_input_directory", "get_output_directory", "get_temp_directory"):
+        return {}
+    roots: dict[str, Path] = {}
+    for name, getter in _SERVER_FOLDERS.items():
         try:
-            roots.append(Path(getattr(folder_paths, getter)()).resolve())
+            roots[name] = Path(getattr(folder_paths, getter)()).resolve()
         except Exception:
             continue
     return roots
 
 
-def local_preview_allowed(candidate: str) -> bool:
-    """A local path may be read only inside ComfyUI's input, output and temp
-    folders, the folders core routes serve anyway. A network path is refused
-    from its text alone, before anything could contact its host."""
-    text = str(candidate or "").strip().strip('"')
-    if not text or text.replace("\\", "/").startswith("//"):
-        return False
-    try:
-        resolved = Path(text).expanduser().resolve()
-    except (OSError, ValueError):
-        return False
-    return any(resolved == root or root in resolved.parents for root in _comfy_managed_roots())
+def resolve_server_file(name: str) -> Path:
+    """The video Server file mode names: a folder and a name, such as
+    output/clip.mp4. The folder is ComfyUI's input, output or temp folder,
+    the folders core routes serve anyway, and the rest is a path below it.
+    A whole path, a drive, "~", ".." and a network path are refused from the
+    text alone, before anything touches the disk. A link that leads out of
+    the folder is refused once the path is resolved."""
+    text = str(name or "").strip().strip('"').replace("\\", "/")
+    if not text:
+        raise ValueError("Server file needs a video's folder and name, such as output/clip.mp4.")
+    folder, _, inside = text.partition("/")
+    parts = inside.split("/")
+    if (
+        folder.lower() not in _SERVER_FOLDERS
+        or any(part in ("", ".", "..") for part in parts)
+        or (os.name == "nt" and ":" in inside)
+    ):
+        raise ValueError(SERVER_FILE_RULE)
+    root = _server_folders().get(folder.lower())
+    if root is None:
+        raise ValueError(SERVER_FILE_RULE)
+    path = root.joinpath(*parts).resolve()
+    if root not in path.parents:
+        raise ValueError(SERVER_FILE_RULE)
+    if not path.is_file():
+        raise ValueError(f"Server file not found: {text}")
+    return path
 
 
 def load_image_frames(path: Path) -> list[Image.Image]:
@@ -705,13 +721,14 @@ def register_video_routes() -> None:
             return web.json_response({"error": _safe_route_error(exc)}, status=400)
 
     def request_path(request) -> Path:
-        source_mode = request.query.get("source_mode", "input folder")
-        local_path = request.query.get("local_path", "")
-        # Gate before touching the filesystem so a denied request can not be
-        # used to probe which paths exist.
-        if source_mode == "local path" and not local_preview_allowed(local_path):
-            raise ValueError(LOCAL_PATH_RULE)
-        return resolve_video_path(source_mode, request.query.get("video", ""), local_path)
+        # resolve_video_path refuses a whole path from its text, before the
+        # disk is touched, so a denied request can not be used to probe which
+        # paths exist.
+        return resolve_video_path(
+            request.query.get("source_mode", "input folder"),
+            request.query.get("video", ""),
+            request.query.get("local_path", ""),
+        )
 
     # Decodes run in worker threads: a blocking decode inside these async
     # handlers would stall ComfyUI's entire web server (every route plus the
@@ -772,10 +789,7 @@ def register_video_routes() -> None:
 
 
 def _safe_route_error(exc: Exception) -> str:
-    text = str(exc).strip() or "The media request failed."
-    if os.path.isabs(text) or re.search(r"(?:[A-Za-z]:[\\/]|/(?:home|Users|mnt|tmp)/)", text):
-        return "The media request failed."
-    return text
+    return safe_route_error(exc, "The media request failed.")
 
 
 def _query_int(request, name: str, default: int) -> int:

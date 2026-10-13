@@ -19,9 +19,11 @@ generated-area `mask`, a `stitcher` for Stitch Inpaint, the selected
 - **Canvas row** under the Fit row: fill swatch, feather amount and the Resize off | on switch on the node face; turning Resize on opens the megapixel budget and its Step. The line under the picture names each step that sets the output size, as on the image node.
 - **Upload** streams to the input folder, so videos larger than the buffered image-upload limit can be selected here or dropped onto the node.
 - **Uploads** / **Server file** (`source_mode`: `input folder` / `local path`): the source card's switch. Server file mode avoids copying large files.
-- **local_path**: Absolute path used only in Server file mode, read in place without an
-  upload copy. It must point inside ComfyUI's input, output or temp folder, for queued
-  runs and the editor's live preview alike; paths anywhere else are refused.
+- **local_path**: The video Server file mode reads, by folder and name: `output/clip.mp4`,
+  `input/shots/take 3.mov`, `temp/preview.webm`. The folder is ComfyUI's input, output or
+  temp folder. The video is read in place, without an upload copy. A whole path such as
+  `/home/me/ComfyUI/output/clip.mp4` is not read, for queued runs and the editor's live
+  preview alike.
 - **Playhead**: The rail under the node's preview is the timeline: press or drag it to
   scrub, or type a frame in the **FRAME** box; the frame on the stage is the frame the
   node outputs (`frame_index`, with `frame_time` kept in step).

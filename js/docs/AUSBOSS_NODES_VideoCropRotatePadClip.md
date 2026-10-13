@@ -31,9 +31,10 @@ model that paints black regions.
   with black and feather 0 and the editor's **Reset transform** returns to them;
   the image nodes keep their grey fill and feathered mask.
 - **Server file** (`source_mode` / `local_path`): Read a video on the ComfyUI server in
-  place without an upload copy. It must sit inside ComfyUI's input, output or temp
-  folder, for queued runs and the editor's live preview alike; paths anywhere else are
-  refused.
+  place without an upload copy. Type its folder and name: `output/clip.mp4`,
+  `input/shots/take 3.mov`, `temp/preview.webm`. The folder is ComfyUI's input, output or
+  temp folder. A whole path such as `/home/me/ComfyUI/output/clip.mp4` is not read, for
+  queued runs and the editor's live preview alike.
 - **Timeline**: The rail on the node and in the editor is one timeline. Press or
   drag anywhere on it to scrub the **playhead**, with Length on or off; the stage shows
   that frame. Drag the **IN** or **OUT** handle to trim: the playhead rides on the handle, so what you see

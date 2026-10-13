@@ -53,9 +53,9 @@ class AusBossVideoCropRotatePad:
                 {
                     "default": "",
                     "tooltip": (
-                        "Absolute path to a video inside ComfyUI's input, output or temp "
-                        "folder, used only in local path mode and read in place without a "
-                        "copy. Paths anywhere else are refused."
+                        "Server file: the folder and name of a video inside ComfyUI's input, "
+                        "output or temp folder, such as output/clip.mp4. It is read in place, "
+                        "without a copy. A whole path is not read."
                     ),
                 },
             ),
@@ -128,7 +128,7 @@ class AusBossVideoCropRotatePad:
         # Only the source is read here, so ComfyUI still checks every other
         # value's range and list. video and source_mode skip its list check:
         # in local path mode the video choice is unused and may be stale.
-        # resolve_video_path reads only the input folder, or a local path
+        # resolve_video_path reads only the input folder, or a video named
         # inside ComfyUI's input, output or temp folder.
         try:
             resolve_video_path(source_mode, video, local_path)

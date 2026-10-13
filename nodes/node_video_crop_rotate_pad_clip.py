@@ -78,9 +78,9 @@ class AusBossVideoCropRotatePadClip:
                 {
                     "default": "",
                     "tooltip": (
-                        "Absolute path to a video inside ComfyUI's input, output or temp "
-                        "folder, used only in local path mode and read in place without a "
-                        "copy. Paths anywhere else are refused."
+                        "Server file: the folder and name of a video inside ComfyUI's input, "
+                        "output or temp folder, such as output/clip.mp4. It is read in place, "
+                        "without a copy. A whole path is not read."
                     ),
                 },
             ),
@@ -350,7 +350,7 @@ class AusBossVideoCropRotatePadClip:
         # its link-type checks for the whole node. video and source_mode
         # skip the list check on purpose: in local path mode the
         # video choice is unused and may be stale. resolve_video_path reads
-        # only the input folder, or a local path inside ComfyUI's input,
+        # only the input folder, or a video named inside ComfyUI's input,
         # output or temp folder. The trim window, force_rate and Fixed frames
         # are checked when the node runs (clip_load_window, fixed_clip_window,
         # decode_video_range), where wired values are known; ComfyUI starts

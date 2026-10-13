@@ -8,8 +8,10 @@ functions. So they are the gate between a crafted prompt and the disk:
 - a network path ("//host/share" or "\\\\host\\share") is refused from its
   text alone, before anything touches the path, since on Windows merely
   resolving one contacts that host;
-- local path mode (local_preview_allowed) reads only inside the input,
-  output and temp folders, and never a network path either.
+- Server file mode (resolve_server_file) reads a video by folder and name
+  below the input, output or temp folder, and never a whole path;
+- a route's error text never names a place on the server's disk, and no
+  route sends a file by its path.
 
 The guards need neither torch nor PyAV, so this file runs in CI: the media
 module's heavy imports are stubbed when they are missing.
@@ -44,10 +46,17 @@ if importlib.util.find_spec("PIL") is None:
     sys.modules["PIL"] = pil
 
 from nodes import _media_helpers  # noqa: E402
-from nodes._media_helpers import local_preview_allowed, resolve_input_path, resolve_video_path  # noqa: E402
+from nodes._media_helpers import (  # noqa: E402
+    SERVER_FILE_RULE,
+    resolve_input_path,
+    resolve_server_file,
+    resolve_video_path,
+)
+from nodes._route_errors import safe_route_error  # noqa: E402
 
 NETWORK_REFUSAL = "Network source paths are not allowed."
 OUTSIDE_REFUSAL = "The selected source is outside ComfyUI's input folder."
+WHOLE_PATH_REFUSAL = "A whole path is not read."
 
 
 class Folders:
@@ -143,6 +152,11 @@ class InputFolderTests(TempFolders):
         with self.assertRaisesRegex(ValueError, "no longer exists"):
             resolve_input_path("gone.png")
 
+    def test_without_comfyuis_folders_nothing_is_read(self):
+        with patch.object(_media_helpers, "folder_paths", None):
+            with self.assertRaisesRegex(ValueError, "only inside ComfyUI's input folder"):
+                resolve_input_path(str(self.inside))
+
 
 class NetworkPathTests(TempFolders):
     NAMES = ("//fileserver/share/pic.png", "\\\\fileserver\\share\\pic.png", "//fileserver/share/pic.png [input]")
@@ -169,21 +183,41 @@ class NetworkPathTests(TempFolders):
             resolve_input_path("//fileserver/comfy/input/pic.png")
 
 
-class LocalPathTests(TempFolders):
-    def test_comfy_folders_are_readable_in_place(self):
-        self.assertTrue(local_preview_allowed(str(self.in_output)))
-        self.assertTrue(local_preview_allowed(f'"{self.inside}"'))
-        self.assertEqual(resolve_video_path("local path", "", str(self.in_output)), self.in_output)
+class ServerFileTests(TempFolders):
+    def test_comfy_folders_are_read_by_folder_and_name(self):
+        self.assertEqual(resolve_server_file("output/render.mp4"), self.in_output)
+        self.assertEqual(resolve_server_file('"input/sub/pic.png"'), self.nested)
+        self.assertEqual(resolve_server_file("Output\\render.mp4"), self.in_output)
+        self.assertEqual(resolve_video_path("local path", "", "output/render.mp4"), self.in_output)
 
-    def test_anywhere_else_is_refused(self):
-        self.assertFalse(local_preview_allowed(str(self.outside)))
-        self.assertFalse(local_preview_allowed(str(self.input / ".." / "secret.png")))
-        self.assertFalse(local_preview_allowed(""))
-        movie = self.touch(self.root / "movie.mp4")
-        with self.assertRaisesRegex(ValueError, "Local path mode reads only videos inside"):
-            resolve_video_path("local path", "", str(movie))
+    def test_a_whole_path_is_refused_even_inside_a_comfy_folder(self):
+        names = (
+            str(self.in_output),
+            str(self.outside),
+            str(self.input / ".." / "secret.png"),
+            "~/render.mp4",
+            "render.mp4",
+            "models/render.mp4",
+        )
+        for name in names:
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, WHOLE_PATH_REFUSAL):
+                resolve_server_file(name)
+        with self.assertRaisesRegex(ValueError, WHOLE_PATH_REFUSAL):
+            resolve_video_path("local path", "", str(self.in_output))
 
-    def test_a_network_path_is_refused_from_its_text_alone(self):
+    def test_a_name_that_climbs_out_is_refused(self):
+        for name in ("output/../secret.png", "input/sub/../../secret.png", "output/./render.mp4", "output//render.mp4", "output/", "output"):
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, WHOLE_PATH_REFUSAL):
+                resolve_server_file(name)
+
+    def test_a_link_that_leads_out_is_refused(self):
+        (self.output / "shortcut.mp4").symlink_to(self.outside)
+        (self.output / "elsewhere").symlink_to(self.root, target_is_directory=True)
+        for name in ("output/shortcut.mp4", "output/elsewhere/secret.png"):
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, WHOLE_PATH_REFUSAL):
+                resolve_server_file(name)
+
+    def test_a_refused_name_is_refused_from_its_text_alone(self):
         resolved = []
         real_resolve = Path.resolve
 
@@ -191,16 +225,58 @@ class LocalPathTests(TempFolders):
             resolved.append(str(path))
             return real_resolve(path, *args, **kwargs)
 
+        names = (
+            "//fileserver/share/clip.mp4",
+            "\\\\fileserver\\share\\clip.mp4",
+            str(self.outside),
+            "~/clip.mp4",
+            "output/../secret.png",
+        )
         with patch.object(Path, "resolve", recording_resolve):
-            self.assertFalse(local_preview_allowed("//fileserver/share/clip.mp4"))
-            self.assertFalse(local_preview_allowed("\\\\fileserver\\share\\clip.mp4"))
-        self.assertFalse([path for path in resolved if "fileserver" in path], resolved)
+            for name in names:
+                with self.subTest(name=name), self.assertRaisesRegex(ValueError, WHOLE_PATH_REFUSAL):
+                    resolve_server_file(name)
+        self.assertEqual(resolved, [], "a refused name reached the disk")
 
     def test_a_network_path_is_refused_even_inside_a_comfy_folder_on_a_share(self):
         self.folders.dirs["output"] = "//fileserver/comfy/output"
-        self.assertFalse(local_preview_allowed("//fileserver/comfy/output/clip.mp4"))
-        with self.assertRaisesRegex(ValueError, "Local path mode reads only videos inside"):
+        with self.assertRaisesRegex(ValueError, WHOLE_PATH_REFUSAL):
             resolve_video_path("local path", "", "//fileserver/comfy/output/clip.mp4")
+
+    def test_blank_and_missing_names_say_what_to_do(self):
+        with self.assertRaisesRegex(ValueError, "Server file needs a video's folder and name"):
+            resolve_server_file("  ")
+        with self.assertRaisesRegex(ValueError, "Server file not found: output/gone.mp4"):
+            resolve_server_file("output/gone.mp4")
+
+
+class RouteErrorTests(unittest.TestCase):
+    def test_a_message_that_names_a_place_on_the_server_is_replaced(self):
+        for text in (
+            "[Errno 1094995529] Invalid data found when processing input: '/srv/comfy/input/a.mp4'",
+            "[Errno 13] Permission denied: 'D:\\ComfyUI\\models\\loras\\a.safetensors'",
+            "cannot identify image file \\\\host\\share\\a.png",
+            "/opt/comfy/input/a.mp4",
+            "",
+        ):
+            with self.subTest(text=text):
+                self.assertEqual(safe_route_error(ValueError(text)), "The request failed.")
+
+    def test_the_packs_own_messages_pass(self):
+        for text in (
+            SERVER_FILE_RULE,
+            "Server file not found: output/sub/clip.mp4",
+            "LoRA file not found in models/loras: flux/a.safetensors",
+            "Unsupported video extension: .txt.",
+            "The clip is 16:9 at 24 fps / 48 kHz.",
+        ):
+            with self.subTest(text=text):
+                self.assertEqual(safe_route_error(ValueError(text)), text)
+
+    def test_no_route_sends_a_file_by_its_path(self):
+        for path in sorted((ROOT / "nodes").glob("*.py")):
+            with self.subTest(module=path.name):
+                self.assertNotIn("FileResponse", path.read_text(encoding="utf-8"))
 
 
 @unittest.skipUnless(REAL_MEDIA_STACK, "needs torch, NumPy, Pillow and PyAV (ComfyUI's Python)")
@@ -230,9 +306,10 @@ class LoaderValidationTests(TempFolders):
         self.assertIn("outside", load.VALIDATE_INPUTS("../secret.png"))
         frame = node_video_crop_rotate_pad.AusBossVideoCropRotatePad
         self.assertIs(frame.VALIDATE_INPUTS("clip.mp4", "input folder", ""), True)
-        self.assertIs(frame.VALIDATE_INPUTS("", "local path", str(self.in_output)), True)
+        self.assertIs(frame.VALIDATE_INPUTS("", "local path", "output/render.mp4"), True)
         movie = self.touch(self.root / "movie.mp4")
-        self.assertIn("Local path mode reads only", frame.VALIDATE_INPUTS("", "local path", str(movie)))
+        self.assertIn(WHOLE_PATH_REFUSAL, frame.VALIDATE_INPUTS("", "local path", str(movie)))
+        self.assertIn(WHOLE_PATH_REFUSAL, frame.VALIDATE_INPUTS("", "local path", str(self.in_output)))
         self.assertIn("Network", frame.VALIDATE_INPUTS("//fileserver/share/clip.mp4", "input folder", ""))
 
 

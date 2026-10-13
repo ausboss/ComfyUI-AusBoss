@@ -23,13 +23,19 @@ test("video options are unique and retain a restored selection", () => {
 });
 
 test("source state uses only the field belonging to the active mode", () => {
-  assert.deepEqual(videoSourceState(INPUT_FOLDER_MODE, "clip.mp4", "/tmp/wrong.mov"), {
+  assert.deepEqual(videoSourceState(INPUT_FOLDER_MODE, "clip.mp4", "temp/wrong.mov"), {
     mode: INPUT_FOLDER_MODE,
     selection: "clip.mp4",
     key: "input:clip.mp4",
     hint: "Choose an uploaded video or add one to ComfyUI's input folder.",
   });
-  assert.equal(videoSourceState(LOCAL_PATH_MODE, "wrong.mp4", "/data/clip.mov").key, "local:/data/clip.mov");
+  assert.equal(videoSourceState(LOCAL_PATH_MODE, "wrong.mp4", "output/clip.mov").key, "local:output/clip.mov");
+  assert.match(videoSourceState(LOCAL_PATH_MODE, "", "").hint, /^Folder and name, such as output\/clip\.mp4/);
+  assert.match(videoSourceState(LOCAL_PATH_MODE, "", "output/clip.mov").hint, /^Folder and name/);
+  // A whole path, as a workflow saved by an earlier release may hold: the hint says what to type.
+  for (const whole of ["/home/me/ComfyUI/output/clip.mp4", "C:\\ComfyUI\\output\\clip.mp4", "~/clip.mp4", "\\\\host\\share\\clip.mp4", '"/data/clip.mp4"']) {
+    assert.match(videoSourceState(LOCAL_PATH_MODE, "", whole).hint, /^Not a whole path\. Type folder and name: output\/clip\.mp4$/, whole);
+  }
   assert.equal(videoSourceState(LOCAL_PATH_MODE, "wrong.mp4", "  ").key, "");
 });
 
@@ -51,7 +57,7 @@ test("image picker retains restored and newly uploaded filenames", () => {
 
 test("the shared media card keeps both video source modes unchanged", () => {
   for (const mode of [INPUT_FOLDER_MODE, LOCAL_PATH_MODE]) {
-    assert.deepEqual(mediaSourceState("video", mode, "clip.mp4", "/data/clip.mp4"),
-      videoSourceState(mode, "clip.mp4", "/data/clip.mp4"));
+    assert.deepEqual(mediaSourceState("video", mode, "clip.mp4", "output/clip.mp4"),
+      videoSourceState(mode, "clip.mp4", "output/clip.mp4"));
   }
 });
