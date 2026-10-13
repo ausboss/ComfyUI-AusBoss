@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.11.2 - 2026-10-13
 
 - **Video Crop + Rotate + Pad (Frame and Clip): pick a rendered video from
   a list.** The second source tab was **Server file**, a box where you
