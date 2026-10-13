@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { filterMedia, mediaLabel, mediaViewQuery, moveHighlight } from "../js/shared/media_list.mjs";
+import { filterMedia, mediaLabel, mediaViewQuery, moveHighlight, unlistedMedia } from "../js/shared/media_list.mjs";
 
 test("mediaViewQuery names the file, its subfolder and its folder type", () => {
   assert.equal(mediaViewQuery("photo.png"), "filename=photo.png&subfolder=&type=input");
@@ -29,6 +29,19 @@ test("mediaLabel splits the dim folder from the name and marks non-input folders
   assert.deepEqual(mediaLabel("image.png"), { folder: "", name: "image.png" });
   assert.deepEqual(mediaLabel("renders/out.mp4 [output]"), { folder: "renders/", name: "out.mp4 [output]" });
   assert.deepEqual(mediaLabel(""), { folder: "", name: "" });
+});
+
+test("unlistedMedia names a value the list lacks, with or without its folder tail", () => {
+  const values = ["photo.png", "pasted/image.png"];
+  assert.equal(unlistedMedia(values, "clipspace-painted-masked-1.png [input]"), "clipspace-painted-masked-1.png [input]");
+  assert.equal(unlistedMedia(values, "new.png"), "new.png");
+  assert.equal(unlistedMedia(values, "photo.png"), "");
+  assert.equal(unlistedMedia(values, "photo.png [input]"), "");
+  assert.equal(unlistedMedia(["photo.png [input]"], "photo.png [input]"), "");
+  assert.equal(unlistedMedia(values, ""), "");
+  assert.equal(unlistedMedia(values, null), "");
+  assert.equal(unlistedMedia(undefined, "photo.png"), "");
+  assert.equal(unlistedMedia(() => values, "new.png"), "");
 });
 
 test("moveHighlight stops at the ends and starts from the right end", () => {

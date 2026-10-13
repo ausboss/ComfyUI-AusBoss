@@ -5,7 +5,7 @@ import { mountTransformTrim } from "./transform_trim.mjs";
 import { clipOutputRate, inputNumber } from "./clip_rate.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "./index.mjs";
 import { WIDGET_FRAME, fillNodeHeight, holdVueNodeMinWidth } from "./panel_layout.mjs";
-import { mediaViewQuery } from "./media_list.mjs";
+import { mediaViewQuery, unlistedMedia } from "./media_list.mjs";
 import { createMediaPicker } from "./media_picker.mjs";
 import { normalizeFillColor } from "./fill_color.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
@@ -1424,6 +1424,13 @@ async function loadSource(state) {
       });
       if (serial !== state.loadSerial || state.disposed) return;
       state.image = image; state.sourceWidth = image.naturalWidth; state.sourceHeight = image.naturalHeight;
+      // It loaded, so it is on the server and belongs in the list. The
+      // MaskEditor writes the file it saved into the widget and no list has
+      // it yet, and the frontend calls an unlisted picture missing the next
+      // time it checks this node, as when a bypass comes off.
+      const listed = widget(state.node, "image")?.options?.values;
+      const unlisted = unlistedMedia(listed, selection);
+      if (unlisted) listed.push(unlisted);
       // Core's image-upload helper also installs a source preview. This node has
       // its own transformed preview, so keep only the useful one.
       suppressCoreImagePreview(state.node);
