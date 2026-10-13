@@ -2,6 +2,25 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Image Compare A/B 🆎: Erase mixes the two pictures by hand.** The
+  mode buttons are now one switch, **Slide | A | B | Erase**, whose marker
+  slides to your choice. In **Erase** one picture is on top; paint on it
+  and it rubs away, so the other shows through. **Restore**, Alt or the
+  right mouse button paints it back. Set the brush's size and how soft its
+  edge is, and pick which picture is on top. The brush shows around the
+  pointer in teal, soft edge and all, and it takes Photoshop's keys: **[**
+  and **]** for the size, Shift with them for the edge, or hold Alt and
+  the right mouse button and drag. **Save**, at the bottom right, writes
+  the mix to the output folder as a PNG without running anything again.
+  Type a **Name** for the files, or wire one into the new optional
+  **filename** input. With **PSD** on, Save also writes one PSD that holds
+  both pictures as layers, with your paint as a layer mask on the top one,
+  for Photoshop, GIMP or another editor that reads PSD files, and the mask
+  as its own PNG. Slide is still what the node opens on, and workflows you
+  have keep working as they are; the node is one input socket taller.
+
 ## 2.11.2 - 2026-10-13
 
 - **Video Crop + Rotate + Pad (Frame and Clip): pick a rendered video from

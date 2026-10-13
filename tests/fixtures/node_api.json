@@ -57,7 +57,9 @@
       "image_a",
       "image_b"
     ],
-    "optional": [],
+    "optional": [
+      "filename"
+    ],
     "outputs": [
       [
         "IMAGE",

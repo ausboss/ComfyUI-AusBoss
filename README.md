@@ -124,7 +124,7 @@ Qwen drew this watercolor 5.6% taller, and Realign to Source lined it back up wi
 
 ### Image Compare A/B
 
-Compares two pictures with a slider, or flips between them whole. Nothing covers the picture, and its size shows underneath. The panel grows with the node, and image A passes through, so you can put it anywhere on an image wire.
+Compares two pictures with a slider, or flips between them whole. Nothing covers the picture, and its size shows underneath. The panel grows with the node, and image A passes through, so you can put it anywhere on an image wire. **Erase** mixes the two by hand: rub parts of one picture away with a brush so the other shows through, then save the mix as a PNG under a name you type, with a layered PSD for Photoshop or GIMP if you want it.
 
 ### Save Image
 
