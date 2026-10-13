@@ -127,7 +127,7 @@ def setUpModule():
     write_clip(folder / "lead.mkv", video_start=0.5, audio_start=0.0)
     write_clip(folder / "late.mkv", audio_start=0.5)
     write_clip(folder / "zero.mkv", audio_start=0.0)
-    # Server file mode reads a video by folder and name below ComfyUI's
+    # The second source reads a video by the name ComfyUI gives it below its
     # folders; this one stands in for temp.
     root = folder.resolve()
     _ROOTS = unittest.mock.patch.object(_media_helpers, "_server_folders", lambda: {"temp": root})
@@ -241,12 +241,12 @@ class FrameIndexTests(Clips):
         for path in self.every:
             with self.subTest(path.name):
                 node = AusBossVideoCropRotatePad()
-                original = node.load_transform("", "local path", f"temp/{path.name}", "frame index", 12, 0.0)[3]
+                original = node.load_transform("", "local path", f"{path.name} [temp]", "frame index", 12, 0.0)[3]
                 self.assertEqual(frame_number(original[0]), 12)
                 _, index, moment = _media_helpers.cached_preview(path, "frame index", 12, 0.0, 640, 640)
                 self.assertEqual(index, 12)
                 self.assertAlmostEqual(moment, 12 / FPS, delta=1e-3)
-                again = node.load_transform("", "local path", f"temp/{path.name}", "frame index", index, 0.0)[3]
+                again = node.load_transform("", "local path", f"{path.name} [temp]", "frame index", index, 0.0)[3]
                 self.assertEqual(frame_number(again[0]), 12)
 
     def test_storyboard_tiles_are_on_the_video_clock(self):
@@ -306,11 +306,11 @@ class NodeTests(Clips):
         node = AusBossVideoCropRotatePadClip()
         for path in self.shifted:
             with self.subTest(path.name):
-                out = run(node.load_transform("", "local path", f"temp/{path.name}", 0.0, 0.0, start_frame=30, end_frame=54))
+                out = run(node.load_transform("", "local path", f"{path.name} [temp]", 0.0, 0.0, start_frame=30, end_frame=54))
                 self.assertEqual(out[3], 24)
                 self.assertEqual(frame_number(out[9][0]), 30)
                 self.assertEqual(frame_number(out[9][-1]), 53)
-                fixed = run(node.load_transform("", "local path", f"temp/{path.name}", 1.0, 0.0, fixed_frames=24))
+                fixed = run(node.load_transform("", "local path", f"{path.name} [temp]", 1.0, 0.0, fixed_frames=24))
                 self.assertEqual(frame_number(fixed[9][0]), 24)
                 self.assertEqual(fixed[3], 24)
 

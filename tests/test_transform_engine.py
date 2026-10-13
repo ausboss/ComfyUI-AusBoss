@@ -520,14 +520,14 @@ class ServerFileGateTests(unittest.TestCase):
             r"\\host\share\video.mp4",
             "//host/share/video.mp4",
             "~/video.mp4",
-            "output/../video.mp4",
+            "../video.mp4 [output]",
         ):
             with self.subTest(name=name), self.assertRaisesRegex(ValueError, "whole path is not read"):
                 resolve_server_file(name)
-        with self.assertRaisesRegex(ValueError, "needs a video"):
+        with self.assertRaisesRegex(ValueError, "Pick a video"):
             resolve_server_file("")
 
-    def test_comfyuis_folders_are_read_by_folder_and_name(self):
+    def test_comfyuis_folders_are_read_by_name(self):
         from nodes import _media_helpers
 
         with tempfile.TemporaryDirectory() as folder:
@@ -536,9 +536,9 @@ class ServerFileGateTests(unittest.TestCase):
             clip.parent.mkdir()
             clip.write_bytes(b"")
             with unittest.mock.patch.object(_media_helpers, "_server_folders", lambda: {"output": root}):
-                self.assertEqual(_media_helpers.resolve_server_file("output/sub/clip.mp4"), clip)
+                self.assertEqual(_media_helpers.resolve_server_file("sub/clip.mp4 [output]"), clip)
                 # The same file by its whole path, and a folder that is not ComfyUI's.
-                for name in (str(clip), "temp/sub/clip.mp4"):
+                for name in (str(clip), "sub/clip.mp4 [temp]"):
                     with self.subTest(name=name), self.assertRaisesRegex(ValueError, "whole path is not read"):
                         _media_helpers.resolve_server_file(name)
 
@@ -559,7 +559,7 @@ class ServerFileGateTests(unittest.TestCase):
             clip.write_bytes(b"")
             with self.assertRaises(ValueError) as caught:
                 _media_helpers.resolve_video_path("local path", "", str(clip))
-            self.assertIn("input, output or temp", str(caught.exception))
+            self.assertIn("whole path is not read", str(caught.exception))
             # The preview routes pass it through: it names no server path.
             self.assertEqual(_media_helpers._safe_route_error(caught.exception), str(caught.exception))
 

@@ -4,15 +4,16 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
-- **Video Crop + Rotate + Pad (Frame and Clip): Server file takes a folder
-  and a name, not a whole path.** Type `output/clip.mp4`,
-  `input/shots/take 3.mov` or `temp/preview.webm`: ComfyUI's input, output
-  or temp folder, then the file. It reads the same videos as before. A
-  workflow saved with a whole path there, such as
-  `/home/me/ComfyUI/output/clip.mp4`, now stops with a message that shows
-  the new form; type the short name once and save. Why: anyone who can
-  reach a ComfyUI server can fill that box, so it should not take a whole
-  path at all, even with the check that kept it inside those three folders.
+- **Video Crop + Rotate + Pad (Frame and Clip): pick a rendered video from
+  a list.** The second source tab was **Server file**, a box where you
+  typed the whole path of a video on the server. It is now **Outputs**: a
+  list of the videos in ComfyUI's output folder, newest first, with the
+  same preview under the pointer as the Uploads list. Nothing is typed. A
+  video you just rendered is in the list as soon as you open it. A workflow
+  saved with a typed path asks you to pick the video once more. Why: anyone
+  who can reach a ComfyUI server can fill that box, so it should not take
+  a whole path at all, even with the check that kept it inside ComfyUI's
+  folders.
 - **LoRA Loader 🆎: a LoRA's preview picture is sent as a small copy.** The
   hover picture and the info card looked up the picture beside the LoRA and
   sent that file as it was. They now get a small JPEG made from it, so no

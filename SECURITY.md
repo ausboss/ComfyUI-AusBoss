@@ -10,10 +10,10 @@ follows a few fixed rules.
 - **Files stay inside ComfyUI's folders.** Save Image writes only to
   ComfyUI's output folder or a subfolder of it, and Save Video checks its
   prefix and final file the same way. Load Video picks from the input
-  folder; the video transform nodes' Server file mode reads a video by
-  folder and name (`output/clip.mp4`) below the input, output or temp
-  folder, and their uploader streams into the input folder. No input opens
-  a whole path as given. Absolute paths, `..`, `~`, Windows drive and
+  folder; the video transform nodes read a video picked from a list of the
+  input or the output folder, by the name ComfyUI gives it there
+  (`clip.mp4 [output]`), and their uploader streams into the input folder.
+  No input opens a whole path as given. Absolute paths, `..`, `~`, Windows drive and
   alternate-stream syntax, UNC paths and symlinks that lead outside those
   folders are refused.
 - **Routes answer with data, not files.** The pack's routes send JSON and

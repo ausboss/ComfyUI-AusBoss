@@ -78,9 +78,9 @@ class AusBossVideoCropRotatePadClip:
                 {
                     "default": "",
                     "tooltip": (
-                        "Server file: the folder and name of a video inside ComfyUI's input, "
-                        "output or temp folder, such as output/clip.mp4. It is read in place, "
-                        "without a copy. A whole path is not read."
+                        "The video picked in the node's Outputs list, named the way ComfyUI "
+                        "names a file in its output folder: clip.mp4 [output]. It is read in "
+                        "place, without a copy. A whole path is not read."
                     ),
                 },
             ),

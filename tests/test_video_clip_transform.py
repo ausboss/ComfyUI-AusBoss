@@ -69,13 +69,13 @@ class VideoClipNodeTests(unittest.TestCase):
         cls._tmp = tempfile.TemporaryDirectory()
         cls.video = Path(cls._tmp.name) / "clip.mp4"
         write_test_video(cls.video, with_audio=True)
-        # Server file mode reads a video by folder and name below ComfyUI's
-        # input, output or temp folder; the fixture's temporary folder stands
-        # in for temp.
+        # The second source reads a video by the name ComfyUI gives it below
+        # its input, output or temp folder; the fixture's temporary folder
+        # stands in for temp.
         from nodes import _media_helpers
 
         root = Path(cls._tmp.name).resolve()
-        cls.server_file = f"temp/{cls.video.name}"
+        cls.server_file = f"{cls.video.name} [temp]"
         cls._env = unittest.mock.patch.object(_media_helpers, "_server_folders", lambda: {"temp": root})
         cls._env.start()
 
@@ -135,7 +135,7 @@ class VideoClipNodeTests(unittest.TestCase):
         self.assertIs(validate("", "local path", self.server_file), True)
         self.assertEqual(
             validate("", "local path", ""),
-            "Video Crop + Rotate + Pad: Server file needs a video's folder and name, such as output/clip.mp4.",
+            "Video Crop + Rotate + Pad: Pick a video from the node's Outputs list first.",
         )
 
     def test_decode_errors_name_this_node_and_only_its_inputs(self):

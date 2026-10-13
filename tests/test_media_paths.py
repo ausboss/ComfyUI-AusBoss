@@ -8,8 +8,9 @@ functions. So they are the gate between a crafted prompt and the disk:
 - a network path ("//host/share" or "\\\\host\\share") is refused from its
   text alone, before anything touches the path, since on Windows merely
   resolving one contacts that host;
-- Server file mode (resolve_server_file) reads a video by folder and name
-  below the input, output or temp folder, and never a whole path;
+- the video nodes' Outputs list (resolve_server_file) reads a video by the
+  name ComfyUI gives it below the input, output or temp folder
+  ("clip.mp4 [output]"), and never a whole path;
 - a route's error text never names a place on the server's disk, and no
   route sends a file by its path.
 
@@ -48,6 +49,7 @@ if importlib.util.find_spec("PIL") is None:
 from nodes import _media_helpers  # noqa: E402
 from nodes._media_helpers import (  # noqa: E402
     SERVER_FILE_RULE,
+    list_output_videos,
     resolve_input_path,
     resolve_server_file,
     resolve_video_path,
@@ -56,7 +58,7 @@ from nodes._route_errors import safe_route_error  # noqa: E402
 
 NETWORK_REFUSAL = "Network source paths are not allowed."
 OUTSIDE_REFUSAL = "The selected source is outside ComfyUI's input folder."
-WHOLE_PATH_REFUSAL = "A whole path is not read."
+WHOLE_PATH_REFUSAL = "A whole path is not read"
 
 
 class Folders:
@@ -184,20 +186,21 @@ class NetworkPathTests(TempFolders):
 
 
 class ServerFileTests(TempFolders):
-    def test_comfy_folders_are_read_by_folder_and_name(self):
-        self.assertEqual(resolve_server_file("output/render.mp4"), self.in_output)
-        self.assertEqual(resolve_server_file('"input/sub/pic.png"'), self.nested)
-        self.assertEqual(resolve_server_file("Output\\render.mp4"), self.in_output)
-        self.assertEqual(resolve_video_path("local path", "", "output/render.mp4"), self.in_output)
+    def test_comfy_folders_are_read_by_the_name_comfyui_gives_a_file(self):
+        self.assertEqual(resolve_server_file("render.mp4 [output]"), self.in_output)
+        self.assertEqual(resolve_server_file("pic.png"), self.inside)
+        self.assertEqual(resolve_server_file('"sub/pic.png [input]"'), self.nested)
+        self.assertEqual(resolve_server_file("sub\\pic.png"), self.nested)
+        self.assertEqual(resolve_video_path("local path", "", "render.mp4 [output]"), self.in_output)
 
     def test_a_whole_path_is_refused_even_inside_a_comfy_folder(self):
         names = (
             str(self.in_output),
+            f"{self.in_output} [output]",
             str(self.outside),
             str(self.input / ".." / "secret.png"),
             "~/render.mp4",
-            "render.mp4",
-            "models/render.mp4",
+            "~/render.mp4 [output]",
         )
         for name in names:
             with self.subTest(name=name), self.assertRaisesRegex(ValueError, WHOLE_PATH_REFUSAL):
@@ -206,14 +209,14 @@ class ServerFileTests(TempFolders):
             resolve_video_path("local path", "", str(self.in_output))
 
     def test_a_name_that_climbs_out_is_refused(self):
-        for name in ("output/../secret.png", "input/sub/../../secret.png", "output/./render.mp4", "output//render.mp4", "output/", "output"):
+        for name in ("../secret.png [output]", "sub/../../secret.png", "./render.mp4 [output]", "sub//pic.png", "/render.mp4 [output]"):
             with self.subTest(name=name), self.assertRaisesRegex(ValueError, WHOLE_PATH_REFUSAL):
                 resolve_server_file(name)
 
     def test_a_link_that_leads_out_is_refused(self):
         (self.output / "shortcut.mp4").symlink_to(self.outside)
         (self.output / "elsewhere").symlink_to(self.root, target_is_directory=True)
-        for name in ("output/shortcut.mp4", "output/elsewhere/secret.png"):
+        for name in ("shortcut.mp4 [output]", "elsewhere/secret.png [output]"):
             with self.subTest(name=name), self.assertRaisesRegex(ValueError, WHOLE_PATH_REFUSAL):
                 resolve_server_file(name)
 
@@ -230,7 +233,7 @@ class ServerFileTests(TempFolders):
             "\\\\fileserver\\share\\clip.mp4",
             str(self.outside),
             "~/clip.mp4",
-            "output/../secret.png",
+            "../secret.png [output]",
         )
         with patch.object(Path, "resolve", recording_resolve):
             for name in names:
@@ -244,10 +247,39 @@ class ServerFileTests(TempFolders):
             resolve_video_path("local path", "", "//fileserver/comfy/output/clip.mp4")
 
     def test_blank_and_missing_names_say_what_to_do(self):
-        with self.assertRaisesRegex(ValueError, "Server file needs a video's folder and name"):
+        with self.assertRaisesRegex(ValueError, "Pick a video from the node's Outputs list first."):
             resolve_server_file("  ")
-        with self.assertRaisesRegex(ValueError, "Server file not found: output/gone.mp4"):
-            resolve_server_file("output/gone.mp4")
+        with self.assertRaisesRegex(ValueError, "no longer in ComfyUI's output folder: gone.mp4"):
+            resolve_server_file("gone.mp4 [output]")
+
+
+class OutputListTests(TempFolders):
+    def test_the_list_names_the_output_folders_videos_newest_first(self):
+        nested = self.output / "video"
+        nested.mkdir()
+        older = self.touch(nested / "first take.mov")
+        os.utime(older, (1_000_000, 1_000_000))
+        os.utime(self.in_output, (2_000_000, 2_000_000))
+        self.touch(self.output / "still.png")
+        self.touch(self.input / "upload.mp4")
+        self.assertEqual(list_output_videos(), ["render.mp4 [output]", "video/first take.mov [output]"])
+        # Every name on the list is one the node can read.
+        for name in list_output_videos():
+            self.assertTrue(resolve_server_file(name).is_file(), name)
+
+    def test_links_and_hidden_places_are_left_out(self):
+        (self.output / "shortcut.mp4").symlink_to(self.outside)
+        (self.output / "elsewhere").symlink_to(self.root, target_is_directory=True)
+        self.touch(self.root / "outside.mp4")
+        hidden = self.output / ".trash"
+        hidden.mkdir()
+        self.touch(hidden / "old.mp4")
+        self.touch(self.output / ".partial.mp4")
+        self.assertEqual(list_output_videos(), ["render.mp4 [output]"])
+
+    def test_without_comfyuis_folders_the_list_is_empty(self):
+        with patch.object(_media_helpers, "folder_paths", None):
+            self.assertEqual(list_output_videos(), [])
 
 
 class RouteErrorTests(unittest.TestCase):
@@ -265,7 +297,7 @@ class RouteErrorTests(unittest.TestCase):
     def test_the_packs_own_messages_pass(self):
         for text in (
             SERVER_FILE_RULE,
-            "Server file not found: output/sub/clip.mp4",
+            "This video is no longer in ComfyUI's output folder: sub/clip.mp4",
             "LoRA file not found in models/loras: flux/a.safetensors",
             "Unsupported video extension: .txt.",
             "The clip is 16:9 at 24 fps / 48 kHz.",
@@ -306,7 +338,7 @@ class LoaderValidationTests(TempFolders):
         self.assertIn("outside", load.VALIDATE_INPUTS("../secret.png"))
         frame = node_video_crop_rotate_pad.AusBossVideoCropRotatePad
         self.assertIs(frame.VALIDATE_INPUTS("clip.mp4", "input folder", ""), True)
-        self.assertIs(frame.VALIDATE_INPUTS("", "local path", "output/render.mp4"), True)
+        self.assertIs(frame.VALIDATE_INPUTS("", "local path", "render.mp4 [output]"), True)
         movie = self.touch(self.root / "movie.mp4")
         self.assertIn(WHOLE_PATH_REFUSAL, frame.VALIDATE_INPUTS("", "local path", str(movie)))
         self.assertIn(WHOLE_PATH_REFUSAL, frame.VALIDATE_INPUTS("", "local path", str(self.in_output)))

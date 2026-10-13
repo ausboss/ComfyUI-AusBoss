@@ -30,11 +30,12 @@ model that paints black regions.
   fill colour with a faint hatch, so black bands show on the black stage. A fresh clip node starts
   with black and feather 0 and the editor's **Reset transform** returns to them;
   the image nodes keep their grey fill and feathered mask.
-- **Server file** (`source_mode` / `local_path`): Read a video on the ComfyUI server in
-  place without an upload copy. Type its folder and name: `output/clip.mp4`,
-  `input/shots/take 3.mov`, `temp/preview.webm`. The folder is ComfyUI's input, output or
-  temp folder. A whole path such as `/home/me/ComfyUI/output/clip.mp4` is not read, for
-  queued runs and the editor's live preview alike.
+- **Outputs** (`source_mode` / `local_path`): Pick a video from ComfyUI's output folder,
+  such as one you just rendered. The list shows the newest first and previews the video
+  under the pointer. The video is read in place, without an upload copy. In an API prompt
+  it is named the way ComfyUI names a file there: `clip.mp4 [output]`. A whole path such
+  as `/home/me/ComfyUI/output/clip.mp4` is not read, for queued runs and the editor's live
+  preview alike.
 - **Timeline**: The rail on the node and in the editor is one timeline. Press or
   drag anywhere on it to scrub the **playhead**, with Length on or off; the stage shows
   that frame. Drag the **IN** or **OUT** handle to trim: the playhead rides on the handle, so what you see

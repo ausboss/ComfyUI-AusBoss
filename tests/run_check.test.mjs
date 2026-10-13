@@ -98,7 +98,7 @@ test("the video nodes check the file or the local path, whichever the mode reads
     assert.deepEqual(run(class_type, { video: "", source_mode: "input folder", local_path: "" }).map((f) => f.input), ["video"]);
     assert.deepEqual(run(class_type, { video: "pier.mp4", source_mode: "input folder", local_path: "" }), []);
     assert.deepEqual(run(class_type, { video: "", source_mode: "local path", local_path: "" }).map((f) => f.input), ["local_path"]);
-    assert.deepEqual(run(class_type, { video: "", source_mode: "local path", local_path: "output/a.mp4" }), []);
+    assert.deepEqual(run(class_type, { video: "", source_mode: "local path", local_path: "/comfy/output/a.mp4" }), []);
     assert.deepEqual(run(class_type, { video: "", source_mode: ["4", 0], local_path: "" }), [], "a wired mode is known at run time");
   }
   const found = run("AUSBOSS_NODES_LoadVideo", { video: "" });
@@ -159,7 +159,7 @@ test("a failed check repeated on every input it read comes back once", () => {
 
 test("the error stays on the input its message is about", () => {
   const nameMessage = "Save Image: exact_name may not contain '..'.";
-  const pathMessage = "Video Crop + Rotate + Pad: Server file needs a video's folder and name, such as output/clip.mp4.";
+  const pathMessage = "Video Crop + Rotate + Pad: Local path mode requires a video path.";
   const errors = {
     1: { class_type: "AUSBOSS_NODES_SaveImage", errors: ["filename_prefix", "exact_name", "output_dir"].map((name) => failed(name, nameMessage)) },
     2: { class_type: "AUSBOSS_NODES_VideoCropRotatePad", errors: ["video", "source_mode", "local_path"].map((name) => failed(name, pathMessage)) },

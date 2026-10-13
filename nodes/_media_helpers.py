@@ -25,21 +25,24 @@ except ImportError:  # Offline tests import this module without ComfyUI.
     folder_paths = None
 
 
-# Server file mode ("local path" in saved workflows) names a video by folder
-# and name, such as output/clip.mp4: one of ComfyUI's input, output and temp
-# folders, then a path below it. It never takes a whole path, for queued runs
-# and the preview routes alike: a widget value arrives through the
-# unauthenticated /prompt route, and the previews answer any HTTP client that
-# can reach the server.
+# The video nodes' second source ("local path" in saved workflows, Outputs on
+# the node) reads a video in place, picked from a list. It is named the way
+# ComfyUI names a file in one of its folders: "clip.mp4" in the input folder,
+# "clip.mp4 [output]", "clip.mp4 [temp]". It never takes a whole path, for
+# queued runs and the preview routes alike: a widget value arrives through
+# the unauthenticated /prompt route, and the previews answer any HTTP client
+# that can reach the server.
 SERVER_FILE_RULE = (
-    "Server file reads a video by folder and name, such as output/clip.mp4. "
-    "The folder is ComfyUI's input, output or temp folder. A whole path is not read."
+    "Pick the video from the node's Uploads or Outputs list. A whole path is not read; "
+    "a video is named the way ComfyUI names it, such as clip.mp4 [output]."
 )
 _SERVER_FOLDERS = {
     "input": "get_input_directory",
     "output": "get_output_directory",
     "temp": "get_temp_directory",
 }
+# The Outputs list shows this many, newest first.
+OUTPUT_LIST_CAP = 2000
 
 VIDEO_EXTENSIONS = {
     ".avi",
@@ -127,32 +130,60 @@ def _server_folders() -> dict[str, Path]:
 
 
 def resolve_server_file(name: str) -> Path:
-    """The video Server file mode names: a folder and a name, such as
-    output/clip.mp4. The folder is ComfyUI's input, output or temp folder,
-    the folders core routes serve anyway, and the rest is a path below it.
-    A whole path, a drive, "~", ".." and a network path are refused from the
-    text alone, before anything touches the disk. A link that leads out of
-    the folder is refused once the path is resolved."""
+    """The video the node's Outputs list picked: a name below ComfyUI's
+    input, output or temp folder, the folders core routes serve anyway,
+    written the way ComfyUI writes it ("sub/clip.mp4 [output]"; no tag means
+    the input folder). A whole path, a drive, "~", ".." and a network path
+    are refused from the text alone, before anything touches the disk. A
+    link that leads out of the folder is refused once the path is resolved."""
     text = str(name or "").strip().strip('"').replace("\\", "/")
     if not text:
-        raise ValueError("Server file needs a video's folder and name, such as output/clip.mp4.")
-    folder, _, inside = text.partition("/")
+        raise ValueError("Pick a video from the node's Outputs list first.")
+    folder, inside = "input", text
+    for tag in _SERVER_FOLDERS:
+        tail = f" [{tag}]"
+        if text.endswith(tail):
+            folder, inside = tag, text[: -len(tail)].rstrip()
     parts = inside.split("/")
     if (
-        folder.lower() not in _SERVER_FOLDERS
+        parts[0] == "~"
         or any(part in ("", ".", "..") for part in parts)
         or (os.name == "nt" and ":" in inside)
     ):
         raise ValueError(SERVER_FILE_RULE)
-    root = _server_folders().get(folder.lower())
+    root = _server_folders().get(folder)
     if root is None:
         raise ValueError(SERVER_FILE_RULE)
     path = root.joinpath(*parts).resolve()
     if root not in path.parents:
         raise ValueError(SERVER_FILE_RULE)
     if not path.is_file():
-        raise ValueError(f"Server file not found: {text}")
+        raise ValueError(f"This video is no longer in ComfyUI's {folder} folder: {inside}")
     return path
+
+
+def list_output_videos() -> list[str]:
+    """The videos in ComfyUI's output folder, newest first, each named the
+    way ComfyUI names a file there: "sub/clip.mp4 [output]". Hidden files and
+    folders and links are left out."""
+    root = _server_folders().get("output")
+    if root is None:
+        return []
+    found: list[tuple[float, str]] = []
+    for folder, folders, files in os.walk(root):  # does not follow links to folders
+        folders[:] = [name for name in folders if not name.startswith(".")]
+        for name in files:
+            if name.startswith(".") or Path(name).suffix.lower() not in VIDEO_EXTENSIONS:
+                continue
+            path = Path(folder, name)
+            try:
+                if path.is_symlink():
+                    continue
+                found.append((path.stat().st_mtime, path.relative_to(root).as_posix()))
+            except OSError:
+                continue
+    found.sort(key=lambda item: (-item[0], item[1].casefold()))
+    return [f"{name} [output]" for _mtime, name in found[:OUTPUT_LIST_CAP]]
 
 
 def load_image_frames(path: Path) -> list[Image.Image]:
@@ -719,6 +750,13 @@ def register_video_routes() -> None:
             return web.json_response(result)
         except Exception as exc:
             return web.json_response({"error": _safe_route_error(exc)}, status=400)
+
+    # What the node's Outputs list shows. No parameters: it names the videos
+    # in the output folder and nothing else.
+    @prompt_server.routes.get("/ausboss/transform/video/outputs")
+    async def ausboss_video_outputs(request):
+        videos = await asyncio.get_running_loop().run_in_executor(None, list_output_videos)
+        return web.json_response({"videos": videos})
 
     def request_path(request) -> Path:
         # resolve_video_path refuses a whole path from its text, before the

@@ -16,24 +16,32 @@ export function normalizeVideoOptions(values, selected = "") {
   return result;
 }
 
-// A whole path: typed, or left in a workflow saved before Server file took a
-// folder and a name. The server refuses it; the hint says what to type.
-const WHOLE_PATH = /^(?:[\\/~]|[A-Za-z]:)/;
-const SERVER_FILE_HINT = "Folder and name, such as output/clip.mp4. Read in place.";
-const WHOLE_PATH_HINT = "Not a whole path. Type folder and name: output/clip.mp4";
+// A whole path, as a workflow may hold from when this source was a box to
+// type one in. The server no longer reads one, so it counts as nothing
+// picked and the hint asks for the pick.
+export function isWholePath(value) {
+  return /^"?(?:[\\/~]|[A-Za-z]:)/.test(String(value ?? "").trim());
+}
+
+// What the Outputs list has picked: the saved value, or nothing for a whole path.
+export function pickedOutput(localPath) {
+  const text = String(localPath ?? "").trim();
+  return isWholePath(text) ? "" : text;
+}
 
 export function videoSourceState(mode, video, localPath) {
   const normalizedMode = normalizeVideoSourceMode(mode);
-  const selection = String(
-    normalizedMode === LOCAL_PATH_MODE ? localPath ?? "" : video ?? "",
-  ).trim();
+  const local = normalizedMode === LOCAL_PATH_MODE;
+  const selection = local ? pickedOutput(localPath) : String(video ?? "").trim();
   return {
     mode: normalizedMode,
     selection,
-    key: selection ? `${normalizedMode === LOCAL_PATH_MODE ? "local" : "input"}:${selection}` : "",
-    hint: normalizedMode === LOCAL_PATH_MODE
-      ? (WHOLE_PATH.test(selection.replace(/^"/, "")) ? WHOLE_PATH_HINT : SERVER_FILE_HINT)
-      : "Choose an uploaded video or add one to ComfyUI's input folder.",
+    key: selection ? `${local ? "local" : "input"}:${selection}` : "",
+    hint: !local
+      ? "Choose an uploaded video or add one to ComfyUI's input folder."
+      : isWholePath(localPath)
+        ? "Pick the video again. A typed path is no longer read."
+        : "The videos in ComfyUI's output folder, newest first.",
   };
 }
 

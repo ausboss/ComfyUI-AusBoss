@@ -113,19 +113,14 @@ export function emptySourceMessage(found) {
   return `Load a ${first.kind === "video" ? "video" : "picture"} first: ${first.title}${tail}`;
 }
 
-// What a message calls an input when that is not the input's own name: the
-// video nodes show local_path as "Server file".
-const SPOKEN_NAMES = Object.freeze({ local_path: "server file" });
-
 // "Save Image: exact_name may not ..." names the input it is about, after
-// the node's own label; so does "... Server file reads ..." for local_path.
+// the node's own label; so does "... Local path mode ..." for local_path.
 function namesInput(text, inputName) {
   if (!inputName) return false;
   const colon = text.indexOf(": ");
   const body = (colon >= 0 ? text.slice(colon + 2) : text).toLowerCase();
   const name = String(inputName).toLowerCase();
-  const spoken = SPOKEN_NAMES[name];
-  return body.startsWith(name) || body.startsWith(name.replaceAll("_", " ")) || Boolean(spoken && body.startsWith(spoken));
+  return body.startsWith(name) || body.startsWith(name.replaceAll("_", " "));
 }
 
 // ComfyUI's details read "<input> - <message>" for a failed custom check.
