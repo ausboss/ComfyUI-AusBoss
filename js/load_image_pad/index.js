@@ -5,6 +5,7 @@ import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } fro
 import { fillNodeHeight } from "../shared/panel_layout.mjs";
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
 import { canvasHeightForWidth, parseImageReference } from "../shared/pad_canvas.mjs";
+import { unlistedMedia } from "../shared/media_list.mjs";
 import { createPadStage } from "../shared/pad_panel.mjs";
 
 const NODE_NAME = "AUSBOSS_NODES_LoadImagePad";
@@ -91,7 +92,9 @@ function suppressCoreImagePreview(node) {
     configurable: true,
     enumerable: true,
     get() { return undefined; },
-    set() {},
+    // The MaskEditor sets this right after it writes the picture it saved
+    // into the image widget, without calling the widget back.
+    set() { queueMicrotask(() => node.__ausbossLoadImagePad?.follow?.()); },
   });
 }
 
@@ -244,6 +247,7 @@ function buildPanel(node) {
       stage.draw();
       return;
     }
+    state.shown = String(imageWidget.value ?? "");
     const reference = parseImageReference(imageWidget.value);
     if (!reference) {
       state.bitmap = null;
@@ -258,6 +262,12 @@ function buildPanel(node) {
       if (serial !== state.loadSerial) return;
       state.bitmap = image;
       state.known = true;
+      // It loaded, so it is on the server and belongs in the list: the
+      // frontend calls a picture that is not listed missing the next time
+      // it checks this node, as when a bypass comes off.
+      const listed = imageWidget.options?.values;
+      const unlisted = unlistedMedia(listed, state.shown);
+      if (unlisted) listed.push(unlisted);
       state.sourceWidth = image.naturalWidth || DEFAULT_SOURCE.width;
       state.sourceHeight = image.naturalHeight || DEFAULT_SOURCE.height;
       suppressCoreImagePreview(node);
@@ -274,6 +284,8 @@ function buildPanel(node) {
     image.src = api.apiURL(`/view?${query}`);
   };
   state.refresh = refresh;
+  // A picture written into the widget with no callback (a MaskEditor save).
+  state.follow = () => { if (!state.wired && String(imageWidget.value ?? "") !== state.shown) refresh(); };
 
   watchWidget(node, "image", refresh);
   for (const name of ["pad_left", "pad_top", "pad_right", "pad_bottom", "canvas_multiple", "target_megapixels"]) {

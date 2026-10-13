@@ -10,6 +10,14 @@ All notable changes to ComfyUI-AusBoss are documented here.
   message that never said which file was wrong. The error now names the
   file, says what it is and what to pick instead, and it comes before any
   model loads.
+- **Image Crop + Rotate + Pad, Load Image + Pad: no false "Missing Inputs"
+  after the MaskEditor.** Paint on a picture in ComfyUI's MaskEditor, save,
+  then take the node out of bypass or switch it back on with Workflow
+  Switches: ComfyUI said a required media input had no file selected, with
+  the picture right there on the node. The run still worked. The saved
+  picture is now added to the node's list as soon as the node shows it, so
+  the check finds it. Load Image + Pad also shows the saved picture now,
+  where it used to keep the old one until you picked it again.
 
 ## 2.11.1 - 2026-10-12
 

@@ -23,6 +23,16 @@ export function filterMedia(values, query) {
   });
 }
 
+// The value to add to a media widget's list, or "" when the list has it. A
+// value counts as listed with or without its " [input]" tail, which is how
+// the frontend looks one up before it calls a picture missing.
+export function unlistedMedia(values, value) {
+  const text = String(value ?? "");
+  if (!text || !Array.isArray(values)) return "";
+  const bare = text.replace(/\s+\[(input|output)\]$/, "");
+  return values.includes(text) || values.includes(bare) ? "" : text;
+}
+
 // The dim folder prefix and the name the list shows for one value.
 export function mediaLabel(value) {
   const reference = parseImageReference(value);
