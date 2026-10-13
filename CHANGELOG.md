@@ -20,6 +20,17 @@ All notable changes to ComfyUI-AusBoss are documented here.
   for Photoshop, GIMP or another editor that reads PSD files, and the mask
   as its own PNG. Slide is still what the node opens on, and workflows you
   have keep working as they are; the node is one input socket taller.
+- **Crop + Rotate + Pad (image and both video nodes): the amber note under
+  the size keeps still while you drag.** With Resize on, the note that says
+  how much the rounding stretches the picture (`1.3% wider: each side rounds
+  to 32 px`) came and went every few pixels of a drag, and each time the
+  picture area and the controls under it jumped. Now no note appears or
+  changes while you drag a handle or a number. A note the drag makes untrue
+  goes away, and the note for the new size comes once, a moment after you
+  let go. Its row stays on the node whenever Resize is on, so nothing under
+  it moves; a node at its smallest height is one line taller for it. The
+  size line above it no longer wraps in and out mid-drag, and the full
+  editor's size box and status panel wait the same way.
 
 ## 2.11.2 - 2026-10-13
 

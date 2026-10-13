@@ -137,6 +137,11 @@ padding so nothing stretches. It also warns when the resize undoes **Divisible
 by**. Hover the line for the same breakdown line by line; the editor's right
 panel shows it too.
 
+The amber line keeps still while you drag a handle or a number. If the drag
+makes it untrue it goes away, and the line for the new size comes back a
+moment after you let go. With Resize on its row is always on the node, with
+text or empty, so the controls under it stay where they are.
+
 ### Reset crop and Reset
 
 **Reset crop** shows the whole picture again without changing rotation or
