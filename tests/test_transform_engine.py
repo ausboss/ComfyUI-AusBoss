@@ -511,31 +511,45 @@ class VideoDecodeTests(unittest.TestCase):
         self.assertGreaterEqual(int(refreshed["frame_count"]), 8)
 
 
-class LocalPreviewGateTests(unittest.TestCase):
+class ServerFileGateTests(unittest.TestCase):
     def test_nothing_outside_comfyuis_folders_is_readable(self):
-        from nodes._media_helpers import local_preview_allowed
+        from nodes._media_helpers import resolve_server_file
 
-        self.assertFalse(local_preview_allowed(str(Path.home() / "video.mp4")))
-        self.assertFalse(local_preview_allowed(""))
-        self.assertFalse(local_preview_allowed(r"\\host\share\video.mp4"))
-        self.assertFalse(local_preview_allowed("//host/share/video.mp4"))
+        for name in (
+            str(Path.home() / "video.mp4"),
+            r"\\host\share\video.mp4",
+            "//host/share/video.mp4",
+            "~/video.mp4",
+            "../video.mp4 [output]",
+        ):
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, "whole path is not read"):
+                resolve_server_file(name)
+        with self.assertRaisesRegex(ValueError, "Pick a video"):
+            resolve_server_file("")
 
-    def test_comfyuis_folders_are_readable(self):
+    def test_comfyuis_folders_are_read_by_name(self):
         from nodes import _media_helpers
 
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder).resolve()
-            with unittest.mock.patch.object(_media_helpers, "_comfy_managed_roots", lambda: [root]):
-                self.assertTrue(_media_helpers.local_preview_allowed(str(root / "sub" / "clip.mp4")))
-                self.assertFalse(_media_helpers.local_preview_allowed(str(root.parent / "clip.mp4")))
+            clip = root / "sub" / "clip.mp4"
+            clip.parent.mkdir()
+            clip.write_bytes(b"")
+            with unittest.mock.patch.object(_media_helpers, "_server_folders", lambda: {"output": root}):
+                self.assertEqual(_media_helpers.resolve_server_file("sub/clip.mp4 [output]"), clip)
+                # The same file by its whole path, and a folder that is not ComfyUI's.
+                for name in (str(clip), "sub/clip.mp4 [temp]"):
+                    with self.subTest(name=name), self.assertRaisesRegex(ValueError, "whole path is not read"):
+                        _media_helpers.resolve_server_file(name)
 
     def test_the_retired_environment_switch_opens_nothing(self):
-        from nodes._media_helpers import local_preview_allowed
+        from nodes._media_helpers import resolve_server_file
 
         with tempfile.TemporaryDirectory() as folder, unittest.mock.patch.dict(
             os.environ, {"AUSBOSS_TRANSFORM_LOCAL_PREVIEW": "1"}
         ):
-            self.assertFalse(local_preview_allowed(str(Path(folder) / "video.mp4")))
+            with self.assertRaisesRegex(ValueError, "whole path is not read"):
+                resolve_server_file(str(Path(folder) / "video.mp4"))
 
     def test_queued_runs_and_previews_explain_the_rule(self):
         from nodes import _media_helpers
@@ -545,7 +559,7 @@ class LocalPreviewGateTests(unittest.TestCase):
             clip.write_bytes(b"")
             with self.assertRaises(ValueError) as caught:
                 _media_helpers.resolve_video_path("local path", "", str(clip))
-            self.assertIn("input, output or temp", str(caught.exception))
+            self.assertIn("whole path is not read", str(caught.exception))
             # The preview routes pass it through: it names no server path.
             self.assertEqual(_media_helpers._safe_route_error(caught.exception), str(caught.exception))
 

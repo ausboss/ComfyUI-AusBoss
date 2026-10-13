@@ -4,6 +4,25 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Video Crop + Rotate + Pad (Frame and Clip): pick a rendered video from
+  a list.** The second source tab was **Server file**, a box where you
+  typed the whole path of a video on the server. It is now **Outputs**: a
+  list of the videos in ComfyUI's output folder, newest first, with the
+  same preview under the pointer as the Uploads list. Nothing is typed. A
+  video you just rendered is in the list as soon as you open it. A workflow
+  saved with a typed path asks you to pick the video once more. Why: anyone
+  who can reach a ComfyUI server can fill that box, so it should not take
+  a whole path at all, even with the check that kept it inside ComfyUI's
+  folders.
+- **LoRA Loader 🆎: a LoRA's preview picture is sent as a small copy.** The
+  hover picture and the info card looked up the picture beside the LoRA and
+  sent that file as it was. They now get a small JPEG made from it, so no
+  route of the pack sends a picture, video or model file as it is on the
+  disk. An animated preview shows its first frame.
+- **Error messages from the pack's routes never show a folder on the
+  server.** A video that could not be decoded could come back with the
+  full path of ComfyUI's input folder in the message. Such a message is
+  now replaced by a plain one.
 - **LoRA Loader 🆎: a file that is not a LoRA is named in plain words.**
   A row that held a Draw Things copy of a LoRA, a web page saved by a
   failed download or an empty file stopped the run with a long PyTorch

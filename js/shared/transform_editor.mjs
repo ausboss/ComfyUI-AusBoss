@@ -10,7 +10,6 @@ import { createMediaPicker } from "./media_picker.mjs";
 import { normalizeFillColor } from "./fill_color.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
 import { confirmDiscard } from "./discard_prompt.mjs";
-import { keepKeyInField } from "./canvas_passthrough.mjs";
 import { featherGeneratedMask, generatedAreaMask, overlayPlan, seeThroughMap, stitchBlendFromMask } from "./stitch_preview.mjs";
 import { suppressCoreVideoPreview } from "./core_preview.mjs";
 import { gearIconSvg, loadSettings, openSettingsMenu } from "./settings_menu.mjs";
@@ -19,6 +18,7 @@ import {
   LOCAL_PATH_MODE,
   normalizeVideoOptions,
   mediaSourceState,
+  pickedOutput,
   videoSourceState,
 } from "./video_source_card.mjs";
 import {
@@ -143,7 +143,7 @@ function installStyles() {
     .ausboss-transform-source-field .ausboss-media-pick{box-sizing:border-box;width:100%;height:34px;min-width:0;padding:0 28px 0 10px;border:1px solid #2a3437;border-radius:7px;background:#0b0f10 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238ba3a1' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 10px center;color:#dce9e8;font:12px ui-monospace,"SF Mono",Menlo,Consolas,monospace}
     .ausboss-transform-source-field .ausboss-media-pick:hover,.ausboss-transform-source-field .ausboss-media-pick:focus-visible{border-color:${BRAND};outline:0}
     .ausboss-transform-source-action{height:34px;box-sizing:border-box;white-space:nowrap}
-    .ausboss-transform-source-field:has(input[type=text]){grid-template-columns:minmax(0,1fr)}
+    .ausboss-transform-source-field:has(> :only-child){grid-template-columns:minmax(0,1fr)}
     .ausboss-transform-source-hint{overflow:hidden;color:#6f8886;font-size:10.5px;line-height:1.25;white-space:nowrap;text-overflow:ellipsis}
     .lg-node:has(.ausboss-transform-panel) .image-preview{display:none!important}
     .ausboss-transform-row{display:flex;gap:7px;align-items:center;flex:0 0 auto}.ausboss-transform-row>*{min-width:0;flex:1}
@@ -384,10 +384,10 @@ function buildMediaSourceCard(state) {
   const root = createElement("div", "ausboss-transform-source");
   const modes = createElement("div", "ausboss-transform-source-mode");
   const uploadsMode = createElement("button", "", "Uploads");
-  const localMode = createElement("button", "", "Server file");
+  const localMode = createElement("button", "", "Outputs");
   uploadsMode.type = localMode.type = "button";
   uploadsMode.title = "Choose a video already in ComfyUI's input folder or upload another.";
-  localMode.title = "A video already on the ComfyUI server, inside its input, output or temp folder, read in place without copying it.";
+  localMode.title = "Choose a video from ComfyUI's output folder, such as one you just rendered. It is read in place, without a copy.";
   modes.append(uploadsMode, localMode);
 
   const field = createElement("div", "ausboss-transform-source-field");
@@ -405,11 +405,31 @@ function buildMediaSourceCard(state) {
       notifyAusbossChange();
     },
   });
-  const localPath = createElement("input");
-  localPath.type = "text";
-  localPath.spellcheck = false;
-  localPath.placeholder = "/absolute/path/to/video.mp4";
-  localPath.setAttribute("aria-label", "Server file path");
+  // The same list for the output folder, newest first. It asks the server
+  // each time it opens, so a video rendered a moment ago is in it.
+  let outputVideos = [];
+  const outputOptions = () => normalizeVideoOptions(outputVideos, pickedOutput(value(node, "local_path", "")));
+  const outputPicker = createMediaPicker({
+    kind: "video",
+    placeholder: "Choose an output video…",
+    label: "Video from the output folder",
+    folder: "output",
+    emptyNote: "Save a video and it shows up here",
+    viewUrl: (name) => api.apiURL(`/view?${mediaViewQuery(name)}`),
+    getOptions: outputOptions,
+    loadOptions: async () => {
+      const response = await api.fetchApi("/ausboss/transform/video/outputs");
+      const listed = (await response.json())?.videos;
+      if (response.ok && Array.isArray(listed)) outputVideos = listed;
+      return outputOptions();
+    },
+    getValue: () => pickedOutput(value(node, "local_path", "")),
+    onChange: (name) => {
+      setValue(node, "local_path", name);
+      sync();
+      notifyAusbossChange();
+    },
+  });
   const upload = createElement("label", "ausboss-transform-button ausboss-transform-file ausboss-transform-source-action");
   const uploadText = createElement("span", "", "Upload");
   upload.append(uploadText);
@@ -438,17 +458,15 @@ function buildMediaSourceCard(state) {
     uploadsMode.classList.toggle("on", source.mode === INPUT_FOLDER_MODE);
     localMode.classList.toggle("on", source.mode === LOCAL_PATH_MODE);
     picker.refresh(value(node, kind, ""));
-    localPath.value = String(value(node, "local_path", ""));
+    outputPicker.refresh();
     field.replaceChildren();
-    if (source.mode === LOCAL_PATH_MODE) field.append(localPath);
+    if (source.mode === LOCAL_PATH_MODE) field.append(outputPicker.element);
     else field.append(picker.element, upload);
     hint.textContent = source.hint;
-    hint.title = source.mode === LOCAL_PATH_MODE
-      ? `${source.hint} Only videos inside ComfyUI's input, output or temp folder can be read.`
-      : source.hint;
-    // "Choose an uploaded video" has done its job once one is chosen; its
-    // line goes to the picture. The Server file note stays while you type.
-    hint.style.display = source.mode !== LOCAL_PATH_MODE && source.selection ? "none" : "";
+    hint.title = source.hint;
+    // "Choose a video" has done its job once one is chosen; its line goes
+    // to the picture.
+    hint.style.display = source.selection ? "none" : "";
   };
   const chooseMode = (mode) => {
     if (value(node, "source_mode", INPUT_FOLDER_MODE) === mode) return;
@@ -458,20 +476,6 @@ function buildMediaSourceCard(state) {
   };
   uploadsMode.addEventListener("click", () => chooseMode(INPUT_FOLDER_MODE));
   localMode.addEventListener("click", () => chooseMode(LOCAL_PATH_MODE));
-  const commitLocalPath = () => {
-    const next = localPath.value.trim();
-    if (next !== String(value(node, "local_path", ""))) {
-      setValue(node, "local_path", next);
-      notifyAusbossChange();
-    }
-    sync();
-  };
-  localPath.addEventListener("keydown", (event) => {
-    keepKeyInField(event);
-    if (event.key === "Enter") localPath.blur();
-    if (event.key === "Escape") { localPath.value = String(value(node, "local_path", "")); localPath.blur(); }
-  });
-  localPath.addEventListener("blur", commitLocalPath);
   fileInput.addEventListener("change", async () => {
     if (!fileInput.files?.[0]) return;
     fileInput.disabled = true;

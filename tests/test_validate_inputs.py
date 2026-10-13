@@ -239,7 +239,7 @@ class ComfyValidationTests(unittest.TestCase):
         output_clip.write_bytes(b"")
         for key in ("AUSBOSS_NODES_VideoCropRotatePad", "AUSBOSS_NODES_VideoCropRotatePadClip"):
             with self.subTest(node=key):
-                prompt = {"1": self.node(key, video="someone-elses.mp4", source_mode="local path", local_path=str(output_clip))}
+                prompt = {"1": self.node(key, video="someone-elses.mp4", source_mode="local path", local_path="render.mp4 [output]")}
                 self.assertEqual(self.errors(prompt, "1"), [])
 
     def test_a_crop_ratio_from_someone_elses_presets_still_runs(self):

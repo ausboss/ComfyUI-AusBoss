@@ -400,7 +400,7 @@ People who download your workflow get the nodes through ComfyUI-Manager's missin
 
 LoRA Loader and Latent Size have their own gear menus for per-node preferences.
 
-The video transform nodes' Server file mode reads only videos inside ComfyUI's input, output and temp folders, and Save Image writes only inside the output folder. No widget can point the pack anywhere else on the disk. See [the video transform help](js/docs/AUSBOSS_NODES_VideoCropRotatePad.md).
+The video transform nodes read a video you pick from a list of ComfyUI's input folder (Uploads) or output folder (Outputs), never one named by a whole path, and Save Image writes only inside the output folder. No widget can point the pack anywhere else on the disk. See [the video transform help](js/docs/AUSBOSS_NODES_VideoCropRotatePad.md).
 
 ## Optional extras
 

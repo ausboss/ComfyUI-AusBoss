@@ -71,8 +71,12 @@ export function closeMediaMenu() {
  * @param {() => unknown} options.getValue the chosen value
  * @param {(value: string) => void} options.onChange writes a newly chosen value back to the widget
  * @param {string} [options.label] accessible name
+ * @param {() => Promise<unknown[]>} [options.loadOptions] a fresh list, asked for each time the list opens;
+ *   the list opens with getOptions() and is drawn again when this answers
+ * @param {string} [options.folder] the folder the list holds, for its "nothing here" lines
+ * @param {string} [options.emptyNote] the line an empty list shows
  */
-export function createMediaPicker({ kind = "image", className = "", placeholder, viewUrl, getOptions, getValue, onChange, label }) {
+export function createMediaPicker({ kind = "image", className = "", placeholder, viewUrl, getOptions, getValue, onChange, label, loadOptions, folder = "input", emptyNote }) {
   ensureCss();
   const noun = kind === "video" ? "video" : "image";
   const button = el("button", `ausboss-media-pick ${className}`.trim());
@@ -82,8 +86,13 @@ export function createMediaPicker({ kind = "image", className = "", placeholder,
   const text = el("span", "ausboss-media-pick-text");
   button.append(text);
 
+  // Inside the output folder's own list, the " [output]" at the end of every
+  // name says nothing: it is left off what is shown.
+  const tail = folder === "input" ? "" : ` [${folder}]`;
+  const bare = (value) => (tail && value.endsWith(tail) ? value.slice(0, -tail.length) : value);
+
   const refresh = (value = getValue()) => {
-    const shown = value == null ? "" : String(value);
+    const shown = value == null ? "" : bare(String(value));
     text.textContent = shown || placeholder;
     text.classList.toggle("empty", !shown);
     button.title = shown ? `${shown}\nClick to choose another ${noun}` : placeholder;
@@ -91,14 +100,17 @@ export function createMediaPicker({ kind = "image", className = "", placeholder,
 
   const open = () => {
     closeMediaMenu();
-    const all = (getOptions() || []).map(String);
+    let all = (getOptions() || []).map(String);
     const current = String(getValue() ?? "");
     const menu = el("div", "ausboss-media-menu");
     const column = el("div", "ausboss-media-col");
     const filter = el("input", "ausboss-media-filter");
     filter.type = "text";
     filter.spellcheck = false;
-    filter.placeholder = all.length ? `Filter ${all.length} ${noun}${all.length === 1 ? "" : "s"}…` : `No ${noun}s in the input folder`;
+    const nameFilter = () => {
+      filter.placeholder = all.length ? `Filter ${all.length} ${noun}${all.length === 1 ? "" : "s"}…` : `No ${noun}s in the ${folder} folder`;
+    };
+    nameFilter();
     filter.setAttribute("aria-label", `Filter ${noun}s`);
     const list = el("div", "ausboss-media-list");
     list.setAttribute("role", "listbox");
@@ -174,15 +186,15 @@ export function createMediaPicker({ kind = "image", className = "", placeholder,
       items.length = 0;
       highlight = -1;
       for (const value of shown.slice(0, LIST_CAP)) {
-        const { folder, name } = mediaLabel(value);
+        const { folder: under, name } = mediaLabel(bare(value));
         const item = el("div", "ausboss-media-item");
         item.setAttribute("role", "option");
-        item.title = value;
+        item.title = bare(value);
         if (value === current) {
           item.classList.add("current");
           item.setAttribute("aria-selected", "true");
         }
-        if (folder) item.append(el("span", "ausboss-media-folder", folder));
+        if (under) item.append(el("span", "ausboss-media-folder", under));
         item.append(el("span", "ausboss-media-name", name));
         const index = items.length;
         item.addEventListener("mousemove", () => setHighlight(index, false));
@@ -191,7 +203,7 @@ export function createMediaPicker({ kind = "image", className = "", placeholder,
         items.push(item);
       }
       if (shown.length > LIST_CAP) list.append(el("div", "ausboss-media-more", `${shown.length - LIST_CAP} more · type to narrow`));
-      if (!shown.length) list.append(el("div", "ausboss-media-more", all.length ? "No matches" : `Upload ${noun === "video" ? "a video" : "an image"} and it shows up here`));
+      if (!shown.length) list.append(el("div", "ausboss-media-more", all.length ? "No matches" : emptyNote || `Upload ${noun === "video" ? "a video" : "an image"} and it shows up here`));
       const start = shown.indexOf(current);
       setHighlight(start >= 0 && start < items.length ? start : items.length ? 0 : -1, true);
       if (!items.length) showPreview(null);
@@ -241,6 +253,15 @@ export function createMediaPicker({ kind = "image", className = "", placeholder,
     button.classList.add("open");
     document.body.append(menu);
     render();
+    if (loadOptions) {
+      Promise.resolve().then(loadOptions).then((values) => {
+        const fresh = (values || []).map(String);
+        if (abort.signal.aborted || (fresh.length === all.length && fresh.every((value, index) => value === all[index]))) return;
+        all = fresh;
+        nameFilter();
+        render();
+      }).catch(() => {});
+    }
     // Under the button, or above it when the window runs out; kept on screen.
     const box = button.getBoundingClientRect();
     const width = menu.offsetWidth;

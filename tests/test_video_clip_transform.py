@@ -69,12 +69,14 @@ class VideoClipNodeTests(unittest.TestCase):
         cls._tmp = tempfile.TemporaryDirectory()
         cls.video = Path(cls._tmp.name) / "clip.mp4"
         write_test_video(cls.video, with_audio=True)
-        # Local path mode reads only ComfyUI's input/output/temp folders;
-        # the fixture's temporary folder stands in for one.
+        # The second source reads a video by the name ComfyUI gives it below
+        # its input, output or temp folder; the fixture's temporary folder
+        # stands in for temp.
         from nodes import _media_helpers
 
         root = Path(cls._tmp.name).resolve()
-        cls._env = unittest.mock.patch.object(_media_helpers, "_comfy_managed_roots", lambda: [root])
+        cls.server_file = f"{cls.video.name} [temp]"
+        cls._env = unittest.mock.patch.object(_media_helpers, "_server_folders", lambda: {"temp": root})
         cls._env.start()
 
     @classmethod
@@ -87,7 +89,7 @@ class VideoClipNodeTests(unittest.TestCase):
         args = {
             "video": "",
             "source_mode": "local path",
-            "local_path": str(self.video),
+            "local_path": self.server_file,
             "start_seconds": 0.0,
             "end_seconds": 0.0,
             **values,
@@ -130,10 +132,10 @@ class VideoClipNodeTests(unittest.TestCase):
         # no longer block the run; the window is checked when the node runs.
         validate = AusBossVideoCropRotatePadClip.VALIDATE_INPUTS
         self.assertEqual(list(inspect.signature(validate).parameters), ["video", "source_mode", "local_path"])
-        self.assertIs(validate("", "local path", str(self.video)), True)
+        self.assertIs(validate("", "local path", self.server_file), True)
         self.assertEqual(
             validate("", "local path", ""),
-            "Video Crop + Rotate + Pad: Local path mode requires a video path.",
+            "Video Crop + Rotate + Pad: Pick a video from the node's Outputs list first.",
         )
 
     def test_decode_errors_name_this_node_and_only_its_inputs(self):
@@ -222,7 +224,7 @@ class VideoClipNodeTests(unittest.TestCase):
         self.assertEqual(float(mask.max()), 0.0)
 
     def test_preview_position_never_changes_the_fingerprint(self):
-        common = dict(video="", source_mode="local path", local_path=str(self.video), start_seconds=0.0, end_seconds=0.0)
+        common = dict(video="", source_mode="local path", local_path=self.server_file, start_seconds=0.0, end_seconds=0.0)
         values = transform_defaults(pad_right=8)
         one = AusBossVideoCropRotatePadClip.IS_CHANGED(**common, frame_index=0, frame_time=0.0, **values)
         two = AusBossVideoCropRotatePadClip.IS_CHANGED(**common, frame_index=17, frame_time=1.4, seek_mode="time seconds", **values)
@@ -280,7 +282,7 @@ class VideoClipNodeTests(unittest.TestCase):
         self.assertEqual(snap_frame_count(30, "nonsense"), 30)
 
     def test_frame_snap_changes_the_fingerprint(self):
-        common = dict(video="", source_mode="local path", local_path=str(self.video), start_seconds=0.0, end_seconds=0.0)
+        common = dict(video="", source_mode="local path", local_path=self.server_file, start_seconds=0.0, end_seconds=0.0)
         values = transform_defaults()
         one = AusBossVideoCropRotatePadClip.IS_CHANGED(**common, **values)
         two = AusBossVideoCropRotatePadClip.IS_CHANGED(**common, frame_snap="8n+1", **values)
@@ -334,7 +336,7 @@ class VideoClipNodeTests(unittest.TestCase):
         self.assertTrue(torch.all(shrunk[:, :, :10] == 1.0) and torch.all(shrunk[:, :, 10:] == 0.0))
 
     def test_stitch_settings_change_the_fingerprint(self):
-        common = dict(video="", source_mode="local path", local_path=str(self.video), start_seconds=0.0, end_seconds=0.0)
+        common = dict(video="", source_mode="local path", local_path=self.server_file, start_seconds=0.0, end_seconds=0.0)
         values = transform_defaults(pad_left=8)
         one = AusBossVideoCropRotatePadClip.IS_CHANGED(**common, **values)
         two = AusBossVideoCropRotatePadClip.IS_CHANGED(**common, stitch_blend=48, **values)
