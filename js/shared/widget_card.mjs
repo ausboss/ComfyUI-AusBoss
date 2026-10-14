@@ -39,7 +39,7 @@ import { limitsLabel, narrowedRange } from "./wired_limits.mjs";
 import { hideWidget } from "./widget_visibility.mjs";
 import {
   CARD_PADDING, GROUP_HEIGHT, ROW_GAP, ROW_HEIGHT, SECTION_HEIGHT, SLOT_OFFSET, UNIT_SLOT_WIDTH,
-  cardHeight, choiceLabel, commitWidgetValue, comboValues, rowHeight, rowInLook, rowKind, rowMuted, rowTops, scrubSteps, socketWidgetY, visibleRows,
+  cardChangeRestore, cardHeight, choiceLabel, commitWidgetValue, comboValues, rowHeight, rowInLook, rowKind, rowMuted, rowTops, scrubSteps, socketWidgetY, visibleRows,
   widgetTooltip,
 } from "./widget_card_math.mjs";
 
@@ -706,7 +706,8 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     if (state.disposed) return;
     const vals = values();
     const look = typeof lookOf === "function" ? String(lookOf(node) ?? "") : "";
-    if (look !== state.look) {
+    const lookChanged = look !== state.look;
+    if (lookChanged) {
       if (state.look) root.classList.remove(`look-${state.look}`);
       if (look) root.classList.add(`look-${look}`);
       state.look = look;
@@ -768,8 +769,11 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       state.height = height;
       const width = Math.max(minWidth, node.size?.[0] || minWidth);
       const floor = node.computeSize?.()[1] || height;
+      const restore = cardChangeRestore({
+        restoring: state.restoring, savedHeight: state.savedHeight, lookChanged, byHand: state.byHand, current: node.size?.[1],
+      });
       node.setSize?.([width, nodeHeightAfterCardChange({
-        floor, current: node.size?.[1], saved: state.savedHeight, change, first, restoring: state.restoring, byHand: state.byHand,
+        floor, current: node.size?.[1], saved: restore.saved, change, first, restoring: restore.restoring, byHand: state.byHand,
       })]);
       node.graph?.setDirtyCanvas?.(true, true);
     }

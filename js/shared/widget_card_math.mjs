@@ -45,6 +45,21 @@ export function rowInLook(row, look = null) {
   return own && typeof own === "object" ? { ...row, ...own } : row;
 }
 
+// Whether a change of the card's height is a restore: the node's size
+// already fits the card as it now is, so it is kept (lifted to the floor)
+// rather than fitted to the change (nodeHeightAfterCardChange in
+// panel_layout.mjs). A workflow that is loading is one, with the height it
+// was saved at. So is a look that changes with no hand on the card: it came
+// with the node's own data (a load, a paste, an undo), and ComfyUI redraws
+// the card while it fills the node in, before onConfigure, with the saved
+// size already on the node. Only a look picked on the card itself fits the
+// node to the new look.
+export function cardChangeRestore({ restoring = false, savedHeight, lookChanged = false, byHand = false, current } = {}) {
+  if (restoring) return { restoring: true, saved: savedHeight };
+  if (lookChanged && !byHand) return { restoring: true, saved: current };
+  return { restoring: false, saved: undefined };
+}
+
 // One row's height: a caption, a group header, a control row, or the
 // height a textarea row asks for in the card's look.
 export function rowHeight(row, look = null) {

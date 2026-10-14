@@ -9,7 +9,8 @@ import { fileURLToPath } from "node:url";
 import {
   TEXT_LOOKS, TEXT_LOOK_MENU, TEXT_LOOK_PROPERTY, setTextLook, textLook, textLookCornerReserve,
 } from "../js/shared/text_look.mjs";
-import { CARD_PADDING, cardHeight, rowHeight } from "../js/shared/widget_card_math.mjs";
+import { nodeHeightAfterCardChange } from "../js/shared/panel_layout.mjs";
+import { CARD_PADDING, cardChangeRestore, cardHeight, rowHeight } from "../js/shared/widget_card_math.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (...parts) => readFileSync(join(ROOT, ...parts), "utf-8");
@@ -99,6 +100,49 @@ test("the big look's text is large, centred and out of flow", () => {
   // The same padding on both sides keeps it centred on the card and clear
   // of the gear.
   assert.match(rule, /padding:\$\{BIG_PAD_Y\}px \$\{BIG_PAD_X\}px/);
+});
+
+// A Text node's height, as the card works it out when the card's height
+// changes: the floor is the node's computeSize() height in the new look.
+const TEXT_ROW = { widget: "text", kind: "textarea", height: 100, grow: true, looks: { big: { height: 62 } } };
+const CHANGE = cardHeight([TEXT_ROW], "big") - cardHeight([TEXT_ROW], "normal");
+const NORMAL_FLOOR = 168;
+const BIG_FLOOR = NORMAL_FLOOR + CHANGE;
+const heightAfterLook = ({ current, byHand = false }) => nodeHeightAfterCardChange({
+  floor: BIG_FLOOR, current, change: CHANGE, byHand,
+  ...cardChangeRestore({ restoring: false, lookChanged: true, byHand, current }),
+});
+
+test("a big-look node saved taller than its floor keeps its height when the workflow loads", () => {
+  assert.equal(BIG_FLOOR, 130);
+  // How a node loads: its card is built in the usual look, then ComfyUI puts
+  // the saved size and properties on the node and fills in the saved text,
+  // whose callback redraws the card in the big look - before onConfigure,
+  // so the card does not yet know a workflow is loading. The node is under
+  // the usual look's floor there; it once took that for "at the floor" and
+  // went down to the big floor (424 x 152 came back 424 x 130).
+  for (const saved of [131, 152, 167, 168, 240]) assert.equal(heightAfterLook({ current: saved }), saved, `saved at ${saved}`);
+  // Saved at the floor, or under it by an older pack, it opens at the floor.
+  assert.equal(heightAfterLook({ current: 130 }), 130);
+  assert.equal(heightAfterLook({ current: 100 }), 130);
+});
+
+test("picking big from the gear fits the node to the big look", () => {
+  // A node at the usual floor goes to the big floor; one made taller keeps
+  // what it had beyond the floor.
+  assert.equal(heightAfterLook({ current: NORMAL_FLOOR, byHand: true }), BIG_FLOOR);
+  assert.equal(heightAfterLook({ current: 240, byHand: true }), 240 + CHANGE);
+  // A change by hand is never a restore, and a load stays one.
+  assert.deepEqual(cardChangeRestore({ lookChanged: true, byHand: true, current: 168 }), { restoring: false, saved: undefined });
+  assert.deepEqual(cardChangeRestore({ restoring: true, savedHeight: 152, lookChanged: true, current: 168 }), { restoring: true, saved: 152 });
+  assert.deepEqual(cardChangeRestore({ current: 168 }), { restoring: false, saved: undefined });
+});
+
+test("the card asks cardChangeRestore before it changes the node's height", () => {
+  const source = read("js", "shared", "widget_card.mjs");
+  assert.match(source, /const lookChanged = look !== state\.look;/);
+  assert.match(source, /cardChangeRestore\(\{[^}]*lookChanged, byHand: state\.byHand, current: node\.size\?\.\[1\]/);
+  assert.match(source, /saved: restore\.saved, change, first, restoring: restore\.restoring/);
 });
 
 test("the look adds no input: the Text node still takes its one text box", () => {
