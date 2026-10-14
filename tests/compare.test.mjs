@@ -10,6 +10,7 @@ import {
   compareSizeLabel,
   findCompareImages,
   normalizeCompareMode,
+  sizeAfterErase,
 } from "../js/shared/compare.mjs";
 
 test("clip fraction follows the pointer and clamps to the panel", () => {
@@ -37,6 +38,18 @@ test("a workflow saved on the old hold mode lands on the toggle it became", () =
   // Dropping it to slide instead would silently change how a saved node
   // behaves, which is exactly what someone reopening their graph notices.
   assert.equal(normalizeCompareMode("hold"), "toggle");
+});
+
+test("leaving Erase gives back the size Erase grew the node from", () => {
+  const record = { before: [460, 520], grown: [540, 584] };
+  assert.deepEqual(sizeAfterErase([540, 584], record), [460, 520]);
+  // A side the user dragged while erasing keeps their size.
+  assert.deepEqual(sizeAfterErase([700, 584], record), [700, 520]);
+  assert.equal(sizeAfterErase([700, 640], record), null);
+  // Nothing was grown, or the record is junk from a file: the node stays.
+  assert.equal(sizeAfterErase([540, 584], undefined), null);
+  assert.equal(sizeAfterErase([540, 584], { before: ["wide", 520], grown: [540, 584] }), null);
+  assert.equal(sizeAfterErase([540, 584], { before: [-1, 520], grown: [540, 584] }), null);
 });
 
 test("the caption names the compared resolution, once", () => {
