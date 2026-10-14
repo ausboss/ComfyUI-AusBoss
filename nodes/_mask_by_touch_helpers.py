@@ -23,6 +23,7 @@ import threading
 import torch
 import torch.nn.functional as F
 
+from ._brush_helpers import SOFT_FROM, brush_sigma, stroke_cover
 from ._mask_by_name_helpers import MATCHES_MAX
 from ._mask_by_name_helpers import NEEDS_SAM3 as _NAME_NEEDS_SAM3
 from ._mask_by_name_helpers import NOT_SAM3 as _NAME_NOT_SAM3
@@ -148,7 +149,8 @@ class Item:
     "subject", "background", or None for a kind this version does not know
     (it is skipped, and still counted in the answer). `quiet` is a `name`
     touch whose word the node's face did not show, because SAM 3 was not
-    sure of it: the thing is picked, its word is not given out."""
+    sure of it: the thing is picked, its word is not given out. `soft` is
+    how soft the edge of a `paint` touch's brush was, 0 (hard) to 1."""
 
     kind: str | None = None
     add: bool = True
@@ -158,6 +160,7 @@ class Item:
     pts: tuple = ()
     word: str = ""
     quiet: bool = False
+    soft: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -238,7 +241,15 @@ def _item(entry) -> Item:
         raise ValueError(NOT_TOUCHES)
     if len(points) > POINTS_MAX:
         raise ValueError(TOO_MUCH)
-    return Item(kind, add, r=float(min(radius, RADIUS_MAX)), pts=tuple(_point(point) for point in points))
+    # How soft the brush's edge was, in percent. Only paint has one: a
+    # stroke that finds a thing is not an area of its own.
+    soft = entry.get("s", 0) if kind == "paint" else 0
+    if isinstance(soft, bool) or not isinstance(soft, (int, float)) or not math.isfinite(soft):
+        raise ValueError(NOT_TOUCHES)
+    return Item(
+        kind, add, r=float(min(radius, RADIUS_MAX)), pts=tuple(_point(point) for point in points),
+        soft=min(1.0, max(0.0, float(soft) / 100.0)),
+    )
 
 
 def parse_touches(text) -> Touches:
@@ -363,6 +374,26 @@ def stroke_area(pts, radius: float, height: int, width: int) -> torch.Tensor:
         _draw_segments(flat, start[first:last], end[first:last], top[first:last], counts[first:last], radius, width)
         first = last
     return spans.cumsum(dim=1)[:, :width] > 0
+
+
+def soft_stroke_area(pts, radius: float, soft: float, height: int, width: int):
+    """The area a brush with a soft edge covers along a stroke (H x W, float
+    0..1), or None when the edge is too thin to be soft: then the stroke is
+    `stroke_area`'s, on or off.
+
+    The brush is the pack's shared one: a solid middle, blurred. `soft` runs
+    0 to 1."""
+    height, width = int(height), int(width)
+    size = 2.0 * max(0.5, float(radius))
+    if brush_sigma(size, float(soft)) < SOFT_FROM:
+        return None
+    area = torch.zeros(height, width, dtype=torch.float32)
+    path = _path(pts)
+    covered = stroke_cover(path, size, float(soft), width, height) if path and height > 0 and width > 0 else None
+    if covered is not None:
+        left, top, cover = covered
+        area[top:top + cover.shape[0], left:left + cover.shape[1]] = torch.from_numpy(cover.copy())
+    return area
 
 
 def _draw_segments(flat, start, end, top, counts, radius, width) -> None:
@@ -603,8 +634,16 @@ def keep_touched(answer: torch.Tensor, touch: torch.Tensor) -> torch.Tensor:
 
 
 def apply_item(selection: torch.Tensor, area: torch.Tensor, add: bool) -> torch.Tensor:
-    """Join an item's area to the selection, or take it away."""
-    return (selection | area) if add else (selection & ~area)
+    """Join an item's area to the selection, or take it away.
+
+    Both on or off: the result is on or off. With a soft area (a brush with
+    a soft edge) or a selection that is already soft, the result is soft
+    (float 0..1): adding covers what is not picked yet by the area's own
+    strength, taking away thins what is picked by it, as paint does."""
+    if selection.dtype == torch.bool and area.dtype == torch.bool:
+        return (selection | area) if add else (selection & ~area)
+    selection, area = selection.to(torch.float32), area.to(torch.float32)
+    return 1.0 - (1.0 - selection) * (1.0 - area) if add else selection * (1.0 - area)
 
 
 # ---------------------------------------------------------------------------
@@ -754,6 +793,15 @@ def to_small(mask: torch.Tensor, small_width: int, small_height: int) -> torch.T
     if tuple(mask.shape) == (small_height, small_width):
         return mask
     return F.interpolate(mask[None, None].float(), size=(small_height, small_width), mode="area")[0, 0] >= 0.5
+
+
+def soft_to_small(mask: torch.Tensor, small_width: int, small_height: int) -> torch.Tensor:
+    """A full-size soft mask at the face's small size (float 0..1): a small
+    pixel holds the average of what it covers."""
+    mask = mask.to(torch.float32)
+    if tuple(mask.shape) == (small_height, small_width):
+        return mask
+    return F.interpolate(mask[None, None], size=(small_height, small_width), mode="area")[0, 0].clamp(0.0, 1.0)
 
 
 def small_picture(image: torch.Tensor, small_width: int, small_height: int) -> torch.Tensor:

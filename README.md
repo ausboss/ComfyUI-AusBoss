@@ -198,9 +198,11 @@ The Mask by Name example finds a thing by its name and saves its cut-out and its
 
 Click a thing on the picture and get its mask. No name to type and no MaskEditor: the picture is on the node. Move the pointer over it and the thing a click would take lights up, with its name beside the pointer: the jacket, not the whole person. Click to pick it, and click more things to add them. What is lit in teal is what the mask will be.
 
-When a click could mean more than one thing, the node shows the pick with two arrows, like **‹ jacket · 1 of 3 ›**: an arrow swaps it for the next thing at that spot. A stroke across two things, like both shoes, takes both. **Pick | Draw** switches to a plain brush for an area you want to paint yourself. **+** and **−** add or take away, and **Undo** takes back a pick.
+When a click could mean more than one thing, the node shows the pick with two arrows, like **‹ jacket · 1 of 3 ›**: an arrow swaps it for the next thing at that spot. A stroke across two things, like both shoes, takes both. Ctrl-click a thing to take it away again.
 
-Every pick has a chip under the picture: its cross takes that pick away, a click on its name opens it so the arrows can swap it, and **all 3** on a named pick takes every thing of that name. What you paint with Draw in one go shares one chip. The field at the end of the row takes a name you type, for things that did not light up.
+To fix the mask by hand, switch **Pick | Paint | Erase** (or press W, B or E, as in Photoshop). The brush has a size and a soft edge, set with **[** and **]** or by holding Alt and the right mouse button and dragging, and it shows under the pointer as it will paint. Hold **Ctrl** for the opposite: erase while you paint, paint while you erase.
+
+Every area has a chip under the picture: a thing you picked, or an area you painted. Paint that touches an area joins its chip, and erasing makes none. A chip's cross takes that area away, a click selects it so what you paint joins it, and **all 3** on a named pick takes every thing of that name. The field at the end of the row takes a name you type, for things that did not light up.
 
 **Subject** picks the picture's main subject in one click, and **Background** everything else. **Fine edges** is for hair and fur: switched on, the outline of the subject is followed strand by strand, on light and dark backgrounds, and the cut-out loses the colour of the old background. All three use ComfyUI's own background-removal model (`birefnet.safetensors`, ComfyUI 0.21 or newer); the help page says where to get it.
 

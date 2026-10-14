@@ -100,8 +100,10 @@ class BrushTests(unittest.TestCase):
         self.assertEqual(number("ERASE_MAX_STROKE_POINTS"), helpers.ERASE_MAX_STROKE_POINTS)
         self.assertEqual(number("ERASE_MAX_POINTS"), helpers.ERASE_MAX_POINTS)
         self.assertEqual(number("ERASE_OUTSIDE"), helpers.ERASE_OUTSIDE)
-        self.assertIn("return (size / 2) * (1 - soft / 2);", source)
-        self.assertIn("return (soft * size) / 8;", source)
+        # The brush itself is the pack's shared one.
+        brush = (ROOT / "js" / "shared" / "brush.mjs").read_text(encoding="utf-8")
+        self.assertIn("return (size / 2) * (1 - soft / 2);", brush)
+        self.assertIn("return (soft * size) / 8;", brush)
         self.assertIn(f'export const SAVE_NAME = "{helpers.SAVE_NAME}";', source)
         self.assertIn(f"export const SAVE_NAME_MAX = {helpers.SAVE_NAME_MAX};", source)
         self.assertEqual(brush_core(100, 0), 50)

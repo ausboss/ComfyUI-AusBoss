@@ -55,6 +55,8 @@ from ._mask_by_touch_helpers import (
     shape_mask,
     small_picture,
     small_size,
+    soft_stroke_area,
+    soft_to_small,
     stroke_area,
     tidy_matches,
     to_small,
@@ -91,6 +93,9 @@ SCOPE_COLD = 0.6
 # this often (seconds), and once more at its end: the event LOOK_EVENT.
 LOOK_TELL_SECONDS = 1.5
 LOOK_EVENT = "ausboss.mask_by_touch.look"
+# The face is sent each picked thing's own area, so it can tell which chip a
+# brush mark touches. This many at most; what is over has none.
+AREAS_MAX = 48
 # A look is quiet: while it runs, ComfyUI sends the page no progress reports
 # (see _quiet), so the progress bar, the tab title and the node's outline do
 # not flicker for a run nobody pressed Run for. Off: a look reports as any
@@ -847,6 +852,7 @@ class AusBossMaskByTouch:
         """One item's own area on one picture, what it was used as, and
         which matches of its word it is (a `name` or `all` touch only):
         (H x W bool or None, "thing" | "paint" | "none", tuple of match numbers).
+        The area of a `paint` touch made with a soft brush is float, 0..1.
         """
         height, width = int(frame.shape[1]), int(frame.shape[2])
         if item.kind in ("subject", "background"):
@@ -878,6 +884,13 @@ class AusBossMaskByTouch:
             return (None, "none", ()) if index is None else (matches[index][0], "thing", (index,))
         if item.kind not in ("find", "paint"):
             return None, "none", ()
+        if item.kind == "paint" and item.soft > 0:
+            # A brush with a soft edge: its area fades out (float 0..1).
+            # None when the edge is too thin to be soft.
+            if (item, "soft") not in strokes:
+                strokes[(item, "soft")] = soft_stroke_area(item.pts, item.r, item.soft, height, width)
+            if strokes[(item, "soft")] is not None:
+                return strokes[(item, "soft")], "paint", ()
         stroke = strokes.get(item)
         if stroke is None:
             stroke = strokes[item] = stroke_area(item.pts, item.r, height, width)
@@ -1108,6 +1121,24 @@ class AusBossMaskByTouch:
             "words": [pieces["words"], pieces["words_total"]],
         }
 
+    def _areas_note(self, key: str, stamp: str, things: list, small_width: int, small_height: int):
+        """Each picked thing's own area at the face's small size, packed like
+        the pieces: area n is bit n % 24 of plane n // 24, and `items` says
+        which touch it is the area of. None when no thing is picked."""
+        if not things:
+            return None
+        planes = self._kept(("areas", key, stamp))
+        if planes is None:
+            packed = pack_planes([to_small(area, small_width, small_height) for _, area in things])
+            planes = [
+                self._write(Image.fromarray(plane.numpy()), "areas", "png", format="PNG", compress_level=1)
+                for plane in packed
+            ]
+            if any(plane is None for plane in planes):
+                return None
+            self._keep(("areas", key, stamp), planes)
+        return {"planes": planes, "items": [index for index, _ in things]}
+
     # -- the run -------------------------------------------------------------
 
     def pick(
@@ -1142,6 +1173,8 @@ class AusBossMaskByTouch:
         # Touches made on another picture are not this picture's.
         items = picked.items if picked.key in (None, key) else ()
         strokes, selections, painted, item_notes = {}, [], [], []
+        # Each picked thing's own area on the first picture, for the face.
+        things = []
         self._edge_choice = fine_edges
         subject_trouble = None
         # Per word, which of its matches are picked on the first picture. A
@@ -1174,6 +1207,8 @@ class AusBossMaskByTouch:
                     item_notes.append({"ok": used != "none", "share": share, "as": used})
                     if item.kind == "all":
                         item_notes[-1]["count"] = len(which)
+                    if area is not None and item.add and item.kind != "paint" and len(things) < AREAS_MAX:
+                        things.append((len(item_notes) - 1, area))
                     # A word the face did not show (SAM 3 was not sure of
                     # it) is not given out as a name either.
                     if item.add and which and not item.quiet:
@@ -1186,11 +1221,21 @@ class AusBossMaskByTouch:
                         else:
                             del named[item.word]
                 if area is not None:
+                    before = selection
                     selection = apply_item(selection, area, item.add)
-                    by_paint = torch.where(area, torch.full_like(by_paint, used == "paint"), by_paint)
+                    if index == 0 and not item.add:
+                        # A touch that takes away where nothing was picked
+                        # took nothing: the face does not keep it.
+                        item_notes[-1]["did"] = before.dtype != selection.dtype or not torch.equal(before, selection)
+                    touched = area if area.dtype == torch.bool else area > 0
+                    by_paint = torch.where(touched, torch.full_like(by_paint, used == "paint"), by_paint)
             selections.append(selection)
             painted.append(by_paint)
+        # On or off, until a brush with a soft edge has painted: then 0..1.
+        if any(selection.dtype != torch.bool for selection in selections):
+            selections = [selection.to(torch.float32) for selection in selections]
         raw = torch.stack(selections)
+        soft = raw.dtype != torch.bool
         if not bool(raw.any()) and not asked and str(if_nothing) != IF_NOTHING[1]:
             raise RuntimeError(NOTHING_PICKED)
         # A look for pieces (scope) returns no mask anyone uses: no fine edge then.
@@ -1211,6 +1256,10 @@ class AusBossMaskByTouch:
                 if not asked or _stopped_by_user(error):
                     raise
                 fine, fine_trouble = False, str(error)
+        if fine and soft:
+            # Where a soft brush had the last word its fade stays as painted.
+            fade = torch.stack(painted) & (raw > 0) & (raw < 1)
+            found = torch.where(fade, raw, found)
         if fine:
             # Grow moves the plain area and lays it over the fine edge;
             # Soften then works on the whole.
@@ -1228,8 +1277,12 @@ class AusBossMaskByTouch:
         small_width, small_height, scale = small_size(width, height)
         selection_file = None
         if bool(raw[0].any()):
-            small = to_small(raw[0], small_width, small_height)
-            selection_file = self._write(Image.fromarray(small.numpy().astype("uint8") * 255), "selection", "png", format="PNG")
+            if soft:
+                # Grey where a soft brush painted: the face reads the strength.
+                levels = soft_to_small(raw[0], small_width, small_height).mul(255.0).round().to(torch.uint8)
+            else:
+                levels = to_small(raw[0], small_width, small_height).to(torch.uint8) * 255
+            selection_file = self._write(Image.fromarray(levels.numpy()), "selection", "png", format="PNG")
         stamp, mask_share = touch_stamp(touches), round(float(mask[0].mean()), 5)
         # The fine edge at the face's small size: the colours of the cut-out
         # with the mask as their see-through channel, and what it was made with.
@@ -1247,6 +1300,7 @@ class AusBossMaskByTouch:
                 }
         elif fine_trouble:
             fine_note = {"trouble": fine_trouble}
+        areas_note = self._areas_note(key, stamp, things, small_width, small_height)
 
         def note(pieces) -> dict:
             return {
@@ -1261,6 +1315,7 @@ class AusBossMaskByTouch:
                 "share": mask_share,
                 "pieces": self._pieces_note(pieces),
                 "fine": fine_note,
+                "areas": areas_note,
             }
 
         pieces_key = (session.token, session.reader, key)

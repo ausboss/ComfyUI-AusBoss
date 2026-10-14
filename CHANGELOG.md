@@ -4,15 +4,35 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Mask by Touch 🆎: fix the mask with a brush, without a pile of chips.**
+  The switch above the picture now has three tools: **Pick** takes whole
+  things as before, **Paint** adds to the mask and **Erase** rubs it out,
+  exactly as you paint. Hold **Ctrl**, or use the right mouse button, for
+  the opposite while you hold it. The brush has a **Size** and a **Soft**
+  edge, set the same way as Image Compare A/B's: **[** and **]**, Shift with
+  them, or hold Alt and the right mouse button and drag. Paint that touches
+  a pick joins its chip, and loose paint shares one **paint** chip. Erasing
+  makes no chip, and erasing or Ctrl-clicking where nothing is picked does
+  nothing at all. Ctrl-click a thing you picked to un-pick it; a part taken
+  out of a bigger pick keeps a chip whose cross brings it back. Click a chip
+  to select it, and what you paint joins it; **+ new** starts a separate
+  area. Chips wrap onto more rows instead of running off the node. **W**,
+  **B** and **E** pick the tool, as in Photoshop, and the brush shows under
+  the pointer as it will paint, soft edge and all. While the node looks at
+  the picture, a small button under it shows how far along it is and pauses
+  it, so you can go on with what is already lit; nothing covers the
+  picture any more. The looking also starts when the pointer rests on the
+  picture behind Reroute nodes and the pack's own loaders. Workflows you have keep working as they
+  are.
 - **Image Compare A/B 🆎: Erase mixes the two pictures by hand.** The
   mode buttons are now one switch, **Slide | A | B | Erase**, whose marker
   slides to your choice. In **Erase** one picture is on top; paint on it
-  and it rubs away, so the other shows through. **Restore**, Alt or the
+  and it rubs away, so the other shows through. **Restore**, Ctrl or the
   right mouse button paints it back. Set the brush's size and how soft its
   edge is, and pick which picture is on top. The brush shows around the
-  pointer in teal, soft edge and all, and it takes Photoshop's keys: **[**
-  and **]** for the size, Shift with them for the edge, or hold Alt and
-  the right mouse button and drag. **Save**, at the bottom right, writes
+  pointer in teal, soft edge and all, and it takes Photoshop's keys: **E**
+  erases and **B** paints back, **[** and **]** for the size, Shift with
+  them for the edge, or hold Alt and the right mouse button and drag. **Save**, at the bottom right, writes
   the mix to the output folder as a PNG without running anything again.
   Type a **Name** for the files, or wire one into the new optional
   **filename** input. With **PSD** on, Save also writes one PSD that holds

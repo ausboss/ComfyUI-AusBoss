@@ -12,7 +12,23 @@
 // back, d is the brush's width in pixels of the picture, s its softness in
 // percent, and p the path as x0, y0, x1, y1 ... in pixels of the picture.
 
+import { BRUSH_SOFT_DEFAULT, clampBrushSize, clampSoft, steppedBrushSize } from "./brush.mjs";
 import { thinStroke } from "./touch_math.mjs";
+
+// The brush itself is the pack's shared one (brush.mjs): Mask by Touch
+// paints with the same.
+export {
+  ADJUST_DEAD_ZONE,
+  ADJUST_TURN,
+  adjustAxis,
+  adjustedBrush,
+  brushCore,
+  brushSigma,
+  clampSoft,
+  moveAdjust,
+  startAdjust,
+  steppedSoft,
+} from "./brush.mjs";
 
 export const ERASE_SIZE = [2, 2000];
 export const ERASE_MAX_STROKES = 400;
@@ -20,33 +36,15 @@ export const ERASE_MAX_STROKE_POINTS = 600;
 export const ERASE_MAX_POINTS = 40000;
 // A path may leave the picture while the button is held, but not by miles.
 export const ERASE_OUTSIDE = 4096;
-export const ERASE_SOFT_DEFAULT = 50;
+export const ERASE_SOFT_DEFAULT = BRUSH_SOFT_DEFAULT;
 // The longest side of the mask the panel paints its preview from. The saved
 // mix does not depend on it: the server draws the strokes again at full size.
 export const PREVIEW_SIDE = 2048;
 
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
 
-// Radius of the brush's solid middle. `soft` runs 0 to 1.
-export function brushCore(size, soft) {
-  return (size / 2) * (1 - soft / 2);
-}
-
-// How far the edge is blurred: 0 for a hard brush, an eighth of the size at
-// full soft. The blur reaches about three of these past the middle's rim, so
-// the brush fades out near the ring the pointer shows.
-export function brushSigma(size, soft) {
-  return (soft * size) / 8;
-}
-
 export function clampSize(value) {
-  const number = Number(value);
-  return clamp(Number.isFinite(number) ? Math.round(number) : ERASE_SIZE[0], ERASE_SIZE[0], ERASE_SIZE[1]);
-}
-
-export function clampSoft(value) {
-  const number = Number(value);
-  return clamp(Number.isFinite(number) ? Math.round(number) : ERASE_SOFT_DEFAULT, 0, 100);
+  return clampBrushSize(value, ERASE_SIZE);
 }
 
 // The brush a picture opens with: about a twelfth of its longer side.
@@ -134,66 +132,9 @@ export function previewScale(width, height, cap = PREVIEW_SIDE) {
   return side > cap ? cap / side : 1;
 }
 
-// The next brush size for the [ and ] keys: a fifth up or down, never less
-// than two pixels of change.
+// The next brush size for the [ and ] keys.
 export function steppedSize(size, up) {
-  const next = up ? Math.max(size + 2, Math.round((size * 1.2) / 2) * 2) : Math.min(size - 2, Math.round(size / 1.2 / 2) * 2);
-  return clampSize(next);
-}
-
-// The next softness for Shift + [ and Shift + ]: a quarter softer or harder.
-export function steppedSoft(soft, softer) {
-  return clampSoft(soft + (softer ? 25 : -25));
-}
-
-// Setting the brush with a drag, as in Photoshop: hold Alt and the right
-// mouse button, then drag across for the size or up and down for the edge.
-// The drag changes one of the two at a time, so a shaky hand setting the
-// size does not move the edge. The first few pixels pick which, and turning
-// the drag the other way switches to the other from there.
-export const ADJUST_DEAD_ZONE = 6;
-// How far the pointer travels the other way before the drag switches.
-export const ADJUST_TURN = 12;
-
-export function adjustAxis(dx, dy) {
-  if (Math.max(Math.abs(dx), Math.abs(dy)) < ADJUST_DEAD_ZONE) return null;
-  return Math.abs(dx) >= Math.abs(dy) ? "size" : "soft";
-}
-
-// The brush after a drag of dx, dy screen pixels. Across, the brush's rim
-// follows the pointer: `perPixel` is how many pixels of the picture one
-// screen pixel covers. Up is softer and down is harder, half a percent a
-// pixel, so the whole range is a short drag.
-export function adjustedBrush({ size, soft }, axis, dx, dy, perPixel = 1) {
-  if (axis === "size") return { size: clampSize(size + 2 * dx * perPixel), soft };
-  if (axis === "soft") return { size, soft: clampSoft(soft - dy / 2) };
-  return { size, soft };
-}
-
-// A brush drag that begins at x, y (screen pixels) with this brush.
-export function startAdjust(x, y, { size, soft }) {
-  return { axis: null, origin: [x, y], base: { size, soft }, trail: [x, y], brush: { size, soft } };
-}
-
-// The drag after the pointer moved to x, y. `trail` follows the pointer a
-// few pixels behind: when the stretch from it to the pointer runs clearly
-// the other way (twice as far that way as this way), the drag has turned.
-// What it had set stays, and the other value starts from the pointer.
-export function moveAdjust(state, x, y, perPixel = 1) {
-  let { axis, origin, base, trail } = state;
-  const tx = x - trail[0];
-  const ty = y - trail[1];
-  if (Math.hypot(tx, ty) >= ADJUST_TURN) {
-    const heading = Math.abs(tx) >= 2 * Math.abs(ty) ? "size" : Math.abs(ty) >= 2 * Math.abs(tx) ? "soft" : null;
-    if (axis && heading && heading !== axis) {
-      base = adjustedBrush(base, axis, x - origin[0], y - origin[1], perPixel);
-      origin = [x, y];
-      axis = heading;
-    }
-    trail = [x, y];
-  }
-  axis ??= adjustAxis(x - origin[0], y - origin[1]);
-  return { axis, origin, base, trail, brush: adjustedBrush(base, axis, x - origin[0], y - origin[1], perPixel) };
+  return steppedBrushSize(size, up, ERASE_SIZE);
 }
 
 // What a saved mix is called when no name is given, and how long a name

@@ -10,7 +10,7 @@ import { chainCallback } from "../shared/index.mjs";
 import { executionIdOf, nodeByExecutionId } from "../shared/graph_ids.mjs";
 import { outputLocatorId } from "../shared/input_preview.mjs";
 import { isForeignRun } from "../shared/prompt_scope.mjs";
-import { NOTE_KEY, PANEL_MIN_WIDTH, WIDGET_NAME, mountTouchStage } from "../shared/touch_stage.mjs";
+import { NOTE_KEY, OPENING_WIDTH, WIDGET_NAME, mountTouchStage } from "../shared/touch_stage.mjs";
 
 const NODE_CLASS = "AUSBOSS_NODES_MaskByTouch";
 // The edge settings the face follows while they are changed.
@@ -27,6 +27,25 @@ let lookOnButton = false;
 const LOOK_EVENT = "ausboss.mask_by_touch.look";
 
 const widgetByName = (node, name) => node.widgets?.find((widget) => widget?.name === name) ?? null;
+
+// Stop this node's look at its picture: take it out of the queue while it
+// waits, interrupt it while it runs. Only a look of this node is touched,
+// never a run of the workflow or another node's.
+async function stopLook(node) {
+  const id = executionIdOf(app.rootGraph ?? app.graph, node);
+  if (!id) return false;
+  const queue = await (await api.fetchApi("/queue")).json();
+  const ours = (entry) => {
+    const step = entry?.[2]?.[id];
+    return step?.class_type === NODE_CLASS && String(step.inputs?.ask ?? "").startsWith("scope");
+  };
+  const post = (path, body) => api.fetchApi(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const waiting = (queue?.queue_pending ?? []).filter(ours).map((entry) => entry[1]);
+  if (waiting.length) await post("/queue", { delete: waiting });
+  const running = (queue?.queue_running ?? []).find(ours);
+  if (running) await post("/interrupt", { prompt_id: running[1] });
+  return Boolean(running || waiting.length);
+}
 
 // The picture goes above the settings: the stage widget sits ahead of the
 // node's card, whichever of the two was built first.
@@ -72,6 +91,7 @@ function build(node) {
   }
   const face = mountTouchStage(node, {
     lookOnButton: () => lookOnButton,
+    stopLook: () => stopLook(node).catch(() => false),
     // A workflow is being opened: nothing is run on the person's behalf.
     loading: () => Boolean(app.configuringGraph),
     run(what) {
@@ -120,7 +140,7 @@ function build(node) {
     face.sized = true;
     const floor = Number(node.computeSize?.()?.[1]);
     if (Number.isFinite(floor) && node.size?.[1] <= floor + 1) {
-      node.setSize?.([Math.max(node.size[0], PANEL_MIN_WIDTH + 20), floor + OPENING_ROOM]);
+      node.setSize?.([Math.max(node.size[0], OPENING_WIDTH), floor + OPENING_ROOM]);
     }
   });
   return face;

@@ -7,6 +7,7 @@
 // sends the strokes to the server, which builds the mix at full size.
 import { api } from "/scripts/api.js";
 import { BRAND, notifyAusbossChange, showToast } from "./index.mjs";
+import { brushAdjusts, brushFlips, brushKey, brushWords, toolKey } from "./brush.mjs";
 import { keepKeyInField } from "./canvas_passthrough.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
 import { makeSlideSwitch } from "./slide_switch.mjs";
@@ -257,7 +258,7 @@ function draw(er) {
   if (at) {
     const size = er.stroke?.size ?? brushSize(er);
     const soft = er.stroke?.soft ?? brushSoft(er);
-    const back = !setting && (er.stroke ? er.stroke.back : er.back !== Boolean(er.altKey));
+    const back = !setting && (er.stroke ? er.stroke.back : er.back !== Boolean(er.flipKey));
     const x = fit.left + at[0] * fit.scale;
     const y = fit.top + at[1] * fit.scale;
     const line = Math.max(1, canvas.width / Math.max(1, canvas.getBoundingClientRect().width));
@@ -290,7 +291,8 @@ function draw(er) {
       }
       // Both values in words under the brush, the one being set in white.
       const axis = setting.drag.axis;
-      const parts = [[`Size ${size} px`, axis !== "soft"], [`Soft ${soft}%`, axis !== "size"]];
+      const words = brushWords(size, soft);
+      const parts = [[words[0], axis !== "soft"], [words[1], axis !== "size"]];
       ctx.font = `600 ${Math.round(11 * line)}px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif`;
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
@@ -337,9 +339,9 @@ function syncTools(er) {
   const ready = Boolean(er.refs);
   const top = topOf(er);
   const other = top === "A" ? "B" : "A";
-  er.kindSwitch.set(er.back !== Boolean(er.altKey) ? "restore" : "erase");
-  er.kindSwitch.describe("erase", { title: `The brush rubs ${top} away, so ${other} shows through.` });
-  er.kindSwitch.describe("restore", { title: `The brush paints ${top} back. Holding Alt, or the right mouse button, does the same.` });
+  er.kindSwitch.set(er.back !== Boolean(er.flipKey) ? "restore" : "erase");
+  er.kindSwitch.describe("erase", { title: `The brush rubs ${top} away, so ${other} shows through. Holding Ctrl, or the right mouse button, paints it back instead.` });
+  er.kindSwitch.describe("restore", { title: `The brush paints ${top} back. Holding Ctrl, or the right mouse button, rubs it away instead.` });
   er.topSwitch.set(top);
   const layers = er.node.properties?.[LAYERS_PROPERTY] === true;
   er.layersSwitch.set(layers ? "on" : "off");
@@ -429,9 +431,15 @@ function finishAdjust(er, event, cancelled) {
 function onKey(er, event, down) {
   const target = event.target;
   if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+  // Alt is the brush drag's key. Kept from the browser, which would open
+  // its menu on it.
   if (event.key === "Alt") {
     event.preventDefault();
-    er.altKey = down;
+    return;
+  }
+  // Ctrl does the opposite of the chosen tool for as long as it is held.
+  if (event.key === "Control") {
+    er.flipKey = down;
     syncTools(er);
     schedule(er);
     return;
@@ -446,16 +454,25 @@ function onKey(er, event, down) {
     finishAdjust(er, null, true);
     return;
   }
-  // [ and ] for the size, with Shift for the edge, as in Photoshop. The key
-  // is read by its place on the keyboard too: with Shift it types { and }.
-  const smaller = event.code === "BracketLeft" || event.key === "[" || event.key === "{";
-  const larger = event.code === "BracketRight" || event.key === "]" || event.key === "}";
-  if (smaller || larger) {
+  // [ and ] for the size, with Shift for the edge, as in Photoshop.
+  const key = brushKey(event);
+  if (key) {
     event.preventDefault();
     event.stopPropagation();
-    if (event.shiftKey) setSoft(er, steppedSoft(brushSoft(er), smaller));
-    else setSize(er, steppedSize(brushSize(er), larger));
+    if (key.what === "soft") setSoft(er, steppedSoft(brushSoft(er), key.up));
+    else setSize(er, steppedSize(brushSize(er), key.up));
     notifyAusbossChange();
+    return;
+  }
+  // E erases and B (the brush) paints the top picture back, as on Mask by
+  // Touch, whose W picks; here there is nothing to pick.
+  const tool = toolKey(event);
+  if ((tool === "erase" || tool === "paint") && !er.stroke && !er.adjust) {
+    event.preventDefault();
+    event.stopPropagation();
+    er.back = tool === "paint";
+    syncTools(er);
+    schedule(er);
   }
 }
 
@@ -471,8 +488,9 @@ function installPointer(er, signal) {
     try { canvas.setPointerCapture?.(event.pointerId); } catch { /* a pointer that is already gone */ }
     er.pointer = point;
     // Alt and the right button together set the brush (on a Mac: Control
-    // and Option with a click). Either one alone paints back.
-    if (event.altKey && (event.button === 2 || event.ctrlKey)) {
+    // and Option with a click). Ctrl, or the right button alone, does the
+    // opposite of the chosen tool.
+    if (brushAdjusts(event)) {
       const rect = canvas.getBoundingClientRect();
       er.adjust = {
         id: event.pointerId,
@@ -489,7 +507,7 @@ function installPointer(er, signal) {
     }
     er.stroke = {
       id: event.pointerId,
-      back: event.button === 2 || er.back !== event.altKey,
+      back: er.back !== brushFlips(event),
       size: brushSize(er),
       soft: brushSoft(er),
       points: [point],
@@ -508,8 +526,8 @@ function installPointer(er, signal) {
       schedule(er);
       return;
     }
-    if (er.altKey !== event.altKey) {
-      er.altKey = event.altKey;
+    if (er.flipKey !== event.ctrlKey) {
+      er.flipKey = event.ctrlKey;
       syncTools(er);
     }
     const stroke = er.stroke;
@@ -530,7 +548,7 @@ function installPointer(er, signal) {
     er.keys?.abort();
     er.keys = null;
     er.pointer = null;
-    er.altKey = false;
+    er.flipKey = false;
     syncTools(er);
     schedule(er);
   }, { signal });
@@ -589,7 +607,7 @@ export function makeEraser({ node, root, stage, imageA, imageB, signal, onSaved 
     maskScale: 1,
     refs: null, width: 0, height: 0, fit: null,
     strokes: [], history: [],
-    active: false, stroke: null, adjust: null, pointer: null, back: false, altKey: false,
+    active: false, stroke: null, adjust: null, pointer: null, back: false, flipKey: false,
     saving: false, frame: 0, keys: null,
   };
   er.canvas.className = "ausboss-compare-erase";

@@ -59,6 +59,19 @@ import {
   thinStroke,
   touchFits,
 } from "../js/shared/touch_math.mjs";
+import {
+  GROUP_MAX,
+  areaKey,
+  brushStroke,
+  cleanItem,
+  dropIdleAways,
+  hardMask,
+  joinMasks,
+  maskOn,
+  nextGroup,
+  numberChip,
+  sharedPixels,
+} from "../js/shared/touch_math.mjs";
 
 const total = (mask) => mask.reduce((sum, value) => sum + value, 0);
 
@@ -672,19 +685,175 @@ test("two touches are the same when they are written the same", () => {
   assert.equal(sameTouches([stroke], [{ ...stroke, t: "paint" }]), false);
 });
 
-test("marks made with Draw that follow each other share one chip", () => {
+test("a chip is an area: a pick, or paint, with the brush marks that joined it", () => {
+  const paint = (op, g) => ({ t: "paint", op, r: 4, pts: [[1, 2]], ...(g ? { g } : {}) });
+  const cup = (g) => ({ t: "name", op: 1, w: "cup", x: 1, y: 2, ...(g ? { g } : {}) });
+  assert.deepEqual(chipGroups([]), []);
+  // Marks painted onto a pick carry its number and share its chip, wherever they are in the list.
+  assert.deepEqual(chipGroups([cup(1), paint(1, 2), paint(1, 1), paint(1, 2)]), [
+    { g: 1, first: 0, at: [0, 2], paint: false, marks: 1, away: false },
+    { g: 2, first: 1, at: [1, 3], paint: true, marks: 2, away: false },
+  ]);
+  // Two picks of the same name are two chips.
+  assert.equal(chipGroups([cup(1), cup(2)]).length, 2);
+});
+
+test("a thing taken away has a chip of its own, a brush mark that erases has none", () => {
+  const erase = { t: "paint", op: 0, r: 4, pts: [[1, 2]] };
+  const cup = { t: "name", op: 1, w: "cup", x: 1, y: 2, g: 1 };
+  const things = [{ t: "tap", op: 0, x: 1, y: 2 }, { t: "name", op: 0, w: "face", x: 1, y: 2 }, { t: "all", op: 0, w: "hair" }, { t: "subject", op: 0 }, { t: "find", op: 0, r: 4, pts: [[1, 2]] }];
+  assert.deepEqual(chipGroups([erase, erase]), []);
+  assert.deepEqual(chipGroups([cup, erase, things[1], erase]), [
+    { g: 1, first: 0, at: [0], paint: false, marks: 0, away: false },
+    { g: 0, first: 2, at: [2], paint: false, marks: 0, away: true },
+  ]);
+  assert.deepEqual(chipGroups(things).map((chip) => [chip.first, chip.away]), things.map((_, index) => [index, true]));
+});
+
+test("touches saved before chips had numbers are told apart as they were", () => {
   const paint = (op) => ({ t: "paint", op, r: 4, pts: [[1, 2]] });
   const cup = { t: "name", op: 1, w: "cup", x: 1, y: 2 };
-  assert.deepEqual(chipGroups([]), []);
-  assert.deepEqual(chipGroups([paint(1), paint(1), paint(0), paint(1)]), [{ from: 0, to: 3, count: 4, paint: true, adds: 3 }]);
-  // A pick between two runs of paint keeps them apart: touches count in order.
-  assert.deepEqual(chipGroups([paint(1), paint(1), cup, paint(0), paint(0)]), [
-    { from: 0, to: 1, count: 2, paint: true, adds: 2 },
-    { from: 2, to: 2, count: 1, paint: false, adds: 1 },
-    { from: 3, to: 4, count: 2, paint: true, adds: 0 },
+  // Marks that follow each other share a chip, rubbing out or not.
+  assert.deepEqual(chipGroups([paint(1), paint(1), paint(0), paint(1)]), [{ g: 0, first: 0, at: [0, 1, 3], paint: true, marks: 3, away: false }]);
+  // A pick between two runs of paint keeps them apart.
+  assert.deepEqual(chipGroups([paint(1), paint(1), cup, paint(0), paint(1)]).map((chip) => [chip.first, chip.at.length, chip.paint]), [
+    [0, 2, true], [2, 1, false], [4, 1, true],
   ]);
-  // Picks never share a chip, not even two of the same name.
-  assert.equal(chipGroups([cup, cup, { t: "find", op: 1, r: 4, pts: [[1, 2]] }, { t: "tap", op: 0, x: 1, y: 2 }]).length, 4);
+  assert.equal(chipGroups([cup, cup, { t: "find", op: 1, r: 4, pts: [[1, 2]] }]).length, 3);
+});
+
+test("a chip gets a number the moment something joins it", () => {
+  const items = [{ t: "name", op: 1, w: "cup", x: 1, y: 2 }, { t: "paint", op: 1, r: 4, pts: [[1, 2]], g: 7 }];
+  assert.equal(nextGroup(items), 8);
+  assert.equal(nextGroup(items, 12), 13, "a number that is spoken for is passed over");
+  assert.equal(nextGroup([]), 1);
+  const [cup, marks] = chipGroups(items);
+  const numbered = numberChip(items, cup);
+  assert.equal(numbered.g, 8);
+  assert.deepEqual(numbered.items.map((item) => item.g), [8, 7]);
+  assert.equal(items[0].g, undefined, "the list it was given is left alone");
+  const same = numberChip(items, marks);
+  assert.equal(same.g, 7);
+  assert.equal(same.items, items, "a chip with a number keeps it");
+});
+
+test("the chip a touch is in is kept, and only for a touch that adds", () => {
+  assert.deepEqual(cleanItem({ t: "tap", op: 1, x: 1, y: 2, g: 3 }), { t: "tap", op: 1, x: 1, y: 2, g: 3 });
+  assert.deepEqual(cleanItem({ t: "name", op: 1, w: "cup", x: 1, y: 2, q: 1, g: 3 }), { t: "name", op: 1, w: "cup", x: 1, y: 2, q: 1, g: 3 });
+  assert.deepEqual(cleanItem({ t: "all", op: 1, w: "cup", g: 3 }), { t: "all", op: 1, w: "cup", g: 3 });
+  assert.deepEqual(cleanItem({ t: "subject", op: 1, g: 3 }), { t: "subject", op: 1, g: 3 });
+  assert.deepEqual(cleanItem({ t: "paint", op: 1, r: 4, pts: [[1, 2]], g: 3 }), { t: "paint", op: 1, r: 4, pts: [[1, 2]], g: 3 });
+  // Taking away belongs to no chip.
+  assert.deepEqual(cleanItem({ t: "paint", op: 0, r: 4, pts: [[1, 2]], g: 3 }), { t: "paint", op: 0, r: 4, pts: [[1, 2]] });
+  for (const g of [0, -1, 1.5, "2", null, GROUP_MAX + 1]) {
+    assert.equal(cleanItem({ t: "tap", op: 1, x: 1, y: 2, g }).g, undefined, `${g} is no chip`);
+  }
+  // A touch written by an older version reads back exactly as it was.
+  const old = { t: "paint", op: 1, r: 4, pts: [[1, 2]] };
+  assert.deepEqual(cleanItem(old), old);
+  assert.equal(encodeTouches("k", [old]), '{"v":1,"key":"k","items":[{"t":"paint","op":1,"r":4,"pts":[[1,2]]}]}');
+});
+
+test("a brush mark keeps how soft its brush was", () => {
+  assert.equal(cleanItem({ t: "paint", op: 1, r: 4, pts: [[1, 2]], s: 40 }).s, 40);
+  assert.equal(cleanItem({ t: "paint", op: 0, r: 4, pts: [[1, 2]], s: 250 }).s, 100);
+  assert.equal(cleanItem({ t: "paint", op: 1, r: 4, pts: [[1, 2]], s: 0 }).s, undefined, "a hard brush has none");
+  assert.equal(cleanItem({ t: "paint", op: 1, r: 4, pts: [[1, 2]], s: "soft" }).s, undefined);
+  assert.equal(cleanItem({ t: "find", op: 1, r: 4, pts: [[1, 2]], s: 40 }).s, undefined, "a stroke that finds a thing has no edge of its own");
+});
+
+test("the same picks are the same touches, whichever chip they are in", () => {
+  const cup = { t: "name", op: 1, w: "cup", x: 1, y: 2 };
+  assert.equal(sameTouches([{ ...cup, g: 4 }], [cup]), true);
+  assert.equal(sameTouches([{ ...cup, g: 4 }], [{ ...cup, g: 9 }]), true);
+  assert.equal(sameTouches([{ ...cup, g: 4 }], [{ ...cup, op: 0 }]), false);
+});
+
+test("a touch that takes away with nothing before it is dropped", () => {
+  const add = { t: "tap", op: 1, x: 1, y: 2, g: 1 };
+  const away = { t: "paint", op: 0, r: 4, pts: [[1, 2]] };
+  assert.deepEqual(dropIdleAways([away, away, add, away]), [add, away]);
+  assert.deepEqual(dropIdleAways([away]), []);
+  assert.deepEqual(dropIdleAways([add]), [add]);
+});
+
+test("the area of a touch is known by what it picks, not by what it is used for", () => {
+  const cup = { t: "name", op: 1, w: "cup", x: 1, y: 2, g: 4 };
+  assert.equal(areaKey(cup), areaKey({ ...cup, op: 0, g: undefined, q: 1 }));
+  assert.notEqual(areaKey(cup), areaKey({ ...cup, x: 2 }));
+  assert.notEqual(areaKey({ t: "paint", op: 1, r: 4, pts: [[1, 2]] }), areaKey({ t: "paint", op: 1, r: 4, pts: [[1, 2]], s: 50 }));
+  assert.notEqual(areaKey({ t: "paint", op: 1, r: 4, pts: [[1, 2]] }), areaKey({ t: "find", op: 1, r: 4, pts: [[1, 2]] }));
+});
+
+// ---- a soft brush -------------------------------------------------------------
+
+test("a hard brush mark is on or off, a soft one fades", () => {
+  const [width, height] = [120, 80];
+  const points = [[30, 40], [90, 40]];
+  const hard = brushStroke(width, height, points, 10, 0);
+  assert.ok(hard instanceof Uint8Array);
+  assert.deepEqual(hard, paintStroke(new Uint8Array(width * height), width, height, points, 10, 1));
+  const soft = brushStroke(width, height, points, 10, 100);
+  assert.ok(soft instanceof Float32Array);
+  const at = (x, y) => soft[y * width + x];
+  assert.ok(at(60, 40) > 0.9, "solid along the middle");
+  assert.ok(at(60, 34) > 0.25 && at(60, 34) < 0.85, "half way out it is partly there");
+  assert.ok(at(60, 28) < 0.1, "little is left at the ring");
+  assert.equal(at(60, 10), 0, "and nothing far off");
+  // Softer is wider at the faint end and thinner at the strong end.
+  const softer = brushStroke(width, height, points, 10, 50);
+  assert.ok(softer[36 * width + 60] > at(60, 36));
+});
+
+test("a soft mark that runs off the picture keeps its fade at the edge", () => {
+  const soft = brushStroke(60, 60, [[-30, 30], [30, 30]], 12, 100);
+  // The stroke goes on past the left edge, so the edge pixel is as strong as the middle of the line.
+  assert.ok(Math.abs(soft[30 * 60] - soft[30 * 60 + 15]) < 0.02);
+  assert.ok(soft[30 * 60] > 0.9);
+});
+
+test("joining areas: on/off stays on/off, anything soft makes it soft", () => {
+  const one = Uint8Array.from([1, 1, 0, 0]);
+  const other = Uint8Array.from([1, 0, 1, 0]);
+  assert.deepEqual(joinMasks(one, other, 1), Uint8Array.from([1, 1, 1, 0]));
+  assert.deepEqual(joinMasks(one, other, 0), Uint8Array.from([0, 1, 0, 0]));
+  const soft = Float32Array.from([0.5, 0.5, 0.5, 0.5]);
+  assert.deepEqual([...joinMasks(one, soft, 1)], [1, 1, 0.5, 0.5]);
+  assert.deepEqual([...joinMasks(one, soft, 0)], [0.5, 0.5, 0, 0]);
+  assert.deepEqual([...joinMasks(soft, other, 0)], [0, 0.5, 0, 0.5]);
+  assert.equal(maskOn(joinMasks(one, one, 0)), false);
+  assert.equal(maskOn(soft), true);
+  assert.deepEqual(hardMask(Float32Array.from([0.49, 0.5, 1, 0])), Uint8Array.from([0, 1, 1, 0]));
+  assert.equal(sharedPixels(Uint8Array.from([1, 1, 0]), Float32Array.from([0.6, 0.4, 1])), 1);
+});
+
+test("the edge settings give the same mask whether the pick is kept on/off or as numbers", () => {
+  const [width, height] = [90, 70];
+  const raw = paintStroke(new Uint8Array(width * height), width, height, [[20, 20], [70, 50], [30, 55]], 9, 1);
+  // A hole and a ragged bit, so Fill and Smooth have work.
+  for (const index of [35 * width + 45, 35 * width + 46, 36 * width + 45]) raw[index] = 0;
+  raw[8 * width + 20] = 1;
+  const numbers = Float32Array.from(raw);
+  for (const settings of [{}, { grow: 5 }, { grow: -3 }, { smooth: 4 }, { fill: true }, { soften: 2.5 }, { fill: true, smooth: 3, grow: 4, soften: 3 }]) {
+    const hard = composeEdge({ raw, width, height, ...settings });
+    const soft = composeEdge({ raw: numbers, width, height, ...settings });
+    for (let index = 0; index < hard.length; index += 1) {
+      assert.ok(Math.abs(hard[index] - soft[index]) < 1e-6, `${JSON.stringify(settings)} differs at ${index}`);
+    }
+  }
+});
+
+test("Grow and Shrink move a soft edge and keep it soft", () => {
+  const [width, height] = [160, 120];
+  const soft = brushStroke(width, height, [[80, 60]], 40, 100);
+  const grown = composeEdge({ raw: soft, width, height, grow: 6 });
+  const shrunk = composeEdge({ raw: soft, width, height, grow: -6 });
+  const row = (mask) => Array.from({ length: width }, (_, x) => mask[60 * width + x]);
+  const half = (mask) => row(mask).filter((value) => value >= 0.5).length;
+  // Six pixels on each side, give or take the pixel the half line falls in.
+  assert.ok(Math.abs(half(grown) - half(soft) - 12) <= 2, `grew by ${half(grown) - half(soft)}`);
+  assert.ok(Math.abs(half(soft) - half(shrunk) - 12) <= 2, `shrank by ${half(soft) - half(shrunk)}`);
+  assert.ok(row(grown).some((value) => value > 0.05 && value < 0.95), "the fade is still there");
 });
 
 // ---- fine edges ---------------------------------------------------------------
@@ -868,9 +1037,13 @@ test("while the node still looks at a picture it says so, a lit thing is taken a
   assert.match(stage, /if \(!notReady\(face\)\) flushPending\(face\);\s*pickAt\(face, x, y, op\);/);
   // the message follows every change of state and of the line under the picture
   const looking = stage.slice(stage.indexOf("function syncLooking"), stage.indexOf("function nudge"));
-  assert.match(looking, /notReady\(face\) && \(face\.inFlight \|\| waits\)/);
-  assert.match(looking, /Looking at the picture…/);
-  assert.match(looking, /Your click is in\./);
-  assert.match(stage.slice(stage.indexOf("function syncReadout"), stage.indexOf("function removeItems")), /syncLooking\(face\)/);
+  assert.match(looking, /notReady\(face\) && \(face\.inFlight \|\| waits( \|\| paused)?\)/);
+  // Said on the button under the picture, never on the picture itself.
+  assert.match(looking, /Looking at the picture/);
+  assert.match(looking, /Click to pause/);
+  assert.match(looking, /Paused at/);
+  assert.match(stage, /your click is in/);
+  assert.doesNotMatch(stage, /frame\.append\([^)]*look/);
+  assert.match(stage.slice(stage.indexOf("function syncReadout"), stage.indexOf("function removeChip")), /syncLooking\(face\)/);
   assert.match(stage.slice(stage.indexOf("function syncState"), stage.indexOf("function setNote")), /syncLooking\(face\)/);
 });

@@ -12,10 +12,26 @@
 // of the picture, so Grow and Soften answer while they are dragged.
 
 import { api } from "/scripts/api.js";
+import {
+  brushAdjusts,
+  brushCore,
+  brushFlips,
+  brushKey,
+  brushProfile,
+  brushReach,
+  brushWords,
+  clampSoft,
+  moveAdjust,
+  startAdjust,
+  steppedBrushSize,
+  steppedSoft,
+  toolKey,
+} from "./brush.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "./index.mjs";
 import { linkById, placeholderText, sourceFileWidget, upstreamNode, viewQueryForFile } from "./input_preview.mjs";
 import { WIDGET_FRAME, fillNodeHeight } from "./panel_layout.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
+import { makeSlideSwitch } from "./slide_switch.mjs";
 import {
   BACKDROP,
   BRUSH_RADIUS,
@@ -25,21 +41,30 @@ import {
   OWN_LOADERS,
   SURE,
   TINT,
+  areaKey,
+  brushStroke,
   candidatesAt,
   chipGroups,
   chipLabel,
   cleanWord,
   composeEdge,
   decodeTouches,
+  dropIdleAways,
   encodeTouches,
   extendStroke,
   fineChoice,
   fineMade,
   fineMask,
   goesBehind,
+  growMask,
+  hardMask,
+  joinMasks,
   loaderSignature,
+  maskOn,
   maskShare,
   nameShown,
+  nextGroup,
+  numberChip,
   packPlanes,
   paintCover,
   paintStroke,
@@ -55,6 +80,7 @@ import {
   previewPixels,
   readoutText,
   sameTouches,
+  sharedPixels,
   shrinkMask,
   stampOf,
   strokePieces,
@@ -73,10 +99,24 @@ export const PANEL_MIN_WIDTH = 400;
 // What the panel's element needs at its smallest: tools, stage and bar, two
 // gaps and the padding under them.
 const CHIPS_HEIGHT = 22;
+// The chips wrap onto this many rows; more are scrolled to.
+const CHIP_ROWS = 3;
+// A node this wide has room for the names in front of the brush's two
+// numbers. A narrower one shows the numbers alone.
+const LABELS_FROM = 440;
+// The width a new node opens with: the names fit.
+export const OPENING_WIDTH = 460;
 const PANEL_NEEDS = TOOLS_HEIGHT + STAGE_MIN + BAR_HEIGHT + CHIPS_HEIGHT + 12 + 6;
 // Saved with the workflow: the brush size once it was set by hand, the snap
 // switch, and how the picked area is shown.
 const BRUSH_PROPERTY = "ausboss_touch_brush";
+const SOFT_PROPERTY = "ausboss_touch_soft";
+// The tool: Pick takes whole things, Paint and Erase are the brush.
+// SNAP_PROPERTY is how the pack kept "Pick or Draw" before there were three;
+// it is still written, so an older version of the pack opens the workflow
+// with the right one.
+const TOOL_PROPERTY = "ausboss_touch_tool";
+const TOOLS = ["pick", "paint", "erase"];
 const SNAP_PROPERTY = "ausboss_touch_snap";
 const VIEW_PROPERTY = "ausboss_touch_view";
 // The loader's file the picks were made on, so a reopened workflow can tell
@@ -95,6 +135,11 @@ const EYE_ICON = '<svg width="16" height="16" viewBox="-8 -8 16 16" fill="none" 
   + '<path d="M-6.6 0Q0 -6 6.6 0Q0 6 -6.6 0Z"/><circle r="2" fill="currentColor" stroke="none"/></svg>';
 // The brush size, across the picture, in picture pixels.
 const BRUSH_SIZE = [4, 1000];
+// A brush mark counts as touching an area within this many pixels of the
+// small copy.
+const TOUCH_REACH = 2;
+// The areas of picked things a picture keeps, as the node sent them.
+const AREAS_KEPT = 96;
 // Pictures the faces of a page have shown, newest last. A picture keeps its
 // pieces and the picked areas it has shown, so a tab switch, an undo or a
 // second node on the same picture costs nothing.
@@ -122,20 +167,24 @@ function ensureCss() {
 .ausboss-touch-bar{height:${BAR_HEIGHT}px;gap:6px;overflow:visible;}
 .ausboss-touch-bar.choosing .ausboss-touch-readout{flex:1 1 auto;text-align:center;}
 .ausboss-touch-bar.choosing .ausboss-touch-gap{display:none;}
-.ausboss-touch-chips{box-sizing:border-box;flex:none;display:flex;align-items:center;gap:5px;height:${CHIPS_HEIGHT}px;padding:0 1px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;pointer-events:auto;}
-.ausboss-touch-chips::-webkit-scrollbar{display:none;}
+.ausboss-touch-chips{box-sizing:border-box;flex:none;display:flex;flex-wrap:wrap;align-items:center;align-content:flex-start;gap:4px 5px;min-height:${CHIPS_HEIGHT}px;max-height:${CHIP_ROWS * 24 - 2}px;padding:1px;overflow-x:hidden;overflow-y:auto;scrollbar-width:thin;pointer-events:auto;}
+.ausboss-touch-chiplist{display:contents;}
 .ausboss-touch:not(.live) .ausboss-touch-chips,.ausboss-touch.locked .ausboss-touch-chips{visibility:hidden;}
-.ausboss-touch-chip{box-sizing:border-box;flex:none;display:inline-flex;align-items:center;gap:3px;height:20px;padding:0 3px 0 9px;border:1px solid rgba(0,180,170,.5);border-radius:10px;background:rgba(0,180,170,.14);color:${BRAND};font:600 10px/18px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;white-space:nowrap;cursor:default;}
+.ausboss-touch-chip{box-sizing:border-box;flex:none;display:inline-flex;align-items:center;gap:3px;max-width:100%;height:20px;padding:0 3px 0 9px;border:1px solid rgba(0,180,170,.5);border-radius:10px;background:rgba(0,180,170,.14);color:${BRAND};font:600 10px/18px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;white-space:nowrap;cursor:pointer;}
+.ausboss-touch-chip:hover{background:rgba(0,180,170,.26);}
+.ausboss-touch-chip.open,.ausboss-touch-chip.open:hover{border-color:#dffcf9;background:${BRAND};color:#04201f;}
+.ausboss-touch-chip.fresh{border-style:dashed;}
 .ausboss-touch-chip.away{border-color:rgba(255,150,120,.6);background:rgba(255,150,120,.1);color:#ffb49c;}
-.ausboss-touch-chip.swaps{cursor:pointer;}
-.ausboss-touch-chip.swaps:hover{background:rgba(0,180,170,.26);}
-.ausboss-touch-chip.away.swaps:hover{background:rgba(255,150,120,.2);}
-.ausboss-touch-chip.open,.ausboss-touch-chip.open:hover{border-color:#dffcf9;background:rgba(0,180,170,.34);color:#eafffd;}
+.ausboss-touch-chip.away:hover{background:rgba(255,150,120,.2);}
 .ausboss-touch-chip.away.open,.ausboss-touch-chip.away.open:hover{border-color:#ffe3d9;background:rgba(255,150,120,.3);color:#ffe3d9;}
-.ausboss-touch-chip.waiting{opacity:.6;}
+.ausboss-touch-chip>span{overflow:hidden;text-overflow:ellipsis;}
+.ausboss-touch-new{box-sizing:border-box;flex:none;height:20px;padding:0 8px;border:1px dashed rgba(0,180,170,.5);border-radius:10px;background:transparent;color:#78908e;font:600 10px/18px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;white-space:nowrap;cursor:pointer;}
+.ausboss-touch-new:hover{border-color:${BRAND};color:#dffcf9;}
+.ausboss-touch-new:disabled{opacity:.4;cursor:default;}
 .ausboss-touch-chip>button{box-sizing:border-box;height:16px;min-width:16px;padding:0 4px;border:none;border-radius:8px;background:transparent;color:inherit;font:700 9.5px/16px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer;opacity:.7;}
 .ausboss-touch-chip>button:hover{opacity:1;background:rgba(255,255,255,.14);}
 .ausboss-touch-chip>button.more{padding:0 6px;background:rgba(0,0,0,.35);opacity:.95;}
+.ausboss-touch-chip.open>button.more{background:rgba(0,0,0,.2);}
 .ausboss-touch-name{box-sizing:border-box;flex:none;width:104px;height:20px;padding:0 9px;border:1px dashed rgba(0,180,170,.5);border-radius:10px;background:transparent;color:#dffcf9;font:600 10px/18px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;outline:none;}
 .ausboss-touch-name::placeholder{color:#78908e;font-weight:500;}
 .ausboss-touch-name:focus{border-style:solid;border-color:${BRAND};background:rgba(0,0,0,.4);}
@@ -170,28 +219,32 @@ function ensureCss() {
 .ausboss-touch.fining .ausboss-touch-fining{display:flex;}
 .ausboss-touch-fining::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:${BRAND};animation:ausboss-touch-pulse 1s ease-in-out infinite;}
 @keyframes ausboss-touch-pulse{0%,100%{opacity:.25;}50%{opacity:1;}}
-.ausboss-touch-looking{position:absolute;top:6px;left:6px;display:none;align-items:center;gap:6px;box-sizing:border-box;height:22px;max-width:calc(100% - 12px);padding:0 10px 0 8px;border:1px solid rgba(0,180,170,.6);border-radius:11px;background:rgba(4,14,15,.84);color:#dffcf9;font:600 10.5px/20px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;}
-.ausboss-touch.looking .ausboss-touch-looking{display:flex;}
-.ausboss-touch-looking::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:${BRAND};animation:ausboss-touch-pulse 1s ease-in-out infinite;}
-.ausboss-touch-looking.nudge{animation:ausboss-touch-nudge .45s ease-out;}
+.ausboss-touch-btn.lookpill{display:inline-flex;align-items:center;gap:5px;height:${BAR_HEIGHT}px;padding:0 9px 0 8px;border:1px solid rgba(0,180,170,.6);border-radius:10px;letter-spacing:0;text-transform:none;font:600 10px/18px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#dffcf9;background:linear-gradient(90deg,rgba(0,180,170,.38) var(--done,0%),rgba(0,180,170,.08) var(--done,0%));}
+.ausboss-touch-btn.lookpill:hover{border-color:${BRAND};color:#fff;background:linear-gradient(90deg,rgba(0,180,170,.5) var(--done,0%),rgba(0,180,170,.16) var(--done,0%));}
+.ausboss-touch-btn.lookpill .icon{flex:none;font-size:8px;letter-spacing:-1px;opacity:.9;}
+.ausboss-touch-btn.lookpill.paused{border-color:rgba(120,144,142,.6);color:#c8dddd;background:linear-gradient(90deg,rgba(120,144,142,.3) var(--done,0%),rgba(120,144,142,.06) var(--done,0%));}
+.ausboss-touch-btn.lookpill.paused .icon{letter-spacing:0;}
+.ausboss-touch-btn.lookpill .count{opacity:.8;}
+.ausboss-touch.narrow .ausboss-touch-btn.lookpill .word{display:none;}
+.ausboss-touch-btn.lookpill.nudge{animation:ausboss-touch-nudge .45s ease-out;}
 @keyframes ausboss-touch-nudge{0%{border-color:#fff;background:rgba(0,79,75,.96);transform:scale(1.06);}100%{transform:scale(1);}}
-.ausboss-touch.looking.fining .ausboss-touch-fining{top:32px;}
 .ausboss-touch-btn{box-sizing:border-box;flex:none;height:20px;min-width:22px;padding:0 6px;border:1px solid rgba(0,180,170,.52);border-radius:4px;background:rgba(0,0,0,.7);color:#c8dddd;font:700 9px/18px "Segoe UI",sans-serif;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;pointer-events:auto;white-space:nowrap;}
 .ausboss-touch-btn:hover{border-color:${BRAND};color:#fff;background:rgba(0,79,75,.78);}
 .ausboss-touch-btn:disabled{opacity:.38;cursor:default;border-color:rgba(0,180,170,.3);color:#8fa3a2;background:rgba(0,0,0,.5);}
-.ausboss-touch-seg{flex:none;display:flex;height:20px;border:1px solid rgba(0,180,170,.52);border-radius:4px;overflow:hidden;pointer-events:auto;}
-.ausboss-touch-seg>button{box-sizing:border-box;height:18px;min-width:22px;padding:0 6px;border:none;border-radius:0;background:rgba(0,0,0,.7);color:#9fb6b4;font:700 9px/18px "Segoe UI",sans-serif;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;}
-.ausboss-touch-seg>button+button{border-left:1px solid rgba(0,180,170,.4);}
-.ausboss-touch-seg>button:hover{color:#fff;}
-.ausboss-touch-seg>button.on{background:${BRAND};color:#04201f;}
-.ausboss-touch-seg.op>button{font-size:13px;line-height:17px;padding:0;width:22px;}
-.ausboss-touch-seg.mode>button{padding:0 7px;}
+.ausboss-touch .ausboss-slide{pointer-events:auto;}
+.ausboss-touch .ausboss-slide.away .ausboss-slide-mark{background:#ff9678;box-shadow:0 0 7px rgba(255,150,120,.3);}
+.ausboss-touch-field{flex:none;display:flex;align-items:center;gap:4px;pointer-events:auto;}
+.ausboss-touch-field.idle{opacity:.45;}
+.ausboss-touch-label{flex:none;color:#9fb6b4;font-size:10px;line-height:22px;white-space:nowrap;user-select:none;}
+.ausboss-touch.narrow .ausboss-touch-label{display:none;}
+.ausboss-touch.narrow .ausboss-touch-tools{gap:3px;}
+.ausboss-touch.narrow .ausboss-touch-field.size .ausboss-scrub{width:56px !important;}
+.ausboss-touch.narrow .ausboss-touch-field.soft .ausboss-scrub{width:48px !important;}
 .ausboss-touch-btn.eye{display:inline-flex;align-items:center;justify-content:center;width:26px;min-width:26px;padding:0;}
 .ausboss-touch-btn.eye.on{border-color:${BRAND};background:${BRAND};color:#04201f;}
 .ausboss-touch-btn.arrow{min-width:20px;width:20px;padding:0;font-size:14px;line-height:16px;}
 .ausboss-touch-swatch{box-sizing:border-box;flex:none;width:${BAR_HEIGHT}px;height:${BAR_HEIGHT}px;border-radius:4px;background:#0b1113;border:1px solid rgba(0,180,170,.3);pointer-events:auto;}
 .ausboss-touch-readout.warn{border-color:rgba(231,185,140,.6);background:rgba(231,185,140,.12);color:#e7c98c;}
-.ausboss-touch-size{flex:none;pointer-events:auto;}
 .ausboss-touch-readout{box-sizing:border-box;flex:0 1 auto;min-width:0;height:${BAR_HEIGHT}px;padding:0 8px;border:1px solid rgba(0,180,170,.5);border-radius:10px;background:rgba(0,180,170,.14);color:${BRAND};font:600 10px/18px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .ausboss-touch-readout:empty{display:none;}
 .ausboss-touch-readout.quiet{border-color:rgba(120,144,142,.4);background:transparent;color:#78908e;}
@@ -201,6 +254,11 @@ function ensureCss() {
 .ausboss-touch-ink .ring-back{stroke:rgba(0,0,0,.55);stroke-width:3px;}
 .ausboss-touch-ink .ring{stroke:#fff;stroke-width:1.2px;}
 .ausboss-touch-ink .ring.away{stroke:#ffb49c;}
+.ausboss-touch-ink .core{stroke:rgba(255,255,255,.8);stroke-width:1.1px;stroke-dasharray:4 4;}
+.ausboss-touch-brush{position:absolute;display:none;gap:10px;box-sizing:border-box;height:18px;padding:0 7px;border-radius:4px;background:rgba(0,0,0,.74);color:#7f9896;font:600 11px/18px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;white-space:nowrap;pointer-events:none;transform:translate(-50%,8px);}
+.ausboss-touch-brush.on{display:flex;}
+.ausboss-touch-brush.up{transform:translate(-50%,calc(-100% - 8px));}
+.ausboss-touch-brush>span.lit{color:#eafffd;}
 .ausboss-touch-ink .dot{fill:#fff;stroke:rgba(0,0,0,.6);stroke-width:1px;animation:ausboss-touch-dot .7s ease-in-out infinite alternate;}
 @keyframes ausboss-touch-dot{from{opacity:.35;}to{opacity:1;}}
 `;
@@ -303,6 +361,20 @@ function onOff(rgba) {
   return mask;
 }
 
+// What the node says is picked, as the face keeps it: on/off, or how strong
+// each pixel is where a brush with a soft edge painted (the node sends greys
+// only then).
+function readSelection(rgba) {
+  let soft = false;
+  for (let at = 0; at < rgba.length; at += 4) {
+    if (rgba[at] > 3 && rgba[at] < 252) { soft = true; break; }
+  }
+  if (!soft) return onOff(rgba);
+  const mask = new Float32Array(rgba.length / 4);
+  for (let index = 0, at = 0; index < mask.length; index += 1, at += 4) mask[index] = rgba[at] / 255;
+  return mask;
+}
+
 const isFile = (file) => file && typeof file === "object" && typeof file.filename === "string" && file.filename !== "";
 
 function validNote(note) {
@@ -360,13 +432,6 @@ async function loadPieces(entry, pieces) {
 
 // ---- what is picked --------------------------------------------------------
 
-function joined(raw, own, op) {
-  const out = new Uint8Array(raw.length);
-  if (op) for (let index = 0; index < out.length; index += 1) out[index] = raw[index] | own[index];
-  else for (let index = 0; index < out.length; index += 1) out[index] = raw[index] & (own[index] ^ 1);
-  return out;
-}
-
 // The area one touch stands for, when the face can know it without a run:
 // a tap or a name at a piece it holds, or paint. A stroke that finds a
 // thing, and a tap elsewhere, are SAM 3's to answer.
@@ -380,8 +445,56 @@ function localMask(pic, item) {
     return piece === undefined ? null : pieceMask(pic.pieces.planes, piece);
   }
   if (item.t !== "paint") return null;
+  // A brush mark, with the edge the brush had: on/off for a hard brush.
   const points = item.pts.map((pair) => [pair[0] * pic.scale, pair[1] * pic.scale]);
-  return paintStroke(new Uint8Array(pic.pw * pic.ph), pic.pw, pic.ph, points, item.r * pic.scale, 1);
+  return brushStroke(pic.pw, pic.ph, points, item.r * pic.scale, item.s ?? 0);
+}
+
+// The area one touch stands for by itself, as far as the face knows it:
+// worked out here, or as the node sent it with an answer.
+function itemArea(pic, item) {
+  return localMask(pic, item) ?? pic.areas?.get(areaKey(item)) ?? null;
+}
+
+// Keep what the node said one picked thing covers. The oldest go first.
+function keepArea(pic, key, mask) {
+  pic.areas ??= new Map();
+  pic.areas.delete(key);
+  pic.areas.set(key, mask);
+  while (pic.areas.size > AREAS_KEPT) pic.areas.delete(pic.areas.keys().next().value);
+}
+
+// A chip is known by the number its touches carry. One whose touches were
+// saved before chips had numbers is known by where it starts instead.
+const chipId = (chip) => chip.g || -(chip.first + 1);
+
+// What a chip covers, on/off: everything its touches add, where that is
+// still picked. Half strength or more counts, which is where the picture
+// draws an area's outline. Null while none of it is known.
+function chipArea(face, chip) {
+  const pic = face.pic;
+  if (!pic || !face.raw) return null;
+  face.chipAreas ??= new Map();
+  if (face.chipAreas.has(chip.first)) return face.chipAreas.get(chip.first);
+  let all = null;
+  for (const index of chip.at) {
+    const own = itemArea(pic, face.items[index]);
+    if (own) all = all ? joinMasks(all, own, 1) : own;
+  }
+  let area = null;
+  if (all) {
+    area = new Uint8Array(all.length);
+    for (let index = 0; index < area.length; index += 1) area[index] = all[index] >= 0.5 && face.raw[index] >= 0.5 ? 1 : 0;
+  }
+  face.chipAreas.set(chip.first, area);
+  return area;
+}
+
+// Whether two areas share any pixel at all, however faint.
+function meets(one, other) {
+  if (!one || !other) return false;
+  for (let index = 0; index < one.length; index += 1) if (one[index] > 0 && other[index] > 0) return true;
+  return false;
 }
 
 // Work out the picked area from the touches: start from the longest run of
@@ -403,11 +516,12 @@ function resolve(face) {
   for (let index = from; index < items.length; index += 1) {
     const own = localMask(pic, items[index]);
     if (!own) { exact = false; continue; }
-    raw = joined(raw, own, items[index].op);
+    raw = joinMasks(raw, own, items[index].op);
     if (exact) remember(pic, face.stamps[index], raw);
   }
   face.raw = raw;
   face.exact = exact;
+  face.chipAreas = null;
   face.inside = pic.pieces ? piecesInside(pic.pieces.planes, pic.pieces.list.length, raw) : null;
   face.hoverMask = null;
 }
@@ -433,6 +547,8 @@ function readItems(face) {
     const file = face.node.properties?.[FILE_PROPERTY];
     if (sameSize && (!file || !face.sourceName || file === face.sourceName)) {
       face.held = items.length;
+      // Said as the chips will show them: an area is one pick.
+      face.heldPicks = chipGroups(items).filter((chip) => !chip.away).length || 1;
       face.other = false;
     }
   }
@@ -478,7 +594,7 @@ const SCOPE_ROUNDS = 16;
 // Whether to ask for (more of) the pieces of the picture next.
 function wantsScope(face) {
   const pic = face.pic;
-  return face.snap && Boolean(pic) && !pic.provisional && !pic.scoped && pic.scopeAsks < SCOPE_ROUNDS;
+  return face.snap && Boolean(pic) && !pic.provisional && !pic.scoped && !pic.paused && pic.scopeAsks < SCOPE_ROUNDS;
 }
 
 // The pieces are looked for behind the scenes once the pointer rests on the
@@ -514,8 +630,10 @@ function restCell(face) {
 function armDwell(face) {
   clearTimeout(face.dwell);
   const pic = face.pic;
-  if (!pic || !face.snap || face.inFlight || face.held || !face.pointer) return;
-  if (!loaderSource(face.node) || face.host.lookOnButton?.()) return;
+  if (!pic || !face.snap || face.inFlight || face.held || !face.pointer || pic.paused) return;
+  // Only where running what comes before costs nothing: a Load Image, or
+  // one of the pack's own loaders.
+  if (!(loaderSource(face.node) || ownLoader(face.node)) || face.host.lookOnButton?.()) return;
   if (!pic.scoped && pic.scopeAsks < SCOPE_ROUNDS) {
     face.dwell = setTimeout(() => {
       if (!face.alive || !face.pointer || face.stroke || face.inFlight || face.pic !== pic || pic.scoped) return;
@@ -771,7 +889,8 @@ function paintSwatch(face) {
   // The dab fills a little under half the swatch, so growth and a soft
   // edge have room to show.
   const scale = (size * 0.42) / brush;
-  const mask = paintStroke(new Uint8Array(size * size), size, size, [[size / 2, size / 2]], (brush / 2) * scale, 1);
+  // With the brush's own edge, where the brush is what paints.
+  const mask = brushStroke(size, size, [[size / 2, size / 2]], (brush / 2) * scale, face.tool === "pick" ? 0 : brushSoft(face));
   const grow = Math.round(now.grow * scale);
   const shape = composeEdge({ raw: mask, width: size, height: size, grow, soften: now.soften * scale });
   const pixels = context.createImageData(size, size);
@@ -804,7 +923,21 @@ function paintLit(face) {
       line: lineOf(pic),
     });
   } else {
-    pixels.fill(0);
+    // A chip that is pointed at lights its area; the selected one keeps a
+    // white line round it, so it is plain where paint will join.
+    const id = face.hoverChip || (face.active !== face.fresh ? face.active : 0);
+    const chip = id ? chipGroups(face.items).find((other) => chipId(other) === id) : null;
+    const area = chip ? chipArea(face, chip) : null;
+    if (area) {
+      paintTint(pixels, area, pic.pw, pic.ph, {
+        tint: LIT,
+        outline: [255, 255, 255],
+        strength: face.hoverChip ? LIT_STRENGTH : 0,
+        line: lineOf(pic),
+      });
+    } else {
+      pixels.fill(0);
+    }
   }
   if (face.rim) {
     for (const index of face.rim) {
@@ -843,6 +976,50 @@ function brushSize(face) {
 
 const brushRadius = (face) => clamp(Math.round(brushSize(face) / 2), BRUSH_RADIUS[0], BRUSH_RADIUS[1]);
 
+// How soft the brush's edge is, 0 (hard) to 100. Hard until it is set.
+const brushSoft = (face) => clampSoft(face.node.properties?.[SOFT_PROPERTY], 0);
+
+// One gradient per face, so two nodes on a page never share one.
+let dabCount = 0;
+// How strongly the brush's shape tints the picture under the pointer: light
+// while aiming, stronger while the brush itself is being set (as on Image
+// Compare A/B).
+const DAB_AIMING = 0.4;
+const DAB_SETTING = 0.62;
+const DAB_STOPS = 14;
+
+// Draw the brush's shape: solid in the middle, fading where its edge is
+// soft, in teal where it paints and coral where it erases.
+function drawDab(face, at, radius, soft, setting, away) {
+  const dab = face.dab;
+  const brushing = face.tool !== "pick";
+  if (!at || face.stroke || (!setting && !brushing)) {
+    dab.style.display = "none";
+    return;
+  }
+  const size = radius * 2;
+  const reach = brushReach(size, soft / 100);
+  const colour = away ? LIT_AWAY : TINT;
+  const strength = setting ? DAB_SETTING : DAB_AIMING;
+  const key = `${size}|${soft}|${away ? 1 : 0}|${setting ? 1 : 0}`;
+  if (face.dabKey !== key) {
+    face.dabKey = key;
+    const fade = dab.parentNode.querySelector("radialGradient");
+    fade.replaceChildren(...Array.from({ length: DAB_STOPS + 1 }, (_, index) => {
+      const offset = index / DAB_STOPS;
+      const stop = svg("stop");
+      stop.setAttribute("offset", offset.toFixed(4));
+      stop.setAttribute("stop-color", `rgb(${colour.join(",")})`);
+      stop.setAttribute("stop-opacity", (strength * brushProfile(offset * reach, size, soft / 100)).toFixed(3));
+      return stop;
+    }));
+  }
+  dab.setAttribute("cx", at[0].toFixed(1));
+  dab.setAttribute("cy", at[1].toFixed(1));
+  dab.setAttribute("r", reach.toFixed(1));
+  dab.style.display = "";
+}
+
 // The name of the thing under the pointer, beside the pointer: what a click
 // there would take. A thing SAM 3 has no word for lights up without one.
 function syncTag(face) {
@@ -868,8 +1045,10 @@ function drawInk(face) {
   if (!pic) return;
   const radius = brushRadius(face);
   const stroke = face.stroke;
-  const away = stroke ? stroke.away : face.away;
-  const at = face.pointer;
+  // While the brush is being set it stays where the drag began.
+  const setting = face.adjust;
+  const away = setting ? false : stroke ? stroke.away : face.away;
+  const at = setting ? setting.anchor : face.pointer;
   for (const ring of [face.ringBack, face.ring]) {
     ring.style.display = at ? "" : "none";
     if (!at) continue;
@@ -878,10 +1057,39 @@ function drawInk(face) {
     ring.setAttribute("r", String(radius));
   }
   face.ring.classList.toggle("away", Boolean(away));
+  const soft = brushSoft(face);
+  drawDab(face, at, radius, soft, Boolean(setting), Boolean(away));
+  // Where the brush's solid middle ends, as a dashed ring: while the brush
+  // is being set, and in Paint and Erase while its edge is soft.
+  const brushing = stroke ? stroke.brush : face.tool !== "pick";
+  const core = at && (setting || (brushing && soft > 0)) ? brushCore(radius * 2, soft / 100) : 0;
+  face.coreRing.style.display = core >= 1 && core < radius ? "" : "none";
+  if (core >= 1 && at) {
+    face.coreRing.setAttribute("cx", at[0].toFixed(1));
+    face.coreRing.setAttribute("cy", at[1].toFixed(1));
+    face.coreRing.setAttribute("r", core.toFixed(1));
+  }
+  // Both values in words under the brush, the one being set in white.
+  const label = face.brushLabel;
+  label.classList.toggle("on", Boolean(setting));
+  if (setting) {
+    const words = brushWords(brushSize(face), soft);
+    const axis = setting.drag.axis;
+    label.children[0].textContent = words[0];
+    label.children[0].classList.toggle("lit", axis !== "soft");
+    label.children[1].textContent = words[1];
+    label.children[1].classList.toggle("lit", axis !== "size");
+    const below = at[1] + radius < pic.height * 0.86;
+    label.classList.toggle("up", !below);
+    label.style.left = `${clamp((at[0] / pic.width) * 100, 18, 82)}%`;
+    label.style.top = `${((at[1] + (below ? radius : -radius)) / pic.height) * 100}%`;
+  }
   if (stroke?.moved) {
     const path = stroke.points.map((pair) => `${pair[0].toFixed(1)} ${pair[1].toFixed(1)}`).join("L");
     face.path.setAttribute("d", `M${path}${stroke.points.length === 1 ? `L${path}` : ""}`);
-    face.path.setAttribute("stroke-width", String(radius * 2));
+    // A soft brush shows its solid middle while it is dragged.
+    const width = stroke.brush && stroke.soft > 0 ? Math.max(1, brushCore(radius * 2, stroke.soft / 100)) * 2 : radius * 2;
+    face.path.setAttribute("stroke-width", String(width));
     face.path.classList.toggle("away", stroke.away);
     face.path.style.display = "";
   } else {
@@ -917,25 +1125,26 @@ function syncLine(face) {
     return;
   }
   if (face.held) {
-    readout.textContent = face.held === 1 ? "1 pick saved" : `${face.held} picks saved`;
+    readout.textContent = face.heldPicks === 1 ? "1 pick saved" : `${face.heldPicks} picks saved`;
     readout.classList.add("quiet");
     readout.classList.remove("warn");
     return;
   }
   if (face.pending.length) {
-    readout.textContent = "looking at the picture";
+    readout.textContent = "your click is in";
     readout.classList.add("quiet");
     readout.classList.remove("warn");
     readout.title = "Your click is taken as soon as the picture has been looked at.";
     return;
   }
-  // Counted as the chips show them: marks made with Draw that follow each
-  // other are one pick.
-  const groups = chipGroups(face.items);
+  // Counted as the chips show them: an area is one pick however many brush
+  // marks it took, and what was taken away is none.
+  const groups = chipGroups(face.items).filter((chip) => !chip.away);
   const count = groups.length;
   const choice = face.choice;
   if (!count && face.inFlight) {
-    readout.textContent = "looking at the picture";
+    // The button before it says so.
+    readout.textContent = notReady(face) ? "" : "looking at the picture";
     readout.classList.add("quiet");
     readout.classList.remove("warn");
     return;
@@ -950,9 +1159,10 @@ function syncLine(face) {
   let only = null;
   let name = "";
   if (count === 1) {
-    const item = face.items[0];
+    const first = groups[0].first;
+    const item = face.items[first];
     name = item.t === "name" && !item.q ? item.w : item.t === "subject" || item.t === "background" ? `the ${item.t}` : "";
-    only = item.t === "tap" || item.t === "name" ? "thing" : groups[0].paint || face.itemNotes?.[0]?.as === "paint" ? "paint" : "under";
+    only = item.t === "tap" || item.t === "name" ? "thing" : groups[0].paint || face.itemNotes?.[first]?.as === "paint" ? "paint" : "under";
   }
   // A pick that Soften has thinned out says so, where the eye already is.
   if (face.faint && face.exact) {
@@ -975,26 +1185,61 @@ function syncReadout(face) {
   syncLooking(face);
 }
 
-// ---- the picks, one chip each ----------------------------------------------
+// ---- the chips ---------------------------------------------------------------
 //
-// Under the picture every pick has a chip with its name. The cross takes
-// that pick away, whichever it is; "all n" on a named pick takes every thing
-// of that name instead of the one. The field at the end takes a name typed
-// by hand. Marks made with Draw that follow each other share one chip
-// (chipGroups), and its cross takes them all: one step for Undo.
+// Under the picture every area has a chip: a thing that was picked, by its
+// name, or an area that was painted. The cross takes that area away;
+// "all n" on a named pick takes every thing of that name instead of the
+// one. A click selects a chip: what is painted then joins it, and the
+// arrows above swap it. The field at the end takes a name typed by hand.
+//
+// A thing that was taken away again has a chip too, in a warm colour: its
+// cross brings the thing back, a click opens its arrows. The brush has
+// none: Erase rubs out whatever is there. And a touch that would take
+// nothing away is not kept at all.
 
-function removeItems(face, from, to) {
+const NOTHING_THERE = "Nothing is picked there to take away.";
+
+// Give touches that add their chip: each a chip of its own, except that the
+// first ones take the place of the picks they replace (`inPlaceOf`), so
+// brush marks painted onto a pick stay with it when it is swapped.
+function placed(face, templates, inPlaceOf = []) {
+  const spare = inPlaceOf.map((item) => item?.g).filter(Boolean);
+  let taken = face.fresh || 0;
+  return templates.map((item) => {
+    if (item.op !== 1) return item;
+    const g = spare.shift() ?? nextGroup(face.items, taken);
+    taken = Math.max(taken, g);
+    return { ...item, g };
+  });
+}
+
+// Take a chip away: the pick, and what was painted onto it.
+function removeChip(face, chip) {
   if (!face.pic || face.held) return;
   flushPending(face);
-  change(face, face.items.filter((_, at) => at < from || at > to));
+  const own = new Set(chip.at);
+  // The older chips' places move, so a chip known by its place lets go.
+  if (face.active === chipId(chip) || face.active < 0) face.active = 0;
+  face.hoverChip = 0;
+  change(face, dropIdleAways(face.items.filter((_, at) => !own.has(at))));
   refreshHover(face);
+}
+
+// The chip of a thing that was picked as it is (or, with `away`, taken away
+// as it is), if there is one.
+function chipOfThing(face, item, away = false) {
+  const key = areaKey(item);
+  return chipGroups(face.items).find((chip) => !chip.paint && chip.away === away && areaKey(face.items[chip.first]) === key) ?? null;
 }
 
 function takeAll(face, index) {
   const item = face.items[index];
   if (!face.pic || face.held || item?.t !== "name") return;
   flushPending(face);
-  change(face, face.items.map((other, at) => (at === index ? { t: "all", op: item.op, w: item.w } : other)));
+  const all = { t: "all", op: item.op, w: item.w };
+  if (item.g) all.g = item.g;
+  change(face, face.items.map((other, at) => (at === index ? all : other)));
   refreshHover(face);
 }
 
@@ -1014,30 +1259,94 @@ function addWhole(face, kind) {
   addItem(face, { t: kind, op: face.away ? 0 : 1 });
 }
 
+// Select a chip, or let go of it. What is painted joins the selected chip
+// wherever it lands, and the arrows above swap it when it has other
+// meanings.
+function selectChip(face, chip) {
+  if (!face.pic || face.held) return;
+  flushPending(face);
+  if (chip.away) {
+    // Nothing is painted onto a thing that was taken away: a click opens
+    // its arrows, and a second one closes them.
+    const open = choiceLive(face) && face.choice.start === chip.first;
+    if (open) face.choice = null;
+    else openChoice(face, chip.first);
+    if (!open && !face.choice) setNote(face, "There is nothing else at this spot to swap it for.", { life: 2600 });
+    face.chipsShown = null;
+    syncReadout(face);
+    return;
+  }
+  const id = chipId(chip);
+  face.fresh = 0;
+  if (face.active === id) {
+    face.active = 0;
+    face.choice = null;
+  } else {
+    face.active = id;
+    openChoice(face, chip.first);
+  }
+  face.chipsShown = null;
+  syncReadout(face);
+  paintLit(face);
+}
+
+// Start an area of its own: what is painted next gets a new chip, also
+// where it touches another one.
+function startFresh(face) {
+  if (!face.pic || face.held) return;
+  flushPending(face);
+  face.fresh = nextGroup(face.items);
+  face.active = face.fresh;
+  face.choice = null;
+  face.chipsShown = null;
+  // A new area is painted.
+  if (face.tool === "pick") setTool(face, "paint");
+  syncReadout(face);
+  paintLit(face);
+}
+
+function letGo(face) {
+  face.active = 0;
+  face.fresh = 0;
+  face.choice = null;
+  face.chipsShown = null;
+  syncReadout(face);
+  paintLit(face);
+}
+
 function syncChips(face) {
   const pic = face.pic;
   const list = pic?.pieces?.list ?? [];
   const counts = (face.itemNotes ?? []).map((note) => note?.count ?? 0).join(",");
-  const open = choiceLive(face) ? face.choice.start : -1;
-  const signature = `${face.text}|${face.held}|${face.exact}|${counts}|${pic?.piecesTag ?? ""}|${open}`;
+  const groups = chipGroups(face.items);
+  // A chip that is gone (an Undo, a Clear) is no longer selected.
+  if (face.active && face.active !== face.fresh && !groups.some((chip) => chipId(chip) === face.active)) face.active = 0;
+  const swapping = choiceLive(face) ? face.choice.start : -1;
+  const signature = `${face.text}|${face.held}|${face.exact}|${counts}|${pic?.piecesTag ?? ""}|${face.active}|${face.fresh}|${swapping}`;
   if (signature === face.chipsShown) return;
   face.chipsShown = signature;
-  const chips = chipGroups(face.items).map((group) => {
-    const index = group.from;
+  let painted = 0;
+  const chips = groups.map((group) => {
+    const index = group.first;
     const item = face.items[index];
-    // A run of paint that only rubs out reads as taking away.
-    const away = group.paint ? group.adds === 0 : item.op === 0;
-    // A pick of one thing can be swapped later too: a click on its name
-    // opens it, and the arrows above then work on this pick.
+    const id = chipId(group);
+    const open = group.away ? swapping === index : face.active === id;
+    // A pick of one thing can be swapped for the other things at its spot.
     const swaps = !group.paint && (item.t === "name" || item.t === "tap" || item.t === "find") && Boolean(pic?.pieces);
-    const chip = el("span", `ausboss-touch-chip${away ? " away" : ""}${swaps ? " swaps" : ""}${open === index ? " open" : ""}`);
-    if (swaps) chip.addEventListener("click", () => reopen(face, index));
+    const chip = el("span", `ausboss-touch-chip${group.away ? " away" : ""}${open ? " open" : ""}`);
+    chip.addEventListener("click", () => selectChip(face, group));
     const count = face.itemNotes?.[index]?.count ?? 0;
-    chip.append(group.paint ? chipLabel({ t: "paint", op: away ? 0 : 1 }) : chipLabel(item, count));
-    chip.title = item.t === "all" ? `Every "${item.w}" in the picture.`
-      : group.paint ? (group.count > 1 ? `Your own paint: ${group.count} marks. The cross takes them all away, Undo the last one.` : "Your own paint.")
-        : open === index ? "The arrows above swap this pick. Click again to close."
-          : swaps ? "Click to swap this pick for something else at the same spot." : "";
+    if (group.paint) painted += 1;
+    const name = group.paint ? (painted > 1 ? `paint ${painted}` : "paint") : chipLabel(item, count);
+    chip.append(el("span", "", name));
+    const onIt = !group.paint && group.marks ? `, with ${group.marks === 1 ? "1 brush mark" : `${group.marks} brush marks`} on it` : "";
+    chip.title = group.away
+      ? (open ? "The arrows above swap what is taken away. Click again to close." : `Taken away from what is picked. The cross brings it back${swaps ? "; click to swap it for something else at the same spot" : ""}.`)
+      : open
+      ? `Selected: what you paint now joins this area${swaps ? ", and the arrows above swap it for something else at the same spot" : ""}. Click again to let go.`
+      : group.paint
+        ? `Your own paint${group.marks > 1 ? `: ${group.marks} marks` : ""}. Click to select it: what you paint then joins it.`
+        : `${item.t === "all" ? `Every "${item.w}" in the picture` : "A thing you picked"}${onIt}. Click to select it: what you paint then joins it.`;
     if (item.t === "name") {
       const same = item.q ? 0 : list.filter((piece) => piece.kind === "name" && piece.name === item.w).length;
       if (same > 1) {
@@ -1047,23 +1356,33 @@ function syncChips(face) {
         more.addEventListener("click", (event) => { event.stopPropagation(); takeAll(face, index); });
         chip.append(more);
       }
-      // Pointing at a chip lights its thing on the picture.
-      const piece = pic?.nameSeeds?.get(`${item.w}|${item.x},${item.y}`);
-      if (piece !== undefined) {
-        chip.addEventListener("pointerenter", () => setHover(face, piece, item.op === 0));
-        chip.addEventListener("pointerleave", () => refreshHover(face));
-      }
     }
+    // Pointing at a chip lights its area on the picture.
+    chip.addEventListener("pointerenter", () => { face.hoverChip = id; paintLit(face); });
+    chip.addEventListener("pointerleave", () => { face.hoverChip = 0; paintLit(face); });
     const cross = el("button", "", "\u2715");
     cross.type = "button";
-    cross.title = group.paint ? "Take this paint away." : "Take this pick away.";
-    cross.addEventListener("click", (event) => { event.stopPropagation(); removeItems(face, group.from, group.to); });
+    cross.title = group.away ? "Bring this back." : group.paint ? "Take this paint away." : group.marks ? "Take this pick away, with what you painted onto it." : "Take this pick away.";
+    cross.addEventListener("click", (event) => { event.stopPropagation(); removeChip(face, group); });
     chip.append(cross);
     return chip;
   });
+  // An area that was started and not painted yet.
+  if (face.fresh) {
+    const chip = el("span", "ausboss-touch-chip open fresh");
+    chip.append(el("span", "", "new area"));
+    chip.title = "A new area: what you paint next is kept apart from the others. Click to let go.";
+    chip.addEventListener("click", () => letGo(face));
+    const cross = el("button", "", "\u2715");
+    cross.type = "button";
+    cross.title = "Do not start a new area.";
+    cross.addEventListener("click", (event) => { event.stopPropagation(); letGo(face); });
+    chip.append(cross);
+    chips.push(chip);
+  }
   face.chipList.replaceChildren(...chips);
-  // The newest pick is in view.
-  face.chips.scrollLeft = face.chips.scrollWidth;
+  // The newest chip is in view.
+  face.chips.scrollTop = face.chips.scrollHeight;
 }
 
 function syncTools(face) {
@@ -1077,11 +1396,20 @@ function syncTools(face) {
     const offer = live && face.snap && !face.held && !face.inFlight && !face.pic.scoped && Boolean(face.host.lookOnButton?.());
     face.lookButton.style.display = offer ? "" : "none";
   }
-  if (face.nameField) face.nameField.disabled = !live || face.held > 0;
-  face.addButton.classList.toggle("on", !face.away);
-  face.awayButton.classList.toggle("on", face.away);
-  face.pickButton.classList.toggle("on", face.snap);
-  face.drawButton.classList.toggle("on", !face.snap);
+  if (face.nameField) {
+    face.nameField.disabled = !live || face.held > 0;
+    // A typed name is added, or taken away while the tool takes away.
+    face.nameField.placeholder = face.away ? "\u2212 type a name" : "+ type a name";
+  }
+  if (face.newButton) face.newButton.disabled = !live || face.held > 0 || Boolean(face.fresh);
+  // The switch shows what a press does right now: with Ctrl held, Paint
+  // and Erase swap. Pick stays Pick, and its marker turns warm while a
+  // click takes away.
+  face.toolSwitch.set(face.tool === "pick" ? "pick" : face.away ? "erase" : "paint");
+  face.toolSwitch.root.classList.toggle("away", face.tool === "pick" && face.away);
+  // The brush's edge is for Paint and Erase: Pick takes whole things.
+  face.softField.classList.toggle("idle", face.tool === "pick");
+  face.softBox.set(brushSoft(face));
   for (const [whole, word] of [[face.subjectButton, "subject"], [face.backgroundButton, "background"]]) {
     whole.disabled = !live || face.held > 0;
     whole.title = face.away
@@ -1091,6 +1419,17 @@ function syncTools(face) {
   face.eye.classList.toggle("on", face.view !== "tint");
   face.eye.title = EYE_TITLES[face.view];
   face.size.set(brushSize(face));
+}
+
+// The node that makes the picture: what is wired into image, through any
+// Reroute nodes on the way, which hand the picture on as it is.
+function imageSource(node) {
+  let upstream = upstreamNode(node, "image");
+  for (let hops = 0; upstream && (upstream.comfyClass ?? upstream.type) === "Reroute" && hops < 32; hops += 1) {
+    const link = linkById(upstream.graph, upstream.inputs?.[0]?.link);
+    upstream = link ? upstream.graph.getNodeById?.(link.origin_id) ?? null : null;
+  }
+  return upstream;
 }
 
 // The picture can be known before the node has run when a plain Load Image
@@ -1108,7 +1447,7 @@ function loaderSource(node) {
 // file in it: a workflow is shared with none, and the first one chosen has
 // to show as well.
 function loaderWidget(node) {
-  const upstream = upstreamNode(node, "image");
+  const upstream = imageSource(node);
   if (!upstream || (upstream.comfyClass ?? upstream.type) !== "LoadImage") return null;
   return sourceFileWidget(upstream);
 }
@@ -1116,7 +1455,7 @@ function loaderWidget(node) {
 // One of the pack's own loaders wired straight in. It may crop, turn or pad
 // its file, so its picture is only known from a run.
 function ownLoaderNode(node) {
-  const upstream = upstreamNode(node, "image");
+  const upstream = imageSource(node);
   return upstream && OWN_LOADERS.has(upstream.comfyClass ?? upstream.type) ? upstream : null;
 }
 
@@ -1189,7 +1528,11 @@ function dropPicture(face) {
   face.other = false;
   face.share = 0;
   face.stroke = null;
+  face.adjust = null;
   face.pointer = null;
+  face.active = 0;
+  face.fresh = 0;
+  face.hoverChip = 0;
 }
 
 // Follow the loader: show its file as soon as one is chosen, and again when
@@ -1279,7 +1622,7 @@ function syncState(face) {
   for (const view of VIEWS) face.root.classList.toggle(`view-${view}`, face.view === view);
   const ready = linked && model;
   face.start.style.display = (!pic || locked) && ready ? "" : "none";
-  face.start.textContent = !locked ? "Show picture" : face.held === 1 ? "Show the pick" : `Show the ${face.held} picks`;
+  face.start.textContent = !locked ? "Show picture" : face.heldPicks === 1 ? "Show the pick" : `Show the ${face.heldPicks} picks`;
   face.hint.style.display = !pic && !ready ? "" : "none";
   face.hint.textContent = !linked ? placeholderText(false, "an image") : "Connect SAM 3 to pick from the picture: MODEL and CLIP from its Load Checkpoint";
   syncTools(face);
@@ -1331,18 +1674,32 @@ function adopt(face, entry) {
   face.share = 0;
   // A picture the node only confirms (same size, picks kept) keeps its
   // history; any other picture starts a new one.
-  if (!(before?.provisional && before.width === entry.width && before.height === entry.height)) face.past = [];
+  if (!(before?.provisional && before.width === entry.width && before.height === entry.height)) {
+    face.past = [];
+    face.active = 0;
+    face.fresh = 0;
+  }
+  face.hoverChip = 0;
+  face.chipAreas = null;
+  face.adjust = null;
   face.choice = null;
   layout(face);
   return true;
 }
 
-function show(face, entry, note, answered, { restored = false, own = false, interim = false } = {}) {
+function show(face, entry, note, answered, { restored = false, own = false, interim = false, areas = null } = {}) {
   const before = face.pic;
   adopt(face, entry);
   readItems(face);
   let items = face.items;
   let mine = Boolean(answered) && note.stamp === face.stamp;
+  // The areas are numbered by the touches the note answers: these ones.
+  if (mine && areas) {
+    areas.items.forEach((at, number) => {
+      const mask = items[at] ? pieceMask(areas.planes, number) : null;
+      if (mask) keepArea(entry, areaKey(items[at]), mask);
+    });
+  }
   face.itemNotes = mine && Array.isArray(note.items) && note.items.length === items.length ? note.items : null;
   let rewrite = false;
   // Touches made before the node had said which picture it has (on a
@@ -1371,7 +1728,7 @@ function show(face, entry, note, answered, { restored = false, own = false, inte
     if (swappedAway) {
       const before = choice.candidates[choice.last];
       const candidates = choice.candidates.filter((_, index) => index !== choice.current);
-      items = [...items.slice(0, choice.start), ...before.items, ...items.slice(choice.start + 1)];
+      items = [...items.slice(0, choice.start), ...placed(face, before.items, [items[choice.start]]), ...items.slice(choice.start + 1)];
       // The answer was for the touches with the empty spot in them.
       face.itemNotes = null;
       mine = false;
@@ -1385,9 +1742,14 @@ function show(face, entry, note, answered, { restored = false, own = false, inte
         : null;
       setNote(face, "Nothing found at that spot. The pick is as it was.", { life: 2800 });
     }
-    const lost = face.itemNotes ? items.find(empty) : undefined;
-    const kept = face.itemNotes ? items.filter((item, index) => !empty(item, index)) : items;
+    // A touch that takes away and took nothing (nothing of it was picked)
+    // goes the same way: the node says so for the ones the face cannot see.
+    const idle = (item, index) => item.op === 0 && notes[index]?.did === false;
+    const lost = face.itemNotes ? items.find((item, index) => empty(item, index) || idle(item, index)) : undefined;
+    const kept = face.itemNotes ? items.filter((item, index) => !empty(item, index) && !idle(item, index)) : items;
     if (kept.length !== items.length) {
+      // Whether the node found the thing at all: then it only took nothing.
+      const found = notes[items.indexOf(lost)]?.as !== "none";
       face.itemNotes = notes.filter((_, index) => kept.includes(items[index]));
       items = kept;
       rewrite = true;
@@ -1396,8 +1758,8 @@ function show(face, entry, note, answered, { restored = false, own = false, inte
       if (last && JSON.stringify(last) === JSON.stringify(kept)) face.past.pop();
       const whole = lost.t === "subject" || lost.t === "background";
       // Without its model the subject cannot be asked for: the node says what is missing.
-      const why = whole ? (typeof note.fine?.trouble === "string" && note.fine.trouble) || `No ${lost.t} found in this picture.` : "";
-      setNote(face, why || (lost.t === "all" ? `Nothing called "${lost.w}" found in this picture.` : "Nothing found there."), { life: whole ? 12000 : lost.t === "all" ? 4000 : 2200 });
+      const why = found ? NOTHING_THERE : whole ? (typeof note.fine?.trouble === "string" && note.fine.trouble) || `No ${lost.t} found in this picture.` : "";
+      setNote(face, why || (lost.t === "all" ? `Nothing called "${lost.w}" found in this picture.` : "Nothing found there."), { life: found ? 2600 : whole ? 12000 : lost.t === "all" ? 4000 : 2200 });
     }
   }
   if (rewrite) {
@@ -1498,11 +1860,20 @@ async function takeNote(face, note, { restored = false, interim = false } = {}) 
   if (stamp) {
     if (isFile(note.selection)) {
       jobs.push(loadImage(viewUrl(note.selection, `${note.key}-${stamp}`)).then((image) => {
-        answered = onOff(readPixels(image, entry.pw, entry.ph));
+        answered = readSelection(readPixels(image, entry.pw, entry.ph));
       }));
     } else {
       answered = new Uint8Array(entry.pw * entry.ph);
     }
+  }
+  // Each picked thing's own area, when the node sent them: what tells the
+  // face which chip a brush mark touches. Lost files only cost that.
+  let areas = null;
+  if (stamp && Array.isArray(note.areas?.items) && Array.isArray(note.areas?.planes)) {
+    const files = note.areas.planes.filter(isFile);
+    jobs.push(Promise.all(files.map((file) => loadImage(viewUrl(file, `${note.key}-${stamp}-areas`)))).then((images) => {
+      areas = { planes: packPlanes(images.map((image) => readPixels(image, entry.pw, entry.ph)), entry.pw, entry.ph), items: note.areas.items };
+    }, () => {}));
   }
   // The fine edge, when the node made one: the cut-out's colours with the
   // mask as their see-through channel. A lost file only costs the fine look.
@@ -1537,7 +1908,7 @@ async function takeNote(face, note, { restored = false, interim = false } = {}) 
     if (!restored) setNote(face, note.fine.trouble, { life: 12000 });
   }
   if (!face.alive || turn !== face.turn || !entry.image) return;
-  show(face, entry, { ...note, stamp }, answered, { restored, own, interim });
+  show(face, entry, { ...note, stamp }, answered, { restored, own, interim, areas });
 }
 
 // ---- the pointer -----------------------------------------------------------
@@ -1594,7 +1965,7 @@ function settled(pic, candidate, op) {
 function pick(face, list, current, op) {
   const pic = face.pic;
   const candidates = list.map((candidate) => settled(pic, candidate, op));
-  const items = candidates[current].items;
+  const items = placed(face, candidates[current].items);
   if (!items.every((item, index) => touchFits([...face.items, ...items.slice(0, index)], item))) {
     showToast({ detail: "This node holds no more touches. Press Clear, or Undo a few.", severity: "warn", summary: "Mask by Touch" });
     return false;
@@ -1624,7 +1995,8 @@ function swap(face, step) {
   const choice = face.choice;
   if (!choiceLive(face)) return;
   const next = (choice.current + step + choice.candidates.length) % choice.candidates.length;
-  const items = choice.candidates[next].items;
+  // The pick keeps its chip, so what was painted onto it stays with it.
+  const items = placed(face, choice.candidates[next].items, face.items.slice(choice.start, choice.start + choice.count));
   const kept = face.items.slice(0, choice.start);
   const rest = face.items.slice(choice.start + choice.count);
   if (!items.every((item, index) => touchFits([...kept, ...rest, ...items.slice(0, index)], item))) return;
@@ -1676,29 +2048,15 @@ function candidatesOf(face, index) {
   return null;
 }
 
-// A click on a chip's name opens that pick again: the arrows swap it for the
-// other things at its spot, as they do for a pick that was just made. A
-// second click closes it.
-function reopen(face, index) {
-  if (!face.pic || face.held) return;
-  flushPending(face);
+// The arrows for the pick at `index`: the other things at its spot, as for
+// a pick that was just made. No arrows when it has no other meaning.
+function openChoice(face, index) {
   const item = face.items[index];
-  if (!item) return;
-  if (choiceLive(face) && face.choice.start === index) {
-    face.choice = null;
-    syncReadout(face);
-    return;
-  }
-  const candidates = (candidatesOf(face, index) ?? []).map((candidate) => settled(face.pic, candidate, item.op));
+  const candidates = item && face.pic ? (candidatesOf(face, index) ?? []).map((candidate) => settled(face.pic, candidate, item.op)) : [];
   const current = candidates.findIndex((candidate) => sameTouches(candidate.items, [item]));
-  if (candidates.length < 2 || current < 0) {
-    face.choice = null;
-    setNote(face, "There is nothing else at this spot to swap it for.", { life: 2600 });
-    syncReadout(face);
-    return;
-  }
-  face.choice = { candidates, current, start: index, count: 1, op: item.op, pic: face.pic, reopened: true, stepped: false };
-  syncReadout(face);
+  face.choice = candidates.length < 2 || current < 0
+    ? null
+    : { candidates, current, start: index, count: 1, op: item.op, pic: face.pic, reopened: true, stepped: false };
 }
 
 function setHover(face, piece, away = false) {
@@ -1714,7 +2072,7 @@ function setHover(face, piece, away = false) {
 }
 
 function refreshHover(face) {
-  if (!face.pic || !face.snap || face.stroke || !face.pointer || face.quietAt) {
+  if (!face.pic || !face.snap || face.stroke || face.adjust || !face.pointer || face.quietAt) {
     setHover(face, -1);
     return;
   }
@@ -1735,15 +2093,84 @@ function change(face, items) {
   commit(face);
 }
 
+const FULL = "This node holds no more touches. Press Clear, or Undo a few.";
+
 function addItem(face, item) {
-  if (!touchFits(face.items, item)) {
-    showToast({ detail: "This node holds no more touches. Press Clear, or Undo a few.", severity: "warn", summary: "Mask by Touch" });
+  // A touch that adds gets a chip of its own, unless it came with one.
+  const own = item.op === 1 && !item.g ? placed(face, [item])[0] : item;
+  if (!touchFits(face.items, own)) {
+    showToast({ detail: FULL, severity: "warn", summary: "Mask by Touch" });
     return;
   }
   const rim = face.rim;
-  change(face, [...face.items, item]);
+  change(face, [...face.items, own]);
   face.rim = rim;
   face.choice = null;
+}
+
+// ---- the brush: Paint and Erase ---------------------------------------------
+//
+// A brush mark is used exactly as it is drawn. One that erases rubs out
+// whatever is picked under it, and is not kept when nothing is. One that
+// paints joins a chip: the selected one; else the area it touches; else the
+// newest area that was painted, so loose paint shares one chip.
+
+function chipFor(face, area) {
+  const pic = face.pic;
+  const chips = chipGroups(face.items).filter((chip) => !chip.away);
+  if (face.active) {
+    if (face.active === face.fresh) return { g: face.fresh };
+    const chosen = chips.find((chip) => chipId(chip) === face.active);
+    if (chosen) return { chip: chosen };
+  }
+  if (chips.length && face.raw) {
+    // "Touches" is a pixel or two of room: paint right beside an area joins it.
+    const near = growMask(hardMask(area), pic.pw, pic.ph, TOUCH_REACH);
+    if (sharedPixels(near, face.raw) > 0) {
+      // The chip it shares the most with, the newest on a tie.
+      let best = null;
+      let most = 0;
+      for (const chip of chips) {
+        const shared = sharedPixels(near, chipArea(face, chip));
+        if (shared > 0 && shared >= most) { best = chip; most = shared; }
+      }
+      if (best) return { chip: best };
+    }
+  }
+  const loose = chips.filter((chip) => chip.paint).pop();
+  return loose ? { chip: loose } : { g: nextGroup(face.items) };
+}
+
+function addMark(face, mark) {
+  const pic = face.pic;
+  const area = localMask(pic, mark);
+  if (mark.op === 0) {
+    if (face.exact && !meets(area, face.raw)) {
+      setNote(face, "Nothing is picked there to erase.", { life: 1800 });
+      return;
+    }
+    addItem(face, mark);
+    return;
+  }
+  const target = chipFor(face, area);
+  // A chip whose touches were saved without a number gets one now.
+  const numbered = target.chip ? numberChip(face.items, target.chip, face.fresh) : { items: face.items, g: target.g };
+  const own = { ...mark, g: numbered.g };
+  if (!touchFits(numbered.items, own)) {
+    showToast({ detail: FULL, severity: "warn", summary: "Mask by Touch" });
+    return;
+  }
+  const selected = Boolean(face.active) && (face.active === face.fresh || (target.chip && face.active === chipId(target.chip)));
+  change(face, [...numbered.items, own]);
+  if (face.fresh === numbered.g) face.fresh = 0;
+  if (selected) {
+    // Still selected, under the number it has now, with its arrows.
+    face.active = numbered.g;
+    const chip = chipGroups(face.items).find((other) => other.g === numbered.g);
+    if (chip) openChoice(face, chip.first);
+    face.chipsShown = null;
+    syncReadout(face);
+  }
 }
 
 function undo(face) {
@@ -1779,8 +2206,31 @@ function pickAt(face, x, y, op) {
   // or there is nothing picked to take away): the spot itself is asked,
   // when it is on offer.
   const lit = pieceUnder(face, [x, y], op === 1);
+  if (op === 0) {
+    if (lit >= 0) {
+      // The thing is a pick of its own: it is un-picked, chip and all.
+      const chip = chipOfThing(face, settled(pic, { kind: "piece", piece: lit }, 1).items[0]);
+      if (chip) {
+        removeChip(face, chip);
+        return;
+      }
+    } else if (face.exact && !(face.raw?.[pixelOf(pic, [x, y])] > 0)) {
+      // Nothing is picked there: nothing to take away, and nothing is kept.
+      setNote(face, NOTHING_THERE, { life: 1800 });
+      return;
+    }
+  }
+  if (op === 1 && lit >= 0) {
+    // The thing was taken away as it is: it is put back, and no chip is left.
+    const taken = chipOfThing(face, settled(pic, { kind: "piece", piece: lit }, 0).items[0], true);
+    if (taken) {
+      removeChip(face, taken);
+      return;
+    }
+  }
   const current = lit >= 0 ? pieces.indexOf(lit) : candidates.indexOf(spot);
   if (current >= 0) pick(face, candidates, current, op);
+  else if (op === 0) setNote(face, "No whole thing to take away here. Erase rubs it out with the brush.", { life: 2800 });
 }
 
 // ---- a click that waits for the first look --------------------------------
@@ -1834,20 +2284,58 @@ function notReady(face) {
 // is, so nobody wonders why nothing lights up or where a click went.
 function syncLooking(face) {
   const waits = face.pending.length > 0;
-  const on = notReady(face) && (face.inFlight || waits);
-  face.root.classList.toggle("looking", on);
+  const paused = Boolean(face.pic?.paused) && !face.inFlight;
+  const on = notReady(face) && (face.inFlight || waits || paused);
+  const pill = face.lookPill;
+  pill.style.display = on ? "" : "none";
   if (!on) return;
+  // How far along the look is, as the button's fill and as numbers.
   const words = face.pic.words;
-  const far = words && words[1] > 0 ? ` ${Math.min(words[0], words[1])} of ${words[1]}` : "";
-  face.looking.textContent = waits ? `Your click is in. Looking…${far}` : `Looking at the picture…${far}`;
-  face.looking.title = waits
-    ? "Nothing was lit where you clicked yet. Your click is taken as soon as the node has found the thing there."
-    : "What is lit can be picked already. More lights up as the node looks on.";
+  const total = words?.[1] > 0 ? words[1] : 0;
+  const done = total ? Math.min(words[0], total) : 0;
+  pill.classList.toggle("paused", paused);
+  pill.style.setProperty("--done", `${total ? Math.round((done / total) * 100) : 0}%`);
+  face.lookIcon.textContent = paused ? "\u25b6" : "\u275a\u275a";
+  face.lookWord.textContent = paused ? "Paused" : "Looking";
+  face.lookCount.textContent = total ? `${done}/${total}` : "\u2026";
+  const far = total ? ` ${done} of ${total}` : "";
+  pill.title = paused
+    ? `Paused at${far || " the start"}. What is lit can still be picked. Click to look on.`
+    : waits
+      ? `Looking at the picture${far ? `:${far}` : ""}. Your click is taken as soon as the node has found the thing there. Click to pause.`
+      : `Looking at the picture${far ? `:${far}` : ""}. What is lit can be picked already, and more lights up as it goes. Click to pause: what is lit stays.`;
+}
+
+// Stop looking at this picture for now, or look on. A pause holds until
+// Resume, a click where nothing is lit yet, or Show picture.
+function pauseLook(face) {
+  const pic = face.pic;
+  if (!pic) return;
+  pic.paused = true;
+  clearTimeout(face.dwell);
+  dropPending(face);
+  face.wanted = null;
+  syncLooking(face);
+  Promise.resolve(face.host.stopLook?.()).finally(() => {
+    if (!face.alive) return;
+    // A look taken out of the queue never answers: stop waiting for it.
+    if (face.flying.every((run) => run.ask === "scope")) settle(face);
+    syncLooking(face);
+  });
+}
+
+function resumeLook(face) {
+  const pic = face.pic;
+  if (!pic) return;
+  pic.paused = false;
+  face.retries = 0;
+  if (wantsScope(face)) requestRun(face, "scope");
+  syncLooking(face);
 }
 
 // A click that was not taken: the message on the picture answers it.
 function nudge(face) {
-  const chip = face.looking;
+  const chip = face.lookPill;
   chip.classList.remove("nudge");
   void chip.offsetWidth;
   chip.classList.add("nudge");
@@ -1856,6 +2344,8 @@ function nudge(face) {
 function waitForLook(face, x, y) {
   const pic = face.pic;
   if (!pic || lookedEnough(pic)) return false;
+  // A click where nothing is lit yet means: look on.
+  if (pic.paused && pieceUnder(face, [x, y], true) < 0) pic.paused = false;
   if (!upstreamNode(face.node, "model") || !upstreamNode(face.node, "clip")) return false;
   // A thing is lit under the pointer: it is taken now, whatever else is
   // still on its way. A click that waited at this spot is answered by it.
@@ -1948,32 +2438,53 @@ function finishStroke(face, event, cancelled) {
   // part of the pick.
   if (event) face.quietAt = [event.clientX, event.clientY];
   const pic = face.pic;
-  if (!stroke.moved) {
-    if (face.snap) {
-      if (op === 1 && waitForLook(face, x, y)) {
-        refreshHover(face);
-        drawInk(face);
-        return;
-      }
-      // What waited before this click comes first, so the touches keep the
-      // order they were made in. A click that still waits for the look is
-      // left waiting: it is taken when the look has found its thing.
-      if (!notReady(face)) flushPending(face);
-      pickAt(face, x, y, op);
-    } else {
-      flushPending(face);
-      addItem(face, { t: "paint", op, r: radius, pts: [[Math.round(x), Math.round(y)]] });
+  const thinned = () => thinStroke(stroke.points, Math.max(1, radius / 6)).map((pair) => [Math.round(pair[0]), Math.round(pair[1])]);
+  if (stroke.brush) {
+    // Paint or Erase: the mark itself, with the edge the brush has.
+    flushPending(face);
+    const mark = { t: "paint", op, r: radius, pts: stroke.moved ? thinned() : [[Math.round(x), Math.round(y)]] };
+    if (stroke.soft > 0) mark.s = stroke.soft;
+    addMark(face, mark);
+  } else if (!stroke.moved) {
+    if (op === 1 && waitForLook(face, x, y)) {
+      refreshHover(face);
+      drawInk(face);
+      return;
     }
+    // What waited before this click comes first, so the touches keep the
+    // order they were made in. A click that still waits for the look is
+    // left waiting: it is taken when the look has found its thing.
+    if (!notReady(face)) flushPending(face);
+    pickAt(face, x, y, op);
   } else {
     flushPending(face);
-    const pts = thinStroke(stroke.points, Math.max(1, radius / 6)).map((pair) => [Math.round(pair[0]), Math.round(pair[1])]);
-    if (face.snap) {
+    const pts = thinned();
+    const area = () => paintStroke(new Uint8Array(pic.pw * pic.ph), pic.pw, pic.ph, pts.map((pair) => [pair[0] * pic.scale, pair[1] * pic.scale]), radius * pic.scale, 1);
+    if (op === 0 && face.exact && !meets(area(), face.raw)) {
+      // A stroke that takes away where nothing is picked takes nothing.
+      setNote(face, NOTHING_THERE, { life: 1800 });
+    } else {
       face.rim = rimOf(pic, { t: "find", op, r: radius, pts });
       pick(face, strokeCandidates(pic, op, radius, pts), 0, op);
-    } else {
-      addItem(face, { t: "paint", op, r: radius, pts });
     }
   }
+  refreshHover(face);
+  drawInk(face);
+}
+
+// The brush drag is over: keep what it set, or put the brush back.
+function finishAdjust(face, event, cancelled) {
+  const adjust = face.adjust;
+  if (!adjust || (event && event.pointerId !== adjust.id)) return;
+  face.adjust = null;
+  try { face.frame.releasePointerCapture?.(adjust.id); } catch { /* already released */ }
+  if (cancelled) {
+    setBrush(face, adjust.size);
+    setSoft(face, adjust.soft);
+  } else if (brushSize(face) !== adjust.size || brushSoft(face) !== adjust.soft) {
+    notifyAusbossChange();
+  }
+  if (event) face.quietAt = [event.clientX, event.clientY];
   refreshHover(face);
   drawInk(face);
 }
@@ -1982,7 +2493,7 @@ function installPointer(face, signal) {
   const frame = face.frame;
   frame.addEventListener("pointerdown", (event) => {
     // The middle button pans the graph, as everywhere else.
-    if (!face.pic || (event.button !== 0 && event.button !== 2) || face.stroke) return;
+    if (!face.pic || (event.button !== 0 && event.button !== 2) || face.stroke || face.adjust) return;
     const point = pointOf(face, event);
     if (!point) return;
     event.preventDefault();
@@ -1995,9 +2506,30 @@ function installPointer(face, signal) {
       face.rim = null;
       paintLit(face);
     }
+    // Alt and the right button together set the brush (on a Mac: Control
+    // and Option with a click), as on Image Compare A/B.
+    if (brushAdjusts(event)) {
+      const rect = frame.getBoundingClientRect();
+      const brush = { size: brushSize(face), soft: brushSoft(face) };
+      face.adjust = {
+        id: event.pointerId,
+        // The brush as it was, for Escape, and the drag as it goes.
+        ...brush,
+        drag: startAdjust(event.clientX, event.clientY, brush, BRUSH_SIZE),
+        anchor: point,
+        // Pixels of the picture under one pixel of the screen.
+        perPixel: face.pic.width / Math.max(1, rect.width),
+      };
+      setHover(face, -1);
+      drawInk(face);
+      return;
+    }
+    // Ctrl, or the right button, does the opposite of the chosen tool.
     face.stroke = {
       id: event.pointerId,
-      away: event.button === 2 || face.awayHeld !== event.altKey,
+      away: (face.tool === "erase") !== brushFlips(event),
+      brush: face.tool !== "pick",
+      soft: brushSoft(face),
       start: [event.clientX, event.clientY],
       points: [point],
       moved: false,
@@ -2009,7 +2541,15 @@ function installPointer(face, signal) {
     const point = pointOf(face, event);
     if (!point) return;
     face.pointer = point;
-    face.altKey = event.altKey;
+    const adjust = face.adjust;
+    if (adjust && event.pointerId === adjust.id) {
+      adjust.drag = moveAdjust(adjust.drag, event.clientX, event.clientY, adjust.perPixel);
+      setBrush(face, adjust.drag.brush.size);
+      setSoft(face, adjust.drag.brush.soft);
+      drawInk(face);
+      return;
+    }
+    face.flipKey = event.ctrlKey;
     syncAway(face);
     if (face.quietAt && Math.hypot(event.clientX - face.quietAt[0], event.clientY - face.quietAt[1]) > 6) face.quietAt = null;
     const stroke = face.stroke;
@@ -2025,22 +2565,29 @@ function installPointer(face, signal) {
     }
     drawInk(face);
   }, { signal });
-  frame.addEventListener("pointerup", (event) => finishStroke(face, event, false), { signal });
-  frame.addEventListener("pointercancel", (event) => finishStroke(face, event, true), { signal });
-  frame.addEventListener("pointerenter", () => {
+  frame.addEventListener("pointerup", (event) => { finishStroke(face, event, false); finishAdjust(face, event, false); }, { signal });
+  frame.addEventListener("pointercancel", (event) => { finishStroke(face, event, true); finishAdjust(face, event, true); }, { signal });
+  // The keys work while the pointer is anywhere on the node's panel: they
+  // are listened to from when it comes onto the panel until it is off it.
+  face.root.addEventListener("pointerenter", () => {
     if (face.keys) return;
     face.keys = new AbortController();
     const options = { signal: face.keys.signal, capture: true };
     window.addEventListener("keydown", (event) => onKey(face, event, true), options);
     window.addEventListener("keyup", (event) => onKey(face, event, false), options);
+    window.addEventListener("pointermove", (event) => {
+      if (face.stroke || face.adjust) return;
+      const box = face.root.getBoundingClientRect();
+      if (event.clientX >= box.left && event.clientX <= box.right && event.clientY >= box.top && event.clientY <= box.bottom) return;
+      face.keys?.abort();
+      face.keys = null;
+    }, { signal: face.keys.signal, passive: true });
   }, { signal });
   frame.addEventListener("pointerleave", () => {
     clearTimeout(face.dwell);
-    if (face.stroke) return;
-    face.keys?.abort();
-    face.keys = null;
+    if (face.stroke || face.adjust) return;
     face.pointer = null;
-    face.altKey = false;
+    face.flipKey = false;
     syncAway(face);
     setHover(face, -1);
     drawInk(face);
@@ -2052,9 +2599,10 @@ function installPointer(face, signal) {
   signal.addEventListener("abort", () => face.keys?.abort());
 }
 
-// Taking away: the minus button, or Alt held for as long as it is down.
+// Whether a press takes away right now: Erase is chosen, or Ctrl is held and
+// does the opposite of the chosen tool for as long as it is down.
 function syncAway(face) {
-  const away = face.awayHeld !== Boolean(face.altKey);
+  const away = (face.tool === "erase") !== Boolean(face.flipKey);
   if (away === face.away) return;
   face.away = away;
   syncTools(face);
@@ -2064,9 +2612,14 @@ function syncAway(face) {
 function onKey(face, event, down) {
   const target = event.target;
   if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+  // Alt is the brush drag's key. Kept from the browser, which would open
+  // its menu on it.
   if (event.key === "Alt") {
     event.preventDefault();
-    face.altKey = down;
+    return;
+  }
+  if (event.key === "Control") {
+    face.flipKey = down;
     syncAway(face);
     drawInk(face);
     return;
@@ -2074,18 +2627,36 @@ function onKey(face, event, down) {
   // Ctrl+Z and Ctrl+Y stay ComfyUI's own: every pick is a change to the
   // graph, so its undo takes picks back too.
   if (!down || event.ctrlKey || event.metaKey) return;
-  if (event.key === "Escape" && face.stroke) {
+  if (event.key === "Escape" && (face.stroke || face.adjust)) {
     event.preventDefault();
     event.stopImmediatePropagation();
     finishStroke(face, null, true);
+    finishAdjust(face, null, true);
     return;
   }
-  if (event.key === "[" || event.key === "]") {
+  // Esc lets go of a selected chip.
+  if (event.key === "Escape" && face.active) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    letGo(face);
+    return;
+  }
+  // [ and ] for the size, with Shift for the edge, as in Photoshop.
+  const key = brushKey(event);
+  if (key) {
     event.preventDefault();
     event.stopPropagation();
-    const size = brushSize(face);
-    const next = event.key === "]" ? Math.max(size + 2, Math.round((size * 1.2) / 2) * 2) : Math.min(size - 2, Math.round((size / 1.2) / 2) * 2);
-    setBrush(face, next);
+    if (key.what === "soft") setSoft(face, steppedSoft(brushSoft(face), key.up));
+    else setBrush(face, steppedBrushSize(brushSize(face), key.up, BRUSH_SIZE));
+    notifyAusbossChange();
+    return;
+  }
+  // W, B and E pick the tool, as in Photoshop. Not in the middle of a stroke.
+  const tool = toolKey(event);
+  if (tool && !face.stroke && !face.adjust && face.pic) {
+    event.preventDefault();
+    event.stopPropagation();
+    setTool(face, tool);
   }
 }
 
@@ -2096,6 +2667,32 @@ function setBrush(face, size) {
   face.node.properties[BRUSH_PROPERTY] = next;
   face.size.set(next);
   paintSwatch(face);
+  drawInk(face);
+}
+
+function setSoft(face, soft) {
+  const next = clampSoft(soft, 0);
+  face.node.properties ??= {};
+  if (face.node.properties[SOFT_PROPERTY] === next) return;
+  // A hard brush is what a node has until it is told otherwise.
+  if (next === 0 && face.node.properties[SOFT_PROPERTY] === undefined) return;
+  face.node.properties[SOFT_PROPERTY] = next;
+  face.softBox.set(next);
+  paintSwatch(face);
+  drawInk(face);
+}
+
+// Pick takes whole things; Paint and Erase are the brush.
+function setTool(face, tool) {
+  if (!TOOLS.includes(tool)) return;
+  face.tool = tool;
+  face.snap = tool === "pick";
+  setProperty(face, TOOL_PROPERTY, tool);
+  setProperty(face, SNAP_PROPERTY, face.snap);
+  face.away = (tool === "erase") !== Boolean(face.flipKey);
+  syncTools(face);
+  paintSwatch(face);
+  refreshHover(face);
   drawInk(face);
 }
 
@@ -2123,7 +2720,11 @@ function setProperty(face, name, value) {
 
 function readProperties(face) {
   const properties = face.node.properties ?? {};
-  face.snap = properties[SNAP_PROPERTY] !== false;
+  // A workflow saved before there were three tools kept Pick or Draw.
+  const tool = properties[TOOL_PROPERTY];
+  face.tool = TOOLS.includes(tool) ? tool : properties[SNAP_PROPERTY] === false ? "paint" : "pick";
+  face.snap = face.tool === "pick";
+  face.away = (face.tool === "erase") !== Boolean(face.flipKey);
   face.view = VIEWS.includes(properties[VIEW_PROPERTY]) ? properties[VIEW_PROPERTY] : "tint";
 }
 
@@ -2138,15 +2739,17 @@ export function mountTouchStage(node, host) {
   const stage = el("div", "ausboss-touch-stage");
   const bar = el("div", "ausboss-touch-bar");
   const chips = el("div", "ausboss-touch-chips");
-  const chipList = el("span", "");
-  chipList.style.cssText = "display:inline-flex;gap:5px;flex:none;";
+  const chipList = el("span", "ausboss-touch-chiplist");
   const nameField = el("input", "ausboss-touch-name");
   nameField.type = "text";
   nameField.placeholder = "+ type a name";
   nameField.maxLength = 60;
   nameField.spellcheck = false;
   nameField.title = "Type what to pick, like \"screen\" or \"earring\", and press Enter. Every thing of that name is taken.";
-  chips.append(chipList, nameField);
+  const newButton = el("button", "ausboss-touch-new", "+ new");
+  newButton.type = "button";
+  newButton.title = "Start a new area: what you paint next gets a chip of its own, also where it touches another area.";
+  chips.append(chipList, newButton, nameField);
   root.append(tools, stage, bar, chips);
 
   const frame = el("div", "ausboss-touch-frame");
@@ -2164,11 +2767,25 @@ export function mountTouchStage(node, host) {
   path.style.display = "none";
   ringBack.style.display = "none";
   ring.style.display = "none";
-  ink.append(path, dots, ringBack, ring);
+  const coreRing = svg("circle", "core");
+  coreRing.style.display = "none";
+  // The brush's shape under the pointer: a circle filled with a gradient
+  // that fades as the brush's edge does.
+  const fade = svg("radialGradient");
+  fade.id = `ausboss-touch-dab-${++dabCount}`;
+  const defs = svg("defs");
+  defs.append(fade);
+  const dab = svg("circle", "dab");
+  // Inline, so the rule that leaves the rings unfilled does not reach it.
+  dab.style.fill = `url(#${fade.id})`;
+  dab.style.stroke = "none";
+  dab.style.display = "none";
+  ink.append(defs, dab, path, dots, ringBack, ring, coreRing);
+  const brushLabel = el("div", "ausboss-touch-brush");
+  brushLabel.append(el("span"), el("span"));
   const tag = el("div", "ausboss-touch-tag");
   const fining = el("div", "ausboss-touch-fining", "Working on the fine details…");
-  const looking = el("div", "ausboss-touch-looking");
-  frame.append(img, tint, lit, ink, tag, fining, looking);
+  frame.append(img, tint, lit, ink, tag, brushLabel, fining);
 
   const wake = el("div", "ausboss-touch-wake");
   const hint = el("div", "ausboss-touch-hint");
@@ -2176,8 +2793,8 @@ export function mountTouchStage(node, host) {
   stage.append(frame, wake, el("div", "ausboss-touch-busy"), noteEl);
 
   const face = node.__ausbossTouch = {
-    node, host, root, stage, frame, img, tint, lit, ink, path, dots, ringBack, ring, tag, hint, noteEl, looking, abort,
-    chips, chipList, nameField, chipsShown: null,
+    node, host, root, stage, frame, img, tint, lit, ink, path, dots, ringBack, ring, coreRing, dab, brushLabel, tag, hint, noteEl, abort,
+    chips, chipList, newButton, nameField, chipsShown: null,
     flying: [],
     pendingTimer: 0,
     alive: true,
@@ -2198,10 +2815,20 @@ export function mountTouchStage(node, host) {
     rim: null,
     stroke: null,
     pointer: null,
+    // The tool, and whether a press takes away right now (Erase, or Ctrl).
+    tool: "pick",
     away: false,
-    awayHeld: false,
-    altKey: false,
+    flipKey: false,
     snap: true,
+    // The brush drag that sets the brush, while it goes.
+    adjust: null,
+    // The selected chip (its number; under zero for one known by its
+    // place), a new area that is started and not painted yet, and the chip
+    // the pointer is on.
+    active: 0,
+    fresh: 0,
+    hoverChip: 0,
+    chipAreas: null,
     view: "tint",
     zoom: 1,
     turn: 0,
@@ -2236,16 +2863,25 @@ export function mountTouchStage(node, host) {
 
   face.start = button("ausboss-touch-start", "Show picture",
     "Runs only this node, so the picture shows here and its pieces light up under the pointer.",
-    () => { if (!face.inFlight) { face.retries = 0; requestRun(face, "scope"); } }, signal);
+    () => { if (!face.inFlight) { face.retries = 0; if (face.pic) face.pic.paused = false; requestRun(face, "scope"); } }, signal);
   wake.append(face.start, hint);
 
-  // Tools: add or take away, the brush, undo and clear; on the right, how
+  // Tools: what a press does, the brush, undo and clear; on the right, how
   // the picked area is shown.
-  const op = el("div", "ausboss-touch-seg op");
-  face.addButton = button("", "+", "Add to the picked area.", () => { face.awayHeld = false; syncAway(face); syncTools(face); }, signal);
-  face.awayButton = button("", "−", "Take away from the picked area. Holding Alt, or the right mouse button, does the same.",
-    () => { face.awayHeld = true; syncAway(face); syncTools(face); }, signal);
-  op.append(face.addButton, face.awayButton);
+  face.toolSwitch = makeSlideSwitch({
+    label: "What a click or a stroke does",
+    fit: true,
+    options: [
+      { value: "pick", label: "Pick", title: "Pick: a click takes the thing under it, a stroke takes the thing you stroke over. Hold Ctrl, or use the right mouse button, to take a thing away again." },
+      { value: "paint", label: "Paint", title: "Paint: the brush adds to the mask, exactly as you draw it. Paint that touches an area joins it. Hold Ctrl, or use the right mouse button, to erase instead." },
+      { value: "erase", label: "Erase", title: "Erase: the brush rubs the mask out, exactly as you draw it. Hold Ctrl, or use the right mouse button, to paint instead." },
+    ],
+    value: face.tool,
+    signal,
+    onChange: (value) => setTool(face, value),
+  });
+  const SIZE_HELP = "How wide the brush is, in pixels of the picture. Drag here or on the number to change it. Also: the [ and ] keys, or hold Alt and the right mouse button on the picture and drag left or right.";
+  const SOFT_HELP = "How soft the brush's edge is, for Paint and Erase: 0 is a hard edge, 100 fades all the way from the middle. Drag here or on the number to change it. Also: Shift with [ and ], or hold Alt and the right mouse button on the picture and drag up (softer) or down (harder).";
   face.size = makeScrubInput({
     value: brushSize(face),
     min: BRUSH_SIZE[0],
@@ -2253,18 +2889,50 @@ export function mountTouchStage(node, host) {
     step: 2,
     fineStep: 2,
     decimals: 0,
-    width: 64,
+    width: 62,
     unit: "px",
-    title: "Brush size, in pixels of the picture. The [ and ] keys change it too.",
+    title: SIZE_HELP,
     onChange: (value) => setBrush(face, value),
     onSettle: () => notifyAusbossChange(),
   });
-  face.size.root.classList.add("ausboss-touch-size");
-  face.size.root.addEventListener("pointerdown", (event) => event.stopPropagation(), { signal });
+  face.softBox = makeScrubInput({
+    value: brushSoft(face),
+    min: 0,
+    max: 100,
+    step: 5,
+    fineStep: 1,
+    decimals: 0,
+    width: 54,
+    unit: "%",
+    title: SOFT_HELP,
+    onChange: (value) => setSoft(face, value),
+    onSettle: () => notifyAusbossChange(),
+  });
+  // Each number with its name in front of it. The name scrubs the number
+  // too, and so does the unit inside the box: the whole field is one handle.
+  const field = (name, box, help) => {
+    const wrap = el("div", `ausboss-touch-field ${name.toLowerCase()}`);
+    const label = el("span", "ausboss-touch-label", name);
+    label.title = help;
+    box.input.setAttribute("aria-label", name);
+    box.handle(label);
+    box.handle(box.root);
+    wrap.append(label, box.root);
+    wrap.addEventListener("pointerdown", (event) => event.stopPropagation(), { signal });
+    return wrap;
+  };
+  face.sizeField = field("Size", face.size, SIZE_HELP);
+  face.softField = field("Soft", face.softBox, SOFT_HELP);
   face.undo = button("ausboss-touch-btn", "Undo", "Take back the last pick, or a Clear.", () => undo(face), signal);
   face.clear = button("ausboss-touch-btn", "Clear", "Pick nothing. Undo brings it back.", () => {
     dropPending(face);
-    if (!face.items.length) return;
+    face.active = 0;
+    face.fresh = 0;
+    if (!face.items.length) {
+      face.chipsShown = null;
+      syncReadout(face);
+      return;
+    }
     change(face, []);
     refreshHover(face);
   }, signal);
@@ -2291,19 +2959,12 @@ export function mountTouchStage(node, host) {
     if (event.shiftKey) face.setView(face.view === "cut" ? "mask" : face.view === "mask" ? "cut" : face.result === "cut" ? "mask" : "cut");
     else face.setView(face.view === "tint" ? face.result : "tint");
   }, { signal });
-  // The two ways to make the area, first in the row: Pick takes whole
-  // things, Draw is the brush used as it is.
-  const mode = el("div", "ausboss-touch-seg mode");
-  const setSnap = (on) => {
-    face.snap = on;
-    setProperty(face, SNAP_PROPERTY, on);
-    syncTools(face);
-    refreshHover(face);
-  };
-  face.pickButton = button("", "Pick", "Pick: a click takes the thing under it, a stroke takes the thing you stroke over.", () => setSnap(true), signal);
-  face.drawButton = button("", "Draw", "Draw: paint the area yourself. Your paint is used exactly as you draw it.", () => setSnap(false), signal);
-  mode.append(face.pickButton, face.drawButton);
-  tools.append(mode, op, face.size.root, el("div", "ausboss-touch-gap"), face.undo, face.clear, face.eye);
+  tools.append(face.toolSwitch.root, face.sizeField, face.softField, el("div", "ausboss-touch-gap"), face.undo, face.clear, face.eye);
+  newButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    startFresh(face);
+  }, { signal });
 
   // Under the picture: what is picked, in words; a dot that shows the edge
   // the settings give; and how the picked area is shown.
@@ -2318,13 +2979,26 @@ export function mountTouchStage(node, host) {
   face.swatch.title = "The edge Grow and Soften give, shown on one dab of the brush.";
   // In "look when I press" mode: the button that looks at the picture.
   face.lookButton = button("ausboss-touch-btn", "Look", "Look at the picture, so things light up and say their name.",
-    () => { if (!face.inFlight && face.pic) { face.retries = 0; requestRun(face, "scope"); } }, signal);
+    () => { if (!face.inFlight && face.pic) { face.retries = 0; face.pic.paused = false; requestRun(face, "scope"); } }, signal);
   face.lookButton.style.display = "none";
   // The whole subject, or everything but it, in one click: ComfyUI's
   // background-removal model says what the subject is.
   face.subjectButton = button("ausboss-touch-btn whole", "Subject", "", () => addWhole(face, "subject"), signal);
   face.backgroundButton = button("ausboss-touch-btn whole", "Background", "", () => addWhole(face, "background"), signal);
-  bar.append(face.before, face.readout, face.after, el("div", "ausboss-touch-gap"), face.lookButton, face.subjectButton, face.backgroundButton, face.swatch);
+  // While the node looks at the picture: how far along it is, and a press
+  // that pauses it (what is lit stays and can be picked) or looks on.
+  face.lookPill = button("ausboss-touch-btn lookpill", "", "", () => {
+    if (face.pic?.paused && !face.inFlight) resumeLook(face);
+    else pauseLook(face);
+  }, signal);
+  face.lookIcon = el("span", "icon");
+  face.lookWord = el("span", "word");
+  face.lookCount = el("span", "count");
+  face.lookPill.append(face.lookIcon, face.lookWord, face.lookCount);
+  face.lookPill.style.display = "none";
+  // First in the line under the picture: what the node is doing with the
+  // picture, then what is picked; the buttons that pick come after.
+  bar.append(face.lookPill, face.before, face.readout, face.after, el("div", "ausboss-touch-gap"), face.lookButton, face.subjectButton, face.backgroundButton, face.swatch);
   // The name field keeps its keys and clicks to itself: the graph has
   // shortcuts on most letters.
   for (const type of ["keydown", "keyup", "keypress", "pointerdown", "mousedown", "dblclick"]) {
@@ -2359,6 +3033,8 @@ export function mountTouchStage(node, host) {
 
   installPointer(face, signal);
   const resize = new ResizeObserver(() => {
+    // A narrow node keeps the brush's numbers and drops their names.
+    root.classList.toggle("narrow", root.clientWidth > 0 && root.clientWidth < LABELS_FROM - 12);
     layout(face);
     drawInk(face);
   });
@@ -2395,6 +3071,8 @@ export function mountTouchStage(node, host) {
     readProperties(face);
     face.past = [];
     face.choice = null;
+    face.active = 0;
+    face.fresh = 0;
     if (face.pic) {
       readItems(face);
       face.itemNotes = null;

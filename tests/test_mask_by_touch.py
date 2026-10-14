@@ -274,7 +274,7 @@ class PickTests(TouchCase):
         self.assertTrue(torch.equal(cut[..., :3], self.picture))
         self.assertTrue(torch.equal(cut[0, ..., 3], mask[0]))
         note = self.note(out)
-        self.assertEqual(sorted(note), ["fine", "height", "items", "key", "picture", "pieces", "scale", "selection", "share", "stamp", "width"])
+        self.assertEqual(sorted(note), ["areas", "fine", "height", "items", "key", "picture", "pieces", "scale", "selection", "share", "stamp", "width"])
         self.assertIsNone(note["fine"], "no fine edge while Fine edges is off")
         self.assertEqual((note["key"], note["width"], note["height"], note["scale"]), (picture_key(self.picture), W, H, 1.0))
         self.assertEqual(note["stamp"], touch_stamp(text))
@@ -283,7 +283,7 @@ class PickTests(TouchCase):
             [
                 {"ok": True, "share": share(GLASSES), "as": "thing"},
                 {"ok": True, "share": share(PERSON), "as": "thing"},
-                {"ok": True, "share": round(float(stroke_area(stroke, 3, H, W).sum()) / (H * W), 5), "as": "paint"},
+                {"ok": True, "share": round(float(stroke_area(stroke, 3, H, W).sum()) / (H * W), 5), "as": "paint", "did": False},
             ],
         )
         self.assertEqual(note["share"], round(float(mask[0].mean()), 5))
@@ -1369,7 +1369,7 @@ class AllTests(TouchCase):
     def test_all_can_take_away(self):
         out = self.run_node(touches(tap(50, 100), every("hand", op=0)))
         self.assertTrue(torch.equal(self.area(out), PERSON.bool() & ~(HAND_LEFT + HAND_RIGHT).bool()))
-        self.assertEqual(self.note(out)["items"][1], {"ok": True, "share": share(HAND_LEFT + HAND_RIGHT), "as": "thing", "count": 2})
+        self.assertEqual(self.note(out)["items"][1], {"ok": True, "share": share(HAND_LEFT + HAND_RIGHT), "as": "thing", "count": 2, "did": True})
 
     def test_a_word_nothing_is_called_by_does_nothing(self):
         out = self.run_node(touches(tap(75, 34), every("unicorn"), every(""), every(" ,:() ")))
@@ -1963,6 +1963,65 @@ class QuietNameTests(TouchCase):
         self.assertEqual(loud["result"][2], entry["name"])
         self.assertEqual(hush["result"][2], "", "no name is given out")
         self.assertTrue(torch.equal(self.area(loud), self.area(hush)), "the same thing is picked")
+
+
+class BrushTests(TouchCase):
+    """The brush of the node's Paint and Erase: a soft edge, and what the face is told."""
+
+    LINE = [[40, 60], [120, 60]]
+
+    def test_a_soft_mark_fades_and_a_hard_one_stays_exact(self):
+        hard = self.run_node(touches(paint(self.LINE, r=10)), if_nothing=IF_NOTHING[1])["result"][0][0]
+        self.assertTrue(torch.equal(hard > 0.5, stroke_area(self.LINE, 10, H, W)), "a hard brush is exactly as before")
+        self.assertTrue(bool(((hard == 0) | (hard == 1)).all()))
+        soft_mark = dict(paint(self.LINE, r=10), s=100)
+        soft = self.run_node(touches(soft_mark))["result"][0][0]
+        self.assertGreater(float(soft[60, 80]), 0.9, "solid along the middle")
+        self.assertTrue(0.2 < float(soft[54, 80]) < 0.85, "fading half way out")
+        self.assertLess(float(soft[49, 80]), 0.1, "little left at the ring")
+        self.assertEqual(float(soft[20, 80]), 0.0)
+
+    def test_a_brush_too_hard_to_blur_is_the_hard_stroke(self):
+        mark = dict(paint(self.LINE, r=2), s=1)
+        out = self.run_node(touches(mark))["result"][0][0]
+        self.assertTrue(torch.equal(out > 0.5, stroke_area(self.LINE, 2, H, W)))
+
+    def test_a_soft_erase_thins_what_is_picked(self):
+        text = touches(paint([[20, 60], [140, 60]], r=30), dict(paint([[30, 60], [130, 60]], r=10, op=0), s=100))
+        out = self.run_node(text)["result"][0][0]
+        self.assertLess(float(out[60, 80]), 0.1, "rubbed out along the stroke")
+        self.assertTrue(0.05 < float(out[66, 80]) < 0.95, "thinned at its soft edge")
+        self.assertEqual(float(out[80, 80]), 1.0, "and whole further off")
+
+    def test_the_selection_the_face_reads_is_grey_where_a_soft_brush_painted(self):
+        hard = self.note(self.run_node(touches(paint(self.LINE, r=10))))
+        values = set(self.opened(hard["selection"]).pixels.unique().tolist())
+        self.assertEqual(values, {0, 255})
+        soft = self.note(self.run_node(touches(dict(paint(self.LINE, r=10), s=100))))
+        values = self.opened(soft["selection"]).pixels
+        self.assertTrue(bool(((values > 10) & (values < 245)).any()))
+
+    def test_the_chip_a_touch_is_in_changes_nothing(self):
+        plain = self.run_node(touches(tap(75, 34), paint(self.LINE, r=6)))["result"][0]
+        numbered = self.run_node(touches(dict(tap(75, 34), g=1), dict(paint(self.LINE, r=6), g=1)))["result"][0]
+        self.assertTrue(torch.equal(plain, numbered))
+
+    def test_a_take_away_says_whether_it_took_anything(self):
+        note = self.note(self.run_node(touches(tap(75, 34), paint([[5, 110], [20, 110]], op=0), paint([[60, 31], [90, 31]], r=2, op=0))))
+        self.assertEqual([item.get("did") for item in note["items"]], [None, False, True])
+
+    def test_each_picked_thing_comes_with_its_own_area_for_the_face(self):
+        text = touches(tap(75, 34), paint(self.LINE, r=4), tap(30, 70, op=0), find([[50, 80], [100, 80]]))
+        note = self.note(self.run_node(text))
+        # Paint the face draws itself, and what takes away is no chip: neither is sent.
+        self.assertEqual(note["areas"]["items"], [0, 3])
+        planes = [self.opened(entry).pixels for entry in note["areas"]["planes"]]
+        areas = unpack_planes(planes, 2)
+        self.assertTrue(torch.equal(areas[0], GLASSES.bool()))
+        self.assertTrue(torch.equal(areas[1], PERSON.bool()))
+        # The same touches again: the same files.
+        self.assertEqual(self.note(self.run_node(text))["areas"], note["areas"])
+        self.assertIsNone(self.note(self.run_node(touches(paint(self.LINE))))["areas"])
 
 
 class ContractTests(unittest.TestCase):

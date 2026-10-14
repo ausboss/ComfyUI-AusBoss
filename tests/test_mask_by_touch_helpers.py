@@ -59,6 +59,8 @@ from nodes._mask_by_touch_helpers import (  # noqa: E402
     scope_points,
     small_picture,
     small_size,
+    soft_stroke_area,
+    soft_to_small,
     stroke_area,
     tidy_matches,
     to_small,
@@ -776,6 +778,46 @@ class SubjectAndQuietTests(unittest.TestCase):
     def test_they_count_as_one_point_each_towards_the_limit(self):
         many = [{"t": "subject", "op": 1}] * ITEMS_MAX
         self.assertEqual(len(parse_touches(json.dumps({"v": 1, "items": many})).items), ITEMS_MAX)
+
+
+
+class SoftBrushTests(unittest.TestCase):
+    def test_a_paint_touch_reads_how_soft_its_brush_was(self):
+        item = parse_touches(json.dumps({"items": [{"t": "paint", "op": 1, "r": 4, "pts": [[1, 2]], "s": 40, "g": 3}]})).items[0]
+        self.assertAlmostEqual(item.soft, 0.4)
+        self.assertAlmostEqual(parse_touches(json.dumps({"items": [{"t": "paint", "op": 1, "r": 4, "pts": [[1, 2]], "s": 250}]})).items[0].soft, 1.0)
+        self.assertEqual(parse_touches(json.dumps({"items": [{"t": "paint", "op": 1, "r": 4, "pts": [[1, 2]]}]})).items[0].soft, 0.0)
+        # Only paint has an edge of its own.
+        self.assertEqual(parse_touches(json.dumps({"items": [{"t": "find", "op": 1, "r": 4, "pts": [[1, 2]], "s": 40}]})).items[0].soft, 0.0)
+        for bad in (True, "soft", None, float("nan")):
+            with self.assertRaises(ValueError):
+                parse_touches(json.dumps({"items": [{"t": "paint", "op": 1, "r": 4, "pts": [[1, 2]], "s": bad}]}).replace("NaN", "NaN"))
+
+    def test_a_soft_stroke_fades_and_a_too_thin_one_is_none(self):
+        area = soft_stroke_area([[10, 20], [50, 20]], 8, 1.0, 40, 64)
+        self.assertEqual((area.dtype, tuple(area.shape)), (torch.float32, (40, 64)))
+        self.assertGreater(float(area[20, 30]), 0.9)
+        self.assertTrue(0.2 < float(area[24, 30]) < 0.85)
+        self.assertIsNone(soft_stroke_area([[10, 20]], 2, 0.01, 40, 64))
+        # A stroke off the picture covers nothing.
+        self.assertEqual(float(soft_stroke_area([[-500, -500]], 8, 1.0, 40, 64).sum()), 0.0)
+
+    def test_joining_on_off_stays_on_off_and_soft_makes_it_soft(self):
+        one = torch.tensor([[True, True, False, False]])
+        other = torch.tensor([[True, False, True, False]])
+        self.assertTrue(torch.equal(apply_item(one, other, True), torch.tensor([[True, True, True, False]])))
+        self.assertTrue(torch.equal(apply_item(one, other, False), torch.tensor([[False, True, False, False]])))
+        soft = torch.full((1, 4), 0.5)
+        self.assertEqual(apply_item(one, soft, True).tolist(), [[1.0, 1.0, 0.5, 0.5]])
+        self.assertEqual(apply_item(one, soft, False).tolist(), [[0.5, 0.5, 0.0, 0.0]])
+        self.assertEqual(apply_item(soft, other, False).tolist(), [[0.0, 0.5, 0.0, 0.5]])
+
+    def test_a_soft_mask_at_the_small_size_keeps_its_strength(self):
+        mask = torch.zeros(8, 8)
+        mask[:, :4] = 1.0
+        mask[:, 4:6] = 0.5
+        small = soft_to_small(mask, 4, 4)
+        self.assertEqual(small[0].tolist(), [1.0, 1.0, 0.5, 0.0])
 
 
 if __name__ == "__main__":
