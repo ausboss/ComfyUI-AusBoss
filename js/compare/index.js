@@ -16,6 +16,7 @@ import {
   compareSwitchValue,
   findCompareImages,
   normalizeCompareMode,
+  sizeAfterErase,
 } from "../shared/compare.mjs";
 import { savedLinks } from "../shared/compare_erase.mjs";
 import { ERASE_BAR_HEIGHT, ERASE_CSS, ERASE_MIN_WIDTH, SAVE_ROW_HEIGHT, makeEraser } from "../shared/compare_erase_stage.mjs";
@@ -37,6 +38,7 @@ const CSS_ID = "ausboss-compare-ui-v5";
 const ROOT_GAP = 6;
 const BADGE_WIDTH = 22;
 const REST_SETTING = "AusBoss.Compare.RestOnResult";
+const SIZE_BEFORE_ERASE = "ausboss_compare_size_before_erase";
 let restOnResult = true;
 
 function ensureCompareCss() {
@@ -142,16 +144,27 @@ function updateModeButtons(state) {
 }
 
 // Hand the stage to the brush, or take it back, when the mode says so. A
-// node too small for the tool row grows to fit it.
+// node too small for the tool row grows to fit it, and shrinks back when
+// Erase is left. The size before is kept with the workflow, so a node saved
+// in Erase still goes back after a reload.
 function syncErase(state) {
   const node = state.node;
   const on = getMode(node) === "erase";
   if (state.eraser.active === on) return;
   state.eraser.setActive(on);
   holdVueNodeMinWidth(state.root, widthFloor(node));
-  const min = on ? node.computeSize?.() : null;
-  if (min && node.size && (node.size[0] < min[0] || node.size[1] < min[1])) {
-    node.setSize?.([Math.max(node.size[0], min[0]), Math.max(node.size[1], min[1])]);
+  if (!node.size) return;
+  if (!on) {
+    const back = sizeAfterErase([...node.size], node.properties[SIZE_BEFORE_ERASE]);
+    delete node.properties[SIZE_BEFORE_ERASE];
+    if (back) node.setSize?.(back);
+    return;
+  }
+  const min = node.computeSize?.();
+  if (min && (node.size[0] < min[0] || node.size[1] < min[1])) {
+    const before = [node.size[0], node.size[1]];
+    node.setSize?.([Math.max(before[0], min[0]), Math.max(before[1], min[1])]);
+    node.properties[SIZE_BEFORE_ERASE] = { before, grown: [node.size[0], node.size[1]] };
   }
 }
 
