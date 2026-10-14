@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.12.1 - 2026-10-14
 
 - **Image Compare A/B 🆎: leaving Erase gives the node its size back.**
   Erase makes a small node bigger so its tools fit. Going back to Slide, A
