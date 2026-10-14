@@ -28,6 +28,11 @@ SECURITY.md
 # pack loads it
 /assets/
 
+# the changelog: the Registry shows each version's notes, made from it when
+# the version is published (scripts/changelog_notes.py), and the full list
+# stays in the repository; nothing in the pack reads it
+CHANGELOG.md
+
 # repository files
 .gitignore
 .comfyignore
