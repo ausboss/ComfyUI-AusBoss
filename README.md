@@ -7,6 +7,7 @@
          at view time, so this badge can never go stale. release_preflight.py
          checks it stays the dynamic kind. -->
     <img src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fausboss%2FComfyUI-AusBoss%2Fmain%2Fpyproject.toml&query=%24.project.version&label=release&color=00b4aa&style=flat-square" alt="Release">
+    <a href="https://www.youtube.com/@ausbossdev"><img src="https://img.shields.io/badge/YouTube-%40ausbossdev-00b4aa?style=flat-square&logo=youtube&logoColor=white" alt="YouTube @ausbossdev"></a>
   </p>
 </div>
 
