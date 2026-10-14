@@ -88,6 +88,19 @@ export function compareSwitchValue(mode, showingB) {
   return "slide";
 }
 
+// Erase grows a node too small for its tool rows; leaving Erase gives that
+// size back. `record` holds the size before ({before, grown}); a side the
+// user has resized since keeps the new size. Null when nothing changes.
+export function sizeAfterErase(size, record) {
+  const pair = (value) => Array.isArray(value) && value.length >= 2
+    && value.slice(0, 2).every((side) => Number.isFinite(side) && side > 0);
+  if (!pair(size) || !pair(record?.before) || !pair(record?.grown)) return null;
+  const next = [0, 1].map((axis) => (
+    Math.abs(size[axis] - record.grown[axis]) < 1 ? record.before[axis] : size[axis]
+  ));
+  return next[0] === size[0] && next[1] === size[1] ? null : next;
+}
+
 // Where the A and B labels sit: each on its own side of the split line, so
 // they move with it; one label, centred, while only one picture shows. A
 // side too narrow for its label drops the label rather than covering the

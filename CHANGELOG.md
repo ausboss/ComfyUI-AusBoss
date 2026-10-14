@@ -2,6 +2,13 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Image Compare A/B 🆎: leaving Erase gives the node its size back.**
+  Erase makes a small node bigger so its tools fit. Going back to Slide, A
+  or B now returns the node to the size it had before, unless you resized
+  it while erasing.
+
 ## 2.12.0 - 2026-10-14
 
 - **Mask by Touch 🆎: fix the mask with a brush, without a pile of chips.**
