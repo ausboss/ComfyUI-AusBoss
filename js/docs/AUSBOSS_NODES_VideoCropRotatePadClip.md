@@ -26,7 +26,8 @@ model that paints black regions.
   sets the size (`576×1024 → pad 1821×1024 → resize 1280×704`) and warns in amber
   when the Step stretches the picture by more than 1% (`2.2% wider: each side rounds
   to 32 px`); the tooltip names a Step that avoids it, and in pad mode **Even out**
-  adds a few pixels of padding so nothing stretches. The bands are drawn in the real
+  adds a few pixels of padding so nothing stretches. While you drag, that amber
+  line keeps still and comes back for the new size when you let go. The bands are drawn in the real
   fill colour with a faint hatch, so black bands show on the black stage. A fresh clip node starts
   with black and feather 0 and the editor's **Reset transform** returns to them;
   the image nodes keep their grey fill and feathered mask.
