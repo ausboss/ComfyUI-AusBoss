@@ -666,6 +666,16 @@ function scopeAsk(face) {
 function requestRun(face, ask) {
   // The workflow is being sent right now and will answer for these touches.
   if (face.holdRuns) return false;
+  // Switched off (bypassed or muted, by hand or by a switch): ComfyUI leaves
+  // this node out of a run, so a run of it alone has nothing to do and comes
+  // back as "Prompt has no outputs". Nothing is sent; the look is made up
+  // when the node is on again and the pointer comes to it.
+  if (face.host.switchedOff?.()) {
+    face.lookMissed = true;
+    dropPending(face);
+    setNote(face, "This node is switched off. Switch it on to pick.", { life: 5000 });
+    return false;
+  }
   if (face.flying.length) {
     // A look at the picture gives way to the next job in the queue. So a
     // run that is not a look is sent at once, behind the look, and the look
@@ -2570,6 +2580,11 @@ function installPointer(face, signal) {
   // The keys work while the pointer is anywhere on the node's panel: they
   // are listened to from when it comes onto the panel until it is off it.
   face.root.addEventListener("pointerenter", () => {
+    // A look that was skipped while the node was switched off.
+    if (face.lookMissed && !face.host.switchedOff?.()) {
+      face.lookMissed = false;
+      showOwnPicture(face);
+    }
     if (face.keys) return;
     face.keys = new AbortController();
     const options = { signal: face.keys.signal, capture: true };

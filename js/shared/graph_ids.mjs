@@ -46,3 +46,27 @@ export function executionIdOf(rootGraph, node) {
   };
   return walk(rootGraph, "", 0);
 }
+
+// Whether ComfyUI leaves a node out of every run: it is bypassed or muted
+// (modes 4 and 2), or a box (subgraph node) on the way to it is. Such a node
+// can not be run alone either: a prompt of it has nothing left to run, and
+// ComfyUI refuses it with "Prompt has no outputs". A node that is on no graph
+// counts only its own mode.
+const OFF_MODES = new Set([2, 4]);
+export function isSwitchedOff(rootGraph, node) {
+  if (!node) return false;
+  if (OFF_MODES.has(node.mode)) return true;
+  if (!rootGraph) return false;
+  const holdersOf = (graph, depth) => {
+    const nodes = graph?.nodes ?? graph?._nodes ?? [];
+    if (nodes.includes(node)) return [];
+    if (depth > 16) return null;
+    for (const holder of nodes) {
+      if (!holder?.subgraph) continue;
+      const found = holdersOf(holder.subgraph, depth + 1);
+      if (found) return [holder, ...found];
+    }
+    return null;
+  };
+  return (holdersOf(rootGraph, 0) ?? []).some((holder) => OFF_MODES.has(holder.mode));
+}
