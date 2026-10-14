@@ -4,8 +4,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## 2.12.1 - 2026-10-14
 
-- **Nothing changed in the nodes.** This is 2.12.0 again under a new
-  number. If you already have 2.12.0, there is no need to update.
+- **Image Compare A/B 🆎: leaving Erase gives the node its size back.**
+  Erase makes a small node bigger so its tools fit. Going back to Slide, A
+  or B now returns the node to the size it had before, unless you resized
+  it while erasing.
+- **Qwen Image 2.1 Inpaint example: its note says Paint, the button's name
+  since 2.12.0.** It still said Draw. The note and the YouTube box now link
+  the video that walks through this workflow.
 
 ## 2.12.0 - 2026-10-14
 
