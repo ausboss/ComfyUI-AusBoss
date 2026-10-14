@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.12.0 - 2026-10-14
 
 - **Mask by Touch 🆎: fix the mask with a brush, without a pile of chips.**
   The switch above the picture now has three tools: **Pick** takes whole
