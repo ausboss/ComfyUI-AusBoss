@@ -14,7 +14,7 @@ I made these nodes for my own ComfyUI workflows, mostly because I wanted feature
 
 Most of them are for image and video work. You can rotate, crop and pad a picture by dragging handles on the node, trim a clip on a timeline, and outpaint or inpaint with your original pixels put back. ComfyUI's core nodes already cover the basics, like seeds, sizes and prompts, so use these where they add something.
 
-The **?** in a node's title bar opens a short card with its inputs and outputs, and every node has a longer help page in ComfyUI's node help panel. I post the workflows I make with them on [Civitai](https://civitai.com/user/AusBoss) and [X @Zanzibased](https://x.com/Zanzibased).
+The **?** in a node's title bar opens a short card with its inputs and outputs, and every node has a longer help page in ComfyUI's node help panel. I post the workflows I make with them on [Civitai](https://civitai.com/user/AusBoss) and [X @Zanzibased](https://x.com/Zanzibased), and videos of them on [YouTube @ausbossdev](https://www.youtube.com/@ausbossdev).
 
 ## Install
 
