@@ -2,6 +2,11 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## 2.12.1 - 2026-10-14
+
+- **Nothing changed in the nodes.** This is 2.12.0 again under a new
+  number. If you already have 2.12.0, there is no need to update.
+
 ## 2.12.0 - 2026-10-14
 
 - **Mask by Touch 🆎: fix the mask with a brush, without a pile of chips.**
