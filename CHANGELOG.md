@@ -31,6 +31,17 @@ All notable changes to ComfyUI-AusBoss are documented here.
   it moves; a node at its smallest height is one line taller for it. The
   size line above it no longer wraps in and out mid-drag, and the full
   editor's size box and status panel wait the same way.
+- **Workflow Switches 🆎: a card can show its switches as one pill, where
+  one is always picked.** It is for choices, such as masking by words or by
+  a click. In the card's Settings, set **One at a time** to on and the new
+  **Show as** to **one pill**. Each switch is then a part of one pill, the
+  one in use is filled, and a click on another one changes to it. A click on
+  the filled one does nothing, so nobody switches them all off or two on.
+  Up to four short names sit side by side. More choices, or long names,
+  show as a list to pick from, and the card gets wider when the names need
+  the room. A workflow saved with none or several on shows that as it is,
+  with an amber edge, and one click settles it. The cards you have look and
+  work as before: rows are still what a card opens with.
 
 ## 2.11.2 - 2026-10-13
 

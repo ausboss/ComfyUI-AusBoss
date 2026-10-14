@@ -16,6 +16,10 @@
 // folds all of that away and leaves the labels and their switches: the small
 // view a shared workflow ships with.
 //
+// A card with One at a time on can show its rows as one control instead
+// (Show as: one pill): every row is a choice in a segmented pill, or in a
+// list when the names are too many or too long, and one is always picked.
+//
 // Only what the user made is stored (which nodes each switch holds, by id,
 // the values it remembers and the settings, in node.properties). Every row's
 // state is read from the nodes' own modes and values, so a reloaded workflow, an undo or a node bypassed by
@@ -29,13 +33,14 @@
 import { app } from "/scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "../shared/index.mjs";
 import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
-import { holdNodeMinWidth, pinVuePanelHeight } from "../shared/panel_layout.mjs";
+import { holdNodeMinWidth, holdVueNodeMinWidth, pinVuePanelHeight } from "../shared/panel_layout.mjs";
 import { cardHeight, commitWidgetValue, ensureCardCss } from "../shared/widget_card.mjs";
 import {
-  DEFAULT_SETTINGS, SETTINGS_PROPERTY, SWITCHES_MAX, TITLE_MAX, addMembers, addOffMembers, addSwitch, flipTo, frameBounds,
-  groupBounds, hasOffSide, heldCount, listedRows, modeMatters, moveSwitch, normalizeSettings, offFreshCount, offHeldCount,
-  pairValue, placeNodes, readGroups, readSwitches, removeMembers, removeOffMembers, removeSwitch, renameSwitch,
-  rowsSignature, saveValues, snapshotNode, suggestTitle, switchAllPlan, switchPlan, valueAllPlan, valuePlan,
+  DEFAULT_SETTINGS, SETTINGS_PROPERTY, SWITCHES_MAX, TITLE_MAX, addMembers, addOffMembers, addSwitch, cardView, choiceState,
+  choosePlan, flipTo, frameBounds, groupBounds, hasOffSide, heldCount, listedRows, modeMatters, moveSwitch, normalizeSettings,
+  offFreshCount, offHeldCount, pairValue, placeNodes, readGroups, readSwitches, removeMembers, removeOffMembers, removeSwitch,
+  renameSwitch, rowLabel, rowsSignature, saveValues, snapshotNode, suggestTitle, switchAllPlan, switchPlan, valueAllPlan,
+  valuePlan,
 } from "../shared/workflow_switches.mjs";
 
 const NODE_CLASS = "AUSBOSS_NODES_WorkflowSwitches";
@@ -64,6 +69,9 @@ const RECHECK_MS = 150;
 const FRAME_FILL = 0.8;
 // What a group with no color set is drawn with (LGraphGroup.defaultColour).
 const NO_COLOR = "#335";
+// The type a pill's choices are set in. Their names are measured with it, so
+// the card can be as wide as its pill needs.
+const CHOICE_FONT = `600 10.5px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif`;
 
 const live = new Set();
 let hookedCanvas = null;
@@ -102,6 +110,17 @@ function ensureCss() {
 .ausboss-ws-sides svg{display:block;width:12px;height:12px}
 .ausboss-ws.edit .ausboss-ws-row.sided{grid-template-columns:10px minmax(0,1fr) auto auto 84px 26px 26px}
 .ausboss-ws.edit .ausboss-ws-row.sided .ausboss-ws-sides{display:grid}
+.ausboss-ws .ausboss-ws-pick{grid-template-columns:minmax(0,1fr)}
+.ausboss-ws-pick [hidden]{display:none}
+.ausboss-ws-choices button{padding:0 6px;font:${CHOICE_FONT}}
+.ausboss-ws-choices button.mixed{background:repeating-linear-gradient(135deg,rgba(0,180,170,.2) 0 3px,transparent 3px 7px);color:#bfe6e2}
+.ausboss-ws-choices button.empty{opacity:.35;pointer-events:none}
+.ausboss-ws-choices.settled button.on{cursor:default}
+.ausboss-ws-choices.unsettled,.ausboss-ws-choice-list.unsettled{border-color:rgba(255,196,107,.6)}
+.ausboss-ws.pick .ausboss-ws-pill{display:none}
+.ausboss-ws.pick:not(.edit) .ausboss-ws-row{display:none}
+.ausboss-ws.pick.edit .ausboss-ws-row{grid-template-columns:10px minmax(0,1fr) auto 26px 26px}
+.ausboss-ws.pick.edit .ausboss-ws-row.sided{grid-template-columns:10px minmax(0,1fr) auto auto 26px 26px}
 .ausboss-ws-hint{height:${HINT_HEIGHT}px;flex:none;display:flex;align-items:center;padding:0;border:none;background:transparent;color:#78908e;font:inherit;font-size:11px;line-height:1.35;text-align:left;user-select:none;pointer-events:auto}
 .ausboss-ws-hint.link{cursor:pointer}
 .ausboss-ws-hint.link:hover{color:#d8ecea}
@@ -220,8 +239,25 @@ function settingsOpen(node) {
   return Boolean(node.properties?.[SHOW_SETTINGS]);
 }
 
+// The narrowest the node goes: what its view needs, and what its pill needs
+// to show every name in full.
 function minWidth(node) {
-  return editOpen(node) ? EDIT_MIN_WIDTH : SMALL_MIN_WIDTH;
+  const view = editOpen(node) ? EDIT_MIN_WIDTH : SMALL_MIN_WIDTH;
+  return Math.max(view, node.__ausbossWorkflowSwitches?.pillWidth ?? 0);
+}
+
+// A name's width in a pill, measured in the type the pill sets it in.
+let measuring = null;
+function nameWidth(text) {
+  measuring ??= document.createElement("canvas").getContext("2d");
+  if (!measuring) return String(text).length * 7;
+  measuring.font = CHOICE_FONT;
+  return measuring.measureText(String(text)).width;
+}
+
+// How the card shows its rows: "rows", "pill" or "list".
+function viewOf(settings, rows) {
+  return cardView(settings, rows, nameWidth);
 }
 
 function read(state) {
@@ -313,6 +349,22 @@ function switchRow(state, key, side) {
   if (!target) return;
   const on = flipTo(target.state, side);
   applyPlan(state, switchPlan(rows, target, on, settings), valuePlan(rows, target, on, settings));
+  refresh(state);
+}
+
+// A click on a choice of the pill, or a pick from its list: that row goes on
+// and every other row off. The choice that is already the only one on changes
+// nothing, so one is always picked.
+function chooseRow(state, key) {
+  const { settings, rows } = read(state);
+  const target = rows.find((row) => rowKey(row) === key);
+  if (target) {
+    const { modes, values } = choosePlan(rows, target, settings);
+    applyPlan(state, modes, values);
+  }
+  // Drawn again even when nothing changed: a list must not keep showing a
+  // pick that was not taken.
+  state.signature = "";
   refresh(state);
 }
 
@@ -460,8 +512,14 @@ function buildSettings(state) {
     { flips: true },
   );
   exclusive.row.querySelector(".ausboss-card-seg")?.classList.add("ausboss-card-bool");
+  const show = segmentRow(
+    state, "show", "Show as",
+    "Rows gives each switch a row with its own off | on. One pill makes the switches choices in a single pill, where one is always picked.",
+    ["rows", "pill"],
+    { pill: "one pill" },
+  );
 
-  const rows = { off, groups, match: { row: match.row }, order, exclusive };
+  const rows = { off, groups, match: { row: match.row }, order, exclusive, show };
   const sync = (settings, edit, open) => {
     header.classList.toggle("open", open);
     header.style.display = edit ? "" : "none";
@@ -469,7 +527,8 @@ function buildSettings(state) {
     for (const entry of Object.values(rows)) entry.row.classList.toggle("hidden", !edit || !open);
     match.row.classList.toggle("hidden", !edit || !open || settings.groups !== "matching");
     order.row.classList.toggle("hidden", !edit || !open || !listing);
-    for (const entry of [off, groups, order, exclusive]) entry.sync(settings);
+    show.row.classList.toggle("hidden", !edit || !open || !settings.exclusive);
+    for (const entry of [off, groups, order, exclusive, show]) entry.sync(settings);
     if (document.activeElement !== text) text.value = settings.match;
   };
   return { header, rows: Object.values(rows).map((entry) => entry.row), sync };
@@ -480,6 +539,7 @@ function settingsRowCount(settings) {
   let count = 3; // when off, groups, one at a time
   if (settings.groups !== "none") count += 1; // group order
   if (settings.groups === "matching") count += 1; // match
+  if (settings.exclusive) count += 1; // show as
   return count;
 }
 
@@ -729,7 +789,7 @@ function buildRow(state, key, made) {
   });
 
   const sync = (data, settings) => {
-    const label = data.title || (made ? "Switch" : "Group");
+    const label = rowLabel(data);
     row.classList.toggle("off", data.state === "off");
     row.classList.toggle("mixed", data.state === "mixed");
     row.classList.toggle("empty", data.state === "empty");
@@ -793,14 +853,122 @@ function buildRow(state, key, made) {
   return { row, title, name, sync };
 }
 
+// ---------- one pill for the whole card ----------
+
+// Where a pick-one card stands when it is not settled on one choice, in a
+// few words; nothing when it is.
+function standText(stand, rows) {
+  if (stand.kind === "none") return "Nothing is picked";
+  if (stand.kind === "several") return `${stand.count} are on at once`;
+  if (stand.kind !== "partly") return "";
+  return `"${rowLabel(rows.find((row) => row.state === "mixed"))}" is only partly on`;
+}
+
+// The card's rows as one control: a segmented pill with a segment for each
+// row, or a list of them when a pill cannot hold them (cardView decides). The
+// rows that are on are the filled ones, so a graph with none or several on
+// shows as it is, with an amber edge, and the next click leaves one.
+function buildPick(state) {
+  const row = el("div", "ausboss-card-row ausboss-ws-pick hidden");
+  const pill = el("div", "ausboss-card-seg ausboss-ws-choices");
+  pill.setAttribute("role", "radiogroup");
+  const list = el("select", "ausboss-card-select ausboss-ws-choice-list");
+  list.addEventListener("change", () => {
+    if (list.value) chooseRow(state, list.value);
+  });
+  row.append(pill, list);
+  const choices = new Map();
+
+  const syncPill = (rows, stand, note) => {
+    const settled = stand.kind === "one";
+    pill.classList.toggle("settled", settled);
+    pill.classList.toggle("unsettled", !settled);
+    const seen = new Set();
+    let cursor = pill.firstElementChild;
+    for (const data of rows) {
+      const key = rowKey(data);
+      let choice = choices.get(key);
+      if (!choice) {
+        choice = button("");
+        choice.setAttribute("role", "radio");
+        choice.addEventListener("click", () => chooseRow(state, key));
+        choices.set(key, choice);
+      }
+      const label = rowLabel(data);
+      const empty = data.state === "empty";
+      choice.textContent = label;
+      choice.classList.toggle("on", data.state === "on");
+      choice.classList.toggle("mixed", data.state === "mixed");
+      choice.classList.toggle("empty", empty);
+      choice.disabled = empty;
+      choice.setAttribute("aria-checked", String(data.state === "on"));
+      choice.title = empty ? `"${label}" holds no nodes, so there is nothing to pick.`
+        : !settled ? `${note}. Click: use only "${label}".`
+          : data === stand.picked ? `"${label}" is picked. Click another one to change.`
+            : `Click: use "${label}" and switch the others off`;
+      if (cursor === choice) cursor = cursor.nextElementSibling;
+      else pill.insertBefore(choice, cursor);
+      seen.add(key);
+    }
+    for (const [key, choice] of choices) {
+      if (seen.has(key)) continue;
+      choice.remove();
+      choices.delete(key);
+    }
+  };
+
+  const syncList = (rows, stand, note) => {
+    const settled = stand.kind === "one";
+    list.classList.toggle("unsettled", !settled);
+    list.title = settled ? "Pick the one to use. The others are switched off." : `${note}. Pick the one to use.`;
+    const options = [];
+    if (!settled) {
+      // What the list reads while no single row is on; never one of the
+      // picks, and short enough for the narrowest card.
+      const short = { none: "Pick one", partly: "Partly on: pick one", several: `${stand.count} are on: pick one` };
+      const waiting = el("option", "", short[stand.kind]);
+      waiting.value = "";
+      waiting.disabled = true;
+      waiting.hidden = true;
+      options.push(waiting);
+    }
+    for (const data of rows) {
+      const mark = settled ? "" : data.state === "on" ? " (on)" : data.state === "mixed" ? " (partly on)" : "";
+      const option = el("option", "", `${rowLabel(data)}${mark}`);
+      option.value = rowKey(data);
+      option.disabled = data.state === "empty";
+      options.push(option);
+    }
+    list.replaceChildren(...options);
+    list.value = settled ? rowKey(stand.picked) : "";
+  };
+
+  const sync = (view, rows) => {
+    row.classList.toggle("hidden", view === "rows");
+    pill.hidden = view !== "pill";
+    list.hidden = view !== "list";
+    const stand = choiceState(rows);
+    const note = standText(stand, rows);
+    syncPill(view === "pill" ? rows : [], stand, note);
+    if (view === "list") syncList(rows, stand, note);
+    else list.replaceChildren();
+  };
+  return { row, sync };
+}
+
 // ---------- the panel ----------
 
 function declaredHeight(state) {
   return state.height + WRAPPER_INSET;
 }
 
-function measureCard(listed, edit, open, settings) {
-  const rows = listed ? Array.from({ length: listed }, () => ({ widget: "switch" })) : [{ widget: "hint", height: HINT_HEIGHT }];
+// With the rows shown as one control (`picking`), that control is one row,
+// and the rows under it show in the edit view only.
+function measureCard(listed, edit, open, settings, picking) {
+  const rows = [];
+  if (!listed) rows.push({ widget: "hint", height: HINT_HEIGHT });
+  if (picking) rows.push({ widget: "pick" });
+  if (!picking || edit) for (let index = 0; index < listed; index += 1) rows.push({ widget: "switch" });
   if (edit) {
     rows.push({ widget: "bar" }, { group: "settings" });
     if (open) for (let index = 0; index < settingsRowCount(settings); index += 1) rows.push({ widget: "setting" });
@@ -818,7 +986,12 @@ function render(state, settings, rows, groupCount, pick) {
   const node = state.node;
   const edit = editOpen(node);
   const open = settingsOpen(node);
+  const { view, width: pillWidth } = viewOf(settings, rows);
+  const picking = view !== "rows";
   state.root.classList.toggle("edit", edit);
+  state.root.classList.toggle("pick", picking);
+  state.pick.sync(view, rows);
+  state.pillWidth = pillWidth;
 
   const seen = new Set();
   let cursor = state.list.firstElementChild;
@@ -847,12 +1020,18 @@ function render(state, settings, rows, groupCount, pick) {
   state.hint.textContent = hintText(edit, groupCount, settings);
   state.hint.classList.toggle("link", !edit);
   state.bar.classList.toggle("hidden", !edit);
+  state.done.title = picking
+    ? "Show only the pill. Right-click the node and pick Edit switches to edit again."
+    : "Show only the labels and their switches. Double-click a label, or right-click the node, to edit again.";
   state.add.classList.toggle("ready", pick.count > 0);
   state.add.textContent = pick.count > 0 ? `+ Switch from ${pick.count} selected` : "Select nodes, then add a switch";
   state.settings.sync(settings, edit, open);
 
-  const height = measureCard(rows.length, edit, open, settings);
+  const height = measureCard(rows.length, edit, open, settings, picking);
   const floor = minWidth(node);
+  // Nodes 2.0 holds the floor on the node's element: told here, as the floor
+  // follows the names in the pill and the node may not change size with it.
+  holdVueNodeMinWidth(state.root, floor);
   if (height !== state.height || (node.size?.[0] ?? 0) < floor) {
     state.height = height;
     const width = Math.max(floor, node.size?.[0] || NODE_WIDTH);
@@ -924,16 +1103,17 @@ function buildPanel(node) {
   const hint = button("ausboss-ws-hint hidden");
   const bar = el("div", "ausboss-card-row ausboss-ws-bar hidden");
   const add = button("ausboss-ws-add", "+ Switch", "Select the nodes of one part on the canvas, then press this: they get one switch");
-  const done = button("ausboss-ws-done", "Done", "Show only the labels and their switches. Double-click a label, or right-click the node, to edit again.");
+  const done = button("ausboss-ws-done", "Done");
   bar.append(add, done);
-  card.append(list, hint, bar);
   root.append(card);
 
   const state = {
-    node, root, list, hint, bar, add, rows: new Map(), settings: null, renaming: null,
+    node, root, list, hint, bar, add, done, rows: new Map(), settings: null, pick: null, pillWidth: 0, renaming: null,
     height: 0, signature: "", checkedAt: 0, timer: null, disposed: false,
   };
   node.__ausbossWorkflowSwitches = state;
+  state.pick = buildPick(state);
+  card.append(state.pick.row, list, hint, bar);
   state.settings = buildSettings(state);
   card.append(state.settings.header, ...state.settings.rows);
 
@@ -1025,14 +1205,16 @@ app.registerExtension({
     chainCallback(nodeType.prototype, "getExtraMenuOptions", function (_canvas, options) {
       const state = this.__ausbossWorkflowSwitches;
       if (!state || !Array.isArray(options)) return;
-      const { settings } = read(state);
+      const { settings, rows } = read(state);
       const edit = editOpen(this);
       const items = [{
         content: edit ? "Show only the switches" : "Edit switches",
         callback: () => setEdit(state, !edit),
       }];
       if (!settings.exclusive) items.push({ content: "Switch everything on", callback: () => switchAll(state, true) });
-      items.push({ content: "Switch everything off", callback: () => switchAll(state, false) }, null);
+      // A card shown as one pill always has one picked: no "everything off".
+      if (viewOf(settings, rows).view === "rows") items.push({ content: "Switch everything off", callback: () => switchAll(state, false) });
+      items.push(null);
       options.unshift(...items);
     });
     // The card is a list sized to its rows: width may grow, but a corner

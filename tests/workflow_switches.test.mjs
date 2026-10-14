@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  DEFAULT_SETTINGS, MEMBERS_MAX, MODE_ALWAYS, MODE_BYPASS, MODE_NEVER, SWITCHES_MAX, TITLE_MAX, VALUE_TEXT_MAX,
-  addMembers, addOffMembers, addSwitch, canvasOrder, centreInside, cleanIds, cleanSnapshots, flipTo, frameBounds, groupBounds,
-  groupListed, hasOffSide, heldCount, isRunning, listedRows, matchTerms, modeMatters, moveSwitch, nodeBounds,
-  normalizeSettings, normalizeSwitches, offFreshCount, offHeldCount, offMode, pairNow, pairValue, partState, placeNodes,
-  readGroups, readSwitches, removeMembers, removeOffMembers, removeSwitch, renameSwitch, rowsSignature, saveValues,
-  snapshotNode, stackRows, suggestTitle, switchAllPlan, switchPlan, titleOrder, unionRect, valueAllPlan, valuePairs,
-  valuePlan,
+  DEFAULT_SETTINGS, MEMBERS_MAX, MODE_ALWAYS, MODE_BYPASS, MODE_NEVER, PILL_CHOICES_MAX, PILL_FRAME, PILL_NODE_WIDTH_MAX,
+  PILL_SEGMENT_PAD, SWITCHES_MAX, TITLE_MAX, VALUE_TEXT_MAX,
+  addMembers, addOffMembers, addSwitch, canvasOrder, cardView, centreInside, choiceState, choosePlan, cleanIds, cleanSnapshots,
+  flipTo, frameBounds, groupBounds, groupListed, hasOffSide, heldCount, isRunning, listedRows, matchTerms, modeMatters,
+  moveSwitch, nodeBounds, normalizeSettings, normalizeSwitches, offFreshCount, offHeldCount, offMode, pairNow, pairValue,
+  partState, pillNodeWidth, placeNodes, readGroups, readSwitches, removeMembers, removeOffMembers, removeSwitch, renameSwitch,
+  rowLabel, rowsSignature, saveValues, snapshotNode, stackRows, suggestTitle, switchAllPlan, switchPlan, titleOrder, unionRect,
+  valueAllPlan, valuePairs, valuePlan,
 } from "../js/shared/workflow_switches.mjs";
 
 const node = (id, x, y, { w = 200, h = 100, mode = MODE_ALWAYS, ...rest } = {}) => ({ id, pos: [x, y], size: [w, h], mode, ...rest });
@@ -22,12 +23,13 @@ test("settings fall back to the defaults for anything a workflow left behind", (
   assert.deepEqual(normalizeSettings("nonsense"), defaults);
   assert.deepEqual(
     normalizeSettings({ off: "mute", groups: "matching", match: "upscale", order: "title", exclusive: true }),
-    { off: "mute", groups: "matching", match: "upscale", order: "title", exclusive: true, switches: [] },
+    { off: "mute", groups: "matching", match: "upscale", order: "title", exclusive: true, show: "rows", switches: [] },
   );
   assert.deepEqual(
-    normalizeSettings({ off: "delete", groups: 3, order: null, exclusive: "yes", match: 7, switches: "all" }),
+    normalizeSettings({ off: "delete", groups: 3, order: null, exclusive: "yes", show: "tabs", match: 7, switches: "all" }),
     defaults,
   );
+  assert.equal(normalizeSettings({ exclusive: true, show: "pill" }).show, "pill");
   assert.equal(normalizeSettings({ match: "x".repeat(500) }).match.length, 200);
   assert.equal(normalizeSettings({ groups: "none" }).groups, "none");
   // Every read hands out a list of its own: the frozen default is never shared.
@@ -523,7 +525,10 @@ test("a switch saved before the off side existed is stored, read and switched ex
     + '{"id":1,"title":"The cut-out","nodes":[8],"groups":[],"on":{},"off":{}},'
     + '{"id":2,"title":"Fast","nodes":[],"groups":[3],"on":{"7":{"value":8}},"off":{"7":{"value":25}}}]}';
   const settings = normalizeSettings(JSON.parse(before));
-  assert.equal(JSON.stringify(settings), before);
+  // The switches read back as they were saved. The settings beside them have
+  // since grown by one key, which reads as its default.
+  const now = before.replace('"switches":[', '"show":"rows","switches":[');
+  assert.equal(JSON.stringify(settings), now);
   // Nothing that changes such a switch brings the off side in.
   const changed = [
     addMembers(settings, 1, { nodes: [9], groups: [4] }), removeMembers(settings, 1, { nodes: [8] }), renameSwitch(settings, 1, "Renamed"),
@@ -532,7 +537,7 @@ test("a switch saved before the off side existed is stored, read and switched ex
   for (const next of changed) {
     for (const entry of next.switches) assert.deepEqual(Object.keys(entry), ["id", "title", "nodes", "groups", "on", "off"]);
   }
-  assert.equal(JSON.stringify(removeOffMembers(settings, 1, { nodes: [8] })), before);
+  assert.equal(JSON.stringify(removeOffMembers(settings, 1, { nodes: [8] })), now);
   // Read from a graph: no off side, and the state is the one the nodes alone give.
   const placed = placeNodes([node(8, 0, 0, { mode: MODE_BYPASS })]);
   const [cutOut] = readSwitches(settings.switches, placed, []);
@@ -753,4 +758,151 @@ test("the signature changes with anything the card shows, and only then", () => 
   assert.notEqual(rowsSignature([{ ...rows[0], kind: "switch" }], settings), base);
   assert.notEqual(rowsSignature(rows, { ...settings, off: "mute" }), base);
   assert.notEqual(rowsSignature(rows, addSwitch(settings, { title: "New" }).settings), base);
+});
+
+// ---------- one pill for the whole card ----------
+
+// Every character 6 px wide: a name's width is then easy to say in a test.
+const sixPx = (text) => String(text).length * 6;
+const choice = (title, state, extra = {}) => ({ kind: "switch", title, state, members: [], ...extra });
+
+test("a card shows its rows as before unless One at a time and the pill are both on", () => {
+  const rows = [choice("Say it", "on"), choice("Touch it", "off")];
+  // A workflow saved by an earlier version has no `show`: rows, as it always was.
+  for (const saved of [{}, { exclusive: true }, { exclusive: false, show: "pill" }, { exclusive: true, show: "rows" }]) {
+    assert.deepEqual(cardView(normalizeSettings(saved), rows, sixPx), { view: "rows", width: 0 });
+  }
+  const pill = normalizeSettings({ exclusive: true, show: "pill" });
+  assert.equal(cardView(pill, rows, sixPx).view, "pill");
+  // One row alone has nothing to be picked against, and no row is the hint.
+  assert.equal(cardView(pill, [rows[0]], sixPx).view, "rows");
+  assert.equal(cardView(pill, [], sixPx).view, "rows");
+  assert.equal(cardView(pill, undefined, sixPx).view, "rows");
+});
+
+test("up to four short names are a pill, and more or longer ones are a list", () => {
+  const pill = normalizeSettings({ exclusive: true, show: "pill" });
+  const named = (...titles) => titles.map((title) => choice(title, "off"));
+  for (let count = 2; count <= PILL_CHOICES_MAX; count += 1) {
+    assert.equal(cardView(pill, named(...Array.from({ length: count }, (_, index) => `Option ${index + 1}`)), sixPx).view, "pill");
+  }
+  assert.equal(cardView(pill, named("1", "2", "3", "4", "5"), sixPx).view, "list");
+  assert.deepEqual(cardView(pill, named("A", "B", "C", "D", "E", "F"), sixPx), { view: "list", width: 0 });
+  // The segments are equally wide, so the longest name decides the width.
+  assert.equal(pillNodeWidth(["Say it", "Touch it"], sixPx), PILL_FRAME + 2 * (8 * 6 + PILL_SEGMENT_PAD));
+  assert.equal(pillNodeWidth(["A", "Touch it", "B"], sixPx), PILL_FRAME + 3 * (8 * 6 + PILL_SEGMENT_PAD));
+  assert.deepEqual(cardView(pill, named("Say it", "Touch it"), sixPx), { view: "pill", width: PILL_FRAME + 2 * (8 * 6 + PILL_SEGMENT_PAD) });
+  // The card is never asked to be wider than PILL_NODE_WIDTH_MAX for its pill.
+  const fits = Math.floor(((PILL_NODE_WIDTH_MAX - PILL_FRAME) / 2 - PILL_SEGMENT_PAD) / 6);
+  assert.equal(cardView(pill, named("x".repeat(fits), "short"), sixPx).view, "pill");
+  assert.equal(cardView(pill, named("x".repeat(fits + 1), "short"), sixPx).view, "list");
+  assert.ok(cardView(pill, named("x".repeat(fits), "short"), sixPx).width <= PILL_NODE_WIDTH_MAX);
+  // Four names leave each less room than two do.
+  assert.equal(cardView(pill, named("x".repeat(fits), "a", "b", "c"), sixPx).view, "list");
+  // A group nobody named still has something to read, and without a way to
+  // measure there is a guess, never a throw.
+  assert.equal(rowLabel({ kind: "group", title: "" }), "Group");
+  assert.equal(rowLabel({ kind: "switch", title: "" }), "Switch");
+  assert.equal(rowLabel({ kind: "group", title: "4 · Upscale" }), "4 · Upscale");
+  assert.equal(cardView(pill, named("Say it", "Touch it")).view, "pill");
+});
+
+test("a pick-one card says honestly where it stands", () => {
+  const a = choice("A", "on");
+  assert.deepEqual(choiceState([a, choice("B", "off"), choice("C", "empty")]), { kind: "one", picked: a, count: 1 });
+  assert.deepEqual(choiceState([choice("A", "off"), choice("B", "off")]), { kind: "none", picked: null, count: 0 });
+  assert.deepEqual(choiceState([choice("A", "on"), choice("B", "on"), choice("C", "off")]), { kind: "several", picked: null, count: 2 });
+  // A row that is only partly on is never the pick, alone or beside another.
+  assert.deepEqual(choiceState([choice("A", "mixed"), choice("B", "off")]), { kind: "partly", picked: null, count: 1 });
+  assert.deepEqual(choiceState([choice("A", "on"), choice("B", "mixed")]), { kind: "several", picked: null, count: 2 });
+  assert.deepEqual(choiceState([]), { kind: "none", picked: null, count: 0 });
+  assert.deepEqual(choiceState(undefined), { kind: "none", picked: null, count: 0 });
+});
+
+test("a click on a choice leaves exactly that row on, and a click on the picked one does nothing", () => {
+  const settings = normalizeSettings({ exclusive: true, show: "pill" });
+  const graph = () => {
+    const nodes = [node(1, 0, 0), node(2, 0, 200, { mode: MODE_BYPASS }), node(3, 0, 400, { mode: MODE_BYPASS })];
+    const made = normalizeSettings({
+      switches: [{ id: 1, title: "Say it", nodes: [1] }, { id: 2, title: "Touch it", nodes: [2] }, { id: 3, title: "Paint it", nodes: [3] }],
+    }).switches;
+    return { nodes, read: () => readSwitches(made, placeNodes(nodes), []) };
+  };
+  const click = (g, index) => {
+    const rows = g.read();
+    const { modes, values } = choosePlan(rows, rows[index], settings);
+    for (const [member, mode] of modes) member.mode = mode;
+    return { changed: modes.length + values.length, states: g.read().map((row) => row.state) };
+  };
+  // Settled: the picked one does nothing, another one moves the pick.
+  let g = graph();
+  assert.deepEqual(click(g, 0), { changed: 0, states: ["on", "off", "off"] });
+  assert.deepEqual(click(g, 2), { changed: 2, states: ["off", "off", "on"] });
+  assert.deepEqual(g.nodes.map((member) => member.mode), [MODE_BYPASS, MODE_BYPASS, MODE_ALWAYS]);
+  assert.deepEqual(click(g, 2), { changed: 0, states: ["off", "off", "on"] });
+  // None on (an old file, or everything bypassed by hand): one click picks.
+  g = graph();
+  g.nodes[0].mode = MODE_BYPASS;
+  assert.equal(choiceState(g.read()).kind, "none");
+  assert.deepEqual(click(g, 1), { changed: 1, states: ["off", "on", "off"] });
+  // Several on: a click on one of them keeps only that one.
+  g = graph();
+  g.nodes[1].mode = MODE_ALWAYS;
+  g.nodes[2].mode = MODE_ALWAYS;
+  assert.deepEqual(choiceState(g.read()).count, 3);
+  assert.deepEqual(click(g, 1), { changed: 2, states: ["off", "on", "off"] });
+  // It is one at a time whatever the card's own setting says, and it mutes when off means mute.
+  g = graph();
+  const loose = { ...settings, exclusive: false, off: "mute" };
+  const rows = g.read();
+  for (const [member, mode] of choosePlan(rows, rows[1], loose).modes) member.mode = mode;
+  assert.deepEqual(g.nodes.map((member) => member.mode), [MODE_NEVER, MODE_ALWAYS, MODE_NEVER]);
+  // Nothing to pick: no row, or a row with nothing in it.
+  assert.deepEqual(choosePlan(rows, undefined, settings), { modes: [], values: [] });
+  assert.deepEqual(choosePlan(rows, { state: "empty", members: [] }, settings), { modes: [], values: [] });
+});
+
+test("the pill picks between all three kinds of rows: nodes, settings and a row with an off side", () => {
+  const settings = normalizeSettings({ exclusive: true, show: "pill" });
+  const steps = { id: 21, pos: [0, 0], size: [200, 100], mode: MODE_ALWAYS, widgets: [{ name: "value", value: 25 }] };
+  const nodes = [
+    node(1, 0, 200), // "Describe" holds it
+    steps, // "Fast" changes its value: 8 for on, 25 for off
+    node(3, 0, 400, { mode: MODE_BYPASS }), // "Edit" runs it
+    node(4, 0, 600), // and this one runs only while "Edit" is off
+  ];
+  const made = normalizeSettings({
+    switches: [
+      { id: 1, title: "Describe", nodes: [1] },
+      { id: 2, title: "Fast", on: { 21: { value: 8 } }, off: { 21: { value: 25 } } },
+      { id: 3, title: "Edit", nodes: [3], nodes_off: [4] },
+    ],
+  }).switches;
+  const read = () => readSwitches(made, placeNodes(nodes), []);
+  const click = (index) => {
+    const rows = read();
+    const { modes, values } = choosePlan(rows, rows[index], settings);
+    for (const [member, mode] of modes) member.mode = mode;
+    for (const [pair, side] of values) pair.control.value = pairValue(pair, side, pair.control.value);
+    return read().map((row) => row.state);
+  };
+  const now = () => [nodes[0].mode, steps.widgets[0].value, nodes[2].mode, nodes[3].mode];
+  assert.deepEqual(read().map((row) => row.state), ["on", "off", "off"]);
+  assert.deepEqual(click(1), ["off", "on", "off"]);
+  assert.deepEqual(now(), [MODE_BYPASS, 8, MODE_BYPASS, MODE_ALWAYS]);
+  assert.deepEqual(click(2), ["off", "off", "on"]);
+  assert.deepEqual(now(), [MODE_BYPASS, 25, MODE_ALWAYS, MODE_BYPASS]);
+  assert.deepEqual(click(0), ["on", "off", "off"]);
+  assert.deepEqual(now(), [MODE_ALWAYS, 25, MODE_BYPASS, MODE_ALWAYS]);
+  // A setting changed by hand to a third value reads partly on, and a click on its row sets it.
+  steps.widgets[0].value = 12;
+  assert.equal(choiceState(read()).kind, "several");
+  assert.deepEqual(click(1), ["off", "on", "off"]);
+  assert.equal(steps.widgets[0].value, 8);
+});
+
+test("the pill view is part of what the card draws", () => {
+  const rows = [choice("Say it", "on"), choice("Touch it", "off")];
+  const base = rowsSignature(rows, normalizeSettings({ exclusive: true }));
+  assert.notEqual(rowsSignature(rows, normalizeSettings({ exclusive: true, show: "pill" })), base);
 });
