@@ -38,12 +38,12 @@ The pack uses the Pillow, NumPy, Torch and PyAV that come with ComfyUI. Each exa
 
 | Section | What's in it |
 |---|---|
-| [Image nodes](#image-nodes) | Rotate, crop and pad; resize, align and measure; match colors; realign edits; compare; save |
+| [Image nodes](#image-nodes) | Rotate, crop and pad; resize, align and measure; upscale in tiles; run a whole folder; match colors; realign edits; compare; save |
 | [Video nodes](#video-nodes) | Load and trim, pick a frame, transform a clip, change the frame rate, save |
-| [Mask and inpaint nodes](#mask-and-inpaint-nodes) | Refine masks, remove objects with LaMa, crop around a mask and stitch the result back |
+| [Mask and inpaint nodes](#mask-and-inpaint-nodes) | Mask a thing by clicking it or typing its name, refine masks, remove objects with LaMa, crop around a mask and stitch the result back |
 | [Models and conditioning](#models-and-conditioning) | LoRA stack, Krea 2 prompts and references |
-| [Workflow utilities](#workflow-utilities) | Canvas size, seed, batches, math, text, memory, notes, timer |
-| [Example workflows](#example-workflows) | Nine workflows, each with a setup card |
+| [Workflow utilities](#workflow-utilities) | Canvas size, seed, batches, math, text, memory, notes, callouts, switches, timer |
+| [Example workflows](#example-workflows) | Ready-made workflows, each with a setup card |
 | [For workflow creators](#for-workflow-creators) | Setup cards, before and after, repeatable seeds, measured run times |
 | [Pack-wide tools](#pack-wide-tools) | Help cards, node colors, recreate and replace, run status, completion sound |
 
@@ -213,7 +213,7 @@ It also returns the picked area cut out on a see-through background, and the nam
 
 The Mask by Touch example loads a picture, lets you click what you want, and saves its cut-out and its mask, with Fine edges on. [Open the Mask by Touch workflow →](example_workflows/Mask%20by%20Touch%20%28AusBoss%29.json)
 
-The Qwen Image 2.1 Inpaint example uses the same click to change one thing: click it, say what it should become, and only that part is repainted. [Open the Qwen Image 2.1 Inpaint workflow →](example_workflows/Qwen%20Image%202.1%20Inpaint%20%28AusBoss%29.json)
+The Qwen Image 2.1 Inpaint example uses the same click to change one thing: click it, say what it should become, and only that part is repainted. [Open the Qwen Image 2.1 Inpaint workflow →](example_workflows/Qwen%20Image%202.1%20Inpaint%20%28AusBoss%29.json) · [Watch it on YouTube →](https://youtu.be/iMgaiXoB0v4)
 
 ### Mask Refine
 
@@ -419,7 +419,7 @@ The default mask settings, ordinary stitching, PNG and lossless WebP don't need 
 
 ## Compatibility and development
 
-The pack needs ComfyUI **0.27.1** or newer. An example for a newer model needs a ComfyUI core that supports that model, and updating only this pack can't add it. It is tested with ComfyUI **0.37.0** and frontend **1.53.6**. It works on the classic canvas and in Nodes 2.0, and running a workflow doesn't need an editor open.
+The pack needs ComfyUI **0.27.1** or newer. An example for a newer model needs a ComfyUI core that supports that model, and updating only this pack can't add it. Every night it is checked against the newest ComfyUI release and ComfyUI's development version. It works on the classic canvas and in Nodes 2.0, and running a workflow doesn't need an editor open.
 
 Backend changes need a full ComfyUI restart, and frontend changes need a hard refresh. Run the backend tests with ComfyUI's Python:
 

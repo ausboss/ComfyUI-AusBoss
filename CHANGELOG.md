@@ -2,6 +2,12 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Qwen Image 2.1 Inpaint example: its note says Paint, the button's name
+  since 2.12.0.** It still said Draw. The note and the YouTube box now link
+  the video that walks through this workflow.
+
 ## 2.12.0 - 2026-10-14
 
 - **Mask by Touch 🆎: fix the mask with a brush, without a pile of chips.**
