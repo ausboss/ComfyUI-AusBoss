@@ -207,6 +207,11 @@ first click. To have nothing start by itself, open ComfyUI's Settings,
 Look button**. The picture from one of the pack's loaders then waits for a
 press on **Show picture** as well.
 
+While the node is switched off (bypassed or muted, by hand or by a
+Workflow Switches card), it looks at nothing. Switch it on and move the
+pointer onto its picture area: a picture that changed meanwhile is looked at
+then.
+
 ## Technical details
 
 ### How SAM 3 is asked

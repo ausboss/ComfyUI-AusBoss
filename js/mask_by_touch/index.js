@@ -7,7 +7,7 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { chainCallback } from "../shared/index.mjs";
-import { executionIdOf, nodeByExecutionId } from "../shared/graph_ids.mjs";
+import { executionIdOf, isSwitchedOff, nodeByExecutionId } from "../shared/graph_ids.mjs";
 import { outputLocatorId } from "../shared/input_preview.mjs";
 import { isForeignRun } from "../shared/prompt_scope.mjs";
 import { NOTE_KEY, PANEL_MIN_WIDTH, WIDGET_NAME, mountTouchStage } from "../shared/touch_stage.mjs";
@@ -74,6 +74,8 @@ function build(node) {
     lookOnButton: () => lookOnButton,
     // A workflow is being opened: nothing is run on the person's behalf.
     loading: () => Boolean(app.configuringGraph),
+    // Bypassed or muted, or inside a box that is: nothing is run for it.
+    switchedOff: () => isSwitchedOff(app.rootGraph ?? app.graph, node),
     run(what) {
       const id = executionIdOf(app.rootGraph ?? app.graph, node);
       if (!id || typeof app.queuePrompt !== "function") return false;
