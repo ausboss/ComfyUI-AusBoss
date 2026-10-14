@@ -16,8 +16,8 @@ Checks:
   4. The Registry archive holds runtime files only. With git it is listed
      the way comfy-cli packs it - tracked files minus those .comfyignore
      matches - and every shipped path must sit under the runtime allowlist
-     (nodes/, js/, example_workflows/, README, LICENSE, CHANGELOG,
-     pyproject, __init__.py, the presets example). No runtime file may be
+     (nodes/, js/, example_workflows/, README, LICENSE, pyproject,
+     __init__.py, the presets example). No runtime file may be
      dropped, every allowlist entry plus js/docs/ and
      example_workflows/inputs/ must ship, and the archive must stay under
      its size budget. Without git (an installed copy) .comfyignore is tried
@@ -128,7 +128,7 @@ import fnmatch
 
 ARCHIVE_ALLOWLIST = (
     "__init__.py", "nodes/", "js/", "example_workflows/", "README.md",
-    "LICENSE", "CHANGELOG.md", "pyproject.toml", "ausboss_presets_example.json",
+    "LICENSE", "pyproject.toml", "ausboss_presets_example.json",
 )
 # Besides every allowlist entry these must ship too: the node help pages and
 # the sample media the example workflows load.
@@ -193,7 +193,7 @@ DEV_ONLY = [
     "scripts/validate_nodes.py", "scripts/release_preflight.py",
     ".github/workflows/publish_action.yml", "AGENTS.md", "CLAUDE.md",
     ".claude/settings.json", "docs/adding_a_node.md",
-    "assets/readme/lora-chain-demo.gif",
+    "assets/readme/lora-chain-demo.gif", "CHANGELOG.md",
 ]
 RUNTIME = [
     "__init__.py", "nodes/node_seed.py", "nodes/_lora_helpers.py",

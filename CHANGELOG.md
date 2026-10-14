@@ -2,6 +2,13 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## 2.12.2 - 2026-10-14
+
+- **A smaller download: this changelog stays on GitHub.** The installed
+  pack no longer carries CHANGELOG.md. Each version's notes still show on
+  the Registry, and the whole list is in the repository. The nodes are the
+  same as in 2.12.1.
+
 ## 2.12.1 - 2026-10-14
 
 - **Image Compare A/B 🆎: leaving Erase gives the node its size back.**
