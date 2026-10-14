@@ -67,6 +67,32 @@ A small sign of two arrows beside the label shows that a switch has an off
 side. Point at it to see which nodes. To take a node off that side again,
 select it and pick **Take the 1 selected off that side**.
 
+## One pill to pick from
+
+Sometimes the switches on a card are choices, and exactly one should be in
+use: mask by words or by a click, say, or one of three upscalers. The card
+can show them as one pill. Each switch is a part of the pill, the one in use
+is filled, and a click on another one changes to it.
+
+1. Make a switch for each choice.
+2. Open **Settings** and set **One at a time** to **on**.
+3. Set **Show as** to **one pill**.
+
+One choice is always picked. A click on the filled one does nothing, so
+nobody can switch them all off or switch two on.
+
+Up to four short names sit side by side. With more choices, or with long
+names, the card shows a list to pick from instead. The card gets wider when
+the names need the room.
+
+In the edit view the pill sits above the rows. You pick in the pill, and the
+rows keep their frame button and three dots. After **Done** only the pill is
+left. To edit again, right-click the node and pick **Edit switches**.
+
+A workflow can be saved with none of the choices on, or with several. The
+pill then shows that as it is, with an amber edge. Click the one you want
+and the others are switched off.
+
 ## The small view
 
 Press **Done** and the card shrinks to the labels and their switches. That is
@@ -128,6 +154,9 @@ Open **Settings** at the bottom of the edit view.
   with numbers in numeric order (*2 · …* before *10 · …*).
 - **One at a time**: switching a row on switches the other rows off. Use it
   for alternatives, such as two upscalers.
+- **Show as** (there while One at a time is on): **rows** gives every switch
+  a row with its own off | on. **one pill** shows them as one pill to pick
+  from, see above.
 
 ## Technical details
 
@@ -171,6 +200,20 @@ Open **Settings** at the bottom of the edit view.
 - **One at a time** switches the other rows off, which runs their off sides.
   A node that one row runs and another switches off ends up running, and the
   row you switch on has the last word.
+- **A pill or a list.** Two to four rows are a pill when their names fit on
+  a card no wider than 400 px. More rows, or longer names, are a list. With
+  one row the card stays in the row view. Groups listed on the card are
+  choices too, and a row with no nodes cannot be picked.
+- **A click on a choice** does what One at a time does: that row goes on and
+  every other row off, their settings and off sides included. A row that is
+  only partly on is striped, as in the row view.
+- **Switch everything off** is left out of the right-click menu while the
+  card shows as one pill.
+- **The pill is stored as one more setting**: `"show": "pill"` beside
+  `"exclusive": true`, in the node's `ausboss_workflow_switches` property.
+  `"show": "rows"`, or no `show` at all, is the row view. So a workflow saved
+  by an older version of this pack opens as rows, and an older version
+  ignores the setting.
 - **The off side is stored next to the nodes it belongs to**, as `nodes_off`
   and `groups_off` beside `nodes` and `groups`. They are left out while
   nothing is on the off side, so a workflow that does not use it is saved as
