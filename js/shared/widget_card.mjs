@@ -60,7 +60,7 @@ const FONT = `-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif`;
 // tooltip, and the pill says on / off.
 const SWITCH_LABEL_MAX = 16;
 // The big look of a textarea row (the Text node's gear): large centred
-// letters in a field as wide as the card. Two lines fit the field at its
+// letters in the Callout's teal, with its glow, in a field as wide as the card. Two lines fit the field at its
 // smallest; the side padding keeps the text clear of the gear in the
 // field's corner, and the same on the left keeps it centred on the card.
 const BIG_LOOK = "big";
@@ -120,8 +120,8 @@ export function ensureCardCss() {
 .ausboss-card-area::placeholder{color:#4f6462}
 .ausboss-card.look-big .ausboss-card-row.area .ausboss-card-field{position:relative;display:block;border:1px solid #2a3437;border-radius:6px;background:#0b0f10;cursor:text}
 .ausboss-card.look-big .ausboss-card-row.area .ausboss-card-field:focus-within{border-color:${BRAND}}
-.ausboss-card.look-big .ausboss-card-area{position:absolute;left:0;right:0;top:0;bottom:0;margin:auto 0;max-height:100%;padding:${BIG_PAD_Y}px ${BIG_PAD_X}px;border:none;border-radius:5px;background:transparent;color:#e6f2f0;font:600 ${BIG_FONT}px/${BIG_LINE}px ${FONT};text-align:center;scrollbar-width:thin;scrollbar-color:#2f3d3c transparent}
-.ausboss-card.look-big .ausboss-card-area::placeholder{color:#4f6462}
+.ausboss-card.look-big .ausboss-card-area{position:absolute;left:0;right:0;top:0;bottom:0;margin:auto 0;max-height:100%;padding:${BIG_PAD_Y}px ${BIG_PAD_X}px;border:none;border-radius:5px;background:transparent;color:#6fe0d6;text-shadow:0 0 .35em rgba(0,180,170,.55);font:600 ${BIG_FONT}px/${BIG_LINE}px ${FONT};text-align:center;scrollbar-width:thin;scrollbar-color:#2f3d3c transparent}
+.ausboss-card.look-big .ausboss-card-area::placeholder{color:#4f6462;text-shadow:none}
 .ausboss-card.look-big .ausboss-card-corner{top:${CARD_PADDING + 4}px;right:12px;height:22px}
 .ausboss-card.look-big .ausboss-card-gear{width:22px;height:22px;border-color:transparent;background:transparent}
 .ausboss-card.look-big .ausboss-card-gear:hover{border-color:${BRAND}}
