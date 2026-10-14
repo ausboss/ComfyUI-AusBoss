@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { executionIdOf, nodeByExecutionId } from "../js/shared/graph_ids.mjs";
+import { executionIdOf, isSwitchedOff, nodeByExecutionId } from "../js/shared/graph_ids.mjs";
 
 // A graph whose ids repeat inside a subgraph, which is the normal case: node
 // ids are small integers numbered independently per graph.
@@ -93,4 +93,44 @@ test("a node that is on no graph has no execution id", () => {
   // An older frontend keeps its nodes in _nodes.
   const old = { id: 4 };
   assert.equal(executionIdOf({ _nodes: [old] }, old), "4");
+});
+
+// Switched off: bypassed (4) or muted (2), the node itself or a box on the
+// way to it. A run of such a node alone has nothing to run.
+function switchGraph() {
+  const inner = { id: 7, mode: 0 };
+  const box = { id: 20, mode: 0, subgraph: { nodes: [inner] } };
+  const top = { id: 3, mode: 0 };
+  const rootGraph = { nodes: [top, box] };
+  return { rootGraph, inner, box, top };
+}
+
+test("a node that is on is not switched off", () => {
+  const { rootGraph, top, inner } = switchGraph();
+  assert.equal(isSwitchedOff(rootGraph, top), false);
+  assert.equal(isSwitchedOff(rootGraph, inner), false);
+});
+
+test("a bypassed or muted node is switched off", () => {
+  const { rootGraph, top } = switchGraph();
+  top.mode = 4;
+  assert.equal(isSwitchedOff(rootGraph, top), true);
+  top.mode = 2;
+  assert.equal(isSwitchedOff(rootGraph, top), true);
+});
+
+test("a node inside a bypassed or muted box is switched off", () => {
+  const { rootGraph, box, inner } = switchGraph();
+  box.mode = 4;
+  assert.equal(isSwitchedOff(rootGraph, inner), true);
+  box.mode = 2;
+  assert.equal(isSwitchedOff(rootGraph, inner), true);
+  box.mode = 0;
+  assert.equal(isSwitchedOff(rootGraph, inner), false);
+});
+
+test("a node on no graph counts only its own mode", () => {
+  assert.equal(isSwitchedOff({ nodes: [] }, { id: 1, mode: 0 }), false);
+  assert.equal(isSwitchedOff(null, { id: 1, mode: 4 }), true);
+  assert.equal(isSwitchedOff(null, null), false);
 });

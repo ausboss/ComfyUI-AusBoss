@@ -4,6 +4,14 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Mask by Touch 🆎: no "Prompt has no outputs" message while the node
+  is switched off.** A workflow that switches Mask by Touch off, for
+  example to find a thing by its name instead, showed that red message
+  when a new picture was loaded: the node still asked ComfyUI to look at
+  the picture, and ComfyUI leaves a switched-off node out of every run.
+  Now it asks for nothing while it is bypassed or muted, by hand, by a
+  Workflow Switches card, or inside a box that is. When it is on again,
+  the picture is looked at as soon as the pointer comes to it.
 - **Image Compare A/B 🆎: Erase mixes the two pictures by hand.** The
   mode buttons are now one switch, **Slide | A | B | Erase**, whose marker
   slides to your choice. In **Erase** one picture is on top; paint on it
