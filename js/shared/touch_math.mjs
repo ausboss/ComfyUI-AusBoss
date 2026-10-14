@@ -5,7 +5,11 @@
 // slider without a run. DOM-free: node:test covers it.
 //
 // A mask here is one value per pixel, row by row: Uint8Array of 0 and 1
-// while it is on/off, Float32Array of 0..1 once it has been softened.
+// while it is on/off, Float32Array of 0..1 once it has been softened. What
+// is picked stays on/off until a brush with a soft edge has painted on it;
+// from then on it is a Float32Array too.
+
+import { brushCore, brushSigma } from "./brush.mjs";
 
 // The same caps the server puts on the touches it reads.
 export const TOUCH_MAX_CHARS = 400000;
@@ -34,6 +38,8 @@ export const LIT_AWAY = [255, 150, 120];
 const TYPES = new Set(["tap", "name", "find", "paint", "all", "subject", "background"]);
 // A word for SAM 3 is cut to this length.
 export const NAME_MAX = 60;
+// The highest number a chip may have.
+export const GROUP_MAX = 9999;
 
 // Whether a run the node wants can be sent now, behind the runs it already
 // has on their way (`flying`: what each was asked, whether ComfyUI has it,
@@ -81,16 +87,26 @@ function cleanPoint(pair) {
   return [Math.round(pair[0]), Math.round(pair[1])];
 }
 
+// Which chip a touch that adds belongs to: `g`, a whole number from 1. A
+// brush mark painted onto a picked thing carries that thing's number, so
+// the two share one chip. A touch that takes away belongs to no chip: it
+// rubs out whatever is there. The node itself does not read `g`.
+function withGroup(item, raw) {
+  const group = raw.g;
+  if (item.op === 1 && Number.isInteger(group) && group >= 1 && group <= GROUP_MAX) item.g = group;
+  return item;
+}
+
 // One touch as the node reads it, or null when it is not one.
 export function cleanItem(raw) {
   if (!raw || typeof raw !== "object" || !TYPES.has(raw.t)) return null;
   const op = raw.op === 0 ? 0 : 1;
   if (raw.t === "tap") {
     if (!finite(raw.x) || !finite(raw.y)) return null;
-    return { t: "tap", op, x: Math.round(raw.x), y: Math.round(raw.y) };
+    return withGroup({ t: "tap", op, x: Math.round(raw.x), y: Math.round(raw.y) }, raw);
   }
   // The picture's main subject, or everything but it: no point and no word.
-  if (raw.t === "subject" || raw.t === "background") return { t: raw.t, op };
+  if (raw.t === "subject" || raw.t === "background") return withGroup({ t: raw.t, op }, raw);
   if (raw.t === "name") {
     const w = cleanWord(raw.w);
     if (!w || !finite(raw.x) || !finite(raw.y)) return null;
@@ -98,17 +114,20 @@ export function cleanItem(raw) {
     // `q` marks a word the face did not show, because SAM 3 was not sure of
     // it: the thing is picked, and nobody is told the word.
     if (raw.q === 1 || raw.q === true) item.q = 1;
-    return item;
+    return withGroup(item, raw);
   }
   // Every thing of that name on the picture: a typed name, or "all of these".
   if (raw.t === "all") {
     const w = cleanWord(raw.w);
-    return w ? { t: "all", op, w } : null;
+    return w ? withGroup({ t: "all", op, w }, raw) : null;
   }
   if (!Array.isArray(raw.pts) || !finite(raw.r)) return null;
   const pts = raw.pts.map(cleanPoint).filter(Boolean);
   if (!pts.length) return null;
-  return { t: raw.t, op, r: Math.round(clamp(raw.r, BRUSH_RADIUS[0], BRUSH_RADIUS[1])), pts };
+  const item = { t: raw.t, op, r: Math.round(clamp(raw.r, BRUSH_RADIUS[0], BRUSH_RADIUS[1])), pts };
+  // `s` is how soft the brush's edge was, 1 to 100. A hard brush has none.
+  if (raw.t === "paint" && finite(raw.s) && Math.round(raw.s) >= 1) item.s = Math.min(100, Math.round(raw.s));
+  return withGroup(item, raw);
 }
 
 // A short stamp of a text: 32-bit FNV-1a over its UTF-8 bytes, as eight hex
@@ -158,25 +177,82 @@ export function chipLabel(item, count = 0) {
   return `${sign}paint`;
 }
 
-// The chips under the picture, as runs of touches: one chip per pick, but
-// marks made with Draw that follow each other share one chip, however many
-// there are and whether they add or rub out. Painting an area takes many
-// marks, and a chip for each says nothing. `adds` is how many of a run's
-// marks add; a run that only rubs out reads as taking away.
+// The chips under the picture. A chip is something that can be told apart
+// from the rest and taken back by itself: a thing that was picked, an area
+// that was painted, or a thing that was taken away again.
+//
+// Brush marks painted onto a chip belong to it (they carry its number, `g`),
+// so painting an area takes one chip however many marks it took. A brush
+// mark that erases has no chip: it rubs out whatever is there.
+//
+// Each chip: `g` (its number, or 0 for touches saved before chips had one),
+// `first` (where its first touch is), `at` (where all of its touches are),
+// `paint` (it began as paint, not as a pick), `marks` (how many of its
+// touches are brush marks) and `away` (it is a thing taken away). Touches
+// without a number are told apart as they were before: a pick is a chip,
+// and brush marks that follow each other with nothing but brush marks in
+// between share one.
 export function chipGroups(items) {
-  const groups = [];
+  const chips = [];
+  const byGroup = new Map();
+  let loose = null;
   (items ?? []).forEach((item, index) => {
     const paint = item?.t === "paint";
-    const last = groups[groups.length - 1];
-    if (paint && last?.paint) {
-      last.to = index;
-      last.count += 1;
-      last.adds += item.op === 0 ? 0 : 1;
+    if (!paint) loose = null;
+    if (!item) return;
+    if (item.op === 0) {
+      if (!paint) chips.push({ g: 0, first: index, at: [index], paint: false, marks: 0, away: true });
       return;
     }
-    groups.push({ from: index, to: index, count: 1, paint, adds: item?.op === 0 ? 0 : 1 });
+    let chip = item.g ? byGroup.get(item.g) : paint ? loose : null;
+    if (!chip) {
+      chip = { g: item.g ?? 0, first: index, at: [], paint, marks: 0, away: false };
+      chips.push(chip);
+      if (item.g) byGroup.set(item.g, chip);
+      else if (paint) loose = chip;
+    }
+    chip.at.push(index);
+    if (paint) chip.marks += 1;
   });
-  return groups;
+  return chips;
+}
+
+// A number no chip has yet.
+export function nextGroup(items, taken = 0) {
+  let highest = Math.max(0, Number(taken) || 0);
+  for (const item of items ?? []) if (item?.g > highest) highest = item.g;
+  return Math.min(GROUP_MAX, highest + 1);
+}
+
+// The touches with one chip's touches given a number, so more can join it.
+// Returns the touches (the same list when the chip already has one) and the
+// number.
+export function numberChip(items, chip, taken = 0) {
+  if (chip.g) return { items, g: chip.g };
+  const g = nextGroup(items, taken);
+  const own = new Set(chip.at);
+  return { items: items.map((item, index) => (own.has(index) ? { ...item, g } : item)), g };
+}
+
+// The touches without the ones that can no longer do anything: a touch that
+// takes away with nothing before it to take from.
+export function dropIdleAways(items) {
+  let some = false;
+  return (items ?? []).filter((item) => {
+    if (item.op !== 0) { some = true; return true; }
+    return some;
+  });
+}
+
+// What identifies the area a touch stands for, whatever it is used for:
+// the same thing picked to add or to take away, in any chip, is one area.
+export function areaKey(item) {
+  if (!item) return "";
+  if (item.t === "tap") return `tap|${item.x},${item.y}`;
+  if (item.t === "name") return `name|${item.w}|${item.x},${item.y}`;
+  if (item.t === "all") return `all|${item.w}`;
+  if (item.t === "subject" || item.t === "background") return item.t;
+  return `${item.t}|${item.r}|${item.s ?? 0}|${(item.pts ?? []).map((pair) => `${pair[0]},${pair[1]}`).join(" ")}`;
 }
 
 // How many points a list of touches holds together (a tap is one).
@@ -192,11 +268,13 @@ export function encodeTouches(key, items) {
   return JSON.stringify({ v: 1, key: String(key ?? ""), items: clean });
 }
 
-// Whether two runs of touches are the same touches. How they are written
+// Whether two runs of touches pick the same things. How they are written
 // decides, so a touch fresh from a click and the same one read back from the
 // widget compare equal.
 export function sameTouches(a, b) {
-  return encodeTouches("", a) === encodeTouches("", b);
+  // Which chip a touch is in says nothing about what it picks.
+  const bare = (items) => (items ?? []).map((item) => { const { g, ...rest } = item ?? {}; return rest; });
+  return encodeTouches("", bare(a)) === encodeTouches("", bare(b));
 }
 
 // Read them back. Anything that is not what encodeTouches writes gives no
@@ -434,10 +512,130 @@ export function previewPixels(amount, scale) {
   return Math.sign(value) * Math.max(1, Math.round(scaled));
 }
 
+// ---- a picked area with soft parts ------------------------------------------
+//
+// A brush with a soft edge leaves values between 0 and 1. The server works
+// on those with the same steps (nodes/_mask_helpers.py: "soft values
+// survive"), and so does the face: each step below gives exactly the on/off
+// result when the mask is on/off.
+
+const isSoft = (mask) => mask instanceof Float32Array;
+
+// Whether any of a mask is picked at all.
+export function maskOn(mask) {
+  if (!mask) return false;
+  for (let index = 0; index < mask.length; index += 1) if (mask[index] > 0) return true;
+  return false;
+}
+
+// A mask as plain on and off: on where it is half or more.
+export function hardMask(mask) {
+  if (!isSoft(mask)) return mask;
+  const out = new Uint8Array(mask.length);
+  for (let index = 0; index < out.length; index += 1) out[index] = mask[index] >= 0.5 ? 1 : 0;
+  return out;
+}
+
+// Join an area to what is picked (`op` 1), or take it away (0). Two on/off
+// masks give an on/off mask. With a soft one either way the result is soft:
+// adding covers what is not picked yet by the area's own strength, taking
+// away thins what is picked by it, as paint on a canvas does.
+export function joinMasks(raw, own, op) {
+  if (!isSoft(raw) && !isSoft(own)) {
+    const out = new Uint8Array(raw.length);
+    if (op) for (let index = 0; index < out.length; index += 1) out[index] = raw[index] | own[index];
+    else for (let index = 0; index < out.length; index += 1) out[index] = raw[index] & (own[index] ^ 1);
+    return out;
+  }
+  const out = new Float32Array(raw.length);
+  if (op) for (let index = 0; index < out.length; index += 1) out[index] = 1 - (1 - raw[index]) * (1 - own[index]);
+  else for (let index = 0; index < out.length; index += 1) out[index] = raw[index] * (1 - own[index]);
+  return out;
+}
+
+// How many pixels two masks share. `some` counts any strength of the first.
+export function sharedPixels(one, other) {
+  if (!one || !other) return 0;
+  let shared = 0;
+  for (let index = 0; index < one.length; index += 1) if (one[index] > 0 && other[index] >= 0.5) shared += 1;
+  return shared;
+}
+
+// One pass of a square grow along rows or columns for a soft mask: each
+// pixel takes the highest value within `reach` of it on that line. A queue
+// of falling values keeps it one visit per pixel however far it grows.
+function highestLines(source, width, height, reach, alongRows) {
+  const out = new Float32Array(source.length);
+  const lines = alongRows ? height : width;
+  const length = alongRows ? width : height;
+  const step = alongRows ? 1 : width;
+  const queue = new Int32Array(length);
+  for (let line = 0; line < lines; line += 1) {
+    const start = alongRows ? line * width : line;
+    let head = 0;
+    let tail = 0;
+    let next = 0;
+    for (let at = 0; at < length; at += 1) {
+      const last = Math.min(length - 1, at + reach);
+      for (; next <= last; next += 1) {
+        const value = source[start + next * step];
+        while (tail > head && source[start + queue[tail - 1] * step] <= value) tail -= 1;
+        queue[tail] = next;
+        tail += 1;
+      }
+      while (queue[head] < at - reach) head += 1;
+      out[start + at * step] = source[start + queue[head] * step];
+    }
+  }
+  return out;
+}
+
+function growSoft(source, width, height, reach) {
+  const steps = Math.max(0, Math.round(reach));
+  if (!steps) return source;
+  return highestLines(highestLines(source, width, height, steps, true), width, height, steps, false);
+}
+
+function shrinkSoft(source, width, height, reach) {
+  const steps = Math.max(0, Math.round(reach));
+  if (!steps) return source;
+  const turned = new Float32Array(source.length);
+  for (let index = 0; index < turned.length; index += 1) turned[index] = 1 - source[index];
+  const grown = growSoft(turned, width, height, steps);
+  for (let index = 0; index < grown.length; index += 1) grown[index] = 1 - grown[index];
+  return grown;
+}
+
+// The edge steps on a picked area that has soft parts, as the server runs
+// them: holes are found on the half line and filled over what is there, and
+// Smooth moves the half line and leaves the soft values around it alone.
+function composeSoft({ raw, width, height, grow, soften, smooth, fill }) {
+  let mask = raw;
+  if (fill) {
+    const solid = hardMask(mask);
+    const filled = fillHoles(solid, width, height);
+    const out = Float32Array.from(mask);
+    for (let index = 0; index < out.length; index += 1) if (filled[index] && !solid[index]) out[index] = 1;
+    mask = out;
+  }
+  if (smooth > 0) {
+    const solid = hardMask(mask);
+    const melted = smoothMask(solid, width, height, smooth);
+    const out = Float32Array.from(mask);
+    for (let index = 0; index < out.length; index += 1) out[index] = clamp(out[index] + melted[index] - solid[index], 0, 1);
+    mask = out;
+  }
+  if (grow > 0) mask = growSoft(mask, width, height, grow);
+  else if (grow < 0) mask = shrinkSoft(mask, width, height, -grow);
+  return softenMask(mask, width, height, soften);
+}
+
 // The mask the node would return, from the picked area and the settings on
 // the node now: fill holes, smooth, grow or shrink, soften, in the server's
-// order. `raw` is on/off; the amounts are in these pixels.
+// order. `raw` is on/off, or soft where a soft brush painted; the amounts
+// are in these pixels.
 export function composeEdge({ raw, width, height, grow = 0, soften = 0, smooth = 0, fill = false }) {
+  if (isSoft(raw)) return composeSoft({ raw, width, height, grow, soften, smooth, fill });
   let mask = raw;
   if (fill) mask = fillHoles(mask, width, height);
   if (smooth > 0) mask = smoothMask(mask, width, height, smooth);
@@ -483,6 +681,46 @@ export function paintStroke(mask, width, height, points, radius, value = 1) {
     }
   }
   return mask;
+}
+
+// One mark of the pack's brush as an area of its own: a round brush of
+// `radius` dragged through `points` (in the mask's own pixels), with an edge
+// that is `soft` percent soft (0 to 100). A hard brush gives an on/off mask,
+// exactly paintStroke's. A soft one is the brush's solid middle, blurred,
+// as the server draws it (nodes/_brush_helpers.py): it is worked out on a
+// box around the stroke that may reach past the picture, so the edge of the
+// picture does not bend the fade.
+export function brushStroke(width, height, points, radius, soft = 0) {
+  const softness = clamp(Number(soft) || 0, 0, 100) / 100;
+  const sigma = brushSigma(radius * 2, softness);
+  if (!points?.length || !(sigma >= 0.25)) return paintStroke(new Uint8Array(width * height), width, height, points, radius, 1);
+  const core = Math.max(0.5, brushCore(radius * 2, softness));
+  const margin = Math.ceil(3 * sigma) + 2;
+  const reach = core + margin + 1;
+  let left = Infinity; let top = Infinity; let right = -Infinity; let bottom = -Infinity;
+  for (const [x, y] of points) {
+    if (x < left) left = x;
+    if (x > right) right = x;
+    if (y < top) top = y;
+    if (y > bottom) bottom = y;
+  }
+  left = Math.max(-margin, Math.floor(left - reach));
+  top = Math.max(-margin, Math.floor(top - reach));
+  right = Math.min(width + margin, Math.ceil(right + reach));
+  bottom = Math.min(height + margin, Math.ceil(bottom + reach));
+  const out = new Float32Array(width * height);
+  const boxWidth = right - left;
+  const boxHeight = bottom - top;
+  if (!(boxWidth > 0 && boxHeight > 0)) return out;
+  const box = paintStroke(new Uint8Array(boxWidth * boxHeight), boxWidth, boxHeight, points.map((pair) => [pair[0] - left, pair[1] - top]), core, 1);
+  const faded = softenMask(box, boxWidth, boxHeight, sigma);
+  const fromX = Math.max(0, left);
+  const toX = Math.min(width, right);
+  for (let y = Math.max(0, top); y < Math.min(height, bottom); y += 1) {
+    const row = (y - top) * boxWidth - left;
+    for (let x = fromX; x < toX; x += 1) out[y * width + x] = faded[row + x];
+  }
+  return out;
 }
 
 // ---- pieces --------------------------------------------------------------

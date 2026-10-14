@@ -18,16 +18,21 @@ change it, remove it, cut it out, or keep everything else.
 What is lit in teal is what the mask will be. When it is right, press Run
 for the whole workflow.
 
-The first time the pointer rests on a picture, the node looks at it, and the
-picture says so in its corner, with how far along it is: **Looking at the
-picture… 40 of 104**. The first things light up after a few seconds, and it
-has seen the whole picture after about 20.
+The first time the pointer rests on a picture, the node looks at it. A
+small button under the picture shows how far along it is, **❚❚ 40/104**,
+filling up as it goes. The first things light up after a few seconds, and
+it has seen the whole picture after about 20.
 
 You do not have to wait for that. Whatever is lit under the pointer can be
 picked: a click takes it at once, also while the node is still looking.
 
+Click that button to pause the looking when what you need is already lit:
+what is lit stays, and you go on picking and painting. It turns into
+**▶**; click it to look on from where it stopped. A click on a spot where
+nothing is lit yet looks on as well.
+
 A click on a spot where nothing is lit yet is not lost: a dot marks it, the
-picture says **Your click is in**, and it is taken as soon as the node has
+line under the picture says **your click is in**, and it is taken as soon as the node has
 found the thing there. One click waits at a time; more clicks on spots with
 nothing lit are not taken until then.
 
@@ -45,45 +50,78 @@ at that spot.
   A stroke across two things, like both shoes, takes both.
 - Did the thing not light up at all? Type its name into the field under the
   picture, like "screen" or "earring", and press Enter.
-- When nothing fits, switch to **Draw** and paint the area yourself.
+- When nothing fits, switch to **Paint** and paint the area yourself.
 
 ## The whole subject, or the background
 
 Under the picture, **Subject** picks the picture's main subject in one
 click: the person, the animal, the product. **Background** picks everything
-else. They are picks like any other: click more things to add them, or use
-**−** to take a thing away again.
+else. They are picks like any other: click more things to add them, or
+Ctrl-click a thing to take it away again.
 
 Both need ComfyUI's background-removal model, see "The model for Fine
 edges" below.
 
-## The picks under the picture
+## Fix the mask with the brush
 
-Every pick has a chip under the picture with its name.
+The switch above the picture has three tools:
 
-- The **cross** on a chip takes that pick away, whichever one it is.
-- Click a chip's **name** to open that pick again. The arrows above the
-  chips then swap it for the other things at the same spot, whichever pick
-  it is, and the picks after it stay. The newest pick is open by itself.
+- **Pick** (key **W**) takes whole things: a click, or a stroke over a
+  thing.
+- **Paint** (key **B**) adds to the mask, exactly as you paint it.
+- **Erase** (key **E**) rubs the mask out, exactly as you paint it.
+
+The letters are Photoshop's, and work while the pointer is on the node.
+
+Hold **Ctrl**, or use the right mouse button, to do the opposite for as
+long as you hold it: erase while you paint, paint while you erase. In Pick,
+Ctrl-click takes a thing away again.
+
+The brush:
+
+- **Size** is how wide it is, in pixels of the picture. **Soft** is how
+  soft its edge is, for Paint and Erase: 0 is a hard edge, 100 fades all
+  the way from the middle. Drag on either number, or on its name, to change
+  it.
+- **[** and **]** make it smaller and larger. **Shift + [** and
+  **Shift + ]** make the edge softer and harder.
+- Hold **Alt** and the **right mouse button** on the picture, then drag:
+  left and right for the size, up and down for the edge (up is softer). The
+  dashed ring is where its solid middle ends. On a Mac, hold Control and
+  Option and drag. Image Compare A/B's brush works the same way.
+- The brush shows under the pointer as it will paint: teal where it adds,
+  coral where it erases, solid in the middle and fading where its edge is
+  soft.
+
+## The chips under the picture
+
+Every area has a chip under the picture: a thing you picked, by its name,
+or an area you painted.
+
+- Paint that touches an area joins its chip. Paint that touches nothing
+  joins the **paint** chip, however many strokes it takes.
+- Erasing never makes a chip: it rubs out whatever is there. Erasing where
+  nothing is picked does nothing.
+- A thing you take away again (Ctrl-click the face of a person you picked)
+  gets a chip in a warm colour. Its **cross** brings the thing back.
+  Clicking the thing again does the same.
+- Ctrl-click a thing you picked to take it away again, chip and all.
+- **Click a chip** to select it: what you paint then joins that chip,
+  wherever you paint. The arrows above the chips swap it for the other
+  things at the same spot. Click it again, or press **Esc**, to let go.
+- **+ new** starts an area of its own: what you paint next gets a new chip,
+  also where it touches another one.
+- The **cross** on a chip takes that area away, with what was painted onto
+  it.
 - **all 3** on a chip takes every thing of that name instead of the one you
   clicked: all five birds, both shoes.
 - The field at the end, **+ type a name**, picks every thing of the name
-  you type.
-- Everything you paint with **Draw** in one go shares one chip, **paint**.
-  Its cross takes all of that paint away. **Undo** takes back one mark at a
-  time.
+  you type. With Erase chosen it takes them away.
 
 ## The tools on the node
 
-- **Pick | Draw**: Pick takes whole things. Draw is a brush: your paint is
-  used exactly as you draw it, and SAM 3 is not asked.
-- **+** and **−**: add to the picked area, or take away from it. Holding
-  **Alt**, or using the right mouse button, takes away for as long as you
-  hold it.
-- **The number** is the brush size, in pixels of the picture. The **[** and
-  **]** keys change it too.
-- **Undo** takes back the last pick, or a Clear. Ctrl+Z works as well: it is
-  ComfyUI's own undo, and every pick counts as a change.
+- **Undo** takes back the last change, or a Clear. Ctrl+Z works as well: it
+  is ComfyUI's own undo, and every change counts.
 - **Clear** picks nothing.
 - **The line under the picture** says what is picked and how much of the
   picture it covers.
@@ -152,9 +190,9 @@ Good to know:
 - A thing with a clean hard edge, like a mug, comes out the same.
 - Something else of the subject that lies between your pick and the
   background can come along: the hair beside a pair of headphones, a strip of
-  skirt under a blouse. Take it away with **−**, or switch Fine edges off for
-  that pick.
-- What you paint with **Draw** stays exactly as you painted it.
+  skirt under a blouse. Take it away with Ctrl-click or **Erase**, or switch
+  Fine edges off for that pick.
+- What you paint with the brush stays exactly as you painted it.
 - It needs ComfyUI 0.21 or newer.
 
 ## When nothing is picked
@@ -171,10 +209,10 @@ nothing instead.
 Picks belong to the picture they were made on. Load another picture and the
 node shows it with nothing picked, and says the old picks are not used.
 
-- With a Load Image wired straight in, the picture shows as soon as you
-  choose a file.
+- With a Load Image wired straight in, or through Reroute nodes, the
+  picture shows as soon as you choose a file.
 - With **Image Crop + Rotate + Pad 🆎** or **Load Image + Pad 🆎** wired
-  straight in, it shows by itself too, a moment after you choose a file or
+  straight in (Reroutes on the way count as straight), it shows by itself too, a moment after you choose a file or
   change the crop. The node runs the loader for that, so you see the picture
   as the loader hands it on, cropped and all. A workflow you just opened
   shows **Show picture** instead: opening one starts nothing.
@@ -239,6 +277,11 @@ no browser:
 ]}
 ```
 
+- A `paint` touch may carry **`"s"`**, how soft the brush's edge was (1 to
+  100); without it the brush is hard. A soft brush gives a mask with values
+  between 0 and 1 along its edge.
+- A touch that adds may carry **`"g"`**, the number of the chip it belongs
+  to on the node's face. The node itself does not read it.
 - Coordinates are pixels of the picture, `r` is the brush's radius, `op` 1
   adds and 0 takes away. Items apply in order. At most 200 items and 20,000
   points.

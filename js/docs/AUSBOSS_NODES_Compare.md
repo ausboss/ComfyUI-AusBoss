@@ -44,8 +44,8 @@ only want the new sky.
 Pick **Erase** on the switch. A row of tools opens above the picture:
 
 - **Erase | Restore**: what the brush does. Erase rubs the top picture
-  away. Restore paints it back. Holding **Alt**, or the right mouse
-  button, paints back too.
+  away. Restore paints it back. Holding **Ctrl**, or using the right
+  mouse button, does the other one for as long as you hold it.
 - **Size** is the brush's width, in pixels of the picture.
 - **Soft** is the brush's edge: 0 is a hard edge, 100 fades all the way
   from the middle.
@@ -63,6 +63,8 @@ It turns coral while it paints back.
 Set the brush without leaving the picture, with the same keys as in
 Photoshop:
 
+- **E** erases and **B** paints back, as with Photoshop's eraser and
+  brush.
 - **[** and **]** make it smaller and larger.
 - **Shift + [** and **Shift + ]** make the edge softer and harder.
 - Hold **Alt** and the **right mouse button**, then drag: left and right
