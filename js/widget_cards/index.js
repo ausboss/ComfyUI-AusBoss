@@ -6,7 +6,7 @@
 // and a `group` row folds the rarely-touched settings behind one click.
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
-import { chainCallback } from "../shared/index.mjs";
+import { chainCallback, notifyAusbossChange } from "../shared/index.mjs";
 import { formatWidgetVisibility } from "../shared/save_video_formats.mjs";
 import { hideInputsInDef } from "../shared/widget_visibility.mjs";
 import { mountWidgetCard } from "../shared/widget_card.mjs";
@@ -14,6 +14,7 @@ import { commitWidgetValue, resetUnknownValues } from "../shared/widget_card_mat
 import { mediaViewQuery } from "../shared/media_list.mjs";
 import { gearIconSvg, openSettingsMenu } from "../shared/settings_menu.mjs";
 import { SEAM_MENU, SEAM_MUTE_TITLES, isBlendIn, seamCornerReserve } from "../shared/stitch_seam.mjs";
+import { TEXT_LOOK_MENU, setTextLook, textLook, textLookCornerReserve } from "../shared/text_look.mjs";
 import { fineEdgeLabel } from "../shared/touch_math.mjs";
 import { valueToTake, wiredLimits } from "../shared/wired_limits.mjs";
 
@@ -65,6 +66,31 @@ function seamCorner(node, card) {
       return seamCornerReserve(values);
     },
   };
+}
+// Text: the gear in the card's corner picks the node's look, the usual box
+// or big centred letters (shared/text_look.mjs). The look is kept on the
+// node, not in a widget, so the node's inputs and saved values never change.
+function textLookCorner(node, card) {
+  const gear = document.createElement("button");
+  gear.type = "button";
+  gear.className = "ausboss-card-gear";
+  gear.title = "Text settings";
+  gear.innerHTML = gearIconSvg();
+  gear.addEventListener("click", () => openSettingsMenu({
+    scope: "text_look",
+    schema: TEXT_LOOK_MENU,
+    anchor: gear.getBoundingClientRect(),
+    title: "Text settings",
+    initial: { look: textLook(node) },
+    onChange: (values) => {
+      if (values.look === textLook(node)) return;
+      setTextLook(node, values.look);
+      card.refresh();
+      node.graph?.setDirtyCanvas?.(true, true);
+      notifyAusbossChange();
+    },
+  }));
+  return { element: gear, sync: () => textLookCornerReserve(textLook(node)) };
 }
 // Save Video rows that only some formats read (crf, save_metadata).
 const formatReads = (name) => (values) => formatWidgetVisibility(String(values.format))[name];
@@ -266,7 +292,13 @@ const CARDS = {
   // (`takesWired`), so wiring it up does not change that setting.
   AUSBOSS_NODES_Integer: { minWidth: 260, takesWired: "value", rows: [{ widget: "value", label: "Value", limits: wiredLimits }] },
   AUSBOSS_NODES_Float: { minWidth: 260, takesWired: "value", rows: [{ widget: "value", label: "Value", decimals: 3, trimZeros: true, limits: wiredLimits }] },
-  AUSBOSS_NODES_Text: { minWidth: 300, rows: [{ widget: "text", kind: "textarea", placeholder: "Prompt, caption, or shared text", height: 100, grow: true }] },
+  // The gear picks the look; big is a compact field of large centred
+  // letters, for a word or two over a picture.
+  AUSBOSS_NODES_Text: {
+    minWidth: 300, look: textLook, corner: textLookCorner,
+    rows: [{ widget: "text", kind: "textarea", placeholder: "Prompt, caption, or shared text", height: 100, grow: true,
+      looks: { big: { height: 62, placeholder: "type here" } } }],
+  },
   // Saved by a 1.x release, these two hold that empty value too and open
   // with preview on, like Mask Refine.
   AUSBOSS_NODES_SelectFrame: { minWidth: 280, first: true, resetUnknown: { preview: true }, rows: [{ widget: "frame_number", label: "Frame" }] },

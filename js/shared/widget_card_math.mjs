@@ -36,27 +36,37 @@ export function rowMuted(row, values) {
   return typeof row?.mute === "function" && row.mute(values) === true;
 }
 
+// What a row says in the card's current look. A card can have more than one
+// look, chosen per node (the Text node's big look), and a row can carry
+// `looks: { big: { height, placeholder } }`: in that look those settings
+// stand in for the row's own. Any other look is the row as written.
+export function rowInLook(row, look = null) {
+  const own = look ? row?.looks?.[look] : null;
+  return own && typeof own === "object" ? { ...row, ...own } : row;
+}
+
 // One row's height: a caption, a group header, a control row, or the
-// height a textarea row asks for.
-export function rowHeight(row) {
+// height a textarea row asks for in the card's look.
+export function rowHeight(row, look = null) {
   if (row.section !== undefined) return SECTION_HEIGHT;
   if (row.widget === undefined && row.pair === undefined) return GROUP_HEIGHT;
-  return Number(row.height) > 0 ? Number(row.height) : ROW_HEIGHT;
+  const height = Number(rowInLook(row, look).height);
+  return height > 0 ? height : ROW_HEIGHT;
 }
 
 // Card height for a list of visible rows: rows, section captions and group
 // headers each add their own height plus the gap between them.
-export function cardHeight(rows) {
+export function cardHeight(rows, look = null) {
   if (!rows.length) return CARD_PADDING * 2;
-  return CARD_PADDING * 2 + rows.reduce((sum, row) => sum + rowHeight(row), 0) + ROW_GAP * (rows.length - 1);
+  return CARD_PADDING * 2 + rows.reduce((sum, row) => sum + rowHeight(row, look), 0) + ROW_GAP * (rows.length - 1);
 }
 
 // Where each visible row starts, measured from the card's top edge.
-export function rowTops(rows) {
+export function rowTops(rows, look = null) {
   let y = CARD_PADDING;
   return rows.map((row) => {
     const top = y;
-    y += rowHeight(row) + ROW_GAP;
+    y += rowHeight(row, look) + ROW_GAP;
     return top;
   });
 }

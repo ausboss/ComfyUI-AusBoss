@@ -30,6 +30,14 @@ class LiteralNodeTests(unittest.TestCase):
         text = "two\nlines, exactly as typed  "
         self.assertEqual(AusBossText().emit(text), (text,))
 
+    def test_text_has_one_input_whatever_its_look(self):
+        # The big look is kept in the node's properties on the page, never as
+        # an input, so saved values and prompts are the same in both looks.
+        inputs = AusBossText.INPUT_TYPES()
+        self.assertEqual(list(inputs), ["required"])
+        self.assertEqual(list(inputs["required"]), ["text"])
+        self.assertEqual(AusBossText().emit("jacket"), ("jacket",))
+
     def test_integer_and_float_pass_through(self):
         self.assertEqual(AusBossInteger().emit(-42), (-42,))
         self.assertEqual(AusBossFloat().emit(0.125), (0.125,))
