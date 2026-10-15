@@ -42,6 +42,37 @@ model/CLIP strengths flips it on automatically so the difference stays
 visible. Turning it back off sets every row's CLIP strength to its model
 strength.
 
+## Rows on a subgraph box
+
+When the loader sits inside a subgraph, its rows can show on the box
+itself, so you can switch LoRAs on and off and change strengths without
+opening the box.
+
+1. Open the box and press the loader's gear. The first item is **Rows on the
+   box**.
+2. Press **Show**. The rows now show on the box's face.
+
+Each copy of the box keeps its own rows, and that copy is what runs. Inside,
+the loader says "These rows are set on the box" and shows the rows of the
+box you came in through; a change there goes to that box. **Take back**, in
+the same place, puts the rows inside the loader again, as the box you came in
+through holds them, and every copy of the box then runs those rows.
+
+On the box the card keeps the rows, the master pill and **Re-check LoRA
+files**. Templates and the gear stay on the loader inside.
+
+Workflow Switches can set the rows on a box like any other setting: select
+the box and save its on and off (see the Workflow Switches help).
+
+## Rows a switch sets
+
+A row that a Workflow Switches switch turns on or off shows a **lock** where
+its drag handle is, and a thin line down its left edge. Hover the lock to
+see which switch sets it. Click the lock to take the row over: the switch
+forgets that row and leaves it alone from then on, and stops reading
+"changed" because of it. Everything else the switch does stays. A locked row
+still drags to a new place.
+
 ## Strength bars
 
 Every named row paints a center-zero bar behind its name: teal grows right
