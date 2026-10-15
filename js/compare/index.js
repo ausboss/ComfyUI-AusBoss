@@ -3,7 +3,7 @@ import { app } from "/scripts/app.js";
 import { isForeignRun, outputKey } from "../shared/prompt_scope.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { lookupLink } from "../shared/graph_links.mjs";
-import { WIDGET_FRAME, fillNodeHeight, holdVueNodeMinWidth } from "../shared/panel_layout.mjs";
+import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
 import { mediaViewQuery, responsivePreviewHeight } from "../shared/video_preview.mjs";
 import { makeSlideSwitch } from "../shared/slide_switch.mjs";
 import { VIDEO_MIN_WIDTH, ensureVideoCss } from "../shared/video_ui.mjs";
@@ -19,7 +19,7 @@ import {
   sizeAfterErase,
 } from "../shared/compare.mjs";
 import { savedLinks } from "../shared/compare_erase.mjs";
-import { ERASE_BAR_HEIGHT, ERASE_CSS, ERASE_MIN_WIDTH, SAVE_ROW_HEIGHT, makeEraser } from "../shared/compare_erase_stage.mjs";
+import { ERASE_CSS, makeEraser } from "../shared/compare_erase_stage.mjs";
 
 const NODE_NAME = "AUSBOSS_NODES_Compare";
 const PANEL_WIDGET = "ausboss_compare_panel";
@@ -34,7 +34,7 @@ const DEFAULT_NODE_SIZE = [
   420,
   responsivePreviewHeight(420, 132, 520) + PANEL_CHROME + CAPTION_HEIGHT + 60,
 ];
-const CSS_ID = "ausboss-compare-ui-v5";
+const CSS_ID = "ausboss-compare-ui-v6";
 const ROOT_GAP = 6;
 const BADGE_WIDTH = 22;
 const REST_SETTING = "AusBoss.Compare.RestOnResult";
@@ -77,16 +77,9 @@ function getMode(node) {
   return node.properties.ausboss_compare_mode;
 }
 
-// Erase mode has a tool row above the picture and a save row under it, and
-// needs room for both, so the panel's floor follows the mode.
-function panelFloor(node) {
-  const rows = getMode(node) === "erase" ? ERASE_BAR_HEIGHT + SAVE_ROW_HEIGHT + 2 * ROOT_GAP : 0;
-  return PANEL_MIN_HEIGHT + rows + WIDGET_FRAME;
-}
-
-function widthFloor(node) {
-  return getMode(node) === "erase" ? ERASE_MIN_WIDTH : VIDEO_MIN_WIDTH;
-}
+// One floor for every mode: Erase fits its rows into the node as it is, so
+// picking it never moves the node's edge over its neighbours.
+const PANEL_FLOOR = PANEL_MIN_HEIGHT + WIDGET_FRAME;
 
 // A and B ride on either side of the split line (compareBadges), so each
 // label sits on the picture it names wherever the line is.
@@ -143,29 +136,19 @@ function updateModeButtons(state) {
   state.modeSwitch.set(compareSwitchValue(getMode(state.node), state.showingB));
 }
 
-// Hand the stage to the brush, or take it back, when the mode says so. A
-// node too small for the tool row grows to fit it, and shrinks back when
-// Erase is left. The size before is kept with the workflow, so a node saved
-// in Erase still goes back after a reload.
+// Hand the stage to the brush, or take it back, when the mode says so. The
+// node keeps its size: Erase's rows wrap and take their room from the
+// picture. Pack 2.12.1 grew a small node for Erase and kept the size from
+// before with the workflow; a node saved like that still gets it back.
 function syncErase(state) {
   const node = state.node;
   const on = getMode(node) === "erase";
   if (state.eraser.active === on) return;
   state.eraser.setActive(on);
-  holdVueNodeMinWidth(state.root, widthFloor(node));
-  if (!node.size) return;
-  if (!on) {
-    const back = sizeAfterErase([...node.size], node.properties[SIZE_BEFORE_ERASE]);
-    delete node.properties[SIZE_BEFORE_ERASE];
-    if (back) node.setSize?.(back);
-    return;
-  }
-  const min = node.computeSize?.();
-  if (min && (node.size[0] < min[0] || node.size[1] < min[1])) {
-    const before = [node.size[0], node.size[1]];
-    node.setSize?.([Math.max(before[0], min[0]), Math.max(before[1], min[1])]);
-    node.properties[SIZE_BEFORE_ERASE] = { before, grown: [node.size[0], node.size[1]] };
-  }
+  if (on || !node.size) return;
+  const back = sizeAfterErase([...node.size], node.properties[SIZE_BEFORE_ERASE]);
+  delete node.properties[SIZE_BEFORE_ERASE];
+  if (back) node.setSize?.(back);
 }
 
 // In toggle mode the reveal is all or nothing.
@@ -301,7 +284,7 @@ function buildPanel(node) {
   const widget = node.addDOMWidget(PANEL_WIDGET, "ausboss_compare", root, {
     serialize: false,
     hideOnZoom: false,
-    getMinHeight: () => panelFloor(node),
+    getMinHeight: () => PANEL_FLOOR,
   });
   keepDomWidgetWidthAuto(widget);
   // Not saved with the workflow either: options.serialize only keeps it out
@@ -311,8 +294,8 @@ function buildPanel(node) {
   // the panel fewer CSS pixels than the stage + caption minimums and shaves
   // the caption's glyphs at the node's minimum height.
   fillNodeHeight(widget, {
-    minWidth: () => widthFloor(node),
-    minHeight: () => panelFloor(node),
+    minWidth: VIDEO_MIN_WIDTH,
+    minHeight: PANEL_FLOOR,
     minNodeSize: [VIDEO_MIN_WIDTH, 220],
     exactMinWidth: true,
   });

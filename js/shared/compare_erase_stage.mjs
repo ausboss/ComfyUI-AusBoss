@@ -38,11 +38,11 @@ import {
   typedName,
 } from "./compare_erase.mjs";
 
-// The heights of the tool row above the picture and the save row under it,
-// and the width the tools need side by side.
+// The heights of the tool row above the picture and the save row under it.
+// On a narrow node either row wraps onto a second line instead of widening
+// the node, and the picture gives up the room.
 export const ERASE_BAR_HEIGHT = 24;
 export const SAVE_ROW_HEIGHT = 28;
-export const ERASE_MIN_WIDTH = 540;
 
 // Saved with the workflow: the paint, the brush once it was set by hand,
 // which picture is on top, and whether Save writes the layers too.
@@ -55,6 +55,9 @@ const NAME_PROPERTY = "ausboss_compare_name";
 // A floppy disk, drawn here: the corner cut off, the label, the shutter.
 const SAVE_ICON = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">'
   + '<path d="M2.5 2.5h8.4l2.6 2.6v8.4h-11z"/><path d="M5.2 2.7v3.3h4.6V2.7"/><path d="M4.9 13.3V9.6h6.2v3.7"/></svg>';
+// Two sheets, one over the other, drawn here.
+const COPY_ICON = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">'
+  + '<rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg>';
 const SAVE_ROUTE = "/ausboss/compare/save";
 const UNDO_KEPT = 60;
 // The view is drawn at the size it has on screen, up to this many pixels.
@@ -75,15 +78,17 @@ const TINT_SETTING = 0.62;
 const CAN_FILTER = typeof CanvasRenderingContext2D !== "undefined" && "filter" in CanvasRenderingContext2D.prototype;
 
 export const ERASE_CSS = `
-.ausboss-compare-erasebar{display:none;box-sizing:border-box;align-items:center;gap:6px;flex:none;height:${ERASE_BAR_HEIGHT}px;}
+.ausboss-compare-erasebar{display:none;box-sizing:border-box;flex-wrap:wrap;align-items:center;gap:4px 6px;flex:none;min-height:${ERASE_BAR_HEIGHT}px;}
 .ausboss-compare-root.is-erasing .ausboss-compare-erasebar{display:flex;}
 .ausboss-compare-erasebar .ausboss-scrub{flex:none;}
 .ausboss-compare-field{display:flex;align-items:center;gap:4px;flex:none;}
 .ausboss-compare-label{flex:none;color:#9fb6b4;font-size:10px;line-height:22px;white-space:nowrap;user-select:none;}
-.ausboss-compare-gap{flex:1 1 auto;min-width:0;}
-.ausboss-compare-saverow{display:none;box-sizing:border-box;align-items:center;gap:8px;flex:none;height:${SAVE_ROW_HEIGHT}px;}
+.ausboss-compare-steps{display:flex;align-items:center;gap:6px;flex:none;margin-left:auto;}
+.ausboss-compare-saverow{display:none;box-sizing:border-box;flex-wrap:wrap;align-items:center;gap:4px 8px;flex:none;min-height:${SAVE_ROW_HEIGHT}px;}
 .ausboss-compare-root.is-erasing .ausboss-compare-saverow{display:flex;}
-.ausboss-compare-name{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:4px;}
+.ausboss-compare-saveend{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:4px 8px;flex:none;max-width:100%;margin-left:auto;}
+.ausboss-compare-stage.is-erasing{min-height:32px;}
+.ausboss-compare-name{flex:1 1 110px;min-width:0;display:flex;align-items:center;gap:4px;}
 .ausboss-compare-name input{box-sizing:border-box;flex:1 1 auto;min-width:40px;width:40px;height:24px;padding:0 7px;border:1px solid #3a4047;border-radius:5px;background:#0f1516;color:#d8eeee;font:11px/22px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;outline:none;}
 .ausboss-compare-name input:focus{border-color:${BRAND};}
 .ausboss-compare-name input:disabled{color:#7f9896;border-style:dashed;}
@@ -91,6 +96,9 @@ export const ERASE_CSS = `
 .ausboss-compare-savebtn{box-sizing:border-box;flex:none;display:inline-flex;align-items:center;gap:6px;height:${SAVE_ROW_HEIGHT}px;padding:0 14px 0 11px;border:1px solid ${BRAND};border-radius:6px;background:${BRAND};color:#04201d;font:700 11px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.04em;cursor:pointer;box-shadow:0 0 9px rgba(0,180,170,.32);}
 .ausboss-compare-savebtn:hover{background:#19cdc2;border-color:#19cdc2;}
 .ausboss-compare-savebtn:disabled{background:#16302e;border-color:#23504c;color:#5f8a86;box-shadow:none;cursor:default;}
+.ausboss-compare-copybtn{box-sizing:border-box;flex:none;display:inline-flex;align-items:center;gap:6px;height:${SAVE_ROW_HEIGHT}px;padding:0 12px 0 10px;border:1px solid rgba(0,180,170,.7);border-radius:6px;background:transparent;color:#7fe6dd;font:700 11px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.04em;cursor:pointer;}
+.ausboss-compare-copybtn:hover{background:rgba(0,180,170,.14);border-color:${BRAND};color:#b6fff8;}
+.ausboss-compare-copybtn:disabled{border-color:#23504c;color:#5f8a86;background:transparent;cursor:default;}
 .ausboss-compare-root .ausboss-video-tool:disabled{opacity:.42;cursor:default;pointer-events:none;}
 .ausboss-compare-erase{position:absolute;inset:0;width:100%;height:100%;display:none;cursor:crosshair;touch-action:none;}
 .ausboss-compare-stage.is-erasing:not(.is-empty) .ausboss-compare-erase{display:block;}
@@ -349,6 +357,11 @@ function syncTools(er) {
   er.clearButton.disabled = !er.strokes.length;
   er.saveButton.disabled = !ready || er.saving;
   er.saveLabel.textContent = er.saving ? "Saving" : "Save";
+  er.copyButton.disabled = !ready || er.copying;
+  er.copyLabel.textContent = er.copying ? "Copying" : "Copy";
+  er.copyButton.title = ready
+    ? "Copy this mix to the clipboard at full size, to paste into an editor or a chat. Nothing is saved."
+    : "Run the workflow first: Copy needs the two pictures.";
   // The name: typed here, or shown as the run got it from the input.
   const wired = nameIsWired(er);
   const typed = String(er.node.properties?.[NAME_PROPERTY] ?? "");
@@ -591,6 +604,68 @@ async function save(er) {
   }
 }
 
+// The mix as a PNG, made here at the pictures' full size: the strokes drawn
+// as the view draws them, one mask pixel to a pixel of the picture.
+function mixBlob(er) {
+  const { width, height } = er;
+  const [top, under] = topOf(er) === "B" ? [er.imageB, er.imageA] : [er.imageA, er.imageB];
+  const mask = document.createElement("canvas");
+  const maskCtx = sized(mask, width, height);
+  for (const stroke of er.strokes) drawStroke(maskCtx, stroke, 1);
+  const cut = document.createElement("canvas");
+  const cutCtx = sized(cut, width, height);
+  cutCtx.drawImage(top, 0, 0, width, height);
+  cutCtx.globalCompositeOperation = "destination-out";
+  cutCtx.drawImage(mask, 0, 0);
+  const out = document.createElement("canvas");
+  const ctx = sized(out, width, height);
+  ctx.drawImage(under, 0, 0, width, height);
+  ctx.drawImage(cut, 0, 0);
+  return new Promise((resolve, reject) => {
+    out.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("The browser could not make the picture."))), "image/png");
+  });
+}
+
+// Copy the mix to the clipboard. Browsers only let a page write a picture
+// there when it is opened as localhost or over https.
+function copy(er) {
+  if (er.copying || !er.refs) return;
+  if (!window.isSecureContext || !navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
+    showToast({
+      severity: "warn",
+      summary: "Image Compare",
+      detail: "This browser only lets a page copy a picture when ComfyUI is opened as localhost or over https. Save works from anywhere.",
+      life: 8000,
+    });
+    return;
+  }
+  er.copying = true;
+  syncTools(er);
+  const picture = mixBlob(er);
+  // The picture goes in still being made, inside the click: Safari only
+  // copies from a click, and making a large one takes a moment.
+  let write;
+  try {
+    write = navigator.clipboard.write([new ClipboardItem({ "image/png": picture })]);
+  } catch {
+    write = picture.then((blob) => navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]));
+  }
+  write.then(
+    () => showToast({ severity: "success", summary: "Image Compare", detail: "The mix is on the clipboard. Paste it into an editor or a chat.", life: 3000 }),
+    (error) => showToast({
+      severity: "error",
+      summary: "Image Compare",
+      detail: error?.name === "NotAllowedError"
+        ? "The browser did not let this page copy a picture. Save works from anywhere."
+        : `Could not copy the mix: ${error?.message ?? error}`,
+      life: 8000,
+    }),
+  ).finally(() => {
+    er.copying = false;
+    syncTools(er);
+  });
+}
+
 // Build the Erase tools for one Compare panel. `onSaved` is told which
 // files a save wrote. The caller places `bar` above the stage and
 // `saveRow` under its footer, and tells the eraser when the mode or the
@@ -608,7 +683,7 @@ export function makeEraser({ node, root, stage, imageA, imageB, signal, onSaved 
     refs: null, width: 0, height: 0, fit: null,
     strokes: [], history: [],
     active: false, stroke: null, adjust: null, pointer: null, back: false, flipKey: false,
-    saving: false, frame: 0, keys: null,
+    saving: false, copying: false, frame: 0, keys: null,
   };
   er.canvas.className = "ausboss-compare-erase";
   stage.append(er.canvas);
@@ -700,8 +775,9 @@ export function makeEraser({ node, root, stage, imageA, imageB, signal, onSaved 
     },
   });
   const topField = labelled("On top", TOP_HELP, er.topSwitch.root).wrap;
-  const gap = document.createElement("div");
-  gap.className = "ausboss-compare-gap";
+  // Undo and Clear stay together at the right end, also on a second line.
+  const steps = document.createElement("div");
+  steps.className = "ausboss-compare-steps";
   er.undoButton = click(makeToolButton("UNDO", "Take back the last stroke, or a Clear."), () => {
     if (!er.history.length && !er.strokes.length) return;
     // Paint that came with the workflow has no steps of its own to go back
@@ -718,7 +794,8 @@ export function makeEraser({ node, root, stage, imageA, imageB, signal, onSaved 
     rebuildMask(er);
     schedule(er);
   });
-  er.bar.append(er.kindSwitch.root, sizeField, softField, topField, gap, er.undoButton, er.clearButton);
+  steps.append(er.undoButton, er.clearButton);
+  er.bar.append(er.kindSwitch.root, sizeField, softField, topField, steps);
 
   // The save row under the picture: the name, the layers choice, and Save
   // at the right end, where the eye ends up.
@@ -766,7 +843,19 @@ export function makeEraser({ node, root, stage, imageA, imageB, signal, onSaved 
   er.saveLabel.textContent = "Save";
   er.saveButton.append(er.saveLabel);
   click(er.saveButton, () => save(er));
-  er.saveRow.append(nameField.wrap, layersField, er.saveButton);
+  er.copyButton = document.createElement("button");
+  er.copyButton.type = "button";
+  er.copyButton.className = "ausboss-compare-copybtn";
+  er.copyButton.innerHTML = COPY_ICON;
+  er.copyLabel = document.createElement("span");
+  er.copyLabel.textContent = "Copy";
+  er.copyButton.append(er.copyLabel);
+  click(er.copyButton, () => copy(er));
+  // The PSD choice, Copy and Save keep together at the right end.
+  const saveEnd = document.createElement("div");
+  saveEnd.className = "ausboss-compare-saveend";
+  saveEnd.append(layersField, er.copyButton, er.saveButton);
+  er.saveRow.append(nameField.wrap, saveEnd);
 
   installPointer(er, signal);
   const resized = new ResizeObserver(() => schedule(er));

@@ -2,6 +2,18 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Image Compare A/B 🆎: Erase keeps the node's size.** Picking Erase no
+  longer makes the node bigger, so it never covers the nodes beside it. On
+  a narrow node the tool rows wrap onto a second line and the picture gets
+  a little shorter instead. A node that 2.12.1 made bigger still gets its
+  size back when you leave Erase.
+- **Image Compare A/B 🆎: Copy puts the mix on the clipboard.** A new
+  **Copy** button beside Save copies the mix at full size, to paste into an
+  editor or a chat without saving a file. Browsers allow this when ComfyUI
+  is opened as localhost or over https.
+
 ## 2.12.2 - 2026-10-14
 
 - **A smaller download: this changelog stays on GitHub.** The installed
