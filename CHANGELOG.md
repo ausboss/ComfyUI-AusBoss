@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.13.0 - 2026-10-14
 
 - **Text 🆎: a big look for a word or two you want to see at a glance.**
   Click the small gear at the top right of the box and pick **big**: the
