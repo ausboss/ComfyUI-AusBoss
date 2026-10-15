@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.12.3 - 2026-10-14
 
 - **Image Compare A/B 🆎: Erase keeps the node's size.** Picking Erase no
   longer makes the node bigger, so it never covers the nodes beside it. On
