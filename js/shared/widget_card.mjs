@@ -39,7 +39,7 @@ import { limitsLabel, narrowedRange } from "./wired_limits.mjs";
 import { hideWidget } from "./widget_visibility.mjs";
 import {
   CARD_PADDING, GROUP_HEIGHT, ROW_GAP, ROW_HEIGHT, SECTION_HEIGHT, SLOT_OFFSET, UNIT_SLOT_WIDTH,
-  cardHeight, choiceLabel, commitWidgetValue, comboValues, rowHeight, rowKind, rowMuted, rowTops, scrubSteps, socketWidgetY, visibleRows,
+  cardChangeRestore, cardHeight, choiceLabel, commitWidgetValue, comboValues, rowHeight, rowInLook, rowKind, rowMuted, rowTops, scrubSteps, socketWidgetY, visibleRows,
   widgetTooltip,
 } from "./widget_card_math.mjs";
 
@@ -59,6 +59,15 @@ const FONT = `-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif`;
 // A boolean pill's state labels must fit half a control; longer text is a
 // tooltip, and the pill says on / off.
 const SWITCH_LABEL_MAX = 16;
+// The big look of a textarea row (the Text node's gear): large centred
+// letters in the Callout's teal, with its glow, in a field as wide as the card. Two lines fit the field at its
+// smallest; the side padding keeps the text clear of the gear in the
+// field's corner, and the same on the left keeps it centred on the card.
+const BIG_LOOK = "big";
+const BIG_FONT = 22;
+const BIG_LINE = 26;
+const BIG_PAD_Y = 4;
+const BIG_PAD_X = 30;
 
 export function ensureCardCss() {
   if (document.getElementById(CSS_ID)) return;
@@ -109,6 +118,13 @@ export function ensureCardCss() {
 .ausboss-card-area{display:block;width:100%;height:100%;padding:5px 8px;box-sizing:border-box;border:1px solid #2a3437;border-radius:6px;background:#0b0f10;color:#d8ecea;font:12px/1.4 ${FONT};resize:none;overflow:auto;min-width:0}
 .ausboss-card-area:focus{outline:none;border-color:${BRAND}}
 .ausboss-card-area::placeholder{color:#4f6462}
+.ausboss-card.look-big .ausboss-card-row.area .ausboss-card-field{position:relative;display:block;border:1px solid #2a3437;border-radius:6px;background:#0b0f10;cursor:text}
+.ausboss-card.look-big .ausboss-card-row.area .ausboss-card-field:focus-within{border-color:${BRAND}}
+.ausboss-card.look-big .ausboss-card-area{position:absolute;left:0;right:0;top:0;bottom:0;margin:auto 0;max-height:100%;padding:${BIG_PAD_Y}px ${BIG_PAD_X}px;border:none;border-radius:5px;background:transparent;color:#6fe0d6;text-shadow:0 0 .35em rgba(0,180,170,.55);font:600 ${BIG_FONT}px/${BIG_LINE}px ${FONT};text-align:center;scrollbar-width:thin;scrollbar-color:#2f3d3c transparent}
+.ausboss-card.look-big .ausboss-card-area::placeholder{color:#4f6462;text-shadow:none}
+.ausboss-card.look-big .ausboss-card-corner{top:${CARD_PADDING + 4}px;right:12px;height:22px}
+.ausboss-card.look-big .ausboss-card-gear{width:22px;height:22px;border-color:transparent;background:transparent}
+.ausboss-card.look-big .ausboss-card-gear:hover{border-color:${BRAND}}
 .ausboss-card-swatch{flex:none;width:${ROW_HEIGHT}px;height:${ROW_HEIGHT}px;padding:0;border:1px solid #2a3437;border-radius:6px;background:#0b0f10;cursor:pointer}
 .ausboss-card-swatch::-webkit-color-swatch-wrapper{padding:3px}
 .ausboss-card-swatch::-webkit-color-swatch{border:none;border-radius:3px}
@@ -178,9 +194,11 @@ function isFloatWidget(widget) {
 //                                            `trimZeros` drops the zeroes
 //                                            the steps never reach (1.00,
 //                                            not 1.000)
-//   { widget, kind: "textarea", placeholder?, height, grow? }  - a multiline
-//                                             string; `grow` takes the node's
-//                                             spare height
+//   { widget, kind: "textarea", placeholder?, height, grow?, looks? }
+//                                          - a multiline string; `grow` takes
+//                                            the node's spare height; `looks`
+//                                            holds the height and placeholder
+//                                            the row takes in another look
 //   { pair: [name, name, ...], label, sep?, when?, group?, suffix?, top? }
 //                                          - `top` lifts the widgets' sockets
 //                                            into the node's slot column
@@ -192,12 +210,14 @@ function isFloatWidget(widget) {
 // hover hint (a setting the current mode does not use).
 // Options: minWidth (node floor), first (place the card ahead of the node's
 // other DOM widgets), hide (extra widgets to hide), corner (small tools in
-// the card's top-right corner, see below).
-export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hide = [], corner = null } = {}) {
+// the card's top-right corner, see below), look (a function of the node that
+// names the card's look, a display choice kept on the node; the card carries
+// it as a `look-<name>` class and rows take their `looks` entry for it).
+export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hide = [], corner = null, look: lookOf = null } = {}) {
   ensureCardCss();
   const root = el("div", "ausboss-card");
   const managed = [];
-  const state = { node, root, rows: [], groups: {}, height: 0, widget: null, rowTop: new Map(), rowSpan: new Map(), socketed: [], pickers: [] };
+  const state = { node, root, rows: [], groups: {}, height: 0, widget: null, rowTop: new Map(), rowSpan: new Map(), socketed: [], pickers: [], observers: [], look: "" };
   node.__ausbossCard = state;
 
   const values = () => Object.fromEntries((node.widgets ?? []).map((widget) => [widget.name, widget.value]));
@@ -394,7 +414,36 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     area.title = row.title ?? widgetTooltip(node, name, widget);
     area.spellcheck = false;
     let typing = false;
-    area.addEventListener("input", () => { typing = true; setWidget(name, area.value, { settle: false }); typing = false; });
+    // In the big look the box is as tall as its text, up to the field's
+    // height, and sits in the middle of the field (out of flow, so the text
+    // never sizes the card in Nodes 2.0); past that it scrolls. While typing
+    // at the end, the end stays in view.
+    const fit = ({ toEnd = false } = {}) => {
+      if (state.look !== BIG_LOOK) {
+        if (area.style.height) area.style.height = "";
+        return;
+      }
+      const keep = area.scrollTop;
+      area.style.height = "0px";
+      area.style.height = `${area.scrollHeight}px`;
+      area.scrollTop = toEnd && area.selectionEnd === area.value.length ? area.scrollHeight : keep;
+    };
+    // The text wraps again when the node is made wider or narrower.
+    if (typeof ResizeObserver === "function") {
+      const observer = new ResizeObserver(() => fit());
+      observer.observe(into);
+      state.observers.push(observer);
+    }
+    // The big field is all text box: a click above or below the words puts
+    // the caret at their end.
+    into.addEventListener("pointerdown", (event) => {
+      if (state.look !== BIG_LOOK || event.target !== into || event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      area.focus();
+      area.setSelectionRange(area.value.length, area.value.length);
+    });
+    area.addEventListener("input", () => { typing = true; setWidget(name, area.value, { settle: false }); typing = false; fit({ toEnd: true }); });
     area.addEventListener("change", () => notifyAusbossChange());
     area.addEventListener("keydown", (event) => {
       // Ctrl + Up / Down goes on to ComfyUI, which changes the weight of the
@@ -410,7 +459,11 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       if (!atEnd) event.stopPropagation();
     }, { passive: true });
     into.append(area);
-    return (vals) => { if (!typing && document.activeElement !== area) area.value = String(vals[name] ?? ""); };
+    return (vals) => {
+      if (!typing && document.activeElement !== area) area.value = String(vals[name] ?? "");
+      area.placeholder = rowInLook(row, state.look).placeholder ?? row.label ?? name;
+      fit();
+    };
   };
 
   const buildColor = (name, row, into) => {
@@ -499,7 +552,9 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
   // (a gear, a mode chip). sync returns how many pixels they need, and every
   // row's control keeps that much clear, so the controls down the card still
   // share one right edge.
-  const tools = typeof corner === "function" ? corner(node, { values, setWidget }) : null;
+  // `refresh` redraws the card after a change the tools made on the node
+  // itself (a look kept in its properties), as a change by hand.
+  const tools = typeof corner === "function" ? corner(node, { values, setWidget, refresh: () => byHand(refresh) }) : null;
   if (tools?.element) {
     const holder = el("div", "ausboss-card-corner");
     holder.append(tools.element);
@@ -650,16 +705,30 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
   function refresh() {
     if (state.disposed) return;
     const vals = values();
+    const look = typeof lookOf === "function" ? String(lookOf(node) ?? "") : "";
+    const lookChanged = look !== state.look;
+    if (lookChanged) {
+      if (state.look) root.classList.remove(`look-${state.look}`);
+      if (look) root.classList.add(`look-${look}`);
+      state.look = look;
+      // A textarea row takes its height in this look.
+      for (const entry of state.rows) {
+        if (entry.row.kind !== "textarea") continue;
+        const height = `${rowHeight(entry.row, look)}px`;
+        if (entry.row.grow) entry.element.style.minHeight = height;
+        else entry.element.style.height = height;
+      }
+    }
     const groups = {};
     for (const entry of state.rows) if (entry.header) groups[entry.row.group] = groupOpen(entry.row.group);
     const visible = visibleRows(state.rows.map((entry) => entry.row), vals, groups);
     const visibleSet = new Set(visible);
-    const tops = rowTops(visible);
+    const tops = rowTops(visible, look);
     state.rowTop = new Map();
     state.rowSpan = new Map();
     visible.forEach((row, index) => {
       const entry = state.rows.find((item) => item.row === row);
-      for (const name of entry?.names ?? []) { state.rowTop.set(name, tops[index]); state.rowSpan.set(name, rowHeight(row)); }
+      for (const name of entry?.names ?? []) { state.rowTop.set(name, tops[index]); state.rowSpan.set(name, rowHeight(row, look)); }
       if (entry?.header) { state.rowTop.set(`group:${row.group}`, tops[index]); }
     });
     // A row folded under a closed group: its socket rides the header.
@@ -693,15 +762,18 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       for (const sync of entry.syncs) sync(vals, linked);
     }
     if (tools?.sync) root.style.setProperty("--ausboss-card-corner", `${Math.max(0, Number(tools.sync(vals)) || 0)}px`);
-    const height = cardHeight(visible);
+    const height = cardHeight(visible, look);
     if (height !== state.height) {
       const first = !state.height;
       const change = first ? 0 : height - state.height;
       state.height = height;
       const width = Math.max(minWidth, node.size?.[0] || minWidth);
       const floor = node.computeSize?.()[1] || height;
+      const restore = cardChangeRestore({
+        restoring: state.restoring, savedHeight: state.savedHeight, lookChanged, byHand: state.byHand, current: node.size?.[1],
+      });
       node.setSize?.([width, nodeHeightAfterCardChange({
-        floor, current: node.size?.[1], saved: state.savedHeight, change, first, restoring: state.restoring, byHand: state.byHand,
+        floor, current: node.size?.[1], saved: restore.saved, change, first, restoring: restore.restoring, byHand: state.byHand,
       })]);
       node.graph?.setDirtyCanvas?.(true, true);
     }
@@ -742,6 +814,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
   chainCallback(node, "onRemoved", () => {
     state.disposed = true;
     for (const picker of state.pickers) picker.dispose();
+    for (const observer of state.observers) observer.disconnect();
     for (const entry of state.socketed) entry.restore();
     if (typeof originalGetWidgetOnPos === "function") delete node.getWidgetOnPos;
     if (typeof originalGetInputOnPos === "function") delete node.getInputOnPos;

@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   CARD_PADDING, GROUP_HEIGHT, ROW_GAP, ROW_HEIGHT, SECTION_HEIGHT, SLOT_OFFSET,
-  cardHeight, choiceLabel, commitWidgetValue, holdsUnknownValue, resetUnknownValues, rowHeight, rowKind, rowMuted, rowTops,
+  cardHeight, choiceLabel, commitWidgetValue, holdsUnknownValue, resetUnknownValues, rowHeight, rowInLook, rowKind, rowMuted, rowTops,
   scrubSteps, segmentFits, socketWidgetY, visibleRows, widgetTooltip,
 } from "../js/shared/widget_card_math.mjs";
 
@@ -86,6 +86,21 @@ test("rowHeight and cardHeight honor a textarea row's own height", () => {
     cardHeight([{ widget: "prompt", kind: "textarea", height: 96 }, { widget: "flag" }]),
     CARD_PADDING * 2 + 96 + ROW_HEIGHT + ROW_GAP,
   );
+});
+
+test("a row takes its height and placeholder in the card's look, and is itself in any other", () => {
+  const row = { widget: "text", kind: "textarea", placeholder: "Prompt", height: 100, looks: { big: { height: 62, placeholder: "type here" } } };
+  assert.equal(rowInLook(row, "big").placeholder, "type here");
+  assert.equal(rowInLook(row, "big").widget, "text");
+  assert.equal(rowInLook(row, "normal"), row);
+  assert.equal(rowInLook(row, null), row);
+  assert.equal(rowInLook({ widget: "a" }, "big").widget, "a");
+  assert.equal(rowHeight(row), 100);
+  assert.equal(rowHeight(row, "big"), 62);
+  const rows = [row, { widget: "flag" }];
+  assert.equal(cardHeight(rows, "big"), CARD_PADDING * 2 + 62 + ROW_HEIGHT + ROW_GAP);
+  assert.deepEqual(rowTops(rows, "big"), [CARD_PADDING, CARD_PADDING + 62 + ROW_GAP]);
+  assert.deepEqual(rowTops(rows, "other"), rowTops(rows));
 });
 
 test("rowTops walks the visible rows from the card's padding", () => {

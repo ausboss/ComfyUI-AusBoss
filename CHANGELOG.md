@@ -2,6 +2,19 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## 2.13.0 - 2026-10-14
+
+- **Text 🆎: a big look for a word or two you want to see at a glance.**
+  Click the small gear at the top right of the box and pick **big**: the
+  text shows in large letters in the middle of the box, which is easy to
+  spot when a small Text node next to each picture holds one or two words
+  such as "jacket" or "white tank top". The box starts at about two lines
+  and grows when you drag the node taller; longer text scrolls. Each node
+  keeps its own look and saves it with the workflow. **normal**, the usual
+  text box, stays the default, and workflows you have open as before, with
+  the gear beside the box. The look is not an input, so what the node sends
+  does not change.
+
 ## 2.12.3 - 2026-10-14
 
 - **Image Compare A/B 🆎: Erase keeps the node's size.** Picking Erase no
