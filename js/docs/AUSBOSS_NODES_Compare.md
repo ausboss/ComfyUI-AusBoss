@@ -84,6 +84,10 @@ A second row opens under the switch, for saving:
   cannot be part of the name. With the **filename** input wired, the name
   comes from there and the field only shows it.
 - **PSD off | on**: on makes Save write two more files (see below).
+- **Copy** puts the mix on the clipboard at full size, to paste into an
+  editor or a chat. Nothing is saved. Browsers only allow this when
+  ComfyUI is opened as `localhost` or over `https`; from another computer
+  on a plain address, use Save.
 - **Save**, at the right end, writes the mix to ComfyUI's output folder as
   a PNG, such as `compare_00001.png`. Nothing is run again, and every save
   takes the next number, so nothing is written over.
@@ -135,6 +139,9 @@ network requests are made.
 - **What is kept is the strokes**, not a painted picture. The panel draws
   them for you, and Save draws them again on the server at full size, so
   the saved edge is as sharp as the picture however small the node is.
+  Copy draws them at full size in the browser.
+- **Erase never changes the node's size.** On a narrow node its rows wrap
+  onto a second line and the picture gets shorter instead.
 - **The brush** is a solid middle with a blurred edge. At Soft 100 the
   middle is half the brush wide and the blur is an eighth of the size.
 - **Save mixes the two pictures of the node's last run**, which ComfyUI
