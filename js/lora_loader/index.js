@@ -228,7 +228,10 @@ function installStyles() {
      thin line down its left edge. Clicking the lock takes the row over. */
   .ausboss-lora-grip.locked { color: #8fdcd4; cursor: pointer; }
   .ausboss-lora-grip.locked:hover { color: #c4f1ec; }
-  .ausboss-lora-row.owned { box-shadow: inset 2px 0 0 ${BRAND}; }
+  /* The line sits in the stack's padding, clear of the lock. */
+  .ausboss-lora-row.owned { position: relative; }
+  .ausboss-lora-row.owned::before { content: ""; position: absolute; left: -6px; top: 4px;
+    bottom: 4px; width: 2px; border-radius: 1px; background: ${BRAND}; }
   /* Where an inner loader's rows are set when its box holds them. */
   .ausboss-lora-onbox { flex: none; height: ${NOTE_HEIGHT}px; line-height: ${NOTE_HEIGHT}px;
     text-align: center; color: #8fb9b4; font: 11px system-ui; white-space: nowrap;
