@@ -7,8 +7,8 @@ import {
   addMembers, addOffMembers, addSwitch, canvasOrder, cardView, centreInside, choiceState, choosePlan, cleanIds, cleanSnapshots,
   flipTo, frameBounds, groupBounds, groupListed, hasOffSide, heldCount, isRunning, listedRows, matchTerms, modeMatters,
   moveSwitch, nodeBounds, normalizeSettings, normalizeSwitches, offFreshCount, offHeldCount, offMode, pairNow, pairValue,
-  partState, pillNodeWidth, placeNodes, readGroups, readSwitches, removeMembers, removeOffMembers, removeSwitch, renameSwitch,
-  rowLabel, rowsSignature, saveValues, snapshotNode, stackRows, suggestTitle, switchAllPlan, switchPlan, titleOrder, unionRect,
+  partState, pillNodeWidth, placeNodes, readGroups, readSwitches, releaseStackRow, removeMembers, removeOffMembers, removeSwitch,
+  renameSwitch, rowLabel, rowsSignature, saveValues, snapshotNode, stackRowOwners, stackRows, suggestTitle, switchAllPlan, switchPlan, titleOrder, unionRect,
   valueAllPlan, valuePairs, valuePlan,
 } from "../js/shared/workflow_switches.mjs";
 
@@ -905,4 +905,64 @@ test("the pill view is part of what the card draws", () => {
   const rows = [choice("Say it", "on"), choice("Touch it", "off")];
   const base = rowsSignature(rows, normalizeSettings({ exclusive: true }));
   assert.notEqual(rowsSignature(rows, normalizeSettings({ exclusive: true, show: "pill" })), base);
+});
+
+// ---------- rows a switch sets ----------
+
+const stack = (...rows) => JSON.stringify(rows.map(([name, enabled, strength = 1]) => ({ name, enabled, strength })));
+const grainSwitch = (id = 1, title = "Film grain") => ({
+  id, title, nodes: [], groups: [],
+  on: { 54: { loras: stack(["detail.safetensors", true], ["grain/film_grain.safetensors", true, 0.5]) } },
+  off: { 54: { loras: stack(["detail.safetensors", true], ["grain/film_grain.safetensors", false, 0.5]) } },
+});
+
+test("a stack row knows the switches that set it, by file name, on that node and control only", () => {
+  const boards = [{ node: "ws", settings: { switches: [grainSwitch()] } }];
+  assert.deepEqual(stackRowOwners(boards, "54", "loras", "grain/film_grain.safetensors"), [{ node: "ws", id: 1, title: "Film grain" }]);
+  // The same file in another folder is the same row; the node id may be a number.
+  assert.equal(stackRowOwners(boards, 54, "loras", "film_grain.safetensors").length, 1);
+  // A row the switch leaves alone, another node, another control: no owner.
+  assert.deepEqual(stackRowOwners(boards, "54", "loras", "detail.safetensors"), []);
+  assert.deepEqual(stackRowOwners(boards, "55", "loras", "film_grain.safetensors"), []);
+  assert.deepEqual(stackRowOwners(boards, "54", "loras_1", "film_grain.safetensors"), []);
+  assert.deepEqual(stackRowOwners(boards, "54", "loras", ""), []);
+  assert.deepEqual(stackRowOwners([{ node: "ws", settings: undefined }], "54", "loras", "film_grain.safetensors"), []);
+});
+
+test("every switch that sets a row is named, across Workflow Switches nodes", () => {
+  const boards = [
+    { node: "a", settings: { switches: [grainSwitch(1, "Film grain")] } },
+    { node: "b", settings: { switches: [grainSwitch(1, "Look")] } },
+  ];
+  assert.deepEqual(stackRowOwners(boards, "54", "loras", "film_grain.safetensors").map((owner) => [owner.node, owner.title]),
+    [["a", "Film grain"], ["b", "Look"]]);
+});
+
+test("taking a row over makes the switch forget that row and keep the rest", () => {
+  const settings = { switches: [{
+    ...grainSwitch(),
+    on: { 54: { loras: stack(["detail.safetensors", true], ["film_grain.safetensors", true]) }, 9: { steps: 20 } },
+    off: { 54: { loras: stack(["detail.safetensors", false], ["film_grain.safetensors", false]) }, 9: { steps: 8 } },
+  }] };
+  const next = releaseStackRow(settings, 1, "54", "loras", "grain/film_grain.safetensors");
+  const entry = next.switches[0];
+  assert.deepEqual(stackRows(entry.on[54].loras).map((row) => row.name), ["detail.safetensors"]);
+  assert.deepEqual(stackRows(entry.off[54].loras).map((row) => row.name), ["detail.safetensors"]);
+  assert.deepEqual(valuePairs(entry).map((pair) => pair.row ?? pair.widget).sort(), ["detail.safetensors", "steps"]);
+  assert.deepEqual(stackRowOwners([{ node: "ws", settings: next }], "54", "loras", "film_grain.safetensors"), []);
+});
+
+test("taking over the only row a switch set leaves it nothing to move there", () => {
+  const next = releaseStackRow({ switches: [grainSwitch()] }, 1, "54", "loras", "film_grain.safetensors");
+  const entry = next.switches[0];
+  assert.deepEqual(valuePairs(entry).filter((pair) => pair.row === "grain/film_grain.safetensors"), []);
+  assert.equal(next.switches[0].title, "Film grain");
+});
+
+test("taking over a row changes nothing for another switch, node or file", () => {
+  const settings = { switches: [grainSwitch(1), grainSwitch(2, "Other")] };
+  const next = releaseStackRow(settings, 1, "54", "loras", "film_grain.safetensors");
+  assert.deepEqual(next.switches[1], normalizeSettings(settings).switches[1]);
+  assert.deepEqual(releaseStackRow(settings, 1, "77", "loras", "film_grain.safetensors"), normalizeSettings(settings));
+  assert.deepEqual(releaseStackRow(settings, 1, "54", "loras", "unknown.safetensors"), normalizeSettings(settings));
 });

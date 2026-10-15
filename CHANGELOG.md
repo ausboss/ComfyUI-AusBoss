@@ -2,6 +2,22 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **LoRA Loader 🆎: show the rows on the face of a subgraph box.** When the
+  loader sits inside a subgraph, its gear has a new first item, **Rows on
+  the box**. Press **Show** and the rows appear on the box itself, where you
+  switch LoRAs on and off and change strengths without opening it. Each copy
+  of the box keeps its own rows, and Workflow Switches can set them: select
+  the box and save its on and off. Inside, the loader says where its rows are
+  set and shows the rows of the box you came in through. **Take back** puts
+  the rows inside the loader again.
+- **LoRA Loader 🆎: a lock on rows a switch sets.** A row that a Workflow
+  Switches switch turns on or off shows a lock in place of its drag handle,
+  and hovering it names the switch. Click the lock to take the row over: the
+  switch forgets that row and leaves it alone, and keeps everything else it
+  does.
+
 ## 2.13.0 - 2026-10-14
 
 - **Text 🆎: a big look for a word or two you want to see at a glance.**

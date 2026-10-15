@@ -38,7 +38,12 @@ The switch now changes only the values that differ between the two. Those
 nodes are no longer turned off by it.
 
 In a LoRA Loader it changes single rows, found by file name. A row you did
-not change keeps whatever strength you give it later.
+not change keeps whatever strength you give it later. The same works for the
+LoRA rows on a subgraph box (LoRA Loader's gear, **Rows on the box**): select
+the box itself and save its on and off.
+
+A LoRA row a switch sets shows a lock in the LoRA Loader. Click the lock to
+take that row over: this switch then leaves the row alone.
 
 ## A switch with two sides
 
