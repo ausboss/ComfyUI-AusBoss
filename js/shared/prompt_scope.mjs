@@ -90,3 +90,61 @@ export const runScope = createRunScope();
 export function isForeignRun(promptId) {
   return promptId === undefined ? runScope.isForeign() : runScope.isForeign(promptId);
 }
+
+// ---- a node's own runs ------------------------------------------------------
+//
+// Mask by Touch looks at its picture by running itself alone, as a run of its
+// own, whenever the pointer rests on a new picture. Those runs belong to the
+// node, not to the workflow: the Run Timer and the runtime badges leave them
+// out. Such a run is known by what it sends: it targets nodes only, and the
+// node's `ask` carries the request (an ordinary run sends an empty `ask`).
+
+const OWN_RUN_NODES = new Set(["AUSBOSS_NODES_MaskByTouch"]);
+
+// `prompt` is the API prompt being sent, `options` what the frontend passed
+// along with it (partialExecutionTargets on a run of chosen nodes).
+export function isNodeOwnRun(prompt, options) {
+  const targets = options?.partialExecutionTargets;
+  if (!Array.isArray(targets) || !targets.length || !prompt || typeof prompt !== "object") return false;
+  return Object.values(prompt).some(
+    (step) => OWN_RUN_NODES.has(step?.class_type) && String(step?.inputs?.ask ?? "").trim() !== "",
+  );
+}
+
+export function createOwnRuns({ limit = DEFAULT_LIMIT } = {}) {
+  const ids = new Set();
+  const listeners = new Set();
+  return {
+    // The queue answered with this run's id. The server may have started it
+    // before the answer came back, so whoever already took it as a run of
+    // the workflow hears of it here and takes that back.
+    mark(promptId) {
+      if (promptId === null || promptId === undefined || promptId === "") return;
+      const key = String(promptId);
+      if (ids.has(key)) return;
+      ids.add(key);
+      while (ids.size > Math.max(1, limit)) ids.delete(ids.values().next().value);
+      for (const listener of [...listeners]) {
+        try {
+          listener(key);
+        } catch {
+          // One listener failing never keeps the news from the others.
+        }
+      }
+    },
+    has(promptId) {
+      return promptId !== null && promptId !== undefined && promptId !== "" && ids.has(String(promptId));
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+}
+
+// The page-wide list the Run Timer and the runtime badges share.
+export const ownRuns = createOwnRuns();
+
+export function isOwnRun(promptId) {
+  return ownRuns.has(promptId);
+}
