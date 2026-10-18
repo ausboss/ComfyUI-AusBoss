@@ -49,7 +49,9 @@ file's name. A caption on the `caption_text` input writes the paired `.txt`.
   image on the node. Off, the picture's box goes away and the node is
   shorter; on again, the node returns to its height with the last saved
   image. It is display only: the file is saved either way and the queue
-  still lists it.
+  still lists it. When a run saves more than one image (a batch, or a list
+  such as a folder of images), arrows beside the switch (‹ 2 / 5 ›) step
+  through them.
 
 ## Inputs
 

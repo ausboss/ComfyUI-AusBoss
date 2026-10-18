@@ -9,6 +9,7 @@ import {
   compareResultSide,
   compareSizeLabel,
   findCompareImages,
+  findComparePairs,
   normalizeCompareMode,
   sizeAfterErase,
 } from "../js/shared/compare.mjs";
@@ -112,6 +113,27 @@ test("compare previews are pulled from the execution payload as a pair", () => {
   assert.equal(findCompareImages({ a_images: [a] }), null);
   assert.equal(findCompareImages({ a_images: [{}], b_images: [b] }), null);
   assert.equal(findCompareImages(null), null);
+});
+
+test("a list of pictures gives the panel one pair per picture, in order", () => {
+  const a = (n) => ({ filename: `a${n}.png`, subfolder: "", type: "temp" });
+  const b = (n) => ({ filename: `b${n}.png`, subfolder: "", type: "temp" });
+  const pairs = findComparePairs({
+    a_images: [a(1), a(2), a(3)],
+    b_images: [b(1), b(2), b(3)],
+    pair: ["k1", "k2", "k3"],
+    save_name: ["one", "two", "three"],
+  });
+  assert.deepEqual(pairs.map((p) => [p.a.filename, p.b.filename, p.pair, p.name]), [
+    ["a1.png", "b1.png", "k1", "one"],
+    ["a2.png", "b2.png", "k2", "two"],
+    ["a3.png", "b3.png", "k3", "three"],
+  ]);
+  // Only whole pairs count; a missing key or name stays empty.
+  assert.equal(findComparePairs({ a_images: [a(1), a(2)], b_images: [b(1)] }).length, 1);
+  assert.deepEqual(findComparePairs({ a_images: [a(1), {}], b_images: [b(1), b(2)] }).map((p) => p.a.filename), ["a1.png"]);
+  assert.equal(findComparePairs({ a_images: [a(1)], b_images: [b(1)] })[0].pair, null);
+  assert.deepEqual(findComparePairs(null), []);
 });
 
 test("slide gives edges a forgiving landing zone without disturbing the middle", () => {
