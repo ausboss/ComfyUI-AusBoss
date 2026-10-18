@@ -15,14 +15,17 @@ import { app } from "/scripts/app.js";
 import { isForeignRun } from "../shared/prompt_scope.mjs";
 import { executionIdOf, nodeByExecutionId } from "../shared/graph_ids.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
-import { ensureNodeMinHeight, fillNodeHeight } from "../shared/panel_layout.mjs";
+import { ensureNodeMinHeight, fillNodeHeight, growToNodeFloor } from "../shared/panel_layout.mjs";
 import { suppressCoreImagePreview } from "../shared/core_preview.mjs";
 import { autoMaskValues } from "../shared/mask_auto.mjs";
 import { hideInputsInDef, hideWidget, setWidgetVisible } from "../shared/widget_visibility.mjs";
+import { makePictureStepper } from "../shared/picture_stepper.mjs";
+import { keepIndex, stepIndex } from "../shared/picture_steps.mjs";
 import {
   describeNodePreview,
   describeSourcePreview,
   outputLocatorId,
+  outputRecordCount,
   outputRecordQuery,
   placeholderText,
   staleText,
@@ -40,6 +43,8 @@ const PANEL_MIN_WIDTH = 200;
 // switch on the right. It is the whole panel while the preview is off, so
 // the switch is always in the same place and the stage simply goes away.
 const BAR_HEIGHT = 20;
+const BAR_GAP = 6;
+const BAR_PADDING = 2;
 const PANEL_HEIGHT = STAGE_HEIGHT + BAR_HEIGHT + 4 + 16;
 const OFF_HEIGHT = BAR_HEIGHT + 16;
 const INPUT_SIDE = 1; // LiteGraph.INPUT
@@ -118,10 +123,11 @@ function ensureCss() {
   style.id = CSS_ID;
   style.textContent = `
 .ausboss-input-preview{box-sizing:border-box;display:flex;flex-direction:column;gap:4px;width:100%;height:100%;padding:0 6px 6px;pointer-events:none;overflow:hidden;}
-.ausboss-input-preview-bar{box-sizing:border-box;flex:none;display:flex;align-items:center;gap:6px;height:${BAR_HEIGHT}px;padding:0 2px;pointer-events:none;}
+.ausboss-input-preview-bar{box-sizing:border-box;flex:none;display:flex;align-items:center;gap:${BAR_GAP}px;height:${BAR_HEIGHT}px;padding:0 ${BAR_PADDING}px;pointer-events:none;}
 .ausboss-input-preview-stage{position:relative;flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;width:100%;overflow:hidden;border:1px solid rgba(0,180,170,.27);border-radius:6px;background:rgba(0,0,0,.28);}
 [data-node-id] .ausboss-input-preview-stage{box-sizing:border-box;min-height:${STAGE_HEIGHT}px;}
 .ausboss-input-preview.preview-off .ausboss-input-preview-stage{display:none;}
+.ausboss-input-preview.preview-off .ausboss-stepper{display:none;}
 .ausboss-input-preview-stage img,.ausboss-input-preview-stage video{display:none;position:absolute;inset:0;margin:auto;max-width:100%;max-height:100%;object-fit:contain;}
 .ausboss-input-preview-stage.show-image img{display:block;}
 .ausboss-input-preview-stage.show-video video{display:block;}
@@ -422,18 +428,48 @@ function rewatchSource(state, source) {
 // record: an overwritten file reloads after the next run, and a plain refresh
 // never reloads the picture.
 const storedRand = new WeakMap();
-function storedResultUrl(node) {
+function storedResultUrl(node, index = null) {
   const record = app.nodeOutputs?.[outputLocatorId(node)];
-  const query = outputRecordQuery(record);
+  const query = outputRecordQuery(record, index);
   if (!query) return null;
   if (!storedRand.has(record)) storedRand.set(record, app.getRandParam?.() ?? "");
   return api.apiURL(`/view?${query}${app.getPreviewFormatParam?.() ?? ""}${storedRand.get(record)}`);
+}
+
+// Several pictures from one run (a list, or a batch Save Image saved one by
+// one): the arrows in the bar pick which one shows. One picture keeps the
+// panel as it was, with no arrows.
+function resultCount(state) {
+  if (state.stale || state.resultGone) return 0;
+  return outputRecordCount(app.nodeOutputs?.[outputLocatorId(state.node)]);
+}
+
+// The arrows share the bar with the node's tools and the preview switch.
+// While they show, the node's floor is what the bar holds, measured.
+function previewMinWidth(state) {
+  if (!state?.stepper || state.stepper.root.hidden) return PANEL_MIN_WIDTH;
+  const parts = [...state.bar.children].map((part) => part.offsetWidth).filter((width) => width > 0);
+  if (!parts.length || !state.bar.clientWidth) return PANEL_MIN_WIDTH;
+  const needed = parts.reduce((sum, width) => sum + width, 0) + BAR_GAP * (parts.length - 1) + 2 * BAR_PADDING;
+  return Math.max(PANEL_MIN_WIDTH, Math.ceil(state.node.size[0] - state.bar.clientWidth + needed));
+}
+
+function stepPicture(state, step) {
+  const count = resultCount(state);
+  if (count < 2) return;
+  state.index = stepIndex(state.index, count, step);
+  refresh(state);
 }
 
 function refresh(state) {
   if (!state.alive) return;
   const source = upstreamNode(state.node, state.inputName);
   rewatchSource(state, source);
+  const count = resultCount(state);
+  const hidden = state.stepper.root.hidden;
+  state.index = keepIndex(state.index, count);
+  state.stepper.set(state.index, count);
+  if (state.stepper.root.hidden !== hidden) growToNodeFloor(state.widget);
   if (state.stale) {
     // The node ran while its preview was off, so the picture it still has
     // is from an older run: say so rather than show it.
@@ -446,7 +482,9 @@ function refresh(state) {
   // tinted), so show what feeds it instead.
   const described = state.resultGone
     ? describeSourcePreview(source)
-    : describeNodePreview(state.node, state.inputName, storedResultUrl(state.node));
+    : count > 1
+      ? { kind: "url", url: storedResultUrl(state.node, state.index) }
+      : describeNodePreview(state.node, state.inputName, storedResultUrl(state.node));
   if (!described) {
     clearMedia(state);
     showHint(state, placeholderText(!!source, state.noun));
@@ -548,7 +586,7 @@ function buildPanel(node, config) {
   // a viewport onto a picture, and pinning it left dead space under every node
   // dragged taller. With the preview off the floor is the bar alone.
   fillNodeHeight(widget, {
-    minWidth: PANEL_MIN_WIDTH,
+    minWidth: () => previewMinWidth(node.__ausbossInputPreview),
     minHeight: () => (enabled() ? PANEL_HEIGHT : OFF_HEIGHT),
     minNodeSize: [PANEL_MIN_WIDTH, 90],
     exactMinWidth: true,
@@ -570,6 +608,8 @@ function buildPanel(node, config) {
     timer: 0,
     alive: true,
     previewWidget,
+    index: 0,
+    stepper: null,
   };
   livePanels.add(state);
   if (config.tools?.length) bar.append(buildTools(state, config.tools, abort.signal));
@@ -581,6 +621,12 @@ function buildPanel(node, config) {
     state.note.className = "ausboss-input-preview-note";
     stage.append(state.note);
   }
+  state.stepper = makePictureStepper({
+    height: BAR_HEIGHT,
+    signal: abort.signal,
+    onStep: (step) => stepPicture(state, step),
+  });
+  bar.append(state.stepper.root);
   syncAdvanced(state);
   installPreviewSwitch(state, abort.signal);
 
