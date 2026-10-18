@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.14.0 - 2026-10-18
 
 - **Image Compare A/B 🆎: Align lines B up with A in Erase.** Edit models
   often draw the picture a few pixels to the side or a little zoomed in, so
