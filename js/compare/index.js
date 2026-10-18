@@ -3,9 +3,11 @@ import { app } from "/scripts/app.js";
 import { isForeignRun, outputKey } from "../shared/prompt_scope.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { lookupLink } from "../shared/graph_links.mjs";
-import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
+import { WIDGET_FRAME, fillNodeHeight, growToNodeFloor } from "../shared/panel_layout.mjs";
 import { mediaViewQuery, responsivePreviewHeight } from "../shared/video_preview.mjs";
 import { makeSlideSwitch } from "../shared/slide_switch.mjs";
+import { makePictureStepper } from "../shared/picture_stepper.mjs";
+import { keepIndex, stepIndex } from "../shared/picture_steps.mjs";
 import { VIDEO_MIN_WIDTH, ensureVideoCss } from "../shared/video_ui.mjs";
 import {
   slideFraction,
@@ -14,7 +16,7 @@ import {
   compareResultSide,
   compareSizeLabel,
   compareSwitchValue,
-  findCompareImages,
+  findComparePairs,
   normalizeCompareMode,
   sizeAfterErase,
 } from "../shared/compare.mjs";
@@ -36,6 +38,7 @@ const DEFAULT_NODE_SIZE = [
 ];
 const CSS_ID = "ausboss-compare-ui-v6";
 const ROOT_GAP = 6;
+const FOOTER_GAP = 8;
 const BADGE_WIDTH = 22;
 const REST_SETTING = "AusBoss.Compare.RestOnResult";
 const SIZE_BEFORE_ERASE = "ausboss_compare_size_before_erase";
@@ -57,7 +60,7 @@ function ensureCompareCss() {
    over the corner of the picture is just something in the way. */
 .ausboss-compare-status:empty{display:none;}
 .ausboss-compare-stage.is-empty .ausboss-compare-status{left:50%;top:50%;max-width:82%;transform:translate(-50%,-50%);color:#78908e;text-align:center;white-space:normal;}
-.ausboss-compare-footer{display:flex;align-items:center;gap:8px;flex:none;height:24px;}
+.ausboss-compare-footer{display:flex;align-items:center;gap:${FOOTER_GAP}px;flex:none;height:24px;}
 .ausboss-compare-identity{position:absolute;left:0;right:0;top:7px;height:22px;z-index:3;pointer-events:none;}
 .ausboss-compare-identity span{position:absolute;top:0;width:${BADGE_WIDTH}px;height:22px;border-radius:4px;background:rgba(0,0,0,.7);color:#d8eeee;font-weight:600;text-align:center;line-height:22px;}
 .ausboss-compare-identity span[hidden]{display:none;}
@@ -229,6 +232,35 @@ function loadPreviews(state, refs) {
   state.imageB.src = api.apiURL(`/view?${mediaViewQuery(refs.b, "temp")}`);
 }
 
+// The arrows need room beside the mode switch. While they show, the node's
+// floor is what the footer's fixed parts take, measured; the caption gives
+// way first.
+function compareMinWidth(state) {
+  if (!state || state.stepper.root.hidden) return VIDEO_MIN_WIDTH;
+  const parts = state.stepper.root.offsetWidth + state.modeSwitch.root.offsetWidth;
+  if (!parts || !state.footer.clientWidth) return VIDEO_MIN_WIDTH;
+  const inset = state.node.size[0] - state.footer.clientWidth;
+  return Math.max(VIDEO_MIN_WIDTH, Math.ceil(inset + parts + 2 * FOOTER_GAP));
+}
+
+// A run's pairs. The panel shows one, and the arrows step through the rest:
+// a list of pictures runs the node once per picture.
+function showPairs(state, pairs) {
+  const hidden = state.stepper.root.hidden;
+  state.pairs = pairs;
+  state.index = keepIndex(state.index, pairs.length);
+  state.stepper.set(state.index, pairs.length);
+  if (state.stepper.root.hidden !== hidden) growToNodeFloor(state.widget);
+  if (pairs.length) loadPreviews(state, pairs[state.index]);
+}
+
+function stepPair(state, step) {
+  if (state.pairs.length < 2) return;
+  state.index = stepIndex(state.index, state.pairs.length, step);
+  state.stepper.set(state.index, state.pairs.length);
+  loadPreviews(state, state.pairs[state.index]);
+}
+
 function buildPanel(node) {
   if (node.__ausbossCompare) return node.__ausbossCompare;
   ensureCompareCss();
@@ -276,9 +308,14 @@ function buildPanel(node) {
     node, root, stage, imageA, imageB, signal,
     onSaved: (files) => showSaved(node.__ausbossCompare, files),
   });
+  const stepper = makePictureStepper({
+    noun: "pair",
+    signal,
+    onStep: (step) => node.__ausbossCompare && stepPair(node.__ausbossCompare, step),
+  });
   const footer = document.createElement("div");
   footer.className = "ausboss-compare-footer";
-  footer.append(caption, modeSwitch.root);
+  footer.append(stepper.root, caption, modeSwitch.root);
   root.append(eraser.bar, stage, footer, eraser.saveRow);
 
   const widget = node.addDOMWidget(PANEL_WIDGET, "ausboss_compare", root, {
@@ -294,7 +331,7 @@ function buildPanel(node) {
   // the panel fewer CSS pixels than the stage + caption minimums and shaves
   // the caption's glyphs at the node's minimum height.
   fillNodeHeight(widget, {
-    minWidth: VIDEO_MIN_WIDTH,
+    minWidth: () => compareMinWidth(node.__ausbossCompare),
     minHeight: PANEL_FLOOR,
     minNodeSize: [VIDEO_MIN_WIDTH, 220],
     exactMinWidth: true,
@@ -302,8 +339,8 @@ function buildPanel(node) {
 
   const state = node.__ausbossCompare = {
     node, root, stage, imageA, imageB, seam, status, caption, identity, identityLeft, identityRight,
-    modeSwitch, eraser,
-    widget, abort, refs: null, fraction: 1, loaded: 0, showingB: false,
+    footer, modeSwitch, eraser, stepper,
+    widget, abort, refs: null, pairs: [], index: 0, fraction: 1, loaded: 0, showingB: false,
   };
   applyClip(state);
   updateModeButtons(state);
@@ -356,8 +393,7 @@ function buildPanel(node) {
 function showStoredResult(node) {
   const state = node.__ausbossCompare;
   if (!state || state.refs) return;
-  const refs = findCompareImages(app.nodeOutputs?.[outputKey(node, app.rootGraph ?? app.graph)]);
-  if (refs) loadPreviews(state, refs);
+  showPairs(state, findComparePairs(app.nodeOutputs?.[outputKey(node, app.rootGraph ?? app.graph)]));
 }
 
 app.registerExtension({
@@ -413,9 +449,9 @@ app.registerExtension({
     chainCallback(nodeType.prototype, "onExecuted", function (message) {
       if (isForeignRun()) return;
       const state = buildPanel(this);
-      const refs = findCompareImages(message);
-      if (refs) loadPreviews(state, refs);
-      else setEmpty(state, "Execution finished without compare previews");
+      const pairs = findComparePairs(message);
+      showPairs(state, pairs);
+      if (!pairs.length) setEmpty(state, "Execution finished without compare previews");
       app.canvas?.setDirty?.(true, true);
     });
     // A link on the filename input decides whether the name is typed here.

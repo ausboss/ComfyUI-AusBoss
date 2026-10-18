@@ -123,6 +123,29 @@ export function holdNodeMinWidth(widget, minWidth) {
   return widget;
 }
 
+// A floor that follows state can rise while the node is narrower than it:
+// the picture arrows of Image Compare A/B and of the preview panel show up
+// only after a run brings several pictures. Hold the new floor in Nodes 2.0
+// (a lower one too, once the arrows go) and widen a node that is now too
+// narrow, in either renderer. A node already wide enough is left alone.
+// A floor measured from the panel is only exact once the panel has the
+// node's width, which Nodes 2.0 gives it a frame later, so a node that grew
+// is measured once more then.
+export function growToNodeFloor(widget, passes = 2) {
+  const node = widget?.node;
+  if (!node?.[FLOORS]) return false;
+  const floor = nodeWidthFloor(node);
+  holdVueNodeMinWidth(widget.element, floor);
+  const width = Number(node.size?.[0]);
+  if (!Number.isFinite(width) || width >= floor) return false;
+  node.setSize?.([floor, node.size[1]]);
+  node.setDirtyCanvas?.(true, true);
+  if (passes > 1 && typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(() => growToNodeFloor(widget, passes - 1));
+  }
+  return true;
+}
+
 // distributeSpace reads a missing maxSize as Infinity, so declaring a floor
 // with no ceiling means "take whatever is left" - which is exactly "fill the
 // node". minWidth/minHeight accept a number or a function, for panels whose

@@ -35,6 +35,14 @@ stored with the node, including support for modes from older workflows. The reso
 sits under the picture, beside the switch; differing sizes are
 labeled individually.
 
+## Several pictures
+
+Give the node a list of pictures, such as a folder of images, and it shows
+arrows under the picture (‹ 2 / 5 ›). Click them to step through the pairs:
+A and B change together. **Erase** saves the pair you are looking at.
+
+A batch still shows its first frame only.
+
 ## Erase
 
 Use it when you want part of one picture and part of the other: the edit

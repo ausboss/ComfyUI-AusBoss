@@ -331,57 +331,77 @@ class AusBossTiledUpscaleStitch:
 
     RETURN_TYPES = ("IMAGE",)
     RETURN_NAMES = ("image",)
-    OUTPUT_TOOLTIPS = ("The finished picture at the size you asked for.",)
+    OUTPUT_IS_LIST = (True,)
+    OUTPUT_TOOLTIPS = (
+        "The finished picture at the size you asked for. A list of pictures "
+        "comes out as a list, one finished picture each.",
+    )
     FUNCTION = "stitch"
 
     def stitch(self, tiles, stitcher, keep_colors=None):
-        stitcher = stitcher[0] if isinstance(stitcher, (list, tuple)) else stitcher
-        if not isinstance(stitcher, dict) or stitcher.get("kind") != STITCHER_KIND:
+        # A list of pictures runs Tiled Upscale once per picture: the tiles
+        # arrive as one list, picture after picture, with one stitcher each.
+        stitchers = list(stitcher) if isinstance(stitcher, (list, tuple)) else [stitcher]
+        if not stitchers or any(
+            not isinstance(item, dict) or item.get("kind") != STITCHER_KIND for item in stitchers
+        ):
             raise ValueError(
                 "Tiled Upscale Stitch needs the stitcher from Tiled Upscale 🆎."
             )
         strength = keep_colors[0] if isinstance(keep_colors, (list, tuple)) and keep_colors else keep_colors
         strength = 1.0 if strength is None else max(0.0, min(1.0, float(strength)))
-        plan = stitcher["plan"]
-        boxes = plan["boxes"]
-        sources = stitcher["tiles"]
+        counts = [len(item["plan"]["boxes"]) for item in stitchers]
+        expected = sum(counts)
 
         redrawn = [_rgb(tile, "Tiled Upscale Stitch") for tile in (tiles if isinstance(tiles, (list, tuple)) else [tiles])]
-        if len(redrawn) == 1 and len(boxes) > 1 and redrawn[0].shape[0] % len(boxes) == 0:
+        if len(redrawn) == 1 and expected > 1 and redrawn[0].shape[0] % expected == 0:
             # the tiles came back as one batch: split it the way it was made
-            per_tile = redrawn[0].shape[0] // len(boxes)
+            per_tile = redrawn[0].shape[0] // expected
             redrawn = list(redrawn[0].split(per_tile, dim=0))
-        if len(redrawn) != len(boxes):
+        if len(redrawn) != expected:
+            has = f"{len(stitchers)} stitchers have" if len(stitchers) > 1 else "the stitcher has"
             raise ValueError(
-                f"Tiled Upscale Stitch got {len(redrawn)} tiles and the stitcher has {len(boxes)}. "
+                f"Tiled Upscale Stitch got {len(redrawn)} tiles and {has} {expected}. "
                 "Send every tile from Tiled Upscale 🆎 through the same nodes, in order."
             )
 
-        redraw_width, redraw_height = plan["redraw"]
-        result_width, result_height = plan["result"]
-        tile_width, tile_height = plan["tile"]
-        lefts = sorted({box[0] for box in boxes})
-        tops = sorted({box[1] for box in boxes})
-        batch = max(tile.shape[0] for tile in redrawn)
-        total = torch.zeros((batch, redraw_height, redraw_width, 3), dtype=torch.float32)
-        weight = torch.zeros((redraw_height, redraw_width), dtype=torch.float32)
+        pictures = []
+        start = 0
+        for item, count in zip(stitchers, counts):
+            pictures.append(_join(redrawn[start : start + count], item, strength))
+            start += count
+        return (pictures,)
 
-        for tile, source, (left, top, right, bottom) in zip(redrawn, sources, boxes):
-            tile = resample_batch(tile.cpu(), tile_width, tile_height, "lanczos")
-            if strength > 0.0:
-                reference = source.cpu()
-                if reference.shape[0] not in (1, tile.shape[0]):
-                    reference = reference[:1]
-                tile = _keep_colors(tile, reference, strength)
-            share_left, share_right = _shared(lefts, tile_width, left)
-            share_top, share_bottom = _shared(tops, tile_height, top)
-            mask = _ramp(tile_height, share_top, share_bottom)[:, None] * _ramp(tile_width, share_left, share_right)[None, :]
-            total[:, top:bottom, left:right, :] += tile * mask[None, :, :, None]
-            weight[top:bottom, left:right] += mask
 
-        merged = total / weight.clamp_min(1e-6)[None, :, :, None]
-        merged = resample_batch(merged.clamp_(0.0, 1.0), result_width, result_height, "lanczos")
-        return (merged,)
+def _join(redrawn: list[torch.Tensor], stitcher: dict, strength: float) -> torch.Tensor:
+    """One picture from its redrawn tiles, blended at the joins."""
+    plan = stitcher["plan"]
+    boxes = plan["boxes"]
+    sources = stitcher["tiles"]
+    redraw_width, redraw_height = plan["redraw"]
+    result_width, result_height = plan["result"]
+    tile_width, tile_height = plan["tile"]
+    lefts = sorted({box[0] for box in boxes})
+    tops = sorted({box[1] for box in boxes})
+    batch = max(tile.shape[0] for tile in redrawn)
+    total = torch.zeros((batch, redraw_height, redraw_width, 3), dtype=torch.float32)
+    weight = torch.zeros((redraw_height, redraw_width), dtype=torch.float32)
+
+    for tile, source, (left, top, right, bottom) in zip(redrawn, sources, boxes):
+        tile = resample_batch(tile.cpu(), tile_width, tile_height, "lanczos")
+        if strength > 0.0:
+            reference = source.cpu()
+            if reference.shape[0] not in (1, tile.shape[0]):
+                reference = reference[:1]
+            tile = _keep_colors(tile, reference, strength)
+        share_left, share_right = _shared(lefts, tile_width, left)
+        share_top, share_bottom = _shared(tops, tile_height, top)
+        mask = _ramp(tile_height, share_top, share_bottom)[:, None] * _ramp(tile_width, share_left, share_right)[None, :]
+        total[:, top:bottom, left:right, :] += tile * mask[None, :, :, None]
+        weight[top:bottom, left:right] += mask
+
+    merged = total / weight.clamp_min(1e-6)[None, :, :, None]
+    return resample_batch(merged.clamp_(0.0, 1.0), result_width, result_height, "lanczos")
 
 
 NODE_CLASS_MAPPINGS = {
