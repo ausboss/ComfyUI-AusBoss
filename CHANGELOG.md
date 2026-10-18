@@ -4,6 +4,17 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Tiled Upscale Stitch 🆎 works with a list of pictures (#205).** Give
+  Tiled Upscale a list of pictures, such as a folder of images, and Stitch
+  now gives back one finished picture for each, in the same order. Before,
+  it stopped with "got 12 tiles and the stitcher has 4". No loop is needed:
+  the nodes after Stitch run once per picture.
+- **Image Compare A/B 🆎 and Save Image 🆎: step through several pictures
+  (#204).** When a run brings more than one picture, such as a folder of
+  images, arrows (‹ 2 / 5 ›) appear on the node. Click them to see each one.
+  Compare steps through the pairs, A and B together, and Erase saves the
+  pair you are looking at. Mask Refine, Mask by Name, LaMa Inpaint and
+  Select Frame get the same arrows. A single picture looks as it did.
 - **Run Timer 🆎: Mask by Touch looking at a picture no longer counts as a
   run.** When the pointer rests on a new picture, Mask by Touch looks at it
   with a small run of its own, so things light up before you click. The

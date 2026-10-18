@@ -74,11 +74,23 @@ export function compareClip(fraction) {
 // the run's key for Erase's Save, which sends it back in place of file
 // names, and `name` is the save name the run was wired with, if any.
 export function findCompareImages(message) {
-  const a = message?.a_images?.[0] ?? null;
-  const b = message?.b_images?.[0] ?? null;
-  const pair = typeof message?.pair?.[0] === "string" ? message.pair[0] : null;
-  const name = typeof message?.save_name?.[0] === "string" ? message.save_name[0] : "";
-  return a?.filename && b?.filename ? { a, b, pair, name } : null;
+  return findComparePairs(message)[0] ?? null;
+}
+
+// Every pair of a run. A list of pictures runs the node once per picture,
+// and ComfyUI hands the panel all their previews in one message, in order.
+export function findComparePairs(message) {
+  const count = Math.min(message?.a_images?.length ?? 0, message?.b_images?.length ?? 0);
+  const pairs = [];
+  for (let index = 0; index < count; index += 1) {
+    const a = message.a_images[index];
+    const b = message.b_images[index];
+    if (!a?.filename || !b?.filename) continue;
+    const pair = typeof message?.pair?.[index] === "string" ? message.pair[index] : null;
+    const name = typeof message?.save_name?.[index] === "string" ? message.save_name[index] : "";
+    pairs.push({ a, b, pair, name });
+  }
+  return pairs;
 }
 
 // Where the mode switch stands for a mode and a locked side.
