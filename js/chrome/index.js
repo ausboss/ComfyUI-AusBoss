@@ -2,6 +2,7 @@ import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 import { AUSBOSS_JS_VERSION, BRAND, BRAND_BODY, chainCallback } from "../shared/index.mjs";
 import { nodeByExecutionId } from "../shared/graph_ids.mjs";
+import { isOwnRun, ownRuns } from "../shared/prompt_scope.mjs";
 import {
   advanceExecution,
   applyStatus,
@@ -187,6 +188,7 @@ const runtime = {
   enabled: false,
   abort: null,
   state: createRunState(),
+  kept: null,
 };
 
 function graphNodes() {
@@ -217,34 +219,62 @@ function stampUpdates(updates) {
   if (updates.length) app.graph?.setDirtyCanvas?.(true, false);
 }
 
+// The badges a run cleared when it started, kept until it is clear that the
+// run is one of the workflow's: a node's own run (Mask by Touch looking at
+// its picture) is only known as one once the queue has answered.
+function keepBadges(promptId) {
+  const badges = [];
+  for (const node of graphNodes()) {
+    if (node[RUNTIME_KEY] !== undefined) badges.push([node, node[RUNTIME_KEY]]);
+  }
+  runtime.kept = { promptId: promptId ? String(promptId) : null, badges };
+}
+
 function enableRuntime() {
   if (runtime.abort) return;
   runtime.abort = new AbortController();
   const signal = runtime.abort.signal;
-  const closeRun = () => stampUpdates(advanceExecution(runtime.state, null, performance.now()));
+  // A run a node starts for itself leaves the last run's badges alone.
+  const workflowRun = (handler) => (event) => {
+    const detail = event?.detail;
+    if (!isOwnRun(detail && typeof detail === "object" ? detail.prompt_id : null)) handler(event);
+  };
+  const closeRun = workflowRun(() => stampUpdates(advanceExecution(runtime.state, null, performance.now())));
   api.addEventListener(
     "execution_start",
-    () => {
+    workflowRun((event) => {
+      keepBadges(event?.detail?.prompt_id);
       runtime.state = createRunState();
       clearBadges();
-    },
+    }),
     { signal },
   );
   api.addEventListener(
     "executing",
-    (event) =>
-      stampUpdates(advanceExecution(runtime.state, executingNodeId(event?.detail), performance.now())),
+    workflowRun((event) =>
+      stampUpdates(advanceExecution(runtime.state, executingNodeId(event?.detail), performance.now()))),
     { signal },
   );
   api.addEventListener("execution_success", closeRun, { signal });
   api.addEventListener("execution_error", closeRun, { signal });
   api.addEventListener("execution_interrupted", closeRun, { signal });
+  const stop = ownRuns.subscribe((promptId) => {
+    const kept = runtime.kept;
+    if (!kept || kept.promptId !== promptId) return;
+    runtime.kept = null;
+    runtime.state = createRunState();
+    clearBadges();
+    for (const [node, seconds] of kept.badges) node[RUNTIME_KEY] = seconds;
+    app.graph?.setDirtyCanvas?.(true, false);
+  });
+  signal.addEventListener("abort", stop);
 }
 
 function disableRuntime() {
   runtime.abort?.abort();
   runtime.abort = null;
   runtime.state = createRunState();
+  runtime.kept = null;
   try {
     clearBadges();
     app.graph?.setDirtyCanvas?.(true, false);

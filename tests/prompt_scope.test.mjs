@@ -4,7 +4,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createRunScope, outputKey } from "../js/shared/prompt_scope.mjs";
+import { createOwnRuns, createRunScope, isNodeOwnRun, outputKey } from "../js/shared/prompt_scope.mjs";
 
 const JS_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "js");
 
@@ -115,4 +115,68 @@ test("results are filed by root id, or subgraph id and id inside a subgraph", ()
   assert.equal(outputKey({ id: 25, graph: { id: "sub-1" } }, root), "sub-1:25");
   assert.equal(outputKey({ id: 3 }, root), "3");
   assert.equal(outputKey(null, root), null);
+});
+
+const touchPrompt = (ask) => ({
+  2: { class_type: "AUSBOSS_NODES_ImageCropRotatePad", inputs: { image: "pier.png" } },
+  3: { class_type: "AUSBOSS_NODES_MaskByTouch", inputs: { ask, touches: "" } },
+  15: { class_type: "AUSBOSS_NODES_SaveImage", inputs: {} },
+});
+
+test("Mask by Touch looking at its picture is the node's own run", () => {
+  assert.equal(isNodeOwnRun(touchPrompt("look"), { partialExecutionTargets: ["3"] }), true);
+  assert.equal(isNodeOwnRun(touchPrompt("scope:416,730"), { partialExecutionTargets: ["3"] }), true);
+});
+
+test("a run of the workflow is never a node's own run", () => {
+  // Run pressed: no targets, and the node sends an empty ask.
+  assert.equal(isNodeOwnRun(touchPrompt(""), undefined), false);
+  assert.equal(isNodeOwnRun(touchPrompt(""), {}), false);
+  // A request still riding along on a whole run does not make it one.
+  assert.equal(isNodeOwnRun(touchPrompt("look"), { partialExecutionTargets: [] }), false);
+  // Somebody runs the node alone by hand: it carries no request.
+  assert.equal(isNodeOwnRun(touchPrompt(""), { partialExecutionTargets: ["3"] }), false);
+  // A run of chosen nodes in a workflow without Mask by Touch.
+  assert.equal(isNodeOwnRun({ 9: { class_type: "KSampler", inputs: { ask: "x" } } }, { partialExecutionTargets: ["9"] }), false);
+  assert.equal(isNodeOwnRun(null, { partialExecutionTargets: ["3"] }), false);
+});
+
+test("an own run is told once to whoever listens, and remembered", () => {
+  const runs = createOwnRuns({ limit: 2 });
+  const heard = [];
+  const stop = runs.subscribe((id) => heard.push(id));
+  runs.mark("look-1");
+  runs.mark("look-1");
+  runs.mark("");
+  runs.mark(null);
+  assert.deepEqual(heard, ["look-1"]);
+  assert.equal(runs.has("look-1"), true);
+  assert.equal(runs.has("run-1"), false);
+  assert.equal(runs.has(undefined), false);
+  runs.mark("look-2");
+  runs.mark("look-3");
+  assert.equal(runs.has("look-1"), false, "the oldest is let go past the limit");
+  stop();
+  runs.mark("look-4");
+  assert.deepEqual(heard, ["look-1", "look-2", "look-3"]);
+});
+
+test("a listener that throws does not keep the news from the others", () => {
+  const runs = createOwnRuns();
+  const heard = [];
+  runs.subscribe(() => { throw new Error("broken listener"); });
+  runs.subscribe((id) => heard.push(id));
+  runs.mark("look-1");
+  assert.deepEqual(heard, ["look-1"]);
+});
+
+test("the Run Timer and the runtime badges leave a node's own runs out", () => {
+  const read = (path) => readFileSync(join(JS_ROOT, path), "utf-8");
+  const queue = read("prompt_scope/index.js");
+  assert.match(queue, /if \(isNodeOwnRun\(data\?\.output, rest\[0\]\)\) ownRuns\.mark\(result\?\.prompt_id\);/, "the queue wrapper marks own runs");
+  for (const path of ["run_timer/index.js", "chrome/index.js"]) {
+    const source = read(path);
+    assert.match(source, /isOwnRun\(/, `${path}: checks each run`);
+    assert.match(source, /ownRuns\.subscribe\(/, `${path}: takes back a run found to be a node's own after it started`);
+  }
 });

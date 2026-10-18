@@ -13,12 +13,15 @@
 // kept, and handed to the AusBoss nodes of the tab that queued it when that
 // tab is open again (ComfyUI already restores that tab's pictures itself).
 // Core and third-party nodes are left as ComfyUI has them.
+//
+// It also notes the runs a node starts for itself (Mask by Touch looking at
+// its picture), so the Run Timer and the runtime badges can leave them out.
 
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { isAusbossNode } from "../shared/index.mjs";
 import { nodeByExecutionId } from "../shared/graph_ids.mjs";
-import { outputKey, runScope } from "../shared/prompt_scope.mjs";
+import { isNodeOwnRun, outputKey, ownRuns, runScope } from "../shared/prompt_scope.mjs";
 
 const rootGraph = () => app.rootGraph ?? app.graph ?? null;
 const graphOwner = (graph) => graph?.rootGraph?.id ?? graph?.id ?? null;
@@ -41,6 +44,7 @@ function recordQueuedRuns() {
     const result = await queue.call(this, number, data, ...rest);
     try {
       runScope.queued(result?.prompt_id, owner);
+      if (isNodeOwnRun(data?.output, rest[0])) ownRuns.mark(result?.prompt_id);
     } catch {
       // Unrecorded runs behave as they always have.
     }
