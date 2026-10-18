@@ -4,6 +4,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Tiled Upscale Stitch 🆎 works with a list of pictures (#205).** Give
+  Tiled Upscale a list of pictures, such as a folder of images, and Stitch
+  now gives back one finished picture for each, in the same order. Before,
+  it stopped with "got 12 tiles and the stitcher has 4". No loop is needed:
+  the nodes after Stitch run once per picture.
 - **Image Compare A/B 🆎 and Save Image 🆎: step through several pictures
   (#204).** When a run brings more than one picture, such as a folder of
   images, arrows (‹ 2 / 5 ›) appear on the node. Click them to see each one.
