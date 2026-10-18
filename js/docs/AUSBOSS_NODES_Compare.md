@@ -61,6 +61,12 @@ Pick **Erase** on the switch. A row of tools opens above the picture:
   the unit, to change the value. Click the number to type one.
 - **On top: A | B** is the picture you start from. Pick the other and it
   goes on top instead. Your paint stays where it is.
+- **ALIGN** lines B up with A. Edit models often draw the picture a few
+  pixels to the side or a little zoomed in, so the edges of your paint
+  show a step. Click it and B is moved back over A; Save and Copy use the
+  lined-up B. Click it again to go back to B as it came. It fixes a shift
+  and a zoom, not a picture that bent or changed shape. Where B was moved
+  off its edge, A fills the gap.
 - **UNDO** takes back the last stroke, or a Clear. **CLEAR** takes all the
   paint off.
 

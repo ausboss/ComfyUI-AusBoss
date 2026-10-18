@@ -19,7 +19,9 @@ if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
 
 from nodes import _compare_helpers as helpers
 from nodes._compare_helpers import (
+    ALIGN_FAILED,
     CompareSaveError,
+    align_pair,
     brush_core,
     brush_sigma,
     clean_save_name,
@@ -418,6 +420,74 @@ class PsdTests(unittest.TestCase):
             self.assertEqual(read_psd(path)["layers"][0]["name"], "only")
             # 26 header, 3 empty blocks' lengths, the layer block, the flat picture.
             self.assertEqual(read_psd(path)["bytes"], path.stat().st_size)
+
+
+class AlignTests(unittest.TestCase):
+    """Align lines B up with A the way Realign to Source measures an edit."""
+
+    SAMPLE = ROOT / "example_workflows" / "inputs" / "ausboss_pier_sunrise.png"
+
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory()
+        self.temp = Path(self.folder.name)
+        with Image.open(self.SAMPLE) as image:
+            self.picture = image.convert("RGB").resize((416, 608), Image.LANCZOS)
+        self.a = self.temp / A_NAME
+        self.picture.save(self.a)
+
+    def tearDown(self):
+        self.folder.cleanup()
+
+    def b_from(self, image):
+        path = self.temp / B_NAME
+        image.save(path)
+        return path
+
+    def moved(self):
+        """What an edit model often does: the same picture, 2% bigger and a little to the side."""
+        width, height = self.picture.size
+        big = self.picture.resize((round(width * 1.02), round(height * 1.02)), Image.LANCZOS)
+        left, top = (big.width - width) // 2 - 6, (big.height - height) // 2 + 4
+        return big.crop((left, top, left + width, top + height))
+
+    def test_a_moved_and_zoomed_b_comes_back_lined_up(self):
+        width, height = self.picture.size
+        b = self.b_from(self.moved())
+        before = np.abs(np.asarray(Image.open(b), dtype=np.float32) - np.asarray(self.picture, dtype=np.float32)).mean()
+        result = align_pair(picture_a=self.a, picture_b=b, temp_root=self.temp, name="pier")
+        self.assertTrue(result["aligned"])
+        self.assertRegex(result["message"], r"^B now lines up with A\. It was off by up to \d+ px\.$")
+        self.assertEqual(result["file"].parent, self.temp)
+        self.assertEqual((result["width"], result["height"]), (width, height))
+        lined = np.asarray(Image.open(result["file"]), dtype=np.float32)
+        inner = (slice(40, -40), slice(40, -40))
+        after = np.abs(lined[inner] - np.asarray(self.picture, dtype=np.float32)[inner]).mean()
+        self.assertLess(after, before / 3)
+        # The new key stands for A with the lined-up B, and keeps the run's name.
+        self.assertEqual(pair_pictures(result["pair"]), (self.a, result["file"], "pier"))
+
+    def test_a_b_that_already_lines_up_is_left_alone(self):
+        b = self.b_from(self.picture)
+        result = align_pair(picture_a=self.a, picture_b=b, temp_root=self.temp)
+        self.assertEqual(result, {"aligned": False, "message": "B already lines up with A."})
+        self.assertEqual(sorted(path.name for path in self.temp.iterdir()), sorted([A_NAME, B_NAME]))
+
+    def test_two_different_pictures_are_left_as_they_are(self):
+        noise = np.random.default_rng(3).integers(0, 255, (608, 416, 3), dtype=np.uint8)
+        b = self.b_from(Image.fromarray(noise))
+        self.assertEqual(align_pair(picture_a=self.a, picture_b=b, temp_root=self.temp),
+                         {"aligned": False, "message": ALIGN_FAILED})
+
+    def test_previews_outside_the_temp_folder_are_refused(self):
+        b = self.b_from(self.moved())
+        with tempfile.TemporaryDirectory() as other:
+            with self.assertRaises(CompareSaveError):
+                align_pair(picture_a=self.a, picture_b=b, temp_root=Path(other))
+
+    def test_gone_pictures_say_to_run_again(self):
+        with self.assertRaises(CompareSaveError) as caught:
+            align_pair(picture_a=self.temp / "gone.png", picture_b=self.temp / "gone_too.png", temp_root=self.temp)
+        self.assertEqual(caught.exception.status, 404)
 
 
 if __name__ == "__main__":
