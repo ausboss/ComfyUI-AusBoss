@@ -86,19 +86,27 @@ export function outputLocatorId(node) {
   return graph !== root && graph.id ? `${graph.id}:${node.id}` : String(node.id);
 }
 
-// The /view query for the newest image in a node's output record
-// ({ images: [{ filename, subfolder, type }] }), or null when it has none.
+// The /view query for an image in a node's output record
+// ({ images: [{ filename, subfolder, type }] }): the newest one, or the one
+// at `index` when given. Null when it has none.
 // Nodes 2.0 fills node.imgs only from its own output preview, which the panel
 // stands down, so there this record is the node's result.
-export function outputRecordQuery(record) {
+export function outputRecordQuery(record, index = null) {
   const images = record?.images;
-  const last = Array.isArray(images) ? images[images.length - 1] : null;
-  if (!last || typeof last.filename !== "string" || !last.filename) return null;
+  const count = outputRecordCount(record);
+  const at = Number.isInteger(index) && index >= 0 && index < count ? index : count - 1;
+  const image = count ? images[at] : null;
+  if (!image || typeof image.filename !== "string" || !image.filename) return null;
   return new URLSearchParams({
-    filename: last.filename,
-    subfolder: last.subfolder ?? "",
-    type: last.type ?? "output",
+    filename: image.filename,
+    subfolder: image.subfolder ?? "",
+    type: image.type ?? "output",
   }).toString();
+}
+
+// How many pictures the node's last run left in its output record.
+export function outputRecordCount(record) {
+  return Array.isArray(record?.images) ? record.images.length : 0;
 }
 
 // What the panel shows, best first: this node's result (node.imgs, then the

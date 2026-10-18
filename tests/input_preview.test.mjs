@@ -7,6 +7,7 @@ import {
   describeSourcePreview,
   linkById,
   outputLocatorId,
+  outputRecordCount,
   outputRecordQuery,
   placeholderText,
   staleText,
@@ -146,6 +147,15 @@ test("the stored output resolves to the newest image the node wrote", () => {
   const temp = { images: [{ filename: "ausboss_select_frame_ab_00001_.png", subfolder: "", type: "temp" }] };
   assert.match(outputRecordQuery(temp), /type=temp/);
   assert.equal(outputRecordQuery({ images: [] }), null);
+  // An index picks one of several pictures; a bad one falls back to the newest.
+  const three = { images: ["1", "2", "3"].map((n) => ({ filename: `s${n}.png`, subfolder: "", type: "output" })) };
+  assert.equal(outputRecordCount(three), 3);
+  assert.equal(outputRecordCount({}), 0);
+  assert.match(outputRecordQuery(three, 0), /filename=s1\.png/);
+  assert.match(outputRecordQuery(three, 1), /filename=s2\.png/);
+  assert.match(outputRecordQuery(three), /filename=s3\.png/);
+  assert.match(outputRecordQuery(three, 7), /filename=s3\.png/);
+  assert.match(outputRecordQuery(three, -1), /filename=s3\.png/);
   assert.equal(outputRecordQuery({ images: [{ subfolder: "" }] }), null);
   assert.equal(outputRecordQuery({ text: ["not an image"] }), null);
   assert.equal(outputRecordQuery(undefined), null);
