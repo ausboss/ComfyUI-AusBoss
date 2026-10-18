@@ -9,6 +9,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   now gives back one finished picture for each, in the same order. Before,
   it stopped with "got 12 tiles and the stitcher has 4". No loop is needed:
   the nodes after Stitch run once per picture.
+- **Image Compare A/B 🆎 and Save Image 🆎: step through several pictures
+  (#204).** When a run brings more than one picture, such as a folder of
+  images, arrows (‹ 2 / 5 ›) appear on the node. Click them to see each one.
+  Compare steps through the pairs, A and B together, and Erase saves the
+  pair you are looking at. Mask Refine, Mask by Name, LaMa Inpaint and
+  Select Frame get the same arrows. A single picture looks as it did.
 - **LoRA Loader 🆎: show the rows on the face of a subgraph box.** When the
   loader sits inside a subgraph, its gear has a new first item, **Rows on
   the box**. Press **Show** and the rows appear on the box itself, where you
