@@ -10,7 +10,9 @@ from pathlib import Path
 from PIL import Image
 
 from ._compare_helpers import (
+    ALIGN_GONE,
     CompareSaveError,
+    align_pair,
     clean_save_name,
     pair_pictures,
     remember_pair,
@@ -41,7 +43,12 @@ def _register_save_route() -> None:
     name is plain text with no folder in it (clean_save_name refuses
     anything else), and the mix goes straight into ComfyUI's output folder.
     The strokes are checked and held to fixed limits
-    (nodes/_compare_helpers.py)."""
+    (nodes/_compare_helpers.py).
+
+    POST /ausboss/compare/align lines up B of a run with its A. It takes
+    the same key and nothing else, reads the same two previews, and writes
+    the lined-up B beside B's preview in ComfyUI's temp folder. It answers
+    with that preview's name, as a run names its previews."""
     try:
         from aiohttp import web
         from server import PromptServer
@@ -83,6 +90,46 @@ def _register_save_route() -> None:
                 {"error": "The mix could not be saved. The ComfyUI console has the reason."}, status=500
             )
         return web.json_response(result)
+
+    @instance.routes.post("/ausboss/compare/align")
+    async def align(request):
+        try:
+            body = await request.json()
+        except Exception:
+            body = None
+        if not isinstance(body, dict):
+            return web.json_response({"error": "Image Compare: the request could not be read."}, status=400)
+        try:
+            try:
+                picture_a, picture_b, wired = pair_pictures(body.get("pair"))
+            except CompareSaveError as error:
+                raise CompareSaveError(ALIGN_GONE, status=error.status) from error
+            temp_root = Path(folder_paths.get_temp_directory())
+            work = functools.partial(
+                align_pair, picture_a=picture_a, picture_b=picture_b, temp_root=temp_root, name=wired
+            )
+            # Off the server's own thread: measuring takes a moment.
+            result = await asyncio.get_running_loop().run_in_executor(None, work)
+        except CompareSaveError as error:
+            return web.json_response({"error": safe_route_error(error)}, status=error.status)
+        except Exception:
+            logging.exception("[AusBoss] Image Compare: Align did not work.")
+            return web.json_response(
+                {"error": "Align did not work. The ComfyUI console has the reason."}, status=500
+            )
+        answer = {"aligned": result["aligned"], "message": result["message"]}
+        if result["aligned"]:
+            file = result["file"]
+            folder = file.parent.resolve().relative_to(temp_root.resolve()).as_posix()
+            answer["b"] = {
+                "filename": file.name,
+                "subfolder": "" if folder == "." else folder,
+                "type": "temp",
+                "width": result["width"],
+                "height": result["height"],
+            }
+            answer["pair"] = result["pair"]
+        return web.json_response(answer)
 
 
 class AusBossCompare:

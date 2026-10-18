@@ -9,9 +9,10 @@ follows a few fixed rules.
 
 - **Files stay inside ComfyUI's folders.** Save Image writes only to
   ComfyUI's output folder or a subfolder of it, and Save Video checks its
-  prefix and final file the same way. Image Compare's Erase save never
-  takes a file to read from the browser: it mixes the two previews that node
-  made in its last run. The name typed for the new files is a plain name
+  prefix and final file the same way. Image Compare's Erase save and Align
+  never take a file to read from the browser: they work on the two previews
+  that node made in its last run, and Align writes its lined-up copy of B
+  beside them in ComfyUI's temp folder. The name typed for the new files is a plain name
   with no folder in it, and they go straight into the output folder. Load Video picks from the input
   folder; the video transform nodes read a video picked from a list of the
   input or the output folder, by the name ComfyUI gives it there

@@ -23,6 +23,7 @@ go straight into the output folder.
 
 from __future__ import annotations
 
+import logging
 import math
 import re
 import secrets
@@ -31,11 +32,13 @@ from collections import OrderedDict
 from pathlib import Path
 
 import numpy as np
+import torch
 from PIL import Image
 
 from ._brush_helpers import brush_core, brush_sigma, stroke_cover  # noqa: F401 - the brush's numbers are read from here too
 from ._image_save_helpers import next_free_counter, require_output_path, strip_image_extension
 from ._psd_helpers import PSD_MAX_SIDE, write_psd
+from ._realign_helpers import crop_if_shift, measure, warp_to_source
 
 ERASE_SIZE = (2, 2000)
 ERASE_MAX_STROKES = 400
@@ -58,6 +61,16 @@ COUNTER_WIDTH = 5
 # How many runs' pictures can still be saved from: the newest ones.
 PAIRS_KEPT = 64
 PICTURES_GONE = "The two pictures are no longer on the server. Run the workflow again, then save."
+# Align: Realign to Source's measuring, on the two previews. A zoom past this
+# fraction is not trusted (Realign's own default), and a B that is off by
+# less than this many pixels everywhere already lines up.
+ALIGN_MAX_ZOOM = 0.2
+ALIGN_SETTLED = 0.5
+ALIGN_GONE = "The two pictures are no longer on the server. Run the workflow again, then align."
+ALIGN_FAILED = (
+    "Align could not line the pictures up. They may differ too much, "
+    "or have too little detail to measure."
+)
 
 _save_lock = threading.Lock()
 _pairs: OrderedDict[str, tuple[Path, Path, str]] = OrderedDict()
@@ -204,6 +217,50 @@ def pair_pictures(key) -> tuple[Path, Path, str]:
     return pair
 
 
+def align_pair(*, picture_a, picture_b, temp_root, name: str = "") -> dict:
+    """Line B up with A when a model drew it a little moved or zoomed.
+
+    Measures B against A the way Realign to Source does, then writes B,
+    lined up and at A's size, beside B's own preview in the temp folder.
+    Where B was moved off its edge, A fills the gap, so a mix shows A there.
+    Returns ``aligned`` and a ``message`` for the person; when B was moved,
+    also the new ``file`` and the ``pair`` key that stands for A with it.
+    """
+    try:
+        first = _load_rgb(Path(picture_a))
+        second = _load_rgb(Path(picture_b))
+    except OSError as error:
+        raise CompareSaveError(ALIGN_GONE, status=404) from error
+    source = torch.from_numpy(np.array(first)).float() / 255.0
+    edit = torch.from_numpy(np.array(second)).float() / 255.0
+    result = measure(source, edit, "zoom + shift", ALIGN_MAX_ZOOM)
+    if not result.reliable:
+        logging.info("[AusBoss] Image Compare: Align left B as it is: %s", result.reason)
+        return {"aligned": False, "message": ALIGN_FAILED}
+    off = result.worst_corner
+    if off < ALIGN_SETTLED:
+        return {"aligned": False, "message": "B already lines up with A."}
+    height, width = first.shape[:2]
+    lined = crop_if_shift(edit, result.matrix, width, height)
+    if lined is None:
+        lined, _empty = warp_to_source(edit, result.matrix, width, height, "source", source)
+    target = Path(picture_b).with_name(f"{Path(picture_b).stem}_aligned.png")
+    try:
+        require_output_path(target, Path(temp_root))
+    except ValueError as error:
+        raise CompareSaveError("Image Compare: the previews are not in ComfyUI's temp folder. Run the workflow again.") from error
+    pixels = np.round(lined.numpy() * 255.0).clip(0, 255).astype(np.uint8)
+    Image.fromarray(pixels).save(target, compress_level=1)
+    return {
+        "aligned": True,
+        "file": target,
+        "width": int(width),
+        "height": int(height),
+        "pair": remember_pair(picture_a, target, name),
+        "message": f"B now lines up with A. It was off by up to {max(1, round(off))} px.",
+    }
+
+
 def _load_rgb(path: Path) -> np.ndarray:
     with Image.open(path) as image:
         return np.asarray(image.convert("RGB"))
@@ -271,6 +328,8 @@ def save_mix(*, picture_a, picture_b, output_dir, top="A", strokes=None, layers=
 
 
 __all__ = [
+    "ALIGN_FAILED",
+    "ALIGN_GONE",
     "CompareSaveError",
     "ERASE_MAX_POINTS",
     "ERASE_MAX_STROKES",
@@ -280,6 +339,7 @@ __all__ = [
     "PAIRS_KEPT",
     "SAVE_NAME",
     "SAVE_NAME_MAX",
+    "align_pair",
     "brush_core",
     "brush_sigma",
     "clean_save_name",
