@@ -4,6 +4,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Image Compare A/B 🆎: Align lines B up with A in Erase.** Edit models
+  often draw the picture a few pixels to the side or a little zoomed in, so
+  the edges of your paint show a step. The new **ALIGN** button in Erase's
+  tool row moves B back over A, and Save and Copy use the lined-up B. Click
+  it again to go back to B as it came. It measures the way Realign to
+  Source does.
 - **Tiled Upscale Stitch 🆎 works with a list of pictures (#205).** Give
   Tiled Upscale a list of pictures, such as a folder of images, and Stitch
   now gives back one finished picture for each, in the same order. Before,

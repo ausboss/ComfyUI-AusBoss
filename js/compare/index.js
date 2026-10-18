@@ -254,6 +254,14 @@ function showPairs(state, pairs) {
   if (pairs.length) loadPreviews(state, pairs[state.index]);
 }
 
+// Align swaps B for B lined up with A, or back: the pair on screen changes,
+// and so does the one the arrows come back to.
+function showAligned(state, refs) {
+  if (!refs) return;
+  if (state.pairs[state.index]) state.pairs[state.index] = refs;
+  loadPreviews(state, refs);
+}
+
 function stepPair(state, step) {
   if (state.pairs.length < 2) return;
   state.index = stepIndex(state.index, state.pairs.length, step);
@@ -307,6 +315,7 @@ function buildPanel(node) {
   const eraser = makeEraser({
     node, root, stage, imageA, imageB, signal,
     onSaved: (files) => showSaved(node.__ausbossCompare, files),
+    onAligned: (refs) => node.__ausbossCompare && showAligned(node.__ausbossCompare, refs),
   });
   const stepper = makePictureStepper({
     noun: "pair",

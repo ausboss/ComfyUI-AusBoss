@@ -59,6 +59,7 @@ const SAVE_ICON = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" s
 const COPY_ICON = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">'
   + '<rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg>';
 const SAVE_ROUTE = "/ausboss/compare/save";
+const ALIGN_ROUTE = "/ausboss/compare/align";
 const UNDO_KEPT = 60;
 // The view is drawn at the size it has on screen, up to this many pixels.
 const VIEW_SIDE = 2600;
@@ -353,6 +354,15 @@ function syncTools(er) {
   er.topSwitch.set(top);
   const layers = er.node.properties?.[LAYERS_PROPERTY] === true;
   er.layersSwitch.set(layers ? "on" : "off");
+  const aligned = Boolean(er.refs?.aligned);
+  er.alignButton.disabled = !ready || er.aligning;
+  er.alignButton.textContent = er.aligning ? "ALIGNING" : "ALIGN";
+  er.alignButton.classList.toggle("active", aligned);
+  er.alignButton.title = !ready
+    ? "Run the workflow first: Align needs the two pictures."
+    : aligned
+      ? "B is lined up with A. Click to go back to B as it came."
+      : "Align: lines B up with A when the model moved or zoomed the picture a little. Click again to undo.";
   er.undoButton.disabled = !er.history.length && !er.strokes.length;
   er.clearButton.disabled = !er.strokes.length;
   er.saveButton.disabled = !ready || er.saving;
@@ -604,6 +614,43 @@ async function save(er) {
   }
 }
 
+// Line B up with A on the server (Realign to Source's measuring), or go back
+// to B as it came. The panel swaps in the pictures; Save and Copy then use
+// the lined-up B, and the paint stays where it is.
+async function align(er) {
+  if (er.aligning || !er.refs) return;
+  if (er.refs.aligned) {
+    er.onAligned?.(er.refs.original);
+    return;
+  }
+  er.aligning = true;
+  syncTools(er);
+  try {
+    const response = await api.fetchApi(ALIGN_ROUTE, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pair: er.refs.pair }),
+    });
+    const answer = await response.json().catch(() => null);
+    if (!response.ok) {
+      // No words from the route: this ComfyUI started before the update.
+      const missing = (response.status === 404 || response.status === 405) && !answer?.error;
+      throw new Error(missing ? "Restart ComfyUI once, then align: the AusBoss update is only half loaded." : (answer?.error || `The server answered ${response.status}.`));
+    }
+    if (answer?.aligned && answer.b?.filename && typeof answer.pair === "string") {
+      showToast({ severity: "success", summary: "Image Compare", detail: answer.message, life: 4000 });
+      er.onAligned?.({ ...er.refs, b: answer.b, pair: answer.pair, aligned: true, original: er.refs });
+    } else {
+      showToast({ severity: "info", summary: "Image Compare", detail: answer?.message || "B was left as it is.", life: 6000 });
+    }
+  } catch (error) {
+    showToast({ severity: "error", summary: "Image Compare", detail: String(error?.message ?? error), life: 8000 });
+  } finally {
+    er.aligning = false;
+    syncTools(er);
+  }
+}
+
 // The mix as a PNG, made here at the pictures' full size: the strokes drawn
 // as the view draws them, one mask pixel to a pixel of the picture.
 function mixBlob(er) {
@@ -670,9 +717,9 @@ function copy(er) {
 // files a save wrote. The caller places `bar` above the stage and
 // `saveRow` under its footer, and tells the eraser when the mode or the
 // pictures change.
-export function makeEraser({ node, root, stage, imageA, imageB, signal, onSaved }) {
+export function makeEraser({ node, root, stage, imageA, imageB, signal, onSaved, onAligned }) {
   const er = {
-    node, root, stage, imageA, imageB, onSaved,
+    node, root, stage, imageA, imageB, onSaved, onAligned,
     canvas: document.createElement("canvas"),
     mask: document.createElement("canvas"),
     live: document.createElement("canvas"),
@@ -775,7 +822,7 @@ export function makeEraser({ node, root, stage, imageA, imageB, signal, onSaved 
     },
   });
   const topField = labelled("On top", TOP_HELP, er.topSwitch.root).wrap;
-  // Undo and Clear stay together at the right end, also on a second line.
+  // Align, Undo and Clear stay together at the right end, also on a second line.
   const steps = document.createElement("div");
   steps.className = "ausboss-compare-steps";
   er.undoButton = click(makeToolButton("UNDO", "Take back the last stroke, or a Clear."), () => {
@@ -794,7 +841,8 @@ export function makeEraser({ node, root, stage, imageA, imageB, signal, onSaved 
     rebuildMask(er);
     schedule(er);
   });
-  steps.append(er.undoButton, er.clearButton);
+  er.alignButton = click(makeToolButton("ALIGN", ""), () => align(er));
+  steps.append(er.alignButton, er.undoButton, er.clearButton);
   er.bar.append(er.kindSwitch.root, sizeField, softField, topField, steps);
 
   // The save row under the picture: the name, the layers choice, and Save
