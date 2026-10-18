@@ -24,6 +24,9 @@ stay the same size.
   end, on the browser's clock. Model loading counts; time spent waiting in
   the queue behind another prompt does not.
 - Several Run Timer nodes on one canvas all show the same run.
+- Mask by Touch looks at a new picture with a small run of its own, so
+  things light up before you click. Those looks are not timed: the readout
+  keeps the time of your last run of the workflow.
 - Per-node times are a separate feature: **Settings → 🆎 AusBoss → Chrome →
   Node runtime badges** stamps every node with its own seconds.
 - Want a sound when it stops? **Settings → 🆎 AusBoss → Notifications →

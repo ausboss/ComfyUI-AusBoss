@@ -21,6 +21,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   Compare steps through the pairs, A and B together, and Erase saves the
   pair you are looking at. Mask Refine, Mask by Name, LaMa Inpaint and
   Select Frame get the same arrows. A single picture looks as it did.
+- **Run Timer 🆎: Mask by Touch looking at a picture no longer counts as a
+  run.** When the pointer rests on a new picture, Mask by Touch looks at it
+  with a small run of its own, so things light up before you click. The
+  timer used to start for that look and could show its time as if it were
+  your run. Now it times only runs of the workflow. The node runtime badges
+  (Settings → 🆎 AusBoss → Chrome) also keep your last run's times.
 - **LoRA Loader 🆎: show the rows on the face of a subgraph box.** When the
   loader sits inside a subgraph, its gear has a new first item, **Rows on
   the box**. Press **Show** and the rows appear on the box itself, where you
