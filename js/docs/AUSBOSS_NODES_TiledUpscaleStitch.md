@@ -7,6 +7,13 @@ you the finished picture, at the size you asked for in
 Wire the redrawn tiles into `tiles` and the `stitcher` from Tiled
 Upscale into `stitcher`. That is all it needs.
 
+## Several pictures at once
+
+Give Tiled Upscale a list of pictures, such as a folder of images, and
+Stitch gives back a list too: one finished picture for each, in the same
+order. The nodes after it, such as Save Image, run once per picture. No
+loop is needed.
+
 ## Keep colors
 
 **Keep colors** (`keep_colors`) matches each tile to the same tile of your
@@ -30,6 +37,10 @@ photo comes back faded.
 - The tiles can arrive one after another or as one batch in the same
   order. A different number of tiles than the stitcher expects stops the
   run and says how many it got.
+- With a list of pictures, Tiled Upscale runs once per picture, so the
+  tiles arrive as one list, picture after picture, with one stitcher per
+  picture. Each stitcher takes its own number of tiles off the front of
+  the list.
 - When the picture was redrawn smaller than the size you asked for (a
   small picture, see Redraw limit on Tiled Upscale), the joined redraw
   is enlarged the plain way to that size.
