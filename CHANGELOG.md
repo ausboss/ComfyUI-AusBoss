@@ -4,6 +4,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Tiled Upscale Stitch 🆎 works with a list of pictures (#205).** Give
+  Tiled Upscale a list of pictures, such as a folder of images, and Stitch
+  now gives back one finished picture for each, in the same order. Before,
+  it stopped with "got 12 tiles and the stitcher has 4". No loop is needed:
+  the nodes after Stitch run once per picture.
 - **LoRA Loader 🆎: show the rows on the face of a subgraph box.** When the
   loader sits inside a subgraph, its gear has a new first item, **Rows on
   the box**. Press **Show** and the rows appear on the box itself, where you

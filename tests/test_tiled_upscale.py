@@ -32,7 +32,9 @@ def picture(batch: int, height: int, width: int, seed: int = 0, channels: int = 
 
 def stitch(tiles, stitcher, keep_colors=1.0):
     # the node is INPUT_IS_LIST: every input arrives as a list
-    return AusBossTiledUpscaleStitch().stitch(list(tiles), [stitcher], [keep_colors])[0]
+    pictures = AusBossTiledUpscaleStitch().stitch(list(tiles), [stitcher], [keep_colors])[0]
+    assert len(pictures) == 1
+    return pictures[0]
 
 
 class SplitTests(unittest.TestCase):
@@ -146,6 +148,22 @@ class StitchTests(unittest.TestCase):
         self.assertLess(float((out - before).abs().max()), 1e-5)
         together = stitch([torch.cat(tiles, dim=0)], stitcher, 0.0)
         self.assertTrue(torch.allclose(together, out))
+
+    def test_a_list_of_pictures_comes_back_as_a_list(self):
+        # ComfyUI runs Tiled Upscale once per picture in a list: the tiles
+        # arrive as one list, picture after picture, with one stitcher each.
+        sources = [picture(1, 654, 368, seed=1), picture(1, 512, 512, seed=2), picture(1, 300, 700, seed=3)]
+        runs = [AusBossTiledUpscale().split(source, 8.0, max_growth=64.0) for source in sources]
+        tiles = [tile for run in runs for tile in run[0]]
+        stitchers = [run[1] for run in runs]
+        self.assertGreater(len(tiles), len(runs))
+        pictures = AusBossTiledUpscaleStitch().stitch(tiles, stitchers, [0.0])[0]
+        self.assertEqual(len(pictures), len(runs))
+        for out, run in zip(pictures, runs):
+            self.assertEqual(tuple(out.shape), (1, run[4], run[3], 3))
+            self.assertLess(float((out - run[2]).abs().max()), 1e-5)
+        with self.assertRaisesRegex(ValueError, f"3 stitchers have {len(tiles)}"):
+            AusBossTiledUpscaleStitch().stitch(tiles[:-1], stitchers, [0.0])
 
     def test_wrong_wiring_is_a_clear_error(self):
         tiles, stitcher, *_ = AusBossTiledUpscale().split(picture(1, 654, 368), 8.0, max_growth=64.0)
