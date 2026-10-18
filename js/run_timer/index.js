@@ -16,6 +16,7 @@ import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto } from "../shared/index.mjs";
 import { holdNodeMinWidth } from "../shared/panel_layout.mjs";
+import { isOwnRun, ownRuns } from "../shared/prompt_scope.mjs";
 import {
   cachedLayer,
   createTimer,
@@ -96,8 +97,12 @@ function finish(state, outcome) {
   state.render();
 }
 
-function begin(state) {
+function begin(state, promptId) {
   stopTicking(state);
+  // What the readout held before, in case this run turns out to be one a
+  // node started for itself (see takeBack).
+  state.before = state.timer;
+  state.runId = promptId ? String(promptId) : null;
   state.timer = startTimer(state.timer, performance.now());
   state.render();
   state.interval = setInterval(() => {
@@ -106,12 +111,36 @@ function begin(state) {
   }, TICK_MS);
 }
 
+// The run on the readout was a node's own (Mask by Touch looking at its
+// picture), found out only after it started: show what was there before.
+function takeBack(state) {
+  if (!state.before) return;
+  stopTicking(state);
+  state.timer = state.before;
+  state.before = null;
+  state.runId = null;
+  state.node.properties ??= {};
+  state.node.properties[PROPERTY] = { history: state.timer.history };
+  state.render();
+}
+
+// A run a node starts for itself is not a run of the workflow: it is left
+// out, so the readout keeps the time of the last real run.
 function listen(state) {
   const { signal } = state.abort;
-  api.addEventListener("execution_start", () => begin(state), { signal });
-  api.addEventListener("execution_success", () => finish(state, "done"), { signal });
-  api.addEventListener("execution_error", () => finish(state, "error"), { signal });
-  api.addEventListener("execution_interrupted", () => finish(state, "interrupted"), { signal });
+  const workflowRun = (handler) => ({ detail }) => {
+    if (!isOwnRun(detail?.prompt_id)) handler();
+  };
+  api.addEventListener("execution_start", ({ detail }) => {
+    if (!isOwnRun(detail?.prompt_id)) begin(state, detail?.prompt_id);
+  }, { signal });
+  api.addEventListener("execution_success", workflowRun(() => finish(state, "done")), { signal });
+  api.addEventListener("execution_error", workflowRun(() => finish(state, "error")), { signal });
+  api.addEventListener("execution_interrupted", workflowRun(() => finish(state, "interrupted")), { signal });
+  const stop = ownRuns.subscribe((promptId) => {
+    if (state.runId === promptId) takeBack(state);
+  });
+  signal.addEventListener("abort", stop);
 }
 
 // The frontend hangs a "which pack" badge above every custom node; on a
