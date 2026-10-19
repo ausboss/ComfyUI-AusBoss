@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.14.1 - 2026-10-18
 
 - **Workflow Switches 🆎 keeps the strength you give a LoRA row.** A switch
   that turns LoRA Loader rows on and off also put each row's strength back
