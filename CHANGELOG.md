@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.16.0 - 2026-10-19
 
 - **Layout Boxes 🆎 has a `mask` output, to change only what is inside the
   boxes.** The mask is white inside every box and black elsewhere, at the size
