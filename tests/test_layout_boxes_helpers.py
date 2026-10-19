@@ -26,6 +26,7 @@ from nodes._layout_boxes_helpers import (
     canvas_boxes,
     hex_color,
     input_fingerprint,
+    mask_rects,
     parse_layout,
     prompt_elements,
     regions_from_pixel_boxes,
@@ -148,6 +149,37 @@ class TheOutputs(unittest.TestCase):
         regions = regions_from_pixel_boxes([{"x": 64, "y": 32, "width": 128, "height": 256}, "junk"], 1024, 512)
         self.assertEqual(regions, [{"x": 0.0625, "y": 0.0625, "w": 0.125, "h": 0.5, "type": "obj", "text": "", "desc": "", "palette": []}])
         self.assertEqual(canvas_boxes(regions), regions)
+
+
+class TheMask(unittest.TestCase):
+    def test_on_the_canvas_it_is_white_inside_the_bboxes(self):
+        regions, _ = parse_layout(layout(box(320, 96, 512, 640), box(0, 0, W, 64, kind="text", text="OPEN")), W, H)
+        rects = mask_rects(regions, W, H)
+        self.assertEqual(rects, [(320, 96, 832, 736), (0, 0, W, 64)])
+        frames = bounding_boxes(regions, W, H)[0]
+        self.assertEqual(rects, [(b["x"], b["y"], b["x"] + b["width"], b["y"] + b["height"]) for b in frames],
+                         "the same pixels as the bboxes output, object and text boxes alike")
+
+    def test_on_a_picture_of_another_size_the_boxes_keep_their_place(self):
+        # The canvas is the picture's size on 16 px steps (1008 x 752 for a
+        # 1000 x 750 photo); the mask has the photo's own size.
+        regions, _ = parse_layout(layout({"x": 0.5, "y": 0.25, "w": 0.25, "h": 0.5}), W, H)
+        self.assertEqual(mask_rects(regions, 1000, 750), [(500, 188, 750, 563)])
+        self.assertEqual(mask_rects(regions, 4000, 3000), [(2000, 750, 3000, 2250)])
+
+    def test_boxes_are_cut_to_the_picture(self):
+        regions = [
+            {"x": -0.25, "y": 0.5, "w": 0.5, "h": 1.0},   # off the left and the bottom
+            {"x": 0.5, "y": 0.5, "w": -0.25, "h": -0.5},  # drawn backwards
+            {"x": 1.2, "y": 0.1, "w": 0.3, "h": 0.3},     # beyond the right edge: no area
+            {"x": 0.1, "y": 0.1, "w": 0.0, "h": 0.5},     # a line: no area
+            "junk",
+        ]
+        self.assertEqual(mask_rects(regions, 1000, 1000), [(0, 500, 250, 1000), (250, 0, 500, 500)])
+
+    def test_no_boxes_no_white(self):
+        self.assertEqual(mask_rects([], W, H), [])
+        self.assertEqual(mask_rects(parse_layout(EMPTY_LAYOUT, W, H)[0], W, H), [])
 
 
 class ThePreviewWords(unittest.TestCase):

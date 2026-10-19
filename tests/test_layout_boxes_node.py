@@ -51,20 +51,40 @@ class LayoutBoxesNode(unittest.TestCase):
     def setUp(self):
         self.node = AusBossLayoutBoxes()
 
-    def test_the_canvas_boxes_make_all_three_outputs(self):
+    def test_the_canvas_boxes_make_all_four_outputs(self):
         out = self.node.draw(width=W, height=H, layout=layout(box(320, 96, 512, 640, desc="a cat"), box(0, 0, W, 64, "text", "OPEN", "neon")))
-        preview, frames, elements = out["result"]
+        preview, frames, elements, mask = out["result"]
         self.assertEqual(tuple(preview.shape), (1, 585, 1024, 3), "the canvas's shape, 1024 on its long side")
         self.assertEqual(preview.dtype, torch.float32)
         self.assertTrue(0.0 <= float(preview.min()) and float(preview.max()) <= 1.0)
         self.assertEqual(frames, [[{"x": 320, "y": 96, "width": 512, "height": 640}, {"x": 0, "y": 0, "width": W, "height": 64}]])
         self.assertEqual([e["type"] for e in elements], ["obj", "text"])
         self.assertEqual(out["ui"][UI_KEY], [{"size": [W, H], "count": 2}])
+        self.assertEqual(tuple(mask.shape), (1, H, W), "the canvas size")
+        self.assertEqual(mask.dtype, torch.float32)
+        expected = torch.zeros(1, H, W)
+        expected[0, 96:736, 320:832] = 1.0
+        expected[0, 0:64, :] = 1.0
+        self.assertTrue(torch.equal(mask, expected), "1 inside every box, 0 elsewhere")
 
     def test_no_boxes(self):
-        preview, frames, elements = self.node.draw(width=512, height=1024)["result"]
+        preview, frames, elements, mask = self.node.draw(width=512, height=1024)["result"]
         self.assertEqual(tuple(preview.shape), (1, 1024, 512, 3))
         self.assertEqual((frames, elements), ([], []))
+        self.assertEqual(tuple(mask.shape), (1, 1024, 512))
+        self.assertEqual(float(mask.abs().sum()), 0.0, "no boxes: all black")
+
+    def test_the_mask_fits_the_background_picture(self):
+        # A 1000 x 750 photo: the canvas is 1008 x 752 (16 px steps), and the
+        # mask has the photo's own size, the box at the same place on it.
+        picture = torch.rand(2, 750, 1000, 3)
+        words = {"x": 0.5, "y": 0.25, "w": 0.25, "h": 0.5, "type": "text", "text": "SALE", "desc": "red letters"}
+        mask = self.node.draw(background=picture, width=1008, height=752, layout=layout(words))["result"][3]
+        self.assertEqual(tuple(mask.shape), (1, 750, 1000), "one mask for the batch, at the picture's size")
+        self.assertEqual(int(mask.sum()), 250 * 375)
+        self.assertEqual(float(mask[0, 188, 500]), 1.0)
+        self.assertEqual(float(mask[0, 562, 749]), 1.0)
+        self.assertEqual(float(mask[0, 187, 500]) + float(mask[0, 563, 749]) + float(mask[0, 300, 750]), 0.0)
 
     def test_new_boxes_on_the_wire_win_once(self):
         wire = [{"type": "obj", "bbox": [0, 0, 500, 500], "desc": "from the wire"}]

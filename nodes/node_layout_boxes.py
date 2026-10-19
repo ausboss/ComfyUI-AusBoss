@@ -5,7 +5,8 @@ at the place you drew it. Wire `elements` to MOSS-Image Layout Prompt.
 
 It gives what ComfyUI's own Create Bounding Boxes gives, in the same order
 and worked out the same way (preview, bboxes, elements), so it can stand in
-for that node. Its canvas is a panel of the pack's own
+for that node. A fourth output, `mask`, is white inside every box, to change
+only those places of a picture. Its canvas is a panel of the pack's own
 (js/layout_boxes/index.js), so it draws in the classic look as well as in
 Nodes 2.0. The panel drives ordinary hidden widgets, so saving, loading,
 undo and the API format all go the usual way. The work is in
@@ -29,6 +30,7 @@ from ._layout_boxes_helpers import (
     boxes_from_input,
     canvas_boxes,
     input_fingerprint,
+    mask_rects,
     parse_layout,
     prompt_elements,
     regions_from_pixel_boxes,
@@ -62,6 +64,20 @@ def _first_picture(background):
         return None
 
 
+def _boxes_mask(regions, width: int, height: int, picture=None) -> torch.Tensor:
+    """The `mask` output: 1 inside every box, 0 elsewhere, shape 1 x H x W.
+
+    With a background picture it has the picture's size: the boxes sit on the
+    picture as they sit on the canvas, so the mask fits the picture they were
+    drawn on. Without one it has the canvas size."""
+    if picture is not None:
+        width, height = picture.width, picture.height
+    mask = torch.zeros((1, height, width), dtype=torch.float32)
+    for left, top, right, bottom in mask_rects(regions, width, height):
+        mask[0, top:bottom, left:right] = 1.0
+    return mask
+
+
 def _save_background(picture, prefix: str) -> dict | None:
     """The background, shrunk to what the face shows, into ComfyUI's temp
     folder. A failure only leaves the face without its picture."""
@@ -93,7 +109,8 @@ class AusBossLayoutBoxes:
         "size it. Works in the classic look and in Nodes 2.0, and gives what "
         "ComfyUI's own Create Bounding Boxes gives, so it can take that node's "
         "place. A picture on background shows under the boxes and sets the "
-        "canvas size."
+        "canvas size. The mask output is white inside every box: use it to "
+        "change only those places of a picture, such as the words on a sign."
     )
     SEARCH_ALIASES = [
         "bounding boxes", "create bounding boxes", "bbox", "boxes", "layout",
@@ -137,14 +154,16 @@ class AusBossLayoutBoxes:
             },
         }
 
-    RETURN_TYPES = ("IMAGE", "BOUNDING_BOX", "ARRAY")
-    RETURN_NAMES = ("preview", "bboxes", "elements")
+    RETURN_TYPES = ("IMAGE", "BOUNDING_BOX", "ARRAY", "MASK")
+    RETURN_NAMES = ("preview", "bboxes", "elements", "mask")
     OUTPUT_TOOLTIPS = (
         "A picture of the boxes with their numbers and words, to check the layout. "
         "Wire it to Preview Image.",
         "The boxes in pixels of the canvas (x, y, width, height), for nodes that take bounding boxes.",
         "The boxes as prompt elements: type, place, words and colors. Wire it to "
         "MOSS-Image Layout Prompt.",
+        "The boxes as a mask: white inside every box. Use it to change only those "
+        "places of a picture, such as the words on a sign.",
     )
     OUTPUT_NODE = True
     FUNCTION = "draw"
@@ -170,7 +189,12 @@ class AusBossLayoutBoxes:
         preview = _picture_tensor(render_preview(regions, width, height, picture))
         return {
             "ui": {UI_KEY: [note]},
-            "result": (preview, bounding_boxes(regions, width, height), prompt_elements(regions)),
+            "result": (
+                preview,
+                bounding_boxes(regions, width, height),
+                prompt_elements(regions),
+                _boxes_mask(regions, width, height, picture),
+            ),
         }
 
 

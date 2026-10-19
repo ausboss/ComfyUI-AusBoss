@@ -121,7 +121,7 @@ class SameAsCreateBoundingBoxes(unittest.TestCase):
             for wire in (elements, json.dumps(elements), elements[0], boxes, [plain], json.dumps(boxes), plain[0], [], ""):
                 mine = ours(width, height, bboxes=wire)
                 core = theirs(width, height, bboxes=wire)
-                self.assertEqual(mine[1:], core[1:], f"{width}x{height}: {str(wire)[:60]}")
+                self.assertEqual(mine[1:3], core[1:], f"{width}x{height}: {str(wire)[:60]}")
 
     def test_the_canvas_wins_after_the_wire_filled_it(self):
         # Both nodes fill the canvas from new boxes on the wire once, then use
@@ -137,7 +137,7 @@ class SameAsCreateBoundingBoxes(unittest.TestCase):
         fingerprint = mine["ui"]["ausboss_layout_boxes"][0]["incoming"]["fingerprint"]
         mine = ours(width, height, bboxes=wire, layout=as_layout(edited, width, height, fingerprint))
         core_out = theirs(width, height, bboxes=wire, editor_state=edited, last_incoming=applied)
-        self.assertEqual(mine[1:], core_out[1:])
+        self.assertEqual(mine[1:3], core_out[1:])
 
     def test_bad_wires_stop_both(self):
         for wire in ("{oops", {"a": 1}, 5, [5], [{"bbox": [1, 2]}], [{"bbox": [1, 2, "x", 4]}]):
