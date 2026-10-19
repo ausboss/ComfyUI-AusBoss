@@ -2,6 +2,17 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Workflow Switches 🆎 keeps the strength you give a LoRA row.** A switch
+  that turns LoRA Loader rows on and off also put each row's strength back
+  to the one it was saved with, usually 1. Turn a row down to 0.6 and the
+  card read "changed" (in a pill, the choice went amber and read "only
+  partly on"), and the next click set the row back to 1. Now a switch only
+  turns the row on and off: your strength and trigger words stay, and the
+  card reads on or off as it should. A switch still sets a strength when you
+  saved that row with one strength for on and another for off.
+
 ## 2.14.0 - 2026-10-18
 
 - **Image Compare A/B 🆎: Align lines B up with A in Erase.** Edit models
