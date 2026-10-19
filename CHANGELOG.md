@@ -2,6 +2,21 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **New: Layout Boxes 🆎** (Utility). Draw boxes on a canvas and say what goes
+  in each one: a thing, or words to write in the picture. Wire its `elements`
+  to MOSS-Image Layout Prompt and the picture puts each thing where its box is.
+  It gives what ComfyUI's own Create Bounding Boxes gives, from the same boxes
+  and in the same order, so it can take that node's place, and its canvas also
+  works in the classic node look, where Create Bounding Boxes shows only "Node
+  2.0 only". Drag to draw a box, drag it to move it, drag its handles to size
+  it. Under the canvas each box gets object or text, its words and up to five
+  colors. A picture on `background` shows under the boxes and sets the canvas
+  size, `width` and `height` can come from Latent Size, and boxes on the
+  `bboxes` wire fill the canvas when the workflow runs. Grid, ready-made
+  Layouts, Delete, the arrow keys and Ctrl + D are there too.
+
 ## 2.14.1 - 2026-10-18
 
 - **Workflow Switches 🆎 keeps the strength you give a LoRA row.** A switch

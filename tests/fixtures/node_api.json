@@ -375,6 +375,30 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_LayoutBoxes": {
+    "required": [],
+    "optional": [
+      "background",
+      "bboxes",
+      "width",
+      "height",
+      "layout"
+    ],
+    "outputs": [
+      [
+        "IMAGE",
+        "preview"
+      ],
+      [
+        "BOUNDING_BOX",
+        "bboxes"
+      ],
+      [
+        "ARRAY",
+        "elements"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_LoadImagePad": {
     "required": [
       "image",

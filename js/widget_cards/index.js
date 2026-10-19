@@ -233,6 +233,16 @@ const CARDS = {
       { widget: "free_vram", label: "Free VRAM", group: "advanced" },
     ],
   },
+  // The canvas size of Layout Boxes. Its canvas (js/layout_boxes) sits under
+  // the card and owns the hidden `layout` widget. A picture on `background`
+  // sets the size, so the row dims while one is wired, as width and height
+  // are hidden on Create Bounding Boxes then.
+  AUSBOSS_NODES_LayoutBoxes: {
+    minWidth: 360, first: true, hide: ["layout"],
+    rows: [
+      { pair: ["width", "height"], label: "Canvas", prefixes: ["W", "H"], sep: "×", top: true, snap: true, linkedBy: ["background"] },
+    ],
+  },
   AUSBOSS_NODES_MaskByName: {
     minWidth: 300, first: true,
     rows: [

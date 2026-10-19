@@ -65,6 +65,7 @@ PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_Krea2Encode",
     "AUSBOSS_NODES_Krea2OutpaintModelPatch",
     "AUSBOSS_NODES_LaMaInpaint",
+    "AUSBOSS_NODES_LayoutBoxes",
     "AUSBOSS_NODES_LoadImagePad",
     "AUSBOSS_NODES_LoadVideo",
     "AUSBOSS_NODES_LoraLoader",
