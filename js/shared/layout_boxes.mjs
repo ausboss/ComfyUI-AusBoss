@@ -21,6 +21,10 @@ export const FREE_MIN_PX = 8;
 // Grid cells are 32 px, or bigger on a big canvas so a side has at most 64.
 export const GRID_MIN_CELL = 32;
 export const GRID_MAX_CELLS = 64;
+// An arrow key moves the chosen box this far, in canvas pixels; with Shift,
+// the bigger step.
+export const NUDGE_PX = 1;
+export const NUDGE_SHIFT_PX = 10;
 export const EMPTY_LAYOUT = '{"v": 1, "boxes": []}';
 export const HANDLES = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
 // Boxes without a color of their own (the backend's preview uses the same).
@@ -38,6 +42,17 @@ export function finiteNumber(value) {
 export function canvasSide(value, fallback = DEFAULT_SIZE) {
   const number = finiteNumber(value);
   return number === null ? fallback : clamp(Math.round(number), DIM_MIN, DIM_MAX);
+}
+
+// The canvas the face draws, as { width, height, picture }: the picture on
+// `background` when one is shown, at its own size and shape whatever width
+// and height say (the mask is made on the picture, so the boxes are placed
+// on it), else width and height as the node takes them.
+export function faceCanvas(picture, width, height) {
+  const across = finiteNumber(Array.isArray(picture) ? picture[0] : null);
+  const down = finiteNumber(Array.isArray(picture) ? picture[1] : null);
+  if (across > 0 && down > 0) return { width: Math.round(across) || 1, height: Math.round(down) || 1, picture: true };
+  return { width: canvasSide(width), height: canvasSide(height), picture: false };
 }
 
 // The size a picture gives the canvas: its own size on the 16 px steps.
@@ -182,6 +197,16 @@ export function gridCell(side) {
   return Math.max(GRID_MIN_CELL, Math.ceil(Math.max(1, side) / GRID_MAX_CELLS));
 }
 
+// The grid sizes the gear offers. Auto is the rule above.
+export const GRID_SIZES = ["Auto", "8", "16", "32", "64"];
+
+// A side's grid cell for a size from the gear: that many pixels, or Auto's
+// rule for Auto and for anything it does not know.
+export function gridCellOf(side, size = "Auto") {
+  const fixed = GRID_SIZES.includes(String(size)) ? Number(size) : NaN;
+  return Number.isFinite(fixed) && fixed > 0 ? fixed : gridCell(side);
+}
+
 // The nearest grid line, or the far edge of the canvas when that is nearer
 // (a side that is not a whole number of cells still has its edge to snap to).
 export function snapTo(value, cell, side) {
@@ -190,9 +215,17 @@ export function snapTo(value, cell, side) {
   return clamp(Math.abs(side - at) < Math.abs(line - at) ? side : line, 0, side);
 }
 
-// { snap, cellX, cellY } for a canvas, the grid on or off.
-export function snapping(width, height, on = true) {
-  return { snap: Boolean(on), cellX: gridCell(width), cellY: gridCell(height) };
+// { snap, cellX, cellY } for a canvas, the grid on or off, at a size from
+// the gear (Auto when none is given).
+export function snapping(width, height, on = true, size = "Auto") {
+  return { snap: Boolean(on), cellX: gridCellOf(width, size), cellY: gridCellOf(height, size) };
+}
+
+// Whether the grid is on: the person's own choice once they made one (saved
+// with the node), else on for an empty canvas and off over a picture, where
+// a box has to fit what is in the picture rather than the cells.
+export function gridIsOn(saved, overPicture) {
+  return typeof saved === "boolean" ? saved : !overPicture;
 }
 
 function edge(value, cell, side, snap) {
@@ -257,6 +290,19 @@ export function resizedRect(start, handle, dx, dy, width, height, { snap = true,
   return { x0, y0, x1, y1 };
 }
 
+// How far an arrow key moves the chosen box, as [dx, dy] in canvas pixels,
+// or null for any other key: one pixel, ten with Shift. The grid steers only
+// the mouse, so the keys reach every pixel with it on or off, and Alt + arrow
+// is one pixel as it always was.
+export function nudgeStep(key, { shiftKey = false } = {}) {
+  const step = shiftKey ? NUDGE_SHIFT_PX : NUDGE_PX;
+  if (key === "ArrowLeft") return [-step, 0];
+  if (key === "ArrowRight") return [step, 0];
+  if (key === "ArrowUp") return [0, -step];
+  if (key === "ArrowDown") return [0, step];
+  return null;
+}
+
 // A nudge from the keyboard: an exact step, the box kept on the canvas.
 export function nudgedRect(start, dx, dy, width, height) {
   const w = start.x1 - start.x0;
@@ -276,6 +322,45 @@ export function copiedRect(start, width, height, cellX = GRID_MIN_CELL, cellY = 
   return { x0, y0, x1: x0 + w, y1: y0 + h };
 }
 
+// ---------- the marks around a box ----------
+
+// The handles, the tag and the outline keep one size on the screen at any
+// graph zoom; these sizes are screen pixels.
+export const HANDLE_PX = 14;
+export const TAG_HEIGHT_PX = 15;
+// A side this long holds a handle at its middle as well as at its corners.
+export const MIDDLE_HANDLE_FROM_PX = 3 * HANDLE_PX + 6;
+
+// A box's type in words, as its tag and its chip say it.
+export function boxKind(box) {
+  return box?.type === "text" ? "text" : "object";
+}
+
+// What a box's tag and chip say: its number, and its type in words.
+export function boxTag(box, index) {
+  return `${index + 1} ${boxKind(box)}`;
+}
+
+// The tag's width on the screen, a little over: its letters are monospace.
+export function tagWidthPx(tag) {
+  return Math.ceil(String(tag).length * 6.5) + 10;
+}
+
+// Which marks a box gets, from its place on the screen ({ x, y, w, h } in
+// screen pixels from the canvas's top-left corner) and the canvas's width on
+// the screen. A side shorter than MIDDLE_HANDLE_FROM_PX has handles at its
+// corners only. The tag sits just outside the top-left corner, inside the
+// box when the box touches the top of the canvas, and runs leftward from the
+// box's right edge when it would leave the canvas on the right.
+export function boxMarks(rect, canvasWidth, tagWidth) {
+  return {
+    middleTopBottom: rect.w >= MIDDLE_HANDLE_FROM_PX,
+    middleLeftRight: rect.h >= MIDDLE_HANDLE_FROM_PX,
+    tagInside: rect.y < TAG_HEIGHT_PX,
+    tagFromRight: rect.x + tagWidth > canvasWidth,
+  };
+}
+
 // ---------- words ----------
 
 // What a box says on the canvas: the text in quotes for a text box, then
@@ -285,6 +370,28 @@ export function boxWords(box) {
   const text = String(box?.text ?? "").trim();
   if (box?.type === "text" && text) return desc ? `"${text}" - ${desc}` : `"${text}"`;
   return desc;
+}
+
+// ---------- choosing a box ----------
+
+// The editor has a chip per box, up to this many; with more boxes, the chips
+// of the boxes around the chosen one, and ‹ › to step through the rest.
+export const CHIPS_MAX = 6;
+
+// The boxes that have a chip, as [first, end): every box when they fit, else
+// CHIPS_MAX of them with the chosen one among them.
+export function chipWindow(count, selected, max = CHIPS_MAX) {
+  if (count <= max) return [0, Math.max(0, count)];
+  const start = clamp(Math.max(0, selected) - Math.floor((max - 1) / 2), 0, count - max);
+  return [start, start + max];
+}
+
+// An object box keeps the words typed while it was a text box, but they do
+// not go to the model. The line the editor shows in their place, or "" when
+// there is nothing to say.
+export const KEPT_WORDS_NOTE = "Object boxes do not write words. Your words are kept for when you switch back to text.";
+export function keptWordsNote(box) {
+  return box && box.type !== "text" && String(box.text ?? "").trim() ? KEPT_WORDS_NOTE : "";
 }
 
 // ---------- ready-made layouts ----------

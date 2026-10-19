@@ -2,6 +2,36 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Layout Boxes 🆎 moves a box one pixel at a time.** The arrow keys now
+  move the chosen box one pixel, or ten with Shift, whether the grid is on or
+  off. Before, they moved it a whole grid cell of 32 pixels, so on a small
+  picture a box had few places to go. Over a picture on `background` the grid
+  now starts off, so a box you drag stays where you drop it; click **Grid** to
+  turn it on, and the node keeps your choice. An empty canvas has the grid as
+  before. To leave the grid for one drag, hold Ctrl (or Alt) while you drag.
+- **Layout Boxes 🆎 keeps its handles and labels small when you zoom in.** The
+  handles, the box numbers and the outlines keep one size on your screen at
+  any zoom, so a zoomed-in box is no longer covered by them. A box's number
+  now sits just outside its top-left corner, and a box too small for eight
+  handles keeps its corners. Over a picture the boxes are see-through and
+  show no words, so you can read the old words under a box.
+- **Layout Boxes 🆎 shows what each box is.** Each box's tag says its number
+  and its type, such as "1 text" or "2 object", and so do the new chips under
+  the canvas: click a chip to choose that box. The type now reads "Box 1 is
+  object | text", so it is clear it changes the chosen box. When a box with
+  words becomes an object box, a line says the words are kept for when you
+  switch back to text: an object box does not write them.
+- **Layout Boxes 🆎 has a gear for the grid size.** Pick Auto (as before), 8,
+  16, 32 or 64 pixels. The node keeps it; the Grid button still turns the
+  grid on and off.
+- **Layout Boxes 🆎 no longer stretches the picture when width and height are
+  wired.** With width and height wired from Latent Size, the picture on
+  `background` was drawn on the node in their shape, while the mask is made
+  on the picture itself. Now the canvas is the picture at its own size and
+  shape, and the size above it says where it comes from: picture, or wired.
+
 ## 2.16.0 - 2026-10-19
 
 - **Layout Boxes 🆎 has a `mask` output, to change only what is inside the

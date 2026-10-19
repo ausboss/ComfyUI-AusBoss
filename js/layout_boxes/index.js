@@ -11,8 +11,9 @@
 // outputs are worked out by nodes/_layout_boxes_helpers.py.
 //
 // Keys while the canvas has the focus: Delete removes the chosen box, the
-// arrows nudge it (Shift: four times as far, Alt: one pixel), Ctrl + D copies
-// it, Esc lets go of it. Alt or Ctrl while dragging leaves the grid off.
+// arrows move it one pixel (Shift: ten), Ctrl + D copies it, Esc lets go of
+// it. Ctrl (or Alt) while dragging leaves the grid off. The grid starts off
+// over a picture on `background`; a click on Grid is saved with the node.
 
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
@@ -21,32 +22,46 @@ import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { describeSourcePreview, outputLocatorId } from "../shared/input_preview.mjs";
 import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
 import { isForeignRun } from "../shared/prompt_scope.mjs";
+import { gearIconSvg, openSettingsMenu } from "../shared/settings_menu.mjs";
 import { commitWidgetValue } from "../shared/widget_card_math.mjs";
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
 import {
+  CHIPS_MAX,
+  GRID_SIZES,
   HANDLES,
+  HANDLE_PX,
   LAYOUTS,
   MAX_BOXES,
   MAX_COLORS,
+  TAG_HEIGHT_PX,
   applyLayout,
   boxColor,
+  boxKind,
+  boxMarks,
   boxSizePx,
+  boxTag,
   boxWords,
   canvasSide,
+  chipWindow,
   copiedRect,
   drawnRect,
+  faceCanvas,
   fromPixels,
-  gridCell,
+  gridCellOf,
+  gridIsOn,
   inputLink,
+  keptWordsNote,
   movedRect,
   newBox,
   normalizeHex,
+  nudgeStep,
   nudgedRect,
   parseLayout,
   resizedRect,
   serializeLayout,
   sideForPicture,
   snapping,
+  tagWidthPx,
   textOn,
   wholePixels,
   wiredNumber,
@@ -57,6 +72,15 @@ const NODE_CLASS = "AUSBOSS_NODES_LayoutBoxes";
 const WIDGET_NAME = "ausboss_layout_boxes";
 const UI_KEY = "ausboss_layout_boxes";
 const GRID_PROPERTY = "ausboss_layout_grid";
+const GRID_SIZE_PROPERTY = "ausboss_layout_grid_size";
+// The gear's settings belong to the node they were set on.
+const SETTINGS_SCOPE = "layout_boxes";
+const SETTINGS_SCHEMA = [
+  {
+    key: "grid_size", label: "Grid size", type: "choice", options: GRID_SIZES, default: "Auto", persist: false,
+    hint: "Pixels between grid lines. Auto is 32, more on a very big canvas. Kept on this node.",
+  },
+];
 const INPUT_SIDE = 1; // LiteGraph.INPUT
 
 const MIN_WIDTH = 360;
@@ -64,7 +88,9 @@ const OPENING_WIDTH = 420;
 // Room for the canvas on a node that is new, over its smallest height.
 const OPENING_ROOM = 220;
 const BAR_HEIGHT = 26;
-const EDITOR_HEIGHT = 160;
+// The box chips and the chosen box's own row, then its words and colors.
+const CHIPS_HEIGHT = 22;
+const EDITOR_HEIGHT = 184;
 const STAGE_MIN = 140;
 const GAP = 6;
 const PANEL_MIN = BAR_HEIGHT + GAP + STAGE_MIN + GAP + EDITOR_HEIGHT;
@@ -73,6 +99,10 @@ const STAGE_MARGIN = 8;
 // Screen pixels a pointer moves before a press becomes a drag.
 const MOVE_START = 3;
 const DRAW_START = 6;
+// How long the box's place stays in view after an arrow key moved it.
+const READOUT_MS = 1500;
+// A zoom is measured again this long after the graph stops zooming.
+const ZOOM_SETTLE_MS = 160;
 const FONT = `-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif`;
 const MONO = `ui-monospace,"Cascadia Mono",Consolas,monospace`;
 
@@ -104,7 +134,7 @@ function ensureCss() {
   const style = document.createElement("style");
   style.id = "ausboss-lb-css";
   style.textContent = `
-.ausboss-lb{box-sizing:border-box;width:100%;height:100%;display:flex;flex-direction:column;gap:${GAP}px;overflow:hidden;font:12px/1.3 ${FONT};color:#c8dddd}
+.ausboss-lb{--lb-u:1;box-sizing:border-box;width:100%;height:100%;display:flex;flex-direction:column;gap:${GAP}px;overflow:hidden;font:12px/1.3 ${FONT};color:#c8dddd}
 .ausboss-lb *{box-sizing:border-box}
 .ausboss-lb [hidden]{display:none!important}
 .ausboss-lb-bar{flex:none;height:${BAR_HEIGHT}px;display:flex;align-items:center;gap:6px;min-width:0}
@@ -112,21 +142,31 @@ function ensureCss() {
 .ausboss-lb-btn:hover{border-color:${BRAND};color:#fff}
 .ausboss-lb-btn.on{border-color:rgba(0,180,170,.55);background:rgba(0,180,170,.14);color:#7fe9e2}
 .ausboss-lb-btn svg{width:12px;height:12px;flex:none}
+.ausboss-lb-btn.icon{width:26px;padding:0;justify-content:center}
 .ausboss-lb-size{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:right;white-space:nowrap;color:#5f7674;font:600 10.5px ${MONO}}
 .ausboss-lb-stage{flex:1 1 auto;min-height:0;position:relative;overflow:hidden;border:1px solid rgba(0,180,170,.22);border-radius:8px;background:#0b0f10;outline:none;touch-action:none}
 .ausboss-lb-stage:focus-visible{border-color:${BRAND}}
 .ausboss-lb-frame{position:absolute;left:0;top:0;overflow:hidden;background:#161c1d;box-shadow:0 0 0 1px #2e3a3c;cursor:crosshair}
 .ausboss-lb-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;opacity:.55;pointer-events:none;user-select:none;-webkit-user-drag:none}
 .ausboss-lb-grid{position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(circle at 0 0,rgba(205,225,225,.32) 1px,transparent 1.6px)}
-.ausboss-lb-box{position:absolute;border:1.5px solid var(--c);background:color-mix(in srgb,var(--c) 13%,transparent);cursor:move}
-.ausboss-lb-box.sel{z-index:5;border-width:2px;background:color-mix(in srgb,var(--c) 22%,transparent);box-shadow:0 0 0 1px rgba(0,0,0,.55)}
-.ausboss-lb-strip{position:absolute;left:0;right:0;top:0;height:4px;display:flex;pointer-events:none}
+.ausboss-lb-box{position:absolute;box-shadow:inset 0 0 0 calc(1.5px*var(--lb-u)) var(--c);background:color-mix(in srgb,var(--c) 13%,transparent);cursor:move}
+.ausboss-lb-box.sel{z-index:5;background:color-mix(in srgb,var(--c) 22%,transparent);box-shadow:inset 0 0 0 calc(2px*var(--lb-u)) var(--c),0 0 0 calc(1px*var(--lb-u)) rgba(0,0,0,.55)}
+.ausboss-lb-frame.pic .ausboss-lb-box{background:color-mix(in srgb,var(--c) 5%,transparent)}
+.ausboss-lb-frame.pic .ausboss-lb-box.sel{background:color-mix(in srgb,var(--c) 9%,transparent)}
+.ausboss-lb-strip{position:absolute;left:0;right:0;top:0;height:calc(4px*var(--lb-u));display:flex;pointer-events:none}
 .ausboss-lb-strip i{flex:1 1 0}
-.ausboss-lb-tag{position:absolute;left:0;top:0;min-width:15px;height:15px;padding:0 4px;background:var(--c);color:var(--t);font:700 10px/15px ${MONO};text-align:center;pointer-events:none}
-.ausboss-lb-words{position:absolute;left:0;right:0;top:16px;bottom:0;padding:1px 5px;overflow:hidden;color:#f4f8f8;font:11px/1.3 ${FONT};text-shadow:0 1px 2px #000,0 0 2px #000;white-space:pre-line;word-break:break-word;pointer-events:none}
-.ausboss-lb-handle{position:absolute;width:14px;height:14px;margin:-7px 0 0 -7px;display:none;z-index:6;touch-action:none}
-.ausboss-lb-handle::after{content:"";position:absolute;inset:3px;border:1px solid #061010;border-radius:1px;background:#f4f8f8}
+.ausboss-lb-tag{position:absolute;left:0;bottom:100%;z-index:4;height:calc(${TAG_HEIGHT_PX}px*var(--lb-u));padding:0 calc(5px*var(--lb-u));border-radius:calc(3px*var(--lb-u)) calc(3px*var(--lb-u)) 0 0;background:var(--c);color:var(--t);font:500 calc(10px*var(--lb-u))/calc(${TAG_HEIGHT_PX}px*var(--lb-u)) ${MONO};white-space:nowrap;pointer-events:none}
+.ausboss-lb-tag b{font-weight:800}
+.ausboss-lb-box.tag-in>.ausboss-lb-tag{bottom:auto;top:0;left:0;border-radius:0 0 calc(3px*var(--lb-u)) 0}
+.ausboss-lb-box.tag-r>.ausboss-lb-tag{left:auto;right:0}
+.ausboss-lb-box.tag-in.tag-r>.ausboss-lb-tag{right:0;border-radius:0 0 0 calc(3px*var(--lb-u))}
+.ausboss-lb-words{position:absolute;left:0;right:0;top:calc(4px*var(--lb-u));bottom:0;padding:min(2px,calc(2px*var(--lb-u))) min(5px,calc(5px*var(--lb-u)));overflow:hidden;color:#f4f8f8;font:min(11px,calc(13px*var(--lb-u)))/1.3 ${FONT};text-shadow:0 1px 2px #000,0 0 2px #000;white-space:pre-line;word-break:break-word;pointer-events:none}
+.ausboss-lb-frame.pic .ausboss-lb-words{display:none}
+.ausboss-lb-box.tag-in>.ausboss-lb-words{top:calc(${TAG_HEIGHT_PX}px*var(--lb-u))}
+.ausboss-lb-handle{position:absolute;width:calc(${HANDLE_PX}px*var(--lb-u));height:calc(${HANDLE_PX}px*var(--lb-u));margin:calc(${-HANDLE_PX / 2}px*var(--lb-u)) 0 0 calc(${-HANDLE_PX / 2}px*var(--lb-u));display:none;z-index:6;touch-action:none}
+.ausboss-lb-handle::after{content:"";position:absolute;inset:calc(3px*var(--lb-u));border-radius:calc(1px*var(--lb-u));background:#f4f8f8;box-shadow:0 0 0 calc(1px*var(--lb-u)) #061010}
 .ausboss-lb-box.sel .ausboss-lb-handle{display:block}
+.ausboss-lb-box.sel.no-tb .ausboss-lb-handle:is([data-h="n"],[data-h="s"]),.ausboss-lb-box.sel.no-lr .ausboss-lb-handle:is([data-h="e"],[data-h="w"]){display:none}
 .ausboss-lb-handle[data-h="nw"]{left:0;top:0;cursor:nwse-resize}
 .ausboss-lb-handle[data-h="n"]{left:50%;top:0;cursor:ns-resize}
 .ausboss-lb-handle[data-h="ne"]{left:100%;top:0;cursor:nesw-resize}
@@ -135,14 +175,21 @@ function ensureCss() {
 .ausboss-lb-handle[data-h="s"]{left:50%;top:100%;cursor:ns-resize}
 .ausboss-lb-handle[data-h="sw"]{left:0;top:100%;cursor:nesw-resize}
 .ausboss-lb-handle[data-h="w"]{left:0;top:50%;cursor:ew-resize}
-.ausboss-lb-ghost{position:absolute;z-index:7;border:1.5px dashed ${BRAND};background:rgba(0,180,170,.12);pointer-events:none}
+.ausboss-lb-ghost{position:absolute;z-index:7;border:calc(1.5px*var(--lb-u)) dashed ${BRAND};background:rgba(0,180,170,.12);pointer-events:none}
 .ausboss-lb-empty{position:absolute;inset:0;display:grid;place-items:center;padding:14px;text-align:center;color:#6f8886;font:12px/1.4 ${FONT};pointer-events:none}
 .ausboss-lb-readout{position:absolute;left:6px;bottom:5px;z-index:8;padding:2px 6px;border-radius:4px;background:rgba(0,0,0,.66);color:#d8ecea;font:600 10.5px ${MONO};pointer-events:none;white-space:nowrap}
 .ausboss-lb-readout[hidden]{display:none}
 .ausboss-lb-editor{flex:none;height:${EDITOR_HEIGHT}px;display:flex;flex-direction:column;gap:5px;padding:6px 8px;overflow:hidden;border:1px solid rgba(0,180,170,.22);border-radius:8px;background:rgba(0,0,0,.28)}
+.ausboss-lb-chips{flex:none;height:${CHIPS_HEIGHT}px;display:flex;align-items:center;gap:4px;min-width:0}
+.ausboss-lb-chips>span{flex:1 1 auto;min-width:0;display:flex;gap:4px;overflow:hidden}
+.ausboss-lb-chips .ausboss-lb-tool{width:22px;height:22px}
+.ausboss-lb-chip{flex:none;max-width:100%;height:${CHIPS_HEIGHT}px;padding:0 7px 0 6px;border:1px solid #2a3437;border-left:3px solid var(--c);border-radius:5px;background:#0f1516;color:#8ba3a1;font:500 10.5px/1 ${MONO};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.ausboss-lb-chip b{font-weight:800}
+.ausboss-lb-chip:hover{border-color:#5f7674;border-left-color:var(--c);color:#fff}
+.ausboss-lb-chip.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 26%,#0f1516);color:#fff}
 .ausboss-lb-head{flex:none;height:24px;display:flex;align-items:center;gap:6px;min-width:0}
-.ausboss-lb-nav{flex:none;display:flex;align-items:center;gap:2px;color:#d8ecea;font:600 11px ${MONO}}
-.ausboss-lb-nav span{min-width:38px;text-align:center;white-space:nowrap}
+.ausboss-lb-head>b{flex:none;color:#d8ecea;font:600 11px ${FONT};white-space:nowrap}
+.ausboss-lb-kept{flex:none;padding:3px 8px;border:1px dashed #3a4749;border-radius:6px;color:#8ba3a1;font:11px/1.35 ${FONT}}
 .ausboss-lb-tool{flex:none;width:24px;height:24px;display:grid;place-items:center;padding:0;border:1px solid #2a3437;border-radius:6px;background:#0f1516;color:#8ba3a1;font:600 12px/1 ${FONT};cursor:pointer}
 .ausboss-lb-tool:hover{border-color:${BRAND};color:#fff}
 .ausboss-lb-tool.danger:hover{border-color:#e07a6a;color:#e07a6a}
@@ -197,11 +244,13 @@ const ICONS = {
 // can know it, else the node's own values.
 // A side wired to a node whose value is only known once the workflow runs
 // (Image Size of a picture) shows the size the last run used.
+// With a picture shown, the canvas is the picture, at its own size and shape:
+// wired numbers would stretch it, and the mask is made on the picture.
 function canvasSize(state) {
   const read = (name, at) => wiredNumber(state.node, name)
     ?? (sizeWired(state, name) ? state.lastRun?.size?.[at] : null)
     ?? findWidget(state.node, name)?.value;
-  return { width: canvasSide(read("width", 0)), height: canvasSide(read("height", 1)) };
+  return faceCanvas(state.pictureSize, read("width", 0), read("height", 1));
 }
 
 const ownSize = (state) => ({
@@ -211,7 +260,15 @@ const ownSize = (state) => ({
 
 const sizeWired = (state, name) => Boolean(inputLink(state.node, name));
 
-const gridOn = (state) => state.node.properties?.[GRID_PROPERTY] !== false;
+// The grid steers the mouse only. It starts off over a picture on
+// `background`; a click on Grid is saved with the node and wins from then on.
+const gridOn = (state) => gridIsOn(state.node.properties?.[GRID_PROPERTY], Boolean(wiredSource(state.node, "background")));
+
+// The grid's size from the gear, kept on the node: Auto until someone picks one.
+const gridSize = (state) => {
+  const size = String(state.node.properties?.[GRID_SIZE_PROPERTY] ?? "Auto");
+  return GRID_SIZES.includes(size) ? size : "Auto";
+};
 
 // ---------- writing ----------
 
@@ -249,6 +306,8 @@ function fitFrame(state) {
   const scale = Math.min(roomW / width, roomH / height);
   const w = Math.max(10, Math.floor(width * scale));
   const h = Math.max(10, Math.floor(height * scale));
+  state.frameW = w;
+  state.frameH = h;
   Object.assign(state.frame.style, {
     width: `${w}px`,
     height: `${h}px`,
@@ -260,11 +319,67 @@ function fitFrame(state) {
 
 function paintGrid(state, frameW, frameH) {
   const { width, height } = state.size;
-  const cellW = (gridCell(width) / width) * frameW;
-  const cellH = (gridCell(height) / height) * frameH;
-  // Dots closer than this read as a grey wash, not a grid.
-  state.grid.hidden = !gridOn(state) || cellW < 5 || cellH < 5;
+  const cellW = (gridCellOf(width, gridSize(state)) / width) * frameW;
+  const cellH = (gridCellOf(height, gridSize(state)) / height) * frameH;
+  // Dots closer than this on the screen read as a grey wash, not a grid.
+  const zoom = state.zoom || 1;
+  state.grid.hidden = !gridOn(state) || cellW * zoom < 5 || cellH * zoom < 5;
   state.grid.style.backgroundSize = `${cellW}px ${cellH}px`;
+}
+
+// The Grid button and the dots again, when the grid may have changed without
+// a click: a picture wired in or taken away, a workflow opened.
+function syncGrid(state) {
+  const on = gridOn(state);
+  if (on === state.gridShown) return;
+  state.gridShown = on;
+  state.gridBtn.classList.toggle("on", on);
+  fitFrame(state);
+}
+
+// ---------- the graph's zoom ----------
+
+// Both looks draw the face at the graph's zoom through a CSS transform:
+// classic scales each DOM widget, Nodes 2.0 the layer the nodes sit in. The
+// marks on the boxes are sized in --lb-u, one screen pixel in the face's own
+// pixels, so they keep one size on the screen at any zoom. True when the
+// zoom changed.
+function syncZoom(state) {
+  if (state.disposed) return false;
+  const width = state.root.offsetWidth;
+  const zoom = width ? state.root.getBoundingClientRect().width / width : NaN;
+  if (!Number.isFinite(zoom) || zoom <= 0 || Math.abs(zoom - state.zoom) < 0.001) return false;
+  state.zoom = zoom;
+  state.root.style.setProperty("--lb-u", String(1 / zoom));
+  if (state.frameW) paintGrid(state, state.frameW, state.frameH);
+  return true;
+}
+
+function syncZoomAll() {
+  for (const state of live) if (syncZoom(state)) paintBoxes(state);
+}
+
+// The canvas draws itself in both looks, and always when the zoom changes
+// (Nodes 2.0 draws no node on it, so a node's own draw hook would miss it).
+// A new zoom reaches the faces' styles in the same frame: measure in the
+// next one, and once more when the zooming stops.
+let zoomCanvas = null;
+let zoomSeen = NaN;
+let zoomFrame = 0;
+let zoomTimer = null;
+function watchZoom() {
+  const canvas = app.canvas;
+  if (!canvas || canvas === zoomCanvas) return;
+  zoomCanvas = canvas;
+  chainCallback(canvas, "onDrawForeground", () => {
+    const scale = zoomCanvas?.ds?.scale;
+    if (scale === zoomSeen) return;
+    zoomSeen = scale;
+    cancelAnimationFrame(zoomFrame);
+    zoomFrame = requestAnimationFrame(syncZoomAll);
+    clearTimeout(zoomTimer);
+    zoomTimer = setTimeout(syncZoomAll, ZOOM_SETTLE_MS);
+  });
 }
 
 // Read the size again; refit and redraw when it changed.
@@ -272,14 +387,18 @@ function refreshSize(state) {
   if (state.disposed) return;
   const size = canvasSize(state);
   const wired = sizeWired(state, "width") || sizeWired(state, "height");
-  const key = `${size.width}x${size.height}|${wired}`;
+  const key = `${size.width}x${size.height}|${wired}|${size.picture}`;
   if (key === state.sizeKey) return;
   state.sizeKey = key;
   state.size = size;
-  state.sizeEl.textContent = `${size.width} × ${size.height}`;
-  state.sizeEl.title = wired
-    ? "The canvas size, from what width and height are wired to."
-    : "The canvas size. Change it in the card above, or wire width and height in.";
+  // The label says where the size comes from.
+  const from = size.picture ? "picture" : wired ? "wired" : "";
+  state.sizeEl.textContent = `${size.width} × ${size.height}${from ? ` · ${from}` : ""}`;
+  state.sizeEl.title = size.picture
+    ? "The canvas is the picture on background, at its own size: the boxes are drawn on it."
+    : wired
+      ? "The canvas size, from what width and height are wired to."
+      : "The canvas size. Change it in the card above, or wire width and height in.";
   fitFrame(state);
   paintBoxes(state);
   watchUpstream(state);
@@ -323,14 +442,32 @@ function makeBoxEl(state, index) {
     }
     element.append(strip);
   }
-  element.append(el("div", "ausboss-lb-tag", String(index + 1)), el("div", "ausboss-lb-words", boxWords(box)));
+  const tag = el("div", "ausboss-lb-tag");
+  tag.append(el("b", "", String(index + 1)), ` ${boxKind(box)}`);
+  element.append(tag, el("div", "ausboss-lb-words", boxWords(box)));
   for (const handle of HANDLES) {
     const grip = el("div", "ausboss-lb-handle");
     grip.dataset.h = handle;
     element.append(grip);
   }
   placeBox(element, box);
+  dressBox(state, element, box, index);
   return element;
+}
+
+// The marks that follow the box's size on the screen: a handle in the middle
+// of a side only where it fits, and the tag inside the box, or running
+// leftward, where the canvas has no room for it.
+function dressBox(state, element, box, index) {
+  const zoom = state.zoom || 1;
+  const across = (state.frameW || 0) * zoom;
+  const down = (state.frameH || 0) * zoom;
+  const rect = { x: box.x * across, y: box.y * down, w: box.w * across, h: box.h * down };
+  const marks = boxMarks(rect, across, tagWidthPx(boxTag(box, index)));
+  element.classList.toggle("no-tb", !marks.middleTopBottom);
+  element.classList.toggle("no-lr", !marks.middleLeftRight);
+  element.classList.toggle("tag-in", marks.tagInside);
+  element.classList.toggle("tag-r", marks.tagFromRight);
 }
 
 function renderBoxes(state) {
@@ -344,7 +481,9 @@ function renderBoxes(state) {
 function paintBoxes(state) {
   state.boxes.forEach((box, index) => {
     const element = state.boxEls[index];
-    if (element) placeBox(element, box);
+    if (!element) return;
+    placeBox(element, box);
+    dressBox(state, element, box, index);
   });
 }
 
@@ -356,11 +495,19 @@ function repaintBox(state, index) {
   next.classList.toggle("sel", index === state.selected);
   old.replaceWith(next);
   state.boxEls[index] = next;
+  renderChips(state);
 }
 
 function showReadout(state, text = "") {
+  clearTimeout(state.readoutTimer);
   state.readout.hidden = !text;
   state.readout.textContent = text;
+}
+
+// The place for a moment, after a key press: one pixel is too small to see.
+function flashReadout(state, text) {
+  showReadout(state, text);
+  state.readoutTimer = setTimeout(() => showReadout(state), READOUT_MS);
 }
 
 function readoutFor(state, index) {
@@ -378,6 +525,40 @@ function setSelected(state, index) {
   state.selected = index;
   state.boxEls.forEach((element, i) => element.classList.toggle("sel", i === index));
   syncEditor(state);
+}
+
+// A box chosen in the editor, as a click on it would: the arrow keys and
+// Delete then work on that box.
+function chooseBox(state, index) {
+  setSelected(state, index);
+  state.stage.focus({ preventScroll: true });
+}
+
+// The chips under the canvas: one per box with its number and type, the
+// chosen one lit. As many as fit with their whole words, up to CHIPS_MAX,
+// the chosen box's among them, and ‹ › when some boxes have none.
+function renderChips(state) {
+  if (!state.chipList) return;
+  const count = state.boxes.length;
+  state.chipsRow.hidden = !count;
+  const key = [state.chipsRow.clientWidth, state.selected, ...state.boxes.map((box) => boxKind(box) + boxColor(box))].join("|");
+  if (key === state.chipsKey) return;
+  state.chipsKey = key;
+  for (let fit = Math.min(count, CHIPS_MAX); fit >= 0; fit -= 1) {
+    state.prevBtn.hidden = fit >= count;
+    state.nextBtn.hidden = fit >= count;
+    const [first, end] = chipWindow(count, state.selected, Math.max(1, fit));
+    const chips = [];
+    for (let index = first; index < end; index += 1) {
+      const box = state.boxes[index];
+      const chip = button(`ausboss-lb-chip${index === state.selected ? " on" : ""}`, "", `Choose box ${index + 1}`, () => chooseBox(state, index));
+      chip.style.setProperty("--c", boxColor(box));
+      chip.append(el("b", "", String(index + 1)), ` ${boxKind(box)}`);
+      chips.push(chip);
+    }
+    state.chipList.replaceChildren(...chips);
+    if (fit <= 1 || state.chipList.scrollWidth <= state.chipList.clientWidth + 1) break;
+  }
 }
 
 function focusWords(state) {
@@ -418,7 +599,8 @@ function copyBox(state, index) {
   const box = state.boxes[index];
   if (!box) return;
   const { width, height } = state.size;
-  const rect = copiedRect(wholePixels(box, width, height), width, height, gridCell(width), gridCell(height));
+  const size = gridSize(state);
+  const rect = copiedRect(wholePixels(box, width, height), width, height, gridCellOf(width, size), gridCellOf(height, size));
   addBox(state, fromPixels(rect, width, height, { type: box.type, text: box.text, desc: box.desc, palette: [...box.palette] }));
 }
 
@@ -476,12 +658,13 @@ function beginBoxDrag(state, index, handle, event) {
     const dy = point.y - origin.y;
     if (!moved && Math.hypot(dx, dy) * origin.screen < MOVE_START) return;
     moved = true;
-    const grid = snapping(width, height, gridOn(state) && !moveEvent.altKey && !moveEvent.ctrlKey && !moveEvent.metaKey);
+    const grid = snapping(width, height, gridOn(state) && !moveEvent.altKey && !moveEvent.ctrlKey && !moveEvent.metaKey, gridSize(state));
     const rect = handle
       ? resizedRect(start, handle, dx, dy, width, height, grid)
       : movedRect(start, dx, dy, width, height, grid);
     Object.assign(state.boxes[index], fromPixels(rect, width, height));
     placeBox(state.boxEls[index], state.boxes[index]);
+    dressBox(state, state.boxEls[index], state.boxes[index], index);
     showReadout(state, readoutFor(state, index));
   };
   watchDrag(state, {
@@ -507,7 +690,7 @@ function beginDraw(state, event) {
     const point = pointerPixels(state, moveEvent);
     if (!rect && Math.hypot(point.x - origin.x, point.y - origin.y) * origin.screen < DRAW_START) return;
     if (!ghost.isConnected) state.frame.append(ghost);
-    rect = drawnRect(origin.x, origin.y, point.x, point.y, width, height, snapping(width, height, gridOn(state) && !moveEvent.altKey && !moveEvent.ctrlKey && !moveEvent.metaKey));
+    rect = drawnRect(origin.x, origin.y, point.x, point.y, width, height, snapping(width, height, gridOn(state) && !moveEvent.altKey && !moveEvent.ctrlKey && !moveEvent.metaKey, gridSize(state)));
     placeBox(ghost, fromPixels(rect, width, height));
     showReadout(state, `new box: ${rect.x1 - rect.x0} × ${rect.y1 - rect.y0} at ${rect.x0}, ${rect.y0}`);
   };
@@ -567,15 +750,13 @@ function onStageKey(state, event) {
     setSelected(state, -1);
   } else if (key.startsWith("Arrow") && !event.ctrlKey && !event.metaKey) {
     handled();
-    if (index < 0) return;
+    const step = nudgeStep(key, event);
+    if (index < 0 || !step) return;
     const { width, height } = state.size;
-    const grid = gridOn(state) && !event.altKey;
-    const step = (cell) => (grid ? cell : 1) * (event.shiftKey ? 4 : 1);
-    const dx = key === "ArrowLeft" ? -step(gridCell(width)) : key === "ArrowRight" ? step(gridCell(width)) : 0;
-    const dy = key === "ArrowUp" ? -step(gridCell(height)) : key === "ArrowDown" ? step(gridCell(height)) : 0;
-    const rect = nudgedRect(wholePixels(state.boxes[index], width, height), dx, dy, width, height);
+    const rect = nudgedRect(wholePixels(state.boxes[index], width, height), step[0], step[1], width, height);
     Object.assign(state.boxes[index], fromPixels(rect, width, height));
     paintBoxes(state);
+    flashReadout(state, readoutFor(state, index));
     commit(state);
   } else if ((event.ctrlKey || event.metaKey) && key.toLowerCase() === "d") {
     handled();
@@ -630,24 +811,24 @@ function syncEditor(state) {
   if (!state.editor) return;
   const box = state.boxes[state.selected];
   const count = state.boxes.length;
-  state.navLabel.textContent = box ? `${state.selected + 1} / ${count}` : count === 1 ? "1 box" : `${count} boxes`;
-  state.prevBtn.disabled = count < 2 && Boolean(box);
-  state.nextBtn.disabled = state.prevBtn.disabled;
-  // With no box chosen, only the arrows stay: they choose one.
-  state.nav.style.visibility = count ? "visible" : "hidden";
-  for (const part of [state.typeSeg, state.backBtn, state.frontBtn, state.copyBtn, state.deleteBtn]) {
-    part.style.visibility = box ? "visible" : "hidden";
-  }
+  renderChips(state);
+  // The chosen box's own row: its type and its tools.
+  state.head.hidden = !box;
   if (box) {
+    state.kindLabel.textContent = `Box ${state.selected + 1} is`;
     state.backBtn.disabled = state.selected === 0;
     state.frontBtn.disabled = state.selected === count - 1;
   }
   for (const [value, element] of state.typeButtons) element.classList.toggle("on", box?.type === value);
   state.hint.hidden = Boolean(box);
   state.hint.textContent = count
-    ? "Click a box to give it words. Drag on an empty spot to draw another."
+    ? "Click a box, or its chip above, to give it words. Drag on an empty spot to draw another."
     : "Each box you draw gets its words here: a thing to show, or text to write in the picture.";
   state.textField.hidden = !box || box.type !== "text";
+  // Words typed while it was a text box stay with an object box, unsent.
+  const kept = keptWordsNote(box);
+  state.keptNote.hidden = !kept;
+  state.keptNote.textContent = kept;
   state.descField.hidden = !box;
   state.colorsRow.style.display = box ? "flex" : "none";
   if (!box) return;
@@ -666,20 +847,23 @@ function syncEditor(state) {
 
 function buildEditor(state) {
   const editor = el("div", "ausboss-lb-editor");
-  const head = el("div", "ausboss-lb-head");
-  const nav = el("div", "ausboss-lb-nav");
+  const chipsRow = el("div", "ausboss-lb-chips");
   const step = (by) => {
     const count = state.boxes.length;
     if (!count) return;
     const from = state.selected < 0 ? (by > 0 ? -1 : 0) : state.selected;
-    setSelected(state, (from + by + count) % count);
+    chooseBox(state, (from + by + count) % count);
   };
   state.prevBtn = button("ausboss-lb-tool", "‹", "The box before (further back)", () => step(-1));
   state.nextBtn = button("ausboss-lb-tool", "›", "The box after (further forward)", () => step(1));
-  state.navLabel = el("span", "", "none");
-  state.navLabel.title = "Which box the fields below belong to. Box 1 is the furthest back, the last one is in front.";
-  nav.append(state.prevBtn, state.navLabel, state.nextBtn);
-  state.nav = nav;
+  state.chipList = el("span");
+  state.chipList.title = "Choose a box. Box 1 is the furthest back, the last one is in front.";
+  chipsRow.append(state.prevBtn, state.chipList, state.nextBtn);
+  state.chipsRow = chipsRow;
+
+  const head = el("div", "ausboss-lb-head");
+  state.kindLabel = el("b", "", "Box 1 is");
+  state.head = head;
 
   const seg = el("div", "ausboss-lb-seg");
   state.typeButtons = new Map();
@@ -694,7 +878,6 @@ function buildEditor(state) {
     seg.append(option);
     state.typeButtons.set(value, option);
   }
-  state.typeSeg = seg;
 
   const tool = (icon, title, onClick, extra = "") => {
     const node = button(`ausboss-lb-tool${extra}`, "", title, onClick);
@@ -705,7 +888,7 @@ function buildEditor(state) {
   state.frontBtn = tool(ICONS.front, "Bring forward: later in the list", () => reorderBox(state, state.selected, 1));
   state.copyBtn = tool(ICONS.copy, "Copy this box (Ctrl + D)", () => copyBox(state, state.selected));
   state.deleteBtn = button("ausboss-lb-tool danger", "×", "Remove this box (Delete)", () => removeBox(state, state.selected));
-  head.append(nav, seg, el("span", "ausboss-lb-spacer"), state.backBtn, state.frontBtn, state.copyBtn, state.deleteBtn);
+  head.append(state.kindLabel, seg, el("span", "ausboss-lb-spacer"), state.backBtn, state.frontBtn, state.copyBtn, state.deleteBtn);
 
   const area = (label, className, field, placeholder) => {
     const holder = el("label", `ausboss-lb-field ${className}`);
@@ -766,8 +949,10 @@ function buildEditor(state) {
   colors.append(caption, state.swatches, add);
   state.colorsRow = colors;
 
+  state.keptNote = el("div", "ausboss-lb-kept");
+  state.keptNote.hidden = true;
   state.hint = el("div", "ausboss-lb-hint");
-  editor.append(head, state.textField, state.descField, state.hint, colors);
+  editor.append(chipsRow, head, state.textField, state.keptNote, state.descField, state.hint, colors);
   // Clicks on the editor's controls stay out of the node drag.
   editor.addEventListener("pointerdown", (event) => {
     if (event.target.closest("button,textarea,input,label")) event.stopPropagation();
@@ -807,7 +992,7 @@ function openLayouts(state, anchor) {
       event.stopPropagation();
       closePop();
       const { width, height } = state.size;
-      state.boxes = applyLayout(layout, state.boxes, width, height, snapping(width, height, gridOn(state)));
+      state.boxes = applyLayout(layout, state.boxes, width, height, snapping(width, height, gridOn(state), gridSize(state)));
       renderBoxes(state);
       setSelected(state, state.boxes.length ? 0 : -1);
       commit(state);
@@ -859,12 +1044,13 @@ function backgroundWanted(state) {
 
 function refreshBackground(state) {
   if (state.disposed) return;
+  syncGrid(state);
   const wanted = backgroundWanted(state);
   const url = wanted?.url ?? "";
   if (url === state.backgroundUrl) return;
   state.backgroundUrl = url;
   if (!url) {
-    state.bg.hidden = true;
+    showPicture(state, false);
     state.bg.removeAttribute("src");
     return;
   }
@@ -872,13 +1058,23 @@ function refreshBackground(state) {
   picture.onload = () => {
     if (state.disposed || state.backgroundUrl !== url) return;
     state.bg.src = url;
-    state.bg.hidden = false;
-    pictureSetsSize(state, wanted.size ?? [picture.naturalWidth, picture.naturalHeight]);
+    const size = wanted.size ?? [picture.naturalWidth, picture.naturalHeight];
+    showPicture(state, true, size);
+    pictureSetsSize(state, size);
   };
   picture.onerror = () => {
-    if (state.backgroundUrl === url) state.bg.hidden = true;
+    if (state.backgroundUrl === url) showPicture(state, false);
   };
   picture.src = url;
+}
+
+// Over a picture the boxes are lighter and show no words, so what is under
+// them stays readable; the chosen box's words are in the editor.
+function showPicture(state, on, size = null) {
+  state.bg.hidden = !on;
+  state.frame.classList.toggle("pic", on);
+  state.pictureSize = on ? size : null;
+  refreshSize(state);
 }
 
 // A picture on `background` makes the canvas its size, as on Create Bounding
@@ -960,15 +1156,13 @@ function watchUpstream(state) {
 function buildPanel(state) {
   const root = state.root;
   const bar = el("div", "ausboss-lb-bar");
-  const gridBtn = button("ausboss-lb-btn", "", "Grid: boxes snap to it while you draw and move them. Hold Alt or Ctrl to place a box freely.", () => {
+  const gridBtn = button("ausboss-lb-btn", "", "Boxes snap to the grid while you drag them; it starts off over a picture. Hold Ctrl (or Alt) while dragging to place a box freely.", () => {
     state.node.properties ??= {};
     state.node.properties[GRID_PROPERTY] = !gridOn(state);
-    gridBtn.classList.toggle("on", gridOn(state));
-    fitFrame(state);
+    syncGrid(state);
     notifyAusbossChange();
   });
   gridBtn.innerHTML = `${ICONS.grid}<span>Grid</span>`;
-  gridBtn.classList.toggle("on", gridOn(state));
   state.gridBtn = gridBtn;
   const layoutsBtn = button("ausboss-lb-btn", "Layouts ▾", "Start from a ready-made arrangement of boxes", () => {
     if (popEl) closePop();
@@ -976,7 +1170,9 @@ function buildPanel(state) {
   });
   state.sizeEl = el("span", "ausboss-lb-size", "");
   const clear = button("ausboss-lb-btn", "Clear", "Remove every box. Boxes on the bboxes wire fill the canvas again on the next run.", () => clearAll(state));
-  bar.append(gridBtn, layoutsBtn, state.sizeEl, clear);
+  const gear = button("ausboss-lb-btn icon", "", "Layout Boxes settings: the grid size", () => openGear(state, gear));
+  gear.innerHTML = gearIconSvg(12);
+  bar.append(gridBtn, layoutsBtn, state.sizeEl, clear, gear);
 
   const stage = el("div", "ausboss-lb-stage");
   stage.tabIndex = 0;
@@ -1000,6 +1196,7 @@ function buildPanel(state) {
   });
   stage.addEventListener("keydown", (event) => onStageKey(state, event));
   Object.assign(state, { stage, frame, bg, grid, empty, readout });
+  syncGrid(state);
 
   root.append(bar, stage, buildEditor(state));
 
@@ -1015,11 +1212,35 @@ function buildPanel(state) {
   });
   stage.addEventListener("blur", () => state.focusAbort?.abort());
 
-  state.resizeObserver = new ResizeObserver(() => fitFrame(state));
+  state.resizeObserver = new ResizeObserver(() => {
+    fitFrame(state);
+    syncZoom(state);
+    paintBoxes(state);
+    renderChips(state);
+  });
   state.resizeObserver.observe(stage);
   root.addEventListener("pointerenter", () => {
     refreshSize(state);
     refreshBackground(state);
+    if (syncZoom(state)) paintBoxes(state);
+  });
+}
+
+function openGear(state, anchor) {
+  closePop();
+  openSettingsMenu({
+    scope: SETTINGS_SCOPE,
+    schema: SETTINGS_SCHEMA,
+    anchor: anchor.getBoundingClientRect(),
+    title: "Layout Boxes settings",
+    initial: { grid_size: gridSize(state) },
+    onChange: (values) => {
+      if (state.disposed || values.grid_size === gridSize(state)) return;
+      state.node.properties ??= {};
+      state.node.properties[GRID_SIZE_PROPERTY] = values.grid_size;
+      fitFrame(state);
+      notifyAusbossChange();
+    },
   });
 }
 
@@ -1032,7 +1253,7 @@ function install(node) {
   const state = {
     node, root,
     boxes: [], selected: -1, fromInput: "", boxEls: [],
-    layoutValue: null, size: { width: 1024, height: 1024 }, sizeKey: "",
+    layoutValue: null, size: { width: 1024, height: 1024 }, sizeKey: "", zoom: 1,
     watched: new WeakSet(), backgroundUrl: "", lastRun: null, disposed: false,
   };
   node.__ausbossLayoutBoxes = state;
@@ -1056,6 +1277,7 @@ function install(node) {
   buildPanel(state);
   syncFromWidget(state, true);
   refreshSize(state);
+  watchZoom();
 
   for (const name of ["width", "height"]) {
     const target = findWidget(node, name);
@@ -1115,7 +1337,7 @@ app.registerExtension({
       queueMicrotask(() => {
         if (state.disposed) return;
         hideWidget(findWidget(this, "layout"));
-        state.gridBtn.classList.toggle("on", gridOn(state));
+        syncGrid(state);
         syncFromWidget(state, true);
         state.sizeKey = "";
         refreshSize(state);
@@ -1149,6 +1371,7 @@ app.registerExtension({
       const state = this.__ausbossLayoutBoxes;
       if (!state) return;
       state.disposed = true;
+      clearTimeout(state.readoutTimer);
       state.dragAbort?.abort();
       state.focusAbort?.abort();
       state.resizeObserver?.disconnect();

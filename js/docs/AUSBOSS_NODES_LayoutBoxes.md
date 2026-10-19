@@ -12,9 +12,10 @@ Boxes only shows "Node 2.0 only".
 
 1. Set the canvas size in **Canvas** (W × H), or wire `width` and `height` from
    Latent Size, so the boxes and your picture have the same size.
-2. Drag on the canvas to draw a box.
-3. Under the canvas, choose **object** or **text** for the box and type its
-   words:
+2. Drag on the canvas to draw a box. Its tag shows its number and its type,
+   such as **1 object**.
+3. Under the canvas, the row **Box 1 is** sets what the chosen box holds,
+   **object** or **text**. Then type its words:
    - **object**: the **Description** says what is in the box, for example "a
      red bicycle leaning on a brick wall".
    - **text**: the **Text** is the words to write in the picture, for example
@@ -34,6 +35,7 @@ of a picture, such as the words on a sign or a shirt.
    canvas right away.
 2. Draw a box over the old words, a little wider than the new words will be.
    Keep faces and hands out of it: whatever is in the box is drawn again.
+   The arrow keys move the chosen box one pixel at a time.
 3. Make it a **text** box. Type the new words in **Text**, and how they look in
    **Description**, for example "white letters on a red sign".
 4. Soften the edge of `mask`, for example with Mask Refine 🆎 at a blur of
@@ -55,14 +57,24 @@ Image Resize 🆎 takes a mask and gives it the same size and crop.
 | Drag a box | Move it |
 | Drag a corner or an edge of the chosen box | Make it bigger or smaller |
 | Double-click a box | Type its words |
-| **‹ ›** under the canvas | Choose the box before or after, also one hidden under another |
+| Click a box's chip under the canvas (**1 text**, **2 object**) | Choose that box, also one hidden under another. When there are more boxes than chips, **‹ ›** step through them |
 | Delete | Remove the chosen box |
-| Arrow keys | Nudge the chosen box one grid cell (Shift: four cells, Alt: one pixel) |
+| Arrow keys | Move the chosen box one pixel (Shift + arrow: ten pixels) |
 | Ctrl + D | Copy the chosen box |
 | Esc | Let go of the box, or put back a box you are dragging |
-| Hold Alt or Ctrl while dragging | Place the box freely, off the grid |
+| Hold Ctrl (or Alt) while dragging | Place the box freely, off the grid |
 
-The keys work while the canvas has the focus: click the canvas first.
+The keys work while the canvas has the focus: click the canvas, or a box's
+chip, first.
+
+The handles and the tags keep their size on your screen when you zoom the
+graph in or out, and a box too small for eight handles keeps its corners.
+Over a picture the boxes are see-through and show no words, so you can read
+what is under them; the chosen box's words are under the canvas.
+
+An **object** box does not write words. If you typed words while it was a
+**text** box, a line under the canvas says they are kept: click **text** and
+they come back.
 
 ## The order of the boxes
 
@@ -78,19 +90,26 @@ removes it. The first color also colors the box on the canvas.
 
 ## The bar above the canvas
 
-- **Grid**: boxes snap to a grid while you draw and move them. The cells are 32
-  pixels, bigger on a very big canvas. Click it to turn the grid off.
+- **Grid**: boxes snap to a grid while you draw, move and size them with the
+  mouse. It is on for an empty canvas and off over a picture on `background`,
+  so a box can go anywhere on the picture. Click it to turn it on or off; the
+  node keeps your choice. Hold Ctrl (or Alt) while dragging to leave the grid
+  for one drag. The cells are 32 pixels, bigger on a very big canvas.
 - **Layouts**: start from a ready arrangement: one in the middle, two side by
   side, three across, top and bottom, a title over a picture, four corners.
   The boxes you already have move into the new places and keep their words.
-- The canvas size, and where it comes from when it is wired.
+- The canvas size, and where it comes from: **picture** when a picture is on
+  `background`, **wired** when width and height are wired.
 - **Clear** removes every box.
+- **⚙** (the gear): **Grid size**, the pixels from one grid line to the next:
+  Auto (32 pixels, more on a very big canvas), 8, 16, 32 or 64. The node keeps
+  it.
 
 ## Inputs
 
 | Input | What it does |
 |---|---|
-| `background` | A picture to draw on. It shows under the boxes, and its size becomes the canvas size: the Canvas row dims while a picture is wired. |
+| `background` | A picture to draw on. It shows under the boxes, and the canvas takes its size and shape, also when `width` and `height` are wired: the boxes are drawn on the picture, where the `mask` is made. The Canvas row dims while a picture is wired. |
 | `bboxes` | Boxes to start from: bounding boxes, prompt elements (such as the `elements` of another Layout Boxes), or either as JSON text. New boxes on this wire fill the canvas when the workflow runs. Your changes on the canvas then stay until the boxes on the wire change. After **Clear**, the next run fills the canvas from the wire again. |
 | `width`, `height` | The canvas size in pixels. Wired from Latent Size, the canvas takes that size and shape at once. |
 
@@ -132,6 +151,10 @@ run once: they fill the canvas. Then remove the old node.
   size, and each box covers the same part of the picture that it covers on
   the canvas. Without a picture it has the canvas size and covers the same
   pixels as `bboxes`. With no boxes it is all 0.
+- With a picture on `background`, the canvas on the node is the picture at
+  its own size, so the arrow keys move a box one pixel of the picture.
+  `width` and `height` still set the pixels `bboxes` counts in and the size of
+  `preview`.
 - The picture shows before a run when `background` comes from a Load Image,
   straight or through Reroutes. Through a node that changes the picture
   first, such as a resize, it shows after a run.
