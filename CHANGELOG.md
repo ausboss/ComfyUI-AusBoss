@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.15.0 - 2026-10-19
 
 - **New: Layout Boxes 🆎** (Utility). Draw boxes on a canvas and say what goes
   in each one: a thing, or words to write in the picture. Wire its `elements`
