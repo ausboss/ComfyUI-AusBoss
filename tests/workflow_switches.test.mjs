@@ -370,7 +370,7 @@ test("a switch changes only the settings that differ between its on and its off"
   };
   assert.deepEqual(valuePairs(entry), [
     { node: "21", widget: "value", on: 8, off: 25 },
-    { node: "22", widget: "loras", row: "turbo.safetensors", on: { enabled: true, strength: 1 }, off: { enabled: false, strength: 1 } },
+    { node: "22", widget: "loras", row: "turbo.safetensors", on: { enabled: true }, off: { enabled: false } },
   ]);
   assert.deepEqual(valuePairs({ on: { 21: { value: 8 } }, off: {} }), []);
   assert.deepEqual(valuePairs({}), []);
@@ -386,8 +386,9 @@ test("a setting reads on, off or neither, and a stack row is changed in place", 
   assert.deepEqual([8, 25, 30].map((now) => pairNow(plain, now)), ["on", "off", "other"]);
   assert.equal(pairValue(plain, "on", 30), 8);
   assert.equal(pairValue(plain, "off", 8), 25);
-  const row = { node: "22", widget: "loras", row: "turbo.safetensors", on: { enabled: true, strength: 1 }, off: { enabled: false, strength: 1 } };
-  assert.deepEqual([STACK(true), STACK(false), "[]", STACK(true).replace('"strength":1,"enabled":true,"triggers":""}]', '"strength":0.5,"enabled":true,"triggers":""}]')].map((now) => pairNow(row, now)), ["on", "off", "other", "other"]);
+  const row = { node: "22", widget: "loras", row: "turbo.safetensors", on: { enabled: true }, off: { enabled: false } };
+  // A strength the switch does not set is the person's: the row at 0.5 still reads on.
+  assert.deepEqual([STACK(true), STACK(false), "[]", STACK(true).replace('"strength":1,"enabled":true,"triggers":""}]', '"strength":0.5,"enabled":true,"triggers":""}]')].map((now) => pairNow(row, now)), ["on", "off", "other", "on"]);
   // The other row keeps the strength it was given since the switch was made.
   const changed = STACK(false, 0.8);
   assert.equal(pairValue(row, "on", changed), STACK(true, 0.8));
@@ -396,7 +397,7 @@ test("a setting reads on, off or neither, and a stack row is changed in place", 
 });
 
 test("a stack row is still the same row after the LoRA Loader gives it the folder its file is in", () => {
-  const row = { node: "22", widget: "loras", row: "turbo.safetensors", on: { enabled: true, strength: 1 }, off: { enabled: false, strength: 1 } };
+  const row = { node: "22", widget: "loras", row: "turbo.safetensors", on: { enabled: true }, off: { enabled: false } };
   // What a refresh writes when the file sits in models/loras/qwen: the row's name gains the folder.
   const named = (name, turbo) => STACK(turbo).replace('"turbo.safetensors"', JSON.stringify(name));
   const moved = (turbo) => named("qwen/turbo.safetensors", turbo);
@@ -965,4 +966,168 @@ test("taking over a row changes nothing for another switch, node or file", () =>
   assert.deepEqual(next.switches[1], normalizeSettings(settings).switches[1]);
   assert.deepEqual(releaseStackRow(settings, 1, "77", "loras", "film_grain.safetensors"), normalizeSettings(settings));
   assert.deepEqual(releaseStackRow(settings, 1, "54", "loras", "unknown.safetensors"), normalizeSettings(settings));
+});
+
+// ---------- a LoRA row's strength ----------
+
+// A row the way the LoRA Loader stores it: both strengths and the triggers.
+const loraRow = (name, enabled, strength = 1, extra = {}) => ({
+  id: `r-${name}`, name, strength, strength_clip: strength, enabled, triggers: "", ...extra,
+});
+const loras = (...rows) => JSON.stringify(rows);
+const rowsOf = (value) => stackRows(value).map((row) => [row.name, row.enabled, row.strength, row.strength_clip, row.triggers]);
+
+test("a switch that turns a LoRA row on and off leaves the strength someone gave the row", () => {
+  // Saved the usual way: the row at strength 1 for on and for off, so only on or off differs.
+  const entry = {
+    on: { 22: { loras: loras(loraRow("outfit-swap.safetensors", true)) } },
+    off: { 22: { loras: loras(loraRow("outfit-swap.safetensors", false)) } },
+  };
+  const [pair] = valuePairs(entry);
+  // Turned down to 0.6 by hand (the loader moves both strengths), with a trigger typed in.
+  let value = loras(loraRow("outfit-swap.safetensors", true, 0.6, { triggers: "outfit" }));
+  assert.equal(pairNow(pair, value), "on");
+  value = pairValue(pair, "off", value);
+  assert.deepEqual(rowsOf(value), [["outfit-swap.safetensors", false, 0.6, 0.6, "outfit"]]);
+  assert.equal(pairNow(pair, value), "off");
+  value = pairValue(pair, "on", value);
+  assert.deepEqual(rowsOf(value), [["outfit-swap.safetensors", true, 0.6, 0.6, "outfit"]]);
+  assert.equal(pairNow(pair, value), "on");
+  // What the switch sets on that row: whether it is on, and no strength.
+  assert.deepEqual([pair.on, pair.off], [{ enabled: true }, { enabled: false }]);
+  // On the card the row reads on: nothing "changed", nothing left for a click on on to do.
+  const loader = { id: 22, pos: [0, 0], size: [200, 100], mode: MODE_ALWAYS, widgets: [{ name: "loras", value }] };
+  const made = normalizeSettings({ switches: [{ id: 1, title: "Outfit", ...entry }] });
+  const [row] = readSwitches(made.switches, placeNodes([loader]), []);
+  assert.deepEqual([row.state, row.pairs.map((item) => item.now)], ["on", ["on"]]);
+  assert.deepEqual(valuePlan([row], row, true, made), []);
+  // Off by hand, at 0.6: it reads off, and on turns it on at 0.6.
+  loader.widgets[0].value = loras(loraRow("outfit-swap.safetensors", false, 0.6));
+  const [offRow] = readSwitches(made.switches, placeNodes([loader]), []);
+  assert.equal(offRow.state, "off");
+  const [[next, side]] = valuePlan([offRow], offRow, true, made);
+  assert.deepEqual(rowsOf(pairValue(next, side, loader.widgets[0].value)), [["outfit-swap.safetensors", true, 0.6, 0.6, ""]]);
+});
+
+test("a pick-one pill keeps a row's own strength through every choice and never reads partly on", () => {
+  const settings = normalizeSettings({ exclusive: true, show: "pill" });
+  const OUTFIT = "qwen-image-2.1-outfit-swap.safetensors";
+  const CONSISTENCY = "qwen-image-2.1-consistency.safetensors";
+  const ours = (outfit, consistency) => loras(loraRow(OUTFIT, outfit), loraRow(CONSISTENCY, consistency));
+  // Three choices, each owning one control of node 161; clothes also turns our two rows over in the
+  // loader (16): Outfit Swap for clothes, Consistency for the other two.
+  const made = normalizeSettings({ switches: [
+    { id: 1, title: "off", on: { 161: { off: true } }, off: { 161: { off: false } } },
+    { id: 2, title: "normal", on: { 161: { normal: true } }, off: { 161: { normal: false } } },
+    {
+      id: 3, title: "clothes",
+      on: { 161: { clothes: true }, 16: { loras: ours(true, false) } },
+      off: { 161: { clothes: false }, 16: { loras: ours(false, true) } },
+    },
+  ] }).switches;
+  const writer = {
+    id: 161, pos: [0, 0], size: [200, 100], mode: MODE_ALWAYS,
+    widgets: [{ name: "off", value: false }, { name: "normal", value: false }, { name: "clothes", value: true }],
+  };
+  // Clothes picked, with two rows of someone's own under ours: one at 0.5 with a trigger, one off.
+  const loader = {
+    id: 16, pos: [300, 0], size: [200, 100], mode: MODE_ALWAYS,
+    widgets: [{ name: "loras", value: loras(
+      loraRow(OUTFIT, true), loraRow(CONSISTENCY, false),
+      loraRow("deblur.safetensors", true, 0.5, { triggers: "sharp" }), loraRow("dot-film.safetensors", false, 1.2),
+    ) }],
+  };
+  const read = () => readSwitches(made, placeNodes([writer, loader]), []);
+  const picked = () => {
+    const stand = choiceState(read());
+    return stand.kind === "one" ? stand.picked.title : stand.kind;
+  };
+  const choose = (title) => {
+    const rows = read();
+    const { values } = choosePlan(rows, rows.find((row) => row.title === title), settings);
+    for (const [pair, side] of values) pair.control.value = pairValue(pair, side, pair.control.value);
+    return picked();
+  };
+  const strengthOf = (name, strength) => {
+    const rows = stackRows(loader.widgets[0].value);
+    loader.widgets[0].value = JSON.stringify(rows.map((row) => (row.name === name ? { ...row, strength, strength_clip: strength } : row)));
+  };
+  const theirs = [["deblur.safetensors", true, 0.5, 0.5, "sharp"], ["dot-film.safetensors", false, 1.2, 1.2, ""]];
+  assert.equal(picked(), "clothes");
+  // Outfit Swap turned down to 0.6: clothes is still the one choice, not "only partly on".
+  strengthOf(OUTFIT, 0.6);
+  assert.equal(picked(), "clothes");
+  assert.deepEqual(read().map((row) => row.state), ["off", "off", "on"]);
+  assert.equal(choose("normal"), "normal");
+  assert.deepEqual(rowsOf(loader.widgets[0].value), [[OUTFIT, false, 0.6, 0.6, ""], [CONSISTENCY, true, 1, 1, ""], ...theirs]);
+  assert.equal(choose("off"), "off");
+  assert.deepEqual(rowsOf(loader.widgets[0].value), [[OUTFIT, false, 0.6, 0.6, ""], [CONSISTENCY, true, 1, 1, ""], ...theirs]);
+  assert.equal(choose("clothes"), "clothes");
+  assert.deepEqual(rowsOf(loader.widgets[0].value), [[OUTFIT, true, 0.6, 0.6, ""], [CONSISTENCY, false, 1, 1, ""], ...theirs]);
+  // Consistency at 0.8 while normal is picked: one choice, not "2 are on at once", and it keeps its 0.8.
+  assert.equal(choose("normal"), "normal");
+  strengthOf(CONSISTENCY, 0.8);
+  assert.equal(picked(), "normal");
+  assert.equal(choose("clothes"), "clothes");
+  assert.deepEqual(rowsOf(loader.widgets[0].value), [[OUTFIT, true, 0.6, 0.6, ""], [CONSISTENCY, false, 0.8, 0.8, ""], ...theirs]);
+  // A row turned on or off by hand is still a choice that is only partly on, as before.
+  const rows = stackRows(loader.widgets[0].value);
+  loader.widgets[0].value = JSON.stringify(rows.map((row) => (row.name === CONSISTENCY ? { ...row, enabled: true } : row)));
+  assert.equal(picked(), "partly");
+});
+
+test("a switch saved with one strength for on and another for off still sets that strength", () => {
+  const entry = {
+    on: { 22: { loras: loras(loraRow("detail.safetensors", true, 0.5)) } },
+    off: { 22: { loras: loras(loraRow("detail.safetensors", true, 1)) } },
+  };
+  const [pair] = valuePairs(entry);
+  const at = (strength, enabled = true) => loras(loraRow("detail.safetensors", enabled, strength, { triggers: "crisp" }));
+  assert.deepEqual([at(0.5), at(1), at(0.6), at(0.5, false)].map((now) => pairNow(pair, now)), ["on", "off", "other", "other"]);
+  // A click sets the strength it was saved with, both of them as the loader keeps them together,
+  // turns the row back on, and keeps the triggers.
+  assert.deepEqual(rowsOf(pairValue(pair, "on", at(0.6))), [["detail.safetensors", true, 0.5, 0.5, "crisp"]]);
+  assert.deepEqual(rowsOf(pairValue(pair, "off", at(0.5, false))), [["detail.safetensors", true, 1, 1, "crisp"]]);
+  assert.deepEqual([pair.on, pair.off], [{ enabled: true, strength: 0.5, strength_clip: 0.5 }, { enabled: true, strength: 1, strength_clip: 1 }]);
+  // Split strengths: only the one that differs between the sides is set, the other stays as it is.
+  const split = {
+    on: { 22: { loras: loras(loraRow("detail.safetensors", false, 0.5, { strength_clip: 1 })) } },
+    off: { 22: { loras: loras(loraRow("detail.safetensors", true, 1, { strength_clip: 1 })) } },
+  };
+  const [model] = valuePairs(split);
+  assert.deepEqual([model.on, model.off], [{ enabled: false, strength: 0.5 }, { enabled: true, strength: 1 }]);
+  const clipAt = loras(loraRow("detail.safetensors", true, 1, { strength_clip: 0.3 }));
+  assert.equal(pairNow(model, clipAt), "off");
+  assert.deepEqual(rowsOf(pairValue(model, "on", clipAt)), [["detail.safetensors", false, 0.5, 0.3, ""]]);
+  // Sides written without a CLIP strength take the model strength for it, as the loader does.
+  const bare = (enabled, strength) => JSON.stringify([{ name: "detail.safetensors", enabled, strength }]);
+  assert.deepEqual(valuePairs({ on: { 22: { loras: bare(true, 1) } }, off: { 22: { loras: bare(false, 1) } } })[0].on, { enabled: true });
+  assert.deepEqual(valuePairs({ on: { 22: { loras: bare(true, 0.5) } }, off: { 22: { loras: bare(true, 1) } } })[0].on, { enabled: true, strength: 0.5, strength_clip: 0.5 });
+  // Two sides that hold the row the same way leave nothing to switch.
+  assert.deepEqual(valuePairs({ on: { 22: { loras: bare(true, 0.7) } }, off: { 22: { loras: bare(true, 0.7) } } }), []);
+});
+
+test("a click changes only whether the rows a switch names are on, and never touches the others", () => {
+  const entry = {
+    on: { 22: { loras: loras(loraRow("turbo.safetensors", true)) } },
+    off: { 22: { loras: loras(loraRow("turbo.safetensors", false)) } },
+  };
+  const [pair] = valuePairs(entry);
+  // Someone's own rows: one at 0.5 with a trigger, one off with split strengths, and a copy of
+  // the switched file in another folder, which the exact name keeps apart.
+  const theirs = [
+    loraRow("style.safetensors", true, 0.5, { triggers: "film, grain" }),
+    loraRow("detail.safetensors", false, 1.3, { strength_clip: 0.2 }),
+    loraRow("other/turbo.safetensors", true, 0.4),
+  ];
+  const value = loras(loraRow("turbo.safetensors", true, 0.7), ...theirs);
+  for (const side of ["off", "on"]) {
+    const next = stackRows(pairValue(pair, side, value));
+    assert.deepEqual(next.slice(1), theirs);
+    assert.deepEqual([next[0].enabled, next[0].strength], [side === "on", 0.7]);
+  }
+  // A switch that names no LoRA row at all leaves the stack as it is.
+  const steps = { node: "21", widget: "value", on: 8, off: 25 };
+  assert.equal(pairValue(steps, "on", 25), 8);
+  assert.deepEqual(valuePairs({ on: { 22: { loras: value } }, off: { 22: { loras: value } } }), []);
 });

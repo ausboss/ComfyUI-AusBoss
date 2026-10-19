@@ -37,10 +37,13 @@ both back.
 The switch now changes only the values that differ between the two. Those
 nodes are no longer turned off by it.
 
-In a LoRA Loader it changes single rows, found by file name. A row you did
-not change keeps whatever strength you give it later. The same works for the
-LoRA rows on a subgraph box (LoRA Loader's gear, **Rows on the box**): select
-the box itself and save its on and off.
+In a LoRA Loader it changes single rows, found by file name, and only
+whether each row is on. The strength stays yours: turn a row down to 0.6 and
+it stays at 0.6 whichever way you switch. A strength changes only when you
+saved that row at one strength for on and another for off. Rows the switch
+does not change keep whatever you give them. The same works for the LoRA
+rows on a subgraph box (LoRA Loader's gear, **Rows on the box**): select the
+box itself and save its on and off.
 
 A LoRA row a switch sets shows a lock in the LoRA Loader. Click the lock to
 take that row over: this switch then leaves the row alone.
@@ -191,6 +194,10 @@ Open **Settings** at the bottom of the edit view.
   number and on/off value of the selected nodes, by control name. Only the
   ones that differ between on and off are ever written. A value longer than
   20,000 characters is not stored. One switch remembers up to 40 nodes.
+- **A LoRA row's strength.** A switch sets a row's model or CLIP strength
+  only when its saved on and off give that row different ones. Otherwise it
+  sets only whether the row is on, so a strength changed by hand never makes
+  the row read changed or partly on. The row's triggers are never touched.
 - **Switch everything on** and **off** also move every settings switch and
   every off side.
 - **How a switch with an off side reads.** It is on when its own nodes run

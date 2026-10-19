@@ -68,10 +68,12 @@ the box and save its on and off (see the Workflow Switches help).
 
 A row that a Workflow Switches switch turns on or off shows a **lock** where
 its drag handle is, and a thin line down its left edge. Hover the lock to
-see which switch sets it. Click the lock to take the row over: the switch
-forgets that row and leaves it alone from then on, and stops reading
-"changed" because of it. Everything else the switch does stays. A locked row
-still drags to a new place.
+see which switch sets it. You can still change the row's strength and
+triggers: the switch only turns the row on and off, unless it was saved with
+one strength for on and another for off. Click the lock to take the row
+over: the switch forgets that row and leaves it alone from then on, and
+stops reading "changed" because of it. Everything else the switch does
+stays. A locked row still drags to a new place.
 
 ## Strength bars
 
