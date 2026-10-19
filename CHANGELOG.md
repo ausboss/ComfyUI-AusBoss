@@ -2,6 +2,15 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Layout Boxes 🆎 has a `mask` output, to change only what is inside the
+  boxes.** The mask is white inside every box and black elsewhere, at the size
+  of the picture on `background`. Load a picture, draw a box over the words on
+  a sign, type the new words, and wire the mask into an inpaint chain: the
+  words change and the rest of the picture stays as it was. The output comes
+  after the other three, so saved workflows keep their wires.
+
 ## 2.15.0 - 2026-10-19
 
 - **New: Layout Boxes 🆎** (Utility). Draw boxes on a canvas and say what goes

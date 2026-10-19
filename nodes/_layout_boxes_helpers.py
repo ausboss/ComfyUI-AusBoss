@@ -13,6 +13,9 @@ out the same way, so either node can feed the same nodes after it:
   "bbox": [ymin, xmin, ymax, xmax] on a 0 to 1000 grid, "text" (text boxes
   only), "desc", "color_palette" (up to five colors, when set)}.
 
+After those, a MASK that Create Bounding Boxes does not have: 1 inside every
+box (mask_rects), for changing only those places of a picture.
+
 tests/test_layout_boxes_core_parity.py runs both nodes on the same boxes and
 compares what they give, and what MOSS-Image Layout Prompt makes of it.
 
@@ -376,6 +379,28 @@ def canvas_boxes(regions: list[dict]) -> list[dict]:
     return [{key: region[key] for key in keys} for region in regions]
 
 
+def mask_rects(regions: list[dict], width: int, height: int) -> list[tuple[int, int, int, int]]:
+    """Where the MASK output is white: each box as (left, top, right, bottom)
+    in whole pixels of a width x height picture, cut to the picture.
+
+    The pixels are rounded as the BOUNDING_BOX output rounds them, so on the
+    canvas size the mask is white exactly inside those boxes. A box with no
+    area on the picture is left out.
+    """
+    rects = []
+    for region in regions:
+        if not isinstance(region, dict):
+            continue
+        box = _pixels(region, width, height)
+        left = max(0, min(width, box["x"]))
+        top = max(0, min(height, box["y"]))
+        right = max(0, min(width, box["x"] + box["width"]))
+        bottom = max(0, min(height, box["y"] + box["height"]))
+        if right > left and bottom > top:
+            rects.append((left, top, right, bottom))
+    return rects
+
+
 # ---------- the preview ----------
 
 
@@ -516,6 +541,7 @@ __all__ = [
     "element_colors",
     "hex_color",
     "input_fingerprint",
+    "mask_rects",
     "parse_layout",
     "prompt_elements",
     "regions_from_pixel_boxes",

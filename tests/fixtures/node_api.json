@@ -396,6 +396,10 @@
       [
         "ARRAY",
         "elements"
+      ],
+      [
+        "MASK",
+        "mask"
       ]
     ]
   },

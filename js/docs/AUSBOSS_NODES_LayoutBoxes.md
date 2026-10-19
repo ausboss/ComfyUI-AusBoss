@@ -25,6 +25,27 @@ Boxes only shows "Node 2.0 only".
 
 Wire `preview` to a Preview Image to see the boxes with their numbers and words.
 
+## Change the words in a picture
+
+The `mask` output is white inside every box. Use it to change only one part
+of a picture, such as the words on a sign or a shirt.
+
+1. Wire a Load Image into `background` and pick your picture. It shows on the
+   canvas right away.
+2. Draw a box over the old words, a little wider than the new words will be.
+   Keep faces and hands out of it: whatever is in the box is drawn again.
+3. Make it a **text** box. Type the new words in **Text**, and how they look in
+   **Description**, for example "white letters on a red sign".
+4. Soften the edge of `mask`, for example with Mask Refine 🆎 at a blur of
+   about 6, or a line can show around the box. Then wire it into the inpaint
+   part of your workflow: Set Latent Noise Mask, so only the box is drawn
+   again, and Image Composite Masked, so everything else stays as it was.
+5. With MOSS-Image, wire `elements` to MOSS-Image Layout Prompt. The model
+   gets the new words from the box, and your prompt only describes the picture.
+
+If the picture is resized on its way to the model, resize the mask with it:
+Image Resize 🆎 takes a mask and gives it the same size and crop.
+
 ## Drawing and moving boxes
 
 | Do this | To get this |
@@ -80,12 +101,14 @@ removes it. The first color also colors the box on the canvas.
 | `preview` | A picture of the boxes with their numbers, words and colors, to check the layout. |
 | `bboxes` | The boxes in pixels of the canvas (x, y, width, height), for nodes that take bounding boxes. |
 | `elements` | The boxes as prompt elements. Wire it to MOSS-Image Layout Prompt. |
+| `mask` | White inside every box, black elsewhere, to change only those places of a picture. |
 
 ## In place of Create Bounding Boxes
 
-Layout Boxes has the same inputs and the same outputs in the same order, so
-the wires move straight over. For the same boxes it gives the same `bboxes`
-and `elements`, and MOSS-Image Layout Prompt makes the same prompt from them.
+Layout Boxes has the same inputs and the same outputs in the same order (and
+`mask` after them), so the wires move straight over. For the same boxes it
+gives the same `bboxes` and `elements`, and MOSS-Image Layout Prompt makes the
+same prompt from them.
 
 The boxes drawn on a Create Bounding Boxes do not move over by themselves. To
 take them along, wire that node's `elements` into `bboxes` of Layout Boxes and
@@ -104,6 +127,14 @@ run once: they fill the canvas. Then remove the old node.
   boxes only, and `color_palette` holds up to five colors when the box has any.
 - `bboxes` is a list holding one list of boxes, the form ComfyUI's
   bounding-box nodes pass on. With no boxes it is empty.
+- `mask` is one mask (1 x height x width): 1 inside every box, 0 elsewhere,
+  with hard edges. With a picture on `background` it has the picture's own
+  size, and each box covers the same part of the picture that it covers on
+  the canvas. Without a picture it has the canvas size and covers the same
+  pixels as `bboxes`. With no boxes it is all 0.
+- The picture shows before a run when `background` comes from a Load Image,
+  straight or through Reroutes. Through a node that changes the picture
+  first, such as a resize, it shows after a run.
 - Before a run, the canvas can only know a wired size it can read from the
   node it comes from: Latent Size, Integer or a Primitive. From any other
   node, the canvas keeps its own size until a run, and then shows the size
