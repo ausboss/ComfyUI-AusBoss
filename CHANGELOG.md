@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.16.1 - 2026-10-19
 
 - **Layout Boxes 🆎 moves a box one pixel at a time.** The arrow keys now
   move the chosen box one pixel, or ten with Shift, whether the grid is on or
