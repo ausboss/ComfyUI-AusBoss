@@ -115,6 +115,7 @@ test("a panel that should follow the node's height never declares computeSize", 
     "image_crop_rotate_pad",
     "image_folder",
     "input_preview",
+    "layout_boxes",
     "load_image_pad",
     "load_video",
     "lora_loader",
@@ -388,6 +389,7 @@ test("every panel root class carries border-box and an overflow clip", () => {
     load_image_pad: ".ausboss-loadpad-root{",
     image_crop_rotate_pad: ".ausboss-transform-panel{",
     image_folder: ".ausboss-if{",
+    layout_boxes: ".ausboss-lb{",
     mask_by_touch: ".ausboss-touch{",
     save_image: ".ausboss-save{",
     show_text: ".ausboss-show-text{",
@@ -475,6 +477,34 @@ test("the picture never sets Mask by Touch's height", () => {
     /\n\[data-node-id\] \.ausboss-touch-stage\{[^\n]*?min-height:\s*\$\{STAGE_MIN\}px/,
     "the stage has no floor inside a Nodes 2.0 node - a corner drag can flatten it",
   );
+});
+
+test("the canvas never sets Layout Boxes' height", () => {
+  // The picture's fault once more. The canvas, the background picture on it
+  // and the boxes drawn over it sit out of flow, so the stage takes its size
+  // from the node alone, in both renderers, and the canvas is fitted into it.
+  const source = readFileSync(join(JS_ROOT, "layout_boxes", "index.js"), "utf-8");
+  // Each rule is one line of the CSS; ${...} closes a brace in the middle of
+  // some of them, so a rule is read to the end of its line.
+  const rule = (selector) => source.match(new RegExp(`\\n${selector.replace(/[.[\]>,]/g, "\\$&")}\\{([^\\n]*)`))?.[1] ?? null;
+  // Everything put in the stage, with its rule. Listed, so a new element is a
+  // deliberate call: in flow, it sets the stage's height.
+  const inStage = { frame: ".ausboss-lb-frame", empty: ".ausboss-lb-empty", readout: ".ausboss-lb-readout" };
+  const appended = source.match(/\bstage\.append\(([^)]*)\)/);
+  assert.ok(appended, "the stage is no longer filled by one stage.append(...)");
+  for (const child of appended[1].split(",").map((part) => part.trim())) {
+    assert.ok(inStage[child], `${child} is new in the stage - keep it out of flow and list its rule in this test`);
+  }
+  for (const selector of [...Object.values(inStage), ".ausboss-lb-bg", ".ausboss-lb-grid", ".ausboss-lb-box"]) {
+    assert.ok(rule(selector), `the rule for ${selector} is gone`);
+    assert.match(rule(selector), /position:\s*absolute/, `${selector} is back in normal flow - it will size the node in Nodes 2.0`);
+  }
+  assert.match(rule(".ausboss-lb-bg"), /inset:\s*0/, "the picture no longer fills the canvas");
+  const stage = rule(".ausboss-lb-stage");
+  assert.ok(stage, "the stage's own rule is gone");
+  assert.match(stage, /position:\s*relative/, "the stage no longer holds its out-of-flow canvas");
+  assert.match(stage, /overflow:\s*hidden/, "the stage no longer clips its canvas");
+  assert.match(stage, /min-height:\s*0;/, "the stage can no longer shrink below its content");
 });
 
 test("the shared video root really carries the guards it is trusted for", () => {

@@ -33,6 +33,7 @@ jobs:
           python scripts/run_python_tests.py
           tests/test_changelog_notes.py
           tests/test_execution_helpers.py
+          tests/test_layout_boxes_helpers.py
           tests/test_lora_helpers.py
           tests/test_math_helpers.py
           tests/test_media_paths.py

@@ -32,6 +32,7 @@ NODE_MODULES = [
     "node_krea2_encode",
     "node_krea2_model_patch",
     "node_lama_inpaint",
+    "node_layout_boxes",
     "node_literals",
     "node_load_image_pad",
     "node_load_video",

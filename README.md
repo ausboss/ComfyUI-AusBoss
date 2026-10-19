@@ -286,6 +286,10 @@ It returns `width`, `height` and an empty image latent. The gear picks the laten
 
 ![Latent Size with a 1344 by 768 landscape canvas, its ratio chips, and the size and megapixel controls.](assets/readme/controls-showcase.webp)
 
+### Layout Boxes
+
+Draw boxes on a canvas and say what goes in each one: a thing, or words to write in the picture. Wire `elements` to MOSS-Image Layout Prompt and the picture puts each thing where its box is. It does what ComfyUI's own Create Bounding Boxes does, with the same inputs and the same outputs from the same boxes, and its canvas also works in the classic node look. Drag to draw a box, drag it to move it and its handles to size it; under the canvas each box gets **object** or **text**, its words and up to five colors. A picture on `background` shows under the boxes and sets the canvas size, `width` and `height` can come from Latent Size, and boxes on the `bboxes` wire fill the canvas when the workflow runs. **Grid** snaps the boxes, **Layouts** starts from a ready arrangement, and Delete, the arrow keys and Ctrl + D remove, nudge and copy the chosen box.
+
 ### Seed
 
 One seed for several samplers. **Random**, **Fixed** and **Step** set what happens after each run. Switching to Random, or from Fixed to Step, changes the seed right away, so the next run is a new one. **New seed** rolls a value and keeps it. **Use last run** brings back the seed the last run actually used. The history menu keeps the last eight seeds and saves them with the workflow.
