@@ -13,9 +13,21 @@
 
 I made these nodes for my own ComfyUI workflows, mostly because I wanted features I couldn't find in other packs. I use them myself, and I keep adding new ones.
 
-Most of them are for image and video work. You can rotate, crop and pad a picture by dragging handles on the node, trim a clip on a timeline, and outpaint or inpaint with your original pixels put back. ComfyUI's core nodes already cover the basics, like seeds, sizes and prompts, so use these where they add something.
+Most of them are for image and video work. ComfyUI's core nodes already cover the basics, like seeds, sizes and prompts, so use these where they add something. A few of the things they do:
 
-The **?** in a node's title bar opens a short card with its inputs and outputs, and every node has a longer help page in ComfyUI's node help panel. I post the workflows I make with them on [Civitai](https://civitai.com/user/AusBoss) and [X @Zanzibased](https://x.com/Zanzibased), and videos of them on [YouTube @ausbossdev](https://www.youtube.com/@ausbossdev).
+- **[Mask by Touch](#mask-by-touch):** click a thing on the picture and get its mask. Hover shows what a click would take, and **Fine edges** follows hair and fur.
+- **[Mask by Name](#mask-by-name):** type "the red jacket" and get its mask and a cut-out.
+- **[Image Crop + Rotate + Pad](#image-crop--rotate--pad):** turn, crop and pad a picture by dragging handles on the node, for outpainting.
+- **[Stitch Inpaint](#stitch-inpaint):** after an inpaint or outpaint, everything you didn't ask to change is your original pixels again.
+- **[Video Crop + Rotate + Pad → Clip](#video-crop--rotate--pad--clip):** trim a clip on a timeline, and pad or crop it to a new shape.
+- **[Tiled Upscale](#tiled-upscale):** upscale a picture in tiles to the megapixels you set.
+- **[Image Folder](#image-folder):** tick pictures in a folder and run the workflow on each one.
+- **[Layout Boxes](#layout-boxes):** draw boxes where things and words go in the picture, for MOSS-Image.
+- **[Image Compare A/B](#image-compare-ab):** a before-and-after slider, and a brush to mix the two.
+- **[LoRA Loader](#lora-loader):** a whole LoRA stack in one node, each row with its own switch and strength.
+- **[Workflow Switches](#workflow-switches):** turn parts of a workflow off and on from one small card.
+
+The **?** in a node's title bar opens a short card with its inputs and outputs, and every node has a longer help page in ComfyUI's node help panel. I post the workflows I make with them on [Civitai](https://civitai.com/user/AusBoss) and [X @Zanzibased](https://x.com/Zanzibased), and videos of them on [YouTube @ausbossdev](https://www.youtube.com/@ausbossdev). If a node saves you time, a star on the repo helps other people find it.
 
 ## Install
 
@@ -288,7 +300,11 @@ It returns `width`, `height` and an empty image latent. The gear picks the laten
 
 ### Layout Boxes
 
-Draw boxes on a canvas and say what goes in each one: a thing, or words to write in the picture. Wire `elements` to MOSS-Image Layout Prompt and the picture puts each thing where its box is. It does what ComfyUI's own Create Bounding Boxes does, with the same inputs and the same outputs from the same boxes, and its canvas also works in the classic node look. Drag to draw a box, drag it to move it and its handles to size it; under the canvas each box gets **object** or **text**, its words and up to five colors. A picture on `background` shows under the boxes and sets the canvas size, `width` and `height` can come from Latent Size, and boxes on the `bboxes` wire fill the canvas when the workflow runs. **Grid** snaps the boxes as you drag them, starts off over a picture and takes its size from the gear, **Layouts** starts from a ready arrangement, the arrow keys move the chosen box one pixel at a time (ten with Shift), and Delete and Ctrl + D remove and copy it. The `mask` output is white inside every box: load a picture, draw a box over the words on a sign, and an inpaint chain can write new words there while the rest of the picture stays as it was. For words at a slant, drag the round handle over a box to turn it: the mask turns with it, and a turned text box tells the model its slant.
+Draw boxes on a canvas and say what goes in each one: a thing, or words to write in the picture. Wire `elements` to MOSS-Image Layout Prompt and the picture puts each thing where its box is. It does what ComfyUI's own Create Bounding Boxes does, with the same inputs and the same outputs from the same boxes, and its canvas also works in the classic node look.
+
+Drag to draw a box, drag it to move it and its handles to size it; under the canvas each box gets **object** or **text**, its words and up to five colors. A picture on `background` shows under the boxes and sets the canvas size, `width` and `height` can come from Latent Size, and boxes on the `bboxes` wire fill the canvas when the workflow runs. **Grid** snaps the boxes as you drag them, starts off over a picture and takes its size from the gear, **Layouts** starts from a ready arrangement, the arrow keys move the chosen box one pixel at a time (ten with Shift), and Delete and Ctrl + D remove and copy it.
+
+The `mask` output is white inside every box: load a picture, draw a box over the words on a sign, and an inpaint chain can write new words there while the rest of the picture stays as it was. For words at a slant, drag the round handle over a box to turn it: the mask turns with it, and a turned text box tells the model its slant.
 
 ### Seed
 
@@ -348,7 +364,7 @@ Turns parts of a workflow off and on from one small card. Select the nodes of on
 
 ## Example workflows
 
-These are the workflows where the nodes do something core ComfyUI doesn't do by itself: outpainting and inpainting that put your original picture back, lining an edit back up with its source, upscaling a picture in tiles, masking a thing by its name, and removing a watermark from a clip. Open a JSON file from [`example_workflows/`](example_workflows), or find them under this pack in ComfyUI's template browser. Each one has a thumbnail, numbered groups and a Workflow Note with the setup steps and model downloads.
+These are the workflows where the nodes do something core ComfyUI doesn't do by itself: outpainting and inpainting that put your original picture back, lining an edit back up with its source, upscaling a picture in tiles, masking a thing by its name or with a click, and removing a watermark from a clip. Open a JSON file from [`example_workflows/`](example_workflows), or find them under this pack in ComfyUI's template browser. Each one has a thumbnail, numbered groups and a Workflow Note with the setup steps and model downloads.
 
 ![The Krea 2 Rotate + Outpaint workflow: a setup note on the left, then groups for your input, the two boxes and the model loaders, and the result with a before-and-after slider and Save Image.](assets/readme/workflow-layout.webp)
 
