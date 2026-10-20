@@ -169,8 +169,8 @@ class TransformOutputTests(unittest.TestCase):
         inputs = AusBossImageCropRotatePad.INPUT_TYPES()
         resize = ["resize_to_megapixels", "megapixels", "resize_method", "resolution_steps"]
         # The resize inputs keep their widget positions; the stitch settings
-        # follow, then painted_area, the newest.
-        self.assertEqual(list(inputs["optional"]), resize + ["stitch_blend", "stitch_grow", "painted_area"])
+        # follow, then painted_area, then the source_image socket, the newest.
+        self.assertEqual(list(inputs["optional"]), resize + ["stitch_blend", "stitch_grow", "painted_area", "source_image"])
         self.assertFalse(set(resize) & set(inputs["required"]))
 
     @unittest.skipUnless(COMFY_ROOT, "Set AUSBOSS_COMFY_ROOT for core resize integration")
@@ -490,8 +490,12 @@ class WiredSourceTests(unittest.TestCase):
                 if isinstance(left, torch.Tensor):
                     self.assertTrue(torch.equal(left, right))
                 elif isinstance(left, dict):
-                    self.assertTrue(torch.equal(left['image'], right['image']))
-                    self.assertTrue(torch.equal(left['blend'], right['blend']))
+                    self.assertEqual(left.keys(), right.keys())
+                    for key in left:
+                        if isinstance(left[key], torch.Tensor):
+                            self.assertTrue(torch.equal(left[key], right[key]), key)
+                        else:
+                            self.assertEqual(left[key], right[key], key)
                 else:
                     self.assertEqual(left, right)
 
@@ -535,8 +539,8 @@ class WiredSourceTests(unittest.TestCase):
             with patch.object(module, 'folder_paths', fake):
                 node = AusBossImageCropRotatePad()
                 runs = [
-                    node.load_transform('gone.png', source_image=self.wire(self.picture(2400, 1800, seed=seed)), unique_id='12:5', **self.LAYOUT)
-                    for seed in (1, 2)
+                    node.load_transform('gone.png', source_image=self.wire(Image.new('RGB', (2400, 1800), colour)), unique_id='12:5', **self.LAYOUT)
+                    for colour in ((200, 30, 30), (30, 60, 210))
                 ]
             for out in runs:
                 self.assertEqual(out['ui']['ausboss_transform_wired_size'], [[2400, 1800]])
@@ -550,8 +554,9 @@ class WiredSourceTests(unittest.TestCase):
             self.assertEqual([path.name for path in folder.iterdir()], ['12_5.jpg'])
             with Image.open(folder / '12_5.jpg') as preview:
                 self.assertEqual(preview.size, (1600, 1200))
-                last = np.asarray(self.picture(2400, 1800, seed=2).resize((1600, 1200)), dtype=np.float32)
-                self.assertLess(float(np.abs(np.asarray(preview.convert('RGB'), dtype=np.float32) - last).mean()), 12.0)
+                # The untransformed second picture, the last one written.
+                shown = np.asarray(preview.convert('RGB'), dtype=np.float32).mean(axis=(0, 1))
+                self.assertLess(float(np.abs(shown - np.array((30, 60, 210))).max()), 4.0)
         # A file-driven run keeps returning the plain tuple.
         self.assertIsInstance(self.from_file(self.picture()), tuple)
 
