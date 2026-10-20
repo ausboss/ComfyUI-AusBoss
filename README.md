@@ -211,6 +211,8 @@ The Mask by Name example finds a thing by its name and saves its cut-out and its
 
 Click a thing on the picture and get its mask. No name to type and no MaskEditor: the picture is on the node. Move the pointer over it and the thing a click would take lights up, with its name beside the pointer: the jacket, not the whole person. Click to pick it, and click more things to add them. What is lit in teal is what the mask will be.
 
+![Mask by Touch on a photo of a woman in a pink fur coat under neon signs: pointing lights up her face, hair and coat, clicks pick the coat and the hair, the eye shows the cut-out, and Subject with Fine edges cuts out the whole person with every strand of hair.](assets/readme/mask-by-touch.gif)
+
 When a click could mean more than one thing, the node shows the pick with two arrows, like **‹ jacket · 1 of 3 ›**: an arrow swaps it for the next thing at that spot. A stroke across two things, like both shoes, takes both. Ctrl-click a thing to take it away again.
 
 To fix the mask by hand, switch **Pick | Paint | Erase** (or press W, B or E, as in Photoshop). The brush has a size and a soft edge, set with **[** and **]** or by holding Alt and the right mouse button and dragging, and it shows under the pointer as it will paint. Hold **Ctrl** for the opposite: erase while you paint, paint while you erase.
