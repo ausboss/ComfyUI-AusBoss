@@ -6,7 +6,8 @@ at the place you drew it. Wire `elements` to MOSS-Image Layout Prompt.
 It gives what ComfyUI's own Create Bounding Boxes gives, in the same order
 and worked out the same way (preview, bboxes, elements), so it can stand in
 for that node. A fourth output, `mask`, is white inside every box, to change
-only those places of a picture. Its canvas is a panel of the pack's own
+only those places of a picture. A box can be turned, for words at a slant:
+the mask is the turned box itself. Its canvas is a panel of the pack's own
 (js/layout_boxes/index.js), so it draws in the classic look as well as in
 Nodes 2.0. The panel drives ordinary hidden widgets, so saving, loading,
 undo and the API format all go the usual way. The work is in
@@ -35,6 +36,7 @@ from ._layout_boxes_helpers import (
     prompt_elements,
     regions_from_pixel_boxes,
     render_preview,
+    turned_mask_rows,
 )
 from ._preview_helpers import first_frame_to_pil, temp_prefix
 
@@ -69,12 +71,15 @@ def _boxes_mask(regions, width: int, height: int, picture=None) -> torch.Tensor:
 
     With a background picture it has the picture's size: the boxes sit on the
     picture as they sit on the canvas, so the mask fits the picture they were
-    drawn on. Without one it has the canvas size."""
+    drawn on. Without one it has the canvas size. A turned box is white
+    inside its turned rectangle."""
     if picture is not None:
         width, height = picture.width, picture.height
     mask = torch.zeros((1, height, width), dtype=torch.float32)
     for left, top, right, bottom in mask_rects(regions, width, height):
         mask[0, top:bottom, left:right] = 1.0
+    for row, first, end in turned_mask_rows(regions, width, height):
+        mask[0, row, first:end] = 1.0
     return mask
 
 
@@ -106,7 +111,8 @@ class AusBossLayoutBoxes:
         "Draw boxes on a canvas and say what goes in each one: a thing, or words "
         "to write in the picture. Wire elements to MOSS-Image Layout Prompt. "
         "Drag on the canvas to draw a box; drag a box to move it, its corners to "
-        "size it. Works in the classic look and in Nodes 2.0, and gives what "
+        "size it, and the round handle above it to turn it. Works in the classic "
+        "look and in Nodes 2.0, and gives what "
         "ComfyUI's own Create Bounding Boxes gives, so it can take that node's "
         "place. A picture on background shows under the boxes and sets the "
         "canvas size. The mask output is white inside every box: use it to "
@@ -148,7 +154,8 @@ class AusBossLayoutBoxes:
                     "default": EMPTY_LAYOUT, "multiline": False,
                     "tooltip": (
                         "The boxes, drawn on the node and saved here as text: where each box "
-                        "is (as parts of the canvas), its type, its words and its colors."
+                        "is (as parts of the canvas), how far it is turned, its type, its "
+                        "words and its colors."
                     ),
                 }),
             },
@@ -159,11 +166,12 @@ class AusBossLayoutBoxes:
     OUTPUT_TOOLTIPS = (
         "A picture of the boxes with their numbers and words, to check the layout. "
         "Wire it to Preview Image.",
-        "The boxes in pixels of the canvas (x, y, width, height), for nodes that take bounding boxes.",
+        "The boxes in pixels of the canvas (x, y, width, height), for nodes that take bounding boxes. "
+        "A turned box gives the straight box around it.",
         "The boxes as prompt elements: type, place, words and colors. Wire it to "
-        "MOSS-Image Layout Prompt.",
-        "The boxes as a mask: white inside every box. Use it to change only those "
-        "places of a picture, such as the words on a sign.",
+        "MOSS-Image Layout Prompt. A turned text box says its slant in its description.",
+        "The boxes as a mask: white inside every box, turned boxes as they are turned. "
+        "Use it to change only those places of a picture, such as the words on a sign.",
     )
     OUTPUT_NODE = True
     FUNCTION = "draw"
@@ -178,6 +186,9 @@ class AusBossLayoutBoxes:
         from_wire = regions_from_pixel_boxes(incoming, width, height) if incoming else []
         regions = from_wire if incoming and fingerprint != applied else drawn
         picture = _first_picture(background)
+        # The canvas the boxes were drawn and turned on: the picture when there
+        # is one (the face shows it at its own shape), else width x height.
+        shape = (picture.width, picture.height) if picture is not None else (width, height)
         note = {"size": [width, height], "count": len(regions)}
         if incoming:
             note["incoming"] = {"fingerprint": fingerprint, "boxes": canvas_boxes(from_wire)}
@@ -186,13 +197,13 @@ class AusBossLayoutBoxes:
             saved = _save_background(picture, temp_prefix("layout_boxes"))
             if saved:
                 note["background"] = saved
-        preview = _picture_tensor(render_preview(regions, width, height, picture))
+        preview = _picture_tensor(render_preview(regions, width, height, picture, shape))
         return {
             "ui": {UI_KEY: [note]},
             "result": (
                 preview,
-                bounding_boxes(regions, width, height),
-                prompt_elements(regions),
+                bounding_boxes(regions, width, height, shape),
+                prompt_elements(regions, shape),
                 _boxes_mask(regions, width, height, picture),
             ),
         }

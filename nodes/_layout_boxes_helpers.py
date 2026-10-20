@@ -16,6 +16,13 @@ out the same way, so either node can feed the same nodes after it:
 After those, a MASK that Create Bounding Boxes does not have: 1 inside every
 box (mask_rects), for changing only those places of a picture.
 
+A box can be turned about its centre ("angle", degrees, clockwise on the
+screen, -90 to 90), for words that sit at a slant. Its mask is the turned
+rectangle itself (turned_mask_rows). BOUNDING_BOX and ARRAY only know
+straight boxes, so they get the straight box around it, and a turned text box
+says its slant in its description (tilt_phrase). A box without an angle is
+level and gives exactly what it gave before angles existed.
+
 tests/test_layout_boxes_core_parity.py runs both nodes on the same boxes and
 compares what they give, and what MOSS-Image Layout Prompt makes of it.
 
@@ -41,6 +48,11 @@ DEFAULT_SIZE = 1024
 
 # A prompt element carries up to five colors.
 MAX_COLORS = 5
+
+# How far a box can be turned, either way, in degrees.
+ANGLE_LIMIT = 90.0
+# A text box turned at least this far tells the model its slant.
+TILT_FROM = 2.0
 
 EMPTY_LAYOUT = '{"v": 1, "boxes": []}'
 
@@ -83,6 +95,28 @@ def _colors(value: Any) -> list[str]:
     if not isinstance(value, (list, tuple)):
         return []
     return [color for color in value if isinstance(color, str) and color]
+
+
+def read_angle(value: Any) -> float:
+    """A box's turn as it is kept: degrees, clockwise on the screen, from -90
+    to 90. A turn past 90 is the same rectangle as one 180 degrees back, so it
+    is read that way. Anything that is not a number is 0, a level box."""
+    number = _number(value)
+    if number is None:
+        return 0.0
+    # Only a turn out of range is worked out again: the sums would add noise.
+    if abs(number) > ANGLE_LIMIT:
+        number = (number + 180.0) % 360.0 - 180.0
+        if number > ANGLE_LIMIT:
+            number -= 180.0
+        elif number < -ANGLE_LIMIT:
+            number += 180.0
+    return number + 0.0
+
+
+def angle_of(region: Any) -> float:
+    """How far a box is turned; 0 for a level box."""
+    return read_angle(region.get("angle")) if isinstance(region, dict) else 0.0
 
 
 def _region(x: float, y: float, w: float, h: float, kind: Any, text: Any, desc: Any, palette: Any) -> dict:
@@ -129,9 +163,11 @@ def parse_layout(value: Any, width: int = DEFAULT_SIZE, height: int = DEFAULT_SI
     """(boxes, from_input) out of the hidden `layout` widget.
 
     The canvas writes {"v": 1, "boxes": [{x, y, w, h, type, text, desc,
-    palette}], "from_input": "<fingerprint>"}, x to h as fractions of the
-    canvas. `from_input` is the fingerprint of the boxes the `bboxes` wire
-    last put on the canvas (see input_fingerprint).
+    palette, angle}], "from_input": "<fingerprint>"}, x to h as fractions of
+    the canvas. `angle` is there only for a turned box; a region gets the key
+    only then too, so a level box reads exactly as before. `from_input` is the
+    fingerprint of the boxes the `bboxes` wire last put on the canvas (see
+    input_fingerprint).
 
     A list in Create Bounding Boxes' own form (pixel boxes with metadata) is
     read too, against width and height, so boxes taken over from that node
@@ -166,9 +202,13 @@ def parse_layout(value: Any, width: int = DEFAULT_SIZE, height: int = DEFAULT_SI
         numbers = [_number(item.get(key)) for key in ("x", "y", "w", "h")]
         if any(number is None for number in numbers):
             continue
-        regions.append(_region(
+        region = _region(
             *numbers, item.get("type"), item.get("text", ""), item.get("desc", ""), item.get("palette", []),
-        ))
+        )
+        angle = read_angle(item.get("angle"))
+        if angle:
+            region["angle"] = angle
+        regions.append(region)
     applied = data.get("from_input")
     return regions, applied if isinstance(applied, str) else ""
 
@@ -328,10 +368,59 @@ def _pixels(region: dict, width: int, height: int) -> dict:
     return {"x": round(x * width), "y": round(y * height), "width": round(w * width), "height": round(h * height)}
 
 
-def bounding_boxes(regions: list[dict], width: int, height: int) -> list:
+def box_corners(region: dict, width: float, height: float) -> list[tuple[float, float]]:
+    """A box's four corners in pixels of a width x height canvas: its
+    top-left, top-right, bottom-right and bottom-left corner as drawn, turned
+    about the box's centre by its angle. The turn is made in pixels, so a
+    turned box stays a true rectangle on that canvas, whatever its shape."""
+    x, y = region.get("x", 0.0), region.get("y", 0.0)
+    w, h = region.get("w", 0.0), region.get("h", 0.0)
+    if w < 0:
+        x, w = x + w, -w
+    if h < 0:
+        y, h = y + h, -h
+    centre_x, centre_y = (x + w / 2) * width, (y + h / 2) * height
+    half_w, half_h = w * width / 2, h * height / 2
+    angle = angle_of(region)
+    if abs(angle) == ANGLE_LIMIT:
+        cos, sin = 0.0, math.copysign(1.0, angle)
+    else:
+        cos, sin = math.cos(math.radians(angle)), math.sin(math.radians(angle))
+    return [
+        (centre_x + along * half_w * cos - across * half_h * sin, centre_y + along * half_w * sin + across * half_h * cos)
+        for along, across in ((-1, -1), (1, -1), (1, 1), (-1, 1))
+    ]
+
+
+def _turned_extent(region: dict, shape: tuple[float, float]) -> tuple[float, float, float, float]:
+    """(left, top, right, bottom) of the straight box around a turned box, as
+    fractions of the canvas. `shape` is the (width, height) of the canvas the
+    box was turned on: the picture on `background`, else the canvas size."""
+    across, down = (max(1.0, float(side)) for side in shape)
+    corners = box_corners(region, across, down)
+    xs = [x for x, _ in corners]
+    ys = [y for _, y in corners]
+    return min(xs) / across, min(ys) / down, max(xs) / across, max(ys) / down
+
+
+def _turned_pixels(region: dict, width: int, height: int, shape: tuple[float, float]) -> dict:
+    """The straight box around a turned box in pixels, cut to the canvas."""
+    left, top, right, bottom = (min(1.0, max(0.0, value)) for value in _turned_extent(region, shape))
+    x0, y0 = round(left * width), round(top * height)
+    return {"x": x0, "y": y0, "width": round(right * width) - x0, "height": round(bottom * height) - y0}
+
+
+def bounding_boxes(regions: list[dict], width: int, height: int, shape: tuple[float, float] | None = None) -> list:
     """The BOUNDING_BOX output: one frame holding every box, in pixels.
-    No boxes gives an empty list."""
-    frame = [_pixels(region, width, height) for region in regions if isinstance(region, dict)]
+    No boxes gives an empty list. A turned box gives the straight box around
+    it, cut to the canvas; `shape` is the (width, height) it was turned on,
+    when that is not width x height (a picture on `background`)."""
+    shape = shape or (width, height)
+    frame = [
+        _turned_pixels(region, width, height, shape) if angle_of(region) else _pixels(region, width, height)
+        for region in regions
+        if isinstance(region, dict)
+    ]
     return [frame] if frame else []
 
 
@@ -339,11 +428,41 @@ def _on_grid(value: float) -> int:
     return max(0, min(1000, round(value * 1000)))
 
 
-def _grid_box(region: dict) -> list[int]:
+def _grid_box(region: dict, shape: tuple[float, float] = (1.0, 1.0)) -> list[int]:
+    if angle_of(region):
+        left, top, right, bottom = _turned_extent(region, shape)
+        return [_on_grid(top), _on_grid(left), _on_grid(bottom), _on_grid(right)]
     x, y = region.get("x", 0.0), region.get("y", 0.0)
     w, h = region.get("w", 0.0), region.get("h", 0.0)
     top, left, bottom, right = _on_grid(y), _on_grid(x), _on_grid(y + h), _on_grid(x + w)
     return [min(top, bottom), min(left, right), max(top, bottom), max(left, right)]
+
+
+def tilt_phrase(angle: Any) -> str:
+    """What a turned text box adds to its description, so the model writes
+    the words at that slant: "tilted about 25 degrees, running downhill to the
+    right" for a box turned clockwise, "... uphill ..." the other way. Nothing
+    for a box turned less than TILT_FROM degrees."""
+    angle = read_angle(angle)
+    if abs(angle) < TILT_FROM:
+        return ""
+    way = "downhill" if angle > 0 else "uphill"
+    return f"tilted about {math.floor(abs(angle) + 0.5)} degrees, running {way} to the right"
+
+
+def element_desc(region: dict) -> str:
+    """A box's description as its prompt element carries it: as typed, and
+    for a turned text box with its slant after it (tilt_phrase). Words that
+    already say that slant get it once only."""
+    desc = region.get("desc", "")
+    phrase = tilt_phrase(region.get("angle")) if region.get("type") == "text" else ""
+    if not phrase or not isinstance(desc, str) or phrase in desc.lower():
+        return desc
+    text = desc.rstrip()
+    if text[-1:] in (".", "!", "?"):
+        return f"{text} {phrase[:1].upper()}{phrase[1:]}."
+    text = text.rstrip(",;:").rstrip()
+    return f"{text}, {phrase}" if text else phrase
 
 
 def element_colors(value: Any) -> list[str]:
@@ -355,17 +474,21 @@ def element_colors(value: Any) -> list[str]:
     return [color.upper() for color in value if isinstance(color, str) and color]
 
 
-def prompt_elements(regions: list[dict]) -> list[dict]:
-    """The ARRAY output: one prompt element per box, in the boxes' order."""
+def prompt_elements(regions: list[dict], shape: tuple[float, float] | None = None) -> list[dict]:
+    """The ARRAY output: one prompt element per box, in the boxes' order.
+    A turned box gives the straight box around it (`shape` is the (width,
+    height) of the canvas it was turned on), and a turned text box says its
+    slant in its description."""
+    shape = shape or (1.0, 1.0)
     elements = []
     for region in regions:
         if not isinstance(region, dict):
             continue
         kind = "text" if region.get("type") == "text" else "obj"
-        element = {"type": kind, "bbox": _grid_box(region)}
+        element = {"type": kind, "bbox": _grid_box(region, shape)}
         if kind == "text":
             element["text"] = region.get("text", "")
-        element["desc"] = region.get("desc", "")
+        element["desc"] = element_desc(region)
         colors = element_colors(region.get("palette", []))
         if colors:
             element["color_palette"] = colors[:MAX_COLORS]
@@ -380,16 +503,17 @@ def canvas_boxes(regions: list[dict]) -> list[dict]:
 
 
 def mask_rects(regions: list[dict], width: int, height: int) -> list[tuple[int, int, int, int]]:
-    """Where the MASK output is white: each box as (left, top, right, bottom)
-    in whole pixels of a width x height picture, cut to the picture.
+    """Where the MASK output is white: each level box as (left, top, right,
+    bottom) in whole pixels of a width x height picture, cut to the picture.
 
     The pixels are rounded as the BOUNDING_BOX output rounds them, so on the
     canvas size the mask is white exactly inside those boxes. A box with no
-    area on the picture is left out.
+    area on the picture is left out, and so is a turned box: its white is
+    turned_mask_rows.
     """
     rects = []
     for region in regions:
-        if not isinstance(region, dict):
+        if not isinstance(region, dict) or angle_of(region):
             continue
         box = _pixels(region, width, height)
         left = max(0, min(width, box["x"]))
@@ -399,6 +523,35 @@ def mask_rects(regions: list[dict], width: int, height: int) -> list[tuple[int, 
         if right > left and bottom > top:
             rects.append((left, top, right, bottom))
     return rects
+
+
+def turned_mask_rows(regions: list[dict], width: int, height: int) -> list[tuple[int, int, int]]:
+    """Where the MASK output is white for the turned boxes: (row, first, end)
+    runs of the whole pixels of a width x height picture whose centres are
+    inside a turned box, cut to the picture. The box is turned on that
+    picture, so it is a true rectangle on it. Left and top edges are in, right
+    and bottom edges out, as for a level box's pixels."""
+    rows = []
+    for region in regions:
+        if not angle_of(region):
+            continue
+        corners = box_corners(region, width, height)
+        edges = list(zip(corners, corners[1:] + corners[:1]))
+        ys = [y for _, y in corners]
+        for row in range(max(0, math.ceil(min(ys) - 0.5)), min(height, math.ceil(max(ys) - 0.5))):
+            centre = row + 0.5
+            crossings = [
+                x0 + (centre - y0) * (x1 - x0) / (y1 - y0)
+                for (x0, y0), (x1, y1) in edges
+                if y0 <= centre < y1 or y1 <= centre < y0
+            ]
+            if len(crossings) < 2:
+                continue
+            first = max(0, math.ceil(min(crossings) - 0.5))
+            end = min(width, math.ceil(max(crossings) - 0.5))
+            if end > first:
+                rows.append((row, first, end))
+    return rows
 
 
 # ---------- the preview ----------
@@ -467,10 +620,69 @@ def _dark_on(rgb: tuple[int, int, int]) -> bool:
     return 0.299 * red + 0.587 * green + 0.114 * blue > 150
 
 
-def render_preview(regions: list[dict], width: int, height: int, background=None):
+def _draw_box(draw, region: dict, number: int, edges: tuple[int, int, int, int], look: dict) -> None:
+    """One box on the preview: outlined and lightly filled in its color, its
+    colors as a strip along its top edge, its number in the top-left corner
+    and its words under it. `edges` are (left, top, right, bottom) in pixels."""
+    left, top, right, bottom = edges
+    color, line, text_size = look["color"], look["line"], look["text_size"]
+    draw.rectangle([left, top, right, bottom], fill=color + (46,), outline=color + (255,), width=line)
+    colors = [rgb for rgb in (hex_color(c) for c in region.get("palette") or []) if rgb][:MAX_COLORS]
+    if colors and right - left > 4:
+        strip = max(4, text_size // 2)
+        step = (right - left) / len(colors)
+        for index, rgb in enumerate(colors):
+            draw.rectangle(
+                [left + round(index * step), top, left + round((index + 1) * step), min(bottom, top + strip)],
+                fill=rgb + (255,),
+            )
+    tag = str(number)
+    tag_width = draw.textlength(tag, font=look["tag_font"])
+    draw.rectangle([left, top, left + tag_width + 8, top + text_size + 4], fill=color + (255,))
+    draw.text((left + 4, top + 2), tag, font=look["tag_font"], fill=(10, 14, 14, 255) if _dark_on(color) else (255, 255, 255, 255))
+    words = box_words(region)
+    room = right - left - 10
+    if words and room > 8:
+        y = top + text_size + 8
+        for row in _wrapped(draw, words, look["font"], room):
+            if y + text_size > bottom:
+                break
+            draw.text((left + 5, y), row, font=look["font"], fill=(244, 248, 248, 255), stroke_width=1, stroke_fill=(0, 0, 0, 220))
+            y += text_size + 3
+
+
+def _turned_layer(region: dict, number: int, size: tuple[int, int], shape: tuple[float, float], look: dict):
+    """A turned box on a layer of the preview's size: drawn level on a
+    picture of its own size, then laid onto its turned corners. None when
+    the box has no area."""
+    from PIL import Image, ImageDraw
+
+    across, down = size
+    scale_x, scale_y = across / max(1.0, float(shape[0])), down / max(1.0, float(shape[1]))
+    corners = [(x * scale_x, y * scale_y) for x, y in box_corners(region, *shape)]
+    (x0, y0), (x1, y1), _, (x3, y3) = corners
+    flat_w = max(1, round(math.hypot(x1 - x0, y1 - y0)))
+    flat_h = max(1, round(math.hypot(x3 - x0, y3 - y0)))
+    # Preview pixel = corner 0 + u * (along the top edge) + v * (down the left edge),
+    # (u, v) a pixel of the level picture; the transform needs the way back.
+    a, b = (x1 - x0) / flat_w, (x3 - x0) / flat_h
+    c, d = (y1 - y0) / flat_w, (y3 - y0) / flat_h
+    det = a * d - b * c
+    if abs(det) < 1e-9:
+        return None
+    flat = Image.new("RGBA", (flat_w, flat_h), (0, 0, 0, 0))
+    _draw_box(ImageDraw.Draw(flat), region, number, (0, 0, flat_w - 1, flat_h - 1), look)
+    back_a, back_b, back_d, back_e = d / det, -b / det, -c / det, a / det
+    data = (back_a, back_b, -back_a * x0 - back_b * y0, back_d, back_e, -back_d * x0 - back_e * y0)
+    return flat.transform(size, Image.AFFINE, data, resample=Image.BILINEAR)
+
+
+def render_preview(regions: list[dict], width: int, height: int, background=None, shape: tuple[float, float] | None = None):
     """A picture of the canvas: the background dimmed (or a plain dark
     canvas), each box outlined in its color with its number and words, and
-    its colors as a strip along its top edge. Later boxes sit on top.
+    its colors as a strip along its top edge. Later boxes sit on top. A
+    turned box is drawn turned; `shape` is the (width, height) of the canvas
+    the boxes were turned on, when that is not width x height.
     Returns a PIL RGB image at most PREVIEW_LONG_EDGE on its longest side."""
     from PIL import Image, ImageDraw, ImageEnhance
 
@@ -484,49 +696,35 @@ def render_preview(regions: list[dict], width: int, height: int, background=None
         base = Image.new("RGB", size, EMPTY_CANVAS)
     picture = base.convert("RGBA")
     across, down = size
-    line = max(2, round(min(across, down) / 320))
     text_size = max(11, round(down / 48))
-    font = _font(text_size)
-    tag_font = _font(max(10, text_size - 1))
+    look = {
+        "line": max(2, round(min(across, down) / 320)),
+        "text_size": text_size,
+        "font": _font(text_size),
+        "tag_font": _font(max(10, text_size - 1)),
+    }
     for number, region in enumerate(regions, start=1):
         if not isinstance(region, dict):
             continue
+        look["color"] = box_color(region)
+        if angle_of(region):
+            layer = _turned_layer(region, number, size, shape or (width, height), look)
+            if layer is not None:
+                picture = Image.alpha_composite(picture, layer)
+            continue
         layer = Image.new("RGBA", size, (0, 0, 0, 0))
-        draw = ImageDraw.Draw(layer)
-        color = box_color(region)
         pixels = _pixels(region, across, down)
         left = max(0, min(across - 1, pixels["x"]))
         top = max(0, min(down - 1, pixels["y"]))
         right = max(left, min(across - 1, pixels["x"] + pixels["width"]))
         bottom = max(top, min(down - 1, pixels["y"] + pixels["height"]))
-        draw.rectangle([left, top, right, bottom], fill=color + (46,), outline=color + (255,), width=line)
-        colors = [rgb for rgb in (hex_color(c) for c in region.get("palette") or []) if rgb][:MAX_COLORS]
-        if colors and right - left > 4:
-            strip = max(4, text_size // 2)
-            step = (right - left) / len(colors)
-            for index, rgb in enumerate(colors):
-                draw.rectangle(
-                    [left + round(index * step), top, left + round((index + 1) * step), min(bottom, top + strip)],
-                    fill=rgb + (255,),
-                )
-        tag = str(number)
-        tag_width = draw.textlength(tag, font=tag_font)
-        draw.rectangle([left, top, left + tag_width + 8, top + text_size + 4], fill=color + (255,))
-        draw.text((left + 4, top + 2), tag, font=tag_font, fill=(10, 14, 14, 255) if _dark_on(color) else (255, 255, 255, 255))
-        words = box_words(region)
-        room = right - left - 10
-        if words and room > 8:
-            y = top + text_size + 8
-            for row in _wrapped(draw, words, font, room):
-                if y + text_size > bottom:
-                    break
-                draw.text((left + 5, y), row, font=font, fill=(244, 248, 248, 255), stroke_width=1, stroke_fill=(0, 0, 0, 220))
-                y += text_size + 3
+        _draw_box(ImageDraw.Draw(layer), region, number, (left, top, right, bottom), look)
         picture = Image.alpha_composite(picture, layer)
     return picture.convert("RGB")
 
 
 __all__ = [
+    "ANGLE_LIMIT",
     "DEFAULT_SIZE",
     "DIM_MAX",
     "DIM_MIN",
@@ -534,16 +732,23 @@ __all__ = [
     "EMPTY_LAYOUT",
     "LayoutError",
     "MAX_COLORS",
+    "TILT_FROM",
+    "angle_of",
     "bounding_boxes",
+    "box_corners",
     "box_words",
     "boxes_from_input",
     "canvas_boxes",
     "element_colors",
+    "element_desc",
     "hex_color",
     "input_fingerprint",
     "mask_rects",
     "parse_layout",
     "prompt_elements",
+    "read_angle",
     "regions_from_pixel_boxes",
     "render_preview",
+    "tilt_phrase",
+    "turned_mask_rows",
 ]

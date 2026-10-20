@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
+import math
 import sys
 import tempfile
 import unittest
@@ -111,6 +112,72 @@ class LayoutBoxesNode(unittest.TestCase):
             saved = Path(tmp) / note["background"]["filename"]
             self.assertTrue(saved.is_file())
         self.assertEqual(tuple(out["result"][0].shape), (1, 896, 608, 3), "a small canvas is not blown up")
+
+    def test_a_turned_box_makes_a_turned_mask(self):
+        # 25, -55 and 90 degrees, apart on a 1344 x 768 canvas; each white area is its turned rectangle.
+        boxes = [dict(box(100, 300, 369, 103), angle=25), dict(box(560, 300, 300, 80), angle=-55), dict(box(1000, 250, 200, 100), angle=90)]
+        _preview, frames, elements, mask = self.node.draw(width=W, height=H, layout=layout(*boxes))["result"]
+        self.assertEqual(tuple(mask.shape), (1, H, W))
+        def area(x0, x1):
+            return int(mask[0, :, x0:x1].sum())
+        self.assertLess(abs(area(0, 520) - 369 * 103), 2 * (369 + 103), "25 degrees")
+        self.assertLess(abs(area(520, 940) - 300 * 80), 2 * (300 + 80), "-55 degrees")
+        self.assertEqual(area(940, W), 200 * 100, "90 degrees: exactly the upright box")
+        self.assertEqual(float(mask[0, 200:400, 1050:1150].min()), 1.0)
+        self.assertEqual(float(mask[0, 250:350, 1000:1049].max()), 0.0, "the level box it was drawn as is not white")
+        # The turned box's far corner is white; the level rectangle's corner is not.
+        a = math.radians(25)
+        cx, cy = 100 + 369 / 2, 300 + 103 / 2
+        far = (cx + 180 * math.cos(a) - 48 * math.sin(a), cy + 180 * math.sin(a) + 48 * math.cos(a))
+        self.assertEqual(float(mask[0, int(far[1]), int(far[0])]), 1.0)
+        self.assertEqual(float(mask[0, 302, 466]), 0.0)
+        self.assertEqual(frames[0][2], {"x": 1050, "y": 200, "width": 100, "height": 200})
+        self.assertEqual([e["desc"] for e in elements], ["", "", ""], "object boxes get no slant")
+
+    def test_with_every_angle_level_every_output_is_as_before(self):
+        plain = [box(320, 96, 512, 640, desc="a cat", palette=["#ff3399"]), box(0, 0, W, 64, "text", "OPEN", "neon")]
+        before = self.node.draw(width=W, height=H, layout=layout(*plain))["result"]
+        for zero in (0, 0.0, -0.0, "0", None):
+            after = self.node.draw(width=W, height=H, layout=layout(*[dict(b, angle=zero) for b in plain]))["result"]
+            self.assertTrue(torch.equal(before[0], after[0]), f"preview, angle {zero!r}")
+            self.assertEqual(before[1], after[1])
+            self.assertEqual(before[2], after[2])
+            self.assertTrue(torch.equal(before[3], after[3]))
+
+    def test_a_turned_text_box_tells_the_model_its_slant(self):
+        sign = dict(box(613, 300, 369, 102, "text", "No Phones", "bold black letters on a white sign"), angle=25.2)
+        _preview, frames, elements, _mask = self.node.draw(width=W, height=H, layout=layout(sign))["result"]
+        self.assertEqual(elements[0]["desc"], "bold black letters on a white sign, tilted about 25 degrees, running downhill to the right")
+        self.assertEqual(elements[0]["text"], "No Phones")
+        level = self.node.draw(width=W, height=H, layout=layout(dict(sign, angle=0)))["result"]
+        self.assertGreater(frames[0][0]["height"], level[1][0][0]["height"], "bboxes holds the straight box around the turned one")
+        self.assertLess(elements[0]["bbox"][0], level[2][0]["bbox"][0])
+
+    def test_on_a_picture_the_box_is_turned_on_the_picture(self):
+        # A 1000 x 750 photo with Latent Size's 1024 x 1536 on width and height: the face shows the photo at its own
+        # shape, so the box is turned there and the mask is a true rectangle on the photo.
+        picture = torch.rand(1, 750, 1000, 3)
+        words = {"x": 0.4, "y": 0.4, "w": 0.3, "h": 0.08, "type": "text", "text": "SALE", "desc": "red letters", "angle": -30}
+        _preview, frames, _elements, mask = self.node.draw(background=picture, width=1024, height=1536, layout=layout(words))["result"]
+        self.assertEqual(tuple(mask.shape), (1, 750, 1000))
+        self.assertLess(abs(int(mask.sum()) - 300 * 60), 2 * (300 + 60), "300 x 60 photo pixels, turned")
+        cx, cy, a = 550, 330, math.radians(-30)
+        for u, v in ((140, 25), (-140, -25), (140, -25), (-140, 25)):
+            self.assertEqual(float(mask[0, round(cy + u * math.sin(a) + v * math.cos(a)), round(cx + u * math.cos(a) - v * math.sin(a))]), 1.0, (u, v))
+        frame = frames[0][0]
+        self.assertTrue(0 < frame["x"] and frame["x"] + frame["width"] < 1024 and frame["height"] > 0.08 * 1536)
+
+    def test_the_preview_draws_the_box_turned(self):
+        quarter = dict(box(500, 334, 400, 100), angle=90)
+        preview = self.node.draw(width=W, height=H, layout=layout(quarter))["result"][0]
+        level = self.node.draw(width=W, height=H, layout=layout(dict(quarter, angle=0)))["result"][0]
+        scale = 1024 / W
+        def lit(image, x, y):
+            return float((image[0, round(y * scale), round(x * scale)] - image[0, 5, 5]).abs().sum()) > 0.05
+        self.assertTrue(lit(preview, 700, 240), "inside the upright box, above the level one")
+        self.assertFalse(lit(preview, 560, 384), "inside the level box's left end, outside the upright one")
+        self.assertTrue(lit(level, 560, 384))
+        self.assertFalse(lit(level, 700, 240))
 
     def test_a_grey_background_and_a_failed_save_still_run(self):
         picture = torch.rand(1, 64, 96, 1)

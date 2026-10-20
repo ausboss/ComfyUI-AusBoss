@@ -2,6 +2,20 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Layout Boxes 🆎 boxes can be turned, to replace words at a slant.**
+  Choose a box and drag the round handle over its top edge, or type the
+  angle in **Turn** under the canvas. Hold Shift to turn in steps of 5
+  degrees; **0°**, or a double-click on the handle, makes the box level
+  again. The box's tag shows the angle, such as "1 text 25°". The `mask`
+  output follows the turned box, so only the slanted words are drawn again.
+  A turned text box tells the model its slant in its description ("tilted
+  about 25 degrees, running downhill to the right"), so you do not have to
+  type it. `bboxes` and `elements` only know straight boxes, so they get the
+  straight box around a turned one. Boxes that are not turned give exactly
+  what they gave before.
+
 ## 2.16.1 - 2026-10-19
 
 - **Layout Boxes 🆎 moves a box one pixel at a time.** The arrow keys now

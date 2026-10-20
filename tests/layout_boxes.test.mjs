@@ -7,6 +7,8 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
+  ANGLE_LIMIT,
+  ANGLE_SNAP,
   CHIPS_MAX,
   DIM_MAX,
   DIM_MIN,
@@ -15,6 +17,7 @@ import {
   GRID_SIZES,
   HANDLE_PX,
   KEPT_WORDS_NOTE,
+  KNOB_GAP_PX,
   LAYOUTS,
   MAX_COLORS,
   MIDDLE_HANDLE_FROM_PX,
@@ -22,10 +25,15 @@ import {
   NUDGE_SHIFT_PX,
   PLAIN_BOX,
   TAG_HEIGHT_PX,
+  TILT_FROM,
+  angleLabel,
+  angleOf,
   applyLayout,
   boxColor,
+  boxCorners,
   boxKind,
   boxMarks,
+  boxPixels,
   boxTag,
   boxWords,
   canvasSide,
@@ -39,20 +47,32 @@ import {
   gridCell,
   gridCellOf,
   gridIsOn,
+  handleCursor,
   keptWordsNote,
+  knobSide,
+  leveledRect,
   movedRect,
+  movedTurnedRect,
   newBox,
   normalizeHex,
   nudgeStep,
   nudgedRect,
   parseLayout,
+  readAngle,
   resizedRect,
+  resizedTurnedRect,
   serializeLayout,
   sideForPicture,
   snapTo,
   snapping,
   tagWidthPx,
   textOn,
+  tiltPhrase,
+  turnPoint,
+  turnStep,
+  turnedAngle,
+  turnedBounds,
+  turnedTagPlace,
   wholePixels,
   wiredNumber,
   wiredSource,
@@ -437,4 +457,202 @@ test("a size on a wire is read from the node it comes from", () => {
   graphWith([number, unknown, fromNumber, fromUnknown], [{ id: 13, origin_id: 3, origin_slot: 0 }, { id: 14, origin_id: 4, origin_slot: 0 }]);
   assert.equal(wiredNumber(fromNumber, "width"), 640, "a number node's value");
   assert.equal(wiredNumber(fromUnknown, "width"), null, "known only once the workflow runs");
+});
+
+// ---------- turned boxes ----------
+// Words on a sign at a slant could only get a level box, which redraws what
+// sits in its corners. A box can now be turned with a knob over its top edge.
+
+const close = (a, b, tol = 1e-9) => Math.abs(a - b) <= tol;
+
+test("a turn is kept in degrees from -90 to 90, without noise, and a level box has none", () => {
+  assert.equal(ANGLE_LIMIT, 90);
+  for (const [value, angle] of [[25, 25], [25.2, 25.2], [-55, -55], [90, 90], [-90, -90], [120, -60], [-120, 60], [270, -90], [-270, 90],
+    [450, 90], ["12.5", 12.5], [null, 0], [undefined, 0], ["x", 0], [true, 0], [NaN, 0], [Infinity, 0]]) {
+    assert.equal(readAngle(value), angle, `${value}`);
+  }
+  assert.ok(Object.is(readAngle(-0), 0), "no minus zero");
+  assert.equal(angleOf({}), 0);
+  assert.equal(angleOf(null), 0);
+});
+
+test("the saved form keeps a turn; an old layout reads level and writes exactly as before", () => {
+  const sign = { ...box(613, 771, 982, 873, { type: "text", text: "No Phones" }), angle: 25.2 };
+  const text = serializeLayout([sign, box(0, 0, 64, 64)]);
+  const data = JSON.parse(text);
+  assert.equal(data.boxes[0].angle, 25.2);
+  assert.deepEqual(Object.keys(data.boxes[0]), ["x", "y", "w", "h", "type", "text", "desc", "palette", "angle"], "the angle comes last, after the keys every layout has");
+  assert.equal("angle" in data.boxes[1], false, "a level box is written without one");
+  assert.equal(parseLayout(text, W, H).boxes[0].angle, 25.2);
+  // A layout saved before boxes could turn: read level, written back byte for byte.
+  const old = '{"v":1,"boxes":[{"x":0.25,"y":0.1,"w":0.5,"h":0.8,"type":"obj","text":"","desc":"a cat","palette":["#ff3399"]}],"from_input":"abc"}';
+  const read = parseLayout(old, W, H);
+  assert.equal("angle" in read.boxes[0], false);
+  assert.equal(serializeLayout(read.boxes, read.fromInput), old);
+  for (const zero of [0, -0, "0", null, "level"]) {
+    assert.equal("angle" in parseLayout(JSON.stringify({ v: 1, boxes: [{ x: 0, y: 0, w: 0.5, h: 0.5, angle: zero }] })).boxes[0], false, `${zero}`);
+  }
+  assert.equal(parseLayout(JSON.stringify({ v: 1, boxes: [{ x: 0, y: 0, w: 0.5, h: 0.5, angle: 200 }] })).boxes[0].angle, 20);
+});
+
+test("the corners of a turned box, at 0, 25, -55 and 90 degrees", () => {
+  const at = (angle) => ({ ...newBox({ x0: 300, y0: 250, x1: 700, y1: 350 }, 1000, 1000), ...(angle ? { angle } : {}) });
+  assert.deepEqual(boxCorners(at(0), 1000, 1000), [[300, 250], [700, 250], [700, 350], [300, 350]]);
+  assert.deepEqual(boxCorners(at(90), 1000, 1000), [[550, 100], [550, 500], [450, 500], [450, 100]], "a quarter turn is exact");
+  assert.deepEqual(turnedBounds(at(90), 1000, 1000), { x0: 450, y0: 100, x1: 550, y1: 500 });
+  for (const angle of [25, -55, 25.2, -89.9]) {
+    const [[x0, y0], [x1, y1], [x2, y2], [x3, y3]] = boxCorners(at(angle), 1000, 1000);
+    assert.ok(close(Math.hypot(x1 - x0, y1 - y0), 400) && close(Math.hypot(x3 - x0, y3 - y0), 100), `${angle}: same size`);
+    assert.ok(close((x1 - x0) * (x3 - x0) + (y1 - y0) * (y3 - y0), 0, 1e-6), `${angle}: square corners`);
+    assert.ok(close((x0 + x2) / 2, 500) && close((y0 + y2) / 2, 300), `${angle}: turned about its centre`);
+    assert.ok(close((Math.atan2(y1 - y0, x1 - x0) * 180) / Math.PI, angle), `${angle}: clockwise on the screen`);
+  }
+  assert.ok(boxCorners(at(25), 1000, 1000)[1][1] > boxCorners(at(25), 1000, 1000)[0][1], "plus runs downhill to the right");
+  assert.ok(boxCorners(at(-55), 1000, 1000)[1][1] < boxCorners(at(-55), 1000, 1000)[0][1], "minus runs uphill to the right");
+  // On a canvas that is not square the turn is made in pixels: still a rectangle.
+  const [[a0, b0], [a1, b1], , [a3, b3]] = boxCorners({ ...box(320, 96, 832, 160), angle: 30 }, W, H);
+  assert.ok(close((a1 - a0) * (a3 - a0) + (b1 - b0) * (b3 - b0), 0, 1e-6));
+  assert.ok(close(Math.hypot(a1 - a0, b1 - b0), 512, 1e-6));
+  const [px, py] = turnPoint(10, 20, 5, 0, 90);
+  assert.deepEqual([px, py], [10, 25]);
+});
+
+test("the knob turns the box the short way round, held to -90..90, on tenths, on 5 degree steps with Shift", () => {
+  assert.equal(ANGLE_SNAP, 5);
+  assert.ok(close(turnStep(3, -3), 2 * Math.PI - 6), "across the line left of the centre: a small step on");
+  assert.ok(close(turnStep(-3, 3), 6 - 2 * Math.PI));
+  assert.ok(close(turnStep(0.1, 0.3), 0.2));
+  assert.equal(turnedAngle(0, 25.24), 25.2);
+  assert.equal(turnedAngle(0, 25.26), 25.3);
+  assert.equal(turnedAngle(0, 23, { snap: true }), 25);
+  assert.equal(turnedAngle(0, 22.4, { snap: true }), 20);
+  assert.equal(turnedAngle(25.2, 8, { snap: true }), 35, "Shift lands on a whole step, not on start + 5");
+  assert.equal(turnedAngle(80, 30), 90, "it stops at a quarter turn");
+  assert.equal(turnedAngle(-80, -30), -90);
+  assert.equal(turnedAngle(88, 0, { snap: true }), 90);
+  assert.ok(Object.is(turnedAngle(10, -10.04), 0), "back to level is 0, not -0");
+  assert.equal(turnedAngle(10, "x"), 10);
+});
+
+test("a turned box moves by whole pixels, its centre kept on the canvas so its corners can reach past the edges", () => {
+  const start = boxPixels({ ...newBox({ x0: 613, y0: 771, x1: 982, y1: 873 }, 992, 1488), angle: 25 }, 992, 1488);
+  const moved = movedTurnedRect(start, 10.4, -3.6, 992, 1488);
+  assert.ok(close(moved.x0 - start.x0, 10, 1e-9) && close(moved.y0 - start.y0, -4, 1e-9), "whole pixels");
+  assert.ok(close(moved.x1 - moved.x0, 369, 1e-9) && close(moved.y1 - moved.y0, 102, 1e-9), "the same size");
+  const far = movedTurnedRect(start, 5000, 5000, 992, 1488);
+  assert.deepEqual([(far.x0 + far.x1) / 2, (far.y0 + far.y1) / 2], [992, 1488], "the centre stops at the edge");
+  assert.ok(far.x1 > 992, "the rest of the box may reach past it");
+  const back = movedTurnedRect(start, -5000, -5000, 992, 1488);
+  assert.deepEqual([(back.x0 + back.x1) / 2, (back.y0 + back.y1) / 2], [0, 0]);
+});
+
+test("sizing a turned box pulls along its own sides and keeps the far side still", () => {
+  const start = { x0: 300, y0: 250, x1: 700, y1: 350 };
+  // Level, it is the free resize.
+  const free = snapping(1000, 1000, false);
+  for (const [handle, dx, dy] of [["e", 30, 0], ["w", -20, 5], ["n", 0, -12], ["s", 3, 40], ["se", 25, 15], ["nw", -10, -10]]) {
+    assert.deepEqual(resizedTurnedRect(start, handle, dx, dy, 0, 1000, 1000), resizedRect(start, handle, dx, dy, 1000, 1000, free), `${handle} level`);
+  }
+  const a = (25 * Math.PI) / 180;
+  const along = [Math.cos(a), Math.sin(a)];
+  const across = [-Math.sin(a), Math.cos(a)];
+  const leftMiddle = (rect) => turnPoint((rect.x0 + rect.x1) / 2, (rect.y0 + rect.y1) / 2, -(rect.x1 - rect.x0) / 2, 0, 25);
+  const wider = resizedTurnedRect(start, "e", 30 * along[0], 30 * along[1], 25, 1000, 1000);
+  assert.ok(close(wider.x1 - wider.x0, 430, 1e-9) && close(wider.y1 - wider.y0, 100, 1e-9), "30 px wider along its own side");
+  const [lx0, ly0] = leftMiddle(start);
+  const [lx1, ly1] = leftMiddle(wider);
+  assert.ok(close(lx0, lx1, 1e-9) && close(ly0, ly1, 1e-9), "the left side stays where it was");
+  assert.deepEqual(resizedTurnedRect(start, "e", 40 * across[0], 40 * across[1], 25, 1000, 1000), start, "a pull across the side does not size it");
+  const corner = resizedTurnedRect(start, "nw", -12 * along[0] - 8 * across[0], -12 * along[1] - 8 * across[1], 25, 1000, 1000);
+  assert.ok(close(corner.x1 - corner.x0, 412, 1e-9) && close(corner.y1 - corner.y0, 108, 1e-9), "a corner sizes both sides");
+  const squeezed = resizedTurnedRect(start, "w", 900 * along[0], 900 * along[1], 25, 1000, 1000);
+  assert.equal(squeezed.x1 - squeezed.x0, FREE_MIN_PX, "never thinner than FREE_MIN_PX");
+  const whole = resizedTurnedRect(start, "s", 0.4 * across[0] + 7.3 * across[0], 7.7 * across[1], 25, 1000, 1000);
+  assert.ok(Number.isInteger(Math.round((whole.y1 - whole.y0) * 1e6) / 1e6), "sides stay whole pixels");
+});
+
+test("a box turned back to level lands on whole pixels and on the canvas", () => {
+  assert.deepEqual(leveledRect({ x0: 100.4, y0: 50.6, x1: 300.4, y1: 90.6 }, 1000, 1000), { x0: 100, y0: 51, x1: 300, y1: 91 });
+  assert.deepEqual(leveledRect({ x0: -40.2, y0: 980, x1: 159.8, y1: 1030 }, 1000, 1000), { x0: 0, y0: 950, x1: 200, y1: 1000 }, "pushed back on");
+  assert.deepEqual(leveledRect({ x0: -500, y0: 0, x1: 1500, y1: 10 }, 1000, 1000), { x0: 0, y0: 0, x1: 1000, y1: 10 }, "never wider than the canvas");
+  // Turned and turned back, a box is exactly the box it was: the outputs are the same.
+  const drawn = newBox({ x0: 613, y0: 771, x1: 982, y1: 873 }, 992, 1488);
+  const back = fromPixels(leveledRect(boxPixels(drawn, 992, 1488), 992, 1488), 992, 1488);
+  assert.deepEqual([back.x, back.y, back.w, back.h], [drawn.x, drawn.y, drawn.w, drawn.h]);
+});
+
+test("the knob goes over the box, under it at the top of the canvas, inside when neither fits", () => {
+  assert.equal(KNOB_GAP_PX, 22);
+  assert.equal(knobSide({ x: 100, y: 100, w: 200, h: 60 }, 0, 400, 400), "above");
+  assert.equal(knobSide({ x: 100, y: 10, w: 200, h: 60 }, 0, 400, 400), "below", "no room over a box at the top");
+  assert.equal(knobSide({ x: 100, y: 5, w: 200, h: 390 }, 0, 400, 400), "in", "a box as tall as the canvas");
+  assert.equal(knobSide({ x: 100, y: 100, w: 200, h: 60 }, 90, 400, 400), "above", "turned, the knob turns with it");
+  assert.equal(knobSide({ x: 280, y: 100, w: 100, h: 60 }, 90, 400, 400), "above", "turned a quarter, over the top edge is to the right: room enough");
+  assert.equal(knobSide({ x: 320, y: 100, w: 60, h: 60 }, 90, 400, 400), "below", "turned near the right edge, it goes to the other side");
+});
+
+test("a turned box's tag goes where it stays on the canvas", () => {
+  assert.deepEqual(turnedTagPlace({ x: 100, y: 100, w: 200, h: 60 }, 25, 400, 400, 70), { tagInside: false, tagFromRight: false });
+  assert.deepEqual(turnedTagPlace({ x: 100, y: 2, w: 200, h: 60 }, -10, 400, 400, 70), { tagInside: true, tagFromRight: false }, "at the top: inside");
+  assert.deepEqual(turnedTagPlace({ x: 100, y: 0, w: 200, h: 60 }, 10, 400, 400, 70), { tagInside: true, tagFromRight: true }, "its top-left corner off the canvas: inside, on the right");
+  assert.deepEqual(turnedTagPlace({ x: 100, y: 100, w: 200, h: 60 }, -90, 400, 400, 70), { tagInside: false, tagFromRight: false });
+});
+
+test("the resize cursors point the way a turned box's handles pull", () => {
+  assert.equal(handleCursor("e", 0), "ew-resize");
+  assert.equal(handleCursor("se", 0), "nwse-resize");
+  assert.equal(handleCursor("n", 0), "ns-resize");
+  assert.equal(handleCursor("ne", 0), "nesw-resize");
+  assert.equal(handleCursor("e", 45), "nwse-resize");
+  assert.equal(handleCursor("n", 90), "ew-resize");
+  assert.equal(handleCursor("ne", -45), "ns-resize");
+  assert.equal(handleCursor("w", 20), "ew-resize", "the nearest of the four");
+  assert.equal(handleCursor("w", 25), "nwse-resize");
+  for (const handle of ["nw", "n", "ne", "e", "se", "s", "sw", "w"]) assert.equal(handleCursor(handle, 180), handleCursor(handle, 0));
+});
+
+test("a turned box's tag says its turn; the chip keeps number and type", () => {
+  assert.equal(boxTag({ type: "text", angle: 25 }, 0), "1 text 25°");
+  assert.equal(boxTag({ type: "obj", angle: -7.5 }, 1), "2 object -7.5°");
+  assert.equal(boxTag({ type: "text", angle: 0 }, 0), "1 text");
+  assert.equal(angleLabel(25.04), "25°");
+  assert.equal(angleLabel(25.25), "25.3°");
+  assert.equal(angleLabel(-0.01), "0°");
+  assert.ok(tagWidthPx(boxTag({ type: "obj", angle: -55.5 }, 9)) >= "10 object -55.5°".length * 6);
+});
+
+// The same words as nodes/_layout_boxes_helpers.py tilt_phrase (tests/test_layout_boxes_helpers.py TILT_WORDS).
+test("a turned text box tells the model its slant: from 2 degrees, downhill for clockwise, uphill the other way", () => {
+  assert.equal(TILT_FROM, 2);
+  for (const [angle, words] of [
+    [25.25, "tilted about 25 degrees, running downhill to the right"],
+    [-54.5, "tilted about 55 degrees, running uphill to the right"],
+    [2, "tilted about 2 degrees, running downhill to the right"],
+    [-2, "tilted about 2 degrees, running uphill to the right"],
+    [90, "tilted about 90 degrees, running downhill to the right"],
+    [1.99, ""], [-1.5, ""], [0, ""],
+  ]) assert.equal(tiltPhrase(angle), words, `${angle}`);
+});
+
+test("the face: the knob turns the box, Shift snaps, the Turn field and 0° set it, a turned box leaves the grid alone", () => {
+  const source = readFileSync(new URL("../js/layout_boxes/index.js", import.meta.url), "utf-8");
+  const body = (name) => {
+    const start = source.indexOf(`function ${name}(`);
+    assert.ok(start >= 0, `js/layout_boxes/index.js has no ${name}`);
+    return source.slice(start, source.indexOf("\n}\n", start));
+  };
+  assert.match(body("onStagePointerDown"), /if \(target\.closest\?\.\("\.ausboss-lb-knob"\) && index >= 0\) \{\s*setSelected\(state, index\);\s*beginTurn\(state, index, event\);/, "a press on the knob no longer turns the box");
+  assert.match(body("beginTurn"), /turnedAngle\(start, turned, \{ snap: moveEvent\.shiftKey \}\)/, "Shift no longer snaps the turn");
+  assert.match(body("beginTurn"), /turnStep\(last, now\)/);
+  assert.match(body("beginBoxDrag"), /if \(angle\) \{\s*rect = handle \? resizedTurnedRect\([^;]*: movedTurnedRect\(/, "a turned box no longer moves and sizes along its own sides");
+  assert.match(body("onStageKey"), /angleOf\(box\)\s*\? movedTurnedRect\(boxPixels\(box, width, height\), step\[0\], step\[1\], width, height\)/);
+  assert.match(body("placeBox"), /element\.style\.transform = angle \? `rotate\(\$\{angle\}deg\)` : "";/, "the box no longer draws turned");
+  assert.match(body("buildEditor"), /makeScrubInput\(\{[^}]*unit: "°"/, "the Turn field is no longer a scrub field in degrees");
+  assert.match(body("buildEditor"), /button\("ausboss-lb-tool", "0°", [^,]+, \(\) => setAngle\(state, state\.selected, 0\)\)/, "0° no longer levels the box");
+  assert.match(source, /if \(event\.target\.closest\("\.ausboss-lb-knob"\)\) setAngle\(state, state\.selected, 0\);/, "a double click on the knob no longer levels it");
+  // The knob is one of the handles: their size on the screen, at any zoom.
+  const rule = source.match(/\n\.ausboss-lb-knob\{([^\n]*)/)?.[1] ?? "";
+  assert.match(rule, /width:calc\(\$\{HANDLE_PX\}px\*var\(--lb-u\)\)/);
+  assert.match(rule, /translateY\(calc\(\$\{-KNOB_GAP_PX\}px\*var\(--lb-u\)\)\)/);
+  assert.match(source, /\.ausboss-lb-box\.sel>\.ausboss-lb-knob,\.ausboss-lb-box\.sel>\.ausboss-lb-stem\{display:block\}/, "the knob shows on other boxes than the chosen one");
 });

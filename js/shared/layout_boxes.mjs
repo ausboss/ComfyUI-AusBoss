@@ -7,6 +7,12 @@
 // in canvas pixels, lands on whole pixels, and turns back into fractions by
 // one division per number (pixels / side). The backend reads pixel boxes the
 // same way, so a box drawn here gives the same outputs on either node.
+//
+// A turned box also has `angle`: degrees, clockwise on the screen, -90 to 90,
+// about its centre. A level box has no `angle` at all, so its saved form is
+// what it always was. The turn is made in canvas pixels, so a turned box is a
+// true rectangle on a canvas of any shape (nodes/_layout_boxes_helpers.py
+// turns it the same way).
 
 export const DIM_MIN = 64;
 export const DIM_MAX = 16384;
@@ -29,6 +35,12 @@ export const EMPTY_LAYOUT = '{"v": 1, "boxes": []}';
 export const HANDLES = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
 // Boxes without a color of their own (the backend's preview uses the same).
 export const PLAIN_BOX = "#5fc9c0";
+// How far a box can be turned, either way, in degrees.
+export const ANGLE_LIMIT = 90;
+// Shift while turning lands on steps of this many degrees.
+export const ANGLE_SNAP = 5;
+// A text box turned at least this far tells the model its slant.
+export const TILT_FROM = 2;
 
 const clamp = (value, lo, hi) => Math.max(lo, Math.min(hi, value));
 
@@ -36,6 +48,144 @@ export function finiteNumber(value) {
   if (typeof value === "boolean" || value === null || value === undefined || value === "") return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+// ---------- turning ----------
+
+// A box's turn as it is kept: degrees, clockwise on the screen, -90 to 90. A
+// turn past 90 is the same rectangle as one 180 degrees back, so it is read
+// that way. Anything that is not a number is 0, a level box.
+export function readAngle(value) {
+  let number = finiteNumber(value);
+  if (number === null) return 0;
+  // Only a turn out of range is worked out again: the sums would add noise
+  // (25.2 would come back as 25.200000000000045).
+  if (Math.abs(number) > ANGLE_LIMIT) {
+    number = ((((number + 180) % 360) + 360) % 360) - 180;
+    if (number > ANGLE_LIMIT) number -= 180;
+    else if (number < -ANGLE_LIMIT) number += 180;
+  }
+  return number + 0;
+}
+
+export const angleOf = (box) => readAngle(box?.angle);
+
+// A turn as the tag and the readout say it: "25°", "-7.5°".
+export function angleLabel(angle) {
+  const tenths = Math.round(readAngle(angle) * 10) / 10 + 0;
+  return `${Number.isInteger(tenths) ? tenths : tenths.toFixed(1)}°`;
+}
+
+// What a turned text box adds to its description for the model (the backend
+// adds it, nodes/_layout_boxes_helpers.py tilt_phrase; the same words here
+// for the editor to show): "tilted about 25 degrees, running downhill to the
+// right" for a box turned clockwise, "uphill" the other way, nothing for a
+// turn under TILT_FROM degrees.
+export function tiltPhrase(angle) {
+  const turn = readAngle(angle);
+  if (Math.abs(turn) < TILT_FROM) return "";
+  return `tilted about ${Math.floor(Math.abs(turn) + 0.5)} degrees, running ${turn > 0 ? "downhill" : "uphill"} to the right`;
+}
+
+// [cos, sin] of a turn, exact at a quarter turn.
+function turnOf(angle) {
+  const turn = readAngle(angle);
+  if (Math.abs(turn) === ANGLE_LIMIT) return [0, Math.sign(turn)];
+  const radians = (turn * Math.PI) / 180;
+  return [Math.cos(radians), Math.sin(radians)];
+}
+
+// The point (u along the box's own top edge, v down its own left edge) from
+// the centre (cx, cy), on the canvas, for a box turned by `angle`.
+export function turnPoint(cx, cy, u, v, angle) {
+  const [cos, sin] = turnOf(angle);
+  return [cx + u * cos - v * sin, cy + u * sin + v * cos];
+}
+
+// A box's corners in canvas pixels: its top-left, top-right, bottom-right and
+// bottom-left corner as drawn, turned about its centre.
+export function boxCorners(box, width, height) {
+  const rect = boxPixels(box, width, height);
+  const cx = (rect.x0 + rect.x1) / 2;
+  const cy = (rect.y0 + rect.y1) / 2;
+  const hw = Math.abs(rect.x1 - rect.x0) / 2;
+  const hh = Math.abs(rect.y1 - rect.y0) / 2;
+  return [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]].map(([u, v]) => turnPoint(cx, cy, u, v, box?.angle));
+}
+
+// The straight box around a box, turned or not, in canvas pixels.
+export function turnedBounds(box, width, height) {
+  const corners = boxCorners(box, width, height);
+  const xs = corners.map(([x]) => x);
+  const ys = corners.map(([, y]) => y);
+  return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
+}
+
+// How far the pointer went round a centre from one of its angles to the next
+// (radians), the short way: crossing the line left of the centre is a small
+// step, not a whole turn.
+export function turnStep(from, to) {
+  let step = to - from;
+  while (step > Math.PI) step -= 2 * Math.PI;
+  while (step < -Math.PI) step += 2 * Math.PI;
+  return step;
+}
+
+// The angle a turn gives: where it started plus how far the pointer went
+// round (degrees), held to -90..90, on ANGLE_SNAP steps with Shift (`snap`),
+// else on tenths of a degree.
+export function turnedAngle(start, turned, { snap = false } = {}) {
+  const raw = clamp(readAngle(start) + (finiteNumber(turned) ?? 0), -ANGLE_LIMIT, ANGLE_LIMIT);
+  const landed = snap ? Math.round(raw / ANGLE_SNAP) * ANGLE_SNAP : Math.round(raw * 10) / 10;
+  return clamp(landed, -ANGLE_LIMIT, ANGLE_LIMIT) + 0;
+}
+
+// A turned box moved by (dx, dy) canvas pixels, whole pixels at a time. Its
+// centre stays on the canvas and its corners may reach past the edges, so it
+// can cover words that run to the edge of a picture. The grid steers level
+// boxes only.
+export function movedTurnedRect(start, dx, dy, width, height) {
+  const w = start.x1 - start.x0;
+  const h = start.y1 - start.y0;
+  const cx = clamp((start.x0 + start.x1) / 2 + Math.round(dx), 0, width);
+  const cy = clamp((start.y0 + start.y1) / 2 + Math.round(dy), 0, height);
+  return { x0: cx - w / 2, y0: cy - h / 2, x1: cx + w / 2, y1: cy + h / 2 };
+}
+
+// A handle of a turned box dragged by (dx, dy) canvas pixels. The drag is
+// read along the box's own sides, the side (or corner) across from the
+// handle stays where it is, and the sides keep whole pixels, at least
+// FREE_MIN_PX and at most the canvas's diagonal. The centre stays on the
+// canvas, as when the box is moved.
+export function resizedTurnedRect(start, handle, dx, dy, angle, width, height) {
+  const [cos, sin] = turnOf(angle);
+  const du = dx * cos + dy * sin;
+  const dv = -dx * sin + dy * cos;
+  const longest = Math.ceil(Math.hypot(width, height));
+  const side = (value) => clamp(Math.round(value), FREE_MIN_PX, Math.max(FREE_MIN_PX, longest));
+  const hw = (start.x1 - start.x0) / 2;
+  const hh = (start.y1 - start.y0) / 2;
+  let [left, right, top, bottom] = [-hw, hw, -hh, hh];
+  if (handle.includes("e")) right = left + side(right + du - left);
+  if (handle.includes("w")) left = right - side(right - left - du);
+  if (handle.includes("s")) bottom = top + side(bottom + dv - top);
+  if (handle.includes("n")) top = bottom - side(bottom - top - dv);
+  const [x, y] = turnPoint((start.x0 + start.x1) / 2, (start.y0 + start.y1) / 2, (left + right) / 2, (top + bottom) / 2, angle);
+  const cx = clamp(x, 0, width);
+  const cy = clamp(y, 0, height);
+  const w = right - left;
+  const h = bottom - top;
+  return { x0: cx - w / 2, y0: cy - h / 2, x1: cx + w / 2, y1: cy + h / 2 };
+}
+
+// A box turned back to level: on whole pixels and on the canvas again, as
+// level boxes always are.
+export function leveledRect(rect, width, height) {
+  const w = clamp(Math.round(rect.x1 - rect.x0), 1, width);
+  const h = clamp(Math.round(rect.y1 - rect.y0), 1, height);
+  const x0 = clamp(Math.round(rect.x0), 0, width - w);
+  const y0 = clamp(Math.round(rect.y0), 0, height - h);
+  return { x0, y0, x1: x0 + w, y1: y0 + h };
 }
 
 // A canvas side as the node takes it: a whole number inside the limits.
@@ -97,13 +247,17 @@ function cleanBox(item) {
   const numbers = ["x", "y", "w", "h"].map((key) => finiteNumber(item[key]));
   if (numbers.some((number) => number === null)) return null;
   const [x, y, w, h] = numbers;
-  return {
+  const box = {
     x, y, w, h,
     type: item.type === "text" ? "text" : "obj",
     text: typeof item.text === "string" ? item.text : "",
     desc: typeof item.desc === "string" ? item.desc : "",
     palette: cleanPalette(item.palette),
   };
+  // Only a turned box carries its angle; a level one reads as it always did.
+  const angle = readAngle(item.angle);
+  if (angle) box.angle = angle;
+  return box;
 }
 
 // Pixel boxes in Create Bounding Boxes' own form ({ x, y, width, height,
@@ -147,13 +301,18 @@ export function parseLayout(value, width = DEFAULT_SIZE, height = DEFAULT_SIZE) 
 export function serializeLayout(boxes, fromInput = "") {
   const data = {
     v: 1,
-    boxes: boxes.map((box) => ({
-      x: box.x, y: box.y, w: box.w, h: box.h,
-      type: box.type === "text" ? "text" : "obj",
-      text: box.text ?? "",
-      desc: box.desc ?? "",
-      palette: cleanPalette(box.palette),
-    })),
+    boxes: boxes.map((box) => {
+      const saved = {
+        x: box.x, y: box.y, w: box.w, h: box.h,
+        type: box.type === "text" ? "text" : "obj",
+        text: box.text ?? "",
+        desc: box.desc ?? "",
+        palette: cleanPalette(box.palette),
+      };
+      const angle = angleOf(box);
+      if (angle) saved.angle = angle;
+      return saved;
+    }),
   };
   if (fromInput) data.from_input = fromInput;
   return JSON.stringify(data);
@@ -336,9 +495,11 @@ export function boxKind(box) {
   return box?.type === "text" ? "text" : "object";
 }
 
-// What a box's tag and chip say: its number, and its type in words.
+// What a box's tag says: its number, its type in words, and how far it is
+// turned when it is ("1 text 25°"). The chips say the first two.
 export function boxTag(box, index) {
-  return `${index + 1} ${boxKind(box)}`;
+  const angle = angleOf(box);
+  return `${index + 1} ${boxKind(box)}${angle ? ` ${angleLabel(angle)}` : ""}`;
 }
 
 // The tag's width on the screen, a little over: its letters are monospace.
@@ -359,6 +520,62 @@ export function boxMarks(rect, canvasWidth, tagWidth) {
     tagInside: rect.y < TAG_HEIGHT_PX,
     tagFromRight: rect.x + tagWidth > canvasWidth,
   };
+}
+
+// The turn handle (the knob) sits this far from the box's edge, centre to
+// edge, in screen pixels; it is as big as the other handles.
+export const KNOB_GAP_PX = 22;
+
+// True when every point lies on a canvas of this size (screen pixels), with
+// `room` to spare.
+function onCanvas(points, canvasWidth, canvasHeight, room = 0) {
+  return points.every(([x, y]) => x >= room - 0.5 && y >= room - 0.5 && x <= canvasWidth - room + 0.5 && y <= canvasHeight - room + 0.5);
+}
+
+// Where the knob goes, from the box's place on the screen ({ x, y, w, h } as
+// drawn, before the turn) and its angle: "above" its top edge, "below" its
+// bottom edge when the canvas has no room above, else "in" the box under its
+// top edge. The canvas cuts off whatever is outside it.
+export function knobSide(rect, angle, canvasWidth, canvasHeight) {
+  const cx = rect.x + rect.w / 2;
+  const cy = rect.y + rect.h / 2;
+  const reach = rect.h / 2 + KNOB_GAP_PX;
+  for (const [side, v] of [["above", -reach], ["below", reach]]) {
+    if (onCanvas([turnPoint(cx, cy, 0, v, angle)], canvasWidth, canvasHeight, HANDLE_PX / 2)) return side;
+  }
+  return "in";
+}
+
+// Where a turned box's tag goes: the first of above its top-left corner,
+// above its top-right corner (running leftward), inside under the top-left
+// corner and inside under the top-right corner that stays on the canvas, as
+// a level box's tag does. Level boxes keep boxMarks' rule.
+export function turnedTagPlace(rect, angle, canvasWidth, canvasHeight, tagWidth) {
+  const cx = rect.x + rect.w / 2;
+  const cy = rect.y + rect.h / 2;
+  const hw = rect.w / 2;
+  const hh = rect.h / 2;
+  const tall = TAG_HEIGHT_PX;
+  const places = [
+    [false, false, [-hw, -hh - tall], [-hw + tagWidth, -hh]],
+    [false, true, [hw - tagWidth, -hh - tall], [hw, -hh]],
+    [true, false, [-hw, -hh], [-hw + tagWidth, -hh + tall]],
+    [true, true, [hw - tagWidth, -hh], [hw, -hh + tall]],
+  ];
+  for (const [inside, fromRight, [u0, v0], [u1, v1]] of places) {
+    const corners = [[u0, v0], [u1, v0], [u1, v1], [u0, v1]].map(([u, v]) => turnPoint(cx, cy, u, v, angle));
+    if (onCanvas(corners, canvasWidth, canvasHeight)) return { tagInside: inside, tagFromRight: fromRight };
+  }
+  return { tagInside: true, tagFromRight: false };
+}
+
+// The resize cursor for a handle of a box turned by `angle`: the one of the
+// four that points the way the handle pulls on the screen.
+const RESIZE_CURSORS = ["ew-resize", "nwse-resize", "ns-resize", "nesw-resize"];
+const HANDLE_HEADING = { e: 0, se: 45, s: 90, sw: 135, w: 180, nw: 225, n: 270, ne: 315 };
+export function handleCursor(handle, angle) {
+  const heading = (HANDLE_HEADING[handle] ?? 0) + readAngle(angle);
+  return RESIZE_CURSORS[((Math.round(heading / 45) % 4) + 4) % 4];
 }
 
 // ---------- words ----------
