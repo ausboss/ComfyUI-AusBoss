@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.17.0 - 2026-10-19
 
 - **Layout Boxes 🆎 boxes can be turned, to replace words at a slant.**
   Choose a box and drag the round handle over its top edge, or type the
