@@ -36,7 +36,7 @@ VALIDATORS = ("VALIDATE_INPUTS", "validate_inputs")
 # MaskEditor saves), a LoRA stack in JSON, or a value the check needs.
 # Image Folder looks its folder up inside the chosen source, so it reads both.
 NAMED = {
-    "AusBossImageCropRotatePad": ["image"],
+    "AusBossImageCropRotatePad": ["image", "source_image"],
     "AusBossImageFolder": ["source", "folder"],
     "AusBossLaMaInpaint": ["model"],
     "AusBossLoadImagePad": ["image", "source_image"],

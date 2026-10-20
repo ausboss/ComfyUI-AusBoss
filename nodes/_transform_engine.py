@@ -411,13 +411,19 @@ def transform_pil_batch(
     return (*result, torch.stack(shown, dim=0))
 
 
-def transform_tensor_batch(
-    image: torch.Tensor, spec: TransformSpec, source_mask: torch.Tensor | None = None
-) -> tuple[torch.Tensor, torch.Tensor, TransformGeometry]:
+def tensor_to_pil_frames(
+    image: torch.Tensor, source_mask: torch.Tensor | None = None, *, name: str = "image"
+) -> list[Image.Image]:
+    """A BHWC IMAGE batch as the RGBA frames transform_pil_batch takes.
+
+    A fourth channel is the frame's alpha, so a wired cutout is see-through
+    where the same picture loaded from a PNG would be; three channels are
+    solid. A mask (white = see-through) lowers the alpha further.
+    """
     if not isinstance(image, torch.Tensor) or image.ndim != 4 or image.shape[-1] not in (3, 4):
         received = tuple(image.shape) if isinstance(image, torch.Tensor) else type(image).__name__
         raise ValueError(
-            "Transform: input 'image' expected BHWC with 3 or 4 channels, "
+            f"Transform: input '{name}' expected BHWC with 3 or 4 channels, "
             f"received {received}."
         )
     if source_mask is not None:
@@ -426,8 +432,6 @@ def transform_tensor_batch(
                 "Transform: input 'source_mask' expected BHW matching the image batch."
             )
 
-    device = image.device
-    dtype = image.dtype
     pil_frames: list[Image.Image] = []
     image_cpu = image.detach().to(device="cpu", dtype=torch.float32).clamp(0.0, 1.0)
     mask_cpu = None if source_mask is None else source_mask.detach().to(device="cpu", dtype=torch.float32).clamp(0.0, 1.0)
@@ -440,7 +444,15 @@ def transform_tensor_batch(
         if mask_cpu is not None:
             alpha = np.minimum(alpha, ((1.0 - mask_cpu[index].numpy()) * 255.0).round().astype(np.uint8))
         pil_frames.append(Image.fromarray(np.dstack((rgb, alpha))))
+    return pil_frames
 
+
+def transform_tensor_batch(
+    image: torch.Tensor, spec: TransformSpec, source_mask: torch.Tensor | None = None
+) -> tuple[torch.Tensor, torch.Tensor, TransformGeometry]:
+    pil_frames = tensor_to_pil_frames(image, source_mask)
+    device = image.device
+    dtype = image.dtype
     output, mask, geometry = transform_pil_batch(pil_frames, spec)
     return output.to(device=device, dtype=dtype), mask.to(device=device, dtype=dtype), geometry
 

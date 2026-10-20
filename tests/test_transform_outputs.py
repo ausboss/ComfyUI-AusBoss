@@ -449,5 +449,125 @@ class FeatheredStitchTests(unittest.TestCase):
         self.assertTrue(torch.equal(stitcher['blend'], mask))
 
 
+class WiredSourceTests(unittest.TestCase):
+    """Pictures wired into source_image take the file's place, in bulk."""
+
+    LAYOUT = dict(
+        rotation_degrees=-9.5, crop_x=6, crop_y=4, crop_width=100, crop_height=70,
+        pad_left=24, pad_top=8, pad_right=40, pad_bottom=0, canvas_multiple=8, feather=6,
+    )
+
+    @staticmethod
+    def picture(width=128, height=96, seed=5, alpha=False):
+        rng = np.random.default_rng(seed)
+        channels = 4 if alpha else 3
+        array = rng.integers(0, 256, size=(height, width, channels), dtype=np.uint8)
+        if alpha:
+            # A see-through hole, and the rest solid.
+            array[..., 3] = 255
+            array[20:50, 30:70, 3] = 0
+        return Image.fromarray(array, 'RGBA' if alpha else 'RGB')
+
+    @staticmethod
+    def wire(*pictures):
+        return torch.stack([torch.from_numpy(np.asarray(p, dtype=np.float32) / 255.0) for p in pictures])
+
+    def from_file(self, picture, **values):
+        with patch('nodes.node_image_crop_rotate_pad.resolve_input_path', return_value=Path('source.png')), patch('nodes.node_image_crop_rotate_pad.load_image_frames', return_value=[picture]):
+            return AusBossImageCropRotatePad().load_transform('source.png', **values)
+
+    def wired(self, batch, **values):
+        def unread(*_args, **_kwargs):
+            raise AssertionError('a wired run must not read the file')
+
+        with patch('nodes.node_image_crop_rotate_pad.resolve_input_path', side_effect=unread), patch('nodes.node_image_crop_rotate_pad.folder_paths', None):
+            return AusBossImageCropRotatePad().load_transform('gone.png', source_image=batch, **values)
+
+    def assertSameOutputs(self, wired, filed):
+        self.assertEqual(len(wired), len(filed))
+        for index, (left, right) in enumerate(zip(wired, filed)):
+            with self.subTest(output=AusBossImageCropRotatePad.RETURN_NAMES[index]):
+                if isinstance(left, torch.Tensor):
+                    self.assertTrue(torch.equal(left, right))
+                elif isinstance(left, dict):
+                    self.assertTrue(torch.equal(left['image'], right['image']))
+                    self.assertTrue(torch.equal(left['blend'], right['blend']))
+                else:
+                    self.assertEqual(left, right)
+
+    def test_source_image_is_an_appended_optional_input(self):
+        types = AusBossImageCropRotatePad.INPUT_TYPES()
+        self.assertEqual(list(types['optional'])[-1], 'source_image')
+        self.assertEqual(types['optional']['source_image'][0], 'IMAGE')
+        self.assertEqual(list(types['required'])[0], 'image')
+        self.assertEqual(types['hidden'], {'unique_id': 'UNIQUE_ID'})
+
+    def test_a_wired_picture_gives_what_the_same_file_gives(self):
+        picture = self.picture()
+        for values in ({}, self.LAYOUT, {**self.LAYOUT, 'resize_to_megapixels': True, 'megapixels': 0.02, 'resolution_steps': 16}):
+            with self.subTest(values=values):
+                self.assertSameOutputs(self.wired(self.wire(picture), **values), self.from_file(picture, **values))
+
+    def test_a_wired_cutout_is_see_through_like_its_png(self):
+        picture = self.picture(alpha=True)
+        for painted_area in ('fill', 'keep picture'):
+            with self.subTest(painted_area=painted_area):
+                wired = self.wired(self.wire(picture), painted_area=painted_area, **self.LAYOUT)
+                self.assertSameOutputs(wired, self.from_file(picture, painted_area=painted_area, **self.LAYOUT))
+
+    def test_a_wired_batch_gets_the_same_framing_on_every_picture(self):
+        pictures = [self.picture(seed=seed) for seed in (1, 2, 3)]
+        image, mask, _stitcher, original, width, height, prompt_image = self.wired(self.wire(*pictures), **self.LAYOUT)
+        self.assertEqual(tuple(image.shape), (3, height, width, 3))
+        self.assertEqual(tuple(original.shape), (3, 96, 128, 3))
+        for index, picture in enumerate(pictures):
+            alone = self.from_file(picture, **self.LAYOUT)
+            self.assertTrue(torch.equal(image[index], alone[0][0]))
+            self.assertTrue(torch.equal(mask[index], alone[1][0]))
+        self.assertTrue(torch.equal(prompt_image, image))
+
+    def test_a_wired_run_hands_the_editor_its_picture_and_true_size(self):
+        import tempfile
+        import nodes.node_image_crop_rotate_pad as module
+
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = type('FolderPaths', (), {'get_temp_directory': staticmethod(lambda: tmp)})
+            with patch.object(module, 'folder_paths', fake):
+                node = AusBossImageCropRotatePad()
+                runs = [
+                    node.load_transform('gone.png', source_image=self.wire(self.picture(2400, 1800, seed=seed)), unique_id='12:5', **self.LAYOUT)
+                    for seed in (1, 2)
+                ]
+            for out in runs:
+                self.assertEqual(out['ui']['ausboss_transform_wired_size'], [[2400, 1800]])
+                self.assertEqual(
+                    out['ui']['ausboss_transform_wired'],
+                    [{'filename': '12_5.jpg', 'subfolder': module.STAGE_PREVIEW_SUBFOLDER, 'type': 'temp'}],
+                )
+                self.assertEqual(len(out['result']), 7)
+            # One file per node, overwritten by the next picture.
+            folder = Path(tmp) / module.STAGE_PREVIEW_SUBFOLDER
+            self.assertEqual([path.name for path in folder.iterdir()], ['12_5.jpg'])
+            with Image.open(folder / '12_5.jpg') as preview:
+                self.assertEqual(preview.size, (1600, 1200))
+                last = np.asarray(self.picture(2400, 1800, seed=2).resize((1600, 1200)), dtype=np.float32)
+                self.assertLess(float(np.abs(np.asarray(preview.convert('RGB'), dtype=np.float32) - last).mean()), 12.0)
+        # A file-driven run keeps returning the plain tuple.
+        self.assertIsInstance(self.from_file(self.picture()), tuple)
+
+    def test_validation_skips_the_file_when_a_picture_is_wired(self):
+        import inspect
+
+        self.assertIsNone(inspect.getfullargspec(AusBossImageCropRotatePad.VALIDATE_INPUTS).varkw)
+        # ComfyUI passes a linked input to validation as None; an unwired
+        # optional input is left out.
+        self.assertIs(AusBossImageCropRotatePad.VALIDATE_INPUTS(image='gone.png', source_image=None), True)
+        self.assertIn('Image Crop + Rotate + Pad', AusBossImageCropRotatePad.VALIDATE_INPUTS(image='gone.png'))
+
+    def test_a_wire_that_is_not_a_picture_says_so(self):
+        with self.assertRaisesRegex(ValueError, "source_image"):
+            self.wired(torch.zeros((1, 8, 8, 2)))
+
+
 if __name__ == '__main__':
     unittest.main()
