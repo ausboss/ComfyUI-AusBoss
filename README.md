@@ -306,6 +306,8 @@ Drag to draw a box, drag it to move it and its handles to size it; under the can
 
 The `mask` output is white inside every box: load a picture, draw a box over the words on a sign, and an inpaint chain can write new words there while the rest of the picture stays as it was. For words at a slant, drag the round handle over a box to turn it: the mask turns with it, and a turned text box tells the model its slant.
 
+![Layout Boxes over a photo of a woman in front of a neon ramen sign: a text box is drawn over the sign, AUSBOSS and red neon letters are typed in, and MOSS-Image's result wipes in with the sign reading AUSBOSS.](assets/readme/layout-boxes.gif)
+
 ### Seed
 
 One seed for several samplers. **Random**, **Fixed** and **Step** set what happens after each run. Switching to Random, or from Fixed to Step, changes the seed right away, so the next run is a new one. **New seed** rolls a value and keeps it. **Use last run** brings back the seed the last run actually used. The history menu keeps the last eight seeds and saves them with the workflow.
