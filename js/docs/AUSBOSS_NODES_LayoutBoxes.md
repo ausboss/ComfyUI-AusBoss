@@ -33,17 +33,41 @@ of a picture, such as the words on a sign or a shirt.
 
 1. Wire a Load Image into `background` and pick your picture. It shows on the
    canvas right away.
-2. Draw a box over the old words, a little wider than the new words will be.
+2. Draw a box over the old words, a little wider than the old words on every
+   side (about 12 pixels), or bits of the old letters can show at its edge.
    Keep faces and hands out of it: whatever is in the box is drawn again.
    The arrow keys move the chosen box one pixel at a time.
-3. Make it a **text** box. Type the new words in **Text**, and how they look in
+3. If the words run at a slant, turn the box to match them: drag the round
+   handle over the box (see **Turning a box** below).
+4. Make it a **text** box. Type the new words in **Text**, and how they look in
    **Description**, for example "white letters on a red sign".
-4. Soften the edge of `mask`, for example with Mask Refine 🆎 at a blur of
+5. Soften the edge of `mask`, for example with Mask Refine 🆎 at a blur of
    about 6, or a line can show around the box. Then wire it into the inpaint
    part of your workflow: Set Latent Noise Mask, so only the box is drawn
    again, and Image Composite Masked, so everything else stays as it was.
-5. With MOSS-Image, wire `elements` to MOSS-Image Layout Prompt. The model
+6. With MOSS-Image, wire `elements` to MOSS-Image Layout Prompt. The model
    gets the new words from the box, and your prompt only describes the picture.
+
+## Turning a box
+
+Words on a sign or a shirt often run at a slant. Turn the box to lie along
+them, and only the slanted words are drawn again.
+
+1. Click the box to choose it. A round handle shows over the middle of its
+   top edge.
+2. Drag the handle around the box. Hold Shift to turn it in steps of 5
+   degrees.
+3. Or type the angle in **Turn**, under the canvas: plus turns the box
+   clockwise. **0°**, or a double-click on the round handle, makes the box
+   level again.
+
+The box's tag shows how far it is turned, for example **1 text 25°**. A turned
+box still moves, sizes and takes the arrow keys. Its corners may reach past
+the edge of the picture, so it can cover words that run to the edge.
+
+A turned **text** box tells the model the slant for you: its description in
+`elements` gets "tilted about 25 degrees, running downhill to the right" (or
+"uphill") added, so you do not have to type it.
 
 If the picture is resized on its way to the model, resize the mask with it:
 Image Resize 🆎 takes a mask and gives it the same size and crop.
@@ -56,6 +80,8 @@ Image Resize 🆎 takes a mask and gives it the same size and crop.
 | Shift + drag over a box | Draw a new box on top of it |
 | Drag a box | Move it |
 | Drag a corner or an edge of the chosen box | Make it bigger or smaller |
+| Drag the round handle over the chosen box | Turn it (Shift: steps of 5 degrees) |
+| Double-click the round handle | Make the box level again |
 | Double-click a box | Type its words |
 | Click a box's chip under the canvas (**1 text**, **2 object**) | Choose that box, also one hidden under another. When there are more boxes than chips, **‹ ›** step through them |
 | Delete | Remove the chosen box |
@@ -94,10 +120,12 @@ removes it. The first color also colors the box on the canvas.
   mouse. It is on for an empty canvas and off over a picture on `background`,
   so a box can go anywhere on the picture. Click it to turn it on or off; the
   node keeps your choice. Hold Ctrl (or Alt) while dragging to leave the grid
-  for one drag. The cells are 32 pixels, bigger on a very big canvas.
+  for one drag. The cells are 32 pixels, bigger on a very big canvas. A
+  turned box does not snap: it moves and sizes one pixel at a time.
 - **Layouts**: start from a ready arrangement: one in the middle, two side by
   side, three across, top and bottom, a title over a picture, four corners.
-  The boxes you already have move into the new places and keep their words.
+  The boxes you already have move into the new places, level, and keep their
+  words.
 - The canvas size, and where it comes from: **picture** when a picture is on
   `background`, **wired** when width and height are wired.
 - **Clear** removes every box.
@@ -117,10 +145,10 @@ removes it. The first color also colors the box on the canvas.
 
 | Output | Use |
 |---|---|
-| `preview` | A picture of the boxes with their numbers, words and colors, to check the layout. |
-| `bboxes` | The boxes in pixels of the canvas (x, y, width, height), for nodes that take bounding boxes. |
-| `elements` | The boxes as prompt elements. Wire it to MOSS-Image Layout Prompt. |
-| `mask` | White inside every box, black elsewhere, to change only those places of a picture. |
+| `preview` | A picture of the boxes with their numbers, words and colors, to check the layout. Turned boxes are drawn turned. |
+| `bboxes` | The boxes in pixels of the canvas (x, y, width, height), for nodes that take bounding boxes. A turned box gives the straight box around it. |
+| `elements` | The boxes as prompt elements. Wire it to MOSS-Image Layout Prompt. A turned box gives the straight box around it, and a turned text box says its slant in its description. |
+| `mask` | White inside every box, black elsewhere, to change only those places of a picture. A turned box is white inside its turned shape only. |
 
 ## In place of Create Bounding Boxes
 
@@ -140,6 +168,21 @@ run once: they fill the canvas. Then remove the old node.
   keeps every box at the same place. An API prompt can set it:
   `{"v": 1, "boxes": [{"x": 0.25, "y": 0.1, "w": 0.5, "h": 0.8, "type": "obj", "text": "", "desc": "a cat", "palette": ["#ff3399"]}]}`.
   A list of pixel boxes in Create Bounding Boxes' own form is read as well.
+- A turned box also has `"angle"`: degrees, clockwise on the screen, from -90
+  to 90, about the box's centre. `x`, `y`, `w` and `h` stay the box as it was
+  drawn, before the turn. Only turned boxes carry the key, and a box without
+  it is level, so layouts saved before boxes could turn give exactly what
+  they gave. The turn is made in pixels of the canvas the box was drawn on
+  (the picture on `background`, when there is one), so a turned box is a true
+  rectangle there whatever the canvas's shape.
+- For a turned box, `mask` is white at every pixel whose centre is inside the
+  turned rectangle. `bboxes` and `elements` hold the straight box around it,
+  cut to the canvas: those types only know straight boxes. A text box turned
+  2 degrees or more gets "tilted about N degrees, running downhill to the
+  right" (clockwise) or "running uphill to the right" added to its
+  description in `elements`, after a comma, or as its own sentence when the
+  description ends with a full stop; not when the description already says
+  it. Object boxes get no such words.
 - `elements` holds one element per box, in order:
   `{"type": "obj" or "text", "bbox": [ymin, xmin, ymax, xmax], "text", "desc", "color_palette"}`.
   The place is on a 0 to 1000 grid over the canvas, `text` is there for text

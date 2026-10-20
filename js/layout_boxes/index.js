@@ -1,9 +1,11 @@
 // Layout Boxes 🆎: the canvas on the node.
 //
 // Drag on the canvas to draw a box, drag a box to move it, drag its handles
-// to size it. Under the canvas the chosen box's type, words and colors. The
-// canvas size is the card above it (js/widget_cards), or a picture on
-// `background`, or what width and height are wired to.
+// to size it, drag the round knob over its top edge to turn it (Shift: 5°
+// steps; a double click on the knob makes it level again). Under the canvas
+// the chosen box's type, words, colors and turn. The canvas size is the card
+// above it (js/widget_cards), or a picture on `background`, or what width and
+// height are wired to.
 //
 // The panel drives the hidden `layout` widget, so saving, loading, undo and
 // the API format all go the usual way, in the classic look and in Nodes 2.0
@@ -22,22 +24,28 @@ import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { describeSourcePreview, outputLocatorId } from "../shared/input_preview.mjs";
 import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
 import { isForeignRun } from "../shared/prompt_scope.mjs";
+import { makeScrubInput } from "../shared/scrub_input.mjs";
 import { gearIconSvg, openSettingsMenu } from "../shared/settings_menu.mjs";
 import { commitWidgetValue } from "../shared/widget_card_math.mjs";
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
 import {
+  ANGLE_LIMIT,
   CHIPS_MAX,
   GRID_SIZES,
   HANDLES,
   HANDLE_PX,
+  KNOB_GAP_PX,
   LAYOUTS,
   MAX_BOXES,
   MAX_COLORS,
   TAG_HEIGHT_PX,
+  angleLabel,
+  angleOf,
   applyLayout,
   boxColor,
   boxKind,
   boxMarks,
+  boxPixels,
   boxSizePx,
   boxTag,
   boxWords,
@@ -49,20 +57,30 @@ import {
   fromPixels,
   gridCellOf,
   gridIsOn,
+  handleCursor,
   inputLink,
   keptWordsNote,
+  knobSide,
+  leveledRect,
   movedRect,
+  movedTurnedRect,
   newBox,
   normalizeHex,
   nudgeStep,
   nudgedRect,
   parseLayout,
+  readAngle,
   resizedRect,
+  resizedTurnedRect,
   serializeLayout,
   sideForPicture,
   snapping,
   tagWidthPx,
   textOn,
+  tiltPhrase,
+  turnStep,
+  turnedAngle,
+  turnedTagPlace,
   wholePixels,
   wiredNumber,
   wiredSource,
@@ -175,6 +193,17 @@ function ensureCss() {
 .ausboss-lb-handle[data-h="s"]{left:50%;top:100%;cursor:ns-resize}
 .ausboss-lb-handle[data-h="sw"]{left:0;top:100%;cursor:nesw-resize}
 .ausboss-lb-handle[data-h="w"]{left:0;top:50%;cursor:ew-resize}
+.ausboss-lb-ang{font-weight:600}
+.ausboss-lb-knob{position:absolute;left:50%;top:0;width:calc(${HANDLE_PX}px*var(--lb-u));height:calc(${HANDLE_PX}px*var(--lb-u));margin:calc(${-HANDLE_PX / 2}px*var(--lb-u)) 0 0 calc(${-HANDLE_PX / 2}px*var(--lb-u));transform:translateY(calc(${-KNOB_GAP_PX}px*var(--lb-u)));display:none;z-index:6;cursor:grab;touch-action:none}
+.ausboss-lb-knob::after{content:"";position:absolute;inset:calc(2.5px*var(--lb-u));border-radius:50%;background:#f4f8f8;box-shadow:0 0 0 calc(1px*var(--lb-u)) #061010}
+.ausboss-lb-knob:hover::after{background:#7fe9e2}
+.ausboss-lb-stem{position:absolute;left:50%;bottom:100%;width:calc(1px*var(--lb-u));height:calc(${KNOB_GAP_PX - HANDLE_PX / 2}px*var(--lb-u));margin-left:calc(-.5px*var(--lb-u));display:none;z-index:3;background:#f4f8f8;box-shadow:0 0 0 calc(.75px*var(--lb-u)) rgba(6,16,16,.75);pointer-events:none}
+.ausboss-lb-box.sel>.ausboss-lb-knob,.ausboss-lb-box.sel>.ausboss-lb-stem{display:block}
+.ausboss-lb-box.knob-below>.ausboss-lb-knob{top:100%;transform:translateY(calc(${KNOB_GAP_PX}px*var(--lb-u)))}
+.ausboss-lb-box.knob-below>.ausboss-lb-stem{bottom:auto;top:100%}
+.ausboss-lb-box.knob-in>.ausboss-lb-knob{transform:translateY(calc(${KNOB_GAP_PX}px*var(--lb-u)))}
+.ausboss-lb-box.knob-in>.ausboss-lb-stem{bottom:auto;top:0}
+.ausboss-lb-stage.turning,.ausboss-lb-stage.turning *{cursor:grabbing!important}
 .ausboss-lb-ghost{position:absolute;z-index:7;border:calc(1.5px*var(--lb-u)) dashed ${BRAND};background:rgba(0,180,170,.12);pointer-events:none}
 .ausboss-lb-empty{position:absolute;inset:0;display:grid;place-items:center;padding:14px;text-align:center;color:#6f8886;font:12px/1.4 ${FONT};pointer-events:none}
 .ausboss-lb-readout{position:absolute;left:6px;bottom:5px;z-index:8;padding:2px 6px;border-radius:4px;background:rgba(0,0,0,.66);color:#d8ecea;font:600 10.5px ${MONO};pointer-events:none;white-space:nowrap}
@@ -218,6 +247,10 @@ function ensureCss() {
 .ausboss-lb-add:hover{border-color:${BRAND};color:#fff}
 .ausboss-lb-add input{position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:none;opacity:0;cursor:pointer}
 .ausboss-lb-add[hidden]{display:none}
+.ausboss-lb-turn{flex:none;margin-left:auto;display:flex;align-items:center;gap:4px}
+.ausboss-lb-turn>label{flex:none;color:#8ba3a1;font:500 11px ${FONT};user-select:none}
+.ausboss-lb-turn>.ausboss-scrub{height:22px}
+.ausboss-lb-turn>.ausboss-lb-tool{width:28px;height:22px;font:600 10.5px/1 ${FONT}}
 .ausboss-lb-hint{flex:1 1 auto;display:grid;place-items:center;padding:4px 10px;text-align:center;color:#6f8886;font:12px/1.45 ${FONT}}
 .ausboss-lb-hint[hidden]{display:none}
 .ausboss-lb-pop{position:fixed;z-index:100000;width:230px;display:flex;flex-direction:column;gap:2px;padding:6px;border:1px solid #2f3b3d;border-radius:8px;background:#141a1b;box-shadow:0 10px 28px rgba(0,0,0,.55);color:#c8dddd;font:12px ${FONT}}
@@ -424,6 +457,9 @@ function placeBox(element, box) {
   element.style.top = `${box.y * 100}%`;
   element.style.width = `${box.w * 100}%`;
   element.style.height = `${box.h * 100}%`;
+  // A turned box turns about its centre, its tag and handles with it.
+  const angle = angleOf(box);
+  element.style.transform = angle ? `rotate(${angle}deg)` : "";
 }
 
 function makeBoxEl(state, index) {
@@ -443,31 +479,50 @@ function makeBoxEl(state, index) {
     element.append(strip);
   }
   const tag = el("div", "ausboss-lb-tag");
-  tag.append(el("b", "", String(index + 1)), ` ${boxKind(box)}`);
+  // The tag says how far the box is turned too (dressBox fills it in).
+  tag.append(el("b", "", String(index + 1)), ` ${boxKind(box)}`, el("span", "ausboss-lb-ang"));
   element.append(tag, el("div", "ausboss-lb-words", boxWords(box)));
   for (const handle of HANDLES) {
     const grip = el("div", "ausboss-lb-handle");
     grip.dataset.h = handle;
     element.append(grip);
   }
+  // The turn handle: a round knob on a short stem over the top edge's middle.
+  const knob = el("div", "ausboss-lb-knob");
+  knob.title = "Drag to turn the box. Shift: 5° steps. Double-click: level again.";
+  element.append(el("div", "ausboss-lb-stem"), knob);
   placeBox(element, box);
   dressBox(state, element, box, index);
   return element;
 }
 
 // The marks that follow the box's size on the screen: a handle in the middle
-// of a side only where it fits, and the tag inside the box, or running
-// leftward, where the canvas has no room for it.
+// of a side only where it fits, the tag inside the box, or running leftward,
+// where the canvas has no room for it, and the knob under the box when there
+// is no room over it. A turned box's tag also says its turn, and its handles
+// show the cursor of the way they pull.
 function dressBox(state, element, box, index) {
   const zoom = state.zoom || 1;
   const across = (state.frameW || 0) * zoom;
   const down = (state.frameH || 0) * zoom;
   const rect = { x: box.x * across, y: box.y * down, w: box.w * across, h: box.h * down };
-  const marks = boxMarks(rect, across, tagWidthPx(boxTag(box, index)));
+  const angle = angleOf(box);
+  const tagWidth = tagWidthPx(boxTag(box, index));
+  const marks = boxMarks(rect, across, tagWidth);
+  if (angle) Object.assign(marks, turnedTagPlace(rect, angle, across, down, tagWidth));
   element.classList.toggle("no-tb", !marks.middleTopBottom);
   element.classList.toggle("no-lr", !marks.middleLeftRight);
   element.classList.toggle("tag-in", marks.tagInside);
   element.classList.toggle("tag-r", marks.tagFromRight);
+  // The knob keeps its side while it is turned, so it stays under the pointer.
+  if (state.turning !== element) {
+    const side = knobSide(rect, angle, across, down);
+    element.classList.toggle("knob-below", side === "below");
+    element.classList.toggle("knob-in", side === "in");
+  }
+  const turn = element.querySelector(".ausboss-lb-ang");
+  if (turn) turn.textContent = angle ? ` ${angleLabel(angle)}` : "";
+  for (const grip of element.querySelectorAll(".ausboss-lb-handle")) grip.style.cursor = angle ? handleCursor(grip.dataset.h, angle) : "";
 }
 
 function renderBoxes(state) {
@@ -516,7 +571,8 @@ function readoutFor(state, index) {
   const { width, height } = state.size;
   const rect = wholePixels(box, width, height);
   const [w, h] = boxSizePx(box, width, height);
-  return `box ${index + 1}: ${w} × ${h} at ${rect.x0}, ${rect.y0}`;
+  const angle = angleOf(box);
+  return `box ${index + 1}: ${w} × ${h} at ${rect.x0}, ${rect.y0}${angle ? `, turned ${angleLabel(angle)}` : ""}`;
 }
 
 // ---------- choosing a box ----------
@@ -600,8 +656,12 @@ function copyBox(state, index) {
   if (!box) return;
   const { width, height } = state.size;
   const size = gridSize(state);
-  const rect = copiedRect(wholePixels(box, width, height), width, height, gridCellOf(width, size), gridCellOf(height, size));
-  addBox(state, fromPixels(rect, width, height, { type: box.type, text: box.text, desc: box.desc, palette: [...box.palette] }));
+  const angle = angleOf(box);
+  const from = angle ? boxPixels(box, width, height) : wholePixels(box, width, height);
+  const rect = copiedRect(from, width, height, gridCellOf(width, size), gridCellOf(height, size));
+  const copy = fromPixels(rect, width, height, { type: box.type, text: box.text, desc: box.desc, palette: [...box.palette] });
+  if (angle) copy.angle = angle;
+  addBox(state, copy);
 }
 
 // Earlier in the list is further back; the last box is in front.
@@ -643,10 +703,13 @@ function watchDrag(state, { onMove, onEnd, onCancel }) {
   }, { capture: true, signal });
 }
 
+// A box dragged by its middle (handle null) or by a handle. A turned box
+// moves and sizes along its own sides, by whole pixels, off the grid.
 function beginBoxDrag(state, index, handle, event) {
   const { width, height } = state.size;
   const startBox = { ...state.boxes[index] };
-  const start = wholePixels(startBox, width, height);
+  const angle = angleOf(startBox);
+  const start = angle ? boxPixels(startBox, width, height) : wholePixels(startBox, width, height);
   const origin = pointerPixels(state, event);
   let moved = false;
   const box = state.boxes[index];
@@ -658,10 +721,15 @@ function beginBoxDrag(state, index, handle, event) {
     const dy = point.y - origin.y;
     if (!moved && Math.hypot(dx, dy) * origin.screen < MOVE_START) return;
     moved = true;
-    const grid = snapping(width, height, gridOn(state) && !moveEvent.altKey && !moveEvent.ctrlKey && !moveEvent.metaKey, gridSize(state));
-    const rect = handle
-      ? resizedRect(start, handle, dx, dy, width, height, grid)
-      : movedRect(start, dx, dy, width, height, grid);
+    let rect;
+    if (angle) {
+      rect = handle ? resizedTurnedRect(start, handle, dx, dy, angle, width, height) : movedTurnedRect(start, dx, dy, width, height);
+    } else {
+      const grid = snapping(width, height, gridOn(state) && !moveEvent.altKey && !moveEvent.ctrlKey && !moveEvent.metaKey, gridSize(state));
+      rect = handle
+        ? resizedRect(start, handle, dx, dy, width, height, grid)
+        : movedRect(start, dx, dy, width, height, grid);
+    }
     Object.assign(state.boxes[index], fromPixels(rect, width, height));
     placeBox(state.boxEls[index], state.boxes[index]);
     dressBox(state, state.boxEls[index], state.boxes[index], index);
@@ -677,6 +745,70 @@ function beginBoxDrag(state, index, handle, event) {
       if (state.boxes[index] === box) Object.assign(box, startBox);
       paintBoxes(state);
       showReadout(state);
+    },
+  });
+}
+
+// The knob dragged round the box's centre: the box turns as far as the
+// pointer goes round, -90 to 90 degrees, on 5 degree steps while Shift is
+// held. Esc puts it back.
+function beginTurn(state, index, event) {
+  const box = state.boxes[index];
+  const element = state.boxEls[index];
+  const startBox = { ...box };
+  const start = angleOf(box);
+  const heading = (pointer) => {
+    const frame = state.frame.getBoundingClientRect();
+    const cx = frame.left + (box.x + box.w / 2) * frame.width;
+    const cy = frame.top + (box.y + box.h / 2) * frame.height;
+    return Math.atan2(pointer.clientY - cy, pointer.clientX - cx);
+  };
+  let last = heading(event);
+  let turned = 0;
+  let moved = false;
+  state.turning = element;
+  state.stage.classList.add("turning");
+  const apply = (moveEvent) => {
+    // The list changed under the drag (an undo, a run): let go.
+    if (state.boxes[index] !== box || state.boxEls[index] !== element) return;
+    if (!moved && Math.hypot(moveEvent.clientX - event.clientX, moveEvent.clientY - event.clientY) < MOVE_START) return;
+    moved = true;
+    const now = heading(moveEvent);
+    // Past the limit the box waits at it, and turns back as soon as the pointer does.
+    turned = clamp(turned + (turnStep(last, now) * 180) / Math.PI, -ANGLE_LIMIT - start, ANGLE_LIMIT - start);
+    last = now;
+    const angle = turnedAngle(start, turned, { snap: moveEvent.shiftKey });
+    if (angle) box.angle = angle;
+    else delete box.angle;
+    placeBox(element, box);
+    dressBox(state, element, box, index);
+    showReadout(state, readoutFor(state, index));
+    syncTurn(state);
+  };
+  const finish = () => {
+    state.turning = null;
+    state.stage.classList.remove("turning");
+  };
+  watchDrag(state, {
+    onMove: apply,
+    onEnd: () => {
+      finish();
+      showReadout(state);
+      if (moved && state.boxes[index] === box) {
+        if (!angleOf(box)) levelBox(state, box);
+        commit(state);
+      }
+      paintBoxes(state);
+    },
+    onCancel: () => {
+      finish();
+      if (state.boxes[index] === box) {
+        delete box.angle;
+        Object.assign(box, startBox);
+      }
+      paintBoxes(state);
+      showReadout(state);
+      syncTurn(state);
     },
   });
 }
@@ -718,7 +850,10 @@ function onStagePointerDown(state, event) {
   const boxEl = target.closest?.(".ausboss-lb-box");
   const index = boxEl ? Number(boxEl.dataset.i) : -1;
   const handle = target.closest?.(".ausboss-lb-handle");
-  if (handle && index >= 0) {
+  if (target.closest?.(".ausboss-lb-knob") && index >= 0) {
+    setSelected(state, index);
+    beginTurn(state, index, event);
+  } else if (handle && index >= 0) {
     setSelected(state, index);
     beginBoxDrag(state, index, handle.dataset.h, event);
   } else if (index >= 0 && !event.shiftKey) {
@@ -753,8 +888,12 @@ function onStageKey(state, event) {
     const step = nudgeStep(key, event);
     if (index < 0 || !step) return;
     const { width, height } = state.size;
-    const rect = nudgedRect(wholePixels(state.boxes[index], width, height), step[0], step[1], width, height);
-    Object.assign(state.boxes[index], fromPixels(rect, width, height));
+    const box = state.boxes[index];
+    // A turned box moves the same steps; its centre stays on the canvas.
+    const rect = angleOf(box)
+      ? movedTurnedRect(boxPixels(box, width, height), step[0], step[1], width, height)
+      : nudgedRect(wholePixels(box, width, height), step[0], step[1], width, height);
+    Object.assign(box, fromPixels(rect, width, height));
     paintBoxes(state);
     flashReadout(state, readoutFor(state, index));
     commit(state);
@@ -772,6 +911,41 @@ function setBoxField(state, field, value, { settle = true } = {}) {
   box[field] = value;
   repaintBox(state, state.selected);
   commit(state, { settle });
+}
+
+// A box turned back to level is a level box again: on whole pixels and on
+// the canvas, with no angle in its saved form.
+function levelBox(state, box) {
+  delete box.angle;
+  const { width, height } = state.size;
+  Object.assign(box, fromPixels(leveledRect(boxPixels(box, width, height), width, height), width, height));
+}
+
+// A box turned to `angle` from the editor (the Turn field, the 0° button) or
+// a double click on its knob.
+function setAngle(state, index, angle, { settle = true } = {}) {
+  const box = state.boxes[index];
+  if (!box) return;
+  const next = readAngle(angle);
+  if (next === angleOf(box)) return;
+  if (next) box.angle = next;
+  else levelBox(state, box);
+  paintBoxes(state);
+  syncTurn(state);
+  commit(state, { settle });
+}
+
+// The Turn field and the 0° button follow the chosen box.
+function syncTurn(state) {
+  const box = state.boxes[state.selected];
+  if (!state.turnBox || !box) return;
+  const angle = angleOf(box);
+  state.turnBox.set(angle);
+  state.levelBtn.disabled = !angle;
+  const phrase = box.type === "text" ? tiltPhrase(angle) : "";
+  state.turnLabel.title = phrase
+    ? `A turned text box tells the model its slant: "${phrase}".`
+    : "How far the chosen box is turned. Drag here or on the number.";
 }
 
 function swatch(state, color, index) {
@@ -838,11 +1012,12 @@ function syncEditor(state) {
     ? "How the words look, e.g. pink neon letters"
     : "What is in the box, e.g. a red bicycle";
   // Swatches are rebuilt unless a color is being picked right now.
-  if (!state.colorsRow.contains(document.activeElement)) {
+  if (!state.swatches.contains(document.activeElement) && !state.addColor.contains(document.activeElement)) {
     state.swatches.textContent = "";
     box.palette.forEach((color, index) => state.swatches.append(swatch(state, color, index)));
     state.addColor.hidden = box.palette.length >= MAX_COLORS;
   }
+  syncTurn(state);
 }
 
 function buildEditor(state) {
@@ -946,7 +1121,21 @@ function buildEditor(state) {
   });
   add.append(picker);
   state.addColor = add;
-  colors.append(caption, state.swatches, add);
+  // How far the chosen box is turned, at the end of the same row: drag the
+  // number (or the word Turn), click it to type, 0° makes the box level.
+  const turn = el("div", "ausboss-lb-turn");
+  state.turnLabel = el("label", "", "Turn");
+  state.turnBox = makeScrubInput({
+    value: 0, min: -ANGLE_LIMIT, max: ANGLE_LIMIT, step: 1, fineStep: 0.1, decimals: 1, minDecimals: 0,
+    unit: "°", width: 66,
+    title: "How far the chosen box is turned, in degrees: plus is clockwise.",
+    onChange: (angle) => setAngle(state, state.selected, angle, { settle: false }),
+    onSettle: () => notifyAusbossChange(),
+  });
+  state.turnBox.handle(state.turnLabel);
+  state.levelBtn = button("ausboss-lb-tool", "0°", "Make the box level again", () => setAngle(state, state.selected, 0));
+  turn.append(state.turnLabel, state.turnBox.root, state.levelBtn);
+  colors.append(caption, state.swatches, add, turn);
   state.colorsRow = colors;
 
   state.keptNote = el("div", "ausboss-lb-kept");
@@ -1192,7 +1381,9 @@ function buildPanel(state) {
     if (!event.target.closest?.(".ausboss-lb-box")) return;
     event.preventDefault();
     event.stopPropagation();
-    focusWords(state);
+    // On the knob a double click makes the box level again.
+    if (event.target.closest(".ausboss-lb-knob")) setAngle(state, state.selected, 0);
+    else focusWords(state);
   });
   stage.addEventListener("keydown", (event) => onStageKey(state, event));
   Object.assign(state, { stage, frame, bg, grid, empty, readout });

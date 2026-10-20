@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
+import math
 import sys
 import unittest
 
@@ -20,16 +21,22 @@ if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
 from nodes._layout_boxes_helpers import (
     EMPTY_LAYOUT,
     LayoutError,
+    angle_of,
     bounding_boxes,
+    box_corners,
     box_words,
     boxes_from_input,
     canvas_boxes,
+    element_desc,
     hex_color,
     input_fingerprint,
     mask_rects,
     parse_layout,
     prompt_elements,
+    read_angle,
     regions_from_pixel_boxes,
+    tilt_phrase,
+    turned_mask_rows,
 )
 
 W, H = 1344, 768
@@ -180,6 +187,167 @@ class TheMask(unittest.TestCase):
     def test_no_boxes_no_white(self):
         self.assertEqual(mask_rects([], W, H), [])
         self.assertEqual(mask_rects(parse_layout(EMPTY_LAYOUT, W, H)[0], W, H), [])
+
+
+def turned(x, y, w, h, angle, kind="obj", text="", desc="", width=W, height=H):
+    """A box as the canvas writes a turned one: its level place in fractions, and its angle."""
+    return {"x": x / width, "y": y / height, "w": w / width, "h": h / height, "type": kind, "text": text,
+            "desc": desc, "palette": [], "angle": angle}
+
+
+def inside(region, width, height, px, py, margin=0.0):
+    """Whether the point lies inside the turned box, `margin` pixels in from its sides."""
+    (x0, y0), (x1, y1), _, (x3, y3) = box_corners(region, width, height)
+    along = math.hypot(x1 - x0, y1 - y0)
+    down = math.hypot(x3 - x0, y3 - y0)
+    u = ((px - x0) * (x1 - x0) + (py - y0) * (y1 - y0)) / along
+    v = ((px - x0) * (x3 - x0) + (py - y0) * (y3 - y0)) / down
+    return margin <= u <= along - margin and margin <= v <= down - margin
+
+
+# The tilt words both halves say (js/shared/layout_boxes.mjs tiltPhrase, tests/layout_boxes.test.mjs).
+TILT_WORDS = [
+    (25.25, "tilted about 25 degrees, running downhill to the right"),
+    (-54.5, "tilted about 55 degrees, running uphill to the right"),
+    (2, "tilted about 2 degrees, running downhill to the right"),
+    (-2, "tilted about 2 degrees, running uphill to the right"),
+    (90, "tilted about 90 degrees, running downhill to the right"),
+    (1.99, ""),
+    (-1.5, ""),
+    (0, ""),
+]
+
+
+class TurnedBoxes(unittest.TestCase):
+    def test_a_turn_is_kept_in_degrees_from_minus_90_to_90(self):
+        for value, angle in ((25, 25.0), (25.2, 25.2), (-55, -55.0), (90, 90.0), (-90, -90.0), (120, -60.0), (-120, 60.0),
+                             (270, -90.0), (-270, 90.0), (450, 90.0), ("12.5", 12.5), (None, 0.0), ("x", 0.0), (True, 0.0),
+                             (float("nan"), 0.0), (float("inf"), 0.0)):
+            self.assertEqual(read_angle(value), angle, value)
+        self.assertEqual(math.copysign(1.0, read_angle(-0.0)), 1.0, "no minus zero")
+        self.assertEqual(angle_of({"x": 0}), 0.0)
+        self.assertEqual(angle_of("junk"), 0.0)
+
+    def test_the_saved_form_keeps_a_turn_and_an_old_layout_reads_level(self):
+        regions, _ = parse_layout(layout(turned(320, 96, 512, 64, 25.2, "text", "OPEN"), box(0, 0, 64, 64)), W, H)
+        self.assertEqual(regions[0]["angle"], 25.2)
+        self.assertNotIn("angle", regions[1], "a level box gets no angle key")
+        for angle in (0, 0.0, -0.0, "0", None, "level"):
+            level, _ = parse_layout(layout(dict(box(320, 96, 512, 640), angle=angle)), W, H)
+            self.assertNotIn("angle", level[0], angle)
+        regions, _ = parse_layout(layout(dict(box(0, 0, 64, 64), angle=200)), W, H)
+        self.assertEqual(regions[0]["angle"], 20.0, "a turn past half a circle is the same rectangle")
+        # A layout saved before boxes could turn gives exactly what it gave: the same regions as with angle 0.
+        old = layout(box(320, 96, 512, 640, desc="a cat"), box(0, 0, W, 64, "text", "OPEN", "neon"))
+        zero = layout(dict(box(320, 96, 512, 640, desc="a cat"), angle=0), dict(box(0, 0, W, 64, "text", "OPEN", "neon"), angle=0))
+        self.assertEqual(parse_layout(old, W, H), parse_layout(zero, W, H))
+        regions, _ = parse_layout(old, W, H)
+        self.assertEqual(turned_mask_rows(regions, W, H), [], "level boxes have no turned mask")
+
+    def test_the_face_written_form_round_trips(self):
+        # What js/shared/layout_boxes.mjs serializeLayout writes for a turned text box.
+        text = ('{"v":1,"boxes":[{"x":0.6179435483870968,"y":0.5181451612903226,"w":0.3719758064516129,"h":0.06854838709677419,'
+                '"type":"text","text":"No Phones","desc":"bold black letters on a white sign","palette":[],"angle":25.2}]}')
+        regions, _ = parse_layout(text, 992, 1488)
+        self.assertEqual(regions[0]["angle"], 25.2)
+        self.assertEqual(round(regions[0]["w"] * 992), 369)
+        self.assertEqual(canvas_boxes(regions)[0].get("angle"), None, "the wire's boxes are level: canvas_boxes carries no angle")
+
+    def test_corners_at_0_25_minus_55_and_90_degrees(self):
+        level = turned(300, 250, 400, 100, 0, width=1000, height=1000)
+        self.assertEqual(box_corners(level, 1000, 1000), [(300.0, 250.0), (700.0, 250.0), (700.0, 350.0), (300.0, 350.0)])
+        quarter = turned(300, 250, 400, 100, 90, width=1000, height=1000)
+        self.assertEqual(box_corners(quarter, 1000, 1000), [(550.0, 100.0), (550.0, 500.0), (450.0, 500.0), (450.0, 100.0)],
+                         "a quarter turn is exact: the top edge runs straight down")
+        for angle in (25, -55, 25.2, -89.9):
+            corners = box_corners(turned(300, 250, 400, 100, angle, width=1000, height=1000), 1000, 1000)
+            (x0, y0), (x1, y1), (x2, y2), (x3, y3) = corners
+            self.assertAlmostEqual(math.hypot(x1 - x0, y1 - y0), 400, places=9)
+            self.assertAlmostEqual(math.hypot(x3 - x0, y3 - y0), 100, places=9)
+            self.assertAlmostEqual((x1 - x0) * (x3 - x0) + (y1 - y0) * (y3 - y0), 0, places=6, msg="square corners")
+            self.assertAlmostEqual((x0 + x2) / 2, 500, places=9, msg="turned about its centre")
+            self.assertAlmostEqual((y0 + y2) / 2, 300, places=9)
+            self.assertAlmostEqual(math.degrees(math.atan2(y1 - y0, x1 - x0)), angle, places=9, msg="clockwise on the screen")
+        down, up = (box_corners(turned(300, 250, 400, 100, a, width=1000, height=1000), 1000, 1000) for a in (25, -55))
+        self.assertGreater(down[1][1], down[0][1], "plus runs downhill to the right")
+        self.assertLess(up[1][1], up[0][1], "minus runs uphill to the right")
+        # On a canvas that is not square the box is turned in pixels, so it stays a true rectangle.
+        (x0, y0), (x1, y1), _, (x3, y3) = box_corners(turned(320, 96, 512, 64, 30), W, H)
+        self.assertAlmostEqual((x1 - x0) * (x3 - x0) + (y1 - y0) * (y3 - y0), 0, places=6)
+        self.assertAlmostEqual(math.hypot(x1 - x0, y1 - y0), 512, places=6)
+
+    def test_the_mask_is_the_turned_rectangle(self):
+        quarter = turned(300, 250, 400, 100, 90, width=1000, height=1000)
+        rows = turned_mask_rows([quarter], 1000, 1000)
+        self.assertEqual(rows, [(row, 450, 550) for row in range(100, 500)], "90 degrees: exactly the upright box")
+        for angle, (width, height) in ((25, (1000, 1000)), (-55, (1000, 1000)), (25.25, (992, 1488)), (-10.25, (720, 1080))):
+            region = turned(300, 250, 369, 103, angle, width=width, height=height)
+            rows = turned_mask_rows([region], width, height)
+            area = sum(end - first for _, first, end in rows)
+            self.assertLess(abs(area - 369 * 103), 2 * (369 + 103), f"{angle}: the area of the box ({area})")
+            white = {(row, x) for row, first, end in rows for x in range(first, end)}
+            for row, x in white:
+                self.assertTrue(inside(region, width, height, x + 0.5, row + 0.5, margin=-1e-6), (angle, row, x))
+            lo_y = min(y for _, y in box_corners(region, width, height))
+            hi_y = max(y for _, y in box_corners(region, width, height))
+            for row in range(int(lo_y), int(hi_y) + 1):
+                for x in range(0, width, 7):
+                    if inside(region, width, height, x + 0.5, row + 0.5, margin=0.01):
+                        self.assertIn((row, x), white, (angle, row, x))
+            self.assertEqual(len(rows), len({row for row, _, _ in rows}), "one run per row")
+
+    def test_the_mask_is_cut_to_the_picture_and_level_boxes_keep_their_rects(self):
+        hanging = turned(900, 900, 300, 80, 30, width=1000, height=1000)
+        rows = turned_mask_rows([hanging], 1000, 1000)
+        self.assertTrue(rows)
+        self.assertTrue(all(0 <= row < 1000 and 0 <= first < end <= 1000 for row, first, end in rows))
+        level = box(320, 96, 512, 640)
+        regions = [level, turned(100, 100, 200, 50, 25)]
+        self.assertEqual(mask_rects(regions, W, H), [(320, 96, 832, 736)], "a turned box is not a rect")
+        self.assertEqual(turned_mask_rows(regions, W, H), turned_mask_rows(regions[1:], W, H), "a level box is not in the turned rows")
+
+    def test_bboxes_and_elements_get_the_straight_box_around_it(self):
+        quarter = turned(300, 250, 400, 100, 90, width=1000, height=1000)
+        self.assertEqual(bounding_boxes([quarter], 1000, 1000), [[{"x": 450, "y": 100, "width": 100, "height": 400}]])
+        self.assertEqual(prompt_elements([quarter], (1000, 1000))[0]["bbox"], [100, 450, 500, 550])
+        slanted = turned(613, 771, 369, 102, 25, "text", "No Phones", "bold black letters", width=992, height=1488)
+        corners = box_corners(slanted, 992, 1488)
+        xs, ys = [x for x, _ in corners], [y for _, y in corners]
+        (frame,) = bounding_boxes([slanted], 992, 1488)
+        self.assertEqual(frame, [{"x": round(min(xs)), "y": round(min(ys)), "width": round(max(xs)) - round(min(xs)),
+                                  "height": round(max(ys)) - round(min(ys))}])
+        element = prompt_elements([slanted], (992, 1488))[0]
+        self.assertEqual(element["bbox"], [round(min(ys) / 1488 * 1000), round(min(xs) / 992 * 1000),
+                                           round(max(ys) / 1488 * 1000), round(max(xs) / 992 * 1000)])
+        # Off the canvas: cut to it, as elements are held to the grid.
+        hanging = turned(900, 0, 300, 80, 30, width=1000, height=1000)
+        (frame,) = bounding_boxes([hanging], 1000, 1000)
+        self.assertEqual((frame[0]["x"] + frame[0]["width"], frame[0]["y"]), (1000, 0))
+        self.assertEqual(prompt_elements([hanging], (1000, 1000))[0]["bbox"][3], 1000)
+        # Turned on a picture of another shape than the canvas: the box is turned on the picture,
+        # then counted in canvas pixels (bboxes) and on the grid (elements).
+        on_picture = turned(400, 300, 200, 60, 40, width=1000, height=750)
+        (frame,) = bounding_boxes([on_picture], 1024, 1536, (1000, 750))
+        corners = box_corners(on_picture, 1000, 750)
+        left, right = min(x for x, _ in corners) / 1000, max(x for x, _ in corners) / 1000
+        top, bottom = min(y for _, y in corners) / 750, max(y for _, y in corners) / 750
+        self.assertEqual(frame, [{"x": round(left * 1024), "y": round(top * 1536), "width": round(right * 1024) - round(left * 1024),
+                                  "height": round(bottom * 1536) - round(top * 1536)}])
+
+    def test_a_turned_text_box_says_its_slant(self):
+        for angle, words in TILT_WORDS:
+            self.assertEqual(tilt_phrase(angle), words, angle)
+        slant = "tilted about 25 degrees, running downhill to the right"
+        for desc, want in (("", slant), ("   ", slant), ("white letters on a red sign", f"white letters on a red sign, {slant}"),
+                           ("white letters,", f"white letters, {slant}"), ("White letters.", f"White letters. {slant[0].upper()}{slant[1:]}."),
+                           ("neon, " + slant, "neon, " + slant), ("Neon, " + slant.upper(), "Neon, " + slant.upper())):
+            region = turned(0, 0, 64, 32, 25, "text", "OPEN", desc)
+            self.assertEqual(element_desc(region), want, desc)
+            self.assertEqual(prompt_elements([region])[0]["desc"], want)
+        self.assertEqual(element_desc(turned(0, 0, 64, 32, -40, "text", "OPEN", "chalk")), "chalk, tilted about 40 degrees, running uphill to the right")
+        self.assertEqual(element_desc(turned(0, 0, 64, 32, 25, "obj", "", "a bicycle")), "a bicycle", "an object box gets no slant")
+        self.assertEqual(element_desc(turned(0, 0, 64, 32, 1.5, "text", "OPEN", "chalk")), "chalk", "under 2 degrees is level enough")
+        self.assertEqual(element_desc(box(0, 0, 64, 32, "text", "OPEN", "chalk")), "chalk")
 
 
 class ThePreviewWords(unittest.TestCase):
