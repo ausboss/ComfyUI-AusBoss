@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.18.1 - 2026-10-21
 
 - **A picture from the Assets panel loads when dropped on a node's picture
   in the classic view.** Dragging a picture's card from ComfyUI's Assets
