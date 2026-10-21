@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.18.0 - 2026-10-21
 
 - **Image Crop + Rotate + Pad 🆎, Load Image + Pad 🆎 and Load Video 🆎 load
   files ComfyUI made, as core Load Image does.** A generated picture named
