@@ -10,7 +10,7 @@ import { chainCallback, notifyAusbossChange } from "../shared/index.mjs";
 import { formatWidgetVisibility } from "../shared/save_video_formats.mjs";
 import { hideInputsInDef } from "../shared/widget_visibility.mjs";
 import { mountWidgetCard } from "../shared/widget_card.mjs";
-import { commitWidgetValue, resetUnknownValues } from "../shared/widget_card_math.mjs";
+import { SOCKETLESS_CHOICE, SOCKETLESS_TEXT, commitWidgetValue, markSocketless, resetUnknownValues } from "../shared/widget_card_math.mjs";
 import { mediaViewQuery } from "../shared/media_list.mjs";
 import { gearIconSvg, openSettingsMenu } from "../shared/settings_menu.mjs";
 import { SEAM_MENU, SEAM_MUTE_TITLES, isBlendIn, seamCornerReserve } from "../shared/stitch_seam.mjs";
@@ -198,9 +198,11 @@ const CARDS = {
     ],
   },
   // The settings of Image Folder. Its gallery (js/image_folder) sits under
-  // the card and owns the hidden `pictures` widget.
+  // the card and owns the hidden `pictures` widget. The ticks on the gallery
+  // write it, so it takes no link: a second text link would land there once
+  // Folder is wired.
   AUSBOSS_NODES_ImageFolder: {
-    minWidth: 320, first: true, hide: ["pictures"],
+    minWidth: 320, first: true, hide: ["pictures"], socketless: ["pictures"],
     rows: [
       { widget: "source", label: "From", kind: "segment" },
       { widget: "folder", label: "Folder", placeholder: "the folder itself",
@@ -215,9 +217,11 @@ const CARDS = {
     ],
   },
   // The settings of Mask by Touch. Its picture (js/mask_by_touch) sits above
-  // the card and owns the hidden `touches` and `ask` widgets.
+  // the card and owns the hidden `touches` and `ask` widgets. The picture
+  // writes both, so neither takes a link: with a socket, a text link dragged
+  // over the node lit a drop target at the card's top edge.
   AUSBOSS_NODES_MaskByTouch: {
-    minWidth: 400, hide: ["touches", "ask"],
+    minWidth: 400, hide: ["touches", "ask"], socketless: ["touches", "ask"],
     rows: [
       { widget: "grow", label: "Grow", suffix: "px" },
       // Half a pixel a step, a tenth with Shift.
@@ -376,21 +380,12 @@ function cardWidgetNames(config) {
   return [...config.rows.flatMap((row) => row.pair ?? (row.widget ? [row.widget] : [])), ...(config.hide ?? [])];
 }
 
-// A choice a card sets from its own controls (a gear menu), never from a
-// link: the stock combo, marked socketless so the frontend gives it no input
-// slot - no dot to draw or aim at in either renderer, no row to reserve.
-const SOCKETLESS_CHOICE = "AUSBOSS_SOCKETLESS_COMBO";
-
-function markSocketless(nodeData, names) {
-  for (const name of names) {
-    for (const spec of [nodeData?.input?.optional?.[name]?.[1], nodeData?.input?.required?.[name]?.[1], nodeData?.inputs?.[name]]) {
-      if (spec && typeof spec === "object") Object.assign(spec, { widgetType: SOCKETLESS_CHOICE, socketless: true });
-    }
-  }
-}
-
 app.registerExtension({
   name: "ausboss.widget_cards",
+  // The widgets of the inputs a card lists as socketless (markSocketless in
+  // shared/widget_card_math.mjs): the stock ones, marked socketless so the
+  // frontend gives them no input slot - no dot to draw or aim at in either
+  // renderer, no row to reserve.
   getCustomWidgets() {
     return {
       // inputData is the input's spec: its options hold the choices.
@@ -398,6 +393,14 @@ app.registerExtension({
         const spec = inputData?.[1] ?? {};
         const values = Array.isArray(spec.options) ? spec.options : Array.isArray(inputData?.[0]) ? inputData[0] : [];
         const widget = node.addWidget("combo", inputName, spec.default ?? values[0], () => {}, { values });
+        widget.options.socketless = true;
+        return { widget };
+      },
+      // A one-line STRING, as the stock text widget is made.
+      [SOCKETLESS_TEXT](node, inputName, inputData) {
+        const spec = inputData?.[1] ?? {};
+        const widget = node.addWidget("text", inputName, spec.default ?? "", () => {}, {});
+        if (typeof spec.dynamicPrompts === "boolean") widget.dynamicPrompts = spec.dynamicPrompts;
         widget.options.socketless = true;
         return { widget };
       },

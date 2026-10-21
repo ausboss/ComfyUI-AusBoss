@@ -12,6 +12,16 @@ All notable changes to ComfyUI-AusBoss are documented here.
   folder by that name, and the picture on the node shows it too. A whole
   path, or a name that climbs out of those folders, is still refused, and the
   message says to pick the file from the node's list or upload it.
+- **Mask by Touch 🆎: a text wire no longer plugs into it by mistake.**
+  Dragging a text wire over the node, from a Text node for example, lit a
+  hidden plug at the top edge of its settings. Letting go wired the text in
+  place of what you picked on the picture, so the next run ignored your
+  picks. The two values the picture keeps for itself no longer take a wire.
+  Saved workflows open as before, with your picks.
+- **Image Folder 🆎: a second text wire no longer plugs into the ticked
+  pictures.** With Folder already wired, dragging another text wire over the
+  node lit the same hidden plug and wired the text in place of the pictures
+  you ticked. The ticked list no longer takes a wire; Folder still does.
 
 ## 2.17.0 - 2026-10-19
 

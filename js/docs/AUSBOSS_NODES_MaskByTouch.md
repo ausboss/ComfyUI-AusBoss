@@ -277,6 +277,8 @@ no browser:
 ]}
 ```
 
+- `touches` takes no wire, and neither does `ask` (below): the node's
+  picture writes them. From the API, send them as values.
 - A `paint` touch may carry **`"s"`**, how soft the brush's edge was (1 to
   100); without it the brush is hard. A soft brush gives a mask with values
   between 0 and 1 along its edge.
