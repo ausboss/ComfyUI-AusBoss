@@ -1,15 +1,16 @@
 # Image Compare A/B
 
 Shows two images on one panel so differences pop out instead of hiding in a
-side-by-side. The first frame of each batch is previewed; `image_a` passes
-through the output unchanged, so the node can sit in the middle of a graph
-without breaking anything downstream.
+side-by-side. The first frame of each batch is previewed; `image_a` and
+`image_b` pass through their outputs unchanged, so the node can sit in the
+middle of a graph without breaking anything downstream.
 
 ## Inputs
 
 - **image_a**: The baseline batch. Its first frame is preview A, and the
-  whole batch is what the output carries.
-- **image_b**: The comparison batch. Its first frame is preview B.
+  whole batch is what the `image_a` output carries.
+- **image_b**: The comparison batch. Its first frame is preview B, and the
+  whole batch is what the `image_b` output carries.
 - **filename** (optional): a name for the files that **Erase** saves, such
   as the source picture's file name. Leave it unwired to type the name on
   the node.
@@ -128,9 +129,12 @@ B, the "after" picture. If your graph makes A out of B's picture (B is the
 picture you loaded and A is the edited one), the result is A. To keep one
 picture up whatever happens, use the **A** or **B** button.
 
-## Output
+## Outputs
 
 - **image_a**: The `image_a` batch, untouched.
+- **image_b**: The `image_b` batch, untouched: the picture you compared
+  against, often the edited one. Wire it on when the picture you want to
+  keep is B.
 
 Previews are written to ComfyUI's temp folder and vanish with it. Nothing
 is saved to the output folder until you press **SAVE** in Erase, and no
