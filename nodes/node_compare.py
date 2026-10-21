@@ -140,7 +140,7 @@ class AusBossCompare:
         "Erase rubs parts of one picture away with a brush so the other shows "
         "through, and saves that mix as a PNG, with a layered PSD and the mask "
         "if you want them. "
-        "image_a passes through unchanged so the node can sit mid-graph."
+        "image_a and image_b pass through unchanged so the node can sit mid-graph."
     )
     SEARCH_ALIASES = [
         "image compare", "compare", "a/b", "before after", "slider", "diff",
@@ -161,7 +161,7 @@ class AusBossCompare:
                     {
                         "tooltip": (
                             "Baseline batch. Its first frame is preview A, and the whole "
-                            "batch passes through the output unchanged."
+                            "batch passes through the image_a output unchanged."
                         ),
                     },
                 ),
@@ -170,7 +170,8 @@ class AusBossCompare:
                     {
                         "tooltip": (
                             "Comparison batch. Its first frame is preview B, revealed by "
-                            "sliding across the panel or flipping the A/B toggle."
+                            "sliding across the panel or flipping the A/B toggle. The whole "
+                            "batch passes through the image_b output unchanged."
                         ),
                     },
                 ),
@@ -190,10 +191,11 @@ class AusBossCompare:
             },
         }
 
-    RETURN_TYPES = ("IMAGE",)
-    RETURN_NAMES = ("image_a",)
+    RETURN_TYPES = ("IMAGE", "IMAGE")
+    RETURN_NAMES = ("image_a", "image_b")
     OUTPUT_TOOLTIPS = (
         "image_a passed through unchanged, so downstream nodes keep working while you compare.",
+        "The image_b batch, untouched: the picture you compared against, often the edited one.",
     )
     OUTPUT_NODE = True
     FUNCTION = "compare"
@@ -211,7 +213,7 @@ class AusBossCompare:
                 # The name the files will get, when one is wired in.
                 "save_name": [wired],
             },
-            "result": (image_a,),
+            "result": (image_a, image_b),
         }
 
     @staticmethod

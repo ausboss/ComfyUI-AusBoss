@@ -46,7 +46,7 @@ class CompareNodeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "empty"):
             first_frame_to_pil(torch.zeros(0, 4, 6, 3))
 
-    def test_compare_saves_temp_previews_and_passes_a_through(self):
+    def test_compare_saves_temp_previews_and_passes_both_through(self):
         image_a = torch.rand(2, 8, 12, 3)
         image_b = torch.rand(1, 8, 12, 3)
         with tempfile.TemporaryDirectory() as tmp:
@@ -56,7 +56,12 @@ class CompareNodeTests(unittest.TestCase):
                     patch.object(node_compare, "folder_paths", fake_folder_paths(tmp)):
                 result = AusBossCompare().compare(image_a, image_b)
 
+            # image_a stays the first output, so saved links keep their slot;
+            # image_b was appended after it.
+            self.assertEqual(AusBossCompare.RETURN_NAMES, ("image_a", "image_b"))
+            self.assertEqual(len(AusBossCompare.OUTPUT_TOOLTIPS), 2)
             self.assertIs(result["result"][0], image_a)
+            self.assertIs(result["result"][1], image_b)
             for key in ("a_images", "b_images"):
                 (ref,) = result["ui"][key]
                 self.assertEqual(ref["type"], "temp")

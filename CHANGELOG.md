@@ -22,6 +22,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
   pictures.** With Folder already wired, dragging another text wire over the
   node lit the same hidden plug and wired the text in place of the pictures
   you ticked. The ticked list no longer takes a wire; Folder still does.
+- **Image Compare A/B 🆎 passes on image_b too.** The node has a second
+  output, `image_b`: the B picture, untouched, often the edited one. Wire it
+  on when B is the picture you want to keep, and the Compare can sit on that
+  wire as well. `image_a` stays the first output, so saved workflows keep
+  their wires.
 
 ## 2.17.0 - 2026-10-19
 

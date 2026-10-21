@@ -64,6 +64,10 @@
       [
         "IMAGE",
         "image_a"
+      ],
+      [
+        "IMAGE",
+        "image_b"
       ]
     ]
   },
