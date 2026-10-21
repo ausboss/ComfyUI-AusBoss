@@ -104,7 +104,8 @@ or starts over at the first.
   There is no setting that changes this.
 - The picked pictures are saved in the workflow as a list of names
   (`pictures`). Empty means every picture, so a picture added to the folder
-  later is in too. A name that is no longer in the folder is skipped.
+  later is in too. A name that is no longer in the folder is skipped. It
+  takes no wire: the ticks on the node write it.
 - Pictures are PNG, JPG, WebP, BMP, GIF (first frame) and TIFF. A photo that
   was taken turned comes out upright. Files whose names start with a dot are
   skipped.
