@@ -7,10 +7,11 @@
 // ComfyUI does for its own text boxes. A panel that wants the wheel for itself
 // (a scrolling list, a focused text field, an editor) still keeps it.
 //
-// A file dragged in from the desktop has the same problem in the classic
-// renderer: dropped on a node's title it loads into the node, dropped on the
-// node's panel (the picture, the controls) it missed the node. The drop
-// listeners here hand it to the node under the pointer.
+// A file dragged in from the desktop, or a picture's card from the Assets
+// panel, has the same problem in the classic renderer: dropped on a node's
+// title it loads into the node, dropped on the node's panel (the picture, the
+// controls) it missed the node. The drop listeners here hand it to the node
+// under the pointer.
 import { app } from "/scripts/app.js";
 import {
   dragCarriesFiles, graphDragStarts, panelHost, panelKeepsWheel, panelNeedsDropHelp, panelRoot,
