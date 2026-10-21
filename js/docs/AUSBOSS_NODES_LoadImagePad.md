@@ -41,7 +41,7 @@ padding value unchanged.
 
 ## Controls
 
-- **Source** (`image`): Choose or upload from ComfyUI's input folder; the list previews the image under the pointer and filters as you type.
+- **Source** (`image`): Choose or upload from ComfyUI's input folder; the list previews the image under the pointer and filters as you type. A picture ComfyUI made, named like `photo.png [output]`, loads too, as it does in core Load Image.
 - **source_image** (optional socket): Wire an image from another node here
   and it is padded instead of the file; the Source row dims while the wire
   is connected. The canvas can only show a wired picture after a run, so it

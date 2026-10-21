@@ -71,6 +71,17 @@ test("file widgets resolve to a deterministic input /view query", () => {
   assert.equal(describeSourcePreview(videoSource).isVideo, true);
 });
 
+test("a picture ComfyUI made is previewed from its own folder", () => {
+  for (const [name, subfolder, type] of [
+    ["moss_image_00001.png [output]", "", "output"],
+    ["video\\take.mp4 [output]", "video", "output"],
+    ["preview.png [temp]", "", "temp"],
+  ]) {
+    const filename = name.replace(/^.*[\\/]/, "").replace(/ \[\w+\]$/, "");
+    assert.equal(viewQueryForFile(name), new URLSearchParams({ filename, subfolder, type }).toString());
+  }
+});
+
 test("the watchable file widget is found regardless of its value", () => {
   const widget = { name: "video" };
   assert.equal(sourceFileWidget({ widgets: [{ name: "seed" }, widget] }), widget);

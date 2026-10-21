@@ -111,20 +111,30 @@ class ComfyValidationTests(unittest.TestCase):
         root = Path(cls.tmp.name)
         cls.input_dir = root / "input"
         cls.output_dir = root / "output"
-        for folder in (cls.input_dir / "sub", cls.input_dir / "clipspace", cls.output_dir):
+        cls.temp_dir = root / "temp"
+        for folder in (cls.input_dir / "sub", cls.input_dir / "clipspace", cls.output_dir, cls.temp_dir):
             folder.mkdir(parents=True, exist_ok=True)
-        cls.saved_dirs = (folder_paths.get_input_directory(), folder_paths.get_output_directory())
+        cls.saved_dirs = (
+            folder_paths.get_input_directory(),
+            folder_paths.get_output_directory(),
+            folder_paths.get_temp_directory(),
+        )
         folder_paths.set_input_directory(str(cls.input_dir))
         folder_paths.set_output_directory(str(cls.output_dir))
+        folder_paths.set_temp_directory(str(cls.temp_dir))
         cls.folder_paths = folder_paths
         # Validation only asks whether a source exists, so empty files do.
         for name in ("pic.png", "sub/pic.png", "clipspace/painted.png", "clip.mp4"):
             (cls.input_dir / name).write_bytes(b"")
+        (cls.output_dir / "moss_image_00001.png").write_bytes(b"")
+        (cls.output_dir / "render.mp4").write_bytes(b"")
+        (cls.temp_dir / "preview.png").write_bytes(b"")
 
     @classmethod
     def tearDownClass(cls):
         cls.folder_paths.set_input_directory(cls.saved_dirs[0])
         cls.folder_paths.set_output_directory(cls.saved_dirs[1])
+        cls.folder_paths.set_temp_directory(cls.saved_dirs[2])
         cls.tmp.cleanup()
 
     def node(self, key, **values):
@@ -164,7 +174,11 @@ class ComfyValidationTests(unittest.TestCase):
             ("AUSBOSS_NODES_ImageCropRotatePad", "Image Crop + Rotate + Pad"),
             ("AUSBOSS_NODES_LoadImagePad", "Load Image + Pad"),
         ):
-            for name, reason in (("", "Select or upload a source file first."), ("gone.png", "no longer exists")):
+            for name, reason in (
+                ("", "Select or upload a source file first."),
+                ("gone.png", "no longer in ComfyUI's input folder"),
+                ("gone.png [output]", "no longer in ComfyUI's output folder"),
+            ):
                 with self.subTest(node=key, image=name):
                     errors = self.errors({"1": self.node(key, image=name)}, "1")
                     self.assertEqual(len(errors), 1, errors)
@@ -234,9 +248,17 @@ class ComfyValidationTests(unittest.TestCase):
             with self.subTest(image=name):
                 self.assertEqual(self.errors({"1": self.node("AUSBOSS_NODES_ImageCropRotatePad", image=name)}, "1"), [])
 
+    def test_a_picture_comfyui_made_passes_as_it_does_on_core_load_image(self):
+        # A generated picture dropped on the node, or picked from the
+        # frontend's list of outputs, is named "... [output]".
+        for name in ("moss_image_00001.png [output]", "preview.png [temp]"):
+            with self.subTest(image=name):
+                self.assertEqual(self.errors({"1": {"class_type": "LoadImage", "inputs": {"image": name}}}, "1"), [])
+                for key in ("AUSBOSS_NODES_ImageCropRotatePad", "AUSBOSS_NODES_LoadImagePad"):
+                    self.assertEqual(self.errors({"1": self.node(key, image=name)}, "1"), [], key)
+        self.assertEqual(self.errors({"1": self.node("AUSBOSS_NODES_LoadVideo", video="render.mp4 [output]")}, "1"), [])
+
     def test_a_stale_video_choice_does_not_block_local_path_mode(self):
-        output_clip = self.output_dir / "render.mp4"
-        output_clip.write_bytes(b"")
         for key in ("AUSBOSS_NODES_VideoCropRotatePad", "AUSBOSS_NODES_VideoCropRotatePadClip"):
             with self.subTest(node=key):
                 prompt = {"1": self.node(key, video="someone-elses.mp4", source_mode="local path", local_path="render.mp4 [output]")}

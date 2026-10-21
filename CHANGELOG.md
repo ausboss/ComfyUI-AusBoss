@@ -2,6 +2,17 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Image Crop + Rotate + Pad 🆎, Load Image + Pad 🆎 and Load Video 🆎 load
+  files ComfyUI made, as core Load Image does.** A generated picture named
+  the way ComfyUI names it, such as `photo.png [output]`, stopped the run with
+  "A node rejected one or more input values" and "outside ComfyUI's input
+  folder". These loaders now read a file from ComfyUI's input, output or temp
+  folder by that name, and the picture on the node shows it too. A whole
+  path, or a name that climbs out of those folders, is still refused, and the
+  message says to pick the file from the node's list or upload it.
+
 ## 2.17.0 - 2026-10-19
 
 - **Layout Boxes 🆎 boxes can be turned, to replace words at a slant.**

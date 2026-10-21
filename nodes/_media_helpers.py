@@ -36,6 +36,13 @@ SERVER_FILE_RULE = (
     "Pick the video from the node's Uploads or Outputs list. A whole path is not read; "
     "a video is named the way ComfyUI names it, such as clip.mp4 [output]."
 )
+# The loaders' own source (Load Image + Pad, Image Crop + Rotate + Pad, Load
+# Video) takes the names core Load Image takes: a file in the input folder,
+# or one ComfyUI made, "photo.png [output]" or "photo.png [temp]".
+INPUT_FILE_RULE = (
+    "Pick the file from the node's list or upload it. A whole path is not read; "
+    "a file is named the way ComfyUI names it, such as photo.png or photo.png [output]."
+)
 _SERVER_FOLDERS = {
     "input": "get_input_directory",
     "output": "get_output_directory",
@@ -93,15 +100,13 @@ def resolve_input_path(selection: str) -> Path:
     if str(selection).replace("\\", "/").startswith("//"):
         raise ValueError("Network source paths are not allowed.")
     if folder_paths is None:
-        raise ValueError("Source files are read only inside ComfyUI's input folder.")
-    path = Path(folder_paths.get_annotated_filepath(selection)).resolve()
-    input_root = Path(folder_paths.get_input_directory()).resolve()
-    try:
-        path.relative_to(input_root)
-    except ValueError as exc:
-        raise ValueError("The selected source is outside ComfyUI's input folder.") from exc
+        raise ValueError("Source files are read only inside ComfyUI's input, output and temp folders.")
+    folder, inside, path = _locate_comfy_file(str(selection).replace("\\", "/"), INPUT_FILE_RULE)
     if not path.is_file():
-        raise ValueError("The selected source file no longer exists.")
+        raise ValueError(
+            f"This file is no longer in ComfyUI's {folder} folder: {inside}. "
+            "Pick it again from the node's list or upload it."
+        )
     return path
 
 
@@ -139,6 +144,17 @@ def resolve_server_file(name: str) -> Path:
     text = str(name or "").strip().strip('"').replace("\\", "/")
     if not text:
         raise ValueError("Pick a video from the node's Outputs list first.")
+    folder, inside, path = _locate_comfy_file(text, SERVER_FILE_RULE)
+    if not path.is_file():
+        raise ValueError(f"This video is no longer in ComfyUI's {folder} folder: {inside}")
+    return path
+
+
+def _locate_comfy_file(text: str, rule: str) -> tuple[str, str, Path]:
+    """The folder, the name inside it and the resolved path for a name
+    written the way ComfyUI writes it, with forward slashes. Anything else
+    raises ``rule``: a whole path, "~", "." or ".." is refused from the text
+    alone, and a link that leads out of the folder once it is resolved."""
     folder, inside = "input", text
     for tag in _SERVER_FOLDERS:
         tail = f" [{tag}]"
@@ -150,16 +166,14 @@ def resolve_server_file(name: str) -> Path:
         or any(part in ("", ".", "..") for part in parts)
         or (os.name == "nt" and ":" in inside)
     ):
-        raise ValueError(SERVER_FILE_RULE)
+        raise ValueError(rule)
     root = _server_folders().get(folder)
     if root is None:
-        raise ValueError(SERVER_FILE_RULE)
+        raise ValueError(rule)
     path = root.joinpath(*parts).resolve()
     if root not in path.parents:
-        raise ValueError(SERVER_FILE_RULE)
-    if not path.is_file():
-        raise ValueError(f"This video is no longer in ComfyUI's {folder} folder: {inside}")
-    return path
+        raise ValueError(rule)
+    return folder, inside, path
 
 
 def list_output_videos() -> list[str]:

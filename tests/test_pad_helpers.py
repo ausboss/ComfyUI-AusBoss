@@ -515,8 +515,9 @@ class FeatherCornerTests(unittest.TestCase):
 
 class LoadImagePadNodeTests(unittest.TestCase):
     def setUp(self):
-        # The loader reads only ComfyUI's input folder. The temp folder these
-        # tests write their pictures to stands in for it.
+        # The loader reads a picture by its name in ComfyUI's input folder.
+        # The temp folder these tests write their pictures to stands in for
+        # it, so write_image returns the name below that folder.
         import os
         import tempfile
         from types import SimpleNamespace
@@ -549,9 +550,11 @@ class LoadImagePadNodeTests(unittest.TestCase):
     def write_image(self, directory: str, width: int = 64, height: int = 48) -> str:
         from PIL import Image
 
+        import tempfile
+
         path = Path(directory) / "source.png"
         Image.new("RGB", (width, height), (30, 180, 90)).save(path)
-        return str(path)
+        return path.relative_to(tempfile.gettempdir()).as_posix()
 
     def run_node(self, cls, image_path: str, **overrides):
         values = {
@@ -700,8 +703,9 @@ class LoadImagePadNodeTests(unittest.TestCase):
         generator = torch.Generator().manual_seed(21)
         pixels = (torch.rand((50, 70, 3), generator=generator) * 255).to(torch.uint8)
         with tempfile.TemporaryDirectory() as tmp:
-            path = str(Path(tmp) / "source.png")
+            path = Path(tmp) / "source.png"
             Image.fromarray(pixels.numpy()).save(path)
+            path = path.relative_to(tempfile.gettempdir()).as_posix()
             source = pixels.float().unsqueeze(0) / 255.0
             for target in (0.0, 0.01):
                 with self.subTest(target_megapixels=target):
@@ -733,7 +737,7 @@ class LoadImagePadNodeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = self.write_image(tmp)
             self.assertIs(cls.VALIDATE_INPUTS(image=path), True)
-            missing = str(Path(tmp) / "gone.png")
+            missing = Path(path).with_name("gone.png").as_posix()
             self.assertIn("Load Image + Pad", cls.VALIDATE_INPUTS(image=missing))
             first = cls.IS_CHANGED(image=path, pad_left=1, feather=0)
             second = cls.IS_CHANGED(image=path, pad_left=2, feather=0)

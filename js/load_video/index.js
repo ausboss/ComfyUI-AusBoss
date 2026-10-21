@@ -4,6 +4,7 @@ import { chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../s
 import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
 import { formatTimecode, parseTimecode } from "../shared/timecode.mjs";
+import { parseImageReference } from "../shared/pad_canvas.mjs";
 import {
   mediaInfo,
   mediaViewQuery,
@@ -590,7 +591,9 @@ function buildPreview(node) {
     const parts = splitMediaName(name);
     setEmpty(state, `Loading ${parts.filename}…`);
     video.pause();
-    video.src = api.apiURL(`/view?${mediaViewQuery({ ...parts, type: "input" }, "input")}`);
+    // A video ComfyUI made ("clip.mp4 [output]") plays from its own folder.
+    const type = parseImageReference(name)?.type ?? "input";
+    video.src = api.apiURL(`/view?${mediaViewQuery({ ...parts, type }, "input")}`);
     video.load();
     probeSourceFps(state, name);
   };

@@ -394,8 +394,8 @@ class LoadVideoNodeTests(unittest.TestCase):
         cls._tmp = tempfile.TemporaryDirectory()
         cls.video = Path(cls._tmp.name) / "clip.mp4"
         write_test_video(cls.video, with_audio=True)
-        # The loader reads only ComfyUI's input folder; the fixture's folder
-        # stands in for it.
+        # The loader reads a file by its name in ComfyUI's input folder; the
+        # fixture's folder stands in for it.
         from types import SimpleNamespace
 
         from nodes import _media_helpers
@@ -427,7 +427,7 @@ class LoadVideoNodeTests(unittest.TestCase):
 
     def test_node_returns_the_trimmed_window_plus_a_core_video(self):
         result = run_node(
-            node_load_video.AusBossLoadVideo().load_video(str(self.video), 0.5, 1.5, 0, 0)
+            node_load_video.AusBossLoadVideo().load_video("clip.mp4", 0.5, 1.5, 0, 0)
         )
         self.assertEqual(len(result), 8)
         frames, _audio, frame_count, fps, width, height, duration, core_video = result
@@ -445,7 +445,7 @@ class LoadVideoNodeTests(unittest.TestCase):
         # window left over from trim mode must not affect a single-frame load.
         result = run_node(
             node_load_video.AusBossLoadVideo().load_video(
-                str(self.video), 0.5, 0.2, 0, 0, single_frame=True
+                "clip.mp4", 0.5, 0.2, 0, 0, single_frame=True
             )
         )
         frames, _audio, frame_count, fps, _width, _height, duration, _core = result
@@ -471,7 +471,7 @@ class LoadVideoNodeTests(unittest.TestCase):
 
     def test_a_backwards_trim_window_stops_the_loader_when_it_runs(self):
         with self.assertRaisesRegex(ValueError, "Load Video needs start_seconds smaller than end_seconds"):
-            run_node(node_load_video.AusBossLoadVideo().load_video(str(self.video), 1.5, 0.5, 0, 0))
+            run_node(node_load_video.AusBossLoadVideo().load_video("clip.mp4", 1.5, 0.5, 0, 0))
 
     def test_the_node_function_is_a_coroutine(self):
         node = node_load_video.AusBossLoadVideo
@@ -492,7 +492,7 @@ class LoadVideoNodeTests(unittest.TestCase):
             beat = asyncio.ensure_future(heartbeat())
             try:
                 return await node_load_video.AusBossLoadVideo().load_video(
-                    str(self.video), 0.0, 0.0, 0, 0
+                    "clip.mp4", 0.0, 0.0, 0, 0
                 )
             finally:
                 beat.cancel()
