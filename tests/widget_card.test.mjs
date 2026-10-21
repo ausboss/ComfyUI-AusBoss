@@ -5,8 +5,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  CARD_PADDING, GROUP_HEIGHT, ROW_GAP, ROW_HEIGHT, SECTION_HEIGHT, SLOT_OFFSET,
-  cardHeight, choiceLabel, commitWidgetValue, holdsUnknownValue, resetUnknownValues, rowHeight, rowInLook, rowKind, rowMuted, rowTops,
+  CARD_PADDING, GROUP_HEIGHT, ROW_GAP, ROW_HEIGHT, SECTION_HEIGHT, SLOT_OFFSET, SOCKETLESS_CHOICE, SOCKETLESS_TEXT,
+  cardHeight, choiceLabel, commitWidgetValue, holdsUnknownValue, markSocketless, resetUnknownValues, rowHeight, rowInLook, rowKind, rowMuted, rowTops,
   scrubSteps, segmentFits, socketWidgetY, visibleRows, widgetTooltip,
 } from "../js/shared/widget_card_math.mjs";
 
@@ -192,15 +192,25 @@ function widgetNames(nodeId, sockets) {
   return [...api.required, ...api.optional].filter((name) => !sockets.includes(name)).concat("ausboss_widget_card");
 }
 
-// The card's resetUnknown fallbacks, read from js/widget_cards/index.js.
-function cardFallbacks(nodeId) {
+// A node's entry in js/widget_cards/index.js, as text.
+function cardEntry(nodeId) {
   const source = readFileSync(join(ROOT, "js", "widget_cards", "index.js"), "utf-8");
   const start = source.indexOf(`\n  ${nodeId}: {`);
   assert.ok(start >= 0, `js/widget_cards/index.js has no card for ${nodeId}`);
   const next = source.slice(start + 1).search(/\n {2}AUSBOSS_NODES_\w+: \{/);
-  const entry = next < 0 ? source.slice(start) : source.slice(start, start + 1 + next);
-  const literal = entry.match(/resetUnknown: (\{[^}]*\})/)?.[1];
+  return next < 0 ? source.slice(start) : source.slice(start, start + 1 + next);
+}
+
+// The card's resetUnknown fallbacks, read from js/widget_cards/index.js.
+function cardFallbacks(nodeId) {
+  const literal = cardEntry(nodeId).match(/resetUnknown: (\{[^}]*\})/)?.[1];
   return literal ? JSON.parse(literal.replace(/(\w+):/g, '"$1":')) : {};
+}
+
+// The widgets the card lists as socketless.
+function cardSocketless(nodeId) {
+  const literal = cardEntry(nodeId).match(/socketless: (\[[^\]]*\])/)?.[1];
+  return literal ? JSON.parse(literal) : [];
 }
 
 // Crop For Inpaint's keep_inside default, read from the Python source: the
@@ -302,6 +312,69 @@ test("Stitch Inpaint saved before Seam still opens classic", () => {
   const chosen = restoreByPosition(names, [false, 0.5, "blend in", ""], types);
   chosen.find((widget) => widget.name === "seam").options = { values: ["classic", "blend in"] };
   assert.deepEqual(resetUnknownValues(chosen, cardFallbacks("AUSBOSS_NODES_StitchInpaint")), []);
+});
+
+// ---------- widgets that take no link ----------
+// The frontend gives every widget an input socket unless the widget is
+// marked socketless. A link dragged over a node lands on its first free
+// input of the link's type, hidden widgets included: a text link dragged
+// over Mask by Touch lit a drop target at its card's top edge, for the
+// `touches` its picture writes.
+
+test("Mask by Touch's touches and ask take no link; its settings still do", () => {
+  // The definition as the frontend hands it to the pack, cut to a few inputs.
+  const touch = { input: {
+    required: {
+      image: ["IMAGE", { tooltip: "The picture to pick from." }],
+      touches: ["STRING", { default: "", multiline: false }],
+      grow: ["INT", { default: 0, min: -128, max: 256 }],
+    },
+    optional: {
+      ask: ["STRING", { default: "", multiline: false }],
+      fine_edges: [["off", "birefnet.safetensors"], { default: "off" }],
+    },
+  } };
+  const names = cardSocketless("AUSBOSS_NODES_MaskByTouch");
+  assert.deepEqual([...names].sort(), ["ask", "touches"]);
+  markSocketless(touch, names);
+  // A one-line text box with no socket, its own default kept.
+  assert.deepEqual(touch.input.required.touches[1], { default: "", multiline: false, widgetType: SOCKETLESS_TEXT, socketless: true });
+  assert.deepEqual(touch.input.optional.ask[1], { default: "", multiline: false, widgetType: SOCKETLESS_TEXT, socketless: true });
+  // What the picture does not write keeps its socket.
+  for (const [name, spec] of [["image", touch.input.required.image], ["grow", touch.input.required.grow], ["fine_edges", touch.input.optional.fine_edges]]) {
+    assert.equal(spec[1].socketless, undefined, `${name} lost its socket`);
+    assert.equal(spec[1].widgetType, undefined, `${name} lost its own widget`);
+  }
+});
+
+test("Image Folder's ticked pictures take no link; its Folder row still does", () => {
+  const folder = { input: { required: {
+    folder: ["STRING", { default: "", multiline: false }],
+    pictures: ["STRING", { default: "", multiline: false }],
+  } } };
+  const names = cardSocketless("AUSBOSS_NODES_ImageFolder");
+  assert.deepEqual(names, ["pictures"]);
+  markSocketless(folder, names);
+  assert.deepEqual(folder.input.required.pictures[1], { default: "", multiline: false, widgetType: SOCKETLESS_TEXT, socketless: true });
+  assert.deepEqual(folder.input.required.folder[1], { default: "", multiline: false });
+});
+
+test("a socketless choice stays the combo, and the newer form of a definition is marked too", () => {
+  const stitch = { input: { optional: { seam: [["classic", "blend in"], { default: "classic" }] } } };
+  markSocketless(stitch, cardSocketless("AUSBOSS_NODES_StitchInpaint"));
+  assert.deepEqual(stitch.input.optional.seam[1], { default: "classic", widgetType: SOCKETLESS_CHOICE, socketless: true });
+  const both = {
+    input: { required: { touches: ["STRING", { default: "" }] } },
+    inputs: { touches: { name: "touches", type: "STRING", default: "" } },
+  };
+  markSocketless(both, ["touches"]);
+  assert.deepEqual(both.inputs.touches, { name: "touches", type: "STRING", default: "", widgetType: SOCKETLESS_TEXT, socketless: true });
+  const newer = { inputs: { seam: { name: "seam", type: "COMBO", options: ["classic", "blend in"] } } };
+  markSocketless(newer, ["seam"]);
+  assert.equal(newer.inputs.seam.widgetType, SOCKETLESS_CHOICE);
+  // A name the node does not have changes nothing.
+  markSocketless(stitch, ["missing"]);
+  assert.deepEqual(Object.keys(stitch.input.optional), ["seam"]);
 });
 
 test("a card row's hover text comes from the node's definition", () => {

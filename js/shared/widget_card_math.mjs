@@ -171,6 +171,26 @@ export function resetUnknownValues(widgets, fallbacks = {}) {
   return reset;
 }
 
+// A widget the card sets from its own controls (a gear menu), or the node's
+// own face writes, is never wired. Its input gets one of the card's widget
+// types (js/widget_cards), which make the stock widget marked socketless, so
+// the frontend gives it no input slot in either renderer: no dot to draw,
+// and nothing for a link dragged over the node to land on. A STRING gets a
+// one-line text box, a choice the combo.
+export const SOCKETLESS_TEXT = "AUSBOSS_SOCKETLESS_TEXT";
+export const SOCKETLESS_CHOICE = "AUSBOSS_SOCKETLESS_COMBO";
+
+export function markSocketless(nodeData, names) {
+  for (const name of names) {
+    const spec = nodeData?.input?.optional?.[name] ?? nodeData?.input?.required?.[name];
+    const type = Array.isArray(spec) ? spec[0] : nodeData?.inputs?.[name]?.type;
+    const widgetType = type === "STRING" ? SOCKETLESS_TEXT : SOCKETLESS_CHOICE;
+    for (const options of [nodeData?.input?.optional?.[name]?.[1], nodeData?.input?.required?.[name]?.[1], nodeData?.inputs?.[name]]) {
+      if (options && typeof options === "object") Object.assign(options, { widgetType, socketless: true });
+    }
+  }
+}
+
 // A choice's words on the card: the row's own, else the value itself.
 // `labels` is a map from value to words, or a function of the value and of
 // all the values, for a list that is only known on the user's machine (the
