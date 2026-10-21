@@ -72,12 +72,14 @@ export function panelRoot(target) {
   return root;
 }
 
-// A drag that carries files, from the file manager or the desktop. A row
-// being dragged inside a panel carries none and stays the panel's own.
+// A drag that carries files, from the file manager or the desktop, or a card
+// from ComfyUI's Assets panel, which names a picture it made ("... [output]")
+// instead of carrying the file. A row being dragged inside a panel carries
+// neither and stays the panel's own.
 export function dragCarriesFiles(event) {
   const types = event?.dataTransfer?.types;
   if (!types) return false;
-  return Array.from(types).includes("Files");
+  return Array.from(types).some((type) => type === "Files" || type === "application/x-comfy-asset-info");
 }
 
 // Does a file dropped here have to be handed to its node by the pack? The

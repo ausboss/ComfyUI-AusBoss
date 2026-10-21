@@ -2,6 +2,14 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **A picture from the Assets panel loads when dropped on a node's picture
+  in the classic view.** Dragging a picture's card from ComfyUI's Assets
+  panel onto a loader such as Image Crop + Rotate + Pad 🆎 worked only on the
+  node's title bar; dropped on the picture or the controls, it did nothing.
+  It now loads wherever it lands on the node, as it already did in Nodes 2.0.
+
 ## 2.18.0 - 2026-10-21
 
 - **Image Crop + Rotate + Pad 🆎, Load Image + Pad 🆎 and Load Video 🆎 load

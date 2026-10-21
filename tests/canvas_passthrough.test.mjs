@@ -124,6 +124,9 @@ test("a drag from the desktop carries files; a row dragged inside a panel does n
   assert.equal(dragCarriesFiles({ dataTransfer: { types: ["Files"] } }), true);
   assert.equal(dragCarriesFiles({ dataTransfer: { types: ["text/plain", "Files"] } }), true);
   assert.equal(dragCarriesFiles({ dataTransfer: { types: ["text/plain"] } }), false);
+  // A card dragged from the Assets panel carries the picture's name, not the file.
+  assert.equal(dragCarriesFiles({ dataTransfer: { types: ["application/x-comfy-asset-info", "text/uri-list"] } }), true);
+  assert.equal(dragCarriesFiles({ dataTransfer: { types: ["text/uri-list"] } }), false);
   assert.equal(dragCarriesFiles({ dataTransfer: { types: [] } }), false);
   assert.equal(dragCarriesFiles({ dataTransfer: {} }), false);
   assert.equal(dragCarriesFiles({}), false);
