@@ -150,8 +150,9 @@ class AusBossImageCropRotatePad:
         # ComfyUI skips its own range and list checks for every input named
         # here and files a failure once per named input, so only the source
         # is named. Its list check would refuse uploads it has not listed yet
-        # and MaskEditor saves ("... [input]"); resolve_input_path takes any
-        # file inside the input folder instead, and nothing outside it.
+        # and MaskEditor saves ("... [input]"); resolve_input_path takes the
+        # names core Load Image takes instead, "... [output]" and "[temp]"
+        # included, and nothing outside those three folders.
         try:
             resolve_input_path(image)
         except Exception as exc:

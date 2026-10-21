@@ -47,6 +47,7 @@ embedded workflow replaces the whole graph.
 ## Controls
 
 - **Source** (`video`): A file in the input folder; **Upload** adds new ones.
+  A video ComfyUI made, named like `clip.mp4 [output]`, loads too.
 - **IN** (`start_seconds`): Skip everything before this time.
 - **OUT** (`end_seconds`): Stop at this time; `0` means the source end until a
   handle is moved.
