@@ -13,8 +13,10 @@ follows a few fixed rules.
   never take a file to read from the browser: they work on the two previews
   that node made in its last run, and Align writes its lined-up copy of B
   beside them in ComfyUI's temp folder. The name typed for the new files is a plain name
-  with no folder in it, and they go straight into the output folder. Load Video picks from the input
-  folder; the video transform nodes read a video picked from a list of the
+  with no folder in it, and they go straight into the output folder. Load Video, Load Image + Pad
+  and Image Crop + Rotate + Pad pick from the input folder, and take a file ComfyUI made by
+  the name it gives it (`photo.png [output]`), as core Load Image does; the video transform
+  nodes read a video picked from a list of the
   input or the output folder, by the name ComfyUI gives it there
   (`clip.mp4 [output]`), and their uploader streams into the input folder.
   No input opens a whole path as given. Absolute paths, `..`, `~`, Windows drive and

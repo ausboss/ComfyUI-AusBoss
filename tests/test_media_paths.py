@@ -4,7 +4,9 @@ Widget values reach the pack through ComfyUI's /prompt route, which needs no
 login, and the loaders' VALIDATE_INPUTS hand their source straight to these
 functions. So they are the gate between a crafted prompt and the disk:
 
-- resolve_input_path takes only files inside ComfyUI's input folder;
+- the loaders' resolve_input_path takes the names core Load Image takes: a
+  file in ComfyUI's input folder, or a picture ComfyUI made, named
+  "photo.png [output]" or "photo.png [temp]", and never a whole path;
 - a network path ("//host/share" or "\\\\host\\share") is refused from its
   text alone, before anything touches the path, since on Windows merely
   resolving one contacts that host;
@@ -48,6 +50,7 @@ if importlib.util.find_spec("PIL") is None:
 
 from nodes import _media_helpers  # noqa: E402
 from nodes._media_helpers import (  # noqa: E402
+    INPUT_FILE_RULE,
     SERVER_FILE_RULE,
     list_output_videos,
     resolve_input_path,
@@ -57,7 +60,6 @@ from nodes._media_helpers import (  # noqa: E402
 from nodes._route_errors import safe_route_error  # noqa: E402
 
 NETWORK_REFUSAL = "Network source paths are not allowed."
-OUTSIDE_REFUSAL = "The selected source is outside ComfyUI's input folder."
 WHOLE_PATH_REFUSAL = "A whole path is not read"
 
 
@@ -108,6 +110,8 @@ class TempFolders(unittest.TestCase):
         self.masked = self.touch(self.input / "clipspace" / "painted.png")
         self.outside = self.touch(self.root / "secret.png")
         self.in_output = self.touch(self.output / "render.mp4")
+        self.made = self.touch(self.output / "moss_image_00001.png")
+        self.in_temp = self.touch(self.temp / "preview.png")
         self.folders = Folders(self.input, self.output, self.temp)
         patcher = patch.object(_media_helpers, "folder_paths", self.folders)
         patcher.start()
@@ -123,45 +127,96 @@ class InputFolderTests(TempFolders):
     def test_files_inside_the_input_folder_resolve(self):
         self.assertEqual(resolve_input_path("pic.png"), self.inside)
         self.assertEqual(resolve_input_path("sub/pic.png"), self.nested)
+        self.assertEqual(resolve_input_path("sub\\pic.png"), self.nested)
         # A MaskEditor save names its folder; it is still the input folder.
         self.assertEqual(resolve_input_path("clipspace/painted.png [input]"), self.masked)
 
-    def test_a_path_that_climbs_out_is_refused(self):
-        with self.assertRaisesRegex(ValueError, OUTSIDE_REFUSAL):
-            resolve_input_path("../secret.png")
-        with self.assertRaisesRegex(ValueError, OUTSIDE_REFUSAL):
-            resolve_input_path("sub/../../secret.png")
+    def test_pictures_comfyui_made_resolve_the_way_core_load_image_reads_them(self):
+        # A generated picture dropped on the node, or picked from the
+        # frontend's list of outputs, arrives named this way.
+        self.assertEqual(resolve_input_path("moss_image_00001.png [output]"), self.made)
+        self.assertEqual(resolve_input_path("render.mp4 [output]"), self.in_output)
+        self.assertEqual(resolve_input_path("preview.png [temp]"), self.in_temp)
+        self.assertEqual(resolve_video_path("input folder", "render.mp4 [output]", ""), self.in_output)
 
-    def test_an_absolute_path_elsewhere_is_refused(self):
-        # os.path.join keeps an absolute name as it is, so this is the path
-        # a crafted prompt would reach for.
-        with self.assertRaisesRegex(ValueError, OUTSIDE_REFUSAL):
-            resolve_input_path(str(self.outside))
+    def test_the_tag_picks_the_folder(self):
+        # The output picture is not found in the input folder, and an input
+        # picture is not found by an output name.
+        with self.assertRaisesRegex(ValueError, "no longer in ComfyUI's input folder: moss_image_00001.png"):
+            resolve_input_path("moss_image_00001.png")
+        with self.assertRaisesRegex(ValueError, "no longer in ComfyUI's output folder: pic.png"):
+            resolve_input_path("pic.png [output]")
+
+    def test_a_path_that_climbs_out_is_refused(self):
+        for name in (
+            "../secret.png",
+            "sub/../../secret.png",
+            "../secret.png [output]",
+            "../input/pic.png [temp]",
+            "./pic.png",
+            "sub//pic.png",
+        ):
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, WHOLE_PATH_REFUSAL):
+                resolve_input_path(name)
+
+    def test_a_whole_path_is_refused_even_inside_a_comfy_folder(self):
+        for name in (
+            str(self.outside),
+            str(self.inside),
+            f"{self.made} [output]",
+            "/pic.png",
+            "~/pic.png",
+            "~/moss_image_00001.png [output]",
+        ):
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, WHOLE_PATH_REFUSAL):
+                resolve_input_path(name)
+
+    def test_a_refused_name_never_reaches_the_disk(self):
+        resolved = []
+        real_resolve = Path.resolve
+
+        def recording_resolve(path, *args, **kwargs):
+            resolved.append(str(path))
+            return real_resolve(path, *args, **kwargs)
+
+        with patch.object(Path, "resolve", recording_resolve):
+            for name in (str(self.outside), "../secret.png [output]", "~/pic.png", "sub/../../secret.png"):
+                with self.subTest(name=name), self.assertRaisesRegex(ValueError, WHOLE_PATH_REFUSAL):
+                    resolve_input_path(name)
+        self.assertEqual(resolved, [], "a refused name reached the disk")
 
     def test_a_link_inside_that_points_outside_is_refused(self):
         (self.input / "shortcut.png").symlink_to(self.outside)
-        with self.assertRaisesRegex(ValueError, OUTSIDE_REFUSAL):
-            resolve_input_path("shortcut.png")
-
-    def test_another_comfy_folder_is_still_outside(self):
-        # Core Load Image reads "[output]" names; these loaders read input only.
-        with self.assertRaisesRegex(ValueError, OUTSIDE_REFUSAL):
-            resolve_input_path("render.mp4 [output]")
+        (self.output / "elsewhere").symlink_to(self.root, target_is_directory=True)
+        for name in ("shortcut.png", "elsewhere/secret.png [output]"):
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, WHOLE_PATH_REFUSAL):
+                resolve_input_path(name)
 
     def test_blank_and_missing_names_say_what_to_do(self):
         with self.assertRaisesRegex(ValueError, "Select or upload a source file first."):
             resolve_input_path("")
-        with self.assertRaisesRegex(ValueError, "no longer exists"):
+        with self.assertRaisesRegex(
+            ValueError, r"no longer in ComfyUI's input folder: gone.png\. Pick it again from the node's list or upload it\."
+        ):
             resolve_input_path("gone.png")
+        with self.assertRaisesRegex(ValueError, "no longer in ComfyUI's temp folder: gone.png"):
+            resolve_input_path("gone.png [temp]")
+        with self.assertRaisesRegex(ValueError, "Pick the file from the node's list or upload it."):
+            resolve_input_path("../secret.png")
 
     def test_without_comfyuis_folders_nothing_is_read(self):
         with patch.object(_media_helpers, "folder_paths", None):
-            with self.assertRaisesRegex(ValueError, "only inside ComfyUI's input folder"):
-                resolve_input_path(str(self.inside))
+            with self.assertRaisesRegex(ValueError, "only inside ComfyUI's input, output and temp folders"):
+                resolve_input_path("pic.png")
 
 
 class NetworkPathTests(TempFolders):
-    NAMES = ("//fileserver/share/pic.png", "\\\\fileserver\\share\\pic.png", "//fileserver/share/pic.png [input]")
+    NAMES = (
+        "//fileserver/share/pic.png",
+        "\\\\fileserver\\share\\pic.png",
+        "//fileserver/share/pic.png [input]",
+        "//fileserver/share/pic.png [output]",
+    )
 
     def test_a_network_source_is_refused_before_the_path_is_touched(self):
         resolved = []
@@ -297,7 +352,9 @@ class RouteErrorTests(unittest.TestCase):
     def test_the_packs_own_messages_pass(self):
         for text in (
             SERVER_FILE_RULE,
+            INPUT_FILE_RULE,
             "This video is no longer in ComfyUI's output folder: sub/clip.mp4",
+            "This file is no longer in ComfyUI's output folder: sub/pic.png. Pick it again from the node's list or upload it.",
             "LoRA file not found in models/loras: flux/a.safetensors",
             "Unsupported video extension: .txt.",
             "The clip is 16:9 at 24 fps / 48 kHz.",
@@ -315,7 +372,7 @@ class RouteErrorTests(unittest.TestCase):
 class LoaderValidationTests(TempFolders):
     """The loaders refuse the same paths before a run, with one message each."""
 
-    def test_image_loaders_refuse_paths_outside_the_input_folder(self):
+    def test_image_loaders_take_what_core_load_image_takes_and_nothing_else(self):
         from nodes import node_image_crop_rotate_pad, node_load_image_pad
 
         for module, cls, label in (
@@ -323,8 +380,9 @@ class LoaderValidationTests(TempFolders):
             (node_load_image_pad, node_load_image_pad.AusBossLoadImagePad, "Load Image + Pad"),
         ):
             with self.subTest(node=label):
-                self.assertIs(cls.VALIDATE_INPUTS(image="pic.png"), True)
-                for name in ("../secret.png", str(self.outside), "//fileserver/share/pic.png"):
+                for name in ("pic.png", "clipspace/painted.png [input]", "moss_image_00001.png [output]", "preview.png [temp]"):
+                    self.assertIs(cls.VALIDATE_INPUTS(image=name), True, name)
+                for name in ("../secret.png", str(self.outside), str(self.made), "//fileserver/share/pic.png"):
                     verdict = cls.VALIDATE_INPUTS(image=name)
                     self.assertIsInstance(verdict, str, name)
                     self.assertTrue(verdict.startswith(f"{label}: "), verdict)
@@ -335,7 +393,9 @@ class LoaderValidationTests(TempFolders):
         self.touch(self.input / "clip.mp4")
         load = node_load_video.AusBossLoadVideo
         self.assertIs(load.VALIDATE_INPUTS("clip.mp4"), True)
-        self.assertIn("outside", load.VALIDATE_INPUTS("../secret.png"))
+        self.assertIs(load.VALIDATE_INPUTS("render.mp4 [output]"), True)
+        self.assertIn(WHOLE_PATH_REFUSAL, load.VALIDATE_INPUTS("../secret.png"))
+        self.assertIn(WHOLE_PATH_REFUSAL, load.VALIDATE_INPUTS(str(self.in_output)))
         frame = node_video_crop_rotate_pad.AusBossVideoCropRotatePad
         self.assertIs(frame.VALIDATE_INPUTS("clip.mp4", "input folder", ""), True)
         self.assertIs(frame.VALIDATE_INPUTS("", "local path", "render.mp4 [output]"), True)

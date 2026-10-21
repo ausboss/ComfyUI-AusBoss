@@ -227,7 +227,8 @@ class AusBossLoadVideo:
         # ComfyUI files a failed check once per input named here and skips
         # its own range and list checks for those inputs, so only the source
         # is named. video skips the list check on purpose: resolve_input_path
-        # takes any file inside the input folder and nothing outside it. The
+        # takes any file inside the input folder, or one named "[output]" or
+        # "[temp]" the way core Load Image takes it, and nothing else. The
         # trim window is checked when the loader runs (trim_window), where
         # wired bounds are known and single_frame applies; ComfyUI starts
         # async nodes such as this one ahead of the others.

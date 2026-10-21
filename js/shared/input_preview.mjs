@@ -7,6 +7,7 @@
 //   2. an uploadable image/video file combo widget -> deterministic /view query
 //   3. nothing -> the caller shows a quiet placeholder
 
+import { parseImageReference } from "./pad_canvas.mjs";
 import { splitMediaName } from "./video_preview.mjs";
 
 // Core loader nodes keep the uploaded file name in a combo widget with one of
@@ -37,11 +38,13 @@ export function sourceFileWidget(sourceNode) {
   return sourceNode?.widgets?.find((widget) => FILE_WIDGET_NAMES.has(widget?.name)) ?? null;
 }
 
-// Deterministic /view query (no cache buster) for an input-folder file name,
-// tolerating Windows separators and " [input]" annotations.
+// Deterministic /view query (no cache buster) for a file widget's name,
+// tolerating Windows separators. A name without a tag is in the input
+// folder; "photo.png [output]" or "[temp]" is read from that folder.
 export function viewQueryForFile(name) {
   const { filename, subfolder } = splitMediaName(name);
-  return new URLSearchParams({ filename, subfolder, type: "input" }).toString();
+  const type = parseImageReference(name)?.type ?? "input";
+  return new URLSearchParams({ filename, subfolder, type }).toString();
 }
 
 // Describe how to preview a source node:

@@ -29,8 +29,9 @@ uses what the node shows.
 From top to bottom:
 
 - **Image source**: the pictures in ComfyUI's input folder. The list shows the
-  picture under the pointer and filters as you type. **Upload** adds one. The
-  gear holds the node's display options.
+  picture under the pointer and filters as you type. **Upload** adds one. A
+  picture ComfyUI made, named like `photo.png [output]`, loads too, as it does
+  in core Load Image. The gear holds the node's display options.
 - **The picture**, with its handles.
 - **The size line**: each step that sets the output size, ending with the size
   the run gives you.
