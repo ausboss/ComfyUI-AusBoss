@@ -11,6 +11,9 @@ compute device live here too, so no helper module keeps its own copy.
 
 from __future__ import annotations
 
+import functools
+import inspect
+
 
 def raise_if_interrupted() -> None:
     """Abort the running node as soon as the queue is cancelled.
@@ -112,10 +115,32 @@ def comfy_torch_device():
         return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
+def ignore_extra_inputs(validate):
+    """Let a VALIDATE_INPUTS shrug off inputs it does not name.
+
+    ComfyUI hands a validator only the inputs its signature names, and keeps
+    its own range and list checks for every other input. Another pack that
+    wraps validators in a catch-all can hand over all of them instead, and a
+    plain signature then fails the run with "unexpected keyword argument".
+    The wrapper drops what the check does not read, and shows ComfyUI the
+    original signature, so ComfyUI still checks the rest as before.
+    """
+    signature = inspect.signature(validate)
+    names = set(signature.parameters)
+
+    @functools.wraps(validate)
+    def wrapper(*args, **kwargs):
+        return validate(*args, **{name: value for name, value in kwargs.items() if name in names})
+
+    wrapper.__signature__ = signature
+    return wrapper
+
+
 __all__ = [
     "advance_progress",
     "comfy_torch_device",
     "frame_progress",
+    "ignore_extra_inputs",
     "progress_bar",
     "raise_if_interrupted",
     "warn_once",

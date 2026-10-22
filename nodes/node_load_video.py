@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 
+from ._execution_helpers import ignore_extra_inputs
 from ._media_helpers import list_input_videos, resolve_input_path
 from ._video_load_helpers import (
     core_trimmed_video,
@@ -223,6 +224,7 @@ class AusBossLoadVideo:
         return f"{video}:{stat.st_mtime_ns}:{stat.st_size}"
 
     @classmethod
+    @ignore_extra_inputs
     def VALIDATE_INPUTS(cls, video):
         # ComfyUI files a failed check once per input named here and skips
         # its own range and list checks for those inputs, so only the source

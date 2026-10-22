@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from ._execution_helpers import ignore_extra_inputs
 from ._inpaint_crop_helpers import build_canvas_stitcher
 from ._krea2_helpers import build_reference_image
 from ._media_helpers import (
@@ -385,6 +386,7 @@ class AusBossLoadImagePad:
         return _with_stage_preview(source, unique_id, result)
 
     @classmethod
+    @ignore_extra_inputs
     def VALIDATE_INPUTS(cls, image, source_image=_UNWIRED):
         # A wired source replaces the file, so the file choice may be
         # missing or stale without stopping the run.

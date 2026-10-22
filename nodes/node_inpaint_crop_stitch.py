@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ._execution_helpers import ignore_extra_inputs
 from ._inpaint_crop_helpers import (
     RESIZE_ALGORITHMS,
     SEAM_CLASSIC,
@@ -465,6 +466,7 @@ class AusBossStitchInpaint:
         return result
 
     @classmethod
+    @ignore_extra_inputs
     def VALIDATE_INPUTS(cls, seam=SEAM_CLASSIC):
         # Naming seam here takes it out of ComfyUI's own list check, so the
         # empty value an older workflow carries in its place still queues.

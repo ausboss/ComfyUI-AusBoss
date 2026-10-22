@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ._execution_helpers import ignore_extra_inputs
 from ._lama_helpers import DEFAULT_MODEL_NAME, list_lama_models, run_lama_inpaint
 from ._preview_helpers import preview_payload, temp_prefix
 
@@ -81,6 +82,7 @@ class AusBossLaMaInpaint:
         return preview_payload(inpainted, self._prefix, "LaMa Inpaint", (inpainted,))
 
     @classmethod
+    @ignore_extra_inputs
     def VALIDATE_INPUTS(cls, model):
         # Only the model is named: a failure is filed once per named input,
         # and ComfyUI keeps checking the rest. The model skips its list check

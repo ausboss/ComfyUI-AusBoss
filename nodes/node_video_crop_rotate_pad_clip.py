@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 
+from ._execution_helpers import ignore_extra_inputs
 from ._inpaint_crop_helpers import build_transform_stitcher as clip_stitcher
 from ._media_helpers import list_input_videos, register_video_routes, resolve_video_path, video_metadata
 from ._transform_engine import (
@@ -343,6 +344,7 @@ class AusBossVideoCropRotatePadClip:
         )
 
     @classmethod
+    @ignore_extra_inputs
     def VALIDATE_INPUTS(cls, video, source_mode, local_path):
         # Only the source is read here. ComfyUI files a failed check once per
         # input named here and skips its own range and list checks for them;

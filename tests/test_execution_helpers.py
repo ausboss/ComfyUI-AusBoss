@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import inspect
 import io
 import types
 import unittest
@@ -23,6 +24,7 @@ from nodes._execution_helpers import (
     advance_progress,
     comfy_torch_device,
     frame_progress,
+    ignore_extra_inputs,
     progress_bar,
     raise_if_interrupted,
     warn_once,
@@ -163,6 +165,29 @@ class WarnOnceTests(unittest.TestCase):
         # Past three remembered notes the set was cleared before the fifth.
         self.assertEqual(capped, {"note 4"})
         self.assertEqual(len(kept), 5)
+
+
+class IgnoreExtraInputsTests(unittest.TestCase):
+    class Node:
+        @classmethod
+        @ignore_extra_inputs
+        def VALIDATE_INPUTS(cls, image, source=None):
+            return (image, source)
+
+    def test_comfyui_still_sees_only_the_named_inputs(self):
+        spec = inspect.getfullargspec(self.Node.VALIDATE_INPUTS)
+        self.assertEqual(spec.args, ["cls", "image", "source"])
+        self.assertIsNone(spec.varkw)
+
+    def test_inputs_it_does_not_name_are_dropped(self):
+        # What a catch-all wrapper from another pack hands over.
+        self.assertEqual(self.Node.VALIDATE_INPUTS(image="a.png", pad_left=0, mode="color"), ("a.png", None))
+        self.assertEqual(self.Node.VALIDATE_INPUTS(image="a.png", source=None, pad_left=0), ("a.png", None))
+
+    def test_a_named_input_left_out_keeps_its_default(self):
+        self.assertEqual(self.Node.VALIDATE_INPUTS(image="a.png"), ("a.png", None))
+        with self.assertRaises(TypeError):
+            self.Node.VALIDATE_INPUTS(pad_left=0)
 
 
 @unittest.skipIf(torch is None, "needs torch")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ._execution_helpers import ignore_extra_inputs
 from ._image_folder_helpers import (
     AFTER_RUN,
     AT_THE_END,
@@ -258,6 +259,7 @@ class AusBossImageFolder:
         return f"{fingerprint(chosen)}|{run}|{position if run == 'one per run' else ''}|{at_the_end}"
 
     @classmethod
+    @ignore_extra_inputs
     def VALIDATE_INPUTS(cls, source, folder):
         if source is None or folder is None:      # wired in: only known when the run gets there
             return True

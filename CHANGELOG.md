@@ -2,6 +2,17 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Load Image + Pad 🆎 and the other loaders run alongside packs that
+  change how ComfyUI checks nodes.** With some other custom node packs
+  installed, a run stopped before it started with "unexpected keyword
+  argument 'pad_left'". The nodes that check their inputs before a run
+  (Load Image + Pad, Image Crop + Rotate + Pad, Load Video, the video crop
+  nodes, LoRA Loader, Save Image, Image Folder, LaMa Inpaint and Stitch
+  Inpaint) now ignore the extra values those packs pass along. Nothing
+  changes on a ComfyUI without them.
+
 ## 2.18.1 - 2026-10-21
 
 - **A picture from the Assets panel loads when dropped on a node's picture

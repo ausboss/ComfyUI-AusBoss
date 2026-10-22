@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
+from ._execution_helpers import ignore_extra_inputs
 from ._image_save_helpers import (
     EXISTING_POLICIES,
     FORMAT_EXTENSIONS,
@@ -400,6 +401,7 @@ class AusBossSaveImage:
         return float("nan")
 
     @classmethod
+    @ignore_extra_inputs
     def VALIDATE_INPUTS(cls, exact_name="", filename_prefix="", output_dir=""):
         # Surface a bad name before the run instead of mid-save. Only the
         # three inputs read here are named, so ComfyUI still checks the
