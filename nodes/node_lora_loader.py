@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ._execution_helpers import ignore_extra_inputs
 from ._lora_helpers import (
     MISSING_MODES,
     apply_lora_stack,
@@ -109,6 +110,7 @@ class AusBossLoraLoader:
         return model, clip, collect_trigger_words(worded, str(trigger_separator))
 
     @classmethod
+    @ignore_extra_inputs
     def VALIDATE_INPUTS(cls, loras, on_missing="error"):
         # Structural validation always. A row whose FILE is gone blocks the
         # queue unless the node was switched to 'skip': apply_lora_stack

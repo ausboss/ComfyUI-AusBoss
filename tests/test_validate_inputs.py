@@ -7,6 +7,10 @@ off its link-type checks for the whole node). A signature that takes
 **kwargs names every input, so one missing picture came back as twenty
 identical errors and nothing else on the node was checked at all.
 
+Each validator also wears ignore_extra_inputs, so a pack that wraps
+validators in a catch-all and hands over every input cannot fail the run
+with "unexpected keyword argument" (issue 229).
+
 The signature rules are read from the source and run anywhere (CI included).
 The rest drive ComfyUI's own validation and need ComfyUI's Python:
 
@@ -88,6 +92,14 @@ class SignatureRuleTests(unittest.TestCase):
         }
         self.assertEqual(named, NAMED)
 
+    def test_every_validator_ignores_extra_inputs(self):
+        bare = [
+            f"{filename}:{function.lineno} {name}.{function.name}"
+            for name, (filename, function) in pack_validators().items()
+            if not any(isinstance(d, ast.Name) and d.id == "ignore_extra_inputs" for d in function.decorator_list)
+        ]
+        self.assertEqual(bare, [], "decorate each validator with ignore_extra_inputs (nodes/_execution_helpers.py)")
+
     def test_the_rule_sees_kwargs(self):
         source = "class N:\n    @classmethod\n    def VALIDATE_INPUTS(cls, image, **values):\n        return True\n"
         function = validators_in(source, "n.py")["N"]
@@ -155,14 +167,22 @@ class ComfyValidationTests(unittest.TestCase):
         return {"class_type": key, "inputs": {**inputs, **values}}
 
     def errors(self, prompt, node_id):
+        return self.outcome(prompt, node_id)[node_id]
+
+    def outcome(self, prompt, node_id):
+        """Each node ComfyUI checked on the way -> its errors."""
         validate = self.execution.validate_inputs
-        args = (prompt, node_id, {})
+        validated = {}
+        args = (prompt, node_id, validated)
         if "prompt_id" in inspect.signature(validate).parameters:
             args = ("test",) + args
         result = validate(*args)
         if inspect.isawaitable(result):
-            result = asyncio.run(result)
-        return [(error["type"], error["details"], error["extra_info"].get("input_name")) for error in result[1]]
+            asyncio.run(result)
+        return {
+            checked: [(error["type"], error["details"], error["extra_info"].get("input_name")) for error in entry[1]]
+            for checked, entry in validated.items()
+        }
 
     def image(self):
         return {"class_type": "EmptyImage", "inputs": {"width": 64, "height": 64, "batch_size": 1, "color": 0}}
@@ -229,6 +249,8 @@ class ComfyValidationTests(unittest.TestCase):
              ("value_not_in_list", "format")),
             ({"1": self.node("AUSBOSS_NODES_VideoCropRotatePad", video="clip.mp4", seek_mode="halfway")}, "1",
              ("value_not_in_list", "seek_mode")),
+            ({"1": self.node("AUSBOSS_NODES_LoadImagePad", image="pic.png", pad_left=-1)}, "1",
+             ("value_smaller_than_min", "pad_left")),
         )
         for prompt, node_id, (kind, input_name) in cases:
             with self.subTest(expected=(kind, input_name)):
@@ -240,6 +262,31 @@ class ComfyValidationTests(unittest.TestCase):
             "2": self.node("AUSBOSS_NODES_VideoCropRotatePadClip", video="clip.mp4", start_frame=["1", 0]),
         }
         self.assertEqual([(k, n) for k, _d, n in self.errors(prompt, "2")], [("return_type_mismatch", "start_frame")])
+
+    # A catch-all wrapper from another pack (issue 229) ----------------------
+
+    def test_a_catch_all_wrapper_hands_over_every_input_and_the_check_still_runs(self):
+        # Such a wrapper takes **kwargs, so ComfyUI gives it every input and
+        # it passes them all on. Load Image + Pad is the upstream node here,
+        # as in the report.
+        node_class = self.pack.NODE_CLASS_MAPPINGS["AUSBOSS_NODES_LoadImagePad"]
+        validate = node_class.VALIDATE_INPUTS
+
+        def catch_all(*args, **kwargs):
+            return validate(*args, **kwargs)
+
+        prompt = {
+            "1": self.node("AUSBOSS_NODES_LoadImagePad", image="pic.png", pad_left=64),
+            "2": {"class_type": "PreviewImage", "inputs": {"images": ["1", 0]}},
+        }
+        with patch.object(node_class, "VALIDATE_INPUTS", staticmethod(catch_all)):
+            self.assertEqual(self.outcome(prompt, "2"), {"1": [], "2": []})
+            prompt["1"]["inputs"]["image"] = "gone.png"
+            found = self.outcome(prompt, "2")
+        # The check ran and reported, rather than raising on pad_left.
+        self.assertEqual(found["2"], [])
+        self.assertTrue(found["1"])
+        self.assertEqual({kind for kind, _details, _name in found["1"]}, {"custom_validation_failed"})
 
     # ... without refusing what the nodes deliberately accept ----------------
 

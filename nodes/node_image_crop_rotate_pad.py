@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ._execution_helpers import ignore_extra_inputs
 from ._media_helpers import list_input_images, load_image_frames, resolve_input_path
 from ._inpaint_crop_helpers import build_transform_stitcher
 from ._transform_engine import (
@@ -146,6 +147,7 @@ class AusBossImageCropRotatePad:
         )
 
     @classmethod
+    @ignore_extra_inputs
     def VALIDATE_INPUTS(cls, image):
         # ComfyUI skips its own range and list checks for every input named
         # here and files a failure once per named input, so only the source

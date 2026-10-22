@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ._execution_helpers import ignore_extra_inputs
 from ._media_helpers import (
     decode_video_frame,
     list_input_videos,
@@ -124,6 +125,7 @@ class AusBossVideoCropRotatePad:
         )
 
     @classmethod
+    @ignore_extra_inputs
     def VALIDATE_INPUTS(cls, video, source_mode, local_path):
         # Only the source is read here, so ComfyUI still checks every other
         # value's range and list. video and source_mode skip its list check:
