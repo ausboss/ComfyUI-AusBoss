@@ -45,8 +45,13 @@ does not change keep whatever you give them. The same works for the LoRA
 rows on a subgraph box (LoRA Loader's gear, **Rows on the box**): select the
 box itself and save its on and off.
 
-A LoRA row a switch sets shows a lock in the LoRA Loader. Click the lock to
-take that row over: this switch then leaves the row alone.
+A LoRA Loader group works the same way. Save the switch once with the group
+on and once with it off, and the switch turns the whole group on and off.
+Each LoRA in the group keeps its own on/off, so you can still leave one out
+by hand, and a LoRA added to the group later goes with it.
+
+A LoRA row or group a switch sets shows a lock in the LoRA Loader. Click the
+lock to take it over: this switch then leaves it alone.
 
 ## A switch with two sides
 

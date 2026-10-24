@@ -29,7 +29,9 @@ come out of one socket, ready to wire into a prompt.
   modified date, and trigger words for that LoRA.
 
 Right-click a row to insert an empty LoRA above or below it, move, duplicate,
-or remove it. **Remove this LoRA** is red. **Delete all LoRAs…** is a separate red, trash-marked action
+or remove it, or to put it in a group (see Groups below). With several rows
+picked (Ctrl/Cmd-click or Shift-click), **Remove these LoRAs** removes them
+all. **Remove this LoRA** is red. **Delete all LoRAs…** is a separate red, trash-marked action
 with confirmation; it clears this node's rows and keeps all files on disk.
 Cancel or Escape keeps the stack. Inserting keeps the existing rows and their settings in order;
 the new slot uses the gear menu's default strength (initially 1).
@@ -41,6 +43,60 @@ nodes always start unified — and an absorb that imports a row with unequal
 model/CLIP strengths flips it on automatically so the difference stays
 visible. Turning it back off sets every row's CLIP strength to its model
 strength.
+
+## Groups
+
+Groups keep a long stack tidy, like layer groups in an image editor. A
+group has a header with its own on/off switch, so you can turn a whole set
+of LoRAs (all your style LoRAs, say) off and on with one click. Each LoRA
+in the group keeps its own switch too: turn the group off and back on, and
+the same LoRAs are on as before.
+
+- **Make a group:** right-click a row and choose **Group this LoRA**. To
+  group several, hold **Ctrl** (**Cmd** on a Mac) and click each row first,
+  or click one and **Shift**-click another to pick every row between them.
+  Then right-click one of them and choose **Group these LoRAs**. The new
+  group appears where the topmost row was, and you type its name.
+- **Add to a group:** drag a row by its grip onto the group's name, or
+  between any two of its rows. Right-click → **Move to group** does the
+  same.
+- **Take out of a group:** drag the row above or below the group, or
+  right-click → **Take out of** the group.
+- **Fold:** the arrow next to the group's switch hides its rows and makes
+  the node shorter. Folded rows still run.
+- **Rename:** double-click the group's name.
+- Right-click a group's header to move the whole group, fold it, turn all
+  its LoRAs on or off, ungroup it (the LoRAs stay), or remove it together
+  with its LoRAs. Drag the header's grip to move the whole group.
+- **Turn a group on and off from a Workflow Switch:** save the switch once
+  with the group on and once with it off. The group's header then shows a
+  lock, and the switch turns the whole group on and off. The LoRAs inside
+  stay yours to turn on and off. Click the lock to take the group back.
+
+Right-click the empty space around the rows (or under **+ LoRA**) to add
+LoRAs, group the rows you picked, fold or open every group at once, or
+delete all LoRAs.
+
+A plain click anywhere clears a Ctrl/Shift selection, and so does Escape.
+The count on a header (`2/3 on`) shows how many of its LoRAs are on. While
+the group is off it reads `group off`, and its LoRAs are dimmed.
+
+### Technical details
+
+LoRAs still apply in the order you see, top to bottom; a group changes
+nothing about how the stack runs. Groups are one level deep, and a group
+lasts while it has a LoRA in it. Each row keeps its group's name in the
+saved stack, so groups travel with templates, undo, and rows shown on a
+subgraph box. Which groups are folded is saved with the node. A group that
+is off marks each of its rows with `group_off` in the saved stack: none of
+them runs, and each keeps its own on/off. A row dragged into an off group
+goes off with it, and a row taken out runs by its own switch again. A
+renamed group keeps its on/off and its Workflow Switch. The switch at the
+top of the node turns every row and every group on. Move up and Move down step a row out of the edge of
+its group, or into a group next to it, one step at a time. While you drag,
+the drop line starts indented when the row would join a group. Just below
+a group's last row is outside the group; to add a row at a group's end,
+drop it on the group's name.
 
 ## Rows on a subgraph box
 
@@ -74,6 +130,10 @@ one strength for on and another for off. Click the lock to take the row
 over: the switch forgets that row and leaves it alone from then on, and
 stops reading "changed" because of it. Everything else the switch does
 stays. A locked row still drags to a new place.
+
+A group that a switch turns on and off shows the lock on its header
+instead. The LoRAs in it keep plain grips, so each one is still yours to
+turn on or off. Click the header's lock to take the group over.
 
 ## Strength bars
 
@@ -110,7 +170,14 @@ its height on rows, not chrome. Left to right:
 
 **+ LoRA** opens one list of files grouped by folder. Click a file to add
 one LoRA, or click a folder name to add all its LoRAs, including nested
-folders. Use the arrow beside a folder to collapse or expand it without
+folders. To add several files from different folders, tick the box beside
+each one (or **Ctrl**-click its name), then click **Add N LoRAs** at the
+bottom or press **Enter**. **Shift**-click ticks every file between the
+last one you ticked and the one you click. Ticks stay while you search, so you can
+gather files from several searches; **Clear** unticks them all. Files that
+are already in the stack say **in stack** and have no box. With the
+keyboard, **Ctrl+Enter** ticks the highlighted file and **Shift+Enter**
+ticks the run up to it. Use the arrow beside a folder to collapse or expand it without
 adding anything. Folded folders are remembered in this browser. Search
 reveals matching files; clearing it brings back your folded view. You can
 also fold folders while searching.
@@ -236,6 +303,13 @@ or the bare `.png` / `.jpg` / `.jpeg` / `.webp`). No sidecar, no thumbnail —
 nothing appears and nothing shifts. The gear menu's **Preview thumbnails**
 switch turns the behavior off.
 
+**Get the pictures from Civitai:** install the separate
+[LoRA Previews add-on](https://github.com/ausboss/ComfyUI-AusBoss-LoRA-Previews#install). With it, **Fetch Civitai info** (or
+**Refresh Civitai info**) also saves the LoRA's preview picture from Civitai
+next to the file, and the hover and the info card show it right away. It never
+replaces a picture you already have. The pack itself downloads no pictures; the
+info card links to the add-on when a LoRA has Civitai info but no picture.
+
 ## Trigger words
 
 The info card gathers words from three places: the LoRA file's own metadata,
@@ -255,7 +329,10 @@ switched on for the old one.
   `<model>.civitai.info`. After that the button reads **Refresh Civitai
   info** and the card gets a **View on Civitai** link. A LoRA Civitai does
   not know (unpublished or hidden) reads **Not found on Civitai**. Gear
-  menu → **Civitai lookup button** removes the button.
+  menu → **Civitai lookup button** removes the button. If it always reads
+  **Civitai lookup failed**, check whether ComfyUI was started with
+  `--disable-api-nodes`: that setting stops the browser from reaching any
+  other site, Civitai included.
 - **Suggested strength**: a lowest and a highest value at the bottom of the
   card (leave one empty for "any"). It is only a reminder: a row set outside
   it shows its number in orange, and the tooltip gives the range. Saved per

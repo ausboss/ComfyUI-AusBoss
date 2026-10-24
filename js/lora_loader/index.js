@@ -13,7 +13,9 @@ import { makeScrubInput } from "../shared/scrub_input.mjs";
 import { isAppShortcut, keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { resetUnknownValues } from "../shared/widget_card_math.mjs";
 import { boxRowInputs, boxRowsWidget, boxesOf, hostBox, rowsInputName, workflowNodes } from "../shared/lora_box.mjs";
-import { SETTINGS_PROPERTY as SWITCHES_PROPERTY, releaseStackRow, stackRowOwners } from "../shared/workflow_switches.mjs";
+import {
+  SETTINGS_PROPERTY as SWITCHES_PROPERTY, releaseStackGroup, releaseStackRow, renameStackGroup, stackGroupOwners, stackRowOwners,
+} from "../shared/workflow_switches.mjs";
 import {
   BYPASS_MODE,
   DEFAULT_STEP,
@@ -26,8 +28,12 @@ import {
   clampHighlight,
   fitLoraLabel,
   formatFileSize,
+  groupName,
+  groupNames,
+  groupRows,
+  hasGroupName,
   hasTrigger,
-  hoverRowIndex,
+  MAX_GROUP_NAME,
   applyTemplate,
   cycleMasterToggle,
   duplicateLoraKeys,
@@ -42,21 +48,28 @@ import {
   collectDownstreamLoaders,
   absorbChainIssue,
   mergeImportedRows,
+  moveGroup,
   moveHighlight,
-  moveRow,
+  moveRowInStack,
+  moveRowsToGroup,
   newRow,
   parseRows,
   parseTemplates,
   pickerWidth,
+  placeGroup,
+  placeRow,
   removeTemplate,
-  reorderRows,
+  renameGroup,
   roundStrength,
   resolveLoraName,
   scrubValue,
   serializeRows,
+  setGroupEnabled,
+  setGroupOff,
   setStrength,
   shortLoraName,
   snapshotEnabled,
+  stackLayout,
   strengthBarBackground,
   strengthBarScale,
   thumbPosition,
@@ -65,6 +78,8 @@ import {
   templateFromRows,
   toggleAllState,
   toggleTrigger,
+  ungroupRows,
+  uniqueGroupName,
   upsertTemplate,
 } from "../shared/lora_stack.mjs";
 import { civitaiButtonLabel, civitaiByHashUrl, parseCivitaiBody } from "../shared/civitai_lookup.mjs";
@@ -90,6 +105,11 @@ const BAND_RECLAIM = 52;
 // The one line that says where an inner loader's rows are set (see
 // rowsSource), and the Workflow Switches node that can own a row.
 const NOTE_HEIGHT = 16;
+// A group's header row, how far its LoRAs sit in, and the node property
+// that keeps which groups are folded.
+const HEADER_HEIGHT = 26;
+const GROUP_INDENT = 18;
+const FOLDED_PROPERTY = "ausbossLoraFolded";
 const SWITCHES_CLASS = "AUSBOSS_NODES_WorkflowSwitches";
 
 // Per-node-type preferences behind the gear button; persisted in
@@ -219,6 +239,43 @@ function installStyles() {
   .ausboss-lora-row.off > * { opacity: 0.45; }
   .ausboss-lora-row.dragging { opacity: 0.55; }
   .ausboss-lora-row.dragging > * { opacity: 1; }
+  /* Groups: a header row, then its LoRAs set in behind a thin line. The
+     header's switch shares the plain rows' switch column. */
+  .ausboss-lora-ghead { flex: none; display: flex; align-items: center; gap: 6px;
+    height: ${HEADER_HEIGHT}px; border-radius: 5px; padding-right: 4px; }
+  .ausboss-lora-ghead.drop { background: rgba(0,180,170,.16); box-shadow: inset 0 0 0 1px ${BRAND}; }
+  .ausboss-lora-ghead.dragging, .ausboss-lora-row.child.dragging { opacity: 0.45; }
+  .ausboss-lora-ghead.off .ausboss-lora-gname { opacity: 0.55; }
+  /* A group switched off: its rows keep their own switches, dimmed. */
+  .ausboss-lora-row.groupoff > * { opacity: 0.4; }
+  .ausboss-lora-row.groupoff.off > * { opacity: 0.25; }
+  .ausboss-lora-gfold { width: 16px; height: 20px; border: none; background: transparent;
+    color: #9ba2aa; cursor: pointer; padding: 0; display: grid; place-items: center; flex: none; }
+  .ausboss-lora-gfold:hover { color: ${BRAND}; }
+  .ausboss-lora-gfold svg { transition: transform .12s; }
+  .ausboss-lora-ghead.folded .ausboss-lora-gfold svg { transform: rotate(-90deg); }
+  .ausboss-lora-gicon { flex: none; color: #8fb9b4; display: grid; place-items: center; }
+  .ausboss-lora-gname { flex: 1 1 auto; min-width: 0; color: #dfe6ea; font: 600 12px system-ui;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ausboss-lora-gcount { flex: none; color: #7d868e; font: 11px system-ui; }
+  .ausboss-lora-gname-input { flex: 1 1 auto; min-width: 0; height: 22px; border: 1px solid ${BRAND};
+    border-radius: 4px; background: #23272c; color: #fff; font: 600 12px system-ui;
+    padding: 0 6px; outline: none; }
+  .ausboss-lora-row.child { margin-left: ${GROUP_INDENT}px; position: relative; }
+  .ausboss-lora-row.child::after { content: ""; position: absolute; left: -${GROUP_INDENT - 6}px;
+    top: -${ROW_GAP}px; bottom: 0; width: 1px; background: rgba(0,180,170,.35);
+    pointer-events: none; }
+  .ausboss-lora-row.folded-away { display: none; }
+  .ausboss-lora-row.selected { background: rgba(0,180,170,.16);
+    box-shadow: 0 0 0 1px rgba(0,180,170,.7); border-radius: 5px; }
+  .ausboss-lora-dropline { position: fixed; height: 2px; background: ${BRAND}; border-radius: 1px;
+    z-index: 10002; pointer-events: none; box-shadow: 0 0 0 1px rgba(0,0,0,.4); }
+  .ausboss-lora-dropline::before { content: ""; position: absolute; left: -4px; top: -3px;
+    width: 8px; height: 8px; border-radius: 50%; background: ${BRAND}; }
+  .ausboss-lora-dragghost { position: fixed; z-index: 10003; pointer-events: none; padding: 3px 10px;
+    border-radius: 5px; background: #23272c; border: 1px solid ${BRAND}; color: #dfe6ea;
+    font: 12px system-ui; box-shadow: 0 6px 18px rgba(0,0,0,.5); white-space: nowrap;
+    max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
   .ausboss-lora-grip { width: 14px; height: 24px; border: none; background: transparent;
     color: #5c646c; cursor: grab; flex: none; padding: 0; display: grid; place-items: center;
     touch-action: none; }
@@ -229,9 +286,9 @@ function installStyles() {
   .ausboss-lora-grip.locked { color: #8fdcd4; cursor: pointer; }
   .ausboss-lora-grip.locked:hover { color: #c4f1ec; }
   /* The line sits in the stack's padding, clear of the lock. */
-  .ausboss-lora-row.owned { position: relative; }
-  .ausboss-lora-row.owned::before { content: ""; position: absolute; left: -6px; top: 4px;
-    bottom: 4px; width: 2px; border-radius: 1px; background: ${BRAND}; }
+  .ausboss-lora-row.owned, .ausboss-lora-ghead.owned { position: relative; }
+  .ausboss-lora-row.owned::before, .ausboss-lora-ghead.owned::before { content: ""; position: absolute;
+    left: -6px; top: 4px; bottom: 4px; width: 2px; border-radius: 1px; background: ${BRAND}; }
   /* Where an inner loader's rows are set when its box holds them. */
   .ausboss-lora-onbox { flex: none; height: ${NOTE_HEIGHT}px; line-height: ${NOTE_HEIGHT}px;
     text-align: center; color: #8fb9b4; font: 11px system-ui; white-space: nowrap;
@@ -347,6 +404,28 @@ function installStyles() {
   .ausboss-lora-folder-toggle[aria-expanded="false"] svg { transform: rotate(-90deg); }
   .ausboss-lora-folder-count { flex: none; color: #9ba2aa; font-size: 11px; }
   .ausboss-lora-picker-note { padding: 0 10px 8px; color: #9ba2aa; font-size: 11px; }
+  /* Tick boxes sit in the gap left of each file in the + LoRA list. */
+  .ausboss-lora-option.tickable { position: relative; display: flex; align-items: center; }
+  .ausboss-lora-option.tickable > .ausboss-lora-label { flex: 1 1 auto; min-width: 0; }
+  .ausboss-lora-tick { position: absolute; top: 50%; width: 14px; height: 14px; margin-top: -7px;
+    padding: 0; border: 1.5px solid #5c646c; border-radius: 3px; background: #23272c;
+    cursor: pointer; display: grid; place-items: center; }
+  .ausboss-lora-option:hover .ausboss-lora-tick { border-color: #9ba2aa; }
+  .ausboss-lora-tick:hover { border-color: ${BRAND} !important; }
+  .ausboss-lora-tick.on { background: ${BRAND}; border-color: ${BRAND}; }
+  .ausboss-lora-tick.on::after { content: ""; width: 7px; height: 4px; border: 2px solid #06211f;
+    border-top: 0; border-right: 0; transform: translate(0, -1px) rotate(-45deg); }
+  .ausboss-lora-option.ticked { background: rgba(0,180,170,.10); }
+  .ausboss-lora-option.instack { color: #7d868e; }
+  .ausboss-lora-instack { flex: none; padding-left: 8px; color: #7d868e; font-size: 11px;
+    white-space: nowrap; }
+  .ausboss-lora-tickbar { display: flex; align-items: center; gap: 8px; padding: 8px;
+    border-top: 1px solid #3a4047; }
+  .ausboss-lora-tickcount { flex: 1 1 auto; min-width: 0; color: #9ba2aa; font-size: 11px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ausboss-lora-tickclear { flex: none; height: 26px; border: 1px solid #3a4047; border-radius: 6px;
+    background: #23272c; color: #9ba2aa; padding: 0 10px; cursor: pointer; font: 12px system-ui; }
+  .ausboss-lora-tickclear:hover { border-color: #9ba2aa; color: #d7dde2; }
   .ausboss-lora-option.highlight, .ausboss-lora-folder-option:hover { background: #2c3238; }
   .ausboss-lora-option.current { color: ${BRAND}; }
   .ausboss-lora-empty { padding: 10px; color: #9ba2aa; font-style: italic; }
@@ -358,6 +437,10 @@ function installStyles() {
   .ausboss-lora-menu > button { display: block; width: 100%; text-align: left; border: none;
     background: transparent; color: inherit; padding: 6px 8px; border-radius: 4px; cursor: pointer; }
   .ausboss-lora-menu > button:hover:not(:disabled) { background: #2c3238; }
+  .ausboss-lora-menu > button.indent { padding-left: 22px; }
+  .ausboss-lora-menu-sub { padding: 4px 8px 2px; color: #7d868e; font: 600 10px system-ui;
+    text-transform: uppercase; letter-spacing: .06em; }
+  .ausboss-lora-menu-rule { height: 1px; background: #3a4047; margin: 4px 2px; }
   .ausboss-lora-menu button:disabled { opacity: 0.35; cursor: default; }
   .ausboss-lora-menu > button.ausboss-lora-danger { color: #ff8585; }
   .ausboss-lora-menu > button.ausboss-lora-delete-all { border-top: 1px solid #574047; margin-top: 6px; padding-top: 8px; }
@@ -471,6 +554,13 @@ function gripIconSvg() {
   return `<svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor" aria-hidden="true">${dots.join("")}</svg>`;
 }
 
+// A group header's folder.
+function folderIconSvg() {
+  return '<svg width="15" height="13" viewBox="0 0 15 13" fill="none" stroke="currentColor" '
+    + 'stroke-width="1.3" stroke-linejoin="round" aria-hidden="true">'
+    + '<path d="M1.5 2.5a1 1 0 0 1 1-1h3.2l1.4 1.6h5.4a1 1 0 0 1 1 1v6.9a1 1 0 0 1-1 1h-10a1 1 0 0 1-1-1z"/></svg>';
+}
+
 // The grip of a row a switch sets.
 function lockIconSvg() {
   return '<svg width="11" height="13" viewBox="0 0 11 13" fill="none" stroke="currentColor" '
@@ -518,6 +608,25 @@ function closePopup() {
 
 // ---------- hover thumbnail ----------
 
+// Where to read about the add-on that saves a LoRA's preview picture from
+// Civitai. The pack itself downloads no pictures.
+const PREVIEWS_ADDON_URL = "https://github.com/ausboss/ComfyUI-AusBoss-LoRA-Previews#install";
+
+// Raised when a preview picture was saved since the page loaded, so the
+// browser asks for the picture again instead of reusing a failed load.
+let thumbVersion = 0;
+
+function thumbUrl(name) {
+  const version = thumbVersion ? `&v=${thumbVersion}` : "";
+  return api.apiURL(`/ausboss/lora/thumb?name=${encodeURIComponent(name)}${version}`);
+}
+
+// The preview add-on saved a picture: the next hover and an open card show it.
+window.addEventListener("ausboss:lora-preview-saved", () => {
+  thumbVersion += 1;
+  if (hoverThumb) delete hoverThumb.dataset.name;
+});
+
 // One floating preview image for the whole pack tab, shared by row hover and
 // the picker. Fixed-positioned and pointer-events: none, so it can never
 // shift layout or steal the cursor; it stays hidden until the image actually
@@ -551,8 +660,7 @@ function showHoverThumb(state, name, x, y) {
   if (thumb.dataset.name !== name) {
     thumb.dataset.name = name;
     thumb.style.display = "none";
-    thumb.src = api.apiURL(
-      `/ausboss/lora/thumb?name=${encodeURIComponent(effectiveLoraName(state, name))}`);
+    thumb.src = thumbUrl(effectiveLoraName(state, name));
   } else if (thumb.complete && thumb.naturalWidth > 0) {
     thumb.style.display = "";
   }
@@ -681,9 +789,19 @@ function refreshAvailable(state) {
 // button lives inside the stack now, so its height (plus the gap above it)
 // counts inside the stack box.
 function panelHeight(state) {
-  const inner = state.rows.length
-    ? state.rows.length * (ROW_HEIGHT + ROW_GAP) - ROW_GAP
-    : BLANK_HEIGHT;
+  const folded = foldedGroups(state);
+  let items = 0;
+  let height = 0;
+  for (const item of stackLayout(state.rows)) {
+    if (item.kind === "group") {
+      items += 1;
+      height += HEADER_HEIGHT;
+    } else if (!(item.group && folded.has(item.group))) {
+      items += 1;
+      height += ROW_HEIGHT;
+    }
+  }
+  const inner = items ? height + (items - 1) * ROW_GAP : BLANK_HEIGHT;
   const stack = inner + ROW_GAP + ACTIONS_HEIGHT + STACK_PADDING * 2 + 2; // +2 border
   const note = state.note ? NOTE_HEIGHT + ROW_GAP : 0;
   return PANEL_PADDING * 2 + GROUP_HEIGHT + ROW_GAP + note + stack;
@@ -882,7 +1000,7 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
   list.append(el("div", "ausboss-lora-empty", "Loading..."));
   pop.append(search, list);
   if (adding) pop.append(el("div", "ausboss-lora-picker-note",
-    "Use the arrows to fold folders. Click a file to add one, or a folder name to add all, including nested folders. Skips files already in this stack."));
+    "Click a file to add it. Tick boxes (or Ctrl-click) to add several at once. Click a folder name to add all of it. Skips files already in this stack."));
   const anchorRect = anchor.getBoundingClientRect();
   const fitWidth = () => pickerWidth(widestPickerLabel, anchorRect.width, window.innerWidth);
   const originalRowId = state.rows[index]?.id;
@@ -896,6 +1014,11 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
   let names = [];
   let folders = new Map();
   let options = [];
+  // Files ticked to add together, in the order they were ticked. They stay
+  // ticked through a search, so a set can be gathered from several searches.
+  const ticked = [];
+  const pathKey = (name) => String(name).replaceAll("\\", "/");
+  const inStack = () => new Set(state.rows.map((row) => pathKey(row.name)));
   let loadError = false;
   let highlight = -1;
   const collapsedFolders = loadCollapsedFolders();
@@ -983,6 +1106,106 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
     if (!pointer) backToStack(adding ? rows.length - 1 : index);
   };
 
+  const addTicked = ({ pointer = false } = {}) => {
+    const result = appendFolderRows(state.rows, ticked, state.settings?.default_strength ?? 1);
+    if (result.needed > result.room) {
+      loraToast(`You ticked ${result.needed} new LoRAs, but only ${result.room} of ${MAX_ROWS} rows are free. Nothing was added. Untick some or remove rows.`);
+      return;
+    }
+    if (!result.added) {
+      loraToast("Every ticked LoRA is already in this stack. Nothing was added.");
+      return;
+    }
+    const firstAdded = state.rows.length;
+    closePopup();
+    commitRows(state, result.rows, { structural: true });
+    fitNode(state);
+    loraToast(`Added ${result.added} LoRA${result.added === 1 ? "" : "s"}.`
+      + (result.skipped ? ` Skipped ${result.skipped} already in this stack.` : ""));
+    if (!pointer) backToStack(firstAdded);
+  };
+
+  // While anything is ticked, the bottom note becomes a bar that adds them.
+  let tickBar = null;
+  const updateTickBar = () => {
+    const note = pop.querySelector(".ausboss-lora-picker-note");
+    if (!ticked.length) {
+      tickBar?.remove();
+      tickBar = null;
+      if (note) note.hidden = false;
+      place();
+      return;
+    }
+    if (note) note.hidden = true;
+    if (!tickBar) {
+      tickBar = el("div", "ausboss-lora-tickbar");
+      const clear = el("button", "ausboss-lora-tickclear", "Clear");
+      clear.type = "button";
+      clear.title = "Untick every file";
+      clear.addEventListener("click", () => {
+        ticked.length = 0;
+        renderTicks();
+        search.focus({ preventScroll: true });
+      });
+      const add = el("button", "ausboss-lora-add");
+      add.type = "button";
+      add.addEventListener("click", () => addTicked({ pointer: true }));
+      tickBar.append(el("span", "ausboss-lora-tickcount"), clear, add);
+      pop.append(tickBar);
+    }
+    const count = ticked.length;
+    tickBar.querySelector(".ausboss-lora-tickcount").textContent = `${count} ticked`;
+    tickBar.querySelector(".ausboss-lora-add").textContent = `Add ${count} LoRA${count === 1 ? "" : "s"}`;
+    place();
+  };
+
+  const renderTicks = () => {
+    for (const option of list.querySelectorAll(".ausboss-lora-option.tickable")) {
+      const on = ticked.includes(option.title);
+      option.classList.toggle("ticked", on);
+      option.querySelector(".ausboss-lora-tick")?.classList.toggle("on", on);
+    }
+    updateTickBar();
+  };
+
+  // The last file ticked or unticked one by one: Shift ticks the run of
+  // files shown between it and the next one, as Shift-click does on rows.
+  let tickAnchor = null;
+  const toggleTick = (name) => {
+    const at = ticked.indexOf(name);
+    if (at >= 0) ticked.splice(at, 1);
+    else ticked.push(name);
+    tickAnchor = name;
+    renderTicks();
+  };
+
+  const tickRun = (name) => {
+    const shown = [...list.querySelectorAll(".ausboss-lora-option.tickable:not(.instack)")]
+      .map((option) => option.title);
+    const from = shown.indexOf(tickAnchor);
+    const to = shown.indexOf(name);
+    if (from < 0 || to < 0) {
+      toggleTick(name);
+      return;
+    }
+    for (const file of shown.slice(Math.min(from, to), Math.max(from, to) + 1)) {
+      if (!ticked.includes(file)) ticked.push(file);
+    }
+    tickAnchor = name;
+    renderTicks();
+  };
+  const tickWith = (event, name) => {
+    if (event.shiftKey && !event.ctrlKey && !event.metaKey) tickRun(name);
+    else toggleTick(name);
+  };
+
+  let lastPointer = null;
+  const pointerMoved = (event) => {
+    const moved = !lastPointer || lastPointer.x !== event.clientX || lastPointer.y !== event.clientY;
+    lastPointer = { x: event.clientX, y: event.clientY };
+    return moved;
+  };
+
   const appendOption = (entry, flatIndex) => {
     const { name, kind, label, depth, count } = entry;
     const folder = kind === "folder";
@@ -998,6 +1221,32 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
     }
     if (flatIndex === highlight) option.classList.add("highlight");
     if (!folder && name === state.rows[index]?.name) option.classList.add("current");
+    // Only + LoRA ticks. A file already in the stack says so and has no box.
+    const tickable = adding && !folder && !entry.inStack;
+    if (adding && !folder && entry.inStack) {
+      option.classList.add("tickable", "instack");
+      option.append(el("span", "ausboss-lora-instack", "in stack"));
+    } else if (tickable) {
+      option.classList.add("tickable");
+      const tick = el("button", "ausboss-lora-tick");
+      tick.type = "button";
+      tick.tabIndex = -1;
+      tick.title = "Tick to add with others";
+      tick.setAttribute("aria-label", `Tick ${name}`);
+      tick.style.left = `${OPTION_PAD_X + Math.min(4, depth) * 12 + 8}px`;
+      if (ticked.includes(name)) {
+        tick.classList.add("on");
+        option.classList.add("ticked");
+      }
+      tick.addEventListener("click", (event) => {
+        event.stopPropagation();
+        tickWith(event, name);
+        search.focus({ preventScroll: true });
+      });
+      option.prepend(tick);
+      // Shift-click would otherwise select text across the list.
+      option.addEventListener("mousedown", (event) => { if (event.shiftKey) event.preventDefault(); });
+    }
     option.addEventListener("pointerenter", (event) => {
       // Pointing at a folder never chooses it for Enter or for the Left and
       // Right keys: a pointer that only rests on the list would otherwise
@@ -1007,6 +1256,10 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
         hideHoverThumb();
         return;
       }
+      // The arrow keys redraw the list under a pointer that has not moved,
+      // and the browser then reports the pointer entering the new row. Only
+      // a real move takes the highlight, or the arrows could not leave it.
+      if (!pointerMoved(event)) return;
       if (highlight !== flatIndex) {
         // Keep the option under the pointer intact through the click.
         list.querySelector(".ausboss-lora-option.highlight")?.classList.remove("highlight");
@@ -1016,16 +1269,33 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
       showHoverThumb(state, name, event.clientX, event.clientY);
     });
     option.addEventListener("pointermove", (event) => {
-      if (!folder) showHoverThumb(state, name, event.clientX, event.clientY);
+      if (folder || !pointerMoved(event)) return;
+      if (highlight !== flatIndex) {
+        list.querySelector(".ausboss-lora-option.highlight")?.classList.remove("highlight");
+        highlight = flatIndex;
+        option.classList.add("highlight");
+      }
+      showHoverThumb(state, name, event.clientX, event.clientY);
     });
     option.addEventListener("pointerleave", hideHoverThumb);
-    option.addEventListener("click", () => pick(entry, { pointer: true }));
+    option.addEventListener("click", (event) => {
+      if (tickable && (event.ctrlKey || event.metaKey || event.shiftKey)) {
+        tickWith(event, name);
+        search.focus({ preventScroll: true });
+        return;
+      }
+      pick(entry, { pointer: true });
+    });
     option.dataset.ausbossFlat = String(flatIndex);
     list.append(option);
   };
 
   const renderList = () => {
     const entries = loraPickerEntries(names, search.value, currentFolds());
+    if (adding) {
+      const have = inStack();
+      for (const entry of entries) if (entry.kind === "file") entry.inStack = have.has(pathKey(entry.name));
+    }
     options = entries.filter((entry) => adding || entry.kind === "file");
     if (highlight >= 0) highlight = clampHighlight(highlight, options.length);
     list.textContent = "";
@@ -1050,6 +1320,7 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
     }
     fitLabels(list.querySelectorAll(".ausboss-lora-label"));
     list.querySelector(`[data-ausboss-flat="${highlight}"]`)?.scrollIntoView({ block: "nearest" });
+    if (adding) updateTickBar();
     place();
   };
 
@@ -1069,8 +1340,19 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
       event.preventDefault();
       highlight = event.key === "Home" ? 0 : options.length - 1;
       renderList();
+    } else if (event.key === "Enter" && adding && (event.ctrlKey || event.metaKey || event.shiftKey)) {
+      // Ctrl+Enter ticks the highlighted file and Shift+Enter the run up
+      // to it, as Ctrl-click and Shift-click do.
+      event.preventDefault();
+      const entry = options[highlight];
+      if (entry?.kind === "file" && !entry.inStack) tickWith(event, entry.name);
     } else if (event.key === "Enter") {
       event.preventDefault();
+      // With files ticked, Enter adds them all.
+      if (adding && ticked.length) {
+        addTicked();
+        return;
+      }
       // Typing a filename then Enter keeps picking one file. A folder is
       // selected deliberately by a click or by moving the highlight to it.
       pick(options[highlight] ?? options.find((entry) => entry.kind === "file"));
@@ -1120,6 +1402,8 @@ async function lookUpOnCivitai(serverName) {
     body: JSON.stringify({ name: serverName, info }),
   })).json();
   if (!saved.ok) throw new Error(saved.error || "Could not save the Civitai info.");
+  // An add-on can listen for this to save the preview picture.
+  window.dispatchEvent(new CustomEvent("ausboss:lora-civitai-saved", { detail: { name: serverName, info } }));
   return true;
 }
 
@@ -1139,7 +1423,7 @@ function openInfo(state, index, anchor) {
     card.textContent = "";
     const image = el("img");
     image.alt = "";
-    image.src = api.apiURL(`/ausboss/lora/thumb?name=${encodeURIComponent(serverName)}`);
+    image.src = thumbUrl(serverName);
     image.addEventListener("error", () => image.remove());
     if (info.has_preview) card.append(image);
     card.append(el("h4", "", info.civitai_title || rowLabel(state, row.name)));
@@ -1159,6 +1443,21 @@ function openInfo(state, index, anchor) {
       link.target = "_blank";
       link.rel = "noopener noreferrer";
       card.append(link);
+    }
+    // Civitai info but no picture: say how to get one.
+    if (info.has_civitai && !info.has_preview && state.settings?.civitai_lookup !== false) {
+      const hint = el("div", "ausboss-lora-meta");
+      if (window.ausbossLoraPreviews) {
+        hint.textContent = "No preview picture yet. Click Refresh Civitai info to save one.";
+      } else {
+        hint.append("No preview picture yet. The LoRA Previews add-on saves Civitai's picture for you. ");
+        const addon = el("a", "ausboss-lora-civitai-link", "How to install ↗");
+        addon.href = PREVIEWS_ADDON_URL;
+        addon.target = "_blank";
+        addon.rel = "noopener noreferrer";
+        hint.append(addon);
+      }
+      card.append(hint);
     }
 
     // One click can change other chips too: the same word can sit in two
@@ -1292,6 +1591,9 @@ function openInfo(state, index, anchor) {
         card.append(el("div", "ausboss-lora-empty", "Could not read LoRA info."));
       });
   };
+  window.addEventListener("ausboss:lora-preview-saved", (event) => {
+    if (event.detail?.name === serverName) load();
+  }, { signal: activePopup?.abort.signal });
   load();
 }
 
@@ -1372,43 +1674,26 @@ function openTemplates(state, anchor) {
 
 // ---------- row menu ----------
 
-function openRowMenu(state, index, event) {
-  const menu = el("div", "ausboss-lora-menu");
-  const item = (label, action, disabled = false) => {
-    const button = el("button", "", label);
-    button.type = "button";
-    button.disabled = disabled;
-    button.addEventListener("click", () => { closePopup(); action(); });
-    menu.append(button);
-    return button;
-  };
-  const insertEmpty = (position) => {
-    if (state.rows.length >= MAX_ROWS) return;
-    const strength = roundStrength(state.settings?.default_strength ?? 1);
-    const rows = state.rows.slice();
-    rows.splice(position, 0, { ...newRow(), strength, strength_clip: strength });
-    commitRows(state, rows, { structural: true });
-    fitNode(state);
-  };
-  item("Insert empty LoRA above", () => insertEmpty(index), state.rows.length >= MAX_ROWS);
-  item("Insert empty LoRA below", () => insertEmpty(index + 1), state.rows.length >= MAX_ROWS);
-  item("Move up", () => commitRows(state, moveRow(state.rows, index, -1), { structural: true }), index === 0);
-  item("Move down", () => commitRows(state, moveRow(state.rows, index, 1), { structural: true }),
-    index === state.rows.length - 1);
-  item("Duplicate", () => {
-    const copy = { ...state.rows[index], id: newRow().id };
-    const rows = state.rows.slice();
-    rows.splice(index + 1, 0, copy);
-    commitRows(state, rows, { structural: true });
-    fitNode(state);
-  }, state.rows.length >= MAX_ROWS);
-  item("Remove this LoRA", () => {
-    const rows = state.rows.slice();
-    rows.splice(index, 1);
-    commitRows(state, rows, { structural: true });
-    fitNode(state);
-  }).classList.add("ausboss-lora-danger");
-  item("🗑 Delete all LoRAs…", () => {
+function menuItem(menu, label, action, disabled = false) {
+  const button = el("button", "", label);
+  button.type = "button";
+  button.disabled = disabled;
+  button.addEventListener("click", () => { closePopup(); action(); });
+  menu.append(button);
+  return button;
+}
+
+// A change that can add or empty a group changes the node's height.
+function commitGroups(state, rows) {
+  commitRows(state, rows, { structural: true });
+  clearSelection(state);
+  fitNode(state);
+}
+
+// The red, trash-marked last item of both right-click menus: clears every
+// row of this node after a confirmation.
+function addDeleteAll(state, menu, event) {
+  menuItem(menu, "🗑 Delete all LoRAs…", () => {
     const confirmation = el("div", "ausboss-lora-menu");
     const message = el("div", "ausboss-lora-empty",
       `Remove all ${state.rows.length} LoRA rows from this node? Files on disk are kept.`);
@@ -1418,8 +1703,7 @@ function openRowMenu(state, index, event) {
     cancel.addEventListener("click", closePopup);
     remove.addEventListener("click", () => {
       closePopup();
-      commitRows(state, [], { structural: true });
-      fitNode(state);
+      commitGroups(state, []);
       notifyAusbossChange();
     });
     confirmation.append(message, cancel, remove);
@@ -1428,7 +1712,454 @@ function openRowMenu(state, index, event) {
       { width: 270 });
     cancel.focus();
   }).classList.add("ausboss-lora-danger", "ausboss-lora-delete-all");
+}
+
+function openRowMenu(state, index, event) {
+  const menu = el("div", "ausboss-lora-menu");
+  const item = (label, action, disabled = false) => menuItem(menu, label, action, disabled);
+  const row = state.rows[index];
+  const ids = menuRowIds(state, index);
+  const count = ids.length;
+  const chosen = state.rows.filter((entry) => ids.includes(entry.id));
+  const sameGroup = chosen.every((entry) => entry.group && entry.group === chosen[0].group)
+    ? chosen[0].group : "";
+  item(count > 1 ? `Group these ${count} LoRAs` : "Group this LoRA", () => {
+    const name = uniqueGroupName(state.rows);
+    commitGroups(state, groupRows(state.rows, ids, name));
+    startGroupRename(state, name);
+  });
+  const others = groupNames(state.rows).filter((name) => name !== sameGroup);
+  if (others.length) {
+    menu.append(el("div", "ausboss-lora-menu-sub", count > 1 ? `Move ${count} to group` : "Move to group"));
+    for (const name of others) {
+      item(name, () => commitGroups(state, moveRowsToGroup(state.rows, ids, name))).classList.add("indent");
+    }
+  }
+  if (sameGroup) {
+    item(count > 1 ? `Take ${count} out of ${sameGroup}` : `Take out of ${sameGroup}`,
+      () => commitGroups(state, ungroupRows(state.rows, ids)));
+  }
+  menu.append(el("div", "ausboss-lora-menu-rule"));
+  const insertEmpty = (position) => {
+    if (state.rows.length >= MAX_ROWS) return;
+    const strength = roundStrength(state.settings?.default_strength ?? 1);
+    const rows = state.rows.slice();
+    // A row added next to a grouped one joins its group.
+    const blank = { ...newRow(), strength, strength_clip: strength };
+    if (row.group) blank.group = row.group;
+    rows.splice(position, 0, blank);
+    commitRows(state, rows, { structural: true });
+    fitNode(state);
+  };
+  item("Insert empty LoRA above", () => insertEmpty(index), state.rows.length >= MAX_ROWS);
+  item("Insert empty LoRA below", () => insertEmpty(index + 1), state.rows.length >= MAX_ROWS);
+  item("Move up", () => commitGroups(state, moveRowInStack(state.rows, index, -1)),
+    index === 0 && !row.group);
+  item("Move down", () => commitGroups(state, moveRowInStack(state.rows, index, 1)),
+    index === state.rows.length - 1 && !row.group);
+  item("Duplicate", () => {
+    const copy = { ...state.rows[index], id: newRow().id };
+    const rows = state.rows.slice();
+    rows.splice(index + 1, 0, copy);
+    commitRows(state, rows, { structural: true });
+    fitNode(state);
+  }, state.rows.length >= MAX_ROWS);
+  item(count > 1 ? `Remove these ${count} LoRAs` : "Remove this LoRA", () => {
+    commitGroups(state, state.rows.filter((entry) => !ids.includes(entry.id)));
+  }).classList.add("ausboss-lora-danger");
+  addDeleteAll(state, menu, event);
   openPopup(menu, { left: event.clientX, top: event.clientY, bottom: event.clientY, width: 0 });
+}
+
+// Right-click on the stack around the rows: what applies to the whole stack.
+function openStackMenu(state, event) {
+  const menu = el("div", "ausboss-lora-menu");
+  const item = (label, action, disabled = false) => menuItem(menu, label, action, disabled);
+  const add = state.panel.querySelector(".ausboss-lora-add, .ausboss-lora-blank");
+  item("+ Add LoRAs…", () => openPicker(state, null, add), !add || state.rows.length >= MAX_ROWS);
+  const ids = state.rows.filter((row) => selectedIds(state).has(row.id)).map((row) => row.id);
+  if (ids.length) {
+    item(ids.length > 1 ? `Group the ${ids.length} selected LoRAs` : "Group the selected LoRA", () => {
+      const name = uniqueGroupName(state.rows);
+      commitGroups(state, groupRows(state.rows, ids, name));
+      startGroupRename(state, name);
+    });
+  } else if (state.rows.length) {
+    item("Group LoRAs: Ctrl-click rows first", () => {}, true);
+  }
+  const groups = groupNames(state.rows);
+  if (groups.length) {
+    const folded = foldedGroups(state);
+    const allFolded = groups.every((name) => folded.has(name));
+    item(allFolded ? "Open all groups" : "Fold all groups", () => {
+      saveFolded(state, new Set(allFolded ? [] : groups));
+      renderRows(state);
+      fitNode(state);
+      notifyAusbossChange();
+    });
+  }
+  if (state.rows.length) addDeleteAll(state, menu, event);
+  openPopup(menu, { left: event.clientX, top: event.clientY, bottom: event.clientY, width: 0 });
+}
+
+function openGroupMenu(state, group, event) {
+  const menu = el("div", "ausboss-lora-menu");
+  const item = (label, action, disabled = false) => menuItem(menu, label, action, disabled);
+  const inside = state.rows.filter((row) => row.group === group);
+  const members = inside.map((row) => row.id);
+  const folded = foldedGroups(state).has(group);
+  const setAll = (enabled) => {
+    const rows = setGroupEnabled(state.rows, group, enabled);
+    state.toggleSnapshot = snapshotEnabled(rows);
+    commitRows(state, rows, { structural: true });
+  };
+  item("Rename group", () => startGroupRename(state, group));
+  item(folded ? "Open group" : "Fold group", () => setGroupFolded(state, group, !folded));
+  item("Turn all LoRAs in it on", () => setAll(true), inside.every((row) => row.enabled));
+  item("Turn all LoRAs in it off", () => setAll(false), inside.every((row) => !row.enabled));
+  item("Move group up", () => commitGroups(state, moveGroup(state.rows, group, -1)),
+    state.rows[0]?.group === group);
+  item("Move group down", () => commitGroups(state, moveGroup(state.rows, group, 1)),
+    state.rows.at(-1)?.group === group);
+  item("Ungroup (keeps the LoRAs)", () => commitGroups(state, ungroupRows(state.rows, members)));
+  item(`Remove group and its ${members.length} LoRA${members.length === 1 ? "" : "s"}`,
+    () => commitGroups(state, state.rows.filter((row) => row.group !== group)))
+    .classList.add("ausboss-lora-danger");
+  addDeleteAll(state, menu, event);
+  openPopup(menu, { left: event.clientX, top: event.clientY, bottom: event.clientY, width: 0 });
+}
+
+// ---------- groups ----------
+
+// Folded groups, by name, kept with the node so a workflow opens the way
+// it was saved.
+function foldedGroups(state) {
+  const saved = state.node.properties?.[FOLDED_PROPERTY];
+  return new Set(Array.isArray(saved) ? saved.filter((name) => typeof name === "string") : []);
+}
+
+function saveFolded(state, folded, rows = state.rows) {
+  const live = new Set(groupNames(rows));
+  const names = [...folded].filter((name) => live.has(name));
+  state.node.properties ??= {};
+  if (names.length) state.node.properties[FOLDED_PROPERTY] = names;
+  else delete state.node.properties[FOLDED_PROPERTY];
+}
+
+function setGroupFolded(state, group, folded) {
+  const names = foldedGroups(state);
+  if (folded) names.add(group);
+  else names.delete(group);
+  saveFolded(state, names);
+  renderRows(state);
+  fitNode(state);
+  notifyAusbossChange();
+}
+
+function groupHeaderElement(state, group) {
+  return [...state.panel.querySelectorAll(".ausboss-lora-ghead")]
+    .find((head) => head.dataset.group === group) ?? null;
+}
+
+// The name turns into a text box in place. Enter or a click away keeps the
+// new name; Escape keeps the old one.
+function startGroupRename(state, from) {
+  const label = groupHeaderElement(state, from)?.querySelector(".ausboss-lora-gname");
+  if (!label) return;
+  const input = el("input", "ausboss-lora-gname-input");
+  input.value = from;
+  input.maxLength = MAX_GROUP_NAME;
+  input.setAttribute("aria-label", "Group name");
+  label.replaceWith(input);
+  input.focus();
+  input.select();
+  let done = false;
+  const finish = (keep) => {
+    if (done) return;
+    done = true;
+    const to = groupName(input.value);
+    if (!keep || !to || to === from) {
+      renderRows(state);
+      return;
+    }
+    if (hasGroupName(state.rows, to, from)) {
+      loraToast(`There is already a group called "${to}". Pick another name.`);
+      renderRows(state);
+      return;
+    }
+    const rows = renameGroup(state.rows, from, to);
+    const folded = foldedGroups(state);
+    if (folded.delete(from)) folded.add(to);
+    saveFolded(state, folded, rows);
+    renameOwnedGroup(state, from, to);
+    commitRows(state, rows, { structural: true });
+  };
+  input.addEventListener("keydown", (event) => {
+    keepKeyInField(event);
+    if (event.key === "Enter") {
+      event.preventDefault();
+      finish(true);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      finish(false);
+    }
+  });
+  input.addEventListener("blur", () => finish(true));
+}
+
+function groupHeader(state, stack, item, folded) {
+  const { group, on, total } = item;
+  const off = item.off;
+  const head = el("div", `ausboss-lora-ghead${folded ? " folded" : ""}${off || !on ? " off" : ""}`);
+  head.dataset.group = group;
+
+  const grip = el("button", "ausboss-lora-grip");
+  grip.type = "button";
+  grip.title = "Drag to move the whole group";
+  grip.innerHTML = gripIconSvg();
+  // A click on the lock of a group a switch sets takes the group over.
+  grip.addEventListener("click", () => {
+    if (grip.dataset.ausbossDragged) {
+      delete grip.dataset.ausbossDragged;
+      return;
+    }
+    takeGroupOver(state, group);
+  });
+  grip.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    hideHoverThumb();
+    const members = new Set(state.rows.filter((row) => row.group === group).map((row) => row.id));
+    const elements = [head, ...[...stack.querySelectorAll(".ausboss-lora-row")]
+      .filter((element) => members.has(element.dataset.rowId))];
+    startStackDrag(state, stack, elements, grip, event, { kind: "group", group, label: group });
+  });
+
+  // The group's own switch: off stops every LoRA in it, and each keeps its
+  // own switch for when the group comes back on.
+  const toggle = el("button", `ausboss-lora-toggle${off ? "" : " on"}`);
+  toggle.type = "button";
+  toggle.title = "Turn this group on or off. Each LoRA in it keeps its own switch.";
+  toggle.setAttribute("role", "switch");
+  toggle.setAttribute("aria-checked", String(!off));
+  toggle.addEventListener("click", () => {
+    const rows = setGroupOff(state.rows, group, !off);
+    state.toggleSnapshot = snapshotEnabled(rows);
+    commitRows(state, rows, { structural: true });
+  });
+
+  const fold = el("button", "ausboss-lora-gfold");
+  fold.type = "button";
+  fold.innerHTML = chevronIconSvg(false);
+  fold.title = folded ? `Open ${group}` : `Fold ${group}`;
+  fold.setAttribute("aria-label", fold.title);
+  fold.setAttribute("aria-expanded", String(!folded));
+  fold.addEventListener("click", () => setGroupFolded(state, group, !folded));
+
+  const icon = el("span", "ausboss-lora-gicon");
+  icon.innerHTML = folderIconSvg();
+  const name = el("span", "ausboss-lora-gname", group);
+  name.title = `${group}. Double-click to rename; right-click for more.`;
+  head.addEventListener("dblclick", (event) => {
+    if (event.target.closest("button, input")) return;
+    event.stopPropagation();
+    startGroupRename(state, group);
+  });
+  head.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    openGroupMenu(state, group, event);
+  });
+  head.append(grip, toggle, fold, icon, name,
+    el("span", "ausboss-lora-gcount", off ? "group off" : `${on}/${total} on`));
+  return head;
+}
+
+// Where a dragged row would land. Over a group's header it goes in at the
+// group's end, and between a group's rows it goes in there. Above the
+// header or below the group's last row it lands outside the group.
+function rowDropTarget(state, stack, id, y) {
+  const items = [...stack.querySelectorAll(".ausboss-lora-row, .ausboss-lora-ghead")]
+    .filter((item) => item.dataset.rowId !== id && !item.classList.contains("folded-away"));
+  const box = stack.getBoundingClientRect();
+  const left = box.left + STACK_PADDING;
+  for (const item of items) {
+    if (!item.classList.contains("ausboss-lora-ghead")) continue;
+    const rect = item.getBoundingClientRect();
+    // The header's top third is the gap above the group.
+    if (y >= rect.top + rect.height / 3 && y <= rect.bottom + 2) return { header: item, group: item.dataset.group, beforeId: null };
+  }
+  let at = items.findIndex((item) => {
+    const rect = item.getBoundingClientRect();
+    return y < rect.top + rect.height / 2;
+  });
+  if (at < 0) at = items.length;
+  const above = items[at - 1];
+  const below = items[at];
+  const lineY = below ? below.getBoundingClientRect().top - ROW_GAP / 2
+    : above ? above.getBoundingClientRect().bottom + ROW_GAP / 2 : box.top + STACK_PADDING;
+  const rowOf = (item) => item?.classList.contains("ausboss-lora-row")
+    ? state.rows.find((row) => row.id === item.dataset.rowId) : null;
+  const belowRow = rowOf(below);
+  if (belowRow?.group) return { group: belowRow.group, beforeId: belowRow.id, lineY, lineX: left + GROUP_INDENT };
+  let beforeId = belowRow?.id ?? null;
+  if (below && !belowRow) {
+    // Above a header: before that group's first row. Above its own group's
+    // header, the dragged row may be that first row: it stays where it is.
+    const own = state.rows.findIndex((row) => row.id === id);
+    beforeId = state.rows.find((row) => row.group === below.dataset.group && row.id !== id)?.id
+      ?? state.rows[own + 1]?.id ?? null;
+  }
+  return { group: "", beforeId, lineY, lineX: left };
+}
+
+// Where a dragged group would land: only between whole items, never
+// inside another group.
+function groupDropTarget(state, stack, group, y) {
+  const blocks = [];
+  for (const item of stack.querySelectorAll(".ausboss-lora-row, .ausboss-lora-ghead")) {
+    if (item.classList.contains("folded-away")) continue;
+    const rect = item.getBoundingClientRect();
+    if (item.classList.contains("ausboss-lora-ghead")) {
+      const name = item.dataset.group;
+      blocks.push({ group: name, top: rect.top, bottom: rect.bottom,
+        firstId: state.rows.find((row) => row.group === name)?.id });
+      continue;
+    }
+    const row = state.rows.find((entry) => entry.id === item.dataset.rowId);
+    if (row?.group && blocks.length) blocks.at(-1).bottom = rect.bottom;
+    else if (row) blocks.push({ group: "", top: rect.top, bottom: rect.bottom, firstId: row.id });
+  }
+  const others = blocks.filter((block) => block.group !== group);
+  let at = others.findIndex((block) => y < (block.top + block.bottom) / 2);
+  if (at < 0) at = others.length;
+  const box = stack.getBoundingClientRect();
+  const lineY = others[at] ? others[at].top - ROW_GAP / 2
+    : others[at - 1] ? others[at - 1].bottom + ROW_GAP / 2 : box.top + STACK_PADDING;
+  return { beforeId: others[at]?.firstId ?? null, lineY, lineX: box.left + STACK_PADDING };
+}
+
+// Drag a row by its grip, or a group by its header's grip. A line shows
+// where it will land, or the group header it will join lights up. The
+// stack changes once, on release, so an abandoned drag changes nothing.
+function startStackDrag(state, stack, elements, handle, event, what) {
+  const abort = new AbortController();
+  const startX = event.clientX;
+  const startY = event.clientY;
+  let ghost = null;
+  let line = null;
+  let target = null;
+  const clearDrop = () => stack.querySelectorAll(".ausboss-lora-ghead.drop")
+    .forEach((head) => head.classList.remove("drop"));
+  const show = (x, y) => {
+    clearDrop();
+    target = what.kind === "row" ? rowDropTarget(state, stack, what.id, y)
+      : groupDropTarget(state, stack, what.group, y);
+    ghost.style.left = `${x + 14}px`;
+    ghost.style.top = `${y - 12}px`;
+    if (target.header) {
+      target.header.classList.add("drop");
+      line.hidden = true;
+      return;
+    }
+    const box = stack.getBoundingClientRect();
+    line.hidden = false;
+    line.style.left = `${target.lineX}px`;
+    line.style.width = `${Math.max(12, box.right - STACK_PADDING - target.lineX)}px`;
+    line.style.top = `${target.lineY - 1}px`;
+  };
+  const finish = (commit) => {
+    abort.abort();
+    if (!ghost) return;
+    ghost.remove();
+    line.remove();
+    clearDrop();
+    for (const element of elements) element.classList.remove("dragging");
+    if (!commit || !target) return;
+    const rows = what.kind === "row" ? placeRow(state.rows, what.id, target)
+      : placeGroup(state.rows, what.group, target.beforeId);
+    if (serializeRows(rows) === serializeRows(state.rows)) return;
+    handle.dataset.ausbossDragged = "1";
+    if (groupNames(rows).length !== groupNames(state.rows).length) commitGroups(state, rows);
+    else commitRows(state, rows, { structural: true });
+  };
+  // The gesture listens on the window, capture phase, like every drag on
+  // this panel: nothing is reparented while it runs.
+  window.addEventListener("pointermove", (moveEvent) => {
+    if (!ghost) {
+      if (Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY) < 4) return;
+      for (const element of elements) element.classList.add("dragging");
+      ghost = el("div", "ausboss-lora-dragghost", what.label);
+      line = el("div", "ausboss-lora-dropline");
+      document.body.append(ghost, line);
+    }
+    show(moveEvent.clientX, moveEvent.clientY);
+  }, { capture: true, signal: abort.signal });
+  window.addEventListener("pointerup", () => finish(true), { capture: true, signal: abort.signal });
+  window.addEventListener("pointercancel", () => finish(false), { capture: true, signal: abort.signal });
+}
+
+// ---------- selection ----------
+
+// Ctrl/Cmd-click adds or drops one row, Shift-click a run; the row menu
+// then acts on all of them. A plain click anywhere clears it.
+function selectedIds(state) {
+  state.selected ??= new Set();
+  return state.selected;
+}
+
+function paintSelection(state) {
+  const chosen = selectedIds(state);
+  state.panel.querySelectorAll(".ausboss-lora-row").forEach((element) => {
+    element.classList.toggle("selected", chosen.has(element.dataset.rowId));
+  });
+}
+
+function clearSelection(state) {
+  if (!state.selected?.size) return;
+  state.selected.clear();
+  paintSelection(state);
+}
+
+function selectRow(state, id, run) {
+  const chosen = selectedIds(state);
+  const order = state.rows.map((row) => row.id);
+  const from = order.indexOf(state.selectAnchor);
+  if (run && from >= 0) {
+    const to = order.indexOf(id);
+    for (const rowId of order.slice(Math.min(from, to), Math.max(from, to) + 1)) chosen.add(rowId);
+  } else {
+    if (chosen.has(id)) chosen.delete(id);
+    else chosen.add(id);
+    state.selectAnchor = id;
+  }
+  paintSelection(state);
+}
+
+// The rows a row's menu acts on: the whole selection when the row is in it.
+function menuRowIds(state, index) {
+  const id = state.rows[index]?.id;
+  const chosen = selectedIds(state);
+  if (chosen.size > 1 && chosen.has(id)) {
+    return state.rows.filter((row) => chosen.has(row.id)).map((row) => row.id);
+  }
+  clearSelection(state);
+  return [id];
+}
+
+let selectionWatched = false;
+function watchSelections() {
+  if (selectionWatched) return;
+  selectionWatched = true;
+  document.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    if (activePopup?.element.contains(event.target)) return;
+    for (const state of liveCards) clearSelection(state);
+  }, true);
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") for (const state of liveCards) clearSelection(state);
+  }, true);
 }
 
 // ---------- rows a switch sets ----------
@@ -1452,13 +2183,33 @@ function ownerNames(owners) {
   return [...new Set(owners.map((owner) => `"${owner.title}"`))].join(", ");
 }
 
-// Put a lock in the grip's place on every row a switch sets. Cheap to call
-// often: the rows are only touched when who sets them changed.
+// The switches that set one group of the stack (its own on/off).
+function groupOwners(state, group) {
+  const owner = state.owner;
+  if (!owner?.node?.graph || !group) return [];
+  return stackGroupOwners(switchBoards(owner.node.graph), owner.node.id, owner.name, group);
+}
+
+// Put a lock in the grip's place on every row and group a switch sets.
+// Cheap to call often: the rows are only touched when who sets them changed.
 function refreshLocks(state) {
   const owners = state.rows.map((row) => rowOwners(state, row));
-  const signature = owners.map(ownerNames).join("|");
+  const groups = groupNames(state.rows).map((group) => [group, ownerNames(groupOwners(state, group))]);
+  const signature = owners.map(ownerNames).join("|") + "#" + groups.map((pair) => pair.join("=")).join("|");
   if (signature === state.lockSignature) return;
   state.lockSignature = signature;
+  const groupLocks = new Map(groups);
+  state.panel.querySelectorAll(".ausboss-lora-ghead").forEach((head) => {
+    const grip = head.querySelector(".ausboss-lora-grip");
+    if (!grip) return;
+    const names = groupLocks.get(head.dataset.group) ?? "";
+    head.classList.toggle("owned", Boolean(names));
+    grip.classList.toggle("locked", Boolean(names));
+    grip.innerHTML = names ? lockIconSvg() : gripIconSvg();
+    grip.title = names
+      ? `This group is turned on and off by ${names}. The LoRAs in it stay yours. Click the lock to take the group over: the switch then leaves it alone. Drag to move the whole group.`
+      : "Drag to move the whole group";
+  });
   const rows = state.panel.querySelectorAll(".ausboss-lora-row");
   rows.forEach((rowElement, index) => {
     const grip = rowElement.querySelector(".ausboss-lora-grip");
@@ -1489,6 +2240,32 @@ function takeRowOver(state, index) {
   app.canvas?.setDirty?.(true, true);
   notifyAusbossChange();
   loraToast(`${rowLabel(state, row.name)} is yours now: ${ownerNames(owners)} no longer sets it.`);
+}
+
+// Take a group back from the switches that turn it on and off.
+function takeGroupOver(state, group) {
+  const owners = groupOwners(state, group);
+  if (!owners.length) return;
+  for (const owner of owners) {
+    owner.node.properties ??= {};
+    owner.node.properties[SWITCHES_PROPERTY] = releaseStackGroup(
+      owner.node.properties[SWITCHES_PROPERTY], owner.id, state.owner.node.id, state.owner.name, group,
+    );
+  }
+  refreshLocks(state);
+  app.canvas?.setDirty?.(true, true);
+  notifyAusbossChange();
+  loraToast(`The group ${group} is yours now: ${ownerNames(owners)} no longer turns it on and off.`);
+}
+
+// A renamed group stays with the switches that turn it on and off.
+function renameOwnedGroup(state, from, to) {
+  const owner = state.owner;
+  if (!owner?.node?.graph) return;
+  for (const board of switchBoards(owner.node.graph)) {
+    if (!stackGroupOwners([board], owner.node.id, owner.name, from).length) continue;
+    board.node.properties[SWITCHES_PROPERTY] = renameStackGroup(board.settings, owner.node.id, owner.name, from, to);
+  }
 }
 
 // ---------- rendering ----------
@@ -1810,6 +2587,15 @@ function focusStackRow(state, index) {
   target?.focus({ preventScroll: true });
 }
 
+// Up and Down step over the rows of a folded group.
+function visibleRowIndex(state, from, to) {
+  const rows = [...state.panel.querySelectorAll(".ausboss-lora-row")];
+  const step = to < from ? -1 : 1;
+  let at = to;
+  while (at >= 0 && at < rows.length && rows[at].classList.contains("folded-away")) at += step;
+  return at < 0 ? from : at;
+}
+
 // Is the browser showing keyboard focus on this element? A control that was
 // clicked with the mouse has focus too, without the outline. Focus is only
 // ever handed to a row from an element that shows it: otherwise a mouse click
@@ -1854,7 +2640,7 @@ function installStackKeyboard(state) {
     if (!action) return; // Holding Space never toggles twice or starts canvas panning.
     // "block" (Delete, Backspace) ends here: the key is kept from ComfyUI.
     if (action.kind === "focus") {
-      focusStackRow(state, action.index);
+      focusStackRow(state, visibleRowIndex(state, index, action.index));
     } else if (action.kind === "pick") {
       if (atAdd && state.rows.length >= MAX_ROWS) return;
       openPicker(state, atAdd ? null : index,
@@ -1945,6 +2731,13 @@ function renderRows(state) {
   }
 
   const stack = el("div", "ausboss-lora-stack");
+  // Rows and group headers open their own menus; the space around them
+  // opens the stack's, never the browser's Copy / Select all.
+  stack.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    openStackMenu(state, event);
+  });
   if (!state.rows.length) {
     const blank = el("button", "ausboss-lora-blank", "No LoRAs yet");
     blank.type = "button";
@@ -1953,8 +2746,19 @@ function renderRows(state) {
     stack.append(blank);
   }
 
+  const folded = foldedGroups(state);
+  const chosen = selectedIds(state);
+  for (const id of [...chosen]) if (!state.rows.some((row) => row.id === id)) chosen.delete(id);
+  const headers = new Map(stackLayout(state.rows)
+    .filter((item) => item.kind === "group").map((item) => [item.start, item]));
+
   state.rows.forEach((row, index) => {
+    const header = headers.get(index);
+    if (header) stack.append(groupHeader(state, stack, header, folded.has(header.group)));
     const rowElement = el("div", "ausboss-lora-row");
+    if (row.group) rowElement.classList.add("child");
+    if (row.group && folded.has(row.group)) rowElement.classList.add("folded-away");
+    if (chosen.has(row.id)) rowElement.classList.add("selected");
     rowElement.tabIndex = 0;
     rowElement.dataset.rowId = row.id;
     rowElement.setAttribute("role", "group");
@@ -1963,50 +2767,19 @@ function renderRows(state) {
     rowElement.title = "Up/Down chooses a row, Space toggles it, and Left/Right changes strength. "
       + "Hold Shift for smaller steps; Enter picks a file.";
     if (!row.enabled) rowElement.classList.add("off");
+    if (row.group_off) rowElement.classList.add("groupoff");
 
     const grip = el("button", "ausboss-lora-grip");
     grip.type = "button";
     grip.title = "Drag to reorder";
     grip.innerHTML = gripIconSvg();
     grip.addEventListener("pointerdown", (event) => {
-      if (event.button !== 0 || state.rows.length < 2) return;
+      // A lone row can still be dragged out of its group.
+      if (event.button !== 0 || (state.rows.length < 2 && !row.group)) return;
       event.preventDefault();
       hideHoverThumb();
-      rowElement.classList.add("dragging");
-      let current = index;
-      const abort = new AbortController();
-      const rowElements = () => Array.from(stack.querySelectorAll(".ausboss-lora-row"));
-      const onMove = (moveEvent) => {
-        const elements = rowElements();
-        const centers = elements.map((element) => {
-          const rect = element.getBoundingClientRect();
-          return rect.top + rect.height / 2;
-        });
-        const target = hoverRowIndex(centers, moveEvent.clientY);
-        if (target === current || target < 0) return;
-        // Live preview shuffles only the DOM; the serialized stack changes
-        // once, on drop, so an abandoned drag never dirties the widget.
-        if (target > current) elements[target].after(rowElement);
-        else elements[target].before(rowElement);
-        current = target;
-      };
-      const finish = (commit) => {
-        abort.abort();
-        rowElement.classList.remove("dragging");
-        if (current === index) return;
-        grip.dataset.ausbossDragged = "1";
-        if (commit) commitRows(state, reorderRows(state.rows, index, current), { structural: true });
-        else renderRows(state);
-      };
-      // The gesture listens on the window, capture phase - never through
-      // setPointerCapture on the grip. The preview above reparents the row,
-      // and a reparent removes the grip from the document for an instant,
-      // which silently releases its pointer capture: the pointerup then
-      // never reached the grip, the drop never committed, and the row rode
-      // the cursor until the next render snapped it back.
-      window.addEventListener("pointermove", onMove, { capture: true, signal: abort.signal });
-      window.addEventListener("pointerup", () => finish(true), { capture: true, signal: abort.signal });
-      window.addEventListener("pointercancel", () => finish(false), { capture: true, signal: abort.signal });
+      startStackDrag(state, stack, [rowElement], grip, event,
+        { kind: "row", id: row.id, label: row.name ? rowLabel(state, row.name) : "Empty LoRA row" });
     });
     // A click on the lock of a row a switch sets takes the row over (a drag
     // that moved the row is no click).
@@ -2110,6 +2883,23 @@ function renderRows(state) {
       event.stopPropagation();
       openRowMenu(state, index, event);
     });
+    // Ctrl/Cmd-click or Shift-click selects the row instead of using the
+    // control under the pointer. The strength boxes keep their own clicks,
+    // and Shift on the name can still start a fine scrub: its click decides.
+    const modified = (event) => event.ctrlKey || event.metaKey || event.shiftKey;
+    rowElement.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || !modified(event) || event.target.closest(".ausboss-lora-strengthbox")) return;
+      if (!event.ctrlKey && !event.metaKey && event.target.closest(".ausboss-lora-name")) return;
+      event.preventDefault();
+      event.stopPropagation();
+    }, { capture: true });
+    rowElement.addEventListener("click", (event) => {
+      if (!modified(event) || event.target.closest(".ausboss-lora-strengthbox")
+          || name.dataset.ausbossScrubbed) return;
+      event.preventDefault();
+      event.stopPropagation();
+      selectRow(state, row.id, event.shiftKey && !event.ctrlKey && !event.metaKey);
+    }, { capture: true });
     stack.append(rowElement);
   });
   // The add button lives INSIDE the stack container and pins to its bottom
@@ -2458,6 +3248,7 @@ function mountCard(node, { box = null, separatorWidget = null, onMissingWidget =
   node.setSize?.([Math.max(336, node.size?.[0] || 336), node.computeSize?.()[1] || 220]);
   liveCards.add(state);
   ensureRedrawHook();
+  watchSelections();
 
   // Workflow restore and undo may commit values after onConfigure. Reconcile
   // from the widget after that commit and before the next visible frame.
@@ -2517,6 +3308,7 @@ app.registerExtension({
   setup() {
     watchEnteredBoxes();
     ensureRedrawHook();
+    watchSelections();
   },
   beforeRegisterNodeDef(nodeType, nodeData) {
     if (nodeData?.name !== NODE_CLASS) return;

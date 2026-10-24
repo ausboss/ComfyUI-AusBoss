@@ -4,6 +4,32 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **LoRA Loader 🆎 can add several LoRAs at once.** In the **+ LoRA** list,
+  tick the box beside each file you want (or Ctrl-click its name; Shift-click
+  ticks a whole run), then click **Add N LoRAs** or press Enter. Ticks stay while you search, and
+  files already in the stack are marked "in stack". One click on a file
+  still adds just that file, and a folder name still adds the whole folder.
+
+- **LoRA Loader 🆎 has groups.** Right-click a row and choose **Group this
+  LoRA**, or Ctrl-click several rows first and group them together. A group
+  gets a header with its own switch, a fold arrow that hides its rows and
+  shortens the node, and a name you can double-click to change. Turning a
+  group off stops all its LoRAs, and each one keeps its own switch for when
+  the group comes back on. Drag rows in and out by their grip, or drag the
+  whole group by its header. The stack still runs top to bottom as shown.
+
+- **LoRA Loader 🆎 can show a LoRA's Civitai picture with the new LoRA
+  Previews add-on.** Install the add-on
+  ([ComfyUI-AusBoss-LoRA-Previews](https://github.com/ausboss/ComfyUI-AusBoss-LoRA-Previews#install)) and **Fetch Civitai info**
+  also saves the LoRA's preview picture next to the file, so hovering the LoRA
+  shows it. The pack itself still downloads nothing; the info card links to
+  the add-on when a LoRA has Civitai info but no picture.
+
+- **Workflow Switches 🆎 can turn a LoRA Loader group on and off.** Save a
+  switch once with the group on and once with it off. The group's header
+  shows a lock, and the LoRAs inside stay yours to turn on and off one by
+  one.
+
 - **Workflow Note 🆎 shows the whole hint under each model file.** The short
   line under a file name ("optional: the full-size file...", "for 4 steps:
   ...") was cut off with "…" when it was longer than the card. It now wraps

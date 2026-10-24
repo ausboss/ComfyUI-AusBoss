@@ -34,6 +34,8 @@ follows a few fixed rules.
   `<model>.civitai.info` (inside ComfyUI's LoRA folders). The pack checks
   that the answer describes the same file before saving it. Nothing is sent
   until you click, and the button can be turned off in the node's settings.
+  The pack never downloads the LoRA's preview picture; that is left to a
+  separate add-on you can choose to install (LoRA Previews).
 - **No code execution.** Math Expression parses its text into an
   allowlisted syntax tree of arithmetic and a few math functions; it never
   runs Python source. The pack starts no subprocesses and installs nothing

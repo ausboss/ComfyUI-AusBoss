@@ -226,6 +226,17 @@ class LoraCivitaiSidecarTests(unittest.TestCase):
 
 
 
+class ParseStackTests(unittest.TestCase):
+    def test_rows_in_a_switched_off_group_do_not_run(self):
+        rows = _lora_helpers.parse_lora_stack(json.dumps([
+            {"name": "a.safetensors", "enabled": True},
+            {"name": "b.safetensors", "enabled": True, "group": "Look", "group_off": True},
+            {"name": "c.safetensors", "enabled": True, "group": "Look", "group_off": "yes"},
+        ]))
+        self.assertEqual([row["enabled"] for row in rows], [True, False, True])
+        self.assertNotIn("group_off", rows[1])
+
+
 class TestMatchLoraName(unittest.TestCase):
     AVAILABLE = [
         "krea2/Beauty.safetensors",
