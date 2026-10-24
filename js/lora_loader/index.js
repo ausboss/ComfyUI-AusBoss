@@ -82,7 +82,10 @@ import {
   uniqueGroupName,
   upsertTemplate,
 } from "../shared/lora_stack.mjs";
-import { civitaiButtonLabel, civitaiByHashUrl, parseCivitaiBody } from "../shared/civitai_lookup.mjs";
+import {
+  MAX_PICTURE_BYTES, civitaiButtonLabel, civitaiByHashUrl, isCivitaiAddress, parseCivitaiBody,
+  pickCivitaiPicture, smallPictureUrl,
+} from "../shared/civitai_lookup.mjs";
 
 const NODE_CLASS = "AUSBOSS_NODES_LoraLoader";
 // A workflow saved by a 1.x release holds the panel's own empty value where
@@ -172,6 +175,13 @@ const SETTINGS_SCHEMA = [
     hint: "Offer a Fetch Civitai info button in the info card. Clicking it "
       + "asks civitai.com about that one file, from this browser, and saves "
       + "the answer next to the LoRA. Nothing is sent until you click.",
+  },
+  {
+    key: "civitai_picture", label: "Civitai picture", type: "choice",
+    options: ["off", "PG-13", "any"], default: "PG-13",
+    hint: "Fetch Civitai info also saves the LoRA's first picture next to "
+      + "the file, so hovering the LoRA shows it. PG-13 skips pictures Civitai "
+      + "rates R or above. A picture you already have is never replaced.",
   },
   {
     key: "name_cut", label: "Long names", type: "choice",
@@ -608,10 +618,6 @@ function closePopup() {
 
 // ---------- hover thumbnail ----------
 
-// Where to read about the add-on that saves a LoRA's preview picture from
-// Civitai. The pack itself downloads no pictures.
-const PREVIEWS_ADDON_URL = "https://github.com/ausboss/ComfyUI-AusBoss-LoRA-Previews#install";
-
 // Raised when a preview picture was saved since the page loaded, so the
 // browser asks for the picture again instead of reusing a failed load.
 let thumbVersion = 0;
@@ -621,11 +627,11 @@ function thumbUrl(name) {
   return api.apiURL(`/ausboss/lora/thumb?name=${encodeURIComponent(name)}${version}`);
 }
 
-// The preview add-on saved a picture: the next hover and an open card show it.
-window.addEventListener("ausboss:lora-preview-saved", () => {
+// A picture was saved: the next hover and the card show it.
+function pictureSaved() {
   thumbVersion += 1;
   if (hoverThumb) delete hoverThumb.dataset.name;
-});
+}
 
 // One floating preview image for the whole pack tab, shared by row hover and
 // the picker. Fixed-positioned and pointer-events: none, so it can never
@@ -1384,8 +1390,9 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
 // One click, one file: the server hashes the LoRA, this browser asks Civitai
 // about that hash, and the server saves the answer beside the LoRA after
 // checking it describes the same file. Returns false when Civitai does not
-// know the file (unpublished or hidden models answer 404).
-async function lookUpOnCivitai(serverName) {
+// know the file (unpublished or hidden models answer 404). `picture` is the
+// Civitai picture gear option ("off", "PG-13" or "any").
+async function lookUpOnCivitai(serverName, picture = "PG-13") {
   const hashed = await (await api.fetchApi(
     `/ausboss/lora/hash?name=${encodeURIComponent(serverName)}`
   )).json();
@@ -1402,9 +1409,41 @@ async function lookUpOnCivitai(serverName) {
     body: JSON.stringify({ name: serverName, info }),
   })).json();
   if (!saved.ok) throw new Error(saved.error || "Could not save the Civitai info.");
-  // An add-on can listen for this to save the preview picture.
-  window.dispatchEvent(new CustomEvent("ausboss:lora-civitai-saved", { detail: { name: serverName, info } }));
+  if (picture !== "off") {
+    await saveCivitaiPicture(serverName, info, picture === "any").catch((error) =>
+      loraToast(`Saved the Civitai info, but not its picture: ${error?.message || error}`));
+  }
   return true;
+}
+
+// The LoRA's first picture on Civitai, saved beside it as its preview. The
+// browser downloads a 450-pixel copy from Civitai's picture server without
+// cookies; the server checks it is a picture and never replaces one.
+async function saveCivitaiPicture(serverName, info, anyRating) {
+  const picture = pickCivitaiPicture(info, anyRating);
+  if (!picture) {
+    loraToast(anyRating
+      ? "Civitai has no picture of this LoRA to save."
+      : "Civitai has no picture of this LoRA rated PG-13 or milder.");
+    return;
+  }
+  const response = await fetch(smallPictureUrl(picture.url), {
+    credentials: "omit", referrerPolicy: "no-referrer", cache: "no-store",
+  });
+  if (!response.ok) throw new Error(`Civitai's picture server answered ${response.status}.`);
+  if (!isCivitaiAddress(response.url)) throw new Error("The picture came from somewhere other than Civitai.");
+  if (!(response.headers.get("content-type") || "").startsWith("image/")) {
+    throw new Error("Civitai did not send a picture.");
+  }
+  const blob = await response.blob();
+  if (blob.size > MAX_PICTURE_BYTES) throw new Error("The picture is too large.");
+  const saved = await (await api.fetchApi(`/ausboss/lora/picture?name=${encodeURIComponent(serverName)}`, {
+    method: "POST",
+    headers: { "Content-Type": blob.type || "application/octet-stream" },
+    body: blob,
+  })).json();
+  if (!saved.ok) throw new Error(saved.error || "Could not save the picture.");
+  pictureSaved();
 }
 
 // ---------- info card ----------
@@ -1445,19 +1484,9 @@ function openInfo(state, index, anchor) {
       card.append(link);
     }
     // Civitai info but no picture: say how to get one.
-    if (info.has_civitai && !info.has_preview && state.settings?.civitai_lookup !== false) {
-      const hint = el("div", "ausboss-lora-meta");
-      if (window.ausbossLoraPreviews) {
-        hint.textContent = "No preview picture yet. Click Refresh Civitai info to save one.";
-      } else {
-        hint.append("No preview picture yet. The LoRA Previews add-on saves Civitai's picture for you. ");
-        const addon = el("a", "ausboss-lora-civitai-link", "How to install ↗");
-        addon.href = PREVIEWS_ADDON_URL;
-        addon.target = "_blank";
-        addon.rel = "noopener noreferrer";
-        hint.append(addon);
-      }
-      card.append(hint);
+    if (info.has_civitai && !info.has_preview && state.settings?.civitai_lookup !== false
+      && state.settings?.civitai_picture !== "off") {
+      card.append(el("div", "ausboss-lora-meta", "No preview picture yet. Click Refresh Civitai info to save one."));
     }
 
     // One click can change other chips too: the same word can sit in two
@@ -1501,7 +1530,8 @@ function openInfo(state, index, anchor) {
         fetchButton.disabled = true;
         fetchButton.textContent = "Fetching...";
         try {
-          if (!(await lookUpOnCivitai(serverName))) {
+          const picture = info.has_preview ? "off" : (state.settings?.civitai_picture ?? "PG-13");
+          if (!(await lookUpOnCivitai(serverName, picture))) {
             fetchButton.textContent = "Not found on Civitai";
             return;
           }
@@ -1591,9 +1621,6 @@ function openInfo(state, index, anchor) {
         card.append(el("div", "ausboss-lora-empty", "Could not read LoRA info."));
       });
   };
-  window.addEventListener("ausboss:lora-preview-saved", (event) => {
-    if (event.detail?.name === serverName) load();
-  }, { signal: activePopup?.abort.signal });
   load();
 }
 

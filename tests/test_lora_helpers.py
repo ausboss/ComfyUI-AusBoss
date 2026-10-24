@@ -224,6 +224,61 @@ class LoraCivitaiSidecarTests(unittest.TestCase):
         self.assertFalse(outside.with_suffix(".civitai.info").exists())
 
 
+def _picture(width=1200, height=800, fmt="PNG", mode="RGB") -> bytes:
+    from PIL import Image
+
+    out = io.BytesIO()
+    Image.new(mode, (width, height)).save(out, fmt)
+    return out.getvalue()
+
+
+class LoraCivitaiPictureTests(unittest.TestCase):
+    name = "Krea 2/candid.safetensors"
+
+    def setUp(self):
+        LoraCivitaiSidecarTests.setUp(self)
+        self.target = self.lora.parent / "candid.preview.jpg"
+
+    def tearDown(self):
+        LoraCivitaiSidecarTests.tearDown(self)
+
+    def test_saves_a_small_jpeg_the_hover_preview_finds(self):
+        from PIL import Image
+
+        saved = _lora_helpers.save_civitai_picture(self.name, _picture(fmt="WEBP", mode="RGBA"))
+        self.assertEqual(saved, self.target)
+        with Image.open(saved) as picture:
+            self.assertEqual(picture.format, "JPEG")
+            self.assertEqual(max(picture.size), _lora_helpers.PICTURE_EDGE)
+            self.assertFalse(picture.info.get("exif"))
+        self.assertEqual(_lora_helpers.find_thumbnail(self.name), self.target)
+        self.assertTrue(_lora_helpers.lora_info(self.name)["has_preview"])
+
+    def test_never_replaces_a_picture_that_is_there(self):
+        own = self.lora.parent / "candid.png"
+        own.write_bytes(_picture(10, 10))
+        with self.assertRaises(ValueError):
+            _lora_helpers.save_civitai_picture(self.name, _picture())
+        self.assertFalse(self.target.exists())
+        self.assertEqual(own.read_bytes(), _picture(10, 10))
+
+    def test_refuses_what_is_not_a_picture_or_too_large(self):
+        for data in (b"", b"not a picture", b"\x89PNG\r\n\x1a\n broken", None):
+            with self.assertRaises(ValueError):
+                _lora_helpers.save_civitai_picture(self.name, data)
+        with self.assertRaises(ValueError):
+            _lora_helpers.save_civitai_picture(self.name, b"x" * (_lora_helpers.MAX_PICTURE_BYTES + 1))
+        with self.assertRaises(ValueError):
+            _lora_helpers.save_civitai_picture(self.name, _picture(8000, 6000, mode="L"))
+        self.assertFalse(self.target.exists())
+
+    def test_only_next_to_a_listed_lora(self):
+        outside = Path(self._tmp.name) / "secret.safetensors"
+        outside.write_bytes(b"x")
+        for name in ("../../secret.safetensors", str(outside), "Krea 2/missing.safetensors"):
+            with self.assertRaises(Exception):
+                _lora_helpers.save_civitai_picture(name, _picture())
+        self.assertFalse((Path(self._tmp.name) / "secret.preview.jpg").exists())
 
 
 class ParseStackTests(unittest.TestCase):

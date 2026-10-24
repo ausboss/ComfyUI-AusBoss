@@ -303,12 +303,13 @@ or the bare `.png` / `.jpg` / `.jpeg` / `.webp`). No sidecar, no thumbnail —
 nothing appears and nothing shifts. The gear menu's **Preview thumbnails**
 switch turns the behavior off.
 
-**Get the pictures from Civitai:** install the separate
-[LoRA Previews add-on](https://github.com/ausboss/ComfyUI-AusBoss-LoRA-Previews#install). With it, **Fetch Civitai info** (or
-**Refresh Civitai info**) also saves the LoRA's preview picture from Civitai
-next to the file, and the hover and the info card show it right away. It never
-replaces a picture you already have. The pack itself downloads no pictures; the
-info card links to the add-on when a LoRA has Civitai info but no picture.
+**Get the pictures from Civitai:** click **Fetch Civitai info** (or
+**Refresh Civitai info**) in a LoRA's info card. It also saves the LoRA's
+first picture from Civitai next to the file, and the hover and the info card
+show it right away. Gear menu → **Civitai picture** picks which pictures:
+**PG-13** (the default) skips pictures Civitai rates R or above, **any**
+takes the first picture whatever its rating, and **off** saves none. It never
+replaces a picture you already have.
 
 ## Trigger words
 
@@ -326,7 +327,8 @@ switched on for the old one.
 - **Fetch Civitai info** looks this one LoRA up on civitai.com. Nothing is
   sent until you click. Your browser then sends only the file's SHA256
   fingerprint, and the answer is saved next to the LoRA as
-  `<model>.civitai.info`. After that the button reads **Refresh Civitai
+  `<model>.civitai.info`, with the LoRA's picture as `<model>.preview.jpg`
+  (see "Get the pictures from Civitai" above). After that the button reads **Refresh Civitai
   info** and the card gets a **View on Civitai** link. A LoRA Civitai does
   not know (unpublished or hidden) reads **Not found on Civitai**. Gear
   menu → **Civitai lookup button** removes the button. If it always reads

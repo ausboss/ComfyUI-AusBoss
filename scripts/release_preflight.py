@@ -313,7 +313,8 @@ for path in shipped_source:
 
 # The browser may call fetch() in two places only: the cache guard (it asks
 # the pack's own server) and LoRA Loader's click-only Civitai lookup (a fixed
-# civitai.com address with a plain SHA256). Anything else is a new outbound
+# civitai.com address with a plain SHA256, then the LoRA's picture from
+# image.civitai.com). Anything else is a new outbound
 # call and needs the same review SECURITY.md describes.
 FETCH_ALLOWED = {"js/cache_guard/index.js", "js/lora_loader/index.js"}
 for path in shipped_source:

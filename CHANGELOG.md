@@ -2,6 +2,16 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **LoRA Loader 🆎 saves the LoRA's picture from Civitai, no add-on
+  needed.** **Fetch Civitai info** now also saves the LoRA's first picture
+  next to the file, so hovering the LoRA shows it. Pictures Civitai rates R
+  or above are skipped unless you pick **any** under the gear menu's
+  **Civitai picture** option, and a picture you already have is never
+  replaced. The separate LoRA Previews add-on from 2.19.0 is no longer
+  needed.
+
 ## 2.19.0 - 2026-10-24
 
 - **LoRA Loader 🆎 can add several LoRAs at once.** In the **+ LoRA** list,
