@@ -40,7 +40,7 @@ export function newRow() {
 
 export function normalizeRows(parsed) {
   if (!Array.isArray(parsed)) return [];
-  return parsed.slice(0, MAX_ROWS).map((entry) => {
+  return tidyGroups(parsed.slice(0, MAX_ROWS).map((entry) => {
     const row = newRow();
     if (entry && typeof entry === "object") {
       row.id = typeof entry.id === "string" && entry.id ? entry.id : row.id;
@@ -49,9 +49,11 @@ export function normalizeRows(parsed) {
       row.strength_clip = roundStrength(entry.strength_clip ?? row.strength);
       row.enabled = entry.enabled !== false;
       row.triggers = typeof entry.triggers === "string" ? entry.triggers : "";
+      const group = groupName(entry.group);
+      if (group) row.group = group;
     }
     return row;
-  });
+  }));
 }
 
 export function parseRows(raw) {
@@ -77,6 +79,196 @@ export function reorderRows(rows, from, to) {
 
 export function moveRow(rows, index, delta) {
   return reorderRows(rows, index, index + delta);
+}
+
+// ---------- groups ----------
+// A group is a name carried on its rows (`group`); a row without one sits at
+// the top level. A group's rows always stand together, so the stack still
+// runs top to bottom as shown, and a group lasts while it has a row.
+
+export const MAX_GROUP_NAME = 40;
+
+export function groupName(value) {
+  return typeof value === "string" ? value.trim().slice(0, MAX_GROUP_NAME) : "";
+}
+
+function withoutGroup(row) {
+  const { group, ...rest } = row;
+  return rest;
+}
+
+function withGroup(row, name) {
+  return name ? { ...row, group: name } : withoutGroup(row);
+}
+
+// Gathers each group's rows at the place of its first row, keeping every
+// other row where it is.
+export function tidyGroups(rows) {
+  const out = [];
+  const runs = new Map();
+  for (const row of rows) {
+    const name = row.group || "";
+    if (!name) { out.push(row); continue; }
+    let run = runs.get(name);
+    if (!run) {
+      run = [];
+      runs.set(name, run);
+      out.push(run);
+    }
+    run.push(row);
+  }
+  return out.flat();
+}
+
+export function groupNames(rows) {
+  return [...new Set(rows.map((row) => row.group).filter(Boolean))];
+}
+
+export function hasGroupName(rows, name, except = "") {
+  const key = groupName(name).toLowerCase();
+  return groupNames(rows).some((group) => group !== except && group.toLowerCase() === key);
+}
+
+export function uniqueGroupName(rows, base = "Group") {
+  for (let n = 1; ; n += 1) {
+    const name = `${base} ${n}`;
+    if (!hasGroupName(rows, name)) return name;
+  }
+}
+
+// What the stack shows, in order: a header before each group's first row,
+// then every row with the group it sits in.
+export function stackLayout(rows) {
+  const items = [];
+  rows.forEach((row, index) => {
+    const group = row.group || "";
+    if (group && rows[index - 1]?.group !== group) {
+      let end = index;
+      while (end < rows.length && rows[end].group === group) end += 1;
+      const members = rows.slice(index, end);
+      items.push({
+        kind: "group", group, start: index, end,
+        on: members.filter((member) => member.enabled).length, total: members.length,
+      });
+    }
+    items.push({ kind: "row", index, group });
+  });
+  return items;
+}
+
+// A new group takes the place of the topmost chosen row. It never lands
+// inside another group: from the middle of one it goes just below it.
+export function groupRows(rows, ids, name) {
+  const chosen = new Set(ids);
+  const top = rows.findIndex((row) => chosen.has(row.id));
+  if (top < 0 || !name) return rows;
+  const rest = rows.filter((row) => !chosen.has(row.id));
+  let at = top;
+  while (at > 0 && at < rest.length && rest[at].group && rest[at].group === rest[at - 1].group) at += 1;
+  const grouped = rows.filter((row) => chosen.has(row.id)).map((row) => withGroup(row, name));
+  return tidyGroups([...rest.slice(0, at), ...grouped, ...rest.slice(at)]);
+}
+
+// Rows moved into a group join it at its end.
+export function moveRowsToGroup(rows, ids, name) {
+  const chosen = new Set(ids);
+  const rest = rows.filter((row) => !chosen.has(row.id));
+  let last = -1;
+  rest.forEach((row, index) => { if (row.group === name) last = index; });
+  if (last < 0) return tidyGroups(rows.map((row) => chosen.has(row.id) ? withGroup(row, name) : row));
+  const moving = rows.filter((row) => chosen.has(row.id)).map((row) => withGroup(row, name));
+  return [...rest.slice(0, last + 1), ...moving, ...rest.slice(last + 1)];
+}
+
+// Rows taken out of a group stand just outside it: the ones at its top go
+// above it, the rest below it, so a row at either edge does not move.
+export function ungroupRows(rows, ids) {
+  const chosen = new Set(ids);
+  const out = [];
+  for (let start = 0; start < rows.length;) {
+    const name = rows[start].group;
+    if (!name) { out.push(rows[start]); start += 1; continue; }
+    let end = start;
+    while (end < rows.length && rows[end].group === name) end += 1;
+    const run = rows.slice(start, end);
+    let lead = 0;
+    while (lead < run.length && chosen.has(run[lead].id)) lead += 1;
+    const stay = run.filter((row) => !chosen.has(row.id));
+    const below = run.slice(lead).filter((row) => chosen.has(row.id));
+    out.push(...run.slice(0, lead).map(withoutGroup), ...stay, ...below.map(withoutGroup));
+    start = end;
+  }
+  return out;
+}
+
+export function renameGroup(rows, from, to) {
+  const name = groupName(to);
+  return tidyGroups(rows.map((row) => row.group === from ? withGroup(row, name) : row));
+}
+
+export function setGroupEnabled(rows, name, enabled) {
+  return rows.map((row) => row.group === name ? { ...row, enabled: !!enabled } : row);
+}
+
+// Move up/down for one row, one step at a time: a row at the edge of its
+// group steps out of it first, and a row next to a group steps into it.
+export function moveRowInStack(rows, index, delta) {
+  const row = rows[index];
+  if (!row) return rows;
+  const next = rows[index + delta];
+  const group = row.group || "";
+  if (group && next?.group !== group) {
+    return rows.map((entry, i) => i === index ? withoutGroup(entry) : entry);
+  }
+  if (!next) return rows;
+  if (!group && next.group) {
+    return rows.map((entry, i) => i === index ? withGroup(entry, next.group) : entry);
+  }
+  return reorderRows(rows, index, index + delta);
+}
+
+// Drop one row: before the row `beforeId` (or at the end of `group`, or at
+// the very end), sitting in `group` (empty = top level).
+export function placeRow(rows, id, { group = "", beforeId = null } = {}) {
+  const row = rows.find((entry) => entry.id === id);
+  if (!row) return rows;
+  const rest = rows.filter((entry) => entry.id !== id);
+  let at = beforeId ? rest.findIndex((entry) => entry.id === beforeId) : -1;
+  if (at < 0 && group) {
+    rest.forEach((entry, index) => { if (entry.group === group) at = index + 1; });
+  }
+  if (at < 0) at = rest.length;
+  return tidyGroups([...rest.slice(0, at), withGroup(row, group), ...rest.slice(at)]);
+}
+
+// Move a whole group before the row `beforeId` (a top-level row or the
+// first row of another group), or to the end.
+export function placeGroup(rows, name, beforeId = null) {
+  const members = rows.filter((row) => row.group === name);
+  if (!members.length || members.some((row) => row.id === beforeId)) return rows;
+  const rest = rows.filter((row) => row.group !== name);
+  let at = beforeId ? rest.findIndex((row) => row.id === beforeId) : -1;
+  if (at < 0) at = rest.length;
+  return [...rest.slice(0, at), ...members, ...rest.slice(at)];
+}
+
+// Move a group past the item above or below it (a row or a whole group).
+export function moveGroup(rows, name, delta) {
+  const start = rows.findIndex((row) => row.group === name);
+  if (start < 0) return rows;
+  let end = start;
+  while (end < rows.length && rows[end].group === name) end += 1;
+  if (delta < 0) {
+    if (start === 0) return rows;
+    const above = rows[start - 1];
+    const beforeId = above.group ? rows.find((row) => row.group === above.group).id : above.id;
+    return placeGroup(rows, name, beforeId);
+  }
+  if (end >= rows.length) return rows;
+  const below = rows[end];
+  let after = end + 1;
+  if (below.group) while (after < rows.length && rows[after].group === below.group) after += 1;
+  return placeGroup(rows, name, rows[after]?.id ?? null);
 }
 
 // Drag-to-reorder model: which visual slot the pointer is over, given the

@@ -29,7 +29,9 @@ come out of one socket, ready to wire into a prompt.
   modified date, and trigger words for that LoRA.
 
 Right-click a row to insert an empty LoRA above or below it, move, duplicate,
-or remove it. **Remove this LoRA** is red. **Delete all LoRAs…** is a separate red, trash-marked action
+or remove it, or to put it in a group (see Groups below). With several rows
+picked (Ctrl/Cmd-click or Shift-click), **Remove these LoRAs** removes them
+all. **Remove this LoRA** is red. **Delete all LoRAs…** is a separate red, trash-marked action
 with confirmation; it clears this node's rows and keeps all files on disk.
 Cancel or Escape keeps the stack. Inserting keeps the existing rows and their settings in order;
 the new slot uses the gear menu's default strength (initially 1).
@@ -41,6 +43,45 @@ nodes always start unified — and an absorb that imports a row with unequal
 model/CLIP strengths flips it on automatically so the difference stays
 visible. Turning it back off sets every row's CLIP strength to its model
 strength.
+
+## Groups
+
+Groups keep a long stack tidy, like layer groups in an image editor. A
+group has a header with its own on/off switch, so you can turn a whole set
+of LoRAs (all your style LoRAs, say) off and on with one click.
+
+- **Make a group:** right-click a row and choose **Group this LoRA**. To
+  group several, hold **Ctrl** (**Cmd** on a Mac) and click each row first,
+  or click one and **Shift**-click another to pick every row between them.
+  Then right-click one of them and choose **Group these LoRAs**. The new
+  group appears where the topmost row was, and you type its name.
+- **Add to a group:** drag a row by its grip onto the group's name, or
+  between any two of its rows. Right-click → **Move to group** does the
+  same.
+- **Take out of a group:** drag the row above or below the group, or
+  right-click → **Take out of** the group.
+- **Fold:** the arrow next to the group's switch hides its rows and makes
+  the node shorter. Folded rows still run.
+- **Rename:** double-click the group's name.
+- Right-click a group's header to move the whole group, fold it, ungroup it
+  (the LoRAs stay), or remove it together with its LoRAs. Drag the header's
+  grip to move the whole group.
+
+A plain click anywhere clears a Ctrl/Shift selection, and so does Escape.
+The count on a header (`2/3 on`) shows how many of its LoRAs are on.
+
+### Technical details
+
+LoRAs still apply in the order you see, top to bottom; a group changes
+nothing about how the stack runs. Groups are one level deep, and a group
+lasts while it has a LoRA in it. Each row keeps its group's name in the
+saved stack, so groups travel with templates, undo, and rows shown on a
+subgraph box. Which groups are folded is saved with the node. A group
+switch that reads half-on turns every LoRA in the group on; a full one
+turns them all off. Move up and Move down step a row out of the edge of
+its group, or into a group next to it, one step at a time. Below a group's
+last row, how far right you drag decides whether the row joins the group
+or lands just under it; the drop line starts indented when it would join.
 
 ## Rows on a subgraph box
 
@@ -110,7 +151,12 @@ its height on rows, not chrome. Left to right:
 
 **+ LoRA** opens one list of files grouped by folder. Click a file to add
 one LoRA, or click a folder name to add all its LoRAs, including nested
-folders. Use the arrow beside a folder to collapse or expand it without
+folders. To add several files from different folders, tick the box beside
+each one (or **Ctrl**/**Shift**-click its name), then click **Add N LoRAs**
+at the bottom or press **Enter**. Ticks stay while you search, so you can
+gather files from several searches; **Clear** unticks them all. Files that
+are already in the stack say **in stack** and have no box. With the
+keyboard, **Ctrl+Enter** or **Shift+Enter** ticks the highlighted file. Use the arrow beside a folder to collapse or expand it without
 adding anything. Folded folders are remembered in this browser. Search
 reveals matching files; clearing it brings back your folded view. You can
 also fold folders while searching.

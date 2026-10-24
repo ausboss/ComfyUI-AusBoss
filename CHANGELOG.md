@@ -4,6 +4,19 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **LoRA Loader 🆎 can add several LoRAs at once.** In the **+ LoRA** list,
+  tick the box beside each file you want (or Ctrl-click its name), then
+  click **Add N LoRAs** or press Enter. Ticks stay while you search, and
+  files already in the stack are marked "in stack". One click on a file
+  still adds just that file, and a folder name still adds the whole folder.
+
+- **LoRA Loader 🆎 has groups.** Right-click a row and choose **Group this
+  LoRA**, or Ctrl-click several rows first and group them together. A group
+  gets a header with one switch that turns all its LoRAs on or off, a fold
+  arrow that hides its rows and shortens the node, and a name you can
+  double-click to change. Drag rows in and out by their grip, or drag the
+  whole group by its header. The stack still runs top to bottom as shown.
+
 - **Workflow Note 🆎 shows the whole hint under each model file.** The short
   line under a file name ("optional: the full-size file...", "for 4 steps:
   ...") was cut off with "…" when it was longer than the card. It now wraps

@@ -1042,3 +1042,91 @@ test("absorption refuses shared model paths, mismatched CLIP paths and used trig
   reroute.outputs[0].links.push(6);
   assert.match(absorbChainIssue(target,[source],[]),/model chain branches/);
 });
+
+// ---------- groups ----------
+
+const groupRow = (id, group) => ({
+  id, name: `${id}.safetensors`, strength: 1, strength_clip: 1, enabled: true, triggers: "",
+  ...(group ? { group } : {}),
+});
+const shape = (rows) => rows.map((row) => row.id + (row.group ? `:${row.group}` : "")).join(" ");
+
+test("rows keep their group through a save, and a group's rows stand together", async () => {
+  const { normalizeRows, parseRows, serializeRows } = await import("../js/shared/lora_stack.mjs");
+  const rows = normalizeRows([groupRow("a", "Style"), groupRow("b"), groupRow("c", "Style"), groupRow("d", "  ")]);
+  assert.equal(shape(rows), "a:Style c:Style b d");
+  assert.equal("group" in rows[3], false, "a blank group is no group");
+  assert.equal(shape(parseRows(serializeRows(rows))), "a:Style c:Style b d");
+});
+
+test("grouping takes the place of the topmost chosen row, never inside another group", async () => {
+  const { groupRows } = await import("../js/shared/lora_stack.mjs");
+  const rows = [groupRow("a"), groupRow("b"), groupRow("c"), groupRow("d")];
+  assert.equal(shape(groupRows(rows, ["d", "b"], "G")), "a b:G d:G c");
+  const nested = [groupRow("a", "Old"), groupRow("b", "Old"), groupRow("c", "Old"), groupRow("d")];
+  assert.equal(shape(groupRows(nested, ["b"], "New")), "a:Old c:Old b:New d");
+});
+
+test("moving rows into a group puts them at its end", async () => {
+  const { moveRowsToGroup } = await import("../js/shared/lora_stack.mjs");
+  const rows = [groupRow("a"), groupRow("b", "G"), groupRow("c", "G"), groupRow("d")];
+  assert.equal(shape(moveRowsToGroup(rows, ["a", "d"], "G")), "b:G c:G a:G d:G");
+});
+
+test("taking rows out of a group leaves edge rows where they are", async () => {
+  const { ungroupRows } = await import("../js/shared/lora_stack.mjs");
+  const rows = [groupRow("a", "G"), groupRow("b", "G"), groupRow("c", "G"), groupRow("d")];
+  assert.equal(shape(ungroupRows(rows, ["a"])), "a b:G c:G d");
+  assert.equal(shape(ungroupRows(rows, ["c"])), "a:G b:G c d");
+  assert.equal(shape(ungroupRows(rows, ["b"])), "a:G c:G b d");
+  assert.equal(shape(ungroupRows(rows, ["a", "b", "c"])), "a b c d", "ungrouping all keeps the order");
+});
+
+test("move up and down step a row out of and into groups one step at a time", async () => {
+  const { moveRowInStack } = await import("../js/shared/lora_stack.mjs");
+  const rows = [groupRow("a"), groupRow("b", "G"), groupRow("c", "G"), groupRow("d")];
+  assert.equal(shape(moveRowInStack(rows, 0, 1)), "a:G b:G c:G d", "a row above a group steps in");
+  assert.equal(shape(moveRowInStack(rows, 1, -1)), "a b c:G d", "a group's top row steps out");
+  assert.equal(shape(moveRowInStack(rows, 1, 1)), "a c:G b:G d", "inside a group rows swap");
+  assert.equal(shape(moveRowInStack(rows, 3, -1)), "a b:G c:G d:G", "a row below a group steps in");
+  const top = [groupRow("a", "G"), groupRow("b")];
+  assert.equal(shape(moveRowInStack(top, 0, -1)), "a b", "the very first row can still step out");
+  assert.equal(moveRowInStack(rows, 0, -1), rows, "a plain first row stays");
+});
+
+test("dropping a row and a whole group lands where the line shows", async () => {
+  const { placeGroup, placeRow, moveGroup } = await import("../js/shared/lora_stack.mjs");
+  const rows = [groupRow("a"), groupRow("b", "G"), groupRow("c", "G"), groupRow("d")];
+  assert.equal(shape(placeRow(rows, "d", { group: "G", beforeId: "c" })), "a b:G d:G c:G");
+  assert.equal(shape(placeRow(rows, "a", { group: "G" })), "b:G c:G a:G d");
+  assert.equal(shape(placeRow(rows, "c", { beforeId: "b" })), "a c b:G d");
+  assert.equal(shape(placeRow(rows, "b", {})), "a c:G d b");
+  assert.equal(shape(placeGroup(rows, "G", "a")), "b:G c:G a d");
+  assert.equal(shape(placeGroup(rows, "G", null)), "a d b:G c:G");
+  assert.equal(shape(moveGroup(rows, "G", -1)), "b:G c:G a d");
+  assert.equal(shape(moveGroup(rows, "G", 1)), "a d b:G c:G");
+  const two = [groupRow("a", "X"), groupRow("b", "Y"), groupRow("c", "Y")];
+  assert.equal(shape(moveGroup(two, "X", 1)), "b:Y c:Y a:X", "a group steps past a whole group");
+});
+
+test("the stack layout puts a header before each group with its on count", async () => {
+  const { stackLayout, setGroupEnabled, renameGroup, uniqueGroupName, hasGroupName } =
+    await import("../js/shared/lora_stack.mjs");
+  const rows = [groupRow("a"), groupRow("b", "G"), { ...groupRow("c", "G"), enabled: false }];
+  assert.deepEqual(stackLayout(rows).map((item) => item.kind === "group"
+    ? `[${item.group} ${item.on}/${item.total}]` : item.index).join(" "), "0 [G 1/2] 1 2");
+  assert.ok(setGroupEnabled(rows, "G", true).every((row) => row.enabled));
+  assert.equal(setGroupEnabled(rows, "G", false)[0].enabled, true, "rows outside keep their switch");
+  assert.equal(shape(renameGroup(rows, "G", "Faces")), "a b:Faces c:Faces");
+  assert.equal(uniqueGroupName(rows), "Group 1");
+  assert.equal(uniqueGroupName([groupRow("a", "group 1")]), "Group 2");
+  assert.equal(hasGroupName(rows, "g"), true);
+  assert.equal(hasGroupName(rows, "g", "G"), false, "a group may change its own case");
+});
+
+test("templates keep groups", async () => {
+  const { applyTemplate, templateFromRows } = await import("../js/shared/lora_stack.mjs");
+  const template = templateFromRows("Look", [groupRow("a", "G"), groupRow("b")]);
+  assert.equal(template.rows[0].group, "G");
+  assert.equal(applyTemplate(template)[0].group, "G");
+});
