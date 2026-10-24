@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.19.1 - 2026-10-24
 
 - **LoRA Loader 🆎 saves the LoRA's picture from Civitai, no add-on
   needed.** **Fetch Civitai info** now also saves the LoRA's first picture
