@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import importlib.util
 import io
 import json
 from pathlib import Path
@@ -232,6 +233,7 @@ def _picture(width=1200, height=800, fmt="PNG", mode="RGB") -> bytes:
     return out.getvalue()
 
 
+@unittest.skipIf(importlib.util.find_spec("PIL") is None, "needs Pillow (run with ComfyUI's Python)")
 class LoraCivitaiPictureTests(unittest.TestCase):
     name = "Krea 2/candid.safetensors"
 
