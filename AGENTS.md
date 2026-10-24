@@ -121,14 +121,16 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   A route answers with data it made (JSON, a small picture), never a file by
   its path (`web.FileResponse`), and its error text goes through
   `safe_route_error` (`nodes/_route_errors.py`). Besides those the pack only reads
-  its registered model folders (the one write there is the `.civitai.info`
-  file LoRA Loader's Civitai button saves beside a LoRA) and keeps its own
+  its registered model folders (the one write there is LoRA Loader's Civitai
+  button: a `.civitai.info` file and a `.preview.jpg` picture, saved beside a
+  LoRA, never replacing a picture) and keeps its own
   settings files in ComfyUI's user folder (`user/ausboss/`). Nothing is handed to a
   subprocess. The Registry bans versions for exactly this.
 - The pack's server code makes no network requests: no HTTP or socket client
   in shipped Python (`release_preflight.py` fails on one). The one outbound
   call is LoRA Loader's click-only Civitai lookup, made by the browser to a
-  fixed civitai.com address with a plain SHA256 (`js/lora_loader/index.js`,
+  fixed civitai.com address with a plain SHA256, plus the LoRA's picture
+  from `image.civitai.com` on the same click (`js/lora_loader/index.js`,
   `js/shared/civitai_lookup.mjs`). `release_preflight.py` allows a raw
   `fetch(` only there and in `js/cache_guard`, which only talks to the pack's
   own server. Graph links are made with
