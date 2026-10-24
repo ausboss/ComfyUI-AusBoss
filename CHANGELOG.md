@@ -18,6 +18,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
   the group comes back on. Drag rows in and out by their grip, or drag the
   whole group by its header. The stack still runs top to bottom as shown.
 
+- **LoRA Loader 🆎 can show a LoRA's Civitai picture with the new LoRA
+  Previews add-on.** Install the add-on
+  ([ComfyUI-AusBoss-LoRA-Previews](https://github.com/ausboss/ComfyUI-AusBoss-LoRA-Previews#install)) and **Fetch Civitai info**
+  also saves the LoRA's preview picture next to the file, so hovering the LoRA
+  shows it. The pack itself still downloads nothing; the info card links to
+  the add-on when a LoRA has Civitai info but no picture.
+
 - **Workflow Switches 🆎 can turn a LoRA Loader group on and off.** Save a
   switch once with the group on and once with it off. The group's header
   shows a lock, and the LoRAs inside stay yours to turn on and off one by

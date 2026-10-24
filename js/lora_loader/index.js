@@ -608,6 +608,25 @@ function closePopup() {
 
 // ---------- hover thumbnail ----------
 
+// Where to read about the add-on that saves a LoRA's preview picture from
+// Civitai. The pack itself downloads no pictures.
+const PREVIEWS_ADDON_URL = "https://github.com/ausboss/ComfyUI-AusBoss-LoRA-Previews#install";
+
+// Raised when a preview picture was saved since the page loaded, so the
+// browser asks for the picture again instead of reusing a failed load.
+let thumbVersion = 0;
+
+function thumbUrl(name) {
+  const version = thumbVersion ? `&v=${thumbVersion}` : "";
+  return api.apiURL(`/ausboss/lora/thumb?name=${encodeURIComponent(name)}${version}`);
+}
+
+// The preview add-on saved a picture: the next hover and an open card show it.
+window.addEventListener("ausboss:lora-preview-saved", () => {
+  thumbVersion += 1;
+  if (hoverThumb) delete hoverThumb.dataset.name;
+});
+
 // One floating preview image for the whole pack tab, shared by row hover and
 // the picker. Fixed-positioned and pointer-events: none, so it can never
 // shift layout or steal the cursor; it stays hidden until the image actually
@@ -641,8 +660,7 @@ function showHoverThumb(state, name, x, y) {
   if (thumb.dataset.name !== name) {
     thumb.dataset.name = name;
     thumb.style.display = "none";
-    thumb.src = api.apiURL(
-      `/ausboss/lora/thumb?name=${encodeURIComponent(effectiveLoraName(state, name))}`);
+    thumb.src = thumbUrl(effectiveLoraName(state, name));
   } else if (thumb.complete && thumb.naturalWidth > 0) {
     thumb.style.display = "";
   }
@@ -1384,6 +1402,8 @@ async function lookUpOnCivitai(serverName) {
     body: JSON.stringify({ name: serverName, info }),
   })).json();
   if (!saved.ok) throw new Error(saved.error || "Could not save the Civitai info.");
+  // An add-on can listen for this to save the preview picture.
+  window.dispatchEvent(new CustomEvent("ausboss:lora-civitai-saved", { detail: { name: serverName, info } }));
   return true;
 }
 
@@ -1403,7 +1423,7 @@ function openInfo(state, index, anchor) {
     card.textContent = "";
     const image = el("img");
     image.alt = "";
-    image.src = api.apiURL(`/ausboss/lora/thumb?name=${encodeURIComponent(serverName)}`);
+    image.src = thumbUrl(serverName);
     image.addEventListener("error", () => image.remove());
     if (info.has_preview) card.append(image);
     card.append(el("h4", "", info.civitai_title || rowLabel(state, row.name)));
@@ -1423,6 +1443,21 @@ function openInfo(state, index, anchor) {
       link.target = "_blank";
       link.rel = "noopener noreferrer";
       card.append(link);
+    }
+    // Civitai info but no picture: say how to get one.
+    if (info.has_civitai && !info.has_preview && state.settings?.civitai_lookup !== false) {
+      const hint = el("div", "ausboss-lora-meta");
+      if (window.ausbossLoraPreviews) {
+        hint.textContent = "No preview picture yet. Click Refresh Civitai info to save one.";
+      } else {
+        hint.append("No preview picture yet. The LoRA Previews add-on saves Civitai's picture for you. ");
+        const addon = el("a", "ausboss-lora-civitai-link", "How to install ↗");
+        addon.href = PREVIEWS_ADDON_URL;
+        addon.target = "_blank";
+        addon.rel = "noopener noreferrer";
+        hint.append(addon);
+      }
+      card.append(hint);
     }
 
     // One click can change other chips too: the same word can sit in two
@@ -1556,6 +1591,9 @@ function openInfo(state, index, anchor) {
         card.append(el("div", "ausboss-lora-empty", "Could not read LoRA info."));
       });
   };
+  window.addEventListener("ausboss:lora-preview-saved", (event) => {
+    if (event.detail?.name === serverName) load();
+  }, { signal: activePopup?.abort.signal });
   load();
 }
 

@@ -303,6 +303,13 @@ or the bare `.png` / `.jpg` / `.jpeg` / `.webp`). No sidecar, no thumbnail —
 nothing appears and nothing shifts. The gear menu's **Preview thumbnails**
 switch turns the behavior off.
 
+**Get the pictures from Civitai:** install the separate
+[LoRA Previews add-on](https://github.com/ausboss/ComfyUI-AusBoss-LoRA-Previews#install). With it, **Fetch Civitai info** (or
+**Refresh Civitai info**) also saves the LoRA's preview picture from Civitai
+next to the file, and the hover and the info card show it right away. It never
+replaces a picture you already have. The pack itself downloads no pictures; the
+info card links to the add-on when a LoRA has Civitai info but no picture.
+
 ## Trigger words
 
 The info card gathers words from three places: the LoRA file's own metadata,
@@ -322,7 +329,10 @@ switched on for the old one.
   `<model>.civitai.info`. After that the button reads **Refresh Civitai
   info** and the card gets a **View on Civitai** link. A LoRA Civitai does
   not know (unpublished or hidden) reads **Not found on Civitai**. Gear
-  menu → **Civitai lookup button** removes the button.
+  menu → **Civitai lookup button** removes the button. If it always reads
+  **Civitai lookup failed**, check whether ComfyUI was started with
+  `--disable-api-nodes`: that setting stops the browser from reaching any
+  other site, Civitai included.
 - **Suggested strength**: a lowest and a highest value at the bottom of the
   card (leave one empty for "any"). It is only a reminder: a row set outside
   it shows its number in orange, and the tooltip gives the range. Saved per
