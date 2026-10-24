@@ -67,6 +67,10 @@ of LoRAs (all your style LoRAs, say) off and on with one click.
   (the LoRAs stay), or remove it together with its LoRAs. Drag the header's
   grip to move the whole group.
 
+Right-click the empty space around the rows (or under **+ LoRA**) to add
+LoRAs, group the rows you picked, fold or open every group at once, or
+delete all LoRAs.
+
 A plain click anywhere clears a Ctrl/Shift selection, and so does Escape.
 The count on a header (`2/3 on`) shows how many of its LoRAs are on.
 
@@ -79,9 +83,10 @@ saved stack, so groups travel with templates, undo, and rows shown on a
 subgraph box. Which groups are folded is saved with the node. A group
 switch that reads half-on turns every LoRA in the group on; a full one
 turns them all off. Move up and Move down step a row out of the edge of
-its group, or into a group next to it, one step at a time. Below a group's
-last row, how far right you drag decides whether the row joins the group
-or lands just under it; the drop line starts indented when it would join.
+its group, or into a group next to it, one step at a time. While you drag,
+the drop line starts indented when the row would join a group. Just below
+a group's last row is outside the group; to add a row at a group's end,
+drop it on the group's name.
 
 ## Rows on a subgraph box
 

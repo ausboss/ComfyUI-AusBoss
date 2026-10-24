@@ -1151,6 +1151,13 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
     renderTicks();
   };
 
+  let lastPointer = null;
+  const pointerMoved = (event) => {
+    const moved = !lastPointer || lastPointer.x !== event.clientX || lastPointer.y !== event.clientY;
+    lastPointer = { x: event.clientX, y: event.clientY };
+    return moved;
+  };
+
   const appendOption = (entry, flatIndex) => {
     const { name, kind, label, depth, count } = entry;
     const folder = kind === "folder";
@@ -1201,6 +1208,10 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
         hideHoverThumb();
         return;
       }
+      // The arrow keys redraw the list under a pointer that has not moved,
+      // and the browser then reports the pointer entering the new row. Only
+      // a real move takes the highlight, or the arrows could not leave it.
+      if (!pointerMoved(event)) return;
       if (highlight !== flatIndex) {
         // Keep the option under the pointer intact through the click.
         list.querySelector(".ausboss-lora-option.highlight")?.classList.remove("highlight");
@@ -1210,7 +1221,13 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
       showHoverThumb(state, name, event.clientX, event.clientY);
     });
     option.addEventListener("pointermove", (event) => {
-      if (!folder) showHoverThumb(state, name, event.clientX, event.clientY);
+      if (folder || !pointerMoved(event)) return;
+      if (highlight !== flatIndex) {
+        list.querySelector(".ausboss-lora-option.highlight")?.classList.remove("highlight");
+        highlight = flatIndex;
+        option.classList.add("highlight");
+      }
+      showHoverThumb(state, name, event.clientX, event.clientY);
     });
     option.addEventListener("pointerleave", hideHoverThumb);
     option.addEventListener("click", (event) => {
@@ -1604,6 +1621,30 @@ function commitGroups(state, rows) {
   fitNode(state);
 }
 
+// The red, trash-marked last item of both right-click menus: clears every
+// row of this node after a confirmation.
+function addDeleteAll(state, menu, event) {
+  menuItem(menu, "🗑 Delete all LoRAs…", () => {
+    const confirmation = el("div", "ausboss-lora-menu");
+    const message = el("div", "ausboss-lora-empty",
+      `Remove all ${state.rows.length} LoRA rows from this node? Files on disk are kept.`);
+    const cancel = el("button", "", "Cancel — keep LoRAs");
+    const remove = el("button", "ausboss-lora-danger", "🗑 Yes, delete all rows");
+    cancel.type = remove.type = "button";
+    cancel.addEventListener("click", closePopup);
+    remove.addEventListener("click", () => {
+      closePopup();
+      commitGroups(state, []);
+      notifyAusbossChange();
+    });
+    confirmation.append(message, cancel, remove);
+    openPopup(confirmation,
+      { left: event.clientX, top: event.clientY, bottom: event.clientY, width: 0 },
+      { width: 270 });
+    cancel.focus();
+  }).classList.add("ausboss-lora-danger", "ausboss-lora-delete-all");
+}
+
 function openRowMenu(state, index, event) {
   const menu = el("div", "ausboss-lora-menu");
   const item = (label, action, disabled = false) => menuItem(menu, label, action, disabled);
@@ -1657,26 +1698,38 @@ function openRowMenu(state, index, event) {
   item(count > 1 ? `Remove these ${count} LoRAs` : "Remove this LoRA", () => {
     commitGroups(state, state.rows.filter((entry) => !ids.includes(entry.id)));
   }).classList.add("ausboss-lora-danger");
-  item("🗑 Delete all LoRAs…", () => {
-    const confirmation = el("div", "ausboss-lora-menu");
-    const message = el("div", "ausboss-lora-empty",
-      `Remove all ${state.rows.length} LoRA rows from this node? Files on disk are kept.`);
-    const cancel = el("button", "", "Cancel — keep LoRAs");
-    const remove = el("button", "ausboss-lora-danger", "🗑 Yes, delete all rows");
-    cancel.type = remove.type = "button";
-    cancel.addEventListener("click", closePopup);
-    remove.addEventListener("click", () => {
-      closePopup();
-      commitRows(state, [], { structural: true });
+  addDeleteAll(state, menu, event);
+  openPopup(menu, { left: event.clientX, top: event.clientY, bottom: event.clientY, width: 0 });
+}
+
+// Right-click on the stack around the rows: what applies to the whole stack.
+function openStackMenu(state, event) {
+  const menu = el("div", "ausboss-lora-menu");
+  const item = (label, action, disabled = false) => menuItem(menu, label, action, disabled);
+  const add = state.panel.querySelector(".ausboss-lora-add, .ausboss-lora-blank");
+  item("+ Add LoRAs…", () => openPicker(state, null, add), !add || state.rows.length >= MAX_ROWS);
+  const ids = state.rows.filter((row) => selectedIds(state).has(row.id)).map((row) => row.id);
+  if (ids.length) {
+    item(ids.length > 1 ? `Group the ${ids.length} selected LoRAs` : "Group the selected LoRA", () => {
+      const name = uniqueGroupName(state.rows);
+      commitGroups(state, groupRows(state.rows, ids, name));
+      startGroupRename(state, name);
+    });
+  } else if (state.rows.length) {
+    item("Group LoRAs: Ctrl-click rows first", () => {}, true);
+  }
+  const groups = groupNames(state.rows);
+  if (groups.length) {
+    const folded = foldedGroups(state);
+    const allFolded = groups.every((name) => folded.has(name));
+    item(allFolded ? "Open all groups" : "Fold all groups", () => {
+      saveFolded(state, new Set(allFolded ? [] : groups));
+      renderRows(state);
       fitNode(state);
       notifyAusbossChange();
     });
-    confirmation.append(message, cancel, remove);
-    openPopup(confirmation,
-      { left: event.clientX, top: event.clientY, bottom: event.clientY, width: 0 },
-      { width: 270 });
-    cancel.focus();
-  }).classList.add("ausboss-lora-danger", "ausboss-lora-delete-all");
+  }
+  if (state.rows.length) addDeleteAll(state, menu, event);
   openPopup(menu, { left: event.clientX, top: event.clientY, bottom: event.clientY, width: 0 });
 }
 
@@ -1695,6 +1748,7 @@ function openGroupMenu(state, group, event) {
   item(`Remove group and its ${members.length} LoRA${members.length === 1 ? "" : "s"}`,
     () => commitGroups(state, state.rows.filter((row) => row.group !== group)))
     .classList.add("ausboss-lora-danger");
+  addDeleteAll(state, menu, event);
   openPopup(menu, { left: event.clientX, top: event.clientY, bottom: event.clientY, width: 0 });
 }
 
@@ -1834,9 +1888,9 @@ function groupHeader(state, stack, item, folded) {
 }
 
 // Where a dragged row would land. Over a group's header it goes in at the
-// group's end; between a group's rows it goes in there; just below a
-// group's last row, the pointer's distance from the left edge decides.
-function rowDropTarget(state, stack, id, x, y) {
+// group's end, and between a group's rows it goes in there. Above the
+// header or below the group's last row it lands outside the group.
+function rowDropTarget(state, stack, id, y) {
   const items = [...stack.querySelectorAll(".ausboss-lora-row, .ausboss-lora-ghead")]
     .filter((item) => item.dataset.rowId !== id && !item.classList.contains("folded-away"));
   const box = stack.getBoundingClientRect();
@@ -1844,8 +1898,8 @@ function rowDropTarget(state, stack, id, x, y) {
   for (const item of items) {
     if (!item.classList.contains("ausboss-lora-ghead")) continue;
     const rect = item.getBoundingClientRect();
-    // The header's top edge is the gap above the group.
-    if (y >= rect.top + 6 && y <= rect.bottom + 2) return { header: item, group: item.dataset.group, beforeId: null };
+    // The header's top third is the gap above the group.
+    if (y >= rect.top + rect.height / 3 && y <= rect.bottom + 2) return { header: item, group: item.dataset.group, beforeId: null };
   }
   let at = items.findIndex((item) => {
     const rect = item.getBoundingClientRect();
@@ -1859,13 +1913,15 @@ function rowDropTarget(state, stack, id, x, y) {
   const rowOf = (item) => item?.classList.contains("ausboss-lora-row")
     ? state.rows.find((row) => row.id === item.dataset.rowId) : null;
   const belowRow = rowOf(below);
-  const aboveRow = rowOf(above);
   if (belowRow?.group) return { group: belowRow.group, beforeId: belowRow.id, lineY, lineX: left + GROUP_INDENT };
-  if (aboveRow?.group && x > left + GROUP_INDENT + 8) {
-    return { group: aboveRow.group, beforeId: null, lineY, lineX: left + GROUP_INDENT };
+  let beforeId = belowRow?.id ?? null;
+  if (below && !belowRow) {
+    // Above a header: before that group's first row. Above its own group's
+    // header, the dragged row may be that first row: it stays where it is.
+    const own = state.rows.findIndex((row) => row.id === id);
+    beforeId = state.rows.find((row) => row.group === below.dataset.group && row.id !== id)?.id
+      ?? state.rows[own + 1]?.id ?? null;
   }
-  const beforeId = belowRow?.id
-    ?? (below ? state.rows.find((row) => row.group === below.dataset.group)?.id : null) ?? null;
   return { group: "", beforeId, lineY, lineX: left };
 }
 
@@ -1909,7 +1965,7 @@ function startStackDrag(state, stack, elements, handle, event, what) {
     .forEach((head) => head.classList.remove("drop"));
   const show = (x, y) => {
     clearDrop();
-    target = what.kind === "row" ? rowDropTarget(state, stack, what.id, x, y)
+    target = what.kind === "row" ? rowDropTarget(state, stack, what.id, y)
       : groupDropTarget(state, stack, what.group, y);
     ghost.style.left = `${x + 14}px`;
     ghost.style.top = `${y - 12}px`;
@@ -2540,6 +2596,13 @@ function renderRows(state) {
   }
 
   const stack = el("div", "ausboss-lora-stack");
+  // Rows and group headers open their own menus; the space around them
+  // opens the stack's, never the browser's Copy / Select all.
+  stack.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    openStackMenu(state, event);
+  });
   if (!state.rows.length) {
     const blank = el("button", "ausboss-lora-blank", "No LoRAs yet");
     blank.type = "button";
@@ -2575,7 +2638,8 @@ function renderRows(state) {
     grip.title = "Drag to reorder";
     grip.innerHTML = gripIconSvg();
     grip.addEventListener("pointerdown", (event) => {
-      if (event.button !== 0 || state.rows.length < 2) return;
+      // A lone row can still be dragged out of its group.
+      if (event.button !== 0 || (state.rows.length < 2 && !row.group)) return;
       event.preventDefault();
       hideHoverThumb();
       startStackDrag(state, stack, [rowElement], grip, event,
