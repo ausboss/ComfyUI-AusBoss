@@ -57,12 +57,15 @@ def parse_lora_stack(raw: str | None) -> list[dict[str, Any]]:
             # they are skipped rather than rejected so a half-built stack runs.
             continue
         strength = clamp_strength(entry.get("strength", 1.0))
+        # A row in a group that is switched off does not run; its own
+        # "enabled" is kept for when the group comes back on.
+        enabled = bool(entry.get("enabled", True)) and entry.get("group_off") is not True
         rows.append(
             {
                 "name": name,
                 "strength": strength,
                 "strength_clip": clamp_strength(entry.get("strength_clip", strength), strength),
-                "enabled": bool(entry.get("enabled", True)),
+                "enabled": enabled,
                 "triggers": str(entry.get("triggers") or "").strip(),
             }
         )

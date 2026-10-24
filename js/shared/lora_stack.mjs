@@ -51,6 +51,7 @@ export function normalizeRows(parsed) {
       row.triggers = typeof entry.triggers === "string" ? entry.triggers : "";
       const group = groupName(entry.group);
       if (group) row.group = group;
+      if (group && entry.group_off === true) row.group_off = true;
     }
     return row;
   }));
@@ -85,6 +86,8 @@ export function moveRow(rows, index, delta) {
 // A group is a name carried on its rows (`group`); a row without one sits at
 // the top level. A group's rows always stand together, so the stack still
 // runs top to bottom as shown, and a group lasts while it has a row.
+// A group switched off carries `group_off` on every row: none of them runs,
+// and each keeps its own on/off for when the group comes back on.
 
 export const MAX_GROUP_NAME = 40;
 
@@ -93,22 +96,36 @@ export function groupName(value) {
 }
 
 function withoutGroup(row) {
-  const { group, ...rest } = row;
+  const { group, group_off, ...rest } = row;
   return rest;
 }
 
+function withoutGroupOff(row) {
+  const { group_off, ...rest } = row;
+  return rest;
+}
+
+// A row joining another group takes that group's on/off (see tidyGroups).
 function withGroup(row, name) {
-  return name ? { ...row, group: name } : withoutGroup(row);
+  if (!name) return withoutGroup(row);
+  if (row.group === name) return row;
+  return { ...withoutGroupOff(row), group: name };
+}
+
+// Whether a row runs: on itself, and not in a group that is switched off.
+export function rowRuns(row) {
+  return row?.enabled !== false && !row?.group_off;
 }
 
 // Gathers each group's rows at the place of its first row, keeping every
-// other row where it is.
+// other row where it is. A group is off when any of its rows says so, and
+// then all of them do: a row that just joined an off group goes off with it.
 export function tidyGroups(rows) {
   const out = [];
   const runs = new Map();
   for (const row of rows) {
     const name = row.group || "";
-    if (!name) { out.push(row); continue; }
+    if (!name) { out.push(row.group_off ? withoutGroupOff(row) : row); continue; }
     let run = runs.get(name);
     if (!run) {
       run = [];
@@ -117,7 +134,12 @@ export function tidyGroups(rows) {
     }
     run.push(row);
   }
-  return out.flat();
+  return out.flatMap((item) => {
+    if (!Array.isArray(item)) return [item];
+    const off = item.some((row) => row.group_off);
+    return item.map((row) => off === Boolean(row.group_off) ? row
+      : off ? { ...row, group_off: true } : withoutGroupOff(row));
+  });
 }
 
 export function groupNames(rows) {
@@ -149,6 +171,7 @@ export function stackLayout(rows) {
       items.push({
         kind: "group", group, start: index, end,
         on: members.filter((member) => member.enabled).length, total: members.length,
+        off: members.some((member) => member.group_off),
       });
     }
     items.push({ kind: "row", index, group });
@@ -177,7 +200,7 @@ export function moveRowsToGroup(rows, ids, name) {
   rest.forEach((row, index) => { if (row.group === name) last = index; });
   if (last < 0) return tidyGroups(rows.map((row) => chosen.has(row.id) ? withGroup(row, name) : row));
   const moving = rows.filter((row) => chosen.has(row.id)).map((row) => withGroup(row, name));
-  return [...rest.slice(0, last + 1), ...moving, ...rest.slice(last + 1)];
+  return tidyGroups([...rest.slice(0, last + 1), ...moving, ...rest.slice(last + 1)]);
 }
 
 // Rows taken out of a group stand just outside it: the ones at its top go
@@ -201,13 +224,27 @@ export function ungroupRows(rows, ids) {
   return out;
 }
 
+// A renamed group keeps its on/off.
 export function renameGroup(rows, from, to) {
   const name = groupName(to);
-  return tidyGroups(rows.map((row) => row.group === from ? withGroup(row, name) : row));
+  if (!name) return rows;
+  return tidyGroups(rows.map((row) => row.group === from ? { ...row, group: name } : row));
 }
 
+// Every row of a group on or off by itself.
 export function setGroupEnabled(rows, name, enabled) {
   return rows.map((row) => row.group === name ? { ...row, enabled: !!enabled } : row);
+}
+
+// The group's own switch: off stops all of its rows, and each row keeps its
+// own on/off underneath.
+export function setGroupOff(rows, name, off) {
+  return rows.map((row) => row.group !== name ? row
+    : off ? { ...row, group_off: true } : withoutGroupOff(row));
+}
+
+export function isGroupOff(rows, name) {
+  return rows.some((row) => row.group === name && row.group_off);
 }
 
 // Move up/down for one row, one step at a time: a row at the edge of its
@@ -222,7 +259,7 @@ export function moveRowInStack(rows, index, delta) {
   }
   if (!next) return rows;
   if (!group && next.group) {
-    return rows.map((entry, i) => i === index ? withGroup(entry, next.group) : entry);
+    return tidyGroups(rows.map((entry, i) => i === index ? withGroup(entry, next.group) : entry));
   }
   return reorderRows(rows, index, index + delta);
 }
@@ -421,25 +458,33 @@ export function toggleTrigger(triggers, word) {
 }
 
 export function summarizeRows(rows) {
-  const on = rows.filter((row) => row.enabled && row.name).length;
+  const on = rows.filter((row) => rowRuns(row) && row.name).length;
   const total = rows.filter((row) => row.name).length;
   return total === 0 ? "no LoRAs" : `${on} / ${total} on`;
 }
 
-// Master toggle model: "on" when every named row is enabled, "off" when none
-// are, "mixed" otherwise. Blank rows don't vote.
+// Master toggle model: "on" when every named row runs, "off" when none
+// does, "mixed" otherwise. Blank rows don't vote. A row in a group that is
+// switched off does not run.
 export function toggleAllState(rows) {
   const named = rows.filter((row) => row.name);
   if (!named.length) return "off";
-  const on = named.filter((row) => row.enabled).length;
+  const on = named.filter(rowRuns).length;
   return on === 0 ? "off" : on === named.length ? "on" : "mixed";
+}
+
+// Every row on (groups switched back on too) or every row off.
+function setAllRows(rows, enabled) {
+  return rows.map((row) => {
+    const next = enabled ? withoutGroupOff(row) : row;
+    return row.name ? { ...next, enabled } : next;
+  });
 }
 
 // Clicking the master pill: anything not fully-on turns everything on;
 // fully-on turns everything off.
 export function toggleAllRows(rows) {
-  const enabled = toggleAllState(rows) !== "on";
-  return rows.map((row) => (row.name ? { ...row, enabled } : row));
+  return setAllRows(rows, toggleAllState(rows) !== "on");
 }
 
 // Longest common folder prefix (whole segments only) across displayed names,
@@ -661,7 +706,7 @@ const BAR_EPSILON = 0.005;
 export function strengthBarScale(rows) {
   let peak = 0;
   for (const row of rows ?? []) {
-    if (!row?.name || row.enabled === false) continue;
+    if (!row?.name || !rowRuns(row)) continue;
     const value = Math.abs(Number(row.strength));
     if (Number.isFinite(value)) peak = Math.max(peak, value);
   }
@@ -811,29 +856,36 @@ export function duplicateLoraKeys(rows) {
 // snapshotEnabled back in), so an accidental master click is always one more
 // click from the setup it destroyed.
 
+// A row in a group that is switched off is remembered with its group's state.
 export function snapshotEnabled(rows) {
   const map = {};
   for (const row of rows ?? []) {
-    if (row?.name) map[row.id] = row.enabled !== false;
+    if (!row?.name) continue;
+    const enabled = row.enabled !== false;
+    map[row.id] = row.group_off ? { enabled, group_off: true } : enabled;
   }
   return map;
 }
 
+function restoreRow(row, saved) {
+  if (saved && typeof saved === "object") {
+    const next = { ...row, enabled: saved.enabled !== false };
+    return saved.group_off && next.group ? { ...next, group_off: true } : withoutGroupOff(next);
+  }
+  return { ...withoutGroupOff(row), enabled: Boolean(saved) };
+}
+
 export function cycleMasterToggle(rows, snapshot) {
-  const set = (enabled) =>
-    rows.map((row) => (row.name ? { ...row, enabled } : row));
   const state = toggleAllState(rows);
-  if (state === "mixed") return { rows: set(true), snapshot: snapshotEnabled(rows) };
-  if (state === "on") return { rows: set(false), snapshot };
+  if (state === "mixed") return { rows: setAllRows(rows, true), snapshot: snapshotEnabled(rows) };
+  if (state === "on") return { rows: setAllRows(rows, false), snapshot };
   // All off: restore the remembered setup when it still lights anything;
   // otherwise this is a plain binary toggle and everything turns on.
-  const restored = rows.map((row) =>
-    row.name && snapshot && row.id in snapshot
-      ? { ...row, enabled: snapshot[row.id] }
-      : row,
-  );
-  const remembersAnything = restored.some((row) => row.name && row.enabled);
-  return remembersAnything ? { rows: restored, snapshot } : { rows: set(true), snapshot };
+  const restored = tidyGroups(rows.map((row) =>
+    row.name && snapshot && row.id in snapshot ? restoreRow(row, snapshot[row.id]) : row,
+  ));
+  const remembersAnything = restored.some((row) => row.name && rowRuns(row));
+  return remembersAnything ? { rows: restored, snapshot } : { rows: setAllRows(rows, true), snapshot };
 }
 
 // ---------- absorb the loader chain ----------
@@ -928,7 +980,7 @@ export function loaderLoraEntries(nodeLike) {
         .filter((row) => row && typeof row === "object" && row.name)
         .map((row) => entry(row.name, row.strength,
                             row.strength_clip ?? row.strength,
-                            row.enabled, row.triggers));
+                            row.enabled !== false && !row.group_off, row.triggers));
     } catch {
       return [];
     }

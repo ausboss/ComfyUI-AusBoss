@@ -48,7 +48,9 @@ strength.
 
 Groups keep a long stack tidy, like layer groups in an image editor. A
 group has a header with its own on/off switch, so you can turn a whole set
-of LoRAs (all your style LoRAs, say) off and on with one click.
+of LoRAs (all your style LoRAs, say) off and on with one click. Each LoRA
+in the group keeps its own switch too: turn the group off and back on, and
+the same LoRAs are on as before.
 
 - **Make a group:** right-click a row and choose **Group this LoRA**. To
   group several, hold **Ctrl** (**Cmd** on a Mac) and click each row first,
@@ -63,16 +65,21 @@ of LoRAs (all your style LoRAs, say) off and on with one click.
 - **Fold:** the arrow next to the group's switch hides its rows and makes
   the node shorter. Folded rows still run.
 - **Rename:** double-click the group's name.
-- Right-click a group's header to move the whole group, fold it, ungroup it
-  (the LoRAs stay), or remove it together with its LoRAs. Drag the header's
-  grip to move the whole group.
+- Right-click a group's header to move the whole group, fold it, turn all
+  its LoRAs on or off, ungroup it (the LoRAs stay), or remove it together
+  with its LoRAs. Drag the header's grip to move the whole group.
+- **Turn a group on and off from a Workflow Switch:** save the switch once
+  with the group on and once with it off. The group's header then shows a
+  lock, and the switch turns the whole group on and off. The LoRAs inside
+  stay yours to turn on and off. Click the lock to take the group back.
 
 Right-click the empty space around the rows (or under **+ LoRA**) to add
 LoRAs, group the rows you picked, fold or open every group at once, or
 delete all LoRAs.
 
 A plain click anywhere clears a Ctrl/Shift selection, and so does Escape.
-The count on a header (`2/3 on`) shows how many of its LoRAs are on.
+The count on a header (`2/3 on`) shows how many of its LoRAs are on. While
+the group is off it reads `group off`, and its LoRAs are dimmed.
 
 ### Technical details
 
@@ -80,9 +87,12 @@ LoRAs still apply in the order you see, top to bottom; a group changes
 nothing about how the stack runs. Groups are one level deep, and a group
 lasts while it has a LoRA in it. Each row keeps its group's name in the
 saved stack, so groups travel with templates, undo, and rows shown on a
-subgraph box. Which groups are folded is saved with the node. A group
-switch that reads half-on turns every LoRA in the group on; a full one
-turns them all off. Move up and Move down step a row out of the edge of
+subgraph box. Which groups are folded is saved with the node. A group that
+is off marks each of its rows with `group_off` in the saved stack: none of
+them runs, and each keeps its own on/off. A row dragged into an off group
+goes off with it, and a row taken out runs by its own switch again. A
+renamed group keeps its on/off and its Workflow Switch. The switch at the
+top of the node turns every row and every group on. Move up and Move down step a row out of the edge of
 its group, or into a group next to it, one step at a time. While you drag,
 the drop line starts indented when the row would join a group. Just below
 a group's last row is outside the group; to add a row at a group's end,
@@ -120,6 +130,10 @@ one strength for on and another for off. Click the lock to take the row
 over: the switch forgets that row and leaves it alone from then on, and
 stops reading "changed" because of it. Everything else the switch does
 stays. A locked row still drags to a new place.
+
+A group that a switch turns on and off shows the lock on its header
+instead. The LoRAs in it keep plain grips, so each one is still yours to
+turn on or off. Click the header's lock to take the group over.
 
 ## Strength bars
 

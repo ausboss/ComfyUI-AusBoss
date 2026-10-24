@@ -7,8 +7,8 @@ import {
   addMembers, addOffMembers, addSwitch, canvasOrder, cardView, centreInside, choiceState, choosePlan, cleanIds, cleanSnapshots,
   flipTo, frameBounds, groupBounds, groupListed, hasOffSide, heldCount, isRunning, listedRows, matchTerms, modeMatters,
   moveSwitch, nodeBounds, normalizeSettings, normalizeSwitches, offFreshCount, offHeldCount, offMode, pairNow, pairValue,
-  partState, pillNodeWidth, placeNodes, readGroups, readSwitches, releaseStackRow, removeMembers, removeOffMembers, removeSwitch,
-  renameSwitch, rowLabel, rowsSignature, saveValues, snapshotNode, stackRowOwners, stackRows, suggestTitle, switchAllPlan, switchPlan, titleOrder, unionRect,
+  partState, pillNodeWidth, placeNodes, readGroups, readSwitches, releaseStackGroup, releaseStackRow, removeMembers, removeOffMembers, removeSwitch,
+  renameStackGroup, renameSwitch, rowLabel, rowsSignature, saveValues, snapshotNode, stackGroupOwners, stackRowOwners, stackRows, suggestTitle, switchAllPlan, switchPlan, titleOrder, unionRect,
   valueAllPlan, valuePairs, valuePlan,
 } from "../js/shared/workflow_switches.mjs";
 
@@ -966,6 +966,62 @@ test("taking over a row changes nothing for another switch, node or file", () =>
   assert.deepEqual(next.switches[1], normalizeSettings(settings).switches[1]);
   assert.deepEqual(releaseStackRow(settings, 1, "77", "loras", "film_grain.safetensors"), normalizeSettings(settings));
   assert.deepEqual(releaseStackRow(settings, 1, "54", "loras", "unknown.safetensors"), normalizeSettings(settings));
+});
+
+// ---------- a group of LoRA rows ----------
+
+const lookStack = (groupOff, { base = true, extra = [] } = {}) => JSON.stringify([
+  { name: "base.safetensors", enabled: base },
+  { name: "ink.safetensors", enabled: true, group: "Look", ...(groupOff ? { group_off: true } : {}) },
+  { name: "grain.safetensors", enabled: false, group: "Look", ...(groupOff ? { group_off: true } : {}) },
+  ...extra,
+]);
+const lookSwitch = (on = lookStack(false), off = lookStack(true)) =>
+  ({ id: 1, title: "Look LoRAs", nodes: [], groups: [], on: { 54: { loras: on } }, off: { 54: { loras: off } } });
+
+test("a switch saved with a group on and off moves the group and leaves the rows in it alone", () => {
+  const pairs = valuePairs(lookSwitch());
+  assert.deepEqual(pairs.map((pair) => [pair.group, pair.row]), [["Look", undefined]]);
+  const [pair] = pairs;
+  let value = lookStack(false);
+  assert.equal(pairNow(pair, value), "on");
+  value = pairValue(pair, "off", value);
+  assert.equal(pairNow(pair, value), "off");
+  assert.deepEqual(stackRows(value).map((row) => [row.enabled, Boolean(row.group_off)]),
+    [[true, false], [true, true], [false, true]]);
+  // A LoRA in the group turned on by hand stays on through every click.
+  const byHand = JSON.stringify(stackRows(value).map((row) => row.name === "grain.safetensors" ? { ...row, enabled: true } : row));
+  value = pairValue(pair, "on", byHand);
+  assert.deepEqual(stackRows(value).map((row) => [row.enabled, Boolean(row.group_off)]),
+    [[true, false], [true, false], [true, false]]);
+  // A LoRA added to the group after the switch was saved goes with the group.
+  const later = lookStack(false, { extra: [{ name: "new.safetensors", enabled: true, group: "Look" }] });
+  assert.equal(stackRows(pairValue(pair, "off", later))[3].group_off, true);
+  assert.equal(pairNow(pair, JSON.stringify([{ name: "base.safetensors", enabled: true }])), "other", "the group is gone");
+});
+
+test("a switch that moves a group and a row applies both in one click", () => {
+  const entry = lookSwitch(lookStack(false), lookStack(true, { base: false }));
+  const pairs = valuePairs(entry);
+  assert.deepEqual(pairs.map((pair) => pair.group ?? pair.row), ["base.safetensors", "Look"]);
+  const rows = [{ pairs: pairs.map((pair) => ({ ...pair, now: "on" })) }];
+  assert.equal(valueAllPlan(rows, false).length, 2);
+});
+
+test("a stack group knows the switches that turn it on and off, and keeps them through a rename", () => {
+  const settings = { switches: [lookSwitch()] };
+  const boards = [{ node: "ws", settings }];
+  assert.deepEqual(stackGroupOwners(boards, 54, "loras", "Look"), [{ node: "ws", id: 1, title: "Look LoRAs" }]);
+  assert.deepEqual(stackGroupOwners(boards, "54", "loras", "look"), [], "a group is known by its exact name");
+  assert.deepEqual(stackGroupOwners(boards, "55", "loras", "Look"), []);
+  assert.deepEqual(stackRowOwners(boards, "54", "loras", "ink.safetensors"), [], "the rows inside stay unlocked");
+  const released = releaseStackGroup(settings, 1, "54", "loras", "Look");
+  assert.deepEqual(valuePairs(released.switches[0]), []);
+  assert.equal(released.switches[0].title, "Look LoRAs");
+  const renamed = renameStackGroup(settings, "54", "loras", "Look", "Style");
+  assert.equal(stackGroupOwners([{ node: "ws", settings: renamed }], "54", "loras", "Style").length, 1);
+  assert.deepEqual(stackGroupOwners([{ node: "ws", settings: renamed }], "54", "loras", "Look"), []);
+  assert.deepEqual(renameStackGroup(settings, "77", "loras", "Look", "Style"), normalizeSettings(settings));
 });
 
 // ---------- a LoRA row's strength ----------

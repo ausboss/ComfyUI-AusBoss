@@ -12,10 +12,16 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 - **LoRA Loader 🆎 has groups.** Right-click a row and choose **Group this
   LoRA**, or Ctrl-click several rows first and group them together. A group
-  gets a header with one switch that turns all its LoRAs on or off, a fold
-  arrow that hides its rows and shortens the node, and a name you can
-  double-click to change. Drag rows in and out by their grip, or drag the
+  gets a header with its own switch, a fold arrow that hides its rows and
+  shortens the node, and a name you can double-click to change. Turning a
+  group off stops all its LoRAs, and each one keeps its own switch for when
+  the group comes back on. Drag rows in and out by their grip, or drag the
   whole group by its header. The stack still runs top to bottom as shown.
+
+- **Workflow Switches 🆎 can turn a LoRA Loader group on and off.** Save a
+  switch once with the group on and once with it off. The group's header
+  shows a lock, and the LoRAs inside stay yours to turn on and off one by
+  one.
 
 - **Workflow Note 🆎 shows the whole hint under each model file.** The short
   line under a file name ("optional: the full-size file...", "for 4 steps:

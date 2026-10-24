@@ -13,7 +13,9 @@ import { makeScrubInput } from "../shared/scrub_input.mjs";
 import { isAppShortcut, keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { resetUnknownValues } from "../shared/widget_card_math.mjs";
 import { boxRowInputs, boxRowsWidget, boxesOf, hostBox, rowsInputName, workflowNodes } from "../shared/lora_box.mjs";
-import { SETTINGS_PROPERTY as SWITCHES_PROPERTY, releaseStackRow, stackRowOwners } from "../shared/workflow_switches.mjs";
+import {
+  SETTINGS_PROPERTY as SWITCHES_PROPERTY, releaseStackGroup, releaseStackRow, renameStackGroup, stackGroupOwners, stackRowOwners,
+} from "../shared/workflow_switches.mjs";
 import {
   BYPASS_MODE,
   DEFAULT_STEP,
@@ -63,6 +65,7 @@ import {
   scrubValue,
   serializeRows,
   setGroupEnabled,
+  setGroupOff,
   setStrength,
   shortLoraName,
   snapshotEnabled,
@@ -243,6 +246,9 @@ function installStyles() {
   .ausboss-lora-ghead.drop { background: rgba(0,180,170,.16); box-shadow: inset 0 0 0 1px ${BRAND}; }
   .ausboss-lora-ghead.dragging, .ausboss-lora-row.child.dragging { opacity: 0.45; }
   .ausboss-lora-ghead.off .ausboss-lora-gname { opacity: 0.55; }
+  /* A group switched off: its rows keep their own switches, dimmed. */
+  .ausboss-lora-row.groupoff > * { opacity: 0.4; }
+  .ausboss-lora-row.groupoff.off > * { opacity: 0.25; }
   .ausboss-lora-gfold { width: 16px; height: 20px; border: none; background: transparent;
     color: #9ba2aa; cursor: pointer; padding: 0; display: grid; place-items: center; flex: none; }
   .ausboss-lora-gfold:hover { color: ${BRAND}; }
@@ -280,9 +286,9 @@ function installStyles() {
   .ausboss-lora-grip.locked { color: #8fdcd4; cursor: pointer; }
   .ausboss-lora-grip.locked:hover { color: #c4f1ec; }
   /* The line sits in the stack's padding, clear of the lock. */
-  .ausboss-lora-row.owned { position: relative; }
-  .ausboss-lora-row.owned::before { content: ""; position: absolute; left: -6px; top: 4px;
-    bottom: 4px; width: 2px; border-radius: 1px; background: ${BRAND}; }
+  .ausboss-lora-row.owned, .ausboss-lora-ghead.owned { position: relative; }
+  .ausboss-lora-row.owned::before, .ausboss-lora-ghead.owned::before { content: ""; position: absolute;
+    left: -6px; top: 4px; bottom: 4px; width: 2px; border-radius: 1px; background: ${BRAND}; }
   /* Where an inner loader's rows are set when its box holds them. */
   .ausboss-lora-onbox { flex: none; height: ${NOTE_HEIGHT}px; line-height: ${NOTE_HEIGHT}px;
     text-align: center; color: #8fb9b4; font: 11px system-ui; white-space: nowrap;
@@ -1761,10 +1767,18 @@ function openStackMenu(state, event) {
 function openGroupMenu(state, group, event) {
   const menu = el("div", "ausboss-lora-menu");
   const item = (label, action, disabled = false) => menuItem(menu, label, action, disabled);
-  const members = state.rows.filter((row) => row.group === group).map((row) => row.id);
+  const inside = state.rows.filter((row) => row.group === group);
+  const members = inside.map((row) => row.id);
   const folded = foldedGroups(state).has(group);
+  const setAll = (enabled) => {
+    const rows = setGroupEnabled(state.rows, group, enabled);
+    state.toggleSnapshot = snapshotEnabled(rows);
+    commitRows(state, rows, { structural: true });
+  };
   item("Rename group", () => startGroupRename(state, group));
   item(folded ? "Open group" : "Fold group", () => setGroupFolded(state, group, !folded));
+  item("Turn all LoRAs in it on", () => setAll(true), inside.every((row) => row.enabled));
+  item("Turn all LoRAs in it off", () => setAll(false), inside.every((row) => !row.enabled));
   item("Move group up", () => commitGroups(state, moveGroup(state.rows, group, -1)),
     state.rows[0]?.group === group);
   item("Move group down", () => commitGroups(state, moveGroup(state.rows, group, 1)),
@@ -1839,6 +1853,7 @@ function startGroupRename(state, from) {
     const folded = foldedGroups(state);
     if (folded.delete(from)) folded.add(to);
     saveFolded(state, folded, rows);
+    renameOwnedGroup(state, from, to);
     commitRows(state, rows, { structural: true });
   };
   input.addEventListener("keydown", (event) => {
@@ -1857,13 +1872,22 @@ function startGroupRename(state, from) {
 
 function groupHeader(state, stack, item, folded) {
   const { group, on, total } = item;
-  const head = el("div", `ausboss-lora-ghead${folded ? " folded" : ""}${on ? "" : " off"}`);
+  const off = item.off;
+  const head = el("div", `ausboss-lora-ghead${folded ? " folded" : ""}${off || !on ? " off" : ""}`);
   head.dataset.group = group;
 
   const grip = el("button", "ausboss-lora-grip");
   grip.type = "button";
   grip.title = "Drag to move the whole group";
   grip.innerHTML = gripIconSvg();
+  // A click on the lock of a group a switch sets takes the group over.
+  grip.addEventListener("click", () => {
+    if (grip.dataset.ausbossDragged) {
+      delete grip.dataset.ausbossDragged;
+      return;
+    }
+    takeGroupOver(state, group);
+  });
   grip.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
     event.preventDefault();
@@ -1874,14 +1898,15 @@ function groupHeader(state, stack, item, folded) {
     startStackDrag(state, stack, elements, grip, event, { kind: "group", group, label: group });
   });
 
-  const allOn = on === total;
-  const toggle = el("button", `ausboss-lora-toggle${allOn ? " on" : on ? " mixed" : ""}`);
+  // The group's own switch: off stops every LoRA in it, and each keeps its
+  // own switch for when the group comes back on.
+  const toggle = el("button", `ausboss-lora-toggle${off ? "" : " on"}`);
   toggle.type = "button";
-  toggle.title = "Turn every LoRA in this group on or off";
+  toggle.title = "Turn this group on or off. Each LoRA in it keeps its own switch.";
   toggle.setAttribute("role", "switch");
-  toggle.setAttribute("aria-checked", allOn ? "true" : on ? "mixed" : "false");
+  toggle.setAttribute("aria-checked", String(!off));
   toggle.addEventListener("click", () => {
-    const rows = setGroupEnabled(state.rows, group, !allOn);
+    const rows = setGroupOff(state.rows, group, !off);
     state.toggleSnapshot = snapshotEnabled(rows);
     commitRows(state, rows, { structural: true });
   });
@@ -1908,7 +1933,8 @@ function groupHeader(state, stack, item, folded) {
     event.stopPropagation();
     openGroupMenu(state, group, event);
   });
-  head.append(grip, toggle, fold, icon, name, el("span", "ausboss-lora-gcount", `${on}/${total} on`));
+  head.append(grip, toggle, fold, icon, name,
+    el("span", "ausboss-lora-gcount", off ? "group off" : `${on}/${total} on`));
   return head;
 }
 
@@ -2119,13 +2145,33 @@ function ownerNames(owners) {
   return [...new Set(owners.map((owner) => `"${owner.title}"`))].join(", ");
 }
 
-// Put a lock in the grip's place on every row a switch sets. Cheap to call
-// often: the rows are only touched when who sets them changed.
+// The switches that set one group of the stack (its own on/off).
+function groupOwners(state, group) {
+  const owner = state.owner;
+  if (!owner?.node?.graph || !group) return [];
+  return stackGroupOwners(switchBoards(owner.node.graph), owner.node.id, owner.name, group);
+}
+
+// Put a lock in the grip's place on every row and group a switch sets.
+// Cheap to call often: the rows are only touched when who sets them changed.
 function refreshLocks(state) {
   const owners = state.rows.map((row) => rowOwners(state, row));
-  const signature = owners.map(ownerNames).join("|");
+  const groups = groupNames(state.rows).map((group) => [group, ownerNames(groupOwners(state, group))]);
+  const signature = owners.map(ownerNames).join("|") + "#" + groups.map((pair) => pair.join("=")).join("|");
   if (signature === state.lockSignature) return;
   state.lockSignature = signature;
+  const groupLocks = new Map(groups);
+  state.panel.querySelectorAll(".ausboss-lora-ghead").forEach((head) => {
+    const grip = head.querySelector(".ausboss-lora-grip");
+    if (!grip) return;
+    const names = groupLocks.get(head.dataset.group) ?? "";
+    head.classList.toggle("owned", Boolean(names));
+    grip.classList.toggle("locked", Boolean(names));
+    grip.innerHTML = names ? lockIconSvg() : gripIconSvg();
+    grip.title = names
+      ? `This group is turned on and off by ${names}. The LoRAs in it stay yours. Click the lock to take the group over: the switch then leaves it alone. Drag to move the whole group.`
+      : "Drag to move the whole group";
+  });
   const rows = state.panel.querySelectorAll(".ausboss-lora-row");
   rows.forEach((rowElement, index) => {
     const grip = rowElement.querySelector(".ausboss-lora-grip");
@@ -2156,6 +2202,32 @@ function takeRowOver(state, index) {
   app.canvas?.setDirty?.(true, true);
   notifyAusbossChange();
   loraToast(`${rowLabel(state, row.name)} is yours now: ${ownerNames(owners)} no longer sets it.`);
+}
+
+// Take a group back from the switches that turn it on and off.
+function takeGroupOver(state, group) {
+  const owners = groupOwners(state, group);
+  if (!owners.length) return;
+  for (const owner of owners) {
+    owner.node.properties ??= {};
+    owner.node.properties[SWITCHES_PROPERTY] = releaseStackGroup(
+      owner.node.properties[SWITCHES_PROPERTY], owner.id, state.owner.node.id, state.owner.name, group,
+    );
+  }
+  refreshLocks(state);
+  app.canvas?.setDirty?.(true, true);
+  notifyAusbossChange();
+  loraToast(`The group ${group} is yours now: ${ownerNames(owners)} no longer turns it on and off.`);
+}
+
+// A renamed group stays with the switches that turn it on and off.
+function renameOwnedGroup(state, from, to) {
+  const owner = state.owner;
+  if (!owner?.node?.graph) return;
+  for (const board of switchBoards(owner.node.graph)) {
+    if (!stackGroupOwners([board], owner.node.id, owner.name, from).length) continue;
+    board.node.properties[SWITCHES_PROPERTY] = renameStackGroup(board.settings, owner.node.id, owner.name, from, to);
+  }
 }
 
 // ---------- rendering ----------
@@ -2657,6 +2729,7 @@ function renderRows(state) {
     rowElement.title = "Up/Down chooses a row, Space toggles it, and Left/Right changes strength. "
       + "Hold Shift for smaller steps; Enter picks a file.";
     if (!row.enabled) rowElement.classList.add("off");
+    if (row.group_off) rowElement.classList.add("groupoff");
 
     const grip = el("button", "ausboss-lora-grip");
     grip.type = "button";

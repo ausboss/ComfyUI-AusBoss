@@ -801,7 +801,7 @@ function buildRow(state, key, made) {
     const tail = data.members.length > 6 ? ` and ${data.members.length - 6} more` : "";
     const offNames = offNodes.slice(0, 6).map(nodeTitle).join(", ");
     const offTail = offNodes.length > 6 ? ` and ${offNodes.length - 6} more` : "";
-    const sets = pairs.slice(0, 6).map((pair) => `${nodeTitle(pair.live)} (${pair.row ?? pair.widget})`).join(", ");
+    const sets = pairs.slice(0, 6).map((pair) => `${nodeTitle(pair.live)} (${pair.row ?? (pair.group !== undefined ? `group ${pair.group}` : pair.widget)})`).join(", ");
     const parts = [];
     if (data.members.length) parts.push(`turns off and on ${names}${tail}`);
     if (offNodes.length) parts.push(`runs only while it is off: ${offNames}${offTail}`);

@@ -405,12 +405,31 @@ function rowAt(row, side) {
   return Object.keys(side).every((key) => now[key] === side[key]);
 }
 
+// A stack's groups and whether each is switched off. A group is off when any
+// of its rows says so; the LoRA Loader keeps them all alike.
+function groupStates(rows) {
+  const states = new Map();
+  for (const row of rows) {
+    if (typeof row.group !== "string" || !row.group) continue;
+    states.set(row.group, Boolean(states.get(row.group)) || row.group_off === true);
+  }
+  return states;
+}
+
+function withoutGroupOff(row) {
+  const { group_off, ...rest } = row;
+  return rest;
+}
+
 // The settings a switch changes: every control that held one value when "on"
 // was saved and another when "off" was saved. A LoRA stack is compared row
 // by row, by file name, so the switch moves only the rows that differ and
 // leaves whatever else was changed in the stack since; on such a row it sets
-// only what differs between the sides (see rowSides). Returns
-// { node, widget, on, off } and, for a stack row, { ..., row }.
+// only what differs between the sides (see rowSides). A group of the stack
+// switched on in one side and off in the other is one setting of its own:
+// the switch moves the group's switch and leaves each row in it to the
+// person. Returns { node, widget, on, off } and, for a stack row,
+// { ..., row }, for a stack group { ..., group }.
 export function valuePairs(entry) {
   const pairs = [];
   for (const [id, on] of Object.entries(entry?.on ?? {})) {
@@ -430,6 +449,11 @@ export function valuePairs(entry) {
         const sides = other && rowSides(row, other);
         if (sides) pairs.push({ node: id, widget, row: row.name, on: sides[0], off: sides[1] });
       }
+      const offGroups = groupStates(offRows);
+      for (const [group, onOff] of groupStates(onRows)) {
+        if (!offGroups.has(group) || offGroups.get(group) === onOff) continue;
+        pairs.push({ node: id, widget, group, on: { group_off: onOff }, off: { group_off: offGroups.get(group) } });
+      }
     }
   }
   return pairs;
@@ -437,6 +461,12 @@ export function valuePairs(entry) {
 
 // Where a setting stands now: at its on value, its off value, or neither.
 export function pairNow(pair, current) {
+  if (pair.group !== undefined) {
+    const rows = stackRows(current);
+    const off = rows ? groupStates(rows).get(pair.group) : undefined;
+    if (off === undefined) return "other";
+    return off === pair.on.group_off ? "on" : off === pair.off.group_off ? "off" : "other";
+  }
   if (pair.row === undefined) return current === pair.on ? "on" : current === pair.off ? "off" : "other";
   const rows = stackRows(current);
   const row = rows && findRow(rows, pair.row);
@@ -447,8 +477,16 @@ export function pairNow(pair, current) {
 // The value a control should hold for one side of a switch. For a stack row
 // it is the stack as it is now with that one row changed, and only in what
 // the switch sets on it: the row's other strengths and its triggers stay.
+// For a stack group it is every row now in that group, rows added since the
+// switch was saved included, and only the group's switch changes.
 export function pairValue(pair, side, current) {
   const want = side === "on" ? pair.on : pair.off;
+  if (pair.group !== undefined) {
+    const rows = stackRows(current);
+    if (!rows) return current;
+    return JSON.stringify(rows.map((row) => row.group !== pair.group ? row
+      : want.group_off ? { ...row, group_off: true } : withoutGroupOff(row)));
+  }
   if (pair.row === undefined) return want;
   const rows = stackRows(current);
   if (!rows) return current;
@@ -478,6 +516,47 @@ export function stackRowOwners(boards, nodeId, widget, rowName) {
     }
   }
   return owners;
+}
+
+// The made switches that move one group of a LoRA stack, answered like
+// stackRowOwners. A group is known by its exact name.
+export function stackGroupOwners(boards, nodeId, widget, group) {
+  const owners = [];
+  if (!group) return owners;
+  for (const { node, settings } of boards ?? []) {
+    for (const entry of normalizeSettings(settings).switches) {
+      const moves = valuePairs(entry).some(
+        (pair) => pair.group === group && String(pair.node) === String(nodeId) && pair.widget === widget,
+      );
+      if (moves) owners.push({ node, id: entry.id, title: entry.title });
+    }
+  }
+  return owners;
+}
+
+// Rewrite one stack value of a switch's saved sides, row list in, row list out.
+function changeStackSides(entry, nodeId, widget, change) {
+  const edit = (side) => {
+    const values = side?.[String(nodeId)];
+    const rows = stackRows(values?.[widget]);
+    if (!rows) return side;
+    return { ...side, [String(nodeId)]: { ...values, [widget]: JSON.stringify(change(rows)) } };
+  };
+  return { on: edit(entry.on), off: edit(entry.off) };
+}
+
+// Take one group of a LoRA stack away from a switch: both saved sides forget
+// whether it was switched off, so the switch leaves it alone.
+export function releaseStackGroup(settings, id, nodeId, widget, group) {
+  return changeSwitch(settings, id, (entry) => changeStackSides(entry, nodeId, widget,
+    (rows) => rows.map((row) => row.group === group ? withoutGroupOff(row) : row)));
+}
+
+// A group renamed in the stack: every switch that saved it follows the name.
+export function renameStackGroup(settings, nodeId, widget, from, to) {
+  const current = normalizeSettings(settings);
+  const rename = (rows) => rows.map((row) => row.group === from ? { ...row, group: to } : row);
+  return withSwitches(current, current.switches.map((entry) => tidy({ ...entry, ...changeStackSides(entry, nodeId, widget, rename) })));
 }
 
 // Take one row of a LoRA stack away from a switch: both of its saved sides
@@ -741,22 +820,27 @@ export function switchAllPlan(rows, on, settings) {
 // The settings one click changes, as [pair, side]: every setting of the row
 // goes to its on or its off value, and one at a time first sends the other
 // rows' settings to off. Only the settings not already there are returned.
+// One setting's address: a control, or one row or group of a LoRA stack.
+function pairKey(pair) {
+  const part = pair.row ?? (pair.group !== undefined ? `\u0000group:${pair.group}` : "");
+  return `${pair.node}|${pair.widget}|${part}`;
+}
+
 export function valuePlan(rows, target, on, settings) {
   const sides = new Map();
-  const key = (pair) => `${pair.node}|${pair.widget}|${pair.row ?? ""}`;
   if (on && settings?.exclusive) {
     for (const row of rows) {
       if (row === target) continue;
-      for (const pair of row.pairs ?? []) sides.set(key(pair), [pair, "off"]);
+      for (const pair of row.pairs ?? []) sides.set(pairKey(pair), [pair, "off"]);
     }
   }
-  for (const pair of target?.pairs ?? []) sides.set(key(pair), [pair, on ? "on" : "off"]);
+  for (const pair of target?.pairs ?? []) sides.set(pairKey(pair), [pair, on ? "on" : "off"]);
   return [...sides.values()].filter(([pair, side]) => pair.now !== side);
 }
 
 export function valueAllPlan(rows, on) {
   const sides = new Map();
-  for (const row of rows) for (const pair of row.pairs ?? []) sides.set(`${pair.node}|${pair.widget}|${pair.row ?? ""}`, [pair, on ? "on" : "off"]);
+  for (const row of rows) for (const pair of row.pairs ?? []) sides.set(pairKey(pair), [pair, on ? "on" : "off"]);
   return [...sides.values()].filter(([pair, side]) => pair.now !== side);
 }
 

@@ -1130,3 +1130,49 @@ test("templates keep groups", async () => {
   assert.equal(template.rows[0].group, "G");
   assert.equal(applyTemplate(template)[0].group, "G");
 });
+
+test("a group switched off stops its rows, and each row keeps its own switch", async () => {
+  const { isGroupOff, normalizeRows, setGroupOff, stackLayout, strengthBarScale, summarizeRows, toggleAllState } =
+    await import("../js/shared/lora_stack.mjs");
+  const rows = [groupRow("a"), { ...groupRow("b", "G"), strength: 3 }, { ...groupRow("c", "G"), enabled: false }, groupRow("d")];
+  const off = setGroupOff(rows, "G", true);
+  assert.deepEqual(off.map((row) => Boolean(row.group_off)), [false, true, true, false]);
+  assert.deepEqual(off.map((row) => row.enabled), [true, true, false, true], "the rows' own switches stay");
+  assert.equal(isGroupOff(off, "G"), true);
+  assert.equal(summarizeRows(off), "2 / 4 on");
+  assert.equal(toggleAllState(off), "mixed");
+  assert.equal(strengthBarScale(off), 1, "a row in an off group sits out of the bar scale");
+  const head = stackLayout(off).find((item) => item.kind === "group");
+  assert.deepEqual([head.on, head.total, head.off], [1, 2, true]);
+  assert.deepEqual(setGroupOff(off, "G", false), rows, "back on is exactly what it was");
+  assert.equal("group_off" in normalizeRows([{ ...groupRow("x"), group_off: true }])[0], false, "no group, nothing to switch off");
+  assert.equal(normalizeRows(off)[1].group_off, true, "it survives a save");
+});
+
+test("a row joining a switched-off group goes off with it, and a row leaving it does not", async () => {
+  const { groupRows, moveRowInStack, moveRowsToGroup, normalizeRows, placeRow, renameGroup, setGroupOff, ungroupRows } =
+    await import("../js/shared/lora_stack.mjs");
+  const off = setGroupOff([groupRow("a"), groupRow("b", "G"), groupRow("c", "G"), groupRow("d")], "G", true);
+  const offOf = (rows, id) => Boolean(rows.find((row) => row.id === id).group_off);
+  assert.equal(offOf(placeRow(off, "a", { group: "G", beforeId: "b" }), "a"), true);
+  assert.equal(offOf(moveRowsToGroup(off, ["d"], "G"), "d"), true);
+  assert.equal(offOf(moveRowInStack(off, 0, 1), "a"), true);
+  assert.equal(offOf(ungroupRows(off, ["b"]), "b"), false);
+  assert.equal(offOf(placeRow(off, "b", {}), "b"), false);
+  assert.equal(offOf(groupRows(off, ["b"], "New"), "b"), false, "a new group starts on");
+  assert.equal(offOf(renameGroup(off, "G", "H"), "c"), true, "a renamed group stays off");
+  const mixed = normalizeRows([{ ...groupRow("x", "G"), group_off: true }, groupRow("y", "G")]);
+  assert.deepEqual(mixed.map((row) => Boolean(row.group_off)), [true, true]);
+});
+
+test("the master switch turns groups back on, and its memory brings them back off", async () => {
+  const { cycleMasterToggle, setGroupOff, toggleAllState } = await import("../js/shared/lora_stack.mjs");
+  const off = setGroupOff([groupRow("a"), groupRow("b", "G"), { ...groupRow("c", "G"), enabled: false }], "G", true);
+  const first = cycleMasterToggle(off, undefined);
+  assert.equal(toggleAllState(first.rows), "on");
+  assert.equal(first.rows.some((row) => row.group_off), false);
+  const second = cycleMasterToggle(first.rows, first.snapshot);
+  assert.equal(toggleAllState(second.rows), "off");
+  const third = cycleMasterToggle(second.rows, second.snapshot);
+  assert.deepEqual(third.rows.map((row) => [row.enabled, Boolean(row.group_off)]), [[true, false], [true, true], [false, true]]);
+});
