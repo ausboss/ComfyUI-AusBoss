@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.19.0 - 2026-10-24
 
 - **LoRA Loader 🆎 can add several LoRAs at once.** In the **+ LoRA** list,
   tick the box beside each file you want (or Ctrl-click its name; Shift-click
