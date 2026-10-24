@@ -5,8 +5,8 @@ All notable changes to ComfyUI-AusBoss are documented here.
 ## Unreleased
 
 - **LoRA Loader 🆎 can add several LoRAs at once.** In the **+ LoRA** list,
-  tick the box beside each file you want (or Ctrl-click its name), then
-  click **Add N LoRAs** or press Enter. Ticks stay while you search, and
+  tick the box beside each file you want (or Ctrl-click its name; Shift-click
+  ticks a whole run), then click **Add N LoRAs** or press Enter. Ticks stay while you search, and
   files already in the stack are marked "in stack". One click on a file
   still adds just that file, and a folder name still adds the whole folder.
 

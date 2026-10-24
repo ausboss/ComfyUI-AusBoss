@@ -157,11 +157,13 @@ its height on rows, not chrome. Left to right:
 **+ LoRA** opens one list of files grouped by folder. Click a file to add
 one LoRA, or click a folder name to add all its LoRAs, including nested
 folders. To add several files from different folders, tick the box beside
-each one (or **Ctrl**/**Shift**-click its name), then click **Add N LoRAs**
-at the bottom or press **Enter**. Ticks stay while you search, so you can
+each one (or **Ctrl**-click its name), then click **Add N LoRAs** at the
+bottom or press **Enter**. **Shift**-click ticks every file between the
+last one you ticked and the one you click. Ticks stay while you search, so you can
 gather files from several searches; **Clear** unticks them all. Files that
 are already in the stack say **in stack** and have no box. With the
-keyboard, **Ctrl+Enter** or **Shift+Enter** ticks the highlighted file. Use the arrow beside a folder to collapse or expand it without
+keyboard, **Ctrl+Enter** ticks the highlighted file and **Shift+Enter**
+ticks the run up to it. Use the arrow beside a folder to collapse or expand it without
 adding anything. Folded folders are remembered in this browser. Search
 reveals matching files; clearing it brings back your folded view. You can
 also fold folders while searching.

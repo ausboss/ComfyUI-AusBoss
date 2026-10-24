@@ -1144,11 +1144,35 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
     updateTickBar();
   };
 
+  // The last file ticked or unticked one by one: Shift ticks the run of
+  // files shown between it and the next one, as Shift-click does on rows.
+  let tickAnchor = null;
   const toggleTick = (name) => {
     const at = ticked.indexOf(name);
     if (at >= 0) ticked.splice(at, 1);
     else ticked.push(name);
+    tickAnchor = name;
     renderTicks();
+  };
+
+  const tickRun = (name) => {
+    const shown = [...list.querySelectorAll(".ausboss-lora-option.tickable:not(.instack)")]
+      .map((option) => option.title);
+    const from = shown.indexOf(tickAnchor);
+    const to = shown.indexOf(name);
+    if (from < 0 || to < 0) {
+      toggleTick(name);
+      return;
+    }
+    for (const file of shown.slice(Math.min(from, to), Math.max(from, to) + 1)) {
+      if (!ticked.includes(file)) ticked.push(file);
+    }
+    tickAnchor = name;
+    renderTicks();
+  };
+  const tickWith = (event, name) => {
+    if (event.shiftKey && !event.ctrlKey && !event.metaKey) tickRun(name);
+    else toggleTick(name);
   };
 
   let lastPointer = null;
@@ -1192,7 +1216,7 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
       }
       tick.addEventListener("click", (event) => {
         event.stopPropagation();
-        toggleTick(name);
+        tickWith(event, name);
         search.focus({ preventScroll: true });
       });
       option.prepend(tick);
@@ -1232,7 +1256,7 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
     option.addEventListener("pointerleave", hideHoverThumb);
     option.addEventListener("click", (event) => {
       if (tickable && (event.ctrlKey || event.metaKey || event.shiftKey)) {
-        toggleTick(name);
+        tickWith(event, name);
         search.focus({ preventScroll: true });
         return;
       }
@@ -1293,10 +1317,11 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
       highlight = event.key === "Home" ? 0 : options.length - 1;
       renderList();
     } else if (event.key === "Enter" && adding && (event.ctrlKey || event.metaKey || event.shiftKey)) {
-      // Ctrl/Shift+Enter ticks the highlighted file, as Ctrl-click does.
+      // Ctrl+Enter ticks the highlighted file and Shift+Enter the run up
+      // to it, as Ctrl-click and Shift-click do.
       event.preventDefault();
       const entry = options[highlight];
-      if (entry?.kind === "file" && !entry.inStack) toggleTick(entry.name);
+      if (entry?.kind === "file" && !entry.inStack) tickWith(event, entry.name);
     } else if (event.key === "Enter") {
       event.preventDefault();
       // With files ticked, Enter adds them all.
