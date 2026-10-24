@@ -151,6 +151,7 @@ function ensureCss() {
 .ausboss-note-file{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:1px;}
 .ausboss-note-name{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:#e6f4f3;font:11.5px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;pointer-events:auto;cursor:copy;}
 .ausboss-note-meta{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:#78908e;font-size:10.5px;}
+.ausboss-note-file .ausboss-note-meta{white-space:normal;overflow-wrap:anywhere;line-height:1.35;}
 .ausboss-note-dl{flex:none;display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border:1px solid var(--accent);border-radius:5px;background:rgba(0,180,170,.14);color:#e6f4f3;font-size:11px;font-weight:600;text-decoration:none;white-space:nowrap;pointer-events:auto;cursor:pointer;}
 .ausboss-note-dl:hover{background:var(--accent);color:#08211f;}
 .ausboss-note-dl .size{font-weight:400;opacity:.8;}

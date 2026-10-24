@@ -4,6 +4,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Workflow Note 🆎 shows the whole hint under each model file.** The short
+  line under a file name ("optional: the full-size file...", "for 4 steps:
+  ...") was cut off with "…" when it was longer than the card. It now wraps
+  onto a second line, and the note grows to fit, so nothing scrolls.
+
 - **Load Image + Pad 🆎 and the other loaders run alongside packs that
   change how ComfyUI checks nodes.** With some other custom node packs
   installed, a run stopped before it started with "unexpected keyword
