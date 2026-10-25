@@ -122,6 +122,7 @@ test("a panel that should follow the node's height never declares computeSize", 
     "mask_by_touch",
     "save_video",
     "show_text",
+    "step_preview",
     "workflow_note",
   ]);
   // Fixed by design: a toolbar - content whose height is a constant, not a
@@ -393,6 +394,7 @@ test("every panel root class carries border-box and an overflow clip", () => {
     mask_by_touch: ".ausboss-touch{",
     save_image: ".ausboss-save{",
     show_text: ".ausboss-show-text{",
+    step_preview: ".ausboss-steppv{",
     callout: ".ausboss-callout{",
     workflow_note: ".ausboss-note{",
     seed: ".ausboss-seed{",

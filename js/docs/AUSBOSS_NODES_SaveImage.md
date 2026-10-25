@@ -52,6 +52,14 @@ file's name. A caption on the `caption_text` input writes the paired `.txt`.
   still lists it. When a run saves more than one image (a batch, or a list
   such as a folder of images), arrows beside the switch (‹ 2 / 5 ›) step
   through them.
+- **Steps** (`step_preview`, off by default): the switch left of
+  **preview** shows the picture while it is being made, one step at a time,
+  where the saved image goes, with a **STOP** button on the bar. Stop a run
+  that is going wrong after the first steps instead of waiting for the end;
+  a stopped run saves nothing and says so on the picture. Once the image is
+  saved it replaces the steps. With several samplers, the node shows the one
+  that feeds it. Display only: the saved file is the same with it on or off.
+  The [Step Preview](AUSBOSS_NODES_StepPreview.md) page has the details.
 
 ## Inputs
 

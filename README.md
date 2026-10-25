@@ -54,7 +54,7 @@ The pack uses the Pillow, NumPy, Torch and PyAV that come with ComfyUI. Each exa
 | [Video nodes](#video-nodes) | Load and trim, pick a frame, transform a clip, change the frame rate, save |
 | [Mask and inpaint nodes](#mask-and-inpaint-nodes) | Mask a thing by clicking it or typing its name, refine masks, remove objects with LaMa, crop around a mask and stitch the result back |
 | [Models and conditioning](#models-and-conditioning) | LoRA stack, Krea 2 prompts and references |
-| [Workflow utilities](#workflow-utilities) | Canvas size, seed, batches, math, text, memory, notes, callouts, switches, timer |
+| [Workflow utilities](#workflow-utilities) | Canvas size, seed, batches, math, text, memory, notes, callouts, switches, timer, step preview |
 | [Example workflows](#example-workflows) | Ready-made workflows, each with a setup card |
 | [For workflow creators](#for-workflow-creators) | Setup cards, before and after, repeatable seeds, measured run times |
 | [Pack-wide tools](#pack-wide-tools) | Help cards, node colors, recreate and replace, run status, completion sound |
@@ -145,6 +145,8 @@ Saves PNG, lossless WebP or lossless JPEG XL, with the workflow embedded if you 
 
 Link `filename` to keep a name from upstream, or `caption_text` to write a matching `.txt` next to each picture. The counter picks a name that isn't taken yet. Turn it off to reuse the same path on purpose. JPEG XL needs the optional `pillow-jxl-plugin` extra. The [help page](js/docs/AUSBOSS_NODES_SaveImage.md) has the full naming and compatibility notes.
 
+Turn on **steps** to watch the picture form in the node while it is being made, with a **STOP** button for a run that is going wrong. It is off by default.
+
 ## Video nodes
 
 ![A square clip of a woman under a blue sky grows into a tall 9:16 frame as LTX 2.3 fills in more sky above her and the wall below.](assets/readme/video-outpaint.gif)
@@ -191,7 +193,7 @@ It returns the new frames and their fps. It doesn't touch audio, so carry the so
 
 Saves a frame batch or a core `VIDEO` as MP4 (H.264 or H.265), WebM (VP9 or AV1), ProRes MOV, lossless FFV1 MKV, GIF or WebP. Which encoders you get depends on your FFmpeg and PyAV build, and H.264 and H.265 come in CPU and NVENC versions. The videos carry color tags, and optionally audio and the workflow.
 
-**Ping-pong** plays forward and then back without repeating the turnaround frames. A wired `VIDEO` brings its own frame rate; otherwise wire fps from Load Video or Frame Interpolate. The player on the node shows the saved file. Drop a saved video back on the canvas to load the workflow inside it, for the formats that can hold one. The [help page](js/docs/AUSBOSS_NODES_SaveVideo.md) has the format and audio details.
+**Ping-pong** plays forward and then back without repeating the turnaround frames. A wired `VIDEO` brings its own frame rate; otherwise wire fps from Load Video or Frame Interpolate. The player on the node shows the saved file, and **STEPS** shows the clip's first frame while it is being made, with a **STOP** button. Drop a saved video back on the canvas to load the workflow inside it, for the formats that can hold one. The [help page](js/docs/AUSBOSS_NODES_SaveVideo.md) has the format and audio details.
 
 ## Mask and inpaint nodes
 
@@ -363,6 +365,10 @@ A note for the canvas whose text grows to fill it, so it reads without zooming i
 ### Run Timer
 
 A stopwatch for the whole run, with no wires. It starts when the queue starts running, holds the total when the run ends, and saves the last time with the workflow. Recent times are in its right-click menu. You can resize it. It only shows time and doesn't change how the graph runs.
+
+### Step Preview
+
+Shows the picture while it is being made, one step at a time, so you can stop a run that is going wrong after the first few steps. It has no wires: put it anywhere and it shows whichever sampler is working. **STOP** stops this run; **STOP ALL** also empties the queue. When the picture is saved, the finished picture replaces the last step. It turns on ComfyUI's step pictures for its own runs, unless you chose a preview method yourself. The [help page](js/docs/AUSBOSS_NODES_StepPreview.md) covers sharper step pictures.
 
 ### Workflow Switches
 

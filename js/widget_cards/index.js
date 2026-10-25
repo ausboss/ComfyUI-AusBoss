@@ -362,7 +362,8 @@ const CARDS = {
     ],
   },
   AUSBOSS_NODES_SaveVideo: {
-    minWidth: 320, first: true,
+    // step_preview is the STEPS button on the player (js/save_video).
+    minWidth: 320, first: true, hide: ["step_preview"],
     rows: [
       { widget: "filename_prefix", label: "Prefix", placeholder: "video" },
       { widget: "format", label: "Format", kind: "select" },

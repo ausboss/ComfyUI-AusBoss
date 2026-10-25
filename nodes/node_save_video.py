@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 from ._image_save_helpers import metadata_disabled, require_output_path, sanitize_exact_name
+from ._step_preview_helpers import STEP_PREVIEW_DEFAULT, register_step_preview_handler
 
 from ._video_save_helpers import (
     VIDEO_FORMATS,
@@ -161,6 +162,20 @@ class AusBossSaveVideo:
                         ),
                     },
                 ),
+                "step_preview": (
+                    "BOOLEAN",
+                    {
+                        "default": STEP_PREVIEW_DEFAULT,
+                        "tooltip": (
+                            "Show the clip's first frame here while it is "
+                            "being made, one step at a time, with a Stop "
+                            "button. Display only: what is saved does not "
+                            "change. A run with this on asks ComfyUI for the "
+                            "step pictures, unless you chose a preview method "
+                            "in ComfyUI's settings."
+                        ),
+                    },
+                ),
             },
             "hidden": {"prompt": "PROMPT", "extra_pnginfo": "EXTRA_PNGINFO"},
         }
@@ -185,6 +200,7 @@ class AusBossSaveVideo:
         format="mp4 h264",
         pingpong=False,
         save_metadata=True,
+        step_preview=STEP_PREVIEW_DEFAULT,
         prompt=None,
         extra_pnginfo=None,
     ):
@@ -265,6 +281,8 @@ class AusBossSaveVideo:
     # widget's 0.01-240 and every other value to its range or list. A wired
     # fps is only known at execution, where the encoder checks it again.
 
+
+register_step_preview_handler()
 
 NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_SaveVideo": AusBossSaveVideo}
 NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_SaveVideo": "Save Video 🆎"}

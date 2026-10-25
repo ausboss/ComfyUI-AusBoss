@@ -84,6 +84,7 @@ PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_SelectFrame",
     "AUSBOSS_NODES_ShowText",
     "AUSBOSS_NODES_SplitBatch",
+    "AUSBOSS_NODES_StepPreview",
     "AUSBOSS_NODES_StitchInpaint",
     "AUSBOSS_NODES_TiledUpscaleStitch",
     "AUSBOSS_NODES_Text",

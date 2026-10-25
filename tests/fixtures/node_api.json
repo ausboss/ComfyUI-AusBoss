@@ -724,7 +724,8 @@
       "name_time",
       "name_size",
       "name_batch",
-      "preview"
+      "preview",
+      "step_preview"
     ],
     "outputs": [
       [
@@ -749,7 +750,8 @@
       "video",
       "format",
       "pingpong",
-      "save_metadata"
+      "save_metadata",
+      "step_preview"
     ],
     "outputs": [
       [
@@ -833,6 +835,11 @@
         "b"
       ]
     ]
+  },
+  "AUSBOSS_NODES_StepPreview": {
+    "required": [],
+    "optional": [],
+    "outputs": []
   },
   "AUSBOSS_NODES_StitchInpaint": {
     "required": [
