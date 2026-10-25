@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.20.0 - 2026-10-25
 
 - **New: Step Preview 🆎 shows the picture while it is being made, with a
   Stop button.** Watch each sampling step and stop a run that is going
