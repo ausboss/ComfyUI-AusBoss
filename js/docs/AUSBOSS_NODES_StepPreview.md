@@ -30,10 +30,10 @@ bigger view, or one view for a workflow with several samplers.
 
 ## Sharper step pictures
 
-The step pictures are small and rough at first, like a blurry thumbnail
-that sharpens. That is enough to judge the pose and the layout. For a
-cleaner picture, put the model's small preview decoder (a TAESD file) in
-ComfyUI's `models/vae_approx` folder; ComfyUI uses it when it is there.
+The step pictures are small and blurry. That is enough to judge the pose
+and the layout. Some models have a small preview decoder (a TAESD file)
+that makes them sharper: put it in ComfyUI's `models/vae_approx` folder and
+ComfyUI uses it.
 
 ## Technical details
 
@@ -51,7 +51,12 @@ ComfyUI's `models/vae_approx` folder; ComfyUI uses it when it is there.
 - The pictures are at most 512 px on their long side (`--preview-size`).
   They do not change the result: the same seed makes the same picture with
   the steps shown or not.
-- While previews are on, ComfyUI's own sampler nodes show the step picture
-  on their face as well.
+- They cost next to nothing. Measured with Qwen Image 2.1 on one desktop:
+  8.50 s with the steps off and 8.40 s on for 8 steps, 17.62 s and 17.64 s
+  for 25 steps, the same picture every time.
+- While previews are on, a ComfyUI sampler that sits on the top level of
+  the workflow (not inside a box) shows the steps on its own face too, as
+  it does whenever previews are turned on in ComfyUI. The node grows to
+  hold the picture and keeps the last step after the run.
 - Runs queued from another workflow tab are not shown here.
 - With video models the step picture is the clip's first frame.

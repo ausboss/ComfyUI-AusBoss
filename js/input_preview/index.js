@@ -146,7 +146,7 @@ function ensureCss() {
 .ausboss-input-preview:not(.preview-off) .ausboss-input-preview-toggle.steps + .ausboss-input-preview-toggle{margin-left:0;}
 .ausboss-input-preview.preview-off .ausboss-input-preview-toggle.steps{display:none;}
 .ausboss-input-preview-tool.ausboss-steps-stop{visibility:hidden;}
-.ausboss-input-preview-tool.ausboss-steps-stop.live{visibility:visible;}
+.ausboss-input-preview-tool.ausboss-steps-stop.live{visibility:visible;pointer-events:auto;}
 .ausboss-input-preview-toggle span{color:#5f7674;font:10px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.08em;text-transform:uppercase;}
 .ausboss-input-preview-switch{box-sizing:border-box;width:24px;height:13px;border-radius:7px;border:none;background:#3a4047;position:relative;cursor:pointer;padding:0;flex:none;pointer-events:auto}
 .ausboss-input-preview-switch::after{content:"";position:absolute;top:2px;left:2px;width:9px;height:9px;border-radius:50%;background:#9ba2aa;transition:left .12s}
