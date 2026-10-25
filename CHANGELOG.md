@@ -2,6 +2,13 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **LoRA Loader 🆎 says why a Civitai lookup failed.** The button still
+  reads **Civitai lookup failed**, and a message now gives the reason. When
+  the browser cannot reach civitai.com at all, it names the usual causes: a
+  firewall, a VPN, or ComfyUI started with `--disable-api-nodes`.
+
 ## 2.19.1 - 2026-10-24
 
 - **LoRA Loader 🆎 saves the LoRA's picture from Civitai, no add-on

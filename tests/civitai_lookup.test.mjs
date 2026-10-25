@@ -6,6 +6,7 @@ import {
   MAX_CIVITAI_BYTES,
   civitaiButtonLabel,
   civitaiByHashUrl,
+  civitaiFailureText,
   isCivitaiAddress,
   isMildPicture,
   parseCivitaiBody,
@@ -80,4 +81,11 @@ test("after the redirect the picture must still be on a Civitai server", () => {
   assert.equal(isCivitaiAddress("http://blobs-b2.civitai.com/file.jpeg"), false);
   assert.equal(isCivitaiAddress("https://evilcivitai.com/file.jpeg"), false);
   assert.equal(isCivitaiAddress(""), false);
+});
+
+test("a failed lookup says why in plain words", () => {
+  assert.match(civitaiFailureText(new TypeError("Failed to fetch")), /Could not reach civitai\.com/);
+  assert.match(civitaiFailureText(new TypeError("Failed to fetch")), /--disable-api-nodes/);
+  assert.equal(civitaiFailureText(new Error("Civitai answered 500.")), "Civitai answered 500.");
+  assert.equal(civitaiFailureText(null), "The Civitai lookup failed.");
 });

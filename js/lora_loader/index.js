@@ -83,8 +83,8 @@ import {
   upsertTemplate,
 } from "../shared/lora_stack.mjs";
 import {
-  MAX_PICTURE_BYTES, civitaiButtonLabel, civitaiByHashUrl, isCivitaiAddress, parseCivitaiBody,
-  pickCivitaiPicture, smallPictureUrl,
+  MAX_PICTURE_BYTES, civitaiButtonLabel, civitaiByHashUrl, civitaiFailureText, isCivitaiAddress,
+  parseCivitaiBody, pickCivitaiPicture, smallPictureUrl,
 } from "../shared/civitai_lookup.mjs";
 
 const NODE_CLASS = "AUSBOSS_NODES_LoraLoader";
@@ -1411,7 +1411,7 @@ async function lookUpOnCivitai(serverName, picture = "PG-13") {
   if (!saved.ok) throw new Error(saved.error || "Could not save the Civitai info.");
   if (picture !== "off") {
     await saveCivitaiPicture(serverName, info, picture === "any").catch((error) =>
-      loraToast(`Saved the Civitai info, but not its picture: ${error?.message || error}`));
+      loraToast(`Saved the Civitai info, but not its picture: ${civitaiFailureText(error)}`));
   }
   return true;
 }
@@ -1538,7 +1538,8 @@ function openInfo(state, index, anchor) {
           load();
         } catch (error) {
           fetchButton.textContent = "Civitai lookup failed";
-          fetchButton.title = String(error?.message || error);
+          fetchButton.title = civitaiFailureText(error);
+          loraToast(fetchButton.title);
         }
       });
       card.append(fetchButton);
