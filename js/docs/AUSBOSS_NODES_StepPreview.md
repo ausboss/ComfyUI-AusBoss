@@ -7,7 +7,7 @@ instead of waiting for the last step.
 
 Put it anywhere on the canvas. It needs no wires: it shows whichever sampler
 in the workflow is making a picture right now, and the caption under the
-picture says which one and how far it is ("step 3 of 8 · Generate").
+picture says how far it is ("step 3 of 8").
 
 ## The buttons
 
@@ -16,9 +16,10 @@ picture says which one and how far it is ("step 3 of 8 · Generate").
 - **STOP ALL · N**: shows when more runs are waiting in the queue. It
   empties the queue and stops this run.
 
-After a run the last step stays on the node until the next run starts. The
+As soon as the run saves the picture, the finished picture replaces the
+blurry last step, and it stays on the node until the next run starts. The
 word at the right of the bar says how the run ended: done, stopped or
-failed.
+failed. A stopped run keeps the last step it reached.
 
 ## Save Image and Save Video can do it too
 

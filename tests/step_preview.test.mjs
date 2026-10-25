@@ -5,8 +5,8 @@ import {
   IDLE,
   consumersOf,
   feedsInto,
-  makerLabel,
   nextRunState,
+  resultRank,
   stepFraction,
   stepText,
   stoppedText,
@@ -137,19 +137,53 @@ test("the step text never runs past the end", () => {
   assert.equal(stepFraction(IDLE), 0);
 });
 
-test("the maker is named by its outermost box, or its own title", () => {
-  const inner = makeGraph([{ id: 4, title: "KSampler" }], []);
-  const root = makeGraph(
-    [
-      { id: 12, title: "Generate or edit with Qwen", subgraph: inner },
-      { id: 7, title: "KSampler (top)" },
-    ],
-    [],
-  );
-  assert.equal(makerLabel(root, "12:4"), "Generate or edit with Qwen");
-  assert.equal(makerLabel(root, "7"), "KSampler (top)");
-  assert.equal(makerLabel(root, "99"), "");
-  assert.equal(makerLabel(root, null), "");
+test("the finished picture replaces the last step once the run saves it", () => {
+  const steps = play([
+    { type: "start", promptId: "p1" },
+    { type: "picture", promptId: "p1", maker: "7", url: "blob:8" },
+    { type: "progress", promptId: "p1", node: "7", value: 8, max: 8 },
+  ]);
+  const saved = nextRunState(steps, { type: "result", promptId: "p1", url: "/view?saved", rank: 2 });
+  assert.equal(saved.result, "/view?saved");
+  assert.equal(stepText(saved), "step 8 of 8");
+  // It stays when the run ends.
+  assert.equal(nextRunState(saved, { type: "end", promptId: "p1", kind: "success" }).result, "/view?saved");
+});
+
+test("a picture that stands less for the result never replaces a better one", () => {
+  const saved = play([
+    { type: "start", promptId: "p1" },
+    { type: "picture", promptId: "p1", maker: "7", url: "blob:1" },
+    { type: "result", promptId: "p1", url: "/view?save", rank: 2 },
+  ]);
+  assert.equal(nextRunState(saved, { type: "result", promptId: "p1", url: "/view?compare", rank: 0 }), saved);
+  assert.equal(nextRunState(saved, { type: "result", promptId: "p1", url: "/view?again", rank: 2 }).result, "/view?again");
+});
+
+test("new steps after a result show the steps again", () => {
+  const run = play([
+    { type: "start", promptId: "p1" },
+    { type: "picture", promptId: "p1", maker: "7", url: "blob:1" },
+    { type: "result", promptId: "p1", url: "/view?first", rank: 1 },
+    { type: "picture", promptId: "p1", maker: "12:4", url: "blob:2" },
+  ]);
+  assert.equal(run.result, null);
+  assert.equal(run.url, "blob:2");
+});
+
+test("a result from another run, or with no picture, is left out", () => {
+  const started = play([{ type: "start", promptId: "p1" }]);
+  assert.equal(nextRunState(started, { type: "result", promptId: "p2", url: "/view?x", rank: 2 }), started);
+  assert.equal(nextRunState(started, { type: "result", promptId: "p1", rank: 2 }), started);
+  assert.equal(nextRunState(IDLE, { type: "result", promptId: "p1", url: "/view?x", rank: 2 }), IDLE);
+});
+
+test("save and preview nodes fed by the sampler stand best for the result", () => {
+  assert.equal(resultRank("AUSBOSS_NODES_SaveImage", true), 2);
+  assert.equal(resultRank("SaveImage", false), 1);
+  assert.equal(resultRank("PreviewImage", true), 2);
+  assert.equal(resultRank("AUSBOSS_NODES_ImageCompare", true), 0);
+  assert.equal(resultRank(undefined, true), 0);
 });
 
 test("the walk back through the inputs finds every node upstream, loops included", () => {

@@ -7,10 +7,10 @@ All notable changes to ComfyUI-AusBoss are documented here.
 - **New: Step Preview 🆎 shows the picture while it is being made, with a
   Stop button.** Watch each sampling step and stop a run that is going
   wrong after the first few steps, instead of waiting for the end. The node
-  needs no wires: it shows whichever sampler is working, keeps the last
-  step after the run, and has **STOP ALL** for a full queue. A workflow
-  with it asks ComfyUI for step pictures for that run, unless you chose a
-  preview method yourself.
+  needs no wires: it shows whichever sampler is working, swaps the blurry
+  last step for the finished picture once it is saved, and has **STOP ALL**
+  for a full queue. A workflow with it asks ComfyUI for step pictures for
+  that run, unless you chose a preview method yourself.
 
 - **Save Image 🆎 and Save Video 🆎 can show the steps too.** A new
   **steps** switch, off by default, shows the picture being made where the

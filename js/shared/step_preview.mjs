@@ -11,13 +11,16 @@
 
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
+import { nodeByExecutionId } from "./graph_ids.mjs";
 import { BRAND } from "./index.mjs";
+import { outputRecordQuery } from "./input_preview.mjs";
 import { isForeignRun } from "./prompt_scope.mjs";
 import {
   IDLE,
   consumersOf,
-  makerLabel,
+  feedsInto,
   nextRunState,
+  resultRank,
   stepFraction,
   stepText,
   stoppedText,
@@ -87,6 +90,21 @@ function wire() {
   on("progress", (detail) => {
     if (isForeignRun(detail?.prompt_id)) return;
     apply({ type: "progress", promptId: detail?.prompt_id ?? null, node: detail?.node, value: detail?.value, max: detail?.max });
+  });
+  // A node of the run showed a picture: the finished one, for Step Preview.
+  on("executed", (detail) => {
+    if (run.status !== "running" || isForeignRun(detail?.prompt_id)) return;
+    const query = outputRecordQuery(detail?.output);
+    if (!query) return;
+    const id = String(detail.display_node ?? detail.node ?? "");
+    const node = nodeByExecutionId(rootGraph(), id);
+    const fed = Boolean(node && run.maker && feedsInto(rootGraph(), node, run.maker));
+    apply({
+      type: "result",
+      promptId: detail.prompt_id ?? null,
+      url: api.apiURL(`/view?${query}${app.getPreviewFormatParam?.() ?? ""}${app.getRandParam?.() ?? ""}`),
+      rank: resultRank(node?.type ?? node?.comfyClass, fed),
+    });
   });
   on("execution_success", (detail) => apply({ type: "end", promptId: detail?.prompt_id ?? null, kind: "success" }));
   on("execution_interrupted", (detail) => apply({ type: "end", promptId: detail?.prompt_id ?? null, kind: "interrupted" }));
@@ -159,7 +177,6 @@ export function ensureStepCss() {
 .ausboss-steps img,.ausboss-steps.on img{display:block;position:absolute;inset:0;width:100%;height:100%;max-width:none;max-height:none;margin:0;object-fit:contain;visibility:visible;}
 .ausboss-steps-line{position:absolute;left:0;top:0;height:3px;width:0;background:${BRAND};box-shadow:0 0 6px rgba(0,180,170,.5);transition:width .15s linear;}
 .ausboss-steps-chip{position:absolute;left:6px;right:6px;bottom:6px;box-sizing:border-box;padding:4px 7px;border:1px solid rgba(255,255,255,.08);border-radius:5px;background:rgba(8,12,13,.84);color:#d8ecea;font:600 10.5px/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.ausboss-steps-chip .who{color:#7d9593;font-weight:500;}
 .ausboss-steps.stopped img{filter:brightness(.55) saturate(.7);}
 .ausboss-steps.stopped .ausboss-steps-line{display:none;}
 .ausboss-steps.stopped .ausboss-steps-chip{border-color:rgba(224,96,90,.55);color:#ffd0cc;}
@@ -196,21 +213,15 @@ export function mountStepOverlay(stage) {
       return shown;
     },
     // `saves`: the node saves the result, so a stopped run says nothing was.
-    show(current, { saves = false } = {}) {
-      if (!current?.url) return this.hide();
-      if (img.getAttribute("src") !== current.url) img.src = current.url;
+    // `result`: show the finished picture once the run has one.
+    show(current, { saves = false, result = false } = {}) {
+      const url = (result && current?.result) || current?.url;
+      if (!url) return this.hide();
+      if (img.getAttribute("src") !== url) img.src = url;
       const stopped = current.status === "stopped";
       root.classList.toggle("stopped", stopped);
       line.style.width = `${Math.round(stepFraction(current) * 100)}%`;
-      const who = makerLabel(rootGraph(), current.maker);
       chip.textContent = stopped ? stoppedText(current, { saves }) : stepText(current);
-      if (who && !stopped) {
-        const span = document.createElement("span");
-        span.className = "who";
-        span.textContent = ` · ${who}`;
-        chip.append(span);
-      }
-      chip.title = who ? `${chip.textContent}` : "";
       root.classList.add("on");
       stage.classList.add("ausboss-steps-showing");
       shown = true;

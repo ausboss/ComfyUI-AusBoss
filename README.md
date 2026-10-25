@@ -368,7 +368,7 @@ A stopwatch for the whole run, with no wires. It starts when the queue starts ru
 
 ### Step Preview
 
-Shows the picture while it is being made, one step at a time, so you can stop a run that is going wrong after the first few steps. It has no wires: put it anywhere and it shows whichever sampler is working. **STOP** stops this run; **STOP ALL** also empties the queue. The last step stays after the run. It turns on ComfyUI's step pictures for its own runs, unless you chose a preview method yourself. The [help page](js/docs/AUSBOSS_NODES_StepPreview.md) covers sharper step pictures.
+Shows the picture while it is being made, one step at a time, so you can stop a run that is going wrong after the first few steps. It has no wires: put it anywhere and it shows whichever sampler is working. **STOP** stops this run; **STOP ALL** also empties the queue. When the picture is saved, the finished picture replaces the last step. It turns on ComfyUI's step pictures for its own runs, unless you chose a preview method yourself. The [help page](js/docs/AUSBOSS_NODES_StepPreview.md) covers sharper step pictures.
 
 ### Workflow Switches
 

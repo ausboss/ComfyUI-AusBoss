@@ -1,6 +1,7 @@
 // Step Preview 🆎: the picture while it is being made, one step at a time,
 // with a Stop button. It needs no wires: it shows whichever sampler in this
-// workflow is making a picture, and keeps the last step after the run.
+// workflow is making a picture, then the finished picture once the run has
+// saved it, and keeps that after the run.
 //
 // The pictures and the run come from shared/step_preview.mjs; the server
 // side asks for them (nodes/_step_preview_helpers.py).
@@ -69,8 +70,9 @@ function sync(state, run) {
   state.all.title = `Stop this run and empty the queue (${waiting} waiting).`;
   state.readout.textContent = STATE_TEXT[run.status] ?? "";
   state.readout.classList.toggle("live", running);
-  // The last step stays after the run, until the next one starts.
-  if (run.url) state.overlay.show(run);
+  // The finished picture replaces the blurry last step as soon as the run
+  // saves it, and stays after the run, until the next one starts.
+  if (run.url || run.result) state.overlay.show(run, { result: true });
   else if (running || run.status === "idle") state.overlay.hide();
 }
 

@@ -1,11 +1,12 @@
 // The pictures ComfyUI sends after each sampling step: what the run is
-// doing now, which node made the picture, and which nodes show it.
+// doing now, which node made the picture, which nodes show it, and the
+// finished picture once the run has saved it.
 //
 // No DOM and no ComfyUI imports, so node:test covers it
 // (tests/step_preview.test.mjs). js/shared/step_preview.mjs wires it to the
 // server's events and draws it.
 
-import { executionIdOf, nodeByExecutionId } from "./graph_ids.mjs";
+import { executionIdOf } from "./graph_ids.mjs";
 import { linkById } from "./input_preview.mjs";
 
 // Nothing running, nothing to show.
@@ -16,6 +17,10 @@ export const IDLE = Object.freeze({
   value: 0,
   max: 0,
   url: null,
+  // The finished picture (a /view URL) once a node of this run has saved or
+  // previewed it, and how well it matches the steps shown (resultRank).
+  result: null,
+  resultRank: -1,
 });
 
 const sameId = (a, b) => a !== null && a !== undefined && b !== null && b !== undefined && String(a) === String(b);
@@ -25,6 +30,7 @@ const sameId = (a, b) => a !== null && a !== undefined && b !== null && b !== un
 //   { type: "start", promptId }                    a run began
 //   { type: "picture", promptId, maker, url }      a step picture arrived
 //   { type: "progress", promptId, node, value, max }
+//   { type: "result", promptId, url, rank }        a node of the run showed a picture
 //   { type: "end", promptId, kind }                "success" | "interrupted" | "error"
 // A step's picture arrives just before its progress report, so a picture
 // from a new node starts that node's count at nothing until the report.
@@ -46,7 +52,17 @@ export function nextRunState(state, event) {
         url: event.url,
         value: sameMaker ? base.value : 0,
         max: sameMaker ? base.max : 0,
+        // A new step means the picture is being made again (an upscale pass).
+        result: null,
+        resultRank: -1,
       };
+    }
+    case "result": {
+      if (run.status !== "running" || !event.url) return run;
+      if (event.promptId && run.promptId && !sameId(event.promptId, run.promptId)) return run;
+      const rank = Number.isFinite(event.rank) ? event.rank : 0;
+      if (rank < run.resultRank) return run;
+      return { ...run, result: event.url, resultRank: rank };
     }
     case "progress": {
       if (run.status !== "running" || !sameId(event.node, run.maker)) return run;
@@ -86,15 +102,13 @@ export function stepFraction(run) {
   return Math.min(1, Math.max(0, run.value / run.max));
 }
 
-// Who is making the picture, in the words on the canvas: the outermost box
-// that holds the sampler ("Generate or edit with Qwen"), or the sampler's
-// own title when it sits on the top level.
-export function makerLabel(rootGraph, executionId) {
-  if (executionId === null || executionId === undefined) return "";
-  const outer = nodeByExecutionId(rootGraph, String(executionId).split(":")[0]);
-  const own = outer ? null : nodeByExecutionId(rootGraph, executionId);
-  const node = outer ?? own;
-  return String(node?.title || node?.type || "").trim();
+// How well a picture a node of the run showed stands for the finished
+// result: a save or preview node fed by the sampler whose steps were shown
+// is best, any other save or preview node next, anything else last.
+const RESULT_NODES = /SaveImage|PreviewImage/;
+export function resultRank(nodeType, fedByMaker) {
+  if (!RESULT_NODES.test(String(nodeType ?? ""))) return 0;
+  return fedByMaker ? 2 : 1;
 }
 
 // The ids of every node a node's inputs reach back to, on its own graph.
