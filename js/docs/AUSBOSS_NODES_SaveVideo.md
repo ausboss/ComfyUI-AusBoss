@@ -9,6 +9,13 @@ duration, shows a tall video whole, and has a **LOOP** control. `gif` and
 `webp` are shown as pictures with just the file name, since a video player
 cannot play either.
 
+**STEPS** (`step_preview`, off by default) shows the clip's first frame in
+the player while it is being made, one step at a time, with a **STOP**
+button beside it. Stop a clip that is going wrong after the first steps
+instead of waiting for the end; a stopped run saves nothing. The saved
+video replaces the steps. The [Step Preview](AUSBOSS_NODES_StepPreview.md)
+page has the details.
+
 ## Controls
 
 - **frames**: BHWC frame batch to encode. For the subsampled formats, odd

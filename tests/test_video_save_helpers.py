@@ -851,7 +851,7 @@ class LegacyWorkflowTests(unittest.TestCase):
         self.assertEqual(names[: len(values)], ["fps", "filename_prefix", "crf"])
         self.assertEqual(
             names,
-            ["fps", "filename_prefix", "crf", "format", "pingpong", "save_metadata"],
+            ["fps", "filename_prefix", "crf", "format", "pingpong", "save_metadata", "step_preview"],
         )
         for value, (name, declared, options) in zip(values, widgets):
             with self.subTest(widget=name):

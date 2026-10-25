@@ -9,6 +9,10 @@
 //
 // The panel is fully inert (pointer-events: none) so clicks fall through, the
 // node stays draggable from its body, and wheel zoom belongs to the graph.
+//
+// Save Image can also show the picture while it is being made: its `steps`
+// switch lays each sampling step over the stage, with a Stop button on the
+// bar (shared/step_preview.mjs).
 
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
@@ -21,6 +25,7 @@ import { autoMaskValues } from "../shared/mask_auto.mjs";
 import { hideInputsInDef, hideWidget, setWidgetVisible } from "../shared/widget_visibility.mjs";
 import { makePictureStepper } from "../shared/picture_stepper.mjs";
 import { keepIndex, stepIndex } from "../shared/picture_steps.mjs";
+import { addStepConsumer, mountStepOverlay, showsStepsOn, stepRun, stopStepRun, watchSteps } from "../shared/step_preview.mjs";
 import {
   describeNodePreview,
   describeSourcePreview,
@@ -107,7 +112,7 @@ const NODE_CONFIG = {
   },
   AUSBOSS_NODES_SelectFrame: { inputName: "frames", noun: "frames" },
   // Its result is the file it just saved; the card sits above the panel.
-  AUSBOSS_NODES_SaveImage: { inputName: "images", noun: "an image", switchTitle: "Show the saved image here. The file is saved either way." },
+  AUSBOSS_NODES_SaveImage: { inputName: "images", noun: "an image", switchTitle: "Show the saved image here. The file is saved either way.", steps: true },
 };
 
 // The picture sits out of flow, centred in the stage, so it can never set
@@ -138,6 +143,10 @@ function ensureCss() {
 .ausboss-input-preview-tool:hover{border-color:${BRAND};color:#fff;background:rgba(0,79,75,.78);}
 .ausboss-input-preview-tool.active{border-color:${BRAND};color:${BRAND};}
 .ausboss-input-preview-toggle{display:flex;align-items:center;gap:6px;margin-left:auto;pointer-events:auto;cursor:pointer;user-select:none;}
+.ausboss-input-preview:not(.preview-off) .ausboss-input-preview-toggle.steps + .ausboss-input-preview-toggle{margin-left:0;}
+.ausboss-input-preview.preview-off .ausboss-input-preview-toggle.steps{display:none;}
+.ausboss-input-preview-tool.ausboss-steps-stop{visibility:hidden;}
+.ausboss-input-preview-tool.ausboss-steps-stop.live{visibility:visible;}
 .ausboss-input-preview-toggle span{color:#5f7674;font:10px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.08em;text-transform:uppercase;}
 .ausboss-input-preview-switch{box-sizing:border-box;width:24px;height:13px;border-radius:7px;border:none;background:#3a4047;position:relative;cursor:pointer;padding:0;flex:none;pointer-events:auto}
 .ausboss-input-preview-switch::after{content:"";position:absolute;top:2px;left:2px;width:9px;height:9px;border-radius:50%;background:#9ba2aa;transition:left .12s}
@@ -325,6 +334,105 @@ function installPreviewSwitch(state, signal) {
   syncPreviewMode(state, false);
 }
 
+// The steps switch, left of the preview switch: the hidden `step_preview`
+// widget. On, the stage shows each step of the picture while it is being
+// made and the bar gets a Stop button for the run. Off (the default), the
+// node is exactly as it was. It goes away with the preview, which is where
+// the steps would show.
+function stepsEnabled(state) {
+  return state.stepsWidget?.value === true && previewEnabled(state);
+}
+
+function installStepsSwitch(state, signal) {
+  const widget = widgetByName(state.node, "step_preview");
+  if (!widget) return;
+  state.stepsWidget = widget;
+  hideWidget(widget);
+  const toggle = document.createElement("div");
+  toggle.className = "ausboss-input-preview-toggle steps";
+  toggle.title = "Show the picture here while it is being made, one step at a time, with a Stop button. Off by default.";
+  const caption = document.createElement("span");
+  caption.textContent = "steps";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "ausboss-input-preview-switch";
+  button.setAttribute("role", "switch");
+  toggle.append(caption, button);
+  toggle.addEventListener("pointerdown", (event) => event.stopPropagation(), { signal });
+  toggle.addEventListener("click", (event) => {
+    event.preventDefault(); event.stopPropagation();
+    const next = widget.value !== true;
+    widget.value = next;
+    widget.callback?.(next);
+    syncSteps(state);
+    notifyAusbossChange();
+  }, { signal });
+  state.stepsButton = button;
+  const previewToggle = state.switchButton?.parentElement;
+  if (previewToggle?.parentElement === state.bar) state.bar.insertBefore(toggle, previewToggle);
+  else state.bar.append(toggle);
+
+  // Stop sits where the node's tools go; it keeps its place while hidden so
+  // the bar never shifts when a run starts.
+  const stop = document.createElement("button");
+  stop.type = "button";
+  stop.className = "ausboss-input-preview-tool ausboss-steps-stop";
+  stop.textContent = "STOP";
+  stop.title = "Stop this run now. The next run in the queue still starts.";
+  stop.addEventListener("pointerdown", (event) => event.stopPropagation(), { signal });
+  stop.addEventListener("click", (event) => {
+    event.preventDefault(); event.stopPropagation();
+    Promise.resolve(stopStepRun()).catch(() => toast(state, "Could not stop the run."));
+  }, { signal });
+  state.stopButton = stop;
+  state.bar.prepend(stop);
+
+  state.stepOverlay = mountStepOverlay(state.stage);
+  state.forgetSteps = [
+    addStepConsumer(state.node, () => stepsEnabled(state)),
+    watchSteps((run) => syncSteps(state, run)),
+  ];
+  chainCallback(state.node, "onConfigure", () => queueMicrotask(() => {
+    if (!state.alive) return;
+    hideWidget(widget);
+    syncSteps(state);
+  }));
+}
+
+// Draw the run on this node: its steps while they feed it, where it stopped
+// if it never got to save, and the saved picture again once it has.
+function syncSteps(state, run = stepRun()) {
+  const overlay = state.stepOverlay;
+  if (!overlay) return;
+  const on = stepsEnabled(state);
+  if (state.stepsButton) {
+    state.stepsButton.classList.toggle("on", state.stepsWidget?.value === true);
+    state.stepsButton.setAttribute("aria-checked", String(state.stepsWidget?.value === true));
+  }
+  state.stopButton?.classList.toggle("live", on && run.status === "running");
+  if (!on) {
+    overlay.hide();
+    return;
+  }
+  const thisRun = (id) => id !== null && id !== undefined && String(id) === String(run.promptId);
+  if (run.status === "running") {
+    // Saved already in this run: its own picture stays.
+    if (thisRun(state.stepsSaved)) return;
+    if (run.url && showsStepsOn(state.node, run)) {
+      state.stepsShown = run;
+      overlay.show(run, { saves: true });
+    } else if (!thisRun(state.stepsShown?.promptId)) {
+      overlay.hide();
+    }
+    return;
+  }
+  if (run.status === "stopped" && thisRun(state.stepsShown?.promptId) && !thisRun(state.stepsSaved)) {
+    overlay.show({ ...state.stepsShown, status: "stopped" }, { saves: true });
+    return;
+  }
+  overlay.hide();
+}
+
 function syncPreviewMode(state, resize) {
   const enabled = previewEnabled(state);
   state.root.classList.toggle("preview-off", !enabled);
@@ -355,6 +463,7 @@ function syncPreviewMode(state, resize) {
     node.setDirtyCanvas?.(true, true);
   }
   if (enabled && state.alive) scheduleRefresh(state);
+  syncSteps(state);
 }
 
 function buildTools(state, tools, signal) {
@@ -629,6 +738,7 @@ function buildPanel(node, config) {
   bar.append(state.stepper.root);
   syncAdvanced(state);
   installPreviewSwitch(state, abort.signal);
+  if (config.steps) installStepsSwitch(state, abort.signal);
 
   img.addEventListener("load", () => showMedia(state, "image"));
   img.addEventListener("error", () => {
@@ -691,7 +801,7 @@ app.registerExtension({
   beforeRegisterNodeDef(nodeType, nodeData) {
     const config = NODE_CONFIG[nodeData?.name];
     if (!config) return;
-    hideInputsInDef(nodeData, ["preview"]);
+    hideInputsInDef(nodeData, ["preview", "step_preview"]);
     chainCallback(nodeType.prototype, "onNodeCreated", function () {
       buildPanel(this, config);
     });
@@ -716,6 +826,8 @@ app.registerExtension({
       const state = buildPanel(this, config);
       // A result arrived (Save Image sends one even with its preview off).
       if (state) { state.stale = false; state.resultGone = false; scheduleRefresh(state); }
+      // Saved: the file's picture replaces the steps.
+      if (state?.stepOverlay) { state.stepsSaved = stepRun().promptId; syncSteps(state); }
       if (state && config.readout) {
         setNote(state, "");
         const readout = config.readout(output);
@@ -733,6 +845,7 @@ app.registerExtension({
       state.abort?.abort();
       unwatchSource(state);
       clearMedia(state);
+      for (const forget of state.forgetSteps ?? []) forget();
       this.__ausbossInputPreview = null;
     });
   },
