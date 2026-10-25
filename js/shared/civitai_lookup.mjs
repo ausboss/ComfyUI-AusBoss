@@ -26,6 +26,16 @@ export function parseCivitaiBody(text) {
   return payload;
 }
 
+// What to tell the person when a Civitai call fails. A browser that cannot
+// reach the site at all only says "Failed to fetch", which explains nothing.
+export function civitaiFailureText(error) {
+  if (error instanceof TypeError) {
+    return "Could not reach civitai.com. A firewall, a VPN or starting ComfyUI "
+      + "with --disable-api-nodes can block it.";
+  }
+  return String(error?.message || error || "The Civitai lookup failed.");
+}
+
 export function civitaiButtonLabel(hasCivitai) {
   return hasCivitai ? "Refresh Civitai info" : "Fetch Civitai info";
 }

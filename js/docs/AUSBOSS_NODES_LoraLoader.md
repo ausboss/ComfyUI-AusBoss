@@ -331,10 +331,10 @@ switched on for the old one.
   (see "Get the pictures from Civitai" above). After that the button reads **Refresh Civitai
   info** and the card gets a **View on Civitai** link. A LoRA Civitai does
   not know (unpublished or hidden) reads **Not found on Civitai**. Gear
-  menu → **Civitai lookup button** removes the button. If it always reads
-  **Civitai lookup failed**, check whether ComfyUI was started with
-  `--disable-api-nodes`: that setting stops the browser from reaching any
-  other site, Civitai included.
+  menu → **Civitai lookup button** removes the button. When a lookup fails,
+  a message says why. If it always says it could not reach civitai.com,
+  check whether ComfyUI was started with `--disable-api-nodes`: that setting
+  stops the browser from reaching any other site, Civitai included.
 - **Suggested strength**: a lowest and a highest value at the bottom of the
   card (leave one empty for "any"). It is only a reminder: a row set outside
   it shows its number in orange, and the tooltip gives the range. Saved per
