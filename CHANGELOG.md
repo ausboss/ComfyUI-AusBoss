@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.19.2 - 2026-10-25
 
 - **LoRA Loader 🆎 says why a Civitai lookup failed.** The button still
   reads **Civitai lookup failed**, and a message now gives the reason. When
