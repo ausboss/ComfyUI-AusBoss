@@ -1,8 +1,9 @@
 """Layered PSD files, written from plain arrays.
 
 One small writer for the one shape the pack needs: 8-bit RGB layers that are
-all the size of the picture, each with an optional layer mask, plus the flat
-picture every PSD carries for programs that do not read layers. The layout
+all the size of the picture, each with optional see-through parts and an
+optional layer mask, plus the flat picture every PSD carries for programs
+that do not read layers. The layout
 is the plain one an editor writes itself, so Photoshop, GIMP and other
 editors that read PSD files open the result with its layers and masks.
 
@@ -75,12 +76,15 @@ def _record(name: str, height: int, width: int, has_mask: bool) -> bytes:
     return record + struct.pack(">I", len(extra)) + extra
 
 
-def write_psd(path, layers, composite) -> Path:
+def write_psd(path, layers, composite, alpha=None) -> Path:
     """Write ``layers`` (bottom one first) and the flat ``composite`` to ``path``.
 
-    A layer is ``{"name": str, "rgb": HxWx3 uint8, "mask": HxW uint8 or None}``.
-    A mask shows its layer where it is white and hides it where it is black,
-    as in every editor. All pictures must share one size.
+    A layer is ``{"name": str, "rgb": HxWx3 uint8, "alpha": HxW uint8 or
+    None, "mask": HxW uint8 or None}``. ``alpha`` is how solid each pixel is,
+    255 where it is fully there; without one the layer is solid. A mask
+    shows its layer where it is white and hides it where it is black, as in
+    every editor. ``alpha`` beside the composite is the flat picture's own.
+    All pictures must share one size.
     """
     flat = _rgb(composite, "The flat picture")
     height, width = flat.shape[:2]
@@ -99,11 +103,22 @@ def write_psd(path, layers, composite) -> Path:
         if rgb.shape[:2] != (height, width):
             raise ValueError(f"{source} must be {width}x{height}, the size of the flat picture.")
         mask = layer.get("mask")
+        solid = layer.get("alpha")
         records.append(_record(layer.get("name", ""), height, width, mask is not None))
-        planes.append(opaque)
+        planes.append(opaque if solid is None else _plane(solid, height, width, f"{source}'s alpha"))
         planes.extend(rgb[:, :, channel] for channel in range(3))
         if mask is not None:
             planes.append(_plane(mask, height, width, f"{source}'s mask"))
+
+    if alpha is not None:
+        solid = _plane(alpha, height, width, "The flat picture's alpha")
+        # Photoshop keeps a see-through flat picture laid over white, and
+        # readers take the white back out with its alpha.
+        weight = solid[:, :, None].astype(np.float32) / 255.0
+        flat = np.round(flat * weight + 255.0 * (1.0 - weight)).astype(np.uint8)
+    flat_planes = [flat[:, :, channel] for channel in range(3)]
+    if alpha is not None:
+        flat_planes.append(solid)
 
     plane_bytes = len(RAW) + height * width
     layer_info = 2 + sum(len(record) for record in records) + plane_bytes * len(planes)
@@ -114,14 +129,16 @@ def write_psd(path, layers, composite) -> Path:
 
     target = Path(path)
     with open(target, "wb") as file:
-        # Version 1, three channels, 8 bits each, RGB.
-        file.write(b"8BPS" + struct.pack(">H6xHIIHH", 1, 3, height, width, 8, 3))
+        # Version 1, three channels (four with the flat picture's alpha), 8
+        # bits each, RGB.
+        file.write(b"8BPS" + struct.pack(">H6xHIIHH", 1, len(flat_planes), height, width, 8, 3))
         file.write(struct.pack(">I", 0))  # no colour table
         file.write(struct.pack(">I", 0))  # no image resources
         # The layer block: its length, the list of layers, then an empty
-        # block for the document-wide mask settings.
+        # block for the document-wide mask settings. A negative count says
+        # the flat picture's fourth channel is its alpha.
         file.write(struct.pack(">I", 4 + layer_info + 4))
-        file.write(struct.pack(">Ih", layer_info, len(records)))
+        file.write(struct.pack(">Ih", layer_info, -len(records) if alpha is not None else len(records)))
         for record in records:
             file.write(record)
         for plane in planes:
@@ -129,10 +146,11 @@ def write_psd(path, layers, composite) -> Path:
             file.write(plane.tobytes())
         file.write(b"\x00" * padding)
         file.write(struct.pack(">I", 0))
-        # The flat picture: one compression mark, then red, green and blue.
+        # The flat picture: one compression mark, then red, green and blue
+        # (and its alpha).
         file.write(RAW)
-        for channel in range(3):
-            file.write(np.ascontiguousarray(flat[:, :, channel]).tobytes())
+        for plane in flat_planes:
+            file.write(np.ascontiguousarray(plane).tobytes())
     return target
 
 

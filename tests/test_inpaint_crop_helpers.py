@@ -437,7 +437,27 @@ class ChannelTests(unittest.TestCase):
         rgba_source = torch.cat([image, torch.ones_like(image[..., :1])], dim=-1)
         _c, _s, rgba_stitcher = build_crop(rgba_source, mask, 1.5, 4, 8)
         with self.assertRaises(ValueError):
-            apply_stitch(rgba_stitcher, cropped)
+            apply_stitch(rgba_stitcher, cropped[..., :2])
+
+    def test_an_rgb_patch_over_a_see_through_picture_keeps_its_alpha(self):
+        # Most models paint RGB; the picture's see-through parts stay as they were.
+        image = rand_image(1, 48, 64, seed=27)
+        alpha = torch.zeros(1, 48, 64, 1)
+        alpha[:, 8:40, 12:52] = 1.0
+        alpha[:, 8:40, 10:12] = 0.5
+        rgba = torch.cat([image, alpha], dim=-1)
+        mask = box_mask(48, 64, 16, 32, 4, 40)
+        cropped, _, stitcher = build_crop(rgba, mask, 1.5, 4, 8)
+        self.assertEqual(cropped.shape[-1], 4)
+        painted = shuffle_pixels(cropped[..., :3])
+        for options in ({}, {"color_match": 0.5}, {"fix_edge_halo": True}):
+            with self.subTest(**options):
+                stitched = apply_stitch(stitcher, painted, **options)
+                self.assertEqual(stitched.shape, (1, 48, 64, 4))
+                self.assertTrue(torch.equal(stitched[..., 3:], alpha))
+                self.assertFalse(torch.equal(stitched[..., :3], image))
+        # The crop's own colours, sent back untouched, give the picture back exactly.
+        self.assertTrue(torch.equal(apply_stitch(stitcher, cropped[..., :3].clone()), rgba))
 
 
 class EdgeHaloTests(unittest.TestCase):

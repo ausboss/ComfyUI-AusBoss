@@ -80,6 +80,23 @@ class CompareNodeTests(unittest.TestCase):
             # No name wired in: the one typed on the node will be used.
             self.assertEqual((result["ui"]["save_name"], pair_pictures(key)[2]), ([""], ""))
 
+    def test_a_see_through_picture_keeps_its_clear_parts_in_the_preview(self):
+        image_a = torch.ones(1, 8, 12, 4)
+        image_a[0, :, :4, 3] = 0.0
+        image_b = torch.rand(1, 8, 12, 3)
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(_preview_helpers, "folder_paths", fake_folder_paths(tmp)), \
+                    patch.object(node_compare, "folder_paths", fake_folder_paths(tmp)):
+                result = AusBossCompare().compare(image_a, image_a)
+                (ref_a,) = result["ui"]["a_images"]
+                with Image.open(Path(tmp) / "ausboss" / ref_a["filename"]) as png:
+                    self.assertEqual(png.mode, "RGBA")
+                    self.assertEqual(png.getpixel((0, 0))[3], 0)
+                result = AusBossCompare().compare(image_a, image_b)
+            # The panel shows the clear parts over a checkerboard; an opaque B has no flag.
+            self.assertTrue(result["ui"]["a_images"][0]["alpha"])
+            self.assertNotIn("alpha", result["ui"]["b_images"][0])
+
     def test_a_wired_filename_names_the_saved_files(self):
         image = torch.rand(1, 8, 12, 3)
         with tempfile.TemporaryDirectory() as tmp:
