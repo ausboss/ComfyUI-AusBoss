@@ -33,6 +33,7 @@ from ._mask_by_touch_helpers import (
     NOT_A_PICTURE,
     NOT_SAM3,
     NO_TEXT_READER,
+    OTHER_PICTURE,
     WORDS_FIRST,
     WORDS_MORE,
     Memory,
@@ -1171,7 +1172,8 @@ class AusBossMaskByTouch:
         key = picture_key(image)
         picked = parse_touches(touches)
         # Touches made on another picture are not this picture's.
-        items = picked.items if picked.key in (None, key) else ()
+        elsewhere = picked.key not in (None, key) and bool(picked.items)
+        items = () if elsewhere else picked.items
         strokes, selections, painted, item_notes = {}, [], [], []
         # Each picked thing's own area on the first picture, for the face.
         things = []
@@ -1237,7 +1239,9 @@ class AusBossMaskByTouch:
         raw = torch.stack(selections)
         soft = raw.dtype != torch.bool
         if not bool(raw.any()) and not asked and str(if_nothing) != IF_NOTHING[1]:
-            raise RuntimeError(NOTHING_PICKED)
+            # Picks the face may still show, made before the picture
+            # changed: say so, not that nothing is picked.
+            raise RuntimeError(OTHER_PICTURE if elsewhere else NOTHING_PICKED)
         # A look for pieces (scope) returns no mask anyone uses: no fine edge then.
         fine = wants_fine_edges(fine_edges) and asked != "scope" and bool(raw.any())
         some = raw.flatten(1).any(dim=1)[:, None, None]

@@ -29,6 +29,7 @@ from nodes._mask_by_touch_helpers import (  # noqa: E402
     NOT_SAM3,
     NOT_TOUCHES,
     NO_TEXT_READER,
+    OTHER_PICTURE,
     PIECES_MAX,
     POINTS_MAX,
     TEXT_MAX,
@@ -226,7 +227,7 @@ class TouchesTests(unittest.TestCase):
             self.assertEqual(read_ask(text, 100, 200), ("scope", None), text)
 
     def test_the_messages_are_plain_and_ascii(self):
-        for message in (NOTHING_PICKED, NOT_TOUCHES, TOO_MUCH, NEWER_TOUCHES, NOT_A_PICTURE, NEEDS_SAM3, NOT_SAM3, NO_TEXT_READER):
+        for message in (NOTHING_PICKED, OTHER_PICTURE, NOT_TOUCHES, TOO_MUCH, NEWER_TOUCHES, NOT_A_PICTURE, NEEDS_SAM3, NOT_SAM3, NO_TEXT_READER):
             message.encode("ascii")  # raised into consoles that may be cp1252
             self.assertIn("Mask by Touch", message)
             self.assertNotIn("Mask by Name", message)

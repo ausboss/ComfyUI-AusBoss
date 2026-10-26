@@ -208,6 +208,8 @@ nothing instead.
 
 Picks belong to the picture they were made on. Load another picture and the
 node shows it with nothing picked, and says the old picks are not used.
+If the workflow runs before the node has shown the new picture, the run
+stops and says the picks were made on another picture.
 
 - With a Load Image wired straight in, or through Reroute nodes, the
   picture shows as soon as you choose a file.

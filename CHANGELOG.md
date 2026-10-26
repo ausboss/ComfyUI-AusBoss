@@ -2,6 +2,14 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Mask by Touch 🆎 says when the picks were made on another picture.**
+  When the picture coming into the node changed after you picked, the run
+  stopped with "nothing is picked yet" while the picks still showed on the
+  node. It now says the picks were made on another picture, so you know to
+  pick again on the new one.
+
 ## 2.20.0 - 2026-10-25
 
 - **New: Step Preview 🆎 shows the picture while it is being made, with a

@@ -118,6 +118,11 @@ NOTHING_PICKED = (
     "Mask by Touch: nothing is picked yet. Click a thing on the node's "
     "picture, or paint over it, then run again."
 )
+OTHER_PICTURE = (
+    "Mask by Touch: the picks were made on another picture. The picture "
+    "coming into this node has changed since, so none of them are used. "
+    "Click a thing on the node's picture, or paint over it, then run again."
+)
 NOT_TOUCHES = (
     "Mask by Touch could not read what was picked. Press Clear on the node "
     "and pick again."
@@ -1138,6 +1143,7 @@ __all__ = [
     "NOT_SAM3",
     "NOT_TOUCHES",
     "NO_TEXT_READER",
+    "OTHER_PICTURE",
     "PIECES_MAX",
     "PLANE_BITS",
     "POINTS_MAX",
