@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.20.2 - 2026-10-27
 
 - **Save Image 🆎 shows a run more clearly.** While the models load, an
   empty picture area says the run is going, instead of asking you to run
