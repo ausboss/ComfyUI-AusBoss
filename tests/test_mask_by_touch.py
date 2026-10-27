@@ -32,6 +32,7 @@ from nodes._mask_by_touch_helpers import (  # noqa: E402
     NOT_SAM3,
     NOT_TOUCHES,
     NO_TEXT_READER,
+    OTHER_PICTURE,
     WORDS_FIRST,
     WORDS_MORE,
     picture_key,
@@ -535,7 +536,9 @@ class NothingPickedTests(TouchCase):
         text = touches(tap(75, 34), name("face", 60, 45), key="160x120-0000000000000000")
         with self.assertRaises(RuntimeError) as stopped:
             self.run_node(text)
-        self.assertEqual(str(stopped.exception), NOTHING_PICKED)
+        self.assertEqual(str(stopped.exception), OTHER_PICTURE, "the picks are there, on another picture")
+        out = self.run_node(text, if_nothing="empty mask")
+        self.assertEqual(float(out["result"][0].sum()), 0.0, "empty mask still lets the run go on")
         note = self.note(self.run_node(text, ask="look"))
         self.assertEqual((note["items"], note["key"], note["stamp"]), ([], picture_key(self.picture), touch_stamp(text)))
         self.assertEqual(FakeSam.calls, [])
