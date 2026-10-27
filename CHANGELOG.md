@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.20.1 - 2026-10-26
 
 - **Crop For Inpaint 🆎 and Stitch Inpaint 🆎 keep a picture's see-through
   parts.** A cut-out goes through an inpaint with its clear background
