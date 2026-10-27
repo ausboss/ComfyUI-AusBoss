@@ -9,6 +9,7 @@ import {
   ERASE_SIZE,
   adjustAxis,
   adjustedBrush,
+  backdropPadding,
   brushCore,
   brushSigma,
   clampSize,
@@ -122,6 +123,12 @@ test("the picture is shown whole and centred, and a click maps back to it", () =
   assert.equal(toPicture(fitRect(0, 0, 10, 10), 5, 5), null);
   assert.equal(previewScale(1024, 512), 1);
   assert.equal(previewScale(4096, 2048), 0.5);
+});
+
+test("a see-through picture's checkerboard is held to the picture by the bars beside it", () => {
+  assert.equal(backdropPadding(400, 300, 1000, 500), "50px 0px");
+  assert.equal(backdropPadding(300, 400, 500, 1000), "0px 50px");
+  assert.equal(backdropPadding(0, 300, 10, 10), "");
 });
 
 test("save sends the run's key, the strokes, the choices and a plain name", () => {

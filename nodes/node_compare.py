@@ -128,6 +128,8 @@ def _register_save_route() -> None:
                 "width": result["width"],
                 "height": result["height"],
             }
+            if result.get("alpha"):
+                answer["b"]["alpha"] = True
             answer["pair"] = result["pair"]
         return web.json_response(answer)
 
@@ -222,7 +224,9 @@ class AusBossCompare:
         return Path(folder_paths.get_temp_directory()) / preview.get("subfolder", "") / preview["filename"]
 
     def _save_temp_preview(self, image):
-        return save_temp_preview(image, self._prefix, "Compare")
+        # See-through parts are kept: the panel shows them over a checkerboard,
+        # and Erase can bring them back into a mix.
+        return save_temp_preview(image, self._prefix, "Compare", keep_alpha=True)
 
 
 _register_save_route()

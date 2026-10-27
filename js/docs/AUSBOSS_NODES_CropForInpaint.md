@@ -95,6 +95,12 @@ Any inpainting sampler fits between the two nodes the same way — connect
 the crop's `image` and `mask` to it, then its output to Stitch Inpaint's
 `inpainted` input.
 
+A picture with see-through parts keeps them through the pair. ComfyUI's
+Load Image splits them off into its `mask`; wire its `IMAGE` and `MASK`
+into **Join Image with Alpha** to put them back on before the crop. The
+sampler gets the colours, and Stitch Inpaint gives the result its clear
+parts back.
+
 ## Technical details
 
 - Starting values: Context `1.2`, Blend `16` px, Multiple `8`; Grow, Blur,

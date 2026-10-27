@@ -54,6 +54,8 @@ def read_psd(path: Path) -> dict:
     block = struct.unpack(">I", data[at:at + 4])[0]
     end = at + 4 + block
     info, count = struct.unpack(">Ih", data[at + 4:at + 10])
+    # A negative count: the flat picture's last channel is its alpha.
+    merged_alpha, count = count < 0, abs(count)
     at += 10
     layers = []
     for _ in range(count):
@@ -83,10 +85,10 @@ def read_psd(path: Path) -> dict:
             at += length
     flat_at = end
     assert data[flat_at:flat_at + 2] == b"\x00\x00"
-    flat = np.frombuffer(data[flat_at + 2:], dtype=np.uint8).reshape(3, height, width).transpose(1, 2, 0)
+    flat = np.frombuffer(data[flat_at + 2:], dtype=np.uint8).reshape(channels, height, width).transpose(1, 2, 0)
     return {"signature": signature, "version": version, "channels": channels, "size": (width, height),
             "depth": depth, "mode": mode, "layers": layers, "planes": planes, "flat": flat,
-            "layer_info": info, "bytes": len(data)}
+            "merged_alpha": merged_alpha, "layer_info": info, "bytes": len(data)}
 
 
 class BrushTests(unittest.TestCase):
@@ -345,6 +347,8 @@ class SaveTests(unittest.TestCase):
         result = self.save(layers=True, strokes=[stroke([(60, 45)], size=40, soft=60)])
         self.assertEqual([file["filename"] for file in result["files"]],
                          ["compare_00001.png", "compare_00001.psd", "compare_00001_mask.png"])
+        with Image.open(self.output / "compare_00001.png") as png:
+            self.assertEqual(png.mode, "RGB")   # two solid pictures make a solid mix
         mixed = np.asarray(Image.open(self.output / "compare_00001.png").convert("RGB"))
         mask = np.asarray(Image.open(self.output / "compare_00001_mask.png"))
         self.assertEqual(mask.shape, (90, 120))
@@ -353,6 +357,7 @@ class SaveTests(unittest.TestCase):
 
         psd = read_psd(self.output / "compare_00001.psd")
         self.assertEqual((psd["signature"], psd["version"], psd["channels"], psd["depth"], psd["mode"]), (b"8BPS", 1, 3, 8, 3))
+        self.assertFalse(psd["merged_alpha"])
         self.assertEqual(psd["size"], (120, 90))
         self.assertEqual([layer["name"] for layer in psd["layers"]], ["B", "A"])   # bottom first
         under, upper = psd["layers"]
@@ -403,6 +408,79 @@ class SaveTests(unittest.TestCase):
         with self.assertRaises(CompareSaveError):
             self.save(strokes=[{"d": 10, "p": [1]}])
         self.assertEqual(list(self.output.iterdir()), [])
+
+
+class SeeThroughTests(unittest.TestCase):
+    """A picture with see-through parts keeps them in the mix and the PSD."""
+
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory()
+        self.addCleanup(self.folder.cleanup)
+        self.temp = Path(self.folder.name) / "temp"
+        self.output = Path(self.folder.name) / "output"
+        self.temp.mkdir()
+        self.output.mkdir()
+        # A: red, clear on the left, half clear in a strip beside that.
+        self.a = np.zeros((90, 120, 4), dtype=np.uint8)
+        self.a[..., 0] = 220
+        self.a[..., 3] = 255
+        self.a[:, :40, 3] = 0
+        self.a[:, 40:50, 3] = 128
+        # B: an edit that filled the background in, solid blue.
+        self.b = np.zeros((90, 120, 3), dtype=np.uint8)
+        self.b[..., 2] = 180
+        Image.fromarray(self.a).save(self.temp / A_NAME)
+        Image.fromarray(self.b).save(self.temp / B_NAME)
+
+    def save(self, **changes):
+        options = {"picture_a": self.temp / A_NAME, "picture_b": self.temp / B_NAME, "output_dir": self.output}
+        options.update(changes)
+        save_mix(**options)
+        return np.asarray(Image.open(self.output / "compare_00001.png"))
+
+    def test_rubbing_the_top_away_brings_back_the_clear_parts_underneath(self):
+        mixed = self.save(top="B", strokes=[stroke([(0, 45), (120, 45)], size=400)])
+        self.assertEqual(mixed.shape, (90, 120, 4))
+        self.assertTrue(np.array_equal(mixed[..., 3], self.a[..., 3]))
+        shown = self.a[..., 3] > 0
+        self.assertTrue(np.array_equal(mixed[shown][:, :3], self.a[shown][:, :3]))
+
+    def test_the_picture_underneath_shows_through_the_top_one(self):
+        mixed = self.save(top="A", strokes=[])
+        self.assertTrue((mixed[..., 3] == 255).all())
+        self.assertTrue(np.array_equal(mixed[:, :40, :3], self.b[:, :40]))
+        self.assertTrue(np.array_equal(mixed[:, 50:, :3], self.a[:, 50:, :3]))
+        self.assertTrue(np.array_equal(mixed[:, 45, :3], np.round((self.a[:, 45, :3] * 128.0 + self.b[:, 45] * 127.0) / 255.0)))
+
+    def test_the_psd_keeps_each_picture_s_clear_parts(self):
+        mixed = self.save(top="B", strokes=[stroke([(0, 45)], size=80)], layers=True)
+        psd = read_psd(self.output / "compare_00001.psd")
+        self.assertEqual((psd["channels"], psd["mode"]), (4, 3))
+        self.assertTrue(psd["merged_alpha"])
+        self.assertEqual([layer["name"] for layer in psd["layers"]], ["A", "B"])
+        self.assertTrue(np.array_equal(psd["planes"][("A", -1)], self.a[..., 3]))
+        self.assertTrue((psd["planes"][("B", -1)] == 255).all())
+        self.assertTrue(np.array_equal(np.dstack([psd["planes"][("A", c)] for c in range(3)]), self.a[..., :3]))
+        # The flat picture: the mix's alpha, its colours laid over white the way Photoshop keeps them.
+        self.assertTrue(np.array_equal(psd["flat"][..., 3], mixed[..., 3]))
+        weight = mixed[..., 3:] / 255.0
+        self.assertTrue(np.array_equal(psd["flat"][..., :3], np.round(mixed[..., :3] * weight + 255.0 * (1 - weight))))
+        self.assertTrue((psd["flat"][mixed[..., 3] == 0][:, :3] == 255).all())
+        with Image.open(self.output / "compare_00001.psd") as opened:
+            self.assertEqual((opened.format, opened.size), ("PSD", (120, 90)))
+
+    def test_a_see_through_b_of_another_size_is_fitted_without_its_hidden_colour(self):
+        # The colour under a clear pixel is not part of the picture: B fitted
+        # to A's size comes out the same whatever it is.
+        mixes = []
+        for hidden in (0, 255):
+            b = np.full((180, 240, 4), hidden, dtype=np.uint8)
+            b[..., 3] = 0
+            b[40:140, 60:180] = (30, 160, 90, 255)
+            Image.fromarray(b).save(self.temp / B_NAME)
+            mixes.append(self.save(top="B", strokes=[]))
+            (self.output / "compare_00001.png").unlink()
+        self.assertTrue(np.array_equal(mixes[0], mixes[1]))
 
 
 class PsdTests(unittest.TestCase):
@@ -465,6 +543,25 @@ class AlignTests(unittest.TestCase):
         self.assertLess(after, before / 3)
         # The new key stands for A with the lined-up B, and keeps the run's name.
         self.assertEqual(pair_pictures(result["pair"]), (self.a, result["file"], "pier"))
+        self.assertFalse(result["alpha"])
+
+    def test_a_see_through_b_comes_back_lined_up_with_its_clear_parts(self):
+        width, height = self.picture.size
+        yy, xx = np.mgrid[0:height, 0:width]
+        disc = ((xx - width / 2) / (width * 0.4)) ** 2 + ((yy - height / 2) / (height * 0.4)) ** 2 <= 1
+        cutout = np.dstack([np.asarray(self.picture), np.where(disc, 255, 0).astype(np.uint8)])
+        Image.fromarray(cutout).save(self.a)
+        moved = Image.fromarray(cutout).resize((round(width * 1.02), round(height * 1.02)), Image.LANCZOS)
+        left, top = (moved.width - width) // 2 - 6, (moved.height - height) // 2 + 4
+        b = self.b_from(moved.crop((left, top, left + width, top + height)))
+        before = np.abs(np.asarray(Image.open(b), dtype=np.float32)[..., 3] - cutout[..., 3]).mean()
+        result = align_pair(picture_a=self.a, picture_b=b, temp_root=self.temp)
+        self.assertTrue(result["aligned"])
+        self.assertTrue(result["alpha"])
+        with Image.open(result["file"]) as lined:
+            self.assertEqual(lined.mode, "RGBA")
+            after = np.abs(np.asarray(lined, dtype=np.float32)[..., 3] - cutout[..., 3]).mean()
+        self.assertLess(after, before / 3)
 
     def test_a_b_that_already_lines_up_is_left_alone(self):
         b = self.b_from(self.picture)

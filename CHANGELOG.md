@@ -4,6 +4,16 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Crop For Inpaint 🆎 and Stitch Inpaint 🆎 keep a picture's see-through
+  parts.** A cut-out goes through an inpaint with its clear background
+  still clear. Before, Stitch Inpaint stopped with a channel error when the
+  model sent back colour only.
+
+- **Image Compare A/B 🆎 shows and keeps see-through parts.** They show
+  over a checkerboard. In Erase, rubbing the top picture away brings back
+  the clear parts of the one underneath, and the saved PNG and PSD keep
+  them.
+
 - **Mask by Touch 🆎 says when the picks were made on another picture.**
   When the picture coming into the node changed after you picked, the run
   stopped with "nothing is picked yet" while the picks still showed on the

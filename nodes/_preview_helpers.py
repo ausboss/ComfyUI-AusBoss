@@ -35,12 +35,13 @@ def temp_prefix(node: str) -> str:
     return f"ausboss_{node}_" + "".join(random.choices(string.ascii_lowercase, k=5))
 
 
-def first_frame_to_pil(image: torch.Tensor, source: str = "Preview") -> Image.Image:
+def first_frame_to_pil(image: torch.Tensor, source: str = "Preview", keep_alpha: bool = False) -> Image.Image:
     """First frame of a BHWC float batch as a PIL image, ready to save.
 
     A single-channel frame becomes an 8-bit grayscale image rather than a
     1-channel RGB one, which is how a mask arrives here once its BHW shape has
-    been unsqueezed into BHWC.
+    been unsqueezed into BHWC. With ``keep_alpha`` a four-channel frame with
+    see-through parts stays RGBA; an opaque one is RGB either way.
     """
     if not isinstance(image, torch.Tensor) or image.ndim != 4:
         raise ValueError(f"{source} expected a BHWC IMAGE batch.")
@@ -51,6 +52,8 @@ def first_frame_to_pil(image: torch.Tensor, source: str = "Preview") -> Image.Im
     if array.shape[-1] == 1:
         array = array[..., 0]
     elif array.shape[-1] > 3:
+        if keep_alpha and array.shape[-1] == 4 and int(array[..., 3].min()) < 255:
+            return Image.fromarray(array, "RGBA")
         # Drop alpha: the panel composites onto its own dark stage, so a
         # transparent preview would read as a hole rather than as coverage.
         array = array[..., :3]
@@ -64,11 +67,14 @@ def mask_to_preview_batch(mask: torch.Tensor, source: str = "Preview") -> torch.
     return mask.unsqueeze(-1)
 
 
-def save_temp_preview(image: torch.Tensor, prefix: str, source: str = "Preview") -> dict:
-    """Write one preview PNG to the temp folder; returns its ui.images entry."""
+def save_temp_preview(image: torch.Tensor, prefix: str, source: str = "Preview", keep_alpha: bool = False) -> dict:
+    """Write one preview PNG to the temp folder; returns its ui.images entry.
+
+    With ``keep_alpha`` a picture with see-through parts is saved with them,
+    and its entry says so with ``"alpha": True``."""
     if folder_paths is None:
         raise RuntimeError(f"{source} requires ComfyUI's folder_paths at runtime.")
-    preview = first_frame_to_pil(image, source)
+    preview = first_frame_to_pil(image, source, keep_alpha)
     full_output_folder, filename, counter, subfolder, _prefix = (
         folder_paths.get_save_image_path(
             prefix,
@@ -79,13 +85,16 @@ def save_temp_preview(image: torch.Tensor, prefix: str, source: str = "Preview")
     )
     file = f"{filename}_{counter:05}_.png"
     preview.save(Path(full_output_folder) / file, compress_level=4)
-    return {
+    entry = {
         "filename": file,
         "subfolder": subfolder,
         "type": "temp",
         "width": preview.width,
         "height": preview.height,
     }
+    if preview.mode == "RGBA":
+        entry["alpha"] = True
+    return entry
 
 
 def preview_payload(image: torch.Tensor, prefix: str, source: str, result: tuple) -> dict:

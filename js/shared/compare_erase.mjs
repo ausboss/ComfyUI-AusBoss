@@ -120,6 +120,18 @@ export function fitRect(boxWidth, boxHeight, width, height) {
   return { left: (boxWidth - fitWidth) / 2, top: (boxHeight - fitHeight) / 2, width: fitWidth, height: fitHeight, scale };
 }
 
+// A see-through picture shows over a checkerboard, as in an editor: its
+// squares' side in CSS pixels and their two colours.
+export const CHECKER = { side: 8, light: "#4d4d4d", dark: "#383838" };
+
+// The padding that holds a contained picture's own background to the
+// picture: the bars beside it, as CSS. Empty when there is nothing to fit.
+export function backdropPadding(boxWidth, boxHeight, width, height) {
+  const fit = fitRect(boxWidth, boxHeight, width, height);
+  if (!(fit.scale > 0)) return "";
+  return `${fit.top}px ${fit.left}px`;
+}
+
 // A place in the box as a place on the picture, in picture pixels.
 export function toPicture(fit, x, y) {
   if (!(fit?.scale > 0)) return null;

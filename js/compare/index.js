@@ -20,7 +20,7 @@ import {
   normalizeCompareMode,
   sizeAfterErase,
 } from "../shared/compare.mjs";
-import { savedLinks } from "../shared/compare_erase.mjs";
+import { CHECKER, backdropPadding, savedLinks } from "../shared/compare_erase.mjs";
 import { ERASE_CSS, makeEraser } from "../shared/compare_erase_stage.mjs";
 
 const NODE_NAME = "AUSBOSS_NODES_Compare";
@@ -54,6 +54,7 @@ function ensureCompareCss() {
 .ausboss-compare-stage{position:relative;flex:1 1 auto;min-height:112px;overflow:hidden;border:1px solid rgba(0,180,170,.34);border-radius:6px;background:#000;box-shadow:inset 0 0 0 1px rgba(255,255,255,.025);touch-action:none;}
 .ausboss-compare-stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none;}
 .ausboss-compare-stage.is-empty img{visibility:hidden;}
+.ausboss-compare-stage img.has-alpha{box-sizing:border-box;background-image:repeating-conic-gradient(${CHECKER.light} 0 25%,${CHECKER.dark} 0 50%);background-size:${CHECKER.side * 2}px ${CHECKER.side * 2}px;background-origin:content-box;background-clip:content-box;}
 .ausboss-compare-seam{position:absolute;top:0;bottom:0;z-index:2;width:1px;margin-left:-0.5px;background:${BRAND};box-shadow:0 0 4px rgba(0,180,170,.55);opacity:0;pointer-events:none;}
 .ausboss-compare-status{position:absolute;left:7px;top:7px;z-index:3;max-width:calc(100% - 112px);padding:3px 6px;border-radius:4px;background:rgba(0,0,0,.7);color:#b8d3d1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;backdrop-filter:blur(4px);}
 /* Once the previews are up the status has nothing to say, and an empty chip
@@ -102,6 +103,19 @@ function applyClip(state) {
   }
   state.identity.title = seamVisible ? "A on the left of the line · B on the right" : `Showing ${state.fraction === 0 ? "B" : "A"}`;
   state.identity.setAttribute("aria-label", state.identity.title);
+}
+
+// A picture with see-through parts lies on a checkerboard. It is the
+// picture's own background, held to the picture by padding the size of the
+// bars beside it, so in Slide the cut that shows A hides B behind A's clear
+// parts too.
+function placeBackdrops(state) {
+  const { clientWidth, clientHeight } = state.stage;
+  for (const [image, ref] of [[state.imageA, state.refs?.a], [state.imageB, state.refs?.b]]) {
+    const clear = Boolean(ref?.alpha) && image.naturalWidth > 0;
+    image.classList.toggle("has-alpha", clear);
+    image.style.padding = clear ? backdropPadding(clientWidth, clientHeight, image.naturalWidth, image.naturalHeight) : "";
+  }
 }
 
 function setEmpty(state, text) {
@@ -355,7 +369,10 @@ function buildPanel(node) {
   updateModeButtons(state);
 
   // The labels are placed in pixels, so they follow the stage's width.
-  const resized = new ResizeObserver(() => applyClip(state));
+  const resized = new ResizeObserver(() => {
+    applyClip(state);
+    placeBackdrops(state);
+  });
   resized.observe(stage);
   signal.addEventListener("abort", () => resized.disconnect());
   // Movement belongs to the preview only; graph dragging and panning remain
@@ -378,6 +395,7 @@ function buildPanel(node) {
   }, { signal });
 
   const onImageLoad = () => {
+    placeBackdrops(state);
     state.loaded += 1;
     if (state.loaded >= 2) {
       setReady(state);
