@@ -14,6 +14,7 @@ import { makeSlideSwitch } from "./slide_switch.mjs";
 import { extendStroke } from "./touch_math.mjs";
 import { makeToolButton } from "./video_ui.mjs";
 import {
+  CHECKER,
   ERASE_OUTSIDE,
   ERASE_SIZE,
   ERASE_SOFT_DEFAULT,
@@ -227,6 +228,25 @@ function sizeView(er) {
   }
 }
 
+// See-through parts show over a checkerboard, as on the Slide view, its
+// squares as big on screen.
+function drawCheckerboard(er, ctx, fit) {
+  const side = Math.max(2, Math.round(CHECKER.side * er.canvas.width / Math.max(1, er.canvas.clientWidth)));
+  if (er.checker?.side !== side) {
+    const tile = document.createElement("canvas");
+    const tileCtx = sized(tile, side * 2, side * 2);
+    tileCtx.fillStyle = CHECKER.dark;
+    tileCtx.fillRect(0, 0, side * 2, side * 2);
+    tileCtx.fillStyle = CHECKER.light;
+    tileCtx.fillRect(0, 0, side, side);
+    tileCtx.fillRect(side, side, side, side);
+    er.checker = { side, pattern: ctx.createPattern(tile, "repeat") };
+  }
+  er.checker.pattern.setTransform?.(new DOMMatrix([1, 0, 0, 1, fit.left, fit.top]));
+  ctx.fillStyle = er.checker.pattern;
+  ctx.fillRect(fit.left, fit.top, fit.width, fit.height);
+}
+
 function draw(er) {
   er.frame = 0;
   if (!er.active || !er.refs) return;
@@ -256,6 +276,7 @@ function draw(er) {
   cut.drawImage(top, 0, 0, width, height);
   cut.globalCompositeOperation = "destination-out";
   cut.drawImage(mask, 0, 0, width, height);
+  if (er.refs.a?.alpha || er.refs.b?.alpha) drawCheckerboard(er, ctx, fit);
   ctx.drawImage(under, fit.left, fit.top, width, height);
   ctx.drawImage(er.cut, fit.left, fit.top);
 

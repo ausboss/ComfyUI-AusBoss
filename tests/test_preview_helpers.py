@@ -65,6 +65,19 @@ class FirstFrameTests(unittest.TestCase):
         self.assertEqual(preview.mode, "RGB")
         self.assertEqual(preview.getpixel((0, 0)), (255, 0, 0))
 
+    def test_keep_alpha_keeps_see_through_parts_and_only_those(self):
+        rgba = torch.zeros(1, 2, 2, 4)
+        rgba[..., 0] = 1.0
+        rgba[..., 3] = 1.0
+        rgba[0, 0, 0, 3] = 0.0
+        preview = first_frame_to_pil(rgba, keep_alpha=True)
+        self.assertEqual(preview.mode, "RGBA")
+        self.assertEqual(preview.getpixel((0, 0)), (255, 0, 0, 0))
+        self.assertEqual(preview.getpixel((1, 1)), (255, 0, 0, 255))
+        # Fully solid: nothing to keep, so it is an ordinary RGB picture.
+        rgba[..., 3] = 1.0
+        self.assertEqual(first_frame_to_pil(rgba, keep_alpha=True).mode, "RGB")
+
     def test_values_outside_the_range_are_clamped_rather_than_wrapped(self):
         batch = torch.tensor([[[[-1.0, 0.5, 2.0]]]])
         self.assertEqual(first_frame_to_pil(batch).getpixel((0, 0)), (0, 128, 255))
@@ -90,6 +103,19 @@ class SaveTempPreviewTests(unittest.TestCase):
             saved = Path(tmp) / "ausboss" / entry["filename"]
             with Image.open(saved) as png:
                 self.assertEqual(png.size, (12, 8))
+
+    def test_a_see_through_preview_says_so_when_asked_to_keep_it(self):
+        rgba = torch.ones(1, 4, 6, 4)
+        rgba[0, :, :2, 3] = 0.0
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(_preview_helpers, "folder_paths", fake_folder_paths(tmp)):
+                kept = save_temp_preview(rgba, "ausboss_kept", "Compare", keep_alpha=True)
+                dropped = save_temp_preview(rgba, "ausboss_dropped", "Compare")
+            self.assertTrue(kept["alpha"])
+            self.assertNotIn("alpha", dropped)
+            for entry, mode in ((kept, "RGBA"), (dropped, "RGB")):
+                with Image.open(Path(tmp) / "ausboss" / entry["filename"]) as png:
+                    self.assertEqual(png.mode, mode)
 
     def test_two_instances_of_a_node_never_share_a_prefix(self):
         self.assertNotEqual(temp_prefix("mask_refine"), temp_prefix("mask_refine"))

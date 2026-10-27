@@ -60,6 +60,17 @@ are in the model's own picture.
   4n+1 (Wan) frames and drop the tail - so a long run is never thrown away
   over the count. More inpainted frames than source frames is still an error.
 
+## Pictures with see-through parts
+
+A picture with a clear background, such as a cut-out, keeps it. Most
+models paint colour only, so the new area takes your picture's own
+see-through parts where it lands: what was clear stays clear, and the edit
+shows where your picture is solid. A model that paints see-through parts
+of its own (Qwen Image 2.1 can) has them blended in like the colours.
+
+So with a colour-only model, new things painted into a clear area stay
+hidden. Fill that area in first if the edit needs it.
+
 ## Controls
 
 - **stitcher**: The stitcher from one of the nodes above. It carries the

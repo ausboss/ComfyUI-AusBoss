@@ -153,10 +153,32 @@ def erase_mask(strokes: list[dict], width: int, height: int) -> np.ndarray:
 
 
 def mix_pictures(top: np.ndarray, under: np.ndarray, gone: np.ndarray) -> np.ndarray:
-    """The top picture over the one under it, with ``gone`` rubbed out of the top."""
+    """The top picture over the one under it, with ``gone`` rubbed out of the top.
+
+    Two opaque pictures (HxWx3) mix to an opaque one. When either has
+    see-through parts (HxWx4) the mix has them too: the picture underneath
+    shows through the top one's, and where the top is rubbed away the
+    picture underneath is as see-through as it was.
+    """
     weight = gone[:, :, None]
-    mixed = top.astype(np.float32) * (1.0 - weight) + under.astype(np.float32) * weight
+    if top.shape[2] == 3 and under.shape[2] == 3:
+        mixed = top.astype(np.float32) * (1.0 - weight) + under.astype(np.float32) * weight
+        return np.clip(np.round(mixed), 0, 255).astype(np.uint8)
+    top, under = _with_alpha(top).astype(np.float32), _with_alpha(under).astype(np.float32)
+    upper = top[..., 3:] / 255.0 * (1.0 - weight)
+    lower = under[..., 3:] / 255.0 * (1.0 - upper)
+    alpha = upper + lower
+    rgb = (top[..., :3] * upper + under[..., :3] * lower) / np.maximum(alpha, 1e-6)
+    mixed = np.concatenate([rgb, alpha * 255.0], axis=-1)
     return np.clip(np.round(mixed), 0, 255).astype(np.uint8)
+
+
+def _with_alpha(pixels: np.ndarray) -> np.ndarray:
+    """HxWx4 pixels: an opaque HxWx3 picture gets a solid fourth channel."""
+    if pixels.shape[2] == 4:
+        return pixels
+    solid = np.full(pixels.shape[:2] + (1,), 255, dtype=pixels.dtype)
+    return np.concatenate([pixels, solid], axis=-1)
 
 
 def clean_save_name(name) -> str:
@@ -227,13 +249,16 @@ def align_pair(*, picture_a, picture_b, temp_root, name: str = "") -> dict:
     also the new ``file`` and the ``pair`` key that stands for A with it.
     """
     try:
-        first = _load_rgb(Path(picture_a))
-        second = _load_rgb(Path(picture_b))
+        first = _load_picture(Path(picture_a))
+        second = _load_picture(Path(picture_b))
     except OSError as error:
         raise CompareSaveError(ALIGN_GONE, status=404) from error
+    if first.shape[2] == 4 or second.shape[2] == 4:
+        first, second = _with_alpha(first), _with_alpha(second)
     source = torch.from_numpy(np.array(first)).float() / 255.0
     edit = torch.from_numpy(np.array(second)).float() / 255.0
-    result = measure(source, edit, "zoom + shift", ALIGN_MAX_ZOOM)
+    # Measured on what shows: see-through parts over plain gray.
+    result = measure(_on_gray(source), _on_gray(edit), "zoom + shift", ALIGN_MAX_ZOOM)
     if not result.reliable:
         logging.info("[AusBoss] Image Compare: Align left B as it is: %s", result.reason)
         return {"aligned": False, "message": ALIGN_FAILED}
@@ -243,27 +268,70 @@ def align_pair(*, picture_a, picture_b, temp_root, name: str = "") -> dict:
     height, width = first.shape[:2]
     lined = crop_if_shift(edit, result.matrix, width, height)
     if lined is None:
-        lined, _empty = warp_to_source(edit, result.matrix, width, height, "source", source)
+        lined, _empty = warp_to_source(_premultiplied(edit), result.matrix, width, height, "source", _premultiplied(source))
+        lined = _unpremultiplied(lined)
     target = Path(picture_b).with_name(f"{Path(picture_b).stem}_aligned.png")
     try:
         require_output_path(target, Path(temp_root))
     except ValueError as error:
         raise CompareSaveError("Image Compare: the previews are not in ComfyUI's temp folder. Run the workflow again.") from error
     pixels = np.round(lined.numpy() * 255.0).clip(0, 255).astype(np.uint8)
+    if pixels.shape[2] == 4 and pixels[..., 3].min() == 255:
+        pixels = np.ascontiguousarray(pixels[..., :3])
     Image.fromarray(pixels).save(target, compress_level=1)
     return {
         "aligned": True,
         "file": target,
         "width": int(width),
         "height": int(height),
+        "alpha": pixels.shape[2] == 4,
         "pair": remember_pair(picture_a, target, name),
         "message": f"B now lines up with A. It was off by up to {max(1, round(off))} px.",
     }
 
 
-def _load_rgb(path: Path) -> np.ndarray:
+def _on_gray(pixels: torch.Tensor) -> torch.Tensor:
+    """HWC colours as they show: see-through parts laid over plain gray."""
+    if pixels.shape[-1] < 4:
+        return pixels
+    alpha = pixels[..., 3:]
+    return pixels[..., :3] * alpha + 0.5 * (1.0 - alpha)
+
+
+def _premultiplied(pixels: torch.Tensor) -> torch.Tensor:
+    """Colours weighted by how solid they are, so resampling never pulls the
+    hidden colour of a clear pixel into its neighbours."""
+    if pixels.shape[-1] < 4:
+        return pixels
+    return torch.cat([pixels[..., :3] * pixels[..., 3:], pixels[..., 3:]], dim=-1)
+
+
+def _unpremultiplied(pixels: torch.Tensor) -> torch.Tensor:
+    if pixels.shape[-1] < 4:
+        return pixels
+    alpha = pixels[..., 3:]
+    rgb = torch.where(alpha > 0, pixels[..., :3] / alpha.clamp_min(1e-6), torch.zeros_like(pixels[..., :3]))
+    return torch.cat([rgb.clamp(0.0, 1.0), alpha], dim=-1)
+
+
+def _load_picture(path: Path, size: tuple[int, int] | None = None) -> np.ndarray:
+    """A preview's pixels: HxWx3, or HxWx4 when it has see-through parts.
+
+    With ``size`` (width, height) a picture of another size is fitted to it,
+    a see-through one with its colours weighted by how solid they are, so its
+    clear parts do not bleed into its edges.
+    """
     with Image.open(path) as image:
-        return np.asarray(image.convert("RGB"))
+        clear = image.mode in ("RGBA", "LA", "PA") or "transparency" in image.info
+        image = image.convert("RGBA" if clear else "RGB")
+        if clear and image.getextrema()[3][0] == 255:
+            image, clear = image.convert("RGB"), False
+        if size is not None and image.size != size:
+            if clear:
+                image = image.convert("RGBa").resize(size, Image.LANCZOS).convert("RGBA")
+            else:
+                image = image.resize(size, Image.LANCZOS)
+        return np.asarray(image)
 
 
 def save_mix(*, picture_a, picture_b, output_dir, top="A", strokes=None, layers=False, name=SAVE_NAME) -> dict:
@@ -279,14 +347,10 @@ def save_mix(*, picture_a, picture_b, output_dir, top="A", strokes=None, layers=
         raise CompareSaveError("Image Compare: the top picture is A or B.")
     name = clean_save_name(name)
     try:
-        first = _load_rgb(Path(picture_a))
-        with Image.open(Path(picture_b)) as image:
-            image = image.convert("RGB")
-            height, width = first.shape[:2]
-            # The mix is always A's size; a B of another size is fitted to it.
-            if image.size != (width, height):
-                image = image.resize((width, height), Image.LANCZOS)
-            second = np.asarray(image)
+        first = _load_picture(Path(picture_a))
+        height, width = first.shape[:2]
+        # The mix is always A's size; a B of another size is fitted to it.
+        second = _load_picture(Path(picture_b), (width, height))
     except OSError as error:
         raise CompareSaveError(PICTURES_GONE, status=404) from error
     if max(height, width) > PSD_MAX_SIDE:
@@ -315,8 +379,9 @@ def save_mix(*, picture_a, picture_b, output_dir, top="A", strokes=None, layers=
             shown = np.round((1.0 - gone) * 255.0).astype(np.uint8)
             write_psd(
                 folder / wanted[1],
-                [{"name": under_name, "rgb": under}, {"name": upper_name, "rgb": upper, "mask": shown}],
-                mixed,
+                [_layer(under_name, under), {**_layer(upper_name, upper), "mask": shown}],
+                mixed[..., :3],
+                alpha=mixed[..., 3] if mixed.shape[2] == 4 else None,
             )
             Image.fromarray(255 - shown).save(folder / wanted[2], compress_level=4)
 
@@ -325,6 +390,11 @@ def save_mix(*, picture_a, picture_b, output_dir, top="A", strokes=None, layers=
         "width": width,
         "height": height,
     }
+
+
+def _layer(name: str, pixels: np.ndarray) -> dict:
+    """A PSD layer from a picture, with its see-through parts when it has them."""
+    return {"name": name, "rgb": pixels[..., :3], "alpha": pixels[..., 3] if pixels.shape[2] == 4 else None}
 
 
 __all__ = [

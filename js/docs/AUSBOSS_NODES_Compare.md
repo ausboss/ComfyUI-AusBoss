@@ -29,6 +29,9 @@ picks what the panel does, and its marker slides to your choice:
   it and it rubs away, so the other one shows through. Then save the mix.
   See **Erase** below.
 
+A picture with see-through parts shows them over a checkerboard, as an
+editor does.
+
 The labels ride with the split line: **A** just left of it and **B** just right of
 it, on the picture each one names. With one picture showing, its label sits alone
 at the top centre. The chosen mode and locked side are
@@ -49,6 +52,11 @@ A batch still shows its first frame only.
 Use it when you want part of one picture and part of the other: the edit
 is good but it changed the hands, so you paint the old hands back. Or you
 only want the new sky.
+
+It also brings back a clear background. When the picture underneath has
+see-through parts, such as a cut-out the model filled in behind, rub the
+top one away there and they come back clear. The saved PNG and PSD keep
+them.
 
 Pick **Erase** on the switch. A row of tools opens above the picture:
 
@@ -154,6 +162,12 @@ network requests are made.
   left, and a new run does not change it.
 - **Erase works on the first picture of each batch**, at its full size.
   The mix is always A's size: a B of another size is resized to fit A.
+- **See-through parts** are kept in a preview only when a picture has some,
+  so solid pictures save exactly as before. The mix lays the top picture
+  over the other as an editor does. In the PSD each layer keeps its own
+  see-through parts, and the flat picture carries the mix's, its colours
+  stored over white the way Photoshop stores them. **Align** measures the
+  two pictures laid over gray and moves B's see-through parts with it.
 - **What is kept is the strokes**, not a painted picture. The panel draws
   them for you, and Save draws them again on the server at full size, so
   the saved edge is as sharp as the picture however small the node is.
