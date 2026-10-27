@@ -98,6 +98,10 @@ test("unpreviewable sources fall back to the quiet placeholder", () => {
   // Connected but nothing to show yet: the node has to run to make a picture,
   // which is the whole instruction the panel can usefully give.
   assert.equal(placeholderText(true, "a mask"), "Run the workflow to see it here");
+  // A run is on its way: it says so instead of asking for one.
+  assert.equal(placeholderText(true, "an image", "steps"), "Running. The steps show here once the picture starts");
+  assert.equal(placeholderText(true, "an image", "result"), "Running. The picture shows here when it is saved");
+  assert.equal(placeholderText(false, "an image", "steps"), "Connect an image to see it here");
   // It ran with the preview off: the picture it kept is an older run's.
   assert.equal(staleText(), "Run the workflow again to see it here");
 });

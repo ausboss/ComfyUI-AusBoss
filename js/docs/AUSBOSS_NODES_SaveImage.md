@@ -58,7 +58,9 @@ file's name. A caption on the `caption_text` input writes the paired `.txt`.
   that is going wrong after the first steps instead of waiting for the end;
   a stopped run saves nothing and says so on the picture. Once the image is
   saved it replaces the steps. With several samplers, the node shows the one
-  that feeds it. Display only: the saved file is the same with it on or off.
+  that feeds it. During an upscale in tiles it keeps the whole picture and
+  says "upscaling in tiles" instead of showing each tile. Display only: the
+  saved file is the same with it on or off.
   The [Step Preview](AUSBOSS_NODES_StepPreview.md) page has the details.
 
 ## Inputs

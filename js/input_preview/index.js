@@ -404,6 +404,8 @@ function installStepsSwitch(state, signal) {
 function syncSteps(state, run = stepRun()) {
   const overlay = state.stepOverlay;
   if (!overlay) return;
+  // An empty stage says when the run is on its way, not to start one.
+  if (typeof state.placeholder === "boolean") state.hint.textContent = placeholderText(state.placeholder, state.noun, runningFor(state, run));
   const on = stepsEnabled(state);
   if (state.stepsButton) {
     state.stepsButton.classList.toggle("on", state.stepsWidget?.value === true);
@@ -430,7 +432,31 @@ function syncSteps(state, run = stepRun()) {
     overlay.show({ ...state.stepsShown, status: "stopped" }, { saves: true });
     return;
   }
+  // The last step stays up until the saved picture has loaded under it.
+  if (thisRun(state.stepsHeld)) return;
   overlay.hide();
+}
+
+// What a run on its way says on an empty stage: false when none is.
+function runningFor(state, run = stepRun()) {
+  if (!state.stepOverlay || run.status !== "running") return false;
+  return stepsEnabled(state) ? "steps" : "result";
+}
+
+// Saved while the steps were up: hold them until the stage has its picture,
+// or a few seconds at most.
+const HOLD_MS = 4000;
+function holdSteps(state) {
+  clearTimeout(state.holdTimer);
+  state.stepsHeld = stepRun().promptId;
+  state.holdTimer = setTimeout(() => releaseSteps(state), HOLD_MS);
+}
+
+function releaseSteps(state) {
+  if (state.stepsHeld === null || state.stepsHeld === undefined) return;
+  clearTimeout(state.holdTimer);
+  state.stepsHeld = null;
+  syncSteps(state);
 }
 
 function syncPreviewMode(state, resize) {
@@ -492,11 +518,21 @@ function buildTools(state, tools, signal) {
 function showHint(state, text) {
   state.stage.classList.remove("show-image", "show-video");
   state.hint.textContent = text;
+  state.placeholder = null;
+  releaseSteps(state);
+}
+
+// The placeholder, which changes with the run (syncSteps).
+function showPlaceholder(state, connected) {
+  showHint(state, placeholderText(connected, state.noun, runningFor(state)));
+  state.placeholder = connected;
 }
 
 function showMedia(state, kind) {
   state.stage.classList.toggle("show-image", kind === "image");
   state.stage.classList.toggle("show-video", kind === "video");
+  state.placeholder = null;
+  releaseSteps(state);
 }
 
 function clearMedia(state) {
@@ -596,7 +632,7 @@ function refresh(state) {
       : describeNodePreview(state.node, state.inputName, storedResultUrl(state.node));
   if (!described) {
     clearMedia(state);
-    showHint(state, placeholderText(!!source, state.noun));
+    showPlaceholder(state, !!source);
     return;
   }
   const url = described.kind === "url"
@@ -719,6 +755,8 @@ function buildPanel(node, config) {
     previewWidget,
     index: 0,
     stepper: null,
+    // Whether the stage shows the placeholder (true: something is connected).
+    placeholder: null,
   };
   livePanels.add(state);
   if (config.tools?.length) bar.append(buildTools(state, config.tools, abort.signal));
@@ -742,15 +780,15 @@ function buildPanel(node, config) {
 
   img.addEventListener("load", () => showMedia(state, "image"));
   img.addEventListener("error", () => {
-    if (img.getAttribute("src")) showHint(state, placeholderText(true, state.noun));
+    if (img.getAttribute("src")) showPlaceholder(state, true);
   });
   video.addEventListener("loadeddata", () => showMedia(state, "video"));
   video.addEventListener("error", () => {
-    if (video.getAttribute("src")) showHint(state, placeholderText(true, state.noun));
+    if (video.getAttribute("src")) showPlaceholder(state, true);
   });
 
   watchOwnResult(node, state);
-  showHint(state, placeholderText(false, state.noun));
+  showPlaceholder(state, false);
   scheduleRefresh(state);
   return state;
 }
@@ -827,7 +865,11 @@ app.registerExtension({
       // A result arrived (Save Image sends one even with its preview off).
       if (state) { state.stale = false; state.resultGone = false; scheduleRefresh(state); }
       // Saved: the file's picture replaces the steps.
-      if (state?.stepOverlay) { state.stepsSaved = stepRun().promptId; syncSteps(state); }
+      if (state?.stepOverlay) {
+        state.stepsSaved = stepRun().promptId;
+        if (state.stepOverlay.shown) holdSteps(state);
+        syncSteps(state);
+      }
       if (state && config.readout) {
         setNote(state, "");
         const readout = config.readout(output);
@@ -846,6 +888,7 @@ app.registerExtension({
       unwatchSource(state);
       clearMedia(state);
       for (const forget of state.forgetSteps ?? []) forget();
+      clearTimeout(state.holdTimer);
       this.__ausbossInputPreview = null;
     });
   },
