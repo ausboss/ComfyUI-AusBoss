@@ -21,6 +21,11 @@ blurry last step, and it stays on the node until the next run starts. The
 word at the right of the bar says how the run ended: done, stopped or
 failed. A stopped run keeps the last step it reached.
 
+An upscale in tiles works on one small piece of the picture at a time.
+Those pieces are not shown as the picture: the node keeps the last whole
+picture and says "upscaling in tiles", with the steps of the piece being
+worked on.
+
 ## Save Image and Save Video can do it too
 
 Save Image 🆎 and Save Video 🆎 have a **steps** switch of their own (off by

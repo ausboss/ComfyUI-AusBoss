@@ -17,7 +17,10 @@ import { outputRecordQuery } from "./input_preview.mjs";
 import { isForeignRun } from "./prompt_scope.mjs";
 import {
   IDLE,
+  TILE_SPLIT,
+  TILE_STITCH,
   consumersOf,
+  drawsTiles,
   feedsInto,
   nextRunState,
   resultRank,
@@ -53,6 +56,8 @@ function emit() {
 function apply(event) {
   const before = run;
   run = nextRunState(run, event);
+  // A step picture the run did not take (a tile kept off the whole one).
+  if (event.type === "picture" && event.url && event.url !== run.url) URL.revokeObjectURL(event.url);
   if (run === before) return;
   if (before.url && before.url !== run.url) {
     const stale = before.url;
@@ -71,6 +76,21 @@ function on(type, handler) {
   });
 }
 
+const nodeType = (node) => node?.type ?? node?.comfyClass ?? null;
+
+// The api's "executing" detail is the running node's id, or an object with it.
+function executingId(detail) {
+  if (detail && typeof detail === "object") return detail.display_node ?? detail.node ?? null;
+  return detail ?? null;
+}
+
+// A tiled upscale's split or stitch, by its execution id: true, false or null.
+function tileEdge(id) {
+  if (id === null || id === undefined) return null;
+  const type = nodeType(nodeByExecutionId(rootGraph(), String(id)));
+  return type === TILE_SPLIT ? true : type === TILE_STITCH ? false : null;
+}
+
 function wire() {
   if (wired) return;
   wired = true;
@@ -80,12 +100,30 @@ function wire() {
   });
   on("b_preview_with_metadata", (detail) => {
     if (!detail?.blob || isForeignRun(detail.jobId)) return;
+    const maker = String(detail.displayNodeId ?? detail.nodeId ?? "");
     apply({
       type: "picture",
       promptId: detail.jobId ?? null,
-      maker: String(detail.displayNodeId ?? detail.nodeId ?? ""),
+      maker,
       url: URL.createObjectURL(detail.blob),
+      tile: drawsTiles(nodeType(nodeByExecutionId(rootGraph(), maker))),
     });
+  });
+  // The tiles of a tiled upscale run between its split and its stitch.
+  on("executing", (detail) => {
+    const promptId = typeof detail === "object" ? detail?.prompt_id : undefined;
+    if (isForeignRun(promptId)) return;
+    const edge = tileEdge(executingId(detail));
+    if (edge !== null) apply({ type: "tiles", promptId: promptId ?? null, on: edge });
+  });
+  // A split kept from the last run sends its tiles on without running.
+  on("execution_cached", (detail) => {
+    if (isForeignRun(detail?.prompt_id)) return;
+    const edges = (detail?.nodes ?? []).map(tileEdge);
+    // A stitch kept too means no tile runs at all.
+    if (edges.includes(true) && !edges.includes(false)) {
+      apply({ type: "tiles", promptId: detail?.prompt_id ?? null, on: true });
+    }
   });
   on("progress", (detail) => {
     if (isForeignRun(detail?.prompt_id)) return;

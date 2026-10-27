@@ -21,6 +21,12 @@ export const IDLE = Object.freeze({
   // previewed it, and how well it matches the steps shown (resultRank).
   result: null,
   resultRank: -1,
+  // Between a tiled upscale's split and its stitch every step picture is one
+  // tile, not the whole picture (`tiling`). `tilePass`: the steps counted
+  // now are a tile's; `whole`: `url` shows the whole picture.
+  tiling: false,
+  tilePass: false,
+  whole: false,
 });
 
 const sameId = (a, b) => a !== null && a !== undefined && b !== null && b !== undefined && String(a) === String(b);
@@ -28,12 +34,17 @@ const sameId = (a, b) => a !== null && a !== undefined && b !== null && b !== un
 // One server event at a time, oldest first; returns the next state and
 // never changes the one passed in. Events:
 //   { type: "start", promptId }                    a run began
-//   { type: "picture", promptId, maker, url }      a step picture arrived
+//   { type: "picture", promptId, maker, url, tile } a step picture arrived;
+//                                                  `tile`: its maker draws tiles
+//   { type: "tiles", promptId, on }                a tiled upscale split (on) or
+//                                                  stitched (off) the picture
 //   { type: "progress", promptId, node, value, max }
 //   { type: "result", promptId, url, rank }        a node of the run showed a picture
 //   { type: "end", promptId, kind }                "success" | "interrupted" | "error"
 // A step's picture arrives just before its progress report, so a picture
 // from a new node starts that node's count at nothing until the report.
+// A tile's picture is counted but never replaces a whole one: a tile alone
+// looks like a zoomed-in crop of the picture.
 export function nextRunState(state, event) {
   const run = state ?? IDLE;
   switch (event?.type) {
@@ -46,10 +57,14 @@ export function nextRunState(state, event) {
       const otherRun = run.status !== "running" || (event.promptId && run.promptId && !sameId(event.promptId, run.promptId));
       const base = otherRun ? { ...IDLE, status: "running", promptId: event.promptId ?? null } : run;
       const sameMaker = !otherRun && sameId(base.maker, event.maker);
+      const tile = Boolean(base.tiling || event.tile);
+      const keep = tile && Boolean(base.url) && base.whole;
       return {
         ...base,
         maker: event.maker ?? null,
-        url: event.url,
+        url: keep ? base.url : event.url,
+        whole: keep || !tile,
+        tilePass: tile,
         value: sameMaker ? base.value : 0,
         max: sameMaker ? base.max : 0,
         // A new step means the picture is being made again (an upscale pass).
@@ -63,6 +78,14 @@ export function nextRunState(state, event) {
       const rank = Number.isFinite(event.rank) ? event.rank : 0;
       if (rank < run.resultRank) return run;
       return { ...run, result: event.url, resultRank: rank };
+    }
+    case "tiles": {
+      if (run.status !== "running") return run;
+      if (event.promptId && run.promptId && !sameId(event.promptId, run.promptId)) return run;
+      const tiling = Boolean(event.on);
+      if (tiling === run.tiling) return run;
+      // The upscale starts before its first tile: say so from the split on.
+      return tiling ? { ...run, tiling, tilePass: true, value: 0, max: 0 } : { ...run, tiling };
     }
     case "progress": {
       if (run.status !== "running" || !sameId(event.node, run.maker)) return run;
@@ -83,10 +106,13 @@ export function nextRunState(state, event) {
   }
 }
 
-// "step 3 of 8", or "starting" before the first report.
+// "step 3 of 8", or "starting" before the first report; a tiled upscale
+// says so ahead of its tile's count.
+const TILES_TEXT = "upscaling in tiles";
 export function stepText(run) {
-  if (!(run?.max > 0)) return "starting";
-  return `step ${Math.min(Math.max(0, run.value), run.max)} of ${run.max}`;
+  if (!(run?.max > 0)) return run?.tilePass ? TILES_TEXT : "starting";
+  const steps = `step ${Math.min(Math.max(0, run.value), run.max)} of ${run.max}`;
+  return run.tilePass ? `${TILES_TEXT} · ${steps}` : steps;
 }
 
 // What a stopped run leaves on the picture. `saves` adds that the save
@@ -100,6 +126,16 @@ export function stoppedText(run, { saves = false } = {}) {
 export function stepFraction(run) {
   if (!(run?.max > 0)) return 0;
   return Math.min(1, Math.max(0, run.value / run.max));
+}
+
+// The nodes whose steps are tiles: a tiled upscale's split hands each tile
+// to the sampler after it (`TILE_SPLIT` .. `TILE_STITCH`), and Ultimate SD
+// Upscale samples its tiles inside one node.
+export const TILE_SPLIT = "AUSBOSS_NODES_TiledUpscale";
+export const TILE_STITCH = "AUSBOSS_NODES_TiledUpscaleStitch";
+const TILE_MAKERS = /^UltimateSDUpscale/;
+export function drawsTiles(nodeType) {
+  return TILE_MAKERS.test(String(nodeType ?? ""));
 }
 
 // How well a picture a node of the run showed stands for the finished

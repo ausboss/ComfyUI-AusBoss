@@ -2,6 +2,16 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Save Image 🆎 shows a run more clearly.** While the models load, an
+  empty picture area says the run is going, instead of asking you to run
+  the workflow. With the steps switch on, the last step stays up until the
+  saved picture has loaded, so the picture no longer blinks out at the
+  end. During an upscale in tiles it keeps the whole picture and says
+  "upscaling in tiles", instead of showing each tile as if it were the
+  picture. Step Preview 🆎 and Save Video 🆎 do the same with tiles.
+
 ## 2.20.1 - 2026-10-26
 
 - **Crop For Inpaint 🆎 and Stitch Inpaint 🆎 keep a picture's see-through

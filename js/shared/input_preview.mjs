@@ -120,9 +120,13 @@ export function describeNodePreview(node, inputName, storedUrl = null) {
     ?? describeSourcePreview(upstreamNode(node, inputName));
 }
 
-// Quiet ASCII placeholder copy; never an error.
-export function placeholderText(connected, noun = "an image") {
-  return connected ? "Run the workflow to see it here" : `Connect ${noun} to see it here`;
+// Quiet ASCII placeholder copy; never an error. `running`: a run is on its
+// way to this node, which shows its steps ("steps") or only the result.
+export function placeholderText(connected, noun = "an image", running = false) {
+  if (!connected) return `Connect ${noun} to see it here`;
+  if (running === "steps") return "Running. The steps show here once the picture starts";
+  if (running) return "Running. The picture shows here when it is saved";
+  return "Run the workflow to see it here";
 }
 
 // The node ran while its preview was off, so its last picture is older

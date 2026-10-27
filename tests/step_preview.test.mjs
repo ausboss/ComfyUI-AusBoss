@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   IDLE,
   consumersOf,
+  drawsTiles,
   feedsInto,
   nextRunState,
   resultRank,
@@ -259,4 +260,69 @@ test("a save node in a box the sampler is outside of shows the steps", () => {
   assert.equal(feedsInto(root, save, "7"), true);
   assert.equal(feedsInto(root, null, "7"), false);
   assert.equal(feedsInto(root, save, null), false);
+});
+
+test("a tiled upscale's tiles never replace the whole picture", () => {
+  const before = play([
+    { type: "start", promptId: "p1" },
+    { type: "picture", promptId: "p1", maker: "7", url: "blob:whole" },
+    { type: "progress", promptId: "p1", node: "7", value: 8, max: 8 },
+  ]);
+  assert.equal(before.whole, true);
+  // The split runs: the whole picture stays, and the chip says what is going on.
+  const split = nextRunState(before, { type: "tiles", promptId: "p1", on: true });
+  assert.equal(split.url, "blob:whole");
+  assert.equal(stepText(split), "upscaling in tiles");
+  const tile = play([
+    { type: "picture", promptId: "p1", maker: "20:5", url: "blob:tile1" },
+    { type: "progress", promptId: "p1", node: "20:5", value: 3, max: 8 },
+  ], split);
+  assert.equal(tile.url, "blob:whole");
+  assert.equal(tile.maker, "20:5");
+  assert.equal(stepText(tile), "upscaling in tiles · step 3 of 8");
+  // The stitch closes the window; a later sampler's picture shows again.
+  const stitched = nextRunState(tile, { type: "tiles", promptId: "p1", on: false });
+  assert.equal(stitched.tiling, false);
+  const after = nextRunState(stitched, { type: "picture", promptId: "p1", maker: "30", url: "blob:after" });
+  assert.equal(after.url, "blob:after");
+  assert.equal(after.tilePass, false);
+  assert.equal(stepText(after), "starting");
+});
+
+test("tiles show when there is no whole picture yet, and say they are tiles", () => {
+  const run = play([
+    { type: "start", promptId: "p1" },
+    { type: "tiles", promptId: "p1", on: true },
+    { type: "picture", promptId: "p1", maker: "5", url: "blob:tile1" },
+    { type: "picture", promptId: "p1", maker: "5", url: "blob:tile2" },
+    { type: "progress", promptId: "p1", node: "5", value: 2, max: 4 },
+  ]);
+  assert.equal(run.url, "blob:tile2");
+  assert.equal(run.whole, false);
+  assert.equal(stepText(run), "upscaling in tiles · step 2 of 4");
+});
+
+test("a node that samples its own tiles counts as tiles", () => {
+  const run = play([
+    { type: "start", promptId: "p1" },
+    { type: "picture", promptId: "p1", maker: "7", url: "blob:whole" },
+    { type: "picture", promptId: "p1", maker: "9", url: "blob:tile", tile: true },
+  ]);
+  assert.equal(run.url, "blob:whole");
+  assert.equal(run.tilePass, true);
+  assert.equal(drawsTiles("UltimateSDUpscale"), true);
+  assert.equal(drawsTiles("UltimateSDUpscaleNoUpscale"), true);
+  assert.equal(drawsTiles("KSampler"), false);
+  assert.equal(drawsTiles(undefined), false);
+});
+
+test("tile events from another run or after the end change nothing", () => {
+  const started = play([{ type: "start", promptId: "p1" }]);
+  assert.equal(nextRunState(started, { type: "tiles", promptId: "p2", on: true }), started);
+  assert.equal(nextRunState(started, { type: "tiles", promptId: "p1", on: false }), started);
+  const done = nextRunState(started, { type: "end", promptId: "p1", kind: "success" });
+  assert.equal(nextRunState(done, { type: "tiles", promptId: "p1", on: true }), done);
+  // A new run forgets the last one's tiles.
+  const tiling = nextRunState(started, { type: "tiles", promptId: "p1", on: true });
+  assert.equal(nextRunState(tiling, { type: "start", promptId: "p3" }).tiling, false);
 });
