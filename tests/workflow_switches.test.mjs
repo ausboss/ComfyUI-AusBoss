@@ -8,7 +8,7 @@ import {
   flipTo, frameBounds, groupBounds, groupListed, hasOffSide, heldCount, isRunning, listedRows, matchTerms, modeMatters,
   moveSwitch, nodeBounds, normalizeSettings, normalizeSwitches, offFreshCount, offHeldCount, offMode, pairNow, pairValue,
   partState, pillNodeWidth, placeNodes, readGroups, readSwitches, releaseStackGroup, releaseStackRow, removeMembers, removeOffMembers, removeSwitch,
-  renameStackGroup, renameSwitch, rowLabel, rowsSignature, saveValues, snapshotNode, stackGroupOwners, stackRowOwners, stackRows, suggestTitle, switchAllPlan, switchPlan, titleOrder, unionRect,
+  renameStackGroup, renameSwitch, repointSwitches, rowLabel, rowsSignature, saveValues, snapshotNode, stackGroupOwners, stackRowOwners, stackRows, suggestTitle, switchAllPlan, switchPlan, titleOrder, unionRect,
   valueAllPlan, valuePairs, valuePlan,
 } from "../js/shared/workflow_switches.mjs";
 
@@ -1186,4 +1186,35 @@ test("a click changes only whether the rows a switch names are on, and never tou
   const steps = { node: "21", widget: "value", on: 8, off: 25 };
   assert.equal(pairValue(steps, "on", 25), 8);
   assert.deepEqual(valuePairs({ on: { 22: { loras: value } }, off: { 22: { loras: value } } }), []);
+});
+
+test("a card pasted with its parts follows the copies; one pasted alone keeps its parts", () => {
+  const saved = {
+    exclusive: true,
+    switches: [
+      { id: 1, title: "Auto prompt", nodes: [], groups: [], on: { 41: { "auto prompt": true } }, off: { 41: { "auto prompt": false } } },
+      { id: 2, title: "Enlarge", nodes: [105, 106, 107], groups: [3] },
+      { id: 3, title: "Your picture", nodes: [5], groups: [], nodes_off: [6, 54], groups_off: [4] },
+    ],
+  };
+  // The paste copied 41, 105, 106, 5, 6 and group 3: node 107, node 54 and group 4 stayed behind.
+  const nodes = new Map([["41", 151], ["105", 152], ["106", 153], ["5", 154], ["6", 155]]);
+  const groups = new Map([["3", 9]]);
+  const moved = repointSwitches(saved, nodes, groups);
+  assert.equal(moved.exclusive, true);
+  assert.deepEqual(moved.switches[0].on, { 151: { "auto prompt": true } });
+  assert.deepEqual(moved.switches[0].off, { 151: { "auto prompt": false } });
+  assert.deepEqual([moved.switches[1].nodes, moved.switches[1].groups], [[152, 153, 107], [9]]);
+  assert.deepEqual([moved.switches[2].nodes, moved.switches[2].nodes_off, moved.switches[2].groups_off], [[154], [155, 54], [4]]);
+  // Nothing the card points at was copied: no change.
+  assert.equal(repointSwitches(saved, new Map([["999", 1000]]), new Map()), null);
+  assert.equal(repointSwitches(undefined, nodes, groups), null);
+
+  // The pasted card reads its copies, not the originals.
+  const graph = [node(151, 0, 0), node(152, 0, 0, { mode: MODE_BYPASS }), node(153, 0, 0, { mode: MODE_BYPASS }), node(107, 0, 0, { mode: MODE_BYPASS })];
+  graph[0].widgets = [{ name: "auto prompt", value: false }];
+  const [auto, enlarge] = readSwitches(moved.switches, placeNodes(graph), []);
+  assert.equal(auto.state, "off");
+  assert.equal(enlarge.state, "off");
+  assert.deepEqual(ids(enlarge.members), [152, 153, 107]);
 });

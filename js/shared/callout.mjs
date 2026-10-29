@@ -250,3 +250,24 @@ export function pastedLink(selected, pasted) {
   if (linkTarget(words.trim())?.url) return null; // an address over an address is just a paste
   return `[${words}](${target.url})`;
 }
+
+// A pasted note's text, its links pointed at the pasted copies of the nodes
+// and groups they name. `nodes` and `groups` map an old id (as text) to its
+// copy's id (js/shared/paste_ids.mjs). A link to anything the paste did not
+// copy is kept as typed. Returns null when no link changes.
+export function repointLinks(text, nodes, groups) {
+  let changed = false;
+  const follow = (raw) => {
+    const target = linkTarget(raw);
+    const isGroup = target?.group !== undefined;
+    const old = isGroup ? target.group : target?.link;
+    const copy = old === undefined ? undefined : (isGroup ? groups : nodes)?.get(String(old));
+    if (copy === undefined || copy === null) return raw;
+    changed = true;
+    return `#${isGroup ? "g" : ""}${copy}`;
+  };
+  const next = String(text ?? "")
+    .replace(WORDS_LINK_RE, (_all, words, address) => `[${words}](${follow(address)})`)
+    .replace(ARROW_RE, (all, _arrow, id) => (id === undefined ? all : `${all.slice(0, -id.length - 1)}${follow(`#${id}`)}`));
+  return changed ? next : null;
+}

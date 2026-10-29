@@ -179,8 +179,10 @@ Open **Settings** at the bottom of the edit view.
   no input of that kind (a decode: latent in, picture out) passes nothing,
   so the nodes that read it belong in the same switch.
 - **A switch finds its nodes by id.** A deleted node drops out of its
-  switch. A copy of a node is not in the switch, and a pasted copy of the
-  card switches the same nodes as the original.
+  switch. A copy of a node is not in the switch. A card copied together with
+  its nodes and groups switches the copies, so a whole workflow pasted into
+  a new tab keeps working switches. A card copied on its own switches the
+  same nodes as the original.
 - **A node in two switches** is changed by either. The other row then reads
   mixed. A node that two parts share needs no switch: ComfyUI only runs what
   a result needs.

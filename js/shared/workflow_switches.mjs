@@ -1117,6 +1117,37 @@ export function saveValues(settings, id, side, snapshots) {
   }));
 }
 
+// ---------- after a paste ----------
+
+// A pasted card's switches, pointed at the pasted copies of their parts.
+// `nodes` and `groups` map an old id (as text) to its copy's id
+// (js/shared/paste_ids.mjs). An id the paste did not copy is kept, so a card
+// pasted on its own still switches the parts it switched before. Returns
+// null when no id changes.
+export function repointSwitches(raw, nodes, groups) {
+  const settings = normalizeSettings(raw);
+  let changed = false;
+  const follow = (map) => (id) => {
+    const copy = map?.get(String(id));
+    if (copy === undefined || copy === null) return id;
+    changed = true;
+    return copy;
+  };
+  const node = follow(nodes);
+  const group = follow(groups);
+  const side = (values) => Object.fromEntries(Object.entries(values).map(([id, held]) => [String(node(id)), held]));
+  const switches = settings.switches.map((entry) => ({
+    ...entry,
+    nodes: entry.nodes.map(node),
+    groups: entry.groups.map(group),
+    ...(entry.nodes_off ? { nodes_off: entry.nodes_off.map(node) } : {}),
+    ...(entry.groups_off ? { groups_off: entry.groups_off.map(group) } : {}),
+    on: side(entry.on),
+    off: side(entry.off),
+  }));
+  return changed ? normalizeSettings({ ...settings, switches }) : null;
+}
+
 // ---------- change detection ----------
 
 // Everything the card draws, as one string: when it matches the last one,
