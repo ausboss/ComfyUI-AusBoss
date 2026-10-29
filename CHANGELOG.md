@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.20.3 - 2026-10-29
 
 - **Workflow Switches 🆎 keep working after a copy and paste.** A whole
   workflow pasted into a new tab showed "empty" next to every switch, and
