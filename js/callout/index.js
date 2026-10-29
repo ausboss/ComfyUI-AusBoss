@@ -16,11 +16,13 @@ import {
   fitFontSize,
   parseBlocks,
   pastedLink,
+  repointLinks,
   targetId,
   toggleSmall,
   urlLabel,
   wrapLink,
 } from "../shared/callout.mjs";
+import { onPaste } from "../shared/paste_ids.mjs";
 import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
@@ -529,6 +531,20 @@ function buildPanel(node) {
 
 app.registerExtension({
   name: "AusBoss.Callout",
+  setup() {
+    // A note copied with what its links name follows the copies.
+    onPaste(({ nodes, groups, created }) => {
+      for (const node of created) {
+        if (node?.comfyClass !== NODE_CLASS && node?.type !== NODE_CLASS) continue;
+        const state = buildPanel(node);
+        if (!state) continue;
+        const text = repointLinks(state.valueWidget.value, nodes, groups);
+        if (text === null) continue;
+        state.valueWidget.value = text;
+        renderText(state);
+      }
+    });
+  },
   beforeRegisterNodeDef(nodeType, nodeData) {
     if (nodeData?.name !== NODE_CLASS) return;
     hideInputsInDef(nodeData, ["text"]);

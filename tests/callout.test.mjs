@@ -5,7 +5,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
-  ARROW_ANGLE, ARROW_CHOICES, SMALL_MARK, arrowText, fitFontSize, linkTarget, parseBlocks, pastedLink, targetId,
+  ARROW_ANGLE, ARROW_CHOICES, SMALL_MARK, arrowText, fitFontSize, linkTarget, parseBlocks, pastedLink, repointLinks, targetId,
   toggleSmall, urlLabel, wrapLink,
 } from "../js/shared/callout.mjs";
 
@@ -275,4 +275,19 @@ test("a link is a real link: a new tab, no way back to this page, and a press on
   // The address is only ever one the parser called http or https.
   assert.match(run, /link\.href = first\.url/);
   assert.equal(source.includes("window.open"), false);
+});
+
+test("a note pasted with what its links name follows the copies", () => {
+  const nodes = new Map([["5", 151], ["12", 152]]);
+  const groups = new Map([["3", 9]]);
+  const text = "⬇️#12 Type here\n\n[the Seed box](#5), [the models](#g3), [elsewhere](#40) and ->#40\n[a page](https://example.com/#5)";
+  assert.equal(
+    repointLinks(text, nodes, groups),
+    "⬇️#152 Type here\n\n[the Seed box](#151), [the models](#g9), [elsewhere](#40) and ->#40\n[a page](https://example.com/#5)",
+  );
+  // An arrow inside a link's words keeps its own node.
+  assert.equal(repointLinks("[→#12 here](#5)", nodes, groups), "[→#152 here](#151)");
+  // Nothing it names was copied, or no links at all: no change.
+  assert.equal(repointLinks("[elsewhere](#40) ⬆️ plain", nodes, groups), null);
+  assert.equal(repointLinks(undefined, nodes, groups), null);
 });

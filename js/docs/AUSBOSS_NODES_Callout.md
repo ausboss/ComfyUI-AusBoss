@@ -64,6 +64,8 @@ In the text a link is written `[the words](https://example.com)`, or
 
 - The text is stored in the node's one hidden `text` input, so saving,
   undo and copy work like any other node. Nothing else is saved with it.
+- A note copied together with the nodes and groups its links name links to
+  the copies. A link to anything left behind keeps its number.
 - In the text, small print is a line that starts with six `#` and a space:
   `###### Off, your words go in as typed.` Small print is 62% of the note's
   text size and never under 11 px.

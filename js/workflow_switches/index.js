@@ -39,9 +39,10 @@ import {
   DEFAULT_SETTINGS, SETTINGS_PROPERTY, SWITCHES_MAX, TITLE_MAX, addMembers, addOffMembers, addSwitch, cardView, choiceState,
   choosePlan, flipTo, frameBounds, groupBounds, hasOffSide, heldCount, listedRows, modeMatters, moveSwitch, normalizeSettings,
   offFreshCount, offHeldCount, pairValue, placeNodes, readGroups, readSwitches, removeMembers, removeOffMembers, removeSwitch,
-  renameSwitch, rowLabel, rowsSignature, saveValues, snapshotNode, suggestTitle, switchAllPlan, switchPlan, valueAllPlan,
-  valuePlan,
+  renameSwitch, repointSwitches, rowLabel, rowsSignature, saveValues, snapshotNode, suggestTitle, switchAllPlan, switchPlan,
+  valueAllPlan, valuePlan,
 } from "../shared/workflow_switches.mjs";
+import { onPaste } from "../shared/paste_ids.mjs";
 
 const NODE_CLASS = "AUSBOSS_NODES_WorkflowSwitches";
 const CSS_ID = "ausboss-workflow-switches-css";
@@ -1170,6 +1171,18 @@ app.registerExtension({
   name: "AusBoss.WorkflowSwitches",
   setup() {
     ensureRedrawHook();
+    // A card copied with its parts follows the copies. Without this a whole
+    // workflow pasted into a new tab reads "empty" on every row.
+    onPaste(({ nodes, groups, created }) => {
+      for (const node of created) {
+        if (!isSwitches(node)) continue;
+        const moved = repointSwitches(node.properties?.[SETTINGS_PROPERTY], nodes, groups);
+        if (!moved) continue;
+        node.properties[SETTINGS_PROPERTY] = moved;
+        const state = node.__ausbossWorkflowSwitches;
+        if (state) refresh(state);
+      }
+    });
   },
   beforeRegisterNodeDef(nodeType, nodeData) {
     if (nodeData?.name !== NODE_CLASS) return;

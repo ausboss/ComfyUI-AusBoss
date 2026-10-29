@@ -2,6 +2,15 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Workflow Switches 🆎 keep working after a copy and paste.** A whole
+  workflow pasted into a new tab showed "empty" next to every switch, and
+  the switches could not be turned on. A card copied together with its
+  nodes and groups now switches the copies. The same goes for duplicating,
+  Alt + drag, and dragging a saved workflow onto the canvas. A Callout 🆎
+  copied with what its links point at links to the copies too.
+
 ## 2.20.2 - 2026-10-27
 
 - **Save Image 🆎 shows a run more clearly.** While the models load, an
