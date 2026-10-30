@@ -2,6 +2,14 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## 2.20.4 - 2026-10-30
+
+- **Workflow Switches 🆎 explain "empty".** Hover over the word and the card
+  says what happened: none of that switch's nodes are in this workflow. A
+  workflow pasted and saved on an older version stays that way after an
+  update, so the card says to open the original file again, or to add nodes
+  from the switch's menu.
+
 ## 2.20.3 - 2026-10-29
 
 - **Workflow Switches 🆎 keep working after a copy and paste.** A whole
