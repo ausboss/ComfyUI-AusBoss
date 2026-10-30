@@ -87,14 +87,18 @@ export function nameAt(picked, names, position, atTheEnd) {
   return atTheEnd === "start over" ? list[(place - 1) % list.length] : null;
 }
 
-// Picture after a run is queued. "next" may reach one past the last picture,
-// where the node stops the run; it never runs further than that. "random"
-// jumps to any picked picture (`roll` is 0..1, for tests).
-export function nextPosition(position, count, afterRun, roll = Math.random()) {
+// Picture after a run is queued. With "stop the run", "next" may reach one
+// past the last picture, where the node stops the run; it never runs further
+// than that. With "start over", "next" wraps from the last picture back to
+// the first, so Picture always names a real picture. A Picture already past
+// the end (saved by an older version) steps on from the picture it loaded.
+// "random" jumps to any picked picture (`roll` is 0..1, for tests).
+export function nextPosition(position, count, afterRun, atTheEnd = "stop the run", roll = Math.random()) {
   const place = Math.max(1, Math.round(Number(position) || 1));
   if (count < 1) return place;
   if (afterRun === "random") return Math.min(count, Math.floor(roll * count) + 1);
   if (afterRun !== "next") return place;
+  if (atTheEnd === "start over") return (place % count) + 1;
   return Math.min(place + 1, count + 1);
 }
 
