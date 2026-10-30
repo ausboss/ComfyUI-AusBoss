@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import logging
 from functools import lru_cache
 from pathlib import Path
 
@@ -21,6 +23,13 @@ except ImportError:  # Offline tests import this module without ComfyUI.
 MODEL_FOLDER = "lama"
 MODEL_EXTENSIONS = {".pt", ".pth"}
 DEFAULT_MODEL_NAME = "big-lama.pt"
+# The two builds of big-lama.pt in common use: the release the help page links,
+# and the one on Hugging Face (fashn-ai/LaMa). TorchScript has no safe mode and
+# a file can run code when it opens, so nothing else reaches torch.jit.load.
+KNOWN_MODEL_SHA256 = {
+    "344c77bbcb158f17dd143070d1e789f38a66c04202311ae3a258ef66667a9ea9",
+    "7ba7aa7ac37a4d41fdbbeba3a2af7ead18058552997e3a3cd1a3b2210c9e6b4c",
+}
 PREVIEW_MAX_SIZE = 512
 
 
@@ -67,8 +76,25 @@ def resolve_lama_model(model_name: str) -> Path:
     )
 
 
+def _verify_known_model(path: Path) -> None:
+    """Refuse any file but a known build of the model, whatever its name."""
+    digest = hashlib.sha256()
+    with path.open("rb") as checkpoint:
+        for chunk in iter(lambda: checkpoint.read(1024 * 1024), b""):
+            digest.update(chunk)
+    if digest.hexdigest() not in KNOWN_MODEL_SHA256:
+        logging.warning("[AusBoss] LaMa Inpaint refused %s, SHA-256 %s", path, digest.hexdigest())
+        raise ValueError(
+            f"LaMa Inpaint did not open '{path.name}' because it is not a known "
+            f"{DEFAULT_MODEL_NAME}. A LaMa model file can run code when it opens, "
+            "so only known copies are used. The node's help page has the "
+            "download link."
+        )
+
+
 @lru_cache(maxsize=2)
 def load_lama_model(model_path: str):
+    _verify_known_model(Path(model_path))
     # Cached on CPU so ComfyUI's VRAM stays free between runs; run_lama_inpaint
     # moves the module to the compute device only for the duration of a batch.
     model = torch.jit.load(model_path, map_location="cpu")

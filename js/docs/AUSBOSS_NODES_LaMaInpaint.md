@@ -9,7 +9,8 @@ done one at a time, so a long clip does not need more graphics memory.
 
 ## Model setup
 
-Place `big-lama.pt` in:
+Download [`big-lama.pt`](https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt)
+and place it in:
 
 ```text
 ComfyUI/models/lama/big-lama.pt
@@ -20,6 +21,12 @@ refresh the browser or restart ComfyUI so the model list is updated. Until
 the file is there, the list still shows `big-lama.pt`, and a run stops with a
 message that says where to put it.
 
+The node only opens known copies of this file, whatever you name them: the
+download above, or the one from
+[fashn-ai/LaMa](https://huggingface.co/fashn-ai/LaMa). A LaMa model file can
+run code when it opens, so any other file stops the run with a message and is
+never loaded.
+
 ## Controls
 
 - **image**: BHWC images or video frames.
@@ -28,7 +35,7 @@ message that says where to put it.
   another size is stretched to fit the picture. A picture with no mask
   painted on it stops the run with "No mask painted" instead of coming back
   unchanged.
-- **Model** (`model`): A `.pt` or `.pth` TorchScript checkpoint from `models/lama`.
+- **Model** (`model`): A known copy of `big-lama.pt` from `models/lama`.
 
 ## Output
 

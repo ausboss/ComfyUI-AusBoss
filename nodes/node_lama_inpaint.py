@@ -38,7 +38,10 @@ class AusBossLaMaInpaint:
                     models,
                     {
                         "default": DEFAULT_MODEL_NAME if DEFAULT_MODEL_NAME in models else models[0],
-                        "tooltip": "TorchScript LaMa checkpoint from ComfyUI/models/lama.",
+                        "tooltip": (
+                            "The LaMa model from ComfyUI/models/lama. Only known copies "
+                            "of big-lama.pt open; any other file stops the run."
+                        ),
                     },
                 ),
             },
