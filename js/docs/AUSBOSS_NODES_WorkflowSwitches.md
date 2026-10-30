@@ -183,6 +183,10 @@ Open **Settings** at the bottom of the edit view.
   its nodes and groups switches the copies, so a whole workflow pasted into
   a new tab keeps working switches. A card copied on its own switches the
   same nodes as the original.
+- **"empty" next to a switch** means none of its nodes are in this workflow,
+  so there is nothing to turn on. A workflow pasted and saved on a version
+  before 2.20.3 stays this way. Open the original file again, or add nodes
+  from the switch's menu in the edit view.
 - **A node in two switches** is changed by either. The other row then reads
   mixed. A node that two parts share needs no switch: ComfyUI only runs what
   a result needs.

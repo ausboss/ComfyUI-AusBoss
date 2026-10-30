@@ -829,7 +829,7 @@ function buildRow(state, key, made) {
       : data.state === "mixed" ? `${data.on} of its ${data.total} ${unit}`
       : waiting ? "Saved for one side only. Set its nodes the other way, select them, and save that side from its menu."
         : data.state !== "empty" ? ""
-          : made ? "Its nodes are gone. Add some from its menu in the edit view, or delete the switch." : "No nodes inside this group yet";
+          : made ? "None of this switch's nodes are in this workflow. A workflow pasted and saved on an older AusBoss version stays like this: open the original file again, or add nodes from the switch's menu in the edit view." : "No nodes inside this group yet";
     pill.classList.toggle("mixed", data.state === "mixed");
     offButton.classList.toggle("on", data.state === "off");
     onButton.classList.toggle("on", data.state === "on");
