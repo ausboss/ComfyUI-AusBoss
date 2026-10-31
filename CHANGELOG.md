@@ -2,6 +2,16 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **LaMa Inpaint 🆎 only opens known copies of its model.** A LaMa model file
+  can run code when it opens, so the node now checks the file first. The
+  `big-lama.pt` linked on its help page and the one from fashn-ai/LaMa on
+  Hugging Face both work, under any name. Any other file stops the run with a
+  message and is never loaded.
+- **Frame Interpolate 🆎 errors no longer show folders on the server.** The
+  message names the file, and the folder goes to the server console.
+
 ## 2.20.4 - 2026-10-30
 
 - **Workflow Switches 🆎 explain "empty".** Hover over the word and the card

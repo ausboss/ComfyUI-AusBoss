@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
+import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
@@ -18,6 +19,7 @@ from nodes._interpolate_helpers import (
     FLOW_METHOD,
     FrameJob,
     _execute_jobs,
+    _load_raft_model,
     _pair_grouped_batches,
     adjacent_frame_differences,
     apply_scene_cuts,
@@ -250,6 +252,39 @@ class WeightCacheTests(unittest.TestCase):
     def test_checkpoint_path_rejects_a_missing_filename(self):
         with self.assertRaisesRegex(RuntimeError, "checkpoint URL"):
             raft_checkpoint_path(SimpleNamespace(url=""), "/tmp/torch-hub")
+
+
+class WeightErrorTests(unittest.TestCase):
+    """An error shown in the browser names the file, never its folder."""
+
+    def load_failure(self, checkpoint: Path) -> tuple[str, str]:
+        weights = SimpleNamespace(url=f"https://download.example/{checkpoint.name}")
+        optical_flow = SimpleNamespace(
+            Raft_Small_Weights=SimpleNamespace(DEFAULT=weights), raft_small=None
+        )
+        with patch.dict(sys.modules, {"torchvision.models.optical_flow": optical_flow}):
+            with patch("nodes._interpolate_helpers.raft_checkpoint_path", return_value=checkpoint):
+                with self.assertLogs(level="WARNING") as logs:
+                    with self.assertRaises(RuntimeError) as caught:
+                        _load_raft_model.__wrapped__()
+        return str(caught.exception), "\n".join(logs.output)
+
+    def test_a_missing_checkpoint_keeps_its_folder_in_the_console(self):
+        with tempfile.TemporaryDirectory() as folder:
+            checkpoint = Path(folder) / "raft_small-01064c6d.pth"
+            message, console = self.load_failure(checkpoint)
+        self.assertIn(checkpoint.name, message)
+        self.assertNotIn(folder, message)
+        self.assertIn(folder, console)
+
+    def test_a_bad_checkpoint_keeps_its_folder_in_the_console(self):
+        with tempfile.TemporaryDirectory() as folder:
+            checkpoint = Path(folder) / "raft_small-01064c6d.pth"
+            checkpoint.write_bytes(b"not a checkpoint")
+            message, console = self.load_failure(checkpoint)
+        self.assertIn(checkpoint.name, message)
+        self.assertNotIn(folder, message)
+        self.assertIn(folder, console)
 
 
 class FrameInterpolateNodeTests(unittest.TestCase):

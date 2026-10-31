@@ -9,6 +9,7 @@ batches that upload only the unique source frames each batch needs.
 from __future__ import annotations
 
 import hashlib
+import logging
 import math
 import re
 from functools import lru_cache
@@ -204,7 +205,7 @@ def _verify_checkpoint_hash(path: Path) -> None:
     expected = match.group(1).lower()
     if not digest.hexdigest().startswith(expected):
         raise RuntimeError(
-            f"Frame Interpolate found a corrupt RAFT checkpoint at '{path}': "
+            f"Frame Interpolate found a corrupt RAFT checkpoint, '{path.name}': "
             f"its SHA-256 does not start with the expected {expected}."
         )
 
@@ -223,12 +224,15 @@ def _load_raft_model():
     weights = Raft_Small_Weights.DEFAULT
     checkpoint = raft_checkpoint_path(weights)
     if not checkpoint.is_file():
+        # The folder goes to the console: an error shown in the browser never
+        # names a place on the server's disk.
+        logging.warning("[AusBoss] Frame Interpolate expects the RAFT-small checkpoint at %s", checkpoint)
         raise RuntimeError(
             "Frame Interpolate's optical flow method will not download model "
             "weights automatically. Download the RAFT-small checkpoint only "
-            "after approving that model download, then place it at "
-            f"'{checkpoint}', or switch the method to 'blend'. Source URL: "
-            f"{weights.url}"
+            f"after approving that model download, then place {checkpoint.name} "
+            "in PyTorch's checkpoints folder (the server console shows where), "
+            f"or switch the method to 'blend'. Source URL: {weights.url}"
         )
     try:
         _verify_checkpoint_hash(checkpoint)
@@ -236,11 +240,12 @@ def _load_raft_model():
         model = raft_small(weights=None, progress=False)
         model.load_state_dict(state_dict)
     except Exception as exc:
-        detail = str(exc).encode("ascii", "replace").decode("ascii")
+        logging.warning("[AusBoss] Frame Interpolate could not load %s: %s", checkpoint, exc)
         raise RuntimeError(
             "Frame Interpolate could not load the RAFT-small optical flow "
-            f"weights from '{checkpoint}'. Replace the cached file with the "
-            f"official checkpoint or switch to 'blend'. Original error: {detail}"
+            f"weights from '{checkpoint.name}'. Replace the cached file with the "
+            "official checkpoint or switch to 'blend'. The server console has "
+            "the details."
         ) from exc
     model.eval()
     return model
