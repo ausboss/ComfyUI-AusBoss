@@ -14,6 +14,10 @@ All notable changes to ComfyUI-AusBoss are documented here.
 - **Image Folder 🆎 "start over" now keeps going.** With one per run and next,
   the pictures repeat in order. Before, after the last picture every run
   loaded picture 1. Fixed by @MarxMitX.
+- **Workflow Switches 🆎 One at a time now holds from the start.** A new
+  switch came on beside the others, and turning the setting on left every
+  row on. Now a new switch starts off while another row is on, and turning
+  the setting on keeps the top row on.
 
 ## 2.20.4 - 2026-10-30
 

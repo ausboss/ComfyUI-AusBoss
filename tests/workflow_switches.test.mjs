@@ -8,7 +8,7 @@ import {
   flipTo, frameBounds, groupBounds, groupListed, hasOffSide, heldCount, isRunning, listedRows, matchTerms, modeMatters,
   moveSwitch, nodeBounds, normalizeSettings, normalizeSwitches, offFreshCount, offHeldCount, offMode, pairNow, pairValue,
   partState, pillNodeWidth, placeNodes, readGroups, readSwitches, releaseStackGroup, releaseStackRow, removeMembers, removeOffMembers, removeSwitch,
-  renameStackGroup, renameSwitch, repointSwitches, rowLabel, rowsSignature, saveValues, snapshotNode, stackGroupOwners, stackRowOwners, stackRows, suggestTitle, switchAllPlan, switchPlan, titleOrder, unionRect,
+  renameStackGroup, renameSwitch, repointSwitches, rowLabel, rowsSignature, saveValues, settlePlan, snapshotNode, stackGroupOwners, stackRowOwners, stackRows, suggestTitle, switchAllPlan, switchPlan, titleOrder, unionRect,
   valueAllPlan, valuePairs, valuePlan,
 } from "../js/shared/workflow_switches.mjs";
 
@@ -673,6 +673,38 @@ test("one at a time turns the other rows' off sides on, and the row switched on 
   const other = { members: [], offMembers: [contested] }; // runs it while that row is off
   const wants = { members: [], offMembers: [contested] }; // stops it once this row is on
   assert.deepEqual(planned(switchPlan([other, wants], wants, true, exclusive)), { contested: MODE_BYPASS });
+});
+
+test("a One at a time card settles on one row when a new switch or the setting would leave several on", () => {
+  const row = (id, state, mode = MODE_ALWAYS) => ({ state, members: [{ id, mode }] });
+  const modes = (plan) => planned(plan.modes);
+  const exclusive = { ...DEFAULT_SETTINGS, exclusive: true };
+  const old = row("old", "on");
+  const fresh = row("fresh", "on");
+  // The new switch gives way, as issue #256 reports, and so does its order on the card.
+  assert.deepEqual(modes(settlePlan([old, fresh], exclusive, fresh)), { fresh: MODE_BYPASS });
+  assert.deepEqual(modes(settlePlan([fresh, old], exclusive, fresh)), { fresh: MODE_BYPASS });
+  assert.deepEqual(modes(settlePlan([old, fresh], { ...exclusive, off: "mute" }, fresh)), { fresh: MODE_NEVER });
+  // The first switch on a card has nothing to give way to, and an off row is already settled.
+  assert.deepEqual(modes(settlePlan([fresh], exclusive, fresh)), {});
+  assert.deepEqual(modes(settlePlan([row("off", "off", MODE_BYPASS), fresh], exclusive, fresh)), {});
+  // Nothing happens with the setting off.
+  assert.deepEqual(modes(settlePlan([old, fresh], DEFAULT_SETTINGS, fresh)), {});
+  // Turning the setting on keeps the top row, and a row that is fully on beats one that is partly on.
+  assert.deepEqual(modes(settlePlan([row("a", "on"), row("b", "on"), row("c", "on")], exclusive)), { b: MODE_BYPASS, c: MODE_BYPASS });
+  assert.deepEqual(modes(settlePlan([row("part", "mixed"), row("full", "on")], exclusive)), { part: MODE_BYPASS });
+  // A row with only some of its nodes on is the one that stays when no row is fully on.
+  const part = { state: "mixed", members: [{ id: "p1", mode: MODE_ALWAYS }, { id: "p2", mode: MODE_BYPASS }] };
+  assert.deepEqual(modes(settlePlan([part, row("fresh", "mixed")], exclusive)), { p2: MODE_ALWAYS, fresh: MODE_BYPASS });
+  // A new switch sharing a node with the row that stays leaves that node running.
+  const shared = { id: "shared", mode: MODE_ALWAYS };
+  const holder = { state: "on", members: [shared] };
+  const late = { state: "on", members: [shared, { id: "late", mode: MODE_ALWAYS }] };
+  assert.deepEqual(modes(settlePlan([holder, late], exclusive, late)), { late: MODE_BYPASS });
+  // A settings switch's values go off with its row.
+  const pair = { node: 1, widget: "steps", now: "on" };
+  const withValues = { state: "on", members: [], pairs: [pair] };
+  assert.deepEqual(settlePlan([old, withValues], exclusive).values, [[pair, "off"]]);
 });
 
 test("switching everything on or off puts each row in its own state, off sides included", () => {
