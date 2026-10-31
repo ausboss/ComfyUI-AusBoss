@@ -11,6 +11,9 @@ All notable changes to ComfyUI-AusBoss are documented here.
   message and is never loaded.
 - **Frame Interpolate 🆎 errors no longer show folders on the server.** The
   message names the file, and the folder goes to the server console.
+- **Image Folder 🆎 "start over" now keeps going.** With one per run and next,
+  the pictures repeat in order. Before, after the last picture every run
+  loaded picture 1. Fixed by @MarxMitX.
 
 ## 2.20.4 - 2026-10-30
 
