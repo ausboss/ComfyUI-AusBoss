@@ -58,7 +58,8 @@ folders. A folder from anywhere else is copied in:
   a tile makes it the next.
 
 After the last picture, **At the end** either stops the run with a message
-or starts over at the first.
+or starts over at the first. With **start over**, Picture goes back to 1 and
+the pictures repeat in order for as many runs as you queue.
 
 ## The card
 
@@ -73,7 +74,9 @@ or starts over at the first.
   run loads, counted from 1.
 - **After a run** (`after_run`): **next** moves Picture on, **stay** keeps
   loading the same one, **random** jumps to any of the picked ones.
-- **At the end** (`at_the_end`): **stop the run** or **start over**.
+- **At the end** (`at_the_end`): after the last picture, **stop the run**
+  stops with a message, and **start over** goes back to the first and keeps
+  going.
 
 ## The tiles
 
@@ -117,6 +120,9 @@ or starts over at the first.
   their own sizes. They are not resized or stacked into one batch.
 - Moving Picture on is done by the editor when a run is queued. A workflow
   sent through the API loads exactly the picture `position` names.
+- With **start over**, a Picture number past the last picture counts round
+  from the first. A workflow saved with such a number loads that picture and
+  moves on from there.
 - The node runs again when a picked file is added, removed or rewritten.
 - A folder lists up to 5,000 pictures, and a folder that is brought in is
   copied up to 3,000.
