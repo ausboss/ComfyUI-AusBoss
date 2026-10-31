@@ -39,7 +39,7 @@ import {
   DEFAULT_SETTINGS, SETTINGS_PROPERTY, SWITCHES_MAX, TITLE_MAX, addMembers, addOffMembers, addSwitch, cardView, choiceState,
   choosePlan, flipTo, frameBounds, groupBounds, hasOffSide, heldCount, listedRows, modeMatters, moveSwitch, normalizeSettings,
   offFreshCount, offHeldCount, pairValue, placeNodes, readGroups, readSwitches, removeMembers, removeOffMembers, removeSwitch,
-  renameSwitch, repointSwitches, rowLabel, rowsSignature, saveValues, snapshotNode, suggestTitle, switchAllPlan, switchPlan,
+  renameSwitch, repointSwitches, rowLabel, rowsSignature, saveValues, settlePlan, snapshotNode, suggestTitle, switchAllPlan, switchPlan,
   valueAllPlan, valuePlan,
 } from "../shared/workflow_switches.mjs";
 import { onPaste } from "../shared/paste_ids.mjs";
@@ -375,6 +375,15 @@ function switchAll(state, on) {
   refresh(state);
 }
 
+// One at a time holds for rows that did not come from a click on a row: a
+// new switch (`fresh`, its key) and the setting being turned on.
+function settleRows(state, fresh) {
+  const { settings, rows } = read(state);
+  const { modes, values } = settlePlan(rows, settings, rows.find((row) => rowKey(row) === fresh));
+  applyPlan(state, modes, values);
+  refresh(state);
+}
+
 function frameRow(state, key) {
   const row = read(state).rows.find((candidate) => rowKey(candidate) === key);
   const found = row?.kind === "group" ? groupBounds(row.group) : row?.rect;
@@ -436,7 +445,10 @@ function segmentRow(state, key, label, title, values, labels = {}, { flips = fal
   const buttons = new Map();
   for (const value of values) {
     const choice = button("", labels[value] ?? String(value), title);
-    choice.addEventListener("click", () => patchSettings(state, { [key]: flips ? !settingsOf(state.node)[key] : value }));
+    choice.addEventListener("click", () => {
+      patchSettings(state, { [key]: flips ? !settingsOf(state.node)[key] : value });
+      if (key === "exclusive") settleRows(state);
+    });
     seg.append(choice);
     buttons.set(value, choice);
   }
@@ -569,6 +581,7 @@ function newSwitch(state) {
     return;
   }
   writeSettings(state, made.settings);
+  settleRows(state, `s${made.id}`);
   startRename(state, `s${made.id}`);
 }
 

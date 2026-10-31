@@ -920,6 +920,19 @@ export function choosePlan(rows, target, settings) {
   return { modes: switchPlan(rows, target, true, one), values: valuePlan(rows, target, true, one) };
 }
 
+// What settles a One at a time card that has more than one row on or partly
+// on, which a click can't cause but a new switch or the setting itself can:
+// nodes on a canvas start out running, so the rows they make read on. One row
+// stays on and the others go off. `fresh` is a row just made, which gives way
+// to the rows that were there; a row that is fully on goes before one that is
+// partly on, then the top one.
+export function settlePlan(rows, settings, fresh = null) {
+  const running = (rows ?? []).filter((row) => row.state === "on" || row.state === "mixed");
+  if (!settings?.exclusive || running.length < 2) return { modes: [], values: [] };
+  const others = running.filter((row) => row !== fresh);
+  return choosePlan(rows, others.find((row) => row.state === "on") ?? others[0], settings);
+}
+
 // ---------- making and changing switches ----------
 
 function withSwitches(settings, switches) {
