@@ -8,6 +8,7 @@
          checks it stays the dynamic kind. -->
     <img src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fausboss%2FComfyUI-AusBoss%2Fmain%2Fpyproject.toml&query=%24.project.version&label=release&color=00b4aa&style=flat-square" alt="Release">
     <a href="https://www.youtube.com/@ausbossdev"><img src="https://img.shields.io/badge/YouTube-%40ausbossdev-00b4aa?style=flat-square&logo=youtube&logoColor=white" alt="YouTube @ausbossdev"></a>
+    <a href="https://discord.gg/RwVxY9Fuaj"><img src="https://img.shields.io/badge/Discord-AusBoss-00b4aa?style=flat-square&logo=discord&logoColor=white" alt="Discord: AusBoss"></a>
   </p>
 </div>
 
@@ -27,7 +28,7 @@ Most of them are for image and video work. ComfyUI's core nodes already cover th
 - **[LoRA Loader](#lora-loader):** a whole LoRA stack in one node, each row with its own switch and strength.
 - **[Workflow Switches](#workflow-switches):** turn parts of a workflow off and on from one small card.
 
-The **?** in a node's title bar opens a short card with its inputs and outputs, and every node has a longer help page in ComfyUI's node help panel. I post the workflows I make with them on [Civitai](https://civitai.com/user/AusBoss) and [X @Zanzibased](https://x.com/Zanzibased), and videos of them on [YouTube @ausbossdev](https://www.youtube.com/@ausbossdev). If a node saves you time, a star on the repo helps other people find it.
+The **?** in a node's title bar opens a short card with its inputs and outputs, and every node has a longer help page in ComfyUI's node help panel. I post the workflows I make with them on [Civitai](https://civitai.com/user/AusBoss) and [X @Zanzibased](https://x.com/Zanzibased), and videos of them on [YouTube @ausbossdev](https://www.youtube.com/@ausbossdev). Can't open Civitai? All my workflows are on [my Discord](https://discord.gg/RwVxY9Fuaj) too. If a node saves you time, a star on the repo helps other people find it.
 
 ## Install
 
