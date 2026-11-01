@@ -683,7 +683,7 @@ class EdgeHaloTests(unittest.TestCase):
         stitch_cls = NODE_CLASS_MAPPINGS["AUSBOSS_NODES_StitchInpaint"]
         types = stitch_cls.INPUT_TYPES()
         self.assertEqual(list(types["required"]), ["stitcher", "inpainted"])
-        self.assertEqual(list(types["optional"]), ["fix_edge_halo", "color_match", "seam"])
+        self.assertEqual(list(types["optional"]), ["fix_edge_halo", "color_match", "seam", "paste_onto"])
         kind, options = types["optional"]["fix_edge_halo"]
         self.assertEqual(kind, "BOOLEAN")
         self.assertIs(options["default"], False)
@@ -1994,7 +1994,7 @@ class SeamChoiceNodeTests(unittest.TestCase):
 
     def test_the_choice_is_appended_last_and_defaults_to_classic(self):
         optional = self.node_cls.INPUT_TYPES()["optional"]
-        self.assertEqual(list(optional)[-1], "seam")
+        self.assertEqual(list(optional)[2], "seam")
         choices, options = optional["seam"]
         self.assertEqual(choices, ["classic", "blend in"])
         self.assertEqual(options["default"], "classic")
@@ -2060,6 +2060,100 @@ class ErrorSourceTests(unittest.TestCase):
                 canvas[0], torch.zeros((1, 16, 16)), geometry, 0,
                 source="Video Crop + Rotate + Pad -> Clip",
             )
+
+
+class PasteOnOriginalTests(unittest.TestCase):
+    """A hand crop's stitch laid back on the whole picture."""
+
+    def setUp(self):
+        self.picture = torch.rand(1, 120, 160, 3, generator=torch.Generator().manual_seed(7))
+
+    def stitch(self, spec, painted=None, size=None):
+        from nodes._transform_engine import transform_tensor_batch
+
+        canvas, mask, geometry = transform_tensor_batch(self.picture, spec)
+        if painted is not None:
+            mask = painted(mask)
+        if size is not None:
+            canvas = canvas.movedim(-1, 1)
+            canvas = torch.nn.functional.interpolate(canvas, size=size, mode="bilinear").movedim(1, -1)
+            mask = torch.nn.functional.interpolate(mask.unsqueeze(1), size=size, mode="bilinear").squeeze(1)
+        stitcher = inpaint_helpers.build_transform_stitcher(canvas, mask, geometry, 0)
+        inpaint_helpers.remember_original(stitcher, self.picture, geometry, spec.normalized().rotation_degrees)
+        edit = 1.0 - canvas
+        return stitcher, apply_stitch(stitcher, edit), edit, geometry
+
+    def paint(self, mask):
+        mask = torch.zeros_like(mask)
+        mask[:, 10:20, 15:30] = 1.0
+        return mask
+
+    def test_a_straight_crop_lands_where_it_was_cut(self):
+        from nodes._transform_engine import TransformSpec
+
+        spec = TransformSpec(crop_x=40, crop_y=30, crop_width=60, crop_height=50)
+        stitcher, stitched, _, _ = self.stitch(spec, self.paint)
+        image, mask = inpaint_helpers.paste_on_original(stitcher, stitched, stitch_blend_mask(stitcher))
+        self.assertEqual(image.shape, self.picture.shape)
+        self.assertEqual(mask.shape, (1, 120, 160))
+        painted = torch.zeros((1, 120, 160), dtype=torch.bool)
+        painted[:, 40:50, 55:70] = True
+        self.assertTrue(torch.equal(mask > 0, painted))
+        self.assertTrue(torch.equal(image[~painted], self.picture[~painted]))
+        self.assertTrue(torch.allclose(image[painted], 1.0 - self.picture[painted], atol=1.0 / 255))
+
+    def test_padding_never_lands_on_the_picture(self):
+        from nodes._transform_engine import TransformSpec
+
+        spec = TransformSpec(crop_x=40, crop_y=30, crop_width=60, crop_height=50, pad_left=16, pad_right=16)
+        stitcher, stitched, _, _ = self.stitch(spec)
+        image, _ = inpaint_helpers.paste_on_original(stitcher, stitched, stitch_blend_mask(stitcher))
+        self.assertTrue(torch.equal(image, self.picture))
+
+    def test_a_resized_crop_comes_back_at_full_size(self):
+        from nodes._transform_engine import TransformSpec
+
+        spec = TransformSpec(crop_x=40, crop_y=30, crop_width=60, crop_height=50)
+        stitcher, stitched, _, _ = self.stitch(spec, self.paint, size=(100, 120))
+        image, mask = inpaint_helpers.paste_on_original(stitcher, stitched, stitch_blend_mask(stitcher))
+        self.assertEqual(image.shape, self.picture.shape)
+        outside = mask == 0
+        self.assertTrue(torch.equal(image[outside], self.picture[outside]))
+        centre = (mask >= 0.99) & (torch.arange(160).expand(1, 120, -1) > 55)
+        self.assertGreater(int(mask.gt(0.99).sum()), 100)
+        self.assertLess(abs(float(mask.sum()) - 150.0), 8.0)
+        self.assertTrue(bool(centre.any()))
+
+    def test_a_turned_crop_turns_back_into_place(self):
+        from PIL import Image
+        import numpy as np
+        from nodes._transform_engine import TransformSpec, transform_pil
+
+        # A soft bright spot: turned, cropped and turned back it must land
+        # where it started.
+        yy, xx = torch.meshgrid(torch.arange(120.0), torch.arange(160.0), indexing="ij")
+        spot = torch.exp(-((xx - 100) ** 2 + (yy - 50) ** 2) / 72.0)
+        self.picture = spot.unsqueeze(0).unsqueeze(-1).expand(1, -1, -1, 3).clone()
+        spec = TransformSpec(rotation_degrees=15.0, crop_x=30, crop_y=30, crop_width=120, crop_height=100)
+        frame = Image.fromarray((self.picture[0].numpy() * 255).astype(np.uint8))
+        canvas, _, geometry = transform_pil(frame, spec)
+        canvas = torch.from_numpy(np.asarray(canvas, dtype=np.float32) / 255.0).unsqueeze(0)
+        mask = torch.ones(canvas.shape[:3])
+        stitcher = inpaint_helpers.build_transform_stitcher(canvas, mask, geometry, 0)
+        self.picture = torch.zeros_like(self.picture)
+        inpaint_helpers.remember_original(stitcher, self.picture, geometry, 15.0)
+        image, _ = inpaint_helpers.paste_on_original(stitcher, canvas, mask)
+        peak = int(image[0, ..., 0].flatten().argmax())
+        self.assertLessEqual(abs(peak % 160 - 100), 1)
+        self.assertLessEqual(abs(peak // 160 - 50), 1)
+
+    def test_a_stitcher_with_no_original_stays_on_the_crop(self):
+        canvas = torch.rand(1, 16, 16, 3)
+        stitcher = build_canvas_stitcher(canvas, torch.zeros((1, 16, 16)))
+        mask = torch.zeros((1, 16, 16))
+        image, same = inpaint_helpers.paste_on_original(stitcher, canvas, mask)
+        self.assertIs(image, canvas)
+        self.assertIs(same, mask)
 
 
 if __name__ == "__main__":

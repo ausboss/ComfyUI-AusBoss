@@ -64,7 +64,7 @@ class SavedFallbackTests(unittest.TestCase):
         cls.fallbacks = saved_fallbacks()
 
     def test_the_known_fallbacks_are_read(self):
-        self.assertEqual(self.fallbacks["AUSBOSS_NODES_StitchInpaint"], {"seam": "classic"})
+        self.assertEqual(self.fallbacks["AUSBOSS_NODES_StitchInpaint"], {"seam": "classic", "paste_onto": "crop"})
         self.assertEqual(self.fallbacks["AUSBOSS_NODES_CropForInpaint"], {"keep_inside": True})
         self.assertEqual(self.fallbacks["AUSBOSS_NODES_RefineMask"], {"preview": True, "max_hole_size": 0})
         for node_id in ("AUSBOSS_NODES_LaMaInpaint", "AUSBOSS_NODES_SelectFrame"):
