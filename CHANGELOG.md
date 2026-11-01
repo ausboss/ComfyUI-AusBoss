@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.20.5 - 2026-10-31
 
 - **LaMa Inpaint 🆎 only opens known copies of its model.** A LaMa model file
   can run code when it opens, so the node now checks the file first. The
