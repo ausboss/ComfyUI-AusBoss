@@ -1,14 +1,15 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
 
 import {
   DEFAULT_SETTINGS, MEMBERS_MAX, MODE_ALWAYS, MODE_BYPASS, MODE_NEVER, PILL_CHOICES_MAX, PILL_FRAME, PILL_NODE_WIDTH_MAX,
   PILL_SEGMENT_PAD, SWITCHES_MAX, TITLE_MAX, VALUE_TEXT_MAX,
-  addMembers, addOffMembers, addSwitch, canvasOrder, cardView, centreInside, choiceState, choosePlan, cleanIds, cleanSnapshots,
-  flipTo, frameBounds, groupBounds, groupListed, hasOffSide, heldCount, isRunning, listedRows, matchTerms, modeMatters,
+  addChoice, addMembers, addOffMembers, addSwitch, canvasOrder, cardView, centreInside, choiceNodeIds, choiceState, choosePlan, cleanIds, cleanSnapshots,
+  flipTo, frameBounds, freeForChoice, groupBounds, groupListed, hasOffSide, heldCount, isRunning, listedRows, matchTerms, modeMatters,
   moveSwitch, nodeBounds, normalizeSettings, normalizeSwitches, offFreshCount, offHeldCount, offMode, pairNow, pairValue,
   partState, pillNodeWidth, placeNodes, readGroups, readSwitches, releaseStackGroup, releaseStackRow, removeMembers, removeOffMembers, removeSwitch,
-  renameStackGroup, renameSwitch, repointSwitches, rowLabel, rowsSignature, saveValues, settlePlan, snapshotNode, stackGroupOwners, stackRowOwners, stackRows, suggestTitle, switchAllPlan, switchPlan, titleOrder, unionRect,
+  renameStackGroup, renameSwitch, repointSwitches, rowLabel, rowsSignature, sameChoice, saveValues, settlePlan, snapshotNode, stackGroupOwners, stackRowOwners, stackRows, suggestTitle, switchAllPlan, switchPlan, titleOrder, unionRect,
   valueAllPlan, valuePairs, valuePlan,
 } from "../js/shared/workflow_switches.mjs";
 
@@ -1249,4 +1250,137 @@ test("a card pasted with its parts follows the copies; one pasted alone keeps it
   assert.equal(auto.state, "off");
   assert.equal(enlarge.state, "off");
   assert.deepEqual(ids(enlarge.members), [152, 153, 107]);
+});
+
+// A card of choices, each saved as [title, { nodeId: { widget: value } }].
+const choiceCard = (...saves) => saves.reduce((settings, [title, held]) => addChoice(settings, {
+  title,
+  snapshots: Object.entries(held).map(([id, values]) => ({ id: Number(id), values })),
+}).settings, {});
+const ifElse = (id, value) => node(id, 0, 0, { widgets: [{ name: "switch", value }] });
+const pick = (settings, graph, title) => {
+  const rows = readSwitches(settings.switches, placeNodes(graph), []);
+  return choosePlan(rows, rows.find((row) => row.title === title), settings).values.map(([pair, side]) => [pair.widget, pairValue(pair, side, pair.control.value)]);
+};
+
+test("the first choice waits for a second, and the card turns into one pill by itself", () => {
+  const first = choiceCard(["Soft", { 6: { switch: true } }]);
+  assert.deepEqual([first.exclusive, first.show, first.groups], [true, "pill", "none"]);
+  assert.deepEqual(choiceNodeIds(first), ["6"]);
+  const [alone] = readSwitches(first.switches, placeNodes([ifElse(6, true)]), []);
+  assert.equal(alone.state, "empty");
+  assert.equal(alone.half, true);
+
+  const card = choiceCard(["Soft", { 6: { switch: true } }], ["Poster", { 6: { switch: false } }]);
+  const rows = readSwitches(card.switches, placeNodes([ifElse(6, false)]), []);
+  assert.deepEqual(rows.map((row) => [row.title, row.state, row.half]), [["Soft", "off", false], ["Poster", "on", false]]);
+  assert.equal(cardView(card, rows).view, "pill");
+  assert.equal(choiceState(rows).picked.title, "Poster");
+  // Settings changed in the Settings part or by a hand edit cannot undo that.
+  assert.deepEqual([normalizeSettings({ ...card, exclusive: false, show: "rows", groups: "all" }).groups], ["none"]);
+});
+
+test("a choice changes only what differs between choices, and never has an off of its own", () => {
+  const sampler = (steps) => ({ steps, seed: 42 });
+  const card = choiceCard(["Fast", { 3: sampler(8) }], ["Good", { 3: sampler(20) }]);
+  const graph = [node(3, 0, 0, { widgets: [{ name: "steps", value: 8 }, { name: "seed", value: 777 }] })];
+  const rows = readSwitches(card.switches, placeNodes(graph), []);
+  assert.deepEqual(rows.map((row) => row.pairs.map((pair) => pair.widget)), [["steps"], ["steps"]]);
+  assert.equal(rows[0].state, "on");
+  assert.deepEqual(pick(card, graph, "Good"), [["steps", 20]]);
+  assert.deepEqual(pick(card, graph, "Fast"), []);
+  assert.deepEqual(valuePlan(rows, rows[0], false, card), []);
+  assert.deepEqual(valueAllPlan(rows, false), []);
+});
+
+test("a choice can hold the nodes only it needs, and they run only while it is picked", () => {
+  const made = choiceCard(["Soft", { 6: { switch: true } }], ["Big", { 6: { switch: false } }]);
+  const [soft, big] = made.switches;
+  const card = addMembers(addMembers(made, soft.id, { nodes: [1] }), big.id, { nodes: [2, 3] });
+  const graph = [ifElse(6, true), node(1, 300, 0), node(2, 600, 0), node(3, 900, 0)];
+  const look = () => readSwitches(card.switches, placeNodes(graph), []);
+  const go = (title) => {
+    const rows = look();
+    const { modes, values } = choosePlan(rows, rows.find((row) => row.title === title), card);
+    for (const [member, mode] of modes) member.mode = mode;
+    for (const [pair, side] of values) pair.control.value = pairValue(pair, side, pair.control.value);
+  };
+  // Big's nodes have not followed yet, and Soft is still the one picked.
+  assert.equal(choiceState(look()).picked.title, "Soft");
+  go("Soft");
+  assert.deepEqual(graph.map((item) => item.mode), [MODE_ALWAYS, MODE_ALWAYS, MODE_BYPASS, MODE_BYPASS]);
+  go("Big");
+  assert.deepEqual(graph.map((item) => item.mode), [MODE_ALWAYS, MODE_BYPASS, MODE_ALWAYS, MODE_ALWAYS]);
+  assert.equal(graph[0].widgets[0].value, false);
+  assert.deepEqual(look().map((row) => row.state), ["off", "on"]);
+});
+
+test("a node the card's choices set cannot be switched off with a choice", () => {
+  const card = choiceCard(["Soft", { 6: { switch: true } }], ["Big", { 6: { switch: false } }]);
+  assert.deepEqual(freeForChoice(card, { nodes: [6, 1], groups: [2] }), { nodes: [1], groups: [2] });
+});
+
+test("every example in the agent guide stores what it shows", () => {
+  const guide = fs.readFileSync(new URL("../js/docs/agents/workflow_switches.md", import.meta.url), "utf8");
+  const blocks = [...guide.matchAll(/```json\n([\s\S]*?)```/g)].map((match) => match[1].trim());
+  assert.ok(blocks.length >= 6);
+  for (const block of blocks) {
+    const parsed = JSON.parse(block.startsWith('"') ? `{${block}}` : block);
+    const written = parsed.switches ? parsed : parsed.properties?.ausboss_workflow_switches ?? { switches: [parsed] };
+    const stored = normalizeSettings(written);
+    assert.equal(stored.exclusive, written.exclusive ?? false);
+    assert.equal(stored.show, written.show ?? "rows");
+    for (const [index, row] of written.switches.entries()) {
+      for (const key of Object.keys(row)) assert.deepEqual(stored.switches[index][key], row[key], `${row.title}: ${key}`);
+    }
+  }
+});
+
+test("three choices on one control read picked or not, and a hand value leaves none picked", () => {
+  const card = choiceCard(["Low", { 3: { steps: 8 } }], ["Mid", { 3: { steps: 20 } }], ["High", { 3: { steps: 40 } }]);
+  const stateOf = (value) => readSwitches(card.switches, placeNodes([node(3, 0, 0, { widgets: [{ name: "steps", value }] })]), []);
+  assert.deepEqual(stateOf(40).map((row) => row.state), ["off", "off", "on"]);
+  assert.deepEqual(stateOf(20).map((row) => row.state), ["off", "on", "off"]);
+  assert.equal(choiceState(stateOf(12)).kind, "none");
+  assert.deepEqual(stateOf(12).map((row) => row.state), ["off", "off", "off"]);
+  assert.deepEqual(pick(card, [node(3, 0, 0, { widgets: [{ name: "steps", value: 12 }] })], "Mid"), [["steps", 20]]);
+});
+
+test("choices across two nodes pick a third branch through two chained switches", () => {
+  const card = choiceCard(
+    ["Soft", { 1: { switch: true } }],
+    ["Poster", { 1: { switch: false }, 2: { switch: true } }],
+    ["Mono", { 1: { switch: false }, 2: { switch: false } }],
+  );
+  const graph = [ifElse(1, false), ifElse(2, false)];
+  assert.deepEqual(readSwitches(card.switches, placeNodes(graph), []).map((row) => row.state), ["off", "off", "on"]);
+  assert.deepEqual(pick(card, graph, "Soft"), [["switch", true]]);
+  assert.deepEqual(pick(card, graph, "Poster"), [["switch", true]]);
+  // Soft does not hold the second node, so it stays as it was.
+  const soft = [ifElse(1, true), ifElse(2, true)];
+  assert.deepEqual(readSwitches(card.switches, placeNodes(soft), []).map((row) => row.state), ["on", "off", "off"]);
+});
+
+test("a choice that repeats another is caught, and one of other nodes is not", () => {
+  const card = choiceCard(["Soft", { 6: { switch: true } }]);
+  assert.equal(sameChoice(card, [{ id: 6, values: { switch: true } }])?.title, "Soft");
+  assert.equal(sameChoice(card, [{ id: 6, values: { switch: false } }]), null);
+  assert.equal(sameChoice(card, [{ id: 9, values: { switch: true } }]), null);
+  assert.equal(sameChoice({ switches: [{ title: "Plain", on: { 6: { switch: true } }, off: {} }] }, [{ id: 6, values: { switch: true } }]), null);
+});
+
+test("choices survive a save and a paste", () => {
+  const card = choiceCard(["Soft", { 6: { switch: true } }], ["Poster", { 6: { switch: false } }]);
+  const saved = normalizeSettings(JSON.parse(JSON.stringify(card)));
+  assert.deepEqual(saved.switches.map((entry) => entry.choice), [true, true]);
+  const moved = repointSwitches(saved, new Map([["6", 60]]), new Map());
+  assert.deepEqual(moved.switches.map((entry) => [entry.choice, Object.keys(entry.on)]), [[true, ["60"]], [true, ["60"]]]);
+  assert.equal(readSwitches(moved.switches, placeNodes([ifElse(60, true)]), [])[0].state, "on");
+});
+
+test("a switch that was never a choice stores and reads exactly as before", () => {
+  const made = addSwitch({}, { title: "Plain", nodes: [1] });
+  assert.equal("choice" in made.settings.switches[0], false);
+  assert.equal(made.settings.exclusive, false);
+  assert.equal(made.settings.groups, "all");
 });
