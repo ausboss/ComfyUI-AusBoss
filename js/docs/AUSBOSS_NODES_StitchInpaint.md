@@ -7,6 +7,22 @@ from **Crop For Inpaint 🆎**, **Load Image + Pad 🆎** or any
 result, it is resized to fit first, then joined to your picture the way
 **Seam** says.
 
+## Paste onto: crop or original
+
+**Paste onto** picks what you get back. It lives in the gear menu, next to
+Seam.
+
+- **crop** (the default) gives back the picture you framed.
+- **original** puts the edit on your whole picture, at its full size. Use it
+  after you crop by hand in **Image Crop + Rotate + Pad 🆎**: the model works
+  on the crop, and everything you did not paint stays exactly as it was. It
+  also works when you turned or resized the crop.
+
+Padding has no place on your picture, so anything painted in added space is
+left out. With **Crop For Inpaint** and **Load Image + Pad** the result is
+your whole picture either way. The video nodes don't have this yet: their
+result stays on the crop, and the console says so once.
+
 ## Seam: classic or blend in
 
 **Seam** picks how the new area joins your picture. It lives in the gear
@@ -81,6 +97,8 @@ hidden. Fill that area in first if the edit needs it.
 - **Seam** (`seam`, in the gear menu): `classic` (the default) or
   `blend in`. Read "Seam: classic or blend in" above. It has no socket,
   so a link cannot drive it.
+- **Paste onto** (`paste_onto`, in the gear menu): `crop` (the default) or
+  `original`. Read "Paste onto: crop or original" above. It has no socket.
 - **Fix edge halo** (`fix_edge_halo`, classic seam only): Off by default. Recovers the true
   color under the feathered seam before pasting, so half-transparent edge
   pixels stop blending their background in a second time. It costs real
@@ -218,6 +236,8 @@ you brighten it first.
 ## Outputs
 
 - **image**: The original-size image with the inpainted region blended in.
+  After a crop in a Crop + Rotate + Pad node, that means the crop's size,
+  unless **Paste onto** is on original.
 - **blend_mask**: The feathered paste mask in the stitched image's own
   coordinates — white where the inpaint blended in, zero where the original
   survived untouched. Wire it into a color-match or compositing node to
@@ -232,6 +252,16 @@ you brighten it first.
 
 The rest of this page is for people who want to know how blend in works
 and how it was tested.
+
+### How Paste onto original works
+
+Image Crop + Rotate + Pad's stitcher carries your picture and the crop's
+position. A straight crop at its own size is a plain paste, so every pixel
+the mask does not touch is bit-identical. A turned or resized crop is sampled
+back (bicubic) once per picture pixel, so the edit in those cases is as soft
+as the canvas it was painted on. Untouched pixels stay bit-identical there
+too, and in the feathered band your full-size picture replaces the canvas's
+softer copy of it.
 
 ### How the empty check works
 

@@ -46,6 +46,9 @@ STITCHER_VERSION = 1
 SEAM_CLASSIC = "classic"
 SEAM_BLEND_IN = "blend in"
 SEAM_MODES = (SEAM_CLASSIC, SEAM_BLEND_IN)
+PASTE_ONTO_CROP = "crop"
+PASTE_ONTO_ORIGINAL = "original"
+PASTE_ONTO_MODES = (PASTE_ONTO_CROP, PASTE_ONTO_ORIGINAL)
 
 Rect = tuple[int, int, int, int]  # (x, y, w, h)
 
@@ -221,6 +224,10 @@ _PYMATTING_HINT = (
 
 # Notes already printed this process; each prints once, with no cap.
 _warned: set[str] = set()
+_NO_ORIGINAL_NOTE = (
+    "Stitch Inpaint: this stitcher has no original picture to paste onto, so the "
+    "result stays on the crop. Image Crop + Rotate + Pad has one; the video nodes don't."
+)
 
 
 def _foreground_estimator():
@@ -1718,6 +1725,8 @@ __all__ = [
     "seam_ramps",
     "build_canvas_stitcher",
     "build_transform_stitcher",
+    "paste_on_original",
+    "remember_original",
     "transform_picture_box",
     "stitch_blend_from_mask",
     "STITCHER_VERSION",
@@ -1780,3 +1789,86 @@ def build_transform_stitcher(
     stitcher = build_canvas_stitcher(frames, blend, bbox=bbox, source=source)
     stitcher["generated"] = mask
     return stitcher
+
+
+def remember_original(stitcher: dict, original: torch.Tensor, geometry, rotation_degrees: float) -> dict:
+    """Let Stitch Inpaint put a transform's result on the whole picture.
+
+    ``original`` is the picture before the transform, as a BHWC batch, and
+    ``rotation_degrees`` the transform's normalized turn. Read only by
+    :func:`paste_on_original`, so a stitcher without it still stitches.
+    """
+    stitcher["original"] = {"frames": original, "geometry": geometry, "rotation": float(rotation_degrees)}
+    return stitcher
+
+
+def paste_on_original(stitcher: dict, stitched: torch.Tensor, mask: torch.Tensor) -> tuple:
+    """A transform's stitched canvas and blend mask, laid on its whole picture.
+
+    Returns the picture and the mask at the picture's own size. Only the
+    pixels the stitch changed reach it, and only inside the crop: padding has
+    no place on the picture, and pixels where the mask is zero stay
+    bit-identical. A straight crop at its own size is a plain paste. A turn or
+    a resize samples the canvas once per picture pixel. Crop For Inpaint and
+    Load Image + Pad stitch onto the whole picture already and pass through.
+    """
+    record = stitcher.get("original")
+    if record is None:
+        if "generated" in stitcher:
+            warn_once(_NO_ORIGINAL_NOTE, _warned)
+        return stitched, mask
+    frames = stitched.shape[0]
+    base = record["frames"][:frames].to(stitched)
+    if base.shape[0] == 1:
+        base = base.expand(frames, -1, -1, -1)
+    picture_h, picture_w = base.shape[1], base.shape[2]
+    geometry = record["geometry"]
+    rotation = record["rotation"]
+    canvas_h, canvas_w = stitched.shape[1], stitched.shape[2]
+    x0, y0, x1, y1 = transform_picture_box(geometry, canvas_w, canvas_h)
+    crop_w, crop_h = geometry.crop_width, geometry.crop_height
+
+    if not rotation and (x1 - x0, y1 - y0) == (crop_w, crop_h):
+        left, top = geometry.crop_x, geometry.crop_y
+        weight = base.new_zeros((frames, picture_h, picture_w))
+        weight[:, top : top + crop_h, left : left + crop_w] = mask[:, y0:y1, x0:x1]
+        result = base.clone()
+        result[:, top : top + crop_h, left : left + crop_w] = stitched[:, y0:y1, x0:x1]
+        # The stitch already feathered; the guard pins what it did not touch.
+        return torch.where(weight.unsqueeze(-1) > 0, result, base).contiguous(), weight
+
+    rows, cols = torch.meshgrid(
+        torch.arange(picture_h, dtype=base.dtype, device=base.device) + 0.5,
+        torch.arange(picture_w, dtype=base.dtype, device=base.device) + 0.5,
+        indexing="ij",
+    )
+    if rotation:
+        # Pillow's expanded rotate: both pictures turn about their centres.
+        cos, sin = math.cos(math.radians(rotation)), math.sin(math.radians(rotation))
+        across, down = cols - picture_w / 2.0, rows - picture_h / 2.0
+        cols = cos * across - sin * down + geometry.rotated_width / 2.0
+        rows = sin * across + cos * down + geometry.rotated_height / 2.0
+    x = x0 + (cols - geometry.crop_x) * (x1 - x0) / crop_w
+    y = y0 + (rows - geometry.crop_y) * (y1 - y0) / crop_h
+    grid = torch.stack((2.0 * x / canvas_w - 1.0, 2.0 * y / canvas_h - 1.0), dim=-1)
+    grid = grid.unsqueeze(0).expand(frames, -1, -1, -1)
+
+    def sample(image):
+        placed = functional.grid_sample(
+            image.movedim(-1, 1), grid, mode="bicubic", padding_mode="border", align_corners=False
+        )
+        return placed.movedim(1, -1).clamp(0.0, 1.0)
+
+    weight = functional.grid_sample(
+        mask.unsqueeze(1), grid, mode="bilinear", padding_mode="zeros", align_corners=False
+    ).squeeze(1).clamp(0.0, 1.0)
+    weight = weight * ((x >= x0) & (x <= x1) & (y >= y0) & (y <= y1)).to(weight)
+    weights = weight.unsqueeze(-1)
+    canvas = stitcher["canvas"][:frames].to(stitched)
+    if canvas.shape[0] == 1:
+        canvas = canvas.expand(frames, -1, -1, -1)
+    # What the stitch changed on the canvas, with the canvas's own soft copy
+    # of the picture swapped for the sharp one under the same feather.
+    before = sample(canvas)
+    pasted = base + weights * (before - base) + (sample(stitched) - before)
+    return torch.where(weights > 0, pasted.clamp(0.0, 1.0), base).contiguous(), weight

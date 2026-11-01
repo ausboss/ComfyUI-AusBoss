@@ -849,7 +849,8 @@
     "optional": [
       "fix_edge_halo",
       "color_match",
-      "seam"
+      "seam",
+      "paste_onto"
     ],
     "outputs": [
       [

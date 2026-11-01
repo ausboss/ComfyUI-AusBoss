@@ -10,6 +10,7 @@
 
 // The backend's choices, in its order; the first is the default.
 export const SEAM_CHOICES = ["classic", "blend in"];
+export const PASTE_ONTO_CHOICES = ["crop", "original"];
 
 // The gear menu (js/shared/settings_menu.mjs). persist: false - the choice
 // belongs to this node and is never a default for new ones.
@@ -25,6 +26,19 @@ export const SEAM_MENU = [
     optionHints: {
       classic: "the feathered paste older workflows use, with Tone match.",
       "blend in": "for outpaints and turned pictures; Tone match still works.",
+    },
+  },
+  {
+    key: "paste_onto",
+    label: "Paste onto",
+    type: "choice",
+    options: PASTE_ONTO_CHOICES,
+    default: PASTE_ONTO_CHOICES[0],
+    persist: false,
+    hint: "Where the result lands. Stored on this node.",
+    optionHints: {
+      crop: "gives back the framed picture, as it always has.",
+      original: "your whole picture, after a hand crop in Crop + Rotate + Pad.",
     },
   },
 ];

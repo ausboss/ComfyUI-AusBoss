@@ -4,6 +4,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Stitch Inpaint 🆎 can put a hand crop back on your whole picture.** Crop
+  in Image Crop + Rotate + Pad 🆎, edit the crop, and set **Paste onto** to
+  original in Stitch Inpaint's gear menu. You get your full picture back with
+  only the edit changed. It works with Resize and a turned crop too. The
+  default stays crop, so saved workflows run as before. Thanks to
+  @nickllnickll for the idea.
 - **Workflow Switches 🆎 + Choice saves how a node is set under a name.** Set
   a node, press + Choice and name it. Set it another way and press it again.
   The card turns into one pill, and picking a choice puts the node back. Two

@@ -47,7 +47,7 @@ NAMED = {
     "AusBossLoadVideo": ["video"],
     "AusBossLoraLoader": ["loras", "on_missing"],
     "AusBossSaveImage": ["exact_name", "filename_prefix", "output_dir"],
-    "AusBossStitchInpaint": ["seam"],
+    "AusBossStitchInpaint": ["seam", "paste_onto"],
     "AusBossVideoCropRotatePad": ["video", "source_mode", "local_path"],
     "AusBossVideoCropRotatePadClip": ["video", "source_mode", "local_path"],
 }

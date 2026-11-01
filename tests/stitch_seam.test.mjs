@@ -30,7 +30,7 @@ test("the card offers the backend's choices, classic first", () => {
 });
 
 test("the gear menu sets this node's Seam and never a default for new ones", () => {
-  assert.equal(SEAM_MENU.length, 1);
+  assert.equal(SEAM_MENU.length, 2);
   const [entry] = SEAM_MENU;
   assert.equal(entry.key, "seam");
   assert.equal(entry.type, "choice");
