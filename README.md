@@ -373,7 +373,7 @@ Shows the picture while it is being made, one step at a time, so you can stop a 
 
 ### Workflow Switches
 
-Turns parts of a workflow off and on from one small card. Select the nodes of one part, such as a box and its Save Image, press **+ Switch**, and they get one **off | on** switch with a name you choose. Every group can have a switch of its own too. Off bypasses the nodes, so a step in the middle of a chain can be skipped and the picture still reaches the steps after it; a setting mutes them instead. A switch can change settings instead: save what chosen nodes hold for on and for off, and one click sets Steps to 8 and turns a LoRA row on. **Done** shrinks the card to the labels and their switches. A row whose nodes are only partly on reads **mixed**. The node never runs and has no wires.
+Turns parts of a workflow off and on from one small card. Select the nodes of one part, such as a box and its Save Image, press **+ Switch**, and they get one **off | on** switch with a name you choose. To pick between settings instead, set a node and press **+ Choice** for each way: the card becomes one pill. Every group can have a switch of its own too. Off bypasses the nodes, so a step in the middle of a chain can be skipped and the picture still reaches the steps after it; a setting mutes them instead. A switch can change settings instead: save what chosen nodes hold for on and for off, and one click sets Steps to 8 and turns a LoRA row on. **Done** shrinks the card to the labels and their switches. A row whose nodes are only partly on reads **mixed**. The node never runs and has no wires. An AI agent can set one up for you: point it at the [agent guide](js/docs/agents/workflow_switches.md).
 
 ## Example workflows
 

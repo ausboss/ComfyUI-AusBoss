@@ -19,6 +19,8 @@
 // A card with One at a time on can show its rows as one control instead
 // (Show as: one pill): every row is a choice in a segmented pill, or in a
 // list when the names are too many or too long, and one is always picked.
+// + Choice gets there in one press: it saves how nodes are set now under a
+// name, and the card becomes that pill by itself.
 //
 // Only what the user made is stored (which nodes each switch holds, by id,
 // the values it remembers and the settings, in node.properties). Every row's
@@ -36,11 +38,11 @@ import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { holdNodeMinWidth, holdVueNodeMinWidth, pinVuePanelHeight } from "../shared/panel_layout.mjs";
 import { cardHeight, commitWidgetValue, ensureCardCss } from "../shared/widget_card.mjs";
 import {
-  DEFAULT_SETTINGS, SETTINGS_PROPERTY, SWITCHES_MAX, TITLE_MAX, addMembers, addOffMembers, addSwitch, cardView, choiceState,
-  choosePlan, flipTo, frameBounds, groupBounds, hasOffSide, heldCount, listedRows, modeMatters, moveSwitch, normalizeSettings,
-  offFreshCount, offHeldCount, pairValue, placeNodes, readGroups, readSwitches, removeMembers, removeOffMembers, removeSwitch,
-  renameSwitch, repointSwitches, rowLabel, rowsSignature, saveValues, settlePlan, snapshotNode, suggestTitle, switchAllPlan, switchPlan,
-  valueAllPlan, valuePlan,
+  DEFAULT_SETTINGS, SETTINGS_PROPERTY, SWITCHES_MAX, TITLE_MAX, addChoice, addMembers, addOffMembers, addSwitch, cardView, choiceNodeIds,
+  choiceState, choosePlan, flipTo, frameBounds, freeForChoice, groupBounds, hasChoices, hasOffSide, heldCount, listedRows, modeMatters, moveSwitch,
+  normalizeSettings, offFreshCount, offHeldCount, pairValue, placeNodes, readGroups, readSwitches, removeMembers, removeOffMembers,
+  removeSwitch, renameSwitch, repointSwitches, rowLabel, rowsSignature, sameChoice, saveValues, settlePlan, snapshotNode, suggestTitle,
+  switchAllPlan, switchPlan, valueAllPlan, valuePlan,
 } from "../shared/workflow_switches.mjs";
 import { onPaste } from "../shared/paste_ids.mjs";
 
@@ -91,6 +93,9 @@ function ensureCss() {
 .ausboss-ws .ausboss-ws-row{grid-template-columns:10px minmax(0,1fr) auto 84px;gap:7px}
 .ausboss-ws.edit .ausboss-ws-row{grid-template-columns:10px minmax(0,1fr) auto 84px 26px 26px}
 .ausboss-ws-chip{width:10px;height:10px;border-radius:3px;background:var(--chip);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16)}
+.ausboss-ws .ausboss-ws-row.choice{grid-template-columns:10px minmax(0,1fr) auto}
+.ausboss-ws.edit .ausboss-ws-row.choice{grid-template-columns:10px minmax(0,1fr) auto 26px 26px}
+.ausboss-ws-row.choice .ausboss-ws-pill{display:none}
 .ausboss-ws-row.off .ausboss-ws-chip{background:transparent;box-shadow:inset 0 0 0 2px var(--chip),0 0 0 1px rgba(255,255,255,.1)}
 .ausboss-ws-row.mixed .ausboss-ws-chip{background:linear-gradient(90deg,var(--chip) 50%,transparent 50%);box-shadow:inset 0 0 0 2px var(--chip),0 0 0 1px rgba(255,255,255,.1)}
 .ausboss-ws-row.empty .ausboss-ws-chip{opacity:.4}
@@ -127,6 +132,8 @@ function ensureCss() {
 .ausboss-ws-hint.link:hover{color:#d8ecea}
 .ausboss-ws-hint.hidden,.ausboss-ws-bar.hidden{display:none}
 .ausboss-ws .ausboss-ws-bar{grid-template-columns:minmax(0,1fr) auto;gap:7px}
+.ausboss-ws .ausboss-ws-bar.both{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto}
+.ausboss-ws-add.hidden{display:none}
 .ausboss-ws-add{min-width:0;height:100%;padding:0 10px;border:1px dashed #33514f;border-radius:6px;background:transparent;color:#78908e;font:600 11px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;cursor:pointer}
 .ausboss-ws-add.ready{border-style:solid;border-color:rgba(0,180,170,.55);background:rgba(0,180,170,.14);color:#d8ecea}
 .ausboss-ws-add:hover{border-color:${BRAND};color:#fff}
@@ -369,6 +376,13 @@ function chooseRow(state, key) {
   refresh(state);
 }
 
+// Nodes just given to a choice follow the pick at once: off, when another
+// choice is picked.
+function repick(state) {
+  const row = choiceState(read(state).rows).picked;
+  if (row) chooseRow(state, rowKey(row));
+}
+
 function switchAll(state, on) {
   const { settings, rows } = read(state);
   applyPlan(state, switchAllPlan(rows, on, settings), valueAllPlan(rows, on));
@@ -534,13 +548,15 @@ function buildSettings(state) {
 
   const rows = { off, groups, match: { row: match.row }, order, exclusive, show };
   const sync = (settings, edit, open) => {
+    // A card of choices is one pill: none of these mean anything on it.
+    const shown = edit && !hasChoices(settings);
     header.classList.toggle("open", open);
-    header.style.display = edit ? "" : "none";
+    header.style.display = shown ? "" : "none";
     const listing = settings.groups !== "none";
-    for (const entry of Object.values(rows)) entry.row.classList.toggle("hidden", !edit || !open);
-    match.row.classList.toggle("hidden", !edit || !open || settings.groups !== "matching");
-    order.row.classList.toggle("hidden", !edit || !open || !listing);
-    show.row.classList.toggle("hidden", !edit || !open || !settings.exclusive);
+    for (const entry of Object.values(rows)) entry.row.classList.toggle("hidden", !shown || !open);
+    match.row.classList.toggle("hidden", !shown || !open || settings.groups !== "matching");
+    order.row.classList.toggle("hidden", !shown || !open || !listing);
+    show.row.classList.toggle("hidden", !shown || !open || !settings.exclusive);
     for (const entry of [off, groups, order, exclusive, show]) entry.sync(settings);
     if (document.activeElement !== text) text.value = settings.match;
   };
@@ -583,6 +599,52 @@ function newSwitch(state) {
   writeSettings(state, made.settings);
   settleRows(state, `s${made.id}`);
   startRename(state, `s${made.id}`);
+}
+
+// The nodes to read for a choice: what is selected, and on a card that already
+// has choices the nodes they hold, so the next one takes no selecting.
+function choiceSnapshots(state, nodes) {
+  const graph = state.node.graph;
+  const held = choiceNodeIds(settingsOf(state.node)).map((id) => graph?.getNodeById?.(Number(id))).filter(Boolean);
+  return [...new Set([...nodes, ...held])]
+    .map((node) => ({ id: node.id, values: snapshotNode(node) }))
+    .filter((item) => Object.keys(item.values).length);
+}
+
+// Save how the nodes are set right now as a choice with a name. The new
+// choice is what the nodes hold already, so it reads as the picked one and
+// nothing on the graph changes.
+function newChoice(state) {
+  const settings = settingsOf(state.node);
+  const first = !hasChoices(settings);
+  const snapshots = choiceSnapshots(state, picked(state).nodes);
+  if (!snapshots.length) {
+    showToast({ summary: "Workflow Switches", detail: "Select a node with settings first, set it the way this choice should be, then press + Choice." });
+    return;
+  }
+  const same = sameChoice(settings, snapshots);
+  if (same) {
+    showToast({ summary: "Workflow Switches", detail: `That is how "${same.title}" is set. Change a setting first, then press + Choice.` });
+    return;
+  }
+  const title = suggestTitle({ nodes: [{ title: "Choice" }] }, settings.switches.map((entry) => entry.title));
+  const made = addChoice(settings, { title, snapshots });
+  if (made.id === null) {
+    showToast({ summary: "Workflow Switches", severity: "warn", detail: `One card holds up to ${SWITCHES_MAX} choices.` });
+    return;
+  }
+  writeSettings(state, made.settings);
+  startRename(state, `s${made.id}`);
+  if (first) showToast({ summary: "Workflow Switches", detail: "Saved. Now set the node another way and press + Choice again." });
+}
+
+// Save a choice again, the way its nodes and any selected ones are set now.
+function resaveChoice(state, key, pick) {
+  const row = read(state).rows.find((candidate) => rowKey(candidate) === key);
+  if (!row) return;
+  const snapshots = choiceSnapshots(state, [...pick.nodes, ...row.valueNodes]);
+  writeSettings(state, saveValues(settingsOf(state.node), Number(key.slice(1)), "on", snapshots));
+  showToast({ summary: "Workflow Switches", detail: `"${row.title}" now holds what its nodes are set to.` });
 }
 
 function startRename(state, key) {
@@ -665,9 +727,9 @@ function showMenu(state, key, anchor) {
   const entry = settings.switches[index];
   if (!entry) return;
   const pick = picked(state);
-  const ids = pickedIds(pick);
+  const ids = entry.choice ? freeForChoice(settings, pickedIds(pick)) : pickedIds(pick);
   const held = heldCount(entry, ids);
-  const fresh = pick.count - held;
+  const fresh = ids.nodes.length + ids.groups.length - held;
   const offHeld = offHeldCount(entry, ids);
   const offFresh = offFreshCount(entry, ids);
   const inSwitch = held + offHeld;
@@ -686,44 +748,61 @@ function showMenu(state, key, anchor) {
   item("Rename", () => startRename(state, key));
   item("Select its nodes", () => selectMembers(state, key), { title: "Select every node this switch turns off and on" });
   rule();
-  item(
-    fresh > 0 ? `Add the ${fresh} selected` : "Add the selected",
-    () => writeSettings(state, addMembers(settings, id, ids)),
-    { disabled: fresh < 1, title: "Select nodes or groups on the canvas first, then add them to this switch" },
-  );
-  item(
+  const takeOut = () => item(
     inSwitch > 0 ? `Take out the ${inSwitch} selected` : "Take out the selected",
     () => writeSettings(state, removeMembers(settings, id, ids)),
     { disabled: inSwitch < 1, title: "Select nodes this switch holds first, then take them out of it" },
   );
-  rule();
-  // The off side: nodes that run only while this switch is off.
-  item(
-    offFresh > 0 ? `The ${offFresh} selected ${offFresh === 1 ? "runs" : "run"} only while this is off` : "The selected run only while this is off",
-    () => writeSettings(state, addOffMembers(settings, id, ids)),
-    {
-      disabled: offFresh < 1,
-      title: `Select nodes or groups first. They run only while this switch is off, and are ${settings.off === "mute" ? "muted" : "bypassed"} while it is on.`,
-    },
-  );
-  item(
-    offHeld > 0 ? `Take the ${offHeld} selected off that side` : "Take the selected off that side",
-    () => writeSettings(state, removeOffMembers(settings, id, ids)),
-    { disabled: offHeld < 1, title: "Select nodes that run only while this is off, then take them off that side. They stay as they are." },
-  );
-  rule();
-  // A switch that changes settings instead of turning nodes off.
-  menu.append(el("div", "ausboss-ws-menu-head sub", "Change settings instead"));
-  const count = pick.nodes.length;
-  const how = "Makes this a switch that changes settings instead of turning nodes off. Set the selected nodes the way they should be for this side, then save it. Do both sides: the switch changes the values that differ.";
-  item(count ? `Save the ${count} selected as on` : "Save the selected as on", () => saveSide(state, key, "on", pick), { disabled: !count, title: how });
-  item(count ? `Save the ${count} selected as off` : "Save the selected as off", () => saveSide(state, key, "off", pick), { disabled: !count, title: how });
+  if (entry.choice) {
+    item("Save how it is set now", () => resaveChoice(state, key, pick), {
+      title: "Set the nodes the way this choice should be, then pick this",
+    });
+    item(
+      fresh > 0 ? `The ${fresh} selected ${fresh === 1 ? "runs" : "run"} only with this choice` : "The selected run only with this choice",
+      () => {
+        writeSettings(state, addMembers(settings, id, ids));
+        repick(state);
+      },
+      { disabled: fresh < 1, title: "Select the nodes only this choice needs. They are switched off while another choice is picked." },
+    );
+    takeOut();
+  }
+  else {
+    item(
+      fresh > 0 ? `Add the ${fresh} selected` : "Add the selected",
+      () => writeSettings(state, addMembers(settings, id, ids)),
+      { disabled: fresh < 1, title: "Select nodes or groups on the canvas first, then add them to this switch" },
+    );
+    takeOut();
+    rule();
+    // The off side: nodes that run only while this switch is off.
+    item(
+      offFresh > 0 ? `The ${offFresh} selected ${offFresh === 1 ? "runs" : "run"} only while this is off` : "The selected run only while this is off",
+      () => writeSettings(state, addOffMembers(settings, id, ids)),
+      {
+        disabled: offFresh < 1,
+        title: `Select nodes or groups first. They run only while this switch is off, and are ${settings.off === "mute" ? "muted" : "bypassed"} while it is on.`,
+      },
+    );
+    item(
+      offHeld > 0 ? `Take the ${offHeld} selected off that side` : "Take the selected off that side",
+      () => writeSettings(state, removeOffMembers(settings, id, ids)),
+      { disabled: offHeld < 1, title: "Select nodes that run only while this is off, then take them off that side. They stay as they are." },
+    );
+    rule();
+    // A switch that changes settings instead of turning nodes off.
+    menu.append(el("div", "ausboss-ws-menu-head sub", "Change settings instead"));
+    const count = pick.nodes.length;
+    const how = "Makes this a switch that changes settings instead of turning nodes off. Set the selected nodes the way they should be for this side, then save it. Do both sides: the switch changes the values that differ.";
+    item(count ? `Save the ${count} selected as on` : "Save the selected as on", () => saveSide(state, key, "on", pick), { disabled: !count, title: how });
+    item(count ? `Save the ${count} selected as off` : "Save the selected as off", () => saveSide(state, key, "off", pick), { disabled: !count, title: how });
+  }
   rule();
   item("Move up", () => writeSettings(state, moveSwitch(settings, id, -1)), { disabled: index < 1 });
   item("Move down", () => writeSettings(state, moveSwitch(settings, id, 1)), { disabled: index >= settings.switches.length - 1 });
   rule();
-  item("Delete this switch", () => writeSettings(state, removeSwitch(settings, id)), {
-    danger: true, title: "Removes the switch. Its nodes stay as they are.",
+  item(entry.choice ? "Delete this choice" : "Delete this switch", () => writeSettings(state, removeSwitch(settings, id)), {
+    danger: true, title: `Removes the ${entry.choice ? "choice" : "switch"}. Its nodes stay as they are.`,
   });
 
   document.body.append(menu);
@@ -807,6 +886,8 @@ function buildRow(state, key, made) {
     row.classList.toggle("off", data.state === "off");
     row.classList.toggle("mixed", data.state === "mixed");
     row.classList.toggle("empty", data.state === "empty");
+    const choice = Boolean(data.entry?.choice);
+    row.classList.toggle("choice", choice);
     chip.style.setProperty("--chip", data.color ?? (made ? BRAND : NO_COLOR));
     title.textContent = label;
     const pairs = data.pairs ?? [];
@@ -827,7 +908,7 @@ function buildRow(state, key, made) {
         : "Nothing is on its off side right now: the nodes or groups put there are gone or empty.";
     }
     title.title = made
-      ? parts.length ? `${label}: ${parts.join("; ")}` : data.half ? `${label}: saved for one side only` : `${label}: its nodes are gone`
+      ? parts.length ? `${label}: ${parts.join("; ")}` : data.half ? `${label}: ${choice ? "add one more choice to pick between" : "saved for one side only"}` : `${label}: its nodes are gone`
       : `${label}: every node inside this group`;
     const waiting = data.half && !pairs.length && !data.members.length;
     // A setting changed by hand to a third value is neither on nor off.
@@ -836,11 +917,11 @@ function buildRow(state, key, made) {
     const unit = offNodes.length
       ? pairs.length ? "nodes and settings are set for on" : "nodes are set for on"
       : pairs.length ? "nodes and settings are on" : "nodes run";
-    count.textContent = changed ? "changed" : data.state === "mixed" ? `${data.on}/${data.total}` : waiting ? "half set" : data.state === "empty" ? "empty" : "";
+    count.textContent = changed ? "changed" : data.state === "mixed" ? `${data.on}/${data.total}` : waiting ? (choice ? "needs one more" : "half set") : data.state === "empty" ? "empty" : "";
     count.title = changed
       ? "A setting this switch changes was set by hand to something else. Click off or on to set it again."
       : data.state === "mixed" ? `${data.on} of its ${data.total} ${unit}`
-      : waiting ? "Saved for one side only. Set its nodes the other way, select them, and save that side from its menu."
+      : waiting ? (choice ? "Set the node another way and press + Choice." : "Saved for one side only. Set its nodes the other way, select them, and save that side from its menu.")
         : data.state !== "empty" ? ""
           : made ? "None of this switch's nodes are in this workflow. A workflow pasted and saved on an older AusBoss version stays like this: open the original file again, or add nodes from the switch's menu in the edit view." : "No nodes inside this group yet";
     pill.classList.toggle("mixed", data.state === "mixed");
@@ -984,8 +1065,11 @@ function measureCard(listed, edit, open, settings, picking) {
   if (picking) rows.push({ widget: "pick" });
   if (!picking || edit) for (let index = 0; index < listed; index += 1) rows.push({ widget: "switch" });
   if (edit) {
-    rows.push({ widget: "bar" }, { group: "settings" });
-    if (open) for (let index = 0; index < settingsRowCount(settings); index += 1) rows.push({ widget: "setting" });
+    rows.push({ widget: "bar" });
+    if (!hasChoices(settings)) {
+      rows.push({ group: "settings" });
+      if (open) for (let index = 0; index < settingsRowCount(settings); index += 1) rows.push({ widget: "setting" });
+    }
   }
   return cardHeight(rows);
 }
@@ -1037,8 +1121,16 @@ function render(state, settings, rows, groupCount, pick) {
   state.done.title = picking
     ? "Show only the pill. Right-click the node and pick Edit switches to edit again."
     : "Show only the labels and their switches. Double-click a label, or right-click the node, to edit again.";
+  // A card holds choices or switches: + Choice is offered until a switch is
+  // made, and + Switch until a choice is.
+  const choosing = hasChoices(settings);
+  const both = !settings.switches.length && pick.nodes.length > 0;
+  state.bar.classList.toggle("both", both);
+  state.add.classList.toggle("hidden", choosing);
+  state.choose.classList.toggle("hidden", !choosing && !both);
+  state.choose.classList.toggle("ready", choosing || both);
   state.add.classList.toggle("ready", pick.count > 0);
-  state.add.textContent = pick.count > 0 ? `+ Switch from ${pick.count} selected` : "Select nodes, then add a switch";
+  state.add.textContent = both ? "+ Switch" : pick.count > 0 ? `+ Switch from ${pick.count} selected` : "Select nodes, then add a switch";
   state.settings.sync(settings, edit, open);
 
   const height = measureCard(rows.length, edit, open, settings, picking);
@@ -1117,12 +1209,13 @@ function buildPanel(node) {
   const hint = button("ausboss-ws-hint hidden");
   const bar = el("div", "ausboss-card-row ausboss-ws-bar hidden");
   const add = button("ausboss-ws-add", "+ Switch", "Select the nodes of one part on the canvas, then press this: they get one switch");
+  const choose = button("ausboss-ws-add hidden", "+ Choice", "Set the nodes the way this choice should be, then press this and give it a name. Do it again for each choice: the card becomes one pill, and picking one sets the nodes that way.");
   const done = button("ausboss-ws-done", "Done");
-  bar.append(add, done);
+  bar.append(add, choose, done);
   root.append(card);
 
   const state = {
-    node, root, list, hint, bar, add, done, rows: new Map(), settings: null, pick: null, pillWidth: 0, renaming: null,
+    node, root, list, hint, bar, add, choose, done, rows: new Map(), settings: null, pick: null, pillWidth: 0, renaming: null,
     height: 0, signature: "", checkedAt: 0, timer: null, disposed: false,
   };
   node.__ausbossWorkflowSwitches = state;
@@ -1132,6 +1225,7 @@ function buildPanel(node) {
   card.append(state.settings.header, ...state.settings.rows);
 
   add.addEventListener("click", () => newSwitch(state));
+  choose.addEventListener("click", () => newChoice(state));
   done.addEventListener("click", () => setEdit(state, false));
   hint.addEventListener("click", () => setEdit(state, true));
 

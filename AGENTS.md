@@ -1,7 +1,8 @@
 # ComfyUI-AusBoss contributor guide
 
 Rules for contributors: how the repo is laid out, the conventions every node
-follows, and the checks to run.
+follows, and the checks to run. To build a workflow with the pack instead,
+`js/docs/agents/workflow_switches.md` shows how to add switches to it.
 
 A suite of polished ComfyUI custom nodes by ausboss. Public nodes must solve a
 repeated workflow need, keep a compact graph footprint, and pass backend plus

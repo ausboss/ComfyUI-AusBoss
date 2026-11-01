@@ -14,6 +14,16 @@ All notable changes to ComfyUI-AusBoss are documented here.
 - **Image Folder 🆎 "start over" now keeps going.** With one per run and next,
   the pictures repeat in order. Before, after the last picture every run
   loaded picture 1. Fixed by @MarxMitX.
+- **Workflow Switches 🆎 + Choice saves how a node is set under a name.** Set
+  a node, press + Choice and name it. Set it another way and press it again.
+  The card turns into one pill, and picking a choice puts the node back. Two
+  named choices used to take about 20 clicks through a menu and Settings. Now
+  they take 5. A choice can also switch off the nodes only it needs, so a
+  model missing from the branch you didn't pick won't stop the run. Switches
+  you already made work as before.
+- **Workflow Switches 🆎 has a guide for AI agents.** Point an agent at
+  `js/docs/agents/workflow_switches.md` in the pack's folder and it can add
+  switches to a workflow for you.
 - **Workflow Switches 🆎 One at a time now holds from the start.** A new
   switch came on beside the others, and turning the setting on left every
   row on. Now a new switch starts off while another row is on, and turning
