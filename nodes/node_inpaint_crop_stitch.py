@@ -99,13 +99,14 @@ class AusBossCropForInpaint:
                 "output_multiple": (
                     "INT",
                     {
-                        "default": 8,
+                        "default": 32,
                         "min": 1,
                         "max": 128,
                         "step": 1,
                         "tooltip": (
-                            "Crop and target dimensions are rounded up to a "
-                            "multiple of this so samplers accept them."
+                            "The crop's size is rounded up to a multiple of "
+                            "this. 32 suits most models; a smaller step can "
+                            "come back trimmed and look slightly bigger."
                         ),
                     },
                 ),

@@ -8,6 +8,19 @@ All notable changes to ComfyUI-AusBoss are documented here.
   give each picture and video a job, and it writes the prompt MiniMax H3
   expects, with the width and height to match. For a video with two people,
   type who goes and only that person is swapped.
+- **Crop For Inpaint 🆎 no longer makes an inpainted face come back slightly
+  bigger.** Its default Multiple is now 32, so Qwen Image 2.1, Flux and other
+  newer models get a size their VAE keeps whole; at 8, the VAE trimmed a few
+  pixels and the stitch stretched what was left over the crop. When the crop
+  is rescaled, it now takes in a few more pixels of context so the picture is
+  scaled the same amount both ways, the way the original Inpaint Crop and
+  Stitch nodes do it. Stitch Inpaint 🆎 notes it in the console when a
+  trimmed picture comes back. Saved workflows keep their Multiple; set it to
+  32 by hand. Thanks to @CognitiveDiffusion for the report (#262).
+- **Stitch Inpaint 🆎 Tone match works on pictures with see-through parts.**
+  It used to read the colour hidden under the clear parts and tint the new
+  area, often yellow. It now reads only what shows (#232).
+
 - **Nodes and groups snap into line while you drag them.** Drag a node, a
   group or a selection near another node or group and it lines up with it:
   left edges, right edges, tops, bottoms or middles. A teal line shows what it
@@ -37,6 +50,10 @@ All notable changes to ComfyUI-AusBoss are documented here.
   they take 5. A choice can also switch off the nodes only it needs, so a
   model missing from the branch you didn't pick won't stop the run. Switches
   you already made work as before.
+- **Node names and descriptions in Chinese.** Switch ComfyUI's language to
+  中文 and every AusBoss node shows its name, description and input and
+  output names in Chinese. The cards on the nodes and the help pages stay in
+  English for now. Thanks to @ne7359 for asking.
 - **Workflow Switches 🆎 has a guide for AI agents.** Point an agent at
   `js/docs/agents/workflow_switches.md` in the pack's folder and it can add
   switches to a workflow for you.
