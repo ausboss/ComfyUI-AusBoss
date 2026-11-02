@@ -669,6 +669,13 @@ class VideoJobTests(unittest.TestCase):
         self.assertIn("<Video 1>: partially_preserved", parts["retention_analysis"])
         self.assertIn("the background of <Picture 1> is not transferred", parts["retention_analysis"])
 
+    def test_typed_words_in_a_swap_say_who_goes(self):
+        parts = parts_of("The child in the seat.", jobs={1: "person"}, video="swap the person")
+        self.assertIn("<Subject 1> is the child in the seat in <Video 1>", parts["subject_definitions"])
+        self.assertIn("replace the child in the seat with <Subject 2>", parts["retention_analysis"])
+        self.assertIn("Everyone else stays", parts["detailed_description"])
+        self.assertNotIn("Show one person", parts["detailed_description"])
+
     def test_keeping_going_needs_no_words_and_no_picture(self):
         parts = parts_of("", jobs={}, video="keep going")
         self.assertTrue(parts["summary"].startswith("[video continuation]"))

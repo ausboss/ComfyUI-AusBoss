@@ -90,12 +90,12 @@ MOVES_KEPT = (
 )
 SWAP_IS = (
     "<Video 1> supplies the place, the action, the timing, the camera movement and the look.\n"
-    "{replaced} is the original person in <Video 1>, selected for replacement."
+    "{replaced} is {who} in <Video 1>, selected for replacement."
 )
 SWAP_KEPT = (
     "<Video 1>: partially_preserved - keep the place, the action, the timing, the camera movement and the look; "
     "change only the person.\n"
-    "{replaced}: removed - replace the original person with {main} throughout."
+    "{replaced}: removed - replace {who} with {main} throughout."
 )
 SWAPPED = "attribute_transfer - apply the defined appearance to the original performance; the background of {picture} is not transferred."
 KEEP_IS = (
@@ -155,6 +155,7 @@ class Cast:
         last = max((picture.subject for picture in pictures), default=0)
         self.moves = subject_label(last + 1) if video == MOVES else ""
         self.replaced = subject_label(1) if video == SWAP else ""
+        self.who = "the original person"  # In a swap the script can name who goes: "the child in the seat".
         self.in_video = subject_label(last + 1) if video in (KEEP, REVOICE) else ""
         self.people = [picture for picture in pictures if picture.job in (PERSON, SHEET, START)]
         self.subjects = {picture.slot: subject_label(picture.subject) for picture in pictures if picture.subject}
@@ -221,7 +222,7 @@ class Cast:
         ends = self.ends
         lines = []
         if self.video == SWAP:
-            lines.append(SWAP_IS.format(replaced=self.replaced))
+            lines.append(SWAP_IS.format(replaced=self.replaced, who=self.who))
         worn = set(wearers.values())
         for picture in self.pictures:
             if picture.job == END:
@@ -275,7 +276,7 @@ class Cast:
 
         lines = []
         if self.video == SWAP:
-            lines.append(SWAP_KEPT.format(replaced=self.replaced, main=self.main))
+            lines.append(SWAP_KEPT.format(replaced=self.replaced, who=self.who, main=self.main))
         for picture in self.pictures:
             if picture.job == END:
                 continue

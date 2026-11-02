@@ -114,7 +114,9 @@ THE_MOVES = "{main} performs the same moves as {moves}, at the same timing."
 IN_THE_PLACE = "The shot takes place in {place}."
 WEARS = "{wearer} wears {outfit}."
 IN_THE_SHOT = "{main} is in the shot."
-TAKES_OVER = "{main} takes the place of the original person and does the same thing at the same pace. Show one person throughout."
+TAKES_OVER = "{main} takes the place of {who} and does the same thing at the same pace."
+ONE_PERSON = "Show one person throughout."
+OTHERS_STAY = "Everyone else stays as they are in <Video 1>."
 FOLLOWS_CAMERA = "The camera follows the movement of <Video 1>."
 CARRIES_ON = "The shot carries straight on from the end of <Video 1>."
 ACTION_GOES_ON = "The action keeps going the way it was heading, and the camera keeps moving the same way."
@@ -657,7 +659,7 @@ def before_the_action(number, text, cast, wearers):
         words = OPENS_ON if cast.ends else OPENING
         notes.append(words.format(subject=subject_label(opens.subject), picture=picture_label(opens.picture)))
     if cast.video == SWAP:
-        notes += [TAKES_OVER.format(main=cast.main)]
+        notes += [TAKES_OVER.format(main=cast.main, who=cast.who), ONE_PERSON if cast.who == "the original person" else OTHERS_STAY]
     if number == 1 and cast.video == KEEP:
         notes += [CARRIES_ON]
     if number == 1 and cast.video == REVOICE:
