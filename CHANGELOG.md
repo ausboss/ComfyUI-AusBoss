@@ -4,6 +4,22 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Nodes and groups snap into line while you drag them.** Drag a node, a
+  group or a selection near another node or group and it lines up with it:
+  left edges, right edges, tops, bottoms or middles. A teal line shows what it
+  lines up with, dashed when the middles line up. Resizing a node or a group
+  by a corner lines that edge up the same way. Hold Shift while you drag to
+  place it without lining up; ComfyUI then snaps it to its grid as usual. Turn
+  it off under Settings → 🆎 AusBoss → Canvas. In the Nodes 2.0 look, resizing
+  a node does not snap yet. If another pack's snapping is on, such as
+  Pixaroma's Align, AusBoss leaves the dragging to it.
+
+- **Line up nodes and groups from the selection toolbar.** Select two or more
+  nodes or groups and a Line up button pops out a small panel: line up edges or
+  middles, give them one width or height, or space them evenly. Each tool is
+  also a command, so it can get a key. Turn the button off under Settings →
+  🆎 AusBoss → Canvas.
+
 - **Stitch Inpaint 🆎 can put a hand crop back on your whole picture.** Crop
   in Image Crop + Rotate + Pad 🆎, edit the crop, and set **Paste onto** to
   original in Stitch Inpaint's gear menu. You get your full picture back with
