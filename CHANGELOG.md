@@ -4,6 +4,19 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Crop For Inpaint 🆎 no longer makes an inpainted face come back slightly
+  bigger.** Its default Multiple is now 32, so Qwen Image 2.1, Flux and other
+  newer models get a size their VAE keeps whole; at 8, the VAE trimmed a few
+  pixels and the stitch stretched what was left over the crop. When the crop
+  is rescaled, it now takes in a few more pixels of context so the picture is
+  scaled the same amount both ways, the way the original Inpaint Crop and
+  Stitch nodes do it. Stitch Inpaint 🆎 notes it in the console when a
+  trimmed picture comes back. Saved workflows keep their Multiple; set it to
+  32 by hand. Thanks to @CognitiveDiffusion for the report (#262).
+- **Stitch Inpaint 🆎 Tone match works on pictures with see-through parts.**
+  It used to read the colour hidden under the clear parts and tint the new
+  area, often yellow. It now reads only what shows (#232).
+
 - **Nodes and groups snap into line while you drag them.** Drag a node, a
   group or a selection near another node or group and it lines up with it:
   left edges, right edges, tops, bottoms or middles. A teal line shows what it

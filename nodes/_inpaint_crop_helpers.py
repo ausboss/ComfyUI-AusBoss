@@ -131,6 +131,63 @@ def clamp_rect_to_bounds(rect: Rect, bounds_w: int, bounds_h: int) -> Rect:
     return (x, y, w, h)
 
 
+def _rect_contains(outer: Rect, inner: Rect) -> bool:
+    ox, oy, ow, oh = outer
+    ix, iy, iw, ih = inner
+    return ox <= ix and oy <= iy and ix + iw <= ox + ow and iy + ih <= oy + oh
+
+
+def match_rect_shape(
+    rect: Rect,
+    target_w: int,
+    target_h: int,
+    bounds_w: int,
+    bounds_h: int,
+    keep_inside: bool = False,
+    keep_box: Rect | None = None,
+) -> Rect:
+    """Reshape a crop window to the sampler size's proportions.
+
+    The sampler size is rounded to a multiple on each side separately, so
+    it rarely has the crop's exact proportions. Resizing one into the
+    other would stretch the picture a little more one way than the other.
+    Instead the window takes in a few more pixels of context on its short
+    side, so a single scale maps it onto the sampler size.
+
+    With ``keep_inside``, a window that would then run past the picture
+    gives up a few pixels of context on its long side instead, as long as
+    it still holds ``keep_box`` (the mask's box). If neither fits, it grows
+    and the overflow is padded with copies of the edge pixels, as before.
+    """
+    x, y, w, h = rect
+    tw, th = max(1, int(target_w)), max(1, int(target_h))
+    if w * th == h * tw:
+        return rect
+    if w * th < h * tw:
+        grown = (max(1, round(h * tw / th)), h)
+        shrunk = (w, max(1, round(w * th / tw)))
+    else:
+        grown = (w, max(1, round(w * th / tw)))
+        shrunk = (max(1, round(h * tw / th)), h)
+
+    def place(size: tuple[int, int], center: tuple[float, float]) -> Rect:
+        nw, nh = size
+        placed = (round(center[0] - nw / 2.0), round(center[1] - nh / 2.0), nw, nh)
+        return fit_rect(placed, bounds_w, bounds_h)
+
+    center = (x + w / 2.0, y + h / 2.0)
+    wider = place(grown, center)
+    if not keep_inside or (grown[0] <= bounds_w and grown[1] <= bounds_h):
+        return wider
+    keep = keep_box if keep_box is not None else rect
+    keep_center = (keep[0] + keep[2] / 2.0, keep[1] + keep[3] / 2.0)
+    for anchor in (center, keep_center):
+        narrower = place(shrunk, anchor)
+        if _rect_contains(narrower, keep):
+            return narrower
+    return wider
+
+
 def rect_margins(rect: Rect, bounds_w: int, bounds_h: int) -> tuple[int, int, int, int]:
     """(left, top, right, bottom) overflow of a rect past the bounds."""
     x, y, w, h = rect
@@ -413,7 +470,19 @@ def build_crop(
         target_w = max(1, round(rect[2] * area_scale))
         target_h = max(1, round(rect[3] * area_scale))
         use_target = True
-    if not use_target:
+    if use_target:
+        # Settle the sampler size first, then give the crop window that
+        # exact shape: one scale for both sides, so the round trip never
+        # stretches the picture more one way than the other.
+        if target_w <= 0:
+            target_w = max(1, round(rect[2] * target_h / rect[3]))
+        if target_h <= 0:
+            target_h = max(1, round(rect[3] * target_w / rect[2]))
+        target_w = round_up_to_multiple(target_w, multiple)
+        target_h = round_up_to_multiple(target_h, multiple)
+        keep_box = bbox if bbox is not None else (0, 0, width, height)
+        rect = match_rect_shape(rect, target_w, target_h, width, height, keep_inside, keep_box)
+    else:
         # Native sizing: the crop itself must satisfy the sampler multiple.
         rect = expand_rect_to_multiple(rect, multiple)
         rect = fit_rect(rect, width, height)
@@ -441,12 +510,6 @@ def build_crop(
 
     scale = None
     if use_target:
-        if target_w <= 0:
-            target_w = max(1, round(cw * target_h / ch))
-        if target_h <= 0:
-            target_h = max(1, round(ch * target_w / cw))
-        target_w = round_up_to_multiple(target_w, multiple)
-        target_h = round_up_to_multiple(target_h, multiple)
         if (target_w, target_h) != (cw, ch):
             cropped = _resize_image(cropped, target_w, target_h, rescale_algorithm)
             sampling = _resize_mask(sampling, target_w, target_h)
@@ -461,6 +524,9 @@ def build_crop(
         "blend": blend,
         "scale": scale,
         "algorithm": rescale_algorithm,
+        # The size the crop went to the sampler at, so the stitch can tell
+        # when a different size came back.
+        "sampler_size": (int(cropped.shape[2]), int(cropped.shape[1])),
     }
     return cropped, sampling, stitcher
 
@@ -638,6 +704,22 @@ def apply_stitch(
         )
 
     patch = inpainted.to(dtype=out.dtype, device=out.device)
+    sent = stitcher.get("sampler_size")
+    came_back = (int(patch.shape[2]), int(patch.shape[1]))
+    trimmed = sent is not None and tuple(sent) != came_back and all(
+        0 <= int(a) - b < 32 for a, b in zip(sent, came_back)
+    )
+    if trimmed:
+        # Most often a VAE that trims the picture to a multiple of 16 or 32:
+        # the trimmed edge is gone, so stretching the rest over the crop
+        # window makes the result look slightly bigger than the original.
+        warn_once(
+            f"Stitch Inpaint: the crop went to the sampler at {sent[0]}x{sent[1]} "
+            f"but came back {came_back[0]}x{came_back[1]}, so it is stretched to fit "
+            "and can look slightly bigger. Set Crop For Inpaint's output_multiple "
+            "to 32 (or your model's own step) so the size comes back unchanged.",
+            _warned,
+        )
     if (patch.shape[1], patch.shape[2]) != (ch, cw):
         patch = _resize_image(patch, cw, ch, stitcher.get("algorithm", "bilinear"))
     if keep_alpha:
@@ -724,11 +806,17 @@ def estimate_tone_offset(
 
     diff = rgb_to_lab(inpainted[..., :3]) - rgb_to_lab(canvas[..., :3])
     band = _band_weights(blend)
+    # See-through pixels carry whatever colour sits under the clear part
+    # (often black or white), not the picture's tone: read only what shows.
+    trust = torch.ones_like(band)
+    for layer in (canvas, inpainted):
+        if layer.shape[-1] > 3:
+            trust = trust * layer[..., 3].clamp(0.0, 1.0)
     weights = band.unsqueeze(-1)
-    numerator = (weights * diff).sum(dim=(1, 2))
-    denominator = (weights * weights).sum(dim=(1, 2)).clamp_min(1e-6)
+    numerator = (trust.unsqueeze(-1) * weights * diff).sum(dim=(1, 2))
+    denominator = (trust.unsqueeze(-1) * weights * weights).sum(dim=(1, 2)).clamp_min(1e-6)
     offset = numerator / denominator
-    measured = (band.sum(dim=(1, 2)) > 0).unsqueeze(-1)
+    measured = ((trust * band).sum(dim=(1, 2)) > 1e-6).unsqueeze(-1)
     return torch.where(measured, offset, torch.zeros_like(offset))
 
 
