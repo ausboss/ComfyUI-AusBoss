@@ -1,0 +1,1557 @@
+{
+  "AUSBOSS_NODES_AlignImage": {
+    "display_name": "对齐图像 🆎",
+    "description": "把图像的宽和高对齐到你选的整数倍，例如 8、16、32，按模型的要求来。Qwen 图像模型、VAE 和很多采样器在尺寸能整除时效果最好。resize 缩放到最接近的倍数，crop 从你选的锚点裁小到一个倍数，pad 用边缘像素或颜色扩大到一个倍数；新尺寸以 INT 输出，可以直接连到 latent 节点。",
+    "inputs": {
+      "image": {
+        "name": "图像"
+      },
+      "multiple": {
+        "name": "倍数"
+      },
+      "mode": {
+        "name": "模式"
+      },
+      "crop_position": {
+        "name": "裁剪位置"
+      },
+      "pad_position": {
+        "name": "扩边位置"
+      },
+      "pad_fill": {
+        "name": "扩边填充"
+      },
+      "pad_color": {
+        "name": "扩边颜色"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像"
+      },
+      "1": {
+        "name": "宽度"
+      },
+      "2": {
+        "name": "高度"
+      }
+    }
+  },
+  "AUSBOSS_NODES_Callout": {
+    "display_name": "标注 🆎",
+    "description": "画布上的便签。写一两行字，文字会放大填满便签，不用放大画布也能看清。文字里的箭头表情会变成行内的青色箭头。双击编辑。它不参与运行：没有输入也没有输出。",
+    "inputs": {
+      "text": {
+        "name": "文本"
+      }
+    }
+  },
+  "AUSBOSS_NODES_ColorMatch": {
+    "display_name": "颜色匹配 🆎",
+    "description": "把参考图的颜色统计转移到输入图上，用来修正局部重绘或拼回区域的色差。四种方法：lab 和 rgb 按通道调整均值和标准差，mkl 映射完整的颜色协方差，histogram 让每个通道的分布完全一致。可选的 mask 把测量和校正都限制在白色区域（invert_mask 反转），所以节点接收遮罩但不输出遮罩：遮罩只决定修正范围，在你的图中原样通过。strength 在原图和完全匹配的结果之间混合。视频用 reference_mode：first_frame 让每一帧都匹配批次自己的第一帧，不需要参考图也能减少帧间色彩漂移；它不会稳定画面运动。",
+    "inputs": {
+      "image": {
+        "name": "图像"
+      },
+      "strength": {
+        "name": "强度"
+      },
+      "reference": {
+        "name": "参考"
+      },
+      "method": {
+        "name": "方法"
+      },
+      "mask": {
+        "name": "遮罩"
+      },
+      "invert_mask": {
+        "name": "反转遮罩"
+      },
+      "reference_mode": {
+        "name": "参考模式"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像"
+      }
+    }
+  },
+  "AUSBOSS_NODES_Compare": {
+    "display_name": "图像对比 A/B 🆎",
+    "description": "在一个面板上显示 A 和 B：在上面滑动，指针左边显示 B；也可以用图片下方的开关固定显示 A 或 B。擦除功能用画笔擦掉一张图的部分，让另一张露出来，并把混合结果存为 PNG，需要的话还能存分层 PSD 和遮罩。image_a 和 image_b 原样通过，所以节点可以放在图的中间。",
+    "inputs": {
+      "image_a": {
+        "name": "图像 A"
+      },
+      "image_b": {
+        "name": "图像 B"
+      },
+      "filename": {
+        "name": "文件名"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像 A"
+      },
+      "1": {
+        "name": "图像 B"
+      }
+    }
+  },
+  "AUSBOSS_NODES_CropForInpaint": {
+    "display_name": "局部重绘裁剪 🆎",
+    "description": "把遮罩区域连同周围的上下文从图像中裁出来，让重绘模型以原生分辨率工作，并输出一个 stitcher，局部重绘拼回 🆎 用它把结果无缝贴回去。选区可以反转、扩大或缩小，并在裁剪前柔化边缘；上下文由扩张系数加可选的固定像素决定，并止于图片边缘，除非关闭 keep_inside。target_megapixels 把裁剪区域缩放到适合采样器的面积，extend 系列输入可以扩大画框用于扩图。默认情况下采样遮罩保持硬边；羽化放在单独的混合遮罩里，只在拼回时使用。空遮罩会选中整张图，拼回时不做改动。",
+    "inputs": {
+      "image": {
+        "name": "图像"
+      },
+      "mask": {
+        "name": "遮罩"
+      },
+      "context_factor": {
+        "name": "上下文系数"
+      },
+      "blend_pixels": {
+        "name": "混合像素"
+      },
+      "output_multiple": {
+        "name": "输出倍数"
+      },
+      "target_width": {
+        "name": "目标宽度"
+      },
+      "target_height": {
+        "name": "目标高度"
+      },
+      "mask_grow": {
+        "name": "遮罩扩大"
+      },
+      "mask_blur": {
+        "name": "遮罩模糊"
+      },
+      "invert_mask": {
+        "name": "反转遮罩"
+      },
+      "context_pixels": {
+        "name": "上下文像素"
+      },
+      "target_megapixels": {
+        "name": "目标百万像素"
+      },
+      "rescale_algorithm": {
+        "name": "缩放算法"
+      },
+      "extend_left": {
+        "name": "向左扩展"
+      },
+      "extend_right": {
+        "name": "向右扩展"
+      },
+      "extend_up": {
+        "name": "向上扩展"
+      },
+      "extend_down": {
+        "name": "向下扩展"
+      },
+      "keep_inside": {
+        "name": "保持在图内"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像"
+      },
+      "1": {
+        "name": "遮罩"
+      },
+      "2": {
+        "name": "stitcher"
+      }
+    }
+  },
+  "AUSBOSS_NODES_Float": {
+    "display_name": "浮点数 🆎",
+    "description": "一个独立的 FLOAT 值。在多个节点之间共用同一个强度、缩放或 CFG，只需在一处修改。",
+    "inputs": {
+      "value": {
+        "name": "值"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "浮点数"
+      }
+    }
+  },
+  "AUSBOSS_NODES_FrameInterpolate": {
+    "display_name": "补帧 🆎",
+    "description": "把一组帧从原 fps 重新采样到目标 fps，24 转 30 和翻倍一样简单。新的中间帧来自快速交叉淡化，或缓存的 RAFT 光流；正好落在原帧上的帧直接复制，不做改动。遇到硬切镜头时保持上一帧，不会在切点之间产生变形。",
+    "inputs": {
+      "frames": {
+        "name": "帧"
+      },
+      "source_fps": {
+        "name": "原 fps"
+      },
+      "target_fps": {
+        "name": "目标 fps"
+      },
+      "method": {
+        "name": "方法"
+      },
+      "scene_cut_threshold": {
+        "name": "切镜阈值"
+      },
+      "batch_size": {
+        "name": "批次大小"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "帧"
+      },
+      "1": {
+        "name": "fps"
+      }
+    }
+  },
+  "AUSBOSS_NODES_FreeMemory": {
+    "display_name": "释放显存 🆎",
+    "description": "让任意连线原样通过，并在途中卸载 ComfyUI 缓存的模型、清空 CUDA 缓存。把它放在一个吃显存的步骤和下一个步骤之间，下一步就能在显存空闲时开始，而不是报显存不足。每一步释放都是尽力而为：某个接口不存在或变了，就跳过那一步，连线照常通过。和其他节点一样，它只在输入变化时运行，所以不会破坏下游缓存。",
+    "inputs": {
+      "value": {
+        "name": "值"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "值"
+      }
+    }
+  },
+  "AUSBOSS_NODES_ImageCropRotatePad": {
+    "display_name": "图像裁剪 + 旋转 + 扩边 🆎",
+    "description": "加载一张图像，在画面上直接旋转、裁剪和扩边。遮罩标出要生成的部分：新扩出的边、旋转后空出的角，以及图中半透明的部分（不透明度低于 90%），这些部分会像扩边一样被填充，除非 painted_area 设置为保留原图。还可以按百万像素预算缩放结果（与核心 Scale Image to Total Pixels 相同：保持比例，尺寸取整到 resolution_steps）。",
+    "inputs": {
+      "image": {
+        "name": "图像"
+      },
+      "rotation_degrees": {
+        "name": "旋转角度"
+      },
+      "crop_aspect_ratio": {
+        "name": "裁剪比例"
+      },
+      "crop_x": {
+        "name": "裁剪 x"
+      },
+      "crop_y": {
+        "name": "裁剪 y"
+      },
+      "crop_width": {
+        "name": "裁剪宽度"
+      },
+      "crop_height": {
+        "name": "裁剪高度"
+      },
+      "pad_left": {
+        "name": "左扩边"
+      },
+      "pad_top": {
+        "name": "上扩边"
+      },
+      "pad_right": {
+        "name": "右扩边"
+      },
+      "pad_bottom": {
+        "name": "下扩边"
+      },
+      "feather": {
+        "name": "羽化"
+      },
+      "canvas_multiple": {
+        "name": "画布倍数"
+      },
+      "fill_color": {
+        "name": "填充颜色"
+      },
+      "resize_to_megapixels": {
+        "name": "缩放到百万像素"
+      },
+      "megapixels": {
+        "name": "百万像素"
+      },
+      "resize_method": {
+        "name": "缩放方法"
+      },
+      "resolution_steps": {
+        "name": "分辨率步长"
+      },
+      "stitch_blend": {
+        "name": "拼回混合"
+      },
+      "stitch_grow": {
+        "name": "拼回扩大"
+      },
+      "painted_area": {
+        "name": "绘制区域"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像"
+      },
+      "1": {
+        "name": "遮罩"
+      },
+      "2": {
+        "name": "stitcher"
+      },
+      "3": {
+        "name": "原图"
+      },
+      "4": {
+        "name": "宽度"
+      },
+      "5": {
+        "name": "高度"
+      },
+      "6": {
+        "name": "提示图像"
+      }
+    }
+  },
+  "AUSBOSS_NODES_ImageFolder": {
+    "display_name": "图片文件夹 🆎",
+    "description": "选一个文件夹，勾选想要的图片，对每张图运行工作流。All in one run 按一次运行就处理所有选中的图片。One per run 每次运行加载一张，并自动跳到下一张，某张失败只会跳过它自己。它会输出每张图的遮罩、文件名（用来以相同名字保存结果）、序号和总数。可选的文件夹在 ComfyUI 的 input 或 output 文件夹里。",
+    "inputs": {
+      "source": {
+        "name": "来源"
+      },
+      "folder": {
+        "name": "文件夹"
+      },
+      "subfolders": {
+        "name": "子文件夹"
+      },
+      "sort": {
+        "name": "排序"
+      },
+      "pictures": {
+        "name": "图片"
+      },
+      "run": {
+        "name": "运行"
+      },
+      "position": {
+        "name": "位置"
+      },
+      "after_run": {
+        "name": "运行后"
+      },
+      "at_the_end": {
+        "name": "末尾"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像"
+      },
+      "1": {
+        "name": "遮罩"
+      },
+      "2": {
+        "name": "文件名"
+      },
+      "3": {
+        "name": "索引"
+      },
+      "4": {
+        "name": "数量"
+      }
+    }
+  },
+  "AUSBOSS_NODES_ImageResize": {
+    "display_name": "图像缩放 🆎",
+    "description": "把图像（以及可选的遮罩，处理方式相同）缩放到目标宽高、最长边或最短边、百万像素预算或缩放倍数。keep_proportion 决定比例变化时怎么处理：拉伸、完整放入、填满并居中裁剪，或用颜色扩边；扩边时新加的边在遮罩输出中标为 1.0。divisible_by 把结果对齐到整数倍（WAN 用 16），尺寸填 0 表示保持原图该边。",
+    "inputs": {
+      "image": {
+        "name": "图像"
+      },
+      "target_mode": {
+        "name": "目标模式"
+      },
+      "width": {
+        "name": "宽度"
+      },
+      "height": {
+        "name": "高度"
+      },
+      "edge_length": {
+        "name": "边长"
+      },
+      "megapixels": {
+        "name": "百万像素"
+      },
+      "scale_factor": {
+        "name": "缩放倍数"
+      },
+      "keep_proportion": {
+        "name": "保持比例"
+      },
+      "fill_color": {
+        "name": "填充颜色"
+      },
+      "divisible_by": {
+        "name": "整除倍数"
+      },
+      "interpolation": {
+        "name": "插值"
+      },
+      "mask": {
+        "name": "遮罩"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像"
+      },
+      "1": {
+        "name": "遮罩"
+      },
+      "2": {
+        "name": "宽度"
+      },
+      "3": {
+        "name": "高度"
+      }
+    }
+  },
+  "AUSBOSS_NODES_ImageSize": {
+    "display_name": "图像尺寸 🆎",
+    "description": "把图像尺寸读成 INT：宽、高、最长边、最短边，以及批次中的图像数量。把它们连到缩放、latent 或条件节点上，不用再手填会过时的数字。运行后，节点会在每个输出旁显示数值。",
+    "inputs": {
+      "image": {
+        "name": "图像"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "宽度"
+      },
+      "1": {
+        "name": "高度"
+      },
+      "2": {
+        "name": "最长边"
+      },
+      "3": {
+        "name": "最短边"
+      },
+      "4": {
+        "name": "数量"
+      }
+    }
+  },
+  "AUSBOSS_NODES_Integer": {
+    "display_name": "整数 🆎",
+    "description": "一个独立的 INT 值。在一个地方设置步数、尺寸或数量，送给所有需要同一个数字的节点。",
+    "inputs": {
+      "value": {
+        "name": "值"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "整数"
+      }
+    }
+  },
+  "AUSBOSS_NODES_Krea2Encode": {
+    "display_name": "Krea 2 编码 🆎",
+    "description": "在一个节点里编码 Krea 2 的正负提示词，并附加参考 latent。接上 VAE 和参考图，参考图会被编码并附加到正向条件上；不接则是普通的双提示词编码器。负向条件也从这个节点输出，所以 CFG 1.0 的 turbo 图也有东西可接，不需要再放一个空闲的文本编码节点。扩图时把遮罩也接上，新区域会以原图自己的颜色而不是灰色送进模型。",
+    "inputs": {
+      "clip": {
+        "name": "clip"
+      },
+      "prompt": {
+        "name": "提示词"
+      },
+      "negative_prompt": {
+        "name": "负向提示词"
+      },
+      "vae": {
+        "name": "vae"
+      },
+      "reference": {
+        "name": "参考"
+      },
+      "extra_image": {
+        "name": "额外图像"
+      },
+      "vlm_reference": {
+        "name": "vlm 参考"
+      },
+      "mask": {
+        "name": "遮罩"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "正向"
+      },
+      "1": {
+        "name": "负向"
+      }
+    }
+  },
+  "AUSBOSS_NODES_Krea2OutpaintModelPatch": {
+    "display_name": "Krea 2 扩图模型补丁 🆎",
+    "description": "告诉 Krea 2 参考图在画布上的位置。参考 latent 通常不带位置信息，模型只把它当作松散的风格提示；这个节点把它们注册到 stitcher 报告的目标网格矩形中，这样扩图才会延续原图，而不是重新编一张。放在所有 LoRA 加载器之后、采样器之前。",
+    "inputs": {
+      "model": {
+        "name": "模型"
+      },
+      "stitcher": {
+        "name": "stitcher"
+      },
+      "kv_cache": {
+        "name": "kv 缓存"
+      },
+      "placement": {
+        "name": "放置"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "模型"
+      }
+    }
+  },
+  "AUSBOSS_NODES_LaMaInpaint": {
+    "display_name": "LaMa 局部重绘 🆎",
+    "description": "用 TorchScript 格式的 LaMa 模型去除遮罩区域的内容，遮罩外的像素保持不变。模型从 ComfyUI/models/lama 读取，节点从不下载模型。",
+    "inputs": {
+      "image": {
+        "name": "图像"
+      },
+      "mask": {
+        "name": "遮罩"
+      },
+      "model": {
+        "name": "模型"
+      },
+      "preview": {
+        "name": "预览"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像"
+      }
+    }
+  },
+  "AUSBOSS_NODES_LayoutBoxes": {
+    "display_name": "布局框 🆎",
+    "description": "在画布上画框，并说明每个框里放什么：一个物体，或要写在图里的文字。把 elements 接到 MOSS-Image Layout Prompt。在画布上拖动画框；拖动框可以移动，拖角可以改大小，拖框上方的圆形手柄可以旋转。经典界面和 Nodes 2.0 都能用，输出与 ComfyUI 自带的 Create Bounding Boxes 相同，可以替代那个节点。接到 background 的图片会显示在框下面，并决定画布尺寸。mask 输出在每个框内为白色：用来只修改图中这些地方，例如招牌上的字。",
+    "inputs": {
+      "background": {
+        "name": "背景"
+      },
+      "bboxes": {
+        "name": "边界框"
+      },
+      "width": {
+        "name": "宽度"
+      },
+      "height": {
+        "name": "高度"
+      },
+      "layout": {
+        "name": "布局"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "预览"
+      },
+      "1": {
+        "name": "边界框"
+      },
+      "2": {
+        "name": "元素"
+      },
+      "3": {
+        "name": "遮罩"
+      }
+    }
+  },
+  "AUSBOSS_NODES_LoadImagePad": {
+    "display_name": "加载图像 + 扩边 🆎",
+    "description": "在一个节点里加载图像并扩边成扩图画布。拖动节点上画布的任意一边，直观地设置每边的扩边量；遮罩正好覆盖新扩出的部分，可选择向内羽化跨过接缝。画布会取整到整数倍，但不会给你没扩的边加条带；设置百万像素目标时会先缩放原图，让遮罩接缝保持清晰。",
+    "inputs": {
+      "image": {
+        "name": "图像"
+      },
+      "pad_left": {
+        "name": "左扩边"
+      },
+      "pad_top": {
+        "name": "上扩边"
+      },
+      "pad_right": {
+        "name": "右扩边"
+      },
+      "pad_bottom": {
+        "name": "下扩边"
+      },
+      "mode": {
+        "name": "模式"
+      },
+      "fill_color": {
+        "name": "填充颜色"
+      },
+      "backdrop_blur": {
+        "name": "背景模糊"
+      },
+      "feather": {
+        "name": "羽化"
+      },
+      "canvas_multiple": {
+        "name": "画布倍数"
+      },
+      "target_megapixels": {
+        "name": "目标百万像素"
+      },
+      "source_image": {
+        "name": "原图"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像"
+      },
+      "1": {
+        "name": "遮罩"
+      },
+      "2": {
+        "name": "宽度"
+      },
+      "3": {
+        "name": "高度"
+      },
+      "4": {
+        "name": "stitcher"
+      },
+      "5": {
+        "name": "参考"
+      }
+    }
+  },
+  "AUSBOSS_NODES_LoadVideo": {
+    "display_name": "加载视频 🆎",
+    "description": "把视频加载为 BHWC 帧批次和音频，可在预览时间轴上选择开始/结束范围进行裁剪，并输出帧数、fps、尺寸和时长供下游使用，另有一个延迟加载的核心 VIDEO 输出给处理整段视频的节点。every_nth 抽帧，max_frames 限制帧数，长视频加载也不会占满内存。single_frame 把加载器变成选帧器，只返回 IN 时间点的那一帧，作为单图批次。",
+    "inputs": {
+      "video": {
+        "name": "视频"
+      },
+      "start_seconds": {
+        "name": "起始秒数"
+      },
+      "end_seconds": {
+        "name": "结束秒数"
+      },
+      "custom_width": {
+        "name": "自定义宽度"
+      },
+      "custom_height": {
+        "name": "自定义高度"
+      },
+      "every_nth": {
+        "name": "每隔 N 帧"
+      },
+      "max_frames": {
+        "name": "最大帧数"
+      },
+      "single_frame": {
+        "name": "单帧"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "帧"
+      },
+      "1": {
+        "name": "音频"
+      },
+      "2": {
+        "name": "帧数"
+      },
+      "3": {
+        "name": "fps"
+      },
+      "4": {
+        "name": "宽度"
+      },
+      "5": {
+        "name": "高度"
+      },
+      "6": {
+        "name": "时长"
+      },
+      "7": {
+        "name": "视频"
+      }
+    }
+  },
+  "AUSBOSS_NODES_LoraLoader": {
+    "display_name": "LoRA 加载器 🆎",
+    "description": "在一个紧凑的节点里给模型和 CLIP 叠加多个 LoRA。每一行有启用开关、可搜索的 LoRA 选择器、可拖动调整的模型/CLIP 强度，名字后面还有以零为中心的强度条；所有启用行的触发词会合并成一个字符串输出。▤ 按钮可以保存和应用整组 LoRA 的命名模板；齿轮菜单中的一个操作可以把模型链上游和下游连着的所有 LoRA 加载器并入这一组，并旁路原来的节点。移动过的 LoRA 文件在运行时按名字查找；真正缺失的文件会在采样前的校验中报错并给出文件名。关掉齿轮菜单里的 Stop on missing LoRA 开关，就改为警告并跳过。",
+    "inputs": {
+      "model": {
+        "name": "模型"
+      },
+      "loras": {
+        "name": "loras"
+      },
+      "clip": {
+        "name": "clip"
+      },
+      "trigger_separator": {
+        "name": "触发词分隔符"
+      },
+      "on_missing": {
+        "name": "缺失时"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "模型"
+      },
+      "1": {
+        "name": "clip"
+      },
+      "2": {
+        "name": "触发词"
+      }
+    }
+  },
+  "AUSBOSS_NODES_MaskByName": {
+    "display_name": "按名称生成遮罩 🆎",
+    "description": "输入要在图中找的东西，例如 “the dog” 或 “the jacket”，得到它的遮罩。不用手绘。节点会在图上用颜色标出找到的东西。什么都没找到时，它会用一句简单的话停止运行，后面的节点不会拿空遮罩继续跑（也可以设置成输出空遮罩）。Find 只运行这个节点，先检查遮罩。它使用 ComfyUI 自带的 SAM 3：从加载 SAM 3 文件的 Load Checkpoint 接入 model 和 clip。它还会输出抠在透明背景上的该物体。",
+    "inputs": {
+      "image": {
+        "name": "图像"
+      },
+      "model": {
+        "name": "模型"
+      },
+      "clip": {
+        "name": "clip"
+      },
+      "name": {
+        "name": "名称"
+      },
+      "several": {
+        "name": "多个"
+      },
+      "grow": {
+        "name": "扩大"
+      },
+      "soften": {
+        "name": "柔化"
+      },
+      "if_nothing": {
+        "name": "未找到时"
+      },
+      "preview": {
+        "name": "预览"
+      },
+      "threshold": {
+        "name": "阈值"
+      },
+      "fill_holes": {
+        "name": "填补空洞"
+      },
+      "free_vram": {
+        "name": "释放显存"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "遮罩"
+      },
+      "1": {
+        "name": "抠图"
+      },
+      "2": {
+        "name": "已找到"
+      }
+    }
+  },
+  "AUSBOSS_NODES_MaskByTouch": {
+    "display_name": "点选生成遮罩 🆎",
+    "description": "在图上点一个东西，或在它上面涂抹，得到它的遮罩。不用输入名字，也不用 MaskEditor。鼠标移过图片时，会高亮点击将选中的内容。涂抹一笔会选中下面的物体，或者正好是涂到的地方。高亮的就是遮罩。什么都没选时，它会用一句简单的话停止运行，后面的节点不会拿空遮罩继续跑（也可以设置成输出空遮罩）。它使用 ComfyUI 自带的 SAM 3：从加载 SAM 3 文件的 Load Checkpoint 接入 model 和 clip。它还会输出抠在透明背景上的选区，以及你所选内容的名称文本。",
+    "inputs": {
+      "image": {
+        "name": "图像"
+      },
+      "model": {
+        "name": "模型"
+      },
+      "clip": {
+        "name": "clip"
+      },
+      "touches": {
+        "name": "点选"
+      },
+      "grow": {
+        "name": "扩大"
+      },
+      "soften": {
+        "name": "柔化"
+      },
+      "smooth": {
+        "name": "平滑"
+      },
+      "fill_holes": {
+        "name": "填补空洞"
+      },
+      "if_nothing": {
+        "name": "未找到时"
+      },
+      "free_vram": {
+        "name": "释放显存"
+      },
+      "invert": {
+        "name": "反转"
+      },
+      "ask": {
+        "name": "询问"
+      },
+      "fine_edges": {
+        "name": "精细边缘"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "遮罩"
+      },
+      "1": {
+        "name": "抠图"
+      },
+      "2": {
+        "name": "名称"
+      }
+    }
+  },
+  "AUSBOSS_NODES_MathExpression": {
+    "display_name": "数学表达式 🆎",
+    "description": "用输入 a、b、c 计算一个算术表达式，同时输出 FLOAT 和 INT：宽高计算、强度渐变、帧数。允许：数字、a/b/c、+ - * / // % ** 和括号，以及 min、max、abs、round、floor、ceil、sqrt。表达式是解析执行的，从不使用 eval()，所以分享的工作流无法通过这个节点夹带代码。",
+    "inputs": {
+      "expression": {
+        "name": "表达式"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "浮点数"
+      },
+      "1": {
+        "name": "整数"
+      }
+    }
+  },
+  "AUSBOSS_NODES_MergeBatches": {
+    "display_name": "合并批次 🆎",
+    "description": "把两个 IMAGE 批次合成一个，a 的帧在前。可以把拆开的批次接回去，或在结果后面接一段对比。两边分辨率不同时，on_mismatch 决定缩放哪一边（双线性），或者直接报错并给出两边的尺寸；通道数必须一致。",
+    "inputs": {
+      "on_mismatch": {
+        "name": "不匹配时"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像"
+      }
+    }
+  },
+  "AUSBOSS_NODES_RealignToSource": {
+    "display_name": "对齐回原图（实验性 🧪） 🆎",
+    "description": "实验性。把修改后的图片重新对齐到原图。Qwen Image 2.1 的编辑结果经常略微放大或偏移，尤其是水彩、动漫这类风格转换，导致编辑结果和原图对不上。这个节点测量偏移了多少并移回去。最佳用法：编辑前用加载图像 + 扩边给图片扩边，并把它的 stitcher 接到这里，这样编辑有移动的余地，边缘也都是真实画面。",
+    "inputs": {
+      "edited": {
+        "name": "编辑后"
+      },
+      "source": {
+        "name": "来源"
+      },
+      "fit": {
+        "name": "适配"
+      },
+      "empty_fill": {
+        "name": "空白填充"
+      },
+      "max_zoom": {
+        "name": "最大缩放"
+      },
+      "stitcher": {
+        "name": "stitcher"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像"
+      },
+      "1": {
+        "name": "空遮罩"
+      },
+      "2": {
+        "name": "报告"
+      }
+    }
+  },
+  "AUSBOSS_NODES_RefineMask": {
+    "display_name": "遮罩精修 🆎",
+    "description": "按固定顺序一次性清理遮罩：expand（按整像素扩大/缩小），填补封闭的洞（全部，或只填不超过 max_hole_size 的洞），smooth（消除锯齿但不羽化），用高斯模糊羽化，参照可选的 guide_image 精修边缘（引导滤波或 alpha matting），最后用 black_point/white_point 重映射色阶，清掉灰色雾边。输出精修后的遮罩和它的反转。",
+    "inputs": {
+      "mask": {
+        "name": "遮罩"
+      },
+      "expand": {
+        "name": "扩展"
+      },
+      "blur": {
+        "name": "模糊"
+      },
+      "fill_holes": {
+        "name": "填补空洞"
+      },
+      "smooth": {
+        "name": "平滑"
+      },
+      "black_point": {
+        "name": "黑场"
+      },
+      "white_point": {
+        "name": "白场"
+      },
+      "edge_refine": {
+        "name": "边缘精修"
+      },
+      "preview": {
+        "name": "预览"
+      },
+      "guide_image": {
+        "name": "引导图像"
+      },
+      "max_hole_size": {
+        "name": "最大空洞尺寸"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "遮罩"
+      },
+      "1": {
+        "name": "反转遮罩"
+      }
+    }
+  },
+  "AUSBOSS_NODES_Resolution": {
+    "display_name": "Latent 尺寸 🆎",
+    "description": "画布尺寸选择器：比例按钮选形状，实时画布可以拖动矩形的边和角，尺寸阶梯列出当前比例下对齐网格的尺寸，会对齐到 VAE 友好的倍数，锁定比例时既精确又对齐网格。输出宽高 INT 和一个该尺寸的空 LATENT，可以直接送进采样器；latent 类型（SD3 / Flux / Krea 2 / Qwen / Z-Image 为 16 通道，SD1.5 / SDXL 为 4 通道，Flux 2 Klein 为 128 通道）和批次大小在面板的齿轮里设置。",
+    "inputs": {
+      "width": {
+        "name": "宽度"
+      },
+      "height": {
+        "name": "高度"
+      },
+      "latent": {
+        "name": "latent"
+      },
+      "batch_size": {
+        "name": "批次大小"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "宽度"
+      },
+      "1": {
+        "name": "高度"
+      },
+      "2": {
+        "name": "latent"
+      }
+    }
+  },
+  "AUSBOSS_NODES_RunTimer": {
+    "display_name": "运行计时器 🆎",
+    "description": "整次运行的秒表。队列中的提示开始执行时启动，运行中在节点上计时，结束时保留总时间。右键可以看之前几次的时间，用来比较改设置前后的差别。时间会随工作流保存，所以分享的图会带着作者的运行时间作参考。没有输入和输出；它监听队列，而不是接在连线上。"
+  },
+  "AUSBOSS_NODES_SaveImage": {
+    "display_name": "保存图像 🆎",
+    "description": "把 IMAGE 批次保存为 PNG、无损 WebP 或无损 JPEG XL，可以嵌入工作流，也可以特意不嵌入。文件名可以在这里组合（前缀加上你打开的标签：日期、时间、尺寸、防重名计数器、批次编号），也可以由 filename 输入直接指定，这样编辑或打标的流程能保留源文件名。caption 不为空时，会写一个同名的 .txt 文件，正好组成数据集的图片和标注。",
+    "inputs": {
+      "images": {
+        "name": "图像"
+      },
+      "filename_prefix": {
+        "name": "文件名前缀"
+      },
+      "format": {
+        "name": "格式"
+      },
+      "save_metadata": {
+        "name": "保存元数据"
+      },
+      "exact_name": {
+        "name": "精确名称"
+      },
+      "on_existing": {
+        "name": "已存在时"
+      },
+      "output_dir": {
+        "name": "输出目录"
+      },
+      "caption": {
+        "name": "标注"
+      },
+      "filename": {
+        "name": "文件名"
+      },
+      "caption_text": {
+        "name": "标注文本"
+      },
+      "name_counter": {
+        "name": "名称计数器"
+      },
+      "name_date": {
+        "name": "名称日期"
+      },
+      "name_time": {
+        "name": "名称时间"
+      },
+      "name_size": {
+        "name": "名称尺寸"
+      },
+      "name_batch": {
+        "name": "名称批次号"
+      },
+      "preview": {
+        "name": "预览"
+      },
+      "step_preview": {
+        "name": "步骤预览"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "文件路径"
+      },
+      "1": {
+        "name": "图像"
+      }
+    }
+  },
+  "AUSBOSS_NODES_SaveVideo": {
+    "display_name": "保存视频 🆎",
+    "description": "把帧批次保存为 mp4（h264/h265，CPU 或 NVENC）、webm（vp9/av1）、ProRes mov、无损 ffv1 mkv、gif 或 webp，可选合并音频并嵌入工作流，文件可以拖回 ComfyUI。pingpong 让片段来回播放，形成无缝循环。把加载视频 🆎 的 fps 直接接过来可以保持原时序，或接入核心 VIDEO 来编码整段视频。",
+    "inputs": {
+      "fps": {
+        "name": "fps"
+      },
+      "filename_prefix": {
+        "name": "文件名前缀"
+      },
+      "crf": {
+        "name": "crf"
+      },
+      "frames": {
+        "name": "帧"
+      },
+      "audio": {
+        "name": "音频"
+      },
+      "video": {
+        "name": "视频"
+      },
+      "format": {
+        "name": "格式"
+      },
+      "pingpong": {
+        "name": "往返播放"
+      },
+      "save_metadata": {
+        "name": "保存元数据"
+      },
+      "step_preview": {
+        "name": "步骤预览"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "文件路径"
+      }
+    }
+  },
+  "AUSBOSS_NODES_Seed": {
+    "display_name": "种子 🆎",
+    "description": "一个独立的 INT 种子，多个采样器可以共用一个数字，分享的工作流也能固定生成示例的那个种子。Random、Fixed 和 Step 与采样器的“生成后控制”相同。由于 Random 在排队时就会替换数值，节点会显示实际运行用的种子：框下面那行显示它，Use last run 把它放回框里并固定，历史菜单保留最近几个，好结果不会因为下一次点击而丢失。",
+    "inputs": {
+      "seed": {
+        "name": "种子"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "种子"
+      }
+    }
+  },
+  "AUSBOSS_NODES_SelectEveryNth": {
+    "display_name": "每隔 N 帧取一帧 🆎",
+    "description": "从 IMAGE 批次中每隔 nth 帧保留一帧：在耗时的步骤前把视频帧数减半，或把一组结果抽样。offset 表示先跳过几帧再开始保留，所以 nth 2 / offset 0 保留第 1、3、5 帧，offset 1 保留第 2、4、6 帧。把批次的 fps 接进来，fps 输出会除以 nth，抽帧后的片段时长不变。",
+    "inputs": {
+      "images": {
+        "name": "图像"
+      },
+      "nth": {
+        "name": "第 N 帧"
+      },
+      "offset": {
+        "name": "偏移"
+      },
+      "fps": {
+        "name": "fps"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像"
+      },
+      "1": {
+        "name": "fps"
+      }
+    }
+  },
+  "AUSBOSS_NODES_SelectFrame": {
+    "display_name": "选择帧 🆎",
+    "description": "用帧号（从 1 开始）从 IMAGE 批次中选一帧。负数从末尾数：-1 是最后一帧，-2 是倒数第二帧；0 无效。选中的帧原样作为单图批次输出。",
+    "inputs": {
+      "frames": {
+        "name": "帧"
+      },
+      "frame_number": {
+        "name": "帧号"
+      },
+      "preview": {
+        "name": "预览"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像"
+      }
+    }
+  },
+  "AUSBOSS_NODES_ShowText": {
+    "display_name": "显示文本 🆎",
+    "description": "在节点上显示连线传来的内容：提示词、LLM 的回复、文件名、数字。文本原样通过，所以节点可以放在连线中间。数字或其他值会以显示的文本输出。文本可以选中复制。",
+    "inputs": {
+      "text": {
+        "name": "文本"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "文本"
+      }
+    }
+  },
+  "AUSBOSS_NODES_SplitBatch": {
+    "display_name": "拆分批次 🆎",
+    "description": "在指定帧号（从 1 开始）之后把 IMAGE 批次一分为二：第 1 帧到 index 帧从 a 输出，其余从 b 输出。可以把片段的两半送去不同处理，或拿掉批次开头的几帧。两边都至少要保留一帧。",
+    "inputs": {
+      "images": {
+        "name": "图像"
+      },
+      "index": {
+        "name": "索引"
+      }
+    }
+  },
+  "AUSBOSS_NODES_StepPreview": {
+    "display_name": "步骤预览 🆎",
+    "description": "在图片生成过程中逐步显示画面，并带一个停止按钮。如果效果不对，可以提前停止，不用等到最后一步。放在任何地方都行：不需要连线，会显示工作流正在生成的内容。带这个节点的工作流会自己向 ComfyUI 请求步骤预览图，除非你已在 ComfyUI 设置里选了预览方式。"
+  },
+  "AUSBOSS_NODES_StitchInpaint": {
+    "display_name": "局部重绘拼回 🆎",
+    "description": "把局部重绘裁剪 🆎 的重绘结果，或加载图像 + 扩边 🆎、裁剪 + 旋转 + 扩边 🆎 节点的扩图画布，贴回原图。Seam 决定新区域怎么和原图衔接：classic（默认）使用 stitcher 中记录的羽化遮罩混合，和以前的工作流完全一样；blend in 在原图内侧一小段把模型生成的画面渐变融入，适合扩图，无论是否旋转。新区域比原图偏亮、偏暗或偏暖时，调高 color_match（色调匹配）。classic 在接缝两侧测量色差；blend in 在模型重画了原图边缘的地方测量，如果整条边缘的色差不一致就不改颜色。拼回没碰到的像素和原图逐位相同，不会经过缩放。由单张图生成的 stitcher 可以用于整个重绘帧批次。使用 classic 时，如果接缝出现暗边或亮边，打开 fix_edge_halo。blend_mask 输出标出拼回改动的区域，坐标就是拼回后的图像，可以直接接颜色匹配。在图像裁剪 + 旋转 + 扩边 🆎 里手动裁剪后，把 Paste onto 设为 original，就能拿回整张原图并带上修改。",
+    "inputs": {
+      "stitcher": {
+        "name": "stitcher"
+      },
+      "inpainted": {
+        "name": "重绘结果"
+      },
+      "fix_edge_halo": {
+        "name": "修复边缘光晕"
+      },
+      "color_match": {
+        "name": "色调匹配"
+      },
+      "seam": {
+        "name": "接缝"
+      },
+      "paste_onto": {
+        "name": "贴到"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像"
+      },
+      "1": {
+        "name": "混合遮罩"
+      }
+    }
+  },
+  "AUSBOSS_NODES_Text": {
+    "display_name": "文本 🆎",
+    "description": "一个独立的多行文本框，输出 STRING。把一份提示词送给多个编码器，或把说明文字放在用它的节点旁边，不用每处都重新输入。输出就是你输入的内容。",
+    "inputs": {
+      "text": {
+        "name": "文本"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "文本"
+      }
+    }
+  },
+  "AUSBOSS_NODES_TiledUpscale": {
+    "display_name": "分块放大 🆎",
+    "description": "以百万像素设置成品尺寸，并把图片切成模型可以逐块重画的图块。一块就能装下的图片保持完整。把图块送进采样器，再和 stitcher 一起送进分块放大拼合 🆎。小图不会被重画到远超其细节的程度：最多重画到原百万像素的 max_growth 倍，再用普通方式放大。report 会说明对你的图片做了什么。",
+    "inputs": {
+      "image": {
+        "name": "图像"
+      },
+      "megapixels": {
+        "name": "百万像素"
+      },
+      "upscale_model": {
+        "name": "放大模型"
+      },
+      "tile_megapixels": {
+        "name": "图块百万像素"
+      },
+      "overlap": {
+        "name": "重叠"
+      },
+      "multiple": {
+        "name": "倍数"
+      },
+      "max_growth": {
+        "name": "最大放大倍数"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图块"
+      },
+      "1": {
+        "name": "stitcher"
+      },
+      "2": {
+        "name": "之前"
+      },
+      "3": {
+        "name": "宽度"
+      },
+      "4": {
+        "name": "高度"
+      },
+      "5": {
+        "name": "报告"
+      }
+    }
+  },
+  "AUSBOSS_NODES_TiledUpscaleStitch": {
+    "display_name": "分块放大拼合 🆎",
+    "description": "在模型重画图块后，把分块放大 🆎 的图块拼回去，融合接缝，并把图片放大到你要的尺寸。Keep colors 先让每个图块匹配原图对应位置的颜色，这样图块之间一致，图片也保留原本的颜色。",
+    "inputs": {
+      "tiles": {
+        "name": "图块"
+      },
+      "stitcher": {
+        "name": "stitcher"
+      },
+      "keep_colors": {
+        "name": "保留颜色"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像"
+      }
+    }
+  },
+  "AUSBOSS_NODES_VideoCropRotatePad": {
+    "display_name": "视频裁剪 + 旋转 + 扩边 → 单帧 🆎",
+    "description": "从视频中挑出一帧，并像图像节点一样在画面上旋转、裁剪和扩边。输出是一张图片，不是片段：编辑器里的时间轴用来找帧，不用来截取范围。",
+    "inputs": {
+      "video": {
+        "name": "视频"
+      },
+      "source_mode": {
+        "name": "来源模式"
+      },
+      "local_path": {
+        "name": "本地路径"
+      },
+      "seek_mode": {
+        "name": "定位模式"
+      },
+      "frame_index": {
+        "name": "帧索引"
+      },
+      "frame_time": {
+        "name": "帧时间"
+      },
+      "rotation_degrees": {
+        "name": "旋转角度"
+      },
+      "crop_aspect_ratio": {
+        "name": "裁剪比例"
+      },
+      "crop_x": {
+        "name": "裁剪 x"
+      },
+      "crop_y": {
+        "name": "裁剪 y"
+      },
+      "crop_width": {
+        "name": "裁剪宽度"
+      },
+      "crop_height": {
+        "name": "裁剪高度"
+      },
+      "pad_left": {
+        "name": "左扩边"
+      },
+      "pad_top": {
+        "name": "上扩边"
+      },
+      "pad_right": {
+        "name": "右扩边"
+      },
+      "pad_bottom": {
+        "name": "下扩边"
+      },
+      "feather": {
+        "name": "羽化"
+      },
+      "canvas_multiple": {
+        "name": "画布倍数"
+      },
+      "fill_color": {
+        "name": "填充颜色"
+      },
+      "resize_to_megapixels": {
+        "name": "缩放到百万像素"
+      },
+      "megapixels": {
+        "name": "百万像素"
+      },
+      "resize_method": {
+        "name": "缩放方法"
+      },
+      "resolution_steps": {
+        "name": "分辨率步长"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像"
+      },
+      "1": {
+        "name": "遮罩"
+      },
+      "2": {
+        "name": "stitcher"
+      },
+      "3": {
+        "name": "原图"
+      },
+      "4": {
+        "name": "宽度"
+      },
+      "5": {
+        "name": "高度"
+      }
+    }
+  },
+  "AUSBOSS_NODES_VideoCropRotatePadClip": {
+    "display_name": "视频裁剪 + 旋转 + 扩边 → 片段 🆎",
+    "description": "加载裁剪后的视频，并对每一帧做相同的旋转、裁剪和扩边：裁掉边框或角落，扶正倾斜，或加上填充色的边用于视频扩图。输出帧、生成区域的遮罩（旋转空角和扩边）、同一时段的音频、帧数、fps、尺寸和时长，以及一个 stitcher，让局部重绘拼回把原视频帧贴回生成的片段上。拖动 IN 和 OUT 截取，或打开 Length，从 IN 开始按输出帧数设置片段长度。",
+    "inputs": {
+      "video": {
+        "name": "视频"
+      },
+      "source_mode": {
+        "name": "来源模式"
+      },
+      "local_path": {
+        "name": "本地路径"
+      },
+      "start_seconds": {
+        "name": "起始秒数"
+      },
+      "end_seconds": {
+        "name": "结束秒数"
+      },
+      "seek_mode": {
+        "name": "定位模式"
+      },
+      "frame_index": {
+        "name": "帧索引"
+      },
+      "frame_time": {
+        "name": "帧时间"
+      },
+      "rotation_degrees": {
+        "name": "旋转角度"
+      },
+      "crop_aspect_ratio": {
+        "name": "裁剪比例"
+      },
+      "crop_x": {
+        "name": "裁剪 x"
+      },
+      "crop_y": {
+        "name": "裁剪 y"
+      },
+      "crop_width": {
+        "name": "裁剪宽度"
+      },
+      "crop_height": {
+        "name": "裁剪高度"
+      },
+      "pad_left": {
+        "name": "左扩边"
+      },
+      "pad_top": {
+        "name": "上扩边"
+      },
+      "pad_right": {
+        "name": "右扩边"
+      },
+      "pad_bottom": {
+        "name": "下扩边"
+      },
+      "feather": {
+        "name": "羽化"
+      },
+      "canvas_multiple": {
+        "name": "画布倍数"
+      },
+      "fill_color": {
+        "name": "填充颜色"
+      },
+      "resize_to_megapixels": {
+        "name": "缩放到百万像素"
+      },
+      "megapixels": {
+        "name": "百万像素"
+      },
+      "resize_method": {
+        "name": "缩放方法"
+      },
+      "resolution_steps": {
+        "name": "分辨率步长"
+      },
+      "every_nth": {
+        "name": "每隔 N 帧"
+      },
+      "max_frames": {
+        "name": "最大帧数"
+      },
+      "frame_snap": {
+        "name": "帧对齐"
+      },
+      "stitch_blend": {
+        "name": "拼回混合"
+      },
+      "stitch_grow": {
+        "name": "拼回扩大"
+      },
+      "force_rate": {
+        "name": "强制帧率"
+      },
+      "start_frame": {
+        "name": "起始帧"
+      },
+      "end_frame": {
+        "name": "结束帧"
+      },
+      "frame_load_cap": {
+        "name": "最大加载帧数"
+      },
+      "fixed_frames": {
+        "name": "固定帧数"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "帧"
+      },
+      "1": {
+        "name": "遮罩"
+      },
+      "2": {
+        "name": "音频"
+      },
+      "3": {
+        "name": "帧数"
+      },
+      "4": {
+        "name": "fps"
+      },
+      "5": {
+        "name": "宽度"
+      },
+      "6": {
+        "name": "高度"
+      },
+      "7": {
+        "name": "时长"
+      },
+      "8": {
+        "name": "stitcher"
+      },
+      "9": {
+        "name": "原图"
+      }
+    }
+  },
+  "AUSBOSS_NODES_WorkflowNote": {
+    "display_name": "工作流说明 🆎",
+    "description": "用来分享的工作流卡片：大标题、Markdown 使用说明、工作流需要的模型（带下载按钮和存放的文件夹）、依赖的节点包，以及你的链接。每个模型和节点包都会和当前安装比对，标出已安装或缺失，打开工作流的人能清楚看到还差什么。点铅笔编辑；切换到横幅布局可以只显示标题。它不参与运行：没有输出。",
+    "inputs": {
+      "note": {
+        "name": "说明"
+      }
+    }
+  },
+  "AUSBOSS_NODES_WorkflowSwitches": {
+    "display_name": "工作流开关 🆎",
+    "description": "用一张小卡片开关工作流的各个部分。选中组成一个部分的节点，例如一个框和它的保存节点，按 + Switch：它们会得到一个 off | on 开关，名字由你定。每个组也可以有自己的开关。off 会旁路这些节点，图片仍然传到下一步（也可以设置为静音）。on 让它们重新运行。开关也可以改设置，而不是关闭节点：分别保存节点在 on 和 off 时的值，点一下就能把 Steps 设为 8 并打开一行 LoRA。按 Done，节点会缩成只有标签和开关。它从不运行，也没有连线。"
+  }
+}

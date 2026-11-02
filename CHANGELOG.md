@@ -46,6 +46,10 @@ All notable changes to ComfyUI-AusBoss are documented here.
   they take 5. A choice can also switch off the nodes only it needs, so a
   model missing from the branch you didn't pick won't stop the run. Switches
   you already made work as before.
+- **Node names and descriptions in Chinese.** Switch ComfyUI's language to
+  中文 and every AusBoss node shows its name, description and input and
+  output names in Chinese. The cards on the nodes and the help pages stay in
+  English for now. Thanks to @ne7359 for asking.
 - **Workflow Switches 🆎 has a guide for AI agents.** Point an agent at
   `js/docs/agents/workflow_switches.md` in the pack's folder and it can add
   switches to a workflow for you.

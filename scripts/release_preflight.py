@@ -128,7 +128,7 @@ import fnmatch
 
 ARCHIVE_ALLOWLIST = (
     "__init__.py", "nodes/", "js/", "example_workflows/", "README.md",
-    "LICENSE", "pyproject.toml", "ausboss_presets_example.json",
+    "LICENSE", "pyproject.toml", "ausboss_presets_example.json", "locales/",
 )
 # Besides every allowlist entry these must ship too: the node help pages and
 # the sample media the example workflows load.
