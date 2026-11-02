@@ -9,6 +9,7 @@ import { app } from "/scripts/app.js";
 import { chainCallback, notifyAusbossChange } from "../shared/index.mjs";
 import { formatWidgetVisibility } from "../shared/save_video_formats.mjs";
 import { hideInputsInDef } from "../shared/widget_visibility.mjs";
+import { momentStrip } from "../shared/moment_strip.mjs";
 import { mountWidgetCard } from "../shared/widget_card.mjs";
 import { SOCKETLESS_CHOICE, SOCKETLESS_TEXT, commitWidgetValue, markSocketless, resetUnknownValues } from "../shared/widget_card_math.mjs";
 import { mediaViewQuery } from "../shared/media_list.mjs";
@@ -312,6 +313,33 @@ const CARDS = {
     minWidth: 300, look: textLook, corner: textLookCorner,
     rows: [{ widget: "text", kind: "textarea", placeholder: "Prompt, caption, or shared text", height: 100, grow: true,
       looks: { big: { height: 62, placeholder: "type here" } } }],
+  },
+  // All the words go in the box, and the strip under it shows when each
+  // moment plays. The pictures, the video, the voice and the song arrive on
+  // sockets, and each picture's job sits under the words.
+  AUSBOSS_NODES_H3PromptWriter: {
+    minWidth: 360,
+    rows: [
+      { section: "What happens" },
+      {
+        widget: "script", kind: "textarea", height: 118, grow: true,
+        placeholder: "@1 walks through a crowded night market.\n\n@1 stands on a rooftop in the rain.\n\nOne line for each thing that happens. A blank line cuts to a new place. @1 is Picture 1.",
+      },
+      { panel: momentStrip, height: 134 },
+      { widget: "seconds", label: "Seconds", suffix: "s" },
+      { widget: "camera", label: "Camera", kind: "select" },
+      { widget: "look", label: "Look", kind: "select" },
+      { section: "What each one is for" },
+      { widget: "job_1", label: "Picture 1", kind: "select" },
+      { widget: "job_2", label: "Picture 2", kind: "select" },
+      { widget: "job_3", label: "Picture 3", kind: "select" },
+      { widget: "job_4", label: "Picture 4", kind: "select" },
+      { widget: "video_job", label: "Video", kind: "select" },
+      { group: "more", label: "More" },
+      { widget: "song_start", label: "Song starts at", suffix: "s", decimals: 1, trimZeros: true, group: "more" },
+      { widget: "cut_on_beat", label: "Moments on the beat", group: "more" },
+      { widget: "language", label: "Language", group: "more" },
+    ],
   },
   // Saved by a 1.x release, these two hold that empty value too and open
   // with preview on, like Mask Refine.

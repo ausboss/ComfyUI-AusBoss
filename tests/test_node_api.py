@@ -298,12 +298,13 @@ if __name__ == "__main__":
     elif "--update" in sys.argv:
         if not COMFY_ROOT:
             sys.exit("Set AUSBOSS_COMFY_ROOT to a ComfyUI checkout.")
+        allow_breaking = "--allow-breaking" in sys.argv  # load_pack clears sys.argv
         current = describe(load_pack())
         if SNAPSHOT.exists():
             problems = breaking_changes(json.loads(SNAPSHOT.read_text(encoding="utf-8")), current)
             for problem in problems:
                 print(f"BREAKING: {problem}")
-            if problems and "--allow-breaking" not in sys.argv:
+            if problems and not allow_breaking:
                 sys.exit(
                     "Not written: saved workflows and API prompts would break. Restore the "
                     "inputs and outputs, or pass --allow-breaking for a node no release has shipped."

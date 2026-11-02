@@ -125,8 +125,12 @@ def _estimate_window_frames(metadata: dict, start: float, end: float) -> int:
 
 
 def clip_load_window(path, start_seconds, end_seconds, max_frames=0,
-                     start_frame=None, end_frame=None, frame_load_cap=None):
-    """Linked source-frame bounds override seconds; the end frame is exclusive."""
+                     start_frame=None, end_frame=None, frame_load_cap=None, last_seconds=0):
+    """Linked source-frame bounds override seconds; the end frame is exclusive.
+
+    last_seconds keeps only that much of the end of the window, so a job that
+    reads only the end of a clip never decodes the rest of it.
+    """
     if start_frame is not None or end_frame is not None:
         fps = float(video_metadata(path).get("fps") or 0)
         if not math.isfinite(fps) or fps <= 0:
@@ -135,6 +139,10 @@ def clip_load_window(path, start_seconds, end_seconds, max_frames=0,
             start_seconds = max(0, int(start_frame)) / fps
         if end_frame is not None:
             end_seconds = max(0, int(end_frame)) / fps
+    if float(last_seconds or 0) > 0:
+        duration = float(video_metadata(path).get("duration") or 0)
+        end = min(float(end_seconds) or duration, duration)
+        start_seconds = max(float(start_seconds), end - float(last_seconds))
     cap = max_frames if frame_load_cap is None else frame_load_cap
     return float(start_seconds), float(end_seconds), max(0, int(cap))
 

@@ -64,6 +64,7 @@ export function cardChangeRestore({ restoring = false, savedHeight, lookChanged 
 // height a textarea row asks for in the card's look.
 export function rowHeight(row, look = null) {
   if (row.section !== undefined) return SECTION_HEIGHT;
+  if (row.panel) return Number(row.height) || ROW_HEIGHT;
   if (row.widget === undefined && row.pair === undefined) return GROUP_HEIGHT;
   const height = Number(rowInLook(row, look).height);
   return height > 0 ? height : ROW_HEIGHT;

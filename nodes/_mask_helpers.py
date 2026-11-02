@@ -58,6 +58,11 @@ def _as_bhw(mask: torch.Tensor) -> torch.Tensor:
     return mask.float().clamp(0.0, 1.0)
 
 
+# Growing or blurring a whole clip at once costs the CPU many times the mask's
+# own size, so long batches go a few frames at a time. Same result to the bit.
+MASK_CHUNK = 8
+
+
 def grow_shrink_mask(mask: torch.Tensor, pixels: int) -> torch.Tensor:
     """Dilate (positive) or erode (negative) by whole pixels; soft values survive.
 
@@ -72,6 +77,8 @@ def grow_shrink_mask(mask: torch.Tensor, pixels: int) -> torch.Tensor:
     steps = abs(int(pixels))
     if steps == 0:
         return mask
+    if mask.shape[0] > MASK_CHUNK:
+        return torch.cat([grow_shrink_mask(part, pixels) for part in mask.split(MASK_CHUNK)])
     size = 2 * steps + 1
     grown = mask.unsqueeze(1)
     if pixels > 0:
@@ -187,6 +194,8 @@ def fill_mask_holes(mask: torch.Tensor, max_hole_size: float = 0.0) -> torch.Ten
 def blur_mask(mask: torch.Tensor, sigma: float) -> torch.Tensor:
     if sigma <= 0.0:
         return mask
+    if mask.shape[0] > MASK_CHUNK:
+        return torch.cat([blur_mask(part, sigma) for part in mask.split(MASK_CHUNK)])
     radius = max(1, int(math.ceil(float(sigma) * 3.0)))
     coords = torch.arange(-radius, radius + 1, dtype=torch.float32, device=mask.device)
     kernel = torch.exp(-(coords**2) / (2.0 * float(sigma) ** 2))

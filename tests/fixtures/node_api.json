@@ -154,6 +154,87 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_H3PromptWriter": {
+    "required": [
+      "script",
+      "seconds"
+    ],
+    "optional": [
+      "clip",
+      "picture_1",
+      "picture_2",
+      "picture_3",
+      "picture_4",
+      "video",
+      "video_sound",
+      "voice",
+      "song",
+      "camera",
+      "look",
+      "song_start",
+      "cut_on_beat",
+      "language",
+      "job_1",
+      "job_2",
+      "job_3",
+      "job_4",
+      "video_job"
+    ],
+    "outputs": [
+      [
+        "STRING",
+        "prompt"
+      ],
+      [
+        "IMAGE",
+        "picture_1"
+      ],
+      [
+        "IMAGE",
+        "picture_2"
+      ],
+      [
+        "IMAGE",
+        "picture_3"
+      ],
+      [
+        "IMAGE",
+        "picture_4"
+      ],
+      [
+        "IMAGE",
+        "video"
+      ],
+      [
+        "AUDIO",
+        "video_sound"
+      ],
+      [
+        "AUDIO",
+        "voice"
+      ],
+      [
+        "AUDIO",
+        "song"
+      ],
+      [
+        "AUDIO",
+        "song_under"
+      ],
+      [
+        "INT",
+        "frames"
+      ],
+      [
+        "INT",
+        "width"
+      ],
+      [
+        "INT",
+        "height"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_ImageCropRotatePad": {
     "required": [
       "image",
@@ -1021,7 +1102,8 @@
       "start_frame",
       "end_frame",
       "frame_load_cap",
-      "fixed_frames"
+      "fixed_frames",
+      "last_seconds"
     ],
     "outputs": [
       [

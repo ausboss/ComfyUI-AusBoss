@@ -24,6 +24,7 @@ NODE_MODULES = [
     "node_compare",
     "node_frame_interpolate",
     "node_free_memory",
+    "node_h3_prompt_writer",
     "node_image_crop_rotate_pad",
     "node_image_folder",
     "node_image_resize",
