@@ -232,7 +232,7 @@ class AusBossImageFolder:
                     list(AT_THE_END),
                     {
                         "default": AT_THE_END[0],
-                        "tooltip": "With one per run, after the last picture: stop the run with a message, or start over at the first.",
+                        "tooltip": "With one per run, after the last picture: stop the run with a message, or go back to the first and keep going.",
                     },
                 ),
             },

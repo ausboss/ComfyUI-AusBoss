@@ -95,10 +95,16 @@ test("Picture moves on by one after a run, and stops one past the last", () => {
   assert.equal(nextPosition(2, 4, "stay"), 2);
   assert.equal(nextPosition(2, 0, "next"), 2);
   assert.equal(nextPosition("x", 4, "next"), 2);
+  // start over: next wraps from the last picture back to the first
+  assert.equal(nextPosition(3, 4, "next", "start over"), 4);
+  assert.equal(nextPosition(4, 4, "next", "start over"), 1, "the last picture is followed by the first");
+  assert.equal(nextPosition(5, 4, "next", "start over"), 2, "a Picture past the end steps on from the one it loaded");
+  assert.equal(nextPosition(1, 1, "next", "start over"), 1);
+  assert.equal(nextPosition(2, 4, "stay", "start over"), 2);
   // random lands on any picked picture, never past the last
-  assert.equal(nextPosition(2, 4, "random", 0), 1);
-  assert.equal(nextPosition(2, 4, "random", 0.5), 3);
-  assert.equal(nextPosition(2, 4, "random", 0.9999), 4);
+  assert.equal(nextPosition(2, 4, "random", "stop the run", 0), 1);
+  assert.equal(nextPosition(2, 4, "random", "start over", 0.5), 3);
+  assert.equal(nextPosition(2, 4, "random", "stop the run", 0.9999), 4);
 });
 
 test("the count line says which picture is next, in a form that fits", () => {

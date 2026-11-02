@@ -46,6 +46,9 @@ follows a few fixed rules.
   at runtime.
 - **No automatic downloads.** You place model weights (LaMa, RAFT optical
   flow) yourself; the pack never fetches them.
+- **LaMa opens only known files.** A LaMa model file can run code when it
+  opens, so LaMa Inpaint checks a file's SHA-256 first and opens only known
+  copies of `big-lama.pt`.
 - **No raw HTML from workflows.** Workflow Note renders its Markdown into
   text nodes, and its links open only `http(s)` addresses.
 

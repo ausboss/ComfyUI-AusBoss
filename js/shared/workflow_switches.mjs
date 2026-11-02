@@ -16,6 +16,12 @@
 // A made switch can also have an off side: nodes and groups that run only
 // while the row is off. Switching the row on turns them off, and switching it
 // off turns them on, the opposite of the nodes the row holds itself.
+//
+// A made switch can also be a choice: one way of setting some nodes, saved
+// under a name. Choices have no off side of their own. What a choice changes
+// is what it holds differently from the other choices on its card, so two
+// saves make a pill and a third value on one control needs nothing more. A
+// card that has choices is one pill and nothing else.
 
 // LiteGraph's node modes. Mute is the frontend's "never".
 export const MODE_ALWAYS = 0;
@@ -43,7 +49,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
   // own off | on) | "pill" (every row is a choice in one pill, one always picked)
   show: "rows",
   // the made switches: { id, title, nodes, groups, on, off }, and nodes_off /
-  // groups_off (the off side) while they hold something
+  // groups_off (the off side) while they hold something, and choice: true for
+  // a choice
   switches: Object.freeze([]),
 });
 
@@ -151,6 +158,7 @@ export function normalizeSwitches(raw) {
       groups,
       ...(nodesOff.length ? { nodes_off: nodesOff } : {}),
       ...(groupsOff.length ? { groups_off: groupsOff } : {}),
+      ...(item.choice === true ? { choice: true } : {}),
       on,
       off,
     });
@@ -176,7 +184,15 @@ export function normalizeSettings(raw) {
   if (typeof source.match === "string") settings.match = source.match.slice(0, 200);
   if (typeof source.exclusive === "boolean") settings.exclusive = source.exclusive;
   settings.switches = normalizeSwitches(source.switches);
+  // A card that has choices is one pill, and a group row would be one more
+  // choice in it.
+  if (hasChoices(settings)) Object.assign(settings, { exclusive: true, show: "pill", groups: "none" });
   return settings;
+}
+
+// Whether a card holds choices, read from its settings.
+export function hasChoices(settings) {
+  return Boolean(settings?.switches?.some((entry) => entry.choice));
 }
 
 export function offMode(settings) {
@@ -459,6 +475,21 @@ export function valuePairs(entry) {
   return pairs;
 }
 
+// What a choice changes: every setting it holds differently from another
+// choice on the card. A setting all of them hold alike is left alone, so a
+// node can be saved whole and still be changed by hand. A choice has no off
+// value of its own: `off` here is only the first other value found.
+export function choicePairs(entry, switches) {
+  const found = new Map();
+  for (const other of switches ?? []) {
+    if (other === entry || !other.choice) continue;
+    for (const pair of valuePairs({ on: entry.on, off: other.on })) {
+      if (!found.has(pairKey(pair))) found.set(pairKey(pair), { ...pair, choice: true });
+    }
+  }
+  return [...found.values()];
+}
+
 // Where a setting stands now: at its on value, its off value, or neither.
 export function pairNow(pair, current) {
   if (pair.group !== undefined) {
@@ -575,14 +606,16 @@ export function releaseStackRow(settings, id, nodeId, widget, rowName) {
 
 // A switch's settings as they stand on the graph: each pair with its node,
 // its control and where it is now. A pair whose node or control is gone is
-// left out.
-export function readPairs(entry, nodeById) {
+// left out. A choice's setting is either at its value or not: the next choice
+// along is a third value, not a change made by hand.
+export function readPairs(entry, nodeById, held = valuePairs(entry)) {
   const pairs = [];
-  for (const pair of valuePairs(entry)) {
+  for (const pair of held) {
     const live = nodeById.get(String(pair.node))?.node;
     const control = live?.widgets?.find((widget) => widget?.name === pair.widget);
     if (!control) continue;
-    pairs.push({ ...pair, live, control, now: pairNow(pair, control.value) });
+    const now = pairNow(pair, control.value);
+    pairs.push({ ...pair, live, control, now: pair.choice && now === "other" ? "off" : now });
   }
   return pairs;
 }
@@ -685,7 +718,8 @@ export function readSwitches(switches, placed, groupRows, { counts = () => true 
       valueNodes.push(hit.node);
       rects.push(hit.rect);
     }
-    const pairs = readPairs(entry, nodeById);
+    const pairs = readPairs(entry, nodeById, entry.choice ? choicePairs(entry, switches) : valuePairs(entry));
+    const stand = partState(members, counts, pairs, offMembers);
     return {
       kind: "switch",
       entry,
@@ -696,10 +730,13 @@ export function readSwitches(switches, placed, groupRows, { counts = () => true 
       offMembers,
       valueNodes,
       pairs,
-      // Saved for one side only so far: nothing to switch between yet.
-      half: [...sides].some((id) => !(entry.on?.[id] && entry.off?.[id])),
+      // Saved for one side only so far: nothing to switch between yet. A
+      // choice is in the same place until another choice differs from it.
+      half: entry.choice ? !pairs.length : [...sides].some((id) => !(entry.on?.[id] && entry.off?.[id])),
       gone,
-      ...partState(members, counts, pairs, offMembers),
+      ...stand,
+      // A choice is picked or it is not, however many settings match.
+      ...(entry.choice && stand.state === "mixed" ? { state: "off" } : {}),
     };
   });
 }
@@ -831,16 +868,21 @@ export function valuePlan(rows, target, on, settings) {
   if (on && settings?.exclusive) {
     for (const row of rows) {
       if (row === target) continue;
-      for (const pair of row.pairs ?? []) sides.set(pairKey(pair), [pair, "off"]);
+      for (const pair of row.pairs ?? []) if (!pair.choice) sides.set(pairKey(pair), [pair, "off"]);
     }
   }
-  for (const pair of target?.pairs ?? []) sides.set(pairKey(pair), [pair, on ? "on" : "off"]);
+  for (const pair of target?.pairs ?? []) {
+    // A choice has no off: another choice is what replaces it.
+    if (on || !pair.choice) sides.set(pairKey(pair), [pair, on ? "on" : "off"]);
+  }
   return [...sides.values()].filter(([pair, side]) => pair.now !== side);
 }
 
 export function valueAllPlan(rows, on) {
   const sides = new Map();
-  for (const row of rows) for (const pair of row.pairs ?? []) sides.set(pairKey(pair), [pair, on ? "on" : "off"]);
+  for (const row of rows) {
+    for (const pair of row.pairs ?? []) if (!pair.choice) sides.set(pairKey(pair), [pair, on ? "on" : "off"]);
+  }
   return [...sides.values()].filter(([pair, side]) => pair.now !== side);
 }
 
@@ -920,6 +962,19 @@ export function choosePlan(rows, target, settings) {
   return { modes: switchPlan(rows, target, true, one), values: valuePlan(rows, target, true, one) };
 }
 
+// What settles a One at a time card that has more than one row on or partly
+// on, which a click can't cause but a new switch or the setting itself can:
+// nodes on a canvas start out running, so the rows they make read on. One row
+// stays on and the others go off. `fresh` is a row just made, which gives way
+// to the rows that were there; a row that is fully on goes before one that is
+// partly on, then the top one.
+export function settlePlan(rows, settings, fresh = null) {
+  const running = (rows ?? []).filter((row) => row.state === "on" || row.state === "mixed");
+  if (!settings?.exclusive || running.length < 2) return { modes: [], values: [] };
+  const others = running.filter((row) => row !== fresh);
+  return choosePlan(rows, others.find((row) => row.state === "on") ?? others[0], settings);
+}
+
 // ---------- making and changing switches ----------
 
 function withSwitches(settings, switches) {
@@ -961,6 +1016,37 @@ export function addSwitch(settings, { title, nodes, groups } = {}) {
   const id = current.switches.reduce((highest, entry) => Math.max(highest, entry.id), 0) + 1;
   const entry = { id, title: cleanTitle(title) || `Switch ${id}`, ...pickedIds({ nodes, groups }), on: {}, off: {} };
   return { settings: withSwitches(current, [...current.switches, entry]), id };
+}
+
+// A new choice at the end of the list, holding what `snapshots` hold
+// ([{ id, values }], as saveValues takes them). Answers like addSwitch.
+export function addChoice(settings, { title, snapshots } = {}) {
+  const made = addSwitch(settings, { title });
+  if (made.id === null) return made;
+  const saved = saveValues(changeSwitch(made.settings, made.id, () => ({ choice: true })), made.id, "on", snapshots);
+  return { settings: normalizeSettings(saved), id: made.id };
+}
+
+// The node ids a card's choices hold: a choice made next holds them too, so
+// the second one needs no selection.
+export function choiceNodeIds(settings) {
+  return [...new Set((settings?.switches ?? []).flatMap((entry) => (entry.choice ? Object.keys(entry.on ?? {}) : [])))];
+}
+
+// What a choice may take from a selection: a node the card's choices set stays
+// on, or picking one would switch off what it just set.
+export function freeForChoice(settings, ids) {
+  const set = new Set(choiceNodeIds(settings));
+  return { ...ids, nodes: (ids?.nodes ?? []).filter((id) => !set.has(String(id))) };
+}
+
+// The choice on the card that `snapshots` would only repeat, or null: nothing
+// they share differs, so the two could not be told apart.
+export function sameChoice(settings, snapshots) {
+  const on = Object.fromEntries((snapshots ?? []).map((item) => [String(item.id), item.values]));
+  return (settings?.switches ?? []).find((entry) => entry.choice
+    && Object.keys(on).some((id) => id in entry.on)
+    && !valuePairs({ on, off: entry.on }).length) ?? null;
 }
 
 // An off side nobody is on is left out of the switch, the way

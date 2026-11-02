@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from ._execution_helpers import ignore_extra_inputs
 from ._media_helpers import list_input_images, load_image_frames, resolve_input_path
-from ._inpaint_crop_helpers import build_transform_stitcher
+from ._inpaint_crop_helpers import build_transform_stitcher, remember_original
 from ._transform_engine import (
     original_image_batch,
     resize_then_pad,
@@ -137,6 +137,8 @@ class AusBossImageCropRotatePad:
             output, mask, geometry, int(stitch_blend), int(stitch_grow),
             source="Image Crop + Rotate + Pad",
         )
+        # The picture as stored: a MaskEditor stroke keeps what is under it.
+        remember_original(stitcher, original_image_batch(frames, True), geometry, spec.normalized().rotation_degrees)
         # Nothing see-through: the prompt view is the image itself, as a copy
         # so no consumer can change one through the other.
         if prompt_image is None:

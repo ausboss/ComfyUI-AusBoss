@@ -725,7 +725,7 @@ function buildPanel(node) {
       const now = settings(node);
       if (now.run !== "one per run" || isLinked(node, "position")) return;
       const count = pickedNames(parsePicked(now.pictures), state.names).length;
-      const next = nextPosition(now.position, count, now.afterRun);
+      const next = nextPosition(now.position, count, now.afterRun, now.atTheEnd);
       if (next !== now.position) { position.value = next; position.callback?.(next); }
     });
   }

@@ -2,6 +2,58 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Nodes and groups snap into line while you drag them.** Drag a node, a
+  group or a selection near another node or group and it lines up with it:
+  left edges, right edges, tops, bottoms or middles. A teal line shows what it
+  lines up with, dashed when the middles line up. Resizing a node or a group
+  by a corner lines that edge up the same way. Hold Shift while you drag to
+  place it without lining up; ComfyUI then snaps it to its grid as usual. Turn
+  it off under Settings → 🆎 AusBoss → Canvas. In the Nodes 2.0 look, resizing
+  a node does not snap yet. If another pack's snapping is on, such as
+  Pixaroma's Align, AusBoss leaves the dragging to it.
+
+- **Line up nodes and groups from the selection toolbar.** Select two or more
+  nodes or groups and a Line up button pops out a small panel: line up edges or
+  middles, give them one width or height, or space them evenly. Each tool is
+  also a command, so it can get a key. Turn the button off under Settings →
+  🆎 AusBoss → Canvas.
+
+- **Stitch Inpaint 🆎 can put a hand crop back on your whole picture.** Crop
+  in Image Crop + Rotate + Pad 🆎, edit the crop, and set **Paste onto** to
+  original in Stitch Inpaint's gear menu. You get your full picture back with
+  only the edit changed. It works with Resize and a turned crop too. The
+  default stays crop, so saved workflows run as before. Thanks to
+  @nickllnickll for the idea.
+- **Workflow Switches 🆎 + Choice saves how a node is set under a name.** Set
+  a node, press + Choice and name it. Set it another way and press it again.
+  The card turns into one pill, and picking a choice puts the node back. Two
+  named choices used to take about 20 clicks through a menu and Settings. Now
+  they take 5. A choice can also switch off the nodes only it needs, so a
+  model missing from the branch you didn't pick won't stop the run. Switches
+  you already made work as before.
+- **Workflow Switches 🆎 has a guide for AI agents.** Point an agent at
+  `js/docs/agents/workflow_switches.md` in the pack's folder and it can add
+  switches to a workflow for you.
+
+## 2.20.5 - 2026-10-31
+
+- **LaMa Inpaint 🆎 only opens known copies of its model.** A LaMa model file
+  can run code when it opens, so the node now checks the file first. The
+  `big-lama.pt` linked on its help page and the one from fashn-ai/LaMa on
+  Hugging Face both work, under any name. Any other file stops the run with a
+  message and is never loaded.
+- **Frame Interpolate 🆎 errors no longer show folders on the server.** The
+  message names the file, and the folder goes to the server console.
+- **Image Folder 🆎 "start over" now keeps going.** With one per run and next,
+  the pictures repeat in order. Before, after the last picture every run
+  loaded picture 1. Fixed by @MarxMitX.
+- **Workflow Switches 🆎 One at a time now holds from the start.** A new
+  switch came on beside the others, and turning the setting on left every
+  row on. Now a new switch starts off while another row is on, and turning
+  the setting on keeps the top row on.
+
 ## 2.20.4 - 2026-10-30
 
 - **Workflow Switches 🆎 explain "empty".** Hover over the word and the card

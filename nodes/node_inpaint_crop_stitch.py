@@ -4,11 +4,15 @@ from __future__ import annotations
 
 from ._execution_helpers import ignore_extra_inputs
 from ._inpaint_crop_helpers import (
+    PASTE_ONTO_CROP,
+    PASTE_ONTO_MODES,
+    PASTE_ONTO_ORIGINAL,
     RESIZE_ALGORITHMS,
     SEAM_CLASSIC,
     SEAM_MODES,
     apply_stitch,
     build_crop,
+    paste_on_original,
     stitch_blend_mask,
 )
 from ._unpainted_helpers import unpainted_notice, unpainted_share
@@ -16,6 +20,8 @@ from ._unpainted_helpers import unpainted_notice, unpainted_share
 # A workflow saved before Seam existed can hold the card's empty value in
 # the slot Seam now takes; it loads, and stitches, as classic.
 _UNSET_SEAM = ("", None)
+# The same for Paste onto, the card's empty value one slot on.
+_UNSET_PASTE_ONTO = ("", None)
 
 
 class AusBossCropForInpaint:
@@ -358,7 +364,9 @@ class AusBossStitchInpaint:
         "from one image broadcasts across an inpainted frame batch. With "
         "classic, turn on fix_edge_halo when the seam shows a dark or light "
         "rim. The blend_mask output marks what the stitch changed, in the "
-        "stitched image's own coordinates, ready for a downstream color match."
+        "stitched image's own coordinates, ready for a downstream color match. "
+        "After a hand crop in Image Crop + Rotate + Pad 🆎, set Paste onto "
+        "to original to get your whole picture back with the edit in place."
     )
     SEARCH_ALIASES = [
         "stitch inpaint",
@@ -434,6 +442,18 @@ class AusBossStitchInpaint:
                         ),
                     },
                 ),
+                "paste_onto": (
+                    list(PASTE_ONTO_MODES),
+                    {
+                        "default": PASTE_ONTO_CROP,
+                        "tooltip": (
+                            "Where the result lands. crop gives back the "
+                            "framed picture. original puts the edit on your "
+                            "whole picture, for a hand crop in Image Crop + "
+                            "Rotate + Pad 🆎."
+                        ),
+                    },
+                ),
             },
         }
 
@@ -447,17 +467,24 @@ class AusBossStitchInpaint:
         "survived. Wire it to a color-match or compositing node to treat "
         "exactly the pasted region without rebuilding the mask. With Seam "
         "on blend in it shows the blend instead: white on the new area, "
-        "fading to zero where your picture is untouched.",
+        "fading to zero where your picture is untouched. With Paste onto on "
+        "original it is the size of your whole picture.",
     )
     FUNCTION = "stitch"
 
-    def stitch(self, stitcher, inpainted, fix_edge_halo=False, color_match=0.0, seam=SEAM_CLASSIC):
+    def stitch(
+        self, stitcher, inpainted, fix_edge_halo=False, color_match=0.0, seam=SEAM_CLASSIC, paste_onto=PASTE_ONTO_CROP
+    ):
         if seam in _UNSET_SEAM:
             seam = SEAM_CLASSIC
         if seam not in SEAM_MODES:
             raise ValueError(f"Stitch Inpaint: seam must be 'classic' or 'blend in', not {seam!r}.")
         image = apply_stitch(stitcher, inpainted, bool(fix_edge_halo), float(color_match), seam)
+        if paste_onto not in _UNSET_PASTE_ONTO and paste_onto not in PASTE_ONTO_MODES:
+            raise ValueError(f"Stitch Inpaint: paste_onto must be 'crop' or 'original', not {paste_onto!r}.")
         result = (image, stitch_blend_mask(stitcher, image.shape[0], seam))
+        if paste_onto == PASTE_ONTO_ORIGINAL:
+            result = paste_on_original(stitcher, *result)
         # Flat fill can be intentional. Keep this advisory in the console;
         # it must not interrupt a successful render with a warning popup.
         notice = unpainted_notice(unpainted_share(stitcher, inpainted))
@@ -467,12 +494,14 @@ class AusBossStitchInpaint:
 
     @classmethod
     @ignore_extra_inputs
-    def VALIDATE_INPUTS(cls, seam=SEAM_CLASSIC):
-        # Naming seam here takes it out of ComfyUI's own list check, so the
-        # empty value an older workflow carries in its place still queues.
-        if seam in _UNSET_SEAM or seam in SEAM_MODES:
-            return True
-        return f"Stitch Inpaint: seam must be 'classic' or 'blend in', not {seam!r}."
+    def VALIDATE_INPUTS(cls, seam=SEAM_CLASSIC, paste_onto=PASTE_ONTO_CROP):
+        # Naming these here takes them out of ComfyUI's own list check, so the
+        # empty value an older workflow carries in their place still queues.
+        if seam not in _UNSET_SEAM and seam not in SEAM_MODES:
+            return f"Stitch Inpaint: seam must be 'classic' or 'blend in', not {seam!r}."
+        if paste_onto not in _UNSET_PASTE_ONTO and paste_onto not in PASTE_ONTO_MODES:
+            return f"Stitch Inpaint: paste_onto must be 'crop' or 'original', not {paste_onto!r}."
+        return True
 
 
 NODE_CLASS_MAPPINGS = {

@@ -8,6 +8,7 @@
          checks it stays the dynamic kind. -->
     <img src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fausboss%2FComfyUI-AusBoss%2Fmain%2Fpyproject.toml&query=%24.project.version&label=release&color=00b4aa&style=flat-square" alt="Release">
     <a href="https://www.youtube.com/@ausbossdev"><img src="https://img.shields.io/badge/YouTube-%40ausbossdev-00b4aa?style=flat-square&logo=youtube&logoColor=white" alt="YouTube @ausbossdev"></a>
+    <a href="https://discord.gg/RwVxY9Fuaj"><img src="https://img.shields.io/badge/Discord-AusBoss-00b4aa?style=flat-square&logo=discord&logoColor=white" alt="Discord: AusBoss"></a>
   </p>
 </div>
 
@@ -27,7 +28,7 @@ Most of them are for image and video work. ComfyUI's core nodes already cover th
 - **[LoRA Loader](#lora-loader):** a whole LoRA stack in one node, each row with its own switch and strength.
 - **[Workflow Switches](#workflow-switches):** turn parts of a workflow off and on from one small card.
 
-The **?** in a node's title bar opens a short card with its inputs and outputs, and every node has a longer help page in ComfyUI's node help panel. I post the workflows I make with them on [Civitai](https://civitai.com/user/AusBoss) and [X @Zanzibased](https://x.com/Zanzibased), and videos of them on [YouTube @ausbossdev](https://www.youtube.com/@ausbossdev). If a node saves you time, a star on the repo helps other people find it.
+The **?** in a node's title bar opens a short card with its inputs and outputs, and every node has a longer help page in ComfyUI's node help panel. I post the workflows I make with them on [Civitai](https://civitai.com/user/AusBoss) and [X @Zanzibased](https://x.com/Zanzibased), and videos of them on [YouTube @ausbossdev](https://www.youtube.com/@ausbossdev). Can't open Civitai? All my workflows are on [my Discord](https://discord.gg/RwVxY9Fuaj) too. If a node saves you time, a star on the repo helps other people find it.
 
 ## Install
 
@@ -57,7 +58,7 @@ The pack uses the Pillow, NumPy, Torch and PyAV that come with ComfyUI. Each exa
 | [Workflow utilities](#workflow-utilities) | Canvas size, seed, batches, math, text, memory, notes, callouts, switches, timer, step preview |
 | [Example workflows](#example-workflows) | Ready-made workflows, each with a setup card |
 | [For workflow creators](#for-workflow-creators) | Setup cards, before and after, repeatable seeds, measured run times |
-| [Pack-wide tools](#pack-wide-tools) | Help cards, node colors, recreate and replace, run status, completion sound |
+| [Pack-wide tools](#pack-wide-tools) | Help cards, node colors, snap into line, recreate and replace, run status, completion sound |
 
 ## Image nodes
 
@@ -85,7 +86,7 @@ The Klein 9B Outpaint example pads its picture with Load Image + Pad. [Open the 
 
 ### Image Folder
 
-Pick a folder, tick the pictures you want in a thumbnail gallery, and run the workflow on each one. **All in one run** does every picked picture with one press of Run. **One per run** loads one picture each run and steps to the next by itself, so a picture that fails only skips itself. It gives each picture's mask, its file name for saving the result under the same name, its number and how many there are.
+Pick a folder, tick the pictures you want in a thumbnail gallery, and run the workflow on each one. **All in one run** does every picked picture with one press of Run. **One per run** loads one picture each run and steps to the next by itself, so a picture that fails only skips itself. After the last picture it stops with a message, or starts over at the first and keeps going. It gives each picture's mask, its file name for saving the result under the same name, its number and how many there are.
 
 **Browse** lists the folders inside ComfyUI's input or output folder. A folder from anywhere else on your computer is brought in: drop it on the node, or choose it in your file explorer, and its pictures are copied into the input folder. A really big folder asks first. The node reads nothing outside those two folders.
 
@@ -376,7 +377,7 @@ Shows the picture while it is being made, one step at a time, so you can stop a 
 
 ### Workflow Switches
 
-Turns parts of a workflow off and on from one small card. Select the nodes of one part, such as a box and its Save Image, press **+ Switch**, and they get one **off | on** switch with a name you choose. Every group can have a switch of its own too. Off bypasses the nodes, so a step in the middle of a chain can be skipped and the picture still reaches the steps after it; a setting mutes them instead. A switch can change settings instead: save what chosen nodes hold for on and for off, and one click sets Steps to 8 and turns a LoRA row on. **Done** shrinks the card to the labels and their switches. A row whose nodes are only partly on reads **mixed**. The node never runs and has no wires.
+Turns parts of a workflow off and on from one small card. Select the nodes of one part, such as a box and its Save Image, press **+ Switch**, and they get one **off | on** switch with a name you choose. To pick between settings instead, set a node and press **+ Choice** for each way: the card becomes one pill. Every group can have a switch of its own too. Off bypasses the nodes, so a step in the middle of a chain can be skipped and the picture still reaches the steps after it; a setting mutes them instead. A switch can change settings instead: save what chosen nodes hold for on and for off, and one click sets Steps to 8 and turns a LoRA row on. **Done** shrinks the card to the labels and their switches. A row whose nodes are only partly on reads **mixed**. The node never runs and has no wires. An AI agent can set one up for you: point it at the [agent guide](js/docs/agents/workflow_switches.md).
 
 ## Example workflows
 
@@ -424,6 +425,8 @@ People who download your workflow get the nodes through ComfyUI-Manager's missin
 - **Help cards:** the **?** in a node's title bar opens its description, inputs and outputs. Run Timer has no title bar, so it has **About this node** in its right-click menu.
 - **Recreate node 🆎** (right-click an AusBoss node) rebuilds a node saved by an older version from the current definition. It keeps the values, links, position and colors.
 - **Replace with AusBoss nodes 🆎** (canvas right-click or the command palette) finds third-party nodes this pack can stand in for, such as VideoHelperSuite's Load Video and Video Combine or KJNodes' Color Match. It previews each swap and replaces the ones you leave ticked.
+- **Snap into line:** a node, group or selection you drag lines up with the nodes and groups around it, edge to edge or middle to middle, and a teal line shows what it lines up with. Pulling a corner to resize lines up the same way. Hold Shift while you drag to skip it, or turn it off in Settings → 🆎 AusBoss → Canvas.
+- **Line up:** select two or more nodes or groups and the selection toolbar gets a Line up button: line up edges or middles, match widths or heights, or space them evenly.
 - **Node colors:** Settings → 🆎 AusBoss → Appearance sets the scheme for every AusBoss node (AusBoss, Graphite, Slate, Teal, Moss, Plum, Rust, Navy, Custom or Theme default). A node's right-click **AusBoss color** menu recolors just that node, and nodes you colored by hand keep their colors.
 - **Run status:** under Settings → 🆎 AusBoss → Chrome, the queue status can show in the browser tab's title and icon, running nodes get live progress badges, and each node's run time can be shown.
 - **Completion sound:** Settings → 🆎 AusBoss → Notifications plays a short chime when the queue finishes.

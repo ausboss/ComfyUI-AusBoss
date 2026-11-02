@@ -176,7 +176,7 @@ to every Image Crop + Rotate + Pad in this browser.
 - **image**: the turned, cropped and padded picture. Every frame of an animated
   image gets the same framing.
 - **mask**: White where the model paints: the padding, the empty corners a turn leaves, and the see-through parts of your picture.
-- **stitcher**: Wire to Stitch Inpaint to restore the kept canvas around an outpaint result, blended into the source by **Blend** (32 px unless changed). It follows the final resized canvas.
+- **stitcher**: Wire to Stitch Inpaint to restore the kept canvas around an outpaint result, blended into the source by **Blend** (32 px unless changed). It follows the final resized canvas. After a hand crop, set **Paste onto** to original in Stitch Inpaint's gear menu to get your whole picture back with the edit in place.
 - **original**: your picture before rotation, crop, padding or resize, with
   see-through parts shown as white (your picture there when **Painted area**
   is on keep).

@@ -303,14 +303,24 @@ test("Mask Refine saved since keeps its Max hole size", () => {
 
 test("Stitch Inpaint saved before Seam still opens classic", () => {
   const names = widgetNames("AUSBOSS_NODES_StitchInpaint", ["stitcher", "inpainted"]);
-  const types = { fix_edge_halo: "toggle", seam: "combo" };
+  const types = { fix_edge_halo: "toggle", seam: "combo", paste_onto: "combo" };
+  const choices = (list) => {
+    list.find((widget) => widget.name === "seam").options = { values: ["classic", "blend in"] };
+    list.find((widget) => widget.name === "paste_onto").options = { values: ["crop", "original"] };
+  };
   const widgets = restoreByPosition(names, [false, 0.5, ""], types);
-  widgets.find((widget) => widget.name === "seam").options = { values: ["classic", "blend in"] };
-  assert.deepEqual(resetUnknownValues(widgets, cardFallbacks("AUSBOSS_NODES_StitchInpaint")), ["seam"]);
-  assert.deepEqual(widgets.map((widget) => widget.value), [false, 0.5, "classic", undefined]);
+  choices(widgets);
+  assert.deepEqual(resetUnknownValues(widgets, cardFallbacks("AUSBOSS_NODES_StitchInpaint")), ["seam", "paste_onto"]);
+  assert.deepEqual(widgets.map((widget) => widget.value), [false, 0.5, "classic", "crop", undefined]);
+  // Saved with Seam: its choice stays, and the card's empty value is crop.
+  const seamed = restoreByPosition(names, [false, 0.5, "blend in", ""], types);
+  choices(seamed);
+  assert.deepEqual(resetUnknownValues(seamed, cardFallbacks("AUSBOSS_NODES_StitchInpaint")), ["paste_onto"]);
+  assert.equal(seamed.find((widget) => widget.name === "seam").value, "blend in");
+  assert.equal(seamed.find((widget) => widget.name === "paste_onto").value, "crop");
   // A real choice is left alone.
-  const chosen = restoreByPosition(names, [false, 0.5, "blend in", ""], types);
-  chosen.find((widget) => widget.name === "seam").options = { values: ["classic", "blend in"] };
+  const chosen = restoreByPosition(names, [false, 0.5, "blend in", "original", ""], types);
+  choices(chosen);
   assert.deepEqual(resetUnknownValues(chosen, cardFallbacks("AUSBOSS_NODES_StitchInpaint")), []);
 });
 

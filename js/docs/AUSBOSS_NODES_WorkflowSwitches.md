@@ -21,6 +21,36 @@ Groups work too. Every group on the canvas gets a switch of its own, unless
 you change that under **Settings**. A group can also be part of a switch you
 make: select it together with the nodes.
 
+## Pick between saved settings
+
+Use this when the same node should be set one of a few ways and you want to
+pick by name: 8 steps or 20 steps, or which branch to run.
+
+1. Set the node the way the first choice should be, and select it.
+2. Press **+ Choice**, type a name and press Enter.
+3. Set the node the second way and press **+ Choice** again. You don't need
+   to select it this time.
+
+The card is now one pill with your choices. Click one and the node goes back
+to how you saved it. Only the settings that differ between your choices are
+changed, so the rest stay yours. Add a third the same way.
+
+To run one of two branches, wire both into ComfyUI's **If/Else Switch**, where
+they meet, and make one choice with its switch at true and one at false. Only
+the branch you pick runs. Both branches must end in the same type.
+
+A missing model or picture stops the run even in the branch you didn't pick,
+because ComfyUI checks every node that is on. To avoid that, select the nodes
+only one choice needs, open that choice's three dots and pick **The selected
+run only with this choice**. They switch off while another choice is picked.
+Do this for each branch, and leave out any node both branches use.
+
+A card holds either choices or switches, so **+ Choice** shows on a card with
+no switches yet, once a node is selected. To have both, use two cards.
+
+To change a choice later, set the node, open the choice's three dots and pick
+**Save how it is set now**.
+
 ## A switch that changes settings
 
 A switch can also change values instead of turning nodes off. One click can
@@ -166,10 +196,18 @@ Open **Settings** at the bottom of the edit view.
   from the left and top to bottom inside a column. **title** sorts by title,
   with numbers in numeric order (*2 · …* before *10 · …*).
 - **One at a time**: switching a row on switches the other rows off. Use it
-  for alternatives, such as two upscalers.
+  for alternatives, such as two upscalers. Turn it on while several rows are
+  on and the top one stays on. A new switch starts off while another row is
+  on.
 - **Show as** (there while One at a time is on): **rows** gives every switch
   a row with its own off | on. **one pill** shows them as one pill to pick
   from, see above.
+
+## Have an AI agent set it up
+
+An AI agent can add switches for you by writing them into the workflow file.
+Point it at `js/docs/agents/workflow_switches.md` in the pack's folder. That
+page tells it what to write.
 
 ## Technical details
 
@@ -223,6 +261,22 @@ Open **Settings** at the bottom of the edit view.
 - **One at a time** switches the other rows off, which runs their off sides.
   A node that one row runs and another switches off ends up running, and the
   row you switch on has the last word.
+- **What a choice stores.** One saved value set, with no off side. A choice
+  changes the settings it holds differently from another choice on its card,
+  so a third value on one control needs nothing extra. Picking one writes only
+  its own values, and a node it does not hold stays as it was. A choice can
+  also hold nodes, the way a switch does: they run while it is picked and are
+  off otherwise. The node a choice sets can't be one of them, because switching
+  it off would undo the choice. A value set by
+  hand that matches no choice leaves none picked. A card with choices keeps
+  One at a time on, shows one pill and lists no groups, so its Settings are
+  hidden.
+- **When a card settles by itself.** Turning One at a time on, or making a
+  switch while it is on, leaves one row on when more than one is. A row that
+  is fully on goes before one that is partly on, then the top row. A new
+  switch gives way to the rows that were there. Rows that a change to
+  **Groups** or **Match** adds are left as they are, because the words typed
+  into Match should not stop nodes. A click on a row settles those.
 - **A pill or a list.** Two to four rows are a pill when their names fit on
   a card no wider than 400 px. More rows, or longer names, are a list. With
   one row the card stays in the row view. Groups listed on the card are

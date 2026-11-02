@@ -45,9 +45,9 @@ function seamCorner(node, card) {
     schema: SEAM_MENU,
     anchor: gear.getBoundingClientRect(),
     title: "Stitch Inpaint settings",
-    initial: { seam: card.values().seam },
+    initial: { seam: card.values().seam, paste_onto: card.values().paste_onto },
     onChange: (values, key) => {
-      if (key === "seam") card.setWidget("seam", values.seam);
+      if (key === "seam" || key === "paste_onto") card.setWidget(key, values[key]);
     },
   });
   gear.addEventListener("click", open);
@@ -141,11 +141,12 @@ const CARDS = {
   AUSBOSS_NODES_StitchInpaint: {
     minWidth: 300,
     // A workflow saved before Seam existed holds the card's own empty value
-    // in the slot Seam now takes; it loads as classic.
-    resetUnknown: { seam: "classic" },
-    // Seam has no row and no socket: the gear menu sets it.
-    hide: ["seam"],
-    socketless: ["seam"],
+    // in the slot Seam now takes; it loads as classic. One saved with Seam
+    // holds it in Paste onto's slot, and loads as crop.
+    resetUnknown: { seam: "classic", paste_onto: "crop" },
+    // Seam and Paste onto have no row and no socket: the gear menu sets them.
+    hide: ["seam", "paste_onto"],
+    socketless: ["seam", "paste_onto"],
     corner: seamCorner,
     rows: [
       { widget: "color_match", label: "Tone match" },
