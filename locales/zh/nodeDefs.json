@@ -232,6 +232,10 @@
       }
     }
   },
+  "AUSBOSS_NODES_H3PromptWriter": {
+    "display_name": "H3 提示词写手 🆎",
+    "description": "每发生一件事写一行，给每张图片和视频分配一个任务，它就会写出 MiniMax H3 需要的提示词，并给出匹配的宽度和高度。视频里有两个人时，写明要换谁，就只替换那个人。"
+  },
   "AUSBOSS_NODES_ImageCropRotatePad": {
     "display_name": "图像裁剪 + 旋转 + 扩边 🆎",
     "description": "加载一张图像，在画面上直接旋转、裁剪和扩边。遮罩标出要生成的部分：新扩出的边、旋转后空出的角，以及图中半透明的部分（不透明度低于 90%），这些部分会像扩边一样被填充，除非 painted_area 设置为保留原图。还可以按百万像素预算缩放结果（与核心 Scale Image to Total Pixels 相同：保持比例，尺寸取整到 resolution_steps）。",
