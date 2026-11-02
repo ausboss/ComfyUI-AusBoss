@@ -2156,5 +2156,120 @@ class PasteOnOriginalTests(unittest.TestCase):
         self.assertIs(same, mask)
 
 
+def vae_trim(image: torch.Tensor, ratio: int) -> torch.Tensor:
+    """What ComfyUI's VAE encode does to a size that is not a multiple of
+    its ratio: it keeps the centred multiple and drops the rest."""
+    _, height, width, _ = image.shape
+    keep_h, keep_w = (height // ratio) * ratio, (width // ratio) * ratio
+    top, left = (height % ratio) // 2, (width % ratio) // 2
+    return image[:, top : top + keep_h, left : left + keep_w, :]
+
+
+def disc_radius(image: torch.Tensor) -> tuple[float, float]:
+    """Width and height of the bright disc in a picture, in pixels."""
+    bright = image[0, ..., 0] > 0.5
+    cols = torch.nonzero(bright.any(dim=0)).flatten()
+    rows = torch.nonzero(bright.any(dim=1)).flatten()
+    return float(cols[-1] - cols[0] + 1), float(rows[-1] - rows[0] + 1)
+
+
+class UniformScaleTests(unittest.TestCase):
+    """Issue #262: a face came back slightly bigger than it went in."""
+
+    def setUp(self):
+        # A 1200x900 picture with a bright disc (the face) and its mask:
+        # a crop of about a quarter megapixel, sent to the sampler at 1 MP.
+        height, width = 900, 1200
+        rows = torch.arange(height).view(height, 1).float()
+        cols = torch.arange(width).view(1, width).float()
+        inside = ((cols - 610.0) ** 2 + (rows - 455.0) ** 2) <= 180.0**2
+        self.image = inside.float().view(1, height, width, 1).expand(1, height, width, 3).contiguous()
+        self.mask = torch.zeros((1, height, width))
+        self.mask[:, 255:655, 410:807] = 1.0
+
+    def crop(self, multiple, **options):
+        return build_crop(self.image, self.mask, 1.2, 0, multiple, target_megapixels=1.0, keep_inside=True, **options)
+
+    def test_the_crop_is_scaled_the_same_amount_both_ways(self):
+        for multiple in (8, 16, 32, 64):
+            cropped, _, stitcher = self.crop(multiple)
+            sx, sy = stitcher["scale"]
+            self.assertEqual(cropped.shape[1] % multiple, 0)
+            self.assertEqual(cropped.shape[2] % multiple, 0)
+            # Under half a source pixel of difference across the window.
+            _, _, cw, ch = stitcher["crop_to_canvas"]
+            self.assertLess(abs(sx - sy) * max(cw, ch) / max(sx, sy), 0.5, multiple)
+
+    def test_an_explicit_size_reshapes_the_window_instead_of_squashing(self):
+        cropped, _, stitcher = build_crop(self.image, self.mask, 1.2, 0, 32, target_width=1024, target_height=1024)
+        self.assertEqual(tuple(cropped.shape[1:3]), (1024, 1024))
+        _, _, cw, ch = stitcher["crop_to_canvas"]
+        self.assertEqual(cw, ch)
+        width, height = disc_radius(cropped)
+        self.assertLess(abs(width - height), 2.0)
+
+    def test_keep_inside_gives_up_context_rather_than_pad(self):
+        # A mask across the whole width: the window cannot grow sideways.
+        mask = torch.zeros_like(self.mask)
+        mask[:, 400:500, :] = 1.0
+        _, _, stitcher = build_crop(self.image, mask, 1.2, 0, 32, target_width=1024, target_height=128, keep_inside=True)
+        self.assertEqual(stitcher["canvas_to_original"], (0, 0, 1200, 900))
+        x, y, w, h = stitcher["crop_to_canvas"]
+        self.assertTrue(y <= 400 and y + h >= 500, (x, y, w, h))
+
+    def test_a_round_trip_through_a_vae_keeps_the_face_its_size(self):
+        before = disc_radius(self.image)
+        cropped, _, stitcher = self.crop(32)
+        back = vae_trim(cropped, 16)
+        self.assertEqual(back.shape, cropped.shape)
+        after = disc_radius(apply_stitch(stitcher, back))
+        self.assertLess(max(abs(a - b) for a, b in zip(after, before)), 1.5, (before, after))
+
+    def test_a_trimmed_result_is_called_out(self):
+        cropped, _, stitcher = self.crop(8)
+        back = vae_trim(cropped, 16)
+        if back.shape == cropped.shape:
+            self.skipTest("this crop happens to be a multiple of 16")
+        inpaint_helpers._warned.clear()
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            apply_stitch(stitcher, back)
+        self.assertIn("came back", printed.getvalue())
+
+    def test_a_different_size_on_purpose_is_not_called_out(self):
+        cropped, _, stitcher = self.crop(32)
+        half = inpaint_helpers._resize_image(cropped, cropped.shape[2] // 2, cropped.shape[1] // 2)
+        inpaint_helpers._warned.clear()
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            apply_stitch(stitcher, half)
+        self.assertNotIn("came back", printed.getvalue())
+
+
+class ToneMatchTransparencyTests(unittest.TestCase):
+    """Issue #232: tone match over a see-through picture turned it yellow."""
+
+    def test_clear_pixels_do_not_pull_the_tone(self):
+        height, width = 64, 64
+        picture = torch.zeros((1, height, width, 4))
+        picture[..., :3] = torch.tensor([0.55, 0.45, 0.40])
+        picture[..., 3] = 1.0
+        # The right half is see-through, its colour left black underneath.
+        picture[:, :, 32:, :3] = 0.0
+        picture[:, :, 32:, 3] = 0.0
+        mask = torch.zeros((1, height, width))
+        mask[:, 16:48, 16:48] = 1.0
+        cropped, _, stitcher = build_crop(picture, mask, 1.5, 8, 8)
+        # The model paints the same skin tone, and fills the clear part with
+        # white, as a model with no alpha sees it.
+        painted = cropped[..., :3].clone()
+        painted[..., :3] = torch.where(cropped[..., 3:] > 0.5, cropped[..., :3], torch.ones_like(painted))
+        plain = apply_stitch(stitcher, painted, color_match=0.0)
+        matched = apply_stitch(stitcher, painted, color_match=1.0)
+        shown = plain[..., 3] > 0.99
+        drift = (matched[..., :3] - plain[..., :3])[shown].abs().max()
+        self.assertLess(float(drift), 0.01)
+
+
 if __name__ == "__main__":
     unittest.main()

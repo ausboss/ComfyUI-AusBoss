@@ -32,13 +32,20 @@ side of the picture, which is how the pair outpaints.
   the paste mask is widened by this many pixels and blurred. The sampling
   mask sent to the inpainter stays hard-edged, so feathering never weakens
   what the model sees. `0` pastes with the raw mask.
-- **Multiple** (`output_multiple`): Crop and target dimensions are rounded
-  up to a multiple of this so samplers accept them.
+- **Multiple** (`output_multiple`): The crop's size is rounded up to a
+  multiple of this. Keep it at `32` (the default) for Qwen Image 2.1, Flux
+  and most newer models. Their VAE trims a picture that is not a multiple
+  of 16 or 32, and the trimmed result, stretched back over the crop, looks
+  slightly bigger than the original. Stitch Inpaint says so in the console
+  when that happens.
 - **Target width / Target height** (`target_width` / `target_height`, in
   the **Target size, extend** fold): Rescale the crop to a fixed size for
   the sampler. `0` keeps the native crop size; setting only one dimension
   derives the other from the crop's aspect ratio. Explicit values here
-  override `target_megapixels`.
+  override `target_megapixels`. When the crop is rescaled, the crop area
+  takes in a few more pixels of context on one side so it has the exact
+  shape of the target size, and the picture is scaled the same amount
+  both ways, never stretched.
 
 ### Shaping the mask
 
