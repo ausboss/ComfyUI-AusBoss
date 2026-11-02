@@ -4,6 +4,10 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **New node: H3 Prompt Writer.** Type one line for each thing that happens,
+  give each picture and video a job, and it writes the prompt MiniMax H3
+  expects, with the width and height to match. For a video with two people,
+  type who goes and only that person is swapped.
 - **Nodes and groups snap into line while you drag them.** Drag a node, a
   group or a selection near another node or group and it lines up with it:
   left edges, right edges, tops, bottoms or middles. A teal line shows what it
