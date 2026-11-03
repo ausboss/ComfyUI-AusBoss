@@ -720,10 +720,10 @@ class AusBossMaskByTouch:
                 "fill_holes": (
                     "BOOLEAN",
                     {
-                        "default": True,
+                        "default": False,
                         "tooltip": (
                             "Closes pinholes inside the picked area. Larger openings "
-                            "stay open, like a mug's handle."
+                            "stay open, like a mug's handle. Off keeps every hole you pick."
                         ),
                     },
                 ),

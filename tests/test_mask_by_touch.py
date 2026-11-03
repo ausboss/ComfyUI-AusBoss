@@ -2048,7 +2048,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual((required["soften"][0], soften["default"], soften["min"], soften["max"], soften["step"]), ("FLOAT", 0.0, 0.0, 100.0, 0.1))
         smooth = required["smooth"][1]
         self.assertEqual((required["smooth"][0], smooth["default"], smooth["min"], smooth["max"]), ("INT", 0, 0, 64))
-        self.assertEqual((required["fill_holes"][0], required["fill_holes"][1]["default"]), ("BOOLEAN", True))
+        self.assertEqual((required["fill_holes"][0], required["fill_holes"][1]["default"]), ("BOOLEAN", False))
         self.assertEqual((required["if_nothing"][0], required["if_nothing"][1]["default"]), (list(IF_NOTHING), "stop the run"))
         self.assertEqual((optional["ask"][0], optional["ask"][1]["default"]), ("STRING", ""))
         self.assertEqual((optional["invert"][0], optional["invert"][1]["default"]), ("BOOLEAN", False))

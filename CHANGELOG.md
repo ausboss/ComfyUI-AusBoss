@@ -4,6 +4,9 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Mask by Touch 🆎 no longer fills holes unless you ask.** Fill small
+  holes, under More, now starts off, so a hole you pick stays a hole. Saved
+  workflows keep their setting.
 - **New node: H3 Prompt Writer.** Type one line for each thing that happens,
   give each picture and video a job, and it writes the prompt MiniMax H3
   expects, with the width and height to match. For a video with two people,
