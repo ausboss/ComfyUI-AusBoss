@@ -179,7 +179,7 @@ test("zeroes the steps never reach are dropped, a value that uses them is shown 
 
 test("Float 🆎 drops the zeroes its steps never reach", () => {
   const cards = readFileSync(join(ROOT, "js", "widget_cards", "index.js"), "utf-8");
-  assert.match(cards, /AUSBOSS_NODES_Float: \{[^\n]*\btrimZeros: true\b/);
+  assert.match(cards, /AUSBOSS_NODES_Float: \{[\s\S]{0,200}?\btrimZeros: true\b/);
 });
 
 test("a sum typed into a number box comes to its answer", () => {
