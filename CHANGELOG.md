@@ -4,6 +4,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Resizing one node of a selection now resizes them all.** With two or more
+  nodes selected, pull the edge or corner of one and every selected node takes
+  its width; heights stay as they were. It works in the classic look and in
+  Nodes 2.0, one Ctrl+Z undoes it, and Settings → 🆎 AusBoss → Canvas →
+  Resize together turns it off.
 - **New node: H3 Prompt Writer.** Type one line for each thing that happens,
   give each picture and video a job, and it writes the prompt MiniMax H3
   expects, with the width and height to match. For a video with two people,

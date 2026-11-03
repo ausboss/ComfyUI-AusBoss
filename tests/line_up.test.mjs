@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { MIN_GAP, enoughFor, lineUp, sameSize, spreadEvenly } from "../js/shared/line_up.mjs";
+import { MIN_GAP, enoughFor, lineUp, matchWidth, sameSize, spreadEvenly } from "../js/shared/line_up.mjs";
 
 const box = (x, y, w, h) => ({ x, y, w, h });
 const rects = [box(10, 0, 100, 50), box(40, 100, 200, 80), box(0, 300, 60, 40)];
@@ -66,4 +66,20 @@ test("even spacing pulls overlapping nodes apart", () => {
 test("gaps under the smallest gap grow to it", () => {
   const tight = [box(0, 0, 10, 10), box(15, 0, 10, 10), box(30, 0, 10, 10)];
   assert.deepEqual(spreadEvenly(tight, "across").map((p) => p.x), [0, 10 + MIN_GAP, 20 + 2 * MIN_GAP]);
+});
+
+test("resizing one node gives the others its width, keeping their left edges", () => {
+  const starts = [{ x: 0, w: 300 }, { x: 50, w: 200 }];
+  assert.deepEqual(matchWidth(420, starts), [{ x: 0, w: 420 }, { x: 50, w: 420 }]);
+});
+
+test("a pull on the left edge keeps the others' right edges", () => {
+  const starts = [{ x: 0, w: 300 }, { x: 50, w: 200 }]; // right edges 300 and 250
+  assert.deepEqual(matchWidth(400, starts, { fromLeft: true }), [{ x: -100, w: 400 }, { x: -150, w: 400 }]);
+});
+
+test("a node never goes under its own narrowest width", () => {
+  const starts = [{ x: 0, w: 300, least: 260 }, { x: 0, w: 300, least: 100 }];
+  assert.deepEqual(matchWidth(150, starts), [{ x: 0, w: 260 }, { x: 0, w: 150 }]);
+  assert.deepEqual(matchWidth(150, starts, { fromLeft: true }), [{ x: 40, w: 260 }, { x: 150, w: 150 }]);
 });

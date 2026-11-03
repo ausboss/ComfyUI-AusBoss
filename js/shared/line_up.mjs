@@ -77,3 +77,15 @@ export function spreadEvenly(rects, axis) {
 export function enoughFor(kind, count) {
   return kind === "spacing" ? count >= 3 : count >= 2;
 }
+
+// One node of a selection is being resized: every other one takes its width.
+// `starts` are where the others were when the button went down, as
+// { x, w, least } (least is the narrowest that node can be). A pull on the
+// left edge keeps each right edge where it was; any other pull keeps each
+// left edge. Returns { x, w } per start, in the order given.
+export function matchWidth(width, starts, { fromLeft = false } = {}) {
+  return starts.map(({ x, w, least = 0 }) => {
+    const next = Math.max(width, least);
+    return { x: fromLeft ? x + w - next : x, w: next };
+  });
+}
