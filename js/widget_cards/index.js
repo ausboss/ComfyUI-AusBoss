@@ -386,7 +386,7 @@ const CARDS = {
   },
   AUSBOSS_NODES_LoadAudio: {
     // The wave, IN and OUT live in the panel under the card (js/load_audio).
-    minWidth: 320, first: true, hide: ["upload"],
+    minWidth: 280, first: true, hide: ["upload"],
     rows: [
       { widget: "audio", label: "Source", kind: "select",
         button: { text: "Upload", title: "Upload a sound file into ComfyUI's input folder", onClick: (node) => node.widgets?.find((w) => w.name === "upload")?.callback?.() } },

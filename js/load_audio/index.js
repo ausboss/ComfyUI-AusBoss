@@ -22,10 +22,13 @@ const NODE_NAME = "AUSBOSS_NODES_LoadAudio";
 const PANEL_WIDGET = "ausboss_load_audio_wave";
 // The frontend's own player for an audio_upload input. The wave replaces it.
 const CORE_AUDIO_WIDGET = "audioUI";
-const MIN_WIDTH = 320;
-// 8px root padding + the wave's 72px floor + 6px gap + the 22px play, IN/OUT and loop row.
-const PANEL_MIN_HEIGHT = 108;
-const DEFAULT_NODE_SIZE = [400, 300];
+const MIN_WIDTH = 280;
+// 8px root padding + the wave's 52px floor + 6px gap + the 22px play, IN/OUT and loop row.
+const PANEL_MIN_HEIGHT = 88;
+// Opens small and neat: 300 px wide, as short as it can be plus a little,
+// so the wave is about 64 px tall. Drag the corner for a bigger wave.
+const DEFAULT_WIDTH = 300;
+const DEFAULT_WAVE_EXTRA = 12;
 const CUT_RED = "#e0525a";
 const PEAK_BUCKETS = 1600;
 const END_EPSILON = 0.03;
@@ -98,7 +101,7 @@ function ensureAudioCss() {
   const style = document.createElement("style");
   style.id = "ausboss-load-audio-css";
   style.textContent = `
-.ausboss-audio-root .ausboss-video-stage{min-height:72px;background:#050b0b;cursor:pointer;touch-action:none;}
+.ausboss-audio-root .ausboss-video-stage{min-height:52px;background:#050b0b;cursor:pointer;touch-action:none;}
 .ausboss-audio-root canvas.ausboss-audio-wave{position:absolute;inset:0;width:100%;height:100%;display:block;}
 .ausboss-audio-root .ausboss-video-stage:not(.is-empty) .ausboss-video-status{display:none;}
 .ausboss-audio-root .ausboss-audio-row{display:flex;align-items:center;gap:6px;flex:none;padding:0 2px;}
@@ -419,7 +422,7 @@ function buildPanel(node) {
   fillNodeHeight(widget, {
     minWidth: MIN_WIDTH,
     minHeight: PANEL_MIN_HEIGHT + WIDGET_FRAME,
-    minNodeSize: [MIN_WIDTH, 220],
+    minNodeSize: [MIN_WIDTH, 200],
     exactMinWidth: true,
   });
 
@@ -525,10 +528,10 @@ app.registerExtension({
     }
     chainCallback(nodeType.prototype, "onNodeCreated", function () {
       buildPanel(this);
-      this.setSize?.([
-        Math.max(DEFAULT_NODE_SIZE[0], this.size?.[0] ?? 0),
-        Math.max(DEFAULT_NODE_SIZE[1], this.size?.[1] ?? 0),
-      ]);
+      // Only for a genuinely new node: onConfigure restores a saved size
+      // after this runs, so a workflow's own size still wins.
+      const floor = Number(this.computeSize?.()?.[1]) || 0;
+      if (floor > 0) this.setSize?.([DEFAULT_WIDTH, floor + DEFAULT_WAVE_EXTRA]);
     });
     chainCallback(nodeType.prototype, "onConfigure", function () {
       queueMicrotask(() => {
