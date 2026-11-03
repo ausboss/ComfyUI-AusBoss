@@ -17,13 +17,14 @@ again.
 
 Set **Max length** to the longest sound the next step can take, such as the
 length of the video you are making. The start stays where it is, and anything
-past the limit turns red with a dashed line where it is cut. The line under
-the wave says how long the sound is and how much is cut: `15.0 s · cut 7.0 s`.
-Click that red text to move OUT to the cut. Play stops at the cut, so what you
+past the limit turns red with a dashed line where it is cut. Next to OUT,
+the node shows how long the sound that comes out is, such as `15.0 s`. It
+turns red when part of your pick is cut; hold the mouse over it to see how
+much, and click it to move OUT to the cut. Play stops at the cut, so what you
 hear is what comes out. `0` means no limit.
 
 Max length can be wired. When the wire comes from a number node such as
-Float 🆎, the wave shows the cut for that number; otherwise the line says
+Float 🆎, the wave shows the cut for that number; otherwise the length's tooltip says
 `max wired` and the run still cuts the sound to the wired length.
 
 ## Controls

@@ -16,19 +16,19 @@ import { parseImageReference } from "../shared/pad_canvas.mjs";
 import { mediaViewQuery, splitMediaName } from "../shared/video_preview.mjs";
 import { ensureVideoCss, hideCanvasWidget, makeToolButton } from "../shared/video_ui.mjs";
 import { MIN_TRIM_SECONDS, dragTrimHandle, slideTrimWindow } from "../load_video/trim_preview.mjs";
-import { grabZone, outputSummary, outputWindow, wavePeaks } from "./audio_window.mjs";
+import { grabZone, outputSummary, outputWindow, secondsLabel, wavePeaks } from "./audio_window.mjs";
 
 const NODE_NAME = "AUSBOSS_NODES_LoadAudio";
 const PANEL_WIDGET = "ausboss_load_audio_wave";
 // The frontend's own player for an audio_upload input. The wave replaces it.
 const CORE_AUDIO_WIDGET = "audioUI";
 const MIN_WIDTH = 280;
-// 8px root padding + the wave's 52px floor + 6px gap + the 22px play, IN/OUT and loop row.
-const PANEL_MIN_HEIGHT = 88;
-// Opens small and neat: 300 px wide, as short as it can be plus a little,
-// so the wave is about 64 px tall. Drag the corner for a bigger wave.
+// 8px root padding + the wave's 28px floor + 6px gap + the 22px play, IN/OUT and loop row.
+const PANEL_MIN_HEIGHT = 64;
+// Opens small and neat: 300 px wide, with a wave about as tall as a field
+// (32 px). Drag the corner down for a taller wave.
 const DEFAULT_WIDTH = 300;
-const DEFAULT_WAVE_EXTRA = 12;
+const DEFAULT_WAVE_EXTRA = 4;
 const CUT_RED = "#e0525a";
 const PEAK_BUCKETS = 1600;
 const END_EPSILON = 0.03;
@@ -101,16 +101,19 @@ function ensureAudioCss() {
   const style = document.createElement("style");
   style.id = "ausboss-load-audio-css";
   style.textContent = `
-.ausboss-audio-root .ausboss-video-stage{min-height:52px;background:#050b0b;cursor:pointer;touch-action:none;}
+.ausboss-audio-root .ausboss-video-stage{min-height:28px;background:#050b0b;cursor:pointer;touch-action:none;}
 .ausboss-audio-root canvas.ausboss-audio-wave{position:absolute;inset:0;width:100%;height:100%;display:block;}
 .ausboss-audio-root .ausboss-video-stage:not(.is-empty) .ausboss-video-status{display:none;}
 .ausboss-audio-root .ausboss-audio-row{display:flex;align-items:center;gap:6px;flex:none;padding:0 2px;}
 .ausboss-audio-root .ausboss-audio-row .ausboss-video-values{flex:1 1 auto;min-width:0;}
 .ausboss-audio-root .ausboss-audio-play{min-width:30px;font-size:10px;}
-.ausboss-audio-root .ausboss-audio-summary{position:absolute;left:6px;top:6px;z-index:3;max-width:calc(100% - 12px);padding:2px 6px;border-radius:4px;background:rgba(0,0,0,.72);color:#b8d3d1;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;}
-.ausboss-audio-root .ausboss-audio-summary:empty{display:none;}
-.ausboss-audio-root .ausboss-audio-summary.has-cut{color:#ff9aa0;border:1px solid rgba(224,82,90,.6);cursor:pointer;pointer-events:auto;}
-.ausboss-audio-root .ausboss-video-values{grid-template-columns:minmax(max-content,1fr) minmax(max-content,1fr);}
+.ausboss-audio-root .ausboss-audio-length{flex:none;padding:0 2px;color:#7fd9d2;font-size:10px;font-variant-numeric:tabular-nums;white-space:nowrap;cursor:default;}
+.ausboss-audio-root .ausboss-audio-length:empty{display:none;}
+.ausboss-audio-root .ausboss-audio-length.has-cut{color:#ff9aa0;cursor:pointer;text-decoration:underline dotted rgba(224,82,90,.8);text-underline-offset:2px;}
+.ausboss-audio-root .ausboss-audio-row .ausboss-video-tool{flex:none;}
+.ausboss-audio-root .ausboss-video-values{display:flex;gap:8px;}
+.ausboss-audio-root .ausboss-video-value input{width:48px;}
+.ausboss-audio-root .ausboss-audio-length{margin-left:auto;}
 `;
   document.head.appendChild(style);
 }
@@ -160,11 +163,13 @@ function draw(state) {
     ctx.fillRect(x, top, 1, Math.max(1, (high - low) * reach));
   }
   // The handles: IN and OUT, and a dashed line where the max cuts off.
+  // The grips stay small on a short wave so they don't hide it.
+  const grip = Math.round(Math.max(3, Math.min(7, rect.height * 0.12)) * scale);
   const handle = (x, color) => {
     ctx.fillStyle = color;
     ctx.fillRect(Math.round(x) - scale, 0, 2 * scale, height);
-    ctx.fillRect(Math.round(x) - 5 * scale, 0, 10 * scale, 7 * scale);
-    ctx.fillRect(Math.round(x) - 5 * scale, height - 7 * scale, 10 * scale, 7 * scale);
+    ctx.fillRect(Math.round(x) - 4 * scale, 0, 8 * scale, grip);
+    ctx.fillRect(Math.round(x) - 4 * scale, height - grip, 8 * scale, grip);
   };
   handle(startX, "#f4ffff");
   handle(endX, "#f4ffff");
@@ -193,11 +198,11 @@ function updateFace(state) {
   if (document.activeElement !== state.endInput) state.endInput.value = formatTimecode(win.end);
   if (state.duration > 0) {
     const summary = outputSummary(win, { maxFromLink: max.fromLink && !max.known });
-    state.summary.textContent = summary;
+    state.summary.textContent = win.length > 0 ? secondsLabel(win.length) : "";
     state.summary.classList.toggle("has-cut", win.cut > 0.005);
     state.summary.title = win.cut > 0.005
-      ? `Max length is ${max.value} s, so ${formatTimecode(win.keepEnd)} to ${formatTimecode(win.end)} is cut off. Click to move OUT to ${formatTimecode(win.keepEnd)}.`
-      : `${formatTimecode(win.start)} to ${formatTimecode(win.keepEnd)} comes out.`;
+      ? `${summary}. Max length is ${max.value} s, so ${formatTimecode(win.keepEnd)} to ${formatTimecode(win.end)} is cut off (red). Click to move OUT to ${formatTimecode(win.keepEnd)}.`
+      : `${summary}: ${formatTimecode(win.start)} to ${formatTimecode(win.keepEnd)} comes out.`;
   } else {
     state.summary.textContent = "";
   }
@@ -233,13 +238,12 @@ function installDrag(state) {
     return { fraction, win, zone: grabZone(win, state.duration, fraction, rect.width) };
   };
   surface.addEventListener("pointermove", (event) => {
-    if (state.dragging || state.duration <= 0 || event.target === state.summary) return;
+    if (state.dragging || state.duration <= 0) return;
     const { zone } = infoAt(event.clientX);
     surface.style.cursor = zone === "start" || zone === "end" ? "ew-resize" : zone === "move" ? "grab" : "pointer";
   });
   surface.addEventListener("pointerdown", (event) => {
     if (event.button !== 0 || state.dragging || state.duration <= 0) return;
-    if (event.target === state.summary && state.summary.classList.contains("has-cut")) return;
     event.preventDefault();
     event.stopPropagation();
     const initial = infoAt(event.clientX);
@@ -402,14 +406,14 @@ function buildPanel(node) {
   };
   const startValue = makeValue("IN", "Where the sound starts. Type seconds (12.5) or a time (0:12.5).");
   const endValue = makeValue("OUT", "Where the sound stops. Type seconds (24) or a time (0:24.0).");
-  // What comes out, over the wave's corner: "15.0 s · cut 7.0 s".
+  // How long the output is, beside OUT and off the wave. Red when Max
+  // length cuts the pick short; the tooltip says how much.
   const summary = document.createElement("div");
-  summary.className = "ausboss-audio-summary";
-  stage.append(summary);
+  summary.className = "ausboss-audio-length";
   values.append(startValue.wrap, endValue.wrap);
   const row = document.createElement("div");
   row.className = "ausboss-audio-row";
-  row.append(playButton, values, loopButton);
+  row.append(playButton, values, summary, loopButton);
   root.append(stage, row);
 
   const widget = node.addDOMWidget(PANEL_WIDGET, "ausboss_audio", root, {
@@ -436,7 +440,7 @@ function buildPanel(node) {
     duration: 0, peaks: null, abort, writing: false, dragging: false, raf: 0, loading: 0,
   };
 
-  // Clicking the red "cut off" line moves OUT to where the sound really ends.
+  // Clicking the red length moves OUT to where the sound really ends.
   summary.addEventListener("click", (event) => {
     const win = currentWindow(state);
     if (win.cut <= 0.005) return;
