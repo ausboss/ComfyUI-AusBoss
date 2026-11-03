@@ -8,6 +8,11 @@ every node that needs it, and change it in one place.
 - **Value** (`value`): The number to send out. It starts at `0`. The box
   shows the decimals its steps use (`0.00`) and holds up to three, so a
   typed `0.125` stays `0.125`.
+- The gear, right: **Look**. **normal** is the usual box with its label.
+  **big** shows the number large in the middle of the node, for a setting
+  people change on every run, such as the length of a clip. The arrows, a
+  drag and typing work the same. Each node keeps its own look, and it is
+  saved with the workflow.
 
 ## Limits
 
@@ -44,3 +49,7 @@ into **Math Expression 🆎** instead of retyping derived numbers.
   API is passed on as it is.
 - Wired only to inputs that share no value (one stops at 1, the other starts
   at 2), the box keeps no limits.
+- The look is stored in the node's properties as `ausboss_text_look: "big"`, the
+  same as Text 🆎. It is not an input, so the saved value and what the node
+  sends are the same in both looks, and an older version of the pack shows
+  the usual box.

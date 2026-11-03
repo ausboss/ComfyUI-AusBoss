@@ -8,6 +8,11 @@ wire it to every node that needs it.
 - **Value** (`value`): The whole number to send out. It starts at `0`. The
   arrows and a drag move it by 1, or click and type. It holds numbers as
   big as a seed.
+- The gear, right: **Look**. **normal** is the usual box with its label.
+  **big** shows the number large in the middle of the node, for a setting
+  people change on every run, such as the length of a clip. The arrows, a
+  drag and typing work the same. Each node keeps its own look, and it is
+  saved with the workflow.
 
 ## Limits
 
@@ -40,3 +45,7 @@ For arithmetic on the way — halving a size, adding a margin — feed this into
 - On its own the box goes up to 9,007,199,254,740,991, the largest whole
   number a browser holds exactly. It stopped at 2,147,483,647 before, which
   most seeds are above.
+- The look is stored in the node's properties as `ausboss_text_look: "big"`, the
+  same as Text 🆎. It is not an input, so the saved value and what the node
+  sends are the same in both looks, and an older version of the pack shows
+  the usual box.

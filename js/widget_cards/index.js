@@ -16,7 +16,7 @@ import { SOCKETLESS_CHOICE, SOCKETLESS_TEXT, commitWidgetValue, markSocketless, 
 import { mediaViewQuery } from "../shared/media_list.mjs";
 import { gearIconSvg, openSettingsMenu } from "../shared/settings_menu.mjs";
 import { SEAM_MENU, SEAM_MUTE_TITLES, isBlendIn, seamCornerReserve } from "../shared/stitch_seam.mjs";
-import { TEXT_LOOK_MENU, setTextLook, textLook, textLookCornerReserve } from "../shared/text_look.mjs";
+import { NUMBER_LOOK_MENU, TEXT_LOOK_MENU, setTextLook, textLook, textLookCornerReserve } from "../shared/text_look.mjs";
 import { fineEdgeLabel } from "../shared/touch_math.mjs";
 import { valueToTake, wiredLimits } from "../shared/wired_limits.mjs";
 
@@ -69,20 +69,21 @@ function seamCorner(node, card) {
     },
   };
 }
-// Text: the gear in the card's corner picks the node's look, the usual box
-// or big centred letters (shared/text_look.mjs). The look is kept on the
-// node, not in a widget, so the node's inputs and saved values never change.
-function textLookCorner(node, card) {
+// Text, Integer and Float: the gear in the card's corner picks the node's
+// look, the usual box or big and centred (shared/text_look.mjs). The look is
+// kept on the node, not in a widget, so the node's inputs and saved values
+// never change.
+const lookCorner = (schema, title) => (node, card) => {
   const gear = document.createElement("button");
   gear.type = "button";
   gear.className = "ausboss-card-gear";
-  gear.title = "Text settings";
+  gear.title = title;
   gear.innerHTML = gearIconSvg();
   gear.addEventListener("click", () => openSettingsMenu({
     scope: "text_look",
-    schema: TEXT_LOOK_MENU,
+    schema,
     anchor: gear.getBoundingClientRect(),
-    title: "Text settings",
+    title,
     initial: { look: textLook(node) },
     onChange: (values) => {
       if (values.look === textLook(node)) return;
@@ -93,7 +94,9 @@ function textLookCorner(node, card) {
     },
   }));
   return { element: gear, sync: () => textLookCornerReserve(textLook(node)) };
-}
+};
+const textLookCorner = lookCorner(TEXT_LOOK_MENU, "Text settings");
+const numberLookCorner = lookCorner(NUMBER_LOOK_MENU, "Number settings");
 // Save Video rows that only some formats read (crf, save_metadata).
 const formatReads = (name) => (values) => formatWidgetVisibility(String(values.format))[name];
 
@@ -306,9 +309,16 @@ const CARDS = {
   // Like ComfyUI's own Primitive node, both take over the limits of the
   // input they are wired to: wired to a sampler's denoise, Float stops at 1.
   // A new box also takes the value of the first input it is wired to
-  // (`takesWired`), so wiring it up does not change that setting.
-  AUSBOSS_NODES_Integer: { minWidth: 260, takesWired: "value", rows: [{ widget: "value", label: "Value", limits: wiredLimits }] },
-  AUSBOSS_NODES_Float: { minWidth: 260, takesWired: "value", rows: [{ widget: "value", label: "Value", decimals: 3, trimZeros: true, limits: wiredLimits }] },
+  // (`takesWired`), so wiring it up does not change that setting. The gear
+  // picks the look; big is one large centred number.
+  AUSBOSS_NODES_Integer: {
+    minWidth: 260, takesWired: "value", look: textLook, corner: numberLookCorner,
+    rows: [{ widget: "value", label: "Value", limits: wiredLimits, looks: { big: { height: 56 } } }],
+  },
+  AUSBOSS_NODES_Float: {
+    minWidth: 260, takesWired: "value", look: textLook, corner: numberLookCorner,
+    rows: [{ widget: "value", label: "Value", decimals: 3, trimZeros: true, limits: wiredLimits, looks: { big: { height: 56 } } }],
+  },
   // The gear picks the look; big is a compact field of large centred
   // letters, for a word or two over a picture.
   AUSBOSS_NODES_Text: {
