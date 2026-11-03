@@ -7,7 +7,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  TEXT_LOOKS, TEXT_LOOK_MENU, TEXT_LOOK_PROPERTY, setTextLook, textLook, textLookCornerReserve,
+  NUMBER_LOOK_MENU, TEXT_LOOKS, TEXT_LOOK_MENU, TEXT_LOOK_PROPERTY, setTextLook, textLook, textLookCornerReserve,
 } from "../js/shared/text_look.mjs";
 import { nodeHeightAfterCardChange } from "../js/shared/panel_layout.mjs";
 import { CARD_PADDING, cardChangeRestore, cardHeight, rowHeight } from "../js/shared/widget_card_math.mjs";
@@ -148,4 +148,56 @@ test("the card asks cardChangeRestore before it changes the node's height", () =
 test("the look adds no input: the Text node still takes its one text box", () => {
   const api = JSON.parse(read("tests", "fixtures", "node_api.json"));
   assert.deepEqual(api.AUSBOSS_NODES_Text, { required: ["text"], optional: [], outputs: [["STRING", "text"]] });
+});
+
+// Integer and Float take the same two looks from their own gear.
+function card(name) {
+  const source = read("js", "widget_cards", "index.js");
+  const start = source.indexOf(`\n  ${name}: {`);
+  assert.ok(start >= 0, `js/widget_cards/index.js has no card for ${name}`);
+  const next = source.slice(start + 1).search(/\n {2}(\/\/|AUSBOSS_NODES_\w+: \{)/);
+  return source.slice(start, start + 1 + next);
+}
+
+test("Integer and Float take the big look from the node, with the number gear in the corner", () => {
+  for (const name of ["AUSBOSS_NODES_Integer", "AUSBOSS_NODES_Float"]) {
+    const entry = card(name);
+    assert.match(entry, /look: textLook/, name);
+    assert.match(entry, /corner: numberLookCorner/, name);
+    assert.match(entry, /looks: \{ big: \{ height: 56 \} \}/, name);
+    // The usual box is unchanged.
+    assert.match(entry, /widget: "value", label: "Value"/, name);
+  }
+});
+
+test("the number gear offers the same looks, said for a number", () => {
+  const [look] = NUMBER_LOOK_MENU;
+  assert.equal(NUMBER_LOOK_MENU.length, 1);
+  assert.equal(look.key, "look");
+  assert.deepEqual(look.options, TEXT_LOOKS);
+  assert.equal(look.default, "normal");
+  assert.equal(look.persist, false);
+  assert.match(look.optionHints.big, /number/);
+  // A big number row is taller than a usual one and the card grows with it.
+  const row = { widget: "value", label: "Value", looks: { big: { height: 56 } } };
+  assert.equal(rowHeight(row, "big"), 56);
+  assert.ok(cardHeight([row], "big") > cardHeight([row], "normal"));
+});
+
+test("a row with a height of its own in a look takes it when the look changes", () => {
+  const source = read("js", "shared", "widget_card.mjs");
+  assert.match(source, /entry\.row\.kind !== "textarea" && !entry\.row\.looks/);
+});
+
+test("a big number sits between its two arrows, in a field as wide as the card", () => {
+  const source = read("js", "shared", "widget_card.mjs");
+  const rule = (tail) => source.match(new RegExp(`\\n\\.ausboss-card\\.look-big \\.ausboss-card-field>\\.ausboss-scrub${tail}\\{([^\\n]*)`))?.[1] ?? "";
+  assert.match(rule(""), /justify-content:center/);
+  assert.match(rule(">\\.ausboss-scrub-step"), /display:contents/);
+  // Down on the left, up on the right, the number between them.
+  assert.match(rule(">\\.ausboss-scrub-step>button:last-child"), /order:0/);
+  assert.match(rule(">\\.ausboss-scrub-input"), /order:1/);
+  assert.match(rule(">\\.ausboss-scrub-step>button:first-child"), /order:3/);
+  // No room held at the sides: the gear sits in the field's corner.
+  assert.match(source, /look-big \.ausboss-card-row:not\(\.area\) \.ausboss-card-control\{margin:0\}/);
 });
