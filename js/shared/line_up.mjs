@@ -89,3 +89,22 @@ export function matchWidth(width, starts, { fromLeft = false } = {}) {
     return { x: fromLeft ? x + w - next : x, w: next };
   });
 }
+
+// Which sizes a selection shares when one of it is resized, read from how it
+// is laid out: nodes stacked in a column share a width, nodes side by side in
+// a row share a height, and a grid shares both. A loose scatter shares a
+// width, the way a column does.
+export function sharedSides(rects) {
+  const span = (a, b, start, size) => a[start] < b[start] + b[size] && b[start] < a[start] + a[size];
+  let column = false;
+  let row = false;
+  for (let i = 0; i < rects.length; i++) {
+    for (let j = i + 1; j < rects.length; j++) {
+      const sameX = span(rects[i], rects[j], "x", "w");
+      const sameY = span(rects[i], rects[j], "y", "h");
+      if (sameX && !sameY) column = true;
+      if (sameY && !sameX) row = true;
+    }
+  }
+  return { width: column || !row, height: row };
+}

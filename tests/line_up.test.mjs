@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { MIN_GAP, enoughFor, lineUp, matchWidth, sameSize, spreadEvenly } from "../js/shared/line_up.mjs";
+import { MIN_GAP, enoughFor, lineUp, matchWidth, sameSize, sharedSides, spreadEvenly } from "../js/shared/line_up.mjs";
 
 const box = (x, y, w, h) => ({ x, y, w, h });
 const rects = [box(10, 0, 100, 50), box(40, 100, 200, 80), box(0, 300, 60, 40)];
@@ -82,4 +82,15 @@ test("a node never goes under its own narrowest width", () => {
   const starts = [{ x: 0, w: 300, least: 260 }, { x: 0, w: 300, least: 100 }];
   assert.deepEqual(matchWidth(150, starts), [{ x: 0, w: 260 }, { x: 0, w: 150 }]);
   assert.deepEqual(matchWidth(150, starts, { fromLeft: true }), [{ x: 40, w: 260 }, { x: 150, w: 150 }]);
+});
+
+test("a column shares a width, a row a height, a grid both", () => {
+  const column = [box(0, 0, 300, 100), box(20, 150, 200, 100), box(0, 300, 250, 80)];
+  const row = [box(0, 0, 300, 100), box(350, 20, 200, 150), box(600, 0, 250, 80)];
+  const grid = [box(0, 0, 200, 100), box(250, 0, 200, 100), box(0, 150, 200, 100), box(250, 150, 200, 100)];
+  const scatter = [box(0, 0, 100, 100), box(300, 300, 100, 100)];
+  assert.deepEqual(sharedSides(column), { width: true, height: false });
+  assert.deepEqual(sharedSides(row), { width: false, height: true });
+  assert.deepEqual(sharedSides(grid), { width: true, height: true });
+  assert.deepEqual(sharedSides(scatter), { width: true, height: false });
 });
