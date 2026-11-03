@@ -20,6 +20,7 @@ const emptyWidget = (inputs, name) => !linked(inputs?.[name]) && blank(inputs?.[
 
 const picture = (name) => (inputs) => (emptyWidget(inputs, name) ? { input: name, kind: "picture" } : null);
 const video = (name) => (inputs) => (emptyWidget(inputs, name) ? { input: name, kind: "video" } : null);
+const sound = (name) => (inputs) => (emptyWidget(inputs, name) ? { input: name, kind: "sound file" } : null);
 
 function videoSource(inputs) {
   const mode = inputs?.source_mode;
@@ -38,6 +39,7 @@ export const SOURCE_LOADERS = Object.freeze({
   AUSBOSS_NODES_ImageCropRotatePad: picture("image"),
   // A wired source_image replaces the file, so the file may stay blank.
   AUSBOSS_NODES_LoadImagePad: (inputs) => (linked(inputs?.source_image) ? null : picture("image")(inputs)),
+  AUSBOSS_NODES_LoadAudio: sound("audio"),
   AUSBOSS_NODES_LoadVideo: video("video"),
   AUSBOSS_NODES_VideoCropRotatePad: videoSource,
   AUSBOSS_NODES_VideoCropRotatePadClip: videoSource,
@@ -110,7 +112,8 @@ export function emptySourceMessage(found) {
   if (!first) return "";
   const more = found.length - 1;
   const tail = more > 0 ? ` (and ${more} more node${more === 1 ? "" : "s"})` : "";
-  return `Load a ${first.kind === "video" ? "video" : "picture"} first: ${first.title}${tail}`;
+  const noun = first.kind === "video" || first.kind === "sound file" ? first.kind : "picture";
+  return `Load a ${noun} first: ${first.title}${tail}`;
 }
 
 // "Save Image: exact_name may not ..." names the input it is about, after

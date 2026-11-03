@@ -162,6 +162,12 @@ Upload a video, or pick one from the Source list, which plays the clip under the
 
 It returns the frames, audio, frame count, fps, width, height, duration and a core `VIDEO`. Only the part you kept is decoded, and it checks memory before a large load. When you save the frames, wire its fps into the save node.
 
+### Load Audio
+
+Upload a sound file, or pick one from the Source list, and the node shows it as a wave. Drag the IN and OUT handles to keep only the part you want, or type the times. Press play to hear just that part. Set **Max length** to the longest sound the next step can take, such as a video's length: anything past it turns red and is cut off, so you see what comes out before you run. Click the red "cut" text to move OUT to the cut.
+
+It returns the `audio` you kept and its length in `seconds`. Only that part is decoded. [Help page](js/docs/AUSBOSS_NODES_LoadAudio.md).
+
 ### Video Crop + Rotate + Pad → Frame
 
 Picks one frame from a video, then gives you the same rotate, crop and pad controls as the image node, plus an optional megapixel resize. Scrub to the frame with the playhead on the node; the editor adds frame-by-frame stepping and playback. It returns the transformed `image`, a `mask` of the added area, a `stitcher`, the chosen `original` frame, and the output `width` and `height`. For a whole clip, use the Clip version below.

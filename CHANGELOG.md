@@ -4,6 +4,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **New node: Load Audio.** Load a sound file and keep only the part you
+  want. The node shows the sound as a wave: drag the IN and OUT handles to
+  trim it, and press play to hear just that part. Set Max length to the
+  longest sound the next step takes, and anything longer shows in red as
+  cut off, so you see exactly what comes out before you run.
 - **New node: H3 Prompt Writer.** Type one line for each thing that happens,
   give each picture and video a job, and it writes the prompt MiniMax H3
   expects, with the width and height to match. For a video with two people,

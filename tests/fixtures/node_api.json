@@ -490,6 +490,26 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_LoadAudio": {
+    "required": [
+      "audio",
+      "start_seconds",
+      "end_seconds"
+    ],
+    "optional": [
+      "max_seconds"
+    ],
+    "outputs": [
+      [
+        "AUDIO",
+        "audio"
+      ],
+      [
+        "FLOAT",
+        "seconds"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_LoadImagePad": {
     "required": [
       "image",
