@@ -4,6 +4,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Resizing one node of a selection now resizes them all.** With two or more
+  nodes selected, pull the edge or corner of one: nodes stacked in a column
+  get its width, nodes side by side in a row get its height, and a grid gets
+  both. It works in the classic look and in Nodes 2.0, one Ctrl+Z undoes it,
+  and Settings → 🆎 AusBoss → Canvas → Resize together turns it off.
 - **Integer 🆎 and Float 🆎 have a big look.** The gear on the node picks it,
   as on Text 🆎: one large number in the middle of the node, for a setting
   you change on every run. The value and what the node sends are the same in
