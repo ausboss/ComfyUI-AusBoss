@@ -188,3 +188,16 @@ test("a row with a height of its own in a look takes it when the look changes", 
   const source = read("js", "shared", "widget_card.mjs");
   assert.match(source, /entry\.row\.kind !== "textarea" && !entry\.row\.looks/);
 });
+
+test("a big number sits between its two arrows, in a field as wide as the card", () => {
+  const source = read("js", "shared", "widget_card.mjs");
+  const rule = (tail) => source.match(new RegExp(`\\n\\.ausboss-card\\.look-big \\.ausboss-card-field>\\.ausboss-scrub${tail}\\{([^\\n]*)`))?.[1] ?? "";
+  assert.match(rule(""), /justify-content:center/);
+  assert.match(rule(">\\.ausboss-scrub-step"), /display:contents/);
+  // Down on the left, up on the right, the number between them.
+  assert.match(rule(">\\.ausboss-scrub-step>button:last-child"), /order:0/);
+  assert.match(rule(">\\.ausboss-scrub-input"), /order:1/);
+  assert.match(rule(">\\.ausboss-scrub-step>button:first-child"), /order:3/);
+  // No room held at the sides: the gear sits in the field's corner.
+  assert.match(source, /look-big \.ausboss-card-row:not\(\.area\) \.ausboss-card-control\{margin:0\}/);
+});

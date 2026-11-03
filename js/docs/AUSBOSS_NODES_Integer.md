@@ -9,9 +9,9 @@ wire it to every node that needs it.
   arrows and a drag move it by 1, or click and type. It holds numbers as
   big as a seed.
 - The gear, right: **Look**. **normal** is the usual box with its label.
-  **big** shows the number large in the middle of the node, for a setting
-  people change on every run, such as the length of a clip. The arrows, a
-  drag and typing work the same. Each node keeps its own look, and it is
+  **big** shows the number large in the middle of the node, with an arrow
+  on each side, for a setting people change on every run, such as the
+  length of a clip. A drag and typing work the same. Each node keeps its own look, and it is
   saved with the workflow.
 
 ## Limits
