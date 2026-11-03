@@ -9,6 +9,10 @@ All notable changes to ComfyUI-AusBoss are documented here.
   get its width, nodes side by side in a row get its height, and a grid gets
   both. It works in the classic look and in Nodes 2.0, one Ctrl+Z undoes it,
   and Settings → 🆎 AusBoss → Canvas → Resize together turns it off.
+- **Integer 🆎 and Float 🆎 have a big look.** The gear on the node picks it,
+  as on Text 🆎: one large number in the middle of the node, for a setting
+  you change on every run. The value and what the node sends are the same in
+  both looks.
 - **New node: H3 Prompt Writer.** Type one line for each thing that happens,
   give each picture and video a job, and it writes the prompt MiniMax H3
   expects, with the width and height to match. For a video with two people,
