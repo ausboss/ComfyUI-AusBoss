@@ -90,6 +90,7 @@ export function ensureCardCss() {
 .ausboss-card-chip:hover{background:rgba(0,180,170,.24);color:#fff}
 .ausboss-card-chip[hidden]{display:none}
 .ausboss-card-row.area{display:block}
+.ausboss-card-row.panel{display:block}
 .ausboss-card-row.area.grow{flex:1 1 auto;height:auto}
 .ausboss-card-label{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:#8ba3a1;font-size:11px;user-select:none}
 .ausboss-card-control{display:flex;align-items:center;gap:6px;min-width:0;height:100%}
@@ -203,6 +204,9 @@ function isFloatWidget(widget) {
 //                                          - `top` lifts the widgets' sockets
 //                                            into the node's slot column
 //   { section: "Caption" }
+//   { panel: (node) => ({ element, sync(values) }), height }
+//                                          - the node's own display, on a row
+//                                            of the card
 //   { group: "advanced", label: "More" }   - a disclosure; later rows with
 //                                             group: "advanced" sit under it
 // Rows may also carry `mute: (values) => boolean` and `muteTitle`: a muted
@@ -503,6 +507,14 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       const caption = el("div", "ausboss-card-section", row.section);
       state.rows.push({ row: { ...row, inGroup: currentGroup }, element: caption, syncs: [] });
       root.append(caption); continue;
+    }
+    if (row.panel) {
+      const line = el("div", "ausboss-card-row panel");
+      line.style.height = `${rowHeight(row)}px`;
+      const panel = row.panel(node);
+      line.append(panel.element);
+      state.rows.push({ row, element: line, syncs: panel.sync ? [panel.sync] : [] });
+      root.append(line); continue;
     }
     if (row.group !== undefined && row.widget === undefined && row.pair === undefined) {
       currentGroup = row.group;

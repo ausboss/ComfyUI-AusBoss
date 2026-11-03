@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 import types
 import unittest
+from unittest import mock
 
 import torch
 
@@ -521,6 +522,43 @@ class SeparableMorphologyTests(unittest.TestCase):
     def test_zero_is_still_the_same_object(self):
         mask = torch.rand((1, 8, 8))
         self.assertIs(grow_shrink_mask(mask, 0), mask)
+
+
+class LongClipTests(unittest.TestCase):
+    """A long clip goes a few frames at a time, for memory, and no pixel may change."""
+
+    @staticmethod
+    def clip() -> torch.Tensor:
+        torch.manual_seed(0)
+        return (torch.rand((mask_helpers.MASK_CHUNK * 2 + 3, 32, 24)) > 0.7).float()
+
+    def test_a_long_clip_matches_the_whole_clip_at_once(self):
+        clip = self.clip()
+        for name, fn in (("grow", lambda m: grow_shrink_mask(m, 5)),
+                         ("shrink", lambda m: grow_shrink_mask(m, -5)),
+                         ("blur", lambda m: blur_mask(m, 2.5))):
+            with self.subTest(name):
+                with mock.patch.object(mask_helpers, "MASK_CHUNK", 10**6):
+                    whole = fn(clip)
+                self.assertTrue(torch.equal(fn(clip), whole))
+
+    def test_no_step_sees_more_than_a_few_frames(self):
+        seen = []
+        real_conv, real_pool = mask_helpers.functional.conv2d, mask_helpers.functional.max_pool2d
+
+        def conv(image, *args, **kwargs):
+            seen.append(image.shape[0])
+            return real_conv(image, *args, **kwargs)
+
+        def pool(image, *args, **kwargs):
+            seen.append(image.shape[0])
+            return real_pool(image, *args, **kwargs)
+
+        with mock.patch.object(mask_helpers.functional, "conv2d", conv), mock.patch.object(
+            mask_helpers.functional, "max_pool2d", pool
+        ):
+            blur_mask(grow_shrink_mask(self.clip(), 5), 2.5)
+        self.assertEqual(max(seen), mask_helpers.MASK_CHUNK)
 
 
 if __name__ == "__main__":

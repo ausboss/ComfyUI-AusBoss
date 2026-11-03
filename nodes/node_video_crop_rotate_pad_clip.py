@@ -238,6 +238,11 @@ class AusBossVideoCropRotatePadClip:
                            "frame_load_cap and Frames for. Duration = frames / output fps; 120 frames at 24 fps = 5 seconds. "
                            "The source must be long enough. A linked IN anchors the window.",
             }),
+            "last_seconds": ("FLOAT", {
+                "forceInput": True, "min": 0,
+                "tooltip": "Load only this many seconds from the end of the clip; 0 loads all of it. "
+                           "Use it to carry on from a clip: a long clip then costs no more memory than a short one.",
+            }),
         })
         return {"required": required, "optional": optional}
 
@@ -283,12 +288,13 @@ class AusBossVideoCropRotatePadClip:
         end_frame=None,
         frame_load_cap=None,
         fixed_frames=0,
+        last_seconds=0.0,
         **values,
     ):
         path = resolve_video_path(source_mode, video, local_path)
         nth = max(1, int(every_nth))
         start_seconds, end_seconds, cap = clip_load_window(
-            path, start_seconds, end_seconds, max_frames, start_frame, end_frame, frame_load_cap
+            path, start_seconds, end_seconds, max_frames, start_frame, end_frame, frame_load_cap, last_seconds
         )
         fixed_frames = int(fixed_frames)
         if not 0 <= fixed_frames <= 100000:
@@ -402,7 +408,7 @@ class AusBossVideoCropRotatePadClip:
                 "every_nth": max(1, int(every_nth)),
                 "max_frames": max(0, int(max_frames)),
                 "frame_snap": str(frame_snap),
-                **{name: values.get(name) for name in ("force_rate", "start_frame", "end_frame", "frame_load_cap", "fixed_frames")},
+                **{name: values.get(name) for name in ("force_rate", "start_frame", "end_frame", "frame_load_cap", "fixed_frames", "last_seconds")},
                 "stitch_blend": int(stitch_blend),
                 "stitch_grow": int(stitch_grow),
                 **spec.__dict__,

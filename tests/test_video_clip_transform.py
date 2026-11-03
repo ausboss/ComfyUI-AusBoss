@@ -180,6 +180,20 @@ class VideoClipNodeTests(unittest.TestCase):
             self.assertAlmostEqual(out[7], count / out[4])
             self.assertAlmostEqual(out[2]["waveform"].shape[-1] / out[2]["sample_rate"], out[7], delta=0.01)
 
+    def test_last_seconds_loads_only_the_end(self):
+        whole = self.run_node()
+        tail = self.run_node(last_seconds=6 / FPS)
+        self.assertEqual(tail[3], 6)
+        self.assertTrue(torch.equal(tail[0], whole[0][-6:]))
+        self.assertEqual(self.run_node(last_seconds=0)[3], FRAMES)
+
+    def test_last_seconds_counts_back_from_out_and_stops_at_in(self):
+        whole = self.run_node()
+        before_out = self.run_node(end_seconds=12 / FPS, last_seconds=4 / FPS)
+        self.assertTrue(torch.equal(before_out[0], whole[0][8:12]))
+        self.assertEqual(self.run_node(start_seconds=FRAMES / FPS - 3 / FPS, last_seconds=9 / FPS)[3], 3)
+        self.assertEqual(self.run_node(last_seconds=9999)[3], FRAMES)
+
     def test_fixed_frames_too_long_is_explicit_and_zero_preserves_free_trim(self):
         with self.assertRaisesRegex(ValueError, "source is only"):
             self.run_node(fixed_frames=FRAMES + 1)

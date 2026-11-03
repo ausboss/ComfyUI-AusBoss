@@ -162,6 +162,7 @@ Five optional sockets sit on the left, above the editor:
 | `end_frame` | Exclusive source end frame. 0 means the end of the source. Overrides timeline OUT. |
 | `fixed_frames` | Exact output frames from IN; the source must be long enough. Connected, it sets the length: OUT, Length and Frames for step aside. |
 | `frame_load_cap` | Maximum frames after rate conversion and Every nth, before Frames for. 0 means unlimited. Connected, it sets the length in place of Length. |
+| `last_seconds` | Load only this many seconds from the end of the clip, or of the part before OUT. 0 loads all of it. Use it to carry on from a clip: a long clip then costs no more memory than a short one. |
 
 Frame bounds use the source's frame-rate grid, independent of `force_rate`.
 The footer labels **Source fps** separately from **Output fps**. A direct
