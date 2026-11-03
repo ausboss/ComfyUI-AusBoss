@@ -233,6 +233,7 @@ class Moment:
     end: bool = False  # The person said this is how it ends.
     camera: str = ""  # A camera: line typed in this shot's block.
     sound: str = ""  # A sound: line typed in this shot's block.
+    line: int | None = None  # The typed line this moment opens, counted from 0.
 
 
 @dataclass
@@ -365,16 +366,25 @@ def read_script(text):
     shot. camera: and sound: lines belong to the shot they are typed in; on
     their own, or in a clip of one shot, they are for the whole clip."""
     script = Script()
+    raw_text = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
     text = clean(text)
+    # Where the cleaned text starts among the typed lines, so each moment can
+    # name its line for the timeline.
+    first_line = raw_text[: len(raw_text) - len(raw_text.lstrip())].count("\n")
+    found = 0
     for number, block in enumerate(re.split(r"\n\s*\n", text)):
+        found = max(text.find(block, found), found)
+        block_line = first_line + text.count("\n", 0, found)
+        found += len(block)
         after_gap = number > 0
         count = len(script.moments)
         whole_clip = script.camera, script.sound
         script.camera = script.sound = ""
-        for raw in block.split("\n"):
+        for offset, raw in enumerate(block.split("\n")):
             line = raw.strip()
             if not line or take_label(line, script):
                 continue
+            opens = block_line + offset
             for piece in split_line(NUMBER.sub("", line).strip()):
                 note = SIDE_NOTE.match(piece)
                 if note:  # "no music, just rain" on its own is a note, not a moment.
@@ -382,7 +392,8 @@ def read_script(text):
                     if note.group("only"):
                         script.sound = note.group("only").strip(" .")
                     continue
-                moment = Moment(piece, cut=after_gap)
+                moment = Moment(piece, cut=after_gap, line=opens)
+                opens = None
                 after_gap = False
                 read_moment(moment)
                 if moment.text:
@@ -515,6 +526,7 @@ def script_report(text, seconds, jobs=None, video=""):
             "text": moment.text.replace(HOLD, "Holds still"),
             "cut": moment.cut,
             "speech": bool(moment.speech),
+            "line": moment.line,
         }
         for moment, start, end in zip(script.moments, starts, ends)
     ]

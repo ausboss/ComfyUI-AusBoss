@@ -27,7 +27,7 @@ from nodes._h3_prompt_helpers import (
 from nodes._h3_cast_helpers import Cast, number_pictures
 from nodes._h3_script_helpers import Moment, moment_sound, read_script, script_report, script_warning, timeline
 from nodes import node_h3_prompt_writer
-from nodes.node_h3_prompt_writer import AusBossH3PromptWriter, clip_frames, video_frames
+from nodes.node_h3_prompt_writer import AusBossH3PromptWriter, clip_frames, video_frames, with_sound_and_music
 
 SIX = """subject_definitions:
 <Subject 1> is the main person in <Picture 1>, with the same face.
@@ -1049,6 +1049,48 @@ class NodeTests(unittest.TestCase):
         text = AusBossH3PromptWriter().write(LINES, 6, picture_1=PICTURE, song=self.audio(), cut_on_beat=False)[0]
         self.assertIn("At 00:02.000", text)
         self.assertIn("<Audio 1>: fully_copy", text)
+
+
+class MomentLineTests(unittest.TestCase):
+    """The timeline drags a moment's start into the line it was typed on."""
+
+    def test_each_moment_names_its_typed_line(self):
+        text = "\n\n@1 walks in. Then she sits.\n3s: @1 stops at the fridge.\n\n6s: a close-up of her hand.\nmusic: piano"
+        lines = [(moment["line"], moment["start"]) for moment in script_report(text, 8)["moments"]]
+        self.assertEqual(lines, [(2, 0.0), (None, 1.5), (3, 3.0), (5, 6.0)])
+
+    def test_a_held_opening_has_no_line(self):
+        report = script_report("3s: @1 waves.", 8)
+        self.assertEqual([moment["line"] for moment in report["moments"]], [None, 0])
+
+
+class SoundAndMusicBoxTests(unittest.TestCase):
+    def write(self, script, **boxes):
+        picture = torch.zeros(1, 8, 8, 3)
+        return AusBossH3PromptWriter().write(script, 8, picture_1=picture, **boxes)[0]
+
+    def part(self, text, name):
+        return text.split(f"{name}:\n", 1)[1].split("\n\n", 1)[0]
+
+    def test_the_boxes_fill_the_sound_and_music_parts(self):
+        text = self.write("she runs", sound="rain on a tin roof", music="slow sad piano")
+        self.assertEqual(self.part(text, "overall_soundscape"), "Rain on a tin roof.")
+        self.assertEqual(self.part(text, "non_diegetic_music"), "Slow sad piano.")
+
+    def test_empty_boxes_change_nothing(self):
+        self.assertEqual(self.write("she runs"), self.write("she runs", sound="", music="  "))
+
+    def test_a_box_is_the_same_as_the_line_typed_on_its_own(self):
+        self.assertEqual(self.write("she runs", music="slow sad piano"), self.write("she runs\n\nmusic: slow sad piano"))
+
+    def test_the_boxes_leave_a_pasted_prompt_alone(self):
+        pasted = "subject_definitions:\na\n\nsummary:\nb\n\nretention_analysis:\nc\n\ndetailed_description:\nd\n\noverall_soundscape:\ne\n\nnon_diegetic_music:\nf"
+        self.assertIsNotNone(split_sections(pasted))
+        self.assertEqual(with_sound_and_music(pasted, "rain", "piano"), pasted)
+
+    def test_the_boxes_are_appended_after_every_older_input(self):
+        names = list(AusBossH3PromptWriter.INPUT_TYPES()["optional"])
+        self.assertEqual(names[-2:], ["sound", "music"])
 
 
 if __name__ == "__main__":

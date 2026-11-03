@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 
 from ._h3_cast_helpers import JOBS, KEEP, KEEPS_ITS_LENGTH, PERSON, PLACE, START, THING, VIDEO_JOBS
-from ._h3_prompt_helpers import find_beats, write_prompt
+from ._h3_prompt_helpers import find_beats, split_sections, write_prompt
 from ._h3_script_helpers import CAMERAS, LOOKS, script_report
 from ._route_errors import safe_route_error
 
@@ -43,6 +43,16 @@ def _core_nodes() -> dict:
     """ComfyUI's own node classes, by key. Empty outside ComfyUI."""
     mappings = getattr(sys.modules.get("nodes"), "NODE_CLASS_MAPPINGS", None)
     return mappings if isinstance(mappings, dict) else {}
+
+
+def with_sound_and_music(script, sound, music):
+    """The Sound and Music boxes, as the whole-clip sound: and music: lines a script can carry.
+
+    H3's own six parts go through as they are, so the boxes add nothing to them."""
+    extra = [f"{name}: {text.strip()}" for name, text in (("sound", sound), ("music", music)) if str(text or "").strip()]
+    if not extra or split_sections(script) is not None:
+        return script
+    return "\n\n".join([script.rstrip(), *extra]) if script.strip() else "\n\n".join(extra)
 
 
 def model_asker(clip, image):
@@ -247,6 +257,22 @@ class AusBossH3PromptWriter:
                         ),
                     },
                 ),
+                "sound": (
+                    "STRING",
+                    {
+                        "default": "",
+                        "dynamicPrompts": False,
+                        "tooltip": "What you hear the whole way through, like rain on a window. Leave it empty for none.",
+                    },
+                ),
+                "music": (
+                    "STRING",
+                    {
+                        "default": "",
+                        "dynamicPrompts": False,
+                        "tooltip": "The music, like a slow lo-fi beat. A clip with music comes out louder. Empty means no music.",
+                    },
+                ),
             },
         }
 
@@ -285,7 +311,9 @@ class AusBossH3PromptWriter:
 
     def write(self, script, seconds, clip=None, picture_1=None, picture_2=None, picture_3=None, picture_4=None, video=None,
               video_sound=None, voice=None, song=None, camera=AS_TYPED, look=FROM_PICTURE, song_start=0.0, cut_on_beat=True,
-              language="English", job_1=PERSON, job_2=PERSON, job_3=PERSON, job_4=THING, video_job=VIDEO_JOBS[0]):
+              language="English", job_1=PERSON, job_2=PERSON, job_3=PERSON, job_4=THING, video_job=VIDEO_JOBS[0],
+              sound="", music=""):
+        script = with_sound_and_music(script, sound, music)
         pictures = {1: picture_1, 2: picture_2, 3: picture_3, 4: picture_4}
         given = {slot: picture for slot, picture in pictures.items() if picture is not None}
         kinds = {1: job_1, 2: job_2, 3: job_3, 4: job_4}

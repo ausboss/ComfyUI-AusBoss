@@ -178,7 +178,9 @@
       "job_2",
       "job_3",
       "job_4",
-      "video_job"
+      "video_job",
+      "sound",
+      "music"
     ],
     "outputs": [
       [

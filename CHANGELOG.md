@@ -7,7 +7,10 @@ All notable changes to ComfyUI-AusBoss are documented here.
 - **New node: H3 Prompt Writer.** Type one line for each thing that happens,
   give each picture and video a job, and it writes the prompt MiniMax H3
   expects, with the width and height to match. For a video with two people,
-  type who goes and only that person is swapped.
+  type who goes and only that person is swapped. The words light up as you
+  type, `@` lists your pictures, and a bar shows each moment on the clip's
+  seconds: drag a block to move it, drag its edge to set its time, click an
+  edge for a cut. Sound and Music boxes fill H3's own sound and music parts.
 - **Crop For Inpaint 🆎 no longer makes an inpainted face come back slightly
   bigger.** Its default Multiple is now 32, so Qwen Image 2.1, Flux and other
   newer models get a size their VAE keeps whole; at 8, the VAE trimmed a few
