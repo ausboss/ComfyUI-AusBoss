@@ -9,8 +9,8 @@ song.
 
 ## How to write it
 
-Every line is a moment, and the lines play in order in one shot. The rows under
-the box show the second each one starts, before you spend a run.
+Every line is a moment, and the lines play in order in one shot. The bar under
+the box shows the second each one starts, before you spend a run.
 
 ```
 @1 walks through a crowded night market toward us, looking over her shoulder.
@@ -27,6 +27,29 @@ The node also fills in two things H3 misses by itself. A moment gets its own
 sound when it names something that makes one, like rain, footsteps or thunder.
 And what changes stays changed: when the lights go out, the next moments in that
 place say they are still out.
+
+## The words box and the bar
+
+The words the node acts on light up as you type: `@1` in teal (amber when
+nothing is plugged in there), a time like `3s:` in amber, words in quotes in
+yellow, and a blank line shows as a line marked CUT. Hover the `?` beside
+"What happens" for a short list of everything you can type.
+
+Typing `@` lists the pictures you plugged in, with their job. The first letters
+of a line offer `sound:`, `music:`, `camera:` or `look:`, and after `camera:` or
+`look:` you get the node's own choices. Tab picks one, Esc closes the list.
+
+The bar under the box is the clip from start to end, one block for each moment
+with the pictures it names:
+
+- **Drag a block** along the bar to move its line. The times and cuts stay
+  where they are.
+- **Drag the left edge** of a block to set when that moment starts. The node
+  types the time (`3s:`) into its line for you.
+- **Click the left edge** to add or take out a cut there.
+- **Click a block** to pick out its line in the words, ready to change.
+
+Everything on the bar changes the words, so Ctrl+Z undoes it.
 
 ## Give each picture a job
 
@@ -73,7 +96,7 @@ Connect a video, then pick what it is for:
 - **new voice**: the same clip with a new voice. Connect the voice, and type
   what they say in quotes.
 
-Swap and new voice ignore **Seconds** and keep the video's own length.
+Swap and new voice ignore **Length** and keep the video's own length.
 
 ## What you can type
 
@@ -87,8 +110,9 @@ Swap and new voice ignore **Seconds** and keep the video's own length.
 - **Speech**: put the words in quotes: `@1 says "we are late."` Each person
   keeps their own voice.
 - **Words on a sign**: name the sign: `a neon sign reads "OPEN"`.
-- **Sound and music**: `sound: rain on a tin roof` and `music: slow sad piano`.
-  With no `music:` line you get no music, and the clip comes out quieter.
+- **Sound and music**: use the **Sound** and **Music** boxes, or type
+  `sound: rain on a tin roof` and `music: slow sad piano`. With no music you get
+  none, and the clip comes out quieter.
 - **Camera and look**: pick them on the node, or type your own:
   `camera: slow push in`, `look: a 1970s film`.
 
@@ -132,13 +156,17 @@ as not plugged in.
 
 ## The controls
 
-- **Seconds** (`seconds`): how long the clip is, 5 to 15.
+- **Sound** (`sound`): what the clip sounds like, for the whole clip. Same as a
+  `sound:` line.
+- **Music** (`music`): the music for the whole clip. Same as a `music:` line.
+- **Length** (`seconds`): how long the clip is, 5 to 15.
 - **Camera** (`camera`): how the camera moves the whole way through.
 - **Look** (`look`): from the picture keeps your photo's look. The others redraw
   the clip. Clay and 3D don't work from words, so change your picture first with
   an edit model.
-- **Picture 1** to **Picture 4** (`job_1` to `job_4`): what each picture is for.
-- **Video** (`video_job`): what the video is for.
+- **Picture 1** to **Picture 4** (`job_1` to `job_4`): what each picture is
+  for, on the picture chips under the bar. An empty slot shows as a faint `+ @3`.
+- **Video** (`video_job`): what the video is for, on the video chip.
 - **Song starts at** (`song_start`, under **More**): the second of the song to
   start from, so the clip gets the good part.
 - **Moments on the beat** (`cut_on_beat`, under **More**): moves each moment onto
