@@ -19,7 +19,9 @@ from nodes._h3_prompt_helpers import (
     add_task,
     clean_words,
     find_beats,
+    find_speech,
     join_sections,
+    line_starts,
     snap_cuts,
     split_sections,
     write_prompt,
@@ -1222,7 +1224,113 @@ class SoundAndMusicBoxTests(unittest.TestCase):
 
     def test_the_boxes_are_appended_after_every_older_input(self):
         names = list(AusBossH3PromptWriter.INPUT_TYPES()["optional"])
-        self.assertEqual(names[-2:], ["sound", "music"])
+        self.assertEqual(names[-3:], ["sound", "music", "clip_sound"])
+
+
+def spoken(stretches, seconds, rate=16000, noise=0.002, seed=3):
+    """A mono track: a voice-band buzz over each (start, end), soft hiss elsewhere."""
+    noise_maker = np.random.default_rng(seed)
+    times = np.arange(int(seconds * rate)) / rate
+    track = noise * noise_maker.standard_normal(len(times))
+    for start, end in stretches:
+        inside = (times >= start) & (times < end)
+        syllables = 0.5 + 0.5 * np.sin(2 * np.pi * 4 * times[inside]) ** 2  # Words rise and fall.
+        track[inside] += 0.2 * syllables * (np.sin(2 * np.pi * 220 * times[inside]) + 0.6 * np.sin(2 * np.pi * 880 * times[inside]))
+    return track.astype(np.float32)
+
+
+# The "state property" clip: who said what and when, read from its words.
+STATE = (
+    '@1 replaces the older man in the white pickup truck.\n'
+    'A man off screen says "Who told you you could fish here?"\n'
+    'The older man says "I thought it was state property."\n'
+    'A man off screen says "State?"\n'
+    'He says "Yeah."\n'
+    'A man off screen says "This?"\n'
+    'He says "Yeah."'
+)
+STATE_TIMES = [(0.08, 1.94), (2.28, 3.44), (4.66, 4.9), (5.32, 5.52), (5.86, 6.22), (6.32, 6.66)]
+SWAP_JOBS = {"jobs": {1: "person"}, "video": "swap the person", "seconds": 6.8}
+
+
+class ClipSoundTests(unittest.TestCase):
+    def test_speech_is_found_where_the_words_are(self):
+        found = find_speech(spoken(STATE_TIMES, 7.0), 16000)
+        self.assertEqual(len(found), len(STATE_TIMES))
+        for (start, end), (heard_from, heard_to) in zip(STATE_TIMES, found):
+            self.assertAlmostEqual(heard_from, start, delta=0.06)
+            self.assertAlmostEqual(heard_to, end, delta=0.08)
+
+    def test_silence_has_no_speech(self):
+        self.assertEqual(find_speech(np.zeros(16000 * 3, np.float32), 16000), [])
+        self.assertEqual(find_speech(spoken([], 3.0), 16000), [])
+
+    def test_a_breath_inside_a_line_stays_in_the_line(self):
+        found = find_speech(spoken([(0.5, 1.2), (1.35, 2.0), (3.0, 4.0)], 5.0), 16000)
+        starts = line_starts(found, 2)
+        self.assertAlmostEqual(starts[0], 0.5, delta=0.06)
+        self.assertAlmostEqual(starts[1], 3.0, delta=0.06)
+
+    def test_lines_split_at_the_longest_quiet(self):
+        stretches = [(0.0, 0.7), (1.0, 1.6), (2.3, 3.0), (3.2, 4.0)]
+        self.assertEqual(line_starts(stretches, 2), [0.0, 2.3])
+        self.assertEqual(line_starts(stretches, 4), [0.0, 1.0, 2.3, 3.2])
+        self.assertIsNone(line_starts(stretches, 5))
+        self.assertIsNone(line_starts([], 1))
+
+    def test_only_the_new_persons_lines_stay_timed_from_the_sound(self):
+        parts = parts_of(STATE, clip_sound=True, speech=STATE_TIMES, **SWAP_JOBS)
+        line = parts["detailed_description"]
+        for gone in ("Who told you", "State?", "This?", "Nobody on screen moves", "off screen"):
+            self.assertNotIn(gone, line)
+        self.assertIn("<Subject 2> keeps the lips closed whenever <Subject 2> is not saying a line of <Subject 2>'s own.", line)
+        self.assertIn("At 00:02.280, <Subject 2> (S1) says, each word landing exactly on the lip movement of <Video 1>, "
+                      "<d>[English] I thought it was state property.</d>", line)
+        self.assertIn("At 00:05.320, <Subject 2> (S1) says", line)
+        self.assertIn("At 00:06.320, <Subject 2> (S1) says", line)
+        self.assertNotIn("No other words are spoken", parts["overall_soundscape"])
+
+    def test_without_the_clips_sound_every_line_is_written(self):
+        line = parts_of(STATE, **SWAP_JOBS)["detailed_description"]
+        self.assertIn("Who told you you could fish here?", line)
+        self.assertIn("Nobody on screen moves their lips to these words.", line)
+        self.assertNotIn("keeps the lips closed whenever", line)
+
+    def test_someone_who_stays_is_left_out_and_the_new_person_says_nothing(self):
+        script = (
+            '@1 replaces the man in the black jacket at the counter.\n'
+            'The man in the cap at the left edge says "Why would we take EBT here? We don\'t sell groceries."\n'
+            'The man in the cap says "Maybe that\'s something y\'all need to look into."'
+        )
+        parts = parts_of(script, clip_sound=True, speech=[(0.0, 2.58), (3.76, 4.74)], **SWAP_JOBS)
+        line = parts["detailed_description"]
+        self.assertNotIn("<d>", line)
+        self.assertNotIn("EBT", line)
+        self.assertIn("<Subject 2> keeps the lips closed and says nothing the whole time.", line)
+
+    def test_a_typed_time_wins_over_the_sound(self):
+        script = '@1 replaces the man at the till.\n3.5s: @1 says "Again?"'
+        line = parts_of(script, clip_sound=True, speech=[(1.0, 2.0)], **SWAP_JOBS)["detailed_description"]
+        self.assertIn("At 00:03.500, <Subject 2> (S1) says", line)
+
+    def test_too_little_speech_keeps_the_writers_own_timing(self):
+        line = parts_of(STATE, clip_sound=True, speech=[(0.1, 6.5)], **SWAP_JOBS)["detailed_description"]
+        self.assertIn("<d>[English] I thought it was state property.</d>", line)
+        self.assertNotIn("Who told you", line)
+
+    def test_the_node_times_a_swap_from_the_videos_sound(self):
+        rate = 16000
+        sound = {"waveform": torch.from_numpy(spoken(STATE_TIMES, 7.0, rate)).reshape(1, 1, -1), "sample_rate": rate}
+        frames = torch.zeros(163, 8, 8, 3)
+        node = AusBossH3PromptWriter()
+        on = node.write(STATE, 6, picture_1=PICTURE, video=frames, video_sound=sound, video_job="swap the person", clip_sound=True)
+        self.assertIn("At 00:02.2", on[0])
+        self.assertNotIn("Who told you", on[0])
+        self.assertIsNone(on[6])  # A swap still sends H3 none of the video's sound itself.
+        off = node.write(STATE, 6, picture_1=PICTURE, video=frames, video_sound=sound, video_job="swap the person")
+        self.assertIn("Who told you", off[0])
+        moves = node.write('@1 dances.', 6, picture_1=PICTURE, video=frames, video_sound=sound, video_job="copy its moves", clip_sound=True)
+        self.assertEqual(moves[0], node.write('@1 dances.', 6, picture_1=PICTURE, video=frames, video_sound=sound, video_job="copy its moves")[0])
 
 
 if __name__ == "__main__":

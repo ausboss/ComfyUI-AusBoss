@@ -333,7 +333,7 @@ const CARDS = {
     minWidth: 420,
     hide: ["job_1", "job_2", "job_3", "job_4", "video_job"],
     socketless: ["job_1", "job_2", "job_3", "job_4", "video_job"],
-    resetUnknown: { sound: "", music: "" },
+    resetUnknown: { sound: "", music: "", clip_sound: false },
     rows: [
       { section: "What happens" },
       {
@@ -352,6 +352,7 @@ const CARDS = {
       { widget: "song_start", label: "Song starts at", suffix: "s", decimals: 1, trimZeros: true, group: "more" },
       { widget: "cut_on_beat", label: "Moments on the beat", group: "more" },
       { widget: "language", label: "Language", group: "more" },
+      { widget: "clip_sound", label: "Clip's own sound", group: "more" },
     ],
   },
   // Saved by a 1.x release, these two hold that empty value too and open

@@ -134,6 +134,9 @@ IN_THE_SHOT = "{main} is in the shot."
 TAKES_OVER = "{main} takes the place of {who} and does the same thing at the same pace."
 ONE_PERSON = "Show one person throughout."
 OTHERS_STAY = "Everyone else stays as they are in <Video 1>."
+# With the clip's own sound, every voice in it is heard, so the new person's lips say only their own lines.
+OWN_LINES_ONLY = "{main} keeps the lips closed whenever {main} is not saying a line of {main}'s own."
+SAYS_NOTHING = "{main} keeps the lips closed and says nothing the whole time."
 FOLLOWS_CAMERA = "The camera follows the movement of <Video 1>."
 CARRIES_ON = "The shot carries straight on from the end of <Video 1>."
 ACTION_GOES_ON = "The action keeps going the way it was heading, and the camera keeps moving the same way."
@@ -254,6 +257,7 @@ class Moment:
     line: int | None = None  # The typed line this moment opens, counted from 0.
     voice: str = ""  # Who says the words when it is nobody on screen: "The card reader".
     delivery: str = ""  # How a swap line is said: "in a flat robot voice".
+    other: bool = False  # Said by someone who is in no picture, like the man at the counter.
 
 
 @dataclass
@@ -714,6 +718,8 @@ def before_the_action(number, text, cast, wearers):
     if cast.video == SWAP:
         notes += [TAKES_OVER.format(main=new, who=who) for _, who, new in cast.swaps]
         notes.append(ONE_PERSON if cast.whos == [ONE_GOES] else OTHERS_STAY)
+        if cast.clip_sound:
+            notes += [(OWN_LINES_ONLY if f"{new} (S" in text else SAYS_NOTHING).format(main=new) for _, _, new in cast.swaps]
     if number == 1 and cast.video == KEEP:
         notes += [CARRIES_ON]
     if number == 1 and cast.video == REVOICE:
@@ -898,7 +904,8 @@ def script_parts(script, seconds, camera="", look="", sound="", say=None, cast=N
         ambience = OLD_SOUND
     if cast.video == REVOICE and ambience == PLACE_SOUND:
         ambience = ROOM_TONE
-    if ambience != "N/A" and any(moment.speech for moment in script.moments):
+    # With the clip's own sound, words the prompt leaves out are still heard.
+    if ambience != "N/A" and any(moment.speech for moment in script.moments) and not cast.clip_sound:
         ambience = f"{ambience} {ONE_LINE}"
     return {
         "subject_definitions": subjects,

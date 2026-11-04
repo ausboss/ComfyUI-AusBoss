@@ -12,7 +12,7 @@ import re
 
 import numpy as np
 
-from ._h3_cast_helpers import KEEP, NEEDS_NO_WORDS, REVOICE, SWAP, Cast, number_pictures
+from ._h3_cast_helpers import KEEP, NEEDS_NO_WORDS, ONE_GOES, REVOICE, SWAP, Cast, number_pictures
 from ._h3_cast_helpers import TOKEN
 from ._h3_script_helpers import (
     ACTION_GOES_ON,
@@ -136,7 +136,14 @@ def names_in(moments):
     return names
 
 
-def only_the_words(moment, names=None, last=""):
+def same_person(said_by, who):
+    """Whether "The old man" names the person a swap's "the old man in the truck" points at."""
+    said_by = re.sub(r"^(?:the|a|an)\s+", "", said_by.strip().lower())
+    who = re.sub(r"^(?:the|a|an)\s+", "", who.strip().lower())
+    return bool(said_by) and (said_by in who or who in said_by)
+
+
+def only_the_words(moment, names=None, last="", goes=()):
     """A swap line's quoted words and the @ number that says them. The video
     supplies the action, so the rest of the line goes. Who speaks is the @ or
     the name in front of the words, else the person a he or she points back
@@ -154,11 +161,15 @@ def only_the_words(moment, names=None, last=""):
     verb = SPEECH_VERB.search(before)
     if verb and DELIVERY.match(before[verb.end() :].strip(" ,:")):
         words.delivery = before[verb.end() :].strip(" ,:")
+    said_by = "" if slot else voice_of(before, True, things=True)
+    if said_by and not moment.voiceover:
+        slot = next((number for who, number in goes if same_person(said_by, who)), "")
     if slot:
         words.text = f"@{slot} {words.text}"
         return words, slot
     words.voice = voice_of(before, moment.voiceover, things=True)
     words.voiceover = words.voiceover or bool(words.voice)
+    words.other = bool(said_by) and not words.voice
     return words, last
 
 
@@ -175,8 +186,10 @@ def time_in(text):
     return float(match.group(3))
 
 
-def swap_lines(moments):
-    """What a swap keeps of its typed lines: only the words in quotes."""
+def swap_lines(moments, goes=()):
+    """What a swap keeps of its typed lines: only the words in quotes. goes
+    pairs the words for each person who goes with the @ number coming in, so
+    a line said by "the old man" is said by whoever replaces him."""
     names = names_in(moments)
     kept, last = [], ""
     for moment in moments:
@@ -184,7 +197,7 @@ def swap_lines(moments):
         if not moment.speech:
             last = who.group(1) if who else last
             continue
-        words, last = only_the_words(moment, names, last)
+        words, last = only_the_words(moment, names, last, goes)
         if words.at is None:
             words.at = time_in(moment.text.partition(f'"{moment.speech}"')[0])
         kept.append(words)
@@ -250,13 +263,17 @@ def add_song_under(parts, beats):
 
 
 def write_prompt(script, seconds=15.0, camera="", look="", sound="", language="English", voice=False, song_beats=None,
-                 ask=None, jobs=None, video="", soundtrack=False):
+                 ask=None, jobs=None, video="", soundtrack=False, clip_sound=False, speech=None):
     """The finished prompt.
 
     A typed scene is read and laid out over seconds; H3's own six parts go
     through as they are. jobs says what each connected picture is for, as
     {number on the node: job}, and video what a connected video is for.
     soundtrack says a video's own sound is connected, for H3 to carry on from.
+    clip_sound says a swap's finished clip keeps the video's own sound, so
+    every voice in it is heard: lines from anyone but the people coming in are
+    left out, and lines with no typed time go where speech finds them in the
+    video's sound, as find_speech stretches.
     voice says whether one is connected. song_beats is None with no song, and
     otherwise the beats to land on, which may be an empty list. With a voice
     too, the song goes under the finished clip and H3 hears none. ask(question,
@@ -276,7 +293,13 @@ def write_prompt(script, seconds=15.0, camera="", look="", sound="", language="E
             raise ValueError(NO_SCRIPT)
         if video == SWAP and scene.moments:  # Typed words in a swap say which person goes, for a clip with two.
             cast.name_who_goes([without_speech(moment) for moment in scene.moments])
-            scene.moments = swap_lines(scene.moments)
+            goes = [(who, str(picture.slot)) for who, picture in zip(cast.whos, cast.swappers) if who != ONE_GOES]
+            scene.moments = swap_lines(scene.moments, goes)
+            if clip_sound:
+                # On real clips, leaving others' words out kept the right mouth moving; naming them as off screen did not.
+                cast.clip_sound = True
+                time_from_sound(scene.moments, speech)
+                scene.moments = [moment for moment in scene.moments if not (moment.voice or moment.other)]
         if not scene.moments:
             scene.moments.append(Moment(ACTION_GOES_ON if video == KEEP else ""))
         if voice and not any(moment.speech for moment in scene.moments):
@@ -358,3 +381,73 @@ def find_beats(samples, rate, seconds=30.0):
     step = period / per_second
     count = int((len(samples) / rate - start) / step) + 1
     return [round(start + index * step, 3) for index in range(max(count, 0))]
+
+
+SPEECH_BAND = (250.0, 3500.0)  # Where most of a voice's loudness sits, under hiss and over hum.
+SPEECH_GAP = 0.06  # A shorter quiet is the dip between two syllables. Lines are told apart by their longest gaps later.
+SPEECH_SHORTEST = 0.1  # A shorter sound is a click or a knock.
+
+
+def find_speech(samples, rate):
+    """[(start, end), ...] in seconds: the stretches of a mono track loud enough in the voice band to be words.
+
+    The quiet level is the track's quietest tenth and the loud level its
+    loudest twentieth, so music or a crowd under the words raises the bar
+    with them. Returns [] for silence."""
+    samples = np.asarray(samples, dtype=np.float32)
+    hop = max(1, int(rate * 0.01))
+    window = hop * 2
+    frames = (len(samples) - window) // hop
+    if frames < 8 or float(np.abs(samples).max(initial=0.0)) < 1e-4:
+        return []
+    taper = np.hanning(window)
+    pitches = np.fft.rfftfreq(window, 1.0 / rate)
+    band = (pitches >= SPEECH_BAND[0]) & (pitches <= SPEECH_BAND[1])
+    level = np.array(
+        [float((np.abs(np.fft.rfft(samples[index * hop : index * hop + window] * taper))[band] ** 2).sum()) for index in range(frames)]
+    )
+    level = 10 * np.log10(level + 1e-10)
+    level = np.convolve(level, np.ones(5) / 5, "same")
+    quiet, loud = np.percentile(level, 10), np.percentile(level, 95)
+    if loud - quiet < 6:
+        return []
+    heard = level > max(quiet + 0.35 * (loud - quiet), quiet + 6)
+    stretches, start = [], None
+    for index, on in enumerate([*heard, False]):
+        if on and start is None:
+            start = index
+        elif not on and start is not None:
+            stretches.append([start * hop / rate, index * hop / rate])
+            start = None
+    joined = []
+    for stretch in stretches:
+        if joined and stretch[0] - joined[-1][1] < SPEECH_GAP:
+            joined[-1][1] = stretch[1]
+        else:
+            joined.append(stretch)
+    return [(round(a, 3), round(b, 3)) for a, b in joined if b - a >= SPEECH_SHORTEST]
+
+
+def line_starts(stretches, count):
+    """When each of count lines starts, read from find_speech: the lines are
+    split at the longest quiet gaps, in order. None when there are fewer
+    stretches of speech than lines."""
+    if count < 1 or len(stretches) < count:
+        return None
+    gaps = sorted(range(1, len(stretches)), key=lambda index: stretches[index][0] - stretches[index - 1][1], reverse=True)
+    firsts = sorted([0, *gaps[: count - 1]])
+    return [stretches[index][0] for index in firsts]
+
+
+def time_from_sound(moments, stretches):
+    """Puts each line with no typed time where its words start in the clip's
+    own sound. Every quoted line counts, whoever says it, since everyone is
+    heard. Returns whether the sound gave the times."""
+    starts = line_starts(stretches or [], len(moments))
+    if starts is None:
+        return False
+    for moment, start in zip(moments, starts):
+        if moment.at is None:
+            moment.at = start
+    return True
+
