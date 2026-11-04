@@ -8,11 +8,17 @@ Wire it like this: **Tiled Upscale 🆎** → your encode, sampler and decode
 → **Tiled Upscale Stitch 🆎**. Plug `stitcher` straight across. The nodes
 in between run once for each tile by themselves.
 
+## Input
+
+- **image**: The picture or batch to cut into tiles. Every picture in a batch
+  uses the same tile positions.
+
 ## Megapixels
 
-**Megapixels** (`megapixels`) is the size of the finished picture. It moves
-in half steps, and you can type any number. `0` keeps the picture's own
-size, for a light pass over a picture that is already big.
+**Megapixels** (`megapixels`) is the size of the finished picture. It starts
+at `4` and accepts `0` to `64`. It moves in half steps, and you can type a
+value between those limits. `0` keeps the picture's own size, for a light
+pass over a picture that is already big.
 
 - A picture that fits in one tile stays whole: one pass, no joins.
 - A bigger one is cut into the fewest tiles that fit, as square as they

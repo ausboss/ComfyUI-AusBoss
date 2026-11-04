@@ -272,10 +272,8 @@ data.
 The run side matches: a stale saved path resolves by name at load time
 (exact → unique case-insensitive path → unique basename, with a one-line
 console note when it remaps). A LoRA that is genuinely missing **stops the
-run before anything is sampled**, and the error names the file — a picture
-that rendered without its LoRA is worse than no picture, above all for a
-script or an agent that would happily judge it. The error also says where
-the switch is.
+run before anything is sampled**, and the error names the file. The error
+also says where the switch is.
 
 Gear menu → **Stop on missing LoRA** (on by default) turns that off for this
 node, and for LoRA Loaders you add later in this browser; nodes already saved
@@ -345,8 +343,8 @@ switched on for the old one.
 - **Default strength** (starts at 1): the strength a newly added LoRA gets.
 - **Strength step** (starts at 0.05): how far one drag step or arrow click
   moves a strength. Shift always steps by 0.01.
-- **Trigger word separator** (a comma and a space to start): what joins the
-  `triggers` output.
+- **Trigger word separator** (`trigger_separator`): what joins the
+  `triggers` output. It starts as a comma and a space.
 - **Hide file extension** and **Hide folder names** (both on): how names
   show on rows. The full path stays in the tooltip.
 
@@ -356,9 +354,18 @@ switched on for the old one.
 - **clip**: The CLIP with every enabled LoRA applied (empty when no CLIP
   is connected).
 - **triggers**: The selected trigger words from enabled rows, deduplicated,
-  joined with the gear menu's separator (a comma by default).
+  joined with the gear menu's separator (a comma and a space by default).
 
 Rows with a strength of `0` (both model and CLIP) are skipped at load time
 but still contribute their trigger words, so you can park a LoRA at zero
 while comparing. A row skipped because its file is missing contributes none:
 that LoRA is not in the picture.
+
+## API inputs
+
+- **model**: the model to patch.
+- **loras**: the stack as JSON text, empty (`[]`) by default. Each row can
+  hold `name`, `enabled`, `strength`, `strength_clip` and `triggers`.
+- **clip** (optional): the text encoder to patch. Without it, CLIP strengths
+  are ignored and the `clip` output is empty.
+- **trigger_separator** and **on_missing**: the settings described above.

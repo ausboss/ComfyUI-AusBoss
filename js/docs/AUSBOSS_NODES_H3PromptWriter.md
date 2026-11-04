@@ -77,8 +77,9 @@ Some scripts, with the jobs they need:
 ```
 
 A picture that is off simply isn't counted. If a line still names it, the node
-stops and tells you which one. It needs at least one picture or a video to start
-from.
+stops and tells you which one. A plain script needs at least one picture or
+a video to start from. A prompt already written in H3's six parts can run
+without either.
 
 ## Use a video
 
@@ -96,7 +97,9 @@ Connect a video, then pick what it is for:
 - **new voice**: the same clip with a new voice. Connect the voice, and type
   what they say in quotes.
 
-Swap and new voice ignore **Length** and keep the video's own length.
+Swap and new voice ignore **Length**. They use the video's frame count,
+treated as 24 fps, capped at 15 seconds and rounded down to a length H3 takes.
+This can shorten the requested result; the video output itself stays whole.
 
 ## What you can type
 
@@ -119,12 +122,13 @@ Swap and new voice ignore **Length** and keep the video's own length.
 A `camera:` or `sound:` line inside a group of lines belongs to that shot. On its
 own, with blank lines around it, it is for the whole clip.
 
-Already wrote H3's six parts yourself? Paste them in and they go through as
-they are.
+Already wrote H3's six parts yourself? Paste them in and the story is kept.
+Spacing is cleaned up. A connected voice or song still updates the audio
+parts. The Sound and Music boxes do not add to this form of prompt.
 
 ## What you can plug in
 
-- **picture_1** to **picture_4**: your pictures.
+- **picture_1**, **picture_2**, **picture_3**, **picture_4**: your pictures.
 - **video** and **video_sound**: the frames and the sound of a video. Only keep
   going uses the sound.
 - **voice**: a clip of someone talking, about 10 seconds, plus words in quotes
@@ -159,13 +163,16 @@ as not plugged in.
 - **Sound** (`sound`): what the clip sounds like, for the whole clip. Same as a
   `sound:` line.
 - **Music** (`music`): the music for the whole clip. Same as a `music:` line.
-- **Length** (`seconds`): how long the clip is, 5 to 15.
+- **Length** (`seconds`): requested seconds, `5` to `15`, starting at `8`.
+  The `frames` output rounds this to a length H3 takes at 24 fps.
 - **Camera** (`camera`): how the camera moves the whole way through.
 - **Look** (`look`): from the picture keeps your photo's look. The others redraw
   the clip. Clay and 3D don't work from words, so change your picture first with
   an edit model.
-- **Picture 1** to **Picture 4** (`job_1` to `job_4`): what each picture is
-  for, on the picture chips under the bar. An empty slot shows as a faint `+ @3`.
+- **Picture 1** to **Picture 4** (`job_1`, `job_2`, `job_3`, `job_4`): what
+  each picture is for, on the picture chips under the bar. An empty slot
+  shows as a faint `+ @3`.
+  The first three start on `person`; the fourth starts on `thing`.
 - **Video** (`video_job`): what the video is for, on the video chip.
 - **Song starts at** (`song_start`, under **More**): the second of the song to
   start from, so the clip gets the good part.
@@ -210,6 +217,16 @@ as not plugged in.
 | `width`, `height` | output | INT | The shape of your video, or else of your first picture. |
 
 ## Technical details
+
+H3 lengths use `17n + 5` frames, with `n` at least 1. A requested length
+rounds to the nearest such count at 24 fps: `5` seconds gives `124` frames,
+and `15` gives `362`. Swap and new voice round down instead, after capping
+the source count at `360`, so their largest output length is `345` frames.
+This node has no input for the source video's fps; change its rate to
+24 fps first when its timing must match.
+
+With a six-part prompt and no pictures or video, `width` and `height` are
+`1344` and `756`. Unused picture, video and audio outputs are empty.
 
 Code does the reading, so nothing typed can be lost or moved. It follows Pika's
 and MiniMax's published prompt guides: every picture is defined once, each one

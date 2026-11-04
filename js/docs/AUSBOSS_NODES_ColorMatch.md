@@ -17,8 +17,7 @@ reduce color drift between frames.
   **Reference** (`reference_mode`) is **first frame**.
 - **Method** (`method`): How the colors move.
   - **lab** — per-channel mean/std shift in LAB. Perceptual and the safe
-    default: corrects overall casts and contrast without shifting
-    individual hues around.
+    default: adjusts overall casts and contrast. It can also change hues.
   - **rgb** — the same mean/std shift in raw channels.
   - **mkl** — maps the full color covariance; best when hues are rotated,
     not just shifted.

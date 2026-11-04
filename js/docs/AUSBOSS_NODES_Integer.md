@@ -6,8 +6,8 @@ wire it to every node that needs it.
 ## Controls
 
 - **Value** (`value`): The whole number to send out. It starts at `0`. The
-  arrows and a drag move it by 1, or click and type. It holds numbers as
-  big as a seed.
+  arrows and a drag move it by 1, or click and type. Its range is listed
+  below; use Seed for the full sampler seed range.
 - The gear, right: **Look**. **normal** is the usual box with its label.
   **big** shows the number large in the middle of the node, with an arrow
   on each side, for a setting people change on every run, such as the
@@ -22,7 +22,7 @@ Wired to a sampler's **steps**, it goes from 1 to 10000: type 0 and you get
 
 - It works through a Reroute and into a box (subgraph) too.
 - Wired to two settings, it keeps to what both allow.
-- Unwire it and it takes any whole number again.
+- Unwire it and it uses its own whole-number range again.
 - A new box takes the value of the first setting you wire it to, so wiring
   it up changes nothing until you move it. A box you have already set, or
   one that came with a workflow, keeps its own value.
@@ -42,9 +42,9 @@ For arithmetic on the way — halving a size, adding a margin — feed this into
   nearest one.
 - The limits are kept by the node's face. A value sent straight through the
   API is passed on as it is.
-- On its own the box goes up to 9,007,199,254,740,991, the largest whole
-  number a browser holds exactly. It stopped at 2,147,483,647 before, which
-  most seeds are above.
+- On its own the box goes from -9,007,199,254,740,991 to
+  9,007,199,254,740,991, the largest whole number a browser holds exactly.
+  It stopped at 2,147,483,647 before, which most seeds are above.
 - The look is stored in the node's properties as `ausboss_text_look: "big"`, the
   same as Text 🆎. It is not an input, so the saved value and what the node
   sends are the same in both looks, and an older version of the pack shows

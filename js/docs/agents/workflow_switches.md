@@ -1,12 +1,9 @@
-# Workflow Switches: a guide for AI agents
+# Workflow Switches: workflow file guide
 
-Give this page to an AI agent and it can add switches to a ComfyUI workflow
-for you. Nobody has to click through menus: the agent writes the card straight
-into the workflow file.
-
-**If you are the agent:** the card is one node in the workflow file. It has no
-wires. It lists which nodes each switch controls, in one property. Pick the
-recipe below that fits, add the card, and set the nodes' starting state.
+Add switches by writing the card into a saved workflow file. The card is
+one node with no wires. It lists which nodes each switch controls in one
+property. Pick the recipe below that fits, add the card, and set the nodes'
+starting state.
 
 ## Before you start
 
@@ -94,8 +91,9 @@ To switch a whole group of nodes, put the group's `id` in `groups`.
 ### Pick one part
 
 One pill: picking a name turns its nodes on and the other rows' nodes off. Open
-it with one row's nodes at `0` and the rest at `4`. Up to 4 names sit in a
-pill, more become a list.
+it with one row's nodes at `0` and the rest at `4`. Two to four short names
+sit in a pill when they fit within 400 px. More rows or longer names become
+a list. A single row keeps the row view.
 
 ```json
 "exclusive": true,

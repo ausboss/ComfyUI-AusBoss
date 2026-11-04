@@ -65,21 +65,23 @@ file's name. A caption on the `caption_text` input writes the paired `.txt`.
 
 ## Inputs
 
+- **images** (IMAGE): the batch to save. Each image becomes a separate file.
 - **filename** (STRING, link only): the exact name from upstream - a Load
   Image name, a caption tool's id. Its image extension is swapped for the
   chosen format's (`photo123.jpg` -> `photo123.png`); a batch appends
   `_001`, `_002`... A linked but empty value stops the run instead of saving
   under a made-up name.
 - **caption_text** (STRING, link only): saved as a UTF-8 `.txt` beside every
-  image with the same name (`portrait.png` -> `portrait.txt`). Empty writes
-  no sidecar. The old `caption` box still works underneath; a linked caption
-  wins.
+  image with the same name (`portrait.png` -> `portrait.txt`). A non-blank
+  linked caption wins. If it is blank or unwired, the old `caption` box is
+  used instead. No sidecar is written when both are blank.
 
 Rooted paths and `..` in names typed on the node are rejected before the
 run. A bad name arriving through the `filename` link stops the run at this
 node, before any file is written. `on_existing`
 from older workflows is still honored wherever a save can land on an
-existing file (counter off, exact or linked names).
+existing file (counter off, exact or linked names). Its choices are
+`overwrite` (the default), `skip` and `error`.
 
 ## Name tokens
 

@@ -114,6 +114,30 @@ padding, keeping rotation and resize settings.
 Pixel rounding can differ by one pixel between opposite bands. **Divisible by** and
 the resize **Step** can slightly change the final aspect ratio.
 
+## Transform values
+
+The handles and editor write these inputs. An API prompt can set them too.
+
+| Input | Default | What it sets |
+| --- | --- | --- |
+| `rotation_degrees` | `0` | Clockwise turn, from `-180` to `180` degrees. |
+| `crop_aspect_ratio` | `free` | Crop shape: `free`, `source`, or a width:height ratio. |
+| `crop_x`, `crop_y` | `0` | Crop's left and top, in pixels of the turned picture; `0` to `65536`. |
+| `crop_width`, `crop_height` | `0` | Crop size, `0` to `65536`; `0` keeps the available size from that position. |
+| `pad_left`, `pad_top`, `pad_right`, `pad_bottom` | `0` | Added pixels on each side, `0` to `32768`. |
+| `feather` | `0` | Mask feather in pixels, `0` to `4096`. The picture meets the fill at a hard edge. |
+| `canvas_multiple` | `1` | Size multiple, `1` to `4096`; `1` turns rounding off. |
+| `fill_color` | `#000000` | Fill for padding and empty corners. |
+| `resize_to_megapixels` | `false` | Turn the output resize on. |
+| `megapixels` | `1` | Resize budget, `0.01` to `16`; one megapixel here is 1024 × 1024 pixels. |
+| `resize_method` | `lanczos` | Resize filter: `lanczos`, `area`, `bicubic`, `bilinear`, `nearest-exact`. |
+| `resolution_steps` | `1` | Round resized sides to this multiple, `1` to `256`. |
+
+The built-in crop ratios are `1:1`, `9:16`, `16:9`, `2:3`, `3:2`,
+`3:4`, `4:3`, `9:21` and `21:9`. Other positive whole-number ratios
+are accepted too. The resize runs after the transform; its step can change
+a size that already met `canvas_multiple`.
+
 ## Transform and outputs
 
 Rotation, crop, padding, feathering, fill, **Divisible by**, and the editor's handles
@@ -153,16 +177,25 @@ The node performs no remote network requests and does not rewrite the source vid
 
 ## Connected timing inputs
 
-Five optional sockets sit on the left, above the editor:
+Six optional timing inputs can take links above the editor:
 
 | Input | Meaning |
 | --- | --- |
-| `force_rate` | Sample at this fps before Every nth. 0 keeps the source rate. Drops or repeats frames to keep playback speed. Accepts FLOAT or INT. |
+| `force_rate` | Sample at this fps before Every nth. 0 keeps the source rate; the allowed range is 0 to 1000 fps. Drops or repeats frames to keep playback speed. Accepts FLOAT or INT. |
 | `start_frame` | Zero-based source start frame. Overrides timeline IN. |
 | `end_frame` | Exclusive source end frame. 0 means the end of the source. Overrides timeline OUT. |
-| `fixed_frames` | Exact output frames from IN; the source must be long enough. Connected, it sets the length: OUT, Length and Frames for step aside. |
+| `fixed_frames` | Exact output frames, 0 to 100000; 0 turns it off. A positive value overrides OUT/end_frame, Length, frame_load_cap and Frames for. The source must be long enough. Near the end, IN can move earlier so the window fits. |
 | `frame_load_cap` | Maximum frames after rate conversion and Every nth, before Frames for. 0 means unlimited. Connected, it sets the length in place of Length. |
-| `last_seconds` | Load only this many seconds from the end of the clip, or of the part before OUT. 0 loads all of it. Use it to carry on from a clip: a long clip then costs no more memory than a short one. |
+| `last_seconds` | Load only this many seconds from the end of the clip, or of the part before OUT, without moving before IN. 0 keeps the current window. Use it to carry on from a clip: a long clip then costs no more memory than a short one. |
+
+`seek_mode` (`frame index` by default, or `time seconds`), `frame_index`
+and `frame_time` set only the preview position. Both position values start
+at `0`; neither trims the output.
+
+Fresh timing settings are IN/OUT `0`, Every nth `1`, Length (`max_frames`)
+`0` and Frames for (`frame_snap`) `free`. Every nth accepts `1` to `512`;
+Length accepts `0` to `100000`. The API choices for Frames for are `free`,
+`8n+1` and `4n+1`; they round the kept count down.
 
 Frame bounds use the source's frame-rate grid, independent of `force_rate`.
 The footer labels **Source fps** separately from **Output fps**. A direct

@@ -152,14 +152,18 @@ removes it. The first color also colors the box on the canvas.
 
 ## In place of Create Bounding Boxes
 
-Layout Boxes has the same inputs and the same outputs in the same order (and
-`mask` after them), so the wires move straight over. For the same boxes it
+Layout Boxes shares the `background`, `bboxes`, `width` and `height` inputs.
+Its first three outputs match Create Bounding Boxes, with `mask` after them,
+so those wires move straight over. For the same boxes it
 gives the same `bboxes` and `elements`, and MOSS-Image Layout Prompt makes the
 same prompt from them.
 
 The boxes drawn on a Create Bounding Boxes do not move over by themselves. To
 take them along, wire that node's `elements` into `bboxes` of Layout Boxes and
 run once: they fill the canvas. Then remove the old node.
+
+The saved editor values differ. Layout Boxes uses its own `layout` text;
+it does not take Create Bounding Boxes' `editor_state` or `last_incoming`.
 
 ## Technical details
 

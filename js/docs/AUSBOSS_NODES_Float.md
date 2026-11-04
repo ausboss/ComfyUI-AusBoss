@@ -22,7 +22,8 @@ Wired to a sampler's **denoise**, it goes from 0 to 1 and no further: type
 
 - It works through a Reroute and into a box (subgraph) too.
 - Wired to two settings, it keeps to what both allow.
-- Unwire it and it takes any number again.
+- Unwire it and it uses its own range again: -1,000,000,000,000,000 to
+  1,000,000,000,000,000, with a stored step of `0.001`.
 - A new box takes the value of the first setting you wire it to, so wiring
   it up changes nothing until you move it. A box you have already set, or
   one that came with a workflow, keeps its own value.

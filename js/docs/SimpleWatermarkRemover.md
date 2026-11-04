@@ -11,4 +11,8 @@ be there. For anything new, use
 [LaMa Inpaint 🆎](AUSBOSS_NODES_LaMaInpaint.md) instead: the same engine
 with the full set of controls and live previews.
 
+## Output
+
+- **image**: The inpainted image batch. Its size and unmasked pixels are kept.
+
 This id will keep working; it just will not grow new features.

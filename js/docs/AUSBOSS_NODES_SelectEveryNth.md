@@ -18,8 +18,10 @@ before an expensive stage, or thin a long sweep down to samples.
 ## Outputs
 
 - **images**: The kept frames, in their original order.
-- **fps**: The wired rate divided by `nth`, so the kept frames still span
-  the same time; `0` when no fps is wired.
+- **fps**: The wired rate divided by `nth`, to keep playback speed;
+  `0` when no fps is wired. Offset removes the start, and rounding to whole
+  frames can change the duration. Five frames thinned by `2` give three
+  frames at half the rate, which lasts slightly longer.
 
 An offset at or past the end of the batch stops with the batch's size
 instead of returning an empty batch, which no downstream node could use.

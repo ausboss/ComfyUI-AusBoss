@@ -26,9 +26,9 @@ padding value unchanged.
 - **Reset padding** appears in the top-right corner while there is padding
   to clear; it sets every side a link does not drive back to 0.
 - Clicks on empty canvas space fall through, so the node still drags.
-- The hidden `pad_left/top/right/bottom` widgets hold the real values — the
-  canvas is their remote control, so undo, save/load, and the API format all
-  see plain INT widgets.
+- The hidden `pad_left`, `pad_top`, `pad_right` and `pad_bottom` widgets
+  hold the real values. The canvas sets them, so undo, save/load and the API
+  format all see plain INT widgets.
 
 ## Guarantees
 
@@ -41,6 +41,8 @@ padding value unchanged.
 
 ## Controls
 
+- **Exact padding** (`pad_left`, `pad_top`, `pad_right`, `pad_bottom`):
+  Pixels to add on each side. Each starts at `0` and accepts `0` to `16384`.
 - **Source** (`image`): Choose or upload from ComfyUI's input folder; the list previews the image under the pointer and filters as you type. A picture ComfyUI made, named like `photo.png [output]`, loads too, as it does in core Load Image.
 - **source_image** (optional socket): Wire an image from another node here
   and it is padded instead of the file; the Source row dims while the wire
@@ -50,7 +52,8 @@ padding value unchanged.
   loader that feeds one image per run pads a whole folder the same way.
 - **Fill** / **Color** / **Backdrop** (`mode` / `fill_color` /
   `backdrop_blur`): Five fills — `color`, `edge`, `edge pixel`,
-  `pillarbox blur`, `mirror`. **Color** shows for `color`, **Backdrop** for
+  `pillarbox blur`, `mirror`. The defaults are `color`, `#808080` and
+  blur `0.5`. **Color** shows for `color`, **Backdrop** for
   `pillarbox blur`. `mirror` reflects the picture outward at every edge (the
   edge pixel included, and on past the picture's own size), so the padding
   reads as more of the scene: the margin to give an edit model room to

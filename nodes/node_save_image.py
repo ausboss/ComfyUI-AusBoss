@@ -210,7 +210,8 @@ class AusBossSaveImage:
                         "tooltip": (
                             "Caption from upstream: saved as a .txt in the same "
                             "folder with the same name as the image (portrait.png "
-                            "-> portrait.txt). Empty writes no sidecar."
+                            "-> portrait.txt). Blank falls back to caption; "
+                            "both blank means no sidecar."
                         ),
                     },
                 ),

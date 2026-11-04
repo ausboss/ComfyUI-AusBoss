@@ -28,6 +28,11 @@ picture before the tiles are joined.
 Grain and color noise in an old photo do not throw it off, and a faded
 photo comes back faded.
 
+## Output
+
+- **image**: The finished RGB picture at the requested size. The output is
+  a list, with one batch for each stitcher supplied.
+
 ## Technical details
 
 - Neighbouring tiles are blended across the strip they share, fading from

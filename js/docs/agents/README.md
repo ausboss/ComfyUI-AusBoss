@@ -1,14 +1,8 @@
-# AusBoss nodes: a guide for AI agents
+# AusBoss nodes: a workflow guide
 
-Give this page to an AI agent and it can pick the right AusBoss node for a job,
-wire it into a workflow, and find the help for every input. It ships with the
-pack, so it is also in your ComfyUI install, under
-`custom_nodes/<this pack>/js/docs/agents/`.
-
-**If you are the agent:** find the job in the table below, then read that
-node's help page before you wire it. Each help page is
-`js/docs/<node id>.md` in this pack. ComfyUI shows the same page in its node
-help panel.
+Find the job in the table below, then read that node's help page before
+wiring it. Each help page is `js/docs/<node id>.md` in this pack. ComfyUI
+shows the same page in its node help panel. This guide ships with the pack.
 
 ## Which node for which job
 
@@ -35,13 +29,14 @@ help panel.
 | Load or save a video | Load Video (`AUSBOSS_NODES_LoadVideo`), Save Video (`AUSBOSS_NODES_SaveVideo`) |
 | Turn, crop and pad a video: one frame, or the whole clip | Video Crop + Rotate + Pad → Frame (`AUSBOSS_NODES_VideoCropRotatePad`), → Clip (`AUSBOSS_NODES_VideoCropRotatePadClip`) |
 | Change a clip's frame rate | Frame Interpolate (`AUSBOSS_NODES_FrameInterpolate`) |
-| Work with frame batches | Select Frame, Select Every Nth, Split Batch, Merge Batches (`AUSBOSS_NODES_SelectFrame`, `_SelectEveryNth`, `_SplitBatch`, `_MergeBatches`) |
-| One shared seed, number or text | Seed, Integer, Float, Text (`AUSBOSS_NODES_Seed`, `_Integer`, `_Float`, `_Text`) |
+| Work with frame batches | Select Frame (`AUSBOSS_NODES_SelectFrame`), Select Every Nth (`AUSBOSS_NODES_SelectEveryNth`), Split Batch (`AUSBOSS_NODES_SplitBatch`), Merge Batches (`AUSBOSS_NODES_MergeBatches`) |
+| One shared seed, number or text | Seed (`AUSBOSS_NODES_Seed`), Integer (`AUSBOSS_NODES_Integer`), Float (`AUSBOSS_NODES_Float`), Text (`AUSBOSS_NODES_Text`) |
+| Write a MiniMax H3 or Pika H3 Flex prompt from a script and references | H3 Prompt Writer (`AUSBOSS_NODES_H3PromptWriter`) |
 | Do maths on numbers | Math Expression (`AUSBOSS_NODES_MathExpression`) |
 | Show text on the node, or the picture while it is made | Show Text (`AUSBOSS_NODES_ShowText`), Step Preview (`AUSBOSS_NODES_StepPreview`) |
 | Free graphics memory between steps | Free Memory (`AUSBOSS_NODES_FreeMemory`) |
 | Time the whole run | Run Timer (`AUSBOSS_NODES_RunTimer`) |
-| Turn parts of a workflow off and on | Workflow Switches (`AUSBOSS_NODES_WorkflowSwitches`): [its own agent guide](workflow_switches.md) |
+| Turn parts of a workflow off and on | Workflow Switches (`AUSBOSS_NODES_WorkflowSwitches`): [workflow file guide](workflow_switches.md) |
 | Explain a shared workflow on the canvas | Workflow Note (`AUSBOSS_NODES_WorkflowNote`), Callout (`AUSBOSS_NODES_Callout`) |
 | Lay out boxes of things and words on a canvas | Layout Boxes (`AUSBOSS_NODES_LayoutBoxes`) |
 

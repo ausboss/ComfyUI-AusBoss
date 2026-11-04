@@ -114,8 +114,9 @@ the pictures repeat in order for as many runs as you queue.
   skipped.
 - By name means the way a person sorts: `photo_2` before `photo_10`.
 - With **Subfolders** on, a picture's `filename` carries its folder in
-  front (`trips/beach.png` gives `trips_beach`), so two files with one name
-  never save over each other.
+  front (`trips/beach.png` gives `trips_beach`). Folder separators become
+  underscores, so names can still collide: `trips/beach.png` and
+  `trips_beach.jpg` both give `trips_beach`.
 - **image**, **mask**, **filename** and **index** are lists. Pictures keep
   their own sizes. They are not resized or stacked into one batch.
 - Moving Picture on is done by the editor when a run is queued. A workflow

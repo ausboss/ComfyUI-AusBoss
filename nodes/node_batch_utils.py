@@ -23,7 +23,8 @@ class AusBossSelectEveryNth:
         "offset skips that many frames before the first kept one, so "
         "nth 2 / offset 0 keeps frames 1, 3, 5 and offset 1 keeps 2, 4, 6. "
         "Wire the batch's fps in and the fps output divides it by nth, so "
-        "the thinned clip keeps its duration."
+        "the thinned clip keeps its playback speed. Offset and whole-frame "
+        "rounding can change its duration."
     )
     SEARCH_ALIASES = ["every nth", "skip frames", "thin batch", "reduce frames", "ausboss"]
 
@@ -74,8 +75,8 @@ class AusBossSelectEveryNth:
     RETURN_NAMES = ("images", "fps")
     OUTPUT_TOOLTIPS = (
         "The kept frames, in their original order.",
-        "The wired fps divided by nth, so the kept frames still span the same "
-        "time; 0 when no fps is wired.",
+        "The wired fps divided by nth, to keep playback speed; 0 when no fps "
+        "is wired. Offset and whole-frame rounding can change the duration.",
     )
     FUNCTION = "select"
 

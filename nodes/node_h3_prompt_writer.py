@@ -130,8 +130,8 @@ class AusBossH3PromptWriter:
         "such as person, place or outfit, and name them @1 and @2 in your "
         "lines. Connect a video to copy its moves or carry it on. Add a voice "
         "or a song and it writes the lines H3 needs. H3's own six parts go "
-        "through as they are. Connect a small text model and it fills in a "
-        "one-line idea."
+        "through with spacing cleaned up and connected audio added. Connect "
+        "a small text model and it fills in a one-line idea."
     )
     SEARCH_ALIASES = [
         "h3 prompt",
@@ -253,7 +253,8 @@ class AusBossH3PromptWriter:
                         "default": VIDEO_JOBS[0],
                         "tooltip": (
                             "What the video is for: copy its moves, swap the person in it, keep it going, or "
-                            "give it a new voice. Swap and new voice ignore Seconds and keep the video's length."
+                            "give it a new voice. Swap and new voice ignore Seconds: the frame count is "
+                            "treated as 24 fps, capped at 15 seconds and rounded down to an H3 length."
                         ),
                     },
                 ),

@@ -31,6 +31,30 @@ generated-area `mask`, a `stitcher` for Stitch Inpaint, the selected
 
 The editor has the same rail full width, plus first/last, ±1, ±25, ±50, ±100, play/pause, keyboard arrows (one frame, 10 with Shift), Home/End and Space to play or pause. **Save & close** keeps your edits; **Cancel** or Escape puts everything back, and asks first if anything changed. Only one frame preview request remains active; stale requests are cancelled, and frames already shown are served from a small cache.
 
+## Transform values
+
+The handles and editor write these inputs. An API prompt can set them too.
+
+| Input | Default | What it sets |
+| --- | --- | --- |
+| `rotation_degrees` | `0` | Clockwise turn, from `-180` to `180` degrees. |
+| `crop_aspect_ratio` | `free` | Crop shape: `free`, `source`, or a width:height ratio. |
+| `crop_x`, `crop_y` | `0` | Crop's left and top, in pixels of the turned picture; `0` to `65536`. |
+| `crop_width`, `crop_height` | `0` | Crop size, `0` to `65536`; `0` keeps the available size from that position. |
+| `pad_left`, `pad_top`, `pad_right`, `pad_bottom` | `0` | Added pixels on each side, `0` to `32768`. |
+| `feather` | `24` | Mask feather in pixels, `0` to `4096`. The picture meets the fill at a hard edge. |
+| `canvas_multiple` | `1` | Size multiple, `1` to `4096`; `1` turns rounding off. |
+| `fill_color` | `#808080` | Fill for padding and empty corners. |
+| `resize_to_megapixels` | `false` | Turn the output resize on. |
+| `megapixels` | `1` | Resize budget, `0.01` to `16`; one megapixel here is 1024 × 1024 pixels. |
+| `resize_method` | `lanczos` | Resize filter: `lanczos`, `area`, `bicubic`, `bilinear`, `nearest-exact`. |
+| `resolution_steps` | `1` | Round resized sides to this multiple, `1` to `256`. |
+
+The built-in crop ratios are `1:1`, `9:16`, `16:9`, `2:3`, `3:2`,
+`3:4`, `4:3`, `9:21` and `21:9`. Other positive whole-number ratios
+are accepted too. The resize runs after the transform; its step can change
+a size that already met `canvas_multiple`.
+
 ## Transform and outputs
 
 Rotation, crop, padding, feathering, fill, **Divisible by**, the megapixel resize, gestures, `image`, and `mask` match the image node. The output batch contains one frame.
