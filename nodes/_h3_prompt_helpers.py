@@ -13,7 +13,17 @@ import re
 import numpy as np
 
 from ._h3_cast_helpers import KEEP, NEEDS_NO_WORDS, REVOICE, SWAP, Cast, number_pictures
-from ._h3_script_helpers import ACTION_GOES_ON, Moment, add_moments, add_sound, read_script, script_parts, speakers
+from ._h3_cast_helpers import TOKEN
+from ._h3_script_helpers import (
+    ACTION_GOES_ON,
+    Moment,
+    add_moments,
+    add_sound,
+    read_script,
+    script_parts,
+    speakers,
+    without_speech,
+)
 
 SECTIONS = (
     "subject_definitions",
@@ -87,7 +97,7 @@ def spoken_line(speaker, words, language, voice_label, on_screen, number=1, lips
     voiceover. lips names a video whose lip movement the words land on."""
     line = f"<d>[{language}] {words}</d>"
     if on_screen:
-        how = "says,"
+        how = f"says, each word landing exactly on the lip movement of {lips}," if lips else "says,"
         if voice_label:
             landing = f", each word landing exactly on the lip movement of {lips}," if lips else ""
             how = f"speaks using the voice timbre referenced from {voice_label}{landing} and says,"
@@ -98,6 +108,14 @@ def spoken_line(speaker, words, language, voice_label, on_screen, number=1, lips
     timbre = f" The voiceover follows the voice timbre referenced from {voice_label}." if voice_label else ""
     closed = f" while the on-screen version of {speaker} keeps the lips completely closed."
     return f"{speaker} (S{number}) says in an off-screen voiceover, {line}{closed}{timbre}"
+
+
+def only_the_words(moment):
+    """A swap line's quoted words, said by the @ person it names. The video
+    supplies the action, so the rest of the line goes."""
+    who = TOKEN.search(moment.text)
+    speaker = f"{who.group(0)} " if who else ""
+    return Moment(f'{speaker}says "{moment.speech}"', at=moment.at, speech=moment.speech, voiceover=moment.voiceover)
 
 
 def snap_cuts(detailed, beats, gap=0.4):
@@ -184,8 +202,8 @@ def write_prompt(script, seconds=15.0, camera="", look="", sound="", language="E
         if not scene.moments and video not in NEEDS_NO_WORDS:
             raise ValueError(NO_SCRIPT)
         if video == SWAP and scene.moments:  # Typed words in a swap say which person goes, for a clip with two.
-            cast.name_who_goes([moment.text for moment in scene.moments])
-            scene.moments = []
+            cast.name_who_goes([without_speech(moment) for moment in scene.moments])
+            scene.moments = [only_the_words(moment) for moment in scene.moments if moment.speech]
         if not scene.moments:
             scene.moments.append(Moment(ACTION_GOES_ON if video == KEEP else ""))
         if voice and not any(moment.speech for moment in scene.moments):
@@ -202,7 +220,7 @@ def write_prompt(script, seconds=15.0, camera="", look="", sound="", language="E
     if parts is None:
 
         def say(words, on_screen=True, who="<Subject 1>", number=1):
-            lips = "<Video 1>" if video == REVOICE else ""
+            lips = "<Video 1>" if video in (REVOICE, SWAP) else ""
             return spoken_line(who, clean_words(words), language, voice_label if number == 1 else None, on_screen, number, lips)
 
         keeps_song = song_beats is not None and not voice  # The song is then all the sound there is.

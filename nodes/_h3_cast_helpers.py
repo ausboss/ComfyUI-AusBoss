@@ -103,6 +103,14 @@ SAYS_WHO = re.compile(
     r"|^[:=\-\u2013\u2014>]+\s*",
     re.I,
 )
+# "he replaces the person at the counter": the words after one of these are who goes, wherever they stand in the line.
+REPLACES = re.compile(
+    r"\b(?:replaces|replacing|takes\s+the\s+place\s+of|taking\s+the\s+place\s+of|in\s+place\s+of|instead\s+of"
+    r"|swaps?\s+(?:in\s+)?for|goes\s+in\s+for|stands?\s+in\s+for)\s+",
+    re.I,
+)
+# "Elon is @1," names the new person, not the one who goes.
+NAMES_THE_NEW = re.compile(r"^[^@.;]*?\b(?:is|as|plays)\s+@\d\b[\s,.;]*", re.I)
 SWAPPED = "attribute_transfer - apply the defined appearance to the original performance; the background of {picture} is not transferred."
 KEEP_IS = (
     "<Video 1> is the video being continued, and the target video starts from its last moment.\n"
@@ -119,6 +127,18 @@ REVOICE_KEPT = (
     "<Video 1> (whole video): fully_preserved - every action, lip movement and camera move is retained.\n"
     "{main} (appears in {shots}): fully_preserved - the face, hair and clothing are retained."
 )
+
+
+def who_goes_in(text):
+    """Who a typed swap line says goes, without the rest of the line: "Elon is @1, he replaces the man at the
+    counter" is the man at the counter."""
+    replaces = REPLACES.search(text)
+    if replaces:
+        text = re.split(r"[.;!?]", text[replaces.end() :], maxsplit=1)[0]
+    else:
+        text = NAMES_THE_NEW.sub("", text)
+    text = SAYS_WHO.sub("", TOKEN.sub("", text).strip(" .,;")).strip(" .,;")
+    return re.sub(r"\s+and$", "", text).strip(" .,;")
 
 
 def lower_first(text):
@@ -201,9 +221,9 @@ class Cast:
         """Who each new person replaces, from the lines typed in a swap. With one, the words are who goes. With more,
         each @ names one, or else the lines go in picture order; anything else keeps left to right."""
         lines = [line.strip() for line in lines if line.strip(" .")]
-        text = " ".join(lines)
+        text = ". ".join(line.rstrip(" .") for line in lines)  # Each line ends where its who-goes words end.
         if len(self.whos) == 1:
-            self.who = lower_first(SAYS_WHO.sub("", TOKEN.sub("", text).strip()).rstrip(". ") or ONE_GOES)
+            self.who = lower_first(who_goes_in(text) or ONE_GOES)
             return
         slots = [picture.slot for picture in self.swappers]
         pieces = re.split(r"@(\d)\b", text)
@@ -211,8 +231,7 @@ class Cast:
         if not named:
             named = dict(zip(slots, lines)) if len(lines) == len(slots) else {}
         for index, slot in enumerate(slots):
-            words = SAYS_WHO.sub("", named.get(slot, "").strip(" .,;")).strip(" .,;")
-            words = re.sub(r"\s+and$", "", words)
+            words = who_goes_in(named.get(slot, ""))
             if words:
                 self.whos[index] = lower_first(words)
 
