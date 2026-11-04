@@ -16,6 +16,8 @@ except Exception:  # scipy is optional; the torch fallback below covers it.
     _scipy_fill_holes = None
     _scipy_label = None
 
+_HOLE_CONNECTIVITY = ((1, 1, 1),) * 3
+
 
 # Core Load Image returns a 64x64 mask of zeros when the picture has no
 # painted mask (no alpha channel), whatever the picture's own size. Picking
@@ -55,6 +57,8 @@ def _as_bhw(mask: torch.Tensor) -> torch.Tensor:
         mask = mask.unsqueeze(0)
     if not isinstance(mask, torch.Tensor) or mask.ndim != 3:
         raise ValueError("Mask Refine expected a BHW MASK.")
+    if mask.shape[0] == 0:
+        raise ValueError("Mask Refine needs at least one mask; the mask batch is empty.")
     return mask.float().clamp(0.0, 1.0)
 
 
@@ -159,7 +163,8 @@ def _fill_small_holes(solid: torch.Tensor, limit: float) -> torch.Tensor:
         raise_if_interrupted()
         if _scipy_fill_holes is not None:
             array = layer.cpu().numpy()
-            labels, _count = _scipy_label(_scipy_fill_holes(array) & ~array)
+            holes = _scipy_fill_holes(array, structure=_HOLE_CONNECTIVITY) & ~array
+            labels, _count = _scipy_label(holes, structure=_HOLE_CONNECTIVITY)
             labels = torch.from_numpy(labels).long()
             small = torch.bincount(labels.reshape(-1)) <= limit
             small[0] = False  # label 0 is everything that is not a hole
@@ -184,7 +189,7 @@ def fill_mask_holes(mask: torch.Tensor, max_hole_size: float = 0.0) -> torch.Ten
         filled = _fill_small_holes(solid, limit)
     elif _scipy_fill_holes is not None:
         filled = torch.stack(
-            [torch.from_numpy(_scipy_fill_holes(layer.cpu().numpy())) for layer in solid]
+            [torch.from_numpy(_scipy_fill_holes(layer.cpu().numpy(), structure=_HOLE_CONNECTIVITY)) for layer in solid]
         ).to(mask.device)
     else:
         filled = _torch_fill_holes(solid)

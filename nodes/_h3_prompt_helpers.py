@@ -237,7 +237,10 @@ def find_beats(samples, rate, seconds=30.0):
         [np.abs(np.fft.rfft(samples[index * hop : index * hop + window] * taper)) for index in range(frames)]
     )
     rise = np.maximum(np.diff(np.log1p(1000 * spectra), axis=0), 0).sum(axis=1)
-    rise = np.maximum(rise - np.convolve(rise, np.ones(43) / 43, "same"), 0)
+    smoothing = np.ones(43) / 43
+    if len(rise) < len(smoothing):
+        return []
+    rise = np.maximum(rise - np.convolve(rise, smoothing, "same"), 0)
     if rise.max() <= 0:
         return []
     rise = rise / rise.max()

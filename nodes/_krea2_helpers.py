@@ -55,6 +55,8 @@ def build_reference_image(
     """
     if image.ndim != 4:
         raise ValueError("Krea 2 reference expected a BHWC IMAGE batch.")
+    if image.shape[0] == 0:
+        raise ValueError("Krea 2 reference needs at least one image; the image batch is empty.")
     height, width = int(image.shape[1]), int(image.shape[2])
     target_width, target_height = reference_size(width, height, max_edge)
     if (target_height, target_width) == (height, width):
@@ -89,6 +91,8 @@ def fill_reference_holes(image: torch.Tensor, mask: torch.Tensor) -> torch.Tenso
     """
     if image.ndim != 4:
         raise ValueError("Krea 2 reference expected a BHWC IMAGE batch.")
+    if image.shape[0] == 0:
+        raise ValueError("Krea 2 reference needs at least one image; the image batch is empty.")
     if not isinstance(mask, torch.Tensor):
         raise ValueError("Krea 2 reference mask expected a MASK tensor.")
     batch, height, width, _channels = image.shape
@@ -99,6 +103,8 @@ def fill_reference_holes(image: torch.Tensor, mask: torch.Tensor) -> torch.Tenso
         holes = holes[:, 0]
     if holes.ndim != 3:
         raise ValueError("Krea 2 reference mask expected an HW or BHW MASK.")
+    if holes.shape[0] == 0:
+        raise ValueError("Krea 2 reference needs at least one mask; the mask batch is empty.")
     if tuple(holes.shape[1:]) != (height, width):
         holes = functional.interpolate(
             holes.unsqueeze(1), size=(height, width), mode="bilinear", align_corners=False

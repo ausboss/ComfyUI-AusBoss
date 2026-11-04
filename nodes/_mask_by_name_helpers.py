@@ -112,6 +112,8 @@ def cut_out(image: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
 
     One mask for a batch of pictures is used for each of them."""
     rgb = image[..., :3]
+    if rgb.shape[-1] == 1:
+        rgb = rgb.expand(-1, -1, -1, 3)
     alpha = mask.to(device=rgb.device, dtype=rgb.dtype).clamp(0.0, 1.0)
     if alpha.shape[0] != rgb.shape[0]:
         alpha = alpha[:1].expand(rgb.shape[0], -1, -1)

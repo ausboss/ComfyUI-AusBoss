@@ -160,6 +160,8 @@ class AusBossRealignToSource:
             raise ValueError("Realign to Source: edited and source must be IMAGE batches.")
         frames = int(edited.shape[0])
         sources = int(source.shape[0])
+        if frames == 0 or sources == 0:
+            raise ValueError("Realign to Source needs at least one edited image and one source image; an image batch is empty.")
         if sources not in (1, frames):
             raise ValueError(
                 f"Realign to Source: {sources} source frames for {frames} edited "

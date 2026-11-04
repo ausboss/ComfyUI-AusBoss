@@ -224,6 +224,8 @@ def resample_batch(
     """
     if not isinstance(batch, torch.Tensor) or batch.ndim != 4:
         raise ValueError("Image Resize expected a BHWC batch to resample.")
+    if batch.shape[0] == 0:
+        raise ValueError("Cannot resize an empty image or mask batch.")
     if interpolation not in INTERPOLATION_MODES:
         raise ValueError(
             f"interpolation must be one of {INTERPOLATION_MODES}, got '{interpolation}'."
@@ -273,6 +275,15 @@ def apply_resize(
     """
     if not isinstance(image, torch.Tensor) or image.ndim != 4:
         raise ValueError("Image Resize expected a BHWC IMAGE batch.")
+    if image.shape[0] == 0:
+        raise ValueError("Image Resize needs at least one image; the image batch is empty.")
+    if mask is not None:
+        if not isinstance(mask, torch.Tensor) or mask.ndim != 3:
+            raise ValueError("Image Resize expected a BHW MASK.")
+        if mask.shape[0] == 0:
+            raise ValueError("Image Resize needs at least one mask; the mask batch is empty.")
+        if mask.shape[0] not in (1, image.shape[0]):
+            raise ValueError("Image Resize: mask batch must contain one mask or match the image batch size.")
     image = image.float()
     source_h, source_w = int(image.shape[1]), int(image.shape[2])
     target_w, target_h = resolve_target(
@@ -300,8 +311,6 @@ def apply_resize(
 
     output = resample_batch(image, resize_w, resize_h, interpolation)
     if mask is not None:
-        if not isinstance(mask, torch.Tensor) or mask.ndim != 3:
-            raise ValueError("Image Resize expected a BHW MASK.")
         mask = mask.float()
         if (int(mask.shape[2]), int(mask.shape[1])) != (resize_w, resize_h):
             mask = resample_batch(mask.unsqueeze(-1), resize_w, resize_h, interpolation)

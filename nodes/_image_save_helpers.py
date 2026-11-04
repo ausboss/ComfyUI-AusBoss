@@ -262,7 +262,9 @@ def sidecar_path(image_path: Path) -> Path:
 
 
 def frame_to_pil(frame: torch.Tensor) -> Image.Image:
-    array = np.clip(frame.detach().cpu().numpy() * 255.0, 0, 255).astype(np.uint8)
+    array = np.clip(frame.detach().cpu().float().numpy() * 255.0, 0, 255).astype(np.uint8)
+    if array.ndim == 3 and array.shape[-1] == 1:
+        array = array.squeeze(-1)
     return Image.fromarray(array)
 
 

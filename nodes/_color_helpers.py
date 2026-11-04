@@ -304,6 +304,8 @@ def match_colors(
         raise ValueError("Color Match expected a BHWC IMAGE batch.")
     if not isinstance(reference, torch.Tensor) or reference.ndim != 4:
         raise ValueError("Color Match expected a BHWC reference IMAGE.")
+    if image.shape[0] == 0 or reference.shape[0] == 0:
+        raise ValueError("Color Match needs at least one image and one reference; an image batch is empty.")
     if reference.shape[0] not in (1, image.shape[0]):
         raise ValueError(
             f"Reference batch {reference.shape[0]} cannot broadcast across "
@@ -342,6 +344,10 @@ def match_colors(
 
     rgb = image[..., :3]
     ref_rgb = reference[..., :3]
+    if rgb.shape[-1] == 1:
+        rgb = rgb.expand(-1, -1, -1, 3)
+    if ref_rgb.shape[-1] == 1:
+        ref_rgb = ref_rgb.expand(-1, -1, -1, 3)
     if method == "mkl":
         matched = _mkl_matched(rgb, ref_rgb, mask)
     elif method == "histogram":

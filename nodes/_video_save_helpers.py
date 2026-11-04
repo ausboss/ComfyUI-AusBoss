@@ -111,7 +111,9 @@ _RANGE_MPEG = 1  # AVCOL_RANGE_MPEG: limited/tv range, standard for yuv420p
 
 
 def even_frames(frames: torch.Tensor) -> torch.Tensor:
-    """Crop a BHWC batch down to even dimensions as yuv420p requires."""
+    """Pad singleton sides, then crop to even dimensions as yuv420p requires."""
+    if frames.shape[1] == 1 or frames.shape[2] == 1:
+        frames = frames.expand(-1, max(2, frames.shape[1]), max(2, frames.shape[2]), -1)
     height = frames.shape[1] - (frames.shape[1] % 2)
     width = frames.shape[2] - (frames.shape[2] % 2)
     return frames[:, :height, :width, :]
@@ -230,6 +232,8 @@ def _encode_audio(container, stream, prepared) -> None:
 
 
 def _rgb_uint8(frame: torch.Tensor) -> np.ndarray:
+    if frame.shape[-1] == 1:
+        frame = frame.expand(-1, -1, 3)
     return (
         frame[..., :3].detach().cpu().float().clamp(0.0, 1.0).mul(255.0)
         .round().to(torch.uint8).numpy()

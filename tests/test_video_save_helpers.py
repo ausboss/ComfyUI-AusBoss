@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import os
 import tempfile
 import threading
 import time
@@ -392,6 +393,8 @@ class FormatTests(unittest.TestCase):
         frames = gradient_batch(*self.CLIP)
         for name, spec in _video_save_helpers.VIDEO_FORMATS.items():
             with self.subTest(format=name):
+                if "nvenc" in spec.video_codec and os.environ.get("CUDA_VISIBLE_DEVICES") == "":
+                    self.skipTest("Hardware video encoding is disabled for this CPU-only run.")
                 if not self.encodable(spec):
                     self.skipTest(f"{spec.video_codec} unavailable")
                 with tempfile.TemporaryDirectory() as tmp:

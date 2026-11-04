@@ -27,6 +27,8 @@ def _rgb(image: torch.Tensor, who: str) -> torch.Tensor:
     """A BHWC float batch with exactly three channels."""
     if not isinstance(image, torch.Tensor) or image.ndim != 4:
         raise ValueError(f"{who} expected a BHWC IMAGE batch.")
+    if image.shape[0] == 0:
+        raise ValueError(f"{who} needs at least one image; the image batch is empty.")
     image = image.float()
     if image.shape[-1] == 1:
         return image.expand(-1, -1, -1, 3)
