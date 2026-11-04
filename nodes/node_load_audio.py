@@ -90,7 +90,7 @@ class AusBossLoadAudio:
 
     async def load_audio(self, audio, start_seconds, end_seconds, max_seconds=0.0):
         path = resolve_input_path(audio)
-        # Decoding blocks for as long as the pick is; a worker thread keeps
+        # Decoding reads from the beginning through OUT; a worker thread keeps
         # ComfyUI's event loop answering, and carries the context ComfyUI
         # reads to attribute an interrupt to this node.
         sound = await asyncio.to_thread(

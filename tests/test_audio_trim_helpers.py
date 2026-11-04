@@ -86,5 +86,50 @@ class DecodeTests(unittest.TestCase):
             decode_audio_window(self.path, 12.0, 0.0)
 
 
+class ReferenceFileTests(unittest.TestCase):
+    def test_hls_cannot_read_a_segment_outside_the_source_folder(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source_folder = root / "input"
+            source_folder.mkdir()
+            outside = root / "outside.aac"
+            with av.open(str(outside), "w") as container:
+                stream = container.add_stream("aac", rate=48000, layout="mono")
+                frame = av.AudioFrame.from_ndarray(
+                    np.zeros((1, 48000), dtype=np.float32), format="fltp", layout="mono"
+                )
+                frame.sample_rate = 48000
+                for packet in stream.encode(frame):
+                    container.mux(packet)
+                for packet in stream.encode(None):
+                    container.mux(packet)
+            for reference in ("../outside.aac", outside.as_posix(), outside.as_uri()):
+                for suffix in (".m3u8", ".wav"):
+                    with self.subTest(reference=reference, suffix=suffix):
+                        playlist = source_folder / f"song{suffix}"
+                        playlist.write_text(
+                            "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:2\n"
+                            f"#EXTINF:1.0,\n{reference}\n#EXT-X-ENDLIST\n"
+                        )
+                        with self.assertRaises(av.error.FFmpegError):
+                            decode_audio_window(playlist, 0, 0)
+
+    def test_concat_cannot_follow_references_even_with_an_audio_extension(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source_folder = root / "input"
+            source_folder.mkdir()
+            outside = root / "outside.wav"
+            write_ramp(outside, 1)
+            # A safe-looking relative name can still lead outside the allowed roots.
+            (source_folder / "segment.wav").symlink_to(outside)
+            for suffix in (".ffconcat", ".wav", ".mp3"):
+                with self.subTest(suffix=suffix):
+                    playlist = source_folder / f"song{suffix}"
+                    playlist.write_text("ffconcat version 1.0\nfile 'segment.wav'\n")
+                    with self.assertRaises(av.error.FFmpegError):
+                        decode_audio_window(playlist, 0, 0)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -9,7 +9,7 @@ export function inputNumber(node, name, fallback) {
   for (let depth = 0; depth < 16; depth++) {
     if (seen.has(linkId)) return null;
     seen.add(linkId);
-    const link = graph?.links?.[linkId] ?? graph?._links?.get?.(linkId);
+    const link = graph?.getLink?.(linkId) ?? graph?.links?.get?.(linkId) ?? graph?.links?.[linkId] ?? graph?._links?.get?.(linkId);
     const source = graph?.getNodeById?.(link?.origin_id);
     if (!source || (source.mode ?? 0) !== 0) return null;
     if (source.type === "Reroute") {
@@ -18,7 +18,7 @@ export function inputNumber(node, name, fallback) {
       continue;
     }
     if (!["PrimitiveFloat", "PrimitiveInt", "AUSBOSS_NODES_Integer", "AUSBOSS_NODES_Float"].includes(source.type) || link.origin_slot !== 0) return null;
-    if (source.inputs?.some((slot) => slot.name === "value" && slot.link != null)) return null;
+    if (source.inputs?.some((slot) => (slot.name === "value" || slot.widget?.name === "value") && slot.link != null)) return null;
     const value = source.widgets?.find((widget) => widget.name === "value")?.value;
     return typeof value === "number" && Number.isFinite(value) ? value : null;
   }

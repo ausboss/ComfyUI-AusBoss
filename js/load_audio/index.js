@@ -16,7 +16,7 @@ import { parseImageReference } from "../shared/pad_canvas.mjs";
 import { mediaViewQuery, splitMediaName } from "../shared/video_preview.mjs";
 import { ensureVideoCss, hideCanvasWidget, makeToolButton } from "../shared/video_ui.mjs";
 import { MIN_TRIM_SECONDS, dragTrimHandle, slideTrimWindow } from "../load_video/trim_preview.mjs";
-import { grabZone, outputSummary, outputWindow, secondsLabel, wavePeaks } from "./audio_window.mjs";
+import { grabZone, outputSummary, outputWindow, secondsLabel, typedTrimBounds, wavePeaks, wiredMax } from "./audio_window.mjs";
 
 const NODE_NAME = "AUSBOSS_NODES_LoadAudio";
 const PANEL_WIDGET = "ausboss_load_audio_wave";
@@ -48,18 +48,6 @@ function hideCoreAudio(node) {
   for (const widget of node.widgets ?? []) {
     if (widget?.name === CORE_AUDIO_WIDGET) hideCanvasWidget(widget, widget.element);
   }
-}
-
-// A wired Max length: the number the wire carries, when the far end is a
-// node that shows it (Float, Integer, a Primitive). null when it can't be known.
-function wiredMax(node) {
-  const input = node.inputs?.find((slot) => slot?.widget?.name === "max_seconds");
-  if (!input || input.link == null) return { wired: false, value: null };
-  const graph = node.graph;
-  const link = graph?.getLink?.(input.link) ?? graph?.links?.get?.(input.link) ?? graph?.links?.[input.link];
-  const origin = link ? graph?.getNodeById?.(link.origin_id) : null;
-  const shown = origin?.widgets?.find((widget) => typeof widget?.value === "number");
-  return { wired: true, value: shown ? Number(shown.value) : null };
 }
 
 function maxSeconds(state) {
@@ -317,12 +305,24 @@ function installPlayer(state) {
     state.raf = requestAnimationFrame(tick);
   };
   audio.addEventListener("play", () => {
+    // Hidden tabs suspend animation frames, so never keep playing there.
+    if (document.hidden) { audio.pause(); return; }
     state.playButton.textContent = "❚❚";
     state.playButton.classList.add("active");
     if (state.raf) cancelAnimationFrame(state.raf);
     state.raf = requestAnimationFrame(tick);
   }, { signal: state.abort.signal });
   audio.addEventListener("pause", stop, { signal: state.abort.signal });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) audio.pause();
+  }, { signal: state.abort.signal });
+  audio.addEventListener("ended", () => {
+    const win = currentWindow(state);
+    if (!document.hidden && loopEnabled(state.node) && win.length > 0) {
+      audio.currentTime = win.start;
+      audio.play().catch(() => stop());
+    }
+  }, { signal: state.abort.signal });
   state.playButton.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -343,7 +343,7 @@ function commitTimeInput(state, edge, input) {
     input.value = formatTimecode(edge === "start" ? win.start : win.end);
     return;
   }
-  writeTrim(state, dragTrimHandle(state.duration, { start: win.start, end: win.end }, edge, seconds / state.duration, MIN_TRIM_SECONDS));
+  writeTrim(state, typedTrimBounds(state.duration, { start: win.start, end: win.end }, edge, seconds));
   notifyAusbossChange();
   input.blur();
 }

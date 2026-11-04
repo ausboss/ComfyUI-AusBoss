@@ -166,7 +166,7 @@ It returns the frames, audio, frame count, fps, width, height, duration and a co
 
 Upload a sound file, or pick one from the Source list, and the node shows it as a wave. Drag the IN and OUT handles to keep only the part you want, or type the times. Press play to hear just that part. Set **Max length** to the longest sound the next step can take, such as a video's length: anything past it turns red and is cut off, so you see what comes out before you run. Click the red length next to OUT to move OUT to the cut.
 
-It returns the `audio` you kept and its length in `seconds`. Only that part is decoded. [Help page](js/docs/AUSBOSS_NODES_LoadAudio.md).
+It returns the `audio` you kept and its length in `seconds`. Decoding reads from the beginning to the cut, so later selections take longer to load. [Help page](js/docs/AUSBOSS_NODES_LoadAudio.md).
 
 ### Video Crop + Rotate + Pad → Frame
 

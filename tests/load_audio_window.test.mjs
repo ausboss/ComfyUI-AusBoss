@@ -1,7 +1,44 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { grabZone, outputSummary, outputWindow, wavePeaks } from "../js/load_audio/audio_window.mjs";
+import { grabZone, outputSummary, outputWindow, typedTrimBounds, wavePeaks, wiredMax } from "../js/load_audio/audio_window.mjs";
+
+function maxLink(source, originSlot = 0, linkStore = "object") {
+  const link = { origin_id: 1, origin_slot: originSlot };
+  const graph = { getNodeById: () => source };
+  if (linkStore === "map") graph.links = new Map([[2, link]]);
+  else if (linkStore === "getter") graph.getLink = () => link;
+  else graph.links = { 2: link };
+  return { inputs: [{ name: "max_seconds", widget: { name: "max_seconds" }, link: 2 }], graph };
+}
+
+test("wired Max length only reads the connected output of an unlinked literal", () => {
+  assert.deepEqual(wiredMax({}), { wired: false, value: null });
+  const video = { type: "AUSBOSS_NODES_LoadVideo", widgets: [{ name: "start_seconds", value: 4 }, { name: "end_seconds", value: 14 }] };
+  assert.deepEqual(wiredMax(maxLink(video, 7)), { wired: true, value: null });
+  for (const type of ["AUSBOSS_NODES_Float", "AUSBOSS_NODES_Integer", "PrimitiveFloat", "PrimitiveInt"]) {
+    const source = { type, widgets: [{ name: "unrelated", value: 4 }, { name: "value", value: 10 }] };
+    for (const store of ["object", "map", "getter"]) {
+      assert.deepEqual(wiredMax(maxLink(source, 0, store)), { wired: true, value: 10 });
+    }
+    assert.equal(wiredMax(maxLink(source, 1)).value, null);
+    source.inputs = [{ name: "value", widget: { name: "value" }, link: 9 }];
+    assert.equal(wiredMax(maxLink(source)).value, null);
+    source.inputs = [];
+    source.mode = 4;
+    assert.equal(wiredMax(maxLink(source)).value, null);
+    source.mode = 0;
+    source.widgets[1].value = NaN;
+    assert.equal(wiredMax(maxLink(source)).value, null);
+  }
+});
+
+test("typing OUT zero restores the file end while other typed times keep handle limits", () => {
+  assert.deepEqual(typedTrimBounds(10, { start: 2, end: 5 }, "end", 0), { start: 2, end: 10 });
+  assert.deepEqual(typedTrimBounds(10, { start: 2, end: 5 }, "end", 1), { start: 2, end: 2.1 });
+  assert.deepEqual(typedTrimBounds(10, { start: 2, end: 5 }, "end", 7), { start: 2, end: 7 });
+  assert.deepEqual(typedTrimBounds(10, { start: 2, end: 5 }, "start", 0), { start: 0, end: 5 });
+});
 
 test("the face shows what the node hands on", () => {
   // Mirrors audio_window in nodes/_audio_trim_helpers.py.

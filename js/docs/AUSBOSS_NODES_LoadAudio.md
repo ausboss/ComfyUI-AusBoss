@@ -44,8 +44,10 @@ Float 🆎, the wave shows the cut for that number; otherwise the length's toolt
 
 ## Technical details
 
-- Only the picked part is decoded: decoding stops once the window is full,
-  so a short pick from a long recording stays quick.
+- Only the picked part is returned. Decoding starts at the beginning,
+  discards sound before IN and stops at OUT or the Max length cut. A late
+  selection in a long recording takes longer to load.
+- Preview playback pauses when you switch tabs or hide the page.
 - The sound keeps its own sample rate and channels.
 - A start past the end of the file stops the run with a message that says so.
 - The wave is drawn in the browser from the file itself; nothing extra is

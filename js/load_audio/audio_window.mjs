@@ -1,6 +1,21 @@
 // Load Audio's window rules for the face, mirroring audio_window in
 // nodes/_audio_trim_helpers.py so the wave shows exactly what one Run hands
 // on. Pure: tests/load_audio_window.test.mjs runs it without a browser.
+import { inputNumber } from "../shared/clip_rate.mjs";
+import { dragTrimHandle } from "../load_video/trim_preview.mjs";
+
+// Calculated outputs stay unknown until execution, even if the source has numbers.
+export function wiredMax(node) {
+  const input = node.inputs?.find((slot) => slot.name === "max_seconds" || slot.widget?.name === "max_seconds");
+  if (input?.link == null) return { wired: false, value: null };
+  return { wired: true, value: inputNumber(node, "max_seconds", null) };
+}
+
+export function typedTrimBounds(duration, bounds, edge, seconds) {
+  // OUT 0 is the saved widget's "to the end", before handle clamping.
+  if (edge === "end" && seconds === 0) return { start: bounds.start, end: duration };
+  return dragTrimHandle(duration, bounds, edge, seconds / duration);
+}
 
 function finite(value, fallback = 0) {
   const number = Number(value);

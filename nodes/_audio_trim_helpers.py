@@ -3,8 +3,7 @@
 The window rules live in ``audio_window`` so the node and its tests agree on
 what one Run hands on; ``js/load_audio/audio_window.mjs`` mirrors them for the
 face. Decoding counts samples from the start of the sound track and stops as
-soon as the window is full, so a short pick from a long file never decodes
-the whole file.
+soon as the window is full. Samples before the window are decoded and discarded.
 """
 
 from __future__ import annotations
@@ -107,7 +106,10 @@ def decode_audio_window(path: Path, start_seconds, end_seconds, max_seconds=0.0)
     """
     window = audio_window(start_seconds, end_seconds, max_seconds)
     start = window["start"]
-    with av.open(str(path)) as container:
+    # Read only this already-validated file. An empty protocol whitelist
+    # prevents demuxers from opening any referenced files or network URLs,
+    # including playlists disguised with an ordinary audio extension.
+    with path.open("rb") as source, av.open(source, options={"protocol_whitelist": ""}) as container:
         stream = next((candidate for candidate in container.streams if candidate.type == "audio"), None)
         if stream is None:
             raise ValueError(f"{path.name} has no sound in it.")
