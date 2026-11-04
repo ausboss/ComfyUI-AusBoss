@@ -328,9 +328,11 @@ def read_notes(text, script):
 
 def voice_of(before, voiceover, things=False):
     """Who says a line from off screen, named by the words in front of it:
-    "A woman off screen says" is a woman, and with things, "The card reader
-    beeps and says" is the card reader. An @, a he or she, or no name at all
-    is someone on screen or the main person's own voiceover, so that gives ""."""
+    "A woman off screen says" is a woman and "a card reader off screen says"
+    a card reader. With things, a thing needs no "off screen": "The card
+    reader beeps and says" is the card reader. An @, a he or she, or no name
+    at all is someone on screen or the main person's own voiceover, so that
+    gives ""."""
     if TOKEN.search(before) or PRONOUN.search(before):
         return ""
     verb = SPEECH_VERB.search(before)
@@ -338,8 +340,8 @@ def voice_of(before, voiceover, things=False):
     action = re.sub(r"[\s,]*\band\s*$", "", action.strip(" ,:")).split(",")[0].strip(" ,:")
     if len(action.split()) > 2 and action.endswith("s"):  # "The card reader beeps": what it does goes.
         action = action.rsplit(" ", 1)[0]
-    named = A_NAME.match(action) and not VOICEOVER.search(action)  # "Narrator" names no one.
-    if voiceover and (named or (SAID_BY.match(action) and PERSON_WORDS.search(action))):
+    # "Narrator" and "a voice" name no one, so they stay the main person's voiceover.
+    if voiceover and (A_NAME.match(action) or SAID_BY.match(action)) and not VOICEOVER.search(action):
         return action
     if things and SAID_BY.match(action) and not PERSON_WORDS.search(action):
         return action

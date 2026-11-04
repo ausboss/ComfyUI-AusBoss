@@ -754,6 +754,13 @@ class VideoJobTests(unittest.TestCase):
         self.assertIn("<Subject 1> (S1) says, <d>[English] Again?</d>", line)
         self.assertNotIn("woman stays silent", line)
 
+    def test_a_thing_marked_off_screen_speaks_for_itself_in_every_mode(self):
+        for video in ("", "copy its moves"):
+            script = '@1 stands at the till.\nA card reader off screen says "Card declined."\n@1 says "Again?"'
+            line = parts_of(script, jobs={1: "person"}, video=video)["detailed_description"]
+            self.assertIn("a card reader (S2) says from off screen, <d>[English] Card declined.</d> Nobody on screen moves", line)
+            self.assertNotIn("<Subject 1> (S1) says in an off-screen voiceover", line)
+
     def test_an_unnamed_voiceover_stays_the_main_persons(self):
         for script in ('@1 stands at the till.\nVoiceover: "I was broke."', '@1 stands at the till.\n@1, off screen, says "I was broke."',
                        '@1 stands at the till.\nShe says off camera "I was broke."'):
