@@ -21,7 +21,7 @@ from nodes._h3_prompt_helpers import (
     find_beats,
     find_speech,
     join_sections,
-    line_starts,
+    place_lines,
     snap_cuts,
     split_sections,
     write_prompt,
@@ -1250,6 +1250,24 @@ STATE = (
     'He says "Yeah."'
 )
 STATE_TIMES = [(0.08, 1.94), (2.28, 3.44), (4.66, 4.9), (5.32, 5.52), (5.86, 6.22), (6.32, 6.66)]
+# What find_speech heard in that clip's real sound: (start, end, pitch in Hz, seconds of clear voice). The man
+# filming sits near 270 Hz and the man in the truck near 150 Hz. Whisper put the lines at 0.08, 2.28, 4.66,
+# 5.32, 5.86 and 6.32 s.
+STATE_HEARD = [
+    (0.0, 1.13, 204, 0.5), (1.5, 1.66, 179, 0.1), (1.74, 1.91, 355, 0.1), (2.21, 2.41, 166, 0.14), (2.53, 2.92, 154, 0.3),
+    (3.01, 3.46, 160, 0.3), (4.59, 4.91, 269, 0.24), (5.27, 5.53, 125, 0.16), (5.83, 6.2, 296, 0.28), (6.45, 6.67, 121, 0.12),
+]
+
+
+def heard(stretches):
+    return [(start, end, None if hz is None else float(np.log2(hz)), voiced) for start, end, hz, voiced in stretches]
+
+
+def plain(times, hz=150.0):
+    """Stretches at times, all in one voice."""
+    return heard([(start, end, hz, (end - start) * 0.6) for start, end in times])
+
+
 SWAP_JOBS = {"jobs": {1: "person"}, "video": "swap the person", "seconds": 6.8}
 
 
@@ -1257,9 +1275,11 @@ class ClipSoundTests(unittest.TestCase):
     def test_speech_is_found_where_the_words_are(self):
         found = find_speech(spoken(STATE_TIMES, 7.0), 16000)
         self.assertEqual(len(found), len(STATE_TIMES))
-        for (start, end), (heard_from, heard_to) in zip(STATE_TIMES, found):
+        for (start, end), (heard_from, heard_to, pitch, voiced) in zip(STATE_TIMES, found):
             self.assertAlmostEqual(heard_from, start, delta=0.06)
             self.assertAlmostEqual(heard_to, end, delta=0.08)
+            self.assertAlmostEqual(2 ** pitch, 220, delta=8)
+            self.assertGreater(voiced, 0)
 
     def test_silence_has_no_speech(self):
         self.assertEqual(find_speech(np.zeros(16000 * 3, np.float32), 16000), [])
@@ -1267,27 +1287,33 @@ class ClipSoundTests(unittest.TestCase):
 
     def test_a_breath_inside_a_line_stays_in_the_line(self):
         found = find_speech(spoken([(0.5, 1.2), (1.35, 2.0), (3.0, 4.0)], 5.0), 16000)
-        starts = line_starts(found, 2)
+        starts = place_lines(found, [("Let me tell you about the night", "new"), ("It was cold", "new")])
         self.assertAlmostEqual(starts[0], 0.5, delta=0.06)
         self.assertAlmostEqual(starts[1], 3.0, delta=0.06)
 
-    def test_lines_split_at_the_longest_quiet(self):
-        stretches = [(0.0, 0.7), (1.0, 1.6), (2.3, 3.0), (3.2, 4.0)]
-        self.assertEqual(line_starts(stretches, 2), [0.0, 2.3])
-        self.assertEqual(line_starts(stretches, 4), [0.0, 1.0, 2.3, 3.2])
-        self.assertIsNone(line_starts(stretches, 5))
-        self.assertIsNone(line_starts([], 1))
+    def test_lines_start_after_the_longest_quiet(self):
+        stretches = plain([(0.0, 0.7), (1.0, 1.6), (2.3, 3.0), (3.2, 4.0)])
+        self.assertEqual(place_lines(stretches, [("Five in the morning and do ten", "new"), ("So this is not a joke", "new")]), [0.0, 2.3])
+        self.assertIsNone(place_lines(stretches, [("a", "new")] * 5))
+        self.assertIsNone(place_lines([], [("a", "new")]))
+
+    def test_two_voices_taking_turns_are_told_apart_by_pitch(self):
+        lines = [("Who told you you could fish here?", "other"), ("I thought it was state property.", "new"), ("State?", "other"),
+                 ("Yeah.", "new"), ("This?", "other"), ("Yeah.", "new")]
+        starts = place_lines(heard(STATE_HEARD), lines)
+        for start, (truth, _) in zip(starts, STATE_TIMES):
+            self.assertAlmostEqual(start, truth, delta=0.15)
 
     def test_only_the_new_persons_lines_stay_timed_from_the_sound(self):
-        parts = parts_of(STATE, clip_sound=True, speech=STATE_TIMES, **SWAP_JOBS)
+        parts = parts_of(STATE, clip_sound=True, speech=heard(STATE_HEARD), **SWAP_JOBS)
         line = parts["detailed_description"]
         for gone in ("Who told you", "State?", "This?", "Nobody on screen moves", "off screen"):
             self.assertNotIn(gone, line)
         self.assertIn("<Subject 2> keeps the lips closed whenever <Subject 2> is not saying a line of <Subject 2>'s own.", line)
-        self.assertIn("At 00:02.280, <Subject 2> (S1) says, each word landing exactly on the lip movement of <Video 1>, "
+        self.assertIn("At 00:02.210, <Subject 2> (S1) says, each word landing exactly on the lip movement of <Video 1>, "
                       "<d>[English] I thought it was state property.</d>", line)
-        self.assertIn("At 00:05.320, <Subject 2> (S1) says", line)
-        self.assertIn("At 00:06.320, <Subject 2> (S1) says", line)
+        self.assertIn("At 00:05.270, <Subject 2> (S1) says", line)
+        self.assertIn("At 00:06.450, <Subject 2> (S1) says", line)
         self.assertNotIn("No other words are spoken", parts["overall_soundscape"])
 
     def test_without_the_clips_sound_every_line_is_written(self):
@@ -1302,7 +1328,7 @@ class ClipSoundTests(unittest.TestCase):
             'The man in the cap at the left edge says "Why would we take EBT here? We don\'t sell groceries."\n'
             'The man in the cap says "Maybe that\'s something y\'all need to look into."'
         )
-        parts = parts_of(script, clip_sound=True, speech=[(0.0, 2.58), (3.76, 4.74)], **SWAP_JOBS)
+        parts = parts_of(script, clip_sound=True, speech=plain([(0.0, 2.58), (3.76, 4.74)]), **SWAP_JOBS)
         line = parts["detailed_description"]
         self.assertNotIn("<d>", line)
         self.assertNotIn("EBT", line)
@@ -1310,11 +1336,11 @@ class ClipSoundTests(unittest.TestCase):
 
     def test_a_typed_time_wins_over_the_sound(self):
         script = '@1 replaces the man at the till.\n3.5s: @1 says "Again?"'
-        line = parts_of(script, clip_sound=True, speech=[(1.0, 2.0)], **SWAP_JOBS)["detailed_description"]
+        line = parts_of(script, clip_sound=True, speech=plain([(1.0, 2.0)]), **SWAP_JOBS)["detailed_description"]
         self.assertIn("At 00:03.500, <Subject 2> (S1) says", line)
 
     def test_too_little_speech_keeps_the_writers_own_timing(self):
-        line = parts_of(STATE, clip_sound=True, speech=[(0.1, 6.5)], **SWAP_JOBS)["detailed_description"]
+        line = parts_of(STATE, clip_sound=True, speech=plain([(0.1, 6.5)]), **SWAP_JOBS)["detailed_description"]
         self.assertIn("<d>[English] I thought it was state property.</d>", line)
         self.assertNotIn("Who told you", line)
 

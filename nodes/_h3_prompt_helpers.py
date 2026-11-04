@@ -384,12 +384,22 @@ def find_beats(samples, rate, seconds=30.0):
 
 
 SPEECH_BAND = (250.0, 3500.0)  # Where most of a voice's loudness sits, under hiss and over hum.
-SPEECH_GAP = 0.06  # A shorter quiet is the dip between two syllables. Lines are told apart by their longest gaps later.
+SPEECH_GAP = 0.06  # A shorter quiet is the dip between two syllables. place_lines tells lines apart later.
 SPEECH_SHORTEST = 0.1  # A shorter sound is a click or a knock.
+VOICE_PITCH = (70.0, 390.0)  # A speaking voice's lowest note, in Hz, and just under where pitch reading tops out.
+CLEAR_VOICE = 0.5  # How cleanly a frame repeats before its pitch counts.
+PITCH_GRID = tuple(float(x) for x in np.log2(np.geomspace(100, 340, 8)))  # Voices to try, in octaves.
+SPEAKING_RATES = tuple(2.5 + 0.75 * step for step in range(8))  # Syllables a second, slow to fast.
+LONGEST_LINE = 12  # Stretches of speech one line can take.
+# Weights for place_lines, tuned on nine real clips against Whisper's times.
+GAP_WEIGHT, INNER_GAP_WEIGHT, NOISE_WEIGHT, PITCH_WEIGHT = 1.0, 1.0, 1.5, 6.0
 
 
 def find_speech(samples, rate):
-    """[(start, end), ...] in seconds: the stretches of a mono track loud enough in the voice band to be words.
+    """[(start, end, pitch, voiced), ...]: the stretches of a mono track loud
+    enough in the voice band to be words, in seconds, with each stretch's
+    middle pitch in octaves (log2 Hz), or None where it has too little clear
+    voice, and how many seconds of it are clear voice.
 
     The quiet level is the track's quietest tenth and the loud level its
     loudest twentieth, so music or a crowd under the words raises the bar
@@ -425,29 +435,129 @@ def find_speech(samples, rate):
             joined[-1][1] = stretch[1]
         else:
             joined.append(stretch)
-    return [(round(a, 3), round(b, 3)) for a, b in joined if b - a >= SPEECH_SHORTEST]
+    voice = voice_pitch(samples, rate, loudest=float(level.max()))
+    return [(round(a, 3), round(b, 3), *middle_pitch(voice, a, b)) for a, b in joined if b - a >= SPEECH_SHORTEST]
 
 
-def line_starts(stretches, count):
-    """When each of count lines starts, read from find_speech: the lines are
-    split at the longest quiet gaps, in order. None when there are fewer
-    stretches of speech than lines."""
-    if count < 1 or len(stretches) < count:
+def voice_pitch(samples, rate, loudest):
+    """(times, octaves, clear) every 20 ms: the pitch where a frame repeats
+    best, and whether it repeats cleanly and loudly enough to be a voice."""
+    hop = max(1, int(rate * 0.02))
+    window = hop * 2
+    frames = max(0, (len(samples) - window) // hop)
+    shortest, longest = int(rate / VOICE_PITCH[1]), int(rate / VOICE_PITCH[0])
+    taper = np.hanning(window)
+    pitches = np.fft.rfftfreq(window, 1.0 / rate)
+    band = (pitches >= SPEECH_BAND[0]) & (pitches <= SPEECH_BAND[1])
+    times, octaves, clear = [], [], []
+    for index in range(frames):
+        piece = samples[index * hop : index * hop + window]
+        loud = 10 * np.log10(float((np.abs(np.fft.rfft(piece * taper))[band] ** 2).sum()) + 1e-10)
+        piece = piece - piece.mean()
+        repeats = np.fft.irfft(np.abs(np.fft.rfft(piece, 2 * window)) ** 2)[:window]
+        lag = shortest + int(np.argmax(repeats[shortest:longest])) if repeats[0] > 1e-9 else 0
+        times.append(index * hop / rate + window / 2 / rate)
+        octaves.append(float(np.log2(rate / lag)) if lag else 0.0)
+        clear.append(bool(lag) and repeats[lag] / repeats[0] >= CLEAR_VOICE and loud >= loudest - 30 and lag > shortest)
+    return np.array(times), np.array(octaves), np.array(clear, dtype=bool)
+
+
+def middle_pitch(voice, start, end):
+    """(the middle pitch in octaves, or None, and the seconds of clear voice) between start and end."""
+    times, octaves, clear = voice
+    inside = clear & (times >= start) & (times < end)
+    if inside.sum() < 3:
+        return None, 0.0
+    return round(float(np.median(octaves[inside])), 3), round(float(inside.sum() * (times[1] - times[0])), 3)
+
+
+def syllables(words):
+    """About how many syllables the words take to say."""
+    count = 0
+    for word in re.findall(r"[a-z']+", words.lower()):
+        sounds = len(re.findall(r"[aeiouy]+", word))
+        count += max(1, sounds - (1 if word.endswith("e") and sounds > 1 else 0))
+    return max(1, count)
+
+
+def place_lines(stretches, lines):
+    """When each line starts, read from find_speech stretches. lines are
+    (words, voice) in order, where voice tells one speaker from another.
+
+    Each line takes a run of stretches, and a stretch may be left out as
+    noise. The best split gives each line about the time its syllables need,
+    starts lines after long quiets, keeps quiets inside a line short and
+    keeps one voice at one pitch. None when there are fewer stretches than
+    lines."""
+    count, found = len(lines), len(stretches)
+    if count < 1 or found < count:
         return None
-    gaps = sorted(range(1, len(stretches)), key=lambda index: stretches[index][0] - stretches[index - 1][1], reverse=True)
-    firsts = sorted([0, *gaps[: count - 1]])
-    return [stretches[index][0] for index in firsts]
+    sizes = [syllables(words) for words, _ in lines]
+    voices = sorted({voice for _, voice in lines})
+    best = (np.inf, None)
+    for middles in _pitch_choices(len(voices)):
+        middle = dict(zip(voices, middles))
+        for speed in SPEAKING_RATES:
+            cost, starts = _best_split(stretches, lines, [size / speed for size in sizes], middle)
+            cost += 0.3 * np.log(speed / 4.5) ** 2
+            if starts is not None and cost < best[0]:
+                best = (cost, starts)
+    return best[1]
+
+
+def _pitch_choices(voices):
+    choices = [()]
+    for _ in range(voices):
+        choices = [(*choice, pitch) for choice in choices for pitch in PITCH_GRID]
+    return choices
+
+
+def _best_split(stretches, lines, needs, middle):
+    found, count = len(stretches), len(lines)
+    best = [[(np.inf, None)] * (count + 1) for _ in range(found + 1)]
+    best[0][0] = (0.0, [])
+    for first in range(found):
+        for done in range(count + 1):
+            cost, starts = best[first][done]
+            if cost == np.inf:
+                continue
+            start, end = stretches[first][:2]
+            noise = cost + NOISE_WEIGHT * (end - start) + 0.2
+            if noise < best[first + 1][done][0]:
+                best[first + 1][done] = (noise, starts)
+            if done == count:
+                continue
+            before = min(start - stretches[first - 1][1], 1.0) if first else 1.0
+            spoken = inner = off_pitch = 0.0
+            for last in range(first, min(found, first + LONGEST_LINE)):
+                a, b, pitch, voiced = stretches[last]
+                spoken += b - a
+                if last > first:
+                    inner += max(0.0, a - stretches[last - 1][1] - 0.25)
+                if pitch is not None:
+                    off_pitch += min((pitch - middle[lines[done][1]]) ** 2, 1.0) * voiced
+                after = min(stretches[last + 1][0] - b, 1.0) if last + 1 < found else 1.0
+                total = (
+                    cost
+                    + np.log(spoken / needs[done]) ** 2
+                    + INNER_GAP_WEIGHT * inner
+                    - GAP_WEIGHT * (before + after) / 2
+                    + PITCH_WEIGHT * off_pitch
+                )
+                if total < best[last + 1][done + 1][0]:
+                    best[last + 1][done + 1] = (total, [*starts, start])
+    return best[found][count]
 
 
 def time_from_sound(moments, stretches):
     """Puts each line with no typed time where its words start in the clip's
     own sound. Every quoted line counts, whoever says it, since everyone is
     heard. Returns whether the sound gave the times."""
-    starts = line_starts(stretches or [], len(moments))
+    lines = [(moment.speech, "other" if moment.voice or moment.other else "new") for moment in moments]
+    starts = place_lines(stretches or [], lines)
     if starts is None:
         return False
     for moment, start in zip(moments, starts):
         if moment.at is None:
-            moment.at = start
+            moment.at = round(float(start), 3)
     return True
-
