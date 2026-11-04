@@ -16,12 +16,15 @@ from ._h3_cast_helpers import KEEP, NEEDS_NO_WORDS, REVOICE, SWAP, Cast, number_
 from ._h3_cast_helpers import TOKEN
 from ._h3_script_helpers import (
     ACTION_GOES_ON,
+    PRONOUN,
+    SPEECH_VERB,
     Moment,
     add_moments,
     add_sound,
     read_script,
     script_parts,
     speakers,
+    voice_of,
     without_speech,
 )
 
@@ -117,16 +120,7 @@ def spoken_line(speaker, words, language, voice_label, on_screen, number=1, lips
 NAME_IS = re.compile(r"\b([A-Z][\w'.-]*(?:\s+[A-Z][\w'.-]*)*)\s+(?:is|as|plays)\s+@(\d)\b")
 IS_NAME = re.compile(r"@(\d)\s+(?:is|as|plays)\s+([A-Z][\w'.-]*(?:\s+[A-Z][\w'.-]*)*)\b")
 NOT_A_NAME = {"The", "A", "An", "He", "She", "They", "It", "This", "That", "Then", "And"}
-PRONOUN = re.compile(r"\b(?:he|she|they|him|her|them)\b", re.I)
-PERSON_WORDS = re.compile(
-    r"\b(?:man|men|woman|women|person|people|guy|girl|boy|kid|child|lady|gentleman|cashier|customer|clerk|waiter"
-    r"|waitress|driver|worker|singer|rapper|dancer|host|friend|everyone|someone|somebody)\b",
-    re.I,
-)
-# "says in a flat robot voice": how it is said, kept out of who says it.
-SPEECH_VERB = re.compile(r"\b(?:says?|said|asks?|whispers?|shouts?|yells?|screams?|mutters?|sings?|raps?|chants?|announces?|calls?\s+out|cries|replies|answers?)\b", re.I)
 DELIVERY = re.compile(r"^(?:in|with|like)\b[^\"]*$", re.I)
-SAID_BY = re.compile(r"^(?:the|a|an)\s+[\w\s-]+$", re.I)
 
 
 def names_in(moments):
@@ -146,7 +140,8 @@ def only_the_words(moment, names=None, last=""):
     """A swap line's quoted words and the @ number that says them. The video
     supplies the action, so the rest of the line goes. Who speaks is the @ or
     the name in front of the words, else the person a he or she points back
-    to; a thing that is no person, like a card reader, speaks from off screen."""
+    to; a thing that is no person, like a card reader, speaks from off screen,
+    and so does a person the line puts off screen, like "a woman off camera"."""
     before = moment.text.partition(f'"{moment.speech}"')[0]
     who = TOKEN.search(before)
     slot = who.group(1) if who else ""
@@ -162,14 +157,8 @@ def only_the_words(moment, names=None, last=""):
     if slot:
         words.text = f"@{slot} {words.text}"
         return words, slot
-    # "The card reader beeps and says": the words in front of what it does.
-    action = before[: verb.start()] if verb else re.sub(r"\s*\w+\s*$", "", before.strip())
-    action = re.sub(r"[\s,]*\band\s*$", "", action.strip()).split(",")[0].strip()
-    if len(action.split()) > 2 and action.endswith("s"):
-        action = action.rsplit(" ", 1)[0]
-    if SAID_BY.match(action) and not PERSON_WORDS.search(action):
-        words.voice = action
-        words.voiceover = True
+    words.voice = voice_of(before, moment.voiceover, things=True)
+    words.voiceover = words.voiceover or bool(words.voice)
     return words, last
 
 

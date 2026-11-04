@@ -739,6 +739,27 @@ class VideoJobTests(unittest.TestCase):
         self.assertIn("card reader (S2) says from off screen, <d>[English] Card declined.</d> Nobody on screen moves", line)
         self.assertIn("<Subject 2> (S1) says, each word landing exactly on the lip movement of <Video 1>, <d>[English] Again?</d>", line)
 
+    def test_a_person_off_screen_in_a_swap_gets_their_own_voice(self):
+        for said_by, voice in (('A woman off screen says', "A woman"), ('The cashier, off camera, says', "The cashier"),
+                               ('Someone behind the camera yells', "Someone"), ('Mom (O.S.) says', "Mom")):
+            script = f'@1 replaces the man at the till.\n{said_by} "Card declined."\n@1 says "Again?"'
+            line = parts_of(script, jobs={1: "person"}, video="swap the person")["detailed_description"]
+            self.assertIn(f"{voice} (S2) says from off screen, <d>[English] Card declined.</d> Nobody on screen moves", line)
+            self.assertIn("<Subject 2> (S1) says, each word landing exactly on the lip movement of <Video 1>, <d>[English] Again?</d>", line)
+            self.assertNotIn("<Subject 2> (S1) says in an off-screen voiceover", line)
+
+    def test_a_person_off_screen_is_not_the_person_on_screen(self):
+        line = parts_of('@1 stands at the till.\nA woman off screen says "Card declined."\n@1 says "Again?"', jobs={1: "person"})["detailed_description"]
+        self.assertIn("a woman (S2) says from off screen, <d>[English] Card declined.</d>", line)
+        self.assertIn("<Subject 1> (S1) says, <d>[English] Again?</d>", line)
+        self.assertNotIn("woman stays silent", line)
+
+    def test_an_unnamed_voiceover_stays_the_main_persons(self):
+        for script in ('@1 stands at the till.\nVoiceover: "I was broke."', '@1 stands at the till.\n@1, off screen, says "I was broke."',
+                       '@1 stands at the till.\nShe says off camera "I was broke."'):
+            line = parts_of(script, jobs={1: "person"})["detailed_description"]
+            self.assertIn("<Subject 1> (S1) says in an off-screen voiceover, <d>[English] I was broke.</d>", line)
+
     def test_how_a_swap_line_is_said_stays_out_of_who_says_it(self):
         script = '@1 replaces the man at the till.\nThe card reader says in a flat robot voice "Card declined."'
         line = parts_of(script, jobs={1: "person"}, video="swap the person")["detailed_description"]

@@ -73,7 +73,21 @@ SIDE_NOTE = re.compile(
     r"|one\s+(?:long\s+)?(?:shot|take)|single\s+(?:shot|take)|continuous\s+(?:shot|take))\s*[.!]?\s*$",
     re.I,
 )
-VOICEOVER = re.compile(r"\b(?:voice-?\s?over|narrator|off-?\s?screen|a\s+voice)\b", re.I)
+VOICEOVER = re.compile(r"\b(?:voice-?\s?over|narrator|off-?\s?(?:screen|camera)|behind\s+the\s+camera|a\s+voice)\b|\((?:o\.?s|v\.?o)\.?\)", re.I)
+# Where a voice comes from, said beside who it is: "A woman off screen says", "Mom (O.S.):".
+FROM_OFF_SCREEN = re.compile(
+    r"\b(?:(?:(?:in|as)\s+(?:an?\s+)?(?:off-?\s?screen\s+)?)?voice-?\s?over|off-?\s?(?:screen|camera)|behind\s+the\s+camera)\b|\((?:o\.?s|v\.?o)\.?\)", re.I
+)
+PRONOUN = re.compile(r"\b(?:he|she|they|him|her|them)\b", re.I)
+PERSON_WORDS = re.compile(
+    r"\b(?:man|men|woman|women|person|people|guy|girl|boy|kid|child|lady|gentleman|cashier|customer|clerk|waiter"
+    r"|waitress|driver|worker|singer|rapper|dancer|host|friend|everyone|someone|somebody)\b",
+    re.I,
+)
+# "says in a flat robot voice": how it is said, kept out of who says it.
+SPEECH_VERB = re.compile(r"\b(?:says?|said|asks?|whispers?|shouts?|yells?|screams?|mutters?|sings?|raps?|chants?|announces?|calls?\s+out|cries|replies|answers?)\b", re.I)
+SAID_BY = re.compile(r"^(?:(?:the|a|an)\s+[\w\s-]+|someone|somebody)$", re.I)
+A_NAME = re.compile(r"^[A-Z][\w'.-]*(?:\s+[A-Z][\w'.-]*)?$")
 UNSEEN = re.compile(r"\b(?:feels?|thinks?|remembers?|reali[sz]es?|decides?|wants?|hopes?|wonders?|knows?|understands?|believes?|imagines?)\b", re.I)
 MOVING = re.compile(r"\b(?:pov|walks?|walking|runs?|running|forward|follows?|tracks?)\b", re.I)
 FRAME_WORDS = re.compile(r"^(?:(?:an?|the)\s+(?:[\w-]+\s+){0,2}?(?:close-?up|wide|medium|shot|view|angle|overhead|profile|insert|aerial)\b|black\b)", re.I)
@@ -312,6 +326,26 @@ def read_notes(text, script):
         script.one_take = True
 
 
+def voice_of(before, voiceover, things=False):
+    """Who says a line from off screen, named by the words in front of it:
+    "A woman off screen says" is a woman, and with things, "The card reader
+    beeps and says" is the card reader. An @, a he or she, or no name at all
+    is someone on screen or the main person's own voiceover, so that gives ""."""
+    if TOKEN.search(before) or PRONOUN.search(before):
+        return ""
+    verb = SPEECH_VERB.search(before)
+    action = FROM_OFF_SCREEN.sub("", before[: verb.start()] if verb else before)
+    action = re.sub(r"[\s,]*\band\s*$", "", action.strip(" ,:")).split(",")[0].strip(" ,:")
+    if len(action.split()) > 2 and action.endswith("s"):  # "The card reader beeps": what it does goes.
+        action = action.rsplit(" ", 1)[0]
+    named = A_NAME.match(action) and not VOICEOVER.search(action)  # "Narrator" names no one.
+    if voiceover and (named or (SAID_BY.match(action) and PERSON_WORDS.search(action))):
+        return action
+    if things and SAID_BY.match(action) and not PERSON_WORDS.search(action):
+        return action
+    return ""
+
+
 def quoted_words(moment):
     """Quoted words after a sign word stay on screen, as does a bare ALL CAPS
     quote. Any other quote is words someone says."""
@@ -323,6 +357,7 @@ def quoted_words(moment):
     if not (SIGN_CUE.search(before) or (words.isupper() and not SPEECH_CUE.search(before))):
         moment.speech = words
         moment.voiceover = VOICEOVER.search(before) is not None
+        moment.voice = voice_of(before, moment.voiceover)
 
 
 def read_moment(moment):
@@ -725,7 +760,7 @@ def shot_lines(script, seconds, say, cast, wearers, move="", hold="", sounds=Tru
     say, so the moments of one take are sentences inside one shot."""
     starts = timeline(script, seconds)
     talking = speakers(script.moments, cast)
-    quiet = " ".join(QUIET.format(speaker=speaker) for speaker in talking)
+    quiet = " ".join(QUIET.format(speaker=speaker) for speaker in talking if speaker.startswith("<"))
     kept = still_true(script.moments)
     lines = []
     for number, shot in enumerate(shots_of(script), 1):
