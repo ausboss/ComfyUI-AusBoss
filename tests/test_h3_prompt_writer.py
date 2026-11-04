@@ -739,6 +739,19 @@ class VideoJobTests(unittest.TestCase):
         self.assertIn("card reader (S2) says from off screen, <d>[English] Card declined.</d> Nobody on screen moves", line)
         self.assertIn("<Subject 2> (S1) says, each word landing exactly on the lip movement of <Video 1>, <d>[English] Again?</d>", line)
 
+    def test_how_a_swap_line_is_said_stays_out_of_who_says_it(self):
+        script = '@1 replaces the man at the till.\nThe card reader says in a flat robot voice "Card declined."'
+        line = parts_of(script, jobs={1: "person"}, video="swap the person")["detailed_description"]
+        self.assertIn("card reader (S1) says in a flat robot voice from off screen, <d>[English] Card declined.</d>", line)
+        self.assertNotIn("reader says in", line)
+
+    def test_a_swap_line_keeps_the_decimals_of_its_time(self):
+        for script in ('@1 replaces the man at the till.\n3.2s: @1 says "Again?"', '@1 replaces the man at the till.\nAt 3.2 seconds @1 says "Again?"',
+                       '@1 replaces the man at the till.\nThe card reader, at 3.2s, says "Card declined."'):
+            line = parts_of(script, jobs={1: "person"}, video="swap the person", seconds=8)["detailed_description"]
+            self.assertIn("At 00:03.200,", line)
+        self.assertEqual(read_script("1.5s: she waves").moments[-1].at, 1.5)
+
     def test_a_swap_line_that_raps_keeps_the_verb_out_of_who_goes(self):
         parts = parts_of('@1 replaces the man on the left.\n@2 replaces the man on the right and raps "Yo, yo."', jobs={1: "person", 2: "person"}, video="swap the person")
         self.assertIn("replace the man on the right with <Subject 4>", parts["retention_analysis"])

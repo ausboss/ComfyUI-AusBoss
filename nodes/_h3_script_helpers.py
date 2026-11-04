@@ -53,7 +53,7 @@ TIMED = re.compile(
     r"(?:\s*-\s*\d+(?:\.\d+)?\s*(?:" + UNIT + r")?)?\]?\s*[:,\-]?\s*",
     re.I,
 )
-NUMBER = re.compile(r"^\s*(?:\d+[.)]|[-*•]|(?:first|second|third|fourth|fifth|sixth)(?:ly)?\b[:,]?|step\s+\d+[:.]?)\s*", re.I)
+NUMBER = re.compile(r"^\s*(?:\d+[.)](?!\d)|[-*•]|(?:first|second|third|fourth|fifth|sixth)(?:ly)?\b[:,]?|step\s+\d+[:.]?)\s*", re.I)
 LABEL = re.compile(r"^(camera|style|look|sound|sounds|audio|music)\s*:\s*(.*)$", re.I)
 SPEECH_CUE = re.compile(
     r"\b(?:says?|said|asks?|whispers?|shouts?|yells?|screams?|mutters?|sings?|raps?|chants?|announces?|calls?\s+out|cries"
@@ -239,6 +239,7 @@ class Moment:
     sound: str = ""  # A sound: line typed in this shot's block.
     line: int | None = None  # The typed line this moment opens, counted from 0.
     voice: str = ""  # Who says the words when it is nobody on screen: "The card reader".
+    delivery: str = ""  # How a swap line is said: "in a flat robot voice".
 
 
 @dataclass
@@ -737,6 +738,8 @@ def shot_lines(script, seconds, say, cast, wearers, move="", hold="", sounds=Tru
 
             def speak(words, on_screen=True, moment=moment):
                 who = speaker_of(moment, cast)
+                if moment.delivery:
+                    return say(words, on_screen, who, talking.index(who) + 1, delivery=moment.delivery)
                 return say(words, on_screen, who, talking.index(who) + 1)
 
             words = " ".join(
@@ -752,6 +755,8 @@ def shot_lines(script, seconds, say, cast, wearers, move="", hold="", sounds=Tru
         text = " ".join(said)
         first = shot[0]
         head, said[0] = (cut_to(said[0], text, cast) if number > 1 else ("", said[0]))
+        if not head and starts[first] > 0:  # A swap's first words can start late in the video.
+            said[0] = f"At {stamp(starts[first])}, {after_comma(said[0])}"
         for place, index in enumerate(shot[1:], 1):
             lead = f"{STILL_MOVING} " if moving else ""
             said[place] = f"At {stamp(starts[index])}, {lead}{after_comma(said[place])}"

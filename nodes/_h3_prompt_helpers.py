@@ -91,18 +91,19 @@ def add_task(summary, task):
     return "[" + " + ".join(tasks) + "]" + summary[match.end() :]
 
 
-def spoken_line(speaker, words, language, voice_label, on_screen, number=1, lips=""):
+def spoken_line(speaker, words, language, voice_label, on_screen, number=1, lips="", delivery=""):
     """The sentence that carries the words, with the speaker's mouth stated
     the way H3 needs it: moving and then closed on screen, closed in a
     voiceover. lips names a video whose lip movement the words land on."""
     line = f"<d>[{language}] {words}</d>"
+    said = f"says {delivery}" if delivery else "says"
     if not speaker.startswith("<"):  # A thing off screen, like a card reader.
-        return f"{speaker} (S{number}) says from off screen, {line} Nobody on screen moves their lips to these words."
+        return f"{speaker} (S{number}) {said} from off screen, {line} Nobody on screen moves their lips to these words."
     if on_screen:
-        how = f"says, each word landing exactly on the lip movement of {lips}," if lips else "says,"
+        how = f"{said}, each word landing exactly on the lip movement of {lips}," if lips else f"{said},"
         if voice_label:
             landing = f", each word landing exactly on the lip movement of {lips}," if lips else ""
-            how = f"speaks using the voice timbre referenced from {voice_label}{landing} and says,"
+            how = f"speaks using the voice timbre referenced from {voice_label}{landing} and {said},"
         return (
             f"{speaker} (S{number}) {how} {line} The jaw and lips of {speaker} move "
             f"clearly through every word. {speaker} closes the lips."
@@ -122,6 +123,9 @@ PERSON_WORDS = re.compile(
     r"|waitress|driver|worker|singer|rapper|dancer|host|friend|everyone|someone|somebody)\b",
     re.I,
 )
+# "says in a flat robot voice": how it is said, kept out of who says it.
+SPEECH_VERB = re.compile(r"\b(?:says?|said|asks?|whispers?|shouts?|yells?|screams?|mutters?|sings?|raps?|chants?|announces?|calls?\s+out|cries|replies|answers?)\b", re.I)
+DELIVERY = re.compile(r"^(?:in|with|like)\b[^\"]*$", re.I)
 SAID_BY = re.compile(r"^(?:the|a|an)\s+[\w\s-]+$", re.I)
 
 
@@ -152,17 +156,34 @@ def only_the_words(moment, names=None, last=""):
     if not slot and PRONOUN.search(before):
         slot = last
     words = Moment(f'says "{moment.speech}"', at=moment.at, speech=moment.speech, voiceover=moment.voiceover)
+    verb = SPEECH_VERB.search(before)
+    if verb and DELIVERY.match(before[verb.end() :].strip(" ,:")):
+        words.delivery = before[verb.end() :].strip(" ,:")
     if slot:
         words.text = f"@{slot} {words.text}"
         return words, slot
     # "The card reader beeps and says": the words in front of what it does.
-    action = re.sub(r"[\s,]*\b(?:and\s+)?\w+\s*$", "", before.strip()).split(",")[0].strip()
+    action = before[: verb.start()] if verb else re.sub(r"\s*\w+\s*$", "", before.strip())
+    action = re.sub(r"[\s,]*\band\s*$", "", action.strip()).split(",")[0].strip()
     if len(action.split()) > 2 and action.endswith("s"):
         action = action.rsplit(" ", 1)[0]
     if SAID_BY.match(action) and not PERSON_WORDS.search(action):
         words.voice = action
         words.voiceover = True
     return words, last
+
+
+# A time typed inside a swap line, not at its start: "Dario, at 3.2s, says" or "(00:03.2)".
+TIME_IN_LINE = re.compile(r"\b(?:(\d+):(\d\d(?:\.\d+)?)|(\d+(?:\.\d+)?)\s*(?:seconds?|secs?|s)\b)", re.I)
+
+
+def time_in(text):
+    match = TIME_IN_LINE.search(text)
+    if not match:
+        return None
+    if match.group(1) is not None:
+        return int(match.group(1)) * 60 + float(match.group(2))
+    return float(match.group(3))
 
 
 def swap_lines(moments):
@@ -175,6 +196,8 @@ def swap_lines(moments):
             last = who.group(1) if who else last
             continue
         words, last = only_the_words(moment, names, last)
+        if words.at is None:
+            words.at = time_in(moment.text.partition(f'"{moment.speech}"')[0])
         kept.append(words)
     return kept
 
@@ -280,9 +303,10 @@ def write_prompt(script, seconds=15.0, camera="", look="", sound="", language="E
 
     if parts is None:
 
-        def say(words, on_screen=True, who="<Subject 1>", number=1):
+        def say(words, on_screen=True, who="<Subject 1>", number=1, delivery=""):
             lips = "<Video 1>" if video in (REVOICE, SWAP) else ""
-            return spoken_line(who, clean_words(words), language, voice_label if number == 1 else None, on_screen, number, lips)
+            voiced = voice_label if number == 1 else None
+            return spoken_line(who, clean_words(words), language, voiced, on_screen, number, lips, delivery)
 
         keeps_song = song_beats is not None and not voice  # The song is then all the sound there is.
         parts = script_parts(
