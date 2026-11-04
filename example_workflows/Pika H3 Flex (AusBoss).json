@@ -1456,14 +1456,14 @@
     "ver": "0.43.2"
    },
    "widgets_values": [
-    "01_card_declined.mp4",
+    "",
     0,
     0,
     10,
     ""
    ],
    "widgets_values_named": {
-    "audio": "01_card_declined.mp4",
+    "audio": "",
     "start_seconds": 0,
     "end_seconds": 0,
     "max_seconds": 10,
@@ -1566,14 +1566,14 @@
     "ver": "0.43.2"
    },
    "widgets_values": [
-    "01_card_declined.mp4",
+    "",
     0,
     0,
     10,
     ""
    ],
    "widgets_values_named": {
-    "audio": "01_card_declined.mp4",
+    "audio": "",
     "start_seconds": 0,
     "end_seconds": 0,
     "max_seconds": 10,
@@ -3452,10 +3452,10 @@
     "ver": "2.21.0"
    },
    "widgets_values": [
-    "{\"v\": 1, \"title\": \"Settings\", \"subtitle\": \"Only Picture 1 is on as it opens. Load it, type, press Run.\", \"author\": \"\", \"body\": \"### Swap someone in a video\\n1. Switch on **Video** and **Keep the clip's sound**, and load your clip.\\n2. Load the new person in **Picture 1**.\\n3. Clear **What happens** and press **Run**.\\n\\nTwo people in the clip? Type who goes, like \\\"the man in the hat\\\".\\n\\n### Good to know\\n- Click an arrow on a note to jump to what it points at.\\n- Purple nodes are switched off and need no file. The switches turn them on.\\n\\n### A clip came out wrong?\\nRun it again: the seed changes after every run. Still wrong? Read **Prompt H3 sees** on the right, then say it more plainly, one thing at a time. \\\"Value not in list\\\" means a file is missing.\", \"models\": [], \"packs\": [], \"links\": [], \"layout\": \"card\", \"accent\": \"\"}"
+    "{\"v\": 1, \"title\": \"Settings\", \"subtitle\": \"Only Picture 1 is on as it opens. Load it, type, press Run.\", \"author\": \"\", \"body\": \"### Swap someone in a video\\n1. Switch on **Video** and **Keep the clip's sound**, and load your clip.\\n2. Load the new person in **Picture 1**.\\n3. Clear **What happens** and press **Run**.\\n\\nSwapping two people? Switch on **Picture 2** too: Picture 1 takes the left one's place and Picture 2 the right one's. Or type who goes, one line each: `@1 the man in the hat`. Two can take a couple of runs.\\n\\n### Good to know\\n- Click an arrow on a note to jump to what it points at.\\n- Purple nodes are switched off and need no file. The switches turn them on.\\n\\n### A clip came out wrong?\\nRun it again: the seed changes after every run. Still wrong? Read **Prompt H3 sees** on the right, then say it more plainly, one thing at a time. \\\"Value not in list\\\" means a file is missing.\", \"models\": [], \"packs\": [], \"links\": [], \"layout\": \"card\", \"accent\": \"\"}"
    ],
    "widgets_values_named": {
-    "note": "{\"v\": 1, \"title\": \"Settings\", \"subtitle\": \"Only Picture 1 is on as it opens. Load it, type, press Run.\", \"author\": \"\", \"body\": \"### Swap someone in a video\\n1. Switch on **Video** and **Keep the clip's sound**, and load your clip.\\n2. Load the new person in **Picture 1**.\\n3. Clear **What happens** and press **Run**.\\n\\nTwo people in the clip? Type who goes, like \\\"the man in the hat\\\".\\n\\n### Good to know\\n- Click an arrow on a note to jump to what it points at.\\n- Purple nodes are switched off and need no file. The switches turn them on.\\n\\n### A clip came out wrong?\\nRun it again: the seed changes after every run. Still wrong? Read **Prompt H3 sees** on the right, then say it more plainly, one thing at a time. \\\"Value not in list\\\" means a file is missing.\", \"models\": [], \"packs\": [], \"links\": [], \"layout\": \"card\", \"accent\": \"\"}"
+    "note": "{\"v\": 1, \"title\": \"Settings\", \"subtitle\": \"Only Picture 1 is on as it opens. Load it, type, press Run.\", \"author\": \"\", \"body\": \"### Swap someone in a video\\n1. Switch on **Video** and **Keep the clip's sound**, and load your clip.\\n2. Load the new person in **Picture 1**.\\n3. Clear **What happens** and press **Run**.\\n\\nSwapping two people? Switch on **Picture 2** too: Picture 1 takes the left one's place and Picture 2 the right one's. Or type who goes, one line each: `@1 the man in the hat`. Two can take a couple of runs.\\n\\n### Good to know\\n- Click an arrow on a note to jump to what it points at.\\n- Purple nodes are switched off and need no file. The switches turn them on.\\n\\n### A clip came out wrong?\\nRun it again: the seed changes after every run. Still wrong? Read **Prompt H3 sees** on the right, then say it more plainly, one thing at a time. \\\"Value not in list\\\" means a file is missing.\", \"models\": [], \"packs\": [], \"links\": [], \"layout\": \"card\", \"accent\": \"\"}"
    },
    "color": "#14424d",
    "bgcolor": "#161f21"
@@ -5207,7 +5207,7 @@
       ]
      },
      {
-      "id": "f14285c7-e429-4811-9dce-ac349af3a4e5",
+      "id": "2a4f3f09-5879-40dd-9a49-5efbf54e0a73",
       "name": "clip sound",
       "type": "AUDIO",
       "linkIds": [
@@ -5219,7 +5219,7 @@
       ]
      },
      {
-      "id": "d619bfaa-dc51-4cbd-a4b1-e5822815a73c",
+      "id": "feffb6b8-090f-4b90-b334-2a044da85c5d",
       "name": "steer mouths",
       "type": "BOOLEAN",
       "linkIds": [
