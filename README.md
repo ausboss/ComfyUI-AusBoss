@@ -68,7 +68,7 @@ Rotate, crop and pad a picture by dragging handles on the node. Cyan squares cro
 
 Tap a ratio under the preview to pad the picture to it, or to crop it with **Fit** set to crop. A lit ratio is the shape the canvas has right now: drag a handle to another shape and it goes dark, and the row says Custom. The padlock at the end of the row keeps the shape while you drag, and the button at the start turns the shape between portrait and landscape. **Reset crop** brings back the whole picture, and **Divisible by** makes the width and height divide evenly by a number such as 8, 16 or 32, for models that need it. Feather and output resizing are on the node and in the editor.
 
-It returns the `image`, a `mask` of everything the model paints (padding, see-through parts of the source and the corners a rotation opens up), a `stitcher`, the untouched `original`, the output `width` and `height`, and a `prompt_image`. Wire the stitcher into **Stitch Inpaint** after the sampler to put your original back. See-through parts of a PNG, such as a cutout's missing background, are filled like the padding and painted; `prompt_image` and `original` show them as white. Give `prompt_image` to whatever writes your prompt, so it describes a real backdrop instead of the gray fill. **Load Image + Pad** has more fill choices and a separate reference output.
+It returns the `image`, a `mask` of everything the model paints (padding, see-through parts of the source and the corners a rotation opens up), a `stitcher`, the untransformed `original`, the output `width` and `height`, and a `prompt_image`. Wire the stitcher into **Stitch Inpaint** after the sampler to put your original back. By default, see-through parts of a PNG, such as a cutout's missing background, are filled like the padding and painted; `prompt_image` and `original` show them as white. Give `prompt_image` to whatever writes your prompt, so it describes a real backdrop instead of the gray fill. **Load Image + Pad** has more fill choices and a separate reference output.
 
 ![The full-screen image editor with a rotated lake photo, cyan crop handles, orange padding handles, aspect ratios, and dimension controls.](assets/readme/image-editor.webp)
 
@@ -78,9 +78,9 @@ Krea 2 Rotate + Outpaint turns a photo, pads it and paints the new area in one p
 
 ### Load Image + Pad
 
-Makes a canvas for outpainting: drag the edges out to add room around a picture. The Source list shows the picture under the pointer. The new area can be a solid color, the average color of the nearest edge, the edge pixels smeared outward, a blurred copy of the picture, or a mirror of it. The card also has a seam feather, a canvas multiple and a megapixel budget, and **Exact padding** opens one control per side. A budget of 0 keeps the picture's size, and anything higher resizes the picture before padding. A picture wired into `source_image` is padded instead of the chosen file.
+Makes a canvas for outpainting: drag the edges out to add room around a picture. The Source list shows the picture under the pointer. The new area can be a solid color, the average color of the nearest edge, the edge pixels smeared outward, a blurred copy of the picture, or a mirror of it. The card also has a seam feather, a canvas multiple and a megapixel budget, and **Exact padding** opens one control per side. A budget of 0 skips resizing, though the canvas multiple can still trim a few pixels; anything higher resizes the picture before padding. A picture wired into `source_image` is padded instead of the chosen file.
 
-It returns the padded `image`, a `mask` of the padding, `width`, `height`, a `stitcher`, and a smaller unpadded `reference` for the model. Wire the stitcher into **Stitch Inpaint** after the sampler, and everything outside the seam stays your original picture.
+It returns the padded `image`, a `mask` of the padding, `width`, `height`, a `stitcher`, and an unpadded `reference` for the model, fitted to a multiple of 16 and shrunk if needed. Wire the stitcher into **Stitch Inpaint** after the sampler, and everything outside the seam stays your original picture.
 
 The Klein 9B Outpaint example pads its picture with Load Image + Pad. [Open the Klein 9B Outpaint workflow →](example_workflows/Klein%209B%20Outpaint%20%28AusBoss%29.json)
 
@@ -100,7 +100,7 @@ An optional mask is resized the same way. It returns `image`, `mask`, `width` an
 
 Sets the size of the finished picture in megapixels and cuts your picture into tiles a model can redraw one at a time. A picture that fits in one tile stays whole, and a small picture is not redrawn far past the detail it has. Send the tiles through your sampler, then into Tiled Upscale Stitch with the stitcher.
 
-Megapixels is the one control to set. Under More are the tile size, the overlap, the grid multiple and the redraw limit, and an upscale model can be plugged in. It returns `tiles`, `stitcher`, `before` (your picture enlarged the plain way to the finished size), `width`, `height` and a `report` that says what was done.
+Megapixels is the one control to set. Under More are the tile size, the overlap, the grid multiple and the redraw limit, and an upscale model can be plugged in. It returns `tiles`, `stitcher`, `before` (your picture resized the plain way to the finished size), `width`, `height` and a `report` that says what was done.
 
 ### Tiled Upscale Stitch
 
@@ -168,13 +168,13 @@ Picks one frame from a video, then gives you the same rotate, crop and pad contr
 
 ### Video Crop + Rotate + Pad → Clip
 
-Applies one rotate, crop and pad to every frame of a trimmed clip. It has the source picker, a timeline with a playhead and frame-accurate IN and OUT handles, frame skipping, a frame limit, the transform handles and output resizing. While you drag a trim handle, the node shows the exact first or last frame the run keeps. The bright part of the selection is what gets output.
+Applies one rotate, crop and pad to every frame of a trimmed clip. It has the source picker, a timeline with a playhead and frame-accurate IN and OUT handles, frame skipping, a Length control, the transform handles and output resizing. While you drag a trim handle, the node shows the exact first or last frame the run keeps. The bright part of the selection is what gets output.
 
 Fill, feather and the resize budget sit on the node face, and a new clip keeps them. That matters for video outpainting, because the black, hard-edged canvas the model needs survives a source swap. A fresh Clip node starts with that canvas, and the editor's **Reset transform** goes back to it. **Frames for** trims the end to the frame count the next video model takes: LTX (8n+1) or Wan (4n+1). Tap a ratio to pad the clip to it; a new clip is padded to the lit ratio too. The padlock keeps the shape while you drag a handle.
 
 It returns the frames, mask, audio, frame count, fps, size, duration, a `stitcher`, and the chosen `original` frames before the transform. **Inpaint & Stitch** in the editor sets the protected source area and previews the blend. After a video outpaint, wire the stitcher straight into **Stitch Inpaint**, with no Crop For Inpaint in between. It works in chunks to keep memory down.
 
-**Fixed frames** sets an exact output length: 120 frames at 24 fps is five seconds. Drag either handle, or drag the highlighted band to move the whole window. Type the count, or link a frame count into `fixed_frames`. 0 turns the fixed length off. The frame limit still caps the length.
+**Length** sets a number of output frames from IN. Drag IN or the small middle grip to move the window; drag OUT or type the count to change its length. The count stays when you choose a new clip, but the source can end before it is reached. For an exact count, link `fixed_frames`: 120 frames at 24 fps is five seconds. A positive value overrides OUT/`end_frame`, Length, `frame_load_cap` and Frames for; 0 turns it off. The source must be long enough, and IN can move earlier near the end so the window fits.
 
 ![The full-screen video editor with a portrait clip padded to landscape, an Inpaint and Stitch panel, and a timeline with IN and OUT handles.](assets/readme/video-editor.webp)
 
@@ -307,7 +307,7 @@ It returns `width`, `height` and an empty image latent. The gear picks the laten
 
 ### Layout Boxes
 
-Draw boxes on a canvas and say what goes in each one: a thing, or words to write in the picture. Wire `elements` to MOSS-Image Layout Prompt and the picture puts each thing where its box is. It does what ComfyUI's own Create Bounding Boxes does, with the same inputs and the same outputs from the same boxes, and its canvas also works in the classic node look.
+Draw boxes on a canvas and say what goes in each one: a thing, or words to write in the picture. Wire `elements` to MOSS-Image Layout Prompt and the picture puts each thing where its box is. It shares the `background`, `bboxes`, `width` and `height` inputs with ComfyUI's own Create Bounding Boxes. For the same boxes, its first three outputs match, with `mask` added after them. It saves its boxes in its own `layout` text, and its canvas also works in the classic node look.
 
 Drag to draw a box, drag it to move it and its handles to size it; under the canvas each box gets **object** or **text**, its words and up to five colors. A picture on `background` shows under the boxes and sets the canvas size, `width` and `height` can come from Latent Size, and boxes on the `bboxes` wire fill the canvas when the workflow runs. **Grid** snaps the boxes as you drag them, starts off over a picture and takes its size from the gear, **Layouts** starts from a ready arrangement, the arrow keys move the chosen box one pixel at a time (ten with Shift), and Delete and Ctrl + D remove and copy it.
 
@@ -321,7 +321,7 @@ One seed for several samplers. **Random**, **Fixed** and **Step** set what happe
 
 ### Select Every Nth
 
-Keeps every nth picture of a batch, after an offset that counts from 0. With nth 2, offset 0 keeps frames 1, 3 and 5, and offset 1 keeps 2, 4 and 6. The order stays the same. Wire the batch's fps in, and the `fps` output is divided by nth, so the thinned clip still lasts as long.
+Keeps every nth picture of a batch, after an offset that counts from 0. With nth 2, offset 0 keeps frames 1, 3 and 5, and offset 1 keeps 2, 4 and 6. The order stays the same. Wire the batch's fps in, and the `fps` output is divided by nth, so the thinned clip keeps its playback speed. Offset removes the start, and rounding to whole frames can change the duration.
 
 ### Split Batch
 
@@ -341,7 +341,7 @@ Type what happens, one line for each moment, and leave a blank line to cut to a 
 
 ### Integer
 
-One whole number (`INT`) on a scrub control, for sharing a size, count or other whole number across nodes. Like every number box in the pack, it takes a typed sum: `1024*1.5`.
+One whole number (`INT`) on a scrub control, for sharing a size, count or other whole number across nodes. It takes a typed sum: `1024*1.5`.
 
 ### Float
 
@@ -437,7 +437,7 @@ People who download your workflow get the nodes through ComfyUI-Manager's missin
 - Hold Shift while you turn the green rotation handle to snap to 15° steps.
 - In the full-screen editor, the mouse wheel zooms, and the middle mouse button or Alt-drag pans. On the node itself, the wheel and middle mouse button still move the graph.
 - **Alt+E** opens the selected node's transform editor. Change the key in Settings → Keybindings.
-- The video editors have frame stepping, playback and exact timeline seeking, on the node face as well as in the editor. The Clip node's IN and OUT handles sit on the source's own frames, so the frame shown for IN is the first one decoded and the frame shown for OUT is the last.
+- The video editors have frame stepping, playback and exact timeline seeking, on the node face as well as in the editor. The Clip node's IN and OUT handles sit on the source's own frames and show the first and last frames the run keeps.
 - Your own aspect presets go in `ausboss_presets.json` beside the pack. Copy [`ausboss_presets_example.json`](ausboss_presets_example.json) to start. Your file survives updates.
 
 LoRA Loader and Latent Size have their own gear menus for per-node preferences.
@@ -446,7 +446,7 @@ The video transform nodes read a video you pick from a list of ComfyUI's input f
 
 ## Optional extras
 
-Three features need an extra Python package. Install it with the Python that runs ComfyUI. For the Windows portable build, that is `python_embeded\python.exe -m pip install ...` from the portable folder.
+These optional features need an extra Python package. Install it with the Python that runs ComfyUI. For the Windows portable build, that is `python_embeded\python.exe -m pip install ...` from the portable folder.
 
 ```bash
 python -m pip install opencv-contrib-python   # Mask Refine: guided filter
