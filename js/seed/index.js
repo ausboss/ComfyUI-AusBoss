@@ -19,6 +19,8 @@ import { copyToClipboard } from "../shared/clipboard.mjs";
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
 import { holdNodeMinWidth, pinVuePanelHeight } from "../shared/panel_layout.mjs";
 import { formatSeed, pushSeed, seedFromExecuted } from "../shared/seed_history.mjs";
+import { SEED_LOOK_MENU, SEED_LOOK_SCOPE, controlChip, nextControl, seedLook, setSeedLook } from "../shared/seed_look.mjs";
+import { gearIconSvg, loadSettings, openSettingsMenu } from "../shared/settings_menu.mjs";
 
 const NODE_CLASS = "AUSBOSS_NODES_Seed";
 const CSS_ID = "ausboss-seed-css";
@@ -28,8 +30,19 @@ const PROPERTY = "ausboss_seed_history"; // [seed, newest first]
 // in a double; a fresh seed rolled here obeys the same ceiling.
 const ROLL_MAX = 0x4000000000000;
 const CARD_HEIGHT = 158;
-const PANEL_DECLARED_HEIGHT = CARD_HEIGHT + 20; // + the frontend's wrapper insets
+// The compact look is one row: 8px card padding, a 32px row, 8px padding.
+const COMPACT_CARD_HEIGHT = 50;
+const PANEL_INSETS = 20; // the frontend's wrapper insets
 const NODE_WIDTH = 300;
+const COMPACT_NODE_WIDTH = 290;
+
+function panelHeight(node) {
+  return (seedLook(node) === "compact" ? COMPACT_CARD_HEIGHT : CARD_HEIGHT) + PANEL_INSETS;
+}
+
+function nodeWidthFloor(node) {
+  return seedLook(node) === "compact" ? COMPACT_NODE_WIDTH : NODE_WIDTH;
+}
 
 let openMenu = null;
 
@@ -59,6 +72,21 @@ function ensureCss() {
 .ausboss-seed-btn:disabled{opacity:.4;cursor:default;pointer-events:none;}
 .ausboss-seed-hint{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:#6f8886;font-size:10.5px;text-align:center;}
 .ausboss-seed-hint b{color:#9fe3dc;font-weight:600;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;}
+.ausboss-seed-top{display:flex;align-items:center;gap:6px;min-width:0;}
+.ausboss-seed-top .ausboss-seed-field{flex:1 1 auto;min-width:0;}
+.ausboss-seed-gear{display:grid;place-items:center;}
+.ausboss-seed-chip,.ausboss-seed-dice{display:none;flex:none;height:32px;border:1px solid #2a3437;border-radius:7px;background:#0f1516;color:#d8ecea;font:600 11.5px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer;pointer-events:auto;}
+.ausboss-seed-chip{min-width:56px;padding:0 7px;}
+.ausboss-seed-chip.random{border-color:rgba(0,180,170,.55);color:${BRAND};}
+.ausboss-seed-dice{width:32px;font-size:15px;}
+.ausboss-seed-chip:hover,.ausboss-seed-dice:hover{border-color:${BRAND};color:#fff;}
+.ausboss-seed-card.compact{gap:0;}
+.ausboss-seed-card.compact .ausboss-seed-seg,.ausboss-seed-card.compact .ausboss-seed-row,.ausboss-seed-card.compact .ausboss-seed-hint{display:none;}
+.ausboss-seed-card.compact .ausboss-seed-chip,.ausboss-seed-card.compact .ausboss-seed-dice{display:block;}
+.ausboss-seed-card.compact .ausboss-seed-field{height:32px;padding:0 3px 0 9px;}
+.ausboss-seed-card.compact .ausboss-seed-field input{font-size:14px;}
+.ausboss-seed-card.compact .ausboss-seed-tag,.ausboss-seed-card.compact .ausboss-seed-icon:not(.ausboss-seed-gear){display:none;}
+.ausboss-seed-card.compact .ausboss-seed-field input{font-size:13.5px;letter-spacing:0;}
 .ausboss-seed-menu{position:fixed;z-index:10000;min-width:230px;padding:4px;border:1px solid #3a4047;border-radius:7px;background:#1c1f23;box-shadow:0 8px 28px rgba(0,0,0,.5);font:12px/1.3 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#d7dde2;}
 .ausboss-seed-menu-head{padding:5px 8px 6px;border-bottom:1px solid #2c3238;color:#78908e;font:10px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.08em;text-transform:uppercase;}
 .ausboss-seed-menu-item{display:block;width:100%;padding:6px 8px;border:none;border-radius:5px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;}
@@ -124,6 +152,7 @@ function render(state) {
   const linked = seedLinked(node);
   const value = seedWidget(node)?.value;
   if (document.activeElement !== state.input) state.input.value = formatSeed(Number(value));
+  fitCompactNumber(state);
   state.input.disabled = linked;
   state.field.classList.toggle("linked", linked);
   state.field.title = linked ? "The seed comes from its input link" : "Click to type a seed";
@@ -136,6 +165,11 @@ function render(state) {
   state.segStep.title = stepping
     ? "Click again to step the other way"
     : "Increment the seed after each queue (click again for decrement)";
+  const chip = controlChip(control);
+  state.chip.textContent = chip.text;
+  state.chip.title = chip.title;
+  state.chip.classList.toggle("random", control === "randomize");
+  state.card.classList.toggle("compact", seedLook(node) === "compact");
   state.useLast.disabled = !seeds.length;
   state.more.disabled = seeds.length < 2;
   state.hint.textContent = "";
@@ -145,11 +179,23 @@ function render(state) {
     b.textContent = formatSeed(last);
     state.hint.append(b);
     if (control === "randomize") state.hint.append(" · rolls a new seed each queue");
+    // The compact look has no hint line: the last run shows on the number.
+    if (seedLook(node) === "compact") state.field.title = `${state.field.title}. Last run: ${formatSeed(last)}`;
   } else {
     state.hint.textContent = control === "randomize"
       ? "rolls a new seed each queue"
       : control === "fixed" ? "same seed every queue" : "steps the seed after each queue";
   }
+}
+
+// The compact row is narrow, so a long seed gets smaller digits instead of
+// being cut off: monospace digits are about 0.6 of the font size wide.
+function fitCompactNumber(state) {
+  const { input } = state;
+  if (seedLook(state.node) !== "compact") { input.style.fontSize = ""; return; }
+  const digits = Math.max(1, String(input.value || "").length);
+  const room = input.clientWidth || 100;
+  input.style.fontSize = `${Math.max(8, Math.min(13.5, room / (0.64 * digits))).toFixed(1)}px`;
 }
 
 function showMenu(state) {
@@ -241,7 +287,9 @@ function buildPanel(node) {
   input.inputMode = "numeric";
   input.spellcheck = false;
   const copy = button("ausboss-seed-icon", "⧉", "Copy the seed");
-  field.append(tag, input, copy);
+  const gear = button("ausboss-seed-icon ausboss-seed-gear", "", "Seed settings: full or compact look");
+  gear.innerHTML = gearIconSvg(12);
+  field.append(tag, input, copy, gear);
   field.addEventListener("pointerdown", (event) => event.stopPropagation());
 
   const seg = el("div", "ausboss-seed-seg");
@@ -257,11 +305,16 @@ function buildPanel(node) {
   row.append(newSeed, useLast, more);
 
   const hint = el("div", "ausboss-seed-hint");
-  card.append(field, seg, row, hint);
+  // Compact look: the mode chip and a dice sit on the number's row.
+  const chip = button("ausboss-seed-chip", "Fixed");
+  const dice = button("ausboss-seed-dice", "🎲", "Roll a fresh seed and pin it (Fixed)");
+  const top = el("div", "ausboss-seed-top");
+  top.append(field, chip, dice);
+  card.append(top, seg, row, hint);
   root.append(card);
 
   const state = (node.__ausbossSeed = {
-    node, root, field, tag, input, copy, segRandom, segFixed, segStep, newSeed, useLast, more, hint,
+    node, root, card, field, tag, input, copy, gear, chip, dice, segRandom, segFixed, segStep, newSeed, useLast, more, hint,
   });
 
   const commitTyped = () => {
@@ -304,6 +357,31 @@ function buildPanel(node) {
     notifyAusbossChange();
   });
   newSeed.addEventListener("click", () => { setSeed(node, rollSeed()); render(state); });
+  dice.addEventListener("click", () => { setSeed(node, rollSeed()); render(state); });
+  // The chip walks the same modes as the full card's buttons, and starts a
+  // new run the same way: into Random rolls now, Fixed into +1 steps now.
+  chip.addEventListener("click", () => {
+    const current = controlWidget(node)?.value ?? "fixed";
+    const next = nextControl(current);
+    setControl(node, next);
+    if (!seedLinked(node)) {
+      const value = Number(seed.value) || 0;
+      if (next === "randomize") setSeed(node, rollSeed(), { pin: false });
+      else if (current === "fixed" && next === "increment") setSeed(node, value + 1, { pin: false });
+    }
+    render(state);
+    notifyAusbossChange();
+  });
+  gear.addEventListener("click", () => {
+    openSettingsMenu({
+      scope: SEED_LOOK_SCOPE,
+      schema: SEED_LOOK_MENU,
+      anchor: gear.getBoundingClientRect(),
+      title: "Seed settings",
+      initial: { look: seedLook(node) },
+      onChange: (values) => applyLook(state, values.look),
+    });
+  });
   useLast.addEventListener("click", () => {
     const seeds = history(node);
     if (seeds.length) { setSeed(node, seeds[0]); render(state); }
@@ -318,7 +396,7 @@ function buildPanel(node) {
   const widget = node.addDOMWidget(WIDGET_NAME, "ausboss_seed", root, {
     serialize: false,
     hideOnZoom: false,
-    getMinHeight: () => PANEL_DECLARED_HEIGHT,
+    getMinHeight: () => panelHeight(node),
   });
   keepDomWidgetWidthAuto(widget);
   // Not saved with the workflow either: options.serialize only keeps it out
@@ -327,18 +405,20 @@ function buildPanel(node) {
   // A constant-height card: pinned on purpose (see
   // tests/panel_guards.test.mjs, fixedByDesign).
   widget.computeSize = (width) => [
-    Math.max(NODE_WIDTH, Number(width || node.size?.[0] || NODE_WIDTH)),
-    PANEL_DECLARED_HEIGHT,
+    Math.max(nodeWidthFloor(node), Number(width || node.size?.[0] || nodeWidthFloor(node))),
+    panelHeight(node),
   ];
   // Pinned in Nodes 2.0 as well, where a node can be made taller than its card.
   pinVuePanelHeight(widget);
-  widget.options.minNodeSize = [NODE_WIDTH, 120];
+  widget.options.minNodeSize = [nodeWidthFloor(node), 60];
   // The frontend skips a pinned card's width, so its floor is held here.
-  holdNodeMinWidth(widget, NODE_WIDTH);
+  holdNodeMinWidth(widget, nodeWidthFloor(node));
+  state.widget = widget;
 
+  new ResizeObserver(() => fitCompactNumber(state)).observe(input);
   render(state);
   node.setSize?.([
-    Math.max(node.size?.[0] ?? 0, NODE_WIDTH),
+    Math.max(node.size?.[0] ?? 0, nodeWidthFloor(node)),
     node.computeSize?.()[1] ?? node.size?.[1],
   ]);
   // The card is a fixed-height row: width may grow, but a corner drag
@@ -356,18 +436,49 @@ function buildPanel(node) {
   return state;
 }
 
+// Switch looks: the card, the node's floor and its height follow. Going
+// compact also makes the node as narrow as the compact row allows, and
+// going full widens it back to the full card's floor.
+function applyLook(state, look) {
+  const { node } = state;
+  const before = seedLook(node);
+  const after = setSeedLook(node, look);
+  if (before === after) return;
+  render(state);
+  if (state.widget) {
+    state.widget.options.minNodeSize = [nodeWidthFloor(node), 60];
+    holdNodeMinWidth(state.widget, nodeWidthFloor(node));
+  }
+  const width = after === "compact" ? COMPACT_NODE_WIDTH : Math.max(node.size?.[0] ?? 0, NODE_WIDTH);
+  node.setSize?.([width, node.computeSize?.()[1] ?? node.size?.[1]]);
+  node.setDirtyCanvas?.(true, true);
+  notifyAusbossChange();
+}
+
 app.registerExtension({
   name: "AusBoss.Seed",
   beforeRegisterNodeDef(nodeType, nodeData) {
     if (nodeData?.name !== NODE_CLASS) return;
     hideInputsInDef(nodeData, ["seed"]);
     chainCallback(nodeType.prototype, "onNodeCreated", function () {
-      buildPanel(this);
+      // A new node starts in the look last picked from any Seed's gear. A
+      // loaded one keeps its own: onConfigure restores its properties after.
+      if (loadSettings(SEED_LOOK_SCOPE, SEED_LOOK_MENU).look === "compact") setSeedLook(this, "compact");
+      const state = buildPanel(this);
+      if (state && seedLook(this) === "compact") {
+        this.setSize?.([COMPACT_NODE_WIDTH, this.computeSize?.()[1] ?? this.size?.[1]]);
+      }
     });
     chainCallback(nodeType.prototype, "onConfigure", function () {
       queueMicrotask(() => {
         const state = buildPanel(this);
-        if (state) render(state);
+        if (!state) return;
+        render(state);
+        // A saved compact Seed: lower the floor to the compact row's.
+        if (state.widget) {
+          state.widget.options.minNodeSize = [nodeWidthFloor(this), 60];
+          holdNodeMinWidth(state.widget, nodeWidthFloor(this));
+        }
       });
     });
     chainCallback(nodeType.prototype, "onConnectionsChange", function () {
