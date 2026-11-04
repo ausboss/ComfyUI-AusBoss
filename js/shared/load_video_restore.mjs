@@ -1,9 +1,6 @@
-// What a video dropped ONTO a Load Video 🆎 node restores. An AusBoss-saved
-// file carries the workflow that made it; if that workflow holds a Load
-// Video node, its trim and sampling values repopulate the target node so the
-// clip reloads the way it was loaded before. Pure parsing and sanitizing
-// only - the drop wiring lives in js/video_workflow_drop/index.js and
-// node:test drives this module directly.
+// Source-workflow parsing and defaults for importing a rendered video.
+// Embedded source settings only apply when reopening that original source;
+// applying them to its rendered output would trim and sample it twice.
 
 export const LOAD_VIDEO_CLASS = "AUSBOSS_NODES_LoadVideo";
 
@@ -41,6 +38,13 @@ export function isVideoFileName(name) {
   return VIDEO_FILE_PATTERN.test(String(name || ""));
 }
 
+export function renderedVideoValues() {
+  return {
+    start_seconds: 0, end_seconds: 0, custom_width: 0, custom_height: 0,
+    every_nth: 1, max_frames: 0, single_frame: false,
+  };
+}
+
 function sanitizedNumber(name, value) {
   const range = NUMERIC_RANGES[name];
   const number = Number(value);
@@ -65,8 +69,8 @@ function namedValues(raw) {
 }
 
 // name -> sanitized value for the first Load Video node in the workflow, or
-// null when there is none (or nothing usable on it). "video" is never
-// restored: the dropped file itself is the source now. A save from before
+// null when there is none (or nothing usable on it). Use these settings
+// only with the original source, never with a rendered export. A save from before
 // the single_frame widget existed was a trim, so the toggle restores off
 // rather than staying whatever the target node happened to have.
 export function loadVideoRestoreValues(workflow) {

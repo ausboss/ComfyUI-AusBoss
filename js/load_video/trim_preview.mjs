@@ -72,17 +72,22 @@ export function slideTrimWindow(durationValue, bounds, deltaValue) {
 // Single-frame mode: the chosen instant, kept just inside the source so the
 // decoder always finds a frame at or after it. An unknown duration passes the
 // value through, so a typed time survives until metadata arrives.
-export function singleFrameTime(durationValue, timeValue) {
+export function singleFrameTime(durationValue, timeValue, fpsValue = 0, countValue = 0) {
   const duration = Math.max(0, finiteNumber(durationValue, 0));
   const time = Math.max(0, finiteNumber(timeValue, 0));
   if (duration <= 0) return time;
+  const fps = Math.max(0, finiteNumber(fpsValue, 0));
+  if (fps > 0) {
+    const count = Math.max(1, Math.floor(finiteNumber(countValue, 0)) || Math.round(duration * fps));
+    return Math.min(time, (count - 1) / fps);
+  }
   return Math.min(time, Math.max(0, duration - MIN_TRIM_SECONDS));
 }
 
-export function singleFrameFraction(durationValue, timeValue) {
+export function singleFrameFraction(durationValue, timeValue, fpsValue = 0, countValue = 0) {
   const duration = Math.max(0, finiteNumber(durationValue, 0));
   if (duration <= 0) return 0;
-  return clamp(singleFrameTime(duration, timeValue) / duration, 0, 1);
+  return clamp(singleFrameTime(duration, timeValue, fpsValue, countValue) / duration, 0, 1);
 }
 
 // Leaving single-frame mode, the picked frame is IN. An OUT at or before it
@@ -107,7 +112,7 @@ export function formatFps(value) {
 // strip - or "" when there is nothing honest to say (unknown fps, an empty
 // window). The preview cannot re-render frame drops, so it reports them
 // instead, mirroring the backend's own arithmetic (decode_video_range):
-// ceil(window x fps) frames in the trim, one kept in every_nth, capped by
+// source timestamps inside the trim, one kept in every_nth, capped by
 // max_frames; single-frame mode always loads exactly one.
 // Mirror of the clip node's snap_frame_count: the largest step*n + 1 not
 // above count for a rule like "8n+1"; "free" keeps count.
@@ -139,7 +144,10 @@ export function loadSummary(
   if (end <= start) return "";
   const nth = Math.max(1, Math.floor(finiteNumber(everyNthValue, 1)));
   const cap = Math.max(0, Math.floor(finiteNumber(maxFramesValue, 0)));
-  let frames = Math.ceil(Math.ceil((end - start) * fps) / nth);
+  // Mirror the backend's inclusive timestamp comparison and epsilon.
+  const first = Math.max(0, Math.ceil((start - 1e-4) * fps));
+  const last = Math.floor((end - 1e-4) * fps);
+  let frames = Math.ceil(Math.max(0, last - first + 1) / nth);
   if (cap > 0) frames = Math.min(frames, cap);
   frames = snapFrameCount(frames, frameSnap);
   if (frames <= 0) return "";

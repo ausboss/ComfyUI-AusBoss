@@ -1676,13 +1676,15 @@ async function loadVideoFrame(state, serial = ++state.loadSerial, options = {}) 
   const blob = await response.blob();
   const objectUrl = URL.createObjectURL(blob);
   const image = new Image();
+  let adopted = false;
   try {
     await new Promise((resolve, reject) => {
       image.onload = resolve; image.onerror = () => reject(new Error("Could not display video frame.")); image.src = objectUrl;
     });
-    if (serial !== state.loadSerial) return;
+    if (serial !== state.loadSerial || state.disposed || controller.signal.aborted) return;
     if (state.frameObjectUrl) URL.revokeObjectURL(state.frameObjectUrl);
     state.frameObjectUrl = objectUrl; state.image = image;
+    adopted = true;
     state.scrubPreviewTile = null; // real frame arrived; drop the ghost tile
     const actualIndex = Number(response.headers.get("X-AusBoss-Frame-Index"));
     const actualTime = Number(response.headers.get("X-AusBoss-Frame-Time"));
@@ -1698,9 +1700,8 @@ async function loadVideoFrame(state, serial = ++state.loadSerial, options = {}) 
       if (Number.isFinite(actualTime)) setValue(state.node, "frame_time", actualTime);
       syncTimelineRange(state);
     }
-  } catch (error) {
-    URL.revokeObjectURL(objectUrl);
-    throw error;
+  } finally {
+    if (!adopted) URL.revokeObjectURL(objectUrl);
   }
 }
 
@@ -3157,7 +3158,7 @@ export function openTransformEditorForNode(node) {
 }
 
 export function disposeTransformNode(node) {
-  const state = node.__ausbossTransformState; if (!state) return; state.disposed = true; liveStates.delete(state); closeEditor(state); state.settle.cancel(); state.panelAbort?.abort(); state.panelResizeObserver?.disconnect(); state.frameController?.abort(); if (state.frameObjectUrl) URL.revokeObjectURL(state.frameObjectUrl);
+  const state = node.__ausbossTransformState; if (!state) return; state.disposed = true; state.loadSerial += 1; liveStates.delete(state); closeEditor(state); state.settle.cancel(); state.panelAbort?.abort(); state.panelResizeObserver?.disconnect(); state.frameController?.abort(); if (state.frameObjectUrl) URL.revokeObjectURL(state.frameObjectUrl);
   if (node.__ausbossImgsSuppressed) {
     const descriptor = node.__ausbossImgsDescriptor;
     if (descriptor) Object.defineProperty(node, "imgs", descriptor); else delete node.imgs;

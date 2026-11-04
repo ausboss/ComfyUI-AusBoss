@@ -54,12 +54,10 @@ export function frameWindow(info, startSeconds, endSeconds) {
   return { first, last };
 }
 
-// The seconds to store for a first/last frame pair. The frontend rounds
-// these FLOAT widgets to hundredths (their step), so the values are chosen
-// on that grid: IN is the largest hundredth that still keeps `first`, OUT
-// the smallest that still keeps `last` and drops the frame after it. Both
-// resolve back to the same frames under the backend's rule, and a window
-// that reaches the source's end stores 0 so the whole tail always stays in.
+// The seconds to store for a first/last frame pair. Prefer the widgets'
+// hundredth-second step where it can represent individual frames; faster
+// sources need precise timestamps. A window reaching the source's end stores
+// 0 so the whole tail always stays in.
 export const SECONDS_GRID = 0.01;
 
 function gridFloor(value) { return Math.round(Math.floor(value / SECONDS_GRID + 1e-9) * SECONDS_GRID * 1e6) / 1e6; }
@@ -70,6 +68,14 @@ export function windowSeconds(info, first, last) {
   if (!fps || !count) return { start_seconds: 0, end_seconds: 0 };
   const head = clamp(Math.round(finite(first)), 0, count - 1);
   const tail = clamp(Math.round(finite(last)), head, count - 1);
+  // Above 100 fps, adjacent frames share a hundredth. Keep their exact
+  // boundaries instead of widening a one-frame selection onto that grid.
+  if (fps > 1 / SECONDS_GRID) {
+    return {
+      start_seconds: head / fps,
+      end_seconds: tail >= count - 1 ? 0 : (tail + 1) / fps,
+    };
+  }
   return {
     start_seconds: head === 0 ? 0 : Math.max(0, gridFloor(head / fps + TRIM_EPSILON)),
     end_seconds: tail >= count - 1 ? 0 : gridCeil(tail / fps + TRIM_EPSILON),

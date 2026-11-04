@@ -400,7 +400,14 @@ def decode_audio_range(path: Path, start_seconds: float, end_seconds: float) -> 
         resampler = av.AudioResampler(format="fltp", layout=stream.layout, rate=rate)
         chunks: list[np.ndarray] = []
         first_time: float | None = None
+        raise_if_interrupted()
+        if start > 0 and stream.time_base:
+            # Audio packet boundaries need a little preroll. Seek on the
+            # audio stream, but translate from the video's shared clock.
+            target = max(0.0, start - 1.0) + stream_origin(clock)
+            container.seek(int(target / stream.time_base), stream=stream, backward=True)
         for frame in container.decode(stream):
+            raise_if_interrupted()
             time = stream_seconds(frame.time, clock)
             if time is None:
                 time = 0.0
@@ -424,8 +431,8 @@ def decode_audio_range(path: Path, start_seconds: float, end_seconds: float) -> 
     begin = max(0, -lead)
     length = max(1, round((end - start) * rate))
     data = data[:, begin : begin + length]
-    if data.size == 0:
-        return silent_audio(end - start)
+    if data.shape[1] < length:
+        data = np.pad(data, ((0, 0), (0, length - data.shape[1])))
     return {
         "waveform": torch.from_numpy(np.ascontiguousarray(data)).unsqueeze(0),
         "sample_rate": rate,

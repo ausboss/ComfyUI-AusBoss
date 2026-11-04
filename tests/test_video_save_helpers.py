@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import os
 import tempfile
 import threading
 import time
@@ -112,13 +113,17 @@ class FakeCoreVideo:
 
 
 class FakeFolderPaths:
+    temporary = tempfile.TemporaryDirectory()
+    last_output = None
+
     @staticmethod
     def get_output_directory():
-        return "/tmp"
+        return FakeFolderPaths.temporary.name
 
     @staticmethod
     def get_save_image_path(*_args):
-        return "/tmp", "video", 3, "AusBoss", "AusBoss/video"
+        FakeFolderPaths.last_output = tempfile.mkdtemp(dir=FakeFolderPaths.temporary.name)
+        return FakeFolderPaths.last_output, "video", 3, "AusBoss", "AusBoss/video"
 
 
 class SaveVideoHelperTests(unittest.TestCase):
@@ -297,7 +302,7 @@ class SaveVideoHelperTests(unittest.TestCase):
                 filename_prefix="AusBoss/video", crf=19,
             ))
         # The path the encoder wrote to, verbatim, as the node's one output.
-        self.assertEqual(result["result"], ("/tmp/video_00003_.mp4",))
+        self.assertEqual(result["result"], (str(Path(FakeFolderPaths.last_output) / "video_00003_.mp4"),))
         self.assertTrue(Path(result["result"][0]).is_absolute())
 
     def test_symlinked_prefix_is_refused_before_core_creates_folders(self):
@@ -380,6 +385,8 @@ class FormatTests(unittest.TestCase):
     CLIP = (8, 128, 160)
 
     def encodable(self, spec) -> bool:
+        if "nvenc" in spec.video_codec and os.environ.get("CUDA_VISIBLE_DEVICES") == "":
+            return False
         if not spec.video_codec:
             return True
         try:

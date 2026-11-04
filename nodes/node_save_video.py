@@ -244,22 +244,37 @@ class AusBossSaveVideo:
             )
         )
         extension = VIDEO_FORMATS[format][0] if format in VIDEO_FORMATS else "mp4"
-        file = f"{filename}_{counter:05}_.{extension}"
-        output_path = Path(full_output_folder) / file
-        require_output_path(output_path, output_root)
         # --disable-metadata is the server owner's call and beats the widget,
         # as it does for Save Image and core's own Save Video.
         embed = save_metadata and not metadata_disabled()
-        width, height, frame_count = await asyncio.to_thread(
-            encode_video,
-            output_path,
-            frames,
-            float(fps),
-            audio,
-            int(crf),
-            workflow_metadata(prompt, extra_pnginfo) if embed else None,
-            str(format),
-        )
+
+        def save_reserved():
+            # Exclusive creation coordinates concurrent nodes and processes.
+            # Keep reservation and cleanup on the encoder's worker so even
+            # cancellation of the awaiting coroutine cannot strand a name.
+            next_counter = counter
+            while True:
+                file = f"{filename}_{next_counter:05}_.{extension}"
+                output_path = Path(full_output_folder) / file
+                require_output_path(output_path, output_root)
+                try:
+                    with output_path.open("xb"):
+                        pass
+                    break
+                except FileExistsError:
+                    next_counter += 1
+            try:
+                dimensions = encode_video(
+                    output_path, frames, float(fps), audio, int(crf),
+                    workflow_metadata(prompt, extra_pnginfo) if embed else None,
+                    str(format),
+                )
+                return file, output_path, dimensions
+            except BaseException:
+                output_path.unlink(missing_ok=True)
+                raise
+
+        file, output_path, (width, height, frame_count) = await asyncio.to_thread(save_reserved)
         return {
             "ui": {
                 "images": [{

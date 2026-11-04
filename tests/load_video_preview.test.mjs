@@ -209,3 +209,18 @@ test("loadSummary reports the snapped count", () => {
   assert.equal(loadSummary(10, { start: 0, end: 3 }, 30, 1, 0, false, "8n+1"), "89 frames @ 30 fps");
   assert.equal(loadSummary(10, { start: 0, end: 3 }, 30, 1, 0, false, "free"), "90 frames @ 30 fps");
 });
+
+
+test("FRAME picking reaches the final source frame", () => {
+  for (const fps of [24, 30, 60, 240]) {
+    const last = (2 * fps - 1) / fps;
+    assert.equal(singleFrameTime(2, 2, fps), last);
+    assert.equal(singleFrameFraction(2, 2, fps), last / 2);
+  }
+});
+
+test("summary counts source timestamps inside an offset window", () => {
+  assert.equal(loadSummary(2, {start: 0.01, end: 0.1}, 12), "1 frame");
+  assert.equal(loadSummary(2, {start: 0.01, end: 0.2}, 12), "2 frames @ 12 fps");
+  assert.equal(loadSummary(2, {start: 0.01, end: 0.2}, 12, 2), "1 frame");
+});

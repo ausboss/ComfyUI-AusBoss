@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import math
+import os
+import tempfile
 from fractions import Fraction
 from pathlib import Path
 from typing import NamedTuple
@@ -249,10 +251,19 @@ def _encode_animation(
     """
     from PIL import Image
 
-    # A gif/webp frame duration is whole milliseconds, so the playback rate is
-    # quantized here whatever fps asked for; 1 ms is the floor players honour.
-    duration_ms = max(1, int(round(1000.0 / float(fps))))
     frame_count = int(batch.shape[0])
+    if extension == "gif":
+        # GIF stores centiseconds. Round cumulative boundaries so rounding
+        # each frame cannot shorten the whole animation.
+        if fps > 100:
+            raise ValueError("GIF supports at most 100 fps; choose WebP or a video format.")
+        ticks = 100.0 / float(fps)
+        duration_ms = [
+            max(1, round((index + 1) * ticks) - round(index * ticks)) * 10
+            for index in range(frame_count)
+        ]
+    else:
+        duration_ms = max(1, int(round(1000.0 / float(fps))))
     progress = frame_progress(frame_count)
     images = []
     for encoded, frame in enumerate(batch, start=1):
@@ -289,6 +300,22 @@ def encode_video(
     video_format: str = "mp4 h264",
 ) -> tuple[int, int, int]:
     """Write the encoded file; returns (width, height, frame_count)."""
+    # Preserve the extension for PyAV/Pillow format detection. Publish only
+    # after the encoder closes successfully; failed runs leave no partial clip.
+    path = Path(path)
+    fd, temporary = tempfile.mkstemp(prefix=f".{path.stem}-", suffix=path.suffix, dir=path.parent)
+    os.close(fd)
+    staging = Path(temporary)
+    try:
+        result = _encode_video(staging, frames, fps, audio, crf, metadata, video_format)
+        raise_if_interrupted()
+        os.replace(staging, path)
+        return result
+    finally:
+        staging.unlink(missing_ok=True)
+
+
+def _encode_video(path, frames, fps, audio, crf, metadata, video_format):
     if video_format not in VIDEO_FORMATS:
         raise ValueError(
             f"Save Video format must be one of {tuple(VIDEO_FORMATS)}, "

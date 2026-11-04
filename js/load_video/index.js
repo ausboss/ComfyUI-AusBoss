@@ -85,7 +85,7 @@ function isSingleFrame(state) {
 // trim window's IN point.
 function homeTime(state) {
   return isSingleFrame(state)
-    ? singleFrameTime(state.video.duration, state.startWidget.value)
+    ? singleFrameTime(state.video.duration, state.startWidget.value, state.sourceFps, state.sourceFrameCount)
     : currentBounds(state).start;
 }
 
@@ -126,6 +126,7 @@ function trimLoadSummary(state, duration, bounds) {
 // on any error the label simply omits the count and the timecodes stand.
 async function probeSourceFps(state, name) {
   state.sourceFps = 0;
+  state.sourceFrameCount = 0;
   try {
     const query = new URLSearchParams({ source_mode: "input folder", video: name });
     const response = await api.fetchApi(`/ausboss/transform/video/metadata?${query}`);
@@ -133,14 +134,15 @@ async function probeSourceFps(state, name) {
     const metadata = await response.json();
     if (state.videoWidget.value !== name) return; // a newer selection won
     state.sourceFps = Math.max(0, Number(metadata?.fps) || 0);
+    state.sourceFrameCount = Math.max(0, Number(metadata?.frame_count) || 0);
     updateTrimFace(state);
   } catch (_error) {
     /* no fps, no frame count */
   }
 }
 
-function writeWidget(widget, value) {
-  const next = roundHundredth(value);
+function writeWidget(widget, value, exact = false) {
+  const next = exact ? value : roundHundredth(value);
   if (Math.abs(Number(widget.value || 0) - next) < 0.0001) return;
   widget.value = next;
   widget.callback?.(next);
@@ -166,10 +168,10 @@ function writeTrim(state, bounds, seekEdge = null) {
 
 function writeFrameTime(state, timeValue) {
   const duration = Number.isFinite(state.video.duration) ? state.video.duration : 0;
-  const time = singleFrameTime(duration, timeValue);
+  const time = singleFrameTime(duration, timeValue, state.sourceFps, state.sourceFrameCount);
   state.writing = true;
   try {
-    writeWidget(state.startWidget, time);
+    writeWidget(state.startWidget, time, true);
   } finally {
     state.writing = false;
   }
@@ -182,8 +184,8 @@ function writeFrameTime(state, timeValue) {
 function updateTrimFace(state) {
   const duration = Number.isFinite(state.video.duration) ? state.video.duration : 0;
   if (isSingleFrame(state)) {
-    const time = singleFrameTime(duration, state.startWidget.value);
-    const percent = singleFrameFraction(duration, time) * 100;
+    const time = singleFrameTime(duration, state.startWidget.value, state.sourceFps, state.sourceFrameCount);
+    const percent = singleFrameFraction(duration, time, state.sourceFps, state.sourceFrameCount) * 100;
     state.selection.style.width = "0%";
     state.startHandle.style.left = `${percent}%`;
     if (document.activeElement !== state.startInput) state.startInput.value = formatTimecode(time);
@@ -258,6 +260,9 @@ function installTrimDrag(state) {
     if (initial.duration <= 0) return;
     event.preventDefault();
     event.stopPropagation();
+    const gesture = new AbortController();
+    state.gestureAbort?.abort();
+    state.gestureAbort = gesture;
     if (isSingleFrame(state)) {
       // Frame-picker gesture: the strip is one scrub rail. A click already
       // sets the frame; a drag keeps refining it until release.
@@ -275,15 +280,15 @@ function installTrimDrag(state) {
       const finish = () => {
         if (!state.dragging) return;
         state.dragging = false;
-        range.removeEventListener("pointermove", move);
+        gesture.abort();
         try { range.releasePointerCapture(event.pointerId); } catch (_error) { /* already released */ }
         // One notification per gesture: the frame changed on pointerdown.
         notifyAusbossChange();
       };
-      range.addEventListener("pointermove", move);
-      range.addEventListener("pointerup", finish, { once: true });
-      range.addEventListener("pointercancel", finish, { once: true });
-      range.addEventListener("lostpointercapture", finish, { once: true });
+      range.addEventListener("pointermove", move, { signal: gesture.signal });
+      range.addEventListener("pointerup", finish, { signal: gesture.signal });
+      range.addEventListener("pointercancel", finish, { signal: gesture.signal });
+      range.addEventListener("lostpointercapture", finish, { signal: gesture.signal });
       return;
     }
     state.dragging = true;
@@ -327,7 +332,7 @@ function installTrimDrag(state) {
     const finish = (finishEvent) => {
       if (!state.dragging) return;
       state.dragging = false;
-      range.removeEventListener("pointermove", move);
+      gesture.abort();
       try { range.releasePointerCapture(event.pointerId); } catch (_error) { /* already released */ }
       if (!moved && initial.zone === "jump") {
         const next = infoAt(finishEvent?.clientX ?? downX);
@@ -342,10 +347,10 @@ function installTrimDrag(state) {
       // One notification per gesture, on release — never per pointermove.
       if (moved || initial.zone === "jump") notifyAusbossChange();
     };
-    range.addEventListener("pointermove", move);
-    range.addEventListener("pointerup", finish, { once: true });
-    range.addEventListener("pointercancel", finish, { once: true });
-    range.addEventListener("lostpointercapture", finish, { once: true });
+    range.addEventListener("pointermove", move, { signal: gesture.signal });
+    range.addEventListener("pointerup", finish, { signal: gesture.signal });
+    range.addEventListener("pointercancel", finish, { signal: gesture.signal });
+    range.addEventListener("lostpointercapture", finish, { signal: gesture.signal });
   });
 }
 
@@ -627,6 +632,15 @@ function buildPreview(node) {
   watchTrimWidget(state, startWidget);
   watchTrimWidget(state, endWidget);
   watchFrameWidget(state, frameWidget);
+  for (const widget of [state.everyNthWidget, state.maxFramesWidget]) {
+    if (!widget) continue;
+    const prior = widget.callback;
+    widget.callback = function (...args) {
+      const result = prior?.apply(this, args);
+      updateTrimFace(state);
+      return result;
+    };
+  }
   applyMode(state);
   startValue.input.addEventListener("change", () => commitTimeInput(state, "start", startValue.input));
   endValue.input.addEventListener("change", () => commitTimeInput(state, "end", endValue.input));
@@ -668,7 +682,14 @@ app.registerExtension({
       const state = this.__ausbossLoadVideo;
       state?.stopTick?.();
       state?.abort?.abort();
+      state?.gestureAbort?.abort();
+      state?.video?.pause();
+      state?.video?.removeAttribute("src");
+      state?.video?.load();
       this.__ausbossLoadVideo = null;
+    });
+    chainCallback(nodeType.prototype, "onConnectionsChange", function () {
+      if (this.__ausbossLoadVideo) updateTrimFace(this.__ausbossLoadVideo);
     });
   },
 });

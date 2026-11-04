@@ -191,6 +191,7 @@ function buildPreview(node) {
     video.loop = enabled;
     loopButton.classList.toggle("active", enabled);
   };
+  state.updateLoopButton = updateLoopButton;
   updateLoopButton();
 
   loopButton.addEventListener("click", (event) => {
@@ -254,7 +255,7 @@ app.registerExtension({
       queueMicrotask(() => {
         const state = buildPreview(this);
         suppressCoreVideoPreview(this);
-        if (state) syncSteps(state);
+        if (state) { state.updateLoopButton?.(); syncSteps(state); }
       });
     });
     chainCallback(nodeType.prototype, "onExecuted", function (message) {

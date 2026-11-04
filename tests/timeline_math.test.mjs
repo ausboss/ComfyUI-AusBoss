@@ -285,3 +285,15 @@ test("the grip slides the kept part as far as the clip allows", () => {
   assert.deepEqual(slideRange(long, free), { min: 0, max: 287 - 48 });
   assert.equal(lengthFillsClip(long, free), false);
 });
+
+
+test("individual frames survive timestamp storage at high source rates", () => {
+  for (const fps of [100, 120, 240, 1000]) {
+    const source = { fps, frame_count: fps * 2, duration: 2 };
+    const info = clipInfo(source);
+    for (let frame = 0; frame < source.frame_count; frame += 1) {
+      const seconds = windowSeconds(info, frame, frame);
+      assert.deepEqual(backendWindow(source, seconds.start_seconds, seconds.end_seconds), {first: frame, last: frame}, `${fps} fps, frame ${frame}`);
+    }
+  }
+});

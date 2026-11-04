@@ -5,9 +5,8 @@
 //
 // Dropping a video ONTO a Load Video 🆎 node is a different gesture with a
 // different meaning: the node keeps the canvas and takes the file as its
-// source, and an AusBoss-saved file also hands back the trim and sampling
-// values its embedded workflow stored - like re-opening the clip the way it
-// was loaded before. Core routes node-targeted drops through onDragDrop
+// source. The file already contains any trim, resizing and sampling, so
+// these controls reset for the imported clip. Core routes node-targeted drops through onDragDrop
 // before falling back to the canvas path, which is what keeps the two
 // gestures apart.
 
@@ -16,7 +15,7 @@ import { app } from "/scripts/app.js";
 import { notifyAusbossChange, showToast } from "../shared/index.mjs";
 import {
   isVideoFileName,
-  loadVideoRestoreValues,
+  renderedVideoValues,
 } from "../shared/load_video_restore.mjs";
 import { looksLikeMp4, mp4WorkflowPayload } from "../shared/mp4_workflow.mjs";
 
@@ -42,12 +41,10 @@ async function uploadToInput(file) {
   return subfolder ? `${subfolder}/${name}` : name;
 }
 
-function applyDropToLoadVideo(node, restored, uploadedName) {
+function applyDropToLoadVideo(node, uploadedName) {
   const widget = (name) => node.widgets?.find((item) => item.name === name);
-  // Restored values land silently first; the video callback below repaints
-  // the preview once with all of them already in place, so no load-path
-  // callback ever sees (or wipes) a half-restored trim.
-  for (const [name, value] of Object.entries(restored ?? {})) {
+  // Reset before the video callback repaints the imported source.
+  for (const [name, value] of Object.entries(renderedVideoValues())) {
     const target = widget(name);
     if (target) target.value = value;
   }
@@ -70,16 +67,8 @@ function applyDropToLoadVideo(node, restored, uploadedName) {
 // surprise for a drop aimed at one node.
 async function handleLoadVideoDrop(node, file) {
   try {
-    let restored = null;
-    if (isMp4File(file) || /\.mov$/i.test(String(file.name || ""))) {
-      // mov shares the ISO box layout, so its tags parse the same way.
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      if (looksLikeMp4(bytes)) {
-        restored = loadVideoRestoreValues(mp4WorkflowPayload(bytes).workflow);
-      }
-    }
     const uploadedName = await uploadToInput(file);
-    applyDropToLoadVideo(node, restored, uploadedName);
+    applyDropToLoadVideo(node, uploadedName);
   } catch (error) {
     showToast({ severity: "error", summary: "Load Video \u{1F18E}", detail: `The dropped video could not be loaded: ${error?.message || error}` });
   }

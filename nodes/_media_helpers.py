@@ -438,7 +438,7 @@ def _start_reaper_locked() -> None:
             now = time.monotonic()
             with _SESSIONS_LOCK:
                 for key in [k for k, s in _SESSIONS.items() if now - s.last_used > _SESSION_IDLE_SECONDS]:
-                    _SESSIONS.pop(key).close()
+                    _evict_session_locked(key)
 
     threading.Thread(target=reap, daemon=True, name="ausboss-scrub-session-reaper").start()
 
@@ -447,31 +447,48 @@ def close_scrub_sessions() -> None:
     """Close every open scrub session (releases file handles immediately)."""
     with _SESSIONS_LOCK:
         for key in list(_SESSIONS):
-            _SESSIONS.pop(key).close()
+            _evict_session_locked(key, wait=True)
 
 
-def _get_session(path: Path) -> "_ScrubSession":
+def _evict_session_locked(key, *, wait=False) -> bool:
+    """Called under the table lock; never close a decoder in use."""
+    session = _SESSIONS[key]
+    if not session.lock.acquire(blocking=wait):
+        return False
+    try:
+        _SESSIONS.pop(key).close()
+        return True
+    finally:
+        session.lock.release()
+
+
+def _get_session(path: Path, *, acquire=False) -> "_ScrubSession":
     key = _file_key(path)
     with _SESSIONS_LOCK:
         _start_reaper_locked()
         session = _SESSIONS.get(key)
         if session is None:
             for stale in [other for other in _SESSIONS if other[0] == key[0] and other != key]:
-                _SESSIONS.pop(stale).close()
-            if len(_SESSIONS) >= _SESSION_LIMIT:
-                oldest = min(_SESSIONS, key=lambda item: _SESSIONS[item].last_used)
-                _SESSIONS.pop(oldest).close()
+                _evict_session_locked(stale)
+            for oldest in sorted(_SESSIONS, key=lambda item: _SESSIONS[item].last_used):
+                if len(_SESSIONS) < _SESSION_LIMIT:
+                    break
+                _evict_session_locked(oldest)
             session = _ScrubSession(path)
             _SESSIONS[key] = session
         session.last_used = time.monotonic()
+        if acquire:
+            # Acquire before releasing the table lock: eviction cannot slip
+            # between looking up a session and starting its decode.
+            session.lock.acquire()
         return session
 
 
 def _session_decode(path: Path, target_index: int, requested_time: float, fps: float):
     """Decode via the persistent session. Returns None when the file lacks
     usable timestamps so the caller can use the stateless fallbacks."""
-    session = _get_session(path)
-    with session.lock:
+    session = _get_session(path, acquire=True)
+    try:
         stream = session.stream
         if session.last_index == target_index and session.last_frame is not None:
             index, time_value = _frame_position(session.last_frame, stream, fps, target_index)
@@ -511,6 +528,9 @@ def _session_decode(path: Path, target_index: int, requested_time: float, fps: f
             return None
         index, time_value = _frame_position(last, stream, fps, target_index)
         return last.to_image().convert("RGBA"), index, time_value
+    finally:
+        session.last_used = time.monotonic()
+        session.lock.release()
 
 
 def seek_target(metadata: dict, seek_mode: str, frame_index: int, frame_time: float) -> tuple[int, float]:
