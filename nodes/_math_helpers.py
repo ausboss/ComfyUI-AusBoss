@@ -177,9 +177,10 @@ def round_half_away_from_zero(value: float) -> int:
     Python's round() rounds halves to even (2.5 -> 2), which reads as a bug
     when the number is on screen next to the float it came from.
     """
-    if value >= 0:
-        return int(math.floor(value + 0.5))
-    return int(math.ceil(value - 0.5))
+    fraction, whole = math.modf(value)
+    # Compare the fraction directly: adding 0.5 can round the float before
+    # we round it, including changing an already whole large number.
+    return int(whole) + (1 if fraction >= 0.5 else -1 if fraction <= -0.5 else 0)
 
 
 __all__ = [

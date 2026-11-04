@@ -20,6 +20,7 @@ from nodes._h3_prompt_helpers import (
     clean_words,
     find_beats,
     join_sections,
+    next_label,
     snap_cuts,
     split_sections,
     write_prompt,
@@ -85,6 +86,31 @@ def parts_of(text, **options):
 
 def count_moments(line):
     return 1 + len(re.findall(r"\bAt \d\d:", line))
+
+
+class PromptTextHelperTests(unittest.TestCase):
+    def test_sections_round_trip_unicode_and_windows_newlines(self):
+        parts = split_sections(SIX)
+        parts["summary"] = '[reference generation] Café 雨 — "stay."'
+        parts["detailed_description"] += "\n\nA sign reads: café."
+        text = join_sections(parts)
+        self.assertEqual(split_sections(text), parts)
+        self.assertEqual(split_sections(text.replace("\n", "\r\n")), parts)
+
+    def test_incomplete_sections_are_not_mistaken_for_a_complete_prompt(self):
+        text = SIX.replace("non_diegetic_music:", "music:")
+        self.assertIsNone(split_sections(text))
+
+    def test_next_label_uses_the_highest_number_of_the_requested_kind(self):
+        text = "<Audio 2> <Audio 9> <Audio 2> <Picture 30> <Audio 4>"
+        self.assertEqual(next_label(text, "Audio"), 10)
+        self.assertEqual(next_label(text, "Video"), 1)
+
+    def test_blank_words_and_punctuation_stay_well_formed(self):
+        for text, expected in ((None, ""), ("\t\n ", ""), ("<>", ""),
+                               ("  café\n 雨!  ", "café 雨!"), ("go.", "go.")):
+            with self.subTest(text=text):
+                self.assertEqual(clean_words(text), expected)
 
 
 class ReadingTests(unittest.TestCase):

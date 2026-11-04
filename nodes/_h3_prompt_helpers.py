@@ -37,7 +37,7 @@ def split_sections(text):
     """The six parts of a prompt by name, or None when one is missing."""
     found = {}
     current = None
-    for line in text.split("\n"):
+    for line in text.splitlines():
         name = line.strip().rstrip(":")
         if line.strip().endswith(":") and name in SECTIONS:
             current = found.setdefault(name, [])

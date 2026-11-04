@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import math
 import sys
 import unittest
 
@@ -79,9 +80,36 @@ class EvaluateExpressionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "parsed"):
             evaluate_expression("1 +")
 
+    def test_non_finite_results_are_refused(self):
+        for expression, variables in (
+            ("1e309", None),
+            ("1e308 * 2", None),
+            ("a + 1", {"a": float("inf")}),
+            ("a", {"a": float("nan")}),
+        ):
+            with self.subTest(expression=expression, variables=variables):
+                with self.assertRaisesRegex(ValueError, "non-finite"):
+                    evaluate_expression(expression, variables)
+
+    def test_negative_division_and_power_precedence(self):
+        for expression, expected in (("-7 // 2", -4), ("-7 % 2", 1),
+                                     ("-2 ** 2", -4), ("2 ** 3 ** 2", 512)):
+            with self.subTest(expression=expression):
+                self.assertEqual(evaluate_expression(expression), expected)
+
 
 class ExpressionSafetyTests(unittest.TestCase):
     """The expression is attacker-controlled; everything here must be refused."""
+
+    def test_non_text_input_is_refused(self):
+        for value in (None, 12, True, ["1 + 2"]):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "as text"):
+                evaluate_expression(value)
+
+    def test_bitwise_operators_and_assignment_are_refused(self):
+        for expression in ("1 << 2", "4 >> 1", "1 | 2", "1 & 2", "1 ^ 2", "~1", "(a := 1)"):
+            with self.subTest(expression=expression), self.assertRaises(ValueError):
+                evaluate_expression(expression)
 
     def test_rejects_import(self):
         with self.assertRaisesRegex(ValueError, "__import__"):
@@ -150,6 +178,18 @@ class ExpressionSafetyTests(unittest.TestCase):
 
 
 class RoundHalfAwayTests(unittest.TestCase):
+    def test_values_immediately_below_a_half_do_not_round_up(self):
+        below = math.nextafter(0.5, 0.0)
+        for value in (below, -below):
+            with self.subTest(value=value):
+                self.assertEqual(round_half_away_from_zero(value), 0)
+
+    def test_large_exact_integers_are_unchanged(self):
+        # Adding 0.5 to an odd integer here rounds it to the next float.
+        for value in (2**52 + 1, -(2**52 + 1), 2**53, -(2**53)):
+            with self.subTest(value=value):
+                self.assertEqual(round_half_away_from_zero(float(value)), value)
+
     def test_halves_round_away_from_zero(self):
         self.assertEqual(round_half_away_from_zero(2.5), 3)
         self.assertEqual(round_half_away_from_zero(-2.5), -3)

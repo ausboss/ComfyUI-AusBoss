@@ -847,12 +847,13 @@ def _safe_route_error(exc: Exception) -> str:
 def _query_int(request, name: str, default: int) -> int:
     try:
         return int(float(request.query.get(name, default)))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return default
 
 
 def _query_float(request, name: str, default: float) -> float:
     try:
-        return float(request.query.get(name, default))
+        value = float(request.query.get(name, default))
+        return value if math.isfinite(value) else default
     except (TypeError, ValueError):
         return default

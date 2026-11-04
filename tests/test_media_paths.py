@@ -124,6 +124,45 @@ class TempFolders(unittest.TestCase):
 
 
 class InputFolderTests(TempFolders):
+    def test_symlink_chains_stay_inside_the_selected_folder(self):
+        for kind in ("input", "output", "temp"):
+            root = getattr(self, kind)
+            target = self.touch(root / "target.png")
+            (root / "first.png").symlink_to(target)
+            (root / "second.png").symlink_to(root / "first.png")
+            for resolve in (resolve_input_path, resolve_server_file):
+                with self.subTest(folder=kind, resolver=resolve.__name__):
+                    self.assertEqual(resolve(f"second.png [{kind}]"), target)
+
+    def test_similarly_named_sibling_and_cross_folder_links_are_refused(self):
+        sibling = self.root / "input-backup"
+        sibling.mkdir()
+        target = self.touch(sibling / "pic.png")
+        (self.input / "sibling.png").symlink_to(target)
+        (self.input / "output.png").symlink_to(self.made)
+        for resolve in (resolve_input_path, resolve_server_file):
+            for name in ("sibling.png", "output.png"):
+                with self.subTest(name=name, resolver=resolve.__name__):
+                    with self.assertRaisesRegex(ValueError, WHOLE_PATH_REFUSAL):
+                        resolve(name)
+
+    def test_annotated_backslash_traversal_is_refused_before_disk_access(self):
+        for resolve in (resolve_input_path, resolve_server_file):
+            for kind in ("input", "output", "temp"):
+                for name in (f"sub\\..\\pic.png [{kind}]", f"..\\secret.png [{kind}]",
+                             f"sub/../pic.png [{kind}]"):
+                    with self.subTest(name=name, resolver=resolve.__name__):
+                        with patch.object(Path, "resolve") as disk:
+                            with self.assertRaisesRegex(ValueError, WHOLE_PATH_REFUSAL):
+                                resolve(name)
+                            disk.assert_not_called()
+
+    def test_directories_cannot_be_selected_as_files(self):
+        for resolve in (resolve_input_path, resolve_server_file):
+            with self.subTest(resolver=resolve.__name__):
+                with self.assertRaisesRegex(ValueError, "no longer"):
+                    resolve("sub [input]")
+
     def test_files_inside_the_input_folder_resolve(self):
         self.assertEqual(resolve_input_path("pic.png"), self.inside)
         self.assertEqual(resolve_input_path("sub/pic.png"), self.nested)

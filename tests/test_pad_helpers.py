@@ -36,6 +36,25 @@ PADS = (3, 5, 2, 4)  # left, top, right, bottom
 
 
 class MaskContractTests(unittest.TestCase):
+    def test_rgba_single_pixel_axes_allow_padding_larger_than_the_source(self):
+        for height, width in ((1, 1), (1, 3), (3, 1)):
+            colors = torch.tensor([[0.2, 0.4, 0.6, 0.25], [0.8, 0.6, 0.4, 0.75]])
+            image = colors[:, None, None, :].expand(2, height, width, 4).clone()
+            original = image.clone()
+            for mode in PAD_MODES:
+                with self.subTest(size=(height, width), mode=mode):
+                    out, mask = pad_image(image, 4, 3, 5, 6, mode, backdrop_blur=0.0)
+                    self.assertEqual(tuple(out.shape), (2, height + 9, width + 9, 4))
+                    self.assertEqual(tuple(mask.shape), (2, height + 9, width + 9))
+                    self.assertTrue(torch.equal(out[:, 3:3 + height, 4:4 + width], image))
+                    expected_mask = torch.ones_like(mask)
+                    expected_mask[:, 3:3 + height, 4:4 + width] = 0
+                    self.assertTrue(torch.equal(mask, expected_mask))
+                    self.assertTrue(torch.isfinite(out).all())
+                    if mode != "color":
+                        self.assertTrue(torch.allclose(out, colors[:, None, None, :].expand_as(out)))
+                    self.assertTrue(torch.equal(image, original))
+
     def test_every_mode_shares_the_geometry_and_mask_contract(self):
         image = rand_image(2, 16, 20, seed=1)
         left, top, right, bottom = PADS

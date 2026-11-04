@@ -184,6 +184,18 @@ class PlanResizeTests(unittest.TestCase):
 
 
 class ResampleBatchTests(unittest.TestCase):
+    def test_rgba_and_single_pixel_axes_keep_frames_and_channels_separate(self):
+        for batch_size in (1, 3):
+            colors = torch.arange(batch_size * 4, dtype=torch.float32).reshape(batch_size, 1, 1, 4) / 12
+            for source_h, source_w in ((1, 7), (7, 1), (3, 5)):
+                # A strided view exercises both the PIL and torch paths.
+                image = colors.expand(batch_size, source_h, source_w * 2, 4)[:, :, ::2]
+                for mode in INTERPOLATION_MODES:
+                    with self.subTest(batch=batch_size, source=(source_h, source_w), mode=mode):
+                        out = resample_batch(image, 9, 5, mode)
+                        self.assertEqual(tuple(out.shape), (batch_size, 5, 9, 4))
+                        self.assertTrue(torch.allclose(out, colors.expand_as(out), atol=1e-6))
+
     def test_every_mode_returns_the_requested_shape(self):
         image = rand_image(2, 16, 16, seed=1)
         for mode in INTERPOLATION_MODES:
@@ -257,6 +269,54 @@ def run_resize(image, mask=None, **overrides):
 
 
 class ApplyResizeTests(unittest.TestCase):
+    def test_nearest_scaling_keeps_each_image_and_mask_pixel_together(self):
+        mask = torch.arange(30, dtype=torch.float32).reshape(2, 3, 5) / 30
+        image = torch.stack((mask, 1 - mask, mask / 2, mask), dim=-1)
+        out, out_mask, width, height = run_resize(
+            image, mask, width=9, height=5, keep_proportion="stretch"
+        )
+        # Nearest pixel centres on this 5x3 -> 9x5 resize, written out so
+        # the check does not reuse the resampling helper's geometry.
+        rows = [0, 0, 1, 2, 2]
+        cols = [0, 0, 1, 1, 2, 3, 3, 4, 4]
+        self.assertEqual((width, height), (9, 5))
+        self.assertTrue(torch.equal(out, image[:, rows][:, :, cols]))
+        self.assertTrue(torch.equal(out_mask, mask[:, rows][:, :, cols]))
+
+    def test_odd_center_crop_keeps_rgba_and_each_mask_aligned(self):
+        for batch_size in (1, 3):
+            values = torch.arange(batch_size * 5 * 8, dtype=torch.float32).reshape(batch_size, 5, 8)
+            mask = values / values.numel()
+            image = mask.unsqueeze(-1).expand(-1, -1, -1, 4).clone()
+            original = image.clone()
+            out, out_mask, width, height = run_resize(
+                image, mask, width=5, height=5, keep_proportion="cover_crop"
+            )
+            self.assertEqual((width, height), (5, 5))
+            # Three excess columns: one comes off the left, two off the right.
+            self.assertTrue(torch.equal(out, image[:, :, 1:6]))
+            self.assertTrue(torch.equal(out_mask, mask[:, :, 1:6]))
+            self.assertTrue(torch.equal(image, original))
+
+    def test_odd_padding_keeps_rgba_and_single_or_per_frame_masks(self):
+        image = torch.zeros((3, 3, 5, 4))
+        image[..., 3] = 0.25
+        for mask_batch in (1, 3):
+            mask = torch.arange(mask_batch * 15, dtype=torch.float32).reshape(mask_batch, 3, 5) / 45
+            original = mask.clone()
+            out, out_mask, width, height = run_resize(
+                image, mask, width=5, height=6, keep_proportion="pad", fill_color="#ff0000"
+            )
+            self.assertEqual((width, height), (5, 6))
+            self.assertEqual(tuple(out.shape), (3, 6, 5, 4))
+            self.assertEqual(tuple(out_mask.shape), (mask_batch, 6, 5))
+            self.assertTrue(torch.equal(out[:, 1:4], image))
+            self.assertTrue(torch.equal(out_mask[:, 1:4], mask))
+            for rows in (slice(0, 1), slice(4, 6)):
+                self.assertTrue(torch.equal(out[:, rows], torch.tensor([1., 0., 0., 1.]).expand_as(out[:, rows])))
+                self.assertTrue(torch.all(out_mask[:, rows] == 1))
+            self.assertTrue(torch.equal(mask, original))
+
     def test_stretch_hits_the_exact_target_and_reports_it(self):
         image = rand_image(2, 24, 32, seed=3)
         out, mask, width, height = run_resize(
