@@ -4,6 +4,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **New example: Pika H3 Flex.** One MiniMax H3 workflow for pictures,
+  video and sound. Give each picture a job on H3 Prompt Writer, or switch on
+  Video to swap someone into a clip or copy its moves. Keep the clip's sound
+  carries the clip's own words and music through a swap, and lets them steer
+  the mouths. Video swaps stop at 10 seconds and come out at about 480p,
+  where they hold best. Voice and Song use the new Load Audio node.
 - **New node: Load Audio.** Load a sound file and keep only the part you
   want. The node shows the sound as a wave: drag the IN and OUT handles to
   trim it, and press play to hear just that part. Set Max length to the

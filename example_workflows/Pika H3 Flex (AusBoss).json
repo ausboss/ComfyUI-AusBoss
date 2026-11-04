@@ -1,0 +1,8564 @@
+{
+ "id": "79bbf99e-8202-4a2c-b7fc-9107820bdec9",
+ "revision": 0,
+ "last_node_id": 264,
+ "last_link_id": 485,
+ "nodes": [
+  {
+   "id": 1,
+   "type": "AUSBOSS_NODES_WorkflowNote",
+   "pos": [
+    0,
+    196
+   ],
+   "size": [
+    560,
+    1120.0000000000002
+   ],
+   "flags": {
+    "pinned": true
+   },
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "note",
+     "name": "note",
+     "type": "STRING",
+     "widget": {
+      "name": "note"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [],
+   "title": "\ud83c\udd8e AusBoss",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_WorkflowNote",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.21.0"
+   },
+   "widgets_values": [
+    "{\"v\": 1, \"title\": \"Pika H3 Flex Video | Swap a Person, Copy Moves, Voice and Song\", \"subtitle\": \"Put your person into a video, or type what happens and give each picture a job. Add a voice or a song when you want one.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load **Picture 1**.\\n2. **Type what happens**, one line for each thing.\\n3. Pick how many **seconds** on **Seconds**.\\n4. Press **Run**.\\n\\nThat is all you need. Everything else is a switch in **Pictures**, **Video and sound** or **Extras**, and it stays out of the way until you turn it on.\\n\\n**The first run takes longer.** H3, its text encoder and its VAEs come to about 45 GB, and all of it has to load once.\\n\\nEach part of the page has its own note with the details: **Settings**, **pictures**, **recipes**, **video and sound**, and **writing the lines**.\\n\\nYou never have to learn H3's format. H3 Prompt Writer writes it for you, and **Prompt H3 sees** on the right shows what it wrote.\\n\\nPika H3 Flex is by Pika, on MiniMax H3 by MiniMax. These are Comfy-Org's ComfyUI files.\\n\\nNeeds ComfyUI {COMFY_NEEDS} or newer and AusBoss nodes {PACK} or newer (update first).\", \"models\": [{\"name\": \"minimax_h3_ref2va_pruned_int8_convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"20.97 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors\", \"note\": \"the Ref2VA model, not FL2VA\"}, {\"name\": \"qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\", \"dir\": \"text_encoders\", \"size\": \"15.69 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\", \"note\": \"the same file every H3 workflow uses: you may have it already\"}, {\"name\": \"minimax_h3_video_vae_fp16.safetensors\", \"dir\": \"vae\", \"size\": \"5.21 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_fp16.safetensors\", \"note\": \"\"}, {\"name\": \"minimax_h3_audio_vae_fp32.safetensors\", \"dir\": \"vae\", \"size\": \"0.60 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors\", \"note\": \"the sound\"}, {\"name\": \"pika_h3_flex_ref2va_v1_bf16.safetensors\", \"dir\": \"loras\", \"size\": \"1.96 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/pika_h3_flex_ref2va_v1_bf16.safetensors\", \"note\": \"Pika's add-on, already in the LoRA Loader\"}, {\"name\": \"minimax_h3_ref2va_pruned_w6a8.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"15.98 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_w6a8.safetensors\", \"note\": \"only for Low VRAM: use it in place of the first file\"}, {\"name\": \"minimax_h3_video_vae_int8_convrot.safetensors\", \"dir\": \"vae\", \"size\": \"2.81 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_int8_convrot.safetensors\", \"note\": \"only for Low VRAM: use it in place of the VAE above\"}, {\"name\": \"qwen3vl_8b_int8_convrot.safetensors\", \"dir\": \"text_encoders\", \"size\": \"9.35 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\", \"note\": \"only for Auto prompt: the small text model\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_Callout\"}], \"links\": [{\"label\": \"YouTube \u00b7 20 things you can do with an edit model\", \"url\": \"https://youtu.be/GociGWQQDSs\"}, {\"label\": \"YouTube \u00b7 ausbossdev\", \"url\": \"https://www.youtube.com/@ausbossdev\"}, {\"label\": \"Pika H3 Flex \u00b7 Hugging Face\", \"url\": \"https://huggingface.co/Pika-Labs/Pika-H3-Flex\"}, {\"label\": \"MiniMax H3 files \u00b7 Hugging Face\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3\"}, {\"label\": \"GitHub \u00b7 ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai \u00b7 AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X \u00b7 Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+   ],
+   "widgets_values_named": {
+    "note": "{\"v\": 1, \"title\": \"Pika H3 Flex Video | Swap a Person, Copy Moves, Voice and Song\", \"subtitle\": \"Put your person into a video, or type what happens and give each picture a job. Add a voice or a song when you want one.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load **Picture 1**.\\n2. **Type what happens**, one line for each thing.\\n3. Pick how many **seconds** on **Seconds**.\\n4. Press **Run**.\\n\\nThat is all you need. Everything else is a switch in **Pictures**, **Video and sound** or **Extras**, and it stays out of the way until you turn it on.\\n\\n**The first run takes longer.** H3, its text encoder and its VAEs come to about 45 GB, and all of it has to load once.\\n\\nEach part of the page has its own note with the details: **Settings**, **pictures**, **recipes**, **video and sound**, and **writing the lines**.\\n\\nYou never have to learn H3's format. H3 Prompt Writer writes it for you, and **Prompt H3 sees** on the right shows what it wrote.\\n\\nPika H3 Flex is by Pika, on MiniMax H3 by MiniMax. These are Comfy-Org's ComfyUI files.\\n\\nNeeds ComfyUI {COMFY_NEEDS} or newer and AusBoss nodes {PACK} or newer (update first).\", \"models\": [{\"name\": \"minimax_h3_ref2va_pruned_int8_convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"20.97 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors\", \"note\": \"the Ref2VA model, not FL2VA\"}, {\"name\": \"qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\", \"dir\": \"text_encoders\", \"size\": \"15.69 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\", \"note\": \"the same file every H3 workflow uses: you may have it already\"}, {\"name\": \"minimax_h3_video_vae_fp16.safetensors\", \"dir\": \"vae\", \"size\": \"5.21 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_fp16.safetensors\", \"note\": \"\"}, {\"name\": \"minimax_h3_audio_vae_fp32.safetensors\", \"dir\": \"vae\", \"size\": \"0.60 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors\", \"note\": \"the sound\"}, {\"name\": \"pika_h3_flex_ref2va_v1_bf16.safetensors\", \"dir\": \"loras\", \"size\": \"1.96 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/pika_h3_flex_ref2va_v1_bf16.safetensors\", \"note\": \"Pika's add-on, already in the LoRA Loader\"}, {\"name\": \"minimax_h3_ref2va_pruned_w6a8.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"15.98 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_w6a8.safetensors\", \"note\": \"only for Low VRAM: use it in place of the first file\"}, {\"name\": \"minimax_h3_video_vae_int8_convrot.safetensors\", \"dir\": \"vae\", \"size\": \"2.81 GB\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_int8_convrot.safetensors\", \"note\": \"only for Low VRAM: use it in place of the VAE above\"}, {\"name\": \"qwen3vl_8b_int8_convrot.safetensors\", \"dir\": \"text_encoders\", \"size\": \"9.35 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\", \"note\": \"only for Auto prompt: the small text model\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_Callout\"}], \"links\": [{\"label\": \"YouTube \u00b7 20 things you can do with an edit model\", \"url\": \"https://youtu.be/GociGWQQDSs\"}, {\"label\": \"YouTube \u00b7 ausbossdev\", \"url\": \"https://www.youtube.com/@ausbossdev\"}, {\"label\": \"Pika H3 Flex \u00b7 Hugging Face\", \"url\": \"https://huggingface.co/Pika-Labs/Pika-H3-Flex\"}, {\"label\": \"MiniMax H3 files \u00b7 Hugging Face\", \"url\": \"https://huggingface.co/Comfy-Org/MiniMax-H3\"}, {\"label\": \"GitHub \u00b7 ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai \u00b7 AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X \u00b7 Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 141,
+   "type": "AUSBOSS_NODES_WorkflowSwitches",
+   "pos": [
+    1043.3598636873617,
+    696.6487459699056
+   ],
+   "size": [
+    373.92035918789156,
+    66
+   ],
+   "flags": {},
+   "order": 1,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [],
+   "title": "VRAM",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_WorkflowSwitches",
+    "ausboss_workflow_switches": {
+     "off": "bypass",
+     "groups": "none",
+     "match": "",
+     "order": "canvas",
+     "exclusive": true,
+     "switches": [
+      {
+       "id": 1,
+       "title": "High VRAM: 24 GB or more",
+       "nodes": [
+        10,
+        9
+       ],
+       "groups": [],
+       "on": {},
+       "off": {}
+      },
+      {
+       "id": 2,
+       "title": "Low VRAM: 16 to 24 GB",
+       "nodes": [
+        142,
+        143
+       ],
+       "groups": [],
+       "on": {
+        "39": {
+         "small gpu": true
+        },
+        "41": {
+         "small gpu": true
+        },
+        "146": {
+         "small gpu": true
+        }
+       },
+       "off": {
+        "39": {
+         "small gpu": false
+        },
+        "41": {
+         "small gpu": false
+        },
+        "146": {
+         "small gpu": false
+        }
+       }
+      }
+     ],
+     "show": "pill"
+    },
+    "ausboss_show_edit": false,
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.21.0"
+   },
+   "widgets_values": [],
+   "widgets_values_named": {},
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 4,
+   "type": "AUSBOSS_NODES_Seed",
+   "pos": [
+    620,
+    814.5
+   ],
+   "size": [
+    400,
+    216
+   ],
+   "flags": {},
+   "order": 2,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "seed",
+     "name": "seed",
+     "type": "INT",
+     "widget": {
+      "name": "seed"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "seed",
+     "name": "seed",
+     "type": "INT",
+     "links": [
+      401
+     ]
+    }
+   ],
+   "title": "Seed",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_Seed",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.21.0"
+   },
+   "widgets_values": [
+    6202,
+    "randomize"
+   ],
+   "widgets_values_named": {
+    "seed": 6202,
+    "control_after_generate": "randomize"
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 8,
+   "type": "CLIPLoader",
+   "pos": [
+    620,
+    1308.0000000000002
+   ],
+   "size": [
+    590,
+    106
+   ],
+   "flags": {},
+   "order": 3,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "clip_name",
+     "name": "clip_name",
+     "type": "COMBO",
+     "widget": {
+      "name": "clip_name"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "type",
+     "name": "type",
+     "type": "COMBO",
+     "widget": {
+      "name": "type"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "device",
+     "name": "device",
+     "shape": 7,
+     "type": "COMBO",
+     "widget": {
+      "name": "device"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "CLIP",
+     "name": "CLIP",
+     "type": "CLIP",
+     "links": [
+      400
+     ]
+    }
+   ],
+   "title": "Text encoder",
+   "properties": {
+    "Node name for S&R": "CLIPLoader",
+    "models": [
+     {
+      "name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "directory": "text_encoders"
+     }
+    ],
+    "cnr_id": "comfy-core",
+    "ver": "0.43.2"
+   },
+   "widgets_values": [
+    "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+    "minimax",
+    "default"
+   ],
+   "widgets_values_named": {
+    "clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+    "type": "minimax",
+    "device": "default"
+   },
+   "color": "#432",
+   "bgcolor": "#653"
+  },
+  {
+   "id": 9,
+   "type": "VAELoader",
+   "pos": [
+    620,
+    1488.0000000000002
+   ],
+   "size": [
+    590,
+    58
+   ],
+   "flags": {},
+   "order": 4,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "vae_name",
+     "name": "vae_name",
+     "type": "COMBO",
+     "widget": {
+      "name": "vae_name"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "VAE",
+     "name": "VAE",
+     "type": "VAE",
+     "links": [
+      394
+     ]
+    }
+   ],
+   "title": "VAE",
+   "properties": {
+    "Node name for S&R": "VAELoader",
+    "models": [
+     {
+      "name": "minimax_h3_video_vae_fp16.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_fp16.safetensors",
+      "directory": "vae"
+     }
+    ],
+    "cnr_id": "comfy-core",
+    "ver": "0.43.2"
+   },
+   "widgets_values": [
+    "minimax_h3_video_vae_fp16.safetensors"
+   ],
+   "widgets_values_named": {
+    "vae_name": "minimax_h3_video_vae_fp16.safetensors"
+   },
+   "color": "#322",
+   "bgcolor": "#533"
+  },
+  {
+   "id": 10,
+   "type": "UNETLoader",
+   "pos": [
+    620,
+    1152.0000000000002
+   ],
+   "size": [
+    590,
+    82
+   ],
+   "flags": {},
+   "order": 5,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "unet_name",
+     "name": "unet_name",
+     "type": "COMBO",
+     "widget": {
+      "name": "unet_name"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "weight_dtype",
+     "name": "weight_dtype",
+     "type": "COMBO",
+     "widget": {
+      "name": "weight_dtype"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "MODEL",
+     "name": "MODEL",
+     "type": "MODEL",
+     "links": [
+      392
+     ]
+    }
+   ],
+   "title": "Diffusion model",
+   "properties": {
+    "Node name for S&R": "UNETLoader",
+    "models": [
+     {
+      "name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "directory": "diffusion_models"
+     }
+    ],
+    "cnr_id": "comfy-core",
+    "ver": "0.43.2"
+   },
+   "widgets_values": [
+    "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+    "default"
+   ],
+   "widgets_values_named": {
+    "unet_name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+    "weight_dtype": "default"
+   },
+   "color": "#323",
+   "bgcolor": "#535"
+  },
+  {
+   "id": 11,
+   "type": "AUSBOSS_NODES_LoraLoader",
+   "pos": [
+    1440,
+    732.4683191235993
+   ],
+   "size": [
+    419.9999999999998,
+    188
+   ],
+   "flags": {},
+   "order": 35,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "model",
+     "name": "model",
+     "type": "MODEL",
+     "link": 396
+    },
+    {
+     "localized_name": "clip",
+     "name": "clip",
+     "shape": 7,
+     "type": "CLIP",
+     "link": null
+    },
+    {
+     "localized_name": "loras",
+     "name": "loras",
+     "type": "STRING",
+     "widget": {
+      "name": "loras"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "trigger_separator",
+     "name": "trigger_separator",
+     "shape": 7,
+     "type": "STRING",
+     "widget": {
+      "name": "trigger_separator"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "on_missing",
+     "name": "on_missing",
+     "shape": 7,
+     "type": "COMBO",
+     "widget": {
+      "name": "on_missing"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "model",
+     "name": "model",
+     "type": "MODEL",
+     "links": [
+      397
+     ]
+    },
+    {
+     "localized_name": "clip",
+     "name": "clip",
+     "type": "CLIP",
+     "links": []
+    },
+    {
+     "localized_name": "triggers",
+     "name": "triggers",
+     "type": "STRING",
+     "links": []
+    }
+   ],
+   "title": "LoRA Loader - Pika, then yours",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_LoraLoader",
+    "ausbossLoraLinked": true,
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.21.0",
+    "models": [
+     {
+      "name": "pika_h3_flex_ref2va_v1_bf16.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/pika_h3_flex_ref2va_v1_bf16.safetensors",
+      "directory": "loras"
+     }
+    ]
+   },
+   "widgets_values": [
+    "[{\"name\":\"pika_h3_flex_ref2va_v1_bf16.safetensors\",\"strength\":1,\"enabled\":true,\"triggers\":\"\"}]",
+    ", ",
+    "error"
+   ],
+   "widgets_values_named": {
+    "loras": "[{\"name\":\"pika_h3_flex_ref2va_v1_bf16.safetensors\",\"strength\":1,\"enabled\":true,\"triggers\":\"\"}]",
+    "trigger_separator": ", ",
+    "on_missing": "error"
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 14,
+   "type": "AUSBOSS_NODES_RunTimer",
+   "pos": [
+    4615,
+    1275.3277635914465
+   ],
+   "size": [
+    210,
+    67
+   ],
+   "flags": {
+    "no_title": true
+   },
+   "order": 6,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [],
+   "title": "Run Timer",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_RunTimer",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.21.0"
+   },
+   "color": "#07090a",
+   "bgcolor": "#07090a"
+  },
+  {
+   "id": 15,
+   "type": "AUSBOSS_NODES_ShowText",
+   "pos": [
+    4440,
+    1378.3277635914465
+   ],
+   "size": [
+    560,
+    298
+   ],
+   "flags": {},
+   "order": 38,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "text",
+     "name": "text",
+     "type": "*",
+     "link": 420
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "text",
+     "name": "text",
+     "type": "STRING",
+     "links": []
+    }
+   ],
+   "title": "Show Text - Prompt H3 sees",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_ShowText",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.21.0"
+   },
+   "widgets_values": [],
+   "widgets_values_named": {},
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 39,
+   "type": "ec2afb6f-2ac4-59e7-bcf2-3b4b9f46f9ba",
+   "pos": [
+    4740,
+    80
+   ],
+   "size": [
+    260,
+    438
+   ],
+   "flags": {},
+   "order": 40,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "prompt",
+     "name": "prompt",
+     "type": "*",
+     "link": 421
+    },
+    {
+     "localized_name": "seed",
+     "name": "seed",
+     "type": "*",
+     "link": 401
+    },
+    {
+     "localized_name": "width",
+     "name": "width",
+     "type": "*",
+     "link": 426
+    },
+    {
+     "localized_name": "height",
+     "name": "height",
+     "type": "*",
+     "link": 427
+    },
+    {
+     "localized_name": "length",
+     "name": "length",
+     "type": "*",
+     "link": 425
+    },
+    {
+     "localized_name": "picture 1",
+     "name": "picture 1",
+     "shape": 7,
+     "type": "IMAGE",
+     "link": 404
+    },
+    {
+     "localized_name": "picture 2",
+     "name": "picture 2",
+     "shape": 7,
+     "type": "IMAGE",
+     "link": 406
+    },
+    {
+     "localized_name": "picture 3",
+     "name": "picture 3",
+     "shape": 7,
+     "type": "IMAGE",
+     "link": 408
+    },
+    {
+     "localized_name": "picture 4",
+     "name": "picture 4",
+     "shape": 7,
+     "type": "IMAGE",
+     "link": 410
+    },
+    {
+     "localized_name": "your video",
+     "name": "your video",
+     "shape": 7,
+     "type": "IMAGE",
+     "link": 416
+    },
+    {
+     "localized_name": "video sound",
+     "name": "video sound",
+     "shape": 7,
+     "type": "AUDIO",
+     "link": 417
+    },
+    {
+     "localized_name": "your voice",
+     "name": "your voice",
+     "shape": 7,
+     "type": "AUDIO",
+     "link": 422
+    },
+    {
+     "localized_name": "your song",
+     "name": "your song",
+     "shape": 7,
+     "type": "AUDIO",
+     "link": 423
+    },
+    {
+     "localized_name": "song under",
+     "name": "song under",
+     "type": "AUDIO",
+     "link": 424
+    },
+    {
+     "localized_name": "text encoder",
+     "name": "text encoder",
+     "type": "CLIP",
+     "link": 400
+    },
+    {
+     "localized_name": "vae",
+     "name": "vae",
+     "type": "VAE",
+     "link": 398
+    },
+    {
+     "localized_name": "audio vae",
+     "name": "audio vae",
+     "type": "VAE",
+     "link": 399
+    },
+    {
+     "localized_name": "diffusion model",
+     "name": "diffusion model",
+     "type": "MODEL",
+     "link": 397
+    },
+    {
+     "localized_name": "small gpu",
+     "name": "small gpu",
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "small gpu"
+     },
+     "link": null
+    },
+    {
+     "name": "clip sound",
+     "shape": 7,
+     "type": "AUDIO",
+     "link": 485
+    },
+    {
+     "name": "steer mouths",
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "steer mouths"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "frames",
+     "name": "frames",
+     "type": "IMAGE",
+     "links": [
+      428
+     ]
+    },
+    {
+     "localized_name": "audio",
+     "name": "audio",
+     "type": "AUDIO",
+     "links": [
+      475
+     ]
+    }
+   ],
+   "properties": {
+    "previewExposures": []
+   },
+   "widgets_values": [
+    false,
+    false
+   ],
+   "widgets_values_named": {
+    "small gpu": false,
+    "steer mouths": false
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 41,
+   "type": "683e9dae-3848-533b-ad2f-71587b3a83f2",
+   "pos": [
+    4440,
+    276
+   ],
+   "size": [
+    260,
+    200
+   ],
+   "flags": {},
+   "order": 39,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "width",
+     "name": "width",
+     "shape": 7,
+     "type": "INT",
+     "link": 411
+    },
+    {
+     "localized_name": "height",
+     "name": "height",
+     "shape": 7,
+     "type": "INT",
+     "link": 412
+    },
+    {
+     "localized_name": "small gpu",
+     "name": "small gpu",
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "small gpu"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "fast test",
+     "name": "fast test",
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "fast test"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "width",
+     "name": "width",
+     "type": "INT",
+     "links": [
+      426
+     ]
+    },
+    {
+     "localized_name": "height",
+     "name": "height",
+     "type": "INT",
+     "links": [
+      427
+     ]
+    }
+   ],
+   "properties": {
+    "previewExposures": []
+   },
+   "widgets_values": [
+    false,
+    false
+   ],
+   "widgets_values_named": {
+    "small gpu": false,
+    "fast test": false
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 44,
+   "type": "AUSBOSS_NODES_Callout",
+   "pos": [
+    4440,
+    80
+   ],
+   "size": [
+    260,
+    122
+   ],
+   "flags": {
+    "pinned": true
+   },
+   "order": 7,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "text",
+     "name": "text",
+     "type": "STRING",
+     "widget": {
+      "name": "text"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [],
+   "title": "Callout",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_Callout",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.21.0"
+   },
+   "widgets_values": [
+    "These do the work.\n###### Double-click a box to see inside. What is purple is not used and needs no file."
+   ],
+   "widgets_values_named": {
+    "text": "These do the work.\n###### Double-click a box to see inside. What is purple is not used and needs no file."
+   },
+   "color": "#07090a",
+   "bgcolor": "#07090a"
+  },
+  {
+   "id": 69,
+   "type": "AUSBOSS_NODES_Callout",
+   "pos": [
+    0,
+    30
+   ],
+   "size": [
+    560,
+    122
+   ],
+   "flags": {
+    "pinned": true
+   },
+   "order": 8,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "text",
+     "name": "text",
+     "type": "STRING",
+     "widget": {
+      "name": "text"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [],
+   "title": "Callout",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_Callout",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.21.0"
+   },
+   "widgets_values": [
+    "[\u25b6 **Watch: 20 things you can do with an edit model**](https://youtu.be/GociGWQQDSs)\n[\u25b6 **AusBoss on Discord**](https://discord.gg/RwVxY9Fuaj)\n###### My newest video. Need help? Have a suggestion? Want more workflows? Come say hi on Discord."
+   ],
+   "widgets_values_named": {
+    "text": "[\u25b6 **Watch: 20 things you can do with an edit model**](https://youtu.be/GociGWQQDSs)\n[\u25b6 **AusBoss on Discord**](https://discord.gg/RwVxY9Fuaj)\n###### My newest video. Need help? Have a suggestion? Want more workflows? Come say hi on Discord."
+   },
+   "color": "#07090a",
+   "bgcolor": "#07090a"
+  },
+  {
+   "id": 111,
+   "type": "AUSBOSS_NODES_WorkflowNote",
+   "pos": [
+    0,
+    1362
+   ],
+   "size": [
+    560,
+    323.5997562289283
+   ],
+   "flags": {
+    "pinned": true
+   },
+   "order": 9,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "note",
+     "name": "note",
+     "type": "STRING",
+     "widget": {
+      "name": "note"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [],
+   "title": "\ud83c\udd8e AusBoss",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_WorkflowNote",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.21.0"
+   },
+   "widgets_values": [
+    "{\"v\": 1, \"title\": \"Uncensored text encoder (optional)\", \"subtitle\": \"A community version of H3's text encoder with the refusals taken out.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"A version of H3's text encoder with the refusals taken out (\\\"Heretic\\\"), made by the community, not by MiniMax or Qwen. You don't need it: the workflow opens with the regular file picked.\\n\\n- Get the file below and pick it in **Text encoder**. It is NVFP4 like the regular file.\", \"models\": [{\"name\": \"qwen3vl_32b_heretic_minimax_h3_nvfp4.safetensors\", \"dir\": \"text_encoders\", \"size\": \"15.68 GB\", \"url\": \"https://huggingface.co/Momoking/Qwen3-VL-32B-Heretic-MiniMax-H3-NVFP4/resolve/main/qwen3vl_32b_heretic_minimax_h3_nvfp4.safetensors\", \"note\": \"optional: uncensored, pick it in Text encoder\"}], \"packs\": [], \"links\": []}"
+   ],
+   "widgets_values_named": {
+    "note": "{\"v\": 1, \"title\": \"Uncensored text encoder (optional)\", \"subtitle\": \"A community version of H3's text encoder with the refusals taken out.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"A version of H3's text encoder with the refusals taken out (\\\"Heretic\\\"), made by the community, not by MiniMax or Qwen. You don't need it: the workflow opens with the regular file picked.\\n\\n- Get the file below and pick it in **Text encoder**. It is NVFP4 like the regular file.\", \"models\": [{\"name\": \"qwen3vl_32b_heretic_minimax_h3_nvfp4.safetensors\", \"dir\": \"text_encoders\", \"size\": \"15.68 GB\", \"url\": \"https://huggingface.co/Momoking/Qwen3-VL-32B-Heretic-MiniMax-H3-NVFP4/resolve/main/qwen3vl_32b_heretic_minimax_h3_nvfp4.safetensors\", \"note\": \"optional: uncensored, pick it in Text encoder\"}], \"packs\": [], \"links\": []}"
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 146,
+   "type": "084acc16-0179-51c7-9d6c-5a4bddded44d",
+   "pos": [
+    4740,
+    552
+   ],
+   "size": [
+    260,
+    118
+   ],
+   "flags": {},
+   "order": 34,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "full model",
+     "name": "full model",
+     "shape": 7,
+     "type": "MODEL",
+     "link": 392
+    },
+    {
+     "localized_name": "small model",
+     "name": "small model",
+     "shape": 7,
+     "type": "MODEL",
+     "link": 393
+    },
+    {
+     "localized_name": "full vae",
+     "name": "full vae",
+     "shape": 7,
+     "type": "VAE",
+     "link": 394
+    },
+    {
+     "localized_name": "small vae",
+     "name": "small vae",
+     "shape": 7,
+     "type": "VAE",
+     "link": 395
+    },
+    {
+     "localized_name": "small gpu",
+     "name": "small gpu",
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "small gpu"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "diffusion model",
+     "name": "diffusion model",
+     "type": "MODEL",
+     "links": [
+      396
+     ]
+    },
+    {
+     "localized_name": "vae",
+     "name": "vae",
+     "type": "VAE",
+     "links": [
+      398
+     ]
+    },
+    {
+     "localized_name": "video fps",
+     "name": "video fps",
+     "type": "INT",
+     "links": [
+      413
+     ]
+    }
+   ],
+   "properties": {
+    "previewExposures": []
+   },
+   "widgets_values": [
+    false
+   ],
+   "widgets_values_named": {
+    "small gpu": false
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 142,
+   "type": "UNETLoader",
+   "pos": [
+    1250,
+    1152.0000000000002
+   ],
+   "size": [
+    610,
+    82
+   ],
+   "flags": {},
+   "order": 10,
+   "mode": 4,
+   "inputs": [
+    {
+     "localized_name": "unet_name",
+     "name": "unet_name",
+     "type": "COMBO",
+     "widget": {
+      "name": "unet_name"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "weight_dtype",
+     "name": "weight_dtype",
+     "type": "COMBO",
+     "widget": {
+      "name": "weight_dtype"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "MODEL",
+     "name": "MODEL",
+     "type": "MODEL",
+     "links": [
+      393
+     ]
+    }
+   ],
+   "title": "Diffusion model - Low VRAM",
+   "properties": {
+    "Node name for S&R": "UNETLoader",
+    "models": [
+     {
+      "name": "minimax_h3_ref2va_pruned_w6a8.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_w6a8.safetensors",
+      "directory": "diffusion_models"
+     }
+    ],
+    "cnr_id": "comfy-core",
+    "ver": "0.43.2"
+   },
+   "widgets_values": [
+    "minimax_h3_ref2va_pruned_w6a8.safetensors",
+    "default"
+   ],
+   "widgets_values_named": {
+    "unet_name": "minimax_h3_ref2va_pruned_w6a8.safetensors",
+    "weight_dtype": "default"
+   },
+   "color": "#323",
+   "bgcolor": "#535"
+  },
+  {
+   "id": 143,
+   "type": "VAELoader",
+   "pos": [
+    1250,
+    1488.0000000000002
+   ],
+   "size": [
+    610,
+    58
+   ],
+   "flags": {},
+   "order": 11,
+   "mode": 4,
+   "inputs": [
+    {
+     "localized_name": "vae_name",
+     "name": "vae_name",
+     "type": "COMBO",
+     "widget": {
+      "name": "vae_name"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "VAE",
+     "name": "VAE",
+     "type": "VAE",
+     "links": [
+      395
+     ]
+    }
+   ],
+   "title": "VAE - Low VRAM",
+   "properties": {
+    "Node name for S&R": "VAELoader",
+    "models": [
+     {
+      "name": "minimax_h3_video_vae_int8_convrot.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_int8_convrot.safetensors",
+      "directory": "vae"
+     }
+    ],
+    "cnr_id": "comfy-core",
+    "ver": "0.43.2"
+   },
+   "widgets_values": [
+    "minimax_h3_video_vae_int8_convrot.safetensors"
+   ],
+   "widgets_values_named": {
+    "vae_name": "minimax_h3_video_vae_int8_convrot.safetensors"
+   },
+   "color": "#322",
+   "bgcolor": "#533"
+  },
+  {
+   "id": 144,
+   "type": "VAELoader",
+   "pos": [
+    620,
+    1620.0000000000002
+   ],
+   "size": [
+    590,
+    58
+   ],
+   "flags": {},
+   "order": 12,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "vae_name",
+     "name": "vae_name",
+     "type": "COMBO",
+     "widget": {
+      "name": "vae_name"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "VAE",
+     "name": "VAE",
+     "type": "VAE",
+     "links": [
+      399
+     ]
+    }
+   ],
+   "title": "Audio VAE",
+   "properties": {
+    "Node name for S&R": "VAELoader",
+    "models": [
+     {
+      "name": "minimax_h3_audio_vae_fp32.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors",
+      "directory": "vae"
+     }
+    ],
+    "cnr_id": "comfy-core",
+    "ver": "0.43.2"
+   },
+   "widgets_values": [
+    "minimax_h3_audio_vae_fp32.safetensors"
+   ],
+   "widgets_values_named": {
+    "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+   },
+   "color": "#322",
+   "bgcolor": "#533"
+  },
+  {
+   "id": 145,
+   "type": "AUSBOSS_NODES_SaveVideo",
+   "pos": [
+    4439.999999999999,
+    797.3277635914465
+   ],
+   "size": [
+    560,
+    446
+   ],
+   "flags": {},
+   "order": 42,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "frames",
+     "name": "frames",
+     "shape": 7,
+     "type": "IMAGE",
+     "link": 428
+    },
+    {
+     "localized_name": "audio",
+     "name": "audio",
+     "shape": 7,
+     "type": "AUDIO",
+     "link": 476
+    },
+    {
+     "localized_name": "video",
+     "name": "video",
+     "shape": 7,
+     "type": "VIDEO",
+     "link": null
+    },
+    {
+     "localized_name": "fps",
+     "name": "fps",
+     "type": "FLOAT",
+     "link": null
+    },
+    {
+     "localized_name": "filename_prefix",
+     "name": "filename_prefix",
+     "type": "STRING",
+     "widget": {
+      "name": "filename_prefix"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crf",
+     "name": "crf",
+     "type": "INT",
+     "link": null
+    },
+    {
+     "localized_name": "format",
+     "name": "format",
+     "shape": 7,
+     "type": "COMBO",
+     "widget": {
+      "name": "format"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "pingpong",
+     "name": "pingpong",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "pingpong"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "save_metadata",
+     "name": "save_metadata",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "save_metadata"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "step_preview",
+     "name": "step_preview",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "step_preview"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "file_path",
+     "name": "file_path",
+     "type": "STRING",
+     "links": []
+    }
+   ],
+   "title": "Your clip",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_SaveVideo",
+    "ausboss_save_video_loop": true,
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.21.0"
+   },
+   "widgets_values": {
+    "fps": 24,
+    "filename_prefix": "pika_h3_flex",
+    "crf": 17,
+    "format": "mp4 h264",
+    "pingpong": false,
+    "save_metadata": true,
+    "step_preview": false
+   },
+   "widgets_values_named": {
+    "fps": 24,
+    "filename_prefix": "pika_h3_flex",
+    "crf": 17,
+    "format": "mp4 h264",
+    "pingpong": false,
+    "save_metadata": true,
+    "step_preview": false
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 151,
+   "type": "AUSBOSS_NODES_LoadAudio",
+   "pos": [
+    3360,
+    1122
+   ],
+   "size": [
+    400,
+    257
+   ],
+   "flags": {},
+   "order": 13,
+   "mode": 4,
+   "inputs": [
+    {
+     "localized_name": "audio",
+     "name": "audio",
+     "type": "COMBO",
+     "widget": {
+      "name": "audio"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "start_seconds",
+     "name": "start_seconds",
+     "type": "FLOAT",
+     "widget": {
+      "name": "start_seconds"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "end_seconds",
+     "name": "end_seconds",
+     "type": "FLOAT",
+     "widget": {
+      "name": "end_seconds"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "max_seconds",
+     "name": "max_seconds",
+     "type": "FLOAT",
+     "widget": {
+      "name": "max_seconds"
+     },
+     "link": null,
+     "shape": 7
+    },
+    {
+     "localized_name": "audioUI",
+     "name": "audioUI",
+     "type": "AUDIO_UI",
+     "widget": {
+      "name": "audioUI"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "upload",
+     "name": "upload",
+     "type": "AUDIOUPLOAD",
+     "widget": {
+      "name": "upload"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "audio",
+     "name": "audio",
+     "type": "AUDIO",
+     "links": [
+      418
+     ]
+    },
+    {
+     "localized_name": "seconds",
+     "name": "seconds",
+     "type": "FLOAT",
+     "links": null
+    }
+   ],
+   "title": "Voice - A voice to copy",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_LoadAudio",
+    "cnr_id": "comfy-core",
+    "ver": "0.43.2"
+   },
+   "widgets_values": [
+    "01_card_declined.mp4",
+    0,
+    0,
+    10,
+    ""
+   ],
+   "widgets_values_named": {
+    "audio": "01_card_declined.mp4",
+    "start_seconds": 0,
+    "end_seconds": 0,
+    "max_seconds": 10,
+    "upload": ""
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 152,
+   "type": "AUSBOSS_NODES_LoadAudio",
+   "pos": [
+    3360,
+    1433
+   ],
+   "size": [
+    400,
+    257
+   ],
+   "flags": {},
+   "order": 14,
+   "mode": 4,
+   "inputs": [
+    {
+     "localized_name": "audio",
+     "name": "audio",
+     "type": "COMBO",
+     "widget": {
+      "name": "audio"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "start_seconds",
+     "name": "start_seconds",
+     "type": "FLOAT",
+     "widget": {
+      "name": "start_seconds"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "end_seconds",
+     "name": "end_seconds",
+     "type": "FLOAT",
+     "widget": {
+      "name": "end_seconds"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "max_seconds",
+     "name": "max_seconds",
+     "type": "FLOAT",
+     "widget": {
+      "name": "max_seconds"
+     },
+     "link": null,
+     "shape": 7
+    },
+    {
+     "localized_name": "audioUI",
+     "name": "audioUI",
+     "type": "AUDIO_UI",
+     "widget": {
+      "name": "audioUI"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "upload",
+     "name": "upload",
+     "type": "AUDIOUPLOAD",
+     "widget": {
+      "name": "upload"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "audio",
+     "name": "audio",
+     "type": "AUDIO",
+     "links": [
+      419
+     ]
+    },
+    {
+     "localized_name": "seconds",
+     "name": "seconds",
+     "type": "FLOAT",
+     "links": null
+    }
+   ],
+   "title": "Song - Plays under the clip",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_LoadAudio",
+    "cnr_id": "comfy-core",
+    "ver": "0.43.2"
+   },
+   "widgets_values": [
+    "01_card_declined.mp4",
+    0,
+    0,
+    10,
+    ""
+   ],
+   "widgets_values_named": {
+    "audio": "01_card_declined.mp4",
+    "start_seconds": 0,
+    "end_seconds": 0,
+    "max_seconds": 10,
+    "upload": ""
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 150,
+   "type": "AUSBOSS_NODES_VideoCropRotatePadClip",
+   "pos": [
+    3360,
+    80
+   ],
+   "size": [
+    400,
+    968
+   ],
+   "flags": {},
+   "order": 36,
+   "mode": 4,
+   "inputs": [
+    {
+     "localized_name": "force_rate",
+     "name": "force_rate",
+     "shape": 7,
+     "type": "FLOAT,INT",
+     "link": 413
+    },
+    {
+     "localized_name": "start_frame",
+     "name": "start_frame",
+     "shape": 7,
+     "type": "INT",
+     "link": null
+    },
+    {
+     "localized_name": "end_frame",
+     "name": "end_frame",
+     "shape": 7,
+     "type": "INT",
+     "link": null
+    },
+    {
+     "localized_name": "frame_load_cap",
+     "name": "frame_load_cap",
+     "shape": 7,
+     "type": "INT",
+     "link": null
+    },
+    {
+     "localized_name": "last_seconds",
+     "name": "last_seconds",
+     "shape": 7,
+     "type": "FLOAT",
+     "link": null
+    },
+    {
+     "localized_name": "video",
+     "name": "video",
+     "type": "COMBO",
+     "widget": {
+      "name": "video"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "source_mode",
+     "name": "source_mode",
+     "type": "COMBO",
+     "widget": {
+      "name": "source_mode"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "local_path",
+     "name": "local_path",
+     "type": "STRING",
+     "widget": {
+      "name": "local_path"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "start_seconds",
+     "name": "start_seconds",
+     "type": "FLOAT",
+     "widget": {
+      "name": "start_seconds"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "end_seconds",
+     "name": "end_seconds",
+     "type": "FLOAT",
+     "widget": {
+      "name": "end_seconds"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "seek_mode",
+     "name": "seek_mode",
+     "type": "COMBO",
+     "widget": {
+      "name": "seek_mode"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "frame_index",
+     "name": "frame_index",
+     "type": "INT",
+     "widget": {
+      "name": "frame_index"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "frame_time",
+     "name": "frame_time",
+     "type": "FLOAT",
+     "widget": {
+      "name": "frame_time"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "rotation_degrees",
+     "name": "rotation_degrees",
+     "type": "FLOAT",
+     "widget": {
+      "name": "rotation_degrees"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_aspect_ratio",
+     "name": "crop_aspect_ratio",
+     "type": "COMBO",
+     "widget": {
+      "name": "crop_aspect_ratio"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_x",
+     "name": "crop_x",
+     "type": "INT",
+     "widget": {
+      "name": "crop_x"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_y",
+     "name": "crop_y",
+     "type": "INT",
+     "widget": {
+      "name": "crop_y"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_width",
+     "name": "crop_width",
+     "type": "INT",
+     "widget": {
+      "name": "crop_width"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_height",
+     "name": "crop_height",
+     "type": "INT",
+     "widget": {
+      "name": "crop_height"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "pad_left",
+     "name": "pad_left",
+     "type": "INT",
+     "widget": {
+      "name": "pad_left"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "pad_top",
+     "name": "pad_top",
+     "type": "INT",
+     "widget": {
+      "name": "pad_top"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "pad_right",
+     "name": "pad_right",
+     "type": "INT",
+     "widget": {
+      "name": "pad_right"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "pad_bottom",
+     "name": "pad_bottom",
+     "type": "INT",
+     "widget": {
+      "name": "pad_bottom"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "feather",
+     "name": "feather",
+     "type": "INT",
+     "widget": {
+      "name": "feather"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "canvas_multiple",
+     "name": "canvas_multiple",
+     "type": "INT",
+     "widget": {
+      "name": "canvas_multiple"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "fill_color",
+     "name": "fill_color",
+     "type": "STRING",
+     "widget": {
+      "name": "fill_color"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "resize_to_megapixels",
+     "name": "resize_to_megapixels",
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "resize_to_megapixels"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "megapixels",
+     "name": "megapixels",
+     "type": "FLOAT",
+     "widget": {
+      "name": "megapixels"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "resize_method",
+     "name": "resize_method",
+     "type": "COMBO",
+     "widget": {
+      "name": "resize_method"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "resolution_steps",
+     "name": "resolution_steps",
+     "type": "INT",
+     "widget": {
+      "name": "resolution_steps"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "every_nth",
+     "name": "every_nth",
+     "shape": 7,
+     "type": "INT",
+     "widget": {
+      "name": "every_nth"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "max_frames",
+     "name": "max_frames",
+     "shape": 7,
+     "type": "INT",
+     "widget": {
+      "name": "max_frames"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "frame_snap",
+     "name": "frame_snap",
+     "shape": 7,
+     "type": "COMBO",
+     "widget": {
+      "name": "frame_snap"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "stitch_blend",
+     "name": "stitch_blend",
+     "shape": 7,
+     "type": "INT",
+     "widget": {
+      "name": "stitch_blend"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "stitch_grow",
+     "name": "stitch_grow",
+     "shape": 7,
+     "type": "INT",
+     "widget": {
+      "name": "stitch_grow"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "fixed_frames",
+     "name": "fixed_frames",
+     "shape": 7,
+     "type": "INT",
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "frames",
+     "name": "frames",
+     "type": "IMAGE",
+     "links": [
+      414
+     ]
+    },
+    {
+     "localized_name": "mask",
+     "name": "mask",
+     "type": "MASK",
+     "links": []
+    },
+    {
+     "localized_name": "audio",
+     "name": "audio",
+     "type": "AUDIO",
+     "links": [
+      415,
+      474,
+      485
+     ]
+    },
+    {
+     "localized_name": "frame_count",
+     "name": "frame_count",
+     "type": "INT",
+     "links": []
+    },
+    {
+     "localized_name": "fps",
+     "name": "fps",
+     "type": "FLOAT",
+     "links": []
+    },
+    {
+     "localized_name": "width",
+     "name": "width",
+     "type": "INT",
+     "links": []
+    },
+    {
+     "localized_name": "height",
+     "name": "height",
+     "type": "INT",
+     "links": []
+    },
+    {
+     "localized_name": "duration",
+     "name": "duration",
+     "type": "FLOAT",
+     "links": []
+    },
+    {
+     "localized_name": "stitcher",
+     "name": "stitcher",
+     "type": "AUSBOSS_STITCHER",
+     "links": []
+    },
+    {
+     "localized_name": "original",
+     "name": "original",
+     "type": "IMAGE",
+     "links": []
+    }
+   ],
+   "title": "Video - Swap or copy moves",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_VideoCropRotatePadClip",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.21.0"
+   },
+   "widgets_values": {
+    "video": "",
+    "source_mode": "input folder",
+    "local_path": "",
+    "start_seconds": 0,
+    "end_seconds": 0,
+    "seek_mode": "frame index",
+    "frame_index": 0,
+    "frame_time": 0,
+    "rotation_degrees": 0,
+    "crop_aspect_ratio": "free",
+    "crop_x": 0,
+    "crop_y": 0,
+    "crop_width": 0,
+    "crop_height": 0,
+    "pad_left": 0,
+    "pad_top": 0,
+    "pad_right": 0,
+    "pad_bottom": 0,
+    "feather": 0,
+    "canvas_multiple": 1,
+    "fill_color": "#000000",
+    "resize_to_megapixels": true,
+    "megapixels": 0.41,
+    "resize_method": "lanczos",
+    "resolution_steps": 1,
+    "every_nth": 1,
+    "max_frames": 240,
+    "frame_snap": "free",
+    "stitch_blend": 32,
+    "stitch_grow": 0,
+    "fixed_frames": 0
+   },
+   "widgets_values_named": {
+    "video": "",
+    "source_mode": "input folder",
+    "local_path": "",
+    "start_seconds": 0,
+    "end_seconds": 0,
+    "seek_mode": "frame index",
+    "frame_index": 0,
+    "frame_time": 0,
+    "rotation_degrees": 0,
+    "crop_aspect_ratio": "free",
+    "crop_x": 0,
+    "crop_y": 0,
+    "crop_width": 0,
+    "crop_height": 0,
+    "pad_left": 0,
+    "pad_top": 0,
+    "pad_right": 0,
+    "pad_bottom": 0,
+    "feather": 0,
+    "canvas_multiple": 1,
+    "fill_color": "#000000",
+    "resize_to_megapixels": true,
+    "megapixels": 0.41,
+    "resize_method": "lanczos",
+    "resolution_steps": 1,
+    "every_nth": 1,
+    "max_frames": 240,
+    "frame_snap": "free",
+    "stitch_blend": 32,
+    "stitch_grow": 0,
+    "fixed_frames": 0
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 160,
+   "type": "AUSBOSS_NODES_H3PromptWriter",
+   "pos": [
+    3800,
+    80
+   ],
+   "size": [
+    560,
+    884
+   ],
+   "flags": {},
+   "order": 37,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "clip",
+     "name": "clip",
+     "shape": 7,
+     "type": "CLIP",
+     "link": 402
+    },
+    {
+     "localized_name": "picture_1",
+     "name": "picture_1",
+     "shape": 7,
+     "type": "IMAGE",
+     "link": 466
+    },
+    {
+     "localized_name": "picture_2",
+     "name": "picture_2",
+     "shape": 7,
+     "type": "IMAGE",
+     "link": 405
+    },
+    {
+     "localized_name": "picture_3",
+     "name": "picture_3",
+     "shape": 7,
+     "type": "IMAGE",
+     "link": 407
+    },
+    {
+     "localized_name": "picture_4",
+     "name": "picture_4",
+     "shape": 7,
+     "type": "IMAGE",
+     "link": 409
+    },
+    {
+     "localized_name": "video",
+     "name": "video",
+     "shape": 7,
+     "type": "IMAGE",
+     "link": 414
+    },
+    {
+     "localized_name": "video_sound",
+     "name": "video_sound",
+     "shape": 7,
+     "type": "AUDIO",
+     "link": 415
+    },
+    {
+     "localized_name": "voice",
+     "name": "voice",
+     "shape": 7,
+     "type": "AUDIO",
+     "link": 418
+    },
+    {
+     "localized_name": "song",
+     "name": "song",
+     "shape": 7,
+     "type": "AUDIO",
+     "link": 419
+    },
+    {
+     "localized_name": "script",
+     "name": "script",
+     "type": "STRING",
+     "widget": {
+      "name": "script"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "seconds",
+     "name": "seconds",
+     "type": "INT",
+     "widget": {
+      "name": "seconds"
+     },
+     "link": 463
+    },
+    {
+     "localized_name": "camera",
+     "name": "camera",
+     "shape": 7,
+     "type": "COMBO",
+     "widget": {
+      "name": "camera"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "look",
+     "name": "look",
+     "shape": 7,
+     "type": "COMBO",
+     "widget": {
+      "name": "look"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "song_start",
+     "name": "song_start",
+     "shape": 7,
+     "type": "FLOAT",
+     "widget": {
+      "name": "song_start"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "cut_on_beat",
+     "name": "cut_on_beat",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "cut_on_beat"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "language",
+     "name": "language",
+     "shape": 7,
+     "type": "STRING",
+     "widget": {
+      "name": "language"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "sound",
+     "name": "sound",
+     "shape": 7,
+     "type": "STRING",
+     "widget": {
+      "name": "sound"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "music",
+     "name": "music",
+     "shape": 7,
+     "type": "STRING",
+     "widget": {
+      "name": "music"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "prompt",
+     "name": "prompt",
+     "type": "STRING",
+     "links": [
+      420,
+      421
+     ]
+    },
+    {
+     "localized_name": "picture_1",
+     "name": "picture_1",
+     "type": "IMAGE",
+     "links": [
+      404
+     ]
+    },
+    {
+     "localized_name": "picture_2",
+     "name": "picture_2",
+     "type": "IMAGE",
+     "links": [
+      406
+     ]
+    },
+    {
+     "localized_name": "picture_3",
+     "name": "picture_3",
+     "type": "IMAGE",
+     "links": [
+      408
+     ]
+    },
+    {
+     "localized_name": "picture_4",
+     "name": "picture_4",
+     "type": "IMAGE",
+     "links": [
+      410
+     ]
+    },
+    {
+     "localized_name": "video",
+     "name": "video",
+     "type": "IMAGE",
+     "links": [
+      416
+     ]
+    },
+    {
+     "localized_name": "video_sound",
+     "name": "video_sound",
+     "type": "AUDIO",
+     "links": [
+      417
+     ]
+    },
+    {
+     "localized_name": "voice",
+     "name": "voice",
+     "type": "AUDIO",
+     "links": [
+      422
+     ]
+    },
+    {
+     "localized_name": "song",
+     "name": "song",
+     "type": "AUDIO",
+     "links": [
+      423
+     ]
+    },
+    {
+     "localized_name": "song_under",
+     "name": "song_under",
+     "type": "AUDIO",
+     "links": [
+      424
+     ]
+    },
+    {
+     "localized_name": "frames",
+     "name": "frames",
+     "type": "INT",
+     "links": [
+      425,
+      473
+     ]
+    },
+    {
+     "localized_name": "width",
+     "name": "width",
+     "type": "INT",
+     "links": [
+      411
+     ]
+    },
+    {
+     "localized_name": "height",
+     "name": "height",
+     "type": "INT",
+     "links": [
+      412
+     ]
+    }
+   ],
+   "title": "H3 Prompt Writer - What happens",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_H3PromptWriter",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.21.0"
+   },
+   "widgets_values": [
+    "@1 walks through a crowded night market, looking back over their shoulder.\n\n@1 stands on a rooftop in the rain above the city at night.\n\n@1 runs down a long empty subway platform as the lights go out behind them.\n\n@1 sits in the back of a taxi at dawn and stares out of the window.",
+    12,
+    "as typed",
+    "from the picture",
+    0,
+    true,
+    "English",
+    "person",
+    "place",
+    "outfit",
+    "thing",
+    "copy its moves",
+    "",
+    "a dark score with deep drum hits that builds to the end"
+   ],
+   "widgets_values_named": {
+    "script": "@1 walks through a crowded night market, looking back over their shoulder.\n\n@1 stands on a rooftop in the rain above the city at night.\n\n@1 runs down a long empty subway platform as the lights go out behind them.\n\n@1 sits in the back of a taxi at dawn and stares out of the window.",
+    "seconds": 12,
+    "camera": "as typed",
+    "look": "from the picture",
+    "song_start": 0,
+    "cut_on_beat": true,
+    "language": "English",
+    "job_1": "person",
+    "job_2": "place",
+    "job_3": "outfit",
+    "job_4": "thing",
+    "video_job": "copy its moves",
+    "sound": "",
+    "music": "a dark score with deep drum hits that builds to the end"
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 154,
+   "type": "CLIPLoader",
+   "pos": [
+    1250,
+    1308.0000000000002
+   ],
+   "size": [
+    610,
+    106
+   ],
+   "flags": {},
+   "order": 15,
+   "mode": 4,
+   "inputs": [
+    {
+     "localized_name": "clip_name",
+     "name": "clip_name",
+     "type": "COMBO",
+     "widget": {
+      "name": "clip_name"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "type",
+     "name": "type",
+     "type": "COMBO",
+     "widget": {
+      "name": "type"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "device",
+     "name": "device",
+     "shape": 7,
+     "type": "COMBO",
+     "widget": {
+      "name": "device"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "CLIP",
+     "name": "CLIP",
+     "type": "CLIP",
+     "links": [
+      402
+     ]
+    }
+   ],
+   "title": "Small text model - Auto prompt",
+   "properties": {
+    "Node name for S&R": "CLIPLoader",
+    "models": [
+     {
+      "name": "qwen3vl_8b_int8_convrot.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors",
+      "directory": "text_encoders"
+     }
+    ],
+    "cnr_id": "comfy-core",
+    "ver": "0.43.2"
+   },
+   "widgets_values": [
+    "qwen3vl_8b_int8_convrot.safetensors",
+    "qwen_image",
+    "default"
+   ],
+   "widgets_values_named": {
+    "clip_name": "qwen3vl_8b_int8_convrot.safetensors",
+    "type": "qwen_image",
+    "device": "default"
+   },
+   "color": "#432",
+   "bgcolor": "#653"
+  },
+  {
+   "id": 155,
+   "type": "AUSBOSS_NODES_ImageCropRotatePad",
+   "pos": [
+    1939.9999999999998,
+    906.4999999999999
+   ],
+   "size": [
+    440,
+    762.7998781144643
+   ],
+   "flags": {},
+   "order": 16,
+   "mode": 4,
+   "inputs": [
+    {
+     "localized_name": "image",
+     "name": "image",
+     "type": "COMBO",
+     "widget": {
+      "name": "image"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "rotation_degrees",
+     "name": "rotation_degrees",
+     "type": "FLOAT",
+     "widget": {
+      "name": "rotation_degrees"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_aspect_ratio",
+     "name": "crop_aspect_ratio",
+     "type": "COMBO",
+     "widget": {
+      "name": "crop_aspect_ratio"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_x",
+     "name": "crop_x",
+     "type": "INT",
+     "widget": {
+      "name": "crop_x"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_y",
+     "name": "crop_y",
+     "type": "INT",
+     "widget": {
+      "name": "crop_y"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_width",
+     "name": "crop_width",
+     "type": "INT",
+     "widget": {
+      "name": "crop_width"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_height",
+     "name": "crop_height",
+     "type": "INT",
+     "widget": {
+      "name": "crop_height"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "pad_left",
+     "name": "pad_left",
+     "type": "INT",
+     "widget": {
+      "name": "pad_left"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "pad_top",
+     "name": "pad_top",
+     "type": "INT",
+     "widget": {
+      "name": "pad_top"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "pad_right",
+     "name": "pad_right",
+     "type": "INT",
+     "widget": {
+      "name": "pad_right"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "pad_bottom",
+     "name": "pad_bottom",
+     "type": "INT",
+     "widget": {
+      "name": "pad_bottom"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "feather",
+     "name": "feather",
+     "type": "INT",
+     "widget": {
+      "name": "feather"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "canvas_multiple",
+     "name": "canvas_multiple",
+     "type": "INT",
+     "widget": {
+      "name": "canvas_multiple"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "fill_color",
+     "name": "fill_color",
+     "type": "STRING",
+     "widget": {
+      "name": "fill_color"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "resize_to_megapixels",
+     "name": "resize_to_megapixels",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "resize_to_megapixels"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "megapixels",
+     "name": "megapixels",
+     "shape": 7,
+     "type": "FLOAT",
+     "widget": {
+      "name": "megapixels"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "resize_method",
+     "name": "resize_method",
+     "shape": 7,
+     "type": "COMBO",
+     "widget": {
+      "name": "resize_method"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "resolution_steps",
+     "name": "resolution_steps",
+     "shape": 7,
+     "type": "INT",
+     "widget": {
+      "name": "resolution_steps"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "stitch_blend",
+     "name": "stitch_blend",
+     "shape": 7,
+     "type": "INT",
+     "widget": {
+      "name": "stitch_blend"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "stitch_grow",
+     "name": "stitch_grow",
+     "shape": 7,
+     "type": "INT",
+     "widget": {
+      "name": "stitch_grow"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "painted_area",
+     "name": "painted_area",
+     "shape": 7,
+     "type": "COMBO",
+     "widget": {
+      "name": "painted_area"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "upload",
+     "name": "upload",
+     "type": "IMAGEUPLOAD",
+     "widget": {
+      "name": "upload"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "image",
+     "name": "image",
+     "type": "IMAGE",
+     "links": [
+      405
+     ]
+    },
+    {
+     "localized_name": "mask",
+     "name": "mask",
+     "type": "MASK",
+     "links": null
+    },
+    {
+     "localized_name": "stitcher",
+     "name": "stitcher",
+     "type": "AUSBOSS_STITCHER",
+     "links": null
+    },
+    {
+     "localized_name": "original",
+     "name": "original",
+     "type": "IMAGE",
+     "links": null
+    },
+    {
+     "localized_name": "width",
+     "name": "width",
+     "type": "INT",
+     "links": null
+    },
+    {
+     "localized_name": "height",
+     "name": "height",
+     "type": "INT",
+     "links": null
+    },
+    {
+     "localized_name": "prompt_image",
+     "name": "prompt_image",
+     "type": "IMAGE",
+     "links": null
+    }
+   ],
+   "title": "Picture 2 - @2",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_ImageCropRotatePad"
+   },
+   "widgets_values": {
+    "image": "",
+    "rotation_degrees": 0,
+    "crop_aspect_ratio": "free",
+    "crop_x": 0,
+    "crop_y": 0,
+    "crop_width": 0,
+    "crop_height": 0,
+    "pad_left": 0,
+    "pad_top": 0,
+    "pad_right": 0,
+    "pad_bottom": 0,
+    "feather": 24,
+    "canvas_multiple": 1,
+    "fill_color": "#808080",
+    "resize_to_megapixels": false,
+    "megapixels": 1,
+    "resize_method": "lanczos",
+    "resolution_steps": 1,
+    "stitch_blend": 32,
+    "stitch_grow": 0,
+    "painted_area": "fill"
+   },
+   "widgets_values_named": {
+    "image": "",
+    "rotation_degrees": 0,
+    "crop_aspect_ratio": "free",
+    "crop_x": 0,
+    "crop_y": 0,
+    "crop_width": 0,
+    "crop_height": 0,
+    "pad_left": 0,
+    "pad_top": 0,
+    "pad_right": 0,
+    "pad_bottom": 0,
+    "feather": 24,
+    "canvas_multiple": 1,
+    "fill_color": "#808080",
+    "resize_to_megapixels": false,
+    "megapixels": 1,
+    "resize_method": "lanczos",
+    "resolution_steps": 1,
+    "stitch_blend": 32,
+    "stitch_grow": 0,
+    "painted_area": "fill",
+    "upload": "image"
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 156,
+   "type": "AUSBOSS_NODES_ImageCropRotatePad",
+   "pos": [
+    2420,
+    80
+   ],
+   "size": [
+    440,
+    762.7998781144641
+   ],
+   "flags": {},
+   "order": 17,
+   "mode": 4,
+   "inputs": [
+    {
+     "localized_name": "image",
+     "name": "image",
+     "type": "COMBO",
+     "widget": {
+      "name": "image"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "rotation_degrees",
+     "name": "rotation_degrees",
+     "type": "FLOAT",
+     "widget": {
+      "name": "rotation_degrees"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_aspect_ratio",
+     "name": "crop_aspect_ratio",
+     "type": "COMBO",
+     "widget": {
+      "name": "crop_aspect_ratio"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_x",
+     "name": "crop_x",
+     "type": "INT",
+     "widget": {
+      "name": "crop_x"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_y",
+     "name": "crop_y",
+     "type": "INT",
+     "widget": {
+      "name": "crop_y"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_width",
+     "name": "crop_width",
+     "type": "INT",
+     "widget": {
+      "name": "crop_width"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_height",
+     "name": "crop_height",
+     "type": "INT",
+     "widget": {
+      "name": "crop_height"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "pad_left",
+     "name": "pad_left",
+     "type": "INT",
+     "widget": {
+      "name": "pad_left"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "pad_top",
+     "name": "pad_top",
+     "type": "INT",
+     "widget": {
+      "name": "pad_top"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "pad_right",
+     "name": "pad_right",
+     "type": "INT",
+     "widget": {
+      "name": "pad_right"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "pad_bottom",
+     "name": "pad_bottom",
+     "type": "INT",
+     "widget": {
+      "name": "pad_bottom"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "feather",
+     "name": "feather",
+     "type": "INT",
+     "widget": {
+      "name": "feather"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "canvas_multiple",
+     "name": "canvas_multiple",
+     "type": "INT",
+     "widget": {
+      "name": "canvas_multiple"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "fill_color",
+     "name": "fill_color",
+     "type": "STRING",
+     "widget": {
+      "name": "fill_color"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "resize_to_megapixels",
+     "name": "resize_to_megapixels",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "resize_to_megapixels"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "megapixels",
+     "name": "megapixels",
+     "shape": 7,
+     "type": "FLOAT",
+     "widget": {
+      "name": "megapixels"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "resize_method",
+     "name": "resize_method",
+     "shape": 7,
+     "type": "COMBO",
+     "widget": {
+      "name": "resize_method"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "resolution_steps",
+     "name": "resolution_steps",
+     "shape": 7,
+     "type": "INT",
+     "widget": {
+      "name": "resolution_steps"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "stitch_blend",
+     "name": "stitch_blend",
+     "shape": 7,
+     "type": "INT",
+     "widget": {
+      "name": "stitch_blend"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "stitch_grow",
+     "name": "stitch_grow",
+     "shape": 7,
+     "type": "INT",
+     "widget": {
+      "name": "stitch_grow"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "painted_area",
+     "name": "painted_area",
+     "shape": 7,
+     "type": "COMBO",
+     "widget": {
+      "name": "painted_area"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "upload",
+     "name": "upload",
+     "type": "IMAGEUPLOAD",
+     "widget": {
+      "name": "upload"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "image",
+     "name": "image",
+     "type": "IMAGE",
+     "links": [
+      407
+     ]
+    },
+    {
+     "localized_name": "mask",
+     "name": "mask",
+     "type": "MASK",
+     "links": null
+    },
+    {
+     "localized_name": "stitcher",
+     "name": "stitcher",
+     "type": "AUSBOSS_STITCHER",
+     "links": null
+    },
+    {
+     "localized_name": "original",
+     "name": "original",
+     "type": "IMAGE",
+     "links": null
+    },
+    {
+     "localized_name": "width",
+     "name": "width",
+     "type": "INT",
+     "links": null
+    },
+    {
+     "localized_name": "height",
+     "name": "height",
+     "type": "INT",
+     "links": null
+    },
+    {
+     "localized_name": "prompt_image",
+     "name": "prompt_image",
+     "type": "IMAGE",
+     "links": null
+    }
+   ],
+   "title": "Picture 3 - @3",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_ImageCropRotatePad"
+   },
+   "widgets_values": {
+    "image": "",
+    "rotation_degrees": 0,
+    "crop_aspect_ratio": "free",
+    "crop_x": 0,
+    "crop_y": 0,
+    "crop_width": 0,
+    "crop_height": 0,
+    "pad_left": 0,
+    "pad_top": 0,
+    "pad_right": 0,
+    "pad_bottom": 0,
+    "feather": 24,
+    "canvas_multiple": 1,
+    "fill_color": "#808080",
+    "resize_to_megapixels": false,
+    "megapixels": 1,
+    "resize_method": "lanczos",
+    "resolution_steps": 1,
+    "stitch_blend": 32,
+    "stitch_grow": 0,
+    "painted_area": "fill"
+   },
+   "widgets_values_named": {
+    "image": "",
+    "rotation_degrees": 0,
+    "crop_aspect_ratio": "free",
+    "crop_x": 0,
+    "crop_y": 0,
+    "crop_width": 0,
+    "crop_height": 0,
+    "pad_left": 0,
+    "pad_top": 0,
+    "pad_right": 0,
+    "pad_bottom": 0,
+    "feather": 24,
+    "canvas_multiple": 1,
+    "fill_color": "#808080",
+    "resize_to_megapixels": false,
+    "megapixels": 1,
+    "resize_method": "lanczos",
+    "resolution_steps": 1,
+    "stitch_blend": 32,
+    "stitch_grow": 0,
+    "painted_area": "fill",
+    "upload": "image"
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 157,
+   "type": "AUSBOSS_NODES_ImageCropRotatePad",
+   "pos": [
+    2419.9999999999995,
+    906.5
+   ],
+   "size": [
+    440,
+    762.7998781144643
+   ],
+   "flags": {},
+   "order": 18,
+   "mode": 4,
+   "inputs": [
+    {
+     "localized_name": "image",
+     "name": "image",
+     "type": "COMBO",
+     "widget": {
+      "name": "image"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "rotation_degrees",
+     "name": "rotation_degrees",
+     "type": "FLOAT",
+     "widget": {
+      "name": "rotation_degrees"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_aspect_ratio",
+     "name": "crop_aspect_ratio",
+     "type": "COMBO",
+     "widget": {
+      "name": "crop_aspect_ratio"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_x",
+     "name": "crop_x",
+     "type": "INT",
+     "widget": {
+      "name": "crop_x"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_y",
+     "name": "crop_y",
+     "type": "INT",
+     "widget": {
+      "name": "crop_y"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_width",
+     "name": "crop_width",
+     "type": "INT",
+     "widget": {
+      "name": "crop_width"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_height",
+     "name": "crop_height",
+     "type": "INT",
+     "widget": {
+      "name": "crop_height"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "pad_left",
+     "name": "pad_left",
+     "type": "INT",
+     "widget": {
+      "name": "pad_left"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "pad_top",
+     "name": "pad_top",
+     "type": "INT",
+     "widget": {
+      "name": "pad_top"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "pad_right",
+     "name": "pad_right",
+     "type": "INT",
+     "widget": {
+      "name": "pad_right"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "pad_bottom",
+     "name": "pad_bottom",
+     "type": "INT",
+     "widget": {
+      "name": "pad_bottom"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "feather",
+     "name": "feather",
+     "type": "INT",
+     "widget": {
+      "name": "feather"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "canvas_multiple",
+     "name": "canvas_multiple",
+     "type": "INT",
+     "widget": {
+      "name": "canvas_multiple"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "fill_color",
+     "name": "fill_color",
+     "type": "STRING",
+     "widget": {
+      "name": "fill_color"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "resize_to_megapixels",
+     "name": "resize_to_megapixels",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "resize_to_megapixels"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "megapixels",
+     "name": "megapixels",
+     "shape": 7,
+     "type": "FLOAT",
+     "widget": {
+      "name": "megapixels"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "resize_method",
+     "name": "resize_method",
+     "shape": 7,
+     "type": "COMBO",
+     "widget": {
+      "name": "resize_method"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "resolution_steps",
+     "name": "resolution_steps",
+     "shape": 7,
+     "type": "INT",
+     "widget": {
+      "name": "resolution_steps"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "stitch_blend",
+     "name": "stitch_blend",
+     "shape": 7,
+     "type": "INT",
+     "widget": {
+      "name": "stitch_blend"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "stitch_grow",
+     "name": "stitch_grow",
+     "shape": 7,
+     "type": "INT",
+     "widget": {
+      "name": "stitch_grow"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "painted_area",
+     "name": "painted_area",
+     "shape": 7,
+     "type": "COMBO",
+     "widget": {
+      "name": "painted_area"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "upload",
+     "name": "upload",
+     "type": "IMAGEUPLOAD",
+     "widget": {
+      "name": "upload"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "image",
+     "name": "image",
+     "type": "IMAGE",
+     "links": [
+      409
+     ]
+    },
+    {
+     "localized_name": "mask",
+     "name": "mask",
+     "type": "MASK",
+     "links": null
+    },
+    {
+     "localized_name": "stitcher",
+     "name": "stitcher",
+     "type": "AUSBOSS_STITCHER",
+     "links": null
+    },
+    {
+     "localized_name": "original",
+     "name": "original",
+     "type": "IMAGE",
+     "links": null
+    },
+    {
+     "localized_name": "width",
+     "name": "width",
+     "type": "INT",
+     "links": null
+    },
+    {
+     "localized_name": "height",
+     "name": "height",
+     "type": "INT",
+     "links": null
+    },
+    {
+     "localized_name": "prompt_image",
+     "name": "prompt_image",
+     "type": "IMAGE",
+     "links": null
+    }
+   ],
+   "title": "Picture 4 - @4",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_ImageCropRotatePad"
+   },
+   "widgets_values": {
+    "image": "",
+    "rotation_degrees": 0,
+    "crop_aspect_ratio": "free",
+    "crop_x": 0,
+    "crop_y": 0,
+    "crop_width": 0,
+    "crop_height": 0,
+    "pad_left": 0,
+    "pad_top": 0,
+    "pad_right": 0,
+    "pad_bottom": 0,
+    "feather": 24,
+    "canvas_multiple": 1,
+    "fill_color": "#808080",
+    "resize_to_megapixels": false,
+    "megapixels": 1,
+    "resize_method": "lanczos",
+    "resolution_steps": 1,
+    "stitch_blend": 32,
+    "stitch_grow": 0,
+    "painted_area": "fill"
+   },
+   "widgets_values_named": {
+    "image": "",
+    "rotation_degrees": 0,
+    "crop_aspect_ratio": "free",
+    "crop_x": 0,
+    "crop_y": 0,
+    "crop_width": 0,
+    "crop_height": 0,
+    "pad_left": 0,
+    "pad_top": 0,
+    "pad_right": 0,
+    "pad_bottom": 0,
+    "feather": 24,
+    "canvas_multiple": 1,
+    "fill_color": "#808080",
+    "resize_to_megapixels": false,
+    "megapixels": 1,
+    "resize_method": "lanczos",
+    "resolution_steps": 1,
+    "stitch_blend": 32,
+    "stitch_grow": 0,
+    "painted_area": "fill",
+    "upload": "image"
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 201,
+   "type": "AUSBOSS_NODES_WorkflowNote",
+   "pos": [
+    1440,
+    75.96831912359924
+   ],
+   "size": [
+    419.9999999999998,
+    421
+   ],
+   "flags": {
+    "pinned": true
+   },
+   "order": 19,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "note",
+     "name": "note",
+     "type": "STRING",
+     "widget": {
+      "name": "note"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [],
+   "title": "\ud83c\udd8e AusBoss",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_WorkflowNote",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.21.0"
+   },
+   "widgets_values": [
+    "{\"v\": 1, \"title\": \"Settings\", \"subtitle\": \"Only Picture 1 is on as it opens. Load it, type, press Run.\", \"author\": \"\", \"body\": \"### Swap someone in a video\\n1. Switch on **Video** and **Keep the clip's sound**, and load your clip.\\n2. Load the new person in **Picture 1**.\\n3. Clear **What happens** and press **Run**.\\n\\nTwo people in the clip? Type who goes, like \\\"the man in the hat\\\".\\n\\n### Good to know\\n- Click an arrow on a note to jump to what it points at.\\n- Purple nodes are switched off and need no file. The switches turn them on.\\n\\n### A clip came out wrong?\\nRun it again: the seed changes after every run. Still wrong? Read **Prompt H3 sees** on the right, then say it more plainly, one thing at a time. \\\"Value not in list\\\" means a file is missing.\", \"models\": [], \"packs\": [], \"links\": [], \"layout\": \"card\", \"accent\": \"\"}"
+   ],
+   "widgets_values_named": {
+    "note": "{\"v\": 1, \"title\": \"Settings\", \"subtitle\": \"Only Picture 1 is on as it opens. Load it, type, press Run.\", \"author\": \"\", \"body\": \"### Swap someone in a video\\n1. Switch on **Video** and **Keep the clip's sound**, and load your clip.\\n2. Load the new person in **Picture 1**.\\n3. Clear **What happens** and press **Run**.\\n\\nTwo people in the clip? Type who goes, like \\\"the man in the hat\\\".\\n\\n### Good to know\\n- Click an arrow on a note to jump to what it points at.\\n- Purple nodes are switched off and need no file. The switches turn them on.\\n\\n### A clip came out wrong?\\nRun it again: the seed changes after every run. Still wrong? Read **Prompt H3 sees** on the right, then say it more plainly, one thing at a time. \\\"Value not in list\\\" means a file is missing.\", \"models\": [], \"packs\": [], \"links\": [], \"layout\": \"card\", \"accent\": \"\"}"
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 202,
+   "type": "AUSBOSS_NODES_WorkflowNote",
+   "pos": [
+    2900,
+    50
+   ],
+   "size": [
+    420,
+    407
+   ],
+   "flags": {
+    "pinned": true
+   },
+   "order": 20,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "note",
+     "name": "note",
+     "type": "STRING",
+     "widget": {
+      "name": "note"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [],
+   "title": "\ud83c\udd8e AusBoss",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_WorkflowNote",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.21.0"
+   },
+   "widgets_values": [
+    "{\"v\": 1, \"title\": \"Your pictures\", \"subtitle\": \"Give each picture one job on H3 Prompt Writer. Type @1 for Picture 1, @2 for Picture 2.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"- **person**: a clear photo of one person. They go wherever your lines say. Name no place and they stay where the picture shows.\\n- **character sheet**: for a swap, crop it to one view with the blue handles. A whole sheet can flash up at the start, and a second picture of the same person becomes a second person.\\n- **place**: a place with nobody in it. Pale bars at the sides of the clip? Crop this picture to the clip's shape with the blue handles.\\n- **outfit** or **thing**: nobody in the picture. A person in it pulls the face toward theirs, so crop the head off with the blue handles.\\n- **style**: only the look is used.\\n- **start on it** or **end on it**: the first or the last moment of the clip.\", \"models\": [], \"packs\": [], \"links\": []}"
+   ],
+   "widgets_values_named": {
+    "note": "{\"v\": 1, \"title\": \"Your pictures\", \"subtitle\": \"Give each picture one job on H3 Prompt Writer. Type @1 for Picture 1, @2 for Picture 2.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"- **person**: a clear photo of one person. They go wherever your lines say. Name no place and they stay where the picture shows.\\n- **character sheet**: for a swap, crop it to one view with the blue handles. A whole sheet can flash up at the start, and a second picture of the same person becomes a second person.\\n- **place**: a place with nobody in it. Pale bars at the sides of the clip? Crop this picture to the clip's shape with the blue handles.\\n- **outfit** or **thing**: nobody in the picture. A person in it pulls the face toward theirs, so crop the head off with the blue handles.\\n- **style**: only the look is used.\\n- **start on it** or **end on it**: the first or the last moment of the clip.\", \"models\": [], \"packs\": [], \"links\": []}"
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 203,
+   "type": "AUSBOSS_NODES_WorkflowNote",
+   "pos": [
+    2900,
+    501
+   ],
+   "size": [
+    420,
+    501
+   ],
+   "flags": {
+    "pinned": true
+   },
+   "order": 21,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "note",
+     "name": "note",
+     "type": "STRING",
+     "widget": {
+      "name": "note"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [],
+   "title": "\ud83c\udd8e AusBoss",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_WorkflowNote",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.21.0"
+   },
+   "widgets_values": [
+    "{\"v\": 1, \"title\": \"Recipes\", \"subtitle\": \"What to turn on, and what to type.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"- **A story across places.** Nothing extra. One line for each place, with a blank line between.\\n- **Your own place.** Picture 2 as place: `@1 sits at the counter in @2`\\n- **Two people.** Picture 2 as person: `@1 and @2 sit side by side on a night bus`\\n- **A new outfit.** Picture 2 as outfit: `@1 walks down a runway wearing @2`\\n- **A product film.** Picture 1 as thing: `@1 spins slowly on black glass`\\n- **Copy a dance.** Video on, as copy its moves: `@1 dances on a rooftop at sunset`\\n- **That dance, that outfit.** Video on, Picture 2 as outfit: `@1 dances on a rooftop wearing @2`\\n- **Put someone in a video.** Video on, as swap the person. Type nothing.\\n- **A longer story.** Video on, as keep going. Load your last clip and type what comes next.\", \"models\": [], \"packs\": [], \"links\": []}"
+   ],
+   "widgets_values_named": {
+    "note": "{\"v\": 1, \"title\": \"Recipes\", \"subtitle\": \"What to turn on, and what to type.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"- **A story across places.** Nothing extra. One line for each place, with a blank line between.\\n- **Your own place.** Picture 2 as place: `@1 sits at the counter in @2`\\n- **Two people.** Picture 2 as person: `@1 and @2 sit side by side on a night bus`\\n- **A new outfit.** Picture 2 as outfit: `@1 walks down a runway wearing @2`\\n- **A product film.** Picture 1 as thing: `@1 spins slowly on black glass`\\n- **Copy a dance.** Video on, as copy its moves: `@1 dances on a rooftop at sunset`\\n- **That dance, that outfit.** Video on, Picture 2 as outfit: `@1 dances on a rooftop wearing @2`\\n- **Put someone in a video.** Video on, as swap the person. Type nothing.\\n- **A longer story.** Video on, as keep going. Load your last clip and type what comes next.\", \"models\": [], \"packs\": [], \"links\": []}"
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 204,
+   "type": "AUSBOSS_NODES_WorkflowNote",
+   "pos": [
+    2900,
+    1046
+   ],
+   "size": [
+    420,
+    569
+   ],
+   "flags": {
+    "pinned": true
+   },
+   "order": 22,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "note",
+     "name": "note",
+     "type": "STRING",
+     "widget": {
+      "name": "note"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [],
+   "title": "\ud83c\udd8e AusBoss",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_WorkflowNote",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.21.0"
+   },
+   "widgets_values": [
+    "{\"v\": 1, \"title\": \"Your video and sound\", \"subtitle\": \"Up to 15 seconds. Pick its job on H3 Prompt Writer.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"Drag the handles to the part you want. The clip takes this video's shape, and takes about three times as long to make.\\n\\n- **copy its moves**: your person does what the video shows. The clothes in the video stay unless your line names new ones.\\n- **swap the person**: the same video with your person in it. Type nothing. Two people in it? Type who goes: `the child in the seat`.\\n- **keep going**: more of the clip, from where it ends. Type what comes next. It saves the new part.\\n- **new voice**: the same video in another voice. Turn **Voice** on and put the words in quotes.\\n\\n### Voice and Song\\n**Voice**: about 10 seconds of someone talking, yours or one you have permission to use. Put the words in quotes, on the last line.\\n\\n**Song**: it plays as it is, and each moment moves onto its beat. With a voice too, it goes under the words.\", \"models\": [], \"packs\": [], \"links\": []}"
+   ],
+   "widgets_values_named": {
+    "note": "{\"v\": 1, \"title\": \"Your video and sound\", \"subtitle\": \"Up to 15 seconds. Pick its job on H3 Prompt Writer.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"Drag the handles to the part you want. The clip takes this video's shape, and takes about three times as long to make.\\n\\n- **copy its moves**: your person does what the video shows. The clothes in the video stay unless your line names new ones.\\n- **swap the person**: the same video with your person in it. Type nothing. Two people in it? Type who goes: `the child in the seat`.\\n- **keep going**: more of the clip, from where it ends. Type what comes next. It saves the new part.\\n- **new voice**: the same video in another voice. Turn **Voice** on and put the words in quotes.\\n\\n### Voice and Song\\n**Voice**: about 10 seconds of someone talking, yours or one you have permission to use. Put the words in quotes, on the last line.\\n\\n**Song**: it plays as it is, and each moment moves onto its beat. With a voice too, it goes under the words.\", \"models\": [], \"packs\": [], \"links\": []}"
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 205,
+   "type": "AUSBOSS_NODES_WorkflowNote",
+   "pos": [
+    3800,
+    1008
+   ],
+   "size": [
+    560,
+    583
+   ],
+   "flags": {
+    "pinned": true
+   },
+   "order": 23,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "note",
+     "name": "note",
+     "type": "STRING",
+     "widget": {
+      "name": "note"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [],
+   "title": "\ud83c\udd8e AusBoss",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_WorkflowNote",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.21.0"
+   },
+   "widgets_values": [
+    "{\"v\": 1, \"title\": \"Writing the lines\", \"subtitle\": \"One line for each thing. A blank line cuts to a new place.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"Lines play in order, in one shot. About one line a second is the most H3 can play. The bars show when.\\n\\n- **Name the place** in the line after a blank line. A cut inside one place shows every gap, so move somewhere new each time.\\n- **Think from the new scene.** Say which way they face and where they end up. If they walk away, we see their back.\\n- **Say what you would see.** `She smiles` works. `She feels happy` doesn't. No steps are filled in: to get on a train, she has to walk to it, then step in.\\n- **Speech** goes in quotes: `She says \\\"we are late.\\\"`\\n\\n### On a line of their own\\n- `music:` a dark score with deep drum hits\\n- `sound:` rain on a tin roof\\n- `camera:` a slow push in\\n- `look:` a 1970s film\\n- `3s:` at the start of a line puts it on that second\", \"models\": [], \"packs\": [], \"links\": []}"
+   ],
+   "widgets_values_named": {
+    "note": "{\"v\": 1, \"title\": \"Writing the lines\", \"subtitle\": \"One line for each thing. A blank line cuts to a new place.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"Lines play in order, in one shot. About one line a second is the most H3 can play. The bars show when.\\n\\n- **Name the place** in the line after a blank line. A cut inside one place shows every gap, so move somewhere new each time.\\n- **Think from the new scene.** Say which way they face and where they end up. If they walk away, we see their back.\\n- **Say what you would see.** `She smiles` works. `She feels happy` doesn't. No steps are filled in: to get on a train, she has to walk to it, then step in.\\n- **Speech** goes in quotes: `She says \\\"we are late.\\\"`\\n\\n### On a line of their own\\n- `music:` a dark score with deep drum hits\\n- `sound:` rain on a tin roof\\n- `camera:` a slow push in\\n- `look:` a 1970s film\\n- `3s:` at the start of a line puts it on that second\", \"models\": [], \"packs\": [], \"links\": []}"
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 149,
+   "type": "AUSBOSS_NODES_WorkflowSwitches",
+   "pos": [
+    620,
+    75.96831912359924
+   ],
+   "size": [
+    400,
+    159
+   ],
+   "flags": {},
+   "order": 24,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [],
+   "title": "Pictures",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_WorkflowSwitches",
+    "ausboss_workflow_switches": {
+     "off": "bypass",
+     "groups": "none",
+     "match": "",
+     "order": "canvas",
+     "exclusive": false,
+     "switches": [
+      {
+       "id": 1,
+       "title": "Picture 1: @1",
+       "nodes": [
+        256
+       ],
+       "groups": [],
+       "on": {},
+       "off": {}
+      },
+      {
+       "id": 2,
+       "title": "Picture 2: @2",
+       "nodes": [
+        155
+       ],
+       "groups": [],
+       "on": {},
+       "off": {}
+      },
+      {
+       "id": 3,
+       "title": "Picture 3: @3",
+       "nodes": [
+        156
+       ],
+       "groups": [],
+       "on": {},
+       "off": {}
+      },
+      {
+       "id": 4,
+       "title": "Picture 4: @4",
+       "nodes": [
+        157
+       ],
+       "groups": [],
+       "on": {},
+       "off": {}
+      }
+     ],
+     "show": "rows"
+    },
+    "ausboss_show_edit": false,
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.21.0"
+   },
+   "widgets_values": [],
+   "widgets_values_named": {},
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 224,
+   "type": "AUSBOSS_NODES_WorkflowSwitches",
+   "pos": [
+    620,
+    296.96831912359926
+   ],
+   "size": [
+    400,
+    159
+   ],
+   "flags": {},
+   "order": 25,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [],
+   "title": "Video and sound",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_WorkflowSwitches",
+    "ausboss_workflow_switches": {
+     "off": "bypass",
+     "groups": "none",
+     "match": "",
+     "order": "canvas",
+     "exclusive": false,
+     "switches": [
+      {
+       "id": 5,
+       "title": "Video: swap or copy moves",
+       "nodes": [
+        150
+       ],
+       "groups": [],
+       "on": {},
+       "off": {}
+      },
+      {
+       "id": 8,
+       "title": "Keep the clip's sound",
+       "nodes": [
+        261
+       ],
+       "groups": [],
+       "on": {
+        "39": {
+         "steer mouths": true
+        }
+       },
+       "off": {
+        "39": {
+         "steer mouths": false
+        }
+       }
+      },
+      {
+       "id": 6,
+       "title": "Voice: words in quotes",
+       "nodes": [
+        151
+       ],
+       "groups": [],
+       "on": {},
+       "off": {}
+      },
+      {
+       "id": 7,
+       "title": "Song: plays under it",
+       "nodes": [
+        152
+       ],
+       "groups": [],
+       "on": {},
+       "off": {}
+      }
+     ],
+     "show": "rows"
+    },
+    "ausboss_show_edit": false,
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.21.0"
+   },
+   "widgets_values": [],
+   "widgets_values_named": {},
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 225,
+   "type": "AUSBOSS_NODES_WorkflowSwitches",
+   "pos": [
+    620,
+    513.4683191235991
+   ],
+   "size": [
+    400,
+    97
+   ],
+   "flags": {},
+   "order": 26,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [],
+   "title": "Extras",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_WorkflowSwitches",
+    "ausboss_workflow_switches": {
+     "off": "bypass",
+     "groups": "none",
+     "match": "",
+     "order": "canvas",
+     "exclusive": false,
+     "switches": [
+      {
+       "id": 8,
+       "title": "Auto prompt: fills out one line",
+       "nodes": [
+        154
+       ],
+       "groups": [],
+       "on": {},
+       "off": {}
+      },
+      {
+       "id": 9,
+       "title": "Fast test: 480p, about a minute",
+       "nodes": [],
+       "groups": [],
+       "on": {
+        "41": {
+         "fast test": true
+        },
+        "150": {
+         "megapixels": 0.26
+        }
+       },
+       "off": {
+        "41": {
+         "fast test": false
+        },
+        "150": {
+         "megapixels": 1
+        }
+       }
+      }
+     ],
+     "show": "rows"
+    },
+    "ausboss_show_edit": false,
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.21.0"
+   },
+   "widgets_values": [],
+   "widgets_values_named": {},
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 227,
+   "type": "AUSBOSS_NODES_Callout",
+   "pos": [
+    1043.3598636873617,
+    814.5000000000001
+   ],
+   "size": [
+    373.92035918789156,
+    197.1809210961316
+   ],
+   "flags": {
+    "pinned": true
+   },
+   "order": 27,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "text",
+     "name": "text",
+     "type": "STRING",
+     "widget": {
+      "name": "text"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [],
+   "title": "VRAM",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_Callout",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.21.0"
+   },
+   "widgets_values": [
+    "\u2b06\ufe0f#141 **High VRAM** for 24 GB or more. **Low VRAM** for 16 to 24 GB.\n###### Low VRAM uses two smaller files from the main note (7 GB less) and makes the clip about 480p, same length and sound. Held to 16 GB it peaked at 17.3 GB, so 16 GB is tight."
+   ],
+   "widgets_values_named": {
+    "text": "\u2b06\ufe0f#141 **High VRAM** for 24 GB or more. **Low VRAM** for 16 to 24 GB.\n###### Low VRAM uses two smaller files from the main note (7 GB less) and makes the clip about 480p, same length and sound. Held to 16 GB it peaked at 17.3 GB, so 16 GB is tight."
+   },
+   "color": "#07090a",
+   "bgcolor": "#07090a"
+  },
+  {
+   "id": 228,
+   "type": "AUSBOSS_NODES_Callout",
+   "pos": [
+    1043.3598636873617,
+    75.96831912359924
+   ],
+   "size": [
+    373.92035918789156,
+    159.0000000000001
+   ],
+   "flags": {
+    "pinned": true
+   },
+   "order": 28,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "text",
+     "name": "text",
+     "type": "STRING",
+     "widget": {
+      "name": "text"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [],
+   "title": "Pictures",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_Callout",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.21.0"
+   },
+   "widgets_values": [
+    "\u2b05\ufe0f#149 Switch on a **picture** for each one you load.\n###### Call them @1 to @4 in your lines, and give each one a job on H3 Prompt Writer: person, place, outfit or thing."
+   ],
+   "widgets_values_named": {
+    "text": "\u2b05\ufe0f#149 Switch on a **picture** for each one you load.\n###### Call them @1 to @4 in your lines, and give each one a job on H3 Prompt Writer: person, place, outfit or thing."
+   },
+   "color": "#07090a",
+   "bgcolor": "#07090a"
+  },
+  {
+   "id": 229,
+   "type": "AUSBOSS_NODES_Callout",
+   "pos": [
+    1043.3598636873617,
+    296.96831912359914
+   ],
+   "size": [
+    373.92035918789156,
+    159
+   ],
+   "flags": {
+    "pinned": true
+   },
+   "order": 29,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "text",
+     "name": "text",
+     "type": "STRING",
+     "widget": {
+      "name": "text"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [],
+   "title": "Video and sound",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_Callout",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.21.0"
+   },
+   "widgets_values": [
+    "\u2b05\ufe0f#224 **Video**: swap someone in or copy the moves. Up to 10 s, at about 480p.\n\u2b05\ufe0f#224 **Keep the clip's sound**: its own words and music, for a swap.\n\u2198\ufe0f#151 **Voice**: 10 seconds of talking, with the words in quotes on the last line.\n\u2198\ufe0f#152 **Song**: plays under the clip."
+   ],
+   "widgets_values_named": {
+    "text": "\u2b05\ufe0f#224 **Video**: swap someone in or copy the moves. Up to 10 s, at about 480p.\n\u2b05\ufe0f#224 **Keep the clip's sound**: its own words and music, for a swap.\n\u2198\ufe0f#151 **Voice**: 10 seconds of talking, with the words in quotes on the last line.\n\u2198\ufe0f#152 **Song**: plays under the clip."
+   },
+   "color": "#07090a",
+   "bgcolor": "#07090a"
+  },
+  {
+   "id": 230,
+   "type": "AUSBOSS_NODES_Callout",
+   "pos": [
+    1043.3598636873617,
+    513.468319123599
+   ],
+   "size": [
+    373.92035918789156,
+    127.76015720845669
+   ],
+   "flags": {
+    "pinned": true
+   },
+   "order": 30,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "text",
+     "name": "text",
+     "type": "STRING",
+     "widget": {
+      "name": "text"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [],
+   "title": "Extras",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_Callout",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.21.0"
+   },
+   "widgets_values": [
+    "\u2b05\ufe0f#225 **Auto prompt** fills out a one-line idea. It needs one more model file.\n\u2b05\ufe0f#225 **Fast test**: a 480p clip in about a minute. Turn it off for full quality."
+   ],
+   "widgets_values_named": {
+    "text": "\u2b05\ufe0f#225 **Auto prompt** fills out a one-line idea. It needs one more model file.\n\u2b05\ufe0f#225 **Fast test**: a 480p clip in about a minute. Turn it off for full quality."
+   },
+   "color": "#07090a",
+   "bgcolor": "#07090a"
+  },
+  {
+   "id": 255,
+   "type": "AUSBOSS_NODES_Callout",
+   "pos": [
+    1440,
+    536.9683191235993
+   ],
+   "size": [
+    419.9999999999998,
+    125.5
+   ],
+   "flags": {
+    "pinned": true
+   },
+   "order": 31,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "text",
+     "name": "text",
+     "type": "STRING",
+     "widget": {
+      "name": "text"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [],
+   "title": "LoRA Loader",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_Callout",
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.21.0"
+   },
+   "widgets_values": [
+    "\u2b07\ufe0f#11 **LoRA Loader**: Pika stays on at strength 1.\n###### Your own **Ref2VA** LoRAs go under it. No Turbo or Lightning LoRA: Pika is already the six-step speed-up."
+   ],
+   "widgets_values_named": {
+    "text": "\u2b07\ufe0f#11 **LoRA Loader**: Pika stays on at strength 1.\n###### Your own **Ref2VA** LoRAs go under it. No Turbo or Lightning LoRA: Pika is already the six-step speed-up."
+   },
+   "color": "#07090a",
+   "bgcolor": "#07090a"
+  },
+  {
+   "id": 256,
+   "type": "AUSBOSS_NODES_ImageCropRotatePad",
+   "pos": [
+    1940,
+    79.99999999999989
+   ],
+   "size": [
+    440,
+    762.7998781144643
+   ],
+   "flags": {},
+   "order": 32,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "image",
+     "name": "image",
+     "type": "COMBO",
+     "widget": {
+      "name": "image"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "rotation_degrees",
+     "name": "rotation_degrees",
+     "type": "FLOAT",
+     "widget": {
+      "name": "rotation_degrees"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_aspect_ratio",
+     "name": "crop_aspect_ratio",
+     "type": "COMBO",
+     "widget": {
+      "name": "crop_aspect_ratio"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_x",
+     "name": "crop_x",
+     "type": "INT",
+     "widget": {
+      "name": "crop_x"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_y",
+     "name": "crop_y",
+     "type": "INT",
+     "widget": {
+      "name": "crop_y"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_width",
+     "name": "crop_width",
+     "type": "INT",
+     "widget": {
+      "name": "crop_width"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "crop_height",
+     "name": "crop_height",
+     "type": "INT",
+     "widget": {
+      "name": "crop_height"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "pad_left",
+     "name": "pad_left",
+     "type": "INT",
+     "widget": {
+      "name": "pad_left"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "pad_top",
+     "name": "pad_top",
+     "type": "INT",
+     "widget": {
+      "name": "pad_top"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "pad_right",
+     "name": "pad_right",
+     "type": "INT",
+     "widget": {
+      "name": "pad_right"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "pad_bottom",
+     "name": "pad_bottom",
+     "type": "INT",
+     "widget": {
+      "name": "pad_bottom"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "feather",
+     "name": "feather",
+     "type": "INT",
+     "widget": {
+      "name": "feather"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "canvas_multiple",
+     "name": "canvas_multiple",
+     "type": "INT",
+     "widget": {
+      "name": "canvas_multiple"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "fill_color",
+     "name": "fill_color",
+     "type": "STRING",
+     "widget": {
+      "name": "fill_color"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "resize_to_megapixels",
+     "name": "resize_to_megapixels",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "resize_to_megapixels"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "megapixels",
+     "name": "megapixels",
+     "shape": 7,
+     "type": "FLOAT",
+     "widget": {
+      "name": "megapixels"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "resize_method",
+     "name": "resize_method",
+     "shape": 7,
+     "type": "COMBO",
+     "widget": {
+      "name": "resize_method"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "resolution_steps",
+     "name": "resolution_steps",
+     "shape": 7,
+     "type": "INT",
+     "widget": {
+      "name": "resolution_steps"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "stitch_blend",
+     "name": "stitch_blend",
+     "shape": 7,
+     "type": "INT",
+     "widget": {
+      "name": "stitch_blend"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "stitch_grow",
+     "name": "stitch_grow",
+     "shape": 7,
+     "type": "INT",
+     "widget": {
+      "name": "stitch_grow"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "painted_area",
+     "name": "painted_area",
+     "shape": 7,
+     "type": "COMBO",
+     "widget": {
+      "name": "painted_area"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "upload",
+     "name": "upload",
+     "type": "IMAGEUPLOAD",
+     "widget": {
+      "name": "upload"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "image",
+     "name": "image",
+     "type": "IMAGE",
+     "links": [
+      466
+     ]
+    },
+    {
+     "localized_name": "mask",
+     "name": "mask",
+     "type": "MASK",
+     "links": null
+    },
+    {
+     "localized_name": "stitcher",
+     "name": "stitcher",
+     "type": "AUSBOSS_STITCHER",
+     "links": null
+    },
+    {
+     "localized_name": "original",
+     "name": "original",
+     "type": "IMAGE",
+     "links": null
+    },
+    {
+     "localized_name": "width",
+     "name": "width",
+     "type": "INT",
+     "links": null
+    },
+    {
+     "localized_name": "height",
+     "name": "height",
+     "type": "INT",
+     "links": null
+    },
+    {
+     "localized_name": "prompt_image",
+     "name": "prompt_image",
+     "type": "IMAGE",
+     "links": null
+    }
+   ],
+   "title": "Picture 1 - @1",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_ImageCropRotatePad"
+   },
+   "widgets_values": {
+    "image": "",
+    "rotation_degrees": 0,
+    "crop_aspect_ratio": "free",
+    "crop_x": 0,
+    "crop_y": 0,
+    "crop_width": 0,
+    "crop_height": 0,
+    "pad_left": 0,
+    "pad_top": 0,
+    "pad_right": 0,
+    "pad_bottom": 0,
+    "feather": 24,
+    "canvas_multiple": 1,
+    "fill_color": "#808080",
+    "resize_to_megapixels": false,
+    "megapixels": 1,
+    "resize_method": "lanczos",
+    "resolution_steps": 1,
+    "stitch_blend": 32,
+    "stitch_grow": 0,
+    "painted_area": "fill"
+   },
+   "widgets_values_named": {
+    "image": "",
+    "rotation_degrees": 0,
+    "crop_aspect_ratio": "free",
+    "crop_x": 0,
+    "crop_y": 0,
+    "crop_width": 0,
+    "crop_height": 0,
+    "pad_left": 0,
+    "pad_top": 0,
+    "pad_right": 0,
+    "pad_bottom": 0,
+    "feather": 24,
+    "canvas_multiple": 1,
+    "fill_color": "#808080",
+    "resize_to_megapixels": false,
+    "megapixels": 1,
+    "resize_method": "lanczos",
+    "resolution_steps": 1,
+    "stitch_blend": 32,
+    "stitch_grow": 0,
+    "painted_area": "fill",
+    "upload": "image"
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 257,
+   "type": "AUSBOSS_NODES_Integer",
+   "pos": [
+    620,
+    657
+   ],
+   "size": [
+    400,
+    124
+   ],
+   "flags": {},
+   "order": 33,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "value",
+     "name": "value",
+     "type": "INT",
+     "widget": {
+      "name": "value"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "int",
+     "name": "int",
+     "type": "INT",
+     "links": [
+      463
+     ]
+    }
+   ],
+   "title": "Seconds",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_Integer",
+    "ausboss_text_look": "big"
+   },
+   "widgets_values": [
+    12
+   ],
+   "widgets_values_named": {
+    "value": 12
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 261,
+   "type": "f7f42fda-df49-4bc9-9a50-aabe4268daea",
+   "pos": [
+    4440,
+    516
+   ],
+   "size": [
+    260,
+    110
+   ],
+   "flags": {},
+   "order": 41,
+   "mode": 4,
+   "inputs": [
+    {
+     "localized_name": "h3 sound",
+     "name": "h3 sound",
+     "shape": 7,
+     "type": "AUDIO",
+     "link": 475
+    },
+    {
+     "localized_name": "clip sound",
+     "name": "clip sound",
+     "type": "AUDIO",
+     "link": 474
+    },
+    {
+     "localized_name": "frames",
+     "name": "frames",
+     "shape": 7,
+     "type": "INT",
+     "link": 473
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "sound",
+     "name": "sound",
+     "type": "AUDIO",
+     "links": [
+      476
+     ]
+    }
+   ],
+   "properties": {
+    "previewExposures": []
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  }
+ ],
+ "links": [
+  [
+   392,
+   10,
+   0,
+   146,
+   0,
+   "MODEL"
+  ],
+  [
+   393,
+   142,
+   0,
+   146,
+   1,
+   "MODEL"
+  ],
+  [
+   394,
+   9,
+   0,
+   146,
+   2,
+   "VAE"
+  ],
+  [
+   395,
+   143,
+   0,
+   146,
+   3,
+   "VAE"
+  ],
+  [
+   396,
+   146,
+   0,
+   11,
+   0,
+   "MODEL"
+  ],
+  [
+   397,
+   11,
+   0,
+   39,
+   17,
+   "MODEL"
+  ],
+  [
+   398,
+   146,
+   1,
+   39,
+   15,
+   "VAE"
+  ],
+  [
+   399,
+   144,
+   0,
+   39,
+   16,
+   "VAE"
+  ],
+  [
+   400,
+   8,
+   0,
+   39,
+   14,
+   "CLIP"
+  ],
+  [
+   401,
+   4,
+   0,
+   39,
+   1,
+   "INT"
+  ],
+  [
+   402,
+   154,
+   0,
+   160,
+   0,
+   "CLIP"
+  ],
+  [
+   404,
+   160,
+   1,
+   39,
+   5,
+   "IMAGE"
+  ],
+  [
+   405,
+   155,
+   0,
+   160,
+   2,
+   "IMAGE"
+  ],
+  [
+   406,
+   160,
+   2,
+   39,
+   6,
+   "IMAGE"
+  ],
+  [
+   407,
+   156,
+   0,
+   160,
+   3,
+   "IMAGE"
+  ],
+  [
+   408,
+   160,
+   3,
+   39,
+   7,
+   "IMAGE"
+  ],
+  [
+   409,
+   157,
+   0,
+   160,
+   4,
+   "IMAGE"
+  ],
+  [
+   410,
+   160,
+   4,
+   39,
+   8,
+   "IMAGE"
+  ],
+  [
+   411,
+   160,
+   11,
+   41,
+   0,
+   "INT"
+  ],
+  [
+   412,
+   160,
+   12,
+   41,
+   1,
+   "INT"
+  ],
+  [
+   413,
+   146,
+   2,
+   150,
+   0,
+   "INT"
+  ],
+  [
+   414,
+   150,
+   0,
+   160,
+   5,
+   "IMAGE"
+  ],
+  [
+   415,
+   150,
+   2,
+   160,
+   6,
+   "AUDIO"
+  ],
+  [
+   416,
+   160,
+   5,
+   39,
+   9,
+   "IMAGE"
+  ],
+  [
+   417,
+   160,
+   6,
+   39,
+   10,
+   "AUDIO"
+  ],
+  [
+   418,
+   151,
+   0,
+   160,
+   7,
+   "AUDIO"
+  ],
+  [
+   419,
+   152,
+   0,
+   160,
+   8,
+   "AUDIO"
+  ],
+  [
+   420,
+   160,
+   0,
+   15,
+   0,
+   "STRING"
+  ],
+  [
+   421,
+   160,
+   0,
+   39,
+   0,
+   "STRING"
+  ],
+  [
+   422,
+   160,
+   7,
+   39,
+   11,
+   "AUDIO"
+  ],
+  [
+   423,
+   160,
+   8,
+   39,
+   12,
+   "AUDIO"
+  ],
+  [
+   424,
+   160,
+   9,
+   39,
+   13,
+   "AUDIO"
+  ],
+  [
+   425,
+   160,
+   10,
+   39,
+   4,
+   "INT"
+  ],
+  [
+   426,
+   41,
+   0,
+   39,
+   2,
+   "INT"
+  ],
+  [
+   427,
+   41,
+   1,
+   39,
+   3,
+   "INT"
+  ],
+  [
+   428,
+   39,
+   0,
+   145,
+   0,
+   "IMAGE"
+  ],
+  [
+   466,
+   256,
+   0,
+   160,
+   1,
+   "IMAGE"
+  ],
+  [
+   473,
+   160,
+   10,
+   261,
+   2,
+   "INT"
+  ],
+  [
+   474,
+   150,
+   2,
+   261,
+   1,
+   "AUDIO"
+  ],
+  [
+   475,
+   39,
+   1,
+   261,
+   0,
+   "AUDIO"
+  ],
+  [
+   476,
+   261,
+   0,
+   145,
+   1,
+   "AUDIO"
+  ],
+  [
+   463,
+   257,
+   0,
+   160,
+   10,
+   "INT"
+  ],
+  [
+   485,
+   150,
+   2,
+   39,
+   19,
+   "AUDIO"
+  ]
+ ],
+ "groups": [
+  {
+   "id": 1,
+   "title": "1 \u00b7 Settings",
+   "bounding": [
+    600,
+    0,
+    1280,
+    1040.5
+   ],
+   "color": "#1d5560",
+   "flags": {
+    "pinned": true
+   }
+  },
+  {
+   "id": 2,
+   "title": "2 \u00b7 Models",
+   "bounding": [
+    600,
+    1073.5,
+    1280,
+    632.5
+   ],
+   "color": "#1d5560",
+   "flags": {
+    "pinned": true
+   }
+  },
+  {
+   "id": 3,
+   "title": "3 \u00b7 Your input",
+   "bounding": [
+    1920,
+    0,
+    2440,
+    1706
+   ],
+   "color": "#1d5560",
+   "flags": {
+    "pinned": true
+   }
+  },
+  {
+   "id": 4,
+   "title": "4 \u00b7 Behind the scenes",
+   "bounding": [
+    4420,
+    0,
+    600,
+    690
+   ],
+   "color": "#1d5560",
+   "flags": {
+    "pinned": true
+   }
+  },
+  {
+   "id": 5,
+   "title": "5 \u00b7 Result",
+   "bounding": [
+    4419.999999999999,
+    717.3277635914465,
+    600.0000000000009,
+    988.6722364085535
+   ],
+   "color": "#1d5560",
+   "flags": {
+    "pinned": true
+   }
+  }
+ ],
+ "definitions": {
+  "subgraphs": [
+   {
+    "id": "ec2afb6f-2ac4-59e7-bcf2-3b4b9f46f9ba",
+    "version": 1,
+    "state": {
+     "lastGroupId": 100,
+     "lastNodeId": 264,
+     "lastLinkId": 485,
+     "lastRerouteId": 0
+    },
+    "revision": 0,
+    "config": {},
+    "name": "Make the clip with Pika",
+    "inputNode": {
+     "id": -10,
+     "bounding": [
+      -260,
+      120,
+      150,
+      360
+     ]
+    },
+    "outputNode": {
+     "id": -20,
+     "bounding": [
+      1640,
+      120,
+      150,
+      80
+     ]
+    },
+    "inputs": [
+     {
+      "id": "70a9172a-6fe7-553f-a6a0-b3d254d83baf",
+      "name": "prompt",
+      "type": "*",
+      "linkIds": [
+       342
+      ],
+      "localized_name": "prompt",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "6b099ab8-7492-534b-82a6-5bbb9918f4be",
+      "name": "seed",
+      "type": "*",
+      "linkIds": [
+       361
+      ],
+      "localized_name": "seed",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "04edea83-1d78-5384-82cc-69cca933c739",
+      "name": "width",
+      "type": "*",
+      "linkIds": [
+       344
+      ],
+      "localized_name": "width",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "d3ffe0af-f1a9-57df-b0f4-6fd084edfcdb",
+      "name": "height",
+      "type": "*",
+      "linkIds": [
+       346
+      ],
+      "localized_name": "height",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "21b2f2a9-2479-5238-8502-d019e33ab976",
+      "name": "length",
+      "type": "*",
+      "linkIds": [
+       348
+      ],
+      "localized_name": "length",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "72b19e4a-fbef-5125-836d-8c15c46ed8f0",
+      "name": "picture 1",
+      "type": "IMAGE",
+      "linkIds": [
+       353
+      ],
+      "localized_name": "picture 1",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "3b079392-31f4-5d7d-b8fc-af9d81e54712",
+      "name": "picture 2",
+      "type": "IMAGE",
+      "linkIds": [
+       354
+      ],
+      "localized_name": "picture 2",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "85fdefae-c6ac-57bc-bf3e-b1a2dce2767f",
+      "name": "picture 3",
+      "type": "IMAGE",
+      "linkIds": [
+       355
+      ],
+      "localized_name": "picture 3",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "1d3a0ad3-9a9a-53ee-b3dc-b225fd6f14bb",
+      "name": "picture 4",
+      "type": "IMAGE",
+      "linkIds": [
+       356
+      ],
+      "localized_name": "picture 4",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "36a34f4a-45ad-51bc-b5ba-3701d0795611",
+      "name": "your video",
+      "type": "IMAGE",
+      "linkIds": [
+       357
+      ],
+      "localized_name": "your video",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "8dcad105-4741-5e5d-8b3b-8fb388751338",
+      "name": "video sound",
+      "type": "AUDIO",
+      "linkIds": [
+       358
+      ],
+      "localized_name": "video sound",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "edc60d8b-bb33-50a7-9d2f-ad01f31e3a59",
+      "name": "your voice",
+      "type": "AUDIO",
+      "linkIds": [
+       359
+      ],
+      "localized_name": "your voice",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "aa7b51e8-56f7-5382-9c18-eace04a2362b",
+      "name": "your song",
+      "type": "AUDIO",
+      "linkIds": [
+       360
+      ],
+      "localized_name": "your song",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "19ba2863-34aa-50d6-9a3d-1efd83dd2bdb",
+      "name": "song under",
+      "type": "AUDIO",
+      "linkIds": [
+       381
+      ],
+      "localized_name": "song under",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "43a858c3-30fb-5041-9c21-9f363af375ac",
+      "name": "text encoder",
+      "type": "CLIP",
+      "linkIds": [
+       350
+      ],
+      "localized_name": "text encoder",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "28b651bb-afeb-5329-a384-ae8105f129cd",
+      "name": "vae",
+      "type": "VAE",
+      "linkIds": [
+       351,
+       371,
+       373
+      ],
+      "localized_name": "vae",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "ffa2e326-91f8-5894-b7bf-0e1e6e5d7cb6",
+      "name": "audio vae",
+      "type": "VAE",
+      "linkIds": [
+       352,
+       379,
+       479
+      ],
+      "localized_name": "audio vae",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "5d7eac80-7255-502e-a7e3-89ed2c4f6e01",
+      "name": "diffusion model",
+      "type": "MODEL",
+      "linkIds": [
+       363
+      ],
+      "localized_name": "diffusion model",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "8a07915b-e9bf-5338-ad34-991af4b38da8",
+      "name": "small gpu",
+      "type": "BOOLEAN",
+      "linkIds": [
+       374
+      ],
+      "localized_name": "small gpu",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "f14285c7-e429-4811-9dce-ac349af3a4e5",
+      "name": "clip sound",
+      "type": "AUDIO",
+      "linkIds": [
+       480
+      ],
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "d619bfaa-dc51-4cbd-a4b1-e5822815a73c",
+      "name": "steer mouths",
+      "type": "BOOLEAN",
+      "linkIds": [
+       481
+      ],
+      "pos": [
+       0,
+       0
+      ]
+     }
+    ],
+    "outputs": [
+     {
+      "id": "9c76b800-bb79-556c-9b6f-7f3e0a29811b",
+      "name": "frames",
+      "type": "IMAGE",
+      "linkIds": [
+       377
+      ],
+      "localized_name": "frames",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "41fcb89b-7bf5-5621-92bf-a654329af7cb",
+      "name": "audio",
+      "type": "AUDIO",
+      "linkIds": [
+       382
+      ],
+      "localized_name": "audio",
+      "pos": [
+       0,
+       0
+      ]
+     }
+    ],
+    "widgets": [],
+    "nodes": [
+     {
+      "id": 52,
+      "type": "AUSBOSS_NODES_Callout",
+      "pos": [
+       20,
+       80
+      ],
+      "size": [
+       460,
+       176
+      ],
+      "flags": {
+       "pinned": true
+      },
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "text",
+        "name": "text",
+        "type": "STRING",
+        "widget": {
+         "name": "text"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [],
+      "title": "Callout",
+      "properties": {
+       "Node name for S&R": "AUSBOSS_NODES_Callout",
+       "cnr_id": "ausboss-nodes",
+       "ver": "2.21.0"
+      },
+      "widgets_values": [
+       "H3 reads the prompt with your pictures as <Picture>, your video as <Video>, and your voice and song as <Audio>.\n###### They are numbered in this order, which is the order H3 Prompt Writer counts in. A picture that is off is left out of the count."
+      ],
+      "widgets_values_named": {
+       "text": "H3 reads the prompt with your pictures as <Picture>, your video as <Video>, and your voice and song as <Audio>.\n###### They are numbered in this order, which is the order H3 Prompt Writer counts in. A picture that is off is left out of the count."
+      },
+      "color": "#07090a",
+      "bgcolor": "#07090a"
+     },
+     {
+      "id": 233,
+      "type": "Reroute",
+      "pos": [
+       20,
+       330
+      ],
+      "size": [
+       75,
+       26
+      ],
+      "flags": {},
+      "order": 19,
+      "mode": 0,
+      "inputs": [
+       {
+        "name": "",
+        "type": "*",
+        "link": 342
+       }
+      ],
+      "outputs": [
+       {
+        "name": "",
+        "type": "*",
+        "links": [
+         343
+        ]
+       }
+      ],
+      "properties": {
+       "showOutputText": false,
+       "horizontal": false
+      }
+     },
+     {
+      "id": 234,
+      "type": "Reroute",
+      "pos": [
+       140,
+       330
+      ],
+      "size": [
+       75,
+       26
+      ],
+      "flags": {},
+      "order": 20,
+      "mode": 0,
+      "inputs": [
+       {
+        "name": "",
+        "type": "*",
+        "link": 344
+       }
+      ],
+      "outputs": [
+       {
+        "name": "",
+        "type": "*",
+        "links": [
+         345
+        ]
+       }
+      ],
+      "properties": {
+       "showOutputText": false,
+       "horizontal": false
+      }
+     },
+     {
+      "id": 206,
+      "type": "Reroute",
+      "pos": [
+       260,
+       330
+      ],
+      "size": [
+       75,
+       26
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+       {
+        "name": "",
+        "type": "*",
+        "link": 346
+       }
+      ],
+      "outputs": [
+       {
+        "name": "",
+        "type": "*",
+        "links": [
+         347
+        ]
+       }
+      ],
+      "properties": {
+       "showOutputText": false,
+       "horizontal": false
+      }
+     },
+     {
+      "id": 207,
+      "type": "Reroute",
+      "pos": [
+       380,
+       330
+      ],
+      "size": [
+       75,
+       26
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+       {
+        "name": "",
+        "type": "*",
+        "link": 348
+       }
+      ],
+      "outputs": [
+       {
+        "name": "",
+        "type": "*",
+        "links": [
+         349
+        ]
+       }
+      ],
+      "properties": {
+       "showOutputText": false,
+       "horizontal": false
+      }
+     },
+     {
+      "id": 208,
+      "type": "MiniMaxH3ReferenceToVideo",
+      "pos": [
+       20,
+       430
+      ],
+      "size": [
+       460,
+       604
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "clip",
+        "name": "clip",
+        "type": "CLIP",
+        "link": 350
+       },
+       {
+        "localized_name": "vae",
+        "name": "vae",
+        "shape": 7,
+        "type": "VAE",
+        "link": 351
+       },
+       {
+        "localized_name": "audio_vae",
+        "name": "audio_vae",
+        "shape": 7,
+        "type": "VAE",
+        "link": 352
+       },
+       {
+        "localized_name": "ref_image_0",
+        "name": "ref_images.ref_image_0",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": 353
+       },
+       {
+        "localized_name": "ref_image_1",
+        "name": "ref_images.ref_image_1",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": 354
+       },
+       {
+        "localized_name": "ref_image_2",
+        "name": "ref_images.ref_image_2",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": 355
+       },
+       {
+        "localized_name": "ref_image_3",
+        "name": "ref_images.ref_image_3",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": 356
+       },
+       {
+        "localized_name": "ref_image_4",
+        "name": "ref_images.ref_image_4",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": null
+       },
+       {
+        "localized_name": "ref_image_5",
+        "name": "ref_images.ref_image_5",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": null
+       },
+       {
+        "localized_name": "ref_image_6",
+        "name": "ref_images.ref_image_6",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": null
+       },
+       {
+        "localized_name": "ref_image_7",
+        "name": "ref_images.ref_image_7",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": null
+       },
+       {
+        "localized_name": "ref_image_8",
+        "name": "ref_images.ref_image_8",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": null
+       },
+       {
+        "localized_name": "ref_video_0",
+        "name": "ref_videos.ref_video_0",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": 357
+       },
+       {
+        "localized_name": "ref_video_1",
+        "name": "ref_videos.ref_video_1",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": null
+       },
+       {
+        "localized_name": "ref_video_2",
+        "name": "ref_videos.ref_video_2",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": null
+       },
+       {
+        "localized_name": "ref_video_audio_0",
+        "name": "ref_video_audios.ref_video_audio_0",
+        "shape": 7,
+        "type": "AUDIO",
+        "link": 358
+       },
+       {
+        "localized_name": "ref_video_audio_1",
+        "name": "ref_video_audios.ref_video_audio_1",
+        "shape": 7,
+        "type": "AUDIO",
+        "link": null
+       },
+       {
+        "localized_name": "ref_video_audio_2",
+        "name": "ref_video_audios.ref_video_audio_2",
+        "shape": 7,
+        "type": "AUDIO",
+        "link": null
+       },
+       {
+        "localized_name": "ref_audio_0",
+        "name": "ref_audios.ref_audio_0",
+        "shape": 7,
+        "type": "AUDIO",
+        "link": 359
+       },
+       {
+        "localized_name": "ref_audio_1",
+        "name": "ref_audios.ref_audio_1",
+        "shape": 7,
+        "type": "AUDIO",
+        "link": 360
+       },
+       {
+        "localized_name": "ref_audio_2",
+        "name": "ref_audios.ref_audio_2",
+        "shape": 7,
+        "type": "AUDIO",
+        "link": null
+       },
+       {
+        "localized_name": "prompt",
+        "name": "prompt",
+        "type": "STRING",
+        "widget": {
+         "name": "prompt"
+        },
+        "link": 343
+       },
+       {
+        "localized_name": "width",
+        "name": "width",
+        "type": "INT",
+        "widget": {
+         "name": "width"
+        },
+        "link": 345
+       },
+       {
+        "localized_name": "height",
+        "name": "height",
+        "type": "INT",
+        "widget": {
+         "name": "height"
+        },
+        "link": 347
+       },
+       {
+        "localized_name": "length",
+        "name": "length",
+        "type": "INT",
+        "widget": {
+         "name": "length"
+        },
+        "link": 349
+       },
+       {
+        "localized_name": "ref_image_size",
+        "name": "ref_image_size",
+        "type": "COMBO",
+        "widget": {
+         "name": "ref_image_size"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "positive",
+        "name": "positive",
+        "type": "CONDITIONING",
+        "links": [
+         477,
+         483
+        ]
+       },
+       {
+        "localized_name": "LATENT",
+        "name": "LATENT",
+        "type": "LATENT",
+        "links": [
+         369,
+         478
+        ]
+       }
+      ],
+      "title": "MiniMax H3 Reference to Video - In H3 Prompt Writer's order",
+      "properties": {
+       "Node name for S&R": "MiniMaxH3ReferenceToVideo",
+       "cnr_id": "comfy-core",
+       "ver": "0.43.2"
+      },
+      "widgets_values": [
+       "",
+       1536,
+       672,
+       243,
+       "match"
+      ],
+      "widgets_values_named": {
+       "prompt": "",
+       "width": 1536,
+       "height": 672,
+       "length": 243,
+       "ref_image_size": "match"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     },
+     {
+      "id": 53,
+      "type": "AUSBOSS_NODES_Callout",
+      "pos": [
+       560,
+       80
+      ],
+      "size": [
+       460,
+       152
+      ],
+      "flags": {
+       "pinned": true
+      },
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "text",
+        "name": "text",
+        "type": "STRING",
+        "widget": {
+         "name": "text"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [],
+      "title": "Callout",
+      "properties": {
+       "Node name for S&R": "AUSBOSS_NODES_Callout",
+       "cnr_id": "ausboss-nodes",
+       "ver": "2.21.0"
+      },
+      "widgets_values": [
+       "Pika's own six steps: lcm, this list of sigmas, CFG 1.\n###### Keep the list as it is: six plain steps are not Pika's recipe. The seed comes from the top level."
+      ],
+      "widgets_values_named": {
+       "text": "Pika's own six steps: lcm, this list of sigmas, CFG 1.\n###### Keep the list as it is: six plain steps are not Pika's recipe. The seed comes from the top level."
+      },
+      "color": "#07090a",
+      "bgcolor": "#07090a"
+     },
+     {
+      "id": 209,
+      "type": "Reroute",
+      "pos": [
+       560,
+       306
+      ],
+      "size": [
+       75,
+       26
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+       {
+        "name": "",
+        "type": "*",
+        "link": 361
+       }
+      ],
+      "outputs": [
+       {
+        "name": "",
+        "type": "*",
+        "links": [
+         362
+        ]
+       }
+      ],
+      "properties": {
+       "showOutputText": false,
+       "horizontal": false
+      }
+     },
+     {
+      "id": 210,
+      "type": "RandomNoise",
+      "pos": [
+       560,
+       406
+      ],
+      "size": [
+       460,
+       82
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "noise_seed",
+        "name": "noise_seed",
+        "type": "INT",
+        "widget": {
+         "name": "noise_seed"
+        },
+        "link": 362
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "NOISE",
+        "name": "NOISE",
+        "type": "NOISE",
+        "links": [
+         365
+        ]
+       }
+      ],
+      "title": "Random Noise - The seed",
+      "properties": {
+       "Node name for S&R": "RandomNoise",
+       "cnr_id": "comfy-core",
+       "ver": "0.43.2"
+      },
+      "widgets_values": [
+       6202,
+       "fixed"
+      ],
+      "widgets_values_named": {
+       "noise_seed": 6202,
+       "control_after_generate": "fixed"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     },
+     {
+      "id": 211,
+      "type": "KSamplerSelect",
+      "pos": [
+       560,
+       562
+      ],
+      "size": [
+       460,
+       58
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "sampler_name",
+        "name": "sampler_name",
+        "type": "COMBO",
+        "widget": {
+         "name": "sampler_name"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "SAMPLER",
+        "name": "SAMPLER",
+        "type": "SAMPLER",
+        "links": [
+         367
+        ]
+       }
+      ],
+      "title": "KSampler Select - lcm",
+      "properties": {
+       "Node name for S&R": "KSamplerSelect",
+       "cnr_id": "comfy-core",
+       "ver": "0.43.2"
+      },
+      "widgets_values": [
+       "lcm"
+      ],
+      "widgets_values_named": {
+       "sampler_name": "lcm"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     },
+     {
+      "id": 212,
+      "type": "ManualSigmas",
+      "pos": [
+       560,
+       694
+      ],
+      "size": [
+       460,
+       58
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "sigmas",
+        "name": "sigmas",
+        "type": "STRING",
+        "widget": {
+         "name": "sigmas"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "SIGMAS",
+        "name": "SIGMAS",
+        "type": "SIGMAS",
+        "links": [
+         368
+        ]
+       }
+      ],
+      "title": "ManualSigmas - Pika's six steps",
+      "properties": {
+       "Node name for S&R": "ManualSigmas",
+       "cnr_id": "comfy-core",
+       "ver": "0.43.2"
+      },
+      "widgets_values": [
+       "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"
+      ],
+      "widgets_values_named": {
+       "sigmas": "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     },
+     {
+      "id": 213,
+      "type": "BasicGuider",
+      "pos": [
+       560,
+       826
+      ],
+      "size": [
+       460,
+       46
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "model",
+        "name": "model",
+        "type": "MODEL",
+        "link": 363
+       },
+       {
+        "localized_name": "conditioning",
+        "name": "conditioning",
+        "type": "CONDITIONING",
+        "link": 484
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "GUIDER",
+        "name": "GUIDER",
+        "type": "GUIDER",
+        "links": [
+         366
+        ]
+       }
+      ],
+      "title": "BasicGuider - CFG 1",
+      "properties": {
+       "Node name for S&R": "BasicGuider",
+       "cnr_id": "comfy-core",
+       "ver": "0.43.2"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     },
+     {
+      "id": 214,
+      "type": "SamplerCustomAdvanced",
+      "pos": [
+       560,
+       946
+      ],
+      "size": [
+       460,
+       106
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "noise",
+        "name": "noise",
+        "type": "NOISE",
+        "link": 365
+       },
+       {
+        "localized_name": "guider",
+        "name": "guider",
+        "type": "GUIDER",
+        "link": 366
+       },
+       {
+        "localized_name": "sampler",
+        "name": "sampler",
+        "type": "SAMPLER",
+        "link": 367
+       },
+       {
+        "localized_name": "sigmas",
+        "name": "sigmas",
+        "type": "SIGMAS",
+        "link": 368
+       },
+       {
+        "localized_name": "latent_image",
+        "name": "latent_image",
+        "type": "LATENT",
+        "link": 369
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "output",
+        "name": "output",
+        "type": "LATENT",
+        "links": [
+         370,
+         372,
+         378
+        ]
+       },
+       {
+        "localized_name": "denoised_output",
+        "name": "denoised_output",
+        "type": "LATENT",
+        "links": null
+       }
+      ],
+      "title": "SamplerCustomAdvanced - Make the clip",
+      "properties": {
+       "Node name for S&R": "SamplerCustomAdvanced",
+       "cnr_id": "comfy-core",
+       "ver": "0.43.2"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     },
+     {
+      "id": 54,
+      "type": "AUSBOSS_NODES_Callout",
+      "pos": [
+       1100,
+       80
+      ],
+      "size": [
+       460,
+       136
+      ],
+      "flags": {
+       "pinned": true
+      },
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "text",
+        "name": "text",
+        "type": "STRING",
+        "widget": {
+         "name": "text"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [],
+      "title": "Callout",
+      "properties": {
+       "Node name for S&R": "AUSBOSS_NODES_Callout",
+       "cnr_id": "ausboss-nodes",
+       "ver": "2.21.0"
+      },
+      "widgets_values": [
+       "The clip and its sound are decoded apart.\n###### **Small GPU** decodes the picture in pieces, which takes less memory. With a voice and a song, the song is mixed under the clip's sound here."
+      ],
+      "widgets_values_named": {
+       "text": "The clip and its sound are decoded apart.\n###### **Small GPU** decodes the picture in pieces, which takes less memory. With a voice and a song, the song is mixed under the clip's sound here."
+      },
+      "color": "#07090a",
+      "bgcolor": "#07090a"
+     },
+     {
+      "id": 215,
+      "type": "VAEDecode",
+      "pos": [
+       1100,
+       290
+      ],
+      "size": [
+       460,
+       46
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "samples",
+        "name": "samples",
+        "type": "LATENT",
+        "link": 370
+       },
+       {
+        "localized_name": "vae",
+        "name": "vae",
+        "type": "VAE",
+        "link": 371
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "IMAGE",
+        "name": "IMAGE",
+        "type": "IMAGE",
+        "links": [
+         375
+        ]
+       }
+      ],
+      "title": "VAE Decode - Full size",
+      "properties": {
+       "Node name for S&R": "VAEDecode",
+       "cnr_id": "comfy-core",
+       "ver": "0.43.2"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     },
+     {
+      "id": 216,
+      "type": "VAEDecodeTiled",
+      "pos": [
+       1100,
+       410
+      ],
+      "size": [
+       460,
+       150
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "samples",
+        "name": "samples",
+        "type": "LATENT",
+        "link": 372
+       },
+       {
+        "localized_name": "vae",
+        "name": "vae",
+        "type": "VAE",
+        "link": 373
+       },
+       {
+        "localized_name": "tile_size",
+        "name": "tile_size",
+        "type": "INT",
+        "widget": {
+         "name": "tile_size"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "overlap",
+        "name": "overlap",
+        "type": "INT",
+        "widget": {
+         "name": "overlap"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "temporal_size",
+        "name": "temporal_size",
+        "type": "INT",
+        "widget": {
+         "name": "temporal_size"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "temporal_overlap",
+        "name": "temporal_overlap",
+        "type": "INT",
+        "widget": {
+         "name": "temporal_overlap"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "IMAGE",
+        "name": "IMAGE",
+        "type": "IMAGE",
+        "links": [
+         376
+        ]
+       }
+      ],
+      "title": "VAE Decode (Tiled) - Small GPU",
+      "properties": {
+       "Node name for S&R": "VAEDecodeTiled",
+       "cnr_id": "comfy-core",
+       "ver": "0.43.2"
+      },
+      "widgets_values": [
+       512,
+       64,
+       64,
+       8
+      ],
+      "widgets_values_named": {
+       "tile_size": 512,
+       "overlap": 64,
+       "temporal_size": 64,
+       "temporal_overlap": 8
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     },
+     {
+      "id": 217,
+      "type": "ComfySwitchNode",
+      "pos": [
+       1100,
+       634
+      ],
+      "size": [
+       460,
+       78
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "on_false",
+        "name": "on_false",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": 375
+       },
+       {
+        "localized_name": "on_true",
+        "name": "on_true",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": 376
+       },
+       {
+        "localized_name": "switch",
+        "name": "switch",
+        "type": "BOOLEAN",
+        "widget": {
+         "name": "switch"
+        },
+        "link": 374
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "output",
+        "name": "output",
+        "type": "IMAGE",
+        "links": [
+         377
+        ]
+       }
+      ],
+      "title": "If/Else Switch - Small GPU or not",
+      "properties": {
+       "Node name for S&R": "ComfySwitchNode",
+       "cnr_id": "comfy-core",
+       "ver": "0.43.2"
+      },
+      "widgets_values": [
+       false
+      ],
+      "widgets_values_named": {
+       "switch": false
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     },
+     {
+      "id": 218,
+      "type": "VAEDecodeAudio",
+      "pos": [
+       1100,
+       786
+      ],
+      "size": [
+       460,
+       46
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "samples",
+        "name": "samples",
+        "type": "LATENT",
+        "link": 378
+       },
+       {
+        "localized_name": "vae",
+        "name": "vae",
+        "type": "VAE",
+        "link": 379
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "AUDIO",
+        "name": "AUDIO",
+        "type": "AUDIO",
+        "links": [
+         380
+        ]
+       }
+      ],
+      "title": "VAE Decode Audio - The sound",
+      "properties": {
+       "Node name for S&R": "VAEDecodeAudio",
+       "cnr_id": "comfy-core",
+       "ver": "0.43.2"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     },
+     {
+      "id": 219,
+      "type": "AudioMerge",
+      "pos": [
+       1100,
+       906
+      ],
+      "size": [
+       460,
+       82
+      ],
+      "flags": {},
+      "order": 18,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "audio1",
+        "name": "audio1",
+        "type": "AUDIO",
+        "link": 380
+       },
+       {
+        "localized_name": "audio2",
+        "name": "audio2",
+        "type": "AUDIO",
+        "link": 381
+       },
+       {
+        "localized_name": "merge_method",
+        "name": "merge_method",
+        "type": "COMBO",
+        "widget": {
+         "name": "merge_method"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "AUDIO",
+        "name": "AUDIO",
+        "type": "AUDIO",
+        "links": [
+         382
+        ]
+       }
+      ],
+      "title": "Audio Merge - Your song under the voice",
+      "properties": {
+       "Node name for S&R": "AudioMerge",
+       "cnr_id": "comfy-core",
+       "ver": "0.43.2"
+      },
+      "widgets_values": [
+       "add"
+      ],
+      "widgets_values_named": {
+       "merge_method": "add"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     },
+     {
+      "id": 263,
+      "type": "MiniMaxH3AddGuide",
+      "pos": [
+       20,
+       1094
+      ],
+      "size": [
+       274.640234375,
+       158
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "positive",
+        "name": "positive",
+        "type": "CONDITIONING",
+        "link": 477
+       },
+       {
+        "localized_name": "latent",
+        "name": "latent",
+        "type": "LATENT",
+        "link": 478
+       },
+       {
+        "localized_name": "vae",
+        "name": "vae",
+        "shape": 7,
+        "type": "VAE",
+        "link": null
+       },
+       {
+        "localized_name": "audio_vae",
+        "name": "audio_vae",
+        "shape": 7,
+        "type": "VAE",
+        "link": 479
+       },
+       {
+        "localized_name": "image",
+        "name": "image",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": null
+       },
+       {
+        "localized_name": "audio",
+        "name": "audio",
+        "shape": 7,
+        "type": "AUDIO",
+        "link": 480
+       },
+       {
+        "localized_name": "frame_idx",
+        "name": "frame_idx",
+        "type": "INT",
+        "widget": {
+         "name": "frame_idx"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "positive",
+        "name": "positive",
+        "type": "CONDITIONING",
+        "links": [
+         482
+        ]
+       }
+      ],
+      "title": "MiniMax H3 Add Guide - The clip's sound steers the mouths",
+      "properties": {
+       "Node name for S&R": "MiniMaxH3AddGuide"
+      },
+      "widgets_values": [
+       0
+      ],
+      "widgets_values_named": {
+       "frame_idx": 0
+      }
+     },
+     {
+      "id": 264,
+      "type": "ComfySwitchNode",
+      "pos": [
+       334.640234375,
+       1094
+      ],
+      "size": [
+       270,
+       78
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "on_false",
+        "name": "on_false",
+        "shape": 7,
+        "type": "CONDITIONING",
+        "link": 483
+       },
+       {
+        "localized_name": "on_true",
+        "name": "on_true",
+        "shape": 7,
+        "type": "CONDITIONING",
+        "link": 482
+       },
+       {
+        "localized_name": "switch",
+        "name": "switch",
+        "type": "BOOLEAN",
+        "widget": {
+         "name": "switch"
+        },
+        "link": 481
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "output",
+        "name": "output",
+        "type": "CONDITIONING",
+        "links": [
+         484
+        ]
+       }
+      ],
+      "title": "If/Else Switch - Steer the mouths or not",
+      "properties": {
+       "Node name for S&R": "ComfySwitchNode"
+      },
+      "widgets_values": [
+       false
+      ],
+      "widgets_values_named": {
+       "switch": false
+      }
+     }
+    ],
+    "groups": [
+     {
+      "id": 100,
+      "title": "1 \u00b7 Read",
+      "bounding": [
+       0,
+       0,
+       500,
+       1070
+      ],
+      "color": "#1d5560",
+      "flags": {
+       "pinned": true
+      }
+     },
+     {
+      "id": 6,
+      "title": "2 \u00b7 Pika's six steps",
+      "bounding": [
+       540,
+       0,
+       500,
+       1102
+      ],
+      "color": "#1d5560",
+      "flags": {
+       "pinned": true
+      }
+     },
+     {
+      "id": 9,
+      "title": "3 \u00b7 The clip and its sound",
+      "bounding": [
+       1080,
+       0,
+       500,
+       1038
+      ],
+      "color": "#1d5560",
+      "flags": {
+       "pinned": true
+      }
+     }
+    ],
+    "links": [
+     {
+      "id": 342,
+      "origin_id": -10,
+      "origin_slot": 0,
+      "target_id": 233,
+      "target_slot": 0,
+      "type": "*"
+     },
+     {
+      "id": 344,
+      "origin_id": -10,
+      "origin_slot": 2,
+      "target_id": 234,
+      "target_slot": 0,
+      "type": "*"
+     },
+     {
+      "id": 346,
+      "origin_id": -10,
+      "origin_slot": 3,
+      "target_id": 206,
+      "target_slot": 0,
+      "type": "*"
+     },
+     {
+      "id": 348,
+      "origin_id": -10,
+      "origin_slot": 4,
+      "target_id": 207,
+      "target_slot": 0,
+      "type": "*"
+     },
+     {
+      "id": 361,
+      "origin_id": -10,
+      "origin_slot": 1,
+      "target_id": 209,
+      "target_slot": 0,
+      "type": "*"
+     },
+     {
+      "id": 362,
+      "origin_id": 209,
+      "origin_slot": 0,
+      "target_id": 210,
+      "target_slot": 0,
+      "type": "INT"
+     },
+     {
+      "id": 363,
+      "origin_id": -10,
+      "origin_slot": 17,
+      "target_id": 213,
+      "target_slot": 0,
+      "type": "MODEL"
+     },
+     {
+      "id": 365,
+      "origin_id": 210,
+      "origin_slot": 0,
+      "target_id": 214,
+      "target_slot": 0,
+      "type": "NOISE"
+     },
+     {
+      "id": 366,
+      "origin_id": 213,
+      "origin_slot": 0,
+      "target_id": 214,
+      "target_slot": 1,
+      "type": "GUIDER"
+     },
+     {
+      "id": 367,
+      "origin_id": 211,
+      "origin_slot": 0,
+      "target_id": 214,
+      "target_slot": 2,
+      "type": "SAMPLER"
+     },
+     {
+      "id": 368,
+      "origin_id": 212,
+      "origin_slot": 0,
+      "target_id": 214,
+      "target_slot": 3,
+      "type": "SIGMAS"
+     },
+     {
+      "id": 369,
+      "origin_id": 208,
+      "origin_slot": 1,
+      "target_id": 214,
+      "target_slot": 4,
+      "type": "LATENT"
+     },
+     {
+      "id": 370,
+      "origin_id": 214,
+      "origin_slot": 0,
+      "target_id": 215,
+      "target_slot": 0,
+      "type": "LATENT"
+     },
+     {
+      "id": 371,
+      "origin_id": -10,
+      "origin_slot": 15,
+      "target_id": 215,
+      "target_slot": 1,
+      "type": "VAE"
+     },
+     {
+      "id": 372,
+      "origin_id": 214,
+      "origin_slot": 0,
+      "target_id": 216,
+      "target_slot": 0,
+      "type": "LATENT"
+     },
+     {
+      "id": 373,
+      "origin_id": -10,
+      "origin_slot": 15,
+      "target_id": 216,
+      "target_slot": 1,
+      "type": "VAE"
+     },
+     {
+      "id": 374,
+      "origin_id": -10,
+      "origin_slot": 18,
+      "target_id": 217,
+      "target_slot": 2,
+      "type": "BOOLEAN"
+     },
+     {
+      "id": 375,
+      "origin_id": 215,
+      "origin_slot": 0,
+      "target_id": 217,
+      "target_slot": 0,
+      "type": "IMAGE"
+     },
+     {
+      "id": 376,
+      "origin_id": 216,
+      "origin_slot": 0,
+      "target_id": 217,
+      "target_slot": 1,
+      "type": "IMAGE"
+     },
+     {
+      "id": 377,
+      "origin_id": 217,
+      "origin_slot": 0,
+      "target_id": -20,
+      "target_slot": 0,
+      "type": "IMAGE"
+     },
+     {
+      "id": 378,
+      "origin_id": 214,
+      "origin_slot": 0,
+      "target_id": 218,
+      "target_slot": 0,
+      "type": "LATENT"
+     },
+     {
+      "id": 379,
+      "origin_id": -10,
+      "origin_slot": 16,
+      "target_id": 218,
+      "target_slot": 1,
+      "type": "VAE"
+     },
+     {
+      "id": 380,
+      "origin_id": 218,
+      "origin_slot": 0,
+      "target_id": 219,
+      "target_slot": 0,
+      "type": "AUDIO"
+     },
+     {
+      "id": 381,
+      "origin_id": -10,
+      "origin_slot": 13,
+      "target_id": 219,
+      "target_slot": 1,
+      "type": "AUDIO"
+     },
+     {
+      "id": 382,
+      "origin_id": 219,
+      "origin_slot": 0,
+      "target_id": -20,
+      "target_slot": 1,
+      "type": "AUDIO"
+     },
+     {
+      "id": 350,
+      "origin_id": -10,
+      "origin_slot": 14,
+      "target_id": 208,
+      "target_slot": 0,
+      "type": "CLIP"
+     },
+     {
+      "id": 351,
+      "origin_id": -10,
+      "origin_slot": 15,
+      "target_id": 208,
+      "target_slot": 1,
+      "type": "VAE"
+     },
+     {
+      "id": 352,
+      "origin_id": -10,
+      "origin_slot": 16,
+      "target_id": 208,
+      "target_slot": 2,
+      "type": "VAE"
+     },
+     {
+      "id": 353,
+      "origin_id": -10,
+      "origin_slot": 5,
+      "target_id": 208,
+      "target_slot": 3,
+      "type": "IMAGE"
+     },
+     {
+      "id": 354,
+      "origin_id": -10,
+      "origin_slot": 6,
+      "target_id": 208,
+      "target_slot": 4,
+      "type": "IMAGE"
+     },
+     {
+      "id": 355,
+      "origin_id": -10,
+      "origin_slot": 7,
+      "target_id": 208,
+      "target_slot": 5,
+      "type": "IMAGE"
+     },
+     {
+      "id": 356,
+      "origin_id": -10,
+      "origin_slot": 8,
+      "target_id": 208,
+      "target_slot": 6,
+      "type": "IMAGE"
+     },
+     {
+      "id": 357,
+      "origin_id": -10,
+      "origin_slot": 9,
+      "target_id": 208,
+      "target_slot": 12,
+      "type": "IMAGE"
+     },
+     {
+      "id": 358,
+      "origin_id": -10,
+      "origin_slot": 10,
+      "target_id": 208,
+      "target_slot": 15,
+      "type": "AUDIO"
+     },
+     {
+      "id": 359,
+      "origin_id": -10,
+      "origin_slot": 11,
+      "target_id": 208,
+      "target_slot": 18,
+      "type": "AUDIO"
+     },
+     {
+      "id": 360,
+      "origin_id": -10,
+      "origin_slot": 12,
+      "target_id": 208,
+      "target_slot": 19,
+      "type": "AUDIO"
+     },
+     {
+      "id": 343,
+      "origin_id": 233,
+      "origin_slot": 0,
+      "target_id": 208,
+      "target_slot": 21,
+      "type": "STRING"
+     },
+     {
+      "id": 345,
+      "origin_id": 234,
+      "origin_slot": 0,
+      "target_id": 208,
+      "target_slot": 22,
+      "type": "INT"
+     },
+     {
+      "id": 347,
+      "origin_id": 206,
+      "origin_slot": 0,
+      "target_id": 208,
+      "target_slot": 23,
+      "type": "INT"
+     },
+     {
+      "id": 349,
+      "origin_id": 207,
+      "origin_slot": 0,
+      "target_id": 208,
+      "target_slot": 24,
+      "type": "INT"
+     },
+     {
+      "id": 477,
+      "origin_id": 208,
+      "origin_slot": 0,
+      "target_id": 263,
+      "target_slot": 0,
+      "type": "CONDITIONING"
+     },
+     {
+      "id": 478,
+      "origin_id": 208,
+      "origin_slot": 1,
+      "target_id": 263,
+      "target_slot": 1,
+      "type": "LATENT"
+     },
+     {
+      "id": 479,
+      "origin_id": -10,
+      "origin_slot": 16,
+      "target_id": 263,
+      "target_slot": 3,
+      "type": "VAE"
+     },
+     {
+      "id": 480,
+      "origin_id": -10,
+      "origin_slot": 19,
+      "target_id": 263,
+      "target_slot": 5,
+      "type": "AUDIO"
+     },
+     {
+      "id": 481,
+      "origin_id": -10,
+      "origin_slot": 20,
+      "target_id": 264,
+      "target_slot": 2,
+      "type": "BOOLEAN"
+     },
+     {
+      "id": 482,
+      "origin_id": 263,
+      "origin_slot": 0,
+      "target_id": 264,
+      "target_slot": 1,
+      "type": "CONDITIONING"
+     },
+     {
+      "id": 483,
+      "origin_id": 208,
+      "origin_slot": 0,
+      "target_id": 264,
+      "target_slot": 0,
+      "type": "CONDITIONING"
+     },
+     {
+      "id": 484,
+      "origin_id": 264,
+      "origin_slot": 0,
+      "target_id": 213,
+      "target_slot": 1,
+      "type": "CONDITIONING"
+     }
+    ],
+    "extra": {}
+   },
+   {
+    "id": "084acc16-0179-51c7-9d6c-5a4bddded44d",
+    "version": 1,
+    "state": {
+     "lastGroupId": 100,
+     "lastNodeId": 264,
+     "lastLinkId": 485,
+     "lastRerouteId": 0
+    },
+    "revision": 0,
+    "config": {},
+    "name": "Pick the model files",
+    "inputNode": {
+     "id": -10,
+     "bounding": [
+      -260,
+      120,
+      150,
+      140
+     ]
+    },
+    "outputNode": {
+     "id": -20,
+     "bounding": [
+      560,
+      120,
+      150,
+      80
+     ]
+    },
+    "inputs": [
+     {
+      "id": "fd8d0a20-c027-5e84-8732-812fca06d4a6",
+      "name": "full model",
+      "type": "MODEL",
+      "linkIds": [
+       383
+      ],
+      "localized_name": "full model",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "ee112c40-6d8c-574c-a976-39051da7403b",
+      "name": "small model",
+      "type": "MODEL",
+      "linkIds": [
+       384
+      ],
+      "localized_name": "small model",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "a8229a0b-5505-50a6-9ef3-160e29292d64",
+      "name": "full vae",
+      "type": "VAE",
+      "linkIds": [
+       386
+      ],
+      "localized_name": "full vae",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "5bb9f2df-7675-55ca-af41-d4a53ee34378",
+      "name": "small vae",
+      "type": "VAE",
+      "linkIds": [
+       387
+      ],
+      "localized_name": "small vae",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "76322f81-f7f9-54ee-90ff-8d6f10c98bc7",
+      "name": "small gpu",
+      "type": "BOOLEAN",
+      "linkIds": [
+       385,
+       388
+      ],
+      "localized_name": "small gpu",
+      "pos": [
+       0,
+       0
+      ]
+     }
+    ],
+    "outputs": [
+     {
+      "id": "999c98cf-2bbe-5f98-8edf-48a45308ad52",
+      "name": "diffusion model",
+      "type": "MODEL",
+      "linkIds": [
+       389
+      ],
+      "localized_name": "diffusion model",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "082a6269-1d7a-5ece-9ad5-b2b73e389903",
+      "name": "vae",
+      "type": "VAE",
+      "linkIds": [
+       390
+      ],
+      "localized_name": "vae",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "18ae85ea-0dcc-5e70-91f0-6668e65840cf",
+      "name": "video fps",
+      "type": "INT",
+      "linkIds": [
+       391
+      ],
+      "localized_name": "video fps",
+      "pos": [
+       0,
+       0
+      ]
+     }
+    ],
+    "widgets": [],
+    "nodes": [
+     {
+      "id": 55,
+      "type": "AUSBOSS_NODES_Callout",
+      "pos": [
+       20,
+       80
+      ],
+      "size": [
+       460,
+       180
+      ],
+      "flags": {
+       "pinned": true
+      },
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "text",
+        "name": "text",
+        "type": "STRING",
+        "widget": {
+         "name": "text"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [],
+      "title": "Callout",
+      "properties": {
+       "Node name for S&R": "AUSBOSS_NODES_Callout",
+       "cnr_id": "ausboss-nodes",
+       "ver": "2.21.0"
+      },
+      "widgets_values": [
+       "**Small GPU** on: the small pair goes on. Off: the full pair.\n###### The card bypasses the loaders that are not picked, so they are not asked for their files. The Integer is the rate H3 reads a video at, whatever rate it was made at."
+      ],
+      "widgets_values_named": {
+       "text": "**Small GPU** on: the small pair goes on. Off: the full pair.\n###### The card bypasses the loaders that are not picked, so they are not asked for their files. The Integer is the rate H3 reads a video at, whatever rate it was made at."
+      },
+      "color": "#07090a",
+      "bgcolor": "#07090a"
+     },
+     {
+      "id": 220,
+      "type": "ComfySwitchNode",
+      "pos": [
+       20,
+       334
+      ],
+      "size": [
+       460,
+       78
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "on_false",
+        "name": "on_false",
+        "shape": 7,
+        "type": "MODEL",
+        "link": 383
+       },
+       {
+        "localized_name": "on_true",
+        "name": "on_true",
+        "shape": 7,
+        "type": "MODEL",
+        "link": 384
+       },
+       {
+        "localized_name": "switch",
+        "name": "switch",
+        "type": "BOOLEAN",
+        "widget": {
+         "name": "switch"
+        },
+        "link": 385
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "output",
+        "name": "output",
+        "type": "MODEL",
+        "links": [
+         389
+        ]
+       }
+      ],
+      "title": "If/Else Switch - Diffusion model",
+      "properties": {
+       "Node name for S&R": "ComfySwitchNode",
+       "cnr_id": "comfy-core",
+       "ver": "0.43.2"
+      },
+      "widgets_values": [
+       false
+      ],
+      "widgets_values_named": {
+       "switch": false
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     },
+     {
+      "id": 221,
+      "type": "ComfySwitchNode",
+      "pos": [
+       20,
+       486
+      ],
+      "size": [
+       460,
+       78
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "on_false",
+        "name": "on_false",
+        "shape": 7,
+        "type": "VAE",
+        "link": 386
+       },
+       {
+        "localized_name": "on_true",
+        "name": "on_true",
+        "shape": 7,
+        "type": "VAE",
+        "link": 387
+       },
+       {
+        "localized_name": "switch",
+        "name": "switch",
+        "type": "BOOLEAN",
+        "widget": {
+         "name": "switch"
+        },
+        "link": 388
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "output",
+        "name": "output",
+        "type": "VAE",
+        "links": [
+         390
+        ]
+       }
+      ],
+      "title": "If/Else Switch - VAE",
+      "properties": {
+       "Node name for S&R": "ComfySwitchNode",
+       "cnr_id": "comfy-core",
+       "ver": "0.43.2"
+      },
+      "widgets_values": [
+       false
+      ],
+      "widgets_values_named": {
+       "switch": false
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     },
+     {
+      "id": 222,
+      "type": "AUSBOSS_NODES_Integer",
+      "pos": [
+       20,
+       638
+      ],
+      "size": [
+       460,
+       94
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "value",
+        "name": "value",
+        "type": "INT",
+        "widget": {
+         "name": "value"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "int",
+        "name": "int",
+        "type": "INT",
+        "links": [
+         391
+        ]
+       }
+      ],
+      "title": "Integer - H3 reads videos at 24 fps",
+      "properties": {
+       "Node name for S&R": "AUSBOSS_NODES_Integer",
+       "cnr_id": "ausboss-nodes",
+       "ver": "2.21.0"
+      },
+      "widgets_values": [
+       24
+      ],
+      "widgets_values_named": {
+       "value": 24
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     }
+    ],
+    "groups": [
+     {
+      "id": 14,
+      "title": "1 \u00b7 The pair that is picked",
+      "bounding": [
+       0,
+       0,
+       500,
+       782
+      ],
+      "color": "#1d5560",
+      "flags": {
+       "pinned": true
+      }
+     }
+    ],
+    "links": [
+     {
+      "id": 383,
+      "origin_id": -10,
+      "origin_slot": 0,
+      "target_id": 220,
+      "target_slot": 0,
+      "type": "MODEL"
+     },
+     {
+      "id": 384,
+      "origin_id": -10,
+      "origin_slot": 1,
+      "target_id": 220,
+      "target_slot": 1,
+      "type": "MODEL"
+     },
+     {
+      "id": 385,
+      "origin_id": -10,
+      "origin_slot": 4,
+      "target_id": 220,
+      "target_slot": 2,
+      "type": "BOOLEAN"
+     },
+     {
+      "id": 386,
+      "origin_id": -10,
+      "origin_slot": 2,
+      "target_id": 221,
+      "target_slot": 0,
+      "type": "VAE"
+     },
+     {
+      "id": 387,
+      "origin_id": -10,
+      "origin_slot": 3,
+      "target_id": 221,
+      "target_slot": 1,
+      "type": "VAE"
+     },
+     {
+      "id": 388,
+      "origin_id": -10,
+      "origin_slot": 4,
+      "target_id": 221,
+      "target_slot": 2,
+      "type": "BOOLEAN"
+     },
+     {
+      "id": 389,
+      "origin_id": 220,
+      "origin_slot": 0,
+      "target_id": -20,
+      "target_slot": 0,
+      "type": "MODEL"
+     },
+     {
+      "id": 390,
+      "origin_id": 221,
+      "origin_slot": 0,
+      "target_id": -20,
+      "target_slot": 1,
+      "type": "VAE"
+     },
+     {
+      "id": 391,
+      "origin_id": 222,
+      "origin_slot": 0,
+      "target_id": -20,
+      "target_slot": 2,
+      "type": "INT"
+     }
+    ],
+    "extra": {}
+   },
+   {
+    "id": "683e9dae-3848-533b-ad2f-71587b3a83f2",
+    "version": 1,
+    "state": {
+     "lastGroupId": 100,
+     "lastNodeId": 264,
+     "lastLinkId": 485,
+     "lastRerouteId": 0
+    },
+    "revision": 0,
+    "config": {},
+    "name": "Set the size",
+    "inputNode": {
+     "id": -10,
+     "bounding": [
+      -260,
+      120,
+      150,
+      140
+     ]
+    },
+    "outputNode": {
+     "id": -20,
+     "bounding": [
+      560,
+      120,
+      150,
+      100
+     ]
+    },
+    "inputs": [
+     {
+      "id": "a47c109d-b5d0-51d3-b7e8-bb8af918f72b",
+      "name": "width",
+      "type": "INT",
+      "linkIds": [
+       434,
+       439
+      ],
+      "localized_name": "width",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "78616283-8700-50ad-8b35-b17d74581d1a",
+      "name": "height",
+      "type": "INT",
+      "linkIds": [
+       435,
+       441
+      ],
+      "localized_name": "height",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "2fd8ee70-827c-5666-be92-081f983263ab",
+      "name": "small gpu",
+      "type": "BOOLEAN",
+      "linkIds": [
+       430
+      ],
+      "localized_name": "small gpu",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "a035d1ea-e1df-53cd-9373-dea2aa675705",
+      "name": "fast test",
+      "type": "BOOLEAN",
+      "linkIds": [
+       432
+      ],
+      "localized_name": "fast test",
+      "pos": [
+       0,
+       0
+      ]
+     }
+    ],
+    "outputs": [
+     {
+      "id": "28623b97-c0e7-58db-81f4-1b733d6b0236",
+      "name": "width",
+      "type": "INT",
+      "linkIds": [
+       443
+      ],
+      "localized_name": "width",
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "709fcafc-7dbe-5f5f-9bb5-ed1efb92aa61",
+      "name": "height",
+      "type": "INT",
+      "linkIds": [
+       444
+      ],
+      "localized_name": "height",
+      "pos": [
+       0,
+       0
+      ]
+     }
+    ],
+    "widgets": [],
+    "nodes": [
+     {
+      "id": 119,
+      "type": "AUSBOSS_NODES_Callout",
+      "pos": [
+       20,
+       80
+      ],
+      "size": [
+       460,
+       150
+      ],
+      "flags": {
+       "pinned": true
+      },
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "text",
+        "name": "text",
+        "type": "STRING",
+        "widget": {
+         "name": "text"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [],
+      "title": "Callout",
+      "properties": {
+       "Node name for S&R": "AUSBOSS_NODES_Callout",
+       "cnr_id": "ausboss-nodes",
+       "ver": "2.21.0"
+      },
+      "widgets_values": [
+       "The clip takes the shape of your video when one is on, or else of your first picture.\n###### **Small GPU** makes each side 5/8 as long, on a 16 px grid."
+      ],
+      "widgets_values_named": {
+       "text": "The clip takes the shape of your video when one is on, or else of your first picture.\n###### **Small GPU** makes each side 5/8 as long, on a 16 px grid."
+      },
+      "color": "#07090a",
+      "bgcolor": "#07090a"
+     },
+     {
+      "id": 200,
+      "type": "PrimitiveBoolean",
+      "pos": [
+       20,
+       304
+      ],
+      "size": [
+       460,
+       58
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "value",
+        "name": "value",
+        "type": "BOOLEAN",
+        "widget": {
+         "name": "value"
+        },
+        "link": 430
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "BOOLEAN",
+        "name": "BOOLEAN",
+        "type": "BOOLEAN",
+        "links": [
+         431
+        ]
+       }
+      ],
+      "title": "Boolean - Small GPU",
+      "properties": {
+       "Node name for S&R": "PrimitiveBoolean",
+       "cnr_id": "comfy-core",
+       "ver": "0.43.2"
+      },
+      "widgets_values": [
+       false
+      ],
+      "widgets_values_named": {
+       "value": false
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     },
+     {
+      "id": 235,
+      "type": "ComfyNumberConvert",
+      "pos": [
+       20,
+       436
+      ],
+      "size": [
+       460,
+       46
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "value",
+        "name": "value",
+        "type": "INT,FLOAT,STRING,BOOLEAN",
+        "link": 431
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "FLOAT",
+        "name": "FLOAT",
+        "type": "FLOAT",
+        "links": null
+       },
+       {
+        "localized_name": "INT",
+        "name": "INT",
+        "type": "INT",
+        "links": [
+         440,
+         442
+        ]
+       }
+      ],
+      "title": "Convert Number - Small GPU is 1",
+      "properties": {
+       "Node name for S&R": "ComfyNumberConvert",
+       "cnr_id": "comfy-core",
+       "ver": "0.43.2"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     },
+     {
+      "id": 236,
+      "type": "PrimitiveBoolean",
+      "pos": [
+       20,
+       556
+      ],
+      "size": [
+       460,
+       58
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "value",
+        "name": "value",
+        "type": "BOOLEAN",
+        "widget": {
+         "name": "value"
+        },
+        "link": 432
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "BOOLEAN",
+        "name": "BOOLEAN",
+        "type": "BOOLEAN",
+        "links": [
+         433
+        ]
+       }
+      ],
+      "title": "Boolean - Fast test",
+      "properties": {
+       "Node name for S&R": "PrimitiveBoolean",
+       "cnr_id": "comfy-core",
+       "ver": "0.43.2"
+      },
+      "widgets_values": [
+       false
+      ],
+      "widgets_values_named": {
+       "value": false
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     },
+     {
+      "id": 237,
+      "type": "ComfyNumberConvert",
+      "pos": [
+       20,
+       688
+      ],
+      "size": [
+       460,
+       46
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "value",
+        "name": "value",
+        "type": "INT,FLOAT,STRING,BOOLEAN",
+        "link": 433
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "FLOAT",
+        "name": "FLOAT",
+        "type": "FLOAT",
+        "links": null
+       },
+       {
+        "localized_name": "INT",
+        "name": "INT",
+        "type": "INT",
+        "links": [
+         436
+        ]
+       }
+      ],
+      "title": "Convert Number - Fast test is 1",
+      "properties": {
+       "Node name for S&R": "ComfyNumberConvert",
+       "cnr_id": "comfy-core",
+       "ver": "0.43.2"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     },
+     {
+      "id": 238,
+      "type": "AUSBOSS_NODES_MathExpression",
+      "pos": [
+       20,
+       808
+      ],
+      "size": [
+       460,
+       134
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "a",
+        "name": "a",
+        "shape": 7,
+        "type": "FLOAT,INT",
+        "link": 434
+       },
+       {
+        "localized_name": "b",
+        "name": "b",
+        "shape": 7,
+        "type": "FLOAT,INT",
+        "link": 435
+       },
+       {
+        "localized_name": "c",
+        "name": "c",
+        "shape": 7,
+        "type": "FLOAT,INT",
+        "link": 436
+       },
+       {
+        "localized_name": "expression",
+        "name": "expression",
+        "type": "STRING",
+        "widget": {
+         "name": "expression"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "float",
+        "name": "float",
+        "type": "FLOAT",
+        "links": [
+         437,
+         438
+        ]
+       },
+       {
+        "localized_name": "int",
+        "name": "int",
+        "type": "INT",
+        "links": null
+       }
+      ],
+      "title": "Math Expression - Scale to 1 MP, or 0.26 for Fast test",
+      "properties": {
+       "Node name for S&R": "AUSBOSS_NODES_MathExpression",
+       "cnr_id": "ausboss-nodes",
+       "ver": "2.21.0"
+      },
+      "widgets_values": [
+       "min(1, sqrt((1000000 - 740000 * c) / (a * b)))"
+      ],
+      "widgets_values_named": {
+       "expression": "min(1, sqrt((1000000 - 740000 * c) / (a * b)))"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     },
+     {
+      "id": 239,
+      "type": "AUSBOSS_NODES_MathExpression",
+      "pos": [
+       20,
+       1016
+      ],
+      "size": [
+       460,
+       134
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "a",
+        "name": "a",
+        "shape": 7,
+        "type": "FLOAT,INT",
+        "link": 439
+       },
+       {
+        "localized_name": "b",
+        "name": "b",
+        "shape": 7,
+        "type": "FLOAT,INT",
+        "link": 440
+       },
+       {
+        "localized_name": "c",
+        "name": "c",
+        "shape": 7,
+        "type": "FLOAT,INT",
+        "link": 437
+       },
+       {
+        "localized_name": "expression",
+        "name": "expression",
+        "type": "STRING",
+        "widget": {
+         "name": "expression"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "float",
+        "name": "float",
+        "type": "FLOAT",
+        "links": null
+       },
+       {
+        "localized_name": "int",
+        "name": "int",
+        "type": "INT",
+        "links": [
+         443
+        ]
+       }
+      ],
+      "title": "Math Expression - Width",
+      "properties": {
+       "Node name for S&R": "AUSBOSS_NODES_MathExpression",
+       "cnr_id": "ausboss-nodes",
+       "ver": "2.21.0"
+      },
+      "widgets_values": [
+       "floor(a * c * (1 - 0.375 * b) / 16) * 16"
+      ],
+      "widgets_values_named": {
+       "expression": "floor(a * c * (1 - 0.375 * b) / 16) * 16"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     },
+     {
+      "id": 240,
+      "type": "AUSBOSS_NODES_MathExpression",
+      "pos": [
+       20,
+       1224
+      ],
+      "size": [
+       460,
+       134
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "a",
+        "name": "a",
+        "shape": 7,
+        "type": "FLOAT,INT",
+        "link": 441
+       },
+       {
+        "localized_name": "b",
+        "name": "b",
+        "shape": 7,
+        "type": "FLOAT,INT",
+        "link": 442
+       },
+       {
+        "localized_name": "c",
+        "name": "c",
+        "shape": 7,
+        "type": "FLOAT,INT",
+        "link": 438
+       },
+       {
+        "localized_name": "expression",
+        "name": "expression",
+        "type": "STRING",
+        "widget": {
+         "name": "expression"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "float",
+        "name": "float",
+        "type": "FLOAT",
+        "links": null
+       },
+       {
+        "localized_name": "int",
+        "name": "int",
+        "type": "INT",
+        "links": [
+         444
+        ]
+       }
+      ],
+      "title": "Math Expression - Height",
+      "properties": {
+       "Node name for S&R": "AUSBOSS_NODES_MathExpression",
+       "cnr_id": "ausboss-nodes",
+       "ver": "2.21.0"
+      },
+      "widgets_values": [
+       "floor(a * c * (1 - 0.375 * b) / 16) * 16"
+      ],
+      "widgets_values_named": {
+       "expression": "floor(a * c * (1 - 0.375 * b) / 16) * 16"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     }
+    ],
+    "groups": [
+     {
+      "id": 7,
+      "title": "1 \u00b7 The size",
+      "bounding": [
+       0,
+       0,
+       500,
+       1408
+      ],
+      "color": "#1d5560",
+      "flags": {
+       "pinned": true
+      }
+     }
+    ],
+    "links": [
+     {
+      "id": 430,
+      "origin_id": -10,
+      "origin_slot": 2,
+      "target_id": 200,
+      "target_slot": 0,
+      "type": "BOOLEAN"
+     },
+     {
+      "id": 431,
+      "origin_id": 200,
+      "origin_slot": 0,
+      "target_id": 235,
+      "target_slot": 0,
+      "type": "BOOLEAN"
+     },
+     {
+      "id": 432,
+      "origin_id": -10,
+      "origin_slot": 3,
+      "target_id": 236,
+      "target_slot": 0,
+      "type": "BOOLEAN"
+     },
+     {
+      "id": 433,
+      "origin_id": 236,
+      "origin_slot": 0,
+      "target_id": 237,
+      "target_slot": 0,
+      "type": "BOOLEAN"
+     },
+     {
+      "id": 434,
+      "origin_id": -10,
+      "origin_slot": 0,
+      "target_id": 238,
+      "target_slot": 0,
+      "type": "INT"
+     },
+     {
+      "id": 435,
+      "origin_id": -10,
+      "origin_slot": 1,
+      "target_id": 238,
+      "target_slot": 1,
+      "type": "INT"
+     },
+     {
+      "id": 436,
+      "origin_id": 237,
+      "origin_slot": 1,
+      "target_id": 238,
+      "target_slot": 2,
+      "type": "INT"
+     },
+     {
+      "id": 437,
+      "origin_id": 238,
+      "origin_slot": 0,
+      "target_id": 239,
+      "target_slot": 2,
+      "type": "FLOAT"
+     },
+     {
+      "id": 438,
+      "origin_id": 238,
+      "origin_slot": 0,
+      "target_id": 240,
+      "target_slot": 2,
+      "type": "FLOAT"
+     },
+     {
+      "id": 439,
+      "origin_id": -10,
+      "origin_slot": 0,
+      "target_id": 239,
+      "target_slot": 0,
+      "type": "INT"
+     },
+     {
+      "id": 440,
+      "origin_id": 235,
+      "origin_slot": 1,
+      "target_id": 239,
+      "target_slot": 1,
+      "type": "INT"
+     },
+     {
+      "id": 441,
+      "origin_id": -10,
+      "origin_slot": 1,
+      "target_id": 240,
+      "target_slot": 0,
+      "type": "INT"
+     },
+     {
+      "id": 442,
+      "origin_id": 235,
+      "origin_slot": 1,
+      "target_id": 240,
+      "target_slot": 1,
+      "type": "INT"
+     },
+     {
+      "id": 443,
+      "origin_id": 239,
+      "origin_slot": 1,
+      "target_id": -20,
+      "target_slot": 0,
+      "type": "INT"
+     },
+     {
+      "id": 444,
+      "origin_id": 240,
+      "origin_slot": 1,
+      "target_id": -20,
+      "target_slot": 1,
+      "type": "INT"
+     }
+    ],
+    "extra": {}
+   },
+   {
+    "id": "f7f42fda-df49-4bc9-9a50-aabe4268daea",
+    "version": 1,
+    "state": {
+     "lastGroupId": 100,
+     "lastNodeId": 264,
+     "lastLinkId": 485,
+     "lastRerouteId": 0
+    },
+    "revision": 0,
+    "config": {},
+    "name": "Clip sound",
+    "inputNode": {
+     "id": -10,
+     "bounding": [
+      -200,
+      140,
+      150,
+      120
+     ]
+    },
+    "outputNode": {
+     "id": -20,
+     "bounding": [
+      760,
+      160,
+      150,
+      80
+     ]
+    },
+    "inputs": [
+     {
+      "id": "b3c156a1-cb72-429e-829e-bd3311cefd19",
+      "name": "h3 sound",
+      "type": "AUDIO",
+      "linkIds": [
+       470
+      ],
+      "localized_name": "h3 sound",
+      "shape": 7,
+      "pos": [
+       51,
+       64
+      ]
+     },
+     {
+      "id": "4048d7f1-3fd6-430b-af30-e207e981037d",
+      "name": "clip sound",
+      "type": "AUDIO",
+      "linkIds": [
+       468
+      ],
+      "localized_name": "clip sound",
+      "pos": [
+       51,
+       44
+      ]
+     },
+     {
+      "id": "859ca80c-e309-4244-85f8-aeeedb9d9e1e",
+      "name": "frames",
+      "type": "INT",
+      "linkIds": [
+       467
+      ],
+      "localized_name": "frames",
+      "shape": 7,
+      "pos": [
+       51,
+       24
+      ]
+     }
+    ],
+    "outputs": [
+     {
+      "id": "10604838-df08-498d-bf86-4e931b5c7d9c",
+      "name": "sound",
+      "type": "AUDIO",
+      "linkIds": [
+       472
+      ],
+      "localized_name": "sound",
+      "pos": [
+       24,
+       24
+      ]
+     }
+    ],
+    "widgets": [],
+    "nodes": [
+     {
+      "id": 262,
+      "type": "AUSBOSS_NODES_Callout",
+      "pos": [
+       0,
+       -200
+      ],
+      "size": [
+       670,
+       122
+      ],
+      "flags": {
+       "pinned": true
+      },
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "text",
+        "name": "text",
+        "type": "STRING",
+        "widget": {
+         "name": "text"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [],
+      "title": "Callout",
+      "properties": {
+       "Node name for S&R": "AUSBOSS_NODES_Callout"
+      },
+      "widgets_values": [
+       "The clip's own sound, as long as the new clip.\n###### Switched off, H3's sound goes straight through: it comes in first."
+      ],
+      "widgets_values_named": {
+       "text": "The clip's own sound, as long as the new clip.\n###### Switched off, H3's sound goes straight through: it comes in first."
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     },
+     {
+      "id": 258,
+      "type": "AUSBOSS_NODES_MathExpression",
+      "pos": [
+       0,
+       0
+      ],
+      "size": [
+       300,
+       134
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "a",
+        "name": "a",
+        "shape": 7,
+        "type": "FLOAT,INT",
+        "link": 467
+       },
+       {
+        "localized_name": "b",
+        "name": "b",
+        "shape": 7,
+        "type": "FLOAT,INT",
+        "link": null
+       },
+       {
+        "localized_name": "c",
+        "name": "c",
+        "shape": 7,
+        "type": "FLOAT,INT",
+        "link": null
+       },
+       {
+        "localized_name": "expression",
+        "name": "expression",
+        "type": "STRING",
+        "widget": {
+         "name": "expression"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "float",
+        "name": "float",
+        "type": "FLOAT",
+        "links": [
+         469
+        ]
+       },
+       {
+        "localized_name": "int",
+        "name": "int",
+        "type": "INT",
+        "links": null
+       }
+      ],
+      "title": "Math Expression - Seconds of the clip",
+      "properties": {
+       "Node name for S&R": "AUSBOSS_NODES_MathExpression"
+      },
+      "widgets_values": [
+       "a / 24"
+      ],
+      "widgets_values_named": {
+       "expression": "a / 24"
+      },
+      "color": "#14424d",
+      "bgcolor": "#161f21"
+     },
+     {
+      "id": 259,
+      "type": "TrimAudioDuration",
+      "pos": [
+       0,
+       200
+      ],
+      "size": [
+       453.6451171875,
+       82
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "audio",
+        "name": "audio",
+        "type": "AUDIO",
+        "link": 468
+       },
+       {
+        "localized_name": "start_index",
+        "name": "start_index",
+        "type": "FLOAT",
+        "widget": {
+         "name": "start_index"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "duration",
+        "name": "duration",
+        "type": "FLOAT",
+        "widget": {
+         "name": "duration"
+        },
+        "link": 469
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "AUDIO",
+        "name": "AUDIO",
+        "type": "AUDIO",
+        "links": [
+         471
+        ]
+       }
+      ],
+      "title": "Trim Audio Duration - The clip's sound, as long as the new clip",
+      "properties": {
+       "Node name for S&R": "TrimAudioDuration"
+      },
+      "widgets_values": [
+       0,
+       60
+      ],
+      "widgets_values_named": {
+       "start_index": 0,
+       "duration": 60
+      }
+     },
+     {
+      "id": 260,
+      "type": "ComfySwitchNode",
+      "pos": [
+       400,
+       140
+      ],
+      "size": [
+       270,
+       78
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "on_false",
+        "name": "on_false",
+        "shape": 7,
+        "type": "AUDIO",
+        "link": 470
+       },
+       {
+        "localized_name": "on_true",
+        "name": "on_true",
+        "shape": 7,
+        "type": "AUDIO",
+        "link": 471
+       },
+       {
+        "localized_name": "switch",
+        "name": "switch",
+        "type": "BOOLEAN",
+        "widget": {
+         "name": "switch"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "output",
+        "name": "output",
+        "type": "AUDIO",
+        "links": [
+         472
+        ]
+       }
+      ],
+      "title": "Switch - The clip's sound",
+      "properties": {
+       "Node name for S&R": "ComfySwitchNode"
+      },
+      "widgets_values": [
+       true
+      ],
+      "widgets_values_named": {
+       "switch": true
+      }
+     }
+    ],
+    "groups": [],
+    "links": [
+     {
+      "id": 469,
+      "origin_id": 258,
+      "origin_slot": 0,
+      "target_id": 259,
+      "target_slot": 2,
+      "type": "FLOAT"
+     },
+     {
+      "id": 471,
+      "origin_id": 259,
+      "origin_slot": 0,
+      "target_id": 260,
+      "target_slot": 1,
+      "type": "AUDIO"
+     },
+     {
+      "id": 467,
+      "origin_id": -10,
+      "origin_slot": 2,
+      "target_id": 258,
+      "target_slot": 0,
+      "type": "INT"
+     },
+     {
+      "id": 468,
+      "origin_id": -10,
+      "origin_slot": 1,
+      "target_id": 259,
+      "target_slot": 0,
+      "type": "AUDIO"
+     },
+     {
+      "id": 470,
+      "origin_id": -10,
+      "origin_slot": 0,
+      "target_id": 260,
+      "target_slot": 0,
+      "type": "AUDIO"
+     },
+     {
+      "id": 472,
+      "origin_id": 260,
+      "origin_slot": 0,
+      "target_id": -20,
+      "target_slot": 0,
+      "type": "AUDIO"
+     }
+    ],
+    "extra": {}
+   }
+  ]
+ },
+ "config": {},
+ "extra": {
+  "ds": {
+   "scale": 0.620921323059155,
+   "offset": [
+    967.8978613958809,
+    383.4849519348742
+   ]
+  },
+  "frontendVersion": "1.53.6",
+  "sw_pairs": []
+ },
+ "version": 0.4
+}
