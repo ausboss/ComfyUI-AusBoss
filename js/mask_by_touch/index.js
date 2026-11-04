@@ -170,7 +170,7 @@ api.addEventListener("execution_interrupted", () => settleAll());
 // second or two, so things light up while it is still looking.
 api.addEventListener(LOOK_EVENT, ({ detail }) => {
   try {
-    if (!faces.size || !detail?.note) return;
+    if (!faces.size || !detail?.note || isForeignRun(detail.prompt_id)) return;
     const id = String(detail.node ?? "");
     const root = app.rootGraph ?? app.graph;
     for (const face of faces) {
@@ -183,11 +183,39 @@ api.addEventListener(LOOK_EVENT, ({ detail }) => {
 // A run that left the queue without ever reaching the node (it was deleted
 // there) would leave a face waiting for good. Once the queue is empty and a
 // face has waited a while, it stops waiting; the next touch asks again.
+let emptyQueueTimer = 0;
+let emptyQueueVersion = 0;
+function settleEmptyQueue() {
+  const now = performance.now();
+  let delay = Infinity;
+  for (const face of faces) {
+    if (!face.alive || !face.inFlight) continue;
+    const left = 1501 - (now - face.askedAt);
+    if (left <= 0) face.settle();
+    else delay = Math.min(delay, left);
+  }
+  if (Number.isFinite(delay)) {
+    const version = emptyQueueVersion;
+    emptyQueueTimer = setTimeout(async () => {
+      emptyQueueTimer = 0;
+      try {
+        const queue = await (await api.fetchApi("/queue")).json();
+        if (version !== emptyQueueVersion) return;
+        if (Array.isArray(queue?.queue_pending) && Array.isArray(queue?.queue_running)
+          && !queue.queue_pending.length && !queue.queue_running.length) settleEmptyQueue();
+      } catch {
+        // A failed queue read never cancels a request that may still run.
+      }
+    }, delay);
+  }
+}
 api.addEventListener("status", ({ detail }) => {
   try {
+    emptyQueueVersion += 1;
+    clearTimeout(emptyQueueTimer);
+    emptyQueueTimer = 0;
     if (!faces.size || detail?.exec_info?.queue_remaining !== 0) return;
-    const now = performance.now();
-    for (const face of faces) if (face.inFlight && now - face.askedAt > 1500) face.settle();
+    settleEmptyQueue();
   } catch {
     // Never in the way of a run.
   }

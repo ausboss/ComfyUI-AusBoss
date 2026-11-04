@@ -937,13 +937,27 @@ class RoundTests(TouchCase):
         self.addCleanup(sys.modules.pop, "server", None)
         sys.modules["server"] = server
         self.assertIs(node_module._tell(5, {"key": "k"}, True), True)
-        self.assertEqual(sent, [("ausboss.mask_by_touch.look", {"node": "5", "note": {"key": "k"}, "end": True}, "a page")], "to the page that asked")
+        self.assertEqual(sent, [("ausboss.mask_by_touch.look", {"node": "5", "note": {"key": "k"}, "end": True, "prompt_id": None}, "a page")], "to the page that asked")
         self.assertIs(node_module._tell(None, {}, True), False, "no id: nobody to tell")
         server.PromptServer = types.SimpleNamespace(instance=None)
         self.assertIs(node_module._tell(5, {}, True), False, "no page to tell")
         del sys.modules["server"]
         self.assertIs(node_module._tell(5, {}, True), False, "outside ComfyUI")
         self.assertEqual(len(sent), 1)
+
+    def test_interim_notes_carry_the_executing_prompt_id(self):
+        sent = []
+        context = types.ModuleType("comfy_execution.utils")
+        context.get_executing_context = lambda: types.SimpleNamespace(prompt_id="tab-a-prompt")
+        prior = sys.modules.get("comfy_execution.utils")
+        self.addCleanup(lambda: sys.modules.__setitem__("comfy_execution.utils", prior) if prior else sys.modules.pop("comfy_execution.utils", None))
+        sys.modules["comfy_execution.utils"] = context
+        server = types.ModuleType("server")
+        server.PromptServer = types.SimpleNamespace(instance=types.SimpleNamespace(send_sync=lambda *args: sent.append(args)))
+        self.addCleanup(sys.modules.pop, "server", None)
+        sys.modules["server"] = server
+        self.assertTrue(node_module._tell(5, {}, False))
+        self.assertEqual(sent[0][1]["prompt_id"], "tab-a-prompt")
 
     def test_a_first_look_stopped_half_way_is_gone_on_with(self):
         class Stopped(BaseException):
@@ -1703,7 +1717,7 @@ class TellTests(TouchCase):
         self.assertEqual(asked_at, list(range(4, total + 1, 3)) + [total + 1], "after every third half-second question, and at the end")
         for event, data, sid in self.sent:
             self.assertEqual((event, sid), ("ausboss.mask_by_touch.look", "the page that asked"))
-            self.assertEqual(sorted(data), ["end", "node", "note"])
+            self.assertEqual(sorted(data), ["end", "node", "note", "prompt_id"])
             self.assertEqual(data["node"], "7", "the node's id, as text")
             json.dumps(data)  # it has to travel as JSON
         self.assertEqual([data["end"] for _, data, _ in self.sent], [False] * (len(self.sent) - 1) + [True])

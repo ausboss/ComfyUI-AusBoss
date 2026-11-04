@@ -100,8 +100,9 @@ def _torch_fill_holes(solid: torch.Tensor) -> torch.Tensor:
     reachable[:, :, -1] = background[:, :, -1]
     while True:
         grown = (
-            functional.max_pool2d(
-                reachable.float().unsqueeze(1), kernel_size=3, stride=1, padding=1
+            torch.maximum(
+                functional.max_pool2d(reachable.float().unsqueeze(1), (3, 1), 1, (1, 0)),
+                functional.max_pool2d(reachable.float().unsqueeze(1), (1, 3), 1, (0, 1)),
             )
             .squeeze(1)
             .bool()
@@ -129,10 +130,10 @@ def _hole_limit(max_hole_size: float, height: int, width: int) -> float | None:
 def _torch_hole_areas(holes: torch.Tensor) -> torch.Tensor:
     """Each hole pixel's hole size in pixels, 0 elsewhere, for one HW frame.
 
-    Holes are 8-connected, the way _torch_fill_holes floods them. Every hole
+    Holes are 4-connected, the way _torch_fill_holes floods them. Every hole
     pixel starts with its own index; each pass takes the largest index in
-    its 3x3 neighbourhood, then the index held by the pixel that index names
-    (both stay inside the same hole), until every hole holds one index.
+    its cross-shaped neighbourhood, then the index held by the pixel that
+    index names (both stay inside the same hole), until every hole holds one index.
     """
     height, width = holes.shape
     inside = holes.reshape(-1)
@@ -140,8 +141,9 @@ def _torch_hole_areas(holes: torch.Tensor) -> torch.Tensor:
     index = torch.arange(1, height * width + 1, dtype=torch.float64, device=holes.device)
     labels = torch.where(inside, index, zero)
     while True:
-        spread = functional.max_pool2d(
-            labels.view(1, 1, height, width), kernel_size=3, stride=1, padding=1
+        spread = torch.maximum(
+            functional.max_pool2d(labels.view(1, 1, height, width), (3, 1), 1, (1, 0)),
+            functional.max_pool2d(labels.view(1, 1, height, width), (1, 3), 1, (0, 1)),
         ).reshape(-1)
         spread = torch.where(inside, spread, zero)
         spread = torch.where(inside, spread[(spread.long() - 1).clamp(min=0)], zero)
@@ -188,7 +190,7 @@ def fill_mask_holes(mask: torch.Tensor, max_hole_size: float = 0.0) -> torch.Ten
         ).to(mask.device)
     else:
         filled = _torch_fill_holes(solid)
-    return torch.maximum(mask, filled.to(mask.dtype))
+    return torch.where(filled & ~solid, 1.0, mask)
 
 
 def blur_mask(mask: torch.Tensor, sigma: float) -> torch.Tensor:

@@ -862,8 +862,11 @@ app.registerExtension({
     chainCallback(nodeType.prototype, "onExecuted", function (output) {
       if (isForeignRun()) return;
       const state = buildPanel(this, config);
-      // A result arrived (Save Image sends one even with its preview off).
-      if (state) { state.stale = false; state.resultGone = false; scheduleRefresh(state); }
+      // Count-only results carry no replacement for a stale picture.
+      if (state) {
+        if (outputRecordQuery(output)) { state.stale = false; state.resultGone = false; }
+        scheduleRefresh(state);
+      }
       // Saved: the file's picture replaces the steps.
       if (state?.stepOverlay) {
         state.stepsSaved = stepRun().promptId;

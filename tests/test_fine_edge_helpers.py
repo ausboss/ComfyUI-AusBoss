@@ -191,6 +191,18 @@ class AskTests(ModelCase):
         subject_matte(self.frame, OFF, key="two")
         self.assertEqual(len(Loader.calls), 2)
 
+    def test_replacing_a_model_invalidates_the_same_pictures_subject(self):
+        Remover.answer = torch.full((1, 40, 60), 0.25)
+        first = subject_matte(self.frame, OFF, key="one")
+        self.file(PREFERRED, "replacement weights, longer")
+        os.utime(self.folder / PREFERRED, (1, 1))
+        Remover.answer = torch.full((1, 40, 60), 0.9)
+        second = subject_matte(self.frame, OFF, key="one")
+        self.assertEqual(len(Loader.calls), 2)
+        self.assertEqual(len(Remover.calls), 2)
+        self.assertLess(float(first.mean()), 0.3)
+        self.assertGreater(float(second.mean()), 0.8)
+
     def test_an_older_comfyui_gets_a_plain_message(self):
         self.nodes.NODE_CLASS_MAPPINGS = {"LoadBackgroundRemovalModel": Loader}
         with self.assertRaises(RuntimeError) as raised:

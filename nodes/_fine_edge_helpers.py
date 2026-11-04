@@ -170,16 +170,21 @@ def _core_node(key: str):
     return node if hasattr(node, "execute") else None
 
 
+def _model_stamp(name: str):
+    path = folder_paths.get_full_path(MODEL_FOLDER, name) if folder_paths is not None else None
+    if not path:
+        raise FileNotFoundError(NOT_FOUND.format(name=name) if list_subject_models() else NEEDS_MODEL)
+    info = os.stat(path)
+    return (path, info.st_mtime_ns, info.st_size)
+
+
 def _load(name: str):
     """The model, through ComfyUI's own loader node, as a workflow would
     load it. Kept while its file does not change."""
     loader = _core_node("LoadBackgroundRemovalModel")
     if loader is None or _core_node("RemoveBackground") is None:
         raise RuntimeError(NEEDS_NEWER)
-    path = folder_paths.get_full_path(MODEL_FOLDER, name) if folder_paths is not None else None
-    if not path:
-        raise FileNotFoundError(NOT_FOUND.format(name=name) if list_subject_models() else NEEDS_MODEL)
-    stamp = (path, os.path.getmtime(path), os.path.getsize(path))
+    stamp = _model_stamp(name)
     kept = _MODELS.get(name)
     if kept is not None and kept[0] == stamp:
         _MODELS.move_to_end(name)
@@ -206,7 +211,7 @@ def subject_matte(frame: torch.Tensor, choice, key: str | None = None) -> torch.
     set to. With `key` (the picture's own key) the answer is remembered: a
     picture is asked about once, however many picks follow."""
     name = subject_model_name(choice)
-    slot = (name, key)
+    slot = (name, _model_stamp(name), key)
     if key is not None and slot in _SUBJECTS:
         _SUBJECTS.move_to_end(slot)
         return _SUBJECTS[slot].float() / 255.0

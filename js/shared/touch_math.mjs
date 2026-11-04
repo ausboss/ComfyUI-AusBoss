@@ -1046,7 +1046,7 @@ export function pieceAt(planes, index, { sizes, inside, adding = true, ranks = n
     const size = sizes?.[piece] ?? 0;
     if (!size) continue;
     const picked = inside?.[piece] ?? 0;
-    const slack = Math.max(4, size * NEARLY);
+    const slack = Math.min(size - 1, Math.max(4, size * NEARLY));
     if (adding ? size - picked > slack : picked > slack) return piece;
   }
   return -1;

@@ -53,6 +53,7 @@ CORE_NODES = {
 INTERNALS = [
     ("comfy.utils", "PROGRESS_BAR_HOOK", "Mask by Touch holds progress reports back while it looks at a picture"),
     ("comfy_execution.progress", "get_progress_state", "Mask by Touch holds progress reports back while it looks at a picture"),
+    ("comfy_execution.utils", "get_executing_context", "Mask by Touch identifies the run sending an interim picture"),
     ("comfy.model_management", "load_model_gpu", "Mask by Touch asks SAM 3 the quick way"),
     ("comfy.model_management", "current_loaded_models", "Mask by Touch asks SAM 3 the quick way"),
     ("comfy.model_management", "intermediate_dtype", "the pack's tensors take ComfyUI's working type"),

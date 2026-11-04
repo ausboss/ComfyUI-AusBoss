@@ -63,6 +63,33 @@ class GrowShrinkTests(unittest.TestCase):
 
 
 class FillHolesTests(unittest.TestCase):
+    def test_fill_preserves_existing_soft_alpha(self):
+        from nodes._mask_by_touch_helpers import finish_mask
+
+        mask = torch.full((1, 20, 20), 0.75)
+        for limit in (0.0, 1.0):
+            self.assertTrue(torch.equal(fill_mask_holes(mask, limit), mask))
+        self.assertTrue(torch.equal(finish_mask(mask, fill_holes=True), mask))
+        mask[:, 9:11, 9:11] = 0.2
+        filled = fill_mask_holes(mask)
+        self.assertTrue(torch.all(filled[:, 9:11, 9:11] == 1.0))
+        self.assertEqual(float(filled[0, 0, 0]), 0.75)
+
+    def test_fallback_uses_the_same_diagonal_connectivity(self):
+        mask = torch.ones(1, 20, 20)
+        mask[0, 0, 0] = mask[0, 1, 1] = 0
+        # Two diagonally touching enclosed holes are separate components.
+        mask[0, 8, 8:11] = 0
+        mask[0, 9, 11:14] = 0
+        for limit in (0.0, 1.0):
+            expected = fill_mask_holes(mask, limit)
+            with mock.patch.object(mask_helpers, "_scipy_fill_holes", None):
+                actual = fill_mask_holes(mask, limit)
+            self.assertTrue(torch.equal(actual, expected))
+            self.assertEqual(float(actual[0, 1, 1]), 1.0)
+            self.assertEqual(float(actual[0, 8, 8]), 1.0)
+            self.assertEqual(float(actual[0, 0, 0]), 0.0)
+
     def test_enclosed_hole_is_filled_but_outside_stays_empty(self):
         filled = fill_mask_holes(donut_mask())
         self.assertTrue(torch.all(filled[:, 6:10, 6:10] == 1.0))

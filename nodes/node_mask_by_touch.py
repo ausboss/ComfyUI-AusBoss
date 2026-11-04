@@ -220,9 +220,11 @@ def _tell(node_id, note: dict, end: bool) -> bool:
     if server is None or node_id is None:
         return False
     try:
+        read_context = getattr(sys.modules.get("comfy_execution.utils"), "get_executing_context", lambda: None)
+        prompt_id = getattr(read_context(), "prompt_id", None)
         server.send_sync(
             LOOK_EVENT,
-            {"node": str(node_id), "note": note, "end": bool(end)},
+            {"node": str(node_id), "note": note, "end": bool(end), "prompt_id": prompt_id},
             getattr(server, "client_id", None),
         )
     except Exception:  # noqa: BLE001

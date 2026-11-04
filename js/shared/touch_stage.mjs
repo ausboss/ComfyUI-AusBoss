@@ -141,11 +141,12 @@ const TOUCH_REACH = 2;
 // The areas of picked things a picture keeps, as the node sent them.
 const AREAS_KEPT = 96;
 // Pictures the faces of a page have shown, newest last. A picture keeps its
-// pieces and the picked areas it has shown, so a tab switch, an undo or a
-// second node on the same picture costs nothing.
+// pieces and the picked areas it has shown, so a tab switch, an undo or
+// another visit to the same picture costs nothing. Results belong to one face.
 const PICTURES_KEPT = 3;
 const STATES_KEPT = 14;
 const pictures = new Map();
+let pictureSerial = 0;
 // A face asks for a run again on its own at most this often in a row.
 const RETRIES = 2;
 // The long side of the small copy the masks are worked on, when the face
@@ -284,13 +285,14 @@ const widgetByName = (node, name) => node.widgets?.find((widget) => widget?.name
 
 // ---- the pictures a page has shown ---------------------------------------
 
-function pictureFor(note) {
+function pictureFor(note, face) {
   const width = Math.round(Number(note.width));
   const height = Math.round(Number(note.height));
   const scale = Number(note.scale) > 0 ? Number(note.scale) : 1;
-  let entry = pictures.get(note.key);
+  const cacheKey = face ? `${face.pictureId ??= ++pictureSerial}|${note.key}` : note.key;
+  let entry = pictures.get(cacheKey);
   if (entry && (entry.width !== width || entry.height !== height)) entry = null;
-  pictures.delete(note.key);
+  pictures.delete(cacheKey);
   entry ??= {
     key: note.key,
     width,
@@ -308,7 +310,7 @@ function pictureFor(note) {
     nameSeeds: new Map(),
     states: new Map(),
   };
-  pictures.set(note.key, entry);
+  pictures.set(cacheKey, entry);
   while (pictures.size > PICTURES_KEPT) pictures.delete(pictures.keys().next().value);
   return entry;
 }
@@ -386,7 +388,7 @@ function validNote(note) {
 // whether the picture has points left to ask about.
 const piecesTag = (pieces) => `${pieces?.list?.length ?? 0}:${(Array.isArray(pieces?.planes) ? pieces.planes : []).map((file) => file?.filename).join(",")}`;
 
-async function loadPieces(entry, pieces) {
+async function loadPieces(entry, pieces, generation) {
   const tag = piecesTag(pieces);
   const list = (Array.isArray(pieces.list) ? pieces.list : [])
     .filter((piece) => piece && Number.isFinite(Number(piece.x)) && Number.isFinite(Number(piece.y)))
@@ -410,6 +412,7 @@ async function loadPieces(entry, pieces) {
     });
   const files = (Array.isArray(pieces.planes) ? pieces.planes : []).filter(isFile);
   const images = await Promise.all(files.map((file) => loadImage(viewUrl(file, entry.key))));
+  if (entry.generation !== generation) return;
   const planes = packPlanes(images.map((image) => readPixels(image, entry.pw, entry.ph)), entry.pw, entry.ph);
   const sizes = pieceSizes(planes, list.length);
   const overlaps = pieceOverlaps(planes, list.length);
@@ -1401,7 +1404,7 @@ function syncTools(face) {
   // A click that waits for the look can be taken back like a pick.
   const waiting = live && face.pending.length > 0;
   face.undo.disabled = !live || (!some && !face.past.length && !waiting);
-  face.clear.disabled = !some && !waiting;
+  face.clear.disabled = !some && !waiting && !String(face.touches?.value ?? "").trim();
   if (face.lookButton) {
     const offer = live && face.snap && !face.held && !face.inFlight && !face.pic.scoped && Boolean(face.host.lookOnButton?.());
     face.lookButton.style.display = offer ? "" : "none";
@@ -1480,6 +1483,28 @@ function ownLoader(node) {
 // for: a crop that is being dragged changes them many times a second.
 const OWN_SETTLE_MS = 700;
 
+// One callback per source widget; removing a face removes its subscription.
+const sourceWatchers = new WeakMap();
+function sourceListeners(widget) {
+  let listeners = sourceWatchers.get(widget);
+  if (!listeners) {
+    listeners = new Set();
+    sourceWatchers.set(widget, listeners);
+    chainCallback(widget, "callback", () => {
+      for (const listener of listeners) listener();
+    });
+  }
+  return listeners;
+}
+
+function watchSource(face, widget, changed) {
+  if (face.watchedSources.has(widget)) return;
+  face.watchedSources.add(widget);
+  const listeners = sourceListeners(widget);
+  listeners.add(changed);
+  face.forgetSources.push(() => listeners.delete(changed));
+}
+
 // Show the loader's picture without a press on Show picture: the same run
 // that button asks for. Only ever in answer to something the person did (a
 // file chosen, a setting changed, a wire made), never while a workflow is
@@ -1520,9 +1545,8 @@ function followOwnLoader(face, now = false) {
   };
   for (const widget of upstream.widgets ?? []) {
     if (!widget || face.watchedSources.has(widget)) continue;
-    face.watchedSources.add(widget);
     // A workflow being opened sets its values too: that is not the person.
-    chainCallback(widget, "callback", () => { if (face.alive && !face.host.loading?.()) later(); });
+    watchSource(face, widget, () => { if (face.alive && !face.host.loading?.()) later(); });
   }
   if (now) later();
 }
@@ -1552,8 +1576,7 @@ function syncSource(face) {
   const url = source?.url ?? "";
   const watched = loaderWidget(face.node);
   if (watched && !face.watchedSources.has(watched)) {
-    face.watchedSources.add(watched);
-    chainCallback(watched, "callback", () => queueMicrotask(() => { if (face.alive) syncState(face); }));
+    watchSource(face, watched, () => queueMicrotask(() => { if (face.alive) syncState(face); }));
   }
   if (url === face.sourceUrl) return;
   face.sourceUrl = url;
@@ -1791,8 +1814,8 @@ function show(face, entry, note, answered, { restored = false, own = false, inte
   refreshHover(face);
   draw(face);
   drawInk(face);
-  wantFine(face);
   if (restored) return;
+  wantFine(face);
   const waited = settlePending(face);
   // More is on its way (the look goes on, or a run sent behind it): what to
   // ask next is decided when the last of it is in.
@@ -1842,7 +1865,8 @@ async function takeNote(face, note, { restored = false, interim = false } = {}) 
   }
   const turn = ++face.turn;
   const sentStamp = sent?.stamp ?? "";
-  const entry = pictureFor(note);
+  const entry = pictureFor(note, face);
+  const generation = entry.generation = (entry.generation ?? 0) + 1;
   // How many looks at this picture have come back, and how far through its
   // list of words the node is: an early click waits for the words.
   if (own && sent.ask === "scope") entry.looks = (entry.looks ?? 0) + 1;
@@ -1854,12 +1878,13 @@ async function takeNote(face, note, { restored = false, interim = false } = {}) 
   const jobs = [];
   if (!entry.image || entry.file !== note.picture.filename) {
     jobs.push(loadImage(viewUrl(note.picture, note.key)).then((image) => {
+      if (entry.generation !== generation) return;
       entry.image = image;
       entry.file = note.picture.filename;
     }));
   }
   if (note.pieces && typeof note.pieces === "object" && piecesTag(note.pieces) !== entry.piecesTag) {
-    jobs.push(loadPieces(entry, note.pieces));
+    jobs.push(loadPieces(entry, note.pieces, generation));
   } else if (note.pieces && typeof note.pieces === "object") {
     entry.scoped = note.pieces.more !== true;
   }
@@ -1909,6 +1934,7 @@ async function takeNote(face, note, { restored = false, interim = false } = {}) 
     }
     return;
   }
+  if (!face.alive || turn !== face.turn || entry.generation !== generation) return;
   if (answered) remember(entry, stamp, answered);
   if (fine) entry.fine = fine;
   if (typeof note.fine?.trouble === "string" && note.fine.trouble) {
@@ -2870,6 +2896,7 @@ export function mountTouchStage(node, host) {
     sourceEpoch: 0,
     sentEpoch: 0,
     watchedSources: new WeakSet(),
+    forgetSources: [],
     // One of the pack's loaders wired straight in: what it was last asked for.
     ownSeen: "",
     ownTimer: 0,
@@ -2944,8 +2971,11 @@ export function mountTouchStage(node, host) {
     face.active = 0;
     face.fresh = 0;
     if (!face.items.length) {
+      writeTouches(face, "");
+      readItems(face);
       face.chipsShown = null;
       syncReadout(face);
+      syncTools(face);
       return;
     }
     change(face, []);
@@ -3110,6 +3140,9 @@ export function mountTouchStage(node, host) {
     clearTimeout(face.ownTimer);
     clearTimeout(face.dwell);
     clearTimeout(face.fineTimer);
+    clearTimeout(face.pendingTimer);
+    for (const forget of face.forgetSources) forget();
+    face.forgetSources.length = 0;
     if (face.frameRequest) cancelAnimationFrame(face.frameRequest);
     abort.abort();
   };
