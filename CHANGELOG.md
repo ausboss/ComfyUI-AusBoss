@@ -4,6 +4,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **The Qwen Image 2.1 Inpaint example can copy from more pictures.** Plug any
+  image loader into the new picture 2 socket on the Paint it with Qwen box and
+  say "the jacket from image 2" in your request. Only the part you picked is
+  still repainted. Up to picture 6.
+- **Every example workflow's note links the AusBoss Discord again,** as the
+  Civitai pages have since 2026-11-02. The workflow check now fails on a note
+  without it.
 - **Resizing one node of a selection now resizes them all.** With two or more
   nodes selected, pull the edge or corner of one: nodes stacked in a column
   get its width, nodes side by side in a row get its height, and a grid gets

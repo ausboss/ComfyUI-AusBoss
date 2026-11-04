@@ -15,7 +15,8 @@ def good_graph():
             {"id": 1, "type": "Source", "pos": [0, 100], "size": [100, 80], "outputs": [{"links": [1]}]},
             {"id": 2, "type": "Target", "pos": [180, 100], "size": [100, 80], "inputs": [{"link": 1}]},
             {"id": 3, "type": "AUSBOSS_NODES_WorkflowNote", "pos": [-200, 100], "size": [100, 80],
-             "widgets_values": ['{"title":"Example","body":"Choose a source and queue."}']},
+             "widgets_values": ['{"title":"Example","body":"Choose a source and queue.",'
+                                '"links":[{"label":"Discord","url":"https://discord.gg/RwVxY9Fuaj"}]}']},
         ],
         "links": [[1, 1, 0, 2, 0, "IMAGE"]],
         "groups": [{"bounding": [-20, 40, 320, 160]}],
@@ -25,6 +26,11 @@ def good_graph():
 class WorkflowContractTests(unittest.TestCase):
     def test_complete_graph(self):
         self.assertEqual(workflow_problems(good_graph()), [])
+
+    def test_note_must_link_discord(self):
+        graph = good_graph()
+        graph["nodes"][2]["widgets_values"] = ['{"title":"Example","body":"Choose a source and queue."}']
+        self.assertIn("no Discord link", " ".join(workflow_problems(graph)))
 
     def test_named_widget_copy_must_match_the_loaded_values(self):
         graph = good_graph()

@@ -139,6 +139,10 @@ def workflow_problems(data: dict) -> list[str]:
                 problems.append(f"note {n['id']} needs a title and instructions")
             if "\\n" in note.get("body", ""):
                 problems.append(f"note {n['id']} contains escaped line breaks instead of Markdown lines")
+            # Every page links the AusBoss Discord (added to all live pages on 2026-11-02); a build copied
+            # from an older file loses it without anyone noticing.
+            if not any("discord.gg/" in str(link.get("url", "")) for link in note.get("links") or []):
+                problems.append(f"note {n['id']} has no Discord link in its links")
         except (ValueError, KeyError, IndexError, TypeError, AttributeError):
             problems.append(f"note {n['id']} is not valid note JSON")
 

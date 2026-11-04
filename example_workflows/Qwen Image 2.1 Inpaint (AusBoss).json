@@ -1,8 +1,8 @@
 {
  "id": "871c76c0-3d6d-4795-a64e-3dda8cb5e20d",
  "revision": 0,
- "last_node_id": 40,
- "last_link_id": 50,
+ "last_node_id": 43,
+ "last_link_id": 55,
  "nodes": [
   {
    "id": 1,
@@ -37,10 +37,10 @@
     "Node name for S&R": "AUSBOSS_NODES_WorkflowNote"
    },
    "widgets_values": [
-    "{\"v\": 1, \"title\": \"Qwen Image 2.1 Inpaint\", \"subtitle\": \"Click a thing in your picture and say what to change. Only that part is repainted.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image. You can crop it right there with the blue handles.\\n2. On **Mask by Touch**, click the thing you want to change. It lights up before you click.\\n3. In **What to change**, say it the way you would ask a person: \\\"Replace the cup with a glass of orange juice.\\\"\\n4. Press **Run**.\\n\\nOnly the picked part is repainted. Everything outside it stays your own picture.\\n\\n### Tips\\n- Wrong thing picked? The arrows under the picture swap it for the next thing it could mean.\\n- Name everything that should go: \\\"the iced coffee and its straw\\\". What you do not name can stay.\\n- To remove something, pick it and write \\\"Remove the cup.\\\" Pick its shadow too, or the shadow stays.\\n- To add something, switch to **Paint** and paint where it should go, with some room. Say how big: \\\"Add small black sunglasses on her eyes.\\\"\\n- Not what you wanted? Run it again. The seed changes each run.\\n\\n### Switches\\n- **Fast** on: 8 steps with the Viggle Turbo LoRA from the list below. Off: 25 steps without it, about twice as long.\\n\\nNeeds ComfyUI 0.38 or newer and AusBoss nodes 2.12.0 or newer (update first).\", \"models\": [{\"name\": \"qwen_image_2.1_int8_convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"7.26 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_8b_int8_convrot.safetensors\", \"dir\": \"text_encoders\", \"size\": \"9.35 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_2.1_vae_bf16.safetensors\", \"dir\": \"vae\", \"size\": \"676 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors\", \"note\": \"\"}, {\"name\": \"sam3.1_multiplex_fp16.safetensors\", \"dir\": \"checkpoints\", \"size\": \"1.75 GB\", \"url\": \"https://huggingface.co/Comfy-Org/sam3.1/resolve/main/checkpoints/sam3.1_multiplex_fp16.safetensors\", \"note\": \"by Meta, packaged by Comfy-Org\"}, {\"name\": \"Qwen-Image-2.1-viggle-turbo-v0.3-6step-lora-r128.safetensors\", \"dir\": \"loras\", \"size\": \"680 MB\", \"url\": \"https://huggingface.co/Viggle/Qwen-Image-2.1-viggle-turbo/resolve/main/Qwen-Image-2.1-viggle-turbo-v0.3-6step-lora-r128.safetensors\", \"note\": \"optional, for Fast · Qwen Research License, research use\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_MaskByTouch\"}], \"links\": [{\"label\": \"YouTube · this workflow\", \"url\": \"https://youtu.be/iMgaiXoB0v4\"}, {\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+    "{\"v\": 1, \"title\": \"Qwen Image 2.1 Inpaint\", \"subtitle\": \"Click a thing in your picture and say what to change. Only that part is repainted.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image. You can crop it right there with the blue handles.\\n2. On **Mask by Touch**, click the thing you want to change. It lights up before you click.\\n3. In **What to change**, say it the way you would ask a person: \\\"Replace the cup with a glass of orange juice.\\\"\\n4. Press **Run**.\\n\\nOnly the picked part is repainted. Everything outside it stays your own picture.\\n\\n### Tips\\n- Wrong thing picked? The arrows under the picture swap it for the next thing it could mean.\\n- Name everything that should go: \\\"the iced coffee and its straw\\\". What you do not name can stay.\\n- To remove something, pick it and write \\\"Remove the cup.\\\" Pick its shadow too, or the shadow stays.\\n- To add something, switch to **Paint** and paint where it should go, with some room. Say how big: \\\"Add small black sunglasses on her eyes.\\\"\\n- To copy from another picture, add your own image loader and plug it into a **picture** socket on Paint it with Qwen, up to picture 6. Say \\\"the hat from image 2\\\". Only the picked part still changes.\\n- Not what you wanted? Run it again. The seed changes each run.\\n\\n### Switches\\n- **Fast** on: 8 steps with the Viggle Turbo LoRA from the list below. Off: 25 steps without it, about twice as long.\\n\\nNeeds ComfyUI 0.38 or newer and AusBoss nodes 2.12.0 or newer (update first).\", \"models\": [{\"name\": \"qwen_image_2.1_int8_convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"7.26 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_8b_int8_convrot.safetensors\", \"dir\": \"text_encoders\", \"size\": \"9.35 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_2.1_vae_bf16.safetensors\", \"dir\": \"vae\", \"size\": \"676 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors\", \"note\": \"\"}, {\"name\": \"sam3.1_multiplex_fp16.safetensors\", \"dir\": \"checkpoints\", \"size\": \"1.75 GB\", \"url\": \"https://huggingface.co/Comfy-Org/sam3.1/resolve/main/checkpoints/sam3.1_multiplex_fp16.safetensors\", \"note\": \"by Meta, packaged by Comfy-Org\"}, {\"name\": \"Qwen-Image-2.1-viggle-turbo-v0.3-6step-lora-r128.safetensors\", \"dir\": \"loras\", \"size\": \"680 MB\", \"url\": \"https://huggingface.co/Viggle/Qwen-Image-2.1-viggle-turbo/resolve/main/Qwen-Image-2.1-viggle-turbo-v0.3-6step-lora-r128.safetensors\", \"note\": \"optional, for Fast · Qwen Research License, research use\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_MaskByTouch\"}], \"links\": [{\"label\": \"YouTube · this workflow\", \"url\": \"https://youtu.be/iMgaiXoB0v4\"}, {\"label\": \"Discord · AusBoss\", \"url\": \"https://discord.gg/RwVxY9Fuaj\"}, {\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
    ],
    "widgets_values_named": {
-    "note": "{\"v\": 1, \"title\": \"Qwen Image 2.1 Inpaint\", \"subtitle\": \"Click a thing in your picture and say what to change. Only that part is repainted.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image. You can crop it right there with the blue handles.\\n2. On **Mask by Touch**, click the thing you want to change. It lights up before you click.\\n3. In **What to change**, say it the way you would ask a person: \\\"Replace the cup with a glass of orange juice.\\\"\\n4. Press **Run**.\\n\\nOnly the picked part is repainted. Everything outside it stays your own picture.\\n\\n### Tips\\n- Wrong thing picked? The arrows under the picture swap it for the next thing it could mean.\\n- Name everything that should go: \\\"the iced coffee and its straw\\\". What you do not name can stay.\\n- To remove something, pick it and write \\\"Remove the cup.\\\" Pick its shadow too, or the shadow stays.\\n- To add something, switch to **Paint** and paint where it should go, with some room. Say how big: \\\"Add small black sunglasses on her eyes.\\\"\\n- Not what you wanted? Run it again. The seed changes each run.\\n\\n### Switches\\n- **Fast** on: 8 steps with the Viggle Turbo LoRA from the list below. Off: 25 steps without it, about twice as long.\\n\\nNeeds ComfyUI 0.38 or newer and AusBoss nodes 2.12.0 or newer (update first).\", \"models\": [{\"name\": \"qwen_image_2.1_int8_convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"7.26 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_8b_int8_convrot.safetensors\", \"dir\": \"text_encoders\", \"size\": \"9.35 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_2.1_vae_bf16.safetensors\", \"dir\": \"vae\", \"size\": \"676 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors\", \"note\": \"\"}, {\"name\": \"sam3.1_multiplex_fp16.safetensors\", \"dir\": \"checkpoints\", \"size\": \"1.75 GB\", \"url\": \"https://huggingface.co/Comfy-Org/sam3.1/resolve/main/checkpoints/sam3.1_multiplex_fp16.safetensors\", \"note\": \"by Meta, packaged by Comfy-Org\"}, {\"name\": \"Qwen-Image-2.1-viggle-turbo-v0.3-6step-lora-r128.safetensors\", \"dir\": \"loras\", \"size\": \"680 MB\", \"url\": \"https://huggingface.co/Viggle/Qwen-Image-2.1-viggle-turbo/resolve/main/Qwen-Image-2.1-viggle-turbo-v0.3-6step-lora-r128.safetensors\", \"note\": \"optional, for Fast · Qwen Research License, research use\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_MaskByTouch\"}], \"links\": [{\"label\": \"YouTube · this workflow\", \"url\": \"https://youtu.be/iMgaiXoB0v4\"}, {\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
+    "note": "{\"v\": 1, \"title\": \"Qwen Image 2.1 Inpaint\", \"subtitle\": \"Click a thing in your picture and say what to change. Only that part is repainted.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"1. Load your image. You can crop it right there with the blue handles.\\n2. On **Mask by Touch**, click the thing you want to change. It lights up before you click.\\n3. In **What to change**, say it the way you would ask a person: \\\"Replace the cup with a glass of orange juice.\\\"\\n4. Press **Run**.\\n\\nOnly the picked part is repainted. Everything outside it stays your own picture.\\n\\n### Tips\\n- Wrong thing picked? The arrows under the picture swap it for the next thing it could mean.\\n- Name everything that should go: \\\"the iced coffee and its straw\\\". What you do not name can stay.\\n- To remove something, pick it and write \\\"Remove the cup.\\\" Pick its shadow too, or the shadow stays.\\n- To add something, switch to **Paint** and paint where it should go, with some room. Say how big: \\\"Add small black sunglasses on her eyes.\\\"\\n- To copy from another picture, add your own image loader and plug it into a **picture** socket on Paint it with Qwen, up to picture 6. Say \\\"the hat from image 2\\\". Only the picked part still changes.\\n- Not what you wanted? Run it again. The seed changes each run.\\n\\n### Switches\\n- **Fast** on: 8 steps with the Viggle Turbo LoRA from the list below. Off: 25 steps without it, about twice as long.\\n\\nNeeds ComfyUI 0.38 or newer and AusBoss nodes 2.12.0 or newer (update first).\", \"models\": [{\"name\": \"qwen_image_2.1_int8_convrot.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"7.26 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_8b_int8_convrot.safetensors\", \"dir\": \"text_encoders\", \"size\": \"9.35 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_2.1_vae_bf16.safetensors\", \"dir\": \"vae\", \"size\": \"676 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors\", \"note\": \"\"}, {\"name\": \"sam3.1_multiplex_fp16.safetensors\", \"dir\": \"checkpoints\", \"size\": \"1.75 GB\", \"url\": \"https://huggingface.co/Comfy-Org/sam3.1/resolve/main/checkpoints/sam3.1_multiplex_fp16.safetensors\", \"note\": \"by Meta, packaged by Comfy-Org\"}, {\"name\": \"Qwen-Image-2.1-viggle-turbo-v0.3-6step-lora-r128.safetensors\", \"dir\": \"loras\", \"size\": \"680 MB\", \"url\": \"https://huggingface.co/Viggle/Qwen-Image-2.1-viggle-turbo/resolve/main/Qwen-Image-2.1-viggle-turbo-v0.3-6step-lora-r128.safetensors\", \"note\": \"optional, for Fast · Qwen Research License, research use\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_MaskByTouch\"}], \"links\": [{\"label\": \"YouTube · this workflow\", \"url\": \"https://youtu.be/iMgaiXoB0v4\"}, {\"label\": \"Discord · AusBoss\", \"url\": \"https://discord.gg/RwVxY9Fuaj\"}, {\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}"
    },
    "color": "#14424d",
    "bgcolor": "#161f21"
@@ -1458,7 +1458,7 @@
    ],
    "size": [
     350,
-    228
+    328
    ],
    "flags": {},
    "order": 17,
@@ -1514,6 +1514,36 @@
      "name": "diffusion model",
      "type": "MODEL",
      "link": 39
+    },
+    {
+     "name": "picture 2",
+     "shape": 7,
+     "type": "IMAGE",
+     "link": null
+    },
+    {
+     "name": "picture 3",
+     "shape": 7,
+     "type": "IMAGE",
+     "link": null
+    },
+    {
+     "name": "picture 4",
+     "shape": 7,
+     "type": "IMAGE",
+     "link": null
+    },
+    {
+     "name": "picture 5",
+     "shape": 7,
+     "type": "IMAGE",
+     "link": null
+    },
+    {
+     "name": "picture 6",
+     "shape": 7,
+     "type": "IMAGE",
+     "link": null
     }
    ],
    "outputs": [
@@ -1804,14 +1834,56 @@
     "cnr_id": "ausboss-nodes"
    },
    "widgets_values": [
-    "[▶ **Watch the video**](https://youtu.be/iMgaiXoB0v4)\n###### This workflow, start to finish, on YouTube."
+    "[▶ **Watch the video**](https://youtu.be/iMgaiXoB0v4)\n[▶ **AusBoss on Discord**](https://discord.gg/RwVxY9Fuaj)\n###### Need help? Have a suggestion? Want more workflows?"
    ],
    "widgets_values_named": {
-    "text": "[▶ **Watch the video**](https://youtu.be/iMgaiXoB0v4)\n###### This workflow, start to finish, on YouTube."
+    "text": "[▶ **Watch the video**](https://youtu.be/iMgaiXoB0v4)\n[▶ **AusBoss on Discord**](https://discord.gg/RwVxY9Fuaj)\n###### Need help? Have a suggestion? Want more workflows?"
    },
    "pos": [
     0,
     30
+   ],
+   "color": "#07090a",
+   "bgcolor": "#07090a"
+  },
+  {
+   "id": 43,
+   "type": "AUSBOSS_NODES_Callout",
+   "size": [
+    350,
+    196
+   ],
+   "flags": {
+    "pinned": true
+   },
+   "order": 1,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "text",
+     "name": "text",
+     "type": "STRING",
+     "widget": {
+      "name": "text"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [],
+   "title": "Callout",
+   "properties": {
+    "Node name for S&R": "AUSBOSS_NODES_Callout",
+    "cnr_id": "ausboss-nodes"
+   },
+   "widgets_values": [
+    "➡️#29 **More pictures?** Add your own image loader and plug it into **picture 2**.\n###### Up to picture 6. Go in order, and call each one by its number in What to change: \"Replace the cup with the mug from image 2.\""
+   ],
+   "widgets_values_named": {
+    "text": "➡️#29 **More pictures?** Add your own image loader and plug it into **picture 2**.\n###### Up to picture 6. Go in order, and call each one by its number in What to change: \"Replace the cup with the mug from image 2.\""
+   },
+   "pos": [
+    1988,
+    404
    ],
    "color": "#07090a",
    "bgcolor": "#07090a"
@@ -1993,7 +2065,7 @@
     1968,
     0.0,
     780,
-    520.0
+    640.0
    ],
    "color": "#1d5560",
    "flags": {
@@ -2037,7 +2109,7 @@
     "state": {
      "lastGroupId": 9,
      "lastNodeId": 40,
-     "lastLinkId": 50,
+     "lastLinkId": 55,
      "lastRerouteId": 0
     },
     "revision": 0,
@@ -2049,7 +2121,7 @@
       -260,
       120,
       150,
-      220
+      320
      ]
     },
     "outputNode": {
@@ -2184,6 +2256,76 @@
        51,
        184
       ]
+     },
+     {
+      "id": "b30d944b-7299-4b13-98ce-654c09243350",
+      "name": "picture 2",
+      "type": "IMAGE",
+      "linkIds": [
+       51
+      ],
+      "localized_name": "picture 2",
+      "shape": 7,
+      "pos": [
+       51,
+       204
+      ]
+     },
+     {
+      "id": "8d58ca38-3c3e-41db-8a80-02e37b38a3fd",
+      "name": "picture 3",
+      "type": "IMAGE",
+      "linkIds": [
+       52
+      ],
+      "localized_name": "picture 3",
+      "shape": 7,
+      "pos": [
+       51,
+       224
+      ]
+     },
+     {
+      "id": "66e08545-fb71-41a6-8d7e-417a2e727ee6",
+      "name": "picture 4",
+      "type": "IMAGE",
+      "linkIds": [
+       53
+      ],
+      "localized_name": "picture 4",
+      "shape": 7,
+      "pos": [
+       51,
+       244
+      ]
+     },
+     {
+      "id": "e1e9a49b-f83e-4b8e-a502-d0e9e3c39665",
+      "name": "picture 5",
+      "type": "IMAGE",
+      "linkIds": [
+       54
+      ],
+      "localized_name": "picture 5",
+      "shape": 7,
+      "pos": [
+       51,
+       264
+      ]
+     },
+     {
+      "id": "49d97699-b438-484f-9956-ba1ca113006e",
+      "name": "picture 6",
+      "type": "IMAGE",
+      "linkIds": [
+       55
+      ],
+      "localized_name": "picture 6",
+      "shape": 7,
+      "pos": [
+       51,
+       284
+      ]
      }
     ],
     "outputs": [
@@ -2288,7 +2430,7 @@
       ],
       "size": [
        460,
-       266
+       366
       ],
       "flags": {},
       "order": 1,
@@ -2346,6 +2488,41 @@
         "name": "images.image_2",
         "shape": 7,
         "type": "IMAGE",
+        "link": 51
+       },
+       {
+        "localized_name": "image_3",
+        "name": "images.image_3",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": 52
+       },
+       {
+        "localized_name": "image_4",
+        "name": "images.image_4",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": 53
+       },
+       {
+        "localized_name": "image_5",
+        "name": "images.image_5",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": 54
+       },
+       {
+        "localized_name": "image_6",
+        "name": "images.image_6",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": 55
+       },
+       {
+        "localized_name": "image_7",
+        "name": "images.image_7",
+        "shape": 7,
+        "type": "IMAGE",
         "link": null
        }
       ],
@@ -2373,7 +2550,7 @@
         "links": null
        }
       ],
-      "title": "Text Encode Qwen Image 2.1 - The crop and your request",
+      "title": "Text Encode Qwen Image 2.1 - The crop, request and pictures",
       "properties": {
        "Node name for S&R": "TextEncodeQwenImage21"
       },
@@ -2906,10 +3083,10 @@
        "cnr_id": "ausboss-nodes"
       },
       "widgets_values": [
-       "Your words, plus one sentence that asks Qwen to keep everything else.\n###### Qwen sees the crop as it is."
+       "Your words, plus one sentence that asks Qwen to keep everything else.\n###### Qwen sees the crop as image 1, and any extra pictures as image 2 and up."
       ],
       "widgets_values_named": {
-       "text": "Your words, plus one sentence that asks Qwen to keep everything else.\n###### Qwen sees the crop as it is."
+       "text": "Your words, plus one sentence that asks Qwen to keep everything else.\n###### Qwen sees the crop as image 1, and any extra pictures as image 2 and up."
       },
       "pos": [
        20,
@@ -3011,7 +3188,7 @@
        0,
        0.0,
        500,
-       908.0
+       968.0
       ],
       "color": "#1d5560",
       "flags": {
@@ -3238,6 +3415,46 @@
       "origin_slot": 0,
       "target_id": -20,
       "target_slot": 1,
+      "type": "IMAGE"
+     },
+     {
+      "id": 51,
+      "origin_id": -10,
+      "origin_slot": 9,
+      "target_id": 20,
+      "target_slot": 6,
+      "type": "IMAGE"
+     },
+     {
+      "id": 52,
+      "origin_id": -10,
+      "origin_slot": 10,
+      "target_id": 20,
+      "target_slot": 7,
+      "type": "IMAGE"
+     },
+     {
+      "id": 53,
+      "origin_id": -10,
+      "origin_slot": 11,
+      "target_id": 20,
+      "target_slot": 8,
+      "type": "IMAGE"
+     },
+     {
+      "id": 54,
+      "origin_id": -10,
+      "origin_slot": 12,
+      "target_id": 20,
+      "target_slot": 9,
+      "type": "IMAGE"
+     },
+     {
+      "id": 55,
+      "origin_id": -10,
+      "origin_slot": 13,
+      "target_id": 20,
+      "target_slot": 10,
       "type": "IMAGE"
      }
     ],
