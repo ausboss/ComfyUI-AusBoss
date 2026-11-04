@@ -136,11 +136,18 @@ def names_in(moments):
     return names
 
 
+LINKING_WORDS = {"the", "a", "an", "in", "on", "at", "of", "with", "by", "to", "and", "from", "into", "who", "is"}
+
+
 def same_person(said_by, who):
-    """Whether "The old man" names the person a swap's "the old man in the truck" points at."""
-    said_by = re.sub(r"^(?:the|a|an)\s+", "", said_by.strip().lower())
-    who = re.sub(r"^(?:the|a|an)\s+", "", who.strip().lower())
-    return bool(said_by) and (said_by in who or who in said_by)
+    """Whether "The man in the car" names the person a swap's "the man in the
+    back of the police car" points at: every word that says who it is
+    appears there too. "The man in the cap" is someone else."""
+    def words(text):
+        return {word for word in re.findall(r"[a-z']+", text.lower()) if word not in LINKING_WORDS}
+
+    named = words(said_by)
+    return bool(named) and named <= words(who)
 
 
 def only_the_words(moment, names=None, last="", goes=()):

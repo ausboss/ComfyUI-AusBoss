@@ -1334,6 +1334,15 @@ class ClipSoundTests(unittest.TestCase):
         self.assertNotIn("EBT", line)
         self.assertIn("<Subject 2> keeps the lips closed and says nothing the whole time.", line)
 
+    def test_a_short_name_for_who_goes_keeps_their_line(self):
+        for said_by in ("The man in the car says", "The man says", "The man in the police car says"):
+            script = f'@1 replaces the man in the back of the police car.\n{said_by} "I did nothing wrong."'
+            line = parts_of(script, clip_sound=True, speech=plain([(0.5, 2.0)]), **SWAP_JOBS)["detailed_description"]
+            self.assertIn("<Subject 2> (S1) says, each word landing exactly on the lip movement of <Video 1>, <d>[English] I did nothing wrong.</d>", line)
+        line = parts_of('@1 replaces the man in the back of the police car.\nThe man in the cap says "Move."', clip_sound=True,
+                        speech=plain([(0.5, 2.0)]), **SWAP_JOBS)["detailed_description"]
+        self.assertNotIn("Move.", line)
+
     def test_a_typed_time_wins_over_the_sound(self):
         script = '@1 replaces the man at the till.\n3.5s: @1 says "Again?"'
         line = parts_of(script, clip_sound=True, speech=plain([(1.0, 2.0)]), **SWAP_JOBS)["detailed_description"]
