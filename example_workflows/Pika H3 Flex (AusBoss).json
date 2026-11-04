@@ -5207,7 +5207,7 @@
       ]
      },
      {
-      "id": "2a4f3f09-5879-40dd-9a49-5efbf54e0a73",
+      "id": "3783fbb0-df05-44e1-9b0b-d7d634f9c3e1",
       "name": "clip sound",
       "type": "AUDIO",
       "linkIds": [
@@ -5219,7 +5219,7 @@
       ]
      },
      {
-      "id": "feffb6b8-090f-4b90-b334-2a044da85c5d",
+      "id": "ffc96d68-3595-4694-b36d-a906f44ca8a6",
       "name": "steer mouths",
       "type": "BOOLEAN",
       "linkIds": [
@@ -7937,10 +7937,10 @@
        "ver": "2.21.0"
       },
       "widgets_values": [
-       "floor(a * c * (1 - 0.375 * b) / 16) * 16"
+       "floor(a * c * (1 - 0.375 * b) / 32) * 32"
       ],
       "widgets_values_named": {
-       "expression": "floor(a * c * (1 - 0.375 * b) / 16) * 16"
+       "expression": "floor(a * c * (1 - 0.375 * b) / 32) * 32"
       },
       "color": "#14424d",
       "bgcolor": "#161f21"
@@ -8014,10 +8014,10 @@
        "ver": "2.21.0"
       },
       "widgets_values": [
-       "floor(a * c * (1 - 0.375 * b) / 16) * 16"
+       "floor(a * c * (1 - 0.375 * b) / 32) * 32"
       ],
       "widgets_values_named": {
-       "expression": "floor(a * c * (1 - 0.375 * b) / 16) * 16"
+       "expression": "floor(a * c * (1 - 0.375 * b) / 32) * 32"
       },
       "color": "#14424d",
       "bgcolor": "#161f21"
