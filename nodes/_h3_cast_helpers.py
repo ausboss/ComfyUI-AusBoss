@@ -114,6 +114,20 @@ REPLACES = re.compile(
 NAMES_NEXT = re.compile(r",?\s*(?:[A-Z][\w'.-]*\s+)+(?:is|as|plays)\s*$")
 NAMES_THE_NEW = re.compile(r"^[^@.;]*?\b(?:is|as|plays)\s+@\d\b[\s,.;]*", re.I)
 SWAPPED = "attribute_transfer - apply the defined appearance to the original performance; the background of {picture} is not transferred."
+# "keeps the outfit", "in the clip's clothes": the new person wears the clothes of the one who goes, not the picture's.
+KEEP_CLOTHES = (
+    r"\bkeep(?:s|ing)?\s+(?:the\s+|his\s+|her\s+|their\s+)?(?:original\s+|same\s+)?(?:outfit|clothes|clothing)\b"
+    r"(?:\s+(?:from|of|in)\s+the\s+(?:clip|video|original))?"
+    r"|\b(?:in|wearing|wears)\s+the\s+(?:clip'?s|video'?s|original)\s+(?:outfit|clothes|clothing)\b"
+    r"|\b(?:outfit|clothes|clothing)\s+(?:from|of)\s+the\s+(?:clip|video)\b"
+)
+CLIP_CLOTHES = re.compile(KEEP_CLOTHES, re.I)
+CLIP_CLOTHES_CUT = re.compile(rf",?\s*(?:\band\s+)?(?:{KEEP_CLOTHES})", re.I)
+CLOTHED_SWAP = "{subject} is the person in {picture}, with the same face and hair, wearing the clothes of {who} in <Video 1>."
+CLOTHES_STAY = (
+    "attribute_transfer - apply only the face and hair to the original performance; the clothes of {who} in <Video 1> "
+    "stay as they are; the background of {picture} is not transferred."
+)
 KEEP_IS = (
     "<Video 1> is the video being continued, and the target video starts from its last moment.\n"
     "{main} is the main subject in <Video 1>, with the same look."
@@ -200,6 +214,7 @@ class Cast:
         self.in_video = subject_label(last + 1) if video in (KEEP, REVOICE) else ""
         self.people = [picture for picture in pictures if picture.job in (PERSON, SHEET, START)]
         self.subjects = {picture.slot: subject_label(picture.subject) for picture in pictures if picture.subject}
+        self.clip_clothes = False  # A swap that keeps the clothes of whoever goes.
 
     def of(self, *jobs):
         return [picture for picture in self.pictures if picture.job in jobs]
@@ -218,10 +233,17 @@ class Cast:
         coming = [subject_label(picture.subject) for picture in self.swappers] or [self.main]
         return [(subject_label(number), who, new) for number, (who, new) in enumerate(zip(self.whos, coming), 1)]
 
+    def goes_for(self, picture):
+        """Who a swapping picture's person replaces, in the words of the script."""
+        new = subject_label(picture.subject)
+        return next((who for _, who, coming in self.swaps if coming == new), self.who)
+
     def name_who_goes(self, lines):
         """Who each new person replaces, from the lines typed in a swap. With one, the words are who goes. With more,
         each @ names one, or else the lines go in picture order; anything else keeps left to right."""
-        lines = [line.strip() for line in lines if line.strip(" .")]
+        self.clip_clothes = any(CLIP_CLOTHES.search(line) for line in lines)
+        lines = [CLIP_CLOTHES_CUT.sub("", line).strip() for line in lines]
+        lines = [line for line in lines if line.strip(" .")]
         text = ". ".join(line.rstrip(" .") for line in lines)  # Each line ends where its who-goes words end.
         if len(self.whos) == 1:
             self.who = lower_first(who_goes_in(text) or ONE_GOES)
@@ -307,6 +329,9 @@ class Cast:
             elif picture.job == PERSON and redraw:
                 lines.append(REDRAWN[0].format(**words))
                 continue
+            elif self.clip_clothes and picture in self.swappers:
+                lines.append(CLOTHED_SWAP.format(who=self.goes_for(picture), **words))
+                continue
             elif picture.job == PERSON and words["subject"] in worn:
                 lines.append(DRESSED[0].format(**words))
                 continue
@@ -329,6 +354,8 @@ class Cast:
         label = picture_label(picture.picture)
         wearing = [slot for slot, wearer in wearers.items() if wearer == subject]
         if self.video == SWAP and picture.job in (PERSON, SHEET):
+            if self.clip_clothes:
+                return CLOTHES_STAY.format(who=self.goes_for(picture), picture=label)
             return SWAPPED.format(picture=label)
         if picture.job == PERSON and redraw:
             words = REDRAWN[1]

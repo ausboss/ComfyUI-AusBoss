@@ -760,6 +760,21 @@ class VideoJobTests(unittest.TestCase):
             line = parts_of(script, jobs={1: "person"})["detailed_description"]
             self.assertIn("<Subject 1> (S1) says in an off-screen voiceover, <d>[English] I was broke.</d>", line)
 
+    def test_a_swap_can_keep_the_clips_clothes(self):
+        for script in ('@1 replaces the girl in the hoodie and keeps her outfit.', "@1 replaces the girl in the hoodie, in the clip's clothes.",
+                       '@1 replaces the girl in the hoodie.\nKeep the clothes from the video.'):
+            parts = parts_of(script, jobs={1: "person"}, video="swap the person")
+            self.assertIn("<Subject 1> is the girl in the hoodie in <Video 1>, selected for replacement.", parts["subject_definitions"])
+            self.assertIn("<Subject 2> is the person in <Picture 1>, with the same face and hair, wearing the clothes of the girl in the hoodie in <Video 1>.",
+                          parts["subject_definitions"])
+            self.assertIn("the clothes of the girl in the hoodie in <Video 1> stay as they are", parts["retention_analysis"])
+            self.assertNotIn("same face, hair and clothes", parts["subject_definitions"])
+
+    def test_a_swap_wears_the_pictures_clothes_unless_told(self):
+        for script in ('@1 replaces the girl in the hoodie.', '@1 replaces the girl in the hoodie and keeps her own clothes.'):
+            parts = parts_of(script, jobs={1: "person"}, video="swap the person")
+            self.assertIn("<Subject 2> is the person in <Picture 1>, with the same face, hair and clothes.", parts["subject_definitions"])
+
     def test_how_a_swap_line_is_said_stays_out_of_who_says_it(self):
         script = '@1 replaces the man at the till.\nThe card reader says in a flat robot voice "Card declined."'
         line = parts_of(script, jobs={1: "person"}, video="swap the person")["detailed_description"]
