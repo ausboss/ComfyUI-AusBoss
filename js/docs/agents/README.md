@@ -33,6 +33,7 @@ help panel.
 | Apply a stack of LoRAs | LoRA Loader (`AUSBOSS_NODES_LoraLoader`) |
 | Krea 2 prompt, and Krea 2 outpainting | Krea 2 Encode (`AUSBOSS_NODES_Krea2Encode`), Krea 2 Outpaint Model Patch (`AUSBOSS_NODES_Krea2OutpaintModelPatch`) |
 | Load or save a video | Load Video (`AUSBOSS_NODES_LoadVideo`), Save Video (`AUSBOSS_NODES_SaveVideo`) |
+| Load a sound file and keep only part of it, up to a set length | Load Audio (`AUSBOSS_NODES_LoadAudio`) |
 | Turn, crop and pad a video: one frame, or the whole clip | Video Crop + Rotate + Pad → Frame (`AUSBOSS_NODES_VideoCropRotatePad`), → Clip (`AUSBOSS_NODES_VideoCropRotatePadClip`) |
 | Change a clip's frame rate | Frame Interpolate (`AUSBOSS_NODES_FrameInterpolate`) |
 | Work with frame batches | Select Frame, Select Every Nth, Split Batch, Merge Batches (`AUSBOSS_NODES_SelectFrame`, `_SelectEveryNth`, `_SplitBatch`, `_MergeBatches`) |

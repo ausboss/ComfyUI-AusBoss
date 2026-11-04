@@ -384,6 +384,16 @@ const CARDS = {
       { widget: "max_frames", label: "Limit" },
     ],
   },
+  AUSBOSS_NODES_LoadAudio: {
+    // The wave, IN and OUT live in the panel under the card (js/load_audio).
+    minWidth: 280, first: true, hide: ["upload"],
+    rows: [
+      { widget: "audio", label: "Source", kind: "select",
+        button: { text: "Upload", title: "Upload a sound file into ComfyUI's input folder", onClick: (node) => node.widgets?.find((w) => w.name === "upload")?.callback?.() } },
+      { widget: "max_seconds", label: "Max length", suffix: "s", decimals: 1, trimZeros: true,
+        title: "The longest the sound may be. Anything past it is cut off and shows in red. 0 means no limit." },
+    ],
+  },
   AUSBOSS_NODES_LoadImagePad: {
     minWidth: 340, first: true, hide: ["upload"],
     rows: [
