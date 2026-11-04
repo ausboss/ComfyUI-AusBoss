@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
+import * as cardMath from "../js/shared/widget_card_math.mjs";
+import * as panelLayout from "../js/shared/panel_layout.mjs";
 
 import {
   ensureNodeMinHeight,
@@ -11,7 +15,113 @@ import {
   measureLayoutWidthPadding,
   nodeHeightAfterCardChange,
   pinVuePanelHeight,
+  observePanelHeight,
 } from "../js/shared/panel_layout.mjs";
+import { cardHeight, rowTops } from "../js/shared/widget_card_math.mjs";
+
+test("a measured card row updates its node and sockets without changing another node", () => {
+  const observed = [];
+  class PanelObserver {
+    constructor(callback) { this.callback = callback; this.disconnected = false; }
+    observe(content) { this.content = content; observed.push(this); }
+    disconnect() { this.disconnected = true; }
+  }
+  const element = () => ({
+    style: {}, classList: { add() {}, remove() {}, toggle() {} }, children: [],
+    append(...children) { this.children.push(...children); }, addEventListener() {},
+  });
+  const source = readFileSync(new URL("../js/shared/widget_card.mjs", import.meta.url), "utf8")
+    .replace(/^import [\s\S]*?;\n/gm, "").replace(/^export \* from .*;\n/gm, "").replace(/^export /gm, "");
+  const mount = runInNewContext(`${source}\nmountWidgetCard`, {
+    ...cardMath, ...panelLayout, BRAND: "#00b4aa",
+    document: { getElementById: () => true, createElement: element },
+    ResizeObserver: PanelObserver,
+    observePanelHeight(row, line, content, refresh) {
+      // Run the real observer helper in the same test realm as the mock.
+      const saved = globalThis.ResizeObserver;
+      globalThis.ResizeObserver = PanelObserver;
+      try { return panelLayout.observePanelHeight(row, line, content, refresh); }
+      finally { globalThis.ResizeObserver = saved; }
+    },
+    chainCallback(target, name, callback) {
+      const previous = target[name];
+      target[name] = function (...args) { previous?.apply(this, args); callback.apply(this, args); };
+    },
+    keepDomWidgetWidthAuto() {}, pinVuePanelHeight() {}, holdNodeMinWidth() {},
+    hideWidget(widget) { widget.hidden = true; },
+  });
+  const definition = { panel: () => ({ element: { offsetHeight: 24 } }), height: 30, measure: true };
+  const make = () => {
+    const node = {
+      size: [420, 100], pos: [0, 0], widgets: [{ name: "seconds", type: "text", value: "8" }],
+      inputs: [{ name: "seconds", widget: { name: "seconds" }, link: null }],
+      addDOMWidget(name, type, root, options) {
+        const widget = { name, type, element: root, options, y: 0 };
+        this.widgets.push(widget);
+        return widget;
+      },
+      computeSize() { return this.__ausbossCard.widget.computeSize(420); },
+      setSize(size) { this.size = Array.from(size); },
+    };
+    return { node, state: mount(node, { rows: [definition, { widget: "seconds", kind: "text" }], minWidth: 420 }) };
+  };
+  const first = make();
+  const second = make();
+  const height = first.node.size[1];
+  const socketY = first.node.widgets[0].y;
+  if (observed[0]) {
+    observed[0].content.offsetHeight = 53;
+    observed[0].callback();
+  }
+  assert.equal(first.node.size[1], height + 23);
+  assert.equal(first.node.widgets[0].y, socketY + 23);
+  assert.equal(second.node.size[1], height);
+  assert.equal(definition.height, 30);
+  first.node.onRemoved();
+  assert.equal(observed[0].disconnected, true);
+});
+
+test("wrapped panel content moves the next row and grows the card, then shrinks again", () => {
+  const saved = globalThis.ResizeObserver;
+  let changed;
+  let disconnected = false;
+  globalThis.ResizeObserver = class {
+    constructor(callback) { changed = callback; }
+    observe(element) { assert.equal(element, content); }
+    disconnect() { disconnected = true; }
+  };
+  const row = { panel: () => {}, height: 30 };
+  const next = { widget: "seconds" };
+  const element = { style: {} };
+  let height = 24;
+  const content = { get offsetHeight() { return height; }, getBoundingClientRect: () => ({ height: height / 2 }) };
+  const initialHeight = cardHeight([row, next]);
+  const initialTop = rowTops([row, next])[1];
+  let refreshed = 0;
+  try {
+    const observer = observePanelHeight(row, element, content, () => { refreshed += 1; });
+    changed();
+    assert.equal(row.height, 30);
+    height = 53; // Two 24px chip rows and the 5px gap.
+    changed();
+    assert.equal(element.style.height, "53px");
+    assert.equal(cardHeight([row, next]), initialHeight + 23);
+    assert.equal(rowTops([row, next])[1], initialTop + 23);
+    changed();
+    assert.equal(refreshed, 1, "unchanged measurements do not resize again");
+    height = 0; // A hidden panel does not erase its minimum.
+    changed();
+    assert.equal(row.height, 53);
+    height = 24;
+    changed();
+    assert.equal(row.height, 30);
+    assert.equal(cardHeight([row, next]), initialHeight);
+    observer.disconnect();
+    assert.equal(disconnected, true);
+  } finally {
+    globalThis.ResizeObserver = saved;
+  }
+});
 
 test("fillNodeHeight drops computeSize and declares a floor with no ceiling", () => {
   const widget = { computeSize: () => [0, 200], options: {} };

@@ -8,6 +8,7 @@ from pathlib import Path
 import sys
 import types
 import unittest
+from unittest.mock import patch
 
 import torch
 
@@ -145,6 +146,39 @@ class GeometryTests(unittest.TestCase):
 
 
 class CropContractTests(unittest.TestCase):
+    def test_size_guard_allows_a_large_source_without_amplifying_it(self):
+        image = torch.zeros((2, 32, 32, 4))
+        mask = torch.ones((1, 32, 32))
+        with patch.object(inpaint_helpers, "_MAX_CROP_ELEMENTS", 1024):
+            cropped, _, _ = build_crop(image, mask, 1.0, 0, 32)
+            self.assertEqual(cropped.shape, image.shape)
+            with self.assertRaisesRegex(ValueError, "too large"):
+                build_crop(image, mask, 1.0, 0, 32, target_width=64, target_height=64)
+
+    def test_extreme_target_aspects_fail_before_allocating_padding(self):
+        image = torch.zeros((1, 2048, 2048, 3))
+        mask = torch.ones((1, 2048, 2048))
+        for keep_inside in (False, True):
+            for width, height in ((16384, 32), (32, 16384)):
+                with self.subTest(keep_inside=keep_inside, target=(width, height)):
+                    with patch.object(inpaint_helpers, "_replicate_pad_image", side_effect=AssertionError("unsafe allocation")) as pad:
+                        with self.assertRaisesRegex(ValueError, "Crop For Inpaint.*too large"):
+                            build_crop(image, mask, 1.0, 0, 32, target_width=width, target_height=height, keep_inside=keep_inside)
+                        pad.assert_not_called()
+
+    def test_size_guard_covers_extension_native_context_and_sampler_output(self):
+        image = torch.zeros((1, 32, 32, 3))
+        mask = torch.ones((1, 32, 32))
+        for options in ({"extend_right": 100_000_000}, {"context_factor": 10000},
+                        {"target_width": 16384, "target_height": 16384}):
+            with self.subTest(options=options):
+                with (
+                    patch.object(inpaint_helpers, "_replicate_pad_image", side_effect=AssertionError("unsafe allocation")),
+                    patch.object(inpaint_helpers, "_resize_image", side_effect=AssertionError("unsafe resize")),
+                ):
+                    with self.assertRaisesRegex(ValueError, "Crop For Inpaint.*too large"):
+                        build_crop(image, mask, blend_pixels=0, output_multiple=32, **{"context_factor": 1.0, **options})
+
     def test_stitcher_schema(self):
         image = rand_image(1, 64, 96)
         mask = box_mask(64, 96, 24, 40, 40, 56)

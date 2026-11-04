@@ -253,7 +253,7 @@ function run(tool) {
 // took the press. Every other selected node takes its size from where it
 // stood when the button went down, so nothing builds up across steps.
 
-const together = { enabled: true, before: null, grabbed: null, handleOf: null, sides: null, frame: 0 };
+const together = { enabled: true, before: null, grabbed: null, handleOf: null, sides: null, frame: 0, resized: false };
 
 function resizableSelection(canvas) {
   const { nodes } = graphSets(canvas?.graph);
@@ -288,6 +288,8 @@ function syncSizes() {
   const grabbed = together.grabbed;
   if (!grabbed) return;
   const was = together.before.get(grabbed);
+  together.resized ||= grabbed.size[0] !== was.size[0] || grabbed.size[1] !== was.size[1];
+  if (!together.resized) return;
   together.sides ??= sharedSides(
     [...together.before.values()].map(({ pos, size }) => ({ x: pos[0], y: pos[1], w: size[0], h: size[1] })),
   );
@@ -348,6 +350,7 @@ function endTogether() {
   together.grabbed = null;
   together.handleOf = null;
   together.sides = null;
+  together.resized = false;
 }
 
 function installTogether() {

@@ -22,6 +22,24 @@
 // stack's rounded bottom border once went missing.
 export const WIDGET_FRAME = 20;
 
+// A wrapped row grows from its content, which must have a natural height.
+// The row's own height feeds the card total and the sockets below it.
+export function observePanelHeight(row, element, content, refresh) {
+  const minimum = Number(row.height) || 26;
+  const observer = new ResizeObserver(() => {
+    // offsetHeight stays in layout pixels when the canvas is zoomed.
+    const measured = content.offsetHeight;
+    if (!measured) return;
+    const height = Math.max(minimum, measured);
+    if (height === row.height) return;
+    row.height = height;
+    element.style.height = `${height}px`;
+    refresh();
+  });
+  observer.observe(content);
+  return observer;
+}
+
 // The frontend pads a DOM widget's minWidth before it becomes the node's
 // floor: LGraphNode.computeSize adds the room a number widget's value box
 // takes (BaseWidget.minValueWidth plus both arrows and margins - 104px on

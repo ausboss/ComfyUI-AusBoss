@@ -15,7 +15,7 @@ function ensureCss() {
   const style = document.createElement("style");
   style.id = CSS_ID;
   style.textContent = `
-.ausboss-chips{display:flex;flex-wrap:wrap;align-content:flex-start;gap:5px;height:100%;min-width:0;font:600 10.5px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.ausboss-chips{display:flex;flex-wrap:wrap;align-content:flex-start;gap:5px;min-width:0;font:600 10.5px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 .ausboss-chip{position:relative;display:flex;align-items:center;gap:4px;height:24px;max-width:100%;padding:0 8px;box-sizing:border-box;border:1px solid #2a3437;border-radius:12px;background:#0b0f10;color:#d8ecea;white-space:nowrap}
 .ausboss-chip:hover{border-color:${BRAND}}
 .ausboss-chip img{flex:none;width:18px;height:18px;margin-left:-5px;border-radius:9px;object-fit:cover}

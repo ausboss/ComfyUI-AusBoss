@@ -1,9 +1,27 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { stripCaption, stripRows, wiredJobs } from "../js/shared/moment_strip_math.mjs";
+import { moveMoment, retime, stripCaption, stripRows, wiredJobs } from "../js/shared/moment_strip_math.mjs";
 
 const row = (start, end, extra = {}) => ({ start, end, text: "She runs", cut: false, speech: false, ...extra });
+
+test("retiming keeps the list prefix ahead of the new timestamp", () => {
+  for (const prefix of ["2. ", "2) ", "- ", "* ", "• ", "First, ", "secondly: ", "Step 2: "]) {
+    assert.equal(retime(`  ${prefix}@1 sits.`, 0, 5), `  ${prefix}5s: @1 sits.`);
+  }
+});
+
+test("retiming replaces all supported timestamps and ranges", () => {
+  for (const prefix of ["", "2. "]) for (const time of ["3s:", "3 s,", "at 3 seconds,", "[3s]", "3.5s:", "at 3.5 secs,", "01:03.5:", "[at 1:03]", "3-6s:", "3s - 6 seconds,", "[3–6s]", "at 3—6 secs:"]) {
+    assert.equal(retime(`${prefix}${time} @1 sits.`, 0, 5), `${prefix}5s: @1 sits.`, time);
+  }
+});
+
+test("reordering timed list items leaves times and list prefixes in their slots", () => {
+  const text = "1. [0-3s] @1 walks.\n2) 00:03-6s: @1 sits.\n\nStep 3: at 6 seconds, @1 runs.";
+  assert.equal(moveMoment(text, [0, 1, 3], 2, 0),
+    "1. [0-3s] @1 runs.\n2) 00:03-6s: @1 walks.\n\nStep 3: at 6 seconds, @1 sits.");
+});
 
 test("a row says its second and its words, and its bar sits where it plays", () => {
   const rows = stripRows({ seconds: 10, moments: [row(0, 2.5), row(2.5, 10)] });

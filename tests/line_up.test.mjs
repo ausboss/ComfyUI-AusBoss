@@ -1,10 +1,49 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
 
 import { MIN_GAP, enoughFor, lineUp, matchWidth, sameSize, sharedSides, spreadEvenly } from "../js/shared/line_up.mjs";
 
 const box = (x, y, w, h) => ({ x, y, w, h });
 const rects = [box(10, 0, 100, 50), box(40, 100, 200, 80), box(0, 300, 60, 40)];
+
+function resizeHandlers(layout = "column", classic = false) {
+  const make = (id, pos, size) => ({ id, pos, size, flags: {}, setSize(size) { this.size = size; }, computeSize: () => [100, 60] });
+  const first = make(1, [0, 0], [300, 100]);
+  const second = make(2, layout === "row" ? [500, 0] : [0, 200], [400, 150]);
+  const canvas = { graph: { _nodes: [first, second], _groups: [] }, selectedItems: new Set([first, second]), setDirty() {} };
+  const source = readFileSync(new URL("../js/line_up/index.js", import.meta.url), "utf8").replace(/^import .*;\n/gm, "");
+  const handlers = runInNewContext(`${source}\n({ onTogetherDown, syncSizes, onTogetherUp })`, {
+    app: { canvas, registerExtension() {} }, sharedSides, matchWidth,
+    cancelAnimationFrame() {},
+  });
+  const handle = { closest: () => ({ dataset: { nodeId: "1" } }) };
+  handlers.onTogetherDown({ button: 0, target: { closest: () => classic ? null : handle } });
+  if (classic) canvas.resizing_node = first;
+  return { ...handlers, first, second };
+}
+
+test("pressing and releasing a resize handle leaves other selected nodes unchanged", () => {
+  for (const classic of [false, true]) for (const layout of ["row", "column"]) {
+    const { syncSizes, onTogetherUp, second } = resizeHandlers(layout, classic);
+    syncSizes(); // A pointer move can arrive without a size change.
+    onTogetherUp();
+    assert.deepEqual(second.size, [400, 150]);
+  }
+});
+
+test("an actual resize still shares dimensions and can return to its starting size", () => {
+  for (const classic of [false, true]) {
+    const { syncSizes, onTogetherUp, first, second } = resizeHandlers("column", classic);
+    first.size = [350, 100];
+    syncSizes();
+    assert.deepEqual(Array.from(second.size), [350, 150]);
+    first.size = [300, 100];
+    onTogetherUp();
+    assert.deepEqual(Array.from(second.size), [300, 150]);
+  }
+});
 
 test("edges line up on the outermost edge of the selection", () => {
   assert.deepEqual(lineUp(rects, "left").map((p) => p.x), [0, 0, 0]);

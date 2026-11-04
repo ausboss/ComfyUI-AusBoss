@@ -31,16 +31,27 @@ export function stripRows(report) {
   }));
 }
 
-// A time typed at the start of a line: 3s:, 3 s, at 3 seconds, [3s].
-const TYPED_TIME = /^\[?(?:at\s+)?\d+(?:\.\d+)?\s*(?:seconds?|secs?|s)\b\]?\s*[:,\-]?\s*/i;
+// Keep these in step with NUMBER and TIMED in nodes/_h3_script_helpers.py.
+const LIST_PREFIX = /^(?:\d+[.)]|[-*•]|(?:first|second|third|fourth|fifth|sixth)(?:ly)?\b[:,]?|step\s+\d+[:.]?)\s*/i;
+const UNIT = String.raw`(?:seconds?|secs?|s)\b`;
+const DASH = String.raw`[-–—]`;
+const TYPED_TIME = new RegExp(String.raw`^\[?(?:at\s+)?(?:\d+:\d\d(?:\.\d+)?|\d+(?:\.\d+)?\s*(?:${UNIT}|(?=${DASH}\s*\d)))(?:\s*${DASH}\s*\d+(?:\.\d+)?\s*(?:${UNIT})?)?\]?\s*[:,–—\-]?\s*`, "i");
+
+function splitMoment(line) {
+  const indent = line.match(/^\s*/)[0];
+  const body = line.slice(indent.length);
+  const prefix = TYPED_TIME.test(body) ? "" : body.match(LIST_PREFIX)?.[0] ?? "";
+  const rest = body.slice(prefix.length);
+  const time = rest.match(TYPED_TIME)?.[0] ?? "";
+  return { lead: indent + prefix, time, words: rest.slice(time.length) };
+}
 
 // The script with one line set to start at a second: its old time, if any,
 // gives way to the new one. line counts typed lines from 0.
 export function retime(text, line, second) {
   const lines = String(text ?? "").split("\n");
   if (!Number.isInteger(line) || line < 0 || line >= lines.length) return String(text ?? "");
-  const lead = lines[line].match(/^\s*/)[0];
-  const words = lines[line].slice(lead.length).replace(TYPED_TIME, "");
+  const { lead, words } = splitMoment(lines[line]);
   lines[line] = `${lead}${trimmed(second)}s: ${words}`;
   return lines.join("\n");
 }
@@ -88,13 +99,7 @@ export function rulerSeconds(seconds) {
 export function moveMoment(text, slots, from, to) {
   const lines = String(text ?? "").split("\n");
   if (from === to || !slots.every((line) => Number.isInteger(line) && line >= 0 && line < lines.length)) return String(text ?? "");
-  const split = (line) => {
-    const lead = lines[line].match(/^\s*/)[0];
-    const body = lines[line].slice(lead.length);
-    const time = body.match(TYPED_TIME)?.[0] ?? "";
-    return { lead, time, words: body.slice(time.length) };
-  };
-  const parts = slots.map(split);
+  const parts = slots.map((line) => splitMoment(lines[line]));
   const words = parts.map((part) => part.words);
   const [moved] = words.splice(from, 1);
   words.splice(Math.max(0, Math.min(to, words.length)), 0, moved);

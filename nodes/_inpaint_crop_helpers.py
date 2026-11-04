@@ -225,6 +225,20 @@ def _as_mask(
 
 RESIZE_ALGORITHMS = ("bilinear", "bicubic", "area", "nearest")
 
+# A crop keeps several float buffers alive together. Limit new picture
+# buffers to 256 MiB or the source's size, before padding or resizing can
+# multiply its footprint. A large source alone does not force a rejection.
+_MAX_CROP_ELEMENTS = 64 * 1024 * 1024
+
+
+def _check_crop_size(image: torch.Tensor, width: int, height: int) -> None:
+    if image.shape[0] * width * height * image.shape[3] > max(_MAX_CROP_ELEMENTS, image.numel()):
+        raise ValueError(
+            f"Crop For Inpaint: {width}x{height} across {image.shape[0]} picture(s) "
+            "is too large to process safely. Reduce the context, extension or "
+            "target size, or choose target sides with closer proportions."
+        )
+
 
 def _resize_image(
     image: torch.Tensor, width: int, height: int, algorithm: str = "bilinear"
@@ -420,6 +434,7 @@ def build_crop(
     ext_u, ext_d = max(0, int(extend_up)), max(0, int(extend_down))
     if ext_l or ext_r or ext_u or ext_d:
         src_h, src_w = image.shape[1], image.shape[2]
+        _check_crop_size(image, src_w + ext_l + ext_r, src_h + ext_u + ext_d)
         image = _replicate_pad_image(image, ext_l, ext_u, ext_r, ext_d)
         extended = torch.ones(
             (mask.shape[0], src_h + ext_u + ext_d, src_w + ext_l + ext_r),
@@ -487,7 +502,10 @@ def build_crop(
         rect = expand_rect_to_multiple(rect, multiple)
         rect = fit_rect(rect, width, height)
 
+    if use_target:
+        _check_crop_size(image, target_w, target_h)
     left, top, right, bottom = rect_margins(rect, width, height)
+    _check_crop_size(image, width + left + right, height + top + bottom)
     if left or top or right or bottom:
         canvas = _replicate_pad_image(image, left, top, right, bottom)
     else:

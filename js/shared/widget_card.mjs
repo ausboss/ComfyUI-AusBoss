@@ -33,7 +33,7 @@
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "./index.mjs";
 import { keepKeyInField } from "./canvas_passthrough.mjs";
 import { createMediaPicker } from "./media_picker.mjs";
-import { ensureNodeMinHeight, fillNodeHeight, holdNodeMinWidth, nodeHeightAfterCardChange, pinVuePanelHeight } from "./panel_layout.mjs";
+import { ensureNodeMinHeight, fillNodeHeight, holdNodeMinWidth, nodeHeightAfterCardChange, observePanelHeight, pinVuePanelHeight } from "./panel_layout.mjs";
 import { makeScrubInput, quantizeScrubValue, stepDecimals } from "./scrub_input.mjs";
 import { limitsLabel, narrowedRange } from "./wired_limits.mjs";
 import { hideWidget } from "./widget_visibility.mjs";
@@ -221,7 +221,7 @@ function isFloatWidget(widget) {
 //                                          - `top` lifts the widgets' sockets
 //                                            into the node's slot column
 //   { section: "Caption" }
-//   { panel: (node) => ({ element, sync(values) }), height }
+//   { panel: (node) => ({ element, sync(values) }), height, measure? }
 //                                          - the node's own display, on a row
 //                                            of the card
 //   { group: "advanced", label: "More" }   - a disclosure; later rows with
@@ -526,11 +526,16 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       root.append(caption); continue;
     }
     if (row.panel) {
+      // Measurements belong to this node, not the shared card definition.
+      const panelRow = { ...row };
       const line = el("div", "ausboss-card-row panel");
       line.style.height = `${rowHeight(row)}px`;
       const panel = row.panel(node);
       line.append(panel.element);
-      state.rows.push({ row, element: line, syncs: panel.sync ? [panel.sync] : [] });
+      state.rows.push({ row: panelRow, element: line, syncs: panel.sync ? [panel.sync] : [] });
+      if (row.measure && typeof ResizeObserver === "function") {
+        state.observers.push(observePanelHeight(panelRow, line, panel.element, refresh));
+      }
       root.append(line); continue;
     }
     if (row.group !== undefined && row.widget === undefined && row.pair === undefined) {
