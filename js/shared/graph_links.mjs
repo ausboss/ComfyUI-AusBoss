@@ -64,7 +64,7 @@ export function restoreOutputLinks(node, outputs, graph) {
       const targetNode = graph.getNodeById(target.nodeId);
       if (!targetNode) continue;
       const current = lookupLink(graph, targetNode.inputs?.[target.slot]?.link);
-      if (current?.origin_id === node.id) continue; // never stolen
+      if (current?.origin_id === node.id && current.origin_slot === output.slot) continue; // never stolen
       linkSlots(node, output.slot, targetNode, target.slot);
     }
   }

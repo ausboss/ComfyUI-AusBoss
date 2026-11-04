@@ -145,3 +145,82 @@ test("restoreOutputLinks hands back only the links a replacement took", () => {
   assert.equal(graph.links.get(saver.inputs[0].link).origin_id, 1);
   assert.equal(preview.inputs[0].link, untouched, "a link that was never taken stays as it is");
 });
+
+test("lookupLink keeps link id zero and tolerates absent tables and stale ids", () => {
+  const link = { id: 0 };
+  for (const links of [new Map([[0, link]]), { 0: link }]) {
+    assert.equal(lookupLink({ links }, 0), link);
+    assert.equal(lookupLink({ links }, 99), null);
+    assert.equal(lookupLink({ links }, undefined), null);
+  }
+  assert.equal(lookupLink({}, 0), null);
+});
+
+test("snapshotLinks skips stale links in an older plain-object graph", () => {
+  const graph = { links: {
+    0: { origin_id: 1, origin_slot: 2, target_id: 5, target_slot: 0 },
+    8: { origin_id: 5, origin_slot: 1, target_id: 9, target_slot: 3 },
+  } };
+  const node = {
+    inputs: [{ name: "image", link: 0 }, { name: "empty", link: null }, { name: "stale", link: 99 }],
+    outputs: [{ name: "unused" }, { name: "mask", links: [99, 8] }, { name: "stale", links: [77] }],
+  };
+  const snapshot = snapshotLinks(node, graph);
+  assert.deepEqual(snapshot, {
+    inputs: [{ name: "image", originId: 1, originSlot: 2 }],
+    outputs: [{ name: "mask", slot: 1, targets: [{ nodeId: 9, slot: 3 }] }],
+  });
+  graph.links[0].origin_slot = 4;
+  graph.links[8].target_slot = 0;
+  node.inputs[0].name = "changed";
+  assert.equal(snapshot.inputs[0].originSlot, 2, "the snapshot owns its slot values");
+  assert.equal(snapshot.inputs[0].name, "image");
+  assert.equal(snapshot.outputs[0].targets[0].slot, 3);
+  assert.deepEqual(snapshotLinks({}, graph), { inputs: [], outputs: [] });
+});
+
+test("linkSlots refuses redirects outside the target's inputs before calling connectSlots", () => {
+  const { makeNode } = makeGraph();
+  const source = makeNode(1, [], ["out"]);
+  const sink = makeNode(2, ["in"], []);
+  source.connectSlots = () => assert.fail("a refused redirect must not connect");
+  for (const redirect of [null, false, "0", -1, 4, NaN]) {
+    sink.onBeforeConnectInput = function (slot, requested) {
+      assert.equal(this, sink);
+      assert.equal(slot, 0);
+      assert.equal(requested, 0);
+      return redirect;
+    };
+    assert.equal(linkSlots(source, 0, sink, 0), null, String(redirect));
+  }
+});
+
+test("restoreOutputLinks skips missing targets and reconnects a disconnected input", () => {
+  const { graph, makeNode } = makeGraph();
+  const original = makeNode(1, [], ["image", "mask"]);
+  const sink = makeNode(2, ["mask"], []);
+  restoreOutputLinks(original, [{ slot: 1, targets: [
+    { nodeId: 99, slot: 0 }, { nodeId: 2, slot: 0 }, { nodeId: 2, slot: 99 },
+  ] }], graph);
+  const link = lookupLink(graph, sink.inputs[0].link);
+  assert.equal(link.origin_id, original.id);
+  assert.equal(link.origin_slot, 1);
+  assert.equal(graph.links.size, 1);
+});
+
+test("restoreOutputLinks restores the output slot even when the source node is unchanged", () => {
+  const { graph, makeNode } = makeGraph();
+  const original = makeNode(1, [], ["first image", "second image"]);
+  const sink = makeNode(2, ["image"], []);
+  linkSlots(original, 1, sink, 0);
+  const { outputs } = snapshotLinks(original, graph);
+  linkSlots(original, 0, sink, 0);
+
+  restoreOutputLinks(original, outputs, graph);
+  const restored = lookupLink(graph, sink.inputs[0].link);
+  assert.equal(restored.origin_id, original.id);
+  assert.equal(restored.origin_slot, 1);
+  assert.deepEqual(original.outputs[0].links, []);
+  assert.deepEqual(original.outputs[1].links, [restored.id]);
+  assert.equal(graph.links.size, 1);
+});

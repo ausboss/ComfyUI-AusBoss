@@ -214,3 +214,71 @@ test("a number box reads a typed sum only where a plain number fails", () => {
   const source = readFileSync(join(ROOT, "js", "shared", "scrub_input.mjs"), "utf-8");
   assert.match(source, /Number\.isFinite\(number\) \? number : sumValue\(input\.value\)/);
 });
+
+test("formatting keeps significant digits while trimming only fractional zeroes", () => {
+  for (const [value, options, expected] of [
+    [undefined, {}, ""],
+    ["12.340", { decimals: 3, minDecimals: 0 }, "12.34"],
+    [-120, { decimals: 3, minDecimals: 0 }, "-120"],
+    [-1.2346, { decimals: 3, minDecimals: 1 }, "-1.235"],
+    [0.0001, { decimals: 4, minDecimals: 0 }, "0.0001"],
+    [12, { decimals: -2 }, "12"],
+    [1, { decimals: 2, minDecimals: -1 }, "1"],
+  ]) {
+    assert.equal(formatScrubValue(value, options), expected);
+  }
+});
+
+test("invalid scrub values use a finite floor or zero before rounding", () => {
+  for (const value of [undefined, NaN, Infinity, -Infinity, "not a number"]) {
+    assert.equal(quantizeScrubValue(value), 0);
+    assert.equal(quantizeScrubValue(value, { min: -2, max: 4 }), -2);
+  }
+  assert.equal(quantizeScrubValue("2.718", { decimals: 2 }), 2.72);
+  assert.equal(quantizeScrubValue(-10, { min: -2, max: 4 }), -2);
+  assert.equal(quantizeScrubValue(10, { min: -2, max: 4 }), 4);
+});
+
+test("snapped steps cross zero and take several steps from an off-grid value", () => {
+  for (const [start, count, expected] of [
+    [-9, 1, -8], [-9, -1, -16], [-9, 3, 8],
+    [9, -3, -8], [9, 3, 32], [0, -1, -8], [9, 0, 9],
+  ]) {
+    assert.equal(steppedValue(start, count, 8, true), expected, `${start}, ${count}`);
+  }
+  assert.equal(steppedValue("9", -2, 8), -7);
+});
+
+test("gesture boundaries accept equal diagonal travel only past the dead zone", () => {
+  for (const direction of [-1, 1]) {
+    assert.equal(isScrubGesture(direction * SCRUB_DEAD_ZONE, 0), false);
+    assert.equal(isScrubGesture(direction * 4, -4), true);
+    assert.equal(isScrubGesture(direction * 4, 5), false);
+  }
+});
+
+test("Shift slows dragging when the supplied fine step is equal or larger", () => {
+  const delta = SCRUB_DEAD_ZONE + SCRUB_PIXELS_PER_STEP * SCRUB_SLOW_FACTOR * 2;
+  for (const fineStep of [null, 1, 2]) {
+    const options = { step: 1, fineStep, decimals: 0 };
+    assert.equal(scrubbedValue(10, delta, true, options), 12);
+    assert.equal(scrubbedValue(10, -delta, true, options), 8);
+    assert.equal(scrubbedValue(10, delta, false, options), 18);
+  }
+});
+
+test("step precision accepts negative and string increments and rounds at six decimals", () => {
+  for (const [step, expected] of [[-0.025, 3], ["0.000001", 6], [0.1234567, 6], [0, 0], [undefined, 0]]) {
+    assert.equal(stepDecimals(step), expected, String(step));
+  }
+});
+
+test("typed sums associate division and subtraction left to right", () => {
+  assert.equal(sumValue("24/4/2"), 3);
+  assert.equal(sumValue("10-3-2"), 5);
+  assert.equal(sumValue("20%6*2"), 4);
+  assert.equal(sumValue("\t-(2 + +3) * -2\t"), 10);
+  assert.equal(sumValue("1" + " ".repeat(199)), 1);
+  assert.equal(sumValue("1" + " ".repeat(200)), null);
+  assert.equal(sumValue("1/(2-2)"), null);
+});

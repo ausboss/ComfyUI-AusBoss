@@ -89,3 +89,60 @@ test("a failed lookup says why in plain words", () => {
   assert.equal(civitaiFailureText(new Error("Civitai answered 500.")), "Civitai answered 500.");
   assert.equal(civitaiFailureText(null), "The Civitai lookup failed.");
 });
+
+test("parsing accepts an object at the size limit and rejects oversized or non-text bodies", () => {
+  const body = '{"name":"' + "x".repeat(MAX_CIVITAI_BYTES - 11) + '"}';
+  assert.equal(body.length, MAX_CIVITAI_BYTES);
+  assert.equal(parseCivitaiBody(body).name.length, MAX_CIVITAI_BYTES - 11);
+  assert.throws(() => parseCivitaiBody(body + " "), /too large/);
+  for (const value of [null, undefined, {}, 1]) {
+    assert.throws(() => parseCivitaiBody(value), /too large/);
+  }
+  for (const text of ["true", "false", "0", '"model"']) {
+    assert.throws(() => parseCivitaiBody(text), /not what we expected/);
+  }
+  assert.throws(() => parseCivitaiBody('{"id":'), SyntaxError);
+});
+
+test("numeric picture ratings take priority over legacy words and booleans", () => {
+  for (const level of [1, 2, "2"]) {
+    assert.equal(isMildPicture({ nsfwLevel: level, nsfw: "Mature" }), true);
+  }
+  for (const level of [4, 8, 16, 3]) {
+    assert.equal(isMildPicture({ nsfwLevel: level, nsfw: false }), false);
+  }
+  assert.equal(isMildPicture({ nsfw: false }), true);
+  assert.equal(isMildPicture({ nsfw: true }), false);
+  assert.equal(isMildPicture({ nsfwLevel: 0, nsfw: "SOFT" }), true);
+  assert.equal(isMildPicture(null), false);
+});
+
+test("picture selection skips malformed entries even when any rating is allowed", () => {
+  const still = { url: picture("still") };
+  const info = { images: [
+    null, {}, { url: 42 },
+    { url: picture("clip"), type: "video", nsfwLevel: 1 },
+    { url: "https://example.org/picture.jpeg", nsfwLevel: 1 },
+    still,
+    { url: picture("later"), nsfwLevel: 1 },
+  ] };
+  assert.equal(pickCivitaiPicture(info, true), still, "the first usable still wins without copying it");
+  assert.equal(pickCivitaiPicture(info), info.images[6], "an unrated still is skipped in mild mode");
+  for (const images of [null, {}, "pictures", []]) {
+    assert.equal(pickCivitaiPicture({ images }, true), null);
+  }
+});
+
+test("picture resizing drops query and fragment and refuses incomplete picture paths", () => {
+  assert.equal(smallPictureUrl(picture("a") + "?width=999&token=example#preview"),
+    "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/0b1c2d3e/width=450/a.jpeg");
+  assert.equal(smallPictureUrl("https://image.civitai.com/a.jpeg"), null);
+  assert.equal(smallPictureUrl("https://image.civitai.com/"), null);
+  for (const url of [
+    "https://civitai.com.example.org/file.jpeg",
+    "https://civitai.com@other.example/file.jpeg",
+    "file:///tmp/file.jpeg", "not a url",
+  ]) {
+    assert.equal(isCivitaiAddress(url), false, url);
+  }
+});

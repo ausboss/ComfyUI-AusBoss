@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   ensureNodeMinHeight,
   fillNodeHeight,
+  growToNodeFloor,
   holdNodeMinWidth,
   holdNodeMinHeight,
   holdVueNodeMinWidth,
@@ -318,4 +319,91 @@ test("a new node hugs its floor and a loading workflow keeps its saved height", 
   assert.equal(nodeHeightAfterCardChange({ floor: undefined, current: 700, change: 93 }), 700);
   assert.equal(nodeHeightAfterCardChange({ floor: 469, current: 700, change: "x" }), 700);
   assert.equal(nodeHeightAfterCardChange(), 0);
+});
+
+test("a failed width probe restores the widget and allows the next measurement", () => {
+  const own = () => ({ minWidth: 320, minHeight: 80 });
+  const widget = { computeLayoutSize: own };
+  assert.equal(measureLayoutWidthPadding({ computeSize() { throw new Error("not laid out"); } }, widget), null);
+  assert.equal(widget.computeLayoutSize, own);
+  assert.equal(measureLayoutWidthPadding(frontendNode([widget]), widget), 104);
+  assert.equal(widget.computeLayoutSize, own);
+});
+
+test("a width probe cannot recursively start another probe", () => {
+  const widget = { computeLayoutSize: () => ({ minWidth: 320, minHeight: 80 }) };
+  const own = widget.computeLayoutSize;
+  const node = {
+    computeSize() {
+      assert.equal(measureLayoutWidthPadding(this, widget), null);
+      return [widget.computeLayoutSize().minWidth + 80, 200];
+    },
+  };
+  assert.equal(measureLayoutWidthPadding(node, widget), 80);
+  assert.equal(widget.computeLayoutSize, own);
+});
+
+test("growing to a changing width floor preserves height and leaves wider nodes alone", () => {
+  const sizes = [];
+  const dirty = [];
+  const host = { style: {} };
+  const node = {
+    size: [240, 480],
+    setSize(size) { sizes.push(size); this.size = size; },
+    setDirtyCanvas(...args) { dirty.push(args); },
+  };
+  const widget = { node, element: { closest: () => host } };
+  let floor = 320;
+  holdNodeMinWidth(widget, () => floor);
+  assert.equal(growToNodeFloor(widget, 1), true);
+  assert.deepEqual(node.size, [320, 480]);
+  assert.equal(host.style.minWidth, "320px");
+  assert.deepEqual(dirty, [[true, true]]);
+  assert.equal(growToNodeFloor(widget, 1), false);
+  floor = 280;
+  assert.equal(growToNodeFloor(widget, 1), false);
+  assert.equal(host.style.minWidth, "280px", "the CSS floor can shrink without shrinking the node");
+  floor = 400;
+  assert.equal(growToNodeFloor(widget, 1), true);
+  assert.deepEqual(sizes, [[320, 480], [400, 480]]);
+  node.size[0] = NaN;
+  assert.equal(growToNodeFloor(widget, 1), false);
+  assert.equal(growToNodeFloor({ node: { size: [100, 100] } }), false);
+  assert.equal(growToNodeFloor(null), false);
+});
+
+test("growing a node measures its floor again on the next frame with a bounded retry", () => {
+  const saved = globalThis.requestAnimationFrame;
+  const frames = [];
+  globalThis.requestAnimationFrame = (callback) => { frames.push(callback); };
+  try {
+    let floor = 320;
+    const node = { size: [240, 480], setSize(size) { this.size = size; } };
+    const widget = { node };
+    holdNodeMinWidth(widget, () => floor);
+    assert.equal(growToNodeFloor(widget), true);
+    assert.equal(frames.length, 1);
+    floor = 360;
+    frames.shift()();
+    assert.deepEqual(node.size, [360, 480]);
+    assert.equal(frames.length, 0, "the second pass must not schedule another frame");
+  } finally {
+    if (saved === undefined) delete globalThis.requestAnimationFrame;
+    else globalThis.requestAnimationFrame = saved;
+  }
+});
+
+test("dynamic panel floors sanitize invalid sizes and retain unrelated options", () => {
+  let width = "240";
+  let height = "160";
+  const widget = { options: { serialize: false } };
+  fillNodeHeight(widget, { minWidth: () => width, minHeight: () => height });
+  assert.deepEqual(widget.computeLayoutSize(), { minWidth: 240, minHeight: 160 });
+  for (const invalid of [-4, NaN, Infinity, undefined, "wide"]) {
+    width = invalid;
+    height = invalid;
+    assert.deepEqual(widget.computeLayoutSize(), { minWidth: 0, minHeight: 0 });
+  }
+  assert.equal(widget.options.serialize, false);
+  assert.equal(fillNodeHeight(null), null);
 });

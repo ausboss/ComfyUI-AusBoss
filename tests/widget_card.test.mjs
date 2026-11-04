@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   CARD_PADDING, GROUP_HEIGHT, ROW_GAP, ROW_HEIGHT, SECTION_HEIGHT, SLOT_OFFSET, SOCKETLESS_CHOICE, SOCKETLESS_TEXT,
-  cardHeight, choiceLabel, commitWidgetValue, holdsUnknownValue, markSocketless, resetUnknownValues, rowHeight, rowInLook, rowKind, rowMuted, rowTops,
+  cardHeight, choiceLabel, comboValues, commitWidgetValue, holdsUnknownValue, markSocketless, resetUnknownValues, rowHeight, rowInLook, rowKind, rowMuted, rowTops,
   scrubSteps, segmentFits, socketWidgetY, visibleRows, widgetTooltip,
 } from "../js/shared/widget_card_math.mjs";
 
@@ -417,4 +417,50 @@ test("a choice's words come from the row: a map, or a function for lists only th
   assert.equal(choiceLabel(row, "b.safetensors", ["off", "a.safetensors", "b.safetensors"]), "b");
   // The pill or the list is chosen from the words a person reads, so two long file names still make a short pill.
   assert.equal(rowKind({ widget: "fine_edges", labels: row.labels }, { type: "combo", options: { values: ["off", "vitmatte-small-composition-1k/model.safetensors"] } }), "segment");
+});
+
+test("dynamic combo values receive the widget and preserve numeric and boolean choices", () => {
+  const values = [0, false, "0"];
+  const widget = { type: "combo", value: 0, options: { values: (own) => {
+    assert.equal(own, widget);
+    return values;
+  } } };
+  assert.equal(comboValues(widget), values);
+  assert.equal(holdsUnknownValue(widget), false);
+  widget.value = false;
+  assert.equal(holdsUnknownValue(widget), false);
+  widget.value = true;
+  assert.equal(holdsUnknownValue(widget), true);
+  for (const value of [undefined, null, "choices", {}]) {
+    assert.deepEqual(comboValues({ options: { values: () => value } }), []);
+  }
+  assert.deepEqual(comboValues(null), []);
+});
+
+test("choice labels keep explicit empty and numeric labels and use values only as a fallback", () => {
+  const row = { labels: { off: "", zero: 0, missing: null } };
+  assert.equal(choiceLabel(row, "off"), "");
+  assert.equal(choiceLabel(row, "zero"), 0);
+  assert.equal(choiceLabel(row, "missing"), "missing");
+  assert.equal(choiceLabel({ labels: () => undefined }, 0), "0");
+  assert.equal(choiceLabel(null, false), "false");
+});
+
+test("segmented choices include the exact label-length limit and reject the next character", () => {
+  assert.equal(segmentFits(["a".repeat(13), "b".repeat(13)]), true);
+  assert.equal(segmentFits(["a".repeat(13), "b".repeat(14)]), false);
+  assert.equal(segmentFits([0, false]), true);
+  assert.equal(segmentFits([]), false);
+  assert.equal(segmentFits(null), false);
+});
+
+test("scrub steps honor legacy increments, explicit precision and the pixel-range boundary", () => {
+  assert.deepEqual(scrubSteps(), { step: 0.1, fineStep: 0.01, decimals: 2 });
+  assert.deepEqual(scrubSteps({}, false), { step: 1, fineStep: 1, decimals: 0 });
+  assert.deepEqual(scrubSteps({ step: 0.5 }), { step: 0.5, fineStep: 0.05, decimals: 2 });
+  assert.deepEqual(scrubSteps({ step: 5, step2: 0.25, precision: 3, min: 0, max: 2 }),
+    { step: 0.25, fineStep: 0.25, decimals: 3 });
+  assert.equal(scrubSteps({ min: 0, max: 2048 }, false, true).step, 1);
+  assert.equal(scrubSteps({ min: 0, max: 2049 }, false, true).step, 8);
+  assert.equal(scrubSteps({}, false, true).step, 1, "an unknown range is not assumed to be a wide pixel size");
 });
