@@ -111,6 +111,26 @@ class ReadingTests(unittest.TestCase):
     def test_lines_that_all_name_their_second_play_by_the_second(self):
         self.assertEqual(moments("5s: she sits\n2s: she stands"), ["@0 holds still", "She stands", "She sits"])
 
+    def test_fractional_seconds_are_not_list_numbers(self):
+        for second in (0.5, 2.5):
+            script = read_script(f"She waits.\n{second}s: She waves.")
+            self.assertEqual(script.moments[1].at, second)
+            self.assertEqual(script.moments[1].text, "She waves")
+
+    def test_spoken_directives_do_not_change_the_clip(self):
+        script = read_script('She says "no cuts, no sound, no music."\n\nShe walks.')
+        self.assertFalse(script.one_take)
+        self.assertFalse(script.silent)
+        self.assertNotEqual(script.music, "N/A")
+        self.assertTrue(script.moments[1].cut)
+        self.assertTrue(parts_of('She says "no sound."\n\nsound: rain')["overall_soundscape"].startswith("Rain."))
+
+    def test_no_cuts_clears_effective_cuts_everywhere(self):
+        text = "no cuts\nIt starts to rain.\n\nShe stops."
+        self.assertFalse(any(moment.cut for moment in read_script(text).moments))
+        self.assertFalse(any(moment["cut"] for moment in script_report(text, 8)["moments"]))
+        self.assertIn("The rain keeps falling", write_prompt(text))
+
     def test_an_opening_and_an_ending_go_where_they_belong(self):
         script = read_script("ends on her crying\nstarts on a wide shot of the city\nshe walks out")
         self.assertEqual([moment.text for moment in script.moments], ["A wide shot of the city", "She walks out", "Her crying"])
@@ -820,6 +840,17 @@ class SongTests(unittest.TestCase):
     def test_minutes_carry_over(self):
         self.assertIn("At 01:00.100,", snap_cuts("[Shot 2] At 00:59.900, a", [60.1]))
 
+    def test_beat_exhaustion_keeps_times_in_order_and_inside_the_clip(self):
+        detail = "\n".join(f"At 00:0{time:.3f}, a" for time in (4.0, 4.1, 4.2))
+        fallback = snap_cuts(detail, [1, 3, 4.5])
+        times = [float(second) for second in re.findall(r"At 00:(\d+\.\d+)", fallback)]
+        self.assertEqual(times, sorted(times))
+        text = snap_cuts(detail, [1, 3, 4.5], seconds=5)
+        times = [float(second) for second in re.findall(r"At 00:(\d+\.\d+)", text)]
+        self.assertEqual(len(times), 3)
+        self.assertTrue(all(b - a >= 0.399 for a, b in zip(times, times[1:])))
+        self.assertLessEqual(times[-1], 5)
+
     def test_six_parts_take_a_song_and_a_voice_too(self):
         for voice in (False, True):
             for song in (None, [2.0, 4.0, 6.0]):
@@ -1018,9 +1049,10 @@ class NodeTests(unittest.TestCase):
         sound = {"waveform": torch.arange(48000.0).reshape(1, 1, -1), "sample_rate": 12000}
         output = AusBossH3PromptWriter().write("", 6, video=frames, video_sound=sound, video_job="keep going")
         video, heard = output[5], output[6]
-        self.assertEqual(video.shape[0], 44)
+        self.assertEqual(video.shape[0], 39)
+        self.assertEqual(float(video[0, 0, 0, 0]), 61.0)
         self.assertEqual(float(video[-1, 0, 0, 0]), 99.0)
-        self.assertEqual(heard["waveform"].shape[-1], 22000)
+        self.assertEqual(heard["waveform"].shape[-1], 19500)
         self.assertEqual(float(heard["waveform"][0, 0, -1]), 47999.0)
 
     def test_the_clip_takes_the_shape_of_the_video_or_else_the_first_picture(self):
@@ -1032,9 +1064,17 @@ class NodeTests(unittest.TestCase):
         self.assertEqual(node.write("@2 waves.", 6, picture_2=wide, job_2="person")[-2:], (832, 480))
         self.assertEqual(node.write("@1 dances.", 6, picture_1=tall, video=video)[-2:], (1280, 720))
 
-    def test_a_short_clip_keeps_all_it_has(self):
+    def test_a_short_clip_keeps_a_valid_tail_and_matching_sound(self):
         frames = torch.zeros(20, 2, 2, 3)
-        self.assertEqual(AusBossH3PromptWriter().write("", 6, video=frames, video_job="keep going")[5].shape[0], 20)
+        output = AusBossH3PromptWriter().write("", 6, video=frames, video_sound=self.audio(), video_job="keep going")
+        self.assertEqual(output[5].shape[0], 5)
+        self.assertEqual(output[6]["waveform"].shape[-1], round(5 / 24 * 22050))
+
+    def test_a_short_song_segment_does_not_crash(self):
+        song = {"waveform": torch.from_numpy(clicks(100, seconds=10)).reshape(1, 1, -1), "sample_rate": 22050}
+        for duration in (0.15, 0.2, 0.3, 0.4, 0.55):
+            output = AusBossH3PromptWriter().write(LINES, 6, picture_1=PICTURE, song=song, song_start=10 - duration)
+            self.assertEqual(output[SONG]["waveform"].shape[-1], round(duration * 22050))
 
     def test_a_swap_keeps_the_videos_length(self):
         frames = torch.zeros(100, 8, 8, 3)
@@ -1043,7 +1083,7 @@ class NodeTests(unittest.TestCase):
         self.assertEqual(output[FRAMES], 90)
 
     def test_a_video_length_is_one_h3_can_make(self):
-        self.assertEqual([video_frames(count) for count in (124, 125, 141, 5000)], [124, 124, 141, 345])
+        self.assertEqual([video_frames(count) for count in (5, 124, 125, 141, 362, 5000)], [5, 124, 124, 141, 362, 362])
 
     def test_cut_on_beat_off_keeps_the_times(self):
         text = AusBossH3PromptWriter().write(LINES, 6, picture_1=PICTURE, song=self.audio(), cut_on_beat=False)[0]

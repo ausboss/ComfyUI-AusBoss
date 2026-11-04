@@ -31,8 +31,8 @@ export function stripRows(report) {
   }));
 }
 
-// A time typed at the start of a line: 3s:, 3 s, at 3 seconds, [3s].
-const TYPED_TIME = /^\[?(?:at\s+)?\d+(?:\.\d+)?\s*(?:seconds?|secs?|s)\b\]?\s*[:,\-]?\s*/i;
+// The timestamp grammar in _h3_script_helpers.py, including clocks and ranges.
+const TYPED_TIME = /^\[?(?:at\s+)?(?:\d+:\d\d(?:\.\d+)?|\d+(?:\.\d+)?\s*(?:(?:seconds?|secs?|s)\b|(?=[\-–—]\s*\d)))(?:\s*[\-–—]\s*\d+(?:\.\d+)?\s*(?:(?:seconds?|secs?|s)\b)?)?\]?\s*[:,\-]?\s*/i;
 
 // The script with one line set to start at a second: its old time, if any,
 // gives way to the new one. line counts typed lines from 0.

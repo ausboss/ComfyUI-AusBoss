@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   linkSlots,
+  linkSource,
   lookupLink,
   restoreOutputLinks,
   snapshotLinks,
@@ -60,6 +61,39 @@ test("lookupLink reads Map and plain-object link tables", () => {
   assert.equal(lookupLink({ links: { 7: link } }, 7), link);
   assert.equal(lookupLink({ links: new Map() }, null), null);
   assert.equal(lookupLink(null, 7), null);
+});
+
+test("linkSource follows compatible bypass chains and rejects mute, missing links and cycles", () => {
+  const loader = { id: 1, mode: 0 };
+  const processor = { id: 2, mode: 4, inputs: [{ type: "MASK", link: null }, { type: "IMAGE", link: 2 }], outputs: [{ type: "IMAGE" }] };
+  const pass = { id: 3, mode: 4, inputs: [{ type: "IMAGE", link: 3 }], outputs: [{ type: "IMAGE" }] };
+  const nodes = new Map([[1, loader], [2, processor], [3, pass]]);
+  const graph = { links: new Map([[1, { origin_id: 3, origin_slot: 0 }], [2, { origin_id: 1, origin_slot: 0 }], [3, { origin_id: 2, origin_slot: 0 }]]), getNodeById: (id) => nodes.get(id) };
+  const target = { graph, inputs: [{ name: "picture_1", type: "IMAGE", link: 1 }] };
+  assert.equal(linkSource(target, "picture_1"), loader);
+  loader.mode = 2;
+  assert.equal(linkSource(target, "picture_1"), null);
+  loader.mode = 0;
+  processor.inputs[1].link = null;
+  assert.equal(linkSource(target, "picture_1"), null);
+  processor.inputs[1].link = 1;
+  assert.equal(linkSource(target, "picture_1"), null);
+  processor.inputs[1] = { type: "AUDIO", link: 2 };
+  assert.equal(linkSource(target, "picture_1"), null);
+  target.inputs[0].link = 99;
+  assert.equal(linkSource(target, "picture_1"), null);
+});
+
+test("linkSource prefers the matching input at the output's index", () => {
+  const first = { id: 1 }, second = { id: 2 };
+  const bypass = { id: 3, mode: 4, inputs: [{ type: "IMAGE", link: 2 }, { type: "IMAGE", link: 3 }], outputs: [{ type: "IMAGE" }, { type: "IMAGE" }] };
+  const graph = { _links: new Map([[1, { origin_id: 3, origin_slot: 1 }], [2, { origin_id: 1 }], [3, { origin_id: 2 }]]), getNodeById: (id) => [null, first, second, bypass][id] };
+  assert.equal(linkSource({ graph, inputs: [{ name: "picture_1", type: "IMAGE", link: 1 }] }, "picture_1"), second);
+  bypass.inputs[1].type = "MASK";
+  assert.equal(linkSource({ graph, inputs: [{ name: "picture_1", type: "IMAGE", link: 1 }] }, "picture_1"), first);
+  for (const type of ["*", ""]) {
+    assert.equal(linkSource({ graph, inputs: [{ name: "value", type, link: 1 }] }, "value"), second);
+  }
 });
 
 test("linkSlots hands the resolved slot objects to connectSlots", () => {

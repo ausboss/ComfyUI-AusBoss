@@ -11,6 +11,32 @@ export function lookupLink(graph, linkId) {
   return graph?.links?.get?.(linkId) ?? graph?.links?.[linkId] ?? null;
 }
 
+// The live source of a named input. Bypass forwards a compatible input;
+// mute, broken links and cycles provide no value.
+export function linkSource(node, name) {
+  const graph = node.graph;
+  let input = node.inputs?.find((slot) => slot?.widget?.name === name || slot?.name === name);
+  const seen = new Set();
+  const compatible = (a, b) => !a || !b || a === "*" || b === "*"
+    || String(a).split(",").some((type) => String(b).split(",").includes(type));
+  while (input?.link !== null && input?.link !== undefined) {
+    const link = lookupLink(graph, input.link) ?? graph?._links?.get?.(input.link);
+    if (!link || seen.has(link)) return null;
+    seen.add(link);
+    const source = graph?.getNodeById?.(link.origin_id);
+    if (!source || source.mode === 2) return null;
+    if (source.mode !== 4) return source;
+    const slot = link.origin_slot ?? 0;
+    const outputType = source.outputs?.[slot]?.type;
+    const type = input.type ?? outputType;
+    const inputs = source.inputs ?? [];
+    const matches = (entry) => entry && compatible(entry.type, outputType) && compatible(entry.type, type);
+    if (type === "*" || type === "") input = inputs[slot] ?? inputs[0];
+    else input = matches(inputs[slot]) ? inputs[slot] : inputs.find((entry) => entry.type === type) ?? inputs.find(matches);
+  }
+  return null;
+}
+
 // Wire origin's output slot to target's input slot, both by index. Returns
 // the new link, or null when it could not be made.
 //

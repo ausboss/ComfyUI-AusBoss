@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { stripCaption, stripRows, wiredJobs } from "../js/shared/moment_strip_math.mjs";
+import { moveMoment, retime, stripCaption, stripRows, wiredJobs } from "../js/shared/moment_strip_math.mjs";
 
 const row = (start, end, extra = {}) => ({ start, end, text: "She runs", cut: false, speech: false, ...extra });
 
@@ -42,4 +42,14 @@ test("only connected pictures send their job", () => {
 
 test("a warning goes first", () => {
   assert.deepEqual(stripCaption({ warning: "Too many.", moments: [row(0, 5)] }), { text: "Too many.", warn: true });
+});
+
+test("retiming replaces every timestamp format the script accepts", () => {
+  for (const prefix of ["0:03:", "0:03.500:", "3-6s:", "3s-6s:", "[at 3 seconds]", "at 3 secs,", "2.5s:", "3–6s:"]) {
+    assert.equal(retime(`${prefix} She waves.`, 0, 5), "5s: She waves.", prefix);
+  }
+});
+
+test("moving moments leaves clocks and time ranges in their original slots", () => {
+  assert.equal(moveMoment("0:03: She waves.\n3-6s: She runs.", [0, 1], 1, 0), "0:03: She runs.\n3-6s: She waves.");
 });

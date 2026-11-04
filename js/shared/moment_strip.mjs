@@ -4,7 +4,8 @@
 // words the node reads as instructions (@1, 3s:, a cut) stand out.
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
-import { BRAND, chainCallback } from "./index.mjs";
+import { BRAND, chainCallback, notifyAusbossChange } from "./index.mjs";
+import { linkSource } from "./graph_links.mjs";
 import { dragRange, moveMoment, retime, rulerSeconds, stripCaption, stripRows, toggleCut, wiredJobs } from "./moment_strip_math.mjs";
 import { attachScriptAssist } from "./script_assist.mjs";
 import { attachScriptColours } from "./script_colours.mjs";
@@ -45,16 +46,6 @@ function ensureCss() {
 .ausboss-strip-note.warn{color:#d9a441}
 `;
   document.head.append(style);
-}
-
-// A bypassed or muted source doesn't reach the node when it runs, so it doesn't count.
-function linkSource(node, name) {
-  const slot = node.inputs?.find((input) => input?.widget?.name === name || input?.name === name);
-  if (slot?.link === null || slot?.link === undefined) return null;
-  const graph = node.graph;
-  const link = graph?.links?.[slot.link] ?? graph?._links?.get?.(slot.link);
-  const source = graph?.getNodeById?.(link?.origin_id);
-  return (source?.mode ?? 0) === 0 ? source ?? {} : null;
 }
 
 function wired(node, name) {
@@ -106,6 +97,7 @@ export function momentStrip(node) {
     const next = change(String(widget.value ?? ""));
     if (next === widget.value) return;
     commitWidgetValue(node, widget, next, app.canvas);
+    notifyAusbossChange();
     sync({ ...lastValues, script: widget.value });
   };
   // The left edge of a moment that opens a typed line: drag it to set when
@@ -266,6 +258,7 @@ export function momentStrip(node) {
   let shown = null;
   let timer = null;
   let asked = 0;
+  let removed = false;
   const ask = async (script, seconds, jobs, video) => {
     const turn = ++asked;
     try {
@@ -283,6 +276,7 @@ export function momentStrip(node) {
 
   let latest = null;
   const sync = (values) => {
+    if (removed) return;
     latest = values;
     lastValues = values;
     colours.sync(values, [1, 2, 3, 4].filter((number) => wired(node, `picture_${number}`)));
@@ -302,13 +296,22 @@ export function momentStrip(node) {
     lastSeconds = seconds;
     const jobs = wiredJobs(values, (name) => wired(node, name));
     const video = wired(node, "video") ? values.video_job : "";
-    const key = JSON.stringify([seconds, script, jobs, video]);
+    const pictures = [1, 2, 3, 4].map((number) => pictureUrl(node, number));
+    const key = JSON.stringify([seconds, script, jobs, video, pictures]);
     if (key === shown) return;
     shown = key;
     clearTimeout(timer);
+    asked += 1;
     timer = setTimeout(() => ask(script, seconds, jobs, video), WAIT);
   };
   const watch = setInterval(() => latest && sync(latest), WATCH);
-  chainCallback(node, "onRemoved", () => { clearInterval(watch); colours.dispose(); assist.dispose(); });
+  chainCallback(node, "onRemoved", () => {
+    removed = true;
+    clearTimeout(timer);
+    asked += 1;
+    clearInterval(watch);
+    colours.dispose();
+    assist.dispose();
+  });
   return { element, sync };
 }

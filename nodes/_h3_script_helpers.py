@@ -298,6 +298,7 @@ def take_label(line, script):
 
 
 def read_notes(text, script):
+    text, _ = mask_quotes(text)
     if NO_SOUND.search(text):
         script.silent = True
     if NO_MUSIC.search(text):
@@ -385,7 +386,7 @@ def read_script(text):
             if not line or take_label(line, script):
                 continue
             opens = block_line + offset
-            for piece in split_line(NUMBER.sub("", line).strip()):
+            for piece in split_line(line if TIMED.match(line) else NUMBER.sub("", line).strip()):
                 note = SIDE_NOTE.match(piece)
                 if note:  # "no music, just rain" on its own is a note, not a moment.
                     read_notes(piece, script)
@@ -408,6 +409,7 @@ def read_script(text):
     put_in_order(script)
     if script.one_take or not any(moment.cut for moment in script.moments):
         for moment in script.moments:
+            moment.cut = False
             script.camera, script.sound = moment.camera or script.camera, moment.sound or script.sound
             moment.camera = moment.sound = ""
     return script

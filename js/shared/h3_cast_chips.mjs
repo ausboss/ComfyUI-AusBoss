@@ -3,7 +3,8 @@
 // dashed chip, so it reads as optional. The widgets underneath stay the
 // source of truth: a chip only changes their value.
 import { app } from "/scripts/app.js";
-import { BRAND, chainCallback } from "./index.mjs";
+import { BRAND, chainCallback, notifyAusbossChange } from "./index.mjs";
+import { linkSource } from "./graph_links.mjs";
 import { liftSocket } from "./widget_card.mjs";
 import { commitWidgetValue, comboValues } from "./widget_card_math.mjs";
 
@@ -31,15 +32,6 @@ function ensureCss() {
   document.head.append(style);
 }
 
-function linkSource(node, name) {
-  const slot = node.inputs?.find((input) => input?.widget?.name === name || input?.name === name);
-  if (slot?.link === null || slot?.link === undefined) return null;
-  const graph = node.graph;
-  const link = graph?.links?.[slot.link] ?? graph?._links?.get?.(slot.link);
-  const source = graph?.getNodeById?.(link?.origin_id);
-  return (source?.mode ?? 0) === 0 ? source ?? {} : null;
-}
-
 const widgetOf = (node, name) => node.widgets?.find((widget) => widget.name === name) ?? null;
 
 function chip(className = "") {
@@ -63,7 +55,10 @@ function choice(node, name, into) {
   select.value = widget?.value ?? "";
   select.title = widget?.options?.tooltip ?? "";
   select.addEventListener("change", () => {
-    if (widget) commitWidgetValue(node, widget, select.value, app.canvas);
+    if (widget && widget.value !== select.value) {
+      commitWidgetValue(node, widget, select.value, app.canvas);
+      notifyAusbossChange();
+    }
     node.setDirtyCanvas?.(true, true);
   });
   return (values) => { if (document.activeElement !== select) select.value = values[name] ?? ""; };

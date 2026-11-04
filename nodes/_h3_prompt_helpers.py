@@ -100,17 +100,29 @@ def spoken_line(speaker, words, language, voice_label, on_screen, number=1, lips
     return f"{speaker} (S{number}) says in an off-screen voiceover, {line}{closed}{timbre}"
 
 
-def snap_cuts(detailed, beats, gap=0.4):
+def snap_cuts(detailed, beats, gap=0.4, seconds=None):
     """Moves every timed moment to the nearest beat, keeping them in order and
-    at least `gap` seconds apart."""
+    `gap` seconds apart, or closer if needed to fit inside the clip."""
+    moments = list(CUT.finditer(detailed))
+    if not moments or not beats:
+        return detailed
+    limit = seconds if seconds is not None else max(
+        *beats, *(int(match.group(2)) * 60 + float(match.group(3)) for match in moments)
+    )
+    gap = min(gap, limit / len(moments))
     last = 0.0
+    remaining = len(moments)
 
     def move(match):
-        nonlocal last
+        nonlocal last, remaining
+        remaining -= 1
         time = int(match.group(2)) * 60 + float(match.group(3))
-        options = [beat for beat in beats if beat >= last + gap]
+        low, high = last + gap, limit - remaining * gap
+        options = [beat for beat in beats if low <= beat <= high]
         if options:
             time = min(options, key=lambda beat: abs(beat - time))
+        else:
+            time = min(high, max(low, time))
         last = time
         minutes, seconds = divmod(time, 60)
         return f"{match.group(1)}{int(minutes):02d}:{seconds:06.3f}"
@@ -131,14 +143,14 @@ def add_voice(parts, label, speaker=None):
     )
 
 
-def cut_on_beat(parts, beats):
+def cut_on_beat(parts, beats, seconds=None):
     if beats:
-        parts["detailed_description"] = snap_cuts(parts["detailed_description"], beats).replace(
+        parts["detailed_description"] = snap_cuts(parts["detailed_description"], beats, seconds=seconds).replace(
             "the camera cuts to", "the camera cuts on the beat to"
         )
 
 
-def add_song(parts, label, beats):
+def add_song(parts, label, beats, seconds=None):
     parts["subject_definitions"] += f"\n{label} is the complete source soundtrack reused in the target video."
     parts["summary"] = add_task(parts["summary"], "audio reuse")
     if beats:
@@ -148,14 +160,14 @@ def add_song(parts, label, beats):
     )
     parts["overall_soundscape"] = "N/A"
     parts["non_diegetic_music"] = f"{label} is directly reused as the complete audience-only score."
-    cut_on_beat(parts, beats)
+    cut_on_beat(parts, beats, seconds)
 
 
-def add_song_under(parts, beats):
+def add_song_under(parts, beats, seconds=None):
     """A song to lay under the finished clip. H3 drops a song it is asked to
     keep when someone also speaks, so it hears none and makes no music."""
     parts["non_diegetic_music"] = "N/A"
-    cut_on_beat(parts, beats)
+    cut_on_beat(parts, beats, seconds)
 
 
 def write_prompt(script, seconds=15.0, camera="", look="", sound="", language="English", voice=False, song_beats=None,
@@ -213,9 +225,9 @@ def write_prompt(script, seconds=15.0, camera="", look="", sound="", language="E
     if voice:
         add_voice(parts, voice_label, speaker)
     if song_beats is not None and voice:
-        add_song_under(parts, song_beats)
+        add_song_under(parts, song_beats, seconds)
     elif song_beats is not None:
-        add_song(parts, f"<Audio {audio}>", song_beats)
+        add_song(parts, f"<Audio {audio}>", song_beats, seconds)
     return re.sub(r"[ \t]{2,}", " ", join_sections(parts)).replace(" \n", "\n").strip()
 
 
@@ -237,7 +249,8 @@ def find_beats(samples, rate, seconds=30.0):
         [np.abs(np.fft.rfft(samples[index * hop : index * hop + window] * taper)) for index in range(frames)]
     )
     rise = np.maximum(np.diff(np.log1p(1000 * spectra), axis=0), 0).sum(axis=1)
-    rise = np.maximum(rise - np.convolve(rise, np.ones(43) / 43, "same"), 0)
+    smooth = min(43, len(rise))
+    rise = np.maximum(rise - np.convolve(rise, np.ones(smooth) / smooth, "same"), 0)
     if rise.max() <= 0:
         return []
     rise = rise / rise.max()

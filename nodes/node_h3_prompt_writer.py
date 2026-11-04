@@ -88,8 +88,8 @@ def clip_frames(seconds):
 
 def video_frames(frames):
     """A clip's own length, on H3's grid and within what it can make."""
-    longest = LONGEST_SECONDS * FRAME_RATE
-    return max(1, (min(frames, longest) - 5) // 17) * 17 + 5
+    longest = clip_frames(LONGEST_SECONDS)
+    return max(0, (min(frames, longest) - 5) // 17) * 17 + 5
 
 
 def cut_audio(audio, start, seconds, name):
@@ -104,10 +104,14 @@ def cut_audio(audio, start, seconds, name):
 
 def last_of_clip(video, sound):
     """The end of a clip, picture and sound, to carry on from."""
+    frames = min(len(video), KEEP_FRAMES)
+    if frames >= 5:
+        frames = video_frames(frames)
     if sound is not None:
         rate = int(sound["sample_rate"])
-        sound = {"waveform": sound["waveform"][..., -int(round(KEEP_FRAMES / FRAME_RATE * rate)) :], "sample_rate": rate}
-    return video[-KEEP_FRAMES:], sound
+        count = int(round(frames / FRAME_RATE * rate))
+        sound = {"waveform": sound["waveform"][..., -count:] if count else sound["waveform"][..., :0], "sample_rate": rate}
+    return video[-frames:] if frames else video[:0], sound
 
 
 def under_voice(song):

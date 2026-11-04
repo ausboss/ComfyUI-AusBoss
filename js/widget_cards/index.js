@@ -344,7 +344,7 @@ const CARDS = {
       { widget: "sound", label: "Sound", placeholder: "rain on a window" },
       { widget: "music", label: "Music", placeholder: "slow piano: music makes it louder" },
       { section: "Pictures and settings" },
-      { panel: castChips, height: 30 },
+      { panel: castChips, height: 82 },
       { widget: "seconds", label: "Length", suffix: "s" },
       { widget: "camera", label: "Camera", kind: "select" },
       { widget: "look", label: "Look", kind: "select" },
