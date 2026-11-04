@@ -2223,6 +2223,16 @@
       "name": "music"
      },
      "link": null
+    },
+    {
+     "localized_name": "clip_sound",
+     "name": "clip_sound",
+     "shape": 7,
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "clip_sound"
+     },
+     "link": null
     }
    ],
    "outputs": [
@@ -2353,7 +2363,8 @@
     "thing",
     "copy its moves",
     "",
-    "a dark score with deep drum hits that builds to the end"
+    "a dark score with deep drum hits that builds to the end",
+    false
    ],
    "widgets_values_named": {
     "script": "@1 walks through a crowded night market, looking back over their shoulder.\n\n@1 stands on a rooftop in the rain above the city at night.\n\n@1 runs down a long empty subway platform as the lights go out behind them.\n\n@1 sits in the back of a taxi at dawn and stares out of the window.",
@@ -2369,7 +2380,8 @@
     "job_4": "thing",
     "video_job": "copy its moves",
     "sound": "",
-    "music": "a dark score with deep drum hits that builds to the end"
+    "music": "a dark score with deep drum hits that builds to the end",
+    "clip_sound": false
    },
    "color": "#14424d",
    "bgcolor": "#161f21"
@@ -3756,11 +3768,17 @@
        "on": {
         "39": {
          "steer mouths": true
+        },
+        "160": {
+         "clip_sound": true
         }
        },
        "off": {
         "39": {
          "steer mouths": false
+        },
+        "160": {
+         "clip_sound": false
         }
        }
       },
