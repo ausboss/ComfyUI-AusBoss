@@ -96,6 +96,8 @@ def spoken_line(speaker, words, language, voice_label, on_screen, number=1, lips
     the way H3 needs it: moving and then closed on screen, closed in a
     voiceover. lips names a video whose lip movement the words land on."""
     line = f"<d>[{language}] {words}</d>"
+    if not speaker.startswith("<"):  # A thing off screen, like a card reader.
+        return f"{speaker} (S{number}) says from off screen, {line} Nobody on screen moves their lips to these words."
     if on_screen:
         how = f"says, each word landing exactly on the lip movement of {lips}," if lips else "says,"
         if voice_label:
@@ -110,12 +112,71 @@ def spoken_line(speaker, words, language, voice_label, on_screen, number=1, lips
     return f"{speaker} (S{number}) says in an off-screen voiceover, {line}{closed}{timbre}"
 
 
-def only_the_words(moment):
-    """A swap line's quoted words, said by the @ person it names. The video
-    supplies the action, so the rest of the line goes."""
-    who = TOKEN.search(moment.text)
-    speaker = f"{who.group(0)} " if who else ""
-    return Moment(f'{speaker}says "{moment.speech}"', at=moment.at, speech=moment.speech, voiceover=moment.voiceover)
+# "Altman is @1" and "@1 is Altman" give a name to a person picture, so a later "Altman says" is @1.
+NAME_IS = re.compile(r"\b([A-Z][\w'.-]*(?:\s+[A-Z][\w'.-]*)*)\s+(?:is|as|plays)\s+@(\d)\b")
+IS_NAME = re.compile(r"@(\d)\s+(?:is|as|plays)\s+([A-Z][\w'.-]*(?:\s+[A-Z][\w'.-]*)*)\b")
+NOT_A_NAME = {"The", "A", "An", "He", "She", "They", "It", "This", "That", "Then", "And"}
+PRONOUN = re.compile(r"\b(?:he|she|they|him|her|them)\b", re.I)
+PERSON_WORDS = re.compile(
+    r"\b(?:man|men|woman|women|person|people|guy|girl|boy|kid|child|lady|gentleman|cashier|customer|clerk|waiter"
+    r"|waitress|driver|worker|singer|rapper|dancer|host|friend|everyone|someone|somebody)\b",
+    re.I,
+)
+SAID_BY = re.compile(r"^(?:the|a|an)\s+[\w\s-]+$", re.I)
+
+
+def names_in(moments):
+    """{name: @ number} for every person a swap's lines name."""
+    names = {}
+    for moment in moments:
+        for name, slot in NAME_IS.findall(moment.text):
+            if name not in NOT_A_NAME:
+                names[name.lower()] = slot
+        for slot, name in IS_NAME.findall(moment.text):
+            if name not in NOT_A_NAME:
+                names[name.lower()] = slot
+    return names
+
+
+def only_the_words(moment, names=None, last=""):
+    """A swap line's quoted words and the @ number that says them. The video
+    supplies the action, so the rest of the line goes. Who speaks is the @ or
+    the name in front of the words, else the person a he or she points back
+    to; a thing that is no person, like a card reader, speaks from off screen."""
+    before = moment.text.partition(f'"{moment.speech}"')[0]
+    who = TOKEN.search(before)
+    slot = who.group(1) if who else ""
+    if not slot:
+        lowered = before.lower()
+        slot = next((number for name, number in (names or {}).items() if re.search(rf"\b{re.escape(name)}\b", lowered)), "")
+    if not slot and PRONOUN.search(before):
+        slot = last
+    words = Moment(f'says "{moment.speech}"', at=moment.at, speech=moment.speech, voiceover=moment.voiceover)
+    if slot:
+        words.text = f"@{slot} {words.text}"
+        return words, slot
+    # "The card reader beeps and says": the words in front of what it does.
+    action = re.sub(r"[\s,]*\b(?:and\s+)?\w+\s*$", "", before.strip()).split(",")[0].strip()
+    if len(action.split()) > 2 and action.endswith("s"):
+        action = action.rsplit(" ", 1)[0]
+    if SAID_BY.match(action) and not PERSON_WORDS.search(action):
+        words.voice = action
+        words.voiceover = True
+    return words, last
+
+
+def swap_lines(moments):
+    """What a swap keeps of its typed lines: only the words in quotes."""
+    names = names_in(moments)
+    kept, last = [], ""
+    for moment in moments:
+        who = TOKEN.search(moment.text)
+        if not moment.speech:
+            last = who.group(1) if who else last
+            continue
+        words, last = only_the_words(moment, names, last)
+        kept.append(words)
+    return kept
 
 
 def snap_cuts(detailed, beats, gap=0.4):
@@ -203,7 +264,7 @@ def write_prompt(script, seconds=15.0, camera="", look="", sound="", language="E
             raise ValueError(NO_SCRIPT)
         if video == SWAP and scene.moments:  # Typed words in a swap say which person goes, for a clip with two.
             cast.name_who_goes([without_speech(moment) for moment in scene.moments])
-            scene.moments = [only_the_words(moment) for moment in scene.moments if moment.speech]
+            scene.moments = swap_lines(scene.moments)
         if not scene.moments:
             scene.moments.append(Moment(ACTION_GOES_ON if video == KEEP else ""))
         if voice and not any(moment.speech for moment in scene.moments):

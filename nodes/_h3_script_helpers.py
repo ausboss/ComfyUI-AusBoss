@@ -56,11 +56,13 @@ TIMED = re.compile(
 NUMBER = re.compile(r"^\s*(?:\d+[.)]|[-*•]|(?:first|second|third|fourth|fifth|sixth)(?:ly)?\b[:,]?|step\s+\d+[:.]?)\s*", re.I)
 LABEL = re.compile(r"^(camera|style|look|sound|sounds|audio|music)\s*:\s*(.*)$", re.I)
 SPEECH_CUE = re.compile(
-    r"\b(?:says?|said|asks?|whispers?|shouts?|yells?|screams?|mutters?|sings?|replies|answers?|tells?\s+\w+|goes)\b[^\"]{0,24}$",
+    r"\b(?:says?|said|asks?|whispers?|shouts?|yells?|screams?|mutters?|sings?|raps?|chants?|announces?|calls?\s+out|cries"
+    r"|replies|answers?|tells?\s+\w+|goes)\b[^\"]{0,24}$",
     re.I,
 )
 SIGN_CUE = re.compile(
-    r"\b(?:title|titled|called|named|sign|signs|text|caption|card|poster|reads?|saying|logo|banner|headline|words?)\b[^\"]{0,24}$",
+    r"\b(?:title|titled|called|named|sign|signs|text|caption|card(?!\s+reader)|poster|reads?|saying|logo|banner|headline|words?)\b"
+    r"[^\"]{0,24}$",
     re.I,
 )
 NO_MUSIC = re.compile(r"\b(?:no|without|skip)\s+(?:any\s+)?(?:music|soundtrack|score)\b|\bjust\s+(?:the\s+)?(?:ambien\w+|sound of|natural sound)\b", re.I)
@@ -236,6 +238,7 @@ class Moment:
     camera: str = ""  # A camera: line typed in this shot's block.
     sound: str = ""  # A sound: line typed in this shot's block.
     line: int | None = None  # The typed line this moment opens, counted from 0.
+    voice: str = ""  # Who says the words when it is nobody on screen: "The card reader".
 
 
 @dataclass
@@ -616,7 +619,9 @@ def still_true(moments):
 
 
 def speaker_of(moment, cast):
-    """Who says a moment's words: the first person it names, or the main person."""
+    """Who says a moment's words: an off-screen voice, the first person it names, or the main person."""
+    if moment.voice:
+        return moment.voice
     people = {picture.slot for picture in cast.people}
     for slot in TOKEN.findall(moment.text):
         if int(slot) in people:
@@ -631,7 +636,8 @@ def speakers(moments, cast):
         who = speaker_of(moment, cast)
         if moment.speech and who not in found:
             found.append(who)
-    return found
+    # A voice from off screen, like a card reader, comes after the people, who keep the low numbers.
+    return [who for who in found if who.startswith("<")] + [who for who in found if not who.startswith("<")]
 
 
 def with_labels(words, cast):

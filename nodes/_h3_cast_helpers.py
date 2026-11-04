@@ -110,6 +110,8 @@ REPLACES = re.compile(
     re.I,
 )
 # "Elon is @1," names the new person, not the one who goes.
+# "the man on the left, Dario is" ends where the next person's name starts.
+NAMES_NEXT = re.compile(r",?\s*(?:[A-Z][\w'.-]*\s+)+(?:is|as|plays)\s*$")
 NAMES_THE_NEW = re.compile(r"^[^@.;]*?\b(?:is|as|plays)\s+@\d\b[\s,.;]*", re.I)
 SWAPPED = "attribute_transfer - apply the defined appearance to the original performance; the background of {picture} is not transferred."
 KEEP_IS = (
@@ -133,10 +135,9 @@ def who_goes_in(text):
     """Who a typed swap line says goes, without the rest of the line: "Elon is @1, he replaces the man at the
     counter" is the man at the counter."""
     replaces = REPLACES.search(text)
-    if replaces:
-        text = re.split(r"[.;!?]", text[replaces.end() :], maxsplit=1)[0]
-    else:
-        text = NAMES_THE_NEW.sub("", text)
+    text = text[replaces.end() :] if replaces else NAMES_THE_NEW.sub("", text)
+    text = re.split(r"[.;!?]", text.strip(" .;!?"), maxsplit=1)[0]
+    text = NAMES_NEXT.sub("", text)
     text = SAYS_WHO.sub("", TOKEN.sub("", text).strip(" .,;")).strip(" .,;")
     return re.sub(r"\s+and$", "", text).strip(" .,;")
 
