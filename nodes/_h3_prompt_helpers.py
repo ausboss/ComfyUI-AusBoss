@@ -13,7 +13,7 @@ import re
 import numpy as np
 
 from ._h3_cast_helpers import KEEP, NEEDS_NO_WORDS, REVOICE, SWAP, Cast, number_pictures
-from ._h3_script_helpers import ACTION_GOES_ON, Moment, add_moments, add_sound, lower_first, read_script, script_parts, speakers
+from ._h3_script_helpers import ACTION_GOES_ON, Moment, add_moments, add_sound, read_script, script_parts, speakers
 
 SECTIONS = (
     "subject_definitions",
@@ -184,7 +184,7 @@ def write_prompt(script, seconds=15.0, camera="", look="", sound="", language="E
         if not scene.moments and video not in NEEDS_NO_WORDS:
             raise ValueError(NO_SCRIPT)
         if video == SWAP and scene.moments:  # Typed words in a swap say which person goes, for a clip with two.
-            cast.who = lower_first(" ".join(moment.text for moment in scene.moments).rstrip(". "))
+            cast.name_who_goes([moment.text for moment in scene.moments])
             scene.moments = []
         if not scene.moments:
             scene.moments.append(Moment(ACTION_GOES_ON if video == KEEP else ""))

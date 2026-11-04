@@ -676,6 +676,28 @@ class VideoJobTests(unittest.TestCase):
         self.assertIn("Everyone else stays", parts["detailed_description"])
         self.assertNotIn("Show one person", parts["detailed_description"])
 
+    def test_a_swap_with_two_people_puts_each_in_one_place(self):
+        parts = parts_of("", jobs={1: "person", 2: "person"}, video="swap the person")
+        self.assertIn("Replace <Subject 1> with <Subject 3> and <Subject 2> with <Subject 4>", parts["summary"])
+        self.assertIn("<Subject 1> is the person on the left in <Video 1>", parts["subject_definitions"])
+        self.assertIn("<Subject 2> is the person on the right in <Video 1>", parts["subject_definitions"])
+        self.assertIn("<Subject 4> is the person in <Picture 2>", parts["subject_definitions"])
+        self.assertIn("replace the person on the right with <Subject 4>", parts["retention_analysis"])
+        self.assertIn("change only the people", parts["retention_analysis"])
+        self.assertIn("<Subject 4> takes the place of the person on the right", parts["detailed_description"])
+        self.assertNotIn("Show one person", parts["detailed_description"])
+
+    def test_a_swap_with_two_people_reads_who_goes_from_the_script(self):
+        for script in ("@2 is the woman in red. @1 replaces the man in the hat", "The man in the hat.\nThe woman in red."):
+            parts = parts_of(script, jobs={1: "person", 2: "character sheet"}, video="swap the person")
+            self.assertIn("replace the man in the hat with <Subject 3>", parts["retention_analysis"])
+            self.assertIn("replace the woman in red with <Subject 4>", parts["retention_analysis"])
+            self.assertNotIn("@", join_sections(parts))
+
+    def test_one_swap_takes_the_at_out_of_who_goes(self):
+        parts = parts_of("@1 replaces the child in the seat", jobs={1: "person"}, video="swap the person")
+        self.assertIn("replace the child in the seat with <Subject 2>", parts["retention_analysis"])
+
     def test_keeping_going_needs_no_words_and_no_picture(self):
         parts = parts_of("", jobs={}, video="keep going")
         self.assertTrue(parts["summary"].startswith("[video continuation]"))

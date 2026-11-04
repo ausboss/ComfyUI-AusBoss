@@ -25,7 +25,10 @@ from ._h3_cast_helpers import (
     SOUND_GOES_ON_KEPT,
     THING,
     TOKEN,
+    ONE_GOES,
+    SPOTS,
     Cast,
+    lower_first,
     number_pictures,
     picture_label,
     subject_label,
@@ -124,7 +127,6 @@ VIDEO_LOOKS = {
     KEEP: "The target video keeps the look, colours and camera of <Video 1>.",
     REVOICE: "The target video keeps the look, light and camera of <Video 1>.",
 }
-SPOTS = {2: ("left", "right"), 3: ("left", "centre", "right"), 4: ("far left", "left", "right", "far right")}
 NAMES_A_SPOT = re.compile(r"\b(?:left|right|behind|in\s+front|foreground|background)\b", re.I)
 OPENS_ON_THEM = re.compile(r"^(?:She|He)\b")
 FOLLOWS_A_COMMA = re.compile(r"^(?:A|An|The|She|He|They|It|Her|His|Their|Its|This|That|These|Those|There|Someone|Everyone|Nobody)\b")
@@ -539,9 +541,6 @@ def stamp(seconds):
     return f"{int(minutes):02d}:{rest:06.3f}"
 
 
-def lower_first(text):
-    first = text.split(" ", 1)[0]
-    return text if text[:1] == "<" or (len(first) > 1 and first.isupper()) else text[:1].lower() + text[1:]
 
 
 def after_comma(text):
@@ -669,7 +668,8 @@ def before_the_action(number, text, cast, wearers):
         words = OPENS_ON if cast.ends else OPENING
         notes.append(words.format(subject=subject_label(opens.subject), picture=picture_label(opens.picture)))
     if cast.video == SWAP:
-        notes += [TAKES_OVER.format(main=cast.main, who=cast.who), ONE_PERSON if cast.who == "the original person" else OTHERS_STAY]
+        notes += [TAKES_OVER.format(main=new, who=who) for _, who, new in cast.swaps]
+        notes.append(ONE_PERSON if cast.whos == [ONE_GOES] else OTHERS_STAY)
     if number == 1 and cast.video == KEEP:
         notes += [CARRIES_ON]
     if number == 1 and cast.video == REVOICE:
@@ -678,7 +678,7 @@ def before_the_action(number, text, cast, wearers):
     if places and not any(place in text for place in places):
         notes.append(IN_THE_PLACE.format(place=places[0]))
     people = people_in(text, cast)
-    if len(people) > 1 and not NAMES_A_SPOT.search(text):
+    if len(people) > 1 and not NAMES_A_SPOT.search(text) and cast.video != SWAP:  # A swap's people stand where the video has them.
         spots = [f"{person} is on the {spot}" for person, spot in zip(people, SPOTS[len(people)])]
         notes.append(sentence(", ".join(spots[:-1]) + f" and {spots[-1]} of the frame"))
     for slot, wearer in wearers.items():
@@ -786,7 +786,8 @@ def task_of(cast):
 def summary_of(script, cast, new_places, soundtrack):
     task = task_of(cast)
     if cast.video == SWAP:
-        return f"[{task}] Replace {cast.replaced} with {cast.main} while preserving the original action, place, camera and look of <Video 1>."
+        swaps = " and ".join(f"{gone} with {new}" for gone, _, new in cast.swaps)
+        return f"[{task}] Replace {swaps} while preserving the original action, place, camera and look of <Video 1>."
     if cast.video == REVOICE:
         return (
             f"[{task}] The target video is an edited version of <Video 1>. The picture, the timing and the lip movement "

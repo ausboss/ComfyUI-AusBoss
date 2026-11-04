@@ -10,6 +10,10 @@ All notable changes to ComfyUI-AusBoss are documented here.
   carries the clip's own words and music through a swap, and lets them steer
   the mouths. Video swaps stop at 10 seconds and come out at about 480p,
   where they hold best. Voice and Song use the new Load Audio node.
+- **H3 Prompt Writer swaps two people.** With Swap the person and two person
+  pictures, Picture 1 takes the place of the person on the left and Picture 2
+  the person on the right. Type who goes to change that, one line each, such
+  as `@1 the man in the hat` and `@2 the woman in red`.
 - **New node: Load Audio.** Load a sound file and keep only the part you
   want. The node shows the sound as a wave: drag the IN and OUT handles to
   trim it, and press play to hear just that part. Set Max length to the
