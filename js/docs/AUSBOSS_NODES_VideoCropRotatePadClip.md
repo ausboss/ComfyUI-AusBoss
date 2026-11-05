@@ -23,6 +23,7 @@ model that paints black regions.
   it is named the way ComfyUI names a file there: `clip.mp4 [output]`. A whole path such
   as `/home/me/ComfyUI/output/clip.mp4` is not read, for queued runs and the editor's live
   preview alike.
+- **Play / Pause** beside the scrubber previews the selected frames and stops at OUT. Press Play at OUT to start from IN again.
 - **Timeline** (right under the preview and size line): The rail on the node and in the editor is one timeline. Press or
   drag anywhere on it to scrub the **playhead**, with Length on or off; the stage shows
   that frame. Drag the **IN** or **OUT** handle to trim: the playhead rides on the handle, so what you see
@@ -48,8 +49,7 @@ model that paints black regions.
   render is wasted. Feather only softens the mask and the stitch; the frames always
   meet the fill with a hard edge. The line under the picture names each step that
   sets the size (`576×1024 → pad 1821×1024 → resize 1280×704`) and warns in amber
-  when the Step stretches the picture by more than 1% (`2.2% wider: each side rounds
-  to 32 px`); the tooltip names a Step that avoids it, and in pad mode **Even out**
+  when the Step stretches the picture by more than 1% (`Resize makes the picture 2.2% wider`); the tooltip names a Step that avoids it, and in pad mode **Pad to keep shape**
   adds a few pixels of padding so nothing stretches. While you drag, that amber
   line keeps still and comes back for the new size when you let go. The bands are drawn in the real
   fill colour with a faint hatch, so black bands show on the black stage. A fresh clip node starts

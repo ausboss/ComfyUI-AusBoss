@@ -22,6 +22,7 @@ generated-area `mask`, a `stitcher` for Stitch Inpaint, the selected
   in its output folder: `clip.mp4 [output]`, `video/take 3.mov [output]`. It is read in
   place, without an upload copy. A whole path such as `/home/me/ComfyUI/output/clip.mp4`
   is not read, for queued runs and the editor's live preview alike.
+- **Play / Pause** beside the scrubber previews the video. Pause on the frame you want to output.
 - **Playhead**: The rail directly under the node's preview is the timeline: press or drag it to
   scrub, or type a frame in the **FRAME** box; the frame on the stage is the frame the
   node outputs (`frame_index`, with `frame_time` kept in step).

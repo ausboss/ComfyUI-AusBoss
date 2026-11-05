@@ -135,8 +135,8 @@ order the run applies them, with the size the run emits last and brightest:
 `crop 2080×1170 → pad 2208×1298 → round to 64 2240×1344 → resize 1344×768`. A step
 that changes nothing is left out, and "round to" is **Divisible by** at work. An
 amber line warns when rounding each side to the Step stretches the picture by
-more than 1% (`1.5% taller: each side rounds to 32 px`); its tooltip names a
-Step that avoids it, and with Fit on pad, **Even out** adds a few pixels of
+more than 1% (`Resize makes the picture 1.5% taller`); its tooltip names a
+Step that avoids it, and with Fit on pad, **Pad to keep shape** adds a few pixels of
 padding so nothing stretches. It also warns when the resize undoes **Divisible
 by**. Hover the line for the same breakdown line by line; the editor's right
 panel shows it too.

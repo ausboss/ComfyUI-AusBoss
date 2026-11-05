@@ -726,7 +726,7 @@ export function installTransformNode(node, kind, mountPanel = null) {
   // The sizes, and under them the line the amber note has to itself.
   state.sizeLine = createElement("div");
   state.noteLine = createElement("i");
-  // Its Even out button is a click, not a node drag.
+  // Its Pad to keep shape button is a click, not a node drag.
   readout.addEventListener("pointerdown", (event) => { if (event.target.closest("button")) event.stopPropagation(); });
   panel.append(preview, readout);
   // Both video nodes put the timeline right under the preview and size line:
@@ -1488,7 +1488,7 @@ function syncReadout(state) {
 }
 
 // What the amber note says for these values: the warnings, the tooltip that
-// names a fix, whether Even out can do it, and whether Divisible by is
+// names a fix, whether Pad to keep shape can do it, and whether Divisible by is
 // adding fill or trimming ahead of the resize (the editor says so).
 function sizeNote(state, chain, warnings) {
   if (!warnings.length) return NO_NOTE;
@@ -1499,7 +1499,7 @@ function sizeNote(state, chain, warnings) {
 
 // Writes the settled note: the face's amber line, and state.note, which the
 // editor's size box and status read. Rebuilt only when it says something
-// new, so a redraw between the press and the click on Even out never swaps
+// new, so a redraw between the press and the click on Pad to keep shape never swaps
 // the button out from under it.
 function showNote(state, note) {
   state.noteStale = false;
@@ -1514,9 +1514,9 @@ function showNote(state, note) {
   if (!note.warnings.length) return;
   line.append(`⚠ ${note.warnings.join(" · ")}`);
   if (!note.even) return;
-  const even = createElement("button", "", "Even out");
+  const even = createElement("button", "", "Pad to keep shape");
   even.type = "button";
-  even.title = "Add a few pixels of padding so the rounding stretches nothing.";
+  even.title = note.tip;
   even.addEventListener("click", () => {
     // Worked out at the click: the note may be a moment behind the values.
     const pads = stretchFix(state).pads;
@@ -1580,16 +1580,21 @@ function stretchFix(state) {
   const amount = `${(Math.abs(chain.stretch) * 100).toFixed(1)}%`;
   const step = stepWithoutStretch(current, source, resize);
   const pads = aspectMode(state) === "pad" ? evenOutPadding(current, source, resize) : null;
+  const additions = pads ? Object.entries(pads)
+    .map(([key, amount]) => [key.slice(4), amount - Number(current[key] || 0)])
+    .filter(([, amount]) => amount > 0)
+    .map(([side, amount]) => `${amount} px on the ${side}`) : [];
   const tip = [
     `The resize rounds the width and the height to a multiple of the Step (${resize?.steps ?? 1} px) separately, so the picture comes out ${amount} ${chain.stretch > 0 ? "wider" : "taller"} than it is.`,
     step ? `Step ${step} keeps it under 1%.` : "",
-    pads ? "Or press Even out: it adds a few pixels of padding so the rounding stretches nothing." : "",
+    additions.length ? `Pad to keep shape adds ${additions.join(" and ")} before resizing.` : "",
   ].filter(Boolean).join(" ");
   return { tip, pads };
 }
 
 async function onSourceChanged(state, reset) {
   const key = sourceKey(state.node, state.kind);
+  if (state.playing) stopPlayback(state, false);
   const changed = reset && sourceChanged(state.source, key, state.ready);
   // The pick the old picture still had (or the one waiting for a first
   // picture) is fitted to the new one; a shape dragged away from is not.
@@ -1676,8 +1681,11 @@ async function loadSource(state) {
       state.node.imageIndex = null;
     } else {
       const key = sourceKey(state.node, "video");
-      if (!key) { state.image = null; state.metadata = null; state.metadataKey = null; drawEmpty(state, "Choose a source to begin"); return; }
+      if (!key) { state.image = null; state.metadata = null; state.metadataKey = null; syncTimelineRange(state); drawEmpty(state, "Choose a source to begin"); return; }
       if (state.metadataKey !== key) {
+        state.metadata = null;
+        state.metadataKey = null;
+        syncTimelineRange(state);
         const metaResponse = await api.fetchApi(`/ausboss/transform/video/metadata?${videoParams(state.node)}`);
         const metadata = await metaResponse.json();
         if (!metaResponse.ok) throw new Error(metadata.error || "Could not read video metadata.");
@@ -2247,10 +2255,10 @@ function buildTimeline(state) {
   const label = createElement("span", "ausboss-transform-badge", "0 / 0");
   label.title = "Playhead frame / last frame";
   const steps = createElement("div", "ausboss-transform-steps");
-  const commands = [["|<", "first"], ["-100", -100], ["-50", -50], ["-25", -25], ["-1", -1], ["Play", "play"], ["+1", 1], ["+25", 25], ["+50", 50], ["+100", 100], [">|", "last"]];
+  const commands = [["|<", "first"], ["-100", -100], ["-50", -50], ["-25", -25], ["-1", -1], ["+1", 1], ["+25", 25], ["+50", 50], ["+100", 100], [">|", "last"]];
   for (const [text, command] of commands) {
-    const button = createElement("button", "", text); if (command === "play") state.playButton = button;
-    button.title = command === "play" ? "Play / pause (Space)" : typeof command === "number" ? `Step ${command > 0 ? "+" : ""}${command} frames (Arrow keys step 1, Shift 10)` : command === "first" ? "First frame (Home)" : "Last frame (End)";
+    const button = createElement("button", "", text);
+    button.title = typeof command === "number" ? `Step ${command > 0 ? "+" : ""}${command} frames (Arrow keys step 1, Shift 10)` : command === "first" ? "First frame (Home)" : "Last frame (End)";
     button.addEventListener("click", () => timelineCommand(state, command)); steps.append(button);
   }
   transport.append(label, steps);
@@ -2284,6 +2292,8 @@ function buildTrim(state) {
     outputRate: () => clipOutputRate(state.node, state.metadata?.fps, value(state.node, "every_nth", 1)),
     metadata: () => state.metadata,
     trim: state.isClip,
+    isPlaying: () => state.playing,
+    onTogglePlayback: () => timelineCommand(state, "play"),
     onSeek: (frame, settled) => scrubTo(state, frame, settled),
     onCommit: notifyAusbossChange,
   });
@@ -2305,6 +2315,7 @@ function setPlayhead(state, index) {
 // tile stands in when it is nearer; on release, one full-size fetch that
 // also snaps the widgets to the decoded frame.
 function scrubTo(state, index, settled) {
+  if (state.playing) stopPlayback(state, false);
   const frame = setPlayhead(state, index);
   syncTimelineRange(state);
   if (settled) { void seekFrame(state); return; }
@@ -2326,6 +2337,7 @@ async function seekFrameLight(state) {
 
 async function timelineCommand(state, command, light = false) {
   if (command === "play") { state.playing ? stopPlayback(state) : startPlayback(state); return; }
+  if (state.playing) stopPlayback(state, false);
   const info = clipInfo(state.metadata);
   if (!info.count) return;
   const current = clampFrame(value(state.node, "frame_index", 0), info);
@@ -2359,29 +2371,38 @@ async function timelineCommand(state, command, light = false) {
 // paused (or paused-then-restarted) loop's in-flight tick dies instead of
 // re-scheduling itself as a zombie that can no longer be stopped.
 function startPlayback(state) {
-  state.playButton.textContent = "Pause";
+  const info = clipInfo(state.metadata);
+  if (!info.count || state.disposed) return;
+  const trim = [...state.trimViews][0];
+  const { first, last } = trim.window();
+  const head = clampFrame(value(state.node, "frame_index", 0), info);
+  let next = head < first || head >= last ? first : head + 1;
   state.playing = true;
-  const session = (state.playbackSession = (state.playbackSession || 0) + 1);
-  const delay = Math.max(20, Math.round(1000 / Math.max(1, state.metadata?.fps || 30)));
+  syncTimelineRange(state);
+  const session = ++state.playbackSession;
+  const interval = 1000 / (info.fps || 30);
   const tick = async () => {
-    if (!state.playing || state.playbackSession !== session) return;
-    const before = Number(value(state.node, "frame_index", 0));
-    await timelineCommand(state, 1, true);
-    if (!state.playing || state.playbackSession !== session) return;
-    if (Number(value(state.node, "frame_index", 0)) === before) { stopPlayback(state); return; }
-    state.playbackTimer = window.setTimeout(tick, delay);
+    if (state.playbackSession !== session) return;
+    const started = performance.now();
+    setPlayhead(state, next);
+    syncTimelineRange(state);
+    await seekFrameLight(state);
+    if (state.playbackSession !== session) return;
+    if (next >= last) { stopPlayback(state); return; }
+    next++;
+    state.playbackTimer = window.setTimeout(tick, Math.max(0, interval - (performance.now() - started)));
   };
-  state.playbackTimer = window.setTimeout(tick, delay);
+  void tick();
 }
-function stopPlayback(state) {
+function stopPlayback(state, settle = true) {
   const wasPlaying = Boolean(state.playing);
   state.playing = false;
   state.playbackSession = (state.playbackSession || 0) + 1; // orphan in-flight ticks
   if (state.playbackTimer) clearTimeout(state.playbackTimer);
   state.playbackTimer = null;
-  if (state.playButton) state.playButton.textContent = "Play";
+  if (wasPlaying) syncTimelineRange(state);
   // Land on a full-resolution frame after light playback previews.
-  if (wasPlaying) void seekFrame(state);
+  if (wasPlaying && settle && !state.disposed) void seekFrame(state);
 }
 
 function keyDown(state, event) {

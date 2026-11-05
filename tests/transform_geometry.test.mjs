@@ -472,7 +472,7 @@ test("the size chain names every step and the stretch the steps cause", () => {
   assert.deepEqual(chain.resized, { width: 1280, height: 704 });
   const { tokens, warnings } = sizeChainTokens(chain);
   assert.deepEqual(tokens.map((token) => `${token.label} ${token.text}`.trim()), ["576×1024", "pad 1821×1024", "resize 1280×704"]);
-  assert.deepEqual(warnings, ["2.2% wider: each side rounds to 32 px"]);
+  assert.deepEqual(warnings, ["Resize makes the picture 2.2% wider"]);
 });
 
 test("the size chain shows Align and names what it does ahead of a resize", () => {
@@ -498,7 +498,7 @@ test("the size chain shows Align and names what it does ahead of a resize", () =
     { width: 1916, height: 821 }, { megapixels: 1, steps: 32 },
   ));
   assert.deepEqual(thin.tokens.map((token) => `${token.label} ${token.text}`.trim()), ["1916×821", "pad 1919×1403", "round to 24 1920×1416", "resize 1184×864"]);
-  assert.deepEqual(thin.warnings, ["1.1% wider: each side rounds to 32 px", "rounding to 24 adds 1 px on the left and 13 px at the bottom of fill"]);
+  assert.deepEqual(thin.warnings, ["Resize makes the picture 1.1% wider", "rounding to 24 adds 1 px on the left and 13 px at the bottom of fill"]);
   // Fill on one axis and a trim on the other, each named.
   const mixed = sizeChainTokens(sizeChain({ pad_top: 20, canvas_multiple: 16 }, { width: 1000, height: 750 }, { megapixels: 1, steps: 8 }));
   assert.deepEqual(mixed.warnings, ["rounding to 16 adds 14 px at the top of fill", "rounding to 16 trims 8 px off the width"]);

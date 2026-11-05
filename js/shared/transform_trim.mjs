@@ -55,6 +55,11 @@ function installCss() {
   style.id = CSS_ID;
   style.textContent = `
     .ausboss-transform-trim{flex:none;display:flex;flex-direction:column;gap:8px;min-width:0;padding:9px 10px 8px;border:1px solid #164b49;border-radius:8px;background:#0e1718;color:#cadddb;font:11px system-ui;box-sizing:border-box;overflow:hidden}
+    .ausboss-transform-trim-transport{display:flex;align-items:center;gap:6px;min-width:0}
+    .ausboss-transform-trim-transport .ausboss-transform-trim-rail{flex:1;min-width:0}
+    .ausboss-transform-trim-play{flex:none;width:42px;height:24px;padding:0;border:1px solid #2c4d4b;border-radius:5px;background:#1b2627;color:#d8eeee;font:600 11px system-ui;cursor:pointer}
+    .ausboss-transform-trim-play:hover,.ausboss-transform-trim-play[aria-pressed=true]{border-color:#00b4aa;color:#e5fffc}
+    .ausboss-transform-trim-play:disabled{opacity:.45;cursor:default}
     .ausboss-transform-trim-rail{position:relative;height:28px;margin:0 6px;touch-action:none;cursor:pointer;user-select:none}
     .ausboss-transform-trim-rail.is-disabled{opacity:.45;cursor:default}
     .ausboss-transform-trim-rail:before{content:"";position:absolute;left:0;right:0;top:11px;height:6px;border-radius:4px;background:#293637}
@@ -118,7 +123,7 @@ const pct = (fraction) => `${(fraction * 100).toFixed(3)}%`;
 //                                            (the clip node) or playhead only
 //   onSeek(frame, settled)                   the playhead moved; settled on release
 //   onCommit()                               a stored value settled (undo point)
-export function mountTransformTrim({ get, set, has = () => true, driven = () => false, number = (name, fallback) => get(name, fallback), outputRate, metadata, trim = true, onSeek, onCommit }) {
+export function mountTransformTrim({ get, set, has = () => true, driven = () => false, number = (name, fallback) => get(name, fallback), outputRate, metadata, trim = true, isPlaying, onTogglePlayback, onSeek, onCommit }) {
   installCss();
   const root = el("div", "ausboss-transform-trim");
   const rail = el("div", "ausboss-transform-trim-rail");
@@ -132,6 +137,11 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
   if (trim) rail.append(span, kept, grip);
   rail.append(playhead);
 
+  const transport = el("div", "ausboss-transform-trim-transport");
+  const play = el("button", "ausboss-transform-trim-play", "Play");
+  play.type = "button";
+  play.addEventListener("click", onTogglePlayback);
+  transport.append(play, rail);
   const info = () => clipInfo(metadata());
   const everyNth = () => Math.max(1, Math.trunc(Number(number("every_nth", get("every_nth", 1))) || 1));
   const snapRule = () => String(get("frame_snap", "free"));
@@ -296,6 +306,11 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
 
   const sync = () => {
     const clip = info();
+    const playing = isPlaying();
+    play.textContent = playing ? "Pause" : "Play";
+    play.title = playing ? "Pause on this frame" : trim ? "Play the selected clip" : "Play the video to pick a frame";
+    play.setAttribute("aria-pressed", String(playing));
+    play.disabled = !clip.count;
     const head = playheadFrame();
     rail.classList.toggle("is-disabled", !clip.count);
     playhead.style.left = pct(fractionOfFrame(head, clip, "center"));
@@ -540,7 +555,7 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
     label.append(controls.frame.root);
     timeRow.append(label, readout);
   }
-  root.append(rail, timeRow);
+  root.append(transport, timeRow);
 
   // Length: off, OUT ends the clip; on, a frame count from IN (max_frames,
   // end left open), so OUT follows IN and the count survives a new source.

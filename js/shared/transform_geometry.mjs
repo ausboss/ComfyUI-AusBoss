@@ -485,7 +485,7 @@ export function sizeChainTokens(chain) {
   if (chain.resized) tokens.push({ label: "resize", text: size(chain.resized) });
   const warnings = [];
   if (Math.abs(chain.stretch) > STRETCH_WARNING) {
-    warnings.push(`${(Math.abs(chain.stretch) * 100).toFixed(1)}% ${chain.stretch > 0 ? "wider" : "taller"}: each side rounds to ${chain.steps ?? 1} px`);
+    warnings.push(`Resize makes the picture ${(Math.abs(chain.stretch) * 100).toFixed(1)}% ${chain.stretch > 0 ? "wider" : "taller"}`);
   }
   // Ahead of a resize, what Divisible by adds is only fill for the model to
   // paint, and what it trims is picture lost: the Step already rounds the
