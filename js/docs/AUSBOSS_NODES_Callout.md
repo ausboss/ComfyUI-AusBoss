@@ -7,6 +7,10 @@ to point at the part you are talking about.
 Use it to explain a step in a workflow you share. It never runs and has no
 wires.
 
+## Tile presets
+
+Right-click the Callout and choose **Title tile** to give your existing text a black heading with a teal accent. **Set YouTube link tile** and **Set Discord link tile** fill in the AusBoss link and label. Click the label to open the link, drag the tile to move it, or right-click **Edit callout text** to change the label and destination. Choose **Plain callout** to return to the standard style with the current text.
+
 ## Writing
 
 - Double-click the note, or press **Edit**, to type. Click outside the box to

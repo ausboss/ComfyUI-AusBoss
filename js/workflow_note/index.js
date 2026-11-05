@@ -12,6 +12,7 @@
 
 import { api } from "../../../scripts/api.js";
 import { app } from "../../../scripts/app.js";
+import { setTileFace, TILE_FACE_CSS } from "../shared/tile_face.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { collectGraphNodes } from "../shared/appearance.mjs";
 import { copyToClipboard } from "../shared/clipboard.mjs";
@@ -107,6 +108,7 @@ function ensureCss() {
   const style = document.createElement("style");
   style.id = CSS_ID;
   style.textContent = `
+${TILE_FACE_CSS}
 .ausboss-note{box-sizing:border-box;width:100%;height:100%;padding:2px 6px 6px;pointer-events:none;overflow:hidden;--accent:${BRAND};}
 .ausboss-note *{box-sizing:border-box;}
 .ausboss-note-card{position:relative;display:flex;flex-direction:column;width:100%;height:100%;overflow:hidden;border:1px solid rgba(0,180,170,.27);border-radius:6px;background:rgba(0,0,0,.28);color:#c8dddd;font:12px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
@@ -115,6 +117,40 @@ function ensureCss() {
 .ausboss-note-title{margin:0;color:#f2f8f8;font-size:22px;font-weight:700;line-height:1.15;letter-spacing:-.01em;overflow-wrap:anywhere;}
 .ausboss-note-subtitle{margin:5px 0 0;color:#a9c4c2;font-size:12.5px;line-height:1.35;overflow-wrap:anywhere;}
 .ausboss-note-author{margin:6px 0 0;color:#78908e;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;}
+.ausboss-note.is-tile .ausboss-note-head{display:flex;align-items:center;padding:0 34px 0 0;border-left:3px solid var(--accent);background:color-mix(in srgb,var(--accent) 16%,#101719);}
+.ausboss-note.is-tile .ausboss-note-scroll{display:flex;padding:0;}
+.ausboss-note.is-tile .ausboss-note-head{flex:1;}
+.ausboss-note-read::before{content:"i";display:inline-grid;place-items:center;width:1em;height:1em;border:1.5px solid currentColor;border-radius:50%;margin-right:.55em;font:bold 21px/1 Georgia,serif;}
+.ausboss-note-read{border:0;background:transparent;color:#eef7f5;text-align:left;padding:11px 14px;font:650 16px/1.3 system-ui;cursor:pointer;flex:1;}
+.ausboss-note.is-tile .ausboss-note-edit{opacity:0;}
+.ausboss-note.is-tile .ausboss-note-head:is(:hover,:focus-within) .ausboss-note-edit{opacity:1;}
+.ausboss-note-read:hover{color:var(--accent);}
+.ausboss-note-reader{box-sizing:border-box;width:min(640px,94vw);max-height:86vh;overflow:auto;margin:auto;padding:0 0 24px;border:1px solid #365154;border-radius:12px;background:#161f21;color:#e8ebe7;box-shadow:0 18px 64px #0008;font:15px/1.55 "IBM Plex Sans",system-ui,sans-serif;}
+.ausboss-note-reader::backdrop{background:#06090ab8;}
+.ausboss-note-reader-head{padding:20px 24px 16px;border-top:3px solid var(--accent);background:#080e10;}
+.ausboss-note-reader-head button{float:right;margin:0 0 6px 10px;}
+.ausboss-note-reader-head h2{margin:0;font:650 26px/1.2 "IBM Plex Sans",system-ui,sans-serif;color:#ecf4f4;overflow-wrap:anywhere;}
+.ausboss-note-reader-head p{margin:6px 0 0;color:#b4c5c5;overflow-wrap:anywhere;}
+.ausboss-note-reader .ausboss-note-section{padding:14px 24px 0;}
+.ausboss-note-reader .ausboss-note-body h2{font-size:19px;margin:18px 0 6px;}
+.ausboss-note-reader .ausboss-note-body h1{font-size:23px;}
+.ausboss-note-reader .ausboss-note-body li::marker{color:#6fc0aa;}
+.ausboss-note-table-scroll{max-width:100%;overflow-x:auto;margin:10px 0 14px;border:1px solid #344649;border-radius:6px;}
+.ausboss-note-table-scroll table{width:100%;border-collapse:collapse;font:inherit;}
+.ausboss-note-table-scroll :is(th,td){padding:6px 10px;vertical-align:top;overflow-wrap:anywhere;}
+.ausboss-note-table-scroll th{background:#102327;color:#ecf4f4;font:600 .88em/1.45 "IBM Plex Mono",ui-monospace,monospace;}
+.ausboss-note-table-scroll td{border-top:1px solid #344649;}
+.ausboss-note-table-scroll tbody tr:nth-child(even){background:#ffffff04;}
+.ausboss-note-tone-teal{color:#00b4aa;}
+.ausboss-note-tone-green{color:#6fc0aa;}
+.ausboss-note-tone-amber{color:#f5b53d;}
+.ausboss-note-tone-glow{color:#a8fff5;text-shadow:0 0 7px #00b4aa95,0 0 15px #00b4aa45;}
+.ausboss-note-mdtools{display:flex;align-items:center;flex-wrap:wrap;gap:4px;}
+.ausboss-note-mdtools button{height:24px;padding:0 9px;border:1px solid #344649;border-radius:4px;background:#101819;font:600 12px/1 "IBM Plex Sans",system-ui,sans-serif;cursor:pointer;}
+.ausboss-note-mdtools button:hover{border-color:#6a928e;}
+.ausboss-note-mdpreview{border:1px solid #344649;border-radius:6px;padding:7px 10px;}
+.ausboss-note-mdpreview summary{cursor:pointer;color:#9fcec9;}
+.ausboss-note-mdpreview[open] summary{margin-bottom:10px;}
 .ausboss-note.is-banner .ausboss-note-head{padding:14px 40px 14px 18px;}
 .ausboss-note.is-banner .ausboss-note-title{font-size:28px;}
 .ausboss-note-edit{position:absolute;top:8px;right:8px;width:24px;height:24px;border:1px solid transparent;border-radius:5px;background:transparent;color:#78908e;font-size:13px;line-height:1;cursor:pointer;pointer-events:auto;}
@@ -231,6 +267,7 @@ function spansInto(parent, spans) {
     else if (span.type === "strong") parent.append(el("strong", "", span.text));
     else if (span.type === "em") parent.append(el("em", "", span.text));
     else if (span.type === "code") parent.append(el("code", "", span.text));
+    else if (span.type === "tone") parent.append(el("span", `ausboss-note-tone-${span.tone}`, span.text));
     else if (span.type === "link") parent.append(externalLink(span.url, "", span.text));
     else parent.append(document.createTextNode(span.text));
   }
@@ -242,6 +279,24 @@ function markdownInto(parent, text) {
       const heading = el(`h${block.level}`);
       spansInto(heading, block.spans);
       parent.append(heading);
+    } else if (block.type === "table") {
+      const wrap = el("div", "ausboss-note-table-scroll");
+      const grid = el("table");
+      const addRow = (group, cells, header) => {
+        const row = group.insertRow();
+        cells.forEach((spans, index) => {
+          const cell = el(header ? "th" : "td");
+          if (header) cell.scope = "col";
+          cell.style.textAlign = block.align[index];
+          spansInto(cell, spans);
+          row.append(cell);
+        });
+      };
+      addRow(grid.createTHead(), block.headers, true);
+      const rows = grid.createTBody();
+      for (const cells of block.rows) addRow(rows, cells, false);
+      wrap.append(grid);
+      parent.append(wrap);
     } else if (block.type === "list") {
       const list = el(block.ordered ? "ol" : "ul");
       for (const item of block.items) {
@@ -424,7 +479,9 @@ function render(state) {
   const { note } = state;
   const root = state.root;
   root.classList.toggle("is-banner", note.layout === "banner");
-  setBadgesHidden(state.node, note.layout === "banner" && !noteIsEmpty(note));
+  root.classList.toggle("is-tile", note.layout === "tile" && !noteIsEmpty(note));
+  setTileFace(state.node, root, root.classList.contains("is-tile"));
+  setBadgesHidden(state.node, note.layout !== "card" && !noteIsEmpty(note));
   root.style.setProperty("--accent", note.accent || BRAND);
   const scroll = state.scroll;
   scroll.textContent = "";
@@ -448,12 +505,46 @@ function render(state) {
     state.domWidget.options.getMinHeight = () => CARD_MIN_HEIGHT + WIDGET_FRAME;
     return;
   }
+  if (note.layout === "tile") {
+    const read = el("button", "ausboss-note-read", note.title || "Workflow info");
+    read.type = "button";
+    read.setAttribute("aria-haspopup", "dialog");
+    read.onclick = () => {
+      const dialog = el("dialog", "ausboss-note-reader");
+      dialog.setAttribute("aria-label", note.title || "Workflow info");
+      dialog.style.setProperty("--accent", note.accent || BRAND);
+      const close = el("button", "ausboss-note-btn", "Close");
+      close.onclick = () => dialog.close();
+      const header = el("header", "ausboss-note-reader-head");
+      header.append(close, el("h2", "", note.title || "Workflow info"));
+      if (note.subtitle) header.append(el("p", "", note.subtitle));
+      if (note.author) header.append(el("p", "", `by ${note.author}`));
+      dialog.append(header);
+      renderSections({ note, rows: [] }, dialog);
+      document.body.append(dialog);
+      state.reader = dialog;
+      dialog.addEventListener("close", () => {
+        dialog.remove();
+        state.reader = null;
+        read.focus();
+      }, {once:true});
+      dialog.showModal();
+    };
+    head.replaceChildren(read, edit);
+    state.domWidget.options.getMinHeight = () => 42 + WIDGET_FRAME;
+    return;
+  }
   if (note.layout === "banner") {
     state.domWidget.options.getMinHeight = () => BANNER_MIN_HEIGHT + WIDGET_FRAME;
     return;
   }
   state.domWidget.options.getMinHeight = () => CARD_MIN_HEIGHT + WIDGET_FRAME;
 
+  renderSections(state, scroll);
+}
+
+function renderSections(state, scroll) {
+  const { note } = state;
   if (note.body.trim()) {
     const section = el("div", "ausboss-note-section");
     const body = el("div", "ausboss-note-body");
@@ -555,7 +646,7 @@ async function checkModels(state, fresh) {
       }
     }
   }));
-  if (generation === state.checkGeneration) fitNote(state);
+  if (state.domWidget && generation === state.checkGeneration) fitNote(state);
 }
 
 // ---------------------------------------------------------------------------
@@ -768,7 +859,7 @@ async function openEditor(state) {
   let layout = draft.layout;
   const seg = el("div", "ausboss-note-seg");
   const segButtons = LAYOUTS.map((option) => {
-    const button = el("button", option === layout ? "on" : "", option === "card" ? "Card" : "Banner");
+    const button = el("button", option === layout ? "on" : "", ({ card: "Card", banner: "Banner", tile: "Info tile" })[option]);
     button.type = "button";
     button.addEventListener("click", () => {
       layout = option;
@@ -782,7 +873,7 @@ async function openEditor(state) {
     field("Title", title),
     field("Author", author),
     field("Subtitle", subtitle),
-    field("Layout", seg, "Banner shows only the title, subtitle and author - a label for a column or stage."),
+    field("Layout", seg, "Banner shows the title. Info tile opens the full note when clicked."),
     field("Accent color", accent, "Hex like #00b4aa; empty keeps the pack teal."),
   );
   form.append(grid);
@@ -790,7 +881,48 @@ async function openEditor(state) {
   const bodyBox = el("textarea");
   bodyBox.value = draft.body;
   bodyBox.placeholder = "## How it works\n\n1. Load your image\n2. Drag the padding edges\n3. Queue\n\nMarkdown: # headings, **bold**, `code`, [links](https://...), - lists";
-  form.append(field("How-to (Markdown)", bodyBox));
+  form.append(field("How-to (Markdown)", bodyBox,
+    "Use pipe tables and [teal]text[/teal], [green], [amber], or [glow] with a matching closing tag."));
+  const formatTools = el("div", "ausboss-note-mdtools");
+  formatTools.setAttribute("role", "group");
+  formatTools.setAttribute("aria-label", "Format selected text or insert a table");
+  for (const label of ["Teal", "Green", "Amber", "Glow", "Table"]) {
+    const tone = label.toLowerCase();
+    const isTable = tone === "table";
+    const button = el("button", isTable ? "" : `ausboss-note-tone-${tone}`, label);
+    button.type = "button";
+    button.title = isTable ? "Insert a Markdown table" : `Apply ${label.toLowerCase()} to the selection`;
+    button.addEventListener("click", () => {
+      const { selectionStart: start, selectionEnd: end, value } = bodyBox;
+      if (isTable) {
+        const gap = start && !value.slice(0, start).endsWith("\n\n") ? "\n\n" : "";
+        bodyBox.setRangeText(gap + "| Setting | Value |\n| --- | --- |\n| Name | Value |\n\n", start, start, "end");
+      } else {
+        const selection = value.slice(start, end) || "text";
+        // Each tag styles one line. A selection can span multiple paragraphs.
+        const styled = selection.split("\n").map(line => line ? `[${tone}]${line}[/${tone}]` : "").join("\n");
+        bodyBox.setRangeText(styled, start, end, "end");
+        if (start === end) bodyBox.setSelectionRange(start + tone.length + 2, start + tone.length + 2 + selection.length);
+      }
+      bodyBox.focus();
+      bodyBox.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    formatTools.append(button);
+  }
+  form.append(formatTools);
+  const preview = el("details", "ausboss-note-mdpreview");
+  const sample = el("div", "ausboss-note-body");
+  preview.append(el("summary", "", "Preview formatting"), sample);
+  const updatePreview = () => {
+    if (!preview.open) return;
+    sample.style.setProperty("--accent", accent.value || BRAND);
+    sample.replaceChildren();
+    markdownInto(sample, bodyBox.value);
+  };
+  preview.addEventListener("toggle", updatePreview);
+  bodyBox.addEventListener("input", updatePreview);
+  accent.addEventListener("input", updatePreview);
+  form.append(preview);
 
   const models = table("models", MODEL_COLUMNS.map((column) => column.label), draft.models, (row) =>
     MODEL_COLUMNS.map(({ key, placeholder }) => (key === "dir" ? folderSelect(row.dir, folderOptions) : input(row[key], placeholder))));
@@ -891,10 +1023,15 @@ async function openEditor(state) {
         return;
       }
     } else next = readForm();
+    const enteringTile = next.layout === "tile" && state.note.layout !== "tile";
     state.note = next;
     state.valueWidget.value = serializeNote(next);
     closeEditor();
     render(state);
+    if (enteringTile) {
+      state.fitHeight = undefined;
+      state.node.setSize?.([state.node.size[0], 80]);
+    }
     fitNote(state);
     state.node.setDirtyCanvas?.(true, true);
     notifyAusbossChange();
@@ -1004,7 +1141,7 @@ app.registerExtension({
     chainCallback(nodeType.prototype, "onNodeCreated", function () {
       buildPanel(this);
     });
-    chainCallback(nodeType.prototype, "onConfigure", function () {
+    chainCallback(nodeType.prototype, "onConfigure", function (saved) {
       // Saved widget values land after onNodeCreated: re-read them, and
       // keep the saved size rather than the default the panel asked for.
       // The fit runs before ComfyUI snapshots the opened workflow, so
@@ -1014,6 +1151,10 @@ app.registerExtension({
         if (!state) return;
         state.note = normalizeNote(state.valueWidget.value);
         render(state);
+        if (state.note.layout === "tile" && Number.isFinite(saved?.size?.[1])) {
+          state.fitHeight = undefined;
+          this.setSize?.([this.size[0], saved.size[1]]);
+        }
         fitNote(state);
       });
     });
@@ -1028,6 +1169,7 @@ app.registerExtension({
     });
     chainCallback(nodeType.prototype, "onRemoved", function () {
       closeEditor();
+      this.__ausbossNote?.reader?.close();
       this.__ausbossNote?.resizeObserver?.disconnect();
       this.__ausbossNote = null;
     });

@@ -7,6 +7,7 @@
 // js/shared/callout.mjs under node:test.
 
 import { app } from "../../../scripts/app.js";
+import { setTileFace, TILE_FACE_CSS } from "../shared/tile_face.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto } from "../shared/index.mjs";
 import {
   ARROW_ANGLE,
@@ -37,6 +38,10 @@ const PANEL_MIN_WIDTH = 200;
 const PANEL_MIN_HEIGHT = 64;
 const SVG_NS = "http://www.w3.org/2000/svg";
 const ARROW_COLOR = "#1fd3c6";
+const LINK_TILES = {
+  youtube: { label: "Watch Me on YouTube", url: "https://www.youtube.com/@ausbossdev" },
+  discord: { label: "Join for Help or More Workflows", url: "https://discord.gg/RwVxY9Fuaj" },
+};
 const FRAME_FILL = 0.8; // the share of the view a node brought into view takes, as in Workflow Switches
 const FONT = '"IBM Plex Sans", "Inter", "Segoe UI", system-ui, -apple-system, sans-serif';
 
@@ -55,6 +60,7 @@ function ensureCss() {
   const style = document.createElement("style");
   style.id = CSS_ID;
   style.textContent = `
+${TILE_FACE_CSS}
 .ausboss-callout{box-sizing:border-box;width:100%;height:100%;padding:2px 4px 6px;overflow:hidden;pointer-events:none;}
 .ausboss-callout-card{position:relative;box-sizing:border-box;width:100%;height:100%;overflow:hidden;border-radius:8px;background:linear-gradient(135deg,rgba(0,180,170,.07),rgba(0,0,0,.2));}
 .ausboss-callout-inner{position:absolute;top:0;bottom:0;left:0;box-sizing:border-box;width:100%;height:fit-content;margin:auto 0;padding:.6em 1em .6em .85em;color:#d6e6e4;font-family:${FONT};font-weight:500;line-height:1.4;letter-spacing:.003em;overflow-wrap:anywhere;}
@@ -63,6 +69,14 @@ function ensureCss() {
 .ausboss-callout-point b{color:#6fe0d6;font-weight:650;}
 .ausboss-callout-small{margin-top:.3em;color:#9fb5b2;font-size:max(11px,.62em);font-weight:400;line-height:1.4;}
 .ausboss-callout-small b{color:#8fd6cf;font-weight:600;}
+.ausboss-callout-card[data-tile=youtube]{background:#ae2639}
+.ausboss-callout-card[data-tile=discord]{background:#5146aa}
+.ausboss-callout-card[data-tile=title]{background:#090909;border-left:4px solid #21c7b9}
+.ausboss-callout-card[data-tile] .ausboss-callout-inner{padding-block:.15em;}
+.ausboss-callout-card[data-tile] .ausboss-callout-point{border:0;padding:0;margin:0;font-weight:650;color:#fff}
+.ausboss-callout-card[data-tile] .ausboss-callout-url{color:white;text-decoration:none;display:flex;align-items:center;gap:12px}
+.ausboss-callout-card[data-tile] .ausboss-callout-url svg{width:36px;height:28px;flex:none}
+.ausboss-callout-card[data-tile] .ausboss-callout-out{margin-left:auto}
 .ausboss-callout-empty{color:#6f8987;font-size:14px;font-weight:400;}
 .ausboss-callout-arrow{display:inline-block;width:1.2em;height:1.2em;margin:0 .1em;vertical-align:-.26em;filter:drop-shadow(0 0 .3em rgba(0,180,170,.55));}
 .ausboss-callout-arrow svg{display:block;width:100%;height:100%;overflow:visible;}
@@ -177,6 +191,18 @@ function arrowSpan(state, kind, piece = {}) {
 function linkRun(state, first) {
   if (first.url !== undefined) {
     const link = el("a", "ausboss-callout-url");
+    const tile = state.card.dataset.tile;
+    if (tile === "youtube" || tile === "discord") {
+      const icon = svg("svg", { viewBox:"0 0 28 20", "aria-hidden":"true" });
+      if (tile === "youtube") {
+        icon.append(svg("rect",{x:0,y:1,width:28,height:18,rx:5,fill:"white"}),
+          svg("path",{d:"M11 5.5 19 10 11 14.5Z",fill:"#ae2639"}));
+      } else {
+        icon.append(svg("path",{d:"M4 3 10 1l1 2a15 15 0 0 1 6 0l1-2 6 2c2 4 3 8 3 12l-6 4-2-3a17 17 0 0 1-10 0l-2 3-6-4c0-4 1-8 3-12Z",fill:"white"}));
+        for (const cx of [9,19]) icon.append(svg("ellipse",{cx,cy:10,rx:2,ry:2.6,fill:"#5146aa"}));
+      }
+      link.append(icon);
+    }
     link.href = first.url;
     link.target = "_blank";
     link.rel = "noopener noreferrer";
@@ -222,6 +248,10 @@ function bringIntoView(target) {
 }
 
 function renderText(state) {
+  const style = state.node.properties?.ausbossCalloutTile;
+  if (["youtube","discord","title"].includes(style)) state.card.dataset.tile = style;
+  else delete state.card.dataset.tile;
+  setTileFace(state.node, state.root, Boolean(state.card.dataset.tile));
   const blocks = parseBlocks(state.valueWidget.value);
   state.inner.replaceChildren();
   state.empty = blocks.length === 0;
@@ -319,7 +349,9 @@ function fit(state) {
     inner.style.fontSize = `${px}px`;
     return inner.offsetHeight <= height && inner.scrollWidth <= width + 1;
   };
-  inner.style.fontSize = `${fitFontSize(fits)}px`;
+  const size = fitFontSize(fits);
+  const social = card.dataset.tile === "youtube" || card.dataset.tile === "discord";
+  inner.style.fontSize = `${social ? Math.min(size, 16) : size}px`;
 }
 
 function markChanged() {
@@ -499,16 +531,17 @@ function buildPanel(node) {
   root.append(card);
   tools.addEventListener("pointerdown", (event) => event.stopPropagation());
 
+  const panelHeight = () => (card.dataset.tile ? 36 : PANEL_MIN_HEIGHT) + WIDGET_FRAME;
   const domWidget = node.addDOMWidget(WIDGET_NAME, "ausboss_callout", root, {
     serialize: false,
     hideOnZoom: false,
-    getMinHeight: () => PANEL_MIN_HEIGHT + WIDGET_FRAME,
+    getMinHeight: panelHeight,
   });
   keepDomWidgetWidthAuto(domWidget);
   domWidget.serialize = false;
   fillNodeHeight(domWidget, {
     minWidth: PANEL_MIN_WIDTH,
-    minHeight: () => PANEL_MIN_HEIGHT + WIDGET_FRAME,
+    minHeight: panelHeight,
     minNodeSize: [PANEL_MIN_WIDTH, PANEL_MIN_HEIGHT + 40],
     exactMinWidth: true,
   });
@@ -516,6 +549,9 @@ function buildPanel(node) {
   const state = { node, valueWidget, domWidget, root, card, inner, empty: true, editor: null, frame: 0 };
   node.__ausbossCallout = state;
   edit.addEventListener("click", () => startEdit(state));
+  card.addEventListener("dblclick", (event) => {
+    if (card.dataset.tile && !event.target.closest("a,button,textarea,.ausboss-callout-editor")) startEdit(state);
+  });
   state.observer = new ResizeObserver(() => {
     cancelAnimationFrame(state.frame);
     state.frame = requestAnimationFrame(() => fit(state));
@@ -551,11 +587,15 @@ app.registerExtension({
     chainCallback(nodeType.prototype, "onNodeCreated", function () {
       buildPanel(this);
     });
-    chainCallback(nodeType.prototype, "onConfigure", function () {
+    chainCallback(nodeType.prototype, "onConfigure", function (saved) {
       // Saved values land after onNodeCreated; show them.
       queueMicrotask(() => {
         const state = buildPanel(this);
-        if (state) renderText(state);
+        if (!state) return;
+        renderText(state);
+        if (state.card.dataset.tile && Number.isFinite(saved?.size?.[1])) {
+          this.setSize?.([this.size[0], saved.size[1]]);
+        }
       });
     });
     chainCallback(nodeType.prototype, "onDblClick", function () {
@@ -565,6 +605,17 @@ app.registerExtension({
     chainCallback(nodeType.prototype, "getExtraMenuOptions", function (_canvas, options) {
       const state = this.__ausbossCallout;
       if (!state || !Array.isArray(options)) return;
+      for (const [style, label] of [["plain","Plain callout"],["title","Title tile"],["youtube","Set YouTube link tile"],["discord","Set Discord link tile"]]) {
+        options.unshift({ content: label, callback: () => {
+          this.properties ??= {};
+          this.properties.ausbossCalloutTile = style;
+          const preset = LINK_TILES[style];
+          if (preset) commitWidgetValue(this, state.valueWidget, `[${preset.label}](${preset.url})`, app.canvas);
+          renderText(state);
+          if (style !== "plain") this.setSize?.([this.size[0], style === "title" ? 86 : 78]);
+          markChanged();
+        }});
+      }
       options.unshift({ content: "Edit callout text", callback: () => startEdit(state) }, null);
     });
     chainCallback(nodeType.prototype, "onRemoved", function () {
