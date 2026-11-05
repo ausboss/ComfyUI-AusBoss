@@ -286,3 +286,25 @@ test("Use it writes a found file the way its folder lists it", () => {
   assert.match(source, /commitWidgetValue\(entry\.node, entry\.widget, listedSpelling\(path, entry\.options\)/, "Use it hands a loader the path with the note's own slashes again");
   assert.match(source, /name: listedSpelling\(path, files\)/, "Use it hands a LoRA row the path with the note's own slashes again");
 });
+
+test("note tables preserve alignment, inline markup and escaped pipes through save/load", () => {
+  const body = "| Rule | Value |\n| :--- | ---: |\n| `A\\|B` | [green]Ready[/green] |\n\nAfter";
+  const [table, paragraph] = parseMarkdown(normalizeNote(serializeNote({ layout: "tile", body })).body);
+  assert.deepEqual(table.align, ["left", "right"]);
+  assert.equal(table.headers[0][0].text, "Rule");
+  assert.deepEqual(table.rows[0], [
+    [{ type: "code", text: "A|B" }],
+    [{ type: "tone", tone: "green", text: "Ready" }],
+  ]);
+  assert.equal(paragraph.spans[0].text, "After");
+});
+
+test("note formatting leaves old prose, unsafe markup and code literal", () => {
+  assert.equal(parseMarkdown("A | B\nnot a divider")[0].type, "paragraph");
+  assert.deepEqual(parseInline("[glow]Run[/glow]"), [{ type: "tone", tone: "glow", text: "Run" }]);
+  assert.equal(parseInline("[glow](https://example.org)")[0].type, "link");
+  assert.equal(parseInline("[red]<img onerror=x>[/red]")[0].type, "text");
+  assert.equal(parseInline("[teal]open")[0].type, "text");
+  assert.equal(parseInline("`[amber]warning[/amber]`")[0].type, "code");
+  assert.equal(parseMarkdown("```\n|a|\n|---|\n```")[0].type, "code");
+});
