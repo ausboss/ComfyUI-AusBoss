@@ -89,7 +89,11 @@ Connect a video, then pick what it is for:
   `@1 dances on a rooftop at sunset.` The clothes can come from words or from an
   outfit picture.
 - **swap the person**: your person takes over from the one in the video. The
-  place, the moves and the camera stay. You can leave the box empty.
+  place, the moves and the camera stay. With two person pictures, the first
+  replaces the person on the left and the second replaces the person on the
+  right. To choose who goes, type one line per picture, for example
+  `@1 replaces the man in the hat`. Put spoken words in quotes and name
+  the speaker. If a voice comes from off screen, say so in the line.
 - **keep going**: more of the same clip, from where it ends. Say what happens
   next, or leave the box empty and it just carries on. Connect the whole clip:
   the node sends H3 only the last 2 seconds.
