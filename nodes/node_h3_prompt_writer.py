@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import sys
 
-from ._h3_cast_helpers import JOBS, KEEP, KEEPS_ITS_LENGTH, PERSON, PLACE, START, THING, VIDEO_JOBS
-from ._h3_prompt_helpers import find_beats, split_sections, write_prompt
+from ._h3_cast_helpers import JOBS, KEEP, KEEPS_ITS_LENGTH, PERSON, PLACE, START, SWAP, THING, VIDEO_JOBS
+from ._h3_prompt_helpers import find_beats, find_speech, split_sections, write_prompt
 from ._h3_script_helpers import CAMERAS, LOOKS, script_report
 from ._route_errors import safe_route_error
 
@@ -273,6 +273,16 @@ class AusBossH3PromptWriter:
                         "tooltip": "The music, like a slow lo-fi beat. A clip with music comes out louder. Empty means no music.",
                     },
                 ),
+                "clip_sound": (
+                    "BOOLEAN",
+                    {
+                        "default": False,
+                        "tooltip": (
+                            "Turn on when a swap keeps the video's own sound. Each line is timed from that sound, "
+                            "and words from anyone else are left out so only the new person's mouth moves."
+                        ),
+                    },
+                ),
             },
         }
 
@@ -312,7 +322,7 @@ class AusBossH3PromptWriter:
     def write(self, script, seconds, clip=None, picture_1=None, picture_2=None, picture_3=None, picture_4=None, video=None,
               video_sound=None, voice=None, song=None, camera=AS_TYPED, look=FROM_PICTURE, song_start=0.0, cut_on_beat=True,
               language="English", job_1=PERSON, job_2=PERSON, job_3=PERSON, job_4=THING, video_job=VIDEO_JOBS[0],
-              sound="", music=""):
+              sound="", music="", clip_sound=False):
         script = with_sound_and_music(script, sound, music)
         pictures = {1: picture_1, 2: picture_2, 3: picture_3, 4: picture_4}
         given = {slot: picture for slot, picture in pictures.items() if picture is not None}
@@ -324,6 +334,8 @@ class AusBossH3PromptWriter:
             frames = video_frames(video.shape[0])
             seconds = frames / FRAME_RATE
         length = frames / FRAME_RATE
+        clip_sound = bool(clip_sound) and video_job == SWAP
+        speech = find_speech(mono_samples(video_sound), video_sound["sample_rate"]) if clip_sound and video_sound is not None else None
         if video_job == KEEP:
             video, video_sound = last_of_clip(video, video_sound)
         else:
@@ -349,6 +361,8 @@ class AusBossH3PromptWriter:
             jobs=jobs,
             video=video_job,
             soundtrack=video_sound is not None,
+            clip_sound=clip_sound,
+            speech=speech,
         )
         ordered = [*given.values(), None, None, None, None][: len(PICTURES)]
         return (text, *ordered, video, video_sound, voice, song, song_under, frames, *clip_shape(video, ordered[0]))

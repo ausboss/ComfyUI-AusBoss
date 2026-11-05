@@ -180,7 +180,8 @@
       "job_4",
       "video_job",
       "sound",
-      "music"
+      "music",
+      "clip_sound"
     ],
     "outputs": [
       [
