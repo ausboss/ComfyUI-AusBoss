@@ -63,6 +63,58 @@ def named_copy_problems(node: dict) -> list[str]:
     return [f"node {node['id']} has stale named widget values: {', '.join(stale)}"] if stale else []
 
 
+def saved_widget(node: dict, name: str):
+    """A widget's saved value by name, or KeyError when the node keeps no named copy of it."""
+    values = node.get("widgets_values")
+    if isinstance(values, dict) and name in values:
+        return values[name]
+    named = node.get("widgets_values_named")
+    if isinstance(named, dict) and name in named:
+        return named[name]
+    raise KeyError(name)
+
+
+def switch_row_problems(card: dict, by_id: dict) -> list[str]:
+    """A Workflow Switches row opens striped "changed", with neither off nor
+    on picked, when the values it sets are saved half one way and half the
+    other, or when its nodes run one way and its values say the other. Every
+    row of an example has to open plainly off or on."""
+    settings = (card.get("properties") or {}).get("ausboss_workflow_switches") or {}
+    problems = []
+    for row in settings.get("switches") or []:
+        title = row.get("title", row.get("id"))
+        sides = set()
+        on, off = row.get("on") or {}, row.get("off") or {}
+        for node_id, widgets in on.items():
+            node = by_id.get(int(node_id)) if str(node_id).isdigit() else None
+            if node is None or not isinstance(widgets, dict):
+                continue
+            for name, on_value in widgets.items():
+                off_value = (off.get(node_id) or {}).get(name)
+                lora_rows = isinstance(on_value, str) and on_value.startswith("[")
+                if isinstance(on_value, (dict, list)) or lora_rows or on_value == off_value:
+                    continue  # a LoRA stack is matched row by row, and a shared value says nothing
+                try:
+                    saved = saved_widget(node, name)
+                except KeyError:
+                    continue
+                if saved == on_value:
+                    sides.add("on")
+                elif saved == off_value:
+                    sides.add("off")
+                else:
+                    sides.add(f"neither ({node_id} {name} is {saved!r}, not {on_value!r} or {off_value!r})")
+        members = [by_id[i] for i in row.get("nodes") or [] if i in by_id]
+        modes = {"on" if m.get("mode", 0) == 0 else "off" for m in members}
+        if len(modes) > 1:
+            problems.append(f"switch card {card['id']} row '{title}': some of its nodes are on and some off")
+        odd = sorted(side for side in sides if side not in ("on", "off"))
+        if odd or len(sides) > 1 or (sides and modes and sides != modes):
+            detail = "; ".join(odd) if odd else f"values say {'/'.join(sorted(sides))}, nodes say {'/'.join(sorted(modes)) or '-'}"
+            problems.append(f"switch card {card['id']} row '{title}' opens as changed: {detail}")
+    return problems
+
+
 def workflow_problems(data: dict) -> list[str]:
     problems = []
     nodes = data.get("nodes", [])
@@ -112,6 +164,8 @@ def workflow_problems(data: dict) -> list[str]:
         problems.append(f"saved zoom {scale} is below {MIN_ZOOM}; widget text would not draw")
     for n in nodes:
         problems.extend(named_copy_problems(n))
+        if n["type"] == "AUSBOSS_NODES_WorkflowSwitches":
+            problems.extend(switch_row_problems(n, by_id))
         if n["type"] in CORE_LORA_LOADERS:
             problems.append(f"node {n['id']} loads a LoRA with core {n['type']}; examples use LoRA Loader 🆎")
         selected = selected_files(n)

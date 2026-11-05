@@ -38,6 +38,24 @@ class WorkflowContractTests(unittest.TestCase):
         graph["nodes"][0]["widgets_values_named"] = {"video": "someone_else.mp4", "start_seconds": 0, "upload": ""}
         self.assertIn("stale named widget values: video", " ".join(workflow_problems(graph)))
 
+    def test_a_switch_row_must_open_plainly_off_or_on(self):
+        graph = good_graph()
+        graph["nodes"][0]["widgets_values"] = {"megapixels": 0.41}
+        card = {"id": 4, "type": "AUSBOSS_NODES_WorkflowSwitches", "pos": [0, 300], "size": [100, 40], "properties": {
+            "ausboss_workflow_switches": {"switches": [{"id": 9, "title": "Fast test", "nodes": [],
+                "on": {"1": {"megapixels": 0.26}}, "off": {"1": {"megapixels": 1}}}]}}}
+        graph["nodes"].append(card)
+        graph["last_node_id"] = 4
+        graph["groups"][0]["bounding"] = [-20, 40, 320, 320]
+        self.assertIn("row 'Fast test' opens as changed", " ".join(workflow_problems(graph)))
+        card["properties"]["ausboss_workflow_switches"]["switches"][0]["off"] = {"1": {"megapixels": 0.41}}
+        self.assertEqual(workflow_problems(graph), [])
+        graph["nodes"][1]["widgets_values"] = {"steps": 8}
+        graph["nodes"][1]["mode"] = 4
+        card["properties"]["ausboss_workflow_switches"]["switches"].append(
+            {"id": 10, "title": "Turbo", "nodes": [2], "on": {"2": {"steps": 8}}, "off": {"2": {"steps": 20}}})
+        self.assertIn("row 'Turbo' opens as changed: values say on, nodes say off", " ".join(workflow_problems(graph)))
+
     def test_workflow_id_and_zoom(self):
         graph = good_graph()
         graph["id"] = "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b"
