@@ -349,7 +349,7 @@ class InputListTests(TempFolders):
         patcher.start()
         self.addCleanup(patcher.stop)
 
-    def test_input_lists_find_nested_files_and_skip_hidden_or_linked_entries(self):
+    def test_input_lists_find_nested_files_and_skip_hidden_or_external_entries(self):
         self.touch(self.input / "sub" / "take.mp4")
         self.touch(self.input / "voice.wav")
         hidden = self.input / ".trash"
@@ -361,6 +361,16 @@ class InputListTests(TempFolders):
         self.assertEqual(list_input_images(), ["clipspace/painted.png", "pic.png", "sub/pic.png"])
         self.assertEqual(list_input_videos(), ["sub/take.mp4"])
         self.assertEqual(list_input_audio(), ["sub/take.mp4", "voice.wav"])
+
+    def test_file_links_inside_input_remain_selectable(self):
+        target = self.touch(self.input / "sub" / "take.mp4")
+        (self.input / "alias.mp4").symlink_to(Path("sub") / target.name)
+        (self.input / "broken.mp4").symlink_to("missing.mp4")
+        (self.input / "loop.mp4").symlink_to("loop.mp4")
+        (self.input / "linked_dir").symlink_to(self.input / "sub", target_is_directory=True)
+        self.assertEqual(list_input_videos(), ["alias.mp4", "sub/take.mp4"])
+        self.assertEqual(list_input_audio(), ["alias.mp4", "sub/take.mp4"])
+        self.assertEqual(resolve_input_path("alias.mp4"), target)
 
     def test_input_lists_share_one_scandir_walk_without_per_file_stat(self):
         self.touch(self.input / "sub" / "take.mp4")

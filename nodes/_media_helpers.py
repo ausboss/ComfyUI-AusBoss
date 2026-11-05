@@ -87,6 +87,7 @@ def clear_input_files_cache() -> None:
 
 def _scan_input_files(root: str) -> list[str]:
     files: list[str] = []
+    resolved_root = None
     stack: list[tuple[str, str]] = [(root, "")]
     while stack:
         folder, prefix = stack.pop()
@@ -101,7 +102,13 @@ def _scan_input_files(root: str) -> list[str]:
                             stack.append((entry.path, f"{prefix}{name}/"))
                         elif entry.is_file(follow_symlinks=False):
                             files.append(f"{prefix}{name}")
-                    except OSError:
+                        elif entry.is_symlink():
+                            if resolved_root is None:
+                                resolved_root = Path(root).resolve()
+                            target = Path(entry.path).resolve(strict=True)
+                            if target.is_relative_to(resolved_root) and target.is_file():
+                                files.append(f"{prefix}{name}")
+                    except (OSError, RuntimeError):  # A broken or looping link.
                         continue
         except OSError:
             continue
