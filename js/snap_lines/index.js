@@ -1,4 +1,4 @@
-import { app } from "/scripts/app.js";
+import { app } from "../../../scripts/app.js";
 import { BRAND, chainCallback } from "../shared/index.mjs";
 import {
   SNAP_SCREEN_PX,

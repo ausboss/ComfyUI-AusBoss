@@ -4,8 +4,8 @@
 // node, runs the node alone when the face asks for the picture or for what
 // SAM 3 finds at a click, and hands it what a run sent back.
 
-import { api } from "/scripts/api.js";
-import { app } from "/scripts/app.js";
+import { api } from "../../../scripts/api.js";
+import { app } from "../../../scripts/app.js";
 import { chainCallback } from "../shared/index.mjs";
 import { executionIdOf, isSwitchedOff, nodeByExecutionId } from "../shared/graph_ids.mjs";
 import { outputLocatorId } from "../shared/input_preview.mjs";

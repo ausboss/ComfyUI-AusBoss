@@ -10,8 +10,8 @@
 // through innerHTML - every string becomes a text node - and only http(s)
 // URLs become buttons or links (the parser already filtered them).
 
-import { api } from "/scripts/api.js";
-import { app } from "/scripts/app.js";
+import { api } from "../../../scripts/api.js";
+import { app } from "../../../scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { collectGraphNodes } from "../shared/appearance.mjs";
 import { copyToClipboard } from "../shared/clipboard.mjs";

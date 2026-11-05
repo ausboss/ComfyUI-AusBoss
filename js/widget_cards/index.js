@@ -4,8 +4,8 @@
 // mirrors them, so the backend, saved workflows and widget-to-input links
 // are untouched. Rows with `when` appear only while they mean something,
 // and a `group` row folds the rarely-touched settings behind one click.
-import { api } from "/scripts/api.js";
-import { app } from "/scripts/app.js";
+import { api } from "../../../scripts/api.js";
+import { app } from "../../../scripts/app.js";
 import { chainCallback, notifyAusbossChange } from "../shared/index.mjs";
 import { formatWidgetVisibility } from "../shared/save_video_formats.mjs";
 import { hideInputsInDef } from "../shared/widget_visibility.mjs";

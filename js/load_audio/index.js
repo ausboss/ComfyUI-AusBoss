@@ -6,8 +6,8 @@
 // move IN or OUT, drag the middle to slide the pick, or click elsewhere to
 // move it there. Play plays only what comes out. The widgets underneath
 // (start_seconds, end_seconds, max_seconds) stay the source of truth.
-import { api } from "/scripts/api.js";
-import { app } from "/scripts/app.js";
+import { api } from "../../../scripts/api.js";
+import { app } from "../../../scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";

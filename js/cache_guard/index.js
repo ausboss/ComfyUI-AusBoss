@@ -4,8 +4,8 @@
 //
 // Imports nothing from ../shared on purpose. Old cached copies of those files
 // are the problem this entry has to survive.
-import { api } from "/scripts/api.js";
-import { app } from "/scripts/app.js";
+import { api } from "../../../scripts/api.js";
+import { app } from "../../../scripts/app.js";
 
 const PACK_URL = new URL("../", import.meta.url).href;
 const PARALLEL = 6;

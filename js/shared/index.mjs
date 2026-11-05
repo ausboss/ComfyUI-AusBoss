@@ -4,7 +4,7 @@
 // which makes this the right home for import-only utilities. Per-node
 // entry points live in js/<node>/index.js and import from here.
 
-import { app } from "/scripts/app.js";
+import { app } from "../../../scripts/app.js";
 
 // Must match `version` in pyproject.toml — scripts/release_preflight.py
 // enforces it. The backend serves its copy at /ausboss/pack_version; a

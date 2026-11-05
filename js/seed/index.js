@@ -11,7 +11,7 @@
 // is what "last run" shows, so it stays right even after randomize has
 // already moved the box on to the next number.
 
-import { app } from "/scripts/app.js";
+import { app } from "../../../scripts/app.js";
 import { isForeignRun } from "../shared/prompt_scope.mjs";
 import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";

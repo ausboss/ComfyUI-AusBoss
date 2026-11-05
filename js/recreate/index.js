@@ -7,7 +7,7 @@
 // position/size/title/colors/flags/mode/properties survive. Slots or
 // widgets that no longer exist are skipped silently. Any failure rolls
 // the graph back and keeps the original node.
-import { app } from "/scripts/app.js";
+import { app } from "../../../scripts/app.js";
 import { linkSlots, restoreOutputLinks, snapshotLinks } from "../shared/graph_links.mjs";
 import { isAusbossNode } from "../shared/index.mjs";
 

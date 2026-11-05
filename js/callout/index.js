@@ -6,7 +6,7 @@
 // and copy ride the default path); the panel only shows it. Decisions live in
 // js/shared/callout.mjs under node:test.
 
-import { app } from "/scripts/app.js";
+import { app } from "../../../scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto } from "../shared/index.mjs";
 import {
   ARROW_ANGLE,

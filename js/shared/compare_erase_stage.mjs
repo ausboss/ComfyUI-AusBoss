@@ -5,7 +5,7 @@
 // a mask canvas holds what has been rubbed away, and the view shows the
 // picture underneath with the top picture, less that mask, over it. Save
 // sends the strokes to the server, which builds the mix at full size.
-import { api } from "/scripts/api.js";
+import { api } from "../../../scripts/api.js";
 import { BRAND, notifyAusbossChange, showToast } from "./index.mjs";
 import { brushAdjusts, brushFlips, brushKey, brushWords, toolKey } from "./brush.mjs";
 import { keepKeyInField } from "./canvas_passthrough.mjs";

@@ -17,8 +17,8 @@
 // It also notes the runs a node starts for itself (Mask by Touch looking at
 // its picture), so the Run Timer and the runtime badges can leave them out.
 
-import { api } from "/scripts/api.js";
-import { app } from "/scripts/app.js";
+import { api } from "../../../scripts/api.js";
+import { app } from "../../../scripts/app.js";
 import { isAusbossNode } from "../shared/index.mjs";
 import { nodeByExecutionId } from "../shared/graph_ids.mjs";
 import { isNodeOwnRun, outputKey, ownRuns, runScope } from "../shared/prompt_scope.mjs";

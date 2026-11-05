@@ -11,7 +11,7 @@
 // Undo is instant. And the edge settings are worked out here on a small copy
 // of the picture, so Grow and Soften answer while they are dragged.
 
-import { api } from "/scripts/api.js";
+import { api } from "../../../scripts/api.js";
 import {
   brushAdjusts,
   brushCore,

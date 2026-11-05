@@ -32,7 +32,7 @@
 // while the canvas is busy, and always one after the last redraw. The
 // decisions live in js/shared/workflow_switches.mjs under node:test.
 
-import { app } from "/scripts/app.js";
+import { app } from "../../../scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "../shared/index.mjs";
 import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { holdNodeMinWidth, holdVueNodeMinWidth, pinVuePanelHeight } from "../shared/panel_layout.mjs";

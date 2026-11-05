@@ -1,4 +1,4 @@
-import { app } from "/scripts/app.js";
+import { app } from "../../../scripts/app.js";
 import { BRAND, notifyAusbossChange, showToast } from "../shared/index.mjs";
 import { enoughFor, lineUp, matchWidth, sameSize, sharedSides, spreadEvenly } from "../shared/line_up.mjs";
 import { outlineOf } from "../shared/outline.mjs";

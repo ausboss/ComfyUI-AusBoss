@@ -1,5 +1,5 @@
-import { api } from "/scripts/api.js";
-import { app } from "/scripts/app.js";
+import { api } from "../../../scripts/api.js";
+import { app } from "../../../scripts/app.js";
 import { isForeignRun, outputKey } from "../shared/prompt_scope.mjs";
 import { chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { installNameTokens } from "../shared/name_tokens.mjs";

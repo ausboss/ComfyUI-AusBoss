@@ -1,4 +1,4 @@
-import { app } from "/scripts/app.js";
+import { app } from "../../../scripts/app.js";
 import {
   CUSTOM_SCHEME,
   DEFAULT_SCHEME,

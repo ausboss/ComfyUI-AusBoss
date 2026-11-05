@@ -5,8 +5,8 @@
 // setting turns it on. The chime is built once as a small WAV in memory
 // and played through an ordinary audio element, so the pack ships no sound
 // file and nothing is built until the first chime plays.
-import { api } from "/scripts/api.js";
-import { app } from "/scripts/app.js";
+import { api } from "../../../scripts/api.js";
+import { app } from "../../../scripts/app.js";
 import { showToast } from "../shared/index.mjs";
 import { noticesFromExecuted, queueRemaining, shouldChime } from "../shared/notify.mjs";
 import { chimeSamples, wavBytes } from "./chime.mjs";

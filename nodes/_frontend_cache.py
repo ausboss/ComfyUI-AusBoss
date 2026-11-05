@@ -40,8 +40,8 @@ def list_pack_modules(pack_dir=PACK_DIR):
 
 
 def is_pack_module_path(request_path, pack_name):
-    """True for /extensions/<pack_name>/.../*.mjs."""
-    return request_path.startswith(f"/extensions/{pack_name}/") and request_path.endswith(".mjs")
+    """True for /extensions/<pack_name>/.../*.mjs (including behind a path prefix)."""
+    return f"/extensions/{pack_name}/" in request_path and request_path.endswith(".mjs")
 
 
 def compute_module_token(js_root):
