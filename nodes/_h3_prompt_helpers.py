@@ -302,11 +302,14 @@ def write_prompt(script, seconds=15.0, camera="", look="", sound="", language="E
             cast.name_who_goes([without_speech(moment) for moment in scene.moments])
             goes = [(who, str(picture.slot)) for who, picture in zip(cast.whos, cast.swappers) if who != ONE_GOES]
             scene.moments = swap_lines(scene.moments, goes)
-            if clip_sound:
-                # On real clips, leaving others' words out kept the right mouth moving; naming them as off screen did not.
-                cast.clip_sound = True
-                time_from_sound(scene.moments, speech)
-                scene.moments = [moment for moment in scene.moments if not (moment.voice or moment.other)]
+        if video == SWAP and clip_sound:
+            # On real clips, leaving others' words out kept the right mouth moving; naming them as off screen did not.
+            cast.clip_sound = True
+            # With no words typed, the clip's own speech is still heard, so the new person says it as the video does.
+            cast.typed_lines = any(moment.speech for moment in scene.moments)
+            cast.speaks_as_video = bool(speech) and not cast.typed_lines
+            time_from_sound(scene.moments, speech)
+            scene.moments = [moment for moment in scene.moments if not (moment.voice or moment.other)]
         if not scene.moments:
             scene.moments.append(Moment(ACTION_GOES_ON if video == KEEP else ""))
         if voice and not any(moment.speech for moment in scene.moments):

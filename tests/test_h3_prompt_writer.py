@@ -1343,6 +1343,24 @@ class ClipSoundTests(unittest.TestCase):
                         speech=plain([(0.5, 2.0)]), **SWAP_JOBS)["detailed_description"]
         self.assertNotIn("Move.", line)
 
+    def test_a_swap_with_no_words_typed_speaks_as_the_video_does(self):
+        for script in ("@1 replaces the man in the hat.", ""):
+            parts = parts_of(script, clip_sound=True, speech=plain([(0.4, 1.9), (2.3, 4.0)]), **SWAP_JOBS)
+            line = parts["detailed_description"]
+            self.assertIn("<Subject 2> speaks as in <Video 1>, each word landing exactly on the lip movement of <Video 1>.", line)
+            self.assertNotIn("says nothing", line)
+            self.assertNotIn("keeps the lips closed", line)
+            self.assertEqual(parts["overall_soundscape"], "The original sound of <Video 1> continues throughout.")
+
+    def test_no_words_typed_and_no_speech_heard_says_nothing_of_the_lips(self):
+        line = parts_of("@1 replaces the man in the hat.", clip_sound=True, speech=[], **SWAP_JOBS)["detailed_description"]
+        self.assertNotIn("lips", line)
+        self.assertNotIn("speaks as in", line)
+
+    def test_a_typed_sound_wins_over_the_clips_sound(self):
+        parts = parts_of("@1 replaces the man in the hat.\nsound: rain on the roof", clip_sound=True, speech=plain([(0.4, 1.9)]), **SWAP_JOBS)
+        self.assertIn("rain on the roof", parts["overall_soundscape"].lower())
+
     def test_a_typed_time_wins_over_the_sound(self):
         script = '@1 replaces the man at the till.\n3.5s: @1 says "Again?"'
         line = parts_of(script, clip_sound=True, speech=plain([(1.0, 2.0)]), **SWAP_JOBS)["detailed_description"]
@@ -1364,6 +1382,10 @@ class ClipSoundTests(unittest.TestCase):
         self.assertIsNone(on[6])  # A swap still sends H3 none of the video's sound itself.
         off = node.write(STATE, 6, picture_1=PICTURE, video=frames, video_sound=sound, video_job="swap the person")
         self.assertIn("Who told you", off[0])
+        hat = node.write("@1 replaces the man in the hat.", 6, picture_1=PICTURE, video=frames, video_sound=sound, video_job="swap the person",
+                         clip_sound=True)[0]
+        self.assertIn("<Subject 2> speaks as in <Video 1>", hat)
+        self.assertNotIn("says nothing", hat)
         moves = node.write('@1 dances.', 6, picture_1=PICTURE, video=frames, video_sound=sound, video_job="copy its moves", clip_sound=True)
         self.assertEqual(moves[0], node.write('@1 dances.', 6, picture_1=PICTURE, video=frames, video_sound=sound, video_job="copy its moves")[0])
 
