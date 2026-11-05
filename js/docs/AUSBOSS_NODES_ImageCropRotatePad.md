@@ -88,11 +88,11 @@ sides at once, so the picture keeps its place in the middle. You can press or le
 go of Alt during the drag. A corner stops when one of its two sides has no padding
 left to take away.
 
-The two **Center** buttons next to Fill, Feather and Resize put the picture in
-the middle of the canvas: one side to side, one top to bottom. They move padding from
-one side to the other, so the canvas keeps its size and a lit ratio stays lit. A
-button is dimmed when the picture is already in the middle or that way has no
-padding to move. On a narrow node they sit on a line of their own.
+**Center** moves the crop to the middle of the rotated source, side to side or
+top to bottom. If there is padding on that axis, the same click also balances
+the bands around the crop. The crop and output keep their sizes, and the
+generated mask follows the new placement. Each button dims when its axis is
+as centered as the pixels allow.
 
 The orange diamonds move one side at a time, and the padlock works on them as
 described above. The corners keep the shape with or without the padlock. The

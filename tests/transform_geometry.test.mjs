@@ -744,6 +744,7 @@ import {
   axisBands,
   canvasCornerCenters,
   centredPadding,
+  centredTransform,
   cornerScale,
   knobAt,
   knobOffset,
@@ -914,4 +915,26 @@ test("the knob keeps its spot on its arm while it turns", () => {
   // Turned a quarter about the centre, the knob turns with the corner.
   const turned = knobAt({ x: 160, y: 200 }, center, offset);
   assert.ok(Math.abs(turned.x - 120) < 1e-9 && Math.abs(turned.y - 214) < 1e-9, JSON.stringify(turned));
+});
+
+test("Center slides a crop without padding and preserves an open-ended crop's size", () => {
+  const source = { width: 832, height: 1216 };
+  const values = { crop_x: 149, crop_y: 0, crop_width: 0, crop_height: 1200 };
+  const moved = centredTransform(values, source, "x");
+  assert.deepEqual(moved, { crop_x: 74, crop_width: 683 });
+  const centred = { ...values, ...moved };
+  assert.deepEqual(resolveCrop(centred, source), { x: 74, y: 0, width: 683, height: 1200 });
+  assert.equal(centredTransform(centred, source, "x"), null);
+  assert.deepEqual(centredTransform(centred, source, "y"), { crop_y: 8 });
+});
+
+test("Center balances crop and padding together and leaves the other axis alone", () => {
+  const source = { width: 832, height: 1216 };
+  const values = { crop_x: 10, crop_y: 15, crop_width: 683, crop_height: 1200, pad_right: 105, pad_top: 12 };
+  const moved = centredTransform(values, source, "x");
+  assert.deepEqual(moved, { crop_x: 74, pad_left: 52, pad_right: 53 });
+  const next = { ...values, ...moved };
+  assert.deepEqual(resolvePadding(next, resolveCrop(next, source)).outputWidth, 788);
+  assert.equal(centredTransform(next, source, "x"), null);
+  assert.equal(centredTransform({}, source, "x"), null);
 });

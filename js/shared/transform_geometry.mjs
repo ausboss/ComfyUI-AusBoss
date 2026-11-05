@@ -762,6 +762,20 @@ export function centredPadding(values, crop, axis) {
   return Math.abs(then.near - then.far) < Math.abs(now.near - now.far) ? moved : null;
 }
 
+// Center the crop within the rotated source and balance its output padding
+// on the same axis. Keep the resolved extent even for an open-ended crop.
+export function centredTransform(values, source, axis) {
+  const crop = resolveCrop(values, source);
+  const pads = centredPadding(values, crop, axis);
+  const extent = axis === "x" ? "width" : "height";
+  const spare = source[extent] - crop[extent];
+  if (Math.abs(spare - 2 * crop[axis]) <= 1) return pads;
+  const moved = { ...pads, [`crop_${axis}`]: Math.floor(spare / 2) };
+  const next = resolveCrop({ ...values, ...moved }, source);
+  if (next[extent] !== crop[extent]) moved[`crop_${extent}`] = crop[extent];
+  return moved;
+}
+
 // The bands on either side of the picture along an axis as the output has
 // them (Divisible by's fill included), for the centre buttons to say
 // where the picture sits.

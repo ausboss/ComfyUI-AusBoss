@@ -29,7 +29,7 @@ import {
   canvasCornerCenters,
   canvasLocalPoint,
   canvasSize,
-  centredPadding,
+  centredTransform,
   clamp,
   cornerScale,
   cropForRotation,
@@ -1121,36 +1121,37 @@ function buildAspectModeRow(state, { alignment: withAlignment = true } = {}) {
 }
 
 // --- Centring the picture ----------------------------------------------------
-// Two small buttons put the picture in the middle of the canvas, side to side
-// and top to bottom. They only move padding from one side to the other
-// (centredPadding), so the canvas keeps its size and a lit ratio stays lit.
-// The node face and the editor's Padding section each get a pair.
+// Center uses the same geometry on the face and in the full-screen editor.
 const CENTRE_AXES = [
-  ["x", "Center side to side", "left and right"],
-  ["y", "Center top to bottom", "top and bottom"],
+  ["x", "Center side to side"],
+  ["y", "Center top to bottom"],
 ];
 
 function centrePicture(state, axis) {
   if (!hasPicture(state)) return;
-  const current = values(state.node);
-  const pads = centredPadding(current, resolveCrop(current, sourceSize(state)), axis);
-  if (!pads) return;
-  for (const [name, next] of Object.entries(pads)) setValue(state.node, name, next);
+  const changes = centredTransform(values(state.node), sourceSize(state), axis);
+  if (!changes) return;
+  for (const [name, next] of Object.entries(changes)) setValue(state.node, name, next);
   settleRequest(state); draw(state); updateModalInfo(state); notifyAusbossChange();
 }
 
-// What a centre button would do now, for its look and its tooltip.
 function centreStatus(state, axis) {
-  const [, action, sides] = CENTRE_AXES.find(([name]) => name === axis);
-  const plain = `${action}: moves padding so the ${sides} bands are even. The canvas keeps its size.`;
-  if (!hasPicture(state)) return { ready: false, title: plain };
+  const [, action] = CENTRE_AXES.find(([name]) => name === axis);
+  if (!hasPicture(state)) return { ready: false, title: "Choose a picture or video to center." };
   const current = values(state.node);
-  const crop = resolveCrop(current, sourceSize(state));
-  if (centredPadding(current, crop, axis)) return { ready: true, title: plain };
-  const bands = axisBands(current, crop, axis);
-  if (!bands.near && !bands.far) return { ready: false, title: `No padding on the ${sides} to move. ${plain}` };
-  if (Math.abs(bands.near - bands.far) <= 1) return { ready: false, title: `The picture is already in the middle. ${plain}` };
-  return { ready: false, title: `As close to the middle as this padding allows: Divisible by adds its fill on one side. ${plain}` };
+  const source = sourceSize(state);
+  const changes = centredTransform(current, source, axis);
+  if (changes) {
+    const movesCrop = `crop_${axis}` in changes;
+    const movesPadding = (axis === "x" ? "pad_left" : "pad_top") in changes;
+    const detail = movesCrop && movesPadding ? "Move the crop to the middle and balance the padding."
+      : movesCrop ? "Move the crop to the middle of the source." : "Balance the padding around the picture.";
+    return { ready: true, title: `${action}. ${detail}` };
+  }
+  const bands = axisBands(current, resolveCrop(current, source), axis);
+  return { ready: false, title: Math.abs(bands.near - bands.far) <= 1
+    ? `${action}. Already centered on this axis.`
+    : `${action}. The crop is centered. Divisible by limits how evenly the padding can be split.` };
 }
 
 function buildCentreButtons(state) {
