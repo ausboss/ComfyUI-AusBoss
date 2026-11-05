@@ -676,6 +676,138 @@ class VideoJobTests(unittest.TestCase):
         self.assertIn("Everyone else stays", parts["detailed_description"])
         self.assertNotIn("Show one person", parts["detailed_description"])
 
+    def test_a_swap_with_two_people_puts_each_in_one_place(self):
+        parts = parts_of("", jobs={1: "person", 2: "person"}, video="swap the person")
+        self.assertIn("Replace <Subject 1> with <Subject 3> and <Subject 2> with <Subject 4>", parts["summary"])
+        self.assertIn("<Subject 1> is the person on the left in <Video 1>", parts["subject_definitions"])
+        self.assertIn("<Subject 2> is the person on the right in <Video 1>", parts["subject_definitions"])
+        self.assertIn("<Subject 4> is the person in <Picture 2>", parts["subject_definitions"])
+        self.assertIn("replace the person on the right with <Subject 4>", parts["retention_analysis"])
+        self.assertIn("change only the people", parts["retention_analysis"])
+        self.assertIn("<Subject 4> takes the place of the person on the right", parts["detailed_description"])
+        self.assertNotIn("Show one person", parts["detailed_description"])
+
+    def test_a_swap_with_two_people_reads_who_goes_from_the_script(self):
+        for script in ("@2 is the woman in red. @1 replaces the man in the hat", "The man in the hat.\nThe woman in red."):
+            parts = parts_of(script, jobs={1: "person", 2: "character sheet"}, video="swap the person")
+            self.assertIn("replace the man in the hat with <Subject 3>", parts["retention_analysis"])
+            self.assertIn("replace the woman in red with <Subject 4>", parts["retention_analysis"])
+            self.assertNotIn("@", join_sections(parts))
+
+    def test_one_swap_takes_the_at_out_of_who_goes(self):
+        parts = parts_of("@1 replaces the child in the seat", jobs={1: "person"}, video="swap the person")
+        self.assertIn("replace the child in the seat with <Subject 2>", parts["retention_analysis"])
+
+    def test_a_swap_reads_who_goes_out_of_a_longer_line(self):
+        parts = parts_of("Elon is @1, he replaces the person at the counter", jobs={1: "person"}, video="swap the person")
+        self.assertIn("<Subject 1> is the person at the counter in <Video 1>", parts["subject_definitions"])
+        self.assertNotIn("Elon", join_sections(parts))
+        parts = parts_of("Elon is @1", jobs={1: "person"}, video="swap the person")
+        self.assertIn("<Subject 1> is the original person in <Video 1>", parts["subject_definitions"])
+        script = "Elon is @1, he replaces the man on the left. Sam is @2, she takes the place of the woman in red"
+        parts = parts_of(script, jobs={1: "person", 2: "person"}, video="swap the person")
+        self.assertIn("replace the man on the left with <Subject 3>", parts["retention_analysis"])
+        self.assertIn("replace the woman in red with <Subject 4>", parts["retention_analysis"])
+
+    def test_a_swap_carries_the_words_in_quotes_onto_the_lips(self):
+        script = 'Elon is @1, he replaces the person at the counter.\n@1 says "Welcome in, what can I get you?"'
+        parts = parts_of(script, jobs={1: "person"}, video="swap the person")
+        self.assertIn("<Subject 1> is the person at the counter in <Video 1>", parts["subject_definitions"])
+        line = parts["detailed_description"]
+        self.assertIn("<d>[English] Welcome in, what can I get you?</d>", line)
+        self.assertIn("<Subject 2> (S1) says, each word landing exactly on the lip movement of <Video 1>", line)
+        self.assertNotIn("Elon", join_sections(parts))
+
+    def test_a_swap_gives_each_named_person_their_own_words(self):
+        script = (
+            "Altman is @1, the man on the left. Dario is @2, the man on the right.\n"
+            'Dario says "We should talk."\nAltman says "Again?"\nHe says "Fine."'
+        )
+        parts = parts_of(script, jobs={1: "person", 2: "person"}, video="swap the person")
+        self.assertIn("replace the man on the left with <Subject 3>", parts["retention_analysis"])
+        self.assertIn("replace the man on the right with <Subject 4>", parts["retention_analysis"])
+        line = parts["detailed_description"]
+        self.assertIn("<Subject 4> (S1) says, each word landing exactly on the lip movement of <Video 1>, <d>[English] We should talk.</d>", line)
+        self.assertIn("<Subject 3> (S2) says, each word landing exactly on the lip movement of <Video 1>, <d>[English] Again?</d>", line)
+        self.assertIn("<Subject 3> (S2) says, each word landing exactly on the lip movement of <Video 1>, <d>[English] Fine.</d>", line)
+        parts = parts_of("Altman is @1, the man on the left, Dario is @2, the man on the right", jobs={1: "person", 2: "person"}, video="swap the person")
+        self.assertIn("replace the man on the left with <Subject 3>", parts["retention_analysis"])
+
+    def test_a_thing_in_a_swap_speaks_from_off_screen(self):
+        script = '@1 replaces the man at the till.\nThe card reader beeps and says "Card declined."\n@1 says "Again?"'
+        line = parts_of(script, jobs={1: "person"}, video="swap the person")["detailed_description"]
+        self.assertIn("card reader (S2) says from off screen, <d>[English] Card declined.</d> Nobody on screen moves", line)
+        self.assertIn("<Subject 2> (S1) says, each word landing exactly on the lip movement of <Video 1>, <d>[English] Again?</d>", line)
+
+    def test_a_person_off_screen_in_a_swap_gets_their_own_voice(self):
+        for said_by, voice in (('A woman off screen says', "A woman"), ('The cashier, off camera, says', "The cashier"),
+                               ('Someone behind the camera yells', "Someone"), ('Mom (O.S.) says', "Mom")):
+            script = f'@1 replaces the man at the till.\n{said_by} "Card declined."\n@1 says "Again?"'
+            line = parts_of(script, jobs={1: "person"}, video="swap the person")["detailed_description"]
+            self.assertIn(f"{voice} (S2) says from off screen, <d>[English] Card declined.</d> Nobody on screen moves", line)
+            self.assertIn("<Subject 2> (S1) says, each word landing exactly on the lip movement of <Video 1>, <d>[English] Again?</d>", line)
+            self.assertNotIn("<Subject 2> (S1) says in an off-screen voiceover", line)
+
+    def test_a_person_off_screen_is_not_the_person_on_screen(self):
+        line = parts_of('@1 stands at the till.\nA woman off screen says "Card declined."\n@1 says "Again?"', jobs={1: "person"})["detailed_description"]
+        self.assertIn("a woman (S2) says from off screen, <d>[English] Card declined.</d>", line)
+        self.assertIn("<Subject 1> (S1) says, <d>[English] Again?</d>", line)
+        self.assertNotIn("woman stays silent", line)
+
+    def test_a_thing_marked_off_screen_speaks_for_itself_in_every_mode(self):
+        for video in ("", "copy its moves"):
+            script = '@1 stands at the till.\nA card reader off screen says "Card declined."\n@1 says "Again?"'
+            line = parts_of(script, jobs={1: "person"}, video=video)["detailed_description"]
+            self.assertIn("a card reader (S2) says from off screen, <d>[English] Card declined.</d> Nobody on screen moves", line)
+            self.assertNotIn("<Subject 1> (S1) says in an off-screen voiceover", line)
+
+    def test_an_unnamed_voiceover_stays_the_main_persons(self):
+        for script in ('@1 stands at the till.\nVoiceover: "I was broke."', '@1 stands at the till.\n@1, off screen, says "I was broke."',
+                       '@1 stands at the till.\nShe says off camera "I was broke."'):
+            line = parts_of(script, jobs={1: "person"})["detailed_description"]
+            self.assertIn("<Subject 1> (S1) says in an off-screen voiceover, <d>[English] I was broke.</d>", line)
+
+    def test_a_swap_can_keep_the_clips_clothes(self):
+        for script in ('@1 replaces the girl in the hoodie and keeps her outfit.', "@1 replaces the girl in the hoodie, in the clip's clothes.",
+                       '@1 replaces the girl in the hoodie.\nKeep the clothes from the video.'):
+            parts = parts_of(script, jobs={1: "person"}, video="swap the person")
+            self.assertIn("<Subject 1> is the girl in the hoodie in <Video 1>, selected for replacement.", parts["subject_definitions"])
+            self.assertIn("<Subject 2> is the person in <Picture 1>, with the same face and hair, wearing the clothes of the girl in the hoodie in <Video 1>.",
+                          parts["subject_definitions"])
+            self.assertIn("the clothes of the girl in the hoodie in <Video 1> stay as they are", parts["retention_analysis"])
+            self.assertNotIn("same face, hair and clothes", parts["subject_definitions"])
+
+    def test_a_swap_wears_the_pictures_clothes_unless_told(self):
+        for script in ('@1 replaces the girl in the hoodie.', '@1 replaces the girl in the hoodie and keeps her own clothes.'):
+            parts = parts_of(script, jobs={1: "person"}, video="swap the person")
+            self.assertIn("<Subject 2> is the person in <Picture 1>, with the same face, hair and clothes.", parts["subject_definitions"])
+
+    def test_how_a_swap_line_is_said_stays_out_of_who_says_it(self):
+        script = '@1 replaces the man at the till.\nThe card reader says in a flat robot voice "Card declined."'
+        line = parts_of(script, jobs={1: "person"}, video="swap the person")["detailed_description"]
+        self.assertIn("card reader (S1) says in a flat robot voice from off screen, <d>[English] Card declined.</d>", line)
+        self.assertNotIn("reader says in", line)
+
+    def test_a_swap_line_keeps_the_decimals_of_its_time(self):
+        for script in ('@1 replaces the man at the till.\n3.2s: @1 says "Again?"', '@1 replaces the man at the till.\nAt 3.2 seconds @1 says "Again?"',
+                       '@1 replaces the man at the till.\nThe card reader, at 3.2s, says "Card declined."'):
+            line = parts_of(script, jobs={1: "person"}, video="swap the person", seconds=8)["detailed_description"]
+            self.assertIn("At 00:03.200,", line)
+        self.assertEqual(read_script("1.5s: she waves").moments[-1].at, 1.5)
+
+    def test_a_swap_line_that_raps_keeps_the_verb_out_of_who_goes(self):
+        parts = parts_of('@1 replaces the man on the left.\n@2 replaces the man on the right and raps "Yo, yo."', jobs={1: "person", 2: "person"}, video="swap the person")
+        self.assertIn("replace the man on the right with <Subject 4>", parts["retention_analysis"])
+        self.assertNotIn("and raps", join_sections(parts))
+        self.assertIn("replace the man on the left with <Subject 3>", parts["retention_analysis"])
+        self.assertIn("<Subject 4> (S1) says, each word landing", parts["detailed_description"])
+
+    def test_a_swap_with_a_voice_takes_its_words(self):
+        parts = parts_of('@1 replaces the man in the hat. He says "Hi there."', jobs={1: "person"}, video="swap the person", voice=True)
+        self.assertIn("replace the man in the hat with <Subject 2>", parts["retention_analysis"])
+        self.assertIn("voice timbre referenced from <Audio 1>, each word landing exactly on the lip movement of <Video 1>", parts["detailed_description"])
+        self.assertIn("<d>[English] Hi there.</d>", parts["detailed_description"])
+
     def test_keeping_going_needs_no_words_and_no_picture(self):
         parts = parts_of("", jobs={}, video="keep going")
         self.assertTrue(parts["summary"].startswith("[video continuation]"))
