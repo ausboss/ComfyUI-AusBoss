@@ -652,6 +652,12 @@ class VideoJobTests(unittest.TestCase):
         cast = Cast(number_pictures({1: "place"}, "copy its moves"), "copy its moves")
         self.assertIn("To copy the moves", cast.problem("She dances."))
 
+    def test_a_hat_with_no_person_picture_says_how_to_put_it_on_the_video_person(self):
+        for job in ("outfit", "thing"):
+            for video in ("swap the person", "copy its moves"):
+                cast = Cast(number_pictures({1: job}, video), video)
+                self.assertIn("load a still of them from the video as Picture 1", cast.problem("He wears @1."))
+
     def test_a_swap_with_nobody_to_put_in_says_so(self):
         with self.assertRaisesRegex(ValueError, "new person"):
             write_prompt("", jobs={}, video="swap the person")

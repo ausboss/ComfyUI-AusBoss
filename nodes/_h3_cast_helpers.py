@@ -37,6 +37,12 @@ NEEDS_A_PERSON = {
     MOVES: "To copy the moves, connect a picture of your person and pick person for it.",
     SWAP: "To swap the person, connect a picture of the new person and pick person for it.",
 }
+# A hat or a shirt with no person picture: the user wants the video's own person to wear it.
+DRESS_THE_VIDEO_PERSON = (
+    "To put this on the person in your video, load a still of them from the video as Picture 1 "
+    "and pick person for it. Give the hat or outfit its own picture, pick outfit or thing, and type "
+    "\"@1 wears @2\" with video job swap the person."
+)
 
 # (what the label is, how it is kept). {picture} is H3's number for the picture.
 JOB_WORDS = {
@@ -241,6 +247,8 @@ class Cast:
         if not self.pictures and not self.video:
             return NOTHING_IN
         if self.video in NEEDS_A_PERSON and not self.people:
+            if self.of(OUTFIT, THING):
+                return DRESS_THE_VIDEO_PERSON
             return NEEDS_A_PERSON[self.video]
         typed = sorted({int(number) for number in TOKEN.findall(text)} - {0})
         slots = {picture.slot: picture for picture in self.pictures}
