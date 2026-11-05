@@ -57,14 +57,15 @@ def list_input_audio() -> list[str]:
     """Sound files (and videos, for their sound) in ComfyUI's input folder."""
     if folder_paths is None:
         return [""]
-    root = Path(folder_paths.get_input_directory())
+    from ._media_helpers import list_input_files
+
     kinds = AUDIO_EXTENSIONS | SOUND_IN_VIDEO_EXTENSIONS
     results = [
-        path.relative_to(root).as_posix()
-        for path in root.rglob("*")
-        if path.is_file() and not path.name.startswith(".") and path.suffix.lower() in kinds
+        name
+        for name in list_input_files(folder_paths)
+        if Path(name).suffix.lower() in kinds
     ]
-    return sorted(results, key=str.casefold) or [""]
+    return results or [""]
 
 
 def audio_window(start_seconds, end_seconds, max_seconds=0.0, duration=None) -> dict:

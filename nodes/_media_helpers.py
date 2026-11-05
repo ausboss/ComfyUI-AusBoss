@@ -51,6 +51,16 @@ _SERVER_FOLDERS = {
 # The Outputs list shows this many, newest first.
 OUTPUT_LIST_CAP = 2000
 
+IMAGE_EXTENSIONS = {
+    ".bmp",
+    ".gif",
+    ".jpeg",
+    ".jpg",
+    ".png",
+    ".tif",
+    ".tiff",
+    ".webp",
+}
 VIDEO_EXTENSIONS = {
     ".avi",
     ".m2ts",
@@ -64,34 +74,101 @@ VIDEO_EXTENSIONS = {
     ".webm",
 }
 
+_INPUT_FILES_LOCK = threading.Lock()
+_INPUT_FILES_CACHE: tuple[str, int, float, list[str]] | None = None
+_INPUT_FILES_TTL = 5.0
+
+
+def clear_input_files_cache() -> None:
+    global _INPUT_FILES_CACHE
+    with _INPUT_FILES_LOCK:
+        _INPUT_FILES_CACHE = None
+
+
+def _scan_input_files(root: str) -> list[str]:
+    files: list[str] = []
+    resolved_root = None
+    stack: list[tuple[str, str]] = [(root, "")]
+    while stack:
+        folder, prefix = stack.pop()
+        try:
+            with os.scandir(folder) as entries:
+                for entry in entries:
+                    name = entry.name
+                    if name.startswith("."):
+                        continue
+                    try:
+                        if entry.is_dir(follow_symlinks=False):
+                            stack.append((entry.path, f"{prefix}{name}/"))
+                        elif entry.is_file(follow_symlinks=False):
+                            files.append(f"{prefix}{name}")
+                        elif entry.is_symlink():
+                            if resolved_root is None:
+                                resolved_root = Path(root).resolve()
+                            target = Path(entry.path).resolve(strict=True)
+                            if target.is_relative_to(resolved_root) and target.is_file():
+                                files.append(f"{prefix}{name}")
+                    except (OSError, RuntimeError):  # A broken or looping link.
+                        continue
+        except OSError:
+            continue
+    files.sort(key=str.casefold)
+    return files
+
+
+def list_input_files(paths=None) -> list[str]:
+    """Every non-hidden regular file in ComfyUI's input folder, as a forward-slash
+    path below it, sorted case-insensitively. Shared across the input loaders so
+    /object_info walks the input tree once with os.scandir instead of per-file
+    stat calls on every node."""
+    global _INPUT_FILES_CACHE
+    if paths is None:
+        if folder_paths is None:
+            return []
+        input_dir = folder_paths.get_input_directory()
+    else:
+        input_dir = paths.get_input_directory()
+    root = os.path.normpath(str(input_dir))
+    try:
+        root_mtime = os.stat(root).st_mtime_ns
+    except OSError:
+        return []
+    now = time.monotonic()
+    with _INPUT_FILES_LOCK:
+        cached = _INPUT_FILES_CACHE
+        if (
+            cached is not None
+            and cached[0] == root
+            and cached[1] == root_mtime
+            and (now - cached[2]) < _INPUT_FILES_TTL
+        ):
+            return list(cached[3])
+    files = _scan_input_files(root)
+    with _INPUT_FILES_LOCK:
+        _INPUT_FILES_CACHE = (root, root_mtime, time.monotonic(), files)
+    return list(files)
+
 
 def list_input_images() -> list[str]:
     if folder_paths is None:
         return [""]
-    root = Path(folder_paths.get_input_directory())
-    results: list[str] = []
-    for path in root.rglob("*"):
-        if not path.is_file():
-            continue
-        try:
-            if folder_paths.filter_files_content_types([path.name], ["image"]):
-                results.append(path.relative_to(root).as_posix())
-        except Exception:
-            if path.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tif", ".tiff"}:
-                results.append(path.relative_to(root).as_posix())
-    return sorted(results, key=str.casefold) or [""]
+    files = list_input_files()
+    try:
+        results = list(folder_paths.filter_files_content_types(files, ["image"]))
+    except Exception:
+        results = [name for name in files if Path(name).suffix.lower() in IMAGE_EXTENSIONS]
+    return results or [""]
 
 
 def list_input_videos() -> list[str]:
     if folder_paths is None:
         return [""]
-    root = Path(folder_paths.get_input_directory())
     results = [
-        path.relative_to(root).as_posix()
-        for path in root.rglob("*")
-        if path.is_file() and path.suffix.lower() in VIDEO_EXTENSIONS
+        name
+        for name in list_input_files()
+        if Path(name).suffix.lower() in VIDEO_EXTENSIONS
     ]
-    return sorted(results, key=str.casefold) or [""]
+    return results or [""]
 
 
 def resolve_input_path(selection: str) -> Path:
