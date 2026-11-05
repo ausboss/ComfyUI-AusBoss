@@ -129,13 +129,17 @@ export function ratioSizeNear(ratio, width, height, step = 1) {
 //   modifiers: snap (default true; false = 1px freedom),
 //              lockRatio (true = keep the grab-time ratio exactly).
 
-export function stageScale(width, height, boxW, boxH) {
-  // Fit with fixed headroom for the handles, corner hints, and the label
-  // (the design's 90px horizontal / 60px vertical margins), never below a
-  // sliver on a tiny stage.
-  const usableW = Math.max(40, boxW - 90);
-  const usableH = Math.max(40, boxH - 60);
-  return Math.max(0.002, Math.min(usableW / width, usableH / height));
+// Fit the selection inside its handles. If both corner readouts fit beside
+// the rectangle (or already fit above it), the full stage height is usable.
+export function fitStage(width, height, boxW, boxH, cornerRoom = 126) {
+  const pad = 10; // the outer half of an 18px handle plus a pixel of air
+  const fit = top => Math.min(Math.max(1, boxW - 2 * pad) / width,
+    Math.max(1, boxH - top - pad) / height);
+  const full = fit(pad);
+  const header = 26;
+  if ((boxW - width * full) / 2 >= cornerRoom || (boxH - height * full) / 2 >= header)
+    return { scale: full, shift: 0 };
+  return { scale: fit(header), shift: (header - pad) / 2 };
 }
 
 const HANDLE_AXES = {
@@ -405,4 +409,52 @@ export function sizeForMegapixels(width, height, targetMp, step = DEFAULT_SNAP) 
     }
   }
   return best;
+}
+
+// A workflow's list keeps the author's order and the exact orientation of each
+// pair. A near match, including a reversed pair, is a different model input.
+export function parseWorkflowSizes(text) {
+  const lines = text.trim().split(/\n/).map(line => line.trim()).filter(Boolean);
+  if (lines.length > 24) throw new Error("Choose up to 24 resolutions.");
+  const sizes = [];
+  for (const line of lines) {
+    const match = /^(\d{1,4})\s*[x×]\s*(\d{1,4})$/i.exec(line);
+    const pair = match?.slice(1).map(Number);
+    if (!pair || pair.some(n => n < DIM_MIN || n > DIM_MAX)) {
+      throw new Error(`Enter a width × height between ${DIM_MIN} and ${DIM_MAX} px on each line.`);
+    }
+    if (!sizes.some(([w, h]) => w === pair[0] && h === pair[1])) sizes.push(pair);
+  }
+  return sizes;
+}
+
+export function workflowRatios(sizes) {
+  const ratios = new Map();
+  for (const [width, height] of sizes) {
+    const { x, y } = reduceRatio(width, height);
+    const label = `${x}:${y}`;
+    if (!ratios.has(label)) ratios.set(label, { x, y, label, sizes: [] });
+    ratios.get(label).sizes.push({ width, height });
+  }
+  return [...ratios.values()];
+}
+
+export function readWorkflowPolicy(value) {
+  if (value === "") return { sizes: [], strict: false };
+  const invalid = () => { throw new Error("Invalid workflow resolutions."); };
+  if (typeof value !== "string" || value.length > 2048) invalid();
+  const policy = JSON.parse(value);
+  if (typeof policy?.strict !== "boolean" || !Array.isArray(policy.sizes)
+      || !policy.sizes.length || policy.sizes.length > 24
+      || !policy.sizes.every(pair => Array.isArray(pair) && pair.length === 2
+        && pair.every(n => Number.isInteger(n) && n >= DIM_MIN && n <= DIM_MAX))) invalid();
+  return { sizes: policy.sizes, strict: policy.strict };
+}
+
+
+// The panel used to occupy the appended widget's position in older saves.
+// Keep any other malformed value intact so strict settings cannot fail open.
+export function savedWorkflowPolicy(value, legacy) {
+  if (value != null && value !== "" && value !== "image") return value;
+  return Array.isArray(legacy) && legacy.length ? JSON.stringify({ strict: true, sizes: legacy }) : "";
 }

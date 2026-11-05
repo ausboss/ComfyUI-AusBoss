@@ -8,6 +8,7 @@
 // When the `filename` input is linked the name comes from upstream: the
 // field shows {{filename}} and the tags fold away, since an exact name is
 // never decorated.
+import { PANEL_LABELS } from "../shared/panel_controls.mjs";
 import { api } from "../../../scripts/api.js";
 import { app } from "../../../scripts/app.js";
 import { isForeignRun } from "../shared/prompt_scope.mjs";
@@ -275,13 +276,13 @@ function buildCard(node) {
   embedSeg.setAttribute("role", "radiogroup");
   const embedButtons = new Map();
   const embedTitle = "Embed stores the prompt and workflow in the image for drag-back. Off writes a clean image for sharing or datasets.";
-  for (const [on, text] of [[false, "no"], [true, "yes"]]) {
+  for (const [on, text] of [[false, PANEL_LABELS.off], [true, PANEL_LABELS.on]]) {
     const button = el("button", "", text);
     button.type = "button"; button.title = embedTitle;
     button.addEventListener("click", () => { if (setValue(node, "save_metadata", on)) notifyAusbossChange(); state.refresh(); });
     embedSeg.append(button); embedButtons.set(on, button);
   }
-  embedRow.append(el("span", "ausboss-save-embed-label", "Embed workflow"), embedSeg);
+  embedRow.append(el("span", "ausboss-save-embed-label", PANEL_LABELS.embed), embedSeg);
   root.append(embedRow);
 
   root.addEventListener("pointerdown", (event) => {

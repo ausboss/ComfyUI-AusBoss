@@ -14,6 +14,7 @@
 // switch lays each sampling step over the stage, with a Stop button on the
 // bar (shared/step_preview.mjs).
 
+import { panelSwitch } from "../shared/panel_controls.mjs";
 import { api } from "../../../scripts/api.js";
 import { app } from "../../../scripts/app.js";
 import { isForeignRun } from "../shared/prompt_scope.mjs";
@@ -142,16 +143,10 @@ function ensureCss() {
 .ausboss-input-preview-tool{box-sizing:border-box;height:${BAR_HEIGHT}px;min-width:24px;padding:0 6px;border:1px solid rgba(0,180,170,.52);border-radius:4px;background:rgba(0,0,0,.7);color:#c8dddd;font:700 9px/18px "Segoe UI",sans-serif;cursor:pointer;}
 .ausboss-input-preview-tool:hover{border-color:${BRAND};color:#fff;background:rgba(0,79,75,.78);}
 .ausboss-input-preview-tool.active{border-color:${BRAND};color:${BRAND};}
-.ausboss-input-preview-toggle{display:flex;align-items:center;gap:6px;margin-left:auto;pointer-events:auto;cursor:pointer;user-select:none;}
-.ausboss-input-preview:not(.preview-off) .ausboss-input-preview-toggle.steps + .ausboss-input-preview-toggle{margin-left:0;}
-.ausboss-input-preview.preview-off .ausboss-input-preview-toggle.steps{display:none;}
+.ausboss-input-preview:not(.preview-off) .ausboss-panel-switch.steps + .ausboss-panel-switch{margin-left:0;}
+.ausboss-input-preview.preview-off .ausboss-panel-switch.steps{display:none;}
 .ausboss-input-preview-tool.ausboss-steps-stop{visibility:hidden;}
 .ausboss-input-preview-tool.ausboss-steps-stop.live{visibility:visible;pointer-events:auto;}
-.ausboss-input-preview-toggle span{color:#5f7674;font:10px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.08em;text-transform:uppercase;}
-.ausboss-input-preview-switch{box-sizing:border-box;width:24px;height:13px;border-radius:7px;border:none;background:#3a4047;position:relative;cursor:pointer;padding:0;flex:none;pointer-events:auto}
-.ausboss-input-preview-switch::after{content:"";position:absolute;top:2px;left:2px;width:9px;height:9px;border-radius:50%;background:#9ba2aa;transition:left .12s}
-.ausboss-input-preview-switch.on{background:${BRAND}}
-.ausboss-input-preview-switch.on::after{left:13px;background:#fff}
 .ausboss-input-preview-readout{box-sizing:border-box;height:${BAR_HEIGHT}px;padding:0 7px;border:1px solid rgba(0,180,170,.5);border-radius:10px;background:rgba(0,180,170,.14);color:${BRAND};font:700 9.5px/18px "Segoe UI",sans-serif;white-space:nowrap;pointer-events:none;}
 .ausboss-input-preview-readout:empty{display:none;}
 .ausboss-input-preview-readout.warn{border-color:#c98a2b;background:rgba(201,138,43,.16);color:#ffd9a0;}
@@ -297,18 +292,9 @@ function previewEnabled(state) {
 }
 
 function makePreviewToggle(state, signal) {
-  const toggle = document.createElement("div");
-  toggle.className = "ausboss-input-preview-toggle";
-  toggle.title = state.switchTitle ?? "Show this node's result here. Off also skips writing the preview file to the temp folder.";
-  const caption = document.createElement("span");
-  caption.textContent = "preview";
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "ausboss-input-preview-switch";
-  button.setAttribute("role", "switch");
-  toggle.append(caption, button);
-  toggle.addEventListener("pointerdown", (event) => event.stopPropagation(), { signal });
-  toggle.addEventListener("click", (event) => {
+  const button = panelSwitch("Preview", state.switchTitle ?? "Show this node's result here. Off also skips writing the preview file to the temp folder.");
+  button.addEventListener("pointerdown", (event) => event.stopPropagation(), { signal });
+  button.addEventListener("click", (event) => {
     event.preventDefault(); event.stopPropagation();
     const next = !previewEnabled(state);
     state.previewWidget.value = next;
@@ -317,7 +303,7 @@ function makePreviewToggle(state, signal) {
     notifyAusbossChange();
   }, { signal });
   state.switchButton = button;
-  return toggle;
+  return button;
 }
 
 function installPreviewSwitch(state, signal) {
@@ -348,18 +334,10 @@ function installStepsSwitch(state, signal) {
   if (!widget) return;
   state.stepsWidget = widget;
   hideWidget(widget);
-  const toggle = document.createElement("div");
-  toggle.className = "ausboss-input-preview-toggle steps";
-  toggle.title = "Show the picture here while it is being made, one step at a time, with a Stop button. Off by default.";
-  const caption = document.createElement("span");
-  caption.textContent = "steps";
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "ausboss-input-preview-switch";
-  button.setAttribute("role", "switch");
-  toggle.append(caption, button);
-  toggle.addEventListener("pointerdown", (event) => event.stopPropagation(), { signal });
-  toggle.addEventListener("click", (event) => {
+  const button = panelSwitch("Steps", "Show the picture here while it is being made, one step at a time, with a Stop button. Off by default.");
+  button.classList.add("steps");
+  button.addEventListener("pointerdown", (event) => event.stopPropagation(), { signal });
+  button.addEventListener("click", (event) => {
     event.preventDefault(); event.stopPropagation();
     const next = widget.value !== true;
     widget.value = next;
@@ -368,9 +346,9 @@ function installStepsSwitch(state, signal) {
     notifyAusbossChange();
   }, { signal });
   state.stepsButton = button;
-  const previewToggle = state.switchButton?.parentElement;
-  if (previewToggle?.parentElement === state.bar) state.bar.insertBefore(toggle, previewToggle);
-  else state.bar.append(toggle);
+  const previewToggle = state.switchButton;
+  if (previewToggle?.parentElement === state.bar) state.bar.insertBefore(button, previewToggle);
+  else state.bar.append(button);
 
   // Stop sits where the node's tools go; it keeps its place while hidden so
   // the bar never shifts when a run starts.
@@ -408,7 +386,6 @@ function syncSteps(state, run = stepRun()) {
   if (typeof state.placeholder === "boolean") state.hint.textContent = placeholderText(state.placeholder, state.noun, runningFor(state, run));
   const on = stepsEnabled(state);
   if (state.stepsButton) {
-    state.stepsButton.classList.toggle("on", state.stepsWidget?.value === true);
     state.stepsButton.setAttribute("aria-checked", String(state.stepsWidget?.value === true));
   }
   state.stopButton?.classList.toggle("live", on && run.status === "running");
@@ -463,7 +440,6 @@ function syncPreviewMode(state, resize) {
   const enabled = previewEnabled(state);
   state.root.classList.toggle("preview-off", !enabled);
   if (state.switchButton) {
-    state.switchButton.classList.toggle("on", enabled);
     state.switchButton.setAttribute("aria-checked", String(enabled));
   }
   if (!enabled) {

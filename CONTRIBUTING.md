@@ -198,6 +198,11 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   (`tests/canvas_passthrough.test.mjs` lists the few that exist). After a
   change to a node face, `scripts/dev/wheel_sweep.mjs` turns the wheel at
   every point of every node and must find no dead spot, in both renderers.
+- For compact panel actions and preview switches, use `compactAction` and
+  `panelSwitch` from `js/shared/panel_controls.mjs`. That module owns their
+  appearance, section caption styles, and common file and save labels. A
+  node styles its layout locally; leave the shared control's face to the
+  component. Its selectors only match explicitly named AusBoss controls.
 - Every INT and FLOAT a public node exposes reaches the user as a scrub
   control, Adobe-style: drag the value to scrub, click to type, chevron
   arrows step, Shift is always the fine step. Use `makeScrubInput` from

@@ -4,6 +4,7 @@
 // mirrors them, so the backend, saved workflows and widget-to-input links
 // are untouched. Rows with `when` appear only while they mean something,
 // and a `group` row folds the rarely-touched settings behind one click.
+import { PANEL_LABELS } from "../shared/panel_controls.mjs";
 import { api } from "../../../scripts/api.js";
 import { app } from "../../../scripts/app.js";
 import { chainCallback, notifyAusbossChange } from "../shared/index.mjs";
@@ -210,7 +211,7 @@ const CARDS = {
   AUSBOSS_NODES_ImageFolder: {
     minWidth: 320, first: true, hide: ["pictures"], socketless: ["pictures"],
     rows: [
-      { widget: "source", label: "From", kind: "segment" },
+      { widget: "source", label: "From", kind: "segment", labels: PANEL_LABELS.sources },
       { widget: "folder", label: "Folder", placeholder: "the folder itself",
         button: { text: "Browse", title: "Choose a folder inside ComfyUI's input or output folder.",
           onClick: (node, state) => node.__ausbossImageFolder?.browse(state?.root?.querySelector(".ausboss-card-btn")) } },
@@ -378,7 +379,7 @@ const CARDS = {
     minWidth: 320, first: true, hide: ["upload"],
     rows: [
       { widget: "video", label: "Source", kind: "select", preview: { kind: "video", url: viewUrl },
-        button: { text: "Upload", title: "Upload a video into ComfyUI's input folder", onClick: (node) => node.widgets?.find((w) => w.name === "upload")?.callback?.() } },
+        button: { text: PANEL_LABELS.load, title: "Upload a video into ComfyUI's input folder", onClick: (node) => node.widgets?.find((w) => w.name === "upload")?.callback?.() } },
       { widget: "custom_width", label: "Width", suffix: "px", title: "0 keeps the source width; set one side only to keep the aspect." },
       { widget: "custom_height", label: "Height", suffix: "px", title: "0 keeps the source height; set one side only to keep the aspect." },
       { widget: "every_nth", label: "Every nth" },
@@ -390,7 +391,7 @@ const CARDS = {
     minWidth: 280, first: true, hide: ["upload"],
     rows: [
       { widget: "audio", label: "Source", kind: "select",
-        button: { text: "Upload", title: "Upload a sound file into ComfyUI's input folder", onClick: (node) => node.widgets?.find((w) => w.name === "upload")?.callback?.() } },
+        button: { text: PANEL_LABELS.load, title: "Upload a sound file into ComfyUI's input folder", onClick: (node) => node.widgets?.find((w) => w.name === "upload")?.callback?.() } },
       { widget: "max_seconds", label: "Max length", suffix: "s", decimals: 1, trimZeros: true,
         title: "The longest the sound may be. Anything past it is cut off and shows in red. 0 means no limit." },
     ],
@@ -399,7 +400,7 @@ const CARDS = {
     minWidth: 340, first: true, hide: ["upload"],
     rows: [
       { widget: "image", label: "Source", kind: "select", preview: { kind: "image", url: viewUrl }, linkedBy: ["source_image"],
-        button: { text: "Upload", title: "Upload an image into ComfyUI's input folder", onClick: (node) => node.widgets?.find((w) => w.name === "upload")?.callback?.() } },
+        button: { text: PANEL_LABELS.load, title: "Upload an image into ComfyUI's input folder", onClick: (node) => node.widgets?.find((w) => w.name === "upload")?.callback?.() } },
       { widget: "mode", label: "Fill", kind: "select" },
       { widget: "fill_color", label: "Color", kind: "color", when: isMode("mode", "color") },
       { widget: "backdrop_blur", label: "Backdrop", when: isMode("mode", "pillarbox blur") },
@@ -424,7 +425,7 @@ const CARDS = {
       { pair: ["fps", "crf"], label: "FPS · CRF", sep: "·", top: true, when: formatReads("crf") },
       { widget: "fps", label: "FPS", top: true, when: (values) => !formatReads("crf")(values) },
       { widget: "pingpong", label: "Ping-pong", onText: "forward, back", offText: "off" },
-      { widget: "save_metadata", label: "Metadata", when: formatReads("save_metadata"), title: "On embeds the workflow in the video file, so dropping the file back on the canvas restores the graph that made it." },
+      { widget: "save_metadata", label: PANEL_LABELS.embed, onText: PANEL_LABELS.on, offText: PANEL_LABELS.off, when: formatReads("save_metadata"), title: "On embeds the workflow in the video file, so dropping the file back on the canvas restores the graph that made it." },
     ],
   },
 };

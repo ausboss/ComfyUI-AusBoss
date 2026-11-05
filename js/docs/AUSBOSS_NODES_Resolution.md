@@ -8,6 +8,14 @@ Pick a picture size by shape and megapixels, or by dragging. Use it in place of 
 - **Gear:** set the **Snap step**, edit the **Ratio rail**, choose the **Latent family** (`latent`) and **Batch size** (`batch_size`), and hide the **Dot grid** or **MP cost curves**. **Snap step** (8, 16, 32 or 64; starts at 32) is the grid that drags, arrow keys and chips land on. The **Ratio rail** is the list of ratio chips, typed as `1:1, 21:9`. The display options apply to every Latent Size node in this browser; latent family and batch size (1 to 64) belong to this node.
 - **Node size:** drag the node's corner to make it wider or taller, so it lines up with the nodes around it. The controls stretch with it, and the canvas preview takes any extra height. It can be as narrow as 320 pixels.
 
+## Workflow resolutions
+
+In the gear, choose **This workflow → Workflow resolutions → Edit list**. Enter one exact width × height per line, up to 24. The list belongs to this node and travels with the saved workflow. An empty list leaves the normal editor unchanged.
+
+- **Recommendations:** leave **Limit choices to this list** off. The Sizes row shows your quick picks, and users can still type, drag or choose another shape.
+- **Strict model sizes:** turn the limit on. The Shape row shows only the exact ratios in the list. Select a ratio to see its allowed sizes. For example, 576×1024 and 720×1280 share 9:16; 480×864 is a separate 5:9 option. Landscape is available only if you list a landscape size. The canvas stays visible, but it cannot be stretched. The swap button works only if the exact reverse size is listed.
+- On enabling the limit, an unlinked size stays selected if allowed; otherwise the first listed size is selected. A linked width or height is checked at run time, before the latent is allocated. An unsupported pair produces an error naming the allowed sizes. For video workflows, connect these width and height outputs to the video latent node.
+
 ## Outputs and links
 
 Outputs are **width**, **height**, and **latent**, in that order. The node has four input sockets above the panel: width, height, latent and batch_size. Linking width or height locks the controls that would change both dimensions; the other dimension remains editable. Linking latent or batch_size sets the latent family or batch size from another node, and the gear then shows that setting as linked. A linked value is read when the workflow runs, so the preview keeps showing the size stored on the node.

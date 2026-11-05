@@ -16,6 +16,8 @@ sets; the constants are architecture facts, not anyone's model card.
 
 from __future__ import annotations
 
+import json
+
 try:  # Offline tests import this module without ComfyUI.
     import torch
     import comfy.model_management as model_management
@@ -43,6 +45,27 @@ def clamp_dimension(value, fallback: int = 1024) -> int:
     except (TypeError, ValueError, OverflowError):
         return fallback
     return max(DIM_MIN, min(DIM_MAX, number))
+
+
+def check_workflow_size(width, height, workflow_sizes):
+    if workflow_sizes == "":
+        return
+    try:
+        if not isinstance(workflow_sizes, str) or len(workflow_sizes) > 2048:
+            raise ValueError
+        policy = json.loads(workflow_sizes)
+        sizes = policy["sizes"]
+        if type(policy["strict"]) is not bool or not isinstance(sizes, list) or not 1 <= len(sizes) <= 24:
+            raise ValueError
+        for pair in sizes:
+            if (not isinstance(pair, list) or len(pair) != 2
+                    or any(type(n) is not int or not DIM_MIN <= n <= DIM_MAX for n in pair)):
+                raise ValueError
+    except (ValueError, KeyError, TypeError, RecursionError) as exc:
+        raise ValueError("Invalid workflow resolutions. Edit the list in Latent Size settings.") from exc
+    if policy["strict"] and [width, height] not in sizes:
+        choices = ", ".join(f"{w}×{h}" for w, h in sizes)
+        raise ValueError(f"Latent Size: {width}×{height} is outside the workflow's allowed sizes: {choices}.")
 
 
 def latent_downscale(family: str) -> int:
@@ -144,6 +167,10 @@ class AusBossResolution:
                         "tooltip": "How many latents to make. Set from the panel's gear.",
                     },
                 ),
+                "workflow_sizes": ("STRING", {
+                    "default": "", "dynamicPrompts": False,
+                    "tooltip": "Workflow resolutions set in the gear menu. Strict mode checks wired dimensions too.",
+                }),
             },
         }
 
@@ -157,7 +184,8 @@ class AusBossResolution:
     )
     FUNCTION = "resolve"
 
-    def resolve(self, width, height, latent=DEFAULT_FAMILY, batch_size=1):
+    def resolve(self, width, height, latent=DEFAULT_FAMILY, batch_size=1, workflow_sizes=""):
+        check_workflow_size(width, height, workflow_sizes)
         w = clamp_dimension(width)
         h = clamp_dimension(height)
         return (w, h, empty_latent(w, h, latent, batch_size))
