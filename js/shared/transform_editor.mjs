@@ -4,7 +4,7 @@ import { hideInputsInDef, hideWidget } from "./widget_visibility.mjs";
 import { mountTransformTrim } from "./transform_trim.mjs";
 import { clipOutputRate, inputNumber } from "./clip_rate.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "./index.mjs";
-import { WIDGET_FRAME, fillNodeHeight, holdVueNodeMinWidth } from "./panel_layout.mjs";
+import { WIDGET_FRAME, fillNodeHeight, holdVueNodeMinWidth, holdVuePanelMinHeight } from "./panel_layout.mjs";
 import { mediaViewQuery, unlistedMedia } from "./media_list.mjs";
 import { createMediaPicker } from "./media_picker.mjs";
 import { normalizeFillColor } from "./fill_color.mjs";
@@ -175,7 +175,19 @@ function installStyles() {
     .ausboss-transform-swatch{width:30px;height:22px;padding:1px;border:1px solid #555b63;border-radius:5px;background:#23272c;cursor:pointer}
     .ausboss-transform-swatch::-webkit-color-swatch-wrapper{padding:1px}.ausboss-transform-swatch::-webkit-color-swatch{border:0;border-radius:3px}
     .ausboss-transform-canvas-row input[type=checkbox]{accent-color:${BRAND};margin:0;cursor:pointer}
-    .ausboss-transform-resize-row{justify-content:flex-start;gap:14px}
+    .ausboss-transform-resize-row{justify-content:space-between;gap:8px}
+    .ausboss-transform-group{display:flex;flex-direction:column;flex:0 0 auto;border:1px solid rgba(0,184,174,.26);border-radius:8px;background:rgba(0,0,0,.22);overflow:hidden}
+    .ausboss-transform-group-head{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:30px;padding:5px 10px;border:0;background:rgba(15,21,22,.72);color:#9fe3dc;font:600 11px system-ui;cursor:pointer;text-align:left;box-sizing:border-box}
+    .ausboss-transform-group-head:hover{background:rgba(0,184,174,.12);color:#fff}
+    .ausboss-transform-group.open>.ausboss-transform-group-head{border-bottom:1px solid rgba(0,184,174,.18)}
+    .ausboss-transform-group-title{display:inline-flex;align-items:center;gap:6px;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+    .ausboss-transform-group-caret{display:inline-block;color:${BRAND};font-size:11px;transition:transform .14s ease}
+    .ausboss-transform-group.open .ausboss-transform-group-caret{transform:rotate(90deg)}
+    .ausboss-transform-group-summary{display:inline-flex;align-items:center;gap:6px;min-width:0;color:#8ca8a5;font:500 11px system-ui;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ausboss-transform-group-swatch{flex:none;width:10px;height:10px;border:1px solid #555b63;border-radius:3px;box-sizing:border-box}
+    .ausboss-transform-group-meta{min-width:0;overflow:hidden;text-overflow:ellipsis}
+    .ausboss-transform-group-body{display:flex;flex-direction:column;gap:7px;padding:8px;box-sizing:border-box}
+    .ausboss-transform-group-body[hidden]{display:none}
     .ausboss-transform-readout{flex:0 0 auto;margin-top:-3px;color:#c9d0d6;font:11px/14px system-ui;font-variant-numeric:tabular-nums;text-align:center;overflow:hidden;max-height:56px;cursor:default;user-select:none}
     .ausboss-transform-readout:empty{display:none}
     .ausboss-transform-readout span{color:#8ca8a5}.ausboss-transform-readout b{color:#fff;font-weight:600}
@@ -545,6 +557,120 @@ function sourceHeading() {
   return head;
 }
 
+// The ratio, fit, divisible-by, fill, feather, center and resize rows live in
+// one collapsible group on the node face so the video timeline sits right
+// under the preview and the node stays compact until you open the group.
+// Open or shut is a node property: never a widget value, so saved workflows
+// keep their exact widget order and values.
+export const TRANSFORM_GROUP_OPEN_PROPERTY = "ausboss_transform_group_open";
+
+export function transformGroupOpen(node) {
+  return node?.properties?.[TRANSFORM_GROUP_OPEN_PROPERTY] === true;
+}
+
+export function transformGroupSummary(state) {
+  const node = state.node;
+  const parts = [];
+  const request = liveRequest(state);
+  const picture = hasPicture(state);
+  const current = values(node);
+  const source = sourceSize(state);
+  if (request) {
+    parts.push(`${aspectMode(state)} ${request}`);
+  } else if (!picture || isUntouched(current, source)) {
+    parts.push("Source");
+  } else {
+    const canvas = canvasSize(current, source);
+    parts.push(`Custom ${ratioLabel(canvas.width, canvas.height)}`);
+  }
+  if (lockActive(state)) parts.push("held");
+  const feather = Math.round(Number(value(node, "feather", 0)) || 0);
+  if (feather > 0) parts.push(`feather ${feather} px`);
+  const multiple = Math.round(Number(value(node, "canvas_multiple", 1)) || 1);
+  if (multiple > 1) parts.push(`÷${multiple}`);
+  if (widget(node, "resize_to_megapixels") && value(node, "resize_to_megapixels", false)) {
+    const mp = Number(value(node, "megapixels", 1)) || 1;
+    const steps = Math.round(Number(value(node, "resolution_steps", 1)) || 1);
+    parts.push(`${mp.toFixed(2)} MP`);
+    if (steps > 1 && multiple <= 1) parts.push(`÷${steps}`);
+  }
+  return parts.join(" · ");
+}
+
+function buildTransformGroup(state, rows) {
+  const node = state.node;
+  const group = createElement("div", "ausboss-transform-group");
+  const head = createElement("button", "ausboss-transform-group-head");
+  head.type = "button";
+  const left = createElement("span", "ausboss-transform-group-title");
+  const caret = createElement("span", "ausboss-transform-group-caret", "▸");
+  caret.setAttribute("aria-hidden", "true");
+  left.append(caret, createElement("span", "", "Crop, pad & resize"));
+  const right = createElement("span", "ausboss-transform-group-summary");
+  const swatch = createElement("i", "ausboss-transform-group-swatch");
+  const meta = createElement("span", "ausboss-transform-group-meta");
+  right.append(swatch, meta);
+  head.append(left, right);
+  const body = createElement("div", "ausboss-transform-group-body");
+  body.append(...rows);
+  group.append(head, body);
+
+  const apply = () => {
+    const open = transformGroupOpen(node);
+    group.classList.toggle("open", open);
+    body.hidden = !open;
+    head.setAttribute("aria-expanded", String(open));
+    head.title = open
+      ? "Hide ratio, fit, divisible by, fill, feather, center and resize settings"
+      : "Show ratio, fit, divisible by, fill, feather, center and resize settings";
+  };
+  const sync = () => {
+    const fill = normalizeColor(value(node, "fill_color", "#808080"));
+    swatch.style.background = fill;
+    swatch.title = `Fill ${fill}`;
+    const text = transformGroupSummary(state);
+    if (meta.textContent !== text) meta.textContent = text;
+    right.title = `${text} · Fill ${fill}`;
+  };
+  head.addEventListener("click", () => {
+    // The picture keeps its size: the node grows or shrinks by the group body.
+    // The DOM wrapper only takes node.setSize on the next frame, so a synchronous
+    // draw here would size the canvas backing store from the transiently squeezed
+    // or stretched stage; panelResizeObserver (watching panel as well as preview)
+    // redraws once the wrapper has its new height.
+    const stageHeight = state.previewCanvas?.clientHeight ?? 0;
+    const before = measureChrome(state) ?? 0;
+    node.properties ??= {};
+    node.properties[TRANSFORM_GROUP_OPEN_PROPERTY] = !transformGroupOpen(node);
+    notifyAusbossChange();
+    apply();
+    const after = measureChrome(state) ?? before;
+    holdVuePanelMinHeight(state.previewCanvas?.parentElement, transformPanelFloor(node) - WIDGET_FRAME);
+    if (node.size && after !== before) {
+      const nextHeight = Math.max(transformPanelFloor(node), node.size[1] + after - before);
+      node.setSize?.([node.size[0], nextHeight]);
+      state.stageGrowth = { height: stageHeight, target: nextHeight };
+    }
+    node.setDirtyCanvas?.(true, true);
+    if (node.size && after !== before && state.previewCanvas?.parentElement?.isConnected) {
+      state.syncCanvasRow?.();
+      state.syncAspectChips?.();
+      state.syncAspectMode?.();
+      sync();
+      return;
+    }
+    draw(state);
+  });
+  head.addEventListener("pointerdown", (event) => event.stopPropagation());
+  state.syncTransformGroup = sync;
+  chainCallback(node, "onConfigure", () => queueMicrotask(() => {
+    if (!state.disposed) { apply(); sync(); measureChrome(state); }
+  }));
+  apply();
+  sync();
+  return group;
+}
+
 export function installTransformNode(node, kind, mountPanel = null) {
   installStyles();
   const state = {
@@ -603,17 +729,18 @@ export function installTransformNode(node, kind, mountPanel = null) {
   // Its Even out button is a click, not a node drag.
   readout.addEventListener("pointerdown", (event) => { if (event.target.closest("button")) event.stopPropagation(); });
   panel.append(preview, readout);
+  // Both video nodes put the timeline right under the preview and size line:
+  // the clip node trims with it, the frame picker scrubs.
+  if (kind === "video") panel.append(buildTrim(state));
   const chipRow = buildAspectChipRow(state);
   const modeRow = buildAspectModeRow(state);
+  const canvasRows = buildCanvasRow(state);
   state.syncAspectChips = chipRow.sync;
   state.syncAspectMode = modeRow.sync;
-  panel.append(chipRow.row, modeRow.row);
-  // Every transform node shows its canvas on the face - fill, feather and,
-  // where the node has it, the resize budget and step - so a wrong value is
-  // seen on the node, not discovered in the render. Both video nodes also
-  // get the timeline: the clip node trims with it, the frame picker scrubs.
-  panel.append(...buildCanvasRow(state));
-  if (kind === "video") panel.append(buildTrim(state));
+  // Every transform node folds its ratio, fit, divisible-by, fill, feather,
+  // center and resize controls into one collapsible group, with a live
+  // summary on the header so active settings stay visible when closed.
+  panel.append(buildTransformGroup(state, [chipRow.row, modeRow.row, ...canvasRows]));
   panel.append(row);
   state.previewCanvas = preview;
   open.addEventListener("click", () => openEditor(state));
@@ -631,14 +758,14 @@ export function installTransformNode(node, kind, mountPanel = null) {
     domWidget.serialize = false;
     // exactMinWidth: 330 is the node's real floor, without the frontend's
     // number-widget padding that made the first corner drag jump to 434.
-    fillNodeHeight(domWidget, { minWidth: TRANSFORM_MIN_WIDTH, minHeight: () => transformPanelFloor(node), minNodeSize: [TRANSFORM_MIN_WIDTH, state.isClip ? 802 : kind === "video" ? 570 : 456], exactMinWidth: true });
+    fillNodeHeight(domWidget, { minWidth: TRANSFORM_MIN_WIDTH, minHeight: () => transformPanelFloor(node), minNodeSize: [TRANSFORM_MIN_WIDTH, state.isClip ? 728 : kind === "video" ? 496 : 382], exactMinWidth: true });
   } else {
     node.addWidget?.("button", "Open editor", null, () => openEditor(state), { serialize: false });
   }
   // A fresh node opens at its floor: the stage as tall as its width asks.
   node.setSize?.([
     Math.max(TRANSFORM_MIN_WIDTH, Math.min(520, node.size?.[0] || TRANSFORM_MIN_WIDTH)),
-    node.computeSize?.()[1] || (state.isClip ? 842 : kind === "video" ? 635 : 511),
+    node.computeSize?.()[1] || (state.isClip ? 768 : kind === "video" ? 561 : 437),
   ]);
   if (typeof node.addDOMWidget === "function") {
     // Redraw on wrapper size changes (node resize, zoom relayout);
@@ -652,8 +779,10 @@ export function installTransformNode(node, kind, mountPanel = null) {
     // it was the one that came out stretched.
     state.panelResizeObserver = new ResizeObserver(() => draw(state));
     state.panelResizeObserver.observe(preview);
+    state.panelResizeObserver.observe(panel);
     // The graph scales the DOM widget with its zoom, so the backing store
-    // sized at one zoom turns to mush at another: redraw when it changes.
+    // sized at one zoom turns to mush at another: redraw when it changes, or
+    // whenever the canvas backing store no longer matches its CSS box.
     chainCallback(node, "onDrawForeground", function () {
       // Also where a picture saved by the MaskEditor is noticed.
       followSource(state);
@@ -666,7 +795,7 @@ export function installTransformNode(node, kind, mountPanel = null) {
           for (const trim of state.trimViews) trim.sync();
         }
       }
-      if (state.disposed || state.zoomRedraw || Math.abs(panelOversample() - (state.panelOversample ?? 1)) < 0.01) return;
+      if (state.disposed || state.zoomRedraw || !panelBackingStale(state)) return;
       state.zoomRedraw = requestAnimationFrame(() => { state.zoomRedraw = null; if (!state.disposed) draw(state); });
     });
   }
@@ -982,7 +1111,7 @@ function buildAspectModeRow(state, { alignment: withAlignment = true } = {}) {
     set(aspectMode(state));
     const idle = !liveRequest(state);
     pill.classList.toggle("idle", idle);
-    hint.style.display = idle ? "" : "none";
+    hint.style.display = idle && !withAlignment ? "" : "none";
     pill.title = idle
       ? "Pick a ratio first: Fit decides how a ratio button gets its shape (crop trims the picture, pad adds fill around it)."
       : "How the lit ratio gets its shape: crop trims the picture, pad adds fill around it and keeps every pixel.";
@@ -1221,34 +1350,31 @@ function buildCanvasRow(state) {
       : "Feather of the mask into the kept pixels; the image keeps a hard edge against the fill.",
     onChange: (amount) => { setValue(node, "feather", amount); draw(state); updateModalInfo(state); }, onSettle: notifyAusbossChange });
   featherLabel.append(createElement("span", "", "Feather"), feather.root);
+  // A span, not a label: a label passes a click on its text to the first button.
+  const centre = buildCentreButtons(state);
+  const centreLabel = createElement("span", "ausboss-transform-centre-label");
+  centreLabel.append(createElement("span", "", "Center"), centre.root);
+  row.append(fillLabel, featherLabel, centreLabel);
+  // Resize switch, megapixel budget and step share one clean row inside the
+  // collapsible group so Center never wraps onto an orphan line and turning
+  // Resize on or off reveals the budget and step inline.
+  const resizeRow = createElement("div", "ausboss-transform-row ausboss-transform-canvas-row ausboss-transform-resize-row");
   const resizeLabel = createElement("label");
   const resize = resizeSwitch(state);
-  resizeLabel.title = "Resize the output to a megapixel budget, each side rounded to the step (32 for LTX and Wan). The budget and step open in a row below.";
+  resizeLabel.title = "Resize the output to a megapixel budget, each side rounded to the step (32 for LTX and Wan).";
   resizeLabel.append(createElement("span", "", "Resize"), resize.pill);
-  row.append(fillLabel, featherLabel);
-  // The resize budget and its step share a row that only shows while
-  // Resize is on: the step decides the final size as much as the budget
-  // (LTX wants 32), so it belongs on the face, not only in the editor.
-  const resizeRow = createElement("div", "ausboss-transform-row ausboss-transform-canvas-row ausboss-transform-resize-row");
   const budgetLabel = createElement("label");
   const budget = makeScrubInput({ value: value(node, "megapixels", 1), min: 0.01, max: 16, step: 0.05, fineStep: 0.01, decimals: 2, width: 72, unit: "MP",
     title: "Output budget in megapixels (x 1024x1024). The size readout under the picture shows where it lands.",
     onChange: (amount) => { setValue(node, "megapixels", amount); draw(state); updateModalInfo(state); }, onSettle: notifyAusbossChange });
-  budgetLabel.append(createElement("span", "", "Megapixels"), budget.root);
+  budgetLabel.append(budget.root);
   const stepLabel = createElement("label");
   const steps = makeScrubInput({ value: value(node, "resolution_steps", 1), min: 1, max: 256, step: 8, fineStep: 1, decimals: 0, width: 66, unit: "px", snap: true,
     title: "Rounds each resized side to a multiple of this (32 for LTX and Wan, 8 or 64 for image models). Each side rounds on its own, so a large step can stretch the picture slightly; the readout warns above 1%.",
     onChange: (amount) => { setValue(node, "resolution_steps", amount); draw(state); updateModalInfo(state); }, onSettle: notifyAusbossChange });
   stepLabel.append(createElement("span", "", "Step"), steps.root);
-  resizeRow.append(budgetLabel, stepLabel);
   const hasResize = Boolean(widget(node, "resize_to_megapixels"));
-  if (hasResize) row.append(resizeLabel);
-  // The centre pair ends the row, and drops under it on a narrow node. A
-  // span, not a label: a label passes a click on its text to the first button.
-  const centre = buildCentreButtons(state);
-  const centreLabel = createElement("span", "ausboss-transform-centre-label");
-  centreLabel.append(createElement("span", "", "Center"), centre.root);
-  row.append(centreLabel);
+  resizeRow.append(resizeLabel, budgetLabel, stepLabel);
   const sync = () => {
     fill.value = normalizeColor(value(node, "fill_color", "#808080"));
     fill.title = `${fill.title.split(" Now ")[0]} Now ${fill.value}.`;
@@ -1257,7 +1383,10 @@ function buildCanvasRow(state) {
     resize.sync();
     budget.set(value(node, "megapixels", 1));
     steps.set(value(node, "resolution_steps", 1));
-    resizeRow.style.display = hasResize && value(node, "resize_to_megapixels", false) ? "" : "none";
+    const resizeOn = hasResize && Boolean(value(node, "resize_to_megapixels", false));
+    resizeRow.style.display = hasResize ? "" : "none";
+    budgetLabel.style.display = resizeOn ? "" : "none";
+    stepLabel.style.display = resizeOn ? "" : "none";
   };
   sync();
   state.syncCanvasRow = sync;
@@ -1767,7 +1896,7 @@ function editorSnapshot(node) {
   }
   const properties = {};
   for (const [key, current] of Object.entries(node.properties ?? {})) {
-    if (key.startsWith("ausboss_")) properties[key] = JSON.stringify(current);
+    if (key.startsWith("ausboss_") && key !== TRANSFORM_GROUP_OPEN_PROPERTY) properties[key] = JSON.stringify(current);
   }
   return { widgets, properties };
 }
@@ -2395,6 +2524,15 @@ function panelOversample() {
   return clamp(zoom, 1, PREVIEW_MAX_OVERSAMPLE);
 }
 
+function panelBackingStale(state) {
+  if (Math.abs(panelOversample() - (state.panelOversample ?? 1)) >= 0.01) return true;
+  const canvas = state.previewCanvas;
+  if (!canvas?.clientWidth || !canvas?.clientHeight) return false;
+  const dpr = (window.devicePixelRatio || 1) * (state.panelOversample ?? 1);
+  return canvas.width !== Math.round(canvas.clientWidth * dpr)
+    || canvas.height !== Math.round(canvas.clientHeight * dpr);
+}
+
 function prepareCanvas(canvas, oversample = 1) {
   const width = Math.max(1, canvas.clientWidth || 1); const height = Math.max(1, canvas.clientHeight || 1); const dpr = (window.devicePixelRatio || 1) * oversample;
   const pixelWidth = Math.round(width * dpr); const pixelHeight = Math.round(height * dpr);
@@ -2407,6 +2545,7 @@ function draw(state) {
   state.syncCanvasRow?.();
   state.syncAspectChips?.();
   state.syncAspectMode?.();
+  state.syncTransformGroup?.();
   for (const sync of state.editorSyncs ?? []) sync();
   state.syncEditorControls?.();
   state.syncStitchControls?.();
@@ -2435,8 +2574,8 @@ function draw(state) {
 // measured on every draw; before the panel is on screen, these stand in:
 // the rows of a node with no file picked yet, as the examples open (the
 // canvas row's Resize adds the budget row under it).
-const PANEL_CHROME_ESTIMATE = { image: 262, video: 365, clip: 451 };
-const RESIZE_ROW = 30;
+const PANEL_CHROME_CLOSED_ESTIMATE = { image: 188, video: 291, clip: 377 };
+const PANEL_CHROME_OPEN_ESTIMATE = { image: 304, video: 407, clip: 493 };
 // Node width minus stage width: the DOM widget frame, panel padding, borders.
 const PANEL_SIDE_INSET = 38;
 // The narrowest face the chip row and the button rows fit on.
@@ -2470,7 +2609,8 @@ function measureChrome(state) {
 export function transformPanelFloor(node) {
   const state = node?.__ausbossTransformState;
   if (!state) return 0;
-  const estimate = PANEL_CHROME_ESTIMATE[state.isClip ? "clip" : state.kind] + (value(node, "resize_to_megapixels", false) ? RESIZE_ROW : 0);
+  const key = state.isClip ? "clip" : state.kind;
+  const estimate = transformGroupOpen(node) ? PANEL_CHROME_OPEN_ESTIMATE[key] : PANEL_CHROME_CLOSED_ESTIMATE[key];
   return (state.chromeHeight ?? estimate) + stageHeightForWidth(stageWidth(state)) + 2 + WIDGET_FRAME;
 }
 
@@ -2485,6 +2625,7 @@ function keepStageRoom(state) {
   // corner drag squeezes the chips and buttons down to 225px.
   holdVueNodeMinWidth(state.previewCanvas.parentElement, TRANSFORM_MIN_WIDTH);
   measureChrome(state);
+  holdVuePanelMinHeight(state.previewCanvas.parentElement, transformPanelFloor(node) - WIDGET_FRAME);
   const floor = stageHeightForWidth(stageWidth(state));
   // Nodes 2.0 sizes a node from its content, so the floor also has to be
   // the stage's own minimum there; in the classic view the layout floor

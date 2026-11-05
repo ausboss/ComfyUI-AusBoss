@@ -16,16 +16,16 @@ generated-area `mask`, a `stitcher` for Stitch Inpaint, the selected
   **Divisible by**, the Resize settings and the lit ratio button (the new frame is
   fitted to it the way **Fit** is set); rotation, crop, padding and the playhead
   start over.
-- **Canvas row** under the Fit row: fill swatch, feather amount and the Resize off | on switch on the node face; turning Resize on opens the megapixel budget and its Step. The line under the picture names each step that sets the output size, as on the image node.
 - **Upload** streams to the input folder, so videos larger than the buffered image-upload limit can be selected here or dropped onto the node.
 - **Uploads** / **Outputs** (`source_mode`: `input folder` / `local path`): the source card's switch. Uploads lists ComfyUI's input folder. Outputs lists the videos in ComfyUI's output folder, newest first, so a video you just rendered can be picked without uploading it again. Both lists preview the video under the pointer.
 - **local_path**: The video picked in the Outputs list, named the way ComfyUI names a file
   in its output folder: `clip.mp4 [output]`, `video/take 3.mov [output]`. It is read in
   place, without an upload copy. A whole path such as `/home/me/ComfyUI/output/clip.mp4`
   is not read, for queued runs and the editor's live preview alike.
-- **Playhead**: The rail under the node's preview is the timeline: press or drag it to
+- **Playhead**: The rail directly under the node's preview is the timeline: press or drag it to
   scrub, or type a frame in the **FRAME** box; the frame on the stage is the frame the
   node outputs (`frame_index`, with `frame_time` kept in step).
+- **Crop, pad & resize** (collapsible group under the timeline): folds the ratio buttons, **Fit** and **Divisible by**, **Fill**, **Feather** and **Center**, and the **Resize** off | on switch, megapixel budget and **Step** into one drawer, showing the fill swatch and a live summary on its header when closed. The line under the picture names each step that sets the output size, as on the image node.
 - **seek_mode / frame_time**: Time-based seeking for graphs that drive the position by
   link; the editor itself always works in frames.
 

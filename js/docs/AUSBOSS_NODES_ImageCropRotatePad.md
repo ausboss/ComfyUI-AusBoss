@@ -35,10 +35,13 @@ From top to bottom:
 - **The picture**, with its handles.
 - **The size line**: each step that sets the output size, ending with the size
   the run gives you.
-- **The ratio row**: the orientation button, the ratios (1:1, 4:3, 3:2, 16:9,
-  21:9) and the padlock.
-- **Fit** (crop | pad) and **Divisible by**.
-- **Fill**, **Feather**, **Resize** and the two **Center** buttons.
+- **Crop, pad & resize**: a collapsible group (closed to start, with the fill
+  swatch and a short summary on its bar) holding:
+  - **The ratio row**: the orientation button, the ratios (1:1, 4:3, 3:2, 16:9,
+    21:9) and the padlock.
+  - **Fit** (crop | pad) and **Divisible by**.
+  - **Fill**, **Feather** and the two **Center** buttons.
+  - **Resize**, with **Megapixels** and **Step** alongside it when Resize is on.
 - **Open editor**, **Reset crop** and **Reset**.
 
 Crop and padding have no number boxes. You set them by dragging, and the size

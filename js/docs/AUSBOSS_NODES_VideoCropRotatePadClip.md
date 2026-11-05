@@ -17,27 +17,13 @@ model that paints black regions.
   settings - Fill, Feather, **Divisible by**, Resize, Every nth, Frames for, Length - and
   fits the new clip to the lit ratio button, the way **Fit** is set. Rotation, crop,
   padding, IN/OUT and the playhead start over.
-- **Canvas row** (under the Fit row): the fill swatch, the feather amount and
-  the Resize off | on switch, right on the node; turning Resize on opens the megapixel
-  budget and its **Step**. These are what a video outpaint model keys on - the LTX IC-LoRA paints
-  **pure black** at sizes rounded to 32 - so a wrong value shows here before a
-  render is wasted. Feather only softens the mask and the stitch; the frames always
-  meet the fill with a hard edge. The line under the picture names each step that
-  sets the size (`576×1024 → pad 1821×1024 → resize 1280×704`) and warns in amber
-  when the Step stretches the picture by more than 1% (`2.2% wider: each side rounds
-  to 32 px`); the tooltip names a Step that avoids it, and in pad mode **Even out**
-  adds a few pixels of padding so nothing stretches. While you drag, that amber
-  line keeps still and comes back for the new size when you let go. The bands are drawn in the real
-  fill colour with a faint hatch, so black bands show on the black stage. A fresh clip node starts
-  with black and feather 0 and the editor's **Reset transform** returns to them;
-  the image nodes keep their grey fill and feathered mask.
 - **Outputs** (`source_mode` / `local_path`): Pick a video from ComfyUI's output folder,
   such as one you just rendered. The list shows the newest first and previews the video
   under the pointer. The video is read in place, without an upload copy. In an API prompt
   it is named the way ComfyUI names a file there: `clip.mp4 [output]`. A whole path such
   as `/home/me/ComfyUI/output/clip.mp4` is not read, for queued runs and the editor's live
   preview alike.
-- **Timeline**: The rail on the node and in the editor is one timeline. Press or
+- **Timeline** (right under the preview and size line): The rail on the node and in the editor is one timeline. Press or
   drag anywhere on it to scrub the **playhead**, with Length on or off; the stage shows
   that frame. Drag the **IN** or **OUT** handle to trim: the playhead rides on the handle, so what you see
   is the first (IN) or last (OUT) frame the run keeps, and it stays there when you let
@@ -53,6 +39,22 @@ model that paints black regions.
   **Play**. Arrow keys step one frame (10 with Shift), Home and End jump to the
   ends, and Space plays or pauses. **Save & close** keeps your edits; **Cancel** or
   Escape puts everything back, and asks first if anything changed.
+- **Crop, pad & resize** (collapsible group under the timeline): folds the ratio
+  buttons, **Fit** and **Divisible by**, **Fill**, **Feather** and **Center**, and
+  the **Resize** switch, megapixel budget and **Step** into one drawer. While closed,
+  its header bar shows the fill colour swatch and a live summary of the active
+  ratio, feather, alignment and resize settings. These are what a video outpaint model keys on - the LTX IC-LoRA paints
+  **pure black** at sizes rounded to 32 - so a wrong value shows here before a
+  render is wasted. Feather only softens the mask and the stitch; the frames always
+  meet the fill with a hard edge. The line under the picture names each step that
+  sets the size (`576×1024 → pad 1821×1024 → resize 1280×704`) and warns in amber
+  when the Step stretches the picture by more than 1% (`2.2% wider: each side rounds
+  to 32 px`); the tooltip names a Step that avoids it, and in pad mode **Even out**
+  adds a few pixels of padding so nothing stretches. While you drag, that amber
+  line keeps still and comes back for the new size when you let go. The bands are drawn in the real
+  fill colour with a faint hatch, so black bands show on the black stage. A fresh clip node starts
+  with black and feather 0 and the editor's **Reset transform** returns to them;
+  the image nodes keep their grey fill and feathered mask.
 - **Length** (`max_frames`): the one other way to set how long the clip is. **Off**
   (the default): OUT ends the clip. **On**: a number of output frames from IN; OUT
   sits that many frames after IN and follows it when you drag IN, and dragging OUT or
