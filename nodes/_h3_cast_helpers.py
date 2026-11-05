@@ -215,6 +215,9 @@ class Cast:
         self.people = [picture for picture in pictures if picture.job in (PERSON, SHEET, START)]
         self.subjects = {picture.slot: subject_label(picture.subject) for picture in pictures if picture.subject}
         self.clip_clothes = False  # A swap that keeps the clothes of whoever goes.
+        self.clip_sound = False  # A swap whose finished clip keeps the video's own sound.
+        self.speaks_as_video = False  # With that sound and no words typed: the new person says what the video says.
+        self.typed_lines = False  # The script typed words in quotes for someone to say.
 
     def of(self, *jobs):
         return [picture for picture in self.pictures if picture.job in jobs]

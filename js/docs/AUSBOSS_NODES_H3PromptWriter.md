@@ -100,6 +100,11 @@ Connect a video, then pick what it is for:
 - **new voice**: the same clip with a new voice. Connect the voice, and type
   what they say in quotes.
 
+If your swap keeps the video's audio, connect it to **video_sound** and turn on
+**More → Clip's own sound**. The writer uses the clip to estimate when each
+line is spoken and keeps only the incoming people's words in the swap prompt.
+Type a time such as `3.2s:` to set it yourself. This switch starts off.
+
 Swap and new voice ignore **Length** and keep the video's own length.
 
 ## What you can type
