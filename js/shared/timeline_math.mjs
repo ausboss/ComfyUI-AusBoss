@@ -128,8 +128,9 @@ export function fixedFrameWindow(info, first, frames, outputFps) {
   const tooLong = seconds > duration + 1e-7;
   const span = Math.max(1, Math.ceil(seconds * info.fps - 1e-7));
   const latest = Math.max(0, Math.floor((duration - seconds) * info.fps + 1e-7));
-  const head = clamp(Math.round(finite(first)), 0, Math.min(latest, Math.max(0, info.count - span)));
-  return { first: head, last: Math.min(info.count - 1, head + span - 1), frames: count, seconds, tooLong };
+  const latestStart = Math.min(latest, Math.max(0, info.count - span));
+  const head = clamp(Math.round(finite(first)), 0, latestStart);
+  return { first: head, last: Math.min(info.count - 1, head + span - 1), frames: count, seconds, tooLong, latestStart };
 }
 
 // What a run keeps out of the window after thinning, the cap and the snap
@@ -243,13 +244,28 @@ export function clipLengthPlan(info, values = {}) {
   const exact = (frames) => {
     const fixed = fixedFrameWindow(info, window.first, frames, values.outputFps === undefined ? info.fps / nth : values.outputFps);
     if (!fixed || fixed.unresolved) return { ...base, requested: frames };
-    return { ...base, first: fixed.first, last: fixed.last, windowLast: fixed.last, frames: fixed.frames, requested: frames, tooLong: fixed.tooLong };
+    return { ...base, first: fixed.first, last: fixed.last, windowLast: fixed.last, frames: fixed.frames, requested: frames, latestStart: fixed.latestStart, tooLong: fixed.tooLong };
   };
   const capped = (cap) => {
     const requested = cap > 0 ? snapFrameCount(cap, snap) : null;
-    if (values.resampled) return { ...base, last: cap > 0 ? null : window.last, requested };
+    // Limit edits to IN, never the stored start. A shared workflow may
+    // intentionally open with a shorter tail. The whole locked count must
+    // fit before the source end or an earlier saved/wired OUT.
+    const endFrame = frameWindow(info, 0, values.end).last;
+    let latestStart = null;
+    if (requested != null) {
+      if (!values.resampled) {
+        latestStart = Math.max(0, endFrame - lastFrameFor(0, requested, nth));
+      } else if (values.outputFps > 0) {
+        const duration = info.duration || info.count / info.fps;
+        const end = values.end > 0 ? Math.min(values.end, duration) : duration;
+        const lastTick = (requested - 1) / values.outputFps;
+        latestStart = clamp(Math.floor((end - lastTick - TRIM_EPSILON) * info.fps), 0, endFrame);
+      }
+    }
+    if (values.resampled) return { ...base, last: cap > 0 ? null : window.last, requested, latestStart };
     const kept = keptFrames(window, nth, cap, snap);
-    return { ...base, last: kept.lastKept, frames: kept.frames, requested, truncated: requested != null && kept.frames < requested };
+    return { ...base, last: kept.lastKept, frames: kept.frames, requested, latestStart, truncated: requested != null && kept.frames < requested };
   };
   const stored = Math.max(0, Math.trunc(finite(values.maxFrames)));
   if (mode === "fixed") return exact(Math.trunc(finite(values.fixedFrames)));

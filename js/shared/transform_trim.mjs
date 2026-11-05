@@ -225,6 +225,8 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
         // A Length drags the whole window, stopping where OUT meets the end.
         parked = Math.max(0, Math.min(clampFrame(frame, clip), latestFirstFor(clip, current.requested ?? get("max_frames", 1), nth)));
         set("end_seconds", 0);
+      } else if (current.mode === "wired" && current.latestStart != null && !countAtRunTime()) {
+        parked = Math.min(clampFrame(frame, clip), current.latestStart);
       } else {
         parked = setTrimFrame({ first: current.first, last: current.windowLast }, "start", frame, clip).first;
       }
@@ -343,7 +345,9 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
               : "Drag IN to move the clip; OUT follows at the Length. Shift + arrow moves one frame."
           : current.mode === "free" ? "Drag OUT to trim; it lands on the last frame the run keeps." : "Drag OUT to change the Length; IN stays.";
       handle.setAttribute("aria-valuemin", "0");
-      handle.setAttribute("aria-valuemax", String(Math.max(0, clip.count - 1)));
+      const maxFrame = edge === "start" && current.mode === "wired" && !unknown
+        ? current.latestStart ?? current.windowLast : Math.max(0, clip.count - 1);
+      handle.setAttribute("aria-valuemax", String(maxFrame));
       handle.setAttribute("aria-valuenow", String(frame));
       handle.setAttribute("aria-valuetext", `frame ${frame}, ${formatTimecode(frameTime(frame, clip))}`);
     }
@@ -581,7 +585,7 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
       count.root.style.display = active ? "" : "none";
       const step = snapStep(snapRule());
       count.setStep(step, step);
-      count.set(blocked ? (current.frames ?? current.requested ?? 0) : (current.requested ?? get("max_frames", 1)));
+      count.set(blocked ? (current.requested ?? current.frames ?? 0) : (current.requested ?? get("max_frames", 1)));
       disableControl(count, blocked, lockTip("end"));
       const fills = lengthFillsClip(info(), current, everyNth());
       hint.textContent = blocked ? `from ${wired}` : current.mode === "fixed" ? "exact (older setting)" : fills ? "= the whole clip. Shorten it to move IN" : active ? "" : "OUT ends the clip";
