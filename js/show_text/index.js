@@ -10,7 +10,7 @@
 // pointer so it can be selected and copied, which is half the point of a
 // Show Text node.
 
-import { app } from "/scripts/app.js";
+import { app } from "../../../scripts/app.js";
 import { isForeignRun } from "../shared/prompt_scope.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto } from "../shared/index.mjs";
 import { copyToClipboard } from "../shared/clipboard.mjs";

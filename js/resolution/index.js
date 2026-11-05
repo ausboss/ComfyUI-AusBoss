@@ -21,7 +21,7 @@
 // at the selected pixel budget and follow the explicit orientation toggle. Snap governs gestures only — typed
 // values are never re-snapped.
 
-import { app } from "/scripts/app.js";
+import { app } from "../../../scripts/app.js";
 import {
   chainCallback,
   keepDomWidgetWidthAuto,

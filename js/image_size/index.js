@@ -11,7 +11,7 @@
 // last text. The labels themselves are never saved, so an older version of
 // the pack shows the plain names.
 
-import { app } from "/scripts/app.js";
+import { app } from "../../../scripts/app.js";
 import { isForeignRun } from "../shared/prompt_scope.mjs";
 import { chainCallback } from "../shared/index.mjs";
 import { savedLabel, sizeLabel, sizesFromExecuted } from "../shared/image_size.mjs";

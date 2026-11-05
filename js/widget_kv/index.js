@@ -10,7 +10,7 @@
 // The LoRA loader is deliberately absent: its single JSON widget already
 // survives reordering.
 
-import { app } from "/scripts/app.js";
+import { app } from "../../../scripts/app.js";
 import { chainCallback } from "../shared/index.mjs";
 import {
   captureWidgetDefaults,

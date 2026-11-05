@@ -12,8 +12,8 @@
 // node.properties so a saved workflow reopens showing its author's time.
 // Decision logic lives in js/shared/run_timer.mjs under node:test.
 
-import { api } from "/scripts/api.js";
-import { app } from "/scripts/app.js";
+import { api } from "../../../scripts/api.js";
+import { app } from "../../../scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto } from "../shared/index.mjs";
 import { holdNodeMinWidth } from "../shared/panel_layout.mjs";
 import { isOwnRun, ownRuns } from "../shared/prompt_scope.mjs";

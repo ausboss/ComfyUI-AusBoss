@@ -1,5 +1,5 @@
-import { api } from "/scripts/api.js";
-import { app } from "/scripts/app.js";
+import { api } from "../../../scripts/api.js";
+import { app } from "../../../scripts/app.js";
 import { hideInputsInDef, hideWidget } from "./widget_visibility.mjs";
 import { mountTransformTrim } from "./transform_trim.mjs";
 import { clipOutputRate, inputNumber } from "./clip_rate.mjs";

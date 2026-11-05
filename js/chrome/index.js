@@ -1,5 +1,5 @@
-import { app } from "/scripts/app.js";
-import { api } from "/scripts/api.js";
+import { app } from "../../../scripts/app.js";
+import { api } from "../../../scripts/api.js";
 import { AUSBOSS_JS_VERSION, BRAND, BRAND_BODY, chainCallback } from "../shared/index.mjs";
 import { nodeByExecutionId } from "../shared/graph_ids.mjs";
 import { isOwnRun, ownRuns } from "../shared/prompt_scope.mjs";

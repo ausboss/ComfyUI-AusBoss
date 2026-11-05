@@ -2,7 +2,7 @@
 // name, a small copy of it and its job, then the video and its job. A slot with nothing plugged in is a faint
 // dashed chip, so it reads as optional. The widgets underneath stay the
 // source of truth: a chip only changes their value.
-import { app } from "/scripts/app.js";
+import { app } from "../../../scripts/app.js";
 import { BRAND, chainCallback } from "./index.mjs";
 import { liftSocket } from "./widget_card.mjs";
 import { commitWidgetValue, comboValues } from "./widget_card_math.mjs";

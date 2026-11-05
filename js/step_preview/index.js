@@ -6,7 +6,7 @@
 // The pictures and the run come from shared/step_preview.mjs; the server
 // side asks for them (nodes/_step_preview_helpers.py).
 
-import { app } from "/scripts/app.js";
+import { app } from "../../../scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto } from "../shared/index.mjs";
 import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
 import { ensureStepCss, mountStepOverlay, queuedRuns, stopAllRuns, stopStepRun, watchSteps } from "../shared/step_preview.mjs";

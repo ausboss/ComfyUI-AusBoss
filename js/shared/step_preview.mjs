@@ -9,8 +9,8 @@
 //
 // Runs queued from another workflow tab are left to that tab.
 
-import { api } from "/scripts/api.js";
-import { app } from "/scripts/app.js";
+import { api } from "../../../scripts/api.js";
+import { app } from "../../../scripts/app.js";
 import { nodeByExecutionId } from "./graph_ids.mjs";
 import { BRAND } from "./index.mjs";
 import { outputRecordQuery } from "./input_preview.mjs";

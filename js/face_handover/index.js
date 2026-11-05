@@ -6,7 +6,7 @@
 // hand-over waits one microtask, so the frontend has rebuilt the whole graph
 // before any panel moves.
 
-import { app } from "/scripts/app.js";
+import { app } from "../../../scripts/app.js";
 import { chainCallback, isAusbossNode } from "../shared/index.mjs";
 import { createFaceHandover } from "../shared/face_handover.mjs";
 

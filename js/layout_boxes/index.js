@@ -17,8 +17,8 @@
 // it. Ctrl (or Alt) while dragging leaves the grid off. The grid starts off
 // over a picture on `background`; a click on Grid is saved with the node.
 
-import { api } from "/scripts/api.js";
-import { app } from "/scripts/app.js";
+import { api } from "../../../scripts/api.js";
+import { app } from "../../../scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "../shared/index.mjs";
 import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { describeSourcePreview, outputLocatorId } from "../shared/input_preview.mjs";

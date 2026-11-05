@@ -1,5 +1,5 @@
-import { api } from "/scripts/api.js";
-import { app } from "/scripts/app.js";
+import { api } from "../../../scripts/api.js";
+import { app } from "../../../scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "../shared/index.mjs";
 import { WIDGET_FRAME, fillNodeHeight, holdVueNodeMinWidth } from "../shared/panel_layout.mjs";
 import { hideInputsInDef, hideWidget as collapseWidget } from "../shared/widget_visibility.mjs";

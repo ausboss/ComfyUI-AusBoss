@@ -12,8 +12,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ENTRY = join(dirname(fileURLToPath(import.meta.url)), "..", "js", "cache_guard", "index.js");
-const API_IMPORT = 'import { api } from "/scripts/api.js";';
-const APP_IMPORT = 'import { app } from "/scripts/app.js";';
+const API_IMPORT = 'import { api } from "../../../scripts/api.js";';
+const APP_IMPORT = 'import { app } from "../../../scripts/app.js";';
 
 const PAGE = `
 export const page = { installed: null, down: false, toasts: [], listeners: {}, extension: null };
