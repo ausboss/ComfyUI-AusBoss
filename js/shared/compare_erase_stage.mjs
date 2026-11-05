@@ -82,6 +82,7 @@ const CAN_FILTER = typeof CanvasRenderingContext2D !== "undefined" && "filter" i
 export const ERASE_CSS = `
 .ausboss-compare-erasebar{display:none;box-sizing:border-box;flex-wrap:wrap;align-items:center;gap:4px 6px;flex:none;min-height:${ERASE_BAR_HEIGHT}px;}
 .ausboss-compare-root.is-erasing .ausboss-compare-erasebar{display:flex;}
+.ausboss-compare-brush-swatch{box-sizing:border-box;flex:none;width:24px;height:24px;border-radius:4px;background:#0b1113;border:1px solid rgba(0,180,170,.3);}
 .ausboss-compare-erasebar .ausboss-scrub{flex:none;}
 .ausboss-compare-field{display:flex;align-items:center;gap:4px;flex:none;}
 .ausboss-compare-label{flex:none;color:#9fb6b4;font-size:10px;line-height:22px;white-space:nowrap;user-select:none;}
@@ -247,9 +248,32 @@ function drawCheckerboard(er, ctx, fit) {
   ctx.fillRect(fit.left, fit.top, fit.width, fit.height);
 }
 
+// Use the cursor's actual dab. A compressed size scale keeps both a
+// two-pixel brush and a two-thousand-pixel brush legible in the toolbar.
+function drawBrushSwatch(er) {
+  const size = brushSize(er);
+  const soft = brushSoft(er);
+  const back = er.back !== Boolean(er.flipKey);
+  const key = `${size}|${soft}|${back}`;
+  if (er.swatchKey === key) return;
+  er.swatchKey = key;
+  const swatch = er.swatch;
+  const side = swatch.width;
+  const fraction = Math.log(size / ERASE_SIZE[0]) / Math.log(ERASE_SIZE[1] / ERASE_SIZE[0]);
+  const diameter = side * (0.22 + 0.66 * fraction);
+  const dab = dabOf(er, size, soft, diameter / size, back ? BACK_TINT : RUB_TINT);
+  const ctx = swatch.getContext("2d");
+  ctx.clearRect(0, 0, side, side);
+  ctx.drawImage(dab.canvas, side / 2 - dab.reach, side / 2 - dab.reach);
+  swatch.title = `${back ? "Restore" : "Erase"} brush: ${size} px, ${soft}% soft`;
+  swatch.setAttribute("aria-label", swatch.title);
+}
+
 function draw(er) {
   er.frame = 0;
-  if (!er.active || !er.refs) return;
+  if (!er.active) return;
+  drawBrushSwatch(er);
+  if (!er.refs) return;
   sizeView(er);
   const { canvas } = er;
   const ctx = canvas.getContext("2d");
@@ -827,6 +851,11 @@ export function makeEraser({ node, root, stage, imageA, imageB, signal, onSaved,
     return wrap;
   };
   const sizeField = scrubField("Size", er.sizeBox, SIZE_HELP);
+  er.swatch = document.createElement("canvas");
+  er.swatch.className = "ausboss-compare-brush-swatch";
+  er.swatch.width = er.swatch.height = 64;
+  er.swatch.setAttribute("role", "img");
+  sizeField.prepend(er.swatch);
   const softField = scrubField("Soft", er.softBox, SOFT_HELP);
   const TOP_HELP = "Which picture you start from. The brush shows the other one through it. Swapping keeps your paint.";
   er.topSwitch = makeSlideSwitch({
