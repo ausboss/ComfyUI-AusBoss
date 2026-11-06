@@ -787,7 +787,8 @@
     ],
     "optional": [
       "latent",
-      "batch_size"
+      "batch_size",
+      "workflow_sizes"
     ],
     "outputs": [
       [

@@ -1,3 +1,4 @@
+import { panelSwitch } from "../shared/panel_controls.mjs";
 import { api } from "../../../scripts/api.js";
 import { app } from "../../../scripts/app.js";
 import { isForeignRun, outputKey } from "../shared/prompt_scope.mjs";
@@ -21,7 +22,7 @@ import {
 
 const NODE_NAME = "AUSBOSS_NODES_SaveVideo";
 const PREVIEW_WIDGET = "ausboss_save_video_viewer";
-const PREVIEW_CHROME = 12;
+const PREVIEW_CHROME = 38;
 // Height the node opens at. It used to fall out of the panel's computeSize;
 // with the panel free to follow the node, the default has to be stated. Same
 // 16:9-ish stage the width-derived formula produced, plus the widget rows.
@@ -47,7 +48,7 @@ function stepsOn(state) {
 
 function syncSteps(state, run = stepRun()) {
   const on = stepsOn(state);
-  state.stepsButton?.classList.toggle("active", on);
+  state.stepsButton?.setAttribute("aria-checked", String(on));
   state.stopButton?.classList.toggle("live", on && run.status === "running");
   const overlay = state.stepOverlay;
   if (!on) {
@@ -130,11 +131,11 @@ function buildPreview(node) {
   loopButton.classList.add("ausboss-steps-loop");
   const stopButton = makeToolButton("STOP", "Stop this run now. The next run in the queue still starts.");
   stopButton.classList.add("ausboss-steps-stop");
-  const stepsButton = makeToolButton("STEPS", "Show the clip's first frame here while it is being made, one step at a time, with a Stop button. Off by default.");
+  const stepsButton = panelSwitch("Steps", "Show the clip's first frame here while it is being made, one step at a time, with a Stop button. Off by default.");
   tools.classList.add("ausboss-steps-tools");
-  tools.append(stopButton, stepsButton, loopButton);
+  tools.append(stopButton, loopButton);
   stage.append(video, image, status, tools);
-  root.append(stage);
+  root.append(stepsButton, stage);
 
   const widget = node.addDOMWidget(PREVIEW_WIDGET, "ausboss_video", root, {
     serialize: false,
@@ -147,7 +148,7 @@ function buildPreview(node) {
   widget.serialize = false;
   fillNodeHeight(widget, {
     minWidth: VIDEO_MIN_WIDTH,
-    minHeight: 144,
+    minHeight: 158,
     minNodeSize: [VIDEO_MIN_WIDTH, 270],
     exactMinWidth: true,
   });

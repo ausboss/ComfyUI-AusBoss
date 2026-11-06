@@ -41,9 +41,9 @@ file's name. A caption on the `caption_text` input writes the paired `.txt`.
   workflow in EXIF. **JXL** (`jxl lossless`, lossless JPEG XL) is the most
   compact; it needs the optional `pillow-jxl-plugin` in ComfyUI's python
   (also the pack's `jxl` extra) and few browsers preview it.
-- **Embed workflow** (`save_metadata`): **yes** stores the prompt and
+- **Embed workflow** (`save_metadata`): **On** stores the prompt and
   workflow in the file (PNG text chunks, EXIF in webp and jxl) so it drags
-  back into ComfyUI; **no** writes a clean file for sharing or datasets.
+  back into ComfyUI; **Off** writes a clean file for sharing or datasets.
   `--disable-metadata` on the server wins.
 - **Preview** (`preview`): the small switch under the card shows the saved
   image on the node. Off, the picture's box goes away and the node is

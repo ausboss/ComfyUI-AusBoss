@@ -22,6 +22,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { savedWorkflowPolicy } from "../js/shared/resolution_math.mjs";
 import { resetUnknownValues } from "../js/shared/widget_card_math.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -158,6 +159,7 @@ const LAST_GUARDED_INPUT = {
 // (js/widget_cards/index.js), or RESET_UNKNOWN beside NODE_CLASS in its own
 // js/<name>/index.js for a node without a card.
 const APPENDED_SINCE = {
+  AUSBOSS_NODES_Resolution: { workflow_sizes: "workflow-policy" },
   // Added in 2.4.0; 2.0.0 - 2.3.0 saves hold the card's value there.
   AUSBOSS_NODES_CropForInpaint: { keep_inside: "toggle" },
   AUSBOSS_NODES_StitchInpaint: { seam: "combo", paste_onto: "combo" },
@@ -240,6 +242,14 @@ test("an added widget input opens an older save with its fallback, not the old s
   for (const [nodeId, inputs] of Object.entries(APPENDED_SINCE)) {
     for (const [name, type] of Object.entries(inputs)) {
       if (type === "socket") continue;
+      if (type === "workflow-policy") {
+        // An empty string is a valid, unrestricted text policy.
+        for (const old of OLD_SLOT_VALUES) assert.equal(savedWorkflowPolicy(old), "");
+        const saved = '{"strict":true,"sizes":[[576,1024]]}';
+        assert.equal(savedWorkflowPolicy(saved), saved);
+        assert.equal(savedWorkflowPolicy("", [[576, 1024]]), saved);
+        continue;
+      }
       const fallbacks = nodeFallbacks(nodeId);
       assert.ok(
         name in fallbacks,

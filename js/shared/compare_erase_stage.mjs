@@ -5,6 +5,7 @@
 // a mask canvas holds what has been rubbed away, and the view shows the
 // picture underneath with the top picture, less that mask, over it. Save
 // sends the strokes to the server, which builds the mix at full size.
+import { compactAction } from "./panel_controls.mjs";
 import { api } from "../../../scripts/api.js";
 import { BRAND, notifyAusbossChange, showToast } from "./index.mjs";
 import { brushAdjusts, brushFlips, brushKey, brushWords, toolKey } from "./brush.mjs";
@@ -12,7 +13,6 @@ import { keepKeyInField } from "./canvas_passthrough.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
 import { makeSlideSwitch } from "./slide_switch.mjs";
 import { extendStroke } from "./touch_math.mjs";
-import { makeToolButton } from "./video_ui.mjs";
 import {
   CHECKER,
   ERASE_OUTSIDE,
@@ -377,7 +377,7 @@ function syncTools(er) {
   er.layersSwitch.set(layers ? "on" : "off");
   const aligned = Boolean(er.refs?.aligned);
   er.alignButton.disabled = !ready || er.aligning;
-  er.alignButton.textContent = er.aligning ? "ALIGNING" : "ALIGN";
+  er.alignButton.textContent = er.aligning ? "Aligning" : "Align";
   er.alignButton.classList.toggle("active", aligned);
   er.alignButton.title = !ready
     ? "Run the workflow first: Align needs the two pictures."
@@ -846,7 +846,7 @@ export function makeEraser({ node, root, stage, imageA, imageB, signal, onSaved,
   // Align, Undo and Clear stay together at the right end, also on a second line.
   const steps = document.createElement("div");
   steps.className = "ausboss-compare-steps";
-  er.undoButton = click(makeToolButton("UNDO", "Take back the last stroke, or a Clear."), () => {
+  er.undoButton = click(compactAction("Undo", "Take back the last stroke, or a Clear."), () => {
     if (!er.history.length && !er.strokes.length) return;
     // Paint that came with the workflow has no steps of its own to go back
     // through: its last stroke is taken off.
@@ -856,13 +856,13 @@ export function makeEraser({ node, root, stage, imageA, imageB, signal, onSaved,
     syncTools(er);
     schedule(er);
   });
-  er.clearButton = click(makeToolButton("CLEAR", "Take all the paint off. Undo brings it back."), () => {
+  er.clearButton = click(compactAction("Clear", "Take all the paint off. Undo brings it back."), () => {
     if (!er.strokes.length) return;
     change(er, []);
     rebuildMask(er);
     schedule(er);
   });
-  er.alignButton = click(makeToolButton("ALIGN", ""), () => align(er));
+  er.alignButton = click(compactAction("Align", ""), () => align(er));
   steps.append(er.alignButton, er.undoButton, er.clearButton);
   er.bar.append(er.kindSwitch.root, sizeField, softField, topField, steps);
 

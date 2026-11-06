@@ -19,6 +19,7 @@ import {
   outwardDelta,
   parsePins,
   parseRail,
+  parseWorkflowSizes, readWorkflowPolicy, workflowRatios,
   defaultSizeForRatio,
   pinLabel,
   quickSizes,
@@ -32,7 +33,7 @@ import {
   serializePins,
   sizeForMegapixels,
   snapDim,
-  stageScale,
+  fitStage,
   stepMegapixels,
   strideWarning,
   togglePin,
@@ -126,10 +127,16 @@ test("a ratio-locked corner drag cannot drift the ratio", () => {
   assert.ok(size.width > 1344, "grew outward");
 });
 
-test("stageScale leaves label and handle headroom", () => {
-  assert.ok(stageScale(1024, 1024, 200, 200) < 200 / 1024);
-  assert.equal(stageScale(1024, 1024, 400, 400), (400 - 90) / 1024);
-  assert.ok(stageScale(1024, 1024, 50, 50) > 0, "tiny stages stay positive");
+test("portrait uses the side gutters; a wide selection and its handles clear the header", () => {
+  const portrait = fitStage(576, 1024, 420, 140);
+  assert.equal(1024 * portrait.scale, 120);
+  assert.equal(portrait.shift, 0);
+  for (const [w, h] of [[1024, 576], [1024, 1024], [8192, 64]]) {
+    const {scale, shift} = fitStage(w, h, 320, 180);
+    const top = (180 - h * scale) / 2 + shift;
+    assert.ok(top >= 26 && top + h * scale <= 170);
+    assert.ok(w * scale <= 300);
+  }
 });
 
 // ---------- megapixel retarget ----------
@@ -329,4 +336,15 @@ test("extreme ratio and snap combinations always return bounded dimensions", () 
   }
   assert.deepEqual(orientRatio({x:3,y:4}, true), {x:3,y:4,label:"3:4"});
   assert.deepEqual(orientRatio({x:3,y:4}, false), {x:4,y:3,label:"4:3"});
+});
+
+test("workflow chips group by exact oriented ratio and keep the author's order", () => {
+  const sizes = parseWorkflowSizes("576×1024\n480 x 864\n720 X 1280\n1024 × 576\n576×1024");
+  const groups = workflowRatios(sizes);
+  assert.deepEqual(groups.map(r => r.label), ["9:16", "5:9", "16:9"]);
+  assert.deepEqual(groups[0].sizes, [{width:576,height:1024}, {width:720,height:1280}]);
+  assert.throws(() => parseWorkflowSizes("576×1024\n1024×32"));
+  assert.throws(() => readWorkflowPolicy('{"strict":"false","sizes":[]}'));
+  assert.throws(() => readWorkflowPolicy('{"strict":true,"sizes":[[576,1024],"1024x576"]}'));
+  assert.deepEqual(readWorkflowPolicy(""), {strict:false, sizes:[]});
 });

@@ -21,6 +21,7 @@
 // at the selected pixel budget and follow the explicit orientation toggle. Snap governs gestures only — typed
 // values are never re-snapped.
 
+import { CAPTION_TYPE, HINT_TYPE, compactAction } from "../shared/panel_controls.mjs";
 import { app } from "../../../scripts/app.js";
 import {
   chainCallback,
@@ -29,8 +30,10 @@ import {
 } from "../shared/index.mjs";
 import { WIDGET_FRAME, fillNodeHeight, holdVueNodeMinWidth } from "../shared/panel_layout.mjs";
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
+import { markSocketless } from "../shared/widget_card_math.mjs";
 import { makeScrubInput } from "../shared/scrub_input.mjs";
 import {
+  closeSettingsMenu,
   gearIconSvg,
   loadSettings,
   openSettingsMenu,
@@ -51,12 +54,16 @@ import {
   offGrid,
   orientRatio,
   parseRail,
+  parseWorkflowSizes,
+  readWorkflowPolicy,
+  savedWorkflowPolicy,
+  workflowRatios,
   quickSizes,
   ratioLabel,
   reduceRatio,
   scrubDim,
   sizeForMegapixels,
-  stageScale,
+  fitStage,
 } from "../shared/resolution_math.mjs";
 
 const NODE_CLASS = "AUSBOSS_NODES_Resolution";
@@ -132,13 +139,19 @@ function installStyles() {
   .ausboss-res-panel { display: flex; flex-direction: column; gap: ${SECTION_GAP}px;
     width: 100%; height: 100%; padding: ${PANEL_PADDING}px; overflow: hidden;
     font: 400 11px ${MONO}; color: #d7dde2; }
+  .ausboss-size-dialog{color-scheme:dark;width:min(365px,88vw);border:1px solid #345554;border-radius:10px;background:#162022;color:#d7e4e3;padding:18px;font:13px system-ui}
+  .ausboss-size-dialog::backdrop{background:#0008}
+  .ausboss-size-dialog textarea{display:block;box-sizing:border-box;width:100%;margin:8px 0;padding:8px;font:13px monospace}
+  .ausboss-size-dialog input{accent-color:#00b4aa}
+  .ausboss-size-dialog [role=alert]{color:#ffd49e}
+  .ausboss-size-dialog p{color:#adc1be;font:12px/1.45 system-ui;margin:7px 0 12px}
+  .ausboss-size-dialog footer{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
   .ausboss-res-sec { flex: none; background: #141515; border: 1px solid #252727;
     border-radius: 8px; padding: 6px 8px 8px; }
   .ausboss-res-sechead { display: flex; align-items: baseline;
     justify-content: space-between; margin-bottom: 6px; gap: 8px; }
-  .ausboss-res-sechead .label { font: 500 9px ${MONO}; letter-spacing: .14em;
-    text-transform: uppercase; color: #6a7070; white-space: nowrap; }
-  .ausboss-res-sechead .hint { font: 400 9px ${MONO}; color: #4e5454;
+  .ausboss-res-sechead .label { ${CAPTION_TYPE} white-space: nowrap; }
+  .ausboss-res-sechead .hint { ${HINT_TYPE}
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ausboss-res-shaperow { display: flex; gap: 6px; align-items: stretch; }
   .ausboss-res-subbox { background: #101111; border: 1px solid #252727;
@@ -174,12 +187,12 @@ function installStyles() {
     background-image: radial-gradient(#242727 1px, transparent 1px);
     background-size: 22px 22px; background-position: center; opacity: .55; }
   .ausboss-res-rings { position: absolute; inset: 0; pointer-events: none; }
-  .ausboss-res-rect { position: absolute; inset: 0; margin: auto;
-    border: 1.5px solid #00b4aa; background: rgba(0,180,170,.05);
+  .ausboss-res-rect { position: absolute; inset: var(--ausboss-res-inset,0) 0 0; margin: auto;
+    border: 1.5px solid #00b4aa; background: rgba(0,180,170,.10);
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 2px; }
   .ausboss-res-rect.easing { transition: width ${REFIT_MS}ms ease, height ${REFIT_MS}ms ease; }
-  .ausboss-res-ghost { position: absolute; inset: 0; margin: auto;
+  .ausboss-res-ghost { position: absolute; inset: var(--ausboss-res-inset,0) 0 0; margin: auto;
     border: 1px dashed #4d5555; pointer-events: none; display: none; }
   .ausboss-res-readout { position: absolute; top: 6px; left: 9px; right: 9px; z-index: 2;
     display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -207,6 +220,8 @@ function installStyles() {
     height: ${CONTROL_H}px; background: #1c1e1e; border-color: #313434; font: 500 13px ${MONO}; }
   .ausboss-res-field .ausboss-scrub > .ausboss-scrub-input { text-align: left;
     padding-left: 8px; color: #eef1f1; }
+  .ausboss-res-field[inert] .ausboss-scrub,.ausboss-res-field .ausboss-scrub[inert]{border-color:transparent;background:transparent}
+  .ausboss-res-field[inert] .ausboss-scrub-step,.ausboss-res-field .ausboss-scrub[inert] .ausboss-scrub-step{display:none}
   .ausboss-res-field.linked { opacity: .5; pointer-events: none; }
   .ausboss-res-axis { flex: none; font: 400 9px ${MONO}; color: #565c5c; }
   .ausboss-res-btn { width: ${CONTROL_H}px; height: ${CONTROL_H}px; flex: none;
@@ -214,7 +229,7 @@ function installStyles() {
     border-radius: 5px; color: #9aa0a0; cursor: pointer; font-size: 12px; padding: 0; }
   .ausboss-res-btn:hover { border-color: #00b4aa; color: #00b4aa; }
   .ausboss-res-quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;
-    min-height: ${QUICK_H * 2 + 5}px; align-content: start; }
+    height: ${QUICK_H * 2 + 5}px; overflow-y: auto; align-content: start; }
   .ausboss-res-chip.customchip { opacity: .45; cursor: default;
     pointer-events: none; border-style: dashed; grid-column: span 2; }
   .ausboss-res-quick .ausboss-res-chip { height: ${QUICK_H}px; font-size: 9.5px;
@@ -256,6 +271,7 @@ function getSize(state) {
 }
 
 function commitSize(state, width, height, { gesture = false } = {}) {
+  if (state.strict && (!isListed(state, width, height) || axisLinked(state, "width") || axisLinked(state, "height"))) return;
   if (!axisLinked(state, "width")) state.widthWidget.value = clampDim(width);
   if (!axisLinked(state, "height")) state.heightWidget.value = clampDim(height);
   repaint(state);
@@ -350,7 +366,7 @@ function stageBox(state) {
 
 // Equal-cost curves, log-sampled across the plausible width range so they
 // sweep the whole quadrant (the design's rendering).
-function paintRings(state, scale) {
+function paintRings(state, scale, shift) {
   const svg = state.rings;
   svg.replaceChildren();
   const show = state.settings?.show_mp_rings !== false;
@@ -358,7 +374,7 @@ function paintRings(state, scale) {
   const box = stageBox(state);
   svg.setAttribute("viewBox", `0 0 ${box.w} ${box.h}`);
   const cx = box.w / 2;
-  const cy = box.h / 2;
+  const cy = box.h / 2 + shift;
   for (const mp of [0.5, 1, 2]) {
     const points = [];
     for (let i = 0; i <= 60; i += 1) {
@@ -396,7 +412,7 @@ function paintRings(state, scale) {
 
 // The quick list regenerates when the ratio or snap changes; repaint only
 // re-highlights it otherwise.
-function rebuildQuick(state, width, height, snap, custom) {
+function rebuildQuick(state, width, height, snap, custom, picks) {
   const wrap = state.quickWrap;
   wrap.replaceChildren();
   state.quickButtons = [];
@@ -409,7 +425,8 @@ function rebuildQuick(state, width, height, snap, custom) {
     wrap.append(chip);
     return;
   }
-  const list = quickSizes(width, height, snap);
+  const list = picks ?? quickSizes(width, height, snap);
+  if (state.strict && !list.length) return;
   if (!list.length) {
     wrap.append(el("span", "ausboss-res-noquick",
       "No on-grid sizes for this ratio at this snap — try a finer snap."));
@@ -420,6 +437,7 @@ function rebuildQuick(state, width, height, snap, custom) {
     chip.type = "button";
     chip.title = `Apply ${size.width}×${size.height} exactly.`;
     chip.addEventListener("click", () => {
+      if (picks && size.width !== size.height) state.node.properties.ausbossResolutionPortrait = size.height > size.width;
       commitSize(state, size.width, size.height);
       easeRefit(state);
     });
@@ -430,26 +448,98 @@ function rebuildQuick(state, width, height, snap, custom) {
   }
 }
 
+function isListed(state, width, height) {
+  return state.sizes.some(([w, h]) => w === width && h === height);
+}
+
+function restorePolicy(state) {
+  const widget = state.policyWidget;
+  if (!widget) return;
+  const legacy = state.node.properties?.ausbossWorkflowSizes;
+  widget.value = savedWorkflowPolicy(widget.value, legacy);
+  if (state.node.properties) delete state.node.properties.ausbossWorkflowSizes;
+  try {
+    Object.assign(state, readWorkflowPolicy(widget.value), { policyError: false });
+  } catch {
+    Object.assign(state, { sizes: [], strict: true, policyError: true });
+  }
+  const { width, height } = getSize(state);
+  if (state.strict && state.sizes.length && !isListed(state, width, height)
+      && !axisLinked(state, "width") && !axisLinked(state, "height")) {
+    [state.widthWidget.value, state.heightWidget.value] = state.sizes[0];
+  }
+}
+
+function editWorkflowSizes(state) {
+  closeSettingsMenu();
+  const dialog = el("dialog", "ausboss-size-dialog");
+  dialog.setAttribute("aria-label", "Workflow resolutions");
+  const label = el("label", "", "Workflow resolutions");
+  const area = el("textarea");
+  area.rows = 6;
+  area.placeholder = "576 × 1024";
+  area.value = state.sizes.map(pair => pair.join(" × ")).join("\n");
+  label.append(area);
+  const hint = el("p", "", "One width × height per line. These quick picks are saved with this node.");
+  const lock = el("label");
+  const checkbox = el("input");
+  checkbox.type = "checkbox";
+  checkbox.checked = state.strict;
+  lock.append(checkbox, " Limit choices to this list");
+  const description = el("p", "", "Only listed sizes and their exact aspect ratios can be selected. Linked dimensions are checked when the workflow runs.");
+  const error = el("div");
+  error.setAttribute("role", "alert");
+  const footer = el("footer");
+  const cancel = compactAction("Cancel");
+  const save = compactAction("Save sizes");
+  cancel.onclick = () => dialog.close();
+  save.onclick = () => {
+    let sizes;
+    try {
+      sizes = parseWorkflowSizes(area.value);
+      if (checkbox.checked && !sizes.length) throw new Error("Add a resolution, or turn off the limit to allow any size.");
+    } catch (e) {
+      error.textContent = e.message;
+      area.focus();
+      return;
+    }
+    state.policyWidget.value = sizes.length ? JSON.stringify({ strict: checkbox.checked, sizes }) : "";
+    restorePolicy(state);
+    buildPanel(state);
+    fitNode(state);
+    notifyAusbossChange();
+    dialog.close();
+  };
+  footer.append(cancel, save);
+  dialog.append(label, hint, lock, description, error, footer);
+  document.body.append(dialog);
+  dialog.addEventListener("close", () => dialog.remove(), { once:true });
+  dialog.showModal();
+}
+
 function repaint(state) {
   const { width, height } = getSize(state);
   const snap = currentSnap(state);
-  const box = stageBox(state);
-  const scale = state.frozenScale ?? stageScale(width, height, box.w, box.h);
   const portrait = orientation(state);
   const ratio = reduceRatio(width, height);
 
-  state.rect.style.width = `${Math.max(8, width * scale)}px`;
-  state.rect.style.height = `${Math.max(8, height * scale)}px`;
   state.dimLabel.textContent = `${width} × ${height}`;
   state.subMp.textContent = `${megapixels(width, height).toFixed(2)} MP`;
-  state.subRatio.textContent = ratioLabel(width, height);
-  state.offGridDot.style.display = offGrid(width, height, snap) ? "" : "none";
+  state.subRatio.textContent = state.strict ? `${ratio.x}:${ratio.y}` : ratioLabel(width, height);
+  state.offGridDot.style.display = !state.strict && offGrid(width, height, snap) ? "" : "none";
   state.dots.style.display = state.settings?.show_grid === false ? "none" : "";
 
-  paintRings(state, scale);
+  const box = stageBox(state);
+  const sideRoom = 14 + Math.max(state.dimLabel.offsetWidth, state.subMp.parentElement.offsetWidth);
+  const frame = state.frame = state.frozenFrame ?? fitStage(width, height, box.w, box.h, sideRoom);
+  const { scale, shift } = frame;
+  state.stage.style.setProperty("--ausboss-res-inset", `${2 * shift}px`);
+  state.rect.style.width = `${Math.max(8, width * scale)}px`;
+  state.rect.style.height = `${Math.max(8, height * scale)}px`;
+  paintRings(state, scale, shift);
 
   // Section labels.
-  state.orientLabel.textContent = width === height
+  state.orientLabel.textContent = state.strict ? "Workflow ratios" : width === height
     ? `square · chips ${portrait ? "portrait" : "landscape"}`
     : portrait ? "portrait" : "landscape";
   const flipFit = portrait ? { w: 11, h: 15 } : { w: 15, h: 11 };
@@ -463,14 +553,17 @@ function repaint(state) {
 
   // Ratio chips render in the selected orientation; filled = exact, dashed = near.
   state.chipButtons.forEach(({ button, ratio: chipRatio, glyph, label }) => {
-    const oriented = orientRatio(chipRatio, portrait);
+    const oriented = state.strict ? chipRatio : orientRatio(chipRatio, portrait);
     const fitted = fitRectInBox(oriented.x, oriented.y, 14, 14);
     glyph.style.width = `${fitted.w.toFixed(1)}px`;
     glyph.style.height = `${fitted.h.toFixed(1)}px`;
     label.textContent = oriented.label;
-    button.title = `${oriented.label}: reshape to this ratio. The flip button on the left sets the orientation.`;
+    button.title = state.strict ? `Show approved ${oriented.label} sizes` : `${oriented.label}: reshape to this ratio. The flip button on the left sets the orientation.`;
     const candidate = chipMatch(width, height, oriented);
-    const match = candidate?.flipped ? null : candidate;
+    const match = state.strict
+      ? (ratio.x === chipRatio.x && ratio.y === chipRatio.y ? { state: "exact" } : null)
+      : candidate?.flipped ? null : candidate;
+    button.setAttribute("aria-pressed", String(match?.state === "exact"));
     button.classList.toggle("exact", match?.state === "exact");
     button.classList.toggle("near", match?.state === "near");
   });
@@ -479,49 +572,52 @@ function repaint(state) {
   const widthLinked = axisLinked(state, "width");
   const heightLinked = axisLinked(state, "height");
   const linked = widthLinked || heightLinked;
-  state.flipButton.disabled = linked;
-  state.swapButton.disabled = linked;
-  state.budgetControl.root.style.pointerEvents = linked ? "none" : "";
-  state.budgetControl.root.style.opacity = linked ? ".5" : "";
+  state.flipButton.disabled = linked || state.strict;
+  state.swapButton.disabled = linked || (state.strict && (width === height || !isListed(state, height, width)));
+  state.budgetControl.root.inert = linked || state.strict;
+  state.budgetControl.root.style.opacity = linked || state.strict ? ".65" : "";
   for (const { button } of state.chipButtons) button.disabled = linked;
   state.widthControl.set(width);
   state.heightControl.set(height);
-  state.budgetControl?.set(megapixels(width, height));
-  state.widthField.classList.toggle("linked", widthLinked);
-  state.heightField.classList.toggle("linked", heightLinked);
-  state.widthField.title = widthLinked ? "Width is driven by its input link." : "";
-  state.heightField.title = heightLinked ? "Height is driven by its input link." : "";
+  state.budgetControl.set(megapixels(width, height));
+  for (const [field, wired] of [[state.widthField, widthLinked], [state.heightField, heightLinked]]) {
+    field.inert = wired || state.strict;
+    field.classList.toggle("linked", wired);
+  }
   state.handles.e.classList.toggle("linked", widthLinked);
   state.handles.s.classList.toggle("linked", heightLinked);
-  state.handles.se.classList.toggle("linked", widthLinked || heightLinked);
+  state.handles.se.classList.toggle("linked", linked);
 
-  // Quick sizes follow the CURRENT ratio - the Pixaroma behavior, but the
-  // list is generated on-ratio/on-grid instead of hand-curated. Frozen
+  // Quick sizes follow the current ratio and snap grid. Frozen
   // while a gesture is live (a drag sweeps ratios; regenerating per move
   // read as glitching), and a shape off the rail shows one "custom" chip.
   if (!state.dragging) {
     const onRail = state.railRatios?.some(
       (railRatio) => chipMatch(width, height, railRatio)?.state === "exact",
     );
-    const quickKey = onRail ? `${ratio.x}:${ratio.y}/${snap}` : `custom/${snap}`;
+    const group = state.strict && state.railRatios.find(r => r.x === ratio.x && r.y === ratio.y);
+    const picks = state.strict ? (group?.sizes ?? []) : state.sizes.length
+      ? state.sizes.map(([w, h]) => ({ width: w, height: h })) : null;
+    const quickKey = picks ? JSON.stringify(picks) : onRail ? `${ratio.x}:${ratio.y}/${snap}` : `custom/${snap}`;
     if (state.quickKey !== quickKey) {
       state.quickKey = quickKey;
-      rebuildQuick(state, width, height, snap, !onRail);
-      state.quickHint.textContent = onRail
-        ? `for ${ratioLabel(width, height)} · /${snap}`
-        : `custom · /${snap}`;
+      rebuildQuick(state, width, height, snap, !picks && !onRail, picks);
     }
+    state.quickHint.textContent = state.policyError ? "Invalid list · edit in settings"
+      : linked && state.strict ? "Linked size checked at run"
+      : state.strict ? `Allowed · ${ratio.x}:${ratio.y}` : picks ? "Workflow recommendations"
+      : onRail ? `for ${ratioLabel(width, height)} · /${snap}` : `custom · /${snap}`;
   }
   state.quickButtons.forEach(({ button, size }) => {
-    button.disabled = widthLinked || heightLinked;
-    button.classList.toggle("exact", size.width === width && size.height === height);
+    button.disabled = linked;
+    const selected = size.width === width && size.height === height;
+    button.classList.toggle("exact", selected);
+    button.setAttribute("aria-pressed", String(selected));
   });
 }
 
 function showGhost(state, width, height) {
-  const box = stageBox(state);
-  const { width: w, height: h } = getSize(state);
-  const scale = stageScale(w, h, box.w, box.h);
+  const { scale } = state.frame;
   state.ghost.style.width = `${width * scale}px`;
   state.ghost.style.height = `${height * scale}px`;
   state.ghost.style.display = "";
@@ -532,7 +628,7 @@ function hideGhost(state) {
 }
 
 function easeRefit(state) {
-  state.frozenScale = null;
+  state.frozenFrame = null;
   state.rect.classList.add("easing");
   repaint(state);
   clearTimeout(state.easeTimer);
@@ -542,15 +638,14 @@ function easeRefit(state) {
 // ---------- gestures ----------
 
 function beginHandleDrag(state, handle, event) {
-  if (event.button !== 0 || state.disposed) return;
+  if (state.strict || event.button !== 0 || state.disposed) return;
   if ((handle !== "s" && axisLinked(state, "width")) || (handle !== "e" && axisLinked(state, "height"))) return;
   event.preventDefault();
   event.stopPropagation();
   const start = getSize(state);
-  const box = stageBox(state);
   // Frozen at pointerdown: the rect may overflow the stage mid-gesture and
   // re-fits with a short ease on release - auto-fit never squirms mid-drag.
-  state.frozenScale = stageScale(start.width, start.height, box.w, box.h);
+  state.frozenFrame = state.frame;
   state.dragging = true;
   const origin = { x: event.clientX, y: event.clientY };
   state.dragAbort?.abort();
@@ -563,7 +658,7 @@ function beginHandleDrag(state, handle, event) {
       startHeight: start.height,
       dx: (moveEvent.clientX - origin.x) / zoom,
       dy: (moveEvent.clientY - origin.y) / zoom,
-      scale: state.frozenScale,
+      scale: state.frozenFrame.scale,
       snap: currentSnap(state),
       snapOn: !moveEvent.altKey,
       // The corner scales at the exact locked ratio; Shift frees both axes.
@@ -644,7 +739,7 @@ function sectionHead(label, hint) {
 function buildPanel(state) {
   state.dragAbort?.abort();
   state.dragging = false;
-  state.frozenScale = null;
+  state.frozenFrame = null;
   const panel = state.panel;
   panel.textContent = "";
   state.quickKey = null; // force the quick list to regenerate
@@ -668,19 +763,16 @@ function buildPanel(state) {
   state.flipButton = flip;
   state.flipGlyph = flipGlyph;
   state.chipButtons = [];
-  state.railRatios = parseRail(state.settings?.rail);
+  state.railRatios = state.strict ? workflowRatios(state.sizes) : parseRail(state.settings?.rail);
   for (const ratio of state.railRatios) {
     const chip = el("button", "ausboss-res-chip");
     chip.type = "button";
     const glyph = el("span", "glyph");
     const label = el("span");
     chip.append(glyph, label);
-    // A chip click lands on that ratio's canonical ~1MP default (the
-    // Pixaroma behavior, derived instead of table-driven); the gear's
-    // "keep current budget" toggle restores the budget-preserving mode.
-    // Chips only pick the shape; orientation belongs to the flip button.
     const chipTarget = () => {
       const size = getSize(state);
+      if (state.strict) return ratio.sizes.find(s => s.width === size.width && s.height === size.height) ?? ratio.sizes[0];
       const portrait = orientation(state);
       if (state.settings?.chips_keep_budget) {
         return applyRatioAtBudget(size.width, size.height, ratio, currentSnap(state), portrait);
@@ -701,13 +793,15 @@ function buildPanel(state) {
     state.chipButtons.push({ button: chip, ratio, glyph, label });
   }
   chipBox.append(chipGrid);
-  shapeRow.append(flipBox, chipBox);
+  if (!state.strict) shapeRow.append(flipBox);
+  shapeRow.append(chipBox);
   shapeSec.append(shapeRow);
   panel.append(shapeSec);
 
   // (2) STAGE
   const stage = el("div", "ausboss-res-stage");
-  stage.tabIndex = 0;
+  stage.tabIndex = state.strict ? -1 : 0;
+  if (state.strict) stage.title = "Choose from the workflow’s ratio and size buttons.";
   const dots = el("div", "ausboss-res-dots");
   const rings = svgEl("svg");
   rings.classList.add("ausboss-res-rings");
@@ -734,14 +828,14 @@ function buildPanel(state) {
         ? "Drag width - Alt unsnaps, Esc cancels"
         : "Drag height - Alt unsnaps, Esc cancels";
     grip.addEventListener("pointerdown", (event) => beginHandleDrag(state, handle, event));
-    rect.append(grip);
+    if (!state.strict) rect.append(grip);
     state.handles[handle] = grip;
   }
   stage.append(dots, rings, ghost, rect, readout);
   stage.addEventListener("keydown", (event) => {
     const keys = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] };
     const move = keys[event.key];
-    if (!move) return;
+    if (!move || state.strict) return;
     event.preventDefault();
     event.stopPropagation();
     const step = event.shiftKey ? 8 : currentSnap(state);
@@ -803,10 +897,13 @@ function buildPanel(state) {
   gear.addEventListener("click", () => {
     openSettingsMenu({
       scope: SETTINGS_SCOPE,
-      schema: SETTINGS_SCHEMA.map((entry) => {
+      schema: [{ section: "This workflow" }, {
+        key: "workflow_sizes", type: "action", label: "Workflow resolutions", button: "Edit list",
+        onAction: () => editWorkflowSizes(state),
+      }, ...SETTINGS_SCHEMA.filter(e => !state.strict || !["default_snap", "chips_keep_budget", "rail"].includes(e.key)).map((entry) => {
         const input = entry.key === "latent" ? "latent" : entry.key === "batch" ? "batch_size" : null;
         return input && axisLinked(state, input) ? { section: `${entry.label} is linked` } : entry;
-      }),
+      })],
       anchor: gear.getBoundingClientRect(),
       title: "Latent Size settings",
       initial: {
@@ -869,7 +966,7 @@ function buildPanel(state) {
   state.resizeObserver?.disconnect();
   state.resizeObserver = new ResizeObserver(() => {
     holdVueNodeMinWidth(state.panel, MIN_WIDTH);
-    if (!state.frozenScale) repaint(state);
+    if (!state.frozenFrame) repaint(state);
   });
   state.resizeObserver.observe(stage);
 
@@ -907,6 +1004,8 @@ function installResolutionNode(node) {
   // the API format carries them like any other value.
   const latentWidget = node.widgets?.find((widget) => widget.name === "latent");
   const batchWidget = node.widgets?.find((widget) => widget.name === "batch_size");
+  const policyWidget = node.widgets?.find(widget => widget.name === "workflow_sizes");
+  hideWidget(policyWidget);
   if (latentWidget) hideWidget(latentWidget);
   if (batchWidget) hideWidget(batchWidget);
 
@@ -928,9 +1027,12 @@ function installResolutionNode(node) {
     heightWidget,
     latentWidget,
     batchWidget,
+    policyWidget,
+    sizes: [],
+    strict: false,
     panel,
     settings: loadSettings(SETTINGS_SCOPE, SETTINGS_SCHEMA),
-    frozenScale: null,
+    frozenFrame: null,
     quickKey: null,
   };
   node.__ausbossResolution = state;
@@ -953,6 +1055,7 @@ function installResolutionNode(node) {
     exactMinWidth: true,
   });
 
+  restorePolicy(state);
   buildPanel(state);
   for (const widget of [widthWidget, heightWidget, latentWidget, batchWidget]) {
     if (widget) chainCallback(widget, "callback", () => {
@@ -980,11 +1083,18 @@ function installResolutionNode(node) {
     // empty placeholder in their slots; put the defaults back.
     if (latentWidget && !["16ch", "4ch", "128ch"].includes(latentWidget.value)) latentWidget.value = "16ch";
     if (batchWidget && !(Number.isInteger(batchWidget.value) && batchWidget.value >= 1)) batchWidget.value = 1;
+    restorePolicy(state);
+    buildPanel(state);
     requestAnimationFrame(() => { if (!state.disposed) { syncPrimitiveLinks(state); repaint(state); } });
   });
   chainCallback(node, "onConnectionsChange", function () {
-    // Convert-to-input honesty: link changes flip the read-only axes.
-    requestAnimationFrame(() => { if (!state.disposed) { syncPrimitiveLinks(state); repaint(state); } });
+    requestAnimationFrame(() => {
+      if (state.disposed) return;
+      syncPrimitiveLinks(state);
+      // A removed Primitive can leave its last value in the backing widget.
+      if (state.strict) restorePolicy(state);
+      repaint(state);
+    });
   });
   chainCallback(node, "onRemoved", () => {
     state.disposed = true;
@@ -998,7 +1108,8 @@ app.registerExtension({
   name: "AusBoss.Resolution",
   beforeRegisterNodeDef(nodeType, nodeData) {
     if (nodeData?.name !== NODE_CLASS) return;
-    hideInputsInDef(nodeData, ["width", "height", "latent", "batch_size"]);
+    markSocketless(nodeData, ["workflow_sizes"]);
+    hideInputsInDef(nodeData, ["width", "height", "latent", "batch_size", "workflow_sizes"]);
     chainCallback(nodeType.prototype, "onNodeCreated", function () {
       installResolutionNode(this);
     });

@@ -8,7 +8,7 @@
 // (start_seconds, end_seconds, max_seconds) stay the source of truth.
 import { api } from "../../../scripts/api.js";
 import { app } from "../../../scripts/app.js";
-import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
+import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "../shared/index.mjs";
 import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
 import { formatTimecode, parseTimecode } from "../shared/timecode.mjs";
@@ -102,6 +102,7 @@ function ensureAudioCss() {
   style.id = "ausboss-load-audio-css";
   style.textContent = `
 .ausboss-audio-root .ausboss-video-stage{min-height:28px;background:#050b0b;cursor:pointer;touch-action:none;}
+.ausboss-audio-error{pointer-events:auto;border:0;background:transparent;color:#e6bf87;font:11px system-ui;cursor:pointer;white-space:nowrap}
 .ausboss-audio-root canvas.ausboss-audio-wave{position:absolute;inset:0;width:100%;height:100%;display:block;}
 .ausboss-audio-root .ausboss-video-stage:not(.is-empty) .ausboss-video-status{display:none;}
 .ausboss-audio-root .ausboss-audio-row{display:flex;align-items:center;gap:6px;flex:none;padding:0 2px;}
@@ -379,7 +380,7 @@ function buildPanel(node) {
   canvas.className = "ausboss-audio-wave";
   const status = document.createElement("div");
   status.className = "ausboss-video-status";
-  status.textContent = "Choose or upload a sound file";
+  status.textContent = "Choose a sound file";
   const playButton = makeToolButton("▶", "Play the part that comes out");
   playButton.classList.add("ausboss-audio-play");
   const loopButton = makeToolButton("LOOP", "Play it again and again");
@@ -469,7 +470,7 @@ function buildPanel(node) {
     if (!name || typeof name !== "string") {
       audio.removeAttribute("src");
       stage.classList.add("is-empty");
-      status.textContent = "Choose or upload a sound file";
+      status.textContent = "Choose a sound file";
       updateFace(state);
       return;
     }
@@ -488,7 +489,17 @@ function buildPanel(node) {
       updateFace(state);
     } catch (error) {
       if (ticket !== state.loading) return;
-      status.textContent = `This sound could not be shown: ${error?.message || error}`;
+      const info = document.createElement("button");
+      info.type = "button";
+      info.className = "ausboss-audio-error";
+      info.textContent = "Audio preview unavailable ⓘ";
+      info.title = String(error?.message || error);
+      info.setAttribute("aria-label", "Audio preview unavailable. Show details.");
+      info.onclick = event => {
+        event.stopPropagation();
+        showToast({ summary: "Audio preview unavailable", detail: info.title });
+      };
+      status.replaceChildren(info);
     }
   };
   state.refresh = refresh;
