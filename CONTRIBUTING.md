@@ -346,10 +346,16 @@ before a release that follows a ComfyUI update.
 A new `version` in `pyproject.toml` that lands on main publishes to the Comfy
 Registry through the publish workflow (`.github/workflows/publish_action.yml`).
 After a successful upload, the same workflow tags that commit and creates a
-GitHub Release with the full changelog section. The README badge follows the
+GitHub Release with the full changelog section. The README badge links to the
 latest GitHub Release. If only that step fails, rerun the failed jobs to retry
 it without uploading the Registry version again. Existing releases are left
 unchanged on a rerun. Contributors never change `version`.
+
+For an authorized release, update both `pyproject.toml` and
+`AUSBOSS_JS_VERSION`, date the changelog section, then run
+`python scripts/release_badge.py`. Preflight rejects a badge that does not
+match the pack version. Its SVG lives in the repository so the release
+number stays visible when an external badge service is unavailable.
 
 The Registry shows notes with each version. They are that version's section
 of `CHANGELOG.md`, one line per entry: its bold opening, and for a new node
