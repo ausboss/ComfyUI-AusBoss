@@ -107,6 +107,30 @@ class CommandTests(unittest.TestCase):
         self.assertEqual((code, err), (0, ""))
         self.assertTrue(out.startswith("- "))
 
+    def test_full_notes_keep_markdown_and_details_for_only_the_requested_version(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "CHANGELOG.md").write_text(CHANGELOG, encoding="utf-8")
+            with patch.object(changelog_notes, "ROOT", root):
+                code, out, err = self.run_main("--version", "2.7.0", "--full")
+        self.assertEqual((code, err), (0, ""))
+        self.assertEqual(out, section(CHANGELOG, "2.7.0").strip() + "\n")
+        self.assertIn("**Save Video:", out)
+        self.assertIn("A second sentence.", out)
+        self.assertNotIn("Mask by Touch", out)
+        self.assertNotIn("plain entry", out)
+
+    def test_full_notes_reject_missing_or_empty_sections(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "CHANGELOG.md").write_text(CHANGELOG, encoding="utf-8")
+            with patch.object(changelog_notes, "ROOT", root):
+                for version in ("9.9.9", "2.6.4"):
+                    with self.subTest(version=version):
+                        code, out, err = self.run_main("--version", version, "--full")
+                        self.assertEqual((code, out), (1, ""))
+                        self.assertIn("ERROR", err)
+
     def test_the_workflow_gets_the_notes_under_the_name_comfy_cli_reads(self):
         with tempfile.TemporaryDirectory() as folder:
             target = Path(folder) / "env"

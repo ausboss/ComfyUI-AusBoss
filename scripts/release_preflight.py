@@ -9,10 +9,9 @@ Checks:
      BOM breaks installs silently.
   2. AUSBOSS_JS_VERSION in js/shared/index.mjs equals the pyproject
      version, so the stale-browser warning never fires on a fresh install.
-  3. The README release badge is the DYNAMIC shields.io kind - it reads
-     the version out of pyproject.toml on main at view time, so it can
-     never go stale (a hardcoded badge sat at 1.0.0 through two releases).
-     The check guards against someone swapping a static badge back in.
+  3. The README release badge reads GitHub Releases and links to the latest
+     release. The publish workflow creates it after the Registry upload.
+     The check guards against a static version or unsupported badge route.
   4. The Registry archive holds runtime files only. With git it is listed
      the way comfy-cli packs it - tracked files minus those .comfyignore
      matches - and every shipped path must sit under the runtime allowlist
@@ -101,17 +100,16 @@ if pyproject_version:
 
 # --- 3. the README release badge stays dynamic -------------------------------
 DYNAMIC_BADGE = (
-    "img.shields.io/badge/dynamic/toml"
-    "?url=https%3A%2F%2Fraw.githubusercontent.com%2Fausboss%2FComfyUI-AusBoss"
-    "%2Fmain%2Fpyproject.toml&query=%24.project.version"
+    "img.shields.io/github/v/release/ausboss/ComfyUI-AusBoss?"
 )
 try:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     if DYNAMIC_BADGE not in readme:
         errors.append(
-            "README.md release badge is not the dynamic pyproject-reading "
-            "shields.io badge; a hardcoded version WILL go stale"
+            "README.md release badge must use the shields.io GitHub release source"
         )
+    if 'href="https://github.com/ausboss/ComfyUI-AusBoss/releases/latest"' not in readme:
+        errors.append("README.md must link to the latest GitHub Release")
     if re.search(r"badge/release-\d+\.\d+\.\d+-", readme):
         errors.append(
             "README.md carries a hardcoded release-X.Y.Z badge; use the "

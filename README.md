@@ -3,10 +3,9 @@
   <p>ComfyUI nodes for image and video work.</p>
   <p>
     <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT License">
-    <!-- Dynamic: shields.io reads the version out of pyproject.toml on main
-         at view time, so this badge can never go stale. release_preflight.py
-         checks it stays the dynamic kind. -->
-    <img src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fausboss%2FComfyUI-AusBoss%2Fmain%2Fpyproject.toml&query=%24.project.version&label=release&color=00b4aa&style=flat-square" alt="Release">
+    <!-- The publish workflow creates a GitHub Release for each version.
+         This badge follows it; release_preflight.py checks the source. -->
+    <a href="https://github.com/ausboss/ComfyUI-AusBoss/releases/latest"><img src="https://img.shields.io/github/v/release/ausboss/ComfyUI-AusBoss?label=release&color=00b4aa&style=flat-square" alt="Latest release"></a>
     <a href="https://www.youtube.com/@ausbossdev"><img src="https://img.shields.io/badge/YouTube-%40ausbossdev-00b4aa?style=flat-square&logo=youtube&logoColor=white" alt="YouTube @ausbossdev"></a>
     <a href="https://discord.gg/RwVxY9Fuaj"><img src="https://img.shields.io/badge/Discord-AusBoss-00b4aa?style=flat-square&logo=discord&logoColor=white" alt="Discord: AusBoss"></a>
   </p>

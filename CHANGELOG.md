@@ -4,6 +4,26 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+## 2.21.0 - 2026-11-05
+
+- **Crop + Rotate + Pad has clearer controls and steadier previews.** Image
+  and video pickers share Inputs and Outputs tabs and a Load button. Video
+  previews have a play/pause button, and dragging a locked-length clip stops
+  where the full selection still fits. Crop, pad and resize controls share
+  the same compact buttons, and warnings no longer move the controls below.
+- **Latent Size can show just the sizes recommended for your workflow.**
+  Pick the allowed presets in its settings and save them with the workflow.
+  Workflows without a custom list keep all their choices.
+- **Workflow Notes and Callouts can be compact titles, links and guide tiles.**
+  Guides support formatted text, tables, accent colors and model download
+  links. YouTube and Discord tiles keep their red and purple choices.
+- **Media lists open faster on network shares, and controls load behind
+  a web address prefix.** File scans reuse directory information. Frontend
+  imports also work when ComfyUI is served under a path such as `/comfy/`.
+- **GitHub Releases now follow version updates automatically.** After the
+  Registry upload, the publish workflow creates the release with its notes.
+  The README release badge uses that release and opens its download page.
+
 - **LoRA Loader supports stacks larger than 64 rows.** Folder adds, templates, and absorbed loaders keep the full stack when you save and reopen a workflow.
 - **Workflow Note info tiles show a book for guides and a download arrow for models.** Click the dark tile to open the note. Its icon and left edge use the accent you picked.
 - **H3 Prompt Writer swaps two people.** With Swap the person and two person
@@ -51,8 +71,8 @@ All notable changes to ComfyUI-AusBoss are documented here.
   by a corner lines that edge up the same way. Hold Shift while you drag to
   place it without lining up; ComfyUI then snaps it to its grid as usual. Turn
   it off under Settings → 🆎 AusBoss → Canvas. In the Nodes 2.0 look, resizing
-  a node does not snap yet. If another pack's snapping is on, such as
-  Pixaroma's Align, AusBoss leaves the dragging to it.
+  a node does not snap yet. If another pack's snapping is on, AusBoss leaves
+  the dragging to it.
 
 - **Line up nodes and groups from the selection toolbar.** Select two or more
   nodes or groups and a Line up button pops out a small panel: line up edges or
