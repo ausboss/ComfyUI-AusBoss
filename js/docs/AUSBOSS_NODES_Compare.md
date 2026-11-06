@@ -64,6 +64,7 @@ Pick **Erase** on the switch. A row of tools opens above the picture:
   away. Restore paints it back. Holding **Ctrl**, or using the right
   mouse button, does the other one for as long as you hold it.
 - **Size** is the brush's width, in pixels of the picture.
+- The dot beside **Size** previews one brush dab. It grows with Size and its edge fades as you increase Soft.
 - **Soft** is the brush's edge: 0 is a hard edge, 100 fades all the way
   from the middle.
 - Drag left and right on **Size** or **Soft**, on the word, the number or

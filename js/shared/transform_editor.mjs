@@ -1,13 +1,15 @@
 import { api } from "../../../scripts/api.js";
 import { app } from "../../../scripts/app.js";
+import { PANEL_LABELS } from "./panel_controls.mjs";
 import { hideInputsInDef, hideWidget } from "./widget_visibility.mjs";
 import { mountTransformTrim } from "./transform_trim.mjs";
 import { clipOutputRate, inputNumber } from "./clip_rate.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "./index.mjs";
-import { WIDGET_FRAME, fillNodeHeight, holdVueNodeMinWidth } from "./panel_layout.mjs";
+import { WIDGET_FRAME, fillNodeHeight, holdVueNodeMinWidth, holdVuePanelMinHeight } from "./panel_layout.mjs";
 import { mediaViewQuery, unlistedMedia } from "./media_list.mjs";
 import { createMediaPicker } from "./media_picker.mjs";
 import { normalizeFillColor } from "./fill_color.mjs";
+import { makeSlideSwitch } from "./slide_switch.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
 import { confirmDiscard } from "./discard_prompt.mjs";
 import { featherGeneratedMask, generatedAreaMask, overlayPlan, seeThroughMap, stitchBlendFromMask } from "./stitch_preview.mjs";
@@ -29,7 +31,7 @@ import {
   canvasCornerCenters,
   canvasLocalPoint,
   canvasSize,
-  centredPadding,
+  centredTransform,
   clamp,
   cornerScale,
   cropForRotation,
@@ -151,19 +153,18 @@ function installStyles() {
     .ausboss-transform-panel>:not(.ausboss-transform-preview){width:100%;max-width:${CONTROL_MAX_WIDTH}px;align-self:center;box-sizing:border-box}
     .ausboss-transform-preview{width:100%;flex:1 1 180px;min-height:0;border:1px solid #50555b;border-radius:8px;background:#111;display:block;touch-action:none}
     .ausboss-transform-source{display:flex;flex-direction:column;gap:7px;flex:0 0 auto;padding:8px;border:1px solid rgba(0,184,174,.28);border-radius:8px;background:rgba(0,0,0,.24)}
-    .ausboss-transform-source-heading{color:${BRAND};font:600 10px system-ui;letter-spacing:.08em;text-transform:uppercase}
-    .ausboss-transform-source-head{display:flex;align-items:center;justify-content:space-between;gap:6px}
-    .ausboss-transform-gear{flex:none;width:20px;height:20px;margin:-4px 0;display:grid;place-items:center;padding:0;border:1px solid #2a3437;border-radius:5px;background:#0f1516;color:#8ba3a1;cursor:pointer}
-    .ausboss-transform-gear:hover{border-color:${BRAND};color:${BRAND}}
+    .ausboss-transform-source-image{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center}
+    .ausboss-transform-source-image .ausboss-transform-source-mode,.ausboss-transform-source-image .ausboss-transform-source-hint{grid-column:1/-1}
+    .ausboss-transform-gear{width:28px;height:28px;display:grid;place-items:center}
     .ausboss-transform-source-mode{display:grid;grid-template-columns:1fr 1fr;height:30px;padding:3px;border:1px solid #2a3437;border-radius:7px;background:#0f1516}
     .ausboss-transform-source-mode button{border:0;border-radius:5px;background:transparent;color:#8ba3a1;font:600 12px system-ui;cursor:pointer}
     .ausboss-transform-source-mode button:hover{color:#fff}.ausboss-transform-source-mode button.on{background:${BRAND};color:#04201d}
     .ausboss-transform-source-field{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;align-items:center}
     .ausboss-transform-source-field select,.ausboss-transform-source-field input{box-sizing:border-box;width:100%;height:34px;min-width:0;padding:0 10px;border:1px solid #2a3437;border-radius:7px;outline:0;background:#0b0f10;color:#dce9e8;font:12px ui-monospace,"SF Mono",Menlo,Consolas,monospace}
     .ausboss-transform-source-field select:focus,.ausboss-transform-source-field input:focus{border-color:${BRAND}}
-    .ausboss-transform-source-field .ausboss-media-pick{box-sizing:border-box;width:100%;height:34px;min-width:0;padding:0 28px 0 10px;border:1px solid #2a3437;border-radius:7px;background:#0b0f10 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238ba3a1' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 10px center;color:#dce9e8;font:12px ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+    .ausboss-transform-source-field .ausboss-media-pick{box-sizing:border-box;width:100%;height:28px;min-width:0;padding:0 28px 0 10px;border:1px solid #2a3437;border-radius:7px;background:#0b0f10 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238ba3a1' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 10px center;color:#dce9e8;font:12px ui-monospace,"SF Mono",Menlo,Consolas,monospace}
     .ausboss-transform-source-field .ausboss-media-pick:hover,.ausboss-transform-source-field .ausboss-media-pick:focus-visible{border-color:${BRAND};outline:0}
-    .ausboss-transform-source-action{height:34px;box-sizing:border-box;white-space:nowrap}
+    .ausboss-transform-source-action{display:grid;place-items:center;white-space:nowrap}
     .ausboss-transform-source-field:has(> :only-child){grid-template-columns:minmax(0,1fr)}
     .ausboss-transform-source-hint{overflow:hidden;color:#6f8886;font-size:10.5px;line-height:1.25;white-space:nowrap;text-overflow:ellipsis}
     .lg-node:has(.ausboss-transform-panel) .image-preview{display:none!important}
@@ -175,14 +176,28 @@ function installStyles() {
     .ausboss-transform-swatch{width:30px;height:22px;padding:1px;border:1px solid #555b63;border-radius:5px;background:#23272c;cursor:pointer}
     .ausboss-transform-swatch::-webkit-color-swatch-wrapper{padding:1px}.ausboss-transform-swatch::-webkit-color-swatch{border:0;border-radius:3px}
     .ausboss-transform-canvas-row input[type=checkbox]{accent-color:${BRAND};margin:0;cursor:pointer}
-    .ausboss-transform-resize-row{justify-content:flex-start;gap:14px}
-    .ausboss-transform-readout{flex:0 0 auto;margin-top:-3px;color:#c9d0d6;font:11px/14px system-ui;font-variant-numeric:tabular-nums;text-align:center;overflow:hidden;max-height:56px;cursor:default;user-select:none}
+    .ausboss-transform-resize-row{justify-content:space-between;gap:8px}
+    .ausboss-transform-group{display:flex;flex-direction:column;flex:0 0 auto;border:1px solid rgba(0,184,174,.26);border-radius:8px;background:rgba(0,0,0,.22);overflow:hidden}
+    .ausboss-transform-group-head{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:30px;padding:5px 10px;border:0;background:rgba(15,21,22,.72);color:#9fe3dc;font:600 11px system-ui;cursor:pointer;text-align:left;box-sizing:border-box}
+    .ausboss-transform-group-head:hover{background:rgba(0,184,174,.12);color:#fff}
+    .ausboss-transform-group.open>.ausboss-transform-group-head{border-bottom:1px solid rgba(0,184,174,.18)}
+    .ausboss-transform-group-title{display:inline-flex;align-items:center;gap:6px;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+    .ausboss-transform-group-caret{display:inline-block;color:${BRAND};font-size:11px;transition:transform .14s ease}
+    .ausboss-transform-group.open .ausboss-transform-group-caret{transform:rotate(90deg)}
+    .ausboss-transform-group-summary{display:inline-flex;align-items:center;gap:6px;min-width:0;color:#8ca8a5;font:500 11px system-ui;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ausboss-transform-group-swatch{flex:none;width:10px;height:10px;border:1px solid #555b63;border-radius:3px;box-sizing:border-box}
+    .ausboss-transform-group-meta{min-width:0;overflow:hidden;text-overflow:ellipsis}
+    .ausboss-transform-group-body{display:flex;flex-direction:column;gap:7px;padding:8px;box-sizing:border-box}
+    .ausboss-transform-group-body[hidden]{display:none}
+    .ausboss-transform-readout{flex:0 0 auto;margin-top:-3px;color:#c9d0d6;font:11px/14px system-ui;font-variant-numeric:tabular-nums;text-align:center;overflow:hidden;cursor:default;user-select:none}
     .ausboss-transform-readout:empty{display:none}
     .ausboss-transform-readout span{color:#8ca8a5}.ausboss-transform-readout b{color:#fff;font-weight:600}
-    .ausboss-transform-readout i{display:block;min-height:14px;color:#ffc46b;font-style:normal}
-    .ausboss-transform-readout i[hidden]{display:none}
+    .ausboss-transform-readout>div,.ausboss-transform-readout i{display:flex;align-items:center;justify-content:center;gap:3px;height:14px;white-space:nowrap}
+    .ausboss-transform-readout .ausboss-transform-ellipsis{min-width:0;overflow:hidden;text-overflow:ellipsis;color:inherit}
+    .ausboss-transform-readout b,.ausboss-transform-readout button{flex:none}
+    .ausboss-transform-readout i{color:#ffc46b;font-style:normal}
     .ausboss-transform-readout em{color:#8ca8a5;font-style:normal}
-    .ausboss-transform-readout em.note{color:#ffc46b}
+    .ausboss-transform-readout em.note.ausboss-transform-ellipsis{color:#ffc46b}
     .ausboss-transform-readout button{margin:0 0 0 6px;height:14px;padding:0 6px;border:1px solid #6b5a33;border-radius:3px;background:#2a2417;color:#ffd79a;font:600 9.5px/12px system-ui;cursor:pointer;vertical-align:top}
     .ausboss-transform-readout button:hover{border-color:#ffc46b;color:#fff}
     .ausboss-transform-aspects{display:flex;gap:5px;align-items:center;flex:0 0 auto}
@@ -210,16 +225,28 @@ function installStyles() {
     .ausboss-transform-fit{display:grid;grid-template-columns:1fr 1fr;flex:1 1 auto;height:26px;padding:2px;border:1px solid #2a3437;border-radius:6px;background:#0f1516;box-sizing:border-box}
     .ausboss-transform-fit button{border:0;border-radius:4px;background:transparent;color:#8ba3a1;font:600 11px system-ui;cursor:pointer}
     .ausboss-transform-fit button:hover{color:#fff}.ausboss-transform-fit button.on{background:${BRAND};color:#04201d}
-    .ausboss-transform-fit.idle{opacity:.45}
     .ausboss-transform-fit-hint{flex:0 1 auto;min-width:0;color:#6f8886;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .ausboss-transform-aspect-modes{flex-wrap:wrap;row-gap:6px}
     .ausboss-transform-aspect-modes>.ausboss-transform-fit-label{flex:1 0 auto}
-    .ausboss-transform-aspect-modes .ausboss-transform-fit{min-width:96px}
-    .ausboss-transform-aspect-modes>.ausboss-transform-alignment{margin-left:auto}
+    .ausboss-transform-group-body .ausboss-transform-fit-label{flex:none;margin-left:auto}
+    .ausboss-transform-ratio-heading{color:#dce8e7;font:600 11px system-ui}
+    .ausboss-transform-ratio-heading .ausboss-transform-aspect-caption{margin-left:6px;color:#8ca8a5;font:500 10px system-ui}
+    .ausboss-transform-ratio-heading .generic{display:none}
+    .ausboss-transform-group-body .ausboss-transform-aspect{background:#101819;border-color:#325151;color:#a6c3c0;height:24px}
+    .ausboss-transform-group-body .ausboss-transform-aspect:hover{color:#e2f3f1;border-color:${BRAND}}
+    .ausboss-transform-group-body .ausboss-transform-aspect:is(.active,.on){background:${BRAND};border-color:${BRAND};color:#04201d}
+    .ausboss-transform-group-body .ausboss-transform-aspect:focus-visible{outline:1px solid ${BRAND};outline-offset:1px}
+    .ausboss-transform-align-row,.ausboss-transform-resize-row{border-top:1px solid #293b3b;padding-top:6px}
+    .ausboss-transform-fill-row{justify-content:flex-start;column-gap:16px}
     .ausboss-transform-switch{flex:0 0 76px;height:24px}
     .ausboss-transform-canvas-row .ausboss-transform-switch{width:76px}
-    .ausboss-transform-button,.ausboss-transform-modal button:not(.ausboss-scrub-step>button):not(.ausboss-transform-aspect):not(.ausboss-transform-fit>button):not(.ausboss-transform-trim-reset):not(.ausboss-transform-trim-pill>button):not(.ausboss-transform-trim-handle){background:#30343a;color:#eee;border:1px solid #555b63;border-radius:5px;padding:7px 10px;cursor:pointer}
-    .ausboss-transform-button:hover,.ausboss-transform-modal button:not(.ausboss-scrub-step>button):not(.ausboss-transform-aspect):not(.ausboss-transform-fit>button):not(.ausboss-transform-trim-reset):not(.ausboss-transform-trim-pill>button):not(.ausboss-transform-trim-handle):hover{border-color:${BRAND};background:#383e44}
+    .ausboss-transform-modal button:not(.ausboss-scrub-step>button):not(.ausboss-transform-aspect):not(.ausboss-transform-fit>button):not(.ausboss-slide>button):not(.ausboss-transform-trim-play):not(.ausboss-transform-trim-reset):not(.ausboss-transform-trim-pill>button):not(.ausboss-transform-trim-handle){background:#30343a;color:#eee;border:1px solid #555b63;border-radius:5px;padding:7px 10px;cursor:pointer}
+    .ausboss-transform-modal button:not(.ausboss-scrub-step>button):not(.ausboss-transform-aspect):not(.ausboss-transform-fit>button):not(.ausboss-slide>button):not(.ausboss-transform-trim-play):not(.ausboss-transform-trim-reset):not(.ausboss-transform-trim-pill>button):not(.ausboss-transform-trim-handle):hover{border-color:${BRAND};background:#383e44}
+    .ausboss-transform-button{box-sizing:border-box;height:28px;padding:0 9px;border:1px solid #325151;border-radius:4px;background:#101819;color:#a6c3c0;font:600 11px system-ui;white-space:nowrap;cursor:pointer}
+    .ausboss-transform-button:hover{color:#e2f3f1;border-color:${BRAND}}
+    .ausboss-transform-button:is(:focus-visible,:focus-within){outline:1px solid ${BRAND};outline-offset:1px}
+    .ausboss-transform-button:active{background:#183330}
+    .ausboss-transform-button.ausboss-transform-open{color:#a6e6e0;background:#152728;border-color:#386864}
     .ausboss-transform-file{position:relative;text-align:center;overflow:hidden}.ausboss-transform-file input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
     .ausboss-transform-modal{position:fixed;inset:0;z-index:100000;background:#101214;color:#e6e8ea;font:13px system-ui;display:grid;grid-template-rows:42px minmax(0,1fr) auto}
     .ausboss-transform-header{display:flex;align-items:center;gap:12px;padding:0 12px;border-bottom:1px solid #30343a;background:#17191c}
@@ -327,18 +354,6 @@ function sourceKey(node, kind) {
   ).key;
 }
 
-function parseInputReference(selection) {
-  const normalized = String(selection || "").replaceAll("\\", "/");
-  const parts = normalized.split("/");
-  const filename = parts.pop() || "";
-  return { filename, subfolder: parts.join("/"), type: "input" };
-}
-
-function imageSourceUrl(selection) {
-  const reference = parseInputReference(selection);
-  return api.apiURL(`/view?${new URLSearchParams(reference)}`);
-}
-
 function videoParams(node, maxSize = 1600) {
   return new URLSearchParams({
     source_mode: String(value(node, "source_mode", "input folder")),
@@ -362,7 +377,7 @@ async function uploadMedia(node, kind, file) {
     const text = await response.text();
     let message = text;
     try { message = JSON.parse(text).error || text; } catch {}
-    throw new Error(message || "Upload failed.");
+    throw new Error(message || "Could not load the file.");
   }
   const result = await response.json();
   const selection = result.subfolder ? `${result.subfolder}/${result.name}` : result.name;
@@ -405,71 +420,89 @@ function buildMediaSourceCard(state) {
   const { node, kind } = state;
   const root = createElement("div", "ausboss-transform-source");
   const modes = createElement("div", "ausboss-transform-source-mode");
-  const uploadsMode = createElement("button", "", "Uploads");
-  const localMode = createElement("button", "", "Outputs");
-  uploadsMode.type = localMode.type = "button";
-  uploadsMode.title = "Choose a video already in ComfyUI's input folder or upload another.";
-  localMode.title = "Choose a video from ComfyUI's output folder, such as one you just rendered. It is read in place, without a copy.";
-  modes.append(uploadsMode, localMode);
+  const inputsMode = createElement("button", "", PANEL_LABELS.sources.input);
+  const localMode = createElement("button", "", PANEL_LABELS.sources.output);
+  inputsMode.type = localMode.type = "button";
+  inputsMode.title = `Choose a file from ComfyUI's input folder or load a new ${kind}.`;
+  localMode.title = `Choose a rendered ${kind} from ComfyUI's output folder.`;
+  modes.append(inputsMode, localMode);
 
   const field = createElement("div", "ausboss-transform-source-field");
+  const isOutput = (name) => /\s+\[output\]$/i.test(name);
+  const pickedInput = () => {
+    const name = value(node, kind, "");
+    return kind === "image" && isOutput(name) ? "" : name;
+  };
+  const outputValue = () => {
+    if (kind === "video") return pickedOutput(value(node, "local_path", ""));
+    const name = value(node, "image", "");
+    return isOutput(name) ? name : "";
+  };
   // The media picker previews the hovered file, which a native <select> cannot.
   const picker = createMediaPicker({
-    kind: kind === "video" ? "video" : "image",
-    placeholder: `Choose an uploaded ${kind}…`,
-    label: `Uploaded ${kind}`,
+    kind,
+    placeholder: kind === "image" ? "Choose a file…" : "Choose an input video…",
+    label: `Choose an input ${kind}`,
     viewUrl: (name) => api.apiURL(`/view?${mediaViewQuery(name)}`),
     getOptions: () => currentOptions(),
-    getValue: () => value(node, kind, ""),
+    getValue: pickedInput,
     onChange: (name) => {
       setValue(node, kind, name);
       sync();
       notifyAusbossChange();
     },
   });
-  // The same list for the output folder, newest first. It asks the server
-  // each time it opens, so a video rendered a moment ago is in it.
-  let outputVideos = [];
-  const outputOptions = () => normalizeVideoOptions(outputVideos, pickedOutput(value(node, "local_path", "")));
+  // Refresh the output list on open so a new render is immediately available.
+  let outputs = [];
+  const outputOptions = () => normalizeVideoOptions(outputs, outputValue());
   const outputPicker = createMediaPicker({
-    kind: "video",
-    placeholder: "Choose an output video…",
-    label: "Video from the output folder",
+    kind,
+    placeholder: `Choose an output ${kind}…`,
+    label: `Choose an output ${kind}`,
     folder: "output",
-    emptyNote: "Save a video and it shows up here",
+    emptyNote: `Saved ${kind}s appear here`,
     viewUrl: (name) => api.apiURL(`/view?${mediaViewQuery(name)}`),
     getOptions: outputOptions,
     loadOptions: async () => {
-      const response = await api.fetchApi("/ausboss/transform/video/outputs");
-      const listed = (await response.json())?.videos;
-      if (response.ok && Array.isArray(listed)) outputVideos = listed;
+      const response = await api.fetchApi(`/ausboss/transform/${kind}/outputs`);
+      const listed = (await response.json())?.[`${kind}s`];
+      if (response.ok && Array.isArray(listed)) outputs = listed;
       return outputOptions();
     },
-    getValue: () => pickedOutput(value(node, "local_path", "")),
+    getValue: outputValue,
     onChange: (name) => {
-      setValue(node, "local_path", name);
+      setValue(node, kind === "image" ? "image" : "local_path", name);
       sync();
       notifyAusbossChange();
     },
   });
   const upload = createElement("label", "ausboss-transform-button ausboss-transform-file ausboss-transform-source-action");
-  const uploadText = createElement("span", "", "Upload");
+  const uploadText = createElement("span", "", PANEL_LABELS.load);
   upload.append(uploadText);
   const fileInput = createElement("input");
   fileInput.type = "file";
   fileInput.accept = `${kind}/*`;
-  fileInput.setAttribute("aria-label", `Upload ${kind}`);
+  fileInput.setAttribute("aria-label", `Load ${kind}`);
   upload.append(fileInput);
   const hint = createElement("div", "ausboss-transform-source-hint");
   field.append(picker.element, upload);
-  root.append(kind === "image" ? sourceHeading() : modes, field, hint);
+  if (kind === "image") {
+    root.classList.add("ausboss-transform-source-image");
+    root.append(modes, field, sourceSettingsButton(), hint);
+  } else {
+    root.append(modes, field, hint);
+  }
 
   const currentOptions = () => {
     const target = widget(node, kind);
     let options = target?.options?.values;
     if (typeof options === "function") options = options(target, node);
-    return normalizeVideoOptions(options, target?.value);
+    const names = normalizeVideoOptions(options, pickedInput());
+    return kind === "image" ? names.filter(name => !isOutput(name)) : names;
   };
+  // Browsing another image folder only changes the source after a file is picked.
+  let imageFolder = INPUT_FOLDER_MODE;
+  let lastImage;
   const sync = () => {
     const source = mediaSourceState(
       kind,
@@ -477,31 +510,43 @@ function buildMediaSourceCard(state) {
       value(node, kind, ""),
       value(node, "local_path", ""),
     );
-    uploadsMode.classList.toggle("on", source.mode === INPUT_FOLDER_MODE);
-    localMode.classList.toggle("on", source.mode === LOCAL_PATH_MODE);
-    picker.refresh(value(node, kind, ""));
+    if (kind === "image" && lastImage !== source.selection) {
+      lastImage = source.selection;
+      imageFolder = isOutput(lastImage) ? LOCAL_PATH_MODE : INPUT_FOLDER_MODE;
+    }
+    const fromOutput = (kind === "image" ? imageFolder : source.mode) === LOCAL_PATH_MODE;
+    inputsMode.classList.toggle("on", !fromOutput);
+    localMode.classList.toggle("on", fromOutput);
+    inputsMode.setAttribute("aria-pressed", String(!fromOutput));
+    localMode.setAttribute("aria-pressed", String(fromOutput));
+    picker.refresh(pickedInput());
     outputPicker.refresh();
     field.replaceChildren();
-    if (source.mode === LOCAL_PATH_MODE) field.append(outputPicker.element);
+    if (fromOutput) field.append(outputPicker.element);
     else field.append(picker.element, upload);
     hint.textContent = source.hint;
     hint.title = source.hint;
     // "Choose a video" has done its job once one is chosen; its line goes
     // to the picture.
-    hint.style.display = source.selection ? "none" : "";
+    hint.style.display = source.selection || (kind === "image" && fromOutput) ? "none" : "";
   };
   const chooseMode = (mode) => {
+    if (kind === "image") {
+      imageFolder = mode;
+      sync();
+      return;
+    }
     if (value(node, "source_mode", INPUT_FOLDER_MODE) === mode) return;
     setValue(node, "source_mode", mode);
     sync();
     notifyAusbossChange();
   };
-  uploadsMode.addEventListener("click", () => chooseMode(INPUT_FOLDER_MODE));
+  inputsMode.addEventListener("click", () => chooseMode(INPUT_FOLDER_MODE));
   localMode.addEventListener("click", () => chooseMode(LOCAL_PATH_MODE));
   fileInput.addEventListener("change", async () => {
     if (!fileInput.files?.[0]) return;
     fileInput.disabled = true;
-    uploadText.textContent = "Uploading…";
+    uploadText.textContent = "Loading…";
     upload.setAttribute("aria-busy", "true");
     try {
       await uploadMedia(node, kind, fileInput.files[0]);
@@ -512,7 +557,7 @@ function buildMediaSourceCard(state) {
     } finally {
       fileInput.value = "";
       fileInput.disabled = false;
-      uploadText.textContent = "Upload";
+      uploadText.textContent = PANEL_LABELS.load;
       upload.removeAttribute("aria-busy");
     }
   });
@@ -524,12 +569,11 @@ function buildMediaSourceCard(state) {
   return root;
 }
 
-// "Image source" with the node's gear at the other end of the line.
-function sourceHeading() {
-  const head = createElement("div", "ausboss-transform-source-head");
-  const gear = createElement("button", "ausboss-transform-gear");
+function sourceSettingsButton() {
+  const gear = createElement("button", "ausboss-transform-button ausboss-transform-gear");
   gear.type = "button";
   gear.title = "Image Crop + Rotate + Pad settings";
+  gear.setAttribute("aria-label", gear.title);
   gear.innerHTML = gearIconSvg(11);
   gear.addEventListener("click", () => openSettingsMenu({
     scope: SETTINGS_SCOPE,
@@ -541,8 +585,121 @@ function sourceHeading() {
       for (const live of liveStates) draw(live);
     },
   }));
-  head.append(createElement("div", "ausboss-transform-source-heading", "Image source"), gear);
-  return head;
+  return gear;
+}
+
+// The ratio, fit, divisible-by, fill, feather, center and resize rows live in
+// one collapsible group on the node face so the video timeline sits right
+// under the preview and the node stays compact until you open the group.
+// Open or shut is a node property: never a widget value, so saved workflows
+// keep their exact widget order and values.
+export const TRANSFORM_GROUP_OPEN_PROPERTY = "ausboss_transform_group_open";
+
+export function transformGroupOpen(node) {
+  return node?.properties?.[TRANSFORM_GROUP_OPEN_PROPERTY] === true;
+}
+
+export function transformGroupSummary(state) {
+  const node = state.node;
+  const parts = [];
+  const request = liveRequest(state);
+  const picture = hasPicture(state);
+  const current = values(node);
+  const source = sourceSize(state);
+  if (request) {
+    parts.push(`${aspectMode(state)} ${request}`);
+  } else if (!picture || isUntouched(current, source)) {
+    parts.push("Source");
+  } else {
+    const canvas = canvasSize(current, source);
+    parts.push(`Custom ${ratioLabel(canvas.width, canvas.height)}`);
+  }
+  if (lockActive(state)) parts.push("held");
+  const feather = Math.round(Number(value(node, "feather", 0)) || 0);
+  if (feather > 0) parts.push(`feather ${feather} px`);
+  const multiple = Math.round(Number(value(node, "canvas_multiple", 1)) || 1);
+  if (multiple > 1) parts.push(`÷${multiple}`);
+  if (widget(node, "resize_to_megapixels") && value(node, "resize_to_megapixels", false)) {
+    const mp = Number(value(node, "megapixels", 1)) || 1;
+    const steps = Math.round(Number(value(node, "resolution_steps", 1)) || 1);
+    parts.push(`${mp.toFixed(2)} MP`);
+    if (steps > 1 && multiple <= 1) parts.push(`÷${steps}`);
+  }
+  return parts.join(" · ");
+}
+
+function buildTransformGroup(state, rows) {
+  const node = state.node;
+  const group = createElement("div", "ausboss-transform-group");
+  const head = createElement("button", "ausboss-transform-group-head");
+  head.type = "button";
+  const left = createElement("span", "ausboss-transform-group-title");
+  const caret = createElement("span", "ausboss-transform-group-caret", "▸");
+  caret.setAttribute("aria-hidden", "true");
+  left.append(caret, createElement("span", "", "Crop, pad & resize"));
+  const right = createElement("span", "ausboss-transform-group-summary");
+  const swatch = createElement("i", "ausboss-transform-group-swatch");
+  const meta = createElement("span", "ausboss-transform-group-meta");
+  right.append(swatch, meta);
+  head.append(left, right);
+  const body = createElement("div", "ausboss-transform-group-body");
+  body.append(...rows);
+  group.append(head, body);
+
+  const apply = () => {
+    const open = transformGroupOpen(node);
+    group.classList.toggle("open", open);
+    body.hidden = !open;
+    head.setAttribute("aria-expanded", String(open));
+    head.title = open
+      ? "Hide ratio, fit, align, fill, feather, center and resize settings"
+      : "Show ratio, fit, align, fill, feather, center and resize settings";
+  };
+  const sync = () => {
+    const fill = normalizeColor(value(node, "fill_color", "#808080"));
+    swatch.style.background = fill;
+    swatch.title = `Fill ${fill}`;
+    const text = transformGroupSummary(state);
+    if (meta.textContent !== text) meta.textContent = text;
+    right.title = `${text} · Fill ${fill}`;
+  };
+  head.addEventListener("click", () => {
+    // The picture keeps its size: the node grows or shrinks by the group body.
+    // The DOM wrapper only takes node.setSize on the next frame, so a synchronous
+    // draw here would size the canvas backing store from the transiently squeezed
+    // or stretched stage; panelResizeObserver (watching panel as well as preview)
+    // redraws once the wrapper has its new height.
+    const stageHeight = state.previewCanvas?.clientHeight ?? 0;
+    const before = measureChrome(state) ?? 0;
+    node.properties ??= {};
+    node.properties[TRANSFORM_GROUP_OPEN_PROPERTY] = !transformGroupOpen(node);
+    notifyAusbossChange();
+    apply();
+    const after = measureChrome(state) ?? before;
+    holdVuePanelMinHeight(state.previewCanvas?.parentElement, transformPanelFloor(node) - WIDGET_FRAME);
+    if (node.size && after !== before) {
+      const nextHeight = Math.max(transformPanelFloor(node), node.size[1] + after - before);
+      node.setSize?.([node.size[0], nextHeight]);
+      state.stageGrowth = { height: stageHeight, target: nextHeight };
+    }
+    node.setDirtyCanvas?.(true, true);
+    if (node.size && after !== before && state.previewCanvas?.parentElement?.isConnected) {
+      state.syncCanvasRow?.();
+      state.syncAspectChips?.();
+      state.syncAspectMode?.();
+      sync();
+      return;
+    }
+    draw(state);
+  });
+  head.addEventListener("pointerdown", (event) => event.stopPropagation());
+  state.syncTransformGroup = sync;
+  chainCallback(node, "onConfigure", () => queueMicrotask(() => {
+    if (!state.disposed) { apply(); sync(); measureChrome(state); }
+  }));
+  apply();
+  sync();
+  return group;
 }
 
 export function installTransformNode(node, kind, mountPanel = null) {
@@ -582,12 +739,12 @@ export function installTransformNode(node, kind, mountPanel = null) {
   const panel = createElement("div", "ausboss-transform-panel");
   const preview = createElement("canvas", "ausboss-transform-preview");
   const row = createElement("div", "ausboss-transform-row");
-  const open = createElement("button", "ausboss-transform-button", "Open editor");
+  const open = createElement("button", "ausboss-transform-button ausboss-transform-open", "Open editor");
   const resetCrop = createElement("button", "ausboss-transform-button", "Reset crop");
   resetCrop.title = "Show the whole picture again; rotation, padding and the timeline stay. With the padlock on, the bands it added to keep the shape go too.";
   resetCrop.addEventListener("click", () => resetCropKeepingShape(state));
   const reset = createElement("button", "ausboss-transform-button", "Reset");
-  reset.title = "Reset rotation, crop and padding, and turn the padlock off. Fill, feather, Divisible by and the timeline stay.";
+  reset.title = "Reset rotation, crop and padding, and turn the padlock off. Fill, feather, Align and the timeline stay.";
   reset.addEventListener("click", () => {
     resetGeometry(node);
     fitCrop(state); updateModalInfo(state); notifyAusbossChange();
@@ -600,20 +757,21 @@ export function installTransformNode(node, kind, mountPanel = null) {
   // The sizes, and under them the line the amber note has to itself.
   state.sizeLine = createElement("div");
   state.noteLine = createElement("i");
-  // Its Even out button is a click, not a node drag.
+  // Its Pad to keep shape button is a click, not a node drag.
   readout.addEventListener("pointerdown", (event) => { if (event.target.closest("button")) event.stopPropagation(); });
   panel.append(preview, readout);
+  // Both video nodes put the timeline right under the preview and size line:
+  // the clip node trims with it, the frame picker scrubs.
+  if (kind === "video") panel.append(buildTrim(state));
   const chipRow = buildAspectChipRow(state);
-  const modeRow = buildAspectModeRow(state);
+  const modeRow = buildAspectModeRow(state, chipRow.caption);
+  const canvasRows = buildCanvasRow(state);
   state.syncAspectChips = chipRow.sync;
   state.syncAspectMode = modeRow.sync;
-  panel.append(chipRow.row, modeRow.row);
-  // Every transform node shows its canvas on the face - fill, feather and,
-  // where the node has it, the resize budget and step - so a wrong value is
-  // seen on the node, not discovered in the render. Both video nodes also
-  // get the timeline: the clip node trims with it, the frame picker scrubs.
-  panel.append(...buildCanvasRow(state));
-  if (kind === "video") panel.append(buildTrim(state));
+  // Every transform node folds its ratio, fit, divisible-by, fill, feather,
+  // center and resize controls into one collapsible group, with a live
+  // summary on the header so active settings stay visible when closed.
+  panel.append(buildTransformGroup(state, [modeRow.row, chipRow.row, ...canvasRows]));
   panel.append(row);
   state.previewCanvas = preview;
   open.addEventListener("click", () => openEditor(state));
@@ -631,14 +789,14 @@ export function installTransformNode(node, kind, mountPanel = null) {
     domWidget.serialize = false;
     // exactMinWidth: 330 is the node's real floor, without the frontend's
     // number-widget padding that made the first corner drag jump to 434.
-    fillNodeHeight(domWidget, { minWidth: TRANSFORM_MIN_WIDTH, minHeight: () => transformPanelFloor(node), minNodeSize: [TRANSFORM_MIN_WIDTH, state.isClip ? 802 : kind === "video" ? 570 : 456], exactMinWidth: true });
+    fillNodeHeight(domWidget, { minWidth: TRANSFORM_MIN_WIDTH, minHeight: () => transformPanelFloor(node), minNodeSize: [TRANSFORM_MIN_WIDTH, state.isClip ? 728 : kind === "video" ? 496 : 382], exactMinWidth: true });
   } else {
     node.addWidget?.("button", "Open editor", null, () => openEditor(state), { serialize: false });
   }
   // A fresh node opens at its floor: the stage as tall as its width asks.
   node.setSize?.([
     Math.max(TRANSFORM_MIN_WIDTH, Math.min(520, node.size?.[0] || TRANSFORM_MIN_WIDTH)),
-    node.computeSize?.()[1] || (state.isClip ? 842 : kind === "video" ? 635 : 511),
+    node.computeSize?.()[1] || (state.isClip ? 768 : kind === "video" ? 561 : 437),
   ]);
   if (typeof node.addDOMWidget === "function") {
     // Redraw on wrapper size changes (node resize, zoom relayout);
@@ -652,8 +810,10 @@ export function installTransformNode(node, kind, mountPanel = null) {
     // it was the one that came out stretched.
     state.panelResizeObserver = new ResizeObserver(() => draw(state));
     state.panelResizeObserver.observe(preview);
+    state.panelResizeObserver.observe(panel);
     // The graph scales the DOM widget with its zoom, so the backing store
-    // sized at one zoom turns to mush at another: redraw when it changes.
+    // sized at one zoom turns to mush at another: redraw when it changes, or
+    // whenever the canvas backing store no longer matches its CSS box.
     chainCallback(node, "onDrawForeground", function () {
       // Also where a picture saved by the MaskEditor is noticed.
       followSource(state);
@@ -666,7 +826,7 @@ export function installTransformNode(node, kind, mountPanel = null) {
           for (const trim of state.trimViews) trim.sync();
         }
       }
-      if (state.disposed || state.zoomRedraw || Math.abs(panelOversample() - (state.panelOversample ?? 1)) < 0.01) return;
+      if (state.disposed || state.zoomRedraw || !panelBackingStale(state)) return;
       state.zoomRedraw = requestAnimationFrame(() => { state.zoomRedraw = null; if (!state.disposed) draw(state); });
     });
   }
@@ -888,6 +1048,7 @@ function buildAspectChipRow(state) {
       caption.textContent = untouched ? "Source" : "Custom";
       caption.title = `${untouched ? "The picture's own shape" : "No ratio button has this shape"}: ${canvas.width}×${canvas.height} (${ratioLabel(canvas.width, canvas.height)}). Tap a ratio to use one.`;
     }
+    caption.classList.toggle("generic", caption.textContent === "Ratio");
     caption.classList.toggle("custom", Boolean(picture && !request && !untouched && !held));
     caption.classList.toggle("held", held);
     for (const { chip, aspect } of chips) {
@@ -915,7 +1076,7 @@ function buildAspectChipRow(state) {
     hold.setAttribute("aria-label", held ? "Shape held" : "Hold the shape");
   };
   sync();
-  return { row, sync };
+  return { row, caption, sync };
 }
 
 function aspectMode(state) {
@@ -942,49 +1103,41 @@ function segmentedPill(options, onPick, { className = "" } = {}) {
   return { pill, set };
 }
 
-// Fit: how a ratio chip gets its shape. It only acts on a lit ratio, so it
-// dims (and says so) until one is lit; picking a side still sets how the
-// next ratio is reached. Divisible by sits at the end of the row on the
-// node face.
-function buildAspectModeRow(state, { alignment: withAlignment = true } = {}) {
+// Fit applies to a selected ratio, or sets how the next ratio is reached.
+function buildAspectModeRow(state, faceCaption) {
   const row = createElement("div", "ausboss-transform-row ausboss-transform-aspect-modes");
   const fit = createElement("div", "ausboss-transform-fit-label");
-  const { pill, set } = segmentedPill([
-    ["crop", "crop", "Ratio buttons crop the picture to their shape."],
-    ["pad", "pad", "Ratio buttons pad the picture to their shape and keep every pixel."],
-  ], (mode) => {
-    if (aspectMode(state) === mode) return;
-    state.node.properties ??= {};
-    // A lit ratio is reached again the new way; otherwise only the next
-    // tap changes.
-    const request = liveRequest(state);
-    state.node.properties.ausboss_aspect_mode = mode;
-    if (request && hasPicture(state)) fitAspect(state, request, mode);
-    draw(state); notifyAusbossChange();
+  const { root: pill, set } = makeSlideSwitch({
+    label: "Fit to ratio",
+    options: [
+      { value: "crop", label: "Crop", title: "Trim the picture to the selected ratio." },
+      { value: "pad", label: "Pad", title: "Keep the whole picture and add fill to reach the selected ratio." },
+    ],
+    onChange: (mode) => {
+      if (aspectMode(state) === mode) return;
+      state.node.properties ??= {};
+      // A lit ratio is reached again the new way; otherwise only the next
+      // tap changes.
+      const request = liveRequest(state);
+      state.node.properties.ausboss_aspect_mode = mode;
+      if (request && hasPicture(state)) fitAspect(state, request, mode);
+      draw(state); notifyAusbossChange();
+    },
   });
-  const hint = createElement("span", "ausboss-transform-fit-hint", "pick a ratio first");
-  fit.append(createElement("span", "", "Fit"), pill, hint);
-  row.append(fit);
-  let multiple = null;
-  if (withAlignment) {
-    const alignment = createElement("label", "ausboss-transform-alignment");
-    alignment.style.cssText = "display:flex;align-items:center;gap:5px;flex:0 0 auto";
-    multiple = makeScrubInput({ value: value(state.node, "canvas_multiple", 1),
-      min: 1, max: 4096, step: 8, fineStep: 1, decimals: 0, width: 72, unit: "px", snap: true,
-      title: "Makes the width and height divide evenly by this number: padding grows by a few pixels, and a side with no padding is trimmed by a few instead. Some models need sizes divisible by 8, 16 or 32; 1 = off.",
-      onChange: (amount) => { setValue(state.node, "canvas_multiple", amount); draw(state); updateModalInfo(state); },
-      onSettle: notifyAusbossChange });
-    alignment.append(createElement("span", "", "Divisible by"), multiple.root);
-    row.append(alignment);
+  const hint = createElement("span", "ausboss-transform-fit-hint", "applies to the next ratio");
+  if (faceCaption) {
+    const heading = createElement("span", "ausboss-transform-ratio-heading", "Aspect ratio");
+    heading.append(faceCaption);
+    row.append(heading);
   }
+  fit.append(createElement("span", "", "Fit to ratio"), pill, hint);
+  row.append(fit);
   const sync = () => {
-    multiple?.set(value(state.node, "canvas_multiple", 1));
     set(aspectMode(state));
     const idle = !liveRequest(state);
-    pill.classList.toggle("idle", idle);
-    hint.style.display = idle ? "" : "none";
+    hint.style.display = idle && !faceCaption ? "" : "none";
     pill.title = idle
-      ? "Pick a ratio first: Fit decides how a ratio button gets its shape (crop trims the picture, pad adds fill around it)."
+      ? "Choose how to reach the next ratio. Crop trims the picture and Pad adds fill."
       : "How the lit ratio gets its shape: crop trims the picture, pad adds fill around it and keeps every pixel.";
   };
   sync();
@@ -992,36 +1145,37 @@ function buildAspectModeRow(state, { alignment: withAlignment = true } = {}) {
 }
 
 // --- Centring the picture ----------------------------------------------------
-// Two small buttons put the picture in the middle of the canvas, side to side
-// and top to bottom. They only move padding from one side to the other
-// (centredPadding), so the canvas keeps its size and a lit ratio stays lit.
-// The node face and the editor's Padding section each get a pair.
+// Center uses the same geometry on the face and in the full-screen editor.
 const CENTRE_AXES = [
-  ["x", "Center side to side", "left and right"],
-  ["y", "Center top to bottom", "top and bottom"],
+  ["x", "Center side to side"],
+  ["y", "Center top to bottom"],
 ];
 
 function centrePicture(state, axis) {
   if (!hasPicture(state)) return;
-  const current = values(state.node);
-  const pads = centredPadding(current, resolveCrop(current, sourceSize(state)), axis);
-  if (!pads) return;
-  for (const [name, next] of Object.entries(pads)) setValue(state.node, name, next);
+  const changes = centredTransform(values(state.node), sourceSize(state), axis);
+  if (!changes) return;
+  for (const [name, next] of Object.entries(changes)) setValue(state.node, name, next);
   settleRequest(state); draw(state); updateModalInfo(state); notifyAusbossChange();
 }
 
-// What a centre button would do now, for its look and its tooltip.
 function centreStatus(state, axis) {
-  const [, action, sides] = CENTRE_AXES.find(([name]) => name === axis);
-  const plain = `${action}: moves padding so the ${sides} bands are even. The canvas keeps its size.`;
-  if (!hasPicture(state)) return { ready: false, title: plain };
+  const [, action] = CENTRE_AXES.find(([name]) => name === axis);
+  if (!hasPicture(state)) return { ready: false, title: "Choose a picture or video to center." };
   const current = values(state.node);
-  const crop = resolveCrop(current, sourceSize(state));
-  if (centredPadding(current, crop, axis)) return { ready: true, title: plain };
-  const bands = axisBands(current, crop, axis);
-  if (!bands.near && !bands.far) return { ready: false, title: `No padding on the ${sides} to move. ${plain}` };
-  if (Math.abs(bands.near - bands.far) <= 1) return { ready: false, title: `The picture is already in the middle. ${plain}` };
-  return { ready: false, title: `As close to the middle as this padding allows: Divisible by adds its fill on one side. ${plain}` };
+  const source = sourceSize(state);
+  const changes = centredTransform(current, source, axis);
+  if (changes) {
+    const movesCrop = `crop_${axis}` in changes;
+    const movesPadding = (axis === "x" ? "pad_left" : "pad_top") in changes;
+    const detail = movesCrop && movesPadding ? "Move the crop to the middle and balance the padding."
+      : movesCrop ? "Move the crop to the middle of the source." : "Balance the padding around the picture.";
+    return { ready: true, title: `${action}. ${detail}` };
+  }
+  const bands = axisBands(current, resolveCrop(current, source), axis);
+  return { ready: false, title: Math.abs(bands.near - bands.far) <= 1
+    ? `${action}. Already centered on this axis.`
+    : `${action}. The crop is centered. Align limits how evenly the padding can be split.` };
 }
 
 function buildCentreButtons(state) {
@@ -1221,65 +1375,78 @@ function buildCanvasRow(state) {
       : "Feather of the mask into the kept pixels; the image keeps a hard edge against the fill.",
     onChange: (amount) => { setValue(node, "feather", amount); draw(state); updateModalInfo(state); }, onSettle: notifyAusbossChange });
   featherLabel.append(createElement("span", "", "Feather"), feather.root);
+  // A span, not a label: a label passes a click on its text to the first button.
+  const centre = buildCentreButtons(state);
+  const centreLabel = createElement("span", "ausboss-transform-centre-label");
+  centreLabel.append(createElement("span", "", "Center"), centre.root);
+  const alignRow = createElement("div", "ausboss-transform-row ausboss-transform-canvas-row ausboss-transform-align-row");
+  const alignment = createElement("label");
+  const multiple = makeScrubInput({ value: value(node, "canvas_multiple", 1),
+    min: 1, max: 4096, step: 8, fineStep: 1, decimals: 0, width: 72, unit: "px", snap: true,
+    title: "Make the canvas width and height multiples of this number before resizing. Padding grows or unpadded edges are trimmed. Use 1 to turn alignment off.",
+    onChange: (amount) => { setValue(node, "canvas_multiple", amount); draw(state); updateModalInfo(state); },
+    onSettle: notifyAusbossChange });
+  alignment.append(createElement("span", "", "Align"), multiple.root);
+  alignRow.append(alignment, centreLabel);
+  row.classList.add("ausboss-transform-fill-row");
+  row.append(fillLabel, featherLabel);
+  const resizeRow = createElement("div", "ausboss-transform-row ausboss-transform-canvas-row ausboss-transform-resize-row");
   const resizeLabel = createElement("label");
   const resize = resizeSwitch(state);
-  resizeLabel.title = "Resize the output to a megapixel budget, each side rounded to the step (32 for LTX and Wan). The budget and step open in a row below.";
+  resizeLabel.title = "Resize the output to a megapixel budget, each side rounded to the step (32 for LTX and Wan).";
   resizeLabel.append(createElement("span", "", "Resize"), resize.pill);
-  row.append(fillLabel, featherLabel);
-  // The resize budget and its step share a row that only shows while
-  // Resize is on: the step decides the final size as much as the budget
-  // (LTX wants 32), so it belongs on the face, not only in the editor.
-  const resizeRow = createElement("div", "ausboss-transform-row ausboss-transform-canvas-row ausboss-transform-resize-row");
   const budgetLabel = createElement("label");
   const budget = makeScrubInput({ value: value(node, "megapixels", 1), min: 0.01, max: 16, step: 0.05, fineStep: 0.01, decimals: 2, width: 72, unit: "MP",
     title: "Output budget in megapixels (x 1024x1024). The size readout under the picture shows where it lands.",
     onChange: (amount) => { setValue(node, "megapixels", amount); draw(state); updateModalInfo(state); }, onSettle: notifyAusbossChange });
-  budgetLabel.append(createElement("span", "", "Megapixels"), budget.root);
+  budgetLabel.append(budget.root);
   const stepLabel = createElement("label");
   const steps = makeScrubInput({ value: value(node, "resolution_steps", 1), min: 1, max: 256, step: 8, fineStep: 1, decimals: 0, width: 66, unit: "px", snap: true,
     title: "Rounds each resized side to a multiple of this (32 for LTX and Wan, 8 or 64 for image models). Each side rounds on its own, so a large step can stretch the picture slightly; the readout warns above 1%.",
     onChange: (amount) => { setValue(node, "resolution_steps", amount); draw(state); updateModalInfo(state); }, onSettle: notifyAusbossChange });
   stepLabel.append(createElement("span", "", "Step"), steps.root);
-  resizeRow.append(budgetLabel, stepLabel);
   const hasResize = Boolean(widget(node, "resize_to_megapixels"));
-  if (hasResize) row.append(resizeLabel);
-  // The centre pair ends the row, and drops under it on a narrow node. A
-  // span, not a label: a label passes a click on its text to the first button.
-  const centre = buildCentreButtons(state);
-  const centreLabel = createElement("span", "ausboss-transform-centre-label");
-  centreLabel.append(createElement("span", "", "Center"), centre.root);
-  row.append(centreLabel);
+  resizeRow.append(resizeLabel, budgetLabel, stepLabel);
   const sync = () => {
     fill.value = normalizeColor(value(node, "fill_color", "#808080"));
     fill.title = `${fill.title.split(" Now ")[0]} Now ${fill.value}.`;
     feather.set(value(node, "feather", 0));
     centre.sync();
+    multiple.set(value(node, "canvas_multiple", 1));
     resize.sync();
     budget.set(value(node, "megapixels", 1));
     steps.set(value(node, "resolution_steps", 1));
-    resizeRow.style.display = hasResize && value(node, "resize_to_megapixels", false) ? "" : "none";
+    const resizeOn = hasResize && Boolean(value(node, "resize_to_megapixels", false));
+    resizeRow.style.display = hasResize ? "" : "none";
+    budgetLabel.style.display = resizeOn ? "" : "none";
+    stepLabel.style.display = resizeOn ? "" : "none";
   };
   sync();
   state.syncCanvasRow = sync;
   chainCallback(node, "onConfigure", () => queueMicrotask(sync));
-  for (const element of [row, resizeRow]) {
+  for (const element of [alignRow, row, resizeRow]) {
     element.addEventListener("pointerdown", (event) => { if (event.target.closest("input,label,button")) event.stopPropagation(); });
   }
-  return [row, resizeRow];
+  return [alignRow, row, resizeRow];
 }
 
 // Resize as an off | on pill, on the node face and in the editor.
 function resizeSwitch(state) {
   const node = state.node;
-  const { pill, set } = segmentedPill([
-    ["off", "off", "Keep the canvas size."],
-    ["on", "on", "Resize the output to the megapixel budget, each side rounded to the step."],
-  ], (key) => {
-    const on = key === "on";
-    if (Boolean(value(node, "resize_to_megapixels", false)) === on) return;
-    setValue(node, "resize_to_megapixels", on);
-    draw(state); updateModalInfo(state); notifyAusbossChange();
-  }, { className: "ausboss-transform-switch" });
+  const { root: pill, set } = makeSlideSwitch({
+    label: "Resize", offLeft: true,
+    options: [
+      { value: "off", label: "Off", title: "Keep the canvas size." },
+      { value: "on", label: "On", title: "Resize to the megapixel budget and round each side to the step." },
+    ],
+    onChange: (key) => {
+      const on = key === "on";
+      if (Boolean(value(node, "resize_to_megapixels", false)) === on) return;
+      setValue(node, "resize_to_megapixels", on);
+      draw(state); updateModalInfo(state); notifyAusbossChange();
+    },
+  });
+  pill.classList.add("ausboss-transform-switch");
   const sync = () => set(value(node, "resize_to_megapixels", false) ? "on" : "off");
   sync();
   return { pill, sync };
@@ -1288,18 +1455,9 @@ function resizeSwitch(state) {
 // The size chain in words under the stage: every step that sets the output
 // size, the one the run emits last and brightest, and an amber line when the
 // steps stretch the picture or the resize undoes Align. Its tooltip spells
-// the whole chain out. A DOM line rather than canvas text, so it wraps on a
-// narrow node and never covers the picture being judged.
-//
-// The sizes follow the values as they change. The amber note waits for the
-// hand to stop (state.settle): a drag crosses the 1% line every few pixels,
-// and a note that came and went with each one flashed and pushed the rows
-// under it up and down. So mid-drag no note appears or changes; one the
-// drag has made untrue steps out, and the note for the new values comes
-// once, a moment after the release. Its line is there whenever Resize is
-// on, with text or without, so none of that moves a row. The size line
-// never gets shorter mid-drag either: a step that comes and goes wrapped it
-// in and out the same way.
+// the whole chain out. Both rows stay one line tall while a picture is loaded.
+// Long text yields space to the final dimensions and the warning action.
+// The warning waits for the drag to settle before showing updated advice.
 function syncReadout(state) {
   const readout = state.readout;
   if (!readout) return;
@@ -1313,26 +1471,27 @@ function syncReadout(state) {
   const resize = resizeRequest(state.node);
   const chain = sizeChain(current, source, resize);
   const { tokens, warnings } = litTokens(state, sizeChainTokens(chain));
-  const parts = [];
+  const prefix = createElement("span", "ausboss-transform-ellipsis");
   tokens.forEach((token, index) => {
-    if (index) parts.push(" → ");
-    if (token.label) parts.push(createElement("span", "", `${token.label} `));
-    parts.push(index === tokens.length - 1 ? createElement("b", "", token.text) : token.text);
+    if (index) prefix.append(" → ");
+    if (token.label) prefix.append(createElement("span", "", token.label + " "));
+    if (index < tokens.length - 1) prefix.append(token.text);
   });
+  const parts = prefix.hasChildNodes() ? [prefix] : [];
+  parts.push(createElement("b", "", tokens.at(-1).text));
   // No chip names this shape: say what it is (the chip row says Custom).
   if (!liveRequest(state) && !isUntouched(current, source)) {
     const canvas = canvasSize(current, source);
-    parts.push(createElement("span", "", ` · ${ratioLabel(canvas.width, canvas.height)}`));
+    parts.push(createElement("span", "ausboss-transform-ellipsis", ` · ${ratioLabel(canvas.width, canvas.height)}`));
   }
   // A lit ratio that had nothing to do says so, on the same line when it
   // fits, so the node does not grow for it.
   const note = ratioNote(state);
   if (note) {
-    parts.push(createElement("span", "", " · "));
-    parts.push(createElement("em", "note", note.text));
+    parts.push(createElement("em", "note ausboss-transform-ellipsis", `· ${note.text}`));
   }
   const wanted = sizeNote(state, chain, warnings);
-  const sizeKey = parts.map((part) => (typeof part === "string" ? part : part.outerHTML)).join("");
+  const sizeKey = parts.map(part => part.outerHTML).join("");
   const noteKey = JSON.stringify(wanted);
   const changed = sizeKey !== state.sizeKey || noteKey !== state.noteKey;
   state.wantedNote = wanted;
@@ -1346,12 +1505,8 @@ function syncReadout(state) {
   // Rebuilt only when it says something new.
   if (sizeKey !== state.sizeKey) {
     state.sizeKey = sizeKey;
-    const before = sizeLine.offsetHeight;
     sizeLine.replaceChildren(...parts);
-    sizeLine.style.minHeight = now ? "" : `${Math.max(before, sizeLine.offsetHeight)}px`;
   }
-  // Every note is about the resize, so its line comes and goes with Resize.
-  state.noteLine.hidden = !resize;
   if (now) showNote(state, wanted);
   // A drag has made the note on show untrue: it steps out until the hand stops.
   else if (changed && pointerHeld && noteKey !== state.shownNoteKey) hideNote(state);
@@ -1359,7 +1514,7 @@ function syncReadout(state) {
 }
 
 // What the amber note says for these values: the warnings, the tooltip that
-// names a fix, whether Even out can do it, and whether Divisible by is
+// names a fix, whether Pad to keep shape can do it, and whether Align is
 // adding fill or trimming ahead of the resize (the editor says so).
 function sizeNote(state, chain, warnings) {
   if (!warnings.length) return NO_NOTE;
@@ -1370,7 +1525,7 @@ function sizeNote(state, chain, warnings) {
 
 // Writes the settled note: the face's amber line, and state.note, which the
 // editor's size box and status read. Rebuilt only when it says something
-// new, so a redraw between the press and the click on Even out never swaps
+// new, so a redraw between the press and the click on Pad to keep shape never swaps
 // the button out from under it.
 function showNote(state, note) {
   state.noteStale = false;
@@ -1381,13 +1536,13 @@ function showNote(state, note) {
   state.note = note;
   const line = state.noteLine;
   line.replaceChildren();
-  line.title = note.tip;
+  line.title = [...note.warnings, note.tip].filter(Boolean).join("\n");
   if (!note.warnings.length) return;
-  line.append(`⚠ ${note.warnings.join(" · ")}`);
+  line.append(createElement("span", "ausboss-transform-ellipsis", `⚠ ${note.warnings.join(" · ")}`));
   if (!note.even) return;
-  const even = createElement("button", "", "Even out");
+  const even = createElement("button", "", "Pad to keep shape");
   even.type = "button";
-  even.title = "Add a few pixels of padding so the rounding stretches nothing.";
+  even.title = note.tip;
   even.addEventListener("click", () => {
     // Worked out at the click: the note may be a moment behind the values.
     const pads = stretchFix(state).pads;
@@ -1410,12 +1565,10 @@ function shownNote(state) {
   return state.noteStale ? NO_NOTE : state.note;
 }
 
-// The hand has stopped: the note says what the values say now, the size
-// line takes its own height again, and the editor's copies follow.
+// Show the settled warning on the face and in the editor.
 function settleReadout(state) {
   if (state.disposed) return;
   state.unsettled = false;
-  state.sizeLine.style.minHeight = "";
   showNote(state, state.wantedNote ?? NO_NOTE);
   draw(state); updateModalInfo(state);
 }
@@ -1451,16 +1604,21 @@ function stretchFix(state) {
   const amount = `${(Math.abs(chain.stretch) * 100).toFixed(1)}%`;
   const step = stepWithoutStretch(current, source, resize);
   const pads = aspectMode(state) === "pad" ? evenOutPadding(current, source, resize) : null;
+  const additions = pads ? Object.entries(pads)
+    .map(([key, amount]) => [key.slice(4), amount - Number(current[key] || 0)])
+    .filter(([, amount]) => amount > 0)
+    .map(([side, amount]) => `${amount} px on the ${side}`) : [];
   const tip = [
     `The resize rounds the width and the height to a multiple of the Step (${resize?.steps ?? 1} px) separately, so the picture comes out ${amount} ${chain.stretch > 0 ? "wider" : "taller"} than it is.`,
     step ? `Step ${step} keeps it under 1%.` : "",
-    pads ? "Or press Even out: it adds a few pixels of padding so the rounding stretches nothing." : "",
+    additions.length ? `Pad to keep shape adds ${additions.join(" and ")} before resizing.` : "",
   ].filter(Boolean).join(" ");
   return { tip, pads };
 }
 
 async function onSourceChanged(state, reset) {
   const key = sourceKey(state.node, state.kind);
+  if (state.playing) stopPlayback(state, false);
   const changed = reset && sourceChanged(state.source, key, state.ready);
   // The pick the old picture still had (or the one waiting for a first
   // picture) is fitted to the new one; a shape dragged away from is not.
@@ -1530,7 +1688,7 @@ async function loadSource(state) {
       const image = new Image();
       await new Promise((resolve, reject) => {
         image.onload = resolve; image.onerror = () => reject(new Error("Could not load image preview."));
-        image.src = imageSourceUrl(selection);
+        image.src = api.apiURL(`/view?${mediaViewQuery(selection)}`);
       });
       if (serial !== state.loadSerial || state.disposed) return;
       state.image = image; state.sourceWidth = image.naturalWidth; state.sourceHeight = image.naturalHeight;
@@ -1547,8 +1705,11 @@ async function loadSource(state) {
       state.node.imageIndex = null;
     } else {
       const key = sourceKey(state.node, "video");
-      if (!key) { state.image = null; state.metadata = null; state.metadataKey = null; drawEmpty(state, "Choose a source to begin"); return; }
+      if (!key) { state.image = null; state.metadata = null; state.metadataKey = null; syncTimelineRange(state); drawEmpty(state, "Choose a source to begin"); return; }
       if (state.metadataKey !== key) {
+        state.metadata = null;
+        state.metadataKey = null;
+        syncTimelineRange(state);
         const metaResponse = await api.fetchApi(`/ausboss/transform/video/metadata?${videoParams(state.node)}`);
         const metadata = await metaResponse.json();
         if (!metaResponse.ok) throw new Error(metadata.error || "Could not read video metadata.");
@@ -1767,7 +1928,7 @@ function editorSnapshot(node) {
   }
   const properties = {};
   for (const [key, current] of Object.entries(node.properties ?? {})) {
-    if (key.startsWith("ausboss_")) properties[key] = JSON.stringify(current);
+    if (key.startsWith("ausboss_") && key !== TRANSFORM_GROUP_OPEN_PROPERTY) properties[key] = JSON.stringify(current);
   }
   return { widgets, properties };
 }
@@ -1957,7 +2118,7 @@ function buildControls(state, sidebar) {
   const node = state.node;
   const cropSection = createElement("section", "ausboss-transform-section"); cropSection.append(sectionHeading("Crop & shape", "crop"));
   const chipRow = buildAspectChipRow(state);
-  const modeRow = buildAspectModeRow(state, { alignment: false });
+  const modeRow = buildAspectModeRow(state);
   state.editorSyncs.push(chipRow.sync, modeRow.sync);
   cropSection.append(chipRow.row, modeRow.row);
   // Ratios from ausboss_presets.json that no button shows, in either
@@ -1998,9 +2159,9 @@ function buildControls(state, sidebar) {
     title: "Mask feather in pixels.", onChange: (amount) => { setValue(node, "feather", amount); draw(state); }, onSettle: notifyAusbossChange });
   addScrubField(padSection, "Feather", featherNumber.root);
   const multiple = makeScrubInput({ value: value(node, "canvas_multiple", 1), min: 1, max: 4096, step: 8, fineStep: 1, decimals: 0, unit: "px", unitWidth: 22, snap: true,
-    title: "Makes the width and height divide evenly by this number: padding grows by a few pixels, and a side with no padding is trimmed by a few instead. Some models need sizes divisible by 8, 16 or 32; 1 = off.",
+    title: "Make the canvas width and height multiples of this number before resizing. Padding grows or unpadded edges are trimmed. Use 1 to turn alignment off.",
     onChange: (amount) => { setValue(node, "canvas_multiple", amount); draw(state); updateModalInfo(state); }, onSettle: notifyAusbossChange });
-  addScrubField(padSection, "Divisible by", multiple.root);
+  addScrubField(padSection, "Align", multiple.root);
   // A div, not a label: a label would pass a click on its text to the first button.
   const centre = buildCentreButtons(state);
   const centreRow = createElement("div", "ausboss-transform-centre-row");
@@ -2052,7 +2213,7 @@ function buildControls(state, sidebar) {
   const actions = createElement("section", "ausboss-transform-section"); actions.append(sectionHeading("View & reset"));
   const resetViewButton = createElement("button", "", "Reset view"); resetViewButton.addEventListener("click", () => { resetView(state); draw(state); });
   const resetAll = createElement("button", "ausboss-transform-danger", "Reset transform");
-  resetAll.title = "Reset rotation, crop, padding, fill, feather and Divisible by. Keep the source, current frame, trim window, fixed length, resize and stitch settings.";
+  resetAll.title = "Reset rotation, crop, padding, fill, feather and Align. Keep the source, current frame, trim window, fixed length, resize and stitch settings.";
   resetAll.addEventListener("click", () => { resetTransform(node); resetView(state); draw(state); updateModalInfo(state); });
   actions.append(resetViewButton, resetAll);
 
@@ -2118,10 +2279,10 @@ function buildTimeline(state) {
   const label = createElement("span", "ausboss-transform-badge", "0 / 0");
   label.title = "Playhead frame / last frame";
   const steps = createElement("div", "ausboss-transform-steps");
-  const commands = [["|<", "first"], ["-100", -100], ["-50", -50], ["-25", -25], ["-1", -1], ["Play", "play"], ["+1", 1], ["+25", 25], ["+50", 50], ["+100", 100], [">|", "last"]];
+  const commands = [["|<", "first"], ["-100", -100], ["-50", -50], ["-25", -25], ["-1", -1], ["+1", 1], ["+25", 25], ["+50", 50], ["+100", 100], [">|", "last"]];
   for (const [text, command] of commands) {
-    const button = createElement("button", "", text); if (command === "play") state.playButton = button;
-    button.title = command === "play" ? "Play / pause (Space)" : typeof command === "number" ? `Step ${command > 0 ? "+" : ""}${command} frames (Arrow keys step 1, Shift 10)` : command === "first" ? "First frame (Home)" : "Last frame (End)";
+    const button = createElement("button", "", text);
+    button.title = typeof command === "number" ? `Step ${command > 0 ? "+" : ""}${command} frames (Arrow keys step 1, Shift 10)` : command === "first" ? "First frame (Home)" : "Last frame (End)";
     button.addEventListener("click", () => timelineCommand(state, command)); steps.append(button);
   }
   transport.append(label, steps);
@@ -2155,6 +2316,8 @@ function buildTrim(state) {
     outputRate: () => clipOutputRate(state.node, state.metadata?.fps, value(state.node, "every_nth", 1)),
     metadata: () => state.metadata,
     trim: state.isClip,
+    isPlaying: () => state.playing,
+    onTogglePlayback: () => timelineCommand(state, "play"),
     onSeek: (frame, settled) => scrubTo(state, frame, settled),
     onCommit: notifyAusbossChange,
   });
@@ -2176,6 +2339,7 @@ function setPlayhead(state, index) {
 // tile stands in when it is nearer; on release, one full-size fetch that
 // also snaps the widgets to the decoded frame.
 function scrubTo(state, index, settled) {
+  if (state.playing) stopPlayback(state, false);
   const frame = setPlayhead(state, index);
   syncTimelineRange(state);
   if (settled) { void seekFrame(state); return; }
@@ -2197,6 +2361,7 @@ async function seekFrameLight(state) {
 
 async function timelineCommand(state, command, light = false) {
   if (command === "play") { state.playing ? stopPlayback(state) : startPlayback(state); return; }
+  if (state.playing) stopPlayback(state, false);
   const info = clipInfo(state.metadata);
   if (!info.count) return;
   const current = clampFrame(value(state.node, "frame_index", 0), info);
@@ -2230,29 +2395,38 @@ async function timelineCommand(state, command, light = false) {
 // paused (or paused-then-restarted) loop's in-flight tick dies instead of
 // re-scheduling itself as a zombie that can no longer be stopped.
 function startPlayback(state) {
-  state.playButton.textContent = "Pause";
+  const info = clipInfo(state.metadata);
+  if (!info.count || state.disposed) return;
+  const trim = [...state.trimViews][0];
+  const { first, last } = trim.window();
+  const head = clampFrame(value(state.node, "frame_index", 0), info);
+  let next = head < first || head >= last ? first : head + 1;
   state.playing = true;
-  const session = (state.playbackSession = (state.playbackSession || 0) + 1);
-  const delay = Math.max(20, Math.round(1000 / Math.max(1, state.metadata?.fps || 30)));
+  syncTimelineRange(state);
+  const session = ++state.playbackSession;
+  const interval = 1000 / (info.fps || 30);
   const tick = async () => {
-    if (!state.playing || state.playbackSession !== session) return;
-    const before = Number(value(state.node, "frame_index", 0));
-    await timelineCommand(state, 1, true);
-    if (!state.playing || state.playbackSession !== session) return;
-    if (Number(value(state.node, "frame_index", 0)) === before) { stopPlayback(state); return; }
-    state.playbackTimer = window.setTimeout(tick, delay);
+    if (state.playbackSession !== session) return;
+    const started = performance.now();
+    setPlayhead(state, next);
+    syncTimelineRange(state);
+    await seekFrameLight(state);
+    if (state.playbackSession !== session) return;
+    if (next >= last) { stopPlayback(state); return; }
+    next++;
+    state.playbackTimer = window.setTimeout(tick, Math.max(0, interval - (performance.now() - started)));
   };
-  state.playbackTimer = window.setTimeout(tick, delay);
+  void tick();
 }
-function stopPlayback(state) {
+function stopPlayback(state, settle = true) {
   const wasPlaying = Boolean(state.playing);
   state.playing = false;
   state.playbackSession = (state.playbackSession || 0) + 1; // orphan in-flight ticks
   if (state.playbackTimer) clearTimeout(state.playbackTimer);
   state.playbackTimer = null;
-  if (state.playButton) state.playButton.textContent = "Play";
+  if (wasPlaying) syncTimelineRange(state);
   // Land on a full-resolution frame after light playback previews.
-  if (wasPlaying) void seekFrame(state);
+  if (wasPlaying && settle && !state.disposed) void seekFrame(state);
 }
 
 function keyDown(state, event) {
@@ -2363,7 +2537,7 @@ const PANEL_VIEW = Object.freeze({ zoom: 1, panX: 0, panY: 0 });
 function renderGeometry(state, width, height, view, map = null) {
   const source = rotatedSize(state.sourceWidth, state.sourceHeight, value(state.node, "rotation_degrees", 0));
   const crop = resolveCrop(values(state.node), source); const padding = resolvePadding(values(state.node), crop);
-  // What reaches the output: the crop, less what Divisible by trims off it.
+  // What reaches the output: the crop, less what Align trims off it.
   const kept = keptCrop(crop, padding);
   const layout = map?.layout ?? stageHandleLayout(width, height);
   let scale, originX, originY;
@@ -2395,6 +2569,15 @@ function panelOversample() {
   return clamp(zoom, 1, PREVIEW_MAX_OVERSAMPLE);
 }
 
+function panelBackingStale(state) {
+  if (Math.abs(panelOversample() - (state.panelOversample ?? 1)) >= 0.01) return true;
+  const canvas = state.previewCanvas;
+  if (!canvas?.clientWidth || !canvas?.clientHeight) return false;
+  const dpr = (window.devicePixelRatio || 1) * (state.panelOversample ?? 1);
+  return canvas.width !== Math.round(canvas.clientWidth * dpr)
+    || canvas.height !== Math.round(canvas.clientHeight * dpr);
+}
+
 function prepareCanvas(canvas, oversample = 1) {
   const width = Math.max(1, canvas.clientWidth || 1); const height = Math.max(1, canvas.clientHeight || 1); const dpr = (window.devicePixelRatio || 1) * oversample;
   const pixelWidth = Math.round(width * dpr); const pixelHeight = Math.round(height * dpr);
@@ -2407,6 +2590,7 @@ function draw(state) {
   state.syncCanvasRow?.();
   state.syncAspectChips?.();
   state.syncAspectMode?.();
+  state.syncTransformGroup?.();
   for (const sync of state.editorSyncs ?? []) sync();
   state.syncEditorControls?.();
   state.syncStitchControls?.();
@@ -2435,8 +2619,8 @@ function draw(state) {
 // measured on every draw; before the panel is on screen, these stand in:
 // the rows of a node with no file picked yet, as the examples open (the
 // canvas row's Resize adds the budget row under it).
-const PANEL_CHROME_ESTIMATE = { image: 262, video: 365, clip: 451 };
-const RESIZE_ROW = 30;
+const PANEL_CHROME_CLOSED_ESTIMATE = { image: 188, video: 291, clip: 377 };
+const PANEL_CHROME_OPEN_ESTIMATE = { image: 347, video: 450, clip: 536 };
 // Node width minus stage width: the DOM widget frame, panel padding, borders.
 const PANEL_SIDE_INSET = 38;
 // The narrowest face the chip row and the button rows fit on.
@@ -2470,7 +2654,8 @@ function measureChrome(state) {
 export function transformPanelFloor(node) {
   const state = node?.__ausbossTransformState;
   if (!state) return 0;
-  const estimate = PANEL_CHROME_ESTIMATE[state.isClip ? "clip" : state.kind] + (value(node, "resize_to_megapixels", false) ? RESIZE_ROW : 0);
+  const key = state.isClip ? "clip" : state.kind;
+  const estimate = transformGroupOpen(node) ? PANEL_CHROME_OPEN_ESTIMATE[key] : PANEL_CHROME_CLOSED_ESTIMATE[key];
   return (state.chromeHeight ?? estimate) + stageHeightForWidth(stageWidth(state)) + 2 + WIDGET_FRAME;
 }
 
@@ -2485,6 +2670,7 @@ function keepStageRoom(state) {
   // corner drag squeezes the chips and buttons down to 225px.
   holdVueNodeMinWidth(state.previewCanvas.parentElement, TRANSFORM_MIN_WIDTH);
   measureChrome(state);
+  holdVuePanelMinHeight(state.previewCanvas.parentElement, transformPanelFloor(node) - WIDGET_FRAME);
   const floor = stageHeightForWidth(stageWidth(state));
   // Nodes 2.0 sizes a node from its content, so the floor also has to be
   // the stage's own minimum there; in the classic view the layout floor
@@ -3130,7 +3316,7 @@ function sizeLines(state) {
   ];
   const changes = [...added.map((text) => `+${text}`), ...trimmed.map((text) => `-${text}`)];
   lines.push(changes.length
-    ? `Divisible by ${chain.multiple} → ${chain.canvas.width} x ${chain.canvas.height} (${changes.join(", ")})`
+    ? `Align ${chain.multiple} → ${chain.canvas.width} x ${chain.canvas.height} (${changes.join(", ")})`
     : `Canvas ${chain.canvas.width} x ${chain.canvas.height}`);
   if (chain.resized) {
     const megapixels = (chain.resized.width * chain.resized.height / 1048576).toFixed(2);
@@ -3140,7 +3326,7 @@ function sizeLines(state) {
   const note = shownNote(state);
   for (const warning of note.warnings) lines.push(`⚠ ${warning}`);
   if (note.advice) {
-    lines.push("With Resize on, Step already rounds the size: Divisible by 1 adds no fill and trims nothing.");
+    lines.push("With Resize on, Step already rounds the size: Align 1 adds no fill and trims nothing.");
   }
   return lines;
 }

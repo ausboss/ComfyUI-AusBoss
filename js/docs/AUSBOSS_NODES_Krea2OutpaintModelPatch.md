@@ -82,7 +82,7 @@ new region can break up; the node says so in the console when it sees it,
 and the cure is two passes: pad one axis, run, load the result, pad the
 other. **A thin strip counts.** More than 8 px of padding on the other
 axis, such as a few pixels left over from a drag, means the source no
-longer spans it. **Divisible by** on the Crop + Rotate + Pad nodes and
+longer spans it. **Align** on the Crop + Rotate + Pad nodes and
 Load Image + Pad's **Multiple** never add a strip on a side you did not
 pad. The warning reports the spare pixels on each axis.
 

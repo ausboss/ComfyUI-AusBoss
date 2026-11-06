@@ -11,21 +11,22 @@ generated-area `mask`, a `stitcher` for Stitch Inpaint, the selected
 
 ## Source and frame
 
-- **Uploads**: Pick an input video (the list plays the clip under the pointer, muted, and filters as you type), click **Upload** in the compact source card, or
+- **Inputs**: Pick an input video (the list plays the clip under the pointer, muted, and filters as you type), click **Load** in the compact source card, or
   drop a video file onto the node. Picking another video keeps Fill, Feather,
-  **Divisible by**, the Resize settings and the lit ratio button (the new frame is
+  **Align**, the Resize settings and the lit ratio button (the new frame is
   fitted to it the way **Fit** is set); rotation, crop, padding and the playhead
   start over.
-- **Canvas row** under the Fit row: fill swatch, feather amount and the Resize off | on switch on the node face; turning Resize on opens the megapixel budget and its Step. The line under the picture names each step that sets the output size, as on the image node.
-- **Upload** streams to the input folder, so videos larger than the buffered image-upload limit can be selected here or dropped onto the node.
-- **Uploads** / **Outputs** (`source_mode`: `input folder` / `local path`): the source card's switch. Uploads lists ComfyUI's input folder. Outputs lists the videos in ComfyUI's output folder, newest first, so a video you just rendered can be picked without uploading it again. Both lists preview the video under the pointer.
+- **Load** streams to the input folder, so videos larger than the buffered image-upload limit can be selected here or dropped onto the node.
+- **Inputs** / **Outputs** (`source_mode`: `input folder` / `local path`): the source card's switch. Inputs lists ComfyUI's input folder. Outputs lists the videos in ComfyUI's output folder, newest first, so a video you just rendered can be picked without uploading it again. Both lists preview the video under the pointer.
 - **local_path**: The video picked in the Outputs list, named the way ComfyUI names a file
   in its output folder: `clip.mp4 [output]`, `video/take 3.mov [output]`. It is read in
   place, without an upload copy. A whole path such as `/home/me/ComfyUI/output/clip.mp4`
   is not read, for queued runs and the editor's live preview alike.
-- **Playhead**: The rail under the node's preview is the timeline: press or drag it to
+- **Play / Pause** beside the scrubber previews the video. Pause on the frame you want to output.
+- **Playhead**: The rail directly under the node's preview is the timeline: press or drag it to
   scrub, or type a frame in the **FRAME** box; the frame on the stage is the frame the
   node outputs (`frame_index`, with `frame_time` kept in step).
+- **Crop, pad & resize** (collapsible group under the timeline): folds the ratio buttons, **Fit to ratio**, **Align** and **Center**, **Fill** and **Feather**, and the **Resize** off | on switch, megapixel budget and **Step** into one drawer, showing the fill swatch and a live summary on its header when closed. The line under the picture names each step that sets the output size, as on the image node.
 - **seek_mode / frame_time**: Time-based seeking for graphs that drive the position by
   link; the editor itself always works in frames.
 
@@ -33,19 +34,19 @@ The editor has the same rail full width, plus first/last, ±1, ±25, ±50, ±100
 
 ## Transform and outputs
 
-Rotation, crop, padding, feathering, fill, **Divisible by**, the megapixel resize, gestures, `image`, and `mask` match the image node. The output batch contains one frame.
+Rotation, crop, padding, feathering, fill, **Align**, the megapixel resize, gestures, `image`, and `mask` match the image node. The output batch contains one frame.
 
 The handles work on both the node and the editor. Drag an orange corner to make
 the canvas bigger or smaller in its own shape (hold **Alt**, Option on a Mac, to
 change all four sides at once), and press **Center** next to Fill and Feather to
-put the frame in the middle, side to side or top to bottom. Both work as on the
+center the crop and balance any padding, side to side or top to bottom. Both work as on the
 image node. The ratio buttons, **Fit**,
 the padlock and the orientation button work as on the image node: a tap pads (or,
 with Fit on crop, crops) the frame to a ratio, a lit ratio is the shape the canvas
 has now, and the padlock keeps that shape while you drag (the row says **Held**).
 **Reset crop** restores the full crop while keeping rotation and padding. **Reset**
 clears rotation, crop and padding and turns the padlock off; fill, feather,
-**Divisible by** and the playhead stay. **Divisible by** makes the width and
+**Align** and the playhead stay. **Align** makes the width and
 height divide evenly by the number you pick: padding grows by a few pixels, and
 a side with no padding is trimmed by a few instead. Some models need sizes
 divisible by 8, 16 or 32; 1 turns it off.

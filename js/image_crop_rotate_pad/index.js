@@ -33,7 +33,7 @@ function mountTransformPanel(node, panel) {
   fillNodeHeight(widget, {
     minWidth: PANEL_MIN_WIDTH,
     minHeight: () => transformPanelFloor(node),
-    minNodeSize: [PANEL_MIN_WIDTH, 470],
+    minNodeSize: [PANEL_MIN_WIDTH, 396],
     exactMinWidth: true,
   });
   return widget;

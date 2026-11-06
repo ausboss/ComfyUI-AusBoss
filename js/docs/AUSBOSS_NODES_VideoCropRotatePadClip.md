@@ -11,33 +11,20 @@ model that paints black regions.
 
 ## Source and window
 
-- **Uploads**: Pick an existing input video (the list plays the clip under the pointer, muted, and filters as you type), click **Upload**, or drop a video file
+- **Inputs**: Pick an existing input video (the list plays the clip under the pointer, muted, and filters as you type), click **Load**, or drop a video file
   onto the node. The old source widgets remain compatible with saved workflows, but
   are now driven by this compact card. Choosing another video keeps the canvas
-  settings - Fill, Feather, **Divisible by**, Resize, Every nth, Frames for, Length - and
+  settings - Fill, Feather, **Align**, Resize, Every nth, Frames for, Length - and
   fits the new clip to the lit ratio button, the way **Fit** is set. Rotation, crop,
   padding, IN/OUT and the playhead start over.
-- **Canvas row** (under the Fit row): the fill swatch, the feather amount and
-  the Resize off | on switch, right on the node; turning Resize on opens the megapixel
-  budget and its **Step**. These are what a video outpaint model keys on - the LTX IC-LoRA paints
-  **pure black** at sizes rounded to 32 - so a wrong value shows here before a
-  render is wasted. Feather only softens the mask and the stitch; the frames always
-  meet the fill with a hard edge. The line under the picture names each step that
-  sets the size (`576×1024 → pad 1821×1024 → resize 1280×704`) and warns in amber
-  when the Step stretches the picture by more than 1% (`2.2% wider: each side rounds
-  to 32 px`); the tooltip names a Step that avoids it, and in pad mode **Even out**
-  adds a few pixels of padding so nothing stretches. While you drag, that amber
-  line keeps still and comes back for the new size when you let go. The bands are drawn in the real
-  fill colour with a faint hatch, so black bands show on the black stage. A fresh clip node starts
-  with black and feather 0 and the editor's **Reset transform** returns to them;
-  the image nodes keep their grey fill and feathered mask.
 - **Outputs** (`source_mode` / `local_path`): Pick a video from ComfyUI's output folder,
   such as one you just rendered. The list shows the newest first and previews the video
   under the pointer. The video is read in place, without an upload copy. In an API prompt
   it is named the way ComfyUI names a file there: `clip.mp4 [output]`. A whole path such
   as `/home/me/ComfyUI/output/clip.mp4` is not read, for queued runs and the editor's live
   preview alike.
-- **Timeline**: The rail on the node and in the editor is one timeline. Press or
+- **Play / Pause** beside the scrubber previews the selected frames and stops at OUT. Press Play at OUT to start from IN again.
+- **Timeline** (right under the preview and size line): The rail on the node and in the editor is one timeline. Press or
   drag anywhere on it to scrub the **playhead**, with Length on or off; the stage shows
   that frame. Drag the **IN** or **OUT** handle to trim: the playhead rides on the handle, so what you see
   is the first (IN) or last (OUT) frame the run keeps, and it stays there when you let
@@ -53,6 +40,21 @@ model that paints black regions.
   **Play**. Arrow keys step one frame (10 with Shift), Home and End jump to the
   ends, and Space plays or pauses. **Save & close** keeps your edits; **Cancel** or
   Escape puts everything back, and asks first if anything changed.
+- **Crop, pad & resize** (collapsible group under the timeline): folds the ratio
+  buttons, **Fit to ratio**, **Align** and **Center**, **Fill** and **Feather**, and
+  the **Resize** switch, megapixel budget and **Step** into one drawer. While closed,
+  its header bar shows the fill colour swatch and a live summary of the active
+  ratio, feather, alignment and resize settings. These are what a video outpaint model keys on - the LTX IC-LoRA paints
+  **pure black** at sizes rounded to 32 - so a wrong value shows here before a
+  render is wasted. Feather only softens the mask and the stitch; the frames always
+  meet the fill with a hard edge. The line under the picture names each step that
+  sets the size (`576×1024 → pad 1821×1024 → resize 1280×704`) and warns in amber
+  when the Step stretches the picture by more than 1% (`Resize makes the picture 2.2% wider`); the tooltip names a Step that avoids it, and in pad mode **Pad to keep shape**
+  adds a few pixels of padding so nothing stretches. While you drag, that amber
+  line keeps still and comes back for the new size when you let go. The bands are drawn in the real
+  fill colour with a faint hatch, so black bands show on the black stage. A fresh clip node starts
+  with black and feather 0 and the editor's **Reset transform** returns to them;
+  the image nodes keep their grey fill and feathered mask.
 - **Length** (`max_frames`): the one other way to set how long the clip is. **Off**
   (the default): OUT ends the clip. **On**: a number of output frames from IN; OUT
   sits that many frames after IN and follows it when you drag IN, and dragging OUT or
@@ -80,8 +82,8 @@ Crop squares, padding diamonds, the orange corners and the rotation handle also
 work directly on the node preview. A corner makes the canvas bigger or smaller in
 its own shape, for example to zoom out evenly before a video outpaint; hold **Alt**
 (Option on a Mac) to change all four sides at once. **Center**, next to Fill and
-Feather, puts the clip in the middle of the canvas side to side or top to bottom
-without changing the canvas size. The graph still owns wheel zoom and middle-button
+Feather, centers the crop on the source and balances any padding on the selected axis.
+The generated mask follows the crop and padding. The graph still owns wheel zoom and middle-button
 pan. Tap a ratio
 to pad the clip to it (or crop it, with **Fit** on crop); tap the lit ratio again to
 go back to the whole frame. A lit ratio is the shape the canvas has now: drag a
@@ -92,31 +94,31 @@ ratio or turn it"); otherwise it names the lit ratio where it acted (`pad to 16:
 1821×1024`). The padlock keeps the shape while
 you drag, with new bands split evenly, and the row says **Held**; Reset and tapping
 the lit ratio turn it off, and it does nothing on the untouched clip. **Fit** is
-dimmed until a ratio is lit. The orientation button turns the shape on its side
+ready to set before picking a ratio. The orientation button turns the shape on its side
 (16:9 to 9:16), and dragging the picture itself moves it inside its padding: the
 cursor and small arrows show which ways it can go.
 **Reset crop** restores the full crop without changing rotation, padding or trim;
 with the padlock on it also takes away the bands the lock added.
 **Reset** on the node clears rotation, crop and padding and turns the padlock off;
-fill, feather, **Divisible by** and the timeline stay.
+fill, feather, **Align** and the timeline stay.
 **Reset transform** in the editor resets rotation, crop, padding, fill, feather and
-**Divisible by**; it keeps the source, current frame, trim, Length, resize and stitch
-settings. **Divisible by** makes the width and height divide evenly by the number
+**Align**; it keeps the source, current frame, trim, Length, resize and stitch
+settings. **Align** makes the width and height divide evenly by the number
 you pick: padding grows by a few pixels, and a side with no padding is trimmed by
 a few instead. Some models need sizes divisible by 8, 16 or 32; 1 turns it off.
 
-Video Upload and file drop use a streaming route into ComfyUI's input folder,
+The **Load** button and file drop use a streaming route into ComfyUI's input folder,
 so the buffered image-upload size limit does not prevent long-video uploads.
 
 The editor's sidebar uses the node's own ratio row, padlock and **Fit** switch, and
 the rotation is a number box (Shift for 0.1°). A ratio replaces the old crop and
 padding, keeping rotation and resize settings.
-Pixel rounding can differ by one pixel between opposite bands. **Divisible by** and
+Pixel rounding can differ by one pixel between opposite bands. **Align** and
 the resize **Step** can slightly change the final aspect ratio.
 
 ## Transform and outputs
 
-Rotation, crop, padding, feathering, fill, **Divisible by**, and the editor's handles
+Rotation, crop, padding, feathering, fill, **Align**, and the editor's handles
 match the image node. **Resize output** in the editor scales the finished frames to a
 megapixel budget with a resolution step (32 keeps LTX and Wan sizes), the same trio as
 the core Scale Image to Total Pixels node. The frames are resized by themselves and the
@@ -161,7 +163,7 @@ Five optional sockets sit on the left, above the editor:
 | `start_frame` | Zero-based source start frame. Overrides timeline IN. |
 | `end_frame` | Exclusive source end frame. 0 means the end of the source. Overrides timeline OUT. |
 | `fixed_frames` | Exact output frames from IN; the source must be long enough. Connected, it sets the length: OUT, Length and Frames for step aside. |
-| `frame_load_cap` | Maximum frames after rate conversion and Every nth, before Frames for. 0 means unlimited. Connected, it sets the length in place of Length. |
+| `frame_load_cap` | Maximum frames after rate conversion and Every nth, before Frames for. 0 means unlimited. Connected, it sets the length in place of Length. When the count is known, dragging IN stops at the last start that fits the kept frames. |
 | `last_seconds` | Load only this many seconds from the end of the clip, or of the part before OUT. 0 loads all of it. Use it to carry on from a clip: a long clip then costs no more memory than a short one. |
 
 Frame bounds use the source's frame-rate grid, independent of `force_rate`.
