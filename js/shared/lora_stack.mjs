@@ -12,7 +12,6 @@ export const FINE_STEP = 0.01;
 // large enough that a shaky click cannot change the value.
 export const SCRUB_PIXELS_PER_STEP = 4;
 export const SCRUB_DEAD_ZONE = 3;
-export const MAX_ROWS = 64;
 
 let rowSerial = 0;
 
@@ -40,7 +39,7 @@ export function newRow() {
 
 export function normalizeRows(parsed) {
   if (!Array.isArray(parsed)) return [];
-  return tidyGroups(parsed.slice(0, MAX_ROWS).map((entry) => {
+  return tidyGroups(parsed.map((entry) => {
     const row = newRow();
     if (entry && typeof entry === "object") {
       row.id = typeof entry.id === "string" && entry.id ? entry.id : row.id;
@@ -600,9 +599,8 @@ export function loraPickerEntries(names, query = "", collapsedFolders = new Set(
   return visit(tree);
 }
 
-// Folder add is one append, or no change when the whole selection cannot
-// fit. Existing rows (even duplicates, disabled rows and empty slots) stay
-// untouched. Deduplicate by full path, never basename or moved-file guess.
+// Append the folder in one step, preserving duplicates, disabled rows and
+// empty slots already in the stack. Deduplicate new files by full path.
 export function appendFolderRows(rows, names, defaultStrength = 1) {
   const seen = new Set(rows.map((row) => loraPath(row.name)));
   const pending = [];
@@ -613,12 +611,10 @@ export function appendFolderRows(rows, names, defaultStrength = 1) {
     seen.add(key);
     pending.push(name);
   }
-  const room = Math.max(0, MAX_ROWS - rows.length);
-  const needed = pending.length;
-  if (needed > room || !needed) return { rows, added: 0, skipped, needed, room };
+  if (!pending.length) return { rows, added: 0, skipped };
   const strength = roundStrength(defaultStrength);
   const addedRows = pending.map((name) => ({ ...newRow(), name, strength, strength_clip: strength }));
-  return { rows: [...rows, ...addedRows], added: needed, skipped, needed, room };
+  return { rows: [...rows, ...addedRows], added: addedRows.length, skipped };
 }
 
 // A suggested range is advisory: null/absent bounds never flag.
@@ -1031,9 +1027,9 @@ export function mergeImportedRows(existing, imported,
     have.add(key);
     added.push({ ...makeRow(), ...item });
   }
-  const rows = (position === "after"
+  const rows = position === "after"
     ? [...(existing ?? []), ...added]
-    : [...added, ...(existing ?? [])]).slice(0, MAX_ROWS);
+    : [...added, ...(existing ?? [])];
   return { rows, added: added.length, skipped };
 }
 
