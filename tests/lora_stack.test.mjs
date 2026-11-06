@@ -5,10 +5,10 @@ import {
   BYPASS_MODE,
   DEFAULT_STEP,
   FINE_STEP,
-  MAX_ROWS,
   SCRUB_DEAD_ZONE,
   SCRUB_PIXELS_PER_STEP,
   appendFolderRows,
+  applyTemplate,
   clampHighlight,
   clampStrength,
   commonFolderPrefix,
@@ -50,6 +50,7 @@ import {
   setStrength,
   strengthOutOfRange,
   summarizeRows,
+  templateFromRows,
   toggleAllRows,
   toggleAllState,
   toggleTrigger,
@@ -506,29 +507,29 @@ test("folder add preserves Windows filenames and uses the ordinary default stren
   assert.equal(appendFolderRows([], [names[0]], 100).rows[0].strength, 10);
 });
 
-test("folder add is all-or-nothing at the row limit, counting empty rows and skipping duplicates first", () => {
-  const rows = normalizeRows(Array.from({ length: MAX_ROWS - 1 }, (_, i) => ({ name: i ? "" : "styles/a" })));
-  const blocked = appendFolderRows(rows, ["styles/a", "styles/b", "styles/c"]);
-  assert.equal(blocked.rows, rows);
-  assert.deepEqual({ added: blocked.added, skipped: blocked.skipped, needed: blocked.needed, room: blocked.room },
-    { added: 0, skipped: 1, needed: 2, room: 1 });
-  const fits = appendFolderRows(rows, ["styles/a", "styles/b"]);
-  assert.equal(fits.added, 1);
-  assert.equal(fits.rows.length, MAX_ROWS);
-  const full = appendFolderRows(fits.rows, ["styles/c"]);
-  assert.equal(full.rows, fits.rows);
-  assert.equal(full.added, 0);
-  assert.equal(full.room, 0);
+test("large stacks keep every row across folder adds, chain imports, workflows and templates", () => {
+  const names = Array.from({ length: 600 }, (_, i) => `styles/${i}.safetensors`);
+  const folder = appendFolderRows([], names);
+  assert.equal(folder.added, names.length);
+  const initial = normalizeRows([{ name: "original", strength: 0.25, enabled: false }]);
+  const imported = mergeImportedRows(initial, folder.rows, { position: "before" });
+  const expected = [...names, "original"];
+  assert.deepEqual(imported.rows.map(row => row.name), expected);
+  const saved = parseRows(serializeRows(imported.rows));
+  assert.deepEqual(saved, imported.rows);
+  const template = applyTemplate(templateFromRows("large stack", saved));
+  assert.deepEqual(template.map(row => row.name), expected);
+  assert.equal(template.at(-1).enabled, false);
+  assert.equal(template.at(-1).strength, 0.25);
 });
 
 test("an empty or already-added folder is a no-op with no new row identities", () => {
   const rows = normalizeRows([{ name: "styles/a" }]);
-  assert.deepEqual(appendFolderRows(rows, []), { rows, added: 0, skipped: 0, needed: 0, room: 63 });
+  assert.deepEqual(appendFolderRows(rows, []), { rows, added: 0, skipped: 0 });
   const result = appendFolderRows(rows, ["styles/a"]);
   assert.equal(result.rows, rows);
   assert.equal(result.added, 0);
   assert.equal(result.skipped, 1);
-  assert.equal(result.needed, 0);
 });
 
 test("strength range flags only real finite bounds", () => {

@@ -35,7 +35,6 @@ all. **Remove this LoRA** is red. **Delete all LoRAs…** is a separate red, tra
 with confirmation; it clears this node's rows and keeps all files on disk.
 Cancel or Escape keeps the stack. Inserting keeps the existing rows and their settings in order;
 the new slot uses the gear menu's default strength (initially 1).
-The stack holds up to 64 rows.
 One strength drives both
 model and CLIP by default; the gear menu's **Separate model / CLIP
 strength** switch shows a second box per row. The switch is per-node — new
@@ -189,9 +188,7 @@ their order, strengths and switches. The same filename in different folders
 counts as separate LoRAs.
 
 The choice is one undo step. Closing the picker without choosing changes
-nothing. If a folder would take the stack past 64 rows, nothing is added
-and a message says how much room is needed. Remove rows or pick a smaller
-folder. Typing a filename and pressing Enter picks one file; use the arrow
+nothing. Typing a filename and pressing Enter picks one file; use the arrow
 keys to highlight a folder before Enter if you want the whole folder.
 Pointing at a folder with the mouse does not choose it for Enter.
 Left and Right collapse and expand a highlighted folder.
@@ -256,7 +253,7 @@ Details that keep the absorb faithful:
   rows from a loader without a connected CLIP import with CLIP strength 0
 - connected auxiliary outputs, such as trigger words, block absorption because
   bypassing their source would break those connections
-- linked LoRA settings and stacks beyond the row limit leave the sources active
+- linked LoRA settings leave the sources active
 - already-bypassed or muted loaders contribute no rows
 - a toast summarizes what was imported, bypassed, remapped, and skipped
 

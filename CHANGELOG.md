@@ -4,6 +4,7 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **LoRA Loader supports stacks larger than 64 rows.** Folder adds, templates, and absorbed loaders keep the full stack when you save and reopen a workflow.
 - **H3 Prompt Writer swaps two people.** With Swap the person and two person
   pictures, Picture 1 takes the place of the person on the left and Picture 2
   the person on the right. Type who goes to change that, one line each, such
