@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""A version's entries in CHANGELOG.md, as the short notes the Registry shows.
+"""A version's CHANGELOG entries for the Registry or a GitHub Release.
 
     python scripts/changelog_notes.py                  # the pyproject version
     python scripts/changelog_notes.py --version 2.9.0
     python scripts/changelog_notes.py --github-env     # for the publish workflow
+    python scripts/changelog_notes.py --full           # full Markdown for GitHub
 
 Every entry of the version becomes one line: its bold opening, and for a new
 node or example the sentence that says what it does. So a release reads
@@ -109,11 +110,16 @@ def pyproject_version() -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("--version", help="the version to read; the pyproject version when left out")
-    parser.add_argument("--github-env", action="store_true", help="write COMFY_NODE_CHANGELOG to $GITHUB_ENV")
+    output = parser.add_mutually_exclusive_group()
+    output.add_argument("--github-env", action="store_true", help="write COMFY_NODE_CHANGELOG to $GITHUB_ENV")
+    output.add_argument("--full", action="store_true", help="print the full Markdown section for GitHub Releases")
     args = parser.parse_args(argv)
     try:
         version = args.version or pyproject_version()
-        notes = notes_for(version, (ROOT / "CHANGELOG.md").read_text(encoding="utf-8"))
+        text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+        notes = notes_for(version, text)
+        if args.full:
+            notes = section(text, version).strip()
     except (OSError, ValueError) as exc:
         print(f"ERROR {exc}", file=sys.stderr)
         return 1
