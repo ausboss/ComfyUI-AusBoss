@@ -11,6 +11,7 @@
 // Undo is instant. And the edge settings are worked out here on a small copy
 // of the picture, so Grow and Soften answer while they are dragged.
 
+import { ensurePanelControls } from "./panel_controls.mjs";
 import { api } from "../../../scripts/api.js";
 import {
   brushAdjusts,
@@ -2938,8 +2939,9 @@ export function mountTouchStage(node, host) {
   };
   face.sizeField = field("Size", face.size, SIZE_HELP);
   face.softField = field("Soft", face.softBox, SOFT_HELP);
-  face.undo = button("ausboss-touch-btn", "Undo", "Take back the last pick, or a Clear.", () => undo(face), signal);
-  face.clear = button("ausboss-touch-btn", "Clear", "Pick nothing. Undo brings it back.", () => {
+  ensurePanelControls();
+  face.undo = button("ausboss-compact-action", "Undo", "Take back the last pick, or a Clear.", () => undo(face), signal);
+  face.clear = button("ausboss-compact-action", "Clear", "Pick nothing. Undo brings it back.", () => {
     dropPending(face);
     face.active = 0;
     face.fresh = 0;

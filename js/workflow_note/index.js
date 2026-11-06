@@ -117,14 +117,16 @@ ${TILE_FACE_CSS}
 .ausboss-note-title{margin:0;color:#f2f8f8;font-size:22px;font-weight:700;line-height:1.15;letter-spacing:-.01em;overflow-wrap:anywhere;}
 .ausboss-note-subtitle{margin:5px 0 0;color:#a9c4c2;font-size:12.5px;line-height:1.35;overflow-wrap:anywhere;}
 .ausboss-note-author{margin:6px 0 0;color:#78908e;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;}
-.ausboss-note.is-tile .ausboss-note-head{display:flex;align-items:center;padding:0 34px 0 0;border-left:3px solid var(--accent);background:color-mix(in srgb,var(--accent) 16%,#101719);}
+.ausboss-note.is-tile .ausboss-note-card{background:#080e10;border-color:#344446;border-left:3px solid var(--accent);}
 .ausboss-note.is-tile .ausboss-note-scroll{display:flex;padding:0;}
-.ausboss-note.is-tile .ausboss-note-head{flex:1;}
-.ausboss-note-read::before{content:"i";display:inline-grid;place-items:center;width:1em;height:1em;border:1.5px solid currentColor;border-radius:50%;margin-right:.55em;font:bold 21px/1 Georgia,serif;}
-.ausboss-note-read{border:0;background:transparent;color:#eef7f5;text-align:left;padding:11px 14px;font:650 16px/1.3 system-ui;cursor:pointer;flex:1;}
-.ausboss-note.is-tile .ausboss-note-edit{opacity:0;}
-.ausboss-note.is-tile .ausboss-note-head:is(:hover,:focus-within) .ausboss-note-edit{opacity:1;}
-.ausboss-note-read:hover{color:var(--accent);}
+.ausboss-note.is-tile .ausboss-note-head{display:flex;flex:1;min-width:0;padding:0;border:0;}
+.ausboss-note-read{position:relative;display:flex;align-items:center;gap:14px;width:100%;padding:8px 60px 8px 17px;border:0;background:transparent;color:#e8ebe7;text-align:left;font:600 18px/1.25 "IBM Plex Sans",system-ui,sans-serif;overflow-wrap:anywhere;cursor:pointer;}
+.ausboss-note-read svg{flex:none;width:25px;height:25px;fill:none;stroke:var(--accent);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.ausboss-note-read::after{content:"";position:absolute;right:18px;width:7px;height:7px;border:solid #a2b6b6;border-width:2px 2px 0 0;transform:rotate(45deg);}
+.ausboss-note-read:hover{background:#10191b;}
+.ausboss-note-read:focus-visible{outline:2px solid var(--accent);outline-offset:-3px;}
+.ausboss-note.is-tile .ausboss-note-edit{top:50%;right:32px;transform:translateY(-50%);opacity:0;pointer-events:none;}
+.ausboss-note.is-tile .ausboss-note-head:is(:hover,:focus-within) .ausboss-note-edit{opacity:1;pointer-events:auto;}
 .ausboss-note-reader{box-sizing:border-box;width:min(640px,94vw);max-height:86vh;overflow:auto;margin:auto;padding:0 0 24px;border:1px solid #365154;border-radius:12px;background:#161f21;color:#e8ebe7;box-shadow:0 18px 64px #0008;font:15px/1.55 "IBM Plex Sans",system-ui,sans-serif;}
 .ausboss-note-reader::backdrop{background:#06090ab8;}
 .ausboss-note-reader-head{padding:20px 24px 16px;border-top:3px solid var(--accent);background:#080e10;}
@@ -249,6 +251,23 @@ function el(tag, className, text) {
   if (className) node.className = className;
   if (text !== undefined) node.textContent = text;
   return node;
+}
+
+function tileIcon(note) {
+  // A how-to can include models too. Only use the download icon for a
+  // download title or a note whose only content is its model list.
+  const downloads = /^(?:download models?|model downloads?|downloads?|models?)$/i.test(note.title.trim())
+    || (note.models.length > 0 && !note.body.trim() && !note.packs.length && !note.links.length);
+  const ns = "http://www.w3.org/2000/svg";
+  const icon = document.createElementNS(ns, "svg");
+  icon.setAttribute("viewBox", "0 0 24 24");
+  icon.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS(ns, "path");
+  path.setAttribute("d", downloads
+    ? "M12 3v12m-5-5 5 5 5-5M3 16v5h18v-5"
+    : "M2.5 4.5c3.5-1 6.5-.5 9.5 1.5 3-2 6-2.5 9.5-1.5v15c-3.5-1-6.5-.5-9.5 1.5-3-2-6-2.5-9.5-1.5zM12 6v15");
+  icon.append(path);
+  return icon;
 }
 
 function externalLink(url, className, text) {
@@ -506,7 +525,8 @@ function render(state) {
     return;
   }
   if (note.layout === "tile") {
-    const read = el("button", "ausboss-note-read", note.title || "Workflow info");
+    const read = el("button", "ausboss-note-read");
+    read.append(tileIcon(note), el("span", "", note.title || "Workflow info"));
     read.type = "button";
     read.setAttribute("aria-haspopup", "dialog");
     read.onclick = () => {

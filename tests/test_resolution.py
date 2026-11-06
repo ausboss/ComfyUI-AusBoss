@@ -1,5 +1,6 @@
 """Latent Size 🆎 backend: clamping and the latent output."""
 
+import json
 import sys
 import unittest
 from unittest.mock import patch
@@ -51,6 +52,23 @@ class TestLatentShape(unittest.TestCase):
 
 
 class TestResolve(unittest.TestCase):
+    def test_strict_sizes_are_exact_and_checked_before_allocating(self):
+        policy = json.dumps({"strict": True, "sizes": [[576, 1024], [720, 1280]]})
+        with patch.object(node_resolution, "empty_latent", return_value={}) as allocate:
+            for w, h in [(1024, 576), (1152, 2048), (575, 1024)]:
+                with self.assertRaisesRegex(ValueError, "outside the workflow"):
+                    ResolutionNode().resolve(w, h, workflow_sizes=policy)
+            allocate.assert_not_called()
+            self.assertEqual(ResolutionNode().resolve(720, 1280, workflow_sizes=policy)[:2], (720, 1280))
+
+    def test_recommendations_do_not_restrict_and_invalid_lists_do_not_unlock(self):
+        with patch.object(node_resolution, "empty_latent", return_value={}):
+            policy = json.dumps({"strict": False, "sizes": [[576, 1024]]})
+            self.assertEqual(ResolutionNode().resolve(640, 480, workflow_sizes=policy)[:2], (640, 480))
+            for bad in [None, "{}", "{", '{"strict":true,"sizes":[]}', '{"strict":true,"sizes":[[true,1024]]}']:
+                with self.assertRaisesRegex(ValueError, "Invalid workflow resolutions"):
+                    ResolutionNode().resolve(640, 480, workflow_sizes=bad)
+
     def test_typed_values_survive_exactly_and_the_latent_follows(self):
         # Snap governs gestures; the backend never re-snaps 1920x1080.
         fake_torch = SimpleNamespace(zeros=lambda shape, **kwargs: SimpleNamespace(shape=tuple(shape)))
