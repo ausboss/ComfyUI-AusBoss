@@ -29,7 +29,7 @@ export function filterMedia(values, query) {
 export function unlistedMedia(values, value) {
   const text = String(value ?? "");
   if (!text || !Array.isArray(values)) return "";
-  const bare = text.replace(/\s+\[(input|output)\]$/, "");
+  const bare = text.replace(/\s+\[input\]$/, "");
   return values.includes(text) || values.includes(bare) ? "" : text;
 }
 

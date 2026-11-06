@@ -36,6 +36,7 @@ test("unlistedMedia names a value the list lacks, with or without its folder tai
   assert.equal(unlistedMedia(values, "clipspace-painted-masked-1.png [input]"), "clipspace-painted-masked-1.png [input]");
   assert.equal(unlistedMedia(values, "new.png"), "new.png");
   assert.equal(unlistedMedia(values, "photo.png"), "");
+  assert.equal(unlistedMedia(values, "photo.png [output]"), "photo.png [output]");
   assert.equal(unlistedMedia(values, "photo.png [input]"), "");
   assert.equal(unlistedMedia(["photo.png [input]"], "photo.png [input]"), "");
   assert.equal(unlistedMedia(values, ""), "");

@@ -11,10 +11,10 @@ model that paints black regions.
 
 ## Source and window
 
-- **Uploads**: Pick an existing input video (the list plays the clip under the pointer, muted, and filters as you type), click **Upload**, or drop a video file
+- **Inputs**: Pick an existing input video (the list plays the clip under the pointer, muted, and filters as you type), click **Load**, or drop a video file
   onto the node. The old source widgets remain compatible with saved workflows, but
   are now driven by this compact card. Choosing another video keeps the canvas
-  settings - Fill, Feather, **Divisible by**, Resize, Every nth, Frames for, Length - and
+  settings - Fill, Feather, **Align**, Resize, Every nth, Frames for, Length - and
   fits the new clip to the lit ratio button, the way **Fit** is set. Rotation, crop,
   padding, IN/OUT and the playhead start over.
 - **Outputs** (`source_mode` / `local_path`): Pick a video from ComfyUI's output folder,
@@ -41,7 +41,7 @@ model that paints black regions.
   ends, and Space plays or pauses. **Save & close** keeps your edits; **Cancel** or
   Escape puts everything back, and asks first if anything changed.
 - **Crop, pad & resize** (collapsible group under the timeline): folds the ratio
-  buttons, **Fit** and **Divisible by**, **Fill**, **Feather** and **Center**, and
+  buttons, **Fit to ratio**, **Align** and **Center**, **Fill** and **Feather**, and
   the **Resize** switch, megapixel budget and **Step** into one drawer. While closed,
   its header bar shows the fill colour swatch and a live summary of the active
   ratio, feather, alignment and resize settings. These are what a video outpaint model keys on - the LTX IC-LoRA paints
@@ -94,31 +94,31 @@ ratio or turn it"); otherwise it names the lit ratio where it acted (`pad to 16:
 1821×1024`). The padlock keeps the shape while
 you drag, with new bands split evenly, and the row says **Held**; Reset and tapping
 the lit ratio turn it off, and it does nothing on the untouched clip. **Fit** is
-dimmed until a ratio is lit. The orientation button turns the shape on its side
+ready to set before picking a ratio. The orientation button turns the shape on its side
 (16:9 to 9:16), and dragging the picture itself moves it inside its padding: the
 cursor and small arrows show which ways it can go.
 **Reset crop** restores the full crop without changing rotation, padding or trim;
 with the padlock on it also takes away the bands the lock added.
 **Reset** on the node clears rotation, crop and padding and turns the padlock off;
-fill, feather, **Divisible by** and the timeline stay.
+fill, feather, **Align** and the timeline stay.
 **Reset transform** in the editor resets rotation, crop, padding, fill, feather and
-**Divisible by**; it keeps the source, current frame, trim, Length, resize and stitch
-settings. **Divisible by** makes the width and height divide evenly by the number
+**Align**; it keeps the source, current frame, trim, Length, resize and stitch
+settings. **Align** makes the width and height divide evenly by the number
 you pick: padding grows by a few pixels, and a side with no padding is trimmed by
 a few instead. Some models need sizes divisible by 8, 16 or 32; 1 turns it off.
 
-Video Upload and file drop use a streaming route into ComfyUI's input folder,
+The **Load** button and file drop use a streaming route into ComfyUI's input folder,
 so the buffered image-upload size limit does not prevent long-video uploads.
 
 The editor's sidebar uses the node's own ratio row, padlock and **Fit** switch, and
 the rotation is a number box (Shift for 0.1°). A ratio replaces the old crop and
 padding, keeping rotation and resize settings.
-Pixel rounding can differ by one pixel between opposite bands. **Divisible by** and
+Pixel rounding can differ by one pixel between opposite bands. **Align** and
 the resize **Step** can slightly change the final aspect ratio.
 
 ## Transform and outputs
 
-Rotation, crop, padding, feathering, fill, **Divisible by**, and the editor's handles
+Rotation, crop, padding, feathering, fill, **Align**, and the editor's handles
 match the image node. **Resize output** in the editor scales the finished frames to a
 megapixel budget with a resolution step (32 keeps LTX and Wan sizes), the same trio as
 the core Scale Image to Total Pixels node. The frames are resized by themselves and the

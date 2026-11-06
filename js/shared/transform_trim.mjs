@@ -57,8 +57,11 @@ function installCss() {
     .ausboss-transform-trim{flex:none;display:flex;flex-direction:column;gap:8px;min-width:0;padding:9px 10px 8px;border:1px solid #164b49;border-radius:8px;background:#0e1718;color:#cadddb;font:11px system-ui;box-sizing:border-box;overflow:hidden}
     .ausboss-transform-trim-transport{display:flex;align-items:center;gap:6px;min-width:0}
     .ausboss-transform-trim-transport .ausboss-transform-trim-rail{flex:1;min-width:0}
-    .ausboss-transform-trim-play{flex:none;width:42px;height:24px;padding:0;border:1px solid #2c4d4b;border-radius:5px;background:#1b2627;color:#d8eeee;font:600 11px system-ui;cursor:pointer}
-    .ausboss-transform-trim-play:hover,.ausboss-transform-trim-play[aria-pressed=true]{border-color:#00b4aa;color:#e5fffc}
+    .ausboss-transform-trim-play{display:grid;place-items:center;flex:none;width:28px;height:24px;padding:0;border:1px solid #325151;border-radius:4px;background:#101819;color:#a6c3c0;cursor:pointer}
+    .ausboss-transform-trim-play::before{content:"";width:10px;height:12px;background:currentColor;clip-path:polygon(8% 0,100% 50%,8% 100%)}
+    .ausboss-transform-trim-play.is-playing::before{box-sizing:border-box;clip-path:none;background:transparent;border-inline:3px solid currentColor}
+    .ausboss-transform-trim-play:focus-visible{outline:1px solid #00b4aa;outline-offset:1px}
+    .ausboss-transform-trim-play:hover,.ausboss-transform-trim-play.is-playing{border-color:#00b4aa;color:#e5fffc}
     .ausboss-transform-trim-play:disabled{opacity:.45;cursor:default}
     .ausboss-transform-trim-rail{position:relative;height:28px;margin:0 6px;touch-action:none;cursor:pointer;user-select:none}
     .ausboss-transform-trim-rail.is-disabled{opacity:.45;cursor:default}
@@ -138,7 +141,7 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
   rail.append(playhead);
 
   const transport = el("div", "ausboss-transform-trim-transport");
-  const play = el("button", "ausboss-transform-trim-play", "Play");
+  const play = el("button", "ausboss-transform-trim-play");
   play.type = "button";
   play.addEventListener("click", onTogglePlayback);
   transport.append(play, rail);
@@ -307,9 +310,9 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
   const sync = () => {
     const clip = info();
     const playing = isPlaying();
-    play.textContent = playing ? "Pause" : "Play";
+    play.setAttribute("aria-label", playing ? "Pause" : "Play");
     play.title = playing ? "Pause on this frame" : trim ? "Play the selected clip" : "Play the video to pick a frame";
-    play.setAttribute("aria-pressed", String(playing));
+    play.classList.toggle("is-playing", playing);
     play.disabled = !clip.count;
     const head = playheadFrame();
     rail.classList.toggle("is-disabled", !clip.count);

@@ -52,6 +52,7 @@ _SERVER_FOLDERS = {
 OUTPUT_LIST_CAP = 2000
 
 IMAGE_EXTENSIONS = {
+    ".avif",
     ".bmp",
     ".gif",
     ".jpeg",
@@ -253,8 +254,8 @@ def _locate_comfy_file(text: str, rule: str) -> tuple[str, str, Path]:
     return folder, inside, path
 
 
-def list_output_videos() -> list[str]:
-    """The videos in ComfyUI's output folder, newest first, each named the
+def list_output_media(extensions: set[str]) -> list[str]:
+    """The media in ComfyUI's output folder, newest first, each named the
     way ComfyUI names a file there: "sub/clip.mp4 [output]". Hidden files and
     folders and links are left out."""
     root = _server_folders().get("output")
@@ -264,7 +265,7 @@ def list_output_videos() -> list[str]:
     for folder, folders, files in os.walk(root):  # does not follow links to folders
         folders[:] = [name for name in folders if not name.startswith(".")]
         for name in files:
-            if name.startswith(".") or Path(name).suffix.lower() not in VIDEO_EXTENSIONS:
+            if name.startswith(".") or Path(name).suffix.lower() not in extensions:
                 continue
             path = Path(folder, name)
             try:
@@ -275,6 +276,10 @@ def list_output_videos() -> list[str]:
                 continue
     found.sort(key=lambda item: (-item[0], item[1].casefold()))
     return [f"{name} [output]" for _mtime, name in found[:OUTPUT_LIST_CAP]]
+
+
+def list_output_videos() -> list[str]:
+    return list_output_media(VIDEO_EXTENSIONS)
 
 
 def load_image_frames(path: Path) -> list[Image.Image]:
@@ -848,6 +853,11 @@ def register_video_routes() -> None:
     async def ausboss_video_outputs(request):
         videos = await asyncio.get_running_loop().run_in_executor(None, list_output_videos)
         return web.json_response({"videos": videos})
+
+    @prompt_server.routes.get("/ausboss/transform/image/outputs")
+    async def ausboss_image_outputs(request):
+        images = await asyncio.get_running_loop().run_in_executor(None, list_output_media, IMAGE_EXTENSIONS)
+        return web.json_response({"images": images})
 
     def request_path(request) -> Path:
         # resolve_video_path refuses a whole path from its text, before the
