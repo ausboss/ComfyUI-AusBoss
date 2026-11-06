@@ -4,6 +4,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+## 2.21.1 - 2026-11-06
+
+- **The README release badge stays available when the badge service is down.**
+  The badge is served from the repository, shows the current version, and opens
+  the latest GitHub Release.
+
 ## 2.21.0 - 2026-11-05
 
 - **Crop + Rotate + Pad has clearer controls and steadier previews.** Image
