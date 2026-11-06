@@ -4,6 +4,7 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Workflow Note info tiles show a book for guides and a download arrow for models.** Click the dark tile to open the note. Its icon and left edge use the accent you picked.
 - **H3 Prompt Writer swaps two people.** With Swap the person and two person
   pictures, Picture 1 takes the place of the person on the left and Picture 2
   the person on the right. Type who goes to change that, one line each, such
