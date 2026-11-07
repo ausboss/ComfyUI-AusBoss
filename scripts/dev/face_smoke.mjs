@@ -94,7 +94,10 @@ for (const type of types) {
   const seen = await evalJs(`(async () => {
     const { app } = window;
     app.canvas.linkConnector?.reset?.();
-    app.graph.clear(); app.graph.last_node_id += 50;
+    // clear() resets the counter, but frontend preview caches can outlive
+    // the graph. Reserve fresh ids before clearing so probes stay isolated.
+    const nextNodeId = app.graph.last_node_id + 50;
+    app.graph.clear(); app.graph.last_node_id = nextNodeId;
     let node;
     try { node = window.LiteGraph.createNode(${JSON.stringify(type)}); } catch (error) { return { error: "createNode threw: " + (error?.message ?? error) }; }
     if (!node) return { error: "createNode gave nothing" };
