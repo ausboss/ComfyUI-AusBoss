@@ -16,18 +16,18 @@ export const THEME = Object.freeze({
   brandInk: "#45d6cb",       // chip text on brandSoft
   brandGlow: "#6fe0d6",      // the big text look
 
-  card: "#0b0c0d",           // widget card ground
-  fill: "#2a2d30",           // every control: solid, no border
-  fillHover: "#36393d",      // control hover, the chevron column
+  card: "#15181a",           // widget card ground
+  fill: "#2d3134",           // every control: solid, no border
+  fillHover: "#383c40",      // control hover, the chevron column
   well: "#060707",           // picture stage ground
-  rule: "#25282a",           // hairline after a section label
-  switchOff: "#4b4f54",      // the mark of a switch sitting on off
+  rule: "#2b2f32",           // hairline after a section label
+  switchOff: "#62676d",      // the mark of a switch sitting on off
 
   ink: "#f6f7f8",            // values: numbers, picked options, typed text
   inkSoft: "#e0e3e5",        // default card text
   inkHover: "#ffffff",
   label: "#b4b9bd",          // row labels, unselected segments, chevrons
-  faint: "#8f959a",          // units, section labels, placeholders, muted rows
+  faint: "#979da2",          // units, section labels, placeholders, muted rows
 
   warn: "#e0a040",
   warnInk: "#ffdca8",
