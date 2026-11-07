@@ -252,11 +252,34 @@ test("the card lists the made switches first, as made, then the listed groups in
   assert.deepEqual(listedRows(undefined, undefined, DEFAULT_SETTINGS), []);
 });
 
-test("a click anywhere on the pill flips it; a mixed row goes to the half that was clicked", () => {
-  assert.deepEqual([flipTo("on", true), flipTo("on", false)], [false, false]);
-  assert.deepEqual([flipTo("off", true), flipTo("off", false)], [true, true]);
-  assert.deepEqual([flipTo("mixed", true), flipTo("mixed", false)], [true, false]);
-  assert.deepEqual([flipTo("empty", true), flipTo(undefined, false)], [true, false]);
+test("off and on select the named state, including the state already selected", () => {
+  for (const state of ["on", "off", "mixed", "empty", undefined]) {
+    assert.equal(flipTo(state, false), false, `off must stay off from ${state}`);
+    assert.equal(flipTo(state, true), true, `on must stay on from ${state}`);
+  }
+});
+
+test("a saved Fast setting keeps its value when its selected half is clicked again", () => {
+  const fast = node(21, 0, 0, { widgets: [{ name: "value", value: false }] });
+  const settings = normalizeSettings({ switches: [{ id: 1, title: "Fast", on: { 21: { value: true } }, off: { 21: { value: false } } }] });
+  const serialized = JSON.stringify(settings);
+  const click = (side) => {
+    const [row] = readSwitches(settings.switches, placeNodes([fast]), []);
+    const on = flipTo(row.state, side);
+    assert.deepEqual(switchPlan([row], row, on, settings), [], "a saved setting never changes the node mode");
+    const values = valuePlan([row], row, on, settings);
+    for (const [pair, wanted] of values) pair.control.value = pairValue(pair, wanted, pair.control.value);
+    return values.length;
+  };
+  assert.equal(click(false), 0, "Off on an already-off Fast setting must do nothing");
+  assert.equal(fast.widgets[0].value, false);
+  assert.equal(click(true), 1);
+  assert.equal(fast.widgets[0].value, true);
+  assert.equal(click(true), 0, "On on an already-on Fast setting must do nothing");
+  assert.equal(fast.widgets[0].value, true);
+  assert.equal(click(false), 1);
+  assert.equal(fast.widgets[0].value, false);
+  assert.equal(JSON.stringify(settings), serialized, "clicks must not rewrite the saved switch definition");
 });
 
 test("a switch sets every node it holds, and reports only the nodes that change", () => {
@@ -727,7 +750,7 @@ test("switching everything on or off puts each row in its own state, off sides i
   assert.deepEqual(planned(switchAllPlan(pair, false, DEFAULT_SETTINGS)), { shared: MODE_ALWAYS });
 });
 
-test("Edit a picture: one click runs the picture and switches Latent Size off, the next does the reverse", () => {
+test("Edit a picture: each half selects its branch, and a repeated click leaves it selected", () => {
   const nodes = [picture(), latentSize()]; // just put on the off side: both still run
   const settings = twoSided();
   const click = (side) => {
@@ -737,8 +760,10 @@ test("Edit a picture: one click runs the picture and switches Latent Size off, t
   };
   assert.equal(readOne(settings, nodes).state, "mixed");
   assert.deepEqual(click(true), ["on", [MODE_ALWAYS, MODE_BYPASS]]);
-  assert.deepEqual(click(true), ["off", [MODE_BYPASS, MODE_ALWAYS]]);
-  assert.deepEqual(click(false), ["on", [MODE_ALWAYS, MODE_BYPASS]]);
+  assert.deepEqual(click(true), ["on", [MODE_ALWAYS, MODE_BYPASS]]);
+  assert.deepEqual(click(false), ["off", [MODE_BYPASS, MODE_ALWAYS]]);
+  assert.deepEqual(click(false), ["off", [MODE_BYPASS, MODE_ALWAYS]]);
+  assert.deepEqual(click(true), ["on", [MODE_ALWAYS, MODE_BYPASS]]);
   // Switching everything does the same through the card's right-click menu.
   for (const [on, expected] of [[false, [MODE_BYPASS, MODE_ALWAYS]], [true, [MODE_ALWAYS, MODE_BYPASS]]]) {
     for (const [member, mode] of switchAllPlan([readOne(settings, nodes)], on, settings)) member.mode = mode;

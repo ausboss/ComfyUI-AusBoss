@@ -33,6 +33,13 @@
     "optional": [],
     "outputs": []
   },
+  "AUSBOSS_NODES_CalloutTile": {
+    "required": [
+      "text"
+    ],
+    "optional": [],
+    "outputs": []
+  },
   "AUSBOSS_NODES_ColorMatch": {
     "required": [
       "image",
@@ -235,6 +242,10 @@
       [
         "INT",
         "height"
+      ],
+      [
+        "BOOLEAN",
+        "keeps_clip_sound"
       ]
     ]
   },
@@ -1174,6 +1185,13 @@
     ]
   },
   "AUSBOSS_NODES_WorkflowNote": {
+    "required": [
+      "note"
+    ],
+    "optional": [],
+    "outputs": []
+  },
+  "AUSBOSS_NODES_WorkflowNoteTile": {
     "required": [
       "note"
     ],

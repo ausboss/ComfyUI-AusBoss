@@ -31,6 +31,7 @@ help panel.
 | Save pictures (PNG, lossless WebP or JPEG XL) | Save Image (`AUSBOSS_NODES_SaveImage`) |
 | Run a workflow on each picture in a folder | Image Folder (`AUSBOSS_NODES_ImageFolder`) |
 | Apply a stack of LoRAs | LoRA Loader (`AUSBOSS_NODES_LoraLoader`) |
+| Write a MiniMax H3 or Pika H3 Flex prompt from plain words | H3 Prompt Writer (`AUSBOSS_NODES_H3PromptWriter`): [node help](../AUSBOSS_NODES_H3PromptWriter.md) |
 | Krea 2 prompt, and Krea 2 outpainting | Krea 2 Encode (`AUSBOSS_NODES_Krea2Encode`), Krea 2 Outpaint Model Patch (`AUSBOSS_NODES_Krea2OutpaintModelPatch`) |
 | Load or save a video | Load Video (`AUSBOSS_NODES_LoadVideo`), Save Video (`AUSBOSS_NODES_SaveVideo`) |
 | Load a sound file and keep only part of it, up to a set length | Load Audio (`AUSBOSS_NODES_LoadAudio`) |
@@ -44,6 +45,7 @@ help panel.
 | Time the whole run | Run Timer (`AUSBOSS_NODES_RunTimer`) |
 | Turn parts of a workflow off and on | Workflow Switches (`AUSBOSS_NODES_WorkflowSwitches`): [its own agent guide](workflow_switches.md) |
 | Explain a shared workflow on the canvas | Workflow Note (`AUSBOSS_NODES_WorkflowNote`), Callout (`AUSBOSS_NODES_Callout`) |
+| Add compact help or colored link buttons | Workflow Note Tile (`AUSBOSS_NODES_WorkflowNoteTile`), Callout Tile (`AUSBOSS_NODES_CalloutTile`) |
 | Lay out boxes of things and words on a canvas | Layout Boxes (`AUSBOSS_NODES_LayoutBoxes`) |
 
 Every node's display name ends in 🆎 and sits under `🆎 AusBoss/<group>` in
@@ -62,6 +64,20 @@ the `AUSBOSS_NODES_...` key above.
   that worked keeps working.
 - **Media loaders start blank** in the example workflows. Put in the file the
   person wants to use before you queue.
+
+## H3 swaps and clip duration
+
+For a swap, keep the target selector on its own line. An optional separate line,
+`@1 looks like a woman with blonde hair and a black hoodie.`, describes the
+connected replacement person in Picture 1; use its actual picture number. This
+can help express appearance but does not guarantee identity. Do not add it to
+other jobs. Existing scripts without it keep their previous behavior.
+
+An active video sets the duration for **swap the person**, **change something**
+and **new voice**. The card says **From the clip** and hides numeric timeline
+retiming; trim or limit the upstream clip instead. Do not infer the final frame
+count from raw source metadata: upstream processing and H3 frame rounding apply.
+Other jobs and video OFF still use **Length** normally.
 
 ## Example workflows
 

@@ -12,7 +12,7 @@ import re
 
 import numpy as np
 
-from ._h3_cast_helpers import KEEP, NEEDS_NO_WORDS, ONE_GOES, REVOICE, SWAP, Cast, number_pictures
+from ._h3_cast_helpers import EDIT, KEEP, NEEDS_NO_WORDS, ONE_GOES, REVOICE, SWAP, Cast, number_pictures, swap_appearances
 from ._h3_cast_helpers import TOKEN
 from ._h3_script_helpers import (
     ACTION_GOES_ON,
@@ -40,6 +40,7 @@ SECTIONS = (
 CUT = re.compile(r"(\bAt )(\d\d):(\d\d\.\d{3})")
 
 NO_SCRIPT = "Type what happens first: one line for each moment."
+NO_CHANGE = 'Type what changes in the video, like "He wears @1 in place of his cap."'
 VOICE_NO_WORDS = (
     "A voice is connected, but nobody speaks. Put what they say in quotes, or "
     "turn the voice off."
@@ -269,6 +270,30 @@ def add_song_under(parts, beats):
     cut_on_beat(parts, beats)
 
 
+# In "change something" the person comes from the video, so a picture is what
+# gets put on them. Pictures open as "person", and a newcomer types plain words.
+PUT_ON = r"(?:wears|wearing|wear|puts on|putting on|put on|has on|dons)"
+PUT_ON_TOKEN = re.compile(r"\b" + PUT_ON + r"\s+(?:a |an |the )?@(\d)\b|@(\d)\s+(?:in place of|instead of)\b", re.IGNORECASE)
+PUT_ON_WORDS = re.compile(r"\b(" + PUT_ON + r")\s+(.+?)(?=\s+(?:in place of|instead of)\b|[,.;!?\n]|\s+and\s|$)", re.IGNORECASE)
+
+
+def put_on_from_pictures(script, jobs):
+    """For "change something": a picture the line puts on someone is an outfit,
+    even if its job says person. With one picture and no @ typed, the thing the
+    line puts on him ("wears the propeller hat") is that picture."""
+    jobs = dict(jobs)
+    if len(jobs) == 1 and not TOKEN.search(script):
+        slot = next(iter(jobs))
+        script, found = PUT_ON_WORDS.subn(lambda m: f"{m.group(1)} @{slot}", script, count=1)
+        if not found:
+            return script, jobs
+    for match in PUT_ON_TOKEN.finditer(script):
+        slot = int(match.group(1) or match.group(2))
+        if jobs.get(slot) == "person":
+            jobs[slot] = "outfit"
+    return script, jobs
+
+
 def write_prompt(script, seconds=15.0, camera="", look="", sound="", language="English", voice=False, song_beats=None,
                  ask=None, jobs=None, video="", soundtrack=False, clip_sound=False, speech=None):
     """The finished prompt.
@@ -291,15 +316,23 @@ def write_prompt(script, seconds=15.0, camera="", look="", sound="", language="E
     speaker = None
 
     if parts is None:
-        cast = Cast(number_pictures(jobs if jobs is not None else {1: "person"}, video), video)
+        jobs = jobs if jobs is not None else {1: "person"}
+        if video == EDIT:
+            script, jobs = put_on_from_pictures(script, jobs)
+        cast = Cast(number_pictures(jobs, video), video)
+        script, cast.appearances = swap_appearances(script, jobs, video)
         scene = read_script(script)
         problem = cast.problem(" ".join(moment.text for moment in scene.moments))
         if problem:
             raise ValueError(problem)
+        if not scene.moments and video == EDIT:
+            raise ValueError(NO_CHANGE)
         if not scene.moments and video not in NEEDS_NO_WORDS:
             raise ValueError(NO_SCRIPT)
         if video == SWAP and scene.moments:  # Typed words in a swap say which person goes, for a clip with two.
             cast.name_who_goes([without_speech(moment) for moment in scene.moments])
+            if cast.appearances and cast.clip_clothes:
+                raise ValueError('Remove "keep the clip\'s clothes" or the looks like line. This appearance hint replaces the whole look.')
             goes = [(who, str(picture.slot)) for who, picture in zip(cast.whos, cast.swappers) if who != ONE_GOES]
             scene.moments = swap_lines(scene.moments, goes)
         if video == SWAP and clip_sound:
@@ -326,7 +359,7 @@ def write_prompt(script, seconds=15.0, camera="", look="", sound="", language="E
     if parts is None:
 
         def say(words, on_screen=True, who="<Subject 1>", number=1, delivery=""):
-            lips = "<Video 1>" if video in (REVOICE, SWAP) else ""
+            lips = "<Video 1>" if video in (REVOICE, SWAP, EDIT) else ""
             voiced = voice_label if number == 1 else None
             return spoken_line(who, clean_words(words), language, voiced, on_screen, number, lips, delivery)
 

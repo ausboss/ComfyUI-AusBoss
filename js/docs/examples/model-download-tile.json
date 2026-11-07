@@ -6,7 +6,7 @@
   "nodes": [
     {
       "id": 1,
-      "type": "AUSBOSS_NODES_WorkflowNote",
+      "type": "AUSBOSS_NODES_WorkflowNoteTile",
       "pos": [
         0,
         0
@@ -22,7 +22,7 @@
       "outputs": [],
       "title": "Download models",
       "properties": {
-        "Node name for S&R": "AUSBOSS_NODES_WorkflowNote"
+        "Node name for S&R": "AUSBOSS_NODES_WorkflowNoteTile"
       },
       "widgets_values": [
         "{\"v\": 1, \"title\": \"Download models\", \"subtitle\": \"Krea 2 Outpaint\", \"author\": \"\", \"layout\": \"tile\", \"accent\": \"\", \"body\": \"Get the four files below and put each one in its listed folder. Click **check files** after adding them.\", \"models\": [{\"name\": \"krea2_turbo_fp8_scaled.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"13.1 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen3vl_4b_fp8_scaled.safetensors\", \"dir\": \"text_encoders\", \"size\": \"5.2 GB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors\", \"note\": \"\"}, {\"name\": \"qwen_image_vae.safetensors\", \"dir\": \"vae\", \"size\": \"254 MB\", \"url\": \"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors\", \"note\": \"\"}, {\"name\": \"krea2_anypaint_rank32.safetensors\", \"dir\": \"loras\", \"size\": \"229 MB\", \"url\": \"https://huggingface.co/yijunwang2/krea2-anypaint/resolve/main/krea2_anypaint_rank32.safetensors\", \"note\": \"by yijunwang2\"}], \"packs\": [], \"links\": []}"

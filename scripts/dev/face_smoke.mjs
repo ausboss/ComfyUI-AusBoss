@@ -119,6 +119,9 @@ for (const type of types) {
   if (seen.error) problems.push(seen.error);
   else {
     if (!(seen.size[0] > 20 && seen.size[1] > 20)) problems.push(`the node's size is ${seen.size.join(" x ")}`);
+    if (["AUSBOSS_NODES_CalloutTile", "AUSBOSS_NODES_WorkflowNoteTile"].includes(type) && seen.size[1] > 120) {
+      problems.push("a new tile must start as a compact button, not a full-height note");
+    }
     if (vue && !seen.drawn) problems.push("Nodes 2.0 drew no element for the node");
     if (seen.drawn && !(seen.drawn[0] > 20 && seen.drawn[1] > 20)) problems.push(`the node is drawn ${seen.drawn.join(" x ")}`);
     for (const panel of seen.panels) {

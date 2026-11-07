@@ -809,13 +809,9 @@ export function listedRows(switchRows, groupRows, settings) {
 
 // ---------- switching ----------
 
-// What a click on a row's pill asks for. The pill is one switch: a click
-// anywhere on it flips it, on the "off" half as much as on the "on" half.
-// Only while the row reads mixed (neither half lit) does the half that was
-// clicked decide: `side` is true for the on half.
-export function flipTo(state, side) {
-  if (state === "on") return false;
-  if (state === "off") return true;
+// Each half selects its named state, even when that state is already set.
+// Keep the first argument for callers using the existing helper signature.
+export function flipTo(_state, side) {
   return Boolean(side);
 }
 

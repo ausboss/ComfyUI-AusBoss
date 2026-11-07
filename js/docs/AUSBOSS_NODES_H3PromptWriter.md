@@ -94,6 +94,8 @@ Connect a video, then pick what it is for:
   right. To choose who goes, type one line per picture, for example
   `@1 replaces the man in the hat`. Put spoken words in quotes and name
   the speaker. If a voice comes from off screen, say so in the line.
+- **change something**: keep the video and describe the change, for example
+  `She wears a red raincoat`. Be specific about what should change.
 - **keep going**: more of the same clip, from where it ends. Say what happens
   next, or leave the box empty and it just carries on. Connect the whole clip:
   the node sends H3 only the last 2 seconds.
@@ -105,7 +107,24 @@ If your swap keeps the video's audio, connect it to **video_sound** and turn on
 line is spoken and keeps only the incoming people's words in the swap prompt.
 Type a time such as `3.2s:` to set it yourself. This switch starts off.
 
-Swap and new voice ignore **Length** and keep the video's own length.
+With an active video, **swap the person**, **change something** and **new voice**
+use the incoming clip to set the frame count. **Length** says **From the clip**;
+set the clip's length upstream. The bar does not show a guessed duration or offer
+retiming controls for these jobs. H3 rounds the frame count to a supported length.
+Other video jobs, or turning the video off, use the editable **Length** again.
+
+For a swap, you can optionally describe the replacement on its own line:
+
+```
+the woman with black hair walking toward the camera
+@1 looks like a woman with blonde hair and a black hoodie.
+```
+
+The first line chooses who goes; the `@1 looks like` line describes the connected
+replacement person in Picture 1. Use the number of that picture, with its job set
+to **person** or **character sheet**. This helps describe the intended appearance;
+it does not guarantee an exact identity match. The line is optional: existing
+workflows and scripts keep their previous behavior when it is absent.
 
 ## What you can type
 
@@ -134,8 +153,10 @@ they are.
 ## What you can plug in
 
 - **picture_1** to **picture_4**: your pictures.
-- **video** and **video_sound**: the frames and the sound of a video. Only keep
-  going uses the sound.
+- **video** and **video_sound**: the frames and the sound of a video. **keep
+  going** sends the last part of the sound to H3. A swap uses the sound to find
+  speech timing when **Clip's own sound** is on. To keep source audio in a swap
+  or **change something**, route the original loader's audio to the save node.
 - **voice**: a clip of someone talking, about 10 seconds, plus words in quotes
   in your script. It goes to whoever speaks first. It works with your own voice,
   or one you have permission to use. Put the spoken line last: with time left
@@ -158,6 +179,12 @@ them, so a picture that is off leaves no gap. **width** and **height** go into
 H3's width and height: the clip takes the shape of your video, or else of your
 first picture. **song_under** goes into `audio2` of Audio Merge, with the clip's
 sound in `audio1`.
+
+**keeps_clip_sound** is on when a video is connected and **Clip's own sound** is
+on, or the video job is **change something**. Use it to select the source audio
+for the finished clip. It is the last output; the existing outputs keep their
+positions. Keeping source audio still needs the workflow to pass that audio to
+its save node.
 
 Nothing plugged in means nothing is added. So a page can turn each one on and off
 with [Workflow Switches](#AUSBOSS_NODES_WorkflowSwitches): a bypassed loader reads
@@ -217,6 +244,7 @@ as not plugged in.
 | `song_under` | output | AUDIO | With a voice and a song, the song to mix under the finished clip. |
 | `frames` | output | INT | The clip's length in frames. |
 | `width`, `height` | output | INT | The shape of your video, or else of your first picture. |
+| `keeps_clip_sound` | output | BOOLEAN | Whether the finished clip should use the video's own sound. |
 
 ## Technical details
 
