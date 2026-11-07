@@ -2,6 +2,13 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Save Image and Save Video: the Steps switch is now called Preview steps.** It
+  shows the picture or the clip's first frame while it is being made, and "Steps"
+  read like a sampler's step count. It works the same, and saved workflows keep
+  their setting.
+
 ## 2.21.2 - 2026-11-07
 
 - **H3 Prompt Writer reads a plain swap sentence.** "Replace the man in the red

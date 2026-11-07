@@ -9,7 +9,7 @@ duration, shows a tall video whole, and has a **LOOP** control. `gif` and
 `webp` are shown as pictures with just the file name, since a video player
 cannot play either.
 
-**Steps** above the player (`step_preview`, off by default) shows the clip's first frame in
+**Preview steps** above the player (`step_preview`, off by default) shows the clip's first frame in
 the player while it is being made, one step at a time, with a **STOP**
 button on the player. Stop a clip that is going wrong after the first steps
 instead of waiting for the end; a stopped run saves nothing. The saved

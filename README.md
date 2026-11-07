@@ -199,7 +199,7 @@ It returns the new frames and their fps. It doesn't touch audio, so carry the so
 
 Saves a frame batch or a core `VIDEO` as MP4 (H.264 or H.265), WebM (VP9 or AV1), ProRes MOV, lossless FFV1 MKV, GIF or WebP. Which encoders you get depends on your FFmpeg and PyAV build, and H.264 and H.265 come in CPU and NVENC versions. The videos carry color tags, and optionally audio and the workflow.
 
-**Ping-pong** plays forward and then back without repeating the turnaround frames. A wired `VIDEO` brings its own frame rate; otherwise wire fps from Load Video or Frame Interpolate. The player on the node shows the saved file, and **STEPS** shows the clip's first frame while it is being made, with a **STOP** button. Drop a saved video back on the canvas to load the workflow inside it, for the formats that can hold one. The [help page](js/docs/AUSBOSS_NODES_SaveVideo.md) has the format and audio details.
+**Ping-pong** plays forward and then back without repeating the turnaround frames. A wired `VIDEO` brings its own frame rate; otherwise wire fps from Load Video or Frame Interpolate. The player on the node shows the saved file, and **Preview steps** shows the clip's first frame while it is being made, with a **STOP** button. Drop a saved video back on the canvas to load the workflow inside it, for the formats that can hold one. The [help page](js/docs/AUSBOSS_NODES_SaveVideo.md) has the format and audio details.
 
 ## Mask and inpaint nodes
 
