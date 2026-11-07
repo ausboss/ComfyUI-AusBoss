@@ -21,6 +21,7 @@ import { copyToClipboard } from "../shared/clipboard.mjs";
 import { confirmDiscard } from "../shared/discard_prompt.mjs";
 import { WIDGET_FRAME, fillNodeHeight, holdNodeMinHeight } from "../shared/panel_layout.mjs";
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
+import { suppressCoreImagePreview } from "../shared/core_preview.mjs";
 import {
   COMMON_FOLDERS,
   INPUT_FOLDER,
@@ -1120,6 +1121,11 @@ function buildPanel(node) {
   const widget = node.widgets?.find((item) => item.name === "note");
   if (!widget) return null;
   hideWidget(widget);
+  // A note never has output images of its own. The frontend files previews
+  // by node id, so one left over from another node can still land here, and
+  // in the classic canvas its widget asks for the picture's full height:
+  // the node grows to hold it and a tile stops starting as a tile.
+  suppressCoreImagePreview(node);
 
   const root = el("div", "ausboss-note");
   const card = el("div", "ausboss-note-card");

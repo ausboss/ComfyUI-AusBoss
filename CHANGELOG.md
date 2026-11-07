@@ -4,6 +4,9 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Workflow Note tiles start compact in the classic canvas again.** A leftover
+  image preview filed under the node's id made the classic canvas grow a new
+  tile to hold the picture; notes now stand that preview down.
 - **Colored link buttons and pop-out notes keep their tile layout when shared.**
   Callout Tile and Workflow Note Tile save as distinct node types, so an older
   install can report what is missing. Tiles have larger editors and visible
