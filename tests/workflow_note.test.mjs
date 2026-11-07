@@ -15,6 +15,7 @@ import {
   matchInstalled,
   noteFit,
   noteIsEmpty,
+  noteShowsTileFace,
   normalizeNote,
   packsFromGraph,
   parseInline,
@@ -196,6 +197,23 @@ test("noteFit ignores a card it could not measure", () => {
     assert.deepEqual(noteFit({ natural, nodeHeight: 810, chrome: 22 }), { fit: null, grow: false });
   }
   assert.deepEqual(noteFit({ natural: 794.125, nodeHeight: undefined, chrome: 22 }), { fit: null, grow: false });
+});
+
+test("a tile face shows only for a tile layout note that has content", () => {
+  assert.equal(noteShowsTileFace(normalizeNote('{"title":"Workflow info","layout":"tile"}')), true);
+  assert.equal(noteShowsTileFace(normalizeNote('{"title":"Workflow info","layout":"card"}')), false);
+  assert.equal(noteShowsTileFace(normalizeNote('{"layout":"tile"}')), false);
+  assert.equal(noteShowsTileFace(normalizeNote("")), false);
+  assert.equal(noteShowsTileFace(null), false);
+});
+
+test("the classic fit leaves a tile face compact", () => {
+  const source = readFileSync(new URL("../js/workflow_note/index.js", import.meta.url), "utf-8");
+  assert.match(
+    source,
+    /function fitNote\(state\) \{\n  if \(!classicCanvas\(\)\) return;\n  \/\/ A tile face is a button, not a card: fitting it would measure the note\n  \/\/ behind the button and grow a new tile straight back to full height\.\n  if \(noteShowsTileFace\(state\.note\)\) \{\n    state\.fitHeight = undefined;\n    return;\n  \}/,
+    "fitNote skips a note that shows its tile face, so a new tile keeps its compact start",
+  );
 });
 
 test("parseInline handles bold, italic, code and safe links", () => {

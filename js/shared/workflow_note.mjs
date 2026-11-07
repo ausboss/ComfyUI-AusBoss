@@ -166,6 +166,14 @@ export function noteIsEmpty(note) {
   );
 }
 
+// A note shows its tile face when it is in tile layout and has anything to
+// show. The node is then just a button: the note itself opens in a dialog,
+// so there is no card inside the node whose height needs fitting.
+export function noteShowsTileFace(note) {
+  if (!note || typeof note !== "object") return false;
+  return note.layout === "tile" && !noteIsEmpty(note);
+}
+
 // "ComfyUI/models/loras" - the folder hint under each group of rows.
 export function folderPath(dir) {
   if (!dir) return "ComfyUI/models";
