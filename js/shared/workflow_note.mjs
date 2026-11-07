@@ -7,7 +7,7 @@
 // text, so every URL is filtered to http(s) and every string is coerced.
 
 export const NOTE_VERSION = 1;
-export const LAYOUTS = ["card", "banner"];
+export const LAYOUTS = ["card", "banner", "tile"];
 // The one non-model folder a row may name: sample inputs live in
 // ComfyUI/input, and a shared workflow often ships one.
 export const INPUT_FOLDER = "input";
@@ -166,6 +166,14 @@ export function noteIsEmpty(note) {
   );
 }
 
+// A note shows its tile face when it is in tile layout and has anything to
+// show. The node is then just a button: the note itself opens in a dialog,
+// so there is no card inside the node whose height needs fitting.
+export function noteShowsTileFace(note) {
+  if (!note || typeof note !== "object") return false;
+  return note.layout === "tile" && !noteIsEmpty(note);
+}
+
 // "ComfyUI/models/loras" - the folder hint under each group of rows.
 export function folderPath(dir) {
   if (!dir) return "ComfyUI/models";
@@ -244,7 +252,7 @@ export function noteFit({ natural, nodeHeight, chrome }) {
 // renderer builds DOM nodes from it, so no user text ever meets innerHTML.
 // ---------------------------------------------------------------------------
 
-const INLINE_PATTERN = /(\*\*[^*\n]+?\*\*|`[^`\n]+?`|\[[^\]\n]+?\]\([^)\s]+?\)|(?<![\w*])\*[^*\n]+?\*(?![\w*]))/;
+const INLINE_PATTERN = /(?:\[(teal|green|amber|glow)\]([^\n]+?)\[\/\1\]|\*\*[^*\n]+?\*\*|`[^`\n]+?`|\[[^\]\n]+?\]\([^)\s]+?\)|(?<![\w*])\*[^*\n]+?\*(?![\w*]))/;
 
 export function parseInline(text) {
   const spans = [];
@@ -257,7 +265,8 @@ export function parseInline(text) {
     }
     if (match.index > 0) spans.push({ type: "text", text: rest.slice(0, match.index) });
     const token = match[0];
-    if (token.startsWith("**")) spans.push({ type: "strong", text: token.slice(2, -2) });
+    if (match[1]) spans.push({ type: "tone", tone: match[1], text: match[2] });
+    else if (token.startsWith("**")) spans.push({ type: "strong", text: token.slice(2, -2) });
     else if (token.startsWith("`")) spans.push({ type: "code", text: token.slice(1, -1) });
     else if (token.startsWith("[")) {
       const close = token.indexOf("](");
@@ -268,6 +277,15 @@ export function parseInline(text) {
     rest = rest.slice(match.index + token.length);
   }
   return spans;
+}
+
+// Split unescaped pipes. Optional outer pipes just frame the row.
+function tableCells(line) {
+  let row = line.trim();
+  if (!row.includes("|")) return [];
+  if (row.startsWith("|")) row = row.slice(1);
+  if (row.endsWith("|") && !row.endsWith("\\|")) row = row.slice(0, -1);
+  return row.split(/(?<!\\)\|/).map(cell => cell.trim().replace(/\\\|/g, "|"));
 }
 
 export function parseMarkdown(text) {
@@ -292,7 +310,8 @@ export function parseMarkdown(text) {
     list = null;
   };
 
-  for (const rawLine of lines) {
+  for (let index = 0; index < lines.length; index++) {
+    const rawLine = lines[index];
     const line = rawLine.trimEnd();
     if (code) {
       if (/^```/.test(line)) {
@@ -311,6 +330,25 @@ export function parseMarkdown(text) {
       flushParagraph();
       flushList();
       continue;
+    }
+    if (line.includes("|") && lines[index + 1]?.includes("|")) {
+      const divider = tableCells(lines[index + 1]);
+      const headers = tableCells(line);
+      if (headers.length && headers.length === divider.length && divider.every(cell => /^:?-{3,}:?$/.test(cell))) {
+        flushParagraph();
+        flushList();
+        const align = divider.map(cell => cell.endsWith(":") ? (cell.startsWith(":") ? "center" : "right") : "left");
+        const rows = [];
+        index++;
+        while (lines[index + 1]?.includes("|")) {
+          const cells = tableCells(lines[index + 1]);
+          if (cells.length !== headers.length) break;
+          rows.push(cells.map(parseInline));
+          index++;
+        }
+        blocks.push({ type: "table", headers: headers.map(parseInline), align, rows });
+        continue;
+      }
     }
     const heading = /^(#{1,3})\s+(.*)$/.exec(line);
     if (heading) {

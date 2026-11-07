@@ -129,7 +129,7 @@ def workflow_problems(data: dict) -> list[str]:
     groups = data.get("groups", [])
     if not groups:
         problems.append("no stage groups")
-    notes = [n for n in nodes if n["type"] == "AUSBOSS_NODES_WorkflowNote"]
+    notes = [n for n in nodes if n["type"] in {"AUSBOSS_NODES_WorkflowNote", "AUSBOSS_NODES_WorkflowNoteTile"}]
     if not notes:
         problems.append("no Workflow Note with setup instructions")
     for n in notes:
@@ -160,7 +160,7 @@ def workflow_problems(data: dict) -> list[str]:
         rectangles.append((n["id"], x, y - 30, x + width, y + height))
         # A Callout in the Workflow Note's own column belongs to the note, not
         # to a stage: a link to a video above it, say.
-        beside_note = n["type"] == "AUSBOSS_NODES_Callout" and any(
+        beside_note = n["type"] in {"AUSBOSS_NODES_Callout", "AUSBOSS_NODES_CalloutTile"} and any(
             left <= x and x + width <= right + 1 for left, right in note_columns
         )
         if n not in notes and not beside_note and not any(

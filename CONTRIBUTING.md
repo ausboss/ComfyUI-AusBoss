@@ -198,6 +198,11 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   (`tests/canvas_passthrough.test.mjs` lists the few that exist). After a
   change to a node face, `scripts/dev/wheel_sweep.mjs` turns the wheel at
   every point of every node and must find no dead spot, in both renderers.
+- For compact panel actions and preview switches, use `compactAction` and
+  `panelSwitch` from `js/shared/panel_controls.mjs`. That module owns their
+  appearance, section caption styles, and common file and save labels. A
+  node styles its layout locally; leave the shared control's face to the
+  component. Its selectors only match explicitly named AusBoss controls.
 - Every INT and FLOAT a public node exposes reaches the user as a scrub
   control, Adobe-style: drag the value to scrub, click to type, chevron
   arrows step, Shift is always the fine step. Use `makeScrubInput` from
@@ -340,7 +345,17 @@ before a release that follows a ComfyUI update.
 
 A new `version` in `pyproject.toml` that lands on main publishes to the Comfy
 Registry through the publish workflow (`.github/workflows/publish_action.yml`).
-Contributors never change `version`.
+After a successful upload, the same workflow tags that commit and creates a
+GitHub Release with the full changelog section. The README badge links to the
+latest GitHub Release. If only that step fails, rerun the failed jobs to retry
+it without uploading the Registry version again. Existing releases are left
+unchanged on a rerun. Contributors never change `version`.
+
+For an authorized release, update both `pyproject.toml` and
+`AUSBOSS_JS_VERSION`, date the changelog section, then run
+`python scripts/release_badge.py`. Preflight rejects a badge that does not
+match the pack version. Its SVG lives in the repository so the release
+number stays visible when an external badge service is unavailable.
 
 The Registry shows notes with each version. They are that version's section
 of `CHANGELOG.md`, one line per entry: its bold opening, and for a new node

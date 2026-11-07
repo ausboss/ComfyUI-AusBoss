@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import sys
 
-from ._h3_cast_helpers import JOBS, KEEP, KEEPS_ITS_LENGTH, PERSON, PLACE, START, THING, VIDEO_JOBS
-from ._h3_prompt_helpers import find_beats, write_prompt
+from ._h3_cast_helpers import DESCRIBE_PERSON, add_looks, EDIT, JOBS, KEEP, KEEPS_ITS_LENGTH, PERSON, PLACE, START, SWAP, THING, VIDEO_JOBS
+from ._h3_prompt_helpers import find_beats, find_speech, split_sections, write_prompt
 from ._h3_script_helpers import CAMERAS, LOOKS, script_report
 from ._route_errors import safe_route_error
 
@@ -43,6 +43,16 @@ def _core_nodes() -> dict:
     """ComfyUI's own node classes, by key. Empty outside ComfyUI."""
     mappings = getattr(sys.modules.get("nodes"), "NODE_CLASS_MAPPINGS", None)
     return mappings if isinstance(mappings, dict) else {}
+
+
+def with_sound_and_music(script, sound, music):
+    """The Sound and Music boxes, as the whole-clip sound: and music: lines a script can carry.
+
+    H3's own six parts go through as they are, so the boxes add nothing to them."""
+    extra = [f"{name}: {text.strip()}" for name, text in (("sound", sound), ("music", music)) if str(text or "").strip()]
+    if not extra or split_sections(script) is not None:
+        return script
+    return "\n\n".join([script.rstrip(), *extra]) if script.strip() else "\n\n".join(extra)
 
 
 def model_asker(clip, image):
@@ -167,7 +177,8 @@ class AusBossH3PromptWriter:
                     {
                         "tooltip": (
                             "Optional: a small text model such as Qwen3-VL 8B. It adds "
-                            "moments after a one-line idea and matches the sound to the place."
+                            "moments after a one-line idea and matches the sound to the place. "
+                            "In a swap it writes what the new person looks like, from their picture."
                         ),
                     },
                 ),
@@ -242,15 +253,42 @@ class AusBossH3PromptWriter:
                     {
                         "default": VIDEO_JOBS[0],
                         "tooltip": (
-                            "What the video is for: copy its moves, swap the person in it, keep it going, or "
-                            "give it a new voice. Swap and new voice ignore Seconds and keep the video's length."
+                            "What the video is for: copy its moves, swap the person in it, keep it going, give it "
+                            "a new voice, or change something in it and keep the person (a hat, a shirt). Swap, "
+                            "new voice and change something ignore Seconds and keep the video's length."
+                        ),
+                    },
+                ),
+                "sound": (
+                    "STRING",
+                    {
+                        "default": "",
+                        "dynamicPrompts": False,
+                        "tooltip": "What you hear the whole way through, like rain on a window. Leave it empty for none.",
+                    },
+                ),
+                "music": (
+                    "STRING",
+                    {
+                        "default": "",
+                        "dynamicPrompts": False,
+                        "tooltip": "The music, like a slow lo-fi beat. A clip with music comes out louder. Empty means no music.",
+                    },
+                ),
+                "clip_sound": (
+                    "BOOLEAN",
+                    {
+                        "default": False,
+                        "tooltip": (
+                            "Turn on when a swap keeps the video's own sound. Each line is timed from that sound, "
+                            "and words from anyone else are left out so only the new person's mouth moves."
                         ),
                     },
                 ),
             },
         }
 
-    RETURN_TYPES = ("STRING", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "AUDIO", "AUDIO", "AUDIO", "AUDIO", "INT", "INT", "INT")
+    RETURN_TYPES = ("STRING", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "AUDIO", "AUDIO", "AUDIO", "AUDIO", "INT", "INT", "INT", "BOOLEAN")
     RETURN_NAMES = (
         "prompt",
         "picture_1",
@@ -265,6 +303,7 @@ class AusBossH3PromptWriter:
         "frames",
         "width",
         "height",
+        "keeps_clip_sound",
     )
     OUTPUT_TOOLTIPS = (
         "The finished prompt. Wire it into H3's prompt.",
@@ -280,22 +319,34 @@ class AusBossH3PromptWriter:
         "The clip's length in frames. Wire it into H3's length.",
         "The width of your video, or else of your first picture. Wire it into H3's width.",
         "The height of your video, or else of your first picture. Wire it into H3's height.",
+        "On when the finished clip should keep your video's own sound: with clip_sound on, or always for change something.",
     )
     FUNCTION = "write"
 
     def write(self, script, seconds, clip=None, picture_1=None, picture_2=None, picture_3=None, picture_4=None, video=None,
               video_sound=None, voice=None, song=None, camera=AS_TYPED, look=FROM_PICTURE, song_start=0.0, cut_on_beat=True,
-              language="English", job_1=PERSON, job_2=PERSON, job_3=PERSON, job_4=THING, video_job=VIDEO_JOBS[0]):
+              language="English", job_1=PERSON, job_2=PERSON, job_3=PERSON, job_4=THING, video_job=VIDEO_JOBS[0],
+              sound="", music="", clip_sound=False):
+        # A clip that keeps its own sound has no room for a score: the finished clip plays the video's sound.
+        if video is not None and (video_job == EDIT or (video_job == SWAP and clip_sound)):
+            music = ""
+        script = with_sound_and_music(script, sound, music)
         pictures = {1: picture_1, 2: picture_2, 3: picture_3, 4: picture_4}
         given = {slot: picture for slot, picture in pictures.items() if picture is not None}
         kinds = {1: job_1, 2: job_2, 3: job_3, 4: job_4}
         jobs = {slot: kinds[slot] for slot in given}
         video_job = "" if video is None else video_job
+        if clip is not None and video_job == SWAP:
+            # The model on clip writes each new person's @N looks like line from their picture, when none is typed.
+            script = add_looks(script, jobs, lambda slot: model_asker(clip, given[slot])(DESCRIBE_PERSON, 60))
         frames = clip_frames(seconds)
         if video_job in KEEPS_ITS_LENGTH:
             frames = video_frames(video.shape[0])
             seconds = frames / FRAME_RATE
         length = frames / FRAME_RATE
+        keeps_clip_sound = video is not None and (bool(clip_sound) or video_job == EDIT)
+        clip_sound = bool(clip_sound) and video_job == SWAP
+        speech = find_speech(mono_samples(video_sound), video_sound["sample_rate"]) if clip_sound and video_sound is not None else None
         if video_job == KEEP:
             video, video_sound = last_of_clip(video, video_sound)
         else:
@@ -321,9 +372,11 @@ class AusBossH3PromptWriter:
             jobs=jobs,
             video=video_job,
             soundtrack=video_sound is not None,
+            clip_sound=clip_sound,
+            speech=speech,
         )
         ordered = [*given.values(), None, None, None, None][: len(PICTURES)]
-        return (text, *ordered, video, video_sound, voice, song, song_under, frames, *clip_shape(video, ordered[0]))
+        return (text, *ordered, video, video_sound, voice, song, song_under, frames, *clip_shape(video, ordered[0]), keeps_clip_sound)
 
 
 def _register_routes():

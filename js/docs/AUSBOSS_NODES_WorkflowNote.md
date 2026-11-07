@@ -18,13 +18,36 @@ Nothing runs: the node has no outputs, so ComfyUI never executes it.
 - **Title / Subtitle / Author** make the banner. **Layout → Banner** shows
   only that top block (the title, plus the subtitle and author if you filled
   them in), so the same node doubles as a label for a stage or column.
+- **Layout → Info tile** puts a single button on the canvas. Click the tile to read the full note, including models and links. A book marks a guide and a download arrow marks a model list. Click its pencil to edit, or press **Edit** inside the opened note. Drag the visible bottom-right grip to resize the tile without moving it. Focus the grip and use arrow keys for keyboard resizing; **Shift** makes smaller changes.
 - **Accent color** tints the banner bar, dots and buttons; empty keeps the
   pack teal. It takes a six-digit hex such as `#00b4aa`.
 - **How-to** is Markdown-lite: `#`/`##`/`###` headings, `**bold**`,
   `*italic*`, `` `code` ``, `[links](https://…)`, `-` and `1.` lists, `---`
   rules, fenced code. Only `http(s)` links become clickable.
 
+## Formatting a how-to
+
+Select a phrase in the How-to field and click **Teal**, **Green**, **Amber** or **Glow**. Click **Table** to insert an editable Markdown table. Open **Preview formatting** while you write. Use headings to break up steps and a pipe table for settings or file locations. Keep each row the same length. Use `\|` for a literal pipe inside a cell.
+
+```markdown
+## Choose a size
+
+| Size | When to use it |
+| --- | --- |
+| 480 × 864 | [teal]First run[/teal] |
+| 576 × 1024 | A larger portrait |
+
+[green]Ready[/green] means the model was found.
+[amber]Missing[/amber] means you still need the file.
+```
+
+For a short highlight, write `[glow]Preview the result[/glow]`. The glow is static. These four tags are AusBoss additions to Markdown. They style the enclosed plain text. Headings, lists, table cells and paragraphs can all contain them. Fenced code displays the original characters.
+
 ## Models
+
+To give downloads their own button, choose **Layout → Info tile**, set the title to **Download models**, and add files under **Models**. To keep them with your instructions, add those same rows to the **How to use** note. Switching an existing card to an info tile keeps its model rows and links.
+
+[Download the Krea 2 model tile example](https://raw.githubusercontent.com/ausboss/ComfyUI-AusBoss/main/js/docs/examples/model-download-tile.json) and open it as a workflow. Copy the tile into your graph and edit its rows.
 
 Each row is a file, the model folder it belongs in, an optional size, a
 download URL, and an optional note that shows in grey under the file name.

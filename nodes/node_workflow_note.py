@@ -69,7 +69,31 @@ class AusBossWorkflowNote:
         return ()
 
 
-NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_WorkflowNote": AusBossWorkflowNote}
-NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_WorkflowNote": "Workflow Note 🆎"}
+class AusBossWorkflowNoteTile(AusBossWorkflowNote):
+    DESCRIPTION = (
+        "A compact help button that opens a full workflow note. "
+        "Click to read; use the pencil to edit its instructions and model "
+        "links. Saved tiles require a pack that supports tiles, so an older "
+        "install can report the missing node. Nothing runs."
+    )
+    SEARCH_ALIASES = ["workflow note tile", "help button", "popout note", "ausboss"]
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        inputs = super().INPUT_TYPES()
+        inputs["required"]["note"][1]["default"] = (
+            '{"title":"Workflow info","layout":"tile"}'
+        )
+        return inputs
+
+
+NODE_CLASS_MAPPINGS = {
+    "AUSBOSS_NODES_WorkflowNote": AusBossWorkflowNote,
+    "AUSBOSS_NODES_WorkflowNoteTile": AusBossWorkflowNoteTile,
+}
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "AUSBOSS_NODES_WorkflowNote": "Workflow Note 🆎",
+    "AUSBOSS_NODES_WorkflowNoteTile": "Workflow Note Tile 🆎",
+}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

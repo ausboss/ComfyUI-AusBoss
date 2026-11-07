@@ -33,6 +33,13 @@
     "optional": [],
     "outputs": []
   },
+  "AUSBOSS_NODES_CalloutTile": {
+    "required": [
+      "text"
+    ],
+    "optional": [],
+    "outputs": []
+  },
   "AUSBOSS_NODES_ColorMatch": {
     "required": [
       "image",
@@ -178,7 +185,10 @@
       "job_2",
       "job_3",
       "job_4",
-      "video_job"
+      "video_job",
+      "sound",
+      "music",
+      "clip_sound"
     ],
     "outputs": [
       [
@@ -232,6 +242,10 @@
       [
         "INT",
         "height"
+      ],
+      [
+        "BOOLEAN",
+        "keeps_clip_sound"
       ]
     ]
   },
@@ -485,6 +499,26 @@
       [
         "MASK",
         "mask"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_LoadAudio": {
+    "required": [
+      "audio",
+      "start_seconds",
+      "end_seconds"
+    ],
+    "optional": [
+      "max_seconds"
+    ],
+    "outputs": [
+      [
+        "AUDIO",
+        "audio"
+      ],
+      [
+        "FLOAT",
+        "seconds"
       ]
     ]
   },
@@ -764,7 +798,8 @@
     ],
     "optional": [
       "latent",
-      "batch_size"
+      "batch_size",
+      "workflow_sizes"
     ],
     "outputs": [
       [
@@ -1150,6 +1185,13 @@
     ]
   },
   "AUSBOSS_NODES_WorkflowNote": {
+    "required": [
+      "note"
+    ],
+    "optional": [],
+    "outputs": []
+  },
+  "AUSBOSS_NODES_WorkflowNoteTile": {
     "required": [
       "note"
     ],

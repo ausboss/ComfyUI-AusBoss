@@ -1,4 +1,4 @@
-import { app } from "/scripts/app.js";
+import { app } from "../../../scripts/app.js";
 import { showToast } from "../shared/index.mjs";
 import { openTransformEditorForNode } from "../shared/transform_editor.mjs";
 

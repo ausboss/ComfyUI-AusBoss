@@ -184,3 +184,18 @@ test("different problems, other kinds of error and other packs' nodes are left a
   assert.equal(errors[2].errors.length, 2);
   assert.equal(collapseRepeatedErrors(null), null);
 });
+
+test("an empty Load Audio asks for a sound file", () => {
+  const outputs = (classType) => (classType === "SaveAudio"
+    ? { output_node: true, input: { required: { audio: ["AUDIO"] } } }
+    : definitionOf(classType));
+  const prompt = {
+    1: node("AUSBOSS_NODES_LoadAudio", { audio: "" }, "Song"),
+    2: node("SaveAudio", { audio: ["1", 0] }),
+  };
+  const found = findEmptySources(prompt, outputs);
+  assert.deepEqual(found.map((entry) => entry.input), ["audio"]);
+  assert.equal(emptySourceMessage(found), "Load a sound file first: Song");
+  prompt[1].inputs.audio = "song.mp3";
+  assert.deepEqual(findEmptySources(prompt, outputs), []);
+});

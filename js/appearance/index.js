@@ -1,4 +1,4 @@
-import { app } from "/scripts/app.js";
+import { app } from "../../../scripts/app.js";
 import {
   CUSTOM_SCHEME,
   DEFAULT_SCHEME,
@@ -190,7 +190,7 @@ app.registerExtension({
 });
 
 function isTitleless(node) {
-  return node.constructor?.title_mode === (globalThis.LiteGraph?.NO_TITLE ?? 1);
+  return (node.title_mode ?? node.constructor?.title_mode) === (globalThis.LiteGraph?.NO_TITLE ?? 1);
 }
 
 function openHelpCard(node, event) {
@@ -210,9 +210,8 @@ function openHelpCard(node, event) {
 function installHelpBadge(node) {
   // A title-less node (Run Timer) has no bar to hang the badge on; its
   // card opens from the node's context menu instead.
-  if (isTitleless(node)) return;
   chainCallback(node, "onDrawForeground", function (ctx) {
-    if (!showBadge(this.size?.[0] ?? 0, this.flags?.collapsed)) return;
+    if (isTitleless(this) || !showBadge(this.size?.[0] ?? 0, this.flags?.collapsed)) return;
     const [x, y] = badgeCenter(this.size[0]);
     ctx.save();
     ctx.beginPath();
@@ -228,7 +227,7 @@ function installHelpBadge(node) {
     ctx.restore();
   });
   chainHandler(node, "onMouseDown", function (event, pos) {
-    if (!showBadge(this.size?.[0] ?? 0, this.flags?.collapsed)) return false;
+    if (isTitleless(this) || !showBadge(this.size?.[0] ?? 0, this.flags?.collapsed)) return false;
     if (!pos || !hitsBadge(pos, this.size[0])) return false;
     openHelpCard(this, event);
     return true; // consume the click so it does not start a drag

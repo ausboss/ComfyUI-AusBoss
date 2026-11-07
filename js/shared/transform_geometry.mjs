@@ -485,7 +485,7 @@ export function sizeChainTokens(chain) {
   if (chain.resized) tokens.push({ label: "resize", text: size(chain.resized) });
   const warnings = [];
   if (Math.abs(chain.stretch) > STRETCH_WARNING) {
-    warnings.push(`${(Math.abs(chain.stretch) * 100).toFixed(1)}% ${chain.stretch > 0 ? "wider" : "taller"}: each side rounds to ${chain.steps ?? 1} px`);
+    warnings.push(`Resize makes the picture ${(Math.abs(chain.stretch) * 100).toFixed(1)}% ${chain.stretch > 0 ? "wider" : "taller"}`);
   }
   // Ahead of a resize, what Divisible by adds is only fill for the model to
   // paint, and what it trims is picture lost: the Step already rounds the
@@ -760,6 +760,20 @@ export function centredPadding(values, crop, axis) {
     : { pad_left: next, pad_right: total - next };
   const then = axisBands({ ...values, ...moved }, crop, axis);
   return Math.abs(then.near - then.far) < Math.abs(now.near - now.far) ? moved : null;
+}
+
+// Center the crop within the rotated source and balance its output padding
+// on the same axis. Keep the resolved extent even for an open-ended crop.
+export function centredTransform(values, source, axis) {
+  const crop = resolveCrop(values, source);
+  const pads = centredPadding(values, crop, axis);
+  const extent = axis === "x" ? "width" : "height";
+  const spare = source[extent] - crop[extent];
+  if (Math.abs(spare - 2 * crop[axis]) <= 1) return pads;
+  const moved = { ...pads, [`crop_${axis}`]: Math.floor(spare / 2) };
+  const next = resolveCrop({ ...values, ...moved }, source);
+  if (next[extent] !== crop[extent]) moved[`crop_${extent}`] = crop[extent];
+  return moved;
 }
 
 // The bands on either side of the picture along an axis as the output has

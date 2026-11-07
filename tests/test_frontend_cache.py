@@ -43,6 +43,7 @@ class PackModuleListTests(unittest.TestCase):
 
     def test_path_check_matches_only_this_packs_mjs(self):
         self.assertTrue(is_pack_module_path("/extensions/ausboss-nodes/shared/index.mjs", "ausboss-nodes"))
+        self.assertTrue(is_pack_module_path("/comfyui/extensions/ausboss-nodes/shared/index.mjs", "ausboss-nodes"))
         self.assertFalse(is_pack_module_path("/extensions/ausboss-nodes/seed/index.js", "ausboss-nodes"))
         self.assertFalse(is_pack_module_path("/extensions/other-pack/shared/index.mjs", "ausboss-nodes"))
         self.assertFalse(is_pack_module_path("/extensions/ausboss-nodes-extra/a.mjs", "ausboss-nodes"))
@@ -104,7 +105,7 @@ class ModuleVersionTests(unittest.TestCase):
 
     def test_everything_else_is_left_alone(self):
         source = (
-            'import { app } from "/scripts/app.js";\n'
+            'import { app } from "../../../scripts/app.js";\n'
             'import { x } from "./plain.js";\n'
             'import { y } from "./old.mjs?v=1";\n'
             'import { z } from "https://example.com/z.mjs";\n'
@@ -143,6 +144,25 @@ class ModuleVersionTests(unittest.TestCase):
             if re.search(r"""\bfrom\s*["']\.{1,2}/[^"']+\.mjs["']""", tagged):
                 loose.append(path.relative_to(ROOT).as_posix())
         self.assertEqual(loose, [])
+
+    def test_real_pack_scripts_use_relative_imports_so_subpath_prefixes_work(self):
+        # A leading "/" in an import resolves to the origin root, which 404s
+        # when ComfyUI is served behind a subpath prefix such as /comfyui/.
+        from urllib.parse import urljoin
+
+        specifier = re.compile(r"""(?:\bfrom\s*|\bimport\s*\(?\s*)["']([^"'\n]+)["']""")
+        broken = []
+        for path in sorted((ROOT / "js").rglob("*")):
+            if path.suffix not in (".js", ".mjs") or not path.is_file():
+                continue
+            rel = path.relative_to(ROOT / "js").as_posix()
+            base = f"http://host/comfyui/extensions/ausboss-nodes/{rel}"
+            for match in specifier.finditer(path.read_text(encoding="utf-8")):
+                target = match.group(1)
+                resolved = urljoin(base, target)
+                if target.startswith("/") or not resolved.startswith("http://host/comfyui/"):
+                    broken.append(f"{rel}: {target} -> {resolved}")
+        self.assertEqual(broken, [])
 
 
 class VersionedServingTests(unittest.TestCase):

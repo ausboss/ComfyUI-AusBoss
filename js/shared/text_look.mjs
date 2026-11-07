@@ -1,6 +1,8 @@
 // The Text node's two looks, chosen per node from the gear on its card: the
 // usual text box (the default), or "big", a word or two in large centred
-// letters that are easy to spot, for a label typed over a picture.
+// letters that are easy to spot, for a label typed over a picture. Integer
+// and Float take the same two looks, kept in the same property: big is one
+// large centred number, for a setting people change on every run.
 //
 // The choice is kept in the node's properties, so it is saved with the
 // workflow and nothing else changes: the node's inputs, its saved widget
@@ -43,6 +45,18 @@ export const TEXT_LOOK_MENU = [
     optionHints: {
       normal: "the usual text box, for prompts and longer text.",
       big: "large centred letters, for a word or two you want to see at a glance.",
+    },
+  },
+];
+
+// The same choice on Integer and Float, said for a number.
+export const NUMBER_LOOK_MENU = [
+  {
+    ...TEXT_LOOK_MENU[0],
+    hint: "How this box shows its number. Stored on this node.",
+    optionHints: {
+      normal: "the usual number box with its label.",
+      big: "one large centred number, for a setting you change on every run.",
     },
   },
 ];

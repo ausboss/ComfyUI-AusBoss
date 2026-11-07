@@ -7,10 +7,102 @@ All notable changes to ComfyUI-AusBoss are documented here.
 - **Mask by Touch 🆎 no longer fills holes unless you ask.** Fill small
   holes, under More, now starts off, so a hole you pick stays a hole. Saved
   workflows keep their setting.
+
+- **H3 Prompt Writer: a swap no longer makes the new person talk to noise.** With
+  **Keep the clip's sound** on and no words typed, the writer told H3 the new
+  person speaks as in the video whenever the clip's sound was loud, so a train
+  or a beat made their mouth move. It now does that only when it hears a real
+  voice: half a second or more of clear speech.
+
+- **Mask by Touch shows a changed picture without unplugging it.** When the
+  picture coming in changes and the run stops because the picks were made on
+  the old one, the new picture now shows on the node, ready to pick from. A
+  new reload button beside Undo shows it any time, without running the
+  workflow.
+
+- **Save Image and Save Video: the Steps switch is now called Preview steps.** It
+  shows the picture or the clip's first frame while it is being made, and "Steps"
+  read like a sampler's step count. It works the same, and saved workflows keep
+  their setting.
+
+## 2.21.2 - 2026-11-07
+
+- **H3 Prompt Writer reads a plain swap sentence.** "Replace the man in the red
+  shirt with @1", "Swap the woman for @1" and similar phrasings now name only the
+  person who goes, instead of putting the whole sentence into the prompt.
+- **A swapped-in person is there from the first frame.** Swaps with a picture
+  always ask for the replacement throughout, with no transition or morph.
+- **A text model on H3 Prompt Writer's `clip` input writes the `@1 looks like`
+  line in a swap.** It describes the person's hair and face from the picture
+  when no line is typed. Without a model on `clip`, nothing changes.
+- **Workflow Note tiles start compact in the classic canvas again.** A leftover
+  image preview filed under the node's id made the classic canvas grow a new
+  tile to hold the picture; notes now stand that preview down.
+- **Colored link buttons and pop-out notes keep their tile layout when shared.**
+  Callout Tile and Workflow Note Tile save as distinct node types, so an older
+  install can report what is missing. Tiles have larger editors and visible
+  resize grips, start compact when added, and pop-out notes wrap long code lines.
+- **H3 Prompt Writer can change something in a video while keeping its person and sound.**
+  The new `keeps_clip_sound` output helps route the source audio. Video edits
+  show **From the clip** for their length, and swaps accept an optional
+  `@1 looks like ...` line describing the connected replacement.
+- **Workflow Switches' Off and On buttons now select the state they name.**
+  Pressing the already selected state leaves it unchanged.
+
+
+## 2.21.1 - 2026-11-06
+
+- **The README release badge stays available when the badge service is down.**
+  The badge is served from the repository, shows the current version, and opens
+  the latest GitHub Release.
+
+## 2.21.0 - 2026-11-05
+
+- **Crop + Rotate + Pad has clearer controls and steadier previews.** Image
+  and video pickers share Inputs and Outputs tabs and a Load button. Video
+  previews have a play/pause button, and dragging a locked-length clip stops
+  where the full selection still fits. Crop, pad and resize controls share
+  the same compact buttons, and warnings no longer move the controls below.
+- **Latent Size can show just the sizes recommended for your workflow.**
+  Pick the allowed presets in its settings and save them with the workflow.
+  Workflows without a custom list keep all their choices.
+- **Workflow Notes and Callouts can be compact titles, links and guide tiles.**
+  Guides support formatted text, tables, accent colors and model download
+  links. YouTube and Discord tiles keep their red and purple choices.
+- **Media lists open faster on network shares, and controls load behind
+  a web address prefix.** File scans reuse directory information. Frontend
+  imports also work when ComfyUI is served under a path such as `/comfy/`.
+- **GitHub Releases now follow version updates automatically.** After the
+  Registry upload, the publish workflow creates the release with its notes.
+  The README release badge uses that release and opens its download page.
+
+- **LoRA Loader supports stacks larger than 64 rows.** Folder adds, templates, and absorbed loaders keep the full stack when you save and reopen a workflow.
+- **Workflow Note info tiles show a book for guides and a download arrow for models.** Click the dark tile to open the note. Its icon and left edge use the accent you picked.
+- **H3 Prompt Writer swaps two people.** With Swap the person and two person
+  pictures, Picture 1 takes the place of the person on the left and Picture 2
+  the person on the right. Type who goes to change that, one line each, such
+  as `@1 the man in the hat` and `@2 the woman in red`.
+- **New node: Load Audio.** Load a sound file and keep only the part you
+  want. The node shows the sound as a wave: drag the IN and OUT handles to
+  trim it, and press play to hear just that part. Set Max length to the
+  longest sound the next step takes, and anything longer shows in red as
+  cut off, so you see exactly what comes out before you run.
+- **Resizing one node of a selection now resizes them all.** With two or more
+  nodes selected, pull the edge or corner of one: nodes stacked in a column
+  get its width, nodes side by side in a row get its height, and a grid gets
+  both. It works in the classic look and in Nodes 2.0, one Ctrl+Z undoes it,
+  and Settings → 🆎 AusBoss → Canvas → Resize together turns it off.
+- **Integer 🆎 and Float 🆎 have a big look.** The gear on the node picks it,
+  as on Text 🆎: one large number in the middle of the node, for a setting
+  you change on every run. The value and what the node sends are the same in
+  both looks.
 - **New node: H3 Prompt Writer.** Type one line for each thing that happens,
   give each picture and video a job, and it writes the prompt MiniMax H3
   expects, with the width and height to match. For a video with two people,
-  type who goes and only that person is swapped.
+  type who goes and only that person is swapped. The words light up as you
+  type, `@` lists your pictures, and a bar shows each moment on the clip's
+  seconds: drag a block to move it, drag its edge to set its time, click an
+  edge for a cut. Sound and Music boxes fill H3's own sound and music parts.
 - **Crop For Inpaint 🆎 no longer makes an inpainted face come back slightly
   bigger.** Its default Multiple is now 32, so Qwen Image 2.1, Flux and other
   newer models get a size their VAE keeps whole; at 8, the VAE trimmed a few
@@ -31,8 +123,8 @@ All notable changes to ComfyUI-AusBoss are documented here.
   by a corner lines that edge up the same way. Hold Shift while you drag to
   place it without lining up; ComfyUI then snaps it to its grid as usual. Turn
   it off under Settings → 🆎 AusBoss → Canvas. In the Nodes 2.0 look, resizing
-  a node does not snap yet. If another pack's snapping is on, such as
-  Pixaroma's Align, AusBoss leaves the dragging to it.
+  a node does not snap yet. If another pack's snapping is on, AusBoss leaves
+  the dragging to it.
 
 - **Line up nodes and groups from the selection toolbar.** Select two or more
   nodes or groups and a Line up button pops out a small panel: line up edges or

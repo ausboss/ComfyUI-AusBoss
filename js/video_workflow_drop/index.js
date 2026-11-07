@@ -11,8 +11,8 @@
 // before falling back to the canvas path, which is what keeps the two
 // gestures apart.
 
-import { api } from "/scripts/api.js";
-import { app } from "/scripts/app.js";
+import { api } from "../../../scripts/api.js";
+import { app } from "../../../scripts/app.js";
 import { notifyAusbossChange, showToast } from "../shared/index.mjs";
 import {
   isVideoFileName,

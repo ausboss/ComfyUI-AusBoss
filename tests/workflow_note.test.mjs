@@ -15,6 +15,7 @@ import {
   matchInstalled,
   noteFit,
   noteIsEmpty,
+  noteShowsTileFace,
   normalizeNote,
   packsFromGraph,
   parseInline,
@@ -198,6 +199,23 @@ test("noteFit ignores a card it could not measure", () => {
   assert.deepEqual(noteFit({ natural: 794.125, nodeHeight: undefined, chrome: 22 }), { fit: null, grow: false });
 });
 
+test("a tile face shows only for a tile layout note that has content", () => {
+  assert.equal(noteShowsTileFace(normalizeNote('{"title":"Workflow info","layout":"tile"}')), true);
+  assert.equal(noteShowsTileFace(normalizeNote('{"title":"Workflow info","layout":"card"}')), false);
+  assert.equal(noteShowsTileFace(normalizeNote('{"layout":"tile"}')), false);
+  assert.equal(noteShowsTileFace(normalizeNote("")), false);
+  assert.equal(noteShowsTileFace(null), false);
+});
+
+test("the classic fit leaves a tile face compact", () => {
+  const source = readFileSync(new URL("../js/workflow_note/index.js", import.meta.url), "utf-8");
+  assert.match(
+    source,
+    /function fitNote\(state\) \{\n  if \(!classicCanvas\(\)\) return;\n  \/\/ A tile face is a button, not a card: fitting it would measure the note\n  \/\/ behind the button and grow a new tile straight back to full height\.\n  if \(noteShowsTileFace\(state\.note\)\) \{\n    state\.fitHeight = undefined;\n    return;\n  \}/,
+    "fitNote skips a note that shows its tile face, so a new tile keeps its compact start",
+  );
+});
+
 test("parseInline handles bold, italic, code and safe links", () => {
   assert.deepEqual(parseInline("a **b** *c* `d` [e](https://f.g) [h](javascript:x) i"), [
     { type: "text", text: "a " },
@@ -285,4 +303,32 @@ test("Use it writes a found file the way its folder lists it", () => {
   const source = readFileSync(new URL("../js/workflow_note/index.js", import.meta.url), "utf-8");
   assert.match(source, /commitWidgetValue\(entry\.node, entry\.widget, listedSpelling\(path, entry\.options\)/, "Use it hands a loader the path with the note's own slashes again");
   assert.match(source, /name: listedSpelling\(path, files\)/, "Use it hands a LoRA row the path with the note's own slashes again");
+});
+
+test("note tables preserve alignment, inline markup and escaped pipes through save/load", () => {
+  const body = "| Rule | Value |\n| :--- | ---: |\n| `A\\|B` | [green]Ready[/green] |\n\nAfter";
+  const [table, paragraph] = parseMarkdown(normalizeNote(serializeNote({ layout: "tile", body })).body);
+  assert.deepEqual(table.align, ["left", "right"]);
+  assert.equal(table.headers[0][0].text, "Rule");
+  assert.deepEqual(table.rows[0], [
+    [{ type: "code", text: "A|B" }],
+    [{ type: "tone", tone: "green", text: "Ready" }],
+  ]);
+  assert.equal(paragraph.spans[0].text, "After");
+});
+
+test("note formatting leaves old prose, unsafe markup and code literal", () => {
+  assert.equal(parseMarkdown("A | B\nnot a divider")[0].type, "paragraph");
+  assert.deepEqual(parseInline("[glow]Run[/glow]"), [{ type: "tone", tone: "glow", text: "Run" }]);
+  assert.equal(parseInline("[glow](https://example.org)")[0].type, "link");
+  assert.equal(parseInline("[red]<img onerror=x>[/red]")[0].type, "text");
+  assert.equal(parseInline("[teal]open")[0].type, "text");
+  assert.equal(parseInline("`[amber]warning[/amber]`")[0].type, "code");
+  assert.equal(parseMarkdown("```\n|a|\n|---|\n```")[0].type, "code");
+});
+
+test("note panels stand down the frontend image preview", () => {
+  const source = readFileSync(new URL("../js/workflow_note/index.js", import.meta.url), "utf-8");
+  assert.match(source, /import \{ suppressCoreImagePreview \} from "\.\.\/shared\/core_preview\.mjs";/, "the note imports the pack's preview suppression");
+  assert.match(source, /suppressCoreImagePreview\(node\);/, "building a note panel stands the core image preview down");
 });

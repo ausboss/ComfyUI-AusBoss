@@ -43,6 +43,7 @@ NAMED = {
     "AusBossImageCropRotatePad": ["image"],
     "AusBossImageFolder": ["source", "folder"],
     "AusBossLaMaInpaint": ["model"],
+    "AusBossLoadAudio": ["audio"],
     "AusBossLoadImagePad": ["image", "source_image"],
     "AusBossLoadVideo": ["video"],
     "AusBossLoraLoader": ["loras", "on_missing"],

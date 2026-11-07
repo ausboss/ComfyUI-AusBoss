@@ -27,6 +27,15 @@ needs.
 - The line underneath shows the last run's seed. The history saves with the
   workflow.
 
+## Compact look
+
+The **gear** beside the number picks the look. **Compact** is one short
+row: the number, a mode chip and a dice. Tap the chip to go Random → Fixed →
++1 → −1. The dice rolls a new seed and pins it. A long seed shrinks to fit.
+Hover the number to see the last run's seed. The look is saved on the node,
+and new Seed nodes start in the look you picked last. **Full** brings back
+the whole card, with the seeds it ran with.
+
 ## Output
 
 - **seed**: The seed, unchanged.

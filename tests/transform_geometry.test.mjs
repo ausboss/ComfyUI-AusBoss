@@ -472,7 +472,7 @@ test("the size chain names every step and the stretch the steps cause", () => {
   assert.deepEqual(chain.resized, { width: 1280, height: 704 });
   const { tokens, warnings } = sizeChainTokens(chain);
   assert.deepEqual(tokens.map((token) => `${token.label} ${token.text}`.trim()), ["576×1024", "pad 1821×1024", "resize 1280×704"]);
-  assert.deepEqual(warnings, ["2.2% wider: each side rounds to 32 px"]);
+  assert.deepEqual(warnings, ["Resize makes the picture 2.2% wider"]);
 });
 
 test("the size chain shows Align and names what it does ahead of a resize", () => {
@@ -498,7 +498,7 @@ test("the size chain shows Align and names what it does ahead of a resize", () =
     { width: 1916, height: 821 }, { megapixels: 1, steps: 32 },
   ));
   assert.deepEqual(thin.tokens.map((token) => `${token.label} ${token.text}`.trim()), ["1916×821", "pad 1919×1403", "round to 24 1920×1416", "resize 1184×864"]);
-  assert.deepEqual(thin.warnings, ["1.1% wider: each side rounds to 32 px", "rounding to 24 adds 1 px on the left and 13 px at the bottom of fill"]);
+  assert.deepEqual(thin.warnings, ["Resize makes the picture 1.1% wider", "rounding to 24 adds 1 px on the left and 13 px at the bottom of fill"]);
   // Fill on one axis and a trim on the other, each named.
   const mixed = sizeChainTokens(sizeChain({ pad_top: 20, canvas_multiple: 16 }, { width: 1000, height: 750 }, { megapixels: 1, steps: 8 }));
   assert.deepEqual(mixed.warnings, ["rounding to 16 adds 14 px at the top of fill", "rounding to 16 trims 8 px off the width"]);
@@ -744,6 +744,7 @@ import {
   axisBands,
   canvasCornerCenters,
   centredPadding,
+  centredTransform,
   cornerScale,
   knobAt,
   knobOffset,
@@ -914,4 +915,26 @@ test("the knob keeps its spot on its arm while it turns", () => {
   // Turned a quarter about the centre, the knob turns with the corner.
   const turned = knobAt({ x: 160, y: 200 }, center, offset);
   assert.ok(Math.abs(turned.x - 120) < 1e-9 && Math.abs(turned.y - 214) < 1e-9, JSON.stringify(turned));
+});
+
+test("Center slides a crop without padding and preserves an open-ended crop's size", () => {
+  const source = { width: 832, height: 1216 };
+  const values = { crop_x: 149, crop_y: 0, crop_width: 0, crop_height: 1200 };
+  const moved = centredTransform(values, source, "x");
+  assert.deepEqual(moved, { crop_x: 74, crop_width: 683 });
+  const centred = { ...values, ...moved };
+  assert.deepEqual(resolveCrop(centred, source), { x: 74, y: 0, width: 683, height: 1200 });
+  assert.equal(centredTransform(centred, source, "x"), null);
+  assert.deepEqual(centredTransform(centred, source, "y"), { crop_y: 8 });
+});
+
+test("Center balances crop and padding together and leaves the other axis alone", () => {
+  const source = { width: 832, height: 1216 };
+  const values = { crop_x: 10, crop_y: 15, crop_width: 683, crop_height: 1200, pad_right: 105, pad_top: 12 };
+  const moved = centredTransform(values, source, "x");
+  assert.deepEqual(moved, { crop_x: 74, pad_left: 52, pad_right: 53 });
+  const next = { ...values, ...moved };
+  assert.deepEqual(resolvePadding(next, resolveCrop(next, source)).outputWidth, 788);
+  assert.equal(centredTransform(next, source, "x"), null);
+  assert.equal(centredTransform({}, source, "x"), null);
 });

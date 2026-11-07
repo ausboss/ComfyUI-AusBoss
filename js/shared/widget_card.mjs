@@ -68,6 +68,10 @@ const BIG_FONT = 22;
 const BIG_LINE = 26;
 const BIG_PAD_Y = 4;
 const BIG_PAD_X = 30;
+// A number row in the big look (Integer and Float): one large centred number
+// between a step arrow on each side, in a field as wide as the card, with the
+// gear in its corner as on Text.
+const BIG_NUMBER_FONT = 30;
 
 export function ensureCardCss() {
   if (document.getElementById(CSS_ID)) return;
@@ -123,6 +127,19 @@ export function ensureCardCss() {
 .ausboss-card.look-big .ausboss-card-row.area .ausboss-card-field:focus-within{border-color:${BRAND}}
 .ausboss-card.look-big .ausboss-card-area{position:absolute;left:0;right:0;top:0;bottom:0;margin:auto 0;max-height:100%;padding:${BIG_PAD_Y}px ${BIG_PAD_X}px;border:none;border-radius:5px;background:transparent;color:#6fe0d6;text-shadow:0 0 .35em rgba(0,180,170,.55);font:600 ${BIG_FONT}px/${BIG_LINE}px ${FONT};text-align:center;scrollbar-width:thin;scrollbar-color:#2f3d3c transparent}
 .ausboss-card.look-big .ausboss-card-area::placeholder{color:#4f6462;text-shadow:none}
+.ausboss-card.look-big .ausboss-card-row:not(.area){display:block}
+.ausboss-card.look-big .ausboss-card-row:not(.area) .ausboss-card-label{display:none}
+.ausboss-card.look-big .ausboss-card-row:not(.area) .ausboss-card-control{margin:0}
+.ausboss-card.look-big .ausboss-card-field>.ausboss-scrub{height:100%;justify-content:center;align-items:center;gap:4px;border-color:#2a3437;border-radius:6px;background:#0b0f10}
+.ausboss-card.look-big .ausboss-card-field>.ausboss-scrub:focus-within{border-color:${BRAND}}
+.ausboss-card.look-big .ausboss-card-field>.ausboss-scrub>.ausboss-scrub-input{order:1;flex:0 0 auto;width:auto;min-width:2ch;max-width:60%;field-sizing:content;color:#6fe0d6;text-shadow:0 0 .35em rgba(0,180,170,.55);font:600 ${BIG_NUMBER_FONT}px ${FONT}}
+.ausboss-card.look-big .ausboss-card-field>.ausboss-scrub>.ausboss-scrub-unit{order:2}
+.ausboss-card.look-big .ausboss-card-field>.ausboss-scrub>.ausboss-scrub-unit:empty{display:none}
+.ausboss-card.look-big .ausboss-card-field>.ausboss-scrub>.ausboss-scrub-step{display:contents}
+.ausboss-card.look-big .ausboss-card-field>.ausboss-scrub>.ausboss-scrub-step>button{flex:none;width:30px;height:30px;border-radius:15px;color:#6f8886}
+.ausboss-card.look-big .ausboss-card-field>.ausboss-scrub>.ausboss-scrub-step>button:first-child{order:3}
+.ausboss-card.look-big .ausboss-card-field>.ausboss-scrub>.ausboss-scrub-step>button:last-child{order:0}
+.ausboss-card.look-big .ausboss-card-field>.ausboss-scrub>.ausboss-scrub-step>button>svg{transform:rotate(90deg) scale(1.6)}
 .ausboss-card.look-big .ausboss-card-corner{top:${CARD_PADDING + 4}px;right:12px;height:22px}
 .ausboss-card.look-big .ausboss-card-gear{width:22px;height:22px;border-color:transparent;background:transparent}
 .ausboss-card.look-big .ausboss-card-gear:hover{border-color:${BRAND}}
@@ -209,6 +226,8 @@ function isFloatWidget(widget) {
 //                                            of the card
 //   { group: "advanced", label: "More" }   - a disclosure; later rows with
 //                                             group: "advanced" sit under it
+// A numeric row may have readOnlyText(node, values): nonempty text replaces
+// its control without changing its widget, socket, value or row height.
 // Rows may also carry `mute: (values) => boolean` and `muteTitle`: a muted
 // row stays in place but dims and stops taking input, with the title as its
 // hover hint (a setting the current mode does not use).
@@ -274,13 +293,28 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       onSettle: () => notifyAusbossChange(),
     });
     into.append(control.root);
-    if (typeof row.limits !== "function") return (vals) => control.set(Number(vals[name]) || 0);
+    // Display an unused setting honestly while keeping its saved value and socket.
+    const readOnly = row.readOnlyText ? el("span", "ausboss-card-readonly") : null;
+    if (readOnly) {
+      readOnly.title = row.readOnlyTitle ?? "";
+      readOnly.setAttribute("role", "status");
+      into.append(readOnly);
+    }
+    const syncReadOnly = (vals) => {
+      if (!readOnly) return;
+      const text = row.readOnlyText(node, vals) || "";
+      readOnly.textContent = text;
+      readOnly.style.display = text ? "" : "none";
+      control.root.style.display = text ? "none" : "";
+    };
+    if (typeof row.limits !== "function") return (vals) => { syncReadOnly(vals); control.set(Number(vals[name]) || 0); };
     // Limits that come from somewhere else are read at every refresh: a wire
     // made or cut changes them. The stored value follows the range, the way
     // ComfyUI's own Primitive node follows the input it is wired to.
     let shown = null;
     const hint = el("span", "ausboss-card-range");
     return (vals) => {
+      syncReadOnly(vals);
       const outside = row.limits(node) ?? null;
       const range = narrowedRange(widget?.options, outside);
       const key = outside ? `${range.min}|${range.max}|${outside.step}` : "";
@@ -723,9 +757,10 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       if (state.look) root.classList.remove(`look-${state.look}`);
       if (look) root.classList.add(`look-${look}`);
       state.look = look;
-      // A textarea row takes its height in this look.
+      // A textarea row, and any row with a height of its own in some look,
+      // takes its height in this look.
       for (const entry of state.rows) {
-        if (entry.row.kind !== "textarea") continue;
+        if (entry.row.kind !== "textarea" && !entry.row.looks) continue;
         const height = `${rowHeight(entry.row, look)}px`;
         if (entry.row.grow) entry.element.style.minHeight = height;
         else entry.element.style.height = height;

@@ -9,10 +9,8 @@ Checks:
      BOM breaks installs silently.
   2. AUSBOSS_JS_VERSION in js/shared/index.mjs equals the pyproject
      version, so the stale-browser warning never fires on a fresh install.
-  3. The README release badge is the DYNAMIC shields.io kind - it reads
-     the version out of pyproject.toml on main at view time, so it can
-     never go stale (a hardcoded badge sat at 1.0.0 through two releases).
-     The check guards against someone swapping a static badge back in.
+  3. The repository-hosted README badge matches pyproject.toml and links to
+     the latest GitHub Release. Its image needs no external badge service.
   4. The Registry archive holds runtime files only. With git it is listed
      the way comfy-cli packs it - tracked files minus those .comfyignore
      matches - and every shipped path must sit under the runtime allowlist
@@ -41,6 +39,7 @@ import sys
 
 from changelog_notes import notes_for
 from registry_contract import git_paths
+from release_badge import BADGE_PATH, badge_svg
 from workflow_contract import example_problems
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -99,26 +98,19 @@ if pyproject_version:
     except (OSError, ValueError) as exc:
         errors.append(f"no release notes for {pyproject_version}: {exc}")
 
-# --- 3. the README release badge stays dynamic -------------------------------
-DYNAMIC_BADGE = (
-    "img.shields.io/badge/dynamic/toml"
-    "?url=https%3A%2F%2Fraw.githubusercontent.com%2Fausboss%2FComfyUI-AusBoss"
-    "%2Fmain%2Fpyproject.toml&query=%24.project.version"
-)
+# --- 3. the README release badge matches the version -------------------------
 try:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    if DYNAMIC_BADGE not in readme:
-        errors.append(
-            "README.md release badge is not the dynamic pyproject-reading "
-            "shields.io badge; a hardcoded version WILL go stale"
-        )
-    if re.search(r"badge/release-\d+\.\d+\.\d+-", readme):
-        errors.append(
-            "README.md carries a hardcoded release-X.Y.Z badge; use the "
-            "dynamic badge only"
-        )
-except OSError as exc:
-    errors.append(f"could not read README.md: {exc}")
+    if f'src="{BADGE_PATH}"' not in readme:
+        errors.append(f"README.md release badge must use {BADGE_PATH}")
+    if 'href="https://github.com/ausboss/ComfyUI-AusBoss/releases/latest"' not in readme:
+        errors.append("README.md must link to the latest GitHub Release")
+    if pyproject_version:
+        badge = (ROOT / BADGE_PATH).read_text(encoding="utf-8")
+        if badge != badge_svg(pyproject_version):
+            errors.append("release badge is stale; run python scripts/release_badge.py")
+except (OSError, ValueError) as exc:
+    errors.append(f"could not validate the README release badge: {exc}")
 
 # --- 4. the Registry archive holds runtime files only ------------------------
 # comfy-cli packs `git ls-files` minus whatever .comfyignore matches, and git

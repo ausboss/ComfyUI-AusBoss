@@ -1775,6 +1775,36 @@ class TellTests(TouchCase):
         self.swap("_server", lambda: None)
         self.assertEqual(self.note(self.run_node("", ask="scope", unique_id=7))["pieces"]["list"], told["pieces"]["list"])
 
+    def test_a_run_that_stops_still_shows_the_face_the_picture_that_came_in(self):
+        # Issue 301: the picture changed upstream, the run stopped, and the
+        # face kept the old one until the image was unplugged and plugged in.
+        other = touches(tap(75, 34), key="160x120-0000000000000000")
+        for text, message in ((other, OTHER_PICTURE), ("", NOTHING_PICKED)):
+            self.sent.clear()
+            with self.assertRaises(RuntimeError) as stopped:
+                self.run_node(text, unique_id=7)
+            self.assertEqual(str(stopped.exception), message, "the run still stops, for the same reason")
+            [(event, data, sid)] = self.sent
+            self.assertEqual((event, data["node"], data["end"], data["stopped"], sid), (node_module.LOOK_EVENT, "7", True, True, "the page that asked"))
+            note = data["note"]
+            self.assertEqual((note["key"], note["width"], note["height"]), (picture_key(self.picture), W, H))
+            self.assertEqual((note["items"], note["selection"], note["stamp"]), ([], None, ""), "nothing picked on it")
+            self.assertEqual(self.opened(note["picture"]).size[0] > 0, True)
+        self.assertEqual(FakeSam.calls, [], "showing the picture asks SAM 3 nothing")
+
+    def test_a_stop_that_cannot_tell_the_face_stops_for_the_same_reason(self):
+        def broken(*_args):
+            raise ConnectionError("the page is gone")
+
+        self.server.send_sync = broken
+        with self.assertRaises(RuntimeError) as stopped:
+            self.run_node("", unique_id=7)
+        self.assertEqual(str(stopped.exception), NOTHING_PICKED)
+        self.server.send_sync = lambda *args: self.sent.append(args)
+        with self.assertRaises(RuntimeError):
+            self.run_node("")
+        self.assertEqual(self.sent, [], "no id: nobody to tell")
+
     def test_a_page_that_cannot_be_told_never_stops_the_look(self):
         def broken(*_args):
             raise ConnectionError("the page is gone")

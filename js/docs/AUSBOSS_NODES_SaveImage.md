@@ -41,9 +41,9 @@ file's name. A caption on the `caption_text` input writes the paired `.txt`.
   workflow in EXIF. **JXL** (`jxl lossless`, lossless JPEG XL) is the most
   compact; it needs the optional `pillow-jxl-plugin` in ComfyUI's python
   (also the pack's `jxl` extra) and few browsers preview it.
-- **Embed workflow** (`save_metadata`): **yes** stores the prompt and
+- **Embed workflow** (`save_metadata`): **On** stores the prompt and
   workflow in the file (PNG text chunks, EXIF in webp and jxl) so it drags
-  back into ComfyUI; **no** writes a clean file for sharing or datasets.
+  back into ComfyUI; **Off** writes a clean file for sharing or datasets.
   `--disable-metadata` on the server wins.
 - **Preview** (`preview`): the small switch under the card shows the saved
   image on the node. Off, the picture's box goes away and the node is
@@ -52,7 +52,7 @@ file's name. A caption on the `caption_text` input writes the paired `.txt`.
   still lists it. When a run saves more than one image (a batch, or a list
   such as a folder of images), arrows beside the switch (‹ 2 / 5 ›) step
   through them.
-- **Steps** (`step_preview`, off by default): the switch left of
+- **Preview steps** (`step_preview`, off by default): the switch left of
   **preview** shows the picture while it is being made, one step at a time,
   where the saved image goes, with a **STOP** button on the bar. Stop a run
   that is going wrong after the first steps instead of waiting for the end;

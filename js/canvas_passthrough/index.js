@@ -12,7 +12,7 @@
 // title it loads into the node, dropped on the node's panel (the picture, the
 // controls) it missed the node. The drop listeners here hand it to the node
 // under the pointer.
-import { app } from "/scripts/app.js";
+import { app } from "../../../scripts/app.js";
 import {
   dragCarriesFiles, graphDragStarts, panelHost, panelKeepsWheel, panelNeedsDropHelp, panelRoot,
 } from "../shared/canvas_passthrough.mjs";

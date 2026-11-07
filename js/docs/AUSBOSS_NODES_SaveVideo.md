@@ -9,9 +9,9 @@ duration, shows a tall video whole, and has a **LOOP** control. `gif` and
 `webp` are shown as pictures with just the file name, since a video player
 cannot play either.
 
-**STEPS** (`step_preview`, off by default) shows the clip's first frame in
+**Preview steps** above the player (`step_preview`, off by default) shows the clip's first frame in
 the player while it is being made, one step at a time, with a **STOP**
-button beside it. Stop a clip that is going wrong after the first steps
+button on the player. Stop a clip that is going wrong after the first steps
 instead of waiting for the end; a stopped run saves nothing. The saved
 video replaces the steps. The [Step Preview](AUSBOSS_NODES_StepPreview.md)
 page has the details.
@@ -37,7 +37,7 @@ page has the details.
 - **Ping-pong** (`pingpong`): Plays the clip forward then backward so it loops seamlessly.
   Roughly doubles the frame count and the encode time. The first and last
   frames are not repeated at the turnaround, so the loop does not hitch.
-- **Metadata** (`save_metadata`): On by default. Turn it off to share a file
+- **Embed workflow** (`save_metadata`): On by default. Turn it off to share a file
   without your prompt and node graph embedded in it. If ComfyUI was started
   with `--disable-metadata`, nothing is embedded whatever this says.
 - **audio** (optional): A track to mux into the file, e.g. Load Video's
@@ -83,7 +83,7 @@ metadata, so an embedded workflow is not available for them.
 The node's face follows the table: widgets the chosen format ignores are
 hidden rather than left to look meaningful. The CRF field leaves the
 **FPS · CRF** row for `mov prores`, `mkv ffv1` and `gif` (their rows read
-*ignored* above), and the **Metadata** row disappears for `gif` and `webp`,
+*ignored* above), and the **Embed workflow** row disappears for `gif` and `webp`,
 which cannot carry it. Hidden is not removed:
 the widget keeps its position and its value, saved workflows store and restore
 it exactly as before, and switching the format back brings it back with the

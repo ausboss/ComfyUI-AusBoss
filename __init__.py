@@ -36,6 +36,7 @@ NODE_MODULES = [
     "node_layout_boxes",
     "node_literals",
     "node_load_image_pad",
+    "node_load_audio",
     "node_load_video",
     "node_lora_loader",
     "node_mask_by_name",

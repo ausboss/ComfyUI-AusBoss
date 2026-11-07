@@ -26,6 +26,13 @@ class WorkflowContractTests(unittest.TestCase):
     def test_complete_graph(self):
         self.assertEqual(workflow_problems(good_graph()), [])
 
+    def test_a_tile_can_hold_the_setup_instructions(self):
+        graph = good_graph()
+        graph["nodes"][2]["type"] = "AUSBOSS_NODES_WorkflowNoteTile"
+        self.assertEqual(workflow_problems(graph), [])
+        graph["nodes"][2]["widgets_values"] = ['{"title":"Example","layout":"tile"}']
+        self.assertIn("needs a title and instructions", " ".join(workflow_problems(graph)))
+
     def test_named_widget_copy_must_match_the_loaded_values(self):
         graph = good_graph()
         graph["nodes"][0]["widgets_values"] = [7, "fixed", ""]
@@ -107,6 +114,8 @@ class WorkflowContractTests(unittest.TestCase):
         # above the Workflow Note, as wide as it: a link to a video
         graph["nodes"].append({"id": 4, "type": "AUSBOSS_NODES_Callout", "pos": [-200, -60], "size": [100, 60],
                                "widgets_values": ["[Watch the video](https://example.invalid/)"]})
+        self.assertEqual(workflow_problems(graph), [])
+        graph["nodes"][3]["type"] = "AUSBOSS_NODES_CalloutTile"
         self.assertEqual(workflow_problems(graph), [])
         # anywhere else outside the stage groups it is still a stray node
         graph["nodes"][3]["pos"] = [600, -60]

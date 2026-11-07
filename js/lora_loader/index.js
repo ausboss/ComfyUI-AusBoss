@@ -1,5 +1,5 @@
-import { api } from "/scripts/api.js";
-import { app } from "/scripts/app.js";
+import { api } from "../../../scripts/api.js";
+import { app } from "../../../scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "../shared/index.mjs";
 import { WIDGET_FRAME, fillNodeHeight, holdVueNodeMinWidth } from "../shared/panel_layout.mjs";
 import { hideInputsInDef, hideWidget as collapseWidget } from "../shared/widget_visibility.mjs";
@@ -20,7 +20,6 @@ import {
   BYPASS_MODE,
   DEFAULT_STEP,
   FINE_STEP,
-  MAX_ROWS,
   MUTE_MODE,
   STRENGTH_MAX,
   STRENGTH_MIN,
@@ -1078,10 +1077,6 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
     const { name, kind } = entry;
     if (kind === "folder") {
       const result = appendFolderRows(state.rows, folders.get(name) ?? [], state.settings?.default_strength ?? 1);
-      if (result.needed > result.room) {
-        loraToast(`This folder has ${result.needed} new LoRAs, but only ${result.room} of ${MAX_ROWS} rows are free. Nothing was added. Remove rows or choose a smaller folder.`);
-        return;
-      }
       if (!result.added) {
         loraToast("Every LoRA in this folder is already in this stack. Nothing was added.");
         return;
@@ -1093,10 +1088,6 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
       loraToast(`Added ${result.added} LoRA${result.added === 1 ? "" : "s"} from ${name}.`
         + (result.skipped ? ` Skipped ${result.skipped} already in this stack.` : ""));
       if (!pointer) backToStack(firstAdded);
-      return;
-    }
-    if (adding && state.rows.length >= MAX_ROWS) {
-      loraToast(`This stack already has ${MAX_ROWS} rows. Remove a row before adding another LoRA.`);
       return;
     }
     closePopup();
@@ -1114,10 +1105,6 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
 
   const addTicked = ({ pointer = false } = {}) => {
     const result = appendFolderRows(state.rows, ticked, state.settings?.default_strength ?? 1);
-    if (result.needed > result.room) {
-      loraToast(`You ticked ${result.needed} new LoRAs, but only ${result.room} of ${MAX_ROWS} rows are free. Nothing was added. Untick some or remove rows.`);
-      return;
-    }
     if (!result.added) {
       loraToast("Every ticked LoRA is already in this stack. Nothing was added.");
       return;
@@ -1769,7 +1756,6 @@ function openRowMenu(state, index, event) {
   }
   menu.append(el("div", "ausboss-lora-menu-rule"));
   const insertEmpty = (position) => {
-    if (state.rows.length >= MAX_ROWS) return;
     const strength = roundStrength(state.settings?.default_strength ?? 1);
     const rows = state.rows.slice();
     // A row added next to a grouped one joins its group.
@@ -1779,8 +1765,8 @@ function openRowMenu(state, index, event) {
     commitRows(state, rows, { structural: true });
     fitNode(state);
   };
-  item("Insert empty LoRA above", () => insertEmpty(index), state.rows.length >= MAX_ROWS);
-  item("Insert empty LoRA below", () => insertEmpty(index + 1), state.rows.length >= MAX_ROWS);
+  item("Insert empty LoRA above", () => insertEmpty(index));
+  item("Insert empty LoRA below", () => insertEmpty(index + 1));
   item("Move up", () => commitGroups(state, moveRowInStack(state.rows, index, -1)),
     index === 0 && !row.group);
   item("Move down", () => commitGroups(state, moveRowInStack(state.rows, index, 1)),
@@ -1791,7 +1777,7 @@ function openRowMenu(state, index, event) {
     rows.splice(index + 1, 0, copy);
     commitRows(state, rows, { structural: true });
     fitNode(state);
-  }, state.rows.length >= MAX_ROWS);
+  });
   item(count > 1 ? `Remove these ${count} LoRAs` : "Remove this LoRA", () => {
     commitGroups(state, state.rows.filter((entry) => !ids.includes(entry.id)));
   }).classList.add("ausboss-lora-danger");
@@ -1804,7 +1790,7 @@ function openStackMenu(state, event) {
   const menu = el("div", "ausboss-lora-menu");
   const item = (label, action, disabled = false) => menuItem(menu, label, action, disabled);
   const add = state.panel.querySelector(".ausboss-lora-add, .ausboss-lora-blank");
-  item("+ Add LoRAs…", () => openPicker(state, null, add), !add || state.rows.length >= MAX_ROWS);
+  item("+ Add LoRAs…", () => openPicker(state, null, add), !add);
   const ids = state.rows.filter((row) => selectedIds(state).has(row.id)).map((row) => row.id);
   if (ids.length) {
     item(ids.length > 1 ? `Group the ${ids.length} selected LoRAs` : "Group the selected LoRA", () => {
@@ -2489,11 +2475,6 @@ async function runImportChain(state) {
     { position: "before", deduplicate: false });
   const downMerge = mergeImportedRows(upMerge.rows, downResolved,
     { position: "after", deduplicate: false });
-  // Never bypass a source if any of its rows would be lost to the stack limit.
-  if (state.rows.length + upMerge.added + downMerge.added > MAX_ROWS) {
-    loraToast(`Absorb needs more than ${MAX_ROWS} rows. Free some stack rows first; source loaders remain active.`);
-    return;
-  }
   // Rows that patch model and CLIP differently need both boxes visible, or
   // the difference is invisible and lost on the first scrub. The flip is
   // node-local (unified stays the default for new nodes) and the toast
@@ -2670,7 +2651,6 @@ function installStackKeyboard(state) {
     if (action.kind === "focus") {
       focusStackRow(state, visibleRowIndex(state, index, action.index));
     } else if (action.kind === "pick") {
-      if (atAdd && state.rows.length >= MAX_ROWS) return;
       openPicker(state, atAdd ? null : index,
         atAdd ? state.panel.querySelector(".ausboss-lora-add") : rowElement.querySelector(".ausboss-lora-name"),
         { keyboard: true });
@@ -2708,7 +2688,6 @@ function renderRows(state) {
   panel.append(body);
 
   const addRowAndPick = (event) => {
-    if (state.rows.length >= MAX_ROWS) return;
     // detail is 0 for a click made with Enter or Space.
     openPicker(state, null, event.currentTarget, { keyboard: event.detail === 0 });
   };
@@ -2936,7 +2915,6 @@ function renderRows(state) {
   const actions = el("div", "ausboss-lora-actions");
   const add = el("button", "ausboss-lora-add", "+ LoRA");
   add.type = "button";
-  add.disabled = state.rows.length >= MAX_ROWS;
   add.addEventListener("click", addRowAndPick);
   add.title = "Pick one LoRA, or click a folder name to add all its LoRAs.";
   actions.append(add);

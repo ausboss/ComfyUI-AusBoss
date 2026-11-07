@@ -55,6 +55,14 @@ function installCss() {
   style.id = CSS_ID;
   style.textContent = `
     .ausboss-transform-trim{flex:none;display:flex;flex-direction:column;gap:8px;min-width:0;padding:9px 10px 8px;border:1px solid #164b49;border-radius:8px;background:#0e1718;color:#cadddb;font:11px system-ui;box-sizing:border-box;overflow:hidden}
+    .ausboss-transform-trim-transport{display:flex;align-items:center;gap:6px;min-width:0}
+    .ausboss-transform-trim-transport .ausboss-transform-trim-rail{flex:1;min-width:0}
+    .ausboss-transform-trim-play{display:grid;place-items:center;flex:none;width:28px;height:24px;padding:0;border:1px solid #325151;border-radius:4px;background:#101819;color:#a6c3c0;cursor:pointer}
+    .ausboss-transform-trim-play::before{content:"";width:10px;height:12px;background:currentColor;clip-path:polygon(8% 0,100% 50%,8% 100%)}
+    .ausboss-transform-trim-play.is-playing::before{box-sizing:border-box;clip-path:none;background:transparent;border-inline:3px solid currentColor}
+    .ausboss-transform-trim-play:focus-visible{outline:1px solid #00b4aa;outline-offset:1px}
+    .ausboss-transform-trim-play:hover,.ausboss-transform-trim-play.is-playing{border-color:#00b4aa;color:#e5fffc}
+    .ausboss-transform-trim-play:disabled{opacity:.45;cursor:default}
     .ausboss-transform-trim-rail{position:relative;height:28px;margin:0 6px;touch-action:none;cursor:pointer;user-select:none}
     .ausboss-transform-trim-rail.is-disabled{opacity:.45;cursor:default}
     .ausboss-transform-trim-rail:before{content:"";position:absolute;left:0;right:0;top:11px;height:6px;border-radius:4px;background:#293637}
@@ -118,7 +126,7 @@ const pct = (fraction) => `${(fraction * 100).toFixed(3)}%`;
 //                                            (the clip node) or playhead only
 //   onSeek(frame, settled)                   the playhead moved; settled on release
 //   onCommit()                               a stored value settled (undo point)
-export function mountTransformTrim({ get, set, has = () => true, driven = () => false, number = (name, fallback) => get(name, fallback), outputRate, metadata, trim = true, onSeek, onCommit }) {
+export function mountTransformTrim({ get, set, has = () => true, driven = () => false, number = (name, fallback) => get(name, fallback), outputRate, metadata, trim = true, isPlaying, onTogglePlayback, onSeek, onCommit }) {
   installCss();
   const root = el("div", "ausboss-transform-trim");
   const rail = el("div", "ausboss-transform-trim-rail");
@@ -132,6 +140,11 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
   if (trim) rail.append(span, kept, grip);
   rail.append(playhead);
 
+  const transport = el("div", "ausboss-transform-trim-transport");
+  const play = el("button", "ausboss-transform-trim-play");
+  play.type = "button";
+  play.addEventListener("click", onTogglePlayback);
+  transport.append(play, rail);
   const info = () => clipInfo(metadata());
   const everyNth = () => Math.max(1, Math.trunc(Number(number("every_nth", get("every_nth", 1))) || 1));
   const snapRule = () => String(get("frame_snap", "free"));
@@ -225,6 +238,8 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
         // A Length drags the whole window, stopping where OUT meets the end.
         parked = Math.max(0, Math.min(clampFrame(frame, clip), latestFirstFor(clip, current.requested ?? get("max_frames", 1), nth)));
         set("end_seconds", 0);
+      } else if (current.mode === "wired" && current.latestStart != null && !countAtRunTime()) {
+        parked = Math.min(clampFrame(frame, clip), current.latestStart);
       } else {
         parked = setTrimFrame({ first: current.first, last: current.windowLast }, "start", frame, clip).first;
       }
@@ -294,6 +309,11 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
 
   const sync = () => {
     const clip = info();
+    const playing = isPlaying();
+    play.setAttribute("aria-label", playing ? "Pause" : "Play");
+    play.title = playing ? "Pause on this frame" : trim ? "Play the selected clip" : "Play the video to pick a frame";
+    play.classList.toggle("is-playing", playing);
+    play.disabled = !clip.count;
     const head = playheadFrame();
     rail.classList.toggle("is-disabled", !clip.count);
     playhead.style.left = pct(fractionOfFrame(head, clip, "center"));
@@ -343,7 +363,9 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
               : "Drag IN to move the clip; OUT follows at the Length. Shift + arrow moves one frame."
           : current.mode === "free" ? "Drag OUT to trim; it lands on the last frame the run keeps." : "Drag OUT to change the Length; IN stays.";
       handle.setAttribute("aria-valuemin", "0");
-      handle.setAttribute("aria-valuemax", String(Math.max(0, clip.count - 1)));
+      const maxFrame = edge === "start" && current.mode === "wired" && !unknown
+        ? current.latestStart ?? current.windowLast : Math.max(0, clip.count - 1);
+      handle.setAttribute("aria-valuemax", String(maxFrame));
       handle.setAttribute("aria-valuenow", String(frame));
       handle.setAttribute("aria-valuetext", `frame ${frame}, ${formatTimecode(frameTime(frame, clip))}`);
     }
@@ -536,7 +558,7 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
     label.append(controls.frame.root);
     timeRow.append(label, readout);
   }
-  root.append(rail, timeRow);
+  root.append(transport, timeRow);
 
   // Length: off, OUT ends the clip; on, a frame count from IN (max_frames,
   // end left open), so OUT follows IN and the count survives a new source.
@@ -581,7 +603,7 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
       count.root.style.display = active ? "" : "none";
       const step = snapStep(snapRule());
       count.setStep(step, step);
-      count.set(blocked ? (current.frames ?? current.requested ?? 0) : (current.requested ?? get("max_frames", 1)));
+      count.set(blocked ? (current.requested ?? current.frames ?? 0) : (current.requested ?? get("max_frames", 1)));
       disableControl(count, blocked, lockTip("end"));
       const fills = lengthFillsClip(info(), current, everyNth());
       hint.textContent = blocked ? `from ${wired}` : current.mode === "fixed" ? "exact (older setting)" : fills ? "= the whole clip. Shorten it to move IN" : active ? "" : "OUT ends the clip";

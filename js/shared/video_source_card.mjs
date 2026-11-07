@@ -45,8 +45,7 @@ export function videoSourceState(mode, video, localPath) {
   };
 }
 
-// Images use the same picker card, but their backend accepts input-folder
-// references only. Do not advertise a Local path mode it cannot execute.
+// Images store the folder annotation in their image widget. Only video uses local_path.
 export function mediaSourceState(kind, mode, selection, localPath) {
   if (kind !== "image") return videoSourceState(mode, selection, localPath);
   const image = String(selection ?? "");

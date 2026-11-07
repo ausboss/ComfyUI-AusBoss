@@ -1,0 +1,74 @@
+name: Publish Model Downloader addon
+
+on:
+  workflow_dispatch:
+    inputs:
+      addon_commit:
+        description: Full commit SHA from ComfyUI-AusBoss-Model-Downloader main
+        required: true
+        type: string
+
+# The existing AusBoss publisher credential stays in this repository. This
+# manual job publishes only the separately maintained Model Downloader addon.
+# It does not release or change the main AusBoss node pack.
+permissions:
+  contents: read
+
+concurrency:
+  group: registry-publish-model-downloader
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'ausboss/ComfyUI-AusBoss' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Require an exact addon commit
+        env:
+          ADDON_COMMIT: ${{ inputs.addon_commit }}
+        run: '[[ "$ADDON_COMMIT" =~ ^[0-9a-f]{40}$ ]]'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ausboss/ComfyUI-AusBoss-Model-Downloader
+          ref: ${{ inputs.addon_commit }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require a commit merged into addon main
+        run: git merge-base --is-ancestor HEAD origin/main
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Install validation and publishing tools
+        run: python -m pip install -r requirements-dev.txt comfy-cli==1.25.0
+      - name: Offline checks
+        run: |
+          python -m unittest discover -s tests -v
+          ruff check --select F,E9 __init__.py downloader tests scripts
+          node --test tests/*.test.mjs
+          node --check js/model_downloader/index.js
+          node --check js/shared/download_controls.mjs
+      - name: Build and inspect Registry package
+        run: |
+          comfy --skip-prompt --no-enable-telemetry node pack
+          python scripts/check_registry_package.py
+      - name: Refuse an existing immutable version
+        run: python scripts/registry_status.py --require-unpublished
+      - name: Publish addon
+        id: publish
+        env:
+          REGISTRY_ACCESS_TOKEN: ${{ secrets.REGISTRY_ACCESS_TOKEN }}
+          COMFY_NODE_CHANGELOG: 'Initial release: model downloads from Civitai and Hugging Face, installed-file checks, saved model lists, and AusBoss Workflow Note integration.'
+        run: |
+          if [ -z "$REGISTRY_ACCESS_TOKEN" ]; then
+            echo '::error::REGISTRY_ACCESS_TOKEN is not configured.'
+            exit 1
+          fi
+          comfy --skip-prompt --no-enable-telemetry node publish --token "$REGISTRY_ACCESS_TOKEN"
+      - name: Report Registry review status
+        if: always() && steps.publish.outcome != 'skipped'
+        run: python scripts/registry_status.py --report

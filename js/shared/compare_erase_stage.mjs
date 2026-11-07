@@ -5,14 +5,14 @@
 // a mask canvas holds what has been rubbed away, and the view shows the
 // picture underneath with the top picture, less that mask, over it. Save
 // sends the strokes to the server, which builds the mix at full size.
-import { api } from "/scripts/api.js";
+import { compactAction } from "./panel_controls.mjs";
+import { api } from "../../../scripts/api.js";
 import { BRAND, notifyAusbossChange, showToast } from "./index.mjs";
 import { brushAdjusts, brushFlips, brushKey, brushWords, toolKey } from "./brush.mjs";
 import { keepKeyInField } from "./canvas_passthrough.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
 import { makeSlideSwitch } from "./slide_switch.mjs";
 import { extendStroke } from "./touch_math.mjs";
-import { makeToolButton } from "./video_ui.mjs";
 import {
   CHECKER,
   ERASE_OUTSIDE,
@@ -82,6 +82,7 @@ const CAN_FILTER = typeof CanvasRenderingContext2D !== "undefined" && "filter" i
 export const ERASE_CSS = `
 .ausboss-compare-erasebar{display:none;box-sizing:border-box;flex-wrap:wrap;align-items:center;gap:4px 6px;flex:none;min-height:${ERASE_BAR_HEIGHT}px;}
 .ausboss-compare-root.is-erasing .ausboss-compare-erasebar{display:flex;}
+.ausboss-compare-brush-swatch{box-sizing:border-box;flex:none;width:24px;height:24px;border-radius:4px;background:#0b1113;border:1px solid rgba(0,180,170,.3);}
 .ausboss-compare-erasebar .ausboss-scrub{flex:none;}
 .ausboss-compare-field{display:flex;align-items:center;gap:4px;flex:none;}
 .ausboss-compare-label{flex:none;color:#9fb6b4;font-size:10px;line-height:22px;white-space:nowrap;user-select:none;}
@@ -247,9 +248,32 @@ function drawCheckerboard(er, ctx, fit) {
   ctx.fillRect(fit.left, fit.top, fit.width, fit.height);
 }
 
+// Use the cursor's actual dab. A compressed size scale keeps both a
+// two-pixel brush and a two-thousand-pixel brush legible in the toolbar.
+function drawBrushSwatch(er) {
+  const size = brushSize(er);
+  const soft = brushSoft(er);
+  const back = er.back !== Boolean(er.flipKey);
+  const key = `${size}|${soft}|${back}`;
+  if (er.swatchKey === key) return;
+  er.swatchKey = key;
+  const swatch = er.swatch;
+  const side = swatch.width;
+  const fraction = Math.log(size / ERASE_SIZE[0]) / Math.log(ERASE_SIZE[1] / ERASE_SIZE[0]);
+  const diameter = side * (0.22 + 0.66 * fraction);
+  const dab = dabOf(er, size, soft, diameter / size, back ? BACK_TINT : RUB_TINT);
+  const ctx = swatch.getContext("2d");
+  ctx.clearRect(0, 0, side, side);
+  ctx.drawImage(dab.canvas, side / 2 - dab.reach, side / 2 - dab.reach);
+  swatch.title = `${back ? "Restore" : "Erase"} brush: ${size} px, ${soft}% soft`;
+  swatch.setAttribute("aria-label", swatch.title);
+}
+
 function draw(er) {
   er.frame = 0;
-  if (!er.active || !er.refs) return;
+  if (!er.active) return;
+  drawBrushSwatch(er);
+  if (!er.refs) return;
   sizeView(er);
   const { canvas } = er;
   const ctx = canvas.getContext("2d");
@@ -377,7 +401,7 @@ function syncTools(er) {
   er.layersSwitch.set(layers ? "on" : "off");
   const aligned = Boolean(er.refs?.aligned);
   er.alignButton.disabled = !ready || er.aligning;
-  er.alignButton.textContent = er.aligning ? "ALIGNING" : "ALIGN";
+  er.alignButton.textContent = er.aligning ? "Aligning" : "Align";
   er.alignButton.classList.toggle("active", aligned);
   er.alignButton.title = !ready
     ? "Run the workflow first: Align needs the two pictures."
@@ -827,6 +851,11 @@ export function makeEraser({ node, root, stage, imageA, imageB, signal, onSaved,
     return wrap;
   };
   const sizeField = scrubField("Size", er.sizeBox, SIZE_HELP);
+  er.swatch = document.createElement("canvas");
+  er.swatch.className = "ausboss-compare-brush-swatch";
+  er.swatch.width = er.swatch.height = 64;
+  er.swatch.setAttribute("role", "img");
+  sizeField.prepend(er.swatch);
   const softField = scrubField("Soft", er.softBox, SOFT_HELP);
   const TOP_HELP = "Which picture you start from. The brush shows the other one through it. Swapping keeps your paint.";
   er.topSwitch = makeSlideSwitch({
@@ -846,7 +875,7 @@ export function makeEraser({ node, root, stage, imageA, imageB, signal, onSaved,
   // Align, Undo and Clear stay together at the right end, also on a second line.
   const steps = document.createElement("div");
   steps.className = "ausboss-compare-steps";
-  er.undoButton = click(makeToolButton("UNDO", "Take back the last stroke, or a Clear."), () => {
+  er.undoButton = click(compactAction("Undo", "Take back the last stroke, or a Clear."), () => {
     if (!er.history.length && !er.strokes.length) return;
     // Paint that came with the workflow has no steps of its own to go back
     // through: its last stroke is taken off.
@@ -856,13 +885,13 @@ export function makeEraser({ node, root, stage, imageA, imageB, signal, onSaved,
     syncTools(er);
     schedule(er);
   });
-  er.clearButton = click(makeToolButton("CLEAR", "Take all the paint off. Undo brings it back."), () => {
+  er.clearButton = click(compactAction("Clear", "Take all the paint off. Undo brings it back."), () => {
     if (!er.strokes.length) return;
     change(er, []);
     rebuildMask(er);
     schedule(er);
   });
-  er.alignButton = click(makeToolButton("ALIGN", ""), () => align(er));
+  er.alignButton = click(compactAction("Align", ""), () => align(er));
   steps.append(er.alignButton, er.undoButton, er.clearButton);
   er.bar.append(er.kindSwitch.root, sizeField, softField, topField, steps);
 

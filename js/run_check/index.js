@@ -19,8 +19,8 @@
 // check once per input the check reads, and collapseRepeatedErrors keeps
 // one per message on AusBoss nodes before the frontend shows them.
 
-import { api } from "/scripts/api.js";
-import { app } from "/scripts/app.js";
+import { api } from "../../../scripts/api.js";
+import { app } from "../../../scripts/app.js";
 import { showToast } from "../shared/index.mjs";
 import { nodeByExecutionId } from "../shared/graph_ids.mjs";
 import {

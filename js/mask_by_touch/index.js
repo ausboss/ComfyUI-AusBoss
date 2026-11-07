@@ -4,8 +4,8 @@
 // node, runs the node alone when the face asks for the picture or for what
 // SAM 3 finds at a click, and hands it what a run sent back.
 
-import { api } from "/scripts/api.js";
-import { app } from "/scripts/app.js";
+import { api } from "../../../scripts/api.js";
+import { app } from "../../../scripts/app.js";
 import { chainCallback } from "../shared/index.mjs";
 import { executionIdOf, isSwitchedOff, nodeByExecutionId } from "../shared/graph_ids.mjs";
 import { outputLocatorId } from "../shared/input_preview.mjs";
@@ -168,13 +168,18 @@ api.addEventListener("execution_error", ({ detail }) => {
 api.addEventListener("execution_interrupted", () => settleAll());
 // A look is one long, quiet run. The node sends what it has found every
 // second or two, so things light up while it is still looking.
+// A run that stops at the node (nothing picked on this picture) sends the
+// picture that came in first, so a picture that changed upstream shows at
+// once. It is shown like a kept note: it starts no run of its own.
 api.addEventListener(LOOK_EVENT, ({ detail }) => {
   try {
     if (!faces.size || !detail?.note) return;
     const id = String(detail.node ?? "");
     const root = app.rootGraph ?? app.graph;
     for (const face of faces) {
-      if (face.alive && face.inFlight && executionIdOf(root, face.node) === id) face.takeNote(detail.note, { interim: true });
+      if (!face.alive || executionIdOf(root, face.node) !== id) continue;
+      if (detail.stopped) face.takeNote(detail.note, { restored: true });
+      else if (face.inFlight) face.takeNote(detail.note, { interim: true });
     }
   } catch {
     // Never in the way of a run.

@@ -285,3 +285,23 @@ test("the grip slides the kept part as far as the clip allows", () => {
   assert.deepEqual(slideRange(long, free), { min: 0, max: 287 - 48 });
   assert.equal(lengthFillsClip(long, free), false);
 });
+
+test("a wired 49-frame selection stops at IN 48 on the 97-frame pier clip", () => {
+  const info = clipInfo(PIER);
+  const values = { wired: "frame_load_cap", wiredFrames: 49, frameSnap: "8n+1" };
+  for (const target of [0, 47, 48, 49, 72, 96, 48, 47]) {
+    const limit = clipLengthPlan(info, values).latestStart;
+    assert.equal(limit, 48);
+    const start = windowSeconds(info, Math.min(target, limit), 96).start_seconds;
+    const plan = clipLengthPlan(info, { ...values, start });
+    assert.equal(plan.frames, 49);
+    assert.equal(plan.last - plan.first, 48);
+  }
+  // Loading an older short tail preserves its start until the user trims it.
+  assert.equal(clipLengthPlan(info, { ...values, start: 3 }).frames, 25);
+  assert.equal(clipLengthPlan(info, { ...values, everyNth: 2 }).latestStart, 0);
+  assert.equal(clipLengthPlan(info, { ...values, end: 3 }).latestStart, 23);
+  assert.equal(clipLengthPlan(info, { ...values, wiredFrames: 0 }).latestStart, null);
+  assert.equal(clipLengthPlan(info, { ...values, resampled: true, outputFps: 12 }).latestStart, 0);
+  assert.equal(clipLengthPlan(info, { ...values, wired: "fixed_frames", outputFps: 24 }).latestStart, 48);
+});

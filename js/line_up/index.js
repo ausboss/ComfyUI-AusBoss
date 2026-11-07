@@ -1,6 +1,6 @@
-import { app } from "/scripts/app.js";
+import { app } from "../../../scripts/app.js";
 import { BRAND, notifyAusbossChange, showToast } from "../shared/index.mjs";
-import { enoughFor, lineUp, sameSize, spreadEvenly } from "../shared/line_up.mjs";
+import { enoughFor, lineUp, matchWidth, sameSize, sharedSides, spreadEvenly } from "../shared/line_up.mjs";
 import { outlineOf } from "../shared/outline.mjs";
 
 // Line up: with two or more nodes or groups selected, ComfyUI's selection
@@ -8,11 +8,16 @@ import { outlineOf } from "../shared/outline.mjs";
 // selection up, gives it one width or height, or spaces it evenly. Every tool
 // is also a command, so it can be found in the command palette and given a key.
 //
+// Resize together: with two or more nodes selected, pulling the edge or corner
+// of one resizes them all, in both looks. A column shares the width, a row
+// shares the height, and a grid shares both.
+//
 // A node inside a selected group moves with its group, the way a drag moves
 // it. Pinned items count when the selection is measured but never move.
 
 const PANEL = "AusBoss.LineUp.Panel";
 const SETTING = "AusBoss.Canvas.LineUpButton";
+const TOGETHER_SETTING = "AusBoss.Canvas.ResizeTogether";
 const ICON_CLASS = "ausboss-line-up-icon";
 
 const TOOLS = [
@@ -235,6 +240,126 @@ function run(tool) {
 }
 
 // ---------------------------------------------------------------------------
+// Resize together
+// ---------------------------------------------------------------------------
+//
+// The frontend resizes only the node under the pointer: the canvas's own
+// pointermove in the classic look, a pointermove on the window in Nodes 2.0.
+// This listens on the window and catches up a frame later, so it always reads
+// the size the frontend (and Snap into line) settled on. Which sizes are
+// shared comes from how the selection was laid out when the button went down
+// (sharedSides in js/shared/line_up.mjs). The grabbed node is
+// the canvas's resizing node, or in Nodes 2.0 the node whose corner handle
+// took the press. Every other selected node takes its size from where it
+// stood when the button went down, so nothing builds up across steps.
+
+const together = { enabled: true, before: null, grabbed: null, handleOf: null, sides: null, frame: 0 };
+
+function resizableSelection(canvas) {
+  const { nodes } = graphSets(canvas?.graph);
+  return [...(canvas?.selectedItems ?? [])].filter(
+    (item) => nodes.has(item) && item.size && item.pos && !isPinned(item) && !item.flags?.collapsed,
+  );
+}
+
+function onTogetherDown(event) {
+  endTogether();
+  if (event.button !== 0 || !together.enabled) return;
+  const picked = resizableSelection(app.canvas);
+  if (picked.length < 2) return;
+  together.before = new Map(picked.map((node) => [node, { pos: [node.pos[0], node.pos[1]], size: [node.size[0], node.size[1]] }]));
+  // Nodes 2.0 draws a corner handle on each node (a div with data-corner).
+  const handle = event.target?.closest?.("[data-corner]");
+  together.handleOf = handle?.closest?.("[data-node-id]")?.dataset?.nodeId ?? null;
+}
+
+function grabbedNode(canvas) {
+  const classic = canvas?.resizing_node;
+  if (classic) return together.before.has(classic) ? classic : null;
+  if (together.handleOf == null) return null;
+  for (const node of together.before.keys()) if (String(node.id) === together.handleOf) return node;
+  return null;
+}
+
+function syncSizes() {
+  const canvas = app.canvas;
+  if (!together.before || !canvas?.graph) return;
+  together.grabbed ??= grabbedNode(canvas);
+  const grabbed = together.grabbed;
+  if (!grabbed) return;
+  const was = together.before.get(grabbed);
+  together.sides ??= sharedSides(
+    [...together.before.values()].map(({ pos, size }) => ({ x: pos[0], y: pos[1], w: size[0], h: size[1] })),
+  );
+  const others = [...together.before].filter(([node]) => node !== grabbed);
+  const least = others.map(([node]) => node.computeSize?.() ?? [0, 0]);
+  // Heights go through the same rule as widths, with y for x.
+  const widths = together.sides.width
+    ? matchWidth(
+        grabbed.size[0],
+        others.map(([, start], i) => ({ x: start.pos[0], w: start.size[0], least: least[i][0] })),
+        { fromLeft: grabbed.pos[0] !== was.pos[0] },
+      )
+    : null;
+  const heights = together.sides.height
+    ? matchWidth(
+        grabbed.size[1],
+        others.map(([, start], i) => ({ x: start.pos[1], w: start.size[1], least: least[i][1] })),
+        { fromLeft: grabbed.pos[1] !== was.pos[1] },
+      )
+    : null;
+  let moved = false;
+  others.forEach(([node], index) => {
+    const x = widths ? widths[index].x : node.pos[0];
+    const y = heights ? heights[index].x : node.pos[1];
+    const w = widths ? widths[index].w : node.size[0];
+    const h = heights ? heights[index].w : node.size[1];
+    if (node.pos[0] !== x || node.pos[1] !== y) {
+      node.pos = [x, y];
+      moved = true;
+    }
+    if (node.size[0] !== w || node.size[1] !== h) {
+      node.setSize([w, h]);
+      moved = true;
+    }
+  });
+  if (moved) canvas.setDirty?.(true, true);
+}
+
+function onTogetherMove(event) {
+  if (!together.before) return;
+  if (!(event.buttons & 1)) return endTogether();
+  if (together.frame) return;
+  together.frame = requestAnimationFrame(() => {
+    together.frame = 0;
+    syncSizes();
+  });
+}
+
+function onTogetherUp() {
+  if (together.before) syncSizes(); // the last step, before the frontend records the change
+  endTogether();
+}
+
+function endTogether() {
+  if (together.frame) cancelAnimationFrame(together.frame);
+  together.frame = 0;
+  together.before = null;
+  together.grabbed = null;
+  together.handleOf = null;
+  together.sides = null;
+}
+
+function installTogether() {
+  window.addEventListener("pointerdown", onTogetherDown, true);
+  window.addEventListener("pointermove", onTogetherMove);
+  // Capture phase: the classic canvas stops its pointerup from bubbling.
+  window.addEventListener("pointerup", onTogetherUp, true);
+  window.addEventListener("pointercancel", endTogether, true);
+  window.addEventListener("blur", endTogether);
+}
+
+// ---------------------------------------------------------------------------
 // The panel
 // ---------------------------------------------------------------------------
 
@@ -375,11 +500,29 @@ app.registerExtension({
         if (value === false) closePanel();
       },
     },
+    {
+      id: TOGETHER_SETTING,
+      name: "Resize selected nodes together",
+      type: "boolean",
+      defaultValue: true,
+      category: ["🆎 AusBoss", "Canvas", "Resize together"],
+      tooltip:
+        "With two or more nodes selected, pulling the edge or corner of one resizes them all: " +
+        "a column gets one width, a row one height, a grid both.",
+      onChange(value) {
+        together.enabled = value !== false;
+        if (!together.enabled) endTogether();
+      },
+    },
   ],
   setup() {
     const style = document.createElement("style");
     style.id = "ausboss-line-up-style";
     style.textContent = styleSheet();
     document.head.append(style);
+    // onChange only fires on later edits on some frontends, so read the
+    // stored value here.
+    together.enabled = app.ui?.settings?.getSettingValue?.(TOGETHER_SETTING) !== false;
+    installTogether();
   },
 });

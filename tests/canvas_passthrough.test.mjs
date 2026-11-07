@@ -278,11 +278,12 @@ function stopsEveryKey({ event, body }) {
   return stop >= 0 && !/\breturn\b/.test(top.slice(0, stop));
 }
 
-test("no keydown handler stops every key, outside the two dialogs that own the keyboard", () => {
+test("no keydown handler stops every key, outside dialogs that own the keyboard", () => {
   // A handler that stops a key before looking at it also stops Ctrl + Enter,
   // so the workflow does not run from that box. A box uses keepKeyInField.
   const js = join(dirname(fileURLToPath(import.meta.url)), "..", "js");
   const ownTheKeyboard = [
+    "callout/index.js dialog", // the tile editor: Ctrl + Enter saves the text
     "shared/discard_prompt.mjs backdrop", // the keep or discard question
     "workflow_note/index.js overlay", // the note editor: Ctrl + Enter saves the note
   ];

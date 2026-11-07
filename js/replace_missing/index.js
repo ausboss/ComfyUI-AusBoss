@@ -8,7 +8,7 @@
 // node, carry translated widgets, remap links, and roll back on failure.
 // This is purely a graph rewrite; no third-party class name is ever
 // registered on the backend.
-import { app } from "/scripts/app.js";
+import { app } from "../../../scripts/app.js";
 import { linkSlots, restoreOutputLinks, snapshotLinks } from "../shared/graph_links.mjs";
 import { BRAND, notifyAusbossChange, showToast } from "../shared/index.mjs";
 import {

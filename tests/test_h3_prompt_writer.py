@@ -14,12 +14,15 @@ if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
     del sys.modules["nodes"]
 
 from nodes._h3_prompt_helpers import (
+    put_on_from_pictures,
     NO_SCRIPT,
     VOICE_NO_WORDS,
     add_task,
     clean_words,
     find_beats,
+    find_speech,
     join_sections,
+    place_lines,
     snap_cuts,
     split_sections,
     write_prompt,
@@ -27,7 +30,7 @@ from nodes._h3_prompt_helpers import (
 from nodes._h3_cast_helpers import Cast, number_pictures
 from nodes._h3_script_helpers import Moment, moment_sound, read_script, script_report, script_warning, timeline
 from nodes import node_h3_prompt_writer
-from nodes.node_h3_prompt_writer import AusBossH3PromptWriter, clip_frames, video_frames
+from nodes.node_h3_prompt_writer import AusBossH3PromptWriter, clip_frames, video_frames, with_sound_and_music
 
 SIX = """subject_definitions:
 <Subject 1> is the main person in <Picture 1>, with the same face.
@@ -636,6 +639,67 @@ class SoundWordTests(unittest.TestCase):
 
 
 class VideoJobTests(unittest.TestCase):
+    def test_change_something_keeps_the_video_person_and_changes_only_the_named_thing(self):
+        for job in ("outfit", "thing"):
+            text = write_prompt("He wears @1 in place of his blue cap.", seconds=8.0, jobs={1: job}, video="change something")
+            self.assertIn("<Subject 2> is the person in <Video 1>, kept as they are", text)
+            self.assertIn("[video editing] <Subject 2> wears <Subject 1> in place of his blue cap. Everything else in <Video 1> is kept.", text)
+            self.assertIn("Retain the look of <Video 1>.", text)
+            self.assertIn("<Subject 2> has the same words, mouth movements and moves as in <Video 1>.", text)
+            self.assertIn("The original sound of <Video 1> continues throughout.", text)
+            self.assertNotIn("selected for replacement", text)
+            self.assertNotIn("No other words are spoken.", text)
+
+    def test_change_something_reads_a_picture_left_as_person_as_what_he_puts_on(self):
+        # A newcomer leaves Picture 1 on its opening job, person, and types plainly.
+        for script in ("He wears @1 in place of his blue cap.", "He wears the propeller hat instead of his cap.",
+                       "He is wearing a @1 now.", "He puts on the red scarf."):
+            text = write_prompt(script, seconds=8.0, jobs={1: "person"}, video="change something")
+            self.assertIn("<Subject 1> is the outfit in <Picture 1>.", text)
+            self.assertIn("put only this outfit on <Subject 2>", text)
+            self.assertNotIn("<Subject 1> is the person in <Picture 1>", text)
+        text = write_prompt("He wears the propeller hat instead of his cap.", seconds=8.0, jobs={1: "person"}, video="change something")
+        self.assertIn("[video editing] <Subject 2> wears <Subject 1> instead of his cap.", text)
+
+    def test_change_something_keeps_a_person_picture_that_is_not_put_on(self):
+        self.assertEqual(put_on_from_pictures("@1 stands next to him.", {1: "person"}), ("@1 stands next to him.", {1: "person"}))
+        self.assertEqual(put_on_from_pictures("He waves.", {1: "person"}), ("He waves.", {1: "person"}))
+        # Two pictures and no @ typed: nothing is guessed.
+        self.assertEqual(put_on_from_pictures("He wears a hat.", {1: "person", 2: "person"}), ("He wears a hat.", {1: "person", 2: "person"}))
+        self.assertEqual(put_on_from_pictures("He wears @2 and waves at @1.", {1: "person", 2: "person"})[1], {1: "person", 2: "outfit"})
+
+    def test_change_something_keeps_the_clip_sound_with_the_switch_off(self):
+        node = AusBossH3PromptWriter()
+        frames = torch.zeros(40, 8, 8, 3)
+        hat = torch.zeros(1, 8, 8, 3)
+        self.assertTrue(node.write("He wears @1.", 6, picture_1=hat, video=frames, video_job="change something")[-1])
+        self.assertFalse(node.write("@1 dances.", 6, picture_1=hat, video=frames, video_job="copy its moves")[-1])
+        self.assertTrue(node.write("@1 dances.", 6, picture_1=hat, video=frames, video_job="copy its moves", clip_sound=True)[-1])
+        self.assertFalse(node.write("@1 dances.", 6, picture_1=hat, clip_sound=True)[-1])
+
+    def test_a_clip_that_keeps_its_sound_gets_no_score_from_the_music_box(self):
+        node = AusBossH3PromptWriter()
+        frames = torch.zeros(40, 8, 8, 3)
+        hat = torch.zeros(1, 8, 8, 3)
+        score = "a dark score with deep drum hits"
+        edit = node.write("He wears @1.", 6, picture_1=hat, video=frames, video_job="change something", music=score)[0]
+        swap = node.write("", 6, picture_1=hat, video=frames, video_job="swap the person", clip_sound=True, music=score)[0]
+        moves = node.write("@1 dances.", 6, picture_1=hat, video=frames, video_job="copy its moves", music=score)[0]
+        self.assertNotIn("dark score", edit)
+        self.assertNotIn("dark score", swap)
+        self.assertIn("dark score", moves.lower())
+
+    def test_change_something_with_nothing_typed_says_what_to_type(self):
+        with self.assertRaises(ValueError) as caught:
+            write_prompt("", seconds=8.0, jobs={1: "outfit"}, video="change something")
+        self.assertIn("Type what changes in the video", str(caught.exception))
+
+    def test_a_hat_with_no_person_picture_points_to_change_something(self):
+        for job in ("outfit", "thing"):
+            for video in ("swap the person", "copy its moves"):
+                cast = Cast(number_pictures({1: job}, video), video)
+                self.assertIn('pick the video job "change something"', cast.problem("He wears @1."))
+
     def test_copying_moves_keeps_the_performer_out(self):
         parts = parts_of("@1 dances on a rooftop.", jobs={1: "person"}, video="copy its moves")
         self.assertIn("<Subject 2> is the body motion in <Video 1>", parts["subject_definitions"])
@@ -669,12 +733,202 @@ class VideoJobTests(unittest.TestCase):
         self.assertIn("<Video 1>: partially_preserved", parts["retention_analysis"])
         self.assertIn("the background of <Picture 1> is not transferred", parts["retention_analysis"])
 
+    def test_a_connected_model_writes_the_new_persons_looks_in_a_swap(self):
+        from nodes._h3_cast_helpers import add_looks
+        asked = []
+
+        def describe(slot):
+            asked.append(slot)
+            return '"A man with curly brown hair, wearing glasses."\nExtra line.'
+
+        script = add_looks("Replace the guy with @1.", {1: "person"}, describe)
+        self.assertEqual(script, "Replace the guy with @1.\n@1 looks like a man with curly brown hair, wearing glasses")
+        self.assertEqual(asked, [1])
+        text = write_prompt(script, seconds=8.0, jobs={1: "person"}, video="swap the person")
+        self.assertIn("<Subject 2> has the defined appearance from <Picture 1>: a man with curly brown hair", text)
+        # A typed line wins, places and empty answers add nothing.
+        typed = "Replace the guy with @1.\n@1 looks like a tall woman."
+        self.assertEqual(add_looks(typed, {1: "person"}, describe), typed)
+        self.assertEqual(add_looks("Swap him for @1.", {1: "place"}, describe), "Swap him for @1.")
+        self.assertEqual(add_looks("Swap him for @1.", {1: "person"}, lambda slot: ""), "Swap him for @1.")
+        said = "a man with curly brown hair, wearing dark-framed glasses, and no visible beard or facial hair."
+        self.assertEqual(add_looks("Swap him for @1.", {1: "person"}, lambda slot: said),
+                         "Swap him for @1.\n@1 looks like a man with curly brown hair, wearing dark-framed glasses")
+
+    def test_a_swap_gets_the_firm_wording_without_a_looks_like_line(self):
+        text = write_prompt("Replace the guy with @1.", seconds=8.0, jobs={1: "person"}, video="swap the person")
+        self.assertIn("<Subject 2> has the face, hair and clothes of the person in <Picture 1>", text)
+        self.assertIn("stays present throughout, from the first frame", text)
+        self.assertIn("Do not show the guy in that role at any time", text)
+
+    def test_a_swap_with_a_model_adds_no_moments(self):
+        node = AusBossH3PromptWriter()
+        calls = []
+        import nodes.node_h3_prompt_writer as writer
+        real = writer.model_asker
+        writer.model_asker = lambda clip, image: (lambda question, longest: calls.append(question) or "a woman with a dark bob")
+        try:
+            text = node.write("Swap the woman for @1.", 6, clip=object(), picture_1=torch.zeros(1, 8, 8, 3),
+                              video=torch.zeros(40, 8, 8, 3), video_job="swap the person")[0]
+        finally:
+            writer.model_asker = real
+        self.assertEqual(len(calls), 1)
+        self.assertIn("a woman with a dark bob", text)
+        self.assertNotIn("[Shot 2]", text)
+
+    def test_a_plain_swap_sentence_names_only_who_goes(self):
+        for script, who in (
+            ("Replace the man in the red shirt with @1.", "the man in the red shirt"),
+            ("swap the guy with @1", "the guy"),
+            ("swap out the guy in the hat for @1 in the clip", "the guy in the hat"),
+            ("the cashier is now @1", "the cashier"),
+            ("make the dancer look like @1", "the dancer"),
+            ("swap @1 in for the drummer", "the drummer"),
+            ("Replace the woman with black hair with @1.\n@1 looks like a woman with platinum hair.", "the woman with black hair"),
+        ):
+            text = write_prompt(script, seconds=8.0, jobs={1: "person"}, video="swap the person")
+            self.assertIn(f"<Subject 1> is {who} in <Video 1>, selected for replacement.", text)
+            self.assertNotIn("@1", text)
+
     def test_typed_words_in_a_swap_say_who_goes(self):
         parts = parts_of("The child in the seat.", jobs={1: "person"}, video="swap the person")
         self.assertIn("<Subject 1> is the child in the seat in <Video 1>", parts["subject_definitions"])
         self.assertIn("replace the child in the seat with <Subject 2>", parts["retention_analysis"])
         self.assertIn("Everyone else stays", parts["detailed_description"])
         self.assertNotIn("Show one person", parts["detailed_description"])
+
+    def test_a_swap_with_two_people_puts_each_in_one_place(self):
+        parts = parts_of("", jobs={1: "person", 2: "person"}, video="swap the person")
+        self.assertIn("Replace <Subject 1> with <Subject 3> and <Subject 2> with <Subject 4>", parts["summary"])
+        self.assertIn("<Subject 1> is the person on the left in <Video 1>", parts["subject_definitions"])
+        self.assertIn("<Subject 2> is the person on the right in <Video 1>", parts["subject_definitions"])
+        self.assertIn("<Subject 4> is the person in <Picture 2>", parts["subject_definitions"])
+        self.assertIn("replace the person on the right with <Subject 4>", parts["retention_analysis"])
+        self.assertIn("change only the people", parts["retention_analysis"])
+        self.assertIn("<Subject 4> occupies the starting position of the person on the right", parts["detailed_description"])
+        self.assertIn("<Subject 4> has the face, hair and clothes of the person in <Picture 2>", parts["detailed_description"])
+        self.assertNotIn("Show one person", parts["detailed_description"])
+
+    def test_a_swap_with_two_people_reads_who_goes_from_the_script(self):
+        for script in ("@2 is the woman in red. @1 replaces the man in the hat", "The man in the hat.\nThe woman in red."):
+            parts = parts_of(script, jobs={1: "person", 2: "character sheet"}, video="swap the person")
+            self.assertIn("replace the man in the hat with <Subject 3>", parts["retention_analysis"])
+            self.assertIn("replace the woman in red with <Subject 4>", parts["retention_analysis"])
+            self.assertNotIn("@", join_sections(parts))
+
+    def test_one_swap_takes_the_at_out_of_who_goes(self):
+        parts = parts_of("@1 replaces the child in the seat", jobs={1: "person"}, video="swap the person")
+        self.assertIn("replace the child in the seat with <Subject 2>", parts["retention_analysis"])
+
+    def test_a_swap_reads_who_goes_out_of_a_longer_line(self):
+        parts = parts_of("Elon is @1, he replaces the person at the counter", jobs={1: "person"}, video="swap the person")
+        self.assertIn("<Subject 1> is the person at the counter in <Video 1>", parts["subject_definitions"])
+        self.assertNotIn("Elon", join_sections(parts))
+        parts = parts_of("Elon is @1", jobs={1: "person"}, video="swap the person")
+        self.assertIn("<Subject 1> is the original person in <Video 1>", parts["subject_definitions"])
+        script = "Elon is @1, he replaces the man on the left. Sam is @2, she takes the place of the woman in red"
+        parts = parts_of(script, jobs={1: "person", 2: "person"}, video="swap the person")
+        self.assertIn("replace the man on the left with <Subject 3>", parts["retention_analysis"])
+        self.assertIn("replace the woman in red with <Subject 4>", parts["retention_analysis"])
+
+    def test_a_swap_carries_the_words_in_quotes_onto_the_lips(self):
+        script = 'Elon is @1, he replaces the person at the counter.\n@1 says "Welcome in, what can I get you?"'
+        parts = parts_of(script, jobs={1: "person"}, video="swap the person")
+        self.assertIn("<Subject 1> is the person at the counter in <Video 1>", parts["subject_definitions"])
+        line = parts["detailed_description"]
+        self.assertIn("<d>[English] Welcome in, what can I get you?</d>", line)
+        self.assertIn("<Subject 2> (S1) says, each word landing exactly on the lip movement of <Video 1>", line)
+        self.assertNotIn("Elon", join_sections(parts))
+
+    def test_a_swap_gives_each_named_person_their_own_words(self):
+        script = (
+            "Altman is @1, the man on the left. Dario is @2, the man on the right.\n"
+            'Dario says "We should talk."\nAltman says "Again?"\nHe says "Fine."'
+        )
+        parts = parts_of(script, jobs={1: "person", 2: "person"}, video="swap the person")
+        self.assertIn("replace the man on the left with <Subject 3>", parts["retention_analysis"])
+        self.assertIn("replace the man on the right with <Subject 4>", parts["retention_analysis"])
+        line = parts["detailed_description"]
+        self.assertIn("<Subject 4> (S1) says, each word landing exactly on the lip movement of <Video 1>, <d>[English] We should talk.</d>", line)
+        self.assertIn("<Subject 3> (S2) says, each word landing exactly on the lip movement of <Video 1>, <d>[English] Again?</d>", line)
+        self.assertIn("<Subject 3> (S2) says, each word landing exactly on the lip movement of <Video 1>, <d>[English] Fine.</d>", line)
+        parts = parts_of("Altman is @1, the man on the left, Dario is @2, the man on the right", jobs={1: "person", 2: "person"}, video="swap the person")
+        self.assertIn("replace the man on the left with <Subject 3>", parts["retention_analysis"])
+
+    def test_a_thing_in_a_swap_speaks_from_off_screen(self):
+        script = '@1 replaces the man at the till.\nThe card reader beeps and says "Card declined."\n@1 says "Again?"'
+        line = parts_of(script, jobs={1: "person"}, video="swap the person")["detailed_description"]
+        self.assertIn("card reader (S2) says from off screen, <d>[English] Card declined.</d> Nobody on screen moves", line)
+        self.assertIn("<Subject 2> (S1) says, each word landing exactly on the lip movement of <Video 1>, <d>[English] Again?</d>", line)
+
+    def test_a_person_off_screen_in_a_swap_gets_their_own_voice(self):
+        for said_by, voice in (('A woman off screen says', "A woman"), ('The cashier, off camera, says', "The cashier"),
+                               ('Someone behind the camera yells', "Someone"), ('Mom (O.S.) says', "Mom")):
+            script = f'@1 replaces the man at the till.\n{said_by} "Card declined."\n@1 says "Again?"'
+            line = parts_of(script, jobs={1: "person"}, video="swap the person")["detailed_description"]
+            self.assertIn(f"{voice} (S2) says from off screen, <d>[English] Card declined.</d> Nobody on screen moves", line)
+            self.assertIn("<Subject 2> (S1) says, each word landing exactly on the lip movement of <Video 1>, <d>[English] Again?</d>", line)
+            self.assertNotIn("<Subject 2> (S1) says in an off-screen voiceover", line)
+
+    def test_a_person_off_screen_is_not_the_person_on_screen(self):
+        line = parts_of('@1 stands at the till.\nA woman off screen says "Card declined."\n@1 says "Again?"', jobs={1: "person"})["detailed_description"]
+        self.assertIn("a woman (S2) says from off screen, <d>[English] Card declined.</d>", line)
+        self.assertIn("<Subject 1> (S1) says, <d>[English] Again?</d>", line)
+        self.assertNotIn("woman stays silent", line)
+
+    def test_a_thing_marked_off_screen_speaks_for_itself_in_every_mode(self):
+        for video in ("", "copy its moves"):
+            script = '@1 stands at the till.\nA card reader off screen says "Card declined."\n@1 says "Again?"'
+            line = parts_of(script, jobs={1: "person"}, video=video)["detailed_description"]
+            self.assertIn("a card reader (S2) says from off screen, <d>[English] Card declined.</d> Nobody on screen moves", line)
+            self.assertNotIn("<Subject 1> (S1) says in an off-screen voiceover", line)
+
+    def test_an_unnamed_voiceover_stays_the_main_persons(self):
+        for script in ('@1 stands at the till.\nVoiceover: "I was broke."', '@1 stands at the till.\n@1, off screen, says "I was broke."',
+                       '@1 stands at the till.\nShe says off camera "I was broke."'):
+            line = parts_of(script, jobs={1: "person"})["detailed_description"]
+            self.assertIn("<Subject 1> (S1) says in an off-screen voiceover, <d>[English] I was broke.</d>", line)
+
+    def test_a_swap_can_keep_the_clips_clothes(self):
+        for script in ('@1 replaces the girl in the hoodie and keeps her outfit.', "@1 replaces the girl in the hoodie, in the clip's clothes.",
+                       '@1 replaces the girl in the hoodie.\nKeep the clothes from the video.'):
+            parts = parts_of(script, jobs={1: "person"}, video="swap the person")
+            self.assertIn("<Subject 1> is the girl in the hoodie in <Video 1>, selected for replacement.", parts["subject_definitions"])
+            self.assertIn("<Subject 2> is the person in <Picture 1>, with the same face and hair, wearing the clothes of the girl in the hoodie in <Video 1>.",
+                          parts["subject_definitions"])
+            self.assertIn("the clothes of the girl in the hoodie in <Video 1> stay as they are", parts["retention_analysis"])
+            self.assertNotIn("same face, hair and clothes", parts["subject_definitions"])
+
+    def test_a_swap_wears_the_pictures_clothes_unless_told(self):
+        for script in ('@1 replaces the girl in the hoodie.', '@1 replaces the girl in the hoodie and keeps her own clothes.'):
+            parts = parts_of(script, jobs={1: "person"}, video="swap the person")
+            self.assertIn("<Subject 2> is the person in <Picture 1>, with the same face, hair and clothes.", parts["subject_definitions"])
+
+    def test_how_a_swap_line_is_said_stays_out_of_who_says_it(self):
+        script = '@1 replaces the man at the till.\nThe card reader says in a flat robot voice "Card declined."'
+        line = parts_of(script, jobs={1: "person"}, video="swap the person")["detailed_description"]
+        self.assertIn("card reader (S1) says in a flat robot voice from off screen, <d>[English] Card declined.</d>", line)
+        self.assertNotIn("reader says in", line)
+
+    def test_a_swap_line_keeps_the_decimals_of_its_time(self):
+        for script in ('@1 replaces the man at the till.\n3.2s: @1 says "Again?"', '@1 replaces the man at the till.\nAt 3.2 seconds @1 says "Again?"',
+                       '@1 replaces the man at the till.\nThe card reader, at 3.2s, says "Card declined."'):
+            line = parts_of(script, jobs={1: "person"}, video="swap the person", seconds=8)["detailed_description"]
+            self.assertIn("At 00:03.200,", line)
+        self.assertEqual(read_script("1.5s: she waves").moments[-1].at, 1.5)
+
+    def test_a_swap_line_that_raps_keeps_the_verb_out_of_who_goes(self):
+        parts = parts_of('@1 replaces the man on the left.\n@2 replaces the man on the right and raps "Yo, yo."', jobs={1: "person", 2: "person"}, video="swap the person")
+        self.assertIn("replace the man on the right with <Subject 4>", parts["retention_analysis"])
+        self.assertNotIn("and raps", join_sections(parts))
+        self.assertIn("replace the man on the left with <Subject 3>", parts["retention_analysis"])
+        self.assertIn("<Subject 4> (S1) says, each word landing", parts["detailed_description"])
+
+    def test_a_swap_with_a_voice_takes_its_words(self):
+        parts = parts_of('@1 replaces the man in the hat. He says "Hi there."', jobs={1: "person"}, video="swap the person", voice=True)
+        self.assertIn("replace the man in the hat with <Subject 2>", parts["retention_analysis"])
+        self.assertIn("voice timbre referenced from <Audio 1>, each word landing exactly on the lip movement of <Video 1>", parts["detailed_description"])
+        self.assertIn("<d>[English] Hi there.</d>", parts["detailed_description"])
 
     def test_keeping_going_needs_no_words_and_no_picture(self):
         parts = parts_of("", jobs={}, video="keep going")
@@ -915,7 +1169,8 @@ class NodeTests(unittest.TestCase):
 
     def test_connected_means_on(self):
         node = AusBossH3PromptWriter()
-        text, *pictures, video, video_sound, voice, song, under, frames, width, height = node.write(LINES, 6, picture_1=PICTURE)
+        text, *pictures, video, video_sound, voice, song, under, frames, width, height, keeps = node.write(LINES, 6, picture_1=PICTURE)
+        self.assertFalse(keeps)
         self.assertIs(pictures[0], PICTURE)
         self.assertEqual(pictures[1:], [None, None, None])
         self.assertIsNone(video)
@@ -958,7 +1213,7 @@ class NodeTests(unittest.TestCase):
 
     def test_with_a_voice_the_song_goes_under_the_clip(self):
         audio = self.audio(30.0)
-        text, *_, voice, song, under, _, _, _ = AusBossH3PromptWriter().write(SAYS, 10, picture_1=PICTURE, voice=self.audio(), song=audio)
+        text, *_, voice, song, under, _, _, _, _ = AusBossH3PromptWriter().write(SAYS, 10, picture_1=PICTURE, voice=self.audio(), song=audio)
         self.assertNotIn("<Audio 2>", text)
         self.assertIsNotNone(voice)
         self.assertIsNone(song)
@@ -980,7 +1235,7 @@ class NodeTests(unittest.TestCase):
         self.assertLess(self.under_level(0.01), 0.01)
 
     def test_without_a_voice_the_song_goes_to_h3(self):
-        text, *_, song, under, _, _, _ = AusBossH3PromptWriter().write(LINES, 6, picture_1=PICTURE, song=self.audio())
+        text, *_, song, under, _, _, _, _ = AusBossH3PromptWriter().write(LINES, 6, picture_1=PICTURE, song=self.audio())
         self.assertIsNotNone(song)
         self.assertIsNone(under)
         self.assertIn("<Audio 1>: fully_copy", text)
@@ -998,7 +1253,7 @@ class NodeTests(unittest.TestCase):
     def test_a_pasted_prompt_needs_nothing_connected(self):
         output = AusBossH3PromptWriter().write(SIX, 6)
         self.assertEqual(output[0], SIX)
-        self.assertEqual(output[-2:], (1344, 756))
+        self.assertEqual(output[-3:-1], (1344, 756))
 
     def test_a_video_comes_out_with_its_job(self):
         frames = torch.zeros(100, 8, 8, 3)
@@ -1028,9 +1283,9 @@ class NodeTests(unittest.TestCase):
         tall = torch.zeros(1, 736, 560, 3)
         wide = torch.zeros(1, 480, 832, 3)
         video = torch.zeros(100, 720, 1280, 3)
-        self.assertEqual(node.write("@1 sits in @2.", 6, picture_1=tall, picture_2=wide, job_2="place")[-2:], (560, 736))
-        self.assertEqual(node.write("@2 waves.", 6, picture_2=wide, job_2="person")[-2:], (832, 480))
-        self.assertEqual(node.write("@1 dances.", 6, picture_1=tall, video=video)[-2:], (1280, 720))
+        self.assertEqual(node.write("@1 sits in @2.", 6, picture_1=tall, picture_2=wide, job_2="place")[-3:-1], (560, 736))
+        self.assertEqual(node.write("@2 waves.", 6, picture_2=wide, job_2="person")[-3:-1], (832, 480))
+        self.assertEqual(node.write("@1 dances.", 6, picture_1=tall, video=video)[-3:-1], (1280, 720))
 
     def test_a_short_clip_keeps_all_it_has(self):
         frames = torch.zeros(20, 2, 2, 3)
@@ -1049,6 +1304,221 @@ class NodeTests(unittest.TestCase):
         text = AusBossH3PromptWriter().write(LINES, 6, picture_1=PICTURE, song=self.audio(), cut_on_beat=False)[0]
         self.assertIn("At 00:02.000", text)
         self.assertIn("<Audio 1>: fully_copy", text)
+
+
+class MomentLineTests(unittest.TestCase):
+    """The timeline drags a moment's start into the line it was typed on."""
+
+    def test_each_moment_names_its_typed_line(self):
+        text = "\n\n@1 walks in. Then she sits.\n3s: @1 stops at the fridge.\n\n6s: a close-up of her hand.\nmusic: piano"
+        lines = [(moment["line"], moment["start"]) for moment in script_report(text, 8)["moments"]]
+        self.assertEqual(lines, [(2, 0.0), (None, 1.5), (3, 3.0), (5, 6.0)])
+
+    def test_a_held_opening_has_no_line(self):
+        report = script_report("3s: @1 waves.", 8)
+        self.assertEqual([moment["line"] for moment in report["moments"]], [None, 0])
+
+
+class SoundAndMusicBoxTests(unittest.TestCase):
+    def write(self, script, **boxes):
+        picture = torch.zeros(1, 8, 8, 3)
+        return AusBossH3PromptWriter().write(script, 8, picture_1=picture, **boxes)[0]
+
+    def part(self, text, name):
+        return text.split(f"{name}:\n", 1)[1].split("\n\n", 1)[0]
+
+    def test_the_boxes_fill_the_sound_and_music_parts(self):
+        text = self.write("she runs", sound="rain on a tin roof", music="slow sad piano")
+        self.assertEqual(self.part(text, "overall_soundscape"), "Rain on a tin roof.")
+        self.assertEqual(self.part(text, "non_diegetic_music"), "Slow sad piano.")
+
+    def test_empty_boxes_change_nothing(self):
+        self.assertEqual(self.write("she runs"), self.write("she runs", sound="", music="  "))
+
+    def test_a_box_is_the_same_as_the_line_typed_on_its_own(self):
+        self.assertEqual(self.write("she runs", music="slow sad piano"), self.write("she runs\n\nmusic: slow sad piano"))
+
+    def test_the_boxes_leave_a_pasted_prompt_alone(self):
+        pasted = "subject_definitions:\na\n\nsummary:\nb\n\nretention_analysis:\nc\n\ndetailed_description:\nd\n\noverall_soundscape:\ne\n\nnon_diegetic_music:\nf"
+        self.assertIsNotNone(split_sections(pasted))
+        self.assertEqual(with_sound_and_music(pasted, "rain", "piano"), pasted)
+
+    def test_the_boxes_are_appended_after_every_older_input(self):
+        names = list(AusBossH3PromptWriter.INPUT_TYPES()["optional"])
+        self.assertEqual(names[-3:], ["sound", "music", "clip_sound"])
+
+
+def spoken(stretches, seconds, rate=16000, noise=0.002, seed=3):
+    """A mono track: a voice-band buzz over each (start, end), soft hiss elsewhere."""
+    noise_maker = np.random.default_rng(seed)
+    times = np.arange(int(seconds * rate)) / rate
+    track = noise * noise_maker.standard_normal(len(times))
+    for start, end in stretches:
+        inside = (times >= start) & (times < end)
+        syllables = 0.5 + 0.5 * np.sin(2 * np.pi * 4 * times[inside]) ** 2  # Words rise and fall.
+        track[inside] += 0.2 * syllables * (np.sin(2 * np.pi * 220 * times[inside]) + 0.6 * np.sin(2 * np.pi * 880 * times[inside]))
+    return track.astype(np.float32)
+
+
+# The "state property" clip: who said what and when, read from its words.
+STATE = (
+    '@1 replaces the older man in the white pickup truck.\n'
+    'A man off screen says "Who told you you could fish here?"\n'
+    'The older man says "I thought it was state property."\n'
+    'A man off screen says "State?"\n'
+    'He says "Yeah."\n'
+    'A man off screen says "This?"\n'
+    'He says "Yeah."'
+)
+STATE_TIMES = [(0.08, 1.94), (2.28, 3.44), (4.66, 4.9), (5.32, 5.52), (5.86, 6.22), (6.32, 6.66)]
+# What find_speech heard in that clip's real sound: (start, end, pitch in Hz, seconds of clear voice). The man
+# filming sits near 270 Hz and the man in the truck near 150 Hz. Whisper put the lines at 0.08, 2.28, 4.66,
+# 5.32, 5.86 and 6.32 s.
+STATE_HEARD = [
+    (0.0, 1.13, 204, 0.5), (1.5, 1.66, 179, 0.1), (1.74, 1.91, 355, 0.1), (2.21, 2.41, 166, 0.14), (2.53, 2.92, 154, 0.3),
+    (3.01, 3.46, 160, 0.3), (4.59, 4.91, 269, 0.24), (5.27, 5.53, 125, 0.16), (5.83, 6.2, 296, 0.28), (6.45, 6.67, 121, 0.12),
+]
+
+
+def heard(stretches):
+    return [(start, end, None if hz is None else float(np.log2(hz)), voiced) for start, end, hz, voiced in stretches]
+
+
+def plain(times, hz=150.0):
+    """Stretches at times, all in one voice."""
+    return heard([(start, end, hz, (end - start) * 0.6) for start, end in times])
+
+
+SWAP_JOBS = {"jobs": {1: "person"}, "video": "swap the person", "seconds": 6.8}
+
+
+class ClipSoundTests(unittest.TestCase):
+    def test_speech_is_found_where_the_words_are(self):
+        found = find_speech(spoken(STATE_TIMES, 7.0), 16000)
+        self.assertEqual(len(found), len(STATE_TIMES))
+        for (start, end), (heard_from, heard_to, pitch, voiced) in zip(STATE_TIMES, found):
+            self.assertAlmostEqual(heard_from, start, delta=0.06)
+            self.assertAlmostEqual(heard_to, end, delta=0.08)
+            self.assertAlmostEqual(2 ** pitch, 220, delta=8)
+            self.assertGreater(voiced, 0)
+
+    def test_silence_has_no_speech(self):
+        self.assertEqual(find_speech(np.zeros(16000 * 3, np.float32), 16000), [])
+        self.assertEqual(find_speech(spoken([], 3.0), 16000), [])
+
+    def test_a_breath_inside_a_line_stays_in_the_line(self):
+        found = find_speech(spoken([(0.5, 1.2), (1.35, 2.0), (3.0, 4.0)], 5.0), 16000)
+        starts = place_lines(found, [("Let me tell you about the night", "new"), ("It was cold", "new")])
+        self.assertAlmostEqual(starts[0], 0.5, delta=0.06)
+        self.assertAlmostEqual(starts[1], 3.0, delta=0.06)
+
+    def test_lines_start_after_the_longest_quiet(self):
+        stretches = plain([(0.0, 0.7), (1.0, 1.6), (2.3, 3.0), (3.2, 4.0)])
+        self.assertEqual(place_lines(stretches, [("Five in the morning and do ten", "new"), ("So this is not a joke", "new")]), [0.0, 2.3])
+        self.assertIsNone(place_lines(stretches, [("a", "new")] * 5))
+        self.assertIsNone(place_lines([], [("a", "new")]))
+
+    def test_two_voices_taking_turns_are_told_apart_by_pitch(self):
+        lines = [("Who told you you could fish here?", "other"), ("I thought it was state property.", "new"), ("State?", "other"),
+                 ("Yeah.", "new"), ("This?", "other"), ("Yeah.", "new")]
+        starts = place_lines(heard(STATE_HEARD), lines)
+        for start, (truth, _) in zip(starts, STATE_TIMES):
+            self.assertAlmostEqual(start, truth, delta=0.15)
+
+    def test_only_the_new_persons_lines_stay_timed_from_the_sound(self):
+        parts = parts_of(STATE, clip_sound=True, speech=heard(STATE_HEARD), **SWAP_JOBS)
+        line = parts["detailed_description"]
+        for gone in ("Who told you", "State?", "This?", "Nobody on screen moves", "off screen"):
+            self.assertNotIn(gone, line)
+        self.assertIn("<Subject 2> keeps the lips closed whenever <Subject 2> is not saying a line of <Subject 2>'s own.", line)
+        self.assertIn("At 00:02.210, <Subject 2> (S1) says, each word landing exactly on the lip movement of <Video 1>, "
+                      "<d>[English] I thought it was state property.</d>", line)
+        self.assertIn("At 00:05.270, <Subject 2> (S1) says", line)
+        self.assertIn("At 00:06.450, <Subject 2> (S1) says", line)
+        self.assertNotIn("No other words are spoken", parts["overall_soundscape"])
+
+    def test_without_the_clips_sound_every_line_is_written(self):
+        line = parts_of(STATE, **SWAP_JOBS)["detailed_description"]
+        self.assertIn("Who told you you could fish here?", line)
+        self.assertIn("Nobody on screen moves their lips to these words.", line)
+        self.assertNotIn("keeps the lips closed whenever", line)
+
+    def test_someone_who_stays_is_left_out_and_the_new_person_says_nothing(self):
+        script = (
+            '@1 replaces the man in the black jacket at the counter.\n'
+            'The man in the cap at the left edge says "Why would we take EBT here? We don\'t sell groceries."\n'
+            'The man in the cap says "Maybe that\'s something y\'all need to look into."'
+        )
+        parts = parts_of(script, clip_sound=True, speech=plain([(0.0, 2.58), (3.76, 4.74)]), **SWAP_JOBS)
+        line = parts["detailed_description"]
+        self.assertNotIn("<d>", line)
+        self.assertNotIn("EBT", line)
+        self.assertIn("<Subject 2> keeps the lips closed and says nothing the whole time.", line)
+
+    def test_a_short_name_for_who_goes_keeps_their_line(self):
+        for said_by in ("The man in the car says", "The man says", "The man in the police car says"):
+            script = f'@1 replaces the man in the back of the police car.\n{said_by} "I did nothing wrong."'
+            line = parts_of(script, clip_sound=True, speech=plain([(0.5, 2.0)]), **SWAP_JOBS)["detailed_description"]
+            self.assertIn("<Subject 2> (S1) says, each word landing exactly on the lip movement of <Video 1>, <d>[English] I did nothing wrong.</d>", line)
+        line = parts_of('@1 replaces the man in the back of the police car.\nThe man in the cap says "Move."', clip_sound=True,
+                        speech=plain([(0.5, 2.0)]), **SWAP_JOBS)["detailed_description"]
+        self.assertNotIn("Move.", line)
+
+    def test_a_swap_with_no_words_typed_speaks_as_the_video_does(self):
+        for script in ("@1 replaces the man in the hat.", ""):
+            parts = parts_of(script, clip_sound=True, speech=plain([(0.4, 1.9), (2.3, 4.0)]), **SWAP_JOBS)
+            line = parts["detailed_description"]
+            self.assertIn("<Subject 2> speaks as in <Video 1>, each word landing exactly on the lip movement of <Video 1>.", line)
+            self.assertNotIn("says nothing", line)
+            self.assertNotIn("keeps the lips closed", line)
+            self.assertEqual(parts["overall_soundscape"], "The original sound of <Video 1> continues throughout.")
+
+    def test_no_words_typed_and_no_speech_heard_says_nothing_of_the_lips(self):
+        line = parts_of("@1 replaces the man in the hat.", clip_sound=True, speech=[], **SWAP_JOBS)["detailed_description"]
+        self.assertNotIn("lips", line)
+        self.assertNotIn("speaks as in", line)
+
+    def test_loud_sound_with_no_voice_does_not_make_them_speak(self):
+        # The subway clip: one long stretch of train noise, loud in the voice band, no clear pitch.
+        noise = heard([(1.1, 5.42, None, 0.0)])
+        line = parts_of("@1 replaces the woman on the platform.", clip_sound=True, speech=noise, **SWAP_JOBS)["detailed_description"]
+        self.assertNotIn("speaks as in", line)
+        self.assertNotIn("lips", line)
+        a_word = heard([(1.0, 1.3, 150.0, 0.2)])  # A cough or one short sound: under half a second of voice.
+        line = parts_of("@1 replaces the woman on the platform.", clip_sound=True, speech=a_word, **SWAP_JOBS)["detailed_description"]
+        self.assertNotIn("speaks as in", line)
+
+    def test_a_typed_sound_wins_over_the_clips_sound(self):
+        parts = parts_of("@1 replaces the man in the hat.\nsound: rain on the roof", clip_sound=True, speech=plain([(0.4, 1.9)]), **SWAP_JOBS)
+        self.assertIn("rain on the roof", parts["overall_soundscape"].lower())
+
+    def test_a_typed_time_wins_over_the_sound(self):
+        script = '@1 replaces the man at the till.\n3.5s: @1 says "Again?"'
+        line = parts_of(script, clip_sound=True, speech=plain([(1.0, 2.0)]), **SWAP_JOBS)["detailed_description"]
+        self.assertIn("At 00:03.500, <Subject 2> (S1) says", line)
+
+    def test_too_little_speech_keeps_the_writers_own_timing(self):
+        line = parts_of(STATE, clip_sound=True, speech=plain([(0.1, 6.5)]), **SWAP_JOBS)["detailed_description"]
+        self.assertIn("<d>[English] I thought it was state property.</d>", line)
+        self.assertNotIn("Who told you", line)
+
+    def test_the_node_times_a_swap_from_the_videos_sound(self):
+        rate = 16000
+        sound = {"waveform": torch.from_numpy(spoken(STATE_TIMES, 7.0, rate)).reshape(1, 1, -1), "sample_rate": rate}
+        frames = torch.zeros(163, 8, 8, 3)
+        node = AusBossH3PromptWriter()
+        on = node.write(STATE, 6, picture_1=PICTURE, video=frames, video_sound=sound, video_job="swap the person", clip_sound=True)
+        self.assertIn("At 00:02.2", on[0])
+        self.assertNotIn("Who told you", on[0])
+        self.assertIsNone(on[6])  # A swap still sends H3 none of the video's sound itself.
+        off = node.write(STATE, 6, picture_1=PICTURE, video=frames, video_sound=sound, video_job="swap the person")
+        self.assertIn("Who told you", off[0])
+        hat = node.write("@1 replaces the man in the hat.", 6, picture_1=PICTURE, video=frames, video_sound=sound, video_job="swap the person",
+                         clip_sound=True)[0]
+        self.assertIn("<Subject 2> speaks as in <Video 1>", hat)
+        self.assertNotIn("says nothing", hat)
+        moves = node.write('@1 dances.', 6, picture_1=PICTURE, video=frames, video_sound=sound, video_job="copy its moves", clip_sound=True)
+        self.assertEqual(moves[0], node.write('@1 dances.', 6, picture_1=PICTURE, video=frames, video_sound=sound, video_job="copy its moves")[0])
 
 
 if __name__ == "__main__":

@@ -16,8 +16,8 @@
 // files to this site?"). A page can neither word that question nor skip it,
 // so the node says what it means here while the file explorer is open.
 
-import { api } from "/scripts/api.js";
-import { app } from "/scripts/app.js";
+import { api } from "../../../scripts/api.js";
+import { app } from "../../../scripts/app.js";
 import { BRAND, chainCallback, chainHandler, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "../shared/index.mjs";
 import { fillNodeHeight } from "../shared/panel_layout.mjs";
 import { isForeignRun } from "../shared/prompt_scope.mjs";

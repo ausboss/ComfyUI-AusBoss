@@ -9,8 +9,8 @@ song.
 
 ## How to write it
 
-Every line is a moment, and the lines play in order in one shot. The rows under
-the box show the second each one starts, before you spend a run.
+Every line is a moment, and the lines play in order in one shot. The bar under
+the box shows the second each one starts, before you spend a run.
 
 ```
 @1 walks through a crowded night market toward us, looking over her shoulder.
@@ -27,6 +27,29 @@ The node also fills in two things H3 misses by itself. A moment gets its own
 sound when it names something that makes one, like rain, footsteps or thunder.
 And what changes stays changed: when the lights go out, the next moments in that
 place say they are still out.
+
+## The words box and the bar
+
+The words the node acts on light up as you type: `@1` in teal (amber when
+nothing is plugged in there), a time like `3s:` in amber, words in quotes in
+yellow, and a blank line shows as a line marked CUT. Hover the `?` beside
+"What happens" for a short list of everything you can type.
+
+Typing `@` lists the pictures you plugged in, with their job. The first letters
+of a line offer `sound:`, `music:`, `camera:` or `look:`, and after `camera:` or
+`look:` you get the node's own choices. Tab picks one, Esc closes the list.
+
+The bar under the box is the clip from start to end, one block for each moment
+with the pictures it names:
+
+- **Drag a block** along the bar to move its line. The times and cuts stay
+  where they are.
+- **Drag the left edge** of a block to set when that moment starts. The node
+  types the time (`3s:`) into its line for you.
+- **Click the left edge** to add or take out a cut there.
+- **Click a block** to pick out its line in the words, ready to change.
+
+Everything on the bar changes the words, so Ctrl+Z undoes it.
 
 ## Give each picture a job
 
@@ -66,14 +89,42 @@ Connect a video, then pick what it is for:
   `@1 dances on a rooftop at sunset.` The clothes can come from words or from an
   outfit picture.
 - **swap the person**: your person takes over from the one in the video. The
-  place, the moves and the camera stay. You can leave the box empty.
+  place, the moves and the camera stay. With two person pictures, the first
+  replaces the person on the left and the second replaces the person on the
+  right. To choose who goes, type one line per picture, for example
+  `@1 replaces the man in the hat`. Put spoken words in quotes and name
+  the speaker. If a voice comes from off screen, say so in the line.
+- **change something**: keep the video and describe the change, for example
+  `She wears a red raincoat`. Be specific about what should change.
 - **keep going**: more of the same clip, from where it ends. Say what happens
   next, or leave the box empty and it just carries on. Connect the whole clip:
   the node sends H3 only the last 2 seconds.
 - **new voice**: the same clip with a new voice. Connect the voice, and type
   what they say in quotes.
 
-Swap and new voice ignore **Seconds** and keep the video's own length.
+If your swap keeps the video's audio, connect it to **video_sound** and turn on
+**More → Clip's own sound**. The writer uses the clip to estimate when each
+line is spoken and keeps only the incoming people's words in the swap prompt.
+Type a time such as `3.2s:` to set it yourself. This switch starts off.
+
+With an active video, **swap the person**, **change something** and **new voice**
+use the incoming clip to set the frame count. **Length** says **From the clip**;
+set the clip's length upstream. The bar does not show a guessed duration or offer
+retiming controls for these jobs. H3 rounds the frame count to a supported length.
+Other video jobs, or turning the video off, use the editable **Length** again.
+
+For a swap, you can optionally describe the replacement on its own line:
+
+```
+the woman with black hair walking toward the camera
+@1 looks like a woman with blonde hair and a black hoodie.
+```
+
+The first line chooses who goes; the `@1 looks like` line describes the connected
+replacement person in Picture 1. Use the number of that picture, with its job set
+to **person** or **character sheet**. This helps describe the intended appearance;
+it does not guarantee an exact identity match. The line is optional: existing
+workflows and scripts keep their previous behavior when it is absent.
 
 ## What you can type
 
@@ -87,8 +138,9 @@ Swap and new voice ignore **Seconds** and keep the video's own length.
 - **Speech**: put the words in quotes: `@1 says "we are late."` Each person
   keeps their own voice.
 - **Words on a sign**: name the sign: `a neon sign reads "OPEN"`.
-- **Sound and music**: `sound: rain on a tin roof` and `music: slow sad piano`.
-  With no `music:` line you get no music, and the clip comes out quieter.
+- **Sound and music**: use the **Sound** and **Music** boxes, or type
+  `sound: rain on a tin roof` and `music: slow sad piano`. With no music you get
+  none, and the clip comes out quieter.
 - **Camera and look**: pick them on the node, or type your own:
   `camera: slow push in`, `look: a 1970s film`.
 
@@ -101,8 +153,10 @@ they are.
 ## What you can plug in
 
 - **picture_1** to **picture_4**: your pictures.
-- **video** and **video_sound**: the frames and the sound of a video. Only keep
-  going uses the sound.
+- **video** and **video_sound**: the frames and the sound of a video. **keep
+  going** sends the last part of the sound to H3. A swap uses the sound to find
+  speech timing when **Clip's own sound** is on. To keep source audio in a swap
+  or **change something**, route the original loader's audio to the save node.
 - **voice**: a clip of someone talking, about 10 seconds, plus words in quotes
   in your script. It goes to whoever speaks first. It works with your own voice,
   or one you have permission to use. Put the spoken line last: with time left
@@ -126,19 +180,29 @@ H3's width and height: the clip takes the shape of your video, or else of your
 first picture. **song_under** goes into `audio2` of Audio Merge, with the clip's
 sound in `audio1`.
 
+**keeps_clip_sound** is on when a video is connected and **Clip's own sound** is
+on, or the video job is **change something**. Use it to select the source audio
+for the finished clip. It is the last output; the existing outputs keep their
+positions. Keeping source audio still needs the workflow to pass that audio to
+its save node.
+
 Nothing plugged in means nothing is added. So a page can turn each one on and off
 with [Workflow Switches](#AUSBOSS_NODES_WorkflowSwitches): a bypassed loader reads
 as not plugged in.
 
 ## The controls
 
-- **Seconds** (`seconds`): how long the clip is, 5 to 15.
+- **Sound** (`sound`): what the clip sounds like, for the whole clip. Same as a
+  `sound:` line.
+- **Music** (`music`): the music for the whole clip. Same as a `music:` line.
+- **Length** (`seconds`): how long the clip is, 5 to 15.
 - **Camera** (`camera`): how the camera moves the whole way through.
 - **Look** (`look`): from the picture keeps your photo's look. The others redraw
   the clip. Clay and 3D don't work from words, so change your picture first with
   an edit model.
-- **Picture 1** to **Picture 4** (`job_1` to `job_4`): what each picture is for.
-- **Video** (`video_job`): what the video is for.
+- **Picture 1** to **Picture 4** (`job_1` to `job_4`): what each picture is
+  for, on the picture chips under the bar. An empty slot shows as a faint `+ @3`.
+- **Video** (`video_job`): what the video is for, on the video chip.
 - **Song starts at** (`song_start`, under **More**): the second of the song to
   start from, so the clip gets the good part.
 - **Moments on the beat** (`cut_on_beat`, under **More**): moves each moment onto
@@ -180,6 +244,7 @@ as not plugged in.
 | `song_under` | output | AUDIO | With a voice and a song, the song to mix under the finished clip. |
 | `frames` | output | INT | The clip's length in frames. |
 | `width`, `height` | output | INT | The shape of your video, or else of your first picture. |
+| `keeps_clip_sound` | output | BOOLEAN | Whether the finished clip should use the video's own sound. |
 
 ## Technical details
 

@@ -157,24 +157,6 @@ const rule = (selector) => {
   return editor.slice(start + selector.length + 1, editor.indexOf("}", start));
 };
 
-test("the note's line is as tall empty as it is with a note", () => {
-  const lineHeight = Number(/font:11px\/(\d+)px/.exec(rule(".ausboss-transform-readout"))?.[1]);
-  assert.ok(lineHeight > 0, "the readout no longer sets its line height in px");
-  const note = rule(".ausboss-transform-readout i");
-  assert.match(note, /display:block/);
-  assert.equal(Number(/min-height:(\d+)px/.exec(note)?.[1]), lineHeight, "an empty note line must keep one line of height");
-  // An inline button on the text's baseline made the line a pixel taller
-  // than a line without one, so the rows under it moved when it came.
-  const button = rule(".ausboss-transform-readout button");
-  assert.match(button, /vertical-align:top/);
-  assert.ok(Number(/height:(\d+)px/.exec(button)?.[1]) <= lineHeight, "Even out must fit inside the line");
-});
-
-test("the line is there with Resize on and gone with it off", () => {
-  assert.match(body("syncReadout"), /state\.noteLine\.hidden = !resize;/);
-  assert.match(editor, /\.ausboss-transform-readout i\[hidden\]\{display:none\}/);
-});
-
 test("the readout asks before it shows a note, and never writes one itself", () => {
   const sync = body("syncReadout");
   assert.match(sync, /const now = changed && state\.settle\.touch\(\);/);
@@ -184,11 +166,6 @@ test("the readout asks before it shows a note, and never writes one itself", () 
   assert.match(sync, /else if \(changed && pointerHeld && noteKey !== state\.shownNoteKey\) hideNote\(state\);/);
   assert.match(body("hideNote"), /visibility = "hidden"/, "hidden with its line kept, not removed");
   assert.match(body("settleReadout"), /showNote\(state, state\.wantedNote/);
-});
-
-test("mid-drag the size line only grows", () => {
-  assert.match(body("syncReadout"), /sizeLine\.style\.minHeight = now \? "" : `\$\{Math\.max\(before, sizeLine\.offsetHeight\)\}px`;/);
-  assert.match(body("settleReadout"), /state\.sizeLine\.style\.minHeight = "";/);
 });
 
 test("the editor's size box and status show the settled note too", () => {
@@ -215,4 +192,29 @@ test("one watch on the page tells every node when the pointer comes up", () => {
   assert.match(watch, /addEventListener\("pointercancel", up, true\)/);
   assert.match(watch, /for \(const live of liveStates\) live\.settle\.release\(\);/);
   assert.match(editor, /state\.settle = createSettle\(\{ delay: NOTE_SETTLE_MS, held: \(\) => pointerHeld, onSettle: \(\) => settleReadout\(state\) \}\);/);
+});
+
+test("the video timeline sits right under the preview and size line, ahead of the collapsible transform group", () => {
+  const install = body("installTransformNode");
+  const atPreview = install.indexOf("panel.append(preview, readout);");
+  const atTrim = install.indexOf('if (kind === "video") panel.append(buildTrim(state));');
+  const atGroup = install.indexOf("panel.append(buildTransformGroup(state, [modeRow.row, chipRow.row, ...canvasRows]));");
+  const atButtons = install.indexOf("panel.append(row);");
+  assert.ok(atPreview > 0 && atTrim > atPreview, "the video timeline must sit right under the preview and size line");
+  assert.ok(atGroup > atTrim, "the collapsible transform group must follow the timeline");
+  assert.ok(atButtons > atGroup, "the action buttons must sit at the bottom of the panel");
+});
+
+test("the collapsible transform group stores its state on node.properties and preserves stage height", () => {
+  const group = body("buildTransformGroup");
+  assert.match(group, /const stageHeight = state\.previewCanvas\?\.clientHeight \?\? 0;/);
+  assert.match(group, /node\.properties\[TRANSFORM_GROUP_OPEN_PROPERTY\] = !transformGroupOpen\(node\);/);
+  assert.match(group, /const before = measureChrome\(state\) \?\? 0;/);
+  assert.match(group, /const after = measureChrome\(state\) \?\? before;/);
+  assert.match(group, /state\.stageGrowth = \{ height: stageHeight, target: nextHeight \};/);
+  assert.match(body("installTransformNode"), /state\.panelResizeObserver\.observe\(preview\);\s*state\.panelResizeObserver\.observe\(panel\);/);
+  assert.match(body("panelBackingStale"), /canvas\.width !== Math\.round\(canvas\.clientWidth \* dpr\)/);
+  assert.match(body("editorSnapshot"), /key !== TRANSFORM_GROUP_OPEN_PROPERTY/);
+  assert.match(body("transformPanelFloor"), /transformGroupOpen\(node\) \? PANEL_CHROME_OPEN_ESTIMATE\[key\] : PANEL_CHROME_CLOSED_ESTIMATE\[key\]/);
+  assert.match(rule(".ausboss-transform-group-body[hidden]"), /display:none/);
 });

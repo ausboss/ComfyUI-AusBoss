@@ -40,18 +40,22 @@ HEAVY = ("av", "PIL", "numpy", "torch")
 REAL_MEDIA_STACK = all(importlib.util.find_spec(name) for name in HEAVY)
 
 # Only the import line needs these; the guards never call into them.
-if importlib.util.find_spec("av") is None:
-    sys.modules["av"] = types.ModuleType("av")
+for _mod_name in ("av", "numpy", "torch"):
+    if importlib.util.find_spec(_mod_name) is None:
+        sys.modules[_mod_name] = types.ModuleType(_mod_name)
 if importlib.util.find_spec("PIL") is None:
     pil = types.ModuleType("PIL")
     for part in ("Image", "ImageOps", "ImageSequence"):
         setattr(pil, part, types.ModuleType(f"PIL.{part}"))
     sys.modules["PIL"] = pil
 
-from nodes import _media_helpers  # noqa: E402
+from nodes import _audio_trim_helpers, _media_helpers  # noqa: E402
+from nodes._audio_trim_helpers import list_input_audio  # noqa: E402
 from nodes._media_helpers import (  # noqa: E402
     INPUT_FILE_RULE,
     SERVER_FILE_RULE,
+    list_input_images,
+    list_input_videos,
     list_output_videos,
     resolve_input_path,
     resolve_server_file,
@@ -335,6 +339,65 @@ class OutputListTests(TempFolders):
     def test_without_comfyuis_folders_the_list_is_empty(self):
         with patch.object(_media_helpers, "folder_paths", None):
             self.assertEqual(list_output_videos(), [])
+
+
+class InputListTests(TempFolders):
+    def setUp(self):
+        super().setUp()
+        getattr(_media_helpers, "clear_input_files_cache", lambda: None)()
+        patcher = patch.object(_audio_trim_helpers, "folder_paths", self.folders)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_input_lists_find_nested_files_and_skip_hidden_or_external_entries(self):
+        self.touch(self.input / "sub" / "take.mp4")
+        self.touch(self.input / "voice.wav")
+        hidden = self.input / ".trash"
+        hidden.mkdir()
+        self.touch(hidden / "old.png")
+        self.touch(self.input / ".hidden.mp3")
+        (self.input / "linked.png").symlink_to(self.outside)
+        (self.input / "linked_dir").symlink_to(self.output, target_is_directory=True)
+        self.assertEqual(list_input_images(), ["clipspace/painted.png", "pic.png", "sub/pic.png"])
+        self.assertEqual(list_input_videos(), ["sub/take.mp4"])
+        self.assertEqual(list_input_audio(), ["sub/take.mp4", "voice.wav"])
+
+    def test_file_links_inside_input_remain_selectable(self):
+        target = self.touch(self.input / "sub" / "take.mp4")
+        (self.input / "alias.mp4").symlink_to(Path("sub") / target.name)
+        (self.input / "broken.mp4").symlink_to("missing.mp4")
+        (self.input / "loop.mp4").symlink_to("loop.mp4")
+        (self.input / "linked_dir").symlink_to(self.input / "sub", target_is_directory=True)
+        self.assertEqual(list_input_videos(), ["alias.mp4", "sub/take.mp4"])
+        self.assertEqual(list_input_audio(), ["alias.mp4", "sub/take.mp4"])
+        self.assertEqual(resolve_input_path("alias.mp4"), target)
+
+    def test_input_lists_share_one_scandir_walk_without_per_file_stat(self):
+        self.touch(self.input / "sub" / "take.mp4")
+        self.touch(self.input / "voice.wav")
+        scanned: list[str] = []
+        real_scandir = os.scandir
+
+        def counting_scandir(path):
+            scanned.append(str(path))
+            return real_scandir(path)
+
+        with (
+            patch.object(os, "scandir", side_effect=counting_scandir),
+            patch.object(Path, "is_file", side_effect=AssertionError("per-file Path.is_file called")),
+        ):
+            for _ in range(2):
+                self.assertEqual(list_input_images(), ["clipspace/painted.png", "pic.png", "sub/pic.png"])
+                self.assertEqual(list_input_videos(), ["sub/take.mp4"])
+                self.assertEqual(list_input_audio(), ["sub/take.mp4", "voice.wav"])
+        # input/, input/sub/, input/clipspace/: walked once total across all 6 calls.
+        self.assertEqual(len(scanned), 3, scanned)
+
+    def test_new_top_level_upload_refreshes_the_cached_list_immediately(self):
+        self.assertEqual(list_input_images(), ["clipspace/painted.png", "pic.png", "sub/pic.png"])
+        self.touch(self.input / "fresh.png")
+        os.utime(self.input, (2_000_000, 2_000_000))
+        self.assertIn("fresh.png", list_input_images())
 
 
 class RouteErrorTests(unittest.TestCase):

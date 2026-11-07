@@ -94,7 +94,10 @@ for (const type of types) {
   const seen = await evalJs(`(async () => {
     const { app } = window;
     app.canvas.linkConnector?.reset?.();
-    app.graph.clear(); app.graph.last_node_id += 50;
+    // clear() resets the counter, but frontend preview caches can outlive
+    // the graph. Reserve fresh ids before clearing so probes stay isolated.
+    const nextNodeId = app.graph.last_node_id + 50;
+    app.graph.clear(); app.graph.last_node_id = nextNodeId;
     let node;
     try { node = window.LiteGraph.createNode(${JSON.stringify(type)}); } catch (error) { return { error: "createNode threw: " + (error?.message ?? error) }; }
     if (!node) return { error: "createNode gave nothing" };
@@ -119,6 +122,9 @@ for (const type of types) {
   if (seen.error) problems.push(seen.error);
   else {
     if (!(seen.size[0] > 20 && seen.size[1] > 20)) problems.push(`the node's size is ${seen.size.join(" x ")}`);
+    if (["AUSBOSS_NODES_CalloutTile", "AUSBOSS_NODES_WorkflowNoteTile"].includes(type) && seen.size[1] > 120) {
+      problems.push("a new tile must start as a compact button, not a full-height note");
+    }
     if (vue && !seen.drawn) problems.push("Nodes 2.0 drew no element for the node");
     if (seen.drawn && !(seen.drawn[0] > 20 && seen.drawn[1] > 20)) problems.push(`the node is drawn ${seen.drawn.join(" x ")}`);
     for (const panel of seen.panels) {

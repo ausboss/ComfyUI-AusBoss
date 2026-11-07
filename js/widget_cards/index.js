@@ -4,18 +4,21 @@
 // mirrors them, so the backend, saved workflows and widget-to-input links
 // are untouched. Rows with `when` appear only while they mean something,
 // and a `group` row folds the rarely-touched settings behind one click.
-import { api } from "/scripts/api.js";
-import { app } from "/scripts/app.js";
+import { PANEL_LABELS } from "../shared/panel_controls.mjs";
+import { api } from "../../../scripts/api.js";
+import { app } from "../../../scripts/app.js";
 import { chainCallback, notifyAusbossChange } from "../shared/index.mjs";
 import { formatWidgetVisibility } from "../shared/save_video_formats.mjs";
 import { hideInputsInDef } from "../shared/widget_visibility.mjs";
+import { castChips } from "../shared/h3_cast_chips.mjs";
+import { clipSetsDuration } from "../shared/h3_duration.mjs";
 import { momentStrip } from "../shared/moment_strip.mjs";
 import { mountWidgetCard } from "../shared/widget_card.mjs";
 import { SOCKETLESS_CHOICE, SOCKETLESS_TEXT, commitWidgetValue, markSocketless, resetUnknownValues } from "../shared/widget_card_math.mjs";
 import { mediaViewQuery } from "../shared/media_list.mjs";
 import { gearIconSvg, openSettingsMenu } from "../shared/settings_menu.mjs";
 import { SEAM_MENU, SEAM_MUTE_TITLES, isBlendIn, seamCornerReserve } from "../shared/stitch_seam.mjs";
-import { TEXT_LOOK_MENU, setTextLook, textLook, textLookCornerReserve } from "../shared/text_look.mjs";
+import { NUMBER_LOOK_MENU, TEXT_LOOK_MENU, setTextLook, textLook, textLookCornerReserve } from "../shared/text_look.mjs";
 import { fineEdgeLabel } from "../shared/touch_math.mjs";
 import { valueToTake, wiredLimits } from "../shared/wired_limits.mjs";
 
@@ -68,20 +71,21 @@ function seamCorner(node, card) {
     },
   };
 }
-// Text: the gear in the card's corner picks the node's look, the usual box
-// or big centred letters (shared/text_look.mjs). The look is kept on the
-// node, not in a widget, so the node's inputs and saved values never change.
-function textLookCorner(node, card) {
+// Text, Integer and Float: the gear in the card's corner picks the node's
+// look, the usual box or big and centred (shared/text_look.mjs). The look is
+// kept on the node, not in a widget, so the node's inputs and saved values
+// never change.
+const lookCorner = (schema, title) => (node, card) => {
   const gear = document.createElement("button");
   gear.type = "button";
   gear.className = "ausboss-card-gear";
-  gear.title = "Text settings";
+  gear.title = title;
   gear.innerHTML = gearIconSvg();
   gear.addEventListener("click", () => openSettingsMenu({
     scope: "text_look",
-    schema: TEXT_LOOK_MENU,
+    schema,
     anchor: gear.getBoundingClientRect(),
-    title: "Text settings",
+    title,
     initial: { look: textLook(node) },
     onChange: (values) => {
       if (values.look === textLook(node)) return;
@@ -92,7 +96,9 @@ function textLookCorner(node, card) {
     },
   }));
   return { element: gear, sync: () => textLookCornerReserve(textLook(node)) };
-}
+};
+const textLookCorner = lookCorner(TEXT_LOOK_MENU, "Text settings");
+const numberLookCorner = lookCorner(NUMBER_LOOK_MENU, "Number settings");
 // Save Video rows that only some formats read (crf, save_metadata).
 const formatReads = (name) => (values) => formatWidgetVisibility(String(values.format))[name];
 
@@ -206,7 +212,7 @@ const CARDS = {
   AUSBOSS_NODES_ImageFolder: {
     minWidth: 320, first: true, hide: ["pictures"], socketless: ["pictures"],
     rows: [
-      { widget: "source", label: "From", kind: "segment" },
+      { widget: "source", label: "From", kind: "segment", labels: PANEL_LABELS.sources },
       { widget: "folder", label: "Folder", placeholder: "the folder itself",
         button: { text: "Browse", title: "Choose a folder inside ComfyUI's input or output folder.",
           onClick: (node, state) => node.__ausbossImageFolder?.browse(state?.root?.querySelector(".ausboss-card-btn")) } },
@@ -305,9 +311,16 @@ const CARDS = {
   // Like ComfyUI's own Primitive node, both take over the limits of the
   // input they are wired to: wired to a sampler's denoise, Float stops at 1.
   // A new box also takes the value of the first input it is wired to
-  // (`takesWired`), so wiring it up does not change that setting.
-  AUSBOSS_NODES_Integer: { minWidth: 260, takesWired: "value", rows: [{ widget: "value", label: "Value", limits: wiredLimits }] },
-  AUSBOSS_NODES_Float: { minWidth: 260, takesWired: "value", rows: [{ widget: "value", label: "Value", decimals: 3, trimZeros: true, limits: wiredLimits }] },
+  // (`takesWired`), so wiring it up does not change that setting. The gear
+  // picks the look; big is one large centred number.
+  AUSBOSS_NODES_Integer: {
+    minWidth: 260, takesWired: "value", look: textLook, corner: numberLookCorner,
+    rows: [{ widget: "value", label: "Value", limits: wiredLimits, looks: { big: { height: 56 } } }],
+  },
+  AUSBOSS_NODES_Float: {
+    minWidth: 260, takesWired: "value", look: textLook, corner: numberLookCorner,
+    rows: [{ widget: "value", label: "Value", decimals: 3, trimZeros: true, limits: wiredLimits, looks: { big: { height: 56 } } }],
+  },
   // The gear picks the look; big is a compact field of large centred
   // letters, for a word or two over a picture.
   AUSBOSS_NODES_Text: {
@@ -319,27 +332,29 @@ const CARDS = {
   // moment plays. The pictures, the video, the voice and the song arrive on
   // sockets, and each picture's job sits under the words.
   AUSBOSS_NODES_H3PromptWriter: {
-    minWidth: 360,
+    minWidth: 420,
+    hide: ["job_1", "job_2", "job_3", "job_4", "video_job"],
+    socketless: ["job_1", "job_2", "job_3", "job_4", "video_job"],
+    resetUnknown: { sound: "", music: "", clip_sound: false },
     rows: [
       { section: "What happens" },
       {
         widget: "script", kind: "textarea", height: 118, grow: true,
-        placeholder: "@1 walks through a crowded night market.\n\n@1 stands on a rooftop in the rain.\n\nOne line for each thing that happens. A blank line cuts to a new place. @1 is Picture 1.",
+        placeholder: "Type what happens, one line for each thing. Picture 1 is @1. A blank line cuts to a new place.\n\nSwap: leave empty, or name who goes. Optional new look on its own line: @1 looks like a woman with blonde hair and a black hoodie.",
       },
-      { panel: momentStrip, height: 134 },
-      { widget: "seconds", label: "Seconds", suffix: "s" },
+      { panel: momentStrip, height: 76 },
+      { widget: "sound", label: "Sound", placeholder: "rain on a window" },
+      { widget: "music", label: "Music", placeholder: "slow piano: music makes it louder" },
+      { section: "Pictures and settings" },
+      { panel: castChips, height: 30 },
+      { widget: "seconds", label: "Length", suffix: "s", readOnlyText: (node, values) => clipSetsDuration(node, values) ? "From the clip" : "", readOnlyTitle: "This video job uses the incoming clip, so Length is not used." },
       { widget: "camera", label: "Camera", kind: "select" },
       { widget: "look", label: "Look", kind: "select" },
-      { section: "What each one is for" },
-      { widget: "job_1", label: "Picture 1", kind: "select" },
-      { widget: "job_2", label: "Picture 2", kind: "select" },
-      { widget: "job_3", label: "Picture 3", kind: "select" },
-      { widget: "job_4", label: "Picture 4", kind: "select" },
-      { widget: "video_job", label: "Video", kind: "select" },
       { group: "more", label: "More" },
       { widget: "song_start", label: "Song starts at", suffix: "s", decimals: 1, trimZeros: true, group: "more" },
       { widget: "cut_on_beat", label: "Moments on the beat", group: "more" },
       { widget: "language", label: "Language", group: "more" },
+      { widget: "clip_sound", label: "Clip's own sound", group: "more" },
     ],
   },
   // Saved by a 1.x release, these two hold that empty value too and open
@@ -365,18 +380,28 @@ const CARDS = {
     minWidth: 320, first: true, hide: ["upload"],
     rows: [
       { widget: "video", label: "Source", kind: "select", preview: { kind: "video", url: viewUrl },
-        button: { text: "Upload", title: "Upload a video into ComfyUI's input folder", onClick: (node) => node.widgets?.find((w) => w.name === "upload")?.callback?.() } },
+        button: { text: PANEL_LABELS.load, title: "Upload a video into ComfyUI's input folder", onClick: (node) => node.widgets?.find((w) => w.name === "upload")?.callback?.() } },
       { widget: "custom_width", label: "Width", suffix: "px", title: "0 keeps the source width; set one side only to keep the aspect." },
       { widget: "custom_height", label: "Height", suffix: "px", title: "0 keeps the source height; set one side only to keep the aspect." },
       { widget: "every_nth", label: "Every nth" },
       { widget: "max_frames", label: "Limit" },
     ],
   },
+  AUSBOSS_NODES_LoadAudio: {
+    // The wave, IN and OUT live in the panel under the card (js/load_audio).
+    minWidth: 280, first: true, hide: ["upload"],
+    rows: [
+      { widget: "audio", label: "Source", kind: "select",
+        button: { text: PANEL_LABELS.load, title: "Upload a sound file into ComfyUI's input folder", onClick: (node) => node.widgets?.find((w) => w.name === "upload")?.callback?.() } },
+      { widget: "max_seconds", label: "Max length", suffix: "s", decimals: 1, trimZeros: true,
+        title: "The longest the sound may be. Anything past it is cut off and shows in red. 0 means no limit." },
+    ],
+  },
   AUSBOSS_NODES_LoadImagePad: {
     minWidth: 340, first: true, hide: ["upload"],
     rows: [
       { widget: "image", label: "Source", kind: "select", preview: { kind: "image", url: viewUrl }, linkedBy: ["source_image"],
-        button: { text: "Upload", title: "Upload an image into ComfyUI's input folder", onClick: (node) => node.widgets?.find((w) => w.name === "upload")?.callback?.() } },
+        button: { text: PANEL_LABELS.load, title: "Upload an image into ComfyUI's input folder", onClick: (node) => node.widgets?.find((w) => w.name === "upload")?.callback?.() } },
       { widget: "mode", label: "Fill", kind: "select" },
       { widget: "fill_color", label: "Color", kind: "color", when: isMode("mode", "color") },
       { widget: "backdrop_blur", label: "Backdrop", when: isMode("mode", "pillarbox blur") },
@@ -391,7 +416,7 @@ const CARDS = {
     ],
   },
   AUSBOSS_NODES_SaveVideo: {
-    // step_preview is the STEPS button on the player (js/save_video).
+    // step_preview is the Preview steps switch on the player (js/save_video).
     minWidth: 320, first: true, hide: ["step_preview"],
     rows: [
       { widget: "filename_prefix", label: "Prefix", placeholder: "video" },
@@ -401,7 +426,7 @@ const CARDS = {
       { pair: ["fps", "crf"], label: "FPS · CRF", sep: "·", top: true, when: formatReads("crf") },
       { widget: "fps", label: "FPS", top: true, when: (values) => !formatReads("crf")(values) },
       { widget: "pingpong", label: "Ping-pong", onText: "forward, back", offText: "off" },
-      { widget: "save_metadata", label: "Metadata", when: formatReads("save_metadata"), title: "On embeds the workflow in the video file, so dropping the file back on the canvas restores the graph that made it." },
+      { widget: "save_metadata", label: PANEL_LABELS.embed, onText: PANEL_LABELS.on, offText: PANEL_LABELS.off, when: formatReads("save_metadata"), title: "On embeds the workflow in the video file, so dropping the file back on the canvas restores the graph that made it." },
     ],
   },
 };
