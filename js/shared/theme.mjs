@@ -19,7 +19,7 @@ export const THEME = Object.freeze({
   card: "#101214",           // widget card ground
   fill: "#2d3134",           // every control: solid, no border
   fillHover: "#383c40",      // control hover, the chevron column
-  well: "#0a0b0c",           // picture stage ground
+  well: "#0f1112",           // picture stage ground
   rule: "#2b2f32",           // hairline after a section label
   switchOff: "#62676d",      // the mark of a switch sitting on off
 
