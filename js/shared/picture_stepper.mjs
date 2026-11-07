@@ -3,7 +3,7 @@
 // steps through its pairs with it, and the preview panel of Save Image and
 // the other preview nodes through their results. It hides itself while
 // there is one picture or none, so a single picture looks as it always did.
-import { BRAND } from "./index.mjs";
+import { FONT_UI, RADIUS_CONTROL, RADIUS_XS, THEME as T } from "./theme.mjs";
 import { stepperLabel } from "./picture_steps.mjs";
 
 const CSS_ID = "ausboss-picture-stepper-v1";
@@ -13,12 +13,12 @@ function ensureCss() {
   const style = document.createElement("style");
   style.id = CSS_ID;
   style.textContent = `
-.ausboss-stepper{box-sizing:border-box;flex:none;display:flex;align-items:stretch;height:var(--ausboss-stepper-height,24px);padding:1px;border:1px solid #2a3437;border-radius:6px;background:#0f1516;pointer-events:auto;user-select:none;}
+.ausboss-stepper{box-sizing:border-box;flex:none;display:flex;align-items:stretch;height:var(--ausboss-stepper-height,24px);padding:1px;border:1px solid transparent;border-radius:${RADIUS_CONTROL}px;background:${T.fill};pointer-events:auto;user-select:none;}
 .ausboss-stepper[hidden]{display:none;}
-.ausboss-stepper button{box-sizing:border-box;width:20px;margin:0;padding:0;border:none;border-radius:4px;background:transparent;color:#8ba3a1;font:700 13px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer;}
-.ausboss-stepper button:hover{color:#fff;background:rgba(0,79,75,.78);}
-.ausboss-stepper button:focus-visible{outline:1px solid ${BRAND};outline-offset:-1px;}
-.ausboss-stepper span{min-width:34px;padding:0 3px;color:#d8eeee;font:700 10px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums;text-align:center;white-space:nowrap;align-self:center;}
+.ausboss-stepper button{box-sizing:border-box;width:20px;margin:0;padding:0;border:none;border-radius:${RADIUS_XS}px;background:transparent;color:${T.label};font:600 13px/1 ${FONT_UI};cursor:pointer;}
+.ausboss-stepper button:hover{color:${T.ink};background:${T.fillHover};}
+.ausboss-stepper button:focus-visible{outline:1px solid ${T.brand};outline-offset:-1px;}
+.ausboss-stepper span{min-width:34px;padding:0 3px;color:${T.ink};font:600 10px/1 ${FONT_UI};font-variant-numeric:tabular-nums;text-align:center;white-space:nowrap;align-self:center;}
 `;
   document.head.appendChild(style);
 }

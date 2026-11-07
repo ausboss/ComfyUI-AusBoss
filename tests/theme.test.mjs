@@ -4,11 +4,15 @@ import test from "node:test";
 
 import { THEME } from "../js/shared/theme.mjs";
 
-// The card, the number box and the switch take every colour from theme.mjs,
-// so the palette is changed in one place.
-const ON_THEME = ["js/shared/widget_card.mjs", "js/shared/scrub_input.mjs", "js/shared/slide_switch.mjs"];
+// The card, the number box, the switch and the picture bar take every colour
+// from theme.mjs, so the palette is changed in one place.
+const ON_THEME = [
+  "js/shared/widget_card.mjs", "js/shared/scrub_input.mjs", "js/shared/slide_switch.mjs",
+  "js/input_preview/index.js", "js/shared/panel_controls.mjs", "js/shared/picture_stepper.mjs",
+  "js/shared/step_preview.mjs",
+];
 
-test("the card, number box and switch carry no colour of their own", () => {
+test("the card, number box, switch and picture bar carry no colour of their own", () => {
   for (const file of ON_THEME) {
     const source = readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
     const hex = source.match(/#[0-9a-fA-F]{3,8}\b/g) ?? [];
@@ -30,6 +34,7 @@ test("text a person reads holds 4.5:1 on the card and on a control", () => {
   const pairs = [
     ["ink", "fill"], ["inkSoft", "card"], ["label", "card"], ["label", "fill"],
     ["faint", "card"], ["faint", "fill"], ["onBrand", "brand"], ["ink", "switchOff"], ["warnInk", "warnSoft"],
+    ["dangerInk", "dangerSoft"], ["faint", "well"], ["inkSoft", "fill"],
   ];
   for (const [text, ground] of pairs) {
     const ratio = contrast(THEME[text], THEME[ground]);
