@@ -98,19 +98,6 @@ for (const type of types) {
     let node;
     try { node = window.LiteGraph.createNode(${JSON.stringify(type)}); } catch (error) { return { error: "createNode threw: " + (error?.message ?? error) }; }
     if (!node) return { error: "createNode gave nothing" };
-    if (${JSON.stringify("AUSBOSS_NODES_WorkflowNoteTile")} === ${JSON.stringify(type)} && !${vue}) {
-      const t0 = performance.now();
-      const trace = [];
-      window.__tileTrace = trace;
-      trace.push([0, "atCreate", [...node.size]]);
-      const origSetSize = node.setSize?.bind(node);
-      if (origSetSize) node.setSize = (s, ...rest) => {
-        trace.push([Math.round(performance.now() - t0), Array.isArray(s) ? [...s] : s,
-          String(new Error().stack || "").split("\\n").slice(2, 7).map((x) => x.trim().slice(0, 140))]);
-        return origSetSize(s, ...rest);
-      };
-      for (const ms of [30, 120, 350]) setTimeout(() => trace.push([ms, "sample", [...node.size]]), ms);
-    }
     node.pos = [0, 0]; app.graph.add(node);
     app.canvas.ds.scale = 1; app.canvas.ds.offset = [160, 230]; app.canvas.setDirty(true, true);
     await new Promise((resolve) => setTimeout(resolve, 800));
@@ -127,33 +114,36 @@ for (const type of types) {
     }));
     return { size: [Math.round(node.size[0]), Math.round(node.size[1])], drawn: host ? box(host) : null, widgets: (node.widgets ?? []).length, panels };
   })()`).catch((error) => ({ error: String(error.message ?? error).slice(0, 400) }));
-  if (type === "AUSBOSS_NODES_WorkflowNoteTile" && !vue) {
-    const diag = await evalJs(`(() => {
-      const node = window.app.graph._nodes.find((n) => n.type === "AUSBOSS_NODES_WorkflowNoteTile");
+  if (!vue && ["AUSBOSS_NODES_WorkflowNoteTile", "AUSBOSS_NODES_CalloutTile"].includes(type)) {
+    const diag = await evalJs(`(async () => {
+      const node = window.app.graph._nodes.find((n) => n.type === ${JSON.stringify(type)});
       if (!node) return { none: true };
-      const st = node.__ausbossNote;
       const safe = (fn) => { try { return fn(); } catch (e) { return String(e); } };
-      return {
-        size: [...node.size],
-        noteValue: node.widgets?.find((w) => w.name === "note")?.value,
-        stateNote: st?.note ?? null,
-        fitHeight: st?.fitHeight ?? null,
-        rootClass: st?.root?.className ?? null,
-        rootRect: st?.root ? [Math.round(st.root.getBoundingClientRect().width), Math.round(st.root.getBoundingClientRect().height)] : null,
-        cardRect: st?.card ? [Math.round(st.card.getBoundingClientRect().width), Math.round(st.card.getBoundingClientRect().height)] : null,
-        trace: window.__tileTrace ?? null,
-        preview: (() => { const pv = node.widgets?.find((w) => w.name === "$$canvas-image-preview"); if (!pv) return null;
-          return { keys: Object.keys(pv), y: pv.y ?? null, height: pv.height ?? null, size: pv.size ?? null,
-            cs: safe(() => pv.computeSize?.()), hidden: pv.hidden ?? null,
-            el: pv.element instanceof Element ? [Math.round(pv.element.getBoundingClientRect().width), Math.round(pv.element.getBoundingClientRect().height)] : null }; })(),
+      const dump = (label) => ({
+        label, size: [...node.size],
+        widgets: (node.widgets ?? []).map((w) => ({ name: w.name, y: w.y ?? null, ch: w.computedHeight ?? null,
+          cs: safe(() => w.computeSize?.()), cls: safe(() => w.computeLayoutSize?.(node)) })),
         imgs: Array.isArray(node.imgs) ? node.imgs.length : null,
-        computeSize: safe(() => node.computeSize?.()),
-        widgets: (node.widgets ?? []).map((w) => ({
-          name: w.name, type: w.type,
-          cs: safe(() => w.computeSize?.()),
-          minH: safe(() => w.options?.getMinHeight?.()),
-        })),
-      };
+        bodyHeight: safe(() => node.bodyHeight),
+      });
+      const out = { before: dump("before") };
+      if (${JSON.stringify(type)} === "AUSBOSS_NODES_WorkflowNoteTile") {
+        const idx = node.widgets.findIndex((w) => w.name === "$$canvas-image-preview");
+        out.previewIndex = idx;
+        if (idx > -1) {
+          const [pv] = node.widgets.splice(idx, 1);
+          node.setSize([380, 80]);
+          window.app.canvas.setDirty(true, true);
+          await new Promise((r) => setTimeout(r, 350));
+          out.withoutPreview = dump("withoutPreview");
+          node.widgets.splice(idx, 0, pv);
+          node.setSize([380, 80]);
+          window.app.canvas.setDirty(true, true);
+          await new Promise((r) => setTimeout(r, 350));
+          out.withPreviewRestored = dump("withPreviewRestored");
+        }
+      }
+      return out;
     })()`).catch((error) => ({ error: String(error.message ?? error).slice(0, 300) }));
     console.log("DIAG " + JSON.stringify(diag));
   }
