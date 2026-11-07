@@ -120,6 +120,8 @@ or an area you painted.
 
 ## The tools on the node
 
+- **Reload** (the round arrow) shows the picture coming in now: see
+  **Which picture the picks belong to**, below.
 - **Undo** takes back the last change, or a Clear. Ctrl+Z works as well: it
   is ComfyUI's own undo, and every change counts.
 - **Clear** picks nothing.
@@ -209,7 +211,12 @@ nothing instead.
 Picks belong to the picture they were made on. Load another picture and the
 node shows it with nothing picked, and says the old picks are not used.
 If the workflow runs before the node has shown the new picture, the run
-stops and says the picks were made on another picture.
+stops and says the picks were made on another picture. The new picture
+shows on the node then, ready to pick from.
+
+- **The reload button** (the round arrow beside Undo) shows the picture
+  coming in now. Use it after you change the picture before this node, for
+  example with an edit. It runs only this node and what comes before it.
 
 - With a Load Image wired straight in, or through Reroute nodes, the
   picture shows as soon as you choose a file.
