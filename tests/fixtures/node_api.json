@@ -40,6 +40,23 @@
     "optional": [],
     "outputs": []
   },
+  "AUSBOSS_NODES_CameraMove": {
+    "required": [
+      "moge_geometry",
+      "camera"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "IMAGE",
+        "guide"
+      ],
+      [
+        "MASK",
+        "holes"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_ColorMatch": {
     "required": [
       "image",

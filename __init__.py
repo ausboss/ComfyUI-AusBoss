@@ -20,6 +20,7 @@ NODE_MODULES = [
     "node_align_image",
     "node_batch_utils",
     "node_callout",
+    "node_camera_move",
     "node_color_match",
     "node_compare",
     "node_frame_interpolate",

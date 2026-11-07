@@ -1591,5 +1591,25 @@
   "AUSBOSS_NODES_WorkflowNoteTile": {
     "display_name": "工作流说明卡片 🆎",
     "description": "点击打开完整说明的小按钮。点击铅笔编辑，拖动角落调整大小。旧版节点包会将它显示为缺失节点，请更新 ComfyUI-AusBoss。"
+  },
+  "AUSBOSS_NODES_CameraMove": {
+    "display_name": "镜头移动 🆎",
+    "description": "移动视频的镜头。在节点画面上拖动来转动镜头，捏合或滚轮拉远推近，并在时间轴上设置关键帧。原镜头从未拍到的地方显示为粉色，交给 CrossView-Warp LoRA 补画。需要 MoGe Inference 的深度。",
+    "inputs": {
+      "moge_geometry": {
+        "name": "MoGe 几何"
+      },
+      "camera": {
+        "name": "镜头关键帧"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "引导"
+      },
+      "1": {
+        "name": "空洞"
+      }
+    }
   }
 }

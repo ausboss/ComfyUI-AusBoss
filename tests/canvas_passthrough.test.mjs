@@ -108,6 +108,7 @@ test("only the listed parts of the pack listen for the wheel", () => {
   const js = join(dirname(fileURLToPath(import.meta.url)), "..", "js");
   const listed = [
     "callout/index.js wrap", // the text box while a note is being edited
+    "camera_move/face.mjs stage", // the shot: the wheel pulls the camera back or in
     "canvas_passthrough/index.js window", // hands the wheel to the graph
     "image_folder/index.js root", // the copy question, a window over the page
     "image_folder/index.js root", // the folder list, a window over the page

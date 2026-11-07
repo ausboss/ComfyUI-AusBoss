@@ -167,6 +167,12 @@ Upload a sound file, or pick one from the Source list, and the node shows it as 
 
 It returns the `audio` you kept and its length in `seconds`. Only that part is decoded. [Help page](js/docs/AUSBOSS_NODES_LoadAudio.md).
 
+### Camera Move
+
+Moves the camera of your own clip. Press **Show my clip** and the node shows your clip in 3D. Drag the picture to turn the camera, scroll or pinch to pull back or push in, and click the time bar to set keys. What the old camera never saw comes out pink, and MiniMax H3 with Cseti's CrossView-Warp LoRA paints it in. Stay within about 45° left or right, 30° up and 20° down. Your keys add to any move your clip's camera already makes.
+
+It needs depth from the core **MoGe Inference** node and returns the `guide` clip for H3 and a `holes` mask. [Help page](js/docs/AUSBOSS_NODES_CameraMove.md). [Open the MiniMax H3 Camera Move workflow →](example_workflows/MiniMax%20H3%20Camera%20Move%20%28AusBoss%29.json)
+
 ### Video Crop + Rotate + Pad → Frame
 
 Picks one frame from a video, then gives you the same rotate, crop and pad controls as the image node, plus an optional megapixel resize. Scrub to the frame with the playhead on the node; the editor adds frame-by-frame stepping and playback. It returns the transformed `image`, a `mask` of the added area, a `stitcher`, the chosen `original` frame, and the output `width` and `height`. For a whole clip, use the Clip version below.

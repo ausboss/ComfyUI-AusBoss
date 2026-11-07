@@ -28,6 +28,8 @@ const JS_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "js");
 // A panel whose DOM is built by a shared module, so a second view can reuse
 // it, is audited where it is built.
 const SHARED_PANELS = { mask_by_touch: join("shared", "touch_stage.mjs") };
+// A panel whose face lives in its own module beside index.js is audited with it.
+const PANEL_PARTS = { camera_move: [join("camera_move", "face.mjs")] };
 
 function domWidgetEntries() {
   const entries = [];
@@ -38,7 +40,8 @@ function domWidgetEntries() {
     } catch {
       continue;
     }
-    const source = readFileSync(path, "utf-8");
+    const source = [path, ...(PANEL_PARTS[name] ?? []).map((part) => join(JS_ROOT, part))]
+      .map((file) => readFileSync(file, "utf-8")).join("\n");
     if (source.includes("addDOMWidget")) entries.push({ name, source });
   }
   return entries;
@@ -110,6 +113,7 @@ test("a panel that should follow the node's height never declares computeSize", 
   // is this a stage that should grow, or a fixed row?
   const mustGrow = new Set([
     "callout",
+    "camera_move",
     "resolution",
     "compare",
     "image_crop_rotate_pad",
@@ -397,6 +401,7 @@ test("every panel root class carries border-box and an overflow clip", () => {
     show_text: ".ausboss-show-text{",
     step_preview: ".ausboss-steppv{",
     callout: ".ausboss-callout{",
+    camera_move: ".acm-face{",
     workflow_note: ".ausboss-note{",
     seed: ".ausboss-seed{",
     run_timer: ".ausboss-timer{",

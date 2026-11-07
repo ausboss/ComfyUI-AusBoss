@@ -4,6 +4,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **New node: Camera Move 🆎.** Moves the camera of your own clip. Drag the
+  picture on the node to turn the camera, pull back or push in, and set keys
+  on a time bar. What the old camera never saw comes out pink, ready for
+  MiniMax H3 with the CrossView-Warp LoRA to paint in. The new MiniMax H3
+  Camera Move example puts it all in one box between Load Video and Save
+  Video.
+
 - **Mask by Touch 🆎 no longer fills holes unless you ask.** Fill small
   holes, under More, now starts off, so a hole you pick stays a hole. Saved
   workflows keep their setting.
