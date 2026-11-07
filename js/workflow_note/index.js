@@ -708,6 +708,12 @@ function naturalHeight(state, width) {
 // as the node's floor. It never shrinks the node: a taller note keeps its
 // empty space until someone drags it shorter.
 function fitNote(state) {
+  // A tile opens its content in a dialog. Keep its chosen canvas size,
+  // rather than growing it to a full note's measured height.
+  if (state.note.layout === "tile") {
+    state.fitHeight = undefined;
+    return;
+  }
   if (!classicCanvas()) return;
   const { node, root, domWidget } = state;
   const width = node.size[0] - WIDGET_FRAME;
