@@ -114,6 +114,30 @@ for (const type of types) {
     }));
     return { size: [Math.round(node.size[0]), Math.round(node.size[1])], drawn: host ? box(host) : null, widgets: (node.widgets ?? []).length, panels };
   })()`).catch((error) => ({ error: String(error.message ?? error).slice(0, 400) }));
+  if (type === "AUSBOSS_NODES_WorkflowNoteTile" && !vue) {
+    const diag = await evalJs(`(() => {
+      const node = window.app.graph._nodes.find((n) => n.type === "AUSBOSS_NODES_WorkflowNoteTile");
+      if (!node) return { none: true };
+      const st = node.__ausbossNote;
+      const safe = (fn) => { try { return fn(); } catch (e) { return String(e); } };
+      return {
+        size: [...node.size],
+        noteValue: node.widgets?.find((w) => w.name === "note")?.value,
+        stateNote: st?.note ?? null,
+        fitHeight: st?.fitHeight ?? null,
+        rootClass: st?.root?.className ?? null,
+        rootRect: st?.root ? [Math.round(st.root.getBoundingClientRect().width), Math.round(st.root.getBoundingClientRect().height)] : null,
+        cardRect: st?.card ? [Math.round(st.card.getBoundingClientRect().width), Math.round(st.card.getBoundingClientRect().height)] : null,
+        computeSize: safe(() => node.computeSize?.()),
+        widgets: (node.widgets ?? []).map((w) => ({
+          name: w.name, type: w.type,
+          cs: safe(() => w.computeSize?.()),
+          minH: safe(() => w.options?.getMinHeight?.()),
+        })),
+      };
+    })()`).catch((error) => ({ error: String(error.message ?? error).slice(0, 300) }));
+    console.log("DIAG " + JSON.stringify(diag));
+  }
   await sleep(150);
   const problems = [];
   if (seen.error) problems.push(seen.error);
