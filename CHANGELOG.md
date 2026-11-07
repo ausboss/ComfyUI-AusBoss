@@ -4,6 +4,8 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+## 2.21.2 - 2026-11-06
+
 - **Colored link buttons and pop-out notes keep their tile layout when shared.**
   Callout Tile and Workflow Note Tile save as distinct node types, so an older
   install can report what is missing. Tiles have larger editors and visible
