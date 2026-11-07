@@ -114,38 +114,20 @@ for (const type of types) {
     }));
     return { size: [Math.round(node.size[0]), Math.round(node.size[1])], drawn: host ? box(host) : null, widgets: (node.widgets ?? []).length, panels };
   })()`).catch((error) => ({ error: String(error.message ?? error).slice(0, 400) }));
-  if (!vue && ["AUSBOSS_NODES_WorkflowNoteTile", "AUSBOSS_NODES_CalloutTile"].includes(type)) {
-    const diag = await evalJs(`(async () => {
+  if (!vue) {
+    const imgInfo = await evalJs(`(() => {
       const node = window.app.graph._nodes.find((n) => n.type === ${JSON.stringify(type)});
-      if (!node) return { none: true };
-      const safe = (fn) => { try { return fn(); } catch (e) { return String(e); } };
-      const dump = (label) => ({
-        label, size: [...node.size],
-        widgets: (node.widgets ?? []).map((w) => ({ name: w.name, y: w.y ?? null, ch: w.computedHeight ?? null,
-          cs: safe(() => w.computeSize?.()), cls: safe(() => w.computeLayoutSize?.(node)) })),
+      if (!node) return null;
+      const img = Array.isArray(node.imgs) ? node.imgs[0] : null;
+      return {
         imgs: Array.isArray(node.imgs) ? node.imgs.length : null,
-        bodyHeight: safe(() => node.bodyHeight),
-      });
-      const out = { before: dump("before") };
-      if (${JSON.stringify(type)} === "AUSBOSS_NODES_WorkflowNoteTile") {
-        const idx = node.widgets.findIndex((w) => w.name === "$$canvas-image-preview");
-        out.previewIndex = idx;
-        if (idx > -1) {
-          const [pv] = node.widgets.splice(idx, 1);
-          node.setSize([380, 80]);
-          window.app.canvas.setDirty(true, true);
-          await new Promise((r) => setTimeout(r, 350));
-          out.withoutPreview = dump("withoutPreview");
-          node.widgets.splice(idx, 0, pv);
-          node.setSize([380, 80]);
-          window.app.canvas.setDirty(true, true);
-          await new Promise((r) => setTimeout(r, 350));
-          out.withPreviewRestored = dump("withPreviewRestored");
-        }
-      }
-      return out;
-    })()`).catch((error) => ({ error: String(error.message ?? error).slice(0, 300) }));
-    console.log("DIAG " + JSON.stringify(diag));
+        src: img ? String(img.src || "").slice(0, 160) : null,
+        nat: img ? [img.naturalWidth, img.naturalHeight] : null,
+        previewWidget: Boolean(node.widgets?.find((w) => w.name === "$$canvas-image-preview")),
+        appPreviewKeys: Object.keys(window.app.nodePreviewImages ?? {}).slice(0, 10),
+      };
+    })()`).catch(() => null);
+    if (imgInfo && (imgInfo.imgs || imgInfo.previewWidget)) console.log("IMGS " + type + " " + JSON.stringify(imgInfo));
   }
   await sleep(150);
   const problems = [];
