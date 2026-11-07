@@ -214,7 +214,7 @@ export function ensureStepCss() {
 .ausboss-steps-showing>img,.ausboss-steps-showing>video,.ausboss-steps-showing>.ausboss-input-preview-hint,.ausboss-steps-showing>.ausboss-video-status{visibility:hidden;}
 .ausboss-steps img,.ausboss-steps.on img{display:block;position:absolute;inset:0;width:100%;height:100%;max-width:none;max-height:none;margin:0;object-fit:contain;visibility:visible;}
 .ausboss-steps-line{position:absolute;left:0;top:0;height:3px;width:0;background:${T.brand};transition:width .15s linear;}
-.ausboss-steps-chip{position:absolute;left:6px;right:6px;bottom:6px;box-sizing:border-box;padding:4px 7px;border:1px solid transparent;border-radius:${RADIUS_CONTROL}px;background:rgba(21,24,26,.88);color:${T.inkSoft};font:600 10.5px/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ausboss-steps-chip{position:absolute;left:6px;right:6px;bottom:6px;box-sizing:border-box;padding:4px 7px;border:1px solid transparent;border-radius:${RADIUS_CONTROL}px;background:rgba(16,18,20,.88);color:${T.inkSoft};font:600 10.5px/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .ausboss-steps.stopped img{filter:brightness(.55) saturate(.7);}
 .ausboss-steps.stopped .ausboss-steps-line{display:none;}
 .ausboss-steps.stopped .ausboss-steps-chip{border-color:${T.danger};color:${T.dangerInk};}
