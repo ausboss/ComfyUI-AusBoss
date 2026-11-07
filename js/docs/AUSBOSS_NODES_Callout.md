@@ -9,11 +9,15 @@ wires.
 
 ## Tile presets
 
-Right-click the Callout and choose **Title tile** to give your existing text a black heading with a teal accent. **Set YouTube link tile** and **Set Discord link tile** fill in the AusBoss link and label. Click the label to open the link, drag the tile to move it, or right-click **Edit callout text** to change the label and destination. Choose **Plain callout** to return to the standard style with the current text.
+Right-click the Callout and choose **Title tile** to give your existing text a black heading with a teal accent. **Set YouTube link tile** and **Set Discord link tile** fill in the AusBoss link and label. Click the label to open the link, or drag the tile to move it. Choose **Plain callout** to return to the standard style with the current text.
+
+- Press **Edit** on a tile to open a larger editor. A link tile has separate **Button text** and **Link address** fields. Existing mixed text stays in a text box.
+- Double-click a title to edit it. **Save** or `Ctrl+Enter` keeps the change; **Cancel** or `Esc` leaves the original text.
+- Drag the visible bottom-right grip to resize. You can also focus the grip and use arrow keys; hold **Shift** for smaller changes. Resizing keeps the tile in place and supports Undo.
 
 ## Writing
 
-- Double-click the note, or press **Edit**, to type. Click outside the box to
+- On a plain callout, double-click the note, or press **Edit**, to type. Click outside the box to
   keep the text. **Esc** drops what you typed.
 - A blank line starts a new point. Each point gets a thin teal line beside it.
 - Put two stars around a word to stress it: `**Resize is on.**`

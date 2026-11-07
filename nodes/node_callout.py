@@ -52,7 +52,23 @@ class AusBossCallout:
         return ()
 
 
-NODE_CLASS_MAPPINGS = {"AUSBOSS_NODES_Callout": AusBossCallout}
-NODE_DISPLAY_NAME_MAPPINGS = {"AUSBOSS_NODES_Callout": "Callout 🆎"}
+class AusBossCalloutTile(AusBossCallout):
+    DESCRIPTION = (
+        "A compact title or colored link button for a workflow. "
+        "Double-click to edit; use its menu to choose a title, YouTube or "
+        "Discord tile. Saved tiles require a pack that supports tiles, "
+        "so an older install can report the missing node. Nothing runs."
+    )
+    SEARCH_ALIASES = ["callout tile", "link button", "youtube", "discord", "ausboss"]
+
+
+NODE_CLASS_MAPPINGS = {
+    "AUSBOSS_NODES_Callout": AusBossCallout,
+    "AUSBOSS_NODES_CalloutTile": AusBossCalloutTile,
+}
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "AUSBOSS_NODES_Callout": "Callout 🆎",
+    "AUSBOSS_NODES_CalloutTile": "Callout Tile 🆎",
+}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

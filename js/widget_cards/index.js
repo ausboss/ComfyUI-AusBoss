@@ -11,6 +11,7 @@ import { chainCallback, notifyAusbossChange } from "../shared/index.mjs";
 import { formatWidgetVisibility } from "../shared/save_video_formats.mjs";
 import { hideInputsInDef } from "../shared/widget_visibility.mjs";
 import { castChips } from "../shared/h3_cast_chips.mjs";
+import { clipSetsDuration } from "../shared/h3_duration.mjs";
 import { momentStrip } from "../shared/moment_strip.mjs";
 import { mountWidgetCard } from "../shared/widget_card.mjs";
 import { SOCKETLESS_CHOICE, SOCKETLESS_TEXT, commitWidgetValue, markSocketless, resetUnknownValues } from "../shared/widget_card_math.mjs";
@@ -339,14 +340,14 @@ const CARDS = {
       { section: "What happens" },
       {
         widget: "script", kind: "textarea", height: 118, grow: true,
-        placeholder: "@1 walks through a crowded night market.\n\n@1 stands on a rooftop in the rain.\n\nOne line for each thing that happens. A blank line cuts to a new place. @1 is Picture 1.",
+        placeholder: "Type what happens, one line for each thing. Picture 1 is @1. A blank line cuts to a new place.\n\nSwap: leave empty, or name who goes. Optional new look on its own line: @1 looks like a woman with blonde hair and a black hoodie.",
       },
       { panel: momentStrip, height: 76 },
       { widget: "sound", label: "Sound", placeholder: "rain on a window" },
       { widget: "music", label: "Music", placeholder: "slow piano: music makes it louder" },
       { section: "Pictures and settings" },
       { panel: castChips, height: 30 },
-      { widget: "seconds", label: "Length", suffix: "s" },
+      { widget: "seconds", label: "Length", suffix: "s", readOnlyText: (node, values) => clipSetsDuration(node, values) ? "From the clip" : "", readOnlyTitle: "This video job uses the incoming clip, so Length is not used." },
       { widget: "camera", label: "Camera", kind: "select" },
       { widget: "look", label: "Look", kind: "select" },
       { group: "more", label: "More" },

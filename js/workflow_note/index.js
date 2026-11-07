@@ -13,6 +13,8 @@
 import { api } from "../../../scripts/api.js";
 import { app } from "../../../scripts/app.js";
 import { setTileFace, TILE_FACE_CSS } from "../shared/tile_face.mjs";
+import { NOTE_TYPES, serializeNoteIdentity } from "../shared/note_identity.mjs";
+import { compactAction } from "../shared/panel_controls.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
 import { collectGraphNodes } from "../shared/appearance.mjs";
 import { copyToClipboard } from "../shared/clipboard.mjs";
@@ -42,7 +44,6 @@ import {
 import { comboValues, commitWidgetValue } from "../shared/widget_card_math.mjs";
 import { parseRows, serializeRows } from "../shared/lora_stack.mjs";
 
-const NODE_CLASS = "AUSBOSS_NODES_WorkflowNote";
 const CSS_ID = "ausboss-workflow-note-css";
 const WIDGET_NAME = "ausboss_workflow_note_panel";
 const PANEL_MIN_WIDTH = 300;
@@ -125,12 +126,13 @@ ${TILE_FACE_CSS}
 .ausboss-note-read::after{content:"";position:absolute;right:18px;width:7px;height:7px;border:solid #a2b6b6;border-width:2px 2px 0 0;transform:rotate(45deg);}
 .ausboss-note-read:hover{background:#10191b;}
 .ausboss-note-read:focus-visible{outline:2px solid var(--accent);outline-offset:-3px;}
-.ausboss-note.is-tile .ausboss-note-edit{top:50%;right:32px;transform:translateY(-50%);opacity:0;pointer-events:none;}
+.ausboss-note.is-tile .ausboss-note-edit{top:50%;right:32px;transform:translateY(-50%);opacity:.65;pointer-events:auto;}
 .ausboss-note.is-tile .ausboss-note-head:is(:hover,:focus-within) .ausboss-note-edit{opacity:1;pointer-events:auto;}
 .ausboss-note-reader{box-sizing:border-box;width:min(640px,94vw);max-height:86vh;overflow:auto;margin:auto;padding:0 0 24px;border:1px solid #365154;border-radius:12px;background:#161f21;color:#e8ebe7;box-shadow:0 18px 64px #0008;font:15px/1.55 "IBM Plex Sans",system-ui,sans-serif;}
 .ausboss-note-reader::backdrop{background:#06090ab8;}
 .ausboss-note-reader-head{padding:20px 24px 16px;border-top:3px solid var(--accent);background:#080e10;}
 .ausboss-note-reader-head button{float:right;margin:0 0 6px 10px;}
+.ausboss-note-reader-head .ausboss-compact-action{height:32px;padding:0 12px;font-size:13px;}
 .ausboss-note-reader-head h2{margin:0;font:650 26px/1.2 "IBM Plex Sans",system-ui,sans-serif;color:#ecf4f4;overflow-wrap:anywhere;}
 .ausboss-note-reader-head p{margin:6px 0 0;color:#b4c5c5;overflow-wrap:anywhere;}
 .ausboss-note-reader .ausboss-note-section{padding:14px 24px 0;}
@@ -175,6 +177,7 @@ ${TILE_FACE_CSS}
 .ausboss-note-body hr{margin:8px 0;border:0;border-top:1px solid rgba(255,255,255,.08);}
 .ausboss-note-body code{padding:1px 4px;border-radius:3px;background:rgba(255,255,255,.08);font:11px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#e6f4f3;}
 .ausboss-note-body pre{margin:0 0 7px;padding:7px 9px;overflow-x:auto;border-radius:5px;background:rgba(0,0,0,.35);font:11px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#e6f4f3;white-space:pre;}
+.ausboss-note-reader .ausboss-note-body pre,.ausboss-note-reader .ausboss-note-body pre code{white-space:pre-wrap;overflow-wrap:anywhere;}
 .ausboss-note-body a,.ausboss-note-link{color:var(--accent);text-decoration:none;pointer-events:auto;}
 .ausboss-note-body a:hover,.ausboss-note-link:hover{text-decoration:underline;}
 .ausboss-note-folder{margin:8px 0 4px;color:#a9c4c2;font:11px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
@@ -533,10 +536,15 @@ function render(state) {
       const dialog = el("dialog", "ausboss-note-reader");
       dialog.setAttribute("aria-label", note.title || "Workflow info");
       dialog.style.setProperty("--accent", note.accent || BRAND);
-      const close = el("button", "ausboss-note-btn", "Close");
+      const close = compactAction("Close");
       close.onclick = () => dialog.close();
+      const editNote = compactAction("Edit", "Edit this note");
+      editNote.onclick = () => {
+        dialog.close();
+        openEditor(state);
+      };
       const header = el("header", "ausboss-note-reader-head");
-      header.append(close, el("h2", "", note.title || "Workflow info"));
+      header.append(close, editNote, el("h2", "", note.title || "Workflow info"));
       if (note.subtitle) header.append(el("p", "", note.subtitle));
       if (note.author) header.append(el("p", "", `by ${note.author}`));
       dialog.append(header);
@@ -546,7 +554,7 @@ function render(state) {
       dialog.addEventListener("close", () => {
         dialog.remove();
         state.reader = null;
-        read.focus();
+        if (!openDialog) read.focus();
       }, {once:true});
       dialog.showModal();
     };
@@ -1156,10 +1164,16 @@ function buildPanel(node) {
 app.registerExtension({
   name: "AusBoss.WorkflowNote",
   beforeRegisterNodeDef(nodeType, nodeData) {
-    if (nodeData?.name !== NODE_CLASS) return;
+    if (!NOTE_TYPES.has(nodeData?.name)) return;
     hideInputsInDef(nodeData, ["note"]);
     chainCallback(nodeType.prototype, "onNodeCreated", function () {
       buildPanel(this);
+      // A new tile starts as a button; onConfigure restores saved dimensions.
+      if (nodeData.name === "AUSBOSS_NODES_WorkflowNoteTile") this.setSize?.([380, 80]);
+    });
+    chainCallback(nodeType.prototype, "onSerialize", function (saved) {
+      const value = this.widgets?.find(widget => widget.name === "note")?.value;
+      serializeNoteIdentity(saved, normalizeNote(value).layout === "tile");
     });
     chainCallback(nodeType.prototype, "onConfigure", function (saved) {
       // Saved widget values land after onNodeCreated: re-read them, and

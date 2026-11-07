@@ -4,6 +4,18 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Colored link buttons and pop-out notes keep their tile layout when shared.**
+  Callout Tile and Workflow Note Tile save as distinct node types, so an older
+  install can report what is missing. Tiles have larger editors and visible
+  resize grips, start compact when added, and pop-out notes wrap long code lines.
+- **H3 Prompt Writer can change something in a video while keeping its person and sound.**
+  The new `keeps_clip_sound` output helps route the source audio. Video edits
+  show **From the clip** for their length, and swaps accept an optional
+  `@1 looks like ...` line describing the connected replacement.
+- **Workflow Switches' Off and On buttons now select the state they name.**
+  Pressing the already selected state leaves it unchanged.
+
+
 ## 2.21.1 - 2026-11-06
 
 - **The README release badge stays available when the badge service is down.**

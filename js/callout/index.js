@@ -8,6 +8,7 @@
 
 import { app } from "../../../scripts/app.js";
 import { setTileFace, TILE_FACE_CSS } from "../shared/tile_face.mjs";
+import { CALLOUT_TYPES, serializeNoteIdentity } from "../shared/note_identity.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto } from "../shared/index.mjs";
 import {
   ARROW_ANGLE,
@@ -20,6 +21,8 @@ import {
   repointLinks,
   targetId,
   toggleSmall,
+  tileLinkFields,
+  tileLinkText,
   urlLabel,
   wrapLink,
 } from "../shared/callout.mjs";
@@ -28,9 +31,9 @@ import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
 import { commitWidgetValue } from "../shared/widget_card_math.mjs";
+import { compactAction } from "../shared/panel_controls.mjs";
 import { frameBounds } from "../shared/workflow_switches.mjs";
 
-const NODE_CLASS = "AUSBOSS_NODES_Callout";
 const CSS_ID = "ausboss-callout-css";
 const WIDGET_NAME = "ausboss_callout_panel";
 const DEFAULT_SIZE = [380, 160];
@@ -77,6 +80,7 @@ ${TILE_FACE_CSS}
 .ausboss-callout-card[data-tile] .ausboss-callout-url{color:white;text-decoration:none;display:flex;align-items:center;gap:12px}
 .ausboss-callout-card[data-tile] .ausboss-callout-url svg{width:36px;height:28px;flex:none}
 .ausboss-callout-card[data-tile] .ausboss-callout-out{margin-left:auto}
+.ausboss-callout-card[data-tile] .ausboss-callout-tools{right:27px;}
 .ausboss-callout-empty{color:#6f8987;font-size:14px;font-weight:400;}
 .ausboss-callout-arrow{display:inline-block;width:1.2em;height:1.2em;margin:0 .1em;vertical-align:-.26em;filter:drop-shadow(0 0 .3em rgba(0,180,170,.55));}
 .ausboss-callout-arrow svg{display:block;width:100%;height:100%;overflow:visible;}
@@ -89,7 +93,7 @@ ${TILE_FACE_CSS}
 .ausboss-callout-out{display:inline-block;margin-left:.2em;font-size:.7em;font-weight:600;vertical-align:.14em;text-decoration:none;opacity:.85;}
 .ausboss-callout-jump.is-gone{opacity:.45;cursor:default;text-decoration-style:dotted;}
 .ausboss-callout-tools{position:absolute;top:5px;right:5px;display:flex;gap:4px;opacity:0;transition:opacity .15s;pointer-events:auto;}
-.ausboss-callout-card:hover .ausboss-callout-tools,.ausboss-callout.is-selected .ausboss-callout-tools{opacity:.95;}
+.ausboss-callout-card:is(:hover,:focus-within) .ausboss-callout-tools,.ausboss-callout.is-selected .ausboss-callout-tools{opacity:.95;}
 .ausboss-callout-tool{height:22px;padding:0 8px;border:1px solid rgba(0,180,170,.45);border-radius:5px;background:rgba(8,14,16,.86);color:#9fd8d3;font:600 11px ${FONT};letter-spacing:.02em;cursor:pointer;}
 .ausboss-callout-tool:hover{color:#fff;border-color:${BRAND};}
 .ausboss-callout-editor{position:absolute;inset:0;box-sizing:border-box;display:flex;flex-direction:column;gap:6px;padding:6px;border:1px solid ${BRAND};border-radius:8px;background:rgba(5,10,11,.95);pointer-events:auto;container-type:size;}
@@ -104,6 +108,17 @@ ${TILE_FACE_CSS}
 .ausboss-callout-pick svg{display:block;width:100%;height:100%;}
 .ausboss-callout-size{flex:none;height:24px;margin-left:4px;padding:0 7px;border:1px solid rgba(0,180,170,.35);border-radius:5px;background:rgba(8,14,16,.9);color:#9fd8d3;font:600 11px ${FONT};cursor:pointer;}
 .ausboss-callout-size:hover{border-color:${BRAND};background:rgba(0,180,170,.14);}
+.ausboss-tile-editor{box-sizing:border-box;width:min(520px,94vw);max-height:86vh;overflow:auto;margin:auto;padding:24px;border:1px solid #365957;border-top:3px solid ${BRAND};border-radius:10px;background:#111b1c;color:#e6f4f3;box-shadow:0 18px 64px #0008;font:14px/1.5 ${FONT};}
+.ausboss-tile-editor::backdrop{background:#06090ab8;}
+.ausboss-tile-editor h2{margin:0 0 18px;font-size:21px;}
+.ausboss-tile-editor label{display:flex;flex-direction:column;gap:7px;margin-bottom:16px;font-weight:600;}
+.ausboss-tile-editor input,.ausboss-tile-editor textarea{box-sizing:border-box;width:100%;padding:10px 12px;border:1px solid #365957;border-radius:5px;background:#080e10;color:#e6f4f3;font:16px/1.5 ${FONT};user-select:text;}
+.ausboss-tile-editor textarea{min-height:120px;resize:vertical;}
+.ausboss-tile-editor :is(input,textarea):focus{outline:2px solid ${BRAND};outline-offset:1px;}
+.ausboss-tile-editor footer{display:flex;justify-content:flex-end;align-items:center;gap:8px;}
+.ausboss-tile-editor footer span{margin-right:auto;color:#99b0ad;font-size:12px;}
+.ausboss-tile-editor .ausboss-compact-action{height:32px;padding:0 15px;font-size:13px;}
+.ausboss-tile-editor .ausboss-tile-error{color:#ffc36d;margin:0 0 12px;}
 @container (max-width:395px){.ausboss-callout-arrowbar>span:first-child,.ausboss-callout-link:not(.has-node){display:none;}}
 @container (max-width:395px) and (min-height:112px){.ausboss-callout-arrowbar{flex-wrap:wrap;}.ausboss-callout-pick{flex:none;}}
 `;
@@ -251,7 +266,7 @@ function renderText(state) {
   const style = state.node.properties?.ausbossCalloutTile;
   if (["youtube","discord","title"].includes(style)) state.card.dataset.tile = style;
   else delete state.card.dataset.tile;
-  setTileFace(state.node, state.root, Boolean(state.card.dataset.tile));
+  setTileFace(state.node, state.root, Boolean(state.card.dataset.tile), () => startEdit(state));
   const blocks = parseBlocks(state.valueWidget.value);
   state.inner.replaceChildren();
   state.empty = blocks.length === 0;
@@ -363,8 +378,78 @@ function markChanged() {
   }
 }
 
+function startTileEdit(state) {
+  if (state.editor) return;
+  const original = String(state.valueWidget.value ?? "");
+  const social = ["youtube", "discord"].includes(state.card.dataset.tile);
+  const link = social ? tileLinkFields(original) : null;
+  const dialog = el("dialog", "ausboss-tile-editor");
+  const heading = social ? "Edit link tile" : "Edit title";
+  dialog.setAttribute("aria-label", heading);
+  dialog.append(el("h2", "", heading));
+  const label = el("label", "", link ? "Button text" : "Text");
+  const text = el(link ? "input" : "textarea");
+  text.value = link?.label ?? original;
+  label.append(text);
+  dialog.append(label);
+  let address;
+  if (link) {
+    const field = el("label", "", "Link address");
+    address = el("input");
+    address.type = "url";
+    address.value = link.url;
+    field.append(address);
+    dialog.append(field);
+  }
+  const error = el("p", "ausboss-tile-error");
+  error.setAttribute("role", "alert");
+  const foot = el("footer");
+  const cancel = compactAction("Cancel");
+  const save = compactAction("Save");
+  foot.append(el("span", "", "Ctrl + Enter to save"), cancel, save);
+  dialog.append(error, foot);
+  const commit = () => {
+    let value = text.value;
+    try {
+      if (address) value = tileLinkText(text.value, address.value);
+    } catch (problem) {
+      error.textContent = problem.message;
+      return;
+    }
+    if (value !== original) {
+      state.node.graph?.beforeChange?.();
+      commitWidgetValue(state.node, state.valueWidget, value, app.canvas);
+      renderText(state);
+      state.node.graph?.afterChange?.();
+      markChanged();
+    }
+    dialog.close();
+  };
+  save.addEventListener("click", commit);
+  cancel.addEventListener("click", () => dialog.close());
+  dialog.addEventListener("keydown", event => {
+    event.stopPropagation();
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      commit();
+    }
+  });
+  dialog.addEventListener("keyup", event => event.stopPropagation());
+  dialog.addEventListener("close", () => {
+    state.editor = null;
+    dialog.remove();
+    state.root.querySelector(".ausboss-callout-tool")?.focus();
+  }, { once: true });
+  state.editor = dialog;
+  document.body.append(dialog);
+  dialog.showModal();
+  text.focus();
+  text.select();
+}
+
 function startEdit(state) {
   if (state.editor) return;
+  if (state.card.dataset.tile) return startTileEdit(state);
   const wrap = el("div", "ausboss-callout-editor");
   const area = el("textarea", "ausboss-callout-edit");
   area.value = state.valueWidget.value ?? "";
@@ -571,7 +656,7 @@ app.registerExtension({
     // A note copied with what its links name follows the copies.
     onPaste(({ nodes, groups, created }) => {
       for (const node of created) {
-        if (node?.comfyClass !== NODE_CLASS && node?.type !== NODE_CLASS) continue;
+        if (!CALLOUT_TYPES.has(node?.comfyClass) && !CALLOUT_TYPES.has(node?.type)) continue;
         const state = buildPanel(node);
         if (!state) continue;
         const text = repointLinks(state.valueWidget.value, nodes, groups);
@@ -582,10 +667,19 @@ app.registerExtension({
     });
   },
   beforeRegisterNodeDef(nodeType, nodeData) {
-    if (nodeData?.name !== NODE_CLASS) return;
+    if (!CALLOUT_TYPES.has(nodeData?.name)) return;
     hideInputsInDef(nodeData, ["text"]);
     chainCallback(nodeType.prototype, "onNodeCreated", function () {
+      if (nodeData.name === "AUSBOSS_NODES_CalloutTile") {
+        this.properties ??= {};
+        this.properties.ausbossCalloutTile ??= "title";
+      }
       buildPanel(this);
+      // Keep new tiles compact without changing ordinary or saved callouts.
+      if (nodeData.name === "AUSBOSS_NODES_CalloutTile") this.setSize?.([380, 80]);
+    });
+    chainCallback(nodeType.prototype, "onSerialize", function (saved) {
+      serializeNoteIdentity(saved, ["youtube", "discord", "title"].includes(this.properties?.ausbossCalloutTile));
     });
     chainCallback(nodeType.prototype, "onConfigure", function (saved) {
       // Saved values land after onNodeCreated; show them.
@@ -622,6 +716,7 @@ app.registerExtension({
       const state = this.__ausbossCallout;
       if (!state) return;
       state.observer?.disconnect();
+      state.editor?.close?.();
       cancelAnimationFrame(state.frame);
       this.__ausbossCallout = null;
     });

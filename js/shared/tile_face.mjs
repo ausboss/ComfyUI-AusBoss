@@ -4,7 +4,7 @@ import { app } from "../../../scripts/app.js";
 // on this instance so saved colors, titles and the node type remain usable.
 const originalDescriptors = new WeakMap();
 
-export function setTileFace(node, root, enabled) {
+export function setTileFace(node, root, enabled, onEdit) {
   root.classList.toggle("ausboss-tile-face", enabled);
   const previous = originalDescriptors.get(node);
   if (enabled === Boolean(previous)) return;
@@ -28,7 +28,8 @@ export function setTileFace(node, root, enabled) {
       });
     }
     const listeners = new AbortController();
-    installTileDrag(node, root, listeners.signal);
+    installTileDrag(node, root, listeners.signal, onEdit);
+    installTileResize(node, root, listeners.signal);
     originalDescriptors.set(node, { descriptors, listeners });
   } else {
     previous.listeners.abort();
@@ -45,14 +46,24 @@ function skipBadges() {}
 
 // A normal node moves by its header. Give the tile that gesture while
 // keeping a short click on a link or the info button as its usual action.
-function installTileDrag(node, root, signal) {
+function installTileDrag(node, root, signal, onEdit) {
   let press;
+  let lastClick;
   let suppressClick = false;
   const capture = { capture: true, signal };
   root.addEventListener("pointerdown", (event) => {
     suppressClick = false;
     if (!event.isPrimary || event.button !== 0 || node.pinned || app.canvas?.read_only) return;
-    if (event.target.closest(".ausboss-callout-editor,.ausboss-callout-tools,.ausboss-note-edit")) return;
+    if (event.target.closest(".ausboss-callout-editor,.ausboss-callout-tools,.ausboss-note-edit,.ausboss-tile-resize")) return;
+    if (onEdit && !event.target.closest("a,button") && lastClick
+      && event.timeStamp - lastClick.time < 500
+      && Math.hypot(event.clientX - lastClick.x, event.clientY - lastClick.y) < 8) {
+      lastClick = null;
+      event.preventDefault();
+      event.stopPropagation();
+      onEdit();
+      return;
+    }
     press = { id: event.pointerId, x: event.clientX, y: event.clientY, moving: false };
     const target = event.target.closest("a,button") || root;
     target.setPointerCapture(event.pointerId);
@@ -82,6 +93,9 @@ function installTileDrag(node, root, signal) {
     if (press.moving) {
       node.graph?.afterChange?.();
       suppressClick = true;
+      lastClick = null;
+    } else {
+      lastClick = { time: event.timeStamp, x: event.clientX, y: event.clientY };
     }
     press = null;
   };
@@ -107,13 +121,87 @@ function installTileDrag(node, root, signal) {
   }, { signal });
 }
 
-// Nodes 2.0 draws its own DOM frame. Keep native move, selection and resize
-// targets on the node, and show only the widget inside that frame.
+// Put the resize target on the visible corner. The native node corner lies
+// outside a frameless tile and is almost impossible to find without a frame.
+function installTileResize(node, root, signal) {
+  const face = root.querySelector(".ausboss-callout-card,.ausboss-note-card") || root;
+  const grip = document.createElement("button");
+  grip.type = "button";
+  grip.className = "ausboss-tile-resize";
+  grip.setAttribute("aria-label", "Resize tile");
+  grip.title = "Drag to resize. Arrow keys resize; Shift makes smaller changes.";
+  face.append(grip);
+  let drag;
+  const minimum = () => {
+    // Use the same floor as the native corner, including widget margins.
+    // Older saved tiles can be smaller: touching their grip must not jump.
+    const floor = node.computeSize?.() ?? [200, 72];
+    return floor.map((value, axis) => Math.min(value, node.size[axis]));
+  };
+  const resize = (width, height, floor) => {
+    node.setSize?.([Math.max(floor[0], width), Math.max(floor[1], height)]);
+    node.setDirtyCanvas?.(true, true);
+  };
+  grip.addEventListener("pointerdown", event => {
+    event.stopPropagation();
+    if (event.button !== 0 || node.pinned || app.canvas?.read_only) return;
+    event.preventDefault();
+    node.graph?.beforeChange?.();
+    app.canvas?.selectNode?.(node);
+    drag = { id: event.pointerId, x: event.clientX, y: event.clientY,
+      size: [...node.size], floor: minimum(), zoom: app.canvas?.ds?.scale || 1 };
+    grip.setPointerCapture(event.pointerId);
+  });
+  grip.addEventListener("pointermove", event => {
+    if (event.pointerId !== drag?.id) return;
+    event.stopPropagation();
+    resize(drag.size[0] + (event.clientX - drag.x) / drag.zoom,
+      drag.size[1] + (event.clientY - drag.y) / drag.zoom, drag.floor);
+  });
+  const finish = event => {
+    if (event.pointerId !== drag?.id) return;
+    drag = null;
+    node.graph?.afterChange?.();
+  };
+  grip.addEventListener("pointerup", finish);
+  grip.addEventListener("pointercancel", finish);
+  grip.addEventListener("lostpointercapture", finish);
+  grip.addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); });
+  grip.addEventListener("keydown", event => {
+    if (!event.key.startsWith("Arrow")) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (node.pinned || app.canvas?.read_only) return;
+    const step = event.shiftKey ? 1 : 10;
+    node.graph?.beforeChange?.();
+    resize(node.size[0] + (event.key === "ArrowRight" ? step : event.key === "ArrowLeft" ? -step : 0),
+      node.size[1] + (event.key === "ArrowDown" ? step : event.key === "ArrowUp" ? -step : 0), minimum());
+    node.graph?.afterChange?.();
+  });
+  signal.addEventListener("abort", () => { if (drag) node.graph?.afterChange?.(); grip.remove(); }, { once: true });
+}
+
+// Nodes 2.0 always adds a title's height to --node-height, even when a tile
+// hides the title. Remove that unused reservation: otherwise an 88px saved
+// tile gains a 30px tail and overlaps the next tile. Vue also positions the
+// host at saved y minus the title height. Restore that headerless origin
+// with an independent translation so faces cannot cover group headings.
+// Keep the saved size and
+// the native selection/resize targets, rather than changing the graph.
+// Its in-body pack badges also consume 20px that Classic paints outside the
+// panel. Decorative tiles and callouts use that room for their own face.
+// The node-body test id and direct mt-auto badge wrapper are from the pinned
+// frontend's LGraphNode.vue/NodeBadges.vue; no other node body is affected.
 export const TILE_FACE_CSS = `
 .ausboss-tile-face :is(.ausboss-callout-card,.ausboss-note-head){pointer-events:auto;touch-action:none;cursor:grab;}
+.ausboss-tile-face{user-select:none;}
+.ausboss-tile-resize{position:absolute;right:1px;bottom:1px;z-index:4;width:22px;height:22px;padding:0;border:0;border-radius:3px;background:transparent;color:#9fb9b6;opacity:.65;cursor:nwse-resize;touch-action:none;pointer-events:auto;}
+.ausboss-tile-resize::after{content:"";position:absolute;right:4px;bottom:4px;width:9px;height:9px;background:repeating-linear-gradient(135deg,transparent 0 3px,currentColor 3px 4px,transparent 4px 6px);clip-path:polygon(100% 0,100% 100%,0 100%);}
+.ausboss-tile-resize:hover,.ausboss-tile-resize:focus-visible{opacity:1;background:#00b4aa33;outline:1px solid #00b4aa;outline-offset:-1px;}
 .lg-node:has(.ausboss-tile-face){filter:none;}
+.lg-node:has(.ausboss-tile-face):not([data-collapsed]){min-height:calc(var(--node-height) - ${globalThis.LiteGraph?.NODE_TITLE_HEIGHT ?? 30}px);translate:0 ${globalThis.LiteGraph?.NODE_TITLE_HEIGHT ?? 30}px;}
+.lg-node:has(.ausboss-tile-face,.ausboss-callout) [data-testid^="node-body-"]>.mt-auto{display:none;}
 .lg-node:has(.ausboss-tile-face) [data-testid="node-inner-wrapper"],
 .lg-node:has(.ausboss-tile-face) .bg-component-node-background{background:transparent!important;box-shadow:none;}
-.lg-node:has(.ausboss-tile-face) .lg-node-header,
-.lg-node:has(.ausboss-tile-face) .bg-component-node-background>div:last-child:not(.lg-node-widgets){display:none;}
+.lg-node:has(.ausboss-tile-face) .lg-node-header{display:none;}
 `;

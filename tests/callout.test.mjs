@@ -6,10 +6,41 @@ import { fileURLToPath } from "node:url";
 
 import {
   ARROW_ANGLE, ARROW_CHOICES, SMALL_MARK, arrowText, fitFontSize, linkTarget, parseBlocks, pastedLink, repointLinks, targetId,
-  toggleSmall, urlLabel, wrapLink,
+  toggleSmall, urlLabel, wrapLink, tileLinkFields, tileLinkText,
 } from "../js/shared/callout.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+test("link tile fields round-trip the existing saved link text", () => {
+  for (const value of [
+    "[Watch Me on YouTube](https://www.youtube.com/@ausbossdev)",
+    "[Join for Help or More Workflows](https://discord.gg/example)",
+    "[**Watch** this video](https://example.com/watch_(1))",
+  ]) {
+    const fields = tileLinkFields(value);
+    assert.ok(fields);
+    assert.equal(tileLinkText(fields.label, fields.url), value);
+  }
+});
+
+test("mixed or multi-line tile content stays in the full text editor", () => {
+  for (const value of [
+    "Title", "See [video](https://example.com)",
+    "[video](https://example.com)\n\nKeep this note too",
+    "[first](https://a.com) [second](https://b.com)",
+    " [video](https://example.com) ",
+    "[node](#12)", "[bad](javascript:alert(1))",
+  ]) assert.equal(tileLinkFields(value), null, value);
+});
+
+test("the tile form rejects labels or addresses that would lose the link", () => {
+  for (const [label, url] of [
+    ["", "https://example.com"], ["a [label]", "https://example.com"],
+    ["two\nlines", "https://example.com"], ["video", "javascript:alert(1)"],
+    ["video", "https://example.com/with a space"],
+  ]) assert.throws(() => tileLinkText(label, url));
+  assert.equal(tileLinkText("Watch", " https://example.com "), "[Watch](https://example.com)");
+});
 
 test("a blank line starts a new point and ## is ignored", () => {
   const blocks = parseBlocks("## One\nsecond line\n\n\n## Two");

@@ -2,6 +2,7 @@
 // bar as long as the clip, with the cuts as marks. The server reads the script with the same code a run uses,
 // so the bar shows what will happen. It also colours the script box, so the
 // words the node reads as instructions (@1, 3s:, a cut) stand out.
+import { clipSetsDuration, linkSource } from "./h3_duration.mjs";
 import { api } from "../../../scripts/api.js";
 import { app } from "../../../scripts/app.js";
 import { BRAND, chainCallback } from "./index.mjs";
@@ -47,16 +48,6 @@ function ensureCss() {
   document.head.append(style);
 }
 
-// A bypassed or muted source doesn't reach the node when it runs, so it doesn't count.
-function linkSource(node, name) {
-  const slot = node.inputs?.find((input) => input?.widget?.name === name || input?.name === name);
-  if (slot?.link === null || slot?.link === undefined) return null;
-  const graph = node.graph;
-  const link = graph?.links?.[slot.link] ?? graph?._links?.get?.(slot.link);
-  const source = graph?.getNodeById?.(link?.origin_id);
-  return (source?.mode ?? 0) === 0 ? source ?? {} : null;
-}
-
 function wired(node, name) {
   return linkSource(node, name) !== null;
 }
@@ -93,7 +84,7 @@ export function momentStrip(node) {
     })),
     cameras: choices("camera"),
     looks: choices("look"),
-    seconds: Number(lastSeconds) || 8,
+    seconds: clipSetsDuration(node, lastValues) ? 0 : Number(lastSeconds) || 8,
   }));
 
   let lastValues = {};
@@ -275,17 +266,38 @@ export function momentStrip(node) {
         body: JSON.stringify({ script, seconds, jobs, video }),
       });
       const report = response.ok ? await response.json() : null;
-      if (turn === asked) show(report);
+      if (turn === asked && !clipSetsDuration(node, lastValues)) show(report);
     } catch {
-      if (turn === asked) show(null);
+      if (turn === asked && !clipSetsDuration(node, lastValues)) show(null);
     }
   };
 
   let latest = null;
+  let fromClip = false;
   const sync = (values) => {
     latest = values;
     lastValues = values;
+    const nextFromClip = clipSetsDuration(node, values);
+    if (fromClip !== nextFromClip) {
+      fromClip = nextFromClip;
+      // Also notice a source switched off without changing this node's wires.
+      queueMicrotask(() => node.__ausbossCard?.refresh?.());
+    }
     colours.sync(values, [1, 2, 3, 4].filter((number) => wired(node, `picture_${number}`)));
+    if (fromClip) {
+      shown = null;
+      clearTimeout(timer);
+      asked += 1;
+      ruler.textContent = "";
+      track.textContent = "";
+      const message = el("ausboss-strip-words", "Length comes from the clip");
+      message.style.cssText = "display:flex;align-items:center;height:100%";
+      track.append(message);
+      note.textContent = "Set the clip's length upstream. Timing controls are unavailable here.";
+      note.title = note.textContent;
+      note.classList.remove("warn");
+      return;
+    }
     if (wired(node, "script")) {
       shown = null;
       clearTimeout(timer);

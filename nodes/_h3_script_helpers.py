@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 import re
 
 from ._h3_cast_helpers import (
+    EDIT,
     KEEP,
     MAIN,
     OUTFIT,
@@ -32,6 +33,7 @@ from ._h3_cast_helpers import (
     number_pictures,
     picture_label,
     subject_label,
+    swap_appearances,
 )
 
 QUOTES = {"“": '"', "”": '"', "‘": "'", "’": "'", "—": " - ", "–": " - ", "…": "..."}
@@ -140,6 +142,7 @@ SAYS_NOTHING = "{main} keeps the lips closed and says nothing the whole time."
 SPEAKS_AS_VIDEO = "{main} speaks as in <Video 1>, each word landing exactly on the lip movement of <Video 1>."
 CLIP_SOUND = "The original sound of <Video 1> continues throughout."
 FOLLOWS_CAMERA = "The camera follows the movement of <Video 1>."
+SAME_AS_VIDEO = "{main} has the same words, mouth movements and moves as in <Video 1>. Everything else stays as it is in <Video 1>."
 CARRIES_ON = "The shot carries straight on from the end of <Video 1>."
 ACTION_GOES_ON = "The action keeps going the way it was heading, and the camera keeps moving the same way."
 FACES_US = "{main} faces the camera as in <Video 1>."
@@ -147,6 +150,7 @@ VIDEO_LOOKS = {
     SWAP: "Retain the look of <Video 1>.",
     KEEP: "The target video keeps the look, colours and camera of <Video 1>.",
     REVOICE: "The target video keeps the look, light and camera of <Video 1>.",
+    EDIT: "Retain the look of <Video 1>.",
 }
 NAMES_A_SPOT = re.compile(r"\b(?:left|right|behind|in\s+front|foreground|background)\b", re.I)
 OPENS_ON_THEM = re.compile(r"^(?:She|He)\b")
@@ -565,6 +569,8 @@ def script_warning(script, seconds, cast=None):
 
 def script_report(text, seconds, jobs=None, video=""):
     """What a script will do, for the timeline on the node."""
+    # The optional swap description is not a second timed action.
+    text, _ = swap_appearances(text, jobs, video)
     script = read_script(text)
     starts = timeline(script, seconds)
     ends = [*starts[1:], seconds]
@@ -718,7 +724,18 @@ def before_the_action(number, text, cast, wearers):
         words = OPENS_ON if cast.ends else OPENING
         notes.append(words.format(subject=subject_label(opens.subject), picture=picture_label(opens.picture)))
     if cast.video == SWAP:
-        notes += [TAKES_OVER.format(main=new, who=who) for _, who, new in cast.swaps]
+        for _, who, new in cast.swaps:
+            picture = next((p for p in cast.swappers if subject_label(p.subject) == new), None)
+            appearance = cast.appearances.get(picture.slot) if picture else None
+            if appearance:
+                notes.append(
+                    f"{new} occupies the starting position of {who} and follows the same route, movements, timing and pace. "
+                    f"{new} has the defined appearance from {picture_label(picture.picture)}: {appearance}. "
+                    f"The replacement stays present throughout, ending at the original performance's final position. "
+                    f"Do not show {who} in that role at any time; there is no transition or morph into the replacement."
+                )
+            else:
+                notes.append(TAKES_OVER.format(main=new, who=who))
         notes.append(ONE_PERSON if cast.whos == [ONE_GOES] else OTHERS_STAY)
         for _, _, new in cast.swaps if cast.clip_sound else []:
             if cast.speaks_as_video:
@@ -748,7 +765,9 @@ def after_the_action(text, cast):
     notes = []
     if cast.moves and cast.main in text:
         notes.append(THE_MOVES.format(main=cast.main, moves=cast.moves))
-    if cast.video == SWAP:
+    if cast.video == EDIT:
+        notes.append(SAME_AS_VIDEO.format(main=cast.main))
+    if cast.video in (SWAP, EDIT):
         notes.append(FOLLOWS_CAMERA)
     for picture in cast.of(SHEET):
         subject = subject_label(picture.subject)
@@ -833,7 +852,7 @@ def script_sound(script, sound, places=False):
 
 def task_of(cast):
     """The tag a summary opens with."""
-    if cast.video == SWAP or cast.video == REVOICE:
+    if cast.video in (SWAP, REVOICE, EDIT):
         return "video editing"
     if cast.video == KEEP:
         return "video continuation"
@@ -852,6 +871,9 @@ def summary_of(script, cast, new_places, soundtrack):
             f"[{task}] The target video is an edited version of <Video 1>. The picture, the timing and the lip movement "
             f"stay as they are, and {cast.main} speaks in a new voice."
         )
+    if cast.video == EDIT:
+        changes = " ".join(sentence(with_labels(without_speech(moment), cast)) for moment in script.moments)
+        return f"[{task}] {changes} Everything else in <Video 1> is kept."
     if cast.video == KEEP:
         tag = f"{task} + audio reference" if soundtrack else task
         return f"[{tag}] The target video continues directly from the end of <Video 1> in the same place."
@@ -890,6 +912,8 @@ def script_parts(script, seconds, camera="", look="", sound="", say=None, cast=N
     moved = any(not FRAME_WORDS.match(without_speech(moment)) for moment in cuts)
     new_places = last > 1 and not cast.of(PLACE) and moved and all(not FRAME_WORDS.match(without_speech(moment)) for moment in cuts)
     first = next(iter(cast.of(PLACE) or cast.pictures), None)
+    if not style and cast.video == EDIT:
+        style = VIDEO_LOOKS[EDIT]
     if not style and len(cast.of(PLACE)) > 1:
         style = OWN_COLOURS
     elif not style and not (first and first.job == THING):
@@ -909,10 +933,10 @@ def script_parts(script, seconds, camera="", look="", sound="", say=None, cast=N
         ambience = OLD_SOUND
     if cast.video == REVOICE and ambience == PLACE_SOUND:
         ambience = ROOM_TONE
-    if cast.clip_sound and ambience == PLACE_SOUND:  # The clip's own sound is what plays, unless the script says the sound.
+    if (cast.clip_sound or cast.video == EDIT) and ambience == PLACE_SOUND:  # The clip's own sound is what plays, unless the script says the sound.
         ambience = CLIP_SOUND
     # With the clip's own sound, words the prompt leaves out are still heard.
-    if ambience != "N/A" and any(moment.speech for moment in script.moments) and not cast.clip_sound:
+    if ambience != "N/A" and any(moment.speech for moment in script.moments) and not cast.clip_sound and cast.video != EDIT:
         ambience = f"{ambience} {ONE_LINE}"
     return {
         "subject_definitions": subjects,

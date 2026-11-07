@@ -344,6 +344,8 @@ A text box that grows with the node and sends its text, unchanged, down a `STRIN
 
 Type what happens, one line for each moment, and leave a blank line to cut to a new place. Connect up to four pictures and give each one a job: a person, a place, an outfit, a thing or a style. Copy the moves from a video, keep a clip going, or add a voice or a song. A timeline on the node shows when each moment plays before you run it. It needs no extra model and you never see H3's prompt format. Connect a small text model and it fills in a one-line idea.
 
+**Change something** edits the named part of a video while keeping its person and sound. For a person swap, an optional `@1 looks like ...` line describes the connected replacement. Jobs that keep the source clip's length show **From the clip**; the `keeps_clip_sound` output helps a workflow choose the source audio.
+
 ### Integer
 
 One whole number (`INT`) on a scrub control, for sharing a size, count or other whole number across nodes. Like every number box in the pack, it takes a typed sum: `1024*1.5`.
@@ -371,6 +373,10 @@ A setup card for a shared workflow: a title, instructions in Markdown, each mode
 ### Callout
 
 A note for the canvas whose text grows to fill it, so it reads without zooming in. Double-click to type; a blank line starts a new point and `**two stars**` stress a word. Type an arrow emoji such as ⬆️ and it turns into a teal arrow in the middle of the line. Click a node while you edit, then press an arrow, and the arrow is linked to that node: click it later and the canvas brings the node into view. It never runs and has no wires.
+
+### Compact note and link tiles
+
+**Callout Tile** shows a compact title or colored YouTube/Discord link button. **Workflow Note Tile** opens a full help note from a compact button. They reuse the note editors and save as distinct node types, so an older install reports a missing node instead of drawing an incompatible plain note. Install or update ComfyUI-AusBoss, restart ComfyUI and reload when either tile is missing. Existing ordinary notes and callouts keep their original types.
 
 ### Run Timer
 

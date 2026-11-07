@@ -1583,5 +1583,13 @@
         "name": "秒数"
       }
     }
+  },
+  "AUSBOSS_NODES_CalloutTile": {
+    "display_name": "标注卡片 🆎",
+    "description": "紧凑的标题或彩色链接按钮。双击编辑，拖动角落调整大小。旧版节点包会将它显示为缺失节点，请更新 ComfyUI-AusBoss。"
+  },
+  "AUSBOSS_NODES_WorkflowNoteTile": {
+    "display_name": "工作流说明卡片 🆎",
+    "description": "点击打开完整说明的小按钮。点击铅笔编辑，拖动角落调整大小。旧版节点包会将它显示为缺失节点，请更新 ComfyUI-AusBoss。"
   }
 }

@@ -14,6 +14,7 @@ if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
     del sys.modules["nodes"]
 
 from nodes._h3_prompt_helpers import (
+    put_on_from_pictures,
     NO_SCRIPT,
     VOICE_NO_WORDS,
     add_task,
@@ -638,6 +639,67 @@ class SoundWordTests(unittest.TestCase):
 
 
 class VideoJobTests(unittest.TestCase):
+    def test_change_something_keeps_the_video_person_and_changes_only_the_named_thing(self):
+        for job in ("outfit", "thing"):
+            text = write_prompt("He wears @1 in place of his blue cap.", seconds=8.0, jobs={1: job}, video="change something")
+            self.assertIn("<Subject 2> is the person in <Video 1>, kept as they are", text)
+            self.assertIn("[video editing] <Subject 2> wears <Subject 1> in place of his blue cap. Everything else in <Video 1> is kept.", text)
+            self.assertIn("Retain the look of <Video 1>.", text)
+            self.assertIn("<Subject 2> has the same words, mouth movements and moves as in <Video 1>.", text)
+            self.assertIn("The original sound of <Video 1> continues throughout.", text)
+            self.assertNotIn("selected for replacement", text)
+            self.assertNotIn("No other words are spoken.", text)
+
+    def test_change_something_reads_a_picture_left_as_person_as_what_he_puts_on(self):
+        # A newcomer leaves Picture 1 on its opening job, person, and types plainly.
+        for script in ("He wears @1 in place of his blue cap.", "He wears the propeller hat instead of his cap.",
+                       "He is wearing a @1 now.", "He puts on the red scarf."):
+            text = write_prompt(script, seconds=8.0, jobs={1: "person"}, video="change something")
+            self.assertIn("<Subject 1> is the outfit in <Picture 1>.", text)
+            self.assertIn("put only this outfit on <Subject 2>", text)
+            self.assertNotIn("<Subject 1> is the person in <Picture 1>", text)
+        text = write_prompt("He wears the propeller hat instead of his cap.", seconds=8.0, jobs={1: "person"}, video="change something")
+        self.assertIn("[video editing] <Subject 2> wears <Subject 1> instead of his cap.", text)
+
+    def test_change_something_keeps_a_person_picture_that_is_not_put_on(self):
+        self.assertEqual(put_on_from_pictures("@1 stands next to him.", {1: "person"}), ("@1 stands next to him.", {1: "person"}))
+        self.assertEqual(put_on_from_pictures("He waves.", {1: "person"}), ("He waves.", {1: "person"}))
+        # Two pictures and no @ typed: nothing is guessed.
+        self.assertEqual(put_on_from_pictures("He wears a hat.", {1: "person", 2: "person"}), ("He wears a hat.", {1: "person", 2: "person"}))
+        self.assertEqual(put_on_from_pictures("He wears @2 and waves at @1.", {1: "person", 2: "person"})[1], {1: "person", 2: "outfit"})
+
+    def test_change_something_keeps_the_clip_sound_with_the_switch_off(self):
+        node = AusBossH3PromptWriter()
+        frames = torch.zeros(40, 8, 8, 3)
+        hat = torch.zeros(1, 8, 8, 3)
+        self.assertTrue(node.write("He wears @1.", 6, picture_1=hat, video=frames, video_job="change something")[-1])
+        self.assertFalse(node.write("@1 dances.", 6, picture_1=hat, video=frames, video_job="copy its moves")[-1])
+        self.assertTrue(node.write("@1 dances.", 6, picture_1=hat, video=frames, video_job="copy its moves", clip_sound=True)[-1])
+        self.assertFalse(node.write("@1 dances.", 6, picture_1=hat, clip_sound=True)[-1])
+
+    def test_a_clip_that_keeps_its_sound_gets_no_score_from_the_music_box(self):
+        node = AusBossH3PromptWriter()
+        frames = torch.zeros(40, 8, 8, 3)
+        hat = torch.zeros(1, 8, 8, 3)
+        score = "a dark score with deep drum hits"
+        edit = node.write("He wears @1.", 6, picture_1=hat, video=frames, video_job="change something", music=score)[0]
+        swap = node.write("", 6, picture_1=hat, video=frames, video_job="swap the person", clip_sound=True, music=score)[0]
+        moves = node.write("@1 dances.", 6, picture_1=hat, video=frames, video_job="copy its moves", music=score)[0]
+        self.assertNotIn("dark score", edit)
+        self.assertNotIn("dark score", swap)
+        self.assertIn("dark score", moves.lower())
+
+    def test_change_something_with_nothing_typed_says_what_to_type(self):
+        with self.assertRaises(ValueError) as caught:
+            write_prompt("", seconds=8.0, jobs={1: "outfit"}, video="change something")
+        self.assertIn("Type what changes in the video", str(caught.exception))
+
+    def test_a_hat_with_no_person_picture_points_to_change_something(self):
+        for job in ("outfit", "thing"):
+            for video in ("swap the person", "copy its moves"):
+                cast = Cast(number_pictures({1: job}, video), video)
+                self.assertIn('pick the video job "change something"', cast.problem("He wears @1."))
+
     def test_copying_moves_keeps_the_performer_out(self):
         parts = parts_of("@1 dances on a rooftop.", jobs={1: "person"}, video="copy its moves")
         self.assertIn("<Subject 2> is the body motion in <Video 1>", parts["subject_definitions"])
@@ -1049,7 +1111,8 @@ class NodeTests(unittest.TestCase):
 
     def test_connected_means_on(self):
         node = AusBossH3PromptWriter()
-        text, *pictures, video, video_sound, voice, song, under, frames, width, height = node.write(LINES, 6, picture_1=PICTURE)
+        text, *pictures, video, video_sound, voice, song, under, frames, width, height, keeps = node.write(LINES, 6, picture_1=PICTURE)
+        self.assertFalse(keeps)
         self.assertIs(pictures[0], PICTURE)
         self.assertEqual(pictures[1:], [None, None, None])
         self.assertIsNone(video)
@@ -1092,7 +1155,7 @@ class NodeTests(unittest.TestCase):
 
     def test_with_a_voice_the_song_goes_under_the_clip(self):
         audio = self.audio(30.0)
-        text, *_, voice, song, under, _, _, _ = AusBossH3PromptWriter().write(SAYS, 10, picture_1=PICTURE, voice=self.audio(), song=audio)
+        text, *_, voice, song, under, _, _, _, _ = AusBossH3PromptWriter().write(SAYS, 10, picture_1=PICTURE, voice=self.audio(), song=audio)
         self.assertNotIn("<Audio 2>", text)
         self.assertIsNotNone(voice)
         self.assertIsNone(song)
@@ -1114,7 +1177,7 @@ class NodeTests(unittest.TestCase):
         self.assertLess(self.under_level(0.01), 0.01)
 
     def test_without_a_voice_the_song_goes_to_h3(self):
-        text, *_, song, under, _, _, _ = AusBossH3PromptWriter().write(LINES, 6, picture_1=PICTURE, song=self.audio())
+        text, *_, song, under, _, _, _, _ = AusBossH3PromptWriter().write(LINES, 6, picture_1=PICTURE, song=self.audio())
         self.assertIsNotNone(song)
         self.assertIsNone(under)
         self.assertIn("<Audio 1>: fully_copy", text)
@@ -1132,7 +1195,7 @@ class NodeTests(unittest.TestCase):
     def test_a_pasted_prompt_needs_nothing_connected(self):
         output = AusBossH3PromptWriter().write(SIX, 6)
         self.assertEqual(output[0], SIX)
-        self.assertEqual(output[-2:], (1344, 756))
+        self.assertEqual(output[-3:-1], (1344, 756))
 
     def test_a_video_comes_out_with_its_job(self):
         frames = torch.zeros(100, 8, 8, 3)
@@ -1162,9 +1225,9 @@ class NodeTests(unittest.TestCase):
         tall = torch.zeros(1, 736, 560, 3)
         wide = torch.zeros(1, 480, 832, 3)
         video = torch.zeros(100, 720, 1280, 3)
-        self.assertEqual(node.write("@1 sits in @2.", 6, picture_1=tall, picture_2=wide, job_2="place")[-2:], (560, 736))
-        self.assertEqual(node.write("@2 waves.", 6, picture_2=wide, job_2="person")[-2:], (832, 480))
-        self.assertEqual(node.write("@1 dances.", 6, picture_1=tall, video=video)[-2:], (1280, 720))
+        self.assertEqual(node.write("@1 sits in @2.", 6, picture_1=tall, picture_2=wide, job_2="place")[-3:-1], (560, 736))
+        self.assertEqual(node.write("@2 waves.", 6, picture_2=wide, job_2="person")[-3:-1], (832, 480))
+        self.assertEqual(node.write("@1 dances.", 6, picture_1=tall, video=video)[-3:-1], (1280, 720))
 
     def test_a_short_clip_keeps_all_it_has(self):
         frames = torch.zeros(20, 2, 2, 3)

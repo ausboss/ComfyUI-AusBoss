@@ -226,6 +226,8 @@ function isFloatWidget(widget) {
 //                                            of the card
 //   { group: "advanced", label: "More" }   - a disclosure; later rows with
 //                                             group: "advanced" sit under it
+// A numeric row may have readOnlyText(node, values): nonempty text replaces
+// its control without changing its widget, socket, value or row height.
 // Rows may also carry `mute: (values) => boolean` and `muteTitle`: a muted
 // row stays in place but dims and stops taking input, with the title as its
 // hover hint (a setting the current mode does not use).
@@ -291,13 +293,28 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       onSettle: () => notifyAusbossChange(),
     });
     into.append(control.root);
-    if (typeof row.limits !== "function") return (vals) => control.set(Number(vals[name]) || 0);
+    // Display an unused setting honestly while keeping its saved value and socket.
+    const readOnly = row.readOnlyText ? el("span", "ausboss-card-readonly") : null;
+    if (readOnly) {
+      readOnly.title = row.readOnlyTitle ?? "";
+      readOnly.setAttribute("role", "status");
+      into.append(readOnly);
+    }
+    const syncReadOnly = (vals) => {
+      if (!readOnly) return;
+      const text = row.readOnlyText(node, vals) || "";
+      readOnly.textContent = text;
+      readOnly.style.display = text ? "" : "none";
+      control.root.style.display = text ? "none" : "";
+    };
+    if (typeof row.limits !== "function") return (vals) => { syncReadOnly(vals); control.set(Number(vals[name]) || 0); };
     // Limits that come from somewhere else are read at every refresh: a wire
     // made or cut changes them. The stored value follows the range, the way
     // ComfyUI's own Primitive node follows the input it is wired to.
     let shown = null;
     const hint = el("span", "ausboss-card-range");
     return (vals) => {
+      syncReadOnly(vals);
       const outside = row.limits(node) ?? null;
       const range = narrowedRange(widget?.options, outside);
       const key = outside ? `${range.min}|${range.max}|${outside.step}` : "";

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 
-from ._h3_cast_helpers import JOBS, KEEP, KEEPS_ITS_LENGTH, PERSON, PLACE, START, SWAP, THING, VIDEO_JOBS
+from ._h3_cast_helpers import EDIT, JOBS, KEEP, KEEPS_ITS_LENGTH, PERSON, PLACE, START, SWAP, THING, VIDEO_JOBS
 from ._h3_prompt_helpers import find_beats, find_speech, split_sections, write_prompt
 from ._h3_script_helpers import CAMERAS, LOOKS, script_report
 from ._route_errors import safe_route_error
@@ -252,8 +252,9 @@ class AusBossH3PromptWriter:
                     {
                         "default": VIDEO_JOBS[0],
                         "tooltip": (
-                            "What the video is for: copy its moves, swap the person in it, keep it going, or "
-                            "give it a new voice. Swap and new voice ignore Seconds and keep the video's length."
+                            "What the video is for: copy its moves, swap the person in it, keep it going, give it "
+                            "a new voice, or change something in it and keep the person (a hat, a shirt). Swap, "
+                            "new voice and change something ignore Seconds and keep the video's length."
                         ),
                     },
                 ),
@@ -286,7 +287,7 @@ class AusBossH3PromptWriter:
             },
         }
 
-    RETURN_TYPES = ("STRING", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "AUDIO", "AUDIO", "AUDIO", "AUDIO", "INT", "INT", "INT")
+    RETURN_TYPES = ("STRING", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "IMAGE", "AUDIO", "AUDIO", "AUDIO", "AUDIO", "INT", "INT", "INT", "BOOLEAN")
     RETURN_NAMES = (
         "prompt",
         "picture_1",
@@ -301,6 +302,7 @@ class AusBossH3PromptWriter:
         "frames",
         "width",
         "height",
+        "keeps_clip_sound",
     )
     OUTPUT_TOOLTIPS = (
         "The finished prompt. Wire it into H3's prompt.",
@@ -316,6 +318,7 @@ class AusBossH3PromptWriter:
         "The clip's length in frames. Wire it into H3's length.",
         "The width of your video, or else of your first picture. Wire it into H3's width.",
         "The height of your video, or else of your first picture. Wire it into H3's height.",
+        "On when the finished clip should keep your video's own sound: with clip_sound on, or always for change something.",
     )
     FUNCTION = "write"
 
@@ -323,6 +326,9 @@ class AusBossH3PromptWriter:
               video_sound=None, voice=None, song=None, camera=AS_TYPED, look=FROM_PICTURE, song_start=0.0, cut_on_beat=True,
               language="English", job_1=PERSON, job_2=PERSON, job_3=PERSON, job_4=THING, video_job=VIDEO_JOBS[0],
               sound="", music="", clip_sound=False):
+        # A clip that keeps its own sound has no room for a score: the finished clip plays the video's sound.
+        if video is not None and (video_job == EDIT or (video_job == SWAP and clip_sound)):
+            music = ""
         script = with_sound_and_music(script, sound, music)
         pictures = {1: picture_1, 2: picture_2, 3: picture_3, 4: picture_4}
         given = {slot: picture for slot, picture in pictures.items() if picture is not None}
@@ -334,6 +340,7 @@ class AusBossH3PromptWriter:
             frames = video_frames(video.shape[0])
             seconds = frames / FRAME_RATE
         length = frames / FRAME_RATE
+        keeps_clip_sound = video is not None and (bool(clip_sound) or video_job == EDIT)
         clip_sound = bool(clip_sound) and video_job == SWAP
         speech = find_speech(mono_samples(video_sound), video_sound["sample_rate"]) if clip_sound and video_sound is not None else None
         if video_job == KEEP:
@@ -365,7 +372,7 @@ class AusBossH3PromptWriter:
             speech=speech,
         )
         ordered = [*given.values(), None, None, None, None][: len(PICTURES)]
-        return (text, *ordered, video, video_sound, voice, song, song_under, frames, *clip_shape(video, ordered[0]))
+        return (text, *ordered, video, video_sound, voice, song, song_under, frames, *clip_shape(video, ordered[0]), keeps_clip_sound)
 
 
 def _register_routes():

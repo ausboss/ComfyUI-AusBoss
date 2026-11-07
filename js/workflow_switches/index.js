@@ -349,8 +349,7 @@ function applyPlan(state, plan, values = []) {
   notifyAusbossChange();
 }
 
-// A click on a row's pill. The pill is one switch, so either half flips it;
-// `side` (true for the on half) only decides while the row reads mixed.
+// Each half sets the state it names; clicking the selected half leaves it set.
 function switchRow(state, key, side) {
   const { settings, rows } = read(state);
   const target = rows.find((row) => rowKey(row) === key);
@@ -835,7 +834,7 @@ function buildRow(state, key, made) {
   const chip = el("span", "ausboss-ws-chip");
   const title = el("span", "ausboss-ws-title");
   const count = el("span", "ausboss-ws-count");
-  // One switch drawn as two halves: a click on either half flips it.
+  // Separate off and on targets, backed by the same saved switch.
   const pill = el("div", "ausboss-card-seg ausboss-card-bool ausboss-ws-pill");
   pill.setAttribute("role", "group");
   const offButton = button("", "off");
@@ -940,10 +939,8 @@ function buildRow(state, key, made) {
       offNodes.length > 0 && `${settings.off === "mute" ? "mute" : "bypass"} what runs only while it is off`,
       settings.exclusive && "switch the other rows off",
     ]);
-    // Either half flips the switch, so both say what the next click does;
-    // a mixed row goes to the half that is clicked.
-    offButton.title = data.state === "off" ? `Click: ${turnOn}` : data.state === "on" ? `Click: ${turnOff}` : turnOff;
-    onButton.title = data.state === "off" ? `Click: ${turnOn}` : data.state === "on" ? `Click: ${turnOff}` : turnOn;
+    offButton.title = turnOff;
+    onButton.title = turnOn;
   };
   return { row, title, name, sync };
 }

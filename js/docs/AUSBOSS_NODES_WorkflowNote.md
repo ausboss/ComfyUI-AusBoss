@@ -18,7 +18,7 @@ Nothing runs: the node has no outputs, so ComfyUI never executes it.
 - **Title / Subtitle / Author** make the banner. **Layout → Banner** shows
   only that top block (the title, plus the subtitle and author if you filled
   them in), so the same node doubles as a label for a stage or column.
-- **Layout → Info tile** puts a single button on the canvas. Click the tile to read the full note, including models and links. A book marks a guide and a download arrow marks a model list. Hover or focus the tile to reveal its edit pencil.
+- **Layout → Info tile** puts a single button on the canvas. Click the tile to read the full note, including models and links. A book marks a guide and a download arrow marks a model list. Click its pencil to edit, or press **Edit** inside the opened note. Drag the visible bottom-right grip to resize the tile without moving it. Focus the grip and use arrow keys for keyboard resizing; **Shift** makes smaller changes.
 - **Accent color** tints the banner bar, dots and buttons; empty keeps the
   pack teal. It takes a six-digit hex such as `#00b4aa`.
 - **How-to** is Markdown-lite: `#`/`##`/`###` headings, `**bold**`,

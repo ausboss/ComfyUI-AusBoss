@@ -51,6 +51,7 @@ errors = []
 PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_AlignImage",
     "AUSBOSS_NODES_Callout",
+    "AUSBOSS_NODES_CalloutTile",
     "AUSBOSS_NODES_ColorMatch",
     "AUSBOSS_NODES_Compare",
     "AUSBOSS_NODES_CropForInpaint",
@@ -94,6 +95,7 @@ PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_VideoCropRotatePad",
     "AUSBOSS_NODES_VideoCropRotatePadClip",
     "AUSBOSS_NODES_WorkflowNote",
+    "AUSBOSS_NODES_WorkflowNoteTile",
     "AUSBOSS_NODES_WorkflowSwitches",
 }
 

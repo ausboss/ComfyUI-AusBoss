@@ -45,6 +45,24 @@ const LINK = `#(${ID})`;
 const WORDS_LINK_RE = /\[([^\[\]\n]+)\]\(([^\s()]+(?:\([^\s()]*\)[^\s()]*)*)\)/g;
 const URL_MAX = 2000;
 
+// Only a whole, ordinary web link gets the simple label/address form. Keep
+// multi-paragraph or mixed-content notes in the text editor, without loss.
+export function tileLinkFields(text) {
+  const value = String(text ?? "");
+  const match = /^\[([^\[\]\n]+)\]\((.+)\)$/.exec(value);
+  if (!match || !linkTarget(match[2])?.url) return null;
+  const blocks = parseBlocks(value);
+  if (blocks.length !== 1 || blocks[0].length !== 1
+    || blocks[0][0].some(piece => piece.url !== match[2])) return null;
+  return { label: match[1], url: match[2] };
+}
+
+export function tileLinkText(label, url) {
+  const text = `[${label}](${url.trim()})`;
+  if (!tileLinkFields(text)) throw new Error("Enter a label without square brackets and a complete https:// or http:// address.");
+  return text;
+}
+
 // Where a link goes: { url }, { link } (a node's id) or { group } (a group's
 // id), or null when the text is none of them. `raw` is what stands in the
 // round brackets, or after an arrow's #.
