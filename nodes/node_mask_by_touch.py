@@ -212,19 +212,19 @@ def _server():
         return None
 
 
-def _tell(node_id, note: dict, end: bool) -> bool:
+def _tell(node_id, note: dict, end: bool, stopped: bool = False) -> bool:
     """Tell the node's face what a look has found, over ComfyUI's own channel
     to its page. It goes to the page that asked for the run. True when it
-    was sent; a failure never stops the look."""
+    was sent; a failure never stops the look. `stopped`: the run stops at
+    this node, and the face is only shown the picture that came in."""
     server = _server()
     if server is None or node_id is None:
         return False
+    event = {"node": str(node_id), "note": note, "end": bool(end)}
+    if stopped:
+        event["stopped"] = True
     try:
-        server.send_sync(
-            LOOK_EVENT,
-            {"node": str(node_id), "note": note, "end": bool(end)},
-            getattr(server, "client_id", None),
-        )
+        server.send_sync(LOOK_EVENT, event, getattr(server, "client_id", None))
     except Exception:  # noqa: BLE001
         return False
     return True
@@ -1105,6 +1105,28 @@ class AusBossMaskByTouch:
             entry = self._keep(("picture", key), self._write(picture, "picture", "jpg", format="JPEG", quality=90))
         return entry
 
+    def _show_picture(self, session, image, key: str, unique_id) -> bool:
+        """Send the face the picture that came in, with nothing picked on it,
+        for a run that stops at this node. A failure never changes why the
+        run stops."""
+        if unique_id is None or _server() is None:
+            return False
+        try:
+            height, width = int(image.shape[1]), int(image.shape[2])
+            small_width, small_height, scale = small_size(width, height)
+            picture = self._picture_file(image, key, small_width, small_height)
+            if picture is None:
+                return False
+            note = {
+                "key": key, "width": width, "height": height, "scale": scale, "stamp": "",
+                "picture": picture, "selection": None, "items": [], "share": 0.0,
+                "pieces": self._pieces_note(_MEMORY.get_pieces((session.token, session.reader, key))),
+                "fine": None, "areas": None,
+            }
+        except Exception:  # noqa: BLE001
+            return False
+        return _tell(unique_id, note, True, stopped=True)
+
     def _pieces_note(self, pieces):
         if pieces is None:
             return None
@@ -1239,6 +1261,10 @@ class AusBossMaskByTouch:
         raw = torch.stack(selections)
         soft = raw.dtype != torch.bool
         if not bool(raw.any()) and not asked and str(if_nothing) != IF_NOTHING[1]:
+            # The run stops here, but the face is shown the picture that
+            # came in first: a picture that changed upstream is there to
+            # pick from at once, without unplugging it.
+            self._show_picture(session, image, key, unique_id)
             # Picks the face may still show, made before the picture
             # changed: say so, not that nothing is picked.
             raise RuntimeError(OTHER_PICTURE if elsewhere else NOTHING_PICKED)

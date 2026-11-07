@@ -95,8 +95,9 @@ export const NOTE_KEY = "ausboss_mask_by_touch";
 const TOOLS_HEIGHT = 24;
 const BAR_HEIGHT = 20;
 const STAGE_MIN = 150;
-// Wide enough for the bar under the picture: the arrows, a pick's name, Subject and Background.
-export const PANEL_MIN_WIDTH = 400;
+// Wide enough for the tools over the picture (Reload, Undo, Clear and the eye
+// included) and the bar under it: the arrows, a pick's name, Subject and Background.
+export const PANEL_MIN_WIDTH = 428;
 // What the panel's element needs at its smallest: tools, stage and bar, two
 // gaps and the padding under them.
 const CHIPS_HEIGHT = 22;
@@ -104,9 +105,9 @@ const CHIPS_HEIGHT = 22;
 const CHIP_ROWS = 3;
 // A node this wide has room for the names in front of the brush's two
 // numbers. A narrower one shows the numbers alone.
-const LABELS_FROM = 440;
+const LABELS_FROM = 470;
 // The width a new node opens with: the names fit.
-export const OPENING_WIDTH = 460;
+export const OPENING_WIDTH = 490;
 const PANEL_NEEDS = TOOLS_HEIGHT + STAGE_MIN + BAR_HEIGHT + CHIPS_HEIGHT + 12 + 6;
 // Saved with the workflow: the brush size once it was set by hand, the snap
 // switch, and how the picked area is shown.
@@ -134,6 +135,8 @@ const EYE_TITLES = {
 // The eye beside Undo and Clear, drawn here: an almond and its pupil.
 const EYE_ICON = '<svg width="16" height="16" viewBox="-8 -8 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">'
   + '<path d="M-6.6 0Q0 -6 6.6 0Q0 6 -6.6 0Z"/><circle r="2" fill="currentColor" stroke="none"/></svg>';
+const RELOAD_ICON = '<svg width="14" height="14" viewBox="-8 -8 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+  + '<path d="M5.6 -2.4A6 6 0 1 0 5.2 3"/><path d="M6 -6.2V-2.2H2"/></svg>';
 // The brush size, across the picture, in picture pixels.
 const BRUSH_SIZE = [4, 1000];
 // A brush mark counts as touching an area within this many pixels of the
@@ -241,7 +244,7 @@ function ensureCss() {
 .ausboss-touch.narrow .ausboss-touch-tools{gap:3px;}
 .ausboss-touch.narrow .ausboss-touch-field.size .ausboss-scrub{width:56px !important;}
 .ausboss-touch.narrow .ausboss-touch-field.soft .ausboss-scrub{width:48px !important;}
-.ausboss-touch-btn.eye{display:inline-flex;align-items:center;justify-content:center;width:26px;min-width:26px;padding:0;}
+.ausboss-touch-btn.eye,.ausboss-touch-btn.reload{display:inline-flex;align-items:center;justify-content:center;width:26px;min-width:26px;padding:0;}
 .ausboss-touch-btn.eye.on{border-color:${BRAND};background:${BRAND};color:#04201f;}
 .ausboss-touch-btn.arrow{min-width:20px;width:20px;padding:0;font-size:14px;line-height:16px;}
 .ausboss-touch-swatch{box-sizing:border-box;flex:none;width:${BAR_HEIGHT}px;height:${BAR_HEIGHT}px;border-radius:4px;background:#0b1113;border:1px solid rgba(0,180,170,.3);pointer-events:auto;}
@@ -1403,6 +1406,7 @@ function syncTools(face) {
   const waiting = live && face.pending.length > 0;
   face.undo.disabled = !live || (!some && !face.past.length && !waiting);
   face.clear.disabled = !some && !waiting;
+  face.reload.disabled = !live || face.inFlight;
   if (face.lookButton) {
     const offer = live && face.snap && !face.held && !face.inFlight && !face.pic.scoped && Boolean(face.host.lookOnButton?.());
     face.lookButton.style.display = offer ? "" : "none";
@@ -2877,9 +2881,9 @@ export function mountTouchStage(node, host) {
   };
   readProperties(face);
 
+  const showPicture = () => { if (!face.inFlight) { face.retries = 0; if (face.pic) face.pic.paused = false; requestRun(face, "scope"); } };
   face.start = button("ausboss-touch-start", "Show picture",
-    "Runs only this node, so the picture shows here and its pieces light up under the pointer.",
-    () => { if (!face.inFlight) { face.retries = 0; if (face.pic) face.pic.paused = false; requestRun(face, "scope"); } }, signal);
+    "Runs only this node, so the picture shows here and its pieces light up under the pointer.", showPicture, signal);
   wake.append(face.start, hint);
 
   // Tools: what a press does, the brush, undo and clear; on the right, how
@@ -2976,7 +2980,13 @@ export function mountTouchStage(node, host) {
     if (event.shiftKey) face.setView(face.view === "cut" ? "mask" : face.view === "mask" ? "cut" : face.result === "cut" ? "mask" : "cut");
     else face.setView(face.view === "tint" ? face.result : "tint");
   }, { signal });
-  tools.append(face.toolSwitch.root, face.sizeField, face.softField, el("div", "ausboss-touch-gap"), face.undo, face.clear, face.eye);
+  // The picture coming in changed (an edit made upstream): this shows the
+  // new one, the same way Show picture does.
+  face.reload = button("ausboss-touch-btn reload", "",
+    "Reload the picture: runs only this node, so a picture that changed upstream shows here.", showPicture, signal);
+  face.reload.innerHTML = RELOAD_ICON;
+  face.reload.setAttribute("aria-label", "Reload the picture");
+  tools.append(face.toolSwitch.root, face.sizeField, face.softField, el("div", "ausboss-touch-gap"), face.reload, face.undo, face.clear, face.eye);
   newButton.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();

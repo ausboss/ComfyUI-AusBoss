@@ -4,6 +4,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Mask by Touch shows a changed picture without unplugging it.** When the
+  picture coming in changes and the run stops because the picks were made on
+  the old one, the new picture now shows on the node, ready to pick from. A
+  new reload button beside Undo shows it any time, without running the
+  workflow.
+
 - **Save Image and Save Video: the Steps switch is now called Preview steps.** It
   shows the picture or the clip's first frame while it is being made, and "Steps"
   read like a sampler's step count. It works the same, and saved workflows keep
