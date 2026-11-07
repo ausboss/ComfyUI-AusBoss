@@ -154,7 +154,8 @@ or an area you painted.
 - **More → Smooth** (`smooth`): rounds off a ragged outline by this many
   pixels.
 - **More → Fill small holes** (`fill_holes`): closes pinholes inside the
-  picked area. Larger openings stay open, like a mug's handle.
+  picked area. Larger openings stay open, like a mug's handle. Off by
+  default, so a hole you pick stays a hole.
 - **More → Invert** (`invert`): turns the mask round. On, the mask is
   everything except what you picked.
 - **More → If nothing** (`if_nothing`): **stop the run** or **empty mask**,

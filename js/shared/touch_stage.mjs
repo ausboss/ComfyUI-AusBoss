@@ -745,7 +745,7 @@ function settings(face) {
     grow: Math.round(number("grow")),
     soften: Math.max(0, number("soften")),
     smooth: Math.max(0, Math.round(number("smooth"))),
-    fill: widgetByName(face.node, "fill_holes")?.value !== false,
+    fill: widgetByName(face.node, "fill_holes")?.value === true,
     invert: widgetByName(face.node, "invert")?.value === true,
     fine: fineChoice(widgetByName(face.node, "fine_edges")?.value),
   };

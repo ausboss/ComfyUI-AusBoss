@@ -4,6 +4,10 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Mask by Touch 🆎 no longer fills holes unless you ask.** Fill small
+  holes, under More, now starts off, so a hole you pick stays a hole. Saved
+  workflows keep their setting.
+
 - **H3 Prompt Writer: a swap no longer makes the new person talk to noise.** With
   **Keep the clip's sound** on and no words typed, the writer told H3 the new
   person speaks as in the video whenever the clip's sound was loud, so a train
