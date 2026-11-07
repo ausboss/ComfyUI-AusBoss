@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.21.2 - 2026-11-07
 
 - **H3 Prompt Writer reads a plain swap sentence.** "Replace the man in the red
   shirt with @1", "Swap the woman for @1" and similar phrasings now name only the
