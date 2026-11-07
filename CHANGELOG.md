@@ -4,6 +4,14 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Node cards have a calmer, easier-to-read look.** Number boxes, choices,
+  switches, fields and buttons are now one solid gray with no outlines, on a
+  dark card. Labels, units and section names are lighter and easier to read,
+  and every control in a card row is the same height. The bar above a result
+  picture (the picture arrows, the Preview steps and Preview switches, and
+  buttons such as AUTO) and the picture's frame match the cards. The colors
+  live in one shared file, so the rest of the pack can follow.
+
 - **Mask by Touch 🆎 no longer fills holes unless you ask.** Fill small
   holes, under More, now starts off, so a hole you pick stays a hole. Saved
   workflows keep their setting.
