@@ -326,3 +326,9 @@ test("note formatting leaves old prose, unsafe markup and code literal", () => {
   assert.equal(parseInline("`[amber]warning[/amber]`")[0].type, "code");
   assert.equal(parseMarkdown("```\n|a|\n|---|\n```")[0].type, "code");
 });
+
+test("note panels stand down the frontend image preview", () => {
+  const source = readFileSync(new URL("../js/workflow_note/index.js", import.meta.url), "utf-8");
+  assert.match(source, /import \{ suppressCoreImagePreview \} from "\.\.\/shared\/core_preview\.mjs";/, "the note imports the pack's preview suppression");
+  assert.match(source, /suppressCoreImagePreview\(node\);/, "building a note panel stands the core image preview down");
+});
