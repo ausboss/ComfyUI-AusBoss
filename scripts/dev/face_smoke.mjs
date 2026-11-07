@@ -98,6 +98,19 @@ for (const type of types) {
     let node;
     try { node = window.LiteGraph.createNode(${JSON.stringify(type)}); } catch (error) { return { error: "createNode threw: " + (error?.message ?? error) }; }
     if (!node) return { error: "createNode gave nothing" };
+    if (${JSON.stringify("AUSBOSS_NODES_WorkflowNoteTile")} === ${JSON.stringify(type)} && !${vue}) {
+      const t0 = performance.now();
+      const trace = [];
+      window.__tileTrace = trace;
+      trace.push([0, "atCreate", [...node.size]]);
+      const origSetSize = node.setSize?.bind(node);
+      if (origSetSize) node.setSize = (s, ...rest) => {
+        trace.push([Math.round(performance.now() - t0), Array.isArray(s) ? [...s] : s,
+          String(new Error().stack || "").split("\\n").slice(2, 7).map((x) => x.trim().slice(0, 140))]);
+        return origSetSize(s, ...rest);
+      };
+      for (const ms of [30, 120, 350]) setTimeout(() => trace.push([ms, "sample", [...node.size]]), ms);
+    }
     node.pos = [0, 0]; app.graph.add(node);
     app.canvas.ds.scale = 1; app.canvas.ds.offset = [160, 230]; app.canvas.setDirty(true, true);
     await new Promise((resolve) => setTimeout(resolve, 800));
@@ -128,6 +141,12 @@ for (const type of types) {
         rootClass: st?.root?.className ?? null,
         rootRect: st?.root ? [Math.round(st.root.getBoundingClientRect().width), Math.round(st.root.getBoundingClientRect().height)] : null,
         cardRect: st?.card ? [Math.round(st.card.getBoundingClientRect().width), Math.round(st.card.getBoundingClientRect().height)] : null,
+        trace: window.__tileTrace ?? null,
+        preview: (() => { const pv = node.widgets?.find((w) => w.name === "$$canvas-image-preview"); if (!pv) return null;
+          return { keys: Object.keys(pv), y: pv.y ?? null, height: pv.height ?? null, size: pv.size ?? null,
+            cs: safe(() => pv.computeSize?.()), hidden: pv.hidden ?? null,
+            el: pv.element instanceof Element ? [Math.round(pv.element.getBoundingClientRect().width), Math.round(pv.element.getBoundingClientRect().height)] : null }; })(),
+        imgs: Array.isArray(node.imgs) ? node.imgs.length : null,
         computeSize: safe(() => node.computeSize?.()),
         widgets: (node.widgets ?? []).map((w) => ({
           name: w.name, type: w.type,
