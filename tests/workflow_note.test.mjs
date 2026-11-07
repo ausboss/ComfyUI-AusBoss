@@ -308,3 +308,35 @@ test("note formatting leaves old prose, unsafe markup and code literal", () => {
   assert.equal(parseInline("`[amber]warning[/amber]`")[0].type, "code");
   assert.equal(parseMarkdown("```\n|a|\n|---|\n```")[0].type, "code");
 });
+
+// Exercise the actual browser fitter with measured layout inputs. Keeping the
+// DOM read behind a stub also proves a tile never measures its dialog content.
+const noteFrontend = readFileSync(new URL("../js/workflow_note/index.js", import.meta.url), "utf-8");
+const fitNoteSource = noteFrontend.slice(noteFrontend.indexOf("function fitNote(state) {"), noteFrontend.indexOf("// Every list widget", noteFrontend.indexOf("function fitNote(state) {")));
+const runFitNote = new Function("classicCanvas", "naturalHeight", "noteFit", "WIDGET_FRAME", "PANEL_TOP", `${fitNoteSource}; return fitNote;`);
+
+test("tile fitting preserves default and saved heights despite a stale widget position", () => {
+  const fit = runFitNote(() => true, () => 50, noteFit, 8, 2);
+  for (const height of [80, 110, 160]) {
+    const state = { note: { layout: "tile" }, fitHeight: 284,
+      node: { size: [380, height], setSize: () => assert.fail("tile fitting must preserve its size") },
+      root: { isConnected: true }, domWidget: { computedHeight: 50, y: 226 } };
+    fit(state);
+    assert.equal(state.fitHeight, undefined, "a tile must not retain a full note's resize floor");
+    assert.equal(state.node.size[1], height);
+  }
+});
+
+test("card and banner fitting still grows to measured content and keeps taller saved sizes", () => {
+  const fit = runFitNote(() => true, () => 300, noteFit, 8, 2);
+  for (const layout of ["card", "banner"]) {
+    for (const height of [80, 500]) {
+      const state = { note: { layout }, node: { size: [380, height],
+        setSize(size) { this.size = size; }, setDirtyCanvas() {} },
+        root: { isConnected: true }, domWidget: { computedHeight: 50, y: 2 } };
+      fit(state);
+      assert.equal(state.fitHeight, 310);
+      assert.equal(state.node.size[1], Math.max(height, 310));
+    }
+  }
+});
