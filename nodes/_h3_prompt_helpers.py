@@ -340,7 +340,9 @@ def write_prompt(script, seconds=15.0, camera="", look="", sound="", language="E
             cast.clip_sound = True
             # With no words typed, the clip's own speech is still heard, so the new person says it as the video does.
             cast.typed_lines = any(moment.speech for moment in scene.moments)
-            cast.speaks_as_video = bool(speech) and not cast.typed_lines
+            # Only a voice makes them speak: a train or a beat is loud in the voice band too, but has no clear pitch,
+            # and the line made the new person mouth along to it (subway clip, 2026-11-07: 0.0 s of clear voice).
+            cast.speaks_as_video = heard_a_voice(speech) and not cast.typed_lines
             time_from_sound(scene.moments, speech)
             scene.moments = [moment for moment in scene.moments if not (moment.voice or moment.other)]
         if not scene.moments:
@@ -436,6 +438,14 @@ SPEAKING_RATES = tuple(2.5 + 0.75 * step for step in range(8))  # Syllables a se
 LONGEST_LINE = 12  # Stretches of speech one line can take.
 # Weights for place_lines, tuned on nine real clips against Whisper's times.
 GAP_WEIGHT, INNER_GAP_WEIGHT, NOISE_WEIGHT, PITCH_WEIGHT = 1.0, 1.0, 1.5, 6.0
+
+
+SPEAKING_VOICE = 0.5  # Seconds of clear voice before the clip counts as someone talking.
+
+
+def heard_a_voice(speech):
+    """Whether find_speech heard someone talk: enough clear voice, not just loud sound in the voice band."""
+    return sum(stretch[3] for stretch in speech or ()) >= SPEAKING_VOICE
 
 
 def find_speech(samples, rate):

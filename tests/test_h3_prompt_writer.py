@@ -1478,6 +1478,16 @@ class ClipSoundTests(unittest.TestCase):
         self.assertNotIn("lips", line)
         self.assertNotIn("speaks as in", line)
 
+    def test_loud_sound_with_no_voice_does_not_make_them_speak(self):
+        # The subway clip: one long stretch of train noise, loud in the voice band, no clear pitch.
+        noise = heard([(1.1, 5.42, None, 0.0)])
+        line = parts_of("@1 replaces the woman on the platform.", clip_sound=True, speech=noise, **SWAP_JOBS)["detailed_description"]
+        self.assertNotIn("speaks as in", line)
+        self.assertNotIn("lips", line)
+        a_word = heard([(1.0, 1.3, 150.0, 0.2)])  # A cough or one short sound: under half a second of voice.
+        line = parts_of("@1 replaces the woman on the platform.", clip_sound=True, speech=a_word, **SWAP_JOBS)["detailed_description"]
+        self.assertNotIn("speaks as in", line)
+
     def test_a_typed_sound_wins_over_the_clips_sound(self):
         parts = parts_of("@1 replaces the man in the hat.\nsound: rain on the roof", clip_sound=True, speech=plain([(0.4, 1.9)]), **SWAP_JOBS)
         self.assertIn("rain on the roof", parts["overall_soundscape"].lower())
