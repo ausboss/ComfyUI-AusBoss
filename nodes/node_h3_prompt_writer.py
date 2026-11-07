@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 
-from ._h3_cast_helpers import EDIT, JOBS, KEEP, KEEPS_ITS_LENGTH, PERSON, PLACE, START, SWAP, THING, VIDEO_JOBS
+from ._h3_cast_helpers import DESCRIBE_PERSON, add_looks, EDIT, JOBS, KEEP, KEEPS_ITS_LENGTH, PERSON, PLACE, START, SWAP, THING, VIDEO_JOBS
 from ._h3_prompt_helpers import find_beats, find_speech, split_sections, write_prompt
 from ._h3_script_helpers import CAMERAS, LOOKS, script_report
 from ._route_errors import safe_route_error
@@ -177,7 +177,8 @@ class AusBossH3PromptWriter:
                     {
                         "tooltip": (
                             "Optional: a small text model such as Qwen3-VL 8B. It adds "
-                            "moments after a one-line idea and matches the sound to the place."
+                            "moments after a one-line idea and matches the sound to the place. "
+                            "In a swap it writes what the new person looks like, from their picture."
                         ),
                     },
                 ),
@@ -335,6 +336,9 @@ class AusBossH3PromptWriter:
         kinds = {1: job_1, 2: job_2, 3: job_3, 4: job_4}
         jobs = {slot: kinds[slot] for slot in given}
         video_job = "" if video is None else video_job
+        if clip is not None and video_job == SWAP:
+            # The model on clip writes each new person's @N looks like line from their picture, when none is typed.
+            script = add_looks(script, jobs, lambda slot: model_asker(clip, given[slot])(DESCRIBE_PERSON, 60))
         frames = clip_frames(seconds)
         if video_job in KEEPS_ITS_LENGTH:
             frames = video_frames(video.shape[0])

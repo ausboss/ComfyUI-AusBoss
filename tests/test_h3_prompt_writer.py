@@ -733,6 +733,63 @@ class VideoJobTests(unittest.TestCase):
         self.assertIn("<Video 1>: partially_preserved", parts["retention_analysis"])
         self.assertIn("the background of <Picture 1> is not transferred", parts["retention_analysis"])
 
+    def test_a_connected_model_writes_the_new_persons_looks_in_a_swap(self):
+        from nodes._h3_cast_helpers import add_looks
+        asked = []
+
+        def describe(slot):
+            asked.append(slot)
+            return '"A man with curly brown hair, wearing glasses."\nExtra line.'
+
+        script = add_looks("Replace the guy with @1.", {1: "person"}, describe)
+        self.assertEqual(script, "Replace the guy with @1.\n@1 looks like a man with curly brown hair, wearing glasses")
+        self.assertEqual(asked, [1])
+        text = write_prompt(script, seconds=8.0, jobs={1: "person"}, video="swap the person")
+        self.assertIn("<Subject 2> has the defined appearance from <Picture 1>: a man with curly brown hair", text)
+        # A typed line wins, places and empty answers add nothing.
+        typed = "Replace the guy with @1.\n@1 looks like a tall woman."
+        self.assertEqual(add_looks(typed, {1: "person"}, describe), typed)
+        self.assertEqual(add_looks("Swap him for @1.", {1: "place"}, describe), "Swap him for @1.")
+        self.assertEqual(add_looks("Swap him for @1.", {1: "person"}, lambda slot: ""), "Swap him for @1.")
+        said = "a man with curly brown hair, wearing dark-framed glasses, and no visible beard or facial hair."
+        self.assertEqual(add_looks("Swap him for @1.", {1: "person"}, lambda slot: said),
+                         "Swap him for @1.\n@1 looks like a man with curly brown hair, wearing dark-framed glasses")
+
+    def test_a_swap_gets_the_firm_wording_without_a_looks_like_line(self):
+        text = write_prompt("Replace the guy with @1.", seconds=8.0, jobs={1: "person"}, video="swap the person")
+        self.assertIn("<Subject 2> has the face, hair and clothes of the person in <Picture 1>", text)
+        self.assertIn("stays present throughout, from the first frame", text)
+        self.assertIn("Do not show the guy in that role at any time", text)
+
+    def test_a_swap_with_a_model_adds_no_moments(self):
+        node = AusBossH3PromptWriter()
+        calls = []
+        import nodes.node_h3_prompt_writer as writer
+        real = writer.model_asker
+        writer.model_asker = lambda clip, image: (lambda question, longest: calls.append(question) or "a woman with a dark bob")
+        try:
+            text = node.write("Swap the woman for @1.", 6, clip=object(), picture_1=torch.zeros(1, 8, 8, 3),
+                              video=torch.zeros(40, 8, 8, 3), video_job="swap the person")[0]
+        finally:
+            writer.model_asker = real
+        self.assertEqual(len(calls), 1)
+        self.assertIn("a woman with a dark bob", text)
+        self.assertNotIn("[Shot 2]", text)
+
+    def test_a_plain_swap_sentence_names_only_who_goes(self):
+        for script, who in (
+            ("Replace the man in the red shirt with @1.", "the man in the red shirt"),
+            ("swap the guy with @1", "the guy"),
+            ("swap out the guy in the hat for @1 in the clip", "the guy in the hat"),
+            ("the cashier is now @1", "the cashier"),
+            ("make the dancer look like @1", "the dancer"),
+            ("swap @1 in for the drummer", "the drummer"),
+            ("Replace the woman with black hair with @1.\n@1 looks like a woman with platinum hair.", "the woman with black hair"),
+        ):
+            text = write_prompt(script, seconds=8.0, jobs={1: "person"}, video="swap the person")
+            self.assertIn(f"<Subject 1> is {who} in <Video 1>, selected for replacement.", text)
+            self.assertNotIn("@1", text)
+
     def test_typed_words_in_a_swap_say_who_goes(self):
         parts = parts_of("The child in the seat.", jobs={1: "person"}, video="swap the person")
         self.assertIn("<Subject 1> is the child in the seat in <Video 1>", parts["subject_definitions"])
@@ -748,7 +805,8 @@ class VideoJobTests(unittest.TestCase):
         self.assertIn("<Subject 4> is the person in <Picture 2>", parts["subject_definitions"])
         self.assertIn("replace the person on the right with <Subject 4>", parts["retention_analysis"])
         self.assertIn("change only the people", parts["retention_analysis"])
-        self.assertIn("<Subject 4> takes the place of the person on the right", parts["detailed_description"])
+        self.assertIn("<Subject 4> occupies the starting position of the person on the right", parts["detailed_description"])
+        self.assertIn("<Subject 4> has the face, hair and clothes of the person in <Picture 2>", parts["detailed_description"])
         self.assertNotIn("Show one person", parts["detailed_description"])
 
     def test_a_swap_with_two_people_reads_who_goes_from_the_script(self):

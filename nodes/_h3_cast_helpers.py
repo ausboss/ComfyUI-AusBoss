@@ -102,6 +102,33 @@ ONE_GOES = "the original person"
 APPEARANCE_LINE = re.compile(r'^\s*@([1-4])\s+looks like\s+([^"\n]+?)\s*$', re.I)
 
 
+# Hair and face only, no clothes, expression or background. When the line names clothes that differ from what the
+# person in the clip wears, H3 tends to open on the picture's own backdrop before cutting to the clip.
+DESCRIBE_PERSON = (
+    "Describe only the hair and face of the person in this picture, in one short line for a video prompt: hair colour "
+    "and style, and glasses, a beard or other face details you can see. No clothes, no expression, no background. "
+    "Start with 'a man' or 'a woman'."
+)
+
+
+def add_looks(text, jobs, describe):
+    """A swap's script with an @N looks like line for each new person who has none, written by describe(slot), a
+    small picture-reading model shown that person's picture. Without such a line H3 kept the original person for the
+    first seconds (2026-11-07), so a connected model writes it when the user didn't."""
+    typed = {int(match.group(1)) for match in map(APPEARANCE_LINE.match, text.splitlines()) if match}
+    for slot in sorted(jobs):
+        if jobs[slot] not in (PERSON, SHEET) or slot in typed:
+            continue
+        words = next((line for line in str(describe(slot) or "").splitlines() if line.strip()), "")
+        words = re.sub(r'["\u201c\u201d]', "", words).strip(" .,;:")
+        words = re.sub(r"^(?:the\s+)?(?:person|subject)\s+(?:in\s+the\s+picture\s+)?(?:is|looks\s+like)\s+", "", words, flags=re.I)
+        # "and no visible beard": naming what isn't there can put it in the picture.
+        words = re.sub(r",?\s*(?:and\s+|with\s+)*(?:no|without)\s+(?:visible\s+)?[^,.;]*", "", words, flags=re.I).strip(" .,;:")
+        if words:
+            text = f"{text.rstrip()}\n@{slot} looks like {words[:1].lower() + words[1:]}"
+    return text
+
+
 def swap_appearances(text, jobs, video):
     """An optional separate @1 looks like line describes a replacement, not who goes.
 
@@ -143,6 +170,21 @@ REPLACES = re.compile(
     r"|swaps?\s+(?:in\s+)?for|goes\s+in\s+for|stands?\s+in\s+for)\s+",
     re.I,
 )
+# A plain sentence: "Replace the man in red with @1", "swap the guy for @1", "make the dancer look like @1",
+# "swap @1 in for the singer". The words caught are who goes.
+ASKS = re.compile(
+    r"^\s*(?:please\s+)?(?:replace|swap(?:\s+out)?|switch(?:\s+out)?|change|turn|make)\s+(?!@\d)(.+?)\s+"
+    r"(?:with|for|to|into|by|look\s+like|become)\s+@\d\b"
+    r"|^\s*(?:please\s+)?(?:swap|put|place|drop|switch)\s+@\d\s+(?:in\s+)?(?:with|for|over|on|onto|in\s+place\s+of)\s+(.+)",
+    re.I,
+)
+# "the cashier is now @1", "the man on the left becomes @1".
+BECOMES = re.compile(
+    r"^\s*(.+?)\s+(?:is\s+now|becomes|turns\s+into|is\s+replaced\s+(?:by|with)|gets\s+replaced\s+(?:by|with)"
+    r"|is\s+swapped\s+(?:for|with|to)|gets\s+swapped\s+(?:for|with)|->|\u2192)\s*@\d\b",
+    re.I,
+)
+IN_THE_CLIP = re.compile(r"\s+(?:in|from|of)\s+the\s+(?:clip|video|original(?:\s+(?:clip|video))?)\b", re.I)
 # "Elon is @1," names the new person, not the one who goes.
 # "the man on the left, Dario is" ends where the next person's name starts.
 NAMES_NEXT = re.compile(r",?\s*(?:[A-Z][\w'.-]*\s+)+(?:is|as|plays)\s*$")
@@ -189,9 +231,16 @@ REVOICE_KEPT = (
 
 def who_goes_in(text):
     """Who a typed swap line says goes, without the rest of the line: "Elon is @1, he replaces the man at the
-    counter" is the man at the counter."""
+    counter" is the man at the counter, and so is "Replace the man at the counter with @1."."""
     replaces = REPLACES.search(text)
-    text = text[replaces.end() :] if replaces else NAMES_THE_NEW.sub("", text)
+    plain = None if replaces else next((match for match in (ASKS.search(text), BECOMES.search(text)) if match), None)
+    if replaces:
+        text = text[replaces.end() :]
+    elif plain:
+        text = next(group for group in plain.groups() if group)
+    else:
+        text = NAMES_THE_NEW.sub("", text)
+    text = IN_THE_CLIP.sub("", text)
     text = re.split(r"[.;!?]", text.strip(" .;!?"), maxsplit=1)[0]
     text = NAMES_NEXT.sub("", text)
     text = SAYS_WHO.sub("", TOKEN.sub("", text).strip(" .,;")).strip(" .,;")

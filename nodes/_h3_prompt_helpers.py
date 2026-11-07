@@ -347,7 +347,7 @@ def write_prompt(script, seconds=15.0, camera="", look="", sound="", language="E
             scene.moments.append(Moment(ACTION_GOES_ON if video == KEEP else ""))
         if voice and not any(moment.speech for moment in scene.moments):
             raise ValueError(VOICE_NO_WORDS)
-        if ask is not None:
+        if ask is not None and video != SWAP:  # A swap keeps the clip's own action; its model only writes the looks.
             add_moments(scene, seconds, ask, jobs)
             add_sound(scene, ask, jobs)
         audio += soundtrack and video == KEEP
