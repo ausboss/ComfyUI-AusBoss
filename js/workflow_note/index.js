@@ -34,6 +34,7 @@ import {
   matchInstalled,
   noteFit,
   noteIsEmpty,
+  noteShowsTileFace,
   normalizeNote,
   packsFromGraph,
   parseMarkdown,
@@ -709,6 +710,12 @@ function naturalHeight(state, width) {
 // empty space until someone drags it shorter.
 function fitNote(state) {
   if (!classicCanvas()) return;
+  // A tile face is a button, not a card: fitting it would measure the note
+  // behind the button and grow a new tile straight back to full height.
+  if (noteShowsTileFace(state.note)) {
+    state.fitHeight = undefined;
+    return;
+  }
   const { node, root, domWidget } = state;
   const width = node.size[0] - WIDGET_FRAME;
   if (!(width > 0)) return;
