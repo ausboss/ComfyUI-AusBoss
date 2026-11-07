@@ -334,7 +334,7 @@ function installStepsSwitch(state, signal) {
   if (!widget) return;
   state.stepsWidget = widget;
   hideWidget(widget);
-  const button = panelSwitch("Steps", "Show the picture here while it is being made, one step at a time, with a Stop button. Off by default.");
+  const button = panelSwitch("Preview steps", "Show the picture here while it is being made, one step at a time, with a Stop button. Off by default.");
   button.classList.add("steps");
   button.addEventListener("pointerdown", (event) => event.stopPropagation(), { signal });
   button.addEventListener("click", (event) => {
