@@ -39,7 +39,7 @@ function getLoopEnabled(node) {
   return !!node.properties.ausboss_save_video_loop;
 }
 
-// The STEPS button: the hidden `step_preview` widget (the card hides it).
+// The Preview steps switch: the hidden `step_preview` widget (the card hides it).
 // On, the player shows each step of the clip's first frame while it is
 // being made, and a STOP button joins the tools for the run.
 function stepsOn(state) {
@@ -131,7 +131,7 @@ function buildPreview(node) {
   loopButton.classList.add("ausboss-steps-loop");
   const stopButton = makeToolButton("STOP", "Stop this run now. The next run in the queue still starts.");
   stopButton.classList.add("ausboss-steps-stop");
-  const stepsButton = panelSwitch("Steps", "Show the clip's first frame here while it is being made, one step at a time, with a Stop button. Off by default.");
+  const stepsButton = panelSwitch("Preview steps", "Show the clip's first frame here while it is being made, one step at a time, with a Stop button. Off by default.");
   tools.classList.add("ausboss-steps-tools");
   tools.append(stopButton, loopButton);
   stage.append(video, image, status, tools);
