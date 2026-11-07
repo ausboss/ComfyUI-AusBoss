@@ -4,6 +4,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **H3 Prompt Writer: a swap no longer makes the new person talk to noise.** With
+  **Keep the clip's sound** on and no words typed, the writer told H3 the new
+  person speaks as in the video whenever the clip's sound was loud, so a train
+  or a beat made their mouth move. It now does that only when it hears a real
+  voice: half a second or more of clear speech.
+
 - **Mask by Touch shows a changed picture without unplugging it.** When the
   picture coming in changes and the run stops because the picks were made on
   the old one, the new picture now shows on the node, ready to pick from. A
