@@ -727,11 +727,16 @@ def before_the_action(number, text, cast, wearers):
         for _, who, new in cast.swaps:
             picture = next((p for p in cast.swappers if subject_label(p.subject) == new), None)
             appearance = cast.appearances.get(picture.slot) if picture else None
-            if appearance:
+            if picture:
+                # Every swap gets the firm wording. Without it H3 kept the original person for the first seconds,
+                # or for the whole clip at Fast preview; with it the new
+                # person is there from the first frame. An @1 looks like line only adds its own words.
+                looks = (f"has the defined appearance from {picture_label(picture.picture)}: {appearance}" if appearance
+                         else f"has the face, hair and clothes of the person in {picture_label(picture.picture)}")
                 notes.append(
                     f"{new} occupies the starting position of {who} and follows the same route, movements, timing and pace. "
-                    f"{new} has the defined appearance from {picture_label(picture.picture)}: {appearance}. "
-                    f"The replacement stays present throughout, ending at the original performance's final position. "
+                    f"{new} {looks}. "
+                    f"The replacement stays present throughout, from the first frame, ending at the original performance's final position. "
                     f"Do not show {who} in that role at any time; there is no transition or morph into the replacement."
                 )
             else:

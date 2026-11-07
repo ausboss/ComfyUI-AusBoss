@@ -4,6 +4,14 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **H3 Prompt Writer reads a plain swap sentence.** "Replace the man in the red
+  shirt with @1", "Swap the woman for @1" and similar phrasings now name only the
+  person who goes, instead of putting the whole sentence into the prompt.
+- **A swapped-in person is there from the first frame.** Swaps with a picture
+  always ask for the replacement throughout, with no transition or morph.
+- **A text model on H3 Prompt Writer's `clip` input writes the `@1 looks like`
+  line in a swap.** It describes the person's hair and face from the picture
+  when no line is typed. Without a model on `clip`, nothing changes.
 - **Workflow Note tiles start compact in the classic canvas again.** A leftover
   image preview filed under the node's id made the classic canvas grow a new
   tile to hold the picture; notes now stand that preview down.
