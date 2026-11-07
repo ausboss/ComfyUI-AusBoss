@@ -12,7 +12,7 @@
 import { api } from "../../../scripts/api.js";
 import { app } from "../../../scripts/app.js";
 import { nodeByExecutionId } from "./graph_ids.mjs";
-import { BRAND } from "./index.mjs";
+import { FONT_UI, RADIUS_CONTROL, THEME as T } from "./theme.mjs";
 import { outputRecordQuery } from "./input_preview.mjs";
 import { isForeignRun } from "./prompt_scope.mjs";
 import {
@@ -213,15 +213,15 @@ export function ensureStepCss() {
 .ausboss-steps.on{display:block;}
 .ausboss-steps-showing>img,.ausboss-steps-showing>video,.ausboss-steps-showing>.ausboss-input-preview-hint,.ausboss-steps-showing>.ausboss-video-status{visibility:hidden;}
 .ausboss-steps img,.ausboss-steps.on img{display:block;position:absolute;inset:0;width:100%;height:100%;max-width:none;max-height:none;margin:0;object-fit:contain;visibility:visible;}
-.ausboss-steps-line{position:absolute;left:0;top:0;height:3px;width:0;background:${BRAND};box-shadow:0 0 6px rgba(0,180,170,.5);transition:width .15s linear;}
-.ausboss-steps-chip{position:absolute;left:6px;right:6px;bottom:6px;box-sizing:border-box;padding:4px 7px;border:1px solid rgba(255,255,255,.08);border-radius:5px;background:rgba(8,12,13,.84);color:#d8ecea;font:600 10.5px/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ausboss-steps-line{position:absolute;left:0;top:0;height:3px;width:0;background:${T.brand};transition:width .15s linear;}
+.ausboss-steps-chip{position:absolute;left:6px;right:6px;bottom:6px;box-sizing:border-box;padding:4px 7px;border:1px solid transparent;border-radius:${RADIUS_CONTROL}px;background:rgba(21,24,26,.88);color:${T.inkSoft};font:600 10.5px/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .ausboss-steps.stopped img{filter:brightness(.55) saturate(.7);}
 .ausboss-steps.stopped .ausboss-steps-line{display:none;}
-.ausboss-steps.stopped .ausboss-steps-chip{border-color:rgba(224,96,90,.55);color:#ffd0cc;}
-.ausboss-steps-hint{position:absolute;left:50%;top:50%;max-width:86%;transform:translate(-50%,-50%);color:#78908e;font:11px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-align:center;}
-.ausboss-steps-stop{border-color:rgba(224,96,90,.8)!important;background:rgba(58,28,27,.9)!important;color:#ffd9d6!important;}
-.ausboss-steps-stop:hover{background:rgba(120,38,33,.95)!important;color:#fff!important;}
-.ausboss-steps-stop::before{content:"";display:inline-block;width:6px;height:6px;margin-right:5px;border-radius:1px;background:#e0605a;vertical-align:1px;}
+.ausboss-steps.stopped .ausboss-steps-chip{border-color:${T.danger};color:${T.dangerInk};}
+.ausboss-steps-hint{position:absolute;left:50%;top:50%;max-width:86%;transform:translate(-50%,-50%);color:${T.faint};font:11px/1.35 ${FONT_UI};text-align:center;}
+.ausboss-steps-stop{border-color:transparent!important;background:${T.dangerSoft}!important;color:${T.dangerInk}!important;}
+.ausboss-steps-stop:hover{background:rgba(120,38,33,.95)!important;color:${T.inkHover}!important;}
+.ausboss-steps-stop::before{content:"";display:inline-block;width:6px;height:6px;margin-right:5px;border-radius:1px;background:${T.danger};vertical-align:1px;}
 .ausboss-video-tool.ausboss-steps-stop{display:none;}
 .ausboss-video-tool.ausboss-steps-stop.live{display:inline-block;}
 .ausboss-video-stage.is-still .ausboss-video-tools.ausboss-steps-tools{display:flex;}

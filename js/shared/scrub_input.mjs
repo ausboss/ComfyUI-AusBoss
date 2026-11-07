@@ -25,10 +25,8 @@
 // Shift's fine step and typed values are never snapped.
 
 import { keepKeyInField } from "./canvas_passthrough.mjs";
-
-// Keep in sync with BRAND in shared/index.mjs - importing it would pull
-// /scripts/app.js into node:test, and this module's math must stay testable.
-const BRAND = "#00b4aa";
+// theme.mjs has no imports, so this module's math stays testable in node:test.
+import { FONT_UI, RADIUS_CONTROL, THEME as T } from "./theme.mjs";
 
 // Horizontal pixels of drag per step; small enough to feel light, large
 // enough that a shaky click cannot change the value. The dead zone keeps a
@@ -181,19 +179,19 @@ function ensureScrubCss() {
   // for one) carry blanket `section input` rules, and these must outrank
   // them wherever the control is mounted.
   style.textContent = `
-  .ausboss-scrub{display:flex;width:72px;height:24px;border:1px solid #3a4047;border-radius:5px;
-    background:#23272c;overflow:hidden;flex:none;color:#d7dde2;font:12px system-ui}
-  .ausboss-scrub:focus-within{border-color:${BRAND}}
+  .ausboss-scrub{display:flex;width:72px;height:24px;border:1px solid transparent;border-radius:${RADIUS_CONTROL}px;
+    background:${T.fill};overflow:hidden;flex:none;color:${T.ink};font:500 12px ${FONT_UI};font-variant-numeric:tabular-nums}
+  .ausboss-scrub:focus-within{border-color:${T.brand}}
   .ausboss-scrub>.ausboss-scrub-input{flex:1 1 auto;min-width:0;width:100%;height:100%;border:none;
     padding:0;margin:0;background:transparent;color:inherit;text-align:center;cursor:ew-resize;
     user-select:none;font:inherit;outline:none;border-radius:0}
   .ausboss-scrub>.ausboss-scrub-input:focus{cursor:text;user-select:text}
-  .ausboss-scrub>.ausboss-scrub-unit{flex:none;align-self:center;padding:0 3px 0 1px;color:#5f7674;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;text-align:center;user-select:none;pointer-events:none}
+  .ausboss-scrub>.ausboss-scrub-unit{flex:none;align-self:center;padding:0 3px 0 1px;color:${T.faint};font:600 10px ${FONT_UI};letter-spacing:.04em;text-transform:uppercase;text-align:center;user-select:none;pointer-events:none}
   .ausboss-scrub>.ausboss-scrub-step{flex:none;width:14px;display:flex;flex-direction:column;
-    border-left:1px solid #3a4047}
+    border-left:1px solid transparent;background:${T.fillHover}}
   .ausboss-scrub>.ausboss-scrub-step>button{flex:1 1 0;min-height:0;border:none;background:transparent;
-    color:#9ba2aa;cursor:pointer;padding:0;margin:0;display:grid;place-items:center;border-radius:0}
-  .ausboss-scrub>.ausboss-scrub-step>button:hover{color:${BRAND};background:rgba(255,255,255,.05)}
+    color:${T.label};cursor:pointer;padding:0;margin:0;display:grid;place-items:center;border-radius:0}
+  .ausboss-scrub>.ausboss-scrub-step>button:hover{color:${T.brand};background:rgba(255,255,255,.05)}
   `;
   document.head.append(style);
 }

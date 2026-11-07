@@ -14,6 +14,7 @@ import { castChips } from "../shared/h3_cast_chips.mjs";
 import { clipSetsDuration } from "../shared/h3_duration.mjs";
 import { momentStrip } from "../shared/moment_strip.mjs";
 import { mountWidgetCard } from "../shared/widget_card.mjs";
+import { FONT_UI, THEME } from "../shared/theme.mjs";
 import { SOCKETLESS_CHOICE, SOCKETLESS_TEXT, commitWidgetValue, markSocketless, resetUnknownValues } from "../shared/widget_card_math.mjs";
 import { mediaViewQuery } from "../shared/media_list.mjs";
 import { gearIconSvg, openSettingsMenu } from "../shared/settings_menu.mjs";
@@ -59,7 +60,7 @@ function seamCorner(node, card) {
   const note = document.createElement("div");
   note.append("not used", document.createElement("br"), "by blend in");
   note.style.cssText = "position:absolute;top:33px;right:2px;text-align:right;white-space:nowrap;"
-    + "color:#6f8886;font:9px/11px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"
+    + `color:${THEME.faint};font:9px/11px ${FONT_UI};`
     + "pointer-events:none";
   tools.append(chip, gear, note);
   return {

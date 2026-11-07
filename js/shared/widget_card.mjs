@@ -30,11 +30,12 @@
 // Pure decisions (which rows show, how tall the card is, how a number
 // scrubs, where a socket sits) live in widget_card_math.mjs for node:test;
 // this file is the DOM.
-import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "./index.mjs";
+import { chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "./index.mjs";
 import { keepKeyInField } from "./canvas_passthrough.mjs";
 import { createMediaPicker } from "./media_picker.mjs";
 import { ensureNodeMinHeight, fillNodeHeight, holdNodeMinWidth, nodeHeightAfterCardChange, pinVuePanelHeight } from "./panel_layout.mjs";
 import { makeScrubInput, quantizeScrubValue, stepDecimals } from "./scrub_input.mjs";
+import { CONTROL_HEIGHT, FONT_UI, RADIUS_CARD, RADIUS_CONTROL, RADIUS_XS, SELECT_CHEVRON, THEME as T } from "./theme.mjs";
 import { limitsLabel, narrowedRange } from "./wired_limits.mjs";
 import { hideWidget } from "./widget_visibility.mjs";
 import {
@@ -55,7 +56,7 @@ const WRAPPER_INSET = 16;
 // widget's layout y (DomWidgets: margin 10 per side).
 const WRAPPER_TOP = 10;
 
-const FONT = `-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif`;
+const FONT = FONT_UI;
 // A boolean pill's state labels must fit half a control; longer text is a
 // tooltip, and the pill says on / off.
 const SWITCH_LABEL_MAX = 16;
@@ -78,76 +79,80 @@ export function ensureCardCss() {
   const style = document.createElement("style");
   style.id = CSS_ID;
   style.textContent = `
-.ausboss-card{position:relative;box-sizing:border-box;width:100%;height:100%;display:flex;flex-direction:column;gap:${ROW_GAP}px;padding:${CARD_PADDING}px 8px;overflow:hidden;border:1px solid rgba(0,180,170,.22);border-radius:8px;background:rgba(0,0,0,.28);font:12px/1.3 ${FONT};color:#c8dddd;pointer-events:none}
+.ausboss-card{position:relative;box-sizing:border-box;width:100%;height:100%;display:flex;flex-direction:column;gap:${ROW_GAP}px;padding:${CARD_PADDING}px 8px;overflow:hidden;border:1px solid transparent;border-radius:${RADIUS_CARD}px;background:${T.card};font:12px/1.3 ${FONT};color:${T.inkSoft};pointer-events:none}
 .ausboss-card-row{display:grid;grid-template-columns:minmax(56px,30%) 1fr;align-items:center;gap:8px;height:${ROW_HEIGHT}px;flex:none;pointer-events:auto}
 .ausboss-card-row.hidden{display:none}
 .ausboss-card-row.linked{opacity:.5}
 .ausboss-card-row.linked .ausboss-card-control{pointer-events:none}
 .ausboss-card-row.muted .ausboss-card-control{opacity:.35;pointer-events:none}
-.ausboss-card-row.muted .ausboss-card-label{color:#566b69}
-.ausboss-card-range{margin-left:6px;color:#5f7674;font-size:10px;font-weight:600;letter-spacing:.02em;white-space:nowrap}
+.ausboss-card-row.muted .ausboss-card-label{color:${T.faint}}
+.ausboss-card-range{margin-left:6px;color:${T.faint};font-size:10px;font-weight:600;letter-spacing:.02em;white-space:nowrap}
 .ausboss-card.has-corner .ausboss-card-control{margin-right:var(--ausboss-card-corner,0px)}
 .ausboss-card-corner{position:absolute;top:${CARD_PADDING}px;right:8px;height:${ROW_HEIGHT}px;display:flex;align-items:center;justify-content:flex-end;gap:5px;pointer-events:auto}
-.ausboss-card-gear{width:24px;height:24px;flex:none;display:grid;place-items:center;padding:0;border:1px solid #2a3437;border-radius:6px;background:#0f1516;color:#8ba3a1;cursor:pointer}
-.ausboss-card-gear:hover{border-color:${BRAND};color:${BRAND}}
-.ausboss-card-chip{height:20px;flex:none;padding:0 8px;border:1px solid rgba(0,180,170,.5);border-radius:10px;background:rgba(0,180,170,.14);color:${BRAND};font:600 10px/1 ${FONT};letter-spacing:.02em;white-space:nowrap;cursor:pointer}
-.ausboss-card-chip:hover{background:rgba(0,180,170,.24);color:#fff}
+.ausboss-card-gear{width:24px;height:24px;flex:none;display:grid;place-items:center;padding:0;border:1px solid transparent;border-radius:${RADIUS_CONTROL}px;background:${T.fill};color:${T.label};cursor:pointer}
+.ausboss-card-gear:hover{background:${T.fillHover};color:${T.inkHover}}
+.ausboss-card-chip{height:20px;flex:none;padding:0 9px;border:none;border-radius:999px;background:${T.brandSoft};color:${T.brandInk};font:600 10px/1 ${FONT};letter-spacing:.02em;font-variant-numeric:tabular-nums;white-space:nowrap;cursor:pointer}
+.ausboss-card-chip:hover{background:${T.brandSoftHover};color:${T.inkHover}}
 .ausboss-card-chip[hidden]{display:none}
 .ausboss-card-row.area{display:block}
 .ausboss-card-row.panel{display:block}
 .ausboss-card-row.area.grow{flex:1 1 auto;height:auto}
-.ausboss-card-label{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:#8ba3a1;font-size:11px;user-select:none}
+.ausboss-card-label{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:${T.label};font-size:11px;user-select:none}
 .ausboss-card-control{display:flex;align-items:center;gap:6px;min-width:0;height:100%}
 .ausboss-card-field{display:flex;align-items:center;gap:6px;flex:1 1 0;min-width:0;height:100%}
 .ausboss-card-field.linked{opacity:.5;pointer-events:none}
+.ausboss-card .ausboss-scrub{height:${CONTROL_HEIGHT}px}
 .ausboss-card-field>.ausboss-scrub{flex:1 1 0;width:auto;min-width:0}
 .ausboss-card-field>.ausboss-scrub .ausboss-scrub-input{width:100%}
-.ausboss-card-sep{flex:none;color:#5f7674;font-size:11px}
-.ausboss-card-suffix{flex:none;color:#5f7674;font-size:10px;letter-spacing:.06em;text-transform:uppercase;user-select:none}
-.ausboss-card-section{height:${SECTION_HEIGHT}px;flex:none;display:flex;align-items:flex-end;color:#5f7674;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;user-select:none}
+.ausboss-card-sep{flex:none;color:${T.faint};font-size:11px}
+.ausboss-card-suffix{flex:none;color:${T.faint};font:600 10px ${FONT};letter-spacing:.1em;text-transform:uppercase;user-select:none}
+.ausboss-card-section{height:${SECTION_HEIGHT}px;flex:none;display:flex;align-items:flex-end;gap:8px;color:${T.faint};font:600 10px/1 ${FONT};letter-spacing:.1em;text-transform:uppercase;user-select:none}
+.ausboss-card-section::after{content:"";flex:1;height:1px;margin-bottom:4px;background:${T.rule}}
 .ausboss-card-section.hidden{display:none}
-.ausboss-card-group{height:${GROUP_HEIGHT}px;flex:none;display:flex;align-items:center;gap:6px;padding:0 4px;border:1px solid transparent;border-radius:6px;background:transparent;color:#78908e;font:600 10.5px/1 ${FONT};letter-spacing:.06em;text-transform:uppercase;cursor:pointer;text-align:left;pointer-events:auto}
-.ausboss-card-group:hover{color:#fff;border-color:#2a3437}
+.ausboss-card-group{height:${GROUP_HEIGHT}px;flex:none;display:flex;align-items:center;gap:6px;padding:0 4px;border:1px solid transparent;border-radius:${RADIUS_CONTROL}px;background:transparent;color:${T.faint};font:600 10px/1 ${FONT};letter-spacing:.1em;text-transform:uppercase;cursor:pointer;text-align:left;pointer-events:auto}
+.ausboss-card-group:hover{color:${T.inkHover}}
 .ausboss-card-group .glyph{display:inline-block;width:10px;transition:transform .12s}
 .ausboss-card-group.open .glyph{transform:rotate(90deg)}
-.ausboss-card-seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;width:100%;height:${ROW_HEIGHT}px;padding:2px;box-sizing:border-box;border:1px solid #2a3437;border-radius:6px;background:#0f1516}
-.ausboss-card-seg button{min-width:0;border:none;border-radius:4px;padding:0 2px;background:transparent;color:#8ba3a1;font:600 10.5px/1 ${FONT};cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ausboss-card-seg button:hover{color:#fff}
-.ausboss-card-seg button.on{background:${BRAND};color:#04201d}
-.ausboss-card-select{width:100%;height:${ROW_HEIGHT}px;padding:0 24px 0 8px;box-sizing:border-box;border:1px solid #2a3437;border-radius:6px;background:#0b0f10 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238ba3a1' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 8px center;color:#d8ecea;font:600 11.5px ${FONT};appearance:none;-webkit-appearance:none;cursor:pointer;overflow:hidden;text-overflow:ellipsis}
-.ausboss-card-select:hover{border-color:${BRAND}}
-.ausboss-card-select:focus-visible{outline:2px solid ${BRAND};outline-offset:1px}
-.ausboss-card-text{width:100%;height:${ROW_HEIGHT}px;padding:0 8px;box-sizing:border-box;border:1px solid #2a3437;border-radius:6px;background:#0b0f10;color:#d8ecea;font:12px ${FONT};min-width:0}
-.ausboss-card-text:focus{outline:none;border-color:${BRAND}}
-.ausboss-card-text::placeholder{color:#4f6462}
-.ausboss-card-area{display:block;width:100%;height:100%;padding:5px 8px;box-sizing:border-box;border:1px solid #2a3437;border-radius:6px;background:#0b0f10;color:#d8ecea;font:12px/1.4 ${FONT};resize:none;overflow:auto;min-width:0}
-.ausboss-card-area:focus{outline:none;border-color:${BRAND}}
-.ausboss-card-area::placeholder{color:#4f6462}
-.ausboss-card.look-big .ausboss-card-row.area .ausboss-card-field{position:relative;display:block;border:1px solid #2a3437;border-radius:6px;background:#0b0f10;cursor:text}
-.ausboss-card.look-big .ausboss-card-row.area .ausboss-card-field:focus-within{border-color:${BRAND}}
-.ausboss-card.look-big .ausboss-card-area{position:absolute;left:0;right:0;top:0;bottom:0;margin:auto 0;max-height:100%;padding:${BIG_PAD_Y}px ${BIG_PAD_X}px;border:none;border-radius:5px;background:transparent;color:#6fe0d6;text-shadow:0 0 .35em rgba(0,180,170,.55);font:600 ${BIG_FONT}px/${BIG_LINE}px ${FONT};text-align:center;scrollbar-width:thin;scrollbar-color:#2f3d3c transparent}
-.ausboss-card.look-big .ausboss-card-area::placeholder{color:#4f6462;text-shadow:none}
+.ausboss-card-seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;width:100%;height:${ROW_HEIGHT}px;padding:2px;box-sizing:border-box;border:1px solid transparent;border-radius:${RADIUS_CONTROL}px;background:${T.fill}}
+.ausboss-card-seg button{min-width:0;border:none;border-radius:${RADIUS_XS}px;padding:0 2px;background:transparent;color:${T.label};font:600 11px/1 ${FONT};cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ausboss-card-seg button:hover{color:${T.inkHover}}
+.ausboss-card-seg button.on{background:${T.brand};color:${T.onBrand}}
+.ausboss-card-bool button.on:first-child{background:${T.switchOff};color:${T.ink}}
+.ausboss-card-select{width:100%;height:${ROW_HEIGHT}px;padding:0 24px 0 8px;box-sizing:border-box;border:1px solid transparent;border-radius:${RADIUS_CONTROL}px;background:${T.fill} ${SELECT_CHEVRON} no-repeat right 9px center;color:${T.ink};font:500 12px ${FONT};appearance:none;-webkit-appearance:none;cursor:pointer;overflow:hidden;text-overflow:ellipsis}
+.ausboss-card-select:hover{background-color:${T.fillHover}}
+.ausboss-card-select:focus-visible{outline:2px solid ${T.brand};outline-offset:1px}
+.ausboss-card-text{width:100%;height:${ROW_HEIGHT}px;padding:0 8px;box-sizing:border-box;border:1px solid transparent;border-radius:${RADIUS_CONTROL}px;background:${T.fill};color:${T.ink};font:12px ${FONT};min-width:0}
+.ausboss-card-text:focus{outline:none;border-color:${T.brand}}
+.ausboss-card-text::placeholder{color:${T.faint}}
+.ausboss-card-area{display:block;width:100%;height:100%;padding:5px 8px;box-sizing:border-box;border:1px solid transparent;border-radius:${RADIUS_CONTROL}px;background:${T.fill};color:${T.ink};font:12px/1.4 ${FONT};resize:none;overflow:auto;min-width:0}
+.ausboss-card-area:focus{outline:none;border-color:${T.brand}}
+.ausboss-card-area::placeholder{color:${T.faint}}
+.ausboss-card.look-big .ausboss-card-row.area .ausboss-card-field{position:relative;display:block;border:1px solid transparent;border-radius:${RADIUS_CONTROL}px;background:${T.fill};cursor:text}
+.ausboss-card.look-big .ausboss-card-row.area .ausboss-card-field:focus-within{border-color:${T.brand}}
+.ausboss-card.look-big .ausboss-card-area{position:absolute;left:0;right:0;top:0;bottom:0;margin:auto 0;max-height:100%;padding:${BIG_PAD_Y}px ${BIG_PAD_X}px;border:none;border-radius:5px;background:transparent;color:${T.brandGlow};text-shadow:0 0 .35em rgba(0,180,170,.55);font:600 ${BIG_FONT}px/${BIG_LINE}px ${FONT};text-align:center;scrollbar-width:thin;scrollbar-color:${T.fillHover} transparent}
+.ausboss-card.look-big .ausboss-card-area::placeholder{color:${T.faint};text-shadow:none}
 .ausboss-card.look-big .ausboss-card-row:not(.area){display:block}
 .ausboss-card.look-big .ausboss-card-row:not(.area) .ausboss-card-label{display:none}
 .ausboss-card.look-big .ausboss-card-row:not(.area) .ausboss-card-control{margin:0}
-.ausboss-card.look-big .ausboss-card-field>.ausboss-scrub{height:100%;justify-content:center;align-items:center;gap:4px;border-color:#2a3437;border-radius:6px;background:#0b0f10}
-.ausboss-card.look-big .ausboss-card-field>.ausboss-scrub:focus-within{border-color:${BRAND}}
-.ausboss-card.look-big .ausboss-card-field>.ausboss-scrub>.ausboss-scrub-input{order:1;flex:0 0 auto;width:auto;min-width:2ch;max-width:60%;field-sizing:content;color:#6fe0d6;text-shadow:0 0 .35em rgba(0,180,170,.55);font:600 ${BIG_NUMBER_FONT}px ${FONT}}
+.ausboss-card.look-big .ausboss-card-field>.ausboss-scrub{height:100%;justify-content:center;align-items:center;gap:4px;border-color:transparent;border-radius:${RADIUS_CONTROL}px;background:${T.fill}}
+.ausboss-card.look-big .ausboss-card-field>.ausboss-scrub:focus-within{border-color:${T.brand}}
+.ausboss-card.look-big .ausboss-card-field>.ausboss-scrub>.ausboss-scrub-input{order:1;flex:0 0 auto;width:auto;min-width:2ch;max-width:60%;field-sizing:content;color:${T.brandGlow};text-shadow:0 0 .35em rgba(0,180,170,.55);font:600 ${BIG_NUMBER_FONT}px ${FONT}}
 .ausboss-card.look-big .ausboss-card-field>.ausboss-scrub>.ausboss-scrub-unit{order:2}
 .ausboss-card.look-big .ausboss-card-field>.ausboss-scrub>.ausboss-scrub-unit:empty{display:none}
 .ausboss-card.look-big .ausboss-card-field>.ausboss-scrub>.ausboss-scrub-step{display:contents}
-.ausboss-card.look-big .ausboss-card-field>.ausboss-scrub>.ausboss-scrub-step>button{flex:none;width:30px;height:30px;border-radius:15px;color:#6f8886}
+.ausboss-card.look-big .ausboss-card-field>.ausboss-scrub>.ausboss-scrub-step>button{flex:none;width:30px;height:30px;border-radius:15px;color:${T.label}}
 .ausboss-card.look-big .ausboss-card-field>.ausboss-scrub>.ausboss-scrub-step>button:first-child{order:3}
 .ausboss-card.look-big .ausboss-card-field>.ausboss-scrub>.ausboss-scrub-step>button:last-child{order:0}
 .ausboss-card.look-big .ausboss-card-field>.ausboss-scrub>.ausboss-scrub-step>button>svg{transform:rotate(90deg) scale(1.6)}
 .ausboss-card.look-big .ausboss-card-corner{top:${CARD_PADDING + 4}px;right:12px;height:22px}
 .ausboss-card.look-big .ausboss-card-gear{width:22px;height:22px;border-color:transparent;background:transparent}
-.ausboss-card.look-big .ausboss-card-gear:hover{border-color:${BRAND}}
-.ausboss-card-swatch{flex:none;width:${ROW_HEIGHT}px;height:${ROW_HEIGHT}px;padding:0;border:1px solid #2a3437;border-radius:6px;background:#0b0f10;cursor:pointer}
+.ausboss-card.look-big .ausboss-card-gear:hover{background:${T.fillHover}}
+.ausboss-card-swatch{flex:none;width:${ROW_HEIGHT}px;height:${ROW_HEIGHT}px;padding:0;border:1px solid transparent;border-radius:${RADIUS_CONTROL}px;background:${T.fill};cursor:pointer}
 .ausboss-card-swatch::-webkit-color-swatch-wrapper{padding:3px}
 .ausboss-card-swatch::-webkit-color-swatch{border:none;border-radius:3px}
-.ausboss-card-btn{flex:none;height:${ROW_HEIGHT}px;padding:0 10px;border:1px solid #2a3437;border-radius:6px;background:#16201f;color:#d8ecea;font:600 11px/1 ${FONT};cursor:pointer;white-space:nowrap}
-.ausboss-card-btn:hover{border-color:${BRAND};color:#fff}
+.ausboss-card-btn{flex:none;height:${ROW_HEIGHT}px;padding:0 10px;border:1px solid transparent;border-radius:${RADIUS_CONTROL}px;background:${T.fill};color:${T.inkSoft};font:600 11px/1 ${FONT};cursor:pointer;white-space:nowrap}
+.ausboss-card-btn:hover{background:${T.fillHover};color:${T.inkHover}}
+.ausboss-card-btn:focus-visible{outline:2px solid ${T.brand};outline-offset:1px}
 `;
   document.head.append(style);
 }

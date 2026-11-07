@@ -2,7 +2,7 @@
 // chosen one: the mode row of Image Compare A/B, and its off | on choices.
 // The choices share one width, so the marker only has to move. With `fit`
 // each choice is as wide as its own name, and the marker is measured.
-import { BRAND } from "./index.mjs";
+import { FONT_UI, RADIUS_CONTROL, RADIUS_XS, THEME as T } from "./theme.mjs";
 
 const CSS_ID = "ausboss-slide-switch-v1";
 
@@ -11,17 +11,17 @@ function ensureCss() {
   const style = document.createElement("style");
   style.id = CSS_ID;
   style.textContent = `
-.ausboss-slide{position:relative;box-sizing:border-box;flex:none;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;height:24px;padding:2px;border:1px solid #2a3437;border-radius:6px;background:#0f1516;}
+.ausboss-slide{position:relative;box-sizing:border-box;flex:none;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;height:24px;padding:2px;border:1px solid transparent;border-radius:${RADIUS_CONTROL}px;background:${T.fill};}
 .ausboss-slide.fit{grid-auto-columns:max-content;}
 .ausboss-slide.fit button{padding:0 7px;}
-.ausboss-slide-mark{position:absolute;top:2px;bottom:2px;left:2px;border-radius:4px;background:${BRAND};box-shadow:0 0 7px rgba(0,180,170,.3);transition:transform .16s ease,width .16s ease;pointer-events:none;}
+.ausboss-slide-mark{position:absolute;top:2px;bottom:2px;left:2px;border-radius:${RADIUS_XS}px;background:${T.brand};transition:transform .16s ease,width .16s ease;pointer-events:none;}
 .ausboss-slide.none .ausboss-slide-mark{display:none;}
-.ausboss-slide button{position:relative;box-sizing:border-box;min-width:0;height:100%;margin:0;padding:0 9px;border:none;border-radius:4px;background:transparent;color:#8ba3a1;font:700 10px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.02em;white-space:nowrap;cursor:pointer;transition:color .16s ease;}
-.ausboss-slide button:hover{color:#fff;}
-.ausboss-slide button.on,.ausboss-slide button.on:hover{color:#04201d;}
-.ausboss-slide.off-left button.on:first-of-type,.ausboss-slide.off-left button.on:first-of-type:hover{color:#d8eeee;}
-.ausboss-slide.off-left.is-off .ausboss-slide-mark{background:#33423f;box-shadow:none;}
-.ausboss-slide button:focus-visible{outline:1px solid ${BRAND};outline-offset:1px;}
+.ausboss-slide button{position:relative;box-sizing:border-box;min-width:0;height:100%;margin:0;padding:0 9px;border:none;border-radius:${RADIUS_XS}px;background:transparent;color:${T.label};font:600 11px/1 ${FONT_UI};white-space:nowrap;cursor:pointer;transition:color .16s ease;}
+.ausboss-slide button:hover{color:${T.inkHover};}
+.ausboss-slide button.on,.ausboss-slide button.on:hover{color:${T.onBrand};}
+.ausboss-slide.off-left button.on:first-of-type,.ausboss-slide.off-left button.on:first-of-type:hover{color:${T.ink};}
+.ausboss-slide.off-left.is-off .ausboss-slide-mark{background:${T.switchOff};}
+.ausboss-slide button:focus-visible{outline:1px solid ${T.brand};outline-offset:1px;}
 @media (prefers-reduced-motion: reduce){.ausboss-slide-mark,.ausboss-slide button{transition:none;}}
 `;
   document.head.appendChild(style);
