@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.22.0 - 2026-11-07
 
 - **Node cards have a calmer, easier-to-read look.** Number boxes, choices,
   switches, fields and buttons are now one solid gray with no outlines, on a
@@ -27,7 +27,6 @@ All notable changes to ComfyUI-AusBoss are documented here.
   the old one, the new picture now shows on the node, ready to pick from. A
   new reload button beside Undo shows it any time, without running the
   workflow.
-
 - **Save Image and Save Video: the Steps switch is now called Preview steps.** It
   shows the picture or the clip's first frame while it is being made, and "Steps"
   read like a sampler's step count. It works the same, and saved workflows keep
