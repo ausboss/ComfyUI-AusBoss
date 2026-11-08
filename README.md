@@ -8,6 +8,8 @@
     <a href="https://github.com/ausboss/ComfyUI-AusBoss/releases/latest"><img src="assets/readme/release.svg" alt="Latest release"></a>
     <a href="https://www.youtube.com/@ausbossdev"><img src="https://img.shields.io/badge/YouTube-%40ausbossdev-00b4aa?style=flat-square&logo=youtube&logoColor=white" alt="YouTube @ausbossdev"></a>
     <a href="https://discord.gg/RwVxY9Fuaj"><img src="https://img.shields.io/badge/Discord-AusBoss-00b4aa?style=flat-square&logo=discord&logoColor=white" alt="Discord: AusBoss"></a>
+    <a href="https://huggingface.co/ausboss"><img src="https://img.shields.io/badge/Hugging%20Face-ausboss-00b4aa?style=flat-square&logo=huggingface&logoColor=white" alt="Hugging Face: ausboss"></a>
+    <a href="https://x.com/Zanzibased"><img src="https://img.shields.io/badge/X-%40Zanzibased-00b4aa?style=flat-square&logo=x&logoColor=white" alt="X @Zanzibased"></a>
   </p>
 </div>
 
