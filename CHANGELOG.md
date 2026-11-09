@@ -11,6 +11,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
   paint stays exactly as painted. For the old way, set **New picture**, under
   More, to **start over**.
 
+- **Mask by Touch clears a stopped run's message once a run works.** When
+  a run stopped at the node, its message stayed on the picture after the
+  next run from the Run button had worked. It now goes as soon as the new
+  result comes in.
+
 - **Video Crop + Rotate + Pad → Clip: the fixed_frames input sits on its own
   row again.** In workflows saved by an earlier release, newer ComfyUI drew
   fixed_frames on top of force_rate, so a link could not be dropped on it.
