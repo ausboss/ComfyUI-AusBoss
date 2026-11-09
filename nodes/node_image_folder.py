@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ._execution_helpers import ignore_extra_inputs
+from ._route_errors import safe_route_error
 from ._image_folder_helpers import (
     AFTER_RUN,
     AT_THE_END,
@@ -86,7 +87,7 @@ def _register_routes() -> None:
         return str(request.rel_url.query.get(name, "")).strip()
 
     def refused(error: Exception):
-        return web.json_response({"error": str(error)}, status=400)
+        return web.json_response({"error": safe_route_error(error, "This folder cannot be read.")}, status=400)
 
     @routes.get("/ausboss/image_folder/folders")
     async def folders(request):
@@ -95,7 +96,7 @@ def _register_routes() -> None:
             source, folder = _settle(source, query(request, "folder"))
             shown = clean_folder(folder)
             names = list_folders(_root(source), shown, source)
-        except (ValueError, RuntimeError) as error:
+        except (ValueError, RuntimeError, OSError) as error:
             return refused(error)
         return web.json_response({"source": source, "folder": shown, "folders": names})
 
@@ -110,13 +111,13 @@ def _register_routes() -> None:
             listed = list_pictures(
                 _root(source), shown, query(request, "subfolders") == "1", query(request, "sort") or "name", source
             )
-        except (ValueError, RuntimeError) as error:
+        except (ValueError, RuntimeError, OSError) as error:
             return refused(error)
         return web.json_response({
             "source": source,
             "folder": shown,
             "full": len(listed) >= MAX_PICTURES,
-            "pictures": [{"name": item["name"], "v": int(item["mtime"])} for item in listed],
+            "pictures": [{"name": item["name"], "v": f"{item['mtime_ns']}-{item['size']}"} for item in listed],
         })
 
     @routes.get("/ausboss/image_folder/thumb")
@@ -273,6 +274,7 @@ class AusBossImageFolder:
 
     def load(self, source, folder, subfolders, sort, pictures, run, position, after_run, at_the_end):
         # after_run is the editor's: it moves Picture on after a run is queued. A run loads what Picture says.
+        source, folder = _settle(source, folder)
         chosen = _picked(source, folder, subfolders, sort, pictures)
         count = len(chosen)
         images, masks, names, numbers = [], [], [], []
@@ -283,7 +285,10 @@ class AusBossImageFolder:
             masks.append(mask)
             names.append(output_name(item["name"]))
             numbers.append(place + 1)
-        note = [{"count": count, "loaded": numbers[:64], "names": [chosen[n - 1]["name"] for n in numbers[:64]]}]
+        note = [{
+            "count": count, "loaded": numbers, "names": [chosen[n - 1]["name"] for n in numbers],
+            "context": {"source": source, "folder": clean_folder(folder), "subfolders": bool(subfolders)},
+        }]
         return {"ui": {UI_KEY: note}, "result": (images, masks, names, numbers, count)}
 
 

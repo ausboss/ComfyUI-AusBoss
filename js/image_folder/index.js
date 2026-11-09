@@ -26,6 +26,7 @@ import {
   childOf,
   countLine,
   foldersAddress,
+  folderContext,
   isPicked,
   listAddress,
   nameAt,
@@ -274,6 +275,7 @@ async function refresh(state) {
 }
 
 function scheduleRefresh(state, delay = 160) {
+  ++state.token;
   clearTimeout(state.timer);
   state.timer = setTimeout(() => refresh(state), delay);
 }
@@ -342,6 +344,7 @@ async function upload(file, subfolder, overwrite) {
 
 // Loose pictures go into the folder the node shows.
 async function addFiles(state, files) {
+  if (!state.alive) return false;
   const now = settings(state.node);
   const images = [...(files ?? [])].filter(isPicture);
   if (!images.length) return false;
@@ -352,10 +355,13 @@ async function addFiles(state, files) {
   const added = [];
   let failed = 0;
   for (const file of images) {
+    if (!state.alive) return true;
     const name = await upload(file, now.folder, false);
+    if (!state.alive) return true;
     if (name) added.push(name); else failed += 1;
   }
   await refresh(state);
+  if (!state.alive) return true;
   // A hand-made pick takes the new pictures in: they were just put there to be used.
   const picked = parsePicked(settings(state.node).pictures);
   if (picked !== null && added.length) setPicked(state, [...picked, ...added.filter((name) => state.names.includes(name))]);
@@ -388,6 +394,7 @@ function closeAsk(answer = false) {
 }
 
 function askBig(state, name, pictures) {
+  if (!state.alive) return Promise.resolve(false);
   const bytes = pictures.reduce((sum, item) => sum + (Number(item.file?.size) || 0), 0);
   if (pictures.length <= BIG_COUNT && bytes <= BIG_BYTES) return Promise.resolve(true);
   closeAsk(false);
@@ -404,7 +411,7 @@ function askBig(state, name, pictures) {
     foot.append(cancel, go);
     root.append(foot);
     const abort = new AbortController();
-    openAsk = { root, abort, done };
+    openAsk = { root, abort, done, state };
     cancel.addEventListener("click", () => closeAsk(false));
     go.addEventListener("click", () => closeAsk(true));
     document.body.append(root);
@@ -420,7 +427,17 @@ function askBig(state, name, pictures) {
 // input/<its name>, folders inside it too, and the node moves there. Copying
 // the same folder again writes over its copies instead of piling up doubles.
 async function copyFolder(state, name, pictures) {
-  if (!(await askBig(state, name, pictures)) || !state.alive) return;
+  if (!state.alive || state.copyLocked) return;
+  state.copyLocked = true;
+  try {
+    if (!(await askBig(state, name, pictures)) || !state.alive) return;
+    await copyPictures(state, name, pictures);
+  } finally {
+    state.copyLocked = false;
+  }
+}
+
+async function copyPictures(state, name, pictures) {
   const target = folderName(name);
   const queue = pictures.slice(0, COPY_LIMIT);
   state.copying = { done: 0, total: queue.length, name, target };
@@ -431,7 +448,9 @@ async function copyFolder(state, name, pictures) {
     for (;;) {
       const next = queue.shift();
       if (!next || !state.alive) return;
-      if (await upload(next.file, next.folder ? `${target}/${next.folder}` : target, true)) copied += 1;
+      const added = await upload(next.file, next.folder ? `${target}/${next.folder}` : target, true);
+      if (!state.alive) return;
+      if (added) copied += 1;
       state.copying.done += 1;
       paint(state);
       cover(state);
@@ -444,6 +463,7 @@ async function copyFolder(state, name, pictures) {
   if (!state.alive) return;
   const moved = write(state.node, "source", "input") | write(state.node, "folder", target);
   if (moved) notifyAusbossChange(); else await refresh(state);
+  if (!state.alive) return;
   paint(state);
   showToast({ detail: `Copied ${copied} picture${copied === 1 ? "" : "s"} from "${name}" into your ComfyUI input folder (input/${target}).` });
   if (copied < total) showToast({ severity: "warn", detail: `${total - copied} could not be copied.` });
@@ -506,7 +526,7 @@ function addMenu(state, anchor) {
   closeMenu();
   const root = el("div", "ausboss-if-menu");
   const abort = new AbortController();
-  openMenu = { root, abort };
+  openMenu = { root, abort, state };
   const row = (text, title, run) => {
     const button = el("button", "ausboss-if-browse-row", text);
     button.type = "button"; button.title = title;
@@ -545,19 +565,25 @@ async function browse(state, anchor) {
   foot.append(cancel, use);
   root.append(path, list, foot);
   const abort = new AbortController();
-  openBrowse = { root, abort };
+  openBrowse = { root, abort, state };
   let at = now.folder;
+  let source = now.source;
+  let navigation = 0;
 
   const show = async (folder) => {
+    const token = ++navigation;
+    use.disabled = true;
     let data = null;
     try {
-      const response = await api.fetchApi(foldersAddress({ source: now.source, folder }));
+      const response = await api.fetchApi(foldersAddress({ source, folder }));
       if (response.ok) data = await response.json();
     } catch { /* shown as an empty list below */ }
-    if (openBrowse?.root !== root) return;
+    if (openBrowse?.root !== root || token !== navigation || !state.alive) return;
     if (!data && folder) return show("");          // a folder that is gone: start at the top
     at = data?.folder ?? "";
-    path.replaceChildren(document.createTextNode(`${now.source} / `), el("b", "", at || "(the folder itself)"));
+    source = data?.source ?? source;
+    use.disabled = false;
+    path.replaceChildren(document.createTextNode(`${source} / `), el("b", "", at || "(the folder itself)"));
     list.replaceChildren();
     if (at) {
       const up = el("button", "ausboss-if-browse-row up", "↑ up");
@@ -582,7 +608,9 @@ async function browse(state, anchor) {
   };
 
   use.addEventListener("click", () => {
-    if (write(state.node, "folder", at)) notifyAusbossChange();
+    if (use.disabled || !state.alive) return;
+    const moved = write(state.node, "source", source) | write(state.node, "folder", at);
+    if (moved) notifyAusbossChange();
     closeBrowse();
   });
   cancel.addEventListener("click", closeBrowse);
@@ -706,6 +734,12 @@ function buildPanel(node) {
       const now = settings(node);
       const key = `${now.source}|${now.folder}|${now.subfolders}|${now.sort}`;
       if (key === state.key) { paint(state); return; }
+      const context = folderContext(now);
+      if (context !== state.context) {
+        state.done.clear();
+        state.loadedLine = "";
+        state.context = context;
+      }
       // Another folder holds other names: a pick made in the old one means nothing there.
       const moved = state.key && (now.source !== state.shown.source || now.folder !== state.shown.folder || now.subfolders !== state.shown.subfolders);
       state.key = key;
@@ -725,7 +759,9 @@ function buildPanel(node) {
       const now = settings(node);
       if (now.run !== "one per run" || isLinked(node, "position")) return;
       const count = pickedNames(parsePicked(now.pictures), state.names).length;
-      const next = nextPosition(now.position, count, now.afterRun, now.atTheEnd);
+      // The folder can change on disk or arrive through a link. Only the
+      // backend knows where it ends; a cached gallery must not cap "next".
+      const next = nextPosition(now.position, now.afterRun === "next" ? null : count, now.afterRun, now.atTheEnd);
       if (next !== now.position) { position.value = next; position.callback?.(next); }
     });
   }
@@ -748,6 +784,7 @@ function buildPanel(node) {
   });
 
   const now = settings(node);
+  state.context = folderContext(now);
   state.key = `${now.source}|${now.folder}|${now.subfolders}|${now.sort}`;
   rebuild(state);
   scheduleRefresh(state, 60);
@@ -773,12 +810,18 @@ app.registerExtension({
     });
     chainCallback(nodeType.prototype, "onConfigure", function (info) {
       const state = buildPanel(this);
+      ++state.token;
+      clearTimeout(state.timer);
+      state.done.clear();
+      state.loadedLine = "";
       // A node that comes with a size keeps it, the smallest one too.
       if (info?.size) state.sized = true;
       // A loaded workflow brings its own folder and its own pick.
       state.restoring = true;
       queueMicrotask(() => {
+        if (!state.alive) return;
         const now = settings(this);
+        state.context = folderContext(now);
         state.key = `${now.source}|${now.folder}|${now.subfolders}|${now.sort}`;
         state.restoring = false;
         scheduleRefresh(state, 30);
@@ -789,6 +832,7 @@ app.registerExtension({
       const state = this.__ausbossImageFolder;
       const note = output?.ausboss_image_folder?.[0];
       if (!state?.alive || !note) return;
+      if (!note.context || folderContext(note.context) !== folderContext(settings(this))) return;
       for (const name of note.names ?? []) state.done.add(name);
       const loaded = note.loaded ?? [];
       state.loadedLine = loaded.length === 1
@@ -805,9 +849,9 @@ app.registerExtension({
       state.abort.abort();
       state.choosing?.abort();
       clearTimeout(state.dropTimer);
-      if (openBrowse) closeBrowse();
-      if (openMenu) closeMenu();
-      if (openAsk?.root && state.grid.isConnected === false) closeAsk(false);
+      if (openBrowse?.state === state) closeBrowse();
+      if (openMenu?.state === state) closeMenu();
+      if (openAsk?.state === state) closeAsk(false);
     });
   },
 });
