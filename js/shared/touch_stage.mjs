@@ -63,6 +63,7 @@ import {
   loaderSignature,
   maskOn,
   maskShare,
+  movedTouches,
   nameShown,
   nextGroup,
   numberChip,
@@ -1533,6 +1534,9 @@ function followOwnLoader(face, now = false) {
 }
 
 const OTHER_PICTURE = "This is another picture. The picks made on the last one are not used.";
+// With New picture on keep picks, the node moves them onto it instead.
+const PICKS_CARRY = "This is another picture. Your picks carry over once the node looks at it or the workflow runs.";
+const otherPictureNote = (face) => (widgetByName(face.node, "new_picture")?.value === "start over" ? OTHER_PICTURE : PICKS_CARRY);
 
 function dropPicture(face) {
   dropPending(face);
@@ -1600,7 +1604,7 @@ function syncSource(face) {
     });
     readItems(face);
     face.itemNotes = null;
-    if (face.other) setNote(face, OTHER_PICTURE, { life: 6000 });
+    if (face.other) setNote(face, otherPictureNote(face), { life: 6000 });
     resolve(face);
     syncState(face);
     draw(face);
@@ -1646,6 +1650,7 @@ function syncState(face) {
 
 function setNote(face, text, { life = 0 } = {}) {
   clearTimeout(face.noteTimer);
+  face.stopNote = false;
   face.noteEl.textContent = text;
   face.noteEl.classList.toggle("on", Boolean(text));
   if (text && life) face.noteTimer = setTimeout(() => setNote(face, ""), life);
@@ -1704,7 +1709,15 @@ function adopt(face, entry) {
 
 function show(face, entry, note, answered, { restored = false, own = false, interim = false, areas = null } = {}) {
   const before = face.pic;
+  // A run that stopped left its message up. A result since says it is over.
+  if (face.stopNote && !interim && !restored) setNote(face, "");
   adopt(face, entry);
+  // Picks made on another picture that the node moved onto this one (New
+  // picture: keep picks) come back moved. They are taken only while the
+  // widget still holds the picks they were moved from: anything picked
+  // since stays.
+  const moved = movedTouches(note, face.touches?.value);
+  if (moved !== null) writeTouches(face, moved);
   readItems(face);
   let items = face.items;
   let mine = Boolean(answered) && note.stamp === face.stamp;
@@ -1785,7 +1798,7 @@ function show(face, entry, note, answered, { restored = false, own = false, inte
     readItems(face);
     face.itemNotes = notes;
   }
-  if (face.other) setNote(face, OTHER_PICTURE, { life: 6000 });
+  if (face.other) setNote(face, otherPictureNote(face), { life: 6000 });
   if (face.shownPieces !== entry.piecesTag) {
     face.shownPieces = entry.piecesTag;
     face.hover = -1;
@@ -3084,6 +3097,8 @@ export function mountTouchStage(node, host) {
   face.stopped = (message) => {
     settle(face);
     setNote(face, String(message ?? ""));
+    // It stays up until something else is said or the next result comes in.
+    face.stopNote = true;
   };
   // A setting on the node changed: the edge follows it.
   face.settingsChanged = () => {

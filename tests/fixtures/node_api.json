@@ -687,7 +687,8 @@
       "free_vram",
       "invert",
       "ask",
-      "fine_edges"
+      "fine_edges",
+      "new_picture"
     ],
     "outputs": [
       [

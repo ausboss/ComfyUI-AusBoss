@@ -9,6 +9,18 @@ All notable changes to ComfyUI-AusBoss are documented here.
   that differs between them, and the add-choice button shows as soon as a
   node is selected.
 
+- **Mask by Touch keeps your picks when the picture changes.** Your clicks
+  and paint move onto the new picture, in the same places, so an edit before
+  the node no longer means picking everything again. On a picture of another
+  size they are scaled to fit. A click finds whatever is at that spot now;
+  paint stays exactly as painted. For the old way, set **New picture**, under
+  More, to **start over**.
+
+- **Mask by Touch clears a stopped run's message once a run works.** When
+  a run stopped at the node, its message stayed on the picture after the
+  next run from the Run button had worked. It now goes as soon as the new
+  result comes in.
+
 - **Video Crop + Rotate + Pad → Clip: the fixed_frames input sits on its own
   row again.** In workflows saved by an earlier release, newer ComfyUI drew
   fixed_frames on top of force_rate, so a link could not be dropped on it.
