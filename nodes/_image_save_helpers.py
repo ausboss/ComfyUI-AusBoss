@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 from datetime import datetime
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
@@ -32,6 +33,8 @@ FORMAT_EXTENSIONS = {"png": "png", "webp lossless": "webp", "jxl lossless": "jxl
 
 COUNTER_WIDTH = 5
 BATCH_WIDTH = 3
+# Save Image and Compare choose counters and write under this same lock.
+IMAGE_SAVE_LOCK = threading.Lock()
 
 
 def metadata_disabled() -> bool:
@@ -262,7 +265,9 @@ def sidecar_path(image_path: Path) -> Path:
 
 
 def frame_to_pil(frame: torch.Tensor) -> Image.Image:
-    array = np.clip(frame.detach().cpu().numpy() * 255.0, 0, 255).astype(np.uint8)
+    array = np.clip(frame.detach().cpu().float().numpy() * 255.0, 0, 255).astype(np.uint8)
+    if array.ndim == 3 and array.shape[-1] == 1:
+        array = array[..., 0]
     return Image.fromarray(array)
 
 
@@ -333,6 +338,7 @@ __all__ = [
     "FORMAT_EXTENSIONS",
     "IMAGE_EXTENSIONS",
     "IMAGE_FORMATS",
+    "IMAGE_SAVE_LOCK",
     "OUTPUT_DIR_RULE",
     "counter_pattern",
     "encode_image",

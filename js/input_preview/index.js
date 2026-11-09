@@ -446,7 +446,7 @@ function syncPreviewMode(state, resize) {
   }
   if (!enabled) {
     // Nothing to show and nothing to fetch while it is off.
-    state.img.removeAttribute("src");
+    clearMedia(state);
   }
   if (resize) {
     const node = state.node;
@@ -519,14 +519,16 @@ function clearMedia(state) {
   state.video.removeAttribute("src");
 }
 
-// Restore the watched widget's callback if our hook is still the tail of the
-// chain; if someone chained after us the hook simply goes inert via
-// state.alive. We never create object URLs, so there is nothing to revoke.
+// Each source has one hook, with subscribers that can leave in any order.
+const sourceWatchers = new WeakMap();
 function unwatchSource(state) {
   const watched = state.watched;
   state.watched = null;
-  if (watched && watched.widget.callback === watched.hook) {
+  if (!watched) return;
+  watched.subscribers.delete(state);
+  if (!watched.subscribers.size && watched.widget.callback === watched.hook) {
     watched.widget.callback = watched.prior;
+    sourceWatchers.delete(watched.widget);
   }
 }
 
@@ -535,14 +537,21 @@ function rewatchSource(state, source) {
   if (state.watched?.widget === widget) return;
   unwatchSource(state);
   if (!widget) return;
-  const prior = widget.callback;
-  const hook = function (...args) {
-    const result = prior?.apply(this, args);
-    if (state.alive) scheduleRefresh(state);
-    return result;
-  };
-  widget.callback = hook;
-  state.watched = { widget, prior, hook };
+  let watched = sourceWatchers.get(widget);
+  if (!watched) {
+    const prior = widget.callback;
+    const subscribers = new Set();
+    const hook = function (...args) {
+      const result = prior?.apply(this, args);
+      for (const subscriber of subscribers) if (subscriber.alive) scheduleRefresh(subscriber);
+      return result;
+    };
+    watched = { widget, prior, hook, subscribers };
+    sourceWatchers.set(widget, watched);
+    widget.callback = hook;
+  }
+  watched.subscribers.add(state);
+  state.watched = watched;
 }
 
 // The node's stored output as a /view URL, for Nodes 2.0, where node.imgs
@@ -586,6 +595,10 @@ function stepPicture(state, step) {
 
 function refresh(state) {
   if (!state.alive) return;
+  if (!previewEnabled(state)) {
+    clearMedia(state);
+    return;
+  }
   const source = upstreamNode(state.node, state.inputName);
   rewatchSource(state, source);
   const count = resultCount(state);
@@ -827,9 +840,9 @@ app.registerExtension({
       if (state) scheduleRefresh(state);
     });
     chainCallback(nodeType.prototype, "onConfigure", function () {
+      const state = this.__ausbossInputPreview;
       queueMicrotask(() => {
-        const state = buildPanel(this, config);
-        if (!state) return;
+        if (!state?.alive || this.__ausbossInputPreview !== state) return;
         // onNodeCreated already built the panel before this node's saved
         // properties existed, so the advanced toggle has to be re-applied
         // here or a workflow always reopens in the simple state.

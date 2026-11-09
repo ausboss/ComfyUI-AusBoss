@@ -10,6 +10,7 @@ from ._image_save_helpers import (
     EXISTING_POLICIES,
     FORMAT_EXTENSIONS,
     IMAGE_FORMATS,
+    IMAGE_SAVE_LOCK,
     encode_image,
     existing_action,
     fill_name_tokens,
@@ -319,8 +320,7 @@ class AusBossSaveImage:
         embed = save_metadata and not metadata_disabled()
         metadata = workflow_metadata(prompt, extra_pnginfo) if embed else None
         # A linked caption wins over the legacy text box; blank means no sidecar.
-        linked_caption = str(caption_text or "") if caption_text is not None else ""
-        caption_value = linked_caption if linked_caption.strip() else str(caption or "")
+        caption_value = str(caption_text) if caption_text is not None else str(caption or "")
         output_root = Path(folder_paths.get_output_directory())
         root = resolve_output_root(output_dir, output_root)
         count = int(images.shape[0])
@@ -343,51 +343,55 @@ class AusBossSaveImage:
         else:
             exact = sanitize_exact_name(exact_name)
 
-        planned: list[tuple[Path, str]] = []  # (path, collision policy)
-        if exact:
-            base = strip_image_extension(exact)
-            for name in plan_exact_names(base, extension, count):
-                planned.append((root / name, on_existing))
-        else:
-            subfolder, base = split_prefix(filename_prefix)
-            folder = root / subfolder if subfolder else root
-            require_output_path(folder, output_root)
-            stem = name_stem(
-                base,
-                {"date": bool(name_date), "time": bool(name_time), "size": bool(name_size)},
-                now,
-                width,
-                height,
-            )
-            counter = bool(name_counter)
-            existing = [entry.name for entry in folder.iterdir()] if folder.is_dir() else []
-            names = plan_local_names(
-                stem, extension, count, counter=counter, batch=bool(name_batch),
-                next_counter=next_free_counter(existing, stem),
-            )
-            # The counter is collision-safe by construction; without it the
-            # legacy policy decides, and its default deliberately overwrites.
-            policy = "overwrite" if counter else on_existing
-            planned.extend((folder / name, policy) for name in names)
+        with IMAGE_SAVE_LOCK:
+            planned: list[tuple[Path, str]] = []  # (path, collision policy)
+            if exact:
+                base = strip_image_extension(exact)
+                for name in plan_exact_names(base, extension, count):
+                    planned.append((root / name, on_existing))
+            else:
+                subfolder, base = split_prefix(filename_prefix)
+                folder = root / subfolder if subfolder else root
+                require_output_path(folder, output_root)
+                stem = name_stem(
+                    base,
+                    {"date": bool(name_date), "time": bool(name_time), "size": bool(name_size)},
+                    now,
+                    width,
+                    height,
+                )
+                counter = bool(name_counter)
+                existing = [entry.name for entry in folder.iterdir()] if folder.is_dir() else []
+                names = plan_local_names(
+                    stem, extension, count, counter=counter, batch=bool(name_batch),
+                    next_counter=next_free_counter(existing, stem),
+                )
+                # The shared lock keeps this counter free until writing finishes.
+                # Without it, the legacy policy decides whether to overwrite.
+                policy = "overwrite" if counter else on_existing
+                planned.extend((folder / name, policy) for name in names)
 
-        # Validate the whole batch before any write, including caption targets,
-        # then settle every collision: an "error" on a later frame must stop
-        # the run before the first frame lands, not after.
-        for path, _policy in planned:
-            require_output_path(path, output_root)
-            if caption_value.strip():
-                require_output_path(sidecar_path(path), output_root)
-        actions = [existing_action(path.exists(), policy) for path, policy in planned]
+            # Validate the whole batch before any write, including caption targets,
+            # then settle every collision: an "error" on a later frame must stop
+            # the run before the first frame lands, not after.
+            for path, _policy in planned:
+                require_output_path(path, output_root)
+                if caption_value.strip():
+                    require_output_path(sidecar_path(path), output_root)
+            actions = [
+                existing_action(path.exists() or (bool(caption_value.strip()) and sidecar_path(path).exists()), policy)
+                for path, policy in planned
+            ]
 
-        saved: list[Path] = []
-        for (path, _policy), action, frame in zip(planned, actions, images):
-            if action == "skip":
-                continue
-            path.parent.mkdir(parents=True, exist_ok=True)
-            encode_image(path, frame, format, metadata)
-            if caption_value.strip():
-                sidecar_path(path).write_text(caption_value, encoding="utf-8")
-            saved.append(path)
+            saved: list[Path] = []
+            for (path, _policy), action, frame in zip(planned, actions, images):
+                if action == "skip":
+                    continue
+                path.parent.mkdir(parents=True, exist_ok=True)
+                encode_image(path, frame, format, metadata)
+                if caption_value.strip():
+                    sidecar_path(path).write_text(caption_value, encoding="utf-8")
+                saved.append(path)
 
         # Every destination was confined to the output folder above, so each
         # saved file previews from there and is shown relative to it. The

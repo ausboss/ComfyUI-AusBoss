@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import sys
 import tempfile
+import threading
 import unittest
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
@@ -122,6 +124,17 @@ class NamingTests(unittest.TestCase):
 
 
 class EncodeTests(unittest.TestCase):
+    def test_bfloat16_and_single_channel_frames_roundtrip(self):
+        for dtype, channels in ((torch.bfloat16, 3), (torch.float32, 1), (torch.bfloat16, 1)):
+            for format_name, extension in (("png", "png"), ("webp lossless", "webp")):
+                with self.subTest(dtype=dtype, channels=channels, format=format_name), tempfile.TemporaryDirectory() as tmp:
+                    frame = torch.full((2, 2, channels), 0.5, dtype=dtype, device="cpu")
+                    path = Path(tmp) / f"frame.{extension}"
+                    encode_image(path, frame, format_name, None)
+                    with Image.open(path) as image:
+                        self.assertEqual(image.size, (2, 2))
+                        self.assertEqual(image.convert("RGB").getpixel((0, 0)), (127, 127, 127))
+
     def test_png_roundtrips_and_embeds_metadata(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "one.png"
@@ -173,6 +186,71 @@ class NameTokenTests(unittest.TestCase):
 
 
 class SaveImageNodeTests(unittest.TestCase):
+    def test_counter_save_and_compare_save_keep_both_images(self):
+        from nodes import _compare_helpers as compare
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            picture_a, picture_b = root / "a.png", root / "b.png"
+            Image.new("RGB", (16, 8), "green").save(picture_a)
+            Image.new("RGB", (16, 8), "blue").save(picture_b)
+            entered, proceed, comparing = threading.Event(), threading.Event(), threading.Event()
+            encode = node_save_image.encode_image
+
+            def paused_encode(*args):
+                entered.set()
+                if not proceed.wait(5):
+                    raise TimeoutError("Timed out waiting to finish encoding.")
+                return encode(*args)
+
+            def save_compare():
+                comparing.set()
+                return compare.save_mix(picture_a=picture_a, picture_b=picture_b, output_dir=root, name="shot")
+
+            with patch.object(node_save_image, "encode_image", paused_encode), ThreadPoolExecutor(max_workers=2) as pool:
+                first = pool.submit(self.run_node, root, filename_prefix="shot")
+                try:
+                    self.assertTrue(entered.wait(5))
+                    second = pool.submit(save_compare)
+                    self.assertTrue(comparing.wait(5))
+                    try:
+                        second.result(timeout=0.2)
+                    except TimeoutError:
+                        pass
+                finally:
+                    proceed.set()
+                saved = Path(first.result(timeout=5)["result"][0])
+                mixed = root / second.result(timeout=5)["files"][0]["filename"]
+            self.assertNotEqual(saved, mixed)
+            with Image.open(saved) as image:
+                self.assertEqual(image.getpixel((0, 0)), (0, 0, 0))
+            with Image.open(mixed) as image:
+                self.assertEqual(image.getpixel((0, 0)), (0, 128, 0))
+
+    def test_caption_only_collision_obeys_each_policy(self):
+        for naming in ({"exact_name": "photo"}, {"filename_prefix": "photo", "name_counter": False}):
+            for policy in ("error", "skip", "overwrite"):
+                with self.subTest(**naming, policy=policy), tempfile.TemporaryDirectory() as tmp:
+                    caption = Path(tmp) / "photo.txt"
+                    caption.write_text("original", encoding="utf-8")
+                    if policy == "error":
+                        with self.assertRaisesRegex(ValueError, "already exists"):
+                            self.run_node(tmp, caption_text="replacement", on_existing=policy, **naming)
+                    else:
+                        result = self.run_node(tmp, caption_text="replacement", on_existing=policy, **naming)
+                        self.assertEqual(bool(result["result"][0]), policy == "overwrite")
+                    self.assertEqual(caption.read_text(encoding="utf-8"), "replacement" if policy == "overwrite" else "original")
+                    self.assertEqual((Path(tmp) / "photo.png").exists(), policy == "overwrite")
+
+    def test_later_caption_collision_stops_batch_before_any_write(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            caption = Path(tmp) / "shot_002.txt"
+            caption.write_text("original", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "already exists"):
+                self.run_node(tmp, images=gradient_batch(2, 8, 16), exact_name="shot", caption_text="new", on_existing="error")
+            self.assertEqual([p.name for p in Path(tmp).iterdir()], ["shot_002.txt"])
+            self.assertEqual(caption.read_text(encoding="utf-8"), "original")
+
     def test_name_tokens_in_the_prefix_and_in_an_exact_name(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = self.run_node(tmp, filename_prefix="sets/%width%x%height%/img_%year%", name_counter=False)
@@ -415,8 +493,12 @@ class SaveImageLocalModeTests(SaveImageNodeTests):
         with tempfile.TemporaryDirectory() as tmp:
             self.run_node(tmp, exact_name="photo", caption="old", caption_text="new caption")
             self.assertEqual((Path(tmp) / "photo.txt").read_text(encoding="utf-8"), "new caption")
-            self.run_node(tmp, exact_name="photo2", caption="old", caption_text="")
-            self.assertEqual((Path(tmp) / "photo2.txt").read_text(encoding="utf-8"), "old")
+            for index, caption in enumerate(("", "   ", "\n")):
+                name = f"blank{index}"
+                self.run_node(tmp, exact_name=name, caption="old", caption_text=caption)
+                self.assertFalse((Path(tmp) / f"{name}.txt").exists())
+            self.run_node(tmp, exact_name="legacy", caption="old", caption_text=None)
+            self.assertEqual((Path(tmp) / "legacy.txt").read_text(encoding="utf-8"), "old")
 
     def test_prefix_validation_rejects_escapes(self):
         node = node_save_image.AusBossSaveImage

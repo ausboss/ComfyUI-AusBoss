@@ -68,7 +68,8 @@ class MiddlewareTests(unittest.TestCase):
                 "/extensions/ausboss-nodes/seed/index.js",
                 "/extensions/other-pack/shared/index.mjs",
             ):
-                response = await middleware(make_mocked_request("GET", path), modules_get)
+                request = make_mocked_request("GET", path)
+                response = await middleware(request, modules_get)
                 seen[path] = response.headers.get("Cache-Control")
             return seen
 
@@ -194,7 +195,7 @@ class VersionedServingTests(unittest.TestCase):
             for path in paths:
                 request = self.make_request("GET", path, headers=headers)
                 response = await middleware(request, handled)
-                out[path] = (response.status, response.text, response.headers)
+                out[path] = (response.status, response.text or "", response.headers)
             return out
 
         return asyncio.run(run())

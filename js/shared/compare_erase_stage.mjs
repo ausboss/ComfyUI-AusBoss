@@ -628,7 +628,7 @@ function installPointer(er, signal) {
 }
 
 async function save(er) {
-  if (er.saving || !er.refs) return;
+  if (er.signal.aborted || er.saving || !er.refs) return;
   er.saving = true;
   syncTools(er);
   try {
@@ -644,6 +644,7 @@ async function save(er) {
       })),
     });
     const answer = await response.json().catch(() => null);
+    if (er.signal.aborted) return;
     if (!response.ok) {
       // No words from the route: this ComfyUI started before the update.
       const missing = (response.status === 404 || response.status === 405) && !answer?.error;
@@ -652,10 +653,11 @@ async function save(er) {
     showToast({ severity: "success", summary: "Image Compare", detail: savedMessage(answer?.files) });
     er.onSaved?.(answer?.files ?? []);
   } catch (error) {
+    if (er.signal.aborted) return;
     showToast({ severity: "error", summary: "Image Compare", detail: String(error?.message ?? error), life: 8000 });
   } finally {
     er.saving = false;
-    syncTools(er);
+    if (!er.signal.aborted) syncTools(er);
   }
 }
 
@@ -663,20 +665,24 @@ async function save(er) {
 // to B as it came. The panel swaps in the pictures; Save and Copy then use
 // the lined-up B, and the paint stays where it is.
 async function align(er) {
-  if (er.aligning || !er.refs) return;
+  if (er.signal.aborted || er.aligning || !er.refs) return;
   if (er.refs.aligned) {
     er.onAligned?.(er.refs.original);
     return;
   }
   er.aligning = true;
+  const refs = er.refs;
+  const picturesVersion = er.picturesVersion;
+  const current = () => !er.signal.aborted && er.refs === refs && er.picturesVersion === picturesVersion;
   syncTools(er);
   try {
     const response = await api.fetchApi(ALIGN_ROUTE, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pair: er.refs.pair }),
+      body: JSON.stringify({ pair: refs.pair }),
     });
     const answer = await response.json().catch(() => null);
+    if (!current()) return;
     if (!response.ok) {
       // No words from the route: this ComfyUI started before the update.
       const missing = (response.status === 404 || response.status === 405) && !answer?.error;
@@ -684,15 +690,16 @@ async function align(er) {
     }
     if (answer?.aligned && answer.b?.filename && typeof answer.pair === "string") {
       showToast({ severity: "success", summary: "Image Compare", detail: answer.message, life: 4000 });
-      er.onAligned?.({ ...er.refs, b: answer.b, pair: answer.pair, aligned: true, original: er.refs });
+      er.onAligned?.({ ...refs, b: answer.b, pair: answer.pair, aligned: true, original: refs });
     } else {
       showToast({ severity: "info", summary: "Image Compare", detail: answer?.message || "B was left as it is.", life: 6000 });
     }
   } catch (error) {
+    if (!current()) return;
     showToast({ severity: "error", summary: "Image Compare", detail: String(error?.message ?? error), life: 8000 });
   } finally {
     er.aligning = false;
-    syncTools(er);
+    if (!er.signal.aborted) syncTools(er);
   }
 }
 
@@ -764,7 +771,7 @@ function copy(er) {
 // pictures change.
 export function makeEraser({ node, root, stage, imageA, imageB, signal, onSaved, onAligned }) {
   const er = {
-    node, root, stage, imageA, imageB, onSaved, onAligned,
+    node, root, stage, imageA, imageB, signal, onSaved, onAligned,
     canvas: document.createElement("canvas"),
     mask: document.createElement("canvas"),
     live: document.createElement("canvas"),
@@ -772,7 +779,7 @@ export function makeEraser({ node, root, stage, imageA, imageB, signal, onSaved,
     dab: document.createElement("canvas"),
     dabKey: "",
     maskScale: 1,
-    refs: null, width: 0, height: 0, fit: null,
+    refs: null, picturesVersion: 0, width: 0, height: 0, fit: null,
     strokes: [], history: [],
     active: false, stroke: null, adjust: null, pointer: null, back: false, flipKey: false,
     saving: false, copying: false, frame: 0, keys: null,
@@ -985,6 +992,7 @@ export function makeEraser({ node, root, stage, imageA, imageB, signal, onSaved,
     // Both pictures are loaded (or, with null, on their way). The paint is
     // read from the node, and kept only while the picture keeps its size.
     setPictures(refs) {
+      er.picturesVersion += 1;
       const ready = Boolean(refs && imageA.naturalWidth > 0 && imageB.naturalWidth > 0);
       er.refs = ready ? refs : null;
       finishStroke(er, null, true);

@@ -463,8 +463,9 @@ app.registerExtension({
       ]);
     });
     chainCallback(nodeType.prototype, "onConfigure", function () {
+      const state = this.__ausbossCompare;
       queueMicrotask(() => {
-        const state = buildPanel(this);
+        if (!state || this.__ausbossCompare !== state || state.abort.signal.aborted) return;
         state.showingB = this.properties?.ausboss_compare_side === "B";
         syncErase(state);
         // The saved paint, if the pictures are already up.

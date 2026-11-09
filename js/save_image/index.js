@@ -146,7 +146,7 @@ async function openBrowse(state, anchor) {
     }
     path = listing.path;
     const use = el("button", "use", path ? `Use “${path}”` : "Use the output folder");
-    use.addEventListener("click", () => { setValue(state.node, "output_dir", path); state.refresh(); notifyAusbossChange(); closeBrowse(); });
+    use.addEventListener("click", () => { state.savedPath = null; setValue(state.node, "output_dir", path); state.refresh(); notifyAusbossChange(); closeBrowse(); });
     popup.append(use);
     if (path) {
       const up = el("button", "", "↑ up one level");
@@ -370,7 +370,8 @@ function buildCard(node) {
   chainCallback(node, "onExecuted", (output) => {
     if (isForeignRun()) return;
     const saved = output?.ausboss_saved_path?.[0];
-    if (typeof saved === "string" && saved) { state.savedPath = saved; state.refresh(); }
+    state.savedPath = typeof saved === "string" && saved ? saved : null;
+    state.refresh();
   });
   chainCallback(node, "onRemoved", () => { state.alive = false; closeBrowse(); });
   state.refresh();
