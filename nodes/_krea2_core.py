@@ -14,6 +14,8 @@ tested against.
 
 from __future__ import annotations
 
+import hashlib
+
 import torch
 import torch.nn.functional as F
 from einops import rearrange
@@ -91,6 +93,13 @@ def _attn_kv(
     k = rearrange(k, "B L (H D) -> B H L D", H=attn.kvheads)
     v = rearrange(v, "B L (H D) -> B H L D", H=attn.kvheads)
     q, k = attn.qknorm(q, k)
+    patches = transformer_options.get("patches", {})
+    extra_options = transformer_options.copy()
+    if "block_index" in transformer_options:
+        for callback in patches.get("attn1_patch", ()):
+            changes = callback(q, k, v, pe=freqs, attn_mask=mask, extra_options=extra_options)
+            q, k, v = changes.get("q", q), changes.get("k", k), changes.get("v", v)
+            freqs, mask = changes.get("pe", freqs), changes.get("attn_mask", mask)
     if freqs is not None:
         q, k = apply_rope(q, k, freqs)
     if kv_capture is not None:
@@ -111,6 +120,9 @@ def _attn_kv(
         skip_reshape=True,
         transformer_options=transformer_options,
     )
+    if "block_index" in transformer_options:
+        for callback in patches.get("attn1_output_patch", ()):
+            out = callback(out, extra_options)
     return attn.wo(out * F.sigmoid(gate))
 
 
@@ -153,7 +165,10 @@ def _precompute_ref_kv(
     freqs = dit.pe_embedder(refpos)
 
     ref_kv = []
-    for block in dit.blocks:
+    transformer_options = {**transformer_options, "total_blocks": len(dit.blocks),
+                           "block_type": "single", "img_slice": [0, h.shape[1]]}
+    for index, block in enumerate(dit.blocks):
+        transformer_options["block_index"] = index
         cap = []
         h = _block_kv_forward(
             block,
@@ -204,7 +219,10 @@ def _forward_with_cached_refs(
 
     freqs = dit.pe_embedder(pos)
 
-    for block, kv in zip(dit.blocks, ref_kv):
+    transformer_options = {**transformer_options, "total_blocks": len(dit.blocks),
+                           "block_type": "single", "img_slice": [txtlen, combined.shape[1]]}
+    for index, (block, kv) in enumerate(zip(dit.blocks, ref_kv)):
+        transformer_options["block_index"] = index
         combined = _block_kv_forward(
             block,
             combined,
@@ -232,8 +250,13 @@ def _forward_with_cached_refs(
 
 
 def _ref_fingerprint(ref_latents, bs: int, bbox_norm: list[float] | None):
-    key = [bs, tuple(round(v, 6) for v in bbox_norm) if bbox_norm is not None else None]
+    key = [bs, tuple(bbox_norm) if bbox_norm is not None else None]
     for r in ref_latents:
-        rf = r.float()
-        key.append((tuple(r.shape), float(rf.sum()), float(rf.square().sum())))
+        try:
+            version = r._version
+        except RuntimeError:
+            # Inference tensors have no mutation counter. Hash their bytes
+            # rather than treating equal summary statistics as equal pixels.
+            version = hashlib.sha256(r.detach().contiguous().view(torch.uint8).cpu().numpy().tobytes()).digest()
+        key.append((id(r), version, tuple(r.shape), tuple(r.stride()), r.dtype, r.device))
     return tuple(key)

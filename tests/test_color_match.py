@@ -47,6 +47,28 @@ class LabConversionTests(unittest.TestCase):
 
 
 class MatchColorsTests(unittest.TestCase):
+    def test_mkl_preserves_tiny_variations_in_its_own_reference(self):
+        import itertools
+
+        image = torch.tensor(list(itertools.product([0.4999, 0.5001], repeat=3)))
+        image = image.reshape(1, 2, 4, 3)
+        out = match_colors(image, image.clone(), 1.0, method="mkl")
+        self.assertTrue(torch.allclose(out, image, atol=1e-6, rtol=0))
+
+    def test_mkl_preserves_a_nearly_singular_self_reference(self):
+        ramp = torch.linspace(0.2, 0.8, 64).reshape(1, 8, 8, 1)
+        image = ramp.expand(-1, -1, -1, 3) + rand_image(1, 8, 8, 10) * 1e-4
+        out = match_colors(image, image.clone(), 1.0, method="mkl")
+        self.assertTrue(torch.allclose(out, image, atol=1e-6, rtol=0))
+
+    def test_histogram_preserves_equal_distributions_at_different_sizes(self):
+        source = torch.tensor([0., 0., 0.5, 0.5, 1., 1.]).reshape(1, 1, 6, 1)
+        reference = torch.tensor([0., 0.5, 1.]).reshape(1, 1, 3, 1)
+        source = source.expand(-1, -1, -1, 3)
+        reference = reference.expand(-1, -1, -1, 3)
+        for image, ref in ((source, reference), (reference, source)):
+            self.assertTrue(torch.equal(match_colors(image, ref, 1., method="histogram"), image))
+
     def test_identity_reference_is_nearly_unchanged(self):
         image = rand_image(1, 48, 48, seed=2)
         out = match_colors(image, image, 1.0)

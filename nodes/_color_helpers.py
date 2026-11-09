@@ -208,7 +208,7 @@ def _weighted_mean_cov(
 def _matrix_sqrt(matrix: torch.Tensor, inverse: bool = False) -> torch.Tensor:
     """Symmetric PSD square root (or inverse square root) via eigh."""
     values, vectors = torch.linalg.eigh(matrix.double())
-    values = values.clamp_min(1e-10)
+    values = values.clamp_min(1e-10 if inverse else 0.0)
     roots = values.rsqrt() if inverse else values.sqrt()
     return (vectors @ torch.diag(roots) @ vectors.T).to(matrix.dtype)
 
@@ -229,16 +229,34 @@ def _mkl_matched(
         weights = None
         if mask is not None:
             weights = mask[index if mask.shape[0] > 1 else 0].reshape(-1)
-        img_mean, img_cov = _weighted_mean_cov(pixels, weights)
+        img_mean, img_cov = _weighted_mean_cov(
+            pixels.double(), weights.double() if weights is not None else None
+        )
         ref_pixels = reference[index if reference.shape[0] > 1 else 0].reshape(-1, 3)
-        ref_mean, ref_cov = _weighted_mean_cov(ref_pixels, None)
+        ref_mean, ref_cov = _weighted_mean_cov(ref_pixels.double(), None)
+        # Regularize both covariances in the same units. Their product has
+        # squared units, so its square root must not use that absolute floor.
+        regularizer = torch.eye(3, dtype=img_cov.dtype, device=img_cov.device) * 1e-10
+        img_cov = img_cov + regularizer
+        ref_cov = ref_cov + regularizer
         img_root = _matrix_sqrt(img_cov)
         img_root_inv = _matrix_sqrt(img_cov, inverse=True)
-        middle = _matrix_sqrt(img_root @ ref_cov @ img_root)
+        # SVD gives the middle square root without squaring the condition
+        # number of nearly singular covariances in an eigendecomposition.
+        _, singular, right = torch.linalg.svd(_matrix_sqrt(ref_cov) @ img_root)
+        middle = right.T @ torch.diag(singular) @ right
         mapping = img_root_inv @ middle @ img_root_inv
         matched = (pixels - img_mean) @ mapping.T + ref_mean
-        frames.append(matched.reshape(rgb.shape[1], rgb.shape[2], 3))
+        frames.append(matched.to(rgb.dtype).reshape(rgb.shape[1], rgb.shape[2], 3))
     return torch.stack(frames, dim=0).clamp(0.0, 1.0)
+
+
+def _interpolate(values: torch.Tensor, positions: torch.Tensor, samples: torch.Tensor) -> torch.Tensor:
+    """Linear interpolation with constant endpoints, including a singleton."""
+    high = torch.searchsorted(positions, values.contiguous()).clamp_max(positions.numel() - 1)
+    low = (high - 1).clamp_min(0)
+    fraction = ((values - positions[low]) / (positions[high] - positions[low]).clamp_min(1e-20)).clamp(0, 1)
+    return samples[low] + fraction * (samples[high] - samples[low])
 
 
 def _histogram_matched(
@@ -263,18 +281,14 @@ def _histogram_matched(
         for channel in range(3):
             values = frame[..., channel]
             pool = values[selected] if selected is not None else values.reshape(-1)
-            sorted_pool, _ = pool.reshape(-1).sort()
-            sorted_ref, _ = ref[..., channel].reshape(-1).sort()
-            # Rank every pixel against the measured pool, then read the same
-            # quantile off the reference.
-            ranks = torch.searchsorted(sorted_pool, values.reshape(-1).contiguous())
-            ranks = ranks.clamp_max(sorted_pool.numel() - 1)
-            quantiles = ranks.float() / max(1, sorted_pool.numel() - 1)
-            positions = quantiles * (sorted_ref.numel() - 1)
-            low = positions.floor().long()
-            high = positions.ceil().long()
-            fraction = positions - low.float()
-            mapped = sorted_ref[low] * (1.0 - fraction) + sorted_ref[high] * fraction
+            source_values, source_counts = torch.unique(pool, sorted=True, return_counts=True)
+            ref_values, ref_counts = torch.unique(ref[..., channel], sorted=True, return_counts=True)
+            source_quantiles = source_counts.cumsum(0).float() / pool.numel()
+            ref_quantiles = ref_counts.cumsum(0).float() / ref[..., channel].numel()
+            # Equal values share their cumulative probability, independent
+            # of how many pixels were used to represent the distribution.
+            mapping = _interpolate(source_quantiles, ref_quantiles, ref_values)
+            mapped = _interpolate(values.reshape(-1), source_values, mapping)
             channels.append(mapped.reshape(values.shape))
         frames.append(torch.stack(channels, dim=-1))
     return torch.stack(frames, dim=0).clamp(0.0, 1.0)

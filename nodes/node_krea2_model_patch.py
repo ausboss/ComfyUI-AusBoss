@@ -93,6 +93,7 @@ class AusBossKrea2OutpaintModelPatch:
 
     def patch(self, model, stitcher, kv_cache=True, placement="source rectangle"):
         import comfy.conds
+        from comfy.patcher_extension import CallbacksMP
 
         from . import _krea2_core as core
 
@@ -131,6 +132,13 @@ class AusBossKrea2OutpaintModelPatch:
             return out
 
         state = {"last_sigma": None, "caches": {}}
+
+        def clear_cache(*_):
+            state["caches"].clear()
+            state["last_sigma"] = None
+
+        patched.add_callback(CallbacksMP.ON_PRE_RUN, clear_cache)
+        patched.add_callback(CallbacksMP.ON_CLEANUP, clear_cache)
 
         def forward(
             x,
@@ -171,8 +179,11 @@ class AusBossKrea2OutpaintModelPatch:
             ref_kv = None
             key = None
             if kv_cache:
-                key = core._ref_fingerprint(ref_latents, batch, bbox_norm)
-                ref_kv = state["caches"].get(key)
+                key = (tuple(x.shape), x.dtype, x.device,
+                       core._ref_fingerprint(ref_latents, batch, bbox_norm))
+                cached = state["caches"].get(key)
+                if cached is not None:
+                    ref_kv = cached[1]
             if ref_kv is None:
                 ref_kv = core._precompute_ref_kv(
                     dit,
@@ -183,7 +194,9 @@ class AusBossKrea2OutpaintModelPatch:
                     bbox_norm=bbox_norm,
                 )
                 if kv_cache:
-                    state["caches"][key] = ref_kv
+                    # Keep the references alive while their identities are
+                    # keys, so a later tensor cannot reuse a released id.
+                    state["caches"][key] = (tuple(ref_latents), ref_kv)
             return core._forward_with_cached_refs(
                 dit, x, timesteps, context, ref_kv, transformer_options
             )
