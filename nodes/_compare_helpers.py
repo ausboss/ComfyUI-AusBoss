@@ -36,7 +36,7 @@ import torch
 from PIL import Image
 
 from ._brush_helpers import brush_core, brush_sigma, stroke_cover  # noqa: F401 - the brush's numbers are read from here too
-from ._image_save_helpers import next_free_counter, require_output_path, strip_image_extension
+from ._image_save_helpers import IMAGE_SAVE_LOCK, next_free_counter, require_output_path, strip_image_extension
 from ._psd_helpers import PSD_MAX_SIDE, write_psd
 from ._realign_helpers import crop_if_shift, measure, warp_to_source
 
@@ -72,7 +72,6 @@ ALIGN_FAILED = (
     "or have too little detail to measure."
 )
 
-_save_lock = threading.Lock()
 _pairs: OrderedDict[str, tuple[Path, Path, str]] = OrderedDict()
 _pairs_lock = threading.Lock()
 
@@ -361,7 +360,7 @@ def save_mix(*, picture_a, picture_b, output_dir, top="A", strokes=None, layers=
     mixed = mix_pictures(upper, under, gone)
 
     folder = Path(output_dir)
-    with _save_lock:
+    with IMAGE_SAVE_LOCK:
         folder.mkdir(parents=True, exist_ok=True)
         counter = next_free_counter((entry.name for entry in folder.iterdir()), name)
         while True:

@@ -53,7 +53,7 @@ class MiddlewareTests(unittest.TestCase):
     def test_header_is_set_on_pack_modules_only(self):
         try:
             from aiohttp import web
-            from aiohttp.test_utils import TestClient, TestServer
+            from aiohttp.test_utils import make_mocked_request
         except ImportError:
             self.skipTest("aiohttp is not installed")
 
@@ -61,20 +61,17 @@ class MiddlewareTests(unittest.TestCase):
             return web.Response(text="export const a = 1;", content_type="text/javascript")
 
         async def run():
-            app = web.Application(middlewares=[make_revalidate_middleware("ausboss-nodes")])
-            app.router.add_get("/extensions/ausboss-nodes/shared/index.mjs", modules_get)
-            app.router.add_get("/extensions/ausboss-nodes/seed/index.js", modules_get)
-            app.router.add_get("/extensions/other-pack/shared/index.mjs", modules_get)
-            async with TestClient(TestServer(app)) as client:
-                seen = {}
-                for path in (
-                    "/extensions/ausboss-nodes/shared/index.mjs",
-                    "/extensions/ausboss-nodes/seed/index.js",
-                    "/extensions/other-pack/shared/index.mjs",
-                ):
-                    response = await client.get(path)
-                    seen[path] = response.headers.get("Cache-Control")
-                return seen
+            middleware = make_revalidate_middleware("ausboss-nodes")
+            seen = {}
+            for path in (
+                "/extensions/ausboss-nodes/shared/index.mjs",
+                "/extensions/ausboss-nodes/seed/index.js",
+                "/extensions/other-pack/shared/index.mjs",
+            ):
+                request = make_mocked_request("GET", path)
+                response = await middleware(request, modules_get)
+                seen[path] = response.headers.get("Cache-Control")
+            return seen
 
         seen = asyncio.run(run())
         self.assertEqual(seen["/extensions/ausboss-nodes/shared/index.mjs"], "no-cache")
@@ -169,10 +166,10 @@ class VersionedServingTests(unittest.TestCase):
     def setUp(self):
         try:
             from aiohttp import web
-            from aiohttp.test_utils import TestClient, TestServer
+            from aiohttp.test_utils import make_mocked_request
         except ImportError:
             self.skipTest("aiohttp is not installed")
-        self.web, self.TestClient, self.TestServer = web, TestClient, TestServer
+        self.web, self.make_request = web, make_mocked_request
         self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
         base = Path(self.folder.name)
@@ -193,14 +190,13 @@ class VersionedServingTests(unittest.TestCase):
 
         async def run():
             root = self.js if js_root == "default" else js_root
-            app = web.Application(middlewares=[make_revalidate_middleware("ausboss-nodes", root, token)])
-            app.router.add_get("/extensions/{tail:.*}", handled)
-            async with self.TestClient(self.TestServer(app)) as client:
-                out = {}
-                for path in paths:
-                    response = await client.get(path, headers=headers)
-                    out[path] = (response.status, await response.text(), response.headers)
-                return out
+            middleware = make_revalidate_middleware("ausboss-nodes", root, token)
+            out = {}
+            for path in paths:
+                request = self.make_request("GET", path, headers=headers)
+                response = await middleware(request, handled)
+                out[path] = (response.status, response.text or "", response.headers)
+            return out
 
         return asyncio.run(run())
 
