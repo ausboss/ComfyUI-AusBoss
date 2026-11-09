@@ -41,7 +41,7 @@ import { hideWidget } from "./widget_visibility.mjs";
 import {
   CARD_PADDING, GROUP_HEIGHT, ROW_GAP, ROW_HEIGHT, SECTION_HEIGHT, SLOT_OFFSET, UNIT_SLOT_WIDTH,
   cardChangeRestore, cardHeight, choiceLabel, commitWidgetValue, comboValues, rowHeight, rowInLook, rowKind, rowMuted, rowTops, scrubSteps, socketWidgetY, visibleRows,
-  widgetTooltip,
+  liftSocket, widgetTooltip,
 } from "./widget_card_math.mjs";
 
 export * from "./widget_card_math.mjs";
@@ -172,17 +172,6 @@ function findWidget(node, name) {
 
 function widgetSlot(node, name) {
   return node.inputs?.find((input) => input?.widget?.name === name || input?.name === name) ?? null;
-}
-
-// A `top: true` row's widgets keep their input slots but the slots stop
-// being widget inputs: the frontend then measures and draws them in the
-// node's slot column, and a link into one is resolved by input name.
-export function liftSocket(node, name) {
-  const slot = node.inputs?.find((input) => input?.widget?.name === name);
-  if (!slot) return false;
-  delete slot.widget;
-  slot._widget = undefined;
-  return true;
 }
 
 function widgetLinked(node, name) {

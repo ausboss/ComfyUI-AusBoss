@@ -218,3 +218,23 @@ export function widgetTooltip(node, name, widget = null) {
   const text = Array.isArray(spec) ? spec[1]?.tooltip : undefined;
   return typeof text === "string" ? text : "";
 }
+
+// A `top: true` row's widgets keep their input slots but the slots stop
+// being widget inputs: the frontend then measures and draws them in the
+// node's slot column, and a link into one is resolved by input name.
+// Newer frontends also stamp a widget's socket with the position of its
+// row (`slot.pos`) and keep honouring it once the widget is gone, so every
+// lifted socket would sit on the first slot's row. The stamp goes too.
+export function liftSocket(node, name) {
+  const slot = node.inputs?.find((input) => input?.widget?.name === name);
+  if (!slot) return false;
+  liftSlot(slot);
+  return true;
+}
+
+// The same lift for a slot already in hand (a loop over `node.inputs`).
+export function liftSlot(slot) {
+  delete slot.widget;
+  slot._widget = undefined;
+  delete slot.pos;
+}
