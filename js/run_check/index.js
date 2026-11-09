@@ -26,6 +26,7 @@ import { nodeByExecutionId } from "../shared/graph_ids.mjs";
 import {
   collapseRepeatedErrors,
   emptySourceMessage,
+  explainRunError,
   findEmptySources,
   nodeLacksSource,
 } from "../shared/run_check.mjs";
@@ -174,10 +175,20 @@ function collapseAnswers() {
   api.queuePrompt = collapsing;
 }
 
+// A run that stops on an error the pack knows the cause of gets one toast
+// that says what to do. ComfyUI's own error report is left as it is.
+function explainKnownErrors() {
+  api.addEventListener("execution_error", ({ detail }) => {
+    const known = explainRunError(detail);
+    if (known) showToast({ severity: "warn", summary: known.summary, detail: known.detail, life: 30000 });
+  });
+}
+
 app.registerExtension({
   name: "ausboss.run_check",
   setup() {
     guardRuns();
     collapseAnswers();
+    explainKnownErrors();
   },
 });

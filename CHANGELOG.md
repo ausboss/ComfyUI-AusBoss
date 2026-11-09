@@ -4,6 +4,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Two errors from outside a workflow now say what to do.** When a MiniMax H3
+  run stops with `KeyError: 'latent'` because the Muse MiniMax Director pack is
+  installed, a message names that pack and says to turn it off. When an older
+  ComfyUI cannot read a `w6a8` model file, a message says to update ComfyUI.
+  ComfyUI's own error report stays as it is.
+
 - **ComfyUI starts when the pack is installed twice.** A Manager install
   (`custom_nodes/ausboss-nodes`) beside a git clone
   (`custom_nodes/ComfyUI-AusBoss`) stopped ComfyUI while it started. Now one

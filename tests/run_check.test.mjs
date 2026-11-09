@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   collapseRepeatedErrors,
   emptySourceMessage,
+  explainRunError,
   findEmptySources,
   nodeLacksSource,
   nodesThatRun,
@@ -198,4 +199,41 @@ test("an empty Load Audio asks for a sound file", () => {
   assert.equal(emptySourceMessage(found), "Load a sound file first: Song");
   prompt[1].inputs.audio = "song.mp3";
   assert.deepEqual(findEmptySources(prompt, outputs), []);
+});
+
+// ------------------------------------------------------------ known run errors
+
+// The report a user posted: ComfyUI 0.44.0, H3 keeping the clip's sound, with
+// Muse MiniMax Director installed.
+const MUSE_REPORT = {
+  node_type: "SamplerCustomAdvanced",
+  exception_type: "KeyError",
+  exception_message: "'latent'",
+  traceback: [
+    '  File "G:\\ComfyUI\\ComfyUI\\comfy\\samplers.py", line 953, in encode_model_conds\n    out = model_function(**params)\n',
+    '  File "G:\\ComfyUI\\ComfyUI\\custom_nodes\\muse-minimax-director-v1-2\\muse_minimax_hybrid_patch.py", line 30, in extra_conds_with_hybrid\n    visual_latents.extend(item["latent"] for item in keyframes)\n',
+  ],
+};
+
+test("the Muse MiniMax Director error is explained and names the pack", () => {
+  const known = explainRunError(MUSE_REPORT);
+  assert.match(known.detail, /Muse MiniMax Director/);
+  assert.match(known.detail, /Turn that pack off/);
+});
+
+test("the same KeyError from anywhere else is left alone", () => {
+  assert.equal(explainRunError({ ...MUSE_REPORT, traceback: ['  File "comfy/samplers.py", line 953\n'] }), null);
+  assert.equal(explainRunError({ ...MUSE_REPORT, exception_message: "'samples'" }), null);
+});
+
+test("an old ComfyUI loading a w6a8 model is told to update", () => {
+  const known = explainRunError({ exception_type: "KeyError", exception_message: "'w6a8_int8'", traceback: [] });
+  assert.match(known.detail, /0\.38/);
+});
+
+test("an unknown error, or no report at all, gives nothing", () => {
+  assert.equal(explainRunError({ exception_type: "RuntimeError", exception_message: "CUDA out of memory", traceback: [] }), null);
+  assert.equal(explainRunError(null), null);
+  assert.equal(explainRunError({}), null);
+  assert.equal(explainRunError({ exception_type: "KeyError", exception_message: "'latent'", traceback: "muse_minimax_hybrid_patch" }) !== null, true);
 });
