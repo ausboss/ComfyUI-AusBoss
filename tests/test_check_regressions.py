@@ -156,6 +156,11 @@ class CompatibilityTests(unittest.TestCase):
         node = {"id": 1, "type": "Options", "widgets_values_named": {"count": 0, "enabled": False}}
         self.assertEqual(self.problems({"nodes": [node]}, offered), [])
 
+    def test_newer_combo_format_counts_as_a_widget(self):
+        offered = {"Cache": {"input": {"required": {"device": ["COMBO", {"options": ["auto", "cpu"]}]}}}}
+        node = {"id": 1, "type": "Cache", "widgets_values": ["auto"], "widgets_values_named": {"device": "auto"}}
+        self.assertEqual(self.problems({"nodes": [node]}, offered), [])
+
 
 class CommandTests(unittest.TestCase):
     def setUp(self):
