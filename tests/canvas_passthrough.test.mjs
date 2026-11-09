@@ -45,6 +45,30 @@ test("middle button and Ctrl+Shift drag go to the graph; ordinary clicks do not"
   assert.equal(graphDragStarts({ button: 0, buttons: 1, ctrlKey: true }, on), false);
 });
 
+test("horizontal wheel stays in a scrollable code block until its edge", () => {
+  const root = { parentElement: null };
+  const code = {
+    tagName: "PRE", parentElement: root,
+    scrollWidth: 1000, clientWidth: 200, scrollLeft: 0,
+    scrollHeight: 50, clientHeight: 50, scrollTop: 0,
+  };
+  const context = { root, styleOf: () => ({ overflowX: "auto", overflowY: "auto" }) };
+  const keeps = (deltaX, deltaY = 0) => panelKeepsWheel(code, { deltaX, deltaY }, context);
+  assert.equal(keeps(80), true);
+  assert.equal(keeps(-80), false);
+  code.scrollLeft = 400;
+  assert.equal(keeps(-80), true);
+  assert.equal(keeps(80, 80), true, "diagonal scroll with horizontal room");
+  code.scrollLeft = 800;
+  assert.equal(keeps(80), false);
+  assert.equal(keeps(-80), true);
+  code.scrollWidth = 200;
+  assert.equal(keeps(80), false);
+  code.scrollWidth = 1000;
+  context.styleOf = () => ({ overflowX: "hidden" });
+  assert.equal(keeps(-80), false, "hidden overflow cannot keep the wheel");
+});
+
 test("only the pack's own panels count, in both node renderers", () => {
   const chain = (host, ...classes) => {
     let parent = host;
