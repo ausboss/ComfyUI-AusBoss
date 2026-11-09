@@ -46,6 +46,17 @@ All notable changes to ComfyUI-AusBoss are documented here.
   bfloat16 and one-channel images, and a blank linked caption writes no
   caption file.
 
+- **Color Match leaves a picture alone when matched to itself.** When the
+  reference is the same picture, or the same colours at another size, the
+  picture now comes back unchanged instead of shifting colour. Other matches
+  can differ from earlier releases by less than one shade step.
+
+- **Krea 2 Outpaint Model Patch no longer reuses an old reference.** On a
+  fresh server's first run, its reference cache could hand back a stale
+  reference, so the new area came out different from a run without the
+  cache. Now both match exactly. Other model patches on the same model also
+  apply alongside it.
+
 - **Three example workflow notes now match their graphs.** Krea 2 Rotate +
   Outpaint says its tone match is on, Qwen Image 2.1 Inpaint says its seed is
   fixed, and Qwen Image 2.1 Upscale + Restore says the redraw is at least
