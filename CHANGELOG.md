@@ -2,12 +2,41 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.22.1 - 2026-11-08
+
+- **Workflow Switches: a switch that changes a setting no longer turns its
+  node off.** The node it sets keeps running. LoRA choices keep every field
+  that differs between them, and the add-choice button shows as soon as a
+  node is selected.
 
 - **Video Crop + Rotate + Pad → Clip: the fixed_frames input sits on its own
   row again.** In workflows saved by an earlier release, newer ComfyUI drew
   fixed_frames on top of force_rate, so a link could not be dropped on it.
   Every input the pack moves into the input column now gets its own row.
+
+- **Node colours stay after a save and reload.** A colour picked from the
+  right-click menu now survives saving, reloading and pasting. In Nodes 2.0,
+  About this node is in the right-click menu, and dragging a node's corner
+  snaps to nearby lines (hold Shift to skip the snap).
+
+- **Image Folder shows the right pictures when you change folders.**
+  Switching folders or reloading a workflow no longer shows old or mixed-up
+  results, a very large folder keeps its newest files, and thumbnails refresh
+  when a picture is saved over.
+
+- **Crop for Inpaint keeps the whole soft edge inside the crop.** The blend
+  at the seam is now complete. Crops and blend masks can come out slightly
+  different from earlier releases for the same inputs.
+
+- **Compare, the preview bar and Save Image no longer show a stale picture.**
+  A late reply is ignored once the picture has changed, and Save Image
+  forgets its old saved file when the folder changes. Save Image also takes
+  bfloat16 and one-channel images, and a blank linked caption writes no
+  caption file.
+
+- **The pack's own checks are stricter.** They read pyproject.toml properly
+  and catch more ways a node could be hidden from the Registry's scanners.
+  Nothing changes in your workflows.
 
 ## 2.22.0 - 2026-11-07
 
