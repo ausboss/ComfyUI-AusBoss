@@ -198,9 +198,9 @@ class CropContractTests(unittest.TestCase):
         image = rand_image(1, 40, 40, seed=1)
         mask = box_mask(40, 40, 10, 20, 10, 20)
         _, sampling, stitcher = build_crop(image, mask, 2.0, 16, 1)
-        # context 2.0 on a 10x10 bbox with multiple 1 -> rect (5, 5, 20, 20)
-        self.assertEqual(stitcher["crop_to_canvas"], (5, 5, 20, 20))
-        self.assertTrue(torch.equal(sampling, mask[:, 5:25, 5:25]))
+        # The feather needs the full picture; only the paste mask is softened.
+        self.assertEqual(stitcher["crop_to_canvas"], (0, 0, 40, 40))
+        self.assertTrue(torch.equal(sampling, mask))
         values = torch.unique(sampling)
         self.assertTrue(all(v in (0.0, 1.0) for v in values.tolist()))
         # The blend mask is feathered: it must contain intermediate values.
@@ -262,6 +262,20 @@ class CropContractTests(unittest.TestCase):
 
 
 class StitchExactnessTests(unittest.TestCase):
+    def test_the_crop_contains_the_whole_feather(self):
+        image = torch.zeros((1, 128, 128, 3))
+        mask = box_mask(128, 128, 54, 74, 54, 74)
+        expected = stitch_blend_from_mask(mask, 16)
+        for options in ({}, {"target_width": 32, "target_height": 64}):
+            with self.subTest(options=options):
+                cropped, sampling, stitcher = build_crop(
+                    image, mask, 1.2, 16, 32, keep_inside=True, **options
+                )
+                out = apply_stitch(stitcher, torch.ones_like(cropped))
+                torch.testing.assert_close(out[..., 0], expected, atol=1e-6, rtol=0)
+                torch.testing.assert_close(stitch_blend_mask(stitcher), expected, atol=1e-6, rtol=0)
+                self.assertTrue(all(v in (0.0, 1.0) for v in sampling.unique().tolist()))
+
     def test_identity_round_trip_is_bit_exact(self):
         image = rand_image(1, 64, 96, seed=10)
         mask = box_mask(64, 96, 24, 40, 40, 56)
@@ -753,6 +767,22 @@ class RescaleAlgorithmTests(unittest.TestCase):
 
 
 class OutpaintExtendTests(unittest.TestCase):
+    def test_mask_shaping_cannot_erase_the_extension_bands(self):
+        image = torch.zeros((1, 32, 32, 3))
+        for side in ("left", "right", "up", "down"):
+            for blur in (0.0, 2.0):
+                with self.subTest(side=side, blur=blur):
+                    cropped, sampling, stitcher = build_crop(
+                        image, torch.zeros((1, 32, 32)), 1.0, 0, 1,
+                        mask_grow=-8, mask_blur=blur, **{f"extend_{side}": 8},
+                    )
+                    self.assertTrue(torch.equal(sampling, torch.ones_like(sampling)))
+                    out = apply_stitch(stitcher, torch.ones_like(cropped))
+                    expected = torch.ones_like(stitcher["blend"])
+                    x, y = (8 if side == "left" else 0), (8 if side == "up" else 0)
+                    expected[:, y : y + 32, x : x + 32] = 0.0
+                    self.assertTrue(torch.equal(out[..., 0], expected))
+
     def test_extension_grows_the_stitched_output(self):
         image = rand_image(1, 32, 32, seed=36)
         empty = torch.zeros((1, 32, 32), dtype=torch.float32)
@@ -847,6 +877,20 @@ class BlendMaskOutputTests(unittest.TestCase):
     def setUp(self):
         self.image = rand_image(1, 64, 96, seed=50)
         self.mask = box_mask(64, 96, 24, 40, 40, 56)
+
+    def test_a_partial_paste_window_limits_the_reported_mask(self):
+        # A previously built stitcher can carry a feather wider than its crop.
+        for original in ((0, 0, 96, 64), (8, 4, 80, 56)):
+            with self.subTest(original=original):
+                stitcher = build_canvas_stitcher(
+                    torch.zeros_like(self.image), torch.ones_like(self.mask)
+                )
+                stitcher["crop_to_canvas"] = (24, 16, 32, 32)
+                stitcher["canvas_to_original"] = original
+                out = apply_stitch(stitcher, torch.ones((3, 32, 32, 3)))
+                reported = stitch_blend_mask(stitcher, frames=3)
+                self.assertTrue(torch.equal(reported, out[..., 0]))
+                self.assertTrue(torch.equal(stitcher["blend"], torch.ones_like(self.mask)))
 
     def test_matches_the_blend_over_the_original_window(self):
         _c, _s, stitcher = build_crop(self.image, self.mask, 1.5, 8, 8)

@@ -6,6 +6,8 @@ outpaint stitches a clip. People who update the pack must get the same
 picture. Each case below builds its stitcher the way its node does, stitches a
 fixed patch at color_match 0, 0.5 and 1 through the node, and compares the
 image and blend_mask with the output the 2.3.0 code gave.
+The legacy inpaint crop keeps its original geometry here; its expected
+mask is limited to the paste window. Crop sizing is tested separately.
 
 Blend in with Tone match at 0 is pinned the same way, to the 2.4.0 code:
 the published Qwen Image 2.1 Rotate + Outpaint workflow stitches that way.
@@ -122,7 +124,12 @@ def crop_for_inpaint():
     mask = torch.zeros((1, 64, 80))
     mask[:, 20:44, 30:58] = 1.0
     cropped, _sampling, stitcher = AusBossCropForInpaint().crop(image, mask, 1.5, 16, 8)
+    # Freeze the released crop window so this checks the seam independently
+    # of the corrected crop sizing, without regenerating release fixtures.
+    stitcher["crop_to_canvas"] = (20, 12, 48, 40)
+    stitcher["sampler_size"] = (48, 40)
     cx, cy, cw, ch = stitcher["crop_to_canvas"]
+    cropped = image[:, cy : cy + ch, cx : cx + cw]
     return stitcher, model_output(cropped, stitcher["blend"][:, cy : cy + ch, cx : cx + cw], 13)
 
 
@@ -201,7 +208,13 @@ class ClassicSeamPinTests(unittest.TestCase):
                     stitcher, patch_image = build()
                     image, blend_mask = stitch(stitcher, patch_image, strength)
                     assert_released_image(image, reference_image(name, strength))
-                    assert_released_image(blend_mask, reference_mask(name))
+                    expected_mask = reference_mask(name)
+                    if name == "crop for inpaint":
+                        cx, cy, cw, ch = stitcher["crop_to_canvas"]
+                        pasted = torch.zeros_like(expected_mask)
+                        pasted[:, cy : cy + ch, cx : cx + cw] = expected_mask[:, cy : cy + ch, cx : cx + cw]
+                        expected_mask = pasted
+                    assert_released_image(blend_mask, expected_mask)
 
     def test_the_mask_references_are_the_pinned_masks(self):
         # Reads the files only, so every machine gives the same answer.

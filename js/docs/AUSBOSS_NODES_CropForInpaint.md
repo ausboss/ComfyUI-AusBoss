@@ -110,7 +110,7 @@ parts back.
 
 ## Technical details
 
-- Starting values: Context `1.2`, Blend `16` px, Multiple `8`; Grow, Blur,
+- Starting values: Context `1.2`, Blend `16` px, Multiple `32`; Grow, Blur,
   Extra context, the Target rows and the Extend rows start at `0`.
 - With no Target size set, the crop is still rounded up to **Multiple**, so
   with **Stay in picture** on it can still reach a few pixels (at most

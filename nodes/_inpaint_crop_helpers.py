@@ -434,6 +434,15 @@ def build_crop(
     blur_sigma = max(0.0, float(mask_blur))
     if blur_sigma > 0.0:
         mask = blur_mask(mask, blur_sigma).clamp(0.0, 1.0)
+    # New space must stay fully paintable, even after shrinking or softening.
+    if ext_l:
+        mask[:, :, :ext_l] = 1.0
+    if ext_r:
+        mask[:, :, -ext_r:] = 1.0
+    if ext_u:
+        mask[:, :ext_u, :] = 1.0
+    if ext_d:
+        mask[:, -ext_d:, :] = 1.0
     height, width = image.shape[1], image.shape[2]
     multiple = max(1, int(output_multiple))
     blend_px = max(0, int(blend_pixels))
@@ -449,6 +458,7 @@ def build_crop(
         )
 
     bbox = mask_bbox(mask)
+    keep_box = bbox
     if bbox is None:
         rect = (0, 0, width, height)
     else:
@@ -460,6 +470,17 @@ def build_crop(
                 rect[2] + 2 * context_px,
                 rect[3] + 2 * context_px,
             )
+        if blend_px:
+            # Feathering dilates by blend_px, then blurs over another
+            # ceil(3 * sigma) pixels. Keep all of that support in the crop.
+            reach = blend_px + math.ceil(3.0 * (blend_px / 3.0))
+            bx, by, bw, bh = bbox
+            x0, y0 = max(0, bx - reach), max(0, by - reach)
+            x1, y1 = min(width, bx + bw + reach), min(height, by + bh + reach)
+            keep_box = (x0, y0, x1 - x0, y1 - y0)
+            x0, y0 = min(rect[0], x0), min(rect[1], y0)
+            x1, y1 = max(rect[0] + rect[2], x1), max(rect[1] + rect[3], y1)
+            rect = (x0, y0, x1 - x0, y1 - y0)
         if keep_inside:
             rect = clamp_rect_to_bounds(rect, width, height)
         rect = fit_rect(rect, width, height)
@@ -480,7 +501,7 @@ def build_crop(
             target_h = max(1, round(rect[3] * target_w / rect[2]))
         target_w = round_up_to_multiple(target_w, multiple)
         target_h = round_up_to_multiple(target_h, multiple)
-        keep_box = bbox if bbox is not None else (0, 0, width, height)
+        keep_box = keep_box if keep_box is not None else (0, 0, width, height)
         rect = match_rect_shape(rect, target_w, target_h, width, height, keep_inside, keep_box)
     else:
         # Native sizing: the crop itself must satisfy the sampler multiple.
@@ -1056,7 +1077,11 @@ def stitch_blend_mask(stitcher: dict, frames: int = 1, seam: str = SEAM_CLASSIC)
             # One depth map serves every frame, so the weight broadcasts.
             weight = blend_in_weight(plan["depth"], plan["tone"])[:, oy : oy + oh, ox : ox + ow]
             return weight.expand(frames, -1, -1).contiguous()
-    mask = blend[:, oy : oy + oh, ox : ox + ow]
+    # Older stitchers may have a feather wider than the actual paste window.
+    cx, cy, cw, ch = stitcher["crop_to_canvas"]
+    mask = torch.zeros_like(blend)
+    mask[:, cy : cy + ch, cx : cx + cw] = blend[:, cy : cy + ch, cx : cx + cw]
+    mask = mask[:, oy : oy + oh, ox : ox + ow]
     if mask.shape[0] == 1 and frames > 1:
         mask = mask.expand(frames, -1, -1)
     return mask.contiguous()
