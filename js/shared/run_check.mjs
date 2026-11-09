@@ -160,3 +160,53 @@ export function collapseRepeatedErrors(nodeErrors) {
   }
   return nodeErrors;
 }
+
+// ------------------------------------------------------------ known run errors
+//
+// Some errors that stop a run come from outside the workflow and say nothing
+// a person can act on ("KeyError: 'latent'"). Each entry here names one such
+// error by what is in ComfyUI's own report, and says in plain words what to
+// do. An entry is added only after the cause was found for real.
+const KNOWN_RUN_ERRORS = Object.freeze([
+  {
+    // Muse MiniMax Director replaces part of H3 for every workflow, and that
+    // part reads a picture from every guide. ComfyUI's own H3 nodes also make
+    // guides that hold sound alone, which is how a clip keeps its sound.
+    matches: ({ type, message, traceback }) =>
+      type === "KeyError" && message.includes("'latent'") && traceback.includes("muse_minimax_hybrid_patch"),
+    summary: "Another node pack stopped this run",
+    detail:
+      "The error comes from Muse MiniMax Director, not from this workflow. It changes MiniMax H3 for every "
+      + "workflow and stops when H3 is given sound to keep without a picture. Turn that pack off in Manager, "
+      + "restart ComfyUI and run again.",
+  },
+  {
+    // The w6a8 H3 files load from ComfyUI 0.38.0 on; older versions stop in
+    // the model loader on the name of the format.
+    matches: ({ message }) => message.includes("w6a8_int8"),
+    summary: "This model needs a newer ComfyUI",
+    detail:
+      "This model file (w6a8) is a newer kind that ComfyUI reads from version 0.38 on. Update ComfyUI and "
+      + "run again, or load the int8 file of the model instead.",
+  },
+]);
+
+/**
+ * Plain advice for a run error the pack knows the cause of, from the
+ * `execution_error` event's detail. `null` for every other error.
+ */
+export function explainRunError(detail) {
+  const report = {
+    type: String(detail?.exception_type ?? "").split(".").pop(),
+    message: String(detail?.exception_message ?? ""),
+    traceback: [].concat(detail?.traceback ?? []).join("\n"),
+  };
+  for (const known of KNOWN_RUN_ERRORS) {
+    try {
+      if (known.matches(report)) return { summary: known.summary, detail: known.detail };
+    } catch (_error) {
+      // A report in a shape this entry did not expect is simply not a match.
+    }
+  }
+  return null;
+}

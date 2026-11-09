@@ -2,6 +2,14 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Two errors from outside a workflow now say what to do.** When a MiniMax H3
+  run stops with `KeyError: 'latent'` because the Muse MiniMax Director pack is
+  installed, a message names that pack and says to turn it off. When an older
+  ComfyUI cannot read a `w6a8` model file, a message says to update ComfyUI.
+  ComfyUI's own error report stays as it is.
+
 ## 2.23.0 - 2026-11-09
 
 - **Mask by Touch keeps your picks when the picture changes.** Your clicks
