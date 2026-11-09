@@ -2139,10 +2139,10 @@
             "title": "Note",
             "properties": {},
             "widgets_values": [
-              "Blend in fades the model's picture into yours just inside its edge, with no tone shift. The new area stays as painted."
+              "Blend in fades the model's picture into yours just inside its edge. Tone match is fully on, so the new area is adjusted to your picture's tone."
             ],
             "widgets_values_named": {
-              "text": "Blend in fades the model's picture into yours just inside its edge, with no tone shift. The new area stays as painted."
+              "text": "Blend in fades the model's picture into yours just inside its edge. Tone match is fully on, so the new area is adjusted to your picture's tone."
             },
             "color": "#1f2c38",
             "bgcolor": "#2a3b4a"
