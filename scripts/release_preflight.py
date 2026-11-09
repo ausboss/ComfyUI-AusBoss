@@ -33,9 +33,11 @@ Checks:
 Exit code 0 = ready to release, 1 = problems printed below.
 """
 
+import ast
 import pathlib
 import re
 import sys
+import tomllib
 
 from changelog_notes import notes_for
 from registry_contract import git_paths
@@ -56,20 +58,27 @@ except OSError as exc:
 if raw.startswith(b"\xef\xbb\xbf"):
     errors.append("pyproject.toml starts with a UTF-8 BOM; save it without one")
 
-match = re.search(rb'^version\s*=\s*"([^"]+)"', raw, re.MULTILINE)
-if match:
-    pyproject_version = match.group(1).decode("ascii", "replace")
+try:
+    project = tomllib.loads(raw.decode("utf-8")).get("project", {})
+except (ValueError, UnicodeError) as exc:
+    errors.append(f"could not parse pyproject.toml: {exc}")
+    project = {}
+version = project.get("version")
+if isinstance(version, str) and version.strip():
+    pyproject_version = version
 else:
-    errors.append('pyproject.toml has no version = "..." line')
+    errors.append("pyproject.toml needs a nonempty project.version string")
 
 # The Registry refuses an upload whose description is over 1000 bytes
 # ("description is too long"), and it says so only after the version is
 # on main.
 DESCRIPTION_LIMIT = 1000
-match = re.search(rb'^description\s*=\s*"([^"]*)"', raw, re.MULTILINE)
-if match and len(match.group(1)) > DESCRIPTION_LIMIT:
+description = project.get("description")
+if not isinstance(description, str) or not description.strip():
+    errors.append("pyproject.toml needs a nonempty project.description string")
+elif len(description.encode("utf-8")) > DESCRIPTION_LIMIT:
     errors.append(
-        f"the pyproject description is {len(match.group(1))} bytes; "
+        f"the pyproject description is {len(description.encode('utf-8'))} bytes; "
         f"the Registry takes {DESCRIPTION_LIMIT} at most"
     )
 
@@ -286,6 +295,7 @@ NETWORK_PATTERNS = {
     ".js": (".connect(",),
     ".mjs": (".connect(",),
 }
+NETWORK_IMPORTS = {"requests", "httpx", "socket", "urllib.request", "http.client", "aiohttp.ClientSession"}
 shipped_source = [ROOT / "__init__.py", *sorted((ROOT / "nodes").rglob("*.py"))]
 shipped_source += sorted(p for p in (ROOT / "js").rglob("*") if p.suffix in (".js", ".mjs"))
 for path in shipped_source:
@@ -296,6 +306,21 @@ for path in shipped_source:
     except OSError as exc:
         errors.append(f"could not read {path.relative_to(ROOT)}: {exc}")
         continue
+    if path.suffix == ".py":
+        try:
+            tree = ast.parse(text)
+        except SyntaxError as exc:
+            errors.append(f"{path.relative_to(ROOT)} cannot be parsed: {exc}")
+            continue
+        imports = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imports.extend(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and not node.level:
+                imports.extend(f"{node.module}.{alias.name}" for alias in node.names)
+        for imported in imports:
+            if any(imported == name or imported.startswith(name + ".") for name in NETWORK_IMPORTS):
+                errors.append(f"{path.relative_to(ROOT)} imports {imported}; shipped code makes no network requests")
     for pattern in NETWORK_PATTERNS[path.suffix]:
         if pattern in text:
             errors.append(
@@ -315,7 +340,7 @@ for path in shipped_source:
     relative = path.relative_to(ROOT).as_posix()
     if relative in FETCH_ALLOWED:
         continue
-    if re.search(r"(?<![\w.])fetch\(", path.read_text(encoding="utf-8")):
+    if re.search(r"(?<![\w$])fetch\s*(?:\?\.\s*)?\(", path.read_text(encoding="utf-8")):
         errors.append(
             f"{relative} calls fetch(); only {sorted(FETCH_ALLOWED)} may. "
             "Use api.fetchApi for the pack's own routes."

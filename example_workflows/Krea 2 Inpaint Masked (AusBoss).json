@@ -1913,7 +1913,7 @@
               "The painted area, grown a little, is filled with flat gray, so Krea 2 knows where to paint. The plain crop goes along too."
             ],
             "widgets_values_named": {
-              "text": "The painted area, grown a little, is filled with flat gray. Krea 2 never sees what you are replacing."
+              "text": "The painted area, grown a little, is filled with flat gray, so Krea 2 knows where to paint. The plain crop goes along too."
             },
             "color": "#1f2c38",
             "bgcolor": "#2a3b4a"
@@ -3052,7 +3052,7 @@
               "The gray-filled crop is the reference. Painting starts from the plain crop, inside the noise mask: the painted area, widened by 24 px."
             ],
             "widgets_values_named": {
-              "text": "The gray-filled crop is the reference. The noise mask is the grown painted area, widened by 24 px. Krea 2 paints only inside it."
+              "text": "The gray-filled crop is the reference. Painting starts from the plain crop, inside the noise mask: the painted area, widened by 24 px."
             },
             "color": "#1f2c38",
             "bgcolor": "#2a3b4a"

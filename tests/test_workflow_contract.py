@@ -35,6 +35,7 @@ class WorkflowContractTests(unittest.TestCase):
 
     def test_named_widget_copy_must_match_the_loaded_values(self):
         graph = good_graph()
+        graph["nodes"][0]["type"] = "AUSBOSS_NODES_Seed"
         graph["nodes"][0]["widgets_values"] = [7, "fixed", ""]
         graph["nodes"][0]["widgets_values_named"] = {"seed": 7, "control_after_generate": "fixed", "ausboss_seed_panel": ""}
         self.assertEqual(workflow_problems(graph), [])
