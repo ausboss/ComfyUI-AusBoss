@@ -43,6 +43,7 @@ from registry_contract import (
     duplicate_key_problems,
     mapping_problems,
     module_list,
+    registered_class,
     scanned_python_files,
 )
 
@@ -210,9 +211,12 @@ for path in node_files:
     text = path.read_text(encoding="utf-8")
     if path.stem in {"node_image_crop_rotate_pad", "node_video_crop_rotate_pad"}:
         tree = ast.parse(text)
+        key = {"node_image_crop_rotate_pad": "AUSBOSS_NODES_ImageCropRotatePad",
+               "node_video_crop_rotate_pad": "AUSBOSS_NODES_VideoCropRotatePad"}[path.stem]
+        cls = registered_class(tree, key)
         return_types = None
         return_names = None
-        for node in ast.walk(tree):
+        for node in cls.body if cls is not None else []:
             if not isinstance(node, ast.Assign):
                 continue
             for target in node.targets:
@@ -257,13 +261,13 @@ for unlisted_id in sorted(mapping_keys - RELEASED_NODE_IDS):
 # import ever registers, and Manager offered the pack for workflows using
 # them. Fixtures live as .py.txt for this reason - real source, not a module.
 for path in python_files:
-    if path.parent == ROOT / "nodes":
+    if path in node_files:
         continue
     stray = class_mapping_keys(path.read_text(encoding="utf-8"))
     for key in sorted(stray):
         errors.append(
             f"{path.relative_to(ROOT)}: declares mapping key {key} outside "
-            "nodes/, where registry scanners will advertise it as a node"
+            "a registered node module, where registry scanners will advertise it as a node"
         )
 
 # --- 6. public display names carry the pack suffix ---------------------------

@@ -53,12 +53,21 @@ def example_nodes(data: dict):
             yield f" in subgraph '{graph.get('name') or graph.get('id')}'", node
 
 
-def given_names(node: dict) -> set[str]:
-    """The inputs a saved node has a socket or a named value for."""
-    names = {entry.get("name") for entry in node.get("inputs") or [] if isinstance(entry, dict)}
-    named = node.get("widgets_values_named")
-    if isinstance(named, dict):
-        names.update(named)
+def _widget(spec) -> bool:
+    if not isinstance(spec, (list, tuple)) or not spec:
+        return False
+    options = spec[1] if len(spec) > 1 and isinstance(spec[1], dict) else {}
+    return not options.get("forceInput") and (isinstance(spec[0], list) or spec[0] in ("INT", "FLOAT", "BOOLEAN", "STRING"))
+
+
+def given_names(node: dict, info: dict) -> set[str]:
+    """Connected sockets and usable serialized widget values."""
+    names = {entry.get("name") for entry in node.get("inputs") or []
+             if isinstance(entry, dict) and entry.get("link") is not None}
+    for saved in (node.get("widgets_values"), node.get("widgets_values_named")):
+        if isinstance(saved, dict):
+            names.update(name for name, value in saved.items()
+                         if value is not None and _widget(required_of(info, name)))
     return {name for name in names if name}
 
 
@@ -82,25 +91,29 @@ def example_problems(directory: Path, offered: dict) -> list[str]:
             continue
         if not isinstance(data, dict) or not isinstance(data.get("nodes"), list):
             continue
+        subgraphs = {graph.get("id") for graph in (data.get("definitions") or {}).get("subgraphs") or []}
         for where, node in example_nodes(data):
             kind = str(node.get("type"))
-            if kind in FRONTEND_ONLY or SUBGRAPH.match(kind):
+            if kind in FRONTEND_ONLY or kind in subgraphs:
+                continue
+            if SUBGRAPH.fullmatch(kind):
+                problems.append(f"{path.name}: unresolved subgraph '{kind}' (#{node.get('id')}{where})")
                 continue
             info = offered.get(kind)
             if info is None:
                 problems.append(f"{path.name}: this ComfyUI has no node '{kind}' (#{node.get('id')}{where})")
                 continue
             required = set((info.get("input") or {}).get("required") or {})
-            # A saved node without named values (an older save) cannot be
-            # checked by name; its sockets alone would raise false alarms.
-            if not isinstance(node.get("widgets_values_named"), dict) and node.get("widgets_values"):
-                continue
-            given = given_names(node)
+            # Older positional saves cannot identify widgets by name, but
+            # required sockets still need a connection.
+            positional = not isinstance(node.get("widgets_values_named"), dict) and isinstance(node.get("widgets_values"), list) and bool(node["widgets_values"])
+            given = given_names(node, info)
             # An input that grows (values.a, values.b, ...) is saved under
             # its parts' names, and may have none of them filled.
             roots = given | {name.split(".", 1)[0] for name in given}
             for name in sorted(required - roots):
-                if _grows(required_of(info, name)):
+                spec = required_of(info, name)
+                if _grows(spec) or (positional and _widget(spec)):
                     continue
                 problems.append(f"{path.name}: '{kind}' (#{node.get('id')}{where}) now requires '{name}', and the example has no value for it")
     return problems
