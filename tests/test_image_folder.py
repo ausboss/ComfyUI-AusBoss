@@ -5,11 +5,15 @@ root is a temp folder, so these run without ComfyUI."""
 from __future__ import annotations
 
 import json
+import asyncio
 import os
+from io import BytesIO
 from pathlib import Path
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 from PIL import Image
 
@@ -22,6 +26,7 @@ from nodes import node_image_folder  # noqa: E402
 from nodes._image_folder_helpers import (  # noqa: E402
     AT_THE_END,
     BAD_PICKS,
+    MAX_PICTURES,
     NO_MASK_SIZE,
     NONE_LEFT,
     NONE_PICKED,
@@ -78,6 +83,28 @@ class FolderCase(unittest.TestCase):
 
 
 class ListingTests(FolderCase):
+    def test_the_limit_is_applied_in_the_requested_order(self):
+        base = self.root / "ordered"
+        for name, stamp in [("a10.png", 100), ("a2.png", 200), ("z.png", 300)]:
+            picture(base / name)
+            os.utime(base / name, (stamp, stamp))
+        self.assertEqual(self.names("ordered", sort="name", limit=2), ["a2.png", "a10.png"])
+        self.assertEqual(self.names("ordered", sort="newest first", limit=2), ["z.png", "a2.png"])
+        self.assertEqual(self.names("ordered", sort="oldest first", limit=2), ["a10.png", "a2.png"])
+
+    def test_the_production_limit_keeps_the_newest_file(self):
+        base = self.root / "many"
+        base.mkdir()
+        for number in range(MAX_PICTURES):
+            path = base / f"a{number:04d}.png"
+            path.touch()
+            os.utime(path, (100, 100))
+        picture(base / "z-newest.png")
+        os.utime(base / "z-newest.png", (200, 200))
+        names = self.names("many", sort="newest first")
+        self.assertEqual(len(names), MAX_PICTURES)
+        self.assertEqual(names[0], "z-newest.png")
+
     def test_a_folder_lists_its_pictures_in_natural_order(self):
         self.assertEqual(self.names("people"), ["Anna.jpg", "photo_2.png", "photo_10.png"])
         self.assertEqual(natural_key("photo_2") < natural_key("photo_10"), True)
@@ -184,6 +211,18 @@ class PickingTests(FolderCase):
 
 
 class LoadingTests(FolderCase):
+    def test_rgb_and_grayscale_transparency_produce_masks_and_dark_thumbnails(self):
+        for mode, color, transparency in [("RGB", (255, 0, 0), (255, 0, 0)), ("L", 0, 0)]:
+            with self.subTest(mode=mode):
+                path = self.root / f"transparent-{mode}.png"
+                Image.new(mode, (3, 2), color).save(path, transparency=transparency)
+                _image, mask = load_picture(path)
+                self.assertEqual(tuple(mask.shape), (1, 2, 3))
+                self.assertEqual(float(mask.sum()), 6.0)
+                with Image.open(BytesIO(thumbnail(path))) as small:
+                    pixel = small.getpixel((0, 0))
+                self.assertTrue(all(abs(a - b) <= 3 for a, b in zip(pixel, (27, 35, 38))))
+
     def test_a_picture_loads_as_image_and_the_no_mask_stand_in(self):
         image, mask = load_picture(self.root / "people" / "photo_2.png")
         self.assertEqual(tuple(image.shape), (1, 30, 40, 3))
@@ -229,6 +268,18 @@ class LoadingTests(FolderCase):
 
 
 class NodeTests(FolderCase):
+    def test_runs_above_64_report_every_loaded_picture(self):
+        for number in range(65):
+            picture(self.root / "many" / f"{number}.png", size=(2, 2))
+        out = self.run_node(folder="many")
+        note = out["ui"][node_image_folder.UI_KEY][0]
+        self.assertEqual(note["loaded"], out["result"][3])
+        self.assertEqual(len(note["names"]), 65)
+
+    def test_completion_records_identify_the_folder_used_by_the_run(self):
+        note = self.run_node()["ui"][node_image_folder.UI_KEY][0]
+        self.assertEqual(note.get("context"), {"source": "input", "folder": "people", "subfolders": False})
+
     def test_all_in_one_run_gives_a_list_of_everything(self):
         out = self.run_node()
         images, masks, names, numbers, count = out["result"]
@@ -246,7 +297,10 @@ class NodeTests(FolderCase):
         out = self.run_node(run=RUNS[1], position=2)
         _images, _masks, names, numbers, count = out["result"]
         self.assertEqual((names, numbers, count), (["photo_2"], [2], 3))
-        self.assertEqual(out["ui"]["ausboss_image_folder"][0], {"count": 3, "loaded": [2], "names": ["photo_2.png"]})
+        self.assertEqual(out["ui"]["ausboss_image_folder"][0], {
+            "count": 3, "loaded": [2], "names": ["photo_2.png"],
+            "context": {"source": "input", "folder": "people", "subfolders": False},
+        })
 
     def test_one_per_run_stops_after_the_last_or_starts_over(self):
         with self.assertRaises(RuntimeError) as stopped:
@@ -293,6 +347,54 @@ class NodeTests(FolderCase):
     def test_the_messages_are_ascii(self):
         for text in (OUTSIDE, NONE_LEFT, NONE_PICKED, BAD_PICKS, THE_END.format(count=3)):
             text.encode("ascii")
+
+
+class RouteTests(FolderCase):
+    def setUp(self):
+        super().setUp()
+        self.handlers = {}
+        handlers = self.handlers
+
+        class Routes:
+            def get(self, address):
+                def register(fn):
+                    handlers[address] = fn
+                    return fn
+                return register
+
+        server = SimpleNamespace(PromptServer=SimpleNamespace(instance=SimpleNamespace(routes=Routes())))
+        with patch.dict(sys.modules, {"server": server}):
+            node_image_folder._register_routes()
+
+    def request(self, route, **query):
+        request = SimpleNamespace(rel_url=SimpleNamespace(query=query))
+        return asyncio.run(self.handlers[f"/ausboss/image_folder/{route}"](request))
+
+    def test_route_errors_hide_server_paths(self):
+        (self.root / "loop").symlink_to("loop", target_is_directory=True)
+        for route, query in [("list", {"folder": "loop"}), ("folders", {"folder": "loop"}),
+                             ("thumb", {"name": "loop/picture.png"})]:
+            with self.subTest(route=route):
+                response = self.request(route, **query)
+                self.assertEqual(response.status, 400)
+                self.assertNotIn(str(self.root), json.loads(response.text)["error"])
+
+    def test_thumbnail_versions_change_with_subsecond_rewrites_and_size(self):
+        path = self.root / "top.png"
+        os.utime(path, ns=(1_700_000_000_100_000_000,) * 2)
+        def version():
+            response = self.request("list")
+            self.assertEqual(response.status, 200)
+            return json.loads(response.text)["pictures"][0]["v"]
+        first = version()
+        picture(path, color=(0, 0, 255))
+        os.utime(path, ns=(1_700_000_000_800_000_000,) * 2)
+        second = version()
+        self.assertNotEqual(first, second)
+        self.assertIsInstance(second, str)
+        picture(path, size=(80, 90))
+        os.utime(path, ns=(1_700_000_000_800_000_000,) * 2)
+        self.assertNotEqual(second, version())
 
 
 if __name__ == "__main__":

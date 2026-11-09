@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import io
+import json
 from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import Mock
 
 import av
 import numpy as np
-from aiohttp import FormData, web
-from aiohttp.test_utils import TestClient, TestServer
+from aiohttp import FormData, StreamReader, web
+from aiohttp.test_utils import make_mocked_request
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -43,22 +45,29 @@ class UploadTests(unittest.IsolatedAsyncioTestCase):
                 return web.json_response(await stream_video_upload(request, self.root, {'.mp4', '.mov'}))
             except Exception as exc:
                 return web.json_response({'error': str(exc)}, status=400)
-        app = web.Application(client_max_size=1024)
-        app.router.add_post('/upload', handler)
-        self.client = TestClient(TestServer(app))
-        await self.client.start_server()
-        self.addAsyncCleanup(self.client.close)
+        self.handler = handler
 
     async def upload(self, body, filename='clip.mp4'):
         form = FormData()
         form.add_field('image', io.BytesIO(body), filename=filename, content_type='video/mp4')
-        return await self.client.post('/upload', data=form)
+        payload = form()
+        stream = StreamReader(Mock(_reading_paused=False), limit=1024)
+
+        class Writer:
+            async def write(self, chunk):
+                stream.feed_data(chunk)
+
+        await payload.write(Writer())
+        stream.feed_eof()
+        request = make_mocked_request('POST', '/upload', headers=payload.headers,
+                                      payload=stream, client_max_size=1024)
+        return await self.handler(request)
 
     async def test_stream_exceeds_buffered_body_limit_and_retains_bytes(self):
         body = self.body + b'\0' * (2 * 1024 * 1024)
         response = await self.upload(body)
-        self.assertEqual(response.status, 200, await response.text())
-        result = await response.json()
+        self.assertEqual(response.status, 200, response.text)
+        result = json.loads(response.text)
         self.assertEqual((self.root / result['name']).read_bytes(), body)
 
     async def test_collision_and_symlink_never_overwrite(self):
@@ -66,7 +75,7 @@ class UploadTests(unittest.IsolatedAsyncioTestCase):
         (self.root / 'clip.mp4').symlink_to(self.root / 'kept.txt')
         response = await self.upload(self.body)
         self.assertEqual(response.status, 200)
-        self.assertEqual((await response.json())['name'], 'clip_1.mp4')
+        self.assertEqual(json.loads(response.text)['name'], 'clip_1.mp4')
         self.assertEqual((self.root / 'kept.txt').read_text(), 'keep')
 
     async def test_invalid_media_is_removed(self):

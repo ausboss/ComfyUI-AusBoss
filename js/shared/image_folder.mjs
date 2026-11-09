@@ -93,8 +93,10 @@ export function nameAt(picked, names, position, atTheEnd) {
 // the first, so Picture always names a real picture. A Picture already past
 // the end (saved by an older version) steps on from the picture it loaded.
 // "random" jumps to any picked picture (`roll` is 0..1, for tests).
+// With an unknown count, "next" keeps advancing and the backend handles the end.
 export function nextPosition(position, count, afterRun, atTheEnd = "stop the run", roll = Math.random()) {
   const place = Math.max(1, Math.round(Number(position) || 1));
+  if (count == null) return afterRun === "next" ? place + 1 : place;
   if (count < 1) return place;
   if (afterRun === "random") return Math.min(count, Math.floor(roll * count) + 1);
   if (afterRun !== "next") return place;
@@ -122,6 +124,12 @@ export function parentOf(folder) {
 
 export function childOf(folder, name) {
   return [...String(folder ?? "").split("/").filter(Boolean), name].join("/");
+}
+
+// A relative name belongs to one folder, even when another has the same name.
+export function folderContext({ source, folder, subfolders }) {
+  const relative = String(folder ?? "").trim().replaceAll("\\", "/").split("/").filter(part => part && part !== ".").join("/");
+  return JSON.stringify([source, relative, Boolean(subfolders)]);
 }
 
 // A query string. Every value is typed by a person or saved in a workflow.
