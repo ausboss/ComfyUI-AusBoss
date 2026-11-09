@@ -42,6 +42,8 @@ git clone https://github.com/ausboss/ComfyUI-AusBoss.git
 
 Restart ComfyUI and search the node library for **AusBoss**.
 
+Install it one way, not both. Manager puts the pack in `custom_nodes/ausboss-nodes` and a clone in `custom_nodes/ComfyUI-AusBoss`. They are the same pack, so if both folders are there, delete one. The console says which copy it skipped.
+
 After an update, through Manager or `git pull`, restart ComfyUI and hard-refresh the browser with **Ctrl+Shift+R**. Otherwise the browser keeps the old JavaScript, and the pack warns you about it. Manager can install a version or two behind while the Comfy Registry reviews a new release. To get the newest one, pick it in Manager's version list, or update by hand: delete the pack's folder in `ComfyUI/custom_nodes` and clone the repository as shown above.
 
 The pack uses the Pillow, NumPy, Torch and PyAV that come with ComfyUI. Each example lists the models it needs on its Workflow Note. LaMa Inpaint also needs [`big-lama.pt`](https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt) in `ComfyUI/models/lama/`. The pack never downloads weights by itself.
