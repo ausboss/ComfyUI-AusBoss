@@ -37,7 +37,8 @@ const OVERHANG_PX = 6;
 const state = {
   enabled: true,
   before: null, // Map item -> { pos, size, rect } taken when the button went down
-  corner: null, // the corner a classic resize pulls, such as "SE"
+  corner: null, // the corner a resize pulls, such as "SE"
+  resizingNode: null, // the node whose Vue corner handle took the press
   drag: null, // the running move, or { idle: true } for a gesture left alone
   guides: [],
   frame: 0,
@@ -199,8 +200,8 @@ function stepMove(canvas, drag, event) {
   canvas.setDirty?.(true, true);
 }
 
-// Classic look: LiteGraph has just sized the node from its corner, so pull
-// the moving edges onto any line within reach.
+// The frontend has just sized the node from its corner, so pull the moving
+// edges onto any line within reach.
 function stepNodeResize(canvas, node, event) {
   // LiteGraph forgets the corner once the pointer leaves the node, so use the
   // one it had when the button went down.
@@ -238,6 +239,7 @@ function step(event) {
   const canvas = app.canvas;
   if (!state.before || !canvas?.graph || !canvas.canvas || !canvas.ds) return;
   if (canvas.resizing_node) return stepNodeResize(canvas, canvas.resizing_node, event);
+  if (state.resizingNode) return stepNodeResize(canvas, state.resizingNode, event);
   if (canvas.resizingGroup) return stepGroupResize(canvas, canvas.resizingGroup, event);
   if (!state.drag) state.drag = startMove(canvas, event);
   if (state.drag && !state.drag.idle) stepMove(canvas, state.drag, event);
@@ -250,6 +252,20 @@ function onPointerDown(event) {
   if (OTHER_SNAPPERS.some(settingOn)) return;
   if (app.canvas?.graph && app.canvas.canvas && app.canvas.ds) state.before = takeBefore(app.canvas);
   state.corner = cornerOf(app.canvas);
+  if (vueNodes() && state.before) {
+    const handle = event.target?.closest?.("[data-corner]");
+    const id = handle?.closest?.("[data-node-id]")?.dataset?.nodeId;
+    const corner = handle?.dataset?.corner;
+    if (id != null && ["SE", "SW", "NE", "NW"].includes(corner)) {
+      for (const [item, was] of state.before) {
+        if (was.kind === "node" && String(item.id) === id) {
+          state.resizingNode = item;
+          state.corner = corner;
+          break;
+        }
+      }
+    }
+  }
 }
 
 function cornerOf(canvas) {
@@ -259,7 +275,7 @@ function cornerOf(canvas) {
 
 // Behind LiteGraph's own pointerdown, which names the corner a resize pulls.
 function afterPointerDown() {
-  if (state.before) state.corner = cornerOf(app.canvas) ?? state.corner;
+  if (state.before && !state.resizingNode) state.corner = cornerOf(app.canvas) ?? state.corner;
 }
 
 function onPointerMove(event) {
@@ -281,6 +297,7 @@ function onPointerMove(event) {
 function end() {
   state.before = null;
   state.corner = null;
+  state.resizingNode = null;
   state.drag = null;
   state.pending = null;
   setGuides([]);

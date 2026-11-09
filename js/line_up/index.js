@@ -288,6 +288,9 @@ function syncSizes() {
   const grabbed = together.grabbed;
   if (!grabbed) return;
   const was = together.before.get(grabbed);
+  // A handle click is not a resize. Once a drag starts, keep syncing even
+  // when it returns to its starting size so the other nodes follow it back.
+  if (!together.sides && grabbed.size[0] === was.size[0] && grabbed.size[1] === was.size[1]) return;
   together.sides ??= sharedSides(
     [...together.before.values()].map(({ pos, size }) => ({ x: pos[0], y: pos[1], w: size[0], h: size[1] })),
   );
