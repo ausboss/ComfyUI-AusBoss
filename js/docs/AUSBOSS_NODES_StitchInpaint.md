@@ -67,9 +67,11 @@ are in the model's own picture.
   Tone match 0 the new area is bit-identical to what the model painted, and
   the whole stitch is the 2.4.0 blend in, pixel for pixel.
 - With the classic seam, feeding the crop back unchanged reproduces the
-  original image exactly (with `fix_edge_halo` off; the fix rewrites the
-  feathered band on purpose). Blend in does not promise this: it keeps the
-  model's version of the thin strip at your picture's edge.
+  original image exactly only when there is no resizing in either direction,
+  with Tone match at 0 and `fix_edge_halo` off. Resizing can lose detail even
+  when the crop comes back unchanged; the halo fix rewrites the feathered
+  band on purpose. Blend in does not promise this: it keeps the model's
+  version of the thin strip at your picture's edge.
 - A stitcher built from one image broadcasts over any number of inpainted
   frames. A stitcher built from **more** frames than came back is trimmed to
   the leading ones with a console note - video models keep 8n+1 (LTX) or
