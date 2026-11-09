@@ -176,9 +176,8 @@ const KNOWN_RUN_ERRORS = Object.freeze([
       type === "KeyError" && message.includes("'latent'") && traceback.includes("muse_minimax_hybrid_patch"),
     summary: "Another node pack stopped this run",
     detail:
-      "The error comes from Muse MiniMax Director, not from this workflow. It changes MiniMax H3 for every "
-      + "workflow and stops when H3 is given sound to keep without a picture. Turn that pack off in Manager, "
-      + "restart ComfyUI and run again.",
+      "This error comes from the Muse MiniMax Director pack, not from this workflow. Turn that pack off in "
+      + "Manager, restart ComfyUI and run again.",
   },
   {
     // The w6a8 H3 files load from ComfyUI 0.38.0 on; older versions stop in
@@ -186,8 +185,7 @@ const KNOWN_RUN_ERRORS = Object.freeze([
     matches: ({ message }) => message.includes("w6a8_int8"),
     summary: "This model needs a newer ComfyUI",
     detail:
-      "This model file (w6a8) is a newer kind that ComfyUI reads from version 0.38 on. Update ComfyUI and "
-      + "run again, or load the int8 file of the model instead.",
+      "Your ComfyUI is too old to read this model file. Update ComfyUI to 0.38 or newer and run again.",
   },
 ]);
 
