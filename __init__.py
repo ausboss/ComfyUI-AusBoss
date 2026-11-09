@@ -63,7 +63,19 @@ NODE_CLASS_MAPPINGS = {}
 NODE_DISPLAY_NAME_MAPPINGS = {}
 _failed_modules = []
 
+# Two copies of the pack (a Manager install beside a git clone) add every
+# route twice and ComfyUI stops while starting. Only one copy loads.
+_other_copy = None
+try:
+    from .nodes._single_copy import other_copy_that_loads
+
+    _other_copy = other_copy_that_loads(os.path.dirname(__file__))
+except Exception:
+    traceback.print_exc()
+
 for _module_name in NODE_MODULES:
+    if _other_copy:
+        break
     try:
         _module = importlib.import_module(f".nodes.{_module_name}", __name__)
         NODE_CLASS_MAPPINGS.update(getattr(_module, "NODE_CLASS_MAPPINGS", {}))
@@ -76,7 +88,7 @@ for _module_name in NODE_MODULES:
 
 # Folder ComfyUI serves to the browser; every .js file in it is loaded as a
 # frontend extension. Shared modules use .mjs so they are import-only.
-WEB_DIRECTORY = "./js"
+WEB_DIRECTORY = None if _other_copy else "./js"
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]
 
@@ -112,11 +124,26 @@ def _print_banner():
     print(bar)
 
 
-try:
-    from .nodes._frontend_cache import register_frontend_cache_guard
+def _print_second_copy():
+    # ASCII only, as in the banner.
+    red = "\033[0;31m"
+    reset = "\033[0m"
+    own = os.path.basename(os.path.dirname(os.path.realpath(__file__)))
+    other = os.path.basename(_other_copy["folder"])
+    print(f"{red}AusBoss: this pack is installed twice.{reset}")
+    print(f"  Using:    custom_nodes/{other} (v{_other_copy['version']})")
+    print(f"  Skipping: custom_nodes/{own} (v{_read_version()})")
+    print("  Delete one of the two folders, then restart ComfyUI.")
 
-    register_frontend_cache_guard()
-except Exception:
-    traceback.print_exc()
 
-_print_banner()
+if _other_copy:
+    _print_second_copy()
+else:
+    try:
+        from .nodes._frontend_cache import register_frontend_cache_guard
+
+        register_frontend_cache_guard()
+    except Exception:
+        traceback.print_exc()
+
+    _print_banner()
