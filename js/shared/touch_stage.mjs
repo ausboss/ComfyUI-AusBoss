@@ -1650,6 +1650,7 @@ function syncState(face) {
 
 function setNote(face, text, { life = 0 } = {}) {
   clearTimeout(face.noteTimer);
+  face.stopNote = false;
   face.noteEl.textContent = text;
   face.noteEl.classList.toggle("on", Boolean(text));
   if (text && life) face.noteTimer = setTimeout(() => setNote(face, ""), life);
@@ -1708,6 +1709,8 @@ function adopt(face, entry) {
 
 function show(face, entry, note, answered, { restored = false, own = false, interim = false, areas = null } = {}) {
   const before = face.pic;
+  // A run that stopped left its message up. A result since says it is over.
+  if (face.stopNote && !interim && !restored) setNote(face, "");
   adopt(face, entry);
   // Picks made on another picture that the node moved onto this one (New
   // picture: keep picks) come back moved. They are taken only while the
@@ -3094,6 +3097,8 @@ export function mountTouchStage(node, host) {
   face.stopped = (message) => {
     settle(face);
     setNote(face, String(message ?? ""));
+    // It stays up until something else is said or the next result comes in.
+    face.stopNote = true;
   };
   // A setting on the node changed: the edge follows it.
   face.settingsChanged = () => {
