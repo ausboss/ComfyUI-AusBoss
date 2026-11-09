@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   CARD_PADDING, GROUP_HEIGHT, ROW_GAP, ROW_HEIGHT, SECTION_HEIGHT, SLOT_OFFSET, SOCKETLESS_CHOICE, SOCKETLESS_TEXT,
-  cardHeight, choiceLabel, commitWidgetValue, holdsUnknownValue, markSocketless, resetUnknownValues, rowHeight, rowInLook, rowKind, rowMuted, rowTops,
+  cardHeight, choiceLabel, commitWidgetValue, holdsUnknownValue, liftSlot, liftSocket, markSocketless, resetUnknownValues, rowHeight, rowInLook, rowKind, rowMuted, rowTops,
   scrubSteps, segmentFits, socketWidgetY, visibleRows, widgetTooltip,
 } from "../js/shared/widget_card_math.mjs";
 
@@ -417,4 +417,21 @@ test("a choice's words come from the row: a map, or a function for lists only th
   assert.equal(choiceLabel(row, "b.safetensors", ["off", "a.safetensors", "b.safetensors"]), "b");
   // The pill or the list is chosen from the words a person reads, so two long file names still make a short pill.
   assert.equal(rowKind({ widget: "fine_edges", labels: row.labels }, { type: "combo", options: { values: ["off", "vitmatte-small-composition-1k/model.safetensors"] } }), "segment");
+});
+
+test("a lifted socket loses the row position the frontend stamped on it", () => {
+  // Newer frontends set `slot.pos` to the widget's row and keep using it
+  // after the widget is gone, which drew fixed_frames on top of force_rate.
+  const stamped = () => ({ name: "fixed_frames", widget: { name: "fixed_frames" }, _widget: {}, pos: [10, 10], link: null });
+  const node = { inputs: [{ name: "force_rate" }, stamped()] };
+  assert.equal(liftSocket(node, "fixed_frames"), true);
+  const slot = node.inputs[1];
+  assert.equal(slot.widget, undefined);
+  assert.equal(slot._widget, undefined);
+  assert.equal("pos" in slot, false);
+  assert.equal(liftSocket(node, "fixed_frames"), false);
+  const loose = stamped();
+  liftSlot(loose);
+  assert.equal("pos" in loose, false);
+  assert.equal(loose.widget, undefined);
 });

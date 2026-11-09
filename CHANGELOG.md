@@ -2,6 +2,13 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Video Crop + Rotate + Pad → Clip: the fixed_frames input sits on its own
+  row again.** In workflows saved by an earlier release, newer ComfyUI drew
+  fixed_frames on top of force_rate, so a link could not be dropped on it.
+  Every input the pack moves into the input column now gets its own row.
+
 ## 2.22.0 - 2026-11-07
 
 - **Node cards have a calmer, easier-to-read look.** Number boxes, choices,

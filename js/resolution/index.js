@@ -30,7 +30,7 @@ import {
 } from "../shared/index.mjs";
 import { WIDGET_FRAME, fillNodeHeight, holdVueNodeMinWidth } from "../shared/panel_layout.mjs";
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
-import { markSocketless } from "../shared/widget_card_math.mjs";
+import { liftSlot, markSocketless } from "../shared/widget_card_math.mjs";
 import { makeScrubInput } from "../shared/scrub_input.mjs";
 import {
   closeSettingsMenu,
@@ -1014,8 +1014,7 @@ function installResolutionNode(node) {
   const liftSockets = () => {
     for (const input of node.inputs ?? []) {
       if (["width", "height", "latent", "batch_size"].includes(input.widget?.name)) {
-        delete input.widget;
-        input._widget = undefined;
+        liftSlot(input);
       }
     }
   };
