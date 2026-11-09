@@ -62,7 +62,8 @@ const CHOICES = {
 };
 
 export function cleanTitle(title) {
-  return String(title ?? "").replace(/\s+/g, " ").trim().slice(0, TITLE_MAX);
+  const text = ["string", "number", "boolean"].includes(typeof title) ? String(title) : "";
+  return text.replace(/\s+/g, " ").trim().slice(0, TITLE_MAX);
 }
 
 // Node and group ids as a workflow file stores them: numbers, or text for a
@@ -135,7 +136,7 @@ export function normalizeSwitches(raw) {
   const used = new Set();
   for (const item of Array.isArray(raw) ? raw : []) {
     if (!item || typeof item !== "object") continue;
-    let id = Number(item.id);
+    let id = typeof item.id === "number" || typeof item.id === "string" ? Number(item.id) : NaN;
     if (!Number.isInteger(id) || id < 1 || used.has(id)) {
       id = 1;
       while (used.has(id)) id += 1;
@@ -357,7 +358,7 @@ export function stackRows(value) {
   } catch {
     return null;
   }
-  if (!Array.isArray(rows) || !rows.length) return null;
+  if (!Array.isArray(rows)) return null;
   const isRow = (row) => row && typeof row === "object" && typeof row.name === "string" && typeof row.enabled === "boolean";
   return rows.every(isRow) ? rows : null;
 }
@@ -484,7 +485,12 @@ export function choicePairs(entry, switches) {
   for (const other of switches ?? []) {
     if (other === entry || !other.choice) continue;
     for (const pair of valuePairs({ on: entry.on, off: other.on })) {
-      if (!found.has(pairKey(pair))) found.set(pairKey(pair), { ...pair, choice: true });
+      const previous = found.get(pairKey(pair));
+      if (!previous) found.set(pairKey(pair), { ...pair, choice: true });
+      else if (pair.row !== undefined) {
+        previous.on = { ...previous.on, ...pair.on };
+        previous.off = { ...pair.off, ...previous.off };
+      }
     }
   }
   return [...found.values()];
@@ -539,8 +545,9 @@ export function stackRowOwners(boards, nodeId, widget, rowName) {
   const owners = [];
   if (!rowName) return owners;
   for (const { node, settings } of boards ?? []) {
-    for (const entry of normalizeSettings(settings).switches) {
-      const moves = valuePairs(entry).some(
+    const { switches } = normalizeSettings(settings);
+    for (const entry of switches) {
+      const moves = (entry.choice ? choicePairs(entry, switches) : valuePairs(entry)).some(
         (pair) => pair.row !== undefined && String(pair.node) === String(nodeId) && pair.widget === widget && sameFile(pair.row, rowName),
       );
       if (moves) owners.push({ node, id: entry.id, title: entry.title });
@@ -555,8 +562,9 @@ export function stackGroupOwners(boards, nodeId, widget, group) {
   const owners = [];
   if (!group) return owners;
   for (const { node, settings } of boards ?? []) {
-    for (const entry of normalizeSettings(settings).switches) {
-      const moves = valuePairs(entry).some(
+    const { switches } = normalizeSettings(settings);
+    for (const entry of switches) {
+      const moves = (entry.choice ? choicePairs(entry, switches) : valuePairs(entry)).some(
         (pair) => pair.group === group && String(pair.node) === String(nodeId) && pair.widget === widget,
       );
       if (moves) owners.push({ node, id: entry.id, title: entry.title });
@@ -642,7 +650,9 @@ export function readGroups(groups, placed, { counts = () => true } = {}) {
       group,
       rect,
       title: String(group.title ?? ""),
-      color: typeof group.color === "string" && group.color ? group.color : null,
+      // Group colors come from a hex picker; a CSS background must never
+      // receive URL functions or references from a saved workflow.
+      color: typeof group.color === "string" && /^#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/i.test(group.color.trim()) ? group.color.trim() : null,
       members,
       ...partState(members, counts),
     };
@@ -668,6 +678,7 @@ export function readSwitches(switches, placed, groupRows, { counts = () => true 
     if (id !== undefined && id !== null && !groupById.has(String(id))) groupById.set(String(id), row);
   }
   return (switches ?? []).map((entry) => {
+    const sides = new Set([...Object.keys(entry.on ?? {}), ...Object.keys(entry.off ?? {})]);
     const members = [];
     const offMembers = [];
     const seen = new Set();
@@ -675,6 +686,7 @@ export function readSwitches(switches, placed, groupRows, { counts = () => true 
     let gone = 0;
     const takeNodes = (ids, into) => {
       for (const id of ids ?? []) {
+        if (sides.has(String(id))) continue;
         const hit = nodeById.get(String(id));
         if (!hit) {
           gone += 1;
@@ -695,7 +707,7 @@ export function readSwitches(switches, placed, groupRows, { counts = () => true 
         }
         rects.push(row.rect);
         for (const node of row.members) {
-          if (seen.has(node)) continue;
+          if (seen.has(node) || sides.has(String(node.id))) continue;
           seen.add(node);
           into.push(node);
         }
@@ -708,7 +720,6 @@ export function readSwitches(switches, placed, groupRows, { counts = () => true 
     // The nodes whose settings it changes: listed, framed and selected with
     // the rest, but never turned off by it.
     const valueNodes = [];
-    const sides = new Set([...Object.keys(entry.on ?? {}), ...Object.keys(entry.off ?? {})]);
     for (const id of sides) {
       const hit = nodeById.get(id);
       if (!hit) {

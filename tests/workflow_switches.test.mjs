@@ -400,7 +400,7 @@ test("a switch changes only the settings that differ between its on and its off"
   assert.deepEqual(valuePairs({}), []);
   // Text that only looks like a stack on one side is switched whole.
   assert.deepEqual(valuePairs({ on: { 5: { text: "[1, 2]" } }, off: { 5: { text: "plain" } } }), [{ node: "5", widget: "text", on: "[1, 2]", off: "plain" }]);
-  assert.equal(stackRows("[]"), null);
+  assert.deepEqual(stackRows("[]"), []);
   assert.equal(stackRows('[{"name":"a"}]'), null);
   assert.equal(stackRows("not json ["), null);
 });
