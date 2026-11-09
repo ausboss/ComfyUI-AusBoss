@@ -4,6 +4,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Mask by Touch keeps your picks when the picture changes.** Your clicks
+  and paint move onto the new picture, in the same places, so an edit before
+  the node no longer means picking everything again. On a picture of another
+  size they are scaled to fit. A click finds whatever is at that spot now;
+  paint stays exactly as painted. For the old way, set **New picture**, under
+  More, to **start over**.
+
 - **Video Crop + Rotate + Pad → Clip: the fixed_frames input sits on its own
   row again.** In workflows saved by an earlier release, newer ComfyUI drew
   fixed_frames on top of force_rate, so a link could not be dropped on it.

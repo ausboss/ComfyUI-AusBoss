@@ -26,6 +26,7 @@ if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
 from nodes import node_mask_by_touch as node_module  # noqa: E402
 from nodes._mask_by_name_helpers import IF_NOTHING  # noqa: E402
 from nodes._mask_by_touch_helpers import (  # noqa: E402
+    MOVED_NOTHING,
     NEEDS_SAM3,
     NOTHING_PICKED,
     NOT_A_PICTURE,
@@ -35,6 +36,8 @@ from nodes._mask_by_touch_helpers import (  # noqa: E402
     OTHER_PICTURE,
     WORDS_FIRST,
     WORDS_MORE,
+    move_touches,
+    parse_touches,
     picture_key,
     scope_points,
     stroke_area,
@@ -533,16 +536,66 @@ class NothingPickedTests(TouchCase):
             self.assertIsNone(note["selection"])
 
     def test_picks_made_on_another_picture_are_not_this_pictures(self):
+        # With New picture on start over: the node's way before keep picks.
         text = touches(tap(75, 34), name("face", 60, 45), key="160x120-0000000000000000")
         with self.assertRaises(RuntimeError) as stopped:
-            self.run_node(text)
+            self.run_node(text, new_picture="start over")
         self.assertEqual(str(stopped.exception), OTHER_PICTURE, "the picks are there, on another picture")
-        out = self.run_node(text, if_nothing="empty mask")
+        out = self.run_node(text, if_nothing="empty mask", new_picture="start over")
         self.assertEqual(float(out["result"][0].sum()), 0.0, "empty mask still lets the run go on")
-        note = self.note(self.run_node(text, ask="look"))
+        note = self.note(self.run_node(text, ask="look", new_picture="start over"))
+        self.assertNotIn("moved", note)
         self.assertEqual((note["items"], note["key"], note["stamp"]), ([], picture_key(self.picture), touch_stamp(text)))
         self.assertEqual(FakeSam.calls, [])
         self.assertEqual(len(self.note(self.run_node(touches(tap(75, 34), key=picture_key(self.picture))))["items"]), 1)
+
+    def test_picks_made_on_another_picture_move_onto_this_one(self):
+        # Issue 301: a new picture keeps the picks, in the same places.
+        here = picture_key(self.picture)
+        made = [tap(75, 34), paint([[10, 100], [40, 100]], r=6)]
+        other = touches(*made, key="160x120-0000000000000000")
+        out = self.run_node(other)
+        same = self.run_node(touches(*made, key=here))
+        self.assertTrue(torch.equal(out["result"][0], same["result"][0]), "the same mask as picks made on this picture")
+        note = self.note(out)
+        moved = note["moved"]
+        self.assertEqual(moved["from"], touch_stamp(other), "the face knows which picks were moved")
+        self.assertEqual(note["stamp"], touch_stamp(moved["touches"]), "the answer is for the moved picks")
+        self.assertEqual(parse_touches(moved["touches"]), parse_touches(touches(*made, key=here)))
+        self.assertNotIn("moved", self.note(same), "picks made here are not moved")
+
+    def test_picks_from_a_picture_of_another_size_are_scaled_to_this_one(self):
+        # Made on a picture twice the size: every place and the brush halve.
+        big = touches(paint([[20, 200], [80, 200]], r=12), key="320x240-0000000000000000")
+        out = self.run_node(big)
+        small = touches(paint([[10, 100], [40, 100]], r=6), key=picture_key(self.picture))
+        self.assertTrue(torch.equal(out["result"][0], self.run_node(small)["result"][0]))
+
+    def test_moved_picks_that_find_nothing_say_so(self):
+        text = touches(tap(*WALL), key="160x120-0000000000000000")
+        with self.assertRaises(RuntimeError) as stopped:
+            self.run_node(text)
+        self.assertEqual(str(stopped.exception), MOVED_NOTHING)
+
+    def test_moving_touches_keeps_everything_but_the_places(self):
+        text = json.dumps({"v": 1, "key": "320x240-00", "items": [
+            {"t": "tap", "op": 1, "x": 101, "y": 51, "g": 1},
+            {"t": "name", "op": 0, "w": "mug", "x": 10, "y": 10, "q": 1},
+            {"t": "paint", "op": 1, "r": 9, "pts": [[3, 5], [7, 9]], "s": 40, "g": 2},
+            {"t": "all", "op": 1, "w": "hand"},
+            {"t": "subject", "op": 1},
+        ]})
+        moved = json.loads(move_touches(text, "160x120-11"))
+        self.assertEqual(moved["key"], "160x120-11")
+        self.assertEqual(moved["items"], [
+            {"t": "tap", "op": 1, "x": 51, "y": 26, "g": 1},  # halves round up, as the face rounds
+            {"t": "name", "op": 0, "w": "mug", "x": 5, "y": 5, "q": 1},
+            {"t": "paint", "op": 1, "r": 5, "pts": [[2, 3], [4, 5]], "s": 40, "g": 2},
+            {"t": "all", "op": 1, "w": "hand"},
+            {"t": "subject", "op": 1},
+        ])
+        same_size = json.loads(move_touches(text, "320x240-22"))
+        self.assertEqual((same_size["key"], same_size["items"]), ("320x240-22", json.loads(text)["items"]), "the same size only takes the new key")
 
     def test_text_that_is_not_touches_stops_before_any_search(self):
         for ask in ("", "look"):
@@ -1782,7 +1835,7 @@ class TellTests(TouchCase):
         for text, message in ((other, OTHER_PICTURE), ("", NOTHING_PICKED)):
             self.sent.clear()
             with self.assertRaises(RuntimeError) as stopped:
-                self.run_node(text, unique_id=7)
+                self.run_node(text, unique_id=7, new_picture="start over")
             self.assertEqual(str(stopped.exception), message, "the run still stops, for the same reason")
             [(event, data, sid)] = self.sent
             self.assertEqual((event, data["node"], data["end"], data["stopped"], sid), (node_module.LOOK_EVENT, "7", True, True, "the page that asked"))
@@ -2063,7 +2116,9 @@ class ContractTests(unittest.TestCase):
     def test_inputs_and_outputs_are_the_contracts(self):
         inputs = self.cls.INPUT_TYPES()
         self.assertEqual(list(inputs["required"]), ["image", "model", "clip", "touches", "grow", "soften", "smooth", "fill_holes", "if_nothing"])
-        self.assertEqual(list(inputs["optional"]), ["free_vram", "invert", "ask", "fine_edges"])
+        self.assertEqual(list(inputs["optional"]), ["free_vram", "invert", "ask", "fine_edges", "new_picture"])
+        # Picks carry over to a new picture unless the node starts over.
+        self.assertEqual((inputs["optional"]["new_picture"][0], inputs["optional"]["new_picture"][1]["default"]), (["keep picks", "start over"], "keep picks"))
         # Off until the user picks a model file: an API prompt without it runs as before.
         self.assertEqual((optional_first := inputs["optional"]["fine_edges"])[1]["default"], "off")
         self.assertEqual(optional_first[0][0], "off", "off is always offered, and comes first")

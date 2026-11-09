@@ -28,12 +28,16 @@ from ._fine_edge_helpers import (
 )
 from ._mask_by_name_helpers import IF_NOTHING, cut_out
 from ._mask_by_touch_helpers import (
+    KEEP_PICKS,
+    MOVED_NOTHING,
     NEEDS_SAM3,
+    NEW_PICTURE,
     NOTHING_PICKED,
     NOT_A_PICTURE,
     NOT_SAM3,
     NO_TEXT_READER,
     OTHER_PICTURE,
+    START_OVER,
     WORDS_FIRST,
     WORDS_MORE,
     Memory,
@@ -47,6 +51,7 @@ from ._mask_by_touch_helpers import (
     finish_mask,
     match_points,
     match_under,
+    move_touches,
     pack_planes,
     parse_touches,
     picture_key,
@@ -786,6 +791,18 @@ class AusBossMaskByTouch:
                         ),
                     },
                 ),
+                "new_picture": (
+                    list(NEW_PICTURE),
+                    {
+                        "default": KEEP_PICKS,
+                        "tooltip": (
+                            "When a different picture comes in. Keep picks uses your "
+                            "clicks and paint on it, in the same places (scaled if the "
+                            "size changed). Start over drops them, and the run stops "
+                            "until you pick again."
+                        ),
+                    },
+                ),
             },
             # ComfyUI hands the node its own id here, so a look can tell this
             # node's face what it has found. Not a widget and not a socket.
@@ -1105,10 +1122,10 @@ class AusBossMaskByTouch:
             entry = self._keep(("picture", key), self._write(picture, "picture", "jpg", format="JPEG", quality=90))
         return entry
 
-    def _show_picture(self, session, image, key: str, unique_id) -> bool:
+    def _show_picture(self, session, image, key: str, unique_id, moved=None) -> bool:
         """Send the face the picture that came in, with nothing picked on it,
-        for a run that stops at this node. A failure never changes why the
-        run stops."""
+        for a run that stops at this node, and the picks moved onto it if
+        they were. A failure never changes why the run stops."""
         if unique_id is None or _server() is None:
             return False
         try:
@@ -1123,6 +1140,8 @@ class AusBossMaskByTouch:
                 "pieces": self._pieces_note(_MEMORY.get_pieces((session.token, session.reader, key))),
                 "fine": None, "areas": None,
             }
+            if moved:
+                note["moved"] = moved
         except Exception:  # noqa: BLE001
             return False
         return _tell(unique_id, note, True, stopped=True)
@@ -1166,12 +1185,13 @@ class AusBossMaskByTouch:
 
     def pick(
         self, image, model, clip, touches, grow, soften, smooth, fill_holes, if_nothing,
-        free_vram=False, invert=False, ask="", fine_edges=FINE_OFF, unique_id=None,
+        free_vram=False, invert=False, ask="", fine_edges=FINE_OFF, new_picture=KEEP_PICKS, unique_id=None,
     ):
         session = _Session(model, clip)
         try:
             return self._run(
-                session, image, touches, grow, soften, smooth, fill_holes, if_nothing, invert, ask, unique_id, fine_edges
+                session, image, touches, grow, soften, smooth, fill_holes, if_nothing, invert, ask, unique_id, fine_edges,
+                new_picture,
             )
         finally:
             session.close()
@@ -1185,7 +1205,7 @@ class AusBossMaskByTouch:
 
     def _run(
         self, session, image, touches, grow, soften, smooth, fill_holes, if_nothing, invert, ask, unique_id,
-        fine_edges=FINE_OFF,
+        fine_edges=FINE_OFF, new_picture=KEEP_PICKS,
     ):
         if not isinstance(image, torch.Tensor) or image.ndim != 4 or 0 in image.shape:
             raise ValueError(NOT_A_PICTURE)
@@ -1195,6 +1215,15 @@ class AusBossMaskByTouch:
         picked = parse_touches(touches)
         # Touches made on another picture are not this picture's.
         elsewhere = picked.key not in (None, key) and bool(picked.items)
+        moved = None
+        if elsewhere and str(new_picture) != START_OVER:
+            # Unless the node starts over, they are moved onto this one: the
+            # same places, scaled to its size. The face is sent the moved
+            # touches, and the stamp of the ones they were moved from.
+            moved = {"from": touch_stamp(touches), "touches": move_touches(touches, key)}
+            touches = moved["touches"]
+            picked = parse_touches(touches)
+            elsewhere = False
         items = () if elsewhere else picked.items
         strokes, selections, painted, item_notes = {}, [], [], []
         # Each picked thing's own area on the first picture, for the face.
@@ -1264,10 +1293,10 @@ class AusBossMaskByTouch:
             # The run stops here, but the face is shown the picture that
             # came in first: a picture that changed upstream is there to
             # pick from at once, without unplugging it.
-            self._show_picture(session, image, key, unique_id)
+            self._show_picture(session, image, key, unique_id, moved)
             # Picks the face may still show, made before the picture
             # changed: say so, not that nothing is picked.
-            raise RuntimeError(OTHER_PICTURE if elsewhere else NOTHING_PICKED)
+            raise RuntimeError(OTHER_PICTURE if elsewhere else MOVED_NOTHING if moved else NOTHING_PICKED)
         # A look for pieces (scope) returns no mask anyone uses: no fine edge then.
         fine = wants_fine_edges(fine_edges) and asked != "scope" and bool(raw.any())
         some = raw.flatten(1).any(dim=1)[:, None, None]
@@ -1333,7 +1362,7 @@ class AusBossMaskByTouch:
         areas_note = self._areas_note(key, stamp, things, small_width, small_height)
 
         def note(pieces) -> dict:
-            return {
+            told = {
                 "key": key,
                 "width": width,
                 "height": height,
@@ -1347,6 +1376,9 @@ class AusBossMaskByTouch:
                 "fine": fine_note,
                 "areas": areas_note,
             }
+            if moved:
+                told["moved"] = moved
+            return told
 
         pieces_key = (session.token, session.reader, key)
         pieces = _MEMORY.get_pieces(pieces_key)

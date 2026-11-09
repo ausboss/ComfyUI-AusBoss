@@ -34,6 +34,7 @@ import {
   growMask,
   loaderSignature,
   maskShare,
+  movedTouches,
   nameShown,
   packPlanes,
   paintCover,
@@ -1046,4 +1047,18 @@ test("while the node still looks at a picture it says so, a lit thing is taken a
   assert.doesNotMatch(stage, /frame\.append\([^)]*look/);
   assert.match(stage.slice(stage.indexOf("function syncReadout"), stage.indexOf("function removeChip")), /syncLooking\(face\)/);
   assert.match(stage.slice(stage.indexOf("function syncState"), stage.indexOf("function setNote")), /syncLooking\(face\)/);
+});
+
+test("picks the node moved onto a new picture are taken only while nothing was picked since", () => {
+  // Issue 301: New picture on keep picks. The node moves the picks and sends
+  // the stamp of the ones it moved them from.
+  const before = encodeTouches("320x240-aa", [{ t: "tap", op: 1, x: 100, y: 50 }]);
+  const after = encodeTouches("160x120-bb", [{ t: "tap", op: 1, x: 50, y: 25 }]);
+  const note = { key: "160x120-bb", moved: { from: stampOf(before), touches: after } };
+  assert.equal(movedTouches(note, before), after, "the widget still holds what was moved: take the moved picks");
+  const since = encodeTouches("320x240-aa", [{ t: "tap", op: 1, x: 100, y: 50 }, { t: "tap", op: 1, x: 9, y: 9 }]);
+  assert.equal(movedTouches(note, since), null, "a pick made since is kept");
+  assert.equal(movedTouches({ key: "160x120-bb" }, before), null, "nothing was moved");
+  assert.equal(movedTouches({ moved: { from: 7, touches: after } }, before), null, "a note that is not this shape moves nothing");
+  assert.equal(movedTouches(null, before), null);
 });

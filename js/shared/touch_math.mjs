@@ -268,6 +268,15 @@ export function encodeTouches(key, items) {
   return JSON.stringify({ v: 1, key: String(key ?? ""), items: clean });
 }
 
+// The picks the node moved onto a new picture (New picture: keep picks), as
+// the text to write: only while the widget still holds the picks they were
+// moved from (`current`). Anything picked since is kept, and then this is null.
+export function movedTouches(note, current) {
+  const moved = note?.moved;
+  if (!moved || typeof moved.touches !== "string" || typeof moved.from !== "string") return null;
+  return stampOf(String(current ?? "")) === moved.from ? moved.touches : null;
+}
+
 // Whether two runs of touches pick the same things. How they are written
 // decides, so a touch fresh from a click and the same one read back from the
 // widget compare equal.

@@ -160,6 +160,9 @@ or an area you painted.
   everything except what you picked.
 - **More → If nothing** (`if_nothing`): **stop the run** or **empty mask**,
   see below.
+- **More → New picture** (`new_picture`): **keep picks** or **start over**,
+  for when a different picture comes in. See "Which picture the picks belong
+  to" below.
 - **More → Free VRAM** (`free_vram`): takes SAM 3 out of the graphics card's
   memory right after the search, so the next model has the room. Turn it on
   in a workflow that loads a big model after this node.
@@ -209,11 +212,17 @@ nothing instead.
 
 ## Which picture the picks belong to
 
-Picks belong to the picture they were made on. Load another picture and the
-node shows it with nothing picked, and says the old picks are not used.
-If the workflow runs before the node has shown the new picture, the run
-stops and says the picks were made on another picture. The new picture
-shows on the node then, ready to pick from.
+Picks belong to the picture they were made on. When a different picture
+comes in, **New picture** (under More) decides what happens to them:
+
+- **Keep picks** (the default): your clicks and paint move onto the new
+  picture, in the same places. On a picture of another size they are
+  scaled to fit it. A click finds whatever is at that spot now; paint stays
+  exactly as painted. Press **Clear** to start over.
+- **Start over**: the node shows the new picture with nothing picked. If the
+  workflow runs before you pick again, the run stops and says the picks
+  were made on another picture. The new picture shows on the node then,
+  ready to pick from.
 
 - **The reload button** (the round arrow beside Undo) shows the picture
   coming in now. Use it after you change the picture before this node, for
@@ -324,7 +333,10 @@ no browser:
   used.
 - **`paint`**: exactly the stroke's own area. SAM 3 is not asked.
 - **`key`** names the picture the picks were made on: its size and a
-  fingerprint of every pixel. Picks made on another picture are ignored.
+  fingerprint of every pixel. Picks made on another picture are moved onto
+  the one that came in, scaled from the size in their key to its size, and
+  the face is sent the moved touches. With `new_picture` set to `start
+  over` they are ignored instead.
   Leave `key` out when you write `touches` by hand.
 
 ### How an area is tidied
