@@ -604,7 +604,7 @@ function newSwitch(state) {
 // has choices the nodes they hold, so the next one takes no selecting.
 function choiceSnapshots(state, nodes) {
   const graph = state.node.graph;
-  const held = choiceNodeIds(settingsOf(state.node)).map((id) => graph?.getNodeById?.(Number(id))).filter(Boolean);
+  const held = choiceNodeIds(settingsOf(state.node)).map((id) => graph?.getNodeById?.(id)).filter(Boolean);
   return [...new Set([...nodes, ...held])]
     .map((node) => ({ id: node.id, values: snapshotNode(node) }))
     .filter((item) => Object.keys(item.values).length);
@@ -1156,7 +1156,7 @@ function refresh(state) {
   // The selection only shows in the edit view (the + Switch bar).
   const pick = edit ? picked(state) : { nodes: [], groups: [], count: 0 };
   const signature = [
-    rowsSignature(rows, settings, rowKey), groups.length, edit, settingsOpen(node), pick.count,
+    rowsSignature(rows, settings, rowKey), groups.length, edit, settingsOpen(node), pick.count, pick.nodes.length,
   ].join("|");
   if (signature === state.signature) return;
   state.signature = signature;
@@ -1166,7 +1166,7 @@ function refresh(state) {
 // Called on every canvas redraw: read the graph again at most every
 // RECHECK_MS, and always once after the last redraw.
 function scheduleCheck(state) {
-  if (state.disposed || state.timer !== null) return;
+  if (state.disposed || !state.node.graph || state.timer !== null) return;
   const shown = app.canvas?.getCurrentGraph?.() ?? app.canvas?.graph;
   if (state.node.graph && shown && state.node.graph !== shown) return;
   const wait = Math.max(0, state.checkedAt + RECHECK_MS - performance.now());
@@ -1254,7 +1254,6 @@ function buildPanel(node) {
   trimNodeBottom(node);
   state.widget = widget;
 
-  live.add(state);
   ensureRedrawHook();
   return state;
 }

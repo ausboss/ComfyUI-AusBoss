@@ -29,7 +29,7 @@ Most of them are for image and video work. ComfyUI's core nodes already cover th
 - **[LoRA Loader](#lora-loader):** a whole LoRA stack in one node, each row with its own switch and strength.
 - **[Workflow Switches](#workflow-switches):** turn parts of a workflow off and on from one small card.
 
-The **?** in a node's title bar opens a short card with its inputs and outputs, and every node has a longer help page in ComfyUI's node help panel. I post the workflows I make with them on [Civitai](https://civitai.com/user/AusBoss) and [X @Zanzibased](https://x.com/Zanzibased), and videos of them on [YouTube @ausbossdev](https://www.youtube.com/@ausbossdev). Can't open Civitai? All my workflows are on [my Discord](https://discord.gg/RwVxY9Fuaj) too. If a node saves you time, a star on the repo helps other people find it.
+The **?** in a classic node's title bar opens a short card with its inputs and outputs. In Nodes 2.0, right-click the node and choose **About this node**. Every node also has a longer help page in ComfyUI's node help panel. I post the workflows I make with them on [Civitai](https://civitai.com/user/AusBoss) and [X @Zanzibased](https://x.com/Zanzibased), and videos of them on [YouTube @ausbossdev](https://www.youtube.com/@ausbossdev). Can't open Civitai? All my workflows are on [my Discord](https://discord.gg/RwVxY9Fuaj) too. If a node saves you time, a star on the repo helps other people find it.
 
 ## Install
 
@@ -435,7 +435,7 @@ People who download your workflow get the nodes through ComfyUI-Manager's missin
 
 ## Pack-wide tools
 
-- **Help cards:** the **?** in a node's title bar opens its description, inputs and outputs. Run Timer has no title bar, so it has **About this node** in its right-click menu.
+- **Help cards:** the **?** in a classic node's title bar opens its description, inputs and outputs. Nodes 2.0 and titleless nodes such as Run Timer have **About this node** in their right-click menu.
 - **Recreate node 🆎** (right-click an AusBoss node) rebuilds a node saved by an older version from the current definition. It keeps the values, links, position and colors.
 - **Replace with AusBoss nodes 🆎** (canvas right-click or the command palette) finds third-party nodes this pack can stand in for, such as VideoHelperSuite's Load Video and Video Combine or KJNodes' Color Match. It previews each swap and replaces the ones you leave ticked.
 - **Snap into line:** a node, group or selection you drag lines up with the nodes and groups around it, edge to edge or middle to middle, and a teal line shows what it lines up with. Pulling a corner to resize lines up the same way. Hold Shift while you drag to skip it, or turn it off in Settings → 🆎 AusBoss → Canvas.

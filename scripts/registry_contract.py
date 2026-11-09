@@ -63,6 +63,23 @@ def _parent_map(tree: ast.AST) -> dict[int, ast.AST]:
     return parents
 
 
+def _bound_names(node: ast.AST) -> set[str]:
+    """Bindings stored as strings rather than ast.Name nodes."""
+    if isinstance(node, ast.Import):
+        return {alias.asname or alias.name.split(".")[0] for alias in node.names}
+    if isinstance(node, ast.ImportFrom):
+        return {alias.asname or alias.name for alias in node.names}
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        return {node.name}
+    if isinstance(node, ast.arg):
+        return {node.arg}
+    if isinstance(node, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar)):
+        return {node.name} if node.name else set()
+    if isinstance(node, ast.MatchMapping):
+        return {node.rest} if node.rest else set()
+    return set()
+
+
 def _reference_problem(name: str, ref: ast.Name, parents: dict[int, ast.AST]) -> str:
     """Why this mention of a mapping outside its own assignment is refused.
 
@@ -188,6 +205,13 @@ def mapping_problems(source: str, label: str) -> list[str]:
                 f"{label}:{ref.lineno}: {_reference_problem(name, ref, parents)}"
                 " - a scanner reads only the literal"
             )
+        for node in ast.walk(tree):
+            bindings = _bound_names(node)
+            if name in bindings or "*" in bindings:
+                problems.append(
+                    f"{label}:{node.lineno}: {name} may be rebound here "
+                    "- a scanner reads only the literal"
+                )
 
     # The two mappings describe the same nodes, so they carry the same keys.
     if len(literals) == 2:
@@ -248,20 +272,45 @@ def module_list(source: str, name: str = "NODE_MODULES") -> set[str] | None:
         tree = ast.parse(source)
     except SyntaxError:
         return None
-    for node in tree.body:
-        if (
+    declarations = [node for node in tree.body if (
             isinstance(node, ast.Assign)
             and len(node.targets) == 1
             and isinstance(node.targets[0], ast.Name)
             and node.targets[0].id == name
-        ):
-            try:
-                value = ast.literal_eval(node.value)
-            except (ValueError, SyntaxError):
+        )]
+    if len(declarations) != 1:
+        return None
+    declaration = declarations[0]
+    try:
+        value = ast.literal_eval(declaration.value)
+    except (ValueError, SyntaxError):
+        return None
+    if not isinstance(value, (list, tuple, set)) or not all(isinstance(item, str) for item in value):
+        return None
+    parents = _parent_map(tree)
+    for node in ast.walk(tree):
+        bindings = _bound_names(node)
+        if name in bindings or "*" in bindings:
+            return None
+        if isinstance(node, ast.Name) and node.id == name and node is not declaration.targets[0]:
+            parent = parents.get(id(node))
+            # The loader only iterates the list. Passing or aliasing it could
+            # change it somewhere this check cannot follow.
+            if not isinstance(parent, ast.For) or parent.iter is not node:
                 return None
-            if not isinstance(value, (list, tuple, set)):
-                return None
-            return {item for item in value if isinstance(item, str)}
+    return set(value)
+
+
+def registered_class(tree: ast.Module, key: str) -> ast.ClassDef | None:
+    """Resolve a literal registration to its module-level class declaration."""
+    for node in tree.body:
+        if not (isinstance(node, ast.Assign) and isinstance(node.value, ast.Dict)
+                and any(isinstance(t, ast.Name) and t.id == "NODE_CLASS_MAPPINGS" for t in node.targets)):
+            continue
+        for ident, value in zip(node.value.keys, node.value.values):
+            if isinstance(ident, ast.Constant) and ident.value == key and isinstance(value, ast.Name):
+                classes = [item for item in tree.body if isinstance(item, ast.ClassDef) and item.name == value.id]
+                return classes[0] if len(classes) == 1 else None
     return None
 
 

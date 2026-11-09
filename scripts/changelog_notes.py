@@ -28,6 +28,7 @@ import os
 from pathlib import Path
 import re
 import sys
+import tomllib
 
 ROOT = Path(__file__).resolve().parent.parent
 # The Registry shows the notes in a small box: a long release is cut to its
@@ -101,10 +102,10 @@ def notes_for(version: str, text: str) -> str:
 
 def pyproject_version() -> str:
     raw = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    found = re.search(r'^version\s*=\s*"([^"]+)"', raw, re.MULTILINE)
-    if not found:
-        raise ValueError('pyproject.toml has no version = "..." line')
-    return found.group(1)
+    version = tomllib.loads(raw).get("project", {}).get("version")
+    if not isinstance(version, str) or not version.strip():
+        raise ValueError("pyproject.toml needs a nonempty project.version string")
+    return version
 
 
 def main(argv: list[str] | None = None) -> int:

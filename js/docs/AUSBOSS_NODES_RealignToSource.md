@@ -31,8 +31,8 @@ names from here on; how it measures may still improve.
   moved a boat keeps the boat where it drew it, so the result lines up
   closely, not pixel for pixel.
 - **Leaves alone:** a picture it can't measure, or a zoom bigger than
-  **Max zoom**. That picture only comes out resized, and the report says
-  why.
+  **Max zoom** after allowing for padded reframing. That picture only
+  comes out resized, and the report says why.
 
 ## Controls
 
@@ -50,8 +50,10 @@ names from here on; how it measures may still improve.
   with nothing in it. `edge` (the default) stretches the nearest pixels
   into it, `source` fills it from the original, `gray` fills it flat gray
   for inpainting. With a big enough margin there is no strip.
-- **Max zoom**: the biggest zoom it will undo, in percent (20 by default).
-  Anything bigger is treated as a change you meant and left alone.
+- **Max zoom**: the zoom limit in percent (20 by default). For a padded
+  picture, zooming in to fill the padding gets an extra allowance; the
+  setting limits zoom beyond that. Zooming out still uses the stated limit.
+  Anything beyond those limits is treated as a change you meant and left alone.
 
 ## Outputs
 
@@ -120,6 +122,10 @@ with it by more than a few pixels (8 at most), such as a redrawn boat or a
 new cloud, are left out. It trusts the fit when at least 10 blocks, and at
 least a quarter of them, agree. With a stitcher, the blocks tile the
 picture's area only.
+
+For padded reframing, the extra zoom-in allowance on each axis is the
+canvas size divided by the source picture's size, minus one. It is added
+to **Max zoom**; zooming out gets no extra allowance.
 
 It runs on the CPU in a fraction of a second per 1 MP frame. No new
 dependencies, and no model.

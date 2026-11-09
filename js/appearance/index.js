@@ -23,6 +23,7 @@ import { openInfoCard } from "../shared/settings_menu.mjs";
 
 const SETTING_ID = "AusBoss.Appearance.NodeColor";
 const CUSTOM_SETTING_ID = "AusBoss.Appearance.CustomColor";
+const COLOR_OVERRIDE = "ausbossColor";
 
 // Stored bare (no "#") to match the color setting's storage contract.
 const DEFAULT_CUSTOM_COLOR = "00b4aa";
@@ -40,6 +41,7 @@ let activeCustomColor = DEFAULT_CUSTOM_COLOR;
 let activeCustomTitle = normalizeHexColor(DEFAULT_CUSTOM_COLOR);
 
 function setActiveCustomColor(value) {
+  if (!normalizeHexColor(value)) return;
   activeCustomColor = value;
   activeCustomTitle = normalizeHexColor(value);
 }
@@ -56,6 +58,7 @@ function applyScheme(node, colors) {
 function repaintAll(next, previous) {
   for (const node of collectGraphNodes(app.graph)) {
     if (!isAusbossNode(node)) continue;
+    if (Object.hasOwn(node.properties ?? {}, COLOR_OVERRIDE)) continue;
     if (!shouldRecolor(node, previous)) continue;
     applyScheme(node, next);
   }
@@ -149,8 +152,8 @@ app.registerExtension({
   },
   getNodeMenuItems(node) {
     if (!isAusbossNode(node)) return [];
-    // A title-less node has no bar for the "?" badge; its card opens here.
-    const about = isTitleless(node)
+    // Vue nodes skip the canvas badge callbacks; title-less nodes have no bar.
+    const about = isTitleless(node) || globalThis.LiteGraph?.vueNodesMode === true
       ? [{ content: "About this node", callback: () => openHelpCard(node, null) }]
       : [];
     return [
@@ -162,12 +165,14 @@ app.registerExtension({
           options: SCHEME_NAMES.map((name) => ({
             content: name,
             callback: () => {
-              // A menu pick writes the colors directly; shouldRecolor then
-              // treats them as the user's choice during setting sweeps.
+              // Keep an explicit choice, including no colors, through saves
+              // and setting changes. Custom stores the pair picked today.
               const colors = schemeColors(name, activeCustomColor);
               // Custom with an unusable stored color resolves to null, which
               // would wrongly read as "Theme default" — do nothing instead.
               if (name === CUSTOM_SCHEME && !colors) return;
+              node.properties ??= {};
+              node.properties[COLOR_OVERRIDE] = colors ? { ...colors } : null;
               applyScheme(node, colors);
               app.graph?.setDirtyCanvas?.(true, true);
             },
@@ -179,15 +184,25 @@ app.registerExtension({
   nodeCreated(node) {
     if (!isAusbossNode(node)) return;
     installHelpBadge(node);
-    // Colors restored from a saved workflow (and manual picks) land before
-    // this hook runs — an already-colored node is left alone, unless it
-    // wears a retired flagship pair: those colors were ours, so the node
-    // upgrades to the active scheme instead of keeping them forever.
-    if ((node.color || node.bgcolor) && !wearsLegacyScheme(node)) return;
-    const colors = schemeColors(activeScheme, activeCustomColor);
-    if (colors) applyScheme(node, colors);
+    restoreAppearance(node);
+    // Construction precedes saved fields; reload, paste and undo restore
+    // their colors and properties before this callback runs.
+    chainCallback(node, "onConfigure", function (saved) {
+      restoreAppearance(this, saved);
+    });
   },
 });
+
+function restoreAppearance(node, saved) {
+  if (Object.hasOwn(node.properties ?? {}, COLOR_OVERRIDE)) {
+    // A later pick in ComfyUI's own color menu is saved in the native fields.
+    if (saved?.color || saved?.bgcolor) return;
+    applyScheme(node, node.properties[COLOR_OVERRIDE]);
+    return;
+  }
+  if ((node.color || node.bgcolor) && !wearsLegacyScheme(node)) return;
+  applyScheme(node, schemeColors(activeScheme, activeCustomColor));
+}
 
 function isTitleless(node) {
   return (node.title_mode ?? node.constructor?.title_mode) === (globalThis.LiteGraph?.NO_TITLE ?? 1);
@@ -204,9 +219,8 @@ function openHelpCard(node, event) {
   });
 }
 
-// Every AusBoss node gets a quiet "?" in the title bar; clicking it opens a
-// card built from the node's own DESCRIPTION and tooltips, so the docs on
-// screen are exactly the docs in the source.
+// Classic nodes get a quiet "?" in the title bar. Vue nodes open the same
+// card from their context menu. Its text comes from DESCRIPTION and tooltips.
 function installHelpBadge(node) {
   // A title-less node (Run Timer) has no bar to hang the badge on; its
   // card opens from the node's context menu instead.

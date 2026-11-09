@@ -11,7 +11,7 @@ of taking the whole pack down, so one broken node never hides the rest.
 
 import importlib
 import os
-import re
+import tomllib
 import traceback
 
 # One entry per file in nodes/, kept alphabetical. The order has no
@@ -85,9 +85,9 @@ def _read_version():
     """Version straight from pyproject.toml so it is never duplicated."""
     try:
         pyproject = os.path.join(os.path.dirname(__file__), "pyproject.toml")
-        with open(pyproject, "r", encoding="utf-8") as f:
-            match = re.search(r'^version\s*=\s*"([^"]+)"', f.read(), re.MULTILINE)
-        return match.group(1) if match else "unknown"
+        with open(pyproject, "rb") as f:
+            version = tomllib.load(f).get("project", {}).get("version")
+        return version if isinstance(version, str) and version.strip() else "unknown"
     except Exception:
         return "unknown"
 

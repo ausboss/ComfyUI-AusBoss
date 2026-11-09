@@ -10,6 +10,7 @@ as a path below that root, and anything that leaves it is refused.
 from __future__ import annotations
 
 import hashlib
+import heapq
 import json
 import os
 import re
@@ -125,45 +126,44 @@ def list_folders(root, folder, source: str = "input") -> list[str]:
 def list_pictures(root, folder, subfolders: bool = False, sort: str = "name", source: str = "input",
                   limit: int = MAX_PICTURES) -> list[dict]:
     """Every picture in the folder: {"name": path below the folder, "path",
-    "mtime", "size"}, in the chosen order. Hidden files, links that lead out
-    of the root and anything that is not a picture are left out."""
+    "mtime", "mtime_ns", "size"}, in the chosen order. Hidden files, links
+    that lead out of the root and anything that is not a picture are left out."""
     base = safe_folder(root, folder, source)
     top = Path(root).resolve()
-    found: list[dict] = []
     if subfolders:
         walker = os.walk(base, followlinks=False)
     else:
         walker = [(str(base), [], sorted(os.listdir(base)))]
-    for directory, folders, files in walker:
-        folders[:] = sorted(name for name in folders if not name.startswith("."))
-        for name in files:
-            if name.startswith(".") or not name.lower().endswith(IMAGE_EXTENSIONS):
-                continue
-            path = Path(directory) / name
-            try:
-                real = path.resolve()
-                if top not in real.parents or not real.is_file():
+
+    def candidates():
+        for directory, folders, files in walker:
+            folders[:] = sorted(name for name in folders if not name.startswith("."))
+            for name in files:
+                if name.startswith(".") or not name.lower().endswith(IMAGE_EXTENSIONS):
                     continue
-                stat = real.stat()
-            except OSError:
-                continue
-            found.append({
-                "name": path.relative_to(base).as_posix(),
-                "path": real,
-                "mtime": float(stat.st_mtime),
-                "size": int(stat.st_size),
-            })
-            if len(found) >= limit:
-                break
-        if len(found) >= limit:
-            break
+                path = Path(directory) / name
+                try:
+                    real = path.resolve()
+                    if top not in real.parents or not real.is_file():
+                        continue
+                    stat = real.stat()
+                except (OSError, RuntimeError):
+                    continue
+                yield {
+                    "name": path.relative_to(base).as_posix(),
+                    "path": real,
+                    "mtime": float(stat.st_mtime),
+                    "mtime_ns": int(stat.st_mtime_ns),
+                    "size": int(stat.st_size),
+                }
+
     if sort == "newest first":
-        found.sort(key=lambda item: (-item["mtime"], natural_key(item["name"])))
+        order = lambda item: (-item["mtime_ns"], natural_key(item["name"]))
     elif sort == "oldest first":
-        found.sort(key=lambda item: (item["mtime"], natural_key(item["name"])))
+        order = lambda item: (item["mtime_ns"], natural_key(item["name"]))
     else:
-        found.sort(key=lambda item: natural_key(item["name"]))
-    return found
+        order = lambda item: natural_key(item["name"])
+    return heapq.nsmallest(limit, candidates(), key=order)
 
 
 def parse_picked(text) -> list[str] | None:
@@ -216,7 +216,7 @@ def output_name(name: str) -> str:
 
 
 def _has_see_through(frame: Image.Image) -> bool:
-    return frame.mode in ("RGBA", "LA", "PA") or (frame.mode == "P" and "transparency" in frame.info)
+    return frame.mode in ("RGBA", "LA", "PA") or "transparency" in frame.info
 
 
 def load_picture(path) -> tuple[torch.Tensor, torch.Tensor]:
