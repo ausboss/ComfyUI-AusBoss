@@ -243,6 +243,8 @@ const CARDS = {
       { widget: "fill_holes", label: "Fill small holes", group: "advanced" },
       { widget: "invert", label: "Invert", group: "advanced" },
       { widget: "if_nothing", label: "If nothing", kind: "segment", group: "advanced" },
+      // What a different picture coming in does to the picks.
+      { widget: "new_picture", label: "New picture", kind: "segment", group: "advanced" },
       { widget: "free_vram", label: "Free VRAM", group: "advanced" },
     ],
   },

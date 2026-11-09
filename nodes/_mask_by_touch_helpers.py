@@ -123,6 +123,15 @@ OTHER_PICTURE = (
     "coming into this node has changed since, so none of them are used. "
     "Click a thing on the node's picture, or paint over it, then run again."
 )
+MOVED_NOTHING = (
+    "Mask by Touch: the picks made on the last picture found nothing on "
+    "this one. Click a thing on the node's picture, or paint over it, then "
+    "run again."
+)
+# What happens to the picks when another picture comes in: they are used on
+# it, in the same places, or the run stops until something is picked anew.
+NEW_PICTURE = ("keep picks", "start over")
+KEEP_PICKS, START_OVER = NEW_PICTURE
 NOT_TOUCHES = (
     "Mask by Touch could not read what was picked. Press Clear on the node "
     "and pick again."
@@ -181,6 +190,53 @@ def touch_stamp(text) -> str:
     for byte in ("" if text is None else str(text)).encode("utf-8"):
         value = ((value ^ byte) * 0x01000193) & 0xFFFFFFFF
     return f"{value:08x}"
+
+
+# A picture key starts with the picture's size: "<width>x<height>-".
+_KEY_SIZE = re.compile(r"(\d{1,9})x(\d{1,9})-")
+
+
+def _number(value) -> bool:
+    return not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value)
+
+
+def move_touches(text, key: str) -> str:
+    """Touches made on another picture, moved onto the picture `key` names.
+
+    Every touch keeps its place: the same pixels on a picture of the same
+    size, the same spot scaled on one of another size, a brush's width
+    scaled with it. Everything else in a touch (its word, its chip, how soft
+    it was) stays as written. The face writes this text back as it is, so
+    the node and the face go on from the same touches. Whole pixels round
+    half up, as the face rounds.
+    """
+    data = json.loads(str(text))
+    old = _KEY_SIZE.match(str(data.get("key") or ""))
+    new = _KEY_SIZE.match(str(key))
+    across, down = 1.0, 1.0
+    if old and new and int(old.group(1)) > 0 and int(old.group(2)) > 0:
+        across = int(new.group(1)) / int(old.group(1))
+        down = int(new.group(2)) / int(old.group(2))
+    if (across, down) != (1.0, 1.0):
+        def at(x, y):
+            return math.floor(x * across + 0.5), math.floor(y * down + 0.5)
+
+        for entry in data.get("items", []):
+            if not isinstance(entry, dict):
+                continue
+            if _number(entry.get("x")) and _number(entry.get("y")):
+                entry["x"], entry["y"] = at(entry["x"], entry["y"])
+            if _number(entry.get("r")):
+                entry["r"] = max(1, math.floor(entry["r"] * math.sqrt(across * down) + 0.5))
+            if isinstance(entry.get("pts"), list):
+                entry["pts"] = [
+                    [*at(point[0], point[1]), *point[2:]]
+                    if isinstance(point, list) and len(point) >= 2 and _number(point[0]) and _number(point[1])
+                    else point
+                    for point in entry["pts"]
+                ]
+    data["key"] = str(key)
+    return json.dumps(data, ensure_ascii=False, separators=(",", ":"))
 
 
 def _whole(value) -> int:
@@ -1134,10 +1190,13 @@ __all__ = [
     "HOLE_SHARE",
     "ITEMS_MAX",
     "Item",
+    "KEEP_PICKS",
     "MATCHES_MAX",
     "Memory",
+    "MOVED_NOTHING",
     "NEEDS_SAM3",
     "NEWER_TOUCHES",
+    "NEW_PICTURE",
     "NOTHING_PICKED",
     "NOT_A_PICTURE",
     "NOT_SAM3",
@@ -1149,6 +1208,7 @@ __all__ = [
     "POINTS_MAX",
     "PieceSieve",
     "SMALL_SIDE",
+    "START_OVER",
     "TEXT_MAX",
     "TOO_MUCH",
     "Touches",
@@ -1168,6 +1228,7 @@ __all__ = [
     "keep_touched",
     "match_points",
     "match_under",
+    "move_touches",
     "pack_planes",
     "parse_touches",
     "picture_key",
