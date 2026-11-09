@@ -82,13 +82,13 @@ def pick_copy(copies: list[dict]) -> dict:
 def other_copy_that_loads(own_folder: str, roots: list[str] | None = None) -> dict | None:
     """The copy this one steps aside for, or None when this one loads."""
     if roots is None:
-        roots = [os.path.dirname(os.path.abspath(own_folder))]
+        # Outside ComfyUI nothing is served, so there is nothing to clash.
         try:
             import folder_paths
 
-            roots += folder_paths.get_folder_paths("custom_nodes")
+            roots = list(folder_paths.get_folder_paths("custom_nodes"))
         except Exception:
-            pass
+            return None
     roots = list(dict.fromkeys(os.path.realpath(r) for r in roots))
     copies = find_copies(own_folder, roots)
     if len(copies) < 2:
