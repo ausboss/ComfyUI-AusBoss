@@ -7,6 +7,10 @@ on:
         description: Full commit SHA from ComfyUI-AusBoss-Model-Downloader main
         required: true
         type: string
+      changelog:
+        description: Release note for this version, shown in the Registry's Updates section
+        required: true
+        type: string
 
 # The existing AusBoss publisher credential stays in this repository. This
 # manual job publishes only the separately maintained Model Downloader addon.
@@ -62,10 +66,14 @@ jobs:
         id: publish
         env:
           REGISTRY_ACCESS_TOKEN: ${{ secrets.REGISTRY_ACCESS_TOKEN }}
-          COMFY_NODE_CHANGELOG: 'Initial release: model downloads from Civitai and Hugging Face, installed-file checks, saved model lists, and AusBoss Workflow Note integration.'
+          COMFY_NODE_CHANGELOG: ${{ inputs.changelog }}
         run: |
           if [ -z "$REGISTRY_ACCESS_TOKEN" ]; then
             echo '::error::REGISTRY_ACCESS_TOKEN is not configured.'
+            exit 1
+          fi
+          if [ -z "${COMFY_NODE_CHANGELOG// /}" ]; then
+            echo '::error::The changelog input is empty; the Registry shows it as the release note.'
             exit 1
           fi
           comfy --skip-prompt --no-enable-telemetry node publish --token "$REGISTRY_ACCESS_TOKEN"
