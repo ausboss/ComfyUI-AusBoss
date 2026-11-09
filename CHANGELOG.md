@@ -2,6 +2,13 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **ComfyUI starts when the pack is installed twice.** Manager installs it in
+  `custom_nodes/ausboss-nodes` and a git clone in `custom_nodes/ComfyUI-AusBoss`.
+  With both there, ComfyUI used to stop at startup. Now the second copy loads
+  nothing, and the console names both folders so you can delete one.
+
 ## 2.23.0 - 2026-11-09
 
 - **Mask by Touch keeps your picks when the picture changes.** Your clicks

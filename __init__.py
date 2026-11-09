@@ -7,12 +7,26 @@ name to NODE_MODULES below — nothing else to wire up.
 
 A module that fails to import is skipped with a console warning instead
 of taking the whole pack down, so one broken node never hides the rest.
+
+Only one copy of the pack loads. People install it from ComfyUI-Manager
+(custom_nodes/ausboss-nodes) and from GitHub (custom_nodes/ComfyUI-AusBoss),
+and two copies used to register the same server routes, which stopped
+ComfyUI at startup. A second copy now loads nothing and says which folder
+to delete.
 """
 
 import importlib
 import os
+import sys
 import tomllib
 import traceback
+import types
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_FIRST_COPY = sys.modules.setdefault(
+    "_ausboss_nodes_first_copy", types.SimpleNamespace(folder=_HERE)
+)
+_IS_SECOND_COPY = _FIRST_COPY.folder != _HERE
 
 # One entry per file in nodes/, kept alphabetical. The order has no
 # functional effect.
@@ -64,6 +78,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {}
 _failed_modules = []
 
 for _module_name in NODE_MODULES:
+    if _IS_SECOND_COPY:
+        break
     try:
         _module = importlib.import_module(f".nodes.{_module_name}", __name__)
         NODE_CLASS_MAPPINGS.update(getattr(_module, "NODE_CLASS_MAPPINGS", {}))
@@ -76,15 +92,15 @@ for _module_name in NODE_MODULES:
 
 # Folder ComfyUI serves to the browser; every .js file in it is loaded as a
 # frontend extension. Shared modules use .mjs so they are import-only.
-WEB_DIRECTORY = "./js"
+WEB_DIRECTORY = None if _IS_SECOND_COPY else "./js"
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]
 
 
-def _read_version():
+def _read_version(folder=None):
     """Version straight from pyproject.toml so it is never duplicated."""
     try:
-        pyproject = os.path.join(os.path.dirname(__file__), "pyproject.toml")
+        pyproject = os.path.join(folder or os.path.dirname(__file__), "pyproject.toml")
         with open(pyproject, "rb") as f:
             version = tomllib.load(f).get("project", {}).get("version")
         return version if isinstance(version, str) and version.strip() else "unknown"
@@ -102,6 +118,17 @@ def _print_banner():
     bar = f"{teal}{'-' * 70}{reset}"
 
     print(bar)
+    if _IS_SECOND_COPY:
+        def where(folder):
+            text = f"{os.path.basename(folder)} (v{_read_version(folder)})"
+            return text.encode("ascii", "replace").decode("ascii")
+
+        print(f"  {red}AusBoss is installed twice, so this copy is not loaded.{reset}")
+        print(f"  In use:  custom_nodes/{where(_FIRST_COPY.folder)}")
+        print(f"  Skipped: custom_nodes/{where(_HERE)}")
+        print("  Delete one of the two folders and restart ComfyUI.")
+        print(bar)
+        return
     print(
         f"  {teal}AusBoss{reset} v{_read_version()}  |  "
         f"{len(NODE_CLASS_MAPPINGS)} nodes loaded"
@@ -113,9 +140,10 @@ def _print_banner():
 
 
 try:
-    from .nodes._frontend_cache import register_frontend_cache_guard
+    if not _IS_SECOND_COPY:
+        from .nodes._frontend_cache import register_frontend_cache_guard
 
-    register_frontend_cache_guard()
+        register_frontend_cache_guard()
 except Exception:
     traceback.print_exc()
 
