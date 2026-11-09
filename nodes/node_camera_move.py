@@ -90,9 +90,9 @@ class AusBossCameraMove:
         report = range_report(parsed["keys"])
         if report:
             print("[AusBoss] " + report)
-        scene = prepare_geometry(moge_geometry)
-        pivot = resolve_pivot(scene, parsed["pivot"])
         device = _device()
+        scene = prepare_geometry(moge_geometry, device)
+        pivot = resolve_pivot(scene, parsed["pivot"])
         try:
             import comfy.utils
 

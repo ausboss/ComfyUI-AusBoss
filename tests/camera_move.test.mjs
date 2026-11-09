@@ -22,6 +22,15 @@ test("easing between keys matches the node's", () => {
   close(c.az, 16.875); close(c.el, 8.4375); close(c.back, 0.421875);
 });
 
+test("the camera keeps moving through a key, the same as the node", () => {
+  const { keys } = parseCamera({ keys: [{ t: 0 }, { t: 0.3, az: 12 }, { t: 0.6, az: 25, el: 5 }, { t: 1, az: 40, el: 5, back: 0.4 }] });
+  // From nodes/_camera_move_helpers.camera_at with the same keys.
+  close(camAt(keys, 0.45).az, 18.547068965517244); close(camAt(keys, 0.8).az, 34.51724137931035);
+  close(camAt(keys, 0.8).back, 0.2);
+  const steady = parseCamera({ keys: [{ t: 0 }, { t: 0.5, az: 20 }, { t: 1, az: 40 }] }).keys;
+  assert.ok((camAt(steady, 0.51).az - camAt(steady, 0.49).az) / 0.02 > 35);
+});
+
 test("the pivot stays where it was on screen", () => {
   const pivot = [0.3, -0.2, 2], d = Math.hypot(...pivot);
   const cam = { az: 40, el: 15, back: 0.5, px: 0, py: 0 };

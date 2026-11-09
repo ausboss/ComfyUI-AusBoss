@@ -59,16 +59,20 @@ on the node it zooms the graph as usual.
 
 - Each key holds a moment `t` (0 to 1 over the clip), a turn `az` and a rise
   `el` in degrees, `back` (how far the camera pulls back, in distances to the
-  pivot; below 0 pushes in), and a pan `px`, `py` (same unit). Between keys
-  the camera eases in and out (smoothstep).
+  pivot; below 0 pushes in), and a pan `px`, `py` (same unit). The camera
+  passes through each key without slowing down, and only eases at the first
+  and last key. Each value follows a monotone cubic through the keys
+  (Fritsch-Butland slopes), so it never runs past a key: a value that turns
+  back or holds at a key stops there.
 - The camera turns round the pivot: a spot you tap (saved as a place on one
   frame, `pivot: {u, v, t}`) or, by default, the nearest fifth of what sits in
   the middle of the first frame, never further than 3 m.
 - `R = Ry(-az) · Rx(-el)`, `C = pivot − R·pivot + R·[px·d, py·d, −back·d]`
   with `d = |pivot|`, in OpenCV axes (x right, y down, z forward).
-- MoGe's depth scale wobbles from frame to frame. Every frame is scaled so
-  its median depth follows a smoothed line (9 frames wide) through all of
-  them.
+- MoGe's depth scale and lens wobble from frame to frame, which shook the
+  moved picture. Every frame is scaled so its median depth follows a
+  smoothed line (15 frames wide) through all of them, and every frame uses
+  the clip's median lens.
 - Each pixel is drawn as 4 points, nearest wins, and gaps mostly surrounded
   by picture (5 of 8 neighbours, two passes) are filled. Everything else
   stays magenta (1, 0, 1).

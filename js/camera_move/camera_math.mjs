@@ -64,21 +64,40 @@ export function cameraText({ keys, pivot }) {
   return JSON.stringify(out);
 }
 
-export const smoothstep = (s) => s * s * (3 - 2 * s);
+// How fast one field moves as it passes each key: zero at the first and last
+// key (a gentle start and end) and where the field turns back or holds (it
+// never runs past a key); elsewhere it keeps its speed through the key, so a
+// move made of several keys does not slow down at each one.
+function keySlopes(ts, ys) {
+  const n = ys.length, m = new Array(n).fill(0);
+  for (let k = 1; k < n - 1; k++) {
+    const h0 = ts[k] - ts[k - 1], h1 = ts[k + 1] - ts[k];
+    if (h0 <= 0 || h1 <= 0) continue;
+    const d0 = (ys[k] - ys[k - 1]) / h0, d1 = (ys[k + 1] - ys[k]) / h1;
+    if (d0 * d1 > 0) m[k] = 3 * (h0 + h1) / ((2 * h1 + h0) / d0 + (h1 + 2 * h0) / d1);
+  }
+  return m;
+}
 
-// Where the camera is at moment t, easing between the keys either side.
+// Where the camera is at moment t: through every key, gently at the ends.
+// Same maths as camera_at in nodes/_camera_move_helpers.py.
 export function camAt(keys, t) {
   if (!keys.length) return { ...K0 };
   const n = keys.length;
   const pick = (k) => { const o = {}; for (const f of FIELDS) o[f] = k[f] || 0; return o; };
   if (n === 1 || t <= keys[0].t) return pick(keys[0]);
   if (t >= keys[n - 1].t) return pick(keys[n - 1]);
+  const ts = keys.map((k) => k.t);
   for (let i = 0; i < n - 1; i++) {
     const a = keys[i], b = keys[i + 1];
     if (t >= a.t && t <= b.t) {
-      const e = smoothstep((t - a.t) / Math.max(1e-6, b.t - a.t));
+      const h = Math.max(1e-6, b.t - a.t), s = (t - a.t) / h;
+      const h00 = 2 * s ** 3 - 3 * s ** 2 + 1, h10 = s ** 3 - 2 * s ** 2 + s, h01 = -2 * s ** 3 + 3 * s ** 2, h11 = s ** 3 - s ** 2;
       const o = {};
-      for (const f of FIELDS) o[f] = (a[f] || 0) + ((b[f] || 0) - (a[f] || 0)) * e;
+      for (const f of FIELDS) {
+        const m = keySlopes(ts, keys.map((k) => k[f] || 0));
+        o[f] = h00 * (a[f] || 0) + h10 * h * m[i] + h01 * (b[f] || 0) + h11 * h * m[i + 1];
+      }
       return o;
     }
   }

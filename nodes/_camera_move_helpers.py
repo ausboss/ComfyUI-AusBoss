@@ -1,8 +1,8 @@
 """Camera Move: the camera keys, the camera's pose and the depth warp.
 
 The keys are what the node's face writes: a list of moments on the clip
-(t from 0 to 1) and where the camera is at each one. Between two keys the
-camera eases from one to the other. The face draws its picture with the
+(t from 0 to 1) and where the camera is at each one. The camera passes
+through every key without slowing down, and starts and ends gently. The face draws its picture with the
 same maths, so what you steer on the node is what the warp makes.
 
 Axes are OpenCV's: x right, y down, z into the picture. Each frame's points
@@ -114,12 +114,28 @@ def parse_camera(text) -> dict:
     return {"keys": keys, "pivot": pivot, "fallback": fallback}
 
 
-def smoothstep(s: float) -> float:
-    return s * s * (3.0 - 2.0 * s)
+def _key_slopes(ts, ys):
+    """How fast one field moves as it passes each key.
+
+    Zero at the first and last key, so the move starts and ends gently. Zero
+    at a key where the field turns back or holds, so it never runs past a
+    key. Elsewhere it keeps its speed through the key (Fritsch-Butland), so
+    a long move made of several keys does not slow down at each one.
+    """
+    n = len(ys)
+    slopes = [0.0] * n
+    for k in range(1, n - 1):
+        h0, h1 = ts[k] - ts[k - 1], ts[k + 1] - ts[k]
+        if h0 <= 0 or h1 <= 0:
+            continue
+        d0, d1 = (ys[k] - ys[k - 1]) / h0, (ys[k + 1] - ys[k]) / h1
+        if d0 * d1 > 0:
+            slopes[k] = 3.0 * (h0 + h1) / ((2.0 * h1 + h0) / d0 + (h1 + 2.0 * h0) / d1)
+    return slopes
 
 
 def camera_at(keys, t: float) -> dict:
-    """Where the camera is at moment t (0..1), easing between the keys either side."""
+    """Where the camera is at moment t (0..1): through every key, gently at the ends."""
     if not keys:
         return dict(HOME)
     first, last = keys[0], keys[-1]
@@ -127,10 +143,18 @@ def camera_at(keys, t: float) -> dict:
         return {name: first[name] for name in FIELDS}
     if t >= last["t"]:
         return {name: last[name] for name in FIELDS}
-    for a, b in zip(keys, keys[1:]):
+    ts = [k["t"] for k in keys]
+    for i in range(len(keys) - 1):
+        a, b = keys[i], keys[i + 1]
         if a["t"] <= t <= b["t"]:
-            e = smoothstep((t - a["t"]) / max(1e-6, b["t"] - a["t"]))
-            return {name: a[name] + (b[name] - a[name]) * e for name in FIELDS}
+            h = max(1e-6, b["t"] - a["t"])
+            s = (t - a["t"]) / h
+            h00, h10, h01, h11 = 2 * s**3 - 3 * s**2 + 1, s**3 - 2 * s**2 + s, -2 * s**3 + 3 * s**2, s**3 - s**2
+            out = {}
+            for name in FIELDS:
+                m = _key_slopes(ts, [k[name] for k in keys])
+                out[name] = h00 * a[name] + h10 * h * m[i] + h01 * b[name] + h11 * h * m[i + 1]
+            return out
     return {name: last[name] for name in FIELDS}
 
 
@@ -231,11 +255,41 @@ def pixel_intrinsics(K, width: int, height: int):
     return K
 
 
-def prepare_geometry(geometry: dict):
+def steady_depth(z, valid, image, radius: int = 4, colour_tol: float = 0.05):
+    """Calm the depth of things that hold still.
+
+    The depth model looks at every frame afresh, so a wall that never moves
+    still gets a slightly different depth each frame, and the moved camera
+    shakes. A spot whose colour stays the same a few frames either side has
+    its depth averaged over those frames. Anything that changes in that
+    window, such as a person moving, keeps its own depth.
+    """
+    import torch
+
+    count = z.shape[0]
+    if count < 2 or radius < 1:
+        return z
+    logz = torch.where(valid, z.clamp(min=1e-6).log(), torch.zeros_like(z))
+    out = z.clone()
+    inv = 1.0 / (2.0 * colour_tol * colour_tol)
+    for i in range(count):
+        lo, hi = max(0, i - radius), min(count, i + radius + 1)
+        change = ((image[lo:hi] - image[i]) ** 2).sum(-1).amax(0)
+        held = valid[lo:hi].all(0)
+        still = torch.exp(-change * inv) * held
+        mean = logz[lo:hi].sum(0) / (hi - lo)
+        calm = (still * mean + (1 - still) * logz[i]).exp()
+        out[i] = torch.where(valid[i] & held, calm, z[i])
+    return out
+
+
+def prepare_geometry(geometry: dict, device=None):
     """Points, colours and lens from a MOGE_GEOMETRY, with every frame held to one depth scale.
 
-    The depth model's scale wobbles from frame to frame. Each frame is scaled
-    so its median depth follows a smoothed line through all of them.
+    The depth model's scale and lens wobble from frame to frame, which shakes
+    the moved picture. Each frame is scaled so its median depth follows a
+    smoothed line through all of them, every frame gets the clip's median
+    lens, and the depth of whatever holds still is calmed (steady_depth).
     """
     import torch
     import torch.nn.functional as F
@@ -259,12 +313,18 @@ def prepare_geometry(geometry: dict):
         valid &= mask.bool().to(valid.device)
     z = torch.where(valid, z, torch.zeros_like(z))
     meds = torch.stack([z[i][valid[i]].median() if valid[i].any() else torch.tensor(1.0) for i in range(count)])
-    win = 9
+    win = min(15, count) | 1
     padded = F.pad(meds.log()[None, None], (win // 2, win // 2), mode="replicate")
     smooth = F.avg_pool1d(padded, win, 1)[0, 0]
-    scale = meds.median() / smooth.exp()
-    z = z * scale[:, None, None]
-    Ks = torch.stack([pixel_intrinsics(intrinsics[i], width, height) for i in range(count)])
+    z = z * (smooth - meds.log()).exp()[:, None, None]
+    if device is not None:
+        z = steady_depth(z.to(device), valid.to(device), image.to(device)).to(z.device)
+    else:
+        z = steady_depth(z, valid, image)
+    # The depth model guesses the lens again for every frame and the guess
+    # wobbles a few percent, which shakes the warp. One lens for the clip.
+    K = torch.stack([pixel_intrinsics(intrinsics[i], width, height) for i in range(count)]).median(dim=0).values
+    Ks = K[None].expand(count, 3, 3).clone()
     v0 = valid[0]
     far = float(torch.quantile(z[0][v0][::7], 0.98)) * 2.5 if v0.any() else float(meds.median()) * 10.0
     return {"z": z, "valid": valid, "image": image, "K": Ks, "far": far, "count": count, "width": width, "height": height}

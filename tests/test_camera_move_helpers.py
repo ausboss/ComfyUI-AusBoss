@@ -102,6 +102,25 @@ class CameraAtTests(unittest.TestCase):
     def test_one_key_holds_still(self):
         self.assertEqual(camera_at(self.keys[1:2], 0.0)["back"], 1)
 
+    def test_keeps_moving_through_a_key(self):
+        keys = parse_camera({"keys": [{"t": 0}, {"t": 0.5, "az": 20}, {"t": 1, "az": 40}]})["keys"]
+        speed = (camera_at(keys, 0.51)["az"] - camera_at(keys, 0.49)["az"]) / 0.02
+        self.assertGreater(speed, 35)  # the steady speed is 40 a clip; easing at each key gave about 0
+        self.assertAlmostEqual(camera_at(keys, 0.5)["az"], 20)
+
+    def test_never_runs_past_a_key(self):
+        keys = parse_camera({"keys": [{"t": 0}, {"t": 0.3, "az": 30}, {"t": 0.5, "az": 30}, {"t": 1, "az": -20}]})["keys"]
+        values = [camera_at(keys, i / 200)["az"] for i in range(201)]
+        self.assertLessEqual(max(values), 30 + 1e-9)
+        self.assertGreaterEqual(min(values), -20 - 1e-9)
+        self.assertTrue(all(abs(camera_at(keys, t)["az"] - 30) < 1e-9 for t in (0.3, 0.4, 0.5)))  # two equal keys hold still
+
+    def test_matches_the_face(self):
+        keys = parse_camera({"keys": [{"t": 0}, {"t": 0.3, "az": 12}, {"t": 0.6, "az": 25, "el": 5},
+                                      {"t": 1, "az": 40, "el": 5, "back": 0.4}]})["keys"]
+        self.assertAlmostEqual(camera_at(keys, 0.45)["az"], 18.547068965517244)  # tests/camera_move.test.mjs
+        self.assertAlmostEqual(camera_at(keys, 0.8)["az"], 34.51724137931035)
+
     def test_frame_moments_run_from_start_to_end(self):
         self.assertEqual(frame_moments(1), [0.0])
         self.assertEqual(frame_moments(3), [0.0, 0.5, 1.0])
@@ -233,6 +252,31 @@ class WarpTests(unittest.TestCase):
         self.assertAlmostEqual(on_wall[2], 4.0, places=4)
         self.assertLess(on_wall[0], 0)
         self.assertLess(on_wall[1], 0)
+
+    def test_one_steady_lens_and_depth_for_the_clip(self):
+        geometry = _wall_and_box(frames=12)
+        wobble = torch.tensor([1.0, 1.06, 0.95, 1.04, 0.97, 1.05, 0.94, 1.03, 0.96, 1.05, 0.95, 1.0])
+        geometry["points"] = geometry["points"] * wobble[:, None, None, None]
+        geometry["intrinsics"] = geometry["intrinsics"].clone()
+        geometry["intrinsics"][:, 0, 0] *= wobble
+        scene = self.prepare(geometry)
+        self.assertTrue(torch.equal(scene["K"][0], scene["K"][7]))
+        meds = torch.stack([scene["z"][i][scene["valid"][i]].median() for i in range(12)])
+        jumps = (meds[1:] / meds[:-1] - 1).abs()
+        self.assertLess(float(jumps.max()), 0.02)  # the clip wobbles up to 11% frame to frame
+
+    def test_calms_still_depth_and_leaves_a_mover_alone(self):
+        from nodes._camera_move_helpers import steady_depth
+
+        frames, H, W = 9, 8, 8
+        z = torch.full((frames, H, W), 4.0)
+        z[:, :, :4] *= torch.tensor([1.0, 1.08, 0.93, 1.05, 0.95, 1.07, 0.94, 1.04, 1.0])[:, None, None]  # wall flicker
+        image = torch.full((frames, H, W, 3), 0.5)
+        image[4, :, 6:] = torch.tensor([0.9, 0.2, 0.1])  # someone passes on the right in frame 4
+        z[4, :, 6:] = 2.0
+        out = steady_depth(z, torch.ones(frames, H, W, dtype=torch.bool), image)
+        self.assertLess(float((out[4, :, :4] / out[3, :, :4] - 1).abs().max()), 0.03)  # was 12% between frames
+        self.assertTrue(torch.allclose(out[4, :, 6:], torch.tensor(2.0)))
 
     def test_needs_the_lens(self):
         with self.assertRaises(ValueError):
