@@ -2,12 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## 2.22.1 - 2026-11-08
-
-- **Workflow Switches: a switch that changes a setting no longer turns its
-  node off.** The node it sets keeps running. LoRA choices keep every field
-  that differs between them, and the add-choice button shows as soon as a
-  node is selected.
+## 2.23.0 - 2026-11-08
 
 - **Mask by Touch keeps your picks when the picture changes.** Your clicks
   and paint move onto the new picture, in the same places, so an edit before
@@ -15,6 +10,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
   size they are scaled to fit. A click finds whatever is at that spot now;
   paint stays exactly as painted. For the old way, set **New picture**, under
   More, to **start over**.
+
+- **Workflow Switches: a switch that changes a setting no longer turns its
+  node off.** The node it sets keeps running. LoRA choices keep every field
+  that differs between them, and the add-choice button shows as soon as a
+  node is selected.
 
 - **Mask by Touch clears a stopped run's message once a run works.** When
   a run stopped at the node, its message stayed on the picture after the
@@ -45,6 +45,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
   forgets its old saved file when the folder changes. Save Image also takes
   bfloat16 and one-channel images, and a blank linked caption writes no
   caption file.
+
+- **Three example workflow notes now match their graphs.** Krea 2 Rotate +
+  Outpaint says its tone match is on, Qwen Image 2.1 Inpaint says its seed is
+  fixed, and Qwen Image 2.1 Upscale + Restore says the redraw is at least
+  about 2 MP.
 
 - **The pack's own checks are stricter.** They read pyproject.toml properly
   and catch more ways a node could be hidden from the Registry's scanners.
