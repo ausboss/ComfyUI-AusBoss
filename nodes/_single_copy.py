@@ -82,7 +82,7 @@ def pick_copy(copies: list[dict]) -> dict:
 def other_copy_that_loads(own_folder: str, roots: list[str] | None = None) -> dict | None:
     """The copy this one steps aside for, or None when this one loads."""
     if roots is None:
-        roots = [os.path.dirname(os.path.realpath(own_folder))]
+        roots = [os.path.dirname(os.path.abspath(own_folder))]
         try:
             import folder_paths
 
