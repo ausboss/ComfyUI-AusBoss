@@ -39,7 +39,7 @@ test("a stopped run's message stays up until the next result, then goes", () => 
   const { face, setNote, shown } = noteFace();
   const stopped = SOURCE.match(/face\.stopped = \(message\) => \{([\s\S]*?)\n {2}\};/)?.[1];
   assert.ok(stopped, "touch_stage.mjs has no face.stopped");
-  assert.match(stopped, /setNote\(face, String\(message \?\? ""\)\);\s*(?:\/\/[^\n]*\n\s*)*face\.stopNote = true;/,
+  assert.match(stopped, /setNote\(face, stopMessage\(message\)\);\s*(?:\/\/[^\n]*\n\s*)*face\.stopNote = true;/,
     "a stop marks its message as a stop message, after it is set");
   // What face.stopped does to the note.
   setNote(face, "Mask by Touch: nothing is picked.");

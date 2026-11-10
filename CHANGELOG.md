@@ -4,6 +4,31 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Mask by Touch: type a name to take it out of the mask.** The name field
+  under the picture now has a sign in front. Click it to switch between **+**
+  (add by name) and **−** (take away by name), then type "face" or "hair" and
+  press Enter. Typing "-face" takes it away whatever the sign says. Before,
+  a typed name was only taken away while Erase was chosen, which nothing on
+  the node said.
+
+- **Mask by Touch: Ctrl-click only takes away what you point at.** With a
+  sweater picked, a Ctrl-click on the face offered the whole person, and the
+  sweater went with it. Now a spot where nothing is picked says so and
+  changes nothing.
+
+- **Mask by Touch works on big pictures.** A look at a 3840 pixel picture took
+  twice as long as at 2048, and at 8192 pixels it ran a 32 GB graphics card
+  out of memory. The node now asks SAM 3 about a copy of at most 2048 pixels
+  and brings the answer back to full size. Pictures up to 2048 pixels come
+  out exactly as before. On bigger ones a mask's edge can sit a pixel or two
+  differently.
+
+- **Mask by Touch no longer fills the queue.** With Image Crop + Rotate + Pad
+  or Load Image + Pad wired in, every change to the loader (each step of its
+  megapixels, for one) queued one more look at a picture that was already
+  replaced. Now only the newest look waits. The button that pauses the
+  looking also says **Pause** and **Look on**.
+
 - **Two errors from outside a workflow now say what to do.** When a MiniMax H3
   run stops with `KeyError: 'latent'` because the Muse MiniMax Director pack is
   installed, a message names that pack and says to turn it off. When an older

@@ -74,6 +74,25 @@ export function loaderSignature(widgets) {
   return JSON.stringify(settings);
 }
 
+// What the picture says when a run stopped at the node. ComfyUI's own text
+// for a full graphics card is ten lines of numbers; here it is one plain
+// line. Anything else is said as it came.
+export const OUT_OF_MEMORY = "The graphics card ran out of memory, so the node could not look. Free some memory on it, then click again.";
+export function stopMessage(message) {
+  const text = String(message ?? "");
+  return /out of memory|OutOfMemory/i.test(text) ? OUT_OF_MEMORY : text;
+}
+
+// A name as it is typed under the picture: "-face" (or the minus sign a
+// phone types) takes the name away, "+face" adds it; without a sign it does
+// what `takes` says. Returns { word, add }, the word cleaned.
+export function typedName(text, takes = false) {
+  const typed = String(text ?? "").trim();
+  const sign = /^[-\u2212\u2013+]/.exec(typed)?.[0] ?? "";
+  const word = cleanWord(sign ? typed.slice(1) : typed);
+  return { word, add: sign ? sign === "+" : !takes };
+}
+
 // A word as the node sends it to SAM 3: commas, colons and brackets are the
 // text reader's own syntax and go; spaces are collapsed.
 export function cleanWord(word) {
@@ -1044,19 +1063,46 @@ export function strokePieces(planes, list, sizes, pixels, stroke, ranks, wholes 
 // picked area, and as untouched while almost none of it is.
 const NEARLY = 0.03;
 
+// Which pieces hold a whole pick: nearly all of one picked area (`areas`,
+// on/off masks, one per chip) lies inside the piece. A person holds the
+// sweater picked on them; hair that a picked jacket only laps over does not.
+export const HOLDS = 0.9;
+export function piecesHolding(planes, count, areas) {
+  const holds = new Uint8Array(count);
+  for (const area of areas ?? []) {
+    if (!area) continue;
+    let size = 0;
+    for (let index = 0; index < area.length; index += 1) if (area[index]) size += 1;
+    if (!size) continue;
+    const inside = piecesInside(planes, count, area);
+    for (let piece = 0; piece < count; piece += 1) if (inside[piece] >= HOLDS * size) holds[piece] = 1;
+  }
+  return holds;
+}
+
 // Which piece a pointer at pixel `index` lights up: the first piece there,
 // in the order they are offered (`ranks`; without it, smallest first), that
 // would still change something. Adding, that is a piece not yet (nearly)
 // all picked, so clicking the same spot again goes on from the glasses to
 // the face to the person. Taking away, it is a piece that has some of the
 // picked area in it. -1 when there is none.
-export function pieceAt(planes, index, { sizes, inside, adding = true, ranks = null } = {}) {
+//
+// Taking away from a spot that is not picked itself (`here` false) never
+// means a thing that holds a whole pick somewhere else (`holds`, from
+// piecesHolding): with a sweater picked, pointing at the face does not
+// offer the person, which would take the sweater along.
+export function pieceAt(planes, index, { sizes, inside, adding = true, ranks = null, here = true, holds = null } = {}) {
   for (const piece of candidatesAt(planes, index, ranks)) {
     const size = sizes?.[piece] ?? 0;
     if (!size) continue;
     const picked = inside?.[piece] ?? 0;
     const slack = Math.max(4, size * NEARLY);
-    if (adding ? size - picked > slack : picked > slack) return piece;
+    if (adding) {
+      if (size - picked > slack) return piece;
+      continue;
+    }
+    if (picked <= slack || (!here && holds?.[piece])) continue;
+    return piece;
   }
   return -1;
 }

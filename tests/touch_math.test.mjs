@@ -60,6 +60,7 @@ import {
   thinStroke,
   touchFits,
 } from "../js/shared/touch_math.mjs";
+import { OUT_OF_MEMORY, goesBehind as goesBehindAgain, piecesHolding, stopMessage, typedName } from "../js/shared/touch_math.mjs";
 import {
   GROUP_MAX,
   areaKey,
@@ -1061,4 +1062,69 @@ test("picks the node moved onto a new picture are taken only while nothing was p
   assert.equal(movedTouches({ key: "160x120-bb" }, before), null, "nothing was moved");
   assert.equal(movedTouches({ moved: { from: 7, touches: after } }, before), null, "a note that is not this shape moves nothing");
   assert.equal(movedTouches(null, before), null);
+});
+
+test("taking away from a spot that is not picked never offers a thing that holds a whole pick", () => {
+  const { width, masks, planes, sizes, ranks } = scene();
+  // The jacket is picked. The pointer is on the person's legs, which are not.
+  const inside = piecesInside(planes, 5, masks.jacket);
+  const holds = piecesHolding(planes, 5, [masks.jacket]);
+  assert.deepEqual([...holds], [0, 1, 1, 1, 1], "the jacket, the dress over it, the person and the wall hold all of it");
+  const legs = 32 * width + 14;
+  assert.equal(pieceAt(planes, legs, { sizes, inside, ranks, adding: false }), 3, "as before, when nothing is said about the spot");
+  assert.equal(pieceAt(planes, legs, { sizes, inside, ranks, adding: false, here: false, holds }), -1, "not the person: the jacket would go with it");
+  // On the jacket itself the spot is picked: the jacket is offered.
+  const onJacket = 14 * width + 14;
+  assert.equal(pieceAt(planes, onJacket, { sizes, inside, ranks, adding: false, here: true, holds }), 1);
+  // The person is picked, and the pointer is on the jacket: the jacket is a part of the pick, and is offered.
+  const person = piecesInside(planes, 5, masks.person);
+  const personHolds = piecesHolding(planes, 5, [masks.person]);
+  assert.equal(pieceAt(planes, onJacket, { sizes, inside: person, ranks, adding: false, here: true, holds: personHolds }), 1);
+  // A thing a pick only laps over is still offered from a spot that is not picked.
+  const lap = Uint8Array.from(masks.person, (value, index) => (value && Math.floor(index / width) >= 30 ? 1 : 0));
+  const lapInside = piecesInside(planes, 5, lap);
+  const lapHolds = piecesHolding(planes, 5, [masks.wall]);
+  assert.equal(lapHolds[3], 0, "the person does not hold a pick of the wall");
+  assert.equal(pieceAt(planes, onJacket + 0, { sizes, inside: lapInside, ranks, adding: false, here: false, holds: lapHolds }), 3, "the person has picked area in it and holds no whole pick");
+  // Adding is not changed by any of it.
+  assert.equal(pieceAt(planes, legs, { sizes, inside, ranks, here: false, holds }), 3);
+  assert.deepEqual([...piecesHolding(planes, 5, [null, new Uint8Array(masks.jacket.length)])], [0, 0, 0, 0, 0], "no area, nothing held");
+});
+
+test("a typed name is added or taken away by the sign, and a sign in the text wins", () => {
+  assert.deepEqual(typedName("face"), { word: "face", add: true });
+  assert.deepEqual(typedName("face", true), { word: "face", add: false });
+  assert.deepEqual(typedName("-face"), { word: "face", add: false });
+  assert.deepEqual(typedName(" - fur collar "), { word: "fur collar", add: false });
+  assert.deepEqual(typedName("\u2212hair"), { word: "hair", add: false }, "the minus a phone types");
+  assert.deepEqual(typedName("+hat", true), { word: "hat", add: true });
+  assert.deepEqual(typedName("t-shirt", false), { word: "t-shirt", add: true }, "a dash inside a word is the word's");
+  assert.deepEqual(typedName("-"), { word: "", add: false });
+  assert.deepEqual(typedName(null), { word: "", add: true });
+});
+
+test("looks at a picture the node no longer has are taken out of the queue before the next one is sent", () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const stage = readFileSync(join(here, "..", "js", "shared", "touch_stage.mjs"), "utf8");
+  const entry = readFileSync(join(here, "..", "js", "mask_by_touch", "index.js"), "utf8");
+  const run = stage.slice(stage.indexOf("function requestRun"), stage.indexOf("function settle(face)"));
+  // the stale ones are counted before this run joins them, and dropped before it is sent
+  assert.ok(run.indexOf("const stale = face.flying.filter(") < run.indexOf("face.flying.push(run)"));
+  assert.match(run, /other\.queued && other\.epoch !== run\.epoch/);
+  assert.ok(run.indexOf("face.host.dropWaiting()") < run.indexOf("face.host.run("));
+  // only this node's own runs (they carry an `ask`) that still wait: never the one that runs, never a workflow run
+  const drop = entry.slice(entry.indexOf("async function dropWaiting"), entry.indexOf("// The picture goes above the settings"));
+  assert.match(drop, /queue_pending/);
+  assert.doesNotMatch(drop, /queue_running|interrupt/);
+  assert.match(drop, /class_type === NODE_CLASS && String\(step\.inputs\?\.ask \?\? ""\) !== ""/);
+  // a look still goes behind looks at an older picture, as before
+  assert.equal(goesBehindAgain([{ ask: "scope", queued: true, epoch: 1 }], "scope", 2), true);
+});
+
+test("a full graphics card is said in one plain line, anything else as it came", () => {
+  const comfy = "Allocation on device 0 would exceed allowed memory. (out of memory)\nCurrently allocated     : 2.07 GiB\nRequested               : 40.50 MiB";
+  assert.equal(stopMessage(comfy), OUT_OF_MEMORY);
+  assert.equal(stopMessage("torch.OutOfMemoryError: CUDA"), OUT_OF_MEMORY);
+  assert.equal(stopMessage("Nothing is picked on this picture."), "Nothing is picked on this picture.");
+  assert.equal(stopMessage(null), "");
 });
