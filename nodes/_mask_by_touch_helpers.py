@@ -41,6 +41,16 @@ RADIUS_MAX = 4096.0
 # The face's own picture: the long side is at most this.
 SMALL_SIDE = 1024
 
+# SAM 3 is asked about a copy of a big picture: its long side is at most
+# this. ComfyUI's SAM 3 reads every picture at 1008 pixels and returns each
+# answer at the size of the picture it was given, on the graphics card. At
+# 8192 pixels one word with sixteen matches needed over 27 GB there, and a
+# look at 3840 took twice as long as at 2048, all for outlines the model
+# never saw that finely. Twice what the model reads keeps its second pass
+# (a close-up of each thing it found) as sharp as before on pictures up to
+# this size, which come out exactly as they did.
+WORK_SIDE = 2048
+
 # How a find stroke is asked (find_points, choose_found). Measured on 27
 # strokes over three pictures, each drawn 13 slightly different ways: four
 # points alone returned the stroked thing in 87 % of 351 tries, two points
@@ -384,6 +394,73 @@ def read_ask(ask, height: int, width: int) -> tuple:
             return "scope", (int(match.group(1)), int(match.group(2)))
         return "scope", None
     return "look", None
+
+
+# ---------------------------------------------------------------------------
+# The copy of a big picture that SAM 3 is asked about
+# ---------------------------------------------------------------------------
+
+
+class WorkView:
+    """One picture as SAM 3 is asked about it.
+
+    A picture whose long side is over WORK_SIDE is asked about on a smaller
+    copy (`frame`, averaged down, so nothing shimmers), and what SAM 3
+    answers there is brought back to the picture's own size with `full`.
+    A smaller picture is its own copy: `same` is true and nothing changes.
+
+    Touches and pieces keep their places in pixels of the picture. `point`
+    gives a place on the copy, `full_point` a place on the picture that
+    `point` leads back to the same pixel of the copy.
+    """
+
+    def __init__(self, frame: torch.Tensor):
+        self.height, self.width = int(frame.shape[1]), int(frame.shape[2])
+        long_side = max(self.height, self.width)
+        self.same = long_side <= WORK_SIDE
+        if self.same:
+            self.frame, self.work_height, self.work_width = frame, self.height, self.width
+            return
+        scale = WORK_SIDE / long_side
+        self.work_height = max(1, int(math.floor(self.height * scale + 0.5)))
+        self.work_width = max(1, int(math.floor(self.width * scale + 0.5)))
+        small = F.interpolate(
+            frame.detach().float().cpu().movedim(-1, 1), size=(self.work_height, self.work_width), mode="area",
+        )
+        self.frame = small.movedim(1, -1).clamp(0.0, 1.0).contiguous()
+
+    def point(self, point) -> tuple:
+        x = min(self.work_width - 1, max(0, int(point[0]) * self.work_width // self.width))
+        y = min(self.work_height - 1, max(0, int(point[1]) * self.work_height // self.height))
+        return (x, y)
+
+    def full_point(self, point) -> tuple:
+        x = min(self.width - 1, -(-int(point[0]) * self.width // self.work_width))
+        y = min(self.height - 1, -(-int(point[1]) * self.height // self.work_height))
+        return (x, y)
+
+    def points(self, points) -> tuple:
+        return tuple(self.point(point) for point in points)
+
+    def length(self, value: float) -> float:
+        """A length of the picture (a brush's radius) on the copy."""
+        return float(value) * self.work_width / self.width
+
+    def full_box(self, box) -> list:
+        if self.same:
+            return list(box)
+        x0, y0, x1, y1 = (int(value) for value in box)
+        return [
+            x0 * self.width // self.work_width, y0 * self.height // self.work_height,
+            min(self.width, -(-x1 * self.width // self.work_width)), min(self.height, -(-y1 * self.height // self.work_height)),
+        ]
+
+    def full(self, mask: torch.Tensor) -> torch.Tensor:
+        """An answer from the copy at the picture's own size (bool)."""
+        if self.same or tuple(mask.shape) == (self.height, self.width):
+            return mask
+        soft = F.interpolate(mask[None, None].float(), size=(self.height, self.width), mode="bilinear", align_corners=False)
+        return soft[0, 0] >= 0.5
 
 
 # ---------------------------------------------------------------------------

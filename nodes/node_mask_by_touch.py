@@ -42,6 +42,7 @@ from ._mask_by_touch_helpers import (
     WORDS_MORE,
     Memory,
     PieceSieve,
+    WorkView,
     apply_item,
     box_of,
     choose_found,
@@ -126,6 +127,8 @@ QUICK = True
 
 # Shared by every Mask by Touch node: what SAM 3 answered, per picture.
 _MEMORY = Memory()
+# How many of those smaller copies a node keeps: this picture's and the last one's.
+VIEWS_KEPT = 2
 # What the text reader made of each word, per text reader. A word reads the
 # same for every picture, so it is read once.
 _WORDS = OrderedDict()
@@ -836,25 +839,44 @@ class AusBossMaskByTouch:
         # What Fine edges is set to in the run at hand: the subject is asked
         # of that model.
         self._edge_choice = FINE_OFF
+        # The smaller copies of big pictures SAM 3 is asked about, newest last.
+        self._views = OrderedDict()
 
     # -- what SAM 3 finds ---------------------------------------------------
 
-    def _tap(self, session: _Session, frame, frame_key: str, point):
-        """The thing at one point, without its stray specks. None for nothing.
+    def _view(self, frame, frame_key: str) -> WorkView:
+        """The picture as SAM 3 is asked about it: itself, or a smaller copy
+        of a big one, kept for the next run on the same picture."""
+        held = self._views.get(frame_key)
+        if held is not None and (held.height, held.width) == (int(frame.shape[1]), int(frame.shape[2])):
+            self._views.move_to_end(frame_key)
+            return held
+        view = WorkView(frame)
+        if not view.same:
+            self._views[frame_key] = view
+            while len(self._views) > VIEWS_KEPT:
+                self._views.popitem(last=False)
+        return view
+
+    def _tap(self, session: _Session, view: WorkView, frame_key: str, point):
+        """The thing at one point, without its stray specks, at the size SAM 3
+        was asked at (`view`). None for nothing. `point` is a pixel of the
+        picture.
 
         Hovering's pieces and taps share this, and what it returned is
         remembered, so a tap on a piece that was shown gives that piece."""
         key = (session.token, frame_key, ("tap", int(point[0]), int(point[1])))
         found, answer = _MEMORY.get(key)
         if not found:
-            answer = drop_specks(session.ask(frame, [point]), point)
+            spot = view.point(point)
+            answer = drop_specks(session.ask(view.frame, [spot]), spot)
             answer = answer if bool(answer.any()) else None
             _MEMORY.put(key, answer)
         return answer
 
-    def _named(self, session: _Session, frame, frame_key: str, word: str) -> list:
+    def _named(self, session: _Session, view: WorkView, frame_key: str, word: str) -> list:
         """Everything in one picture that SAM 3 calls by a word, tidied:
-        [(H x W bool, how sure), ...].
+        [(bool at the size SAM 3 was asked at, how sure), ...].
 
         Hovering's named pieces and `name` touches share this, and what it
         returned is remembered, so a touch on a named piece that was shown
@@ -862,7 +884,7 @@ class AusBossMaskByTouch:
         key = (session.token, session.reader, frame_key, ("word", word))
         found, matches = _MEMORY.get_matches(key)
         if not found:
-            matches = tidy_matches(*session.ask_word(frame, word))
+            matches = tidy_matches(*session.ask_word(view.frame, word))
             _MEMORY.put_matches(key, matches)
         return matches
 
@@ -873,6 +895,9 @@ class AusBossMaskByTouch:
         The area of a `paint` touch made with a soft brush is float, 0..1.
         """
         height, width = int(frame.shape[1]), int(frame.shape[2])
+        # What SAM 3 is asked comes back at the size it was asked at, and is
+        # brought to the picture's own size here.
+        view = self._view(frame, frame_key)
         if item.kind in ("subject", "background"):
             # The picture's main subject, as ComfyUI's background-removal
             # model sees it, or everything but it.
@@ -881,25 +906,25 @@ class AusBossMaskByTouch:
             return (area, "thing", ()) if bool(area.any()) else (None, "none", ())
         if item.kind == "all":
             # Every thing called by that word, joined.
-            matches = self._named(session, frame, frame_key, item.word) if item.word else []
+            matches = self._named(session, view, frame_key, item.word) if item.word else []
             if not matches:
                 return None, "none", ()
-            area = torch.zeros(height, width, dtype=torch.bool)
+            area = torch.zeros(view.work_height, view.work_width, dtype=torch.bool)
             for mask, _ in matches:
                 area |= mask
-            return area, "thing", tuple(range(len(matches)))
+            return view.full(area), "thing", tuple(range(len(matches)))
         if item.kind in ("tap", "name"):
             if not (0 <= item.x < width and 0 <= item.y < height):
                 return None, "none", ()
             if item.kind == "tap":
-                answer = self._tap(session, frame, frame_key, (item.x, item.y))
-                return (answer, "thing", ()) if answer is not None else (None, "none", ())
+                answer = self._tap(session, view, frame_key, (item.x, item.y))
+                return (view.full(answer), "thing", ()) if answer is not None else (None, "none", ())
             if not item.word:
                 return None, "none", ()
             # Of the things called by that word, the smallest at the point.
-            matches = self._named(session, frame, frame_key, item.word)
-            index = match_under(matches, (item.x, item.y))
-            return (None, "none", ()) if index is None else (matches[index][0], "thing", (index,))
+            matches = self._named(session, view, frame_key, item.word)
+            index = match_under(matches, view.point((item.x, item.y)))
+            return (None, "none", ()) if index is None else (view.full(matches[index][0]), "thing", (index,))
         if item.kind not in ("find", "paint"):
             return None, "none", ()
         if item.kind == "paint" and item.soft > 0:
@@ -918,14 +943,18 @@ class AusBossMaskByTouch:
         found, answer = _MEMORY.get(key)
         if not found:
             many, pair = find_points(item.pts, height, width)
+            # The stroke as it lies on the copy SAM 3 is asked about.
+            under = stroke if view.same else stroke_area(
+                view.points(item.pts), max(1.0, view.length(item.r)), view.work_height, view.work_width,
+            )
             answer = choose_found(
-                session.ask(frame, many) if many else None,
-                session.ask(frame, pair) if pair else None,
-                stroke,
+                session.ask(view.frame, view.points(many)) if many else None,
+                session.ask(view.frame, view.points(pair)) if pair else None,
+                under,
             )
             _MEMORY.put(key, answer)
         # Over empty space the paint is kept as it is.
-        return (answer, "thing", ()) if answer is not None else (stroke, "paint", ())
+        return (view.full(answer), "thing", ()) if answer is not None else (stroke, "paint", ())
 
     def _look(self, session: _Session, frame, key: str, pieces: dict, pointer=None, tell=None) -> dict:
         """Find a picture's pieces for hovering.
@@ -943,6 +972,7 @@ class AusBossMaskByTouch:
         piece.
         """
         height, width = int(frame.shape[1]), int(frame.shape[2])
+        view = self._view(frame, key)
         queue = _scope_queue(width, height)
         sieve = pieces["sieve"]
         fresh = {}  # (name or None, point) -> (area, is it tidy and remembered)
@@ -967,7 +997,7 @@ class AusBossMaskByTouch:
         if pointer is not None:
             since = time.perf_counter()
             known = _MEMORY.has((session.token, key, ("tap", pointer[0], pointer[1])))
-            answer = self._tap(session, frame, key, pointer)
+            answer = self._tap(session, view, key, pointer)
             answered(known, since)
             if answer is not None and sieve.offer(pointer, answer, pointed=True):
                 fresh[(None, pointer)] = (answer, True)
@@ -993,8 +1023,10 @@ class AusBossMaskByTouch:
                             break
                         ahead.append(later)
                     session.read_ahead(ahead, stop=_jobs_waiting)
-                matches = self._named(session, frame, key, what)
-                for (area, sure), point in zip(matches, match_points(matches)):
+                matches = self._named(session, view, key, what)
+                for (area, sure), spot in zip(matches, match_points(matches)):
+                    # The match's own point, as a pixel of the picture.
+                    point = None if spot is None else view.full_point(spot)
                     if point is not None and sieve.offer(point, area, name=what, sure=sure):
                         fresh[(what, point)] = (area, True)
                 pieces["words"] += 1
@@ -1002,7 +1034,7 @@ class AusBossMaskByTouch:
                 memory_key = (session.token, key, ("tap", what[0], what[1]))
                 known, answer = _MEMORY.get(memory_key)
                 if not known:
-                    answer = session.ask(frame, [what])
+                    answer = session.ask(view.frame, [view.point(what)])
                     if not bool(answer.any()):
                         _MEMORY.put(memory_key, None)
                         answer = None
@@ -1025,6 +1057,7 @@ class AusBossMaskByTouch:
         first, and the small copies packed into planes. `fresh` holds the
         areas found since the last time, and is emptied."""
         height, width = int(frame.shape[1]), int(frame.shape[2])
+        view = self._view(frame, key)
         small_width, small_height, _ = small_size(width, height)
         sieve = pieces["sieve"]
         before = {ident: slot for slot, ident in enumerate(pieces["ids"])}
@@ -1036,18 +1069,19 @@ class AusBossMaskByTouch:
             else:
                 # A piece kept by a look that was stopped half way is asked
                 # for again: its answer was not held on to.
-                answer, tidy = fresh.get(ident) or (self._piece(session, frame, key, name, point), True)
+                answer, tidy = fresh.get(ident) or (self._piece(session, view, key, name, point), True)
                 if answer is None:
                     continue
                 if not tidy:
                     # What a tap at this point gives: the same answer, tidied
                     # the same way, remembered so the tap asks nothing.
-                    answer = drop_specks(answer, point)
+                    answer = drop_specks(answer, view.point(point))
                     _MEMORY.put((session.token, key, ("tap", point[0], point[1])), answer)
                 sure = sieve.sure_of(name, point)
                 entry = {
                     "x": point[0], "y": point[1],
-                    "share": round(float(answer.sum()) / (height * width), 5), "box": box_of(answer),
+                    "share": round(float(answer.sum()) / (view.work_height * view.work_width), 5),
+                    "box": view.full_box(box_of(answer)),
                     "kind": "point" if name is None else "name", "name": name,
                     "sure": None if sure is None else round(sure, 3),
                 }
@@ -1064,13 +1098,13 @@ class AusBossMaskByTouch:
             pieces["list"] = [row[4] for row in rows]
             pieces["planes"] = pack_planes(masks)
 
-    def _piece(self, session: _Session, frame, key: str, name, point):
+    def _piece(self, session: _Session, view: WorkView, key: str, name, point):
         """The area of a piece from what is remembered: a point's answer, or
         the match of a word that the piece's own point stands for."""
         if name is None:
-            return self._tap(session, frame, key, point)
-        matches = self._named(session, frame, key, name)
-        index = match_under(matches, point)
+            return self._tap(session, view, key, point)
+        matches = self._named(session, view, key, name)
+        index = match_under(matches, view.point(point))
         return None if index is None else matches[index][0]
 
     # -- files for the node's face -------------------------------------------
@@ -1385,8 +1419,9 @@ class AusBossMaskByTouch:
         if asked == "scope" and (pieces is None or pointer is not None or pieces["next"] < pieces["total"]):
             if pieces is None:
                 words = len(WORDS_FIRST) + len(WORDS_MORE)
+                view = self._view(image[:1], key)
                 pieces = {
-                    "sieve": PieceSieve(height, width), "next": 0, "total": len(_scope_queue(width, height)),
+                    "sieve": PieceSieve(view.work_height, view.work_width), "next": 0, "total": len(_scope_queue(width, height)),
                     "words": 0, "words_total": words, "number": 0, "ids": [], "list": [], "planes": [],
                 }
                 # Remembered from the start: a look that is stopped half way

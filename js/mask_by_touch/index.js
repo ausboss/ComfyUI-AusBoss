@@ -47,6 +47,24 @@ async function stopLook(node) {
   return Boolean(running || waiting.length);
 }
 
+// Take this node's own runs that still wait out of the queue: the looks and
+// touches its picture asked for (they carry an `ask`), never a run of the
+// workflow. Says how many went. The one that is running is left alone.
+async function dropWaiting(node) {
+  const id = executionIdOf(app.rootGraph ?? app.graph, node);
+  if (!id) return 0;
+  const queue = await (await api.fetchApi("/queue")).json();
+  const ours = (entry) => {
+    const step = entry?.[2]?.[id];
+    return step?.class_type === NODE_CLASS && String(step.inputs?.ask ?? "") !== "";
+  };
+  const waiting = (queue?.queue_pending ?? []).filter(ours).map((entry) => entry[1]);
+  if (waiting.length) {
+    await api.fetchApi("/queue", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ delete: waiting }) });
+  }
+  return waiting.length;
+}
+
 // The picture goes above the settings: the stage widget sits ahead of the
 // node's card, whichever of the two was built first.
 function stageFirst(node) {
@@ -92,6 +110,7 @@ function build(node) {
   const face = mountTouchStage(node, {
     lookOnButton: () => lookOnButton,
     stopLook: () => stopLook(node).catch(() => false),
+    dropWaiting: () => dropWaiting(node).catch(() => 0),
     // A workflow is being opened: nothing is run on the person's behalf.
     loading: () => Boolean(app.configuringGraph),
     // Bypassed or muted, or inside a box that is: nothing is run for it.

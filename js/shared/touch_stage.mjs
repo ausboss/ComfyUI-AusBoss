@@ -77,6 +77,7 @@ import {
   pieceRanks,
   pieceWholes,
   pieceSizes,
+  piecesHolding,
   piecesInside,
   prefixStamps,
   previewPixels,
@@ -85,9 +86,11 @@ import {
   sharedPixels,
   shrinkMask,
   stampOf,
+  stopMessage,
   strokePieces,
   thinStroke,
   touchFits,
+  typedName,
 } from "./touch_math.mjs";
 
 const CSS_ID = "ausboss-touch-css";
@@ -190,9 +193,17 @@ function ensureCss() {
 .ausboss-touch-chip>button:hover{opacity:1;background:rgba(255,255,255,.14);}
 .ausboss-touch-chip>button.more{padding:0 6px;background:rgba(0,0,0,.35);opacity:.95;}
 .ausboss-touch-chip.open>button.more{background:rgba(0,0,0,.2);}
-.ausboss-touch-name{box-sizing:border-box;flex:none;width:104px;height:20px;padding:0 9px;border:1px dashed rgba(0,180,170,.5);border-radius:10px;background:transparent;color:#dffcf9;font:600 10px/18px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;outline:none;}
+.ausboss-touch-namebox{box-sizing:border-box;flex:none;display:inline-flex;align-items:stretch;height:20px;border:1px dashed rgba(0,180,170,.5);border-radius:10px;overflow:hidden;}
+.ausboss-touch-namebox:focus-within{border-style:solid;border-color:${BRAND};background:rgba(0,0,0,.4);}
+.ausboss-touch-namebox.away{border-color:rgba(${LIT_AWAY.join(",")},.6);}
+.ausboss-touch-namebox.away:focus-within{border-color:rgb(${LIT_AWAY.join(",")});}
+.ausboss-touch-sign{box-sizing:border-box;flex:none;width:22px;padding:0;border:0;border-right:1px solid rgba(0,180,170,.35);background:rgba(0,180,170,.16);color:#dffcf9;font:700 13px/18px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer;}
+.ausboss-touch-sign:hover{background:rgba(0,180,170,.34);color:#fff;}
+.ausboss-touch-sign:disabled{opacity:.4;cursor:default;}
+.ausboss-touch-namebox.away .ausboss-touch-sign{border-right-color:rgba(${LIT_AWAY.join(",")},.4);background:rgba(${LIT_AWAY.join(",")},.24);color:#ffe9e2;}
+.ausboss-touch-namebox.away .ausboss-touch-sign:hover{background:rgba(${LIT_AWAY.join(",")},.42);}
+.ausboss-touch-name{box-sizing:border-box;flex:none;width:118px;height:18px;padding:0 8px 0 6px;border:0;background:transparent;color:#dffcf9;font:600 10px/18px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;outline:none;}
 .ausboss-touch-name::placeholder{color:#78908e;font-weight:500;}
-.ausboss-touch-name:focus{border-style:solid;border-color:${BRAND};background:rgba(0,0,0,.4);}
 .ausboss-touch-gap{flex:1 1 auto;min-width:0;}
 .ausboss-touch-stage{position:relative;flex:1 1 auto;min-height:0;width:100%;overflow:hidden;border:1px solid rgba(0,180,170,.27);border-radius:6px;background:rgba(0,0,0,.28);}
 [data-node-id] .ausboss-touch-stage{box-sizing:border-box;min-height:${STAGE_MIN}px;}
@@ -224,9 +235,12 @@ function ensureCss() {
 .ausboss-touch.fining .ausboss-touch-fining{display:flex;}
 .ausboss-touch-fining::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:${BRAND};animation:ausboss-touch-pulse 1s ease-in-out infinite;}
 @keyframes ausboss-touch-pulse{0%,100%{opacity:.25;}50%{opacity:1;}}
-.ausboss-touch-btn.lookpill{display:inline-flex;align-items:center;gap:5px;height:${BAR_HEIGHT}px;padding:0 9px 0 8px;border:1px solid rgba(0,180,170,.6);border-radius:10px;letter-spacing:0;text-transform:none;font:600 10px/18px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#dffcf9;background:linear-gradient(90deg,rgba(0,180,170,.38) var(--done,0%),rgba(0,180,170,.08) var(--done,0%));}
+.ausboss-touch-btn.lookpill{display:inline-flex;align-items:center;gap:5px;height:${BAR_HEIGHT}px;padding:0 9px 0 0;overflow:hidden;border:1px solid rgba(0,180,170,.8);border-radius:10px;letter-spacing:0;text-transform:none;font:600 10px/18px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#dffcf9;background:linear-gradient(90deg,rgba(0,180,170,.38) var(--done,0%),rgba(0,180,170,.08) var(--done,0%));}
 .ausboss-touch-btn.lookpill:hover{border-color:${BRAND};color:#fff;background:linear-gradient(90deg,rgba(0,180,170,.5) var(--done,0%),rgba(0,180,170,.16) var(--done,0%));}
-.ausboss-touch-btn.lookpill .icon{flex:none;font-size:8px;letter-spacing:-1px;opacity:.9;}
+.ausboss-touch-btn.lookpill .key{flex:none;display:inline-flex;align-items:center;gap:4px;align-self:stretch;padding:0 7px 0 8px;background:${BRAND};color:#04201e;font-weight:700;}
+.ausboss-touch-btn.lookpill:hover .key{background:#35d6cb;}
+.ausboss-touch-btn.lookpill.paused .key{background:#9fb4b2;}
+.ausboss-touch-btn.lookpill .icon{flex:none;font-size:8px;letter-spacing:-1px;}
 .ausboss-touch-btn.lookpill.paused{border-color:rgba(120,144,142,.6);color:#c8dddd;background:linear-gradient(90deg,rgba(120,144,142,.3) var(--done,0%),rgba(120,144,142,.06) var(--done,0%));}
 .ausboss-touch-btn.lookpill.paused .icon{letter-spacing:0;}
 .ausboss-touch-btn.lookpill .count{opacity:.8;}
@@ -527,6 +541,7 @@ function resolve(face) {
   face.raw = raw;
   face.exact = exact;
   face.chipAreas = null;
+  face.holds = null;
   face.inside = pic.pieces ? piecesInside(pic.pieces.planes, pic.pieces.list.length, raw) : null;
   face.hoverMask = null;
 }
@@ -697,6 +712,11 @@ function requestRun(face, ask) {
     return false;
   }
   const run = { ask, stamp: face.stamp, epoch: face.sourceEpoch, queued: false };
+  // Runs of this node that are at a picture it no longer has. The one that
+  // is running ends by itself once the next job waits; the ones that still
+  // wait in the queue would each run for nothing, one after the other, so
+  // they are taken out before this one is sent.
+  const stale = face.flying.filter((other) => other.queued && other.epoch !== run.epoch);
   face.flying.push(run);
   face.inFlight = true;
   face.askedAt = performance.now();
@@ -707,7 +727,15 @@ function requestRun(face, ask) {
     face.flying = face.flying.filter((other) => other !== run);
     if (!face.flying.length) settle(face);
   };
-  Promise.resolve(face.host.run(ask === "scope" ? scopeAsk(face) : ask)).then((queued) => {
+  const cleared = stale.length && face.host.dropWaiting
+    ? Promise.resolve(face.host.dropWaiting()).then((gone) => {
+      // What was taken out never answers: the newest of the stale ones,
+      // because a run of this node goes to the front of the queue.
+      const out = new Set(stale.slice(Math.max(0, stale.length - (Number(gone) || 0))));
+      if (out.size) face.flying = face.flying.filter((other) => !out.has(other));
+    }, () => {})
+    : Promise.resolve();
+  cleared.then(() => face.host.run(ask === "scope" ? scopeAsk(face) : ask)).then((queued) => {
     if (queued === false) {
       failed();
       return;
@@ -1258,11 +1286,23 @@ function takeAll(face, index) {
   refreshHover(face);
 }
 
+// Whether a typed name is taken away: what the sign in front of the field
+// was set to, or else what the tool does right now (Erase, or Ctrl held).
+function nameTakes(face) {
+  return face.nameAway ?? face.away;
+}
+
+// A typed name, as every thing of that name. "-face" takes it away and
+// "+face" adds it, whatever the sign says.
 function addName(face, text) {
-  const word = cleanWord(text);
-  if (!word || !face.pic || face.held) return false;
+  const typed = typedName(text, nameTakes(face));
+  if (!typed.word || !face.pic || face.held) return false;
   flushPending(face);
-  addItem(face, { t: "all", op: face.away ? 0 : 1, w: word });
+  if (!typed.add && !face.items.some((item) => item.op === 1)) {
+    setNote(face, "Nothing is picked yet. Pick something first, then take a name away from it.", { life: 3200 });
+    return false;
+  }
+  addItem(face, { t: "all", op: typed.add ? 1 : 0, w: typed.word });
   return true;
 }
 
@@ -1413,9 +1453,19 @@ function syncTools(face) {
     face.lookButton.style.display = offer ? "" : "none";
   }
   if (face.nameField) {
-    face.nameField.disabled = !live || face.held > 0;
-    // A typed name is added, or taken away while the tool takes away.
-    face.nameField.placeholder = face.away ? "\u2212 type a name" : "+ type a name";
+    const off = !live || face.held > 0;
+    const takes = nameTakes(face);
+    face.nameField.disabled = off;
+    face.nameSign.disabled = off;
+    face.nameBox.classList.toggle("away", takes);
+    face.nameSign.textContent = takes ? "\u2212" : "+";
+    face.nameSign.title = takes
+      ? "A name you type is taken away from the mask. Click to add by name instead."
+      : "A name you type is added to the mask. Click to take away by name instead.";
+    face.nameField.placeholder = takes ? "take away by name" : "add by name";
+    face.nameField.title = takes
+      ? "Type what to take out of the mask, like \"face\" or \"hair\", and press Enter. Every thing of that name is taken away."
+      : "Type what to pick, like \"screen\" or \"earring\", and press Enter. Every thing of that name is taken. Start with a minus, like \"-face\", to take it away instead.";
   }
   if (face.newButton) face.newButton.disabled = !live || face.held > 0 || Boolean(face.fresh);
   // The switch shows what a press does right now: with Ctrl held, Paint
@@ -1949,12 +1999,31 @@ function pointOf(face, event) {
   return [clamp(x, 0, face.pic.width - 1), clamp(y, 0, face.pic.height - 1)];
 }
 
+// The pieces that hold a whole pick, worked out once per change to the
+// picks and only when something is being taken away.
+function holdsOf(face) {
+  const pic = face.pic;
+  if (!pic?.pieces || !face.raw) return null;
+  if (!face.holds || face.holds.length !== pic.pieces.list.length) {
+    const areas = chipGroups(face.items).filter((chip) => !chip.away).map((chip) => chipArea(face, chip));
+    face.holds = piecesHolding(pic.pieces.planes, pic.pieces.list.length, areas);
+  }
+  return face.holds;
+}
+
 function pieceUnder(face, point, adding) {
   const pic = face.pic;
   if (!pic?.pieces || !point) return -1;
   const x = clamp(Math.floor(point[0] * pic.scale), 0, pic.pw - 1);
   const y = clamp(Math.floor(point[1] * pic.scale), 0, pic.ph - 1);
-  return pieceAt(pic.pieces.planes, y * pic.pw + x, { sizes: pic.pieces.sizes, inside: face.inside, adding, ranks: pic.pieces.ranks });
+  const at = y * pic.pw + x;
+  if (adding) return pieceAt(pic.pieces.planes, at, { sizes: pic.pieces.sizes, inside: face.inside, ranks: pic.pieces.ranks });
+  // Taking away from a spot that is not picked: never a thing that holds a
+  // whole pick somewhere else (the person, for the sweater picked on them).
+  return pieceAt(pic.pieces.planes, at, {
+    sizes: pic.pieces.sizes, inside: face.inside, adding, ranks: pic.pieces.ranks,
+    here: face.raw?.[at] >= 0.5, holds: holdsOf(face),
+  });
 }
 
 // The pixel of the small copy under a point of the picture.
@@ -2324,7 +2393,8 @@ function syncLooking(face) {
   pill.classList.toggle("paused", paused);
   pill.style.setProperty("--done", `${total ? Math.round((done / total) * 100) : 0}%`);
   face.lookIcon.textContent = paused ? "\u25b6" : "\u275a\u275a";
-  face.lookWord.textContent = paused ? "Paused" : "Looking";
+  face.lookVerb.textContent = paused ? "Look on" : "Pause";
+  face.lookWord.textContent = paused ? "paused" : "looking";
   face.lookCount.textContent = total ? `${done}/${total}` : "\u2026";
   const far = total ? ` ${done} of ${total}` : "";
   pill.title = paused
@@ -2717,6 +2787,8 @@ function setSoft(face, soft) {
 
 // Pick takes whole things; Paint and Erase are the brush.
 function setTool(face, tool) {
+  // The sign in front of the name field follows the tool again.
+  face.nameAway = null;
   if (!TOOLS.includes(tool)) return;
   face.tool = tool;
   face.snap = tool === "pick";
@@ -2773,16 +2845,21 @@ export function mountTouchStage(node, host) {
   const bar = el("div", "ausboss-touch-bar");
   const chips = el("div", "ausboss-touch-chips");
   const chipList = el("span", "ausboss-touch-chiplist");
+  // A name typed here picks every thing of that name, or takes it away:
+  // the sign in front says which, and a press on it changes it.
+  const nameBox = el("span", "ausboss-touch-namebox");
+  const nameSign = el("button", "ausboss-touch-sign", "+");
+  nameSign.type = "button";
   const nameField = el("input", "ausboss-touch-name");
   nameField.type = "text";
-  nameField.placeholder = "+ type a name";
+  nameField.placeholder = "add by name";
   nameField.maxLength = 60;
   nameField.spellcheck = false;
-  nameField.title = "Type what to pick, like \"screen\" or \"earring\", and press Enter. Every thing of that name is taken.";
+  nameBox.append(nameSign, nameField);
   const newButton = el("button", "ausboss-touch-new", "+ new");
   newButton.type = "button";
   newButton.title = "Start a new area: what you paint next gets a chip of its own, also where it touches another area.";
-  chips.append(chipList, newButton, nameField);
+  chips.append(chipList, newButton, nameBox);
   root.append(tools, stage, bar, chips);
 
   const frame = el("div", "ausboss-touch-frame");
@@ -2827,7 +2904,7 @@ export function mountTouchStage(node, host) {
 
   const face = node.__ausbossTouch = {
     node, host, root, stage, frame, img, tint, lit, ink, path, dots, ringBack, ring, coreRing, dab, brushLabel, tag, hint, noteEl, abort,
-    chips, chipList, newButton, nameField, chipsShown: null,
+    chips, chipList, newButton, nameField, nameBox, nameSign, nameAway: null, chipsShown: null,
     flying: [],
     pendingTimer: 0,
     alive: true,
@@ -3031,10 +3108,15 @@ export function mountTouchStage(node, host) {
     if (face.pic?.paused && !face.inFlight) resumeLook(face);
     else pauseLook(face);
   }, signal);
+  // The press it takes comes first, as a button of its own look: "Pause"
+  // while the node looks, "Look on" once it is paused.
   face.lookIcon = el("span", "icon");
+  face.lookVerb = el("span", "verb");
   face.lookWord = el("span", "word");
   face.lookCount = el("span", "count");
-  face.lookPill.append(face.lookIcon, face.lookWord, face.lookCount);
+  const lookKey = el("span", "key");
+  lookKey.append(face.lookIcon, face.lookVerb);
+  face.lookPill.append(lookKey, face.lookWord, face.lookCount);
   face.lookPill.style.display = "none";
   // First in the line under the picture: what the node is doing with the
   // picture, then what is picked; the buttons that pick come after.
@@ -3044,6 +3126,11 @@ export function mountTouchStage(node, host) {
   for (const type of ["keydown", "keyup", "keypress", "pointerdown", "mousedown", "dblclick"]) {
     chips.addEventListener(type, (event) => event.stopPropagation(), { signal });
   }
+  nameSign.addEventListener("click", () => {
+    face.nameAway = !nameTakes(face);
+    syncTools(face);
+    nameField.focus();
+  }, { signal });
   nameField.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
@@ -3096,7 +3183,7 @@ export function mountTouchStage(node, host) {
   // The run stopped at this node with a message for the person.
   face.stopped = (message) => {
     settle(face);
-    setNote(face, String(message ?? ""));
+    setNote(face, stopMessage(message));
     // It stays up until something else is said or the next result comes in.
     face.stopNote = true;
   };

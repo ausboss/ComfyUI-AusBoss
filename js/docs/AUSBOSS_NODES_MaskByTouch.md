@@ -19,8 +19,8 @@ What is lit in teal is what the mask will be. When it is right, press Run
 for the whole workflow.
 
 The first time the pointer rests on a picture, the node looks at it. A
-small button under the picture shows how far along it is, **❚❚ 40/104**,
-filling up as it goes. The first things light up after a few seconds, and
+button under the picture shows how far along it is, **❚❚ Pause · looking
+40/104**, filling up as it goes. The first things light up after a few seconds, and
 it has seen the whole picture after about 20.
 
 You do not have to wait for that. Whatever is lit under the pointer can be
@@ -28,7 +28,7 @@ picked: a click takes it at once, also while the node is still looking.
 
 Click that button to pause the looking when what you need is already lit:
 what is lit stays, and you go on picking and painting. It turns into
-**▶**; click it to look on from where it stopped. A click on a spot where
+**▶ Look on**; click it to look on from where it stopped. A click on a spot where
 nothing is lit yet looks on as well.
 
 A click on a spot where nothing is lit yet is not lost: a dot marks it, the
@@ -50,6 +50,9 @@ at that spot.
   A stroke across two things, like both shoes, takes both.
 - Did the thing not light up at all? Type its name into the field under the
   picture, like "screen" or "earring", and press Enter.
+- Is something in the mask that should not be, like the face or the hair of
+  a person you picked? Click the **+** in front of that field so it shows
+  **−**, type "face" and press Enter. Or hold Ctrl and click the face.
 - When nothing fits, switch to **Paint** and paint the area yourself.
 
 ## The whole subject, or the background
@@ -58,6 +61,10 @@ Under the picture, **Subject** picks the picture's main subject in one
 click: the person, the animal, the product. **Background** picks everything
 else. They are picks like any other: click more things to add them, or
 Ctrl-click a thing to take it away again.
+
+Ctrl-click takes away the thing under the pointer, where it is in the mask.
+On a spot where nothing is picked it changes nothing, and the picture says
+so.
 
 Both need ComfyUI's background-removal model, see "The model for Fine
 edges" below.
@@ -115,8 +122,11 @@ or an area you painted.
   it.
 - **all 3** on a chip takes every thing of that name instead of the one you
   clicked: all five birds, both shoes.
-- The field at the end, **+ type a name**, picks every thing of the name
-  you type. With Erase chosen it takes them away.
+- The field at the end picks every thing of the name you type. The sign in
+  front of it says what happens to the name: **+** adds it, **−** takes it
+  away. Click the sign to change it. A name typed with a minus in front,
+  like "-face", is taken away whatever the sign shows. With Erase chosen the
+  sign starts on **−**.
 
 ## The tools on the node
 
@@ -273,6 +283,15 @@ then.
 
 ### How SAM 3 is asked
 
+- A picture whose long side is over 2048 pixels is asked about on a copy
+  with its long side at 2048. SAM 3 reads every picture at 1008 pixels
+  anyway, and returns each answer at the size it was given, on the graphics
+  card: at 8192 pixels one word with many matches needed over 27 GB. The
+  answer is brought back to the picture's own size, so the mask, the cut-out
+  and your touches stay in pixels of the picture. Paint is never scaled.
+  Measured on a 3840 pixel picture, five words: the new masks share 95 to
+  99.6 % of their area with the old ones, the edge sits a median 0 to 2
+  pixels differently, and a look takes 31 seconds in place of 53.
 - The search is ComfyUI's own SAM 3: SAM3 Detect, asked about points, or
   about a word that CLIP Text Encode has read. Both use ComfyUI's own
   settings (threshold 0.5, two edge passes). The node needs ComfyUI 0.20 or
