@@ -436,10 +436,11 @@ class LoaderValidationTests(TempFolders):
     """The loaders refuse the same paths before a run, with one message each."""
 
     def test_image_loaders_take_what_core_load_image_takes_and_nothing_else(self):
-        from nodes import node_image_crop_rotate_pad, node_load_image_pad
+        from nodes import node_image_crop_rotate_pad, node_load_image, node_load_image_pad
 
         for module, cls, label in (
             (node_image_crop_rotate_pad, node_image_crop_rotate_pad.AusBossImageCropRotatePad, "Image Crop + Rotate + Pad"),
+            (node_load_image, node_load_image.AusBossLoadImage, "Load Image"),
             (node_load_image_pad, node_load_image_pad.AusBossLoadImagePad, "Load Image + Pad"),
         ):
             with self.subTest(node=label):

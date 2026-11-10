@@ -4,6 +4,15 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **New node: Load Image.** Loads a picture and sets its size in the same
+  node, so a workflow needs no resize node after its loader. Size can be a
+  megapixel count, a longest side, a scale, a box the picture fits inside, or
+  a box it fills by cropping, rounded to a multiple you choose. Arrows step
+  through the pictures in the input folder, and the node shows the size
+  going in and coming out before you run. It also gives the file's name and
+  its original size. With Size off the picture comes out exactly as the file
+  has it.
+
 - **Mask by Touch: type a name to take it out of the mask.** The name field
   under the picture now has a sign in front. Click it to switch between **+**
   (add by name) and **−** (take away by name), then type "face" or "hair" and

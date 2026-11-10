@@ -522,6 +522,51 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_LoadImage": {
+    "required": [
+      "image",
+      "size",
+      "megapixels",
+      "longest_side",
+      "scale",
+      "width",
+      "height",
+      "multiple",
+      "method",
+      "enlarge"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "IMAGE",
+        "image"
+      ],
+      [
+        "MASK",
+        "mask"
+      ],
+      [
+        "INT",
+        "width"
+      ],
+      [
+        "INT",
+        "height"
+      ],
+      [
+        "STRING",
+        "filename"
+      ],
+      [
+        "INT",
+        "original_width"
+      ],
+      [
+        "INT",
+        "original_height"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_LoadImagePad": {
     "required": [
       "image",

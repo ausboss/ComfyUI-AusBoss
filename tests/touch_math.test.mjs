@@ -943,7 +943,7 @@ test("a name is shown only when SAM 3 is sure of it, and surer still for a big t
 });
 
 test("the pack's own picture loaders are the ones the node runs by itself", () => {
-  assert.deepEqual([...OWN_LOADERS].sort(), ["AUSBOSS_NODES_ImageCropRotatePad", "AUSBOSS_NODES_LoadImagePad"]);
+  assert.deepEqual([...OWN_LOADERS].sort(), ["AUSBOSS_NODES_ImageCropRotatePad", "AUSBOSS_NODES_LoadImage", "AUSBOSS_NODES_LoadImagePad"]);
   // A core Load Image is not in the list: its file is the picture, and the node shows it without a run.
   assert.equal(OWN_LOADERS.has("LoadImage"), false);
 });

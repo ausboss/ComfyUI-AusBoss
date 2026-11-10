@@ -70,6 +70,7 @@ PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_LaMaInpaint",
     "AUSBOSS_NODES_LayoutBoxes",
     "AUSBOSS_NODES_LoadAudio",
+    "AUSBOSS_NODES_LoadImage",
     "AUSBOSS_NODES_LoadImagePad",
     "AUSBOSS_NODES_LoadVideo",
     "AUSBOSS_NODES_LoraLoader",

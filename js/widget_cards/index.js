@@ -12,6 +12,7 @@ import { formatWidgetVisibility } from "../shared/save_video_formats.mjs";
 import { hideInputsInDef } from "../shared/widget_visibility.mjs";
 import { castChips } from "../shared/h3_cast_chips.mjs";
 import { clipSetsDuration } from "../shared/h3_duration.mjs";
+import { loadImageStrip } from "../shared/load_image_strip.mjs";
 import { momentStrip } from "../shared/moment_strip.mjs";
 import { mountWidgetCard } from "../shared/widget_card.mjs";
 import { FONT_UI, THEME } from "../shared/theme.mjs";
@@ -398,6 +399,28 @@ const CARDS = {
         button: { text: PANEL_LABELS.load, title: "Upload a sound file into ComfyUI's input folder", onClick: (node) => node.widgets?.find((w) => w.name === "upload")?.callback?.() } },
       { widget: "max_seconds", label: "Max length", suffix: "s", decimals: 1, trimZeros: true,
         title: "The longest the sound may be. Anything past it is cut off and shows in red. 0 means no limit." },
+    ],
+  },
+  // Load Image: the file, then where it is in the folder and the size it
+  // goes in and comes out at, then the size settings. ComfyUI's own picture
+  // preview sits under the card, so its mask editor and copy and paste work
+  // as they do on the stock loader.
+  AUSBOSS_NODES_LoadImage: {
+    minWidth: 320, first: true, hide: ["upload"],
+    rows: [
+      { widget: "image", label: "Source", kind: "select", preview: { kind: "image", url: viewUrl },
+        button: { text: PANEL_LABELS.load, title: "Upload a picture into ComfyUI's input folder", onClick: (node) => node.widgets?.find((w) => w.name === "upload")?.callback?.() } },
+      { panel: loadImageStrip, height: 26 },
+      { widget: "size", label: "Size", kind: "select" },
+      { widget: "megapixels", label: "Megapixels", suffix: "MP", when: isMode("size", "megapixels") },
+      { widget: "longest_side", label: "Longest side", suffix: "px", when: isMode("size", "longest side") },
+      { widget: "scale", label: "Scale", suffix: "\u00d7", when: isMode("size", "scale") },
+      { widget: "width", label: "Width", suffix: "px", when: isMode("size", "fit inside", "crop to fill") },
+      { widget: "height", label: "Height", suffix: "px", when: isMode("size", "fit inside", "crop to fill") },
+      { widget: "multiple", label: "Round to", snap: true, step: 8, when: (values) => values.size !== "off" },
+      { group: "more", label: "More" },
+      { widget: "method", label: "Method", kind: "select", group: "more" },
+      { widget: "enlarge", label: "Enlarge", group: "more" },
     ],
   },
   AUSBOSS_NODES_LoadImagePad: {
