@@ -20,6 +20,7 @@ Most of them are for image and video work. ComfyUI's core nodes already cover th
 - **[Mask by Touch](#mask-by-touch):** click a thing on the picture and get its mask. Hover shows what a click would take, and **Fine edges** follows hair and fur.
 - **[Mask by Name](#mask-by-name):** type "the red jacket" and get its mask and a cut-out.
 - **[Image Crop + Rotate + Pad](#image-crop--rotate--pad):** turn, crop and pad a picture by dragging handles on the node, for outpainting.
+- **[Edit Lock](#edit-lock):** an edit changes what you asked for, and the rest of the picture stays exactly where it was. No mask needed.
 - **[Stitch Inpaint](#stitch-inpaint):** after an inpaint or outpaint, everything you didn't ask to change is your original pixels again.
 - **[Video Crop + Rotate + Pad → Clip](#video-crop--rotate--pad--clip):** trim a clip on a timeline, and pad or crop it to a new shape.
 - **[Tiled Upscale](#tiled-upscale):** upscale a picture in tiles to the megapixels you set.
@@ -138,6 +139,18 @@ The same watercolor edit without and with Realign to Source: 61 px off before, 0
 ![Chart titled CRT wall, watercolor: Qwen draws it 5.6% taller, showing the original, the edit as Qwen drew it (61 px off) and the realigned edit (0.6 px off), with close-ups of the waistband.](assets/readme/realign-chart.webp)
 
 Qwen drew this watercolor 5.6% taller, and Realign to Source lined it back up with the original.
+
+### Edit Lock
+
+Keeps every part of your picture that an edit did not change exactly where it was, with the colors it had. An edit model redraws the whole picture, so the parts you did not ask about often come back a little zoomed in, shifted or tinted, and the picture jumps when you flip between before and after. Put Edit Lock between the model and the sampler and give it the picture you are editing. It needs no mask: it sees what the edit changes while the picture is being made, and holds on to everything else.
+
+When the edit changes the whole picture (a new style, new light), there is nothing to keep, so the node steps aside and the edit runs as usual. A soft effect over the whole picture, such as rain or falling snow, is let through as well: the node then only holds the picture in place. **Lock** (`lock`) set to `off` does nothing at all, `always` locks even a whole-picture edit, and an optional `mask` says where the edit may happen. **Tolerance** (`tolerance`) sets how big a change must be to count as part of the edit.
+
+On MiniMax-H3-Image, 4 megapixel edits moved the picture by up to 14 px without the lock (measured at 1 megapixel) and by 0.2 px or less with it (0.08 px or less on 35 of the 36 locked runs), on 19 local edits at two seeds each. After five edits in a row on one picture the plain chain had drifted 1.65 px and turned visibly pink; the locked chain sat at 0.04 px with no tint.
+
+### Edit Lock Restore
+
+Puts your picture's own pixels back in every part the edit did not change. Edit Lock keeps those parts in place, but they still pass through the VAE, which softens fine detail a little. Add this right after the VAE Decode and wire in Edit Lock's `edit_lock` output. **Feather** (`feather`) sets how softly the original fades into the edit. It also returns `edit_mask`, white where the edit changed the picture, and a one-line `report` of how much was kept.
 
 ### Image Compare A/B
 

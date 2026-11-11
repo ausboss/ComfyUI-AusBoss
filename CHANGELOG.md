@@ -4,6 +4,20 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **New node: Edit Lock.** Keeps every part of your picture that an edit
+  did not change exactly where it was, with the colors it had. Edit models
+  redraw the whole picture, so untouched parts often come back a little
+  zoomed, shifted or tinted. Put Edit Lock between the model and the
+  sampler and give it the picture you are editing. It needs no mask. It
+  steps aside when the edit changes the whole picture, and lets rain,
+  snow and haze through while holding the picture in place. Tested on
+  MiniMax-H3-Image.
+
+- **New node: Edit Lock Restore.** Puts your picture's own pixels back in
+  every part the edit did not change. Add it after the VAE Decode with
+  Edit Lock's `edit_lock` output. It also gives a mask of what the edit
+  changed and a one-line report.
+
 - **Mask by Touch: type a name to take it out of the mask.** The name field
   under the picture now has a sign in front. Click it to switch between **+**
   (add by name) and **−** (take away by name), then type "face" or "hair" and
