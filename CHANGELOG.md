@@ -18,6 +18,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   Edit Lock's `edit_lock` output. It also gives a mask of what the edit
   changed and a one-line report.
 
+- **Save Image shows every picture of a run at once.** When a run saves
+  several pictures, they now show side by side in the node, the way the
+  core Save Image does. The arrows still go to each picture by itself, and
+  round again to all of them. Select Frame, Mask Refine, Mask by Name and
+  LaMa Inpaint show a batch the same way.
+
 - **Mask by Touch: type a name to take it out of the mask.** The name field
   under the picture now has a sign in front. Click it to switch between **+**
   (add by name) and **−** (take away by name), then type "face" or "hair" and

@@ -50,8 +50,9 @@ file's name. A caption on the `caption_text` input writes the paired `.txt`.
   shorter; on again, the node returns to its height with the last saved
   image. It is display only: the file is saved either way and the queue
   still lists it. When a run saves more than one image (a batch, or a list
-  such as a folder of images), arrows beside the switch (‹ 2 / 5 ›) step
-  through them.
+  such as a folder of images), they all show side by side. The arrows
+  beside the switch (‹ all 5 ›) go on to each one by itself (‹ 2 / 5 ›) and
+  back round to all of them. A run of more than 48 shows one at a time.
 - **Preview steps** (`step_preview`, off by default): the switch left of
   **preview** shows the picture while it is being made, one step at a time,
   where the saved image goes, with a **STOP** button on the bar. Stop a run
