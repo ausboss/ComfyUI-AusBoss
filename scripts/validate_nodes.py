@@ -56,6 +56,8 @@ PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_ColorMatch",
     "AUSBOSS_NODES_Compare",
     "AUSBOSS_NODES_CropForInpaint",
+    "AUSBOSS_NODES_EditLock",
+    "AUSBOSS_NODES_EditLockRestore",
     "AUSBOSS_NODES_Float",
     "AUSBOSS_NODES_FrameInterpolate",
     "AUSBOSS_NODES_FreeMemory",

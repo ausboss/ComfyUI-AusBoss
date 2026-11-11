@@ -116,6 +116,50 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_EditLock": {
+    "required": [
+      "model",
+      "vae",
+      "image",
+      "lock",
+      "tolerance"
+    ],
+    "optional": [
+      "mask"
+    ],
+    "outputs": [
+      [
+        "MODEL",
+        "model"
+      ],
+      [
+        "AUSBOSS_EDIT_LOCK",
+        "edit_lock"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_EditLockRestore": {
+    "required": [
+      "image",
+      "edit_lock",
+      "feather"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "IMAGE",
+        "image"
+      ],
+      [
+        "MASK",
+        "edit_mask"
+      ],
+      [
+        "STRING",
+        "report"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_Float": {
     "required": [
       "value"
