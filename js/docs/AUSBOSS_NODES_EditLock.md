@@ -36,6 +36,10 @@ Run your edit as usual. Prompt, steps and seed stay as they were.
   it touches everything a little, so there is no untouched part to put
   back. Edit Lock lets the effect through and only holds the picture in
   place, so it does not come back zoomed or shifted. The report says so.
+- **A soft effect and a clear change in one edit** (rain and an umbrella):
+  the node may lock on the umbrella and hold the rain back everywhere
+  else. If the effect is missing outside the changed part, set **Lock** to
+  `off`.
 - **Something in between** (a new hair color on a close-up, a new
   background behind a person): it may lock or step aside. The report says
   which. These edits often change the light on the face too. `auto` steps
