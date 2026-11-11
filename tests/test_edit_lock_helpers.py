@@ -61,8 +61,15 @@ def lock_for(source, mode="auto", tolerance=1.0):
     return lock
 
 
-def run(lock, pred, sigma=1.0):
-    return lock.step({"denoised": pred, "sigma": torch.tensor([sigma])})
+def run(lock, pred, sigma=1.0, steps=None):
+    args = {"denoised": pred, "sigma": torch.tensor([sigma])}
+    if steps is not None:
+        # the sampler's own list of noise levels, the way ComfyUI hands it to the hook
+        args["model_options"] = {"transformer_options": {"sample_sigmas": torch.tensor(steps)}}
+    return lock.step(args)
+
+
+SIX = [1.0, 0.97, 0.89, 0.75, 0.53, 0.23, 0.0]
 
 
 class EditLockTests(unittest.TestCase):
@@ -97,6 +104,99 @@ class EditLockTests(unittest.TestCase):
         run(lock, pred)
         self.assertGreater(lock.kept_share(), 0.95)
         self.assertIn("set lock to off", describe(lock))
+
+    def test_it_watches_first_and_locks_when_the_noise_is_down(self):
+        source, other, redraw = latents(video=False)
+        lock = lock_for(source)
+        # the model's own redraw noise fades from step to step, as it does in a real run
+        for sigma, fade in ((1.0, 1.0), (0.97, 0.8), (0.89, 0.7)):
+            pred = local_prediction(source, other, redraw * fade)
+            out = run(lock, pred, sigma, SIX)
+            self.assertEqual(lock.status, "watching")
+            self.assertIsNone(lock.pixel_mask(H * 16, W * 16))
+            # nothing is put back yet, and with no zoom to undo the prediction passes as it is
+            self.assertTrue(torch.equal(out, pred))
+        pred = local_prediction(source, other, redraw * 0.65)
+        out = run(lock, pred, 0.75, SIX)
+        self.assertEqual(lock.status, "locked")
+        self.assertGreater(lock.top, 4.0)
+        self.assertTrue(torch.equal(out[..., :12, :], source[..., :12, :]))
+        inner = (slice(36, 54), slice(26, 44))
+        self.assertTrue(torch.equal(out[..., inner[0], inner[1]], pred[..., inner[0], inner[1]]))
+
+    def test_a_faint_change_everywhere_is_let_through(self):
+        source, _, redraw = latents(video=False)
+        rain = 0.25 * box_blur(torch.randn(1, 24, H, W, generator=torch.Generator().manual_seed(5)), 1)
+        for mode, status in (("auto", "soft"), ("always", "locked")):
+            lock = lock_for(source, mode=mode)
+            # nothing shows at the first look; then the rain comes in everywhere, and no spot changes clearly
+            for sigma, fade, wet in ((1.0, 1.0, 0.0), (0.97, 0.9, 0.5), (0.89, 0.8, 1.0)):
+                run(lock, source + redraw * fade + rain * wet, sigma, SIX)
+                self.assertEqual(lock.status, "watching")
+            pred = source + redraw * 0.7 + rain * 1.5
+            out = run(lock, pred, 0.75, SIX)
+            self.assertEqual(lock.status, status)
+            self.assertLess(lock.top, 4.0)
+            if mode == "auto":
+                self.assertLess(float((out - pred).abs().max()), 1e-4)
+                self.assertIn("stepped aside", describe(lock))
+
+    def test_a_wide_faint_change_with_no_peak_is_not_locked_in_patches(self):
+        source, _, redraw = latents(video=False)
+        gen = torch.Generator().manual_seed(9)
+        snow = torch.zeros(1, 24, H, W)
+        snow[..., :, :34] = 0.25 * torch.randn(1, 24, H, 34, generator=gen)  # faint, over two fifths of the picture
+        theta = torch.tensor([[[1 / 1.015, 0.0, 0.0], [0.0, 1 / 1.015, 0.0]]])
+        grid = torch.nn.functional.affine_grid(theta, list(source.shape), align_corners=False)
+        zoomed = torch.nn.functional.grid_sample(source, grid, mode="bilinear", padding_mode="border", align_corners=False)
+        for mode, status in (("auto", "soft"), ("always", "locked")):
+            lock = lock_for(source, mode=mode)
+            for sigma, fade in ((1.0, 1.0), (0.97, 0.8), (0.89, 0.7)):
+                run(lock, source + redraw * fade, sigma, SIX)
+            pred = source + redraw * 0.65 + snow
+            out = run(lock, pred, 0.75, SIX)
+            self.assertEqual(lock.status, status)
+            self.assertGreater(lock.wide, 0.10)
+            self.assertLess(lock.peak, 4.0)
+            if mode == "always":
+                self.assertLess(lock.kept_share(), 0.8)
+                continue
+            self.assertIsNone(lock.pixel_mask(H * 16, W * 16))
+            self.assertLess(float((out - pred).abs().max()), 1e-4)
+            self.assertIn("held the picture in place", describe(lock))
+            # for the rest of the run only the zoom is undone
+            out = run(lock, zoomed, 0.53, SIX)
+            self.assertEqual(lock.status, "soft")
+            smooth = lambda x: box_blur(x, 2)[..., 6:-6, 6:-6]
+            self.assertLess(float((smooth(out) - smooth(source)).abs().mean()),
+                            float((smooth(zoomed) - smooth(source)).abs().mean()) * 0.35)
+
+    def test_the_last_step_decides_when_the_noise_never_gets_that_low(self):
+        source, other, redraw = latents(video=False)
+        lock = lock_for(source)
+        two = [1.0, 0.92, 0.0]
+        run(lock, local_prediction(source, other, redraw), 1.0, two)
+        self.assertEqual(lock.status, "watching")
+        run(lock, local_prediction(source, other, redraw * 0.8), 0.92, two)
+        self.assertEqual(lock.status, "locked")
+        # a one-step run decides at once
+        lock = lock_for(source)
+        run(lock, local_prediction(source, other, redraw), 1.0, [1.0, 0.0])
+        self.assertEqual(lock.status, "locked")
+
+    def test_the_zoom_is_undone_while_it_watches(self):
+        source, other, redraw = latents(video=False)
+        theta = torch.tensor([[[1 / 1.015, 0.0, 0.0], [0.0, 1 / 1.015, 0.0]]])
+        grid = torch.nn.functional.affine_grid(theta, list(source.shape), align_corners=False)
+        zoomed = torch.nn.functional.grid_sample(source, grid, mode="bilinear", padding_mode="border", align_corners=False)
+        lock = lock_for(source)
+        out = run(lock, zoomed, 1.0, SIX)
+        self.assertEqual(lock.status, "watching")
+        # read on smoothed copies: this is about where things sit, and resampling costs fine detail either way
+        smooth = lambda x: box_blur(x, 2)[..., 6:-6, 6:-6]
+        off_before = float((smooth(zoomed) - smooth(source)).abs().mean())
+        off_after = float((smooth(out) - smooth(source)).abs().mean())
+        self.assertLess(off_after, off_before * 0.35)
 
     def test_whole_picture_edit_is_left_alone(self):
         source, other, _ = latents()

@@ -144,9 +144,9 @@ Qwen drew this watercolor 5.6% taller, and Realign to Source lined it back up wi
 
 Keeps every part of your picture that an edit did not change exactly where it was, with the colors it had. An edit model redraws the whole picture, so the parts you did not ask about often come back a little zoomed in, shifted or tinted, and the picture jumps when you flip between before and after. Put Edit Lock between the model and the sampler and give it the picture you are editing. It needs no mask: it sees what the edit changes while the picture is being made, and holds on to everything else.
 
-When the edit changes the whole picture (a new style, new light), there is nothing to keep, so the node steps aside and the edit runs as usual. A soft effect over the whole picture, such as rain or falling snow, is the one kind it holds back by mistake: set **Lock** (`lock`) to `off` for those. `always` locks even a whole-picture edit, and an optional `mask` says where the edit may happen. **Tolerance** (`tolerance`) sets how big a change must be to count as part of the edit.
+When the edit changes the whole picture (a new style, new light), there is nothing to keep, so the node steps aside and the edit runs as usual. A soft effect over the whole picture, such as rain or falling snow, is let through as well: the node then only holds the picture in place. **Lock** (`lock`) set to `off` does nothing at all, `always` locks even a whole-picture edit, and an optional `mask` says where the edit may happen. **Tolerance** (`tolerance`) sets how big a change must be to count as part of the edit.
 
-On MiniMax-H3-Image, 4 megapixel edits moved the picture by up to 14 px without the lock (measured at 1 megapixel) and by 0.12 px or less with it, on 18 local edits at two seeds each. After five edits in a row on one picture the plain chain had drifted 1.65 px and turned visibly pink; the locked chain sat at 0.05 px with no tint.
+On MiniMax-H3-Image, 4 megapixel edits moved the picture by up to 14 px without the lock (measured at 1 megapixel) and by 0.2 px or less with it (0.08 px or less on 35 of the 36 locked runs), on 19 local edits at two seeds each. After five edits in a row on one picture the plain chain had drifted 1.65 px and turned visibly pink; the locked chain sat at 0.04 px with no tint.
 
 ### Edit Lock Restore
 

@@ -32,17 +32,17 @@ Run your edit as usual. Prompt, steps and seed stay as they were.
 - **An edit of the whole picture** (a new style, new light, fog):
   there is nothing to keep, so Edit Lock steps aside and the edit runs as
   if the node were not there. The report says so.
-- **A soft effect over the whole picture** (rain, falling snow, drifting
-  smoke): the lock holds it back. It looks like a small local edit while
-  the picture is being made, so the node keeps nearly everything and the
-  effect does not arrive. The report then says it kept 95% or more. Set
-  **Lock** to `off` for these.
+- **A soft effect over the whole picture** (rain, falling snow, haze):
+  it touches everything a little, so there is no untouched part to put
+  back. Edit Lock lets the effect through and only holds the picture in
+  place, so it does not come back zoomed or shifted. The report says so.
 - **Something in between** (a new hair color on a close-up, a new
   background behind a person): it may lock or step aside. The report says
-  which. These edits often change the light on the face too, and `always`
-  keeps the old light on everything it keeps, so the plain edit can look
-  better there. Set **Lock** to `off` if the lock holds back part of your
-  edit. A mask settles it.
+  which. These edits often change the light on the face too. `auto` steps
+  aside for most of them, so the new light comes with the new hair.
+  `always` keeps the old light on everything it keeps, which can look
+  wrong on a face. A mask settles it: paint the hair and the face, and
+  the rest is locked.
 - **The model ignores your picture and draws a new one:** that reads as a
   whole-picture edit, so `auto` steps aside. `always` holds the model to
   your picture.
@@ -74,45 +74,64 @@ Run your edit as usual. Prompt, steps and seed stay as they were.
 - The lock belongs to one picture. For an edit with two pictures, give it
   the one the result should line up with.
 - It works on single pictures, not video.
-- A picture is locked from the first step, so the model finishes the edit
-  on top of your real picture. Shadows and reflections the edit adds next
-  to the changed part still come through.
+- The node watches the first steps of a run and locks for the rest, so
+  the model finishes the edit on top of your real picture. Shadows and
+  reflections the edit adds next to the changed part still come through.
+- If your edit is missing and the report says nearly all of the picture
+  was kept, set **Lock** to `off`.
 - Tested on MiniMax-H3-Image. The lock itself is not tied to one model, but
   the line between "local edit" and "whole picture" was measured there.
 
 ## Technical details
 
 At every step an edit model predicts the finished picture. Edit Lock
-compares that prediction with your picture in latent space. Where the two
-sit close, the edit is not happening there, and the original latent is put
-back before the sampler takes its next step. Where they differ, the
-model's prediction is left alone. A part that was once read as changed
-stays changed for the rest of the run.
+compares that prediction with your picture in latent space.
 
-"Close" is measured against the quiet part of the picture: the tenth where
-the prediction differs least at the first step. A spot counts as changed
-when it differs by 3 times that level, or by 2 times while it touches a
-spot that does. So a faint change beside a clear one belongs to the edit,
-and a faint change alone is redraw noise. **Tolerance** multiplies both
-numbers.
+**Watching.** The first prediction of a run is a blur, and rain, snow or
+the light a new hair color throws on a face only show a few steps in. So
+the node watches until the noise is down to 0.8 of where it began: step 4
+of a 6-step MiniMax-H3-Image run. A run that never gets that low decides
+at its last step. While it watches, the model draws its own picture and
+only one thing is corrected. The model often draws the whole picture about
+one percent larger, or a little shifted. The node measures that zoom and
+shift at every step, on the calmer half of the picture, and moves the
+prediction back so it sits where your picture does.
 
-Two things are not counted as change. An even tint over the whole picture
-is taken out first, so a color cast is removed with the rest. And the
-model often draws the whole picture about one percent larger, or a little
-shifted. The node measures that zoom and shift at every step, on the
-calmer half of the picture, and compares the prediction with the original
-laid over it the same way. Without this a larger redraw reads as a change
-along every edge in the picture. What is put back is the original as it
-was, not the zoomed copy.
+**Deciding.** Change is measured against the quiet part of the picture:
+the tenth where the prediction differs least. An even tint over the whole
+picture is taken out first, so a color cast is not read as a change. A
+spot counts as changed when it differs by 3 times the quiet level, or by 2
+times while it touches a spot that does. So a faint change beside a clear
+one belongs to the edit, and a faint change alone is redraw noise.
+**Tolerance** multiplies both numbers.
 
-At the first step the node also checks whether the whole picture is
-changing. It reads the calmest fifth of a smoothed copy, where a slightly
-larger redraw nearly vanishes and a new style or new light does not. On
-MiniMax-H3-Image, local edits at 1, 4 and 16 megapixels read 0.22 or less
-there and whole-picture edits 0.27 or more; the line sits at 0.243. An
-edit close to that line (a hair color change on a close-up, a new
-background) can fall on either side. The report says which, and **Lock**
-overrides it.
+**Locking.** From the decision on, wherever the picture did not change,
+the original latent is put back before the sampler takes its next step. A
+part once read as changed stays changed for the rest of the run. The last
+step ends on the original there, so what was kept is the original itself,
+not a redrawn copy.
+
+**Stepping aside.** `auto` does not lock in three cases:
+
+- At the first step the whole picture is already changing (a new style,
+  new light). The node reads the calmest fifth of a smoothed copy, where a
+  slightly larger redraw nearly vanishes and a new style does not. On
+  MiniMax-H3-Image, local edits at 1, 4 and 16 megapixels read 0.22 or
+  less there and whole-picture edits 0.27 or more; the line sits at 0.243.
+  The model then runs untouched.
+- At the decision no place has changed clearly: the strongest spot of the
+  picture is under 4 times the quiet level. That is light rain or fog.
+  Local edits read 4.7 or more there, glasses and makeup included.
+- At the decision the lock would hand a tenth of the picture or more to
+  the edit, yet the strongest hundredth of the picture is under 4 times
+  the quiet level. That is heavier rain or snow, and a lock would let it
+  through in patches. Local edits that wide read 4.4 or more; rain and
+  snow read 3.6 or less.
+
+In the last two cases the node keeps undoing the zoom and shift to the end
+of the run, and puts nothing back. An edit close to one of these lines (a
+hair color change on a close-up, a new background, smoke) can fall on
+either side. The report says which, and **Lock** overrides it.
 
 This is the target the TailSteer paper trains a model toward (the source
 where nothing changed, the model's own edit elsewhere), applied while

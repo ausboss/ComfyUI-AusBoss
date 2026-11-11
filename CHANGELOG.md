@@ -8,8 +8,9 @@ All notable changes to ComfyUI-AusBoss are documented here.
   did not change exactly where it was, with the colors it had. Edit models
   redraw the whole picture, so untouched parts often come back a little
   zoomed, shifted or tinted. Put Edit Lock between the model and the
-  sampler and give it the picture you are editing. It needs no mask, and
-  it steps aside when the edit changes the whole picture. Tested on
+  sampler and give it the picture you are editing. It needs no mask. It
+  steps aside when the edit changes the whole picture, and lets rain,
+  snow and haze through while holding the picture in place. Tested on
   MiniMax-H3-Image.
 
 - **New node: Edit Lock Restore.** Puts your picture's own pixels back in

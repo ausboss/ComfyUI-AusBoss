@@ -9,9 +9,12 @@ sampling instead of through training.
 
 What counts as changed is measured against the quiet part of the picture:
 the tenth of it where the prediction differs least, which a local edit
-leaves near the level of the model's own redraw noise. An edit of the whole
-picture (a style, the light, the weather) has no quiet part; the first look
-checks for that, and the lock steps aside.
+leaves near the level of the model's own redraw noise. The node watches the
+first steps, where it only undoes the model's zoom and shift, and decides
+once the picture has formed. An edit of the whole picture (a style, the
+light) has no quiet part: the first look checks for that and the lock steps
+aside. A soft change over the whole picture (rain, snow, haze) has no clear
+peak: the decision checks for that, and the picture is only held in place.
 """
 
 from __future__ import annotations
@@ -32,6 +35,23 @@ STRONG = 3.0
 # The model often draws the whole picture a little larger or shifted. That
 # is measured and discounted before anything is compared, up to these
 # limits; a bigger move is treated as part of the edit.
+# The node watches the start of a run and decides once the noise is down to
+# this share of where it began. The first prediction is a blur: rain, snow,
+# smoke and the light a new hair color throws on a face only show a few
+# steps in. While it watches it only undoes the zoom and shift.
+DECIDE_AT = 0.8
+# A local edit has a peak: somewhere the picture clearly changes. Rain, snow
+# and haze change the whole picture a little and no part clearly. A lock
+# would hold them back, or let them through in patches where it hands a wide
+# part of the picture to the edit. So two things are read at the decision,
+# in units of the quiet level: the strongest spot, and the strongest
+# hundredth when the lock would free SOFT_WIDE of the picture or more. On
+# recorded MiniMax-H3-Image runs the strongest spot read 4.7 or more for
+# every local edit, glasses and makeup included, and 3.7 or less for light
+# rain, fog and snow; with a wide part freed, the strongest hundredth read
+# 4.4 or more for local edits and 3.6 or less for rain and snow.
+SOFT_WIDE = 0.10
+SOFT_PEAK = 4.0
 # Kept this much or more: the report adds what to do if the edit is missing.
 # A soft effect over the whole picture (rain, snow, smoke) looks like a small
 # edit at the first look, and under the lock the model then drops it.
@@ -127,7 +147,12 @@ def measure_redraw(pred: torch.Tensor, source: torch.Tensor) -> torch.Tensor:
     return move
 
 
-def difference(pred: torch.Tensor, source: torch.Tensor) -> torch.Tensor:
+def redraws(pred: torch.Tensor, source: torch.Tensor) -> list[torch.Tensor]:
+    """measure_redraw for each picture of a batch."""
+    return [measure_redraw(pred[index:index + 1], source[:1]) for index in range(pred.shape[0])]
+
+
+def difference(pred: torch.Tensor, source: torch.Tensor, moves: list[torch.Tensor] | None = None) -> torch.Tensor:
     """How far each spot of the prediction is from the original, [B, 1, H, W].
 
     Two things are not a change. A redraw of the whole picture slightly
@@ -138,15 +163,41 @@ def difference(pred: torch.Tensor, source: torch.Tensor) -> torch.Tensor:
     """
     pred = pred.float()
     source = source.float()
+    moves = moves if moves is not None else redraws(pred, source)
     out = []
     for index in range(pred.shape[0]):
-        one = pred[index:index + 1]
-        laid = _moved(source[:1], measure_redraw(one, source[:1]))
-        delta = one - laid
+        delta = pred[index:index + 1] - _moved(source[:1], moves[index])
         delta = delta - delta.flatten(2).median(dim=2).values[:, :, None, None]
         out.append(delta.abs().mean(dim=1, keepdim=True))
     magnitude = torch.cat(out) / source.std().clamp_min(1e-6)
     return box_blur(magnitude, reach(*magnitude.shape[-2:]))
+
+
+def moved_back(pred: torch.Tensor, moves: list[torch.Tensor]) -> torch.Tensor:
+    """The prediction with its zoom and shift undone, so it sits where the original does.
+
+    Resampling softens a latent, so a move under a tenth of a cell at the
+    corner is left alone, and the rest is resampled bicubic: on recorded
+    runs that kept 85% of the fine detail where bilinear kept 65%.
+    """
+    out = []
+    for index in range(pred.shape[0]):
+        one = pred[index:index + 1]
+        move = moves[index]
+        height, width = one.shape[-2:]
+        corner = (move[0].abs() * width / 2 + move[2].abs()).maximum(move[1].abs() * height / 2 + move[3].abs())
+        if float(corner) < 0.1:
+            out.append(one)
+            continue
+        theta = torch.zeros(1, 2, 3, device=one.device, dtype=torch.float32)
+        theta[:, 0, 0] = 1.0 / (1.0 + move[0])
+        theta[:, 1, 1] = 1.0 / (1.0 + move[1])
+        theta[:, 0, 2] = -2.0 * move[2] / (1.0 + move[0]) / width
+        theta[:, 1, 2] = -2.0 * move[3] / (1.0 + move[1]) / height
+        grid = F.affine_grid(theta, list(one.shape), align_corners=False)
+        back = F.grid_sample(one.float(), grid, mode="bicubic", padding_mode="border", align_corners=False)
+        out.append(back.to(one.dtype))
+    return torch.cat(out)
 
 
 def broad_change(pred: torch.Tensor, source: torch.Tensor) -> torch.Tensor:
@@ -171,6 +222,13 @@ def quiet_level(magnitude: torch.Tensor) -> torch.Tensor:
     flat = magnitude.flatten(1)
     stride = max(1, flat.shape[1] // 200000)
     return torch.quantile(flat[:, ::stride], 0.1, dim=1)
+
+
+def peaks(magnitude: torch.Tensor, quiet: torch.Tensor) -> tuple[float, float]:
+    """How clear the clearest change is, in units of the quiet level: (strongest spot, strongest hundredth)."""
+    ratio = (magnitude / quiet.clamp_min(1e-6)[:, None, None, None]).flatten(1)
+    stride = max(1, ratio.shape[1] // 200000)
+    return float(ratio.max(dim=1).values.min()), float(torch.quantile(ratio[:, ::stride], 0.99, dim=1).min())
 
 
 def change_core(magnitude: torch.Tensor, quiet: torch.Tensor, tolerance: float = 1.0,
@@ -222,10 +280,15 @@ class EditLock:
         self.status = "waiting"
         self.mask: torch.Tensor | None = None        # [B, 1, h, w], 1 = changed, soft-edged
         self.core: torch.Tensor | None = None        # the same before its margin, hard-edged
-        self.quiet: torch.Tensor | None = None       # [B], the first look's quiet level
+        self.quiet: torch.Tensor | None = None       # [B], the quiet level at the decision
         self.broad: float | None = None              # the first look's whole-picture reading
+        self.wide: float | None = None               # share of the picture the lock would free, at the decision
+        self.top: float | None = None                # the strongest spot then, in units of the quiet level
+        self.peak: float | None = None               # and the strongest hundredth
         self._sigma: float | None = None
         self._first = True
+        self._first_sigma = 1.0
+        self._decided = False
 
     def _begin(self) -> None:
         self.status = "waiting"
@@ -233,7 +296,20 @@ class EditLock:
         self.core = None
         self.quiet = None
         self.broad = None
+        self.wide = None
+        self.top = None
+        self.peak = None
         self._first = True
+        self._decided = False
+
+    def _decides_now(self, args: dict, sigma: float) -> bool:
+        """True once the noise is down far enough, or this is the run's last step."""
+        steps = (args.get("model_options") or {}).get("transformer_options", {}).get("sample_sigmas")
+        if steps is None or len(steps) < 2:
+            return True  # the sampler does not say where the run ends: decide at once
+        if sigma <= float(steps[-2]) * 1.0001:
+            return True
+        return sigma <= DECIDE_AT * self._first_sigma
 
     def step(self, args: dict) -> torch.Tensor:
         """ComfyUI's post-CFG hook: the prediction comes in, the locked prediction goes out."""
@@ -257,18 +333,41 @@ class EditLock:
         if source is None:
             self.status = "size"
             return pred
+        if self.status == "soft":
+            # nothing is put back, the picture is only held where the original sits
+            back = moved_back(flat, redraws(flat, source))
+            return back[:, :, None] if video else back
         if self.user_mask is not None:
             mask = self._given_mask(flat)
         else:
             if self._first:
+                self._first_sigma = sigma
                 self.broad = float(broad_change(flat, source).max())
                 if self.mode == "auto" and self.broad > WHOLE_PICTURE:
                     self.status = "whole picture"
                     return pred
-            magnitude = difference(flat, source)
-            if self._first:
-                # the yardstick is set once: later steps are read against the first look
+            moves = redraws(flat, source)
+            magnitude = difference(flat, source, moves)
+            if not self._decided and not self._decides_now(args, sigma):
+                # still watching: the model draws its own picture, only its zoom and shift are undone
+                self._first = False
+                self.status = "watching"
+                if self.broad > WHOLE_PICTURE:
+                    return pred  # too much is changing to trust the measured move
+                back = moved_back(flat, moves)
+                return back[:, :, None] if video else back
+            if not self._decided:
+                self._decided = True
+                # the yardstick is set once, here: later steps are read against it
                 self.quiet = quiet_level(magnitude)
+                self.top, self.peak = peaks(magnitude, self.quiet)
+                self.wide = float(change_core(magnitude, self.quiet, self.tolerance).flatten(1).mean(dim=1).max())
+                thin = self.top < SOFT_PEAK or (self.wide >= SOFT_WIDE and self.peak < SOFT_PEAK)
+                if self.mode == "auto" and not self._first and thin:
+                    # a soft change over the whole picture: a lock would hold it back or let it through in patches
+                    self.status = "soft"
+                    back = moved_back(flat, moves)
+                    return back[:, :, None] if video else back
             held = self.core if self.core is not None and self.core.shape[0] == flat.shape[0] else None
             self.core = change_core(magnitude, self.quiet.to(magnitude.device), self.tolerance,
                                     held.to(magnitude.device) if held is not None else None).detach()
@@ -339,6 +438,10 @@ def describe(lock: EditLock) -> str:
         return text
     if lock.status == "whole picture":
         return ("Edit Lock stepped aside: the edit changes the whole picture, so there was nothing to keep. "
+                "Set lock to always to lock anyway.")
+    if lock.status == "soft":
+        return ("Edit Lock stepped aside: the edit spreads thinly over the whole picture (rain, snow, haze), "
+                "so no part of it stayed as it was. It only held the picture in place. "
                 "Set lock to always to lock anyway.")
     if lock.status == "off":
         return "Edit Lock is off."
