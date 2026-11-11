@@ -351,6 +351,12 @@ const CARDS = {
       { widget: "limit", label: "Limit" },
     ],
   },
+  // The seed arrives on a socket (forceInput), so the card is the prompt
+  // alone, with its {a|b} choice sets.
+  AUSBOSS_NODES_PromptVariations: {
+    minWidth: 300,
+    rows: [{ widget: "text", kind: "textarea", placeholder: "A woman in a {red|blue|green} {sweater|jacket}. One choice is picked from each set.", height: 100, grow: true }],
+  },
   // All the words go in the box, and the strip under it shows when each
   // moment plays. The pictures, the video, the voice and the song arrive on
   // sockets, and each picture's job sits under the words.

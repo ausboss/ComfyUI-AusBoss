@@ -79,6 +79,7 @@ PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_MaskByTouch",
     "AUSBOSS_NODES_MathExpression",
     "AUSBOSS_NODES_MergeBatches",
+    "AUSBOSS_NODES_PromptVariations",
     "AUSBOSS_NODES_RealignToSource",
     "AUSBOSS_NODES_RefineMask",
     "AUSBOSS_NODES_Resolution",

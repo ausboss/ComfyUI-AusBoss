@@ -361,6 +361,10 @@ A text box that grows with the node and sends its text, unchanged, down a `STRIN
 
 Runs what comes after once for each line of your text. Type five prompts, one on each line, and one run makes five pictures. It also takes a list another node wrote, skips empty lines, and can take a leading `1.` or `-` off each line. `number` counts the lines from 1, to give each its own seed.
 
+### Prompt Variations
+
+A prompt box that changes on every run. Write choices in curly brackets, split by `|`, such as `a {red|blue|green} {sweater|jacket}`, and the node picks one from each set. Wire in the seed your sampler uses: a new seed gives a new mix, and the same seed gives the same prompt again. Set the seed to randomize and queue 50 runs to get 50 different prompts. Text without brackets comes out exactly as typed, so a JSON prompt is safe.
+
 ### H3 Prompt Writer
 
 Type what happens, one line for each moment, and leave a blank line to cut to a new place. Connect up to four pictures and give each one a job: a person, a place, an outfit, a thing or a style. Copy the moves from a video, keep a clip going, or add a voice or a song. A timeline on the node shows when each moment plays before you run it. It needs no extra model and you never see H3's prompt format. Connect a small text model and it fills in a one-line idea.

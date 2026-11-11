@@ -41,6 +41,7 @@ help panel.
 | Work with frame batches | Select Frame, Select Every Nth, Split Batch, Merge Batches (`AUSBOSS_NODES_SelectFrame`, `_SelectEveryNth`, `_SplitBatch`, `_MergeBatches`) |
 | Run a workflow once for each line of text, such as a list of prompts | Text Lines (`AUSBOSS_NODES_TextLines`) |
 | One shared seed, number or text | Seed, Integer, Float, Text (`AUSBOSS_NODES_Seed`, `_Integer`, `_Float`, `_Text`) |
+| A prompt that picks from `{a\|b\|c}` choices on each run, by seed | Prompt Variations (`AUSBOSS_NODES_PromptVariations`) |
 | Do maths on numbers | Math Expression (`AUSBOSS_NODES_MathExpression`) |
 | Show text on the node, or the picture while it is made | Show Text (`AUSBOSS_NODES_ShowText`), Step Preview (`AUSBOSS_NODES_StepPreview`) |
 | Free graphics memory between steps | Free Memory (`AUSBOSS_NODES_FreeMemory`) |
