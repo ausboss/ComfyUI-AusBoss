@@ -1036,6 +1036,29 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_TextLines": {
+    "required": [
+      "text",
+      "split",
+      "remove_numbering",
+      "limit"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "STRING",
+        "line"
+      ],
+      [
+        "INT",
+        "number"
+      ],
+      [
+        "INT",
+        "count"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_TiledUpscale": {
     "required": [
       "image",

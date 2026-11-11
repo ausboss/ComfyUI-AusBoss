@@ -94,6 +94,7 @@ PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_StitchInpaint",
     "AUSBOSS_NODES_TiledUpscaleStitch",
     "AUSBOSS_NODES_Text",
+    "AUSBOSS_NODES_TextLines",
     "AUSBOSS_NODES_TiledUpscale",
     "AUSBOSS_NODES_VideoCropRotatePad",
     "AUSBOSS_NODES_VideoCropRotatePadClip",

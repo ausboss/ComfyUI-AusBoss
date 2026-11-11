@@ -18,6 +18,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   Edit Lock's `edit_lock` output. It also gives a mask of what the edit
   changed and a one-line report.
 
+- **New node: Text Lines.** It runs what comes after once for each line of
+  your text. Type five prompts, one on each line, and one run makes five
+  pictures. It also takes a list a text model wrote: empty lines are
+  skipped, a leading number or bullet comes off, and **Limit** stops a list
+  that ran long.
+
 - **Mask by Touch: type a name to take it out of the mask.** The name field
   under the picture now has a sign in front. Click it to switch between **+**
   (add by name) and **−** (take away by name), then type "face" or "hair" and
