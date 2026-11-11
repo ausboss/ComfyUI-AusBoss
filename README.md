@@ -146,7 +146,7 @@ Keeps every part of your picture that an edit did not change exactly where it wa
 
 When the edit changes the whole picture (a new style, new light), there is nothing to keep, so the node steps aside and the edit runs as usual. A soft effect over the whole picture, such as rain or falling snow, is the one kind it holds back by mistake: set **Lock** (`lock`) to `off` for those. `always` locks even a whole-picture edit, and an optional `mask` says where the edit may happen. **Tolerance** (`tolerance`) sets how big a change must be to count as part of the edit.
 
-On MiniMax-H3-Image, 4 megapixel edits moved the picture by up to 14 px without the lock (measured at 1 megapixel) and by 0.12 px or less with it, on 18 local edits at two seeds each. After five edits in a row on one picture the plain chain had drifted 1.5 px and turned visibly pink; the locked chain sat at 0.06 px with no tint.
+On MiniMax-H3-Image, 4 megapixel edits moved the picture by up to 14 px without the lock (measured at 1 megapixel) and by 0.12 px or less with it, on 18 local edits at two seeds each. After five edits in a row on one picture the plain chain had drifted 1.65 px and turned visibly pink; the locked chain sat at 0.05 px with no tint.
 
 ### Edit Lock Restore
 

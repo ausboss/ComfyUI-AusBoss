@@ -39,8 +39,10 @@ Run your edit as usual. Prompt, steps and seed stay as they were.
   **Lock** to `off` for these.
 - **Something in between** (a new hair color on a close-up, a new
   background behind a person): it may lock or step aside. The report says
-  which. Set **Lock** to `always` to lock anyway, or `off` if it holds
-  back part of your edit. A mask settles it.
+  which. These edits often change the light on the face too, and `always`
+  keeps the old light on everything it keeps, so the plain edit can look
+  better there. Set **Lock** to `off` if the lock holds back part of your
+  edit. A mask settles it.
 - **The model ignores your picture and draws a new one:** that reads as a
   whole-picture edit, so `auto` steps aside. `always` holds the model to
   your picture.
