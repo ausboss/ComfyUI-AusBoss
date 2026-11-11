@@ -172,6 +172,64 @@
       }
     }
   },
+  "AUSBOSS_NODES_EditLock": {
+    "display_name": "编辑锁定 🆎",
+    "description": "让图片里编辑没有改动的部分保持在原位，颜色也不变。编辑模型会把整张图重画一遍，没改的部分常常略微放大、偏移或偏色。把这个节点放在模型和采样器之间，并接上你要编辑的图片。不需要遮罩：它在出图过程中看出编辑改了哪里。如果编辑改变的是整张图（新风格、新光线、新天气），它会自动让开。解码后再接上编辑锁定还原 🆎，未改动的部分就能换回你原图的像素。",
+    "inputs": {
+      "model": {
+        "name": "模型"
+      },
+      "vae": {
+        "name": "vae"
+      },
+      "image": {
+        "name": "图像"
+      },
+      "lock": {
+        "name": "锁定"
+      },
+      "tolerance": {
+        "name": "容差"
+      },
+      "mask": {
+        "name": "遮罩"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "模型"
+      },
+      "1": {
+        "name": "编辑锁"
+      }
+    }
+  },
+  "AUSBOSS_NODES_EditLockRestore": {
+    "display_name": "编辑锁定还原 🆎",
+    "description": "把编辑没有改动的部分换回你原图自己的像素。放在 VAE 解码之后，并接上编辑锁定 🆎 的 edit_lock 输出。未改动的部分与原图逐像素一致，只有编辑的部分是新的。如果锁定让开了，图片原样通过。",
+    "inputs": {
+      "image": {
+        "name": "图像"
+      },
+      "edit_lock": {
+        "name": "编辑锁"
+      },
+      "feather": {
+        "name": "羽化"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像"
+      },
+      "1": {
+        "name": "编辑遮罩"
+      },
+      "2": {
+        "name": "报告"
+      }
+    }
+  },
   "AUSBOSS_NODES_Float": {
     "display_name": "浮点数 🆎",
     "description": "一个独立的 FLOAT 值。在多个节点之间共用同一个强度、缩放或 CFG，只需在一处修改。",

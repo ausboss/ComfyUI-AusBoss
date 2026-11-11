@@ -122,6 +122,15 @@ const CARDS = {
       { widget: "interpolation", label: "Filter", kind: "select" },
     ],
   },
+  AUSBOSS_NODES_EditLock: {
+    minWidth: 300,
+    rows: [
+      { widget: "lock", label: "Lock", kind: "segment",
+        titles: { auto: "Lock the untouched parts; step aside when the whole picture changes", always: "Lock even when the whole picture changes", off: "Do nothing" } },
+      { widget: "tolerance", label: "Tolerance", decimals: 2, suffix: "×" },
+    ],
+  },
+  AUSBOSS_NODES_EditLockRestore: { minWidth: 300, rows: [{ widget: "feather", label: "Feather", suffix: "px" }] },
   AUSBOSS_NODES_ColorMatch: {
     minWidth: 300,
     rows: [

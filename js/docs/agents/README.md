@@ -25,6 +25,7 @@ help panel.
 | Get a mask by typing what to find | Mask by Name (`AUSBOSS_NODES_MaskByName`) |
 | Get a mask by clicking the thing | Mask by Touch (`AUSBOSS_NODES_MaskByTouch`) |
 | Grow, shrink, fill or smooth a mask | Mask Refine (`AUSBOSS_NODES_RefineMask`) |
+| Keep the untouched parts of a picture exactly as they were while an edit model edits it | Edit Lock (`AUSBOSS_NODES_EditLock`) then Edit Lock Restore (`AUSBOSS_NODES_EditLockRestore`) |
 | Line an edited picture back up with the original | Realign to Source (`AUSBOSS_NODES_RealignToSource`, experimental) |
 | Match one picture's colors to another | Color Match (`AUSBOSS_NODES_ColorMatch`) |
 | Upscale big pictures in tiles | Tiled Upscale (`AUSBOSS_NODES_TiledUpscale`) then Tiled Upscale Stitch (`AUSBOSS_NODES_TiledUpscaleStitch`) |
