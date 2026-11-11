@@ -119,7 +119,17 @@ const NODE_CONFIG = {
   },
   AUSBOSS_NODES_SelectFrame: { inputName: "frames", noun: "frames" },
   // Its result is the file it just saved; the card sits above the panel.
-  AUSBOSS_NODES_SaveImage: { inputName: "images", noun: "an image", switchTitle: "Show the saved image here. The file is saved either way.", steps: true },
+  // SAVE shows only for a run made with Auto save off, which holds its
+  // pictures until this button keeps them.
+  AUSBOSS_NODES_SaveImage: {
+    inputName: "images",
+    noun: "an image",
+    switchTitle: "Show the saved image here. The file is saved either way.",
+    steps: true,
+    tools: [
+      { label: "SAVE", title: "Save what is showing: every picture, or the one the arrows picked.", action: keepHeld, held: true },
+    ],
+  },
 };
 
 // The picture sits out of flow, centred in the stage, so it can never set
@@ -150,6 +160,9 @@ function ensureCss() {
 .ausboss-input-preview-stage:not(.show-image):not(.show-video):not(.show-grid) .ausboss-input-preview-hint{display:block;}
 .ausboss-input-preview-tools{display:flex;gap:4px;pointer-events:auto;}
 .ausboss-input-preview-tool{box-sizing:border-box;height:${BAR_HEIGHT}px;min-width:24px;padding:0 6px;border:1px solid transparent;border-radius:${RADIUS_XS}px;background:${T.fill};color:${T.label};font:600 9.5px/18px ${FONT_UI};letter-spacing:.02em;cursor:pointer;}
+.ausboss-input-preview-tool[hidden]{display:none;}
+.ausboss-input-preview-tool.keep{color:${T.brandInk};background:${T.brandSoft};}
+.ausboss-input-preview-stage .ausboss-input-preview-grid img.kept{outline:2px solid ${T.brand};outline-offset:-2px;}
 .ausboss-input-preview-tool:hover{color:${T.ink};background:${T.fillHover};}
 .ausboss-input-preview-tool.active{color:${T.brandInk};background:${T.brandSoft};}
 .ausboss-input-preview-tool:focus-visible{outline:2px solid ${T.brand};outline-offset:1px;}
@@ -496,6 +509,7 @@ function buildTools(state, tools, signal) {
       tool.action(state);
     }, { signal });
     state.toolButtons[tool.label] = button;
+    if (tool.held) { button.hidden = true; state.keepButton = button; }
     bar.append(button);
   }
   return bar;
@@ -643,6 +657,77 @@ function previewMinWidth(state) {
   return Math.max(PANEL_MIN_WIDTH, Math.ceil(state.node.size[0] - state.bar.clientWidth + needed));
 }
 
+// --- pictures held until Save (Save Image with Auto save off) ---------------
+
+// The token of the run this node is holding, or null when its last run
+// saved its pictures itself.
+function heldToken(state) {
+  if (state.stale || state.resultGone) return null;
+  const token = app.nodeOutputs?.[outputLocatorId(state.node)]?.ausboss_held?.[0];
+  return typeof token === "string" && token ? token : null;
+}
+
+function keptOf(state, token) {
+  if (state.kept?.token !== token) state.kept = { token, indexes: new Set() };
+  return state.kept.indexes;
+}
+
+// A click keeps every picture, or only the one the arrows picked. With the
+// preview off there is no picture to pick, so it keeps them all.
+function keepsAll(state, count) {
+  return count < 2 || showsAll(state, count) || !previewEnabled(state);
+}
+
+// The button says what a click will do: SAVE ALL over the grid, SAVE over
+// one picture, SAVED once there is nothing left to keep there.
+function syncHeld(state, count = resultCount(state)) {
+  const button = state.keepButton;
+  if (!button) return;
+  const token = heldToken(state);
+  button.hidden = !token || count < 1;
+  if (button.hidden) return;
+  const kept = keptOf(state, token);
+  const all = keepsAll(state, count);
+  const done = all ? kept.size >= count : kept.has(state.index);
+  button.textContent = state.keeping ? "SAVING" : done ? "SAVED" : all && count > 1 ? "SAVE ALL" : "SAVE";
+  button.classList.toggle("keep", !done);
+  button.disabled = Boolean(state.keeping);
+  [...(state.grid?.children ?? [])].forEach((cell, index) => cell.classList.toggle("kept", kept.has(index)));
+}
+
+async function keepHeld(state) {
+  const token = heldToken(state);
+  if (!token || state.keeping) return;
+  const count = resultCount(state);
+  const picks = keepsAll(state, count) ? null : [state.index];
+  state.keeping = true;
+  syncHeld(state);
+  try {
+    const response = await api.fetchApi("/ausboss/save_image/keep", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, picks }),
+    });
+    const answer = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(answer.error || "Could not save.");
+    if (!state.alive) return;
+    const kept = keptOf(state, token);
+    for (const index of answer.kept ?? []) kept.add(index);
+    const saved = answer.saved ?? [];
+    const skipped = answer.skipped?.length ?? 0;
+    toast(state, saved.length === 1
+      ? `Saved ${saved[0].path}`
+      : saved.length
+        ? `Saved ${saved.length} pictures`
+        : skipped ? "Not saved: the file already exists" : "Already saved");
+  } catch (error) {
+    if (state.alive) toast(state, error?.message || "Could not save.");
+  } finally {
+    state.keeping = false;
+    if (state.alive) syncHeld(state);
+  }
+}
+
 function showsAll(state, count) {
   return count > 1 && count <= GRID_MAX && state.all !== false;
 }
@@ -664,6 +749,7 @@ function refresh(state) {
   if (!state.alive) return;
   if (!previewEnabled(state)) {
     clearMedia(state);
+    syncHeld(state);
     return;
   }
   const source = upstreamNode(state.node, state.inputName);
@@ -673,6 +759,7 @@ function refresh(state) {
   state.index = keepIndex(state.index, count);
   const all = showsAll(state, count);
   state.stepper.set(state.index, count, all ? allLabel(count) : undefined);
+  syncHeld(state, count);
   if (state.stepper.root.hidden !== hidden) growToNodeFloor(state.widget);
   if (state.stale) {
     // The node ran while its preview was off, so the picture it still has
@@ -686,6 +773,8 @@ function refresh(state) {
   // tinted), so show what feeds it instead.
   if (all) {
     showGrid(state, count);
+    // The grid's cells are new: mark the ones already kept.
+    syncHeld(state, count);
     return;
   }
   clearGrid(state);

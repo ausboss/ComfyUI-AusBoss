@@ -886,7 +886,8 @@
       "name_size",
       "name_batch",
       "preview",
-      "step_preview"
+      "step_preview",
+      "autosave"
     ],
     "outputs": [
       [

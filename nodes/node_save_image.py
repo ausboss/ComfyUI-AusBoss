@@ -6,26 +6,20 @@ from datetime import datetime
 from pathlib import Path
 
 from ._execution_helpers import ignore_extra_inputs
+from ._image_hold_helpers import hold_pictures, keep_pictures, plan_destinations, settle_destinations
 from ._image_save_helpers import (
     EXISTING_POLICIES,
     FORMAT_EXTENSIONS,
     IMAGE_FORMATS,
     IMAGE_SAVE_LOCK,
     encode_image,
-    existing_action,
     fill_name_tokens,
     metadata_disabled,
-    name_stem,
-    next_free_counter,
-    plan_exact_names,
-    plan_local_names,
     resolve_output_root,
-    require_output_path,
     sanitize_exact_name,
     sidecar_path,
-    split_prefix,
-    strip_image_extension,
 )
+from ._route_errors import safe_route_error
 from ._step_preview_helpers import STEP_PREVIEW_DEFAULT, register_step_preview_handler
 from ._video_save_helpers import workflow_metadata
 
@@ -67,6 +61,33 @@ def _register_folder_route() -> None:
         )
         shown = "" if target == root else target.relative_to(root).as_posix()
         return web.json_response({"path": shown, "folders": folders})
+
+    @PromptServer.instance.routes.post("/ausboss/save_image/keep")
+    async def keep_held(request):
+        """Save pictures a run is holding (Auto save off). The body names the
+        run by the token the node was given and, optionally, which of its
+        pictures to keep. Names and folders come from what the run stored,
+        never from the request."""
+        try:
+            body = await request.json()
+        except Exception:
+            return web.json_response({"error": "bad request"}, status=400)
+        if not isinstance(body, dict):
+            return web.json_response({"error": "bad request"}, status=400)
+        picks = body.get("picks")
+        if picks is not None and not isinstance(picks, list):
+            return web.json_response({"error": "bad request"}, status=400)
+        try:
+            answer = keep_pictures(
+                folder_paths.get_temp_directory(), folder_paths.get_output_directory(), body.get("token"), picks,
+            )
+        except LookupError as exc:
+            return web.json_response({"error": safe_route_error(exc, "Those pictures are gone.")}, status=404)
+        except ValueError as exc:
+            return web.json_response({"error": safe_route_error(exc, "Could not save.")}, status=400)
+        except Exception as exc:
+            return web.json_response({"error": safe_route_error(exc, "Could not save.")}, status=500)
+        return web.json_response(answer)
 
 
 class AusBossSaveImage:
@@ -277,6 +298,17 @@ class AusBossSaveImage:
                         ),
                     },
                 ),
+                "autosave": (
+                    "BOOLEAN",
+                    {
+                        "default": True,
+                        "tooltip": (
+                            "On: every run saves its pictures. Off: the "
+                            "pictures only show on the node, and its Save "
+                            "button keeps the ones you want."
+                        ),
+                    },
+                ),
             },
             "hidden": {"prompt": "PROMPT", "extra_pnginfo": "EXTRA_PNGINFO"},
         }
@@ -310,6 +342,7 @@ class AusBossSaveImage:
         name_batch=False,
         preview=True,
         step_preview=STEP_PREVIEW_DEFAULT,
+        autosave=True,
         prompt=None,
         extra_pnginfo=None,
     ):
@@ -343,45 +376,46 @@ class AusBossSaveImage:
         else:
             exact = sanitize_exact_name(exact_name)
 
-        with IMAGE_SAVE_LOCK:
-            planned: list[tuple[Path, str]] = []  # (path, collision policy)
-            if exact:
-                base = strip_image_extension(exact)
-                for name in plan_exact_names(base, extension, count):
-                    planned.append((root / name, on_existing))
-            else:
-                subfolder, base = split_prefix(filename_prefix)
-                folder = root / subfolder if subfolder else root
-                require_output_path(folder, output_root)
-                stem = name_stem(
-                    base,
-                    {"date": bool(name_date), "time": bool(name_time), "size": bool(name_size)},
-                    now,
-                    width,
-                    height,
-                )
-                counter = bool(name_counter)
-                existing = [entry.name for entry in folder.iterdir()] if folder.is_dir() else []
-                names = plan_local_names(
-                    stem, extension, count, counter=counter, batch=bool(name_batch),
-                    next_counter=next_free_counter(existing, stem),
-                )
-                # The shared lock keeps this counter free until writing finishes.
-                # Without it, the legacy policy decides whether to overwrite.
-                policy = "overwrite" if counter else on_existing
-                planned.extend((folder / name, policy) for name in names)
+        settings = {
+            "format": format,
+            "extension": extension,
+            "width": width,
+            "height": height,
+            "exact": exact,
+            "filename_prefix": filename_prefix,
+            "on_existing": on_existing,
+            "output_dir": str(output_dir or ""),
+            "name_counter": bool(name_counter),
+            "name_date": bool(name_date),
+            "name_time": bool(name_time),
+            "name_size": bool(name_size),
+            "name_batch": bool(name_batch),
+            "caption": caption_value,
+        }
+        has_caption = bool(caption_value.strip())
 
+        if not autosave:
+            # Nothing is saved yet. The pictures wait in the temp folder, in
+            # their final format, and the node's Save button keeps the ones
+            # that are wanted (the keep route above). A bad name or folder
+            # still stops the run here, not at the click.
+            with IMAGE_SAVE_LOCK:
+                settle_destinations(plan_destinations(settings, count, now, root, output_root), has_caption, output_root)
+            token, previews = hold_pictures(
+                folder_paths.get_temp_directory(), images, settings,
+                lambda path, frame: encode_image(path, frame, format, metadata),
+            )
+            return {
+                "ui": {"images": previews, "ausboss_saved_path": [], "ausboss_held": [token]},
+                "result": ("", images),
+            }
+
+        with IMAGE_SAVE_LOCK:
             # Validate the whole batch before any write, including caption targets,
             # then settle every collision: an "error" on a later frame must stop
             # the run before the first frame lands, not after.
-            for path, _policy in planned:
-                require_output_path(path, output_root)
-                if caption_value.strip():
-                    require_output_path(sidecar_path(path), output_root)
-            actions = [
-                existing_action(path.exists() or (bool(caption_value.strip()) and sidecar_path(path).exists()), policy)
-                for path, policy in planned
-            ]
+            planned = plan_destinations(settings, count, now, root, output_root)
+            actions = settle_destinations(planned, has_caption, output_root)
 
             saved: list[Path] = []
             for (path, _policy), action, frame in zip(planned, actions, images):
@@ -389,7 +423,7 @@ class AusBossSaveImage:
                     continue
                 path.parent.mkdir(parents=True, exist_ok=True)
                 encode_image(path, frame, format, metadata)
-                if caption_value.strip():
+                if has_caption:
                     sidecar_path(path).write_text(caption_value, encoding="utf-8")
                 saved.append(path)
 

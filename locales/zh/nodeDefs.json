@@ -1110,6 +1110,9 @@
       },
       "step_preview": {
         "name": "步骤预览"
+      },
+      "autosave": {
+        "name": "自动保存"
       }
     },
     "outputs": {

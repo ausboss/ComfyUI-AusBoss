@@ -24,6 +24,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   round again to all of them. Select Frame, Mask Refine, Mask by Name and
   LaMa Inpaint show a batch the same way.
 
+- **Save Image can wait for a click before it saves.** Switch **Auto save**
+  off and a run only shows its pictures on the node. **SAVE ALL** over them
+  keeps every one; step to one picture with the arrows and **SAVE** keeps
+  just that one. Good for making a batch and keeping the best. Auto save is
+  on unless you switch it off, so nothing changes for workflows you have.
+
 - **Mask by Touch: type a name to take it out of the mask.** The name field
   under the picture now has a sign in front. Click it to switch between **+**
   (add by name) and **−** (take away by name), then type "face" or "hair" and
