@@ -289,3 +289,86 @@ export function repointLinks(text, nodes, groups) {
     .replace(ARROW_RE, (all, _arrow, id) => (id === undefined ? all : `${all.slice(0, -id.length - 1)}${follow(`#${id}`)}`));
   return changed ? next : null;
 }
+
+// Info card: a small card with a title, rows and small print, chosen from the
+// note's menu. Its text is the note's ordinary text with one addition: a line
+// with a | in it is a row, the words before it on the left and the rest on
+// the right. A row in **bold** is the one to notice and is drawn in teal. The
+// first line is the card's title; a clock, info, warning, bulb or tick emoji
+// at its start is drawn as a small icon. A plain callout reads none of this,
+// so every note written before looks as it did, and a release before this
+// one shows the card as a plain note with its rows written out.
+const CARD_ICONS = new Map([
+  ["⏱", "clock"], ["⏲", "clock"], ["⏰", "clock"], ["\u{1F552}", "clock"], ["⌛", "clock"], ["⏳", "clock"],
+  ["ℹ", "info"], ["⚠", "warning"], ["\u{1F4A1}", "tip"], ["✅", "check"], ["✔", "check"],
+]);
+const CARD_ICON_RE = new RegExp(`^(${[...CARD_ICONS.keys()].join("|")})${VS16}?\\s*`, "u");
+export const CARD_TEMPLATE = [
+  "ℹ️ Title",
+  `${SMALL_MARK}A line of small print under the title.`,
+  "",
+  "Label | value",
+  "**The one to notice | value**",
+  "",
+  `${SMALL_MARK}A note at the bottom.`,
+].join("\n");
+
+// Where a row splits: the first | that is not inside a link, or -1.
+function cellSplit(line) {
+  const masked = line.replace(WORDS_LINK_RE, (all) => " ".repeat(all.length));
+  return masked.indexOf("|");
+}
+
+// A row's two sides, or null when the line is not a row. The outer pipes of
+// a pasted Markdown table row are dropped.
+export function cardCells(line) {
+  const bare = String(line ?? "").trim().replace(/^\|/, "").replace(/\|$/, "");
+  const at = cellSplit(bare);
+  if (at < 0) return null;
+  let label = bare.slice(0, at).trim();
+  let value = bare.slice(at + 1).trim();
+  if (!label || !value) return null;
+  // **label | value** marks the whole row.
+  if (label.startsWith("**") && !label.slice(2).includes("**") && value.endsWith("**") && !value.slice(0, -2).includes("**")) {
+    label = `${label}**`;
+    value = `**${value}`;
+  }
+  return [label, value];
+}
+
+// Text -> blocks of lines. A line is { kind: "title", icon, pieces },
+// { kind: "row", cells: [pieces, pieces], highlight } or { kind: "text",
+// pieces }; small print carries `small: true`. A Markdown table's ---|---
+// line is dropped.
+export function parseCard(text) {
+  const blocks = [];
+  let lines = [];
+  let first = true;
+  const flush = () => {
+    if (lines.length) blocks.push(lines);
+    lines = [];
+  };
+  for (const raw of String(text ?? "").replace(/\r\n?/g, "\n").split("\n")) {
+    const line = raw.replace(HEADING_RE, "").trim();
+    if (!line) { flush(); continue; }
+    if (/^\|?[\s:|-]*-[\s:|-]*\|?$/.test(line) && line.includes("|")) continue;
+    const small = SMALL_RE.test(raw);
+    const cells = cardCells(line);
+    let item;
+    if (first && !small && !cells) {
+      const icon = CARD_ICON_RE.exec(line);
+      item = { kind: "title", icon: icon ? CARD_ICONS.get(icon[1]) : null, pieces: pieces(icon ? line.slice(icon[0].length) : line) };
+    } else if (cells) {
+      const sides = cells.map((cell) => pieces(cell));
+      const shown = sides.flat().filter((piece) => piece.arrow || piece.text?.trim());
+      item = { kind: "row", cells: sides, highlight: shown.length > 0 && shown.every((piece) => piece.bold) };
+    } else {
+      item = { kind: "text", pieces: pieces(line) };
+    }
+    first = false;
+    if (small) item.small = true;
+    lines.push(item);
+  }
+  flush();
+  return blocks;
+}
