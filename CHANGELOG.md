@@ -36,6 +36,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   just that one. Good for making a batch and keeping the best. Auto save is
   on unless you switch it off, so nothing changes for workflows you have.
 
+- **New node: Prompt Variations.** A prompt box that picks one choice from
+  each set in curly brackets, such as `a {red|blue|green} {sweater|jacket}`,
+  on every run. The seed decides the picks, so the same seed gives the same
+  prompt again. Queue 50 runs with a random seed and get 50 different
+  prompts, with no wildcard pack.
+
 - **Mask by Touch: type a name to take it out of the mask.** The name field
   under the picture now has a sign in front. Click it to switch between **+**
   (add by name) and **−** (take away by name), then type "face" or "hair" and

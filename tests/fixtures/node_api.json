@@ -800,6 +800,19 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_PromptVariations": {
+    "required": [
+      "text",
+      "seed"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "STRING",
+        "prompt"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_RealignToSource": {
     "required": [
       "edited",
