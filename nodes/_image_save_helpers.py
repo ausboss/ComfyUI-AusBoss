@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import re
+import secrets
 import threading
 from datetime import datetime
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -271,6 +272,36 @@ def frame_to_pil(frame: torch.Tensor) -> Image.Image:
     return Image.fromarray(array)
 
 
+# A small copy of each picture, for the node's face. The saved file can be
+# tens of megabytes; this one is a few hundred kilobytes, so the picture
+# shows at once on a slow connection too. It lives in the temp folder, which
+# ComfyUI empties when it starts.
+PREVIEW_FOLDER = "ausboss_preview"
+PREVIEW_EDGE = 2048
+
+
+def write_light_previews(temp_root, frames) -> list[str]:
+    """Write one small WebP per frame; returns each place below the temp folder.
+
+    Never in the way of a save: if anything goes wrong the list is empty
+    and the node shows the saved file itself, as it always did.
+    """
+    try:
+        folder = Path(temp_root) / PREVIEW_FOLDER
+        folder.mkdir(parents=True, exist_ok=True)
+        token = secrets.token_hex(8)
+        places = []
+        for index, frame in enumerate(frames):
+            image = frame_to_pil(frame)
+            image.thumbnail((PREVIEW_EDGE, PREVIEW_EDGE), Image.Resampling.LANCZOS)
+            name = f"{token}_{index:03d}.webp"
+            image.save(folder / name, format="WEBP", quality=88, method=2)
+            places.append(f"{PREVIEW_FOLDER}/{name}")
+        return places
+    except Exception:
+        return []
+
+
 def _png_info(metadata: dict | None):
     if not metadata:
         return None
@@ -340,6 +371,8 @@ __all__ = [
     "IMAGE_FORMATS",
     "IMAGE_SAVE_LOCK",
     "OUTPUT_DIR_RULE",
+    "PREVIEW_EDGE",
+    "PREVIEW_FOLDER",
     "counter_pattern",
     "encode_image",
     "existing_action",
@@ -357,4 +390,5 @@ __all__ = [
     "sidecar_path",
     "split_prefix",
     "strip_image_extension",
+    "write_light_previews",
 ]

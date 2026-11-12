@@ -18,6 +18,25 @@ All notable changes to ComfyUI-AusBoss are documented here.
   icon. An older pack shows the card as a plain note with its rows written
   out.
 
+- **Save Image shows big pictures at once.** The node now shows a small
+  copy of each picture, a few hundred kilobytes, where it used to load the
+  whole file. A 30 MB sheet on a ComfyUI opened from another computer took
+  half a minute to show, or never did; it now shows as the run ends. The
+  saved file is the same full-size file as before.
+
+- **Save Image: the Save button is hard to miss.** With **Auto save** off,
+  a row over the picture now says **Not saved yet** and holds a solid
+  **Save picture** button. Before, it was a small SAVE label in the corner.
+  With several pictures the button reads **Save all 4**, or **Save this
+  one** when the arrows are on one picture. After a save the row says the
+  name the picture was saved under.
+
+- **A picture that loads slowly no longer leaves the old one up.** When a
+  result took more than about 16 seconds to reach the browser, the node
+  kept the picture from the run before. Now the new picture always shows,
+  and the old one dims while the new one loads. This fixes Select Frame,
+  Mask Refine, Mask by Name and LaMa Inpaint as well as Save Image.
+
 ## 2.24.0 - 2026-11-12
 
 - **New node: Edit Lock.** Keeps every part of your picture that an edit

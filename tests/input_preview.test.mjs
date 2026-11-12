@@ -4,6 +4,8 @@ import test from "node:test";
 import {
   describeNodePreview,
   describeOwnResult,
+  lightPreviewQuery,
+  ownResultIsCurrent,
   describeSourcePreview,
   linkById,
   outputLocatorId,
@@ -191,4 +193,65 @@ test("without node.imgs the stored output is the result, ahead of the input", ()
   // Classic fills node.imgs (streamed progress frames too); that still wins.
   node.imgs = [{ src: "own-result" }];
   assert.deepEqual(describeNodePreview(node, "images", "/view?stored"), { kind: "url", url: "own-result" });
+});
+
+test("a picture the frontend gave up loading does not hide the newer result", () => {
+  // The frontend loads a result into node.imgs with a time limit. A 31 MB
+  // sheet over a slow link ran past it, node.imgs kept the run before, and
+  // the panel went on showing that older picture.
+  const view = (name, folder = "", type = "output") =>
+    `http://host/api/view?filename=${name}&subfolder=${folder}&type=${type}&rand=0.5`;
+  const before = { images: [{ filename: "sheet_00009.png", subfolder: "", type: "output" }] };
+  const after = { images: [{ filename: "75dc_000.png", subfolder: "ausboss_held", type: "temp" }] };
+  const node = { inputs: [], imgs: [{ src: view("sheet_00009.png") }] };
+
+  // Loaded for the record on the node: node.imgs is the result.
+  assert.equal(ownResultIsCurrent(node, before, before), true);
+  // A newer run, and node.imgs was never set again: it is the run before.
+  assert.equal(ownResultIsCurrent(node, after, before), false);
+  assert.deepEqual(
+    describeNodePreview(node, "images", "/view?stored", ownResultIsCurrent(node, after, before)),
+    { kind: "url", url: "/view?stored" },
+  );
+  // The same name written over (exact name, overwrite) is still a newer run.
+  const again = { images: [{ filename: "sheet_00009.png", subfolder: "", type: "output" }] };
+  assert.equal(ownResultIsCurrent(node, again, before), false);
+  // Set while a still newer run came in: the names tell them apart.
+  assert.equal(ownResultIsCurrent(node, after, after), false);
+  // Once the frontend does load it, node.imgs is the result again.
+  node.imgs = [{ src: view("75dc_000.png", "ausboss_held", "temp") }];
+  assert.equal(ownResultIsCurrent(node, after, after), true);
+  assert.deepEqual(
+    describeNodePreview(node, "images", "/view?stored", ownResultIsCurrent(node, after, after)),
+    { kind: "url", url: node.imgs[0].src },
+  );
+
+  // A frame streamed during a run is not a stored file: it stays the result.
+  assert.equal(ownResultIsCurrent({ imgs: [{ src: "blob:http://host/1" }] }, after, before), true);
+  // No stored picture to compare with: node.imgs is all there is.
+  assert.equal(ownResultIsCurrent(node, null, undefined), true);
+  assert.equal(ownResultIsCurrent(node, { images: [] }, before), true);
+  // Nothing in node.imgs is never current.
+  assert.equal(ownResultIsCurrent({ imgs: [] }, after, after), false);
+  assert.equal(ownResultIsCurrent(null, after, after), false);
+});
+
+test("Save Image's small copy is what the panel asks for", () => {
+  const record = {
+    images: [
+      { filename: "sheet_00001.png", subfolder: "", type: "output" },
+      { filename: "sheet_00002.png", subfolder: "", type: "output" },
+    ],
+    ausboss_preview: ["ausboss_preview/ab12_000.webp", "ausboss_preview/ab12_001.webp"],
+  };
+  // The newest by default, or the one the arrows picked.
+  assert.equal(lightPreviewQuery(record), "filename=ab12_001.webp&subfolder=ausboss_preview&type=temp");
+  assert.equal(lightPreviewQuery(record, 0), "filename=ab12_000.webp&subfolder=ausboss_preview&type=temp");
+  // No copies (an older run, another node, the preview off): the file itself.
+  assert.equal(lightPreviewQuery({ images: record.images }), null);
+  assert.equal(lightPreviewQuery({ images: record.images, ausboss_preview: [] }), null);
+  // A list that does not match the pictures is not trusted.
+  assert.equal(lightPreviewQuery({ images: record.images, ausboss_preview: ["ausboss_preview/x.webp"] }), null);
+  assert.equal(lightPreviewQuery({ images: record.images, ausboss_preview: ["", 5] }), null);
+  assert.equal(lightPreviewQuery(null), null);
 });

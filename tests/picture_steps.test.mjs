@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { keepIndex, stepIndex, stepperLabel } from "../js/shared/picture_steps.mjs";
+import { keepIndex, keepWords, stepIndex, stepperLabel } from "../js/shared/picture_steps.mjs";
 
 test("a new run keeps the picture that was showing, if it still has one", () => {
   assert.equal(keepIndex(1, 3), 1);
@@ -73,4 +73,22 @@ test("held pictures map to their run and their place in it", async () => {
   assert.deepEqual(heldPlaces({ images: [{ filename: "shot_00001.png" }] }), []);
   assert.deepEqual(heldPlaces({ images: [name(a, 0), name(b, 0)], ausboss_held: [a] }), []);
   assert.deepEqual(heldPlaces(undefined), []);
+});
+
+test("the row over held pictures says what is saved and what a click does", () => {
+  // One picture: not saved, then saved under its name.
+  assert.deepEqual(keepWords({ held: 1 }), { note: "Not saved yet", button: "Save picture", quiet: false });
+  assert.deepEqual(keepWords({ held: 1, saving: true }), { note: "Not saved yet", button: "Saving...", quiet: false });
+  assert.deepEqual(
+    keepWords({ held: 1, kept: 1, done: true, name: "sheet_00001.png" }),
+    { note: "Saved as sheet_00001.png", button: "Saved", quiet: true },
+  );
+  assert.equal(keepWords({ held: 1, kept: 1, done: true }).note, "Saved");
+  // Several, all showing: every one, then only the ones left.
+  assert.deepEqual(keepWords({ held: 4 }), { note: "Not saved yet", button: "Save all 4", quiet: false });
+  assert.deepEqual(keepWords({ held: 4, kept: 1 }), { note: "1 of 4 saved", button: "Save the rest", quiet: false });
+  assert.deepEqual(keepWords({ held: 4, kept: 4, done: true }), { note: "All 4 saved", button: "Saved", quiet: true });
+  // The arrows on one picture: that one alone.
+  assert.deepEqual(keepWords({ held: 4, kept: 1, all: false }), { note: "1 of 4 saved", button: "Save this one", quiet: false });
+  assert.deepEqual(keepWords({ held: 4, kept: 1, all: false, done: true }), { note: "1 of 4 saved", button: "Saved", quiet: true });
 });

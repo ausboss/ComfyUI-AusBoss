@@ -508,3 +508,80 @@ class SaveImageLocalModeTests(SaveImageNodeTests):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SaveImageLightPreviewTests(unittest.TestCase):
+    """The small copy the node shows on its face instead of the full file."""
+
+    def run_node(self, output_root, temp_root, **overrides):
+        class FakeFolderPaths:
+            @staticmethod
+            def get_output_directory():
+                return str(output_root)
+
+            @staticmethod
+            def get_temp_directory():
+                return str(temp_root)
+
+        values = {
+            "images": gradient_batch(1, 64, 4096),
+            "filename_prefix": "sheet",
+            "format": "png",
+            "save_metadata": False,
+        }
+        values.update(overrides)
+        with patch.object(node_save_image, "folder_paths", FakeFolderPaths):
+            return node_save_image.AusBossSaveImage().save(**values)
+
+    def test_a_big_picture_gets_a_small_copy_and_the_file_stays_full_size(self):
+        from nodes._image_save_helpers import PREVIEW_EDGE
+        with tempfile.TemporaryDirectory() as out, tempfile.TemporaryDirectory() as temp:
+            result = self.run_node(out, temp)
+            (place,) = result["ui"]["ausboss_preview"]
+            self.assertRegex(place, r"^ausboss_preview/[0-9a-f]{16}_000\.webp$")
+            with Image.open(Path(temp) / place) as small:
+                self.assertEqual(small.format, "WEBP")
+                self.assertEqual(small.size, (PREVIEW_EDGE, 32))
+            with Image.open(result["result"][0]) as saved:
+                self.assertEqual(saved.size, (4096, 64))
+            # The queue still lists the saved file, not the copy.
+            self.assertEqual(result["ui"]["images"], [{"filename": "sheet_00001.png", "subfolder": "", "type": "output"}])
+
+    def test_every_saved_picture_has_its_copy_in_order(self):
+        with tempfile.TemporaryDirectory() as out, tempfile.TemporaryDirectory() as temp:
+            result = self.run_node(out, temp, images=gradient_batch(3, 8, 16))
+            places = result["ui"]["ausboss_preview"]
+            self.assertEqual(len(places), len(result["ui"]["images"]))
+            self.assertEqual([place[-8:] for place in places], ["000.webp", "001.webp", "002.webp"])
+            for place in places:
+                with Image.open(Path(temp) / place) as small:
+                    self.assertEqual(small.size, (16, 8))
+
+    def test_held_pictures_get_copies_too(self):
+        with tempfile.TemporaryDirectory() as out, tempfile.TemporaryDirectory() as temp:
+            result = self.run_node(out, temp, autosave=False)
+            (place,) = result["ui"]["ausboss_preview"]
+            self.assertTrue((Path(temp) / place).is_file())
+            self.assertEqual(len(result["ui"]["ausboss_held"]), 1)
+
+    def test_preview_off_writes_no_copy(self):
+        with tempfile.TemporaryDirectory() as out, tempfile.TemporaryDirectory() as temp:
+            result = self.run_node(out, temp, preview=False)
+            self.assertEqual(result["ui"]["ausboss_preview"], [])
+            self.assertFalse((Path(temp) / "ausboss_preview").exists())
+            self.assertTrue(Path(result["result"][0]).is_file())
+
+    def test_a_skipped_file_has_no_copy(self):
+        with tempfile.TemporaryDirectory() as out, tempfile.TemporaryDirectory() as temp:
+            (Path(out) / "photo.png").write_bytes(b"original")
+            result = self.run_node(out, temp, exact_name="photo", on_existing="skip")
+            self.assertEqual(result["ui"]["images"], [])
+            self.assertEqual(result["ui"]["ausboss_preview"], [])
+
+    def test_a_copy_that_cannot_be_written_never_stops_the_save(self):
+        with tempfile.TemporaryDirectory() as out, tempfile.TemporaryDirectory() as temp:
+            blocked = Path(temp) / "not_a_folder"
+            blocked.write_text("x", encoding="utf-8")
+            result = self.run_node(out, blocked)
+            self.assertEqual(result["ui"]["ausboss_preview"], [])
+            self.assertTrue(Path(result["result"][0]).is_file())

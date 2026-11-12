@@ -25,7 +25,11 @@ export function ensurePanelControls() {
 .ausboss-panel-switch i::after{content:"";position:absolute;top:2px;left:2px;width:9px;height:9px;border-radius:50%;background:${T.inkSoft}}
 .ausboss-panel-switch[aria-checked=true] i{background:${T.brand}}
 .ausboss-panel-switch[aria-checked=true] i::after{left:13px;background:${T.inkHover}}
-.ausboss-compact-action:focus-visible,.ausboss-panel-switch:focus-visible{outline:2px solid ${T.brand};outline-offset:1px}
+.ausboss-primary-action{box-sizing:border-box;flex:none;height:22px;min-width:24px;padding:0 14px;border:0;border-radius:${RADIUS_XS}px;background:${T.brand};color:${T.onBrand};font:700 11px/1 ${controlFont};white-space:nowrap;cursor:pointer;pointer-events:auto}
+.ausboss-primary-action:hover:enabled{filter:brightness(1.12)}
+.ausboss-primary-action.quiet{background:${T.fill};color:${T.inkSoft}}
+.ausboss-primary-action:disabled{opacity:.6;cursor:default}
+.ausboss-compact-action:focus-visible,.ausboss-primary-action:focus-visible,.ausboss-panel-switch:focus-visible{outline:2px solid ${T.brand};outline-offset:1px}
 `;
   document.head.append(style);
 }
@@ -35,6 +39,19 @@ export function compactAction(label, title = "") {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "ausboss-compact-action";
+  button.textContent = label;
+  button.title = title;
+  return button;
+}
+
+// The one thing a panel wants done next, as a solid button: Save Image's
+// "Save picture" over a picture that is not saved yet. `quiet` (a class the
+// panel sets) is the same button once it has nothing left to do.
+export function primaryAction(label, title = "") {
+  ensurePanelControls();
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "ausboss-primary-action";
   button.textContent = label;
   button.title = title;
   return button;
