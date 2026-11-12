@@ -4,6 +4,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Clear VRAM from the right-click menu.** Right-click the empty canvas
+  and pick **Clear VRAM 🆎** to unload every model and free memory on the
+  ComfyUI server, the same as ComfyUI's own "Unload Models and Execution
+  Cache". A short message says when it is done. Turn the entry off in
+  Settings, 🆎 AusBoss, Memory.
+
 - **Callout 🆎: Info card.** Right-click a Callout and pick **Info card**
   for a small card with a title, a list of labels and values, and small
   print, such as a table of run times. Write a row as `label | value`; a
