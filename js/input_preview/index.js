@@ -14,7 +14,7 @@
 // switch lays each sampling step over the stage, with a Stop button on the
 // bar (shared/step_preview.mjs).
 
-import { panelSwitch } from "../shared/panel_controls.mjs";
+import { panelSwitch, primaryAction } from "../shared/panel_controls.mjs";
 import { api } from "../../../scripts/api.js";
 import { app } from "../../../scripts/app.js";
 import { isForeignRun } from "../shared/prompt_scope.mjs";
@@ -26,7 +26,7 @@ import { suppressCoreImagePreview } from "../shared/core_preview.mjs";
 import { autoMaskValues } from "../shared/mask_auto.mjs";
 import { hideInputsInDef, hideWidget, setWidgetVisible } from "../shared/widget_visibility.mjs";
 import { makePictureStepper } from "../shared/picture_stepper.mjs";
-import { ALL, allLabel, gridShape, heldPlaces, keepIndex, stepIndex, stepWithAll } from "../shared/picture_steps.mjs";
+import { ALL, allLabel, gridShape, heldPlaces, keepIndex, keepWords, stepIndex, stepWithAll } from "../shared/picture_steps.mjs";
 import { addStepConsumer, mountStepOverlay, showsStepsOn, stepRun, stopStepRun, watchSteps } from "../shared/step_preview.mjs";
 import {
   describeNodePreview,
@@ -56,6 +56,9 @@ const BAR_GAP = 6;
 const BAR_PADDING = 2;
 const PANEL_HEIGHT = STAGE_HEIGHT + BAR_HEIGHT + 4 + 16;
 const OFF_HEIGHT = BAR_HEIGHT + 16;
+// The row over pictures that wait for a Save, and the gap under it.
+const KEEP_HEIGHT = 30;
+const KEEP_SPACE = KEEP_HEIGHT + 4;
 const INPUT_SIDE = 1; // LiteGraph.INPUT
 // A run that left this many pictures or fewer opens with all of them side
 // by side. More than that and each would be a speck, so the arrows go
@@ -128,9 +131,9 @@ const NODE_CONFIG = {
     noun: "an image",
     switchTitle: "Show the saved image here. The file is saved either way.",
     steps: true,
-    tools: [
-      { label: "SAVE", title: "Save what is showing: every picture, or the one the arrows picked.", action: keepHeld, held: true },
-    ],
+    // Auto save off: a row over the picture says it is not saved yet and
+    // holds the button that saves it.
+    keep: "Save what is showing: every picture, or the one the arrows picked.",
   },
 };
 
@@ -161,10 +164,14 @@ function ensureCss() {
 .ausboss-input-preview-stage .ausboss-input-preview-grid img{display:block;position:static;margin:0;width:100%;height:100%;min-width:0;min-height:0;max-width:none;max-height:none;object-fit:contain;}
 .ausboss-input-preview-hint{display:none;max-width:86%;color:${T.faint};font:11px/1.35 ${FONT_UI};text-align:center;}
 .ausboss-input-preview-stage:not(.show-image):not(.show-video):not(.show-grid) .ausboss-input-preview-hint{display:block;}
+.ausboss-input-preview-keep{box-sizing:border-box;flex:none;display:flex;align-items:center;justify-content:space-between;gap:10px;height:${KEEP_HEIGHT}px;padding:0 4px 0 10px;border-radius:${RADIUS_CONTROL}px;background:${T.brandSoft};pointer-events:none;}
+.ausboss-input-preview-keep[hidden]{display:none;}
+.ausboss-input-preview-keep span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${T.brandInk};font:600 11px/1.2 ${FONT_UI};}
+.ausboss-input-preview-keep.done{background:${T.fill};}
+.ausboss-input-preview-keep.done span{color:${T.label};}
 .ausboss-input-preview-tools{display:flex;gap:4px;pointer-events:auto;}
 .ausboss-input-preview-tool{box-sizing:border-box;height:${BAR_HEIGHT}px;min-width:24px;padding:0 6px;border:1px solid transparent;border-radius:${RADIUS_XS}px;background:${T.fill};color:${T.label};font:600 9.5px/18px ${FONT_UI};letter-spacing:.02em;cursor:pointer;}
 .ausboss-input-preview-tool[hidden]{display:none;}
-.ausboss-input-preview-tool.keep{color:${T.brandInk};background:${T.brandSoft};}
 .ausboss-input-preview-stage .ausboss-input-preview-grid img.kept{outline:2px solid ${T.brand};outline-offset:-2px;}
 .ausboss-input-preview-tool:hover{color:${T.ink};background:${T.fillHover};}
 .ausboss-input-preview-tool.active{color:${T.brandInk};background:${T.brandSoft};}
@@ -475,7 +482,7 @@ function syncPreviewMode(state, resize) {
   if (resize) {
     const node = state.node;
     node.properties ??= {};
-    const floor = node.computeSize?.()[1] ?? (enabled ? PANEL_HEIGHT : OFF_HEIGHT);
+    const floor = node.computeSize?.()[1] ?? panelFloor(state);
     if (!enabled) {
       // Off: remember the height, then shrink to what is left.
       const height = Number(node.size?.[1]);
@@ -512,7 +519,6 @@ function buildTools(state, tools, signal) {
       tool.action(state);
     }, { signal });
     state.toolButtons[tool.label] = button;
-    if (tool.held) { button.hidden = true; state.keepButton = button; }
     bar.append(button);
   }
   return bar;
@@ -702,21 +708,64 @@ function keepsAll(state, count) {
   return count < 2 || showsAll(state, count) || !previewEnabled(state);
 }
 
-// The button says what a click will do: SAVE ALL over the grid, SAVE over
-// one picture, SAVED once there is nothing left to keep there.
+// The row shows while the node holds pictures. It says what is saved, and
+// its button what a click will do (keepWords).
 function syncHeld(state, count = resultCount(state)) {
-  const button = state.keepButton;
-  if (!button) return;
+  const row = state.keepRow;
+  if (!row) return;
   const held = heldPictures(state);
-  button.hidden = !held.length || count < 1;
-  if (button.hidden) return;
+  const hidden = !held.length || count < 1;
+  if (row.hidden !== hidden) {
+    row.hidden = hidden;
+    fitKeepRow(state);
+  }
+  if (hidden) return;
   const kept = keptOf(state, held);
   const all = keepsAll(state, count);
   const done = all ? kept.size >= held.length : kept.has(state.index);
-  button.textContent = state.keeping ? "SAVING" : done ? "SAVED" : all && count > 1 ? "SAVE ALL" : "SAVE";
-  button.classList.toggle("keep", !done);
-  button.disabled = Boolean(state.keeping);
+  const words = keepWords({
+    held: held.length, kept: kept.size, all, done, saving: Boolean(state.keeping), name: state.kept?.name ?? "",
+  });
+  state.keepNote.textContent = words.note;
+  state.keepNote.title = state.kept?.path ? `ComfyUI/output/${state.kept.path}` : "";
+  state.keepButton.textContent = words.button;
+  state.keepButton.classList.toggle("quiet", words.quiet);
+  state.keepButton.disabled = Boolean(state.keeping);
+  row.classList.toggle("done", words.quiet && kept.size >= held.length);
   [...(state.grid?.children ?? [])].forEach((cell, index) => cell.classList.toggle("kept", kept.has(index)));
+}
+
+// The row takes room of its own, so the picture keeps its floor: the node
+// grows to hold it, and a node with the preview off gives the room back.
+function fitKeepRow(state) {
+  const node = state.node;
+  if (previewEnabled(state)) {
+    ensureNodeMinHeight(node);
+  } else {
+    const floor = Number(node.computeSize?.()?.[1]);
+    if (Number.isFinite(floor)) node.setSize?.([node.size?.[0] ?? PANEL_MIN_WIDTH, floor]);
+  }
+  node.setDirtyCanvas?.(true, true);
+}
+
+function buildKeepRow(state, title, signal) {
+  const row = document.createElement("div");
+  row.className = "ausboss-input-preview-keep";
+  row.hidden = true;
+  const note = document.createElement("span");
+  const button = primaryAction("Save picture", title);
+  // Stop the graph from seeing the click as a canvas drag on the node.
+  button.addEventListener("pointerdown", (event) => event.stopPropagation(), { signal });
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    keepHeld(state);
+  }, { signal });
+  row.append(note, button);
+  state.keepRow = row;
+  state.keepNote = note;
+  state.keepButton = button;
+  return row;
 }
 
 async function keepHeld(state) {
@@ -752,6 +801,12 @@ async function keepHeld(state) {
         if (picture.token === token && done.has(picture.index)) kept.add(place);
       });
       saved.push(...(answer.saved ?? []));
+      // One picture: the row says the name it was saved under.
+      const path = held.length === 1 ? answer.saved?.[0]?.path : null;
+      if (typeof path === "string" && path && state.kept) {
+        state.kept.path = path;
+        state.kept.name = path.slice(path.lastIndexOf("/") + 1);
+      }
       skipped += answer.skipped?.length ?? 0;
     }
     toast(state, saved.length === 1
@@ -870,6 +925,13 @@ function scheduleRefresh(state) {
 // Watching the property rather than an api event catches both routes that set
 // it - the progress frames streamed during a run and the ui payload delivered
 // when the node finishes - without this file having to know either event name.
+// The panel's floor: the bar and the picture, the bar alone with the
+// preview off, and the Save row on top while it shows.
+function panelFloor(state, enabled = state ? previewEnabled(state) : true) {
+  const keep = state?.keepRow && !state.keepRow.hidden ? KEEP_SPACE : 0;
+  return (enabled ? PANEL_HEIGHT : OFF_HEIGHT) + keep;
+}
+
 function watchOwnResult(node, state) {
   let images = node.imgs;
   // Which output the pictures in node.imgs were loaded for. The frontend
@@ -924,7 +986,7 @@ function buildPanel(node, config) {
   const widget = node.addDOMWidget(WIDGET_NAME, "ausboss_input_preview", root, {
     serialize: false,
     hideOnZoom: false,
-    getMinHeight: () => (enabled() ? PANEL_HEIGHT : OFF_HEIGHT),
+    getMinHeight: () => panelFloor(node.__ausbossInputPreview, enabled()),
   });
   keepDomWidgetWidthAuto(widget);
   // Not saved with the workflow either: options.serialize only keeps it out
@@ -936,7 +998,7 @@ function buildPanel(node, config) {
   // dragged taller. With the preview off the floor is the bar alone.
   fillNodeHeight(widget, {
     minWidth: () => previewMinWidth(node.__ausbossInputPreview),
-    minHeight: () => (enabled() ? PANEL_HEIGHT : OFF_HEIGHT),
+    minHeight: () => panelFloor(node.__ausbossInputPreview, enabled()),
     minNodeSize: [PANEL_MIN_WIDTH, 90],
     exactMinWidth: true,
   });
@@ -967,6 +1029,7 @@ function buildPanel(node, config) {
   };
   livePanels.add(state);
   if (config.tools?.length) bar.append(buildTools(state, config.tools, abort.signal));
+  if (config.keep) bar.after(buildKeepRow(state, config.keep, abort.signal));
   if (config.readout) {
     state.readout = document.createElement("span");
     state.readout.className = "ausboss-input-preview-readout";

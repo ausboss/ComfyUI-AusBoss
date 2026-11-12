@@ -69,3 +69,25 @@ export function heldPlaces(record) {
   });
   return held.length && held.every(Boolean) ? held : [];
 }
+
+// What the row over held pictures says, and what its button does.
+//   held    how many pictures the node holds
+//   kept    how many of them are saved already
+//   all     a click keeps every picture (one picture, the grid, preview off)
+//   done    nothing is left to keep where the click would act
+//   saving  a save is on its way
+//   name    the file a single picture was saved as, when known
+// `quiet` is the button once it has nothing left to do.
+export function keepWords({ held = 0, kept = 0, all = true, done = false, saving = false, name = "" } = {}) {
+  const note = !kept
+    ? "Not saved yet"
+    : held < 2
+      ? (name ? `Saved as ${name}` : "Saved")
+      : kept >= held ? `All ${held} saved` : `${kept} of ${held} saved`;
+  if (saving) return { note, button: "Saving...", quiet: false };
+  if (done) return { note, button: "Saved", quiet: true };
+  const button = held < 2
+    ? "Save picture"
+    : !all ? "Save this one" : kept ? "Save the rest" : `Save all ${held}`;
+  return { note, button, quiet: false };
+}
