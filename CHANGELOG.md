@@ -61,6 +61,14 @@ All notable changes to ComfyUI-AusBoss are documented here.
   replaced. Now only the newest look waits. The button that pauses the
   looking also says **Pause** and **Look on**.
 
+- **New node: FlashVSR Upscale 🆎.** Makes a video larger and sharper with
+  the FlashVSR v1.1 model, from 1x to 4x. It needs one model file and no
+  other pack: the help page has the download link. A long clip needs no more
+  graphics memory than a short one, and a result too large for the free
+  memory is made in tiles.
+  The new example `FlashVSR Video Upscale (AusBoss)` shows it between Load
+  Video and Save Video.
+
 - **Two errors from outside a workflow now say what to do.** When a MiniMax H3
   run stops with `KeyError: 'latent'` because the Muse MiniMax Director pack is
   installed, a message names that pack and says to turn it off. When an older
