@@ -19,6 +19,7 @@ import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } fro
 import { collectGraphNodes } from "../shared/appearance.mjs";
 import { copyToClipboard } from "../shared/clipboard.mjs";
 import { confirmDiscard } from "../shared/discard_prompt.mjs";
+import { closeOnBackdropClick } from "../shared/dialog_backdrop.mjs";
 import { WIDGET_FRAME, fillNodeHeight, holdNodeMinHeight } from "../shared/panel_layout.mjs";
 import { hideInputsInDef, hideWidget } from "../shared/widget_visibility.mjs";
 import { suppressCoreImagePreview } from "../shared/core_preview.mjs";
@@ -551,6 +552,7 @@ function render(state) {
       if (note.author) header.append(el("p", "", `by ${note.author}`));
       dialog.append(header);
       renderSections({ note, rows: [] }, dialog);
+      closeOnBackdropClick(dialog);
       document.body.append(dialog);
       state.reader = dialog;
       dialog.addEventListener("close", () => {
