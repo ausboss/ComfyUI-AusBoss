@@ -29,7 +29,7 @@ const NODE_MIN_WIDTH = 340;
 const NAME_TITLE = "The local filename; subfolders are allowed. The tags below are appended to it. Tokens work: %date:yyyy-MM-dd%, %width%, %KSampler.seed%.";
 // Captions, fields, the two-line preview, chips, pills, the embed row and
 // the gaps between them; the frontend's wrapper insets ride on top.
-const CARD_HEIGHT = 320;
+const CARD_HEIGHT = 288;
 const WRAPPER_INSET = 16;
 const HIDDEN = [
   "filename_prefix", "format", "save_metadata", "exact_name", "on_existing",
@@ -60,7 +60,10 @@ function ensureCss() {
 .ausboss-save-chip:hover{color:#fff;border-color:${BRAND}}
 .ausboss-save-chip.on{background:${BRAND};border-color:${BRAND};color:#04201d}
 .ausboss-save-chips.off .ausboss-save-chip{opacity:.4;pointer-events:none}
-.ausboss-save-embed-label{flex:0 0 30%;color:#8ba3a1;font-size:11px;user-select:none}
+.ausboss-save-embed-label{flex:none;color:#8ba3a1;font-size:11px;white-space:nowrap;user-select:none}
+.ausboss-save-half{display:flex;align-items:center;gap:6px;flex:1 1 auto;min-width:0}
+.ausboss-save-half .ausboss-card-seg{flex:1 1 0;min-width:0}
+.ausboss-save-switches{gap:12px}
 .ausboss-save-browse{position:fixed;z-index:10000;width:260px;max-height:320px;overflow:auto;padding:4px;border:1px solid #3a4047;border-radius:7px;background:#1c1f23;box-shadow:0 8px 28px rgba(0,0,0,.5);font:12px/1.3 ${FONT};color:#d8ecea}
 .ausboss-save-browse-head{padding:5px 8px 6px;border-bottom:1px solid #2c3238;color:#78908e;font:10px/1 ${FONT};letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ausboss-save-browse button{display:block;width:100%;padding:6px 8px;border:none;border-radius:5px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
@@ -282,12 +285,16 @@ function buildCard(node) {
     button.addEventListener("click", () => { if (setValue(node, "save_metadata", on)) notifyAusbossChange(); state.refresh(); });
     embedSeg.append(button); embedButtons.set(on, button);
   }
-  embedRow.append(el("span", "ausboss-save-embed-label", PANEL_LABELS.embed), embedSeg);
+  const embedHalf = el("div", "ausboss-save-half");
+  embedHalf.append(el("span", "ausboss-save-embed-label", PANEL_LABELS.embed), embedSeg);
+  embedRow.classList.add("ausboss-save-switches");
+  embedRow.append(embedHalf);
   root.append(embedRow);
 
   // Auto save: off shows the pictures without saving them; the Save button
   // over the picture (js/input_preview) then keeps the ones that are wanted.
-  const autoRow = el("div", "ausboss-save-row");
+  // It shares the Embed workflow row, so the card is no taller than before.
+  const autoHalf = el("div", "ausboss-save-half");
   const autoSeg = el("div", "ausboss-card-seg ausboss-card-bool");
   autoSeg.setAttribute("role", "radiogroup");
   const autoButtons = new Map();
@@ -298,8 +305,8 @@ function buildCard(node) {
     button.addEventListener("click", () => { if (setValue(node, "autosave", on)) { state.savedPath = null; notifyAusbossChange(); } state.refresh(); });
     autoSeg.append(button); autoButtons.set(on, button);
   }
-  autoRow.append(el("span", "ausboss-save-embed-label", "Auto save"), autoSeg);
-  root.append(autoRow);
+  autoHalf.append(el("span", "ausboss-save-embed-label", "Auto save"), autoSeg);
+  embedRow.append(autoHalf);
 
   root.addEventListener("pointerdown", (event) => {
     if (event.target.closest("button,input,select")) event.stopPropagation();
