@@ -3,9 +3,14 @@
 // picture goes in at and comes out at ("912 × 1632 → 1144 × 2048"). The
 // widgets underneath stay the source of truth: an arrow only changes the
 // image widget's value, the way picking from the list does.
+//
+// Under it, the preview: the picture as it goes in with the part that is
+// kept lit, and the picture as it comes out, both on one scale, with what
+// the size choice does in words. While the choice cuts something, a click
+// on the first picture picks the part to keep.
 import { api } from "../../../scripts/api.js";
 import { app } from "../../../scripts/app.js";
-import { placeText, planLoadSize, sizeText, stepFile } from "./load_size.mjs";
+import { CROP_MODES, changeText, cropSideAt, keptPart, placeText, planLoadSize, shapeText, sizeText, stepFile, thumbSizes } from "./load_size.mjs";
 import { mediaViewQuery } from "./media_list.mjs";
 import { FONT_UI, RADIUS_CONTROL, THEME as T } from "./theme.mjs";
 import { commitWidgetValue, comboValues } from "./widget_card_math.mjs";
@@ -29,6 +34,15 @@ function ensureCss() {
 .ausboss-load-size{flex:1 1 0;min-width:0;overflow:hidden;text-align:right;white-space:nowrap;text-overflow:ellipsis;color:${T.inkSoft};font-weight:600;font-variant-numeric:tabular-nums}
 .ausboss-load-size b{color:${T.brandInk};font-weight:700}
 .ausboss-load-size i{color:${T.faint};font-style:normal;margin:0 5px}
+.ausboss-load-view{display:flex;align-items:center;justify-content:center;gap:10px;height:100%;min-width:0;font:500 10px/1.25 ${FONT_UI};color:${T.faint}}
+.ausboss-load-thumb{position:relative;flex:none;overflow:hidden;border-radius:2px;background-color:${T.fill};background-repeat:no-repeat}
+.ausboss-load-thumb.in{background-size:100% 100%}
+.ausboss-load-thumb.in.pick{cursor:pointer}
+.ausboss-load-thumb.out{outline:1px solid ${T.brand};outline-offset:0}
+.ausboss-load-kept{position:absolute;box-sizing:border-box;border:1px solid ${T.brand};box-shadow:0 0 0 400px rgba(8,10,11,.68);pointer-events:none}
+.ausboss-load-note{flex:0 1 auto;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;user-select:none}
+.ausboss-load-note b{color:${T.inkSoft};font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ausboss-load-note span{white-space:nowrap}
 `;
   document.head.append(style);
 }
@@ -47,6 +61,83 @@ function readSize(file, done) {
   };
   picture.src = viewUrl(file);
   return null;
+}
+
+// The widest and tallest a preview picture is drawn.
+const THUMB_WIDTH = 76;
+const THUMB_HEIGHT = 68;
+
+export function loadImagePreview(node) {
+  ensureCss();
+  const root = document.createElement("div");
+  root.className = "ausboss-load-view";
+  const input = document.createElement("div");
+  input.className = "ausboss-load-thumb in";
+  const kept = document.createElement("div");
+  kept.className = "ausboss-load-kept";
+  input.append(kept);
+  const note = document.createElement("div");
+  note.className = "ausboss-load-note";
+  const output = document.createElement("div");
+  output.className = "ausboss-load-thumb out";
+  root.append(input, note, output);
+  let last = {};
+
+  const side = () => node.widgets?.find((item) => item.name === "crop_from") ?? null;
+  const sideLinked = () => node.inputs?.find((slot) => slot?.widget?.name === "crop_from")?.link != null;
+  input.addEventListener("click", (event) => {
+    const widget = side();
+    if (!widget || !input.classList.contains("pick")) return;
+    const box = input.getBoundingClientRect();
+    if (!(box.width > 0 && box.height > 0)) return;
+    const next = cropSideAt((event.clientX - box.left) / box.width, (event.clientY - box.top) / box.height);
+    if (next === widget.value) return;
+    commitWidgetValue(node, widget, next, app.canvas);
+    node.setDirtyCanvas?.(true, true);
+  });
+
+  const line = (tag, text) => {
+    const item = document.createElement(tag);
+    item.textContent = text;
+    return item;
+  };
+  const sync = (values = last) => {
+    last = values;
+    const file = String(values.image ?? "");
+    const source = file ? readSize(file, () => { if (String(last.image ?? "") === file) sync(); }) : null;
+    const plan = source ? planLoadSize(source.width, source.height, values) : null;
+    root.style.visibility = plan ? "" : "hidden";
+    if (!plan) return;
+    const picture = `url(${JSON.stringify(viewUrl(file))})`;
+    const sizes = thumbSizes(source.width, source.height, plan, THUMB_WIDTH, THUMB_HEIGHT);
+    const part = keptPart(plan);
+    Object.assign(input.style, { width: `${sizes.input[0]}px`, height: `${sizes.input[1]}px`, backgroundImage: picture });
+    Object.assign(kept.style, {
+      left: `${part.x * 100}%`, top: `${part.y * 100}%`,
+      width: `${part.width * 100}%`, height: `${part.height * 100}%`,
+    });
+    const spareWide = plan.resizeWidth - plan.width;
+    const spareHigh = plan.resizeHeight - plan.height;
+    Object.assign(output.style, {
+      width: `${sizes.output[0]}px`, height: `${sizes.output[1]}px`, backgroundImage: picture,
+      backgroundSize: `${(plan.resizeWidth / plan.width) * 100}% ${(plan.resizeHeight / plan.height) * 100}%`,
+      backgroundPosition: `${spareWide > 0 ? (plan.cropX / spareWide) * 100 : 0}% ${spareHigh > 0 ? (plan.cropY / spareHigh) * 100 : 0}%`,
+    });
+    const picks = CROP_MODES.includes(values.size) && !sideLinked();
+    input.classList.toggle("pick", picks);
+    input.title = picks
+      ? "The picture going in. The lit part is kept. Click the part you want to keep."
+      : "The picture going in. The lit part is kept.";
+    output.title = "The picture coming out.";
+    const from = shapeText(source.width, source.height);
+    const to = shapeText(plan.width, plan.height);
+    const change = changeText(source.width, source.height, plan);
+    note.replaceChildren(
+      line("b", from === to ? from : `${from} → ${to}`),
+      ...(change ? change.split(" · ").map((text) => line("span", text)) : [line("span", "no change")]),
+    );
+  };
+  return { element: root, sync };
 }
 
 export function loadImageStrip(node) {

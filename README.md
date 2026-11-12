@@ -82,7 +82,7 @@ Krea 2 Rotate + Outpaint turns a photo, pads it and paints the new area in one p
 
 ### Load Image
 
-Loads a picture and sets its size in one node. Pick a file, upload one, or step through the input folder with the arrows. **Size** can stay off, or bring the picture to a megapixel count, a longest side, a scale, a box it must fit inside, or a box it fills by cropping. **Round to** keeps the result on a multiple of 8, 16 or whatever the model wants. The node shows the size going in and the size coming out before you run, such as `912 × 1632 → 1144 × 2048`.
+Loads a picture and sets its size in one node. Pick a file, upload one, or step through the input folder with the arrows. **Size** can stay off, or bring the picture to a megapixel count, a longest side, a scale, a box it must fit inside, or a box it fills by cropping. It can also cut a piece or a shape such as 16:9 out of the picture without resizing, and **Keep** picks which part stays: the center, a side or a corner. **Round to** keeps the result on a multiple of 8, 16 or whatever the model wants. The node shows the picture going in and coming out, with both sizes, before you run, such as `912 × 1632 → 1144 × 2048`.
 
 It returns the `image`, a `mask` of its see-through parts, the new `width` and `height`, the `filename` for a save prefix, and the file's `original_width` and `original_height`.
 

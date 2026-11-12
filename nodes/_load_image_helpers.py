@@ -23,6 +23,37 @@ SIZE_MODES = (
     "scale",
     "fit inside",
     "crop to fill",
+    "crop",
+    "crop to ratio",
+)
+# Which part of the picture a crop keeps.
+CROP_SIDES = (
+    "center",
+    "top",
+    "bottom",
+    "left",
+    "right",
+    "top left",
+    "top right",
+    "bottom left",
+    "bottom right",
+)
+# The last one takes its shape from the width and height boxes.
+RATIOS = (
+    "1:1",
+    "4:3",
+    "3:4",
+    "3:2",
+    "2:3",
+    "16:9",
+    "9:16",
+    "5:4",
+    "4:5",
+    "21:9",
+    "9:21",
+    "2:1",
+    "1:2",
+    "width : height",
 )
 
 
@@ -36,6 +67,29 @@ def _multiple_below(value: int, multiple: int) -> int:
     return max(step, (int(value) // step) * step)
 
 
+def _multiple_inside(value: int, multiple: int) -> int:
+    """``value`` rounded down to a multiple, or left alone when it is smaller
+    than one step: a cut never asks for more than the picture holds."""
+    step = max(1, int(multiple))
+    return (int(value) // step) * step if int(value) >= step else int(value)
+
+
+def _crop_start(spare: int, side: str, low: str, high: str) -> int:
+    """Where a cut starts along one edge with ``spare`` pixels to lose."""
+    if low in side:
+        return 0
+    if high in side:
+        return int(spare)
+    return int(spare) // 2
+
+
+def _ratio_terms(ratio: str, width: int, height: int) -> tuple[int, int]:
+    if ratio == "width : height":
+        return max(1, int(width)), max(1, int(height))
+    across, _, down = str(ratio).partition(":")
+    return max(1, int(across)), max(1, int(down))
+
+
 def plan_load_size(
     source_width: int,
     source_height: int,
@@ -47,6 +101,8 @@ def plan_load_size(
     height: int = 1024,
     multiple: int = 1,
     enlarge: bool = True,
+    crop_from: str = "center",
+    ratio: str = "1:1",
 ) -> dict[str, int]:
     """What one picture is resized to (``resize_width``/``resize_height``),
     where a crop starts in the resized picture (``crop_x``/``crop_y``) and
@@ -57,12 +113,20 @@ def plan_load_size(
     the picture: a target above it leaves the picture at its own size, and
     ``crop to fill`` cuts the box's shape out of the picture without growing
     it. ``fit inside`` rounds down, so the result never leaves its box.
+
+    ``crop`` cuts a width x height piece out of the picture and ``crop to
+    ratio`` cuts the largest piece of a shape; neither resizes. ``crop_from``
+    names the part every cut keeps.
     """
     source_w, source_h = int(source_width), int(source_height)
     if source_w <= 0 or source_h <= 0:
         raise ValueError("Load Image needs a picture larger than 0x0.")
     if size not in SIZE_MODES:
         raise ValueError(f"size must be one of {SIZE_MODES}, got '{size}'.")
+    if crop_from not in CROP_SIDES:
+        raise ValueError(f"crop_from must be one of {CROP_SIDES}, got '{crop_from}'.")
+    if ratio not in RATIOS:
+        raise ValueError(f"ratio must be one of {RATIOS}, got '{ratio}'.")
     if size == "off":
         return {
             "resize_width": source_w,
@@ -73,6 +137,31 @@ def plan_load_size(
             "height": source_h,
         }
     step = max(1, int(multiple))
+
+    def cut(resize_w: int, resize_h: int, out_w: int, out_h: int) -> dict[str, int]:
+        return {
+            "resize_width": resize_w,
+            "resize_height": resize_h,
+            "crop_x": _crop_start(resize_w - out_w, crop_from, "left", "right"),
+            "crop_y": _crop_start(resize_h - out_h, crop_from, "top", "bottom"),
+            "width": out_w,
+            "height": out_h,
+        }
+
+    if size == "crop":
+        out_w = _multiple_inside(min(max(1, int(width)), source_w), step)
+        out_h = _multiple_inside(min(max(1, int(height)), source_h), step)
+        return cut(source_w, source_h, out_w, out_h)
+
+    if size == "crop to ratio":
+        across, down = _ratio_terms(ratio, width, height)
+        if source_w * down >= source_h * across:
+            out_h = source_h
+            out_w = min(source_w, max(1, _round_half_up(source_h * across / down)))
+        else:
+            out_w = source_w
+            out_h = min(source_h, max(1, _round_half_up(source_w * down / across)))
+        return cut(source_w, source_h, _multiple_inside(out_w, step), _multiple_inside(out_h, step))
 
     if size == "crop to fill":
         box_w, box_h = max(1, int(width)), max(1, int(height))
@@ -88,14 +177,7 @@ def plan_load_size(
             canvas_w = snap_to_multiple(box_w, step)
             canvas_h = snap_to_multiple(box_h, step)
         plan = plan_resize(source_w, source_h, canvas_w, canvas_h, "cover_crop", 1)
-        return {
-            "resize_width": plan["resize_width"],
-            "resize_height": plan["resize_height"],
-            "crop_x": plan["crop_x"],
-            "crop_y": plan["crop_y"],
-            "width": canvas_w,
-            "height": canvas_h,
-        }
+        return cut(plan["resize_width"], plan["resize_height"], canvas_w, canvas_h)
 
     if size == "megapixels":
         target_w, target_h = resolve_target(source_w, source_h, "megapixels", megapixels=megapixels)
@@ -162,4 +244,4 @@ def apply_load_size(
     return image, mask
 
 
-__all__ = ["SIZE_MODES", "apply_load_size", "frames_to_image_and_mask", "plan_load_size"]
+__all__ = ["CROP_SIDES", "RATIOS", "SIZE_MODES", "apply_load_size", "frames_to_image_and_mask", "plan_load_size"]

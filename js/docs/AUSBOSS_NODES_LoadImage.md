@@ -12,6 +12,11 @@ size that comes out:
 
 That is the real output size, worked out before you run.
 
+Under that line are two small pictures: the file as it goes in, and the
+picture as it comes out. On the first one the part that is kept is lit and
+the part that is cut off is dark. Between them the node says the shape
+(`3:4 → 1:1`) and what happens (`77% size`, `cuts 449 px of height`).
+
 ## Size
 
 **Size** (`size`) picks how the picture is resized. Each choice shows only
@@ -24,11 +29,25 @@ the numbers it uses.
 | **longest side** | Sets the longer edge; the other edge follows. | **Longest side** (`longest_side`), in pixels |
 | **scale** | Multiplies both edges. | **Scale** (`scale`): 0.5 is half, 2 is double |
 | **fit inside** | Makes the picture as big as it can be inside a box, with nothing cut off. | **Width** and **Height** (`width`, `height`) |
-| **crop to fill** | Covers the box completely and cuts off what sticks out, evenly from both sides. | **Width** and **Height** |
+| **crop to fill** | Covers the box completely and cuts off what sticks out. | **Width** and **Height** |
+| **crop** | Cuts a piece of that size out of the picture. Nothing is resized. | **Width** and **Height** |
+| **crop to ratio** | Cuts the largest piece of a shape, such as 16:9, out of the picture. Nothing is resized. | **Ratio** (`ratio`) |
 
 **Round to** (`multiple`) rounds the new width and height to a multiple of
 that number. Most models want 8 or 16. Set it to 1 to keep the numbers as
 they are. It does nothing while Size is off.
+
+## Which part is kept
+
+The three crop choices show **Keep** (`crop_from`). It picks the part of the
+picture that stays: `center` cuts evenly from both sides, `top` keeps the top
+and cuts from the bottom, `bottom left` keeps that corner, and so on.
+
+You can also click the first small picture: click its top to keep the top,
+a corner to keep that corner. The lit part moves so you see what you get.
+
+In **Ratio**, `width : height` takes the shape from the Width and Height
+boxes, for a shape that is not in the list (1600 and 900 give 16:9).
 
 ## More
 
@@ -73,7 +92,13 @@ and right-click the node for the mask editor and for copy and paste.
   by up to half a step. Fit inside rounds down instead, so the result never
   leaves its box.
 - Crop to fill resizes the picture until it covers the box, then cuts the
-  middle out. The mask goes through the same resize and the same cut.
+  box out at the side Keep names. The mask goes through the same resize and
+  the same cut.
+- Crop and crop to ratio only cut. A box larger than the picture is cut down
+  to the picture, and Round to rounds down so the piece stays inside it.
+  Enlarge does not apply to them.
+- The small pictures are drawn on one scale, so a picture made half as large
+  is drawn half as large.
 - With Enlarge off, a rounded size is rounded down so it never passes the
   file's own size.
 - The size line on the node uses the same arithmetic as the run. The pack's

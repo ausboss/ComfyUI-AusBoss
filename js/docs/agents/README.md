@@ -17,7 +17,7 @@ help panel.
 | Pick a picture size by shape and megapixels, in place of Empty Latent | Latent Size (`AUSBOSS_NODES_Resolution`) |
 | Resize a picture, or snap its size to a multiple | Image Resize (`AUSBOSS_NODES_ImageResize`), Align Image (`AUSBOSS_NODES_AlignImage`) |
 | Read a picture's width and height | Image Size (`AUSBOSS_NODES_ImageSize`) |
-| Load a picture and set its size (megapixels, longest side, a box) in one node | Load Image (`AUSBOSS_NODES_LoadImage`) |
+| Load a picture and set its size or crop it (megapixels, longest side, a box, a ratio) in one node | Load Image (`AUSBOSS_NODES_LoadImage`) |
 | Outpaint: load a picture and add empty space around it | Load Image + Pad (`AUSBOSS_NODES_LoadImagePad`) |
 | Turn, crop and pad a picture in one node | Image Crop + Rotate + Pad (`AUSBOSS_NODES_ImageCropRotatePad`) |
 | Inpaint only the masked part, then put it back | Crop For Inpaint (`AUSBOSS_NODES_CropForInpaint`) then Stitch Inpaint (`AUSBOSS_NODES_StitchInpaint`) |

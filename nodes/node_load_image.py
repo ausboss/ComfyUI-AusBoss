@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from ._execution_helpers import ignore_extra_inputs
 from ._load_image_helpers import (
+    CROP_SIDES,
+    RATIOS,
     SIZE_MODES,
     apply_load_size,
     frames_to_image_and_mask,
@@ -21,8 +23,9 @@ class AusBossLoadImage:
         "upload one, or step through the input folder with the arrows. "
         "Size can stay off, or bring the picture to a megapixel count, a "
         "longest side, a scale, a box it must fit inside, or a box it fills "
-        "by cropping. The node shows the size going in and the size coming "
-        "out before you run."
+        "by cropping. It can also cut a piece or a shape out of the picture "
+        "without resizing, keeping the side you choose. The node shows the "
+        "picture going in and coming out, with both sizes, before you run."
     )
     SEARCH_ALIASES = [
         "load image",
@@ -31,6 +34,8 @@ class AusBossLoadImage:
         "resize on load",
         "megapixels",
         "longest side",
+        "crop",
+        "aspect ratio",
         "ausboss",
     ]
 
@@ -54,7 +59,9 @@ class AusBossLoadImage:
                             "is. megapixels, longest side and scale keep its "
                             "shape. fit inside shrinks or grows it to sit in "
                             "a box. crop to fill covers the box and cuts off "
-                            "what sticks out."
+                            "what sticks out. crop cuts a piece out without "
+                            "resizing. crop to ratio cuts the largest piece "
+                            "of a shape."
                         ),
                     },
                 ),
@@ -95,7 +102,7 @@ class AusBossLoadImage:
                         "min": 16,
                         "max": 16384,
                         "step": 1,
-                        "tooltip": "For fit inside and crop to fill: the box's width in pixels.",
+                        "tooltip": "For fit inside, crop to fill and crop: the box's width in pixels.",
                     },
                 ),
                 "height": (
@@ -105,7 +112,7 @@ class AusBossLoadImage:
                         "min": 16,
                         "max": 16384,
                         "step": 1,
-                        "tooltip": "For fit inside and crop to fill: the box's height in pixels.",
+                        "tooltip": "For fit inside, crop to fill and crop: the box's height in pixels.",
                     },
                 ),
                 "multiple": (
@@ -138,6 +145,28 @@ class AusBossLoadImage:
                             "size you asked for. Off: a picture is only ever "
                             "made smaller, and a small one comes out at its "
                             "own size."
+                        ),
+                    },
+                ),
+                "crop_from": (
+                    list(CROP_SIDES),
+                    {
+                        "default": "center",
+                        "tooltip": (
+                            "For the three crop choices: the part of the "
+                            "picture that is kept. top keeps the top and cuts "
+                            "from the bottom."
+                        ),
+                    },
+                ),
+                "ratio": (
+                    list(RATIOS),
+                    {
+                        "default": "1:1",
+                        "tooltip": (
+                            "For crop to ratio: the shape to cut, width to "
+                            "height. width : height uses the numbers in the "
+                            "width and height boxes."
                         ),
                     },
                 ),
@@ -179,6 +208,8 @@ class AusBossLoadImage:
         multiple=8,
         method="lanczos",
         enlarge=True,
+        crop_from="center",
+        ratio="1:1",
     ):
         path = resolve_input_path(image)
         picture, mask = frames_to_image_and_mask(load_image_frames(path))
@@ -194,6 +225,8 @@ class AusBossLoadImage:
             int(height),
             int(multiple),
             bool(enlarge),
+            str(crop_from),
+            str(ratio),
         )
         picture, mask = apply_load_size(picture, mask, plan, str(method))
         return (

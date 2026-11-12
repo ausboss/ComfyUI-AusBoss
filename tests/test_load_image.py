@@ -23,6 +23,8 @@ if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
 
 from nodes import _media_helpers  # noqa: E402
 from nodes._load_image_helpers import (  # noqa: E402
+    CROP_SIDES,
+    RATIOS,
     SIZE_MODES,
     apply_load_size,
     plan_load_size,
@@ -41,10 +43,37 @@ class PlanTests(unittest.TestCase):
         table = json.loads(TABLE.read_text(encoding="utf-8"))
         self.assertGreater(len(table["rows"]), 200)
         for row in table["rows"]:
-            source_w, source_h, size, megapixels, longest_side, scale, width, height, multiple, enlarge = row[:10]
-            plan = plan_load_size(source_w, source_h, size, megapixels, longest_side, scale, width, height, multiple, enlarge)
+            plan = plan_load_size(*row[:12])
             got = [plan["resize_width"], plan["resize_height"], plan["crop_x"], plan["crop_y"], plan["width"], plan["height"]]
-            self.assertEqual(got, row[10:], row[:10])
+            self.assertEqual(got, row[12:], row[:12])
+
+    def test_a_crop_keeps_the_side_that_is_asked_for(self):
+        # 200 x 100 into a 100 x 100 box: 100 pixels of width to lose.
+        starts = {"left": 0, "top left": 0, "bottom left": 0, "center": 50, "top": 50, "bottom": 50, "right": 100, "top right": 100, "bottom right": 100}
+        self.assertEqual(set(starts), set(CROP_SIDES))
+        for side, start in starts.items():
+            for size in ("crop to fill", "crop", "crop to ratio"):
+                plan = plan_load_size(200, 100, size, width=100, height=100, multiple=1, crop_from=side, ratio="1:1")
+                self.assertEqual((plan["crop_x"], plan["crop_y"], plan["width"], plan["height"]), (start, 0, 100, 100), (side, size))
+        tall = plan_load_size(100, 300, "crop to fill", width=100, height=100, multiple=1, crop_from="bottom left")
+        self.assertEqual((tall["crop_x"], tall["crop_y"]), (0, 200))
+
+    def test_crop_and_crop_to_ratio_never_resize_and_never_leave_the_picture(self):
+        for source in ((1336, 1784), (1920, 1080), (30, 2000), (10, 10)):
+            for multiple in (1, 8, 64):
+                for size, ratio in (("crop", "1:1"), *(("crop to ratio", ratio) for ratio in RATIOS)):
+                    plan = plan_load_size(*source, size, width=1000, height=700, multiple=multiple, crop_from="bottom right", ratio=ratio)
+                    self.assertEqual((plan["resize_width"], plan["resize_height"]), source, (source, size, ratio))
+                    self.assertGreaterEqual(plan["width"], 1)
+                    self.assertGreaterEqual(plan["height"], 1)
+                    self.assertLessEqual(plan["crop_x"] + plan["width"], source[0])
+                    self.assertLessEqual(plan["crop_y"] + plan["height"], source[1])
+        plan = plan_load_size(1920, 1080, "crop", width=1000, height=700, multiple=64)
+        self.assertEqual((plan["width"], plan["height"]), (960, 640), "rounded down, inside the box")
+        plan = plan_load_size(1336, 1784, "crop to ratio", multiple=1, ratio="16:9")
+        self.assertEqual((plan["width"], plan["height"]), (1336, 752), "the widest 16:9 piece the picture holds")
+        plan = plan_load_size(1336, 1784, "crop to ratio", width=1600, height=900, multiple=1, ratio="width : height")
+        self.assertEqual((plan["width"], plan["height"]), (1336, 752), "the boxes give the shape")
 
     def test_off_gives_the_picture_back_whatever_else_is_set(self):
         plan = plan_load_size(913, 1631, "off", megapixels=4.0, multiple=64, enlarge=False)
@@ -94,6 +123,10 @@ class PlanTests(unittest.TestCase):
             plan_load_size(100, 100, "stretch")
         with self.assertRaisesRegex(ValueError, "larger than 0x0"):
             plan_load_size(0, 100, "off")
+        with self.assertRaises(ValueError):
+            plan_load_size(100, 100, "crop", crop_from="middle")
+        with self.assertRaises(ValueError):
+            plan_load_size(100, 100, "crop to ratio", ratio="7:5")
 
     def test_a_plan_that_changes_nothing_hands_the_same_tensors_back(self):
         image, mask = torch.rand(1, 20, 30, 3), torch.zeros(1, 20, 30)
@@ -136,7 +169,7 @@ class NodeTests(unittest.TestCase):
         spec = AusBossLoadImage.INPUT_TYPES()
         self.assertEqual(
             list(spec["required"]),
-            ["image", "size", "megapixels", "longest_side", "scale", "width", "height", "multiple", "method", "enlarge"],
+            ["image", "size", "megapixels", "longest_side", "scale", "width", "height", "multiple", "method", "enlarge", "crop_from", "ratio"],
         )
         self.assertEqual(spec["required"]["size"][0], list(SIZE_MODES))
         self.assertEqual(spec["required"]["size"][1]["default"], "off")
@@ -184,6 +217,19 @@ class NodeTests(unittest.TestCase):
         self.assertEqual((width, height), (100, 100))
         whole, *_ = self.run_node(name)
         self.assertTrue(torch.equal(image, whole[:, :, 50:150, :]), "the middle of the file, untouched")
+
+    def test_a_crop_takes_the_side_that_is_asked_for_out_of_the_file(self):
+        name = self.write("wide.png", width=200, height=100)
+        whole, *_ = self.run_node(name)
+        left, *_ = self.run_node(name, size="crop to fill", width=100, height=100, multiple=1, method="nearest", crop_from="left")
+        self.assertTrue(torch.equal(left, whole[:, :, 0:100, :]))
+        right, mask, width, height, *_ = self.run_node(name, size="crop", width=60, height=40, multiple=1, crop_from="bottom right")
+        self.assertEqual((width, height), (60, 40))
+        self.assertTrue(torch.equal(right, whole[:, 60:100, 140:200, :]), "a piece of the file, not resized")
+        self.assertEqual(tuple(mask.shape), (1, 40, 60))
+        shaped, _, width, height, *_ = self.run_node(name, size="crop to ratio", ratio="1:1", multiple=1, crop_from="top")
+        self.assertEqual((width, height), (100, 100))
+        self.assertTrue(torch.equal(shaped, whole[:, :, 50:150, :]))
 
     def test_enlarge_off_leaves_a_small_file_alone(self):
         name = self.write()
