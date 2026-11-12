@@ -37,6 +37,7 @@ export const SOURCE_LOADERS = Object.freeze({
   LoadImageOutput: picture("image"),
   LoadVideo: video("file"),
   AUSBOSS_NODES_ImageCropRotatePad: picture("image"),
+  AUSBOSS_NODES_LoadImage: picture("image"),
   // A wired source_image replaces the file, so the file may stay blank.
   AUSBOSS_NODES_LoadImagePad: (inputs) => (linked(inputs?.source_image) ? null : picture("image")(inputs)),
   AUSBOSS_NODES_LoadAudio: sound("audio"),

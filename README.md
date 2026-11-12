@@ -80,6 +80,12 @@ It returns the `image`, a `mask` of everything the model paints (padding, see-th
 
 Krea 2 Rotate + Outpaint turns a photo, pads it and paints the new area in one pass. [Try the Krea 2 Rotate + Outpaint example →](example_workflows/Krea%202%20Rotate%20%2B%20Outpaint%20%28AusBoss%29.json)
 
+### Load Image
+
+Loads a picture and sets its size in one node. Pick a file, upload one, or step through the input folder with the arrows. **Size** can stay off, or bring the picture to a megapixel count, a longest side, a scale, a box it must fit inside, or a box it fills by cropping. It can also cut a piece or a shape such as 16:9 out of the picture without resizing, and **Keep** picks which part stays: the center, a side or a corner. **Round to** keeps the result on a multiple of 8, 16 or whatever the model wants. The node shows the picture going in and coming out, with both sizes, before you run, such as `912 × 1632 → 1144 × 2048`.
+
+It returns the `image`, a `mask` of its see-through parts, the new `width` and `height`, the `filename` for a save prefix, and the file's `original_width` and `original_height`.
+
 ### Load Image + Pad
 
 Makes a canvas for outpainting: drag the edges out to add room around a picture. The Source list shows the picture under the pointer. The new area can be a solid color, the average color of the nearest edge, the edge pixels smeared outward, a blurred copy of the picture, or a mirror of it. The card also has a seam feather, a canvas multiple and a megapixel budget, and **Exact padding** opens one control per side. A budget of 0 keeps the picture's size, and anything higher resizes the picture before padding. A picture wired into `source_image` is padded instead of the chosen file.

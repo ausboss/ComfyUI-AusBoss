@@ -44,6 +44,7 @@ NAMED = {
     "AusBossImageFolder": ["source", "folder"],
     "AusBossLaMaInpaint": ["model"],
     "AusBossLoadAudio": ["audio"],
+    "AusBossLoadImage": ["image"],
     "AusBossLoadImagePad": ["image", "source_image"],
     "AusBossLoadVideo": ["video"],
     "AusBossLoraLoader": ["loras", "on_missing"],

@@ -4,6 +4,17 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **New node: Load Image.** Loads a picture and sets its size in the same
+  node, so a workflow needs no resize node after its loader. Size can be a
+  megapixel count, a longest side, a scale, a box the picture fits inside, or
+  a box it fills by cropping, rounded to a multiple you choose. It can also
+  cut a piece or a shape such as 16:9 out of the picture without resizing,
+  and you pick which part is kept: the center, a side or a corner. Arrows
+  step through the pictures in the input folder. Two small pictures on the
+  node show what goes in and what comes out, with both sizes and what is
+  cut off, before you run. It also gives the file's name and its original
+  size. With Size off the picture comes out exactly as the file has it.
+
 - **Clear VRAM from the right-click menu.** Right-click the empty canvas
   and pick **Clear VRAM 🆎** to unload every model and free memory on the
   ComfyUI server, the same as ComfyUI's own "Unload Models and Execution

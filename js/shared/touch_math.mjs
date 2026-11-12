@@ -57,9 +57,9 @@ export function goesBehind(flying, ask, epoch) {
 
 // The pack's own picture loaders. One of them wired straight into Mask by
 // Touch is run by the node itself, the way a press on Show picture runs it:
-// it may crop, turn or pad its file, so the file alone is not the picture,
+// it may crop, turn, pad or resize its file, so the file alone is not the picture,
 // but running it costs next to nothing.
-export const OWN_LOADERS = new Set(["AUSBOSS_NODES_ImageCropRotatePad", "AUSBOSS_NODES_LoadImagePad"]);
+export const OWN_LOADERS = new Set(["AUSBOSS_NODES_ImageCropRotatePad", "AUSBOSS_NODES_LoadImage", "AUSBOSS_NODES_LoadImagePad"]);
 
 // What a loader will hand on, as far as the page can tell: its file and its
 // settings, as one text. Another text means another picture. Widgets that

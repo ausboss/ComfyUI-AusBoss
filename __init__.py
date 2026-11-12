@@ -37,6 +37,7 @@ NODE_MODULES = [
     "node_lama_inpaint",
     "node_layout_boxes",
     "node_literals",
+    "node_load_image",
     "node_load_image_pad",
     "node_load_audio",
     "node_load_video",
