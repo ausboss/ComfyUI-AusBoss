@@ -112,11 +112,35 @@ export function outputRecordCount(record) {
   return Array.isArray(record?.images) ? record.images.length : 0;
 }
 
+// Is node.imgs the picture of this output record?
+//
+// The frontend loads a result into node.imgs with a time limit (two tries of
+// about 8 seconds). A picture that takes longer, a big one over a slow link,
+// is dropped without a word and node.imgs keeps the run before. `loadedFor`
+// is the record that was current when node.imgs was last set; the file name
+// is compared as well, for a newer run that arrived while a picture loaded.
+export function ownResultIsCurrent(node, record, loadedFor) {
+  const images = node?.imgs;
+  const src = Array.isArray(images) && images.length ? images[images.length - 1]?.src : null;
+  if (typeof src !== "string" || !src) return false;
+  const wanted = outputRecordQuery(record);
+  // No stored picture to compare with, or a frame streamed during the run.
+  if (!wanted || !/[?&]filename=/.test(src)) return true;
+  if (loadedFor !== record) return false;
+  const have = new URLSearchParams(src.slice(src.indexOf("?") + 1));
+  const want = new URLSearchParams(wanted);
+  return ["filename", "subfolder", "type"].every((key) => (have.get(key) ?? "") === (want.get(key) ?? ""));
+}
+
 // What the panel shows, best first: this node's result (node.imgs, then the
 // URL of its stored output), then whatever feeds it, then nothing.
-export function describeNodePreview(node, inputName, storedUrl = null) {
-  return describeOwnResult(node)
-    ?? (storedUrl ? { kind: "url", url: storedUrl } : null)
+// `ownIsCurrent` false: node.imgs is an older run's (ownResultIsCurrent), so
+// the stored output goes first.
+export function describeNodePreview(node, inputName, storedUrl = null, ownIsCurrent = true) {
+  const stored = storedUrl ? { kind: "url", url: storedUrl } : null;
+  return (ownIsCurrent ? null : stored)
+    ?? describeOwnResult(node)
+    ?? stored
     ?? describeSourcePreview(upstreamNode(node, inputName));
 }
 

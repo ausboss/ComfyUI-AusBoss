@@ -2,6 +2,15 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Save Image shows the new picture on a slow connection.** A big picture
+  that took more than about 16 seconds to reach the browser never showed:
+  the node kept the picture from the run before. This happened with a
+  30 MB sheet on a ComfyUI opened from another computer. Now the new
+  picture always shows, and the old one dims while the new one loads.
+  Select Frame, Mask Refine, Mask by Name and LaMa Inpaint share the fix.
+
 ## 2.24.0 - 2026-11-12
 
 - **New node: Edit Lock.** Keeps every part of your picture that an edit

@@ -34,6 +34,7 @@ import {
   outputLocatorId,
   outputRecordCount,
   outputRecordQuery,
+  ownResultIsCurrent,
   placeholderText,
   staleText,
   sourceFileWidget,
@@ -152,6 +153,7 @@ function ensureCss() {
 .ausboss-input-preview.preview-off .ausboss-stepper{display:none;}
 .ausboss-input-preview-stage img,.ausboss-input-preview-stage video{display:none;position:absolute;inset:0;margin:auto;max-width:100%;max-height:100%;object-fit:contain;}
 .ausboss-input-preview-stage.show-image img{display:block;}
+.ausboss-input-preview-stage.loading-image img{opacity:.4;transition:opacity .3s ease 1.2s;}
 .ausboss-input-preview-stage.show-video video{display:block;}
 .ausboss-input-preview-grid{display:none;position:absolute;inset:0;box-sizing:border-box;gap:${GRID_GAP}px;padding:${GRID_GAP}px;justify-content:center;align-content:center;}
 .ausboss-input-preview-stage.show-grid .ausboss-input-preview-grid{display:grid;}
@@ -538,6 +540,7 @@ function showMedia(state, kind) {
 
 function clearMedia(state) {
   state.img.removeAttribute("src");
+  state.stage.classList.remove("loading-image");
   state.video.pause?.();
   state.video.removeAttribute("src");
   clearGrid(state);
@@ -630,8 +633,9 @@ function rewatchSource(state, source) {
 // record: an overwritten file reloads after the next run, and a plain refresh
 // never reloads the picture.
 const storedRand = new WeakMap();
+const outputRecord = (node) => app.nodeOutputs?.[outputLocatorId(node)];
 function storedResultUrl(node, index = null) {
-  const record = app.nodeOutputs?.[outputLocatorId(node)];
+  const record = outputRecord(node);
   const query = outputRecordQuery(record, index);
   if (!query) return null;
   if (!storedRand.has(record)) storedRand.set(record, app.getRandParam?.() ?? "");
@@ -798,7 +802,7 @@ function refresh(state) {
     ? describeSourcePreview(source)
     : count > 1
       ? { kind: "url", url: storedResultUrl(state.node, state.index) }
-      : describeNodePreview(state.node, state.inputName, storedResultUrl(state.node));
+      : describeNodePreview(state.node, state.inputName, storedResultUrl(state.node), ownResultIsCurrent(state.node, outputRecord(state.node), state.imgsFor));
   if (!described) {
     clearMedia(state);
     showPlaceholder(state, !!source);
@@ -820,6 +824,9 @@ function refresh(state) {
     state.video.removeAttribute("src");
     if (state.img.getAttribute("src") !== url) {
       state.img.src = url;
+      // The picture before stays up while this one loads. A slow load
+      // dims it, so an old picture is never taken for the new one.
+      state.stage.classList.toggle("loading-image", true);
     } else if (state.img.complete && state.img.naturalWidth > 0) {
       showMedia(state, "image");
     }
@@ -844,6 +851,10 @@ function scheduleRefresh(state) {
 // when the node finishes - without this file having to know either event name.
 function watchOwnResult(node, state) {
   let images = node.imgs;
+  // Which output the pictures in node.imgs were loaded for. The frontend
+  // gives up on a picture that loads slowly and keeps the run before, so
+  // the panel checks this before it trusts node.imgs (ownResultIsCurrent).
+  state.imgsFor = outputRecord(node);
   try {
     Object.defineProperty(node, "imgs", {
       configurable: true,
@@ -851,6 +862,7 @@ function watchOwnResult(node, state) {
       get: () => images,
       set: (value) => {
         images = value;
+        state.imgsFor = outputRecord(node);
         if (state.alive) scheduleRefresh(state);
       },
     });
@@ -958,8 +970,9 @@ function buildPanel(node, config) {
     watcher.observe(stage);
     abort.signal.addEventListener("abort", () => watcher.disconnect(), { once: true });
   }
-  img.addEventListener("load", () => showMedia(state, "image"));
+  img.addEventListener("load", () => { stage.classList.remove("loading-image"); showMedia(state, "image"); });
   img.addEventListener("error", () => {
+    stage.classList.remove("loading-image");
     if (img.getAttribute("src")) showPlaceholder(state, true);
   });
   video.addEventListener("loadeddata", () => showMedia(state, "video"));
