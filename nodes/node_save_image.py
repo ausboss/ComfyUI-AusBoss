@@ -18,6 +18,7 @@ from ._image_save_helpers import (
     resolve_output_root,
     sanitize_exact_name,
     sidecar_path,
+    write_light_previews,
 )
 from ._route_errors import safe_route_error
 from ._step_preview_helpers import STEP_PREVIEW_DEFAULT, register_step_preview_handler
@@ -406,7 +407,10 @@ class AusBossSaveImage:
                 lambda path, frame: encode_image(path, frame, format, metadata),
             )
             return {
-                "ui": {"images": previews, "ausboss_saved_path": [], "ausboss_held": [token]},
+                "ui": {
+                    "images": previews, "ausboss_saved_path": [], "ausboss_held": [token],
+                    "ausboss_preview": self._light_previews(images, preview),
+                },
                 "result": ("", images),
             }
 
@@ -418,6 +422,7 @@ class AusBossSaveImage:
             actions = settle_destinations(planned, has_caption, output_root)
 
             saved: list[Path] = []
+            saved_frames = []
             for (path, _policy), action, frame in zip(planned, actions, images):
                 if action == "skip":
                     continue
@@ -426,11 +431,13 @@ class AusBossSaveImage:
                 if has_caption:
                     sidecar_path(path).write_text(caption_value, encoding="utf-8")
                 saved.append(path)
+                saved_frames.append(frame)
 
         # Every destination was confined to the output folder above, so each
-        # saved file previews from there and is shown relative to it. The
-        # preview switch is display only: these entries are also how the
-        # queue lists the save, and there is no temp file to skip.
+        # saved file previews from there and is shown relative to it. These
+        # entries are also how the queue lists the save, so the preview
+        # switch leaves them alone; it only skips the small copies the node
+        # shows on its face (ausboss_preview).
         previews: list[dict] = []
         resolved_root = output_root.resolve()
         shown_paths: list[str] = []
@@ -444,9 +451,23 @@ class AusBossSaveImage:
             })
             shown_paths.append(resolved.relative_to(resolved_root).as_posix())
         return {
-            "ui": {"images": previews, "ausboss_saved_path": shown_paths[:1]},
+            "ui": {
+                "images": previews, "ausboss_saved_path": shown_paths[:1],
+                "ausboss_preview": self._light_previews(saved_frames, preview),
+            },
             "result": (str(saved[0]) if saved else "", images),
         }
+
+    @staticmethod
+    def _light_previews(frames, preview) -> list[str]:
+        # The node's face shows these instead of the full files. Preview
+        # off: nothing is shown, so nothing is written.
+        if not preview:
+            return []
+        try:
+            return write_light_previews(folder_paths.get_temp_directory(), frames)
+        except Exception:
+            return []
 
     @classmethod
     def IS_CHANGED(cls, **_values):

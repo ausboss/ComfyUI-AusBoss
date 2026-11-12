@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   describeNodePreview,
   describeOwnResult,
+  lightPreviewQuery,
   ownResultIsCurrent,
   describeSourcePreview,
   linkById,
@@ -233,4 +234,24 @@ test("a picture the frontend gave up loading does not hide the newer result", ()
   // Nothing in node.imgs is never current.
   assert.equal(ownResultIsCurrent({ imgs: [] }, after, after), false);
   assert.equal(ownResultIsCurrent(null, after, after), false);
+});
+
+test("Save Image's small copy is what the panel asks for", () => {
+  const record = {
+    images: [
+      { filename: "sheet_00001.png", subfolder: "", type: "output" },
+      { filename: "sheet_00002.png", subfolder: "", type: "output" },
+    ],
+    ausboss_preview: ["ausboss_preview/ab12_000.webp", "ausboss_preview/ab12_001.webp"],
+  };
+  // The newest by default, or the one the arrows picked.
+  assert.equal(lightPreviewQuery(record), "filename=ab12_001.webp&subfolder=ausboss_preview&type=temp");
+  assert.equal(lightPreviewQuery(record, 0), "filename=ab12_000.webp&subfolder=ausboss_preview&type=temp");
+  // No copies (an older run, another node, the preview off): the file itself.
+  assert.equal(lightPreviewQuery({ images: record.images }), null);
+  assert.equal(lightPreviewQuery({ images: record.images, ausboss_preview: [] }), null);
+  // A list that does not match the pictures is not trusted.
+  assert.equal(lightPreviewQuery({ images: record.images, ausboss_preview: ["ausboss_preview/x.webp"] }), null);
+  assert.equal(lightPreviewQuery({ images: record.images, ausboss_preview: ["", 5] }), null);
+  assert.equal(lightPreviewQuery(null), null);
 });

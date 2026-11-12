@@ -107,6 +107,25 @@ export function outputRecordQuery(record, index = null) {
   }).toString();
 }
 
+// The /view query of the small copy Save Image writes for its face
+// ({ ausboss_preview: ["ausboss_preview/<name>.webp"] }, one for each entry
+// of images, in the temp folder). Null when the record has none: an older
+// run, another node, or the preview switched off.
+export function lightPreviewQuery(record, index = null) {
+  const places = record?.ausboss_preview;
+  const count = outputRecordCount(record);
+  if (!count || !Array.isArray(places) || places.length !== count) return null;
+  const at = Number.isInteger(index) && index >= 0 && index < count ? index : count - 1;
+  const place = places[at];
+  if (typeof place !== "string" || !place) return null;
+  const slash = place.lastIndexOf("/");
+  return new URLSearchParams({
+    filename: place.slice(slash + 1),
+    subfolder: slash >= 0 ? place.slice(0, slash) : "",
+    type: "temp",
+  }).toString();
+}
+
 // How many pictures the node's last run left in its output record.
 export function outputRecordCount(record) {
   return Array.isArray(record?.images) ? record.images.length : 0;

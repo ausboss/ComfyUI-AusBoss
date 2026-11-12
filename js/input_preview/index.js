@@ -31,6 +31,7 @@ import { addStepConsumer, mountStepOverlay, showsStepsOn, stepRun, stopStepRun, 
 import {
   describeNodePreview,
   describeSourcePreview,
+  lightPreviewQuery,
   outputLocatorId,
   outputRecordCount,
   outputRecordQuery,
@@ -581,6 +582,7 @@ function showGrid(state, count) {
       cell.decoding = "async";
       // The first picture to load tells the grid the shape to lay out for.
       cell.addEventListener("load", () => layoutGrid(state), { once: true });
+      cell.addEventListener("error", () => dropLightPreview(state), { once: true });
       cell.src = url;
       return cell;
     }));
@@ -634,12 +636,29 @@ function rewatchSource(state, source) {
 // never reloads the picture.
 const storedRand = new WeakMap();
 const outputRecord = (node) => app.nodeOutputs?.[outputLocatorId(node)];
+// Save Image also writes a small copy of each picture for its face, and the
+// panel shows that one: a few hundred kilobytes where the file can be tens
+// of megabytes. The copies are in the temp folder, which ComfyUI empties
+// when it starts; a record whose copy is gone goes back to the file itself.
+const lightGone = new WeakSet();
+function lightQuery(record, index = null) {
+  return record && !lightGone.has(record) ? lightPreviewQuery(record, index) : null;
+}
 function storedResultUrl(node, index = null) {
   const record = outputRecord(node);
-  const query = outputRecordQuery(record, index);
+  const light = lightQuery(record, index);
+  const query = light ?? outputRecordQuery(record, index);
   if (!query) return null;
   if (!storedRand.has(record)) storedRand.set(record, app.getRandParam?.() ?? "");
-  return api.apiURL(`/view?${query}${app.getPreviewFormatParam?.() ?? ""}${storedRand.get(record)}`);
+  return api.apiURL(`/view?${query}${light ? "" : app.getPreviewFormatParam?.() ?? ""}${storedRand.get(record)}`);
+}
+// A small copy that would not load: show the file itself from now on.
+function dropLightPreview(state) {
+  const record = outputRecord(state.node);
+  if (!lightQuery(record)) return false;
+  lightGone.add(record);
+  scheduleRefresh(state);
+  return true;
 }
 
 // Several pictures from one run (a list, or a batch Save Image saved one by
@@ -802,7 +821,9 @@ function refresh(state) {
     ? describeSourcePreview(source)
     : count > 1
       ? { kind: "url", url: storedResultUrl(state.node, state.index) }
-      : describeNodePreview(state.node, state.inputName, storedResultUrl(state.node), ownResultIsCurrent(state.node, outputRecord(state.node), state.imgsFor));
+      : describeNodePreview(state.node, state.inputName, storedResultUrl(state.node),
+        // The small copy goes first: node.imgs is the full file.
+        !lightQuery(outputRecord(state.node)) && ownResultIsCurrent(state.node, outputRecord(state.node), state.imgsFor));
   if (!described) {
     clearMedia(state);
     showPlaceholder(state, !!source);
@@ -973,7 +994,7 @@ function buildPanel(node, config) {
   img.addEventListener("load", () => { stage.classList.remove("loading-image"); showMedia(state, "image"); });
   img.addEventListener("error", () => {
     stage.classList.remove("loading-image");
-    if (img.getAttribute("src")) showPlaceholder(state, true);
+    if (img.getAttribute("src") && !dropLightPreview(state)) showPlaceholder(state, true);
   });
   video.addEventListener("loadeddata", () => showMedia(state, "video"));
   video.addEventListener("error", () => {

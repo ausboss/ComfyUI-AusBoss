@@ -53,6 +53,9 @@ file's name. A caption on the `caption_text` input writes the paired `.txt`.
   such as a folder of images), they all show side by side. The arrows
   beside the switch (‹ all 5 ›) go on to each one by itself (‹ 2 / 5 ›) and
   back round to all of them. A run of more than 48 shows one at a time.
+  The node shows a small copy of each picture (up to 2048 pixels on the
+  long side), so a big file shows at once on a slow connection too. The
+  saved file is always full size. The copies are in ComfyUI's temp folder.
 - **Auto save** (`autosave`, on by default): on, every run saves its
   pictures. Off, a run only shows them here and saves nothing. A **SAVE**
   button then sits over the picture: **SAVE ALL** keeps every picture of
