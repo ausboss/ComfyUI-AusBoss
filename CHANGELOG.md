@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.25.0 - 2026-11-12
 
 - **New node: Load Image.** Loads a picture and sets its size in the same
   node, so a workflow needs no resize node after its loader. Size can be a
