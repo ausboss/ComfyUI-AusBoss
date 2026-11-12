@@ -2,6 +2,14 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Clear VRAM from the right-click menu.** Right-click the empty canvas
+  and pick **Clear VRAM 🆎** to unload every model and free memory on the
+  ComfyUI server, the same as ComfyUI's own "Unload Models and Execution
+  Cache". A short message says when it is done. Turn the entry off in
+  Settings, 🆎 AusBoss, Memory.
+
 ## 2.24.0 - 2026-11-12
 
 - **New node: Edit Lock.** Keeps every part of your picture that an edit
