@@ -55,3 +55,17 @@ export function gridShape(count, width, height, aspect = 1) {
   }
   return { columns: best.columns, rows: best.rows };
 }
+
+// The held pictures in a Save Image result, in the order they show: each
+// one's run token and its place in that run. A list run saves once for each
+// item, so one result can hold several tokens. Empty when the result holds
+// none, or when a picture in it is not one of the held ones.
+export function heldPlaces(record) {
+  const tokens = new Set(Array.isArray(record?.ausboss_held) ? record.ausboss_held : []);
+  if (!tokens.size) return [];
+  const held = (Array.isArray(record.images) ? record.images : []).map((image) => {
+    const match = /^([0-9a-f]{16})_(\d{3})\./.exec(String(image?.filename ?? ""));
+    return match && tokens.has(match[1]) ? { token: match[1], index: Number(match[2]) } : null;
+  });
+  return held.length && held.every(Boolean) ? held : [];
+}

@@ -26,7 +26,7 @@ import { suppressCoreImagePreview } from "../shared/core_preview.mjs";
 import { autoMaskValues } from "../shared/mask_auto.mjs";
 import { hideInputsInDef, hideWidget, setWidgetVisible } from "../shared/widget_visibility.mjs";
 import { makePictureStepper } from "../shared/picture_stepper.mjs";
-import { ALL, allLabel, gridShape, keepIndex, stepIndex, stepWithAll } from "../shared/picture_steps.mjs";
+import { ALL, allLabel, gridShape, heldPlaces, keepIndex, stepIndex, stepWithAll } from "../shared/picture_steps.mjs";
 import { addStepConsumer, mountStepOverlay, showsStepsOn, stepRun, stopStepRun, watchSteps } from "../shared/step_preview.mjs";
 import {
   describeNodePreview,
@@ -659,16 +659,17 @@ function previewMinWidth(state) {
 
 // --- pictures held until Save (Save Image with Auto save off) ---------------
 
-// The token of the run this node is holding, or null when its last run
-// saved its pictures itself.
-function heldToken(state) {
-  if (state.stale || state.resultGone) return null;
-  const token = app.nodeOutputs?.[outputLocatorId(state.node)]?.ausboss_held?.[0];
-  return typeof token === "string" && token ? token : null;
+// The pictures this node is holding, in the order it shows them. Empty when
+// the last run saved its pictures itself.
+function heldPictures(state) {
+  if (state.stale || state.resultGone) return [];
+  return heldPlaces(app.nodeOutputs?.[outputLocatorId(state.node)]);
 }
 
-function keptOf(state, token) {
-  if (state.kept?.token !== token) state.kept = { token, indexes: new Set() };
+// Which of the shown pictures are kept, by their place on the node.
+function keptOf(state, held) {
+  const key = held.map((picture) => `${picture.token}_${picture.index}`).join(" ");
+  if (state.kept?.key !== key) state.kept = { key, indexes: new Set() };
   return state.kept.indexes;
 }
 
@@ -683,12 +684,12 @@ function keepsAll(state, count) {
 function syncHeld(state, count = resultCount(state)) {
   const button = state.keepButton;
   if (!button) return;
-  const token = heldToken(state);
-  button.hidden = !token || count < 1;
+  const held = heldPictures(state);
+  button.hidden = !held.length || count < 1;
   if (button.hidden) return;
-  const kept = keptOf(state, token);
+  const kept = keptOf(state, held);
   const all = keepsAll(state, count);
-  const done = all ? kept.size >= count : kept.has(state.index);
+  const done = all ? kept.size >= held.length : kept.has(state.index);
   button.textContent = state.keeping ? "SAVING" : done ? "SAVED" : all && count > 1 ? "SAVE ALL" : "SAVE";
   button.classList.toggle("keep", !done);
   button.disabled = Boolean(state.keeping);
@@ -696,25 +697,40 @@ function syncHeld(state, count = resultCount(state)) {
 }
 
 async function keepHeld(state) {
-  const token = heldToken(state);
-  if (!token || state.keeping) return;
+  const held = heldPictures(state);
+  if (!held.length || state.keeping) return;
   const count = resultCount(state);
-  const picks = keepsAll(state, count) ? null : [state.index];
+  const wanted = keepsAll(state, count) ? held.map((_, place) => place) : [state.index];
+  // One request for each run, in the order the pictures show.
+  const runs = new Map();
+  for (const place of wanted) {
+    const picture = held[place];
+    if (!picture) continue;
+    if (!runs.has(picture.token)) runs.set(picture.token, []);
+    runs.get(picture.token).push(picture.index);
+  }
   state.keeping = true;
   syncHeld(state);
+  const kept = keptOf(state, held);
+  const saved = [];
+  let skipped = 0;
   try {
-    const response = await api.fetchApi("/ausboss/save_image/keep", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, picks }),
-    });
-    const answer = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(answer.error || "Could not save.");
-    if (!state.alive) return;
-    const kept = keptOf(state, token);
-    for (const index of answer.kept ?? []) kept.add(index);
-    const saved = answer.saved ?? [];
-    const skipped = answer.skipped?.length ?? 0;
+    for (const [token, picks] of runs) {
+      const response = await api.fetchApi("/ausboss/save_image/keep", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, picks }),
+      });
+      const answer = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(answer.error || "Could not save.");
+      if (!state.alive) return;
+      const done = new Set(answer.kept ?? []);
+      held.forEach((picture, place) => {
+        if (picture.token === token && done.has(picture.index)) kept.add(place);
+      });
+      saved.push(...(answer.saved ?? []));
+      skipped += answer.skipped?.length ?? 0;
+    }
     toast(state, saved.length === 1
       ? `Saved ${saved[0].path}`
       : saved.length

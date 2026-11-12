@@ -53,3 +53,24 @@ test("the grid gives each picture the most room its shape allows", async () => {
   assert.deepEqual(gridShape(5, 0, 0, 1), { columns: 3, rows: 2 });
   assert.deepEqual(gridShape(4, 400, 400, Number.NaN), { columns: 2, rows: 2 });
 });
+
+test("held pictures map to their run and their place in it", async () => {
+  const { heldPlaces } = await import("../js/shared/picture_steps.mjs");
+  const a = "0123456789abcdef";
+  const b = "fedcba9876543210";
+  const name = (token, index) => ({ filename: `${token}_00${index}.png`, subfolder: "ausboss_held", type: "temp" });
+  // One run of three pictures.
+  assert.deepEqual(
+    heldPlaces({ images: [name(a, 0), name(a, 1), name(a, 2)], ausboss_held: [a] }),
+    [{ token: a, index: 0 }, { token: a, index: 1 }, { token: a, index: 2 }],
+  );
+  // A list run: one picture from each of two runs.
+  assert.deepEqual(
+    heldPlaces({ images: [name(a, 0), name(b, 0)], ausboss_held: [a, b] }),
+    [{ token: a, index: 0 }, { token: b, index: 0 }],
+  );
+  // A saved run holds nothing, and a picture from another run is not trusted.
+  assert.deepEqual(heldPlaces({ images: [{ filename: "shot_00001.png" }] }), []);
+  assert.deepEqual(heldPlaces({ images: [name(a, 0), name(b, 0)], ausboss_held: [a] }), []);
+  assert.deepEqual(heldPlaces(undefined), []);
+});
