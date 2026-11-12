@@ -1682,6 +1682,32 @@
     "display_name": "工作流说明卡片 🆎",
     "description": "点击打开完整说明的小按钮。点击铅笔编辑，拖动角落调整大小。旧版节点包会将它显示为缺失节点，请更新 ComfyUI-AusBoss。"
   },
+  "AUSBOSS_NODES_FlashVSRUpscale": {
+    "display_name": "FlashVSR 视频放大 🆎",
+    "description": "用 FlashVSR 模型把视频放大并变清晰。选好模型文件，设定放大倍数，然后运行。节点每次只读取几帧，所以长视频和短视频占用的显存一样多，每一帧都会返回。接上 Wan 2.1 VAE 可以得到更慢但更细致的结果。",
+    "inputs": {
+      "frames": {
+        "name": "帧"
+      },
+      "model": {
+        "name": "模型"
+      },
+      "scale": {
+        "name": "放大倍数"
+      },
+      "color_match": {
+        "name": "保留颜色"
+      },
+      "vae": {
+        "name": "vae"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "帧"
+      }
+    }
+  },
   "AUSBOSS_NODES_PromptVariations": {
     "display_name": "提示词变体 🆎",
     "description": "每次运行都会变化的提示词框。把选项写在花括号里，例如 {红色|蓝色|绿色} 的 {毛衣|夹克}，节点会从每组里选一个。种子决定选哪个：同一个种子得到同一个提示词，每次换新种子就得到新的组合。没有花括号的文字原样输出。",

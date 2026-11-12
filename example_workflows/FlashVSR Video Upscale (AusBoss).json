@@ -1,0 +1,526 @@
+{
+ "id": "0b455c1f-6b0c-4f69-8a7e-86f8de61df5c",
+ "revision": 0,
+ "last_node_id": 5,
+ "last_link_id": 4,
+ "nodes": [
+  {
+   "id": 1,
+   "type": "AUSBOSS_NODES_WorkflowNote",
+   "pos": [
+    0,
+    30
+   ],
+   "size": [
+    440,
+    640
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "note",
+     "type": "STRING",
+     "link": null,
+     "widget": {
+      "name": "note"
+     }
+    }
+   ],
+   "outputs": [],
+   "title": "🆎 AusBoss",
+   "properties": {
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.24.0",
+    "Node name for S&R": "AUSBOSS_NODES_WorkflowNote"
+   },
+   "widgets_values": [
+    "{\"v\": 1, \"title\": \"FlashVSR Video Upscale\", \"subtitle\": \"Make a video larger and sharper with one node and one model file.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"[▶ AusBoss on YouTube](https://www.youtube.com/@ausbossdev) · videos on these nodes and workflows\\n\\n---\\n\\n1. Load your video.\\n2. Set **Scale**: how many times larger each side gets. At 1 the video keeps its size and is only sharpened.\\n3. Press **Run**, then play the result in **Save Video**.\\n\\nTo try a short piece first, drag the right end of the bar under the player in Load Video.\\n\\nA long video needs no more graphics memory than a short one. A large result is made in tiles, so it fits the memory you have and takes longer.\\n\\nNeeds AusBoss nodes 2.24.0 or newer. No other pack is needed.\", \"models\": [{\"name\": \"flashvsr_v1.1_fp16.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"3.5 GB\", \"url\": \"https://huggingface.co/ausboss/FlashVSR-v1.1-ComfyUI/resolve/main/flashvsr_v1.1_fp16.safetensors\", \"note\": \"FlashVSR v1.1 by Junhao Zhuang and the OpenImagingLab team, in one file\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_FlashVSRUpscale\"}], \"links\": [{\"label\": \"YouTube · ausbossdev\", \"url\": \"https://www.youtube.com/@ausbossdev\"}, {\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}",
+    ""
+   ],
+   "widgets_values_named": {
+    "note": "{\"v\": 1, \"title\": \"FlashVSR Video Upscale\", \"subtitle\": \"Make a video larger and sharper with one node and one model file.\", \"author\": \"AusBoss\", \"layout\": \"card\", \"accent\": \"\", \"body\": \"[▶ AusBoss on YouTube](https://www.youtube.com/@ausbossdev) · videos on these nodes and workflows\\n\\n---\\n\\n1. Load your video.\\n2. Set **Scale**: how many times larger each side gets. At 1 the video keeps its size and is only sharpened.\\n3. Press **Run**, then play the result in **Save Video**.\\n\\nTo try a short piece first, drag the right end of the bar under the player in Load Video.\\n\\nA long video needs no more graphics memory than a short one. A large result is made in tiles, so it fits the memory you have and takes longer.\\n\\nNeeds AusBoss nodes 2.24.0 or newer. No other pack is needed.\", \"models\": [{\"name\": \"flashvsr_v1.1_fp16.safetensors\", \"dir\": \"diffusion_models\", \"size\": \"3.5 GB\", \"url\": \"https://huggingface.co/ausboss/FlashVSR-v1.1-ComfyUI/resolve/main/flashvsr_v1.1_fp16.safetensors\", \"note\": \"FlashVSR v1.1 by Junhao Zhuang and the OpenImagingLab team, in one file\"}], \"packs\": [{\"name\": \"ComfyUI-AusBoss\", \"url\": \"https://github.com/ausboss/ComfyUI-AusBoss\", \"node\": \"AUSBOSS_NODES_FlashVSRUpscale\"}], \"links\": [{\"label\": \"YouTube · ausbossdev\", \"url\": \"https://www.youtube.com/@ausbossdev\"}, {\"label\": \"GitHub · ausboss\", \"url\": \"https://github.com/ausboss\"}, {\"label\": \"Civitai · AusBoss\", \"url\": \"https://civitai.com/user/AusBoss\"}, {\"label\": \"X · Zanzibased\", \"url\": \"https://x.com/Zanzibased\"}]}",
+    "ausboss_workflow_note_panel": ""
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 2,
+   "type": "AUSBOSS_NODES_LoadVideo",
+   "pos": [
+    500,
+    80
+   ],
+   "size": [
+    420,
+    760
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "video",
+     "type": "COMBO",
+     "link": null,
+     "widget": {
+      "name": "video"
+     }
+    },
+    {
+     "name": "start_seconds",
+     "type": "FLOAT",
+     "link": null,
+     "widget": {
+      "name": "start_seconds"
+     }
+    },
+    {
+     "name": "end_seconds",
+     "type": "FLOAT",
+     "link": null,
+     "widget": {
+      "name": "end_seconds"
+     }
+    },
+    {
+     "name": "custom_width",
+     "type": "INT",
+     "link": null,
+     "widget": {
+      "name": "custom_width"
+     }
+    },
+    {
+     "name": "custom_height",
+     "type": "INT",
+     "link": null,
+     "widget": {
+      "name": "custom_height"
+     }
+    },
+    {
+     "name": "every_nth",
+     "type": "INT",
+     "link": null,
+     "widget": {
+      "name": "every_nth"
+     }
+    },
+    {
+     "name": "max_frames",
+     "type": "INT",
+     "link": null,
+     "widget": {
+      "name": "max_frames"
+     }
+    },
+    {
+     "name": "single_frame",
+     "type": "BOOLEAN",
+     "link": null,
+     "widget": {
+      "name": "single_frame"
+     }
+    },
+    {
+     "name": "upload",
+     "type": "IMAGEUPLOAD",
+     "link": null,
+     "widget": {
+      "name": "upload"
+     }
+    }
+   ],
+   "outputs": [
+    {
+     "name": "frames",
+     "type": "IMAGE",
+     "links": [
+      1
+     ]
+    },
+    {
+     "name": "audio",
+     "type": "AUDIO",
+     "links": [
+      3
+     ]
+    },
+    {
+     "name": "frame_count",
+     "type": "INT",
+     "links": []
+    },
+    {
+     "name": "fps",
+     "type": "FLOAT",
+     "links": [
+      4
+     ]
+    },
+    {
+     "name": "width",
+     "type": "INT",
+     "links": []
+    },
+    {
+     "name": "height",
+     "type": "INT",
+     "links": []
+    },
+    {
+     "name": "duration",
+     "type": "FLOAT",
+     "links": []
+    },
+    {
+     "name": "video",
+     "type": "VIDEO",
+     "links": []
+    }
+   ],
+   "title": "Load Video - Your video",
+   "properties": {
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.24.0",
+    "Node name for S&R": "AUSBOSS_NODES_LoadVideo",
+    "ausboss_load_video_loop": true
+   },
+   "widgets_values": {
+    "video": "",
+    "start_seconds": 0,
+    "end_seconds": 0,
+    "custom_width": 0,
+    "custom_height": 0,
+    "every_nth": 1,
+    "max_frames": 0,
+    "single_frame": false
+   },
+   "widgets_values_named": {
+    "video": "",
+    "start_seconds": 0,
+    "end_seconds": 0,
+    "custom_width": 0,
+    "custom_height": 0,
+    "every_nth": 1,
+    "max_frames": 0,
+    "single_frame": false,
+    "upload": "image",
+    "ausboss_widget_card": "",
+    "ausboss_load_video_viewer": ""
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 3,
+   "type": "AUSBOSS_NODES_FlashVSRUpscale",
+   "pos": [
+    980,
+    80
+   ],
+   "size": [
+    360,
+    190
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "frames",
+     "type": "IMAGE",
+     "link": 1
+    },
+    {
+     "name": "vae",
+     "type": "VAE",
+     "shape": 7,
+     "link": null
+    },
+    {
+     "name": "model",
+     "type": "COMBO",
+     "link": null,
+     "widget": {
+      "name": "model"
+     }
+    },
+    {
+     "name": "scale",
+     "type": "FLOAT",
+     "link": null,
+     "widget": {
+      "name": "scale"
+     }
+    },
+    {
+     "name": "color_match",
+     "type": "BOOLEAN",
+     "link": null,
+     "widget": {
+      "name": "color_match"
+     }
+    }
+   ],
+   "outputs": [
+    {
+     "name": "frames",
+     "type": "IMAGE",
+     "links": [
+      2
+     ]
+    }
+   ],
+   "title": "FlashVSR Upscale",
+   "properties": {
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.24.0",
+    "Node name for S&R": "AUSBOSS_NODES_FlashVSRUpscale",
+    "models": [
+     {
+      "name": "flashvsr_v1.1_fp16.safetensors",
+      "url": "https://huggingface.co/ausboss/FlashVSR-v1.1-ComfyUI/resolve/main/flashvsr_v1.1_fp16.safetensors",
+      "directory": "diffusion_models"
+     }
+    ]
+   },
+   "widgets_values": [
+    "flashvsr_v1.1_fp16.safetensors",
+    2,
+    true,
+    ""
+   ],
+   "widgets_values_named": {
+    "model": "flashvsr_v1.1_fp16.safetensors",
+    "scale": 2,
+    "color_match": true,
+    "ausboss_widget_card": ""
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 4,
+   "type": "AUSBOSS_NODES_SaveVideo",
+   "pos": [
+    1400,
+    80
+   ],
+   "size": [
+    440,
+    640
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "frames",
+     "type": "IMAGE",
+     "link": 2
+    },
+    {
+     "name": "audio",
+     "type": "AUDIO",
+     "link": 3
+    },
+    {
+     "name": "video",
+     "type": "VIDEO",
+     "link": null
+    },
+    {
+     "name": "fps",
+     "type": "FLOAT",
+     "link": 4
+    },
+    {
+     "name": "filename_prefix",
+     "type": "STRING",
+     "link": null,
+     "widget": {
+      "name": "filename_prefix"
+     }
+    },
+    {
+     "name": "crf",
+     "type": "INT",
+     "link": null
+    },
+    {
+     "name": "format",
+     "type": "COMBO",
+     "link": null,
+     "widget": {
+      "name": "format"
+     }
+    },
+    {
+     "name": "pingpong",
+     "type": "BOOLEAN",
+     "link": null,
+     "widget": {
+      "name": "pingpong"
+     }
+    },
+    {
+     "name": "save_metadata",
+     "type": "BOOLEAN",
+     "link": null,
+     "widget": {
+      "name": "save_metadata"
+     }
+    }
+   ],
+   "outputs": [
+    {
+     "name": "file_path",
+     "type": "STRING",
+     "links": []
+    }
+   ],
+   "title": "Save Video",
+   "properties": {
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.24.0",
+    "Node name for S&R": "AUSBOSS_NODES_SaveVideo",
+    "ausboss_save_video_loop": true
+   },
+   "widgets_values": {
+    "fps": 24,
+    "filename_prefix": "flashvsr_upscaled",
+    "crf": 19,
+    "format": "mp4 h264",
+    "pingpong": false,
+    "save_metadata": true
+   },
+   "widgets_values_named": {
+    "fps": 24,
+    "filename_prefix": "flashvsr_upscaled",
+    "crf": 19,
+    "format": "mp4 h264",
+    "pingpong": false,
+    "save_metadata": true,
+    "ausboss_widget_card": "",
+    "ausboss_save_video_viewer": ""
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  },
+  {
+   "id": 5,
+   "type": "AUSBOSS_NODES_RunTimer",
+   "pos": [
+    1515,
+    770
+   ],
+   "size": [
+    210,
+    67
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [],
+   "title": "Run Timer",
+   "properties": {
+    "cnr_id": "ausboss-nodes",
+    "ver": "2.24.0",
+    "Node name for S&R": "AUSBOSS_NODES_RunTimer"
+   },
+   "color": "#14424d",
+   "bgcolor": "#161f21"
+  }
+ ],
+ "links": [
+  [
+   1,
+   2,
+   0,
+   3,
+   0,
+   "IMAGE"
+  ],
+  [
+   2,
+   3,
+   0,
+   4,
+   0,
+   "IMAGE"
+  ],
+  [
+   3,
+   2,
+   1,
+   4,
+   1,
+   "AUDIO"
+  ],
+  [
+   4,
+   2,
+   3,
+   4,
+   3,
+   "FLOAT"
+  ]
+ ],
+ "groups": [
+  {
+   "id": 1,
+   "title": "1 · Your video",
+   "bounding": [
+    480,
+    0,
+    460,
+    880
+   ],
+   "color": "#1d5560",
+   "flags": {}
+  },
+  {
+   "id": 2,
+   "title": "2 · Make it larger",
+   "bounding": [
+    960,
+    0,
+    400,
+    880
+   ],
+   "color": "#1d5560",
+   "flags": {}
+  },
+  {
+   "id": 3,
+   "title": "3 · Result",
+   "bounding": [
+    1380,
+    0,
+    480,
+    880
+   ],
+   "color": "#1d5560",
+   "flags": {}
+  }
+ ],
+ "definitions": {
+  "subgraphs": []
+ },
+ "config": {},
+ "extra": {
+  "ds": {
+   "scale": 0.73,
+   "offset": [
+    137,
+    20
+   ]
+  }
+ },
+ "version": 0.4
+}

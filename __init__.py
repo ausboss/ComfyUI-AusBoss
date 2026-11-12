@@ -23,6 +23,7 @@ NODE_MODULES = [
     "node_color_match",
     "node_compare",
     "node_edit_lock",
+    "node_flashvsr_upscale",
     "node_frame_interpolate",
     "node_free_memory",
     "node_h3_prompt_writer",
