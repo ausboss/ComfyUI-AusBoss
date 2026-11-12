@@ -15,7 +15,38 @@ Right-click the Callout and choose **Title tile** to give your existing text a b
 - Double-click a title to edit it. **Save** or `Ctrl+Enter` keeps the change; **Cancel** or `Esc` leaves the original text.
 - Drag the visible bottom-right grip to resize. You can also focus the grip and use arrow keys; hold **Shift** for smaller changes. Resizing keeps the tile in place and supports Undo.
 
-## Writing
+## Info card
+
+A small card for facts people look up: run times, settings, what each choice
+does. Right-click the Callout and choose **Info card**. An empty note starts
+with sample text that shows each part.
+
+Write it like this:
+
+```text
+⏱️ Too slow?
+###### Redraw time on an RTX 5090. Smaller cards take longer.
+
+2x, 18 steps | ~4 min
+2x, 10 steps | ~3 min
+1.5x, 18 steps | ~2.5 min
+**1.5x, 10 steps (default) | ~2 min**
+
+###### 1.5x is a 4608-wide sheet, 2x is 6144.
+```
+
+- The first line is the card's title. Start it with ⏱️ ℹ️ ⚠️ 💡 or ✅ and
+  that emoji is drawn as a small icon.
+- A line with a `|` in it is a row: the words before the `|` on the left,
+  the rest on the right.
+- Put the whole row in two stars, `**like this | value**`, and it is drawn
+  in teal. Use it for the default or the one to pick.
+- Small print (the **Small** button) is a grey line, for a subtitle or a note
+  at the bottom.
+- A blank line leaves a gap. Arrows and links work as in any callout.
+- Double-click the card to edit it. Choose **Plain callout** to turn it back
+  into a note; the text stays.
+
 
 - On a plain callout, double-click the note, or press **Edit**, to type. Click outside the box to
   keep the text. **Esc** drops what you typed.
@@ -90,5 +121,13 @@ In the text a link is written `[the words](https://example.com)`, or
   it to read the address before you click.
 - An older version of the pack shows a link as typed, brackets and address
   included, so the address can still be read and copied there.
+- An Info card is saved as an ordinary Callout with the text you typed.
+  The card look is a setting on the node, so an older version of the pack
+  shows the same text as a plain note, rows written out as `label | value`.
+  A plain callout never reads `|` as a row, so notes written before look
+  the same.
+- A row splits at its first `|` that is not inside a link. A row pasted
+  from a Markdown table loses its outer pipes, and the table's `---` line
+  is skipped. An Info card's text grows with the card, up to 20 px.
 - The font is IBM Plex Sans when the computer has it, otherwise the system
   font. The node loads no fonts and makes no network requests.

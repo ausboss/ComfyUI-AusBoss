@@ -218,6 +218,12 @@ Changes a clip's frame rate by making in-between frames. You set the source and 
 
 It returns the new frames and their fps. It doesn't touch audio, so carry the source audio to Save Video separately. The [help page](js/docs/AUSBOSS_NODES_FrameInterpolate.md) covers the weights and timing.
 
+### FlashVSR Upscale
+
+Makes a video larger and sharper with the FlashVSR model. Set **Scale** from 1 to 4 and it returns every frame at the new size, with fine detail drawn back in. It reads the clip a few frames at a time, so a long clip needs no more graphics memory than a short one, and a result too large for the free memory is made in tiles.
+
+It needs one model file in `ComfyUI/models/diffusion_models` and no other pack. The [help page](js/docs/AUSBOSS_NODES_FlashVSRUpscale.md) has the download link, the memory it needs and the speed. [Try the FlashVSR Video Upscale example →](example_workflows/FlashVSR%20Video%20Upscale%20%28AusBoss%29.json)
+
 ### Save Video
 
 Saves a frame batch or a core `VIDEO` as MP4 (H.264 or H.265), WebM (VP9 or AV1), ProRes MOV, lossless FFV1 MKV, GIF or WebP. Which encoders you get depends on your FFmpeg and PyAV build, and H.264 and H.265 come in CPU and NVENC versions. The videos carry color tags, and optionally audio and the workflow.
@@ -363,6 +369,14 @@ Puts batch `b` after `a`. When the sizes match, nothing is resized. When they di
 
 A text box that grows with the node and sends its text, unchanged, down a `STRING` wire. Use it for a prompt, caption, path or other text that several nodes share. Spaces and line breaks are kept. Ctrl + Up and Ctrl + Down change the weight of the selected words, as in ComfyUI's own prompt boxes.
 
+### Text Lines
+
+Runs what comes after once for each line of your text. Type five prompts, one on each line, and one run makes five pictures. It also takes a list another node wrote, skips empty lines, and can take a leading `1.` or `-` off each line. `number` counts the lines from 1, to give each its own seed.
+
+### Prompt Variations
+
+A prompt box that changes on every run. Write choices in curly brackets, split by `|`, such as `a {red|blue|green} {sweater|jacket}`, and the node picks one from each set. Wire in the seed your sampler uses: a new seed gives a new mix, and the same seed gives the same prompt again. Set the seed to randomize and queue 50 runs to get 50 different prompts. Text without brackets comes out exactly as typed, so a JSON prompt is safe.
+
 ### H3 Prompt Writer
 
 Type what happens, one line for each moment, and leave a blank line to cut to a new place. Connect up to four pictures and give each one a job: a person, a place, an outfit, a thing or a style. Copy the moves from a video, keep a clip going, or add a voice or a song. A timeline on the node shows when each moment plays before you run it. It needs no extra model and you never see H3's prompt format. Connect a small text model and it fills in a one-line idea.
@@ -415,7 +429,7 @@ Turns parts of a workflow off and on from one small card. Select the nodes of on
 
 ## Example workflows
 
-These are the workflows where the nodes do something core ComfyUI doesn't do by itself: outpainting and inpainting that put your original picture back, lining an edit back up with its source, upscaling a picture in tiles, masking a thing by its name or with a click, and removing a watermark from a clip. Open a JSON file from [`example_workflows/`](example_workflows), or find them under this pack in ComfyUI's template browser. Each one has a thumbnail, numbered groups and a Workflow Note with the setup steps and model downloads.
+These are the workflows where the nodes do something core ComfyUI doesn't do by itself: outpainting and inpainting that put your original picture back, lining an edit back up with its source, upscaling a picture in tiles, masking a thing by its name or with a click, removing a watermark from a clip, and making a clip larger and sharper. Open a JSON file from [`example_workflows/`](example_workflows), or find them under this pack in ComfyUI's template browser. Each one has a thumbnail, numbered groups and a Workflow Note with the setup steps and model downloads.
 
 ![The Krea 2 Rotate + Outpaint workflow: a setup note on the left, then groups for your input, the two boxes and the model loaders, and the result with a before-and-after slider and Save Image.](assets/readme/workflow-layout.webp)
 
@@ -436,6 +450,7 @@ The workflows open with their image and video loaders empty, so you load your ow
 | [Mask by Name](example_workflows/Mask%20by%20Name%20%28AusBoss%29.json) | Type what to find in a picture, and get its mask and a cut-out with a see-through background | ComfyUI's own SAM 3.1 (ComfyUI 0.20 or newer) |
 | [Mask by Touch](example_workflows/Mask%20by%20Touch%20%28AusBoss%29.json) | Click a thing in a picture, or its whole subject, and get its mask and a cut-out with hair-fine edges | ComfyUI's own SAM 3.1 and its background-removal model (ComfyUI 0.21 or newer) |
 | [Simple Video Watermark Remover](example_workflows/Simple%20Video%20Watermark%20Remover%20%28AusBoss%29.json) | Find an overlay in a clip and remove it, with a one-frame comparison branch | ComfyUI's own SAM 3.1 (ComfyUI 0.20 or newer), plus `big-lama.pt` |
+| [FlashVSR Video Upscale](example_workflows/FlashVSR%20Video%20Upscale%20%28AusBoss%29.json) | Make a clip larger and sharper with one node | `flashvsr_v1.1_fp16.safetensors` |
 
 Every example uses only core nodes and this pack. Speed and memory use depend on the models, the sizes, the frame count and whatever else is using the GPU.
 

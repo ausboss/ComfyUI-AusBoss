@@ -13,6 +13,22 @@ All notable changes to ComfyUI-AusBoss are documented here.
   its original size. With Size off the picture comes out exactly as the file
   has it.
 
+- **Clear VRAM from the right-click menu.** Right-click the empty canvas
+  and pick **Clear VRAM 🆎** to unload every model and free memory on the
+  ComfyUI server, the same as ComfyUI's own "Unload Models and Execution
+  Cache". A short message says when it is done. Turn the entry off in
+  Settings, 🆎 AusBoss, Memory.
+
+- **Callout 🆎: Info card.** Right-click a Callout and pick **Info card**
+  for a small card with a title, a list of labels and values, and small
+  print, such as a table of run times. Write a row as `label | value`; a
+  row in **bold** is drawn in teal so the one to pick stands out. The first
+  line is the title, and a ⏱️ ℹ️ ⚠️ 💡 or ✅ at its start becomes a small
+  icon. An older pack shows the card as a plain note with its rows written
+  out.
+
+## 2.24.0 - 2026-11-12
+
 - **New node: Edit Lock.** Keeps every part of your picture that an edit
   did not change exactly where it was, with the colors it had. Edit models
   redraw the whole picture, so untouched parts often come back a little
@@ -26,6 +42,30 @@ All notable changes to ComfyUI-AusBoss are documented here.
   every part the edit did not change. Add it after the VAE Decode with
   Edit Lock's `edit_lock` output. It also gives a mask of what the edit
   changed and a one-line report.
+
+- **New node: Text Lines.** It runs what comes after once for each line of
+  your text. Type five prompts, one on each line, and one run makes five
+  pictures. It also takes a list a text model wrote: empty lines are
+  skipped, a leading number or bullet comes off, and **Limit** stops a list
+  that ran long.
+
+- **Save Image shows every picture of a run at once.** When a run saves
+  several pictures, they now show side by side in the node, the way the
+  core Save Image does. The arrows still go to each picture by itself, and
+  round again to all of them. Select Frame, Mask Refine, Mask by Name and
+  LaMa Inpaint show a batch the same way.
+
+- **Save Image can wait for a click before it saves.** Switch **Auto save**
+  off and a run only shows its pictures on the node. **SAVE ALL** over them
+  keeps every one; step to one picture with the arrows and **SAVE** keeps
+  just that one. Good for making a batch and keeping the best. Auto save is
+  on unless you switch it off, so nothing changes for workflows you have.
+
+- **New node: Prompt Variations.** A prompt box that picks one choice from
+  each set in curly brackets, such as `a {red|blue|green} {sweater|jacket}`,
+  on every run. The seed decides the picks, so the same seed gives the same
+  prompt again. Queue 50 runs with a random seed and get 50 different
+  prompts, with no wildcard pack.
 
 - **Mask by Touch: type a name to take it out of the mask.** The name field
   under the picture now has a sign in front. Click it to switch between **+**
@@ -52,6 +92,14 @@ All notable changes to ComfyUI-AusBoss are documented here.
   replaced. Now only the newest look waits. The button that pauses the
   looking also says **Pause** and **Look on**.
 
+- **New node: FlashVSR Upscale 🆎.** Makes a video larger and sharper with
+  the FlashVSR v1.1 model, from 1x to 4x. It needs one model file and no
+  other pack: the help page has the download link. A long clip needs no more
+  graphics memory than a short one, and a result too large for the free
+  memory is made in tiles.
+  The new example `FlashVSR Video Upscale (AusBoss)` shows it between Load
+  Video and Save Video.
+
 - **Two errors from outside a workflow now say what to do.** When a MiniMax H3
   run stops with `KeyError: 'latent'` because the Muse MiniMax Director pack is
   installed, a message names that pack and says to turn it off. When an older
@@ -64,6 +112,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   copy loads and the other steps aside, and the console says which folder to
   delete. A copy from 2.23.0 or older is the one that loads when it sits
   beside a newer one, so delete the older folder.
+
+- **A Workflow Note popup closes when you click outside it.** Opening an
+  info tile (a Tips note, say) showed the full note, and only its Close
+  button or Escape put it away. A click on the dark area around it now
+  closes it too. Selecting text in the note, or a drag that starts on it,
+  keeps it open, and the Edit form still asks before it drops a change.
 
 ## 2.23.0 - 2026-11-09
 

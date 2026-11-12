@@ -160,6 +160,23 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_FlashVSRUpscale": {
+    "required": [
+      "frames",
+      "model",
+      "scale",
+      "color_match"
+    ],
+    "optional": [
+      "vae"
+    ],
+    "outputs": [
+      [
+        "IMAGE",
+        "frames"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_Float": {
     "required": [
       "value"
@@ -828,6 +845,19 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_PromptVariations": {
+    "required": [
+      "text",
+      "seed"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "STRING",
+        "prompt"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_RealignToSource": {
     "required": [
       "edited",
@@ -931,7 +961,8 @@
       "name_size",
       "name_batch",
       "preview",
-      "step_preview"
+      "step_preview",
+      "autosave"
     ],
     "outputs": [
       [
@@ -1078,6 +1109,29 @@
       [
         "STRING",
         "text"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_TextLines": {
+    "required": [
+      "text",
+      "split",
+      "remove_numbering",
+      "limit"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "STRING",
+        "line"
+      ],
+      [
+        "INT",
+        "number"
+      ],
+      [
+        "INT",
+        "count"
       ]
     ]
   },

@@ -291,6 +291,14 @@ const CARDS = {
       { widget: "batch_size", label: "Batch" },
     ],
   },
+  AUSBOSS_NODES_FlashVSRUpscale: {
+    minWidth: 340,
+    rows: [
+      { widget: "model", label: "Model", kind: "select" },
+      { widget: "scale", label: "Scale", suffix: "×", decimals: 2 },
+      { widget: "color_match", label: "Keep colors" },
+    ],
+  },
   AUSBOSS_NODES_AlignImage: {
     minWidth: 300,
     rows: [
@@ -340,6 +348,23 @@ const CARDS = {
     minWidth: 300, look: textLook, corner: textLookCorner,
     rows: [{ widget: "text", kind: "textarea", placeholder: "Prompt, caption, or shared text", height: 100, grow: true,
       looks: { big: { height: 62, placeholder: "type here" } } }],
+  },
+  // One line for each run. The three settings under the box say where a run
+  // ends, whether a leading "1." comes off, and how many lines run at most.
+  AUSBOSS_NODES_TextLines: {
+    minWidth: 320,
+    rows: [
+      { widget: "text", kind: "textarea", placeholder: "One line for each run", height: 100, grow: true },
+      { widget: "split", label: "Split at", kind: "segment" },
+      { widget: "remove_numbering", label: "Numbering", onText: "remove", offText: "keep" },
+      { widget: "limit", label: "Limit" },
+    ],
+  },
+  // The seed arrives on a socket (forceInput), so the card is the prompt
+  // alone, with its {a|b} choice sets.
+  AUSBOSS_NODES_PromptVariations: {
+    minWidth: 300,
+    rows: [{ widget: "text", kind: "textarea", placeholder: "A woman in a {red|blue|green} {sweater|jacket}. One choice is picked from each set.", height: 100, grow: true }],
   },
   // All the words go in the box, and the strip under it shows when each
   // moment plays. The pictures, the video, the voice and the song arrive on
