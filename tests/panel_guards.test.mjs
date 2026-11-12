@@ -741,3 +741,11 @@ test("every DOM widget stays visible when the graph is zoomed out", () => {
   }
   assert.ok(calls >= 14, `expected the pack's DOM widgets, found ${calls}`);
 });
+
+// Save Image's settings card keeps the height released workflows were laid
+// out around. A new row made it 32 px taller, and a node saved at its
+// smallest size grew over the node under it. A new control shares a row.
+test("Save Image's settings card stays the height saved workflows expect", () => {
+  const source = readFileSync(join(JS_ROOT, "save_image", "index.js"), "utf-8");
+  assert.match(source, /const CARD_HEIGHT = 288;/, "js/save_image/index.js: the card's height changed; saved nodes at their smallest size would grow");
+});
