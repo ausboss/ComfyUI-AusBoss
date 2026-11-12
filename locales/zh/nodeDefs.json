@@ -1681,5 +1681,31 @@
   "AUSBOSS_NODES_WorkflowNoteTile": {
     "display_name": "工作流说明卡片 🆎",
     "description": "点击打开完整说明的小按钮。点击铅笔编辑，拖动角落调整大小。旧版节点包会将它显示为缺失节点，请更新 ComfyUI-AusBoss。"
+  },
+  "AUSBOSS_NODES_FlashVSRUpscale": {
+    "display_name": "FlashVSR 视频放大 🆎",
+    "description": "用 FlashVSR 模型把视频放大并变清晰。选好模型文件，设定放大倍数，然后运行。节点每次只读取几帧，所以长视频和短视频占用的显存一样多，每一帧都会返回。接上 Wan 2.1 VAE 可以得到更慢但更细致的结果。",
+    "inputs": {
+      "frames": {
+        "name": "帧"
+      },
+      "model": {
+        "name": "模型"
+      },
+      "scale": {
+        "name": "放大倍数"
+      },
+      "color_match": {
+        "name": "保留颜色"
+      },
+      "vae": {
+        "name": "vae"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "帧"
+      }
+    }
   }
 }

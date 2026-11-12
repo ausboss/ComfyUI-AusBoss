@@ -290,6 +290,14 @@ const CARDS = {
       { widget: "batch_size", label: "Batch" },
     ],
   },
+  AUSBOSS_NODES_FlashVSRUpscale: {
+    minWidth: 340,
+    rows: [
+      { widget: "model", label: "Model", kind: "select" },
+      { widget: "scale", label: "Scale", suffix: "×", decimals: 2 },
+      { widget: "color_match", label: "Keep colors" },
+    ],
+  },
   AUSBOSS_NODES_AlignImage: {
     minWidth: 300,
     rows: [

@@ -160,6 +160,23 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_FlashVSRUpscale": {
+    "required": [
+      "frames",
+      "model",
+      "scale",
+      "color_match"
+    ],
+    "optional": [
+      "vae"
+    ],
+    "outputs": [
+      [
+        "IMAGE",
+        "frames"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_Float": {
     "required": [
       "value"
