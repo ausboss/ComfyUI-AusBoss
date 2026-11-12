@@ -74,6 +74,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   delete. A copy from 2.23.0 or older is the one that loads when it sits
   beside a newer one, so delete the older folder.
 
+- **A Workflow Note popup closes when you click outside it.** Opening an
+  info tile (a Tips note, say) showed the full note, and only its Close
+  button or Escape put it away. A click on the dark area around it now
+  closes it too. Selecting text in the note, or a drag that starts on it,
+  keeps it open, and the Edit form still asks before it drops a change.
+
 ## 2.23.0 - 2026-11-09
 
 - **Mask by Touch keeps your picks when the picture changes.** Your clicks
