@@ -1301,6 +1301,35 @@
       }
     }
   },
+  "AUSBOSS_NODES_TextLines": {
+    "display_name": "逐行文本 🆎",
+    "description": "文本的每一行都会让后面的节点运行一次。输入五条提示词，每行一条，运行一次就得到五张图。空行会跳过，行首的序号或项目符号可以去掉。",
+    "inputs": {
+      "text": {
+        "name": "文本"
+      },
+      "split": {
+        "name": "分隔方式"
+      },
+      "remove_numbering": {
+        "name": "去掉序号"
+      },
+      "limit": {
+        "name": "上限"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "行"
+      },
+      "1": {
+        "name": "序号"
+      },
+      "2": {
+        "name": "数量"
+      }
+    }
+  },
   "AUSBOSS_NODES_TiledUpscale": {
     "display_name": "分块放大 🆎",
     "description": "以百万像素设置成品尺寸，并把图片切成模型可以逐块重画的图块。一块就能装下的图片保持完整。把图块送进采样器，再和 stitcher 一起送进分块放大拼合 🆎。小图不会被重画到远超其细节的程度：最多重画到原百万像素的 max_growth 倍，再用普通方式放大。report 会说明对你的图片做了什么。",

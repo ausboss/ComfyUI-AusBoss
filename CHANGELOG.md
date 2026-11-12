@@ -18,6 +18,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   Edit Lock's `edit_lock` output. It also gives a mask of what the edit
   changed and a one-line report.
 
+- **New node: Text Lines.** It runs what comes after once for each line of
+  your text. Type five prompts, one on each line, and one run makes five
+  pictures. It also takes a list a text model wrote: empty lines are
+  skipped, a leading number or bullet comes off, and **Limit** stops a list
+  that ran long.
+
 - **Save Image shows every picture of a run at once.** When a run saves
   several pictures, they now show side by side in the node, the way the
   core Save Image does. The arrows still go to each picture by itself, and
