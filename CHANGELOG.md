@@ -10,6 +10,14 @@ All notable changes to ComfyUI-AusBoss are documented here.
   Cache". A short message says when it is done. Turn the entry off in
   Settings, 🆎 AusBoss, Memory.
 
+- **Callout 🆎: Info card.** Right-click a Callout and pick **Info card**
+  for a small card with a title, a list of labels and values, and small
+  print, such as a table of run times. Write a row as `label | value`; a
+  row in **bold** is drawn in teal so the one to pick stands out. The first
+  line is the title, and a ⏱️ ℹ️ ⚠️ 💡 or ✅ at its start becomes a small
+  icon. An older pack shows the card as a plain note with its rows written
+  out.
+
 ## 2.24.0 - 2026-11-12
 
 - **New node: Edit Lock.** Keeps every part of your picture that an edit

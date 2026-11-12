@@ -13,10 +13,12 @@ import { BRAND, chainCallback, keepDomWidgetWidthAuto } from "../shared/index.mj
 import {
   ARROW_ANGLE,
   ARROW_CHOICES,
+  CARD_TEMPLATE,
   DOUBLE_ARROWS,
   arrowText,
   fitFontSize,
   parseBlocks,
+  parseCard,
   pastedLink,
   repointLinks,
   targetId,
@@ -45,6 +47,10 @@ const LINK_TILES = {
   youtube: { label: "Watch Me on YouTube", url: "https://www.youtube.com/@ausbossdev" },
   discord: { label: "Join for Help or More Workflows", url: "https://discord.gg/RwVxY9Fuaj" },
 };
+// A new Info card opens at this size, which shows its starter text whole.
+const CARD_SIZE = [300, 230];
+// The card's text grows with the node like a note's, but a card stays a card.
+const CARD_FONT_MAX = 20;
 const FRAME_FILL = 0.8; // the share of the view a node brought into view takes, as in Workflow Switches
 const FONT = '"IBM Plex Sans", "Inter", "Segoe UI", system-ui, -apple-system, sans-serif';
 
@@ -81,6 +87,20 @@ ${TILE_FACE_CSS}
 .ausboss-callout-card[data-tile] .ausboss-callout-url svg{width:36px;height:28px;flex:none}
 .ausboss-callout-card[data-tile] .ausboss-callout-out{margin-left:auto}
 .ausboss-callout-card[data-tile] .ausboss-callout-tools{right:27px;}
+.ausboss-callout-card[data-card]{background:#111818;border:1px solid #2e3c3b;}
+.ausboss-callout-card[data-card] .ausboss-callout-inner{padding:.8em 1em;color:#d9e4e3;font-weight:400;line-height:1.45;}
+.ausboss-callout-card[data-card] b{color:#f2f7f6;font-weight:650;}
+.ausboss-card-block{margin:0 0 .85em;}
+.ausboss-card-block:last-child{margin-bottom:0;}
+.ausboss-card-block>*+*{margin-top:.3em;}
+.ausboss-card-title{display:flex;align-items:center;gap:.4em;color:#f2f7f6;font-size:1.08em;font-weight:650;}
+.ausboss-card-icon{flex:none;width:1em;height:1em;color:#c9d6d4;}
+.ausboss-card-icon svg{display:block;width:100%;height:100%;}
+.ausboss-card-row{display:flex;justify-content:space-between;align-items:baseline;gap:1em;}
+.ausboss-card-row>span:last-child{flex:none;text-align:right;white-space:nowrap;}
+.ausboss-card-row.is-mark,.ausboss-card-row.is-mark b{color:#6fe0d6;font-weight:500;}
+.ausboss-card-small,.ausboss-card-small b{color:#93a6a4;}
+.ausboss-card-small{font-size:.92em;}
 .ausboss-callout-empty{color:#6f8987;font-size:14px;font-weight:400;}
 .ausboss-callout-arrow{display:inline-block;width:1.2em;height:1.2em;margin:0 .1em;vertical-align:-.26em;filter:drop-shadow(0 0 .3em rgba(0,180,170,.55));}
 .ausboss-callout-arrow svg{display:block;width:100%;height:100%;overflow:visible;}
@@ -152,6 +172,25 @@ function arrowIcon(kind) {
   }
   root.append(group);
   return root;
+}
+
+// The small line icons an Info card's title can start with.
+const CARD_ICON_PATHS = {
+  clock: ["M12 7v5l3.2 2"],
+  info: ["M12 11v6", "M12 7.6v.01"],
+  warning: ["M12 3.5 2.8 19.5h18.4Z", "M12 10v4", "M12 16.9v.01"],
+  tip: ["M9.5 18h5", "M10.5 21h3", "M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3Z"],
+  check: ["M8 12.4l2.8 2.8 5.2-5.6"],
+};
+const CARD_ICON_RING = new Set(["clock", "info", "check"]);
+
+function cardIcon(kind) {
+  const span = el("span", "ausboss-card-icon");
+  const root = svg("svg", { viewBox: "0 0 24 24", "aria-hidden": "true", fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round" });
+  if (CARD_ICON_RING.has(kind)) root.append(svg("circle", { cx: 12, cy: 12, r: 9 }));
+  for (const d of CARD_ICON_PATHS[kind] ?? []) root.append(svg("path", { d }));
+  span.append(root);
+  return span;
 }
 
 // The node a link names, looked up in the graph the note sits in.
@@ -262,16 +301,78 @@ function bringIntoView(target) {
   }
 }
 
+// One line's pieces into an element. The pieces of one link sit in one
+// element; a link that leaves ComfyUI ends with a small ↗.
+function appendPieces(state, into, line) {
+  let run = null;
+  let wrap = null;
+  const close = () => {
+    if (wrap?.classList.contains("ausboss-callout-url")) wrap.append(el("span", "ausboss-callout-out", "↗"));
+  };
+  for (const piece of line) {
+    if (piece.run !== run) {
+      close();
+      run = piece.run;
+      wrap = run === undefined ? null : linkRun(state, piece);
+      if (wrap) into.append(wrap);
+    }
+    const target = wrap ?? into;
+    if (piece.arrow) target.append(arrowSpan(state, piece.arrow, piece));
+    else target.append(piece.bold ? el("b", "", piece.text) : document.createTextNode(piece.text));
+  }
+  close();
+}
+
+// An Info card: a title, rows of label and value, and small print.
+function renderCard(state, blocks) {
+  for (const lines of blocks) {
+    const block = el("div", "ausboss-card-block");
+    for (const line of lines) {
+      let row;
+      if (line.kind === "title") {
+        row = el("div", "ausboss-card-title");
+        if (line.icon) row.append(cardIcon(line.icon));
+        const words = el("span");
+        appendPieces(state, words, line.pieces);
+        row.append(words);
+      } else if (line.kind === "row") {
+        row = el("div", `ausboss-card-row${line.highlight ? " is-mark" : ""}`);
+        for (const cell of line.cells) {
+          const side = el("span");
+          appendPieces(state, side, cell);
+          row.append(side);
+        }
+      } else {
+        row = el("div", "ausboss-card-text");
+        appendPieces(state, row, line.pieces);
+      }
+      if (line.small) row.classList.add("ausboss-card-small");
+      block.append(row);
+    }
+    state.inner.append(block);
+  }
+}
+
 function renderText(state) {
   const style = state.node.properties?.ausbossCalloutTile;
   if (["youtube","discord","title"].includes(style)) state.card.dataset.tile = style;
   else delete state.card.dataset.tile;
-  setTileFace(state.node, state.root, Boolean(state.card.dataset.tile), () => startEdit(state));
-  const blocks = parseBlocks(state.valueWidget.value);
+  // An Info card has no title bar, like a tile, but keeps the full editor
+  // and saves as a plain Callout: an older pack shows its text as a note.
+  if (style === "card") state.card.dataset.card = "";
+  else delete state.card.dataset.card;
+  const isCard = style === "card";
+  setTileFace(state.node, state.root, Boolean(state.card.dataset.tile) || isCard, () => startEdit(state));
+  const blocks = isCard ? parseCard(state.valueWidget.value) : parseBlocks(state.valueWidget.value);
   state.inner.replaceChildren();
   state.empty = blocks.length === 0;
   if (state.empty) {
     state.inner.append(el("div", "ausboss-callout-empty", "Double-click to write a note"));
+  }
+  if (isCard) {
+    renderCard(state, blocks);
+    fit(state);
+    return;
   }
   for (const lines of blocks) {
     const point = el("div", "ausboss-callout-point");
@@ -280,21 +381,7 @@ function renderText(state) {
       // lines are told apart by a break, as before; a block needs none.
       const into = line.small ? el("div", "ausboss-callout-small") : point;
       if (index && !line.small && !lines[index - 1].small) point.append(document.createElement("br"));
-      let run = null;
-      let wrap = null;
-      for (const piece of line) {
-        // The pieces of one link sit in one element.
-        if (piece.run !== run) {
-          if (wrap?.classList.contains("ausboss-callout-url")) wrap.append(el("span", "ausboss-callout-out", "↗"));
-          run = piece.run;
-          wrap = run === undefined ? null : linkRun(state, piece);
-          if (wrap) into.append(wrap);
-        }
-        const target = wrap ?? into;
-        if (piece.arrow) target.append(arrowSpan(state, piece.arrow, piece));
-        else target.append(piece.bold ? el("b", "", piece.text) : document.createTextNode(piece.text));
-      }
-      if (wrap?.classList.contains("ausboss-callout-url")) wrap.append(el("span", "ausboss-callout-out", "↗"));
+      appendPieces(state, into, line);
       if (line.small) point.append(into);
     });
     state.inner.append(point);
@@ -364,7 +451,7 @@ function fit(state) {
     inner.style.fontSize = `${px}px`;
     return inner.offsetHeight <= height && inner.scrollWidth <= width + 1;
   };
-  const size = fitFontSize(fits);
+  const size = fitFontSize(fits, undefined, card.dataset.card === undefined ? undefined : CARD_FONT_MAX);
   const social = card.dataset.tile === "youtube" || card.dataset.tile === "discord";
   inner.style.fontSize = `${social ? Math.min(size, 16) : size}px`;
 }
@@ -453,7 +540,9 @@ function startEdit(state) {
   const wrap = el("div", "ausboss-callout-editor");
   const area = el("textarea", "ausboss-callout-edit");
   area.value = state.valueWidget.value ?? "";
-  area.placeholder = "One idea per paragraph. **Bold** a word to stress it. The buttons below add an arrow, make a line small or make words a link.";
+  area.placeholder = state.card.dataset.card === undefined
+    ? "One idea per paragraph. **Bold** a word to stress it. The buttons below add an arrow, make a line small or make words a link."
+    : "The first line is the title. Write label | value for a row. **Bold** a whole row to make it teal. Small makes a line small print.";
   area.spellcheck = true;
   const bar = el("div", "ausboss-callout-arrowbar");
   bar.append(el("span", "", "Arrow"));
@@ -687,7 +776,7 @@ app.registerExtension({
         const state = buildPanel(this);
         if (!state) return;
         renderText(state);
-        if (state.card.dataset.tile && Number.isFinite(saved?.size?.[1])) {
+        if ((state.card.dataset.tile || state.card.dataset.card !== undefined) && Number.isFinite(saved?.size?.[1])) {
           this.setSize?.([this.size[0], saved.size[1]]);
         }
       });
@@ -699,14 +788,18 @@ app.registerExtension({
     chainCallback(nodeType.prototype, "getExtraMenuOptions", function (_canvas, options) {
       const state = this.__ausbossCallout;
       if (!state || !Array.isArray(options)) return;
-      for (const [style, label] of [["plain","Plain callout"],["title","Title tile"],["youtube","Set YouTube link tile"],["discord","Set Discord link tile"]]) {
+      for (const [style, label] of [["plain","Plain callout"],["card","Info card"],["title","Title tile"],["youtube","Set YouTube link tile"],["discord","Set Discord link tile"]]) {
         options.unshift({ content: label, callback: () => {
           this.properties ??= {};
           this.properties.ausbossCalloutTile = style;
           const preset = LINK_TILES[style];
           if (preset) commitWidgetValue(this, state.valueWidget, `[${preset.label}](${preset.url})`, app.canvas);
+          // An empty card starts with text that shows how one is written.
+          const starter = style === "card" && !String(state.valueWidget.value ?? "").trim();
+          if (starter) commitWidgetValue(this, state.valueWidget, CARD_TEMPLATE, app.canvas);
           renderText(state);
-          if (style !== "plain") this.setSize?.([this.size[0], style === "title" ? 86 : 78]);
+          if (starter) this.setSize?.([Math.max(this.size[0], CARD_SIZE[0]), CARD_SIZE[1]]);
+          else if (style !== "plain" && style !== "card") this.setSize?.([this.size[0], style === "title" ? 86 : 78]);
           markChanged();
         }});
       }

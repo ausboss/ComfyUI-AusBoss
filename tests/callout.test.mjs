@@ -5,7 +5,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
-  ARROW_ANGLE, ARROW_CHOICES, SMALL_MARK, arrowText, fitFontSize, linkTarget, parseBlocks, pastedLink, repointLinks, targetId,
+  ARROW_ANGLE, ARROW_CHOICES, CARD_TEMPLATE, SMALL_MARK, arrowText, cardCells, parseCard, fitFontSize, linkTarget, parseBlocks, pastedLink, repointLinks, targetId,
   toggleSmall, urlLabel, wrapLink, tileLinkFields, tileLinkText,
 } from "../js/shared/callout.mjs";
 
@@ -321,4 +321,92 @@ test("a note pasted with what its links name follows the copies", () => {
   // Nothing it names was copied, or no links at all: no change.
   assert.equal(repointLinks("[elsewhere](#40) ⬆️ plain", nodes, groups), null);
   assert.equal(repointLinks(undefined, nodes, groups), null);
+});
+
+// Info card. The words of a piece list, so a test reads like the card.
+const words = (pieces) => pieces.map((piece) => piece.text ?? "").join("");
+
+test("an Info card reads a title, rows and small print from plain text", () => {
+  const blocks = parseCard([
+    "⏱ Too slow?",
+    "###### Redraw time on an RTX 5090. Smaller cards take longer.",
+    "",
+    "2x, 18 steps | ~4 min",
+    "2x, 10 steps | ~3 min",
+    "1.5x, 18 steps | ~2.5 min",
+    "**1.5x, 10 steps (default) | ~2 min**",
+    "",
+    "###### 1.5x is a 4608-wide sheet, 2x is 6144.",
+  ].join("\n"));
+  assert.equal(blocks.length, 3);
+  const [head, rows, foot] = blocks;
+  assert.deepEqual(head.map((line) => line.kind), ["title", "text"]);
+  assert.equal(head[0].icon, "clock");
+  assert.equal(words(head[0].pieces), "Too slow?");
+  assert.equal(head[1].small, true);
+  assert.deepEqual(
+    rows.map((row) => [row.kind, words(row.cells[0]), words(row.cells[1]), row.highlight]),
+    [
+      ["row", "2x, 18 steps", "~4 min", false],
+      ["row", "2x, 10 steps", "~3 min", false],
+      ["row", "1.5x, 18 steps", "~2.5 min", false],
+      ["row", "1.5x, 10 steps (default)", "~2 min", true],
+    ],
+  );
+  assert.equal(foot[0].kind, "text");
+  assert.equal(foot[0].small, true);
+});
+
+test("a row is marked by bold on the whole row, written either way", () => {
+  assert.equal(parseCard("T\n**a | b**")[0][1].highlight, true);
+  assert.equal(parseCard("T\n**a** | **b**")[0][1].highlight, true);
+  // Bold on one word stresses the word; the row is not marked.
+  assert.equal(parseCard("T\n**a** b | c")[0][1].highlight, false);
+  assert.equal(parseCard("T\na | **b**")[0][1].highlight, false);
+});
+
+test("a row splits at the first | outside a link", () => {
+  assert.deepEqual(cardCells("Size (1.5x | 2x)"), ["Size (1.5x", "2x)"]);
+  assert.deepEqual(cardCells("[a|b](https://example.com/a|b) | v"), ["[a|b](https://example.com/a|b)", "v"]);
+  assert.deepEqual(cardCells("a | b | c"), ["a", "b | c"]);
+  // A pasted Markdown table row loses its outer pipes; its --- line is dropped.
+  assert.deepEqual(cardCells("| 2x | ~4 min |"), ["2x", "~4 min"]);
+  assert.deepEqual(parseCard("T\n| a | b |\n|---|:--:|\n| c | d |")[0].map((line) => line.kind), ["title", "row", "row"]);
+  // One side empty is not a row.
+  for (const line of ["a |", "| b", "|", "no pipe"]) assert.equal(cardCells(line), null, line);
+});
+
+test("only the card's first line is its title, and only a known emoji is an icon", () => {
+  assert.equal(parseCard("a | b\nT")[0][0].kind, "row");
+  assert.equal(parseCard("###### small\nT")[0][0].kind, "text");
+  assert.deepEqual(parseCard("T\nU")[0].map((line) => line.kind), ["title", "text"]);
+  for (const [title, icon] of [["ℹ️ Note", "info"], ["⚠️ Careful", "warning"], ["💡 Tip", "tip"], ["✅ Done", "check"], ["⏱️Fast", "clock"], ["🙂 Hi", null], ["Plain", null]]) {
+    const line = parseCard(title)[0][0];
+    assert.equal(line.icon, icon, title);
+    if (icon) assert.ok(!/^\s/.test(words(line.pieces)), title);
+  }
+  assert.equal(words(parseCard("🙂 Hi")[0][0].pieces), "🙂 Hi");
+});
+
+test("the card's starter text shows every part of a card", () => {
+  const [head, rows, foot] = parseCard(CARD_TEMPLATE);
+  assert.equal(head[0].icon, "info");
+  assert.equal(head[1].small, true);
+  assert.deepEqual(rows.map((row) => row.highlight), [false, true]);
+  assert.equal(foot[0].small, true);
+});
+
+test("a plain callout reads a | as text, so no note written before changes", () => {
+  const [[line]] = parseBlocks("2x, 18 steps | ~4 min");
+  assert.deepEqual(line, [{ text: "2x, 18 steps | ~4 min", bold: false }]);
+});
+
+test("an Info card saves as a plain Callout, so an older pack shows its text", () => {
+  // Tiles save as Callout Tile and an older pack reports that node missing.
+  // A card is readable as a plain note there, so it keeps the plain type.
+  const source = readFileSync(join(ROOT, "js", "callout", "index.js"), "utf-8");
+  const saved = /serializeNoteIdentity\(saved, (\[[^\]]*\])\.includes/.exec(source);
+  assert.ok(saved, "the tile list in onSerialize moved");
+  assert.ok(!saved[1].includes("card"), "an Info card would save as a Callout Tile");
+  assert.match(source, /\["card","Info card"\]/, "the Info card is gone from the note's menu");
 });
