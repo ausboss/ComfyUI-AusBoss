@@ -50,8 +50,18 @@ file's name. A caption on the `caption_text` input writes the paired `.txt`.
   shorter; on again, the node returns to its height with the last saved
   image. It is display only: the file is saved either way and the queue
   still lists it. When a run saves more than one image (a batch, or a list
-  such as a folder of images), arrows beside the switch (‹ 2 / 5 ›) step
-  through them.
+  such as a folder of images), they all show side by side. The arrows
+  beside the switch (‹ all 5 ›) go on to each one by itself (‹ 2 / 5 ›) and
+  back round to all of them. A run of more than 48 shows one at a time.
+- **Auto save** (`autosave`, on by default): on, every run saves its
+  pictures. Off, a run only shows them here and saves nothing. A **SAVE**
+  button then sits over the picture: **SAVE ALL** keeps every picture of
+  the run, and with the arrows on one picture, **SAVE** keeps that one.
+  Use it to make a batch, look, and keep only the good ones. The pictures
+  are saved under the name and folder set above, in the format picked,
+  with the workflow inside if **Embed workflow** is on. They wait in
+  ComfyUI's temp folder, which is emptied when ComfyUI restarts, so save
+  what you want before that.
 - **Preview steps** (`step_preview`, off by default): the switch left of
   **preview** shows the picture while it is being made, one step at a time,
   where the saved image goes, with a **STOP** button on the bar. Stop a run

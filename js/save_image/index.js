@@ -29,11 +29,11 @@ const NODE_MIN_WIDTH = 340;
 const NAME_TITLE = "The local filename; subfolders are allowed. The tags below are appended to it. Tokens work: %date:yyyy-MM-dd%, %width%, %KSampler.seed%.";
 // Captions, fields, the two-line preview, chips, pills, the embed row and
 // the gaps between them; the frontend's wrapper insets ride on top.
-const CARD_HEIGHT = 288;
+const CARD_HEIGHT = 320;
 const WRAPPER_INSET = 16;
 const HIDDEN = [
   "filename_prefix", "format", "save_metadata", "exact_name", "on_existing",
-  "output_dir", "caption", "name_counter", "name_date", "name_time", "name_size", "name_batch",
+  "output_dir", "caption", "name_counter", "name_date", "name_time", "name_size", "name_batch", "autosave",
 ];
 const FONT = `-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif`;
 const MONO = `ui-monospace,SFMono-Regular,Menlo,Consolas,monospace`;
@@ -285,6 +285,22 @@ function buildCard(node) {
   embedRow.append(el("span", "ausboss-save-embed-label", PANEL_LABELS.embed), embedSeg);
   root.append(embedRow);
 
+  // Auto save: off shows the pictures without saving them; the Save button
+  // over the picture (js/input_preview) then keeps the ones that are wanted.
+  const autoRow = el("div", "ausboss-save-row");
+  const autoSeg = el("div", "ausboss-card-seg ausboss-card-bool");
+  autoSeg.setAttribute("role", "radiogroup");
+  const autoButtons = new Map();
+  const autoTitle = "On: every run saves its pictures. Off: the pictures only show here, and the Save button over them keeps the ones you want.";
+  for (const [on, text] of [[false, PANEL_LABELS.off], [true, PANEL_LABELS.on]]) {
+    const button = el("button", "", text);
+    button.type = "button"; button.title = autoTitle;
+    button.addEventListener("click", () => { if (setValue(node, "autosave", on)) { state.savedPath = null; notifyAusbossChange(); } state.refresh(); });
+    autoSeg.append(button); autoButtons.set(on, button);
+  }
+  autoRow.append(el("span", "ausboss-save-embed-label", "Auto save"), autoSeg);
+  root.append(autoRow);
+
   root.addEventListener("pointerdown", (event) => {
     if (event.target.closest("button,input,select")) event.stopPropagation();
   });
@@ -329,6 +345,11 @@ function buildCard(node) {
     for (const [on, button] of embedButtons) {
       button.classList.toggle("on", on === embed);
       button.setAttribute("aria-checked", String(on === embed));
+    }
+    const auto = values.autosave !== false;
+    for (const [on, button] of autoButtons) {
+      button.classList.toggle("on", on === auto);
+      button.setAttribute("aria-checked", String(on === auto));
     }
   };
 

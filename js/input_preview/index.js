@@ -26,7 +26,7 @@ import { suppressCoreImagePreview } from "../shared/core_preview.mjs";
 import { autoMaskValues } from "../shared/mask_auto.mjs";
 import { hideInputsInDef, hideWidget, setWidgetVisible } from "../shared/widget_visibility.mjs";
 import { makePictureStepper } from "../shared/picture_stepper.mjs";
-import { keepIndex, stepIndex } from "../shared/picture_steps.mjs";
+import { ALL, allLabel, gridShape, heldPlaces, keepIndex, stepIndex, stepWithAll } from "../shared/picture_steps.mjs";
 import { addStepConsumer, mountStepOverlay, showsStepsOn, stepRun, stopStepRun, watchSteps } from "../shared/step_preview.mjs";
 import {
   describeNodePreview,
@@ -55,6 +55,11 @@ const BAR_PADDING = 2;
 const PANEL_HEIGHT = STAGE_HEIGHT + BAR_HEIGHT + 4 + 16;
 const OFF_HEIGHT = BAR_HEIGHT + 16;
 const INPUT_SIDE = 1; // LiteGraph.INPUT
+// A run that left this many pictures or fewer opens with all of them side
+// by side. More than that and each would be a speck, so the arrows go
+// through them one at a time, as before.
+const GRID_MAX = 48;
+const GRID_GAP = 4;
 // The node's height from before its preview was switched off, so switching
 // it back on returns the node to it (saved with the workflow).
 const HEIGHT_PROPERTY = "ausboss_preview_height";
@@ -114,7 +119,17 @@ const NODE_CONFIG = {
   },
   AUSBOSS_NODES_SelectFrame: { inputName: "frames", noun: "frames" },
   // Its result is the file it just saved; the card sits above the panel.
-  AUSBOSS_NODES_SaveImage: { inputName: "images", noun: "an image", switchTitle: "Show the saved image here. The file is saved either way.", steps: true },
+  // SAVE shows only for a run made with Auto save off, which holds its
+  // pictures until this button keeps them.
+  AUSBOSS_NODES_SaveImage: {
+    inputName: "images",
+    noun: "an image",
+    switchTitle: "Show the saved image here. The file is saved either way.",
+    steps: true,
+    tools: [
+      { label: "SAVE", title: "Save what is showing: every picture, or the one the arrows picked.", action: keepHeld, held: true },
+    ],
+  },
 };
 
 // The picture sits out of flow, centred in the stage, so it can never set
@@ -138,10 +153,16 @@ function ensureCss() {
 .ausboss-input-preview-stage img,.ausboss-input-preview-stage video{display:none;position:absolute;inset:0;margin:auto;max-width:100%;max-height:100%;object-fit:contain;}
 .ausboss-input-preview-stage.show-image img{display:block;}
 .ausboss-input-preview-stage.show-video video{display:block;}
+.ausboss-input-preview-grid{display:none;position:absolute;inset:0;box-sizing:border-box;gap:${GRID_GAP}px;padding:${GRID_GAP}px;justify-content:center;align-content:center;}
+.ausboss-input-preview-stage.show-grid .ausboss-input-preview-grid{display:grid;}
+.ausboss-input-preview-stage .ausboss-input-preview-grid img{display:block;position:static;margin:0;width:100%;height:100%;min-width:0;min-height:0;max-width:none;max-height:none;object-fit:contain;}
 .ausboss-input-preview-hint{display:none;max-width:86%;color:${T.faint};font:11px/1.35 ${FONT_UI};text-align:center;}
-.ausboss-input-preview-stage:not(.show-image):not(.show-video) .ausboss-input-preview-hint{display:block;}
+.ausboss-input-preview-stage:not(.show-image):not(.show-video):not(.show-grid) .ausboss-input-preview-hint{display:block;}
 .ausboss-input-preview-tools{display:flex;gap:4px;pointer-events:auto;}
 .ausboss-input-preview-tool{box-sizing:border-box;height:${BAR_HEIGHT}px;min-width:24px;padding:0 6px;border:1px solid transparent;border-radius:${RADIUS_XS}px;background:${T.fill};color:${T.label};font:600 9.5px/18px ${FONT_UI};letter-spacing:.02em;cursor:pointer;}
+.ausboss-input-preview-tool[hidden]{display:none;}
+.ausboss-input-preview-tool.keep{color:${T.brandInk};background:${T.brandSoft};}
+.ausboss-input-preview-stage .ausboss-input-preview-grid img.kept{outline:2px solid ${T.brand};outline-offset:-2px;}
 .ausboss-input-preview-tool:hover{color:${T.ink};background:${T.fillHover};}
 .ausboss-input-preview-tool.active{color:${T.brandInk};background:${T.brandSoft};}
 .ausboss-input-preview-tool:focus-visible{outline:2px solid ${T.brand};outline-offset:1px;}
@@ -488,13 +509,14 @@ function buildTools(state, tools, signal) {
       tool.action(state);
     }, { signal });
     state.toolButtons[tool.label] = button;
+    if (tool.held) { button.hidden = true; state.keepButton = button; }
     bar.append(button);
   }
   return bar;
 }
 
 function showHint(state, text) {
-  state.stage.classList.remove("show-image", "show-video");
+  state.stage.classList.remove("show-image", "show-video", "show-grid");
   state.hint.textContent = text;
   state.placeholder = null;
   releaseSteps(state);
@@ -509,6 +531,7 @@ function showPlaceholder(state, connected) {
 function showMedia(state, kind) {
   state.stage.classList.toggle("show-image", kind === "image");
   state.stage.classList.toggle("show-video", kind === "video");
+  state.stage.classList.toggle("show-grid", kind === "grid");
   state.placeholder = null;
   releaseSteps(state);
 }
@@ -517,6 +540,53 @@ function clearMedia(state) {
   state.img.removeAttribute("src");
   state.video.pause?.();
   state.video.removeAttribute("src");
+  clearGrid(state);
+}
+
+function clearGrid(state) {
+  if (!state.gridKey) return;
+  state.gridKey = "";
+  state.grid?.replaceChildren();
+}
+
+// Every picture of the run at once, each as big as the stage allows.
+function layoutGrid(state) {
+  const cells = [...(state.grid?.children ?? [])];
+  if (!cells.length) return;
+  const loaded = cells.find((cell) => cell.naturalWidth > 0 && cell.naturalHeight > 0);
+  const aspect = loaded ? loaded.naturalWidth / loaded.naturalHeight : 1;
+  const { columns, rows } = gridShape(cells.length, state.stage.clientWidth, state.stage.clientHeight, aspect);
+  // Tracks the size of one picture, so the pictures sit together in the
+  // middle of the stage with no bands between the rows.
+  const wide = (state.stage.clientWidth - GRID_GAP * (columns + 1)) / columns;
+  const tall = (state.stage.clientHeight - GRID_GAP * (rows + 1)) / rows;
+  if (!(wide > 0) || !(tall > 0)) return;
+  const width = Math.floor(Math.min(wide, tall * aspect));
+  const height = Math.floor(width / aspect);
+  state.grid.style.gridTemplateColumns = `repeat(${columns}, ${width}px)`;
+  state.grid.style.gridTemplateRows = `repeat(${rows}, ${height}px)`;
+}
+
+function showGrid(state, count) {
+  const urls = Array.from({ length: count }, (_, index) => storedResultUrl(state.node, index) ?? "");
+  const key = urls.join("\n");
+  if (state.gridKey !== key) {
+    state.gridKey = key;
+    state.grid.replaceChildren(...urls.map((url, index) => {
+      const cell = document.createElement("img");
+      cell.alt = `Picture ${index + 1} of ${count}`;
+      cell.decoding = "async";
+      // The first picture to load tells the grid the shape to lay out for.
+      cell.addEventListener("load", () => layoutGrid(state), { once: true });
+      cell.src = url;
+      return cell;
+    }));
+  }
+  state.img.removeAttribute("src");
+  state.video.pause?.();
+  state.video.removeAttribute("src");
+  layoutGrid(state);
+  showMedia(state, "grid");
 }
 
 // Each source has one hook, with subscribers that can leave in any order.
@@ -569,8 +639,9 @@ function storedResultUrl(node, index = null) {
 }
 
 // Several pictures from one run (a list, or a batch Save Image saved one by
-// one): the arrows in the bar pick which one shows. One picture keeps the
-// panel as it was, with no arrows.
+// one): they all show side by side, and the arrows in the bar go on to each
+// one by itself and back round to all of them. One picture keeps the panel
+// as it was, with no arrows.
 function resultCount(state) {
   if (state.stale || state.resultGone) return 0;
   return outputRecordCount(app.nodeOutputs?.[outputLocatorId(state.node)]);
@@ -586,10 +657,107 @@ function previewMinWidth(state) {
   return Math.max(PANEL_MIN_WIDTH, Math.ceil(state.node.size[0] - state.bar.clientWidth + needed));
 }
 
+// --- pictures held until Save (Save Image with Auto save off) ---------------
+
+// The pictures this node is holding, in the order it shows them. Empty when
+// the last run saved its pictures itself.
+function heldPictures(state) {
+  if (state.stale || state.resultGone) return [];
+  return heldPlaces(app.nodeOutputs?.[outputLocatorId(state.node)]);
+}
+
+// Which of the shown pictures are kept, by their place on the node.
+function keptOf(state, held) {
+  const key = held.map((picture) => `${picture.token}_${picture.index}`).join(" ");
+  if (state.kept?.key !== key) state.kept = { key, indexes: new Set() };
+  return state.kept.indexes;
+}
+
+// A click keeps every picture, or only the one the arrows picked. With the
+// preview off there is no picture to pick, so it keeps them all.
+function keepsAll(state, count) {
+  return count < 2 || showsAll(state, count) || !previewEnabled(state);
+}
+
+// The button says what a click will do: SAVE ALL over the grid, SAVE over
+// one picture, SAVED once there is nothing left to keep there.
+function syncHeld(state, count = resultCount(state)) {
+  const button = state.keepButton;
+  if (!button) return;
+  const held = heldPictures(state);
+  button.hidden = !held.length || count < 1;
+  if (button.hidden) return;
+  const kept = keptOf(state, held);
+  const all = keepsAll(state, count);
+  const done = all ? kept.size >= held.length : kept.has(state.index);
+  button.textContent = state.keeping ? "SAVING" : done ? "SAVED" : all && count > 1 ? "SAVE ALL" : "SAVE";
+  button.classList.toggle("keep", !done);
+  button.disabled = Boolean(state.keeping);
+  [...(state.grid?.children ?? [])].forEach((cell, index) => cell.classList.toggle("kept", kept.has(index)));
+}
+
+async function keepHeld(state) {
+  const held = heldPictures(state);
+  if (!held.length || state.keeping) return;
+  const count = resultCount(state);
+  const wanted = keepsAll(state, count) ? held.map((_, place) => place) : [state.index];
+  // One request for each run, in the order the pictures show.
+  const runs = new Map();
+  for (const place of wanted) {
+    const picture = held[place];
+    if (!picture) continue;
+    if (!runs.has(picture.token)) runs.set(picture.token, []);
+    runs.get(picture.token).push(picture.index);
+  }
+  state.keeping = true;
+  syncHeld(state);
+  const kept = keptOf(state, held);
+  const saved = [];
+  let skipped = 0;
+  try {
+    for (const [token, picks] of runs) {
+      const response = await api.fetchApi("/ausboss/save_image/keep", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, picks }),
+      });
+      const answer = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(answer.error || "Could not save.");
+      if (!state.alive) return;
+      const done = new Set(answer.kept ?? []);
+      held.forEach((picture, place) => {
+        if (picture.token === token && done.has(picture.index)) kept.add(place);
+      });
+      saved.push(...(answer.saved ?? []));
+      skipped += answer.skipped?.length ?? 0;
+    }
+    toast(state, saved.length === 1
+      ? `Saved ${saved[0].path}`
+      : saved.length
+        ? `Saved ${saved.length} pictures`
+        : skipped ? "Not saved: the file already exists" : "Already saved");
+  } catch (error) {
+    if (state.alive) toast(state, error?.message || "Could not save.");
+  } finally {
+    state.keeping = false;
+    if (state.alive) syncHeld(state);
+  }
+}
+
+function showsAll(state, count) {
+  return count > 1 && count <= GRID_MAX && state.all !== false;
+}
+
 function stepPicture(state, step) {
   const count = resultCount(state);
   if (count < 2) return;
-  state.index = stepIndex(state.index, count, step);
+  if (count > GRID_MAX) {
+    state.index = stepIndex(state.index, count, step);
+  } else {
+    const at = stepWithAll(showsAll(state, count) ? ALL : state.index, count, step);
+    state.all = at === ALL;
+    if (!state.all) state.index = at;
+  }
   refresh(state);
 }
 
@@ -597,6 +765,7 @@ function refresh(state) {
   if (!state.alive) return;
   if (!previewEnabled(state)) {
     clearMedia(state);
+    syncHeld(state);
     return;
   }
   const source = upstreamNode(state.node, state.inputName);
@@ -604,7 +773,9 @@ function refresh(state) {
   const count = resultCount(state);
   const hidden = state.stepper.root.hidden;
   state.index = keepIndex(state.index, count);
-  state.stepper.set(state.index, count);
+  const all = showsAll(state, count);
+  state.stepper.set(state.index, count, all ? allLabel(count) : undefined);
+  syncHeld(state, count);
   if (state.stepper.root.hidden !== hidden) growToNodeFloor(state.widget);
   if (state.stale) {
     // The node ran while its preview was off, so the picture it still has
@@ -616,6 +787,13 @@ function refresh(state) {
   // A node that just stopped the run has no result for this picture: the
   // one it still holds is from an earlier run (Mask by Name's last find,
   // tinted), so show what feeds it instead.
+  if (all) {
+    showGrid(state, count);
+    // The grid's cells are new: mark the ones already kept.
+    syncHeld(state, count);
+    return;
+  }
+  clearGrid(state);
   const described = state.resultGone
     ? describeSourcePreview(source)
     : count > 1
@@ -701,7 +879,9 @@ function buildPanel(node, config) {
   const toastEl = document.createElement("div");
   toastEl.className = "ausboss-input-preview-toast";
   toastEl.style.display = "none";
-  stage.append(img, video, hint, toastEl);
+  const grid = document.createElement("div");
+  grid.className = "ausboss-input-preview-grid";
+  stage.append(img, video, grid, hint, toastEl);
   const bar = document.createElement("div");
   bar.className = "ausboss-input-preview-bar";
   root.append(bar, stage);
@@ -735,7 +915,10 @@ function buildPanel(node, config) {
     noun: config.noun,
     switchTitle: config.switchTitle,
     advanced: config.advanced,
-    root, bar, stage, img, video, hint, widget, abort,
+    root, bar, stage, img, video, grid, hint, widget, abort,
+    // Several pictures open side by side; the arrows pick one (false).
+    all: true,
+    gridKey: "",
     toast: toastEl,
     toastTimer: 0,
     toolButtons: null,
@@ -769,6 +952,12 @@ function buildPanel(node, config) {
   installPreviewSwitch(state, abort.signal);
   if (config.steps) installStepsSwitch(state, abort.signal);
 
+  // The grid is laid out for the stage's shape, so a resized node lays it out again.
+  if (typeof ResizeObserver === "function") {
+    const watcher = new ResizeObserver(() => { if (state.alive && state.gridKey) layoutGrid(state); });
+    watcher.observe(stage);
+    abort.signal.addEventListener("abort", () => watcher.disconnect(), { once: true });
+  }
   img.addEventListener("load", () => showMedia(state, "image"));
   img.addEventListener("error", () => {
     if (img.getAttribute("src")) showPlaceholder(state, true);

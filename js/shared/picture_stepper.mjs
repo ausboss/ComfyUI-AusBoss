@@ -52,9 +52,10 @@ export function makePictureStepper({ noun = "picture", height = 24, onStep, sign
   root.append(arrow("‹", -1, `Previous ${noun}`), label, arrow("›", 1, `Next ${noun}`));
   return {
     root,
-    set(index, count) {
+    // `text` replaces the "2 / 5" for a stop that is not one picture.
+    set(index, count, text) {
       root.hidden = !(count > 1);
-      label.textContent = stepperLabel(index, count);
+      label.textContent = text ?? stepperLabel(index, count);
     },
   };
 }
