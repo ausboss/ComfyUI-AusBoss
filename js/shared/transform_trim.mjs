@@ -322,7 +322,7 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
     readout.replaceChildren();
     if (clip.count) {
       readout.append(el("b", "", `fr ${head}`), document.createTextNode(` · ${formatTimecode(frameTime(head, clip))}`));
-      readout.title = `Playhead: frame ${head} of ${clip.count} at ${frameTime(head, clip).toFixed(3)} s. Press or drag the rail to scrub; ${trim ? "the trim handles carry it with them." : "this is the frame the node outputs."}`;
+      readout.title = `The picture shows frame ${head} of ${clip.count}, ${frameTime(head, clip).toFixed(2)} seconds into the video. Press or drag the bar to look at another frame; ${trim ? "dragging IN or OUT brings it along." : "this is the frame the node outputs."}`;
     }
     controls.frame?.set(head);
     if (!trim) return;
