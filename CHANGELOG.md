@@ -4,6 +4,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **New node: Image Toolbox.** Small picture jobs in one node: pick the job
+  from a list. Its first job, split sheet at gaps, cuts a row of pictures
+  such as a character sheet's four views into separate pictures. Each cut
+  goes to the gap between two pictures instead of an equal share of the
+  width, so no piece gets part of its neighbour's sleeve. The pieces come out
+  as one batch of the same size, padded with the sheet's backdrop colour.
 - **Box edits on big photos start much sooner.** Crop For Inpaint,
   Image Crop + Rotate + Pad and Stitch Inpaint grew and softened their
   masks across the whole picture, even when the box was small or there was

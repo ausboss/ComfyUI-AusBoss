@@ -136,6 +136,10 @@ Rounds a picture's size to a multiple you choose, by resizing, cropping or paddi
 
 Reads a picture's `width`, `height`, `longest_edge`, `shortest_edge` and batch `count` as whole numbers. Wire them into a resize, a latent, a frame count or Math Expression, so the rest of the graph follows the source's size. After a run the node shows each number beside its output.
 
+### Image Toolbox
+
+Small picture jobs in one node, picked from a list. **split sheet at gaps** cuts a row of pictures, such as a character sheet's views, into separate pictures, cutting at the gaps between them so no piece gets part of its neighbour.
+
 ### Color Match
 
 Matches a picture's colors to a reference, with LAB, RGB, MKL or histogram transfer. Strength sets how much, and an optional mask (with invert) limits where. With `reference_mode` set to first frame, every frame of a batch matches the batch's first frame. That can cut down color drift in a clip, but it does not steady motion.
