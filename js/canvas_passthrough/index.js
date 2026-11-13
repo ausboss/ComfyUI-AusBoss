@@ -5,7 +5,7 @@
 // zooming stopped over Compare, the crop previews, the video viewers and every
 // control on a card. One listener here hands those gestures back, the same way
 // ComfyUI does for its own text boxes. A panel that wants the wheel for itself
-// (a scrolling list, a focused text field, an editor) still keeps it.
+// (a scrolling list, a long text box) keeps it while it can still scroll.
 //
 // A file dragged in from the desktop, or a picture's card from the Assets
 // panel, has the same problem in the classic renderer: dropped on a node's
@@ -31,7 +31,7 @@ function onWheel(event) {
   const root = panelRoot(target);
   const lgCanvas = canvas();
   if (!root || !lgCanvas || event.defaultPrevented) return;
-  if (panelKeepsWheel(target, event, { root, host: panelHost(target), styleOf: (el) => getComputedStyle(el), activeElement: document.activeElement })) return;
+  if (panelKeepsWheel(target, event, { root, host: panelHost(target), styleOf: (el) => getComputedStyle(el) })) return;
   event.preventDefault();
   lgCanvas.processMouseWheel(event);
 }
