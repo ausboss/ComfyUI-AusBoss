@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.25.3 - 2026-11-13
 
 - **The video clip's frame readout explains itself.** On Video Crop + Rotate
   + Pad (Clip), the small `fr 52 · 0:02.17` beside Play now says in plain
