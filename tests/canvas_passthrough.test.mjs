@@ -27,12 +27,19 @@ test("the graph gets the wheel unless the panel has a use for it", () => {
   const list = { tagName: "DIV", parentElement: root, ...box() };
   const field = { tagName: "INPUT", parentElement: root };
   const styleOf = (el) => ({ overflowY: el === list ? "auto" : "visible" });
-  const ctx = (extra = {}) => ({ root, styleOf, activeElement: null, ...extra });
+  const ctx = (extra = {}) => ({ root, styleOf, ...extra });
   assert.equal(panelKeepsWheel(stage, { deltaY: -100 }, ctx()), false, "plain picture stage");
   assert.equal(panelKeepsWheel(list, { deltaY: 100 }, ctx()), true, "list with room to scroll");
   assert.equal(panelKeepsWheel(list, { deltaY: -100 }, ctx()), false, "list at its top, wheel up zooms");
   assert.equal(panelKeepsWheel(field, { deltaY: 100 }, ctx()), false, "idle field");
-  assert.equal(panelKeepsWheel(field, { deltaY: 100 }, ctx({ activeElement: field })), true, "field being typed in");
+  // A text box with the cursor in it and nothing to scroll: the graph zooms
+  // (issue #115, the prompt box in a workflow).
+  assert.equal(panelKeepsWheel(field, { deltaY: 100 }, ctx({ activeElement: field })), false, "field being typed in, nothing to scroll");
+  const prompt = { tagName: "TEXTAREA", parentElement: root, ...box() };
+  const scrolls = (el) => ({ overflowY: el === prompt || el === list ? "auto" : "visible" });
+  assert.equal(panelKeepsWheel(prompt, { deltaY: 100 }, ctx({ styleOf: scrolls })), true, "long text still scrolls");
+  assert.equal(panelKeepsWheel(prompt, { deltaY: -100 }, ctx({ styleOf: scrolls })), false, "long text at its top, wheel up zooms");
+  assert.equal(panelKeepsWheel(list, { deltaY: 100, ctrlKey: true }, ctx()), false, "Ctrl + wheel and pinch always zoom the graph");
 });
 
 test("middle button and Ctrl+Shift drag go to the graph; ordinary clicks do not", () => {
@@ -131,7 +138,6 @@ test("only the listed parts of the pack listen for the wheel", () => {
   // face of the node.
   const js = join(dirname(fileURLToPath(import.meta.url)), "..", "js");
   const listed = [
-    "callout/index.js wrap", // the text box while a note is being edited
     "canvas_passthrough/index.js window", // hands the wheel to the graph
     "image_folder/index.js root", // the copy question, a window over the page
     "image_folder/index.js root", // the folder list, a window over the page

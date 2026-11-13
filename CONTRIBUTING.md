@@ -193,7 +193,7 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   drag). Messages to the user go through `showToast`, never `alert()`.
 - The mouse wheel over a node zooms the graph, on every part of its face.
   `js/canvas_passthrough/` hands the wheel on from the pack's panels, and
-  keeps it only for a box that can still scroll or a field being typed in,
+  keeps it only for a box that can still scroll, typed in or not,
   so a panel adds no wheel listener of its own
   (`tests/canvas_passthrough.test.mjs` lists the few that exist). After a
   change to a node face, `scripts/dev/wheel_sweep.mjs` turns the wheel at
