@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 
+from ._audio_cleanup_helpers import clean_up_voice
 from ._audio_trim_helpers import decode_audio_window, list_input_audio
 from ._execution_helpers import ignore_extra_inputs
 from ._media_helpers import resolve_input_path
@@ -17,7 +18,8 @@ class AusBossLoadAudio:
         "handles to set where it starts and stops, and press play to hear just that "
         "part. Set Max length to the longest sound the next step takes: anything "
         "longer shows in red as cut off, so you see exactly what comes out before "
-        "you run anything."
+        "you run anything. Turn on Clean up for a voice recording: it comes out as one "
+        "channel, with the quiet ends cut, less hum and hiss, and an even volume."
     )
     SEARCH_ALIASES = [
         "load audio",
@@ -28,6 +30,7 @@ class AusBossLoadAudio:
         "voice",
         "music",
         "waveform",
+        "clean up voice",
         "ausboss",
     ]
 
@@ -77,6 +80,17 @@ class AusBossLoadAudio:
                         ),
                     },
                 ),
+                "clean_up": (
+                    "BOOLEAN",
+                    {
+                        "default": False,
+                        "tooltip": (
+                            "For a voice recording. On cuts the quiet bits at the start and end, "
+                            "takes out hum and hiss, and evens out the volume. Off hands on the "
+                            "sound as it is."
+                        ),
+                    },
+                ),
             },
         }
 
@@ -88,7 +102,7 @@ class AusBossLoadAudio:
     )
     FUNCTION = "load_audio"
 
-    async def load_audio(self, audio, start_seconds, end_seconds, max_seconds=0.0):
+    async def load_audio(self, audio, start_seconds, end_seconds, max_seconds=0.0, clean_up=False):
         path = resolve_input_path(audio)
         # Decoding blocks for as long as the pick is; a worker thread keeps
         # ComfyUI's event loop answering, and carries the context ComfyUI
@@ -96,6 +110,9 @@ class AusBossLoadAudio:
         sound = await asyncio.to_thread(
             decode_audio_window, path, start_seconds, end_seconds, max_seconds
         )
+        if clean_up is True:
+            # After the trim, so seconds is the length of what is handed on.
+            sound = await asyncio.to_thread(clean_up_voice, sound)
         seconds = sound["waveform"].shape[-1] / float(sound["sample_rate"])
         return (sound, float(seconds))
 
