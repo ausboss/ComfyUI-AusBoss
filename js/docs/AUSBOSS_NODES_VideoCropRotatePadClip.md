@@ -26,7 +26,8 @@ model that paints black regions.
 - **Play / Pause** beside the scrubber previews the selected frames and stops at OUT. Press Play at OUT to start from IN again.
 - **Timeline** (right under the preview and size line): The rail on the node and in the editor is one timeline. Press or
   drag anywhere on it to scrub the **playhead**, with Length on or off; the stage shows
-  that frame. Drag the **IN** or **OUT** handle to trim: the playhead rides on the handle, so what you see
+  that frame. The small readout beside Play names it: `fr 52 · 0:02.17` means frame 52,
+  2.17 seconds into the video. Drag the **IN** or **OUT** handle to trim: the playhead rides on the handle, so what you see
   is the first (IN) or last (OUT) frame the run keeps, and it stays there when you let
   go. IN and OUT are frames, snapped to the source's frame grid; the boxes under the
   rail take a frame number, and `start_seconds` / `end_seconds` are derived from them

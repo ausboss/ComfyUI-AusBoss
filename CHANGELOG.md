@@ -2,6 +2,13 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **The video clip's frame readout explains itself.** On Video Crop + Rotate
+  + Pad (Clip), the small `fr 52 · 0:02.17` beside Play now says in plain
+  words, when you point at it, which frame the picture shows and how many
+  seconds into the video it is. The help page explains it too.
+
 ## 2.25.2 - 2026-11-13
 
 - **The video clip's IN handle always drags.** On Video Crop + Rotate + Pad
