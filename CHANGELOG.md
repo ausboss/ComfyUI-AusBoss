@@ -2,6 +2,17 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Edit Lock Restore 🆎 takes out the pink tint.** MiniMax H3 Image gives
+  every edit a faint pink, slightly lighter tint over the whole picture.
+  Edit Lock already removed it wherever it locked, but when it stepped
+  aside (a new hair color, a new background, rain) the tint stayed. A new
+  **Remove tint** switch, on by default, reads the tint from the part of
+  the picture the edit left alone and takes it out of the whole picture.
+  Edits meant to recolor everything, such as golden hour or red light, are
+  left as they are. Turn it off to get the old behavior.
+
 ## 2.25.0 - 2026-11-12
 
 - **New node: Load Image.** Loads a picture and sets its size in the same
