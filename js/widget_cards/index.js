@@ -431,11 +431,15 @@ const CARDS = {
   AUSBOSS_NODES_LoadAudio: {
     // The wave, IN and OUT live in the panel under the card (js/load_audio).
     minWidth: 280, first: true, hide: ["upload"],
+    // Older saves hand clean_up the upload button's empty value.
+    resetUnknown: { clean_up: false },
     rows: [
       { widget: "audio", label: "Source", kind: "select",
         button: { text: PANEL_LABELS.load, title: "Upload a sound file into ComfyUI's input folder", onClick: (node) => node.widgets?.find((w) => w.name === "upload")?.callback?.() } },
       { widget: "max_seconds", label: "Max length", suffix: "s", decimals: 1, trimZeros: true,
         title: "The longest the sound may be. Anything past it is cut off and shows in red. 0 means no limit." },
+      { widget: "clean_up", label: "Clean up", onText: PANEL_LABELS.on, offText: PANEL_LABELS.off,
+        title: "For a voice recording. On cuts the quiet bits at the start and end, takes out hum and hiss, and evens out the volume. Off hands on the sound as it is." },
     ],
   },
   // Load Image: the file, then where it is in the folder and the size it
