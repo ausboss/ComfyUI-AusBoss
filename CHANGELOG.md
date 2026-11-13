@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.25.1 - 2026-11-13
 
 - **Edit Lock Restore 🆎 takes out the pink tint.** MiniMax H3 Image gives
   every edit a faint pink, slightly lighter tint over the whole picture.
