@@ -144,7 +144,9 @@
       "edit_lock",
       "feather"
     ],
-    "optional": [],
+    "optional": [
+      "remove_tint"
+    ],
     "outputs": [
       [
         "IMAGE",

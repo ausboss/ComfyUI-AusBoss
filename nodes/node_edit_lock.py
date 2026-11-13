@@ -19,6 +19,7 @@ from ._edit_lock_helpers import (
     describe,
     restore_pixels,
 )
+from ._edit_tint_helpers import take_out_tint
 
 
 class AusBossEditLock:
@@ -141,8 +142,10 @@ class AusBossEditLockRestore:
         "Puts your picture's own pixels back in every part the edit did not "
         "change. Use it right after the VAE decode, with the edit_lock "
         "output of Edit Lock 🆎. The untouched parts then match your "
-        "original pixel for pixel; only the edit is new. When the lock "
-        "stepped aside the picture passes through unchanged."
+        "original pixel for pixel; only the edit is new. It also takes out "
+        "the faint pink tint some edit models add to the whole picture, "
+        "which matters most when the lock stepped aside (a new hair color, "
+        "background or weather)."
     )
     SEARCH_ALIASES = [
         "edit lock restore",
@@ -178,6 +181,19 @@ class AusBossEditLockRestore:
                     },
                 ),
             },
+            "optional": {
+                "remove_tint": (
+                    "BOOLEAN",
+                    {
+                        "default": True,
+                        "tooltip": (
+                            "Takes out the faint pink tint the edit model adds "
+                            "to the whole picture. Edits meant to recolor "
+                            "everything, like golden hour, are left alone."
+                        ),
+                    },
+                ),
+            },
         }
 
     RETURN_TYPES = ("IMAGE", "MASK", "STRING")
@@ -189,17 +205,30 @@ class AusBossEditLockRestore:
     )
     FUNCTION = "restore"
 
-    def restore(self, image, edit_lock, feather):
+    def restore(self, image, edit_lock, feather, remove_tint=True):
         if image.ndim != 4:
             raise ValueError("Edit Lock Restore: image must be an IMAGE batch.")
         if not isinstance(edit_lock, EditLock):
             raise ValueError("Edit Lock Restore: edit_lock needs the output of Edit Lock.")
         height, width = int(image.shape[1]), int(image.shape[2])
+        report = describe(edit_lock)
+        if remove_tint and edit_lock.source is not None:
+            # before the paste, so the edit itself loses the tint too and meets the original evenly
+            image, taken = take_out_tint(image, edit_lock.source)
+            if taken is not None:
+                report += " " + tint_report(taken)
         mask = edit_lock.pixel_mask(height, width)
         if mask is None or edit_lock.source is None:
-            return (image, torch.ones((int(image.shape[0]), height, width)), describe(edit_lock))
+            return (image, torch.ones((int(image.shape[0]), height, width)), report)
         result, edit_mask = restore_pixels(image, edit_lock.source, mask, int(feather))
-        return (result, edit_mask, describe(edit_lock))
+        return (result, edit_mask, report)
+
+
+def tint_report(shift):
+    """One plain sentence; the numbers are Lab units, for anyone who wants them."""
+    light, a, b = shift
+    return (f"It also took out the faint pink tint the model added to the whole picture "
+            f"(L {light:+.1f}, a {a:+.1f}, b {b:+.1f}).")
 
 
 NODE_CLASS_MAPPINGS = {

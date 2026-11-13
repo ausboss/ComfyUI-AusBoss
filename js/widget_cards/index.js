@@ -133,7 +133,13 @@ const CARDS = {
       { widget: "tolerance", label: "Tolerance", decimals: 2, suffix: "×" },
     ],
   },
-  AUSBOSS_NODES_EditLockRestore: { minWidth: 300, rows: [{ widget: "feather", label: "Feather", suffix: "px" }] },
+  AUSBOSS_NODES_EditLockRestore: {
+    minWidth: 300,
+    rows: [
+      { widget: "feather", label: "Feather", suffix: "px" },
+      { widget: "remove_tint", label: "Remove tint" },
+    ],
+  },
   AUSBOSS_NODES_ColorMatch: {
     minWidth: 300,
     rows: [
