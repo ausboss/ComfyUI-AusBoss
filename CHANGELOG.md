@@ -2,6 +2,14 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **The video clip's IN handle always drags.** On Video Crop + Rotate + Pad
+  (Clip), a Length as long as the clip or longer used to lock IN, and the
+  only way to trim the start was to turn Length off. Now IN drags anyway:
+  the Length then only caps the clip, and the clip's own end is OUT. A
+  Length shorter than the clip works as before.
+
 ## 2.25.1 - 2026-11-13
 
 - **Edit Lock Restore 🆎 takes out the pink tint.** MiniMax H3 Image gives

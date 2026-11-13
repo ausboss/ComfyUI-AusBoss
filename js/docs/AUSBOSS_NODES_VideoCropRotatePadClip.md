@@ -60,8 +60,9 @@ model that paints black regions.
   sits that many frames after IN and follows it when you drag IN, and dragging OUT or
   typing the number changes the Length. To move the whole clip, drag IN or the small
   grip in the middle of the kept part (the grip also slides a trimmed window with
-  Length off). When the Length is the whole clip there is nowhere to move it, and the
-  row says so: "= the whole clip. Shorten it to move IN." The Length stays when you
+  Length off). When the Length is as long as the clip or longer, the row says
+  "= the whole clip": the clip's own end is OUT, and dragging IN starts the clip
+  later without changing the Length. The Length stays when you
   swap the video, so a workflow built for 97 frames keeps taking 97. Turning it on or
   off never moves anything: the count becomes the OUT, or the OUT the count. If the
   source ends first, the footer says how many frames are left. **To start** moves IN

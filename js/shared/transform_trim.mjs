@@ -32,7 +32,7 @@ import {
   framesThrough,
   keyboardStep,
   lastFrameFor,
-  latestFirstFor,
+  latestInFor,
   railZone,
   setTrimFrame,
   slideRange,
@@ -235,8 +235,9 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
     let parked;
     if (edge === "start") {
       if (current.mode === "length") {
-        // A Length drags the whole window, stopping where OUT meets the end.
-        parked = Math.max(0, Math.min(clampFrame(frame, clip), latestFirstFor(clip, current.requested ?? get("max_frames", 1), nth)));
+        // A Length drags the whole window, stopping where OUT meets the end;
+        // a Length past the clip's end only caps it, so IN moves freely.
+        parked = Math.max(0, Math.min(clampFrame(frame, clip), latestInFor(clip, current.requested ?? get("max_frames", 1), nth)));
         set("end_seconds", 0);
       } else if (current.mode === "wired" && current.latestStart != null && !countAtRunTime()) {
         parked = Math.min(clampFrame(frame, clip), current.latestStart);
@@ -359,7 +360,7 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
       handle.title = isLocked ? lockTip(edge)
         : edge === "start"
           ? current.mode === "free" ? "Drag IN to trim; Shift + arrow moves one frame."
-            : fills ? "The Length is the whole clip, so IN has nowhere to go. Shorten the Length to move IN."
+            : fills ? "Drag IN to start later. The Length is as long as the clip, so the clip's end is OUT."
               : "Drag IN to move the clip; OUT follows at the Length. Shift + arrow moves one frame."
           : current.mode === "free" ? "Drag OUT to trim; it lands on the last frame the run keeps." : "Drag OUT to change the Length; IN stays.";
       handle.setAttribute("aria-valuemin", "0");
@@ -606,9 +607,9 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
       count.set(blocked ? (current.requested ?? current.frames ?? 0) : (current.requested ?? get("max_frames", 1)));
       disableControl(count, blocked, lockTip("end"));
       const fills = lengthFillsClip(info(), current, everyNth());
-      hint.textContent = blocked ? `from ${wired}` : current.mode === "fixed" ? "exact (older setting)" : fills ? "= the whole clip. Shorten it to move IN" : active ? "" : "OUT ends the clip";
+      hint.textContent = blocked ? `from ${wired}` : current.mode === "fixed" ? "exact (older setting)" : fills ? "= the whole clip" : active ? "" : "OUT ends the clip";
       hint.classList.toggle("note", fills && !blocked);
-      hint.title = fills && !blocked ? `The Length (${current.requested ?? current.frames} frames) covers the whole clip, so IN and the clip cannot move. The bar still scrubs.` : "";
+      hint.title = fills && !blocked ? `The Length (${current.requested ?? current.frames} frames) is as long as the clip, so the clip's end is OUT. Drag IN to start later; drag OUT or type a smaller Length to end sooner.` : "";
     };
   }
 

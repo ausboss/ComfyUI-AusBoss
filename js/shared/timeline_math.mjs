@@ -217,6 +217,16 @@ export function latestFirstFor(info, frames, everyNth = 1) {
   return Math.max(0, info.count - 1 - (lastFrameFor(0, frames, everyNth)));
 }
 
+// How far a drag can move IN while a Length is on. A Length that fits stops
+// IN where OUT meets the source's end, so the count stays whole. A Length
+// as long as the clip or longer cannot keep its count anywhere: it only caps
+// the clip, the source's end is OUT, and IN moves over the whole clip.
+export function latestInFor(info, frames, everyNth = 1) {
+  if (!info?.count) return 0;
+  const latest = latestFirstFor(info, frames, everyNth);
+  return latest > 0 ? latest : info.count - 1;
+}
+
 // Everything the rail draws for the clip node, from the stored values:
 //   mode        which way sets the length (lengthMode)
 //   first       IN, the first source frame the run keeps
