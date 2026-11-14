@@ -253,7 +253,7 @@ class AusBossLoadImage:
         try:
             path = resolve_input_path(image)
         except Exception:
-            path = image or ""
+            path = None  # refused: hashed by its text only, never opened
         return stable_file_fingerprint(path, {"image": image, **values})
 
 

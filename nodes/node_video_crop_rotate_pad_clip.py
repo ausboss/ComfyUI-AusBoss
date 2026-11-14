@@ -395,7 +395,7 @@ class AusBossVideoCropRotatePadClip:
         try:
             path = resolve_video_path(source_mode, video, local_path)
         except Exception:
-            path = local_path if source_mode == "local path" else video
+            path = None  # refused: hashed by its text only, never opened
         spec = spec_from_values(**values)
         resize = {name: values.get(name) for name in resize_inputs()}
         return stable_file_fingerprint(
@@ -403,6 +403,7 @@ class AusBossVideoCropRotatePadClip:
             {
                 "video": video,
                 "source_mode": source_mode,
+                "local_path": local_path,
                 "start_seconds": round(float(start_seconds), 6),
                 "end_seconds": round(float(end_seconds), 6),
                 "every_nth": max(1, int(every_nth)),
