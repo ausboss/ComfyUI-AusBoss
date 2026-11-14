@@ -2,6 +2,15 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Cards work in App mode.** App mode is ComfyUI's simple form view of a
+  workflow: a few labelled fields and a Run button. A field from a node
+  with a card (a picture or video loader, H3 Prompt Writer) used to show
+  as an empty row there. Now it shows a real control: a file list with an
+  upload button, a video list, a text box. Back in the graph, the node
+  looks the same as before.
+
 ## 2.25.3 - 2026-11-13
 
 - **The video clip's frame readout explains itself.** On Video Crop + Rotate
