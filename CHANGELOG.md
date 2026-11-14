@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.26.1 - 2026-11-14
 
 - **A path that starts with `~` is no longer expanded.** Image Folder used
   to turn a pasted `~/...` path into a full one before checking that it sits
