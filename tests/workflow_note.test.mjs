@@ -13,6 +13,7 @@ import {
   groupModels,
   hostLabel,
   matchInstalled,
+  onlyCopy,
   noteFit,
   noteIsEmpty,
   noteShowsTileFace,
@@ -331,4 +332,16 @@ test("note panels stand down the frontend image preview", () => {
   const source = readFileSync(new URL("../js/workflow_note/index.js", import.meta.url), "utf-8");
   assert.match(source, /import \{ suppressCoreImagePreview \} from "\.\.\/shared\/core_preview\.mjs";/, "the note imports the pack's preview suppression");
   assert.match(source, /suppressCoreImagePreview\(node\);/, "building a note panel stands the core image preview down");
+});
+
+test("onlyCopy picks a file without asking only when there is one copy", () => {
+  const files = ["minimax-h3/model.safetensors", "a/lora.safetensors", "b/lora.safetensors", "vae.safetensors", "a\\Win.safetensors"];
+  assert.equal(onlyCopy("model.safetensors", files), "minimax-h3/model.safetensors");
+  assert.equal(onlyCopy("MODEL.safetensors", files), "minimax-h3/model.safetensors");
+  assert.equal(onlyCopy("lora.safetensors", files), null); // two copies: the user picks
+  assert.equal(onlyCopy("b/lora.safetensors", files), "b/lora.safetensors"); // the exact path wins
+  assert.equal(onlyCopy("vae.safetensors", files), "vae.safetensors");
+  assert.equal(onlyCopy("win.safetensors", files), "a/Win.safetensors");
+  assert.equal(onlyCopy("missing.safetensors", files), null);
+  assert.equal(onlyCopy("model.safetensors", []), null);
 });

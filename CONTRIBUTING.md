@@ -234,6 +234,13 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   widget per row. A value that is meant to be wired rather than typed is a
   backend `forceInput: True` socket (Math Expression `a`/`b`/`c`), and a
   multi-type string such as `"FLOAT,INT"` accepts either kind of link.
+- **App mode** is ComfyUI's form view of a workflow (fields and a Run
+  button). A file list from the input folder declares its upload flag
+  (`image_upload`, `video_upload`, `audio_upload`): the form builds the
+  field's Upload button from it, and without it the field is a bare list.
+  `tests/test_video_upload_flag.py` holds the video lists to it. A card's
+  hidden widgets reach the form through `js/app_mode/`, so a card needs
+  nothing of its own for App mode.
 - Preview-carrying nodes (Select Frame, Mask Refine, Mask by Name, LaMa
   Inpaint, Save Image) share
   `js/input_preview/`: a thin bar (node tools left, a small `preview`

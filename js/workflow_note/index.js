@@ -15,7 +15,7 @@ import { app } from "../../../scripts/app.js";
 import { setTileFace, TILE_FACE_CSS } from "../shared/tile_face.mjs";
 import { NOTE_TYPES, serializeNoteIdentity } from "../shared/note_identity.mjs";
 import { compactAction } from "../shared/panel_controls.mjs";
-import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange } from "../shared/index.mjs";
+import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "../shared/index.mjs";
 import { collectGraphNodes } from "../shared/appearance.mjs";
 import { copyToClipboard } from "../shared/clipboard.mjs";
 import { confirmDiscard } from "../shared/discard_prompt.mjs";
@@ -38,6 +38,7 @@ import {
   noteIsEmpty,
   noteShowsTileFace,
   normalizeNote,
+  onlyCopy,
   packsFromGraph,
   parseMarkdown,
   rowFromCells,
@@ -49,6 +50,33 @@ import { parseRows, serializeRows } from "../shared/lora_stack.mjs";
 import { isFileWidget } from "../shared/lora_file_widgets.mjs";
 
 const CSS_ID = "ausboss-workflow-note-css";
+const PICK_FOUND_SETTING = "AusBoss.Models.PickFoundCopy";
+
+function pickFoundCopies() {
+  return app.ui?.settings?.getSettingValue?.(PICK_FOUND_SETTING) !== false;
+}
+
+// Point the loaders (and LoRA Loader rows) that ask for a file by another
+// spelling at the copy the note found. Returns how many it changed.
+function useFoundCopy(path, loaders, loraRows, files) {
+  for (const entry of loaders) {
+    commitWidgetValue(entry.node, entry.widget, listedSpelling(path, entry.options), app.canvas);
+    entry.node.setDirtyCanvas?.(true, true);
+  }
+  const stacks = new Map();
+  for (const entry of loraRows) stacks.set(entry.widget, [...(stacks.get(entry.widget) ?? []), entry]);
+  for (const [widget, entries] of stacks) {
+    const rows = parseRows(widget.value);
+    for (const entry of entries) {
+      if (rows[entry.index]) rows[entry.index] = { ...rows[entry.index], name: listedSpelling(path, files) };
+    }
+    commitWidgetValue(entries[0].node, widget, serializeRows(rows), app.canvas);
+    entries[0].node.setDirtyCanvas?.(true, true);
+  }
+  app.graph?.setDirtyCanvas?.(true, true);
+  notifyAusbossChange();
+  return loaders.length + loraRows.length;
+}
 const WIDGET_NAME = "ausboss_workflow_note_panel";
 const PANEL_MIN_WIDTH = 300;
 const CARD_MIN_HEIGHT = 160;
@@ -418,22 +446,7 @@ function modelRow(state, row) {
     use.title = `Point ${names} at ${path}.`;
     use.addEventListener("pointerdown", (event) => event.stopPropagation());
     use.addEventListener("click", () => {
-      for (const entry of loaders) {
-        commitWidgetValue(entry.node, entry.widget, listedSpelling(path, entry.options), app.canvas);
-        entry.node.setDirtyCanvas?.(true, true);
-      }
-      const stacks = new Map();
-      for (const entry of loraRows) stacks.set(entry.widget, [...(stacks.get(entry.widget) ?? []), entry]);
-      for (const [widget, entries] of stacks) {
-        const rows = parseRows(widget.value);
-        for (const entry of entries) {
-          if (rows[entry.index]) rows[entry.index] = { ...rows[entry.index], name: listedSpelling(path, files) };
-        }
-        commitWidgetValue(entries[0].node, widget, serializeRows(rows), app.canvas);
-        entries[0].node.setDirtyCanvas?.(true, true);
-      }
-      app.graph?.setDirtyCanvas?.(true, true);
-      notifyAusbossChange();
+      useFoundCopy(path, loaders, loraRows, files);
       checkModels(state, false);
     });
     action.append(pill, use);
@@ -629,6 +642,7 @@ function renderSections(state, scroll) {
 async function checkModels(state, fresh) {
   const generation = (state.checkGeneration = (state.checkGeneration || 0) + 1);
   const rows = state.rows;
+  const picked = [];
   for (const entry of rows) setDot(entry.dot, "checking", "checking…");
   const byDir = new Map();
   for (const entry of rows) {
@@ -667,7 +681,14 @@ async function checkModels(state, fresh) {
       const elsewhere = match.found && subfolderOf(match.path);
       const loaders = elsewhere ? loadersNeeding(entry.row.name, match.path, graphListWidgets()) : [];
       const loraRows = elsewhere ? loraRowsNeeding(entry.row.name, match.path, graphLoraLoaders(), files) : [];
-      if (match.found && (loaders.length || loraRows.length)) {
+      if (match.found && (loaders.length || loraRows.length) && pickFoundCopies() && onlyCopy(entry.row.name, files) === match.path) {
+        // One copy, so nothing to choose: the loaders take it without a
+        // click (App mode shows no Guide to click in).
+        useFoundCopy(match.path, loaders, loraRows, files);
+        picked.push(match.path);
+        setDot(entry.dot, "ok", `Found in ${subfolderOf(match.path)}/ and picked: ${match.path}`);
+        entry.showInstalled(match.path);
+      } else if (match.found && (loaders.length || loraRows.length)) {
         setDot(entry.dot, "ok", `Found in ${subfolderOf(match.path)}/: ${match.path}`);
         entry.showElsewhere(match.path, loaders, loraRows, files);
       } else if (match.found) {
@@ -679,6 +700,14 @@ async function checkModels(state, fresh) {
       }
     }
   }));
+  if (picked.length && generation === state.checkGeneration) {
+    const folders = [...new Set(picked.map(subfolderOf))].map((folder) => `${folder}/`).join(", ");
+    showToast({
+      summary: "Models found",
+      detail: `${picked.length === 1 ? "1 model file" : `${picked.length} model files`} found in ${folders} and picked for this workflow.`,
+      life: 4000,
+    });
+  }
   if (state.domWidget && generation === state.checkGeneration) fitNote(state);
 }
 
@@ -1179,6 +1208,18 @@ function buildPanel(node) {
 
 app.registerExtension({
   name: "AusBoss.WorkflowNote",
+  settings: [
+    {
+      id: PICK_FOUND_SETTING,
+      name: "Pick model files found in a subfolder",
+      type: "boolean",
+      defaultValue: true,
+      category: ["🆎 AusBoss", "Models", "Pick found files"],
+      tooltip:
+        "When a workflow's Guide finds a model you already have in a subfolder, the workflow switches to that "
+        + "file by itself. Off: the Guide shows a Use it button instead.",
+    },
+  ],
   beforeRegisterNodeDef(nodeType, nodeData) {
     if (!NOTE_TYPES.has(nodeData?.name)) return;
     hideInputsInDef(nodeData, ["note"]);
