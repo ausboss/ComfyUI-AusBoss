@@ -114,3 +114,17 @@ test('Length row replaces the whole number+unit, preserves its value, and restor
  source.mode=0;sync({...values,video_job:'keep going'});assert.equal(scrub.root.style.display,'');
  assert.equal(node.widgets[0].value,12);assert.equal(node.inputs[0].link,8);
 });
+
+test('H3 makes 5 + 17n frames, rounding a clip down (Python video_frames)', async () => {
+  const { h3VideoFrames, clipLengthWords } = await import('../js/shared/h3_duration.mjs');
+  assert.equal(h3VideoFrames(48), 39);
+  assert.equal(h3VideoFrames(39), 39);
+  assert.equal(h3VideoFrames(56), 56);
+  assert.equal(h3VideoFrames(10), 22);
+  assert.equal(h3VideoFrames(1000), 360 - ((360 - 5) % 17));
+  const words = clipLengthWords({ frames: 48, startSeconds: 1, endSeconds: 3, roomFrames: 74 });
+  assert.equal(words.title, "H3 makes 39 of the clip's 48 frames · 1.63 s");
+  assert.match(words.note, /Stops at 2\.63 s.*1\.63 s or 2\.33 s/);
+  assert.equal(clipLengthWords({ frames: 39, startSeconds: 0, endSeconds: 1.625 }).warn, false);
+  assert.equal(clipLengthWords(null), null);
+});

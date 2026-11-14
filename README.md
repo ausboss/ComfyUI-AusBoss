@@ -180,13 +180,13 @@ The example keeps the clip's audio when there is any. The outpaint LoRA needs a 
 
 ### Load Video
 
-Upload a video, or pick one from the Source list, which plays the clip under the pointer. Trim it with IN and OUT handles or typed timecodes. The player plays the part you kept and can loop it. Width and height resize while decoding, and setting only one keeps the shape. `every_nth` skips frames and lowers the reported fps so the timing stays right, and `max_frames` caps how many frames load.
+Upload a video, or pick one from the Source list, which plays the clip under the pointer. Set the part you want with Start, Duration and Ends at, in seconds or frames, or drag the handles under the player. The player plays the part you kept and can loop it. Width and height resize while decoding, and setting only one keeps the shape. `every_nth` skips frames and lowers the reported fps so the timing stays right, and the Duration caps how many frames load.
 
 It returns the frames, audio, frame count, fps, width, height, duration and a core `VIDEO`. Only the part you kept is decoded, and it checks memory before a large load. When you save the frames, wire its fps into the save node.
 
 ### Load Audio
 
-Upload a sound file, or pick one from the Source list, and the node shows it as a wave. Drag the IN and OUT handles to keep only the part you want, or type the times. Press play to hear just that part. Set **Max length** to the longest sound the next step can take, such as a video's length: anything past it turns red and is cut off, so you see what comes out before you run. Click the red length next to OUT to move OUT to the cut.
+Upload a sound file, or pick one from the Source list, and the node shows it as a wave. Drag the two handles to keep only the part you want, or type a Start, a Duration or an Ends at. Press play to hear just that part. Set the Duration to the length the next step needs, such as a video's length.
 
 It returns the `audio` you kept and its length in `seconds`. Only that part is decoded. [Help page](js/docs/AUSBOSS_NODES_LoadAudio.md).
 
@@ -196,7 +196,7 @@ Picks one frame from a video, then gives you the same rotate, crop and pad contr
 
 ### Video Crop + Rotate + Pad → Clip
 
-Applies one rotate, crop and pad to every frame of a trimmed clip. It has the source picker, a timeline with a playhead and frame-accurate IN and OUT handles, frame skipping, a frame limit, the transform handles and output resizing. While you drag a trim handle, the node shows the exact first or last frame the run keeps. The bright part of the selection is what gets output.
+Applies one rotate, crop and pad to every frame of a trimmed clip. It has the source picker, a timeline with a playhead and frame-accurate start and end handles, Start, Duration and Ends at boxes, frame skipping, the transform handles and output resizing. While you drag a trim handle, the node shows the exact first or last frame the run keeps. The bright part of the selection is what gets output.
 
 Fill, feather and the resize budget are in **Crop, pad & resize** below the timeline, and a new clip keeps them. That matters for video outpainting, because the black, hard-edged canvas the model needs survives a source swap. A fresh Clip node starts with that canvas, and the editor's **Reset transform** goes back to it. **Frames for** trims the end to the frame count the next video model takes: LTX (8n+1) or Wan (4n+1). Tap a ratio to pad the clip to it; a new clip is padded to the lit ratio too. The padlock keeps the shape while you drag a handle.
 
@@ -486,7 +486,7 @@ People who download your workflow get the nodes through ComfyUI-Manager's missin
 - Hold Shift while you turn the green rotation handle to snap to 15° steps.
 - In the full-screen editor, the mouse wheel zooms, and the middle mouse button or Alt-drag pans. On the node itself, the wheel and middle mouse button still move the graph.
 - **Alt+E** opens the selected node's transform editor. Change the key in Settings → Keybindings.
-- The video editors have frame stepping, playback and exact timeline seeking, on the node face as well as in the editor. The Clip node's IN and OUT handles sit on the source's own frames, so the frame shown for IN is the first one decoded and the frame shown for OUT is the last.
+- The video editors have frame stepping, playback and exact timeline seeking, on the node face as well as in the editor. The Clip node's start and end handles sit on the source's own frames, so the frame shown at the start is the first one decoded and the frame shown at the end is the last.
 - Your own aspect presets go in `ausboss_presets.json` beside the pack. Copy [`ausboss_presets_example.json`](ausboss_presets_example.json) to start. Your file survives updates.
 
 LoRA Loader and Latent Size have their own gear menus for per-node preferences.

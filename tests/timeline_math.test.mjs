@@ -315,3 +315,19 @@ test("a wired 49-frame selection stops at IN 48 on the 97-frame pier clip", () =
   assert.equal(clipLengthPlan(info, { ...values, resampled: true, outputFps: 12 }).latestStart, 0);
   assert.equal(clipLengthPlan(info, { ...values, wired: "fixed_frames", outputFps: 24 }).latestStart, 48);
 });
+
+test('a linked 24 fps rate on a 60 fps clip: 48 frames from 1 s end at 3 s', () => {
+  const info = clipInfo({ fps: 60, frame_count: 247, duration: 247 / 60 });
+  const values = { start: 1, end: 0, everyNth: 1, frameSnap: 'free', maxFrames: 48, fixedFrames: 0, wired: null, wiredFrames: null, outputFps: 24, resampled: true };
+  const plan = clipLengthPlan(info, values);
+  assert.equal(plan.frames, 48);
+  assert.equal(plan.endSeconds, 3);
+  assert.equal(plan.last, 177);
+  assert.equal(plan.latestStart, 129);
+  // A 240-frame Length (10 s) only caps a 4.1 s clip: the source ends first.
+  const capped = clipLengthPlan(info, { ...values, maxFrames: 240 });
+  assert.equal(capped.truncated, true);
+  assert.equal(capped.frames, 75);
+  // Still unknown without a rate.
+  assert.equal(clipLengthPlan(info, { ...values, outputFps: null }).last, null);
+});

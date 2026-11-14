@@ -14,29 +14,43 @@ model that paints black regions.
 - **Inputs**: Pick an existing input video (the list plays the clip under the pointer, muted, and filters as you type), click **Load**, or drop a video file
   onto the node. The old source widgets remain compatible with saved workflows, but
   are now driven by this compact card. Choosing another video keeps the canvas
-  settings - Fill, Feather, **Align**, Resize, Every nth, Frames for, Length - and
+  settings - Fill, Feather, **Align**, Resize, Every nth, Frames for, Duration - and
   fits the new clip to the lit ratio button, the way **Fit** is set. Rotation, crop,
-  padding, IN/OUT and the playhead start over.
+  padding, the clip's timing and the playhead start over.
 - **Outputs** (`source_mode` / `local_path`): Pick a video from ComfyUI's output folder,
   such as one you just rendered. The list shows the newest first and previews the video
   under the pointer. The video is read in place, without an upload copy. In an API prompt
   it is named the way ComfyUI names a file there: `clip.mp4 [output]`. A whole path such
   as `/home/me/ComfyUI/output/clip.mp4` is not read, for queued runs and the editor's live
   preview alike.
-- **Play / Pause** beside the scrubber previews the selected frames and stops at OUT. Press Play at OUT to start from IN again.
-- **Timeline** (right under the preview and size line): The rail on the node and in the editor is one timeline. Press or
-  drag anywhere on it to scrub the **playhead**, with Length on or off; the stage shows
-  that frame. The small readout beside Play names it: `fr 52 · 0:02.17` means frame 52,
-  2.17 seconds into the video. Drag the **IN** or **OUT** handle to trim: the playhead rides on the handle, so what you see
-  is the first (IN) or last (OUT) frame the run keeps, and it stays there when you let
-  go. IN and OUT are frames, snapped to the source's frame grid; the boxes under the
-  rail take a frame number, and `start_seconds` / `end_seconds` are derived from them
-  (OUT is exclusive, 0 means the end of the source). Arrow keys on a handle move one
-  second, Shift one frame. **OUT always sits on the last frame the run outputs**, so
-  the handle and the bright bar end together; with Every nth or Frames for it steps to the
-  frames the run keeps, and a dim tail marks frames the window holds but the run
-  drops. In the editor, **Set IN** / **Set OUT** (or the **I** / **O** keys) put a
-  trim point at the playhead, and **Full clip** resets the window. The editor also
+- **Play / Pause** beside the timeline plays the clip from its start and stops at its end. Pause and Play again to carry on from where you stopped.
+- **Timeline** (right under the picture): Press or drag anywhere on it to look at
+  another frame; the picture shows it. Point at the bar to see where you are, the
+  clip in words and the source's frame rate. Drag the **start** handle to move the
+  clip (its Duration stays), and the **end** handle to change the Duration. The
+  start stops where the whole Duration still fits, and a short note says so.
+  **Use as start** starts the clip at the frame on the picture.
+- **Start / Duration / Ends at**: the clip in three boxes. Start and Ends at are
+  places in the source video; Duration is how long the clip is. Type any of them,
+  or drag over a box to scrub it. The small **s | fr** switch shows them in seconds
+  or frames: Start and Ends at count source frames, Duration counts the frames the
+  clip sends on, at the output rate. Point at a box for the other unit and what it
+  covers. Typing a Start that leaves too little video is allowed: an amber note says
+  how many frames still fit and offers to shorten the clip or move the start.
+- **Linked timing**: when another node feeds `start_frame`, `end_frame`,
+  `frame_load_cap` or `fixed_frames`, that box is locked and its label shows a small
+  **linked** button that jumps to the node. `fixed_frames` is an exact count;
+  `frame_load_cap` is only a limit, so when the video ends first the note says how
+  many frames you get. A count only worked out when the graph runs (a Math
+  Expression, say) shows as **at run time**, and the timeline shows striped room
+  after the start instead of a clip. A rate typed inside a subgraph counts as known.
+- **Technical details**: `start_seconds` / `end_seconds` are derived from the frames
+  (the end is exclusive, 0 means the end of the source), and the Duration is stored
+  as `max_frames`. Arrow keys on a handle move one second, Shift one frame. With
+  Every nth or Frames for the end steps to the frames the run keeps, and a dim tail
+  marks frames the window holds but the run drops.
+  In the editor, **Set IN** / **Set OUT** (or the **I** / **O** keys) put a
+  trim point at the playhead, and **Whole video** resets the clip. The editor also
   has buttons for the first and last frame, steps of 1, 25, 50 and 100 frames, and
   **Play**. Arrow keys step one frame (10 with Shift), Home and End jump to the
   ends, and Space plays or pauses. **Save & close** keeps your edits; **Cancel** or
@@ -56,23 +70,16 @@ model that paints black regions.
   fill colour with a faint hatch, so black bands show on the black stage. A fresh clip node starts
   with black and feather 0 and the editor's **Reset transform** returns to them;
   the image nodes keep their grey fill and feathered mask.
-- **Length** (`max_frames`): the one other way to set how long the clip is. **Off**
-  (the default): OUT ends the clip. **On**: a number of output frames from IN; OUT
-  sits that many frames after IN and follows it when you drag IN, and dragging OUT or
-  typing the number changes the Length. To move the whole clip, drag IN or the small
-  grip in the middle of the kept part (the grip also slides a trimmed window with
-  Length off). When the Length is as long as the clip or longer, the row says
-  "= the whole clip": the clip's own end is OUT, and dragging IN starts the clip
-  later without changing the Length. The Length stays when you
-  swap the video, so a workflow built for 97 frames keeps taking 97. Turning it on or
-  off never moves anything: the count becomes the OUT, or the OUT the count. If the
-  source ends first, the footer says how many frames are left. **To start** moves IN
-  to the start of the source.
+- **Whole video / To start** (bottom right of the timing card): **Whole video**
+  uses the whole source, with no Duration limit. When the length is linked, the
+  button reads **To start** and moves the start to the beginning instead. The
+  Duration stays when you swap the video, so a workflow built for 97 frames keeps
+  taking 97.
 - **Every nth** (`every_nth`): Thin the batch. The `fps` output divides to match
-  every_nth, so the clip keeps real-time downstream; a Length counts the frames kept.
+  every_nth, so the clip keeps real-time downstream; a Duration counts the frames kept.
 - **Frames for** (`frame_snap`): Keep a frame count a video model takes:
   **LTX (8n+1)** (49, 97, 121) or **Wan (4n+1)**. **any** keeps every frame in the window.
-  OUT drags and the Length step through those counts.
+  Dragging the end and typing a Duration step through those counts.
   With it on, `frame_count`, `duration`, the audio window and the stitcher all match the
   clip the sampler hands back, so wiring `frame_count` into the empty latent's length
   never leaves the stitch with more source frames than generated ones.
@@ -104,7 +111,7 @@ with the padlock on it also takes away the bands the lock added.
 **Reset** on the node clears rotation, crop and padding and turns the padlock off;
 fill, feather, **Align** and the timeline stay.
 **Reset transform** in the editor resets rotation, crop, padding, fill, feather and
-**Align**; it keeps the source, current frame, trim, Length, resize and stitch
+**Align**; it keeps the source, current frame, trim, Duration, resize and stitch
 settings. **Align** makes the width and height divide evenly by the number
 you pick: padding grows by a few pixels, and a side with no padding is trimmed by
 a few instead. Some models need sizes divisible by 8, 16 or 32; 1 turns it off.
@@ -164,8 +171,8 @@ Five optional sockets sit on the left, above the editor:
 | `force_rate` | Sample at this fps before Every nth. 0 keeps the source rate. Drops or repeats frames to keep playback speed. Accepts FLOAT or INT. |
 | `start_frame` | Zero-based source start frame. Overrides timeline IN. |
 | `end_frame` | Exclusive source end frame. 0 means the end of the source. Overrides timeline OUT. |
-| `fixed_frames` | Exact output frames from IN; the source must be long enough. Connected, it sets the length: OUT, Length and Frames for step aside. |
-| `frame_load_cap` | Maximum frames after rate conversion and Every nth, before Frames for. 0 means unlimited. Connected, it sets the length in place of Length. When the count is known, dragging IN stops at the last start that fits the kept frames. |
+| `fixed_frames` | Exact output frames from IN; the source must be long enough. Connected, it sets the length: Duration, Ends at and Frames for step aside. |
+| `frame_load_cap` | Maximum frames after rate conversion and Every nth, before Frames for. 0 means unlimited. Connected, it sets the length in place of Duration. When the count is known, dragging the start stops at the last start that fits the kept frames. |
 | `last_seconds` | Load only this many seconds from the end of the clip, or of the part before OUT. 0 loads all of it. Use it to carry on from a clip: a long clip then costs no more memory than a short one. |
 
 Frame bounds use the source's frame-rate grid, independent of `force_rate`.
@@ -179,17 +186,17 @@ For example, start 24 and end 72 select two seconds from a 24 fps source.
 A 12 fps forced rate returns 24 frames; a cap of 10 then keeps only the first
 10 of those. Audio and duration follow the returned batch.
 
-A connected start or end locks that handle and its IN/OUT field on both
+A connected start or end locks that handle and its box on both
 the node and fullscreen editor. Hover to see why. Disconnect to restore
 local control. While timing inputs are connected, the preview shows the local
 trim as a reference and avoids claiming an output count before the linked
 values are evaluated at run time.
 
 **A connected length input takes over the length.** Connect a count to
-`fixed_frames` (exact) or `frame_load_cap` (at most) and the OUT handle goes
-away, OUT and Length grey out, and only IN is left to set: the clip starts at
-IN and the input decides where it ends. Literal Integer/Float nodes (including
+`fixed_frames` (exact) or `frame_load_cap` (at most) and the end handle goes
+away, Duration and Ends at lock, and only Start is left to set: the clip starts
+there and the input decides where it ends. Literal Integer/Float nodes (including
 AusBoss cards and reroutes) show the resulting frames on the rail before
 running; calculated counts show "at run time". An older workflow that saved a
-Fixed frames number without a connection reads as a Length; the first change
+Fixed frames number without a connection reads as a Duration; the first change
 here turns it into one.
