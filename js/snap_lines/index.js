@@ -11,6 +11,7 @@ import {
   unionOf,
 } from "../shared/snap_lines.mjs";
 import { boundsOf, nodeElements, outlineOf } from "../shared/outline.mjs";
+import { TILE_MOVE } from "../shared/tile_face.mjs";
 
 // Snap into line: a node or group being dragged lines up with the nodes and
 // groups around it, and a teal line shows what it lines up with. A corner
@@ -294,6 +295,13 @@ function onPointerMove(event) {
   });
 }
 
+// A frameless tile moves itself and keeps its pointer moves to itself
+// (js/shared/tile_face.mjs), then reports each move here once placed.
+function onTileMove(event) {
+  if (!state.before || !event.detail) return;
+  step(event.detail);
+}
+
 function end() {
   state.before = null;
   state.corner = null;
@@ -348,6 +356,7 @@ function install() {
   window.addEventListener("pointerdown", onPointerDown, true);
   window.addEventListener("pointerdown", afterPointerDown);
   window.addEventListener("pointermove", onPointerMove);
+  window.addEventListener(TILE_MOVE, onTileMove);
   // Capture phase: the classic canvas stops its pointerup from bubbling.
   window.addEventListener("pointerup", end, true);
   window.addEventListener("pointercancel", end, true);
