@@ -28,11 +28,15 @@ export function setTileFace(node, root, enabled, onEdit) {
       });
     }
     const listeners = new AbortController();
+    // Snap into line and Line up use the card people see, not the
+    // transparent node around it (js/shared/outline.mjs).
+    node.ausbossOutlineElement = root.querySelector(".ausboss-callout-card,.ausboss-note-card") || root;
     installTileDrag(node, root, listeners.signal, onEdit);
     installTileResize(node, root, listeners.signal);
     originalDescriptors.set(node, { descriptors, listeners });
   } else {
     previous.listeners.abort();
+    delete node.ausbossOutlineElement;
     for (const [key, descriptor] of previous.descriptors) {
       if (descriptor) Object.defineProperty(node, key, descriptor);
       else delete node[key];
@@ -43,6 +47,9 @@ export function setTileFace(node, root, enabled, onEdit) {
 }
 
 function skipBadges() {}
+
+// Sent from a tile's own drag after each move: js/snap_lines/ lines it up.
+export const TILE_MOVE = "ausboss-tile-move";
 
 // A normal node moves by its header. Give the tile that gesture while
 // keeping a short click on a link or the info button as its usual action.
@@ -87,6 +94,9 @@ function installTileDrag(node, root, signal, onEdit) {
     for (const start of press.starts) start.item.pos = [start.x + dx / zoom, start.y + dy / zoom];
     node.setDirtyCanvas?.(true, true);
     event.stopPropagation();
+    // The move stops here (Nodes 2.0 would pan the canvas with it), so tell
+    // Snap into line separately, after the tile has been placed.
+    root.dispatchEvent(new CustomEvent(TILE_MOVE, { bubbles: true, detail: event }));
   }, capture);
   const finish = (event) => {
     if (event.pointerId !== press?.id) return;
