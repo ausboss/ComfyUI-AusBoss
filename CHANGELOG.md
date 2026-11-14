@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.26.2 - 2026-11-14
 
 - **Loaders never look up a file name they refused.** Before each run,
   Load Image 🆎, Load Image + Pad 🆎, Image Crop + Rotate + Pad 🆎 and both
