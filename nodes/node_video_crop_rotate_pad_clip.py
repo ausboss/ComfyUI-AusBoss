@@ -68,7 +68,7 @@ class AusBossVideoCropRotatePadClip:
         required = {
             "video": (
                 list_input_videos(),
-                {"tooltip": "Choose a video in ComfyUI's input folder or use the upload button."},
+                {"video_upload": True, "tooltip": "Choose a video in ComfyUI's input folder or use the upload button."},
             ),
             "source_mode": (
                 ["input folder", "local path"],

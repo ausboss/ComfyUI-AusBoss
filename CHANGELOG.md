@@ -4,6 +4,39 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Missing LoRAs show in ComfyUI's missing-models list.** When a workflow
+  needs a LoRA you don't have, ComfyUI's Issues panel now lists it with the
+  other missing models, so **Download all** fetches it too. Before, the
+  list skipped every LoRA in a LoRA Loader 🆎, and Run then stopped on
+  "missing LoRA file". A LoRA that moved to another folder, or a row that is
+  switched off, is not listed.
+
+- **Link tiles and title tiles snap by the edge you see.** A tile draws a
+  card inside a wider see-through frame, and Snap into line used that frame,
+  so tiles lined up with a gap around them, and a tile you dragged never
+  snapped at all. Now a dragged tile lines up, and other nodes line up with
+  it, by the card's own edges.
+
+- **Cards work in App mode.** App mode is ComfyUI's simple form view of a
+  workflow: a few labelled fields and a Run button. A field from a node
+  with a card (a picture or video loader, H3 Prompt Writer) used to show
+  as an empty row there. Now it shows a real control: a file list with an
+  upload button, a video list, a text box. Back in the graph, the node
+  looks the same as before.
+- **The video crop nodes take uploads in App mode.** Video Crop + Rotate +
+  Pad and its Clip version now tell ComfyUI that their video list takes
+  uploads, as the picture nodes do. In App mode the clip field gets the same
+  picker as a picture field: your videos as thumbnails, an Upload button and
+  a folder button. On the node itself nothing changes.
+
+- **Models you already have are picked for you.** When a workflow asks for
+  a model file you keep in a subfolder (`minimax-h3/model.safetensors`),
+  ComfyUI used to mark its loader red until you clicked **Use it** on the
+  workflow's Guide. Now the Guide switches the loader to your copy as the
+  workflow opens and says so in a short message. That matters most in App
+  mode, which shows no Guide to click. With two copies in different
+  subfolders it still asks. Turn it off in Settings, 🆎 AusBoss, Models.
+
 - **The video clip's timing is three boxes: Start, Duration, Ends at.** On
   Video Crop + Rotate + Pad (Clip), the Length on/off switch is gone. Drag
   the start to move the clip, drag the end or type a Duration to change how
