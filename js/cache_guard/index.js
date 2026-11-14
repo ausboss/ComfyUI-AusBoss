@@ -49,6 +49,25 @@ function askForReload(installed) {
   }
 }
 
+// "2.26.2" -> [2, 26, 2]. Anything else, such as "unknown", is null.
+function parseVersion(version) {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(typeof version === "string" ? version : "");
+  return match ? match.slice(1).map(Number) : null;
+}
+
+// Only a server newer than the page means this tab runs old files. The page
+// is newer when the Manager switched the pack on disk and the page was
+// reloaded before ComfyUI restarted, and then a restart is what is needed.
+// Two version numbers cannot tell that apart from a downgrade with the tab
+// left open, which needs a reload, so in that case the guard says nothing.
+function serverIsNewer(installed, running) {
+  const server = parseVersion(installed);
+  const page = parseVersion(running);
+  if (!server || !page) return false;
+  const step = server.findIndex((part, index) => part !== page[index]);
+  return step >= 0 && server[step] > page[step];
+}
+
 // The installed version this page already asked a reload for. A server that
 // drops and comes back several times must not stack the same message.
 let asked = null;
@@ -58,7 +77,7 @@ async function check() {
   try {
     const installed = (await (await api.fetchApi("/ausboss/pack_version")).json())?.version;
     const running = await runningVersion();
-    if (!installed || installed === "unknown" || !running || installed === running || installed === asked) return;
+    if (!serverIsNewer(installed, running) || installed === asked) return;
     asked = installed;
     const listing = await (await api.fetchApi("/ausboss/pack_modules")).json();
     await refreshModules(Array.isArray(listing?.modules) ? listing.modules : []);
