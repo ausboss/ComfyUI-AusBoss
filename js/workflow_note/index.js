@@ -46,6 +46,7 @@ import {
 } from "../shared/workflow_note.mjs";
 import { comboValues, commitWidgetValue } from "../shared/widget_card_math.mjs";
 import { parseRows, serializeRows } from "../shared/lora_stack.mjs";
+import { isFileWidget } from "../shared/lora_file_widgets.mjs";
 
 const CSS_ID = "ausboss-workflow-note-css";
 const WIDGET_NAME = "ausboss_workflow_note_panel";
@@ -756,7 +757,7 @@ function graphListWidgets() {
     seen.add(graph);
     for (const node of graph._nodes ?? graph.nodes ?? []) {
       for (const widget of node.widgets ?? []) {
-        if (widget?.type !== "combo" || typeof widget.value !== "string") continue;
+        if (widget?.type !== "combo" || typeof widget.value !== "string" || isFileWidget(widget)) continue;
         out.push({ node, widget, value: widget.value, options: comboValues(widget) });
       }
       if (node.subgraph) walk(node.subgraph);

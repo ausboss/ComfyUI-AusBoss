@@ -4,6 +4,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Missing LoRAs show in ComfyUI's missing-models list.** When a workflow
+  needs a LoRA you don't have, ComfyUI's Issues panel now lists it with the
+  other missing models, so **Download all** fetches it too. Before, the
+  list skipped every LoRA in a LoRA Loader 🆎, and Run then stopped on
+  "missing LoRA file". A LoRA that moved to another folder, or a row that is
+  switched off, is not listed.
+
 - **Link tiles and title tiles snap by the edge you see.** A tile draws a
   card inside a wider see-through frame, and Snap into line used that frame,
   so tiles lined up with a gap around them, and a tile you dragged never
