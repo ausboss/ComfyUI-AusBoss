@@ -60,10 +60,12 @@ answered on the same line as the button.
 - A found file swaps its Download button for an **✓ installed** pill; hovering
   the pill shows where it was found. A file that lives in a subfolder still
   counts. When a loader in the workflow still asks for the bare file name,
-  which ComfyUI cannot find there (it marks that loader red), the row says
-  where the file is instead (**in LTXV 2.3/**) and **Use it** points those
-  loaders at the copy it found. The check only asks the ComfyUI server for its
-  own model lists.
+  which ComfyUI cannot find there (it marks that loader red), the note points
+  that loader at your copy by itself and says so in a short message. If you
+  have two copies in different subfolders, the row says where one is
+  (**in LTXV 2.3/**) and **Use it** picks it. To always choose yourself, turn
+  off Settings, 🆎 AusBoss, Models, **Pick found files**. The check only asks
+  the ComfyUI server for its own model lists.
 - **↻ check files** re-runs the check after you move files in. ComfyUI's own
   **R** refresh triggers it as well.
 - Folder `input` is for a sample image or clip shipped with the workflow: it

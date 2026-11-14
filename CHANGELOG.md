@@ -11,6 +11,14 @@ All notable changes to ComfyUI-AusBoss are documented here.
   upload button, a video list, a text box. Back in the graph, the node
   looks the same as before.
 
+- **Models you already have are picked for you.** When a workflow asks for
+  a model file you keep in a subfolder (`minimax-h3/model.safetensors`),
+  ComfyUI used to mark its loader red until you clicked **Use it** on the
+  workflow's Guide. Now the Guide switches the loader to your copy as the
+  workflow opens and says so in a short message. That matters most in App
+  mode, which shows no Guide to click. With two copies in different
+  subfolders it still asks. Turn it off in Settings, 🆎 AusBoss, Models.
+
 ## 2.25.3 - 2026-11-13
 
 - **The video clip's frame readout explains itself.** On Video Crop + Rotate
