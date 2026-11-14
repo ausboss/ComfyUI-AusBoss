@@ -2,6 +2,15 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **A path that starts with `~` is no longer expanded.** Image Folder used
+  to turn a pasted `~/...` path into a full one before checking that it sits
+  inside ComfyUI's folders; now only a path written out in full is checked.
+  LaMa Inpaint only opens a model from ComfyUI's `models/lama` list. Nothing
+  outside those folders could be read before either; this removes the code
+  that looked as if it could.
+
 ## 2.26.0 - 2026-11-14
 
 - **Missing LoRAs show in ComfyUI's missing-models list.** When a workflow
