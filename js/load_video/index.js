@@ -38,7 +38,7 @@ const PREVIEW_CHROME = 88;
 const PANEL_MIN_HEIGHT = 278;
 // Height the node opens at. It used to fall out of the panel's computeSize;
 // with the panel free to follow the node, the default has to be stated. The
-// chrome covers the transport row and the trim strip under the player.
+// extra covers the tools over the picture and the timing card under it.
 const DEFAULT_NODE_SIZE = [380, responsivePreviewHeight(380) + PREVIEW_CHROME + 210];
 const TRIM_EPSILON = 0.04;
 
@@ -448,6 +448,11 @@ app.registerExtension({
           state.refresh?.();
         }
       });
+    });
+    // A wire into a timing input changes what the card can show.
+    chainCallback(nodeType.prototype, "onConnectionsChange", function () {
+      const state = this.__ausbossLoadVideo;
+      if (state) queueMicrotask(() => state.card?.sync());
     });
     chainCallback(nodeType.prototype, "onRemoved", function () {
       const state = this.__ausbossLoadVideo;

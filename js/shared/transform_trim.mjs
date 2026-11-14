@@ -263,10 +263,10 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
     return false;
   };
   const lockTip = (edge) => edge === "start"
-    ? "The starting frame is supplied by a connected input. Disconnect it to edit IN here."
+    ? "The starting frame is supplied by a connected input. Disconnect it to set Start here."
     : wiredBy()
-      ? `The connected ${wiredBy()} input sets the length, so the clip ends where it says. Disconnect it to use OUT or Length.`
-      : "The ending frame is supplied by a connected input. Disconnect it to edit OUT here.";
+      ? `The connected ${wiredBy()} input sets the length, so the clip ends where it says. Disconnect it to set Duration or Ends at here.`
+      : "The ending frame is supplied by a connected input. Disconnect it to set Ends at here.";
   const disableControl = (control, disabled, tip) => {
     if (!control) return;
     control.root.style.opacity = disabled ? ".45" : "";
@@ -374,26 +374,6 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
     }
     moveEdge("start", first, settled);
   };
-  // Length on keeps what the rail shows now as the count; off turns the
-  // Length into an OUT at the same frame. Either way nothing moves.
-  const setLength = (on) => {
-    const current = plan();
-    if (!current || current.mode === "wired" || (on === (current.mode !== "free"))) return;
-    if (on) {
-      const frames = current.frames ?? framesThrough(current.first, current.windowLast, everyNth(), snapRule());
-      set("max_frames", Math.max(1, frames));
-      set("end_seconds", 0);
-    } else {
-      const last = current.last ?? current.windowLast;
-      writeStart(current.first);
-      writeEnd(current.first, last);
-      set("max_frames", 0);
-      if (!driven("fixed_frames")) set("fixed_frames", 0);
-    }
-    sync();
-    onCommit?.();
-  };
-
   const readout = el("span", "ausboss-transform-trim-readout");
   const summary = el("div", "ausboss-transform-trim-summary");
 
@@ -474,7 +454,7 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
     if (controls.reset) {
       const free = current.mode !== "wired";
       controls.reset.textContent = free ? "Whole video" : "To start";
-      controls.reset.title = free ? "Use the whole video: start at 0 with no Duration limit. Keeps Every nth and Frames for." : "Move the start to the beginning of the video; the linked length stays.";
+      controls.reset.title = free ? `Use the whole video: start at 0 with no Duration limit. Keeps Every nth${has("frame_snap") ? " and Frames for" : ""}.` : "Move the start to the beginning of the video; the linked length stays.";
       controls.reset.disabled = locked("start") && !free;
     }
     controls.every_nth?.set(get("every_nth", 1));
@@ -852,7 +832,7 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
     const sampling = el("div", "ausboss-transform-trim-line wrap");
     const nthLabel = el("label", "", "Every nth");
     controls.every_nth = makeScrubInput({ value: get("every_nth", 1), min: 1, max: 512, step: 1, decimals: 0,
-      title: "Keep one frame in this many. Output fps is adjusted to keep real-time playback; a Length counts the frames kept.",
+      title: "Keep one frame in this many. Output fps is adjusted to keep real-time playback; the Duration counts the frames kept.",
       onChange: (next) => { if (!driven("every_nth")) set("every_nth", next); sync(); }, onSettle: onCommit,
     });
     nthLabel.append(controls.every_nth.root);

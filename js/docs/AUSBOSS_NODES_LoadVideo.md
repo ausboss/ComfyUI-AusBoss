@@ -45,9 +45,10 @@ embedded workflow replaces the whole graph.
 - **Source** (`video`): A file in the input folder; **Upload** adds new ones.
   A video ComfyUI made, named like `clip.mp4 [output]`, loads too.
 - **Start** (`start_seconds`): Skip everything before this time.
-- **Duration** (`max_frames`): How many frames the clip keeps. Empty, or
-  `0`, runs to the end of the video. The decode stops early, so a short clip
-  from a long video stays quick.
+- **Duration** (`max_frames`): How many frames the clip keeps. **Whole
+  video** removes the limit, so the clip runs to the end (the widget holds
+  `0`). The decode stops early, so a short clip from a long video stays
+  quick.
 - **Ends at**: Where the clip stops. Typing it sets the Duration. A
   workflow saved with an end time (`end_seconds`) keeps it and runs the same.
 - **Every nth** (`every_nth`): Keep one frame in this many; `2` halves the

@@ -16,7 +16,7 @@ model that paints black regions.
   are now driven by this compact card. Choosing another video keeps the canvas
   settings - Fill, Feather, **Align**, Resize, Every nth, Frames for, Duration - and
   fits the new clip to the lit ratio button, the way **Fit** is set. Rotation, crop,
-  padding, IN/OUT and the playhead start over.
+  padding, the clip's timing and the playhead start over.
 - **Outputs** (`source_mode` / `local_path`): Pick a video from ComfyUI's output folder,
   such as one you just rendered. The list shows the newest first and previews the video
   under the pointer. The video is read in place, without an upload copy. In an API prompt
@@ -186,7 +186,7 @@ For example, start 24 and end 72 select two seconds from a 24 fps source.
 A 12 fps forced rate returns 24 frames; a cap of 10 then keeps only the first
 10 of those. Audio and duration follow the returned batch.
 
-A connected start or end locks that handle and its IN/OUT field on both
+A connected start or end locks that handle and its box on both
 the node and fullscreen editor. Hover to see why. Disconnect to restore
 local control. While timing inputs are connected, the preview shows the local
 trim as a reference and avoids claiming an output count before the linked
