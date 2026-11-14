@@ -5,6 +5,11 @@
 // 2.0 draws each node as an element on the page, which can run past those
 // bounds (its frame, a footer), so there the element itself is measured.
 // Groups are drawn on the canvas in both looks.
+//
+// A frameless tile (a link tile, a title, a note tile) draws only a card
+// inside a transparent node, so what people see is the card, not the node's
+// bounds. Such a node names that card as `ausbossOutlineElement`, and its
+// outline is the card's, in both looks.
 
 function graphRectOf(element, canvas) {
   const box = element.getBoundingClientRect();
@@ -34,6 +39,11 @@ export function nodeElements() {
 }
 
 export function outlineOf(item, canvas, { node = true, elements = null } = {}) {
+  const face = node && !item?.flags?.collapsed ? item?.ausbossOutlineElement : null;
+  if (face?.isConnected && canvas?.canvas && canvas.ds) {
+    const rect = graphRectOf(face, canvas);
+    if (rect) return rect;
+  }
   if (node && globalThis.LiteGraph?.vueNodesMode === true && item?.id != null && canvas?.canvas && canvas.ds) {
     const element = elements
       ? elements.get(String(item.id))

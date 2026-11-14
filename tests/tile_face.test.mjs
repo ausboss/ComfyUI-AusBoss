@@ -43,6 +43,7 @@ function fixture({ size = [300, 80], floor = [210, 94], scale = 1 } = {}) {
     querySelector() { return this; }
     setAttribute() {}
     setPointerCapture() {}
+    closest() { return null; }
     remove() { this.removed = true; }
   }
   const root = new Element();
@@ -56,7 +57,7 @@ function fixture({ size = [300, 80], floor = [210, 94], scale = 1 } = {}) {
   };
   const source = readFileSync(new URL("../js/shared/tile_face.mjs", import.meta.url), "utf8")
     .replace(/^import .*;\n/, "").replaceAll("export ", "");
-  const context = vm.createContext({ app, AbortController, document: { createElement: () => new Element() } });
+  const context = vm.createContext({ app, AbortController, CustomEvent, document: { createElement: () => new Element() } });
   vm.runInContext(source, context);
   context.setTileFace(node, root, true);
   const grip = root.children[0];
@@ -102,4 +103,26 @@ test("keyboard resize supports fine steps, respects pinning and removes its hand
   assert.deepEqual(f.changes(), [1, 1]);
   f.disable();
   assert.equal(f.grip.removed, true);
+});
+
+test("a tile drag names its card for snapping and reports each move once placed", () => {
+  const f = fixture();
+  assert.equal(f.node.ausbossOutlineElement, f.root, "Snap into line measures the card, not the transparent node");
+  let stopped = 0;
+  const reports = [];
+  f.root.addEventListener("ausboss-tile-move", (event) => reports.push([...f.node.pos, event.detail.clientX]));
+  const send = (type, values = {}) => {
+    const event = new Event(type, { cancelable: true });
+    Object.assign(event, { button: 0, pointerId: 1, isPrimary: true, clientX: 0, clientY: 0, ...values });
+    if (type === "pointermove") event.stopPropagation = () => stopped++;
+    f.root.dispatchEvent(event);
+  };
+  send("pointerdown", { clientX: 10, clientY: 10 });
+  send("pointermove", { clientX: 60, clientY: 30 });
+  assert.deepEqual([...f.node.pos], [70, 50]);
+  assert.equal(stopped, 1, "the move stays with the tile, or Nodes 2.0 pans the canvas with it");
+  assert.deepEqual(reports, [[70, 50, 60]], "Snap into line hears the move after the tile is placed");
+  send("pointerup");
+  f.disable();
+  assert.equal(f.node.ausbossOutlineElement, undefined);
 });

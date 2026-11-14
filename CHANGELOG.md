@@ -4,6 +4,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Link tiles and title tiles snap by the edge you see.** A tile draws a
+  card inside a wider see-through frame, and Snap into line used that frame,
+  so tiles lined up with a gap around them, and a tile you dragged never
+  snapped at all. Now a dragged tile lines up, and other nodes line up with
+  it, by the card's own edges.
+
 - **Cards work in App mode.** App mode is ComfyUI's simple form view of a
   workflow: a few labelled fields and a Run button. A field from a node
   with a card (a picture or video loader, H3 Prompt Writer) used to show
