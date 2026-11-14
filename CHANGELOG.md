@@ -10,6 +10,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
   as an empty row there. Now it shows a real control: a file list with an
   upload button, a video list, a text box. Back in the graph, the node
   looks the same as before.
+- **The video crop nodes take uploads in App mode.** Video Crop + Rotate +
+  Pad and its Clip version now tell ComfyUI that their video list takes
+  uploads, as the picture nodes do. In App mode the clip field gets the same
+  picker as a picture field: your videos as thumbnails, an Upload button and
+  a folder button. On the node itself nothing changes.
 
 - **Models you already have are picked for you.** When a workflow asks for
   a model file you keep in a subfolder (`minimax-h3/model.safetensors`),
