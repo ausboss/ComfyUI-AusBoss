@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { clipOutputRate, inputNumber } from '../js/shared/clip_rate.mjs';
+import { clipOutputRate, inputNumber, linkOrigin } from '../js/shared/clip_rate.mjs';
 function linked(type='PrimitiveFloat', value=24) {
   const source={type,widgets:[{name:'value',value}]};
   return {inputs:[{name:'force_rate',link:1}],graph:{links:{1:{origin_id:2,origin_slot:0}},getNodeById:()=>source}};
@@ -49,4 +49,27 @@ test('a rate typed inside a subgraph counts as typed (Person Swap: Pick the mode
   // A calculation inside the subgraph stays unknown.
   literal.type = 'AUSBOSS_NODES_MathExpression';
   assert.equal(inputNumber(clip, 'force_rate', 0), null);
+});
+
+test('an older Primitive node and a Reroute both carry a typed number', () => {
+  const primitive = { id: 5, type: 'PrimitiveNode', mode: 0, widgets: [{ name: 'max_seconds', value: 7.5 }] };
+  const reroute = { id: 6, type: 'Reroute', mode: 0, inputs: [{ link: 2 }] };
+  const graph = { links: { 1: { origin_id: 6, origin_slot: 0 }, 2: { origin_id: 5, origin_slot: 0 } }, getNodeById: (id) => ({ 5: primitive, 6: reroute })[id] ?? null };
+  const audio = { inputs: [{ name: 'max_seconds', widget: { name: 'max_seconds' }, link: 1 }], graph };
+  assert.equal(inputNumber(audio, 'max_seconds', 0), 7.5);
+  assert.deepEqual(linkOrigin(audio, 'max_seconds'), { node: primitive, slot: 0 });
+  // Not linked: the caller's own value. Bypassed: unknown.
+  assert.equal(linkOrigin({ inputs: [{ name: 'max_seconds', link: null }] }, 'max_seconds'), undefined);
+  primitive.mode = 4;
+  assert.equal(inputNumber(audio, 'max_seconds', 0), null);
+});
+
+test('Layout Boxes reads a size from inside a subgraph', async () => {
+  const { wiredNumber } = await import('../js/shared/layout_boxes.mjs');
+  const latent = { id: 9, type: 'EmptyLatentImage', mode: 0, outputs: [{ name: 'LATENT' }], widgets: [{ name: 'width', value: 1024 }] };
+  const sizes = { id: 8, type: 'AUSBOSS_NODES_Integer', mode: 0, outputs: [{ name: 'int' }], inputs: [{ name: 'value', link: null }], widgets: [{ name: 'value', value: 832 }] };
+  const inner = { links: new Map([[50, { origin_id: 8, origin_slot: 0 }]]), outputs: [{ linkIds: [50] }], getNodeById: (id) => ({ 8: sizes, 9: latent })[id] ?? null };
+  const box = { id: 3, mode: 0, type: 'subgraph-id', subgraph: inner, isSubgraphNode: () => true };
+  const node = { inputs: [{ name: 'width', link: 4 }], graph: { links: { 4: { origin_id: 3, origin_slot: 0 } }, getNodeById: (id) => (id === 3 ? box : null) } };
+  assert.equal(wiredNumber(node, 'width'), 832);
 });

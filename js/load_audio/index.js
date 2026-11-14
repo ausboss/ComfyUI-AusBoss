@@ -1,30 +1,35 @@
-// Load Audio 🆎 - the wave, the trim and the player.
+// Load Audio 🆎 - the wave, the timing and the player.
 //
-// The card above (js/widget_cards) holds Source and Max length. This panel
-// draws the whole file as a wave: the part that comes out is bright, the
-// part a Max length cuts off is red, and the rest is dim. Drag a handle to
-// move IN or OUT, drag the middle to slide the pick, or click elsewhere to
-// move it there. Play plays only what comes out. The widgets underneath
-// (start_seconds, end_seconds, max_seconds) stay the source of truth.
+// The card above (js/widget_cards) holds Source. This panel draws the whole
+// file as a wave: the part that comes out is bright and the rest is dim.
+// Under it, Start, Duration and Ends at, as on the video nodes. Drag a
+// handle on the wave to move the start or the end, drag the middle to slide
+// the sound, or click elsewhere to move it there. Play plays only what comes
+// out. The widgets underneath stay the source of truth: the Duration is
+// max_seconds with end_seconds at 0. A saved end (or a linked Max length)
+// still works: the part a Max length cuts off shows red.
 import { api } from "../../../scripts/api.js";
 import { app } from "../../../scripts/app.js";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "../shared/index.mjs";
-import { keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { WIDGET_FRAME, fillNodeHeight } from "../shared/panel_layout.mjs";
-import { formatTimecode, parseTimecode } from "../shared/timecode.mjs";
+import { formatTimecode } from "../shared/timecode.mjs";
+import { inputNumber } from "../shared/clip_rate.mjs";
+import { makeScrubInput } from "../shared/scrub_input.mjs";
+import { linkedNodeInfo } from "../shared/timing_links.mjs";
 import { parseImageReference } from "../shared/pad_canvas.mjs";
 import { mediaViewQuery, splitMediaName } from "../shared/video_preview.mjs";
 import { ensureVideoCss, hideCanvasWidget, makeToolButton } from "../shared/video_ui.mjs";
 import { MIN_TRIM_SECONDS, dragTrimHandle, slideTrimWindow } from "../load_video/trim_preview.mjs";
-import { grabZone, outputSummary, outputWindow, secondsLabel, wavePeaks } from "./audio_window.mjs";
+import { grabZone, outputWindow, wavePeaks } from "./audio_window.mjs";
 
 const NODE_NAME = "AUSBOSS_NODES_LoadAudio";
 const PANEL_WIDGET = "ausboss_load_audio_wave";
 // The frontend's own player for an audio_upload input. The wave replaces it.
 const CORE_AUDIO_WIDGET = "audioUI";
 const MIN_WIDTH = 280;
-// 8px root padding + the wave's 28px floor + 6px gap + the 22px play, IN/OUT and loop row.
-const PANEL_MIN_HEIGHT = 64;
+// 8px root padding + the wave's 28px floor + 6px gap + the 38px Start,
+// Duration and Ends at row (a label over a box).
+const PANEL_MIN_HEIGHT = 80;
 // Opens small and neat: 300 px wide, with a wave about as tall as a field
 // (32 px). Drag the corner down for a taller wave.
 const DEFAULT_WIDTH = 300;
@@ -50,26 +55,32 @@ function hideCoreAudio(node) {
   }
 }
 
-// A wired Max length: the number the wire carries, when the far end is a
-// node that shows it (Float, Integer, a Primitive). null when it can't be known.
-function wiredMax(node) {
-  const input = node.inputs?.find((slot) => slot?.widget?.name === "max_seconds");
-  if (!input || input.link == null) return { wired: false, value: null };
-  const graph = node.graph;
-  const link = graph?.getLink?.(input.link) ?? graph?.links?.get?.(input.link) ?? graph?.links?.[input.link];
-  const origin = link ? graph?.getNodeById?.(link.origin_id) : null;
-  const shown = origin?.widgets?.find((widget) => typeof widget?.value === "number");
-  return { wired: true, value: shown ? Number(shown.value) : null };
+function linked(node, name) {
+  return !!node.inputs?.some((slot) => slot?.widget?.name === name && slot.link != null);
+}
+
+// A value as the run will see it: the widget, or the number a linked input
+// carries when the far end is a typed number (through Reroutes and
+// subgraphs). null when only the run knows it.
+function valueOf(state, name, widget) {
+  if (!linked(state.node, name)) return Number(widget?.value) || 0;
+  return inputNumber(state.node, name, null);
 }
 
 function maxSeconds(state) {
-  const wired = wiredMax(state.node);
-  if (wired.wired) return { value: wired.value ?? 0, fromLink: true, known: wired.value != null };
-  return { value: Number(state.maxWidget?.value) || 0, fromLink: false, known: true };
+  const fromLink = linked(state.node, "max_seconds");
+  const value = valueOf(state, "max_seconds", state.maxWidget);
+  return { value: value ?? 0, fromLink, known: value != null };
 }
 
 function currentWindow(state) {
-  return outputWindow(state.duration, state.startWidget.value, state.endWidget.value, maxSeconds(state).value);
+  const start = valueOf(state, "start_seconds", state.startWidget) ?? 0;
+  const max = maxSeconds(state).value;
+  let end = valueOf(state, "end_seconds", state.endWidget) ?? 0;
+  // No end and a Duration: the Duration is where the sound stops, so
+  // nothing past it shows as cut off. Only an end past the Duration does.
+  if (!(end > 0) && max > 0 && state.duration > 0) end = Math.min(state.duration, Math.max(0, start) + max);
+  return outputWindow(state.duration, start, end, max);
 }
 
 async function loadPeaks(name, route) {
@@ -105,16 +116,15 @@ function ensureAudioCss() {
 .ausboss-audio-error{pointer-events:auto;border:0;background:transparent;color:#e6bf87;font:11px system-ui;cursor:pointer;white-space:nowrap}
 .ausboss-audio-root canvas.ausboss-audio-wave{position:absolute;inset:0;width:100%;height:100%;display:block;}
 .ausboss-audio-root .ausboss-video-stage:not(.is-empty) .ausboss-video-status{display:none;}
-.ausboss-audio-root .ausboss-audio-row{display:flex;align-items:center;gap:6px;flex:none;padding:0 2px;}
-.ausboss-audio-root .ausboss-audio-row .ausboss-video-values{flex:1 1 auto;min-width:0;}
-.ausboss-audio-root .ausboss-audio-play{min-width:30px;font-size:10px;}
-.ausboss-audio-root .ausboss-audio-length{flex:none;padding:0 2px;color:#7fd9d2;font-size:10px;font-variant-numeric:tabular-nums;white-space:nowrap;cursor:default;}
-.ausboss-audio-root .ausboss-audio-length:empty{display:none;}
-.ausboss-audio-root .ausboss-audio-length.has-cut{color:#ff9aa0;cursor:pointer;text-decoration:underline dotted rgba(224,82,90,.8);text-underline-offset:2px;}
-.ausboss-audio-root .ausboss-audio-row .ausboss-video-tool{flex:none;}
-.ausboss-audio-root .ausboss-video-values{display:flex;gap:8px;}
-.ausboss-audio-root .ausboss-video-value input{width:48px;}
-.ausboss-audio-root .ausboss-audio-length{margin-left:auto;}
+.ausboss-audio-root .ausboss-audio-wave-row{display:flex;align-items:stretch;gap:6px;flex:1 1 auto;min-height:28px;}
+.ausboss-audio-root .ausboss-audio-wave-row .ausboss-video-stage{flex:1 1 auto;min-width:0;}
+.ausboss-audio-root .ausboss-audio-play{flex:none;align-self:center;min-width:30px;font-size:10px;}
+.ausboss-audio-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;flex:none;padding:0 2px;color:#ddd;font:11px system-ui;}
+.ausboss-audio-field{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.ausboss-audio-field .ausboss-scrub{width:100%;box-sizing:border-box;}
+.ausboss-audio-field-label{display:flex;align-items:center;gap:6px;min-width:0;color:#cadddb;}
+.ausboss-audio-go{border:0;background:transparent;padding:0;color:#45d6cb;font:600 10px system-ui;text-decoration:underline;cursor:pointer;}
+.ausboss-audio-go[hidden]{display:none;}
 `;
   document.head.appendChild(style);
 }
@@ -192,21 +202,28 @@ function draw(state) {
   }
 }
 
+// One box's look: its value, whether it can be typed, and the "linked"
+// button when another node sets it.
+function showField(state, key, value, lockedBy, tip) {
+  const field = state.fields[key];
+  field.control.set(value);
+  field.control.root.style.opacity = lockedBy ? ".45" : "";
+  field.control.root.inert = Boolean(lockedBy);
+  field.go.hidden = !lockedBy;
+  field.cell.title = lockedBy ? `Set by ${lockedBy.title}. Click "linked" to go to that node.` : tip;
+  if (lockedBy) field.go.onclick = () => lockedBy.go?.();
+}
+
 function updateFace(state) {
   const win = currentWindow(state);
   const max = maxSeconds(state);
-  if (document.activeElement !== state.startInput) state.startInput.value = formatTimecode(win.start);
-  if (document.activeElement !== state.endInput) state.endInput.value = formatTimecode(win.end);
-  if (state.duration > 0) {
-    const summary = outputSummary(win, { maxFromLink: max.fromLink && !max.known });
-    state.summary.textContent = win.length > 0 ? secondsLabel(win.length) : "";
-    state.summary.classList.toggle("has-cut", win.cut > 0.005);
-    state.summary.title = win.cut > 0.005
-      ? `${summary}. Max length is ${max.value} s, so ${formatTimecode(win.keepEnd)} to ${formatTimecode(win.end)} is cut off (red). Click to move OUT to ${formatTimecode(win.keepEnd)}.`
-      : `${summary}: ${formatTimecode(win.start)} to ${formatTimecode(win.keepEnd)} comes out.`;
-  } else {
-    state.summary.textContent = "";
-  }
+  const link = (name) => (linked(state.node, name) ? linkedNodeInfo(state.node, name) : null);
+  const durationLink = link("max_seconds");
+  const has = state.duration > 0;
+  showField(state, "start", has ? win.start : null, link("start_seconds"), `Where the sound starts in the file, of ${formatTimecode(state.duration)}.`);
+  showField(state, "duration", has && (!max.fromLink || max.known) ? win.length : null, durationLink,
+    win.cut > 0.005 ? `How long the sound is. Max length cuts ${formatTimecode(win.cut)} off the picked part (red).` : "How long the sound is. 0 or the whole rest of the file means it runs to the end.");
+  showField(state, "end", has ? win.keepEnd : null, link("end_seconds"), "Where the sound stops in the file. Typing it changes the Duration.");
   draw(state);
 }
 
@@ -217,12 +234,23 @@ function writeWidget(widget, value) {
   widget.callback?.(next);
 }
 
+// The pick, written the way the face shows it: a Start and a Duration
+// (max_seconds, with the end at 0 - "to the end"). Running to the end of the
+// file needs no Duration at all. A linked Max length or end keeps the old
+// start and end instead.
 function writeTrim(state, bounds) {
   state.writing = true;
   try {
-    writeWidget(state.startWidget, bounds.start);
-    // OUT at the very end stays 0, the widget's own "to the end".
-    writeWidget(state.endWidget, bounds.end >= state.duration - 0.005 ? 0 : bounds.end);
+    const startLinked = linked(state.node, "start_seconds");
+    if (!startLinked) writeWidget(state.startWidget, bounds.start);
+    const start = startLinked ? currentWindow(state).start : bounds.start;
+    const toEnd = bounds.end >= state.duration - 0.005;
+    if (linked(state.node, "max_seconds") || linked(state.node, "end_seconds") || !state.maxWidget) {
+      if (!linked(state.node, "end_seconds")) writeWidget(state.endWidget, toEnd ? 0 : bounds.end);
+    } else {
+      writeWidget(state.endWidget, 0);
+      writeWidget(state.maxWidget, toEnd ? 0 : Math.max(0.01, bounds.end - start));
+    }
   } finally {
     state.writing = false;
   }
@@ -248,7 +276,7 @@ function installDrag(state) {
     event.preventDefault();
     event.stopPropagation();
     const initial = infoAt(event.clientX);
-    const bounds = { start: initial.win.start, end: initial.win.end };
+    const bounds = { start: initial.win.start, end: initial.win.keepEnd };
     const anchor = initial.fraction * state.duration;
     const downX = event.clientX;
     let moved = false;
@@ -262,7 +290,7 @@ function installDrag(state) {
       const next = infoAt(clientX);
       if (initial.zone === "start" || initial.zone === "end") {
         const now = currentWindow(state);
-        writeTrim(state, dragTrimHandle(state.duration, { start: now.start, end: now.end }, initial.zone, next.fraction, MIN_TRIM_SECONDS));
+        writeTrim(state, dragTrimHandle(state.duration, { start: now.start, end: now.keepEnd }, initial.zone, next.fraction, MIN_TRIM_SECONDS));
       } else if (initial.zone === "move") {
         writeTrim(state, slideTrimWindow(state.duration, bounds, next.fraction * state.duration - anchor));
       } else {
@@ -336,19 +364,6 @@ function installPlayer(state) {
   state.stopPlayer = () => { audio.pause(); stop(); };
 }
 
-function commitTimeInput(state, edge, input) {
-  if (state.duration <= 0) return;
-  const seconds = parseTimecode(input.value);
-  const win = currentWindow(state);
-  if (seconds === null) {
-    input.value = formatTimecode(edge === "start" ? win.start : win.end);
-    return;
-  }
-  writeTrim(state, dragTrimHandle(state.duration, { start: win.start, end: win.end }, edge, seconds / state.duration, MIN_TRIM_SECONDS));
-  notifyAusbossChange();
-  input.blur();
-}
-
 function watchWidget(state, widget) {
   if (!widget || widget.__ausbossAudioWatch) return;
   widget.__ausbossAudioWatch = true;
@@ -370,6 +385,9 @@ function buildPanel(node) {
   hideCoreAudio(node);
   hideCanvasWidget(startWidget);
   hideCanvasWidget(endWidget);
+  // Max length is the Duration box now.
+  const maxWidget = findWidget(node, "max_seconds");
+  if (maxWidget) hideCanvasWidget(maxWidget);
 
   const root = document.createElement("div");
   root.className = "ausboss-video-root ausboss-audio-root";
@@ -385,37 +403,54 @@ function buildPanel(node) {
   playButton.classList.add("ausboss-audio-play");
   const loopButton = makeToolButton("LOOP", "Play it again and again");
   stage.append(canvas, status);
+  // Play and Loop sit either side of the wave, so neither covers a handle.
+  loopButton.classList.add("ausboss-audio-play");
+  const waveRow = document.createElement("div");
+  waveRow.className = "ausboss-audio-wave-row";
+  waveRow.append(playButton, stage, loopButton);
 
-  const values = document.createElement("div");
-  values.className = "ausboss-video-values";
-  const makeValue = (labelText, title) => {
-    const wrap = document.createElement("div");
-    wrap.className = "ausboss-video-value";
-    const label = document.createElement("label");
-    label.textContent = labelText;
-    const input = document.createElement("input");
-    input.type = "text";
-    input.inputMode = "decimal";
-    input.placeholder = "m:ss.s";
-    input.title = title;
-    input.addEventListener("keydown", (event) => {
-      keepKeyInField(event);
-      if (event.key === "Enter") input.dispatchEvent(new Event("change"));
-    });
-    wrap.append(label, input);
-    return { wrap, input };
+  // Start, Duration and Ends at, as on the video nodes, in seconds.
+  const fieldsRow = document.createElement("div");
+  fieldsRow.className = "ausboss-audio-fields";
+  const fields = {};
+  const commit = (key, value) => {
+    const state = node.__ausbossLoadAudio;
+    if (!state || state.duration <= 0 || value == null) return;
+    const win = currentWindow(state);
+    const clampTime = (time) => Math.min(state.duration, Math.max(0, time));
+    if (key === "start") {
+      // The Duration stays; a start near the end leaves less of it.
+      const start = clampTime(value);
+      writeTrim(state, { start, end: Math.min(state.duration, start + win.length) });
+    } else if (key === "duration") {
+      writeTrim(state, { start: win.start, end: clampTime(win.start + Math.max(MIN_TRIM_SECONDS, value)) });
+    } else {
+      writeTrim(state, { start: win.start, end: clampTime(Math.max(win.start + MIN_TRIM_SECONDS, value)) });
+    }
   };
-  const startValue = makeValue("IN", "Where the sound starts. Type seconds (12.5) or a time (0:12.5).");
-  const endValue = makeValue("OUT", "Where the sound stops. Type seconds (24) or a time (0:24.0).");
-  // How long the output is, beside OUT and off the wave. Red when Max
-  // length cuts the pick short; the tooltip says how much.
-  const summary = document.createElement("div");
-  summary.className = "ausboss-audio-length";
-  values.append(startValue.wrap, endValue.wrap);
-  const row = document.createElement("div");
-  row.className = "ausboss-audio-row";
-  row.append(playButton, values, summary, loopButton);
-  root.append(stage, row);
+  for (const [key, caption] of [["start", "Start"], ["duration", "Duration"], ["end", "Ends at"]]) {
+    const cell = document.createElement("div");
+    cell.className = "ausboss-audio-field";
+    const label = document.createElement("span");
+    label.className = "ausboss-audio-field-label";
+    label.textContent = caption;
+    const go = document.createElement("button");
+    go.type = "button";
+    go.className = "ausboss-audio-go";
+    go.textContent = "linked";
+    go.hidden = true;
+    label.append(go);
+    const control = makeScrubInput({
+      value: 0, min: 0, max: 86400, step: 0.1, fineStep: 0.01, decimals: 2, minDecimals: 0, unit: "s", unitWidth: 14,
+      allowEmpty: true,
+      onChange: (value) => commit(key, value),
+      onSettle: () => notifyAusbossChange(),
+    });
+    cell.append(label, control.root);
+    fieldsRow.append(cell);
+    fields[key] = { cell, control, go };
+  }
+  root.append(waveRow, fieldsRow);
 
   const widget = node.addDOMWidget(PANEL_WIDGET, "ausboss_audio", root, {
     serialize: false,
@@ -435,21 +470,10 @@ function buildPanel(node) {
   audio.preload = "auto";
   const abort = new AbortController();
   const state = node.__ausbossLoadAudio = {
-    node, root, stage, canvas, status, playButton, loopButton, summary, audio,
-    startInput: startValue.input, endInput: endValue.input,
+    node, root, stage, canvas, status, playButton, loopButton, audio, fields,
     audioWidget, startWidget, endWidget, maxWidget: findWidget(node, "max_seconds"),
     duration: 0, peaks: null, abort, writing: false, dragging: false, raf: 0, loading: 0,
   };
-
-  // Clicking the red length moves OUT to where the sound really ends.
-  summary.addEventListener("click", (event) => {
-    const win = currentWindow(state);
-    if (win.cut <= 0.005) return;
-    event.preventDefault();
-    event.stopPropagation();
-    writeTrim(state, { start: win.start, end: win.keepEnd });
-    notifyAusbossChange();
-  });
 
   const updateLoop = () => loopButton.classList.toggle("active", loopEnabled(node));
   updateLoop();
@@ -509,8 +533,6 @@ function buildPanel(node) {
   watchWidget(state, startWidget);
   watchWidget(state, endWidget);
   watchWidget(state, state.maxWidget);
-  startValue.input.addEventListener("change", () => commitTimeInput(state, "start", startValue.input));
-  endValue.input.addEventListener("change", () => commitTimeInput(state, "end", endValue.input));
   const observer = new ResizeObserver(() => draw(state));
   observer.observe(stage);
   state.observer = observer;

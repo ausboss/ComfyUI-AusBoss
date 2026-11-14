@@ -25,6 +25,20 @@ All notable changes to ComfyUI-AusBoss are documented here.
   it.
 - **Crop + Rotate + Pad panels fill the node's width.** The rows under the
   picture used to stop at 460 px and sit in the middle of a wide node.
+- **Load Video uses the same timing boxes as the clip node.** Start,
+  Duration and Ends at replace the IN and OUT fields and the separate
+  Limit row, with the same seconds | frames switch. Saved workflows open
+  with the same values and run the same.
+- **Load Video counts the frames the file really has.** The face used to
+  work the count out from the length and could say one frame too many (248
+  for a 247-frame clip); it now reads it from the file.
+- **Load Audio has Start, Duration and Ends at boxes.** They replace the IN
+  and OUT times and the separate Max length row, so the red "cut" stripe is
+  gone: the Duration is the length you get.
+- **A number wired through a Reroute or a subgraph now shows on the face.**
+  The clip node, Load Video, Load Audio and Layout Boxes read a linked
+  number the same way, so it no longer drops out behind a Reroute, a
+  subgraph or an older Primitive node.
 
 ## 2.25.3 - 2026-11-13
 

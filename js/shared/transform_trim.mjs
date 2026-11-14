@@ -152,7 +152,7 @@ const secondsText = (value) => String(Number((Number(value) || 0).toFixed(2)));
 //   publish(timing)                          the clip's {frames, startSeconds,
 //                                            endSeconds, roomFrames}, or null
 //   units() / setUnits(units)                "s" (seconds) or "f" (frames)
-export function mountTransformTrim({ get, set, has = () => true, driven = () => false, number = (name, fallback) => get(name, fallback), outputRate, metadata, trim = true, isPlaying, onTogglePlayback, onSeek, onCommit, linkInfo = () => null, publish, units: getUnits = () => "s", setUnits = () => {} }) {
+export function mountTransformTrim({ get, set, has = () => true, driven = () => false, number = (name, fallback) => get(name, fallback), outputRate, metadata, trim = true, isPlaying, onTogglePlayback, onSeek, onCommit, linkInfo = () => null, publish, units: getUnits = () => "s", setUnits = () => {}, play: showPlay = true }) {
   installCss();
   const root = el("div", "ausboss-transform-trim");
   const rail = el("div", "ausboss-transform-trim-rail");
@@ -170,7 +170,9 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
   const play = el("button", "ausboss-transform-trim-play");
   play.type = "button";
   play.addEventListener("click", onTogglePlayback);
-  transport.append(play, rail);
+  // A host with its own player (Load Video) leaves out the Play button.
+  if (showPlay) transport.append(play);
+  transport.append(rail);
   const info = () => clipInfo(metadata());
   const everyNth = () => Math.max(1, Math.trunc(Number(number("every_nth", get("every_nth", 1))) || 1));
   const snapRule = () => String(get("frame_snap", "free"));

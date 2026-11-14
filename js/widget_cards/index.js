@@ -430,18 +430,17 @@ const CARDS = {
         button: { text: PANEL_LABELS.load, title: "Upload a video into ComfyUI's input folder", onClick: (node) => node.widgets?.find((w) => w.name === "upload")?.callback?.() } },
       { widget: "custom_width", label: "Width", suffix: "px", title: "0 keeps the source width; set one side only to keep the aspect." },
       { widget: "custom_height", label: "Height", suffix: "px", title: "0 keeps the source height; set one side only to keep the aspect." },
-      { widget: "every_nth", label: "Every nth" },
-      { widget: "max_frames", label: "Limit" },
+      // Every nth and the frame limit (as Duration) are in the timing card
+      // under the player (js/load_video).
     ],
   },
   AUSBOSS_NODES_LoadAudio: {
-    // The wave, IN and OUT live in the panel under the card (js/load_audio).
+    // The wave and Start, Duration and Ends at live in the panel under the
+    // card (js/load_audio); max_seconds is the Duration there.
     minWidth: 280, first: true, hide: ["upload"],
     rows: [
       { widget: "audio", label: "Source", kind: "select",
         button: { text: PANEL_LABELS.load, title: "Upload a sound file into ComfyUI's input folder", onClick: (node) => node.widgets?.find((w) => w.name === "upload")?.callback?.() } },
-      { widget: "max_seconds", label: "Max length", suffix: "s", decimals: 1, trimZeros: true,
-        title: "The longest the sound may be. Anything past it is cut off and shows in red. 0 means no limit." },
     ],
   },
   // Load Image: the file, then where it is in the folder and the size it

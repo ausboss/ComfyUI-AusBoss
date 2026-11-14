@@ -210,8 +210,7 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   never a classic canvas number widget on a finished node face. Units
   (`px`, `MP`, `×`) ride inside the box in a fixed-width slot that every
   single-field row reserves, so the numbers down a card share one centre
-  line. Known, deliberate exceptions: the Seed card's seed (typed) and Load
-  Video's trim timecodes (typed).
+  line. Known, deliberate exception: the Seed card's seed (typed).
 - **Node faces are widget cards.** A node whose face would be classic
   LiteGraph widgets (full-width rows with an arrow at each end) gets an
   entry in `js/widget_cards/index.js` instead: `mountWidgetCard` from

@@ -1,37 +1,33 @@
 # Load Video
 
 Loads a video from ComfyUI's input folder as an `IMAGE` frame batch plus its
-audio. One responsive player shows the source and previews the selected trim.
-Drag the high-contrast **IN** and **OUT** handles below it, drag the selected
-range to move the whole window, or type a time into the two fields, in seconds
-(`95.5`) or as a timecode (`1:35.5`). Click the strip outside the selection to
-move the window to that spot.
-The playhead follows each edit, so the frame at either boundary is visible
-while trimming. In **Source**, the list plays the clip under the pointer, muted, and filters as you type.
+audio. The player shows the video; the timing card under it picks the part
+that comes out.
 
-Playback is constrained to the selected window. **LOOP** repeats it; turn loop
-off and playback pauses at OUT. The reload button refreshes the source without
-creating a second preview. The player takes the height you give the node:
-drag the node taller for a bigger picture. A tall video is shown whole, never
-cropped.
+The timing card has three boxes: **Start**, **Duration** and **Ends at**.
+Drag the left handle on the bar to move the start, drag the right handle or
+type a Duration to change how long the clip is, or drag the middle of the
+clip to slide it. **s | fr** switches every box between seconds and frames;
+it only changes what you see, never a saved value. **Use as start** starts
+the clip at the frame in the picture, and **Whole video** puts the clip back
+to the full file. In **Source**, the list plays the clip under the pointer,
+muted, and filters as you type.
 
-**FRAME** switches the loader into a frame picker: the trim strip becomes a
-single scrub rail, and only the frame at the marker loads — a one-image batch,
-ready for image workflows without a separate frame-select node. Click or drag
-anywhere on the rail to choose the frame, or type an exact time into the AT
-field. Playback runs the whole source freely in this mode so you can hunt for
-the right moment. Picking a frame moves IN to that time. When you toggle back,
-OUT stays where it was, unless the frame is at or after OUT: then OUT moves to
-the end of the video.
+The player takes the height you give the node: drag the node taller for a
+bigger picture. A tall video is shown whole, never cropped. **LOOP** plays
+the clip again and again; with it off, playback pauses at the clip's end.
+The reload button refreshes the source.
 
-The label between IN and OUT reports what one Run will actually load — e.g.
-`0:04.0 of 0:10.0 · 48 frames @ 12 fps`, or `1 frame at 0:05.2` while FRAME
-is on. The preview cannot re-render `every_nth` frame drops or a `max_frames`
-cap, so it counts them instead: the frame total and playback rate come from
-the source's real frame rate (probed from the file, since the browser's
-player never exposes it) with `every_nth` and `max_frames` applied. When a
-deciding value arrives over a link, or the rate cannot be probed, the count
-drops out rather than guessing.
+**FRAME** turns the loader into a frame picker: only the frame at the marker
+loads, as a one-image batch, ready for image workflows without a separate
+frame-select node. Drag the bar to choose the frame, or type it into the
+**FRAME** box. Playback runs the whole video in this mode so you can hunt for
+the right moment. Picking a frame moves the clip's start there.
+
+The boxes count real frames: the frame rate and frame count come from the
+file itself, so a 4.1 s clip at 60 fps reads 247 frames, the same number
+the run loads. When a box is set by another node it shows a **linked**
+button that jumps to that node.
 
 ## Drop a video onto the node
 
@@ -48,21 +44,20 @@ embedded workflow replaces the whole graph.
 
 - **Source** (`video`): A file in the input folder; **Upload** adds new ones.
   A video ComfyUI made, named like `clip.mp4 [output]`, loads too.
-- **IN** (`start_seconds`): Skip everything before this time.
-- **OUT** (`end_seconds`): Stop at this time; `0` means the source end until a
-  handle is moved.
-- **Every nth** (`every_nth`): Keep one frame in this many — `2` halves the frame count.
-  The `fps` output divides to match, so the clip still plays at real speed
-  downstream.
-- **Limit** (`max_frames`): Stop after this many kept frames; `0` loads the
-  whole trim window. Caps memory on long clips — the decode ends early
-  instead of loading and discarding.
-- **LOOP**: Repeat the selected window during preview. It starts on and is
-  saved with the workflow.
-- **FRAME** (`single_frame`): Load only the frame at the IN time (the field
-  reads **AT** while FRAME is on) as a one-image batch; `end_seconds`,
-  `every_nth`, and `max_frames` are ignored while it is on.
-- **↻**: Reload the selected source preview.
+- **Start** (`start_seconds`): Skip everything before this time.
+- **Duration** (`max_frames`): How many frames the clip keeps. Empty, or
+  `0`, runs to the end of the video. The decode stops early, so a short clip
+  from a long video stays quick.
+- **Ends at**: Where the clip stops. Typing it sets the Duration. A
+  workflow saved with an end time (`end_seconds`) keeps it and runs the same.
+- **Every nth** (`every_nth`): Keep one frame in this many; `2` halves the
+  frame count. The `fps` output divides to match, so the clip still plays at
+  real speed downstream.
+- **LOOP**: Repeat the clip during preview. It starts on and is saved with
+  the workflow.
+- **FRAME** (`single_frame`): Load only the frame at the marker as a
+  one-image batch; the Duration and Every nth are ignored while it is on.
+- **↻**: Reload the source preview.
 - **Width** / **Height** (`custom_width` / `custom_height`): `0` keeps the
   source size. Set one side only and the other follows the aspect ratio,
   rounded to an even number.

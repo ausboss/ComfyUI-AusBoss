@@ -7,9 +7,14 @@ function getLink(graph, id) {
   return graph?.links?.get?.(id) ?? graph?.links?.[id] ?? graph?._links?.get?.(id);
 }
 
-export function inputNumber(node, name, fallback) {
+// Where a linked input really comes from: the node and output slot at the
+// far end, through Reroutes and into a subgraph whose output is wired
+// straight to a node inside it. null for a muted or bypassed source, a loop,
+// or a subgraph output with nothing behind it. undefined when the input is
+// not linked at all.
+export function linkOrigin(node, name) {
   const input = node.inputs?.find((slot) => slot.name === name || slot.widget?.name === name);
-  if (input?.link == null) return fallback;
+  if (input?.link == null) return undefined;
   let graph = node.graph;
   let linkId = input.link;
   const seen = new Map();
@@ -20,7 +25,7 @@ export function inputNumber(node, name, fallback) {
     const link = getLink(graph, linkId);
     const source = graph?.getNodeById?.(link?.origin_id);
     if (!source || (source.mode ?? 0) !== 0) return null;
-    if (source.type === "Reroute") {
+    if ((source.comfyClass ?? source.type) === "Reroute") {
       linkId = source.inputs?.[0]?.link;
       if (linkId == null) return null;
       continue;
@@ -33,12 +38,27 @@ export function inputNumber(node, name, fallback) {
       linkId = next;
       continue;
     }
-    if (!["PrimitiveFloat", "PrimitiveInt", "AUSBOSS_NODES_Integer", "AUSBOSS_NODES_Float"].includes(source.type) || link.origin_slot !== 0) return null;
-    if (source.inputs?.some((slot) => slot.name === "value" && slot.link != null)) return null;
-    const value = source.widgets?.find((widget) => widget.name === "value")?.value;
-    return typeof value === "number" && Number.isFinite(value) ? value : null;
+    return { node: source, slot: link.origin_slot };
   }
   return null;
+}
+
+const LITERALS = ["PrimitiveFloat", "PrimitiveInt", "AUSBOSS_NODES_Integer", "AUSBOSS_NODES_Float"];
+
+export function inputNumber(node, name, fallback) {
+  const origin = linkOrigin(node, name);
+  if (origin === undefined) return fallback;
+  if (!origin) return null;
+  const { node: source, slot } = origin;
+  // ComfyUI's older Primitive node holds the value of the widget it feeds.
+  if ((source.comfyClass ?? source.type) === "PrimitiveNode") {
+    const value = source.widgets?.[0]?.value;
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
+  }
+  if (!LITERALS.includes(source.type) || slot !== 0) return null;
+  if (source.inputs?.some((input) => input.name === "value" && input.link != null)) return null;
+  const value = source.widgets?.find((widget) => widget.name === "value")?.value;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 export function clipOutputRate(node, sourceFps, everyNth = 1) {
