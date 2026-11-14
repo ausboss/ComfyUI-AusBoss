@@ -451,6 +451,7 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
       useStart.title = locked("start") ? lockTip("start") : "Start the clip at the frame on the stage. The Duration stays.";
     }
     if (clip.count) syncFields(clip, current, wired, unknown);
+    else emptyFields();
     if (controls.reset) {
       const free = current.mode !== "wired";
       controls.reset.textContent = free ? "Whole video" : "To start";
@@ -735,6 +736,17 @@ export function mountTransformTrim({ get, set, has = () => true, driven = () => 
       button.hidden = !action;
       if (action) { button.textContent = action.label; button.onclick = () => { action.run(); sync(); onCommit?.(); }; }
     });
+  };
+
+  // No video yet: empty boxes, nothing linked, no note.
+  const emptyFields = () => {
+    const seconds = getUnits() !== "f";
+    for (const button of unitPill.children) button.classList.toggle("on", button.dataset.units === (seconds ? "s" : "f"));
+    for (const key of Object.keys(fields)) {
+      showField(key, { value: null, unit: seconds ? "s" : "fr", decimals: 0, sub: "Choose a video first.", lockedBy: null, readOnly: true });
+    }
+    showNote("");
+    publish?.(null);
   };
 
   const syncFields = (clip, current, wired, unknown) => {
