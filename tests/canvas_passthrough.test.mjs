@@ -262,7 +262,8 @@ test("the fields on a node face pass app shortcuts on", () => {
   // cursor was in a Text node, a number box or the Seed box (reported on the
   // Text node). A new field on a node face uses keepKeyInField too.
   const js = join(dirname(fileURLToPath(import.meta.url)), "..", "js");
-  const fields = ["shared/widget_card.mjs", "shared/scrub_input.mjs", "seed/index.js", "save_image/index.js", "load_video/index.js", "lora_loader/index.js"];
+  // Load Video's typed IN/OUT went; its timing boxes are scrub inputs now.
+  const fields = ["shared/widget_card.mjs", "shared/scrub_input.mjs", "seed/index.js", "save_image/index.js", "lora_loader/index.js"];
   for (const file of fields) {
     const source = readFileSync(join(js, file), "utf-8");
     assert.match(source, /keepKeyInField\(event\)/, `${file}: its field stops every key again`);

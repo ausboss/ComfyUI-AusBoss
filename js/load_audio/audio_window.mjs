@@ -20,21 +20,36 @@ export function outputWindow(durationValue, startValue, endValue, maxValue = 0) 
   return { start, end, keepEnd, length: keepEnd - start, cut: Math.max(0, end - keepEnd) };
 }
 
-// "0:12.0" style, the way the IN and OUT fields write a time.
-export function secondsLabel(value) {
-  const seconds = Math.max(0, finite(value));
-  if (seconds < 60) return `${seconds.toFixed(1)} s`;
-  const minutes = Math.floor(seconds / 60);
-  return `${minutes}:${(seconds - minutes * 60).toFixed(1).padStart(4, "0")}`;
+const hundredth = (value) => Math.round(value * 100) / 100;
+
+// What the face stores for a pick from `start` to `end`: a Start and a
+// Duration (max_seconds, with end_seconds at 0, "to the end"). A pick that
+// reaches the end of the file needs no Duration. When another node sets the
+// Duration or the end, the pick is stored as a start and an end instead.
+// A key left out is not written.
+export function pickWrites(durationValue, startValue, endValue, { maxLinked = false, endLinked = false } = {}) {
+  const duration = Math.max(0, finite(durationValue));
+  const start = hundredth(Math.min(Math.max(0, finite(startValue)), duration));
+  const end = hundredth(Math.max(start, Math.min(finite(endValue), duration)));
+  const toEnd = end >= duration - 0.005;
+  if (endLinked) return { start };
+  if (maxLinked) return { start, end: toEnd ? 0 : end };
+  return { start, end: 0, max: toEnd ? 0 : Math.max(0.01, hundredth(end - start)) };
 }
 
-// The line between IN and OUT: what comes out, and what the max cuts off.
-export function outputSummary(window, { maxFromLink = false } = {}) {
-  if (!window || window.length <= 0) return "";
-  const parts = [secondsLabel(window.length)];
-  if (window.cut > 0.005) parts.push(`cut ${secondsLabel(window.cut)}`);
-  if (maxFromLink) parts.push("max wired");
-  return parts.join(" · ");
+// A value typed into Start, Duration or Ends at, as the pick it makes.
+// Start keeps the Duration; Duration and Ends at keep the start. An empty
+// or 0 Duration, and an empty Ends at, run to the end of the file.
+export function typedPick(key, value, window, durationValue, minimum = 0.1) {
+  const duration = Math.max(0, finite(durationValue));
+  const clampTime = (time) => Math.min(duration, Math.max(0, finite(time)));
+  if (key === "start") {
+    const start = clampTime(value);
+    return { start, end: Math.min(duration, start + window.length) };
+  }
+  if (value == null || (key === "duration" && !(finite(value) > 0))) return { start: window.start, end: duration };
+  const end = key === "duration" ? window.start + Math.max(minimum, finite(value)) : Math.max(window.start + minimum, finite(value));
+  return { start: window.start, end: clampTime(end) };
 }
 
 // Loud and quiet across the file: for each of `buckets` slices, the lowest

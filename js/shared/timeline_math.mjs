@@ -273,7 +273,14 @@ export function clipLengthPlan(info, values = {}) {
         latestStart = clamp(Math.floor((end - lastTick - TRIM_EPSILON) * info.fps), 0, endFrame);
       }
     }
-    if (values.resampled) return { ...base, last: cap > 0 ? null : window.last, requested, latestStart };
+    if (values.resampled) {
+      // A known output rate places every output frame: the backend samples
+      // and holds on ticks at start + k / rate (decode_video_range), so the
+      // count, the last source frame shown and the end are all known here.
+      if (!(values.outputFps > 0) || !(info.fps > 0)) return { ...base, last: cap > 0 ? null : window.last, requested, latestStart };
+      const resampled = resampledFrames(info, values, nth, requested, snap);
+      return { ...base, ...resampled, requested, latestStart, truncated: requested != null && resampled.frames < requested };
+    }
     const kept = keptFrames(window, nth, cap, snap);
     return { ...base, last: kept.lastKept, frames: kept.frames, requested, latestStart, truncated: requested != null && kept.frames < requested };
   };
@@ -286,6 +293,27 @@ export function clipLengthPlan(info, values = {}) {
     return capped(frames);
   }
   return capped(mode === "length" ? stored : 0);
+}
+
+// Output frames of a run that resamples to a known rate: ticks at
+// start + k / tickRate while before the end, thinned by every nth, capped,
+// then snapped. `last` is the source frame the final tick holds.
+export function resampledFrames(info, values, everyNth = 1, cap = null, snap = "free") {
+  const nth = Math.max(1, Math.floor(finite(everyNth, 1)) || 1);
+  const tickRate = finite(values.outputFps) * nth;
+  const duration = info.duration || info.count / info.fps;
+  const start = Math.max(0, finite(values.start));
+  const end = finite(values.end) > 0 ? Math.min(finite(values.end), duration) : duration;
+  const ticks = Math.max(0, Math.ceil((end - start) * tickRate - TRIM_EPSILON));
+  let frames = Math.ceil(ticks / nth);
+  if (cap != null && cap > 0) frames = Math.min(frames, cap);
+  frames = snapFrameCount(frames, snap);
+  const first = frameWindow(info, start, values.end).first;
+  const lastTime = start + Math.max(0, frames - 1) * nth / tickRate;
+  const last = clamp(Math.floor(lastTime * info.fps + TRIM_EPSILON), first, info.count - 1);
+  const windowLast = frameWindow(info, start, values.end).last;
+  // The last frame is held for one output frame, but never past the video.
+  return { first, last, windowLast, frames, endSeconds: Math.min(end, start + frames / finite(values.outputFps)) };
 }
 
 // Playback rate for a label, trimmed of float noise: 24 -> "24",
