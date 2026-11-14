@@ -2,6 +2,30 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## 2.26.2 - 2026-11-14
+
+- **Loaders never look up a file name they refused.** Before each run,
+  Load Image 🆎, Load Image + Pad 🆎, Image Crop + Rotate + Pad 🆎 and both
+  Video Crop + Rotate + Pad nodes check whether their file changed. When the
+  name was one they do not accept, such as a whole path or a network share,
+  that check still looked it up on disk. On Windows, looking up a share
+  contacts its server and hands it the computer's login. Now a refused name
+  is only compared as text.
+- **The pack's scripts are found without looking up the address.** The pack
+  tags its scripts with a version as the browser asks for them. It found
+  each one by joining the address the browser sent to its own folder and
+  looking the result up on disk, and only then checked that the file was
+  its own. Now it looks the address up in a list of its scripts made when
+  ComfyUI starts, so no address reaches the disk.
+- **Save Image's Save button copies only pictures it holds.** With Auto
+  save off, the list of a run's held pictures was a file in ComfyUI's temp
+  folder. That folder takes uploads, so a planted list could copy another
+  file on the server into the output folder. The list now stays in
+  ComfyUI's memory, and a held picture is found only by its run, its number
+  and one of Save Image's formats. The Save button works for the last 256
+  runs, up to 10,000 pictures each; held pictures still go when ComfyUI
+  restarts, as before.
+
 ## 2.26.1 - 2026-11-14
 
 - **A path that starts with `~` is no longer expanded.** Image Folder used

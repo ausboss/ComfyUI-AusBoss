@@ -168,7 +168,7 @@ class AusBossImageCropRotatePad:
         try:
             path = resolve_input_path(image)
         except Exception:
-            path = image or ""
+            path = None  # refused: hashed by its text only, never opened
         spec = spec_from_values(**values)
         # Every widget value is already part of ComfyUI's cache key, so a
         # changed transform or budget re-runs the node without this; the

@@ -60,6 +60,26 @@ def add_module_version(source, token):
     return _MODULE_IMPORT.sub(lambda m: f"{m.group(1)}{m.group(2)}{m.group(3)}?v={token}{m.group(2)}", source)
 
 
+def list_served_scripts(js_root):
+    """The pack's own scripts by their address below the js folder:
+    {"shared/index.mjs": <path>}. Made once at startup, so a request is
+    only looked up in it and the address a browser sends never reaches the
+    disk: no whole path, network share or ".." is ever opened. Links are
+    left out, and anything that resolves outside the js folder."""
+    root = Path(js_root).resolve()
+    scripts = {}
+    for path in sorted(root.rglob("*")):
+        try:
+            if path.suffix not in (".js", ".mjs") or path.is_symlink() or not path.is_file():
+                continue
+            if not path.resolve().is_relative_to(root):
+                continue
+        except OSError:
+            continue
+        scripts[path.relative_to(root).as_posix()] = path
+    return scripts
+
+
 def make_revalidate_middleware(pack_name, js_root=None, token=None):
     """aiohttp middleware for this pack's scripts, nothing else touched.
 
@@ -69,7 +89,7 @@ def make_revalidate_middleware(pack_name, js_root=None, token=None):
     from aiohttp import web
 
     marker = f"/extensions/{pack_name}/"
-    root = Path(js_root).resolve() if js_root and token else None
+    scripts = list_served_scripts(js_root) if js_root and token else None
     served = {}
 
     def versioned(path):
@@ -90,15 +110,15 @@ def make_revalidate_middleware(pack_name, js_root=None, token=None):
 
     def tagged_response(request):
         """The tagged script for this request, or None to let ComfyUI serve it."""
-        if root is None or request.method not in ("GET", "HEAD"):
+        if not scripts or request.method not in ("GET", "HEAD"):
             return None
         start = request.path.find(marker)
         if start < 0 or not request.path.endswith((".js", ".mjs")):
             return None
+        target = scripts.get(request.path[start + len(marker):])
+        if target is None:
+            return None
         try:
-            target = (root / request.path[start + len(marker):]).resolve()
-            if not target.is_relative_to(root) or not target.is_file():
-                return None
             found = versioned(target)
         except (OSError, ValueError, UnicodeDecodeError):
             return None

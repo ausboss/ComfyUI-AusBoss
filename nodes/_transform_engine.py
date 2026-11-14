@@ -480,17 +480,25 @@ def transform_tensor_batch_chunked(
     return output, mask, geometry
 
 
-def stable_file_fingerprint(path: str | os.PathLike[str], inputs: dict[str, object]) -> str:
-    normalized_path = str(Path(path).resolve()).casefold()
-    try:
-        stat = os.stat(path)
-        file_state: dict[str, object] = {
-            "path": normalized_path,
-            "mtime_ns": stat.st_mtime_ns,
-            "size": stat.st_size,
-        }
-    except OSError:
-        file_state = {"path": normalized_path, "missing": True}
+def stable_file_fingerprint(path: Path | None, inputs: dict[str, object]) -> str:
+    """A key that changes when the inputs or the file do.
+
+    `path` is what resolve_input_path or resolve_video_path returned, or
+    None when they refused the value. Only such a path is ever looked at on
+    disk: a refused value is a string, and a string is only hashed, so a
+    whole path or a network share typed into a widget is never opened."""
+    if isinstance(path, Path):
+        try:
+            stat = os.stat(path)
+            file_state: dict[str, object] = {
+                "path": str(path).casefold(),
+                "mtime_ns": stat.st_mtime_ns,
+                "size": stat.st_size,
+            }
+        except OSError:
+            file_state = {"path": str(path).casefold(), "missing": True}
+    else:
+        file_state = {"unresolved": True}
     payload = {"file": file_state, "inputs": inputs}
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()

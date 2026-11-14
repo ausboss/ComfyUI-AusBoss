@@ -7,6 +7,7 @@ import re
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -243,6 +244,45 @@ class VersionedServingTests(unittest.TestCase):
         paths = [outside] + (["/extensions/ausboss-nodes/shared/link.mjs"] if link else [])
         for path, (_status, body, _headers) in self.fetch(paths).items():
             self.assertNotIn("?v=tok", body, path)
+
+    def test_an_address_never_reaches_the_disk(self):
+        # The request is unauthenticated: its address is only looked up in
+        # the list of scripts made at startup, never joined to a folder and
+        # resolved. On Windows, resolving "//host/share" contacts that host.
+        web = self.web
+        touched = []
+
+        async def handled(request):
+            return web.Response(text="from the handler", content_type="text/javascript")
+
+        async def run():
+            middleware = make_revalidate_middleware("ausboss-nodes", self.js, "tok")
+            real_resolve, real_stat = Path.resolve, os.stat
+
+            def resolve(path, *args, **kwargs):
+                if "evil-host" in str(path):
+                    touched.append(str(path))
+                return real_resolve(path, *args, **kwargs)
+
+            def stat(path, *args, **kwargs):
+                if "evil-host" in str(path):
+                    touched.append(str(path))
+                return real_stat(path, *args, **kwargs)
+
+            with patch.object(Path, "resolve", resolve), patch("os.stat", stat):
+                for path in [
+                    "/extensions/ausboss-nodes//evil-host/share/x.mjs",
+                    "/extensions/ausboss-nodes/%2F%2Fevil-host/share/x.mjs",
+                    "/extensions/ausboss-nodes/%5C%5Cevil-host%5Cshare%5Cx.mjs",
+                    "/extensions/ausboss-nodes/../../evil-host/x.mjs",
+                    "/extensions/ausboss-nodes/%2e%2e/%2e%2e/evil-host/x.js",
+                    "/extensions/ausboss-nodes/C:/evil-host/x.mjs",
+                ]:
+                    response = await middleware(self.make_request("GET", path), handled)
+                    self.assertEqual(response.text, "from the handler", path)
+
+        asyncio.run(run())
+        self.assertEqual(touched, [])
 
     def test_without_a_tag_the_files_are_served_as_before(self):
         path = "/extensions/ausboss-nodes/shared/b.mjs"
