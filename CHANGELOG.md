@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.26.0 - 2026-11-14
 
 - **Missing LoRAs show in ComfyUI's missing-models list.** When a workflow
   needs a LoRA you don't have, ComfyUI's Issues panel now lists it with the
