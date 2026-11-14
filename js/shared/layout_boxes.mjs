@@ -687,10 +687,7 @@ export function wiredNumber(node, inputName) {
   // Through Reroutes and into subgraphs (js/shared/clip_rate.mjs), then
   // this node's own rule for which numbers count.
   const origin = linkOrigin(node, inputName);
-  if (origin) return wiredFrom(origin.node, origin.slot);
-  if (origin === null) return null;
-  const source = wiredSource(node, inputName);
-  return source ? wiredFrom(source.node, source.slot) : null;
+  return origin ? wiredFrom(origin.node, origin.slot) : null;
 }
 
 // The node (and its output slot) an input is wired to, through Reroutes.

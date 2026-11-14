@@ -424,20 +424,22 @@ const CARDS = {
     ],
   },
   AUSBOSS_NODES_LoadVideo: {
-    minWidth: 320, first: true, hide: ["upload"],
+    // Every nth and the frame limit (as Duration) are in the timing card
+    // under the player (js/load_video). The card hides them, so App mode can
+    // still show them as fields.
+    minWidth: 320, first: true, hide: ["upload", "every_nth", "max_frames"],
     rows: [
       { widget: "video", label: "Source", kind: "select", preview: { kind: "video", url: viewUrl },
         button: { text: PANEL_LABELS.load, title: "Upload a video into ComfyUI's input folder", onClick: (node) => node.widgets?.find((w) => w.name === "upload")?.callback?.() } },
       { widget: "custom_width", label: "Width", suffix: "px", title: "0 keeps the source width; set one side only to keep the aspect." },
       { widget: "custom_height", label: "Height", suffix: "px", title: "0 keeps the source height; set one side only to keep the aspect." },
-      // Every nth and the frame limit (as Duration) are in the timing card
-      // under the player (js/load_video).
     ],
   },
   AUSBOSS_NODES_LoadAudio: {
     // The wave and Start, Duration and Ends at live in the panel under the
-    // card (js/load_audio); max_seconds is the Duration there.
-    minWidth: 280, first: true, hide: ["upload"],
+    // card (js/load_audio); max_seconds is the Duration there. The card
+    // hides it, so App mode can still show it as a field.
+    minWidth: 280, first: true, hide: ["upload", "max_seconds"],
     rows: [
       { widget: "audio", label: "Source", kind: "select",
         button: { text: PANEL_LABELS.load, title: "Upload a sound file into ComfyUI's input folder", onClick: (node) => node.widgets?.find((w) => w.name === "upload")?.callback?.() } },

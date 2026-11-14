@@ -20,7 +20,7 @@ import { parseImageReference } from "../shared/pad_canvas.mjs";
 import { mediaViewQuery, splitMediaName } from "../shared/video_preview.mjs";
 import { ensureVideoCss, hideCanvasWidget, makeToolButton } from "../shared/video_ui.mjs";
 import { MIN_TRIM_SECONDS, dragTrimHandle, slideTrimWindow } from "../load_video/trim_preview.mjs";
-import { grabZone, outputWindow, wavePeaks } from "./audio_window.mjs";
+import { grabZone, outputWindow, pickWrites, typedPick, wavePeaks } from "./audio_window.mjs";
 
 const NODE_NAME = "AUSBOSS_NODES_LoadAudio";
 const PANEL_WIDGET = "ausboss_load_audio_wave";
@@ -216,14 +216,17 @@ function showField(state, key, value, lockedBy, tip) {
 
 function updateFace(state) {
   const win = currentWindow(state);
-  const max = maxSeconds(state);
   const link = (name) => (linked(state.node, name) ? linkedNodeInfo(state.node, name) : null);
-  const durationLink = link("max_seconds");
+  // A linked value the page cannot read is only known when the graph runs:
+  // its box, and the boxes that depend on it, stay empty.
+  const known = (name) => !linked(state.node, name) || inputNumber(state.node, name, null) != null;
   const has = state.duration > 0;
-  showField(state, "start", has ? win.start : null, link("start_seconds"), `Where the sound starts in the file, of ${formatTimecode(state.duration)}.`);
-  showField(state, "duration", has && (!max.fromLink || max.known) ? win.length : null, durationLink,
-    win.cut > 0.005 ? `How long the sound is. Max length cuts ${formatTimecode(win.cut)} off the picked part (red).` : "How long the sound is. 0 or the whole rest of the file means it runs to the end.");
-  showField(state, "end", has ? win.keepEnd : null, link("end_seconds"), "Where the sound stops in the file. Typing it changes the Duration.");
+  const startKnown = has && known("start_seconds");
+  const lengthKnown = startKnown && known("max_seconds") && known("end_seconds");
+  showField(state, "start", startKnown ? win.start : null, link("start_seconds"), `Where the sound starts in the file, of ${formatTimecode(state.duration)}.`);
+  showField(state, "duration", lengthKnown ? win.length : null, link("max_seconds"),
+    win.cut > 0.005 ? `How long the sound is. It stops ${formatTimecode(win.cut)} before the saved end (red).` : "How long the sound is. Clear it, or type 0, to run to the end of the file.");
+  showField(state, "end", lengthKnown ? win.keepEnd : null, link("end_seconds"), "Where the sound stops in the file. Typing it changes the Duration.");
   draw(state);
 }
 
@@ -234,23 +237,19 @@ function writeWidget(widget, value) {
   widget.callback?.(next);
 }
 
-// The pick, written the way the face shows it: a Start and a Duration
-// (max_seconds, with the end at 0 - "to the end"). Running to the end of the
-// file needs no Duration at all. A linked Max length or end keeps the old
-// start and end instead.
+// The pick, stored the way the face shows it (pickWrites): a Start and a
+// Duration, or a start and an end when another node sets the Duration.
 function writeTrim(state, bounds) {
   state.writing = true;
   try {
     const startLinked = linked(state.node, "start_seconds");
-    if (!startLinked) writeWidget(state.startWidget, bounds.start);
-    const start = startLinked ? currentWindow(state).start : bounds.start;
-    const toEnd = bounds.end >= state.duration - 0.005;
-    if (linked(state.node, "max_seconds") || linked(state.node, "end_seconds") || !state.maxWidget) {
-      if (!linked(state.node, "end_seconds")) writeWidget(state.endWidget, toEnd ? 0 : bounds.end);
-    } else {
-      writeWidget(state.endWidget, 0);
-      writeWidget(state.maxWidget, toEnd ? 0 : Math.max(0.01, bounds.end - start));
-    }
+    const writes = pickWrites(state.duration, startLinked ? currentWindow(state).start : bounds.start, bounds.end, {
+      maxLinked: linked(state.node, "max_seconds") || !state.maxWidget,
+      endLinked: linked(state.node, "end_seconds"),
+    });
+    if (!startLinked) writeWidget(state.startWidget, writes.start);
+    if (writes.end !== undefined) writeWidget(state.endWidget, writes.end);
+    if (writes.max !== undefined) writeWidget(state.maxWidget, writes.max);
   } finally {
     state.writing = false;
   }
@@ -385,9 +384,6 @@ function buildPanel(node) {
   hideCoreAudio(node);
   hideCanvasWidget(startWidget);
   hideCanvasWidget(endWidget);
-  // Max length is the Duration box now.
-  const maxWidget = findWidget(node, "max_seconds");
-  if (maxWidget) hideCanvasWidget(maxWidget);
 
   const root = document.createElement("div");
   root.className = "ausboss-video-root ausboss-audio-root";
@@ -415,18 +411,8 @@ function buildPanel(node) {
   const fields = {};
   const commit = (key, value) => {
     const state = node.__ausbossLoadAudio;
-    if (!state || state.duration <= 0 || value == null) return;
-    const win = currentWindow(state);
-    const clampTime = (time) => Math.min(state.duration, Math.max(0, time));
-    if (key === "start") {
-      // The Duration stays; a start near the end leaves less of it.
-      const start = clampTime(value);
-      writeTrim(state, { start, end: Math.min(state.duration, start + win.length) });
-    } else if (key === "duration") {
-      writeTrim(state, { start: win.start, end: clampTime(win.start + Math.max(MIN_TRIM_SECONDS, value)) });
-    } else {
-      writeTrim(state, { start: win.start, end: clampTime(Math.max(win.start + MIN_TRIM_SECONDS, value)) });
-    }
+    if (!state || state.duration <= 0) return;
+    writeTrim(state, typedPick(key, value, currentWindow(state), state.duration, MIN_TRIM_SECONDS));
   };
   for (const [key, caption] of [["start", "Start"], ["duration", "Duration"], ["end", "Ends at"]]) {
     const cell = document.createElement("div");

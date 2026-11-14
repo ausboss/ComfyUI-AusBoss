@@ -3,8 +3,24 @@
 // A subgraph's output that comes straight from a literal inside it (Person
 // Swap's "Pick the model files" hands out its video fps that way) counts as
 // that literal: it is still a typed number, not a calculation.
-function getLink(graph, id) {
-  return graph?.links?.get?.(id) ?? graph?.links?.[id] ?? graph?._links?.get?.(id);
+function tableLink(graph, id) {
+  if (id == null || !graph) return null;
+  return graph.getLink?.(id) ?? graph.links?.get?.(id) ?? graph.links?.[id] ?? graph._links?.get?.(id) ?? null;
+}
+
+// The link into one of a node's inputs: the frontend's own accessor first
+// (newer frontends warn on reading input.link), the link table after it.
+// undefined when nothing is connected.
+function linkInto(node, index, graph) {
+  if (typeof node?.getInputLink === "function" && node.graph) {
+    try {
+      return node.getInputLink(index) ?? undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  const id = node?.inputs?.[index]?.link;
+  return id == null ? undefined : tableLink(node.graph ?? graph, id);
 }
 
 // Where a linked input really comes from: the node and output slot at the
@@ -13,29 +29,25 @@ function getLink(graph, id) {
 // or a subgraph output with nothing behind it. undefined when the input is
 // not linked at all.
 export function linkOrigin(node, name) {
-  const input = node.inputs?.find((slot) => slot.name === name || slot.widget?.name === name);
-  if (input?.link == null) return undefined;
+  const index = node?.inputs?.findIndex((slot) => slot?.name === name || slot?.widget?.name === name) ?? -1;
+  if (index < 0) return undefined;
   let graph = node.graph;
-  let linkId = input.link;
-  const seen = new Map();
+  let link = linkInto(node, index, graph);
+  if (link === undefined) return undefined;
+  const seen = new Set();
   for (let depth = 0; depth < 16; depth++) {
-    if (!seen.has(graph)) seen.set(graph, new Set());
-    if (seen.get(graph).has(linkId)) return null;
-    seen.get(graph).add(linkId);
-    const link = getLink(graph, linkId);
-    const source = graph?.getNodeById?.(link?.origin_id);
+    if (!link || seen.has(link)) return null;
+    seen.add(link);
+    const source = graph?.getNodeById?.(link.origin_id);
     if (!source || (source.mode ?? 0) !== 0) return null;
     if ((source.comfyClass ?? source.type) === "Reroute") {
-      linkId = source.inputs?.[0]?.link;
-      if (linkId == null) return null;
+      link = linkInto(source, 0, graph) ?? null;
       continue;
     }
     const inner = source.subgraph;
     if (inner && typeof source.isSubgraphNode === "function" && source.isSubgraphNode()) {
-      const next = inner.outputs?.[link.origin_slot]?.linkIds?.[0];
-      if (next == null) return null;
+      link = tableLink(inner, inner.outputs?.[link.origin_slot]?.linkIds?.[0]);
       graph = inner;
-      linkId = next;
       continue;
     }
     return { node: source, slot: link.origin_slot };

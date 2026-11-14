@@ -291,11 +291,8 @@ function buildPreview(node) {
   hideCanvasWidget(startWidget);
   hideCanvasWidget(endWidget);
   if (frameWidget) hideCanvasWidget(frameWidget);
-  // Every nth and the frame limit (the Duration) live in the timing card.
-  for (const name of ["every_nth", "max_frames"]) {
-    const extra = findWidget(node, name);
-    if (extra) hideCanvasWidget(extra);
-  }
+  // Every nth and the frame limit (the Duration) live in the timing card;
+  // the widget card hides their widgets (js/widget_cards).
 
   const root = document.createElement("div");
   root.className = "ausboss-video-root";

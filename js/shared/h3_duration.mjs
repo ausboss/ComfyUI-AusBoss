@@ -1,3 +1,5 @@
+import { linkOrigin } from "./clip_rate.mjs";
+
 // The same live-input rule used by the writer timeline: muted/bypassed
 // sources do not reach this node. This inspects the wire, never media bytes.
 export function linkSource(node, name) {
@@ -22,9 +24,8 @@ export function h3VideoFrames(frames) {
 // startSeconds, endSeconds}), or null when the clip is not that node or its
 // count is only known at run time.
 export function clipTimingFor(node) {
-  let source = linkSource(node, "video");
-  for (let hop = 0; source?.type === "Reroute" && hop < 8; hop++) source = linkSource(source, source.inputs?.[0]?.name);
-  const timing = source?.__ausbossClipTiming;
+  // Through Reroutes and subgraphs, as every linked value is read.
+  const timing = linkOrigin(node, "video")?.node?.__ausbossClipTiming;
   return timing && timing.frames > 0 ? timing : null;
 }
 
