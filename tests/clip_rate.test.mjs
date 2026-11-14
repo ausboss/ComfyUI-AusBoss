@@ -38,3 +38,15 @@ test('reads linked fixed frames from AusBoss numeric cards without evaluating ca
   node.inputs[0].link=null;
   assert.equal(inputNumber(node,'fixed_frames',0),0);
 });
+
+test('a rate typed inside a subgraph counts as typed (Person Swap: Pick the model files -> video fps 24)', () => {
+  const literal = { id: 222, type: 'AUSBOSS_NODES_Integer', mode: 0, inputs: [{ name: 'value', link: null }], widgets: [{ name: 'value', value: 24 }] };
+  const inner = { links: new Map([[391, { origin_id: 222, origin_slot: 0 }]]), outputs: [{}, {}, { linkIds: [391] }], getNodeById: (id) => (id === 222 ? literal : null) };
+  const box = { id: 146, mode: 0, type: 'subgraph-id', subgraph: inner, isSubgraphNode: () => true };
+  const clip = { inputs: [{ name: 'force_rate', link: 7 }], graph: { links: { 7: { origin_id: 146, origin_slot: 2 } }, getNodeById: (id) => (id === 146 ? box : null) } };
+  assert.equal(inputNumber(clip, 'force_rate', 0), 24);
+  assert.equal(clipOutputRate(clip, 60, 1), 24);
+  // A calculation inside the subgraph stays unknown.
+  literal.type = 'AUSBOSS_NODES_MathExpression';
+  assert.equal(inputNumber(clip, 'force_rate', 0), null);
+});

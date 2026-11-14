@@ -103,7 +103,6 @@ const trimInputDriven = (node, name) => node.inputs?.some(
 
 const RESIZE_METHODS = ["lanczos", "area", "bicubic", "bilinear", "nearest-exact"];
 // The widest the control rows get on a big node; the picture takes the rest.
-const CONTROL_MAX_WIDTH = 460;
 const TRANSFORM_DEFAULTS = resetTransformValues(false);
 const CORE_IMAGE_PREVIEW_WIDGET = "$$canvas-image-preview";
 
@@ -150,7 +149,7 @@ function installStyles() {
   style.id = "ausboss-transform-styles";
   style.textContent = `
     .ausboss-transform-panel{display:flex;flex-direction:column;gap:8px;padding:8px;color:#ddd;font:12px system-ui;box-sizing:border-box;width:100%;height:100%;overflow:hidden}
-    .ausboss-transform-panel>:not(.ausboss-transform-preview){width:100%;max-width:${CONTROL_MAX_WIDTH}px;align-self:center;box-sizing:border-box}
+    .ausboss-transform-panel>:not(.ausboss-transform-preview){width:100%;align-self:stretch;box-sizing:border-box}
     .ausboss-transform-preview{width:100%;flex:1 1 180px;min-height:0;border:1px solid #50555b;border-radius:8px;background:#111;display:block;touch-action:none}
     .ausboss-transform-source{display:flex;flex-direction:column;gap:7px;flex:0 0 auto;padding:8px;border:1px solid rgba(0,184,174,.28);border-radius:8px;background:rgba(0,0,0,.24)}
     .ausboss-transform-source-image{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center}
@@ -189,13 +188,14 @@ function installStyles() {
     .ausboss-transform-group-meta{min-width:0;overflow:hidden;text-overflow:ellipsis}
     .ausboss-transform-group-body{display:flex;flex-direction:column;gap:7px;padding:8px;box-sizing:border-box}
     .ausboss-transform-group-body[hidden]{display:none}
-    .ausboss-transform-readout{flex:0 0 auto;margin-top:-3px;color:#c9d0d6;font:11px/14px system-ui;font-variant-numeric:tabular-nums;text-align:center;overflow:hidden;cursor:default;user-select:none}
+    .ausboss-transform-readout{flex:0 0 auto;margin:-5px 0 -3px;color:#c9d0d6;font:11px/14px system-ui;font-variant-numeric:tabular-nums;text-align:center;overflow:hidden;cursor:default;user-select:none}
     .ausboss-transform-readout:empty{display:none}
     .ausboss-transform-readout span{color:#8ca8a5}.ausboss-transform-readout b{color:#fff;font-weight:600}
     .ausboss-transform-readout>div,.ausboss-transform-readout i{display:flex;align-items:center;justify-content:center;gap:3px;height:14px;white-space:nowrap}
     .ausboss-transform-readout .ausboss-transform-ellipsis{min-width:0;overflow:hidden;text-overflow:ellipsis;color:inherit}
     .ausboss-transform-readout b,.ausboss-transform-readout button{flex:none}
     .ausboss-transform-readout i{color:#ffc46b;font-style:normal}
+    .ausboss-transform-readout i:empty{display:none}
     .ausboss-transform-readout em{color:#8ca8a5;font-style:normal}
     .ausboss-transform-readout em.note.ausboss-transform-ellipsis{color:#ffc46b}
     .ausboss-transform-readout button{margin:0 0 0 6px;height:14px;padding:0 6px;border:1px solid #6b5a33;border-radius:3px;background:#2a2417;color:#ffd79a;font:600 9.5px/12px system-ui;cursor:pointer;vertical-align:top}
@@ -2301,6 +2301,42 @@ function buildTimeline(state) {
   return timeline;
 }
 
+// Seconds or frames on the clip face: a per-browser choice, like a view
+// setting. It never changes a stored value.
+const UNITS_KEY = "AusBoss.ClipTiming.Units";
+let unitsCache = null;
+function clipUnits(next) {
+  if (next === "s" || next === "f") {
+    unitsCache = next;
+    try { localStorage.setItem(UNITS_KEY, next); } catch { /* private window */ }
+    return next;
+  }
+  if (unitsCache) return unitsCache;
+  try { unitsCache = localStorage.getItem(UNITS_KEY) === "f" ? "f" : "s"; } catch { unitsCache = "s"; }
+  return unitsCache;
+}
+
+// The node feeding a linked input, by its title, with a way to go to it.
+function linkedNodeInfo(node, name) {
+  const slot = node.inputs?.find((input) => input?.name === name || input?.widget?.name === name);
+  if (slot?.link == null) return null;
+  const graph = node.graph;
+  const link = graph?.links?.get?.(slot.link) ?? graph?.links?.[slot.link] ?? graph?._links?.get?.(slot.link);
+  const source = graph?.getNodeById?.(link?.origin_id);
+  if (!source) return { title: "the subgraph's input", go: null };
+  const title = source.title || source.type || "another node";
+  return {
+    title,
+    go: () => {
+      try {
+        app.canvas?.selectNode?.(source);
+        app.canvas?.centerOnNode?.(source);
+        app.canvas?.setDirty?.(true, true);
+      } catch { /* an older canvas */ }
+    },
+  };
+}
+
 // One timeline component on every surface (node face, editor): the clip
 // node's with IN/OUT handles, the frame picker's with the playhead alone.
 function buildTrim(state) {
@@ -2320,6 +2356,11 @@ function buildTrim(state) {
     onTogglePlayback: () => timelineCommand(state, "play"),
     onSeek: (frame, settled) => scrubTo(state, frame, settled),
     onCommit: notifyAusbossChange,
+    linkInfo: (name) => linkedNodeInfo(state.node, name),
+    // H3 Prompt Writer reads this to say what H3 makes of the clip.
+    publish: (timing) => { state.node.__ausbossClipTiming = timing; },
+    units: () => clipUnits(),
+    setUnits: (next) => { clipUnits(next); for (const view of state.trimViews) view.sync(); },
   });
   state.trimViews.add(control);
   return control.root;
@@ -2340,6 +2381,7 @@ function setPlayhead(state, index) {
 // also snaps the widgets to the decoded frame.
 function scrubTo(state, index, settled) {
   if (state.playing) stopPlayback(state, false);
+  state.pausedAt = null;
   const frame = setPlayhead(state, index);
   syncTimelineRange(state);
   if (settled) { void seekFrame(state); return; }
@@ -2400,7 +2442,11 @@ function startPlayback(state) {
   const trim = [...state.trimViews][0];
   const { first, last } = trim.window();
   const head = clampFrame(value(state.node, "frame_index", 0), info);
-  let next = head < first || head >= last ? first : head + 1;
+  // Play shows the clip from its start, so what plays is what the run
+  // keeps; only a resume right after a pause inside the clip carries on.
+  const resume = state.pausedAt != null && state.pausedAt === head && head >= first && head < last;
+  let next = resume ? head + 1 : first;
+  state.pausedAt = null;
   state.playing = true;
   syncTimelineRange(state);
   const session = ++state.playbackSession;
@@ -2421,6 +2467,7 @@ function startPlayback(state) {
 function stopPlayback(state, settle = true) {
   const wasPlaying = Boolean(state.playing);
   state.playing = false;
+  if (wasPlaying) state.pausedAt = clampFrame(value(state.node, "frame_index", 0), clipInfo(state.metadata));
   state.playbackSession = (state.playbackSession || 0) + 1; // orphan in-flight ticks
   if (state.playbackTimer) clearTimeout(state.playbackTimer);
   state.playbackTimer = null;

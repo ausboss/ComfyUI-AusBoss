@@ -2,6 +2,30 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **The video clip's timing is three boxes: Start, Duration, Ends at.** On
+  Video Crop + Rotate + Pad (Clip), the Length on/off switch is gone. Drag
+  the start to move the clip, drag the end or type a Duration to change how
+  long it is, and switch between seconds and frames. Details sit in hover
+  text; a short note shows only when something needs fixing, with a button
+  to fix it. Saved workflows open with the same values and run the same.
+- **A linked frame rate no longer stops the clip's start too early.** With
+  a rate wired in, a typed start of frame 60 used to settle on frame 7; it
+  now lands where you put it, and the start handle stops only where the
+  Duration no longer fits. A rate set inside a subgraph now counts as
+  known, so the clip shows its length before you run.
+- **Linked clip lengths say where they come from.** A box set by another
+  node shows a **linked** button that jumps to that node. A cap that the
+  video cannot fill says how many frames you get, and a count only known
+  when the graph runs shows the room left after the start.
+- **H3 Prompt Writer says how much of the clip H3 uses.** When the video
+  comes from the clip node, it shows how many of the clip's frames H3
+  makes and where in the video that stops, and which Durations use all of
+  it.
+- **Crop + Rotate + Pad panels fill the node's width.** The rows under the
+  picture used to stop at 460 px and sit in the middle of a wide node.
+
 ## 2.25.3 - 2026-11-13
 
 - **The video clip's frame readout explains itself.** On Video Crop + Rotate
