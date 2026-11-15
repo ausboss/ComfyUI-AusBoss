@@ -7,6 +7,8 @@ from pathlib import Path
 
 import av
 
+MAX_VIDEO_UPLOAD_BYTES = 4 * 1024 ** 3
+
 
 def upload_name(filename: str, extensions: set[str]) -> str:
     name = str(filename or "")
@@ -44,8 +46,12 @@ async def stream_video_upload(request, root: Path, extensions: set[str]) -> dict
     name = upload_name(part.filename, extensions)
     path, handle = reserve_upload(root.resolve(), name)
     complete = False
+    written = 0
     try:
         while chunk := await part.read_chunk(size=1024 * 1024):
+            written += len(chunk)
+            if written > MAX_VIDEO_UPLOAD_BYTES:
+                raise ValueError("That video is too large to upload (4 GB limit).")
             await asyncio.to_thread(handle.write, chunk)
         handle.close()
         await asyncio.to_thread(validate_video, path)
