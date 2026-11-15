@@ -2,6 +2,16 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **The "AusBoss was updated" message no longer asks for a reload by
+  mistake.** After the Manager switched the pack to another version, a
+  page reload before ComfyUI restarted brought up the message, telling you
+  the page was older than the pack when it was newer. A restart was what
+  was needed. Now the message only comes up when the pack really is newer
+  than the page, and versions such as 2.25.10 and 2.25.9 are compared as
+  numbers.
+
 ## 2.26.2 - 2026-11-14
 
 - **Loaders never look up a file name they refused.** Before each run,
