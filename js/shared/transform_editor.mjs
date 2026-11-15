@@ -82,6 +82,7 @@ import {
 } from "./transform_geometry.mjs";
 import { clampFrame, clipInfo, frameTime } from "./timeline_math.mjs";
 import { liftSocket } from "./widget_card.mjs";
+import { copyPicture, transformPicture } from "./transform_picture.mjs";
 
 const HIDDEN_WIDGETS = [
   "image", "upload",
@@ -3106,6 +3107,67 @@ function drawRotateGlyph(context, x, y, radius, color) {
 // node itself can still drag, and pointercancel plus mouseleave both end a
 // gesture in case the capture was refused.
 function attachStageHandlers(state, canvas, signal) {
+  if (state.kind === "image") {
+    canvas.addEventListener("contextmenu", (event) => {
+      event.preventDefault(); event.stopPropagation();
+      if (!state.image) return;
+      const picture = async () => {
+        let source = state.image;
+        const sourceWidth = state.sourceWidth, sourceHeight = state.sourceHeight;
+        const current = values(state.node), resize = resizeRequest(state.node);
+        if (maskLayer(state)) {
+          if (value(state.node, "painted_area", "fill") === "keep picture") {
+            // The browser loses colours under fully transparent pixels. Core's
+            // RGB view restores the stored picture under MaskEditor strokes.
+            source = new Image();
+            source.src = api.apiURL(`/view?${mediaViewQuery(value(state.node, "image", ""))}&channel=rgb`);
+            await source.decode();
+          } else {
+            // The stage's mask layer is capped at 2048px. Copy from the source
+            // at full size, using the same rule for which pixels stay picture.
+            const full = document.createElement("canvas");
+            full.width = sourceWidth; full.height = sourceHeight;
+            const context = full.getContext("2d");
+            context.drawImage(source, 0, 0);
+            const pixels = context.getImageData(0, 0, full.width, full.height);
+            const map = seeThroughMap(pixels.data);
+            if (map) for (let i = 0; i < map.length; i++) pixels.data[i * 4 + 3] = map[i] ? 0 : 255;
+            context.putImageData(pixels, 0, 0);
+            source = full;
+          }
+        }
+        return transformPicture({
+          sourceWidth, sourceHeight, values: current, resize,
+          fill: normalizeColor(current.fill_color),
+          drawSource: (context) => context.drawImage(source, -sourceWidth / 2, -sourceHeight / 2, sourceWidth, sourceHeight),
+        });
+      };
+      const report = (error) => showToast({ severity: "error", summary: "Copy image", detail: error?.message ?? String(error) });
+      new globalThis.LiteGraph.ContextMenu([
+        { content: "Copy image", callback: () => {
+          try {
+            Promise.resolve(copyPicture(picture)).then(
+              () => showToast({ summary: "Copy image", severity: "success", detail: "The picture is on the clipboard." }), report,
+            );
+          } catch (error) { report(error); }
+        } },
+        { content: "Open image", callback: async () => {
+          try {
+            // A real image retains the browser's native Copy image on plain
+            // HTTP too. A data URL stays usable for as long as the tab is open.
+            const tab = window.open("about:blank", "_blank");
+            if (!tab) throw new Error("Allow pop-ups to open the picture.");
+            tab.opener = null;
+            const image = tab.document.createElement("img");
+            image.src = (await picture()).toDataURL("image/png");
+            image.style.maxWidth = "100%";
+            tab.document.title = "Crop image — right-click to copy";
+            tab.document.body.append(image);
+          } catch (error) { report(error); }
+        } },
+      ], { event });
+    }, { signal });
+  }
   canvas.addEventListener("pointerdown", (event) => pointerDown(state, canvas, event), { signal });
   canvas.addEventListener("pointermove", (event) => pointerMove(state, canvas, event), { signal });
   canvas.addEventListener("pointerup", (event) => pointerUp(state, canvas, event), { signal });

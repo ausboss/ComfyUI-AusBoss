@@ -24,6 +24,12 @@ pan. **Save & close** keeps your edits. **Cancel** or Escape puts everything
 back, and asks first if anything changed. You do not need the editor: a run
 uses what the node shows.
 
+Right-click the picture and choose **Copy image** to copy it with your crop,
+rotation, padding and resize applied, without handles, guides or mask tint.
+This works on the node and in the editor. Direct copying needs localhost or
+HTTPS. On a plain HTTP address, choose **Open image**, then right-click that
+picture and use the browser's **Copy image**.
+
 ## On the node
 
 From top to bottom:
