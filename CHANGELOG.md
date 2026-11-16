@@ -4,6 +4,14 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Video Crop + Rotate + Pad → Clip 🆎 can put a clip window in an App-mode
+  form.** List the node's `clip_window` field and the form shows the video as a
+  strip of pictures with a box over the part that gets used: drag the box to
+  pick where the clip starts, drag an edge to shorten it. Two new inputs,
+  `min_seconds` and `max_seconds`, keep the clip's length in a range; the edges
+  stop there, on the node's timeline too, and a run keeps to them. A video
+  shorter than the minimum is used whole. Both are 0 (no limit) by default, and
+  the node's face on the graph is unchanged.
 - **The "AusBoss was updated" message no longer asks for a reload by
   mistake.** After the Manager switched the pack to another version, a
   page reload before ComfyUI restarted brought up the message, telling you

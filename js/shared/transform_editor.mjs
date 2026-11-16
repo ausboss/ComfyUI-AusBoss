@@ -4,6 +4,7 @@ import { linkedNodeInfo, timingUnits as clipUnits } from "./timing_links.mjs";
 import { PANEL_LABELS } from "./panel_controls.mjs";
 import { hideInputsInDef, hideWidget } from "./widget_visibility.mjs";
 import { mountTransformTrim } from "./transform_trim.mjs";
+import { mountClipWindow } from "./clip_window.mjs";
 import { clipOutputRate, inputNumber } from "./clip_rate.mjs";
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "./index.mjs";
 import { WIDGET_FRAME, fillNodeHeight, holdVueNodeMinWidth, holdVuePanelMinHeight } from "./panel_layout.mjs";
@@ -90,6 +91,9 @@ const HIDDEN_WIDGETS = [
   "pad_left", "pad_top", "pad_right", "pad_bottom", "feather", "canvas_multiple", "fill_color",
   "seek_mode", "frame_index", "frame_time",
   "start_seconds", "end_seconds", "every_nth", "max_frames", "frame_snap", "fixed_frames",
+  // Clip node: the length limits, and the App-mode clip window (a DOM
+  // widget shown only in a form that lists it, js/app_mode/).
+  "min_seconds", "max_seconds", "clip_window",
   // Stitch settings (clip and image nodes), driven by the editor's Inpaint & Stitch section.
   "stitch_blend", "stitch_grow",
   // Image node: what a painted part is handed on as, set in the same section.
@@ -794,6 +798,7 @@ export function installTransformNode(node, kind, mountPanel = null) {
   } else {
     node.addWidget?.("button", "Open editor", null, () => openEditor(state), { serialize: false });
   }
+  if (state.isClip && typeof node.addDOMWidget === "function") installClipWindow(state);
   // A fresh node opens at its floor: the stage as tall as its width asks.
   node.setSize?.([
     Math.max(TRANSFORM_MIN_WIDTH, Math.min(520, node.size?.[0] || TRANSFORM_MIN_WIDTH)),
@@ -1761,6 +1766,8 @@ async function requestStoryboard(state, key, attempt = 0) {
       image, times: payload.times, count: payload.count,
       tileWidth: payload.tile_width, tileHeight: payload.tile_height,
     };
+    // The App-mode clip window draws its strip from the same tiles.
+    for (const trim of state.trimViews) trim.sync();
   } catch { /* storyboard is an enhancement, never an error */ }
 }
 
@@ -2329,6 +2336,35 @@ function buildTrim(state) {
   });
   state.trimViews.add(control);
   return control.root;
+}
+
+// The clip window an App-mode form can list (js/shared/clip_window.mjs):
+// only the part of the video the run uses, as one box to drag. Hidden on
+// the graph, so the node's face is unchanged; js/app_mode/ shows it while a
+// form that lists it is open.
+function installClipWindow(state) {
+  const node = state.node;
+  const view = mountClipWindow({
+    get: (name, fallback) => value(node, name, fallback),
+    set: (name, next) => {
+      setValue(node, name, next);
+      for (const other of state.trimViews) if (other !== view) other.sync();
+    },
+    driven: (name) => trimInputDriven(node, name),
+    number: (name, fallback) => inputNumber(node, name, value(node, name, fallback)),
+    outputRate: () => clipOutputRate(node, state.metadata?.fps, value(node, "every_nth", 1)),
+    metadata: () => state.metadata,
+    storyboard: () => state.storyboard,
+    onCommit: notifyAusbossChange,
+  });
+  state.trimViews.add(view);
+  const clipWidget = node.addDOMWidget("clip_window", "ausboss_clip_window", view.root, {
+    serialize: false,
+    hideOnZoom: false,
+  });
+  clipWidget.serialize = false;
+  clipWidget.label = "Clip window";
+  hideWidget(clipWidget);
 }
 
 function setPlayhead(state, index) {

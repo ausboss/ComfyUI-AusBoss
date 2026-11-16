@@ -237,6 +237,53 @@ class VideoClipNodeTests(unittest.TestCase):
         self.assertAlmostEqual(duration, 1.0)
         self.assertEqual(float(mask.max()), 0.0)
 
+    def test_length_limits_change_nothing_while_both_are_zero(self):
+        plain = self.run_node(start_seconds=0.5, max_frames=6)
+        limited = self.run_node(start_seconds=0.5, max_frames=6, min_seconds=0.0, max_seconds=0.0)
+        self.assertEqual(limited[3], plain[3])
+        self.assertTrue(torch.equal(limited[0], plain[0]))
+
+    def test_max_seconds_cuts_a_longer_window(self):
+        # The whole two-second video, limited to one second.
+        out = self.run_node(max_seconds=1.0)
+        self.assertEqual(out[3], FPS)
+        self.assertAlmostEqual(out[7], 1.0)
+        # A frame cap longer than the limit is cut too.
+        self.assertEqual(self.run_node(start_seconds=0.5, max_frames=20, max_seconds=1.0)[3], FPS)
+
+    def test_min_seconds_grows_a_shorter_window(self):
+        self.assertEqual(self.run_node(end_seconds=0.5, min_seconds=1.5)[3], 18)
+        # A frame cap under the limit gives way as well.
+        self.assertEqual(self.run_node(max_frames=3, min_seconds=1.0)[3], FPS)
+
+    def test_min_seconds_moves_the_start_back_at_the_video_end(self):
+        out = self.run_node(start_seconds=1.5, min_seconds=1.0, max_seconds=1.0)
+        self.assertEqual(out[3], FPS)
+        reference = self.run_node(start_seconds=1.0)
+        self.assertTrue(torch.equal(out[0], reference[0]))
+
+    def test_a_video_shorter_than_min_seconds_is_used_whole(self):
+        out = self.run_node(start_seconds=1.0, end_seconds=1.5, min_seconds=5.0, max_seconds=8.0)
+        self.assertEqual(out[3], FRAMES)
+        self.assertAlmostEqual(out[7], FRAMES / FPS)
+
+    def test_length_limits_follow_a_forced_rate(self):
+        # 24 frames a second, cut to one second: 24 output frames.
+        out = self.run_node(force_rate=24, max_seconds=1.0)
+        self.assertEqual(out[3], 24)
+        self.assertAlmostEqual(out[7], 1.0)
+
+    def test_fixed_frames_wins_over_the_length_limits(self):
+        self.assertEqual(self.run_node(fixed_frames=6, min_seconds=1.0)[3], 6)
+
+    def test_length_limits_change_the_fingerprint(self):
+        common = dict(video="", source_mode="local path", local_path=self.server_file, start_seconds=0.0, end_seconds=0.0)
+        values = transform_defaults()
+        one = AusBossVideoCropRotatePadClip.IS_CHANGED(**common, **values)
+        for name in ("min_seconds", "max_seconds"):
+            other = AusBossVideoCropRotatePadClip.IS_CHANGED(**common, **{name: 5.0}, **values)
+            self.assertNotEqual(one, other, name)
+
     def test_preview_position_never_changes_the_fingerprint(self):
         common = dict(video="", source_mode="local path", local_path=self.server_file, start_seconds=0.0, end_seconds=0.0)
         values = transform_defaults(pad_right=8)

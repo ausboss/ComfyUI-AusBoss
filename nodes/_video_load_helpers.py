@@ -147,6 +147,57 @@ def clip_load_window(path, start_seconds, end_seconds, max_frames=0,
     return float(start_seconds), float(end_seconds), max(0, int(cap))
 
 
+def limit_clip_length(start_seconds, end_seconds, cap, duration, frame_seconds,
+                      min_seconds=0.0, max_seconds=0.0):
+    """Keep a resolved window between min_seconds and max_seconds long.
+
+    The window is start_seconds to end_seconds (0 = the video's end), cut
+    short by a cap of `cap` output frames that last `frame_seconds` each.
+    A limit of 0 is no limit, and a max below the min counts as the min.
+    Too long: the end moves in. Too short: the end moves out, and where the
+    video ends first the start moves back instead. A video shorter than the
+    min is used whole. A backwards window is left alone so the decode can
+    say what is wrong with it. Returns (start, end, cap); the cap is cleared
+    when it would cut the window under its new length.
+    js/shared/timeline_math.mjs limitClipSeconds mirrors this.
+    """
+    low = max(0.0, float(min_seconds or 0.0)) if math.isfinite(float(min_seconds or 0.0)) else 0.0
+    high = max(0.0, float(max_seconds or 0.0)) if math.isfinite(float(max_seconds or 0.0)) else 0.0
+    start, end, cap = float(start_seconds), float(end_seconds), max(0, int(cap))
+    if low <= 0 and high <= 0:
+        return start, end, cap
+    if 0 < high < low:
+        high = low
+    known = math.isfinite(float(duration or 0)) and float(duration or 0) > 0
+    duration = float(duration) if known else 0.0
+    if known and low > 0 and duration <= low + _TIME_EPSILON:
+        return 0.0, 0.0, 0
+    stop = end if end > 0 else (duration if known else math.inf)
+    if known:
+        stop = min(stop, duration)
+    length = stop - start
+    if length <= 0:
+        return start, end, cap
+    step = float(frame_seconds or 0.0)
+    capped = cap > 0 and math.isfinite(step) and step > 0
+    if capped:
+        length = min(length, cap * step)
+    target = length
+    if high > 0:
+        target = min(target, high)
+    if low > 0:
+        target = max(target, low)
+    if abs(target - length) <= _TIME_EPSILON:
+        return start, end, cap
+    new_end = start + target
+    if known and new_end > duration:
+        new_end = duration
+        start = max(0.0, duration - target)
+    if capped and cap * step < target - _TIME_EPSILON:
+        cap = 0
+    return start, new_end, cap
+
+
 def fixed_clip_window(metadata, start_seconds, frames, force_rate=0, every_nth=1):
     """Place an exact output-frame window on the source grid, sliding at ends."""
     fps = float(metadata.get("fps") or 0)
