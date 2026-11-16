@@ -100,6 +100,25 @@ SWAP_VIDEO_KEPT = (
 SWAP_KEPT = "{replaced}: removed - replace {who} with {main} throughout."
 ONE_GOES = "the original person"
 APPEARANCE_LINE = re.compile(r'^\s*@([1-4])\s+looks like\s+([^"\n]+?)\s*$', re.I)
+# Two ways people type a swap that used to be dropped without a word, so the swap ran with no description and H3
+# often gave the clip back: the looks sentence on the same line as the swap sentence, and the clothes on a line of
+# their own ("@1 is wearing a black suit").
+LOOKS_MID_LINE = re.compile(r"(?<=\S)[ \t]*(?=@[1-4]\s+looks like\b)", re.I)
+WEARS_LINE = re.compile(r'^\s*@([1-4])\s+(?:is\s+wearing|wears|is\s+dressed\s+in|has\s+on)\s+([^"@\n]+?)\s*$', re.I)
+QUOTE = re.compile(r'["\u201c\u201d]')
+
+
+def looks_on_own_lines(text):
+    """The script with each @N looks like sentence on a line of its own. A spoken line is left alone."""
+    text = str(text or "")
+    lines = []
+    for line in text.splitlines():
+        if QUOTE.search(line) or not LOOKS_MID_LINE.search(line):
+            lines.append(line)
+            continue
+        first, *rest = LOOKS_MID_LINE.sub("\n", line).splitlines()
+        lines += [re.sub(r"\s+([.,;:])$", r"\1", first), *rest]
+    return "\n".join(lines) if len(lines) != len(text.splitlines()) else text
 
 
 # Hair and face only, no clothes, expression or background. When the line names clothes that differ from what the
@@ -115,6 +134,7 @@ def add_looks(text, jobs, describe):
     """A swap's script with an @N looks like line for each new person who has none, written by describe(slot), a
     small picture-reading model shown that person's picture. Without such a line H3 kept the original person for the
     first seconds (2026-11-07), so a connected model writes it when the user didn't."""
+    text = looks_on_own_lines(text)
     typed = {int(match.group(1)) for match in map(APPEARANCE_LINE.match, text.splitlines()) if match}
     for slot in sorted(jobs):
         if jobs[slot] not in (PERSON, SHEET) or slot in typed:
@@ -137,8 +157,12 @@ def swap_appearances(text, jobs, video):
     """
     if video != SWAP:
         return text, {}
-    kept, descriptions = [], {}
-    for line in str(text or "").splitlines():
+    kept, descriptions, clothes = [], {}, {}
+    for line in looks_on_own_lines(text).splitlines():
+        worn = WEARS_LINE.fullmatch(line)
+        if worn and (jobs or {}).get(int(worn.group(1))) in (PERSON, SHEET):
+            clothes.setdefault(int(worn.group(1)), []).append(worn.group(2).strip().rstrip(" ."))
+            continue
         match = APPEARANCE_LINE.fullmatch(line)
         if match is None:
             kept.append(line)
@@ -154,6 +178,9 @@ def swap_appearances(text, jobs, video):
         if not description:
             raise ValueError(f"Say what Picture {slot}'s person looks like, or remove its looks like line.")
         descriptions[slot] = description
+    for slot, worn in clothes.items():
+        # Clothes typed on their own line join the description; with none typed, the picture still gives the hair.
+        descriptions[slot] = f"{descriptions.get(slot, 'the same hair')}, wearing {' and '.join(worn)}"
     return ("\n".join(kept), descriptions) if descriptions else (text, {})
 
 

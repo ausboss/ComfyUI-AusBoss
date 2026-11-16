@@ -4,6 +4,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **H3 Prompt Writer: a swap reads the new person's looks however you type
+  them.** `@1 looks like ...` on the same line as the swap sentence, and
+  clothes on a line of their own (`@1 is wearing a black suit.`), were
+  left out of the prompt without a word, and the clip often came back
+  unchanged. Both are now used.
 - **The "AusBoss was updated" message no longer asks for a reload by
   mistake.** After the Manager switched the pack to another version, a
   page reload before ComfyUI restarted brought up the message, telling you
