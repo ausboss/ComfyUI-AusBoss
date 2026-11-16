@@ -36,6 +36,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   picture and on the video opens under its chip in the node's own colours
   and grows with the zoom. Before, it was the browser's small plain list.
 
+- **An AI agent can now learn the video workflows from the repository.**
+  `npx skills add ausboss/ComfyUI-AusBoss` gives your agent a skill for the
+  MiniMax H3 Pika Person Swap and Pika Remix workflows: how to write the
+  words, which model files to get, and how to run a workflow in your
+  ComfyUI. The same page is at https://ausboss-examples.vercel.app/skill.md.
+
 - **The "AusBoss was updated" message no longer asks for a reload by
   mistake.** After the Manager switched the pack to another version, a
   page reload before ComfyUI restarted brought up the message, telling you

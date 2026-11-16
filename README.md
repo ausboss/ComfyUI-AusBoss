@@ -49,6 +49,16 @@ After an update, through Manager or `git pull`, restart ComfyUI and hard-refresh
 
 The pack uses the Pillow, NumPy, Torch and PyAV that come with ComfyUI. Each example lists the models it needs on its Workflow Note. LaMa Inpaint also needs [`big-lama.pt`](https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt) in `ComfyUI/models/lama/`. The pack never downloads weights by itself.
 
+### Using an AI agent
+
+Your agent (Claude Code, Codex, Cursor or another one) can learn the video workflows: how to write the words for them, set them up, and run them on your computer.
+
+```bash
+npx skills add ausboss/ComfyUI-AusBoss
+```
+
+Or tell it: "Read https://ausboss-examples.vercel.app/skill.md and help me use these workflows." The skill is [skills/ausboss-workflows/SKILL.md](skills/ausboss-workflows/SKILL.md). For picking and wiring single nodes, point it at the [agent guide](js/docs/agents/README.md).
+
 ### Upgrading from 1.x
 
 2.0 removed **LM Studio Chat** (use **Text** for a fixed prompt) and Align Image's `offset_x` and `offset_y` outputs. Math Expression's `a`, `b` and `c` are sockets now instead of typed boxes, so put constants in the expression itself. 1.2 removed **Drop Shadow**, **Pad Image** (use **Load Image + Pad**) and **Frame Chooser**. Save Image writes only inside ComfyUI's output folder. The [changelog](CHANGELOG.md) has the details.
