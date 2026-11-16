@@ -130,3 +130,27 @@ test("without limits the box can be as short as a frame and as long as the video
   assert.equal(box.fills, true);
   assert.equal(dragClipWindow(box, "end", 0, VIDEO, {}).frames, 1);
 });
+
+test("the limits fold's closed line says what is set", async () => {
+  const { limitsSummary } = await import("../js/shared/timeline_math.mjs");
+  assert.equal(limitsSummary(5, 8), "5 – 8 s");
+  assert.equal(limitsSummary(0, 0), "off");
+  assert.equal(limitsSummary(5, 0), "from 5 s");
+  assert.equal(limitsSummary(0, 8), "up to 8 s");
+  assert.equal(limitsSummary(6, 6), "6 s");
+  assert.equal(limitsSummary(2.5, 7.25), "2.5 – 7.25 s");
+  // A saved max under the min reads as the min, as the run treats it.
+  assert.equal(limitsSummary(6, 2), "6 s");
+  assert.equal(limitsSummary(-1, Number.NaN), "off");
+});
+
+test("typing one limit never leaves the shortest above the longest", async () => {
+  const { setLengthLimit } = await import("../js/shared/timeline_math.mjs");
+  assert.deepEqual(setLengthLimit("min", 9, { min: 5, max: 8 }), { min: 9, max: 9 });
+  assert.deepEqual(setLengthLimit("max", 3, { min: 5, max: 8 }), { min: 3, max: 3 });
+  assert.deepEqual(setLengthLimit("min", 6, { min: 5, max: 8 }), { min: 6, max: 8 });
+  // 0 is off: it never drags the other limit along.
+  assert.deepEqual(setLengthLimit("max", 0, { min: 5, max: 8 }), { min: 5, max: 0 });
+  assert.deepEqual(setLengthLimit("min", 9, { min: 0, max: 0 }), { min: 9, max: 0 });
+  assert.deepEqual(setLengthLimit("min", -2, { min: 5, max: 8 }), { min: 0, max: 8 });
+});

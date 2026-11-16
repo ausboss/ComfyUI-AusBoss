@@ -29,9 +29,12 @@ timeline, and a run keeps to them too:
   moves back instead;
 - a video shorter than the min is used whole, with no error.
 
-0 means no limit, and both are 0 by default, so older workflows run as before.
-They are set in the saved workflow; the node's face has no box for them. An exact
-**Fixed frames** count wins over them.
+Set them in the **Clip length limits** fold, under Crop, pad & resize. It starts
+closed; its header shows the limits (`5 – 8 s`, `from 5 s`, `up to 8 s`, or `off`).
+Open it for **Shortest** and **Longest**. 0 means no limit, and both are 0 by
+default, so older workflows run as before. Typing a Shortest above the Longest
+moves the Longest up with it, and the other way round. An exact **Fixed frames**
+count wins over them.
 
 ## Source and window
 

@@ -521,3 +521,31 @@ export function clipWindowValues(window, info) {
     max_frames: Math.max(1, Math.round(window.frames)),
   };
 }
+
+// --- The "Clip length limits" fold on the node face -------------------------
+const limitText = (value) => String(Number(Math.max(0, finite(value)).toFixed(2)));
+
+// The closed header's words: "5 – 8 s", "from 5 s", "up to 8 s", or "off".
+export function limitsSummary(minSeconds = 0, maxSeconds = 0) {
+  const { min, max } = lengthLimits(minSeconds, maxSeconds);
+  if (min > 0 && max > 0) return min === max ? `${limitText(min)} s` : `${limitText(min)} – ${limitText(max)} s`;
+  if (min > 0) return `from ${limitText(min)} s`;
+  if (max > 0) return `up to ${limitText(max)} s`;
+  return "off";
+}
+
+// Type one limit; the other one moves with it so the shortest never ends up
+// above the longest. 0 is off and never pushes the other.
+export function setLengthLimit(edge, value, { min = 0, max = 0 } = {}) {
+  const next = Math.max(0, finite(value));
+  let low = Math.max(0, finite(min));
+  let high = Math.max(0, finite(max));
+  if (edge === "min") {
+    low = next;
+    if (high > 0 && low > high) high = low;
+  } else {
+    high = next;
+    if (high > 0 && low > high) low = high;
+  }
+  return { min: low, max: high };
+}
