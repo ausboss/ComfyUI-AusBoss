@@ -142,6 +142,7 @@ test("only the listed parts of the pack listen for the wheel", () => {
     "image_folder/index.js root", // the copy question, a window over the page
     "image_folder/index.js root", // the folder list, a window over the page
     "shared/discard_prompt.mjs backdrop", // the keep or discard question
+    "shared/h3_cast_chips.mjs window", // closes a chip's job list when the graph moves
     "shared/media_picker.mjs window", // closes its list when the graph moves
     "shared/transform_editor.mjs canvas", // the full-screen editor zooms its picture
     "shared/widget_card.mjs area", // a text box scrolls its own text first

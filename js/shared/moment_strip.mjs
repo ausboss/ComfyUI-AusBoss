@@ -38,7 +38,8 @@ function ensureCss() {
 .ausboss-strip-handle::before{content:"";position:absolute;left:5px;top:5px;bottom:5px;width:2px;border-radius:1px;background:rgba(207,232,229,.35)}
 .ausboss-strip-handle:hover::before,.ausboss-strip-handle.dragging::before{background:#cfe8e5}
 .ausboss-strip-handle span{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);padding:1px 4px;border-radius:3px;background:#cfe8e5;color:#0b0f10;font-size:9px;white-space:nowrap;display:none}
-.ausboss-strip-handle.dragging span{display:block}
+.ausboss-strip-handle:hover span,.ausboss-strip-handle.dragging span{display:block}
+.ausboss-strip-handle.cuts::before{background:${BRAND}}
 .ausboss-strip-block.movable{cursor:grab;touch-action:none}
 .ausboss-strip-block.moving{z-index:3;cursor:grabbing;opacity:.85;box-shadow:0 4px 14px rgba(0,0,0,.5)}
 .ausboss-strip-drop{position:absolute;top:-3px;bottom:-3px;z-index:4;width:3px;margin-left:-2px;border-radius:2px;background:#f5b53d;pointer-events:none}
@@ -108,7 +109,12 @@ export function momentStrip(node) {
     const label = document.createElement("span");
     handle.append(label);
     handle.style.left = `${rows[index].from}%`;
-    handle.title = range ? "Drag to set when this moment starts. Click to add or remove a cut." : "Click to add or remove a cut.";
+    const isCut = Boolean(rows[index].cut);
+    handle.classList.toggle("cuts", isCut);
+    // Shown on hover: what a click does here. Dragging swaps it for the time.
+    const hint = isCut ? "\u2702 join" : "\u2702 cut";
+    label.textContent = hint;
+    handle.title = `${isCut ? "Click to join these two shots." : "Click to cut to a new shot here."}${range ? " Drag to set when this moment starts." : ""}`;
     track.append(handle);
     handle.addEventListener("pointerdown", (event) => {
       if (event.button !== 0) return;
@@ -134,6 +140,7 @@ export function momentStrip(node) {
         handle.removeEventListener("pointerup", stop);
         handle.removeEventListener("pointercancel", stop);
         handle.classList.remove("dragging");
+        label.textContent = hint;
         if (!moved) commitScript((text) => toggleCut(text, rows[index].line));
         else if (second !== null && second !== rows[index].start) commitScript((text) => retime(text, rows[index].line, second));
       };

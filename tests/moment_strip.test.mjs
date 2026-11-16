@@ -24,15 +24,15 @@ test("cuts and speech are marked", () => {
 
 test("no report and an empty script draw nothing and say what to do", () => {
   assert.deepEqual(stripRows(null), []);
-  assert.deepEqual(stripCaption(null), { text: "Each line becomes a moment.", warn: false });
-  assert.deepEqual(stripCaption({ moments: [] }), { text: "Each line becomes a moment.", warn: false });
+  assert.deepEqual(stripCaption(null), { text: "Each line becomes a moment. A blank line between lines is a cut.", warn: false });
+  assert.deepEqual(stripCaption({ moments: [] }), { text: "Each line becomes a moment. A blank line between lines is a cut.", warn: false });
 });
 
 test("the caption adds the script up", () => {
-  assert.equal(stripCaption({ moments: [row(0, 2.5), row(2.5, 5)] }).text, "2 moments, 2.5 s each, one take.");
-  assert.equal(stripCaption({ moments: [row(0, 8)] }).text, "1 moment, 8 s, one take.");
-  assert.equal(stripCaption({ moments: [row(0, 3), row(3, 8)] }).text, "2 moments, one take.");
-  assert.equal(stripCaption({ moments: [row(0, 3), row(3, 8, { cut: true })] }).text, "2 moments, 1 cut.");
+  assert.equal(stripCaption({ moments: [row(0, 2.5), row(2.5, 5)] }).text, "2 moments, 2.5 s each, one take. Click between two moments to cut there.");
+  assert.equal(stripCaption({ moments: [row(0, 8)] }).text, "1 moment, 8 s, one take. Add a line for the next moment, a blank line to cut.");
+  assert.equal(stripCaption({ moments: [row(0, 3), row(3, 8)] }).text, "2 moments, one take. Click between two moments to cut there.");
+  assert.equal(stripCaption({ moments: [row(0, 3), row(3, 8, { cut: true })] }).text, "2 moments, 1 cut. Click a cut on the bar to join the shots.");
 });
 
 test("only connected pictures send their job", () => {
