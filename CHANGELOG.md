@@ -79,6 +79,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   words, which model files to get, and how to run a workflow in your
   ComfyUI. The same page is at https://ausboss-examples.vercel.app/skill.md.
 
+- **Layout Boxes 🆎 places people for MiniMax H3 Image.** A new
+  `h3_prompt` output says the boxes in words: who goes where, how big, and
+  who stands beside whom. Describe each person in their box by their
+  picture and what they do, such as "the man from <Picture 2>, sitting on
+  the couch"; the scene on `background` is `<Picture 1>`. Places are said in
+  words only, because H3 Image draws numbers from a prompt onto the picture.
 - **The "AusBoss was updated" message no longer asks for a reload by
   mistake.** After the Manager switched the pack to another version, a
   page reload before ComfyUI restarted brought up the message, telling you
