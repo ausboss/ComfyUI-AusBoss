@@ -1,8 +1,22 @@
 import { keptCrop, resolveCrop, resolvePadding, rotatedSize, scaleToMegapixels } from "./transform_geometry.mjs";
 
+export const COPY_EDITS_SETTING = Object.freeze({
+  key: "copy_edits", label: "Copy with crop, rotation and padding", type: "toggle", default: false,
+  hint: "Off: copy the original picture. On: include crop, rotation, padding and resize. Handles and guides are never copied.",
+});
+
 // Render picture pixels into a separate canvas. The editor's canvas contains
 // handles, hatching and stage margins and must never be a clipboard source.
-export function transformPicture({ sourceWidth, sourceHeight, values, resize, fill, drawSource, createCanvas = () => document.createElement("canvas") }) {
+export function transformPicture({ sourceWidth, sourceHeight, values, resize, fill, drawSource, includeEdits = false, createCanvas = () => document.createElement("canvas") }) {
+  const canvas = createCanvas();
+  if (!includeEdits) {
+    canvas.width = sourceWidth; canvas.height = sourceHeight;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("The browser could not make the picture.");
+    context.translate(sourceWidth / 2, sourceHeight / 2);
+    drawSource(context);
+    return canvas;
+  }
   const source = rotatedSize(sourceWidth, sourceHeight, values.rotation_degrees);
   const whole = resolveCrop(values, source);
   const padding = resolvePadding(values, whole);
@@ -10,7 +24,6 @@ export function transformPicture({ sourceWidth, sourceHeight, values, resize, fi
   const size = resize
     ? scaleToMegapixels(padding.outputWidth, padding.outputHeight, resize.megapixels, resize.steps)
     : { width: padding.outputWidth, height: padding.outputHeight };
-  const canvas = createCanvas();
   canvas.width = size.width; canvas.height = size.height;
   const context = canvas.getContext("2d");
   if (!context) throw new Error("The browser could not make the picture.");

@@ -5,9 +5,10 @@ All notable changes to ComfyUI-AusBoss are documented here.
 ## Unreleased
 
 - **Copy a crop node's picture without its handles.** Right-click the picture
-  on Image Crop + Rotate + Pad and choose Copy image. It copies the picture
-  with the crop, rotation, padding and resize applied, without the editing
-  controls, mask tint or surrounding stage. Open image provides a clean
+  on Image Crop + Rotate + Pad and choose Copy image. By default it copies
+  the original picture. To include crop, rotation, padding and resize, turn
+  on Copy with crop, rotation and padding in the gear menu. Editing controls
+  and guides are never copied. Open image provides a clean
   picture to copy with the browser on plain HTTP addresses too.
 
 - **The "AusBoss was updated" message no longer asks for a reload by

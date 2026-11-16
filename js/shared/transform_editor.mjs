@@ -82,7 +82,7 @@ import {
 } from "./transform_geometry.mjs";
 import { clampFrame, clipInfo, frameTime } from "./timeline_math.mjs";
 import { liftSocket } from "./widget_card.mjs";
-import { copyPicture, transformPicture } from "./transform_picture.mjs";
+import { COPY_EDITS_SETTING, copyPicture, transformPicture } from "./transform_picture.mjs";
 
 const HIDDEN_WIDGETS = [
   "image", "upload",
@@ -108,7 +108,7 @@ const RESIZE_METHODS = ["lanczos", "area", "bicubic", "bilinear", "nearest-exact
 const TRANSFORM_DEFAULTS = resetTransformValues(false);
 const CORE_IMAGE_PREVIEW_WIDGET = "$$canvas-image-preview";
 
-// The gear on the image node's source card. Display choices only, kept for
+// The gear on the image node's source card. Browser preferences, kept for
 // every image node on this browser (settings_menu.mjs stores them).
 const SETTINGS_SCOPE = "image_crop_rotate_pad";
 const SETTINGS_SCHEMA = [
@@ -116,6 +116,7 @@ const SETTINGS_SCHEMA = [
     key: "show_mask", label: "Show the mask on the picture", type: "toggle", default: true,
     hint: "Teal over the parts of your picture the model paints: a mask drawn in the MaskEditor, or see-through parts of a PNG.",
   },
+  COPY_EDITS_SETTING,
 ];
 let transformSettings = null;
 function settings() {
@@ -3115,7 +3116,8 @@ function attachStageHandlers(state, canvas, signal) {
         let source = state.image;
         const sourceWidth = state.sourceWidth, sourceHeight = state.sourceHeight;
         const current = values(state.node), resize = resizeRequest(state.node);
-        if (maskLayer(state)) {
+        const includeEdits = settings().copy_edits;
+        if (includeEdits && maskLayer(state)) {
           if (value(state.node, "painted_area", "fill") === "keep picture") {
             // The browser loses colours under fully transparent pixels. Core's
             // RGB view restores the stored picture under MaskEditor strokes.
@@ -3137,7 +3139,7 @@ function attachStageHandlers(state, canvas, signal) {
           }
         }
         return transformPicture({
-          sourceWidth, sourceHeight, values: current, resize,
+          sourceWidth, sourceHeight, values: current, resize, includeEdits,
           fill: normalizeColor(current.fill_color),
           drawSource: (context) => context.drawImage(source, -sourceWidth / 2, -sourceHeight / 2, sourceWidth, sourceHeight),
         });

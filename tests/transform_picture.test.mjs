@@ -1,41 +1,46 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { copyPicture, transformPicture } from "../js/shared/transform_picture.mjs";
+import { COPY_EDITS_SETTING, copyPicture, transformPicture } from "../js/shared/transform_picture.mjs";
+import { mergeSettings } from "../js/shared/node_settings.mjs";
 
-function render(values = {}, resize = null) {
+function render(values = {}, resize = null, includeEdits = false) {
   const calls = [];
   const context = new Proxy({}, { get: (target, name) => name in target ? target[name] : (...args) => calls.push([name, ...args]) });
   const canvas = { getContext: () => context };
   const result = transformPicture({
     sourceWidth: 100, sourceHeight: 60,
-    values: { canvas_multiple: 1, ...values }, resize, fill: "#123456",
+    values: { canvas_multiple: 1, ...values }, resize, includeEdits, fill: "#123456",
     drawSource: (ctx) => ctx.drawImage("source", -50, -30, 100, 60),
     createCanvas: () => canvas,
   });
   return { result, calls, context };
 }
 
-test("copy uses source pixels at full size, with no stage margin or controls", () => {
-  const { result, calls, context } = render();
+test("default copy uses the original picture, ignoring crop, rotation, padding and resize", () => {
+  const { result, calls } = render({ crop_x: 10, crop_width: 40, rotation_degrees: 90, pad_left: 80, pad_top: 20, canvas_multiple: 64 }, { megapixels: 1, steps: 8 });
   assert.deepEqual([result.width, result.height], [100, 60]);
-  assert.equal(context.fillStyle, "#123456");
   assert.deepEqual(calls, [
-    ["fillRect", 0, 0, 100, 60], ["save"], ["scale", 1, 1], ["beginPath"],
-    ["rect", 0, 0, 100, 60], ["clip"], ["translate", 50, 30], ["rotate", 0],
-    ["drawImage", "source", -50, -30, 100, 60], ["restore"],
+    ["translate", 50, 30], ["drawImage", "source", -50, -30, 100, 60],
   ]);
 });
 
-test("crop, padding and alignment set the copied bounds and source offset", () => {
-  const { result, calls } = render({ crop_x: 10, crop_y: 5, crop_width: 40, crop_height: 30, pad_left: 8, pad_top: 4, pad_right: 8, pad_bottom: 6, canvas_multiple: 8 });
+test("the gear preference defaults off for existing browsers and accepts an explicit opt-in", () => {
+  assert.equal(mergeSettings([COPY_EDITS_SETTING], {}).copy_edits, false);
+  assert.equal(mergeSettings([COPY_EDITS_SETTING], { show_mask: true }).copy_edits, false);
+  assert.equal(mergeSettings([COPY_EDITS_SETTING], { copy_edits: "true" }).copy_edits, false);
+  assert.equal(mergeSettings([COPY_EDITS_SETTING], { copy_edits: true }).copy_edits, true);
+});
+
+test("opting in includes crop, padding and alignment in the copied bounds and source offset", () => {
+  const { result, calls } = render({ crop_x: 10, crop_y: 5, crop_width: 40, crop_height: 30, pad_left: 8, pad_top: 4, pad_right: 8, pad_bottom: 6, canvas_multiple: 8 }, null, true);
   assert.deepEqual([result.width, result.height], [56, 40]);
   assert.ok(calls.some((c) => JSON.stringify(c) === JSON.stringify(["rect", 8, 4, 40, 30])));
   assert.ok(calls.some((c) => JSON.stringify(c) === JSON.stringify(["translate", 48, 29])));
 });
 
-test("rotation and resize are applied without copying a screen-sized preview", () => {
-  const { result, calls } = render({ rotation_degrees: 90 }, { megapixels: 0.25, steps: 8 });
+test("opting in applies rotation and resize without copying a screen-sized preview", () => {
+  const { result, calls } = render({ rotation_degrees: 90 }, { megapixels: 0.25, steps: 8 }, true);
   assert.deepEqual([result.width, result.height], [400, 664]);
   assert.ok(calls.some((c) => c[0] === "rotate" && c[1] === Math.PI / 2));
   assert.ok(calls.some((c) => c[0] === "scale" && c[1] === 400 / 60 && c[2] === 664 / 100));
