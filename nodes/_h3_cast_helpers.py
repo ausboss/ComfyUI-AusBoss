@@ -184,7 +184,12 @@ def swap_appearances(text, jobs, video):
             raise ValueError(f"Picture {slot} must be a person or character sheet for a swap's looks like line.")
         if slot in descriptions:
             raise ValueError(f"Describe Picture {slot} once, in one looks like line.")
-        description = match.group(2).strip().rstrip(" .")
+        # A sentence on the looks line that names an @ again ("The trees behind @1 stay the same.") is not how
+        # the person looks: it goes back to the script as its own line, or H3 reads a raw @1 in the appearance.
+        sentences = re.split(r"(?<=[.!?])\s+", match.group(2).strip())
+        looks = [sentence for sentence in sentences if not TOKEN.search(sentence)]
+        kept.extend(sentence for sentence in sentences if TOKEN.search(sentence))
+        description = " ".join(looks).strip().rstrip(" .")
         if not description:
             raise ValueError(f"Say what Picture {slot}'s person looks like, or remove its looks like line.")
         descriptions[slot] = description

@@ -78,7 +78,7 @@ def one_line(text):
 
 def clean_words(text):
     """Spoken words: one line, no tags, ending the way H3 wants a line to end."""
-    text = one_line(text).replace("<", "").replace(">", "")
+    text = one_line(text).replace("<", "").replace(">", "").rstrip(" ,;:")  # '"Hi," she says' is "Hi.", not "Hi,.".
     if text and text[-1] not in ".?!":
         text += "."
     return text

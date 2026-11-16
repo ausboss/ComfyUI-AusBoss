@@ -47,7 +47,9 @@ THEN = r"(?:,?\s*(?:and\s+)?then\b|,?\s*and\s+after\s+that\b|,?\s*after\s+that\b
 # A word that starts a new moment and stays in it.
 TURN = r"(?=,?\s*\b(?:suddenly|all\s+of\s+a\s+sudden|out\s+of\s+nowhere|finally|at\s+last|(?:hard\s+)?cut\s+to|(?:it\s+|and\s+|(?<!\bit\s))ends?\s+(?:with|on|in|as)|ending\s+(?:with|on|in))\b)"
 # Where a line breaks into sentences: a full stop that is not a title, the end of a quote, or a semicolon.
-SENTENCE = r"(?<!\bMr\.)(?<!\bMs\.)(?<!\bDr\.)(?<!\bSt\.)(?<!\bMrs\.)(?<=[.!?])\s+(?=\S)|(?<=\x00)\s+(?=[A-Z])|\s*;\s*"
+# After a quote, a new sentence starts with a capital or an @: in '"Get a job." @1 looks up' the @1 is a new moment,
+# or its own words are lost behind the first quote's. So is '"Hi" and @2 says "Bye"': one moment holds one quote.
+SENTENCE = r"(?<!\bMr\.)(?<!\bMs\.)(?<!\bDr\.)(?<!\bSt\.)(?<!\bMrs\.)(?<=[.!?])\s+(?=\S)|(?<=\x00)\s+(?=[A-Z@])|(?<=\x00),?\s+(?:and|but|while)\s+(?=@\d)|\s*;\s*"
 CUT_WORDS = re.compile(r"^(?:hard\s+)?(?:cut|cuts|smash\s+cut|jump\s+cut)\s+to\b[:,]?\s*", re.I)
 NEW_SHOT = re.compile(r"^(?:new\s+shot|next\s+shot|shot\s+\d+)\b[:,.\-]?\s*", re.I)
 START = re.compile(r"^(?:it\s+|the\s+(?:clip|video|scene|shot)\s+)?(?:starts?|begins?|opens?)(?:\s+(?:with|on|in|at|as)\b[:,]?|\s*:)\s*", re.I)
