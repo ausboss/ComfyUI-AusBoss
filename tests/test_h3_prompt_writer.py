@@ -194,6 +194,7 @@ class SplitTests(unittest.TestCase):
         self.assertEqual(said('@1 says "Hi!" @2 answers "Hello." @1 says "Bye."', {1: "person", 2: "person"}), ["Hi!", "Hello.", "Bye."])
         self.assertEqual(said('@1 says "Hi" and @2 says "Bye."', {1: "person", 2: "person"}), ["Hi.", "Bye."])
         self.assertEqual(said('"Hi," @1 says.', {1: "person"}), ["Hi."])
+        self.assertEqual(said('@1 says "我有冰淇淋。" @1 says "好吗？" @1 says "但是，"', {1: "person"}), ["我有冰淇淋。", "好吗？", "但是。"])
 
     def test_the_timeline_shows_plain_words_for_a_hold(self):
         self.assertEqual(script_report("3s: she jumps", 8)["moments"][0]["text"], "Holds still")
