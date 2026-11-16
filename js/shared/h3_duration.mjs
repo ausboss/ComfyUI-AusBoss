@@ -48,6 +48,19 @@ export function clipLengthWords(timing) {
   return { title: `H3 makes ${made} frames · ${seconds(made)} s`, note: `That is its shortest length; the clip has ${timing.frames} frames.`, warn: true };
 }
 
+// These video jobs keep the clip's own camera (Python MOVES_ARE and
+// SWAP_VIDEO say so; a new voice or a change keeps the clip as it was shot).
+// "keep going" makes new footage, so its camera is still the user's words.
+const CAMERA_FROM_CLIP = ["copy its moves", "swap the person", "new voice", "change something"];
+
+// The Camera list's first choice adds no camera words. With a clip wired for
+// one of those jobs that means the clip's own camera, so it reads that way.
+export function cameraChoiceLabel(value, values, node) {
+  if (value !== "as typed" || !node) return undefined;
+  const job = node.widgets?.find((widget) => widget.name === "video_job")?.value;
+  return CAMERA_FROM_CLIP.includes(job) && linkSource(node, "video") !== null ? "from the video" : undefined;
+}
+
 // Keep in step with Python KEEPS_ITS_LENGTH. Other jobs use seconds normally.
 export function clipSetsDuration(node, values) {
   return ["copy its moves", "swap the person", "new voice", "change something"].includes(values.video_job)

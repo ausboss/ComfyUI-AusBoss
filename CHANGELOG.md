@@ -102,6 +102,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
   picture and what they do, such as "the man from <Picture 2>, sitting on
   the couch"; the scene on `background` is `<Picture 1>`. Places are said in
   words only, because H3 Image draws numbers from a prompt onto the picture.
+- **H3 Prompt Writer's Camera says "from the video" when the video sets
+  the camera.** With a clip wired to copy its moves, swap the person, give it
+  a new voice or change something, the first Camera choice now reads "from
+  the video": the camera does what it does in the clip. It is the same
+  choice as "as typed", so saved workflows are unchanged.
 - **The "AusBoss was updated" message no longer asks for a reload by
   mistake.** After the Manager switched the pack to another version, a
   page reload before ComfyUI restarted brought up the message, telling you

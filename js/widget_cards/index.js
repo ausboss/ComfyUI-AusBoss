@@ -11,7 +11,7 @@ import { chainCallback, notifyAusbossChange } from "../shared/index.mjs";
 import { formatWidgetVisibility } from "../shared/save_video_formats.mjs";
 import { hideInputsInDef } from "../shared/widget_visibility.mjs";
 import { castChips } from "../shared/h3_cast_chips.mjs";
-import { clipSetsDuration } from "../shared/h3_duration.mjs";
+import { cameraChoiceLabel, clipSetsDuration } from "../shared/h3_duration.mjs";
 import { loadImagePreview, loadImageStrip } from "../shared/load_image_strip.mjs";
 import { momentStrip } from "../shared/moment_strip.mjs";
 import { mountWidgetCard } from "../shared/widget_card.mjs";
@@ -395,7 +395,7 @@ const CARDS = {
       { section: "Pictures and settings" },
       { panel: castChips, height: 30 },
       { widget: "seconds", label: "Length", suffix: "s", readOnlyText: (node, values) => clipSetsDuration(node, values) ? "From the clip" : "", readOnlyTitle: "This video job uses the incoming clip, so Length is not used." },
-      { widget: "camera", label: "Camera", kind: "select" },
+      { widget: "camera", label: "Camera", kind: "select", labels: cameraChoiceLabel },
       { widget: "look", label: "Look", kind: "select" },
       { group: "more", label: "More" },
       { widget: "song_start", label: "Song starts at", suffix: "s", decimals: 1, trimZeros: true, group: "more" },

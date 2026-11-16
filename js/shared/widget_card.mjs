@@ -337,7 +337,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     const seg = el("div", "ausboss-card-seg");
     const buttons = new Map();
     const add = (value, values) => {
-      const button = el("button", "", choiceLabel(row, value, values));
+      const button = el("button", "", choiceLabel(row, value, values, node));
       button.type = "button"; button.title = row.titles?.[value] ?? String(value);
       button.addEventListener("click", () => setWidget(name, value));
       seg.append(button); buttons.set(value, button);
@@ -381,7 +381,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
       const options = comboValues(widget);
       const list = options.includes(current) || current === undefined || current === "" ? options : [...options, current];
       for (const value of list) {
-        const option = el("option", "", choiceLabel(row, value, options)); option.value = String(value); select.append(option);
+        const option = el("option", "", choiceLabel(row, value, options, node)); option.value = String(value); select.append(option);
       }
       select.value = String(current ?? "");
     };

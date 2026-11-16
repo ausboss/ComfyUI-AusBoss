@@ -210,7 +210,9 @@ as not plugged in.
   `sound:` line.
 - **Music** (`music`): the music for the whole clip. Same as a `music:` line.
 - **Length** (`seconds`): how long the clip is, 4 to 15.
-- **Camera** (`camera`): how the camera moves the whole way through.
+- **Camera** (`camera`): how the camera moves the whole way through. The first
+  choice adds no camera words. With a video wired it reads **from the video**:
+  the camera does what it does in the video. Pick a move only to change it.
 - **Look** (`look`): from the picture keeps your photo's look. The others redraw
   the clip. Clay and 3D don't work from words, so change your picture first with
   an edit model.
