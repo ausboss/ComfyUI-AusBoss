@@ -40,6 +40,9 @@ OUTSIDE = (
     "Image Folder reads only folders inside ComfyUI's input or output folder. "
     "Drop your folder on the node, or press Add, and its pictures are copied in."
 )
+# A drive ("D:") in any part of a folder name, and control characters.
+_DRIVE = re.compile(r"^[A-Za-z]:")
+_CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 NO_FOLDER = 'Image Folder: there is no folder "{folder}" in ComfyUI\'s {source} folder.'
 NO_PICTURES = 'Image Folder: no pictures in "{folder}". Add some, or choose another folder.'
 NONE_LEFT = "Image Folder: none of the picked pictures are in the folder anymore. Pick again on the node."
@@ -64,7 +67,9 @@ def clean_folder(folder) -> str:
     if text.startswith("/") or text.startswith("~") or re.match(r"^[A-Za-z]:", text):
         raise ValueError(OUTSIDE)
     parts = [part for part in text.split("/") if part not in ("", ".")]
-    if any(part == ".." for part in parts):
+    # ".." climbs out; a drive in any part ("a/D:/x") jumps to another drive
+    # on Windows; a control character is never part of a folder name.
+    if any(part == ".." or _DRIVE.match(part) for part in parts) or _CONTROL.search(text):
         raise ValueError(OUTSIDE)
     return "/".join(parts)
 
@@ -95,14 +100,27 @@ def place_inside(folder, roots: dict) -> tuple[str, str] | None:
     return None
 
 
+def inside_root(top: Path, relative: str) -> Path:
+    """`relative` below the resolved root `top`, as a resolved path. It is
+    checked as text before the disk is asked to resolve it, and again after,
+    so a link that leads out of the root is refused too."""
+    if not relative:
+        return top
+    lexical = top.joinpath(*relative.split("/"))
+    if top not in lexical.parents:
+        raise ValueError(OUTSIDE)
+    target = lexical.resolve()
+    if target != top and top not in target.parents:
+        raise ValueError(OUTSIDE)
+    return target
+
+
 def safe_folder(root, folder, source: str = "input") -> Path:
     """The folder as a real path below `root`. A link that leads out of the
     root is refused like any other way out."""
     relative = clean_folder(folder)
     top = Path(root).resolve()
-    target = top.joinpath(*relative.split("/")).resolve() if relative else top
-    if target != top and top not in target.parents:
-        raise ValueError(OUTSIDE)
+    target = inside_root(top, relative)
     if not target.is_dir():
         raise ValueError(NO_FOLDER.format(folder=relative, source=source))
     return target

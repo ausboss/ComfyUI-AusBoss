@@ -40,7 +40,7 @@ their graphics card for several minutes a clip.
 The examples on this site are real runs. Each page has a plain-text copy with
 every script, setting, prompt and file link:
 
-- Person Swap Examples (6 examples): https://ausboss-examples.vercel.app/person-swap/index.md
+- Person Swap Examples (4 examples): https://ausboss-examples.vercel.app/person-swap/index.md
 - Pika Remix Examples (8 examples): https://ausboss-examples.vercel.app/pika-remix/index.md
 - Fix a Pika Remix or Person Swap Run (a guide): https://ausboss-examples.vercel.app/fix/index.md
 - Faster Video in ComfyUI (a guide): https://ausboss-examples.vercel.app/speed/index.md

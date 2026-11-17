@@ -61,7 +61,7 @@ from nodes._media_helpers import (  # noqa: E402
     resolve_server_file,
     resolve_video_path,
 )
-from nodes._route_errors import safe_route_error  # noqa: E402
+from nodes._route_errors import error_detail, safe_route_error  # noqa: E402
 
 NETWORK_REFUSAL = "Network source paths are not allowed."
 WHOLE_PATH_REFUSAL = "A whole path is not read"
@@ -424,6 +424,12 @@ class RouteErrorTests(unittest.TestCase):
         ):
             with self.subTest(text=text):
                 self.assertEqual(safe_route_error(ValueError(text)), text)
+
+    def test_a_node_error_keeps_its_words_unless_they_name_a_path(self):
+        self.assertEqual(error_detail(ValueError("bad shape (3, 4)")), "ValueError: bad shape (3, 4)")
+        for text in ("cannot open /home/me/models/x.pt", "Error in `C:\\Comfy\\models\\sam3.pt`", "~/loras/a.safetensors"):
+            with self.subTest(text=text):
+                self.assertEqual(error_detail(OSError(text)), "OSError")
 
     def test_no_route_sends_a_file_by_its_path(self):
         for path in sorted((ROOT / "nodes").glob("*.py")):

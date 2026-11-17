@@ -19,6 +19,10 @@ STYLE = "style"
 START = "start on it"
 END = "end on it"
 JOBS = (PERSON, SHEET, PLACE, OUTFIT, THING, STYLE, START, END)
+# Not a pick on the node: a thing picture that does the action of a move copy or a swap (a cartoon hand, a toy,
+# a mascot). It takes the place a person would, with its own shape and look.
+PERFORMER = "thing that moves"
+ACTORS = (PERSON, SHEET, PERFORMER)
 
 MOVES = "copy its moves"
 SWAP = "swap the person"
@@ -26,7 +30,7 @@ KEEP = "keep going"
 REVOICE = "new voice"
 EDIT = "change something"
 VIDEO_JOBS = (MOVES, SWAP, KEEP, REVOICE, EDIT)
-KEEPS_ITS_LENGTH = (SWAP, REVOICE, EDIT)  # These change a clip, so the new one runs as long as the old one.
+KEEPS_ITS_LENGTH = (MOVES, SWAP, REVOICE, EDIT)  # These follow a clip, so the new one runs as long as the old one.
 NEEDS_NO_WORDS = (SWAP, KEEP)
 
 TOKEN = re.compile(r"@(\d)\b")
@@ -35,14 +39,31 @@ MAIN = "@0"  # The main person, for lines the node writes itself.
 BACKGROUND = "The background of {picture} is not kept."
 NOTHING_IN = "Connect a picture or a video. H3 needs one to start from."
 NEEDS_A_PERSON = {
-    MOVES: "To copy the moves, connect a picture of your person and pick person for it.",
     SWAP: "To swap the person, connect a picture of the new person and pick person for it.",
 }
 # A hat or a shirt with no person picture: the user wants the video's own person to wear it.
 DRESS_THE_VIDEO_PERSON = 'To put this on the person in your video, pick the video job "change something" and type "He wears @1".'
 
+SWAP_NEEDS_PERSON_THING = (
+    'A swap needs a picture of the new person, and pick person for it. To show a thing in the clip, '
+    'pick the video job "change something" and type "He holds @1".'
+)
+SWAP_NEEDS_PERSON_PLACE = (
+    'A swap keeps the place of the video. Connect a picture of the new person and pick person for it. '
+    'To change the place, pick the video job "change something" and type "It looks like @1".'
+)
+REVOICE_KEEPS_PERSON = (
+    "New voice keeps the person in the clip, so a person picture can't change who is in it. "
+    'Take the picture off, or pick the video job "swap the person".'
+)
+HE_SHE = re.compile(r"\b(?:he|she|they)\b", re.I)
+
 # (what the label is, how it is kept). {picture} is H3's number for the picture.
 JOB_WORDS = {
+    PERFORMER: (
+        "{subject} is the character in {picture}, with the same shape, colours and drawing style.",
+        "fully_preserved - the shape, colours and drawing style are retained.",
+    ),
     PERSON: (
         "{subject} is the person in {picture}, with the same face, hair and clothes.",
         "fully_preserved - the face, hair and clothes are retained.",
@@ -91,6 +112,18 @@ MOVES_KEPT = (
     "keep the source performer's face, body, clothes, props, background and colours out of the target.\n"
     "<Video 1>: attribute_transfer - apply only its camera movement to the target scene."
 )
+# Copy its moves with no person picture: the person in the video keeps their own moves and goes where the
+# script or a place picture says.
+OWN_MOVES_ARE = (
+    "{main} is the person in <Video 1>, with the same face, hair, body{clothes} and the same moves, gestures and "
+    "timing.\n<Video 1> provides the camera movement."
+)
+OWN_MOVES_KEPT = (
+    "{main} (appears in {shots}): {kept}\n"
+    "<Video 1>: attribute_transfer - apply its person, their moves and its camera movement to the target scene; {place}"
+)
+OWN_PLACE_FROM = "the background of <Video 1> is not kept, and the place is {place}."
+OWN_PLACE_KEPT = "keep its place unless the script names a new one."
 SWAP_VIDEO = "<Video 1> supplies the place, the action, the timing, the camera movement and the look."
 SWAP_IS = "{replaced} is {who} in <Video 1>, selected for replacement."
 SWAP_VIDEO_KEPT = (
@@ -99,7 +132,28 @@ SWAP_VIDEO_KEPT = (
 )
 SWAP_KEPT = "{replaced}: removed - replace {who} with {main} throughout."
 ONE_GOES = "the original person"
+THE_PERSON = "the person in the shot"
 APPEARANCE_LINE = re.compile(r'^\s*@([1-4])\s+looks like\s+([^"\n]+?)\s*$', re.I)
+# Two ways people type a swap that used to be dropped without a word, so the swap ran with no description and H3
+# often gave the clip back: the looks sentence on the same line as the swap sentence, and the clothes on a line of
+# their own ("@1 is wearing a black suit"). A looks sentence starts after a full stop, ! or ?; "Put @1 looks like a
+# friend here." is one sentence and stays whole.
+LOOKS_MID_LINE = re.compile(r"(?<=[.!?])[ \t]*(?=@[1-4]\s+looks like\b)", re.I)
+WEARS_LINE = re.compile(r'^\s*@([1-4])\s+(?:is\s+wearing|wears|is\s+dressed\s+in|has\s+on)\s+([^"@\n]+?)\s*$', re.I)
+QUOTE = re.compile(r'["\u201c\u201d]')
+
+
+def looks_on_own_lines(text):
+    """The script with each @N looks like sentence on a line of its own. A spoken line is left alone."""
+    text = str(text or "")
+    lines = []
+    for line in text.splitlines():
+        if QUOTE.search(line) or not LOOKS_MID_LINE.search(line):
+            lines.append(line)
+            continue
+        first, *rest = LOOKS_MID_LINE.sub("\n", line).splitlines()
+        lines += [re.sub(r"\s+([.,;:])$", r"\1", first), *rest]
+    return "\n".join(lines) if len(lines) != len(text.splitlines()) else text
 
 
 # Hair and face only, no clothes, expression or background. When the line names clothes that differ from what the
@@ -115,6 +169,7 @@ def add_looks(text, jobs, describe):
     """A swap's script with an @N looks like line for each new person who has none, written by describe(slot), a
     small picture-reading model shown that person's picture. Without such a line H3 kept the original person for the
     first seconds (2026-11-07), so a connected model writes it when the user didn't."""
+    text = looks_on_own_lines(text)
     typed = {int(match.group(1)) for match in map(APPEARANCE_LINE.match, text.splitlines()) if match}
     for slot in sorted(jobs):
         if jobs[slot] not in (PERSON, SHEET) or slot in typed:
@@ -137,8 +192,12 @@ def swap_appearances(text, jobs, video):
     """
     if video != SWAP:
         return text, {}
-    kept, descriptions = [], {}
-    for line in str(text or "").splitlines():
+    kept, descriptions, clothes = [], {}, {}
+    for line in looks_on_own_lines(text).splitlines():
+        worn = WEARS_LINE.fullmatch(line)
+        if worn and (jobs or {}).get(int(worn.group(1))) in (PERSON, SHEET):
+            clothes.setdefault(int(worn.group(1)), []).append(worn.group(2).strip().rstrip(" ."))
+            continue
         match = APPEARANCE_LINE.fullmatch(line)
         if match is None:
             kept.append(line)
@@ -150,10 +209,18 @@ def swap_appearances(text, jobs, video):
             raise ValueError(f"Picture {slot} must be a person or character sheet for a swap's looks like line.")
         if slot in descriptions:
             raise ValueError(f"Describe Picture {slot} once, in one looks like line.")
-        description = match.group(2).strip().rstrip(" .")
+        # A sentence on the looks line that names an @ again ("The trees behind @1 stay the same.") is not how
+        # the person looks: it goes back to the script as its own line, or H3 reads a raw @1 in the appearance.
+        sentences = re.split(r"(?<=[.!?])\s+", match.group(2).strip())
+        looks = [sentence for sentence in sentences if not TOKEN.search(sentence)]
+        kept.extend(sentence for sentence in sentences if TOKEN.search(sentence))
+        description = " ".join(looks).strip().rstrip(" .")
         if not description:
             raise ValueError(f"Say what Picture {slot}'s person looks like, or remove its looks like line.")
         descriptions[slot] = description
+    for slot, worn in clothes.items():
+        # Clothes typed on their own line join the description; with none typed, the picture still gives the hair.
+        descriptions[slot] = f"{descriptions.get(slot, 'the same hair')}, wearing {' and '.join(worn)}"
     return ("\n".join(kept), descriptions) if descriptions else (text, {})
 
 
@@ -204,28 +271,38 @@ CLOTHES_STAY = (
     "attribute_transfer - apply only the face and hair to the original performance; the clothes of {who} in <Video 1> "
     "stay as they are; the background of {picture} is not transferred."
 )
-KEEP_IS = (
-    "<Video 1> is the video being continued, and the target video starts from its last moment.\n"
-    "{main} is the main subject in <Video 1>, with the same look."
-)
-KEEP_KEPT = (
-    "<Video 1> (continuation point): fully_preserved - the place, the light, the colours and the camera carry on from its last moment.\n"
-    "{main} (appears in {shots}): fully_preserved - the look is retained."
-)
+KEEP_IS = "<Video 1> is the video being continued, and the target video starts from its last moment."
+KEEP_MAIN = "{main} is the main subject in <Video 1>, with the same look."
+KEEP_KEPT = "<Video 1> (continuation point): fully_preserved - the place, the light, the colours and the camera carry on from its last moment."
+KEEP_KEPT_PLACE = "<Video 1> (continuation point): fully_preserved - the light, the colours and the camera carry on from its last moment."
+KEEP_MAIN_KEPT = "{main} (appears in {shots}): fully_preserved - the look is retained."
 SOUND_GOES_ON = "<Audio 1> is the soundtrack of <Video 1>, whose sound carries on in the target video."
 SOUND_GOES_ON_KEPT = "<Audio 1>: reference - the sound continues without copying the source signal."
-EDIT_IS = (
-    "<Video 1> supplies the place, the person, the action, the timing, the camera movement, the look and the sound.\n"
-    "{main} is the person in <Video 1>, kept as they are: the same face, hair, body and movements, with only what the script names changed."
-)
-EDIT_KEPT = (
-    "<Video 1>: partially_preserved - keep the place, the person, the action, the timing, the camera movement, the look and the sound; change only what the script names.\n"
-    "{main} (appears in {shots}): fully_preserved - the face, hair and every movement are retained; only what the script names changes."
+EDIT_VIDEO = "<Video 1> supplies {supplies}."
+EDIT_IS = "{main} is the person in <Video 1>, kept as they are: the same face, hair, body and movements, with only what the script names changed."
+EDIT_VIDEO_KEPT = "<Video 1>: partially_preserved - keep {supplies}; change only what the script names."
+EDIT_KEPT = "{main} (appears in {shots}): fully_preserved - the face, hair and every movement are retained; only what the script names changes."
+# What a source video gives an edit, less what a connected picture takes over.
+EDIT_SUPPLIES = ("the place", "the person", "the action", "the timing", "the camera movement", "the look", "the sound")
+# A line that is about someone. An edit or a move copy of a clip with nobody in it (an empty hallway) names nobody.
+NAMES_SOMEONE = re.compile(
+    r"@0|\b(?:he|she|him|her|his|hers|they|them|their|someone|somebody|anyone|everyone|person|people|man|men|woman|women|"
+    r"guy|girl|boy|kid|child|baby|dancer|singer|actor|actress)\b",
+    re.IGNORECASE,
 )
 REVOICE_IS = "<Video 1> is the source video for the target video edit.\n{main} is the person speaking in <Video 1>, with the same face, hair and clothing."
 REVOICE_KEPT = (
     "<Video 1> (whole video): fully_preserved - every action, lip movement and camera move is retained.\n"
     "{main} (appears in {shots}): fully_preserved - the face, hair and clothing are retained."
+)
+
+
+# A line only names who goes when it is a noun phrase like "the child in the seat", not an action or a pronoun.
+NOUN_PHRASE = re.compile(r"^(?:the|a|an|this|that|these|those|his|her|their|everyone|someone|somebody|both|each|all)\b", re.I)
+ACTION_WORD = re.compile(
+    r"\b(?:dances|walks|runs|talks|says|sits|stands|smiles|waves|jumps|enters|leaves|laughs|sings|eats|drinks|waits|"
+    r"is\s+\w+ing|are\s+\w+ing)\b",
+    re.I,
 )
 
 
@@ -244,7 +321,10 @@ def who_goes_in(text):
     text = re.split(r"[.;!?]", text.strip(" .;!?"), maxsplit=1)[0]
     text = NAMES_NEXT.sub("", text)
     text = SAYS_WHO.sub("", TOKEN.sub("", text).strip(" .,;")).strip(" .,;")
-    return re.sub(r"\s+and$", "", text).strip(" .,;")
+    text = re.sub(r"\s+and$", "", text).strip(" .,;")
+    if not (replaces or plain) and not (NOUN_PHRASE.match(text) and not ACTION_WORD.search(text)):
+        return ""  # "@1 dances" or "He dances" says what happens, not who goes.
+    return text
 
 
 def lower_first(text):
@@ -274,7 +354,30 @@ class Picture:
 
 def swapped_in(jobs):
     """How many people a swap puts in: one for each person or sheet picture."""
-    return max(1, sum(job in (PERSON, SHEET) for job in jobs.values()))
+    return max(1, sum(job in ACTORS for job in jobs.values()))
+
+
+# A thing a line holds, wears or uses stays a prop; any other thing named in a line is the one doing the action.
+HELD = re.compile(
+    r"\b(?:holds?|holding|carr(?:y|ies|ying)|wears?|wearing|puts? on|picks? up|uses?|using|grabs?|throws?|"
+    r"eats?|drinks?|with)\s+(?:\w+\s+){0,2}@(\d)\b",
+    re.IGNORECASE,
+)
+
+
+def things_that_perform(script, jobs, video):
+    """A move copy or a swap with no person picture: a thing picture the lines make do the action (a cartoon hand
+    waving, a toy dancing) takes the moves, or comes in for the one in the video. With nothing typed, a swap's thing
+    comes in. A thing that is held or worn stays a thing."""
+    if video not in (MOVES, SWAP) or any(job in (PERSON, SHEET) for job in (jobs or {}).values()):
+        return jobs
+    held = {int(slot) for slot in HELD.findall(script or "")}
+    named = {int(slot) for slot in TOKEN.findall(script or "")}
+    jobs = dict(jobs)
+    for slot, job in jobs.items():
+        if job == THING and slot not in held and (slot in named or (video == SWAP and not named)):
+            jobs[slot] = PERFORMER
+    return jobs
 
 
 def number_pictures(jobs, video=""):
@@ -295,21 +398,49 @@ class Cast:
         self.pictures = pictures
         self.video = video
         last = max((picture.subject for picture in pictures), default=0)
+        self.people = [picture for picture in pictures if picture.job in (*ACTORS, START)]
         self.moves = subject_label(last + 1) if video == MOVES else ""
+        # Nobody to give the moves to: the person in the video keeps them and is the main person.
+        self.own_moves = video == MOVES and not self.people
+        self.video_person = True  # The video's own person is in the result; notice_people can say there is none.
         # In a swap each person or sheet picture takes one person's place in the video, in picture order. The script
         # can name who goes: "the child in the seat", or "@1 the man on the left. @2 the woman in red".
-        self.swappers = [picture for picture in pictures if picture.job in (PERSON, SHEET)] if video == SWAP else []
+        self.swappers = [picture for picture in pictures if picture.job in ACTORS] if video == SWAP else []
         goes = len(self.swappers)
         self.whos = [f"the person on the {spot}" for spot in SPOTS[goes]] if goes > 1 else [ONE_GOES]
         self.replaced = subject_label(1) if video == SWAP else ""
-        self.in_video = subject_label(last + 1) if video in (KEEP, REVOICE, EDIT) else ""
-        self.people = [picture for picture in pictures if picture.job in (PERSON, SHEET, START)]
+        self.in_video = subject_label(last + 1) if video in (KEEP, REVOICE, EDIT) or self.own_moves else ""
+        if video == KEEP and self.people:  # A person picture is the main person; the video adds no second subject.
+            self.in_video = ""
         self.subjects = {picture.slot: subject_label(picture.subject) for picture in pictures if picture.subject}
         self.clip_clothes = False  # A swap that keeps the clothes of whoever goes.
         self.appearances = {}  # Explicit looks-like lines, by the visible replacement picture slot.
         self.clip_sound = False  # A swap whose finished clip keeps the video's own sound.
         self.speaks_as_video = False  # With that sound and no words typed: the new person says what the video says.
         self.typed_lines = False  # The script typed words in quotes for someone to say.
+
+    def notice_people(self, text):
+        """An edit or a move copy with no person picture keeps the video's person only when the lines are about
+        someone, or something is put on them. A clip of an empty hallway gets no made-up person."""
+        if self.video == KEEP:
+            if not self.people and (text or "").strip():
+                self.video_person = bool(NAMES_SOMEONE.search(text))
+        elif self.video == EDIT or self.own_moves:
+            self.video_person = bool(self.of(OUTFIT) or NAMES_SOMEONE.search(text or ""))
+
+    @property
+    def supplies(self):
+        """What the source video of an edit still gives: a place picture brings the place and its look, a style
+        picture the look."""
+        gone = set()
+        if self.of(PLACE):
+            gone |= {"the place", "the look"}
+        if self.of(STYLE):
+            gone.add("the look")
+        if not self.video_person:
+            gone.add("the person")
+        items = [item for item in EDIT_SUPPLIES if item not in gone]
+        return ", ".join(items[:-1]) + " and " + items[-1]
 
     def of(self, *jobs):
         return [picture for picture in self.pictures if picture.job in jobs]
@@ -356,11 +487,31 @@ class Cast:
     @property
     def main(self):
         """Who a line is about when it names nobody."""
-        if self.in_video:
+        if self.in_video and self.video_person:
             return self.in_video
         if self.people:
             return subject_label(self.people[0].subject)
         return next(iter(self.subjects.values()), subject_label(1))
+
+    @property
+    def main_in_shot(self):
+        """Whether main is a person or thing the clip defines, so "<Subject N> is in the shot" can name it."""
+        if self.in_video and self.video_person and self.main == self.in_video:
+            return True
+        defined = {subject_label(picture.subject) for picture in self.of(*ACTORS, THING, START)}
+        return self.main in defined
+
+    def unclear_speaker(self, moments):
+        """A refusal when two or more people are connected and a spoken line does not say which one speaks."""
+        if self.video not in ("", MOVES, KEEP) or len(self.people) < 2:
+            return ""
+        people = {picture.slot for picture in self.people}
+        for moment in moments:
+            if moment.speech and not moment.voice and not moment.voiceover:
+                if not any(int(slot) in people for slot in TOKEN.findall(moment.text)):
+                    count = "two people" if len(self.people) == 2 else "more than one person"
+                    return f'With {count}, name who speaks: @{self.people[1].slot} says "hello".'
+        return ""
 
     @property
     def opens(self):
@@ -378,9 +529,15 @@ class Cast:
         if not self.pictures and not self.video:
             return NOTHING_IN
         if self.video in NEEDS_A_PERSON and not self.people:
-            if self.of(OUTFIT, THING):
+            if self.of(OUTFIT):
                 return DRESS_THE_VIDEO_PERSON
+            if self.of(THING):
+                return SWAP_NEEDS_PERSON_THING
+            if self.of(PLACE):
+                return SWAP_NEEDS_PERSON_PLACE
             return NEEDS_A_PERSON[self.video]
+        if self.video == REVOICE and self.of(PERSON, SHEET):
+            return REVOICE_KEEPS_PERSON
         typed = sorted({int(number) for number in TOKEN.findall(text)} - {0})
         slots = {picture.slot: picture for picture in self.pictures}
         for slot in typed:
@@ -389,16 +546,23 @@ class Cast:
             if slots[slot].job == END:
                 return f"Picture {slot} is where the clip ends, so @{slot} can't be in a line. Say what happens on the way there."
         if typed:
-            for picture in self.of(PERSON, SHEET, THING, OUTFIT):
-                if picture.slot not in typed:
-                    return f"Picture {picture.slot} is on, but no line names @{picture.slot}."
+            for picture in self.of(*ACTORS, THING, OUTFIT):
+                if picture.slot in typed:
+                    continue
+                # The only person picture is who "He" or "She" means.
+                if picture.job in (PERSON, SHEET) and len(self.of(PERSON, SHEET)) == 1 and HE_SHE.search(text):
+                    continue
+                hint = f' Type who wears it, like "He wears @{picture.slot}."' if picture.job == OUTFIT else ""
+                return f"Picture {picture.slot} is on, but no line names @{picture.slot}.{hint}"
         return ""
 
     def wearers(self, moments):
         """Who wears each outfit: the person named just before it, or else the main person."""
         found = {}
+        outfits = {subject_label(picture.subject) for picture in self.of(OUTFIT)}
+        default = THE_PERSON if self.main in outfits else self.main  # An outfit is never worn by itself.
         for picture in self.of(OUTFIT):
-            found[picture.slot] = self.main
+            found[picture.slot] = default
             token = f"@{picture.slot}"
             for moment in moments:
                 before = moment.text.partition(token)[0]
@@ -414,7 +578,9 @@ class Cast:
         ends = self.ends
         lines = []
         if self.video == EDIT:
-            lines.append(EDIT_IS.format(main=self.in_video))
+            lines.append(EDIT_VIDEO.format(supplies=self.supplies))
+            if self.video_person:
+                lines.append(EDIT_IS.format(main=self.in_video))
         if self.video == SWAP:
             lines.append(SWAP_VIDEO)
             lines += [SWAP_IS.format(replaced=gone, who=who) for gone, who, _ in self.swaps]
@@ -445,10 +611,17 @@ class Cast:
             lines.append(FIRST_FRAME.format(picture=picture_label(self.opens.picture)))
         if ends:
             lines.append(LAST_FRAME.format(picture=picture_label(ends.picture), last=last))
-        if self.moves:
+        if self.own_moves and not self.video_person:
+            lines.append("<Video 1> provides the camera movement.")
+        elif self.own_moves:
+            clothes = "" if self.of(OUTFIT) else " and clothes,"
+            lines.append(OWN_MOVES_ARE.format(main=self.in_video, clothes=clothes or ","))
+        elif self.moves:
             lines.append(MOVES_ARE.format(moves=self.moves))
         if self.video == KEEP:
-            lines.append(KEEP_IS.format(main=self.in_video))
+            lines.append(KEEP_IS)
+            if self.in_video and self.video_person:
+                lines.append(KEEP_MAIN.format(main=self.in_video))
         if self.video == REVOICE:
             lines.append(REVOICE_IS.format(main=self.in_video))
         return "\n".join(lines)
@@ -458,7 +631,7 @@ class Cast:
         subject = subject_label(picture.subject)
         label = picture_label(picture.picture)
         wearing = [slot for slot, wearer in wearers.items() if wearer == subject]
-        if self.video == SWAP and picture.job in (PERSON, SHEET):
+        if self.video == SWAP and picture.job in ACTORS:
             if self.clip_clothes:
                 return CLOTHES_STAY.format(who=self.goes_for(picture), picture=label)
             return SWAPPED.format(picture=label)
@@ -467,9 +640,9 @@ class Cast:
         elif picture.job == PERSON and wearing:
             words = DRESSED[1].format(outfit=self.subjects[wearing[0]])
         else:
-            wearer = wearers.get(picture.slot, self.main)
+            wearer = wearers.get(picture.slot, THE_PERSON if picture.job == OUTFIT else self.main)
             words = JOB_WORDS[picture.job][1].format(wearer=wearer)
-        if picture.job in (PERSON, SHEET, THING):
+        if picture.job in (*ACTORS, THING):
             words += " " + BACKGROUND.format(picture=label)
         return words
 
@@ -482,7 +655,9 @@ class Cast:
 
         lines = []
         if self.video == EDIT:
-            lines.append(EDIT_KEPT.format(main=self.in_video, shots=shot_list(seen(self.in_video))))
+            lines.append(EDIT_VIDEO_KEPT.format(supplies=self.supplies))
+            if self.video_person:
+                lines.append(EDIT_KEPT.format(main=self.in_video, shots=shot_list(seen(self.in_video))))
         if self.video == SWAP:
             lines.append(SWAP_VIDEO_KEPT.format(people="people" if len(self.swaps) > 1 else "person"))
             lines += [SWAP_KEPT.format(replaced=gone, who=who, main=new) for gone, who, new in self.swaps]
@@ -496,10 +671,25 @@ class Cast:
             lines.append(FIRST_KEPT.format(picture=picture_label(self.opens.picture)))
         if self.ends:
             lines.append(LAST_KEPT.format(picture=picture_label(self.ends.picture), last=len(shots)))
-        if self.moves:
+        if self.own_moves and not self.video_person:
+            places = [self.subjects[picture.slot] for picture in self.of(PLACE)]
+            place = OWN_PLACE_FROM.format(place=places[0]) if places else OWN_PLACE_KEPT
+            lines.append(f"<Video 1>: attribute_transfer - apply only its camera movement to the target scene; {place}")
+        elif self.own_moves:
+            outfits = [self.subjects[picture.slot] for picture in self.of(OUTFIT)]
+            kept = (
+                f"partially_preserved - the face, hair, body, moves and timing are retained, and the clothes change to {outfits[0]}."
+                if outfits else "fully_preserved - the face, hair, body, clothes, moves and timing are retained."
+            )
+            places = [self.subjects[picture.slot] for picture in self.of(PLACE)]
+            place = OWN_PLACE_FROM.format(place=places[0]) if places else OWN_PLACE_KEPT
+            lines.append(OWN_MOVES_KEPT.format(main=self.in_video, shots=shot_list(seen(self.in_video)), kept=kept, place=place))
+        elif self.moves:
             lines.append(MOVES_KEPT.format(moves=self.moves, shots=shot_list(seen(self.main)), main=self.main))
         if self.video == KEEP:
-            lines.append(KEEP_KEPT.format(main=self.in_video, shots=shot_list(seen(self.in_video))))
+            lines.append(KEEP_KEPT_PLACE if self.of(PLACE) else KEEP_KEPT)
+            if self.in_video and self.video_person:
+                lines.append(KEEP_MAIN_KEPT.format(main=self.in_video, shots=shot_list(seen(self.in_video))))
         if self.video == REVOICE:
             lines.append(REVOICE_KEPT.format(main=self.in_video, shots=shot_list(seen(self.in_video))))
         return "\n".join(lines)

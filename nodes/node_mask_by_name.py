@@ -6,6 +6,7 @@ import sys
 
 import torch
 
+from ._route_errors import error_detail
 from ._mask_by_name_helpers import (
     IF_NOTHING,
     NEEDS_SAM3,
@@ -238,7 +239,7 @@ class AusBossMaskByName:
                 raise
             # A model or text reader that is not SAM 3's fails somewhere
             # inside; say what to wire instead of showing that.
-            raise RuntimeError(f"{NOT_SAM3} ({type(error).__name__}: {error})") from error
+            raise RuntimeError(f"{NOT_SAM3} ({error_detail(error)})") from error
         masks, boxes = output.result
         counts = [len(frame) for frame in boxes]
         # How sure SAM 3 was of each match in the first picture, best first.

@@ -4,6 +4,7 @@
 // source of truth: a chip only changes their value.
 import { app } from "../../../scripts/app.js";
 import { BRAND, chainCallback } from "./index.mjs";
+import { THEME as T, FONT_UI } from "./theme.mjs";
 import { liftSocket } from "./widget_card.mjs";
 import { commitWidgetValue, comboValues } from "./widget_card_math.mjs";
 
@@ -21,9 +22,15 @@ function ensureCss() {
 .ausboss-chip img{flex:none;width:18px;height:18px;margin-left:-5px;border-radius:9px;object-fit:cover}
 .ausboss-chip b{flex:none;color:${BRAND};font:700 10px ui-monospace,SFMono-Regular,Menlo,monospace}
 .ausboss-chip em{flex:none;color:#6f8886;font-style:normal;font-weight:500}
-.ausboss-chip select{field-sizing:content;min-width:0;max-width:120px;height:22px;padding:0 11px 0 0;border:none;background:transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M1 1l3 3 3-3' fill='none' stroke='%236f8886' stroke-width='1.4'/%3E%3C/svg%3E") no-repeat right 1px center;color:#d8ecea;font:inherit;appearance:none;-webkit-appearance:none;cursor:pointer;text-overflow:ellipsis}
-.ausboss-chip select:focus-visible{outline:2px solid ${BRAND};outline-offset:2px}
-.ausboss-chip select option{background:#0f1516;color:#d8ecea}
+.ausboss-chip-pick{min-width:0;max-width:120px;height:22px;padding:0 12px 0 0;border:none;background:transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M1 1l3 3 3-3' fill='none' stroke='%236f8886' stroke-width='1.4'/%3E%3C/svg%3E") no-repeat right 1px center;color:#d8ecea;font:inherit;cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:left}
+.ausboss-chip-pick:focus-visible{outline:2px solid ${BRAND};outline-offset:2px;border-radius:3px}
+.ausboss-chip.open{border-color:${BRAND}}
+.ausboss-chip-menu{position:fixed;z-index:10000;box-sizing:border-box;padding:.33em;border:1px solid ${T.rule};border-radius:.66em;background:${T.card};box-shadow:0 10px 32px rgba(0,0,0,.55);font:500 12px/1.25 ${FONT_UI};color:${T.inkSoft}}
+.ausboss-chip-item{display:flex;align-items:center;gap:.5em;padding:.45em .75em .45em .5em;border-radius:.4em;white-space:nowrap;cursor:pointer;user-select:none}
+.ausboss-chip-item::before{content:"";flex:none;width:.9em;text-align:center;color:${T.brand}}
+.ausboss-chip-item.current::before{content:"\\2713"}
+.ausboss-chip-item.current{color:${T.brandInk}}
+.ausboss-chip-item.hot{background:${T.fill};color:${T.ink}}
 .ausboss-chip.off{border-style:dashed;background:transparent;color:#56706d}
 .ausboss-chip.off:hover{border-color:#2a3437}
 .ausboss-chip.wired{color:#8ba3a1}
@@ -56,17 +63,109 @@ function add(parent, tag, text, className) {
   return child;
 }
 
+// The open job list, one at a time across every chip on the page.
+let openMenu = null;
+
+// The job list a chip opens. A native <select> lets the browser draw its own
+// list (small system font, light highlight, pinned to the select's left
+// edge); this one wears the node's colours, sits under the whole chip and
+// grows with the canvas zoom like the chip does.
+function openJobMenu(chipElement, button, values, current, choose) {
+  openMenu?.close();
+  const menu = add(document.body, "div", undefined, "ausboss-chip-menu");
+  menu.setAttribute("role", "listbox");
+  const items = values.map((value) => {
+    const item = add(menu, "div", value, "ausboss-chip-item");
+    item.setAttribute("role", "option");
+    if (value === current) { item.classList.add("current"); item.setAttribute("aria-selected", "true"); }
+    return item;
+  });
+  let hot = -1;
+  const setHot = (index) => {
+    items[hot]?.classList.remove("hot");
+    hot = (index + items.length) % items.length;
+    items[hot]?.classList.add("hot");
+    items[hot]?.scrollIntoView({ block: "nearest" });
+  };
+  setHot(Math.max(0, values.indexOf(current)));
+
+  // The chip is drawn scaled with the canvas: the list matches that size,
+  // starts at the chip's left edge and is at least as wide as the chip.
+  function place() {
+    const box = chipElement.getBoundingClientRect();
+    const zoom = Math.min(2.5, Math.max(0.85, box.height / (chipElement.offsetHeight || 24)));
+    menu.style.fontSize = `${12 * zoom}px`;
+    menu.style.minWidth = `${box.width}px`;
+    const width = menu.offsetWidth;
+    const height = menu.offsetHeight;
+    let top = box.bottom + 4;
+    if (top + height > window.innerHeight - 8 && box.top - height - 4 >= 8) top = box.top - height - 4;
+    menu.style.left = `${Math.max(8, Math.min(box.left, window.innerWidth - width - 8))}px`;
+    menu.style.top = `${Math.max(8, top)}px`;
+  }
+
+  const abort = new AbortController();
+  const close = () => {
+    abort.abort();
+    menu.remove();
+    chipElement.classList.remove("open");
+    if (openMenu?.menu === menu) openMenu = null;
+  };
+  const pick = (index) => { close(); button.focus(); choose(values[index]); };
+  items.forEach((item, index) => {
+    item.addEventListener("pointermove", () => { if (hot !== index) setHot(index); });
+    item.addEventListener("click", () => pick(index));
+  });
+  menu.addEventListener("pointerdown", (event) => event.stopPropagation());
+  const outside = (event) => !menu.contains(event.target) && !button.contains(event.target);
+  const on = { capture: true, signal: abort.signal };
+  window.addEventListener("pointerdown", (event) => { if (outside(event)) close(); }, on);
+  window.addEventListener("wheel", (event) => { if (outside(event)) close(); }, { ...on, passive: true });
+  // The page fires resize on its own now and then: the list follows the chip
+  // instead of vanishing, and goes only when the chip itself is gone.
+  window.addEventListener("resize", () => (chipElement.isConnected ? place() : close()), on);
+  // Only the window itself losing focus (another app, another tab). Pressing an item takes
+  // focus off the chip's button, and a capturing blur listener would hear that and close
+  // the list before the click lands. The press keeps focus on the button instead.
+  window.addEventListener("blur", (event) => { if (event.target === window) close(); }, { signal: abort.signal });
+  menu.addEventListener("mousedown", (event) => event.preventDefault());
+  window.addEventListener("keydown", (event) => {
+    const step = { ArrowDown: 1, ArrowUp: -1 }[event.key];
+    if (step) setHot(hot + step);
+    else if (event.key === "Home") setHot(0);
+    else if (event.key === "End") setHot(items.length - 1);
+    else if (event.key === "Enter" || event.key === " ") pick(hot);
+    else if (event.key === "Escape" || event.key === "Tab") { close(); if (event.key === "Escape") button.focus(); }
+    else return;
+    if (event.key !== "Tab") { event.preventDefault(); event.stopPropagation(); }
+  }, on);
+
+  place();
+  chipElement.classList.add("open");
+  openMenu = { owner: button, menu, close };
+}
+
 function choice(node, name, into) {
   const widget = widgetOf(node, name);
-  const select = add(into, "select");
-  for (const value of comboValues(widget)) add(select, "option", value).value = value;
-  select.value = widget?.value ?? "";
-  select.title = widget?.options?.tooltip ?? "";
-  select.addEventListener("change", () => {
-    if (widget) commitWidgetValue(node, widget, select.value, app.canvas);
+  const button = add(into, "button", undefined, "ausboss-chip-pick");
+  button.type = "button";
+  button.setAttribute("aria-haspopup", "listbox");
+  button.title = widget?.options?.tooltip ?? "";
+  const show = (value) => { button.textContent = String(value ?? ""); };
+  show(widget?.value);
+  const choose = (value) => {
+    show(value);
+    if (widget && value !== widget.value) commitWidgetValue(node, widget, value, app.canvas);
     node.setDirtyCanvas?.(true, true);
+  };
+  button.addEventListener("pointerdown", (event) => event.stopPropagation());
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    if (openMenu?.owner === button) { openMenu.close(); return; }
+    const values = comboValues(widget).map(String);
+    openJobMenu(into, button, values, String(widget?.value ?? ""), choose);
   });
-  return (values) => { if (document.activeElement !== select) select.value = values[name] ?? ""; };
+  return (values) => { if (openMenu?.owner !== button) show(values[name]); };
 }
 
 // The jobs have no socket of their own, but a page saved by an earlier
@@ -90,6 +189,7 @@ export function castChips(node) {
   let syncs = [];
   let latest = {};
   const build = (values) => {
+    if (openMenu && element.contains(openMenu.owner)) openMenu.close();
     element.textContent = "";
     syncs = [];
     for (const number of [1, 2, 3, 4]) {
@@ -136,7 +236,10 @@ export function castChips(node) {
     for (const run of syncs) run(values);
   };
   const watch = setInterval(() => sync(latest), WATCH);
-  chainCallback(node, "onRemoved", () => clearInterval(watch));
+  chainCallback(node, "onRemoved", () => {
+    clearInterval(watch);
+    if (openMenu && element.contains(openMenu.owner)) openMenu.close();
+  });
   chainCallback(node, "onConfigure", () => queueMicrotask(() => keepOldJobLinks(node)));
   return { element, sync };
 }

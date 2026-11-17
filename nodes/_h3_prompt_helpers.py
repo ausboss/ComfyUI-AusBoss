@@ -13,7 +13,7 @@ import re
 import numpy as np
 
 from ._h3_cast_helpers import EDIT, KEEP, NEEDS_NO_WORDS, ONE_GOES, REVOICE, SWAP, Cast, number_pictures, swap_appearances
-from ._h3_cast_helpers import TOKEN
+from ._h3_cast_helpers import TOKEN, things_that_perform
 from ._h3_script_helpers import (
     ACTION_GOES_ON,
     PRONOUN,
@@ -78,9 +78,10 @@ def one_line(text):
 
 def clean_words(text):
     """Spoken words: one line, no tags, ending the way H3 wants a line to end."""
-    text = one_line(text).replace("<", "").replace(">", "")
-    if text and text[-1] not in ".?!":
-        text += "."
+    # '"Hi," she says' is "Hi.", not "Hi,.". Chinese and Japanese lines end in their own stops: "。", not "。.".
+    text = one_line(text).replace("<", "").replace(">", "").rstrip(" ,;:，、；：")
+    if text and text[-1] not in ".?!。？！…":
+        text += "。" if re.search(r"[\u3040-\u30ff\u4e00-\u9fff]", text) else "."
     return text
 
 
@@ -312,6 +313,7 @@ def write_prompt(script, seconds=15.0, camera="", look="", sound="", language="E
     longest) puts a question to a small model, if one is connected: it fills in
     a one-line idea and the sound of the place."""
     parts = split_sections(script)
+    written = parts is None  # Words someone typed in six parts go through as they are.
     audio = next_label(script, "Audio")
     speaker = None
 
@@ -319,10 +321,13 @@ def write_prompt(script, seconds=15.0, camera="", look="", sound="", language="E
         jobs = jobs if jobs is not None else {1: "person"}
         if video == EDIT:
             script, jobs = put_on_from_pictures(script, jobs)
+        jobs = things_that_perform(script, jobs, video)
         cast = Cast(number_pictures(jobs, video), video)
         script, cast.appearances = swap_appearances(script, jobs, video)
         scene = read_script(script)
+        cast.notice_people(" ".join(moment.text for moment in scene.moments))
         problem = cast.problem(" ".join(moment.text for moment in scene.moments))
+        problem = problem or cast.unclear_speaker(scene.moments)
         if problem:
             raise ValueError(problem)
         if not scene.moments and video == EDIT:
@@ -370,6 +375,8 @@ def write_prompt(script, seconds=15.0, camera="", look="", sound="", language="E
             scene, seconds, camera=camera, look=look, sound=sound, say=say, cast=cast, sounds=not keeps_song, soundtrack=soundtrack
         )
 
+    if written and (video == EDIT or (video == SWAP and clip_sound)):  # The clip's own sound stays in the result.
+        parts["summary"] = add_task(parts["summary"], "audio reuse")
     if voice:
         add_voice(parts, voice_label, speaker)
     if song_beats is not None and voice:
