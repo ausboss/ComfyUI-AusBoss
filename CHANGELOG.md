@@ -4,6 +4,15 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **H3 Prompt Writer no longer drops lines.** When one line held two
+  people talking, like `The phone says: "Get a job." @1 looks up and says:
+  "What?"`, only the first words reached the prompt. Each quote is its own
+  moment now. A swap's `@1 looks like` line also keeps only the looks: a
+  sentence after it that names an `@` again, like `The trees behind @1 stay
+  the same.`, is read as its own line instead of going into the description
+  with a raw `@1`. `"Hi," she says` is spoken as "Hi." instead of "Hi,.",
+  and a Chinese or Japanese line keeps its own full stop: "。", not "。.".
+
 - **H3 Prompt Writer can carry a line across a cut.** End the words with
   `...` and the person keeps talking into the next shot, without saying the
   words twice. On the last line, `...` lets the clip end mid-sentence. A line

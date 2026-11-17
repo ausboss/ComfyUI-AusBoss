@@ -78,9 +78,10 @@ def one_line(text):
 
 def clean_words(text):
     """Spoken words: one line, no tags, ending the way H3 wants a line to end."""
-    text = one_line(text).replace("<", "").replace(">", "")
-    if text and text[-1] not in ".?!":
-        text += "."
+    # '"Hi," she says' is "Hi.", not "Hi,.". Chinese and Japanese lines end in their own stops: "。", not "。.".
+    text = one_line(text).replace("<", "").replace(">", "").rstrip(" ,;:，、；：")
+    if text and text[-1] not in ".?!。？！…":
+        text += "。" if re.search(r"[\u3040-\u30ff\u4e00-\u9fff]", text) else "."
     return text
 
 

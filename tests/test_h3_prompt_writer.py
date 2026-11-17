@@ -182,6 +182,20 @@ class SplitTests(unittest.TestCase):
     def test_a_quote_can_end_a_sentence(self):
         self.assertEqual(moments('A voiceover says "this is how it ended." She walks away.'), ['A voiceover says "this is how it ended."', "She walks away"])
 
+    def test_an_at_after_a_quote_starts_a_new_moment(self):
+        self.assertEqual(moments('@1 says "Hi." @1 waves and says "Bye."'), ['@1 says "Hi."', '@1 waves and says "Bye."'])
+        self.assertEqual(moments('@1 says "Hi" and @2 says "Bye."'), ['@1 says "Hi"', '@2 says "Bye."'])
+        self.assertEqual(moments('"Hi," she says. @1 laughs.'), ['"Hi," she says', "@1 laughs"])
+
+    def test_every_line_in_a_row_is_spoken(self):
+        def said(script, jobs):
+            return re.findall(r"<d>\[English\] (.*?)</d>", write_prompt(script, seconds=8.0, jobs=jobs))
+
+        self.assertEqual(said('@1 says "Hi!" @2 answers "Hello." @1 says "Bye."', {1: "person", 2: "person"}), ["Hi!", "Hello.", "Bye."])
+        self.assertEqual(said('@1 says "Hi" and @2 says "Bye."', {1: "person", 2: "person"}), ["Hi.", "Bye."])
+        self.assertEqual(said('"Hi," @1 says.', {1: "person"}), ["Hi."])
+        self.assertEqual(said('@1 says "我有冰淇淋。" @1 says "好吗？" @1 says "但是，"', {1: "person"}), ["我有冰淇淋。", "好吗？", "但是。"])
+
     def test_the_timeline_shows_plain_words_for_a_hold(self):
         self.assertEqual(script_report("3s: she jumps", 8)["moments"][0]["text"], "Holds still")
 
@@ -997,6 +1011,30 @@ class VideoJobTests(unittest.TestCase):
         self.assertTrue(parts["summary"].startswith("[video editing + audio reference]"))
         self.assertIn("each word landing exactly on the lip movement of <Video 1>", parts["detailed_description"])
         self.assertIn("Quiet room tone", parts["overall_soundscape"])
+
+    def test_a_swap_keeps_every_line_the_new_person_says(self):
+        script = (
+            "Replace the young man in the black t-shirt with @1.\n"
+            '@1 holds a phone up and says: "How do I get rich?" The phone answers: "Get a job." '
+            '@1 looks up, confused, and says: "Bro, what are they talking about?"'
+        )
+        text = write_prompt(script, seconds=8.0, jobs={1: "person"}, video="swap the person")
+        self.assertEqual(re.findall(r"<d>\[English\] (.*?)</d>", text),
+                         ["How do I get rich?", "Get a job.", "Bro, what are they talking about?"])
+        # With the clip's sound kept, the phone's words come from the clip and only the new person's own lines are written.
+        text = write_prompt(script, seconds=8.0, jobs={1: "person"}, video="swap the person", clip_sound=True)
+        self.assertEqual(re.findall(r"<d>\[English\] (.*?)</d>", text), ["How do I get rich?", "Bro, what are they talking about?"])
+
+    def test_a_looks_line_keeps_only_the_looks(self):
+        script = (
+            "Replace the young man with @1.\n"
+            "@1 looks like a cartoon wooden log, no clothes. The trees behind @1 stay the same."
+        )
+        parts = parts_of(script, jobs={1: "person"}, video="swap the person")
+        self.assertIn("this appearance: a cartoon wooden log, no clothes. The background", parts["subject_definitions"])
+        self.assertNotIn("trees", parts["subject_definitions"])
+        for name, part in parts.items():
+            self.assertNotRegex(part, r"@\d", name)
 
     def test_a_video_needs_words_unless_it_can_go_without(self):
         with self.assertRaises(ValueError):
