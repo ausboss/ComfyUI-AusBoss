@@ -19,6 +19,19 @@ All notable changes to ComfyUI-AusBoss are documented here.
   whole patch with the opposite colour. Outpaints, blend in and Tone match 0
   are unchanged.
 
+- **Copy a crop node's picture without its handles.** Right-click the picture
+  on Image Crop + Rotate + Pad and choose Copy image. By default it copies
+  the original picture. To include crop, rotation, padding and resize, turn
+  on Copy with crop, rotation and padding in the gear menu. Editing controls
+  and guides are never copied. Open image provides a clean
+  picture to copy with the browser on plain HTTP addresses too.
+
+- **H3 Prompt Writer: a swap reads the new person's looks however you type
+  them.** `@1 looks like ...` on the same line as the swap sentence, and
+  clothes on a line of their own (`@1 is wearing a black suit.`), were
+  left out of the prompt without a word, and the clip often came back
+  unchanged. Both are now used.
+
 - **H3 Prompt Writer no longer drops lines.** When one line held two
   people talking, like `The phone says: "Get a job." @1 looks up and says:
   "What?"`, only the first words reached the prompt. Each quote is its own
