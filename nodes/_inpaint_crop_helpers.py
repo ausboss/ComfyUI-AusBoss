@@ -796,7 +796,7 @@ def apply_stitch(
         if bbox is None:
             # An inpaint has no source rectangle to read a seam across. Its
             # drift is read just inside the painted area, where it holds.
-            inner, held = inner_tone_offset(patch, region, alpha)
+            inner, held = inner_tone_offset(patch, region, alpha, came_back)
             field = torch.where(held.view(-1, 1, 1, 1), inner.view(-1, 1, 1, 3).expand_as(field), field)
         # Weighted by the blend: a fully generated pixel drifted by the whole
         # field, a band pixel the sampler mixed at alpha drifted by alpha of
@@ -867,8 +867,16 @@ INNER_MIN_PIXELS = 64
 INNER_MAX_SHIFT = 20.0
 
 
+def _area_resize(image: torch.Tensor, width: int, height: int) -> torch.Tensor:
+    """Shrink [B, H, W, C] by averaging the pixels each new one covers."""
+    return functional.interpolate(image.movedim(-1, 1), size=(height, width), mode="area").movedim(1, -1)
+
+
 def inner_tone_offset(
-    inpainted: torch.Tensor, canvas: torch.Tensor, blend: torch.Tensor
+    inpainted: torch.Tensor,
+    canvas: torch.Tensor,
+    blend: torch.Tensor,
+    sampled: tuple[int, int] | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Per-frame LAB drift of an inpaint, read inside the painted area.
 
@@ -884,9 +892,21 @@ def inner_tone_offset(
     offsets [B, 3] and which frames hold [B]: a frame whose rim mostly
     disagrees, changed by more than INNER_MAX_SHIFT, or is too small is
     new content rather than drift, and the caller keeps the band reading.
+
+    ``sampled`` is the (width, height) the model worked at. A crop from a
+    large picture is pasted back several times that size, and a rim measured
+    in pasted pixels would be a sliver at the very edge of what the model
+    painted, where it drifts least. The reading is taken at the model's
+    size instead, which also keeps its cost the same for any picture.
     """
     from ._color_helpers import rgb_to_lab
 
+    if sampled is not None:
+        width, height = int(sampled[0]), int(sampled[1])
+        if 0 < width < inpainted.shape[2] and 0 < height < inpainted.shape[1]:
+            inpainted = _area_resize(inpainted, width, height)
+            canvas = _area_resize(canvas, width, height)
+            blend = _area_resize(blend.unsqueeze(-1), width, height).squeeze(-1)
     diff = rgb_to_lab(inpainted[..., :3]) - rgb_to_lab(canvas[..., :3])
     frames = diff.shape[0]
     whole = (blend > 0.999).to(diff.dtype)
@@ -894,7 +914,11 @@ def inner_tone_offset(
     # A pixel is deeper than the rim when nothing within INNER_RIM_PX of it
     # is outside the whole paste. The crop's own border does not count as
     # outside: the painted area simply runs off the crop there.
-    deep = 1.0 - functional.max_pool2d((1.0 - whole).unsqueeze(1), size, stride=1, padding=INNER_RIM_PX).squeeze(1)
+    # One pass along each axis: the same square reach at a fraction of the cost.
+    outside = (1.0 - whole).unsqueeze(1)
+    outside = functional.max_pool2d(outside, (1, size), stride=1, padding=(0, INNER_RIM_PX))
+    outside = functional.max_pool2d(outside, (size, 1), stride=1, padding=(INNER_RIM_PX, 0))
+    deep = 1.0 - outside.squeeze(1)
     rim = (whole > 0) & (deep < 0.5)
     rim = torch.where(rim.flatten(1).any(dim=1).view(-1, 1, 1), rim, whole > 0)
     if rim.shape[0] != frames:

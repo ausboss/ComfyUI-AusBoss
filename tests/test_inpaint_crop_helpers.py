@@ -1229,6 +1229,23 @@ class ToneMatchInpaintTests(unittest.TestCase):
         # Nothing to undo; what is left is the colour-space round trip.
         self.assertLess(float((stitched - image).abs().max()), 0.5 / 255)
 
+    def test_a_large_picture_is_read_at_the_size_the_model_painted(self):
+        _image, patch, stitcher, _inside = self._case(lambda crop: crop * 0.85 + 0.11)
+        cx, cy, cw, ch = stitcher["crop_to_canvas"]
+        canvas = stitcher["canvas"][:, cy : cy + ch, cx : cx + cw]
+        blend = stitcher["blend"][:, cy : cy + ch, cx : cx + cw]
+        small, small_held = inpaint_helpers.inner_tone_offset(patch, canvas, blend)
+
+        def grow(image):
+            return torch.nn.functional.interpolate(image.movedim(-1, 1), scale_factor=4, mode="bilinear").movedim(1, -1)
+
+        big, big_held = inpaint_helpers.inner_tone_offset(
+            grow(patch), grow(canvas), grow(blend.unsqueeze(-1)).squeeze(-1), sampled=(cw, ch)
+        )
+        self.assertTrue(bool(small_held[0]) and bool(big_held[0]))
+        # Pasted back four times larger, the reading is the same one.
+        self.assertLess(float((big - small).norm()), 0.3)
+
 
 class ToneMatchTests(unittest.TestCase):
     """color_match: the drift is read off the feathered band and undone."""

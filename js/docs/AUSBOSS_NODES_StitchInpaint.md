@@ -160,7 +160,8 @@ sampler painted. Source pixels stay bit-identical.
 A Crop For Inpaint crop has no source rectangle, so it gets one shift for
 the whole painted area. That shift is read inside the painted area, in the
 32 pixels next to its edge: the same pixels before and after, taking the
-middle value. Most inpaint workflows let the model paint a little wider
+middle value. Those 32 pixels are counted at the size the model painted, so
+a large picture is read the same way and takes no longer. Most inpaint workflows let the model paint a little wider
 than the paste, so the soft edge itself comes back close to your picture
 and shows only a fraction of the drift. When the painted area holds
 something new (less than half of that rim agrees, or the change is larger

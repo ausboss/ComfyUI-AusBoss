@@ -10,7 +10,7 @@ All notable changes to ComfyUI-AusBoss are documented here.
   a little wider than that edge, so the edge came back close to your picture
   and the slider hardly did anything: in a test on skin it took off a
   third of the shift at 1. It is now read just inside the painted area and
-  takes off about 80% there. A workflow that already had Tone match on for
+  takes off more than half, on a picture of any size. A workflow that already had Tone match on for
   an inpaint gives a slightly different picture, closer to the original's
   colour. When the painted area holds something new, such as a jacket over
   skin, it is left as painted. Outpaints, blend in and Tone match 0 are
