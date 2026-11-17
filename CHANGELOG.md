@@ -4,6 +4,21 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Tone match now works on inpaints.** On a Crop For Inpaint 🆎 crop,
+  Stitch Inpaint 🆎 read the colour shift in the soft edge around the
+  painted area. Workflows such as Krea 2 Inpaint Masked let the model paint
+  a little wider than that edge, so the edge came back close to your picture
+  and the slider hardly did anything: in a test on skin it took off a
+  third of the shift at 1. It is now read just inside the painted area and
+  takes off more than half, on a picture of any size. A workflow that already had Tone match on for
+  an inpaint gives a slightly different picture, closer to the original's
+  colour. When the painted area holds something new, it is matched to your
+  picture right beside it where the two look alike, such as new skin where
+  a shirt was. Something different from what is beside it, such as a
+  swimsuit over skin, is left as painted; before, Tone match could tint the
+  whole patch with the opposite colour. Outpaints, blend in and Tone match 0
+  are unchanged.
+
 - **Copy a crop node's picture without its handles.** Right-click the picture
   on Image Crop + Rotate + Pad and choose Copy image. By default it copies
   the original picture. To include crop, rotation, padding and resize, turn

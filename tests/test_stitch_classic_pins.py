@@ -9,6 +9,13 @@ image and blend_mask with the output the 2.3.0 code gave.
 The legacy inpaint crop keeps its original geometry here; its expected
 mask is limited to the paste window. Crop sizing is tested separately.
 
+A Crop For Inpaint crop with Tone match on is the one case no longer held to
+2.3.0: that release read the drift in the soft edge, which read a fraction of
+it when the workflow samples with a wider noise mask, so Tone match hardly
+did anything (issue #361). It is read inside the painted area now, and
+ToneMatchInpaintTests in test_inpaint_crop_helpers.py holds that. Its Tone
+match 0 stitch and its blend mask stay pinned.
+
 Blend in with Tone match at 0 is pinned the same way, to the 2.4.0 code:
 the published Qwen Image 2.1 Rotate + Outpaint workflow stitches that way.
 
@@ -76,6 +83,11 @@ PINS = {
     ("video clip, fewer frames back", 0.5): ("cc3cca3802b9c1566307", "b195c4ca7df23a9ee768"),
     ("video clip, fewer frames back", 1.0): ("2fe152cce6686d78d3ba", "b195c4ca7df23a9ee768"),
 }
+
+
+# Tone match on an inpaint crop is read inside the painted area since issue
+# #361, so these two no longer give the 2.3.0 picture. See the docstring.
+REREAD = {("crop for inpaint", 0.5), ("crop for inpaint", 1.0)}
 
 
 def picture(width: int, height: int, seed: int) -> Image.Image:
@@ -207,7 +219,8 @@ class ClassicSeamPinTests(unittest.TestCase):
                 with self.subTest(case=name, color_match=strength):
                     stitcher, patch_image = build()
                     image, blend_mask = stitch(stitcher, patch_image, strength)
-                    assert_released_image(image, reference_image(name, strength))
+                    if (name, strength) not in REREAD:
+                        assert_released_image(image, reference_image(name, strength))
                     expected_mask = reference_mask(name)
                     if name == "crop for inpaint":
                         cx, cy, cw, ch = stitcher["crop_to_canvas"]
