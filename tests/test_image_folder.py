@@ -381,9 +381,13 @@ class RouteTests(FolderCase):
                              ("thumb", {"name": "loop/picture.png"})]:
             with self.subTest(route=route):
                 response = self.request(route, **query)
-                # A looped link is a bad folder to the lists and just no
-                # picture to the thumbnail; neither answer names the path.
-                self.assertEqual(response.status, 404 if route == "thumb" else 400)
+                # A looped link is a bad folder to the lists. The thumbnail
+                # answers 400 or 404 depending on whether this Python's
+                # resolve() raises on the loop; neither answer names the path.
+                if route == "thumb":
+                    self.assertIn(response.status, (400, 404))
+                else:
+                    self.assertEqual(response.status, 400)
                 self.assertNotIn(str(self.root), json.loads(response.text)["error"])
 
     def test_thumbnail_versions_change_with_subsecond_rewrites_and_size(self):
