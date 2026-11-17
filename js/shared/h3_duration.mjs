@@ -50,6 +50,6 @@ export function clipLengthWords(timing) {
 
 // Keep in step with Python KEEPS_ITS_LENGTH. Other jobs use seconds normally.
 export function clipSetsDuration(node, values) {
-  return ["swap the person", "new voice", "change something"].includes(values.video_job)
+  return ["copy its moves", "swap the person", "new voice", "change something"].includes(values.video_job)
     && linkSource(node, "video") !== null;
 }
