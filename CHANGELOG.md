@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.26.3 - 2026-11-17
 
 - **An AI agent can now learn the video workflows from the repository.**
   `npx skills add ausboss/ComfyUI-AusBoss` gives your agent a skill for the
