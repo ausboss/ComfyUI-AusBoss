@@ -889,9 +889,11 @@ def inner_tone_offset(
     This reads the same pixels before and after in the rim of the fully
     pasted area (``blend`` > 0.999, INNER_RIM_PX deep): the median change,
     then the median again over the pixels that agree with it. Returns the
-    offsets [B, 3] and which frames hold [B]: a frame whose rim mostly
-    disagrees, changed by more than INNER_MAX_SHIFT, or is too small is
-    new content rather than drift, and the caller keeps the band reading.
+    offsets [B, 3] and which frames hold [B]. A frame whose rim mostly
+    disagrees, or changed by more than INNER_MAX_SHIFT, is new content
+    rather than drift: it holds with a zero offset, so it is left as
+    painted. Only a rim too small to judge does not hold, and the caller
+    keeps the band reading for it.
 
     ``sampled`` is the (width, height) the model worked at. A crop from a
     large picture is pasted back several times that size, and a rim measured
@@ -933,6 +935,11 @@ def inner_tone_offset(
         changes = diff[index][rim[index]]
         if changes.shape[0] < INNER_MIN_PIXELS:
             continue
+        # From here the rim is large enough to judge, so this reading stands
+        # and the band is not asked. New content keeps a zero shift: the band
+        # of a repainted edge reads the new colour itself as drift (a yellow
+        # swimsuit over skin turned the whole patch blue).
+        held[index] = True
         middle = changes.median(dim=0).values
         agree = (changes - middle).norm(dim=-1) < INNER_SAME_CONTENT
         if float(agree.float().mean()) < INNER_MIN_SHARE:
@@ -941,7 +948,6 @@ def inner_tone_offset(
         if float(offset.norm()) > INNER_MAX_SHIFT:
             continue
         offsets[index] = offset
-        held[index] = True
     return offsets, held
 
 

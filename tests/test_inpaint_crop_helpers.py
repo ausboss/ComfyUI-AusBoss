@@ -1196,16 +1196,31 @@ class ToneMatchInpaintTests(unittest.TestCase):
         self.assertLess(float(band.norm()), 0.5 * float(inner.norm()))
 
     def test_new_content_is_not_pulled_toward_the_old_colour(self):
-        # A black jacket over skin is a change, not a drift: the inside
-        # reading stands down and the stitch is the band's, as before.
+        # A black jacket over skin is a change, not a drift: the reading
+        # holds at zero, so the band is not asked and nothing is shifted.
         image, patch, stitcher, inside = self._case(lambda crop: torch.full_like(crop, 0.05))
         cx, cy, cw, ch = stitcher["crop_to_canvas"]
         region = stitcher["canvas"][:, cy : cy + ch, cx : cx + cw]
         alpha = stitcher["blend"][:, cy : cy + ch, cx : cx + cw]
-        _inner, held = inpaint_helpers.inner_tone_offset(patch, region, alpha)
-        self.assertFalse(bool(held[0]))
+        inner, held = inpaint_helpers.inner_tone_offset(patch, region, alpha)
+        self.assertTrue(bool(held[0]))
+        self.assertEqual(float(inner.abs().max()), 0.0)
         stitched = apply_stitch(stitcher, patch, color_match=1.0)
         self.assertLess(float(stitched[0][inside].mean()), 0.12)
+
+    def test_new_content_painted_to_the_edge_is_left_as_painted(self):
+        # A model with no noise mask repaints the soft edge too. The band
+        # then reads the new colour as drift; Tone match must not act on it.
+        def repaint(crop):
+            return torch.tensor([0.85, 0.7, 0.1]).view(1, 1, 1, 3).expand_as(crop).clone()
+
+        image, _patch, stitcher, _inside = self._case(repaint)
+        cx, cy, cw, ch = stitcher["crop_to_canvas"]
+        crop = stitcher["canvas"][:, cy : cy + ch, cx : cx + cw]
+        patch = repaint(crop)
+        plain = apply_stitch(stitcher, patch, color_match=0.0)
+        matched = apply_stitch(stitcher, patch, color_match=1.0)
+        self.assertLess(float((matched - plain).abs().max()), 1.0 / 255)
 
     def test_a_mixed_rim_is_not_read_as_drift(self):
         # Half the painted area turned into something else: too little of
