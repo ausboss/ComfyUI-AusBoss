@@ -17,15 +17,19 @@ from ._h3_cast_helpers import (
     MAIN,
     OUTFIT,
     PERSON,
+    PERFORMER,
     PLACE,
     REVOICE,
     SHEET,
+    START as START_JOB,
+    END as END_JOB,
     STYLE,
     SWAP,
     SOUND_GOES_ON,
     SOUND_GOES_ON_KEPT,
     THING,
     TOKEN,
+    things_that_perform,
     ONE_GOES,
     SPOTS,
     Cast,
@@ -110,6 +114,30 @@ SOUND_WORDS = 22
 NAMED = {PLACE: "the place", OUTFIT: "the outfit", THING: "the thing"}  # What @2 reads as to the small model.
 
 WORDS_A_SECOND = 3  # How fast H3 speaks.
+# Words that trail off ("I never thought...") keep going: across the next cut, or past the end of the clip.
+TRAILS_OFF = re.compile(r"(?:\.\.\.|\u2026|\u2014|--)\s*$")
+LINE_CARRIES = "<scenetrans> The line from the previous shot continues seamlessly across the cut, and the words are not repeated."
+CUT_OFF = "The line is cut off by the end of the video. <cutoff>"
+
+
+def speech_runs_on(script, seconds):
+    """(carried, cut_off): the moments whose words go on across the next cut, and the last moment's words if the
+    clip ends mid-line. Words carry on when they trail off with "..." or need more time than their shot has."""
+    starts = timeline(script, seconds)
+    ends = [*starts[1:], seconds]
+    carried, cut_off = set(), None
+    for index, moment in enumerate(script.moments):
+        if not moment.speech:
+            continue
+        trails = bool(TRAILS_OFF.search(moment.speech))
+        long = len(moment.speech.split()) / WORDS_A_SECOND > ends[index] - starts[index] + 0.5
+        following = script.moments[index + 1] if index + 1 < len(script.moments) else None
+        if following is not None and following.cut and not script.one_take and (trails or long):
+            carried.add(index)
+        elif following is None and trails:
+            cut_off = index
+    return carried, cut_off
+
 HOLD = f"{MAIN} holds still"  # What fills the time before a first moment set later.
 KEEP_LOOK = "The target video keeps the look, the light and the colours of {picture}."
 KEEP_COLOURS = "The target video keeps the colours and the film grain of {picture}."
@@ -130,6 +158,7 @@ OPENS_ON = "The shot begins from {picture}."
 ENDS_ON = "The shot ends on {picture}."
 ON_SHEET = "{subject} appears once, without the panels, labels or other views of {picture}."
 THE_MOVES = "{main} performs the same moves as {moves}, at the same timing."
+OWN_MOVES = "{main} moves exactly as in <Video 1>, at the same timing."
 IN_THE_PLACE = "The shot takes place in {place}."
 WEARS = "{wearer} wears {outfit}."
 IN_THE_SHOT = "{main} is in the shot."
@@ -142,10 +171,10 @@ SAYS_NOTHING = "{main} keeps the lips closed and says nothing the whole time."
 SPEAKS_AS_VIDEO = "{main} speaks as in <Video 1>, each word landing exactly on the lip movement of <Video 1>."
 CLIP_SOUND = "The original sound of <Video 1> continues throughout."
 FOLLOWS_CAMERA = "The camera follows the movement of <Video 1>."
+REST_AS_VIDEO = "Everything else stays as it is in <Video 1>."
 SAME_AS_VIDEO = "{main} has the same words, mouth movements and moves as in <Video 1>. Everything else stays as it is in <Video 1>."
 CARRIES_ON = "The shot carries straight on from the end of <Video 1>."
 ACTION_GOES_ON = "The action keeps going the way it was heading, and the camera keeps moving the same way."
-FACES_US = "{main} faces the camera as in <Video 1>."
 VIDEO_LOOKS = {
     SWAP: "Retain the look of <Video 1>.",
     KEEP: "The target video keeps the look, colours and camera of <Video 1>.",
@@ -557,12 +586,13 @@ def script_warning(script, seconds, cast=None):
     if any((moment.at or 0.0) >= seconds for moment in script.moments):
         return f"A moment starts after the clip ends, at {seconds:g} seconds."
     starts = timeline(script, seconds)
-    for moment, start, end in zip(script.moments, starts, [*starts[1:], seconds]):
+    carried, cut_off = speech_runs_on(script, seconds)
+    for index, (moment, start, end) in enumerate(zip(script.moments, starts, [*starts[1:], seconds])):
         unseen = UNSEEN.search(without_speech(moment))
         if unseen:
             return f'A camera can\'t see "{unseen.group(0).lower()}". Say what we would see, like "she smiles".'
         takes = len(moment.speech.split()) / WORDS_A_SECOND
-        if takes > end - start + 0.5:
+        if takes > end - start + 0.5 and index not in carried and index != cut_off:
             return f"A spoken line takes about {takes:.0f} seconds to say, and its moment has {end - start:.0f}. Give it more room."
     return ""
 
@@ -585,6 +615,7 @@ def script_report(text, seconds, jobs=None, video=""):
         }
         for moment, start, end in zip(script.moments, starts, ends)
     ]
+    jobs = things_that_perform(text, jobs, video) if jobs is not None else None
     cast = Cast(number_pictures(jobs, video), video) if jobs is not None else None
     return {"moments": moments, "seconds": seconds, "warning": script_warning(script, seconds, cast)}
 
@@ -732,6 +763,8 @@ def before_the_action(number, text, cast, wearers):
                 # or for the whole clip at Fast preview; with it the new
                 # person is there from the first frame. An @1 looks like line only adds its own words.
                 looks = (f"has the defined appearance from {picture_label(picture.picture)}: {appearance}" if appearance
+                         else f"has the shape, colours and drawing style of the character in {picture_label(picture.picture)}"
+                         if picture.job == PERFORMER
                          else f"has the face, hair and clothes of the person in {picture_label(picture.picture)}")
                 notes.append(
                     f"{new} occupies the starting position of {who} and follows the same route, movements, timing and pace. "
@@ -749,8 +782,6 @@ def before_the_action(number, text, cast, wearers):
                 notes.append((OWN_LINES_ONLY if f"{new} (S" in text else SAYS_NOTHING).format(main=new))
     if number == 1 and cast.video == KEEP:
         notes += [CARRIES_ON]
-    if number == 1 and cast.video == REVOICE:
-        notes += [FACES_US.format(main=cast.main)]
     places = [subject_label(picture.subject) for picture in cast.of(PLACE)]
     if places and not any(place in text for place in places):
         notes.append(IN_THE_PLACE.format(place=places[0]))
@@ -760,7 +791,8 @@ def before_the_action(number, text, cast, wearers):
         notes.append(sentence(", ".join(spots[:-1]) + f" and {spots[-1]} of the frame"))
     for slot, wearer in wearers.items():
         outfit = cast.subjects[slot]
-        if outfit not in text and (wearer in people or wearer in text):
+        # An edit has no person picture: the person in the video wears an outfit that no line names.
+        if outfit not in text and (wearer in people or wearer in text or (cast.video == EDIT and wearer == cast.in_video)):
             notes.append(WEARS.format(wearer=wearer, outfit=outfit))
     return notes
 
@@ -768,10 +800,10 @@ def before_the_action(number, text, cast, wearers):
 def after_the_action(text, cast):
     """What H3 needs to hear about a shot once its action has been said."""
     notes = []
-    if cast.moves and cast.main in text:
-        notes.append(THE_MOVES.format(main=cast.main, moves=cast.moves))
+    if cast.moves and cast.video_person and cast.main in text:
+        notes.append(OWN_MOVES.format(main=cast.main) if cast.own_moves else THE_MOVES.format(main=cast.main, moves=cast.moves))
     if cast.video == EDIT:
-        notes.append(SAME_AS_VIDEO.format(main=cast.main))
+        notes.append(SAME_AS_VIDEO.format(main=cast.main) if cast.video_person else REST_AS_VIDEO)
     if cast.video in (SWAP, EDIT):
         notes.append(FOLLOWS_CAMERA)
     for picture in cast.of(SHEET):
@@ -799,6 +831,7 @@ def shot_lines(script, seconds, say, cast, wearers, move="", hold="", sounds=Tru
     talking = speakers(script.moments, cast)
     quiet = " ".join(QUIET.format(speaker=speaker) for speaker in talking if speaker.startswith("<"))
     kept = still_true(script.moments)
+    carried, cut_off = speech_runs_on(script, seconds)
     lines = []
     for number, shot in enumerate(shots_of(script), 1):
         shot_camera = script.moments[shot[0]].camera
@@ -841,8 +874,17 @@ def shot_lines(script, seconds, say, cast, wearers, move="", hold="", sounds=Tru
             *([hold] if number > 1 else []),
             capital(script.moments[first].sound) if script.moments[first].sound and not script.silent else "",
         ]
-        lines.append(f"[Shot {number}] " + " ".join(part for part in body if part))
-    if not any(cast.main in line for line in lines):
+        line = " ".join(part for part in body if part)
+        if shot[0] - 1 in carried:
+            # The speaker is mid-line as the shot opens, so the mouth is not closed here.
+            line = f"{LINE_CARRIES} " + re.sub(r" ?<Subject \d+> stays silent with the lips closed\.", "", line, count=1)
+        if shot[-1] in carried:
+            # The speaker is still talking at the cut, so the mouth does not close here.
+            line = re.sub(r" <Subject \d+> closes the lips\.", "", line) + " <scenetrans>"
+        if shot[-1] == cut_off:
+            line = re.sub(r" <Subject \d+> closes the lips\.", "", line) + f" {CUT_OFF}"
+        lines.append(f"[Shot {number}] " + line)
+    if cast.video_person and cast.main_in_shot and not any(cast.main in line for line in lines):
         lines[0] = lines[0].replace("[Shot 1] ", f"[Shot 1] {IN_THE_SHOT.format(main=cast.main)} ", 1)
     return lines
 
@@ -881,16 +923,19 @@ def summary_of(script, cast, new_places, soundtrack):
         return f"[{task}] {changes} Everything else in <Video 1> is kept."
     if cast.video == KEEP:
         tag = f"{task} + audio reference" if soundtrack else task
-        return f"[{tag}] The target video continues directly from the end of <Video 1> in the same place."
-    opening = with_labels(without_speech(script.moments[0]), cast) or f"{cast.main} speaks"
+        where = "" if cast.of(PLACE) else " in the same place"
+        return f"[{tag}] The target video continues directly from the end of <Video 1>{where}."
+    talking = [who for who in speakers(script.moments, cast) if who.startswith("<")]
+    who_speaks = f"{' and '.join(talking)} speak" if len(talking) > 1 else f"{cast.main} speaks"
+    opening = with_labels(without_speech(script.moments[0]), cast) or who_speaks
     later = [with_labels(without_speech(script.moments[shot[0]]), cast) for shot in shots_of(script)[1:]]
     if cast.opens and cast.ends:
         moving = f"moving from {picture_label(cast.opens.picture)} to {picture_label(cast.ends.picture)}"
         return f"[{task}] In the target video, {lower_first(opening.rstrip('.!? '))}, {moving}."
     summary = f"[{task}] In the target video, {lower_first(sentence(opening))}"
     summary += "".join(f" {AND_THEN.format(line=lower_first(sentence(line)))}" for line in later if line)
-    if cast.moves:
-        summary += " " + THE_MOVES.format(main=cast.main, moves=cast.moves)
+    if cast.moves and cast.video_person:
+        summary += " " + (OWN_MOVES.format(main=cast.main) if cast.own_moves else THE_MOVES.format(main=cast.main, moves=cast.moves))
     return f"{summary} {EVERY_PLACE}" if new_places else summary
 
 
@@ -916,14 +961,15 @@ def script_parts(script, seconds, camera="", look="", sound="", say=None, cast=N
     cuts = [script.moments[shot[0]] for shot in shots_of(script)[1:]]
     moved = any(not FRAME_WORDS.match(without_speech(moment)) for moment in cuts)
     new_places = last > 1 and not cast.of(PLACE) and moved and all(not FRAME_WORDS.match(without_speech(moment)) for moment in cuts)
-    first = next(iter(cast.of(PLACE) or cast.pictures), None)
-    if not style and cast.video == EDIT:
+    # Only a place, a start frame or a person sets the look; an outfit, a thing or a style never does.
+    first = next(iter(cast.of(PLACE) or cast.of(START_JOB) or cast.of(PERSON, SHEET, PERFORMER, END_JOB)), None)
+    if not style and cast.video == EDIT and not cast.of(PLACE):
         style = VIDEO_LOOKS[EDIT]
     if not style and len(cast.of(PLACE)) > 1:
         style = OWN_COLOURS
-    elif not style and not (first and first.job == THING):
+    elif not style and (first or cast.video in VIDEO_LOOKS):
         words = KEEP_LOOK if cast.opens else KEEP_COLOURS
-        style = VIDEO_LOOKS.get(cast.video) or words.format(picture=picture_label(first.picture if first else 1))
+        style = (cast.video != EDIT and VIDEO_LOOKS.get(cast.video)) or words.format(picture=picture_label(first.picture if first else 1))
     takes = [EVERY_PLACE] if new_places else []
     if last == 1 and (len(script.moments) > 1 or cast.moves or script.one_take):
         takes = [ONE_SHOT]
@@ -947,7 +993,7 @@ def script_parts(script, seconds, camera="", look="", sound="", say=None, cast=N
         "subject_definitions": subjects,
         "summary": summary_of(script, cast, new_places, soundtrack),
         "retention_analysis": kept,
-        "detailed_description": "\n".join([" ".join(part for part in (style, move, *takes) if part), *lines]),
+        "detailed_description": "\n".join([*[" ".join(part for part in (style, move, *takes) if part)] * bool(style or move or takes), *lines]),
         "overall_soundscape": ambience,
         "non_diegetic_music": tune,
     }

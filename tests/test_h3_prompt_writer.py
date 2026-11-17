@@ -643,7 +643,7 @@ class VideoJobTests(unittest.TestCase):
         for job in ("outfit", "thing"):
             text = write_prompt("He wears @1 in place of his blue cap.", seconds=8.0, jobs={1: job}, video="change something")
             self.assertIn("<Subject 2> is the person in <Video 1>, kept as they are", text)
-            self.assertIn("[video editing] <Subject 2> wears <Subject 1> in place of his blue cap. Everything else in <Video 1> is kept.", text)
+            self.assertIn("[video editing + audio reuse] <Subject 2> wears <Subject 1> in place of his blue cap. Everything else in <Video 1> is kept.", text)
             self.assertIn("Retain the look of <Video 1>.", text)
             self.assertIn("<Subject 2> has the same words, mouth movements and moves as in <Video 1>.", text)
             self.assertIn("The original sound of <Video 1> continues throughout.", text)
@@ -659,7 +659,7 @@ class VideoJobTests(unittest.TestCase):
             self.assertIn("put only this outfit on <Subject 2>", text)
             self.assertNotIn("<Subject 1> is the person in <Picture 1>", text)
         text = write_prompt("He wears the propeller hat instead of his cap.", seconds=8.0, jobs={1: "person"}, video="change something")
-        self.assertIn("[video editing] <Subject 2> wears <Subject 1> instead of his cap.", text)
+        self.assertIn("[video editing + audio reuse] <Subject 2> wears <Subject 1> instead of his cap.", text)
 
     def test_change_something_keeps_a_person_picture_that_is_not_put_on(self):
         self.assertEqual(put_on_from_pictures("@1 stands next to him.", {1: "person"}), ("@1 stands next to him.", {1: "person"}))
@@ -696,9 +696,8 @@ class VideoJobTests(unittest.TestCase):
 
     def test_a_hat_with_no_person_picture_points_to_change_something(self):
         for job in ("outfit", "thing"):
-            for video in ("swap the person", "copy its moves"):
-                cast = Cast(number_pictures({1: job}, video), video)
-                self.assertIn('pick the video job "change something"', cast.problem("He wears @1."))
+            cast = Cast(number_pictures({1: job}, "swap the person"), "swap the person")
+            self.assertIn('pick the video job "change something"', cast.problem("He wears @1."))
 
     def test_copying_moves_keeps_the_performer_out(self):
         parts = parts_of("@1 dances on a rooftop.", jobs={1: "person"}, video="copy its moves")
@@ -710,11 +709,62 @@ class VideoJobTests(unittest.TestCase):
 
     def test_the_timeline_says_so_when_nothing_is_connected(self):
         self.assertIn("Connect a picture or a video", script_report("She runs.", 6, {})["warning"])
-        self.assertIn("To copy the moves", script_report("She runs.", 6, {}, "copy its moves")["warning"])
+        self.assertEqual(script_report("She runs.", 6, {}, "copy its moves")["warning"], "")
 
-    def test_copying_moves_with_nobody_to_give_them_to_says_so(self):
+    def test_copying_moves_with_no_person_picture_keeps_the_person_in_the_video(self):
         cast = Cast(number_pictures({1: "place"}, "copy its moves"), "copy its moves")
-        self.assertIn("To copy the moves", cast.problem("She dances."))
+        self.assertEqual(cast.problem("She dances in @1."), "")
+        parts = parts_of("She dances in @1.", jobs={1: "place"}, video="copy its moves")
+        self.assertIn("<Subject 2> is the person in <Video 1>, with the same face, hair, body and clothes", parts["subject_definitions"])
+        self.assertIn("the background of <Video 1> is not kept, and the place is <Subject 1>", parts["retention_analysis"])
+        self.assertIn("<Subject 2> dances in <Subject 1>. <Subject 2> moves exactly as in <Video 1>", parts["detailed_description"])
+        self.assertNotIn("performs the same moves as", parts["detailed_description"])
+
+    def test_restyling_an_empty_clip_names_no_person_and_drops_the_look(self):
+        parts = parts_of("It looks real, like @1.", jobs={1: "style"}, video="change something")
+        self.assertIn("<Video 1> supplies the place, the action, the timing, the camera movement and the sound.", parts["subject_definitions"])
+        self.assertNotIn("the person in <Video 1>", parts["subject_definitions"])
+        self.assertNotIn("the look", parts["retention_analysis"])
+        self.assertNotIn("Retain the look of <Video 1>", parts["detailed_description"])
+
+    def test_an_edit_with_a_place_picture_takes_the_place_and_look_from_it(self):
+        parts = parts_of("The hallway looks like @1.", jobs={1: "place"}, video="change something")
+        self.assertIn("<Video 1> supplies the action, the timing, the camera movement and the sound.", parts["subject_definitions"])
+        self.assertIn("the colours and the film grain of <Picture 1>", parts["detailed_description"])
+        self.assertNotIn("is in the shot", parts["detailed_description"])
+
+    def test_an_edit_about_someone_still_keeps_them(self):
+        parts = parts_of("She looks real, like @1.", jobs={1: "style"}, video="change something")
+        self.assertIn("is the person in <Video 1>, kept as they are", parts["subject_definitions"])
+        self.assertIn("the person", parts["subject_definitions"].splitlines()[0])
+
+    def test_copying_only_a_camera_move_names_no_person(self):
+        parts = parts_of("The camera glides down @1.", jobs={1: "place"}, video="copy its moves")
+        self.assertNotIn("the person in <Video 1>", parts["subject_definitions"])
+        self.assertIn("apply only its camera movement", parts["retention_analysis"])
+        self.assertNotIn("moves exactly as in", parts["detailed_description"])
+
+    def test_a_thing_that_does_the_action_takes_the_moves(self):
+        parts = parts_of("@1 waves its finger.", jobs={1: "thing"}, video="copy its moves")
+        self.assertIn("<Subject 1> is the character in <Picture 1>, with the same shape, colours and drawing style.", parts["subject_definitions"])
+        self.assertIn("apply only the body motion, choreography and timing to <Subject 1>", parts["retention_analysis"])
+        self.assertIn("<Subject 1> performs the same moves as <Subject 2>", parts["detailed_description"])
+
+    def test_a_thing_can_come_in_for_the_one_in_a_swap(self):
+        parts = parts_of("@1 replaces the yellow hand.", jobs={1: "thing"}, video="swap the person")
+        self.assertIn("<Subject 1> is the yellow hand in <Video 1>, selected for replacement.", parts["subject_definitions"])
+        self.assertIn("has the shape, colours and drawing style of the character in <Picture 1>", parts["detailed_description"])
+        self.assertEqual(script_report("", 6, {1: "thing"}, "swap the person")["warning"], "")
+
+    def test_a_held_thing_stays_a_prop(self):
+        parts = parts_of("He holds @1 and dances.", jobs={1: "thing"}, video="copy its moves")
+        self.assertIn("<Subject 1> is the object in <Picture 1>", parts["subject_definitions"])
+        self.assertIn("<Subject 2> moves exactly as in <Video 1>", parts["detailed_description"])
+
+    def test_copying_moves_with_only_an_outfit_dresses_the_person_in_the_video(self):
+        parts = parts_of("He wears @1.", jobs={1: "outfit"}, video="copy its moves")
+        self.assertIn("the clothes change to <Subject 1>", parts["retention_analysis"])
+        self.assertIn("keep its place unless the script names a new one", parts["retention_analysis"])
 
     def test_a_swap_with_nobody_to_put_in_says_so(self):
         with self.assertRaisesRegex(ValueError, "new person"):
@@ -1519,6 +1569,111 @@ class ClipSoundTests(unittest.TestCase):
         self.assertNotIn("says nothing", hat)
         moves = node.write('@1 dances.', 6, picture_1=PICTURE, video=frames, video_sound=sound, video_job="copy its moves", clip_sound=True)
         self.assertEqual(moves[0], node.write('@1 dances.', 6, picture_1=PICTURE, video=frames, video_sound=sound, video_job="copy its moves")[0])
+
+
+class PromptBugBatchTests(unittest.TestCase):
+    def test_a_swap_action_line_does_not_name_who_goes(self):
+        for script in ("@1 dances.", "He dances."):
+            text = write_prompt(script, seconds=6, jobs={1: "person"}, video="swap the person")
+            self.assertIn("<Subject 1> is the original person in <Video 1>, selected for replacement.", text)
+            self.assertNotIn("dances", text)
+
+    def test_two_people_need_a_named_speaker(self):
+        jobs = {1: "person", 2: "person"}
+        with self.assertRaisesRegex(ValueError, r"name who speaks: @2 says"):
+            write_prompt('@1 and @2 talk. She says "hi". He says "hello".', seconds=6, jobs=jobs)
+        parts = parts_of('@1 says "hi". @2 says "hello".', seconds=6, jobs=jobs)
+        self.assertIn("<Subject 1> and <Subject 2> speak", parts["summary"])
+
+    def test_keep_going_uses_the_person_picture_as_the_main_person(self):
+        parts = parts_of("He walks.", seconds=6, jobs={1: "person"}, video="keep going")
+        text = join_sections(parts)
+        self.assertNotIn("<Subject 2>", text)
+        self.assertNotIn("main subject in <Video 1>", text)
+        self.assertIn("<Subject 1> walks", parts["detailed_description"])
+        placed = parts_of("He walks in @2.", seconds=6, jobs={1: "person", 2: "place"}, video="keep going")
+        self.assertNotIn("same place", join_sections(placed))
+        empty = parts_of("The room is empty.", seconds=6, jobs={}, video="keep going")
+        self.assertNotIn("is in the shot", join_sections(empty))
+        self.assertNotIn("main subject", join_sections(empty))
+
+    def test_an_outfit_with_no_person_goes_on_the_person_in_the_shot(self):
+        parts = parts_of("He wears @1.", seconds=6, jobs={1: "outfit"})
+        self.assertIn("put only this outfit on the person in the shot", parts["retention_analysis"])
+        self.assertNotIn("on <Subject 1>", parts["retention_analysis"])
+
+    def test_in_the_shot_is_only_for_defined_people_and_things(self):
+        for jobs in ({1: "style"}, {1: "end on it"}, {1: "outfit"}):
+            self.assertNotIn("is in the shot", write_prompt("A calm lake.", seconds=6, jobs=jobs), jobs)
+        self.assertIn("<Subject 1> is in the shot", write_prompt("A calm lake.", seconds=6, jobs={1: "thing"}))
+
+    def test_new_voice_keeps_the_clips_person(self):
+        with self.assertRaisesRegex(ValueError, "swap the person"):
+            write_prompt('She says "hi".', seconds=6, jobs={1: "person"}, video="new voice")
+        text = write_prompt('She says "hi".', seconds=6, jobs={}, video="new voice")
+        self.assertNotIn("faces the camera", text)
+
+    def test_he_or_she_binds_the_only_person_picture(self):
+        parts = parts_of("She walks in @2.", seconds=6, jobs={1: "person", 2: "place"})
+        self.assertIn("<Subject 1> walks in <Subject 2>", parts["detailed_description"])
+        with self.assertRaisesRegex(ValueError, "no line names @1"):
+            write_prompt("A dog sits in @2.", seconds=6, jobs={1: "person", 2: "place"})
+
+    def test_a_swap_with_a_thing_or_place_gets_its_own_advice(self):
+        with self.assertRaisesRegex(ValueError, "He holds @1"):
+            write_prompt("He holds @1.", seconds=6, jobs={1: "thing"}, video="swap the person")
+        with self.assertRaisesRegex(ValueError, "keeps the place"):
+            write_prompt("He dances.", seconds=6, jobs={1: "place"}, video="swap the person")
+
+    def test_the_task_tag_adds_audio_reuse_when_the_clips_sound_stays(self):
+        edit = parts_of("She wears a red coat.", seconds=6, jobs={}, video="change something")["summary"]
+        self.assertTrue(edit.startswith("[video editing + audio reuse]"))
+        kept = parts_of("", seconds=6, jobs={1: "person"}, video="swap the person", clip_sound=True)["summary"]
+        self.assertTrue(kept.startswith("[video editing + audio reuse]"))
+        plain = parts_of("", seconds=6, jobs={1: "person"}, video="swap the person")["summary"]
+        self.assertNotIn("audio reuse", plain)
+
+    def test_only_a_place_or_start_picture_sets_the_look(self):
+        for job in ("outfit", "thing"):
+            self.assertNotIn("film grain", write_prompt("He wears @1.", seconds=6, jobs={1: job}), job)
+        self.assertIn("film grain of <Picture 1>", write_prompt("He sits in @1.", seconds=6, jobs={1: "place"}))
+
+    def test_change_something_puts_an_unnamed_outfit_on_the_video_person(self):
+        parts = parts_of("Add a hat.", seconds=6, jobs={1: "outfit"}, video="change something")
+        self.assertIn("<Subject 2> wears <Subject 1>.", parts["detailed_description"])
+
+
+
+class SpeechAcrossCutTests(unittest.TestCase):
+    CARRIED = 'She looks out the window. She says "I never thought this would happen..."\n\nA close-up of the road ahead.'
+
+    def test_a_trailing_line_carries_across_the_cut(self):
+        first, second = shots(self.CARRIED, seconds=8)
+        self.assertTrue(first.endswith("<scenetrans>"))
+        self.assertNotIn("closes the lips", first)
+        self.assertIn("<scenetrans> The line from the previous shot continues", second)
+        self.assertNotIn("stays silent", second)
+        self.assertNotIn("<Video 1>", second)
+        self.assertEqual(write_prompt(self.CARRIED, seconds=8).count("I never thought"), 1)
+
+    def test_a_trailing_last_line_is_cut_off(self):
+        (only,) = shots('She says "Wait, I was going to tell you that..."', seconds=4)
+        self.assertTrue(only.endswith("<cutoff>"))
+        self.assertNotIn("closes the lips", only)
+
+    def test_a_carried_line_is_not_warned_about(self):
+        long = 'She says "this is a very long line that would never fit inside two short seconds of video"\n\nA close-up of the road.'
+        self.assertEqual(script_warning(read_script(long), 4), "")
+        self.assertIn("<scenetrans>", write_prompt(long, seconds=4))
+
+    def test_plain_lines_carry_nothing(self):
+        text = write_prompt('She says "hello."\n\nHe waves back.', seconds=6)
+        self.assertNotIn("<scenetrans>", text)
+        self.assertNotIn("<cutoff>", text)
+
+    def test_four_seconds_is_allowed(self):
+        seconds = AusBossH3PromptWriter.INPUT_TYPES()["optional"].get("seconds") or AusBossH3PromptWriter.INPUT_TYPES()["required"]["seconds"]
+        self.assertEqual(seconds[1]["min"], 4)
 
 
 if __name__ == "__main__":
