@@ -24,6 +24,10 @@ SECURITY.md
 .claude/
 /docs/
 
+# the skill an AI agent installs from the repository (npx skills add);
+# nothing in the pack loads it
+/skills/
+
 # README media: GitHub shows it on the repository page, nothing in the
 # pack loads it
 /assets/
