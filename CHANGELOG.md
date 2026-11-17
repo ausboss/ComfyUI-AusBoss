@@ -10,6 +10,47 @@ All notable changes to ComfyUI-AusBoss are documented here.
   left out of the prompt without a word, and the clip often came back
   unchanged. Both are now used.
 
+- **H3 Prompt Writer no longer drops lines.** When one line held two
+  people talking, like `The phone says: "Get a job." @1 looks up and says:
+  "What?"`, only the first words reached the prompt. Each quote is its own
+  moment now. A swap's `@1 looks like` line also keeps only the looks: a
+  sentence after it that names an `@` again, like `The trees behind @1 stay
+  the same.`, is read as its own line instead of going into the description
+  with a raw `@1`. `"Hi," she says` is spoken as "Hi." instead of "Hi,.",
+  and a Chinese or Japanese line keeps its own full stop: "。", not "。.".
+
+- **H3 Prompt Writer can carry a line across a cut.** End the words with
+  `...` and the person keeps talking into the next shot, without saying the
+  words twice. On the last line, `...` lets the clip end mid-sentence. A line
+  too long for its shot carries on the same way instead of a warning.
+
+- **H3 Prompt Writer makes 4-second clips.** The shortest length went from
+  5 to 4 seconds.
+
+- **H3 Prompt Writer can put the person from your video somewhere new.** With
+  Copy its moves and no person picture, the person in the video keeps their
+  own look and moves. Give a picture the job place and type `He dances in @1.`
+  Before, the node asked for a person picture and stopped. Copy its moves
+  also takes its length from the video now, like Swap, Change something and
+  New voice.
+
+- **H3 Prompt Writer can restyle a video from a picture.** With Change
+  something and a style or place picture, the look comes from the picture
+  instead of the video. Type `It looks like @1.` A clip with nobody in it,
+  like an empty hallway, no longer gets a made-up person in its prompt.
+
+- **H3 Prompt Writer can make a thing do the moves.** With Copy its moves or
+  Swap the person and no person picture, a thing picture your lines make do
+  the action (a cartoon hand, a toy) takes the moves in its own look. A thing
+  that is held or worn stays a prop.
+
+- **H3 Prompt Writer's job lists take a click again.** Picking a job from a
+  chip's list closed the list without changing the job.
+
+- **H3 Prompt Writer's job lists match the node.** The pick list on each
+  picture and on the video opens under its chip in the node's own colours
+  and grows with the zoom. Before, it was the browser's small plain list.
+
 - **An AI agent can now learn the video workflows from the repository.**
   `npx skills add ausboss/ComfyUI-AusBoss` gives your agent a skill for the
   MiniMax H3 Pika Person Swap and Pika Remix workflows: how to write the
