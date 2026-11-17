@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.26.3 - 2026-11-17
 
 - **Tone match now works on inpaints.** On a Crop For Inpaint 🆎 crop,
   Stitch Inpaint 🆎 read the colour shift in the soft edge around the
