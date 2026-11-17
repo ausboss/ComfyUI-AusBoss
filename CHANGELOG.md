@@ -11,6 +11,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   and guides are never copied. Open image provides a clean
   picture to copy with the browser on plain HTTP addresses too.
 
+- **H3 Prompt Writer: a swap reads the new person's looks however you type
+  them.** `@1 looks like ...` on the same line as the swap sentence, and
+  clothes on a line of their own (`@1 is wearing a black suit.`), were
+  left out of the prompt without a word, and the clip often came back
+  unchanged. Both are now used.
+
 - **H3 Prompt Writer no longer drops lines.** When one line held two
   people talking, like `The phone says: "Get a job." @1 looks up and says:
   "What?"`, only the first words reached the prompt. Each quote is its own
