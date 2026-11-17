@@ -653,10 +653,13 @@ def apply_stitch(
     exact with the toggle off, since the spread deliberately rewrites the
     feathered band.
 
-    ``color_match`` (0..1) shifts the patch's tone by the offset measured
-    in the feathered band (:func:`estimate_tone_offset`) before blending,
-    so an outpaint whose new bands came out a touch lighter or warmer than
-    the picture lands on the picture's own tone. 0 leaves the patch alone.
+    ``color_match`` (0..1) shifts the patch's tone by the measured drift
+    before blending, so a new area that came out a touch lighter or warmer
+    than the picture lands on the picture's own tone. An outpaint is read
+    across its seams (:func:`tone_offset_field`); an inpaint, which has no
+    source rectangle, inside its painted area (:func:`inner_tone_offset`),
+    or in the feathered band (:func:`estimate_tone_offset`) when the
+    painted area holds new content. 0 leaves the patch alone.
 
     ``seam`` "classic" is everything above. "blend in" replaces it on a
     stitcher that knows where the picture's edge is (Load Image + Pad and
@@ -788,7 +791,13 @@ def apply_stitch(
             # Trimmed like the blend when fewer frames came back.
             generated = generated[:frames] if generated.shape[0] > frames else generated
             generated = generated[:, cy : cy + ch, cx : cx + cw].to(out.device)
-        field = tone_offset_field(patch, out[:, cy : cy + ch, cx : cx + cw, :], alpha, bbox, generated)
+        region = out[:, cy : cy + ch, cx : cx + cw, :]
+        field = tone_offset_field(patch, region, alpha, bbox, generated)
+        if bbox is None:
+            # An inpaint has no source rectangle to read a seam across. Its
+            # drift is read just inside the painted area, where it holds.
+            inner, held = inner_tone_offset(patch, region, alpha)
+            field = torch.where(held.view(-1, 1, 1, 1), inner.view(-1, 1, 1, 3).expand_as(field), field)
         # Weighted by the blend: a fully generated pixel drifted by the whole
         # field, a band pixel the sampler mixed at alpha drifted by alpha of
         # it, and the blend below scales the correction by alpha once more.
@@ -839,6 +848,77 @@ def estimate_tone_offset(
     offset = numerator / denominator
     measured = ((trust * band).sum(dim=(1, 2)) > 1e-6).unsqueeze(-1)
     return torch.where(measured, offset, torch.zeros_like(offset))
+
+
+# An inpaint's drift is read in the painted area's own rim: this many
+# pixels in from where the paste becomes whole. The rim is where the new
+# part most often still shows what was there before (skin beside skin).
+INNER_RIM_PX = 32
+
+# Rim pixels within this many LAB units of the rim's median change count as
+# the same content, drifted. The reading is only used when at least
+# INNER_MIN_SHARE of the rim agrees and there are INNER_MIN_PIXELS of it.
+INNER_SAME_CONTENT = 8.0
+INNER_MIN_SHARE = 0.5
+INNER_MIN_PIXELS = 64
+
+# A larger change than this is new content (a jacket over skin), not a
+# drift: matching it would pull the new thing toward the old colour.
+INNER_MAX_SHIFT = 20.0
+
+
+def inner_tone_offset(
+    inpainted: torch.Tensor, canvas: torch.Tensor, blend: torch.Tensor
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Per-frame LAB drift of an inpaint, read inside the painted area.
+
+    :func:`estimate_tone_offset` reads the feathered band and assumes the
+    sampler mixed original and generated there by ``blend``. A workflow that
+    samples with its own, wider or softer noise mask breaks that: the model
+    leaves the band close to the original and drifts further in, so the band
+    reads a fraction of the drift (issue #361: 0.8 of 2.5 LAB units).
+
+    This reads the same pixels before and after in the rim of the fully
+    pasted area (``blend`` > 0.999, INNER_RIM_PX deep): the median change,
+    then the median again over the pixels that agree with it. Returns the
+    offsets [B, 3] and which frames hold [B]: a frame whose rim mostly
+    disagrees, changed by more than INNER_MAX_SHIFT, or is too small is
+    new content rather than drift, and the caller keeps the band reading.
+    """
+    from ._color_helpers import rgb_to_lab
+
+    diff = rgb_to_lab(inpainted[..., :3]) - rgb_to_lab(canvas[..., :3])
+    frames = diff.shape[0]
+    whole = (blend > 0.999).to(diff.dtype)
+    size = 2 * INNER_RIM_PX + 1
+    # A pixel is deeper than the rim when nothing within INNER_RIM_PX of it
+    # is outside the whole paste. The crop's own border does not count as
+    # outside: the painted area simply runs off the crop there.
+    deep = 1.0 - functional.max_pool2d((1.0 - whole).unsqueeze(1), size, stride=1, padding=INNER_RIM_PX).squeeze(1)
+    rim = (whole > 0) & (deep < 0.5)
+    rim = torch.where(rim.flatten(1).any(dim=1).view(-1, 1, 1), rim, whole > 0)
+    if rim.shape[0] != frames:
+        rim = rim.expand(frames, -1, -1)
+    for layer in (canvas, inpainted):
+        if layer.shape[-1] > 3:
+            # See-through pixels hold whatever colour sits under the clear part.
+            rim = rim & (layer[..., 3] >= 0.999)
+    offsets = torch.zeros((frames, 3), dtype=diff.dtype, device=diff.device)
+    held = torch.zeros((frames,), dtype=torch.bool, device=diff.device)
+    for index in range(frames):
+        changes = diff[index][rim[index]]
+        if changes.shape[0] < INNER_MIN_PIXELS:
+            continue
+        middle = changes.median(dim=0).values
+        agree = (changes - middle).norm(dim=-1) < INNER_SAME_CONTENT
+        if float(agree.float().mean()) < INNER_MIN_SHARE:
+            continue
+        offset = changes[agree].median(dim=0).values
+        if float(offset.norm()) > INNER_MAX_SHIFT:
+            continue
+        offsets[index] = offset
+        held[index] = True
+    return offsets, held
 
 
 def _band_weights(blend: torch.Tensor) -> torch.Tensor:

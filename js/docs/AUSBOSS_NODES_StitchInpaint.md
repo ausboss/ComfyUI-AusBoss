@@ -155,9 +155,17 @@ correction turns the corner without a crease.
 The shift is subtracted from the pasted region before the blend. In the
 padding that is the whole shift; inside the feathered band the paste
 alpha scales it, which is exactly the share of each band pixel the
-sampler painted. Source pixels stay bit-identical. A crop stitcher, which
-has no source rectangle, gets a single global shift measured in its
-blend band instead.
+sampler painted. Source pixels stay bit-identical.
+
+A Crop For Inpaint crop has no source rectangle, so it gets one shift for
+the whole painted area. That shift is read inside the painted area, in the
+32 pixels next to its edge: the same pixels before and after, taking the
+middle value. Most inpaint workflows let the model paint a little wider
+than the paste, so the soft edge itself comes back close to your picture
+and shows only a fraction of the drift. When the painted area holds
+something new (less than half of that rim agrees, or the change is larger
+than 20 LAB units, such as a black jacket over skin), it is not drift: the
+shift is then read in the soft edge, as it always was, and is small.
 
 On a Crop + Rotate + Pad canvas the source rectangle is the crop, so it
 can also hold the rotation's empty corners and any transparency. The

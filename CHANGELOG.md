@@ -4,6 +4,18 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Tone match now works on inpaints.** On a Crop For Inpaint 🆎 crop,
+  Stitch Inpaint 🆎 read the colour shift in the soft edge around the
+  painted area. Workflows such as Krea 2 Inpaint Masked let the model paint
+  a little wider than that edge, so the edge came back close to your picture
+  and the slider hardly did anything: in a test on skin it took off a
+  third of the shift at 1. It is now read just inside the painted area and
+  takes off about 80% there. A workflow that already had Tone match on for
+  an inpaint gives a slightly different picture, closer to the original's
+  colour. When the painted area holds something new, such as a jacket over
+  skin, it is left as painted. Outpaints, blend in and Tone match 0 are
+  unchanged.
+
 - **An AI agent can now learn the video workflows from the repository.**
   `npx skills add ausboss/ComfyUI-AusBoss` gives your agent a skill for the
   MiniMax H3 Pika Person Swap and Pika Remix workflows: how to write the
