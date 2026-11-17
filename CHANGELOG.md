@@ -4,6 +4,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Copy a crop node's picture without its handles.** Right-click the picture
+  on Image Crop + Rotate + Pad and choose Copy image. By default it copies
+  the original picture. To include crop, rotation, padding and resize, turn
+  on Copy with crop, rotation and padding in the gear menu. Editing controls
+  and guides are never copied. Open image provides a clean
+  picture to copy with the browser on plain HTTP addresses too.
+
 - **H3 Prompt Writer: a swap reads the new person's looks however you type
   them.** `@1 looks like ...` on the same line as the swap sentence, and
   clothes on a line of their own (`@1 is wearing a black suit.`), were
