@@ -82,9 +82,10 @@ def place_inside(folder, roots: dict) -> tuple[str, str] | None:
     This compares text only. A path that is outside those folders is never
     looked up on disk, and one on another machine is refused from its text."""
     text = str(folder or "").strip().strip('"').replace("\\", "/")
-    if not looks_full(text) or text.startswith("//"):
+    # A "~" path is not expanded: only a path written out in full can match.
+    if not looks_full(text) or text.startswith("//") or text.startswith("~"):
         return None
-    full = os.path.normpath(os.path.expanduser(text))
+    full = os.path.normpath(text)
     for source, root in roots.items():
         for base in {os.path.normpath(str(root)), os.path.realpath(str(root))}:
             if full == base:

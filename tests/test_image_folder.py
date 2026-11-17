@@ -149,6 +149,11 @@ class ListingTests(FolderCase):
         self.assertEqual(place_inside(str(self.root) + "/", roots), ("input", ""))
         self.assertEqual(place_inside(str(roots["output"] / "set"), roots), ("output", "set"))
         self.assertEqual(place_inside(f'"{self.root / "people"}"', roots), ("input", "people"), "quotes from a copied path")
+        # A "~" path is never expanded into a real one, and no node code does that.
+        self.assertIsNone(place_inside("~/ComfyUI/input/people", roots))
+        nodes_dir = Path(__file__).resolve().parents[1] / "nodes"
+        for source in nodes_dir.glob("*.py"):
+            self.assertNotIn("expanduser", source.read_text(encoding="utf-8"), source.name)
 
     def test_a_whole_path_anywhere_else_is_not_a_place(self):
         roots = {"input": self.root, "output": Path(self.temp.name) / "output"}

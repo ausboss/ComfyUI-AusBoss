@@ -10,6 +10,7 @@
 // panel's hidden storage widget stays hidden whichever renderer is on.
 
 const STASH = "__ausbossVisibilityStash";
+const PAINT_KEYS = ["computeSize", "computeLayoutSize", "draw"];
 
 // Collapse a widget to zero height. Returns true when this call changed
 // visibility, false when it was already hidden (callers use the return to
@@ -27,6 +28,10 @@ export function hideWidget(widget) {
     computeSize: widget.computeSize,
     computeLayoutSize: widget.computeLayoutSize,
     draw: widget.draw,
+    // Which of the three the widget carried itself. One it lacked is deleted
+    // again on show: left behind as `undefined`, the frontend takes it for a
+    // custom-drawn widget and App mode draws an empty row.
+    own: Object.fromEntries(PAINT_KEYS.map((key) => [key, Object.prototype.hasOwnProperty.call(widget, key)])),
     hidden: widget.hidden,
     optionsHidden: options.hidden,
     optionsDescriptor: Object.getOwnPropertyDescriptor(widget, "options"),
@@ -61,9 +66,10 @@ export function hideWidget(widget) {
 export function showWidget(widget) {
   const stash = widget?.[STASH];
   if (!stash) return false;
-  widget.computeSize = stash.computeSize;
-  widget.computeLayoutSize = stash.computeLayoutSize;
-  widget.draw = stash.draw;
+  for (const key of PAINT_KEYS) {
+    if (stash.own && !stash.own[key]) delete widget[key];
+    else widget[key] = stash[key];
+  }
   widget.hidden = stash.hidden;
   const options = widget.options;
   try {
@@ -82,6 +88,11 @@ export function showWidget(widget) {
   }
   widget[STASH] = undefined;
   return true;
+}
+
+// True while hideWidget holds the widget hidden.
+export function isWidgetHidden(widget) {
+  return Boolean(widget?.[STASH]);
 }
 
 // Drive a widget toward a target visibility; true when anything changed.

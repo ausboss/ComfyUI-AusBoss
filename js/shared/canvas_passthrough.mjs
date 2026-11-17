@@ -9,7 +9,9 @@
 // in js/canvas_passthrough/ wires them to the page.
 
 // The wheel belongs to the panel while it can still scroll that way (a long
-// text box, a list of rows), or while a text field has the keyboard.
+// text box, a list of rows). A text box with the cursor in it is no
+// exception: when it has nothing left to scroll, the wheel zooms the graph,
+// as it does over ComfyUI's own text boxes.
 export function canScrollFurther(element, delta, axis = "y") {
   if (!element || !delta) return false;
   const horizontal = axis === "x";
@@ -25,10 +27,11 @@ export function canScrollFurther(element, delta, axis = "y") {
 // and the panel's own root? `styleOf` is getComputedStyle, passed in so this
 // stays testable without a page. `host` is the frontend's wrapper around the
 // panel: a pointer on the wrapper itself is on nothing inside the panel.
-export function panelKeepsWheel(target, event, { root, host, styleOf, activeElement }) {
+// Ctrl + wheel, which is also how a trackpad pinch arrives, always zooms the
+// graph; left to a scrolling box it would zoom the whole page.
+export function panelKeepsWheel(target, event, { root, host, styleOf }) {
+  if (event.ctrlKey || event.metaKey) return false;
   for (let element = target; element && element !== root && element !== host; element = element.parentElement) {
-    const tag = String(element.tagName ?? "").toUpperCase();
-    if ((tag === "TEXTAREA" || tag === "INPUT") && element === activeElement) return true;
     const style = styleOf(element);
     const overflow = style?.overflowY;
     if ((overflow === "auto" || overflow === "scroll") && canScrollFurther(element, event.deltaY)) return true;

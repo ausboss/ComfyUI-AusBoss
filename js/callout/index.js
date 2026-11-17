@@ -649,7 +649,6 @@ function startEdit(state) {
     if (event.target !== area) event.preventDefault();
   });
   wrap.addEventListener("pointerdown", (event) => event.stopPropagation());
-  wrap.addEventListener("wheel", (event) => event.stopPropagation(), { passive: true });
   // Clicking another node on the canvas takes the keyboard from the text box.
   // That is how the link is picked, so the edit stays open then; a click on
   // empty canvas, or on the note itself, ends it.

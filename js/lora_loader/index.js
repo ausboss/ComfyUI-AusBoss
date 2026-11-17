@@ -13,6 +13,7 @@ import { makeScrubInput } from "../shared/scrub_input.mjs";
 import { isAppShortcut, keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { resetUnknownValues } from "../shared/widget_card_math.mjs";
 import { boxRowInputs, boxRowsWidget, boxesOf, hostBox, rowsInputName, workflowNodes } from "../shared/lora_box.mjs";
+import { coreLoraList, syncFileWidgets } from "../shared/lora_file_widgets.mjs";
 import {
   SETTINGS_PROPERTY as SWITCHES_PROPERTY, releaseStackGroup, releaseStackRow, renameStackGroup, stackGroupOwners, stackRowOwners,
 } from "../shared/workflow_switches.mjs";
@@ -724,7 +725,45 @@ function commitRows(state, rows, { structural = false, record = true } = {}) {
   state.node.graph?.setDirtyCanvas(true, true);
   if (structural) renderRows(state);
   else updateRowValues(state);
+  syncLoraFiles(state.node);
   if (record) notifyAusbossChange();
+}
+
+// ComfyUI's missing-models list sees a row's file only through a list
+// widget, so each row that needs a file gets a hidden one
+// (js/shared/lora_file_widgets.mjs). Rows that come in over a link (from a
+// box or another node) are not this node's to list.
+function syncLoraFiles(node) {
+  if (node?.type !== NODE_CLASS) return;
+  const widget = node.widgets?.find((item) => item.name === "loras");
+  if (!widget) return;
+  const fed = node.inputs?.find((item) => item?.name === "loras")?.link != null;
+  syncFileWidgets(node, fed ? [] : parseRows(widget.value), {
+    installed: () => coreLoraList(globalThis.LiteGraph?.registered_node_types?.LoraLoader?.nodeData)
+      ?? node.__ausbossLoraState?.available ?? null,
+    hide: hideWidget,
+    onPick: (rowId, name) => pickRowFile(node, rowId, name),
+  });
+}
+
+// ComfyUI put another file in a row's hidden list (a replacement picked in
+// its Issues panel): the row takes that file.
+function pickRowFile(node, rowId, name) {
+  const widget = node.widgets?.find((item) => item.name === "loras");
+  if (!widget) return;
+  const rows = parseRows(widget.value);
+  const row = rows.find((item) => item.id === rowId);
+  if (!row || row.name === name) return;
+  row.name = name;
+  const state = node.__ausbossLoraState;
+  if (state && !state.disposed && !state.readOnly && state.widget === widget) {
+    commitRows(state, rows, { structural: true });
+    return;
+  }
+  widget.value = serializeRows(rows);
+  node.graph?.setDirtyCanvas(true, true);
+  syncLoraFiles(node);
+  notifyAusbossChange();
 }
 
 // A box shows its loader's rows the way the loader does: one strength per
@@ -3027,6 +3066,7 @@ function syncRows(state) {
   state.toggleSnapshot = snapshotEnabled(state.rows);
   renderRows(state);
   fitNode(state);
+  syncLoraFiles(state.node);
   return true;
 }
 
@@ -3324,6 +3364,12 @@ app.registerExtension({
     });
     chainCallback(nodeType.prototype, "onConfigure", function () {
       resetUnknownValues(this.widgets, RESET_UNKNOWN);
+      // Now, not later: ComfyUI reads its missing-models list right after
+      // the workflow is restored.
+      syncLoraFiles(this);
+    });
+    chainCallback(nodeType.prototype, "onConnectionsChange", function () {
+      syncLoraFiles(this);
     });
   },
   // A box (subgraph node) shows the rows of a loader inside once they come

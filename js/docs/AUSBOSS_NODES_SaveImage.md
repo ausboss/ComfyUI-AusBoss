@@ -65,7 +65,7 @@ file's name. A caption on the `caption_text` input writes the paired `.txt`.
   are saved under the name and folder set above, in the format picked,
   with the workflow inside if **Embed workflow** is on. They wait in
   ComfyUI's temp folder, which is emptied when ComfyUI restarts, so save
-  what you want before that.
+  what you want before that. The Save button works for the last 256 runs.
 - **Preview steps** (`step_preview`, off by default): the switch left of
   **preview** shows the picture while it is being made, one step at a time,
   where the saved image goes, with a **STOP** button on the bar. Stop a run

@@ -164,7 +164,7 @@ class AusBossH3PromptWriter:
                     "INT",
                     {
                         "default": 8,
-                        "min": 5,
+                        "min": 4,
                         "max": 15,
                         "step": 1,
                         "tooltip": "How long the clip is. Plan on about one moment a second at most.",
@@ -254,8 +254,8 @@ class AusBossH3PromptWriter:
                         "default": VIDEO_JOBS[0],
                         "tooltip": (
                             "What the video is for: copy its moves, swap the person in it, keep it going, give it "
-                            "a new voice, or change something in it and keep the person (a hat, a shirt). Swap, "
-                            "new voice and change something ignore Seconds and keep the video's length."
+                            "a new voice, or change something in it and keep the person (a hat, a shirt). Copy its "
+                            "moves, swap, new voice and change something ignore Seconds and keep the video's length."
                         ),
                     },
                 ),
@@ -393,7 +393,7 @@ def _register_routes():
     async def read(request):
         try:
             body = await request.json()
-            seconds = min(max(int(body.get("seconds", 8)), 5), LONGEST_SECONDS)
+            seconds = min(max(int(body.get("seconds", 8)), 4), LONGEST_SECONDS)
             jobs = {int(slot): job for slot, job in dict(body.get("jobs") or {}).items() if job in JOBS and int(slot) in PICTURES}
             video = body.get("video") if body.get("video") in VIDEO_JOBS else ""
             return web.json_response(script_report(str(body.get("script", ""))[:LONGEST_SCRIPT], seconds, jobs, video))

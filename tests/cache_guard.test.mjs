@@ -102,3 +102,39 @@ test("a server that does not answer keeps the page quiet", async (t) => {
   await page.serverComesBack("2.7.0");
   assert.equal(page.toasts.length, 1);
 });
+
+// The Manager switches the pack's files on disk, and the server keeps running
+// the old version until ComfyUI restarts. A reload in between gives the page
+// the new files: the page is newer than the server, and "press F5" is wrong.
+test("a page newer than the server says nothing", async (t) => {
+  const page = await openPage(t, { running: "2.26.2", installed: "2.25.2" });
+  assert.deepEqual(page.toasts, []);
+  assert.deepEqual(page.refreshed, []);
+  await page.serverComesBack("2.26.2");
+  assert.deepEqual(page.toasts, [], "after the restart the two match");
+});
+
+test("versions compare as numbers, not as text", async (t) => {
+  const older = await openPage(t, { running: "2.25.10", installed: "2.25.9" });
+  assert.deepEqual(older.toasts, [], "2.25.9 is older than 2.25.10");
+  const newer = await openPage(t, { running: "2.25.9", installed: "2.25.10" });
+  assert.equal(newer.toasts.length, 1, "2.25.10 is newer than 2.25.9");
+  assert.match(newer.toasts[0].detail, /v2\.25\.10 is installed/);
+});
+
+test("an unknown or odd version says nothing", async (t) => {
+  for (const [running, installed] of [
+    ["2.26.2", "unknown"],
+    ["2.26.2", "2.27"],
+    ["2.26.2", "2.27.0rc1"],
+    ["2.26.2", "v2.27.0"],
+    ["2.26.2", 3],
+    ["unknown", "2.27.0"],
+    ["dev", "2.27.0"],
+    [null, "2.27.0"],
+  ]) {
+    const page = await openPage(t, { running, installed });
+    assert.deepEqual(page.toasts, [], `page ${running}, server ${installed}`);
+    assert.deepEqual(page.refreshed, [], `page ${running}, server ${installed}`);
+  }
+});

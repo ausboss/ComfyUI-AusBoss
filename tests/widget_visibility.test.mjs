@@ -106,3 +106,14 @@ test("hideInputsInDef never throws on frozen definitions", () => {
   const frozenAll = Object.freeze({ input: Object.freeze({ required: Object.freeze({ seed: Object.freeze(["INT", Object.freeze({})]) }) }) });
   assert.equal(hideInputsInDef(frozenAll, ["seed"]), 0);
 });
+
+test("show leaves no paint hooks behind that the widget never had", () => {
+  // Left as own `undefined` properties, the frontend took the widget for a
+  // custom-drawn one and App mode drew an empty row for it.
+  const widget = makeWidget();
+  hideWidget(widget);
+  showWidget(widget);
+  for (const key of ["computeSize", "computeLayoutSize", "draw"]) {
+    assert.equal(Object.prototype.hasOwnProperty.call(widget, key), false, key);
+  }
+});

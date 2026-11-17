@@ -266,6 +266,14 @@ red with advice to re-pick. Thumbnails, the info card, and range lookups
 all use the resolved name, so a moved file keeps its previews and Civitai
 data.
 
+A missing LoRA is also listed in ComfyUI's own missing-models list (the
+Issues panel, and the "Download all" button) next to the other models the
+workflow needs, with a Download button when the workflow saved where the
+file comes from. Rows that are switched off, at zero strength, or whose
+file moved folders are left off that list, because the run does not need
+them or finds them anyway. Rows that come into the node over a link are
+listed by the node that sets them, not here.
+
 The run side matches: a stale saved path resolves by name at load time
 (exact → unique case-insensitive path → unique basename, with a one-line
 console note when it remaps). A LoRA that is genuinely missing **stops the

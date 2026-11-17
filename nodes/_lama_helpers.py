@@ -61,11 +61,8 @@ def list_lama_models() -> list[str]:
 
 def resolve_lama_model(model_name: str) -> Path:
     register_lama_model_folder()
-    if folder_paths is None:
-        path = Path(model_name).expanduser().resolve()
-        if path.is_file():
-            return path
-    else:
+    # Only a name from ComfyUI's lama model folder: a typed path is never opened.
+    if folder_paths is not None:
         resolved = folder_paths.get_full_path(MODEL_FOLDER, model_name)
         if resolved:
             return Path(resolved).resolve()

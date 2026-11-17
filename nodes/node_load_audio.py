@@ -16,10 +16,10 @@ class AusBossLoadAudio:
         "Loads a sound file and hands on only the part you pick. The node shows the "
         "sound as a wave, so you can see where the loud parts are. Drag the two "
         "handles to set where it starts and stops, and press play to hear just that "
-        "part. Set Max length to the longest sound the next step takes: anything "
-        "longer shows in red as cut off, so you see exactly what comes out before "
-        "you run anything. Turn on Clean up for a voice recording: it comes out as one "
-        "channel, with the quiet ends cut, less hum and hiss, and an even volume."
+        "part. Type a Duration to get a sound of an exact length, such as the "
+        "length of the video you are making. Turn on Clean up for a voice recording: "
+        "it comes out as one channel, with the quiet ends cut, less hum and hiss, and "
+        "an even volume."
     )
     SEARCH_ALIASES = [
         "load audio",
@@ -52,7 +52,7 @@ class AusBossLoadAudio:
                         "min": 0.0,
                         "max": 86400.0,
                         "step": 0.01,
-                        "tooltip": "Where the sound starts. Drag the wave's IN handle or type a time.",
+                        "tooltip": "Where the sound starts. Drag the wave's left handle or type a Start.",
                     },
                 ),
                 "end_seconds": (
@@ -62,7 +62,7 @@ class AusBossLoadAudio:
                         "min": 0.0,
                         "max": 86400.0,
                         "step": 0.01,
-                        "tooltip": "Where the sound stops. 0 plays to the end. Drag the OUT handle or type a time.",
+                        "tooltip": "Where the sound stops. 0 plays to the end. The face sets a Duration instead.",
                     },
                 ),
             },
@@ -75,8 +75,7 @@ class AusBossLoadAudio:
                         "max": 86400.0,
                         "step": 0.1,
                         "tooltip": (
-                            "The longest the sound may be. Anything past it is cut off and shows "
-                            "in red. 0 means no limit."
+                            "How long the sound is: the Duration box. 0 runs to the end of the file."
                         ),
                     },
                 ),

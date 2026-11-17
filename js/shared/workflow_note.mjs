@@ -213,6 +213,19 @@ export function matchInstalled(name, files) {
   return loose ? { found: true, path: loose } : { found: false, path: null };
 }
 
+// The copy of `name` to pick without asking: the exact path when the folder
+// has it, else the only file of that name in any subfolder. Two copies in
+// different subfolders give null: which one to use is the user's choice.
+export function onlyCopy(name, files) {
+  const match = matchInstalled(name, files);
+  if (!match.found) return null;
+  const wanted = str(name, 1000).trim().replace(/\\/g, "/").toLowerCase();
+  if (match.path.toLowerCase() === wanted) return match.path;
+  const base = baseName(name).toLowerCase();
+  const copies = files.filter((file) => baseName(str(file, 1000).replace(/\\/g, "/")).toLowerCase() === base);
+  return copies.length === 1 ? match.path : null;
+}
+
 // Node packs present in a graph, from each node type's python_module
 // ("custom_nodes.ComfyUI-AusBoss"). Core modules ("nodes",
 // "comfy_extras.*") are skipped: nobody needs to install those. The first

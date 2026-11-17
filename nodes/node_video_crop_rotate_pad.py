@@ -43,7 +43,7 @@ class AusBossVideoCropRotatePad:
         required = {
             "video": (
                 list_input_videos(),
-                {"tooltip": "Choose a video in ComfyUI's input folder or use the upload button."},
+                {"video_upload": True, "tooltip": "Choose a video in ComfyUI's input folder or use the upload button."},
             ),
             "source_mode": (
                 ["input folder", "local path"],
@@ -152,7 +152,7 @@ class AusBossVideoCropRotatePad:
         try:
             path = resolve_video_path(source_mode, video, local_path)
         except Exception:
-            path = local_path if source_mode == "local path" else video
+            path = None  # refused: hashed by its text only, never opened
         spec = spec_from_values(**values)
         resize = {name: values.get(name) for name in resize_inputs()}
         return stable_file_fingerprint(
@@ -160,6 +160,7 @@ class AusBossVideoCropRotatePad:
             {
                 "video": video,
                 "source_mode": source_mode,
+                "local_path": local_path,
                 "seek_mode": seek_mode,
                 "frame_index": int(frame_index),
                 "frame_time": round(float(frame_time), 6),

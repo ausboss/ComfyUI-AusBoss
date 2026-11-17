@@ -13,6 +13,7 @@
 // what it always was. The turn is made in canvas pixels, so a turned box is a
 // true rectangle on a canvas of any shape (nodes/_layout_boxes_helpers.py
 // turns it the same way).
+import { linkOrigin } from "./clip_rate.mjs";
 
 export const DIM_MIN = 64;
 export const DIM_MAX = 16384;
@@ -683,8 +684,10 @@ const isNumber = (value) => typeof value === "number" && Number.isFinite(value);
 // (Integer, Primitive). Reroutes are followed. Null when the input is not
 // wired or the value is only known once the workflow runs.
 export function wiredNumber(node, inputName) {
-  const source = wiredSource(node, inputName);
-  return source ? wiredFrom(source.node, source.slot) : null;
+  // Through Reroutes and into subgraphs (js/shared/clip_rate.mjs), then
+  // this node's own rule for which numbers count.
+  const origin = linkOrigin(node, inputName);
+  return origin ? wiredFrom(origin.node, origin.slot) : null;
 }
 
 // The node (and its output slot) an input is wired to, through Reroutes.

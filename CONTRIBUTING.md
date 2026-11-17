@@ -193,7 +193,7 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   drag). Messages to the user go through `showToast`, never `alert()`.
 - The mouse wheel over a node zooms the graph, on every part of its face.
   `js/canvas_passthrough/` hands the wheel on from the pack's panels, and
-  keeps it only for a box that can still scroll or a field being typed in,
+  keeps it only for a box that can still scroll, typed in or not,
   so a panel adds no wheel listener of its own
   (`tests/canvas_passthrough.test.mjs` lists the few that exist). After a
   change to a node face, `scripts/dev/wheel_sweep.mjs` turns the wheel at
@@ -210,8 +210,7 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   never a classic canvas number widget on a finished node face. Units
   (`px`, `MP`, `×`) ride inside the box in a fixed-width slot that every
   single-field row reserves, so the numbers down a card share one centre
-  line. Known, deliberate exceptions: the Seed card's seed (typed) and Load
-  Video's trim timecodes (typed).
+  line. Known, deliberate exception: the Seed card's seed (typed).
 - **Node faces are widget cards.** A node whose face would be classic
   LiteGraph widgets (full-width rows with an arrow at each end) gets an
   entry in `js/widget_cards/index.js` instead: `mountWidgetCard` from
@@ -234,6 +233,13 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
   widget per row. A value that is meant to be wired rather than typed is a
   backend `forceInput: True` socket (Math Expression `a`/`b`/`c`), and a
   multi-type string such as `"FLOAT,INT"` accepts either kind of link.
+- **App mode** is ComfyUI's form view of a workflow (fields and a Run
+  button). A file list from the input folder declares its upload flag
+  (`image_upload`, `video_upload`, `audio_upload`): the form builds the
+  field's Upload button from it, and without it the field is a bare list.
+  `tests/test_video_upload_flag.py` holds the video lists to it. A card's
+  hidden widgets reach the form through `js/app_mode/`, so a card needs
+  nothing of its own for App mode.
 - Preview-carrying nodes (Select Frame, Mask Refine, Mask by Name, LaMa
   Inpaint, Save Image) share
   `js/input_preview/`: a thin bar (node tools left, a small `preview`

@@ -49,8 +49,8 @@ class AusBossVideoCropRotatePadClip:
         "mask of the generated area (rotation corners and padding), the audio "
         "for the same window, the frame count, fps, size, and duration, and a "
         "stitcher so Stitch Inpaint can paste the source frames back over the "
-        "generated clip. Drag IN and OUT to trim, or turn Length on to set "
-        "the clip by a number of output frames from IN."
+        "generated clip. Set the clip with Start, Duration and Ends at, or drag "
+        "its two handles on the timeline."
     )
     SEARCH_ALIASES = [
         "video crop",
@@ -68,7 +68,7 @@ class AusBossVideoCropRotatePadClip:
         required = {
             "video": (
                 list_input_videos(),
-                {"tooltip": "Choose a video in ComfyUI's input folder or use the upload button."},
+                {"video_upload": True, "tooltip": "Choose a video in ComfyUI's input folder or use the upload button."},
             ),
             "source_mode": (
                 ["input folder", "local path"],
@@ -218,25 +218,25 @@ class AusBossVideoCropRotatePadClip:
             }),
             "start_frame": ("INT", {
                 "forceInput": True, "min": 0,
-                "tooltip": "Zero-based source start frame; overrides and locks timeline IN. "
+                "tooltip": "Zero-based source start frame; overrides and locks Start. "
                            "Uses the source frame-rate grid.",
             }),
             "end_frame": ("INT", {
                 "forceInput": True, "min": 0,
                 "tooltip": "Exclusive source end frame; 0 means source end. Overrides and "
-                           "locks timeline OUT. Uses the source frame-rate grid.",
+                           "locks Ends at. Uses the source frame-rate grid.",
             }),
             "frame_load_cap": ("INT", {
                 "forceInput": True, "min": 0,
                 "tooltip": "Maximum returned frames after rate conversion and Every nth, "
-                           "before Frames for. Overrides and locks Length; 0 means unlimited.",
+                           "before Frames for. Overrides and locks Duration; 0 means unlimited.",
             }),
             "fixed_frames": ("INT", {
                 "default": 0, "min": 0, "max": 100000,
                 "tooltip": "Exact output frames after rate conversion and Every nth; 0 = off. "
-                           "Connected, it sets the length from IN. Overrides OUT/end_frame, Length, "
+                           "Connected, it sets the length from Start. Overrides Ends at/end_frame, Duration, "
                            "frame_load_cap and Frames for. Duration = frames / output fps; 120 frames at 24 fps = 5 seconds. "
-                           "The source must be long enough. A linked IN anchors the window.",
+                           "The source must be long enough. A linked Start anchors the window.",
             }),
             "last_seconds": ("FLOAT", {
                 "forceInput": True, "min": 0,
@@ -395,7 +395,7 @@ class AusBossVideoCropRotatePadClip:
         try:
             path = resolve_video_path(source_mode, video, local_path)
         except Exception:
-            path = local_path if source_mode == "local path" else video
+            path = None  # refused: hashed by its text only, never opened
         spec = spec_from_values(**values)
         resize = {name: values.get(name) for name in resize_inputs()}
         return stable_file_fingerprint(
@@ -403,6 +403,7 @@ class AusBossVideoCropRotatePadClip:
             {
                 "video": video,
                 "source_mode": source_mode,
+                "local_path": local_path,
                 "start_seconds": round(float(start_seconds), 6),
                 "end_seconds": round(float(end_seconds), 6),
                 "every_nth": max(1, int(every_nth)),

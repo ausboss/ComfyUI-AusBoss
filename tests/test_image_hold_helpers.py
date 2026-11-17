@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 from datetime import datetime
+import json
 from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 if "nodes" in sys.modules and not hasattr(sys.modules["nodes"], "__path__"):
     del sys.modules["nodes"]
 
-from nodes._image_hold_helpers import GONE, HELD_FOLDER, hold_pictures, keep_pictures
+from nodes import _image_hold_helpers  # noqa: E402
+from nodes._image_hold_helpers import GONE, HELD_FOLDER, hold_pictures, keep_pictures  # noqa: E402
 
 NOW = datetime(2026, 11, 10, 9, 30, 0)
 
@@ -99,11 +102,69 @@ class HoldTests(unittest.TestCase):
 
     def test_a_folder_outside_the_output_folder_is_refused_at_the_click_too(self):
         token, _ = self.hold(count=1)
-        manifest = self.temp / HELD_FOLDER / f"{token}.json"
-        manifest.write_text(manifest.read_text().replace('"output_dir": ""', '"output_dir": "../elsewhere"'))
+        _image_hold_helpers._RUNS[token]["output_dir"] = "../elsewhere"
         with self.assertRaises(ValueError):
             self.keep(token)
         self.assertFalse((Path(self.box.name) / "elsewhere").exists())
+
+    def test_a_run_planted_in_the_temp_folder_is_not_a_run(self):
+        # ComfyUI's temp folder takes uploads, so a file there can be
+        # anyone's. A planted list naming a server file must copy nothing.
+        secret = Path(self.box.name) / "secret.txt"
+        secret.write_text("server secret")
+        held = self.temp / HELD_FOLDER
+        held.mkdir(exist_ok=True)
+        token = "a" * 16
+        planted = dict(
+            settings(extension="png/../../../secret.txt", output_dir="x/y"), count=1, kept={},
+        )
+        (held / f"{token}.json").write_text(json.dumps(planted))
+        (held / f"{token}_000.png").mkdir()  # an upload's subfolder makes the ".." walk work
+        with self.assertRaises(LookupError):
+            self.keep(token)
+        self.assertEqual(list(self.output.rglob("*")), [])
+
+    def test_a_held_picture_is_named_only_from_the_token_number_and_format(self):
+        token, previews = self.hold(count=1)
+        for extension in ["png/../../x", "txt", "", "PNG"]:
+            with self.assertRaises(ValueError):
+                _image_hold_helpers._held_name(token, 0, extension)
+        _image_hold_helpers._RUNS[token]["extension"] = "png/../../../secret.txt"
+        with self.assertRaises(ValueError):
+            self.keep(token)
+        self.assertEqual(list(self.output.iterdir()), [])
+
+    def test_a_picture_swapped_for_a_link_is_not_copied(self):
+        token, previews = self.hold(count=1)
+        secret = Path(self.box.name) / "secret.txt"
+        secret.write_text("server secret")
+        picture = self.temp / HELD_FOLDER / previews[0]["filename"]
+        picture.unlink()
+        try:
+            picture.symlink_to(secret)
+        except (OSError, NotImplementedError):
+            self.skipTest("no symlinks here")
+        with self.assertRaises(LookupError):
+            self.keep(token)
+        self.assertEqual(list(self.output.iterdir()), [])
+
+    def test_counts_are_capped(self):
+        with patch.object(_image_hold_helpers, "MAX_HELD_PICTURES", 4):
+            with self.assertRaises(ValueError):
+                self.hold(count=5)
+            token, _ = self.hold(count=2)
+            with self.assertRaises(ValueError):
+                self.keep(token, [0] * 5)
+        self.assertEqual(list(self.output.iterdir()), [])
+
+    def test_old_runs_are_forgotten_first(self):
+        with patch.object(_image_hold_helpers, "MAX_HELD_RUNS", 2):
+            oldest, _ = self.hold(count=1)
+            self.hold(count=1)
+            newest, _ = self.hold(count=1)
+            with self.assertRaises(LookupError):
+                self.keep(oldest)
+            self.assertEqual(len(self.keep(newest)["saved"]), 1)
 
 
 if __name__ == "__main__":

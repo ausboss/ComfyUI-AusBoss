@@ -181,7 +181,7 @@ test("fixed frame duration follows output fps while position follows source fps"
 });
 
 // --- One way to set the length -------------------------------------------------
-import { clipLengthPlan, framesThrough, lastFrameFor, latestFirstFor, lengthMode, snapStep, snapToValid } from "../js/shared/timeline_math.mjs";
+import { clipLengthPlan, framesThrough, lastFrameFor, latestFirstFor, latestInFor, lengthMode, snapStep, snapToValid } from "../js/shared/timeline_math.mjs";
 
 test("one mode sets the length: a wired input, an old fixed count, a Length, or OUT", () => {
   assert.equal(lengthMode({}), "free");
@@ -214,6 +214,16 @@ test("OUT lands on a frame the run keeps", () => {
   assert.equal(latestFirstFor(info, 20), 77);
   assert.equal(latestFirstFor(info, 97), 0);
   assert.equal(latestFirstFor(info, 200), 0);
+  // A Length that fits stops IN where OUT meets the end; one as long as the
+  // clip or longer only caps it, so IN reaches every frame (a 240-frame
+  // Length on a 116-frame clip used to pin IN at 0).
+  assert.equal(latestInFor(info, 20), 77);
+  assert.equal(latestInFor(info, 97), 96);
+  assert.equal(latestInFor(info, 200), 96);
+  const short = clipInfo({ fps: 24, frame_count: 116, duration: 116 / 24 });
+  assert.equal(latestInFor(short, 240), 115);
+  const late = clipLengthPlan(short, { start: windowSeconds(short, 40, 40).start_seconds, end: 0, maxFrames: 240 });
+  assert.deepEqual([late.first, late.last, late.frames, late.truncated], [40, 115, 76, true]);
 });
 
 test("free trim: the handles are IN and the last frame the run keeps", () => {
@@ -304,4 +314,20 @@ test("a wired 49-frame selection stops at IN 48 on the 97-frame pier clip", () =
   assert.equal(clipLengthPlan(info, { ...values, wiredFrames: 0 }).latestStart, null);
   assert.equal(clipLengthPlan(info, { ...values, resampled: true, outputFps: 12 }).latestStart, 0);
   assert.equal(clipLengthPlan(info, { ...values, wired: "fixed_frames", outputFps: 24 }).latestStart, 48);
+});
+
+test('a linked 24 fps rate on a 60 fps clip: 48 frames from 1 s end at 3 s', () => {
+  const info = clipInfo({ fps: 60, frame_count: 247, duration: 247 / 60 });
+  const values = { start: 1, end: 0, everyNth: 1, frameSnap: 'free', maxFrames: 48, fixedFrames: 0, wired: null, wiredFrames: null, outputFps: 24, resampled: true };
+  const plan = clipLengthPlan(info, values);
+  assert.equal(plan.frames, 48);
+  assert.equal(plan.endSeconds, 3);
+  assert.equal(plan.last, 177);
+  assert.equal(plan.latestStart, 129);
+  // A 240-frame Length (10 s) only caps a 4.1 s clip: the source ends first.
+  const capped = clipLengthPlan(info, { ...values, maxFrames: 240 });
+  assert.equal(capped.truncated, true);
+  assert.equal(capped.frames, 75);
+  // Still unknown without a rate.
+  assert.equal(clipLengthPlan(info, { ...values, outputFps: null }).last, null);
 });

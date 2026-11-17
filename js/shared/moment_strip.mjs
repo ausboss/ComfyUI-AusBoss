@@ -2,7 +2,7 @@
 // bar as long as the clip, with the cuts as marks. The server reads the script with the same code a run uses,
 // so the bar shows what will happen. It also colours the script box, so the
 // words the node reads as instructions (@1, 3s:, a cut) stand out.
-import { clipSetsDuration, linkSource } from "./h3_duration.mjs";
+import { clipLengthWords, clipSetsDuration, clipTimingFor, linkSource } from "./h3_duration.mjs";
 import { api } from "../../../scripts/api.js";
 import { app } from "../../../scripts/app.js";
 import { BRAND, chainCallback } from "./index.mjs";
@@ -38,7 +38,8 @@ function ensureCss() {
 .ausboss-strip-handle::before{content:"";position:absolute;left:5px;top:5px;bottom:5px;width:2px;border-radius:1px;background:rgba(207,232,229,.35)}
 .ausboss-strip-handle:hover::before,.ausboss-strip-handle.dragging::before{background:#cfe8e5}
 .ausboss-strip-handle span{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);padding:1px 4px;border-radius:3px;background:#cfe8e5;color:#0b0f10;font-size:9px;white-space:nowrap;display:none}
-.ausboss-strip-handle.dragging span{display:block}
+.ausboss-strip-handle:hover span,.ausboss-strip-handle.dragging span{display:block}
+.ausboss-strip-handle.cuts::before{background:${BRAND}}
 .ausboss-strip-block.movable{cursor:grab;touch-action:none}
 .ausboss-strip-block.moving{z-index:3;cursor:grabbing;opacity:.85;box-shadow:0 4px 14px rgba(0,0,0,.5)}
 .ausboss-strip-drop{position:absolute;top:-3px;bottom:-3px;z-index:4;width:3px;margin-left:-2px;border-radius:2px;background:#f5b53d;pointer-events:none}
@@ -108,7 +109,12 @@ export function momentStrip(node) {
     const label = document.createElement("span");
     handle.append(label);
     handle.style.left = `${rows[index].from}%`;
-    handle.title = range ? "Drag to set when this moment starts. Click to add or remove a cut." : "Click to add or remove a cut.";
+    const isCut = Boolean(rows[index].cut);
+    handle.classList.toggle("cuts", isCut);
+    // Shown on hover: what a click does here. Dragging swaps it for the time.
+    const hint = isCut ? "\u2702 join" : "\u2702 cut";
+    label.textContent = hint;
+    handle.title = `${isCut ? "Click to join these two shots." : "Click to cut to a new shot here."}${range ? " Drag to set when this moment starts." : ""}`;
     track.append(handle);
     handle.addEventListener("pointerdown", (event) => {
       if (event.button !== 0) return;
@@ -134,6 +140,7 @@ export function momentStrip(node) {
         handle.removeEventListener("pointerup", stop);
         handle.removeEventListener("pointercancel", stop);
         handle.classList.remove("dragging");
+        label.textContent = hint;
         if (!moved) commitScript((text) => toggleCut(text, rows[index].line));
         else if (second !== null && second !== rows[index].start) commitScript((text) => retime(text, rows[index].line, second));
       };
@@ -290,12 +297,15 @@ export function momentStrip(node) {
       asked += 1;
       ruler.textContent = "";
       track.textContent = "";
-      const message = el("ausboss-strip-words", "Length comes from the clip");
+      // Say what H3 will make of the clip's frames, when the clip node knows
+      // its count; it rounds down to 5 + 17n, so a 48-frame clip gives 39.
+      const words = clipLengthWords(clipTimingFor(node));
+      const message = el("ausboss-strip-words", words?.title ?? "Length comes from the clip");
       message.style.cssText = "display:flex;align-items:center;height:100%";
       track.append(message);
-      note.textContent = "Set the clip's length upstream. Timing controls are unavailable here.";
+      note.textContent = words?.note ?? "Set the clip's length on the clip node. H3 makes 5 + 17n frames (22, 39, 56 ...), rounding the clip down.";
       note.title = note.textContent;
-      note.classList.remove("warn");
+      note.classList.toggle("warn", Boolean(words?.warn));
       return;
     }
     if (wired(node, "script")) {
