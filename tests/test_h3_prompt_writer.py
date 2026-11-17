@@ -819,6 +819,30 @@ class VideoJobTests(unittest.TestCase):
         self.assertEqual(add_looks("Swap him for @1.", {1: "person"}, lambda slot: said),
                          "Swap him for @1.\n@1 looks like a man with curly brown hair, wearing dark-framed glasses")
 
+    def test_a_swap_reads_the_looks_sentence_on_the_same_line(self):
+        from nodes._h3_cast_helpers import add_looks
+        typed = "replace the girl on the car with @1 .@1 looks like a young woman with long dark hair"
+        text = write_prompt(typed, seconds=8.0, jobs={1: "person"}, video="swap the person")
+        self.assertIn("<Subject 1> is the girl on the car in <Video 1>", text)
+        self.assertIn("this appearance: a young woman with long dark hair.", text)
+        self.assertNotIn("looks like", text)
+        # A typed sentence still wins over the model, wherever it sits on the line.
+        self.assertNotIn("bald", add_looks(typed, {1: "person"}, lambda slot: "a bald man"))
+        # A spoken line that happens to hold the words is left alone.
+        said = 'Replace the guy with @1.\n@1 says: "He said @1 looks like trouble."'
+        self.assertNotIn("this appearance", write_prompt(said, seconds=8.0, jobs={1: "person"}, video="swap the person"))
+        # Only a new sentence is split off: inside a sentence the words are left where they are.
+        from nodes._h3_cast_helpers import looks_on_own_lines
+        self.assertEqual(looks_on_own_lines("Put @1 looks like a friend here."), "Put @1 looks like a friend here.")
+        self.assertEqual(looks_on_own_lines("Swap him for @1! @1 looks like a pilot"), "Swap him for @1!\n@1 looks like a pilot")
+
+    def test_a_swap_reads_clothes_typed_on_their_own_line(self):
+        swap = dict(seconds=8.0, jobs={1: "person"}, video="swap the person")
+        text = write_prompt("Replace the man in the checked shirt with @1.\n@1 is wearing a black suit.", **swap)
+        self.assertIn("this appearance: the same hair, wearing a black suit.", text)
+        both = "Replace the guy with @1.\n@1 looks like a man with short dark hair.\n@1 wears a black suit."
+        self.assertIn("this appearance: a man with short dark hair, wearing a black suit.", write_prompt(both, **swap))
+
     def test_a_swap_gets_the_firm_wording_without_a_looks_like_line(self):
         text = write_prompt("Replace the guy with @1.", seconds=8.0, jobs={1: "person"}, video="swap the person")
         self.assertIn("<Subject 2> has the face, hair and clothes of the person in <Picture 1>", text)
