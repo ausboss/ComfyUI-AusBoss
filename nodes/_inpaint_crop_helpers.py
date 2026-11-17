@@ -867,6 +867,57 @@ INNER_MIN_PIXELS = 64
 INNER_MAX_SHIFT = 20.0
 
 
+# New content has no "before" in its own place (skin where a shirt was), so
+# it is read against the untouched picture beside it instead: the painted
+# area and the picture, each averaged within this many pixels of a point.
+NEIGHBOUR_REACH_PX = 48
+
+# A point counts as on the seam when each side fills this much of its reach.
+NEIGHBOUR_MIN_SIDE = 0.1
+
+# Seam points within INNER_MAX_SHIFT of each other show the same thing on
+# both sides (skin beside skin). Fewer than this share of the seam and the
+# new part is something else all round, so nothing is matched.
+NEIGHBOUR_MIN_SHARE = 0.25
+
+
+def _neighbour_offset(
+    new: torch.Tensor, old: torch.Tensor, whole: torch.Tensor, outside: torch.Tensor
+) -> torch.Tensor | None:
+    """LAB offset of new content against the untouched picture beside it.
+
+    ``new`` and ``old`` are one frame in LAB [H, W, 3]; ``whole`` marks the
+    fully pasted pixels and ``outside`` the untouched ones. Along the seam
+    the painted side's local mean is compared with the picture's. Where the
+    two are alike the model drew more of what is already there, and the gap
+    between them is its drift. None when too little of the seam is alike or
+    the alike part does not agree on one gap.
+    """
+    size = 2 * NEIGHBOUR_REACH_PX + 1
+
+    def local(values: torch.Tensor, mask: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        weight = mask.to(values.dtype).unsqueeze(-1)
+        stack = torch.cat([values * weight, weight], dim=-1).movedim(-1, 0).unsqueeze(0)
+        stack = functional.avg_pool2d(stack, (1, size), stride=1, padding=(0, NEIGHBOUR_REACH_PX))
+        stack = functional.avg_pool2d(stack, (size, 1), stride=1, padding=(NEIGHBOUR_REACH_PX, 0))[0]
+        return (stack[:3] / stack[3:].clamp_min(1e-6)).movedim(0, -1), stack[3]
+
+    painted, painted_share = local(new, whole)
+    picture, picture_share = local(old, outside)
+    seam = (painted_share >= NEIGHBOUR_MIN_SIDE) & (picture_share >= NEIGHBOUR_MIN_SIDE)
+    gaps = (painted - picture)[seam]
+    if gaps.shape[0] < INNER_MIN_PIXELS:
+        return None
+    alike = gaps.norm(dim=-1) <= INNER_MAX_SHIFT
+    if int(alike.sum()) < INNER_MIN_PIXELS or float(alike.float().mean()) < NEIGHBOUR_MIN_SHARE:
+        return None
+    gaps = gaps[alike]
+    agree = (gaps - gaps.median(dim=0).values).norm(dim=-1) < INNER_SAME_CONTENT
+    if float(agree.float().mean()) < INNER_MIN_SHARE:
+        return None
+    return gaps[agree].median(dim=0).values
+
+
 def _area_resize(image: torch.Tensor, width: int, height: int) -> torch.Tensor:
     """Shrink [B, H, W, C] by averaging the pixels each new one covers."""
     return functional.interpolate(image.movedim(-1, 1), size=(height, width), mode="area").movedim(1, -1)
@@ -891,9 +942,10 @@ def inner_tone_offset(
     then the median again over the pixels that agree with it. Returns the
     offsets [B, 3] and which frames hold [B]. A frame whose rim mostly
     disagrees, or changed by more than INNER_MAX_SHIFT, is new content
-    rather than drift: it holds with a zero offset, so it is left as
-    painted. Only a rim too small to judge does not hold, and the caller
-    keeps the band reading for it.
+    rather than drift. That frame is read against the untouched picture
+    beside it (:func:`_neighbour_offset`), and holds at zero, left as
+    painted, when the picture beside it shows something else. Only a rim too
+    small to judge does not hold, and the caller keeps the band reading for it.
 
     ``sampled`` is the (width, height) the model worked at. A crop from a
     large picture is pasted back several times that size, and a rim measured
@@ -909,7 +961,9 @@ def inner_tone_offset(
             inpainted = _area_resize(inpainted, width, height)
             canvas = _area_resize(canvas, width, height)
             blend = _area_resize(blend.unsqueeze(-1), width, height).squeeze(-1)
-    diff = rgb_to_lab(inpainted[..., :3]) - rgb_to_lab(canvas[..., :3])
+    new = rgb_to_lab(inpainted[..., :3])
+    old = rgb_to_lab(canvas[..., :3])
+    diff = new - old
     frames = diff.shape[0]
     whole = (blend > 0.999).to(diff.dtype)
     size = 2 * INNER_RIM_PX + 1
@@ -923,12 +977,24 @@ def inner_tone_offset(
     deep = 1.0 - outside.squeeze(1)
     rim = (whole > 0) & (deep < 0.5)
     rim = torch.where(rim.flatten(1).any(dim=1).view(-1, 1, 1), rim, whole > 0)
+    pasted = whole > 0
+    untouched = blend < 0.001
     if rim.shape[0] != frames:
         rim = rim.expand(frames, -1, -1)
-    for layer in (canvas, inpainted):
-        if layer.shape[-1] > 3:
-            # See-through pixels hold whatever colour sits under the clear part.
-            rim = rim & (layer[..., 3] >= 0.999)
+        pasted = pasted.expand(frames, -1, -1)
+        untouched = untouched.expand(frames, -1, -1)
+    # See-through pixels hold whatever colour sits under the clear part.
+    if inpainted.shape[-1] > 3:
+        rim = rim & (inpainted[..., 3] >= 0.999)
+        pasted = pasted & (inpainted[..., 3] >= 0.999)
+    if canvas.shape[-1] > 3:
+        rim = rim & (canvas[..., 3] >= 0.999)
+        untouched = untouched & (canvas[..., 3] >= 0.999)
+
+    def beside(index: int) -> torch.Tensor:
+        gap = _neighbour_offset(new[index], old[index], pasted[index], untouched[index])
+        return offsets[index] if gap is None else gap
+
     offsets = torch.zeros((frames, 3), dtype=diff.dtype, device=diff.device)
     held = torch.zeros((frames,), dtype=torch.bool, device=diff.device)
     for index in range(frames):
@@ -943,9 +1009,11 @@ def inner_tone_offset(
         middle = changes.median(dim=0).values
         agree = (changes - middle).norm(dim=-1) < INNER_SAME_CONTENT
         if float(agree.float().mean()) < INNER_MIN_SHARE:
+            offsets[index] = beside(index)
             continue
         offset = changes[agree].median(dim=0).values
         if float(offset.norm()) > INNER_MAX_SHIFT:
+            offsets[index] = beside(index)
             continue
         offsets[index] = offset
     return offsets, held

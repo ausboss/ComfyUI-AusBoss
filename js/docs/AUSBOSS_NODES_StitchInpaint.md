@@ -165,10 +165,15 @@ a large picture is read the same way and takes no longer. Most inpaint workflows
 than the paste, so the soft edge itself comes back close to your picture
 and shows only a fraction of the drift. When the painted area holds
 something new (less than half of that rim agrees, or the change is larger
-than 20 LAB units, such as a black jacket over skin), it is not drift, and
-Tone match leaves that picture as painted. Before, the soft edge was read
-there instead, and a model that repaints the edge too could tint the whole
-patch: a yellow swimsuit over skin came back blue.
+than 20 LAB units, such as a black jacket over skin), it is not drift: the
+old pixels in that place show something else. The new part is then
+compared with your untouched picture right beside it, each side averaged
+within 48 pixels of the seam. Where the two sides look alike (within 20
+LAB units, on at least a quarter of the seam, such as new skin next to
+skin), the gap between them is taken off. Where they do not, such as a
+jacket next to skin, Tone match leaves that picture as painted. Before,
+the soft edge was read there instead, and a model that repaints the edge
+too could tint the whole patch: a yellow swimsuit over skin came back blue.
 
 On a Crop + Rotate + Pad canvas the source rectangle is the crop, so it
 can also hold the rotation's empty corners and any transparency. The

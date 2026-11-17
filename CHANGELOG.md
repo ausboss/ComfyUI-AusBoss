@@ -12,10 +12,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   third of the shift at 1. It is now read just inside the painted area and
   takes off more than half, on a picture of any size. A workflow that already had Tone match on for
   an inpaint gives a slightly different picture, closer to the original's
-  colour. When the painted area holds something new, such as a swimsuit
-  over skin, it is left as painted; before, Tone match could tint the whole
-  patch with the opposite colour. Outpaints, blend in and Tone match 0 are
-  unchanged.
+  colour. When the painted area holds something new, it is matched to your
+  picture right beside it where the two look alike, such as new skin where
+  a shirt was. Something different from what is beside it, such as a
+  swimsuit over skin, is left as painted; before, Tone match could tint the
+  whole patch with the opposite colour. Outpaints, blend in and Tone match 0
+  are unchanged.
 
 - **An AI agent can now learn the video workflows from the repository.**
   `npx skills add ausboss/ComfyUI-AusBoss` gives your agent a skill for the

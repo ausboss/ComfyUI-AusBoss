@@ -1222,6 +1222,43 @@ class ToneMatchInpaintTests(unittest.TestCase):
         matched = apply_stitch(stitcher, patch, color_match=1.0)
         self.assertLess(float((matched - plain).abs().max()), 1.0 / 255)
 
+    def _shirt_case(self, paint):
+        """Skin with a dark shirt on it. The mask covers the shirt with a
+        thin margin, and the model paints skin there, so the painted area
+        has almost no "before" of its own to be read against."""
+        generator = torch.Generator().manual_seed(7)
+        skin = torch.tensor([0.72, 0.55, 0.45]).view(1, 1, 1, 3)
+        rows = torch.linspace(0.0, 1.0, 320).view(1, 320, 1, 1)
+        clean = (skin - 0.1 * rows + 0.01 * torch.randn((1, 320, 320, 3), generator=generator)).clamp(0.0, 1.0)
+        image = clean.clone()
+        image[:, 104:216, 104:216] = 0.06
+        mask = torch.zeros((1, 320, 320))
+        mask[:, 100:220, 100:220] = 1.0
+        crop, sampling, stitcher = build_crop(image, mask, 2.0, 16, 16)
+        cx, cy, cw, ch = stitcher["crop_to_canvas"]
+        ox, oy, ow, oh = stitcher["canvas_to_original"]
+        wanted = clean[:, oy : oy + oh, ox : ox + ow][:, cy : cy + ch, cx : cx + cw]
+        painted = inpaint_helpers.blur_mask(sampling, 3.0).unsqueeze(-1)
+        patch = crop + painted * (paint(wanted) - crop)
+        inside = stitcher["blend"][0, oy : oy + oh, ox : ox + ow] > 0.999
+        return clean, patch, stitcher, inside
+
+    def test_new_skin_is_matched_to_the_skin_beside_it(self):
+        # Skin where a shirt was, painted paler than the skin around it:
+        # the area's own "before" is the shirt, so it is read against the
+        # untouched skin just outside the paste.
+        clean, patch, stitcher, inside = self._shirt_case(lambda skin: skin * 0.85 + 0.13)
+        off = self._left_over(clean, apply_stitch(stitcher, patch, color_match=0.0), inside)
+        full = self._left_over(clean, apply_stitch(stitcher, patch, color_match=1.0), inside)
+        self.assertGreater(off, 3.0)
+        self.assertLess(full, 0.35 * off)
+
+    def test_new_skin_that_already_matches_is_left_alone(self):
+        clean, patch, stitcher, inside = self._shirt_case(lambda skin: skin)
+        plain = apply_stitch(stitcher, patch, color_match=0.0)
+        matched = apply_stitch(stitcher, patch, color_match=1.0)
+        self.assertLess(float((matched - plain).abs().max()), 2.0 / 255)
+
     def test_a_mixed_rim_is_not_read_as_drift(self):
         # Half the painted area turned into something else: too little of
         # the rim agrees, so nothing inside is trusted.
