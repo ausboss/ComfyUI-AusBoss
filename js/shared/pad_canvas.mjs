@@ -19,13 +19,14 @@ export const PAD_SIDES = ["left", "top", "right", "bottom"];
 // "sub/dir\\name.png [temp]" -> { filename, subfolder, type } for a /view
 // query. Handles Windows backslashes, subfolders, and the "name [type]"
 // annotation ComfyUI appends outside the input folder.
+// Preserves filename whitespace.
 export function parseImageReference(value) {
-  let text = String(value ?? "").trim();
+  let text = String(value ?? "");
   if (!text) return null;
   let type = "input";
-  const annotated = /^(.*)\s+\[(input|output|temp)\]$/i.exec(text);
+  const annotated = /^(.*) \[(input|output|temp)\]$/i.exec(text);
   if (annotated) {
-    text = annotated[1].trim();
+    text = annotated[1];
     type = annotated[2].toLowerCase();
   }
   const normalized = text.replaceAll("\\", "/");
