@@ -13,6 +13,8 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 
+from ._route_errors import error_detail
+
 try:
     import folder_paths
 except ImportError:  # pragma: no cover - only outside ComfyUI
@@ -136,27 +138,29 @@ _remap_noted: set[str] = set()
 def resolve_lora_path(name: str) -> Path:
     if folder_paths is None:
         raise ValueError("folder_paths is unavailable outside ComfyUI.")
-    full = folder_paths.get_full_path("loras", name)
-    if not full:
+    # Only a name on ComfyUI's own LoRA list reaches the disk. A route's
+    # name or a widget value is never joined to a folder as given: it is
+    # matched against the list first, and anything else is refused here.
+    candidate, status = match_lora_name(str(name), list_loras())
+    if status == "remapped":
         # The saved path is stale; a moved file should just keep working.
-        candidate, status = match_lora_name(str(name), list_loras())
-        if status == "remapped":
-            if name not in _remap_noted:
-                _remap_noted.add(name)
-                print(
-                    f"[AusBoss] LoRA Loader: '{name}' is not at its saved "
-                    f"path; using '{candidate}'."
-                )
-            full = folder_paths.get_full_path("loras", candidate)
-        elif status == "ambiguous":
-            raise ValueError(
-                f"LoRA name matches several files in models/loras: {name}"
+        if name not in _remap_noted:
+            _remap_noted.add(name)
+            print(
+                f"[AusBoss] LoRA Loader: '{name}' is not at its saved "
+                f"path; using '{candidate}'."
             )
+    elif status == "ambiguous":
+        raise ValueError(
+            f"LoRA name matches several files in models/loras: {name}"
+        )
+    elif status != "exact":
+        raise ValueError(f"LoRA file not found in models/loras: {name}")
+    full = folder_paths.get_full_path("loras", candidate)
     if not full:
         raise ValueError(f"LoRA file not found in models/loras: {name}")
-    # Containment is checked on the path as written, with ".." folded but
-    # links not followed: a LoRA kept on another drive and linked into
-    # models/loras is the user's own choice, and ComfyUI loads it too.
+    # The listed file must also sit below one of the loras folders, read
+    # from the path as ComfyUI built it, with ".." folded.
     path = Path(os.path.abspath(full))
     roots = [Path(os.path.abspath(root)) for root in folder_paths.get_folder_paths("loras")]
     if not any(root in path.parents for root in roots):
@@ -388,8 +392,8 @@ def apply_lora_stack(
         except MemoryError:
             raise
         except Exception as exc:
-            # ComfyUI's own message here is PyTorch's and never names the file.
-            detail = f"{type(exc).__name__}: {' '.join(str(exc).split())}"
+            # ComfyUI can add the file's path; error_detail drops words that name one.
+            detail = error_detail(exc)
             raise ValueError(
                 unreadable_lora_message(row["name"], unreadable_lora_reason(path), detail)
             ) from exc

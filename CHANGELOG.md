@@ -72,6 +72,22 @@ All notable changes to ComfyUI-AusBoss are documented here.
   than the page, and versions such as 2.25.10 and 2.25.9 are compared as
   numbers.
 
+- **LoRA routes only open files on ComfyUI's LoRA list.** The LoRA
+  Loader's info, hash and preview routes used to hand the name they were
+  given to ComfyUI's file lookup and check the answer afterwards. Now the
+  name is matched against the list first, and a name that is not on it is
+  refused before anything on disk is looked up.
+- **Image Folder 🆎 checks a folder or picture name as text before the
+  disk.** A drive letter in the middle of a name, or a control character,
+  is refused like `..`, and the joined path is checked before it is
+  resolved as well as after. The list no longer sends each picture's size
+  and time; the thumbnail's cache tag is a short hash instead.
+- **Error messages no longer pass on server paths.** When a model,
+  decoder or encoder fails, its message can name a file on the server's
+  disk. SAM 3 masks, LoRA loading and video saving now keep the kind of
+  error and drop its words when they name a path, since node errors reach
+  the browser and stay in the history.
+
 ## 2.26.2 - 2026-11-14
 
 - **Loaders never look up a file name they refused.** Before each run,

@@ -108,6 +108,15 @@ class _FolderPaths:
     def get_folder_paths(self, kind: str) -> list[str]:
         return [str(self.lora_root)] if kind == "loras" else []
 
+    def get_filename_list(self, kind: str) -> list[str]:
+        if kind != "loras":
+            return []
+        return [
+            path.relative_to(self.lora_root).as_posix()
+            for path in self.lora_root.rglob("*")
+            if path.is_file() and path.suffix == ".safetensors"
+        ]
+
     def get_user_directory(self) -> str:
         return str(self.user_root)
 
@@ -605,7 +614,15 @@ class ResolveLoraPathTests(unittest.TestCase):
     def test_path_outside_the_folders_is_refused(self):
         self.full_path = lambda kind, name: str(self.root / ".." / "other_drive" / "real.safetensors")
         with self.assertRaisesRegex(ValueError, "escapes the loras folders"):
-            _lora_helpers.resolve_lora_path("../other_drive/real.safetensors")
+            _lora_helpers.resolve_lora_path("plain.safetensors")
+
+    def test_a_name_off_the_list_never_reaches_the_disk(self):
+        asked = []
+        self.full_path = lambda kind, name: asked.append(name)
+        for name in ("../other_drive/real.safetensors", str(self.outside / "real.safetensors")):
+            with self.assertRaisesRegex(ValueError, "not found"):
+                _lora_helpers.resolve_lora_path(name)
+        self.assertEqual(asked, [])
 
 
 if __name__ == "__main__":

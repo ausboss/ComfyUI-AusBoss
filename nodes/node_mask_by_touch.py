@@ -15,6 +15,7 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 
+from ._route_errors import error_detail, safe_route_error
 from ._execution_helpers import advance_progress, progress_bar, raise_if_interrupted, warn_once
 from ._fine_edge_helpers import OFF as FINE_OFF
 from ._fine_edge_helpers import (
@@ -485,7 +486,7 @@ class _Session:
         except Exception as error:  # noqa: BLE001 - told apart just below
             if _stopped_by_user(error) or _out_of_memory(error):
                 raise
-            raise RuntimeError(f"{NOT_SAM3} ({type(error).__name__}: {error})") from error
+            raise RuntimeError(f"{NOT_SAM3} ({error_detail(error)})") from error
         _WORDS[key] = held
         while len(_WORDS) > WORDS_KEPT:
             _WORDS.popitem(last=False)
@@ -561,14 +562,14 @@ class _Session:
             if self._open is None:
                 # A model or a text reader that is not SAM 3's fails
                 # somewhere inside; say what to wire instead of showing that.
-                raise RuntimeError(f"{NOT_SAM3} ({type(error).__name__}: {error})") from error
+                raise RuntimeError(f"{NOT_SAM3} ({error_detail(error)})") from error
             self.close()
         try:
             answer = self._call(kind, frame, what)
         except Exception as error:  # noqa: BLE001
             if _stopped_by_user(error) or _out_of_memory(error):
                 raise
-            raise RuntimeError(f"{NOT_SAM3} ({type(error).__name__}: {error})") from error
+            raise RuntimeError(f"{NOT_SAM3} ({error_detail(error)})") from error
         # The plain way answers where the quick way failed.
         self._distrust("a question failed with it")
         return answer
@@ -1288,7 +1289,7 @@ class AusBossMaskByTouch:
                     if item.kind not in ("subject", "background") or not asked or _stopped_by_user(error):
                         raise
                     area, used, which = None, "none", ()
-                    subject_trouble = str(error)
+                    subject_trouble = safe_route_error(error, type(error).__name__)
                 if index == 0:
                     share = 0.0 if area is None else round(float(area.sum()) / (height * width), 5)
                     item_notes.append({"ok": used != "none", "share": share, "as": used})
@@ -1348,7 +1349,7 @@ class AusBossMaskByTouch:
                 # and the picture says why.
                 if not asked or _stopped_by_user(error):
                     raise
-                fine, fine_trouble = False, str(error)
+                fine, fine_trouble = False, safe_route_error(error, type(error).__name__)
         if fine and soft:
             # Where a soft brush had the last word its fade stays as painted.
             fade = torch.stack(painted) & (raw > 0) & (raw < 1)
