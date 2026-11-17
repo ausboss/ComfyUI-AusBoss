@@ -831,6 +831,10 @@ class VideoJobTests(unittest.TestCase):
         # A spoken line that happens to hold the words is left alone.
         said = 'Replace the guy with @1.\n@1 says: "He said @1 looks like trouble."'
         self.assertNotIn("this appearance", write_prompt(said, seconds=8.0, jobs={1: "person"}, video="swap the person"))
+        # Only a new sentence is split off: inside a sentence the words are left where they are.
+        from nodes._h3_cast_helpers import looks_on_own_lines
+        self.assertEqual(looks_on_own_lines("Put @1 looks like a friend here."), "Put @1 looks like a friend here.")
+        self.assertEqual(looks_on_own_lines("Swap him for @1! @1 looks like a pilot"), "Swap him for @1!\n@1 looks like a pilot")
 
     def test_a_swap_reads_clothes_typed_on_their_own_line(self):
         swap = dict(seconds=8.0, jobs={1: "person"}, video="swap the person")

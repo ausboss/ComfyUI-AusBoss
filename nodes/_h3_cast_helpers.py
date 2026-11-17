@@ -136,8 +136,9 @@ THE_PERSON = "the person in the shot"
 APPEARANCE_LINE = re.compile(r'^\s*@([1-4])\s+looks like\s+([^"\n]+?)\s*$', re.I)
 # Two ways people type a swap that used to be dropped without a word, so the swap ran with no description and H3
 # often gave the clip back: the looks sentence on the same line as the swap sentence, and the clothes on a line of
-# their own ("@1 is wearing a black suit").
-LOOKS_MID_LINE = re.compile(r"(?<=\S)[ \t]*(?=@[1-4]\s+looks like\b)", re.I)
+# their own ("@1 is wearing a black suit"). A looks sentence starts after a full stop, ! or ?; "Put @1 looks like a
+# friend here." is one sentence and stays whole.
+LOOKS_MID_LINE = re.compile(r"(?<=[.!?])[ \t]*(?=@[1-4]\s+looks like\b)", re.I)
 WEARS_LINE = re.compile(r'^\s*@([1-4])\s+(?:is\s+wearing|wears|is\s+dressed\s+in|has\s+on)\s+([^"@\n]+?)\s*$', re.I)
 QUOTE = re.compile(r'["\u201c\u201d]')
 
