@@ -127,7 +127,7 @@ class ListingTests(FolderCase):
 
     def test_no_folder_name_leads_out_of_the_root(self):
         for bad in ("..", "../private", "people/../../private", "/etc", "~/Pictures", "C:/Windows", "//server/share",
-                    "people\\..\\..\\private"):
+                    "people\\..\\..\\private", "people/C:/Windows", "people/\x00/x"):
             with self.assertRaises(ValueError, msg=bad) as refused:
                 safe_folder(self.root, bad)
             self.assertEqual(str(refused.exception), OUTSIDE, bad)
@@ -381,7 +381,9 @@ class RouteTests(FolderCase):
                              ("thumb", {"name": "loop/picture.png"})]:
             with self.subTest(route=route):
                 response = self.request(route, **query)
-                self.assertEqual(response.status, 400)
+                # A looped link is a bad folder to the lists and just no
+                # picture to the thumbnail; neither answer names the path.
+                self.assertEqual(response.status, 404 if route == "thumb" else 400)
                 self.assertNotIn(str(self.root), json.loads(response.text)["error"])
 
     def test_thumbnail_versions_change_with_subsecond_rewrites_and_size(self):
