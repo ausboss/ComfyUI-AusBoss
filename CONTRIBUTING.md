@@ -330,7 +330,7 @@ run by hand against any ComfyUI:
 ```bash
 AUSBOSS_COMFY_ROOT=<ComfyUI> python tests/test_comfy_core_contract.py
 python scripts/compat_boot.py --url http://127.0.0.1:8188
-node scripts/dev/face_smoke.mjs <chrome port>            # and again with --vue
+node scripts/dev/face_smoke.mjs <chrome port>            # and again with --vue, and --blocked-reads
 ```
 
 - `test_comfy_core_contract.py` reads the pack's own source for everything
@@ -341,7 +341,9 @@ node scripts/dev/face_smoke.mjs <chrome port>            # and again with --vue
 - `compat_boot.py` asks a running ComfyUI which nodes it offers: every public
   node of the pack, and every node and required input the examples use.
 - `face_smoke.mjs` puts every node on a graph and fails when a face does not
-  come up or something throws.
+  come up or something throws. With `--blocked-reads` it acts like a privacy
+  browser that blanks pixel reads, and fails when a node that loads a
+  picture then draws none.
 
 A failure on the release opens an issue labelled `comfyui-update`. What these
 cannot see is anything that needs a model: run the real thing on a GPU
