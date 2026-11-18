@@ -19,8 +19,6 @@ subjects start at <Picture 1>.
 
 from __future__ import annotations
 
-from typing import Any
-
 from ._layout_boxes_helpers import _turned_extent, angle_of, element_desc
 
 # Fractions of the frame, said as words.
