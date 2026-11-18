@@ -2,6 +2,16 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Image Crop + Rotate + Pad shows your picture in every browser.** Some
+  browsers and privacy add-ons (Firefox's fingerprint protection, Brave
+  Shields, canvas blockers) blank a picture when a page reads its pixels.
+  The node read that as a fully see-through picture and drew an empty stage,
+  although the size line and the run were right. It now checks first and,
+  where reads are blocked, draws the picture as it is; only the teal tint
+  over see-through parts is missing there.
+
 ## 2.26.3 - 2026-11-17
 
 - **Tone match now works on inpaints.** On a Crop For Inpaint 🆎 crop,

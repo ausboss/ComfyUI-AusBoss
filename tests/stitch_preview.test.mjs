@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  SEE_THROUGH_KEEP_PERCENT, blurMask, featherGeneratedMask, generatedAreaMask, growShrinkMask, overlayPlan, seeThroughMap,
+  SEE_THROUGH_KEEP_PERCENT, blurMask, featherGeneratedMask, generatedAreaMask, growShrinkMask, overlayPlan, pixelReadTrusted, seeThroughMap,
   stitchBlendFromMask,
 } from "../js/shared/stitch_preview.mjs";
 import { resolveCrop, resolvePadding, rotatedSize, scaleToMegapixels } from "../js/shared/transform_geometry.mjs";
@@ -72,6 +72,24 @@ test("seeThroughMap leaves a solid picture alone and paints an empty one", () =>
   // 229 everywhere is kept whole, but no longer left exactly as loaded.
   assert.deepEqual(Array.from(seeThroughMap(pixels(229, 229))), [0, 0]);
   assert.deepEqual(Array.from(seeThroughMap(pixels(0, 0, 0))), [1, 1, 1]);
+});
+
+// A blocked pixel read comes back all zero, which seeThroughMap would call
+// see-through everywhere: the stage then drew nothing at all.
+test("a blank or made-up pixel read is not trusted, a true or lightly noised one is", () => {
+  const read = (...px) => Uint8ClampedArray.from(px.flat());
+  assert.equal(pixelReadTrusted(read([255, 0, 0, 255], [0, 0, 255, 255])), true);
+  assert.equal(pixelReadTrusted(read([250, 3, 1, 255], [2, 1, 249, 255])), true);
+  assert.equal(pixelReadTrusted(read([0, 0, 0, 0], [0, 0, 0, 0])), false);
+  assert.equal(pixelReadTrusted(read([255, 255, 255, 255], [255, 255, 255, 255])), false);
+  assert.equal(pixelReadTrusted(read([255, 0, 0, 254], [0, 0, 255, 255])), false);
+  assert.equal(pixelReadTrusted(null), false);
+});
+
+test("the stage checks the browser's pixel reads before reading a picture's see-through parts", () => {
+  const editor = readFileSync(new URL("../js/shared/transform_editor.mjs", import.meta.url), "utf8");
+  const body = editor.slice(editor.indexOf("function maskLayer("), editor.indexOf("getImageData", editor.indexOf("function maskLayer(")));
+  assert.match(body, /canReadPixels\(\)/);
 });
 
 test("the see-through threshold is the backend's", () => {
