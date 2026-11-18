@@ -54,7 +54,7 @@ class LayoutBoxesNode(unittest.TestCase):
 
     def test_the_canvas_boxes_make_all_four_outputs(self):
         out = self.node.draw(width=W, height=H, layout=layout(box(320, 96, 512, 640, desc="a cat"), box(0, 0, W, 64, "text", "OPEN", "neon")))
-        preview, frames, elements, mask = out["result"]
+        preview, frames, elements, mask, _words = out["result"]
         self.assertEqual(tuple(preview.shape), (1, 585, 1024, 3), "the canvas's shape, 1024 on its long side")
         self.assertEqual(preview.dtype, torch.float32)
         self.assertTrue(0.0 <= float(preview.min()) and float(preview.max()) <= 1.0)
@@ -69,7 +69,7 @@ class LayoutBoxesNode(unittest.TestCase):
         self.assertTrue(torch.equal(mask, expected), "1 inside every box, 0 elsewhere")
 
     def test_no_boxes(self):
-        preview, frames, elements, mask = self.node.draw(width=512, height=1024)["result"]
+        preview, frames, elements, mask, _words = self.node.draw(width=512, height=1024)["result"]
         self.assertEqual(tuple(preview.shape), (1, 1024, 512, 3))
         self.assertEqual((frames, elements), ([], []))
         self.assertEqual(tuple(mask.shape), (1, 1024, 512))
@@ -116,7 +116,7 @@ class LayoutBoxesNode(unittest.TestCase):
     def test_a_turned_box_makes_a_turned_mask(self):
         # 25, -55 and 90 degrees, apart on a 1344 x 768 canvas; each white area is its turned rectangle.
         boxes = [dict(box(100, 300, 369, 103), angle=25), dict(box(560, 300, 300, 80), angle=-55), dict(box(1000, 250, 200, 100), angle=90)]
-        _preview, frames, elements, mask = self.node.draw(width=W, height=H, layout=layout(*boxes))["result"]
+        _preview, frames, elements, mask, _words = self.node.draw(width=W, height=H, layout=layout(*boxes))["result"]
         self.assertEqual(tuple(mask.shape), (1, H, W))
         def area(x0, x1):
             return int(mask[0, :, x0:x1].sum())
@@ -144,9 +144,19 @@ class LayoutBoxesNode(unittest.TestCase):
             self.assertEqual(before[2], after[2])
             self.assertTrue(torch.equal(before[3], after[3]))
 
+    def test_h3_prompt_counts_the_background_as_picture_one(self):
+        person = box(100, 200, 300, 500)
+        plain = self.node.draw(width=W, height=H, layout=layout(person))["result"][4]
+        self.assertIn("The person from <Picture 1>", plain)
+        picture = torch.rand(1, H, W, 3)
+        with tempfile.TemporaryDirectory() as temp_dir, patch.object(node_layout_boxes, "folder_paths", fake_folder_paths(temp_dir)):
+            scene = self.node.draw(background=picture, width=W, height=H, layout=layout(person))["result"][4]
+        self.assertIn("the scene in <Picture 1>", scene)
+        self.assertIn("The person from <Picture 2>", scene)
+
     def test_a_turned_text_box_tells_the_model_its_slant(self):
         sign = dict(box(613, 300, 369, 102, "text", "No Phones", "bold black letters on a white sign"), angle=25.2)
-        _preview, frames, elements, _mask = self.node.draw(width=W, height=H, layout=layout(sign))["result"]
+        _preview, frames, elements, _mask, _words = self.node.draw(width=W, height=H, layout=layout(sign))["result"]
         self.assertEqual(elements[0]["desc"], "bold black letters on a white sign, tilted about 25 degrees, running downhill to the right")
         self.assertEqual(elements[0]["text"], "No Phones")
         level = self.node.draw(width=W, height=H, layout=layout(dict(sign, angle=0)))["result"]
@@ -158,7 +168,7 @@ class LayoutBoxesNode(unittest.TestCase):
         # shape, so the box is turned there and the mask is a true rectangle on the photo.
         picture = torch.rand(1, 750, 1000, 3)
         words = {"x": 0.4, "y": 0.4, "w": 0.3, "h": 0.08, "type": "text", "text": "SALE", "desc": "red letters", "angle": -30}
-        _preview, frames, _elements, mask = self.node.draw(background=picture, width=1024, height=1536, layout=layout(words))["result"]
+        _preview, frames, _elements, mask, _words = self.node.draw(background=picture, width=1024, height=1536, layout=layout(words))["result"]
         self.assertEqual(tuple(mask.shape), (1, 750, 1000))
         self.assertLess(abs(int(mask.sum()) - 300 * 60), 2 * (300 + 60), "300 x 60 photo pixels, turned")
         cx, cy, a = 550, 330, math.radians(-30)

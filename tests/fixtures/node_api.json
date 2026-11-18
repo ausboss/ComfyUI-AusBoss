@@ -562,6 +562,10 @@
       [
         "MASK",
         "mask"
+      ],
+      [
+        "STRING",
+        "h3_prompt"
       ]
     ]
   },
