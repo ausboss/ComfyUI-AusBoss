@@ -22,7 +22,7 @@ export const PAD_SIDES = ["left", "top", "right", "bottom"];
 // Preserves filename whitespace.
 export function parseImageReference(value) {
   let text = String(value ?? "");
-  if (!text) return null;
+  if (!text.trim()) return null;
   let type = "input";
   const annotated = /^(.*) \[(input|output|temp)\]$/i.exec(text);
   if (annotated) {
