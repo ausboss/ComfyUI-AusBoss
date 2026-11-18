@@ -2,6 +2,17 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **LoRA Loader's + LoRA list opens with its folders folded.** A big LoRA
+  folder now opens as a short list of top folders. **Open all** and
+  **Fold all** beside the search box open or fold every folder at once,
+  and **Alt**- or **Shift**-click on a folder's arrow does the same for
+  that folder and every folder inside it. **Left** on a highlighted file
+  folds the folder it is in and moves up to it. To keep the old way, where
+  the list opens as you left it, set **Settings → 🆎 AusBoss → LoRA Loader
+  → Picker folders** to **Remember my folds**.
+
 ## 2.26.4 - 2026-11-18
 
 - **A video upload stops at 4 GB.** Dropping a video on Load Video had no
