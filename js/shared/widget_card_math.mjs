@@ -196,8 +196,8 @@ export function markSocketless(nodeData, names) {
 // `labels` is a map from value to words, or a function of the value and of
 // all the values, for a list that is only known on the user's machine (the
 // model files they have).
-export function choiceLabel(row, value, values = []) {
-  const own = typeof row?.labels === "function" ? row.labels(value, values) : row?.labels?.[value];
+export function choiceLabel(row, value, values = [], node = null) {
+  const own = typeof row?.labels === "function" ? row.labels(value, values, node) : row?.labels?.[value];
   return own ?? String(value);
 }
 

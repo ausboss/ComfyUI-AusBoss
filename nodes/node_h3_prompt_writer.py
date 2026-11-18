@@ -203,7 +203,7 @@ class AusBossH3PromptWriter:
                     [AS_TYPED, *CAMERAS],
                     {
                         "default": AS_TYPED,
-                        "tooltip": "How the camera moves the whole way through. As typed leaves it to your words.",
+                        "tooltip": "How the camera moves the whole way through. As typed leaves it to your words; with a video wired it shows as from the video and keeps the video's own camera.",
                     },
                 ),
                 "look": (
