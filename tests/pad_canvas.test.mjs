@@ -58,6 +58,18 @@ test("both padded sides keep the multiple remainder on the far side", () => {
   });
 });
 
+test("image references preserve filename whitespace around folder annotations", () => {
+  for (const suffix of ["", " [input]", " [output]", " [temp]"]) {
+    const type = suffix ? suffix.slice(2, -1) : "input";
+    for (const filename of [" 00_25.083 frame=377.png", " photo.png "]) {
+      assert.deepEqual(parseImageReference(filename + suffix), { filename, subfolder: "", type });
+      assert.deepEqual(parseImageReference(` sub\\dir\\${filename}${suffix}`), {
+        filename, subfolder: " sub/dir", type,
+      });
+    }
+  }
+});
+
 test("one padded side takes the whole remainder", () => {
   // Pinned in tests/test_pad_helpers.py too.
   assert.deepEqual(padGeometry(100, 64, pads(20, 0, 0, 0, 16)), {
