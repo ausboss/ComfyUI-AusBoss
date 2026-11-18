@@ -71,6 +71,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   left out of the prompt without a word, and the clip often came back
   unchanged. Both are now used.
 
+- **Load Audio 🆎: Clean up.** Turn on **Clean up** for a voice recording
+  and it comes out as one channel, with the quiet bits at the start and end
+  cut, less hum and hiss, and an even volume that never clips. A video model
+  that copies the sound it is given copies its noise too, so this helps a
+  phone recording. It is off by default, so saved workflows are unchanged.
+
 - **H3 Prompt Writer no longer drops lines.** When one line held two
   people talking, like `The phone says: "Get a job." @1 looks up and says:
   "What?"`, only the first words reached the prompt. Each quote is its own

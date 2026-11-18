@@ -440,9 +440,13 @@ const CARDS = {
     // card (js/load_audio); max_seconds is the Duration there. The card
     // hides it, so App mode can still show it as a field.
     minWidth: 280, first: true, hide: ["upload", "max_seconds"],
+    // Older saves hand clean_up the upload button's empty value.
+    resetUnknown: { clean_up: false },
     rows: [
       { widget: "audio", label: "Source", kind: "select",
         button: { text: PANEL_LABELS.load, title: "Upload a sound file into ComfyUI's input folder", onClick: (node) => node.widgets?.find((w) => w.name === "upload")?.callback?.() } },
+      { widget: "clean_up", label: "Clean up", onText: PANEL_LABELS.on, offText: PANEL_LABELS.off,
+        title: "For a voice recording. On cuts the quiet bits at the start and end, takes out hum and hiss, and evens out the volume. Off hands on the sound as it is." },
     ],
   },
   // Load Image: the file, then where it is in the folder and the size it
