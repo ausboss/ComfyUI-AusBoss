@@ -31,6 +31,7 @@ import {
 import { BRAND, chainCallback, keepDomWidgetWidthAuto, notifyAusbossChange, showToast } from "./index.mjs";
 import { linkById, placeholderText, sourceFileWidget, upstreamNode, viewQueryForFile } from "./input_preview.mjs";
 import { WIDGET_FRAME, fillNodeHeight } from "./panel_layout.mjs";
+import { decodePng } from "./png_pixels.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
 import { makeSlideSwitch } from "./slide_switch.mjs";
 import {
@@ -341,14 +342,18 @@ function remember(entry, stamp, mask) {
   while (entry.states.size > STATES_KEPT) entry.states.delete(entry.states.keys().next().value);
 }
 
-function viewUrl(file, tag = "") {
+function viewQuery(file, tag = "") {
   const query = new URLSearchParams({
     filename: String(file.filename),
     subfolder: String(file.subfolder ?? ""),
     type: String(file.type ?? "temp"),
   });
   if (tag) query.set("v", tag);
-  return api.apiURL(`/view?${query}`);
+  return `/view?${query}`;
+}
+
+function viewUrl(file, tag = "") {
+  return api.apiURL(viewQuery(file, tag));
 }
 
 function loadImage(url) {
@@ -372,6 +377,23 @@ function readPixels(image, width, height) {
   context.clearRect(0, 0, width, height);
   context.drawImage(image, 0, 0, width, height);
   return context.getImageData(0, 0, width, height).data;
+}
+
+// The exact pixels of a file the server made, read from its bytes
+// (png_pixels.mjs) so a browser that blanks canvas reads still gets them.
+// A file that will not decode, or is not at the preview's size, is read
+// through a canvas as before.
+async function loadPixels(file, tag, width, height) {
+  try {
+    const response = await api.fetchApi(viewQuery(file, tag));
+    if (response.ok) {
+      const png = await decodePng(await response.arrayBuffer());
+      if (png.width === width && png.height === height) return png.rgba;
+    }
+  } catch {
+    // Read it the old way below.
+  }
+  return readPixels(await loadImage(viewUrl(file, tag)), width, height);
 }
 
 function onOff(rgba) {
@@ -428,8 +450,8 @@ async function loadPieces(entry, pieces) {
       };
     });
   const files = (Array.isArray(pieces.planes) ? pieces.planes : []).filter(isFile);
-  const images = await Promise.all(files.map((file) => loadImage(viewUrl(file, entry.key))));
-  const planes = packPlanes(images.map((image) => readPixels(image, entry.pw, entry.ph)), entry.pw, entry.ph);
+  const reads = await Promise.all(files.map((file) => loadPixels(file, entry.key, entry.pw, entry.ph)));
+  const planes = packPlanes(reads, entry.pw, entry.ph);
   const sizes = pieceSizes(planes, list.length);
   const overlaps = pieceOverlaps(planes, list.length);
   entry.pieces = {
@@ -1937,8 +1959,8 @@ async function takeNote(face, note, { restored = false, interim = false } = {}) 
   let answered = null;
   if (stamp) {
     if (isFile(note.selection)) {
-      jobs.push(loadImage(viewUrl(note.selection, `${note.key}-${stamp}`)).then((image) => {
-        answered = readSelection(readPixels(image, entry.pw, entry.ph));
+      jobs.push(loadPixels(note.selection, `${note.key}-${stamp}`, entry.pw, entry.ph).then((rgba) => {
+        answered = readSelection(rgba);
       }));
     } else {
       answered = new Uint8Array(entry.pw * entry.ph);
@@ -1949,16 +1971,16 @@ async function takeNote(face, note, { restored = false, interim = false } = {}) 
   let areas = null;
   if (stamp && Array.isArray(note.areas?.items) && Array.isArray(note.areas?.planes)) {
     const files = note.areas.planes.filter(isFile);
-    jobs.push(Promise.all(files.map((file) => loadImage(viewUrl(file, `${note.key}-${stamp}-areas`)))).then((images) => {
-      areas = { planes: packPlanes(images.map((image) => readPixels(image, entry.pw, entry.ph)), entry.pw, entry.ph), items: note.areas.items };
+    jobs.push(Promise.all(files.map((file) => loadPixels(file, `${note.key}-${stamp}-areas`, entry.pw, entry.ph))).then((reads) => {
+      areas = { planes: packPlanes(reads, entry.pw, entry.ph), items: note.areas.items };
     }, () => {}));
   }
   // The fine edge, when the node made one: the cut-out's colours with the
   // mask as their see-through channel. A lost file only costs the fine look.
   let fine = null;
   if (stamp && isFile(note.fine?.file) && typeof note.fine.made === "string") {
-    jobs.push(loadImage(viewUrl(note.fine.file, `${note.key}-${stamp}-fine`)).then((image) => {
-      const colours = readPixels(image, entry.pw, entry.ph).slice();
+    jobs.push(loadPixels(note.fine.file, `${note.key}-${stamp}-fine`, entry.pw, entry.ph).then((rgba) => {
+      const colours = rgba.slice();
       fine = { stamp, made: note.fine.made, colours, mask: fineMask(colours) };
     }, () => {}));
   }

@@ -12,6 +12,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
   where reads are blocked, draws the picture as it is; only the teal tint
   over see-through parts is missing there.
 
+- **Mask by Touch shows what you picked in every browser.** In those same
+  browsers its face said "nothing picked" and nothing lit up, although the
+  run made the right mask. It now reads the masks the node sends from the
+  files themselves, so the pick and the highlights show everywhere.
+
 ## 2.26.3 - 2026-11-17
 
 - **Tone match now works on inpaints.** On a Crop For Inpaint 🆎 crop,
