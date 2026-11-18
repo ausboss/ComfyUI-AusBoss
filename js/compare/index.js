@@ -14,6 +14,8 @@ import {
   compareBadges,
   compareClip,
   compareResultSide,
+  SWITCH_CONTROL_INPUTS,
+  SWITCH_NODE_TYPES,
   compareSizeLabel,
   compareSwitchValue,
   findComparePairs,
@@ -182,9 +184,15 @@ function linkView(graph) {
     const link = lookupLink(graph, linkId);
     return link ? { id: String(link.origin_id), slot: link.origin_slot } : null;
   };
+  const inputs = (id) => graph?.getNodeById?.(id)?.inputs ?? [];
   return {
     origin,
-    feeds: (id) => (graph?.getNodeById?.(id)?.inputs ?? []).map((input) => origin(input?.link)?.id),
+    feeds: (id) => inputs(id).map((input) => origin(input?.link)?.id),
+    branches(id) {
+      const node = graph?.getNodeById?.(id);
+      if (!SWITCH_NODE_TYPES.has(node?.comfyClass ?? node?.type)) return null;
+      return inputs(id).filter((input) => !SWITCH_CONTROL_INPUTS.has(input?.name)).map((input) => origin(input?.link)?.id);
+    },
     inside(id) {
       const subgraph = graph?.getNodeById?.(id)?.subgraph;
       if (!subgraph) return null;
