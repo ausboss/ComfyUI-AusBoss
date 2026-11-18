@@ -13,7 +13,7 @@ import { normalizeFillColor } from "./fill_color.mjs";
 import { makeSlideSwitch } from "./slide_switch.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
 import { confirmDiscard } from "./discard_prompt.mjs";
-import { featherGeneratedMask, generatedAreaMask, overlayPlan, seeThroughMap, stitchBlendFromMask } from "./stitch_preview.mjs";
+import { PIXEL_PROBE, featherGeneratedMask, generatedAreaMask, overlayPlan, pixelReadTrusted, seeThroughMap, stitchBlendFromMask } from "./stitch_preview.mjs";
 import { suppressCoreVideoPreview } from "./core_preview.mjs";
 import { gearIconSvg, loadSettings, openSettingsMenu } from "./settings_menu.mjs";
 import { createSettle } from "./settle.mjs";
@@ -2863,6 +2863,9 @@ function maskLayer(state) {
   if (state.seeThrough?.image === state.image) return state.seeThrough.layer;
   let layer = null;
   try {
+    // A browser that blanks pixel reads would make the whole picture look
+    // see-through: draw it as it is instead.
+    if (!canReadPixels()) throw new Error("pixel reads are blocked");
     const k = Math.min(1, MASK_LAYER_SIDE / Math.max(state.sourceWidth, state.sourceHeight));
     const width = Math.max(1, Math.round(state.sourceWidth * k));
     const height = Math.max(1, Math.round(state.sourceHeight * k));
@@ -2888,6 +2891,22 @@ function maskLayer(state) {
   }
   state.seeThrough = { image: state.image, layer };
   return layer;
+}
+
+// Whether this browser hands back the pixels a canvas holds (pixelReadTrusted).
+// Asked once per page.
+let pixelReadsWork = null;
+function canReadPixels() {
+  if (pixelReadsWork !== null) return pixelReadsWork;
+  try {
+    const probe = document.createElement("canvas"); probe.width = PIXEL_PROBE.length; probe.height = 1;
+    const context = probe.getContext("2d");
+    PIXEL_PROBE.forEach(([r, g, b], x) => { context.fillStyle = `rgb(${r},${g},${b})`; context.fillRect(x, 0, 1, 1); });
+    pixelReadsWork = pixelReadTrusted(context.getImageData(0, 0, PIXEL_PROBE.length, 1).data);
+  } catch {
+    pixelReadsWork = false;
+  }
+  return pixelReadsWork;
 }
 
 // White where the tint is, for Show blend's raster.
