@@ -2,7 +2,11 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.26.4 - 2026-11-18
+
+- **A video upload stops at 4 GB.** Dropping a video on Load Video had no
+  size limit, so a huge file could fill the input folder. An upload over
+  4 GB is now refused with a message, and the partly saved file is removed.
 
 - **Image Crop + Rotate + Pad shows your picture in every browser.** Some
   browsers and privacy add-ons (Firefox's fingerprint protection, Brave
@@ -31,6 +35,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
   a new voice or change something, the first Camera choice now reads "from
   the video": the camera does what it does in the clip. It is the same
   choice as "as typed", so saved workflows are unchanged.
+
+- **A picture whose name starts with a space now shows its preview.** The
+  name was trimmed before the preview was asked for, so Image Crop + Rotate
+  + Pad and the other nodes that share that code looked for a file that
+  did not exist.
 
 ## 2.26.3 - 2026-11-17
 

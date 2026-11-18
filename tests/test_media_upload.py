@@ -15,6 +15,7 @@ from aiohttp.test_utils import make_mocked_request
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+from nodes import _media_upload
 from nodes._media_upload import stream_video_upload, upload_name
 
 
@@ -82,6 +83,14 @@ class UploadTests(unittest.IsolatedAsyncioTestCase):
         response = await self.upload(b'not a video')
         self.assertEqual(response.status, 400)
         self.assertFalse((self.root / 'clip.mp4').exists())
+
+    async def test_upload_over_the_size_cap_is_refused_and_removed(self):
+        from unittest.mock import patch
+        with patch.object(_media_upload, 'MAX_VIDEO_UPLOAD_BYTES', len(self.body) - 1):
+            response = await self.upload(self.body)
+        self.assertEqual(response.status, 400)
+        self.assertIn('too large', response.text)
+        self.assertEqual(list(self.root.iterdir()), [])
 
     def test_only_plain_supported_filenames_are_accepted(self):
         for name in ['../clip.mp4', '/clip.mp4', 'C:\\clip.mp4', 'clip.py', 'x\0.mp4']:
