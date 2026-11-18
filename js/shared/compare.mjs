@@ -131,6 +131,16 @@ export function compareBadges(fraction, stageWidth, badgeWidth = 22, gap = 5) {
   return { a: a >= 4 ? a : null, b: b + badgeWidth <= width - 4 ? b : null };
 }
 
+// The node property that holds the picture the panel rests on: "A" or "B",
+// saved with the workflow. A new node rests on B, the "after" picture.
+export const REST_PROPERTY = "ausboss_compare_rest";
+
+// A saved resting side, or null when the node has none yet (a workflow
+// saved before the choice existed).
+export function savedRestSide(value) {
+  return value === "A" || value === "B" ? value : null;
+}
+
 // Node types that hand on one of their pictures and make nothing new.
 export const SWITCH_NODE_TYPES = new Set(["ComfySwitchNode", "ComfySoftSwitchNode", "AUSBOSS_NODES_Switch"]);
 // The inputs of a switch that choose a branch rather than carry a picture.

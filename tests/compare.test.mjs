@@ -7,6 +7,7 @@ import {
   slideFraction,
   compareClip,
   compareResultSide,
+  savedRestSide,
   compareSizeLabel,
   findCompareImages,
   findComparePairs,
@@ -235,6 +236,12 @@ test("a before that a switch can fill with the result still rests on the result"
   assert.equal(compareResultSide(from(4), from(1), view({ 2: [1], 4: [2, 7, 9] }, {}, { 4: [2, 7] })), "A");
   // A switch with no picture wired proves nothing.
   assert.equal(compareResultSide(from(4), from(1), view({ 4: [9] }, {}, { 4: [] })), "B");
+});
+
+test("only A or B counts as a saved resting side", () => {
+  assert.equal(savedRestSide("A"), "A");
+  assert.equal(savedRestSide("B"), "B");
+  for (const value of [undefined, null, "", "a", "b", "slide", 1, true]) assert.equal(savedRestSide(value), null);
 });
 
 test("an input with nothing to compare against rests on B", () => {
