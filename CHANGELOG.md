@@ -12,6 +12,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
   where reads are blocked, draws the picture as it is; only the teal tint
   over see-through parts is missing there.
 
+- **Image Compare A/B always rests on the same picture.** While the
+  pointer is away, a new node shows B, the "after" picture. To show A
+  instead, right-click the node; the choice is saved with the workflow.
+  Earlier versions worked the side out from the links on every run, and a
+  workflow whose "before" came out of a switch showed the before. A
+  workflow saved by an earlier version keeps showing the picture it did.
+
 ## 2.26.3 - 2026-11-17
 
 - **Tone match now works on inpaints.** On a Crop For Inpaint 🆎 crop,
