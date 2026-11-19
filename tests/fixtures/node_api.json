@@ -1095,7 +1095,8 @@
       "fix_edge_halo",
       "color_match",
       "seam",
-      "paste_onto"
+      "paste_onto",
+      "follow_changes"
     ],
     "outputs": [
       [
