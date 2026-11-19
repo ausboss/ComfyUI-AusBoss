@@ -176,8 +176,15 @@ last one you ticked and the one you click. Ticks stay while you search, so you c
 gather files from several searches; **Clear** unticks them all. Files that
 are already in the stack say **in stack** and have no box. With the
 keyboard, **Ctrl+Enter** ticks the highlighted file and **Shift+Enter**
-ticks the run up to it. Use the arrow beside a folder to collapse or expand it without
-adding anything. Folded folders are remembered in this browser. Search
+ticks the run up to it. The list opens with every folder folded. Use the
+arrow beside a folder to open or fold it without adding anything.
+**Open all** beside the search box opens every folder at once (it then
+reads **Fold all**), and **Alt**- or **Shift**-click on a folder's arrow
+opens or folds that folder and every folder inside it. With the keyboard,
+**Right** opens the highlighted folder and **Left** folds it; **Left** on a
+file folds the folder it is in and moves up to it. To have the list open
+the way you left it instead, set **Settings → 🆎 AusBoss → LoRA Loader →
+Picker folders** to **Remember my folds**. Search
 reveals matching files; clearing it brings back your folded view. You can
 also fold folders while searching.
 

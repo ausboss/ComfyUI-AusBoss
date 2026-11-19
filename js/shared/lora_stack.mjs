@@ -599,6 +599,35 @@ export function loraPickerEntries(names, query = "", collapsedFolders = new Set(
   return visit(tree);
 }
 
+// Fold or open many folders at once: every folder in `folders`, or with
+// `root` that folder and every folder inside it. Returns a new Set; folds
+// of folders not named in `folders` are kept as they were.
+export function setFolderFolds(collapsedFolders, folders, fold, root = null) {
+  const next = new Set([...collapsedFolders].map(loraPath));
+  const base = root == null ? null : loraPath(root);
+  for (const name of folders) {
+    const folder = loraPath(name);
+    if (base != null && folder !== base && !folder.startsWith(`${base}/`)) continue;
+    if (fold) next.add(folder);
+    else next.delete(folder);
+  }
+  return next;
+}
+
+// The folder a file or folder sits in, or null at the top of the list. The
+// picker's Left key folds it and moves up to it.
+export function parentFolder(name) {
+  const parts = loraPath(String(name ?? "")).split("/");
+  return parts.length > 1 ? parts.slice(0, -1).join("/") : null;
+}
+
+// The picker's fold-all control offers "Fold all" while any folder in view
+// is open, and "Open all" once every folder in view is folded.
+export function anyFolderOpen(entries, collapsedFolders) {
+  const collapsed = new Set([...collapsedFolders].map(loraPath));
+  return entries.some((entry) => entry.kind === "folder" && !collapsed.has(entry.name));
+}
+
 // Append the folder in one step, preserving duplicates, disabled rows and
 // empty slots already in the stack. Deduplicate new files by full path.
 export function appendFolderRows(rows, names, defaultStrength = 1) {
