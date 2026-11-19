@@ -156,7 +156,7 @@ class OpaqueIdentityTests(unittest.TestCase):
         for source_name, source in opaque_sources():
             for layout_name, layout in LAYOUTS.items():
                 with self.subTest(source=source_name, layout=layout_name):
-                    image, mask, stitcher, original, width, height, prompt_image = run_node(source, **layout)
+                    image, mask, stitcher, original, width, height, prompt_image, *_ = run_node(source, **layout)
                     spec = TransformSpec(**{k: v for k, v in layout.items() if not k.startswith("stitch")})
                     old_output, old_mask, geometry = reference_transform(source, spec)
                     old_image, old_mask = as_tensor(old_output), as_tensor(old_mask)
@@ -231,7 +231,7 @@ class SeeThroughRuleTests(unittest.TestCase):
         alpha = np.zeros((8, 10), np.uint8)
         alpha[:, 5:] = 255
         alpha[0, :5] = (10, 100, 200, 229, 230)  # the last one is kept
-        image, mask, _, _, _, _, _ = run_node(cutout(10, 8, alpha), feather=0)
+        image, mask, *_ = run_node(cutout(10, 8, alpha), feather=0)
         see_through = torch.from_numpy(alpha < 230)
         fill = torch.tensor(fill_rgb("#808080"), dtype=torch.float32) / 255
         self.assertTrue(torch.equal(image[0][see_through], fill.expand(int(see_through.sum()), 3)))
@@ -311,7 +311,7 @@ class SeeThroughRuleTests(unittest.TestCase):
         yy, xx = np.mgrid[:80, :100]
         hole = (yy - 40) ** 2 / 15**2 + (xx - 50) ** 2 / 22**2 <= 1
         alpha[hole] = 0
-        image, mask, stitcher, original, _, _, prompt_image = run_node(cutout(100, 80, alpha), feather=6, stitch_blend=4)
+        image, mask, stitcher, original, _, _, prompt_image, *_ = run_node(cutout(100, 80, alpha), feather=6, stitch_blend=4)
         hole_t = torch.from_numpy(hole)
         self.assertTrue(bool((mask[0][hole_t] == 1).all()))
         self.assertTrue(bool((prompt_image[0][hole_t] == 1).all()))
@@ -332,7 +332,7 @@ class SeeThroughRuleTests(unittest.TestCase):
 
     def test_a_turned_cutout_marks_both_kinds_of_empty(self):
         source = cutout()
-        image, mask, stitcher, original, width, height, prompt_image = run_node(
+        image, mask, stitcher, original, width, height, prompt_image, *_ = run_node(
             source, rotation_degrees=17, pad_left=30, pad_right=30, feather=0
         )
         fill = torch.tensor(fill_rgb("#808080"), dtype=torch.float32) / 255
@@ -358,7 +358,7 @@ class SeeThroughRuleTests(unittest.TestCase):
     def test_a_picture_faded_throughout_is_kept_whole(self):
         alpha = np.full((40, 60), 128, np.uint8)
         alpha[:, :4] = 0
-        image, mask, _, original, _, _, prompt_image = run_node(cutout(60, 40, alpha), feather=0)
+        image, mask, _, original, _, _, prompt_image, *_ = run_node(cutout(60, 40, alpha), feather=0)
         self.assertTrue(bool((mask[0][:, 4:] == 0).all()))
         self.assertTrue(bool((mask[0][:, :4] == 1).all()))
         green = torch.tensor(GREEN, dtype=torch.float32) / 255
@@ -367,7 +367,7 @@ class SeeThroughRuleTests(unittest.TestCase):
         self.assertTrue(bool((original[0][:, :4] == 1).all()))
 
     def test_a_fully_see_through_picture_is_all_paint(self):
-        image, mask, stitcher, original, _, _, prompt_image = run_node(cutout(30, 20, np.zeros((20, 30), np.uint8)), pad_left=10)
+        image, mask, stitcher, original, _, _, prompt_image, *_ = run_node(cutout(30, 20, np.zeros((20, 30), np.uint8)), pad_left=10)
         self.assertTrue(bool((mask == 1).all()))
         fill = torch.tensor(fill_rgb("#808080"), dtype=torch.float32) / 255
         self.assertTrue(torch.equal(image[0], fill.expand(20, 40, 3)))
@@ -381,7 +381,7 @@ class SeeThroughRuleTests(unittest.TestCase):
         solid = Image.new("RGBA", (40, 30), (*GREEN, 255))
         alpha = np.full((30, 40), 255, np.uint8)
         alpha[:, :10] = 0
-        image, mask, _, original, _, _, prompt_image = run_node(solid, solid, cutout(40, 30, alpha), pad_left=8)
+        image, mask, _, original, _, _, prompt_image, *_ = run_node(solid, solid, cutout(40, 30, alpha), pad_left=8)
         self.assertTrue(torch.equal(prompt_image[0], image[0]))
         self.assertTrue(bool((prompt_image[1][:, 8:18] == 1).all()))
         self.assertTrue(bool((mask[1][:, 8:18] == 1).all()))
@@ -400,7 +400,7 @@ class SeeThroughRuleTests(unittest.TestCase):
         alpha = np.full((96, 128), 255, np.uint8)
         alpha[:, :40] = 0
         source = cutout(128, 96, alpha)
-        image, mask, _, _, width, height, prompt_image = run_node(
+        image, mask, _, _, width, height, prompt_image, *_ = run_node(
             source, pad_right=32, resize_to_megapixels=True, megapixels=0.03, resolution_steps=8
         )
         self.assertEqual(tuple(prompt_image.shape), tuple(image.shape))

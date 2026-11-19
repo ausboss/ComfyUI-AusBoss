@@ -366,6 +366,14 @@
       [
         "IMAGE",
         "prompt_image"
+      ],
+      [
+        "INT",
+        "canvas_width"
+      ],
+      [
+        "INT",
+        "canvas_height"
       ]
     ]
   },

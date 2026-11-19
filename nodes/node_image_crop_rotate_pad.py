@@ -93,8 +93,11 @@ class AusBossImageCropRotatePad:
         return {"required": required, "optional": optional}
 
     # Appended outputs only: saved links ride slot indices.
-    RETURN_TYPES = ("IMAGE", "MASK", "AUSBOSS_STITCHER", "IMAGE", "INT", "INT", "IMAGE")
-    RETURN_NAMES = ("image", "mask", "stitcher", "original", "width", "height", "prompt_image")
+    RETURN_TYPES = ("IMAGE", "MASK", "AUSBOSS_STITCHER", "IMAGE", "INT", "INT", "IMAGE", "INT", "INT")
+    RETURN_NAMES = (
+        "image", "mask", "stitcher", "original", "width", "height", "prompt_image",
+        "canvas_width", "canvas_height",
+    )
     OUTPUT_TOOLTIPS = (
         "The transformed image batch in BHWC format.",
         "White where the model paints: padding, the corners a turn leaves empty, "
@@ -107,6 +110,9 @@ class AusBossImageCropRotatePad:
         "The image with see-through parts shown on white instead of the fill. Wire it to "
         "the node that writes your prompt, so a cutout gets a real backdrop. The same "
         "as image when your picture has no see-through parts, or painted_area keeps the picture.",
+        "Width of your picture after any rotate, crop and padding, before the megapixel resize. "
+        "Wire it to Image Resize to get the result back at this size.",
+        "Height of your picture after any rotate, crop and padding, before the megapixel resize.",
     )
     FUNCTION = "load_transform"
 
@@ -129,6 +135,9 @@ class AusBossImageCropRotatePad:
         output, mask, geometry, prompt_image = transform_pil_batch(
             frames, spec, view=True, keep_see_through=keep_picture
         )
+        # The size before the budget rounds it to resolution_steps: what a
+        # result is put back to when the picture must keep its own size.
+        canvas_width, canvas_height = int(output.shape[2]), int(output.shape[1])
         if resize_to_megapixels:
             output, mask, prompt_image = resize_then_pad(
                 output, mask, geometry, spec.fill_color, float(megapixels), str(resize_method),
@@ -154,6 +163,7 @@ class AusBossImageCropRotatePad:
         return (
             output, mask, stitcher, original,
             int(output.shape[2]), int(output.shape[1]), prompt_image,
+            canvas_width, canvas_height,
         )
 
     @classmethod
