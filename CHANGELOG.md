@@ -4,6 +4,14 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Box edits on big photos start much sooner.** Crop For Inpaint,
+  Image Crop + Rotate + Pad and Stitch Inpaint grew and softened their
+  masks across the whole picture, even when the box was small or there was
+  nothing to do. On a 17 MP photo that took about 5 seconds before the
+  model started. The work now covers only the area around the mask:
+  Crop For Inpaint went from 3.1 s to 0.14 s, and Image Crop + Rotate + Pad
+  with nothing to do from 2.2 s to 0.5 s. The results are the same pixels.
+
 - **LoRA Loader's + LoRA list opens with its folders folded.** A big LoRA
   folder now opens as a short list of top folders. **Open all** and
   **Fold all** beside the search box open or fold every folder at once,
