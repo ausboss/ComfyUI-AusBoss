@@ -966,15 +966,12 @@ def inner_tone_offset(
     diff = new - old
     frames = diff.shape[0]
     whole = (blend > 0.999).to(diff.dtype)
-    size = 2 * INNER_RIM_PX + 1
     # A pixel is deeper than the rim when nothing within INNER_RIM_PX of it
     # is outside the whole paste. The crop's own border does not count as
     # outside: the painted area simply runs off the crop there.
     # One pass along each axis: the same square reach at a fraction of the cost.
-    outside = (1.0 - whole).unsqueeze(1)
-    outside = functional.max_pool2d(outside, (1, size), stride=1, padding=(0, INNER_RIM_PX))
-    outside = functional.max_pool2d(outside, (size, 1), stride=1, padding=(INNER_RIM_PX, 0))
-    deep = 1.0 - outside.squeeze(1)
+    outside = grow_shrink_mask(1.0 - whole, INNER_RIM_PX)
+    deep = 1.0 - outside
     rim = (whole > 0) & (deep < 0.5)
     rim = torch.where(rim.flatten(1).any(dim=1).view(-1, 1, 1), rim, whole > 0)
     pasted = whole > 0
