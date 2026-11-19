@@ -48,3 +48,38 @@ export function moveHighlight(index, delta, length) {
   if (index < 0 || index >= length) return delta > 0 ? 0 : length - 1;
   return Math.max(0, Math.min(length - 1, index + delta));
 }
+
+// Keep every file in memory but only present one folder at a time; searching
+// is global, like ComfyUI's default file selector. Values remain unchanged so
+// ComfyUI's image widget still receives the full original filename.
+export function browseMediaRows(options, query, directory = [], bare = (value) => value) {
+  if (String(query ?? "").trim()) {
+    return filterMedia(options, query).map((value) => ({ kind: "file", value }));
+  }
+  const folders = new Map();
+  const files = [];
+  for (const value of options) {
+    const parts = bare(value).replace(/\\/g, "/").split("/").filter(Boolean);
+    if (!directory.every((part, i) => parts[i] === part)) continue;
+    const name = parts[directory.length];
+    if (!name) continue;
+    if (parts.length > directory.length + 1) {
+      if (!folders.has(name)) folders.set(name, { kind: "folder", label: name, directory: [...directory, name] });
+    } else {
+      files.push({ kind: "file", value });
+    }
+  }
+  return [
+    ...(directory.length ? [{ kind: "back", label: "..", directory: directory.slice(0, -1) }] : []),
+    ...folders.values(),
+    ...files,
+  ];
+}
+
+// Virtual scrolling uses a fixed row height. The DOM only contains this range
+// while the scroll container's spacer retains the height of the entire list.
+export function visibleMediaRange(total, scrollTop, height, rowHeight, overscan) {
+  const first = Math.max(0, Math.floor(scrollTop / rowHeight) - overscan);
+  const last = Math.min(total, Math.ceil((scrollTop + height) / rowHeight) + overscan);
+  return { first, last };
+}
