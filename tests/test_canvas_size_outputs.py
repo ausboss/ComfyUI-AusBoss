@@ -35,6 +35,7 @@ def load(width, height, **values):
         )
 
 
+@unittest.skipUnless(os.environ.get("AUSBOSS_COMFY_ROOT"), "Set AUSBOSS_COMFY_ROOT for core resize integration")
 class CanvasSizeTests(unittest.TestCase):
     def test_the_report_1920x1080_is_rounded_to_1088_by_the_budget(self):
         out = load(1920, 1080)
