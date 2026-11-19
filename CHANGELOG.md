@@ -12,6 +12,16 @@ All notable changes to ComfyUI-AusBoss are documented here.
   Crop For Inpaint went from 3.1 s to 0.14 s, and Image Crop + Rotate + Pad
   with nothing to do from 2.2 s to 0.5 s. The results are the same pixels.
 
+- **Stitch Inpaint can paste past the box.** Edit models that redraw the
+  whole crop, such as MiniMax H3 Image, often draw a new boot, a plate rim
+  or a collar a little past the box, and the paste cut it off at the box's
+  edge. Turn on the new **Follow changes** switch: the paste then grows to
+  every change that touches the box, and fades out before the edge of the
+  crop. It first undoes the small zoom or shift such a model can draw, so
+  the wall or table around the edit lines up again. When the model redrew
+  nearly everything around the box, the paste stays the box. It is off by
+  default, so saved workflows paste exactly as before.
+
 - **LoRA Loader's + LoRA list opens with its folders folded.** A big LoRA
   folder now opens as a short list of top folders. **Open all** and
   **Fold all** beside the search box open or fold every folder at once,

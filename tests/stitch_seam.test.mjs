@@ -64,8 +64,9 @@ test("blend in mutes the rows and widens the corner; classic does neither", () =
   }
   assert.equal(seamCornerReserve({ seam: "classic" }), 30);
   assert.equal(seamCornerReserve({ seam: "blend in" }), 84);
-  // Tone match works in both seams; only the halo fix is classic's alone.
-  assert.deepEqual(Object.keys(SEAM_MUTE_TITLES), ["fix_edge_halo"]);
+  // Tone match works in both seams; the halo fix and Follow changes are
+  // classic's alone.
+  assert.deepEqual(Object.keys(SEAM_MUTE_TITLES), ["fix_edge_halo", "follow_changes"]);
   for (const title of Object.values(SEAM_MUTE_TITLES)) {
     assert.match(title, /^Blend in doesn't use/);
     assert.match(title, /gear menu/);

@@ -169,7 +169,7 @@ const CARDS = {
     // A workflow saved before Seam existed holds the card's own empty value
     // in the slot Seam now takes; it loads as classic. One saved with Seam
     // holds it in Paste onto's slot, and loads as crop.
-    resetUnknown: { seam: "classic", paste_onto: "crop" },
+    resetUnknown: { seam: "classic", paste_onto: "crop", follow_changes: false },
     // Seam and Paste onto have no row and no socket: the gear menu sets them.
     hide: ["seam", "paste_onto"],
     socketless: ["seam", "paste_onto"],
@@ -177,6 +177,7 @@ const CARDS = {
     rows: [
       { widget: "color_match", label: "Tone match" },
       { widget: "fix_edge_halo", label: "Fix edge halo", mute: isBlendIn, muteTitle: SEAM_MUTE_TITLES.fix_edge_halo },
+      { widget: "follow_changes", label: "Follow changes", mute: isBlendIn, muteTitle: SEAM_MUTE_TITLES.follow_changes },
     ],
   },
   AUSBOSS_NODES_CropForInpaint: {

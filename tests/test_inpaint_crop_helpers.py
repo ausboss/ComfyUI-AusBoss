@@ -697,7 +697,7 @@ class EdgeHaloTests(unittest.TestCase):
         stitch_cls = NODE_CLASS_MAPPINGS["AUSBOSS_NODES_StitchInpaint"]
         types = stitch_cls.INPUT_TYPES()
         self.assertEqual(list(types["required"]), ["stitcher", "inpainted"])
-        self.assertEqual(list(types["optional"]), ["fix_edge_halo", "color_match", "seam", "paste_onto"])
+        self.assertEqual(list(types["optional"]), ["fix_edge_halo", "color_match", "seam", "paste_onto", "follow_changes"])
         kind, options = types["optional"]["fix_edge_halo"]
         self.assertEqual(kind, "BOOLEAN")
         self.assertIs(options["default"], False)
