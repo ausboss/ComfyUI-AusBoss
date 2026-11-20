@@ -173,8 +173,7 @@ amber dot on the tab shows that an edit is being sent. **Reset to written**
 throws the edit away and goes back to what the **Simple** tab writes.
 
 While an edit is in place, changes on the Simple tab do nothing, because your
-text is sent instead. If you change a picture, the job or a menu, press Reset,
-run, and edit again.
+text is sent instead.
 
 ## What you can plug in
 
