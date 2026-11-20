@@ -518,6 +518,26 @@
       }
     }
   },
+  "AUSBOSS_NODES_ImageToolbox": {
+    "display_name": "图像工具箱 🆎",
+    "description": "把几个小的图像任务放在一个节点里：从列表里选任务。split sheet at gaps 会把一排并列的图（比如角色设定图的四个视角）切成单独的图。每一刀都切在两张图之间的空隙，而不是按宽度平均切，所以不会有哪一张带上邻图的一部分。切好的图作为一个批次输出，尺寸相同，用设定图的背景色补齐。",
+    "inputs": {
+      "image": {
+        "name": "图像"
+      },
+      "job": {
+        "name": "任务"
+      },
+      "pieces": {
+        "name": "份数"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像"
+      }
+    }
+  },
   "AUSBOSS_NODES_Integer": {
     "display_name": "整数 🆎",
     "description": "一个独立的 INT 值。在一个地方设置步数、尺寸或数量，送给所有需要同一个数字的节点。",
