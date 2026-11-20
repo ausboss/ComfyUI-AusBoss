@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.26.5 - 2026-11-20
 
 - **New node: Image Toolbox.** Small picture jobs in one node: pick the job
   from a list. Its first job, split sheet at gaps, cuts a row of pictures
