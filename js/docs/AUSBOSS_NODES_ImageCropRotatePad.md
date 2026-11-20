@@ -191,6 +191,10 @@ to every Image Crop + Rotate + Pad in this browser.
   is on keep).
 - **width** / **height**: The output size after the transform and any resize.
 - **prompt_image**: The image again, with see-through parts shown as white instead of the fill colour. Wire it to whatever writes your prompt. It is the same as **image** for a picture with no see-through parts, and when **Painted area** is on keep.
+- **canvas_width** / **canvas_height**: The size of your picture after rotate, crop and
+  padding, before **Resize** changes it. Wire both to Image Resize after the
+  model to get the result back at that exact size: a 1920x1080 picture that the
+  resize rounds to 1920x1088 comes back as 1920x1080.
 
 ## See-through pictures
 

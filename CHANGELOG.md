@@ -2,7 +2,14 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.27.0 - 2026-11-19
+
+- **Image Crop + Rotate + Pad can give back your picture's exact size.**
+  Its megapixel resize rounds each side to the step the model needs, so a
+  1920x1080 picture came back as 1920x1088 after an edit. Two new outputs,
+  **canvas_width** and **canvas_height**, hold the size before that
+  rounding. Wire them to Image Resize after the model to get the result
+  back at 1920x1080. Saved workflows are unchanged.
 
 - **Box edits on big photos start much sooner.** Crop For Inpaint,
   Image Crop + Rotate + Pad and Stitch Inpaint grew and softened their
