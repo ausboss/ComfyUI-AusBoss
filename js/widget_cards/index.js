@@ -11,6 +11,7 @@ import { chainCallback, notifyAusbossChange } from "../shared/index.mjs";
 import { formatWidgetVisibility } from "../shared/save_video_formats.mjs";
 import { hideInputsInDef } from "../shared/widget_visibility.mjs";
 import { castChips } from "../shared/h3_cast_chips.mjs";
+import { FULL, fullPromptBox, isEdited, promptTab, promptTabs, simpleEditedNote } from "../shared/h3_full_prompt.mjs";
 import { cameraChoiceLabel, clipSetsDuration } from "../shared/h3_duration.mjs";
 import { loadImagePreview, loadImageStrip } from "../shared/load_image_strip.mjs";
 import { momentStrip } from "../shared/moment_strip.mjs";
@@ -381,18 +382,25 @@ const CARDS = {
   // sockets, and each picture's job sits under the words.
   AUSBOSS_NODES_H3PromptWriter: {
     minWidth: 420,
-    hide: ["job_1", "job_2", "job_3", "job_4", "video_job"],
-    socketless: ["job_1", "job_2", "job_3", "job_4", "video_job"],
-    resetUnknown: { sound: "", music: "", clip_sound: false },
+    hide: ["job_1", "job_2", "job_3", "job_4", "video_job", "full_prompt"],
+    socketless: ["job_1", "job_2", "job_3", "job_4", "video_job", "full_prompt"],
+    resetUnknown: { sound: "", music: "", clip_sound: false, full_prompt: "" },
     rows: [
-      { section: "What happens" },
+      // Simple is the card as it always was; Full prompt shows the prompt the
+      // node wrote and sends an edit made there instead (js/shared/h3_full_prompt.mjs).
+      { panel: promptTabs, height: 30 },
+      { panel: simpleEditedNote, height: 30, when: (values, node) => promptTab(node) !== FULL && isEdited(values) },
+      { section: "What H3 gets", when: (values, node) => promptTab(node) === FULL },
+      { panel: fullPromptBox, height: 210, grow: true, when: (values, node) => promptTab(node) === FULL },
+      { section: "What happens", when: (values, node) => promptTab(node) !== FULL },
       {
+        when: (values, node) => promptTab(node) !== FULL,
         widget: "script", kind: "textarea", height: 118, grow: true,
         placeholder: "Type what happens, one line for each thing. Picture 1 is @1. A blank line cuts to a new place.\n\nSwap: leave empty, or name who goes. Optional new look on its own line: @1 looks like a woman with blonde hair and a black hoodie.",
       },
-      { panel: momentStrip, height: 76 },
-      { widget: "sound", label: "Sound", placeholder: "rain on a window" },
-      { widget: "music", label: "Music", placeholder: "slow piano: music makes it louder" },
+      { panel: momentStrip, height: 76, when: (values, node) => promptTab(node) !== FULL },
+      { widget: "sound", label: "Sound", placeholder: "rain on a window", when: (values, node) => promptTab(node) !== FULL },
+      { widget: "music", label: "Music", placeholder: "slow piano: music makes it louder", when: (values, node) => promptTab(node) !== FULL },
       { section: "Pictures and settings" },
       { panel: castChips, height: 30 },
       { widget: "seconds", label: "Length", suffix: "s", readOnlyText: (node, values) => clipSetsDuration(node, values) ? "From the clip" : "", readOnlyTitle: "This video job uses the incoming clip, so Length is not used." },
