@@ -470,6 +470,20 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_ImageToolbox": {
+    "required": [
+      "image",
+      "job",
+      "pieces"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "IMAGE",
+        "images"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_Integer": {
     "required": [
       "value"

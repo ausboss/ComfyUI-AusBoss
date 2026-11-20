@@ -31,6 +31,7 @@ NODE_MODULES = [
     "node_image_folder",
     "node_image_resize",
     "node_image_size",
+    "node_image_toolbox",
     "node_inpaint_crop_stitch",
     "node_krea2_encode",
     "node_krea2_model_patch",

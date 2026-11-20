@@ -126,6 +126,15 @@ const CARDS = {
       { widget: "interpolation", label: "Filter", kind: "select" },
     ],
   },
+  // One node, many small jobs: a new job is a new choice in the list, and
+  // its own rows show only while it is picked.
+  AUSBOSS_NODES_ImageToolbox: {
+    minWidth: 280,
+    rows: [
+      { widget: "job", label: "Job", kind: "select" },
+      { widget: "pieces", label: "Pieces", when: isMode("job", "split sheet at gaps") },
+    ],
+  },
   AUSBOSS_NODES_EditLock: {
     minWidth: 300,
     rows: [
