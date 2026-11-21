@@ -14,7 +14,8 @@ loads.
 from __future__ import annotations
 
 import os
-import tomllib
+
+from ._pyproject import read_project
 
 PACK_NAME = "ausboss-nodes"
 # A copy that has this file knows how to step aside.
@@ -24,8 +25,7 @@ _GUARD_FILE = os.path.join("nodes", "_single_copy.py")
 def _read_pack(folder: str) -> dict | None:
     """Name the pack copy in ``folder``, or None when it is another pack."""
     try:
-        with open(os.path.join(folder, "pyproject.toml"), "rb") as f:
-            project = tomllib.load(f).get("project", {})
+        project = read_project(os.path.join(folder, "pyproject.toml"))
     except Exception:
         return None
     if project.get("name") != PACK_NAME:

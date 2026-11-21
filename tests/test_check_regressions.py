@@ -2,6 +2,7 @@
 
 import ast
 import copy
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -229,11 +230,17 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         with patch.object(changelog_notes, "ROOT", self.root):
             self.assertEqual(changelog_notes.pyproject_version(), version)
+        # The banner's _read_version and the single-copy guard both read
+        # through nodes/_pyproject.py: check it with a TOML library and with
+        # the plain reader that Python 3.10 without tomli falls back to.
+        spec = importlib.util.spec_from_file_location("ausboss_pyproject", ROOT / "nodes" / "_pyproject.py")
+        reader_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(reader_module)
+        self.assertEqual(reader_module.read_project(str(path)).get("version"), version)
+        self.assertEqual(reader_module._plain_project(path.read_text()).get("version"), version)
         tree = ast.parse((ROOT / "__init__.py").read_text())
-        body = [n for n in tree.body if isinstance(n, (ast.Import, ast.ImportFrom)) or isinstance(n, ast.FunctionDef) and n.name == "_read_version"]
-        scope = {"__file__": str(self.root / "__init__.py")}
-        exec(compile(ast.Module(body=body, type_ignores=[]), "version_reader", "exec"), scope)
-        self.assertEqual(scope["_read_version"](), version)
+        reader = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "_read_version")
+        self.assertIn("read_project", ast.unparse(reader))
 
 
 if __name__ == "__main__":
