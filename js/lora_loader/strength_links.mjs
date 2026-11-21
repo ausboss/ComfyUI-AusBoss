@@ -230,10 +230,33 @@ function watchPointer(app) {
       for (const state of states) if (!state.disposed) syncStrengthLinks(state);
     }
   }, true);
-  window.addEventListener("pointerup", () => requestAnimationFrame(() => {
-    paintTarget(null);
-    for (const state of states) if (!state.disposed) state.onStrengthLinks?.();
-  }), true);
+  // Nodes 2.0 finishes a link drag in its own pointerup handler and never asks
+  // the node which input is under the pointer. So there the drop on a row is
+  // made here, before that handler runs; it then finds the link made.
+  window.addEventListener("pointerup", (event) => {
+    if (globalThis.LiteGraph?.vueNodesMode && isNumberDrag(app)) {
+      for (const state of states) {
+        if (state.disposed || state.box || state.readOnly) continue;
+        const element = rowAtClient(state, event.clientX, event.clientY);
+        if (element?.dataset.rowId) {
+          dropOnRow(state, element.dataset.rowId, canvasOf(app).linkConnector);
+          break;
+        }
+      }
+    }
+    requestAnimationFrame(() => {
+      paintTarget(null);
+      for (const state of states) if (!state.disposed) state.onStrengthLinks?.();
+    });
+  }, true);
+}
+
+function dropOnRow(state, rowId, connector) {
+  const input = ensureRowInput(state, rowId);
+  for (const link of connector.renderLinks ?? []) {
+    if (link.node === state.node) continue;
+    link.connectToInput?.(state.node, input, connector.events);
+  }
 }
 
 export function installStrengthLinks(state, app) {
