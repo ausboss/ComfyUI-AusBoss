@@ -10,6 +10,7 @@
 //   writePad(side, value)   write one raw pad widget (with callbacks)
 //   onGestureEnd()          called once per completed drag
 
+import { t } from "./i18n.mjs";
 import { canvasLocalPoint } from "./transform_geometry.mjs";
 import {
   edgeCursor,
@@ -86,7 +87,7 @@ function drawPill(ctx, text, cx, cy, accent = false) {
   ctx.fillStyle = accent ? "#8de0da" : "#e7f4f2";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(text, cx, cy + 0.5);
+  ctx.fillText(t(text), cx, cy + 0.5);
   ctx.restore();
   return width;
 }
@@ -99,7 +100,7 @@ function drawBandText(ctx, text, cx, cy) {
   ctx.shadowColor = "rgba(0,0,0,0.9)";
   ctx.shadowBlur = 3;
   ctx.fillStyle = "#ffe2c2";
-  ctx.fillText(text, cx, cy);
+  ctx.fillText(t(text), cx, cy);
   ctx.restore();
 }
 
@@ -247,7 +248,7 @@ export function createPadStage(canvas, options) {
       ctx.shadowColor = "rgba(0,0,0,0.85)";
       ctx.shadowBlur = 4;
       ctx.fillStyle = "#78908e";
-      ctx.fillText(source.emptyText, w / 2, h / 2);
+      ctx.fillText(t(source.emptyText), w / 2, h / 2);
       ctx.restore();
     }
 

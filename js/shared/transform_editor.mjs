@@ -11,6 +11,7 @@ import { mediaViewQuery, unlistedMedia } from "./media_list.mjs";
 import { createMediaPicker } from "./media_picker.mjs";
 import { normalizeFillColor } from "./fill_color.mjs";
 import { makeSlideSwitch } from "./slide_switch.mjs";
+import { t } from "./i18n.mjs";
 import { makeScrubInput } from "./scrub_input.mjs";
 import { confirmDiscard } from "./discard_prompt.mjs";
 import { PIXEL_PROBE, featherGeneratedMask, generatedAreaMask, overlayPlan, pixelReadTrusted, seeThroughMap, stitchBlendFromMask } from "./stitch_preview.mjs";
@@ -1051,7 +1052,7 @@ function buildAspectChipRow(state) {
       caption.textContent = untouched ? "Source" : "Custom";
       caption.title = `${untouched ? "The picture's own shape" : "No ratio button has this shape"}: ${canvas.width}×${canvas.height} (${ratioLabel(canvas.width, canvas.height)}). Tap a ratio to use one.`;
     }
-    caption.classList.toggle("generic", caption.textContent === "Ratio");
+    caption.classList.toggle("generic", !held && Boolean(request || !picture));
     caption.classList.toggle("custom", Boolean(picture && !request && !untouched && !held));
     caption.classList.toggle("held", held);
     for (const { chip, aspect } of chips) {
@@ -3426,7 +3427,7 @@ function sizeLines(state) {
   return lines;
 }
 function drawEmpty(state, text) { state.render = null; state.panelRender = null; syncReadout(state); for (const canvas of [state.canvas, state.previewCanvas]) { if (!canvas) continue; const prepared = prepareCanvas(canvas); drawEmptyCanvas(prepared.context, prepared.width, prepared.height, text); } }
-function drawEmptyCanvas(context, width, height, text) { context.fillStyle = "#111"; context.fillRect(0, 0, width, height); context.fillStyle = "#9ba2aa"; context.font = "13px system-ui"; context.textAlign = "center"; context.fillText(text, width / 2, height / 2); context.textAlign = "left"; }
+function drawEmptyCanvas(context, width, height, text) { context.fillStyle = "#111"; context.fillRect(0, 0, width, height); context.fillStyle = "#9ba2aa"; context.font = "13px system-ui"; context.textAlign = "center"; context.fillText(t(text), width / 2, height / 2); context.textAlign = "left"; }
 
 // True when the node is an AusBoss transform node whose editor can open
 // (installed by installTransformNode). Used by the pack-wide command.
