@@ -292,6 +292,8 @@ export const ZH = {
   "Stop on missing LoRA": "缺少 LoRA 时停止",
   "Strength bars": "强度条",
   "Strength step": "强度步长",
+  "Linked strength wires": "强度连线显示", "shown": "显示", "on hover": "悬停时显示", "hidden": "隐藏",
+  "Unlink strength": "断开强度连线", "link": "连线",
   "Takes 1 off after each run. Tap for Random.": "每次运行后减 1。点一下改为随机。",
   "The words come from the wire.": "文字来自连线。",
   "Tick to add with others": "勾选后与其他一起添加",
@@ -330,6 +332,7 @@ export const SCRUB_HINT_ZH = "拖动调节，点击输入数字或算式（如 1
 // A few strings carry a number or a name; the number stays and the words around it change.
 export const PATTERNS = [
   [/^The limits of what this is wired to: (.*)\.$/, (m, names) => `它所连接对象的取值范围：${names}。`],
+  [/^Set by "(.*)"\. Click to show it\. Right-click the row to unlink\.$/, (m, name) => `由“${name}”设置。点击可定位到它。右键该行可断开连线。`],
   [/^Source · feather (\d+) px · Fill (#[0-9a-fA-F]{6})$/, (m, f, c) => `素材 · 羽化 ${f} px · 填充 ${c}`],
   [/^Source · Fill (#[0-9a-fA-F]{6})$/, (m, c) => `素材 · 填充 ${c}`],
   [/^(\d+):(\d+): reshape to this ratio\. The flip button on the left sets the orientation\.$/, (m, a, b) => `${a}:${b}：重塑为此比例。左侧的翻转按钮用来切换横竖方向。`],

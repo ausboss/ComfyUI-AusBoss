@@ -4,6 +4,11 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **LoRA Loader: set a LoRA's strength with a wire.** Drag a number wire,
+  from a slider or a Float node, onto any row and that row's strength follows
+  it. The row's box turns dashed teal and shows the number coming in; click
+  it to find the source, or right-click the row to unlink. The CLIP strength
+  keeps its ratio to the model strength (#388).
 - **Node faces show Chinese when ComfyUI's language is Chinese.** The
   labels, buttons, choices and tooltips the pack draws on its nodes, such as
   the cards on FlashVSR and Image Resize, H3 Prompt Writer, Workflow Switches

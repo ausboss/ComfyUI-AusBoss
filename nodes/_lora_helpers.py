@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from collections import OrderedDict
 from pathlib import Path
 from typing import Any
@@ -64,6 +65,7 @@ def parse_lora_stack(raw: str | None) -> list[dict[str, Any]]:
         enabled = bool(entry.get("enabled", True)) and entry.get("group_off") is not True
         rows.append(
             {
+                "id": str(entry.get("id") or ""),
                 "name": name,
                 "strength": strength,
                 "strength_clip": clamp_strength(entry.get("strength_clip", strength), strength),
@@ -72,6 +74,42 @@ def parse_lora_stack(raw: str | None) -> list[dict[str, Any]]:
             }
         )
     return rows
+
+
+# A row's strength can come in on a link: the node then has an input named
+# strength_<row id>, made by the frontend when a value is dropped on the row.
+ROW_STRENGTH_PREFIX = "strength_"
+_ROW_INPUT = re.compile(r"^strength_[A-Za-z0-9_-]{1,64}$")
+
+
+def is_row_strength_input(name: Any) -> bool:
+    return isinstance(name, str) and bool(_ROW_INPUT.match(name))
+
+
+def apply_linked_strengths(rows: list[dict[str, Any]], linked: dict[str, Any]) -> list[dict[str, Any]]:
+    """Rows with each linked value as the model strength.
+
+    The CLIP strength keeps the ratio the row had to its model strength, so
+    one slider moves the whole LoRA. A row at model strength 0 has no ratio
+    to keep; its CLIP strength then follows the slider one for one.
+    """
+    values = {
+        name[len(ROW_STRENGTH_PREFIX):]: value
+        for name, value in linked.items()
+        if is_row_strength_input(name) and value is not None
+    }
+    if not values:
+        return rows
+    out = []
+    for row in rows:
+        row_id = row.get("id")
+        if not row_id or row_id not in values:
+            out.append(row)
+            continue
+        strength = clamp_strength(values[row_id], row["strength"])
+        ratio = row["strength_clip"] / row["strength"] if row["strength"] else 1.0
+        out.append({**row, "strength": strength, "strength_clip": clamp_strength(strength * ratio, strength)})
+    return out
 
 
 def collect_trigger_words(rows: list[dict[str, Any]], separator: str = ", ") -> str:
