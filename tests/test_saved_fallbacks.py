@@ -56,6 +56,24 @@ def input_default(cls, name):
     return kind[0] if isinstance(kind, (list, tuple)) else None
 
 
+def run_parameter(cls, name):
+    """The parameter an API prompt without `name` runs with, or None.
+
+    A node function that takes **inputs and hands them on in one call,
+    such as H3 Prompt Writer's run() to write(), is followed that one step.
+    """
+    function = getattr(cls, cls.FUNCTION)
+    parameters = inspect.signature(function).parameters
+    if name in parameters:
+        return parameters[name]
+    if any(p.kind is p.VAR_KEYWORD for p in parameters.values()):
+        for target in re.findall(r"self\.(\w+)\([^()]*\*\*\w+\)", inspect.getsource(function)):
+            handed_on = inspect.signature(getattr(cls, target)).parameters
+            if name in handed_on:
+                return handed_on[name]
+    return None
+
+
 @unittest.skipUnless(COMFY_ROOT, "set AUSBOSS_COMFY_ROOT to a ComfyUI checkout")
 class SavedFallbackTests(unittest.TestCase):
     @classmethod
@@ -74,15 +92,29 @@ class SavedFallbackTests(unittest.TestCase):
     def test_each_fallback_is_the_new_node_default_and_the_api_default(self):
         for node_id, fallbacks in self.fallbacks.items():
             cls = self.pack.NODE_CLASS_MAPPINGS[node_id]
-            parameters = inspect.signature(getattr(cls, cls.FUNCTION)).parameters
             for name, fallback in fallbacks.items():
                 with self.subTest(node=node_id, input=name):
                     self.assertEqual(fallback, input_default(cls, name), "a new node's default")
-                    self.assertIn(name, parameters, f"{cls.FUNCTION}() does not take {name}")
+                    parameter = run_parameter(cls, name)
+                    self.assertIsNotNone(parameter, f"{cls.FUNCTION}() does not take {name}")
                     self.assertEqual(
-                        fallback, parameters[name].default,
+                        fallback, parameter.default,
                         "what an API prompt without the input runs with",
                     )
+
+    def test_a_function_that_hands_on_its_inputs_is_followed(self):
+        class Wrapper:
+            FUNCTION = "run"
+
+            def run(self, script, **inputs):
+                return self.write(script, **inputs)
+
+            def write(self, script, sound=""):
+                return script, sound
+
+        self.assertEqual(run_parameter(Wrapper, "sound").default, "")
+        self.assertIsNone(run_parameter(Wrapper, "music"))
+        self.assertEqual(run_parameter(Wrapper, "script").name, "script")
 
 
 if __name__ == "__main__":
