@@ -156,7 +156,7 @@ export function unlinkRow(state, rowId) {
 }
 
 function wireHidden(state, entry) {
-  const look = state.settings?.strength_wires ?? "on hover";
+  const look = state.settings?.strength_wires ?? "shown";
   if (look === "hidden") return true;
   return look === "on hover" && hoverTarget !== state.node && hoverTarget !== entry.source;
 }

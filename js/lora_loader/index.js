@@ -148,7 +148,7 @@ const SETTINGS_SCHEMA = [
   },
   {
     key: "strength_wires", label: "Linked strength wires", type: "choice",
-    options: WIRE_LOOKS, default: "on hover",
+    options: WIRE_LOOKS, default: "shown",
     hint: "A number wire dropped on a row sets that row's strength. shown: "
       + "the wire runs to the row. on hover: it shows while the pointer is on "
       + "this node or its source. hidden: never drawn; the row still says "
