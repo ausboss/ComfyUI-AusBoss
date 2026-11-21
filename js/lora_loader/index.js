@@ -10,6 +10,9 @@ import {
   openSettingsMenu,
 } from "../shared/settings_menu.mjs";
 import { compactAction } from "../shared/panel_controls.mjs";
+import {
+  STRENGTH_LINK_STYLES, WIRE_LOOKS, installStrengthLinks, sourceTitle, sourceValue, syncStrengthLinks, unlinkRow,
+} from "./strength_links.mjs";
 import { makeScrubInput } from "../shared/scrub_input.mjs";
 import { isAppShortcut, keepKeyInField } from "../shared/canvas_passthrough.mjs";
 import { resetUnknownValues } from "../shared/widget_card_math.mjs";
@@ -144,6 +147,14 @@ const SETTINGS_SCHEMA = [
       + "unified.",
   },
   {
+    key: "strength_wires", label: "Linked strength wires", type: "choice",
+    options: WIRE_LOOKS, default: "on hover",
+    hint: "A number wire dropped on a row sets that row's strength. shown: "
+      + "the wire runs to the row. on hover: it shows while the pointer is on "
+      + "this node or its source. hidden: never drawn; the row still says "
+      + "what sets it.",
+  },
+  {
     key: "strength_bars", label: "Strength bars", type: "toggle",
     default: true,
     hint: "Center-zero bar behind each name: teal grows right for positive "
@@ -223,7 +234,7 @@ function installStyles() {
   if (document.getElementById("ausboss-lora-styles")) return;
   const style = document.createElement("style");
   style.id = "ausboss-lora-styles";
-  style.textContent = `
+  style.textContent = STRENGTH_LINK_STYLES + `
   .ausboss-lora-panel, .ausboss-lora-panel *,
   .ausboss-lora-pop, .ausboss-lora-pop *,
   .ausboss-lora-hoverthumb { box-sizing: border-box; }
@@ -917,7 +928,11 @@ function strengthBox(state, index, key) {
   input.dataset.ausbossStrength = key;
   // A short name; the tooltip above stays as the longer description.
   input.setAttribute("aria-label", key === "strength" ? "Model strength" : "CLIP strength");
-  input.__ausbossRead = () => state.rows[index]?.[key].toFixed(2) ?? "1.00";
+  input.__ausbossRead = () => {
+    const entry = linkedEntry(state, index);
+    if (entry) return sourceValue(entry)?.toFixed(2) ?? "link";
+    return state.rows[index]?.[key].toFixed(2) ?? "1.00";
+  };
   input.__ausbossTint = () => state.rows[index] && applyRangeTint(input, state.rows[index], key);
   ensureRange(state, state.rows[index].name);
 
@@ -931,6 +946,16 @@ function strengthBox(state, index, key) {
   let drag = null;
   input.addEventListener("pointerdown", (event) => {
     if (event.button !== 0 || !input.readOnly) return;
+    // A linked strength is set by its wire: a click shows where it comes from.
+    const entry = linkedEntry(state, index);
+    if (entry) {
+      event.preventDefault();
+      if (entry.source) {
+        app.canvas?.selectNode?.(entry.source);
+        app.canvas?.centerOnNode?.(entry.source);
+      }
+      return;
+    }
     drag = { x: event.clientX, y: event.clientY, start: state.rows[index][key], scrubbed: false };
     input.setPointerCapture(event.pointerId);
     event.preventDefault();
@@ -1000,6 +1025,34 @@ function strengthBox(state, index, key) {
   box.append(input, steps);
   applyRangeTint(input, state.rows[index], key);
   return box;
+}
+
+function linkedEntry(state, index) {
+  const row = state.rows[index];
+  return row ? state.linkedStrengths?.get(row.id) ?? null : null;
+}
+
+// Mark the rows a wire sets: the strength box shows the incoming number,
+// and its tooltip names where it comes from.
+function decorateStrengthLinks(state) {
+  if (state.disposed || state.box) return;
+  state.linkedStrengths = syncStrengthLinks(state);
+  for (const box of state.panel.querySelectorAll(".ausboss-lora-strengthbox")) {
+    const rowId = box.closest(".ausboss-lora-row")?.dataset.rowId;
+    const entry = rowId ? state.linkedStrengths.get(rowId) : null;
+    box.classList.toggle("linked", Boolean(entry));
+    const input = box.querySelector(".ausboss-lora-strength");
+    if (!input) continue;
+    input.title = entry
+      ? `Set by "${sourceTitle(entry)}". Click to show it. Right-click the row to unlink.`
+      : input.dataset.baseTitle ?? "";
+    if (input.readOnly && input.__ausbossRead) input.value = input.__ausbossRead();
+  }
+  const signature = [...state.linkedStrengths].map(([id, entry]) => `${id}:${sourceValue(entry)}`).join("|");
+  if (signature !== state.linkSignature) {
+    state.linkSignature = signature;
+    decorateRows(state);
+  }
 }
 
 // ---------- picker ----------
@@ -1858,6 +1911,13 @@ function openRowMenu(state, index, event) {
     commitRows(state, rows, { structural: true });
     fitNode(state);
   };
+  if (state.linkedStrengths?.has(row.id)) {
+    item("Unlink strength", () => {
+      unlinkRow(state, row.id);
+      decorateStrengthLinks(state);
+    });
+    menu.append(el("div", "ausboss-lora-menu-rule"));
+  }
   item("Insert empty LoRA above", () => insertEmpty(index));
   item("Insert empty LoRA below", () => insertEmpty(index + 1));
   item("Move up", () => commitGroups(state, moveRowInStack(state.rows, index, -1)),
@@ -2384,7 +2444,12 @@ function renameOwnedGroup(state, from, to) {
 // value update - the bar scale can change whenever any row's strength does.
 function decorateRows(state) {
   const showBars = state.settings?.strength_bars !== false;
-  const scale = strengthBarScale(state.rows);
+  // A linked row's bar shows the number coming in on its wire.
+  const shown = state.rows.map((row, index) => {
+    const value = sourceValue(linkedEntry(state, index));
+    return value === null ? row : { ...row, strength: value };
+  });
+  const scale = strengthBarScale(shown);
   const dups = duplicateLoraKeys(state.rows);
   state.panel.querySelectorAll(".ausboss-lora-name").forEach((button, index) => {
     const row = state.rows[index];
@@ -2395,8 +2460,8 @@ function decorateRows(state) {
     }
     const notes = [row.name];
     if (showBars) {
-      button.style.background = strengthBarBackground(row.strength, scale);
-      notes.push(`Model strength ${row.strength.toFixed(2)}; `
+      button.style.background = strengthBarBackground(shown[index].strength, scale);
+      notes.push(`Model strength ${shown[index].strength.toFixed(2)}; `
         + `bar edges are ±${scale.toFixed(2)}`);
     } else {
       button.style.background = "";
@@ -2441,6 +2506,7 @@ function updateRowValues(state) {
     master.classList.toggle("mixed", overall === "mixed");
   }
   decorateRows(state);
+  decorateStrengthLinks(state);
 }
 
 // ---------- absorb the loader chain ----------
@@ -2922,7 +2988,7 @@ function renderRows(state) {
     let nameDrag = null;
     name.addEventListener("pointerdown", (event) => {
       if (event.button !== 0 || !row.name
-          || state.settings?.name_scrub === false) return;
+          || state.settings?.name_scrub === false || linkedEntry(state, index)) return;
       nameDrag = { x: event.clientX, y: event.clientY,
                    start: state.rows[index].strength, scrubbed: false };
       name.setPointerCapture(event.pointerId);
@@ -3014,6 +3080,7 @@ function renderRows(state) {
   stack.append(actions);
   body.append(stack);
   decorateRows(state);
+  decorateStrengthLinks(state);
   state.lockSignature = null;
   refreshLocks(state);
   // Names refit whenever the stack's box changes - the node was resized,
@@ -3145,6 +3212,7 @@ function ensureRedrawHook() {
         if (state.node.graph !== shown) continue;
         syncRows(state);
         refreshLocks(state);
+        decorateStrengthLinks(state);
       }
     }, 250);
   });
@@ -3250,6 +3318,7 @@ function watchBox(box) {
 function unmountCard(state, { resize = true } = {}) {
   liveCards.delete(state);
   state.disposed = true;
+  state.unlinkStrengthWatch?.();
   state.nameObserver?.disconnect();
   closePopup();
   try {
@@ -3343,6 +3412,10 @@ function mountCard(node, { box = null, separatorWidget = null, onMissingWidget =
     panel.style.height = `calc(100% + ${reclaim}px)`;
   }
 
+  if (!box) {
+    state.unlinkStrengthWatch = installStrengthLinks(state, app);
+    state.onStrengthLinks = () => decorateStrengthLinks(state);
+  }
   renderRows(state);
   refreshAvailable(state);
   node.setSize?.([Math.max(336, node.size?.[0] || 336), node.computeSize?.()[1] || 220]);
