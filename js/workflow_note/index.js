@@ -30,10 +30,12 @@ import {
   MODEL_COLUMNS,
   groupModels,
   hostLabel,
+  installFolders,
   listedSpelling,
   loadersNeeding,
   loraRowsNeeding,
   matchInstalled,
+  modelFolderKey,
   noteFit,
   noteIsEmpty,
   noteShowsTileFace,
@@ -43,6 +45,7 @@ import {
   parseMarkdown,
   rowFromCells,
   serializeNote,
+  sharedFolders,
   subfolderOf,
 } from "../shared/workflow_note.mjs";
 import { comboValues, commitWidgetValue } from "../shared/widget_card_math.mjs";
@@ -94,12 +97,13 @@ const PANEL_TOP = 2;
 
 const folderLists = new Map(); // dir -> { at, promise }
 let modelFolders = null; // Promise<string[]> from GET /models
+let folderInfo = null; // { at, promise } of GET /experiment/models
 
 function listFolder(dir, fresh = false) {
   const cached = folderLists.get(dir);
   if (!fresh && cached && performance.now() - cached.at < FOLDER_CACHE_MS) return cached.promise;
   const promise = api
-    .fetchApi(`/models/${encodeURIComponent(dir)}`)
+    .fetchApi(`/models/${encodeURIComponent(modelFolderKey(dir))}`)
     .then((response) => (response.ok ? response.json() : null))
     .then((files) => (Array.isArray(files) ? files : null))
     .catch(() => null);
@@ -122,6 +126,22 @@ function knownFolders() {
     .then((list) => (Array.isArray(list) ? list.filter((item) => typeof item === "string") : []))
     .catch(() => []);
   return modelFolders;
+}
+
+// Where this install looks for each kind of model: [{ name, folders }].
+// Launchers such as Stability Matrix add shared folders outside
+// ComfyUI/models through extra_model_paths.yaml. [] when the endpoint is
+// missing (an older or newer ComfyUI): the card then just names the usual
+// folder, as before.
+function installFolderList(fresh = false) {
+  if (!fresh && folderInfo && performance.now() - folderInfo.at < FOLDER_CACHE_MS) return folderInfo.promise;
+  const promise = api
+    .fetchApi("/experiment/models")
+    .then((response) => (response.ok ? response.json() : []))
+    .then((list) => (Array.isArray(list) ? list : []))
+    .catch(() => []);
+  folderInfo = { at: performance.now(), promise };
+  return promise;
 }
 
 function nodeTypeRegistered(type) {
@@ -214,6 +234,8 @@ ${TILE_FACE_CSS}
 .ausboss-note-body a:hover,.ausboss-note-link:hover{text-decoration:underline;}
 .ausboss-note-folder{margin:8px 0 4px;color:#a9c4c2;font:11px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
 .ausboss-note-folder:first-child{margin-top:0;}
+.ausboss-note-folder-also{margin:-2px 0 4px 18px;color:#7f9896;font:10.5px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-wrap:anywhere;}
+.ausboss-note-folder-also[hidden]{display:none;}
 .ausboss-note-row{display:flex;align-items:center;gap:8px;min-height:30px;padding:3px 0;}
 .ausboss-note-dot{flex:none;width:8px;height:8px;border-radius:50%;background:#4b5a5a;}
 .ausboss-note-dot.checking{background:#4b5a5a;animation:ausboss-note-pulse 1s ease-in-out infinite;}
@@ -525,6 +547,7 @@ function render(state) {
   const scroll = state.scroll;
   scroll.textContent = "";
   state.rows = [];
+  state.folderHints = new Map();
 
   const head = el("div", "ausboss-note-head");
   head.append(el("h1", "ausboss-note-title", note.title || "Untitled workflow"));
@@ -612,6 +635,10 @@ function renderSections(state, scroll) {
     section.append(heading);
     for (const group of groupModels(note.models)) {
       section.append(el("div", "ausboss-note-folder", `📂 ${group.path}`));
+      const also = el("div", "ausboss-note-folder-also");
+      also.hidden = true;
+      section.append(also);
+      (state.folderHints ??= new Map()).set(group.dir, also);
       for (const row of group.rows) section.append(modelRow(state, row));
     }
     scroll.append(section);
@@ -639,11 +666,26 @@ function renderSections(state, scroll) {
   checkModels(state, false);
 }
 
+// A launcher's shared model folder (Stability Matrix keeps LoRAs in
+// Data/Models/Lora) under the usual ComfyUI/models/<dir> line, so the card
+// says where this install also finds the files and where to put new ones.
+function showSharedFolders(state, dir, list) {
+  const also = state.folderHints?.get(dir);
+  if (!also) return;
+  const shared = sharedFolders(dir, list);
+  also.hidden = !shared.length;
+  also.textContent = shared.length ? `also read from ${shared.join(", ")}` : "";
+  also.title = shared.length
+    ? "This install also reads this kind of model from here (set in extra_model_paths.yaml, for example by Stability Matrix). A file in either place counts."
+    : "";
+}
+
 async function checkModels(state, fresh) {
   const generation = (state.checkGeneration = (state.checkGeneration || 0) + 1);
   const rows = state.rows;
   const picked = [];
   for (const entry of rows) setDot(entry.dot, "checking", "checking…");
+  const folderList = installFolderList(fresh);
   const byDir = new Map();
   for (const entry of rows) {
     const dir = entry.row.dir;
@@ -669,8 +711,13 @@ async function checkModels(state, fresh) {
       }));
       return;
     }
-    const files = await listFolder(dir, fresh);
+    const [files, list] = await Promise.all([listFolder(dir, fresh), folderList]);
     if (generation !== state.checkGeneration) return;
+    showSharedFolders(state, dir, list);
+    const searched = installFolders(dir, list);
+    const notFound = searched.length
+      ? `Not found in the ${searched.length === 1 ? "folder" : "folders"} this install reads for ${dir}: ${searched.join(", ")}`
+      : `Not found in ComfyUI/models/${dir}`;
     for (const entry of entries) {
       if (files === null) {
         setDot(entry.dot, "unknown", `This install has no "${dir}" model folder, so the file is not checked`);
@@ -695,7 +742,7 @@ async function checkModels(state, fresh) {
         setDot(entry.dot, "ok", `Found: ${match.path}`);
         entry.showInstalled(match.path);
       } else {
-        setDot(entry.dot, "missing", `Not found in ComfyUI/models/${dir}`);
+        setDot(entry.dot, "missing", notFound);
         entry.showDownload();
       }
     }

@@ -15,6 +15,14 @@ All notable changes to ComfyUI-AusBoss are documented here.
   one megapixel. The old jump is still in the gear: turn off **Chips keep
   current budget**. The setting is kept in the browser, so a private window
   forgot it every time; it now starts on.
+- **Workflow Note finds models in Stability Matrix's shared folders.**
+  A row whose folder uses an old name, `clip` or `unet`, was never checked
+  ("This install has no model folder") even with the file in place. Those
+  rows are now checked like `text_encoders` and `diffusion_models`, the
+  names ComfyUI files them under. When the install also reads a kind of
+  model from a folder with a different name, such as Stability Matrix's
+  `Data/Models/Lora`, the card names that folder under the usual one, so
+  you know where your files are found and where a new one can go (#386).
 
 ## 2.26.6 - 2026-11-20
 
