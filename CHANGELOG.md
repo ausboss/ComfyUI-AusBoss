@@ -4,6 +4,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Node faces show Chinese when ComfyUI's language is Chinese.** The
+  labels, buttons, choices and tooltips the pack draws on its nodes, such as
+  the cards on FlashVSR and Image Resize, H3 Prompt Writer, Workflow Switches
+  and the video and image crop faces, now follow Settings > Language
+  (Chinese, in Simplified characters). Reload the page after changing the language. Nothing
+  saved in a workflow changes, and text with no Chinese yet stays English.
+  H3 Prompt Writer's socket names are translated too.
 - **H3 Prompt Writer: see and change the full prompt.** A new **Full
   prompt** tab at the top of the node shows the prompt it wrote on its last
   run. Edit it there, for example to take out one camera move, and H3 gets
