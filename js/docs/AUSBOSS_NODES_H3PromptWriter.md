@@ -164,6 +164,17 @@ own, with blank lines around it, it is for the whole clip.
 Already wrote H3's six parts yourself? Paste them in and they go through as
 they are.
 
+## See and change the full prompt
+
+The **Full prompt** tab at the top of the node shows the prompt the node wrote
+on its last run. To change one thing, such as taking out "A slow push in.",
+edit it there and run again: H3 gets your text exactly as it is in the box. An
+amber dot on the tab shows that an edit is being sent. **Reset to written**
+throws the edit away and goes back to what the **Simple** tab writes.
+
+While an edit is in place, changes on the Simple tab do nothing, because your
+text is sent instead.
+
 ## What you can plug in
 
 - **picture_1** to **picture_4**: your pictures.
@@ -224,6 +235,8 @@ as not plugged in.
 - **Moments on the beat** (`cut_on_beat`, under **More**): moves each moment onto
   the nearest beat of the song. Off keeps your own seconds.
 - **Language** (`language`, under **More**): the language of the words in quotes.
+- **Full prompt** (`full_prompt`, on the Full prompt tab): your own edit of the
+  finished prompt. Empty means the node's own prompt is sent.
 
 ## Tips
 
@@ -279,6 +292,12 @@ a place in your lines the clip stayed there to the end on 2 of 2 tries; without
 that sentence the picture's street came back halfway through on 2 of 2. With no
 place in your lines H3 has nothing else to use, so it stayed in the picture's
 place on 2 of 2.
+
+The Full prompt tab is filled from the node's run, so it shows nothing until
+the workflow has run once. The node still writes its own prompt on every run, a
+model on `clip` included, so the tab can show it next to your edit and Reset can
+go back to it. The last written prompt is kept with the node in a saved
+workflow.
 
 H3's own rewriter runs only on paid services, and the open model reads a prompt as
 it is. This node does that job on your machine, with no model needed.

@@ -2,6 +2,15 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **H3 Prompt Writer: see and change the full prompt.** A new **Full
+  prompt** tab at the top of the node shows the prompt it wrote on its last
+  run. Edit it there, for example to take out one camera move, and H3 gets
+  your text as it is. An amber dot shows an edit is being sent, and **Reset
+  to written** goes back to the node's own prompt. The **Simple** tab works
+  as before and stays the default.
+
 ## 2.26.6 - 2026-11-20
 
 - **Image Toolbox's help page says what happens with too many pieces.**

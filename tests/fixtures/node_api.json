@@ -251,7 +251,8 @@
       "video_job",
       "sound",
       "music",
-      "clip_sound"
+      "clip_sound",
+      "full_prompt"
     ],
     "outputs": [
       [

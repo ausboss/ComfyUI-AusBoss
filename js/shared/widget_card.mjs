@@ -81,7 +81,7 @@ export function ensureCardCss() {
   style.textContent = `
 .ausboss-card{position:relative;box-sizing:border-box;width:100%;height:100%;display:flex;flex-direction:column;gap:${ROW_GAP}px;padding:${CARD_PADDING}px 8px;overflow:hidden;border:1px solid transparent;border-radius:${RADIUS_CARD}px;background:${T.card};font:12px/1.3 ${FONT};color:${T.inkSoft};pointer-events:none}
 .ausboss-card-row{display:grid;grid-template-columns:minmax(56px,30%) 1fr;align-items:center;gap:8px;height:${ROW_HEIGHT}px;flex:none;pointer-events:auto}
-.ausboss-card-row.hidden{display:none}
+.ausboss-card .ausboss-card-row.hidden{display:none}
 .ausboss-card-row.linked{opacity:.5}
 .ausboss-card-row.linked .ausboss-card-control{pointer-events:none}
 .ausboss-card-row.muted .ausboss-card-control{opacity:.35;pointer-events:none}
@@ -97,6 +97,7 @@ export function ensureCardCss() {
 .ausboss-card-row.area{display:block}
 .ausboss-card-row.panel{display:block}
 .ausboss-card-row.area.grow{flex:1 1 auto;height:auto}
+.ausboss-card-row.panel.grow{flex:1 1 auto;height:auto}
 .ausboss-card-label{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:${T.label};font-size:11px;user-select:none}
 .ausboss-card-control{display:flex;align-items:center;gap:6px;min-width:0;height:100%}
 .ausboss-card-field{display:flex;align-items:center;gap:6px;flex:1 1 0;min-width:0;height:100%}
@@ -215,9 +216,10 @@ function isFloatWidget(widget) {
 //                                          - `top` lifts the widgets' sockets
 //                                            into the node's slot column
 //   { section: "Caption" }
-//   { panel: (node) => ({ element, sync(values) }), height }
+//   { panel: (node) => ({ element, sync(values) }), height, grow?, when? }
 //                                          - the node's own display, on a row
-//                                            of the card
+//                                            of the card; `grow` takes the
+//                                            node's spare height
 //   { group: "advanced", label: "More" }   - a disclosure; later rows with
 //                                             group: "advanced" sit under it
 // A numeric row may have readOnlyText(node, values): nonempty text replaces
@@ -538,7 +540,8 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     }
     if (row.panel) {
       const line = el("div", "ausboss-card-row panel");
-      line.style.height = `${rowHeight(row)}px`;
+      if (row.grow) { line.classList.add("grow"); line.style.minHeight = `${rowHeight(row)}px`; }
+      else line.style.height = `${rowHeight(row)}px`;
       const panel = row.panel(node);
       line.append(panel.element);
       state.rows.push({ row, element: line, syncs: panel.sync ? [panel.sync] : [] });
@@ -762,7 +765,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
     }
     const groups = {};
     for (const entry of state.rows) if (entry.header) groups[entry.row.group] = groupOpen(entry.row.group);
-    const visible = visibleRows(state.rows.map((entry) => entry.row), vals, groups);
+    const visible = visibleRows(state.rows.map((entry) => entry.row), vals, groups, node);
     const visibleSet = new Set(visible);
     const tops = rowTops(visible, look);
     state.rowTop = new Map();
@@ -863,5 +866,7 @@ export function mountWidgetCard(node, { rows, minWidth = 300, first = false, hid
 
   refresh();
   state.refresh = refresh; state.setGroupOpen = setGroupOpen; state.groupOpen = groupOpen;
+  // A panel that changes the card's rows itself (a tab) redraws it as a change by hand.
+  state.refreshByHand = () => byHand(refresh);
   return state;
 }
