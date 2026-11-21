@@ -15,6 +15,10 @@ All notable changes to ComfyUI-AusBoss are documented here.
   one megapixel. The old jump is still in the gear: turn off **Chips keep
   current budget**. The setting is kept in the browser, so a private window
   forgot it every time; it now starts on.
+- **The pack loads on Python 3.10 again.** On a 3.10 install, such as some
+  Stability Matrix setups, the whole pack failed to load with
+  `No module named 'tomllib'`. It now loads there with nothing extra to
+  install (#387).
 
 ## 2.26.6 - 2026-11-20
 
