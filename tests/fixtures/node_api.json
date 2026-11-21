@@ -251,7 +251,8 @@
       "video_job",
       "sound",
       "music",
-      "clip_sound"
+      "clip_sound",
+      "full_prompt"
     ],
     "outputs": [
       [
@@ -466,6 +467,20 @@
       [
         "INT",
         "count"
+      ]
+    ]
+  },
+  "AUSBOSS_NODES_ImageToolbox": {
+    "required": [
+      "image",
+      "job",
+      "pieces"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "IMAGE",
+        "images"
       ]
     ]
   },

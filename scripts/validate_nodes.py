@@ -67,6 +67,7 @@ PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_ImageFolder",
     "AUSBOSS_NODES_ImageResize",
     "AUSBOSS_NODES_ImageSize",
+    "AUSBOSS_NODES_ImageToolbox",
     "AUSBOSS_NODES_Integer",
     "AUSBOSS_NODES_Krea2Encode",
     "AUSBOSS_NODES_Krea2OutpaintModelPatch",

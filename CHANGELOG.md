@@ -4,6 +4,32 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **H3 Prompt Writer: see and change the full prompt.** A new **Full
+  prompt** tab at the top of the node shows the prompt it wrote on its last
+  run. Edit it there, for example to take out one camera move, and H3 gets
+  your text as it is. An amber dot shows an edit is being sent, and **Reset
+  to written** goes back to the node's own prompt. The **Simple** tab works
+  as before and stays the default.
+- **Latent Size's ratio chips keep your megapixels.** Clicking a ratio chip
+  now changes the shape at the size you set, instead of jumping back to about
+  one megapixel. The old jump is still in the gear: turn off **Chips keep
+  current budget**. The setting is kept in the browser, so a private window
+  forgot it every time; it now starts on.
+
+## 2.26.6 - 2026-11-20
+
+- **Image Toolbox's help page says what happens with too many pieces.**
+  Asking for more pieces than the picture is wide in pixels gives one piece
+  per pixel column, so fewer pieces than asked for. The page now says so.
+
+## 2.26.5 - 2026-11-20
+
+- **New node: Image Toolbox.** Small picture jobs in one node: pick the job
+  from a list. Its first job, split sheet at gaps, cuts a row of pictures
+  such as a character sheet's four views into separate pictures. Each cut
+  goes to the gap between two pictures instead of an equal share of the
+  width, so no piece gets part of its neighbour's sleeve. The pieces come out
+  as one batch of the same size, padded with the sheet's backdrop colour.
 - **Box edits on big photos start much sooner.** Crop For Inpaint,
   Image Crop + Rotate + Pad and Stitch Inpaint grew and softened their
   masks across the whole picture, even when the box was small or there was
