@@ -150,6 +150,13 @@ example_workflows/  # example workflows (regular workflow JSON, not API JSON)
 - Category: `🆎 AusBoss/<Group>`. The emoji is safe here — categories reach
   the frontend as JSON and are never printed to the console at import time.
 - Every node gets `DESCRIPTION`, input `tooltip`s, and `OUTPUT_TOOLTIPS`.
+- Words a node face draws itself (card labels, buttons, choices, tooltips)
+  are translated for a Chinese ComfyUI by `js/i18n/index.js`: add the English
+  text and its Chinese to `js/shared/i18n_zh.mjs`, or to `STAYS_ENGLISH` there
+  when it should not change. Text with no entry stays English, and a widget's
+  name and value are never translated. Never read a label back from the DOM
+  to decide something; keep that in state (the translator changes the text).
+  `tests/i18n.test.mjs` fails on a card word with no entry.
 - IMAGE tensors are BHWC float batches; MASK is BHW. Return tuples always,
   even for one output: `(value,)`.
 - Console output at import time must stay ASCII — ComfyUI on Windows often

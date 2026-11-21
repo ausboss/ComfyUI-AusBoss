@@ -1362,6 +1362,7 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
     const open = anyFolderOpen(entries, currentFolds());
     foldAll.hidden = !entries.some((entry) => entry.kind === "folder");
     foldAll.textContent = open ? "Fold all" : "Open all";
+    foldAll.dataset.folds = open ? "1" : "";
     foldAll.title = open ? "Fold every folder in this list" : "Open every folder in this list";
     if (highlight >= 0) highlight = clampHighlight(highlight, options.length);
     list.textContent = "";
@@ -1391,7 +1392,7 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
   };
 
   foldAll.addEventListener("click", () => {
-    toggleFolder(null, foldAll.textContent === "Fold all", "search");
+    toggleFolder(null, foldAll.dataset.folds === "1", "search");
   });
   search.addEventListener("input", () => { highlight = -1; searchCollapsed = new Set(); renderList(); });
   search.addEventListener("keydown", (event) => {
