@@ -11,7 +11,6 @@ of taking the whole pack down, so one broken node never hides the rest.
 
 import importlib
 import os
-import tomllib
 import traceback
 
 # One entry per file in nodes/, kept alphabetical. The order has no
@@ -102,9 +101,10 @@ __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]
 def _read_version():
     """Version straight from pyproject.toml so it is never duplicated."""
     try:
+        from .nodes._pyproject import read_project
+
         pyproject = os.path.join(os.path.dirname(__file__), "pyproject.toml")
-        with open(pyproject, "rb") as f:
-            version = tomllib.load(f).get("project", {}).get("version")
+        version = read_project(pyproject).get("version")
         return version if isinstance(version, str) and version.strip() else "unknown"
     except Exception:
         return "unknown"
