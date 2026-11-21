@@ -2,6 +2,14 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Latent Size's ratio chips keep your megapixels.** Clicking a ratio chip
+  now changes the shape at the size you set, instead of jumping back to about
+  one megapixel. The old jump is still in the gear: turn off **Chips keep
+  current budget**. The setting is kept in the browser, so a private window
+  forgot it every time; it now starts on.
+
 ## 2.26.6 - 2026-11-20
 
 - **Image Toolbox's help page says what happens with too many pieces.**
