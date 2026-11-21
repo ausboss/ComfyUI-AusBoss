@@ -4,6 +4,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **H3 Prompt Writer: see and change the full prompt.** A new **Full
+  prompt** tab at the top of the node shows the prompt it wrote on its last
+  run. Edit it there, for example to take out one camera move, and H3 gets
+  your text as it is. An amber dot shows an edit is being sent, and **Reset
+  to written** goes back to the node's own prompt. The **Simple** tab works
+  as before and stays the default.
 - **Latent Size's ratio chips keep your megapixels.** Clicking a ratio chip
   now changes the shape at the size you set, instead of jumping back to about
   one megapixel. The old jump is still in the gear: turn off **Chips keep

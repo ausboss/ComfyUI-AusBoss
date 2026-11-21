@@ -1294,6 +1294,19 @@ class NodeTests(unittest.TestCase):
         self.assertEqual(frames, 141)
         self.assertIn("<Audio 1>", node.write(SAYS, 6, picture_1=PICTURE, voice=self.audio())[0])
 
+    def test_an_edited_full_prompt_is_sent_and_the_written_one_shown(self):
+        node = AusBossH3PromptWriter()
+        written = node.write(LINES, 6, picture_1=PICTURE)
+        plain = node.run(LINES, 6, picture_1=PICTURE)
+        self.assertEqual(plain["ui"]["written_prompt"], [written[0]])
+        self.assertEqual(plain["result"][0], written[0])
+        self.assertEqual(plain["result"][1:11], written[1:11])
+        edited = node.run(LINES, 6, picture_1=PICTURE, full_prompt="my own prompt\nno push in")
+        self.assertEqual(edited["result"][0], "my own prompt\nno push in")
+        self.assertEqual(edited["ui"]["written_prompt"], [written[0]])
+        self.assertEqual(edited["result"][11], written[11])
+        self.assertEqual(node.run(LINES, 6, picture_1=PICTURE, full_prompt="  \n")["result"][0], written[0])
+
     def test_the_picks_that_change_nothing_add_nothing(self):
         node = AusBossH3PromptWriter()
         self.assertEqual(node.write(LINES, 6, picture_1=PICTURE)[0], node.write(LINES, 6, picture_1=PICTURE, camera="as typed", look="from the picture")[0])
@@ -1457,7 +1470,7 @@ class SoundAndMusicBoxTests(unittest.TestCase):
 
     def test_the_boxes_are_appended_after_every_older_input(self):
         names = list(AusBossH3PromptWriter.INPUT_TYPES()["optional"])
-        self.assertEqual(names[-3:], ["sound", "music", "clip_sound"])
+        self.assertEqual(names[-4:], ["sound", "music", "clip_sound", "full_prompt"])
 
 
 def spoken(stretches, seconds, rate=16000, noise=0.002, seed=3):
