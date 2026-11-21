@@ -68,6 +68,12 @@ answered on the same line as the button.
   the ComfyUI server for its own model lists.
 - **↻ check files** re-runs the check after you move files in. ComfyUI's own
   **R** refresh triggers it as well.
+- Launchers such as Stability Matrix keep models in shared folders of their
+  own, for example `Data/Models/Lora`. Files there count, and the card names
+  such a folder under the usual heading ("also read from ..."), so you can
+  see where your files are found and put new ones there. The old folder
+  names `clip` and `unet` are checked as `text_encoders` and
+  `diffusion_models`, the names ComfyUI uses for them.
 - Folder `input` is for a sample image or clip shipped with the workflow: it
   is looked for in `ComfyUI/input`.
 - Clicking a file name copies it — handy for searching a loader's picker.

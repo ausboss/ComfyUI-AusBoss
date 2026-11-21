@@ -181,6 +181,43 @@ export function folderPath(dir) {
   return `ComfyUI/models/${dir}`;
 }
 
+// ComfyUI still accepts two old folder names everywhere except in its
+// /models/<folder> list, which answers 404 for them. Stability Matrix and
+// older notes use them, so a row naming one is checked under the new name.
+const LEGACY_FOLDERS = { clip: "text_encoders", unet: "diffusion_models" };
+
+export function modelFolderKey(dir) {
+  const key = str(dir, 200).trim();
+  return Object.hasOwn(LEGACY_FOLDERS, key) ? LEGACY_FOLDERS[key] : key;
+}
+
+// Every folder this install reads for `dir`, from ComfyUI's
+// /experiment/models list ([{ name, folders: [path, ...] }]). Launchers
+// such as Stability Matrix add their own shared folders through
+// extra_model_paths.yaml, so a file may live outside ComfyUI/models.
+export function installFolders(dir, folderList) {
+  if (!dir || dir === INPUT_FOLDER || !Array.isArray(folderList)) return [];
+  const key = modelFolderKey(dir);
+  const entry = folderList.find((item) => item && item.name === key);
+  if (!entry || !Array.isArray(entry.folders)) return [];
+  return [...new Set(entry.folders.map((folder) => str(folder, 1000)).filter(Boolean))];
+}
+
+// The folders from `installFolders` with a name of their own, such as
+// Stability Matrix's Data/Models/Lora: the ones worth showing, since a
+// person would not guess them. A folder named like the kind itself
+// (models/loras, output/loras, a shared .../loras) reads the way the card
+// already says, so it is left out.
+export function sharedFolders(dir, folderList) {
+  const key = modelFolderKey(dir);
+  const usual = new Set([key, ...Object.keys(LEGACY_FOLDERS).filter((name) => LEGACY_FOLDERS[name] === key)]
+    .map((name) => name.toLowerCase()));
+  return installFolders(dir, folderList).filter((folder) => {
+    const last = folder.replace(/\\/g, "/").replace(/\/+$/, "").split("/").pop().toLowerCase();
+    return !usual.has(last);
+  });
+}
+
 // Rows grouped by folder in first-seen order, so the card reads like the
 // install tree: one heading per folder, its files beneath.
 export function groupModels(models) {
