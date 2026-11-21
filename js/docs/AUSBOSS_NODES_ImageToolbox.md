@@ -40,3 +40,5 @@ next sheet's.
   goes where the least of them is lost, and a small part of one can remain
   in the other's piece.
 - Pieces set to 1 returns the picture unchanged.
+- Pieces higher than the picture's width in pixels gives one piece per
+  pixel column, so fewer pieces than asked for.
