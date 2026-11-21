@@ -297,6 +297,7 @@ export function installStrengthLinks(state, app) {
 
 export const STRENGTH_LINK_STYLES = `
 .ausboss-lora-row.link-target{outline:2px solid #00b4aa;outline-offset:-1px;background:rgba(0,180,170,.14);}
-.ausboss-lora-strengthbox.linked .ausboss-lora-strength{color:#5fe3d9;border-color:rgba(0,180,170,.55);border-style:dashed;cursor:pointer;}
-.ausboss-lora-strengthbox.linked .ausboss-lora-step{visibility:hidden;}
+.ausboss-lora-strengthbox.linked{border-color:transparent;outline:2px dashed rgba(0,180,170,.7);outline-offset:-2px;}
+.ausboss-lora-strengthbox.linked .ausboss-lora-strength{color:#5fe3d9;cursor:pointer;}
+.ausboss-lora-strengthbox.linked .ausboss-lora-step{display:none;}
 `;
