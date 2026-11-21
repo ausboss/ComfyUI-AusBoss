@@ -97,9 +97,9 @@ const SETTINGS_SCHEMA = [
   },
   {
     key: "chips_keep_budget", label: "Chips keep current budget", type: "toggle",
-    default: false,
-    hint: "Ratio chips reshape at your current megapixels instead of jumping "
-      + "to that ratio's ~1MP default size.",
+    default: true,
+    hint: "On: ratio chips keep your current megapixels. Off: a chip jumps "
+      + "to that ratio's ~1MP size.",
   },
   {
     key: "rail", label: "Ratio rail", type: "text",
