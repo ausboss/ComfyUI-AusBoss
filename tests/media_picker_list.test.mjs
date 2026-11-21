@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { browseMediaRows, visibleMediaRange } from "../js/shared/media_list.mjs";
+import { browseMediaRows, mediaFolderOf, visibleMediaRange } from "../js/shared/media_list.mjs";
 
 test("folder browsing shows only direct children and preserves original filenames", () => {
   const values = ["root.png", "photos/cover.png", "photos/archive/old.png", "other/test.png"];
@@ -37,4 +37,15 @@ test("virtualized list renders a bounded number of rows even far past item 400",
   assert.ok(deep.last - deep.first < 40);
   assert.equal(visibleMediaRange(0, 0, 320, 26, 8).last, 0);
   assert.equal(visibleMediaRange(1200, 1195 * 26, 320, 26, 8).last, 1200);
+});
+
+test("the picker opens in the folder of the current pick", () => {
+  const bare = (value) => value.replace(/ \[output\]$/, "");
+  assert.deepEqual(mediaFolderOf("photos/2025/trip.png"), ["photos", "2025"]);
+  assert.deepEqual(mediaFolderOf("renders\\set\\001.png [output]", bare), ["renders", "set"]);
+  assert.deepEqual(mediaFolderOf("root.png"), []);
+  assert.deepEqual(mediaFolderOf(""), []);
+  const values = ["photos/2025/trip.png", "photos/cover.png", "root.png"];
+  const rows = browseMediaRows(values, "", mediaFolderOf("photos/2025/trip.png"));
+  assert.ok(rows.some((row) => row.value === "photos/2025/trip.png"));
 });

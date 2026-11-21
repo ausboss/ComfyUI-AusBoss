@@ -11,8 +11,9 @@
 // Pure decisions live in media_list.mjs for node:test; this file is the DOM.
 
 import { BRAND } from "./index.mjs";
+import { THEME } from "./theme.mjs";
 import { isAppShortcut, keepKeyInField } from "./canvas_passthrough.mjs";
-import { browseMediaRows, mediaLabel, moveHighlight, visibleMediaRange } from "./media_list.mjs";
+import { browseMediaRows, mediaFolderOf, mediaLabel, moveHighlight, visibleMediaRange } from "./media_list.mjs";
 
 const CSS_ID = "ausboss-media-picker-css";
 const ROW_HEIGHT = 26; // fixed-height rows for virtual scrolling
@@ -40,7 +41,8 @@ function ensureCss() {
 .ausboss-media-space .ausboss-media-item{position:absolute;left:0;right:0;box-sizing:border-box;height:26px;align-items:center}
 .ausboss-media-path{padding:0 5px 2px;min-height:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#6f8886;font:10px ui-monospace,monospace}
 .ausboss-media-navigation{font-weight:600}
-.ausboss-media-folder-icon{flex:none;width:22px;color:#83b4ad}
+.ausboss-media-folder-icon{flex:none;display:flex;align-items:center;width:20px;color:${THEME.faint}}
+.ausboss-media-folder-icon svg{width:12px;height:12px}
 .ausboss-media-item{display:flex;min-width:0;padding:5px 8px;border-radius:5px;cursor:pointer;white-space:nowrap;font:12px ${MONO}}
 .ausboss-media-item.hot{background:#2c3238;color:#fff}
 .ausboss-media-item.current .ausboss-media-name{color:${BRAND}}
@@ -55,6 +57,12 @@ function ensureCss() {
 `;
   document.head.appendChild(style);
 }
+
+// Folder and "up one folder" marks for the list, drawn in the text colour.
+const ICONS = {
+  folder: '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1 3a1 1 0 0 1 1-1h2.6l1.2 1.2H10a1 1 0 0 1 1 1V9a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>',
+  back: '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 10V2.5M2.5 6 6 2.5 9.5 6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+};
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -129,7 +137,9 @@ export function createMediaPicker({ kind = "image", className = "", placeholder,
     menu.append(column, pane);
 
     let shown = [];
-    let directory = []; // current folder, only UI state; filename widget is unchanged
+    // The folder on show, only UI state; the widget keeps the full file name.
+    // It opens where the current pick sits.
+    let directory = all.includes(current) ? mediaFolderOf(current, bare) : [];
     const items = new Map();
     let highlight = -1;
     let timer = null;
@@ -199,6 +209,7 @@ export function createMediaPicker({ kind = "image", className = "", placeholder,
       if (range === visibleRange) return;
       visibleRange = range;
       const fragment = document.createDocumentFragment();
+      const searching = Boolean(filter.value.trim());
       items.clear();
       for (let index = first; index < last; index++) {
         const entry = shown[index];
@@ -219,9 +230,12 @@ export function createMediaPicker({ kind = "image", className = "", placeholder,
         }
         if (entry.kind !== "file") {
           item.classList.add("ausboss-media-navigation");
-          item.append(el("span", "ausboss-media-folder-icon", entry.kind === "back" ? "↖" : "📁"));
+          const icon = el("span", "ausboss-media-folder-icon");
+          icon.innerHTML = ICONS[entry.kind === "back" ? "back" : "folder"];
+          item.append(icon);
         }
-        if (under) item.append(el("span", "ausboss-media-folder", under));
+        // Inside a folder the path bar already names it; a search shows it.
+        if (under && searching) item.append(el("span", "ausboss-media-folder", under));
         item.append(el("span", "ausboss-media-name", entry.kind === "folder" ? `${name}/` : name));
         item.addEventListener("mousemove", () => setHighlight(index, false));
         item.addEventListener("click", () => activate(entry));
@@ -259,7 +273,7 @@ export function createMediaPicker({ kind = "image", className = "", placeholder,
     const render = (startAtTop = false) => {
       shown = browseMediaRows(all, filter.value, directory, bare);
       pathBar.textContent = filter.value.trim() ? "Search all folders" :
-        `${folder === "input" ? "Input" : "Output"} / ${directory.join(" / ")}`;
+        [folder.charAt(0).toUpperCase() + folder.slice(1), ...directory].join(" / ");
       list.replaceChildren();
       list.scrollTop = 0;
       items.clear();

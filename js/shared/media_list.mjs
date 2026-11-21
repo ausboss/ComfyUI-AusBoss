@@ -76,6 +76,13 @@ export function browseMediaRows(options, query, directory = [], bare = (value) =
   ];
 }
 
+// The folder a picked file sits in, as the parts browseMediaRows takes, so
+// the picker opens where the current pick is. A top-level file gives [].
+export function mediaFolderOf(value, bare = (v) => v) {
+  const parts = bare(String(value ?? "")).replace(/\\/g, "/").split("/").filter(Boolean);
+  return parts.slice(0, -1);
+}
+
 // Virtual scrolling uses a fixed row height. The DOM only contains this range
 // while the scroll container's spacer retains the height of the entire list.
 export function visibleMediaRange(total, scrollTop, height, rowHeight, overscan) {
