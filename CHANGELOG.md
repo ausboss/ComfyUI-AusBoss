@@ -11,6 +11,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   to written** goes back to the node's own prompt. The **Simple** tab works
   as before and stays the default.
 
+## 2.26.6 - 2026-11-20
+
+- **Image Toolbox's help page says what happens with too many pieces.**
+  Asking for more pieces than the picture is wide in pixels gives one piece
+  per pixel column, so fewer pieces than asked for. The page now says so.
+
 ## 2.26.5 - 2026-11-20
 
 - **New node: Image Toolbox.** Small picture jobs in one node: pick the job
