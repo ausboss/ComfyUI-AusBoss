@@ -38,12 +38,12 @@ In **ComfyUI-Manager**, open the Custom Nodes Manager, search for **AusBoss** an
 
 ```bash
 cd ComfyUI/custom_nodes
-git clone https://github.com/ausboss/ComfyUI-AusBoss.git
+git clone https://github.com/ausboss/ComfyUI-AusBoss.git ausboss-nodes
 ```
 
 Restart ComfyUI and search the node library for **AusBoss**.
 
-Install it one way, not both. Manager puts the pack in `custom_nodes/ausboss-nodes` and a clone in `custom_nodes/ComfyUI-AusBoss`. They are the same pack, so if both folders are there, delete one. The console says which copy it skipped.
+Clone into `ausboss-nodes`, the folder ComfyUI-Manager uses, so Manager sees the same copy and updates it instead of adding a second one. If you also have a `custom_nodes/ComfyUI-AusBoss` folder from an older clone, delete it: with two copies, an old one can keep loading after every update, and its newer nodes show as missing. ComfyUI shows a message naming the folder when this happens.
 
 After an update, through Manager or `git pull`, restart ComfyUI and hard-refresh the browser with **Ctrl+Shift+R**. Otherwise the browser keeps the old JavaScript, and the pack warns you about it. Manager can install a version or two behind while the Comfy Registry reviews a new release. To get the newest one, pick it in Manager's version list, or update by hand: delete the pack's folder in `ComfyUI/custom_nodes` and clone the repository as shown above.
 
