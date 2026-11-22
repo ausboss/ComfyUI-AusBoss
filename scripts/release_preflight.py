@@ -130,7 +130,7 @@ import fnmatch
 ARCHIVE_ALLOWLIST = (
     "__init__.py", "nodes/", "js/", "example_workflows/", "README.md",
     "LICENSE", "pyproject.toml", "ausboss_presets_example.json", "locales/",
-    "web_second_copy/",
+    "web_second_copy/", "prestartup_script.py",
 )
 # Besides every allowlist entry these must ship too: the node help pages and
 # the sample media the example workflows load.
@@ -297,7 +297,7 @@ NETWORK_PATTERNS = {
     ".mjs": (".connect(",),
 }
 NETWORK_IMPORTS = {"requests", "httpx", "socket", "urllib.request", "http.client", "aiohttp.ClientSession"}
-shipped_source = [ROOT / "__init__.py", *sorted((ROOT / "nodes").rglob("*.py"))]
+shipped_source = [ROOT / "__init__.py", ROOT / "prestartup_script.py", *sorted((ROOT / "nodes").rglob("*.py"))]
 shipped_source += sorted(p for p in (ROOT / "js").rglob("*") if p.suffix in (".js", ".mjs"))
 shipped_source += sorted(p for p in (ROOT / "web_second_copy").rglob("*") if p.suffix in (".js", ".mjs"))
 for path in shipped_source:

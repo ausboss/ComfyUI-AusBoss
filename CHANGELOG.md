@@ -4,13 +4,16 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
-- **An old copy of the pack that keeps loading now says so in the browser.**
-  With an old git clone in `custom_nodes/ComfyUI-AusBoss` and a newer
-  Manager install in `custom_nodes/ausboss-nodes`, the old clone loads,
-  because copies from before 2.24.0 cannot step aside. Every node added
-  since, such as Edit Lock, then shows as missing, and updating does not
-  help. The newer copy now shows a message in ComfyUI that names the old
-  folder to delete. Before, the only sign was a line in the console.
+- **An old copy of the pack no longer hides the new nodes.** With an old
+  git clone in `custom_nodes/ComfyUI-AusBoss` beside a newer Manager install
+  in `custom_nodes/ausboss-nodes`, the old clone kept loading, because
+  copies from before 2.24.0 cannot step aside. Every node added since, such
+  as Edit Lock, showed as missing, and updating did not help. Now the new
+  copy turns the old one off before ComfyUI loads anything: the folder is
+  renamed `ComfyUI-AusBoss.disabled`, so nothing is deleted, and renaming it
+  back undoes it. If the folder cannot be renamed, ComfyUI shows a message
+  naming the folder to delete. The README now clones into `ausboss-nodes`,
+  the folder the Manager uses, so a clone and the Manager share one copy.
 - **LoRA Loader: set a LoRA's strength with a wire.** Drag a number wire,
   from a slider or a Float node, onto any row and that row's strength follows
   it. The row's box turns dashed teal and shows the number coming in; click

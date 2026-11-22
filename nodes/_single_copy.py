@@ -62,12 +62,14 @@ def find_copies(own_folder: str, roots: list[str]) -> list[dict]:
             # ComfyUI skips these too.
             if name.endswith(".disabled") or name.startswith("."):
                 continue
-            folder = os.path.realpath(os.path.join(root, name))
+            entry = os.path.join(root, name)
+            folder = os.path.realpath(entry)
             if folder in seen or not os.path.isdir(folder):
                 continue
             seen.add(folder)
             pack = _read_pack(folder)
             if pack:
+                pack["entry"] = entry
                 copies.append(pack)
     return copies
 
@@ -161,3 +163,48 @@ def register_second_copy_notice(notice: dict, prompt_server=None) -> bool:
         return web.json_response(notices)
 
     return True
+
+
+def _disabled_name(entry: str) -> str:
+    target = f"{entry}.disabled"
+    n = 2
+    while os.path.lexists(target):
+        target = f"{entry}.{n}.disabled"
+        n += 1
+    return target
+
+
+def retire_old_copies(own_folder: str, roots: list[str] | None = None) -> list[dict]:
+    """Turn off every copy from before 2.24.0, before any copy loads.
+
+    Those copies cannot step aside, so with one of them installed the old
+    nodes keep loading however often the new copy is updated. Each one is
+    renamed ``<folder>.disabled``, which ComfyUI and ComfyUI-Manager skip.
+    Nothing is deleted, and renaming the folder back undoes it. Runs from
+    prestartup_script.py, which ComfyUI calls for every pack before it imports
+    any of them, so the old copy never gets the chance to load.
+    """
+    if roots is None:
+        try:
+            import folder_paths
+
+            roots = list(folder_paths.get_folder_paths("custom_nodes"))
+        except Exception:
+            return []
+    roots = list(dict.fromkeys(os.path.realpath(r) for r in roots))
+    own_version = (_read_pack(os.path.realpath(own_folder)) or {}).get("version", "unknown")
+    retired = []
+    for copy in find_copies(own_folder, roots):
+        entry = copy.get("entry")
+        if not entry or copy["guarded"] or "unknown" in (copy["version"], own_version):
+            continue
+        if not is_older(copy["version"], own_version):
+            continue
+        target = _disabled_name(entry)
+        try:
+            os.rename(entry, target)
+        except OSError as exc:
+            retired.append({**copy, "disabled": None, "error": str(exc)})
+            continue
+        retired.append({**copy, "disabled": target})
+    return retired
