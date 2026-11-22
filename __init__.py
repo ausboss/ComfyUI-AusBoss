@@ -92,8 +92,10 @@ for _module_name in NODE_MODULES:
         traceback.print_exc()
 
 # Folder ComfyUI serves to the browser; every .js file in it is loaded as a
-# frontend extension. Shared modules use .mjs so they are import-only.
-WEB_DIRECTORY = None if _other_copy else "./js"
+# frontend extension. Shared modules use .mjs so they are import-only. A copy
+# that steps aside serves only the script that warns about it in the browser,
+# since the console line alone is easy to miss.
+WEB_DIRECTORY = "./web_second_copy" if _other_copy else "./js"
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]
 
@@ -144,6 +146,14 @@ def _print_second_copy():
 
 if _other_copy:
     _print_second_copy()
+    try:
+        from .nodes._single_copy import register_second_copy_notice, second_copy_notice
+
+        register_second_copy_notice(
+            second_copy_notice(os.path.dirname(__file__), _read_version(), _other_copy)
+        )
+    except Exception:
+        traceback.print_exc()
 else:
     try:
         from .nodes._frontend_cache import register_frontend_cache_guard
