@@ -908,6 +908,9 @@
       },
       "source_image": {
         "name": "原图"
+      },
+      "path": {
+        "name": "路径"
       }
     },
     "outputs": {

@@ -110,6 +110,8 @@ class AusBossLoadImagePad:
     CATEGORY = "🆎 AusBoss/Image"
     DESCRIPTION = (
         "Loads an image and pads it into an outpaint canvas in one node. "
+        "The source can be the picked file, a path wired in as a string, or "
+        "an image wired in from another node; the wire wins over the pick. "
         "Drag any edge of the canvas drawn on the node to set the per-side "
         "padding visually; the mask covers exactly the new padding, "
         "optionally feathered inward across the seam. The canvas rounds to "
@@ -284,6 +286,22 @@ class AusBossLoadImagePad:
                         ),
                     },
                 ),
+                # Appended after source_image, the newest input: older saved
+                # workflows and API prompts keep loading, and a wire wins
+                # over the file pick the same way the image wire does.
+                "path": (
+                    "STRING",
+                    {
+                        "forceInput": True,
+                        "tooltip": (
+                            "Optional. Wire a string here naming an image "
+                            "inside ComfyUI's input, output or temp folders "
+                            "to load it instead of the pick above; the wire "
+                            "wins. The same naming rules as the file list "
+                            "apply."
+                        ),
+                    },
+                ),
             },
             "hidden": {"unique_id": "UNIQUE_ID"},
         }
@@ -327,12 +345,15 @@ class AusBossLoadImagePad:
         canvas_multiple,
         target_megapixels,
         source_image=None,
+        path=None,
         unique_id=None,
     ):
         if source_image is not None:
             frames = _wired_frames(source_image)
         else:
-            frames = _frames_to_tensor(load_image_frames(resolve_input_path(image)))
+            # A wired path wins over the file pick; only the pick may sit empty.
+            selection = path if isinstance(path, str) and path.strip() else image
+            frames = _frames_to_tensor(load_image_frames(resolve_input_path(selection)))
         source = frames
         plan = plan_pad_canvas(
             frames.shape[2],
@@ -387,10 +408,11 @@ class AusBossLoadImagePad:
 
     @classmethod
     @ignore_extra_inputs
-    def VALIDATE_INPUTS(cls, image, source_image=_UNWIRED):
-        # A wired source replaces the file, so the file choice may be
-        # missing or stale without stopping the run.
-        if source_image is None:
+    def VALIDATE_INPUTS(cls, image, source_image=_UNWIRED, path=None):
+        # A wired source replaces the file — an image batch straight away, or
+        # a path string whose resolve happens at execution — so the file
+        # choice may be missing or stale without stopping the run.
+        if source_image is None or path is not None:
             return True
         try:
             resolve_input_path(image)

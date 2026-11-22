@@ -756,6 +756,7 @@ class LoadImagePadNodeTests(unittest.TestCase):
             ],
         )
         self.assertEqual(types["optional"]["source_image"][0], "IMAGE")
+        self.assertEqual(types["optional"]["path"][1]["forceInput"], True)
 
     def test_a_wired_source_replaces_the_file(self):
         import tempfile
