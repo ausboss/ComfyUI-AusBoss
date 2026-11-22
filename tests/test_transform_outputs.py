@@ -169,8 +169,12 @@ class TransformOutputTests(unittest.TestCase):
         inputs = AusBossImageCropRotatePad.INPUT_TYPES()
         resize = ["resize_to_megapixels", "megapixels", "resize_method", "resolution_steps"]
         # The resize inputs keep their widget positions; the stitch settings
-        # follow, then painted_area, the newest.
-        self.assertEqual(list(inputs["optional"]), resize + ["stitch_blend", "stitch_grow", "painted_area"])
+        # follow, then painted_area, then the two link-only sockets, the
+        # newest.
+        self.assertEqual(
+            list(inputs["optional"]),
+            resize + ["stitch_blend", "stitch_grow", "painted_area", "source_image", "path"],
+        )
         self.assertFalse(set(resize) & set(inputs["required"]))
 
     @unittest.skipUnless(COMFY_ROOT, "Set AUSBOSS_COMFY_ROOT for core resize integration")

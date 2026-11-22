@@ -337,7 +337,9 @@
       "resolution_steps",
       "stitch_blend",
       "stitch_grow",
-      "painted_area"
+      "painted_area",
+      "source_image",
+      "path"
     ],
     "outputs": [
       [
