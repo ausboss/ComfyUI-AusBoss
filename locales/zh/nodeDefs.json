@@ -484,6 +484,12 @@
       },
       "painted_area": {
         "name": "绘制区域"
+      },
+      "source_image": {
+        "name": "原图"
+      },
+      "path": {
+        "name": "路径"
       }
     },
     "outputs": {

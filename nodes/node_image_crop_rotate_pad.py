@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import numpy as np
+import torch
+from PIL import Image
+
 from ._execution_helpers import ignore_extra_inputs
 from ._media_helpers import list_input_images, load_image_frames, resolve_input_path
 from ._inpaint_crop_helpers import build_transform_stitcher, remember_original
@@ -14,11 +18,41 @@ from ._transform_engine import (
 )
 from ._transform_inputs import resize_inputs, spec_from_values, transform_inputs
 
+# Default for source_image in VALIDATE_INPUTS. ComfyUI hands a linked input
+# to validation as None (its value only exists at execution), while an
+# optional input nobody wired is left out and keeps this default.
+_UNWIRED = object()
+
+
+def _wired_rgba_frames(image) -> "list[Image.Image]":
+    """A wired IMAGE batch as the RGBA PIL frames a loaded file yields.
+
+    Three channels arrive as fully opaque; a fourth rides as alpha, the same
+    reading the tensor transform gives a wired batch. Anything else is
+    refused before the transform sees it.
+    """
+    if not isinstance(image, torch.Tensor) or image.ndim != 4 or int(image.shape[0]) < 1:
+        raise ValueError("Image Crop + Rotate + Pad: source_image must be a BHWC IMAGE batch.")
+    if int(image.shape[-1]) not in (3, 4):
+        raise ValueError(f"Image Crop + Rotate + Pad: source_image has {int(image.shape[-1])} channels.")
+    frames = image.detach().to("cpu", torch.float32).clamp(0.0, 1.0)
+    result: list[Image.Image] = []
+    for index in range(frames.shape[0]):
+        rgb = (frames[index, ..., :3].numpy() * 255.0).round().astype(np.uint8)
+        if frames.shape[-1] == 4:
+            alpha = (frames[index, ..., 3].numpy() * 255.0).round().astype(np.uint8)
+        else:
+            alpha = np.full(frames.shape[1:3], 255, dtype=np.uint8)
+        result.append(Image.fromarray(np.dstack((rgb, alpha))))
+    return result
+
 
 class AusBossImageCropRotatePad:
     CATEGORY = "🆎 AusBoss/Image"
     DESCRIPTION = (
         "Loads an image and applies one visual rotate, crop, and pad transform. "
+        "The source can be the picked file, a path wired in as a string, or an "
+        "image wired in from another node; the wire wins over the pick. "
         "The mask marks what to paint: new padding, the corners a turn leaves "
         "empty, and see-through parts of the picture (less than 90% solid), "
         "which are filled like the padding unless painted_area keeps the "
@@ -89,6 +123,31 @@ class AusBossImageCropRotatePad:
                     ),
                 },
             ),
+            # Inputs, appended after the stable widgets: saved workflows and
+            # older API prompts keep validating, and a wire wins over the
+            # file pick above. A wired image arrives already decoded, so no
+            # see-through parts are detected in it unless it carries alpha.
+            "source_image": (
+                "IMAGE",
+                {
+                    "tooltip": (
+                        "Optional. Wire an image here to crop, rotate and pad "
+                        "it instead of the file chosen above; the wire wins."
+                    ),
+                },
+            ),
+            "path": (
+                "STRING",
+                {
+                    "forceInput": True,
+                    "tooltip": (
+                        "Optional. Wire a string here naming an image inside "
+                        "ComfyUI's input, output or temp folders to load it "
+                        "instead of the pick above; the wire wins. The same "
+                        "naming rules as the file list apply."
+                    ),
+                },
+            ),
         })
         return {"required": required, "optional": optional}
 
@@ -120,12 +179,19 @@ class AusBossImageCropRotatePad:
         stitch_blend=32,
         stitch_grow=0,
         painted_area="fill",
+        source_image=None,
+        path=None,
         **values,
     ):
-        path = resolve_input_path(image)
-        frames = load_image_frames(path)
         keep_picture = str(painted_area) == "keep picture"
         spec = spec_from_values(**values)
+        # A wired image wins over a wired path, and a wired path wins over
+        # the file pick; only the file pick may sit empty.
+        if source_image is not None:
+            frames = _wired_rgba_frames(source_image)
+        else:
+            selection = path if isinstance(path, str) and path.strip() else image
+            frames = load_image_frames(resolve_input_path(selection))
         output, mask, geometry, prompt_image = transform_pil_batch(
             frames, spec, view=True, keep_see_through=keep_picture
         )
@@ -158,13 +224,18 @@ class AusBossImageCropRotatePad:
 
     @classmethod
     @ignore_extra_inputs
-    def VALIDATE_INPUTS(cls, image):
+    def VALIDATE_INPUTS(cls, image, source_image=_UNWIRED, path=None):
         # ComfyUI skips its own range and list checks for every input named
         # here and files a failure once per named input, so only the source
         # is named. Its list check would refuse uploads it has not listed yet
         # and MaskEditor saves ("... [input]"); resolve_input_path takes the
         # names core Load Image takes instead, "... [output]" and "[temp]"
-        # included, and nothing outside those three folders.
+        # included, and nothing outside those three folders. A wired source
+        # replaces the file — an image batch straight away, or a path string
+        # whose resolve happens at execution — so a missing or stale pick
+        # may not stop the run.
+        if source_image is None or path is not None:
+            return True
         try:
             resolve_input_path(image)
         except Exception as exc:
