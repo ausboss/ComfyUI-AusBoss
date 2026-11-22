@@ -2,7 +2,7 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
-## Unreleased
+## 2.26.7 - 2026-11-21
 
 - **An old copy of the pack that keeps loading now says so in the browser.**
   With an old git clone in `custom_nodes/ComfyUI-AusBoss` and a newer
