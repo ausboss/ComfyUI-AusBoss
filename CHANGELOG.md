@@ -11,6 +11,13 @@ All notable changes to ComfyUI-AusBoss are documented here.
   since, such as Edit Lock, then shows as missing, and updating does not
   help. The newer copy now shows a message in ComfyUI that names the old
   folder to delete. Before, the only sign was a line in the console.
+- **Workflow Note: a missing AusBoss node asks for an update, not a GitHub
+  clone.** When a workflow needs an AusBoss node your version doesn't have,
+  the note's AusBoss row now shows **Update**. It opens ComfyUI-Manager's
+  updates list and says to restart afterwards. Before, the row showed
+  **Get it**, which opened GitHub, and cloning from there added a second
+  copy of the pack. **Detect from this workflow** now lists the pack as
+  AusBoss nodes with its Comfy Registry link, whatever folder it is in.
 - **LoRA Loader: set a LoRA's strength with a wire.** Drag a number wire,
   from a slider or a Float node, onto any row and that row's strength follows
   it. The row's box turns dashed teal and shows the number coming in; click

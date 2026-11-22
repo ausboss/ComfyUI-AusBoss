@@ -282,6 +282,31 @@ export function packsFromGraph(nodeTypes, moduleOf) {
   return packs;
 }
 
+// This pack, as a Workflow Note lists it. Its folder is ausboss-nodes from
+// the Manager and ComfyUI-AusBoss from a git clone, so a row is named and
+// linked by the Registry id: a GitHub link sent people to clone a second copy.
+export const OWN_PACK = Object.freeze({
+  name: "AusBoss nodes",
+  url: "https://registry.comfy.org/nodes/ausboss-nodes",
+});
+
+const OWN_PACK_NAMES = new Set(["ausboss nodes", "ausboss-nodes", "comfyui-ausboss"]);
+const OWN_PACK_URL = /^https?:\/\/(?:www\.)?(?:github\.com\/ausboss\/comfyui-ausboss(?:\.git)?|registry\.comfy\.org\/nodes\/ausboss-nodes)\/?$/i;
+
+// Whether a saved pack row is this pack, by its name or link. The probe node
+// does not decide it: other AusBoss packs use AUSBOSS_NODES_ class names too.
+export function isOwnPackRow(row) {
+  const name = str(row?.name, 200).trim().toLowerCase();
+  const url = str(row?.url, 500).trim();
+  return OWN_PACK_NAMES.has(name) || OWN_PACK_URL.test(url);
+}
+
+// Detect names a pack by its folder. The folder this pack runs from becomes
+// OWN_PACK, so a workflow saved on a git clone does not send people to GitHub.
+export function nameOwnPack(packs, ownFolder) {
+  return packs.map((pack) => (ownFolder && pack.name === ownFolder ? { ...OWN_PACK, node: pack.node } : pack));
+}
+
 // How tall the node must be for the card to show all of its content, from
 // three numbers the page measures: the card's natural height at its current
 // width, the node's height, and the part of the node height the card never
