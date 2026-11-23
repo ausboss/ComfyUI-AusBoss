@@ -167,9 +167,9 @@ class AusBossSaveVideo:
                     {
                         "default": STEP_PREVIEW_DEFAULT,
                         "tooltip": (
-                            "Show the clip's first frame here while it is "
-                            "being made, one step at a time, with a Stop "
-                            "button. Display only: what is saved does not "
+                            "Show the clip here while it is being made: after "
+                            "each step, a few of its frames play in a loop, "
+                            "with a Stop button. Display only: what is saved does not "
                             "change. A run with this on asks ComfyUI for the "
                             "step pictures, unless you chose a preview method "
                             "in ComfyUI's settings."
