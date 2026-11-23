@@ -40,6 +40,7 @@ export const ZH = {
   "Fit to ratio": "适应比例", "Hold the shape": "保持形状", "Box 1 is": "框 1 是",
   // ---- on / off pills and short states
   "on": "开", "off": "关", "On": "开", "Off": "关", "keep": "保留", "remove": "移除", "once per run": "每次运行一次", "every step": "每一步",
+  "Pause": "暂停", "wait for me": "等我取景", "run through": "直接运行",
   "forward, back": "正放、倒放", "not used": "未使用", "by blend in": "（融合模式下）", "blend in": "融合", "blend": "混合",
   // ---- choice labels
   "Width × height": "宽 × 高", "Longest edge": "最长边", "Shortest edge": "最短边", "Scale factor": "缩放倍数",

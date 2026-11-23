@@ -46,6 +46,7 @@ help panel.
 | A prompt that picks from `{a\|b\|c}` choices on each run, by seed | Prompt Variations (`AUSBOSS_NODES_PromptVariations`) |
 | Do maths on numbers | Math Expression (`AUSBOSS_NODES_MathExpression`) |
 | Show text on the node, or the picture while it is made | Show Text (`AUSBOSS_NODES_ShowText`), Step Preview (`AUSBOSS_NODES_StepPreview`) |
+| Stop a run after the 3D viewer to frame the shot on the new model, with a 360 behind it | Pause for Shot (`AUSBOSS_NODES_PauseShot`): [node help](../AUSBOSS_NODES_PauseShot.md) |
 | Free graphics memory between steps | Free Memory (`AUSBOSS_NODES_FreeMemory`) |
 | Time the whole run | Run Timer (`AUSBOSS_NODES_RunTimer`) |
 | Turn parts of a workflow off and on | Workflow Switches (`AUSBOSS_NODES_WorkflowSwitches`): [its own agent guide](workflow_switches.md) |

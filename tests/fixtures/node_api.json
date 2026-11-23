@@ -868,6 +868,40 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_PauseShot": {
+    "required": [
+      "model_3d_info",
+      "camera_info",
+      "width",
+      "height",
+      "pause"
+    ],
+    "optional": [
+      "panorama"
+    ],
+    "outputs": [
+      [
+        "LOAD3D_MODEL_INFO",
+        "model_3d_info"
+      ],
+      [
+        "LOAD3D_CAMERA",
+        "camera_info"
+      ],
+      [
+        "INT",
+        "width"
+      ],
+      [
+        "INT",
+        "height"
+      ],
+      [
+        "IMAGE",
+        "backdrop"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_PromptVariations": {
     "required": [
       "text",
