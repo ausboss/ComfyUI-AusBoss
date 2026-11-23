@@ -42,15 +42,25 @@ _viewer_results: dict[str, dict] = {}
 MODEL_SUFFIXES = (".glb", ".gltf", ".obj", ".fbx", ".stl", ".usdz", ".ply", ".spz", ".splat", ".ksplat")
 
 
-def model_result(output) -> bool:
-    """True for a viewer result whose first item names a 3D file."""
+def model_name(output) -> str:
+    """The 3D file a viewer result names, in either shape ComfyUI sends:
+    {"result": ["model.glb [temp]", ...]}, or since its standard 3d output
+    item {"3d": [{"filename": "model.glb", "subfolder": "", "type": "temp"}]}."""
     if not isinstance(output, dict):
-        return False
+        return ""
     result = output.get("result")
-    if not isinstance(result, (list, tuple)) or not result or not isinstance(result[0], str):
-        return False
-    name = result[0].rsplit(" [", 1)[0].lower()
-    return name.endswith(MODEL_SUFFIXES)
+    if isinstance(result, (list, tuple)) and result and isinstance(result[0], str):
+        return result[0].rsplit(" [", 1)[0]
+    items = output.get("3d")
+    if isinstance(items, (list, tuple)) and items and isinstance(items[0], dict):
+        name = items[0].get("filename")
+        return name if isinstance(name, str) else ""
+    return ""
+
+
+def model_result(output) -> bool:
+    """True for a viewer result that names a 3D file."""
+    return model_name(output).lower().endswith(MODEL_SUFFIXES)
 
 
 def remember_result(event, data) -> None:

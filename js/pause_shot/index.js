@@ -89,15 +89,22 @@ const viewerBox = (viewer) => viewerGizmo(viewer)?.parentElement ?? null;
 // ComfyUI sends the viewer's model only to the page that pressed Run. The
 // pause brings it along, so a page that did not start the run (another tab,
 // a phone, a reload) shows the model too.
+// ComfyUI names the model as {"result": ["model.glb [temp]", ...]}, or since
+// its standard 3d output item as {"3d": [{filename, subfolder, type}]}.
+const plainName = (text) => String(text ?? "").replace(/\s*\[[^\]]*\]$/, "").replaceAll("\\", "/");
+
 function modelName(output) {
   const first = output?.result?.[0];
-  return typeof first === "string" ? first.replace(/\s*\[[^\]]*\]$/, "").replaceAll("\\", "/") : "";
+  if (typeof first === "string") return plainName(first);
+  const item = output?.["3d"]?.[0];
+  if (typeof item?.filename !== "string") return "";
+  return plainName(item.subfolder ? `${item.subfolder}/${item.filename}` : item.filename);
 }
 
 function showModel(viewer, shown) {
   const name = modelName(shown?.output);
   if (!viewer || !name || typeof viewer.onExecuted !== "function") return;
-  const last = String(viewer.properties?.["Last Time Model File"] ?? "").replaceAll("\\", "/");
+  const last = plainName(viewer.properties?.["Last Time Model File"]);
   if (last === name || last.endsWith(`/${name}`)) return;
   viewer.onExecuted(shown.output);
 }
