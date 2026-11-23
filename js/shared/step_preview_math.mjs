@@ -27,6 +27,9 @@ export const IDLE = Object.freeze({
   tiling: false,
   tilePass: false,
   whole: false,
+  // A clip's frames at this step, about one per second of the clip, so the
+  // picture can move: { maker, list: [url, ...], seconds } or null.
+  frames: null,
 });
 
 const sameId = (a, b) => a !== null && a !== undefined && b !== null && b !== undefined && String(a) === String(b);
@@ -39,12 +42,16 @@ const sameId = (a, b) => a !== null && a !== undefined && b !== null && b !== un
 //   { type: "tiles", promptId, on }                a tiled upscale split (on) or
 //                                                  stitched (off) the picture
 //   { type: "progress", promptId, node, value, max }
+//   { type: "frames", promptId, maker, list, seconds } a clip's frames for the
+//                                                  step picture that follows
 //   { type: "result", promptId, url, rank }        a node of the run showed a picture
 //   { type: "end", promptId, kind }                "success" | "interrupted" | "error"
 // A step's picture arrives just before its progress report, so a picture
 // from a new node starts that node's count at nothing until the report.
 // A tile's picture is counted but never replaces a whole one: a tile alone
-// looks like a zoomed-in crop of the picture.
+// looks like a zoomed-in crop of the picture. A clip's frames arrive just
+// before its step picture, and stay with the pictures of the node that
+// made them.
 export function nextRunState(state, event) {
   const run = state ?? IDLE;
   switch (event?.type) {
@@ -59,6 +66,7 @@ export function nextRunState(state, event) {
       const sameMaker = !otherRun && sameId(base.maker, event.maker);
       const tile = Boolean(base.tiling || event.tile);
       const keep = tile && Boolean(base.url) && base.whole;
+      const frames = base.frames && sameId(base.frames.maker, event.real ?? event.maker) ? base.frames : null;
       return {
         ...base,
         maker: event.maker ?? null,
@@ -67,10 +75,19 @@ export function nextRunState(state, event) {
         tilePass: tile,
         value: sameMaker ? base.value : 0,
         max: sameMaker ? base.max : 0,
+        frames: keep ? base.frames : frames,
         // A new step means the picture is being made again (an upscale pass).
         result: null,
         resultRank: -1,
       };
+    }
+    case "frames": {
+      if (run.status !== "running") return run;
+      if (event.promptId && run.promptId && !sameId(event.promptId, run.promptId)) return run;
+      const list = Array.isArray(event.list) ? event.list.filter((url) => typeof url === "string" && url) : [];
+      const seconds = Number(event.seconds);
+      if (list.length < 2) return run.frames ? { ...run, frames: null } : run;
+      return { ...run, frames: { maker: event.maker ?? null, list, seconds: Number.isFinite(seconds) && seconds > 0 ? seconds : 1 } };
     }
     case "result": {
       if (run.status !== "running" || !event.url) return run;
@@ -104,6 +121,16 @@ export function nextRunState(state, event) {
     default:
       return run;
   }
+}
+
+// How long each frame of a moving step picture stays up, in ms: the clip's
+// own pace, held between a quick flicker and a slide show.
+export const FRAME_MS_MIN = 250;
+export const FRAME_MS_MAX = 2000;
+export function frameMs(frames) {
+  const ms = Math.round(Number(frames?.seconds) * 1000);
+  if (!Number.isFinite(ms) || ms <= 0) return 1000;
+  return Math.min(FRAME_MS_MAX, Math.max(FRAME_MS_MIN, ms));
 }
 
 // "step 3 of 8", or "starting" before the first report; a tiled upscale

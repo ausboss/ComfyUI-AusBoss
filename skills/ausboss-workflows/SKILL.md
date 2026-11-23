@@ -172,7 +172,7 @@ comfy node install ausboss-nodes
 ```
 
 ```bash
-git clone https://github.com/ausboss/ComfyUI-AusBoss.git
+git clone https://github.com/ausboss/ComfyUI-AusBoss.git ausboss-nodes
 ```
 
 The first needs comfy-cli. The second runs inside ComfyUI's `custom_nodes`

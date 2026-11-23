@@ -38,12 +38,12 @@ In **ComfyUI-Manager**, open the Custom Nodes Manager, search for **AusBoss** an
 
 ```bash
 cd ComfyUI/custom_nodes
-git clone https://github.com/ausboss/ComfyUI-AusBoss.git
+git clone https://github.com/ausboss/ComfyUI-AusBoss.git ausboss-nodes
 ```
 
 Restart ComfyUI and search the node library for **AusBoss**.
 
-Install it one way, not both. Manager puts the pack in `custom_nodes/ausboss-nodes` and a clone in `custom_nodes/ComfyUI-AusBoss`. They are the same pack, so if both folders are there, delete one. The console says which copy it skipped.
+Clone into `ausboss-nodes`, the folder ComfyUI-Manager uses, so Manager sees the same copy and updates it instead of adding a second one. If you also have a `custom_nodes/ComfyUI-AusBoss` folder from an older clone, delete it: with two copies, an old one can keep loading after every update, and its newer nodes show as missing. ComfyUI shows a message naming the folder when this happens.
 
 After an update, through Manager or `git pull`, restart ComfyUI and hard-refresh the browser with **Ctrl+Shift+R**. Otherwise the browser keeps the old JavaScript, and the pack warns you about it. Manager can install a version or two behind while the Comfy Registry reviews a new release. To get the newest one, pick it in Manager's version list, or update by hand: delete the pack's folder in `ComfyUI/custom_nodes` and clone the repository as shown above.
 
@@ -340,6 +340,21 @@ The card has **Reference** placement and **KV cache**. The placement has to matc
 Here Krea 2 Outpaint takes a 16:9 photo to 4:5 in one pass. [Open the Krea 2 Outpaint workflow →](example_workflows/Krea%202%20Outpaint%20%28AusBoss%29.json)
 
 The patch relies on ComfyUI's internal attention code. Its [help page](js/docs/AUSBOSS_NODES_Krea2OutpaintModelPatch.md) explains both setups and what happens without reference conditioning.
+
+## 3D viewer
+
+### Pause for Shot
+
+Stops a run right after a **Preview 3D (Advanced)** viewer, so you can frame your shot on the model that run just made. Turn the camera, zoom, move the model, then press **Continue**: the run goes on with the shot exactly as the viewer shows it, and nothing before the pause runs again. **Stop** ends the run there. Wire a 360 picture into `panorama` and it shows behind the model while you frame, and `backdrop` hands on the part of it the camera sees, with an optional floor shadow. Set **Pause** to *run through* for runs nobody is watching.
+
+### Extras in ComfyUI's 3D viewers
+
+The pack also adds to ComfyUI's own 3D viewers, with no new node:
+
+- **Shape chips** above the width and height of Preview 3D (Advanced) and Save 3D (Advanced): pick a shape and the frame follows.
+- **Blender keys** with the mouse over a viewer: G move, R rotate, S scale, X / Y / Z to lock an axis, a typed number for an exact amount, the number keys for front, side and top views, and Home to frame the model.
+- **Viewport tools** in the top-right corner: drag the axis gizmo to orbit, the magnifier to zoom, the hand to pan, and a grid switch.
+- **A 360 strip** (press N, or the small 360 tab): spin and tip the model, turn, tilt and roll the 360 background, its brightness and blur, the light and the model's colours. The settings save with the workflow.
 
 ## Workflow utilities
 

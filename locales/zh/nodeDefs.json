@@ -216,6 +216,9 @@
       },
       "feather": {
         "name": "羽化"
+      },
+      "remove_tint": {
+        "name": "去除偏色"
       }
     },
     "outputs": {
@@ -292,7 +295,128 @@
   },
   "AUSBOSS_NODES_H3PromptWriter": {
     "display_name": "H3 提示词写手 🆎",
-    "description": "每发生一件事写一行，给每张图片和视频分配一个任务，它就会写出 MiniMax H3 需要的提示词，并给出匹配的宽度和高度。视频里有两个人时，写明要换谁，就只替换那个人。"
+    "description": "每发生一件事写一行，给每张图片和视频分配一个任务，它就会写出 MiniMax H3 需要的提示词，并给出匹配的宽度和高度。视频里有两个人时，写明要换谁，就只替换那个人。",
+    "inputs": {
+      "script": {
+        "name": "脚本"
+      },
+      "seconds": {
+        "name": "长度"
+      },
+      "clip": {
+        "name": "片段"
+      },
+      "picture_1": {
+        "name": "图片 1"
+      },
+      "picture_2": {
+        "name": "图片 2"
+      },
+      "picture_3": {
+        "name": "图片 3"
+      },
+      "picture_4": {
+        "name": "图片 4"
+      },
+      "video": {
+        "name": "视频"
+      },
+      "video_sound": {
+        "name": "视频声音"
+      },
+      "voice": {
+        "name": "人声"
+      },
+      "song": {
+        "name": "歌曲"
+      },
+      "camera": {
+        "name": "镜头"
+      },
+      "look": {
+        "name": "风格"
+      },
+      "song_start": {
+        "name": "歌曲起点"
+      },
+      "cut_on_beat": {
+        "name": "按节拍切换"
+      },
+      "language": {
+        "name": "语言"
+      },
+      "job_1": {
+        "name": "图片 1 任务"
+      },
+      "job_2": {
+        "name": "图片 2 任务"
+      },
+      "job_3": {
+        "name": "图片 3 任务"
+      },
+      "job_4": {
+        "name": "图片 4 任务"
+      },
+      "video_job": {
+        "name": "视频任务"
+      },
+      "sound": {
+        "name": "声音"
+      },
+      "music": {
+        "name": "音乐"
+      },
+      "clip_sound": {
+        "name": "片段自带声音"
+      },
+      "full_prompt": {
+        "name": "完整提示词"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "提示词"
+      },
+      "1": {
+        "name": "图片 1"
+      },
+      "2": {
+        "name": "图片 2"
+      },
+      "3": {
+        "name": "图片 3"
+      },
+      "4": {
+        "name": "图片 4"
+      },
+      "5": {
+        "name": "视频"
+      },
+      "6": {
+        "name": "视频声音"
+      },
+      "7": {
+        "name": "人声"
+      },
+      "8": {
+        "name": "歌曲"
+      },
+      "9": {
+        "name": "垫底歌曲"
+      },
+      "10": {
+        "name": "帧数"
+      },
+      "11": {
+        "name": "宽度"
+      },
+      "12": {
+        "name": "高度"
+      },
+      "13": {
+        "name": "保留片段声音"
+      }
+    }
   },
   "AUSBOSS_NODES_ImageCropRotatePad": {
     "display_name": "图像裁剪 + 旋转 + 扩边 🆎",
@@ -984,6 +1108,9 @@
       },
       "fine_edges": {
         "name": "精细边缘"
+      },
+      "new_picture": {
+        "name": "换新图时"
       }
     },
     "outputs": {
@@ -1004,6 +1131,15 @@
     "inputs": {
       "expression": {
         "name": "表达式"
+      },
+      "a": {
+        "name": "a"
+      },
+      "b": {
+        "name": "b"
+      },
+      "c": {
+        "name": "c"
       }
     },
     "outputs": {
@@ -1021,6 +1157,12 @@
     "inputs": {
       "on_mismatch": {
         "name": "不匹配时"
+      },
+      "a": {
+        "name": "a"
+      },
+      "b": {
+        "name": "b"
       }
     },
     "outputs": {
@@ -1126,6 +1268,9 @@
       },
       "batch_size": {
         "name": "批次大小"
+      },
+      "workflow_sizes": {
+        "name": "工作流尺寸"
       }
     },
     "outputs": {
@@ -1337,6 +1482,14 @@
       "index": {
         "name": "索引"
       }
+    },
+    "outputs": {
+      "0": {
+        "name": "a"
+      },
+      "1": {
+        "name": "b"
+      }
     }
   },
   "AUSBOSS_NODES_StepPreview": {
@@ -1364,6 +1517,9 @@
       },
       "paste_onto": {
         "name": "贴到"
+      },
+      "follow_changes": {
+        "name": "跟随变化"
       }
     },
     "outputs": {
@@ -1688,6 +1844,9 @@
       },
       "fixed_frames": {
         "name": "固定帧数"
+      },
+      "last_seconds": {
+        "name": "最后几秒"
       }
     },
     "outputs": {
@@ -1764,11 +1923,21 @@
   },
   "AUSBOSS_NODES_CalloutTile": {
     "display_name": "标注卡片 🆎",
-    "description": "紧凑的标题或彩色链接按钮。双击编辑，拖动角落调整大小。旧版节点包会将它显示为缺失节点，请更新 ComfyUI-AusBoss。"
+    "description": "紧凑的标题或彩色链接按钮。双击编辑，拖动角落调整大小。旧版节点包会将它显示为缺失节点，请更新 ComfyUI-AusBoss。",
+    "inputs": {
+      "text": {
+        "name": "文字"
+      }
+    }
   },
   "AUSBOSS_NODES_WorkflowNoteTile": {
     "display_name": "工作流说明卡片 🆎",
-    "description": "点击打开完整说明的小按钮。点击铅笔编辑，拖动角落调整大小。旧版节点包会将它显示为缺失节点，请更新 ComfyUI-AusBoss。"
+    "description": "点击打开完整说明的小按钮。点击铅笔编辑，拖动角落调整大小。旧版节点包会将它显示为缺失节点，请更新 ComfyUI-AusBoss。",
+    "inputs": {
+      "note": {
+        "name": "备注"
+      }
+    }
   },
   "AUSBOSS_NODES_FlashVSRUpscale": {
     "display_name": "FlashVSR 视频放大 🆎",
@@ -1810,6 +1979,47 @@
     "outputs": {
       "0": {
         "name": "提示词"
+      }
+    }
+  },
+  "AUSBOSS_NODES_PauseShot": {
+    "display_name": "暂停取景 🆎",
+    "description": "在 3D 查看器之后暂停运行，让你在刚生成的模型上取景。转动相机后点“继续”（在这个节点上或查看器上）：运行会按你调好的画面继续，前面的步骤不会重跑。“停止”在这里结束运行。关掉暂停则直接运行，使用按下运行时的相机。接入一张 360 全景图，它会在你取景时显示在模型后面，backdrop 输出相机看到的那部分。",
+    "inputs": {
+      "model_3d_info": {
+        "name": "模型位置"
+      },
+      "camera_info": {
+        "name": "相机"
+      },
+      "width": {
+        "name": "宽度"
+      },
+      "height": {
+        "name": "高度"
+      },
+      "pause": {
+        "name": "暂停"
+      },
+      "panorama": {
+        "name": "360 全景"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "模型位置"
+      },
+      "1": {
+        "name": "相机"
+      },
+      "2": {
+        "name": "宽度"
+      },
+      "3": {
+        "name": "高度"
+      },
+      "4": {
+        "name": "背景"
       }
     }
   }

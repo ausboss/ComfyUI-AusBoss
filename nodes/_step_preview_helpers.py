@@ -107,3 +107,175 @@ def register_step_preview_handler() -> None:
             return json_data
 
     instance.add_on_prompt_handler(handler)
+    register_moving_step_pictures()
+
+
+# --- Moving step pictures for video models --------------------------------
+#
+# ComfyUI's step picture of a clip is its first frame only. For a run that
+# shows its steps (the same runs as above), the pack also sends about one
+# frame per second of the clip after each step, and the step overlay plays
+# them in a loop (js/shared/step_preview.mjs).
+#
+# The frames come from the previewer ComfyUI picked for the run (the quick
+# color estimate under `auto`, or a tiny video decoder from
+# `models/vae_approx` when the user chose TAESD), one frame per call, which
+# is exactly the call ComfyUI makes for the first frame. So the peak memory
+# of a decode stays what it already was, and nothing is loaded that was not.
+
+FRAMES_EVENT = "ausboss.step_frames"
+# The frame rate the frame picks assume; H3, LTX and most video models make 24.
+CLIP_FPS = 24
+# About one picture per second of the clip, as many as this at most.
+FRAMES_PER_SECOND = 1
+MAX_FRAMES = 16
+JPEG_QUALITY = 80
+# The frames take at most this share of the run's time: a slow decoder
+# (the tiny video decoder on a small card) skips steps, and the loop keeps
+# playing the frames it has.
+FRAME_BUDGET = 0.1
+
+
+def frame_picks(latent_frames, temporal_ratio, *, clip_fps=CLIP_FPS, per_second=FRAMES_PER_SECOND, cap=MAX_FRAMES):
+    """The latent frames to show, and the clip seconds between two of them.
+
+    A clip latent holds one frame for every `temporal_ratio` frames of the
+    clip. Returns ([], 0.0) when there is nothing to move.
+    """
+    try:
+        count = int(latent_frames)
+        ratio = max(1, int(temporal_ratio or 1))
+    except (TypeError, ValueError):
+        return [], 0.0
+    if count < 2 or cap < 2:
+        return [], 0.0
+    stride = max(1, round(clip_fps / max(per_second, 1e-6) / ratio))
+    picks = list(range(0, count, stride))
+    if len(picks) < 2:
+        picks = [0, count - 1]
+    if len(picks) > cap:
+        picks = sorted({round(index * (count - 1) / (cap - 1)) for index in range(cap)})
+    gap = (picks[-1] - picks[0]) / (len(picks) - 1)
+    return picks, gap * ratio / clip_fps
+
+
+def _jpeg_data_url(picture, max_side: int) -> str:
+    import base64
+    import io
+
+    from PIL import ImageOps
+
+    if max_side and max(picture.size) > max_side:
+        picture = ImageOps.contain(picture, (max_side, max_side))
+    buffer = io.BytesIO()
+    picture.convert("RGB").save(buffer, format="JPEG", quality=JPEG_QUALITY)
+    return "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
+
+
+class MovingStepPictures:
+    """ComfyUI's previewer for one sampler, plus the clip's frames each step.
+
+    Everything else is the previewer it wraps: ComfyUI's own step picture
+    and every attribute pass through unchanged.
+    """
+
+    def __init__(self, inner, latent_format, send, where, max_side=512, clock=None):
+        import time
+
+        self.inner = inner
+        self.clock = clock or time.perf_counter
+        # How long the last frames took to make, and when they were sent.
+        self.cost = 0.0
+        self.sent_at = None
+        self.ratio = getattr(latent_format, "temporal_downscale_ratio", 1) or 1
+        self.send = send
+        self.where = where
+        self.max_side = max_side
+        self.failed = False
+
+    def __getattr__(self, name):
+        # Only reached for names this class does not have.
+        if name == "inner":
+            raise AttributeError(name)
+        return getattr(self.inner, name)
+
+    def frames(self, x0):
+        """The clip's frames as JPEG data URLs, and the seconds between them."""
+        if getattr(x0, "ndim", 0) != 5:
+            return [], 0.0
+        picks, seconds = frame_picks(x0.shape[2], self.ratio)
+        if not picks:
+            return [], 0.0
+        return [_jpeg_data_url(self.inner.decode_latent_to_preview(x0[:1, :, index:index + 1]), self.max_side) for index in picks], seconds
+
+    def due(self, now) -> bool:
+        """Whether making frames now keeps them within FRAME_BUDGET."""
+        return self.sent_at is None or self.cost <= FRAME_BUDGET * (now - self.sent_at)
+
+    def decode_latent_to_preview_image(self, preview_format, x0):
+        now = self.clock()
+        if not self.failed and self.due(now):
+            try:
+                frames, seconds = self.frames(x0)
+                self.cost = self.clock() - now
+                self.sent_at = now
+                if frames:
+                    prompt_id, node_id = self.where()
+                    self.send(FRAMES_EVENT, {"prompt_id": prompt_id, "node": node_id, "frames": frames, "seconds": seconds})
+            except Exception:
+                # A previewer that cannot do single frames: the still stays.
+                self.failed = True
+        return self.inner.decode_latent_to_preview_image(preview_format, x0)
+
+
+def _running_prompt():
+    """The API prompt of the run executing now, or None."""
+    from comfy_execution.utils import get_executing_context
+    from server import PromptServer
+
+    context = get_executing_context()
+    queue = getattr(PromptServer.instance, "prompt_queue", None)
+    running = getattr(queue, "currently_running", None)
+    if context is None or not isinstance(running, dict):
+        return None
+    for item in list(running.values()):
+        if isinstance(item, (list, tuple)) and len(item) > 2 and item[1] == context.prompt_id:
+            return item[2]
+    return None
+
+
+def _where():
+    from comfy_execution.utils import get_executing_context
+
+    context = get_executing_context()
+    return (context.prompt_id, context.node_id) if context else (None, None)
+
+
+def _send(event, data):
+    from server import PromptServer
+
+    instance = PromptServer.instance
+    instance.send_sync(event, data, getattr(instance, "client_id", None))
+
+
+def register_moving_step_pictures() -> None:
+    """Wrap ComfyUI's previewer choice once, so clips can move."""
+    try:
+        import latent_preview
+    except Exception:
+        return
+    original = getattr(latent_preview, "get_previewer", None)
+    if not callable(original) or getattr(original, "_ausboss_moving", False):
+        return
+
+    def get_previewer(device, latent_format):
+        previewer = original(device, latent_format)
+        try:
+            if previewer is not None and getattr(latent_format, "latent_dimensions", 2) == 3 and wants_step_pictures(_running_prompt()):
+                return MovingStepPictures(previewer, latent_format, _send, _where, getattr(latent_preview, "MAX_PREVIEW_RESOLUTION", 512))
+        except Exception:
+            pass
+        return previewer
+
+    get_previewer._ausboss_moving = True
+    latent_preview.get_previewer = get_previewer

@@ -4,6 +4,56 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **New node: Pause for Shot 🆎.** It stops a run right after the 3D
+  viewer so you can frame your shot on the model that run just made, then
+  **Continue** carries on with the camera exactly as the viewer shows it.
+  Nothing before the pause runs again. Wire in a 360 picture and it shows
+  behind the model while you frame, and the node hands on the part of it
+  the camera sees, with an optional floor shadow under the model.
+- **ComfyUI's 3D viewers get Blender keys, shape chips and a 360 strip.**
+  With the mouse over a viewer, G, R and S move, turn and size the model,
+  as in Blender. Preview 3D (Advanced) and Save 3D (Advanced) get the shape
+  chips from Latent Size above their width and height. Press N for a strip
+  that turns the 360 background and changes the model's light and colours.
+  The axis gizmo moves to the top-right corner, with zoom, pan and grid
+  tools under it.
+
+- **The step preview of a video now moves.** With **Preview steps** on in
+  Save Video, or a Step Preview node in the workflow, a video model such as
+  MiniMax H3 shows a few frames of the clip after each step, about one per
+  second, playing in a loop. You see the motion and the shots take shape,
+  not only the first frame, and can stop a clip that is going wrong. It
+  costs next to nothing: a 5 second H3 clip took 53.8 s with it, 53.6 s
+  with no step pictures at all.
+
+## 2.26.7 - 2026-11-21
+
+- **An old copy of the pack that keeps loading now says so in the browser.**
+  With an old git clone in `custom_nodes/ComfyUI-AusBoss` and a newer
+  Manager install in `custom_nodes/ausboss-nodes`, the old clone loads,
+  because copies from before 2.24.0 cannot step aside. Every node added
+  since, such as Edit Lock, then shows as missing, and updating does not
+  help. The newer copy now shows a message in ComfyUI that names the old
+  folder to delete. Before, the only sign was a line in the console.
+- **Workflow Note: a missing AusBoss node asks for an update, not a GitHub
+  clone.** When a workflow needs an AusBoss node your version doesn't have,
+  the note's AusBoss row now shows **Update**. It opens ComfyUI-Manager's
+  updates list and says to restart afterwards. Before, the row showed
+  **Get it**, which opened GitHub, and cloning from there added a second
+  copy of the pack. **Detect from this workflow** now lists the pack as
+  AusBoss nodes with its Comfy Registry link, whatever folder it is in.
+- **LoRA Loader: set a LoRA's strength with a wire.** Drag a number wire,
+  from a slider or a Float node, onto any row and that row's strength follows
+  it. The row's box turns dashed teal and shows the number coming in; click
+  it to find the source, or right-click the row to unlink. The CLIP strength
+  keeps its ratio to the model strength (#388).
+- **Node faces show Chinese when ComfyUI's language is Chinese.** The
+  labels, buttons, choices and tooltips the pack draws on its nodes, such as
+  the cards on FlashVSR and Image Resize, H3 Prompt Writer, Workflow Switches
+  and the video and image crop faces, now follow Settings > Language
+  (Chinese, in Simplified characters). Reload the page after changing the language. Nothing
+  saved in a workflow changes, and text with no Chinese yet stays English.
+  H3 Prompt Writer's socket names are translated too.
 - **H3 Prompt Writer: see and change the full prompt.** A new **Full
   prompt** tab at the top of the node shows the prompt it wrote on its last
   run. Edit it there, for example to take out one camera move, and H3 gets
@@ -15,6 +65,18 @@ All notable changes to ComfyUI-AusBoss are documented here.
   one megapixel. The old jump is still in the gear: turn off **Chips keep
   current budget**. The setting is kept in the browser, so a private window
   forgot it every time; it now starts on.
+- **The pack loads on Python 3.10 again.** On a 3.10 install, such as some
+  Stability Matrix setups, the whole pack failed to load with
+  `No module named 'tomllib'`. It now loads there with nothing extra to
+  install (#387).
+- **Workflow Note finds models in Stability Matrix's shared folders.**
+  A row whose folder uses an old name, `clip` or `unet`, was never checked
+  ("This install has no model folder") even with the file in place. Those
+  rows are now checked like `text_encoders` and `diffusion_models`, the
+  names ComfyUI files them under. When the install also reads a kind of
+  model from a folder with a different name, such as Stability Matrix's
+  `Data/Models/Lora`, the card names that folder under the usual one, so
+  you know where your files are found and where a new one can go (#386).
 
 ## 2.26.6 - 2026-11-20
 

@@ -181,6 +181,43 @@ export function folderPath(dir) {
   return `ComfyUI/models/${dir}`;
 }
 
+// ComfyUI still accepts two old folder names everywhere except in its
+// /models/<folder> list, which answers 404 for them. Stability Matrix and
+// older notes use them, so a row naming one is checked under the new name.
+const LEGACY_FOLDERS = { clip: "text_encoders", unet: "diffusion_models" };
+
+export function modelFolderKey(dir) {
+  const key = str(dir, 200).trim();
+  return Object.hasOwn(LEGACY_FOLDERS, key) ? LEGACY_FOLDERS[key] : key;
+}
+
+// Every folder this install reads for `dir`, from ComfyUI's
+// /experiment/models list ([{ name, folders: [path, ...] }]). Launchers
+// such as Stability Matrix add their own shared folders through
+// extra_model_paths.yaml, so a file may live outside ComfyUI/models.
+export function installFolders(dir, folderList) {
+  if (!dir || dir === INPUT_FOLDER || !Array.isArray(folderList)) return [];
+  const key = modelFolderKey(dir);
+  const entry = folderList.find((item) => item && item.name === key);
+  if (!entry || !Array.isArray(entry.folders)) return [];
+  return [...new Set(entry.folders.map((folder) => str(folder, 1000)).filter(Boolean))];
+}
+
+// The folders from `installFolders` with a name of their own, such as
+// Stability Matrix's Data/Models/Lora: the ones worth showing, since a
+// person would not guess them. A folder named like the kind itself
+// (models/loras, output/loras, a shared .../loras) reads the way the card
+// already says, so it is left out.
+export function sharedFolders(dir, folderList) {
+  const key = modelFolderKey(dir);
+  const usual = new Set([key, ...Object.keys(LEGACY_FOLDERS).filter((name) => LEGACY_FOLDERS[name] === key)]
+    .map((name) => name.toLowerCase()));
+  return installFolders(dir, folderList).filter((folder) => {
+    const last = folder.replace(/\\/g, "/").replace(/\/+$/, "").split("/").pop().toLowerCase();
+    return !usual.has(last);
+  });
+}
+
 // Rows grouped by folder in first-seen order, so the card reads like the
 // install tree: one heading per folder, its files beneath.
 export function groupModels(models) {
@@ -243,6 +280,31 @@ export function packsFromGraph(nodeTypes, moduleOf) {
     packs.push({ name, url: "", node: type });
   }
   return packs;
+}
+
+// This pack, as a Workflow Note lists it. Its folder is ausboss-nodes from
+// the Manager and ComfyUI-AusBoss from a git clone, so a row is named and
+// linked by the Registry id: a GitHub link sent people to clone a second copy.
+export const OWN_PACK = Object.freeze({
+  name: "AusBoss nodes",
+  url: "https://registry.comfy.org/nodes/ausboss-nodes",
+});
+
+const OWN_PACK_NAMES = new Set(["ausboss nodes", "ausboss-nodes", "comfyui-ausboss"]);
+const OWN_PACK_URL = /^https?:\/\/(?:www\.)?(?:github\.com\/ausboss\/comfyui-ausboss(?:\.git)?|registry\.comfy\.org\/nodes\/ausboss-nodes)\/?$/i;
+
+// Whether a saved pack row is this pack, by its name or link. The probe node
+// does not decide it: other AusBoss packs use AUSBOSS_NODES_ class names too.
+export function isOwnPackRow(row) {
+  const name = str(row?.name, 200).trim().toLowerCase();
+  const url = str(row?.url, 500).trim();
+  return OWN_PACK_NAMES.has(name) || OWN_PACK_URL.test(url);
+}
+
+// Detect names a pack by its folder. The folder this pack runs from becomes
+// OWN_PACK, so a workflow saved on a git clone does not send people to GitHub.
+export function nameOwnPack(packs, ownFolder) {
+  return packs.map((pack) => (ownFolder && pack.name === ownFolder ? { ...OWN_PACK, node: pack.node } : pack));
 }
 
 // How tall the node must be for the card to show all of its content, from
