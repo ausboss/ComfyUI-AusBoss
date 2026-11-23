@@ -59,6 +59,7 @@ INTERNALS = [
     ("folder_paths", "folder_names_and_paths", "the pack reads ComfyUI's model folders"),
     ("latent_preview", "get_previewer", "a clip's step picture moves (Step Preview, Save Video)"),
     ("latent_preview", "MAX_PREVIEW_RESOLUTION", "a clip's step picture moves (Step Preview, Save Video)"),
+    ("server", "PromptServer", "Pause for Shot sends the viewer's mesh to every open page"),
 ]
 # The progress list's own switches, by the names the pack calls.
 PROGRESS_SWITCHES = ("enable_handler", "disable_handler")
@@ -250,6 +251,13 @@ class CoreContractTests(unittest.TestCase):
         # A clip's moving step picture reads the running prompt off the queue.
         execution = importlib.import_module("execution")
         self.assertIsInstance(getattr(execution.PromptQueue(None), "currently_running", None), dict)
+
+    def test_the_server_still_sends_messages_the_way_pause_for_shot_wraps(self):
+        server = importlib.import_module("server")
+        send = getattr(getattr(server, "PromptServer", None), "send_sync", None)
+        self.assertTrue(callable(send), "server.PromptServer has no send_sync(): Pause for Shot's mesh reaches only the page that pressed Run")
+        self.assertEqual(list(inspect.signature(send).parameters)[:3], ["self", "event", "data"],
+                         "PromptServer.send_sync() takes other arguments than the ones Pause for Shot passes on")
 
     def test_the_model_folders_the_pack_reads_exist(self):
         folder_paths = importlib.import_module("folder_paths")
