@@ -11,11 +11,13 @@
 // Pure decisions live in media_list.mjs for node:test; this file is the DOM.
 
 import { BRAND } from "./index.mjs";
+import { THEME } from "./theme.mjs";
 import { isAppShortcut, keepKeyInField } from "./canvas_passthrough.mjs";
-import { filterMedia, mediaLabel, moveHighlight } from "./media_list.mjs";
+import { browseMediaRows, mediaFolderOf, mediaLabel, moveHighlight, visibleMediaRange } from "./media_list.mjs";
 
 const CSS_ID = "ausboss-media-picker-css";
-const LIST_CAP = 400; // a crowded input folder shows this many; typing narrows it
+const ROW_HEIGHT = 26; // fixed-height rows for virtual scrolling
+const OVERSCAN = 8; // rows above and below the scroll window
 const PREVIEW_DELAY_MS = 70; // skimming down the list does not start a load per row
 const MONO = 'ui-monospace,"SF Mono",Menlo,Consolas,monospace';
 
@@ -35,6 +37,12 @@ function ensureCss() {
 .ausboss-media-filter{box-sizing:border-box;width:100%;height:28px;padding:0 8px;border:1px solid #2a3437;border-radius:6px;outline:0;background:#0b0f10;color:#eef7f6;font:12px ${MONO}}
 .ausboss-media-filter:focus{border-color:${BRAND}}
 .ausboss-media-list{max-height:min(320px,50vh);overflow:auto;overscroll-behavior:contain}
+.ausboss-media-space{position:relative;width:100%}
+.ausboss-media-space .ausboss-media-item{position:absolute;left:0;right:0;box-sizing:border-box;height:26px;align-items:center}
+.ausboss-media-path{padding:0 5px 2px;min-height:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#6f8886;font:10px ui-monospace,monospace}
+.ausboss-media-navigation{font-weight:600}
+.ausboss-media-folder-icon{flex:none;display:flex;align-items:center;width:20px;color:${THEME.faint}}
+.ausboss-media-folder-icon svg{width:12px;height:12px}
 .ausboss-media-item{display:flex;min-width:0;padding:5px 8px;border-radius:5px;cursor:pointer;white-space:nowrap;font:12px ${MONO}}
 .ausboss-media-item.hot{background:#2c3238;color:#fff}
 .ausboss-media-item.current .ausboss-media-name{color:${BRAND}}
@@ -49,6 +57,12 @@ function ensureCss() {
 `;
   document.head.appendChild(style);
 }
+
+// Folder and "up one folder" marks for the list, drawn in the text colour.
+const ICONS = {
+  folder: '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1 3a1 1 0 0 1 1-1h2.6l1.2 1.2H10a1 1 0 0 1 1 1V9a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>',
+  back: '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 10V2.5M2.5 6 6 2.5 9.5 6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+};
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -114,7 +128,8 @@ export function createMediaPicker({ kind = "image", className = "", placeholder,
     filter.setAttribute("aria-label", `Filter ${noun}s`);
     const list = el("div", "ausboss-media-list");
     list.setAttribute("role", "listbox");
-    column.append(filter, list);
+    const pathBar = el("div", "ausboss-media-path");
+    column.append(filter, pathBar, list);
     const pane = el("div", "ausboss-media-pane");
     const stage = el("div", "ausboss-media-stage");
     const caption = el("div", "ausboss-media-caption");
@@ -122,7 +137,10 @@ export function createMediaPicker({ kind = "image", className = "", placeholder,
     menu.append(column, pane);
 
     let shown = [];
-    const items = [];
+    // The folder on show, only UI state; the widget keeps the full file name.
+    // It opens where the current pick sits.
+    let directory = all.includes(current) ? mediaFolderOf(current, bare) : [];
+    const items = new Map();
     let highlight = -1;
     let timer = null;
     let serial = 0;
@@ -164,50 +182,121 @@ export function createMediaPicker({ kind = "image", className = "", placeholder,
       }
     };
 
-    const setHighlight = (index, scroll) => {
-      if (index === highlight) return;
-      items[highlight]?.classList.remove("hot");
-      highlight = index;
-      clearTimeout(timer);
-      const item = items[index];
-      if (!item) {
-        showPreview(null);
-        return;
-      }
-      item.classList.add("hot");
-      if (scroll) item.scrollIntoView({ block: "nearest" });
-      const value = shown[index];
-      timer = setTimeout(() => showPreview(value), PREVIEW_DELAY_MS);
+    // ComfyUI's own select widgets use a virtualizer for long lists. Do the
+    // same here with a fixed row height, retaining AusBoss's own preview and
+    // widget-commit logic. All filenames stay in `shown`; only visible DOM
+    // rows (plus a small buffer) are created.
+    let viewport = null;
+    let visibleRange = "";
+
+    const navigate = (entry) => {
+      directory = entry.directory;
+      filter.value = "";
+      render(true);
+      filter.focus();
+    };
+    const activate = (entry) => {
+      if (!entry) return;
+      if (entry.kind === "file") choose(entry.value);
+      else navigate(entry);
     };
 
-    const render = () => {
-      shown = filterMedia(all, filter.value);
-      list.replaceChildren();
-      items.length = 0;
-      highlight = -1;
-      for (const value of shown.slice(0, LIST_CAP)) {
-        const { folder: under, name } = mediaLabel(bare(value));
+    const renderViewport = () => {
+      if (!viewport) return;
+      const visibleHeight = list.clientHeight || 320;
+      const { first, last } = visibleMediaRange(shown.length, list.scrollTop, visibleHeight, ROW_HEIGHT, OVERSCAN);
+      const range = `${first}:${last}`;
+      if (range === visibleRange) return;
+      visibleRange = range;
+      const fragment = document.createDocumentFragment();
+      const searching = Boolean(filter.value.trim());
+      items.clear();
+      for (let index = first; index < last; index++) {
+        const entry = shown[index];
+        const value = entry.value;
+        const { folder: under, name } = entry.kind === "file"
+          ? mediaLabel(bare(value)) : { folder: "", name: entry.label };
         const item = el("div", "ausboss-media-item");
         item.setAttribute("role", "option");
-        item.title = bare(value);
-        if (value === current) {
+        item.setAttribute("aria-posinset", String(index + 1));
+        item.setAttribute("aria-setsize", String(shown.length));
+        item.title = entry.kind === "file" ? bare(value) :
+          entry.kind === "back" ? "Go to parent folder" : `Open folder: ${entry.label}`;
+        item.style.top = `${index * ROW_HEIGHT}px`;
+        if (index === highlight) item.classList.add("hot");
+        if (entry.kind === "file" && value === current) {
           item.classList.add("current");
           item.setAttribute("aria-selected", "true");
         }
-        if (under) item.append(el("span", "ausboss-media-folder", under));
-        item.append(el("span", "ausboss-media-name", name));
-        const index = items.length;
+        if (entry.kind !== "file") {
+          item.classList.add("ausboss-media-navigation");
+          const icon = el("span", "ausboss-media-folder-icon");
+          icon.innerHTML = ICONS[entry.kind === "back" ? "back" : "folder"];
+          item.append(icon);
+        }
+        // Inside a folder the path bar already names it; a search shows it.
+        if (under && searching) item.append(el("span", "ausboss-media-folder", under));
+        item.append(el("span", "ausboss-media-name", entry.kind === "folder" ? `${name}/` : name));
         item.addEventListener("mousemove", () => setHighlight(index, false));
-        item.addEventListener("click", () => choose(value));
-        list.append(item);
-        items.push(item);
+        item.addEventListener("click", () => activate(entry));
+        fragment.append(item);
+        items.set(index, item);
       }
-      if (shown.length > LIST_CAP) list.append(el("div", "ausboss-media-more", `${shown.length - LIST_CAP} more · type to narrow`));
-      if (!shown.length) list.append(el("div", "ausboss-media-more", all.length ? "No matches" : emptyNote || `Upload ${noun === "video" ? "a video" : "an image"} and it shows up here`));
-      const start = shown.indexOf(current);
-      setHighlight(start >= 0 && start < items.length ? start : items.length ? 0 : -1, true);
-      if (!items.length) showPreview(null);
+      viewport.replaceChildren(fragment);
     };
+
+    const setHighlight = (index, scroll) => {
+      if (scroll && index >= 0 && index < shown.length) {
+        const top = index * ROW_HEIGHT;
+        const height = list.clientHeight || 320;
+        if (top < list.scrollTop) list.scrollTop = top;
+        else if (top + ROW_HEIGHT > list.scrollTop + height) {
+          list.scrollTop = Math.max(0, top + ROW_HEIGHT - height);
+        }
+        renderViewport();
+      }
+      if (index === highlight) return;
+      items.get(highlight)?.classList.remove("hot");
+      highlight = index;
+      clearTimeout(timer);
+      const item = items.get(index);
+      if (!item) {
+        const entry = index >= 0 ? shown[index] : null;
+        showPreview(entry?.kind === "file" ? entry.value : null);
+        return;
+      }
+      item.classList.add("hot");
+      const entry = shown[index];
+      timer = setTimeout(() => showPreview(entry?.kind === "file" ? entry.value : null), PREVIEW_DELAY_MS);
+    };
+
+    const render = (startAtTop = false) => {
+      shown = browseMediaRows(all, filter.value, directory, bare);
+      pathBar.textContent = filter.value.trim() ? "Search all folders" :
+        [folder.charAt(0).toUpperCase() + folder.slice(1), ...directory].join(" / ");
+      list.replaceChildren();
+      list.scrollTop = 0;
+      items.clear();
+      highlight = -1;
+      clearTimeout(timer);
+      viewport = null;
+      visibleRange = "";
+      if (!shown.length) {
+        list.append(el("div", "ausboss-media-more", all.length ? "No matches" : emptyNote || `Upload ${noun === "video" ? "a video" : "an image"} and it shows up here`));
+        showPreview(null);
+        return;
+      }
+      viewport = el("div", "ausboss-media-space");
+      viewport.style.height = `${shown.length * ROW_HEIGHT}px`;
+      list.append(viewport);
+      // Preserve AusBoss's original behaviour: bring the selected file into
+      // view when opening or filtering, otherwise start at the first match.
+      const selected = shown.findIndex((entry) => entry.kind === "file" && entry.value === current);
+      const start = startAtTop === true ? 0 : selected >= 0 ? selected : 0;
+      renderViewport();
+      setHighlight(start, true);
+    };
+    list.addEventListener("scroll", renderViewport, { passive: true });
 
     const abort = new AbortController();
     const close = () => {
@@ -232,10 +321,10 @@ export function createMediaPicker({ kind = "image", className = "", placeholder,
       const step = { ArrowDown: 1, ArrowUp: -1, PageDown: 8, PageUp: -8 }[event.key];
       if (step) {
         event.preventDefault();
-        setHighlight(moveHighlight(highlight, step, items.length), true);
+        setHighlight(moveHighlight(highlight, step, shown.length), true);
       } else if (event.key === "Enter") {
         event.preventDefault();
-        if (highlight >= 0) choose(shown[highlight]);
+        if (highlight >= 0) activate(shown[highlight]);
       } else if (event.key === "Escape") {
         event.preventDefault();
         close();
