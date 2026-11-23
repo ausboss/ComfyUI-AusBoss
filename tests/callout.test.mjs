@@ -410,3 +410,14 @@ test("an Info card saves as a plain Callout, so an older pack shows its text", (
   assert.ok(!saved[1].includes("card"), "an Info card would save as a Callout Tile");
   assert.match(source, /\["card","Info card"\]/, "the Info card is gone from the note's menu");
 });
+
+test("the Callout's styles leave the shared card classes alone", () => {
+  // Its stylesheet is global: a rule on a class widget_card.mjs owns
+  // restyles every node card on the page (a card row turned into a flex
+  // row squeezed Workflow Switches' names down to a letter or two).
+  const shared = new Set(readFileSync(join(ROOT, "js/shared/widget_card.mjs"), "utf8").match(/ausboss-card-[a-z-]+/g));
+  const callout = readFileSync(join(ROOT, "js/callout/index.js"), "utf8");
+  // `.name` is a rule in its CSS; using a shared class on an element is fine.
+  const clashes = [...new Set(callout.match(/\.ausboss-card-[a-z-]+/g) ?? [])].map((rule) => rule.slice(1)).filter((name) => shared.has(name));
+  assert.deepEqual(clashes, []);
+});
