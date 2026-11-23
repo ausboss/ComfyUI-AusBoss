@@ -2,6 +2,16 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **The step preview of a video now moves.** With **Preview steps** on in
+  Save Video, or a Step Preview node in the workflow, a video model such as
+  MiniMax H3 shows a few frames of the clip after each step, about one per
+  second, playing in a loop. You see the motion and the shots take shape,
+  not only the first frame, and can stop a clip that is going wrong. It
+  costs next to nothing: a 5 second H3 clip took 53.8 s with it, 53.6 s
+  with no step pictures at all.
+
 ## 2.26.7 - 2026-11-21
 
 - **An old copy of the pack that keeps loading now says so in the browser.**

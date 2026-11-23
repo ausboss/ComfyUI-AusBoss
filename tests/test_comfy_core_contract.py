@@ -57,6 +57,8 @@ INTERNALS = [
     ("comfy.model_management", "current_loaded_models", "Mask by Touch asks SAM 3 the quick way"),
     ("comfy.model_management", "intermediate_dtype", "the pack's tensors take ComfyUI's working type"),
     ("folder_paths", "folder_names_and_paths", "the pack reads ComfyUI's model folders"),
+    ("latent_preview", "get_previewer", "a clip's step picture moves (Step Preview, Save Video)"),
+    ("latent_preview", "MAX_PREVIEW_RESOLUTION", "a clip's step picture moves (Step Preview, Save Video)"),
 ]
 # The progress list's own switches, by the names the pack calls.
 PROGRESS_SWITCHES = ("enable_handler", "disable_handler")
@@ -243,6 +245,11 @@ class CoreContractTests(unittest.TestCase):
         progress = importlib.import_module("comfy_execution.progress")
         lists = [thing for thing in vars(progress).values() if inspect.isclass(thing) and all(callable(getattr(thing, name, None)) for name in PROGRESS_SWITCHES)]
         self.assertTrue(lists, f"no class in comfy_execution.progress has {PROGRESS_SWITCHES}")
+
+    def test_the_running_prompt_can_still_be_found(self):
+        # A clip's moving step picture reads the running prompt off the queue.
+        execution = importlib.import_module("execution")
+        self.assertIsInstance(getattr(execution.PromptQueue(None), "currently_running", None), dict)
 
     def test_the_model_folders_the_pack_reads_exist(self):
         folder_paths = importlib.import_module("folder_paths")

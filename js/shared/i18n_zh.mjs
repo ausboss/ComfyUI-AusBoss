@@ -156,7 +156,7 @@ export const ZH = {
   "On embeds the workflow in the video file, so dropping the file back on the canvas restores the graph that made it.": "开启后会把工作流嵌入视频文件，把文件拖回画布即可还原生成它的工作流。",
   "Container and codec. mp4 h264 plays everywhere; mp4 h265 halves the size at the same quality where supported; the nvenc pair encodes on an NVIDIA GPU instead of the CPU (much faster, slightly larger); webm vp9 and webm av1 suit the web and mux Opus; mov prores": "封装格式和编码。mp4 h264 到处都能播放；mp4 h265 在支持的设备上同画质体积减半；两个 nvenc 选项用 NVIDIA 显卡而不是 CPU 编码（快得多，体积略大）；webm vp9 和 webm av1 适合网页并封装 Opus；mov prores",
   "Encode quality: lower is better and larger. 19 is visually lossless for h264; h265 and vp9 read the same scale (vp9 tolerates a few points higher).": "编码质量：数值越小画质越好、文件越大。h264 用 19 在视觉上无损；h265 和 vp9 用同样的刻度（vp9 可以高几个点）。",
-  "Show the clip's first frame here while it is being made, one step at a time, with a Stop button. Off by default.": "生成过程中在这里逐步显示片段的首帧，并带一个停止按钮。默认关闭。",
+  "Show the clip here while it is being made: after each step, a few of its frames play in a loop, with a Stop button. Off by default.": "生成过程中在这里显示片段：每一步之后循环播放其中几帧，并带一个停止按钮。默认关闭。",
   "Stop this run now. The next run in the queue still starts.": "立即停止这次运行。队列里的下一次运行仍会开始。",
   "Moves each moment onto the nearest beat of the song. Pick off to keep your own seconds.": "把每个时刻移到歌曲最近的节拍上。选“关”则保留你自己写的秒数。",
   "The second of the song to start from, so the clip gets the good part.": "从歌曲的第几秒开始，让片段用上最精彩的部分。",
