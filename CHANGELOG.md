@@ -26,6 +26,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   costs next to nothing: a 5 second H3 clip took 53.8 s with it, 53.6 s
   with no step pictures at all.
 
+- **The picture and video picker shows every file, in folders.** The list
+  used to stop at 400 files and ask you to type to narrow it. Now you can
+  scroll through all of them, open folders, and go back up with `..`.
+  Typing still searches every folder. The picker opens in the folder of the
+  file you picked, with that file highlighted. Thanks to TWIISTED-STUDIOS.
+
 ## 2.26.7 - 2026-11-21
 
 - **An old copy of the pack that keeps loading now says so in the browser.**
