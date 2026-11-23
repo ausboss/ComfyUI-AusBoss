@@ -4,6 +4,20 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **New node: Pause for Shot 🆎.** It stops a run right after the 3D
+  viewer so you can frame your shot on the model that run just made, then
+  **Continue** carries on with the camera exactly as the viewer shows it.
+  Nothing before the pause runs again. Wire in a 360 picture and it shows
+  behind the model while you frame, and the node hands on the part of it
+  the camera sees, with an optional floor shadow under the model.
+- **ComfyUI's 3D viewers get Blender keys, shape chips and a 360 strip.**
+  With the mouse over a viewer, G, R and S move, turn and size the model,
+  as in Blender. Preview 3D (Advanced) and Save 3D (Advanced) get the shape
+  chips from Latent Size above their width and height. Press N for a strip
+  that turns the 360 background and changes the model's light and colours.
+  The axis gizmo moves to the top-right corner, with zoom, pan and grid
+  tools under it.
+
 - **The step preview of a video now moves.** With **Preview steps** on in
   Save Video, or a Step Preview node in the workflow, a video model such as
   MiniMax H3 shows a few frames of the clip after each step, about one per
