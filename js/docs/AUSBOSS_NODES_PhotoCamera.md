@@ -31,9 +31,9 @@ Then:
 ## Settings
 
 - **Lens**: the photo's field of view across, in degrees.
-- **Crop margin** (advanced): the margin Crop to Mask adds around the person.
+- **Crop margin** (under **More**): the margin Crop to Mask adds around the person.
   Keep it the same as Crop to Mask's `pad_factor`.
-- **360 width** (advanced): the width of the 360 canvas.
+- **360 width** (under **More**): the width of the 360 canvas.
 
 ## Technical details
 

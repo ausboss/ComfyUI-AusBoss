@@ -499,6 +499,7 @@ function installStyles() {
   .ausboss-lora-fetch { align-self: flex-start; }
   .ausboss-lora-fetchrow { display: flex; gap: 6px; align-items: center; }
   .ausboss-lora-fetchrow .ausboss-lora-fetch { align-self: auto; }
+  .ausboss-lora-fetchrow .ausboss-lora-fetch-all { height: ${ACTIONS_HEIGHT}px; }
   .ausboss-lora-actions .ausboss-lora-civitai-run { align-self: center; margin-left: 6px; }
   .ausboss-lora-custom { display: flex; gap: 6px; align-items: center; }
   .ausboss-lora-custom input { flex: 1 1 auto; min-width: 0; height: ${ACTIONS_HEIGHT}px;
@@ -1757,7 +1758,7 @@ function openInfo(state, index, anchor) {
           loraToast(fetchButton.title);
         }
       });
-      const fetchAll = compactAction("Fetch all",
+      const fetchAll = compactAction("Fetch all LoRAs",
         "Fetch Civitai info for every LoRA in this stack that has none yet, one at a time.");
       fetchAll.classList.add("ausboss-lora-fetch-all");
       fetchAll.disabled = Boolean(civitaiRun);
@@ -2774,9 +2775,9 @@ function openSettings(state, anchor) {
     },
     ...(state.settings?.civitai_lookup === false ? [] : [{
       key: "_civitai_all",
-      label: "Civitai info for all",
+      label: "Civitai info for every LoRA",
       type: "action",
-      button: "Fetch all",
+      button: "Fetch all LoRAs",
       hint: "Look up every LoRA in this stack that has no Civitai info yet, "
         + "one at a time, the same way the info card's button does. The "
         + "bottom of the node shows how far it is; click there to stop.",

@@ -53,7 +53,7 @@ All notable changes to ComfyUI-AusBoss are documented here.
   animated WebP does; its Embed workflow row shows for `webp`.
 
 - **LoRA Loader 🆎 can fetch Civitai info for every LoRA at once.** A new
-  **Fetch all** button in a LoRA's info card (also in the gear menu) looks
+  **Fetch all LoRAs** button in a LoRA's info card (also in the gear menu) looks
   up each LoRA in the stack that has no Civitai info yet, one at a time
   with a short pause, and saves its info and picture the same way the
   one-LoRA button does. The bottom of the node shows how far it is

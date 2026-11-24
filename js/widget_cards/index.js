@@ -77,6 +77,24 @@ function seamCorner(node, card) {
     },
   };
 }
+// Color Match: one line under Method that says what the picked method does,
+// so the short pill names need no trip to the tooltip.
+const COLOR_MATCH_METHOD_HINTS = {
+  lab: "Moves the colours to match. The safe default.",
+  rgb: "The same as lab, in plain red, green and blue.",
+  mkl: "For colours that are turned, not just shifted.",
+  histogram: "An exact match. The strongest, least subtle.",
+  kept: "For an edit: wire the picture from before the edit as reference.",
+};
+function colorMatchMethodHint() {
+  const element = document.createElement("div");
+  element.style.cssText = "display:flex;align-items:center;height:100%;padding:0 2px;box-sizing:border-box;"
+    + `color:${THEME.faint};font:11px/14px ${FONT_UI};`;
+  return {
+    element,
+    sync: (values) => { element.textContent = COLOR_MATCH_METHOD_HINTS[values.method] ?? ""; },
+  };
+}
 // Text, Integer and Float: the gear in the card's corner picks the node's
 // look, the usual box or big and centred (shared/text_look.mjs). The look is
 // kept on the node, not in a widget, so the node's inputs and saved values
@@ -148,6 +166,7 @@ const CARDS = {
     minWidth: 260,
     rows: [
       { widget: "fov", label: "Lens", suffix: "°", step: 1, decimals: 1, title: "How wide the photo is, in degrees across. Wire Get FoV from MoGe here." },
+      { group: "advanced", label: "More" },
       { widget: "pad_factor", label: "Crop margin", suffix: "×", step: 0.05, decimals: 2, group: "advanced" },
       { widget: "canvas_width", label: "360 width", suffix: "px", step: 256, snap: true, group: "advanced" },
     ],
@@ -172,6 +191,7 @@ const CARDS = {
     rows: [
       { widget: "strength", label: "Strength" },
       { widget: "method", label: "Method", kind: "segment", labels: { histogram: "hist" }, titles: { histogram: "histogram" } },
+      { panel: colorMatchMethodHint, height: 28 },
       { widget: "reference_mode", label: "Reference", kind: "segment", labels: { reference: "reference", first_frame: "first frame" } },
       { widget: "invert_mask", label: "Invert mask" },
     ],
