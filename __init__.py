@@ -46,6 +46,7 @@ NODE_MODULES = [
     "node_mask_by_touch",
     "node_math",
     "node_pause_shot",
+    "node_photo_camera",
     "node_prompt_variations",
     "node_realign_to_source",
     "node_refine_mask",

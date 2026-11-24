@@ -16,6 +16,7 @@ import { compactAction, HINT_TYPE } from "../shared/panel_controls.mjs";
 import { holdNodeMinWidth, pinVuePanelHeight } from "../shared/panel_layout.mjs";
 import { FONT_UI, RADIUS_CONTROL, THEME as T } from "../shared/theme.mjs";
 import { bottomButtons } from "../shared/viewer3d_layout.mjs";
+import { viewValue } from "../shared/viewer_view.mjs";
 
 const NODE_CLASS = "AUSBOSS_NODES_PauseShot";
 const PANEL = "ausboss_pause_shot_panel";
@@ -58,6 +59,9 @@ async function readShot(viewer) {
   }
   const sky = viewer?.properties?.["AusBoss View"]?.sky;
   if (sky && typeof sky === "object") shot.sky = sky;
+  // The viewer's Cut, so the run's mesh is cut the way the viewer shows it.
+  const cut = viewer?.properties?.["AusBoss View"]?.cut;
+  if (cut && typeof cut === "object") shot.cut = cut;
   // The 360 taken out of the viewer (its background image removed) leaves
   // the backdrop grey, as with no 360 wired in.
   const scene = viewerGizmo(viewer)?.__ausbossScene;
@@ -85,6 +89,9 @@ function viewerGizmo(viewer) {
   return null;
 }
 const viewerBox = (viewer) => viewerGizmo(viewer)?.parentElement ?? null;
+const redrawViewer = (viewer) => {
+  try { viewerGizmo(viewer)?.__ausbossScene?.__ausbossViewport?.forceRender?.(); } catch { /* the next frame shows it */ }
+};
 
 // ComfyUI sends the viewer's model only to the page that pressed Run. The
 // pause brings it along, so a page that did not start the run (another tab,
@@ -115,6 +122,22 @@ async function showPanorama(viewer, picture) {
   if (!scene?.setBackgroundImage || !picture?.filename) return false;
   await scene.setBackgroundImage(`temp/${picture.filename}`);
   scene.setBackgroundRenderMode?.("panorama");
+  scene.__ausbossViewport?.forceRender?.();
+  return true;
+}
+
+// Your photo and the camera that took it, for the viewer to draw behind
+// her, lined up (js/shared/photo_stage.mjs). Null takes it away.
+function showStage(node, viewer, stage) {
+  const scene = viewerGizmo(viewer)?.__ausbossScene;
+  if (!scene) return false;
+  const plate = stage?.plate?.filename
+    ? api.apiURL(`/view?${new URLSearchParams({ filename: stage.plate.filename, subfolder: stage.plate.subfolder ?? "", type: "temp" })}`)
+    : null;
+  // Background is read on every frame the viewer draws; a change on the
+  // node redraws it (onNodeCreated below), so it shows at once.
+  const mode = () => node.widgets?.find((widget) => widget.name === "background_mode")?.value;
+  scene.__ausbossStage = stage?.camera ? { camera: stage.camera, plate, choice: mode } : null;
   scene.__ausbossViewport?.forceRender?.();
   return true;
 }
@@ -152,7 +175,12 @@ function buildPanel(node) {
     buttons.forEach((button) => { button.disabled = true; });
     try {
       const body = { node: id, action };
-      if (action === "continue") body.shot = await readShot(viewerOf(node));
+      if (action === "continue") {
+        body.shot = await readShot(viewerOf(node));
+        // The Background on this node as it is now, not as it was at Run.
+        const mode = node.widgets?.find((widget) => widget.name === "background_mode")?.value;
+        if (typeof mode === "string") body.shot.background = mode;
+      }
       const response = await api.fetchApi("/ausboss/pause_shot/answer", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
@@ -208,7 +236,10 @@ function buildPanel(node) {
       // The viewer keeps what it has.
     }
     const panorama = detail.panorama;
-    const showIt = () => showPanorama(viewer, panorama).catch(() => false);
+    const showIt = () => {
+      showStage(node, viewer, detail.stage);
+      return showPanorama(viewer, panorama).catch(() => false);
+    };
     // After a reload, or before the viewer has drawn once, its panel is not
     // there yet: keep looking for it while the pause waits.
     if (!state.over || !viewerGizmo(viewer)) {
@@ -278,6 +309,19 @@ app.registerExtension({
       holdNodeMinWidth(widget, MIN_WIDTH);
       widget.options.minNodeSize = [MIN_WIDTH, 60];
       this.__ausbossPauseShot = panel;
+      // The viewer's 360 settings and Cut go into the hidden `view` input as
+      // the prompt is built, so a run that goes straight through runs again
+      // when one of them changed (js/shared/viewer_view.mjs). The widget
+      // itself holds nothing, so a saved workflow carries no copy.
+      // The viewer draws only when something moves in it: a Background
+      // picked on this node redraws it, or the old one stays up.
+      const mode = this.widgets?.find((item) => item.name === "background_mode");
+      if (mode) chainCallback(mode, "callback", () => redrawViewer(viewerOf(this)));
+      const view = this.widgets?.find((item) => item.name === "view");
+      if (view) {
+        view.value = "";
+        view.serializeValue = () => viewValue(viewerOf(this)?.properties?.["AusBoss View"]);
+      }
     });
     chainCallback(nodeType.prototype, "onRemoved", function () {
       this.__ausbossPauseShot?.clear();

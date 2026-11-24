@@ -59,6 +59,7 @@ PUBLIC_NODE_IDS = {
     "AUSBOSS_NODES_EditLock",
     "AUSBOSS_NODES_EditLockRestore",
     "AUSBOSS_NODES_PauseShot",
+    "AUSBOSS_NODES_PhotoCamera",
     "AUSBOSS_NODES_FlashVSRUpscale",
     "AUSBOSS_NODES_Float",
     "AUSBOSS_NODES_FrameInterpolate",

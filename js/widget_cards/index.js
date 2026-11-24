@@ -141,7 +141,18 @@ const CARDS = {
       { widget: "move_down", label: "Move down", suffix: "px", when: isMode("job", "cut a piece") },
     ],
   },
-  AUSBOSS_NODES_PauseShot: { minWidth: 260, first: true, rows: [{ widget: "pause", label: "Pause", onText: "wait for me", offText: "run through" }] },
+  AUSBOSS_NODES_PauseShot: { minWidth: 260, first: true, hide: ["view"], socketless: ["view"], rows: [
+    { widget: "pause", label: "Pause", onText: "wait for me", offText: "run through" },
+    { widget: "background_mode", label: "Background" },
+  ] },
+  AUSBOSS_NODES_PhotoCamera: {
+    minWidth: 260,
+    rows: [
+      { widget: "fov", label: "Lens", suffix: "°", step: 1, decimals: 1, title: "How wide the photo is, in degrees across. Wire Get FoV from MoGe here." },
+      { widget: "pad_factor", label: "Crop margin", suffix: "×", step: 0.05, decimals: 2, group: "advanced" },
+      { widget: "canvas_width", label: "360 width", suffix: "px", step: 256, snap: true, group: "advanced" },
+    ],
+  },
   AUSBOSS_NODES_EditLock: {
     minWidth: 300,
     rows: [

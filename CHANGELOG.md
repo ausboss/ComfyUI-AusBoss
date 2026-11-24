@@ -4,6 +4,32 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **New node: Photo Camera 🆎.** It works out the camera your photo was
+  taken with, so a 3D model of the person lines up with the photo. Wire in
+  the photo, the person's mask and the photo's lens width (MoGe measures
+  it). It hands Pixal3D the crop's lens, the 3D viewer your photo's own
+  view, and where the photo goes on a 360 canvas so the 360 lines up
+  behind the model.
+- **The 3D viewer can cut the front or back off a model.** Cut front and
+  Cut back on the 360 strip's Model tab take away part of the model as the
+  camera sees it, such as the inside of a hat that should sit behind the
+  head. Pause for Shot 🆎 gets an optional `mesh` input and output that cut
+  the run's model the same way, so the shot matches the viewer.
+- **Pause for Shot 🆎 can put your own photo behind the model, lined up.**
+  Wire the photo with the person taken out into the new `background` input
+  and Photo Camera's camera into `background_camera`. The viewer and the
+  shot's backdrop then show your photo exactly from its own camera, stay
+  lined up when you zoom, and keep her standing on the photo's floor when
+  you turn. A 360, if wired in, fills what the photo never saw. A new
+  Background setting on the node switches between your photo, the 360 far
+  away, and the 360 with a floor under her feet. Size on the viewer's
+  Backdrop tab sets how far away the walls around her are, so a room's
+  walls shift behind her as the camera turns; empty keeps them endlessly far.
+- **Pause for Shot 🆎 keeps the viewer's 360 settings on runs that don't
+  pause.** With Pause on *run through*, the backdrop now uses the Turn,
+  Tilt, Shadow and the rest saved on the viewer, as a paused run does.
+  Before, such a run used the 360 unturned.
+
 - **Layout Boxes 🆎 says the boxes as sentences for any prompt.** A new
   `placement` output writes each box as a plain sentence: what goes there
   and where, such as `The words "FRESH" in bold black letters, placed top

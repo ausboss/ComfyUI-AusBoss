@@ -47,6 +47,7 @@ help panel.
 | Do maths on numbers | Math Expression (`AUSBOSS_NODES_MathExpression`) |
 | Show text on the node, or the picture while it is made | Show Text (`AUSBOSS_NODES_ShowText`), Step Preview (`AUSBOSS_NODES_StepPreview`) |
 | Stop a run after the 3D viewer to frame the shot on the new model, with a 360 behind it | Pause for Shot (`AUSBOSS_NODES_PauseShot`): [node help](../AUSBOSS_NODES_PauseShot.md) |
+| Line a 3D model (Pixal3D) up with the photo: the photo's camera for the viewer, the crop's lens, the photo's place on a 360 | Photo Camera (`AUSBOSS_NODES_PhotoCamera`): [node help](../AUSBOSS_NODES_PhotoCamera.md) |
 | Free graphics memory between steps | Free Memory (`AUSBOSS_NODES_FreeMemory`) |
 | Time the whole run | Run Timer (`AUSBOSS_NODES_RunTimer`) |
 | Turn parts of a workflow off and on | Workflow Switches (`AUSBOSS_NODES_WorkflowSwitches`): [its own agent guide](workflow_switches.md) |
