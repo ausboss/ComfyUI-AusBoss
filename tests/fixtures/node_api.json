@@ -902,6 +902,38 @@
       ]
     ]
   },
+  "AUSBOSS_NODES_PhotoCamera": {
+    "required": [
+      "image",
+      "mask",
+      "fov",
+      "pad_factor",
+      "canvas_width"
+    ],
+    "optional": [],
+    "outputs": [
+      [
+        "FLOAT",
+        "crop_fov"
+      ],
+      [
+        "LOAD3D_CAMERA",
+        "camera_info"
+      ],
+      [
+        "INT",
+        "strip_width"
+      ],
+      [
+        "INT",
+        "strip_x"
+      ],
+      [
+        "INT",
+        "strip_y"
+      ]
+    ]
+  },
   "AUSBOSS_NODES_PromptVariations": {
     "required": [
       "text",

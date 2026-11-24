@@ -2022,5 +2022,43 @@
         "name": "背景"
       }
     }
+  },
+  "AUSBOSS_NODES_PhotoCamera": {
+    "display_name": "照片相机 🆎",
+    "description": "算出拍这张照片的相机，让人物的 3D 模型和照片对齐。接入照片、人物遮罩和照片的视角宽度（MoGe 的“获取视角”可测出）。crop_fov 接到 Pixal3D 条件，camera_info 接到 3D 查看器，查看器就会从照片本身的视角打开；三个位置数字决定照片放在 360 画布的哪里，让 360 在模型后面对齐。",
+    "inputs": {
+      "image": {
+        "name": "照片"
+      },
+      "mask": {
+        "name": "遮罩"
+      },
+      "fov": {
+        "name": "视角"
+      },
+      "pad_factor": {
+        "name": "裁剪边距"
+      },
+      "canvas_width": {
+        "name": "360 宽度"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "裁剪视角"
+      },
+      "1": {
+        "name": "相机"
+      },
+      "2": {
+        "name": "照片宽度"
+      },
+      "3": {
+        "name": "照片左边"
+      },
+      "4": {
+        "name": "照片上边"
+      }
+    }
   }
 }

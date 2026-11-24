@@ -2,6 +2,19 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **New node: Photo Camera 🆎.** It works out the camera your photo was
+  taken with, so a 3D model of the person lines up with the photo. Wire in
+  the photo, the person's mask and the photo's lens width (MoGe measures
+  it). It hands Pixal3D the crop's lens, the 3D viewer your photo's own
+  view, and where the photo goes on a 360 canvas so the 360 lines up
+  behind the model.
+- **Pause for Shot 🆎 keeps the viewer's 360 settings on runs that don't
+  pause.** With Pause on *run through*, the backdrop now uses the Turn,
+  Tilt, Shadow and the rest saved on the viewer, as a paused run does.
+  Before, such a run used the 360 unturned.
+
 ## 2.27.0 - 2026-11-23
 
 - **Video Crop + Rotate + Pad → Clip 🆎 can put a clip window in an App-mode

@@ -347,6 +347,10 @@ The patch relies on ComfyUI's internal attention code. Its [help page](js/docs/A
 
 Stops a run right after a **Preview 3D (Advanced)** viewer, so you can frame your shot on the model that run just made. Turn the camera, zoom, move the model, then press **Continue**: the run goes on with the shot exactly as the viewer shows it, and nothing before the pause runs again. **Stop** ends the run there. Wire a 360 picture into `panorama` and it shows behind the model while you frame, and `backdrop` hands on the part of it the camera sees, with an optional floor shadow. Set **Pause** to *run through* for runs nobody is watching.
 
+### Photo Camera
+
+Works out the camera your photo was taken with, so a 3D model of the person lines up with the photo. Made for **Pixal3D**, the TRELLIS 2 model that builds the model lined up with the photo. Wire in the photo, the person's mask and the photo's lens width (**Get FoV from MoGe** measures it). It hands Pixal3D the crop's lens, the 3D viewer your photo's own view (so the viewer opens where the photo was taken), and where the photo goes on a 360 canvas so the 360 lines up behind the model.
+
 ### Extras in ComfyUI's 3D viewers
 
 The pack also adds to ComfyUI's own 3D viewers, with no new node:

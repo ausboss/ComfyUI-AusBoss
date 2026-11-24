@@ -9,6 +9,8 @@
 
 export const ZH = {
   // ---- card rows and group headers
+  "Lens": "镜头视角", "Crop margin": "裁剪边距", "360 width": "360 宽度",
+  "How wide the photo is, in degrees across. Wire Get FoV from MoGe here.": "照片横向有多宽，单位为度。把 MoGe 的“获取视角”接到这里。",
   "Target": "目标", "Size": "尺寸", "Edge": "边缘", "Budget": "像素预算", "Scale": "缩放", "Fit": "适应",
   "Fill": "填充", "Multiple": "倍数", "Filter": "滤镜", "Job": "任务", "Pieces": "分块数",
   "Lock": "锁定", "Tolerance": "容差", "Feather": "羽化", "Remove tint": "去除偏色", "Strength": "强度",
