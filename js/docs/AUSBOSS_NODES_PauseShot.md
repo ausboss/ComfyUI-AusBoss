@@ -46,7 +46,8 @@ what you get.
 - Every open page gets the model to frame, not only the one that pressed Run:
   ComfyUI sends a viewer's result only to that page, so the pause sends it
   again to all of them.
-- The shadow's floor is the model's lowest point, and it covers what touches
-  that floor: the lowest tenth of the model. Continue sends that patch with
+- The floor grid and shadow sit at the lowest point the viewer finds. On
+  large models it checks a sample of points. The shadow covers the bottom
+  tenth of the model. Continue sends that patch with
   the camera, and the backdrop is darkened along the same rays Render Mesh
   casts, so the shadow lands where the model's feet are drawn.

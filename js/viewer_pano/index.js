@@ -13,6 +13,8 @@
 //   - Colour: the model's brightness, contrast, saturation and warmth.
 // The settings ride in the node's properties ("AusBoss View"), so they come
 // back with the workflow. Nothing here touches a widget or the prompt.
+// The floor grid sits at the model's feet (its lowest point, the shadow's
+// floor), so the model stands on it instead of being cut through the middle.
 //
 // How: SceneManager.renderBackground runs once per frame before the scene.
 // While a 360 setting is off its default, this file draws the panorama
@@ -216,6 +218,27 @@ function drawShadow(manager, state) {
   manager.renderer.render(shadow.scene, shadow.camera);
 }
 
+// The viewer's grid lies at height 0, and many models (TRELLIS among them)
+// are centred there, so the grid ran through the middle of the person. It
+// goes to the floor the shadow uses instead, and back to 0 with no model.
+// Only the grid moves: the model, the camera and the run stay as they were.
+// While the viewer captures a run's pictures, the grid goes back to 0:
+// Load3D's image is captured with the grid in it when the grid is shown,
+// and that picture stays exactly what ComfyUI alone would make.
+export function gridHeight(ground) {
+  return Number.isFinite(ground?.y) ? ground.y : 0;
+}
+
+function seatGrid(manager, state) {
+  const grid = manager.gridHelper;
+  if (!grid?.position || manager.__ausbossCapturing > 0) return;
+  const model = modelOf(manager);
+  const y = gridHeight(model ? measureGround(model, state) : null);
+  if (grid.position.y === y) return;
+  grid.position.y = y;
+  grid.updateMatrixWorld?.(true);
+}
+
 // ---------------------------------------------------------------- the look
 
 const LOOK_FN = `
@@ -386,6 +409,11 @@ function patchSceneManager() {
   const render = Manager.prototype.renderBackground;
   Manager.prototype.renderBackground = function (...args) {
     try {
+      seatGrid(this, stateOf(this));
+    } catch (error) {
+      console.warn("[AusBoss] 3D viewer floor grid:", error);
+    }
+    try {
       managers.add(this);
       const state = stateOf(this);
       keepPanorama(this, state);
@@ -410,6 +438,26 @@ function patchSceneManager() {
     }
     return out;
   };
+  const capture = Manager.prototype.captureScene;
+  if (capture) {
+    Manager.prototype.captureScene = function (...args) {
+      const grid = this.gridHelper;
+      this.__ausbossCapturing = (this.__ausbossCapturing ?? 0) + 1;
+      if (grid?.position) { grid.position.y = 0; grid.updateMatrixWorld?.(true); }
+      // The next frame seats the grid again.
+      const done = () => { this.__ausbossCapturing -= 1; };
+      let out;
+      try {
+        out = capture.apply(this, args);
+      } catch (error) {
+        done();
+        throw error;
+      }
+      if (typeof out?.finally === "function") return out.finally(done);
+      done();
+      return out;
+    };
+  }
   Manager.prototype.__ausbossView = true;
   return true;
 }

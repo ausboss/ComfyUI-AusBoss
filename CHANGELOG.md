@@ -27,6 +27,10 @@ All notable changes to ComfyUI-AusBoss are documented here.
   that turns the 360 background and changes the model's light and colours.
   The axis gizmo moves to the top-right corner, with zoom, pan and grid
   tools under it.
+- **The 3D viewer's floor grid is under the model's feet.** It used to run
+  through the middle of many models, such as a person built by TRELLIS 2.
+  Now it sits at the model's lowest point, where the floor shadow goes.
+  The pictures a run takes from the viewer stay exactly as before.
 
 - **The step preview of a video now moves.** With **Preview steps** on in
   Save Video, or a Step Preview node in the workflow, a video model such as
