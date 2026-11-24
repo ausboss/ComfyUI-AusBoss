@@ -56,7 +56,7 @@ export const ZH = {
   "gray": "灰色", "edge": "边缘", "edge pixel": "边缘像素", "color": "纯色", "pillarbox blur": "两侧虚化", "replicate": "复制边缘",
   "source": "原图", "as typed": "照输入", "from the picture": "取自图片", "text": "文字", "object": "物体", "still": "静止", "handheld": "手持",
   "shaky": "抖动", "push in": "推近", "pull back": "拉远", "orbit": "环绕", "walking pov": "步行视角", "anime": "动漫", "comic book": "漫画",
-  "pencil sketch": "铅笔素描", "watercolor": "水彩", "split sheet at gaps": "按空隙拆分拼图", "Pad": "扩边", "Crop": "裁剪",
+  "pencil sketch": "铅笔素描", "watercolor": "水彩", "split sheet at gaps": "按空隙拆分拼图", "cut a piece": "裁出一块", "Move right": "右移", "Move down": "下移", "Position": "位置", "Pad": "扩边", "Crop": "裁剪",
   "Resize": "缩放", "Center": "居中", "Soft": "柔和", "Simple": "简易", "Full prompt": "完整提示词", "Text": "文字", "Fixed": "固定",
   "LTX (8n+1)": "LTX (8n+1)", "Wan (4n+1)": "Wan (4n+1)", "Every group": "每个分组", "Numbered groups": "编号分组",
   "Titles matching…": "按标题匹配…", "No groups": "没有分组", "All": "全部", "Background": "背景", "Subject": "主体",
@@ -257,6 +257,13 @@ export const ZH = {
   "Each line becomes a moment. A blank line between lines is a cut.": "每一行是一个时刻，两行之间的空行表示切换场景。",
   "Enable or disable this LoRA": "启用或停用这个 LoRA",
   "Fetching...": "获取中…",
+  "Fetch all": "全部获取",
+  "Fetch Civitai info for every LoRA in this stack that has none yet, one at a time.": "逐个为这组中还没有 Civitai 信息的每个 LoRA 获取信息。",
+  "Fetching Civitai info for every LoRA in this stack that has none yet, one at a time. Click to stop after the current one.": "正在逐个为这组中还没有 Civitai 信息的每个 LoRA 获取信息。点击可在当前这个完成后停止。",
+  "Civitai info for all": "全部获取 Civitai 信息",
+  "Look up every LoRA in this stack that has no Civitai info yet, one at a time, the same way the info card's button does. The bottom of the node shows how far it is; click there to stop.": "逐个查询这组中还没有 Civitai 信息的每个 LoRA，方式与信息卡里的按钮相同。节点底部会显示进度；点击那里可停止。",
+  "Stopping...": "正在停止…",
+  "Civitai: checking · Stop": "Civitai：检查中 · 停止",
   "Group name": "分组名称",
   "Held": "已锁定",
   "Hide file extension": "隐藏文件扩展名",
@@ -332,6 +339,7 @@ export const SCRUB_HINT_ZH = "拖动调节，点击输入数字或算式（如 1
 
 // A few strings carry a number or a name; the number stays and the words around it change.
 export const PATTERNS = [
+  [/^Civitai (\d+) \/ (\d+) · Stop$/, (m, done, total) => `Civitai ${done} / ${total} · 停止`],
   [/^The limits of what this is wired to: (.*)\.$/, (m, names) => `它所连接对象的取值范围：${names}。`],
   [/^Set by "(.*)"\. Click to show it\. Right-click the row to unlink\.$/, (m, name) => `由“${name}”设置。点击可定位到它。右键该行可断开连线。`],
   [/^Source · feather (\d+) px · Fill (#[0-9a-fA-F]{6})$/, (m, f, c) => `素材 · 羽化 ${f} px · 填充 ${c}`],

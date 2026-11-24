@@ -90,8 +90,9 @@ import {
   upsertTemplate,
 } from "../shared/lora_stack.mjs";
 import {
-  MAX_PICTURE_BYTES, civitaiButtonLabel, civitaiByHashUrl, civitaiFailureText, isCivitaiAddress,
-  parseCivitaiBody, pickCivitaiPicture, smallPictureUrl,
+  MAX_PICTURE_BYTES, civitaiButtonLabel, civitaiByHashUrl, civitaiFailureText, civitaiQueueLabel,
+  civitaiQueueSummary, isCivitaiAddress, parseCivitaiBody, pickCivitaiPicture, runCivitaiQueue,
+  smallPictureUrl,
 } from "../shared/civitai_lookup.mjs";
 
 const NODE_CLASS = "AUSBOSS_NODES_LoraLoader";
@@ -496,6 +497,9 @@ function installStyles() {
     color: inherit; cursor: pointer; padding: 2px 8px; font-size: 11px; }
   .ausboss-lora-chip.active { border-color: ${BRAND}; color: ${BRAND}; }
   .ausboss-lora-fetch { align-self: flex-start; }
+  .ausboss-lora-fetchrow { display: flex; gap: 6px; align-items: center; }
+  .ausboss-lora-fetchrow .ausboss-lora-fetch { align-self: auto; }
+  .ausboss-lora-actions .ausboss-lora-civitai-run { align-self: center; margin-left: 6px; }
   .ausboss-lora-custom { display: flex; gap: 6px; align-items: center; }
   .ausboss-lora-custom input { flex: 1 1 auto; min-width: 0; height: ${ACTIONS_HEIGHT}px;
     border: 1px solid #3a4047; box-sizing: border-box;
@@ -1524,8 +1528,10 @@ function openPicker(state, index, anchor, { keyboard = false } = {}) {
 // about that hash, and the server saves the answer beside the LoRA after
 // checking it describes the same file. Returns false when Civitai does not
 // know the file (unpublished or hidden models answer 404). `picture` is the
-// Civitai picture gear option ("off", "PG-13" or "any").
-async function lookUpOnCivitai(serverName, picture = "PG-13") {
+// Civitai picture gear option ("off", "PG-13" or "any"). Otherwise it returns
+// `{ picture }`: "saved", "none" (Civitai has none to save), "failed" or
+// "off". `quiet` keeps the picture's own messages back for Fetch all.
+async function lookUpOnCivitai(serverName, picture = "PG-13", { quiet = false } = {}) {
   const hashed = await (await api.fetchApi(
     `/ausboss/lora/hash?name=${encodeURIComponent(serverName)}`
   )).json();
@@ -1534,7 +1540,9 @@ async function lookUpOnCivitai(serverName, picture = "PG-13") {
     credentials: "omit", redirect: "error", referrerPolicy: "no-referrer", cache: "no-store",
   });
   if (response.status === 404) return false;
-  if (!response.ok) throw new Error(`Civitai answered ${response.status}.`);
+  if (!response.ok) {
+    throw Object.assign(new Error(`Civitai answered ${response.status}.`), { status: response.status });
+  }
   const info = parseCivitaiBody(await response.text());
   const saved = await (await api.fetchApi("/ausboss/lora/civitai", {
     method: "POST",
@@ -1542,24 +1550,28 @@ async function lookUpOnCivitai(serverName, picture = "PG-13") {
     body: JSON.stringify({ name: serverName, info }),
   })).json();
   if (!saved.ok) throw new Error(saved.error || "Could not save the Civitai info.");
-  if (picture !== "off") {
-    await saveCivitaiPicture(serverName, info, picture === "any").catch((error) =>
-      loraToast(`Saved the Civitai info, but not its picture: ${civitaiFailureText(error)}`));
+  if (picture === "off") return { picture: "off" };
+  try {
+    if (await saveCivitaiPicture(serverName, info, picture === "any")) return { picture: "saved" };
+    if (!quiet) {
+      loraToast(picture === "any"
+        ? "Civitai has no picture of this LoRA to save."
+        : "Civitai has no picture of this LoRA rated PG-13 or milder.");
+    }
+    return { picture: "none" };
+  } catch (error) {
+    if (!quiet) loraToast(`Saved the Civitai info, but not its picture: ${civitaiFailureText(error)}`);
+    return { picture: "failed" };
   }
-  return true;
 }
 
 // The LoRA's first picture on Civitai, saved beside it as its preview. The
 // browser downloads a 450-pixel copy from Civitai's picture server without
 // cookies; the server checks it is a picture and never replaces one.
+// Returns false when Civitai has no picture the setting allows.
 async function saveCivitaiPicture(serverName, info, anyRating) {
   const picture = pickCivitaiPicture(info, anyRating);
-  if (!picture) {
-    loraToast(anyRating
-      ? "Civitai has no picture of this LoRA to save."
-      : "Civitai has no picture of this LoRA rated PG-13 or milder.");
-    return;
-  }
+  if (!picture) return false;
   const response = await fetch(smallPictureUrl(picture.url), {
     credentials: "omit", referrerPolicy: "no-referrer", cache: "no-store",
   });
@@ -1577,6 +1589,76 @@ async function saveCivitaiPicture(serverName, info, anyRating) {
   })).json();
   if (!saved.ok) throw new Error(saved.error || "Could not save the picture.");
   pictureSaved();
+  return true;
+}
+
+// ---------- Fetch all ----------
+
+// The same one-file lookup for every LoRA in the stack that has no Civitai
+// info yet, one file at a time (runCivitaiQueue). One run for the whole
+// page: Civitai counts requests per browser, not per node.
+let civitaiRun = null;
+
+function fetchAllFromCivitai(state) {
+  if (state.settings?.civitai_lookup === false) return;
+  if (civitaiRun) {
+    if (civitaiRun.state !== state) loraToast("Another LoRA Loader is fetching Civitai info. Wait for it, or stop it there.");
+    return;
+  }
+  const names = state.rows.map((row) => row.name).filter(Boolean)
+    .map((name) => effectiveLoraName(state, name));
+  const hasPicture = new Map();
+  const run = { state, done: 0, total: null, stopping: false, wake: null, button: null };
+  civitaiRun = run;
+  renderRows(state);
+  runCivitaiQueue(names, {
+    needsLookup: async (name) => {
+      const data = await (await api.fetchApi(`/ausboss/lora/info?name=${encodeURIComponent(name)}`)).json();
+      if (!data.ok) throw new Error(data.error || "No such LoRA.");
+      hasPicture.set(name, Boolean(data.info.has_preview));
+      return !data.info.has_civitai;
+    },
+    // The picture setting is read per file, so a change mid-run counts.
+    lookUp: (name) => lookUpOnCivitai(name,
+      hasPicture.get(name) ? "off" : (state.settings?.civitai_picture ?? "PG-13"), { quiet: true }),
+    wait: (ms) => new Promise((resolve) => {
+      const timer = setTimeout(resolve, ms);
+      run.wake = () => { clearTimeout(timer); resolve(); };
+    }),
+    shouldStop: () => run.stopping,
+    onProgress: ({ done, total }) => {
+      run.done = done;
+      run.total = total;
+      showCivitaiRun(run);
+    },
+  }).then((result) => loraToast(civitaiQueueSummary(result)))
+    .catch((error) => loraToast(civitaiFailureText(error)))
+    .finally(() => {
+      civitaiRun = null;
+      if (state.panel?.isConnected) renderRows(state);
+    });
+}
+
+// While a run works, its node's footer holds one button: how far it is, and
+// a click stops it after the file being fetched.
+function civitaiRunButton(run) {
+  const button = compactAction("", "Fetching Civitai info for every LoRA in this stack "
+    + "that has none yet, one at a time. Click to stop after the current one.");
+  button.classList.add("ausboss-lora-civitai-run");
+  button.addEventListener("click", () => {
+    run.stopping = true;
+    run.wake?.();
+    showCivitaiRun(run);
+  });
+  run.button = button;
+  showCivitaiRun(run);
+  return button;
+}
+
+function showCivitaiRun(run) {
+  if (!run.button) return;
+  run.button.disabled = run.stopping;
+  run.button.textContent = run.stopping ? "Stopping..." : civitaiQueueLabel(run.done, run.total);
 }
 
 // ---------- info card ----------
@@ -1675,7 +1757,17 @@ function openInfo(state, index, anchor) {
           loraToast(fetchButton.title);
         }
       });
-      card.append(fetchButton);
+      const fetchAll = compactAction("Fetch all",
+        "Fetch Civitai info for every LoRA in this stack that has none yet, one at a time.");
+      fetchAll.classList.add("ausboss-lora-fetch-all");
+      fetchAll.disabled = Boolean(civitaiRun);
+      fetchAll.addEventListener("click", () => {
+        closePopup();
+        fetchAllFromCivitai(state);
+      });
+      const fetchRow = el("div", "ausboss-lora-fetchrow");
+      fetchRow.append(fetchButton, fetchAll);
+      card.append(fetchRow);
     }
 
     const range = el("div", "ausboss-lora-range");
@@ -2680,6 +2772,19 @@ function openSettings(state, anchor) {
         runImportChain(state);
       },
     },
+    ...(state.settings?.civitai_lookup === false ? [] : [{
+      key: "_civitai_all",
+      label: "Civitai info for all",
+      type: "action",
+      button: "Fetch all",
+      hint: "Look up every LoRA in this stack that has no Civitai info yet, "
+        + "one at a time, the same way the info card's button does. The "
+        + "bottom of the node shows how far it is; click there to stop.",
+      onAction: () => {
+        closeSettingsMenu();
+        fetchAllFromCivitai(state);
+      },
+    }]),
   ];
   // Inside a subgraph the rows can show on the box's face instead; first in
   // the menu there, since it is what a loader in a box is usually set up for.
@@ -3077,6 +3182,7 @@ function renderRows(state) {
   add.addEventListener("click", addRowAndPick);
   add.title = "Pick one LoRA, or click a folder name to add all its LoRAs.";
   actions.append(add);
+  if (civitaiRun?.state === state) actions.append(civitaiRunButton(civitaiRun));
   stack.append(actions);
   body.append(stack);
   decorateRows(state);

@@ -24,6 +24,24 @@ All notable changes to ComfyUI-AusBoss are documented here.
   Save Video's animated `webp` now embeds the workflow too, as core's
   animated WebP does; its Embed workflow row shows for `webp`.
 
+- **LoRA Loader 🆎 can fetch Civitai info for every LoRA at once.** A new
+  **Fetch all** button in a LoRA's info card (also in the gear menu) looks
+  up each LoRA in the stack that has no Civitai info yet, one at a time
+  with a short pause, and saves its info and picture the same way the
+  one-LoRA button does. The bottom of the node shows how far it is
+  (`Civitai 12 / 44 · Stop`); click it to stop. It follows the Civitai
+  picture setting, never replaces a picture, and slows down or stops when
+  Civitai asks it to.
+
+- **Image Toolbox can cut a piece of your own size.** Pick the new job
+  **cut a piece**, set the width and height in pixels, pick where it sits
+  (a corner, an edge or the centre) and move it right or down from there.
+  The piece comes out of the first output, and the rest of the picture out
+  of a new second output, `rest`. A piece as tall as the picture, against
+  its left or right edge, leaves the strip beside it, so one node splits a
+  picture into two parts of different sizes. Width or height 0 takes the
+  picture's full width or height.
+
 ## 2.27.0 - 2026-11-23
 
 - **Video Crop + Rotate + Pad → Clip 🆎 can put a clip window in an App-mode

@@ -130,9 +130,15 @@ const CARDS = {
   // its own rows show only while it is picked.
   AUSBOSS_NODES_ImageToolbox: {
     minWidth: 280,
+    resetUnknown: { width: 512, height: 512, position: "top left", move_right: 0, move_down: 0 },
     rows: [
       { widget: "job", label: "Job", kind: "select" },
       { widget: "pieces", label: "Pieces", when: isMode("job", "split sheet at gaps") },
+      { widget: "width", label: "Width", suffix: "px", when: isMode("job", "cut a piece") },
+      { widget: "height", label: "Height", suffix: "px", when: isMode("job", "cut a piece") },
+      { widget: "position", label: "Position", kind: "select", when: isMode("job", "cut a piece") },
+      { widget: "move_right", label: "Move right", suffix: "px", when: isMode("job", "cut a piece") },
+      { widget: "move_down", label: "Move down", suffix: "px", when: isMode("job", "cut a piece") },
     ],
   },
   AUSBOSS_NODES_PauseShot: { minWidth: 260, first: true, rows: [{ widget: "pause", label: "Pause", onText: "wait for me", offText: "run through" }] },
