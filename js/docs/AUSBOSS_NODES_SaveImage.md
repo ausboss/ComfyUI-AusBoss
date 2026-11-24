@@ -141,6 +141,13 @@ upload.
   `Steps`, `Sampler`, `Schedule type`, `CFG scale`, `Seed`, `Size`,
   `Model hash`, `Model`, `Lora hashes` and a `Hashes` JSON block. Civitai
   reads it before the ComfyUI graph.
+- It ends with `engine: ComfyUI`, which tags the post with the ComfyUI tool,
+  and `process: txt2img` or `img2img`, which picks its technique. A sampler
+  that starts from an encoded picture, an inpaint node, or a denoise under 1
+  counts as img2img.
+- Civitai does not keep the ComfyUI graph from a picture that carries this
+  line, so its page shows no workflow to copy. The workflow is still in the
+  file for anyone who downloads it.
 - It is built from the run's own graph, walking up from this node to the
   nearest sampler (KSampler, KSamplerAdvanced, SamplerCustom and
   SamplerCustomAdvanced), its prompt encoder, and the checkpoint or

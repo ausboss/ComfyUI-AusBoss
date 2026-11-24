@@ -8,7 +8,8 @@ All notable changes to ComfyUI-AusBoss are documented here.
   switch (Off | On | Civitai) and a saved picture also carries its prompt,
   settings and the fingerprints of its model and LoRAs in the form
   civitai.com reads first.
-  An upload then shows its prompt and lists its resources, including for
+  An upload then shows its prompt, lists its resources and gets the ComfyUI
+  tool and txt2img or img2img technique tags, including for
   Krea 2, Qwen Image 2.1 and prompts inside subgraphs, where Civitai found no
   prompt and flagged the upload "Unable to Verify AI Generation". It is off
   by default, because Civitai then shows those settings in place of the

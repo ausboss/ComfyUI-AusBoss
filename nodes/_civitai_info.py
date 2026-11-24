@@ -174,6 +174,7 @@ def _sampler(graph: _Graph, order: list[str]) -> dict | None:
         settings["positive"] = graph.conditioning_text(positive) or ""
         settings["negative"] = graph.conditioning_text(negative) or ""
         settings["model_link"] = model_link
+        settings["latent_link"] = inputs.get("latent_image")
         return settings
     return None
 
@@ -202,6 +203,21 @@ def _lora_rows(graph: _Graph, node: dict) -> list[tuple[str, Any]]:
             if value.get("strength", 1.0) != 0:
                 rows.append((value["lora"], value.get("strength", 1.0)))
     return [(name, strength) for name, strength in rows if name and name.lower() != "none"]
+
+
+def _starts_from_a_picture(graph: _Graph, latent_link: Any, denoise: Any) -> bool:
+    """True when the sampler reworks an existing picture rather than noise."""
+    if isinstance(denoise, (int, float)) and denoise < 1:
+        return True
+    start = graph.node(latent_link)
+    if start is None:
+        return False
+    first = str(latent_link[0])
+    for node_id in [first] + graph.upstream(first):
+        kind = str(graph.nodes[node_id].get("class_type", ""))
+        if "VAEEncode" in kind or "Inpaint" in kind:
+            return True
+    return False
 
 
 def _short_name(name: str) -> str:
@@ -297,6 +313,11 @@ def civitai_parameters(
         if hashes:
             details.append("Hashes: " + json.dumps(hashes, separators=(",", ":")))
         details.append("Version: ComfyUI")
+        # Lower-case keys Civitai keeps as they are: "engine" tags the post
+        # with the ComfyUI tool, "process" picks its technique.
+        details.append("engine: ComfyUI")
+        img2img = _starts_from_a_picture(graph, settings.get("latent_link"), denoise)
+        details.append("process: " + ("img2img" if img2img else "txt2img"))
         lines.append(", ".join(details))
         return "\n".join(lines)
     except Exception:

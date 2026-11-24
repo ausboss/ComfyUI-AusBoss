@@ -84,6 +84,17 @@ class CivitaiLineTests(unittest.TestCase):
         self.assertIn('Hashes: {"model":"aaaaaaaaaa","lora:detail":"bbbbbbbbbb"}', details)
         self.assertNotIn("off", details.replace("offset", ""))
         self.assertNotIn("zero", details)
+        # Lower-case keys Civitai keeps: the ComfyUI tool tag and the technique.
+        self.assertTrue(details.endswith("Version: ComfyUI, engine: ComfyUI, process: txt2img"))
+
+    def test_a_sampler_that_starts_from_a_picture_is_img2img(self):
+        graph = sd15_graph()
+        graph["5"] = {"class_type": "VAEEncode", "inputs": {"pixels": ["11", 0], "vae": ["4", 2]}}
+        graph["11"] = {"class_type": "LoadImage", "inputs": {"image": "x.png"}}
+        self.assertTrue(line(graph).endswith("process: img2img"))
+        graph = sd15_graph()
+        graph["3"]["inputs"]["denoise"] = 0.5
+        self.assertTrue(line(graph).endswith("process: img2img"))
 
     def test_a_two_prompt_encoder_gives_its_negative_on_the_second_output(self):
         graph = {
