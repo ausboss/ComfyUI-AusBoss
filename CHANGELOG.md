@@ -10,6 +10,12 @@ All notable changes to ComfyUI-AusBoss are documented here.
   left, from 6% to 52% across and 6% to 25% down.` Add it to the prompt of
   a model that has no box input, and the things land where you drew them.
 
+- **Color Match 🆎 can fix an edit that looks pasted on.** A new method,
+  `kept`, takes the picture from before the edit as reference. It learns how
+  the model shifted the parts it was meant to keep (darker, more contrast,
+  more colour) and undoes that, so a new word or object sits in the same
+  tone as the rest. New things keep their own colours.
+
 ## 2.27.0 - 2026-11-23
 
 - **Video Crop + Rotate + Pad → Clip 🆎 can put a clip window in an App-mode
