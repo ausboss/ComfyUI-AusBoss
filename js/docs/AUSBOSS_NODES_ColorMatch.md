@@ -16,7 +16,7 @@ reduce color drift between frames.
   inpaint, feed the original image here. A single reference broadcasts
   across a batch; a matched batch pairs frame to frame. Required unless
   **Reference** (`reference_mode`) is **first frame**.
-- **Method** (`method`): How the colors move.
+- **Method** (`method`): How the colors move. A line under it says what the picked one does.
   - **lab** — per-channel mean/std shift in LAB. Perceptual and the safe
     default: corrects overall casts and contrast without shifting
     individual hues around.
