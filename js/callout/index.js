@@ -90,15 +90,15 @@ ${TILE_FACE_CSS}
 .ausboss-callout-card[data-card]{background:#111818;border:1px solid #2e3c3b;}
 .ausboss-callout-card[data-card] .ausboss-callout-inner{padding:.8em 1em;color:#d9e4e3;font-weight:400;line-height:1.45;}
 .ausboss-callout-card[data-card] b{color:#f2f7f6;font-weight:650;}
-.ausboss-card-block{margin:0 0 .85em;}
-.ausboss-card-block:last-child{margin-bottom:0;}
-.ausboss-card-block>*+*{margin-top:.3em;}
-.ausboss-card-title{display:flex;align-items:center;gap:.4em;color:#f2f7f6;font-size:1.08em;font-weight:650;}
-.ausboss-card-icon{flex:none;width:1em;height:1em;color:#c9d6d4;}
-.ausboss-card-icon svg{display:block;width:100%;height:100%;}
-.ausboss-card-row{display:flex;justify-content:space-between;align-items:baseline;gap:1em;}
-.ausboss-card-row>span:last-child{flex:none;text-align:right;white-space:nowrap;}
-.ausboss-card-row.is-mark,.ausboss-card-row.is-mark b{color:#6fe0d6;font-weight:500;}
+.ausboss-callout-block{margin:0 0 .85em;}
+.ausboss-callout-block:last-child{margin-bottom:0;}
+.ausboss-callout-block>*+*{margin-top:.3em;}
+.ausboss-callout-title{display:flex;align-items:center;gap:.4em;color:#f2f7f6;font-size:1.08em;font-weight:650;}
+.ausboss-callout-icon{flex:none;width:1em;height:1em;color:#c9d6d4;}
+.ausboss-callout-icon svg{display:block;width:100%;height:100%;}
+.ausboss-callout-row{display:flex;justify-content:space-between;align-items:baseline;gap:1em;}
+.ausboss-callout-row>span:last-child{flex:none;text-align:right;white-space:nowrap;}
+.ausboss-callout-row.is-mark,.ausboss-callout-row.is-mark b{color:#6fe0d6;font-weight:500;}
 .ausboss-card-small,.ausboss-card-small b{color:#93a6a4;}
 .ausboss-card-small{font-size:.92em;}
 .ausboss-callout-empty{color:#6f8987;font-size:14px;font-weight:400;}
@@ -185,7 +185,7 @@ const CARD_ICON_PATHS = {
 const CARD_ICON_RING = new Set(["clock", "info", "check"]);
 
 function cardIcon(kind) {
-  const span = el("span", "ausboss-card-icon");
+  const span = el("span", "ausboss-callout-icon");
   const root = svg("svg", { viewBox: "0 0 24 24", "aria-hidden": "true", fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round" });
   if (CARD_ICON_RING.has(kind)) root.append(svg("circle", { cx: 12, cy: 12, r: 9 }));
   for (const d of CARD_ICON_PATHS[kind] ?? []) root.append(svg("path", { d }));
@@ -326,17 +326,17 @@ function appendPieces(state, into, line) {
 // An Info card: a title, rows of label and value, and small print.
 function renderCard(state, blocks) {
   for (const lines of blocks) {
-    const block = el("div", "ausboss-card-block");
+    const block = el("div", "ausboss-callout-block");
     for (const line of lines) {
       let row;
       if (line.kind === "title") {
-        row = el("div", "ausboss-card-title");
+        row = el("div", "ausboss-callout-title");
         if (line.icon) row.append(cardIcon(line.icon));
         const words = el("span");
         appendPieces(state, words, line.pieces);
         row.append(words);
       } else if (line.kind === "row") {
-        row = el("div", `ausboss-card-row${line.highlight ? " is-mark" : ""}`);
+        row = el("div", `ausboss-callout-row${line.highlight ? " is-mark" : ""}`);
         for (const cell of line.cells) {
           const side = el("span");
           appendPieces(state, side, cell);

@@ -45,6 +45,10 @@ All notable changes to ComfyUI-AusBoss are documented here.
   scroll through all of them, open folders, and go back up with `..`.
   Typing still searches every folder. The picker opens in the folder of the
   file you picked, with that file highlighted. Thanks to TWIISTED-STUDIOS.
+- **Switch names show in full again.** Workflow Switches cut its names down to
+  a letter or two ("Per…" for "Blur the person"), and other node cards lost
+  their row layout, once a Callout had been on the canvas. The Callout now
+  keeps its styles to its own cards.
 
 ## 2.26.7 - 2026-11-21
 
