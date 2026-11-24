@@ -367,3 +367,195 @@ export function lengthFillsClip(info, plan, everyNth = 1) {
   if (!info?.count || !plan || (plan.mode !== "length" && plan.mode !== "fixed")) return false;
   return plan.first === 0 && slideRange(info, plan, everyNth).max === 0;
 }
+
+// --- Length limits ------------------------------------------------------------
+// min_seconds / max_seconds keep the clip's length inside a range (0 = no
+// limit). The backend applies them after the window is resolved
+// (nodes/_video_load_helpers.limit_clip_length); limitClipSeconds mirrors
+// that rule, so the rail and the App-mode clip window show what a run uses.
+
+// The two limits, cleaned: negative or broken values are 0, and a max below
+// the min counts as the min.
+export function lengthLimits(minSeconds = 0, maxSeconds = 0) {
+  const min = Math.max(0, finite(minSeconds));
+  let max = Math.max(0, finite(maxSeconds));
+  if (max > 0 && max < min) max = min;
+  return { min, max, active: min > 0 || max > 0 };
+}
+
+// The window a run uses under the limits, in seconds. `end` 0 is the
+// video's end; `cap` output frames of `frameSeconds` each can cut it short.
+// Returns the stored-value shape { start, end, cap } plus `whole` (a video
+// shorter than the min, used whole) and `changed`.
+export function limitClipSeconds({ start = 0, end = 0, cap = 0, duration = 0, frameSeconds = 0 } = {}, limits = {}) {
+  const { min, max, active } = lengthLimits(limits.min, limits.max);
+  let first = finite(start);
+  const stored = { start: first, end: finite(end), cap: Math.max(0, Math.trunc(finite(cap))) };
+  const same = { ...stored, whole: false, changed: false };
+  if (!active) return same;
+  const length0 = finite(duration);
+  const known = length0 > 0;
+  if (known && min > 0 && length0 <= min + TRIM_EPSILON) return { start: 0, end: 0, cap: 0, whole: true, changed: true };
+  let stop = stored.end > 0 ? stored.end : known ? length0 : Infinity;
+  if (known) stop = Math.min(stop, length0);
+  let length = stop - first;
+  if (!(length > 0)) return same;
+  const step = finite(frameSeconds);
+  const capped = stored.cap > 0 && step > 0;
+  if (capped) length = Math.min(length, stored.cap * step);
+  let target = length;
+  if (max > 0) target = Math.min(target, max);
+  if (min > 0) target = Math.max(target, min);
+  if (Math.abs(target - length) <= TRIM_EPSILON) return same;
+  let last = first + target;
+  if (known && last > length0) {
+    last = length0;
+    first = Math.max(0, length0 - target);
+  }
+  const keepCap = capped && !(stored.cap * step < target - TRIM_EPSILON);
+  return { start: first, end: last, cap: keepCap ? stored.cap : 0, whole: false, changed: true };
+}
+
+// The output-frame counts a Duration may take at `rate` frames a second:
+// at least one frame, and inside the limits when they are set.
+export function limitFrameRange(limits = {}, rate = 0) {
+  const { min, max } = lengthLimits(limits.min, limits.max);
+  const fps = finite(rate);
+  if (!(fps > 0)) return { min: 1, max: Infinity };
+  const low = min > 0 ? Math.max(1, Math.ceil(min * fps - 1e-6)) : 1;
+  const high = max > 0 ? Math.max(low, Math.floor(max * fps + 1e-6)) : Infinity;
+  return { min: low, max: high };
+}
+
+// A Duration in output frames held inside the limits; under a snap rule it
+// steps inward to a count the rule keeps.
+export function limitFrames(frames, limits = {}, rate = 0, rule = "free") {
+  const range = limitFrameRange(limits, rate);
+  const count = Math.max(1, Math.round(finite(frames, 1)));
+  const held = clamp(count, range.min, range.max);
+  if (snapStep(rule) <= 1) return held;
+  const snapped = snapToValid(held, rule);
+  if (snapped > range.max) return snapToValid(held, rule, -1);
+  if (snapped < range.min) return snapToValid(held, rule, 1);
+  return snapped;
+}
+
+// --- The App-mode clip window ---------------------------------------------------
+// One box on the video: drag it to pick where the clip starts, drag an edge
+// to change its length. The window is { start, frames }: start in seconds on
+// the source's frame grid, length in output frames at `rate` (what the node
+// stores as start_seconds and max_frames).
+
+function sourceGrid(seconds, info) {
+  return info?.fps > 0 ? Math.round(finite(seconds) * info.fps) / info.fps : finite(seconds);
+}
+
+function videoLength(info) {
+  return info?.duration > 0 ? info.duration : info?.fps > 0 ? info.count / info.fps : 0;
+}
+
+// Output frames that fit between `start` and the video's end.
+function roomAt(start, info, rate) {
+  return Math.max(1, Math.floor((videoLength(info) - finite(start)) * rate + 1e-6));
+}
+
+// The latest start that still fits `frames`.
+function latestStart(frames, info, rate) {
+  if (!(info?.fps > 0)) return 0;
+  const latest = Math.floor((videoLength(info) - frames / rate) * info.fps + 1e-6) / info.fps;
+  return Math.max(0, latest);
+}
+
+// The window a run uses, from the stored values: the limits applied
+// (limitClipSeconds) and the length counted in output frames.
+// `whole` - the video is shorter than the min and is used whole;
+// `fills` - the window already covers the whole video, so only an edge moves.
+export function clipWindowOf(info, { start = 0, end = 0, cap = 0, rate = 0 } = {}, limits = {}) {
+  const fps = finite(rate);
+  const duration = videoLength(info);
+  if (!(fps > 0) || !(duration > 0)) return null;
+  const limited = limitClipSeconds({ start, end, cap, duration, frameSeconds: 1 / fps }, limits);
+  const first = clamp(sourceGrid(limited.start, info), 0, duration);
+  let stop = limited.end > 0 ? Math.min(limited.end, duration) : duration;
+  let frames = Math.max(1, Math.round((stop - first) * fps));
+  if (limited.cap > 0) frames = Math.min(frames, limited.cap);
+  frames = Math.min(frames, roomAt(first, info, fps));
+  const window = { start: first, frames, rate: fps, whole: limited.whole };
+  window.seconds = frames / fps;
+  window.fills = first <= 0 && frames >= roomAt(0, info, fps);
+  return window;
+}
+
+// Move the window by one gesture. zone "start" or "end" drags that edge to
+// `seconds` (the other edge stays); "move" slides the whole box so its start
+// lands at `seconds`. The length stays inside the limits and the video.
+export function dragClipWindow(window, zone, seconds, info, limits = {}) {
+  if (!window || window.whole) return window;
+  const rate = window.rate;
+  const range = limitFrameRange(limits, rate);
+  const at = finite(seconds);
+  if (zone === "move") {
+    const start = clamp(sourceGrid(at, info), 0, latestStart(window.frames, info, rate));
+    return { ...window, start, seconds: window.frames / rate };
+  }
+  if (zone === "end") {
+    const most = Math.min(range.max, roomAt(window.start, info, rate));
+    const frames = clamp(Math.round((at - window.start) * rate), Math.min(range.min, most), most);
+    return { ...window, frames, seconds: frames / rate };
+  }
+  const end = window.start + window.frames / rate;
+  const most = Math.min(range.max, Math.max(1, Math.floor(end * rate + 1e-6)));
+  const frames = clamp(Math.round((end - at) * rate), Math.min(range.min, most), most);
+  const start = clamp(sourceGrid(end - frames / rate, info), 0, latestStart(frames, info, rate));
+  return { ...window, start, frames, seconds: frames / rate };
+}
+
+// What the node stores for a window: the start on the hundredths grid that
+// keeps its first frame (windowSeconds), the length as max_frames, and an
+// open end.
+export function clipWindowValues(window, info) {
+  const first = info?.fps > 0 ? clampFrame(Math.round(window.start * info.fps), info) : 0;
+  return {
+    start_seconds: windowSeconds(info, first, first).start_seconds,
+    end_seconds: 0,
+    max_frames: Math.max(1, Math.round(window.frames)),
+  };
+}
+
+// --- The "Clip length limits" fold on the node face -------------------------
+const limitText = (value) => String(Number(Math.max(0, finite(value)).toFixed(2)));
+
+// The closed header's words: "5 – 8 s", "from 5 s", "up to 8 s", or "off".
+export function limitsSummary(minSeconds = 0, maxSeconds = 0) {
+  const { min, max } = lengthLimits(minSeconds, maxSeconds);
+  if (min > 0 && max > 0) return min === max ? `${limitText(min)} s` : `${limitText(min)} – ${limitText(max)} s`;
+  if (min > 0) return `from ${limitText(min)} s`;
+  if (max > 0) return `up to ${limitText(max)} s`;
+  return "off";
+}
+
+// Type one limit; the other one moves with it so the shortest never ends up
+// above the longest. 0 is off and never pushes the other.
+export function setLengthLimit(edge, value, { min = 0, max = 0 } = {}) {
+  const next = Math.max(0, finite(value));
+  let low = Math.max(0, finite(min));
+  let high = Math.max(0, finite(max));
+  if (edge === "min") {
+    low = next;
+    if (high > 0 && low > high) high = low;
+  } else {
+    high = next;
+    if (high > 0 && low > high) low = high;
+  }
+  return { min: low, max: high };
+}
+
+// Where the clip window's player belongs: inside the picked part, going
+// back to its start once it reaches the end (or when it sits before it).
+export function loopPlayhead(time, start, seconds, slack = 0.04) {
+  const from = Math.max(0, Number(start) || 0);
+  const length = Math.max(0, Number(seconds) || 0);
+  const now = Number(time);
+  if (!Number.isFinite(now) || now < from - slack || now >= from + length) return from;
+  return now;
+}

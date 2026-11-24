@@ -4,6 +4,16 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Video Crop + Rotate + Pad → Clip 🆎 can put a clip window in an App-mode
+  form.** List the node's `clip_window` field and the form shows the video,
+  playing only the part that gets used, over a strip of pictures with a box
+  over that part: drag the box to pick where the clip starts, drag an edge to
+  shorten it. Two new inputs, `min_seconds` and `max_seconds`, keep the clip's
+  length in a range; the edges stop there, on the node's timeline too, and a
+  run keeps to them. A video shorter than the minimum is used whole. Both are
+  0 (no limit) by default and are set in a new **Clip length limits** fold
+  under Crop, pad & resize, closed unless you open it.
+
 - **New node: Pause for Shot 🆎.** It stops a run right after the 3D
   viewer so you can frame your shot on the model that run just made, then
   **Continue** carries on with the camera exactly as the viewer shows it.

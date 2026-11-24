@@ -1341,7 +1341,9 @@
       "end_frame",
       "frame_load_cap",
       "fixed_frames",
-      "last_seconds"
+      "last_seconds",
+      "min_seconds",
+      "max_seconds"
     ],
     "outputs": [
       [

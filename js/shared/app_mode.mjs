@@ -32,6 +32,17 @@ export function appFields(linearData) {
   return fields;
 }
 
+// Where the form puts a DOM widget (a panel, the clip window): the empty
+// host the form draws in that field's row. The form moves the widget's
+// element into it once, as the row mounts, and the graph's own widget layer
+// can take it back a moment later, which left the row empty. So the pack
+// moves it in again (js/app_mode/). A selector, so it is testable here.
+export function formHostSelector(nodeId, name) {
+  const id = String(nodeId).replace(/["\\]/g, "");
+  const field = String(name).replace(/["\\]/g, "");
+  return `[data-testid="app-mode-widget-item"][data-widget-key$=":${id}:${field}"] [data-widget-name="${field}"] div[node-type]`;
+}
+
 // find(nodeId, widgetName) -> { node, widget } or null
 // changed(node) is called after a widget on that node changed visibility.
 export function createAppModeSync({ find, changed = () => {} }) {
