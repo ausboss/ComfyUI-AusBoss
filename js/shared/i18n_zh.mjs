@@ -56,7 +56,7 @@ export const ZH = {
   "gray": "灰色", "edge": "边缘", "edge pixel": "边缘像素", "color": "纯色", "pillarbox blur": "两侧虚化", "replicate": "复制边缘",
   "source": "原图", "as typed": "照输入", "from the picture": "取自图片", "text": "文字", "object": "物体", "still": "静止", "handheld": "手持",
   "shaky": "抖动", "push in": "推近", "pull back": "拉远", "orbit": "环绕", "walking pov": "步行视角", "anime": "动漫", "comic book": "漫画",
-  "pencil sketch": "铅笔素描", "watercolor": "水彩", "split sheet at gaps": "按空隙拆分拼图", "Pad": "扩边", "Crop": "裁剪",
+  "pencil sketch": "铅笔素描", "watercolor": "水彩", "split sheet at gaps": "按空隙拆分拼图", "cut a piece": "裁出一块", "Move right": "右移", "Move down": "下移", "Position": "位置", "Pad": "扩边", "Crop": "裁剪",
   "Resize": "缩放", "Center": "居中", "Soft": "柔和", "Simple": "简易", "Full prompt": "完整提示词", "Text": "文字", "Fixed": "固定",
   "LTX (8n+1)": "LTX (8n+1)", "Wan (4n+1)": "Wan (4n+1)", "Every group": "每个分组", "Numbered groups": "编号分组",
   "Titles matching…": "按标题匹配…", "No groups": "没有分组", "All": "全部", "Background": "背景", "Subject": "主体",
