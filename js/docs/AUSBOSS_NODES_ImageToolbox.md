@@ -28,6 +28,37 @@ own file.
 A batch of sheets is cut sheet by sheet: the first sheet's pieces, then the
 next sheet's.
 
+### cut a piece
+
+Cuts one piece out of the picture, at the size and place you set. Use it when
+the parts you need are not the same size, or when you know exactly where a
+part is.
+
+- **Width** and **Height** (`width`, `height`): the piece's size in pixels.
+  0 takes the picture's full width or height.
+- **Position** (`position`): where the piece sits, from **top left** to
+  **bottom right**. **center** puts it in the middle.
+- **Move right** and **Move down** (`move_right`, `move_down`): move the
+  piece from that position by this many pixels. Below 0 moves it left or up.
+
+The piece never leaves the picture. A size larger than the picture is cut to
+the picture's size, and a move that would push the piece past an edge stops
+at that edge.
+
+The piece comes out of **images**. The second output, **rest**, is what is
+left of the picture:
+
+- When the piece is as tall as the picture and sits against its left or
+  right edge, **rest** is the strip beside it. The same goes for a piece as
+  wide as the picture at the top or bottom. So to split a picture into two
+  parts of different sizes, set the first part's width, Height 0, and
+  Position **left**: **images** is the first part and **rest** the second.
+- Any other piece leaves a hole, and **rest** is the whole picture with the
+  hole filled with the picture's backdrop colour.
+
+A batch is cut at the same place in every picture. Other jobs pass the
+picture through **rest** unchanged.
+
 ## Technical details
 
 - The backdrop colour is the median colour of the picture's border.
@@ -39,6 +70,7 @@ next sheet's.
 - When two pictures overlap on the sheet, no column is clean. The cut then
   goes where the least of them is lost, and a small part of one can remain
   in the other's piece.
+- cut a piece fills its hole with the same backdrop colour.
 - Pieces set to 1 returns the picture unchanged.
 - Pieces higher than the picture's width in pixels gives one piece per
   pixel column, so fewer pieces than asked for.

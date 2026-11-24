@@ -30,6 +30,56 @@ All notable changes to ComfyUI-AusBoss are documented here.
   Tilt, Shadow and the rest saved on the viewer, as a paused run does.
   Before, such a run used the 360 unturned.
 
+- **Layout Boxes 🆎 says the boxes as sentences for any prompt.** A new
+  `placement` output writes each box as a plain sentence: what goes there
+  and where, such as `The words "FRESH" in bold black letters, placed top
+  left, from 6% to 52% across and 6% to 25% down.` Add it to the prompt of
+  a model that has no box input, and the things land where you drew them.
+
+- **Color Match 🆎 can fix an edit that looks pasted on.** A new method,
+  `kept`, takes the picture from before the edit as reference. It learns how
+  the model shifted the parts it was meant to keep (darker, more contrast,
+  more colour) and undoes that, so a new word or object sits in the same
+  tone as the rest. New things keep their own colours.
+
+- **Save Image 🆎 can write Civitai info.** Pick **Civitai** in the Embed
+  switch (Off | On | Civitai) and a saved picture also carries its prompt,
+  settings and the fingerprints of its model and LoRAs in the form
+  civitai.com reads first.
+  An upload then shows its prompt, lists its resources and gets the ComfyUI
+  tool and txt2img or img2img technique tags, including for
+  Krea 2, Qwen Image 2.1 and prompts inside subgraphs, where Civitai found no
+  prompt and flagged the upload "Unable to Verify AI Generation". It is off
+  by default, because Civitai then shows those settings in place of the
+  ComfyUI workflow; the workflow stays in the file and still drags back into
+  ComfyUI. The first save with a new model takes a moment while its file is
+  fingerprinted.
+- **WebP pictures from Save Image 🆎 and Save Video 🆎 carry the workflow the
+  way ComfyUI's own WebP does.** ComfyUI could not read the workflow back
+  out of Save Image's WebP files, and civitai.com did not see them as
+  ComfyUI pictures at all. They now use core ComfyUI's layout, so a WebP
+  drags back into ComfyUI with its full graph and Civitai reads its prompt.
+  Save Video's animated `webp` now embeds the workflow too, as core's
+  animated WebP does; its Embed workflow row shows for `webp`.
+
+- **LoRA Loader 🆎 can fetch Civitai info for every LoRA at once.** A new
+  **Fetch all** button in a LoRA's info card (also in the gear menu) looks
+  up each LoRA in the stack that has no Civitai info yet, one at a time
+  with a short pause, and saves its info and picture the same way the
+  one-LoRA button does. The bottom of the node shows how far it is
+  (`Civitai 12 / 44 · Stop`); click it to stop. It follows the Civitai
+  picture setting, never replaces a picture, and slows down or stops when
+  Civitai asks it to.
+
+- **Image Toolbox can cut a piece of your own size.** Pick the new job
+  **cut a piece**, set the width and height in pixels, pick where it sits
+  (a corner, an edge or the centre) and move it right or down from there.
+  The piece comes out of the first output, and the rest of the picture out
+  of a new second output, `rest`. A piece as tall as the picture, against
+  its left or right edge, leaves the strip beside it, so one node splits a
+  picture into two parts of different sizes. Width or height 0 takes the
+  picture's full width or height.
+
 ## 2.27.0 - 2026-11-23
 
 - **Video Crop + Rotate + Pad → Clip 🆎 can put a clip window in an App-mode

@@ -138,7 +138,7 @@ Reads a picture's `width`, `height`, `longest_edge`, `shortest_edge` and batch `
 
 ### Image Toolbox
 
-Small picture jobs in one node, picked from a list. **split sheet at gaps** cuts a row of pictures, such as a character sheet's views, into separate pictures, cutting at the gaps between them so no piece gets part of its neighbour.
+Small picture jobs in one node, picked from a list. **split sheet at gaps** cuts a row of pictures, such as a character sheet's views, into separate pictures, cutting at the gaps between them so no piece gets part of its neighbour. **cut a piece** cuts out one piece of the width and height you set, at the place you pick, and gives back the rest of the picture too.
 
 ### Color Match
 
@@ -379,6 +379,8 @@ Draw boxes on a canvas and say what goes in each one: a thing, or words to write
 Drag to draw a box, drag it to move it and its handles to size it; under the canvas each box gets **object** or **text**, its words and up to five colors. A picture on `background` shows under the boxes and sets the canvas size, `width` and `height` can come from Latent Size, and boxes on the `bboxes` wire fill the canvas when the workflow runs. **Grid** snaps the boxes as you drag them, starts off over a picture and takes its size from the gear, **Layouts** starts from a ready arrangement, the arrow keys move the chosen box one pixel at a time (ten with Shift), and Delete and Ctrl + D remove and copy it.
 
 The `mask` output is white inside every box: load a picture, draw a box over the words on a sign, and an inpaint chain can write new words there while the rest of the picture stays as it was. For words at a slant, drag the round handle over a box to turn it: the mask turns with it, and a turned text box tells the model its slant.
+
+For a model that reads only a prompt and has no box input, the `placement` output says the boxes as plain sentences, what goes in each box and where, to add to your prompt.
 
 ![Layout Boxes over a photo of a woman in front of a neon ramen sign: a text box is drawn over the sign, AUSBOSS and red neon letters are typed in, and MOSS-Image's result wipes in with the sign reading AUSBOSS.](assets/readme/layout-boxes.gif)
 

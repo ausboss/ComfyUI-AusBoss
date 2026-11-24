@@ -9,10 +9,12 @@ class AusBossColorMatch:
     CATEGORY = "🆎 AusBoss/Image"
     DESCRIPTION = (
         "Transfers the reference image's color statistics onto the input — "
-        "fixes the color shift on inpainted or stitched regions. Four "
+        "fixes the color shift on inpainted or stitched regions. Five "
         "methods: lab and rgb move per-channel mean/std, mkl maps the full "
         "color covariance, histogram matches each channel's distribution "
-        "exactly. An optional mask restricts both the measurement and the "
+        "exactly, and kept is for edits: it learns how the model shifted "
+        "the parts it was meant to keep and undoes that everywhere, so new "
+        "things keep their own colours. An optional mask restricts both the measurement and the "
         "correction to its white area (invert_mask flips that), which is "
         "why the node takes a mask but outputs none: the mask only scopes "
         "the fix, and passes through your graph unchanged. Strength blends "
@@ -74,7 +76,11 @@ class AusBossColorMatch:
                             "channels. mkl: full covariance mapping, best "
                             "when hues are rotated, not just shifted. "
                             "histogram: exact per-channel distribution "
-                            "match, the strongest and least subtle."
+                            "match, the strongest and least subtle. kept: "
+                            "for an edit, with the picture from before the "
+                            "edit as reference. Fixes the brightness, "
+                            "contrast and colour the model shifted, and "
+                            "leaves new things their own colours."
                         ),
                     },
                 ),
