@@ -2,6 +2,14 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Layout Boxes 🆎 says the boxes as sentences for any prompt.** A new
+  `placement` output writes each box as a plain sentence: what goes there
+  and where, such as `The words "FRESH" in bold black letters, placed top
+  left, from 6% to 52% across and 6% to 25% down.` Add it to the prompt of
+  a model that has no box input, and the things land where you drew them.
+
 ## 2.27.0 - 2026-11-23
 
 - **Video Crop + Rotate + Pad → Clip 🆎 can put a clip window in an App-mode

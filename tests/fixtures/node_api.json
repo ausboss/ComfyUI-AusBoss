@@ -581,6 +581,10 @@
       [
         "STRING",
         "h3_prompt"
+      ],
+      [
+        "STRING",
+        "placement"
       ]
     ]
   },

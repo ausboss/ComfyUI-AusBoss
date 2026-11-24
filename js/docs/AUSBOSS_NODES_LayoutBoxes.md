@@ -60,6 +60,26 @@ of 6 and the woman 4 of 6, and the room stayed as it was; with empty boxes,
 2 of 12. Keep `preview` out of H3
 Image's pictures too, or the boxes' lines can stay in the picture.
 
+## Words for a prompt
+
+Some models make a picture from a prompt alone and have no input for boxes.
+The `placement` output says your boxes as plain sentences: what goes in each
+box and where it is in the picture. Add it to your prompt, for example with
+ComfyUI's Concatenate Text node, and the model puts each thing where you drew
+it.
+
+For a text box with the word FRESH in the top left and an orange on the right,
+it gives:
+
+> The words "FRESH" in huge bold black sans-serif letters, placed top left,
+> from 6% to 52% across and 6% to 25% down. One ripe orange with a green
+> leaf, placed middle right, from 52% to 94% across and 35% to 85% down.
+
+Write the **Description** of each box the way you would in a prompt. Tried on
+SenseNova U1.6, which has no box input: these sentences put all the boxes in
+place on two seeds of two, where `elements` as text put the words in the wrong
+places.
+
 ## Change the words in a picture
 
 The `mask` output is white inside every box. Use it to change only one part
@@ -184,11 +204,12 @@ removes it. The first color also colors the box on the canvas.
 | `elements` | The boxes as prompt elements. Wire it to MOSS-Image Layout Prompt. A turned box gives the straight box around it, and a turned text box says its slant in its description. |
 | `mask` | White inside every box, black elsewhere, to change only those places of a picture. A turned box is white inside its turned shape only. |
 | `h3_prompt` | The boxes as a prompt for MiniMax H3 Image, in words: where each thing goes and how big it is. Name each person's picture and what they do in the box's description. See **Place people with MiniMax H3 Image**. |
+| `placement` | The boxes as sentences for a prompt: what goes in each box and where, as parts of the picture. Add it to your prompt for a model that has no box input. See **Words for a prompt**. |
 
 ## In place of Create Bounding Boxes
 
 Layout Boxes has the same inputs and the same outputs in the same order (and
-`mask` and `h3_prompt` after them), so the wires move straight over. For the same boxes it
+`mask`, `h3_prompt` and `placement` after them), so the wires move straight over. For the same boxes it
 gives the same `bboxes` and `elements`, and MOSS-Image Layout Prompt makes the
 same prompt from them.
 
@@ -257,5 +278,19 @@ run once: they fill the canvas. Then remove the old node.
   overlap (the later box is in front). Text boxes are placed by the frame
   only. A turned box is placed by the straight box around it. A text box with
   no text and no description is left out. No boxes give an empty text.
+- `placement` has one sentence per box, in box order, joined by spaces. A
+  text box with words gives `The words "TEXT" in DESCRIPTION, placed WHERE.`
+  (`The words "TEXT", placed WHERE.` without a description); any other box
+  gives its description, first letter in upper case, then `, placed WHERE.`
+  A box with no words and no description is left out. The description is
+  the one `elements` carries, so a turned text box says its slant. WHERE is
+  a rough place and then the box's edges in whole percents of the canvas,
+  cut to it: `top left, from 6% to 52% across and 6% to 25% down`. The box
+  is "top" when its bottom edge is above 40%, "bottom" when its top edge is
+  below 60%, else "middle"; "left" when its right edge is left of 55%,
+  "right" when its left edge is right of 45%, else "center"; and the middle
+  of both is said as "center" alone. A turned box is placed by the straight
+  box around it. A box with colors gets ` Colors: #FF3399, #00AABB.` after
+  its sentence. No boxes give an empty text.
 - The background is saved, shrunk, in ComfyUI's temp folder for the node's
   face. Nothing else is written.

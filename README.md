@@ -376,6 +376,8 @@ Drag to draw a box, drag it to move it and its handles to size it; under the can
 
 The `mask` output is white inside every box: load a picture, draw a box over the words on a sign, and an inpaint chain can write new words there while the rest of the picture stays as it was. For words at a slant, drag the round handle over a box to turn it: the mask turns with it, and a turned text box tells the model its slant.
 
+For a model that reads only a prompt and has no box input, the `placement` output says the boxes as plain sentences, what goes in each box and where, to add to your prompt.
+
 ![Layout Boxes over a photo of a woman in front of a neon ramen sign: a text box is drawn over the sign, AUSBOSS and red neon letters are typed in, and MOSS-Image's result wipes in with the sign reading AUSBOSS.](assets/readme/layout-boxes.gif)
 
 ### Seed
