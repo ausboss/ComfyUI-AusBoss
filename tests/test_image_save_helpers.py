@@ -455,7 +455,10 @@ class WebpEncodeTests(unittest.TestCase):
                 exif = image.getexif()
             expected = (frame * 255).round().clamp(0, 255) / 255.0
             self.assertTrue(torch.allclose(back, expected, atol=1 / 255))
-            self.assertTrue(str(exif.get(0x010F, "")).startswith("prompt:"))
+            # Core ComfyUI's layout: prompt in Model, then "workflow:..." in
+            # Make, which is what ComfyUI's canvas and civitai.com read.
+            self.assertEqual(exif.get(0x0110), "prompt:{}")
+            self.assertEqual(exif.get(0x010F), 'workflow:{"a": 1}')
 
 
 class SaveImageLocalModeTests(SaveImageNodeTests):

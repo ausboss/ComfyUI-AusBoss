@@ -8,8 +8,8 @@
 // quality dial of the software and NVENC encoders and maps onto webp's
 // quality scale, while prores rides its own profile ladder, ffv1 is lossless
 // by definition, and Pillow's gif path quantizes per frame with no quality
-// dial at all. gif and webp are written frame by frame through Pillow and
-// never carry the workflow metadata the video containers embed.
+// dial at all. gif and webp are written frame by frame through Pillow; webp
+// carries the workflow in EXIF as core's animated WebP does, gif never does.
 export const FORMAT_WIDGET_SETS = {
   "mp4 h264": ["crf", "save_metadata"],
   "mp4 h265": ["crf", "save_metadata"],
@@ -20,7 +20,7 @@ export const FORMAT_WIDGET_SETS = {
   "mov prores": ["save_metadata"],
   "mkv ffv1": ["save_metadata"],
   "gif": [],
-  "webp": ["crf"],
+  "webp": ["crf", "save_metadata"],
 };
 
 // The only widgets the format ever toggles. Everything else on the node —

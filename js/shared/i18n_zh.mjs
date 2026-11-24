@@ -31,7 +31,7 @@ export const ZH = {
   "KV cache": "KV 缓存", "VLM reference": "VLM 参考", "Source": "素材", "Width": "宽度", "Height": "高度",
   "Longest side": "最长边", "Ratio": "比例", "Keep": "保留", "Round to": "取整到", "Enlarge": "放大小图",
   "Backdrop": "背景虚化", "Exact padding": "精确扩边", "Left": "左", "Top": "上", "Right": "右", "Bottom": "下",
-  "Prefix": "文件名前缀", "Format": "格式", "FPS · CRF": "帧率 · CRF", "Ping-pong": "往返播放", "Embed workflow": "嵌入工作流",
+  "Prefix": "文件名前缀", "Format": "格式", "FPS · CRF": "帧率 · CRF", "Ping-pong": "往返播放", "Embed workflow": "嵌入工作流", "Embed": "嵌入",
   "Pictures and settings": "图片与设置", "What H3 gets": "H3 收到的内容", "What happens": "发生了什么",
   "Align": "对齐", "Aspect ratio": "画面比例", "Crop, pad & resize": "裁剪、扩边与缩放", "Duration": "时长", "Ends at": "结束于",
   "Frames for": "帧数用于", "Start": "起点", "Whole video": "整段视频", "Clip IN": "片段入点", "Clip OUT": "片段出点",
@@ -320,7 +320,7 @@ export const ZH = {
 // Strings that deliberately stay English on a Chinese face: names, symbols
 // and technical terms with no everyday Chinese form.
 export const STAYS_ENGLISH = new Set([
-  "W", "H", "FPS", "CFG", "LoRA", "VRAM", "Seed", "H3",
+  "W", "H", "FPS", "CFG", "LoRA", "VRAM", "Seed", "H3", "Civitai",
   "lab", "rgb", "mkl", "bicubic", "bilinear", "lanczos", "nearest", "area",
   "gif", "webp", "mp4 h264", "mp4 h265", "mp4 h264 nvenc", "mp4 h265 nvenc", "mov prores", "mkv ffv1", "webm vp9", "webm av1",
   "big-lama.pt", "loras", "script", "video", "flashvsr_v1.1_fp16.safetensors", "f(a, b, c)", "a + b",

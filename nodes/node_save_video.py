@@ -158,7 +158,7 @@ class AusBossSaveVideo:
                             "Embed the prompt and workflow in the file, so an mp4 "
                             "dragged back onto the canvas restores its graph. Turn off "
                             "to share a file without your prompts and node graph inside "
-                            "it. gif and webp never carry metadata."
+                            "it. gif never carries metadata."
                         ),
                     },
                 ),

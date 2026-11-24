@@ -2,6 +2,27 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Save Image 🆎 can write Civitai info.** Pick **Civitai** in the Embed
+  switch (Off | On | Civitai) and a saved picture also carries its prompt,
+  settings and the fingerprints of its model and LoRAs in the form
+  civitai.com reads first.
+  An upload then shows its prompt and lists its resources, including for
+  Krea 2, Qwen Image 2.1 and prompts inside subgraphs, where Civitai found no
+  prompt and flagged the upload "Unable to Verify AI Generation". It is off
+  by default, because Civitai then shows those settings in place of the
+  ComfyUI workflow; the workflow stays in the file and still drags back into
+  ComfyUI. The first save with a new model takes a moment while its file is
+  fingerprinted.
+- **WebP pictures from Save Image 🆎 and Save Video 🆎 carry the workflow the
+  way ComfyUI's own WebP does.** ComfyUI could not read the workflow back
+  out of Save Image's WebP files, and civitai.com did not see them as
+  ComfyUI pictures at all. They now use core ComfyUI's layout, so a WebP
+  drags back into ComfyUI with its full graph and Civitai reads its prompt.
+  Save Video's animated `webp` now embeds the workflow too, as core's
+  animated WebP does; its Embed workflow row shows for `webp`.
+
 ## 2.27.0 - 2026-11-23
 
 - **Video Crop + Rotate + Pad → Clip 🆎 can put a clip window in an App-mode

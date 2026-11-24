@@ -41,10 +41,18 @@ file's name. A caption on the `caption_text` input writes the paired `.txt`.
   workflow in EXIF. **JXL** (`jxl lossless`, lossless JPEG XL) is the most
   compact; it needs the optional `pillow-jxl-plugin` in ComfyUI's python
   (also the pack's `jxl` extra) and few browsers preview it.
-- **Embed workflow** (`save_metadata`): **On** stores the prompt and
+- **Embed** (`save_metadata`, `civitai_info`): **On** stores the prompt and
   workflow in the file (PNG text chunks, EXIF in webp and jxl) so it drags
   back into ComfyUI; **Off** writes a clean file for sharing or datasets.
   `--disable-metadata` on the server wins.
+- **Civitai** (the Embed switch's third choice, `civitai_info` on): stores
+  the workflow and also the prompt, the sampler settings and the
+  fingerprints of the model and LoRAs in the form civitai.com reads, so an
+  upload shows its prompt and lists its resources. Not the default: Civitai
+  then shows these settings instead of the ComfyUI workflow, though the
+  workflow stays in the file and still drags back into ComfyUI. The first save with a new model
+  takes a moment while its file is fingerprinted; after that it is
+  remembered. See "Uploading to Civitai" below.
 - **Preview** (`preview`): the small switch under the card shows the saved
   image on the node. Off, the picture's box goes away and the node is
   shorter; on again, the node returns to its height with the last saved
@@ -114,6 +122,37 @@ be, apart from the size, which only a run knows.
 - A name that arrives on the `filename` input is another node's exact name
   and is not read for tokens.
 - Other text between percent signs stays as typed.
+
+## Uploading to Civitai
+
+civitai.com reads a ComfyUI picture's prompt from the embedded graph, but
+only from nodes it knows. A prompt typed into Krea 2 Encode 🆎, core's Qwen
+Image 2.1 encoder or a node inside a subgraph reads as no prompt, and the
+upload is flagged "Unable to Verify AI Generation". Civitai also finds a
+picture's models only by their file fingerprints, which a ComfyUI graph does
+not hold, so a plain ComfyUI picture always says no resources were found.
+Pick **Civitai** in the Embed switch before saving pictures you mean to
+upload.
+
+### Technical details
+
+- The line is the one A1111 writes (`parameters` text in PNG, EXIF
+  UserComment in WebP and JPEG XL): prompt, `Negative prompt:`, then
+  `Steps`, `Sampler`, `Schedule type`, `CFG scale`, `Seed`, `Size`,
+  `Model hash`, `Model`, `Lora hashes` and a `Hashes` JSON block. Civitai
+  reads it before the ComfyUI graph.
+- It is built from the run's own graph, walking up from this node to the
+  nearest sampler (KSampler, KSamplerAdvanced, SamplerCustom and
+  SamplerCustomAdvanced), its prompt encoder, and the checkpoint or
+  diffusion model and LoRAs on its model input. LoRA Loader 🆎 rows that are
+  off or at strength 0 are left out. A graph with no sampler gets no line.
+- Fingerprints are AutoV2 hashes (the first ten hex digits of the file's
+  SHA256), cached in `user/ausboss/` by file size and date. Text encoders and
+  VAEs are not listed; Civitai does not credit a picture to them.
+- A prompt made while the graph runs (Prompt Variations 🆎) is written as
+  the text typed into its node.
+- Videos cannot carry it: Civitai reads only the `prompt` and `workflow`
+  tags of an mp4 or webm.
 
 ## Outputs
 

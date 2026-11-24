@@ -33,7 +33,7 @@ const CARD_HEIGHT = 288;
 const WRAPPER_INSET = 16;
 const HIDDEN = [
   "filename_prefix", "format", "save_metadata", "exact_name", "on_existing",
-  "output_dir", "caption", "name_counter", "name_date", "name_time", "name_size", "name_batch", "autosave",
+  "output_dir", "caption", "name_counter", "name_date", "name_time", "name_size", "name_batch", "autosave", "civitai_info",
 ];
 const FONT = `-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif`;
 const MONO = `ui-monospace,SFMono-Regular,Menlo,Consolas,monospace`;
@@ -64,6 +64,7 @@ function ensureCss() {
 .ausboss-save-half{display:flex;align-items:center;gap:6px;flex:1 1 auto;min-width:0}
 .ausboss-save-half .ausboss-card-seg{flex:1 1 0;min-width:0}
 .ausboss-save-switches{gap:12px}
+.ausboss-save-half.embed{flex-grow:1.5}
 .ausboss-save-browse{position:fixed;z-index:10000;width:260px;max-height:320px;overflow:auto;padding:4px;border:1px solid #3a4047;border-radius:7px;background:#1c1f23;box-shadow:0 8px 28px rgba(0,0,0,.5);font:12px/1.3 ${FONT};color:#d8ecea}
 .ausboss-save-browse-head{padding:5px 8px 6px;border-bottom:1px solid #2c3238;color:#78908e;font:10px/1 ${FONT};letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ausboss-save-browse button{display:block;width:100%;padding:6px 8px;border:none;border-radius:5px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
@@ -273,20 +274,31 @@ function buildCard(node) {
   }
   root.append(seg);
 
-  // Embed workflow: a no | yes pill, the pack's boolean.
+  // Embed: what goes in the file, in one pill. Off is a clean picture; On
+  // stores the prompt and workflow for drag-back; Civitai stores them too and
+  // adds the settings line civitai.com reads (save_metadata + civitai_info).
   const embedRow = el("div", "ausboss-save-row");
   const embedSeg = el("div", "ausboss-card-seg ausboss-card-bool");
   embedSeg.setAttribute("role", "radiogroup");
   const embedButtons = new Map();
-  const embedTitle = "Embed stores the prompt and workflow in the image for drag-back. Off writes a clean image for sharing or datasets.";
-  for (const [on, text] of [[false, PANEL_LABELS.off], [true, PANEL_LABELS.on]]) {
+  const embedChoices = [
+    ["off", PANEL_LABELS.off, false, false, "Off writes a clean image, with no prompt or workflow inside - for sharing or datasets."],
+    ["on", PANEL_LABELS.on, true, false, "On stores the prompt and workflow in the image, so it drags back into ComfyUI."],
+    ["civitai", "Civitai", true, true, "Civitai stores the workflow and also the prompt, settings and model and LoRA fingerprints the way civitai.com reads them, so an upload lists its prompt and resources."],
+  ];
+  for (const [key, text, embed, civitai, title] of embedChoices) {
     const button = el("button", "", text);
-    button.type = "button"; button.title = embedTitle;
-    button.addEventListener("click", () => { if (setValue(node, "save_metadata", on)) notifyAusbossChange(); state.refresh(); });
-    embedSeg.append(button); embedButtons.set(on, button);
+    button.type = "button"; button.title = title;
+    button.addEventListener("click", () => {
+      const changedEmbed = setValue(node, "save_metadata", embed);
+      const changedCivitai = setValue(node, "civitai_info", civitai);
+      if (changedEmbed || changedCivitai) notifyAusbossChange();
+      state.refresh();
+    });
+    embedSeg.append(button); embedButtons.set(key, button);
   }
-  const embedHalf = el("div", "ausboss-save-half");
-  embedHalf.append(el("span", "ausboss-save-embed-label", PANEL_LABELS.embed), embedSeg);
+  const embedHalf = el("div", "ausboss-save-half embed");
+  embedHalf.append(el("span", "ausboss-save-embed-label", "Embed"), embedSeg);
   embedRow.classList.add("ausboss-save-switches");
   embedRow.append(embedHalf);
   root.append(embedRow);
@@ -348,10 +360,10 @@ function buildCard(node) {
     chips.classList.toggle("off", !tagsEnabled(values));
     for (const [key, chip] of chipButtons) chip.classList.toggle("on", Boolean(values[key]));
     for (const [key, button] of formatButtons) button.classList.toggle("on", values.format === key);
-    const embed = Boolean(values.save_metadata);
-    for (const [on, button] of embedButtons) {
-      button.classList.toggle("on", on === embed);
-      button.setAttribute("aria-checked", String(on === embed));
+    const embed = !values.save_metadata ? "off" : values.civitai_info ? "civitai" : "on";
+    for (const [key, button] of embedButtons) {
+      button.classList.toggle("on", key === embed);
+      button.setAttribute("aria-checked", String(key === embed));
     }
     const auto = values.autosave !== false;
     for (const [on, button] of autoButtons) {
