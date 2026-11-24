@@ -2,6 +2,17 @@
 
 All notable changes to ComfyUI-AusBoss are documented here.
 
+## Unreleased
+
+- **Image Toolbox can cut a piece of your own size.** Pick the new job
+  **cut a piece**, set the width and height in pixels, pick where it sits
+  (a corner, an edge or the centre) and move it right or down from there.
+  The piece comes out of the first output, and the rest of the picture out
+  of a new second output, `rest`. A piece as tall as the picture, against
+  its left or right edge, leaves the strip beside it, so one node splits a
+  picture into two parts of different sizes. Width or height 0 takes the
+  picture's full width or height.
+
 ## 2.27.0 - 2026-11-23
 
 - **Video Crop + Rotate + Pad → Clip 🆎 can put a clip window in an App-mode

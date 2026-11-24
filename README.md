@@ -138,7 +138,7 @@ Reads a picture's `width`, `height`, `longest_edge`, `shortest_edge` and batch `
 
 ### Image Toolbox
 
-Small picture jobs in one node, picked from a list. **split sheet at gaps** cuts a row of pictures, such as a character sheet's views, into separate pictures, cutting at the gaps between them so no piece gets part of its neighbour.
+Small picture jobs in one node, picked from a list. **split sheet at gaps** cuts a row of pictures, such as a character sheet's views, into separate pictures, cutting at the gaps between them so no piece gets part of its neighbour. **cut a piece** cuts out one piece of the width and height you set, at the place you pick, and gives back the rest of the picture too.
 
 ### Color Match
 
