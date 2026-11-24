@@ -30,13 +30,12 @@ import { BRAND } from "../shared/index.mjs";
 import { makeScrubInput, scrubbedValue } from "../shared/scrub_input.mjs";
 import { menuBarBottom } from "../shared/viewer3d_layout.mjs";
 import { FONT_UI, RADIUS_CONTROL, RADIUS_XS, THEME as T } from "../shared/theme.mjs";
-import { backgroundChoice, drawStage } from "../shared/photo_stage.mjs";
 
 const PROP = "AusBoss View";
 const CSS_ID = "ausboss-viewer-pano-css";
 const SCAN_MS = 800;
 
-export const SKY_DEFAULTS = Object.freeze({ turn: 0, tilt: 0, roll: 0, fov: null, bright: 100, blur: 0, orbit: "moves", shadow: 0, size: null });
+export const SKY_DEFAULTS = Object.freeze({ turn: 0, tilt: 0, roll: 0, fov: null, bright: 100, blur: 0, orbit: "moves", shadow: 0 });
 export const ORBITS = Object.freeze(["moves", "fixed"]);
 export const LIGHTS = Object.freeze(["studio", "photo", "360"]);
 export const LOOK_DEFAULTS = Object.freeze({ light: "studio", strength: 100, bright: 100, contrast: 100, saturation: 100, warmth: 0 });
@@ -522,18 +521,6 @@ function patchSceneManager() {
       keepPanorama(this, state);
       applyLook(this, state);
       applyCut(this, state);
-      // Your photo behind her, lined up (Pause for Shot sent it), unless
-      // its Background is the 360 far away.
-      const stage = this.__ausbossStage;
-      if (stage && backgroundChoice(stage.choice?.(), !!stage.plate) !== "360") {
-        const model = modelOf(this);
-        const ground = model ? measureGround(model, state) : null;
-        if (drawStage(this, state, stage, ground?.y, state.values.sky)) {
-          state.skyWasOn = true;
-          drawShadow(this, state);
-          return undefined;
-        }
-      }
       if (skyActive(this, state.values.sky)) {
         if (drawSky(this, state)) { state.skyWasOn = true; drawShadow(this, state); return undefined; }
       } else if (state.skyWasOn) {
@@ -684,9 +671,6 @@ const BACKDROP = { title: "Backdrop", group: "sky", hint: "sky", fields: [
   { key: "blur", label: "Blur", min: 0, max: 100, step: 5, fineStep: 1, decimals: 0, unit: "%", title: "Soften the 360, like a shallow depth of field." },
   { key: "shadow", label: "Shadow", min: 0, max: 100, step: 5, fineStep: 1, decimals: 0, unit: "%",
     title: "A soft shadow on the floor under her, so she stands on the 360 instead of floating. Pause for Shot puts it in the run's shot too." },
-  { key: "size", label: "Size", min: 1.5, max: 200, step: 1, fineStep: 0.1, decimals: 1, unit: "×", allowEmpty: true, placeholder: "far", emptyStart: 20,
-    when: (_, manager) => !!manager?.__ausbossStage,
-    title: "How far the walls around her are, in camera heights: about 3 for a room, 20 or more outdoors. Empty keeps them endlessly far, like a sky." },
 ] };
 const LIGHT = { title: "Light", group: "look", fields: [
   { key: "light", label: "Light", pill: LIGHTS, wide: true,
@@ -748,7 +732,7 @@ function readSaved(node, state) {
         if (ORBITS.includes(value)) state.values.sky.orbit = value;
         if (Array.isArray(from.view)) state.values.sky.view = fixedView(from);
       }
-      else if (key === "fov" || key === "size") state.values.sky[key] = Number.isFinite(value) ? value : null;
+      else if (key === "fov") state.values.sky.fov = Number.isFinite(value) ? value : null;
       else if (Number.isFinite(value)) state.values[group][key] = value;
     }
   }
@@ -825,7 +809,7 @@ function buildStrip(box, root, manager) {
   const has360 = () => manager.backgroundRenderMode === "panorama" && manager.currentBackgroundType === "image";
   const changed = () => { state.dirty = true; writeSaved(node, state); redraw(manager); refreshWhen(); };
   const rows = [];
-  const refreshWhen = () => rows.forEach(({ row, spec }) => { if (spec.when) row.style.display = spec.when(state.values.look, manager) ? "" : "none"; });
+  const refreshWhen = () => rows.forEach(({ row, spec }) => { if (spec.when) row.style.display = spec.when(state.values.look) ? "" : "none"; });
 
   function scrubField(spec, values) {
     const row = document.createElement("label");
@@ -837,7 +821,7 @@ function buildStrip(box, root, manager) {
       value: values[spec.key], min: spec.min, max: spec.max, step: spec.step, fineStep: spec.fineStep,
       decimals: spec.decimals, unit: spec.unit, unitWidth: 12, title: spec.title,
       allowEmpty: !!spec.allowEmpty, placeholder: spec.placeholder ?? "",
-      emptyStart: spec.key === "fov" ? Math.round(camera()?.fov ?? 35) : (spec.emptyStart ?? 0),
+      emptyStart: spec.key === "fov" ? Math.round(camera()?.fov ?? 35) : 0,
       onChange: (value) => { values[spec.key] = value; changed(); },
     });
     // Drag the name to scrub as well, the way a 3D app's number fields work.
@@ -846,7 +830,7 @@ function buildStrip(box, root, manager) {
       if (event.button !== 0) return;
       event.preventDefault();
       name.setPointerCapture(event.pointerId);
-      const start = values[spec.key] ?? (spec.key === "fov" ? Math.round(camera()?.fov ?? 35) : (spec.emptyStart ?? 0));
+      const start = values[spec.key] ?? (spec.key === "fov" ? Math.round(camera()?.fov ?? 35) : 0);
       drag = { x: event.clientX, start };
     });
     name.addEventListener("pointermove", (event) => {

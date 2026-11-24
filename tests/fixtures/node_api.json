@@ -893,9 +893,6 @@
     "optional": [
       "panorama",
       "mesh",
-      "background",
-      "background_camera",
-      "background_mode",
       "view"
     ],
     "outputs": [

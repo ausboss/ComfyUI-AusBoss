@@ -143,7 +143,6 @@ const CARDS = {
   },
   AUSBOSS_NODES_PauseShot: { minWidth: 260, first: true, hide: ["view"], socketless: ["view"], rows: [
     { widget: "pause", label: "Pause", onText: "wait for me", offText: "run through" },
-    { widget: "background_mode", label: "Background" },
   ] },
   AUSBOSS_NODES_PhotoCamera: {
     minWidth: 260,

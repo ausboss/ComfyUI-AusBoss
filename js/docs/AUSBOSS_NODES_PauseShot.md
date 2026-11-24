@@ -12,29 +12,6 @@ Put it between a **Preview 3D (Advanced)** viewer and the node that renders
 the shot (such as Render Mesh): the viewer's `model_3d_info`, `camera_info`,
 `width` and `height` go in, and the same four come out.
 
-## Your own photo behind the model
-
-Wire your photo with the person taken out into `background`, and the camera
-that took it (**Photo Camera**'s `camera_info`) into `background_camera`.
-The viewer then shows that photo behind the model, lined up with it, and
-`backdrop` gives the same picture for the shot. From the photo's own camera
-you see your photo exactly; zoom in and it stays lined up. Turn the camera
-and she stays standing on the photo's floor.
-
-Past the edges of your photo there is nothing to show. If a 360 is wired
-in too, it fills those parts; if not, the photo's edges are stretched.
-
-**Size** on the viewer's Backdrop tab says how far away the walls around her
-are, in camera heights: about 3 for a room, 20 or more outdoors. Turn the
-camera and nearby walls shift behind her the way a real room's would. Leave
-it empty and they stay endlessly far, like a sky. From the photo's own camera
-every Size gives your photo back unchanged.
-
-**Background** on this node picks what goes behind her: *photo* (the
-default; without your photo wired in it stays the 360), *360* (the 360, far
-away, as before), or *360 floor* (the 360 with its floor under her feet).
-Change it while the run waits and the viewer shows the change.
-
 ## A 360 behind the model
 
 Wire a 360 picture (twice as wide as tall) into `panorama`. While the run
@@ -99,13 +76,3 @@ saved on the viewer.
   the triangles whose middle lies between the planes, so the edges agree to
   within a triangle. While a cut is on, the viewer draws both sides of the
   model, so through the cut you see its inside, the way Render Mesh draws it.
-- Your photo as the backdrop: the photo is laid on a simple stage around the
-  camera that took it: a dome centred on that camera, Size camera heights
-  to its wall (endless when Size is empty), cut across by a flat floor at
-  the model's lowest point. Each pixel of the shot is a ray cast the way
-  Render Mesh casts it; where it meets the floor, or else the dome's wall,
-  that point is looked up in the photo through the photo's own camera. The viewer
-  draws the same stage with the same rays. A 360 fills what the photo never
-  saw, painted around the same camera; *360 floor* lays the 360's lower half
-  on that floor, as a grounded sky dome does. A run that goes straight
-  through measures the floor and the shadow from `mesh`.
