@@ -8,7 +8,6 @@ bottom and are the only functions that touch PIL.
 
 from __future__ import annotations
 
-import json
 import re
 import secrets
 import threading
