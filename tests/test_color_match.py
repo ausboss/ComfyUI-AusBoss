@@ -208,5 +208,56 @@ class ReferenceModeTests(unittest.TestCase):
             node.match(rand_image(2, 8, 8), 1.0)
 
 
+
+def drifted_edit(seed: int = 30):
+    """A picture, and the same picture after an edit: the kept parts come back
+    darker with more contrast and colour, and one block is new, bright green."""
+    before = rand_image(1, 48, 48, seed) * 0.6 + 0.2
+    lab = rgb_to_lab(before)
+    lab = torch.cat([lab[..., :1] * 1.1 - 4.0, lab[..., 1:] * 1.25], dim=-1)
+    after = lab_to_rgb(lab)
+    after[:, 30:44, 30:44, :] = torch.tensor([0.25, 0.75, 0.2])
+    new = torch.zeros((1, 48, 48), dtype=torch.bool)
+    new[:, 30:44, 30:44] = True
+    return before, after, new
+
+
+class KeptMethodTests(unittest.TestCase):
+    def test_undoes_the_drift_on_the_kept_parts(self):
+        before, after, new = drifted_edit()
+        out = match_colors(after, before, 1.0, method="kept")
+        kept = ~new
+        drift = (rgb_to_lab(after) - rgb_to_lab(before)).norm(dim=-1)[kept].mean()
+        left = (rgb_to_lab(out) - rgb_to_lab(before)).norm(dim=-1)[kept].mean()
+        self.assertLess(float(left), float(drift) * 0.25)
+
+    def test_new_content_keeps_its_own_colour(self):
+        before, after, new = drifted_edit()
+        green = rgb_to_lab(after)[new].mean(0)
+        kept = rgb_to_lab(match_colors(after, before, 1.0, method="kept"))[new].mean(0)
+        lab = rgb_to_lab(match_colors(after, before, 1.0, method="lab"))[new].mean(0)
+        # Still clearly green (negative a), close to its own hue...
+        self.assertLess(float(kept[1]), -30.0)
+        self.assertLess(float((kept[1:] - green[1:]).norm()), 20.0)
+        # ...where a whole-picture statistics match drags it much further.
+        self.assertGreater(float((lab[1:] - green[1:]).norm()), float((kept[1:] - green[1:]).norm()))
+
+    def test_unchanged_picture_stays_put(self):
+        image = rand_image(1, 24, 24, seed=31)
+        out = match_colors(image, image.clone(), 1.0, method="kept")
+        self.assertTrue(torch.allclose(out, image, atol=3e-3))
+
+    def test_mask_limits_where_it_measures_and_fixes(self):
+        before, after, _ = drifted_edit()
+        mask = box_mask(48, 48, 0, 24, 0, 48)
+        out = match_colors(after, before, 1.0, mask=mask, method="kept")
+        self.assertTrue(torch.equal(out[:, 24:], after[:, 24:]))
+        self.assertFalse(torch.allclose(out[:, :24], after[:, :24], atol=1e-3))
+
+    def test_needs_the_same_size_reference(self):
+        with self.assertRaisesRegex(ValueError, "same size"):
+            match_colors(rand_image(1, 16, 16), rand_image(1, 8, 8), 1.0, method="kept")
+
+
 if __name__ == "__main__":
     unittest.main()

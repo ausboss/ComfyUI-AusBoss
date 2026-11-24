@@ -32,6 +32,8 @@ from nodes._layout_boxes_helpers import (
     input_fingerprint,
     mask_rects,
     parse_layout,
+    placement_prompt,
+    placement_words,
     prompt_elements,
     read_angle,
     regions_from_pixel_boxes,
@@ -348,6 +350,67 @@ class TurnedBoxes(unittest.TestCase):
         self.assertEqual(element_desc(turned(0, 0, 64, 32, 25, "obj", "", "a bicycle")), "a bicycle", "an object box gets no slant")
         self.assertEqual(element_desc(turned(0, 0, 64, 32, 1.5, "text", "OPEN", "chalk")), "chalk", "under 2 degrees is level enough")
         self.assertEqual(element_desc(box(0, 0, 64, 32, "text", "OPEN", "chalk")), "chalk")
+
+
+def fraction_box(x, y, w, h, kind="obj", text="", desc="", palette=(), **more):
+    """A box in fractions of the canvas, as the `placement` tests read best."""
+    return {"x": x, "y": y, "w": w, "h": h, "type": kind, "text": text, "desc": desc, "palette": list(palette), **more}
+
+
+class PlacementSentences(unittest.TestCase):
+    def test_the_form_that_was_tried(self):
+        regions = [
+            fraction_box(0.06, 0.06, 0.46, 0.19, "text", "FRESH", "huge bold black sans-serif letters"),
+            fraction_box(0.52, 0.35, 0.42, 0.50, desc="one ripe orange with a green leaf"),
+        ]
+        self.assertEqual(
+            placement_prompt(regions, (1024, 1024)),
+            'The words "FRESH" in huge bold black sans-serif letters, placed top left, from 6% to 52% across and '
+            "6% to 25% down. One ripe orange with a green leaf, placed middle right, from 52% to 94% across and "
+            "35% to 85% down.",
+        )
+
+    def test_no_boxes_no_words(self):
+        self.assertEqual(placement_prompt([], None), "")
+        self.assertEqual(placement_prompt([fraction_box(0.1, 0.1, 0.2, 0.2), fraction_box(0.1, 0.1, 0.2, 0.2, "text")]), "",
+                         "a box with no words and no description is left out")
+
+    def test_the_place_in_words(self):
+        for extent, where in (
+            ((0, 0, 30, 39), "top left"), ((50, 61, 100, 100), "bottom right"), ((30, 30, 70, 70), "center"),
+            ((30, 0, 70, 20), "top center"), ((0, 30, 54, 70), "middle left"), ((46, 30, 100, 70), "middle right"),
+            ((0, 40, 40, 60), "middle left"), ((44, 60, 56, 90), "middle center"),
+        ):
+            want = "center" if where == "middle center" else where
+            self.assertTrue(placement_words(*extent).startswith(want + ", from "), (extent, placement_words(*extent)))
+        self.assertEqual(placement_words(6, 6, 52, 25), "top left, from 6% to 52% across and 6% to 25% down")
+
+    def test_text_without_a_description_and_text_without_words(self):
+        words = placement_prompt([fraction_box(0.0, 0.0, 0.5, 0.2, "text", "  OPEN ", "")])
+        self.assertEqual(words, 'The words "OPEN", placed top left, from 0% to 50% across and 0% to 20% down.')
+        thing = placement_prompt([fraction_box(0.6, 0.7, 0.4, 0.3, "text", "  ", "a neon sign.")])
+        self.assertEqual(thing, "A neon sign, placed bottom right, from 60% to 100% across and 70% to 100% down.",
+                         "a text box with no words is placed as a thing")
+
+    def test_colors_follow_the_sentence(self):
+        words = placement_prompt([fraction_box(0.25, 0.25, 0.5, 0.5, desc="a cat", palette=["#ff3399", "#00aabb"])])
+        self.assertEqual(words, "A cat, placed center, from 25% to 75% across and 25% to 75% down. Colors: #FF3399, #00AABB.")
+
+    def test_a_turned_box_gives_the_straight_box_around_it_and_its_slant(self):
+        sign = turned(448, 256, 448, 128, 25, "text", "SALE", "red letters")
+        (element,) = prompt_elements([sign], (W, H))
+        top, left, bottom, right = (round(value / 10) for value in element["bbox"])
+        self.assertEqual(
+            placement_prompt([sign], (W, H)),
+            f'The words "SALE" in red letters, tilted about 25 degrees, running downhill to the right, placed center, '
+            f"from {left}% to {right}% across and {top}% to {bottom}% down.",
+        )
+        level = placement_prompt([dict(sign, angle=0)], (W, H))
+        self.assertIn("from 33% to 67% across and 33% to 50% down", level)
+
+    def test_boxes_past_the_edge_are_cut_to_the_canvas(self):
+        words = placement_prompt([fraction_box(-0.2, 0.9, 0.5, 0.3, desc="a dog")])
+        self.assertEqual(words, "A dog, placed bottom left, from 0% to 30% across and 90% to 100% down.")
 
 
 class ThePreviewWords(unittest.TestCase):

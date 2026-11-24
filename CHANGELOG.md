@@ -4,6 +4,18 @@ All notable changes to ComfyUI-AusBoss are documented here.
 
 ## Unreleased
 
+- **Layout Boxes 🆎 says the boxes as sentences for any prompt.** A new
+  `placement` output writes each box as a plain sentence: what goes there
+  and where, such as `The words "FRESH" in bold black letters, placed top
+  left, from 6% to 52% across and 6% to 25% down.` Add it to the prompt of
+  a model that has no box input, and the things land where you drew them.
+
+- **Color Match 🆎 can fix an edit that looks pasted on.** A new method,
+  `kept`, takes the picture from before the edit as reference. It learns how
+  the model shifted the parts it was meant to keep (darker, more contrast,
+  more colour) and undoes that, so a new word or object sits in the same
+  tone as the rest. New things keep their own colours.
+
 - **Save Image 🆎 can write Civitai info.** Pick **Civitai** in the Embed
   switch (Off | On | Civitai) and a saved picture also carries its prompt,
   settings and the fingerprints of its model and LoRAs in the form
