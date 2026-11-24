@@ -2,8 +2,9 @@
 // viewer's side of Pause for Shot's photo backdrop (nodes/_stage_helpers.py).
 //
 // The photo (with the person taken out) is laid on a simple stage around the
-// camera that took it: a flat floor at the model's feet, everything else far
-// away. Each pixel of the viewer is a ray from its camera; where it meets the
+// camera that took it: a flat floor at the model's feet, everything else on
+// the wall of a dome around that camera, Size camera heights away (the
+// viewer's Backdrop tab; empty keeps the wall endlessly far). Each pixel of the viewer is a ray from its camera; where it meets the
 // floor, or else far away, that point is looked up in the photo through the
 // photo's own camera. What the photo never saw comes from the 360 when there
 // is one, else from the photo's nearest edge. Pause for Shot casts the same
@@ -71,6 +72,16 @@ export function eulerZXY(x, y, z) {
   ];
 }
 
+// The dome's radius from the viewer's Size (camera heights), as the run
+// reads it (_stage_helpers.dome_radius); 0 keeps the wall endlessly far.
+export const SIZE_MIN = 1.5;
+export const SIZE_MAX = 1000;
+export function domeRadius(size, eyeY, floorY) {
+  if (typeof size !== "number" || !Number.isFinite(size) || size <= 0) return 0;
+  if (!Number.isFinite(floorY) || !Number.isFinite(eyeY) || eyeY <= floorY) return 0;
+  return Math.min(SIZE_MAX, Math.max(SIZE_MIN, size)) * (eyeY - floorY);
+}
+
 const VERTEX = `
 varying vec2 abNdc;
 `;
@@ -81,6 +92,7 @@ uniform float abTan;
 uniform float abAspect;
 uniform float abFloorY;
 uniform float abHasFloor;
+uniform float abRadius;
 uniform sampler2D abPlate;
 uniform float abHasPlate;
 uniform vec3 abPEye;
@@ -97,9 +109,19 @@ uniform vec3 abMean;
 vec3 abStage() {
   vec3 ray = (abCam * vec4(abNdc.x * abTan * abAspect, abNdc.y * abTan, -1.0, 0.0)).xyz;
   vec3 eye = abCam[3].xyz;
-  vec3 seen = normalize(ray);
-  if (abHasFloor > 0.5 && eye.y > abFloorY && ray.y < 0.0) {
-    seen = eye + ray * ((abFloorY - eye.y) / ray.y) - abPEye;
+  vec3 dir = normalize(ray);
+  vec3 seen = dir;
+  if (abRadius > 0.0) {
+    // Where the ray leaves the dome (its far side from outside it).
+    vec3 rel = eye - abPEye;
+    float b = dot(dir, rel);
+    float disc = b * b - (dot(rel, rel) - abRadius * abRadius);
+    float exitT = -b + sqrt(max(disc, 0.0));
+    if (disc >= 0.0 && exitT > 0.0) seen = rel + dir * exitT;
+  }
+  if (abHasFloor > 0.5 && eye.y > abFloorY && dir.y < 0.0) {
+    vec3 hit = eye + dir * ((abFloorY - eye.y) / dir.y) - abPEye;
+    if (abRadius <= 0.0 || dot(hit, hit) <= abRadius * abRadius) seen = hit;
   }
   float z = dot(seen, abPFwd);
   vec2 uv = vec2(0.5);
@@ -157,7 +179,7 @@ function makeQuad(manager) {
   const material = new Material({ color: 0xffffff, depthTest: false, depthWrite: false, side: 2, toneMapped: false });
   const uniforms = {
     abCam: { value: new Matrix4() }, abTan: { value: 1 }, abAspect: { value: 1 },
-    abFloorY: { value: 0 }, abHasFloor: { value: 0 },
+    abFloorY: { value: 0 }, abHasFloor: { value: 0 }, abRadius: { value: 0 },
     abPlate: { value: null }, abHasPlate: { value: 0 },
     abPEye: { value: { x: 0, y: 0, z: 0 } }, abPRight: { value: { x: 1, y: 0, z: 0 } }, abPUp: { value: { x: 0, y: 1, z: 0 } },
     abPFwd: { value: { x: 0, y: 0, z: -1 } }, abPTan: { value: 1 }, abPAspect: { value: 1 },
@@ -244,6 +266,7 @@ export function drawStage(manager, state, data, floorY, sky) {
   u.abPlate.value = usePlate ? plate : null;
   const vec = (a) => ({ x: a[0], y: a[1], z: a[2] });
   u.abPEye.value = vec(photo.eye);
+  u.abRadius.value = domeRadius(sky.size, photo.eye[1], floorY);
   u.abPRight.value = vec(photo.right);
   u.abPUp.value = vec(photo.up);
   u.abPFwd.value = vec(photo.forward);

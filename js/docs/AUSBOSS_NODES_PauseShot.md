@@ -24,6 +24,12 @@ and she stays standing on the photo's floor.
 Past the edges of your photo there is nothing to show. If a 360 is wired
 in too, it fills those parts; if not, the photo's edges are stretched.
 
+**Size** on the viewer's Backdrop tab says how far away the walls around her
+are, in camera heights: about 3 for a room, 20 or more outdoors. Turn the
+camera and nearby walls shift behind her the way a real room's would. Leave
+it empty and they stay endlessly far, like a sky. From the photo's own camera
+every Size gives your photo back unchanged.
+
 **Background** on this node picks what goes behind her: *photo* (the
 default; without your photo wired in it stays the 360), *360* (the 360, far
 away, as before), or *360 floor* (the 360 with its floor under her feet).
@@ -94,10 +100,11 @@ saved on the viewer.
   within a triangle. While a cut is on, the viewer draws both sides of the
   model, so through the cut you see its inside, the way Render Mesh draws it.
 - Your photo as the backdrop: the photo is laid on a simple stage around the
-  camera that took it, a flat floor at the model's lowest point and
-  everything else far away. Each pixel of the shot is a ray cast the way
-  Render Mesh casts it; where it meets the floor, or else far away, that
-  point is looked up in the photo through the photo's own camera. The viewer
+  camera that took it: a dome centred on that camera, Size camera heights
+  to its wall (endless when Size is empty), cut across by a flat floor at
+  the model's lowest point. Each pixel of the shot is a ray cast the way
+  Render Mesh casts it; where it meets the floor, or else the dome's wall,
+  that point is looked up in the photo through the photo's own camera. The viewer
   draws the same stage with the same rays. A 360 fills what the photo never
   saw, painted around the same camera; *360 floor* lays the 360's lower half
   on that floor, as a grounded sky dome does. A run that goes straight

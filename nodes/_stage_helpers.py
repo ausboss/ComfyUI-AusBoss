@@ -19,6 +19,12 @@ photo shows a soft backdrop to paint into rather than stretched streaks.
 
 The same stage with the 360 alone ("360 floor") lays the 360's lower half on
 that floor, the way a grounded sky dome does.
+
+How far away "far away" is comes from the viewer's Size: the stage is a dome
+around the photo's camera with that floor cut across it, Size camera heights
+across from its middle to its wall. A small dome is a room: its walls shift
+behind her as the camera moves round, as a room's walls would. Size 0 keeps
+the wall endlessly far, like a sky.
 """
 
 from __future__ import annotations
@@ -141,10 +147,26 @@ def edge_fill(plate: np.ndarray, col: np.ndarray, row: np.ndarray, sharp: np.nda
     return sharp * (1 - t) + blur * t
 
 
-def stage_points(shot_camera: dict, photo_camera: dict, floor_y: float | None, width: int, height: int):
-    """For each shot pixel: the vector from the photo camera's eye to what the
-    pixel sees on the stage (a floor point, or a far direction), and whether
-    it hit the floor. None without both cameras."""
+SIZE_MIN = 1.5
+SIZE_MAX = 1000.0
+
+
+def dome_radius(size, eye_y: float, floor_y: float | None) -> float:
+    """The dome's radius from the viewer's Size (camera heights); 0 for an
+    endless one. A dome smaller than SIZE_MIN would barely reach the floor."""
+    if isinstance(size, bool) or not isinstance(size, (int, float)) or not math.isfinite(size) or size <= 0:
+        return 0.0
+    if floor_y is None or not math.isfinite(floor_y) or eye_y <= floor_y:
+        return 0.0
+    return min(SIZE_MAX, max(SIZE_MIN, float(size))) * (eye_y - floor_y)
+
+
+def stage_points(shot_camera: dict, photo_camera: dict, floor_y: float | None, width: int, height: int,
+                 size=0):
+    """Where each pixel of the shot lands on the stage, as seen from the
+    photo's camera: (photo frame, vectors from the photo's eye, on_floor).
+    A vector is a point (on the floor or the dome's wall) or, where the dome
+    is endless, a direction; either looks up the same way."""
     shot = camera_frame(shot_camera)
     photo = camera_frame(photo_camera)
     if shot is None or photo is None:
@@ -152,15 +174,25 @@ def stage_points(shot_camera: dict, photo_camera: dict, floor_y: float | None, w
     eye = shot[0]
     rays = shot_rays(shot, width, height)
     direction = rays / np.linalg.norm(rays, axis=-1, keepdims=True)
+    vectors = direction.copy()
+    radius = dome_radius(size, photo[0][1], floor_y)
+    if radius > 0:
+        # Where the ray leaves the dome (the far side when the camera is outside it).
+        rel = eye - photo[0]
+        b = direction @ rel
+        disc = b * b - (rel @ rel - radius * radius)
+        exit_t = -b + np.sqrt(np.maximum(disc, 0.0))
+        wall = (disc >= 0) & (exit_t > 0)
+        vectors = np.where(wall[..., None], rel + direction * exit_t[..., None], vectors)
     on_floor = np.zeros(rays.shape[:2], dtype=bool)
-    vectors = direction.copy()  # far away: a direction is the same from any eye
     if floor_y is not None and math.isfinite(floor_y) and eye[1] > floor_y:
-        dy = rays[..., 1]
         with np.errstate(divide="ignore", invalid="ignore"):
-            t = (floor_y - eye[1]) / dy
+            t = (floor_y - eye[1]) / direction[..., 1]
         on_floor = np.isfinite(t) & (t > 0)
-        hits = eye + rays * np.where(on_floor, t, 0.0)[..., None]
-        vectors = np.where(on_floor[..., None], hits - photo[0], vectors)
+        hits = eye + direction * np.where(on_floor, t, 0.0)[..., None] - photo[0]
+        if radius > 0:
+            on_floor &= np.einsum("...i,...i->...", hits, hits) <= radius * radius
+        vectors = np.where(on_floor[..., None], hits, vectors)
     return photo, vectors, on_floor
 
 
@@ -170,7 +202,7 @@ def stage_backdrop(plate: np.ndarray | None, photo_camera: dict, shot_camera: di
     """height x width x 3 floats: the stage as the shot's camera sees it.
     plate: H x W x 3, the photo with the person taken out. With use_photo off
     (or no plate) the 360 alone covers the stage ("360 floor")."""
-    found = stage_points(shot_camera, photo_camera, floor_y, int(width), int(height))
+    found = stage_points(shot_camera, photo_camera, floor_y, int(width), int(height), (sky or {}).get("size"))
     if found is None:
         return None
     photo, vectors, _ = found

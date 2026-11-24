@@ -2,6 +2,7 @@
 // Shot's run (nodes/_stage_helpers.py), so the two must agree on the maths.
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { BACKGROUNDS, backgroundChoice, eulerZXY, photoUv, stageFrame } from "../js/shared/photo_stage.mjs";
 
 const PHOTO = { position: { x: 0, y: 0, z: 2 }, target: { x: 0, y: 0, z: 0 }, fov: 50 };
@@ -45,3 +46,20 @@ test("your photo is the default when there is one", () => {
   assert.equal(backgroundChoice("360", true), "360");
   assert.equal(backgroundChoice("bogus", true), "photo");
 });
+
+test("Size reads in camera heights, as the run reads it", async () => {
+  const { domeRadius, SIZE_MIN } = await import("../js/shared/photo_stage.mjs");
+  assert.equal(domeRadius(8, 0, -0.5), 4);
+  assert.equal(domeRadius(0.2, 0, -0.5), SIZE_MIN * 0.5);
+  for (const endless of [null, undefined, 0, -3, true, "8", NaN]) assert.equal(domeRadius(endless, 0, -0.5), 0);
+  assert.equal(domeRadius(8, 0, undefined), 0);
+  assert.equal(domeRadius(8, -1, -0.5), 0);
+});
+
+test("the shader keeps the floor inside the dome and the rest on its wall", () => {
+  const source = readFileSync(new URL("../js/shared/photo_stage.mjs", import.meta.url), "utf8");
+  assert.match(source, /uniform float abRadius;/);
+  assert.match(source, /dot\(hit, hit\) <= abRadius \* abRadius/);
+  assert.match(source, /u\.abRadius\.value = domeRadius\(sky\.size, photo\.eye\[1\], floorY\)/);
+});
+

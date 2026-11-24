@@ -22,7 +22,9 @@ All notable changes to ComfyUI-AusBoss are documented here.
   lined up when you zoom, and keep her standing on the photo's floor when
   you turn. A 360, if wired in, fills what the photo never saw. A new
   Background setting on the node switches between your photo, the 360 far
-  away, and the 360 with a floor under her feet.
+  away, and the 360 with a floor under her feet. Size on the viewer's
+  Backdrop tab sets how far away the walls around her are, so a room's
+  walls shift behind her as the camera turns; empty keeps them endlessly far.
 - **Pause for Shot 🆎 keeps the viewer's 360 settings on runs that don't
   pause.** With Pause on *run through*, the backdrop now uses the Turn,
   Tilt, Shadow and the rest saved on the viewer, as a paused run does.
