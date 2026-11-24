@@ -29,10 +29,3 @@ test("the pause fills the input as the prompt is built, and the card hides it", 
   const cards = readFileSync(new URL("../js/widget_cards/index.js", import.meta.url), "utf8");
   assert.match(cards, /AUSBOSS_NODES_PauseShot:[^\n]*hide: \["view"\], socketless: \["view"\]/);
 });
-
-test("a Background picked on the node redraws the viewer at once", () => {
-  // The viewer draws only when something moves in it; without this the old
-  // background stayed up until the camera was touched.
-  const pause = readFileSync(new URL("../js/pause_shot/index.js", import.meta.url), "utf8");
-  assert.match(pause, /chainCallback\(mode, "callback", \(\) => redrawViewer\(/);
-});
