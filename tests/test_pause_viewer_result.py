@@ -70,5 +70,29 @@ class PanoramaOffTests(unittest.TestCase):
         self.assertNotIn("panorama", ps.clean_shot({}))
 
 
+class SavedViewTests(unittest.TestCase):
+    """A run that goes straight through has no Continue answer, so the 360's
+    Turn and the rest come from the viewer as saved in the workflow."""
+
+    WORKFLOW = {"workflow": {"nodes": [
+        {"id": 30, "type": "Preview3DAdvanced", "properties": {"AusBoss View": {"sky": {"turn": 90, "tilt": 2}}}},
+        {"id": 31, "type": "RenderMesh", "properties": {}},
+    ]}}
+
+    def test_viewer_sky_is_read_from_the_workflow(self):
+        self.assertEqual(ps.saved_view(self.WORKFLOW, "30"), {"sky": {"turn": 90, "tilt": 2}})
+
+    def test_viewer_inside_a_subgraph(self):
+        info = {"workflow": {"nodes": [], "definitions": {"subgraphs": [{"nodes": [
+            {"id": 30, "properties": {"AusBoss View": {"sky": {"turn": 45}, "panorama": False}}}]}]}}}
+        self.assertEqual(ps.saved_view(info, "75:30"), {"sky": {"turn": 45}})
+
+    def test_nothing_saved_or_no_workflow(self):
+        self.assertEqual(ps.saved_view(self.WORKFLOW, "31"), {})
+        self.assertEqual(ps.saved_view(self.WORKFLOW, None), {})
+        self.assertEqual(ps.saved_view(None, "30"), {})
+        self.assertEqual(ps.saved_view({"workflow": "junk"}, "30"), {})
+
+
 if __name__ == "__main__":
     unittest.main()

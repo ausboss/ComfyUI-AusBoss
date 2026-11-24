@@ -279,7 +279,7 @@ class AusBossPauseShot:
             "optional": {
                 "panorama": ("IMAGE", {"tooltip": "A 360 picture (twice as wide as tall) to show behind the model and hand on as backdrop."}),
             },
-            "hidden": {"unique_id": "UNIQUE_ID", "prompt": "PROMPT"},
+            "hidden": {"unique_id": "UNIQUE_ID", "prompt": "PROMPT", "extra_pnginfo": "EXTRA_PNGINFO"},
         }
 
     RETURN_TYPES = ("LOAD3D_MODEL_INFO", "LOAD3D_CAMERA", "INT", "INT", "IMAGE")
@@ -298,7 +298,8 @@ class AusBossPauseShot:
         # A pause asks on every run, even when nothing above it changed.
         return float("nan") if pause else 0
 
-    def wait(self, model_3d_info, camera_info, width, height, pause, panorama=None, unique_id=None, prompt=None):
+    def wait(self, model_3d_info, camera_info, width, height, pause, panorama=None, unique_id=None, prompt=None,
+             extra_pnginfo=None):
         shot = {}
         if pause and unique_id is not None:
             extra = {}
@@ -318,8 +319,41 @@ class AusBossPauseShot:
         height = shot.get("height", height)
         if shot.get("panorama") is False:
             panorama = None
-        backdrop = _backdrop(panorama, camera_info, shot.get("sky"), shot.get("ground"), width, height)
+        sky = shot.get("sky")
+        if sky is None:
+            # A run that went straight through: no Continue carried the 360's
+            # settings, so take the ones saved on the viewer in the workflow.
+            saved = saved_view(extra_pnginfo, viewer_of(prompt, str(unique_id)) if unique_id is not None else None)
+            sky = saved.get("sky")
+        backdrop = _backdrop(panorama, camera_info, sky, shot.get("ground"), width, height)
         return (model_3d_info, camera_info, width, height, backdrop)
+
+
+def saved_view(extra_pnginfo, viewer_id) -> dict:
+    """The viewer's 360 sky settings (Turn, Tilt, Shadow...) as saved in the
+    workflow (its "AusBoss View" property, js/viewer_pano), checked like an
+    answer's. A viewer inside a
+    subgraph has an id such as "75:30"; its last part names it there."""
+    if not viewer_id or not isinstance(extra_pnginfo, dict):
+        return {}
+    workflow = extra_pnginfo.get("workflow")
+    if not isinstance(workflow, dict):
+        return {}
+    wanted = str(viewer_id).split(":")[-1]
+    graphs = [workflow.get("nodes")]
+    definitions = workflow.get("definitions")
+    if ":" in str(viewer_id) and isinstance(definitions, dict):
+        graphs += [graph.get("nodes") for graph in definitions.get("subgraphs") or [] if isinstance(graph, dict)]
+    for nodes in graphs:
+        for node in nodes if isinstance(nodes, list) else []:
+            if not isinstance(node, dict) or str(node.get("id")) != wanted:
+                continue
+            view = (node.get("properties") or {}).get("AusBoss View")
+            if not isinstance(view, dict):
+                return {}
+            sky = clean_value(view.get("sky"))
+            return {"sky": sky} if isinstance(sky, dict) else {}
+    return {}
 
 
 def _backdrop(panorama, camera_info, sky, ground, width, height):
