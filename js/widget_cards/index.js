@@ -19,6 +19,7 @@ import { mountWidgetCard } from "../shared/widget_card.mjs";
 import { FONT_UI, THEME } from "../shared/theme.mjs";
 import { SOCKETLESS_CHOICE, SOCKETLESS_TEXT, commitWidgetValue, markSocketless, resetUnknownValues } from "../shared/widget_card_math.mjs";
 import { mediaViewQuery } from "../shared/media_list.mjs";
+import { readsFill, readsFit } from "../shared/image_resize_rows.mjs";
 import { gearIconSvg, openSettingsMenu } from "../shared/settings_menu.mjs";
 import { SEAM_MENU, SEAM_MUTE_TITLES, isBlendIn, seamCornerReserve } from "../shared/stitch_seam.mjs";
 import { NUMBER_LOOK_MENU, TEXT_LOOK_MENU, setTextLook, textLook, textLookCornerReserve } from "../shared/text_look.mjs";
@@ -120,8 +121,8 @@ const CARDS = {
       { widget: "edge_length", label: "Edge", suffix: "px", when: isMode("target_mode", "longest_edge", "shortest_edge") },
       { widget: "megapixels", label: "Budget", suffix: "MP", when: isMode("target_mode", "megapixels") },
       { widget: "scale_factor", label: "Scale", suffix: "×", when: isMode("target_mode", "scale_factor") },
-      { widget: "keep_proportion", label: "Fit", kind: "segment", labels: { cover_crop: "cover" } },
-      { widget: "fill_color", label: "Fill", kind: "color", when: isMode("keep_proportion", "pad") },
+      { widget: "keep_proportion", label: "Fit", kind: "segment", labels: { cover_crop: "cover" }, when: readsFit },
+      { widget: "fill_color", label: "Fill", kind: "color", when: readsFill },
       { widget: "divisible_by", label: "Multiple" },
       { widget: "interpolation", label: "Filter", kind: "select" },
     ],
@@ -149,6 +150,7 @@ const CARDS = {
     minWidth: 260,
     rows: [
       { widget: "fov", label: "Lens", suffix: "°", step: 1, decimals: 1, title: "How wide the photo is, in degrees across. Wire Get FoV from MoGe here." },
+      { group: "advanced", label: "More" },
       { widget: "pad_factor", label: "Crop margin", suffix: "×", step: 0.05, decimals: 2, group: "advanced" },
       { widget: "canvas_width", label: "360 width", suffix: "px", step: 256, snap: true, group: "advanced" },
     ],
