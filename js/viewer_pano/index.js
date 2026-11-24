@@ -30,6 +30,7 @@ import { BRAND } from "../shared/index.mjs";
 import { makeScrubInput, scrubbedValue } from "../shared/scrub_input.mjs";
 import { menuBarBottom } from "../shared/viewer3d_layout.mjs";
 import { FONT_UI, RADIUS_CONTROL, RADIUS_XS, THEME as T } from "../shared/theme.mjs";
+import { backgroundChoice, drawStage } from "../shared/photo_stage.mjs";
 
 const PROP = "AusBoss View";
 const CSS_ID = "ausboss-viewer-pano-css";
@@ -521,6 +522,18 @@ function patchSceneManager() {
       keepPanorama(this, state);
       applyLook(this, state);
       applyCut(this, state);
+      // Your photo behind her, lined up (Pause for Shot sent it), unless
+      // its Background is the 360 far away.
+      const stage = this.__ausbossStage;
+      if (stage && backgroundChoice(stage.choice?.(), !!stage.plate) !== "360") {
+        const model = modelOf(this);
+        const ground = model ? measureGround(model, state) : null;
+        if (drawStage(this, state, stage, ground?.y, state.values.sky)) {
+          state.skyWasOn = true;
+          drawShadow(this, state);
+          return undefined;
+        }
+      }
       if (skyActive(this, state.values.sky)) {
         if (drawSky(this, state)) { state.skyWasOn = true; drawShadow(this, state); return undefined; }
       } else if (state.skyWasOn) {

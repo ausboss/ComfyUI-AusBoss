@@ -21,6 +21,7 @@ ComfyUI's queue ends a pause as well.
 
 from __future__ import annotations
 
+import json
 import math
 import os
 import random
@@ -28,6 +29,7 @@ import threading
 
 from ._backdrop_helpers import clean_ground, shadow_alpha, view_backdrop
 from ._mesh_cut_helpers import clean_cut, cut_mesh
+from ._stage_helpers import BACKGROUNDS, mesh_ground, stage_backdrop
 
 EVENT_WAIT = "ausboss-pause-shot"
 EVENT_DONE = "ausboss-pause-shot-done"
@@ -161,6 +163,8 @@ def clean_shot(shot) -> dict:
     cut = clean_cut(shot.get("cut"))
     if cut:
         out["cut"] = cut
+    if shot.get("background") in BACKGROUNDS:
+        out["background"] = shot["background"]
     # False when the 360 was taken out of the viewer: the backdrop goes grey.
     if shot.get("panorama") is False:
         out["panorama"] = False
@@ -171,8 +175,8 @@ def clean_shot(shot) -> dict:
     return out
 
 
-def _save_panorama(panorama) -> dict | None:
-    """The 360 as a temp picture, for the viewer to show while the run waits."""
+def _save_panorama(panorama, prefix: str = "ausboss_360_") -> dict | None:
+    """The 360 (or your photo) as a temp picture, for the viewer to show while the run waits."""
     try:
         import folder_paths
         from PIL import Image
@@ -180,7 +184,7 @@ def _save_panorama(panorama) -> dict | None:
         array = (panorama[0].clamp(0, 1).cpu().numpy() * 255).round().astype("uint8")
         temp = folder_paths.get_temp_directory()
         os.makedirs(temp, exist_ok=True)
-        name = "ausboss_360_" + "".join(random.choice("abcdefghijklmnopqrstuvwxyz") for _ in range(8)) + ".png"
+        name = prefix + "".join(random.choice("abcdefghijklmnopqrstuvwxyz") for _ in range(8)) + ".png"
         Image.fromarray(array).save(os.path.join(temp, name), compress_level=1)
         return {"filename": name, "subfolder": "", "type": "temp"}
     except Exception:
@@ -283,8 +287,14 @@ class AusBossPauseShot:
             "optional": {
                 "panorama": ("IMAGE", {"tooltip": "A 360 picture (twice as wide as tall) to show behind the model and hand on as backdrop."}),
                 "mesh": ("MESH", {"tooltip": "The model as a mesh, the one Render Mesh draws. Wire it here and take mesh from this node to Render Mesh, so the viewer's Cut reaches the shot."}),
+                "background": ("IMAGE", {"tooltip": "Your photo with the person taken out. With background_camera wired too, it becomes the backdrop, lined up with the model, and she stands on its floor."}),
+                "background_camera": ("LOAD3D_CAMERA", {"tooltip": "The camera that took the photo, from Photo Camera's camera_info."}),
+                "background_mode": (list(BACKGROUNDS), {"default": "photo", "tooltip": "What goes behind the model. photo: your photo, lined up, its floor under her feet (needs background and background_camera). 360: the 360, far away. 360 floor: the 360 with its floor under her feet."}),
+                "view": ("STRING", {"default": "", "multiline": False, "tooltip": "The viewer's 360 settings and Cut, filled in by the page when you press Run. Leave it empty."}),
             },
-            "hidden": {"unique_id": "UNIQUE_ID", "prompt": "PROMPT", "extra_pnginfo": "EXTRA_PNGINFO"},
+            # Only what is in the prompt: ComfyUI runs a node again only when
+            # an input changes, and the saved workflow is not an input.
+            "hidden": {"unique_id": "UNIQUE_ID", "prompt": "PROMPT"},
         }
 
     RETURN_TYPES = ("LOAD3D_MODEL_INFO", "LOAD3D_CAMERA", "INT", "INT", "IMAGE", "MESH")
@@ -304,8 +314,8 @@ class AusBossPauseShot:
         # A pause asks on every run, even when nothing above it changed.
         return float("nan") if pause else 0
 
-    def wait(self, model_3d_info, camera_info, width, height, pause, panorama=None, mesh=None, unique_id=None,
-             prompt=None, extra_pnginfo=None):
+    def wait(self, model_3d_info, camera_info, width, height, pause, panorama=None, mesh=None, background=None,
+             background_camera=None, background_mode="photo", view="", unique_id=None, prompt=None):
         shot = {}
         if pause and unique_id is not None:
             extra = {}
@@ -318,6 +328,14 @@ class AusBossPauseShot:
                 saved = _save_panorama(panorama)
                 if saved:
                     extra["panorama"] = saved
+            if isinstance(background_camera, dict):
+                # Your photo and its camera, for the viewer to line up behind her.
+                stage = {"camera": clean_value(background_camera)}
+                if background is not None:
+                    plate = _save_panorama(background, "ausboss_photo_")
+                    if plate:
+                        stage["plate"] = plate
+                extra["stage"] = stage
             shot = _wait_for_answer(str(unique_id), extra).get("shot") or {}
         model_3d_info = shot.get("model_3d_info", model_3d_info)
         camera_info = shot.get("camera_info", camera_info)
@@ -328,45 +346,49 @@ class AusBossPauseShot:
         sky, cut = shot.get("sky"), shot.get("cut")
         if sky is None:
             # A run that went straight through: no Continue carried the 360's
-            # settings or the Cut, so take the ones saved on the viewer.
-            saved = saved_view(extra_pnginfo, viewer_of(prompt, str(unique_id)) if unique_id is not None else None)
+            # settings or the Cut, so take the viewer's as the page put them
+            # in `view` when Run was pressed.
+            saved = view_settings(view)
             sky, cut = saved.get("sky"), saved.get("cut")
-        backdrop = _backdrop(panorama, camera_info, sky, shot.get("ground"), width, height)
+        backdrop = None
+        if isinstance(background_camera, dict):
+            # Continue carries the Background picked while the run waited.
+            mode = shot.get("background") if shot.get("background") in BACKGROUNDS else background_mode
+            backdrop = _stage(background, background_camera, panorama, mesh, model_3d_info, camera_info, sky,
+                              shot.get("ground"), width, height, mode)
+        if backdrop is None:
+            backdrop = _backdrop(panorama, camera_info, sky, shot.get("ground"), width, height)
         mesh = cut_mesh(mesh, model_3d_info, camera_info, cut)
         return (model_3d_info, camera_info, width, height, backdrop, mesh)
 
 
-def saved_view(extra_pnginfo, viewer_id) -> dict:
-    """The viewer's 360 sky settings (Turn, Tilt, Shadow...) and its Cut as
-    saved in the workflow (its "AusBoss View" property, js/viewer_pano), checked like an
-    answer's. A viewer inside a
-    subgraph has an id such as "75:30"; its last part names it there."""
-    if not viewer_id or not isinstance(extra_pnginfo, dict):
+MAX_VIEW = 20000
+
+
+def view_settings(view) -> dict:
+    """The viewer's 360 settings (Turn, Tilt, Shadow...) and its Cut, from the
+    `view` input: the page writes the viewer's "AusBoss View" property
+    (js/viewer_pano) there as JSON when Run is pressed (js/pause_shot),
+    checked like an answer's. They ride in an input, not in the saved
+    workflow, because ComfyUI runs a node again only when an input changes:
+    read from the workflow, a changed Turn handed back the old backdrop."""
+    if isinstance(view, str):
+        if not view.strip() or len(view) > MAX_VIEW:
+            return {}
+        try:
+            view = json.loads(view)
+        except ValueError:
+            return {}
+    if not isinstance(view, dict):
         return {}
-    workflow = extra_pnginfo.get("workflow")
-    if not isinstance(workflow, dict):
-        return {}
-    wanted = str(viewer_id).split(":")[-1]
-    graphs = [workflow.get("nodes")]
-    definitions = workflow.get("definitions")
-    if ":" in str(viewer_id) and isinstance(definitions, dict):
-        graphs += [graph.get("nodes") for graph in definitions.get("subgraphs") or [] if isinstance(graph, dict)]
-    for nodes in graphs:
-        for node in nodes if isinstance(nodes, list) else []:
-            if not isinstance(node, dict) or str(node.get("id")) != wanted:
-                continue
-            view = (node.get("properties") or {}).get("AusBoss View")
-            if not isinstance(view, dict):
-                return {}
-            out = {}
-            sky = clean_value(view.get("sky"))
-            if isinstance(sky, dict):
-                out["sky"] = sky
-            cut = clean_cut(view.get("cut"))
-            if cut:
-                out["cut"] = cut
-            return out
-    return {}
+    out = {}
+    sky = clean_value(view.get("sky"))
+    if isinstance(sky, dict):
+        out["sky"] = sky
+    cut = clean_cut(view.get("cut"))
+    if cut:
+        out["cut"] = cut
+    return out
 
 
 def _backdrop(panorama, camera_info, sky, ground, width, height):
@@ -385,6 +407,38 @@ def _backdrop(panorama, camera_info, sky, ground, width, height):
     shadow = sky.get("shadow")
     if ground and isinstance(shadow, (int, float)) and not isinstance(shadow, bool) and shadow > 0:
         view = view * (1 - shadow_alpha(camera, ground, shadow / 100, width, height))[..., None]
+    return torch.from_numpy(view.astype("float32")).unsqueeze(0)
+
+
+def background_choice(mode, has_photo: bool) -> str:
+    """Which backdrop: photo needs your photo wired in, and without it the
+    360 far away stays as it was."""
+    mode = mode if mode in BACKGROUNDS else "photo"
+    return "360" if mode == "photo" and not has_photo else mode
+
+
+def _stage(background, background_camera, panorama, mesh, model_3d_info, camera_info, sky, ground, width, height,
+           mode="photo"):
+    """Your photo (or the 360) laid on a floor at the model's feet; None when
+    the 360 at infinity is what was chosen, or this one cannot be made."""
+    import torch
+
+    sky = sky if isinstance(sky, dict) else {}
+    choice = background_choice(mode, background is not None)
+    if choice == "360":
+        return None
+    width, height = max(1, int(width)), max(1, int(height))
+    floor = clean_ground(ground) or clean_ground(mesh_ground(mesh, model_3d_info))
+    floor_y = floor["y"] if floor else None
+    plate = background[0, :, :, :3].float().cpu().numpy() if background is not None else None
+    pano = panorama[0, :, :, :3].float().cpu().numpy() if panorama is not None else None
+    view = stage_backdrop(plate, background_camera, camera_info, floor_y, width, height, pano, sky,
+                          use_photo=choice == "photo")
+    if view is None:
+        return None
+    shadow = sky.get("shadow")
+    if floor and isinstance(shadow, (int, float)) and not isinstance(shadow, bool) and shadow > 0:
+        view = view * (1 - shadow_alpha(camera_info, floor, shadow / 100, width, height))[..., None]
     return torch.from_numpy(view.astype("float32")).unsqueeze(0)
 
 

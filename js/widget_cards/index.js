@@ -135,7 +135,10 @@ const CARDS = {
       { widget: "pieces", label: "Pieces", when: isMode("job", "split sheet at gaps") },
     ],
   },
-  AUSBOSS_NODES_PauseShot: { minWidth: 260, first: true, rows: [{ widget: "pause", label: "Pause", onText: "wait for me", offText: "run through" }] },
+  AUSBOSS_NODES_PauseShot: { minWidth: 260, first: true, hide: ["view"], socketless: ["view"], rows: [
+    { widget: "pause", label: "Pause", onText: "wait for me", offText: "run through" },
+    { widget: "background_mode", label: "Background" },
+  ] },
   AUSBOSS_NODES_PhotoCamera: {
     minWidth: 260,
     rows: [

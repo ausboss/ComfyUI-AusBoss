@@ -2006,6 +2006,18 @@
       },
       "mesh": {
         "name": "网格"
+      },
+      "background": {
+        "name": "你的照片"
+      },
+      "background_camera": {
+        "name": "照片相机"
+      },
+      "background_mode": {
+        "name": "身后显示"
+      },
+      "view": {
+        "name": "查看器设置"
       }
     },
     "outputs": {

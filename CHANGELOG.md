@@ -15,6 +15,14 @@ All notable changes to ComfyUI-AusBoss are documented here.
   camera sees it, such as the inside of a hat that should sit behind the
   head. Pause for Shot 🆎 gets an optional `mesh` input and output that cut
   the run's model the same way, so the shot matches the viewer.
+- **Pause for Shot 🆎 can put your own photo behind the model, lined up.**
+  Wire the photo with the person taken out into the new `background` input
+  and Photo Camera's camera into `background_camera`. The viewer and the
+  shot's backdrop then show your photo exactly from its own camera, stay
+  lined up when you zoom, and keep her standing on the photo's floor when
+  you turn. A 360, if wired in, fills what the photo never saw. A new
+  Background setting on the node switches between your photo, the 360 far
+  away, and the 360 with a floor under her feet.
 - **Pause for Shot 🆎 keeps the viewer's 360 settings on runs that don't
   pause.** With Pause on *run through*, the backdrop now uses the Turn,
   Tilt, Shadow and the rest saved on the viewer, as a paused run does.

@@ -12,6 +12,23 @@ Put it between a **Preview 3D (Advanced)** viewer and the node that renders
 the shot (such as Render Mesh): the viewer's `model_3d_info`, `camera_info`,
 `width` and `height` go in, and the same four come out.
 
+## Your own photo behind the model
+
+Wire your photo with the person taken out into `background`, and the camera
+that took it (**Photo Camera**'s `camera_info`) into `background_camera`.
+The viewer then shows that photo behind the model, lined up with it, and
+`backdrop` gives the same picture for the shot. From the photo's own camera
+you see your photo exactly; zoom in and it stays lined up. Turn the camera
+and she stays standing on the photo's floor.
+
+Past the edges of your photo there is nothing to show. If a 360 is wired
+in too, it fills those parts; if not, the photo's edges are stretched.
+
+**Background** on this node picks what goes behind her: *photo* (the
+default; without your photo wired in it stays the 360), *360* (the 360, far
+away, as before), or *360 floor* (the 360 with its floor under her feet).
+Change it while the run waits and the viewer shows the change.
+
 ## A 360 behind the model
 
 Wire a 360 picture (twice as wide as tall) into `panorama`. While the run
@@ -44,7 +61,8 @@ saved on the viewer.
 
 - **Pause**: *wait for me* stops every run here. *run through* lets runs go
   straight on with the camera as it was when you pressed Run, for runs nobody
-  is watching.
+  is watching. The viewer's 360 settings and Cut go along as they were then
+  too, and changing one makes the next run redo the shot.
 
 ## Technical details
 
@@ -53,6 +71,12 @@ saved on the viewer.
   Run a second time.
 - Continue sends the viewer's camera, the model's turn and the size as
   numbers to the pack's own route. Only a node that is waiting accepts it.
+- A run that goes straight through takes the viewer's 360 settings and Cut
+  from the hidden `view` input, which the page fills from the viewer as Run
+  is pressed. ComfyUI only runs a node again when one of its inputs changes,
+  so they ride in an input rather than in the saved workflow. A prompt sent
+  without the page can fill `view` with the same JSON (`{"sky": {...},
+  "cut": {...}}`) or leave it empty for the defaults.
 - Cancel in ComfyUI's queue ends a pause too. A page reloaded during a pause
   shows the Continue bar again.
 - Every open page gets the model to frame, not only the one that pressed Run:
@@ -69,3 +93,12 @@ saved on the viewer.
   the triangles whose middle lies between the planes, so the edges agree to
   within a triangle. While a cut is on, the viewer draws both sides of the
   model, so through the cut you see its inside, the way Render Mesh draws it.
+- Your photo as the backdrop: the photo is laid on a simple stage around the
+  camera that took it, a flat floor at the model's lowest point and
+  everything else far away. Each pixel of the shot is a ray cast the way
+  Render Mesh casts it; where it meets the floor, or else far away, that
+  point is looked up in the photo through the photo's own camera. The viewer
+  draws the same stage with the same rays. A 360 fills what the photo never
+  saw, painted around the same camera; *360 floor* lays the 360's lower half
+  on that floor, as a grounded sky dome does. A run that goes straight
+  through measures the floor and the shadow from `mesh`.
