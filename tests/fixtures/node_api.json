@@ -476,11 +476,21 @@
       "job",
       "pieces"
     ],
-    "optional": [],
+    "optional": [
+      "width",
+      "height",
+      "position",
+      "move_right",
+      "move_down"
+    ],
     "outputs": [
       [
         "IMAGE",
         "images"
+      ],
+      [
+        "IMAGE",
+        "rest"
       ]
     ]
   },
@@ -1023,7 +1033,8 @@
       "name_batch",
       "preview",
       "step_preview",
-      "autosave"
+      "autosave",
+      "civitai_info"
     ],
     "outputs": [
       [

@@ -45,12 +45,12 @@ test("crf shows only where the encoder reads a quality number", () => {
   }
 });
 
-test("save_metadata hides only for the Pillow formats that cannot carry it", () => {
+test("save_metadata hides only for gif, the one format that cannot carry it", () => {
   const wantsMetadata = (format) => formatWidgetVisibility(format).save_metadata;
   for (const format of BACKEND_FORMATS) {
     assert.equal(
       wantsMetadata(format),
-      format !== "gif" && format !== "webp",
+      format !== "gif",
       `save_metadata visibility wrong for ${format}`,
     );
   }

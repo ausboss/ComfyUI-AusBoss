@@ -347,6 +347,16 @@ show it right away. Gear menu → **Civitai picture** picks which pictures:
 takes the first picture whatever its rating, and **off** saves none. It never
 replaces a picture you already have.
 
+**All of them at once:** click **Fetch all** beside that button (or gear
+menu → **Civitai info for all**). It looks up every LoRA in the stack that
+has no Civitai info yet, one after another with a short pause, so Civitai
+is not asked too fast. The bottom of the node shows how far it is
+(`Civitai 12 / 44 · Stop`); click it to stop after the LoRA being fetched.
+A message at the end says how many were found, how many Civitai does not
+know, and how many already had their info. LoRAs with info are skipped, so
+running it again only fetches the new ones. It follows the same
+**Civitai picture** setting and never replaces a picture.
+
 ## Trigger words
 
 The info card gathers words from three places: the LoRA file's own metadata,
@@ -367,10 +377,17 @@ switched on for the old one.
   (see "Get the pictures from Civitai" above). After that the button reads **Refresh Civitai
   info** and the card gets a **View on Civitai** link. A LoRA Civitai does
   not know (unpublished or hidden) reads **Not found on Civitai**. Gear
-  menu → **Civitai lookup button** removes the button. When a lookup fails,
+  menu → **Civitai lookup button** removes the button, and **Fetch all**
+  with it. When a lookup fails,
   a message says why. If it always says it could not reach civitai.com,
   check whether ComfyUI was started with `--disable-api-nodes`: that setting
   stops the browser from reaching any other site, Civitai included.
+- **Fetch all** runs that same lookup for each LoRA in the stack that has no
+  Civitai info yet, one at a time, about one and a half seconds apart. If
+  Civitai answers "too many requests", it waits 20 seconds and tries that
+  LoRA once more; a second time, it stops and says so. It also stops when
+  civitai.com cannot be reached, or after three failures in a row. Only one
+  Fetch all runs at a time on the page.
 - **Suggested strength**: a lowest and a highest value at the bottom of the
   card (leave one empty for "any"). It is only a reminder: a row set outside
   it shows its number in orange, and the tooltip gives the range. Saved per

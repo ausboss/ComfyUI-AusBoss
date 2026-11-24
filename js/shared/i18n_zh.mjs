@@ -31,7 +31,7 @@ export const ZH = {
   "KV cache": "KV 缓存", "VLM reference": "VLM 参考", "Source": "素材", "Width": "宽度", "Height": "高度",
   "Longest side": "最长边", "Ratio": "比例", "Keep": "保留", "Round to": "取整到", "Enlarge": "放大小图",
   "Backdrop": "背景虚化", "Exact padding": "精确扩边", "Left": "左", "Top": "上", "Right": "右", "Bottom": "下",
-  "Prefix": "文件名前缀", "Format": "格式", "FPS · CRF": "帧率 · CRF", "Ping-pong": "往返播放", "Embed workflow": "嵌入工作流",
+  "Prefix": "文件名前缀", "Format": "格式", "FPS · CRF": "帧率 · CRF", "Ping-pong": "往返播放", "Embed workflow": "嵌入工作流", "Embed": "嵌入",
   "Pictures and settings": "图片与设置", "What H3 gets": "H3 收到的内容", "What happens": "发生了什么",
   "Align": "对齐", "Aspect ratio": "画面比例", "Crop, pad & resize": "裁剪、扩边与缩放", "Duration": "时长", "Ends at": "结束于",
   "Frames for": "帧数用于", "Start": "起点", "Whole video": "整段视频", "Clip IN": "片段入点", "Clip OUT": "片段出点",
@@ -56,7 +56,7 @@ export const ZH = {
   "gray": "灰色", "edge": "边缘", "edge pixel": "边缘像素", "color": "纯色", "pillarbox blur": "两侧虚化", "replicate": "复制边缘",
   "source": "原图", "as typed": "照输入", "from the picture": "取自图片", "text": "文字", "object": "物体", "still": "静止", "handheld": "手持",
   "shaky": "抖动", "push in": "推近", "pull back": "拉远", "orbit": "环绕", "walking pov": "步行视角", "anime": "动漫", "comic book": "漫画",
-  "pencil sketch": "铅笔素描", "watercolor": "水彩", "split sheet at gaps": "按空隙拆分拼图", "Pad": "扩边", "Crop": "裁剪",
+  "pencil sketch": "铅笔素描", "watercolor": "水彩", "split sheet at gaps": "按空隙拆分拼图", "cut a piece": "裁出一块", "Move right": "右移", "Move down": "下移", "Position": "位置", "Pad": "扩边", "Crop": "裁剪",
   "Resize": "缩放", "Center": "居中", "Soft": "柔和", "Simple": "简易", "Full prompt": "完整提示词", "Text": "文字", "Fixed": "固定",
   "LTX (8n+1)": "LTX (8n+1)", "Wan (4n+1)": "Wan (4n+1)", "Every group": "每个分组", "Numbered groups": "编号分组",
   "Titles matching…": "按标题匹配…", "No groups": "没有分组", "All": "全部", "Background": "背景", "Subject": "主体",
@@ -257,6 +257,13 @@ export const ZH = {
   "Each line becomes a moment. A blank line between lines is a cut.": "每一行是一个时刻，两行之间的空行表示切换场景。",
   "Enable or disable this LoRA": "启用或停用这个 LoRA",
   "Fetching...": "获取中…",
+  "Fetch all": "全部获取",
+  "Fetch Civitai info for every LoRA in this stack that has none yet, one at a time.": "逐个为这组中还没有 Civitai 信息的每个 LoRA 获取信息。",
+  "Fetching Civitai info for every LoRA in this stack that has none yet, one at a time. Click to stop after the current one.": "正在逐个为这组中还没有 Civitai 信息的每个 LoRA 获取信息。点击可在当前这个完成后停止。",
+  "Civitai info for all": "全部获取 Civitai 信息",
+  "Look up every LoRA in this stack that has no Civitai info yet, one at a time, the same way the info card's button does. The bottom of the node shows how far it is; click there to stop.": "逐个查询这组中还没有 Civitai 信息的每个 LoRA，方式与信息卡里的按钮相同。节点底部会显示进度；点击那里可停止。",
+  "Stopping...": "正在停止…",
+  "Civitai: checking · Stop": "Civitai：检查中 · 停止",
   "Group name": "分组名称",
   "Held": "已锁定",
   "Hide file extension": "隐藏文件扩展名",
@@ -320,7 +327,7 @@ export const ZH = {
 // Strings that deliberately stay English on a Chinese face: names, symbols
 // and technical terms with no everyday Chinese form.
 export const STAYS_ENGLISH = new Set([
-  "W", "H", "FPS", "CFG", "LoRA", "VRAM", "Seed", "H3",
+  "W", "H", "FPS", "CFG", "LoRA", "VRAM", "Seed", "H3", "Civitai",
   "lab", "rgb", "mkl", "bicubic", "bilinear", "lanczos", "nearest", "area",
   "gif", "webp", "mp4 h264", "mp4 h265", "mp4 h264 nvenc", "mp4 h265 nvenc", "mov prores", "mkv ffv1", "webm vp9", "webm av1",
   "big-lama.pt", "loras", "script", "video", "flashvsr_v1.1_fp16.safetensors", "f(a, b, c)", "a + b",
@@ -332,6 +339,7 @@ export const SCRUB_HINT_ZH = "拖动调节，点击输入数字或算式（如 1
 
 // A few strings carry a number or a name; the number stays and the words around it change.
 export const PATTERNS = [
+  [/^Civitai (\d+) \/ (\d+) · Stop$/, (m, done, total) => `Civitai ${done} / ${total} · 停止`],
   [/^The limits of what this is wired to: (.*)\.$/, (m, names) => `它所连接对象的取值范围：${names}。`],
   [/^Set by "(.*)"\. Click to show it\. Right-click the row to unlink\.$/, (m, name) => `由“${name}”设置。点击可定位到它。右键该行可断开连线。`],
   [/^Source · feather (\d+) px · Fill (#[0-9a-fA-F]{6})$/, (m, f, c) => `素材 · 羽化 ${f} px · 填充 ${c}`],

@@ -78,13 +78,14 @@ a software format to use instead rather than failing with a driver stack
 trace.
 
 `gif` and `webp` have no streaming encoder, so every frame is held in memory
-before the first byte is written — keep those to short clips. Neither carries
-metadata, so an embedded workflow is not available for them.
+before the first byte is written — keep those to short clips. `webp` carries
+the embedded workflow the same way ComfyUI's own animated WebP does; `gif` has
+no place for it.
 
 The node's face follows the table: widgets the chosen format ignores are
 hidden rather than left to look meaningful. The CRF field leaves the
 **FPS · CRF** row for `mov prores`, `mkv ffv1` and `gif` (their rows read
-*ignored* above), and the **Embed workflow** row disappears for `gif` and `webp`,
+*ignored* above), and the **Embed workflow** row disappears for `gif`,
 which cannot carry it. Hidden is not removed:
 the widget keeps its position and its value, saved workflows store and restore
 it exactly as before, and switching the format back brings it back with the
