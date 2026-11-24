@@ -5,8 +5,9 @@ All notable changes to ComfyUI-AusBoss are documented here.
 ## Unreleased
 
 - **Video Crop + Rotate + Pad → Clip 🆎 can put a clip window in an App-mode
-  form.** List the node's `clip_window` field and the form shows the video as a
-  strip of pictures with a box over the part that gets used: drag the box to
+  form.** List the node's `clip_window` field and the form shows the video,
+  playing only the part that gets used, over a strip of pictures with a box
+  over that part: drag the box to
   pick where the clip starts, drag an edge to shorten it. Two new inputs,
   `min_seconds` and `max_seconds`, keep the clip's length in a range; the edges
   stop there, on the node's timeline too, and a run keeps to them. A video

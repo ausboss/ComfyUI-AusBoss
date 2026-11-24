@@ -12,7 +12,8 @@ model that paints black regions.
 ## Clip window for App mode
 
 In an App-mode form, this node can show a **clip window** instead of its whole
-editor: a strip of pictures from the video with a box over the part that gets used. Drag
+editor: the video, playing only the part that gets used on a loop, over a strip
+of pictures from the video with a box over that part. Click the video to pause it. Drag
 the box to pick where the clip starts; drag one of its edges to make it shorter
 or longer. A line under it says what you picked, such as "8.0 s used, starting at
 0:03". To put it in a form, list the field `clip_window` of this node, next to

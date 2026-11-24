@@ -24,26 +24,48 @@ function findWidget(nodeId, name) {
 }
 
 // A DOM widget the form lists goes into its row, and back again if the
-// graph's widget layer took it (see formHostSelector). Rows mount a little
-// after the mode changes, so this looks a few times.
-const REHOME_DELAYS = [0, 60, 250, 700, 1500];
+// graph's widget layer took it (see formHostSelector). Rows mount whenever
+// the form draws, which can be well after the mode changes, so while a
+// workflow is in App mode the page is watched and an empty row is filled
+// on the next frame.
 function rehomeDomWidgets() {
-  for (const delay of REHOME_DELAYS) {
-    setTimeout(() => {
-      try {
-        const workflow = app.extensionManager?.workflow?.activeWorkflow;
-        if (workflowMode(workflow) !== APP_MODE) return;
-        for (const { nodeId, widget: name } of appFields((app.rootGraph ?? app.graph)?.extra?.linearData)) {
-          const element = findWidget(nodeId, name)?.element;
-          if (!(element instanceof HTMLElement)) continue;
-          const host = document.querySelector(formHostSelector(nodeId, name));
-          if (host && !host.contains(element)) host.replaceChildren(element);
-        }
-      } catch (error) {
-        console.warn("[AusBoss] App mode fields:", error);
-      }
-    }, delay);
+  const workflow = app.extensionManager?.workflow?.activeWorkflow;
+  if (workflowMode(workflow) !== APP_MODE) return;
+  for (const { nodeId, widget: name } of appFields((app.rootGraph ?? app.graph)?.extra?.linearData)) {
+    const element = findWidget(nodeId, name)?.element;
+    if (!(element instanceof HTMLElement)) continue;
+    const host = document.querySelector(formHostSelector(nodeId, name));
+    if (!host || host.contains(element)) continue;
+    // Something that keeps taking it back: stop rather than fight.
+    const now = Date.now();
+    moves = moves.filter((at) => now - at < 3000);
+    if (moves.length >= 30) return;
+    moves.push(now);
+    host.replaceChildren(element);
   }
+}
+
+let moves = [];
+let watcher = null;
+let framed = false;
+function watchForm(on) {
+  if (!on) {
+    watcher?.disconnect();
+    watcher = null;
+    return;
+  }
+  if (!watcher) {
+    watcher = new MutationObserver(() => {
+      if (framed) return;
+      framed = true;
+      requestAnimationFrame(() => {
+        framed = false;
+        try { rehomeDomWidgets(); } catch (error) { console.warn("[AusBoss] App mode fields:", error); }
+      });
+    });
+    watcher.observe(document.body, { childList: true, subtree: true });
+  }
+  rehomeDomWidgets();
 }
 
 let queued = false;
@@ -58,7 +80,7 @@ function schedule() {
       const workflow = app.extensionManager?.workflow?.activeWorkflow;
       const mode = workflowMode(workflow);
       sync(mode, (app.rootGraph ?? app.graph)?.extra?.linearData);
-      if (mode === APP_MODE) rehomeDomWidgets();
+      watchForm(mode === APP_MODE);
     } catch (error) {
       console.warn("[AusBoss] App mode fields:", error);
     }

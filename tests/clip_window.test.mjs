@@ -14,6 +14,7 @@ import {
   limitClipSeconds,
   limitFrameRange,
   limitFrames,
+  loopPlayhead,
 } from "../js/shared/timeline_math.mjs";
 
 const DURATION = 15.4;
@@ -153,4 +154,15 @@ test("typing one limit never leaves the shortest above the longest", async () =>
   assert.deepEqual(setLengthLimit("max", 0, { min: 5, max: 8 }), { min: 5, max: 0 });
   assert.deepEqual(setLengthLimit("min", 9, { min: 0, max: 0 }), { min: 9, max: 0 });
   assert.deepEqual(setLengthLimit("min", -2, { min: 5, max: 8 }), { min: 0, max: 8 });
+});
+
+test("the player stays inside the picked part and loops back to its start", () => {
+  assert.equal(loopPlayhead(4.5, 3, 5), 4.5);
+  assert.equal(loopPlayhead(8, 3, 5), 3);
+  assert.equal(loopPlayhead(9.2, 3, 5), 3);
+  assert.equal(loopPlayhead(1, 3, 5), 3);
+  // A hair before the start (a seek that landed a frame early) is kept.
+  assert.equal(loopPlayhead(2.98, 3, 5), 2.98);
+  assert.equal(loopPlayhead(Number.NaN, 3, 5), 3);
+  assert.equal(loopPlayhead(0.5, -1, 5), 0.5);
 });

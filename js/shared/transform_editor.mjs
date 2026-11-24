@@ -2453,6 +2453,14 @@ function installClipWindow(state) {
     outputRate: () => clipOutputRate(node, state.metadata?.fps, value(node, "every_nth", 1)),
     metadata: () => state.metadata,
     storyboard: () => state.storyboard,
+    // Both source modes hold a name the way ComfyUI writes one
+    // ("clip.mp4", "clip.mp4 [output]"), so /view serves either.
+    videoUrl: () => {
+      const query = mediaViewQuery(sourceKey(node, "video") ? videoSourceState(
+        value(node, "source_mode", INPUT_FOLDER_MODE), value(node, "video", ""), value(node, "local_path", ""),
+      ).selection : "");
+      return query ? api.apiURL(`/view?${query}`) : "";
+    },
     onCommit: notifyAusbossChange,
   });
   state.trimViews.add(view);

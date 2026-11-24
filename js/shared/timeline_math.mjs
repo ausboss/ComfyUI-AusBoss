@@ -549,3 +549,13 @@ export function setLengthLimit(edge, value, { min = 0, max = 0 } = {}) {
   }
   return { min: low, max: high };
 }
+
+// Where the clip window's player belongs: inside the picked part, going
+// back to its start once it reaches the end (or when it sits before it).
+export function loopPlayhead(time, start, seconds, slack = 0.04) {
+  const from = Math.max(0, Number(start) || 0);
+  const length = Math.max(0, Number(seconds) || 0);
+  const now = Number(time);
+  if (!Number.isFinite(now) || now < from - slack || now >= from + length) return from;
+  return now;
+}

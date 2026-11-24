@@ -1,7 +1,8 @@
 // The clip window: the part of the video a run uses, as one box on a strip
-// of pictures from the video. Drag the box to pick where the clip starts;
-// drag an edge to make it shorter or longer, never past min_seconds /
-// max_seconds. Made for an App-mode form, where it is the only control a
+// of pictures from the video, under a player that plays only that part on a
+// loop. Drag the box to pick where the clip starts; drag an edge to make it
+// shorter or longer, never past min_seconds / max_seconds. While a drag is
+// live the player shows the frame under the edge being moved. Made for an App-mode form, where it is the only control a
 // person sees for the clip node: the node keeps it hidden on the graph and
 // js/app_mode/ lends it to the form when the form lists it.
 //
@@ -17,11 +18,13 @@ import {
   dragClipWindow,
   lengthLimits,
   limitFrameRange,
+  loopPlayhead,
 } from "./timeline_math.mjs";
 
-const CSS_ID = "ausboss-clip-window-css-v1";
+const CSS_ID = "ausboss-clip-window-css-v2";
 const EDGE_HIT_PX = 14;
 const STRIP_HEIGHT = 58;
+const PLAYER_MAX_HEIGHT = 240;
 // Inputs that, when connected, set the clip on the graph instead.
 const GRAPH_SET = ["start_seconds", "start_frame", "end_frame", "end_seconds", "fixed_frames", "frame_load_cap", "max_frames", "every_nth"];
 
@@ -51,6 +54,14 @@ function installCss() {
     .ausboss-clip-window-readout{color:${THEME.brandInk};font-weight:600;font-size:14px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .ausboss-clip-window-hint{color:${THEME.faint};font-size:12px;line-height:1.4}
     .ausboss-clip-window-hint.is-stop{color:${THEME.warnInk}}
+    .ausboss-clip-window-player{position:relative;width:100%;max-height:${PLAYER_MAX_HEIGHT}px;aspect-ratio:16/9;margin:0 auto;border-radius:${RADIUS_CONTROL}px;background:${THEME.well};overflow:hidden;cursor:pointer}
+    .ausboss-clip-window-player[hidden]{display:none}
+    .ausboss-clip-window-player video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}
+    .ausboss-clip-window-play{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;background:rgba(8,9,10,.62);pointer-events:none;opacity:0;transition:opacity .15s}
+    .ausboss-clip-window-play::after{content:"";position:absolute;left:18px;top:14px;border-style:solid;border-width:9px 0 9px 14px;border-color:transparent transparent transparent ${THEME.ink}}
+    .ausboss-clip-window-player.is-paused .ausboss-clip-window-play{opacity:1}
+    .ausboss-clip-window-playhead{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:${THEME.ink};box-shadow:0 0 0 1px rgba(8,9,10,.5);pointer-events:none}
+    .ausboss-clip-window-playhead[hidden]{display:none}
   `;
   document.head.append(style);
 }
@@ -73,8 +84,9 @@ const lengthText = (value) => (Number(value) || 0).toFixed(1);
 //   outputRate()                              output fps, null when unknown
 //   metadata()                                the source's {fps, frame_count, duration}
 //   storyboard()                              {image, times, tileWidth, tileHeight} or null
+//   videoUrl()                                the source video for the player, "" for none
 //   onCommit()                                a drag settled (undo point)
-export function mountClipWindow({ get, set, driven = () => false, number = (name, fallback) => get(name, fallback), outputRate = () => null, metadata, storyboard = () => null, onCommit }) {
+export function mountClipWindow({ get, set, driven = () => false, number = (name, fallback) => get(name, fallback), outputRate = () => null, metadata, storyboard = () => null, videoUrl = () => "", onCommit }) {
   installCss();
   const root = el("div", "ausboss-clip-window");
   const head = el("div", "ausboss-clip-window-head");
@@ -90,10 +102,22 @@ export function mountClipWindow({ get, set, driven = () => false, number = (name
   const edgeEnd = el("span", "ausboss-clip-window-edge end");
   box.append(edgeStart, edgeEnd);
   const empty = el("div", "ausboss-clip-window-empty", "Choose a video first");
-  strip.append(thumbs, shadeLeft, shadeRight, box, empty);
+  const playhead = el("div", "ausboss-clip-window-playhead");
+  playhead.hidden = true;
+  strip.append(thumbs, shadeLeft, shadeRight, box, playhead, empty);
   const readout = el("div", "ausboss-clip-window-readout");
   const hint = el("div", "ausboss-clip-window-hint");
-  root.append(head, strip, readout, hint);
+  // The player: muted, plays the picked part on a loop, a click pauses it.
+  const player = el("div", "ausboss-clip-window-player is-paused");
+  player.hidden = true;
+  player.title = "Click to play or pause";
+  const video = document.createElement("video");
+  video.muted = true;
+  video.playsInline = true;
+  video.preload = "auto";
+  video.disablePictureInPicture = true;
+  player.append(video, el("span", "ausboss-clip-window-play"));
+  root.append(player, head, strip, readout, hint);
 
   const info = () => clipInfo(metadata());
   const limits = () => lengthLimits(number("min_seconds", get("min_seconds", 0)) ?? 0, number("max_seconds", get("max_seconds", 0)) ?? 0);
@@ -173,6 +197,7 @@ export function mountClipWindow({ get, set, driven = () => false, number = (name
       hint.classList.remove("is-stop");
       thumbsKey = "";
       drawThumbs();
+      syncPlayer();
       return;
     }
     head.replaceChildren(el("b", "", `Your video: ${secondsText(clip.duration)} s long`));
@@ -180,6 +205,7 @@ export function mountClipWindow({ get, set, driven = () => false, number = (name
     if (!window) {
       readout.textContent = "";
       hint.textContent = "The clip length is known once the graph runs.";
+      syncPlayer();
       return;
     }
     const duration = clip.duration || clip.count / clip.fps;
@@ -207,6 +233,82 @@ export function mountClipWindow({ get, set, driven = () => false, number = (name
       ? `Drag the box to pick where it starts. Drag an edge to shorten it, never under ${secondsText(limits().min || 0)} s or over ${secondsText(limits().max || duration)} s.`
       : "Drag the box to pick where it starts. Drag an edge to change its length.";
     drawThumbs();
+    syncPlayer();
+  };
+
+  // --- player ---------------------------------------------------------------
+  let playerUrl = "";
+  let wantPlay = true; // the person's play/pause choice; a drag only pauses for its length
+  let onScreen = false;
+  let frameRequest = 0;
+  const playable = () => Boolean(playerUrl) && !player.hidden;
+  const showPlayhead = () => {
+    const clip = info();
+    const duration = clip.duration || (clip.fps ? clip.count / clip.fps : 0);
+    playhead.hidden = !playable() || !(duration > 0) || !(video.readyState >= 1);
+    if (!playhead.hidden) playhead.style.left = `${(Math.max(0, Math.min(1, video.currentTime / duration)) * 100).toFixed(3)}%`;
+  };
+  const seek = (seconds) => {
+    if (!(video.readyState >= 1) || !Number.isFinite(seconds)) return;
+    if (Math.abs(video.currentTime - seconds) > 0.01) video.currentTime = Math.max(0, seconds);
+    showPlayhead();
+  };
+  // Keeps the playhead inside the picked part while it plays.
+  const tick = () => {
+    frameRequest = 0;
+    if (video.paused || !onScreen) return;
+    const window = info().count ? current() : null;
+    if (window && !drag) {
+      const next = loopPlayhead(video.currentTime, window.start, window.seconds);
+      if (next !== video.currentTime) video.currentTime = next;
+    }
+    showPlayhead();
+    frameRequest = requestAnimationFrame(tick);
+  };
+  const play = () => {
+    if (!playable() || !onScreen || drag || !wantPlay) return;
+    const window = info().count ? current() : null;
+    if (window) seek(loopPlayhead(video.currentTime, window.start, window.seconds));
+    video.play().catch(() => { /* not ready or not allowed: stays paused */ });
+  };
+  const pause = () => { if (!video.paused) video.pause(); };
+  video.addEventListener("play", () => { player.classList.remove("is-paused"); if (!frameRequest) frameRequest = requestAnimationFrame(tick); });
+  video.addEventListener("pause", () => player.classList.add("is-paused"));
+  video.addEventListener("loadedmetadata", () => {
+    if (video.videoWidth > 0 && video.videoHeight > 0) player.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
+    const window = info().count ? current() : null;
+    if (window) seek(window.start);
+    play();
+  });
+  // A file the browser cannot play: no player, the strip still works.
+  video.addEventListener("error", () => { player.hidden = true; playhead.hidden = true; });
+  player.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    wantPlay = video.paused;
+    if (wantPlay) play(); else pause();
+  });
+  // Plays only while it can be seen: hidden on the graph, it stays still.
+  new IntersectionObserver((entries) => {
+    onScreen = entries.some((entry) => entry.isIntersecting);
+    if (onScreen) play(); else pause();
+  }).observe(player);
+  const syncPlayer = () => {
+    const url = info().count ? String(videoUrl?.() || "") : "";
+    if (url !== playerUrl) {
+      playerUrl = url;
+      player.hidden = !url;
+      playhead.hidden = true;
+      if (url) { video.src = url; video.load(); } else { video.removeAttribute("src"); video.load(); }
+    }
+    if (!playable()) return;
+    const window = info().count ? current() : null;
+    if (window && !drag && !video.paused) {
+      const next = loopPlayhead(video.currentTime, window.start, window.seconds);
+      if (next !== video.currentTime) seek(next);
+    }
+    showPlayhead();
   };
 
   const store = (window) => {
@@ -247,6 +349,7 @@ export function mountClipWindow({ get, set, driven = () => false, number = (name
     stopText = stopWords(drag.zone, wantedLength, next.seconds);
     store(next);
     sync();
+    if (playable()) seek(settled || drag.zone !== "end" ? next.start : Math.max(next.start, next.start + next.seconds - 1 / Math.max(1, rate())));
     if (settled) {
       onCommit?.();
       stopText = "";
@@ -273,6 +376,7 @@ export function mountClipWindow({ get, set, driven = () => false, number = (name
     const inside = x > startX && x < endX;
     const grab = zone !== "move" ? 0 : inside ? seconds - window.start : window.seconds / 2;
     drag = { zone, grab, base: window, pointerId: event.pointerId };
+    pause();
     strip.classList.toggle("is-moving", zone === "move");
     box.focus({ preventScroll: true });
     try { strip.setPointerCapture(event.pointerId); } catch { /* mouse fallback */ }
@@ -299,6 +403,7 @@ export function mountClipWindow({ get, set, driven = () => false, number = (name
     try { if (strip.hasPointerCapture(drag.pointerId)) strip.releasePointerCapture(drag.pointerId); } catch { /* released already */ }
     drag = null;
     strip.classList.remove("is-moving");
+    play();
   };
   strip.addEventListener("pointerup", (event) => { event.stopPropagation(); finish(event); });
   strip.addEventListener("pointercancel", () => finish(null));
@@ -315,8 +420,10 @@ export function mountClipWindow({ get, set, driven = () => false, number = (name
     const step = event.shiftKey && clip.fps > 0 ? 1 / clip.fps : 1;
     const target = event.key === "Home" ? 0 : event.key === "End" ? Infinity
       : window.start + (event.key === "ArrowLeft" ? -step : step);
-    store(dragClipWindow(window, "move", Number.isFinite(target) ? target : clip.duration, clip, limits()));
+    const moved = dragClipWindow(window, "move", Number.isFinite(target) ? target : clip.duration, clip, limits());
+    store(moved);
     sync();
+    if (moved && playable()) seek(moved.start);
     onCommit?.();
   });
 
